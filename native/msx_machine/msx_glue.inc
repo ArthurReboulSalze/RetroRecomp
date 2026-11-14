@@ -24,7 +24,14 @@
 
 static MsxMachine machine;
 static uint8_t ram[65536];
-static uint8_t slot0[0x14000];             /* the BIOS source: main, logo page; on the MSX2 the sub-ROM at C000h; a disk ROM at 10000h */
+static uint8_t slot0[0x18000];             /* the BIOS source: main, logo page; on the MSX2 the sub-ROM at C000h; a disk ROM at 10000h;
+                                             * the MSX2+'s MSX-MUSIC BIOS at 14000h */
+#ifndef RR_MSX_MUSIC
+#define RR_MSX_MUSIC 0      /* MSX-MUSIC: 1 in an MSX2+ build (msx_build stages msx_music.c and emu2413 then) */
+#endif
+#if RR_MSX_MUSIC
+#include "msx_music.h"
+#endif
 static uint8_t cart[0x200000];
 static MsxV9938 v9938;                      /* the MSX2's VDP (msx_setup_msx2) */
 static uint8_t mapper_ram[4u << 20];        /* the MSX2's mapper RAM: up to 256 segments of 16 KB */

@@ -198,8 +198,8 @@ def decided(path: Path) -> str | None:
 
 class Msx2PlusProfile(Msx2Profile):
     """The MSX2+ (experimental since 1.7.4): the MSX2's board with the V9958 (YJK and YAE modes, the horizontal scroll) and the
-    port F4h, booted by C-BIOS 0.29a's MSX2+ images or by the player's own MSX2+ BIOS pair. Cartridges, and disk games with the
-    player's own BIOS pair and disk ROM; MSX-MUSIC and the kanji ROM are not converted yet (docs/MSX.md)."""
+    port F4h and MSX-MUSIC (the YM2413 on emu2413), booted by C-BIOS 0.29a's MSX2+ images or by the player's own MSX2+ BIOS pair.
+    Cartridges, and disk games with the player's own BIOS pair and disk ROM (docs/MSX.md)."""
     id = 'msx2plus'
     name = 'MSX2+'
     status = 'experimental'     # the MSX and the MSX2 are supported; the MSX2+ is not (docs/MSX.md, section 9)
@@ -215,16 +215,18 @@ class Msx2PlusProfile(Msx2Profile):
     media_kinds = ('cartridge', 'disk')
     export_folder = 'MSX2+'
     scope_note = ('MSX2+ cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2+ '
-                  'BIOS; the V9958 with YJK and the horizontal scroll; disk games with your own BIOS and disk ROM; no MSX-MUSIC '
-                  'or kanji yet')
+                  'BIOS; the V9958 with YJK and the horizontal scroll; MSX-MUSIC; disk games with your own BIOS and disk ROM')
     option_keys = (OptionKey('msx2plus_bios', signature=False, kind='path', label='msx2plus_bios_label'),
                    OptionKey('msx2plus_subrom', signature=False, kind='path', label='msx2plus_subrom_label'),
                    OptionKey('msx2plus_ram', kind='choice', label='msx2plus_ram_label', choices=(128, 256, 512), default=256),
-                   OptionKey('msx2plus_diskrom', signature=False, kind='path', label='msx2plus_diskrom_label'))
+                   OptionKey('msx2plus_diskrom', signature=False, kind='path', label='msx2plus_diskrom_label'),
+                   OptionKey('msx2plus_fmbios', signature=False, kind='path', label='msx2plus_fmbios_label'))
+    # The MSX2's components, and emu2413 for MSX-MUSIC.
+    notice_files = (*Msx2Profile.notice_files, 'licenses/emu2413.md')
     quick_state_family = 'msx2plus'
     feedback_kinds = frozenset({27})       # RR_FB_MSX2, shared as the Master System and Game Gear share theirs: one record format
     path_spec = PathSpec(order=18, sections=(('z80', 'msx2plus'),),
-                         source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', (0x10000, 0x14000))),
+                         source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', (0x10000, 0x18000))),
                          required_sources=('rom',), hashed_sources=('rom', 'bios'),
                          shapes=(('z80', 'msx2plus', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
     library_layout = LibraryLayout(folder='msx2plus', summary_glob='*/compilation.json')
@@ -300,12 +302,13 @@ class Msx2PlusProfile(Msx2Profile):
             bios = None
         settings['msx2plus_bios'] = bios[1] if bios is not None else 'cbios-' + msx_cbios.VERSION
         settings['msx2plus_ram'] = int(options.get('msx2plus_ram') or 256)
-        if options.get('msx2plus_diskrom'):
-            import hashlib
-            try:
-                settings['msx2plus_diskrom'] = hashlib.sha256(Path(options['msx2plus_diskrom']).read_bytes()).hexdigest()
-            except OSError:
-                pass
+        for key in ('msx2plus_diskrom', 'msx2plus_fmbios'):
+            if options.get(key):
+                import hashlib
+                try:
+                    settings[key] = hashlib.sha256(Path(options[key]).read_bytes()).hexdigest()
+                except OSError:
+                    pass
 
     def convert(self, path: Path, **options) -> Path:
         from ..msx_conversion import convert
@@ -313,6 +316,7 @@ class Msx2PlusProfile(Msx2Profile):
         options['msx2_subrom'] = options.pop('msx2plus_subrom', None)
         options['msx2_ram'] = options.pop('msx2plus_ram', None) or 256
         options['msx2_diskrom'] = options.pop('msx2plus_diskrom', None)
+        options['msx2_fmbios'] = options.pop('msx2plus_fmbios', None)
         return convert(path, model='msx2plus', **options)
 
 

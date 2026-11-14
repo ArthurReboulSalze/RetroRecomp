@@ -148,17 +148,36 @@ def stage_sources(work: Path) -> None:
         _write(work / name, (ASSETS / 'native' / 'msx_machine' / name).read_bytes())
     for name in KIT_FILES:
         _write(work / name, (ASSETS / 'native' / name).read_bytes())
+    if (work / MUSIC_MARK).is_file():
+        for name in MUSIC_FILES:
+            _write(work / name, (ASSETS / 'native' / 'msx_machine' / name).read_bytes())
     hostkit.stage(work, 'msx')
     # What the computers' adapters share (the guest keyboard, the captured mouse), included by the MSX adapter.
     _write(work / 'hostkit' / 'adapters' / 'rrhk_computer.inc',
            (ASSETS / 'native' / 'hostkit' / 'adapters' / 'rrhk_computer.inc').read_bytes())
 
 
-def project_cmake(version: str, game: bool, bodies: bool = True) -> str:
+# MSX-MUSIC (the MSX2+'s YM2413): its module, the generated quick-state copy of the chip and emu2413 (vendored unmodified,
+# MIT), staged and compiled only into an MSX2+ work folder, marked by set_music, so the MSX and MSX2 programs hold none of it.
+MUSIC_FILES = ('msx_music.c', 'msx_music.h', 'msx_opll_state.inc', 'emu2413/emu2413.c', 'emu2413/emu2413.h')
+MUSIC_MARK = 'msx_music.on'
+
+
+def set_music(work: Path, on: bool) -> None:
+    """Mark the work folder as an MSX2+ one (its programs get MSX-MUSIC) or not."""
+    mark = work / MUSIC_MARK
+    if on:
+        _write(mark, b'MSX-MUSIC\n')
+    else:
+        mark.unlink(missing_ok=True)
+
+
+def project_cmake(version: str, game: bool, bodies: bool = True, music: bool = False) -> str:
     """The project: the reference runner always; with `bodies` the generated bodies and the headless native check; with
     `game` the player too (it needs the bodies)."""
     from . import hostkit
-    machine = ' '.join(MACHINE_SOURCES)
+    machine = ' '.join((*MACHINE_SOURCES, 'msx_music.c') if music else MACHINE_SOURCES)
+    music_flag = ' RR_MSX_MUSIC=1' if music else ''
     lines = [
         'cmake_minimum_required(VERSION 3.20)',
         'project(RetroMsx LANGUAGES C)',
@@ -178,7 +197,7 @@ def project_cmake(version: str, game: bool, bodies: bool = True) -> str:
     lines += [
         f'foreach(target msx_reference{" msx_check" if bodies or game else ""})',
         '  target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        '  target_compile_definitions(${target} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)',
+        f'  target_compile_definitions(${{target}} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS{music_flag})',
         '  if(NOT WIN32)', '    target_link_libraries(${target} PRIVATE m)', '  endif()',
         'endforeach()',
     ]
@@ -196,7 +215,7 @@ def project_cmake(version: str, game: bool, bodies: bool = True) -> str:
             'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
             '  target_link_libraries(game PRIVATE m)', 'endif()',
             'target_link_libraries(game PRIVATE SDL2::SDL2-static)',
-            f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS '
+            f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS{music_flag} '
             f'[[RR_RECOMP_VERSION="{version}"]])',
             'if(MSVC)', '  target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)', 'endif()',
             'if(WIN32 AND NOT MSVC)',
@@ -211,7 +230,7 @@ def build(work: Path, targets: tuple[str, ...], emit: Callable[[str], None] = pr
     from .platforms import build_executable, sdl_install
     game = 'game' in targets
     bodies = game or 'msx_check' in targets or (work / 'generated' / 'game_banked_index.c').is_file()
-    _write(work / 'CMakeLists.txt', project_cmake(__version__, game, bodies).encode('utf-8'))
+    _write(work / 'CMakeLists.txt', project_cmake(__version__, game, bodies, (work / MUSIC_MARK).is_file()).encode('utf-8'))
     cmake, generator_kind = core.toolchain()
     log = work / 'build.log'
     extra = [f'-DCMAKE_PREFIX_PATH={Path(sdl_install()).as_posix()}'] if game else []

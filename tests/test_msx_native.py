@@ -369,9 +369,10 @@ class ReportTests(unittest.TestCase):
         disk = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=False, reason='no cartridge: a disk game'),
                                 True, True, 2)
         self.assertEqual([(u['id'], u['kind']) for u in disk],
-                         [('disk-interface', 'cartridge_mapper'), ('v9958', 'video_unit'), ('ay-3-8910', 'audio_unit')])
+                         [('disk-interface', 'cartridge_mapper'), ('v9958', 'video_unit'), ('ay-3-8910', 'audio_unit'),
+                          ('ym2413', 'audio_unit')])          # MSX-MUSIC, built into the MSX2+
         self.assertEqual(disk[0]['details']['disks'], 2)
-        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': disk})), 3)
+        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': disk})), 4)
         for unit in units + plain + disk:
             self.assertFalse(unit['details']['hardware_fidelity_validated'])
 

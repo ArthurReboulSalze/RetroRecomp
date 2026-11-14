@@ -336,7 +336,7 @@ static int setup_machine(void)
     size_t cart_size = 0, bios_size = 0;
     const uint8_t *cartridge = rr_resource(103, &cart_size), *bios_image = rr_resource(104, &bios_size);
     if (!cartridge || !bios_image || !cart_size || cart_size > sizeof cart || bios_size > sizeof slot0
-        || (RR_MSX_MODEL >= 2 && bios_size != (RR_MSX_DISKS ? 0x14000u : 0x10000u))) {
+        || (RR_MSX_MODEL >= 2 && bios_size != (RR_MSX_MUSIC ? 0x18000u : RR_MSX_DISKS ? 0x14000u : 0x10000u))) {
         fprintf(stderr, "[msx] the game's cartridge or BIOS resource is missing\n");
         return 3;
     }
@@ -345,6 +345,11 @@ static int setup_machine(void)
     memcpy(slot0, bios_image, bios_size);
     if (RR_MSX_MODEL >= 2) {                      /* the MSX2 board: main, logo page and sub-ROM in one BIOS source */
         (RR_MSX_MODEL == 3 ? msx_setup_msx2plus : msx_setup_msx2)(&machine, slot0, mapper_ram, RR_MSX_MAPPER_SEGMENTS, &v9938);
+#if RR_MSX_MUSIC
+        MsxFm *fm = msx_music_create();          /* MSX-MUSIC: its BIOS ends the BIOS source (14000h) */
+        if (!fm) { fprintf(stderr, "[msx] MSX-MUSIC could not start\n"); return 3; }
+        msx_set_music(&machine, slot0 + 0x14000, 10, fm);
+#endif
     } else {
         MsxDevice bios = { MSX_DEV_ROM, slot0, (uint32_t)bios_size, 0, NULL };
         bios.source = 1;

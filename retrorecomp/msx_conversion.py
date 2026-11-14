@@ -75,9 +75,9 @@ def own_bios2(main, sub, generation: int = 1) -> tuple[bytes, str] | None:
     return image, hashlib.sha256(image).hexdigest()
 
 
-def _bios_files(work: Path, bios_image: bytes, msx2: bool, mapper_kib: int, plus: bool = False) -> list[str]:
-    """The BIOS source written beside the work (main ROM, logo page when there is one, MSX2 sub-ROM) and the runners'
-    options for it."""
+def _bios_files(work: Path, bios_image: bytes, msx2: bool, mapper_kib: int, plus: bool = False, disk: bool = False) -> list[str]:
+    """The BIOS source written beside the work (main ROM, logo page when there is one, MSX2 sub-ROM; on the MSX2+ the disk ROM
+    of a disk game at 10000h and the MSX-MUSIC BIOS at 14000h) and the runners' options for it."""
     (work / 'bios_main.rom').write_bytes(bios_image[:0x8000])
     args = ['--main', str(work / 'bios_main.rom')]
     if len(bios_image) > 0x8000:
@@ -86,11 +86,14 @@ def _bios_files(work: Path, bios_image: bytes, msx2: bool, mapper_kib: int, plus
     if msx2:
         (work / 'bios_sub.rom').write_bytes(bios_image[0xC000:0x10000])
         args += ['--sub', str(work / 'bios_sub.rom'), '--mapper-kib', str(mapper_kib)]
-    if len(bios_image) > 0x10000:                   # an MSX2+ disk game: the player's disk ROM
+    if disk:                                        # an MSX2+ disk game: the player's disk ROM
         (work / 'bios_diskrom.rom').write_bytes(bios_image[0x10000:0x14000])
         args += ['--diskrom', str(work / 'bios_diskrom.rom')]
     if plus:
         args += ['--msx2plus']
+        if len(bios_image) >= 0x18000:              # MSX-MUSIC: its BIOS ends the BIOS source
+            (work / 'bios_fm.rom').write_bytes(bios_image[0x14000:0x18000])
+            args += ['--fmbios', str(work / 'bios_fm.rom')]
     return args
 
 
@@ -122,7 +125,7 @@ def _basic_only(data: bytes) -> bool:
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, boxart_dir=None,
             msx_bios=None, frames=FRAMES, passes=3, scan_level=None,
             standard_override=None, profile=None, emit=print, model='msx1', msx2_bios=None, msx2_subrom=None,
-            msx2_ram=256, msx2_diskrom=None, **unused) -> Path:
+            msx2_ram=256, msx2_diskrom=None, msx2_fmbios=None, **unused) -> Path:
     from . import __version__, msx_build, msx_cbios
     from .core import ROOT, executable_name
     from .library import entry_lock
@@ -192,6 +195,15 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     else:
         bios_image = msx_cbios.image(standard, emit, model=model if msx2 else 'msx1')
         bios_source = {'kind': 'c-bios', 'version': msx_cbios.VERSION, 'sha256': hashlib.sha256(bios_image).hexdigest()}
+    if plus:
+        # MSX-MUSIC, built into every MSX2+: its BIOS at 14000h of the BIOS source (8 KB banks 10 and 11), after the disk ROM's
+        # place (FFh for a cartridge game): the player's own FM BIOS when chosen, else C-BIOS's music ROM.
+        try:
+            fm_bios = own_fmbios(msx2_fmbios) if msx2_fmbios else msx_cbios.music(emit)
+        except (OSError, ValueError) as error:
+            raise ConversionError(str(error)) from None
+        bios_image = bios_image.ljust(0x14000, b'\xFF') + fm_bios
+        bios_source['fm_bios'] = {'kind': 'own' if msx2_fmbios else 'c-bios', 'sha256': hashlib.sha256(fm_bios).hexdigest()}
     # One work folder per cartridge and BIOS: the probe, the bodies, the learned patterns and the game are those of this pair.
     work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image).hexdigest()[:8]}"
     timings = {}
@@ -199,7 +211,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     standard_args = ['--pal'] if standard == 'pal' else []
     with entry_lock(work, timeout=1800):
         work.mkdir(parents=True, exist_ok=True)
-        bios_args = _bios_files(work, bios_image, msx2, mapper_kib, plus)
+        bios_args = _bios_files(work, bios_image, msx2, mapper_kib, plus, disk=disks is not None)
+        msx_build.set_music(work, plus)
         if disks is not None:
             for disk in disks.disks:                          # read in place; drive A holds the first
                 bios_args += ['--disk', str(disk)]
@@ -457,7 +470,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         'standard': 'decided by your own MSX2 BIOS (R#9)' if msx2 and own is not None else standard,
                         'display_aspect': '4:3'},
         'audio_cpu': None,
-        'audio_model': {'kind': 'AY-3-8910, key click and Konami SCC (our own C); mixing levels stated, not validated',
+        'audio_model': {'kind': 'AY-3-8910, key click and Konami SCC (our own C)'
+                                + ('; MSX-MUSIC, the YM2413 on emu2413 v1.5.9' if plus else '')
+                                + '; mixing levels stated, not validated',
                         'rate': 44100, 'channels': 1},
         'counter_unit': 'cycles', 'physical_latency_measured': False, 'latency_ms': None,
         'hardware_accuracy_validated': False, 'full_game_validated': False,
@@ -484,6 +499,14 @@ def cartridge_bank_high(result: dict) -> int:
         if len(entry) >= 17 and entry[0] == 1 and entry[1] == 0:
             return int(entry[-1])
     return 0
+
+
+def own_fmbios(path) -> bytes:
+    """The player's own MSX-MUSIC BIOS: 16 KiB, an MSX ROM header ("AB") and the "APRLOPLL" signature at 18h."""
+    data = Path(path).read_bytes()
+    if len(data) != 0x4000 or data[:2] != b'AB' or data[0x18:0x20] != b'APRLOPLL':
+        raise ConversionError(f'{Path(path).name}: not an MSX-MUSIC BIOS (16 KiB with the "APRLOPLL" signature).')
+    return data
 
 
 def own_diskrom(path) -> bytes:
@@ -534,6 +557,12 @@ def hardware_devices(guess, msx2: bool, plus: bool = False, disks: int = 0) -> l
            'details': {'with': 'the key click', 'mixing_levels': 'stated, not validated',
                        'interpreter': 'none: the sound chip is C code in the runtime', **common}}
     units = [mapper, video, psg]
+    if plus:
+        units.append({'id': 'ym2413', 'kind': 'audio_unit', 'mode': 'c_model',
+                      'details': {'what': 'MSX-MUSIC, built into the MSX2+ (I/O ports 7Ch-7Dh, its BIOS in slot 3-1)',
+                                  'core': 'emu2413 v1.5.9 (MIT), one sample every 72 cycles (49,716 Hz)',
+                                  'mixing_levels': 'stated (openMSX\'s volumes: 9000 against the PSG\'s 21000), not validated',
+                                  'interpreter': 'none: the sound chip is C code in the runtime', **common}})
     if scc:
         units.append({'id': 'scc', 'kind': 'audio_unit', 'mode': 'c_model',
                       'details': {'in': 'the cartridge', 'mixing_levels': 'stated, not validated',
@@ -547,7 +576,7 @@ def route_warnings(final_checks: list) -> list:
     return words(final_checks)
 
 
-STATE_LAYOUT = 'msx-state-5'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line; 3: SRAM; 4: port F4h; 5: the disk interface)
+STATE_LAYOUT = 'msx-state-6'     # raised whenever msx_state.c or msx_state_file.inc writes another body (2: R#18 per line; 3: SRAM; 4: port F4h; 5: the disk interface; 6: MSX-MUSIC)
 STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
 
 

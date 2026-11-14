@@ -37,6 +37,9 @@ static long load(const char *path, uint8_t *into, long limit)
     return n;
 }
 
+/* MSX-MUSIC (--fmbios, MSX2+ builds): its 16 KB BIOS at 14000h of the BIOS source, the chip on ports 7Ch-7Dh. */
+static const char *fmbios_file;
+
 /* The disk interface (--diskrom, --disk): the player's own disk ROM in primary slot 2, one disk in drive A. */
 static const char *diskrom_file, *disk_file[10];
 static unsigned disk_files;
@@ -89,6 +92,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--mapper-kib")) mapper_kib = strtoul(v, NULL, 10);
         else if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--diskrom")) diskrom_file = v;
+        else if (!strcmp(a, "--fmbios")) fmbios_file = v;
         else if (!strcmp(a, "--disk")) { if (disk_files >= 10) { fprintf(stderr, "too many --disk\n"); return 2; } disk_file[disk_files++] = v; }
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
         else if (!strcmp(a, "--sram-bit")) sram_bit = strtoul(v, NULL, 10) < 8 ? 1ul << strtoul(v, NULL, 10) : 0;
@@ -115,6 +119,13 @@ int main(int argc, char **argv)
         if (segments < 4 || segments > 256 || (segments & (segments - 1))) { fprintf(stderr, "bad --mapper-kib\n"); return 2; }
         load(sub_rom, slot0 + 0xC000, 0x4000);
         (msx2plus ? msx_setup_msx2plus : msx_setup_msx2)(&machine, slot0, mapper_ram, segments, &v9938);
+#if RR_MSX_MUSIC
+        if (msx2plus && fmbios_file) {
+            MsxFm *fm = msx_music_create();
+            if (load(fmbios_file, slot0 + 0x14000, 0x4000) != 0x4000 || !fm) { fprintf(stderr, "bad --fmbios\n"); return 2; }
+            msx_set_music(&machine, slot0 + 0x14000, 10, fm);
+        }
+#endif
     } else {
     MsxDevice bios = { MSX_DEV_ROM, slot0, logo_rom ? 0xC000u : 0x8000u, 0, NULL };
     bios.source = 1;                             /* the BIOS is the second translated source (banked.sources) */

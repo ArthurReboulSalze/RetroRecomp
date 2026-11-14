@@ -80,6 +80,18 @@ typedef struct {
 enum { MSX_BLOCK_SRAM = -2 };    /* a region of a cartridge that shows its SRAM */
 enum { MSX_SRAM_ASCII8 = 0x2000, MSX_SRAM_ASCII16 = 0x800 };
 
+/* A sound chip a machine may have that a program reaches through the hooks below, so that a machine without it links
+ * nothing of it: MSX-MUSIC, the YM2413 of every MSX2+ (msx_music.c, I/O ports 7Ch-7Dh). `sample` advances the chip to
+ * `cycle` and gives its output there (the mixer of msx_psg.c adds it); `state` is msx_state.c's field writer (`io` is a
+ * RetroStateIO); `reset` restarts it at `cycle`. */
+typedef struct {
+    void *chip;
+    void (*write)(void *chip, uint8_t port, uint8_t value);
+    int (*sample)(void *chip, uint64_t cycle);
+    void (*state)(void *chip, void *io);
+    void (*reset)(void *chip, uint64_t cycle);
+} MsxFm;
+
 /* One 8 KB region of the Z80 address space as currently selected: what reads see, where writes go. */
 typedef struct {
     const uint8_t *read;   /* NULL: reads give FFh, or go to the device when `device` is set */
@@ -231,6 +243,7 @@ typedef struct {
     MsxRtc rtc;
     uint8_t has_rtc;
     uint8_t has_f4, port_f4;   /* MSX2+: the I/O port F4h the BIOS reads at start (a latch here, 00h at power-on) */
+    MsxFm *fm;                 /* MSX2+: MSX-MUSIC (msx_music.c), NULL when absent */
     uint64_t frames;
     uint64_t unmapped_reads, dropped_writes;
 } MsxMachine;
@@ -289,6 +302,9 @@ void msx_setup_msx2(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uin
 /* The disk interface in primary slot `primary`: the 16 KB disk ROM (translated as part of the BIOS source from 8 KB bank
  * `bank_base`) and the controller `fdc`. */
 void msx_set_disk_interface(MsxMachine *m, int primary, const uint8_t *rom, MsxFdc *fdc, uint8_t bank_base);
+/* MSX-MUSIC: its 16 KB BIOS (the "APRLOPLL" signature the programs look for) at 4000h-7FFFh of slot 3-1, translated as part
+ * of the BIOS source from its 8 KB bank `bank_base`, and the chip `fm`. */
+void msx_set_music(MsxMachine *m, const uint8_t *rom, uint8_t bank_base, MsxFm *fm);
 /* The MSX2+ board: the MSX2's, with the V9958 and the port F4h. */
 void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
 

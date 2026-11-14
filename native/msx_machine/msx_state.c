@@ -303,6 +303,10 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
         rtc_state(m, io);
     /* 9. PSG synth */
     synth_state(m, io);
+    /* 10. MSX-MUSIC (MSX2+) */
+    same(io, m->fm != NULL, 1);
+    if (m->fm && io->ok)
+        m->fm->state(m->fm->chip, io);
     if (io->ok && io->mode != RR_STATE_WRITE && !consistent(m, ram64))
         io->ok = false;
     return io->ok;
