@@ -92,6 +92,7 @@ stamps that section says move. Each section computed its stamps for its own chan
 | [Mega Drive and Super Nintendo: an interface change no longer refuses the quick states](#mega-drive-and-super-nintendo-an-interface-change-no-longer-refuses-the-quick-states-175) | the Mega Drive, the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16_state.py`); nothing a game runs changes | none | Mega Drive and Super Nintendo keys move once; the 1.7.4 keys are accepted (Windows and Linux) |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
 | [Every machine: row icons in the menus, Quick save and Quick load on the gamepad](#every-machine-row-icons-in-the-menus-quick-save-and-quick-load-on-the-gamepad-175) | none | host of all 20 profiles | none once the state key keeps only the layout files (spec/state-key-175) |
+| [Every machine: a machine's own row on a player's gamepad page](#every-machine-a-machines-own-row-on-a-players-gamepad-page-175) | none | host of all 20 profiles | none |
 | [Atari ST: its paths are shared, as the experimental tier of the base, and the checks toward leaving the experimental status](#atari-st-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16-and-the-checks-toward-leaving-the-experimental-status) | the Atari ST (`atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile) | none | none |
 
 ## Commodore Amiga: supported (1.7.5)
@@ -231,6 +232,20 @@ Engine, and the delivered exports are not converted again. `tools/status_lint.py
 MSX (the three profiles share their page).
 
 **Quick states:** the layout is unchanged (`msx-state-5`).
+
+## Every machine: a machine's own row on a player's gamepad page (1.7.5)
+
+The shell gains `RrhkMachine.pad_rows` ([HOST_KIT.md](HOST_KIT.md#d22), D22): rows of a machine at the top of one player's
+gamepad page. The Amiga's Mouse port row uses it (its adapter, on the Amiga's own branch); no other machine declares one.
+
+* **Stamps.** The host stamp of all 20 profiles moves (`hostkit/hostkit.h`, `hostkit/hostkit_internal.h`, the shell's
+  `rrhk_menu.c`, `rrhk_events.c`, `rrhk_input.c`, `native/retro_menu.c` and `retro_menu.h` for the two port icons,
+  `runtime_catalog.inc` and the seven locale files); no game or build stamp, no quick-state key (none of these files fixes a
+  state layout).
+* **What players see.** Nothing on a machine without a row; on the Amiga, once its adapter declares it, the Mouse port row.
+* **Texts.** Four new entries in the five game languages: "Mouse port", "Auto (last used)", "Mouse", "Pad 2".
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 8: the row on player 2's gamepad page only, values chosen and wrapped,
+  the controls below it still bound by F2 (271 checks).
 
 ## Every machine: row icons in the menus, Quick save and Quick load on the gamepad (1.7.5)
 

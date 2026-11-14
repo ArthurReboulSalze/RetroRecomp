@@ -216,7 +216,7 @@ static void store_entry(int p, int action, bool pad) {
     rr_ini_set(sec, entry, value, rrhk.ini_file);
 }
 
-void rrhk_store_binding(void) { store_entry(rrhk.player, rrhk.row, rrhk.gamepad_page != 0); }
+void rrhk_store_binding(void) { store_entry(rrhk.player, rrhk_action_row(), rrhk.gamepad_page != 0); }
 
 /* F2 binds a key or a pad button to one action. The keyboard is shared: a key that already drives another action, of any player
  * in play, would make both act at once, so the two actions swap their keys (the other one gets the key this action had, perhaps
@@ -236,8 +236,8 @@ void rrhk_assign(int p, int action, bool pad, int value) {
 
 /* Delete on a binding row (machines with clearable bindings): no key, no button. */
 void rrhk_clear_binding(void) {
-    if (rrhk.gamepad_page) rrhk.buttons[rrhk.player][rrhk.row] = (SDL_GameControllerButton)-1;
-    else rrhk.keys[rrhk.player][rrhk.row] = SDL_SCANCODE_UNKNOWN;
+    if (rrhk.gamepad_page) rrhk.buttons[rrhk.player][rrhk_action_row()] = (SDL_GameControllerButton)-1;
+    else rrhk.keys[rrhk.player][rrhk_action_row()] = SDL_SCANCODE_UNKNOWN;
     rrhk_store_binding();
 }
 

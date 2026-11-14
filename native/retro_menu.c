@@ -296,6 +296,8 @@ static const uint64_t icon_row_reminder[9] = {0x300ull, 0x540ull, 0x1a90ull, 0x1
 static const uint64_t icon_row_speed[9] = {0x0ull, 0x101ull, 0x505ull, 0x1d1dull, 0x7d7dull, 0x1d1dull, 0x505ull, 0x101ull, 0x0ull};
 static const uint64_t icon_row_rumble[9] = {0x0ull, 0x1550ull, 0x36aa7ull, 0x6ee4ull, 0x36aa7ull, 0x6ee4ull, 0x36aa7ull, 0x1550ull, 0x0ull};
 static const uint64_t icon_row_restore[9] = {0x5540ull, 0x7a90ull, 0x7f24ull, 0x4309ull, 0xfc9ull, 0x4309ull, 0x6024ull, 0x1a90ull, 0x540ull};
+static const uint64_t icon_row_port_mouse[9] = {0x1550ull, 0x7df4ull, 0x5554ull, 0x6aa4ull, 0x1550ull, 0x100ull, 0x15555ull, 0x6ee4ull, 0x1550ull};
+static const uint64_t icon_row_port_joystick[9] = {0xf00ull, 0xf00ull, 0x100ull, 0x100ull, 0xd550ull, 0x1a90ull, 0x15555ull, 0x6ee4ull, 0x1550ull};
 static const uint64_t icon_row_generic[9] = {0x0ull, 0x540ull, 0x1fd0ull, 0x7ef4ull, 0x1fabdull, 0x7ef4ull, 0x1fd0ull, 0x540ull, 0x0ull};
 /* 3 x 5 letters of the face buttons, bit (row * 3 + x): i the narrow I of II to IV, ^ o [ x the PlayStation shapes. */
 static const char row_letter_chars[] = "ABCXYZLRI123456DKPSFGHMEVi^o[x";
@@ -312,7 +314,8 @@ static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_
     {icon_row_keyboard, 9, 9}, {icon_row_filter, 9, 9}, {icon_row_display, 9, 9}, {icon_row_autofire, 9, 9},
     {icon_row_language, 9, 9}, {icon_row_record, 9, 9}, {icon_row_wave, 9, 9}, {icon_row_volume, 9, 9},
     {icon_row_sound, 9, 9}, {icon_row_headphones, 9, 9}, {icon_row_fkey, 9, 9}, {icon_row_reminder, 9, 9},
-    {icon_row_speed, 9, 9}, {icon_row_rumble, 9, 9}, {icon_row_restore, 9, 9}, {icon_row_generic, 9, 9}
+    {icon_row_speed, 9, 9}, {icon_row_rumble, 9, 9}, {icon_row_restore, 9, 9}, {icon_row_port_mouse, 9, 9},
+    {icon_row_port_joystick, 9, 9}, {icon_row_generic, 9, 9}
     /* </row table> */};
 int rr_menu_icon_width(int icon) { return icon >= 0 && icon < RR_ICON_COUNT ? icons[icon].w : 0; }
 

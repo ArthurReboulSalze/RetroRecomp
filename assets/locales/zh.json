@@ -1058,6 +1058,10 @@
     "Hold quick save combo": "长按以保存",
     "Hold quick load combo": "长按以读取",
     "Already used by %s": "已被%s使用",
-    "F8 and F9: fixed keys": "F8 和 F9：固定按键"
+    "F8 and F9: fixed keys": "F8 和 F9：固定按键",
+    "Mouse port": "鼠标端口",
+    "Auto (last used)": "自动（最后使用）",
+    "Mouse": "鼠标",
+    "Pad 2": "手柄 2"
   }
 }

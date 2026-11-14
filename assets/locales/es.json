@@ -1058,6 +1058,10 @@
     "Hold quick save combo": "Manten para guardar",
     "Hold quick load combo": "Manten para cargar",
     "Already used by %s": "Ya usada por %s",
-    "F8 and F9: fixed keys": "F8 y F9: teclas fijas"
+    "F8 and F9: fixed keys": "F8 y F9: teclas fijas",
+    "Mouse port": "Puerto del ratón",
+    "Auto (last used)": "Auto (último usado)",
+    "Mouse": "Ratón",
+    "Pad 2": "Mando 2"
   }
 }

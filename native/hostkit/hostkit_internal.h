@@ -99,6 +99,9 @@ void rrhk_gfx_set(int option, int value);   /* the page: apply and keep */
 void rrhk_gfx_defaults(void);            /* the page's Restore defaults: every option to its default, applied and kept */
 void rrhk_toggle_rumble(void);           /* the Vibration row: flip, keep, stop a vibration in progress */
 void rrhk_rumble_stop(void);
+int rrhk_pad_rows_here(void);            /* the machine's own rows at the top of the page shown (RrhkMachine.pad_rows) */
+const RrhkPadRow *rrhk_pad_row_at(int row);   /* the machine row at this page row, NULL for a row of the kit */
+int rrhk_action_row(void);               /* the selected row as an action / combination index (the machine rows come first) */
 bool rrhk_trigger_step(bool down, int value);   /* L2/R2 as a button: game_options.h's one reading (threshold, hysteresis) */
 bool rrhk_combo_trigger(int side);       /* 0 right, 1 left: a host combination (Quit, Restart, quick ones) uses that trigger */
 bool rrhk_trigger_bound(int side);       /* 0 right, 1 left: player 1 has a control on that trigger (trigger_buttons) */
