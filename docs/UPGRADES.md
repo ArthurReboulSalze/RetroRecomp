@@ -95,6 +95,7 @@ stamps that section says move. Each section computed its stamps for its own chan
 | [Every machine: row icons in the menus, Quick save and Quick load on the gamepad](#every-machine-row-icons-in-the-menus-quick-save-and-quick-load-on-the-gamepad-175) | none | host of all 20 profiles | none once the state key keeps only the layout files (spec/state-key-175) |
 | [Every machine: a machine's own row on a player's gamepad page](#every-machine-a-machines-own-row-on-a-players-gamepad-page-175) | none | host of all 20 profiles | none |
 | [Atari ST: its paths are shared, as the experimental tier of the base, and the checks toward leaving the experimental status](#atari-st-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16-and-the-checks-toward-leaving-the-experimental-status) | the Atari ST (`atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile) | none | none |
+| [Atari ST: a key held at F8 and let go before F9 no longer stays down](#atari-st-a-key-held-at-f8-and-let-go-before-f9-no-longer-stays-down-175-gate-g6) | the Atari ST (`atarist_hatari.py`) | the Atari ST (its adapter `rrhk_atarist.inc`) | none |
 
 ## Commodore Amiga: the second joystick on port 1 (1.7.5)
 
@@ -241,6 +242,24 @@ The Atari ST joins `path_profiles.SHARED_SYSTEMS` (Arthur, 14 November 2026: «O
   `atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile and the group `shares:m68k_media_knowledge`); no other machine's game stamp, no host or build stamp, no native file, no
   quick-state key. An Atari ST export of 1.7.4 is converted once in full, with the same result on the routes; the seven games delivered for the owner's play were built one merge before the last
   (which added the function `exact` to `m68k_media_knowledge.py`, unused by the Atari ST): they carry the stamp before it.
+
+## Atari ST: a key held at F8 and let go before F9 no longer stays down (1.7.5, gate G6)
+
+**What was wrong.** The host sends the guest's keys as changes only. A typed key held when F8 saved the state and released before F9 loaded it was released in the old machine, then
+the load brought back a snapshot that holds the key down: the key stayed down in the guest (The Lurking Horror: from the first frame after the load, 0 of 500 frames equal the timeline in which the
+key was let go). A key still held at F9 but not at F8 was never pressed again (the host had already sent its press). The pad, the fire button and the mouse buttons are read again every frame and come
+back right (checked on Bomb Jack: held and still held, held and released, pressed after, 300 of 300 frames equal the timeline each time, against a control where the holds change it).
+
+**What changes.** After Hatari's restore (the adaptation of `memorySnapShot.c` in `retrorecomp/atarist_hatari.py`), every key that `Keyboard.KeyStates` shows as down gets its break code, as the host
+had sent it before the load. In the host adapter (`native/hostkit/adapters/rrhk_atarist.inc`), a state load makes the adapter wait three frames (Hatari restores inside the next frame) and then forget what
+it had sent, so the keys still held are pressed again. `tools/atarist_keys_check.py` runs the check on executables a conversion delivered (`--pad` on Bomb Jack, `--keys` on The Lurking Horror). **Results on the fixed build** (14 November 2026, Windows, Bomb Jack
+and The Lurking Horror converted from this branch at the quick level, headless): the pad cases still 300 of 300 frames equal the timeline each (control: the holds change it), and the key held at F8 and
+released before F9 **500 of 500 frames equal the timeline** (the 1.7.4 build, the same check: 0 of 500; the same check with no key held: 500 of 500).
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `6115b82d`): **the Atari ST game stamp** (`08644c6cc052` to `b5cfd4de57c4`: `atarist_hatari.py` is one of its inputs) **and its host
+stamp** (`ef245155bc7c` to `fd8405ed4de4`: the adapter); no other machine, no build stamp, no quick-state key (a state is tied to the build that wrote it and is refused between builds, as after any reconversion). **The engine identity of the shared
+paths does not move** (`atarist_knowledge.GENERATOR_REVISION` stays 1): the generated native code and the guards are the same, so no path qualified for it waits again; `tests/atarist_generator_pins.json`
+follows the new text of `atarist_hatari.py`, the one thing that test pins. The seven games delivered for the owner's play keep their stamp: the fix only touches a key held across F8.
 
 ## MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status (1.7.5)
 
