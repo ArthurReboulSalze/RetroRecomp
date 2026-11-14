@@ -29,19 +29,6 @@ def engines() -> dict:
             'nes': nes.ENGINE_REV, 'md': REPOSITORIES['md'][1], 'snes': REPOSITORIES['snes'][1]}
 
 
-def window_offsets(data: bytes, windows) -> tuple[list[int], int]:
-    """The four-byte RAM windows of the banked Z80 chain (`pattern_refs`, the `window4` shape) as numbers about a cartridge: the first offset of
-    each window in `data`, sorted and each once, and how many windows are not in `data` (they stay private). The Master System, the Game Gear,
-    the MSX and the MSX2 share their windows this way."""
-    found = [data.find(raw) for raw in windows]
-    return sorted({offset for offset in found if offset >= 0}), sum(offset < 0 for offset in found)
-
-
-def window_words(data: bytes, offsets) -> set[bytes]:
-    """The windows a list of offsets names, read back from the player's own cartridge (`window_offsets` the other way)."""
-    return {data[offset:offset + 4] for offset in offsets}
-
-
 def observations_qualified(paths, report: dict) -> bool:
     """Do not promote observations appended after the last successful run."""
     try:
@@ -90,11 +77,12 @@ def _sega_offered(rom, system: str, memory) -> tuple[set, set[bytes]]:
             for kind, address, auxiliary, length, offset in imported_observations(system, rom.sha256)]
     seeds, patterns = _sega_rows(rom, rows)
     seeds |= {tuple(entry) for entry in imported.get('rom_entries', [])}
-    patterns |= window_words(rom.data, (offset for (offset,) in imported.get('pattern_refs', [])))
+    patterns |= {rom.data[offset:offset+4] for (offset,) in imported.get('pattern_refs', [])}
     own_seeds, own_patterns = _sega_rows(rom, records(system, rom.sha256, 1))
     bundled = _bundled(system, rom.sha256)
     own_seeds |= read_observations(memory.journal) | {tuple(e) for e in bundled.get('rom_entries', [])}
-    own_patterns |= read_code_patterns(memory.code_journal) | window_words(rom.data, (offset for (offset,) in bundled.get('pattern_refs', [])))
+    own_patterns |= read_code_patterns(memory.code_journal) | {
+        rom.data[offset:offset+4] for (offset,) in bundled.get('pattern_refs', [])}
     return seeds - own_seeds, patterns - own_patterns
 
 
@@ -157,9 +145,9 @@ def build_record(rom, system: str, report: dict | None, engine: str, omitted: di
         # The conversion used both bundled and local byte-checked windows.
         # Keep that qualified union; reading only the private journal would
         # silently drop shared windows that needed no new fallback.
-        offsets, missing = window_offsets(rom.data, memory.code_patterns() - offered_patterns)
-        omitted['ram_without_rom_source'] += missing
-        record['pattern_refs'] = [[offset] for offset in offsets]
+        offsets = [rom.data.find(raw) for raw in memory.code_patterns() - offered_patterns]
+        omitted['ram_without_rom_source'] += sum(offset < 0 for offset in offsets)
+        record['pattern_refs'] = [[offset] for offset in sorted(set(offsets)) if offset >= 0]
         return record
     expected_engine = supernintendo.knowledge_engine(rom) if system == 'snes' else engine
     if not report or report.get('compiler', {}).get('revision') != expected_engine:

@@ -101,7 +101,7 @@ native/amiga_machine/amiga_savefile.h
 native/atarist_machine/atarist_hardware_checks.c tools/atarist_hardware_check.py tools/atarist_hardware_asm.py tests/test_atarist_hardware.py
 tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_prefetch_check.py tools/atarist_sweep_guard_check.py tools/atarist_saves_game.py
 native/msx_machine/msx_machine.h native/msx_machine/msx_machine.c native/msx_machine/msx_reference_main.c tools/msx_reference.py tests/test_msx_reference.py
-native/msx_machine/msx_video.c native/msx_machine/msx_psg.c native/msx_machine/msx_hardware_checks.c native/msx_machine/msx_cart.c retrorecomp/msx_rom.py retrorecomp/msx_disk.py retrorecomp/msx_knowledge.py retrorecomp/msx2_knowledge.py retrorecomp/path_records.py tests/test_msx_knowledge.py tests/test_msx_rom.py tools/msx_first_read.py
+native/msx_machine/msx_video.c native/msx_machine/msx_psg.c native/msx_machine/msx_hardware_checks.c native/msx_machine/msx_cart.c retrorecomp/msx_rom.py retrorecomp/msx_disk.py tests/test_msx_rom.py tools/msx_first_read.py
 native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_captures.py tools/msx_panel.py tools/msx_write_disk.py tools/msx_fdc_selftest.py native/msx_machine/msx_fdc_checks.c tests/test_msx_fdc.py tests/test_msx_native.py
 retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py retrorecomp/msx_conversion.py retrorecomp/msx_routes.py licenses/cbios.md docs/MSX.md
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/msx_machine/msx_tiles.inc

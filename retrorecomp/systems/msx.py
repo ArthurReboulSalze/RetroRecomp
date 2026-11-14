@@ -20,7 +20,7 @@ from pathlib import Path
 
 from . import Capabilities, Cpu, OptionKey, SystemProfile
 from ..z80_chain import Z80Machine, Z80RegionMap
-from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
+from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
 
 # The MSX on the banked Z80 chain: eight 8 KiB regions, each showing a bank of the cartridge (source 0) or of the BIOS
 # (source 1, the 48 KiB of slot 0) or RAM; one wait state per M1 cycle; /INT read once the machine has caught up with the
@@ -56,7 +56,7 @@ class MsxProfile(SystemProfile):
     quick_state_family = 'msx'
     host_adapter = 'adapters/rrhk_msx.inc'
     linux = 'witnessed'   # Nemesis (MSX1) and Metal Gear (MSX2) converted headless on a Debian 13 PC, 12 November 2026: same report fields as Windows, quick states pass; not played in a window there
-    # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: the game records nothing for the sharing (its shared paths come from conversions, retrorecomp/msx_knowledge.py).
+    # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: nothing is recorded for path sharing, which the MSX declines (docs/MSX.md, section 7).
     feedback_kinds = frozenset({26})
     # The third-party components compiled into its games (retrorecomp/notices.py; the player shell's are added): the banked
     # Z80 chain's generator and core, the corrected reference interpreter of the counted fallback; C-BIOS only in a game that
@@ -72,9 +72,6 @@ class MsxProfile(SystemProfile):
     report_shape = ReportShape('msx_conversion', 'msx_checks')
     catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX', screenscraper=113, thegamesdb=4929)
     library_layout = LibraryLayout(folder='msx', summary_glob='*/compilation.json')
-    # The experimental tier of the base, schema 3 only, withdrawable in one line (path_profiles.EXPERIMENTAL_SHARED): the RAM windows a
-    # conversion learned, as offsets in the cartridge (retrorecomp/msx_knowledge.py). The routes are replayed whatever was received.
-    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='msx_knowledge')
     # A .rom (or .bin) is the MSX's when its bytes hold an MSX cartridge header, asked after the five consoles that
     # recognise their own headers.
     identify = Identify(content_order=6)
@@ -134,7 +131,6 @@ class Msx2Profile(MsxProfile):
                          shapes=(('z80', 'msx2', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
     catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX2', screenscraper=116, thegamesdb=4929)
     library_layout = LibraryLayout(folder='msx2', summary_glob='*/compilation.json')
-    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='msx2_knowledge')
     # Claimed from the path, before the MSX1's content sniff: a .mx2, or a .rom / ZIP chosen as MSX2 or found in an msx2
     # folder, when its bytes hold an MSX cartridge header.
     identify = Identify(path_order=55)
@@ -231,8 +227,6 @@ class Msx2PlusProfile(Msx2Profile):
                          required_sources=('rom',), hashed_sources=('rom', 'bios'),
                          shapes=(('z80', 'msx2plus', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
     library_layout = LibraryLayout(folder='msx2plus', summary_glob='*/compilation.json')
-    # Not in the sharing yet (experimental, too new, no Linux witness; 14 November 2026): not inherited from the MSX2.
-    shared_knowledge = None
     identify = Identify(path_order=7)        # before the X68000, which takes every other M3U
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
