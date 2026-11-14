@@ -6,7 +6,7 @@
 #include "scanline_sdl.h"
 #include "xbr_sdl.h"
 
-#define RRHK_COMBO_ROWS 2
+#define RRHK_COMBO_ROWS 4     /* Quit, Restart, Quick save, Quick load (1.7.5): game_options.h's table */
 
 extern RrhkUi rrhk;
 
@@ -138,6 +138,9 @@ void rrhk_options_keyboard(const char *machine, int count);
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture);
 bool rrhk_options_quit(int menu);
 bool rrhk_options_restart(int menu);
+void rrhk_options_notice(void);           /* shows why a combination was not taken, once */
+bool rrhk_options_quick_save(int menu);     /* 1.7.5: player 1's pad combination, once per hold */
+bool rrhk_options_quick_load(int menu);
 bool rrhk_options_component(int key, int button);   /* a key or button that belongs to a quit/restart combination being captured or held */
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
@@ -160,7 +163,7 @@ bool rrhk_combo_set(int index, bool gamepad);         /* this combination has ke
 void rrhk_combo_clear(int index, bool gamepad);
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad);
 const char *rrhk_combo_label(int index);
-const char *rrhk_combo_hint(int index);
+const char *rrhk_combo_hint(int index, bool gamepad);
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title);
 const char *rrhk_filter_name(int filter);
 const char *rrhk_display_name(int mode);    /* "Windowed", "Pixel perfect", "Fit to screen", "Stretched" (translated) */   /* the translated name of a picture filter, as the options page shows it */

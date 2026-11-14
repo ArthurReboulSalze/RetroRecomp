@@ -427,7 +427,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         {
             const char *hint = rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
                 rrhk_deadzone_row() ? rr_tr("Enter / A: change") :
-                rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count) :
+                rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count, rrhk.gamepad_page != 0) :
                 rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page");
             rr_menu_hints(ren, ox, oy, unit, 14, hint_y, 228, hint, RR_MENU_HINT);
         }

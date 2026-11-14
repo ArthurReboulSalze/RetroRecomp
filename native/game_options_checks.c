@@ -80,8 +80,8 @@ static int page_key(const RrOptionRows *d, int code) {
 static void chords(void) {
     rr_options_init(L"Fixture");rr_mkdir(rr_options.dir);rr_remove(rr_options.file);
     rr_options_init(L"Fixture");
-    assert(rr_options.pad==(int)RR_OPTIONS_QUIT_PAD && rr_options.rpad==(int)RR_OPTIONS_RESTART_PAD &&
-           !rr_options.key[0] && !rr_options.rkey[0] && !SDL_AtomicGet(&rr_options.audio_mode));
+    assert(rr_options.combo[0].pad==(int)RR_OPTIONS_QUIT_PAD && rr_options.combo[1].pad==(int)RR_OPTIONS_RESTART_PAD &&
+           !rr_options.combo[0].key[0] && !rr_options.combo[1].key[0] && !SDL_AtomicGet(&rr_options.audio_mode));
     rr_ini_set(L"Unrelated",L"keep",L"42",rr_options.file);
     key(SDL_SCANCODE_F10,1);key(SDL_SCANCODE_F10,0);assert(!menu);
     open_options();
@@ -103,28 +103,28 @@ static void chords(void) {
     assert(rr_options.capture==1 && rr_options.armed);
     key(SDL_SCANCODE_LCTRL,1);key(SDL_SCANCODE_Q,1);
     key(SDL_SCANCODE_Q,0);assert(rr_options.capture);
-    key(SDL_SCANCODE_LCTRL,0);assert(!rr_options.capture && rr_options.key[0]==SDL_SCANCODE_LCTRL);
+    key(SDL_SCANCODE_LCTRL,0);assert(!rr_options.capture && rr_options.combo[0].key[0]==SDL_SCANCODE_LCTRL);
     assert(!rr_options_quit(menu));
     key(SDL_SCANCODE_LCTRL,1);key(SDL_SCANCODE_Q,1);
     now_ms=100;assert(!rr_options_quit(menu));now_ms=1099;assert(!rr_options_quit(menu));
     now_ms=1100;assert(rr_options_quit(menu));
     key(SDL_SCANCODE_Q,0);assert(!rr_options_quit(menu));key(SDL_SCANCODE_LCTRL,0);
     rr_options_init(L"Fixture");
-    assert(SDL_AtomicGet(&rr_options.audio_mode)==1 && rr_options.key[1]==SDL_SCANCODE_Q);
+    assert(SDL_AtomicGet(&rr_options.audio_mode)==1 && rr_options.combo[0].key[1]==SDL_SCANCODE_Q);
     assert(rr_ini_int(L"Unrelated",L"keep",0,rr_options.file)==42);
     /* A binding capture must receive function keys and Guide untouched. */
     SDL_Event e;memset(&e,0,sizeof e);e.type=SDL_KEYDOWN;e.key.keysym.scancode=SDL_SCANCODE_F10;
     assert(!rr_options_event(&e,&menu,true));key(SDL_SCANCODE_F10,0);
     button(8,SDL_CONTROLLER_BUTTON_GUIDE,1);button(8,SDL_CONTROLLER_BUTTON_GUIDE,0);
     assert(menu==RR_OPTIONS_MENU);
-    /* Quit with a controller: the gamepad page starts the capture on A. */
+    /* Quit with a controller: the gamepad page starts the capture on A (Back+Y: Start+Back is Restart's, refused). */
     button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(0,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
-    button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_START,1);
-    button(8,SDL_CONTROLLER_BUTTON_BACK,0);button(8,SDL_CONTROLLER_BUTTON_START,0);
-    assert(rr_options.pad==((1<<SDL_CONTROLLER_BUTTON_START)|(1<<SDL_CONTROLLER_BUTTON_BACK)));
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_Y,1);
+    button(8,SDL_CONTROLLER_BUTTON_BACK,0);button(8,SDL_CONTROLLER_BUTTON_Y,0);
+    assert(rr_options.combo[0].pad==((1<<SDL_CONTROLLER_BUTTON_Y)|(1<<SDL_CONTROLLER_BUTTON_BACK)));
     menu=0;assert(!rr_options_quit(menu));
     /* Never combine buttons on different controllers. */
-    button(8,SDL_CONTROLLER_BUTTON_START,1);button(9,SDL_CONTROLLER_BUTTON_BACK,1);
+    button(8,SDL_CONTROLLER_BUTTON_Y,1);button(9,SDL_CONTROLLER_BUTTON_BACK,1);
     now_ms=2000;assert(!rr_options_quit(menu));now_ms=4000;assert(!rr_options_quit(menu));
     button(8,SDL_CONTROLLER_BUTTON_BACK,1);assert(!rr_options_quit(menu));
     now_ms=5000;assert(rr_options_quit(menu));
@@ -132,18 +132,18 @@ static void chords(void) {
     rr_options_event(&e,&menu,false);assert(!rr_options_quit(menu));
     button(9,SDL_CONTROLLER_BUTTON_BACK,0);
     /* Removing the first pad must not duplicate the second pad's tracking. */
-    button(9,SDL_CONTROLLER_BUTTON_START,1);button(9,SDL_CONTROLLER_BUTTON_BACK,1);
+    button(9,SDL_CONTROLLER_BUTTON_Y,1);button(9,SDL_CONTROLLER_BUTTON_BACK,1);
     assert(!rr_options_quit(menu));now_ms=6000;assert(rr_options_quit(menu));
     memset(&e,0,sizeof e);e.type=SDL_WINDOWEVENT;e.window.event=SDL_WINDOWEVENT_FOCUS_LOST;
     rr_options_event(&e,&menu,false);assert(!rr_options_quit(menu));
-    rr_options_init(L"Fixture");assert(rr_options.pad);
+    rr_options_init(L"Fixture");assert(rr_options.combo[0].pad);
     /* A single key or button is a quit binding too, still held one second. */
     key(SDL_SCANCODE_RETURN,1);rr_combo_start(0,false);key(SDL_SCANCODE_RETURN,0);assert(rr_options.capture);
     key(SDL_SCANCODE_END,1);key(SDL_SCANCODE_END,0);
-    assert(!rr_options.capture && rr_options.key[0]==SDL_SCANCODE_END && !rr_options.key[1]);
+    assert(!rr_options.capture && rr_options.combo[0].key[0]==SDL_SCANCODE_END && !rr_options.combo[0].key[1]);
     button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(0,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
     button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
-    assert(!rr_options.capture && rr_options.pad==(1<<SDL_CONTROLLER_BUTTON_BACK));
+    assert(!rr_options.capture && rr_options.combo[0].pad==(1<<SDL_CONTROLLER_BUTTON_BACK));
     now_ms=7000;assert(!rr_options_quit(menu));
     key(SDL_SCANCODE_END,1);assert(!rr_options_quit(menu));
     now_ms=7999;assert(!rr_options_quit(menu));now_ms=8000;assert(rr_options_quit(menu));
@@ -151,9 +151,9 @@ static void chords(void) {
     button(8,SDL_CONTROLLER_BUTTON_BACK,1);now_ms=9000;assert(!rr_options_quit(menu));
     now_ms=10000;assert(rr_options_quit(menu));button(8,SDL_CONTROLLER_BUTTON_BACK,0);
     rr_options_init(L"Fixture");
-    assert(rr_options.key[0]==SDL_SCANCODE_END && rr_options.pad==(1<<SDL_CONTROLLER_BUTTON_BACK));
+    assert(rr_options.combo[0].key[0]==SDL_SCANCODE_END && rr_options.combo[0].pad==(1<<SDL_CONTROLLER_BUTTON_BACK));
     /* Default restart: Start+Select held one second, once per hold. */
-    assert(rr_options.rpad==(int)RR_OPTIONS_RESTART_PAD);
+    assert(rr_options.combo[1].pad==(int)RR_OPTIONS_RESTART_PAD);
     now_ms=20000;button(8,SDL_CONTROLLER_BUTTON_START,1);assert(!rr_options_restart(menu));
     button(8,SDL_CONTROLLER_BUTTON_BACK,1);assert(!rr_options_restart(menu));
     now_ms=20999;assert(!rr_options_restart(menu));now_ms=21000;assert(rr_options_restart(menu));
@@ -164,11 +164,11 @@ static void chords(void) {
     button(8,SDL_CONTROLLER_BUTTON_BACK,0);button(8,SDL_CONTROLLER_BUTTON_START,0);
     /* Restart rows bind like quit rows: a single key, persisted; X clears. */
     key(SDL_SCANCODE_RETURN,1);rr_combo_start(1,false);key(SDL_SCANCODE_RETURN,0);
-    key(SDL_SCANCODE_HOME,1);key(SDL_SCANCODE_HOME,0);assert(rr_options.rkey[0]==SDL_SCANCODE_HOME&&!rr_options.rkey[1]);
-    rr_combo_clear(1,true);assert(!rr_options.rpad);
+    key(SDL_SCANCODE_HOME,1);key(SDL_SCANCODE_HOME,0);assert(rr_options.combo[1].key[0]==SDL_SCANCODE_HOME&&!rr_options.combo[1].key[1]);
+    rr_combo_clear(1,true);assert(!rr_options.combo[1].pad);
     now_ms=30000;assert(!rr_options_restart(menu));key(SDL_SCANCODE_HOME,1);assert(!rr_options_restart(menu));
     now_ms=31000;assert(rr_options_restart(menu));key(SDL_SCANCODE_HOME,0);
-    rr_options_init(L"Fixture");assert(rr_options.rkey[0]==SDL_SCANCODE_HOME&&!rr_options.rpad);
+    rr_options_init(L"Fixture");assert(rr_options.combo[1].key[0]==SDL_SCANCODE_HOME&&!rr_options.combo[1].pad);
     /* Combination rows show the binding, Unassigned or the capture prompt;
      * Escape cancels a capture. */
     char value[80];
@@ -177,6 +177,45 @@ static void chords(void) {
     rr_combo_start(1,true);rr_combo_value(value,sizeof value,1,true);
     assert(rr_options.capture==4 && !strcmp(value,"Press combo, then release"));
     key(SDL_SCANCODE_ESCAPE,1);key(SDL_SCANCODE_ESCAPE,0);assert(!rr_options.capture);
+    /* 1.7.5: Quick save and Quick load. Unassigned by default (a file without their entries, as every earlier one); the keyboard
+     * rows show F8 and F9, which Enter does not change. */
+    assert(!rr_options.combo[RR_COMBO_SAVE].pad && !rr_options.combo[RR_COMBO_LOAD].pad);
+    assert(!rr_combo_set(RR_COMBO_SAVE,true) && rr_combo_set(RR_COMBO_SAVE,false));
+    rr_combo_value(value,sizeof value,RR_COMBO_SAVE,false);assert(!strcmp(value,rr_keyboard_name(SDL_SCANCODE_F8)));
+    rr_combo_value(value,sizeof value,RR_COMBO_LOAD,false);assert(!strcmp(value,rr_keyboard_name(SDL_SCANCODE_F9)));
+    rr_combo_value(value,sizeof value,RR_COMBO_LOAD,true);assert(!strcmp(value,"Unassigned"));
+    rr_combo_start(RR_COMBO_SAVE,false);assert(!rr_options.capture && !strcmp(rr_options.status,"F8 and F9: fixed keys"));
+    rr_combo_clear(RR_COMBO_LOAD,false);assert(rr_combo_set(RR_COMBO_LOAD,false));
+    now_ms=40000;assert(!rr_options_quick_save(menu) && !rr_options_quick_load(menu));
+    /* A gamepad combination equal to another one is refused and says which (Quit is on Back alone here). */
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_SAVE,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    assert(rr_options.capture==6);
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    assert(!rr_options.capture && !rr_options.combo[RR_COMBO_SAVE].pad && !strcmp(rr_options.status,"Already used by Quit"));
+    /* Back+LB saves after half a second, once per hold; Back+RB loads after one second. */
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_SAVE,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,1);
+    button(8,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,0);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    assert(rr_options.combo[RR_COMBO_SAVE].pad==((1<<SDL_CONTROLLER_BUTTON_BACK)|(1<<SDL_CONTROLLER_BUTTON_LEFTSHOULDER)));
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_LOAD,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    assert(rr_options.capture==8);
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,1);
+    button(8,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,0);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    assert(rr_options.combo[RR_COMBO_LOAD].pad==((1<<SDL_CONTROLLER_BUTTON_BACK)|(1<<SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)));
+    now_ms=50000;assert(!rr_options_quick_save(menu));
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,1);assert(!rr_options_quick_save(menu));
+    now_ms=50499;assert(!rr_options_quick_save(menu));now_ms=50500;assert(rr_options_quick_save(menu));
+    now_ms=52000;assert(!rr_options_quick_save(menu) && !rr_options_quick_load(menu));
+    button(8,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,0);assert(!rr_options_quick_save(menu));
+    button(8,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,1);now_ms=52999;assert(!rr_options_quick_load(menu));
+    now_ms=53998;assert(!rr_options_quick_load(menu));now_ms=53999;assert(rr_options_quick_load(menu));
+    now_ms=56000;assert(!rr_options_quick_load(menu));
+    button(8,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,0);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    /* Kept in the file under their own entries; cleared, they stay unassigned. */
+    rr_options_init(L"Fixture");
+    assert(rr_options.combo[RR_COMBO_SAVE].pad==((1<<SDL_CONTROLLER_BUTTON_BACK)|(1<<SDL_CONTROLLER_BUTTON_LEFTSHOULDER)));
+    assert(rr_ini_int(L"Fixture.Options",L"quick_load_pad",0,rr_options.file)==((1<<SDL_CONTROLLER_BUTTON_BACK)|(1<<SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)));
+    rr_combo_clear(RR_COMBO_SAVE,true);rr_options_init(L"Fixture");assert(!rr_options.combo[RR_COMBO_SAVE].pad);
     rr_remove(rr_options.file);
 }
 /* The sound controls of every console (decision D12): volume, mute, the speed hold and the output device, all in the one stage that
@@ -330,15 +369,17 @@ int main(void) {
     rr_option_page_draw(ren,&d,5,6);SDL_RenderPresent(ren);
     assert(SDL_RenderReadPixels(ren,NULL,image->format->format,image->pixels,image->pitch)==0);
     assert(SDL_SaveBMP(image,"options.bmp")==0);
-    /* Squares at x = 243 - 9 * count + 9 * page, y = 14, six units wide:
-     * the current page is the brightest, earlier ones filled, later outlined. */
+    /* 1.7.5: a row with an icon has it at x = 18 and its text from x = 30; a row without (-1) keeps its text at x = 16. The
+     * filter icon's top row is all line (gold); left of it the selected row's box shows. */
     Uint32 *pixel=(Uint32*)image->pixels;int stride=image->pitch/4;
-#define RR_SQUARE(page,dx,dy) (pixel[(14*3+(dy))*stride+(189+9*(page))*3+(dx)]&0xffffff)
-    assert(RR_SQUARE(5,9,9)==0xffde80 && RR_SQUARE(0,9,9)==0xc4a048);
-    rr_option_page_draw(ren,&d,4,6);SDL_RenderPresent(ren);
+#define RR_AT(x,y) (pixel[((y)*3+1)*stride+(x)*3+1]&0xffffff)
+    assert(RR_AT(18,RR_MENU_FIRST_LINE)!=0xefc64f);
+    d.icons[0]=RR_ICON_ROW_FILTER;
+    rr_option_page_draw(ren,&d,5,6);SDL_RenderPresent(ren);
     assert(SDL_RenderReadPixels(ren,NULL,image->format->format,image->pixels,image->pitch)==0);
-    assert(RR_SQUARE(4,9,9)==0xffde80 && RR_SQUARE(5,1,1)==0xc4a048 && RR_SQUARE(5,9,9)!=0xc4a048);
-#undef RR_SQUARE
+    assert(RR_AT(18,RR_MENU_FIRST_LINE)==0xefc64f && RR_AT(26,RR_MENU_FIRST_LINE)==0xefc64f);
+    assert(RR_AT(16,RR_MENU_FIRST_LINE+4)==0x51442a);
+#undef RR_AT
     SDL_FreeSurface(image);
     rr_menu_shutdown();SDL_DestroyRenderer(ren);SDL_DestroyWindow(win);SDL_Quit();
     puts("PASS: byte-exact audio bypass, optional tone filters, persistent single keys/buttons and chords, focus/disconnect and virtual controller.");return 0;

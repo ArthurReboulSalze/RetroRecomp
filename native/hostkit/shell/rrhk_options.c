@@ -47,7 +47,15 @@ void rrhk_options_keyboard(const char *machine, int count) { rr_options_keyboard
 void rrhk_options_observe(const SDL_Event *event) { rr_options_observe(event); }
 bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu) { return rr_options_host_fkey(key, mod, menu); }
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture) {
-    return rr_options_event(event, menu, binding_capture);
+    const bool used = rr_options_event(event, menu, binding_capture);
+    rrhk_options_notice();
+    return used;
+}
+/* 1.7.5: a combination refused (another one has it) or a fixed key: game_options.h says why, the kit shows it. */
+void rrhk_options_notice(void) {
+    if (!rr_options.notice) return;
+    rr_options.notice = 0;
+    rrhk_notice(rr_options.status, 2200);
 }
 bool rrhk_options_component(int key, int button) { return rr_options_component(key, button); }
 /* The gamepad Quit and Restart combinations are held on player 1's pad only, as the F2 capture takes the selected player's:
@@ -70,6 +78,8 @@ static bool player1_only(bool (*check)(int), int menu) {
 }
 bool rrhk_options_quit(int menu) { return player1_only(rr_options_quit, menu); }
 bool rrhk_options_restart(int menu) { return player1_only(rr_options_restart, menu); }
+bool rrhk_options_quick_save(int menu) { return player1_only(rr_options_quick_save, menu); }
+bool rrhk_options_quick_load(int menu) { return player1_only(rr_options_quick_load, menu); }
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate) {
     rr_options_audio(pcm, frames, channels, floating, rate);
 }
@@ -209,21 +219,19 @@ void rrhk_option_page_draw(SDL_Renderer *renderer) {
  * player without a pad waits, and the page says so (rrhk_menu_draw). */
 void rrhk_combo_start(int index, bool gamepad) {
     rr_combo_start(index, gamepad);
+    rrhk_options_notice();
     if (!gamepad) return;
     SDL_GameController *pad = rrhk.pads[rrhk.player];
     rr_options.capture_guard = 1;
     rr_options.capture_from = pad ? SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad)) : -1;
 }
-bool rrhk_combo_capturing_pad(void) { return rr_options.capture == 2 || rr_options.capture == 4; }
+bool rrhk_combo_capturing_pad(void) { return rr_options.capture && rr_options.capture % 2 == 0; }
 bool rrhk_combo_capturing(int index, bool gamepad) { return rr_options.capture == rr_combo_id(index, gamepad); }
-bool rrhk_combo_set(int index, bool gamepad) {
-    if (gamepad) return (index ? rr_options.rpad : rr_options.pad) != 0;
-    return (index ? rr_options.rkey : rr_options.key)[0] != 0;
-}
+bool rrhk_combo_set(int index, bool gamepad) { return rr_combo_set(index, gamepad); }
 void rrhk_combo_clear(int index, bool gamepad) { rr_combo_clear(index, gamepad); }
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_combo_value(out, size, index, gamepad); }
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }
-const char *rrhk_combo_hint(int index) { return rr_combo_hint(index); }
+const char *rrhk_combo_hint(int index, bool gamepad) { return rr_combo_hint(index, gamepad); }
 const char *rrhk_filter_name(int filter) { return rr_option_filter_name(filter); }
 const char *rrhk_display_name(int mode) { return rr_option_mode_name(mode); }
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title) {

@@ -21,6 +21,29 @@ typedef struct { int controls, gun; } RrPages;
  * console, L3+R3 one second to quit. Both can be changed or cleared. */
 #define RR_OPTIONS_RESTART_PAD ((1u << SDL_CONTROLLER_BUTTON_START) | (1u << SDL_CONTROLLER_BUTTON_BACK))
 #define RR_OPTIONS_QUIT_PAD ((1u << SDL_CONTROLLER_BUTTON_LEFTSTICK) | (1u << SDL_CONTROLLER_BUTTON_RIGHTSTICK))
+/* The host's combinations, one table (1.7.5): Quit and Restart (keys or buttons), Quick save and Quick load (buttons only, F8 and
+ * F9 stay their keys; unassigned by default, so that no game saves or loads by accident). Each fires after its hold: Quit while
+ * it is held, the others once per hold. The quick ones' holds are the owner's choice (14 November 2026): a stray save destroys
+ * the one quick slot as surely as a stray load, so both need a hold, and the load the longer one. */
+#define RR_COMBO_ROWS 4
+enum { RR_COMBO_QUIT, RR_COMBO_RESTART, RR_COMBO_SAVE, RR_COMBO_LOAD };
+#define RR_COMBO_SAVE_MS 500
+#define RR_COMBO_LOAD_MS 1000
+typedef struct { int key[3], pad, held, fired; Uint64 hold; } RrCombo;
+static const struct {
+    const wchar_t *keys[3];      /* the keyboard entries; NULL: the row's key is fixed (fixed_key) */
+    const wchar_t *pad;          /* the gamepad entry */
+    unsigned pad_default;        /* a missing gamepad entry; a stored 0 is an explicitly cleared one */
+    SDL_Scancode fixed_key;
+    Uint64 hold_ms;
+    const char *label, *hint;
+} rr_combo_info[RR_COMBO_ROWS] = {
+    {{L"quit_key0", L"quit_key1", L"quit_key2"}, L"quit_pad", RR_OPTIONS_QUIT_PAD, SDL_SCANCODE_UNKNOWN, 1000,
+     "Quit", "Hold quit combo for 1 second"},
+    {{L"restart_key0", L"restart_key1", L"restart_key2"}, L"restart_pad", RR_OPTIONS_RESTART_PAD, SDL_SCANCODE_UNKNOWN, 1000,
+     "Restart", "Hold restart combo for 1 second"},
+    {{NULL, NULL, NULL}, L"quick_save_pad", 0, SDL_SCANCODE_F8, RR_COMBO_SAVE_MS, "Quick save", "Hold quick save combo"},
+    {{NULL, NULL, NULL}, L"quick_load_pad", 0, SDL_SCANCODE_F9, RR_COMBO_LOAD_MS, "Quick load", "Hold quick load combo"}};
 static struct {
     wchar_t file[32768], dir[32768], section[64];
     SDL_atomic_t audio_mode;
@@ -31,7 +54,8 @@ static struct {
      * it changes. The three numbers are read by the audio callback. */
     SDL_atomic_t volume, muted, speed_held, device_serial;
     char device[256];
-    int key[3], pad, row, capture, armed, pending_key[3], count;
+    RrCombo combo[RR_COMBO_ROWS];
+    int row, capture, armed, pending_key[3], count;
     Uint32 pending_pad;
     SDL_JoystickID capture_pad;
     /* When set by the host, a gamepad combination is captured from this pad only (the selected player's, as the
@@ -40,13 +64,11 @@ static struct {
     SDL_JoystickID capture_from;
     Uint8 down[SDL_NUM_SCANCODES];
     struct { SDL_JoystickID id; Uint32 mask; } pads[4];
-    Uint64 hold;
-    int held, suppressed, focused;
-    int rkey[3], rpad, rheld, rfired;
-    Uint64 rhold;
+    int suppressed, focused;
     int fkeys, fkeys_machine;
     char machine[16];
     char status[100];
+    int notice;      /* 1.7.5: the status says why a binding was not taken; the host shows it (the control pages draw no status) */
     SDL_Renderer *renderer;
 } rr_options;
 static RrAudioFilter rr_options_dsp;
@@ -71,8 +93,6 @@ static int rr_options_load_pad(const wchar_t *entry, unsigned fallback) {
     unsigned mask = (unsigned)rr_ini_int(rr_options.section, entry, (int)fallback, rr_options.file);
     return (int)(mask & ((1u << SDL_CONTROLLER_BUTTON_MAX) - 1u));
 }
-static const wchar_t *const rr_options_quit_keys[3] = {L"quit_key0", L"quit_key1", L"quit_key2"};
-static const wchar_t *const rr_options_restart_keys[3] = {L"restart_key0", L"restart_key1", L"restart_key2"};
 
 static void rr_options_init(const wchar_t *console) {
     memset(&rr_options, 0, sizeof rr_options);
@@ -80,7 +100,7 @@ static void rr_options_init(const wchar_t *console) {
     rr_options_audio_epoch = 0;
     SDL_AtomicSet(&rr_options.volume, 100);
     rr_options.focused = 1;
-    rr_options.pad = (int)RR_OPTIONS_QUIT_PAD; rr_options.rpad = (int)RR_OPTIONS_RESTART_PAD;
+    for (int c = 0; c < RR_COMBO_ROWS; ++c) rr_options.combo[c].pad = (int)rr_combo_info[c].pad_default;
     for (int i = 0; i < 4; ++i) rr_options.pads[i].id = -1;
     if (!rr_executable_directory(rr_options.dir, 32600)) return;
     rr_wide_append(rr_options.dir, 32768, RR_SLASH_W L"datas");
@@ -89,10 +109,10 @@ static void rr_options_init(const wchar_t *console) {
     swprintf(rr_options.section, 64, L"%ls.Options", console);
     int mode = rr_ini_int(rr_options.section, L"audio_filter", 0, rr_options.file);
     SDL_AtomicSet(&rr_options.audio_mode, mode >= 0 && mode <= 2 ? mode : 0);
-    rr_options_load_keys(rr_options_quit_keys, rr_options.key);
-    rr_options_load_keys(rr_options_restart_keys, rr_options.rkey);
-    rr_options.pad = rr_options_load_pad(L"quit_pad", RR_OPTIONS_QUIT_PAD);
-    rr_options.rpad = rr_options_load_pad(L"restart_pad", RR_OPTIONS_RESTART_PAD);
+    for (int c = 0; c < RR_COMBO_ROWS; ++c) {
+        if (rr_combo_info[c].keys[0]) rr_options_load_keys(rr_combo_info[c].keys, rr_options.combo[c].key);
+        rr_options.combo[c].pad = rr_options_load_pad(rr_combo_info[c].pad, rr_combo_info[c].pad_default);
+    }
 }
 
 /* Computers with their own function keys F1..F`count` can hand them to the
@@ -228,8 +248,9 @@ static bool rr_options_any_down(void) {
  * over host shortcuts. Restart buttons (Start/Select by default) keep their
  * cartridge and pause roles until the hold completes. */
 static bool rr_options_component(int key, int button) {
-    for (int i = 0; i < 3; ++i) if (key && (rr_options.key[i] == key || rr_options.rkey[i] == key)) return true;
-    return button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX && (rr_options.pad & (1u << button)) != 0;
+    for (int i = 0; i < 3; ++i)
+        if (key && (rr_options.combo[RR_COMBO_QUIT].key[i] == key || rr_options.combo[RR_COMBO_RESTART].key[i] == key)) return true;
+    return button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX && (rr_options.combo[RR_COMBO_QUIT].pad & (1u << button)) != 0;
 }
 
 static void rr_options_observe(const SDL_Event *e) {
@@ -250,7 +271,7 @@ static void rr_options_observe(const SDL_Event *e) {
             }
         }
     } else if (e->type == SDL_CONTROLLERDEVICEREMOVED) {
-        if ((rr_options.capture == 2 || rr_options.capture == 4) && rr_options.capture_pad == e->cdevice.which) rr_options.capture = 0;
+        if (rr_options.capture && rr_options.capture % 2 == 0 && rr_options.capture_pad == e->cdevice.which) rr_options.capture = 0;
         for (int i = 0; i < 4; ++i) if (rr_options.pads[i].id == e->cdevice.which) {
             rr_options.pads[i].id = -1; rr_options.pads[i].mask = 0;
         }
@@ -259,23 +280,42 @@ static void rr_options_observe(const SDL_Event *e) {
         rr_options.focused = 0; rr_options.suppressed = 1;
         memset(rr_options.down, 0, sizeof rr_options.down);
         for (int i = 0; i < 4; ++i) rr_options.pads[i].mask = 0;
-        rr_options.held = rr_options.rheld = 0;
+        for (int c = 0; c < RR_COMBO_ROWS; ++c) rr_options.combo[c].held = 0;
     } else if (e->type == SDL_WINDOWEVENT && e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
         rr_options.focused = 1;
     }
 }
 
-/* Rows 1/2 bind quit (keyboard/controller), rows 3/4 bind restart. */
+/* Capture ids: 2 * index + 1 with the keyboard, + 1 more with a gamepad (quit 1/2, restart 3/4, quick save 5/6, quick load 7/8).
+ * A capture that equals another combination of the same kind is refused and says which: one hold must never do two things. */
+static int rr_combo_used_by(int index, bool gamepad, const int *keys, Uint32 pad) {
+    for (int c = 0; c < RR_COMBO_ROWS; ++c) {
+        if (c == index) continue;
+        if (gamepad) { if (rr_options.combo[c].pad && (Uint32)rr_options.combo[c].pad == pad) return c; continue; }
+        if (!rr_combo_info[c].keys[0] || !rr_options.combo[c].key[0]) continue;
+        int same = 0, mine = 0, theirs = 0;
+        for (int i = 0; i < 3; ++i) {
+            if (keys[i]) ++mine;
+            if (rr_options.combo[c].key[i]) ++theirs;
+            for (int j = 0; j < 3; ++j) if (keys[i] && keys[i] == rr_options.combo[c].key[j]) ++same;
+        }
+        if (same == mine && mine == theirs) return c;
+    }
+    return -1;
+}
 static void rr_options_capture_done(void) {
-    bool restart = rr_options.capture > 2;
-    if ((rr_options.capture == 1 || rr_options.capture == 3) && rr_options.count) {
-        int *keys = restart ? rr_options.rkey : rr_options.key;
+    const int index = (rr_options.capture - 1) / 2;
+    const bool gamepad = rr_options.capture % 2 == 0;
+    RrCombo *combo = &rr_options.combo[index];
+    const int used = rr_combo_used_by(index, gamepad, rr_options.pending_key, rr_options.pending_pad);
+    if ((gamepad ? rr_options.pending_pad != 0 : rr_options.count != 0) && used >= 0) {
+        snprintf(rr_options.status, sizeof rr_options.status, rr_tr("Already used by %s"), rr_tr(rr_combo_info[used].label));
+        rr_options.notice = 1;
+    } else if (!gamepad && rr_options.count) {
         for (int i = 0; i < 3; ++i)
-            if (rr_options_store((restart ? rr_options_restart_keys : rr_options_quit_keys)[i], rr_options.pending_key[i]))
-                keys[i] = rr_options.pending_key[i];
-    } else if ((rr_options.capture == 2 || rr_options.capture == 4) && rr_options.pending_pad) {
-        if (rr_options_store(restart ? L"restart_pad" : L"quit_pad", (int)rr_options.pending_pad))
-            *(restart ? &rr_options.rpad : &rr_options.pad) = (int)rr_options.pending_pad;
+            if (rr_options_store(rr_combo_info[index].keys[i], rr_options.pending_key[i])) combo->key[i] = rr_options.pending_key[i];
+    } else if (gamepad && rr_options.pending_pad) {
+        if (rr_options_store(rr_combo_info[index].pad, (int)rr_options.pending_pad)) combo->pad = (int)rr_options.pending_pad;
     } else snprintf(rr_options.status, sizeof rr_options.status, "%s", rr_tr("Press a control..."));
     rr_options.capture = 0;
     rr_options.suppressed = 1;
@@ -314,37 +354,49 @@ static int rr_pages_step(const SDL_Event *e) {
     return 0;
 }
 
-/* Quit and restart combinations (capture ids 1/2 quit with keyboard or
- * controller, 3/4 restart) sit below player 1's controls: keyboard ones on
- * the keyboard page, controller ones on the gamepad page. */
-#define RR_COMBO_ROWS 2
-static int rr_combo_id(int index, bool gamepad) {return (index ? 3 : 1) + (gamepad ? 1 : 0);}
-static const char *rr_combo_label(int index) {return rr_tr(index ? "Restart" : "Quit");}
+/* The combinations sit below player 1's controls: keyboard ones on the keyboard page, controller ones on the gamepad page. The
+ * quick ones show their fixed key on the keyboard page, which Enter does not change. */
+static int rr_combo_id(int index, bool gamepad) {return 2 * index + 1 + (gamepad ? 1 : 0);}
+static bool rr_combo_fixed(int index, bool gamepad) {return !gamepad && !rr_combo_info[index].keys[0];}
+static const char *rr_combo_label(int index) {return rr_tr(rr_combo_info[index].label);}
 static void rr_combo_start(int index, bool gamepad) {
+    if (rr_combo_fixed(index, gamepad)) {
+        snprintf(rr_options.status, sizeof rr_options.status, "%s", rr_tr("F8 and F9: fixed keys"));
+        rr_options.notice = 1;
+        return;
+    }
     rr_options.capture = rr_combo_id(index, gamepad);
     rr_options.armed = 0; rr_options.count = 0; rr_options.pending_pad = 0; rr_options.capture_guard = 0;
     memset(rr_options.pending_key, 0, sizeof rr_options.pending_key);
     rr_options.status[0] = 0; rr_options.suppressed = 1;
 }
 static void rr_combo_clear(int index, bool gamepad) {
+    RrCombo *combo = &rr_options.combo[index];
+    if (rr_combo_fixed(index, gamepad)) return;
     if (!gamepad) {
-        const wchar_t *const *entries = index ? rr_options_restart_keys : rr_options_quit_keys;
+        const wchar_t *const *entries = rr_combo_info[index].keys;
         if (rr_options_store(entries[0], 0) && rr_options_store(entries[1], 0) && rr_options_store(entries[2], 0))
-            memset(index ? rr_options.rkey : rr_options.key, 0, sizeof rr_options.key);
-    } else if (rr_options_store(index ? L"restart_pad" : L"quit_pad", 0)) *(index ? &rr_options.rpad : &rr_options.pad) = 0;
+            memset(combo->key, 0, sizeof combo->key);
+    } else if (rr_options_store(rr_combo_info[index].pad, 0)) combo->pad = 0;
+}
+/* The combination has keys or buttons (a fixed key counts). */
+static bool rr_combo_set(int index, bool gamepad) {
+    if (rr_combo_fixed(index, gamepad)) return true;
+    return gamepad ? rr_options.combo[index].pad != 0 : rr_options.combo[index].key[0] != 0;
 }
 /* "Ctrl + Q", "Start + Back", "Unassigned" or the capture prompt. */
 static void rr_combo_value(char *out, size_t size, int index, bool gamepad) {
     out[0] = 0;
     if (rr_options.capture == rr_combo_id(index, gamepad)) {snprintf(out, size, "%s", rr_tr("Press combo, then release")); return;}
+    if (rr_combo_fixed(index, gamepad)) {snprintf(out, size, "%s", rr_keyboard_name(rr_combo_info[index].fixed_key)); return;}
     if (!gamepad) {
-        const int *keys = index ? rr_options.rkey : rr_options.key;
+        const int *keys = rr_options.combo[index].key;
         for (int i = 0; i < 3; ++i) if (keys[i]) {
             size_t used = strlen(out);
             snprintf(out + used, size - used, "%s%s", used ? " + " : "", rr_keyboard_name((SDL_Scancode)keys[i]));
         }
     } else {
-        int pad = index ? rr_options.rpad : rr_options.pad;
+        int pad = rr_options.combo[index].pad;
         for (int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; ++i) if (pad & (1 << i)) {
             size_t used = strlen(out);
             snprintf(out + used, size - used, "%s%s", used ? " + " : "", rr_menu_pad_name(i));
@@ -353,9 +405,9 @@ static void rr_combo_value(char *out, size_t size, int index, bool gamepad) {
     if (!out[0]) snprintf(out, size, "%s", rr_tr("Unassigned"));
 }
 /* Hint line for a selected combination row. */
-static const char *rr_combo_hint(int index) {
+static const char *rr_combo_hint(int index, bool gamepad) {
     if (rr_options.capture) return rr_tr("Esc: cancel binding");
-    return rr_tr(index ? "Hold restart combo for 1 second" : "Hold quit combo for 1 second");
+    return rr_tr(rr_combo_fixed(index, gamepad) ? "F8 and F9: fixed keys" : rr_combo_info[index].hint);
 }
 
 /* The options page: the function-key settings, the audio filter and, on
@@ -486,12 +538,12 @@ static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture
             if (!rr_options_any_down()) rr_options.armed = 1;
             return true;
         }
-        if ((rr_options.capture == 1 || rr_options.capture == 3) && key && rr_options.count < 3) {
+        if (rr_options.capture % 2 == 1 && key && rr_options.count < 3) {
             bool found = false;
             for (int i = 0; i < rr_options.count; ++i) if (rr_options.pending_key[i] == key) found = true;
             if (!found) rr_options.pending_key[rr_options.count++] = key;
         }
-        if ((rr_options.capture == 2 || rr_options.capture == 4) && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX
+        if (rr_options.capture % 2 == 0 && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX
             && !(rr_options.capture_guard && e->cbutton.which != rr_options.capture_from)) {
             if (!rr_options.pending_pad) rr_options.capture_pad = e->cbutton.which;
             if (rr_options.capture_pad == e->cbutton.which) rr_options.pending_pad |= 1u << button;
@@ -511,40 +563,46 @@ static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture
          key == SDL_SCANCODE_P || button == SDL_CONTROLLER_BUTTON_GUIDE);
 }
 
+/* Who holds a whole combination now: 1 the keyboard, 2 + n the n-th pad seen, 0 nobody. */
+static int rr_combo_source(const RrCombo *combo) {
+    bool down = combo->key[0] != 0;
+    for (int i = 0; i < 3; ++i) if (combo->key[i] && !rr_options.down[combo->key[i]]) down = false;
+    int source = down ? 1 : 0;
+    for (int i = 0; i < 4; ++i)
+        if (combo->pad && (rr_options.pads[i].mask & (Uint32)combo->pad) == (Uint32)combo->pad) source = i + 2;
+    return source;
+}
+
 static bool rr_options_quit(int menu) {
     (void)menu;
+    RrCombo *quit = &rr_options.combo[RR_COMBO_QUIT];
     if (!rr_options.focused || rr_options.capture || rr_options.suppressed) {
-        rr_options.held = 0;
+        quit->held = 0;
         if (!rr_options_any_down()) rr_options.suppressed = 0;
         return false;
     }
-    bool down = rr_options.key[0] != 0;
-    for (int i = 0; i < 3; ++i) if (rr_options.key[i] && !rr_options.down[rr_options.key[i]]) down = false;
-    int source = down ? 1 : 0;
-    for (int i = 0; i < 4; ++i) if (rr_options.pad &&
-        (rr_options.pads[i].mask & (Uint32)rr_options.pad) == (Uint32)rr_options.pad) source = i + 2;
-    if (!source) {rr_options.held = 0; return false;}
-    if (rr_options.held != source) {rr_options.held = source; rr_options.hold = SDL_GetTicks64();}
-    return SDL_GetTicks64() - rr_options.hold >= 1000;
+    const int source = rr_combo_source(quit);
+    if (!source) {quit->held = 0; return false;}
+    if (quit->held != source) {quit->held = source; quit->hold = SDL_GetTicks64();}
+    return SDL_GetTicks64() - quit->hold >= rr_combo_info[RR_COMBO_QUIT].hold_ms;
 }
 
-/* Restart binding: fires once after a one-second hold of the whole combination,
- * then re-arms only when it is released. Hosts poll it every frame. */
-static bool rr_options_restart(int menu) {
-    (void)menu;
-    if (!rr_options.focused || rr_options.capture) {rr_options.rheld = 0; return false;}
+/* Restart, Quick save, Quick load: each fires once after its hold of the whole combination, then re-arms only when it is
+ * released. Hosts poll them every frame. */
+static bool rr_options_fired(int index) {
+    RrCombo *combo = &rr_options.combo[index];
+    if (!rr_options.focused || rr_options.capture) {combo->held = 0; return false;}
     if (rr_options.suppressed && !rr_options_any_down()) rr_options.suppressed = 0;
-    bool down = rr_options.rkey[0] != 0;
-    for (int i = 0; i < 3; ++i) if (rr_options.rkey[i] && !rr_options.down[rr_options.rkey[i]]) down = false;
-    int source = down ? 1 : 0;
-    for (int i = 0; i < 4; ++i) if (rr_options.rpad &&
-        (rr_options.pads[i].mask & (Uint32)rr_options.rpad) == (Uint32)rr_options.rpad) source = i + 2;
-    if (!source) {rr_options.rheld = 0; return false;}
+    const int source = rr_combo_source(combo);
+    if (!source) {combo->held = 0; return false;}
     /* A combination still held after a binding capture or a menu never fires. */
-    if (rr_options.suppressed) {rr_options.rheld = source; rr_options.rfired = 1; return false;}
-    if (rr_options.rheld != source) {rr_options.rheld = source; rr_options.rhold = SDL_GetTicks64(); rr_options.rfired = 0;}
-    if (rr_options.rfired || SDL_GetTicks64() - rr_options.rhold < 1000) return false;
-    rr_options.rfired = 1;
+    if (rr_options.suppressed) {combo->held = source; combo->fired = 1; return false;}
+    if (combo->held != source) {combo->held = source; combo->hold = SDL_GetTicks64(); combo->fired = 0;}
+    if (combo->fired || SDL_GetTicks64() - combo->hold < rr_combo_info[index].hold_ms) return false;
+    combo->fired = 1;
     return true;
 }
+static bool rr_options_restart(int menu) {(void)menu; return rr_options_fired(RR_COMBO_RESTART);}
+static bool rr_options_quick_save(int menu) {(void)menu; return rr_options_fired(RR_COMBO_SAVE);}
+static bool rr_options_quick_load(int menu) {(void)menu; return rr_options_fired(RR_COMBO_LOAD);}
 #endif
