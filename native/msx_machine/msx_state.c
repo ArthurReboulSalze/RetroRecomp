@@ -303,6 +303,18 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
         rtc_state(m, io);
     /* 9. PSG synth */
     synth_state(m, io);
+    /* 10. MSX-MUSIC (MSX2+) */
+    same(io, m->fm != NULL, 1);
+    if (m->fm && io->ok)
+        m->fm->state(m->fm->chip, io);
+    /* 11. Kanji font addresses (the font itself is the player's file, not in the state) */
+    same(io, m->kanji_size, 4);
+    if (m->kanji && io->ok) {
+        W(m->kanji_address[0], 4, 0x1FFFF);
+        W(m->kanji_address[1], 4, 0x3FFFF);
+        if (io->mode != RR_STATE_WRITE && m->kanji_address[1] < 0x20000)
+            io->ok = false;
+    }
     if (io->ok && io->mode != RR_STATE_WRITE && !consistent(m, ram64))
         io->ok = false;
     return io->ok;

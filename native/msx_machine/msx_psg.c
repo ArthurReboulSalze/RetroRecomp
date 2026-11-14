@@ -27,6 +27,11 @@ static const int level_scale[16] = { 0, 327, 473, 690, 1006, 1492, 2113, 3518, 4
                                      26397, 32767 };
 
 enum { TICK = 16, PSG_WEIGHT = 21000, CLICK_WEIGHT = 15876, SCC_WEIGHT = 21000 };   /* 15876 = 21000 x 0.756 */
+/* MSX-MUSIC, when the machine has it, is added to the other sounds as openMSX adds its devices, at a gain set so that the YM2413
+ * against the PSG has openMSX 22.0's balance on its C-BIOS MSX2+ machine (measured on tools/msx_fm_cart.py: one violin voice and
+ * one PSG tone, each against openMSX's record). The sum is held within the output's range. A machine without it mixes exactly
+ * as before. */
+enum { FM_GAIN = 51200, FM_LIMIT = 40959 };                     /* 40959 x 4 / 5 = 32767 after the headroom */
 #define SAMPLE_STEP ((uint64_t)MSX_CPU_CLOCK * 65536u / MSX_AUDIO_RATE)
 
 void msx_psg_reset(MsxMachine *m)
@@ -65,7 +70,7 @@ static void envelope_tick(MsxPsgSynth *s, uint8_t shape)
     }                                                         /* 8 and 12 repeat the same ramp */
 }
 
-static int one_tick(MsxMachine *m, unsigned tick)
+static int one_tick(MsxMachine *m, unsigned tick, uint64_t now)
 {
     MsxPsgSynth *s = &m->synth;
     const uint8_t *r = m->psg;
@@ -101,6 +106,12 @@ static int one_tick(MsxMachine *m, unsigned tick)
         scc += msx_scc_step(&m->scc[i]->scc, TICK);
     if (m->scc_count)
         scc = scc * 32767 / 600 / m->scc_count; /* five channels at full volume = full scale */
+    if (m->fm) {
+        int fm = m->fm->sample(m->fm->chip, now);
+        int64_t mixed = ((int64_t)sum / 3 * PSG_WEIGHT + (int64_t)click * CLICK_WEIGHT + (int64_t)scc * SCC_WEIGHT
+                         + (int64_t)fm * FM_GAIN) / (PSG_WEIGHT + CLICK_WEIGHT + SCC_WEIGHT);
+        return (int)(mixed > FM_LIMIT ? FM_LIMIT : mixed < -FM_LIMIT ? -FM_LIMIT : mixed);
+    }
     return (int)(((int64_t)sum / 3 * PSG_WEIGHT + (int64_t)click * CLICK_WEIGHT + (int64_t)scc * SCC_WEIGHT)
                  / (PSG_WEIGHT + CLICK_WEIGHT + SCC_WEIGHT));
 }
@@ -121,7 +132,7 @@ void msx_psg_catch_up_to(MsxMachine *m, uint64_t cycle)
     uint64_t now = s->time - s->tick_rest;                   /* the end of the last tick */
     while (now + TICK <= cycle) {
         now += TICK;
-        int value = one_tick(m, ++s->ticks);
+        int value = one_tick(m, ++s->ticks, now);
         s->acc += value;
         ++s->acc_ticks;
         while ((now << 16) >= s->next_sample) {

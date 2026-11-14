@@ -101,6 +101,10 @@ void msx_reset(MsxMachine *m)
     if (m->video == MSX_VIDEO_V9938)
         msx_v9938_reset(m);
     msx_psg_reset(m);
+    if (m->fm)
+        m->fm->reset(m->fm->chip, 0);
+    m->kanji_address[0] = 0;
+    m->kanji_address[1] = 0x20000;
     for (int p = 0; p < 4; ++p)
         for (int s = 0; s < 4; ++s)
             if (m->slot[p][s].kind == MSX_DEV_ROM)
@@ -236,6 +240,51 @@ void msx_set_disk_interface(MsxMachine *m, int primary, const uint8_t *rom, MsxF
     disk.source = 1;                              /* translated as part of the BIOS source */
     disk.bank_base = bank_base;
     msx_set_device(m, primary, 0, disk);
+}
+
+void msx_set_music(MsxMachine *m, const uint8_t *rom, uint8_t bank_base, MsxFm *fm)
+{
+    MsxDevice music;
+    memset(&music, 0, sizeof music);
+    music.kind = MSX_DEV_ROM;
+    music.rom = rom;
+    music.size = 0x4000;
+    music.base = 0x4000;
+    music.source = 1;                             /* translated as part of the BIOS source */
+    music.bank_base = bank_base;
+    msx_set_device(m, 3, 1, music);
+    m->fm = fm;
+    if (fm)
+        fm->reset(fm->chip, m->cycles);
+}
+
+void msx_set_kanji(MsxMachine *m, const uint8_t *rom, uint32_t size)
+{
+    m->kanji = rom && (size == 0x20000 || size == 0x40000) ? rom : NULL;
+    m->kanji_size = m->kanji ? size : 0;
+    m->kanji_address[0] = 0;
+    m->kanji_address[1] = 0x20000;
+}
+
+static uint8_t kanji_in(MsxMachine *m, uint8_t port)
+{
+    if (!(port & 1))
+        return 0xFF;
+    uint32_t *a = &m->kanji_address[(port >> 1) & 1];
+    uint8_t value = m->kanji[*a & (m->kanji_size - 1)];
+    *a = (*a & ~0x1Fu) | ((*a + 1) & 0x1Fu);
+    return value;
+}
+
+static void kanji_out(MsxMachine *m, uint8_t port, uint8_t value)
+{
+    uint32_t v = value & 0x3Fu;
+    switch (port & 3) {
+    case 0: m->kanji_address[0] = (m->kanji_address[0] & 0x1F800u) | (v << 5); break;
+    case 1: m->kanji_address[0] = (m->kanji_address[0] & 0x007E0u) | (v << 11); break;
+    case 2: m->kanji_address[1] = (m->kanji_address[1] & 0x3F800u) | (v << 5); break;
+    default: m->kanji_address[1] = (m->kanji_address[1] & 0x207E0u) | (v << 11); break;
+    }
 }
 
 void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938)
@@ -399,6 +448,8 @@ uint8_t msx_in(MsxMachine *m, uint8_t port)
         return msx_rtc_in(m, port);
     if (port == 0xF4 && m->has_f4)
         return m->port_f4;
+    if (port >= 0xD8 && port <= 0xDB && m->kanji)
+        return kanji_in(m, port);
     switch (port) {
     case 0x98: return vdp_read_data(&m->vdp);
     case 0x99: return vdp_read_status(&m->vdp);
@@ -435,6 +486,15 @@ void msx_out(MsxMachine *m, uint8_t port, uint8_t value)
     }
     if (port == 0xF4 && m->has_f4) {
         m->port_f4 = value;
+        return;
+    }
+    if (port >= 0xD8 && port <= 0xDB && m->kanji) {
+        kanji_out(m, port, value);
+        return;
+    }
+    if ((port == 0x7C || port == 0x7D) && m->fm) {
+        msx_psg_catch_up(m);                      /* the sound up to now first, then the new register */
+        m->fm->write(m->fm->chip, port, value);
         return;
     }
     switch (port) {

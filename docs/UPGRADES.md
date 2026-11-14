@@ -86,6 +86,8 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Game Boy Advance: supported](#game-boy-advance-supported-176) | the Game Boy Advance (`retrorecomp/systems/gba.py`, its status) | none | none |
+| [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
+| [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable](#sony-playstation-the-cpu-state-is-compared-every-interpreted-instruction-is-listed-the-gtes-quick-state-is-fixed-the-memory-card-is-set-aside-when-unusable-176) | the PlayStation | the PlayStation's host stamp | PlayStation states of 1.7.5 refused (another build) |
 
 ## Game Boy Advance: supported (1.7.6)
@@ -101,6 +103,39 @@ and every other machine's stamps equal main's.
 **Existing exports:** the game stamp moves, so an export is converted again in full at its next conversion, from the player's own paths; the Game Boy Advance's exports are private (a game holds code derived from the player's BIOS) and
 there is no frozen legacy stamp for them. The six exports of 14 November 2026 are not converted again for this change. **Quick states:** unchanged (the Game Boy Advance quick state is checked by the game's SHA-256 and the envelope's
 schema, neither of which reads a stamp). **Site limits:** unchanged. **Hot path:** no.
+
+## Path records: one copy for the 68000 computers and the MSX2+ (1.7.6)
+
+**What changes.** `retrorecomp/path_records.py` holds what every machine of the schema 3 tier does with its path records: naming a record
+(`record_digest`), its engine, its comparable paths, whether two records are about the same images, uniting two records, salvaging a received
+one, gathering the three banks for a conversion and the player's library record. The 68000 computers' `MediaKnowledge`
+(`retrorecomp/m68k_media_knowledge.py`) is now a subclass of it and keeps only what its firmware rows add (the union, the rebuild, the
+expansion of its rows); the MSX2+ (below) uses it directly. A pure refactor (commit `eef2e984`): `tests/test_m68k_media_knowledge.py` pins
+every outcome, the X68000's records are byte for byte the same, nothing a conversion does changes.
+
+**Stamps** (`compilation_inputs.role_stamps`, the commit against its parent): **the game stamps of the X68000, the Amiga and the Atari ST**
+(a new group `shares:path_records`, and `m68k_media_knowledge` moved); their host and build stamps and every other machine's stamps are
+unchanged. **Existing exports:** converted again in full at their next conversion, from the player's own paths; the records already in a
+library or a bank keep being read (same format, same engine strings).
+
+## MSX2+: MSX-MUSIC, the kanji font, shared paths (1.7.6)
+
+**What changes.** On the MSX2+: MSX-MUSIC (the YM2413 on emu2413 v1.5.9, MIT; C-BIOS's music ROM by default, your own FM BIOS as an
+option), your own kanji font as an option (128 or 256 KiB, never shipped), and the shared paths of the experimental tier (the RAM windows a
+conversion learned, as offsets in the cartridge or in the disks; Arthur's decision of 14 November 2026). The MSX and the MSX2 get none of
+them: their games link nothing of MSX-MUSIC and their output is unchanged (Aleste as an MSX2 game: the same image and sound hashes as on
+main). [MSX.md](MSX.md#9-the-msx2-msx2plus) has the details and the five measures.
+
+**Stamps** (this branch against main `a87db1fe`, the path-records change included): **the game stamps of the MSX, the MSX2 and the MSX2+**
+(the machine files they share: `msx_machine.c`, `msx_psg.c`, `msx_state.c`, the runners, `msx_conversion.py`, `systems/msx.py`), **the MSX2+
+host stamp** (its option labels); plus the X68000, Amiga and Atari ST game stamps of the change above. Every other stamp is unchanged.
+
+**Disk requests.** A game of several disks gets the next disk when it asks for one, in its routes and in play (the player is told;
+Page Up / Page Down stay the player's); the routes no longer change disks at fixed frames (MSX.md, "Disk requests").
+
+**Existing exports:** MSX, MSX2 and MSX2+ games are converted again in full at their next conversion. **Quick states:** the layout is
+`msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
+misread; cartridge SRAM and the copies of written disks are kept.
 
 ## Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable (1.7.6)
 

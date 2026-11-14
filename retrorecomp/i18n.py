@@ -57,6 +57,8 @@ STRINGS = {
     'msx2_ram_label': ('MSX2: mapper RAM (KiB)', 'MSX2 : RAM du mapper (Kio)'),
     'msx2plus_ram_label': ('MSX2+: mapper RAM (KiB)', 'MSX2+ : RAM du mapper (Kio)'),
     'msx2plus_diskrom_label': ('MSX2+: your own disk ROM (16 KiB, for disks)', 'MSX2+ : ta propre ROM disque (16 Kio, pour les disquettes)'),
+    'msx2plus_fmbios_label': ('MSX2+: your own MSX-MUSIC BIOS (16 KiB, optional)', 'MSX2+ : ton propre BIOS MSX-MUSIC (16 Kio, facultatif)'),
+    'msx2plus_kanji_label': ('MSX2+: your own kanji font ROM (128 or 256 KiB, optional)', 'MSX2+ : ta propre ROM de police kanji (128 ou 256 Kio, facultatif)'),
     'options_n64': ('Nintendo 64', 'Nintendo 64'),
     'options_n64_note': ('Nintendo 64 profile (experimental): cartridge images (.z64, .v64, .n64, any byte order), run on Mupen64Plus-Next with the ParaLLEl RDP renderer (a Vulkan 1.1 graphics card is needed; integrated graphics unverified). The code the conversion sees running becomes guarded native blocks; the rest runs on the core’s interpreter, counted. No 64DD and no Transfer Pak. Analog stick, rumble, the F3 graphics page and F8/F9. The first conversion downloads the pinned machine sources.', 'Profil Nintendo 64 (expérimental) : images de cartouche (.z64, .v64, .n64, quel que soit l’ordre des octets), exécutées sur Mupen64Plus-Next avec le rendu ParaLLEl RDP (une carte graphique Vulkan 1.1 est nécessaire ; graphismes intégrés non vérifiés). Le code que la conversion voit tourner devient des blocs natifs gardés ; le reste tourne sur l’interpréteur du cœur, compté. Pas de 64DD ni de Transfer Pak. Stick analogique, vibration, page graphique F3 et F8/F9. La première conversion télécharge les sources épinglées de la machine.'),
     'favorite_star': ('★','★'),

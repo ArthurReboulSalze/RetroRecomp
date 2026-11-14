@@ -27,6 +27,8 @@ MEMBERS = {
     'cbios_main_msx2_eu.rom': (32768, '625a740ba093e2987acc6c995825724feaba6200b2ecc845820cd8bd5447515a'),
     'cbios_logo_msx2.rom': (16384, 'a6ecf0bee1d1aeae4a2df4ace1d711b8c5883cbed50f7d6c8c524f6b19f03ef4'),
     'cbios_sub.rom': (16384, '95db258195d1dea673b3826a8ef3d4b747f87f93587ae66e137acd2e39c3c0f1'),
+    # MSX-MUSIC (14 Nov 2026): C-BIOS's music ROM, the 16 KiB BIOS with the "APRLOPLL" signature the programs look for.
+    'cbios_music.rom': (16384, '8b4adaea1893d8176f32f64fbb87603663b070ee7c0c3f028d141a37d7ed4bc4'),
     # The MSX2+ (13 Nov 2026): its main ROMs and logo ROM, from the same archive; the sub-ROM is the MSX2's.
     'cbios_main_msx2+.rom': (32768, 'f65adce74b52836f1e2a54d2f7e269859baa688b61c18bafbcf7496adfb440e3'),
     'cbios_main_msx2+_eu.rom': (32768, '594c4067cd80c929930bac40b24987746d906d0fe8ad4005fe4a262160728156'),
@@ -87,6 +89,11 @@ def _fetch_locked(folder: Path, emit) -> None:
             partial = target.with_name(target.name + '.part')
             partial.write_bytes(data)
             partial.replace(target)
+
+
+def music(emit=print) -> bytes:
+    """C-BIOS's MSX-MUSIC BIOS (16 KiB), the default of the MSX2+'s YM2413."""
+    return (fetch(emit) / 'cbios_music.rom').read_bytes()
 
 
 def image(standard: str = 'ntsc', emit=print, model: str = 'msx1') -> bytes:

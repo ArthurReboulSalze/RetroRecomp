@@ -62,7 +62,13 @@ def read_disks(path) -> MsxDisks:
     if any(disk.suffix.casefold() != '.dsk' for disk in disks):
         raise ValueError('An MSX2+ disk set lists .dsk images only.')
     images = tuple(_image(disk) for disk in disks)
-    digests = [hashlib.sha256(image).hexdigest() for image in images]
-    identity = digests[0] if len(digests) == 1 else hashlib.sha256(
-        ('msx-disk-set-v1\0' + '\0'.join(digests)).encode('ascii')).hexdigest()
-    return MsxDisks(path, tuple(disks), images, identity)
+    return MsxDisks(path, tuple(disks), images, disk_set(hashlib.sha256(image).hexdigest() for image in images))
+
+
+def disk_set(digests) -> str:
+    """The identity of a disk set from its disks' SHA-256 in order: the one disk's, or the SHA-256 of them all (the game key of its
+    reports, library and shared paths, msx_knowledge)."""
+    digests = list(digests)
+    if len(digests) == 1:
+        return digests[0]
+    return hashlib.sha256(('msx-disk-set-v1\0' + '\0'.join(digests)).encode('ascii')).hexdigest()

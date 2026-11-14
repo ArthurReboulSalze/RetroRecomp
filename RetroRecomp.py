@@ -38,6 +38,8 @@ _PATH_HELP = {
     'msx2plus_subrom': 'MSX2+: your own MSX2+ sub-ROM (16 KiB, with --msx2plus-bios).',
     'msx2plus_ram': 'MSX2+ memory mapper RAM in KiB.',
     'msx2plus_diskrom': 'MSX2+: your own disk ROM (16 KiB, the Panasonic TC8566AF interface), needed for disk games with --msx2plus-bios and --msx2plus-subrom; never shipped.',
+    'msx2plus_fmbios': 'MSX2+: your own MSX-MUSIC BIOS (16 KiB with the APRLOPLL signature); without it C-BIOS\'s music ROM is used; never shipped.',
+    'msx2plus_kanji': 'MSX2+: your own kanji font ROM (128 KiB JIS level 1, or 256 KiB with level 2) for Japanese games that draw kanji; C-BIOS has none; never shipped.',
 }
 _FLAG_HELP = {
     'convert': {
