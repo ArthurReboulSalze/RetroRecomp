@@ -251,7 +251,7 @@ supported from 1.7.5; it opened as experimental in 1.7.1. The status lives in `r
 this release's other Atari ST changes); the 1.7.5 update handles it as for the PC Engine, the MSX and the Amiga, and the delivered exports are not converted again. The Options note loses "(experimental)" in
 the eight languages (`options_atarist_note`) and the credits no longer list the Atari ST among the experimental machines; nothing else of the converter changes.
 
-**Stamps** (`compilation_inputs.role_stamps`, this branch against `fad05cdd`): **the game stamp of the Atari ST only**; no other machine, no host or build stamp, no quick-state key.
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `6e4d6d1d`): **the game stamp of the Atari ST only** (`b5cfd4de57c4` to `6116a5b0bb28`); no other machine, no host or build stamp, no quick-state key.
 
 ## Atari ST: a key held at F8 and let go before F9 no longer stays down (1.7.5, gate G6)
 
