@@ -96,7 +96,7 @@ void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *info);
 /* Native steps (only in a build with RR_AMIGA_NATIVE) and the observation of executed RAM instructions. */
 int rr_amiga_set_native(RrAmigaSession *s, int enabled);   /* 0: this build has no native steps */
 void rr_amiga_set_observe(RrAmigaSession *s, int enabled);
-int rr_amiga_write_observations(const RrAmigaSession *s, const char *path);   /* lines "pc words" (12 bytes) */
+int rr_amiga_write_observations(const RrAmigaSession *s, const char *path);   /* lines "pc words" (12 bytes; 16 on the A1200) */
 uint64_t rr_amiga_native_count(const RrAmigaSession *s);
 /* Of those, the instructions whose form is translated C; the others are Moira's code specialised. */
 uint64_t rr_amiga_translated_count(const RrAmigaSession *s);

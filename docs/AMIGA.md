@@ -217,3 +217,24 @@ The Amiga is **supported from 1.7.5**. The owner played the six installs of [the
 **Scope of the status.** Amiga 500 games installed for WHDLoad (an `.lha` with a slave), with the player's own Kickstart 1.x for those that ask for one, on the evidence above: a panel of eight installs at the extended level and six played by the owner. Not converted yet: installs that need Kickstart 3.x, ADF disk images, the Amiga 1200 (AGA). Code past the routes runs interpreted, counted and shown; the hardware is vAmiga's (Agnus, Denise, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is claimed.
 
 **Still to deploy with the release:** the site side of the sharing, the limits of the `amiga` machine and the schema 3 validation of its records.
+
+## 7. The Amiga 1200 (`amiga1200`)
+
+**Experimental, in development for 1.7.6** (the owner's go of 14 November 2026). The Amiga 1200 has a profile of its own beside the Amiga 500,
+as the MSX2+ beside the MSX2: the same converter, session, resload layer and host adapter, run with the A1200 model. The Amiga 500 profile is
+not changed by it.
+
+- **The machine.** vAmiga's own A1200 scheme: a 68EC020 with its instruction cache (Moira), the AGA chips (Alice and Lisa), 2 MiB of chip RAM
+  on a 32-bit bus, the A1200 bank map. The slave is told an AGA machine with a 68020 (`resload_Control`: AttnFlags, ChipRevBits), and
+  `resload_SetCACR` and `resload_FlushCache` drive the instruction cache. Gayle, IDE, PCMCIA and the CD32's Akiko are not modelled (vAmiga
+  has none): WHDLoad installs do not need them.
+- **Which installs.** An `.lha` chosen as Amiga 1200, kept in a folder named `amiga1200` (or `a1200`, `aga`), or whose slave asks for a
+  68020 or for AGA (`WHDLF_Req68020`, `WHDLF_ReqAGA`). Any other install stays the Amiga 500's.
+- **Native code.** The 68EC020 instructions seen running become Moira's 68020 code specialised per opcode, with the same one-comparison
+  guard as on the Amiga 500. A 68020 instruction's length depends on its extension words (up to 22 bytes): `retrorecomp/m68020_lengths.py`
+  holds Moira's own table of where they sit, and the conversion checks it against the Moira it builds. The observation window is 16 bytes: a MOVE between two full-extension
+  modes (up to 22 bytes) stays interpreted, counted.
+- **The five measures** stay apart and are not measured yet: no panel has run. Hardware fidelity is not claimed (vAmiga marks its AGA
+  Denise as partly done).
+- **Not yet:** installs that ask for a Kickstart 3.x, Crunch-Mania packed files (`resload_Decrunch`, the Amiga 500's gap too), AGA
+  super-hires shown at full width (the picture keeps one column per hires pixel).

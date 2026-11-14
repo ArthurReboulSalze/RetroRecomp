@@ -297,6 +297,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'pce': (PCENGINERECOMP,),
     # Everything the Amiga's native code comes from is vAmiga's Moira: its handlers, and the instructions' lengths through its disassembler.
     'amiga': (VAMIGA,),
+    'amiga1200': (VAMIGA,),          # the same vAmiga and Moira, run with the A1200 model
     # The Atari ST runs on Hatari; the decoder of m68k-recomp-core will structure its guarded native steps (the bodies are Hatari's
     # own handlers), under Matthew Stan's permission of 6 November 2026 to combine it with GPL code in Retro-Recomp's exports.
     'atarist': (HATARI, EMUTOS, SEGAGENESISRECOMP, M68K_RECOMP_CORE),

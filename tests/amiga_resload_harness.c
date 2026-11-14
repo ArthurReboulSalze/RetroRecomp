@@ -80,7 +80,7 @@ static int save(void *u, const char *name, uint32_t offset, const uint8_t *data,
 static void on_flush(void *u) { (void)u; flushes++; }
 
 static RrResload make(uint16_t version, uint16_t flags) {
-    RrResloadHost host = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, kickstart_cb};
+    RrResloadHost host = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, kickstart_cb, NULL};
     RrResload r;
     rr_resload_init(&r, &host, 0x100000, version, flags);
     return r;
@@ -410,7 +410,7 @@ static void kickstart(void) {
     put32(base + 44, 0);
     CHECK(rr_resload_load_slave_kickstart(&h) == RR_RESLOAD_RETURN && !h.kick_loaded && kick_calls == 0);
     /* a host without a Kickstart refuses */
-    RrResloadHost bare = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, NULL};
+    RrResloadHost bare = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, NULL, NULL};
     RrResload b;
     rr_resload_init(&b, &bare, base, 17, 0);
     b.exp_mem = EXPMEM;
@@ -552,7 +552,7 @@ static void examine_and_list(void) {
     puts_at(0x2000, "nowhere"); regs[0] = 64;
     CHECK(rr_resload_call(&strict, 0x14, regs) == RR_RESLOAD_ABORT && strstr(strict.message, "nowhere"));
     /* a host with no listing: only the data folder exists, and a file is still found by name */
-    RrResloadHost plain = {NULL, rd, wr, lookup, save, NULL, on_flush, NULL, NULL};
+    RrResloadHost plain = {NULL, rd, wr, lookup, save, NULL, on_flush, NULL, NULL, NULL};
     RrResload p;
     rr_resload_init(&p, &plain, 0x100000, 17, 0);
     puts_at(0x2000, "main"); regs[8] = 0x2000; regs[9] = fib;

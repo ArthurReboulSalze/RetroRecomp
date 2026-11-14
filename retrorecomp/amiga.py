@@ -36,6 +36,20 @@ def slave_member(path: Path) -> str | None:
     return slaves[0] if len(slaves) == 1 else None
 
 
+def slave_wants_a1200(path: Path) -> bool:
+    """True when the install's slave asks for a 68020 or for AGA (its WHDLF_Req68020 or WHDLF_ReqAGA flag): it is an Amiga 1200's.
+    A slave that tests the machine itself without either flag is told by the folder or the player's choice instead."""
+    from . import amiga_whdload
+    path = Path(path)
+    try:
+        if path.stat().st_size > MAX_ARCHIVE_BYTES:
+            return False
+        install = amiga_whdload.install(path.read_bytes())
+    except (OSError, ValueError):
+        return False
+    return bool({'Req68020', 'ReqAGA'} & set(install.slave.flag_names))
+
+
 @dataclass(frozen=True)
 class AmigaInput:
     path: Path

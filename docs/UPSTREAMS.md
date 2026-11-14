@@ -43,7 +43,7 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [rages4calm/pcenginerecomp](https://github.com/rages4calm/pcenginerecomp) | pce | `6bb848e` | `6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0` | `pce_conversion.ENGINE_REV` |
 | [mstan/gbarecomp](https://github.com/mstan/gbarecomp) | gba | `c1a5fda` | `c1a5fda36fb41c2fcba6c901692006ac69d50555` | `gba_conversion.ENGINE_REV` |
 | [mstan/arm-recomp-core](https://github.com/mstan/arm-recomp-core) (submodule) | gba | `63dd32d` | `63dd32dd210a8bf18bbd11933393a7b87f9b3bf6` | submodule `external/arm-recomp-core` of gbarecomp |
-| [dirkwhoffmann/vAmiga](https://github.com/dirkwhoffmann/vAmiga) | amiga | `f51a6bf` | `f51a6bf9e4e19387a27a31b149ef298f6f6807f8` | `amiga_vamiga.VAMIGA_REV` |
+| [dirkwhoffmann/vAmiga](https://github.com/dirkwhoffmann/vAmiga) | amiga, amiga1200 | `f51a6bf` | `f51a6bf9e4e19387a27a31b149ef298f6f6807f8` | `amiga_vamiga.VAMIGA_REV` |
 | [hatari/hatari](https://github.com/hatari/hatari) | atarist | `c453b85` | `c453b85f811fc11bed10e19e5e48fe95377e5a23` | `atarist_hatari.HATARI_REV` |
 | [libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx) | n64 | `15bada8` | `15bada85906593376e8fd697f1b0b3af3a20f512` | `n64_core.CORE_REV` |
 | [emutos/emutos](https://github.com/emutos/emutos) | atarist | `978e375` (tag `VERSION_1_4`, release 1.4) | `978e37569bff95841e42675d11fcc6799aad8483` | `atarist_emutos.RELEASE_REV` |

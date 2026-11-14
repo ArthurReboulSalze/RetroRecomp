@@ -217,7 +217,8 @@ static void native_kick_window() {
 // The player's Kickstart into ExpMem, when the slave's request matches it. The image keeps the addresses it was built for (no
 // relocation table): vAmiga's WOM (the A1000's writable ROM, left unlocked) is pointed at the copy, so the window
 // $FC0000-$FFFFFF reads and writes the same bytes as ExpMem, and what the slave patches or writes into the image through either
-// address is what runs. 256 KiB images only (Kickstart 1.x): a 512 KiB image would need the whole $F80000 window writable.
+// address is what runs. A 256 KiB image (Kickstart 1.x) takes $FC0000-$FFFFFF and stays writable there; a 512 KiB one (3.x, the A1200's)
+// takes the whole $F80000 window, read-only there as an A1200's ROM is (the slave patches it through ExpMem).
 // The window over the copy in ExpMem (on), or vAmiga's own ROM mapping (off, around a snapshot).
 static void kick_window(bool on) {
     if (!S->kick_size) return;
@@ -225,12 +226,12 @@ static void kick_window(bool on) {
     uint8_t *copy = on ? host_ram(S->kick_base, S->kick_size) : nullptr;
     mem.wom = copy;
     mem.womMask = copy ? S->kick_size - 1 : 0;
-    mem.womIsLocked = false;
+    mem.womIsLocked = copy && S->kick_size == 0x80000;     // locked: banks $F8-$FF all show the copy (unlocked, $F8-$FB show the boot ROM)
     mem.updateMemSrcTables();
 }
 
 static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t destination) {
-    if (S->kick.size() != size || size != 0x40000) return 0;
+    if (S->kick.size() != size || !(size == 0x40000 || (size == 0x80000 && S->model == RR_AMIGA_MODEL_A1200))) return 0;
     if (!host_ram(destination, size) || (destination & (size - 1)) != 0) return 0;
     for (uint32_t i = 0; i < size; i++) poke(nullptr, destination + i, S->kick[i]);
     if (rr_resload_crc16(&S->rl, destination, size) != crc16) {
@@ -244,10 +245,11 @@ static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t
     return 1;
 }
 
+static uint32_t kick_low() { return 0x1000000u - S->kick_size; }
 static bool in_kickstart(uint32_t pc) {
-    // The window the writable-ROM alias covers ($FC0000-$FFFFFF for a 256 KiB image), or the copy in ExpMem; the authored boot
-    // ROM below the window is not the Kickstart.
-    return S->kick_size && (pc >= 0xFC0000 || (pc >= S->kick_base && pc < S->kick_base + S->kick_size));
+    // The window the writable-ROM alias covers ($FC0000-$FFFFFF for a 256 KiB image, $F80000- for 512 KiB), or the copy in ExpMem; the
+    // authored boot ROM below the window is not the Kickstart.
+    return S->kick_size && (pc >= kick_low() || (pc >= S->kick_base && pc < S->kick_base + S->kick_size));
 }
 
 // A save goes to the game's own folder (and replaces the install's file there on the next start). Below that folder only (a name
@@ -305,9 +307,9 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
     // here stays in the conversion's private work folder, where the image itself is, and only the addresses are remembered.
     if (in_kickstart(pc)) {
         S->kick_interpreted++;
-        if (S->observing && pc >= 0xFC0000) {
-            char hex[25];
-            int length = (int)std::min<uint32_t>(12, 0x1000000u - pc) & ~1;
+        if (S->observing && pc >= kick_low()) {
+            char hex[33];
+            int length = (int)std::min<uint32_t>(S->model == RR_AMIGA_MODEL_A1200 ? 16 : 12, 0x1000000u - pc) & ~1;
             for (int i = 0; i < length; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
             S->kick_observed.insert({pc, hex});
         }
@@ -315,8 +317,11 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
     }
     if (S->recorder && in_ram(pc)) record_window(pc);
     if (S->observing && in_ram(pc)) {
-        char hex[25];
-        for (int i = 0; i < 12; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
+        // 12 bytes hold any 68000 instruction (10 at most). On the A1200, 16 (the bound of every machine's observations) hold every
+        // 68EC020 instruction but a MOVE between two full-extension modes (up to 22 bytes), which stays interpreted and counted.
+        char hex[33];
+        int window = S->model == RR_AMIGA_MODEL_A1200 ? 16 : 12;
+        for (int i = 0; i < window; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
         S->observed.insert({pc, hex});
     }
     return false;
@@ -446,7 +451,7 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     // A v16+ slave that names a Kickstart in its header gets it at the start of ExpMem before ws_GameLoader, as WHDLoad does
     // (resload_LoadKick serves the older slaves at run time). Kickstart 1.x only for now.
     S->rl.exp_mem = exp_base;
-    if (version >= 16 && peek32(slave_area + 44) == 0x80000)
+    if (version >= 16 && peek32(slave_area + 44) == 0x80000 && S->model != RR_AMIGA_MODEL_A1200)
         return fail(error, error_size, "This install needs a 512 KiB Kickstart (3.x); only 256 KiB Kickstarts (1.x) are supported yet.");
     if (rr_resload_load_slave_kickstart(&S->rl) != RR_RESLOAD_RETURN)
         return fail(error, error_size, std::string("Kickstart: ") + S->rl.message);
@@ -760,8 +765,6 @@ extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *i
 
 extern "C" int rr_amiga_set_native(RrAmigaSession *s, int enabled) {
 #ifdef RR_AMIGA_NATIVE
-    // The native steps are the 68000's (amiga_codegen.CORE); an A1200 runs on the interpreter until the 68EC020's are generated.
-    if (enabled && s->model != RR_AMIGA_MODEL_A500) return 0;
     s->native = enabled != 0; update_hook(); return 1;
 #else
     (void)s; return !enabled;

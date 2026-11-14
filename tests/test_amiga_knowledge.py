@@ -240,7 +240,7 @@ class ConversionTests(unittest.TestCase):
         self.assertEqual(kick, {0xFC0100, 0xFC0104})
         self.assertEqual(info['imported'], 6)
         # A row the generator cannot take (outside the Amiga's apertures) fails the conversion: the batch converts again without it.
-        with patch.object(amiga_knowledge, 'shared_rows', return_value=([(0xA00000, NOP.hex())], {'imported': 1})):
+        with patch.object(amiga_knowledge.KNOWLEDGE, 'shared_rows', return_value=([(0xA00000, NOP.hex())], {'imported': 1})):
             with self.assertRaises(Exception):
                 amiga_conversion.shared_hints(self.source, install(), None)
 
