@@ -170,9 +170,47 @@ differ on all 400 frames, their number per frame on 35 to 115 of them, by under 
 rate held, with one stall of up to about 100 ms at a change of resolution. Ocarina of Time's SRAM: a file created in one process is
 found by a fresh process, and reading it leaves the file as it was. EEPROM, Flash and the controller paks were not exercised.
 
+**F-Zero X: what the owner saw, an open item (14 November 2026).** The owner played F-Zero X (PAL) and accepted it for the experimental version, seeing a vibration on
+the objects and an odd level of detail on the vehicles. He played at the 4x internal resolution with super-sampled read-back on and Weave deinterlacing. Measured from one
+race state over 300 frames (Windows, Standard conversion, main route 95.5 % native): at 4x the CPU, RDRAM and sound are identical to 1x on every frame, only the picture
+differs; with super-sampled read-back the RDRAM differs too (the framebuffer written back) while the CPU and sound stay identical; the native game equals the cached and pure
+interpreters; every frame is a new picture (50 a second) and the HUD does not move. So the vehicles' motion and the choice of their models are the game's as Mupen64Plus runs
+it, not the native blocks' and not the graphics settings'; their fidelity to a console is not measured. Two causes remain, not yet told apart: the host's pacing (the
+picture is presented with vsync while the 50 Hz game keeps its own clock, so on a 60 or 144 Hz screen some pictures stay one refresh longer, a regular judder shared by
+every PAL game), or the game's own effects (machines that shake at speed, rivals drawn with fewer polygons at a distance). The owner's description and his screen's refresh
+rate will decide.
+
+### What "met" means for the Nintendo 64 (the target for leaving the experimental status, 14 November 2026)
+
+The Nintendo 64 runs on a complete emulator core ([ARCHITECTURE.md](ARCHITECTURE.md#machines-that-run-on-an-emulator-core)), like the Amiga, the Atari ST and the
+PlayStation, so its gates are read the way the Amiga's and the Atari ST's were when they left the experimental status: only the VR4300 is the CPU whose code becomes
+native. The RSP (its microcode on ParaLLEl-RSP's own recompiler) and the RDP (on the graphics card) are the core's: they are named as emulated and never counted as native
+code. A gate is met on the panel of exact cartridges converted from an empty library, not on a game chosen afterwards. Today the column reads `P` on G3 and G4 and `?` on G10.
+
+- **G3, native code.** Met when, on every route of every panel game, each VR4300 instruction that ran on the interpreter is listed where it ran (address, word, count and
+  its class) and the listed counts add up to the route's interpreted total, as on the Atari ST. The classes known today: the boot code (IPL3 and what it runs before the game
+  reaches KSEG0), code outside KSEG0 (uncached KSEG1 or TLB-mapped), entries in the middle of a straight run (after an exception return), guard misses (an overlay changed
+  under a block) and code the reference never reached. A class that a block can cover is brought to 0 on the panel's routes, or left with its reason written; nothing stays
+  unexplained. Zero interpreted instructions is not required, and a native share alone never meets G3. Today: 3.3 to 5.8 % of the instructions are interpreted on a route,
+  given as totals only, not listed.
+- **G4, CPU fidelity.** Met when, on every route of every panel game, the native game equals a fresh run of the same core with the VR4300 on its pure interpreter, frame by
+  frame (picture, sound, RDRAM, CPU registers), and native plus interpreted instructions equal the reference's count but the instruction in flight at the frame's end. That
+  holds today on the routes of three games; met needs the whole panel, the long play routes included. The reference is Mupen64Plus's own interpreter: G4 says the native
+  blocks agree with the core, not that the core agrees with a VR4300 (that is G10).
+- **G10, independent CPU evidence.** No per-instruction VR4300 vectors (SingleStepTests style) were found in the study of 5 November 2026. The Amiga and the Atari ST,
+  both on an emulator core, left the experimental status with G10 `P`, as the X68000 did before them, each `P` naming what is shown and what is not. For the Nintendo 64, `P` means: open CPU test programs (krom's, Unlicense; nemu64-tests, MIT) converted like games, each test's own pass or fail reading recorded, the
+  native blocks equal to the interpreter on them, and every failing test named with its reason. `Y` would need vectors from an independent model (ares's VR4300, ISC, is the
+  candidate) run through the native blocks and the interpreter; it is not part of the 1.7.6 target.
+
+The other gates keep their common meaning, with what the Nintendo 64 adds: G7 needs each save kind of the panel (EEPROM 4 and 16 Kbit, SRAM, Flash, the controller pak)
+found again by a fresh process without F8 or F9; G9 needs a route that reaches play on every panel game; G11 stays `P`, as on every machine; G14 is the owner's play test of
+the panel. None of the gates measures hardware fidelity, gameplay coverage or latency, and none of them is claimed.
+
 ## 7. Known limits
 
 - A game whose code moves under the TLB keeps that code on the interpreter.
+- F-Zero X: a vibration on the objects and an odd level of detail on the vehicles, seen by the owner, cause not settled (section 6); neither the native blocks nor
+  the graphics settings change what the game computes.
 - Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
 - A quick state is refused by another build of the same game. A resumed game's sound samples differ from the unbroken run (section 6). At an internal resolution above 1x the upscaled
   coverage is not in the state, and only the default resolution is checked.
