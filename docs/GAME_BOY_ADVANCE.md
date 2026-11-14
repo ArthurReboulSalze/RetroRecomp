@@ -1,16 +1,15 @@
-# Game Boy Advance (experimental, opening in 1.7.0)
+# Game Boy Advance (supported since 1.7.6, open as experimental in 1.7.0)
 
-Status: **experimental**. The converter turns a `.gba` cartridge (or a ZIP holding exactly one) into a standalone Windows game (a Linux one on a Debian 13 PC, see the
+Status: **supported** (since 1.7.6, on the owner's decision of 14 November 2026: [the exit record](#the-exit-from-the-experimental-status-14-november-2026-supported-from-176); it opened as experimental in 1.7.0). The converter turns a `.gba` cartridge (or a ZIP holding exactly one) into a standalone Windows game (a Linux one on a Debian 13 PC, see the
 witness below) with your own BIOS: native code from what the game was seen to run, a counted interpreter for the rest, saves, quick states and the host kit's menus. The
 machine is listed by an installation that carries its native files (`GAME_BOY_ADVANCE.available()`), like the PC Engine; there is no
-developer switch. Experimental means what it means for the other machines: the evidence below is a first panel, not a qualification, and
-leaving the status is the owner's own decision.
+developer switch. The sections below keep their dates: those written before 14 November 2026 speak of the experimental status, which is the one the machine had then.
 
 The five measures stay separate here as everywhere: **native code** (how much of the game runs as generated code, with the
 interpreter fallback counted per CPU), **CPU fidelity**, **hardware fidelity**, **gameplay validation** and **physical latency**.
 The comparisons below are against the engine's own interpreter, not against hardware or an independent emulator, and "exact" and
 "zero latency" are never written without proof. The owner played the delivered exports on 5 and 6 November 2026 and wrote that they work
-perfectly; that is a play trial of those files, recorded in [QUALIFICATION.md](QUALIFICATION.md), not a decision to leave the experimental status.
+perfectly; that was a play trial of those files, recorded in [QUALIFICATION.md](QUALIFICATION.md), not yet a decision to leave the experimental status; the decision came on 14 November 2026 (below).
 
 ## Scope of the first profile
 
@@ -576,9 +575,38 @@ Gameplay beyond the first minutes of twelve cartridges, the SRAM family's save, 
 external emulator was compared), the sound itself (counts and hashes, not listening) and physical latency (not measured; `tools/gba_frame_cost.py` is ready and waits for a quiet PC).
 
 
+## The exit from the experimental status (14 November 2026, supported from 1.7.6)
+
+**The decision.** The owner played the six exports of the checklist (Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald, delivered to
+`Export\Games\Game Boy Advance`, converted from the final tree of `spec/gba-175` from an empty library, online covers on) and wrote: « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. » Asked "Je sors la GBA de l'expérimental pour la 1.7.6 ?",
+he answered « Oui, sors-la ». The Game Boy Advance is therefore **supported from 1.7.6**: the release 1.7.5 was frozen on what was ready that morning, and this machine leaves with the next one. Gate G14 is `Y`
+(the owner-acceptance table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); the matrix stands at 13 `Y` and 3 `P` (G10, G11 and G16), 91 %.
+
+**What "supported" covers.** A `.gba` cartridge (or a ZIP holding exactly one) converted with the player's own BIOS, for one player, to a Windows executable (and a Linux one, witnessed on a Debian 13 PC on four
+cartridges and on the Golden Sun of the final tree): the ARM7TDMI as generated code from what the game was seen to run, the engine's interpreter, counted and reported, for the rest; the four save chips
+(SRAM, Flash 64 KB, Flash 128 KB, EEPROM) and the real-time clock; quick states in the shared checksum envelope; the host kit's menus. The proof it rests on is the section below
+(*what 1.7.5 adds*): twelve cartridges converted from an empty library to the same picture, cycle count, memory, CPU and sound as the engine's interpreter on two scenarios of 600 and 3,600 frames, the delivered file equal to
+the player as built, eight authored routes of 4,200 to 12,000 frames read picture by picture and equal on Debian, and the owner's play of the six exports above.
+
+**What it does not say.** The five measures stay separate and none of the open ones is closed by the exit:
+
+* **native code:** the engine does not count the instructions it runs as native code, so the report shows the interpreted ones only (`native` stays unset); 0 interpreted at the end of every panel conversion, three
+  authored routes run millions of interpreted instructions on code the two scenarios never reach, counted;
+* **CPU fidelity:** native against the engine's own interpreter, not an independent oracle; the independent vectors agree on 94 % of the interpreter's, the rest being coprocessor, unpredictable and modelling classes (G10 `P`);
+* **hardware fidelity:** authored hardware tests only, no external emulator comparison (G11 `P`); the picture and sound units are the engine's C models;
+* **gameplay validation:** the first minutes and long runs of four cartridges, the owner's play of six games; **no level won**, no boss, no complete game, and not the pseudo-random 18,000-frame level of the other machines;
+* **physical latency:** not measured (`tools/gba_frame_cost.py` has made no quiet-PC pass); nothing here says zero latency.
+
+Also out of scope, as before: link cable, wireless adapter, multiboot, e-Reader, the Game Boy Player, the cartridge sensors (tilt, gyroscope, solar), saves written by real hardware. A converted game still holds code
+derived from the player's own BIOS and stays private to that player; supported does not change that. The shared paths stay in the experimental tier of the base (`EXPERIMENTAL_SHARED`, G16 `P`), the site's limits do not move.
+
+**What changed in the code.** `retrorecomp/systems/gba.py` (status `supported`), the report's `status` (read from the profile), the Options note in the eight languages (no "experimental"), the credits (the machine is no longer listed among the
+experimental ones) and five tests; nothing a conversion does. The Game Boy Advance **game** stamp moves once more (`e6e3909337ce` on `spec/gba-175` to `c336150515fd`; the status is a game input); the host and build stamps and every other machine's
+are unchanged ([UPGRADES.md](UPGRADES.md)). The six exports of the checklist predate the flip and are not converted again for it.
+
 ## Leaving the experimental status: what 1.7.5 adds (14 November 2026)
 
-The maintainer asked for the Game Boy Advance to be prepared to leave `experimental` in 1.7.5. The status is **not** changed here: the flip and gate G14 are his alone. This section is
+The maintainer asked for the Game Boy Advance to be prepared to leave `experimental` in 1.7.5. The status was **not** changed by this work: the flip and gate G14 were his alone, and he took them the same evening (the exit record above). This section is
 the evidence of the tree of `spec/gba-175`, gate by gate, with what each one does not show. The panel is the four cartridges of 13 November (Golden Sun, Mario Kart Super Circuit,
 The Minish Cap, Crazy Taxi), converted again on this tree with F-Zero: Maximum Velocity and Pokémon Emerald as extra evidence (the maintainer's rule: a panel of four to eight).
 Every conversion started from an **empty** scratch library, with online covers on, two at a time, on a Windows PC in use for other work (the times are not a benchmark).

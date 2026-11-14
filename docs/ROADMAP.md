@@ -24,7 +24,7 @@ fallback stays counted and shown wherever it is used.
 | Sharp X68000 | supported | MAME sound and colours on more games; deeper disk-change and save evidence |
 | Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
 | PC Engine / TurboGrafx-16 | supported (since 1.7.2) | the window and Linux proof of the player's own record (in 1.7.3), more HuCards |
-| Game Boy Advance | experimental (since 1.7.0) | covers on the next deliveries, the LDM/STM vectors, an independent emulator comparison |
+| Game Boy Advance | supported (since 1.7.6; experimental from 1.7.0) | a level won on a panel game, the LDM/STM vectors, an independent emulator comparison (G10, G11), the quiet-PC cost of a frame, the cartridge sensors |
 | Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
 | Atari ST | supported (since 1.7.5; shares its paths since 1.7.5) | the Linux half of the sharing, more games played, the Linux play, the STE |
 | Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
@@ -127,10 +127,10 @@ conversion. SuperGrafx and CD-ROM² are separate later studies.
 
 ### Game Boy Advance
 
-Experimental since 1.7.0 ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)): `.gba` cartridges with your own BIOS, native code from what each
+Supported since 1.7.6, on the owner's decision of 14 November 2026 (open as experimental in 1.7.0; [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)): `.gba` cartridges with your own BIOS, native code from what each
 game was seen to run, the rest interpreted and counted, cartridge saves. Next: the Linux witness, the box-art covers on a first
 conversion, the cartridge sensors (tilt, gyroscope, solar) as host inputs, a comparison with an independent emulator (today the agreement is with the engine's own
-interpreter) and the owner's decision, which alone ends the experimental status.
+interpreter) and the cost of a frame on a quiet PC.
 
 ### Commodore Amiga 500
 

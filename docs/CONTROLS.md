@@ -129,7 +129,7 @@ and the two shoulder buttons). Most games pause on Run, so the first press of a 
 F6 autofire and the F2 pages work as on the other machines. The multitap takes five players on a real console; a converted
 game is built for two today and the fifth multitap player is never offered.
 
-### Game Boy Advance (experimental)
+### Game Boy Advance
 
 One player, ten buttons. Arrows move; **X** is A, **W** is B, **A** is L, **S** is R, **Enter** is Start and **Shift** is Select. On a controller,
 B is A, A is B, the shoulder buttons are L and R, Start is Start and Back is Select, and the D-pad moves. Every key can be changed in F2

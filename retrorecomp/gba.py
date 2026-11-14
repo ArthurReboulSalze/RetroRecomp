@@ -1,4 +1,4 @@
-"""Game Boy Advance cartridge reader (experimental profile: see docs/GAME_BOY_ADVANCE.md).
+"""Game Boy Advance cartridge reader (supported profile: see docs/GAME_BOY_ADVANCE.md).
 
 Identification only: the header is checked, the cartridge is hashed and the save chip named from the library
 identification strings the Nintendo SDK links into a game ("SRAM_V", "FLASH1M_V", "EEPROM_V"...). Nothing is

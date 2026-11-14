@@ -79,6 +79,28 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.5 in 1.7.6
+
+1.7.6 is the release after 1.7.5 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Game Boy Advance: supported](#game-boy-advance-supported-176) | the Game Boy Advance (`retrorecomp/systems/gba.py`, its status) | none | none |
+
+## Game Boy Advance: supported (1.7.6)
+
+**Status.** The Game Boy Advance is supported from 1.7.6, on the owner's decision of 14 November 2026 after his play test of six cartridges (G14, the owner-acceptance table of
+[QUALIFICATION.md](QUALIFICATION.md#owner-acceptance); [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-exit-from-the-experimental-status-14-november-2026-supported-from-176)). The profile's status is `supported`,
+the conversion report's `status` is read from the profile, the Options note loses "experimental" in the eight languages and the credits no longer list the machine among the experimental ones. Nothing a conversion does changes.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against `spec/gba-175`, then against main `fe5ef2c3`): **the Game Boy Advance game stamp only**. Against `spec/gba-175` the status alone moves it (`e6e3909337ce` to `c336150515fd`;
+`retrorecomp/systems/gba.py` and the docstring of `retrorecomp/gba.py` are among its inputs); against main, where the 1.7.5 changes of that branch are not yet merged, it is `f65705900b6a` to `c336150515fd`. The Game Boy Advance host and build stamps (`3f8e2ffea164`, `6b70933a9b0a`)
+and every other machine's stamps equal main's.
+
+**Existing exports:** the game stamp moves, so an export is converted again in full at its next conversion, from the player's own paths; the Game Boy Advance's exports are private (a game holds code derived from the player's BIOS) and
+there is no frozen legacy stamp for them. The six exports of 14 November 2026 are not converted again for this change. **Quick states:** unchanged (the Game Boy Advance quick state is checked by the game's SHA-256 and the envelope's
+schema, neither of which reads a stamp). **Site limits:** unchanged. **Hot path:** no.
+
 ## Exports of 1.7.4 in 1.7.5
 
 1.7.5 is the release after 1.7.4 (published on 14 November 2026). This section is the index of its changes, one line per section below, with the
