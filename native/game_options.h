@@ -25,6 +25,15 @@ typedef struct { int controls, gun; } RrPages;
  * F9 stay their keys; unassigned by default, so that no game saves or loads by accident). Each fires after its hold: Quit while
  * it is held, the others once per hold. The quick ones' holds are the owner's choice (14 November 2026): a stray save destroys
  * the one quick slot as surely as a stray load, so both need a hold, and the load the longer one. */
+/* A trigger read as a button (L2, R2), the one reading of the kit: pressed past the stick threshold of decision D1, released
+ * only under half of it, so that a half-pulled trigger does not flicker (1.7.5). In a combination mask the two triggers are
+ * bits 24 and 25, past SDL's buttons; these numbers are kept in the preferences and never change. */
+#define RR_TRIGGER_PRESS 16000
+#define RR_TRIGGER_RELEASE 8000
+static inline bool rr_trigger_step(bool down, int value) {return down ? value >= RR_TRIGGER_RELEASE : value > RR_TRIGGER_PRESS;}
+#define RR_PAD_L2 (1u << 24)
+#define RR_PAD_R2 (1u << 25)
+#define RR_PAD_MASK (((1u << SDL_CONTROLLER_BUTTON_MAX) - 1u) | RR_PAD_L2 | RR_PAD_R2)
 #define RR_COMBO_ROWS 4
 enum { RR_COMBO_QUIT, RR_COMBO_RESTART, RR_COMBO_SAVE, RR_COMBO_LOAD };
 #define RR_COMBO_SAVE_MS 500
@@ -56,7 +65,7 @@ static struct {
     char device[256];
     RrCombo combo[RR_COMBO_ROWS];
     int row, capture, armed, pending_key[3], count;
-    Uint32 pending_pad;
+    Uint32 pending_pad, trigger_press;     /* trigger_press: the trigger bit the event being observed has just pressed */
     SDL_JoystickID capture_pad;
     /* When set by the host, a gamepad combination is captured from this pad only (the selected player's, as the
      * button bindings are: docs/HOST_KIT.md, divergence 3); rr_combo_start clears it, so other hosts take any pad. */
@@ -91,7 +100,7 @@ static void rr_options_load_keys(const wchar_t *const entries[3], int out[3]) {
 /* A stored 0 is an explicitly cleared binding; a missing entry is the default. */
 static int rr_options_load_pad(const wchar_t *entry, unsigned fallback) {
     unsigned mask = (unsigned)rr_ini_int(rr_options.section, entry, (int)fallback, rr_options.file);
-    return (int)(mask & ((1u << SDL_CONTROLLER_BUTTON_MAX) - 1u));
+    return (int)(mask & RR_PAD_MASK);
 }
 
 static void rr_options_init(const wchar_t *console) {
@@ -270,6 +279,19 @@ static void rr_options_observe(const SDL_Event *e) {
                 else rr_options.pads[i].mask &= ~bit;
             }
         }
+    } else if (e->type == SDL_CONTROLLERAXISMOTION &&
+               (e->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || e->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
+        /* L2 and R2 held like buttons of the pad that sent them (the one reading: rr_trigger_step) */
+        int index = -1;
+        for (int i = 0; i < 4; ++i) if (rr_options.pads[i].id == e->caxis.which) index = i;
+        if (index < 0) for (int i = 0; i < 4; ++i) if (rr_options.pads[i].id < 0) {index = i; break;}
+        if (index >= 0) {
+            const Uint32 bit = e->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT ? RR_PAD_L2 : RR_PAD_R2;
+            const bool was = (rr_options.pads[index].mask & bit) != 0, down = rr_trigger_step(was, e->caxis.value);
+            rr_options.pads[index].id = e->caxis.which;
+            if (down) rr_options.pads[index].mask |= bit; else rr_options.pads[index].mask &= ~bit;
+            if (down && !was) rr_options.trigger_press = bit;
+        }
     } else if (e->type == SDL_CONTROLLERDEVICEREMOVED) {
         if (rr_options.capture && rr_options.capture % 2 == 0 && rr_options.capture_pad == e->cdevice.which) rr_options.capture = 0;
         for (int i = 0; i < 4; ++i) if (rr_options.pads[i].id == e->cdevice.which) {
@@ -401,6 +423,10 @@ static void rr_combo_value(char *out, size_t size, int index, bool gamepad) {
             size_t used = strlen(out);
             snprintf(out + used, size - used, "%s%s", used ? " + " : "", rr_menu_pad_name(i));
         }
+        for (int t = 0; t < 2; ++t) if ((Uint32)pad & (t ? RR_PAD_R2 : RR_PAD_L2)) {      /* the triggers, as printed on a pad */
+            size_t used = strlen(out);
+            snprintf(out + used, size - used, "%s%s", used ? " + " : "", t ? "R2" : "L2");
+        }
     }
     if (!out[0]) snprintf(out, size, "%s", rr_tr("Unassigned"));
 }
@@ -527,6 +553,7 @@ static void rr_option_page_draw(SDL_Renderer *r, const RrOptionRows *d, int page
  * restart capture takes every event; an existing binding capture has
  * priority. Guide opens F2 on its options page and closes F2. */
 static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture) {
+    rr_options.trigger_press = 0;
     rr_options_observe(e);
     if (binding_capture) rr_options.suppressed = 1;
     if (e->type == SDL_QUIT) return false;
@@ -543,10 +570,12 @@ static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture
             for (int i = 0; i < rr_options.count; ++i) if (rr_options.pending_key[i] == key) found = true;
             if (!found) rr_options.pending_key[rr_options.count++] = key;
         }
-        if (rr_options.capture % 2 == 0 && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX
-            && !(rr_options.capture_guard && e->cbutton.which != rr_options.capture_from)) {
-            if (!rr_options.pending_pad) rr_options.capture_pad = e->cbutton.which;
-            if (rr_options.capture_pad == e->cbutton.which) rr_options.pending_pad |= 1u << button;
+        /* a button, or a trigger pulled past the threshold (L2, R2) */
+        const Uint32 pressed = button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX ? 1u << button : rr_options.trigger_press;
+        const SDL_JoystickID from = e->type == SDL_CONTROLLERAXISMOTION ? e->caxis.which : e->cbutton.which;
+        if (rr_options.capture % 2 == 0 && pressed && !(rr_options.capture_guard && from != rr_options.capture_from)) {
+            if (!rr_options.pending_pad) rr_options.capture_pad = from;
+            if (rr_options.capture_pad == from) rr_options.pending_pad |= pressed;
         }
         if ((rr_options.count || rr_options.pending_pad) && !rr_options_any_down()) rr_options_capture_done();
         return true;

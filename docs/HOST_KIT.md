@@ -430,7 +430,9 @@ X68000 too, without asking again**.
   rather than drawn past its box.
 * <a id="d21"></a>**D21 — Quick save and Quick load on the gamepad** (owner's request of 14 November 2026, 1.7.5), on every
   machine with quick states. Player 1's pages get two more combinations after Quit and Restart: on the gamepad page they are
-  bound like Quit (one button or several, Delete clears), **unassigned by default** so that no existing game saves or loads by
+  bound like Quit (one button or several, Delete clears; L2 and R2 count as buttons, alone or in a combination, in every host
+  combination: a trigger is pressed past the stick threshold of D1 and released under half of it, the kit's one trigger
+  reading, `rr_trigger_step`; a trigger in a host combination is no longer a speed control), **unassigned by default** so that no existing game saves or loads by
   accident; on the keyboard page they show F8 and F9, which stay the keys and cannot be changed there. In play, a quick
   combination held **0.5 s saves** and held **1 s loads** (the owner's durations, one constant each: `RR_COMBO_SAVE_MS`,
   `RR_COMBO_LOAD_MS`), once per hold, through the same request and the same notices as F8 and F9; in a menu it does nothing.

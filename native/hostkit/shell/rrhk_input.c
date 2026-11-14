@@ -434,12 +434,15 @@ static bool pad_held(SDL_GameController *pad, SDL_GameControllerButton button) {
     if (!pad || button < 0) return false;
     if (button < SDL_CONTROLLER_BUTTON_MAX) return SDL_GameControllerGetButton(pad, button) != 0;
     if (!rrhk.machine->trigger_buttons || (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER)) return false;
-    return SDL_GameControllerGetAxis(pad, button == RRHK_PAD_LEFT_TRIGGER ? SDL_CONTROLLER_AXIS_TRIGGERLEFT : SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000;
+    return rrhk_trigger_step(false, SDL_GameControllerGetAxis(pad, button == RRHK_PAD_LEFT_TRIGGER ? SDL_CONTROLLER_AXIS_TRIGGERLEFT :
+                                                                                                   SDL_CONTROLLER_AXIS_TRIGGERRIGHT));
 }
 
-/* A trigger of player 1's pad (0 right, 1 left) bound to a control of a machine with trigger_buttons: no speed control then. */
+/* A trigger of player 1's pad (0 right, 1 left) bound to a control of a machine with trigger_buttons, or (1.7.5) used by one of
+ * the host combinations: no speed control then. */
 bool rrhk_trigger_bound(int side) {
     const RrhkMachine *m = rrhk.machine;
+    if (rrhk_combo_trigger(side)) return true;
     if (!m || !m->trigger_buttons) return false;
     const SDL_GameControllerButton trigger = side ? RRHK_PAD_LEFT_TRIGGER : RRHK_PAD_RIGHT_TRIGGER;
     for (int a = 0; a < m->action_count; ++a) if (rrhk.buttons[0][a] == trigger) return true;

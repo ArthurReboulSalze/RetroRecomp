@@ -99,6 +99,8 @@ void rrhk_gfx_set(int option, int value);   /* the page: apply and keep */
 void rrhk_gfx_defaults(void);            /* the page's Restore defaults: every option to its default, applied and kept */
 void rrhk_toggle_rumble(void);           /* the Vibration row: flip, keep, stop a vibration in progress */
 void rrhk_rumble_stop(void);
+bool rrhk_trigger_step(bool down, int value);   /* L2/R2 as a button: game_options.h's one reading (threshold, hysteresis) */
+bool rrhk_combo_trigger(int side);       /* 0 right, 1 left: a host combination (Quit, Restart, quick ones) uses that trigger */
 bool rrhk_trigger_bound(int side);       /* 0 right, 1 left: player 1 has a control on that trigger (trigger_buttons) */
 
 /* main.c: the plates a game shows for a few seconds when it opens (D17), and the options row that turns them off. */

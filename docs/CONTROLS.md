@@ -282,7 +282,8 @@ pages.
   unassigned by default (Shift+F1 always restarts); the gamepad default is
   **Start+Select (Back)**. A held restart fires once, then waits for release.
 - **Quick save and Quick load (gamepad page, 1.7.5):** assigned the same way, buttons only (the
-  keyboard page shows F8 and F9, which stay the keys). Unassigned by default. In play, held half a second
+  keyboard page shows F8 and F9, which stay the keys). L2 and R2 count as buttons here, alone or with others, as in
+  Quit and Restart; a trigger used by one of these combinations no longer changes the speed. Unassigned by default. In play, held half a second
   the Quick save combination saves the quick state, held one second the Quick load combination loads it,
   once per hold, as F8 and F9 do; inside a menu they do nothing. A combination already used by Quit,
   Restart or the other quick one is refused and the page says by which.

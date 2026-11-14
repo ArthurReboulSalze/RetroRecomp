@@ -705,13 +705,15 @@ static void quick_script(void) {
         CHECK(!rrhk_combo_set(3, true) && !strcmp(ui->status, "Already used by Quick save"));
         key(SDL_SCANCODE_RETURN);
         break;
-    case 8: pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true); break;
-    case 9: pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, false); break;
-    case 10:
-        CHECK(rrhk_combo_set(3, true) && ini(L"Test3D.Options", L"quick_load_pad") ==
-              ((1 << SDL_CONTROLLER_BUTTON_BACK) | (1 << SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)));
+    case 8: axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, 32767); break;      /* L2 alone (an axis in SDL) */
+    case 9: axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768); break;
+    case 10: {
+        char value[80];
+        rrhk_combo_value(value, sizeof value, 3, true);
+        CHECK(rrhk_combo_set(3, true) && ini(L"Test3D.Options", L"quick_load_pad") == (1 << 24) && !strcmp(value, "L2"));
         key(SDL_SCANCODE_F2);       /* back to the game */
         break;
+    }
     case 11:    /* in play: Back+LB held half a second saves, once */
         CHECK(ui->menu == 0 && !quick_saves && !quick_loads);
         pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true);
@@ -728,15 +730,15 @@ static void quick_script(void) {
         CHECK(quick_saves == 1);
         pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false);
         break;
-    case 14:    /* Back+RB held one second loads */
-        pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true);
+    case 14:    /* L2 held one second loads; bound to a combination, it no longer toggles the maximum speed */
+        axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, 32767);
         quick_t0 = now;
         break;
     case 15:
         if (!quick_loads && now - quick_t0 < 3000) { --step; break; }
         CHECK(quick_loads == 1 && quick_saves == 1 && now - quick_t0 >= 950);
-        CHECK(!strcmp(ui->status, "Quick state loaded"));
-        pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, false);
+        CHECK(!strcmp(ui->status, "Quick state loaded") && !ui->max_speed);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768);
         break;
     case 16:    /* in a menu the combination does nothing */
         key(SDL_SCANCODE_F1);

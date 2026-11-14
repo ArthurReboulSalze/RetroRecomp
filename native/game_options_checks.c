@@ -22,6 +22,11 @@ static void button(int id, int code, int down) {
     e.cbutton.which=id;e.cbutton.button=(Uint8)code;
     rr_options_event(&e,&menu,false);
 }
+static void trigger(int id, int axis, int value) {
+    SDL_Event e; memset(&e,0,sizeof e);
+    e.type=SDL_CONTROLLERAXISMOTION; e.caxis.which=id; e.caxis.axis=(Uint8)axis; e.caxis.value=(Sint16)value;
+    rr_options_event(&e,&menu,false);
+}
 /* F10 is free: Guide opens the options page of F2 from the game. */
 static void open_options(void) {
     button(7,SDL_CONTROLLER_BUTTON_GUIDE,1);button(7,SDL_CONTROLLER_BUTTON_GUIDE,0);assert(menu==RR_OPTIONS_MENU);
@@ -211,10 +216,33 @@ static void chords(void) {
     now_ms=53998;assert(!rr_options_quick_load(menu));now_ms=53999;assert(rr_options_quick_load(menu));
     now_ms=56000;assert(!rr_options_quick_load(menu));
     button(8,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,0);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    /* 1.7.5: L2 and R2 are axes in SDL: pulled past the threshold they are buttons, alone or in a combination, with a
+     * hysteresis (released only under half the threshold). L2 alone loads; R2 + A saves. */
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_LOAD,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,12000);assert(rr_options.capture==8 && !rr_options.pending_pad);   /* not yet */
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,30000);assert(rr_options.pending_pad==RR_PAD_L2);
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,9000);assert(rr_options.capture);               /* still held: hysteresis */
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,0);
+    assert(!rr_options.capture && rr_options.combo[RR_COMBO_LOAD].pad==(int)RR_PAD_L2);
+    rr_combo_value(value,sizeof value,RR_COMBO_LOAD,true);assert(!strcmp(value,"L2"));
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_SAVE,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERRIGHT,32767);button(8,SDL_CONTROLLER_BUTTON_A,1);
+    button(8,SDL_CONTROLLER_BUTTON_A,0);trigger(8,SDL_CONTROLLER_AXIS_TRIGGERRIGHT,0);
+    assert(rr_options.combo[RR_COMBO_SAVE].pad==(int)((1u<<SDL_CONTROLLER_BUTTON_A)|RR_PAD_R2));
+    rr_combo_value(value,sizeof value,RR_COMBO_SAVE,true);assert(!strcmp(value,"A + R2"));
+    now_ms=59000;assert(!rr_options_quick_load(menu));     /* nothing held: the capture's suppression ends, as at the next frame */
+    now_ms=60000;trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,20000);assert(!rr_options_quick_load(menu));
+    now_ms=60600;trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,10000);assert(!rr_options_quick_load(menu));  /* half-released: held */
+    now_ms=61000;assert(rr_options_quick_load(menu));
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,5000);now_ms=63000;assert(!rr_options_quick_load(menu));
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERRIGHT,32767);now_ms=64000;assert(!rr_options_quick_save(menu));   /* R2 alone: no */
+    button(8,SDL_CONTROLLER_BUTTON_A,1);assert(!rr_options_quick_save(menu));now_ms=64500;assert(rr_options_quick_save(menu));
+    button(8,SDL_CONTROLLER_BUTTON_A,0);trigger(8,SDL_CONTROLLER_AXIS_TRIGGERRIGHT,0);
+    rr_options_init(L"Fixture");assert(rr_options.combo[RR_COMBO_LOAD].pad==(int)RR_PAD_L2);
     /* Kept in the file under their own entries; cleared, they stay unassigned. */
     rr_options_init(L"Fixture");
-    assert(rr_options.combo[RR_COMBO_SAVE].pad==((1<<SDL_CONTROLLER_BUTTON_BACK)|(1<<SDL_CONTROLLER_BUTTON_LEFTSHOULDER)));
-    assert(rr_ini_int(L"Fixture.Options",L"quick_load_pad",0,rr_options.file)==((1<<SDL_CONTROLLER_BUTTON_BACK)|(1<<SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)));
+    assert(rr_options.combo[RR_COMBO_SAVE].pad==(int)((1u<<SDL_CONTROLLER_BUTTON_A)|RR_PAD_R2));
+    assert(rr_ini_int(L"Fixture.Options",L"quick_load_pad",0,rr_options.file)==(int)RR_PAD_L2);
     rr_combo_clear(RR_COMBO_SAVE,true);rr_options_init(L"Fixture");assert(!rr_options.combo[RR_COMBO_SAVE].pad);
     rr_remove(rr_options.file);
 }

@@ -223,6 +223,9 @@ control, options and graphics pages has its icon, and player 1's gamepad page bi
   unassigned): a file of 1.7.4 loads unchanged. An export of 1.7.4 reading a file written by 1.7.5 ignores them.
 * **Texts.** Six new entries in the catalogue of the five game languages (and in the seven locale files): "Quick save", "Quick
   load", their two hold hints, "Already used by %s" and "F8 and F9: fixed keys".
+* **Triggers.** L2 and R2 (axes in SDL) count as buttons in the four combinations, alone or with others, with a hysteresis
+  (pressed past 16000, released under 8000); the shell's game rows and speed controls read them through the same function. A
+  trigger used by a combination is no longer a speed control. Masks keep the triggers in bits 24 and 25.
 * **Per-frame cost.** Two more combination checks per frame, beside Quit and Restart (mask comparisons on player 1's pad); not
   measured on its own, covered by the release's frame-cost comparison.
 * **Checks.** `tools/game_options_selftest.py` (defaults, fixed keyboard rows, refusal, the two holds once each, persistence)

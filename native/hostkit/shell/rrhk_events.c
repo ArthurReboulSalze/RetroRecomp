@@ -201,7 +201,7 @@ static void speed_event(const SDL_Event *event) {
         const int side = event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
         if (event_player(event->caxis.which) != 0) return;
         if (rrhk_trigger_bound(side)) return;     /* a control of the game on that trigger (trigger_buttons) */
-        const bool down = event->caxis.value > 16000;      /* the stick threshold of decision D1 */
+        const bool down = rrhk_trigger_step(trigger_down[side], event->caxis.value);   /* D1's threshold, with its hysteresis */
         const bool pressed = down && !trigger_down[side];
         trigger_down[side] = down;
         if (!side) {
@@ -242,7 +242,7 @@ void rrhk_poll_events(RrhkRun *run) {
         }
         /* A machine whose triggers are buttons: a trigger pulled on the selected player's pad binds it like a button. */
         if (event.type == SDL_CONTROLLERAXISMOTION && m->trigger_buttons && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing &&
-            rrhk.gamepad_page == 1 && event.caxis.value > 16000 &&
+            rrhk.gamepad_page == 1 && rrhk_trigger_step(false, event.caxis.value) &&
             (event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
             if (rrhk.pads[rrhk.player] &&
                 event.caxis.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {

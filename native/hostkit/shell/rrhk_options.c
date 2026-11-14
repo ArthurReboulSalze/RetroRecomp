@@ -235,6 +235,14 @@ void rrhk_combo_start(int index, bool gamepad) {
 bool rrhk_combo_capturing_pad(void) { return rr_options.capture && rr_options.capture % 2 == 0; }
 bool rrhk_combo_capturing(int index, bool gamepad) { return rr_options.capture == rr_combo_id(index, gamepad); }
 bool rrhk_combo_set(int index, bool gamepad) { return rr_combo_set(index, gamepad); }
+/* 1.7.5: the one trigger reading (game_options.h), for the shell's own (game rows, speed controls). */
+bool rrhk_trigger_step(bool down, int value) { return rr_trigger_step(down, value); }
+/* A trigger of player 1's pad (0 right, 1 left) in one of the host combinations: no speed control then. */
+bool rrhk_combo_trigger(int side) {
+    const Uint32 bit = side ? RR_PAD_L2 : RR_PAD_R2;
+    for (int c = 0; c < RR_COMBO_ROWS; ++c) if ((Uint32)rr_options.combo[c].pad & bit) return true;
+    return false;
+}
 void rrhk_combo_clear(int index, bool gamepad) { rr_combo_clear(index, gamepad); }
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_combo_value(out, size, index, gamepad); }
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }
