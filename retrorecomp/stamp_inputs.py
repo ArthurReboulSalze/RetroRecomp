@@ -935,6 +935,10 @@ INPUTS = _resolve({
         'native/psx_machine/psx_reference.c',
         'native/psx_machine/psx_session.c',
         'native/psx_machine/psx_session.h',
+        # the one helper that sets an unusable save file aside (the memory card here); cart_save.c, the Atari ST and the
+        # X68000 move to it in a later release, with identical results, and join its owners then
+        'native/save_set_aside.c',
+        'native/save_set_aside.h',
         'retrorecomp.psx',
         'retrorecomp.psx_beetle',
         'retrorecomp.psx_bios',

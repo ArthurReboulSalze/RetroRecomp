@@ -19,12 +19,14 @@
 #include "psx_game.h"
 #include "psx_session.h"
 #include "hostkit/hostkit.h"
+#include "runtime_i18n.h"
 
 int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]);
 void rr_psx_host_analog(int player);
 size_t rr_psx_take_audio(int16_t *out, size_t capacity);
 unsigned rr_psx_frame_index(void);
 int rr_psx_host_reset(void);
+unsigned rr_psx_card_notice(void);   /* psx_main.c: 1 a memory card file set aside, 2 saving off */
 RrPsxSession *rr_psx_host_session(void);
 
 /* The bits are the session's (libretro's order of the pad). The Analog button and Change disc are host-side actions (bit 0):
@@ -180,6 +182,14 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
         pads[p] = stick_directions(p, pads[p], axes[p]);
     }
     const bool ran = rr_psx_host_frame(pads, axes) != 0;
+    /* A memory card file the game could not use never stops it: it is set aside, the player is told once. */
+    static bool card_told;
+    if (!card_told) {
+        card_told = true;
+        const unsigned notice = rr_psx_card_notice();
+        if (notice == 1) rrhk_notice(rr_tr("Save unreadable: set aside"), 6000);
+        else if (notice == 2) rrhk_notice(rr_tr("Save unreadable: saving is off"), 6000);
+    }
     follow_frame_rate();
     watch_load();
     rumble();

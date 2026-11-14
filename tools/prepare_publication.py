@@ -25,13 +25,13 @@ tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py 
 retrorecomp/gba_knowledge.py tests/test_gba_knowledge.py tools/gba_bogus_rows_audit.py tests/test_gba_bogus_rows_audit.py
 tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
 tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py tools/gba_fresh_process.py tests/test_gba_fresh_process.py tools/gba_routes/advance_wars_field_training.keys tools/gba_routes/metroid_fusion_new_game.keys tools/gba_routes/sonic_advance_2_save_show.keys tools/gba_routes/sonic_advance_2_save_write.keys tools/gba_routes/wario_land_4_entry_passage.keys tools/gba_routes/pokemon_emerald_new_game_house.keys tools/gba_routes/minish_cap_new_file_home.keys tools/gba_routes/golden_sun_new_game_vale.keys tools/gba_routes/pokemon_emerald_save_write.keys tools/gba_routes/pokemon_emerald_save_show.keys tools/gba_routes/pokemon_ruby_new_game_house.keys tools/gba_routes/mario_and_luigi_superstar_saga_new_game_toad.keys tools/gba_routes/mario_kart_super_circuit_first_race.keys tools/gba_routes/mega_man_zero_3_new_game_first_stage.keys tools/gba_routes/crazy_taxi_catch_a_ride_driving.keys tools/gba_routes/minish_cap_save_show.keys tools/gba_routes/f_zero_maximum_velocity_save_write.keys tools/gba_routes/f_zero_maximum_velocity_save_show.keys tools/gba_routes/minish_cap_walk_in_the_house.keys tools/gba_routes/mario_kart_super_circuit_long_race.keys tools/gba_routes/crazy_taxi_catch_a_ride_long_drive.keys tools/gba_routes/golden_sun_vale_walk.keys tools/gba_route_captures.py tests/test_gba_route_captures.py
-tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c
+tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c tools/psx_route_captures.py
 native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_backup.c native/pce_backup.h
-native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py
+native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py native/save_set_aside.c native/save_set_aside.h
 native/hostkit/adapters/rrhk_pce.c
 retrorecomp/systems/scummvm.py retrorecomp/scummvm_build.py retrorecomp/scummvm_export.py docs/SCUMMVM.md
 native/scummvm/LICENSE native/scummvm/README.md native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch native/scummvm/patches/0002-retrorecomp-options-page.patch native/scummvm/patches/0003-retrorecomp-theme-colours.patch

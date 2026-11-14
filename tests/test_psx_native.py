@@ -143,6 +143,47 @@ class NativeStepsTest(unittest.TestCase):
         macro = text[text.index('#define RR_OP_LUI'):].split('\n\n')[0].splitlines()
         self.assertTrue(all(line.endswith('\\') for line in macro))
 
+    def test_a_word_the_table_runs_with_an_interrupt_pending_is_guarded_by_its_word_alone(self):
+        # Beetle's table maps COP2 | 0x80 to COP2: here LW stands for it (opf 0x63), every other entry is INTERRUPT.
+        names = ORDER + UPPER + ['INTERRUPT'] * 0x63 + ['LW'] + ['INTERRUPT'] * (128 - 0x64)
+        cpu = CPU.replace(''.join(f'    CGE(op_{n})\n' for n in ORDER + UPPER + ['INTERRUPT'] * 128),
+                          ''.join(f'    CGE(op_{n})\n' for n in names))
+        table = psx_native.handlers(cpu)
+        self.assertTrue(table.runs_with_interrupt_pending(LW))
+        self.assertFalse(table.runs_with_interrupt_pending(ADDU))
+        seen = psx_native.Observed
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'cpu.c'
+            path.write_text(MACROS + cpu, encoding='utf-8')
+            psx_native.write(path, {(0x1000, ADDU): seen(1, True), (0x1004, LW): seen(1)}, Path(folder) / 'game')
+            steps = (Path(folder) / 'game' / 'rr_psx_steps_00.c').read_text(encoding='utf-8')
+        self.assertIn('rr_e0: RR_GUARD(0x00431021u)', steps)
+        self.assertIn('rr_e1: RR_GUARD_RUNS(0x8c420000u)', steps)
+
+    def test_each_interpreted_instruction_gets_its_reason(self):
+        seen = psx_native.Observed
+        pairs = {(0x1000, LUI): seen(5, True), (0x1004, ADDIU): seen(5),
+                 # five words at 0x1008: the least run one is left to the interpreter
+                 (0x1008, ADDU): seen(9), (0x1008, NOP): seen(8), (0x1008, LW): seen(7), (0x1008, JR): seen(6),
+                 (0x1008, ADDIU): seen(1)}
+        with tempfile.TemporaryDirectory() as folder:
+            cpu = Path(folder) / 'cpu.c'
+            cpu.write_text(MACROS + CPU, encoding='utf-8')
+            ran = Path(folder) / 'play.interpreted'
+            ran.write_text('RRPSX-INTERPRETED 1\n00001008 00000000 3\n00001008 24420001 2\n00002000 00000000 7\n'
+                           '1f000000 00000000 3\ntotal 15\n', encoding='ascii')
+            found = psx_native.explain_interpreted(cpu, pairs, ran)
+            self.assertEqual(found['by_reason'], {'other_run': 3, 'variant_left': 2, 'not_observed': 7, 'outside': 3})
+            self.assertEqual(found['rows'][0], {'address': '0x00002000', 'word': '0x00000000', 'count': 7,
+                                                'reason': 'not_observed'})
+            self.assertEqual(found['unexplained'], 0)
+            # a table that filled up, or more listed than the total, is not explained
+            ran.write_text('RRPSX-INTERPRETED 1\n00002000 00000000 7\ntotal 5\nfull\n', encoding='ascii')
+            self.assertEqual(psx_native.explain_interpreted(cpu, pairs, ran)['unexplained'], 3)
+            ran.write_text('something else\n', encoding='ascii')
+            with self.assertRaises(psx_native.NativeError):
+                psx_native.explain_interpreted(cpu, pairs, ran)
+
 
 if __name__ == '__main__':
     unittest.main()

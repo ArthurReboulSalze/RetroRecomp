@@ -4,8 +4,9 @@ The game executable is the Beetle PSX machine with the player's BIOS embedded (O
 appended. The conversion first builds the observing machine (the interpreter alone, recording the R3000A code it runs) and plays
 its routes on it: those runs are the reference. From the code they ran it writes the game's native steps (retrorecomp/psx_native.py:
 the interpreter's handler bodies with each instruction word constant, its timing kept, the fetched word as guard), builds the game
-with them, and plays every route again on the executable that is published (the disc inside it): each frame's picture, sound and
-RAM must be the reference's. The instructions the steps do not hold run on the interpreter and are counted. It then checks F8/F9
+with them, and plays every route again on the executable that is published (the disc inside it): each frame's picture, sound,
+RAM and CPU state (registers, COP0, GTE) must be the reference's. The instructions the steps do not hold run on the interpreter
+and are counted, each by address with its reason. It then checks F8/F9
 in a fresh process and the refusal of a damaged state, and writes the report. A game that carries its disc after the program is
 published as built: UPX would move the data the program reads.
 
@@ -82,13 +83,13 @@ def trace_rows(trace: Path):
     from .delivery_evidence import FrameRow
     for line in Path(trace).read_text(encoding='ascii').splitlines():
         fields = line.split(',')
-        if len(fields) != 7 or not fields[0].isdigit():
+        if len(fields) != 8 or not fields[0].isdigit():
             continue
         yield FrameRow(int(fields[0]), fields[2], sound=fields[3], audible=fields[5] == '1')
 
 
 def trace_difference(actual: Path, expected: Path) -> int | None:
-    """The first frame where two traces differ (None: the same picture, sound and RAM on every frame)."""
+    """The first frame where two traces differ (None: the same RAM, picture, sound and CPU state on every frame)."""
     from .conversion_gates import first_difference
     one = Path(actual).read_text(encoding='ascii').splitlines()[1:]
     other = Path(expected).read_text(encoding='ascii').splitlines()[1:]
@@ -285,7 +286,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         with stages.phase('reference_and_native_runs'):
             for name, count, _ in plan:
                 emit(f'PlayStation: route {name} on the game ({count} frames, native steps).')
-                results[name] = run(final, checks / 'routes', name, count, scripts[name])
+                results[name] = run(final, checks / 'routes', name, count, scripts[name],
+                                    '--interpreted', str(checks / 'routes' / (name + '.interpreted')))
+                results[name]['interpreted_by_address'] = psx_native.explain_interpreted(
+                    tree / 'mednafen' / 'psx' / 'cpu.c', pairs, checks / 'routes' / (name + '.interpreted'))
                 difference = trace_difference(results[name]['trace'], reference[name]['trace'])
                 require(difference is None, lambda: ConversionError(
                     f'PlayStation {name}: the native steps differ from the interpreter at frame {difference}; '
@@ -311,6 +315,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                             'interpreted_opcodes': r['interpreted_instructions'],
                             'interpreter_percent': round(100.0 * r['interpreted_instructions'] / ran, 4) if ran else 0.0,
                             'reference_interpreted_opcodes': reference[name]['interpreted_instructions'],
+                            # each interpreted instruction of the route by address, with its reason (psx_native.REASONS)
+                            'interpreted_by_address': r['interpreted_by_address'],
                             # fetches that ran no instruction (an interrupt taken, the CPU held by a DMA): neither count
                             'unrun_fetches': r['unrun_fetches'],
                             'image_hash': r['image_hash'], 'pcm_hash': r['pcm_hash'], 'nonzero_samples': r['nonzero_samples'],
@@ -331,7 +337,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                      'native_steps': native | {'observation_overflow': overflow, 'runtime_hints_added': hints}},
         'final_checks': checks_rows,
         'native_validation': {'passed': True, 'scope': 'every route played on the published game (native steps) gives the '
-                                                        'same picture, sound and RAM on every frame as the interpreter alone '
+                                                        'same picture, sound, RAM and CPU state (R3000A registers, HI, LO, PC, '
+                                                        'SR, CAUSE, EPC, GTE registers) on every frame as the interpreter alone '
                                                         '(the observing build, another process)',
                               'reference_kind': "the core's interpreter (Beetle PSX at the same revision)",
                               'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
