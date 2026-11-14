@@ -40,7 +40,7 @@ purpose is still required.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns, and their G14, of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns, and their G14, of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026, and its G14 and G16 of 14 November 2026)
 
 ### Progress through the qualification list
 
@@ -66,8 +66,8 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | PC Engine / TurboGrafx-16 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Game Boy Advance | experimental | `███████░░░` 69 % | ✅ 6 · 🟡 10 · ❔ 0 |
-| Commodore Amiga | experimental | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
-| Atari ST | experimental | `████████░░` 81 % | ✅ 11 · 🟡 4 · ❔ 1 |
+| Commodore Amiga | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
+| Atari ST | experimental | `████████░░` 84 % | ✅ 12 · 🟡 3 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
@@ -84,16 +84,16 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ✅ | ✅ | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | 🟡 | ❔ | ✅ | ✅ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ❔ | ➖ | ➖ | ➖ | ➖ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -114,16 +114,16 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | Y |
 | G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | P | P | P | Y | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | Y | P | P | Y | P | P |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | ? | P | P | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | P |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | ? |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | Y | Y | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? | P | ? | Y | Y | ? |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | Y | Y | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | - | P | ? | - | - | - | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -253,6 +253,19 @@ The page of each console, which the README links its line to (a console of the m
   is to do. G16 `-`: the MSX shares no paths and is not in `SHARED_SYSTEMS`. Not yet implemented: disks, cassettes, FM-PAC, the SRAM mappers, MSX2+.
   Scope and the five measures: [MSX.md](MSX.md).
 
+- Atari ST (14 November 2026; branch `spec/atarist-175`, Windows, toward leaving the experimental status): **G7 moves from `P` to `Y`**, and **G16 from `-` to `P`**; every other letter is as of 13 November
+  (`Y` on G1 to G6, G8, G9, G12, G13 and G15; `P` on G10 and G11; `?` on G14). **G7 `Y`:** the save is shown on the delivered executable of a panel game, not only on the reference player
+  (`python -B tools/atarist_saves_game.py --exe "Lurking Horror, The.exe"`, the file the batch delivered into `Export/Games/Atari ST`, EmuTOS inside, headless, separate processes): 27 sectors written, the file of the
+  disk writes found by a new process (the room of the save, "Second Floor", where a process without the file shows "Terminal Room" and "Failed."), the executable byte for byte unchanged, and a damaged file kept aside as
+  `<name>.unusable-1` while the game starts from its disks. It is the one panel game that saves by a script (the routes are joystick, mouse and keyboard scripts; a track a game formats is not kept: limit in
+  [ATARI_ST.md](ATARI_ST.md#5-known-limits)). **G16 `P`**, like the other experimental sharers: the Atari ST shares its paths (Arthur's decision of 14 November 2026, «Oui, il partage») as schema 3 records of rows into the
+  player's own TOS and into the logical sectors of the player's own disks, on the common `m68k_media_knowledge`; `knowledge.received` (offered, reached, added) reports what received paths gave. Shown on Operation Stealth,
+  The Lurking Horror and Turrican II: a library at the extended level exports its record, an empty library imports it, the conversion is equal to the fresh reference on every route with and without it (traces 32 of 32).
+  **Not a gain in conversion passes** (1 and 1 in all twelve conversions), nothing changed on the routes the receiver runs, native code added beyond them: on a route the receiver did not run Turrican II goes from
+  30,455,168 interpreted instructions to 2,920,653 (-90 %), The Lurking Horror by 1.1 % and Operation Stealth by 8 %; the speed value is not measured (the added forms run Hatari's handlers, the saving is the interpreter's
+  dispatch). Safety on Turrican II: a record moved to addresses no run reaches leaves the conversion equal to the reference, a record of other disks is ignored with its reason. Not yet: the Linux half of G16. The 1.7.5
+  work also settles the Atari ST's risk cases (five in `tools/campaign-risk-cases.json`) and a play checklist for the owner (below); the simulated flip to `supported` (a scratch run of `registry_problems`, nothing
+  committed) lists no other requirement of the registry; the four texts a flip changes are README, COMPATIBILITY, the release notes and the interface strings (`tools/status_lint.py`). G14 and the flip are the owner's.
 - MSX and MSX2 (13 November 2026, afternoon; branch `spec/msx-174` after `def76191`): G1, G2, G8, G9 and G10 moved from `P` to `Y`, G7
   from `N` to `P`, G15 from `?` to `P`. The panel of the morning entry plus Dragon Slayer II - Xanadu (Japan) (ASCII 8 with battery SRAM) was converted
   again at the **thorough** level (attract, play and two pseudo-random routes of 18,000 frames) from an empty library, two at a time: 44 routes, 0
@@ -357,7 +370,7 @@ The page of each console, which the README links its line to (a console of the m
   measured against vectors or against hardware; no speed, hardware fidelity or latency is claimed
   ([NINTENDO_64.md](NINTENDO_64.md#3-the-five-measures)).
 
-- Amiga (8 and 13 November 2026; opened to players as experimental in 1.7.0): the evidence of each letter is in
+- Amiga (8, 13 and 14 November 2026; opened to players as experimental in 1.7.0, supported from 1.7.5 on the owner's G14 of 14 November 2026): the evidence of each letter is in
   [its section](#commodore-amiga-evidence-behind-its-column-8-november-2026). G1 `Y`: the profile, `docs/AMIGA.md` and `tools/status_lint.py` agree.
   G2 to G8 `Y` on [the panel of 13 November](#commodore-amiga-the-panel-of-13-november-2026) (eight installs and Panza Kick Boxing for the saves, extended level,
   tree `be3f4483`, llvm-mingw): a v2 report read by the common reader; 0 interpreted instructions outside the player's Kickstart on every route, the Kickstart's
@@ -368,9 +381,10 @@ The page of each console, which the README links its line to (a console of the m
   Island 2's ends in its opening, named with its reason in `route_warnings`. G10 `P`: `tools/amiga_vector_selftest.py` (6,762 vectors of the four fixtures: the native steps equal Moira's interpreter on
   6,762, Moira agrees with the vectors on 6,440 and differs on 322, all in named families, 0 unexplained); Moira is the Amiga's own reference CPU. G11 `P`: six
   installs compared picture by picture with an independent emulator running the real WHDLoad (private); not a fidelity claim. G12 `Y`: the eight named
-  installs of the owner's rule, none dropped. G13 `Y`: the Debian 13 PC (GCC 14) gives the same CPU, RAM, picture, PCM and trace digests as Windows on every route of Lotus 2, Rick Dangerous, Blood Money, Apidya, Lemmings, Pinball Dreams and Shadow Of The Beast (tree `96a70fa0`) and of Another World, Lemmings and Monkey Island 2 (tree `be3f4483`, the Kickstart installs included); not played on Linux. G14 `P`: the owner played the ten panel installs on 6 November 2026; not an exit. G15 `Y`: the audit of
-  8 November and an exported game read in its window on 13 November, title included ("Interpreter fallback" on a Kickstart install). G16 `-`: the Amiga shares
-  no paths and is not in `SHARED_SYSTEMS`. Not yet: Kickstart 3.x installs, ADF, the Amiga 1200 ([AMIGA.md](AMIGA.md#3-the-five-measures)).
+  installs of the owner's rule, none dropped. G13 `Y`: the Debian 13 PC (GCC 14) gives the same CPU, RAM, picture, PCM and trace digests as Windows on every route of Lotus 2, Rick Dangerous, Blood Money, Apidya, Lemmings, Pinball Dreams and Shadow Of The Beast (tree `96a70fa0`) and of Another World, Lemmings and Monkey Island 2 (tree `be3f4483`, the Kickstart installs included); not played on Linux. G14 `Y`: the owner played the six installs of his checklist on 14 November 2026 and decided the exit (« Oui, sors-le »). G15 `Y`: the audit of
+  8 November and an exported game read in its window on 13 November, title included ("Interpreter fallback" on a Kickstart install). G16 `P`: the Amiga shares
+  its paths as the experimental tier of the base (14 November 2026, the owner's decision); on Lotus 2, Lemmings and Another World a receiver of
+  another player's paths saved no pass and added little native code on its routes, and the gain beyond them was not measured on the Amiga. Not yet: Kickstart 3.x installs, ADF, the Amiga 1200 ([AMIGA.md](AMIGA.md#3-the-five-measures)).
 
 - Game Boy Advance (6 November 2026, tree of `spec/gba-170`): the machine is prepared to open as experimental in 1.7.0. G3 and G4 are `P`:
   six cartridges converted (Pokémon Emerald, Mario Kart Super Circuit, The Minish Cap, Pokémon Mystery Dungeon Red, Super Mario Advance 2 and
@@ -920,13 +934,13 @@ players' toolchain (llvm-mingw). `P` means a part is shown and the rest is named
 
 ## Commodore Amiga: evidence behind its column (8 November 2026)
 
-The Amiga is **experimental since 1.7.0** ([AMIGA.md](AMIGA.md)): an Amiga 500 game installed for WHDLoad is converted, with the player's own Kickstart 1.x for the
+The Amiga is **supported since 1.7.5**, on the owner's decision of 14 November 2026 (open as experimental in 1.7.0; [AMIGA.md](AMIGA.md)): an Amiga 500 game installed for WHDLoad is converted, with the player's own Kickstart 1.x for the
 installs that ask for one. It runs on the vAmiga machine and its 68000, Moira, the native code being translated C per opcode (the forms the translator knows) or Moira's code specialised, counted apart, behind a guard on the latched opcode. `P` means a part is
 shown and the rest is named; `?` is not measured. Nothing here says hardware fidelity, gameplay coverage or latency. G2 to G9, G12, G13 and G15 are of 13 November 2026 ([the panel of 13 November](#commodore-amiga-the-panel-of-13-november-2026)); the others of 8 and 9 November.
 
 | Gate | Amiga | Evidence | What is missing |
 |---|---|---|---|
-| G1 | Y | `retrorecomp/systems/amiga.py` (status `experimental`), [AMIGA.md](AMIGA.md), the README, COMPATIBILITY and the interface strings agree (`status_lint`) | Nothing for an experimental machine; no owner decision to leave it |
+| G1 | Y | `retrorecomp/systems/amiga.py` (status `supported` since 1.7.5, on the owner's decision of 14 November 2026), [AMIGA.md](AMIGA.md), the README, COMPATIBILITY, INDEX, ROADMAP, the release notes and the Options note in eight languages agree (`status_lint`: 0 contradictions); `tests/test_machine_registry.py` passes on the real profile, the supported tier included | |
 | G2 | Y | `retrorecomp/amiga_conversion.py` goes through `report_schema.write_report` (v2): native and interpreted instructions per route on the 68000, the Kickstart's apart, the Blitter's counters, the per-route CPU, RAM, picture and PCM digests, every route's script digest, the quick-state validation (17 damaged states, the 600-frame continuation), the saves section and the packed replay; `native_validation.independent_cpu_oracle: false`, `latency_ms: null`. Read by `tools/release_check.py`'s report gates through the common reader on the nine reports of [the panel of 13 November](#commodore-amiga-the-panel-of-13-november-2026): conversion, native/reference, packed copy and states pass on all nine | The device section describes the Blitter (its routines and line blits are counted per route in `final_checks[].blitter`, not in the section's own scenarios), Agnus's Copper, Denise and Paula, which are emulated, not translated. The fallback gate at limit 0 lists the three Kickstart installs with their counts (G3) |
 | G3 | Y | [the panel of 13 November](#commodore-amiga-the-panel-of-13-november-2026), tree `be3f4483`, llvm-mingw: 0 interpreted instructions on every route (main, explore, long-1 of 18,000 frames) of Lotus 2, Lemmings, Pinball Dreams, Shadow Of The Beast, Blood Money and Apidya; the Kickstart installs list theirs, all the Kickstart's: Another World and Monkey Island 2 19 a route, Panza Kick Boxing 7. 2.37 billion native instructions over the nine. Blitter copy words in specialised routines, line blits in vAmiga's microprogram, counted apart | Only the code the routes ran is native: code reached later runs on the counted interpreter (three of Pinball Dreams' four tables, for one: [the 9 November panel](#commodore-amiga-the-panel-9-november-2026)). No whole-game claim |
 | G4 | Y | On every route of the nine of [the panel of 13 November](#commodore-amiga-the-panel-of-13-november-2026) and of Rick Dangerous (tree `96a70fa0`), the native game equals a fresh run of the same machine with every instruction interpreted, on every frame (picture, sound, RAM, CPU registers) and on the resload calls; the 18,000-frame routes included | The reference is the machine's own interpreter (Moira): agreement with it, not with a real 68000 (Moira against vectors is G10) |
@@ -939,9 +953,9 @@ shown and the rest is named; `?` is not measured. Nothing here says hardware fid
 | G11 | P | Six installs compared picture by picture with an independent emulator running the real WHDLoad (private): Lotus 2 59 of 59, Lemmings 58, Speedball 2 54, Elite 51, Turrican 2 49; Pinball Dreams NTSC 19 of 59 until looked for at any offset (all 59 then) | Counts of equal pictures on a few frames; not a fidelity claim |
 | G12 | Y | [the panel of 13 November](#commodore-amiga-the-panel-of-13-november-2026): eight installs with their written reasons, at most eight by the owner's rule of 13 November 2026, none dropped, all eight converted at the extended level, equal to the fresh reference on every route and delivered (Lotus 2 kept as the interface specialist built it); Panza Kick Boxing beside them for G7. The 15 installs of [9 November](#commodore-amiga-the-panel-9-november-2026), Superfrog refused with its sentence, are the earlier panel | Chosen by the specialist and approved by the lead, not by the owner. Interpreted instructions are listed; what the routes did not run is not measured |
 | G13 | Y | On a Debian 13 PC with the system GCC 14, from an empty library, the player's Kickstart copied for the run and deleted after: Lotus 2, Rick Dangerous, Blood Money, Apidya, Lemmings, Pinball Dreams and Shadow Of The Beast on the tree `96a70fa0` (13 November 2026) give the same CPU, RAM, picture and PCM digests, trace digests, native counts, native forms and audible frames as the Windows panel of that tree on every route (497 of 497 values); Another World, Lemmings and Monkey Island 2 on the final tree `be3f4483` (the three installs whose routes changed, two of them Kickstart installs) the same against the final Windows panel (213 of 213 values, the 19 Kickstart instructions a route included). Each Linux conversion passed its packed replay and its fresh-process state. The five other installs give the same trace digests on Windows on the two trees | Not played on Linux (window, sound out, gamepad); the Kickstart installs on the final tree only (Another World, Lemmings and Monkey Island 2), the others on `96a70fa0`, whose traces on Windows equal the final tree's |
-| G14 | P | The owner played the ten panel installs on 6 November 2026 and reported that they work (owner-acceptance table) | A trial, not the decision to leave the experimental status (Arthur's own) |
+| G14 | Y | The owner played the six installs of [the checklist](#checklist-for-arthur-commodore-amiga-play-test-g14) on 14 November 2026 (the exports of 13 November in `Export\Games\Amiga`) and decided the exit: « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » (owner-acceptance table); the owner had played the ten panel installs of 6 November 2026 | Six installs played, not a coverage claim: code past the routes runs interpreted, counted and shown in the window title. Not converted: Kickstart 3.x installs, ADF disks, the Amiga 1200 |
 | G15 | Y | The audit of 8 November 2026 (report writer, profile, strings in eight languages, AMIGA.md, the caveat, UPGRADES, README, COMPATIBILITY, SYSTEM_PROFILES, INDEX, CPU_68000, the adapter and the player), its findings applied; and on 13 November 2026 an exported game read in its window on a hidden desktop: Lotus 2 (tree `96a70fa0`) titled `Lotus 2 | Commodore Amiga | Native CPU, emulated hardware`, Another World (tree `be3f4483`, the new interface) titled `... | Interpreter fallback` (it runs 19 Kickstart instructions on the interpreter); the F1, F2 and F12 pages and messages of both claim no exactness, latency or whole-game native code. The report keeps `independent_cpu_oracle: false`, `hardware_accuracy_validated` false and `latency_ms: null` | The wording of `rr_resload.c` was searched for claim words, not read line by line |
-| G16 | - | The Amiga shares no paths; it is not in `SHARED_SYSTEMS`. The library keeps its own observations on the player's PC: one that cannot be read or is past the bound of an observation is ignored, and a conversion that fails after merging it is tried once more without it (Rick Dangerous at the quick level with a valid 13.6 MB file of 1,048,577 lines: ignored, ready in 6 min 34 s, the report says so, the file is replaced by the run's own 4,896 lines). The retry itself is tested with a fake conversion, not on a real failure | |
+| G16 | P | The Amiga shares its paths as the experimental tier of the base since 1.7.5, on the owner's decision of 14 November 2026 (« Oui, partage direct »): `retrorecomp/amiga_knowledge.py` on the common part of the 68000 computers (`m68k_media_knowledge.py`, the X68000's, whose outcomes a test pins). Numbers only: runs of observed RAM code found as they are in the player's own install, Kickstart instructions of the player's own image; what a game unpacks stays private and is counted. **Proof (14 November 2026, tree `ceed7b28`, llvm, one conversion at a time, three players each with its own data folder):** player A converted Lotus 2, Lemmings and Another World (FR) at the extended level (records of 736, 1,289 and 352 spans, Another World's with 19,760 Kickstart rows) and exported them (a version 3 file, 22,137 paths); player B imported that file into an empty library and converted the three at the standard level, every check passing; player C converted them the same way with nothing imported. B against C: one pass each; the same instructions still interpreted after it (0 and 0, 0 and 0, 38 and 38, the Kickstart's); the same native counts on the routes; wall time 391 and 420 s, 663 and 680 s, 695 and 690 s; the received paths offered 8,848, 3,847 and 22,353 instructions, of which B's own fresh runs reached 8,246, 3,780 and 21,791 and 602, 67 and 562 were made native by the paths alone (`knowledge.received`); with the sweep, B generated 20, 0 and 489 native instructions more than C, of about 37,000. The library keeps its own observations on the player's PC: one that cannot be read or is past the bound of an observation is ignored, and a conversion that fails after merging it is tried once more without it (Rick Dangerous at the quick level with a valid 13.6 MB file of 1,048,577 lines: ignored, ready in 6 min 34 s, the report says so, the file is replaced by the run's own 4,896 lines). | No pass saved and little native code added on these routes. The gain beyond the routes was not measured on the Amiga: the decision rests on the shared mechanism and on the Atari ST's Turrican II (its unpacked code tied to the player's own disk: about 90 % fewer interpreted instructions on a route beyond the receiver's own). No Amiga path is qualified in the base yet (reached and validated by a conversion that received it from another player, counted by the site, whose side is deployed with the release). Monkey Island 2's files are packed: none of its observed code travels |
 
 ## Panel sizes
 
@@ -1048,6 +1062,7 @@ owner fills it in.
 | 6 November 2026 | Commodore Amiga | The ten panel installs (Rick Dangerous, Lemmings, Elite, Pinball Dreams NTSC, Speedball 2, Turrican 2, Shadow of the Beast, Lotus 2, Cannon Fodder, Prince of Persia), converted with the tree of `spec/amiga-170` at `977cf63e` (the display window and the middle click included) and delivered in `Export\Games\Amiga`; every one 0 interpreted instructions on its two routes of 3,000 frames | Arthur, on a first build of the panel the same morning: « ça marche parfaitement », apart from a large black frame and a picture that did not grow with the window (both fixed in `31d7da35`); then on these exports: « je viens de tester les jeux Amiga, c'est nickel » | A play trial that passed, **not** a decision to leave the experimental status: the Amiga stays experimental and G14 reads `P`. It says nothing of hardware fidelity, of the installs that need a Kickstart, of other games or of latency. |
 | 8 November 2026 | Nintendo 64 | Super Mario 64, The Legend of Zelda: Ocarina of Time, Mario Kart 64 (PAL), converted at the Standard level with the tree of the branch `spec/n64-171` at `9380f67c`, delivered in `Export\Games\Nintendo 64` | Arthur, after playing the three: « Globalement, ça se passe bien. Pour moi, c'est OK pour la version expérimentale. On a encore quelques bugs, bien sûr. » He found Super Mario 64's text unreadable. This is his go for the experimental opening, not an exit from it: the games he played predate the correction of that text (hidden RDRAM, [NINTENDO_64.md](NINTENDO_64.md#6-evidence)). |
 | 14 November 2026 | MSX, MSX2 | The six games of the checklist (Knightmare, Salamander, Dragon Slayer II - Xanadu (MSX), Metal Gear, Space Manbow, Aleste (MSX2)), the panel exports of 14 November 2026 in `Export\Games\MSX` and `Export\Games\MSX2` (tree `d0b32436` of `spec/msx-175`, extended level, C-BIOS 0.29a) | Arthur, after playing them: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » | Exit from the experimental status decided: the MSX and the MSX2 are supported from 1.7.5; the MSX2+ stays experimental. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine; the exports are not converted again |
+| 14 November 2026 | Commodore Amiga | The six games of the checklist (Lotus 2, Another World (FR), Monkey Island 2, Lemmings (Image), Pinball Dreams (NTSC), Panza Kick Boxing (FR)), the exports of 13 November 2026 in `Export\Games\Amiga` (tree `be3f4483` of `spec/amiga-176`, extended level, llvm-mingw; Lotus 2 as the interface specialist built it) | Arthur, after playing them: « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » | Exit from the experimental status decided: the Amiga is supported from 1.7.5. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine and the MSX; the exports are not converted again. A play test of six installs, not a coverage claim: code past the routes runs interpreted, counted and shown in the window title. |
 
 ### Commodore Amiga: the panel (9 November 2026)
 
@@ -1092,6 +1107,33 @@ What the panel found: Pinball Dreams took no key at all, on the native code and 
 | Panza Kick Boxing (FR), outside the count | Saves (G7), French | 256.3 | 7, the Kickstart's | Training, then fights in the ring |
 
 Every route of the nine equals the fresh interpreted reference on every frame (picture, sound, RAM, CPU registers, resload calls), the compressed copy too; F8/F9 continue for 600 frames in a fresh process; 17 damaged states are refused and a missing one creates nothing (G6). The five installs whose routes did not change since the tree `96a70fa0` give the same trace digests on every route as on that tree. Rick Dangerous, of the earlier panel, ran on `96a70fa0` only (Windows and Debian, G13).
+
+### Checklist for Arthur: Commodore Amiga play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours, and leaving the experimental status is your decision alone. Play the
+executables already in `Export/Games/Amiga`: six of the eight installs of [the panel of 13 November](#commodore-amiga-the-panel-of-13-november-2026),
+delivered from the tree `be3f4483` (Lotus 2 as the interface specialist built it), whose games behave as in 1.7.4. One short session: a few
+minutes a game. Nothing here says exact hardware, complete gameplay or latency; a tick means "it looked and sounded right to you in this test".
+F2 shows each game's keys; the joystick is the arrows and **W** (fire) or a gamepad.
+
+| | Lotus 2 | Another World | Monkey Island 2 | Lemmings | Pinball Dreams | Panza Kick Boxing |
+|---|---|---|---|---|---|---|
+| Why it is here | the test game: a 3D road, colour steps | your Kickstart, polygons, the code wheel | your Kickstart, many files, the recipe protection | the mouse | NTSC, keys choose the table | saves its boxers |
+| It starts without an error window | | | | | | |
+| The window title ends with | Native CPU, emulated hardware | Interpreter fallback (19 Kickstart instructions) | Interpreter fallback (19 Kickstart instructions) | Native CPU, emulated hardware | Native CPU, emulated hardware | Interpreter fallback (7 Kickstart instructions) |
+| What to do | choose a race in the menu and drive a lap | on the code wheel, enter your wheel's symbols (the conversion's routes pass it with the joystick: fire four times, right three times, fire, three times over); then play the pool scene | type any four digits and Return on the recipe screen, then click the box; watch the opening, then walk Guybrush a few steps | click **1 PLAYER** (the mouse is captured on a click, **Ctrl+Alt+M** releases it), then play level 1 | **Ctrl+Alt+K**, then **F1** to **F4** pick the table; launch a ball and use the flippers | change your boxer (train him, or pick another), then OPTIONS, the save row (SAUVEGARDE), **MAINTENANT** and fire; close the game, start it again: your boxer is as you left him |
+| Sound is the game's (music and effects) | | | | | | |
+| **F8** in play, move on, **F9** goes back to the saved moment | | | | | | |
+| Close the window, start it again, **F9** loads the state saved before | | | | | | |
+| Nothing odd: a frozen picture, silence where there was sound, a wrong colour, lag on fast left/right | | | | | | |
+
+Known, not a failure: on Another World's code-wheel screen a left click, **C** or a second fire button opens the install's access-code
+screen and locks the game until it is restarted ([AMIGA.md](AMIGA.md#4-known-limits)); Pinball Dreams' other three tables run partly on the
+interpreter, as the window title says once you reach them. A state saved before 1.7.4 is refused, as between any two builds.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| 14 November 2026 | Commodore Amiga | Lotus 2, Another World (FR), Monkey Island 2, Lemmings (Image), Pinball Dreams (NTSC), Panza Kick Boxing (FR) | « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » | the exit from the experimental status (the owner-acceptance table) |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 

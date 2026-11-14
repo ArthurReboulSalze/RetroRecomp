@@ -119,7 +119,8 @@ def _kickstart_rows(kickstart: bytes | None, observed) -> tuple[list, int, int]:
     for row in observed or ():
         seen += 1
         pc, words = row if isinstance(row, (tuple, list)) and len(row) == 2 else (None, None)
-        raw = media.instruction(words)
+        exact = media.exact(words)            # an observation is a 12-byte window: the instruction it starts with
+        raw = bytes.fromhex(exact) if exact else None
         if view is None or type(pc) is not int or pc & 1 or raw is None or not low <= pc or pc + len(raw) > end:
             private += 1
             continue

@@ -1,4 +1,4 @@
-"""Commodore Amiga profile (experimental since 1.7.0: see docs/AMIGA.md).
+"""Commodore Amiga profile (supported since 1.7.5, open as experimental in 1.7.0: see docs/AMIGA.md).
 
 The machine is listed when the installation carries the converter's own files (`available()`); an `.lha` is refused
 with a sentence otherwise.
@@ -30,7 +30,7 @@ class AmigaProfile(SystemProfile):
     extensions = ('.lha',)
     export_folder = 'Amiga'
     video_modes = ('native',)
-    status = 'experimental'
+    status = 'supported'
     scope_note = "Amiga 500 WHDLoad installs (Kickstart 1.x installs with the player's own image)"
     cpus = (Cpu('m68000', 'main', 'instructions'),)
     media_kinds = ('whdload',)
@@ -43,7 +43,7 @@ class AmigaProfile(SystemProfile):
     quick_state_family = 'amiga'
     capabilities = Capabilities(mouse=True, keyboard=True)
     # Rick Dangerous converted and validated on a Debian 13 PC with the system GCC (tree fd953b8c, 6 November 2026: both
-    # routes, the compressed copy and the quick state), the same evidence class as the other experimental machines (G13 P).
+    # routes, the compressed copy and the quick state); on 13 November 2026 the panel's installs gave the same traces there as on Windows (G13 Y).
     linux = 'witnessed'
     feedback_kinds = frozenset({22})
     default_frames = 3000
@@ -79,7 +79,7 @@ class AmigaProfile(SystemProfile):
         if suffix not in self.extensions:
             return None
         if not self.available():
-            raise UnsupportedConsoleError('The experimental Commodore Amiga profile is unavailable in this installation.')
+            raise UnsupportedConsoleError('The Commodore Amiga profile is unavailable in this installation.')
         from ..amiga import slave_member
         if slave_member(path) is None:
             raise UnsupportedConsoleError(f'{path.name} holds no WHDLoad slave (.Slave): not an Amiga WHDLoad install.')

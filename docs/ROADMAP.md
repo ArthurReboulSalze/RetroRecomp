@@ -25,8 +25,8 @@ fallback stays counted and shown wherever it is used.
 | Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
 | PC Engine / TurboGrafx-16 | supported (since 1.7.2) | the window and Linux proof of the player's own record (in 1.7.3), more HuCards |
 | Game Boy Advance | experimental (since 1.7.0) | covers on the next deliveries, the LDM/STM vectors, an independent emulator comparison |
-| Commodore Amiga 500 | experimental (since 1.7.0) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; the Linux witness of a Kickstart install |
-| Atari ST | experimental (since 1.7.1) | more games played, the Linux play, the STE |
+| Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
+| Atari ST | experimental (since 1.7.1; shares its paths since 1.7.5) | the owner's play of the checklist (G14) and his decision on the status, the Linux half of the sharing, more games played, the Linux play, the STE |
 | Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
 | Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
 | MSX | supported (since 1.7.5) | route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
@@ -134,7 +134,7 @@ interpreter) and the owner's decision, which alone ends the experimental status.
 
 ### Commodore Amiga 500
 
-Experimental since 1.7.0 ([AMIGA.md](AMIGA.md)): a pinned machine core (vAmiga, with its 68000 Moira) driven frame by frame, native 68000
+Supported since 1.7.5, on the owner's decision of 14 November 2026 (open as experimental in 1.7.0; [AMIGA.md](AMIGA.md)): a pinned machine core (vAmiga, with its 68000 Moira) driven frame by frame, native 68000
 steps structured by the shared decoder; games installed for WHDLoad, with no WHDLoad run (its services are answered by our own code). Installs
 that ask for a Kickstart 1.3 convert with the player's own image since 1.7.0, and the Kickstart's code runs as guarded native steps since 1.7.1.
 Next: Kickstart 1.2 and 3.x installs, then ADF images.

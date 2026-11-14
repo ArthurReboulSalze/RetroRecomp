@@ -547,6 +547,13 @@ def game_entry(source, kick=None) -> Path:
     return entry / f'kick-{kick.sha256[:16]}' if kick is not None else entry
 
 
+def exact_pairs(pairs) -> set:
+    """The (pc, words) of observed 12-byte windows cut to the instruction each starts with (`m68k_media_knowledge.exact`): the form of a shared
+    path, and of the instructions rebuilt from one. A window that does not hold a whole instruction is left out."""
+    from .m68k_media_knowledge import exact
+    return {(pc, words) for pc, words in ((pc, exact(words)) for pc, words in pairs) if words}
+
+
 def install_media(source) -> bytes | None:
     """The install's media as the shared paths count it (`amiga_knowledge.install_content`), or None when it cannot be read: the sharing is
     then left out and the conversion goes on."""
@@ -589,7 +596,7 @@ def promoted_record(source, media, kick_image, fresh_observed, fresh_kick) -> tu
     if media is None:
         return None, None
     try:
-        return amiga_knowledge.promote(source.game_key, media, kick_image, [{'pc': pc, 'words': words} for pc, words in sorted(fresh_observed)],
+        return amiga_knowledge.promote(source.game_key, media, kick_image, [{'pc': pc, 'words': words} for pc, words in sorted(exact_pairs(fresh_observed))],
                                        sorted(fresh_kick), previous=amiga_knowledge.library_record(source.game_key))
     except ValueError:
         return None, None
@@ -787,6 +794,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             emit('Amiga: the remembered observations are left out of this conversion; its own replace them in the library.')
         media = install_media(source)
         received_ram, received_kick, hints_used = shared_hints(source, media, kick_image or None, use_library=use_remembered)
+        received_all = set(received_ram)           # for `knowledge.received`
+        received_ram -= exact_pairs(samples)      # what this conversion observed itself is generated from its own window
         if hints_used.get('library') and trace is not None:
             trace['remembered_used'] = True
         if received_ram or received_kick:
@@ -839,7 +848,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             if not results['main']['nonblack_frames']:
                 raise ConversionError('Amiga validation did not produce a usable picture.')
             interpreted = sum(result['interpreted'] for result in results.values())
-            if not interpreted or not ((more - samples - received_ram) or (more_kick - kick_observed)):
+            if not interpreted or not ((exact_pairs(more - samples) - received_ram) or (more_kick - kick_observed)):
                 break
             emit(f'Amiga: {interpreted} instructions still interpreted; extending the native coverage.')
             samples |= more
@@ -916,8 +925,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
         # conversion (every check above passed). What cannot be tied to them stays private and is counted.
         record, promotion = promoted_record(source, media, kick_image or None, fresh_observed, fresh_kick)
         from .m68k_media_knowledge import received_use as _received_use
-        received_use = _received_use(received_ram | {('kickstart', pc) for pc in received_kick},
-                                     fresh_observed | {('kickstart', pc) for pc, _ in fresh_kick})
+        received_use = _received_use(received_all | {('kickstart', pc) for pc in received_kick},
+                                     exact_pairs(fresh_observed) | {('kickstart', pc) for pc, _ in fresh_kick})
         report = {
             'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
             'system': {'id': 'amiga', 'name': 'Commodore Amiga'}, 'status': get_profile('amiga').status, 'private_development_only': False,

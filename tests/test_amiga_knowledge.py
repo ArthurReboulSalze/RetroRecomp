@@ -244,6 +244,20 @@ class ConversionTests(unittest.TestCase):
             with self.assertRaises(Exception):
                 amiga_conversion.shared_hints(self.source, install(), None)
 
+    def test_the_players_observations_are_12_byte_windows_and_the_record_holds_the_instructions_they_start_with(self):
+        # What the Amiga player writes: each observed pc with the 12 bytes from it (the next instructions' words included).
+        def window(pc_offset):
+            return install()[0x400 + pc_offset:0x400 + pc_offset + 12].hex()
+        windows = {(LOAD + offset, window(offset)) for offset in (0, 4, 6, 12)}
+        self.assertEqual(amiga_conversion.exact_pairs(windows), {(v['pc'], v['words']) for v in program_variants()})
+        record, promotion = amiga_conversion.promoted_record(self.source, install(), kickstart(), windows,
+                                                             {(0xFC0100, kickstart()[0x100:0x10c].hex()), (0xFC0104, kickstart()[0x104:0x110].hex())})
+        self.assertEqual(promotion['ram'], {'observed': 4, 'tied': 4, 'anchored': 4, 'private': 0, 'spans': 1})
+        self.assertEqual(promotion['kickstart'], {'observed': 2, 'tied': 2, 'private': 0})
+        self.assertEqual(amiga_knowledge.rows(record), ([(LOAD, 0x400, len(PROGRAM))], [(0xFC0100, 0x100, 4), (0xFC0104, 0x104, 2)]))
+        # A window too short for its instruction, or malformed, is left out.
+        self.assertEqual(amiga_conversion.exact_pairs({(LOAD, MOVE_L[:4].hex()), (LOAD, 'zz71')}), set())
+
     def test_nothing_is_offered_when_the_install_cannot_be_read(self):
         self.assertEqual(amiga_conversion.shared_hints(self.source, None, None)[2]['ignored'], {'install': 'unreadable'})
 
