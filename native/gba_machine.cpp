@@ -26,6 +26,7 @@
 #include "platform_io.h"
 #include "rr_driver.h"
 #include "runtime.h"
+#include "state_envelope.h"
 
 namespace {
 
@@ -60,6 +61,11 @@ uint64_t g_state_hash = 0;
 // `frame,picture,sound,audible` (the two hashes in hexadecimal; audible is 1 when a sample of the frame was not zero): what the
 // conversion compares between the build and the compressed copy it delivers, and counts to say that the picture and the sound change.
 FILE* g_rows = nullptr;
+
+// RETRORECOMP_GBA_SHOTS (a test of the player, like the switches above) lists frames, separated by commas: the picture of each of them is written as
+// `shot-<frame>.ppm` in the folder named by RETRORECOMP_GBA_SHOT_DIR, so that a route can be read from the pictures along it (tools/gba_route_captures.py).
+std::vector<uint64_t> g_shot_frames;
+std::string g_shot_dir;
 uint64_t g_frame_sound = 1469598103934665603ull;
 bool g_frame_audible = false;
 
@@ -85,6 +91,36 @@ void parse_state_switch() {
         else if (load) step.resume = step.at;
         g_state_steps.push_back(step);
         text = end && *end == ',' ? end + 1 : nullptr;
+    }
+}
+
+void parse_shots() {
+    const char* list = getenv("RETRORECOMP_GBA_SHOTS");
+    const char* folder = getenv("RETRORECOMP_GBA_SHOT_DIR");
+    if (!list || !folder || !*folder) return;
+    g_shot_dir = folder;
+    while (*list) {
+        char* end = nullptr;
+        const unsigned long long frame = strtoull(list, &end, 10);
+        if (end == list) break;
+        g_shot_frames.push_back(frame);
+        list = *end == ',' ? end + 1 : end;
+    }
+}
+
+void write_picture(FILE* file) {
+    fprintf(file, "P6\n%d %d\n255\n", kWidth, kHeight);
+    for (int i = 0; i < kWidth * kHeight; ++i) {
+        const uint8_t rgb[3] = {static_cast<uint8_t>(g_pixels[i] >> 16), static_cast<uint8_t>(g_pixels[i] >> 8), static_cast<uint8_t>(g_pixels[i])};
+        fwrite(rgb, 1, 3, file);
+    }
+}
+
+void write_shot(uint64_t frame) {
+    const std::string name = g_shot_dir + "/shot-" + std::to_string(frame) + ".ppm";
+    if (FILE* file = fopen(name.c_str(), "wb")) {
+        write_picture(file);
+        fclose(file);
     }
 }
 
@@ -206,6 +242,20 @@ bool write_atomically(const wchar_t* path, const std::vector<uint8_t>& bytes) {
     return false;
 }
 
+// A save file larger than the chip of this cartridge would stop the engine at its start (it refuses the file and the game never opens): it is set aside whole,
+// as the other machines do with a file they cannot use, and the game starts without a save. A shorter file is read as far as it goes.
+void set_aside_unusable_save() {
+    if (RR_GBA_SAVE_LIMIT <= 0 || !g_save_path[0]) return;
+    FILE* file = rr_fopen(g_save_path, L"rb");
+    if (!file) return;
+    fseek(file, 0, SEEK_END);
+    const long size = ftell(file);
+    fclose(file);
+    if (size <= RR_GBA_SAVE_LIMIT) return;
+    const std::wstring aside = std::wstring(g_save_path) + L".damaged";
+    if (rr_replace(g_save_path, aside.c_str())) fprintf(stderr, "[host] a cartridge save larger than the chip (%ld bytes) was set aside\n", size);
+}
+
 void flush_battery() {
     if (!g_api->save_dirty()) return;
     make_parent_folders(g_save_path);
@@ -239,6 +289,28 @@ bool state_location(wchar_t* path, size_t capacity, const char* folder, const ch
     return rr_game_data_file(path, capacity, folder, RR_GBA_NAME, RR_GBA_ROM_SHA1, suffix) != 0;
 }
 
+// The quick state file is the engine's own state inside the envelope the other machines share (state_envelope.h: a magic, a schema, a machine, the game's SHA-256, the length
+// of the body and its CRC-32). The engine's format checks its magic, its version, the cartridge's SHA-1 and the structure of its sections but has no checksum of the memory it
+// holds, so a byte flipped in the middle of the file was accepted. A file that was cut, grown or damaged anywhere, or that belongs to another game, is refused before the engine
+// sees it; a file of the engine's own format (no envelope, written by an earlier build) is refused as well: quick states may break between releases. The body is the engine's
+// bytes as they are: `g_state_blob` holds them on the way out and on the way in.
+std::vector<uint8_t> g_state_blob;
+
+void gba_state_body(RetroStateIO* io) {
+    if (io->mode == RR_STATE_WRITE) {
+        rr_state_bytes(io, g_state_blob.data(), g_state_blob.size());
+    } else if (io->mode == RR_STATE_CHECK) {
+        io->pos = io->size;
+    } else {
+        g_state_blob.assign(io->data + io->pos, io->data + io->size);
+        io->pos = io->size;
+    }
+}
+
+RetroStateEnvelope gba_state_envelope() {
+    return RetroStateEnvelope{"RRGBAST" "\0", 1, 0, RR_GBA_ROM_SHA256, gba_state_body};
+}
+
 uint64_t picture_hash() {
     uint64_t hash = 1469598103934665603ull;
     for (uint32_t pixel : g_pixels) hash = (hash ^ pixel) * 1099511628211ull;
@@ -265,6 +337,8 @@ bool rrgba_frame(uint16_t pressed) {
     }
     take_picture();
     take_sound();
+    for (const uint64_t frame : g_shot_frames)
+        if (frame == g_frame_index) write_shot(frame);
     if (g_rows)
         fprintf(g_rows, "%llu,%016llx,%016llx,%d\n", static_cast<unsigned long long>(g_frame_index), static_cast<unsigned long long>(picture_hash()),
                 static_cast<unsigned long long>(g_frame_sound), g_frame_audible ? 1 : 0);
@@ -307,7 +381,11 @@ bool rrgba_state_file(const wchar_t* path, bool load) {
         size_t got;
         while ((got = fread(chunk, 1, sizeof chunk, file)) > 0) bytes.insert(bytes.end(), chunk, chunk + got);
         fclose(file);
-        const bool loaded = g_api->load_state(bytes, error);
+        const RetroStateEnvelope envelope = gba_state_envelope();
+        const int read = rr_state_envelope_read(&envelope, bytes.data(), bytes.size());
+        if (read == RR_STATE_INCOMPATIBLE) error = "a state of another game or of another version of this player";
+        else if (read != RR_STATE_OK) error = "not a state of this player, or cut, grown or damaged";
+        const bool loaded = read == RR_STATE_OK && g_api->load_state(g_state_blob, error);
         if (loaded) {
             g_head = g_tail = 0;       // the sound of the moment the state was taken is not played over the restored one
             g_sum = 0;
@@ -318,8 +396,13 @@ bool rrgba_state_file(const wchar_t* path, bool load) {
         }
         return loaded;
     }
-    std::vector<uint8_t> bytes;
-    return g_api->save_state(bytes, error) && write_atomically(path, bytes);
+    if (!g_api->save_state(g_state_blob, error)) return false;
+    const RetroStateEnvelope envelope = gba_state_envelope();
+    std::vector<uint8_t> file(RR_STATE_ENVELOPE_HEADER + g_state_blob.size());
+    size_t size = 0;
+    if (rr_state_envelope_write(&envelope, file.data(), file.size(), &size) != RR_STATE_OK) return false;
+    file.resize(size);
+    return write_atomically(path, file);
 }
 
 static void run_state_switch(void) {
@@ -381,6 +464,7 @@ int main(int argc, char** argv) {
     gbarecomp::g_rr_driver = driver;
     load_script();
     open_rows();
+    parse_shots();
     parse_state_switch();
     g_selftest = getenv("RETRORECOMP_GBA_SELFTEST") != nullptr;
     // Every check (a scripted run, the self-test, the kit's frame limit) starts the cartridge's clock from a fixed time and moves it
@@ -404,6 +488,7 @@ int main(int argc, char** argv) {
     char save_utf8[4096] = "";
     if (state_location(save, 2048, "saves", ".sav") && rr_to_utf8(save, save_utf8, sizeof save_utf8))
         wcsncpy(g_save_path, save, 2047);
+    set_aside_unusable_save();
     int status = 0;
     do {
         g_restart = false;

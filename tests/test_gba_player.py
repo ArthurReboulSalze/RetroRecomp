@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from retrorecomp import gba_engine, gba_patches, gba_player, hostkit
-from retrorecomp.paths import ASSETS
+from retrorecomp.paths import ASSETS, ROOT
 from retrorecomp.systems import get_profile
 
 
@@ -16,17 +16,28 @@ class PlayerProjectTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.root = Path(self.folder.name)
 
-    def prepare(self, title='An Authored Game'):
+    def prepare(self, title='An Authored Game', rom=b'\x01' * 64):
         (self.root / 'stage/engine').mkdir(parents=True, exist_ok=True)
         (self.root / 'stage/external/arm-recomp-core').mkdir(parents=True, exist_ok=True)
         (self.root / 'stage/external/arm-recomp-core/LICENSE').write_text('MIT authored', encoding='utf-8')
-        (self.root / 'rom.gba').write_bytes(b'\x01' * 64)
+        (self.root / 'rom.gba').write_bytes(rom)
         (self.root / 'bios.bin').write_bytes(b'\x02' * 64)
         player = self.root / 'player'
         gba_player.prepare(player, self.root / 'stage', self.root / 'generated', self.root / 'bios_code', self.root / 'rom.gba',
                            self.root / 'bios.bin', title=title, name='An Authored Game', sha1='ab' * 20, sha256='cd' * 32,
                            version='1.7.0')
         return player
+
+    def test_the_header_names_the_largest_save_the_chip_can_hold(self):
+        for text, limit in ((b'no chip', 0), (b'SRAM_V113', 32768), (b'FLASH512_V131', 65536), (b'FLASH1M_V103', 131072), (b'EEPROM_V124', 8192)):
+            with self.subTest(chip=text):
+                header = (self.prepare(rom=b'\x01' * 64 + text + b'\x01' * 64) / 'gba_game.h').read_text(encoding='utf-8')
+                self.assertIn(f'#define RR_GBA_SAVE_LIMIT {limit}', header)
+
+    def test_the_player_sets_aside_a_save_larger_than_its_chip(self):
+        source = (ROOT / 'native' / 'gba_machine.cpp').read_text(encoding='utf-8')
+        self.assertIn('set_aside_unusable_save();', source)
+        self.assertIn('std::wstring(g_save_path) + L".damaged"', source)
 
     def test_the_project_holds_the_kit_the_machine_and_the_resources(self):
         player = self.prepare()
@@ -97,6 +108,21 @@ class EngineSeamTests(unittest.TestCase):
     def test_the_seam_patches_name_the_two_engine_files_they_touch(self):
         files = {file for file, _old, new, _note in gba_patches.PATCHES if 'g_rr_' in new or 'rr_driver' in new}
         self.assertEqual(files, {'src/runtime/runtime.cpp', 'src/runtime/asset_picker.cpp'})
+
+
+
+class QuickStateEnvelopeTests(unittest.TestCase):
+    """The player wraps the engine's state in an envelope of its own (a length and a checksum), so that a file damaged anywhere is refused."""
+
+    def test_the_state_file_is_written_and_read_through_the_envelope(self):
+        from retrorecomp.paths import ROOT
+        source = (ROOT / 'native' / 'gba_machine.cpp').read_text(encoding='utf-8')
+        self.assertIn('#include "state_envelope.h"', source)
+        self.assertIn('rr_state_envelope_write(&envelope, file.data(), file.size(), &size)', source)
+        self.assertIn('rr_state_envelope_read(&envelope, bytes.data(), bytes.size())', source)
+        for reason in ('another game or of another version', 'cut, grown or damaged'):
+            self.assertIn(reason, source)
+        self.assertNotIn('put_le', source)                                  # no envelope of its own: the shared one
 
 
 if __name__ == '__main__':

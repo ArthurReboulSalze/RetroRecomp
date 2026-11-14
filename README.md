@@ -3,7 +3,7 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · MSX · MSX2 · Commodore Amiga · Atari ST · Game Boy Advance · Nintendo 64 · Sony PlayStation · MSX2+ (the last four experimental)</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · MSX · MSX2 · Commodore Amiga · Atari ST · Game Boy Advance · Nintendo 64 · Sony PlayStation · MSX2+ (the last three experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -78,7 +78,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████████░` 94 % |
-| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `███████░░░` 69 % |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████████░` 91 % |
 | [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████████░` 91 % |
 | [Atari ST](docs/ATARI_ST.md)\* | supported | `█████████░` 91 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |

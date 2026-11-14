@@ -12,10 +12,13 @@ place). Two checks, each of them with two or three separate processes:
   refusals  the state file process A saved is damaged in eight ways (emptied, cut, grown, header and identity inverted, noise, one byte in
           the middle) and a fresh process tries to load each, then one tries to load none: every one must say `quick state refused` (the
           missing one nothing), end with code 0 as a run that never loaded a state (same picture and frame count as the control), and the
-          missing one must create no state file. A byte inverted in the middle is reported, not required (memory has no checksum).
+          missing one must create no state file.
   route    one process plays a key script (tools/gba_routes/*.keys) to a frame limit and reports the last picture's SHA-256, the frame count and
           the instructions the interpreter ran: the numbers two systems must give equal for the same converted game (gate G13) and the depth
           a route reaches (gate G9). It says nothing about what the picture shows: read it.
+  damaged-saves  the save file process A wrote is damaged in five ways (emptied, cut in half, grown by 64 bytes, noise of the same size, one byte inverted)
+          and a fresh process starts the game with each: every one must end at the frame limit with code 0 (never a crash, never a game that does not open);
+          a file larger than the chip, which the engine refuses, must be set aside whole (`<file>.damaged`) and the game must start as if there was no save.
   save    process A plays a key script that makes the game write its cartridge save and ends; the save file is on disk, of the
           size the game keeps, and not one single byte value. Process B, fresh, starts with that file and plays a second script
           (to the file-select screen, say); a control process with no file plays the same second script. B's last picture must
@@ -27,6 +30,7 @@ The headless player has no key for F8 and F9, so the state check needs the test 
     python -B tools/gba_fresh_process.py state --exe GAME.exe --keys ROUTE.keys [--save-frame 600] [--more 120]
     python -B tools/gba_fresh_process.py refusals --exe GAME.exe --keys ROUTE.keys [--save-frame 600] [--more 120]
     python -B tools/gba_fresh_process.py route --exe GAME.exe --keys tools/gba_routes/ROUTE.keys --frames N
+    python -B tools/gba_fresh_process.py damaged-saves --exe GAME.exe --keys-a WRITE.keys --frames-a N --keys-b SHOW.keys --frames-b M
     python -B tools/gba_fresh_process.py save  --exe GAME.exe --keys-a WRITE.keys --frames-a 3000 --keys-b SHOW.keys --frames-b 900
     python -B tools/gba_fresh_process.py keys  --out ROUTE.keys --header "what it reaches" --events "300:8,304:0" --pulse 1,700,6000,50,4
 
@@ -62,7 +66,7 @@ WIDTH, HEIGHT = 240, 160
 BUTTONS = {'a': 0x1, 'b': 0x2, 'select': 0x4, 'start': 0x8, 'right': 0x10, 'left': 0x20, 'up': 0x40, 'down': 0x80, 'r': 0x100,
            'l': 0x200}
 # Test switches of the player that an environment inherited from a shell must not leak into a check.
-PLAYER_SWITCHES = ('RETRORECOMP_GBA_INPUT', 'RETRORECOMP_GBA_DUMP', 'RETRORECOMP_GBA_STATE', 'RETRORECOMP_GBA_SELFTEST',
+PLAYER_SWITCHES = ('RETRORECOMP_GBA_INPUT', 'RETRORECOMP_GBA_DUMP', 'RETRORECOMP_GBA_STATE', 'RETRORECOMP_GBA_SELFTEST', 'RETRORECOMP_GBA_SHOTS', 'RETRORECOMP_GBA_SHOT_DIR',
                    'RETRORECOMP_HOST_TEST_FRAMES', 'RETRORECOMP_HOST_TEST_NO_AUDIO', 'RETRORECOMP_HOST_TEST_FILTER')
 STATS_LINE = re.compile(r'\[host\] frames=(\d+).*?interpreted=(\d+)')
 STATE_LINE = re.compile(r'\[state\] (save|load) at frame (\d+) (ok|FAILED)')
@@ -218,7 +222,7 @@ def state_switch(save_frame: int | None = None, load_frame: int | None = None, r
     return ','.join(steps)
 
 
-def player_environment(folder: Path, frames: int, keys: Path | None, dump: Path, state: str = '') -> dict:
+def player_environment(folder: Path, frames: int, keys: Path | None, dump: Path, state: str = '', extra: dict | None = None) -> dict:
     env = {k: v for k, v in os.environ.items() if k not in PLAYER_SWITCHES}
     env.update(RETRORECOMP_HOST_TEST_FRAMES=str(frames), RETRORECOMP_HOST_TEST_NO_AUDIO='1', RETRORECOMP_GBA_DUMP=str(Path(dump).resolve()),
                SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
@@ -226,17 +230,18 @@ def player_environment(folder: Path, frames: int, keys: Path | None, dump: Path,
         env['RETRORECOMP_GBA_INPUT'] = str(Path(keys).resolve())      # the player runs in the check's folder, not in ours
     if state:
         env['RETRORECOMP_GBA_STATE'] = state
+    env.update(extra or {})
     return env
 
 
-def run_player(exe: Path, folder: Path, label: str, frames: int, keys: Path | None, state: str = '', timeout: int = 1800) -> RunResult:
+def run_player(exe: Path, folder: Path, label: str, frames: int, keys: Path | None, state: str = '', timeout: int = 1800, extra: dict | None = None) -> RunResult:
     """One process: hidden (no console window, dummy video and audio), bounded by the frame limit, killed at the timeout."""
     dump = folder / f'{label}.ppm'
     if dump.exists():
         dump.unlink()
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     try:
-        done = subprocess.run([str(exe)], cwd=folder, env=player_environment(folder, frames, keys, dump, state), capture_output=True,
+        done = subprocess.run([str(exe)], cwd=folder, env=player_environment(folder, frames, keys, dump, state, extra), capture_output=True,
                               text=True, errors='replace', timeout=timeout, creationflags=flags)
     except subprocess.TimeoutExpired as error:
         raise CheckError(f'{label}: the player did not end within {timeout} s (killed)') from error
@@ -380,8 +385,8 @@ def run_state_check(exe: Path, work: Path, keys: Path | None, save_frame: int, m
 
 
 def damaged_states(data: bytes) -> dict[str, tuple[bytes, bool]]:
-    """{name: (bytes, required)} the damaged forms of a quick state. `required`: the player must refuse it (it breaks the container: magic, identity or
-    size). The one byte flipped in the middle is only reported: a state of memory has no checksum to refuse it by."""
+    """{name: (bytes, required)} the damaged forms of a quick state. `required`: the player must refuse it. Every form is required since the player's own envelope
+    (a length and a checksum of the engine's bytes); before it the one byte flipped in the middle was only reported, a state of memory having no checksum to refuse it by."""
     noise = bytearray()
     block = 0
     while len(noise) < len(data):
@@ -397,7 +402,7 @@ def damaged_states(data: bytes) -> dict[str, tuple[bytes, bool]]:
         'first 16 bytes inverted': (bytes(byte ^ 0xFF for byte in data[:16]) + data[16:], True),
         'cartridge identity damaged': (data[:8] + bytes(byte ^ 0xFF for byte in data[8:28]) + data[28:], True),
         'noise of the same size': (bytes(noise[: len(data)]), True),
-        'one byte inverted in the middle': (bytes(middle), False),
+        'one byte inverted in the middle': (bytes(middle), True),
     }
 
 
@@ -477,6 +482,71 @@ def run_route_check(exe: Path, work: Path, keys: Path, frames: int, timeout: int
     return build_report('route', exe, {'route': run}, verdict, {'keys': keys.name, 'keys_sha256': hashlib.sha256(keys.read_bytes()).hexdigest(), 'frames': frames})
 
 
+def damaged_saves(data: bytes) -> dict[str, bytes]:
+    """The damaged forms of a cartridge save file: emptied, cut in half, grown past the chip, noise of the same size, one byte inverted."""
+    noise = bytearray()
+    block = 0
+    while len(noise) < len(data):
+        noise += hashlib.sha256(b'gba-fresh-process save noise %d' % block).digest()
+        block += 1
+    flipped = bytearray(data)
+    flipped[len(data) // 3] ^= 0xFF
+    return {'emptied': b'', 'cut in half': data[: len(data) // 2], 'grown by 64 bytes': data + bytes(64), 'noise of the same size': bytes(noise[: len(data)]),
+            'one byte inverted': bytes(flipped)}
+
+
+def damaged_save_verdict(control: RunResult, valid: RunResult, variants: dict[str, tuple[RunResult, bool]], frames: int) -> dict:
+    """A save file the player cannot use must not stop the game: every variant ends with code 0 at the frame limit. One that is larger than the chip (which the
+    engine refuses) must be set aside whole and the game must start as if there was no save (the picture of the control). The others are reported with the picture
+    they gave (the game's own checks decide what a damaged profile is)."""
+    problems: list[str] = []
+    table: dict[str, dict] = {}
+    if control.picture_sha256 is None or valid.picture_sha256 is None or control.picture_sha256 == valid.picture_sha256:
+        problems.append('the valid save is not told apart from no save by the picture: the check cannot tell')
+    for name, (run, set_aside) in variants.items():
+        started = run.returncode == 0 and run.frames == frames
+        row = {'started': started, 'exit_code': run.returncode, 'set_aside': set_aside,
+               'picture': 'the valid save' if run.picture_sha256 == valid.picture_sha256 else ('no save' if run.picture_sha256 == control.picture_sha256 else 'other')}
+        table[name] = row
+        if not started:
+            problems.append(f'{name}: the game did not start (code {run.returncode}, frame {run.frames} of {frames})')
+        if name.startswith('grown') and not (set_aside and row['picture'] == 'no save'):
+            problems.append(f'{name}: the file must be set aside and the game must start without a save ({row})')
+    return {'verdict': 'fail' if problems else 'pass', 'variants': table, 'problems': problems}
+
+
+def run_damaged_save_check(exe: Path, work: Path, keys_a: Path, frames_a: int, keys_b: Path, frames_b: int, timeout: int) -> dict:
+    read_key_script(keys_a)
+    read_key_script(keys_b)
+    folder = work / 'damaged-saves'
+    game = prepare_folder(exe, folder)
+    a = run_player(game, folder, 'A', frames_a, keys_a, '', timeout)
+    saves = saves_in(folder)
+    if not saves:
+        raise CheckError('process A wrote no save file')
+    path = saves[0]
+    good = path.read_bytes()
+    valid = run_player(game, folder, 'valid', frames_b, keys_b, '', timeout)
+    path.write_bytes(good)
+    variants: dict[str, tuple[RunResult, bool]] = {}
+    for name, data in damaged_saves(good).items():
+        for leftover in path.parent.glob('*.damaged'):
+            leftover.unlink()
+        path.write_bytes(data)
+        label = 'D-' + re.sub(r'[^a-z0-9]+', '-', name)
+        run = run_player(game, folder, label, frames_b, keys_b, '', timeout)
+        variants[name] = (run, any(path.parent.glob('*.damaged')))
+        path.write_bytes(good)
+    for leftover in path.parent.glob('*.damaged'):
+        leftover.unlink()
+    path.unlink()
+    control = run_player(game, folder, 'control', frames_b, keys_b, '', timeout)
+    verdict = damaged_save_verdict(control, valid, variants, frames_b)
+    verdict['save_bytes'] = len(good)
+    runs = {'A': a, 'valid': valid, 'control': control, **{name: run for name, (run, _) in variants.items()}}
+    return build_report('damaged-saves', exe, runs, verdict, {'keys_a': keys_a.name, 'frames_a': frames_a, 'keys_b': keys_b.name, 'frames_b': frames_b})
+
+
 def sav_of(folder: Path) -> tuple[dict | None, Path | None]:
     files = saves_in(folder)
     return (save_stats(files[0].read_bytes()), files[0]) if files else (None, None)
@@ -533,6 +603,12 @@ def build_parser() -> argparse.ArgumentParser:
     common(route)
     route.add_argument('--keys', type=Path, required=True)
     route.add_argument('--frames', type=int, required=True)
+    damaged = sub.add_parser('damaged-saves', help='a cartridge save damaged in five ways never stops the game; one the chip cannot hold is set aside')
+    common(damaged)
+    damaged.add_argument('--keys-a', type=Path, required=True)
+    damaged.add_argument('--frames-a', type=int, required=True)
+    damaged.add_argument('--keys-b', type=Path, required=True)
+    damaged.add_argument('--frames-b', type=int, required=True)
     save = sub.add_parser('save', help='a cartridge save written by one process is read back by another')
     common(save)
     save.add_argument('--keys-a', type=Path, required=True)
@@ -568,6 +644,8 @@ def main(argv: list[str] | None = None) -> int:
             report = run_state_check(exe, work, args.keys, args.save_frame, args.more, args.load_frame, args.timeout)
         elif args.command == 'route':
             report = run_route_check(exe, work, args.keys, args.frames, args.timeout)
+        elif args.command == 'damaged-saves':
+            report = run_damaged_save_check(exe, work, args.keys_a, args.frames_a, args.keys_b, args.frames_b, args.timeout)
         elif args.command == 'refusals':
             report = run_refusal_check(exe, work, args.keys, args.save_frame, args.more, args.load_frame, args.timeout)
         else:

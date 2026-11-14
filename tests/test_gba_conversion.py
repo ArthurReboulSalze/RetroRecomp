@@ -323,7 +323,7 @@ class BuildTests(unittest.TestCase):
         class Done:
             returncode, stdout = 3, 'runtime_arm: generated call-return stack overflow at return_pc=0x0805FB7A\n' \
                                     'final_pc=0x08000532 cycles=62191750 ppu_vcount=211\n' \
-                                    'vblank_snapshot frame=600 cycles=168538800 mem=00112233445566ff cpu=aabbccdd00112233\n'
+                                    'vblank_snapshot frame=600 cycles=168538800 mem=00112233445566ff cpu=aabbccdd00112233 audio=0badcafe0badcafe audio_samples=393216\n'
 
         def fake_spawn(command, **options):
             work = Path(options['cwd'])
@@ -342,6 +342,7 @@ class BuildTests(unittest.TestCase):
                                            'generic', 600, Path('script.txt'), reference=True)
         self.assertEqual((outcome.returncode, outcome.cycles, outcome.coverage['interpreted_insns']), (3, 168538800, 12))        # the snapshot's cycles, not the idle counter of the final line
         self.assertEqual((outcome.mem_hash, outcome.cpu_hash), ('00112233445566ff', 'aabbccdd00112233'))
+        self.assertEqual((outcome.audio_hash, outcome.audio_samples), ('0badcafe0badcafe', 393216))
         self.assertIn('overflow', outcome.aborted)
         self.assertEqual(len(outcome.frame_sha256), 64)
         self.assertEqual(len(outcome.iwram), 32)
@@ -350,9 +351,33 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(forced, [False, True])           # only the reference run asks for the engine's interpreter alone
 
 
+
+class RecompilerLockTests(unittest.TestCase):
+    def test_two_conversions_of_a_batch_build_the_recompiler_one_after_the_other(self):
+        import threading
+        import time
+        order = []
+
+        def work(number):
+            with build.exclusive(Path(folder) / 'recompiler.lock'):
+                order.append(('in', number))
+                time.sleep(0.2)
+                order.append(('out', number))
+
+        with tempfile.TemporaryDirectory() as folder:
+            threads = [threading.Thread(target=work, args=(number,)) for number in range(3)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+        for index in range(0, 6, 2):
+            self.assertEqual(order[index][0], 'in')
+            self.assertEqual(order[index + 1], ('out', order[index][1]))      # nobody comes in before the holder is out
+
+
 class ConversionTests(unittest.TestCase):
     def test_the_agreement_of_a_run_with_the_engines_interpreter(self):
-        make = lambda sha, cycles, code=0, mem='m', cpu='c': build.Run('s', 10, code, '', {}, '', None, '', sha, cycles, mem, cpu)
+        make = lambda sha, cycles, code=0, mem='m', cpu='c', audio='s', samples=7: build.Run('s', 10, code, '', {}, '', None, '', sha, cycles, mem, cpu, audio_hash=audio, audio_samples=samples)
         self.assertTrue(gba_conversion._matches(make('a', 5), make('a', 5)))
         self.assertFalse(gba_conversion._matches(make('a', 5), make('b', 5)))
         self.assertTrue(gba_conversion._matches(make('a', 5), make('a', 6)))
@@ -360,12 +385,15 @@ class ConversionTests(unittest.TestCase):
         self.assertFalse(gba_conversion._matches(make('a', 5), make('a', 5, mem='other')))       # the memories differ
         self.assertFalse(gba_conversion._matches(make('a', 5), make('a', 5, cpu='other')))       # the CPU registers differ
         self.assertFalse(gba_conversion._matches(make('a', 5, mem=''), make('a', 5, mem='')))    # no snapshot: no agreement claimed
+        self.assertFalse(gba_conversion._matches(make('a', 5), make('a', 5, audio='other')))     # the sound differs
+        self.assertFalse(gba_conversion._matches(make('a', 5), make('a', 5, samples=8)))         # one sample more or fewer
+        self.assertFalse(gba_conversion._matches(make('a', 5, audio=''), make('a', 5, audio='')))  # a probe that hashes no sound: no agreement claimed
         self.assertIsNone(gba_conversion._matches(make('a', 5), None))
         self.assertIsNone(gba_conversion._matches(make('a', 5, 3), make('a', 5)))
         self.assertIsNone(gba_conversion._matches(make('', None), make('', None, 1)))
 
     def test_a_conversion_whose_native_run_failed_or_differs_is_refused(self):
-        make = lambda code=0, aborted='': build.Run('s', 10, code, '', {}, '', None, aborted, 'sha', 1, 'm', 'c')
+        make = lambda code=0, aborted='': build.Run('s', 10, code, '', {}, '', None, aborted, 'sha', 1, 'm', 'c', audio_hash='s', audio_samples=1)
         row = lambda name, match: {'scenario': name, 'reference_match': match}
         good = {'boot': make(), 'generic': make()}
         self.assertEqual(gba_conversion.validation_failures([row('boot', True), row('generic', True)], good), [])
@@ -515,6 +543,28 @@ class DeliveryEvidenceTests(unittest.TestCase):
         with self.assertRaises(ConversionError) as caught:
             self.delivery(still=True)
         self.assertIn('never changes', str(caught.exception))
+
+
+
+class ReportContractTests(unittest.TestCase):
+    """Gate G2: the units that are not the ARM core are named, the warnings and the scope are the common ones."""
+
+    def test_the_common_report_names_the_ppu_and_the_sound_unit_and_has_no_zero_fallback_claim(self):
+        from retrorecomp import report_schema
+        document = gba_conversion.report_of(types_source(), 'standard', [gba_conversion._row('generic', 3600, None, 0, liveness={'frames': 3600, 'last_picture_change_frame': 3599})],
+                                           extra={'hardware_devices': [dict(entry, details=dict(entry['details'])) for entry in gba_conversion.HARDWARE_DEVICES],
+                                                  'route_warnings': [], 'qualification_scope': {'universal_zero_fallback_claim': False}})
+        report = report_schema.read_report(document, lenient=True)
+        self.assertEqual([(device['id'], device['kind']) for device in report['devices']], [('gba_ppu', 'video_unit'), ('gba_sound', 'audio_unit')])
+        self.assertEqual(report['honesty']['universal_zero_fallback_claim'], False)
+        self.assertEqual(report['honesty']['route_warnings'], [])
+        self.assertEqual([cpu['arch'] for cpu in report['cpus']], ['arm7tdmi'])
+        self.assertFalse(report['honesty']['hardware_fidelity_validated'])
+
+
+def types_source():
+    import types
+    return types.SimpleNamespace(metadata=lambda: {'sha256': 'a' * 64, 'bytes': 1, 'file': 'x.gba'})
 
 
 if __name__ == '__main__':

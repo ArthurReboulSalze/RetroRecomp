@@ -1,16 +1,15 @@
-# Game Boy Advance (experimental, opening in 1.7.0)
+# Game Boy Advance (supported since 1.7.6, open as experimental in 1.7.0)
 
-Status: **experimental**. The converter turns a `.gba` cartridge (or a ZIP holding exactly one) into a standalone Windows game (a Linux one on a Debian 13 PC, see the
+Status: **supported** (since 1.7.6, on the owner's decision of 14 November 2026: [the exit record](#the-exit-from-the-experimental-status-14-november-2026-supported-from-176); it opened as experimental in 1.7.0). The converter turns a `.gba` cartridge (or a ZIP holding exactly one) into a standalone Windows game (a Linux one on a Debian 13 PC, see the
 witness below) with your own BIOS: native code from what the game was seen to run, a counted interpreter for the rest, saves, quick states and the host kit's menus. The
 machine is listed by an installation that carries its native files (`GAME_BOY_ADVANCE.available()`), like the PC Engine; there is no
-developer switch. Experimental means what it means for the other machines: the evidence below is a first panel, not a qualification, and
-leaving the status is the owner's own decision.
+developer switch. The sections below keep their dates: those written before 14 November 2026 speak of the experimental status, which is the one the machine had then.
 
 The five measures stay separate here as everywhere: **native code** (how much of the game runs as generated code, with the
 interpreter fallback counted per CPU), **CPU fidelity**, **hardware fidelity**, **gameplay validation** and **physical latency**.
 The comparisons below are against the engine's own interpreter, not against hardware or an independent emulator, and "exact" and
 "zero latency" are never written without proof. The owner played the delivered exports on 5 and 6 November 2026 and wrote that they work
-perfectly; that is a play trial of those files, recorded in [QUALIFICATION.md](QUALIFICATION.md), not a decision to leave the experimental status.
+perfectly; that was a play trial of those files, recorded in [QUALIFICATION.md](QUALIFICATION.md), not yet a decision to leave the experimental status; the decision came on 14 November 2026 (below).
 
 ## Scope of the first profile
 
@@ -493,7 +492,7 @@ sample. Nobody listened to those samples: the rows show that the sound changes, 
 
 `tools/gba_fresh_process.py refusals` saves a state in one process, then damages the file in eight ways (emptied, cut in half, last byte missing, grown by 64 bytes, the first 16
 bytes inverted, the cartridge identity inverted, noise of the same size, one byte inverted in the middle) and tries to load each in a fresh process, then tries to load none.
-On the delivered Golden Sun, **seven of seven** forms that break the container are refused with a message (`quick state refused`), the game goes on as a run that never loaded a
+On the delivered Golden Sun, **seven of seven** forms that break the container are refused with a message (superseded on 14 November 2026: the player now wraps the state in a checksum and refuses all eight, see [below](#g6-the-quick-state-is-checked-by-a-checksum)) (`quick state refused`), the game goes on as a run that never loaded a
 state (same picture and frame count as the control, exit code 0), and the missing state creates no file. The eighth, one byte inverted in the middle of the memory, is
 **accepted**: a state of memory has no checksum (the engine checks the magic, the version, the cartridge's SHA-1 and the structure of the sections), so a flipped byte of
 memory is the game's own business; the check reports it and does not require it. The fresh-process state check itself (a state saved by one process and loaded by another gives the
@@ -504,7 +503,7 @@ same picture, a control that never loads gives another) passes on Golden Sun and
 The save of one process read back by a fresh one, with a control with no file, to the picture (`gba_fresh_process.py save`): Sonic Advance 2 (a Flash chip of 64 KB, the
 language screen to the name), Pokémon Emerald (a **128 KB Flash** file written by the Start menu's SAVE, 131,072 bytes, 148 distinct values, and the title shows CONTINUE in
 the second process) and The Minish Cap (the **8 KB EEPROM** written when the file is made, the file select shows it in the second process). The file is identical after the
-second process. Not shown: the **SRAM** family. Mega Man Zero 3 was tried: on its route the game rewrites only the 192 header bytes of its 32 KB file and the title does not
+second process. Not shown on 13 November (shown on 14 November with F-Zero: Maximum Velocity, see [G7](#g7-saves-on-all-four-chips)): the **SRAM** family. Mega Man Zero 3 was tried: on its route the game rewrites only the 192 header bytes of its 32 KB file and the title does not
 change, because the route never reaches one of its save points; a route to a save point of an SRAM cartridge is still to be made. Saves from real hardware are not read.
 
 ### Routes into play: gate G9
@@ -576,6 +575,136 @@ Gameplay beyond the first minutes of twelve cartridges, the SRAM family's save, 
 external emulator was compared), the sound itself (counts and hashes, not listening) and physical latency (not measured; `tools/gba_frame_cost.py` is ready and waits for a quiet PC).
 
 
+## The exit from the experimental status (14 November 2026, supported from 1.7.6)
+
+**The decision.** The owner played the six exports of the checklist (Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald, delivered to
+`Export\Games\Game Boy Advance`, converted from the final tree of `spec/gba-175` from an empty library, online covers on) and wrote: « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. » Asked "Je sors la GBA de l'expérimental pour la 1.7.6 ?",
+he answered « Oui, sors-la ». The Game Boy Advance is therefore **supported from 1.7.6**: the release 1.7.5 was frozen on what was ready that morning, and this machine leaves with the next one. Gate G14 is `Y`
+(the owner-acceptance table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); the matrix stands at 13 `Y` and 3 `P` (G10, G11 and G16), 91 %.
+
+**What "supported" covers.** A `.gba` cartridge (or a ZIP holding exactly one) converted with the player's own BIOS, for one player, to a Windows executable (and a Linux one, witnessed on a Debian 13 PC on four
+cartridges and on the Golden Sun of the final tree): the ARM7TDMI as generated code from what the game was seen to run, the engine's interpreter, counted and reported, for the rest; the four save chips
+(SRAM, Flash 64 KB, Flash 128 KB, EEPROM) and the real-time clock; quick states in the shared checksum envelope; the host kit's menus. The proof it rests on is the section below
+(*what 1.7.5 adds*): twelve cartridges converted from an empty library to the same picture, cycle count, memory, CPU and sound as the engine's interpreter on two scenarios of 600 and 3,600 frames, the delivered file equal to
+the player as built, eight authored routes of 4,200 to 12,000 frames read picture by picture and equal on Debian, and the owner's play of the six exports above.
+
+**What it does not say.** The five measures stay separate and none of the open ones is closed by the exit:
+
+* **native code:** the engine does not count the instructions it runs as native code, so the report shows the interpreted ones only (`native` stays unset); 0 interpreted at the end of every panel conversion, three
+  authored routes run millions of interpreted instructions on code the two scenarios never reach, counted;
+* **CPU fidelity:** native against the engine's own interpreter, not an independent oracle; the independent vectors agree on 94 % of the interpreter's, the rest being coprocessor, unpredictable and modelling classes (G10 `P`);
+* **hardware fidelity:** authored hardware tests only, no external emulator comparison (G11 `P`); the picture and sound units are the engine's C models;
+* **gameplay validation:** the first minutes and long runs of four cartridges, the owner's play of six games; **no level won**, no boss, no complete game, and not the pseudo-random 18,000-frame level of the other machines;
+* **physical latency:** not measured (`tools/gba_frame_cost.py` has made no quiet-PC pass); nothing here says zero latency.
+
+Also out of scope, as before: link cable, wireless adapter, multiboot, e-Reader, the Game Boy Player, the cartridge sensors (tilt, gyroscope, solar), saves written by real hardware. A converted game still holds code
+derived from the player's own BIOS and stays private to that player; supported does not change that. The shared paths stay in the experimental tier of the base (`EXPERIMENTAL_SHARED`, G16 `P`), the site's limits do not move.
+
+**What changed in the code.** `retrorecomp/systems/gba.py` (status `supported`), the report's `status` (read from the profile), the Options note in the eight languages (no "experimental"), the credits (the machine is no longer listed among the
+experimental ones) and five tests; nothing a conversion does. The Game Boy Advance **game** stamp moves once more (`e6e3909337ce` on `spec/gba-175` to `c336150515fd`; the status is a game input); the host and build stamps and every other machine's
+are unchanged ([UPGRADES.md](UPGRADES.md)). The six exports of the checklist predate the flip and are not converted again for it.
+
+## Leaving the experimental status: what 1.7.5 adds (14 November 2026)
+
+The maintainer asked for the Game Boy Advance to be prepared to leave `experimental` in 1.7.5. The status was **not** changed by this work: the flip and gate G14 were his alone, and he took them the same evening (the exit record above). This section is
+the evidence of the tree of `spec/gba-175`, gate by gate, with what each one does not show. The panel is the four cartridges of 13 November (Golden Sun, Mario Kart Super Circuit,
+The Minish Cap, Crazy Taxi), converted again on this tree with F-Zero: Maximum Velocity and Pokémon Emerald as extra evidence (the maintainer's rule: a panel of four to eight).
+Every conversion started from an **empty** scratch library, with online covers on, two at a time, on a Windows PC in use for other work (the times are not a benchmark).
+
+| Cartridge | Size, save chip | Passes | Interpreted at pass 1, boot / generic | At the end | Time | Cover |
+|---|---|---|---|---|---|---|
+| Golden Sun | 8 MB, Flash 64 KB | 5 | 2,581,873 / 72,238,564 | 0 / 0 | 23 min | libretro, in the icon and the menu art |
+| Mario Kart Super Circuit | 4 MB, Flash 64 KB | 2 | 3,230 / 332,875 | 0 / 0 | 24 min | libretro |
+| The Minish Cap | 16 MB, EEPROM | 3 | 1,636,808 / 19,684,139 | 0 / 0 | 23 min | libretro |
+| Crazy Taxi: Catch a Ride | 8 MB, EEPROM | 2 | 1,128,263 / 60,667,828 | 0 / 0 | 41 min | libretro |
+| F-Zero: Maximum Velocity (extra) | 4 MB, SRAM | 2 | 1,498 / 1,060,764 | 0 / 0 | 37 min | libretro |
+| Pokémon Emerald (extra) | 16 MB, Flash 128 KB, clock | 2 | 106,192 / 3,782,142 | 0 / 0 | 42 min | libretro |
+
+### G2, the report
+
+The report was read through the common reader (`report_schema.read_report`) against the checklist. What was missing and is now written by the conversion: the two units of the machine that are not
+the processor, named as hardware devices (the picture processing unit, `video_unit`, and the sound unit, `audio_unit`, both C models of the pinned engine, with no counter of their own:
+the ARM core's instruction counts do not include them), `route_warnings` (the common rule: a route whose picture stops changing early is said in words; none here) and the qualification
+scope with `universal_zero_fallback_claim` false. The ARM7TDMI's counts per scenario, the five measures kept apart and the `honesty` block were there. **Not counted:** the instructions run
+as native code (the engine does not count them: `native` stays unset, never zero); the report shows what the interpreter ran.
+
+### G4, the sound is compared too
+
+The probe's snapshot line, taken at the first VBlank after the frame limit of each scenario, gains a hash of every sample the sound mixer produced (the 16-bit value, in order) and how many there
+were (three anchored patches of the engine, `docs/UPSTREAMS.md`; none of them touches what a path names). A conversion's verdict is the picture, the guest's cycle count, a hash of the memories and
+device registers, a hash of the CPU registers **and the sound**, native against the engine's interpreter, on `boot` (600 frames) and `generic` (3,600 frames); a probe that hashes no sound, or a
+sound that differs by one sample, is no agreement. On the six conversions above every scenario agrees (for example Golden Sun: 655,306 samples in `boot`, 3,947,054 in `generic`, the same
+hash in both modes). This is a comparison with the engine's own interpreter, not an independent oracle, and it says nothing about what the sound is like (the report's `sound_routes` and the
+liveness counts say that it changes).
+
+### G6, the quick state is checked by a checksum
+
+The engine's state file has no checksum of the memory it holds: a byte inverted in the middle was accepted (the fresh-process check of 13 November reported it as the one form it did not require). The
+player now writes the state inside the envelope the Z80 machines and the MSX share (`native/state_envelope.h`: a magic, a schema, the game's SHA-256, the length and a CRC-32 of the engine's bytes) and refuses, before the engine sees it, a state of another game or a file that was
+cut, grown or damaged anywhere; a state of an earlier build, without the envelope, is refused cleanly too (quick states may break between releases). `gba_fresh_process.py refusals` on the delivered
+Golden Sun: **eight of eight** damaged forms (emptied, cut in half, last byte missing, grown by 64 bytes, the first 16 bytes inverted, the identity inverted, noise of the same size, one byte inverted
+in the middle) are refused with a message, the game goes on as a run that never loaded a state, and a missing state creates no file; the fresh-process state check (saved by one process, loaded by another,
+a control that never loads differs) passes on Golden Sun, on Windows and on Debian.
+
+### G7, saves on all four chips
+
+| Chip | Cartridge | Evidence |
+|---|---|---|
+| Flash 64 KB | Sonic Advance 2 (13 November) | the language and name written by one process are shown by the next |
+| Flash 128 KB | Pokémon Emerald | Start menu, SAVE: the 131,072-byte file is written, the title offers CONTINUE in a fresh process (Windows, and Debian on 13 November) |
+| EEPROM | The Minish Cap | the file made by the route is listed by the file select of a fresh process (Windows and Debian) |
+| **SRAM** | **F-Zero: Maximum Velocity** | the route registers a pilot and starts a race; a fresh process lists the pilot where a run with no save shows an empty list (the file is identical after) |
+
+`gba_fresh_process.py damaged-saves` damages the save file five ways (emptied, cut in half, grown by 64 bytes, noise of the same size, one byte inverted) and starts the game with each. It found a
+**bug of the player**: a save file larger than the chip made the engine stop at its start (exit code 1, "save file too large") and the game never opened. The player now sets such a file aside whole
+(`<file>.damaged`) and starts without a save, as the other machines do. On the delivered F-Zero and The Minish Cap, every form starts the game; the large one is set aside and the game starts as
+with no save; an emptied file or noise gives a fresh start; a file cut in half or with one byte inverted keeps the profile (the game's own checks and the first half of the file); nothing crashes or
+blocks. Saves written by real hardware are not read.
+
+### G9, the routes are read
+
+`tools/gba_route_captures.py` runs a route once on the delivered player with the test switch `RETRORECOMP_GBA_SHOTS` and writes the picture of twelve frames spread over it, a contact sheet and a report
+(the hash of each picture, how many differ, the interpreted count); the sheet is read by a person, and the report says it is not read by itself. The other machines reached `Y` by the same means: play
+reached on long routes, twelve pictures of each replayed on the delivered file and read, "not full games". The Game Boy Advance gives **authored routes** (key scripts, numbers only) of 4,200 to 12,000
+frames, not the pseudo-random 18,000-frame level of the others: a route as a conversion scenario would need an interpreter replay of the same length (hours, see 13 November), so it is a route
+of the delivered file, not a scenario. What each sheet showed (read on 14 November 2026):
+
+| Route (`tools/gba_routes/`) | Frames | What the twelve pictures show | Interpreted on the route | Debian equal |
+|---|---|---|---|---|
+| `golden_sun_vale_walk` | 6,500 | the name screen, Isaac's house and the dialogues, the village of Vale in the rain, Isaac walking among the villagers, then his menu open | 643,447 | picture and the twelve hashes |
+| `mario_kart_super_circuit_long_race` | 9,000 | the start of a race, then the kart accelerating through the grass for two minutes of timer (no steering: it leaves the track) | 0 | picture and the twelve hashes |
+| `minish_cap_walk_in_the_house` | 12,000 | the name written ("Saving file…"), the stained glass, the field, Zelda and the smith, Link woken in his bed, Link walking about his house with the hearts and the rupees | 27,347,380 | picture and the twelve hashes |
+| `crazy_taxi_catch_a_ride_long_drive` | 9,000 | the logos, the mode choice, loading, the taxi driving in the city while the clock runs out, the result (no customer), the next game starts | 0 | picture and the twelve hashes |
+| `f_zero_maximum_velocity_save_write` (extra) | 6,000 | the logo, the machine and class, "GO!", the race with the rank changing, a pause menu | 0 | not run |
+| `pokemon_emerald_new_game_house` (extra) | 9,600 | Birch's talk, the boy, the moving van, Littleroot Town with Mom, the living room | 9,733,707 | not run (Windows and Debian equal on 13 November) |
+
+The four first routes of the panel (`golden_sun_new_game_vale`, `mario_kart_super_circuit_first_race`, `minish_cap_new_file_home`, `crazy_taxi_catch_a_ride_driving`, 4,200 to 10,000 frames) were read too,
+and their pictures are the same on Debian. They are the first minutes, not a level won, a boss or a whole race. Three of the routes run millions of interpreted instructions (counted, correct, code the two
+scenarios never reach). If the criterion asks for a game finished or a pseudo-random long scenario, that is not shown.
+
+### G13, Debian
+
+Golden Sun, Mario Kart Super Circuit, The Minish Cap and Crazy Taxi were converted again on a Debian 13 PC (one job at a time through the machine's job slots, from an empty library): the verdict
+(picture, cycles, memories, CPU, **sound**) agrees on both scenarios, the compressed copy equals the player as built, and on **all eight routes above** the last picture, the interpreted count **and the
+twelve pictures along the route** are the same as on Windows. On the Debian players the Golden Sun state and refusals checks pass, the Minish Cap save and its damaged forms pass. After the quick state moved to the shared envelope, Golden Sun was converted once more on the Debian PC from the final tree: the verdict (sound included) and the compressed copy agree, the long route gives the same picture and the same twelve pictures as Windows, and the state and refusals checks pass.
+
+### G1 and G15, the pages read
+
+Read on 14 November 2026: this page, `docs/COMPATIBILITY.md`, the README line, `docs/UPSTREAMS.md`, the options and scan notes in eight languages, the profile, the report and the credits line. Corrected: the compatibility
+paragraph (six cartridges of the first panel became the twelve cartridges of today, with the sound and the delivered file), the count of patches (55) and the row of the sound patch in `docs/UPSTREAMS.md`, the comment
+of the Debian witness in the profile, and the three statements of this page that this section supersedes (the seven forms of the refusals, the state that has no checksum, the SRAM family not shown). Everything states
+`experimental`; no sentence says "exact", "zero latency" or a fidelity that was not measured.
+
+### Risk cases and what the flip would touch
+
+Five Game Boy Advance risk cases are in `tools/campaign-risk-cases.json` (Golden Sun, The Minish Cap, Pokémon Emerald, Crazy Taxi, Mario & Luigi), on their own lines; `campaign.py select` matches them against the
+ROM folder (one case was unmatched because of "Legend of Zelda, The" and was renamed). A scratch run with the status set to `supported` (not committed): `registry_problems` finds nothing; `tools/status_lint.py` finds
+four contradictions (the README, `docs/COMPATIBILITY.md`, the latest release notes and the interface strings still say `experimental`); seven tests assert it (the profile, the sharing report block and five of the gauge
+and README tests). What a flip would touch, from the MSX's exit: `retrorecomp/systems/gba.py`, the interface strings in the eight languages, README, INDEX, AGENTS_GUIDE, STANDARDS, COMPATIBILITY, ROADMAP, this page, QUALIFICATION,
+UPGRADES, the release notes and `tests/test_machine_registry.py`. The shared paths stay in the experimental tier of the base (`EXPERIMENTAL_SHARED`) until the maintainer decides otherwise. G10 stays `P` (the independent vectors agree
+on 93.96 % of the interpreter's, the rest being coprocessor, unpredictable and modelling classes, none explained away) and G11 stays `P` (authored hardware tests only, no external emulator): nothing here claims a
+fidelity to the hardware.
+
 ## What exists today
 
 | Piece | File |
@@ -587,7 +716,7 @@ external emulator was compared), the sound itself (counts and hashes, not listen
 | Checkout of the pinned engine and the staged, patched copy | `retrorecomp/gba_engine.py`, `retrorecomp/gba_patches.py` |
 | Misses to roots and RAM routines, the engine's configuration | `retrorecomp/gba_analysis.py` |
 | Shared paths (the record, the limits, the received rows' use) | `retrorecomp/gba_knowledge.py`, `tests/test_gba_knowledge.py`, `tools/gba_bogus_rows_audit.py` |
-| Fresh-process checks (state, refusals, save, route), twelve key-script routes and the save scripts, cost of a frame | `tools/gba_fresh_process.py`, `tools/gba_routes/`, `tools/gba_frame_cost.py` |
+| Fresh-process checks (state, refusals, save, damaged saves, route), the key-script routes and the save scripts, the pictures along a route, cost of a frame | `tools/gba_fresh_process.py`, `tools/gba_route_captures.py`, `tools/gba_routes/`, `tools/gba_frame_cost.py` |
 | Recompiler, BIOS and game generation, the headless probe host, the key scripts | `retrorecomp/gba_build.py` |
 | Tests, with a synthetic cartridge and a faked toolchain (no ROM, no BIOS) | `tests/test_gba_profile.py`, `tests/test_gba_conversion.py`, `tests/test_gba_player.py` |
 

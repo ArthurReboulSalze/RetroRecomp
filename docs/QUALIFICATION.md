@@ -65,7 +65,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sharp X68000 | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Capcom CPS-2 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | PC Engine / TurboGrafx-16 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
-| Game Boy Advance | experimental | `███████░░░` 69 % | ✅ 6 · 🟡 10 · ❔ 0 |
+| Game Boy Advance | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Commodore Amiga | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Atari ST | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
@@ -78,21 +78,21 @@ console's status is never a threshold of this bar: leaving the experimental stat
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
@@ -108,21 +108,21 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | P |
-| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | Y |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | P |
+| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | Y |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | Y | P | P | Y | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | P | P | Y | P | P |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | ? | P | P | P |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | P | P | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | P |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | ? |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | ? | Y | Y | ? |
-| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | Y | Y | P |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | ? |
+| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
@@ -266,6 +266,7 @@ The page of each console, which the README links its line to (a console of the m
   dispatch). Safety on Turrican II: a record moved to addresses no run reaches leaves the conversion equal to the reference, a record of other disks is ignored with its reason. Not yet: the Linux half of G16. The 1.7.5
   work also settles the Atari ST's risk cases (five in `tools/campaign-risk-cases.json`) and a play checklist for the owner (below); the simulated flip to `supported` (a scratch run of `registry_problems`, nothing
   committed) lists no other requirement of the registry; the four texts a flip changes are README, COMPATIBILITY, the release notes and the interface strings (`tools/status_lint.py`). G14 and the flip are the owner's.
+- Game Boy Advance (14 November 2026, evening; branch `spec/gba-supported-176`, from `spec/gba-175`): **G14 moves from `P` to `Y`** on the owner's play test of the six games of the checklist (the owner-acceptance table below) and the Game Boy Advance **leaves the experimental status: it is supported from 1.7.6** (1.7.5 was frozen the same morning), on Arthur's word (« Oui, sors-la »). **G15 stays `Y`** as proposed by the entry of the same day on `spec/gba-175`, after the pages were read again for the new status (the README, the compatibility page, the interface strings in eight languages and the report say `supported` and keep the five measures apart; "exact" and "zero latency" are written nowhere). The matrix is otherwise unchanged: `Y` on G1 to G9, G12 to G15, `P` on G10 (94 % of the independent vectors), G11 (no external emulator) and G16 (the experimental tier of the base); 91 %. The scope and limits (no level won, no latency measure, no hardware-fidelity claim) are in [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-exit-from-the-experimental-status-14-november-2026-supported-from-176).
 - Atari ST (14 November 2026, evening; branch `spec/atarist-supported-175`): **G14 moves from `?` to `Y`** on the owner's play test of the seven games of the checklist (the owner-acceptance table below) and the Atari ST **leaves the experimental status: it is supported from 1.7.5**, on Arthur's word (« Oui, sors-le »). The matrix is otherwise unchanged (`Y` on G1 to G9, G12 to G15; `P` on G10, G11 and G16): G10 and G11 are named behaviours measured against documentation and fixtures, G16 has its Linux half still to run; the exit record and its scope are in [ATARI_ST.md](ATARI_ST.md#7-where-it-stands-in-the-qualification).
 - MSX and MSX2 (13 November 2026, afternoon; branch `spec/msx-174` after `def76191`): G1, G2, G8, G9 and G10 moved from `P` to `Y`, G7
   from `N` to `P`, G15 from `?` to `P`. The panel of the morning entry plus Dragon Slayer II - Xanadu (Japan) (ASCII 8 with battery SRAM) was converted
@@ -426,6 +427,22 @@ The page of each console, which the README links its line to (a console of the m
   lengths of one exact cartridge, no bytes), rows a conversion receives are rechecked by its own run and are never saved nor shared, and a failed conversion with received rows
   is converted again without them (tests; a forced-mismatch proof; `tools/gba_bogus_rows_audit.py` on the Minish Cap with 2,000, 150 and 20 invented rows: the generator hangs on wrong roots, the converter stops it after 300 s and converts again without them, native equal to the interpreter, no bogus row in the player's paths or the promoted record; 230 in-area roots accepted by the generator also pass); no path is qualified yet, the site's limits are not deployed
   and nothing was shared, the CPS-1, X68000 and PC Engine precedent. Not done: the Debian witness of this tree, the quiet-PC cost of a frame, a conversion of any other cartridge.
+
+- Game Boy Advance (14 November 2026, tree of `spec/gba-175`; Windows, and a Debian 13 PC for the four cartridges of the panel; the status is **not** changed and G14 is the owner's alone):
+  **G1, G2, G4, G7, G9 and G15 move from `P` to `Y`** (proposals in the owner's matrix, each with its evidence and its limit; he may take any of them back); G3, G5, G6, G8, G12 and G13 stay `Y`; G10, G11, G14 and
+  G16 stay `P`. Six cartridges were converted again on this tree from an empty library with online covers (Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi, with F-Zero: Maximum Velocity and Pokémon Emerald as extra evidence): native
+  equal to the engine's interpreter on both scenarios of each, 0 interpreted instructions at the end, the compressed copy equal to the player as built
+  ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#leaving-the-experimental-status-what-175-adds-14-november-2026)). G1 and G15: this page, the compatibility page, the README, the upstream page, the interface notes in eight languages, the
+  profile and the report read for this gate, three statements corrected, everything says `experimental`, "exact" and "zero latency" nowhere. G2: the report names the picture unit and the sound unit as hardware devices, carries `route_warnings` and the
+  scope with no universal zero-fallback claim (read through `report_schema`); the native instruction count is not available from the engine and stays unset. G4: the sound is in the comparison with the interpreter (a hash of every
+  mixed sample and their count, three engine patches), with the picture, the cycles and the memory and CPU hashes; the interpreter is the engine's own, not an independent oracle. G7: all four chips are read back by a fresh process
+  (Flash 64 KB on Sonic Advance 2, Flash 128 KB on Pokémon Emerald, EEPROM on The Minish Cap, **SRAM on F-Zero: Maximum Velocity**) and five damaged forms of a save never stop a game; a save larger than its chip stopped the game before and is set
+  aside now (a bug found by the check). G6 (stays `Y`): the quick state has a checksum, so **eight of eight** damaged forms are refused (one byte in the middle was accepted before). G9: authored routes of 4,200 to 12,000 frames on the four
+  cartridges, twelve pictures of each along the route from the delivered file, read: play is reached (Isaac walking in Vale, a kart in a race, Link walking about his house, a taxi in the city), the first minutes and a long run, **not a level won**,
+  and not the pseudo-random 18,000-frame level of the other machines (a scenario of that length would need an interpreter replay of hours); three routes run millions of interpreted instructions, counted. G13: the eight routes (and their twelve
+  pictures each) give the same pictures and counts on Debian as on Windows, with the Golden Sun states, the damaged states and the Minish Cap save checks. G10 stays `P`: the independent vectors agree on 94 % of the interpreter's, the rest is coprocessor,
+  unpredictable and modelling classes; G11 stays `P`: authored hardware tests only, no external emulator; G16 stays `P` as in the leaving of the other machines (the sharing of 1.7.3 as it is, nothing uploaded by this work). Not shown: gameplay
+  validation beyond the routes, hardware fidelity, physical latency (`tools/gba_frame_cost.py` has not made its quiet-PC pass), the sound itself (counts and hashes, not listening).
 
 - Game Boy Advance (13 November 2026, tree of `spec/gba-174`; Windows, and a Debian 13 PC for four cartridges): a panel of **four** cartridges (the maintainer's decision of 13 November: Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Flash 64 KB and EEPROM, affine layers, code run from RAM, a software 3D game) and eight more as extra evidence, not panel members
   (Pokémon Emerald and Ruby: Flash 128 KB and the clock; Metroid Fusion, Mega Man Zero 3, Wario Land 4: SRAM; Sonic Advance 2; Advance Wars; Mario & Luigi), 4 to 16 MB, converted from an empty library, none dropped, native equal to the engine's interpreter on both scenarios of each (picture, guest cycles, memory and CPU hashes), 0 interpreted
@@ -1065,6 +1082,7 @@ owner fills it in.
 | 14 November 2026 | MSX, MSX2 | The six games of the checklist (Knightmare, Salamander, Dragon Slayer II - Xanadu (MSX), Metal Gear, Space Manbow, Aleste (MSX2)), the panel exports of 14 November 2026 in `Export\Games\MSX` and `Export\Games\MSX2` (tree `d0b32436` of `spec/msx-175`, extended level, C-BIOS 0.29a) | Arthur, after playing them: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » | Exit from the experimental status decided: the MSX and the MSX2 are supported from 1.7.5; the MSX2+ stays experimental. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine; the exports are not converted again |
 | 14 November 2026 | Commodore Amiga | The six games of the checklist (Lotus 2, Another World (FR), Monkey Island 2, Lemmings (Image), Pinball Dreams (NTSC), Panza Kick Boxing (FR)), the exports of 13 November 2026 in `Export\Games\Amiga` (tree `be3f4483` of `spec/amiga-176`, extended level, llvm-mingw; Lotus 2 as the interface specialist built it) | Arthur, after playing them: « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » | Exit from the experimental status decided: the Amiga is supported from 1.7.5. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine and the MSX; the exports are not converted again. A play test of six installs, not a coverage claim: code past the routes runs interpreted, counted and shown in the window title. |
 | 14 November 2026 | Atari ST | The seven games of the checklist (Bomb Jack, Turrican II (the player's TOS 1.04), Operation Stealth, The Lurking Horror, Kick Off 2, Lethal Xcess, Battle Probe), the exports of 14 November 2026 in `Export\Games\Atari ST` (built by the batch from the tree of `spec/atarist-175`, Standard level, llvm-mingw, online covers on) | Arthur, after playing them: « Ok, donc Atari ça marche, nickel, j'ai testé les jeux. »; asked "Je sors l'Atari ST de l'expérimental ?": « Oui, sors-le » | Exit from the experimental status decided: the Atari ST is supported from 1.7.5. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine, the MSX and the Amiga; the exports are not converted again (they predate the interface merge: the 1.7.5 reconversion brings the pad quick save and load rows he found missing). A play test of seven games, not a coverage claim; the STE, the Mega STE, the TT, the Falcon, hard disks and the monochrome monitor are not converted. |
+| 14 November 2026 | Game Boy Advance | The six games of the checklist (Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald), the exports of 14 November 2026 in `Export\Games\Game Boy Advance` (built from the final tree of `spec/gba-175`, empty library, online covers on, llvm-mingw) | Arthur, after playing them: « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. »; asked "Je sors la GBA de l'expérimental pour la 1.7.6 ?": « Oui, sors-la » | Exit from the experimental status decided: the Game Boy Advance is supported from 1.7.6 (1.7.5 was frozen the same morning). The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no level won, no latency or hardware-fidelity measure; G10, G11 and G16 stay `P`. |
 
 ### Commodore Amiga: the panel (9 November 2026)
 
@@ -1290,6 +1308,28 @@ openMSX comparisons, not against a real MSX, and a good feel here is neither an 
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 | 14 November 2026 | MSX, MSX2 | Knightmare, Salamander, Dragon Slayer II - Xanadu (MSX), Metal Gear, Space Manbow, Aleste (MSX2) | « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » | the exit from the experimental status (the owner-acceptance table) |
+
+### Checklist for Arthur: Game Boy Advance play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executables** in `Export/Games/Game Boy Advance`: six games of 14 November 2026, converted from the final tree of `spec/gba-175` (empty library, online
+covers on), about three minutes each. For every game: look at the icon and the first menu art, press **F2** and **Esc** (the "Quit?" question), play a little, **F8**, play on, **F9**, then quit and open it again. Nothing here says exact hardware,
+complete gameplay or latency; a tick means "it looked and sounded right to you in this test".
+
+| Game | What to do | What should happen |
+|---|---|---|
+| Golden Sun | new game, A through the intro, walk Isaac around Vale | text and pictures right, music, Isaac walks; F8/F9 returns to the saved moment |
+| Mario Kart Super Circuit | 1P Grand Prix, one lap, steer, an item | the kart steers and the track scrolls, the engine sounds play, no freeze |
+| The Minish Cap | new file, walk out of Link's house | Link walks, the HUD shows; quit and reopen: the file select lists the file (EEPROM) |
+| Crazy Taxi: Catch a Ride | a game, a customer, the destination | the city is drawn and moves (the speed is your impression, not a measure) |
+| F-Zero: Maximum Velocity | register a pilot, one lap | the race runs; quit and reopen: the pilot is listed (SRAM) |
+| Pokémon Emerald | new game to the van, Start menu, SAVE, quit, reopen | CONTINUE is offered (Flash 128 KB); the clock cartridge asks nothing odd |
+
+Known limits to keep in mind while you play: the converter checked the first minutes and long runs of four of these cartridges by authored routes, not a level won; the comparison is with the engine's own interpreter, not with a real console;
+the cartridge sensors, the link cable and the e-Reader are not converted. Keep the five measures apart when you judge: a good feel here is neither an exact fidelity nor a latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| 14 November 2026 | Game Boy Advance | Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald | « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. »; asked whether to take the Game Boy Advance out of the experimental status: « Oui, sors-la » | the exit from the experimental status (the owner-acceptance table) |
 
 ## Running the verification campaign
 

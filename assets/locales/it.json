@@ -495,7 +495,7 @@
     "x68_cgrom": "ROM dei caratteri (cgrom.dat)",
     "options_gba": "Game Boy Advance",
     "gba_bios": "ROM di sistema (BIOS, gba_bios.bin)",
-    "options_gba_note": "Profilo Game Boy Advance sperimentale: cartucce .gba (o uno ZIP che ne contiene una) per un giocatore. Fornisci il tuo BIOS (gba_bios.bin); un gioco convertito contiene codice derivato da esso e resta privato. Il codice nativo viene da ciò che il gioco è stato visto eseguire; il resto resta interpretato e contato. Salvataggi a batteria e orologio della cartuccia inclusi; niente cavo link, e-Reader né sensori della cartuccia. Menu, filtri e F8/F9 comuni.",
+    "options_gba_note": "Profilo Game Boy Advance: cartucce .gba (o uno ZIP che ne contiene una) per un giocatore. Fornisci il tuo BIOS (gba_bios.bin); un gioco convertito contiene codice derivato da esso e resta privato. Il codice nativo viene da ciò che il gioco è stato visto eseguire; il resto resta interpretato e contato. Salvataggi a batteria e orologio della cartuccia inclusi; niente cavo link, e-Reader né sensori della cartuccia. Menu, filtri e F8/F9 comuni.",
     "scan_note_gba": "Consigliato: Standard: il gioco gira senza finestra su percorsi scritti, ciascuno confrontato con l’interprete del motore. Il codice che i percorsi non raggiungono resta interpretato e contato.",
     "options_x68_note": "Profilo Sharp X68000: DIM/XDF/D88 e set di dischi M3U ordinati. Fornisci il tuo IPL e la ROM dei caratteri. Menu, filtri, controlli e F8/F9 comuni. La prima conversione scarica i sorgenti fissati della macchina.",
     "options_amiga": "Commodore Amiga",

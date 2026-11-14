@@ -11,6 +11,7 @@ Three programs come out of the staged engine (`gba_engine.py`):
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -69,22 +70,62 @@ class Run:
     ewram: bytes | None = None       # the 256 KB of work RAM at the end of the run (code a game copies there is matched with its source)
     samples: tuple = ()              # (address, 1,024 live bytes) found at the first miss of a RAM address, and again when they changed
     capped: tuple = ()               # (address, versions kept) of the RAM addresses whose further versions the probe's cap refused
+    audio_hash: str = ''             # a hash of every sample the sound mixer produced up to that VBlank, in order
+    audio_samples: int | None = None  # and how many there were
+
+
+@contextlib.contextmanager
+def exclusive(lock_file: Path):
+    """One process at a time holds `lock_file` (a lock the system drops with the process, so that a crashed conversion leaves nothing behind)."""
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        descriptor = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(descriptor, b'x')                                          # a byte to lock
+        os.close(descriptor)
+    except FileExistsError:
+        pass
+    with open(lock_file, 'r+b') as handle:
+        if os.name == 'nt':
+            import msvcrt
+            while True:
+                try:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)        # waits up to ten seconds, then raises: asked again
+                    break
+                except OSError:
+                    continue
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def recompiler(stage: Path, key: str, cmake, generator: str, emit: Callable[[str], None]) -> Path:
-    """`gba_recompile` of the staged engine, built once per `key` (engine revision and patch set)."""
+    """`gba_recompile` of the staged engine, built once per `key` (engine revision and patch set). Two conversions of one batch that need the same new key
+    build it one after the other (the second finds it built): two builds in one folder broke the second one's configuration."""
     build = ROOT / '.deps' / f'gbarecomp-build-{key}'
     program = build_executable(build, 'gba_recompile')
     if program.is_file():
         return program
-    emit('Building the Game Boy Advance recompiler…')
-    run([cmake, '-S', stage / 'engine', '-B', build, '-G', generator, *cmake_target_args(),
-         '-DGBARECOMP_COMPILER_CACHE=OFF'], log=build.with_suffix('.log'), timeout=900)
-    with timings.phase('compile'):
-        run([cmake, '--build', build, '--target', 'gba_recompile', '--parallel', build_jobs()],
-            log=build.with_suffix('.log'), timeout=3600)
-    if not program.is_file():
-        raise ConversionError('The Game Boy Advance recompiler was not built.')
+    with exclusive(build.with_suffix('.lock')):
+        if program.is_file():
+            return program
+        emit('Building the Game Boy Advance recompiler…')
+        run([cmake, '-S', stage / 'engine', '-B', build, '-G', generator, *cmake_target_args(),
+             '-DGBARECOMP_COMPILER_CACHE=OFF'], log=build.with_suffix('.log'), timeout=900)
+        with timings.phase('compile'):
+            run([cmake, '--build', build, '--target', 'gba_recompile', '--parallel', build_jobs()],
+                log=build.with_suffix('.log'), timeout=3600)
+        if not program.is_file():
+            raise ConversionError('The Game Boy Advance recompiler was not built.')
     return program
 
 
@@ -294,10 +335,11 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
     picture = work / 'frame.png'
     # The engine's final line also prints `cycles=`: the cycles it spent in its idle pump, which stopped growing after the first
     # seconds of every cartridge seen (62,191,750 on three of them). The snapshot is taken at the first VBlank after the frame limit.
-    snapshot = re.search(r'vblank_snapshot frame=\d+ cycles=(\d+) mem=([0-9a-f]+) cpu=([0-9a-f]+)', result.stdout)
+    snapshot = re.search(r'vblank_snapshot frame=\d+ cycles=(\d+) mem=([0-9a-f]+) cpu=([0-9a-f]+)(?: audio=([0-9a-f]+) audio_samples=(\d+))?', result.stdout)
     return Run(scenario, frames, result.returncode, result.stdout, data,
                miss.read_text(encoding='utf-8') if miss.is_file() else '',
                dump.read_bytes() if dump.is_file() else None, aborted,
                hashlib.sha256(picture.read_bytes()).hexdigest() if picture.is_file() else '',
                int(snapshot[1]) if snapshot else None, snapshot[2] if snapshot else '', snapshot[3] if snapshot else '',
-               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file), _capped(samples_file))
+               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file), _capped(samples_file),
+               snapshot[4] or '' if snapshot else '', int(snapshot[5]) if snapshot and snapshot[5] else None)

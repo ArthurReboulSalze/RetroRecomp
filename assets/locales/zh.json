@@ -495,7 +495,7 @@
     "x68_cgrom": "字形 ROM (cgrom.dat)",
     "options_gba": "Game Boy Advance",
     "gba_bios": "系统 ROM（BIOS，gba_bios.bin）",
-    "options_gba_note": "实验性的 Game Boy Advance 配置：.gba 卡带（或包含它的 ZIP），单人。请提供自己的 BIOS（gba_bios.bin）；转换后的游戏会包含来自该 BIOS 的代码，只供你自己使用。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。支持卡带存档和卡带时钟；不支持 link 连接、e-Reader 和卡带传感器。共用菜单、滤镜及 F8/F9。",
+    "options_gba_note": "Game Boy Advance 配置：.gba 卡带（或包含它的 ZIP），单人。请提供自己的 BIOS（gba_bios.bin）；转换后的游戏会包含来自该 BIOS 的代码，只供你自己使用。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。支持卡带存档和卡带时钟；不支持 link 连接、e-Reader 和卡带传感器。共用菜单、滤镜及 F8/F9。",
     "scan_note_gba": "建议：标准：游戏在无窗口下按预设路线运行，每条路线都与引擎自带的解释器比较。路线没有走到的代码仍由解释器执行并计数。",
     "options_x68_note": "Sharp X68000 配置：DIM/XDF/D88 和有序 M3U 磁盘组。请提供自己的 IPL 和字形 ROM。共用菜单、滤镜、控制及 F8/F9。首次转换会下载固定版本的机器源代码。",
     "options_amiga": "Commodore Amiga",

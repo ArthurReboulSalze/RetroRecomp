@@ -79,6 +79,28 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.5 in 1.7.6
+
+1.7.6 is the release after 1.7.5 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Game Boy Advance: supported](#game-boy-advance-supported-176) | the Game Boy Advance (`retrorecomp/systems/gba.py`, its status) | none | none |
+
+## Game Boy Advance: supported (1.7.6)
+
+**Status.** The Game Boy Advance is supported from 1.7.6, on the owner's decision of 14 November 2026 after his play test of six cartridges (G14, the owner-acceptance table of
+[QUALIFICATION.md](QUALIFICATION.md#owner-acceptance); [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-exit-from-the-experimental-status-14-november-2026-supported-from-176)). The profile's status is `supported`,
+the conversion report's `status` is read from the profile, the Options note loses "experimental" in the eight languages and the credits no longer list the machine among the experimental ones. Nothing a conversion does changes.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against `spec/gba-175`, then against main `fe5ef2c3`): **the Game Boy Advance game stamp only**. Against `spec/gba-175` the status alone moves it (`e6e3909337ce` to `c336150515fd`;
+`retrorecomp/systems/gba.py` and the docstring of `retrorecomp/gba.py` are among its inputs); against main, where the 1.7.5 changes of that branch are not yet merged, it is `f65705900b6a` to `c336150515fd`. The Game Boy Advance host and build stamps (`3f8e2ffea164`, `6b70933a9b0a`)
+and every other machine's stamps equal main's.
+
+**Existing exports:** the game stamp moves, so an export is converted again in full at its next conversion, from the player's own paths; the Game Boy Advance's exports are private (a game holds code derived from the player's BIOS) and
+there is no frozen legacy stamp for them. The six exports of 14 November 2026 are not converted again for this change. **Quick states:** unchanged (the Game Boy Advance quick state is checked by the game's SHA-256 and the envelope's
+schema, neither of which reads a stamp). **Site limits:** unchanged. **Hot path:** no.
+
 ## Exports of 1.7.4 in 1.7.5
 
 1.7.5 is the release after 1.7.4 (published on 14 November 2026). This section is the index of its changes, one line per section below, with the
@@ -87,6 +109,7 @@ stamps that section says move. Each section computed its stamps for its own chan
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status](#msx-and-msx2-the-mapper-probe-of-battery-backed-boards-the-exit-panel-and-the-exit-from-the-experimental-status-175) | the MSX, the MSX2 and the MSX2+ | none | none (`msx-state-5`); a cartridge whose mapper the probe now reads differently refuses its old states (the mapper is in the binding) |
+| [Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units](#game-boy-advance-the-sound-is-compared-the-quick-state-has-a-checksum-a-save-larger-than-its-chip-is-set-aside-the-report-names-its-units-175) | the Game Boy Advance only (`f65705900b6a` to `e6e3909337ce`: its probe patches, its player, its conversion) | none | the quick state of a Game Boy Advance game converted before is refused cleanly (the new envelope) |
 | [Commodore Amiga: the second joystick on port 1](#commodore-amiga-the-second-joystick-on-port-1-175) | the Amiga (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, `amiga_conversion.py`) | **the Amiga's host stamp** (`native/hostkit/adapters/rrhk_amiga.inc`) | **every Amiga state is refused** (format `RRAMIGA-STATE-4`) |
 | [Commodore Amiga: supported](#commodore-amiga-supported-175) | the Amiga (`retrorecomp/systems/amiga.py`, its status) | none (the interface strings are in no stamp) | the Amiga key moves, as between any two Amiga builds |
 | [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | the Amiga key moves, as between any two Amiga builds; the X68000 key does not |
@@ -131,6 +154,27 @@ proposal, approved on 14 November 2026 (« Oui, on valide »), for 1.7.5:
 **What moves:** the Amiga's game stamp (the session, the player, the conversion) and its host stamp (the adapter); no other machine.
 
 **Quick states:** every Amiga state is refused (`RRAMIGA-STATE-4`), as between any two Amiga builds.
+
+## Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units (1.7.5)
+
+**What changes.**
+- **The sound is part of the conversion's verdict** (gate G4). Three anchored patches of the engine (`docs/UPSTREAMS.md`, 55 patches in all) make the mixer keep a hash of every sample it produces; the
+  probe's snapshot line prints it with the count, and the native run is compared with the interpreter's on it, next to the picture, the cycles and the memory and CPU hashes. None of the three touches what
+  a path names: the shared paths, their key and the site's limits do not change.
+- **The quick state is wrapped in a checksum** (gate G6). The player writes the engine's state inside the envelope the Z80 machines and the MSX share (`native/state_envelope.h`, already an input of every console: a magic, a schema, the game's SHA-256, a length and a CRC-32; no envelope of its own) and refuses a file damaged anywhere; a state of an earlier build
+  has no envelope and is **refused cleanly** with a message, nothing else is lost.
+- **A save file larger than the chip is set aside** (gate G7). The engine refused such a file and the game did not open (exit code 1); the player now moves it to `<file>.damaged` and starts without a save. A smaller or damaged file
+  of the right size is read as before. The header of the player names the chip's largest save (`RR_GBA_SAVE_LIMIT`).
+- **The report** (gate G2) names the picture processing unit and the sound unit as hardware devices, carries `route_warnings` and the qualification scope, and its rows give the sound hash and sample count of each scenario.
+- **A batch of two conversions builds a new recompiler one after the other** (a lock file in `.deps`): two builds in one folder broke the second one's configuration.
+- **Test switches of the player** (never read in play): `RETRORECOMP_GBA_SHOTS` and `RETRORECOMP_GBA_SHOT_DIR` write the picture of chosen frames; the tools `gba_route_captures.py` and `gba_fresh_process.py damaged-saves` use them.
+
+**Hot path:** no. The player does one `getenv` per switch at start; the sound is hashed only when the rows file is asked for, and the state envelope is written and read at F8 and F9 only.
+
+**What moves:** the Game Boy Advance **game** stamp only (`f65705900b6a` on the tree of 13 November, `e6e3909337ce` on this branch: `native/gba_machine.cpp`, `retrorecomp/gba_patches.py`, `gba_build.py`, `gba_conversion.py`, `gba_player.py` and
+`systems/gba.py` are game inputs). The Game Boy Advance host and build stamps (`3f8e2ffea164`, `6b70933a9b0a`) and **every other console's stamp** are those of main (compared with main `19ad2cb8`: only that one differs).
+**Existing exports:** the game stamp moves, so an export is converted again in full at its next conversion, from the player's own paths (the machine is experimental and its exports are private; no frozen legacy stamp). **Site limits:**
+unchanged (the record, its key and `PATH_REVISION` do not move; the pinned-patch test passes).
 
 ## Commodore Amiga: supported (1.7.5)
 
