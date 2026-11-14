@@ -64,13 +64,13 @@ PATH_CAPS = {SPAN_PATH: _CAPS['span'], BIOS_PATH: _CAPS['insn']}
 
 # What `validate_record` enforces on top of the schema 3 check, as data (the form the site's builder reads, `tools/build_web_limits.py`):
 # no layout; the discs `disc1` to `discN` (N from 1 to 8), each hashed (its digest: psx_disc.Disc.digest, the raw sectors of the dump),
-# and the player's BIOS (512 KiB, hashed) only with BIOS rows; the game id is `disc_set` of the discs' digests; spans point into a disc and
-# lie in main RAM; BIOS rows are single instructions (4 bytes) in main RAM (the kernel the BIOS copies) or in the BIOS window.
+# and the player's BIOS (512 KiB, hashed) only with BIOS rows; the game id is `disc_set` of the discs' digests; spans point into the one
+# disc (`src`) or into the discs in order (`srcs`, rows led by the disc's index) and lie in main RAM; BIOS rows are single instructions (4 bytes) in main RAM (the kernel the BIOS copies) or in the BIOS window.
 RECORD_RULES = {
     'layout': [],
     'sources': {'only': [DISC, BIOS], 'required': [DISC], 'hashed': True, 'game': 'disc_set',
                 'numbered': {DISC: [1, MAX_DISCS]}, 'sizes': {BIOS: [BIOS_BYTES]}},
-    'paths': {CPU: {'spans': {'src': DISC, 'window': [0, RAM_LIMIT], 'one_block_per_source': True},
+    'paths': {CPU: {'spans': {'src': DISC, 'window': [0, RAM_LIMIT]},
                     'ram_code': {'src': BIOS, 'windows': [[0, RAM_LIMIT], [BIOS_BASE, BIOS_BASE + BIOS_BYTES]], 'length': 4,
                                  'requires': BIOS}}},
     'disc_set': "sha256('rr-psx-game' NUL disc1.sha256 NUL disc2.sha256 NUL ...), lowercase hex, in disc order, a NUL after each",
@@ -100,10 +100,10 @@ def _assemble(identity: str, sources: dict, hints, core: str) -> dict:
     bios_rows = sorted({tuple(row) for name, row in hints if name == BIOS_PATH})
     discs = disc_names(sources)
     paths = {}
-    blocks = [pp._table_block('span', [[a, o, n] for d, a, o, n in spans if d == index], 3, name)
-              for index, name in enumerate(discs) if any(row[0] == index for row in spans)]
-    if blocks:
-        paths['spans'] = blocks
+    if spans and len(discs) > 1:
+        paths['spans'] = [pp._table_block('span', [list(row) for row in spans], 4, sources=discs)]
+    elif spans:
+        paths['spans'] = [pp._table_block('span', [[a, o, n] for _, a, o, n in spans], 3, discs[0])]
     if bios_rows:
         paths['ram_code'] = [pp._table_block('insn', [list(row) for row in bios_rows], 3, BIOS)]
     return {'schema': pp.SCHEMA, 'game': f'{SYSTEM}:{identity}', 'identity': {'system': SYSTEM, 'sources': sources, 'layout': {}},
@@ -116,8 +116,11 @@ def rows(record) -> tuple[list, list]:
     discs = disc_names(record['identity']['sources'])
     spans, bios_rows = [], []
     for block in section['paths'].get('spans', ()):
-        index = discs.index(block['src'])
-        spans += [(index, *row) for row in pp.decode_table(block['table'], 3, _CAPS['span'])]
+        if 'srcs' in block:
+            spans += [tuple(row) for row in pp.decode_table(block['table'], 4, _CAPS['span'])]
+        else:
+            index = discs.index(block['src'])
+            spans += [(index, *row) for row in pp.decode_table(block['table'], 3, _CAPS['span'])]
     for block in section['paths'].get('ram_code', ()):
         bios_rows += [tuple(row) for row in pp.decode_table(block['table'], 3, _CAPS['insn'])]
     return spans, bios_rows
@@ -152,10 +155,10 @@ def validate_record(record, identity: str | None = None) -> dict:
         section = record['cpus'][CPU]
         if set(record['cpus']) != {CPU} or record['devices'] or section['map'] != MAP or set(section['paths']) - {'spans', 'ram_code'}:
             raise ValueError('A PlayStation record holds disc spans and BIOS instructions only.')
-        named = [block.get('src') for block in section['paths'].get('spans', ())]
-        if any(block.get('shape') != 'span' for block in section['paths'].get('spans', ())) or len(set(named)) != len(named) \
-                or not set(named) <= set(discs):
-            raise ValueError('A PlayStation span points into the wrong image.')
+        for block in section['paths'].get('spans', ()):
+            named = block.get('srcs') or [block.get('src')]
+            if block.get('shape') != 'span' or named != (discs if len(discs) > 1 else discs[:1]):
+                raise ValueError('A PlayStation span points into the wrong image.')
         for block in section['paths'].get('ram_code', ()):
             if block.get('shape') != 'insn' or block.get('src') != BIOS or BIOS not in sources:
                 raise ValueError('A PlayStation BIOS row points into the wrong image.')

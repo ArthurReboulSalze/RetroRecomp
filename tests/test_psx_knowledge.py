@@ -86,6 +86,18 @@ class PsxKnowledgeTests(unittest.TestCase):
         self.assertEqual(set(k.RECORD_RULES), {'layout', 'sources', 'paths', 'disc_set'})
         self.assertEqual(set(k.PATH_CAPS), {name for name, _ in k.entry_set(good)})
 
+    def test_a_game_of_several_discs_has_one_span_block_over_its_discs(self):
+        digests, sizes = ['a' * 64, 'b' * 64], [0x100000, 0x200000]
+        key = psx.game_key(digests)
+        spans = [(0, 0x10000, 0, 0x100), (1, 0x20000, 0x800, 0x100)]
+        record = k.make_record(key, digests, sizes, None, spans)
+        block, = record['cpus']['r3000a']['paths']['spans']
+        self.assertEqual(block['srcs'], ['disc1', 'disc2'])
+        self.assertEqual(sorted(k.rows(record)[0]), spans)
+        record['cpus']['r3000a']['paths']['spans'][0]['srcs'] = ['disc2', 'disc1']
+        with self.assertRaises(ValueError):
+            k.validate_record(record)
+
     def test_records_of_the_same_disc_unite_and_another_engine_is_kept_apart(self):
         one = k.make_record(self.item.sha256, self.item.disc_digests, [self.size], None, [(0, 0x10000, 21 * USER + 0x800, 128)])
         two = k.make_record(self.item.sha256, self.item.disc_digests, [self.size], None, [(0, 0x10080, 21 * USER + 0x880, 128)])
