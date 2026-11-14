@@ -148,10 +148,21 @@ def _mm_pal() -> tuple[int, list]:
     return 14600, sorted(events)
 
 
+def _rayman2_pal() -> tuple[int, list]:
+    """Rayman 2: The Great Escape (PAL, NY2P): the main route's menus to a slot and the name "QAZ", A to start the game (it creates its
+    note on the controller pak), the intro's words advanced with A, then Rayman walks, jumps and throws his fist in the prison ship
+    (play from about frame 12,500)."""
+    events = [event for event in main_route(3600) if event[0] < 3260] + [(3280, 3288, 'pad', PAD_A, 0)] + _presses(3400, 12401, 60, PAD_A)
+    events += [(12550, 12850, 'stick', STICK_X, 30000), (12650, 12656, 'pad', PAD_A, 0), (12850, 13150, 'stick', STICK_Y, 30000),
+               (12950, 12956, 'pad', PAD_B, 0), (13150, 13450, 'stick', STICK_X, -30000), (13300, 13306, 'pad', PAD_A, 0),
+               (13450, 13750, 'stick', STICK_Y, -30000), (13600, 13606, 'pad', PAD_B, 0), (13750, 14000, 'stick', STICK_X, 30000)]
+    return 14200, sorted(events)
+
+
 # Routes that reach play, per game, by its game code (numbers about the cartridge, never its bytes), tuned on the dumps named in
 # docs/NINTENDO_64.md. Played at the Extended and Thorough levels (route depth, gate G9). The main route already reaches play on
-# Mario Kart 64, F-Zero X, Banjo-Tooie, GoldenEye 007 and Turok (a race, Spiral Mountain, the Dam, the hub).
-PLAY_ROUTES = {'NSMP': _sm64_pal, 'NZLP': _oot_pal, 'NZSP': _mm_pal}
+# Mario Kart 64, F-Zero X, Banjo-Tooie and GoldenEye 007 (a race, Spiral Mountain, the Dam).
+PLAY_ROUTES = {'NSMP': _sm64_pal, 'NZLP': _oot_pal, 'NZSP': _mm_pal, 'NY2P': _rayman2_pal}
 
 
 def play_route(game_code: str) -> tuple[int, list] | None:
