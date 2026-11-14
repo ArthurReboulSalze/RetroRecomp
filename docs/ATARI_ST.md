@@ -1,7 +1,7 @@
 # Atari ST
 
-Experimental profile (`atarist`), added in 1.7.1: the converter offers it when the installation carries the Atari ST files, and it
-is not shared through the compilation library. It converts an Atari ST, STF or Mega ST floppy game into a standalone Windows
+Experimental profile (`atarist`), added in 1.7.1: the converter offers it when the installation carries the Atari ST files, and since 1.7.5
+its paths are shared as the experimental tier of the base (section 2, item 9). It converts an Atari ST, STF or Mega ST floppy game into a standalone Windows
 or Linux executable that runs the game on [Hatari](https://github.com/hatari/hatari), with native code for the 68000 instructions its
 reference runs observed and Hatari's interpreter, counted, for the others. Nothing here says that a game plays completely, that the hardware is reproduced
 faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each.
@@ -91,6 +91,33 @@ changed. The player supplies the disks (and his TOS if he wants it); Retro-Recom
    and on the routes the count is 0 by construction. A block that the game rewrites before it jumps in is the guard's case: another opcode there and the routine never runs (the interpreter does),
    the same opcode with another extension word runs the routine, which reads the new word on the bus (`tools/atarist_sweep_guard_check.py`, three variants on an authored program, native and
    interpreted traces byte-identical). A page fill (every even address of a page where code ran) is written and tested but left off: it costs more than it gives.
+
+9. **Shared paths** (since 1.7.5, the experimental tier of the base, gate G16). A conversion makes a record of numbers about the player's own images, from its fresh reference runs once
+   every check has passed (`retrorecomp/atarist_knowledge.py`, on `m68k_media_knowledge`, which the X68000 and the Amiga share): a TOS instruction is a row `[address, offset, length]` of
+   the 192 KiB TOS (valid only for a TOS with the SHA-256 the record states: EmuTOS 1.4 or the player's own 1.0x), and a run of instructions that came from the disks is a row of the
+   **logical content** of the disks (the standard-format sectors of every image in (cylinder, side, sector) order, `atarist_disk.logical_content`; a track in a custom format has no standard
+   sector, an STX image is not read). No disk byte, no TOS byte, no RAM word, no code. A player with the same game rebuilds the instructions from his own images, and they become native next
+   to his own with the same guard on the latched opcode; they are never added to the observations his library keeps, and the routes validate the game as always. A conversion that fails with
+   imported paths is converted again without them (the batch, for every machine). The record is kept in `<library>/atarist/<game>/tos-<key>/compilation.json` (the game is the SHA-256 of the
+   file the player gave: a ZIP packed differently is another game), the report names it (`knowledge.record_sha256`) and says what received paths gave (`knowledge.received`: `offered`,
+   `reached`, `added`, the same field as on the X68000 and the Amiga). What cannot be tied to an image stays private and is counted (`knowledge.promotion`): code a loader relocates or unpacks,
+   custom-format tracks, Hatari's own code of the desktop hook. The quick check from shared paths is declined (`quick_check_from_shared=False`).
+   **What it gives, measured on three panel games** (13 and 14 November 2026, Windows, one conversion at a time; A: an empty library, the extended level, its record exported through the
+   exchange file and imported by B; B: an empty library, with and without the import, at the quick and at the standard level; the replays are those of A's routes, and every trace equals
+   A's reference, 32 of 32). What ties to the player's own images (RAM instructions tied of observed, TOS instructions tied of observed): Operation Stealth 8,035 of 8,114 and 13,577 of 13,586; The Lurking Horror 2,165 of 2,621
+   and 13,956 of 13,965; Turrican II 8,039 of 13,995 (5,016 in spans of 8 bytes or more) and 1,305 of 1,305 (the rest is relocated or unpacked code, which stays private).
+
+   | Game | `received` offered / reached / added | Passes B0 / B1 | Interpreted on the main route B0 / B1 | On a route B did not run (long-1), B0 → B1 | Wall time B0 / B1 (quick, incidental) |
+   |---|---|---|---|---|---|
+   | Turrican II (TOS 1.04) | 9,344 / 3,669 / 5,675 | 1 / 1 | 0 / 0 | 30,455,168 → 2,920,653 interpreted instructions (-90 %), at quick and at standard level | 90 s / 91 s |
+   | The Lurking Horror | 16,121 / 15,836 / 285 | 1 / 1 | 99,302 / 99,302 | 783,832 → 775,400 (-1.1 %) | 108 s / 113 s |
+   | Operation Stealth | 21,612 / 21,243 / 369 | 1 / 1 | 872 / 872 | 5,486 → 5,026 (-8 %) | 119 s / 117 s |
+
+   So received paths **save no conversion pass** and change nothing on the routes B runs; they **add native code beyond them**, a lot on one game of three (Turrican II: native forms 13,325
+   → 16,085 at the quick level) and little on the others. The speed value is **not measured**: the added forms run Hatari's handlers like any other, and what they save is the interpreter's
+   dispatch; the chips dominate a frame, and no timing run was made. **Safety, on Turrican II:** a record whose spans were moved to addresses no run reaches (8,039 instructions added to no
+   purpose) leaves the conversion equal to the fresh reference on its route with 0 interpreted instructions, and a record of other disks is ignored with its reason ("Atari ST hints are for other
+   disks"), the native code then identical to the conversion without import. The Linux half of G16 was not run.
 
 ## 3. The five measures
 
@@ -279,7 +306,12 @@ gameplay validation of any game, and it changes no gate.
   save disk has none to use yet: The Pawn is one (tried on 13 November 2026, EmuTOS, headless: its save command asks for a file name, then answers "Ouch - bad save", with three names; the file system of its disk is a nine-sector
   fragment that holds only its loader, so the TOS has no room to create a file there, and the game expects a blank formatted disk).
   One real game was seen saving (`tools/atarist_saves_game.py`, 9 November 2026, TOS 1.04 and EmuTOS, Windows and Linux): The Lurking Horror writes 27 sectors by GEMDOS, and a new process with the file restores to the
-  room of the save, where one without it answers "Failed."; no route of the panel saves.
+  room of the save, where one without it answers "Failed."; no route of the panel saves. Since 14 November 2026 the same is shown on **the delivered executable** of that panel game (`python -B tools/atarist_saves_game.py
+  --exe "Lurking Horror, The.exe"`, the file delivered into `Export/Games/Atari ST` by the batch, EmuTOS and the autostart inside it, Windows, headless, separate processes): 27 sectors written, the file of the disk writes
+  found by a new process (its picture is the "Second Floor" of the save, where a process without the file shows the "Terminal Room" and "Failed."), restoring writes nothing, the executable byte for byte unchanged
+  (the disks are inside it; the player's ZIP is never opened for writing), and a damaged file (half of it and seven bytes of 0xFF) kept aside as `<name>.unusable-1` while the game starts from its disks
+  (0 writes found, its picture equal to the process without the file). It is the only one of the eight panel games that saves by a script: the other seven have no save a route can reach (the
+  routes are joystick, mouse and keyboard scripts, and none of them asks for a save), which is a limit of the panel, not a proof that they do not save; a track a game formats is not kept (limit above).
 - The first conversion needs the pinned Hatari sources (fetched into the workspace) and the C toolchain of the converter.
 - The profile is hidden unless the installation carries the Atari ST converter's files (`retrorecomp/atarist.py`,
   `converter_available`).
