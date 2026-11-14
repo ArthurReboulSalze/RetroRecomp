@@ -297,14 +297,23 @@ static const uint64_t icon_row_speed[9] = {0x0ull, 0x101ull, 0x505ull, 0x1d1dull
 static const uint64_t icon_row_rumble[9] = {0x0ull, 0x1550ull, 0x36aa7ull, 0x6ee4ull, 0x36aa7ull, 0x6ee4ull, 0x36aa7ull, 0x1550ull, 0x0ull};
 static const uint64_t icon_row_restore[9] = {0x5540ull, 0x7a90ull, 0x7f24ull, 0x4309ull, 0xfc9ull, 0x4309ull, 0x6024ull, 0x1a90ull, 0x540ull};
 static const uint64_t icon_row_generic[9] = {0x0ull, 0x540ull, 0x1fd0ull, 0x7ef4ull, 0x1fabdull, 0x7ef4ull, 0x1fd0ull, 0x540ull, 0x0ull};
-/* 3 x 5 letters of the face buttons, bit (row * 3 + x): i is the narrow I of II, III, IV; ^ o [ x the PlayStation shapes. */
+/* 3 x 5 letters of the face buttons, bit (row * 3 + x): i the narrow I of II to IV, ^ o [ x the PlayStation shapes. */
 static const char row_letter_chars[] = "ABCXYZLRI123456DKPSFGHMEVi^o[x";
-static const uint16_t row_letters[] = {0x5bea, 0x3aeb, 0x624e, 0x5aad, 0x24ad, 0x72a7, 0x7249, 0x5aeb, 0x7497, 0x749a, 0x72a3, 0x38a3, 0x49ed, 0x38cf, 0x7bce, 0x3b6b, 0x5aed, 0x12eb, 0x388e, 0x12cf, 0x6b4e, 0x5bed, 0x5bfd, 0x72cf, 0x2b6d, 0x1249, 0xf50, 0x550, 0xf78, 0xaa8};
+static const uint16_t row_letters[] = {0x5bea, 0x3aeb, 0x624e, 0x5aad, 0x24ad, 0x72a7, 0x7249, 0x5aeb, 0x7497, 0x749a, 0x72a3, 0x38a3, 0x49ed, 0x38cf, 0x7bce,
+    0x3b6b, 0x5aed, 0x12eb, 0x388e, 0x12cf, 0x6b4e, 0x5bed, 0x5bfd, 0x72cf, 0x2b6d, 0x1249, 0xf50, 0x550, 0xf78, 0xaa8};
 /* </row icons> */
 static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_COUNT] = {
     {icon_keyboard, 30, 18}, {icon_gamepad, 30, 18}, {icon_options, 30, 18}, {icon_pointer, 30, 18}, {icon_switches, 30, 18},
     {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9},
-    /* <row table> */ {icon_row_up, 9, 9}, {icon_row_down, 9, 9}, {icon_row_left, 9, 9}, {icon_row_right, 9, 9}, {icon_row_button, 9, 9}, {icon_row_start, 9, 9}, {icon_row_select, 9, 9}, {icon_row_coin, 9, 9}, {icon_row_pause, 9, 9}, {icon_row_quit, 9, 9}, {icon_row_restart, 9, 9}, {icon_row_save, 9, 9}, {icon_row_load, 9, 9}, {icon_row_gamepad, 9, 9}, {icon_row_stick, 9, 9}, {icon_row_keyboard, 9, 9}, {icon_row_filter, 9, 9}, {icon_row_display, 9, 9}, {icon_row_autofire, 9, 9}, {icon_row_language, 9, 9}, {icon_row_record, 9, 9}, {icon_row_wave, 9, 9}, {icon_row_volume, 9, 9}, {icon_row_sound, 9, 9}, {icon_row_headphones, 9, 9}, {icon_row_fkey, 9, 9}, {icon_row_reminder, 9, 9}, {icon_row_speed, 9, 9}, {icon_row_rumble, 9, 9}, {icon_row_restore, 9, 9}, {icon_row_generic, 9, 9} /* </row table> */};
+    /* <row table> */
+    {icon_row_up, 9, 9}, {icon_row_down, 9, 9}, {icon_row_left, 9, 9}, {icon_row_right, 9, 9}, {icon_row_button, 9, 9},
+    {icon_row_start, 9, 9}, {icon_row_select, 9, 9}, {icon_row_coin, 9, 9}, {icon_row_pause, 9, 9}, {icon_row_quit, 9, 9},
+    {icon_row_restart, 9, 9}, {icon_row_save, 9, 9}, {icon_row_load, 9, 9}, {icon_row_gamepad, 9, 9}, {icon_row_stick, 9, 9},
+    {icon_row_keyboard, 9, 9}, {icon_row_filter, 9, 9}, {icon_row_display, 9, 9}, {icon_row_autofire, 9, 9},
+    {icon_row_language, 9, 9}, {icon_row_record, 9, 9}, {icon_row_wave, 9, 9}, {icon_row_volume, 9, 9},
+    {icon_row_sound, 9, 9}, {icon_row_headphones, 9, 9}, {icon_row_fkey, 9, 9}, {icon_row_reminder, 9, 9},
+    {icon_row_speed, 9, 9}, {icon_row_rumble, 9, 9}, {icon_row_restore, 9, 9}, {icon_row_generic, 9, 9}
+    /* </row table> */};
 int rr_menu_icon_width(int icon) { return icon >= 0 && icon < RR_ICON_COUNT ? icons[icon].w : 0; }
 
 /* The value of one cell, -1 for a cell that is not drawn (the mark's plate is rounded: its four corner cells). */
