@@ -116,7 +116,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.5.** The MSX, the MSX2, the Commodore Amiga and the Atari ST leave the experimental status and are supported; the Amiga and the Atari ST share their paths with other players. On every machine, quick save and quick load can be bound to the gamepad (a short hold), the L2 and R2 triggers bind like any button, and the in-game menus get small pixel icons. Amiga games take a second joystick on the mouse port, so Lotus 2 races in split screen with two pads. Mega Drive and Super Nintendo quick states of 1.7.4 still load. The converter's window no longer slows down on small Linux PCs. Exports of 1.7.4 on the machines whose games changed are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.5.** The MSX, the MSX2, the Commodore Amiga and the Atari ST are now supported; the Amiga and the Atari ST share their paths with other players. On every machine, quick save and quick load can be bound to the gamepad (a short hold), the L2 and R2 triggers bind like any button, and the in-game menus get small pixel icons. Amiga games take a second joystick on the mouse port, so Lotus 2 races in split screen with two pads. Mega Drive and Super Nintendo quick states of 1.7.4 still load. The converter's window no longer slows down on small Linux PCs. Exports of 1.7.4 on the machines whose games changed are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 
