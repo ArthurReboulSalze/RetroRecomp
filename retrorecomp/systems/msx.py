@@ -56,7 +56,7 @@ class MsxProfile(SystemProfile):
     quick_state_family = 'msx'
     host_adapter = 'adapters/rrhk_msx.inc'
     linux = 'witnessed'   # Nemesis (MSX1) and Metal Gear (MSX2) converted headless on a Debian 13 PC, 12 November 2026: same report fields as Windows, quick states pass; not played in a window there
-    # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: the player records nothing for path sharing yet.
+    # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: nothing is recorded for path sharing, which the MSX declines (docs/MSX.md, section 7).
     feedback_kinds = frozenset({26})
     # The third-party components compiled into its games (retrorecomp/notices.py; the player shell's are added): the banked
     # Z80 chain's generator and core, the corrected reference interpreter of the counted fallback; C-BIOS only in a game that
@@ -115,7 +115,8 @@ class Msx2Profile(MsxProfile):
     archived_rom_limits = (('.mx2', 0x200000),)
     export_folder = 'MSX2'
     scope_note = ('MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2 '
-                  'BIOS; the V9938 with all twelve commands, timing approximated; no disks or cassettes')
+                  'BIOS; the V9938 with all twelve commands, timing approximated; no disks or cassettes; the battery memory of the clock '
+                  'is not kept between runs')
     # The player's own MSX2 BIOS is two files (the main ROM and its sub-ROM), optional together; the mapper RAM's size is
     # part of the request (the machine differs).
     firmware = ('bios', 'subrom')

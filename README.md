@@ -83,8 +83,8 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Atari ST](docs/ATARI_ST.md)\* | experimental | `████████░░` 83 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
-| [MSX](docs/MSX.md) | experimental | `████████░░` 77 % |
-| [MSX2](docs/MSX.md) | experimental | `████████░░` 77 % |
+| [MSX](docs/MSX.md) | experimental | `█████████░` 87 % |
+| [MSX2](docs/MSX.md) | experimental | `████████░░` 83 % |
 | [MSX2+](docs/MSX.md) | experimental | `███████░░░` 67 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 

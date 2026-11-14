@@ -75,6 +75,20 @@
       {"title": "Bomberman '93", "category": "four-players", "reason": "Multitap game: a converted game is built for two players (the help text says so), the four-seat build is not offered and neither is the fifth multitap player", "source": "docs/PC_ENGINE.md"},
       {"title": "Dai Makaimura", "category": "supergrafx-refusal", "expect": "refusal", "reason": "SuperGrafx game: one video chip only shows no picture, so the conversion must refuse it", "source": "docs/PC_ENGINE.md"},
       {"title": "Space Harrier", "category": "attract-no-input", "reason": "Attract loop with no input stops changing after a few frames; the play route must still move", "source": "docs/PC_ENGINE.md"}
+    ],
+    "msx": [
+      {"title": "Knightmare - Majou Densetsu", "category": "regression-baseline", "reason": "Control case: plain 32 KiB cartridge, 0 interpreted instructions on its routes under C-BIOS", "source": "docs/MSX.md"},
+      {"title": "Spy vs Spy II - The Island Caper", "category": "mapper-probe", "reason": "PAL cartridge whose bytes suggest ASCII 16; the probe runs choose Konami SCC, which the game drives", "source": "docs/MSX.md"},
+      {"title": "Dragon Slayer II - Xanadu", "category": "battery-sram", "reason": "ASCII 8 with 8 KiB battery SRAM: the SRAM bit is found from the bank values the game writes, then the save must survive a fresh process", "source": "docs/MSX.md"},
+      {"title": "Deep Dungeon", "category": "sram-probe", "reason": "ASCII 8 with 2 KiB battery SRAM: the mapper probe read it as ASCII 16 until writes to the SRAM were counted apart (14 November 2026)", "source": "docs/MSX.md"},
+      {"title": "Salamander", "category": "c-bios", "reason": "Konami SCC; its playfield was once seen black under C-BIOS in development, then drawn on the panel's routes", "source": "docs/MSX.md"}
+    ],
+    "msx2": [
+      {"title": "Space Manbow", "category": "regression-baseline", "reason": "Konami SCC and the V9938's vertical scroll; the owner saw the scroll judder before 1.7.3", "source": "docs/MSX.md"},
+      {"title": "Aleste", "category": "mapper-probe", "reason": "Its bytes suggest Konami SCC, whose probe run falls into an empty slot; ASCII 16 is chosen", "source": "docs/MSX.md"},
+      {"title": "Super Daisenryaku", "category": "sram-probe", "reason": "ASCII 16 with 2 KiB battery SRAM that looks for an FM-PAC in the other slots; read as ASCII 8 until one register write stopped counting as evidence (14 November 2026)", "source": "docs/MSX.md"},
+      {"title": "Hydlide 3 - The Space Memories", "category": "route-depth", "reason": "ASCII 8 role-playing game whose routes stayed in its character set-up menu at the extended level", "source": "docs/MSX.md"},
+      {"title": "Metal Gear", "category": "route-depth", "reason": "Konami; the play route stops at the first transceiver call, the long route goes on", "source": "docs/MSX.md"}
     ]
   }
 }
