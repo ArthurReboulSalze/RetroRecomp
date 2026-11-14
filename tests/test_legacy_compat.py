@@ -611,6 +611,11 @@ class StateKeyLayoutOnlyTests(unittest.TestCase):
     def test_a_linux_build_lists_the_1_7_4_linux_key(self):
         from retrorecomp import console16_state
         from retrorecomp.console16 import REPOSITORIES
+        # The SNES key hashes the fingerprints of its snes_* modules, read from sys.modules: a conversion has imported
+        # them by then, a lone test run may not have (the Linux CI ran this test before any SNES test).
+        import importlib
+        for module in ('snes_timing', 'snes_video', 'snes_cart', 'snes_dma', 'snes_bus', 'snes_ppu_bus', 'snes_chips'):
+            importlib.import_module('retrorecomp.' + module)
         with tempfile.TemporaryDirectory() as folder,                 patch('retrorecomp.console16_state.build_target', return_value='linux-x86_64'):
             project = Path(folder)
             for system in ('md', 'snes'):
