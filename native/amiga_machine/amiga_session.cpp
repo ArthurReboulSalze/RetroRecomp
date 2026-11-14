@@ -40,7 +40,7 @@ static constexpr uint32_t FAST_BASE = 0x200000;
 static constexpr uint32_t FAST_MAX = 0x800000;
 static uint32_t slow_slave_area(uint32_t exp_size) { return (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu; }
 static bool exp_in_fast(uint32_t exp_size) { return exp_size && slow_slave_area(exp_size) + 0x7FFF0 >= SLOW_BASE + SLOW_SIZE; }
-static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-4";
+static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-5";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
 // Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
 // display window's edges (DIWSTRT/DIWSTOP, in that unit) land on picture column (edge - SHRES_AT_TEXEL0 - FIRST_TEXEL) / 2.
@@ -52,6 +52,7 @@ struct RrAmigaSession {
     std::map<std::string, std::vector<uint8_t>> files;   // lower-case name -> bytes
     fs::path save_dir;
     bool saves = false, ntsc = false;
+    int model = RR_AMIGA_MODEL_A500;
     RrResloadHost host{};
     RrResload rl{};
     uint32_t resload_table = 0;
@@ -412,7 +413,24 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     S->host = RrResloadHost{nullptr, peek, poke, file_cb, game->save_dir ? save_cb : nullptr, game->save_dir ? remove_cb : nullptr, nullptr};
     S->host.list = list_cb;
     S->host.kickstart = kick_cb;
+    if (S->model == RR_AMIGA_MODEL_A1200) {
+        // The 68EC020's instruction cache: what resload_FlushCache (and every load or patch, as WHDLoad clears the caches after
+        // them) empties, and what resload_SetCACR switches. The A500's 68000 has none, so its host keeps neither.
+        S->host.flush = [](void *) { CPU &cpu = S->amiga->cpu; cpu.setCACR(cpu.getCACR() | 0x8u); };
+        S->host.cacr = [](void *, uint32_t value, uint32_t mask) -> uint32_t {
+            CPU &cpu = S->amiga->cpu;
+            // exec's CACR bits for the instruction cache are the 68020's own (EnableI 0, FreezeI 1, ClearI 3); the 68EC020 has no data cache.
+            uint32_t old = cpu.getCACR() & 0x3u;
+            uint32_t now = ((old & ~mask) | (value & mask)) & 0xBu;
+            cpu.setCACR(now);
+            return old;
+        };
+    }
     rr_resload_init(&S->rl, &S->host, slave_area, version, flags);
+    if (S->model == RR_AMIGA_MODEL_A1200) {
+        S->rl.attn_flags = 0x0003u;    // AFF_68010 | AFF_68020, as exec reports a 68EC020 without an FPU
+        S->rl.chip_rev = 0x000Fu;      // GFXF_HR_AGNUS | GFXF_HR_DENISE | GFXF_AA_ALICE | GFXF_AA_LISA
+    }
     for (int k = 0; k < 5; k++) S->rl.custom[k] = game->custom[k];
     S->rl.exp_mem_size = exp_size;
     S->rl.scratch = S->resload_table + 0x1000;
@@ -451,8 +469,10 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
 
 extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, size_t error_size) {
     if (S) { fail(error, error_size, "One Amiga session per process."); return nullptr; }
+    if (game->model != RR_AMIGA_MODEL_A500 && game->model != RR_AMIGA_MODEL_A1200) { fail(error, error_size, "Unknown Amiga model."); return nullptr; }
     S = new RrAmigaSession;
     S->ntsc = game->ntsc != 0;
+    S->model = game->model;
     for (unsigned i = 0; i < game->file_count; i++) {
         S->files[lower(game->files[i].name)] = std::vector<uint8_t>(game->files[i].data, game->files[i].data + game->files[i].size);
         S->display[lower(game->files[i].name)] = game->files[i].name;
@@ -486,7 +506,15 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         }
         S->emu = new Emulator;
         S->emu->initialize();
-        S->emu->set(ConfigScheme::A500_ECS_1MB);
+        if (S->model == RR_AMIGA_MODEL_A1200) {
+            // vAmiga's A1200 scheme sets the CPU, the chips, the 32-bit bus and the chip RAM, not the A1200 bank map (its own
+            // window sets that separately). An A1200 always has 2 MiB of chip RAM.
+            S->emu->set(ConfigScheme::A1200_2MB);
+            S->emu->set(Opt::MEM_BANKMAP, (i64)BankMap::A1200);
+            chip_kb = 2048;
+        } else {
+            S->emu->set(ConfigScheme::A500_ECS_1MB);
+        }
         S->emu->set(Opt::AMIGA_VIDEO_FORMAT, S->ntsc ? (i64)TV::NTSC : (i64)TV::PAL);
         S->emu->set(Opt::MEM_SLOW_RAM, SLOW_SIZE / 1024);
         S->emu->set(Opt::MEM_CHIP_RAM, chip_kb);
@@ -732,6 +760,8 @@ extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *i
 
 extern "C" int rr_amiga_set_native(RrAmigaSession *s, int enabled) {
 #ifdef RR_AMIGA_NATIVE
+    // The native steps are the 68000's (amiga_codegen.CORE); an A1200 runs on the interpreter until the 68EC020's are generated.
+    if (enabled && s->model != RR_AMIGA_MODEL_A500) return 0;
     s->native = enabled != 0; update_hook(); return 1;
 #else
     (void)s; return !enabled;

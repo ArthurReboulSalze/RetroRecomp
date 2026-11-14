@@ -39,7 +39,12 @@ typedef struct RrAmigaGame {
     const uint8_t *kickstart; uint32_t kickstart_size;
     /* CUSTOM1..5 as the install's own icon sets them (its ToolTypes), what resload_Control's CUSTOMn_GET answer. */
     uint32_t custom[5];
+    /* The machine: RR_AMIGA_MODEL_A500 (68000, ECS, 0 the default) or RR_AMIGA_MODEL_A1200 (68EC020 with its instruction
+     * cache, AGA, 2 MiB of chip RAM on a 32-bit bus: vAmiga's own A1200 scheme with the A1200 bank map). */
+    int model;
 } RrAmigaGame;
+
+enum { RR_AMIGA_MODEL_A500 = 0, RR_AMIGA_MODEL_A1200 = 1 };
 
 typedef struct RrAmigaSession RrAmigaSession;
 
