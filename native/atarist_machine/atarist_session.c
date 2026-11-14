@@ -700,7 +700,7 @@ static int observe_insert(RrStSession *s, uint32_t pc, const uint8_t *bytes, uns
  * goes on to the instructions it knows come next while nothing is due in the loop; it counts itself. A handler is right for its opcode at any address, with any extension words. */
 typedef void (*RrStCode)(void);
 RrStCode rr_st_lookup(uint32_t pc, uint32_t opcode);
-extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_shared_total, rr_st_swept_total;
+extern uint64_t rr_st_native_total, rr_st_learned_total, rr_st_walked_total, rr_st_swept_total;
 #endif
 
 /* The player's own record (kind 24 of native/runtime_feedback.c): 16 bytes at an instruction that ran on the interpreter, from RAM or the TOS ROM, which the next conversion walks into
@@ -844,15 +844,6 @@ uint64_t rr_st_walked_count(const RrStSession *s) {
     (void)s;
 #ifdef RR_ST_NATIVE
     return rr_st_walked_total;
-#else
-    return 0;
-#endif
-}
-/* Of the native instructions, those a shared record declared (rebuilt from the player's own disks or TOS; no route of this conversion ran them). */
-uint64_t rr_st_shared_count(const RrStSession *s) {
-    (void)s;
-#ifdef RR_ST_NATIVE
-    return rr_st_shared_total;
 #else
     return 0;
 #endif
