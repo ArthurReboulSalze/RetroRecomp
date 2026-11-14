@@ -113,9 +113,15 @@ proposal, approved on 14 November 2026 (« Oui, on valide »), for 1.7.5:
 - **Routes.** The headless player reads `joy2` events (port 1's joystick) and takes `--port1`. `amiga_conversion.ROUTE_PLAYER2` makes the
   main route of the installs it lists their two-player route (reviewed data by SHA-256); Lotus 2's chooses two players in its menu and races
   split-screen. No other install's route changes, so their traces do not either.
-- **Proof** (Lotus 2, standard level, this branch): the two-player route equals the fresh reference on every frame, the compressed copy too,
-  and the quick state saved in the race (port 1 on the joystick, player 2 accelerating) continues for 600 frames in a fresh process; the
-  adapter's checks pass in `tests/amiga_menu_harness.c`.
+- **A held button survives F9** (an older flaw, every Amiga build before this one). vAmiga's joysticks and mouse buttons come back neutral
+  from a snapshot, and the next frame's inputs, unchanged, did not press them again: a state saved with a button held (Lotus 2's race, fire
+  held to accelerate) continued with it released (three bytes of slow RAM differ one frame after the load, the fire bit). Found by this
+  proof, reproduced on the export of 13 November in a one-player race. After the load the session presses again, from neutral, what was held
+  (port 2's joystick, port 1's, the mouse buttons), then plugs port 1 as saved. The panel's G6 had passed because nothing was held at its save.
+- **Proof** (Lotus 2, this branch): the two-player route equals the fresh reference on every frame, the compressed copy too, and the quick
+  state saved in the race (port 1 on the joystick, both players accelerating) continues for 600 frames in a fresh process; a state saved in
+  the race and reloaded continues the saved timeline in the three cases tried (two players with and without player 2's inputs, one player);
+  the adapter's checks pass in `tests/amiga_menu_harness.c` (34).
 
 **Hot path:** two calls a frame (port 1's joystick and the mouse), each a comparison when nothing changes.
 
