@@ -21,7 +21,7 @@ typedef char rrhk_menu_numbers_follow_game_options[
  * row is not shown, and stderr says so once. */
 #define RRHK_OPTION_ROWS 32
 #define RRHK_OPTION_WINDOW ((int)(sizeof ((RrOptionRows *)0)->keys / sizeof ((RrOptionRows *)0)->keys[0]))
-struct RrhkOptionRows { char text[RRHK_OPTION_ROWS][80]; int keys[RRHK_OPTION_ROWS], count; };
+struct RrhkOptionRows { char text[RRHK_OPTION_ROWS][80]; int keys[RRHK_OPTION_ROWS], icons[RRHK_OPTION_ROWS], count; };   /* icons: -1 by key */
 
 static void add_row(RrhkOptionRows *rows, int key, const char *text) {
     static bool told;
@@ -31,12 +31,19 @@ static void add_row(RrhkOptionRows *rows, int key, const char *text) {
         return;
     }
     snprintf(rows->text[rows->count], sizeof rows->text[0], "%s", text);
+    rows->icons[rows->count] = -1;
     rows->keys[rows->count++] = key;
 }
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value) {
     char text[80];
     snprintf(text, sizeof text, rr_tr(format), value);       /* as rr_option_row formats it */
     add_row(rows, key, text);
+}
+/* 1.7.5: the same row with its own icon (RR_ICON_ROW_*), for a machine's row the kit cannot choose one for by its key. */
+void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value) {
+    const int before = rows->count;
+    rrhk_option_row(rows, key, format, value);
+    if (rows->count > before) rows->icons[before] = icon >= 0 && icon < RR_ICON_COUNT ? icon : -1;
 }
 
 void rrhk_options_init(const wchar_t *console) {
@@ -159,7 +166,7 @@ static RrOptionRows option_window(const RrhkOptionRows *all, int first) {
     for (int i = 0; i < d.count; ++i) {
         memcpy(d.text[i], all->text[first + i], sizeof d.text[i]);
         d.keys[i] = all->keys[first + i];
-        d.icons[i] = rrhk_option_icon(d.keys[i]);
+        d.icons[i] = all->icons[first + i] >= 0 ? all->icons[first + i] : rrhk_option_icon(d.keys[i]);
     }
     return d;
 }

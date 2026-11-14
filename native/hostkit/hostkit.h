@@ -340,6 +340,8 @@ void rrhk_menu_line(const RrhkMenuCtx *ctx, int y, const char *text);
 void rrhk_menu_icon(const RrhkMenuCtx *ctx, int x, int y, int icon);
 void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);
+/* 1.7.5: an options row with its own icon (RR_ICON_ROW_*); rrhk_option_row lets the kit choose by the row's key (D20). */
+void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);
 extern const RrhkPage rrhk_pointer_page;
 
 /* Each adapter returns its machine; the link has exactly one. */

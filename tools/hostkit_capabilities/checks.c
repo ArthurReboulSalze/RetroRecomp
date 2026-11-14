@@ -762,7 +762,11 @@ static void quick_script(void) {
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
-    for (int i = 0; i < 3; ++i) rrhk_option_row(rows, EXTRA_KEY + slot * 3 + i, "Machine row: %s", slot ? "B" : "A");
+    for (int i = 0; i < 3; ++i) {
+        /* 1.7.5: the first row of each slot names its own icon; the others get the generic one from the kit */
+        if (i == 0) rrhk_option_row_icon(rows, EXTRA_KEY + slot * 3, RR_ICON_ROW_SPEED, "Machine row: %s", slot ? "B" : "A");
+        else rrhk_option_row(rows, EXTRA_KEY + slot * 3 + i, "Machine row: %s", slot ? "B" : "A");
+    }
 }
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)ui; (void)running;

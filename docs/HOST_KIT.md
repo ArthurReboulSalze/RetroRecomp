@@ -423,7 +423,8 @@ X68000 too, without asking again**.
   options row by its key, a graphics option by its name (`rrhk_menu.c`, `rrhk_options.c`). A row the kit has no picture for
   gets the generic gem, never nothing: today the machines' own option rows (F5 palette of the Game Boy, F5 sprite reduction of
   the NES and the Master System, F5 enhanced Neo Geo, F11 MVS/AES), the graphics options other than resolution, aspect and
-  overscan, and controls such as "DIP switches". A page an adapter draws itself (the CPS-1 DIP switches, the computers' disk
+  overscan, and controls such as "DIP switches"; an adapter names its own row's icon with `rrhk_option_row_icon` (the requests to
+  the machines' specialists wait for 1.7.6). A page an adapter draws itself (the CPS-1 DIP switches, the computers' disk
   and mouse pages) can put one before its rows with `rrhk_menu_icon`. The icons are 31 packed rows in `native/retro_menu.c`,
   in the tiles' table (`RR_ICON_ROW_*`, about 2.3 KB), drawn after the picture like every menu; a long options row is narrowed
   rather than drawn past its box.
