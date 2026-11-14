@@ -102,10 +102,10 @@ class ProfileTests(unittest.TestCase):
         self.path = Path(self.folder.name) / 'Authored (World).gba'
         self.path.write_bytes(synthetic_cartridge(save=b'EEPROM_V124'))
 
-    def test_the_profile_is_experimental_listed_and_available_with_its_files(self):
+    def test_the_profile_is_supported_listed_and_available_with_its_files(self):
         profile = get_profile('gba')
         self.assertIn(profile, ALL_PROFILES)
-        self.assertEqual((profile.status, profile.developer_only, profile.linux), ('experimental', False, 'witnessed'))
+        self.assertEqual((profile.status, profile.developer_only, profile.linux), ('supported', False, 'witnessed'))
         self.assertIn(profile, PROFILES)
         self.assertEqual(profile.archived_rom_limits, (('.gba', 32 * 1024 * 1024),))
         self.assertEqual([(cpu.arch, cpu.role, cpu.unit) for cpu in profile.cpus], [('arm7tdmi', 'main', 'instructions')])
@@ -179,7 +179,7 @@ class SharedPiecesTests(unittest.TestCase):
                                                            [('boot', 600, 1000, 4)])
             report = report_schema.read_report(Path(folder) / 'conversion-report.json')
         self.assertEqual(written['schema'], {'name': 'retro-recomp-report', 'version': 2})
-        self.assertEqual(report['system'], {'id': 'gba', 'name': 'Game Boy Advance', 'status': 'experimental'})
+        self.assertEqual(report['system'], {'id': 'gba', 'name': 'Game Boy Advance', 'status': 'supported'})
         self.assertEqual(report['cpus'][0]['arch'], 'arm7tdmi')
         self.assertEqual(report['cpus'][0]['scenarios'][0]['interpreted'], 4)
         self.assertEqual(report_schema.fallback_summary(report)['main_interpreted_opcodes'], 4)

@@ -1,4 +1,4 @@
-"""Game Boy Advance profile (experimental, opened in 1.7.0: see docs/GAME_BOY_ADVANCE.md).
+"""Game Boy Advance profile (supported since 1.7.6, open as experimental in 1.7.0: see docs/GAME_BOY_ADVANCE.md).
 
 Route A: the pinned engine `mstan/gbarecomp` (PolyForm Noncommercial, with the author's permission) and the player's own BIOS.
 The machine is listed when the installation carries the converter's native files (`available()`); a `.gba` file is refused as
@@ -31,7 +31,7 @@ class GameBoyAdvanceProfile(SystemProfile):
     archived_rom_limits = (('.gba', 32 * 1024 * 1024),)
     export_folder = 'Game Boy Advance'
     video_modes = ('agb',)
-    status = 'experimental'
+    status = 'supported'
     # Counts interpreted ARM and Thumb instructions, in one unit; the save chips and the RTC are not processors.
     cpus = (Cpu('arm7tdmi', 'main', 'instructions'),)
     media_kinds = ('cartridge',)
@@ -83,7 +83,7 @@ class GameBoyAdvanceProfile(SystemProfile):
             return None
         if not self.available():
             raise UnsupportedConsoleError(
-                'The experimental Game Boy Advance profile is unavailable in this installation.')
+                'The Game Boy Advance profile is unavailable in this installation.')
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected Game Boy Advance; choose Automatic or Game Boy Advance.', self.id)
         return self

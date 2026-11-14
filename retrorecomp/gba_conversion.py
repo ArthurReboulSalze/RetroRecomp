@@ -5,7 +5,7 @@ commit like the other machines' engines, downloaded at its pinned revision on th
 this repository; our fixes are carried as anchored patches on a staged copy (`gba_patches`, docs/UPSTREAMS.md). Its CPU
 core is the engine's own submodule `arm-recomp-core` (MIT), kept at the revision the engine records.
 
-What a conversion does, in this stage (the machine is experimental):
+What a conversion does, in this stage (the machine is supported since 1.7.6):
 
 1. checks the cartridge and the player's BIOS (the one image the engine knows, by SHA-1);
 2. builds the engine's recompiler once per patch set, and generates the BIOS code from the player's own file (private);
@@ -34,6 +34,7 @@ from .core import ConversionError
 from .gba import read_rom
 from .platforms import target_id
 from .report_schema import write_report
+from .systems import get_profile
 
 ENGINE_URL = 'https://github.com/mstan/gbarecomp.git'
 # mstan/gbarecomp, 31 Oct 2026 (merge of release/final-gba-prs-20261101), read on 4-5 Nov 2026 (docs/GAME_BOY_ADVANCE.md).
@@ -63,7 +64,7 @@ def report_of(source, level: str, rows: list, *, validation: dict | None = None,
               extra=None) -> dict:
     """The conversion report's own keys (the common builder adds the rest). Nothing here claims more than was measured."""
     document = {'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
-                'system': {'id': 'gba', 'name': 'Game Boy Advance'}, 'status': 'experimental', 'target': target_id(),
+                'system': {'id': 'gba', 'name': 'Game Boy Advance'}, 'status': get_profile('gba').status, 'target': target_id(),
                 'rom': source.metadata(), 'scan_level': level,
                 'native_validation': validation or {'passed': None, 'scope': 'nothing was compared',
                                                     'cpu_fidelity_validated': False, 'independent_cpu_oracle': False},

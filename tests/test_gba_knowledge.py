@@ -428,7 +428,7 @@ class SharingTests(unittest.TestCase):
     def test_the_report_block_names_the_record_and_never_claims_a_reached_row(self):
         value, promotion = gk.promote(IDENTITY, ROM, observations(ROOTS, SPANS), private={'unresolved_misses': 2})
         block = gk.knowledge_block(value, promotion, {'pending': 0})
-        self.assertEqual((block['record_sha256'], block['cores'], block['shared'], block['machine_status']), (gk.record_digest(value), gk.engine(), True, 'experimental'))
+        self.assertEqual((block['record_sha256'], block['cores'], block['shared'], block['machine_status']), (gk.record_digest(value), gk.engine(), True, 'supported'))
         self.assertFalse(block['raw_bytes_stored'])
         self.assertFalse(block['raw_bytes_stored'])
         self.assertEqual(block['promotion']['private'], {'unresolved_misses': 2})
