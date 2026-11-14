@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.7.4-d4a737" alt="Release version 1.7.4">
+  <img src="https://img.shields.io/badge/release-1.7.5-d4a737" alt="Release version 1.7.5">
   <img src="https://img.shields.io/badge/console_profiles-17-626262" alt="Seventeen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -116,7 +116,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.4.** The MSX2+ opens as an experimental machine, for cartridges and, with your own BIOS and disk ROM, disk games. Every machine's games get a new in-game interface: F2 as tiles, a "Quit?" question, the keys shown when a game opens, and a stretched F4 mode. The MSX and the MSX2 keep the battery saves of their ASCII cartridges, the Atari ST reads more disks as the TOS does, and the Mega Drive's report says what each conversion checked, with the same routes on Windows and Linux. The Amiga refuses a damaged quick state and keeps the files of games that save, like Panza Kick Boxing's boxers. X68000 games open from a linked folder, and Lagoon gets its system disk back by itself. The Game Boy Advance conversion replays the file it delivers against the player it built, and twelve cartridges' routes into play are checked (69 % of its checklist). Every export of 1.7.3 is converted again once, except on Adventure (ScummVM), where it is only rebuilt. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.5.** The MSX, the MSX2, the Commodore Amiga and the Atari ST leave the experimental status and are supported; the Amiga and the Atari ST share their paths with other players. On every machine, quick save and quick load can be bound to the gamepad (a short hold), the L2 and R2 triggers bind like any button, and the in-game menus get small pixel icons. Amiga games take a second joystick on the mouse port, so Lotus 2 races in split screen with two pads. Mega Drive and Super Nintendo quick states of 1.7.4 still load. The converter's window no longer slows down on small Linux PCs. Exports of 1.7.4 on the machines whose games changed are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 
