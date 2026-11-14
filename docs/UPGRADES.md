@@ -136,6 +136,19 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
 
+## Every machine: a "Quit the game" tile in the F2 menu (1.7.6)
+
+The F2 menu ends with a **Quit the game** tile ([HOST_KIT.md](HOST_KIT.md#d23), D23) that asks the same "Quit? No / Yes" as
+Esc; No comes back to the tiles.
+
+* **Stamps.** The host stamp of all 20 profiles moves (`hostkit/shell/rrhk_menu.c`, `native/retro_menu.c` and `retro_menu.h`
+  for the icon, `runtime_catalog.inc`, the seven locale files); no game or build stamp, no quick-state key (none of these files
+  fixes a state layout).
+* **What players see.** One more tile, last; a four-player board's eleven tiles on two rows of six (narrower tiles).
+* **Texts.** One new entry in the five game languages: "Quit the game".
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 9: the tile asks, No and Esc come back to the tiles while the game
+  waits, the options tile is still the one before it, Yes ends the loop (280 checks).
+
 ## Exports of 1.7.4 in 1.7.5
 
 1.7.5 is the release after 1.7.4 (published on 14 November 2026). This section is the index of its changes, one line per section below, with the

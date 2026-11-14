@@ -840,6 +840,39 @@ static void pad_row_script(void) {
     }
 }
 
+/* 1.7.6: the F2 menu's last tile, "Quit the game": the same "Quit? No / Yes" as Esc; No and Esc come back to the tiles. */
+static void quit_tile_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Left from the first: the last */
+    case 1:
+        CHECK(ui->menu == RRHK_MENU_QUIT);
+        frames_mark = frames;
+        key(SDL_SCANCODE_RETURN);                       /* No is selected */
+        break;
+    case 2:
+        CHECK(ui->menu == RRHK_MENU_HUB && frames == frames_mark);   /* back on the tiles; the game did not run */
+        key(SDL_SCANCODE_RETURN);                       /* the Quit tile is still selected */
+        break;
+    case 3: CHECK(ui->menu == RRHK_MENU_QUIT); key(SDL_SCANCODE_ESCAPE); break;
+    case 4: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_ESCAPE); break;
+    case 5:
+        CHECK(ui->menu == 0);
+        /* the options tile is just before Quit: Left twice from the first tile */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN);
+        break;
+    case 6:
+        CHECK(ui->menu == RRHK_MENU_OPTIONS);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 7:     /* Quit, Yes: the loop ends */
+        CHECK(ui->menu == RRHK_MENU_HUB);
+        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        break;
+    default: break;
+    }
+}
+
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
@@ -973,6 +1006,11 @@ int main(int argc, char **argv) {
     begin(pad_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 10);
+    /* 9. 1.7.6: the Quit tile of the F2 menu. */
+    plain.pad_rows = NULL; plain.pad_row_count = 0;
+    begin(quit_tile_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 8);
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();

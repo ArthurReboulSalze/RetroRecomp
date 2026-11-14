@@ -53,6 +53,7 @@ void rr_menu_page_header(SDL_Renderer *renderer, int ox, int oy, int unit,
 /* 1.7.5: the 9 x 9 row icons (RR_ICON_ROW_*) follow the tiles', drawn by the same rr_menu_icon. */
 enum { RR_ICON_KEYBOARD, RR_ICON_GAMEPAD, RR_ICON_OPTIONS, RR_ICON_POINTER, RR_ICON_SWITCHES, RR_ICON_LOGO,
        RR_ICON_KEYBOARD_SMALL, RR_ICON_GAMEPAD_SMALL, RR_ICON_OPTIONS_SMALL,
+       RR_ICON_QUIT,      /* 1.7.6: the F2 menu's last tile, a door with an arrow leaving it */
        /* <row enum> */
        RR_ICON_ROW_UP, RR_ICON_ROW_DOWN, RR_ICON_ROW_LEFT, RR_ICON_ROW_RIGHT, RR_ICON_ROW_BUTTON, RR_ICON_ROW_START,
        RR_ICON_ROW_SELECT, RR_ICON_ROW_COIN, RR_ICON_ROW_PAUSE, RR_ICON_ROW_QUIT, RR_ICON_ROW_RESTART, RR_ICON_ROW_SAVE,
