@@ -290,6 +290,20 @@ class LegacyReceiptTests(unittest.TestCase):
     whatever today's game stamp is; any other game part is converted in full. The listed stamp here is synthetic, since
     the table of 1.6.4 is empty."""
 
+    def setUp(self):
+        # A Neo Geo request reads, and may write, the library's cache of prepared cartridges (`neogeo_knowledge`): keep it in a scratch
+        # folder, never the player's real Export/datas/library/ng (tests/test_zz_datas_guard.py watches that file).
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.scratch_library = Path(folder.name)
+        patcher = patch('retrorecomp.neogeo_knowledge.library_root', return_value=self.scratch_library)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_neo_geo_request_leaves_the_prepared_cartridge_cache_in_the_scratch_library(self):
+        self.parts('ng')
+        self.assertTrue((self.scratch_library / 'prepared-cartridges.json').is_file())
+
     def parts(self, system, game_stamp=None):
         from retrorecomp import freshness
         item = SimpleNamespace(system=system, path=Path('game.bin'), sha256='e' * 64, title='Game', cover=None)
