@@ -83,6 +83,13 @@
       {"title": "Lemmings", "prefer": "Image", "category": "mouse", "reason": "Mouse game: its routes wait for the intro, move the pointer onto 1 PLAYER and click; generic inputs during the intro shorten it and click where no button is", "source": "docs/AMIGA.md"},
       {"title": "Superfrog", "category": "not-an-install", "expect": "refusal", "reason": "The archive holds no WHDLoad slave: not an Amiga WHDLoad install, so the conversion must refuse it with its sentence", "source": "docs/QUALIFICATION.md"}
     ],
+    "atarist": [
+      {"title": "Bomb Jack", "category": "regression-baseline", "reason": "Control case of the panel of eight: EmuTOS, starts by itself, one disk, a joystick game; 5 interpreted instructions on its routes (the start of EmuTOS)", "source": "docs/ATARI_ST.md"},
+      {"title": "Operation Stealth", "category": "multi-disk-desktop", "reason": "Three disks started by the desktop (Hatari's GEMDOS hook runs on the interpreter) and a colour-code protection that the routes stop on, with the reason in route_warnings", "source": "docs/ATARI_ST.md"},
+      {"title": "Turrican II", "prefix": true, "category": "player-tos", "reason": "Stops on EmuTOS (listed in EmuTOS's own incompatibility notes): the player's own TOS 1.04 is chosen in Options > Atari ST, and then it has 0 interpreted instructions on its routes", "source": "docs/ATARI_ST.md"},
+      {"title": "The Lurking Horror", "category": "saves", "reason": "Writes 27 sectors to its own disk by GEMDOS when it saves, and runs about 99,000 instructions on the interpreter on its main route (the most of the panel): the saves are kept beside the quick state and a new process finds them", "source": "docs/ATARI_ST.md"},
+      {"title": "Another World", "category": "protection-stop", "reason": "Two disks and a code-wheel protection: the routes end on the game's own check (a screen that says ERROR) and the report says so; the converter never answers or skips a protection", "source": "docs/ATARI_ST.md"}
+    ],
     "msx": [
       {"title": "Knightmare - Majou Densetsu", "category": "regression-baseline", "reason": "Control case: plain 32 KiB cartridge, 0 interpreted instructions on its routes under C-BIOS", "source": "docs/MSX.md"},
       {"title": "Spy vs Spy II - The Island Caper", "category": "mapper-probe", "reason": "PAL cartridge whose bytes suggest ASCII 16; the probe runs choose Konami SCC, which the game drives", "source": "docs/MSX.md"},
