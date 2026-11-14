@@ -43,10 +43,17 @@ static uint8_t mapper_ram[4u << 20];
 
 /* --count-cart-writes: the cartridge writes per 2 KB window, for the conversion's mapper probe (msx_build.probe_mapper). */
 static uint64_t cart_writes[32];
+/* With --sram-probe, a write into a window of 8000h-BFFFh whose ASCII bank value lies past the cartridge goes to a blank SRAM, as a
+ * battery-backed board takes it: counted here, not as a write the cartridge would ignore (msx_build.probe_mapper). */
+static uint64_t sram_writes;
 static void count_cart_write(void *user, uint16_t address, uint8_t value)
 {
-    (void)user; (void)value;
-    ++cart_writes[address >> 11];
+    const MsxMachine *mm = (const MsxMachine *)user;
+    (void)value;
+    if (address >= 0x8000 && address < 0xC000 && mm->slot[1][0].block[address >> 13] == MSX_BLOCK_SRAM)
+        ++sram_writes;
+    else
+        ++cart_writes[address >> 11];
 }
 
 static void trace_cart_write(void *user, uint16_t address, uint8_t value)
@@ -141,7 +148,7 @@ int main(int argc, char **argv)
     const char *layout = "basic", *sub_rom = NULL;
     unsigned long frames = 120, cart_base = 0x4000, trace = 0, mapper_kib = 256, sram_bit = 0;
     unsigned watch[32];
-    int msx2plus = 0, watches = 0, pal = 0, until_halt = 0, mirrored = 0, trace_mapper = 0, count_writes = 0;
+    int msx2plus = 0, watches = 0, pal = 0, until_halt = 0, mirrored = 0, trace_mapper = 0, count_writes = 0, sram_probe = 0;
     MsxMapper mapper = MSX_MAPPER_PLAIN;
     static const char *const mapper_names[MSX_MAPPER_COUNT] = { "plain", "konami", "konami-scc", "ascii8", "ascii16" };
     for (int i = 1; i < argc; ++i) {
@@ -154,6 +161,7 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--trace-fdc")) { extern int msx_fdc_trace; msx_fdc_trace = 1; continue; }
         if (!strcmp(a, "--trace-mapper")) { trace_mapper = 1; continue; }
         if (!strcmp(a, "--count-cart-writes")) { count_writes = 1; continue; }
+        if (!strcmp(a, "--sram-probe")) { sram_probe = 1; continue; }
         if (!v) { fprintf(stderr, "missing value for %s\n", a); return 2; }
         ++i;
         if (!strcmp(a, "--main")) main_rom = v;
@@ -218,6 +226,12 @@ int main(int argc, char **argv)
         MsxDevice device = { MSX_DEV_ROM, cart, (uint32_t)n, (uint16_t)cart_base, NULL };
         device.mapper = mapper;
         device.mirrored = (uint8_t)mirrored;
+        if (sram_probe && (mapper == MSX_MAPPER_ASCII8 || mapper == MSX_MAPPER_ASCII16)) {
+            /* every bit at or above the bank-number bits: any bank value past the cartridge selects the SRAM */
+            unsigned long unit = mapper == MSX_MAPPER_ASCII8 ? 0x2000ul : 0x4000ul, count = ((unsigned long)n + unit - 1) / unit, low = 1;
+            while (low < count && low < 0x100) low <<= 1;
+            sram_bit = 0xFFul & ~(low - 1);
+        }
         if (sram_bit && (mapper == MSX_MAPPER_ASCII8 || mapper == MSX_MAPPER_ASCII16)) {
             static uint8_t sram[MSX_SRAM_ASCII8];     /* blank, as a fresh battery: the game's own file is not read here */
             device.sram = sram;
@@ -314,7 +328,7 @@ int main(int argc, char **argv)
            (unsigned)(z.h_ << 8 | z.l_), z.i, z.r, z.interrupt_mode, z.iff2, z.mem_ptr);
     printf("\"cart_writes\": [");
     for (int i = 0; i < 32; ++i) printf("%s%llu", i ? ", " : "", (unsigned long long)cart_writes[i]);
-    printf("], ");
+    printf("], \"sram_writes\": %llu, ", (unsigned long long)sram_writes);
     msx_print_state(&machine, stdout);
     printf("\"watch\": {");
     for (int i = 0; i < watches; ++i)

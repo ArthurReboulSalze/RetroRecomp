@@ -1,3 +1,14 @@
+# RetroRecomp v1.7.5 — The MSX and the MSX2 are supported
+
+- **MSX and MSX2 (supported).** On the owner's decision of 14 November 2026, after his play test, the MSX and the MSX2 are
+  supported ([MSX.md](MSX.md#7-where-it-stands-in-the-qualification)). The MSX2+ stays experimental. A panel of eight
+  cartridges per machine converts at 0 interpreted instructions on every route, equal on Windows and on a Debian 13 PC; no game is
+  validated as played through, and hardware fidelity and latency are not claimed. Path sharing is declined for them, as it would serve
+  no purpose: the only code these games run from RAM is BIOS hooks with no source in the cartridge.
+  - **Battery-backed boards.** The mapper probe now recognises ASCII cartridges with 2 KiB of battery SRAM (Deep Dungeon, Super
+    Daisenryaku), which it read with the wrong mapper before.
+  - **Known C-BIOS failure.** Heroes of the Lance shows its Japanese text with the wrong characters under C-BIOS; the game runs.
+
 # RetroRecomp v1.7.4 — The MSX2+ opens as an experimental machine, with cartridges and disks; a new in-game interface on every machine; the MSX, the Atari ST and the Mega Drive move up the qualification list
 
 - **MSX2+ (experimental, new).** A third profile of the MSX family, `msx2plus`: the MSX2's board with

@@ -136,7 +136,7 @@ B is A, A is B, the shoulder buttons are L and R, Start is Start and Back is Sel
 below and the two shortcuts F1 and Shift+F1 are the common ones of the host kit, not repeated here. The cartridge save (SRAM, Flash or
 EEPROM) is kept in `datas/saves` and written when it changes and at exit. The help page of F1 lists these keys.
 
-### MSX and MSX2 (experimental)
+### MSX and MSX2
 
 The MSX1 and MSX2 profiles share these controls. The MSX2 picture is 544 x 228.
 

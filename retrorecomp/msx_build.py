@@ -300,8 +300,11 @@ def choose_mapper(details: dict, static: str | None) -> str | None:
     def share(m):
         d = details[m]
         return d['register_writes'] / (d['register_writes'] + d['other_writes'])
+    # One register write is no evidence when another run made two or more: a program that stops after its first bank switch under the
+    # wrong mapper would otherwise win with every write on a register (Super Daisenryaku under ASCII 8, 14 November 2026).
+    least = 2 if any('failed' not in d and d['register_writes'] >= 2 for d in details.values()) else 1
     credible = [m for m, d in details.items()
-                if 'failed' not in d and d['unmapped_reads'] <= PROBE_LOST and d['register_writes']]
+                if 'failed' not in d and d['unmapped_reads'] <= PROBE_LOST and d['register_writes'] >= least]
     if not credible:
         return None
     best = max(share(m) for m in credible)
@@ -312,12 +315,16 @@ def choose_mapper(details: dict, static: str | None) -> str | None:
 
 
 def probe_mapper(reference: Path, data: bytes, bios_args: list[str], static: str | None) -> tuple[str | None, dict]:
-    """The mapper the program drives, from a probe run under each candidate; (None, details) when no run is credible."""
+    """The mapper the program drives, from a probe run under each candidate; (None, details) when no run is credible. Under an ASCII
+    mapper the run has a blank SRAM behind every bank value past the cartridge (`--sram-probe`): a battery-backed board's writes to its
+    SRAM are counted apart (`sram_writes`), not as writes the cartridge would ignore, which made the probe refuse the right mapper of
+    Deep Dungeon (ASCII 8, 2 KiB SRAM) and Super Daisenryaku (ASCII 16, 2 KiB SRAM)."""
     details = {}
     for mapper, windows in PROBE_WINDOWS.items():
         try:
             result = subprocess.run([str(reference), *bios_args, '--mapper', mapper, '--frames', str(PROBE_FRAMES),
-                                     '--count-cart-writes', '--cart', '-'], input=padded(data, mapper),
+                                     '--count-cart-writes', *(['--sram-probe'] if mapper in ('ascii8', 'ascii16') else []),
+                                     '--cart', '-'], input=padded(data, mapper),
                                     capture_output=True, timeout=600, creationflags=_flags())
             if result.returncode:
                 raise ValueError(f'exit {result.returncode}')
@@ -328,7 +335,8 @@ def probe_mapper(reference: Path, data: bytes, bios_args: list[str], static: str
         counts = report['cart_writes']
         inside = sum(counts[w] for w in windows)
         other = sum(n for w, n in enumerate(counts) if w not in windows and w not in PROBE_IGNORED)
-        details[mapper] = {'register_writes': inside, 'other_writes': other, 'unmapped_reads': report['unmapped_reads']}
+        details[mapper] = {'register_writes': inside, 'other_writes': other, 'unmapped_reads': report['unmapped_reads'],
+                           **({'sram_writes': report.get('sram_writes', 0)} if mapper in ('ascii8', 'ascii16') else {})}
     return choose_mapper(details, static), details
 
 
