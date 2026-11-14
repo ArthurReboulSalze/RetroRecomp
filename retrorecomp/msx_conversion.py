@@ -561,7 +561,8 @@ def hardware_devices(guess, msx2: bool, plus: bool = False, disks: int = 0) -> l
         units.append({'id': 'ym2413', 'kind': 'audio_unit', 'mode': 'c_model',
                       'details': {'what': 'MSX-MUSIC, built into the MSX2+ (I/O ports 7Ch-7Dh, its BIOS in slot 3-1)',
                                   'core': 'emu2413 v1.5.9 (MIT), one sample every 72 cycles (49,716 Hz)',
-                                  'mixing_levels': 'stated (openMSX\'s volumes: 9000 against the PSG\'s 21000), not validated',
+                                  'mixing_levels': 'the FM against the PSG set to openMSX 22.0\'s balance on an authored cartridge (one voice, one '
+                                                    'tone); not validated on games',
                                   'interpreter': 'none: the sound chip is C code in the runtime', **common}})
     if scc:
         units.append({'id': 'scc', 'kind': 'audio_unit', 'mode': 'c_model',
