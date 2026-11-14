@@ -787,6 +787,59 @@ static void r2_script(void) {
     }
 }
 
+/* 1.7.5: a machine's own row on player 2's gamepad page (RrhkMachine.pad_rows, the Amiga's mouse port). */
+static int port_mode, port_sets;
+static int port_get(void) { return port_mode; }
+static void port_set(int value) { port_mode = value; ++port_sets; }
+static int port_icon(void) { return port_mode == 2 ? RR_ICON_ROW_PORT_JOYSTICK : RR_ICON_ROW_PORT_MOUSE; }
+static const char *const port_values[] = {"Auto (last used)", "Mouse", "Pad 2"};
+static const RrhkPadRow port_row = {2, "Mouse port", 3, port_values, port_get, port_set, port_icon};
+static void pad_row_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0:     /* the tiles: player 1 keyboard, gamepad, player 2 keyboard, gamepad */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        break;
+    case 1:     /* player 1's gamepad page has no machine row */
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
+        CHECK(rrhk_pad_rows_here() == 0 && rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 1 && rrhk_action_row() == ui->row);
+        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RIGHT);      /* player 2's keyboard page, then its gamepad page */
+        break;
+    case 2:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 1);
+        CHECK(rrhk_pad_rows_here() == 1 && rrhk_page_rows() == 1 + ACTIONS + 1 && ui->row == 0);
+        CHECK(rrhk_pad_row_at(0) == &port_row && !rrhk_pad_row_at(1) && rrhk_action_row() == -1);
+        key(SDL_SCANCODE_RETURN);                              /* Enter: the next value */
+        break;
+    case 3:
+        CHECK(port_mode == 1 && port_sets == 1 && !ui->capturing);
+        key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RETURN);    /* 2, then back to 0 */
+        break;
+    case 4:
+        CHECK(port_mode == 0 && port_sets == 3);
+        key(SDL_SCANCODE_MINUS);                               /* -: the previous value, wrapping */
+        break;
+    case 5:
+        CHECK(port_mode == 2 && port_icon() == RR_ICON_ROW_PORT_JOYSTICK);
+        key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN);      /* the next row is player 2's first control */
+        break;
+    case 6:
+        CHECK(ui->row == 1 && rrhk_action_row() == 0 && ui->capturing);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 7:
+        CHECK(!ui->capturing);
+        key(SDL_SCANCODE_LEFT);                                /* player 2's keyboard page: no machine row */
+        break;
+    case 8:
+        CHECK(ui->gamepad_page == 0 && ui->player == 1 && rrhk_pad_rows_here() == 0);
+        key(SDL_SCANCODE_F2);
+        break;
+    case 9: stop = true; break;
+    default: break;
+    }
+}
+
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
@@ -915,6 +968,11 @@ int main(int argc, char **argv) {
     begin(r2_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 13);
+    /* 8. 1.7.5: a machine row on player 2's gamepad page. */
+    plain.pad_rows = &port_row; plain.pad_row_count = 1;
+    begin(pad_row_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 10);
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();

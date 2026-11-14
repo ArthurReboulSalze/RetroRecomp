@@ -26,8 +26,23 @@ void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y) {
 /* The rows of a page: the actions, player 1's two combinations and, on a gamepad page, the Gamepad row (divergence 10), then on
  * a machine with analog sticks the Stick dead zone row. */
 static int stick_row(void) { return rrhk.gamepad_page && rrhk.machine->analog_sticks > 0 ? 1 : 0; }
+/* 1.7.5: the machine's own rows of this player's gamepad page come first (RrhkMachine.pad_rows), then the kit's as before. */
+const RrhkPadRow *rrhk_pad_row_at(int row) {
+    const RrhkMachine *m = rrhk.machine;
+    if (!rrhk.gamepad_page || !m->pad_rows || row < 0) return NULL;
+    for (int i = 0, here = 0; i < m->pad_row_count; ++i)
+        if (m->pad_rows[i].player == rrhk.player + 1 && m->pad_rows[i].count > 0 && here++ == row) return &m->pad_rows[i];
+    return NULL;
+}
+int rrhk_pad_rows_here(void) {
+    int count = 0;
+    while (rrhk_pad_row_at(count)) ++count;
+    return count;
+}
+int rrhk_action_row(void) { return rrhk.row - rrhk_pad_rows_here(); }
 int rrhk_page_rows(void) {
-    return rrhk.machine->action_count + (rrhk.player ? 0 : RRHK_COMBO_ROWS) + (rrhk.gamepad_page ? 1 : 0) + stick_row();
+    return rrhk_pad_rows_here() + rrhk.machine->action_count + (rrhk.player ? 0 : RRHK_COMBO_ROWS) + (rrhk.gamepad_page ? 1 : 0) +
+           stick_row();
 }
 bool rrhk_device_row(void) { return rrhk.gamepad_page && rrhk.row == rrhk_page_rows() - 1 - stick_row(); }
 bool rrhk_deadzone_row(void) { return stick_row() && rrhk.row == rrhk_page_rows() - 1; }
@@ -378,18 +393,31 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         const int stick = stick_row();
         if (first > 0) rr_menu_text(ren, ox, oy, unit, 246, RR_MENU_FIRST_LINE, "^", RR_MENU_HINT);
         if (first + shown < rows) rr_menu_text(ren, ox, oy, unit, 246, RR_MENU_FIRST_LINE + (shown - 1) * RR_MENU_LINE, "v", RR_MENU_HINT);
-        for (int a = first; a < first + shown; ++a) {
-            int y = RR_MENU_FIRST_LINE + (a - first) * RR_MENU_LINE;
-            if (a == rrhk.row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
+        const int extra = rrhk_pad_rows_here();
+        for (int r = first; r < first + shown; ++r) {
+            const int a = r - extra;       /* the action or combination of the row; below 0, a machine row */
+            int y = RR_MENU_FIRST_LINE + (r - first) * RR_MENU_LINE;
+            if (r == rrhk.row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
+            const RrhkPadRow *own = rrhk_pad_row_at(r);
+            if (own) {      /* a machine row: its icon, its name, its value */
+                const int v = own->get ? own->get() : 0;
+                rrhk_draw_icon(ren, ox, oy, unit, ICON_X, y, own->icon ? own->icon() : RR_ICON_ROW_GENERIC, NULL);
+                if (r == rrhk.row) rr_menu_text(ren, ox, oy, unit, 14, y, ">", RR_MENU_ACCENT);
+                if (r == rrhk.row) rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, rr_tr(own->label), RR_MENU_ACCENT);
+                else rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, rr_tr(own->label), RR_MENU_GOLD);
+                rr_menu_text_plain(ren, ox, oy, unit, VALUE_X + 2, y, 240 - VALUE_X,
+                                   rr_tr(own->values[v >= 0 && v < own->count ? v : 0]), RR_MENU_GOLD);
+                continue;
+            }
             const char *name;
             bool cap = false, waiting = false;      /* the value is a key or a button: drawn as a key cap */
             int icon = RR_ICON_ROW_GENERIC;
             char letters[4] = "";
-            if (rrhk.gamepad_page && a == rows - 1 - stick) {
+            if (rrhk.gamepad_page && r == rows - 1 - stick) {
                 rrhk_pad_value(value, sizeof value, rrhk.player);
                 name = rr_tr("Gamepad");
                 icon = RR_ICON_ROW_GAMEPAD;
-            } else if (stick && a == rows - 1) {
+            } else if (stick && r == rows - 1) {
                 /* "Stick dead zone: %s": the name is what stands before the colon */
                 static char dead[48];
                 snprintf(dead, sizeof dead, rr_tr("Stick dead zone: %s"), "");
@@ -410,15 +438,15 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
                     pad >= 0 && pad < SDL_CONTROLLER_BUTTON_MAX ? rr_menu_pad_name(pad) : NULL;
                 const char *bound = rrhk.gamepad_page ? (button ? button : "-") :
                     rrhk.keys[rrhk.player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(rrhk.keys[rrhk.player][a]);
-                waiting = rrhk.capturing && a == rrhk.row;
+                waiting = rrhk.capturing && r == rrhk.row;
                 cap = !waiting && strcmp(bound, "-") != 0;
                 snprintf(value, sizeof value, "%s", waiting ? rrhk_tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
                 name = rr_tr(m->actions[a].name);
                 icon = rrhk_action_icon(m->actions[a].name, letters);
             }
             rrhk_draw_icon(ren, ox, oy, unit, ICON_X, y, icon, letters);
-            if (a == rrhk.row) rr_menu_text(ren, ox, oy, unit, 14, y, ">", RR_MENU_ACCENT);
-            if (a == rrhk.row) rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, name, RR_MENU_ACCENT);
+            if (r == rrhk.row) rr_menu_text(ren, ox, oy, unit, 14, y, ">", RR_MENU_ACCENT);
+            if (r == rrhk.row) rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, name, RR_MENU_ACCENT);
             else rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, name, RR_MENU_GOLD);
             if (cap && rr_menu_text_width(value) + 4 <= 242 - VALUE_X) rr_menu_keycap(ren, ox, oy, unit, VALUE_X, y, value);
             else if (waiting) rr_menu_text_plain(ren, ox, oy, unit, VALUE_X + 2, y, 240 - VALUE_X, value, RR_MENU_ACCENT);
@@ -427,7 +455,8 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         {
             const char *hint = rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
                 rrhk_deadzone_row() ? rr_tr("Enter / A: change") :
-                rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count, rrhk.gamepad_page != 0) :
+                rrhk_pad_row_at(rrhk.row) ? rr_tr("Enter / A: change") :
+                rrhk_action_row() >= m->action_count ? rrhk_combo_hint(rrhk_action_row() - m->action_count, rrhk.gamepad_page != 0) :
                 rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page");
             rr_menu_hints(ren, ox, oy, unit, 14, hint_y, 228, hint, RR_MENU_HINT);
         }

@@ -1058,6 +1058,10 @@
     "Hold quick save combo": "Удерживай для сохранения",
     "Hold quick load combo": "Удерживай для загрузки",
     "Already used by %s": "Уже занято: %s",
-    "F8 and F9: fixed keys": "F8 и F9: фиксированные клавиши"
+    "F8 and F9: fixed keys": "F8 и F9: фиксированные клавиши",
+    "Mouse port": "Порт мыши",
+    "Auto (last used)": "Авто (последнее)",
+    "Mouse": "Мышь",
+    "Pad 2": "Геймпад 2"
   }
 }

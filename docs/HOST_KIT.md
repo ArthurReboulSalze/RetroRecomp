@@ -442,6 +442,15 @@ X68000 too, without asking again**.
   `game_options.h` (`rr_combo_info`). Preferences: `[<Console>.Options] quick_save_pad` and `quick_load_pad` (button masks;
   missing means unassigned, so a file of an earlier release loads unchanged).
 
+* <a id="d22"></a>**D22 — A machine's own row on a player's gamepad page** (owner's decision of 14 November 2026, 1.7.5).
+  `RrhkMachine.pad_rows` (`RrhkPadRow`: the player, an English label, a few English values, `get`, `set`, an optional `icon`)
+  puts rows of the machine at the top of that player's gamepad page, above its controls: a setting that belongs to that pad.
+  Enter (A) chooses the next value, - the previous one, the machine applies and keeps it in `set` and shows its own notice if it
+  wants one; Left/Right still turn the page. The row has the icon the machine returns now (`icon`, an `RR_ICON_ROW_*`), else the
+  generic one. The first one is the Amiga's **Mouse port** on player 2's page (Auto, the last device used / Mouse / Pad 2),
+  whose icon is a DB9 port seen face-on with the device plugged in now (`RR_ICON_ROW_PORT_MOUSE`, `RR_ICON_ROW_PORT_JOYSTICK`);
+  the Atari ST can reuse it for its own port. Nothing changes on a machine that declares no row.
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

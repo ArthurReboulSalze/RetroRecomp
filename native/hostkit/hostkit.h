@@ -142,6 +142,19 @@ typedef struct RrhkMenuCtx {
 } RrhkMenuCtx;
 typedef struct RrhkOptionRows RrhkOptionRows;
 
+/* A machine's own row at the top of one player's gamepad page (1.7.5: the Amiga's mouse port): a setting of that pad with a few
+ * values. Enter (A) chooses the next value, - the previous one; the machine applies and keeps it in `set` (and says so with its
+ * own notice if it wants one). The texts are English, looked up in the game catalogue. */
+typedef struct {
+    int player;                    /* 1-based: the player whose gamepad page shows the row */
+    const char *label;             /* "Mouse port" */
+    int count;                     /* number of values */
+    const char *const *values;     /* {"Auto (last used)", "Mouse", "Pad 2"} */
+    int (*get)(void);              /* the value now, 0 .. count - 1 */
+    void (*set)(int value);
+    int (*icon)(void);             /* the row's icon now (retro_menu.h RR_ICON_ROW_*); NULL: the generic one */
+} RrhkPadRow;
+
 /* An extra F2 page of the machine, after the controls (DIP switches, guns). */
 typedef struct {
     const char *title;                                   /* English, translated */
@@ -279,6 +292,9 @@ typedef struct RrhkMachine {
      * play, it asks media_select for the next disc (after the last, the first) and shows "Disc 2/3". The swap itself (lid,
      * eject, insert over several frames) is the machine's. */
     int host_media;
+    /* Rows of the machine on a player's gamepad page, above its controls (RrhkPadRow). NULL / 0: none. */
+    const RrhkPadRow *pad_rows;
+    int pad_row_count;
     int (*media_count)(void);
     int (*media_current)(void);       /* 0-based */
     bool (*media_select)(int index);  /* false: refused (the notice then names the disc in place) */
