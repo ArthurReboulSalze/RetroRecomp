@@ -61,7 +61,9 @@ DECLINED = {
     # does not share them and can still leave the experimental status. A console is listed here only on the measured evidence
     # of its panel (received paths would add no native instruction and save no conversion pass), written in its
     # QUALIFICATION.md entry, with G16 `-`; it then stays out of path_profiles.SHARED_SYSTEMS.
-    'path_sharing': set(),
+    # MSX and MSX2: the 16-game panel of 14 November 2026 learns only BIOS hooks built in RAM (C3 nn nn C9), none in the cartridge
+    # (QUALIFICATION.md, "MSX and MSX2 (14 November 2026)").
+    'path_sharing': {'msx', 'msx2'},
 }
 # An emulated machine (SystemProfile.emulated) is not recompiled: its profile gives the reason in a sentence, and the registry
 # asks it for no CPU, path profile, scan level, feedback kind or quick-state family, no qualification column (it is a category
