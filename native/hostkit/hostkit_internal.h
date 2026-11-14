@@ -66,6 +66,7 @@ typedef struct RrhkRun {
  * SDL_NUM_SCANCODES + 1), so that no keyboard sends them. */
 #define RRHK_KEY_RUMBLE (SDL_NUM_SCANCODES + 16)
 #define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
+#define RRHK_KEY_QUIT (SDL_NUM_SCANCODES + 18)         /* the "Quit the game" row, last of the page (1.7.6) */
 /* The keyboard row of the computers' options page (rrhk_computer.inc, RRC_ROW_KEYBOARD): its icon is chosen by this key. */
 #define RRHK_ROW_KEYBOARD (SDL_NUM_SCANCODES + 1)
 
