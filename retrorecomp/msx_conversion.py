@@ -7,8 +7,11 @@ the routes of the scan level (msx_routes: attract, play from a start chosen on t
 program and the reference on every route and refuse the conversion when any compared field differs (CPU, RAM, VRAM, picture
 of every frame, sound, PSG, banks, every frame's row); build the game with the host kit; replay the delivered (compressed)
 file on every route; check quick states in a fresh process; write the report (schema 2). The MSX2 adds the V9938 (with its
-command engine, timing approximated), the memory mapper and the clock (msx_setup_msx2). Shared paths are declined: the
-RAM code these games run is BIOS hooks with no source in the cartridge (docs/MSX.md, section 7). The five measures stay apart: native code and CPU agreement with the reference are measured on the route played;
+command engine, timing approximated), the memory mapper and the clock (msx_setup_msx2). Shared paths: declined on the
+MSX and the MSX2 (their RAM code is BIOS hooks with no source in the cartridge, docs/MSX.md section 7); the MSX2+ shares the
+RAM windows a conversion learned, as offsets in the cartridge or in the embedded disks (msx2plus_knowledge), received before
+learning and recorded once every check passed. The five measures stay apart: native code and CPU agreement with the reference
+are measured on the route played;
 hardware fidelity, gameplay and latency are not.
 """
 from __future__ import annotations
@@ -126,7 +129,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             msx_bios=None, frames=FRAMES, passes=3, scan_level=None,
             standard_override=None, profile=None, emit=print, model='msx1', msx2_bios=None, msx2_subrom=None,
             msx2_ram=256, msx2_diskrom=None, msx2_fmbios=None, msx2_kanji=None, **unused) -> Path:
-    from . import __version__, msx_build, msx_cbios
+    from . import __version__, msx_build, msx_cbios, msx_knowledge
     from .core import ROOT, executable_name
     from .library import entry_lock
     from .msx_rom import read_cartridge
@@ -242,7 +245,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 emit(f'MSX: the probe runs say {found}, not {guess.mapper} (the static guess).')
                 from dataclasses import replace
                 guess = replace(guess, mapper=found, reason=f'{guess.reason}; probe runs: {found}')
-                (work / 'native.patterns').unlink(missing_ok=True)      # learned under the other mapper
+                msx_knowledge.forget(work)                              # learned under the other mapper
         cartridge = msx_build.padded(cart.data, guess.mapper)
         level = resolve_scan_level(scan_level)
         frames, passes = int(frames or FRAMES), int(passes or 3)
@@ -328,6 +331,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         emit(f'{machine_name}: {title}: {cart.size // 1024} KiB, {guess.mapper} mapper, '
              f'{"your own BIOS" if own else "C-BIOS " + msx_cbios.VERSION}; translating the cartridge and the BIOS, learning on '
              f'{len(routes)} route(s) ({", ".join(name for name, _, _ in routes)}).')
+        # Paths from the shared base, an imported file and this player's own library: windows guarded by their bytes, translated from the
+        # first pass. The routes below validate what they run; the record made at the end holds only what this player's conversions learned.
+        media = cart.data if disks is None else disks.images          # a cartridge, or the disks in order
+        use = msx_knowledge.receive(_system(model)['id'], cart.sha256, media, work)
+        if use.get('new_to_this_build'):
+            emit(f'{machine_name}: {use["new_to_this_build"]} RAM windows received from shared paths and from your library, '
+                 'translated with byte guards from the first pass.')
         phase = time.perf_counter()
         try:
             check, pass_counts = msx_build.learn(work, cartridge, bios_image,
@@ -500,6 +510,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'qualification_scope': {'controls': 'joystick 1 and the keyboard as the default mapping drives them: directions on '
                                             'the joystick and the cursor keys, fire on trigger A and SPACE, RETURN, 1 and 2',
                                 'universal_zero_fallback_claim': False}}
+    # The shared path record: offsets in this cartridge of the windows this player's own conversions learned, once every check above passed.
+    report['knowledge'] = msx_knowledge.conclude(_system(model)['id'], cart.sha256, media, bios_image, work, use, title)
     write_report(output / 'conversion-report.json', report)
     emit(f'MSX: {title} ready ({"no interpreter on the routes played" if native_coverage else "interpreter fallback reported"}).')
     return executable

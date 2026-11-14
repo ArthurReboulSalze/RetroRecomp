@@ -72,7 +72,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
-| MSX2+ | experimental | `███████░░░` 67 % | ✅ 7 · 🟡 6 · ❔ 2 |
+| MSX2+ | experimental | `███████░░░` 66 % | ✅ 7 · 🟡 7 · ❔ 2 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -93,7 +93,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | ➖ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | 🟡 |
 
 <!-- qualification-gauges:end -->
 
@@ -123,7 +123,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | ? |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | P |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -357,6 +357,22 @@ The page of each console, which the README links its line to (a console of the m
   firmware; no cartridge game on this panel; not compared on Linux. G13 `?`: no Linux run. G14 `?`: no owner verdict. G15 `P`: read for this
   step (MSX.md section 9, COMPATIBILITY, UPGRADES, the profile's scope note, the report's device names); one statement corrected (the report
   named a plain cartridge for a disk game); the full read of every page and string for the MSX2+ is to do.
+- MSX2+ path sharing (14 November 2026; branch `spec/msx2plus-176`): **G16 moves from `-` to `P`**, like the other experimental sharers. The
+  MSX2+ shares its paths (Arthur's decision of 14 November 2026, « Oui, il partage ») as schema 3 records of the experimental tier: the RAM
+  windows a conversion learned, as offsets in the cartridge (`rom`) or in the disks (`disk1` ... `diskN`, keyed by the disk set; the BIOS image
+  they were found with, disk ROM included, is stated and hashed), `retrorecomp/msx_knowledge.py` on `retrorecomp/path_records.py`. The MSX and
+  the MSX2 keep `-`. Step 0 (Quinpl, quick level): of the 561 windows its first conversion learned, 540 are in the disk's bytes and 21 are built
+  in RAM; with the 540 received before learning, its first pass interpreted 957 Z80 instructions instead of 2,043,837 and the conversion took
+  31.5 s instead of 40.4 s. The proof (Quinpl, one disk; Laydock 2 - Last Attack, two disks; standard level, the owner's FS-A1WSX firmware;
+  Windows): converted from an empty library (A), their records exported to a version 3 knowledge file by the real exchange code, the library,
+  banks and build cache emptied, the file imported, converted again (B): the first pass interprets 7,076 instructions instead of 8,713,776
+  (Quinpl) and 536,934 instead of 2,795,253 (Laydock 2: its 124 windows built in RAM stay private, counted), the translation and learning
+  phase 16.4 s instead of 20.7 s and 16.0 s instead of 19.0 s, every route at 0 interpreted and equal to the reference in A and in B. Safety
+  (C): an imported record of 400 random places of the same disks (windows no route runs as code) changes nothing: 0 interpreted, every route
+  equal to the reference. **The limit, stated:** what sharing buys is time and a smaller first pass, not a better game: the delivered
+  executables of A and B pass the same checks. A received window is shared again only once this player's own conversion learns it (the
+  Master System's rule): B's own record holds only what it learned itself. Not yet: the Linux half of G16, a path qualified by another
+  player's conversion.
 - Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees; the machine is offered to players in 1.7.1 (the owner's go of 8 November 2026, in the owner-acceptance table). G2 `P`: the common report v2 of every conversion, the VR4300 counted in
   instructions (a jump and its delay slot as one). G3 `P`: Super Mario 64 and Ocarina of Time (PAL) converted at the Standard level,

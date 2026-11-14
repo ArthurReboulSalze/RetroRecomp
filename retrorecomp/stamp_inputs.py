@@ -723,6 +723,7 @@ INPUTS = _resolve({
         'retrorecomp.msx_cbios',
         'retrorecomp.msx_conversion',
         'retrorecomp.msx_disk',
+        'retrorecomp.msx_knowledge', 'retrorecomp.msx2plus_knowledge',
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
     ),

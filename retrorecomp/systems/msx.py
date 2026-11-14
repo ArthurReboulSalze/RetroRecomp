@@ -20,7 +20,7 @@ from pathlib import Path
 
 from . import Capabilities, Cpu, OptionKey, SystemProfile
 from ..z80_chain import Z80Machine, Z80RegionMap
-from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
+from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 # The MSX on the banked Z80 chain: eight 8 KiB regions, each showing a bank of the cartridge (source 0) or of the BIOS
 # (source 1, the 48 KiB of slot 0) or RAM; one wait state per M1 cycle; /INT read once the machine has caught up with the
@@ -228,10 +228,16 @@ class Msx2PlusProfile(Msx2Profile):
     quick_state_family = 'msx2plus'
     feedback_kinds = frozenset({27})       # RR_FB_MSX2, shared as the Master System and Game Gear share theirs: one record format
     path_spec = PathSpec(order=18, sections=(('z80', 'msx2plus'),),
-                         source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', (0x10000, 0x18000))),
-                         required_sources=('rom',), hashed_sources=('rom', 'bios'),
-                         shapes=(('z80', 'msx2plus', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
+                         source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', (0x10000, 0x18000)), ('disk', (368640, 737280))),
+                         required_sources=('bios',), hashed_sources=('bios',),
+                         shapes=(('z80', 'msx2plus', dict(roles=('rom', 'bios', 'disk'), caps={'window4': 4096})),))
     library_layout = LibraryLayout(folder='msx2plus', summary_glob='*/compilation.json')
+    # The experimental tier of the base, schema 3 only, withdrawable in one line (path_profiles.EXPERIMENTAL_SHARED), on the owner's
+    # decision of 14 November 2026: the RAM windows a conversion learned, as offsets in the cartridge or in the disks (a cartridge record
+    # or a disk record, retrorecomp/msx_knowledge.py; the record's own rules check that it has one or the other and their hashes). The
+    # routes are replayed whatever was received.
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='msx2plus_knowledge')
+    stamp_groups = (*MsxProfile.stamp_groups, 'path_records')   # the record handling its shared paths stand on
     identify = Identify(path_order=7)        # before the X68000, which takes every other M3U
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
