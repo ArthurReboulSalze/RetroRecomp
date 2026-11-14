@@ -1008,6 +1008,11 @@ INPUTS = _resolve({
     'shares:m68k_observed': (
         'retrorecomp.m68k_observed',
     ),
+    # The shared paths of a 68000 computer: RAM code tied to the player's own media, firmware rows tied to a firmware image (the X68000; the
+    # Amiga and the Atari ST when they share their paths). Game role.
+    'shares:m68k_media_knowledge': (
+        'retrorecomp.m68k_media_knowledge',
+    ),
     # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System, the Game Gear, the MSX and the MSX2): what a machine declares
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
     # The emitter and the step loop it parametrises (native/banked_*) are under ALL above; native/banked_reference_state.inc, which no

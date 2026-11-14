@@ -75,6 +75,13 @@
       {"title": "Bomberman '93", "category": "four-players", "reason": "Multitap game: a converted game is built for two players (the help text says so), the four-seat build is not offered and neither is the fifth multitap player", "source": "docs/PC_ENGINE.md"},
       {"title": "Dai Makaimura", "category": "supergrafx-refusal", "expect": "refusal", "reason": "SuperGrafx game: one video chip only shows no picture, so the conversion must refuse it", "source": "docs/PC_ENGINE.md"},
       {"title": "Space Harrier", "category": "attract-no-input", "reason": "Attract loop with no input stops changing after a few frames; the play route must still move", "source": "docs/PC_ENGINE.md"}
+    ],
+    "amiga": [
+      {"title": "Lotus 2", "category": "regression-baseline", "reason": "Control case and the test game: 0 interpreted instructions on its three routes of the extended level, a 3D road and colour steps", "source": "docs/QUALIFICATION.md"},
+      {"title": "Another World", "prefer": "FR", "category": "protection-answer", "reason": "Needs the player's Kickstart; its routes answer the code wheel with the joystick and leave the mouse out, because the install turns a left click into the access-code screen, which locks a game whose protection has not passed", "source": "docs/AMIGA.md"},
+      {"title": "Pinball Dreams", "prefer": "NTSC", "category": "interpreted-tables", "reason": "NTSC install whose keys choose the table: the long route plays one table natively, and three of the four tables run partly on the counted interpreter (Ignition about half)", "source": "docs/QUALIFICATION.md"},
+      {"title": "Lemmings", "prefer": "Image", "category": "mouse", "reason": "Mouse game: its routes wait for the intro, move the pointer onto 1 PLAYER and click; generic inputs during the intro shorten it and click where no button is", "source": "docs/AMIGA.md"},
+      {"title": "Superfrog", "category": "not-an-install", "expect": "refusal", "reason": "The archive holds no WHDLoad slave: not an Amiga WHDLoad install, so the conversion must refuse it with its sentence", "source": "docs/QUALIFICATION.md"}
     ]
   }
 }
