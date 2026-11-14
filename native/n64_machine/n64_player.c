@@ -33,6 +33,9 @@ static RrN64Session *session;
 static unsigned frame_limit, frame_number;
 static bool quit_requested, restart_requested, failed;
 static int interpreted_sites_on;   /* --interpreted-sites: the report lists where the interpreter ran beside the blocks (G3) */
+/* --captures DIR --capture-every N: a picture every N frames of a test run, DIR/<frame>.ppm (route tuning and reading) */
+static const char *captures_dir;
+static unsigned capture_every;
 static char state_slot[PATH_CAP], save_path[PATH_CAP];
 static uint64_t save_hash;
 static int16_t frame_audio[2 * 8192];
@@ -303,6 +306,11 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                     (unsigned long long)info.video, (unsigned long long)info.pcm, (unsigned long long)info.ram,
                     (unsigned long long)info.cpu, info.pc, info.samples, info.width, info.height);
         while (rr_n64_audio(session, pcm, 4096)) {}
+        if (captures_dir && capture_every && info.frame % capture_every == 0) {
+            char path[PATH_CAP];
+            snprintf(path, sizeof path, "%s/%06llu.ppm", captures_dir, (unsigned long long)info.frame);
+            if (!write_capture(path)) { fail("Cannot write a capture"); stopped = true; error = "capture failed"; break; }
+        }
         if (save_at && info.frame == save_at && state_save(state_slot)) {
             fail("The quick state could not be saved"); stopped = true; error = "state save failed"; break;
         }
@@ -417,6 +425,8 @@ int main(int argc, char **argv) {
             else if (!strcmp(a, "--trace")) trace_path = v;
             else if (!strcmp(a, "--report")) report_path = v;
             else if (!strcmp(a, "--capture")) capture_path = v;
+            else if (!strcmp(a, "--captures")) captures_dir = v;
+            else if (!strcmp(a, "--capture-every")) capture_every = (unsigned)strtoul(v, NULL, 10);
             else if (!strcmp(a, "--observations")) observe_path = v;
             else if (!strcmp(a, "--frame-times")) times_path = v;
             else if (!strcmp(a, "--cpu")) { if ((game.cpu = cpu_mode(v)) < 0) { fail("Unknown CPU mode"); return 1; } }

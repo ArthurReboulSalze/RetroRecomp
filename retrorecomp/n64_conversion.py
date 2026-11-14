@@ -138,9 +138,20 @@ def _oot_pal() -> tuple[int, list]:
     return 16800, sorted(events)
 
 
+def _mm_pal() -> tuple[int, list]:
+    """The Legend of Zelda: Majora's Mask (PAL, NZSP): the main route's menus (file 1 created with the name "A" and opened), the
+    intro's words and scenes advanced with A, then Link walks, rolls and swings his sword in the forest (play from about frame 13,000)."""
+    events = [event for event in main_route(1500) if event[0] < 1500] + _presses(1500, 12401, 40, PAD_A)
+    events += [(13050, 13350, 'stick', STICK_Y, 30000), (13350, 13600, 'stick', STICK_X, 30000), (13450, 13456, 'pad', PAD_A, 0),
+               (13600, 13900, 'stick', STICK_Y, -30000), (13750, 13756, 'pad', PAD_B, 0), (13900, 14150, 'stick', STICK_X, -30000),
+               (14000, 14006, 'pad', PAD_B, 0), (14150, 14400, 'stick', STICK_Y, 30000), (14250, 14256, 'pad', PAD_A, 0)]
+    return 14600, sorted(events)
+
+
 # Routes that reach play, per game, by its game code (numbers about the cartridge, never its bytes), tuned on the dumps named in
-# docs/NINTENDO_64.md. Played at the Extended and Thorough levels (route depth, gate G9). Mario Kart 64's main route already races.
-PLAY_ROUTES = {'NSMP': _sm64_pal, 'NZLP': _oot_pal}
+# docs/NINTENDO_64.md. Played at the Extended and Thorough levels (route depth, gate G9). The main route already reaches play on
+# Mario Kart 64, F-Zero X, Banjo-Tooie, GoldenEye 007 and Turok (a race, Spiral Mountain, the Dam, the hub).
+PLAY_ROUTES = {'NSMP': _sm64_pal, 'NZLP': _oot_pal, 'NZSP': _mm_pal}
 
 
 def play_route(game_code: str) -> tuple[int, list] | None:
