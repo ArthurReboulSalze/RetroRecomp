@@ -16,6 +16,9 @@ place). Two checks, each of them with two or three separate processes:
   route    one process plays a key script (tools/gba_routes/*.keys) to a frame limit and reports the last picture's SHA-256, the frame count and
           the instructions the interpreter ran: the numbers two systems must give equal for the same converted game (gate G13) and the depth
           a route reaches (gate G9). It says nothing about what the picture shows: read it.
+  damaged-saves  the save file process A wrote is damaged in five ways (emptied, cut in half, grown by 64 bytes, noise of the same size, one byte inverted)
+          and a fresh process starts the game with each: every one must end at the frame limit with code 0 (never a crash, never a game that does not open);
+          a file larger than the chip, which the engine refuses, must be set aside whole (`<file>.damaged`) and the game must start as if there was no save.
   save    process A plays a key script that makes the game write its cartridge save and ends; the save file is on disk, of the
           size the game keeps, and not one single byte value. Process B, fresh, starts with that file and plays a second script
           (to the file-select screen, say); a control process with no file plays the same second script. B's last picture must
@@ -27,6 +30,7 @@ The headless player has no key for F8 and F9, so the state check needs the test 
     python -B tools/gba_fresh_process.py state --exe GAME.exe --keys ROUTE.keys [--save-frame 600] [--more 120]
     python -B tools/gba_fresh_process.py refusals --exe GAME.exe --keys ROUTE.keys [--save-frame 600] [--more 120]
     python -B tools/gba_fresh_process.py route --exe GAME.exe --keys tools/gba_routes/ROUTE.keys --frames N
+    python -B tools/gba_fresh_process.py damaged-saves --exe GAME.exe --keys-a WRITE.keys --frames-a N --keys-b SHOW.keys --frames-b M
     python -B tools/gba_fresh_process.py save  --exe GAME.exe --keys-a WRITE.keys --frames-a 3000 --keys-b SHOW.keys --frames-b 900
     python -B tools/gba_fresh_process.py keys  --out ROUTE.keys --header "what it reaches" --events "300:8,304:0" --pulse 1,700,6000,50,4
 
@@ -478,6 +482,71 @@ def run_route_check(exe: Path, work: Path, keys: Path, frames: int, timeout: int
     return build_report('route', exe, {'route': run}, verdict, {'keys': keys.name, 'keys_sha256': hashlib.sha256(keys.read_bytes()).hexdigest(), 'frames': frames})
 
 
+def damaged_saves(data: bytes) -> dict[str, bytes]:
+    """The damaged forms of a cartridge save file: emptied, cut in half, grown past the chip, noise of the same size, one byte inverted."""
+    noise = bytearray()
+    block = 0
+    while len(noise) < len(data):
+        noise += hashlib.sha256(b'gba-fresh-process save noise %d' % block).digest()
+        block += 1
+    flipped = bytearray(data)
+    flipped[len(data) // 3] ^= 0xFF
+    return {'emptied': b'', 'cut in half': data[: len(data) // 2], 'grown by 64 bytes': data + bytes(64), 'noise of the same size': bytes(noise[: len(data)]),
+            'one byte inverted': bytes(flipped)}
+
+
+def damaged_save_verdict(control: RunResult, valid: RunResult, variants: dict[str, tuple[RunResult, bool]], frames: int) -> dict:
+    """A save file the player cannot use must not stop the game: every variant ends with code 0 at the frame limit. One that is larger than the chip (which the
+    engine refuses) must be set aside whole and the game must start as if there was no save (the picture of the control). The others are reported with the picture
+    they gave (the game's own checks decide what a damaged profile is)."""
+    problems: list[str] = []
+    table: dict[str, dict] = {}
+    if control.picture_sha256 is None or valid.picture_sha256 is None or control.picture_sha256 == valid.picture_sha256:
+        problems.append('the valid save is not told apart from no save by the picture: the check cannot tell')
+    for name, (run, set_aside) in variants.items():
+        started = run.returncode == 0 and run.frames == frames
+        row = {'started': started, 'exit_code': run.returncode, 'set_aside': set_aside,
+               'picture': 'the valid save' if run.picture_sha256 == valid.picture_sha256 else ('no save' if run.picture_sha256 == control.picture_sha256 else 'other')}
+        table[name] = row
+        if not started:
+            problems.append(f'{name}: the game did not start (code {run.returncode}, frame {run.frames} of {frames})')
+        if name.startswith('grown') and not (set_aside and row['picture'] == 'no save'):
+            problems.append(f'{name}: the file must be set aside and the game must start without a save ({row})')
+    return {'verdict': 'fail' if problems else 'pass', 'variants': table, 'problems': problems}
+
+
+def run_damaged_save_check(exe: Path, work: Path, keys_a: Path, frames_a: int, keys_b: Path, frames_b: int, timeout: int) -> dict:
+    read_key_script(keys_a)
+    read_key_script(keys_b)
+    folder = work / 'damaged-saves'
+    game = prepare_folder(exe, folder)
+    a = run_player(game, folder, 'A', frames_a, keys_a, '', timeout)
+    saves = saves_in(folder)
+    if not saves:
+        raise CheckError('process A wrote no save file')
+    path = saves[0]
+    good = path.read_bytes()
+    valid = run_player(game, folder, 'valid', frames_b, keys_b, '', timeout)
+    path.write_bytes(good)
+    variants: dict[str, tuple[RunResult, bool]] = {}
+    for name, data in damaged_saves(good).items():
+        for leftover in path.parent.glob('*.damaged'):
+            leftover.unlink()
+        path.write_bytes(data)
+        label = 'D-' + re.sub(r'[^a-z0-9]+', '-', name)
+        run = run_player(game, folder, label, frames_b, keys_b, '', timeout)
+        variants[name] = (run, any(path.parent.glob('*.damaged')))
+        path.write_bytes(good)
+    for leftover in path.parent.glob('*.damaged'):
+        leftover.unlink()
+    path.unlink()
+    control = run_player(game, folder, 'control', frames_b, keys_b, '', timeout)
+    verdict = damaged_save_verdict(control, valid, variants, frames_b)
+    verdict['save_bytes'] = len(good)
+    runs = {'A': a, 'valid': valid, 'control': control, **{name: run for name, (run, _) in variants.items()}}
+    return build_report('damaged-saves', exe, runs, verdict, {'keys_a': keys_a.name, 'frames_a': frames_a, 'keys_b': keys_b.name, 'frames_b': frames_b})
+
+
 def sav_of(folder: Path) -> tuple[dict | None, Path | None]:
     files = saves_in(folder)
     return (save_stats(files[0].read_bytes()), files[0]) if files else (None, None)
@@ -534,6 +603,12 @@ def build_parser() -> argparse.ArgumentParser:
     common(route)
     route.add_argument('--keys', type=Path, required=True)
     route.add_argument('--frames', type=int, required=True)
+    damaged = sub.add_parser('damaged-saves', help='a cartridge save damaged in five ways never stops the game; one the chip cannot hold is set aside')
+    common(damaged)
+    damaged.add_argument('--keys-a', type=Path, required=True)
+    damaged.add_argument('--frames-a', type=int, required=True)
+    damaged.add_argument('--keys-b', type=Path, required=True)
+    damaged.add_argument('--frames-b', type=int, required=True)
     save = sub.add_parser('save', help='a cartridge save written by one process is read back by another')
     common(save)
     save.add_argument('--keys-a', type=Path, required=True)
@@ -569,6 +644,8 @@ def main(argv: list[str] | None = None) -> int:
             report = run_state_check(exe, work, args.keys, args.save_frame, args.more, args.load_frame, args.timeout)
         elif args.command == 'route':
             report = run_route_check(exe, work, args.keys, args.frames, args.timeout)
+        elif args.command == 'damaged-saves':
+            report = run_damaged_save_check(exe, work, args.keys_a, args.frames_a, args.keys_b, args.frames_b, args.timeout)
         elif args.command == 'refusals':
             report = run_refusal_check(exe, work, args.keys, args.save_frame, args.more, args.load_frame, args.timeout)
         else:

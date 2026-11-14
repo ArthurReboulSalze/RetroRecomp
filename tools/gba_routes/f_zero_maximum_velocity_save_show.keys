@@ -1,0 +1,9 @@
+# F-Zero: Maximum Velocity (USA, Europe): the title to the pilot list (gate G7, saves: the SRAM chip, second process).
+# Start at frames 700 and 1,100, then no key: with the save written by f_zero_maximum_velocity_save_write.keys the list shows the pilot entered by the first process, with no save the list is empty.
+# Run it for 1,800 frames.
+# frame,keyinput_active_low (the value holds until the next line)
+0,0x03ff
+700,0x03f7
+704,0x03ff
+1100,0x03f7
+1104,0x03ff

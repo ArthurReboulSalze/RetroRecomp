@@ -241,6 +241,20 @@ bool write_atomically(const wchar_t* path, const std::vector<uint8_t>& bytes) {
     return false;
 }
 
+// A save file larger than the chip of this cartridge would stop the engine at its start (it refuses the file and the game never opens): it is set aside whole,
+// as the other machines do with a file they cannot use, and the game starts without a save. A shorter file is read as far as it goes.
+void set_aside_unusable_save() {
+    if (RR_GBA_SAVE_LIMIT <= 0 || !g_save_path[0]) return;
+    FILE* file = rr_fopen(g_save_path, L"rb");
+    if (!file) return;
+    fseek(file, 0, SEEK_END);
+    const long size = ftell(file);
+    fclose(file);
+    if (size <= RR_GBA_SAVE_LIMIT) return;
+    const std::wstring aside = std::wstring(g_save_path) + L".damaged";
+    if (rr_replace(g_save_path, aside.c_str())) fprintf(stderr, "[host] a cartridge save larger than the chip (%ld bytes) was set aside\n", size);
+}
+
 void flush_battery() {
     if (!g_api->save_dirty()) return;
     make_parent_folders(g_save_path);
@@ -498,6 +512,7 @@ int main(int argc, char** argv) {
     char save_utf8[4096] = "";
     if (state_location(save, 2048, "saves", ".sav") && rr_to_utf8(save, save_utf8, sizeof save_utf8))
         wcsncpy(g_save_path, save, 2047);
+    set_aside_unusable_save();
     int status = 0;
     do {
         g_restart = false;

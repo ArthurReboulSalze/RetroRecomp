@@ -25,7 +25,9 @@ class FakeProcess:
     """Stands in for subprocess.run: a player whose picture is its frame count and the keys it was given, whose state file
     restores the frame count it was saved at, and whose save is written when the key script is named 'write'."""
 
-    def __init__(self, restore_state=True, same_picture_without_state=False, write_save=True, old_player=False, refuse_damaged=True, create_on_missing=False):
+    def __init__(self, restore_state=True, same_picture_without_state=False, write_save=True, old_player=False, refuse_damaged=True, create_on_missing=False,
+                 set_aside_large=True):
+        self.set_aside_large = set_aside_large
         self.refuse_damaged = refuse_damaged
         self.create_on_missing = create_on_missing
         self.restore_state = restore_state
@@ -46,6 +48,14 @@ class FakeProcess:
         save = re.fullmatch(r'save@(\d+)', switch)
         load = re.fullmatch(r'load@(\d+)=(\d+)', switch)
         sav_file = cwd / 'datas' / 'saves' / 'game-0123.sav'
+        if sav_file.is_file() and sav_file.stat().st_size > 32768:             # a save larger than the chip: the engine refuses it
+            if not self.set_aside_large:
+                class Refused:
+                    returncode = 1
+                    stdout = ''
+                    stderr = '[runtime] save file too large' + chr(10)
+                return Refused()
+            sav_file.replace(sav_file.with_name(sav_file.name + '.damaged'))
         known_save = sav_file.is_file()
         if save and not self.old_player:
             (cwd / 'datas' / 'states').mkdir(parents=True, exist_ok=True)
@@ -364,6 +374,32 @@ class ChecksAgainstAFakePlayerTest(unittest.TestCase):
         self.assertEqual((report['result']['frames'], report['result']['interpreted_instructions']), (300, 0))
         self.assertEqual(len(report['result']['picture_sha256']), 64)
         self.assertEqual(len(report['parameters']['keys_sha256']), 64)
+
+    def run_damaged(self, fake):
+        with unittest.mock.patch.object(tool.subprocess, 'run', fake):
+            return tool.run_damaged_save_check(self.exe, self.work, self.keys, 3000, self.show, 900, 60)
+
+    def test_damaged_saves_never_stop_the_game_and_a_save_larger_than_the_chip_is_set_aside(self):
+        report = self.run_damaged(FakeProcess())
+        result = report['result']
+        self.assertEqual(result['verdict'], 'pass', result)
+        self.assertEqual(len(result['variants']), 5)
+        self.assertTrue(all(row['started'] for row in result['variants'].values()))
+        self.assertEqual(result['variants']['grown by 64 bytes']['set_aside'], True)
+        self.assertEqual(result['variants']['grown by 64 bytes']['picture'], 'no save')
+        self.assertEqual(result['variants']['one byte inverted']['picture'], 'the valid save')
+
+    def test_a_player_that_stops_on_a_save_larger_than_its_chip_fails_the_check(self):
+        result = self.run_damaged(FakeProcess(set_aside_large=False))['result']
+        self.assertEqual(result['verdict'], 'fail')
+        self.assertFalse(result['variants']['grown by 64 bytes']['started'])
+        self.assertIn('did not start', ' '.join(result['problems']))
+
+    def test_the_damaged_forms_of_a_save(self):
+        forms = tool.damaged_saves(bytes(range(256)) * 128)
+        self.assertEqual(list(forms), ['emptied', 'cut in half', 'grown by 64 bytes', 'noise of the same size', 'one byte inverted'])
+        self.assertEqual((len(forms['emptied']), len(forms['cut in half']), len(forms['grown by 64 bytes'])), (0, 16384, 32832))
+        self.assertEqual(len(forms['noise of the same size']), 32768)
 
     def test_state_check_arguments_are_checked(self):
         with self.assertRaises(tool.CheckError):
