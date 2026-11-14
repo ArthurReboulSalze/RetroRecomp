@@ -658,7 +658,7 @@ scenarios never reach). If the criterion asks for a game finished or a pseudo-ra
 
 Golden Sun, Mario Kart Super Circuit, The Minish Cap and Crazy Taxi were converted again on a Debian 13 PC (one job at a time through the machine's job slots, from an empty library): the verdict
 (picture, cycles, memories, CPU, **sound**) agrees on both scenarios, the compressed copy equals the player as built, and on **all eight routes above** the last picture, the interpreted count **and the
-twelve pictures along the route** are the same as on Windows. On the Debian players the Golden Sun state and refusals checks pass, the Minish Cap save and its damaged forms pass.
+twelve pictures along the route** are the same as on Windows. On the Debian players the Golden Sun state and refusals checks pass, the Minish Cap save and its damaged forms pass. After the quick state moved to the shared envelope, Golden Sun was converted once more on the Debian PC from the final tree: the verdict (sound included) and the compressed copy agree, the long route gives the same picture and the same twelve pictures as Windows, and the state and refusals checks pass.
 
 ### G1 and G15, the pages read
 
