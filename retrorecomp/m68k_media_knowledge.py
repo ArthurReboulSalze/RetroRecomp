@@ -65,39 +65,56 @@ def word_count(first_word: int) -> int:
     return word_counts()[first_word]
 
 
-def instruction(words) -> bytes | None:
-    """The bytes of an observed instruction when they are one complete instruction of the word-count table, else None."""
-    if not isinstance(words, str) or len(words) % 4 or not 4 <= len(words) <= 2 * LONGEST_INSTRUCTION:
+@dataclass(frozen=True)
+class InstructionSet:
+    """How long an instruction is, for the CPU a machine runs: `length(raw)` is the bytes of the instruction `raw` starts with (None when it
+    cannot tell from those bytes), `longest` the bound of an instruction and of an observation. The 68000's lengths come from the first word
+    alone (`MC68000`, every machine's default); a 68020's also read the extension words (`retrorecomp/m68020_lengths.py`)."""
+    name: str
+    longest: int
+    length: Callable[[bytes], int | None]
+
+
+def _length_68000(raw: bytes) -> int | None:
+    return 2 * word_count(raw[0] << 8 | raw[1]) if len(raw) >= 2 else None
+
+
+MC68000 = InstructionSet('68000', LONGEST_INSTRUCTION, _length_68000)
+
+
+def instruction(words, isa: InstructionSet = MC68000) -> bytes | None:
+    """The bytes of an observed instruction when they are one complete instruction of the CPU's lengths, else None."""
+    if not isinstance(words, str) or len(words) % 4 or not 4 <= len(words) <= 2 * isa.longest:
         return None
     try:
         raw = bytes.fromhex(words)
     except ValueError:
         return None
-    return raw if len(raw) == 2 * word_count(raw[0] << 8 | raw[1]) else None
+    return raw if isa.length(raw) == len(raw) else None
 
 
-def exact(words) -> str | None:
-    """The words of the instruction a window of observed words starts with, cut to its length by the word-count table (a machine that observes
+def exact(words, isa: InstructionSet = MC68000) -> str | None:
+    """The words of the instruction a window of observed words starts with, cut to its length by the CPU's lengths (a machine that observes
     a fixed window, the Amiga's 12 bytes, gives more than the instruction), or None when the window is malformed or shorter than it. The form
     `translate` and `received_use` compare."""
-    if not isinstance(words, str) or len(words) % 4 or not 4 <= len(words) <= 2 * LONGEST_INSTRUCTION:
+    if not isinstance(words, str) or len(words) % 4 or not 4 <= len(words) <= 2 * isa.longest:
         return None
     try:
         raw = bytes.fromhex(words)
     except ValueError:
         return None
-    size = 2 * word_count(raw[0] << 8 | raw[1])
-    return raw[:size].hex() if len(raw) >= size else None
+    size = isa.length(raw)
+    return raw[:size].hex() if size is not None and len(raw) >= size else None
 
 
-def instructions_of_span(data: bytes, address: int) -> list[tuple[int, str]]:
+def instructions_of_span(data: bytes, address: int, isa: InstructionSet = MC68000) -> list[tuple[int, str]]:
     """The (pc, words) of the instructions of a span's bytes, decoded from its first word; ValueError when the last one overruns."""
     out, position = [], 0
     while position < len(data):
         if position + 2 > len(data):
             raise ValueError('A span ends inside an instruction.')
-        size = 2 * word_count(data[position] << 8 | data[position + 1])
-        if size > LONGEST_INSTRUCTION or position + size > len(data):
+        size = isa.length(data[position:position + isa.longest])
+        if size is None or size > isa.longest or position + size > len(data):
             raise ValueError('A span ends inside an instruction.')
         out.append((address + position, data[position:position + size].hex()))
         position += size
@@ -201,13 +218,14 @@ class MediaKnowledge(PathRecords):
     def __init__(self, *, system: str, memory_map: str, media: str, firmware: str, firmware_sizes: tuple, firmware_window: tuple,
                  ram_limit: int, span_limit: int, firmware_limit: int, span_bytes: int, anchor_bytes: int, span_path: str,
                  firmware_path: str, format: int, formats: tuple, words: Words, engine: Callable[[], str],
-                 firmware_view: Callable[[bytes | None], bytes | None], firmware_rows: Callable):
+                 firmware_view: Callable[[bytes | None], bytes | None], firmware_rows: Callable, isa: InstructionSet = MC68000):
         super().__init__(system=system, cpu='m68k', primary=media, engine=engine)
         self.system, self.memory_map, self.media, self.firmware = system, memory_map, media, firmware
         self.firmware_sizes, self.firmware_window, self.ram_limit = tuple(firmware_sizes), tuple(firmware_window), ram_limit
         self.span_limit, self.firmware_limit, self.span_bytes, self.anchor_bytes = span_limit, firmware_limit, span_bytes, anchor_bytes
         self.span_path, self.firmware_path, self.format, self.formats = span_path, firmware_path, format, tuple(formats)
         self.words, self._engine, self._firmware_view, self._firmware_rows = words, engine, firmware_view, firmware_rows
+        self.isa = isa                # the CPU's instruction lengths (the 68000's unless the machine runs another)
         # The record's layout: `{'format': n}` for a machine whose record carries its own format number (the X68000), `{}` for one whose
         # `path_profiles` layout is empty (`format=None`, as the Game Boy Advance's): a later format then needs a layout of its own there.
         self.layout = {'format': format} if format is not None else {}
@@ -351,7 +369,7 @@ class MediaKnowledge(PathRecords):
         ram, other, malformed = {}, 0, 0
         for row in variants:
             pc = row.get('pc') if isinstance(row, dict) else None
-            raw = instruction(row.get('words')) if isinstance(row, dict) else None
+            raw = instruction(row.get('words'), self.isa) if isinstance(row, dict) else None
             if type(pc) is not int or pc & 1 or raw is None:
                 malformed += 1
             elif 0 <= pc and pc + len(raw) <= self.ram_limit:
@@ -443,7 +461,7 @@ class MediaKnowledge(PathRecords):
         spans, firmware_rows = self.rows(record)
         out, left = [], {}
         for address, offset, length in spans:
-            out += instructions_of_span(media[offset:offset + length], address)
+            out += instructions_of_span(media[offset:offset + length], address, self.isa)
         if firmware_rows:
             view = self._firmware_view(firmware)
             if firmware is None or sources.get(self.firmware) != self.source_facts(media, firmware).get(self.firmware):

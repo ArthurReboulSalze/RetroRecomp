@@ -644,7 +644,7 @@ INPUTS = _resolve({
     # adapter (host role: it is in HOST_NATIVE above). The profile module comes from the profile; the CPU chain, the
     # observed-code generator and the computer adapters it shares are named by its stamp_groups. The licence of the engine
     # is listed here, not under every console (that would move every host stamp).
-    ('amiga',): (
+    ('amiga', 'amiga1200'): (
         'native/amiga_machine/CMakeLists.txt',
         'native/amiga_machine/amiga_player.c',
         'native/amiga_machine/amiga_savefile.h',
@@ -666,6 +666,7 @@ INPUTS = _resolve({
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_whdload',
+        'retrorecomp.m68020_lengths',
     ),
     # The Atari ST (supported since 1.7.5, open as experimental in 1.7.1): its converter modules, the machine session on Hatari (GPL-2.0 engine, patched at
     # build time by atarist_hatari), the libretro API header (MIT, vendored) and its host-kit adapter (host role: in HOST_NATIVE

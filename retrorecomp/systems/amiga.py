@@ -106,3 +106,60 @@ class AmigaProfile(SystemProfile):
 
 
 AMIGA = AmigaProfile()
+
+
+# Folders a player keeps A1200 installs in: an .lha found there is the A1200's (as the NAS's `amiga1200`).
+A1200_FOLDERS = frozenset(('amiga1200', 'amiga 1200', 'amiga-1200', 'a1200', 'amigaaga', 'amiga aga', 'aga'))
+# The Kickstart 3.x an A1200 install may ask for: 512 KiB at $F80000.
+KICKSTART_3X_WINDOW = (0xf80000, 0x1000000)
+
+
+class Amiga1200Profile(AmigaProfile):
+    """The Amiga 1200 beside the Amiga 500, as the MSX2+ beside the MSX2: one converter, one session and one host adapter, run with the
+    A1200 model (68EC020 with its instruction cache, AGA, 2 MiB of chip RAM on a 32-bit bus: vAmiga's own A1200 scheme). Its own id,
+    status, qualification column, library folder, quick-state family and path section; the Amiga 500 profile is untouched by it."""
+    id = 'amiga1200'
+    name = 'Commodore Amiga 1200'
+    export_folder = 'Amiga 1200'
+    status = 'experimental'
+    scope_note = 'Amiga 1200 WHDLoad installs (68EC020, AGA)'
+    cpus = (Cpu('m68ec020', 'main', 'instructions'),)
+    option_keys = (OptionKey('amiga1200_kickstart', signature=False, kind='path', label='amiga_kickstart_label'),)
+    quick_state_family = 'amiga1200'
+    linux = 'pending'
+    feedback_kinds = frozenset({22})       # RR_FB_AMIGA, shared with the Amiga 500 as the MSX2+ shares the MSX2's: one record format
+    path_spec = PathSpec(order=19, sections=(('m68k', 'amiga1200'),),
+                         source_bounds=(('install', (2, 1 << 30)), ('kickstart', (0x40000, 0x80000))),
+                         shapes=(('m68k', 'amiga1200', dict(roles=('install', 'kickstart'), caps={'insn': 65536, 'span': 16384},
+                                                            windows=tuple((low, last) for low, last, _ in APERTURES) + (KICKSTART_3X_WINDOW,),
+                                                            contained=True, length=(2, 22), length_align=2,
+                                                            offset_align=2, address_align=2, span_max=131072)),))
+    # Not shared while experimental (docs/NEW_MACHINE.md, "Experimental, then supported").
+    shared_knowledge = None
+    library_layout = LibraryLayout(folder='amiga1200', summary_glob='*/compilation.json')
+    # Before the Amiga 500 (40): an install in an A1200 folder, or one whose slave asks for a 68020 or AGA, is the A1200's.
+    identify = Identify(path_order=39)
+
+    def identify_path(self, path: Path, suffix: str, selected_system: str | None):
+        if suffix not in self.extensions:
+            return None
+        if selected_system not in (None, self.id):
+            return None
+        if not self.available():
+            raise UnsupportedConsoleError('The Commodore Amiga 1200 profile is unavailable in this installation.')
+        from ..amiga import slave_member, slave_wants_a1200
+        if slave_member(path) is None:
+            if selected_system == self.id:
+                raise UnsupportedConsoleError(f'{path.name} holds no WHDLoad slave (.Slave): not an Amiga WHDLoad install.')
+            return None
+        if selected_system == self.id or path.parent.name.lower() in A1200_FOLDERS or slave_wants_a1200(path):
+            return self
+        return None
+
+    def convert(self, path, **options):
+        from ..amiga_conversion import convert
+        options['amiga_kickstart'] = options.pop('amiga1200_kickstart', None)
+        return convert(path, system=self.id, **options)
+
+
+AMIGA1200 = Amiga1200Profile()
