@@ -19,7 +19,9 @@ runs of a conversion that then passed every check (`promote`): never from feedba
 
 One `MediaKnowledge` per machine holds what is the machine's: its names (system, memory map, the two source roles, the two path kinds), its
 bounds, the words of its refusals, its engine identity and its firmware view. Nothing below names a machine. Cut out of `x68_knowledge` on
-14 November 2026 without changing an X68000 outcome (tests/test_m68k_media_knowledge.py pins them).
+14 November 2026 without changing an X68000 outcome (tests/test_m68k_media_knowledge.py pins them); the same day set on `path_records`, the
+schema 3 handling every machine shares (naming, comparing, uniting, salvaging and gathering records, the player's library record), keeping
+here only what the firmware adds (the union, the rebuild and the expansion of its rows), again without changing an outcome.
 """
 from __future__ import annotations
 
@@ -27,11 +29,11 @@ import base64
 from dataclasses import dataclass
 from functools import lru_cache
 import hashlib
-import json
 from typing import Callable
 import zlib
 
 from . import path_profiles as pp
+from .path_records import PathRecords, record_digest
 
 LONGEST_INSTRUCTION = 16          # eight words, the bound of the observations
 UnknownFormat = pp.UnknownFormat
@@ -100,11 +102,6 @@ def instructions_of_span(data: bytes, address: int) -> list[tuple[int, str]]:
         out.append((address + position, data[position:position + size].hex()))
         position += size
     return out
-
-
-def record_digest(record) -> str:
-    """SHA-256 of a record's canonical text: how a report names the record a conversion made."""
-    return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest()
 
 
 def received_use(received, own) -> dict:
@@ -197,14 +194,15 @@ class Words:
         return f'{self.article.capitalize()} {self.machine}'
 
 
-class MediaKnowledge:
-    """The shared paths of one 68000 computer. Every function of an `x68_knowledge`-like module is a method here; the machine's module binds
-    them to its names. The bounds are attributes (a test may lower one)."""
+class MediaKnowledge(PathRecords):
+    """The shared paths of one 68000 computer. Every function of an `x68_knowledge`-like module is a method here or of `PathRecords`; the
+    machine's module binds them to its names. The bounds are attributes (a test may lower one)."""
 
     def __init__(self, *, system: str, memory_map: str, media: str, firmware: str, firmware_sizes: tuple, firmware_window: tuple,
                  ram_limit: int, span_limit: int, firmware_limit: int, span_bytes: int, anchor_bytes: int, span_path: str,
                  firmware_path: str, format: int, formats: tuple, words: Words, engine: Callable[[], str],
                  firmware_view: Callable[[bytes | None], bytes | None], firmware_rows: Callable):
+        super().__init__(system=system, cpu='m68k', primary=media, engine=engine)
         self.system, self.memory_map, self.media, self.firmware = system, memory_map, media, firmware
         self.firmware_sizes, self.firmware_window, self.ram_limit = tuple(firmware_sizes), tuple(firmware_window), ram_limit
         self.span_limit, self.firmware_limit, self.span_bytes, self.anchor_bytes = span_limit, firmware_limit, span_bytes, anchor_bytes
@@ -214,17 +212,7 @@ class MediaKnowledge:
         # `path_profiles` layout is empty (`format=None`, as the Game Boy Advance's): a later format then needs a layout of its own there.
         self.layout = {'format': format} if format is not None else {}
 
-    # --- The engine -----------------------------------------------------------------------------------------
-
-    def engine(self) -> str:
-        return self._engine()
-
-    def record_engine(self, record) -> str:
-        """The `cores` string a record was built with ('' when it is not a record of the machine)."""
-        try:
-            return record['cpus']['m68k']['core']
-        except (KeyError, TypeError):
-            return ''
+    # --- Bounds ---------------------------------------------------------------------------------------------
 
     @property
     def path_caps(self) -> dict:
@@ -320,21 +308,10 @@ class MediaKnowledge:
                 out[kind] += [tuple(row) for row in pp.decode_table(block['table'], width, profile.caps[block['shape']])]
         return out['spans'], out['ram_code']
 
-    def entry_set(self, record) -> set:
-        """Every path of a record as comparable tuples (what the base compares between players)."""
-        if not isinstance(record, dict):
-            return set()
-        try:
-            spans, firmware_rows = self.rows(record)
-        except (KeyError, TypeError, ValueError):
-            return set()
+    def hints(self, record) -> set:
+        """Every path of a record as `(kind name, row)`: its spans and its firmware rows (`entry_set` reads them)."""
+        spans, firmware_rows = self.rows(record)
         return {(self.span_path, row) for row in spans} | {(self.firmware_path, row) for row in firmware_rows}
-
-    def same_images(self, first: dict, second: dict) -> bool:
-        """Two records point into the very same media (and have the same layout). The firmware is not part of this: a record names its
-        firmware only when it holds firmware rows, so two players with the same media and different firmware hold records of the same game."""
-        one, two = first['identity'], second['identity']
-        return first['game'] == second['game'] and one['layout'] == two['layout'] and one['sources'].get(self.media) == two['sources'].get(self.media)
 
     def rebuild(self, skeleton: dict, hints, *, core: str | None = None) -> dict:
         """A record of the skeleton's images holding exactly `hints` (as `entry_set` names them)."""
@@ -346,17 +323,10 @@ class MediaKnowledge:
         return self.validate_record(self._assemble(skeleton['game'].split(':', 1)[1], sources, spans, firmware_rows,
                                                    core or self.record_engine(skeleton)))
 
-    def merged(self, identity: str, first: dict, second: dict) -> dict:
-        """Union of two records of one media. Records of another engine or other media never mix: the one built by the current engine is
-        kept, else the first. The media paths are united; the firmware paths only when both records were made with the same firmware (a record
-        keeps the firmware paths it has, the first's when both have some for different firmware). ValueError when the union exceeds a bound."""
-        if not second:
-            return first
-        if not first:
-            return second
-        if not self.same_images(first, second) or self.record_engine(first) != self.record_engine(second):
-            current = self.engine()
-            return second if self.record_engine(second) == current and self.record_engine(first) != current else first
+    def _union(self, identity: str, first: dict, second: dict) -> dict:
+        """The union of two records of one media and engine (`PathRecords.merged` keeps the current engine's record otherwise). The media
+        paths are united; the firmware paths only when both records were made with the same firmware (a record keeps the firmware paths it
+        has, the first's when both have some for different firmware). ValueError when the union exceeds a bound."""
         spans = set(self.rows(first)[0]) | set(self.rows(second)[0])
         firmware_first, firmware_second = self.rows(first)[1], self.rows(second)[1]
         facts_first, facts_second = first['identity']['sources'].get(self.firmware), second['identity']['sources'].get(self.firmware)
@@ -369,14 +339,6 @@ class MediaKnowledge:
         sources = {self.media: first['identity']['sources'][self.media], **({self.firmware: chosen} if firmware_rows and chosen else {})}
         return self.validate_record(self._assemble(identity, sources, spans, firmware_rows if sources.get(self.firmware) else (),
                                                    self.record_engine(first)))
-
-    def salvaged_record(self, identity: str, record) -> dict | None:
-        """A received record, or None. A record is all or nothing: it is checked as a whole (its rows are numbers about images whose hashes
-        it states, there is no row worth saving from a record that fails)."""
-        try:
-            return self.validate_record(record, identity)
-        except (ValueError, TypeError, KeyError, AttributeError):
-            return None
 
     # --- Observations to paths ------------------------------------------------------------------------------
 
@@ -499,44 +461,6 @@ class MediaKnowledge:
         the imported bank (other players' paths, whatever their engine, which guide discovery and are rechecked like everything else). The
         rows are build input only: they are never added to the private observations a conversion keeps. `info` says what each gave and what
         was ignored and why."""
-        rows_out = []
-        info = {'qualified': 0, 'library': 0, 'imported': 0, 'ignored': {}}
-        current = self.engine()
-        for name, record in (('qualified', qualified), ('library', library), ('imported', imported)):
-            if not record:
-                continue
-            try:
-                if name == 'qualified' and self.record_engine(record) != current:
-                    info['ignored'][name] = 'another engine revision'
-                    continue
-                expanded, left = self.expanded_rows(record, media, firmware)
-            except UnknownFormat:
-                info['ignored'][name] = 'unknown record format'
-                continue
-            except ValueError as error:
-                info['ignored'][name] = str(error)[:120]
-                continue
-            if left:
-                info['ignored'][name + '_' + self.firmware] = left[self.firmware]
-            info[name] = len(expanded)
-            rows_out += expanded
-        return rows_out, info
+        return self.gathered_rows(identity, lambda record: self.expanded_rows(record, media, firmware), qualified=qualified,
+                                  imported=imported, library=library, validate=False, unique=False)
 
-    # --- The player's library -------------------------------------------------------------------------------
-
-    def library_record(self, identity: str, name: str = 'compilation.json') -> dict | None:
-        """This player's own record: the paths that fresh, verified conversions reached (the machine's conversion writes it into the game's
-        summary, `<library>/<system>/<game>/compilation.json`, or into the file `name` of that folder), or None."""
-        from .library import library_root
-        path = library_root(self.system) / identity / name
-        try:
-            with path.open('rb') as stream:
-                raw = stream.read(16 * 1024 * 1024 + 1)
-            if len(raw) > 16 * 1024 * 1024:
-                return None
-            data = json.loads(raw)
-            if data.get('system') != self.system or data.get('game') != identity or not data.get('fresh_reference_passed'):
-                return None
-            return self.validate_record(data['record'], identity)
-        except (OSError, ValueError, TypeError, KeyError, AttributeError):
-            return None
