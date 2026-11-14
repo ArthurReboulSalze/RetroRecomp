@@ -32,6 +32,7 @@
 static RrN64Session *session;
 static unsigned frame_limit, frame_number;
 static bool quit_requested, restart_requested, failed;
+static int interpreted_sites_on;   /* --interpreted-sites: the report lists where the interpreter ran beside the blocks (G3) */
 static char state_slot[PATH_CAP], save_path[PATH_CAP];
 static uint64_t save_hash;
 static int16_t frame_audio[2 * 8192];
@@ -328,6 +329,12 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                 (unsigned long long)rr_n64_observed_count(session), nonblack, audible, rr_n64_fps(session),
                 rr_n64_audio_rate(session), w, h, load_start ? "true" : "false");
         json_text(r, rr_n64_gpu_name(session));
+        if (interpreted_sites_on) {
+            fputs(",\"interpreted_sites\":[", r);
+            if (!rr_n64_sites_write(session, r)) { fclose(r); fail("Cannot write the report"); return 1; }
+            fprintf(r, "],\"interpreted_sites_distinct\":%llu,\"interpreted_sites_unlisted\":%llu",
+                    (unsigned long long)rr_n64_site_distinct_count(session), (unsigned long long)rr_n64_site_unlisted_count(session));
+        }
         fputs("}\n", r);
         if (fclose(r)) { fail("Cannot write the report"); return 1; }
     }
@@ -396,6 +403,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--verbose")) verbose = true;
         else if (!strcmp(a, "--state-load-start")) load_start = true;
         else if (!strcmp(a, "--threaded-rdp")) game.threaded_rdp = 1;
+        else if (!strcmp(a, "--interpreted-sites")) game.interpreted_sites = interpreted_sites_on = 1;
         else if (!strcmp(a, "--help")) {
             puts("Retro-Recomp Nintendo 64 player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
                  "--observations FILE --frame-times TSV --cpu cached|pure|observe|native --gpu NAME --gfx KEY=INDEX --threaded-rdp\n"

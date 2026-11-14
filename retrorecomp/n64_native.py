@@ -74,6 +74,33 @@ def read_observations(paths, variants: dict | None = None) -> dict:
     return variants
 
 
+SITE_CLASSES = ('boot_rsp_memory', 'kseg1', 'tlb_mapped', 'guard_miss', 'mid_run', 'leader_without_block', 'unseen')
+
+
+def classify_sites(rows, variants: dict) -> list[dict]:
+    """Where the interpreter ran beside the blocks (gate G3), from the player's rows [pc, word, reason, stretch start, count], each
+    given the class of the interpreted stretch it belongs to (a stretch ends when a block runs):
+    outside KSEG0, the boot code in the RSP's memory, other uncached KSEG1 code, or TLB-mapped code; in KSEG0 a guard miss (a block's
+    words were not the live ones; the stretch that follows keeps that class), an entry in the middle of a straight run the reference
+    observed (after an exception return, for one), a leader the reference observed that has no block (the generator's coverage cut),
+    or code the reference never ran as a straight run; the last three by the stretch's first PC. Sorted by count, most run first."""
+    leaders, inside = set(), set()
+    for pc, words in variants:
+        leaders.add(pc)
+        inside.update(range(pc + 4, pc + 4 * len(words), 4))
+    sites = []
+    for pc, word, reason, start, count in rows:
+        if reason == 'outside_kseg0':
+            kind = 'boot_rsp_memory' if 0xA4000000 <= pc < 0xA4002000 else 'kseg1' if 0xA0000000 <= pc < 0xC0000000 else 'tlb_mapped'
+        elif reason == 'guard_miss':
+            kind = 'guard_miss'
+        else:
+            kind = 'leader_without_block' if start in leaders else 'mid_run' if start in inside else 'unseen'
+        sites.append({'pc': f'0x{pc:08x}', 'word': f'0x{word:08x}', 'class': kind, 'stretch': f'0x{start:08x}', 'count': count})
+    sites.sort(key=lambda site: (-site['count'], site['pc']))
+    return sites
+
+
 def write_observations(path: Path, variants: dict) -> None:
     """The observation format again (the private memory of a game keeps the union of its conversions' observations)."""
     lines = [f'{pc:08x} {count} {len(words)} ' + ' '.join(f'{w:08x}' for w in words)

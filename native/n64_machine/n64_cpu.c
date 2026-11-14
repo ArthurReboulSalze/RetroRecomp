@@ -41,7 +41,7 @@ const uint32_t rr_n64_block_count = 0;
 typedef struct { uint32_t pc, len; uint64_t hash, count; uint32_t words; } Observed;
 static Observed *observed;
 static uint32_t *words, words_used, words_cap, observed_used;
-static uint32_t last_pc;
+static uint32_t last_pc, run_end;
 static int observe_overflow;
 
 int rr_n64_is_flow(uint32_t op)
@@ -72,6 +72,9 @@ static void observe_leader(uint32_t pc)
         uint32_t op = w[len++];
         if (rr_n64_is_flow(op)) { if (rr_n64_has_delay(op)) len++; break; }
     }
+    /* A run that ends on an instruction with no delay slot that does not jump (MFC0, CACHE) or at RUN_MAX goes on in a straight line:
+     * the instruction after it starts a run of its own (else it never becomes a block: SM64's wait on the Count register). */
+    run_end = pc + 4 * len;
     for (i = 0; i < len; i++) { hash ^= w[i]; hash *= 1099511628211ull; }
     slot = (uint32_t)((hash ^ (pc * 2654435761u)) >> 7);
     for (;;) {
@@ -98,7 +101,7 @@ static void observe_leader(uint32_t pc)
 
 void rr_n64_observe(uint32_t pc)
 {
-    if (pc != last_pc + 4) observe_leader(pc);
+    if (pc != last_pc + 4 || pc == run_end) observe_leader(pc);
     last_pc = pc;
 }
 
@@ -134,6 +137,7 @@ void rr_n64_cpu_start(struct r4300_core *r4300)
 {
     cpu = r4300;
     last_pc = 0;
+    run_end = 0;
     if (rr_n64_cpu_mode == 2 && !table && rr_n64_block_count) {
         /* The generator lists the variants of one address together, the most run first. */
         uint32_t i;
@@ -143,6 +147,64 @@ void rr_n64_cpu_start(struct r4300_core *r4300)
             if ((rr_n64_blocks[i].pc & 0xFF800000u) == 0x80000000u) table[(rr_n64_blocks[i].pc & 0x7FFFFFu) >> 2] = i + 1;
     }
     if (rr_n64_cpu_mode == 2 && !table) rr_n64_cpu_mode = 0;
+}
+
+/* ---- where the interpreter ran (gate G3), only when asked (--interpreted-sites): one entry per (pc, word, reason) with its
+ * count. The reason is the one that started the interpreted stretch the instruction belongs to (a stretch ends when a block runs):
+ * the PC outside KSEG0, no block at a KSEG0 address, or a guard miss. */
+#define SITE_SLOTS (1u << 18)
+typedef struct { uint32_t pc, word, reason, start; uint64_t count; } Site;
+static Site *sites;
+static uint32_t sites_used;
+static uint64_t sites_unlisted;
+static uint32_t stretch_reason, stretch_start;   /* 0: a block ran last (the next interpreted instruction starts a stretch) */
+
+int rr_n64_set_sites(int enabled)
+{
+    if (enabled && !sites) sites = calloc(SITE_SLOTS, sizeof *sites);
+    return !enabled || sites != 0;
+}
+
+static void note_site(struct r4300_core *r4300, uint32_t pc, uint32_t reason)
+{
+    const uint32_t *w;
+    uint32_t word, slot;
+    if (!stretch_reason) { stretch_reason = reason; stretch_start = pc; }
+    if (!sites) return;
+    w = fast_mem_access(r4300, pc);
+    word = w ? *w : 0;
+    slot = (pc * 2654435761u) ^ (word * 40503u) ^ (stretch_start * 97u) ^ stretch_reason;
+    for (;;) {
+        Site *s;
+        slot &= SITE_SLOTS - 1;
+        s = &sites[slot];
+        if (s->count && s->pc == pc && s->word == word && s->reason == stretch_reason && s->start == stretch_start) { s->count++; return; }
+        if (!s->count) {
+            if (sites_used >= SITE_SLOTS / 2) { sites_unlisted++; return; }
+            s->pc = pc; s->word = word; s->reason = stretch_reason; s->start = stretch_start; s->count = 1; sites_used++;
+            return;
+        }
+        slot++;
+    }
+}
+
+size_t rr_n64_site_distinct(void) { return sites_used; }
+uint64_t rr_n64_site_unlisted(void) { return sites_unlisted; }
+static const char *const reason_names[] = {"", "outside_kseg0", "no_block", "guard_miss"};
+/* JSON rows [pc, word, reason, stretch start, count], comma-separated, no brackets. */
+int rr_n64_write_sites(FILE *out)
+{
+    uint32_t i;
+    int first = 1;
+    if (!out) return 0;
+    for (i = 0; sites && i < SITE_SLOTS; i++) {
+        const Site *s = &sites[i];
+        if (!s->count) continue;
+        fprintf(out, "%s[%u,%u,\"%s\",%u,%llu]", first ? "" : ",", s->pc, s->word, reason_names[s->reason], s->start,
+                (unsigned long long)s->count);
+        first = 0;
+    }
+    return !ferror(out);
 }
 
 int rr_n64_run_blocks(struct r4300_core *r4300)
@@ -156,13 +218,16 @@ int rr_n64_run_blocks(struct r4300_core *r4300)
         if (live)
             for (k = first - 1; k < rr_n64_block_count && rr_n64_blocks[k].pc == pc; k++)
                 if (memcmp(live, rr_n64_blocks[k].words, rr_n64_blocks[k].len * 4) == 0) { block = &rr_n64_blocks[k]; break; }
-        if (!block) { rr_n64_guard_misses++; break; }
+        /* After a chain of blocks the loop calls again at this PC, which misses again: only that call notes the site. */
+        if (!block) { rr_n64_guard_misses++; if (!ran) note_site(r4300, pc, 3); return ran; }
         rr_n64_native += (uint64_t)block->run(r4300, live);
         rr_n64_block_entries++;
+        stretch_reason = 0;
         ran = 1;
-        if (*r4300_stop(r4300)) break;
+        if (*r4300_stop(r4300)) return ran;
         pc = *r4300_pc(r4300);
     }
+    if (!ran) note_site(r4300, pc, (pc & 0xFF800000u) == 0x80000000u ? 2 : 1);
     return ran;
 }
 

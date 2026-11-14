@@ -111,6 +111,83 @@ STATE_RETURN = ('        if (savestates_get_job() == savestates_job_{job})\n    
 CACHED_DEBUG = '        if (g_DebuggerActive) update_debugger((*r4300_pc_struct(r4300))->addr);\n#endif\n'
 CACHED_OPS = CACHED_DEBUG + '        (*r4300_pc_struct(r4300))->ops();\n    }\n}'
 
+SINC = 'libretro-common/audio/resampler/drivers/sinc_resampler.c'
+AUDIO = 'custom/mupen64plus-core/plugin/audio_libretro/audio_backend_libretro.c'
+SINC_STATE = '''/* Retro-Recomp modification (under this file's own licence): the resampler's running state, for a quick state (its position, its
+ * time and the history of both channels; the phase table is fixed by its settings). rr_sinc_state copies it out when `out` is
+ * given, in when `in` is. */
+size_t rr_sinc_state_size(void *data)
+{
+   const rarch_sinc_resampler_t *re = (const rarch_sinc_resampler_t*)data;
+   return re ? 3 * sizeof(uint32_t) + 4 * re->taps * sizeof(float) : 0;
+}
+
+void rr_sinc_state(void *data, void *out, const void *in)
+{
+   rarch_sinc_resampler_t *re = (rarch_sinc_resampler_t*)data;
+   const size_t history = 2 * re->taps * sizeof(float);
+   uint32_t head[3];
+   if (out)
+   {
+      head[0] = re->taps;
+      head[1] = re->ptr;
+      head[2] = re->time;
+      memcpy(out, head, sizeof head);
+      memcpy((uint8_t*)out + sizeof head, re->buffer_l, history);
+      memcpy((uint8_t*)out + sizeof head + history, re->buffer_r, history);
+   }
+   if (in)
+   {
+      memcpy(head, in, sizeof head);
+      if (head[0] != re->taps)
+         return;
+      re->ptr  = head[1];
+      re->time = head[2];
+      memcpy(re->buffer_l, (const uint8_t*)in + sizeof head, history);
+      memcpy(re->buffer_r, (const uint8_t*)in + sizeof head + history, history);
+   }
+}
+'''
+AUDIO_STATE = '''/* Retro-Recomp modification (GPL-2.0-or-later, like this file): the plugin's running state for a quick state, which the core's
+ * own state leaves out: the game's audio rate and the resampler's position and history (native/n64_machine/n64_session.cpp). */
+static void aiDacrateChanged(void *user_data, unsigned int frequency);
+#ifndef __APPLE__
+size_t rr_sinc_state_size(void *data);
+void rr_sinc_state(void *data, void *out, const void *in);
+#endif
+
+size_t rr_n64_audio_state_size(void)
+{
+#ifdef __APPLE__
+   return sizeof(int);
+#else
+   return sizeof(int) + rr_sinc_state_size(resampler_audio_data);
+#endif
+}
+
+void rr_n64_audio_state_save(void *out)
+{
+   memcpy(out, &GameFreq, sizeof(int));
+#ifndef __APPLE__
+   rr_sinc_state(resampler_audio_data, (uint8_t*)out + sizeof(int), NULL);
+#endif
+}
+
+int rr_n64_audio_state_load(const void *in, size_t size)
+{
+   int frequency;
+   if (size != rr_n64_audio_state_size())
+      return 0;
+   memcpy(&frequency, in, sizeof(int));
+   if (frequency > 0)
+      aiDacrateChanged(NULL, (unsigned)frequency);
+#ifndef __APPLE__
+   rr_sinc_state(resampler_audio_data, NULL, (const uint8_t*)in + sizeof(int));
+#endif
+   return 1;
+}
+'''
+
 REPLACEMENTS = [
     # Our glue's C interface (native/n64_machine/glue/parallel.h) instead of the unmarked one beside the plugin.
     ('libretro/libretro.c', '#include "../mupen64plus-video-paraLLEl/parallel.h"', '#include "parallel.h"'),
@@ -147,6 +224,11 @@ REPLACEMENTS = [
      '    fPtr = NULL;\n    if (inifile[0] == 0)\n'),
     ('mupen64plus-core/src/main/rom.c', 'fgets(buffer, 255, fPtr) != NULL', 'rr_n64_ini_gets(buffer, 255, &rr_cursor) != NULL'),
     ('mupen64plus-core/src/main/rom.c', '    fclose(fPtr);\n    romdatabase_resolve();', '    (void)fPtr;\n    romdatabase_resolve();'),
+    # A quick state holds the audio plugin's running state, which the core's own state leaves out: a resumed game delivered other
+    # samples (and another number of them per frame) than the unbroken run. The sinc resampler's position and history ...
+    (SINC, '} rarch_sinc_resampler_t;\n', '} rarch_sinc_resampler_t;\n\n' + SINC_STATE),
+    # ... and the game's audio rate, read and written by the session (native/n64_machine/n64_session.cpp).
+    (AUDIO, '#endif\n\nvoid deinit_audio_libretro(void)\n', '#endif\n\n' + AUDIO_STATE + '\nvoid deinit_audio_libretro(void)\n'),
 ]
 
 

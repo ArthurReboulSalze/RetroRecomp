@@ -320,10 +320,10 @@ def trace_digests(path: Path) -> dict:
             for name, indexes in columns.items()}
 
 
-# The only thing a resumed process may differ on: the core's state leaves out the libretro audio resampler, so the samples after a
-# load differ (on every frame compared, and in number by under 0.05 %). A difference in the machine (CPU, RDRAM, picture) refuses
-# the conversion.
-CONTINUATION_IGNORED = ('pcm', 'samples')
+# Nothing a resumed process may differ on: since the state holds the audio plugin's running state (format RRN64QS3), the sound
+# continues too, so a difference in the CPU, RDRAM, picture or sound refuses the conversion, as on the other machines. (Until then
+# the samples after a load differed on every frame compared and were the one tolerated difference.)
+CONTINUATION_IGNORED = ()
 
 
 def continuation(timeline: Path, resumed: Path) -> dict:
@@ -443,7 +443,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                 folder.mkdir(parents=True, exist_ok=True)
                 exported = folder / candidate.name
                 shutil.copy2(candidate, exported)
-                results[name] = replay(exported, folder, frames_, scripts[name])
+                results[name] = replay(exported, folder, frames_, scripts[name], extra=['--interpreted-sites'] if native else ())
                 require_same_file(folder / 'trace.tsv', checks / f'reference-{name}' / 'trace.tsv',
                                   lambda: ConversionError(f'Nintendo 64 {name}: the game and the fresh reference diverged; existing export preserved.'))
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference; the main route
@@ -484,6 +484,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         rows = []
         for (name, frames_, events), result in zip(routes, packed_results):
             done = results[name]
+            sites = n64_native.classify_sites(done.get('interpreted_sites') or (), variants)
+            classes = {kind: sum(site['count'] for site in sites if site['class'] == kind) for kind in n64_native.SITE_CLASSES}
             folder = checks / 'packed' / name
             # native_entries / interpreted_opcodes are the keys the common report (report_schema, v2) reads for the main CPU: here
             # VR4300 instructions, a jump and its delay slot counted as one by both.
@@ -494,6 +496,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          'packed_reference_match': True, 'reference_interpreted_instructions': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
+                         # Gate G3: where each interpreted instruction ran, with its class; the counts add up to the run's total.
+                         'interpreted_classes': {kind: n for kind, n in classes.items() if n}, 'interpreted_sites': sites,
+                         'interpreted_sites_distinct': done.get('interpreted_sites_distinct'),
+                         'interpreted_sites_unlisted': done.get('interpreted_sites_unlisted'),
+                         'interpreted_sites_complete': native and sum(classes.values()) + (done.get('interpreted_sites_unlisted') or 0) == done['interpreted'],
                          **({'state_saved_at': state_frame, 'state_restart_match': resumed['matches']} if name == 'main' else {})})
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
         report = {
@@ -524,7 +531,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
                             'compatibility': 'the exact game and build that wrote the state; refused between builds',
-                            'schema': 'RRN64QS2', 'machine': 'n64', 'rom_identity': source.sha256,
+                            'schema': 'RRN64QS3', 'machine': 'n64', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': delivered.kind == 'packed', 'saved_at_frame': state_frame,
                                            'continuation_frames': resumed['frames'], 'continuation_matches': resumed['matches'],
                                            'equal_frames': resumed['equal_frames'], 'differing_columns': resumed['differing_columns'],
