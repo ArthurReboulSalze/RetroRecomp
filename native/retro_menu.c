@@ -263,9 +263,57 @@ static const uint64_t icon_gamepad_small[9] = {
     0x54000054ull};
 static const uint64_t icon_options_small[9] = {
     0x3f00ull, 0x2aaaabf55ull, 0x3f00ull, 0x3f00000ull, 0x2abf55555ull, 0x3f00000ull, 0x3f000ull, 0x2aaabf555ull, 0x3f000ull};
+/* <row icons> */
+/* Row icons (1.7.5): 9 x 9, at the left of the rows of the control, options and graphics pages. Drawn by hand (the drawing
+ * and its packing script are kept with the interface notes); a face button is the ring with its letters drawn inside. */
+static const uint64_t icon_row_up[9] = {0x300ull, 0xfc0ull, 0x3ff0ull, 0x540ull, 0x15655ull, 0x1aaa9ull, 0x15655ull, 0x640ull, 0x540ull};
+static const uint64_t icon_row_down[9] = {0x540ull, 0x640ull, 0x15655ull, 0x1aaa9ull, 0x15655ull, 0x540ull, 0x3ff0ull, 0xfc0ull, 0x300ull};
+static const uint64_t icon_row_left[9] = {0x1500ull, 0x1900ull, 0x1930ull, 0x1597cull, 0x1aa7full, 0x1597cull, 0x1930ull, 0x1900ull, 0x1500ull};
+static const uint64_t icon_row_right[9] = {0x150ull, 0x190ull, 0x3190ull, 0xf595ull, 0x3f6a9ull, 0xf595ull, 0x3190ull, 0x190ull, 0x150ull};
+static const uint64_t icon_row_button[9] = {0x1550ull, 0x6aa4ull, 0x1aaa9ull, 0x1aaa9ull, 0x1aaa9ull, 0x1aaa9ull, 0x1aaa9ull, 0x6aa4ull, 0x1550ull};
+static const uint64_t icon_row_start[9] = {0x0ull, 0x5554ull, 0x1aaa9ull, 0x1aae9ull, 0x1abe9ull, 0x1aae9ull, 0x1aaa9ull, 0x5554ull, 0x0ull};
+static const uint64_t icon_row_select[9] = {0x0ull, 0x0ull, 0x5554ull, 0x1aaa9ull, 0x1bff9ull, 0x1aaa9ull, 0x5554ull, 0x0ull, 0x0ull};
+static const uint64_t icon_row_coin[9] = {0x1550ull, 0x7ff4ull, 0x1f67dull, 0x1da9dull, 0x1db9dull, 0x1da9dull, 0x1f67dull, 0x7ff4ull, 0x1550ull};
+static const uint64_t icon_row_pause[9] = {0x0ull, 0x5454ull, 0x7474ull, 0x7474ull, 0x7474ull, 0x7474ull, 0x7474ull, 0x5454ull, 0x0ull};
+static const uint64_t icon_row_quit[9] = {0x100ull, 0x4304ull, 0x1c30dull, 0x1c30dull, 0x1c00dull, 0x1c00dull, 0x7034ull, 0x1fd0ull, 0x540ull};
+static const uint64_t icon_row_restart[9] = {0x5540ull, 0x7a90ull, 0x7f24ull, 0x4009ull, 0x9ull, 0x4009ull, 0x6024ull, 0x1a90ull, 0x540ull};
+static const uint64_t icon_row_save[9] = {0x1555ull, 0x7ff9ull, 0x1bff9ull, 0x1aaa9ull, 0x1aba9ull, 0x1aba9ull, 0x1bff9ull, 0x1afe9ull, 0x15755ull};
+static const uint64_t icon_row_load[9] = {0x54ull, 0x155a9ull, 0x1aaa9ull, 0x1aba9ull, 0x1afe9ull, 0x1bff9ull, 0x1aba9ull, 0x1aba9ull, 0x15555ull};
+static const uint64_t icon_row_gamepad[9] = {0x0ull, 0x5554ull, 0x1aaa9ull, 0x19ab9ull, 0x166fdull, 0x19ab9ull, 0x1a569ull, 0x5014ull, 0x0ull};
+static const uint64_t icon_row_stick[9] = {0x1550ull, 0x6aa4ull, 0x1a029ull, 0x18009ull, 0x18309ull, 0x18009ull, 0x1a029ull, 0x6aa4ull, 0x1550ull};
+static const uint64_t icon_row_keyboard[9] = {0x0ull, 0x0ull, 0x15555ull, 0x19999ull, 0x15555ull, 0x19999ull, 0x1bff9ull, 0x15555ull, 0x0ull};
+static const uint64_t icon_row_filter[9] = {0x15555ull, 0x1bebdull, 0x1bebdull, 0x1ebe9ull, 0x1ebe9ull, 0x1bebdull, 0x1bebdull, 0x15555ull, 0x0ull};
+static const uint64_t icon_row_display[9] = {0x15555ull, 0x1aaa9ull, 0x16ab9ull, 0x1aaa9ull, 0x1aaa9ull, 0x15555ull, 0x540ull, 0x5554ull, 0x0ull};
+static const uint64_t icon_row_autofire[9] = {0x0ull, 0xc0cull, 0x3f3full, 0x33f3full, 0x33f3full, 0x11515ull, 0x11919ull, 0x11515ull, 0x0ull};
+static const uint64_t icon_row_language[9] = {0x5554ull, 0x1aaa9ull, 0x1bbb9ull, 0x1aaa9ull, 0x15654ull, 0x640ull, 0x140ull, 0x40ull, 0x0ull};
+static const uint64_t icon_row_record[9] = {0x1550ull, 0x6aa4ull, 0x1afe9ull, 0x1bff9ull, 0x1bff9ull, 0x1bff9ull, 0x1afe9ull, 0x6aa4ull, 0x1550ull};
+static const uint64_t icon_row_wave[9] = {0x0ull, 0x14ull, 0x69ull, 0x10041ull, 0x4100ull, 0x1400ull, 0x0ull, 0x15555ull, 0xccccull};
+static const uint64_t icon_row_volume[9] = {0x0ull, 0x40ull, 0x3050ull, 0xd015ull, 0xd319ull, 0xd015ull, 0x3050ull, 0x40ull, 0x0ull};
+static const uint64_t icon_row_sound[9] = {0x15540ull, 0x1ff40ull, 0x10040ull, 0x10040ull, 0x10040ull, 0x15054ull, 0x1f47dull, 0x1f47dull, 0x5014ull};
+static const uint64_t icon_row_headphones[9] = {0x1550ull, 0x4004ull, 0x10001ull, 0x10001ull, 0x15015ull, 0x1d01dull, 0x1d01dull, 0x15015ull, 0x0ull};
+static const uint64_t icon_row_fkey[9] = {0x15555ull, 0x1aaa9ull, 0x1bff9ull, 0x16ab9ull, 0x16ff9ull, 0x16ab9ull, 0x16ab9ull, 0x15555ull, 0x5554ull};
+static const uint64_t icon_row_reminder[9] = {0x300ull, 0x540ull, 0x1a90ull, 0x1a90ull, 0x6aa4ull, 0x6aa4ull, 0x15555ull, 0x300ull, 0x0ull};
+static const uint64_t icon_row_speed[9] = {0x0ull, 0x101ull, 0x505ull, 0x1d1dull, 0x7d7dull, 0x1d1dull, 0x505ull, 0x101ull, 0x0ull};
+static const uint64_t icon_row_rumble[9] = {0x0ull, 0x1550ull, 0x36aa7ull, 0x6ee4ull, 0x36aa7ull, 0x6ee4ull, 0x36aa7ull, 0x1550ull, 0x0ull};
+static const uint64_t icon_row_restore[9] = {0x5540ull, 0x7a90ull, 0x7f24ull, 0x4309ull, 0xfc9ull, 0x4309ull, 0x6024ull, 0x1a90ull, 0x540ull};
+static const uint64_t icon_row_generic[9] = {0x0ull, 0x540ull, 0x1fd0ull, 0x7ef4ull, 0x1fabdull, 0x7ef4ull, 0x1fd0ull, 0x540ull, 0x0ull};
+/* 3 x 5 letters of the face buttons, bit (row * 3 + x): i the narrow I of II to IV, ^ o [ x the PlayStation shapes. */
+static const char row_letter_chars[] = "ABCXYZLRI123456DKPSFGHMEVi^o[x";
+static const uint16_t row_letters[] = {0x5bea, 0x3aeb, 0x624e, 0x5aad, 0x24ad, 0x72a7, 0x7249, 0x5aeb, 0x7497, 0x749a, 0x72a3, 0x38a3, 0x49ed, 0x38cf, 0x7bce,
+    0x3b6b, 0x5aed, 0x12eb, 0x388e, 0x12cf, 0x6b4e, 0x5bed, 0x5bfd, 0x72cf, 0x2b6d, 0x1249, 0xf50, 0x550, 0xf78, 0xaa8};
+/* </row icons> */
 static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_COUNT] = {
     {icon_keyboard, 30, 18}, {icon_gamepad, 30, 18}, {icon_options, 30, 18}, {icon_pointer, 30, 18}, {icon_switches, 30, 18},
-    {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9}};
+    {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9},
+    /* <row table> */
+    {icon_row_up, 9, 9}, {icon_row_down, 9, 9}, {icon_row_left, 9, 9}, {icon_row_right, 9, 9}, {icon_row_button, 9, 9},
+    {icon_row_start, 9, 9}, {icon_row_select, 9, 9}, {icon_row_coin, 9, 9}, {icon_row_pause, 9, 9}, {icon_row_quit, 9, 9},
+    {icon_row_restart, 9, 9}, {icon_row_save, 9, 9}, {icon_row_load, 9, 9}, {icon_row_gamepad, 9, 9}, {icon_row_stick, 9, 9},
+    {icon_row_keyboard, 9, 9}, {icon_row_filter, 9, 9}, {icon_row_display, 9, 9}, {icon_row_autofire, 9, 9},
+    {icon_row_language, 9, 9}, {icon_row_record, 9, 9}, {icon_row_wave, 9, 9}, {icon_row_volume, 9, 9},
+    {icon_row_sound, 9, 9}, {icon_row_headphones, 9, 9}, {icon_row_fkey, 9, 9}, {icon_row_reminder, 9, 9},
+    {icon_row_speed, 9, 9}, {icon_row_rumble, 9, 9}, {icon_row_restore, 9, 9}, {icon_row_generic, 9, 9}
+    /* </row table> */};
 int rr_menu_icon_width(int icon) { return icon >= 0 && icon < RR_ICON_COUNT ? icons[icon].w : 0; }
 
 /* The value of one cell, -1 for a cell that is not drawn (the mark's plate is rounded: its four corner cells). */
@@ -291,6 +339,27 @@ void rr_menu_icon(SDL_Renderer *r, int ox, int oy, int unit, int x, int y, int i
                 rr_menu_box(r, ox, oy, unit, x + cx, y + row, end - cx, 1, colors[value][0], colors[value][1], colors[value][2], 255);
             cx = end;
         }
+}
+
+bool rr_menu_button_letters(const char *letters) {
+    if (!letters || !letters[0] || strlen(letters) > 3) return false;
+    for (const char *c = letters; *c; ++c) if (!strchr(row_letter_chars, *c)) return false;
+    return true;
+}
+void rr_menu_button(SDL_Renderer *r, int ox, int oy, int unit, int x, int y, const char *letters) {
+    rr_menu_icon(r, ox, oy, unit, x, y, RR_ICON_ROW_BUTTON, false);
+    if (!rr_menu_button_letters(letters)) return;
+    /* centred in the ring's seven inner cells, rows 2 to 6: three cells a letter (one for the narrow i), a cell apart */
+    int width = -1;
+    for (const char *c = letters; *c; ++c) width += (*c == 'i' ? 1 : 3) + 1;
+    int lx = x + 1 + (7 - width) / 2;
+    for (const char *c = letters; *c; ++c) {
+        const unsigned bits = row_letters[strchr(row_letter_chars, *c) - row_letter_chars];
+        for (int row = 0; row < 5; ++row)
+            for (int cx = 0; cx < 3; ++cx)
+                if (bits & (1u << (row * 3 + cx))) rr_menu_box(r, ox, oy, unit, lx + cx, y + 2 + row, 1, 1, RR_MENU_ACCENT, 255);
+        lx += (*c == 'i' ? 1 : 3) + 1;
+    }
 }
 
 /* Block letters, 5 rows of up to 5 cells: bit (row * 5 + x), the width in bits 28-30. Upper case, digits and a few signs. */

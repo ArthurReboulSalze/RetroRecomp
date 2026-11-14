@@ -5,6 +5,7 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "platform_io.h"
@@ -63,11 +64,14 @@ void rrhk_graphics_draw(SDL_Renderer *ren) {
     for (int r = 0; r < rows; ++r) {
         const int y = RR_MENU_FIRST_LINE + r * RR_MENU_LINE;
         if (r == rrhk.gfx_row) rr_menu_box(ren, ctx.ox, ctx.oy, ctx.unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
-        const char *mark = r == rrhk.gfx_row ? ">" : " ";
+        /* 1.7.5: the mark, the row's icon, then its text */
+        if (r == rrhk.gfx_row) rr_menu_text(ren, ctx.ox, ctx.oy, ctx.unit, 14, y, ">", RR_MENU_ACCENT);
+        int icon = r == options ? RR_ICON_ROW_FILTER : r > options ? RR_ICON_ROW_RESTORE : RR_ICON_ROW_GENERIC;
         if (r < options) {
             const RrhkGfxOption *option = &m->gfx_options[r];
             const int value = rrhk.gfx[r] >= 0 && rrhk.gfx[r] < option->count ? rrhk.gfx[r] : option->def;
-            snprintf(line, sizeof line, "%s %s: %s", mark, rr_tr(option->name), option->count > 0 ? rr_tr(option->values[value]) : "-");
+            snprintf(line, sizeof line, "%s: %s", rr_tr(option->name), option->count > 0 ? rr_tr(option->values[value]) : "-");
+            icon = rrhk_gfx_icon(option->name);
         } else if (r == options) {
             /* xBR works up to 1024 x 1024 and scanlines need two window pixels a row: past that the filter does nothing, and
              * the row says so. */
@@ -78,9 +82,10 @@ void rrhk_graphics_draw(SDL_Renderer *ren) {
             if (inert) snprintf(name, sizeof name, rr_tr("%s (not at this size)"), rrhk_filter_name(rrhk.filter));
             else snprintf(name, sizeof name, "%s", rrhk_filter_name(rrhk.filter));
             snprintf(value, sizeof value, rr_tr("Filter: %s"), name);
-            snprintf(line, sizeof line, "%s %s", mark, value);
-        } else snprintf(line, sizeof line, "%s %s", mark, rr_tr("Restore defaults"));
-        rr_menu_text_fit(ren, ctx.ox, ctx.oy, ctx.unit, 14, y, 228, line, RR_MENU_GOLD);
+            snprintf(line, sizeof line, "%s", value);
+        } else snprintf(line, sizeof line, "%s", rr_tr("Restore defaults"));
+        rrhk_draw_icon(ren, ctx.ox, ctx.oy, ctx.unit, 20, y, icon, NULL);
+        rr_menu_text_fit(ren, ctx.ox, ctx.oy, ctx.unit, 32, y, 210, line, RR_MENU_GOLD);
     }
     rr_menu_hints(ren, ctx.ox, ctx.oy, ctx.unit, 14, RR_MENU_HINT_LINE, 228, rr_tr("Up/Down: row | Left/Right: change"), RR_MENU_HINT);
     if (rrhk.status[0]) rr_menu_text(ren, ctx.ox, ctx.oy, ctx.unit, 14, RR_MENU_LAST_LINE, rrhk.status, RR_MENU_GOLD);
@@ -365,7 +370,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
          * scrolls: fifteen rows at a time around the selected one, ^ and v at the right edge when more lie above or below. */
         char value[80];
         const int rows = rrhk_page_rows(), shown = rows < PAGE_ROWS ? rows : PAGE_ROWS;
-        enum { NAME_X = 21, VALUE_X = 104 };
+        enum { ICON_X = 20, NAME_X = 32, VALUE_X = 104 };     /* 1.7.5: each row has its icon before the name */
         const int first = rrhk_page_scroll();
         /* Fifteen rows (twelve actions, the combinations and the Gamepad row) push the hint and the status down. */
         const int hint_y = shown > 14 ? 173 : RR_MENU_HINT_LINE;
@@ -378,9 +383,12 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
             if (a == rrhk.row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
             const char *name;
             bool cap = false, waiting = false;      /* the value is a key or a button: drawn as a key cap */
+            int icon = RR_ICON_ROW_GENERIC;
+            char letters[4] = "";
             if (rrhk.gamepad_page && a == rows - 1 - stick) {
                 rrhk_pad_value(value, sizeof value, rrhk.player);
                 name = rr_tr("Gamepad");
+                icon = RR_ICON_ROW_GAMEPAD;
             } else if (stick && a == rows - 1) {
                 /* "Stick dead zone: %s": the name is what stands before the colon */
                 static char dead[48];
@@ -388,9 +396,11 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
                 for (int i = (int)strlen(dead) - 1; i >= 0 && (dead[i] == ' ' || dead[i] == ':'); --i) dead[i] = 0;
                 snprintf(value, sizeof value, "%d%%", rrhk.deadzone[rrhk.player]);
                 name = dead;
+                icon = RR_ICON_ROW_STICK;
             } else if (a >= m->action_count) {
                 rrhk_combo_value(value, sizeof value, a - m->action_count, rrhk.gamepad_page != 0);
                 name = rrhk_combo_label(a - m->action_count);
+                icon = rrhk_combo_icon(a - m->action_count);
                 cap = rrhk_combo_set(a - m->action_count, rrhk.gamepad_page != 0) && !rrhk_combo_capturing(a - m->action_count, rrhk.gamepad_page != 0);
                 waiting = rrhk_combo_capturing(a - m->action_count, rrhk.gamepad_page != 0);
             } else {
@@ -404,7 +414,9 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
                 cap = !waiting && strcmp(bound, "-") != 0;
                 snprintf(value, sizeof value, "%s", waiting ? rrhk_tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
                 name = rr_tr(m->actions[a].name);
+                icon = rrhk_action_icon(m->actions[a].name, letters);
             }
+            rrhk_draw_icon(ren, ox, oy, unit, ICON_X, y, icon, letters);
             if (a == rrhk.row) rr_menu_text(ren, ox, oy, unit, 14, y, ">", RR_MENU_ACCENT);
             if (a == rrhk.row) rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, name, RR_MENU_ACCENT);
             else rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, name, RR_MENU_GOLD);
@@ -415,7 +427,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         {
             const char *hint = rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
                 rrhk_deadzone_row() ? rr_tr("Enter / A: change") :
-                rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count) :
+                rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count, rrhk.gamepad_page != 0) :
                 rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page");
             rr_menu_hints(ren, ox, oy, unit, 14, hint_y, 228, hint, RR_MENU_HINT);
         }
@@ -430,4 +442,72 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
     else if (missing[0]) rrhk_menu_line(&ctx, status_y, missing);
     else if (rrhk.status[0] && rrhk.menu != RRHK_MENU_HUB) rrhk_menu_line(&ctx, status_y, rrhk.status);
     rr_menu_end(ren);
+}
+
+/* ---- Row icons of the menus (1.7.5) ----
+ * A 9 x 9 pictogram at the left of each row of the control pages, the options page and the graphics page, drawn by retro_menu.c
+ * with the F2 tiles' icons (RR_ICON_ROW_*); a face button is the ring with its letters inside. Which icon a row gets is data: the
+ * English name of a machine's control, the key of an option row (rrhk_options.c); a row the kit does not know gets the generic
+ * one (a small gem), never nothing. */
+/* The letter of a face button from its control's name: "Button A", "A", "Trigger B", "Button 3", "L1", "II", the four
+ * PlayStation shapes. Up to two letters (or the narrow I of roman numerals) fit in the ring; anything longer is no button. */
+static bool button_letters(const char *name, char out[4]) {
+    static const struct { const char *name, *letters; } shapes[] = {
+        {"Triangle", "^"}, {"Circle", "o"}, {"Square", "["}, {"Cross", "x"}};
+    for (size_t i = 0; i < sizeof shapes / sizeof shapes[0]; ++i)
+        if (!strcmp(name, shapes[i].name)) { strcpy(out, shapes[i].letters); return true; }
+    if (!strncmp(name, "Button ", 7)) name += 7;
+    else if (!strncmp(name, "Trigger ", 8)) name += 8;
+    const size_t length = strlen(name);
+    if (length == 0 || length > 3) return false;
+    bool roman = true;
+    for (size_t i = 0; i < length; ++i) if (name[i] != 'I' && name[i] != 'V') roman = false;
+    if (length == 3 && !roman) return false;
+    for (size_t i = 0; i < length; ++i) {
+        const char c = roman && length > 1 && name[i] == 'I' ? 'i' : name[i];
+        out[i] = c;
+    }
+    out[length] = 0;
+    return rr_menu_button_letters(out);
+}
+
+int rrhk_action_icon(const char *name, char letters[4]) {
+    static const struct { const char *prefix; int icon; } named[] = {
+        {"Up", RR_ICON_ROW_UP}, {"Down", RR_ICON_ROW_DOWN}, {"Left", RR_ICON_ROW_LEFT}, {"Right", RR_ICON_ROW_RIGHT},
+        {"Stick up", RR_ICON_ROW_UP}, {"Stick down", RR_ICON_ROW_DOWN}, {"Stick left", RR_ICON_ROW_LEFT}, {"Stick right", RR_ICON_ROW_RIGHT},
+        {"C-Up", RR_ICON_ROW_UP}, {"C-Down", RR_ICON_ROW_DOWN}, {"C-Left", RR_ICON_ROW_LEFT}, {"C-Right", RR_ICON_ROW_RIGHT},
+        {"Start", RR_ICON_ROW_START}, {"Game Start", RR_ICON_ROW_START}, {"Run", RR_ICON_ROW_START},
+        {"Select", RR_ICON_ROW_SELECT}, {"Mode", RR_ICON_ROW_SELECT}, {"Coin", RR_ICON_ROW_COIN},
+        {"Pause", RR_ICON_ROW_PAUSE}, {"Analog", RR_ICON_ROW_STICK}};
+    letters[0] = 0;
+    if (!name) return RR_ICON_ROW_GENERIC;
+    for (size_t i = 0; i < sizeof named / sizeof named[0]; ++i) {
+        const size_t n = strlen(named[i].prefix);
+        /* "Start (SPACE)", "Pause/Menu", "Start/Menu": the word, then a space, a slash or the end */
+        if (!strncmp(name, named[i].prefix, n) && (!name[n] || name[n] == ' ' || name[n] == '/')) return named[i].icon;
+    }
+    return button_letters(name, letters) ? RR_ICON_ROW_BUTTON : RR_ICON_ROW_GENERIC;
+}
+
+void rrhk_draw_icon(SDL_Renderer *r, int ox, int oy, int unit, int x, int y, int icon, const char *letters) {
+    if (icon == RR_ICON_ROW_BUTTON) rr_menu_button(r, ox, oy, unit, x, y, letters);
+    else rr_menu_icon(r, ox, oy, unit, x, y, icon, false);
+}
+
+void rrhk_menu_icon(const RrhkMenuCtx *ctx, int x, int y, int icon) {
+    rr_menu_icon(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, x, y, icon, false);
+}
+
+/* The combinations below player 1's controls: Quit, Restart (1.7.5: then Quick save and Quick load). */
+int rrhk_combo_icon(int index) {
+    static const int icons[] = {RR_ICON_ROW_QUIT, RR_ICON_ROW_RESTART, RR_ICON_ROW_SAVE, RR_ICON_ROW_LOAD};
+    return index >= 0 && index < (int)(sizeof icons / sizeof icons[0]) ? icons[index] : RR_ICON_ROW_GENERIC;
+}
+
+/* A machine's graphics option (the F3 page of the 3D machines) by its English name: the ones about the picture's size and shape
+ * get the screen, the others the generic gem. */
+int rrhk_gfx_icon(const char *name) {
+    static const char *const screen[] = {"Aspect ratio", "Internal resolution", "Overscan crop"};
+    for (size_t i = 0; name && i < sizeof screen / sizeof screen[0]; ++i) if (!strcmp(name, screen[i])) return RR_ICON_ROW_DISPLAY;
+    return RR_ICON_ROW_GENERIC;
 }

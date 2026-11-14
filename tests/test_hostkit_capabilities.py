@@ -59,14 +59,15 @@ class DefaultsOffTests(unittest.TestCase):
         self.assertIn('if (m->gfx_option_count > 0) rrhk_gfx_start(', main)
         options = (KIT / 'shell/rrhk_options.c').read_text(encoding='utf-8')
         self.assertIn('if (m->rumble) rrhk_option_row(', options)
-        # Twenty actions; a page of up to fifteen rows (every machine of 1.6.9) never scrolls; a trigger binding needs the flag.
+        # Twenty actions; a page of up to fifteen rows (every machine of 1.6.9) never scrolls; a trigger binding on every machine (1.7.5).
         self.assertIn('#define RRHK_MAX_ACTIONS 20', (KIT / 'hostkit.h').read_text(encoding='utf-8'))
         menu = (KIT / 'shell/rrhk_menu.c').read_text(encoding='utf-8')
         self.assertIn('enum { PAGE_ROWS = 15 };', menu)
         self.assertIn('if (rows <= PAGE_ROWS) return page_first = 0;', menu)
-        self.assertIn('if (!rrhk.machine->trigger_buttons || (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER)) return false;', input_c)
-        self.assertIn('if (!m || !m->trigger_buttons) return false;', input_c)
-        self.assertIn('(m->trigger_buttons && (value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER))', input_c)
+        self.assertIn('if (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER) return false;', input_c)
+        self.assertIn('if (rrhk_combo_trigger(side)) return true;', input_c)
+        self.assertIn('value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER))', input_c)
+        self.assertNotIn('m->trigger_buttons', input_c)
         # The trigger values are fixed, outside SDL's buttons; an options page of fourteen rows or fewer is handed over whole.
         header = (KIT / 'hostkit.h').read_text(encoding='utf-8')
         self.assertIn('#define RRHK_PAD_LEFT_TRIGGER ((SDL_GameControllerButton)64)', header)

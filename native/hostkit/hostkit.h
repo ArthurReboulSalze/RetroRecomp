@@ -32,7 +32,7 @@ extern "C" {
 /* Controls of a machine, in menu order (1.7.0: 20, so that a PlayStation pad's 17 fit; 12 before). The pad word given to the
  * machine stays 16 bits: host-side actions (`bit` 0) do not use one. An F2 page shows fifteen rows at once and scrolls past. */
 #define RRHK_MAX_ACTIONS 20
-/* A gamepad binding may name a trigger, held past the stick threshold (D1), on a machine that sets `trigger_buttons`. The two
+/* A gamepad binding may name a trigger, held past the stick threshold (D1): on every machine since 1.7.5. The two
  * values are fixed, outside any range of SDL's buttons (SDL 2 has 21, SDL 3 fewer than 32), and stored as such in the
  * preferences: a saved binding means the same trigger after an SDL update. */
 #define RRHK_PAD_LEFT_TRIGGER ((SDL_GameControllerButton)64)
@@ -256,10 +256,10 @@ typedef struct RrhkMachine {
     /* A machine that replays a script inside the window gives its recorded axes here; true: rrhk_pad_axes returns them as they
      * are (no dead zone). NULL or false: the gamepad's. */
     bool (*script_axes)(int player, uint64_t frame, int16_t axes[RRHK_AXES]);
-    /* The triggers are buttons of the machine's pad (a PlayStation's L2 and R2): a binding may be RRHK_PAD_LEFT_TRIGGER or
-     * RRHK_PAD_RIGHT_TRIGGER, F2 captures a trigger pulled on the selected player's pad, and a trigger that player 1 has bound
-     * is no longer a speed control (D12), as a key bound to a control is no longer a shortcut. false: the triggers are the
-     * speed controls only, as before. */
+    /* The triggers are buttons of the machine's own pad (a PlayStation's L2 and R2), which its default bindings use. Since 1.7.5
+     * every machine accepts a trigger binding (RRHK_PAD_LEFT_TRIGGER, RRHK_PAD_RIGHT_TRIGGER: F2 captures a trigger pulled on
+     * the selected player's pad, the one trigger reading holds it), so the field only says so; a trigger that player 1 has
+     * bound is no longer a speed control (D12), an unbound one still is. */
     bool trigger_buttons;
     /* The graphics page (D14). NULL: F3 cycles the 2D filters as on every other machine. Otherwise F3 opens the page; gfx_apply
      * is called between two frames, never inside run_frame: once per option when the window opens (the saved value, or the
@@ -334,8 +334,14 @@ void rrhk_toggle_autofire(void);                   /* F6: flip, forget held butt
 void rrhk_options_observe(const SDL_Event *event); /* keys and buttons held, for the quit/restart combinations */
 bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu);
 void rrhk_menu_line(const RrhkMenuCtx *ctx, int y, const char *text);
+/* Row icons (1.7.5): a 9 x 9 pictogram drawn at (x, y) in menu units, at the left of a menu row: one of retro_menu.h's
+ * RR_ICON_ROW_*. A page an adapter draws itself puts one before each of its rows; RR_ICON_ROW_GENERIC is the one for a row with
+ * no picture of its own. */
+void rrhk_menu_icon(const RrhkMenuCtx *ctx, int x, int y, int icon);
 void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);
+/* 1.7.5: an options row with its own icon (RR_ICON_ROW_*); rrhk_option_row lets the kit choose by the row's key (D20). */
+void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);
 extern const RrhkPage rrhk_pointer_page;
 
 /* Each adapter returns its machine; the link has exactly one. */

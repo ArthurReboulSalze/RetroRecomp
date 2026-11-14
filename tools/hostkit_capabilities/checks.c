@@ -289,7 +289,7 @@ static void full_script(void) {
         CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 2);
         CHECK(rrhk_deadzone_row() && !rrhk_device_row());
         CHECK(ui->deadzone[0] == 15);
-        /* 22 rows: the page shows fifteen, scrolled to the selected last row */
+        /* 24 rows (1.7.5: four combinations): the page shows fifteen, scrolled to the selected last row */
         CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
         key(SDL_SCANCODE_UP);      /* the Gamepad row is just above it */
         break;
@@ -300,7 +300,7 @@ static void full_script(void) {
     case 21:
         CHECK(ui->deadzone[0] == 0 && ini(L"Test3D.Gamepad.Player1", L"deadzone") == 0);
         /* the window moves only when the selected row would leave it */
-        ui->row = 10; CHECK(rrhk_page_scroll() == 7);
+        ui->row = 10; CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
         ui->row = 0; CHECK(rrhk_page_scroll() == 0);
         ui->row = 14; CHECK(rrhk_page_scroll() == 0);
         ui->row = 16; CHECK(rrhk_page_scroll() == 2);
@@ -584,8 +584,9 @@ static void plain_script(void) {
     case 7:
         CHECK(rrhk_device_row() && !rrhk_deadzone_row());
         key(SDL_SCANCODE_F2);
-        /* the triggers are the speed controls: a saved trigger binding is not read, and the right trigger fast-forwards */
-        CHECK(ui->buttons[0][A_L1] == SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+        /* 1.7.5: a saved trigger binding is read on every machine (L1 on the left trigger, from the first run); a trigger no
+         * control has is still a speed control: the right one fast-forwards (this machine's R2 row has no trigger) */
+        CHECK(ui->buttons[0][A_L1] == RRHK_PAD_LEFT_TRIGGER && ui->buttons[0][A_R2] != RRHK_PAD_RIGHT_TRIGGER);
         axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);
         break;
     case 10:
@@ -667,10 +668,133 @@ static void stretched_script(void) {
     }
 }
 
+/* 1.7.5: Quick save and Quick load on player 1's pad. The machine counts the requests it receives (F8 and F9's own). */
+static int quick_saves, quick_loads;
+static Uint64 quick_t0;
+static bool quick_path(wchar_t *path, size_t capacity) { swprintf(path, capacity, L"capabilities.state"); return true; }
+static bool quick_ready(void) { return true; }
+static bool quick_file(const wchar_t *path, bool load) { (void)path; if (load) ++quick_loads; else ++quick_saves; return true; }
+#define QUICK_ROW (ACTIONS + 2)      /* player 1's rows: the controls, Quit, Restart, Quick save, Quick load, Gamepad */
+static void pad_hold(SDL_GameControllerButton a, SDL_GameControllerButton b, bool down) { button(a, down); button(b, down); }
+static void quick_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    const Uint64 now = SDL_GetTicks64();
+    switch (step++) {
+    case 0:     /* player 1's gamepad page: the four combinations, the quick ones unassigned */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        break;
+    case 1:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
+        CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 1);
+        CHECK(!rrhk_combo_set(2, true) && !rrhk_combo_set(3, true) && rrhk_combo_set(2, false) && rrhk_combo_set(3, false));
+        ui->row = QUICK_ROW; key(SDL_SCANCODE_RETURN);
+        break;
+    case 2:
+        CHECK(rrhk_combo_capturing(2, true) && rrhk_combo_capturing_pad());
+        pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true);
+        break;
+    case 3: pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false); break;
+    case 4:
+        CHECK(!rrhk_combo_capturing_pad() && rrhk_combo_set(2, true));
+        CHECK(ini(L"Test3D.Options", L"quick_save_pad") ==
+              ((1 << SDL_CONTROLLER_BUTTON_BACK) | (1 << SDL_CONTROLLER_BUTTON_LEFTSHOULDER)));
+        ui->row = QUICK_ROW + 1; key(SDL_SCANCODE_RETURN);
+        break;
+    case 5: pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true); break;   /* Quick save's: refused */
+    case 6: pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false); break;
+    case 7:
+        CHECK(!rrhk_combo_set(3, true) && !strcmp(ui->status, "Already used by Quick save"));
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 8: axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, 32767); break;      /* L2 alone (an axis in SDL) */
+    case 9: axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768); break;
+    case 10: {
+        char value[80];
+        rrhk_combo_value(value, sizeof value, 3, true);
+        CHECK(rrhk_combo_set(3, true) && ini(L"Test3D.Options", L"quick_load_pad") == (1 << 24) && !strcmp(value, "L2"));
+        key(SDL_SCANCODE_F2);       /* back to the game */
+        break;
+    }
+    case 11:    /* in play: Back+LB held half a second saves, once */
+        CHECK(ui->menu == 0 && !quick_saves && !quick_loads);
+        pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true);
+        quick_t0 = now;
+        break;
+    case 12:
+        if (!quick_saves && now - quick_t0 < 3000) { --step; break; }
+        CHECK(quick_saves == 1 && !quick_loads && now - quick_t0 >= 450);
+        CHECK(!strcmp(ui->status, "Quick state saved"));
+        quick_t0 = now;
+        break;
+    case 13:    /* still held: no second save */
+        if (now - quick_t0 < 700) { --step; break; }
+        CHECK(quick_saves == 1);
+        pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false);
+        break;
+    case 14:    /* L2 held one second loads; bound to a combination, it no longer toggles the maximum speed */
+        axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, 32767);
+        quick_t0 = now;
+        break;
+    case 15:
+        if (!quick_loads && now - quick_t0 < 3000) { --step; break; }
+        CHECK(quick_loads == 1 && quick_saves == 1 && now - quick_t0 >= 950);
+        CHECK(!strcmp(ui->status, "Quick state loaded") && !ui->max_speed);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768);
+        break;
+    case 16:    /* in a menu the combination does nothing */
+        key(SDL_SCANCODE_F1);
+        break;
+    case 17:
+        CHECK(ui->menu == RRHK_MENU_HELP);
+        pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true);
+        quick_t0 = now;
+        break;
+    case 18:
+        if (now - quick_t0 < 800) { --step; break; }
+        CHECK(quick_saves == 1 && ui->menu == RRHK_MENU_HELP);
+        pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 19:
+        stop = true;
+        break;
+    default: break;
+    }
+}
+
+/* 1.7.5: on a console profile (no trigger_buttons), a game row bound to R2 by F2, then held in play: the row's bit, no speed. */
+static void r2_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); break;
+    case 1:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
+        ui->row = A_CROSS; key(SDL_SCANCODE_RETURN);
+        break;
+    case 2: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -10000); break;   /* about 11400 for SDL: under the threshold */
+    case 3: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767); break;
+    case 4:
+        CHECK(!ui->capturing && ui->buttons[0][A_CROSS] == RRHK_PAD_RIGHT_TRIGGER);
+        CHECK(ini(L"Test3D.Gamepad.Player1", L"Cross") == (int)RRHK_PAD_RIGHT_TRIGGER);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -32768);
+        key(SDL_SCANCODE_F2);
+        break;
+    case 5: CHECK(ui->menu == 0); axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767); break;
+    case 8: CHECK((last_pad[0] & CROSS_BIT) && !ui->fast_hold); axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -32768); break;
+    case 11: CHECK(!(last_pad[0] & CROSS_BIT)); break;
+    case 12: stop = true; break;
+    default: break;
+    }
+}
+
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
-    for (int i = 0; i < 3; ++i) rrhk_option_row(rows, EXTRA_KEY + slot * 3 + i, "Machine row: %s", slot ? "B" : "A");
+    for (int i = 0; i < 3; ++i) {
+        /* 1.7.5: the first row of each slot names its own icon; the others get the generic one from the kit */
+        if (i == 0) rrhk_option_row_icon(rows, EXTRA_KEY + slot * 3, RR_ICON_ROW_SPEED, "Machine row: %s", slot ? "B" : "A");
+        else rrhk_option_row(rows, EXTRA_KEY + slot * 3 + i, "Machine row: %s", slot ? "B" : "A");
+    }
 }
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)ui; (void)running;
@@ -760,6 +884,11 @@ int main(int argc, char **argv) {
     remove(report);
     /* 4. The same machine with every new field left out. */
     RrhkMachine plain = full;
+    /* a console's pad: its L2 and R2 rows on shoulder buttons, not on the triggers */
+    static RrhkAction plain_actions[ACTIONS];
+    memcpy(plain_actions, actions, sizeof actions);
+    plain_actions[A_L2].pad[0] = SDL_CONTROLLER_BUTTON_PADDLE2; plain_actions[A_R2].pad[0] = SDL_CONTROLLER_BUTTON_PADDLE3;
+    plain.actions = plain_actions;
     plain.analog_sticks = 0; plain.script_axes = NULL; plain.trigger_buttons = false;
     plain.gfx_options = NULL; plain.gfx_option_count = 0; plain.gfx_apply = NULL;
     plain.pixel_pitch = NULL; plain.rumble = false;
@@ -776,6 +905,16 @@ int main(int argc, char **argv) {
     begin(stretched_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 3);
+    /* 6. 1.7.5: Quick save and Quick load bound on player 1's pad, then held in play. */
+    plain.settings_loaded = NULL;
+    plain.state_path = quick_path; plain.state_ready = quick_ready; plain.state_file = quick_file;
+    begin(quick_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 20);
+    /* 7. 1.7.5: a game row on R2 on a console profile. */
+    begin(r2_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 13);
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();

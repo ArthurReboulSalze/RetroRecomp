@@ -1052,6 +1052,12 @@
     "Reset": "リセット",
     "Start-up reminders: %s": "起動時のヒント：%s",
     "Stretched": "引き延ばし",
-    "F4  Window / Pixel / Fit / Stretched": "F4  ウィンドウ / ピクセル / フィット / 引き延ばし"
+    "F4  Window / Pixel / Fit / Stretched": "F4  ウィンドウ / ピクセル / フィット / 引き延ばし",
+    "Quick save": "クイックセーブ",
+    "Quick load": "クイックロード",
+    "Hold quick save combo": "長押しでセーブ",
+    "Hold quick load combo": "長押しでロード",
+    "Already used by %s": "%sで使用中",
+    "F8 and F9: fixed keys": "F8とF9: 固定キー"
   }
 }

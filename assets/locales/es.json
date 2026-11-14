@@ -1052,6 +1052,12 @@
     "Reset": "Reset",
     "Start-up reminders: %s": "Avisos al inicio: %s",
     "Stretched": "Estirado",
-    "F4  Window / Pixel / Fit / Stretched": "F4  Ventana / Píxel / Ajustar / Estirado"
+    "F4  Window / Pixel / Fit / Stretched": "F4  Ventana / Píxel / Ajustar / Estirado",
+    "Quick save": "Guardar",
+    "Quick load": "Cargar",
+    "Hold quick save combo": "Manten para guardar",
+    "Hold quick load combo": "Manten para cargar",
+    "Already used by %s": "Ya usada por %s",
+    "F8 and F9: fixed keys": "F8 y F9: teclas fijas"
   }
 }
