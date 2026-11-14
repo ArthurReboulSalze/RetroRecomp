@@ -36,7 +36,7 @@ import re
 
 from . import path_profiles as pp
 from .knowledge_build import window_offsets, window_words
-from .msx_disk import MAX_DISKS, disk_set
+from .msx_disk import DISK_SIZES, MAX_DISKS, disk_set
 from .path_records import PathRecords, record_digest
 
 SYSTEMS = ('msx2plus',)
@@ -56,8 +56,9 @@ UnknownFormat = pp.UnknownFormat
 
 # What `validate_record` enforces on top of the schema 3 check, as data (the form the site's builder reads, `tools/build_web_limits.py`, so that
 # `web/lib/paths3.php` follows the converter instead of a copy of its rules; the keys are gba_knowledge's, with `alternatives` for the two
-# kinds of record): no layout; either the cartridge or the disks, each hashed, and the BIOS image they were found with; the game id the
-# cartridge's SHA-256, or the disk set's identity (`disk_set`); the windows point into the cartridge or into the disks only. Their size,
+# kinds of record): no layout; either the cartridge or the disks (each 360 or 720 KiB exactly, `sizes`), each hashed, and the BIOS image
+# they were found with; the game id the cartridge's SHA-256, or the disk set's identity (`disk_set`); the windows point into the cartridge,
+# the one disk (`src`) or every disk in order (`srcs`), nothing else. Their size,
 # four bytes inside their source, and the ceiling are the profile's (`window4`).
 RECORD_RULES = {
     'layout': [],
@@ -65,7 +66,7 @@ RECORD_RULES = {
         {'sources': {'only': [ROM, BIOS], 'required': [ROM, BIOS], 'hashed': True, 'game': ROM},
          'paths': {CPU: {'windows': {'src': ROM}}}},
         {'sources': {'only': [DISK, BIOS], 'required': [DISK, BIOS], 'hashed': True, 'game': 'disk_set',
-                     'numbered': {DISK: [1, MAX_DISKS]}},
+                     'numbered': {DISK: [1, MAX_DISKS]}, 'sizes': {DISK: sorted(DISK_SIZES)}},
          'paths': {CPU: {'windows': {'src': DISK}}}},
     ],
     'disk_set': {'one': 'the sha256 of disk1',
@@ -155,6 +156,8 @@ def validate_record(record, identity: str | None = None, *, system: str = 'msx2p
                 raise ValueError('An MSX disk record names its disks disk1 to diskN.')
             if any('sha256' not in sources[name] for name in disks):
                 raise ValueError('An MSX disk record hashes every disk.')
+            if any(sources[name]['bytes'] not in DISK_SIZES for name in disks):
+                raise ValueError('An MSX disk is 360 or 720 KiB.')
             key = disk_set(sources[name]['sha256'] for name in disks)
         else:
             if set(sources) != {ROM, BIOS} or 'sha256' not in sources[ROM]:

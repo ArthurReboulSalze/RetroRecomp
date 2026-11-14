@@ -154,6 +154,9 @@ class DiskRecordTests(unittest.TestCase):
                     continue
                 if rule['hashed'] and not all('sha256' in source for source in sources.values()):
                     continue
+                if any(sources[name]['bytes'] not in rule.get('sizes', {}).get(role, [sources[name]['bytes']])
+                       for role, names in roles.items() for name in names):
+                    continue
                 if value['game'] != 'msx2plus:' + key_of(sources, rule['game']):
                     continue
                 allowed = alternative['paths']
@@ -164,9 +167,10 @@ class DiskRecordTests(unittest.TestCase):
                             good = False
                             continue
                         for block in blocks:
-                            names = block.get('srcs') or [block.get('src')]
-                            good &= all(roles.get(allowed[cpu][kind]['src']) and name in roles[allowed[cpu][kind]['src']]
-                                        for name in names)
+                            # A block names its one source (`src`), or every source of the role in order (`srcs`, several).
+                            owned = sorted(roles.get(allowed[cpu][kind]['src'], []), key=lambda n: (len(n), n))
+                            named = block.get('srcs') or [block.get('src')]
+                            good &= named == owned and (('srcs' in block) == (len(owned) > 1))
                 if good:
                     return True
             return False
@@ -185,6 +189,10 @@ class DiskRecordTests(unittest.TestCase):
                                                                                 'disk2': sources['disk1']})), False),
             (dict(cart_record, cpus={'z80': dict(cart_record['cpus']['z80'], paths={'windows': [
                 dict(cart_record['cpus']['z80']['paths']['windows'][0], src='bios')]})}), False),
+            (dict(disk_record, identity=dict(disk_record['identity'], sources={**sources, 'disk1': dict(sources['disk1'], bytes=500001)})),
+             False),                                                                  # a disk of another size
+            (dict(disk_record, cpus={'z80': dict(disk_record['cpus']['z80'], paths={'windows': [
+                dict(disk_record['cpus']['z80']['paths']['windows'][0], srcs=['disk1', 'disk2'])]})}), False),   # two of three disks
         ]
         for number, (value, expected) in enumerate(cases):
             with self.subTest(case=number):
