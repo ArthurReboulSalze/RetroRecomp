@@ -6,6 +6,8 @@
 #include <SDL.h>
 static Uint32 harness_buttons;
 static int harness_left = -1;
+static unsigned harness_joy2;                 /* what the adapter sent to port 1's joystick */
+static int harness_port1_mode, harness_port1_device;
 static Uint32 harness_relative_state(int *x, int *y) { if (x) *x = 0; if (y) *y = 0; return harness_buttons; }
 #define SDL_GetRelativeMouseState harness_relative_state
 #define main rr_unused_player_main
@@ -16,7 +18,23 @@ static Uint32 harness_relative_state(int *x, int *y) { if (x) *x = 0; if (y) *y 
 /* The session is not part of this check. */
 RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, size_t error_size) { (void)game; (void)error; (void)error_size; return NULL; }
 void rr_amiga_joystick(RrAmigaSession *s, unsigned bits) { (void)s; (void)bits; }
-void rr_amiga_mouse(RrAmigaSession *s, int dx, int dy, int left, int right) { (void)s; (void)dx; (void)dy; (void)right; harness_left = left; }
+void rr_amiga_mouse(RrAmigaSession *s, int dx, int dy, int left, int right) {
+   (void)s; (void)right;
+   if (harness_port1_mode != RR_AMIGA_PORT1_JOYSTICK && (dx || dy || left != (harness_left > 0))) harness_port1_device = 0;
+   harness_left = left;
+}
+/* The session's rule for port 1, as amiga_session.cpp applies it: the device used last holds the port unless a mode keeps it. */
+void rr_amiga_joystick2(RrAmigaSession *s, unsigned bits) {
+   (void)s;
+   if (harness_port1_mode != RR_AMIGA_PORT1_MOUSE && bits != harness_joy2) harness_port1_device = 1;
+   harness_joy2 = bits;
+}
+void rr_amiga_port1_mode(RrAmigaSession *s, int mode) {
+   (void)s; harness_port1_mode = mode;
+   if (mode == RR_AMIGA_PORT1_MOUSE) harness_port1_device = 0;
+   if (mode == RR_AMIGA_PORT1_JOYSTICK) harness_port1_device = 1;
+}
+int rr_amiga_port1_device(RrAmigaSession *s) { (void)s; return harness_port1_device; }
 void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) { (void)s; (void)held; }
 int rr_amiga_frame(RrAmigaSession *s) { (void)s; return -1; }
 const char *rr_amiga_error(const RrAmigaSession *s) { (void)s; return "stub"; }
@@ -96,6 +114,55 @@ int main(int argc, char **argv) {
       harness_buttons = 0;
       a_inputs();
       check(harness_left == 0, "and its release too");
+   }
+   /* The second joystick: player 2's pad takes port 1 from the mouse (a_port1_*). The session is a stub: `session` stays NULL, so the
+    * adapter's calls go to the stubs above. */
+   {
+      static const char *const english = "Mouse port: pad 2";
+      guest_keyboard = false; mouse_game = false; mouse_grab = false; input_focus = true; ui->menu = 0; ui->paused = 0; harness_buttons = 0;
+      snprintf(port1_config, sizeof port1_config, "%s", "amiga-menu-port1.cfg");
+      remove(port1_config);
+      check(machine->players() == 2, "F2 offers two players' pages: port 2's joystick and port 1's");
+      a_port1_load();
+      a_port1_shown = 0;
+      check(a_port1_mode() == RR_AMIGA_PORT1_FOLLOW && harness_port1_mode == RR_AMIGA_PORT1_FOLLOW, "no saved choice: port 1 follows the device used");
+      ca.pad[0] = 0; ca.pad[1] = (uint16_t)A_BIT(A_FIRE);
+      rrhk.status[0] = 0;
+      a_inputs();
+      check(harness_joy2 == RR_AMIGA_JOY_FIRE, "player 2's Button A is the fire of port 1's joystick");
+      check(a_port1_device() == 1, "player 2's pad plugs the joystick into port 1");
+      check(!strcmp(rrhk.status, english), "a plate says so (English: the language of the harness)");
+      ca.pad[1] = (uint16_t)(A_BIT(A_LEFT) | A_BIT(A_UP));
+      a_inputs();
+      check(harness_joy2 == (RR_AMIGA_JOY_LEFT | RR_AMIGA_JOY_UP), "player 2's directions are port 1's");
+      ca.pad[1] = 0; rrhk.status[0] = 0;
+      mouse_grab = true; harness_buttons = SDL_BUTTON_LMASK;
+      a_inputs();
+      check(a_port1_device() == 0 && !strcmp(rrhk.status, "Mouse port: mouse"), "a mouse click plugs the mouse back, and the plate says so");
+      harness_buttons = 0; a_inputs(); mouse_grab = false;
+      a_set_port1_mode(RR_AMIGA_PORT1_MOUSE, true);
+      ca.pad[1] = (uint16_t)A_BIT(A_RIGHT);
+      a_inputs();
+      check(a_port1_device() == 0, "kept on the mouse, player 2's pad does not take port 1");
+      ca.pad[1] = 0; a_inputs();
+      a_port1_choice = RR_AMIGA_PORT1_FOLLOW;
+      a_port1_load();
+      check(a_port1_mode() == RR_AMIGA_PORT1_MOUSE, "the choice is kept for the game (port1.cfg)");
+      port1_option = RR_AMIGA_PORT1_JOYSTICK;
+      a_port1_load();
+      check(a_port1_mode() == RR_AMIGA_PORT1_JOYSTICK && a_port1_device() == 1, "--port1 sets this run's mode");
+      port1_option = -1;
+      a_port1_load();
+      check(a_port1_mode() == RR_AMIGA_PORT1_MOUSE, "and is not kept: the saved choice comes back");
+      f = fopen(port1_config, "wb");
+      if (f) { fputs("port1=7\n", f); fclose(f); }
+      a_port1_load();
+      check(a_port1_mode() == RR_AMIGA_PORT1_FOLLOW, "an unknown value is read as the default");
+      f = fopen(port1_config, "wb");
+      if (f) { fputs("port1=2 extra\n", f); fclose(f); }
+      a_port1_load();
+      check(a_port1_mode() == RR_AMIGA_PORT1_FOLLOW, "and so is a damaged file");
+      remove(port1_config);
    }
    printf("%u checks, %u failures\n", checks, failures);
    SDL_Quit();

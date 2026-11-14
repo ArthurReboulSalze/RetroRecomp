@@ -3,8 +3,8 @@
  * Included by native/amiga_machine/amiga_player.c, which owns the Amiga session (amiga_session.h) and defines the frontend
  * variables that rrhk_computer.inc reads. What the computers share (the guest keyboard and its Ctrl+Alt chords, the captured
  * mouse, the mouse-game profile, the function keys, the second help page, the window preferences) comes from
- * rrhk_computer.inc, unchanged; what is the Amiga's stays here: the joystick of port 2, the mouse of port 1, the raw key codes,
- * the picture and the sound of the session. Guest state is never filtered. */
+ * rrhk_computer.inc, unchanged; what is the Amiga's stays here: the joystick of port 2, port 1 (the mouse, or the second player's
+ * joystick: a_port1_*), the raw key codes, the picture and the sound of the session. Guest state is never filtered. */
 #include "hostkit/hostkit.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
@@ -90,11 +90,62 @@ static struct {
    size_t audio_count, audio_taken;
 } aa;
 
+/* ---- port 1: the mouse, or the second player's joystick ------------------------------------------------------------------
+ * As on a real Amiga, where the mouse is unplugged from port 1 for a two-player game. By default the port follows the device used
+ * last (the session's RR_AMIGA_PORT1_FOLLOW: player 2's pad plugs the joystick, a mouse motion or click plugs the mouse back); the
+ * player may keep it on one device. The choice is kept per game in port1.cfg ("port1=N"); a plate says when the device changes.
+ * a_port1_mode / a_set_port1_mode / a_port1_device are what the shell's row "Mouse port" on player 2's pad page reads and sets. */
+static int a_port1_choice = RR_AMIGA_PORT1_FOLLOW, a_port1_shown;
+
+static int a_port1_mode(void) { return a_port1_choice; }
+
+/* `save`: kept for the next start (a choice made in the window), or this run only (--port1). */
+static void a_set_port1_mode(int mode, bool save) {
+   FILE *f;
+   wchar_t wide[PATH_CAP];
+   if (mode < RR_AMIGA_PORT1_FOLLOW || mode > RR_AMIGA_PORT1_JOYSTICK) mode = RR_AMIGA_PORT1_FOLLOW;
+   a_port1_choice = mode;
+   rr_amiga_port1_mode(session, mode);
+   if (!save || !port1_config[0] || !rr_from_utf8(port1_config, wide, PATH_CAP) || !(f = rr_fopen(wide, L"wb"))) return;
+   fprintf(f, "port1=%d\n", mode);
+   fclose(f);
+}
+
+/* The device port 1 holds now: 0 the mouse, 1 the joystick (the row's icon). */
+static int a_port1_device(void) { return rr_amiga_port1_device(session); }
+
+static void a_port1_load(void) {
+   FILE *f;
+   wchar_t wide[PATH_CAP];
+   int mode = RR_AMIGA_PORT1_FOLLOW;
+   char extra;
+   if (port1_option >= 0) { a_set_port1_mode(port1_option, false); return; }
+   if (port1_config[0] && rr_from_utf8(port1_config, wide, PATH_CAP) && (f = rr_fopen(wide, L"rb"))) {
+      if (fscanf(f, "port1=%d %c", &mode, &extra) != 1) mode = RR_AMIGA_PORT1_FOLLOW;     /* anything else: the default */
+      fclose(f);
+   }
+   a_set_port1_mode(mode, false);
+}
+
+/* The plate when port 1 changes device, in the five languages of the games (Latin-1 letters only, as their fonts). */
+static void a_port1_notice(void) {
+   static const char *const text[2][5] = {
+      {"Mouse port: mouse", "Port souris : souris", "Mausport: Maus", "Puerto del rat\xc3\xb3n: rat\xc3\xb3n", "Porta del mouse: mouse"},
+      {"Mouse port: pad 2", "Port souris : manette 2", "Mausport: Pad 2", "Puerto del rat\xc3\xb3n: mando 2", "Porta del mouse: pad 2"}};
+   static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
+   const char *code = rr_language_code(rr_language_get());
+   int device = a_port1_device(), language = 0, n;
+   if (device == a_port1_shown) return;
+   a_port1_shown = device;
+   for (n = 0; n < 5; n++) if (code && !strcmp(code, codes[n])) language = n;
+   if (ca.windowed) rrhk_notice(text[device][language], 3500);
+}
+
 /* The guest's inputs of this frame from the kit's pad words, the keyboard and the mouse. */
 static void a_inputs(void) {
    uint8_t held[128];
-   unsigned bits = 0;
-   uint16_t pad = ca.pad[0];
+   unsigned bits = 0, bits2 = 0;
+   uint16_t pad = ca.pad[0], pad2 = ca.pad[1];
    int left = 0, right = 0, dx = 0, dy = 0, k;
    SDL_Keymod mod = SDL_GetModState();
    memset(held, 0, sizeof held);
@@ -108,6 +159,13 @@ static void a_inputs(void) {
          if (pad & A_BIT(A_FIRE)) bits |= RR_AMIGA_JOY_FIRE;
          if (pad & A_BIT(A_FIRE2)) bits |= RR_AMIGA_JOY_FIRE2;
       }
+      /* Player 2's pad: the joystick of port 1, which takes the port from the mouse when it is used (a_port1_*). */
+      if (pad2 & A_BIT(A_UP)) bits2 |= RR_AMIGA_JOY_UP;
+      if (pad2 & A_BIT(A_DOWN)) bits2 |= RR_AMIGA_JOY_DOWN;
+      if (pad2 & A_BIT(A_LEFT)) bits2 |= RR_AMIGA_JOY_LEFT;
+      if (pad2 & A_BIT(A_RIGHT)) bits2 |= RR_AMIGA_JOY_RIGHT;
+      if (pad2 & A_BIT(A_FIRE)) bits2 |= RR_AMIGA_JOY_FIRE;
+      if (pad2 & A_BIT(A_FIRE2)) bits2 |= RR_AMIGA_JOY_FIRE2;
       /* The mouse: captured motion and buttons, or (a mouse game) the pad standing for it. */
       left = player_mouse(RETRO_DEVICE_ID_MOUSE_LEFT, mouse_grab && (mouse_buttons & SDL_BUTTON_LMASK) != 0);
       right = player_mouse(RETRO_DEVICE_ID_MOUSE_RIGHT, mouse_grab && (mouse_buttons & SDL_BUTTON_RMASK) != 0);
@@ -129,8 +187,10 @@ static void a_inputs(void) {
       if (!guest_keyboard && player_start() > 0) held[0x44] = 1;
    }
    rr_amiga_joystick(session, bits);
+   rr_amiga_joystick2(session, bits2);     /* before the mouse: a mouse used in the same frame keeps the port */
    rr_amiga_mouse(session, dx, dy, left, right);
    rr_amiga_keys(session, held);
+   a_port1_notice();
 }
 
 /* What the player shows: the display window the game opens (the union of its DIWSTRT/DIWSTOP, measured over the conversion's
@@ -206,8 +266,8 @@ static bool a_run_frame(uint16_t p1, uint16_t p2) {
    return !quit_requested && (!frame_limit || frame_number < frame_limit);
 }
 static void a_pause(bool paused) { (void)paused; }
-/* One joystick is wired (port 2: a_inputs reads pad 0 only; the mouse is port 1), so the F2 menu offers one player's page. */
-static int a_players(void) { return 1; }
+/* Two joysticks: port 2 (player 1) and port 1 (player 2's, when it takes the port from the mouse), so F2 offers two players' pages. */
+static int a_players(void) { return 2; }
 /* A reset starts the install again from ws_GameLoader: the process restarts itself (the session is one per process). */
 static void a_reset(void) { restart_requested = true; quit_requested = true; }
 /* The reference CPU runs no hook, so nothing is counted: the run is the interpreter's all the same. */
@@ -258,5 +318,7 @@ static int player_run_windowed(const char *title, int ntsc) {
    RrhkMachine *machine = (RrhkMachine *)rrhk_adapter();
    machine->frame_seconds = ntsc ? 1.0 / 59.94 : 1.0 / 49.92;
    ca.windowed = true;
+   a_port1_load();
+   a_port1_shown = a_port1_device();
    return rrhk_main(machine, title, 3);
 }

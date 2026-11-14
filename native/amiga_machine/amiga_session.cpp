@@ -40,7 +40,7 @@ static constexpr uint32_t FAST_BASE = 0x200000;
 static constexpr uint32_t FAST_MAX = 0x800000;
 static uint32_t slow_slave_area(uint32_t exp_size) { return (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu; }
 static bool exp_in_fast(uint32_t exp_size) { return exp_size && slow_slave_area(exp_size) + 0x7FFF0 >= SLOW_BASE + SLOW_SIZE; }
-static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-3";
+static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-4";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
 // Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
 // display window's edges (DIWSTRT/DIWSTOP, in that unit) land on picture column (edge - SHRES_AT_TEXEL0 - FIRST_TEXEL) / 2.
@@ -61,6 +61,11 @@ struct RrAmigaSession {
     bool quit = false;         // the install ended itself with resload_Abort(TDREASON_OK): a normal exit, not a failure
     unsigned joy = 0;
     int mouse_left = 0, mouse_right = 0;
+    unsigned joy2 = 0;              // the joystick of port 1 (the second player's), held bits
+    int port1_mode = 0;             // RR_AMIGA_PORT1_FOLLOW, _MOUSE or _JOYSTICK (the player's choice; not part of a state)
+    // The device port 1 holds (1: the joystick). vAmiga keeps its own private: this copy moves with the calls that move it (a mouse
+    // motion or button plugs the mouse, a joystick action the joystick, a forced mode or a state load sets it).
+    int port1_joystick = 0;
     uint8_t keys[128] = {};
     bool no_keyboard = false;                            // the slave's WHDLF_NoKbd: nothing here touches its keyboard interrupt
     std::vector<int16_t> pcm;
@@ -527,27 +532,53 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
     return S;
 }
 
-extern "C" void rr_amiga_joystick(RrAmigaSession *s, unsigned bits) {
-    auto &joy = s->amiga->controlPort2.joystick;
-    unsigned was = s->joy;
+// The changes of a joystick's held bits since `was`, as vAmiga's actions (each action also plugs the joystick into its port).
+static bool joystick_actions(Joystick &joy, unsigned was, unsigned bits) {
+    bool acted = false;
     auto axis = [&](unsigned minus, unsigned plus, GamePadAction pull_minus, GamePadAction pull_plus, GamePadAction release) {
         int before = (was & plus ? 1 : 0) - (was & minus ? 1 : 0), after = (bits & plus ? 1 : 0) - (bits & minus ? 1 : 0);
         if (before == after) return;
         joy.trigger(after < 0 ? pull_minus : after > 0 ? pull_plus : release);
+        acted = true;
     };
     axis(RR_AMIGA_JOY_LEFT, RR_AMIGA_JOY_RIGHT, GamePadAction::PULL_LEFT, GamePadAction::PULL_RIGHT, GamePadAction::RELEASE_X);
     axis(RR_AMIGA_JOY_UP, RR_AMIGA_JOY_DOWN, GamePadAction::PULL_UP, GamePadAction::PULL_DOWN, GamePadAction::RELEASE_Y);
     if ((bits ^ was) & RR_AMIGA_JOY_FIRE) joy.trigger(bits & RR_AMIGA_JOY_FIRE ? GamePadAction::PRESS_FIRE : GamePadAction::RELEASE_FIRE);
     if ((bits ^ was) & RR_AMIGA_JOY_FIRE2) joy.trigger(bits & RR_AMIGA_JOY_FIRE2 ? GamePadAction::PRESS_FIRE2 : GamePadAction::RELEASE_FIRE2);
+    return acted || ((bits ^ was) & (RR_AMIGA_JOY_FIRE | RR_AMIGA_JOY_FIRE2));
+}
+
+extern "C" void rr_amiga_joystick(RrAmigaSession *s, unsigned bits) {
+    joystick_actions(s->amiga->controlPort2.joystick, s->joy, bits);
     s->joy = bits;
 }
 
+// Port 1 follows the device used last, as vAmiga's ports do by themselves; a forced mode keeps the other device's input away from it.
 extern "C" void rr_amiga_mouse(RrAmigaSession *s, int dx, int dy, int left, int right) {
-    auto &mouse = s->amiga->controlPort1.mouse;
-    if (dx || dy) mouse.setDxDy((double)dx, (double)dy);
-    if (!left != !s->mouse_left) mouse.trigger(left ? GamePadAction::PRESS_LEFT : GamePadAction::RELEASE_LEFT);
-    if (!right != !s->mouse_right) mouse.trigger(right ? GamePadAction::PRESS_RIGHT : GamePadAction::RELEASE_RIGHT);
+    if (s->port1_mode != RR_AMIGA_PORT1_JOYSTICK) {
+        auto &mouse = s->amiga->controlPort1.mouse;
+        if (dx || dy) mouse.setDxDy((double)dx, (double)dy);
+        if (!left != !s->mouse_left) mouse.trigger(left ? GamePadAction::PRESS_LEFT : GamePadAction::RELEASE_LEFT);
+        if (!right != !s->mouse_right) mouse.trigger(right ? GamePadAction::PRESS_RIGHT : GamePadAction::RELEASE_RIGHT);
+        if (dx || dy || !left != !s->mouse_left || !right != !s->mouse_right) s->port1_joystick = 0;
+    }
     s->mouse_left = left != 0; s->mouse_right = right != 0;
+}
+
+extern "C" void rr_amiga_joystick2(RrAmigaSession *s, unsigned bits) {
+    if (s->port1_mode != RR_AMIGA_PORT1_MOUSE && joystick_actions(s->amiga->controlPort1.joystick, s->joy2, bits)) s->port1_joystick = 1;
+    s->joy2 = bits;
+}
+
+extern "C" void rr_amiga_port1_mode(RrAmigaSession *s, int mode) {
+    if (mode < RR_AMIGA_PORT1_FOLLOW || mode > RR_AMIGA_PORT1_JOYSTICK) mode = RR_AMIGA_PORT1_FOLLOW;
+    s->port1_mode = mode;
+    if (mode == RR_AMIGA_PORT1_MOUSE) { s->amiga->controlPort1.setDevice(ControlPortDevice::MOUSE); s->port1_joystick = 0; }
+    if (mode == RR_AMIGA_PORT1_JOYSTICK) { s->amiga->controlPort1.setDevice(ControlPortDevice::JOYSTICK); s->port1_joystick = 1; }
+}
+
+extern "C" int rr_amiga_port1_device(RrAmigaSession *s) {
+    return s->port1_joystick;
 }
 
 extern "C" void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) {
@@ -807,7 +838,8 @@ extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *p
 // magic, ABI string, the install's identity, frame, inputs held, sizes, a checksum (FNV-1a 64 of the whole file with this field
 // zero), then the resload state (its host callbacks are this process's), the keys held, vAmiga's snapshot and the sound path's
 // memory. A state of another build or install, or one whose bytes changed, is refused before the machine is touched.
-struct StateHead { char magic[16]; char abi[72]; char identity[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, snapshot_size, audio_size, reserved; uint64_t checksum; };
+// `port1`: the device port 1 holds (bit 0: the joystick; vAmiga's snapshot does not keep it) and the second joystick's held bits (8-15).
+struct StateHead { char magic[16]; char abi[72]; char identity[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, snapshot_size, audio_size, port1; uint64_t checksum; };
 static_assert(sizeof(StateHead) == 200, "the Amiga state header is 200 bytes (retrorecomp/amiga_conversion.py, damaged_states)");
 
 extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi, const char *identity) {
@@ -826,6 +858,7 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
         snprintf(head.abi, sizeof head.abi, "%s", abi ? abi : "");
         snprintf(head.identity, sizeof head.identity, "%s", identity ? identity : "");
         head.frame = s->frame; head.joy = s->joy; head.mouse_left = (uint32_t)s->mouse_left; head.mouse_right = (uint32_t)s->mouse_right;
+        head.port1 = (uint32_t)rr_amiga_port1_device(s) | (s->joy2 & 0xFFu) << 8;
         head.snapshot_size = (uint32_t)snap->data.size;
         // The sound path's own memory (samplers, filters, volume ramps), which the snapshot leaves out.
         std::vector<uint8_t> audio;
@@ -862,6 +895,7 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     bool ok = fread(&head, sizeof head, 1, f) == 1;
     if (ok && (memcmp(head.magic, STATE_MAGIC, sizeof head.magic) || strncmp(head.abi, abi ? abi : "", sizeof head.abi) ||
                strncmp(head.identity, identity ? identity : "", sizeof head.identity))) { fclose(f); return 2; }
+    ok = ok && !(head.port1 & ~0xFF01u);       // only the device bit and the joystick's bits
     ok = ok && fread(&rl, sizeof rl, 1, f) == 1 && fread(keys, sizeof keys, 1, f) == 1 && head.snapshot_size && head.snapshot_size < (256u << 20) && head.audio_size < (64u << 20);
     std::vector<uint8_t> audio;
     if (ok) { data.resize(head.snapshot_size); ok = fread(data.data(), 1, data.size(), f) == data.size(); }
@@ -902,6 +936,9 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     s->frame = head.frame;
     // The inputs held when the state was saved: what the machine's ports hold now.
     s->joy = head.joy; s->mouse_left = (int)head.mouse_left; s->mouse_right = (int)head.mouse_right;
+    s->joy2 = head.port1 >> 8 & 0xFFu;
+    s->port1_joystick = (int)(head.port1 & 1u);
+    s->amiga->controlPort1.setDevice(s->port1_joystick ? ControlPortDevice::JOYSTICK : ControlPortDevice::MOUSE);
     memcpy(s->keys, keys, sizeof keys);
     set_traps();
     update_hook();

@@ -167,6 +167,13 @@ def long_route(identity: str, index: int, frames: int, key_exit: int) -> list[tu
     return long_events(f'amiga-long:{identity}:{index}', frames, tuple(key for key in LONG_ROUTE_KEYS if key != key_exit))
 
 
+# The second joystick on the proof routes, by the install's SHA-256: `joy2` events (port 1's joystick, the second player's, which takes the
+# port from the mouse when it is used), added to the main route of the installs listed here only, so that a two-player path runs on the
+# fresh reference and the native game alike. Reviewed data, the inputs a second player gives; no route of another install changes. In play,
+# no table is needed: port 1 follows the device used last (amiga_session.cpp, rr_amiga_joystick2).
+ROUTE_PLAYER2: dict[str, dict] = {}
+
+
 def route_events(identity: str, name: str, frames: int, key_exit: int, answered: bool = True) -> list[tuple[int, int, str, int, int]]:
     """The input script of route `name` ('main', 'explore' or 'long-N') of the exact install, `frames` long, as the conversion plays it: an
     answered install (ROUTE_ANSWERS) starts every route with its answer, unless `answered` is false (a qualification script replaces the main
@@ -181,8 +188,13 @@ def route_events(identity: str, name: str, frames: int, key_exit: int, answered:
     else:
         raise ValueError(f'unknown Amiga route {name!r}')
     if answer:
-        return answered_route(answer, frames, key_exit, generic)
-    return generic(frames) if generic else main_route(frames, key_exit)
+        events = answered_route(answer, frames, key_exit, generic)
+    else:
+        events = generic(frames) if generic else main_route(frames, key_exit)
+    player2 = ROUTE_PLAYER2.get(identity) if answered and name == 'main' else None
+    if player2:
+        events = sorted(events + [event for event in player2['events'] if event[1] <= frames])
+    return events
 
 
 def write_events(path: Path, events) -> Path:
@@ -515,7 +527,7 @@ STATE_SETTLE = 600
 # native/amiga_machine/amiga_session.cpp, StateHead: magic 16, ABI 72, the install's identity 72, frame 8, inputs 12, the
 # snapshot's and the sound's sizes 8, reserved 4, checksum 8.
 STATE_HEADER = 200
-STATE_OFFSETS = {'magic': 0, 'abi': 16, 'identity': 88, 'frame': 160, 'joystick': 168, 'snapshot-size': 180, 'audio-size': 184,
+STATE_OFFSETS = {'magic': 0, 'abi': 16, 'identity': 88, 'frame': 160, 'joystick': 168, 'snapshot-size': 180, 'audio-size': 184, 'port1': 188,
                  'checksum': 192}
 
 
@@ -992,7 +1004,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                                                                    'generator': 'computer_routes.long_events'} for name, frames_, events in routes if name.startswith('long-')]},
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
-                            'schema': 'RRAMIGA-STATE-3', 'machine': 'amiga500', 'rom_identity': source.sha256,
+                            'schema': 'RRAMIGA-STATE-4', 'machine': 'amiga500', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': True, 'saved_at_frame': state_frame,
                                            'continuation_frames': STATE_SETTLE, 'continuation_matches': True,
                                            **{key: state_check[key] for key in ('fresh_process_match', 'truncated_state_rejected',
@@ -1004,7 +1016,9 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             'display': {'shown': 'the display window the game opens (union of DIWSTRT/DIWSTOP)', 'window': list(view) if view else None,
                         'unit': 'picture columns (hires) and lines; the standard window when none was opened',
                         'measured_on': [name for name, _, _ in routes]},
-            'input_players': 1, 'peripheral': {'joystick_ports': 1, 'mouse': 'port 1, captured on a click', 'keyboard': 'guest keyboard (Ctrl+Alt+K for full typing)'},
+            'input_players': 2, 'peripheral': {'joystick_ports': 2, 'mouse': 'port 1, captured on a click',
+                                               'port1': 'the mouse or the second joystick: the device used last holds the port (Mouse port on player 2\'s pad page)',
+                                               'keyboard': 'guest keyboard (Ctrl+Alt+K for full typing)'},
             'video_model': {'standard': 'NTSC' if ntsc_install(source) else 'PAL', 'frameskip': False, 'fps': packed_results[0]['fps'], 'fps_is': 'nominal'},
             'runtime_data': {'directory': 'datas', 'shared_config': 'datas/Retro-Recomp.ini', 'game_directory': 'datas/games/amiga-' + source.sha256},
             'artwork': artwork, 'windows_metadata': metadata,
