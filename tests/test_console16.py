@@ -54,7 +54,7 @@ class Console16Tests(unittest.TestCase):
         path.write_bytes(payload)
         return path
 
-    def test_md_state_config_lists_no_compatibility_key_while_its_key_did_not_move(self):
+    def test_md_state_config_lists_the_1_7_4_windows_key_only_on_windows(self):
         # Only the previous release's key may ever be listed (docs/GAME_STATES.md), and only when it is not the build's own:
         # the Mega Drive key of 1.6.3 is the key of 1.6.4 (tests/test_legacy_compat.py pins the value), so there is nothing to
         # list, on Windows or elsewhere.
@@ -74,7 +74,12 @@ class Console16Tests(unittest.TestCase):
                 write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
             text = (self.root/'retro16_state_config.h').read_text()
             self.assertRegex(text, r'#define RR16_STATE_ABI "[0-9a-f]{64}"')
-            self.assertNotIn('RR16_STATE_COMPAT_ABI', text, name)
+            # 1.7.5 accepts the key of 1.7.4 (the same layout files), on Windows only: a Linux key also hashes its target.
+            from retrorecomp.console16_state import STATE_ABI_174
+            if name == 'nt':
+                self.assertIn('#define RR16_STATE_COMPAT_ABI "%s"' % STATE_ABI_174['md'][None], text, name)
+            else:
+                self.assertNotIn(STATE_ABI_174['md'][None], text, name)
 
     def test_bundled_compiler_fingerprint_needs_no_source_file(self):
         import sys

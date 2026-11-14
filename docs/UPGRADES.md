@@ -88,7 +88,25 @@ stamps that section says move. Each section computed its stamps for its own chan
 | --- | --- | --- | --- |
 | [MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status](#msx-and-msx2-the-mapper-probe-of-battery-backed-boards-the-exit-panel-and-the-exit-from-the-experimental-status-175) | the MSX, the MSX2 and the MSX2+ | none | none (`msx-state-5`) |
 | [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
+| [Mega Drive and Super Nintendo: an interface change no longer refuses the quick states](#mega-drive-and-super-nintendo-an-interface-change-no-longer-refuses-the-quick-states-175) | the Mega Drive, the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16_state.py`); nothing a game runs changes | none | Mega Drive and Super Nintendo keys move once; the 1.7.4 keys are accepted (Windows and Linux) |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
+
+## Mega Drive and Super Nintendo: an interface change no longer refuses the quick states (1.7.5)
+
+The quick-state key of the two consoles hashes the files that fix the state layout only (`console16_state.state_layout_files`): the
+console's listed native files minus the host role (the player shell: menus, fonts, options, display and audio output). Until 1.7.4 every
+interface change moved it and refused the players' states. The list and the reason are in
+[GAME_STATES.md](GAME_STATES.md#mega-drive-and-super-nintendo-the-key-hashes-the-layout-files-only-175).
+
+- **Quick states:** the key moves once in 1.7.5, and the 1.7.4 key of the build's target is accepted (`RR16_STATE_COMPAT_ABI`; Windows,
+  `linux-x86_64`, `linux-arm64`, computed by the same function as the build's key from the files of the v1.7.4 tag, the Windows values
+  equal to the keys real 1.7.4 builds wrote): the layout files are byte for byte those of 1.7.4 for both consoles; a state saved by a 1.7.4
+  Sonic 2 and Super Mario World (Windows) loads in the 1.7.5 build and continues with the same hashes as in 1.7.4 for 300 frames.
+- **Stamps** (`tools/std_baseline.py`, tree `efdc0585` against this one): the game stamps of the Mega Drive, the Super Nintendo, the Neo Geo,
+  the CPS-1, the CPS-2, the PC Engine and the PlayStation move (`retrorecomp/console16_state.py` is one of their game inputs); no host or build
+  stamp. Nothing a game runs changes.
+- **Not changed:** `compilation_inputs.state_native_files` (the full owned list) and the Master System / Game Gear build signature that uses it;
+  the CPS-1, Neo Geo, PC Engine and PlayStation keys (explicit lists of their own).
 
 ## Commodore Amiga: its paths are shared, as the experimental tier of the base (1.7.5, G16)
 
