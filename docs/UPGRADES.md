@@ -79,6 +79,34 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.4 in 1.7.5
+
+1.7.5 is the release after 1.7.4 (published on 14 November 2026). This section is the index of its changes, one line per section below, with the
+stamps that section says move. Each section computed its stamps for its own change alone, on the tree of its branch.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
+
+## 68000 computers: the shared paths' common part cut out of the X68000's module (1.7.5)
+
+The Amiga and the Atari ST share their paths like the X68000: RAM code tied to positions in the player's own media, firmware instructions tied to the
+player's own firmware image (the IPL, the Kickstart, the TOS). The code that does it was the X68000's (`x68_knowledge.py`); it is now
+`retrorecomp/m68k_media_knowledge.py`, one `MediaKnowledge` per machine, and nothing in it names a machine.
+
+- **What is common.** The word-count table, the search of runs of observed instructions in the media, the records (make, validate, merge,
+  rebuild, entry set), promotion, the expansion of received paths from the player's own images, the guidance of the three banks and the player's
+  library record.
+- **What stays the X68000's** (`x68_knowledge.py`): its names, bounds, windows and the words of its refusals, its engine identity
+  (`engine_core`, `GENERATOR_REVISION`), its disk content, the IPL as the machine maps it and which observed IPL entries become rows.
+- **Identical results.** `tests/test_m68k_media_knowledge.py` runs twelve deterministic scenarios through every function of the X68000 module
+  (records, counts, merges, rebuilds, expansions, the guidance a conversion receives, every refusal's words) and pins the SHA-256 of all outcomes,
+  computed on the module before the cut (`9f9e9ce9`): it holds. `tests/test_x68_knowledge.py` passes, with one test now lowering the bound on the
+  common part. The engine identity does not move, so every X68000 path qualified for its engine stays qualified.
+- **Stamps** (`compilation_inputs.role_stamps`, this branch against `9f9e9ce9`): **the game stamp of the X68000 only** (the new module is in its
+  inputs, the group `shares:m68k_media_knowledge`); no host or build stamp; no quick-state key. An X68000 export of 1.7.4 is converted once in full,
+  with the same result.
+
 ## Exports of 1.7.3 in 1.7.4
 
 1.7.4 is the release after 1.7.3 (published on 13 November 2026). This section is the index of its changes, one line per section below (or per page when a change has no
