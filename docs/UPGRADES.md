@@ -87,10 +87,32 @@ stamps that section says move. Each section computed its stamps for its own chan
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status](#msx-and-msx2-the-mapper-probe-of-battery-backed-boards-the-exit-panel-and-the-exit-from-the-experimental-status-175) | the MSX, the MSX2 and the MSX2+ | none | none (`msx-state-5`) |
+| [Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units](#game-boy-advance-the-sound-is-compared-the-quick-state-has-a-checksum-a-save-larger-than-its-chip-is-set-aside-the-report-names-its-units-175) | the Game Boy Advance only (`f65705900b6a` to `abd0ac4473c0`: its probe patches, its player, its conversion) | none | the quick state of a Game Boy Advance game converted before is refused cleanly (the new envelope) |
 | [Commodore Amiga: supported](#commodore-amiga-supported-175) | the Amiga (`retrorecomp/systems/amiga.py`, its status) | none (the interface strings are in no stamp) | none |
 | [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
 | [Mega Drive and Super Nintendo: an interface change no longer refuses the quick states](#mega-drive-and-super-nintendo-an-interface-change-no-longer-refuses-the-quick-states-175) | the Mega Drive, the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16_state.py`); nothing a game runs changes | none | Mega Drive and Super Nintendo keys move once; the 1.7.4 keys are accepted (Windows and Linux) |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
+
+## Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units (1.7.5)
+
+**What changes.**
+- **The sound is part of the conversion's verdict** (gate G4). Three anchored patches of the engine (`docs/UPSTREAMS.md`, 55 patches in all) make the mixer keep a hash of every sample it produces; the
+  probe's snapshot line prints it with the count, and the native run is compared with the interpreter's on it, next to the picture, the cycles and the memory and CPU hashes. None of the three touches what
+  a path names: the shared paths, their key and the site's limits do not change.
+- **The quick state is wrapped in a checksum** (gate G6). The player writes the engine's state inside an envelope of its own (`RRGS`, a version, a length and a 64-bit hash) and refuses a file damaged anywhere; a state of an earlier build
+  has no envelope and is **refused cleanly** with a message, nothing else is lost.
+- **A save file larger than the chip is set aside** (gate G7). The engine refused such a file and the game did not open (exit code 1); the player now moves it to `<file>.damaged` and starts without a save. A smaller or damaged file
+  of the right size is read as before. The header of the player names the chip's largest save (`RR_GBA_SAVE_LIMIT`).
+- **The report** (gate G2) names the picture processing unit and the sound unit as hardware devices, carries `route_warnings` and the qualification scope, and its rows give the sound hash and sample count of each scenario.
+- **A batch of two conversions builds a new recompiler one after the other** (a lock file in `.deps`): two builds in one folder broke the second one's configuration.
+- **Test switches of the player** (never read in play): `RETRORECOMP_GBA_SHOTS` and `RETRORECOMP_GBA_SHOT_DIR` write the picture of chosen frames; the tools `gba_route_captures.py` and `gba_fresh_process.py damaged-saves` use them.
+
+**Hot path:** no. The player does one `getenv` per switch at start; the sound is hashed only when the rows file is asked for, and the state envelope is written and read at F8 and F9 only.
+
+**What moves:** the Game Boy Advance **game** stamp only (`f65705900b6a` on the tree of 13 November, `abd0ac4473c0` on this branch: `native/gba_machine.cpp`, `retrorecomp/gba_patches.py`, `gba_build.py`, `gba_conversion.py`, `gba_player.py` and
+`systems/gba.py` are game inputs). The Game Boy Advance host and build stamps (`3f8e2ffea164`, `6b70933a9b0a`) and **every other console's stamp** are those of main (compared with main `19ad2cb8`: only that one differs).
+**Existing exports:** the game stamp moves, so an export is converted again in full at its next conversion, from the player's own paths (the machine is experimental and its exports are private; no frozen legacy stamp). **Site limits:**
+unchanged (the record, its key and `PATH_REVISION` do not move; the pinned-patch test passes).
 
 ## Commodore Amiga: supported (1.7.5)
 
