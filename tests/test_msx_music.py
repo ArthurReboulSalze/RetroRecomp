@@ -1,5 +1,6 @@
 """MSX-MUSIC, the MSX2+'s YM2413 (native/msx_machine/msx_music.c on emu2413): the vendored files, the generated quick-state copy of
-the chip, the BIOS source and the runners' options, the FM BIOS check, the profile. No ROM, no compiler."""
+the chip, the BIOS source and the runners' options, the FM BIOS check, the profile; and the player's own kanji font. No ROM, no
+compiler."""
 import hashlib
 import json
 import tempfile
@@ -82,6 +83,27 @@ class BuildTests(unittest.TestCase):
         self.assertIn('msx2plus_fmbios', [key.name for key in plus.option_keys])
         self.assertIn('licenses/emu2413.md', plus.notice_files)
         self.assertNotIn('licenses/emu2413.md', get_profile('msx2').notice_files)
+
+
+class KanjiTests(unittest.TestCase):
+    """The player's own kanji font (ports D8h-DBh, msx_set_kanji; the C checks are in msx_hardware_checks.c)."""
+
+    def test_a_kanji_font_is_128_or_256_kib_of_glyphs(self):
+        from retrorecomp.msx_conversion import ConversionError, own_kanji
+        with tempfile.TemporaryDirectory() as folder:
+            for size in (0x20000, 0x40000):
+                font = Path(folder) / f'{size}.rom'
+                font.write_bytes(bytes(range(256)) * (size // 256))
+                self.assertEqual(len(own_kanji(font)), size)
+            for name, data in (('short.rom', bytes(range(256)) * 0x100), ('blank.rom', b'\xFF' * 0x20000)):
+                (Path(folder) / name).write_bytes(data)
+                with self.assertRaises(ConversionError):
+                    own_kanji(Path(folder) / name)
+
+    def test_the_msx2plus_offers_the_kanji_font(self):
+        from retrorecomp.systems import get_profile
+        self.assertIn('msx2plus_kanji', [key.name for key in get_profile('msx2plus').option_keys])
+        self.assertNotIn('msx2_kanji', [key.name for key in get_profile('msx2').option_keys])
 
 
 if __name__ == '__main__':

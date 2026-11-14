@@ -244,6 +244,9 @@ typedef struct {
     uint8_t has_rtc;
     uint8_t has_f4, port_f4;   /* MSX2+: the I/O port F4h the BIOS reads at start (a latch here, 00h at power-on) */
     MsxFm *fm;                 /* MSX2+: MSX-MUSIC (msx_music.c), NULL when absent */
+    const uint8_t *kanji;      /* the player's own kanji font (msx_set_kanji), NULL when absent */
+    uint32_t kanji_size;       /* 128 KiB (JIS level 1) or 256 KiB (levels 1 and 2) */
+    uint32_t kanji_address[2]; /* level 1 (ports D8h-D9h) and level 2 (DAh-DBh) */
     uint64_t frames;
     uint64_t unmapped_reads, dropped_writes;
 } MsxMachine;
@@ -305,6 +308,10 @@ void msx_set_disk_interface(MsxMachine *m, int primary, const uint8_t *rom, MsxF
 /* MSX-MUSIC: its 16 KB BIOS (the "APRLOPLL" signature the programs look for) at 4000h-7FFFh of slot 3-1, translated as part
  * of the BIOS source from its 8 KB bank `bank_base`, and the chip `fm`. */
 void msx_set_music(MsxMachine *m, const uint8_t *rom, uint8_t bank_base, MsxFm *fm);
+/* The kanji font ROM on I/O ports D8h-DBh: `size` 128 KiB (JIS level 1 only) or 256 KiB (level 2 on DAh-DBh); never shipped, the
+ * player's own. Ports D8h/DAh set address bits 5-10 and D9h/DBh bits 11-16, a read of D9h/DBh returns the byte and steps the
+ * low five bits (the 32 bytes of a 16 x 16 glyph), as openMSX's kanji device does. */
+void msx_set_kanji(MsxMachine *m, const uint8_t *rom, uint32_t size);
 /* The MSX2+ board: the MSX2's, with the V9958 and the port F4h. */
 void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
 

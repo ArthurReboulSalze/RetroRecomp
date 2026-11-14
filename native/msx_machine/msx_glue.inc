@@ -26,6 +26,9 @@ static MsxMachine machine;
 static uint8_t ram[65536];
 static uint8_t slot0[0x18000];             /* the BIOS source: main, logo page; on the MSX2 the sub-ROM at C000h; a disk ROM at 10000h;
                                              * the MSX2+'s MSX-MUSIC BIOS at 14000h */
+#ifndef RR_MSX_KANJI
+#define RR_MSX_KANJI 0      /* the player's own kanji font: 1 when the game carries it (resource 107) */
+#endif
 #ifndef RR_MSX_MUSIC
 #define RR_MSX_MUSIC 0      /* MSX-MUSIC: 1 in an MSX2+ build (msx_build stages msx_music.c and emu2413 then) */
 #endif

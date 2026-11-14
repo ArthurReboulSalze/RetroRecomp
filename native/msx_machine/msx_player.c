@@ -350,6 +350,15 @@ static int setup_machine(void)
         if (!fm) { fprintf(stderr, "[msx] MSX-MUSIC could not start\n"); return 3; }
         msx_set_music(&machine, slot0 + 0x14000, 10, fm);
 #endif
+#if RR_MSX_KANJI
+        size_t kanji_size = 0;                   /* the player's own kanji font (resource 107), never shipped */
+        const uint8_t *kanji = rr_resource(107, &kanji_size);
+        if (!kanji || (kanji_size != 0x20000 && kanji_size != 0x40000)) {
+            fprintf(stderr, "[msx] the game's kanji font resource is missing\n");
+            return 3;
+        }
+        msx_set_kanji(&machine, kanji, (uint32_t)kanji_size);
+#endif
     } else {
         MsxDevice bios = { MSX_DEV_ROM, slot0, (uint32_t)bios_size, 0, NULL };
         bios.source = 1;

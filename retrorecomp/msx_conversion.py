@@ -125,7 +125,7 @@ def _basic_only(data: bytes) -> bool:
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, boxart_dir=None,
             msx_bios=None, frames=FRAMES, passes=3, scan_level=None,
             standard_override=None, profile=None, emit=print, model='msx1', msx2_bios=None, msx2_subrom=None,
-            msx2_ram=256, msx2_diskrom=None, msx2_fmbios=None, **unused) -> Path:
+            msx2_ram=256, msx2_diskrom=None, msx2_fmbios=None, msx2_kanji=None, **unused) -> Path:
     from . import __version__, msx_build, msx_cbios
     from .core import ROOT, executable_name
     from .library import entry_lock
@@ -204,8 +204,17 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             raise ConversionError(str(error)) from None
         bios_image = bios_image.ljust(0x14000, b'\xFF') + fm_bios
         bios_source['fm_bios'] = {'kind': 'own' if msx2_fmbios else 'c-bios', 'sha256': hashlib.sha256(fm_bios).hexdigest()}
-    # One work folder per cartridge and BIOS: the probe, the bodies, the learned patterns and the game are those of this pair.
-    work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image).hexdigest()[:8]}"
+    kanji = None
+    if plus and msx2_kanji:
+        # The player's own kanji font on ports D8h-DBh (C-BIOS has none): embedded in the player's game, never shipped.
+        try:
+            kanji = own_kanji(msx2_kanji)
+        except (OSError, ValueError) as error:
+            raise ConversionError(str(error)) from None
+        bios_source['kanji_font'] = {'kind': 'own', 'bytes': len(kanji), 'sha256': hashlib.sha256(kanji).hexdigest()}
+    # One work folder per cartridge and BIOS (with the kanji font when there is one): the probe, the bodies, the learned
+    # patterns and the game are those of this pair.
+    work = ROOT / '.build' / 'msx' / f"{cart.sha256[:12]}-{hashlib.sha256(bios_image + (kanji or b'')).hexdigest()[:8]}"
     timings = {}
     probe = reference_probe = None
     standard_args = ['--pal'] if standard == 'pal' else []
@@ -213,6 +222,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         work.mkdir(parents=True, exist_ok=True)
         bios_args = _bios_files(work, bios_image, msx2, mapper_kib, plus, disk=disks is not None)
         msx_build.set_music(work, plus)
+        if kanji is not None:
+            if not (work / 'kanji.rom').is_file() or (work / 'kanji.rom').read_bytes() != kanji:
+                (work / 'kanji.rom').write_bytes(kanji)
+            bios_args += ['--kanji', str(work / 'kanji.rom')]
         if disks is not None:
             for disk in disks.disks:                          # read in place; drive A holds the first
                 bios_args += ['--disk', str(disk)]
@@ -354,7 +367,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         presentation = {'rom_path': Path(path), 'cover': Path(cover) if cover else None, 'use_cover': use_cover,
                         'online_cover': online_cover, 'boxart_dir': boxart_dir}
         prepared = prepare_game(work, cart, cartridge, title, guess, standard, bios_image, emit, model=model, disks=disks,
-                                mapper_kib=mapper_kib, presentation=presentation, cbios=own is None)
+                                mapper_kib=mapper_kib, presentation=presentation, cbios=own is None, kanji=kanji)
         try:
             executable = msx_build.build(work, ('game',), emit)['game']
         except Exception as error:  # noqa: BLE001 - the build's own log names the cause
@@ -506,6 +519,14 @@ def own_fmbios(path) -> bytes:
     data = Path(path).read_bytes()
     if len(data) != 0x4000 or data[:2] != b'AB' or data[0x18:0x20] != b'APRLOPLL':
         raise ConversionError(f'{Path(path).name}: not an MSX-MUSIC BIOS (16 KiB with the "APRLOPLL" signature).')
+    return data
+
+
+def own_kanji(path) -> bytes:
+    """The player's own kanji font: 128 KiB (JIS level 1) or 256 KiB (levels 1 and 2), not a blank image."""
+    data = Path(path).read_bytes()
+    if len(data) not in (0x20000, 0x40000) or len(set(data[:0x4000])) < 2:
+        raise ConversionError(f'{Path(path).name}: not an MSX kanji font (128 or 256 KiB of glyphs).')
     return data
 
 
@@ -725,7 +746,7 @@ def state_binding(bios: bytes, guess, standard: str, model: str, mapper_kib: int
 
 def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard: str, bios: bytes, emit=print, *,
                  model: str = 'msx1', mapper_kib: int = 0, presentation: dict | None = None, cbios: bool = True,
-                 disks=None) -> dict:
+                 disks=None, kanji: bytes | None = None) -> dict:
     """The game's resources beside the project: the cartridge as the checked runs saw it (103, padded to whole banks), the BIOS
     (104), the notices (203), the identity (205), the Windows metadata and icon, and msx_game.h. `presentation` (the
     player's cover options: rom_path, cover, use_cover, online_cover, boxart_dir) gives the icon its cover, found as on the
@@ -757,7 +778,8 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
     metadata = write_game_metadata(work, title, executable_name(title), light_phaser=False, icon=bool(artwork['embedded']),
                                    standard=standard, system_id=system_id)
     (work / 'content.rc').write_text('#pragma code_page(65001)\n103 RCDATA "cartridge.rom"\n104 RCDATA "slot0.rom"\n'
-                                     + ('106 RCDATA "disks.bin"\n' if disks is not None else '') +
+                                     + ('106 RCDATA "disks.bin"\n' if disks is not None else '')
+                                     + ('107 RCDATA "kanji.rom"\n' if kanji is not None else '') +
                                      '203 RCDATA "notices.txt"\n205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n',
                                      encoding='utf-8', newline='\n')
     resources = {103: work / 'cartridge.rom', 104: work / 'slot0.rom', 203: work / 'notices.txt',
@@ -765,6 +787,8 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
     if disks is not None:                         # the disks, in order: the player keeps its own copies of what the game writes
         _write_bytes(work / 'disks.bin', b''.join(disks.images))
         resources[106] = work / 'disks.bin'
+    if kanji is not None:                         # the player's own kanji font
+        resources[107] = work / 'kanji.rom'
     embed_resources(work, resources)
     mappers = {'plain': 'MSX_MAPPER_PLAIN', 'konami': 'MSX_MAPPER_KONAMI', 'konami-scc': 'MSX_MAPPER_KONAMI_SCC',
                'ascii8': 'MSX_MAPPER_ASCII8', 'ascii16': 'MSX_MAPPER_ASCII16'}
@@ -776,6 +800,7 @@ def prepare_game(work: Path, cart, cartridge: bytes, title: str, guess, standard
         f'#define RR_MSX_MAPPER_SEGMENTS {mapper_kib // 16}\n'
         f'#define RR_MSX_SRAM_BIT {0 if guess.sram is None else 1 << guess.sram}\n'
         f'#define RR_MSX_DISKS {0 if disks is None else len(disks.images)}\n'
+        f'#define RR_MSX_KANJI {int(kanji is not None)}\n'
         f'#define RR_MSX_DISK_SIZES {{{", ".join(str(len(i)) for i in (disks.images if disks is not None else ()))}}}\n'
         f'#define RR_MSX_STATE_ABI {{{", ".join(f"0x{b:02X}" for b in state_binding(bios, guess, standard, model, mapper_kib))}}}\n',
         encoding='utf-8', newline='\n')

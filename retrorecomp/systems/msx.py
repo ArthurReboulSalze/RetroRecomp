@@ -215,12 +215,14 @@ class Msx2PlusProfile(Msx2Profile):
     media_kinds = ('cartridge', 'disk')
     export_folder = 'MSX2+'
     scope_note = ('MSX2+ cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2+ '
-                  'BIOS; the V9958 with YJK and the horizontal scroll; MSX-MUSIC; disk games with your own BIOS and disk ROM')
+                  'BIOS; the V9958 with YJK and the horizontal scroll; MSX-MUSIC; your own kanji font; disk games with your own BIOS '
+                  'and disk ROM')
     option_keys = (OptionKey('msx2plus_bios', signature=False, kind='path', label='msx2plus_bios_label'),
                    OptionKey('msx2plus_subrom', signature=False, kind='path', label='msx2plus_subrom_label'),
                    OptionKey('msx2plus_ram', kind='choice', label='msx2plus_ram_label', choices=(128, 256, 512), default=256),
                    OptionKey('msx2plus_diskrom', signature=False, kind='path', label='msx2plus_diskrom_label'),
-                   OptionKey('msx2plus_fmbios', signature=False, kind='path', label='msx2plus_fmbios_label'))
+                   OptionKey('msx2plus_fmbios', signature=False, kind='path', label='msx2plus_fmbios_label'),
+                   OptionKey('msx2plus_kanji', signature=False, kind='path', label='msx2plus_kanji_label'))
     # The MSX2's components, and emu2413 for MSX-MUSIC.
     notice_files = (*Msx2Profile.notice_files, 'licenses/emu2413.md')
     quick_state_family = 'msx2plus'
@@ -302,7 +304,7 @@ class Msx2PlusProfile(Msx2Profile):
             bios = None
         settings['msx2plus_bios'] = bios[1] if bios is not None else 'cbios-' + msx_cbios.VERSION
         settings['msx2plus_ram'] = int(options.get('msx2plus_ram') or 256)
-        for key in ('msx2plus_diskrom', 'msx2plus_fmbios'):
+        for key in ('msx2plus_diskrom', 'msx2plus_fmbios', 'msx2plus_kanji'):
             if options.get(key):
                 import hashlib
                 try:
@@ -317,6 +319,7 @@ class Msx2PlusProfile(Msx2Profile):
         options['msx2_ram'] = options.pop('msx2plus_ram', None) or 256
         options['msx2_diskrom'] = options.pop('msx2plus_diskrom', None)
         options['msx2_fmbios'] = options.pop('msx2plus_fmbios', None)
+        options['msx2_kanji'] = options.pop('msx2plus_kanji', None)
         return convert(path, model='msx2plus', **options)
 
 

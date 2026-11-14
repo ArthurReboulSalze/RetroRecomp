@@ -117,6 +117,9 @@ static uint32_t reference_cpu_hash(const z80 *z)
 
 /* MSX-MUSIC (--fmbios, MSX2+ builds): its 16 KB BIOS at 14000h of the BIOS source, the chip on ports 7Ch-7Dh. */
 static const char *fmbios_file;
+/* The player's own kanji font (--kanji, 128 or 256 KiB) on ports D8h-DBh. */
+static const char *kanji_file;
+static uint8_t kanji_rom[0x40000];
 
 /* The disk interface (--diskrom, --disk): the player's own disk ROM in primary slot 2, one disk in drive A. */
 static const char *diskrom_file, *disk_file[10];
@@ -181,6 +184,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--diskrom")) diskrom_file = v;
         else if (!strcmp(a, "--fmbios")) fmbios_file = v;
+        else if (!strcmp(a, "--kanji")) kanji_file = v;
         else if (!strcmp(a, "--disk")) { if (disk_files >= 10) { fprintf(stderr, "too many --disk\n"); return 2; } disk_file[disk_files++] = v; }
         else if (!strcmp(a, "--cart-base")) cart_base = strtoul(v, NULL, 16);
         else if (!strcmp(a, "--sram-bit")) sram_bit = strtoul(v, NULL, 10) < 8 ? 1ul << strtoul(v, NULL, 10) : 0;
@@ -226,6 +230,11 @@ int main(int argc, char **argv)
             msx_set_music(&machine, slot0 + 0x14000, 10, fm);
         }
 #endif
+        if (kanji_file) {
+            long size = load(kanji_file, kanji_rom, (long)sizeof kanji_rom);
+            if (size != 0x20000 && size != 0x40000) { fprintf(stderr, "bad --kanji\n"); return 2; }
+            msx_set_kanji(&machine, kanji_rom, (uint32_t)size);
+        }
     } else {
     msx_set_device(&machine, 0, 0, (MsxDevice){ MSX_DEV_ROM, slot0, logo_rom ? 0xC000u : 0x8000u, 0, NULL });
     if (!strcmp(layout, "expanded")) {            /* slot 3 expanded, RAM in 3-2 (the C-BIOS MSX2 layout) */
