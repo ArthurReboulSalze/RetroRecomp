@@ -270,8 +270,8 @@ shipped) with its C-BIOS MSX2+ machine shows the same slide at the same speed an
 longer). The R#1 difference seen on 13 November (openMSX's line interrupt off, 42h; ours on, 62h) came from MSX-MUSIC: the game takes another
 path when the chip is there. With MSX-MUSIC (1.7.6) our R#1 is 42h too; without the FM BIOS it is 62h again.
 
-**The five measures:** native code: 0 interpreted Z80 instructions on the 24 routes of the disk panel (the first conversion of each game
-learns its paths: between 0 and 40.5 million interpreted instructions in that pass, none after). CPU fidelity: each route equals a fresh
-run of the reference (the same Z80 interpreter on the same machine model), not real hardware. Hardware fidelity: not validated (the V9958, the
-PSG and the disk controller are C models; one openMSX comparison, above). Gameplay: bounded pad routes, not full games. Physical latency: not
-measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has the letters and their evidence.
+**The five measures:** native code: 0 interpreted Z80 instructions on the 27 routes of the 1.7.6 panel (four cartridges, five disk games;
+the first conversion of each game learns its paths, counted in that pass, none after). CPU fidelity: each route equals a fresh run of the
+reference (the same Z80 interpreter on the same machine model), not real hardware. Hardware fidelity: not validated (the V9958, the PSG, the
+YM2413 and the disk controller are C models; openMSX comparisons of the scroll and of MSX-MUSIC's levels, above). Gameplay: bounded pad
+routes, not full games. Physical latency: not measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has the letters and their evidence.
