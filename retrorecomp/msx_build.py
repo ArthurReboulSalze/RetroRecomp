@@ -305,7 +305,10 @@ PROBE_FRAMES = 300
 PROBE_WINDOWS = {                              # the 2 KB windows (address >> 11) holding each mapper's registers
     'ascii16': (12, 14),                       # 6000h-67FFh, 7000h-77FFh
     'ascii8': (12, 13, 14, 15),                # 6000h-7FFFh
-    'konami-scc': (10, 14, 18, 22),            # 5000h, 7000h, 9000h, B000h
+    # 5000h, 7000h, 9000h, B000h, and the SCC's own sound registers at 9800h-9FFFh: a game playing SCC music writes there far
+    # more than to its bank registers, and those writes counted as stray ones made the probe take The Goonies R Good Enough
+    # (Konami SCC: 37 bank and 145 sound writes) for ASCII 8 (6 of 24), 14 November 2026.
+    'konami-scc': (10, 14, 18, 19, 22),
     'konami': (12, 16, 20),                    # 6000h, 8000h, A000h
 }
 PROBE_IGNORED = (23, 31)                       # B800h-BFFFh (C-BIOS's slot probes at BFxxh), F800h-FFFFh (FFFFh)
