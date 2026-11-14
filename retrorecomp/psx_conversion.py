@@ -44,26 +44,61 @@ def _script(rows) -> str:
     return ''.join(f'{frame} {p1:04x} {p2:04x}\n' for frame, p1, p2 in rows) or '0 0000 0000\n'
 
 
+MENU_PERIOD = 900               # frames between two menu pushes of the walk
+
+
 def play_rows(frames: int, seed: int) -> list:
     """Start and Cross pressed through the title screens once the BIOS has booted, then a deterministic walk: a held
-    direction changing every second or so, with Cross and Circle tapped. Start is never pressed in the walk (it pauses)."""
+    direction changing every second or so, with Cross and Circle tapped, or with Cross held (to accelerate, to run). Every
+    MENU_PERIOD frames the walk pushes through a menu: Start twice, then Cross twice. In play the two Starts are a pause and
+    its release; on a title, a name entry or a menu that the first screens did not get past (a title that comes late, a
+    demo that loops), they are the steps a player takes. Nothing in it answers one game."""
     rows = []
     for at in range(BOOT_FRAMES, min(frames, BOOT_FRAMES + 1200), 240):
         rows += [(at, START, 0), (at + 8, 0, 0), (at + 120, CROSS, 0), (at + 128, 0, 0)]
     state = seed & 0xFFFFFFFF or 1
     directions = (RIGHT, RIGHT | UP, RIGHT | DOWN, LEFT, UP, DOWN, RIGHT)
     frame = BOOT_FRAMES + 1200
+    menu = frame + MENU_PERIOD // 2
     while frame < frames:
+        if frame >= menu:
+            for offset, button in ((0, START), (40, START), (80, CROSS), (120, CROSS)):
+                rows += [(frame + offset, button, 0), (frame + offset + 6, 0, 0)]
+            frame += 160
+            menu += MENU_PERIOD
+            continue
         state = (state * 1103515245 + 12345) & 0x7FFFFFFF
         held = directions[state % len(directions)]
         span = 30 + (state >> 8) % 60
-        for tap in range(0, span - 4, 12):
-            button = CROSS if (state >> (tap % 7)) & 1 else CIRCLE
-            rows += [(frame + tap, held | button, 0), (frame + tap + 4, held, 0)]
+        if (state >> 20) & 1:
+            rows.append((frame, held | CROSS, 0))
+        else:
+            for tap in range(0, span - 4, 12):
+                button = CROSS if (state >> (tap % 7)) & 1 else CIRCLE
+                rows += [(frame + tap, held | button, 0), (frame + tap + 4, held, 0)]
         frame += span
     rows = [row for row in rows if row[0] < frames]
     assert all(a[0] <= b[0] for a, b in zip(rows, rows[1:])), 'route frames must not go back'
     return rows
+
+
+# What the routes of a disc are known to stop on before play, by the disc's SHA-256: words about a game, never its bytes, read on
+# the captures of a panel and carried into the report's `route_warnings` (gate G9 names each panel disc whose routes do not reach
+# play, with its reason). It changes nothing a conversion does: no route is chosen from it.
+ROUTE_STOPS = {
+    '229817221df105882cc2fc23fa20ec60747b21d5c878e106ad0617d5bf3640ad':
+        'Metal Gear Solid: the routes pass its title, its menu and its level select, and the game goes back to its title '
+        'screen; the 18,000-frame route never starts a mission',
+    'cf687987dc11de870035643d5a4126a374b33c258eb925b2b2c81fda7bbff972':
+        'Gran Turismo 2 (Simulation Mode disc): the routes reach its world map and then its credit pages, where the walk '
+        'stays; no race is driven',
+}
+
+
+def route_stops(identity: str) -> list[str]:
+    """The known stop of a disc, as the words `route_warnings` carries: [] for a disc that is not in the table."""
+    note = ROUTE_STOPS.get(identity)
+    return [f'known stop (panel of 14 November 2026): {note}'] if note else []
 
 
 def routes(identity: str, *, frames: int, level: str) -> list[tuple[str, int, str]]:
@@ -336,6 +371,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                                    'timing kept); the rest runs on the core interpreter and is counted',
                      'native_steps': native | {'observation_overflow': overflow, 'runtime_hints_added': hints}},
         'final_checks': checks_rows,
+        'route_warnings': route_stops(sha),
         'native_validation': {'passed': True, 'scope': 'every route played on the published game (native steps) gives the '
                                                         'same picture, sound, RAM and CPU state (R3000A registers, HI, LO, PC, '
                                                         'SR, CAUSE, EPC, GTE registers) on every frame as the interpreter alone '
