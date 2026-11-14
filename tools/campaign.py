@@ -132,9 +132,16 @@ def norm_path(path) -> str:
     return os.path.normcase(os.path.abspath(str(path)))
 
 
+# Every extension a game file of any machine may have (the profiles' own, read at import: `.lha`, `.pce`, `.gba` and the next machine's
+# included), and the archives and playlists, stripped before the words are compared.
+_EXTENSION = re.compile(r'\.(?:' + '|'.join(re.escape(ext) for ext in sorted({ext.lstrip('.') for profile in ALL_PROFILES for ext in profile.extensions}
+                                                  | {'zip', '7z', 'm3u', 'smd', 'bin', 'gen', 'dim', 'xdf', 'd88', '88d', 'hdm', '2hd', 'dup'},
+                                                  key=lambda ext: (-len(ext), ext))) + r')$', re.I)
+
+
 def normalize_title(text: str) -> str:
     """A file name or a title reduced to its words: no extension, no (tags) or [tags], 'X, The' as 'The X'."""
-    stem = re.sub(r'\.(?:zip|7z|sms|gg|gb|gbc|nes|md|gen|smd|bin|sfc|smc|dim|xdf|d88|88d|hdm|2hd|dup|m3u)$', '', text, flags=re.I)
+    stem = _EXTENSION.sub('', text)
     stem = re.sub(r'\s*[\(\[][^\)\]]*[\)\]]', ' ', stem).strip()
     moved = re.match(r'^(.*?),\s*(the|a|an)$', stem, re.I)
     if moved:

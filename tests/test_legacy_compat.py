@@ -290,6 +290,20 @@ class LegacyReceiptTests(unittest.TestCase):
     whatever today's game stamp is; any other game part is converted in full. The listed stamp here is synthetic, since
     the table of 1.6.4 is empty."""
 
+    def setUp(self):
+        # A Neo Geo request reads, and may write, the library's cache of prepared cartridges (`neogeo_knowledge`): keep it in a scratch
+        # folder, never the player's real Export/datas/library/ng (tests/test_zz_datas_guard.py watches that file).
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.scratch_library = Path(folder.name)
+        patcher = patch('retrorecomp.neogeo_knowledge.library_root', return_value=self.scratch_library)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_neo_geo_request_leaves_the_prepared_cartridge_cache_in_the_scratch_library(self):
+        self.parts('ng')
+        self.assertTrue((self.scratch_library / 'prepared-cartridges.json').is_file())
+
     def parts(self, system, game_stamp=None):
         from retrorecomp import freshness
         item = SimpleNamespace(system=system, path=Path('game.bin'), sha256='e' * 64, title='Game', cover=None)
@@ -411,7 +425,18 @@ class StateCompatibilityTests(unittest.TestCase):
     def own_key(text):
         return re.search(r'#define RR16_STATE_ABI "([0-9a-f]{64})"', text).group(1)
 
-    def test_the_mega_drive_super_nintendo_and_neo_geo_list_no_compatibility_key(self):
+    def test_the_mega_drive_and_super_nintendo_accept_the_1_7_4_key_and_the_neo_geo_lists_none(self):
+        # 1.7.5: the 16-bit key hashes the layout files only (console16_state.state_layout_files), which are byte for byte
+        # those of 1.7.4 for both consoles: the 1.7.4 key is listed once, so a 1.7.4 state loads (docs/GAME_STATES.md).
+        from retrorecomp import console16_state
+        texts = self.configs()
+        for system in ('md', 'snes'):
+            self.assertIn('#define RR16_STATE_COMPAT_ABI "%s"' % console16_state.STATE_ABI_174[system][None], texts[system])
+            self.assertNotEqual(self.own_key(texts[system]), console16_state.STATE_ABI_174[system][None], system)
+            self.assertEqual(texts[system].count('RR16_STATE_COMPAT_ABI'), 1, system)
+        self.assertNotIn('RR16_STATE_COMPAT_ABI', texts['ng'])
+
+    def test_the_mega_drive_super_nintendo_and_neo_geo_listed_no_compatibility_key_before_1_7_5(self):
         # Decision of 29 October 2026 (from 1.6.5): quick states need not survive an update. 1.6.5 moved
         # native/video_mode4.inc and native/video_checks.c out of the all-consoles group, which changes what these keys
         # hash (the serialized bytes did not change); no compatibility key is listed, so a quick state of an earlier
@@ -421,7 +446,9 @@ class StateCompatibilityTests(unittest.TestCase):
         self.assertNotEqual(self.own_key(texts['md']), MD_STATE_ABI_163)
         self.assertNotEqual(self.own_key(texts['ng']), NEO_GEO_STATE_ABI_163)
         for system in ('md', 'snes', 'ng'):
-            self.assertNotIn('RR16_STATE_COMPAT_ABI', texts[system], system)
+            self.assertNotIn(MD_STATE_ABI_163, texts[system], system)
+            self.assertNotIn(SNES_STATE_ABI_163, texts[system], system)
+            self.assertNotIn(NEO_GEO_STATE_ABI_163, texts[system], system)
 
     def test_the_cps1_state_changed_so_the_states_of_1_6_3_are_refused(self):
         # Lot B: magic CPS1S002, every structure of the state written field by field. The key moved with it and no
@@ -463,7 +490,7 @@ class StateCompatibilityTests(unittest.TestCase):
             for name in dir(module):
                 match = re.search(r'STATE_ABI_(\d+)$', name)
                 if match:
-                    self.assertEqual((module, match.group(1)), (neogeo_build, '163'), (module.__name__, name))
+                    self.assertIn((module, match.group(1)), ((neogeo_build, '163'), (console16_state, '174')), (module.__name__, name))
         for module, name in ((console16_state, 'MD_STATE_ABI_162'), (console16_state, 'SNES_STATE_ABI_162'),
                              (neogeo_build, 'STATE_ABI_162'), (cps1_build, 'LEGACY_STATE_ABI_162'),
                              (console16_state, 'MD_STATE_ABI_161'), (console16_state, 'SNES_STATE_ABI_161'),
@@ -503,6 +530,105 @@ class NeoGeoStateKeyPlatformTests(unittest.TestCase):
                 text = neogeo_build.state_config(Path('cartridge.neo'), Path('neogeo.zip'), 'Test')
             self.assertEqual(f'#define RR16_STATE_COMPAT_ABI "{NEO_GEO_STATE_ABI_163}"' in text, listed)
             self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), int(listed))
+
+
+class StateKeyLayoutOnlyTests(unittest.TestCase):
+    """1.7.5: the Mega Drive and Super Nintendo quick-state key hashes the files that fix the state layout, not the player
+    shell. A scratch copy of native/ is edited: an interface file leaves both keys alone, a layout file moves them."""
+
+    def key(self, assets, system):
+        import importlib
+        from retrorecomp import console16_state
+        from retrorecomp.console16 import REPOSITORIES
+        for module in ('snes_timing', 'snes_video', 'snes_cart', 'snes_dma', 'snes_bus', 'snes_ppu_bus', 'snes_chips'):
+            importlib.import_module('retrorecomp.' + module)
+        with patch('retrorecomp.paths.ASSETS', assets), tempfile.TemporaryDirectory() as folder:
+            project = Path(folder)
+            (project / ('retro_md_game.h' if system == 'md' else 'retro_snes_game.h')).write_text('#define X 1' + chr(10))
+            console16_state.write_config(project, SimpleNamespace(sha256='d' * 64), system, 'Test', REPOSITORIES)
+            text = (project / 'retro16_state_config.h').read_text(encoding='ascii')
+        return re.search(r'#define RR16_STATE_ABI "([0-9a-f]{64})"', text).group(1)
+
+    def keys(self, assets):
+        return {system: self.key(assets, system) for system in ('md', 'snes')}
+
+    @staticmethod
+    def edit(assets, name):
+        path = assets / 'native' / name
+        path.write_bytes(path.read_bytes() + b'\n/* edited */\n')
+
+    def test_an_interface_file_leaves_both_keys_and_a_layout_file_moves_them(self):
+        import shutil
+        from retrorecomp.compilation_inputs import role
+        with tempfile.TemporaryDirectory() as folder:
+            copy = Path(folder)
+            (copy / 'native').mkdir()
+            for path in (ASSETS / 'native').iterdir():
+                if path.is_file():
+                    shutil.copy2(path, copy / 'native' / path.name)
+            before = self.keys(copy)
+            self.assertEqual(before, self.keys(ASSETS), 'the copy gives the keys of the tree')
+            interface = ('retro_menu.c', 'retro_menu.h', 'game_options.h', 'runtime_catalog.inc', 'display_settings.h',
+                         'font6x10.h', 'autofire.h', 'audio_output.inc')
+            for name in interface:
+                self.assertEqual(role('native/' + name), 'host', name)
+                self.edit(copy, name)
+            self.assertEqual(self.keys(copy), before, 'an interface change must not refuse the players states')
+            self.edit(copy, 'md_backend.c')
+            after_md = self.keys(copy)
+            self.assertNotEqual(after_md['md'], before['md'])
+            self.assertEqual(after_md['snes'], before['snes'])
+            self.edit(copy, 'snes_backend.c')
+            self.assertNotEqual(self.keys(copy)['snes'], before['snes'])
+            self.edit(copy, 'console16_state.c')
+            moved = self.keys(copy)
+            self.assertNotEqual(moved['md'], after_md['md'])
+
+    def test_the_1_7_4_keys_are_the_1_7_4_algorithm_over_the_files_of_the_tag_for_every_target(self):
+        # One code path (console16_state.state_key): every native file each console owned, with the bytes of the v1.7.4 tag,
+        # gives the table's key for Windows (the key real 1.7.4 builds wrote: 0b051c9e..., ee653e8d...) and for Linux.
+        import importlib
+        import subprocess
+        from retrorecomp import console16_state
+        from retrorecomp.compilation_inputs import _file_kind, _normalized, state_native_files
+        from retrorecomp.console16 import REPOSITORIES
+        from retrorecomp.paths import ROOT
+        if subprocess.run(['git', 'rev-parse', '-q', '--verify', 'refs/tags/v1.7.4'], cwd=ROOT, capture_output=True).returncode:
+            self.skipTest('the v1.7.4 tag is not in this checkout')
+        for module in ('snes_timing', 'snes_video', 'snes_cart', 'snes_dma', 'snes_bus', 'snes_ppu_bus', 'snes_chips'):
+            importlib.import_module('retrorecomp.' + module)
+        for system in ('md', 'snes'):
+            files = []
+            for path in state_native_files(system):
+                data = subprocess.run(['git', 'show', 'v1.7.4:native/' + path.name], cwd=ROOT, capture_output=True,
+                                      check=True).stdout
+                files.append((path.name, _normalized(data, _file_kind('native/' + path.name))))
+            table = console16_state.STATE_ABI_174[system]
+            self.assertEqual(set(table), {None, 'linux-x86_64', 'linux-arm64'})
+            for target, key in table.items():
+                self.assertEqual(console16_state.state_key(files, system, REPOSITORIES, target), key, (system, target))
+
+    def test_a_linux_build_lists_the_1_7_4_linux_key(self):
+        from retrorecomp import console16_state
+        from retrorecomp.console16 import REPOSITORIES
+        with tempfile.TemporaryDirectory() as folder,                 patch('retrorecomp.console16_state.build_target', return_value='linux-x86_64'):
+            project = Path(folder)
+            for system in ('md', 'snes'):
+                (project / ('retro_md_game.h' if system == 'md' else 'retro_snes_game.h')).write_text('#define X 1' + chr(10))
+                console16_state.write_config(project, SimpleNamespace(sha256='d' * 64), system, 'Test', REPOSITORIES)
+                text = (project / 'retro16_state_config.h').read_text(encoding='ascii')
+                self.assertIn('#define RR16_STATE_COMPAT_ABI "%s"' % console16_state.STATE_ABI_174[system]['linux-x86_64'],
+                              text, system)
+                self.assertNotIn(console16_state.STATE_ABI_174[system][None], text, system)
+
+    def test_no_file_of_the_host_role_names_a_state_symbol(self):
+        # What keeps the rule honest: a host file that wrote or read part of a state would have to stay in the key.
+        from retrorecomp.compilation_inputs import role, state_native_files
+        symbols = re.compile(r'state_save|state_load|state_capture|state_restore|portable_save|portable_load|RR16_STATE|rr16_state')
+        for system in ('md', 'snes'):
+            for path in state_native_files(system):
+                if role('native/' + path.name) == 'host':
+                    self.assertIsNone(symbols.search(path.read_text(encoding='utf-8', errors='replace')), (system, path.name))
 
 
 class StateLayoutGuardTests(unittest.TestCase):

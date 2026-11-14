@@ -36,7 +36,7 @@ class ProfileTests(unittest.TestCase):
     def test_the_profile_says_what_it_is(self):
         profile = get_profile('amiga')
         self.assertEqual((profile.name, profile.status, profile.linux, profile.developer_only),
-                         ('Commodore Amiga', 'experimental', 'witnessed', False))
+                         ('Commodore Amiga', 'supported', 'witnessed', False))   # the owner's G14 of 14 November 2026
         self.assertEqual(profile.extensions, ('.lha',))
         self.assertEqual([cpu.arch for cpu in profile.cpus], ['m68000'])
 

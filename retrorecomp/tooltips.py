@@ -5,28 +5,44 @@ from .branding import COLORS
 
 
 class Tooltip:
+    # The hints waiting to show or showing. A focus-out or an unmap anywhere in a window (the event reaches the
+    # toplevel's bindings from every widget below it) dismisses only these: one binding per toplevel instead of
+    # two per hint, which made every unmap run every hint's handler (hints x unmapped widgets) and which stayed
+    # on the toplevel after the hint's widget was destroyed.
+    active = set()
+
     def __init__(self, widget, text, item=None):
         """A hint for a widget, or for one canvas item or tag (`item`): then
         only that item shows it, below its own box."""
         self.widget, self.text, self.item = widget, text, item
         self.timer = self.window = None
-        widget.winfo_toplevel().bind('<FocusOut>', self.hide, add='+')
-        widget.winfo_toplevel().bind('<Unmap>', self.hide, add='+')
+        top = widget.winfo_toplevel()
+        if not getattr(top, '_retro_tooltip_dismiss', False):
+            top._retro_tooltip_dismiss = True
+            top.bind('<FocusOut>', Tooltip.dismiss_all, add='+')
+            top.bind('<Unmap>', Tooltip.dismiss_all, add='+')
         bind = widget.bind if item is None else (lambda event, call, add: widget.tag_bind(item, event, call, add))
         bind('<Enter>', self.schedule, add='+')
         for event in ('<Leave>', '<ButtonPress>', '<Destroy>', '<Escape>'):
             if item is None or event in ('<Leave>', '<ButtonPress>'):
                 bind(event, self.hide, add='+')
 
+    @classmethod
+    def dismiss_all(cls, event=None):
+        for tip in list(cls.active):
+            tip.hide()
+
     def schedule(self, event=None):
         self.hide()
         self.timer = self.widget.after(450, self.show)
+        Tooltip.active.add(self)
 
     def show(self):
         self.timer = None
         if not self.widget.winfo_exists() or not self.widget.winfo_ismapped() or not self.text():
             return
         self.window = tk.Toplevel(self.widget)
+        Tooltip.active.add(self)
         self.window.withdraw()
         self.window.overrideredirect(True)
         self.window.transient(self.widget.winfo_toplevel())
@@ -51,6 +67,7 @@ class Tooltip:
         self.window.deiconify()
 
     def hide(self, event=None):
+        Tooltip.active.discard(self)
         if self.timer is not None:
             self.widget.after_cancel(self.timer)
             self.timer = None

@@ -83,9 +83,9 @@ native/x68000_native/decode.c native/x68000_native/guard_checks.c native/x68000_
 native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
 tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py tools/x68000_mouse_survey.py tools/x68000_disk_rewrite.py tests/test_x68000_disk_rewrite.py
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
-retrorecomp/m68k_observed.py retrorecomp/m68k_record_walk.py tests/test_m68k_observed.py tests/test_m68k_record_walk.py retrorecomp/x68_knowledge.py tests/test_x68_knowledge.py tests/x68_generator_pins.json tests/test_schema3_modules.py
+retrorecomp/m68k_observed.py retrorecomp/m68k_media_knowledge.py retrorecomp/m68k_record_walk.py tests/test_m68k_observed.py tests/test_m68k_media_knowledge.py tests/test_m68k_record_walk.py retrorecomp/x68_knowledge.py tests/test_x68_knowledge.py tests/x68_generator_pins.json tests/test_schema3_modules.py
 retrorecomp/systems/amiga.py retrorecomp/amiga.py retrorecomp/amiga_lha.py retrorecomp/amiga_whdload.py
-retrorecomp/amiga_codegen.py retrorecomp/amiga_translate.py retrorecomp/amiga_conversion.py retrorecomp/amiga_kickstart.py retrorecomp/amiga_vamiga.py docs/AMIGA.md
+retrorecomp/amiga_codegen.py retrorecomp/amiga_translate.py retrorecomp/amiga_conversion.py retrorecomp/amiga_kickstart.py retrorecomp/amiga_knowledge.py retrorecomp/amiga_vamiga.py docs/AMIGA.md tests/test_amiga_knowledge.py tests/amiga_generator_pins.json
 native/amiga_whdload/rr_resload.c native/amiga_whdload/rr_resload.h native/amiga_whdload/rr_decrunch.c native/amiga_whdload/rr_decrunch.h
 native/amiga_machine/CMakeLists.txt native/amiga_machine/amiga_session.h native/amiga_machine/amiga_session.cpp
 native/amiga_machine/amiga_player.c native/amiga_machine/moira_map.cpp native/hostkit/adapters/rrhk_amiga.inc licenses/vamiga.md
@@ -461,7 +461,7 @@ native/presentation_checks.c tools/presentation_selftest.py
 native/audio_output.inc native/audio_checks.c tools/audio_selftest.py
 tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
-tests/test_toolchain.py tests/test_legacy_compat.py tools/toolchain_compare.py tools/nes_state_cross.py
+tests/test_toolchain.py tests/test_tooltips.py tests/test_legacy_compat.py tests/test_zz_datas_guard.py tools/toolchain_compare.py tools/nes_state_cross.py
 tools/state16_cross.py tools/neogeo_state_cross.py tools/x68000_cross.py
 tools/selftest_build.py tests/test_selftest_build.py
 tests/test_validation.py tests/test_publication.py

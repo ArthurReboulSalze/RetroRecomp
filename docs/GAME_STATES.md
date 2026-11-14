@@ -451,6 +451,35 @@ In 1.6.6 the Neo Geo and CPS-1 sound CPU is corrected (`retrorecomp/neogeo_z80.p
 Neo Geo state of 1.6.5 is refused cleanly; the CPS-1 key does not, and the 34-byte block that holds the Z80 registers did not change, so a
 CPS-1 state of 1.6.5 still loads. Nothing else moves any key.
 
+## Mega Drive and Super Nintendo: the key hashes the layout files only (1.7.5)
+
+Until 1.7.4 the quick-state key of these two consoles (`RR16_STATE_ABI`, `retrorecomp/console16_state.write_config`) hashed every
+top-level native file the console owns (`compilation_inputs.state_native_files`), the player shell included, so a change of the
+in-game interface moved the key and refused every player's states (it happened in 1.7.4). Since 1.7.5 it hashes
+`console16_state.state_layout_files`: those files minus the ones of the **host** role (`compilation_inputs.role`, `HOST_NATIVE` of
+`retrorecomp/stamp_inputs.py`), plus, as before, the layout versions (`PORTABLE_STATE_ABI`, `MD_PORTABLE_STATE_ABI`), the pinned
+revisions and, for the Super Nintendo, the fingerprints of the `snes_*` modules.
+
+- **Left out of the key (host role, both consoles):** `audio_checks.c`, `audio_cushion.h`, `audio_filter.h`, `audio_output.inc`,
+  `autofire.h`, `display_settings.h`, `display_settings_checks.c`, `font10x20.h`, `font6x10.h`, `game_options.h`,
+  `game_options_checks.c`, `icon.c`, `icon.h`, `icon_checks.c`, `language_checks.c`, `player_gamepad.c`, `retro_keyboard.h`,
+  `retro_menu.c`, `retro_menu.h`, `runtime_catalog.inc`, `runtime_i18n.h`, `scale2x.h`, `scanline_sdl.h`, `scanlines.h`,
+  `xbr_checks.c`, `xbr_filter.h`, `xbr_sdl.h`; and for the Mega Drive `md_audio_loop.inc` and `md_audio_resample.inc` (29 files of 137
+  for the Mega Drive, 27 of 108 for the Super Nintendo). They draw the menus and pictures, read the pad and options, and resample and
+  queue the sound: none of them writes or reads part of a state, and none names a state symbol (`tests/test_legacy_compat.py` checks it).
+- **In the key (game role):** the other 108 Mega Drive and 81 Super Nintendo files, among them `console16_state.c`/`.h` (the format),
+  `md_backend.c`, `snes_backend.c` and every file of the machine they serialise (CPU, bus, VDP/PPU, sound chips, cartridge,
+  `gun16.c`). A host file that ever writes or reads part of a state must stay in the key: change its role, or the test fails.
+- **The previous release:** the layout files, the layout versions, `console16_state.py` and the `snes_*` modules are byte for byte those
+  of the v1.7.4 tag for both consoles, so the 1.7.4 key of the build's own target is listed once (`console16_state.STATE_ABI_174`,
+  written as `#define RR16_STATE_COMPAT_ABI`; Windows, `linux-x86_64` and `linux-arm64`). The table is the 1.7.4 algorithm (every file
+  the console owned, with the bytes of the tag) run through the same function as the build's own key, `console16_state.state_key`,
+  for each target; the test recomputes it from the tag, and its Windows values are the keys real 1.7.4 builds wrote. Proof: Sonic The Hedgehog 2 and Super Mario World
+  converted on the v1.7.4 tree, a state saved there after 600 frames, loaded by the 1.7.5 build: it loads, and 300 more frames give the same
+  16 (Mega Drive) and 15 (Super Nintendo) hashes as the 1.7.4 build continuing the same state. The release after 1.7.5 drops these keys.
+- The other consoles' keys are not affected: the CPS-1, Neo Geo, PC Engine and PlayStation keys hash explicit lists of their own, and the
+  Master System / Game Gear build signature (`core.compiler_signature`) keeps the full owned list, as before.
+
 ## States written by release 1.6.3
 
 1.6.4 does not move every quick-state key, and where it moves one it does not always mean the same thing. What a key hashes is

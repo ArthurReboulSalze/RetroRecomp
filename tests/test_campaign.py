@@ -87,6 +87,10 @@ class TitleTests(unittest.TestCase):
         self.assertEqual(campaign.normalize_title('The Legend of Zelda'), 'the legend of zelda')
         self.assertEqual(campaign.normalize_title("Mr. Gimmick (Europe).nes"), 'mr gimmick')
         self.assertEqual(campaign.normalize_title('Metal Sight (System Sacom) (Disk 1).dim'), 'metal sight')
+        # Every machine's own extensions go too (an Amiga install, a HuCard): a risk case is a title, never a file name.
+        self.assertEqual(campaign.normalize_title('Another World (FR).lha'), 'another world')
+        self.assertEqual(campaign.normalize_title("Bonk's Adventure (USA).pce"), 'bonk s adventure')
+        self.assertEqual(campaign.normalize_title('Lotus 2.LHA'), 'lotus 2')
 
     def test_regions_are_ranked_and_prototypes_come_last(self):
         names = ['Game (Japan).zip', 'Game (Europe).zip', 'Game (USA).zip', 'Game (USA) (Proto).zip']

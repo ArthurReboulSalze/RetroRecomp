@@ -547,6 +547,86 @@ def game_entry(source, kick=None) -> Path:
     return entry / f'kick-{kick.sha256[:16]}' if kick is not None else entry
 
 
+def exact_pairs(pairs) -> set:
+    """The (pc, words) of observed 12-byte windows cut to the instruction each starts with (`m68k_media_knowledge.exact`): the form of a shared
+    path, and of the instructions rebuilt from one. A window that does not hold a whole instruction is left out."""
+    from .m68k_media_knowledge import exact
+    return {(pc, words) for pc, words in ((pc, exact(words)) for pc, words in pairs) if words}
+
+
+def install_media(source) -> bytes | None:
+    """The install's media as the shared paths count it (`amiga_knowledge.install_content`), or None when it cannot be read: the sharing is
+    then left out and the conversion goes on."""
+    from . import amiga_knowledge
+    try:
+        return amiga_knowledge.install_content(source.data())
+    except (OSError, ValueError, KeyError, StopIteration):
+        return None
+
+
+def shared_hints(source, media, kick_image, *, use_library=True) -> tuple[set, set, dict]:
+    """(RAM rows, Kickstart addresses, info): the instructions the shared base, an imported file and this player's own record name for this
+    install, rebuilt from the player's own install (and Kickstart), and what each gave or why it was ignored (`amiga_knowledge.shared_rows`).
+
+    Build input only: the rows go to the generator and are never added to the observations the library keeps. They are read through the same
+    checks as an observation file, so a record that names what the generator cannot take fails the conversion (and the batch then converts
+    again without the imported discoveries; one that came from the player's own record is left out like the remembered observations)."""
+    from . import amiga_knowledge, knowledge
+    if media is None:
+        return set(), set(), {'qualified': 0, 'library': 0, 'imported': 0, 'ignored': {'install': 'unreadable'}}
+    rows, info = amiga_knowledge.shared_rows(source.game_key, media, kick_image,
+                                             qualified=knowledge.qualified_game('amiga', source.game_key),
+                                             imported=knowledge.imported_game('amiga', source.game_key),
+                                             library=amiga_knowledge.library_record(source.game_key) if use_library else None)
+    observed = get_profile('amiga').observed_code
+    ram, kick = set(), set()
+    for pc, words in rows:
+        if KICK_WINDOW[0] <= pc < KICK_WINDOW[1]:
+            kick.add(pc)
+        else:
+            observed.check_sample(pc, words)
+            ram.add((pc, words))
+    return ram, kick, info
+
+
+def promoted_record(source, media, kick_image, fresh_observed, fresh_kick) -> tuple[dict | None, dict | None]:
+    """(record, counts) of this conversion's fresh reference runs (`amiga_knowledge.promote`), merged with the player's own record of the
+    install; (None, None) when the media cannot be read or the record cannot be made (the conversion is not failed for it)."""
+    from . import amiga_knowledge
+    if media is None:
+        return None, None
+    try:
+        return amiga_knowledge.promote(source.game_key, media, kick_image, [{'pc': pc, 'words': words} for pc, words in sorted(exact_pairs(fresh_observed))],
+                                       sorted(fresh_kick), previous=amiga_knowledge.library_record(source.game_key))
+    except ValueError:
+        return None, None
+
+
+def knowledge_block(record, promotion, hints_used, received=None) -> dict:
+    """The report's `knowledge` section. `shared` says whether the Amiga is in the sharing at all (`path_profiles.EXPERIMENTAL_SHARED`), not
+    that this conversion shared anything. `received`: what the received paths gave (`m68k_media_knowledge.received_use`)."""
+    from . import amiga_knowledge, path_profiles
+    return {'machine_status': get_profile('amiga').status, 'shared': 'amiga' in path_profiles.SHARED_SYSTEMS, 'record_format': amiga_knowledge.FORMAT,
+            'cores': amiga_knowledge.engine(), 'record_sha256': amiga_knowledge.record_digest(record), 'paths': promotion['paths'],
+            'promotion': {key: promotion[key] for key in ('ram', 'other_windows', 'malformed', 'kickstart', 'truncated')},
+            'source': 'fresh reference runs of this conversion', 'use': dict(hints_used),
+            'received': received or {'offered': 0, 'reached': 0, 'added': 0},
+            'raw_words_stored': False, 'fresh_validation_required': True}
+
+
+def keep_record(source, record, promotion) -> None:
+    """The player's own record of the install (`amiga_knowledge.RECORD_FILE`), written under the game's lock: the paths of this conversion's
+    fresh runs, merged with what the record already held (`promoted_record`)."""
+    from . import amiga_knowledge
+    entry = library_root('amiga') / source.game_key
+    entry.mkdir(parents=True, exist_ok=True)
+    with entry_lock(entry, timeout=1800):
+        atomic_json(entry / amiga_knowledge.RECORD_FILE, {
+            'schema': 1, 'system': 'amiga', 'game': source.game_key, 'private_development_only': True, 'fresh_reference_passed': True,
+            'record': record, 'record_format': amiga_knowledge.FORMAT, 'cores': amiga_knowledge.engine(), 'record_source': 'fresh reference runs',
+            'record_counts': promotion})
+
+
 def kickstart_fields(kick) -> dict:
     """The report's `kickstart` object: which image the install ran with, by numbers about it (never its bytes)."""
     known = kick.version or {}
@@ -696,6 +776,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                     kick_observed |= read_kick_observation(checks / f'reference-{name}' / 'observations.txt.kick')
                 except (OSError, ValueError) as error:
                     raise ConversionError(f'Amiga {name}: the Kickstart addresses of the reference run are unreadable: {error}') from error
+        # The fresh reference runs' own observations: the only source of the shared record (`amiga_knowledge.promote`).
+        fresh_observed, fresh_kick = set(samples), set(kick_observed)
         memory = game_entry(source, kick)
         remembered = memory / OBSERVATIONS
         kick_addresses = {pc for pc, _ in kick_observed}
@@ -710,6 +792,15 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             trace['remembered_used'] = True
         if dropped_reason is not None:
             emit('Amiga: the remembered observations are left out of this conversion; its own replace them in the library.')
+        media = install_media(source)
+        received_ram, received_kick, hints_used = shared_hints(source, media, kick_image or None, use_library=use_remembered)
+        received_all = set(received_ram)           # for `knowledge.received`
+        received_ram -= exact_pairs(samples)      # what this conversion observed itself is generated from its own window
+        if hints_used.get('library') and trace is not None:
+            trace['remembered_used'] = True
+        if received_ram or received_kick:
+            emit(f'Amiga: {len(received_ram) + len(received_kick)} instructions named by shared or library paths are made native too '
+                 '(rechecked like any other).')
         mouse_game = False
         from .artwork import prepare_icon
         payload_dir = work / 'payload'
@@ -726,7 +817,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             timings.begin_pass(attempt + 1)
             with timings.phase('code_generation'):
                 images = [read_memory_image(checks / f'reference-{name}' / 'memory.bin') for name, _, _ in routes]
-                generation = generate(project, sorted(samples | kick_observed | kick_samples(kick_addresses, kick_image)), table, images, expected.values(), windows)
+                generation = generate(project, sorted(samples | received_ram | kick_observed | kick_samples(kick_addresses | received_kick, kick_image)),
+                                      table, images, expected.values(), windows)
                 if kick is not None:
                     generation['kickstart_addresses'] = len(kick_addresses)
             emit(f'Amiga: {generation["instructions"]} observed instructions and {generation["swept_instructions"]} swept, in {generation["forms"]} native forms; compiling the game.')
@@ -756,7 +848,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
             if not results['main']['nonblack_frames']:
                 raise ConversionError('Amiga validation did not produce a usable picture.')
             interpreted = sum(result['interpreted'] for result in results.values())
-            if not interpreted or not ((more - samples) or (more_kick - kick_observed)):
+            if not interpreted or not ((exact_pairs(more - samples) - received_ram) or (more_kick - kick_observed)):
                 break
             emit(f'Amiga: {interpreted} instructions still interpreted; extending the native coverage.')
             samples |= more
@@ -829,6 +921,12 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                          **({'ended_by_game': True, 'frames_run': ended[name]} if name in ended else {}),
                          **({'state_restart_match': True, 'state_frame': state_frame} if name == 'main' else {})})
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
+        # The shared path record: numbers about this install's own media (and Kickstart), made only from the fresh reference runs of this
+        # conversion (every check above passed). What cannot be tied to them stays private and is counted.
+        record, promotion = promoted_record(source, media, kick_image or None, fresh_observed, fresh_kick)
+        from .m68k_media_knowledge import received_use as _received_use
+        received_use = _received_use(received_all | {('kickstart', pc) for pc in received_kick},
+                                     exact_pairs(fresh_observed) | {('kickstart', pc) for pc, _ in fresh_kick})
         report = {
             'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
             'system': {'id': 'amiga', 'name': 'Commodore Amiga'}, 'status': get_profile('amiga').status, 'private_development_only': False,
@@ -887,6 +985,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                  'details': {'by': 'vAmiga', 'disk': ("an idle disk controller's events are caught up in one batch, at the last one's instant or earlier when something "
                                                       "could see the controller (its registers, the CIA-B drive select and motor): the same work (final_checks.agnus_denise)")}}],
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'route_warnings': route_stops(source.sha256), 'scan_level': level,
+            **({'knowledge': knowledge_block(record, promotion, hints_used, received_use)} if record else {}),
             'advanced_scan': {'enabled': any(name.startswith('long-') for name, _, _ in routes), 'level': level, 'scenario_frames': {name: frames_ for name, frames_, _ in routes},
                               'full_game': False, 'long_routes': [{'scenario': name, 'frames': frames_, 'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
                                                                    'seed': f'amiga-long:{source.sha256}:{int(name.split("-")[1]) - 1}',
@@ -927,5 +1026,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                                                       'rom_sha256': source.sha256, 'guarded_variants': len(samples), 'sdk': stamp,
                                                       'observations_sha256': file_sha256(remembered), 'private_development_only': True,
                                                       'fresh_reference_passed': True})
+        if record is not None:
+            keep_record(source, record, promotion)
         emit('Amiga: validated standalone game ready.')
         return candidate
