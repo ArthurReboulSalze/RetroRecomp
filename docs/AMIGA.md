@@ -1,7 +1,7 @@
 # Commodore Amiga
 
-Experimental profile (`amiga`), opened in 1.7.0: the converter offers it when the installation carries the Amiga files, and
-it is not shared through the compilation library yet. It converts an Amiga 500 game installed for WHDLoad into a standalone Windows
+Supported profile (`amiga`) since 1.7.5, on the owner's decision of 14 November 2026 (opened as experimental in 1.7.0): the converter
+offers it when the installation carries the Amiga files, and its paths travel through the shared base (section 6). It converts an Amiga 500 game installed for WHDLoad into a standalone Windows
 executable, with guarded native code for the 68000 code the game runs from RAM and a counted interpreter for everything else.
 Nothing here says that a game plays completely, that the hardware is reproduced faithfully or how long input takes to reach the
 screen: those are separate measures, listed below with what is known of each.
@@ -13,7 +13,7 @@ core's interpreter; it cannot be compared with the figures of a machine whose ga
 
 ## 1. What is converted, and what is not
 
-| Converted (experimental) | Not yet |
+| Converted | Not yet |
 | --- | --- |
 | Amiga 500 (68000, OCS/ECS) games installed for WHDLoad: one `.lha` archive holding exactly one `.Slave` and the game's files or `Disk.N` images | Installs that need a 512 KiB Kickstart (3.x, 12 of the library's installs without a 68020/AGA flag); the installs that also need resload calls the layer lacks stop with the call's number |
 | Installs that need a Kickstart 1.3 (in the slave header or through `resload_LoadKick`), with the player's own image chosen in Options (section 2a). First milestone: about 230 of the library's installs ask for Kickstart 1.x and no resload service the layer lacked (1,280 ask for 1.3 in all); `resload_Examine`, `ExNext` and `ListFiles` are answered too: none of the Kickstart installs converted through the converter calls them (the five of section 3 and the 1.7.1 checks); tested on authored data only | Kickstart 1.2 installs (17; the same path, not run yet) |
@@ -103,7 +103,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 | Native code, Blitter | Measured with the 1.7.2 tree (9 November 2026; two routes of 3,600 frames): every copy word of the routes ran in a specialised routine on Rick Dangerous (1 shape), Apidya (4), Lemmings (3) and Civilization (12), and none changed shape on the way; Civilization's line blits, 32 and 16, stay in vAmiga's microprogram. These counts are of the shapes the same routes taught: a shape new to a player's game runs on vAmiga, counted. The Blitter is 0.1 to 3.6 % of a frame (private profile, a loaded PC), so this is not where the machine spends its time. |
 | CPU fidelity | `tools/amiga_vector_selftest.py`: every translated opcode (40,586) against Moira's handler on random states, 0 differ. Moira (MIT) was compared with the SingleStepTests 68000 vectors; its deviations from them are recorded in 15 families (private engine-gate notes). On Rick Dangerous the trace of every frame (picture, sound, RAM, CPU registers) and the resload log of the native game are identical to the interpreted reference machine's, on both routes. |
 | Hardware fidelity | Not claimed. `tools/amiga_blitter_selftest.py` shows the Blitter's routines equal vAmiga's microprogram (1,023 shapes, 8,184 random blits, 970,162 bus slots, 0 differ), not the chip. `tools/amiga_display_selftest.py` (10 November 2026, for the Agnus and Denise fast paths to come) runs authored scenarios (a display set up and hammered by a 68000 program, no ROM image) and records every instruction and every frame: the records replay the same (12 scenarios, 427,604 instructions), an injected fault is seen and placed, and the build with Denise's line work by table (step 1, [UPGRADES.md](UPGRADES.md)) gives the same records as the build before it on 40 more scenarios (1,301,275 instructions); with a line's bitplane slots taken in a batch (step 2), each scenario gives the same records batched and with every line on vAmiga's events (12 scenarios, 420,350 instructions, 9,755 lines batched), and the same as the build of step 0 on 40 more (1,297,343 instructions); with a quiet line's pass in one loop (step 3) added, the same again on both sets (50,072 visible lines in one pass). This is equality with vAmiga's own paths, not with the chips. As a development check, the same installs were run privately in an independent emulator with the real WHDLoad and its pictures compared with ours on 59 reference frames each: Lotus 2 matched 59/59, Lemmings 58/59, Speedball 2 54/59, Elite 51/59, Turrican 2 49/59. Pinball Dreams (NTSC) first scored 19/59; looked for at any offset at the Amiga's 4-bit colour depth, all 59 of its pictures are in the other emulator's stream (the two tools crop some display windows differently). These are counts of equal pictures on a few frames, not a fidelity claim. |
-| Gameplay validation | One owner play trial: the ten panel installs, converted with the tree at `977cf63e` and delivered in `Export`, were played on 6 November 2026 and worked, in his words ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). A trial, not a coverage claim: no game was checked end to end, and it is not a decision to leave the experimental status. |
+| Gameplay validation | Owner play tests: the ten panel installs of 6 November 2026 (tree `977cf63e`) worked; on 14 November 2026 the six installs of the exit checklist (Lotus 2, Another World, Monkey Island 2, Lemmings, Pinball Dreams, Panza Kick Boxing, the exports of 13 November), and the decision to leave the experimental status ([QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)). Play tests, not a coverage claim: no game was checked end to end, and code past the routes runs interpreted, counted and shown in the window title. |
 | Physical latency | Not measured. |
 
 ## 4. Known limits
@@ -194,7 +194,7 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 6. Where it stands in the qualification
 
-The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 14 November 2026: `Y` on G1 to G9, G12, G13 and G15; `P` on G10, G11, G14 and G16. The evidence of 13 November is [its panel of eight installs](QUALIFICATION.md#commodore-amiga-the-panel-of-13-november-2026). Each `P` names what is shown and what is missing there; no letter says hardware fidelity, gameplay coverage or latency.
+The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 14 November 2026: `Y` on G1 to G9 and G12 to G15; `P` on G10, G11 and G16. The evidence of 13 November is [its panel of eight installs](QUALIFICATION.md#commodore-amiga-the-panel-of-13-november-2026). Each `P` names what is shown and what is missing there; no letter says hardware fidelity, gameplay coverage or latency.
 
 ### Shared paths (1.7.5)
 
@@ -210,10 +210,10 @@ The proof of 14 November 2026 (tree `ceed7b28`, one conversion at a time, each p
 
 On these routes the received paths saved no pass and changed neither the interpreted counts nor the wall time; they made a few hundred instructions native that the routes did not run, most of which the conversion's own sweep of memory finds anyway. The gain beyond the routes was not measured on the Amiga: the decision rests on the shared mechanism and on the Atari ST's Turrican II, whose unpacked code ties to the player's own disk (about 90 % fewer interpreted instructions on a route beyond the receiver's own). No Amiga path is qualified in the base yet (reached and validated by a conversion that received it from another player, counted by the site).
 
-### Leaving the experimental status
+### Leaving the experimental status (14 November 2026)
 
-The checks of tests/test_machine_registry.py for a `supported` machine pass on a copy of the profile marked `supported` (14 November 2026): the Amiga shares its paths (`path_profiles.SHARED_SYSTEMS`), has five risk cases in tools/campaign-risk-cases.json, is witnessed on Linux and has no failed gate. The status in the profile is not changed. What is left is the maintainer's:
+The Amiga is **supported from 1.7.5**. The owner played the six installs of [the checklist](QUALIFICATION.md#checklist-for-arthur-commodore-amiga-play-test-g14) (the exports of 13 November in `Export/Games/Amiga`) and wrote « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » (G14, [the owner-acceptance table](QUALIFICATION.md#owner-acceptance)). The checks of tests/test_machine_registry.py for a `supported` machine pass on the real profile: the Amiga shares its paths, has five risk cases, is witnessed on Linux and has no failed gate. G10 (Moira against MAME-made vectors, 322 differences in named families) and G11 (pictures compared with another emulator, not with the chips) stay `P`, worded as they are: G11 is `P` on every machine, and the X68000 left the experimental status with G10 `P` too.
 
-- **G14, the play test**: [the checklist](QUALIFICATION.md#checklist-for-arthur-commodore-amiga-play-test-g14), six installs already in `Export/Games/Amiga`, one short session.
-- **The decision** to leave the experimental status, the maintainer's alone, after that test. G10 (Moira against MAME-made vectors, 322 differences in named families) and G11 (pictures compared with another emulator, not with the chips) stay `P`, worded as they are: G11 is `P` on every machine, and the X68000 left the experimental status with G10 `P` too.
-- **The site side of the sharing**, deployed with the release: the limits of the `amiga` machine and the schema 3 validation of its records.
+**Scope of the status.** Amiga 500 games installed for WHDLoad (an `.lha` with a slave), with the player's own Kickstart 1.x for those that ask for one, on the evidence above: a panel of eight installs at the extended level and six played by the owner. Not converted yet: installs that need Kickstart 3.x, ADF disk images, the Amiga 1200 (AGA). Code past the routes runs interpreted, counted and shown; the hardware is vAmiga's (Agnus, Denise, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is claimed.
+
+**Still to deploy with the release:** the site side of the sharing, the limits of the `amiga` machine and the schema 3 validation of its records.

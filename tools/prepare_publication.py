@@ -461,7 +461,7 @@ native/presentation_checks.c tools/presentation_selftest.py
 native/audio_output.inc native/audio_checks.c tools/audio_selftest.py
 tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
-tests/test_toolchain.py tests/test_legacy_compat.py tools/toolchain_compare.py tools/nes_state_cross.py
+tests/test_toolchain.py tests/test_tooltips.py tests/test_legacy_compat.py tests/test_zz_datas_guard.py tools/toolchain_compare.py tools/nes_state_cross.py
 tools/state16_cross.py tools/neogeo_state_cross.py tools/x68000_cross.py
 tools/selftest_build.py tests/test_selftest_build.py
 tests/test_validation.py tests/test_publication.py

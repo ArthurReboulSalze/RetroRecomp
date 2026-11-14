@@ -1,5 +1,8 @@
-# RetroRecomp v1.7.5 — The MSX and the MSX2 are supported
+# RetroRecomp v1.7.5 — The MSX, the MSX2 and the Commodore Amiga are supported
 
+- **Commodore Amiga (supported).** On the owner's decision of 14 November 2026, after a play test of six installs, the Amiga is
+  supported ([AMIGA.md](AMIGA.md#6-where-it-stands-in-the-qualification)): Amiga 500 WHDLoad installs, with your own Kickstart 1.x for
+  those that ask for one; its paths are shared with other players. Kickstart 3.x installs, ADF disks and the Amiga 1200 are not converted yet.
 - **MSX and MSX2 (supported).** On the owner's decision of 14 November 2026, after his play test, the MSX and the MSX2 are
   supported ([MSX.md](MSX.md#7-where-it-stands-in-the-qualification)). The MSX2+ stays experimental. A panel of eight
   cartridges per machine converts at 0 interpreted instructions on every route, equal on Windows and on a Debian 13 PC; no game is

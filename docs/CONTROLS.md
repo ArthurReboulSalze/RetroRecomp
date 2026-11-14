@@ -252,7 +252,7 @@ The choice is kept per game, in the game's own `player.cfg`; each game starts wi
 
 ### The mouse of a computer
 
-On the computers (Sharp X68000 and Commodore Amiga, experimental), a click in the window captures the mouse and a mouse game
+On the computers (Sharp X68000 and Commodore Amiga), a click in the window captures the mouse and a mouse game
 captures it at launch. **Ctrl+Alt+M** or, since 1.7.0, a **press of the middle button** (the wheel) releases it: neither
 machine's mouse had a middle button, so the game never needs it. Losing the window's focus releases it too.
 
