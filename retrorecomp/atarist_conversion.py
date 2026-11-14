@@ -1,4 +1,4 @@
-"""Atari ST conversion (experimental): a game's floppy images become a standalone game (MIT; the executable it builds is linked with
+"""Atari ST conversion: a game's floppy images become a standalone game (MIT; the executable it builds is linked with
 Hatari, GPL-2.0, and is distributed under the GPL: licenses/hatari.md).
 
 Every conversion starts from a fresh reference run: the game (its disks and the TOS, the player's own or EmuTOS) runs on Hatari,

@@ -515,7 +515,7 @@
     "amiga_kickstart_unknown_version": "{name}：无法识别该 Kickstart。安装包需要指定且未经修改的版本（1.2、1.3、3.1）；修补过或被改动的镜像无法使用。",
     "amiga_kickstart_none_found": "在 {name} 中未找到 Kickstart 镜像。",
     "options_atarist": "Atari ST",
-    "options_atarist_note": "Atari ST 配置（实验性）：在 Hatari 上运行 ST、STF 和 Mega ST 的软盘游戏（IPF、STX、MSA、ST 镜像，或只含这些镜像的 ZIP）。请在下一行选择你自己的 TOS 1.00–1.04（单个文件或镜像文件夹），或留空：留空时游戏使用 EmuTOS 1.4 启动（与源码一起只下载一次）。不支持 STE、TT、Falcon，也不支持硬盘。执行过的指令会变成原生代码，其他指令按解释执行计数。菜单、滤镜、控制和 F8/F9 通用。首次转换会下载固定版本的机器源码。",
+    "options_atarist_note": "Atari ST 配置：在 Hatari 上运行 ST、STF 和 Mega ST 的软盘游戏（IPF、STX、MSA、ST 镜像，或只含这些镜像的 ZIP）。请在下一行选择你自己的 TOS 1.00–1.04（单个文件或镜像文件夹），或留空：留空时游戏使用 EmuTOS 1.4 启动（与源码一起只下载一次）。不支持 STE、TT、Falcon，也不支持硬盘。执行过的指令会变成原生代码，其他指令按解释执行计数。菜单、滤镜、控制和 F8/F9 通用。首次转换会下载固定版本的机器源码。",
     "atarist_tos_label": "Atari ST：你自己的 TOS 1.00-1.04（镜像或文件夹）",
     "atarist_timer_d_label": "Atari ST：定时器 D（auto、patched、exact）",
     "tip_atarist_timer_d": "auto：保留 Hatari 对定时器 D 的修补；游戏出现按 TOS 留下的状态使用该定时器的迹象时，则取消修补。patched：始终修补（占用资源较少）。exact：从不修补（TOS 按其要求启动定时器，占用资源较多）。",

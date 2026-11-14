@@ -1,4 +1,4 @@
-"""Atari ST profile (experimental, from 1.7.1: see docs/ATARI_ST.md).
+"""Atari ST profile (supported since 1.7.5, open as experimental in 1.7.1: see docs/ATARI_ST.md).
 
 The machine is listed when the installation carries the converter's own files (`available()`); a ST floppy image is refused with a
 sentence otherwise.
@@ -28,7 +28,7 @@ class AtariStProfile(SystemProfile):
     extensions = ('.ipf', '.stx', '.msa', '.st', '.zip')
     export_folder = 'Atari ST'
     video_modes = ('native',)
-    status = 'experimental'
+    status = 'supported'
     scope_note = 'Atari ST, STF and Mega ST floppy games (IPF, STX, MSA, ST), with EmuTOS or the player\'s own TOS 1.0x'
     cpus = (Cpu('m68000', 'main', 'instructions'),)
     media_kinds = ('disk',)
@@ -82,7 +82,7 @@ class AtariStProfile(SystemProfile):
         elif suffix not in DISK_EXTENSIONS:
             return None
         if not self.available():
-            raise UnsupportedConsoleError('The experimental Atari ST profile is unavailable in this installation.')
+            raise UnsupportedConsoleError('The Atari ST profile is unavailable in this installation.')
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected Atari ST; choose Automatic or Atari ST.', self.id)
         return self
