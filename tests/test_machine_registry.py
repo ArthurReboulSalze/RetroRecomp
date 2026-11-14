@@ -57,6 +57,11 @@ DECLINED = {
     # keeps no per-ROM library record (its report is conversion-report.json beside the game), so there is nothing to summarise.
     # The Game Boy Advance keeps its paths in library/gba/<sha256>/<engine revision>/paths.json and no per-ROM summary.
     'memory_view': {'cps1', 'cps2', 'pce', 'gba', 'psx'},
+    # Path sharing (gate G16) for a supported machine. Arthur, 14 Nov 2026: a machine on which sharing paths serves no purpose
+    # does not share them and can still leave the experimental status. A console is listed here only on the measured evidence
+    # of its panel (received paths would add no native instruction and save no conversion pass), written in its
+    # QUALIFICATION.md entry, with G16 `-`; it then stays out of path_profiles.SHARED_SYSTEMS.
+    'path_sharing': set(),
 }
 # An emulated machine (SystemProfile.emulated) is not recompiled: its profile gives the reason in a sentence, and the registry
 # asks it for no CPU, path profile, scan level, feedback kind or quick-state family, no qualification column (it is a category
@@ -264,8 +269,11 @@ def registry_problems(profile: SystemProfile) -> list[str]:
             if '## What "supported" means here' not in page:
                 add('supported and emulated: docs/<MACHINE>.md must have a section \'What "supported" means here\'')
             return problems
-        if system not in path_profiles.SHARED_SYSTEMS:
-            add('supported: shared knowledge (gate G16) needs the console in path_profiles.SHARED_SYSTEMS')
+        if system not in path_profiles.SHARED_SYSTEMS and system not in DECLINED['path_sharing']:
+            add('supported: shared knowledge (gate G16) needs the console in path_profiles.SHARED_SYSTEMS '
+                '(or DECLINED["path_sharing"] on the evidence that sharing would change nothing)')
+        if system in path_profiles.SHARED_SYSTEMS and system in DECLINED['path_sharing']:
+            add('supported: a console cannot both share its paths and decline the sharing')
         # Arthur, 27 Oct 2026: four or five risk cases a console, plus two random games.
         if len(cases.get(system, [])) < 4:
             add('supported: tools/campaign-risk-cases.json needs at least four risk cases')
