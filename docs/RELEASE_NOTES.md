@@ -1,3 +1,18 @@
+# RetroRecomp v1.7.6 (draft) — the MSX2+ is supported
+
+- **MSX2+ (supported).** On the owner's decision of 14 November 2026, after his play test of six games, the MSX2+ is supported
+  ([MSX.md](MSX.md#9-the-msx2-msx2plus)): MSX2+ cartridges, and disk games with your own MSX2+ firmware.
+  - **MSX-MUSIC.** The YM2413 every MSX2+ has (emu2413, MIT), with C-BIOS's music ROM or your own; its level against the PSG set to
+    openMSX's balance.
+  - **Your own kanji font**, as an option, never shipped.
+  - **Disk requests.** A game of several disks gets the next disk when it asks for one; Page Up / Page Down stay yours.
+  - **Shared paths.** The RAM code a conversion learns, as offsets in your cartridge or your disks, shared as the experimental tier of
+    the base: a second player's first conversion of the same disks has far less to learn (Quinpl: 7,076 interpreted instructions in its
+    first pass instead of 8.7 million). It saves time; it does not make a game better.
+  - **Mapper probe.** Konami SCC cartridges that play SCC music are no longer taken for ASCII 8 (The Goonies R Good Enough).
+  - A panel of nine converts at 0 interpreted instructions on every route, equal on Windows and on a Debian 13 PC; no game is validated as
+    played through, and hardware fidelity and latency are not claimed. MSX, MSX2 and MSX2+ quick states of 1.7.5 are refused cleanly.
+
 # RetroRecomp v1.7.5 — The MSX, the MSX2, the Commodore Amiga and the Atari ST are supported
 
 - **Commodore Amiga (supported).** On the owner's decision of 14 November 2026, after a play test of six installs, the Amiga is

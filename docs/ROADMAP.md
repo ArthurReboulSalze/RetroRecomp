@@ -31,6 +31,7 @@ fallback stays counted and shown wherever it is used.
 | Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
 | MSX | supported (since 1.7.5) | route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
 | MSX2 | supported (since 1.7.5) | battery saves shown on an MSX2 game, route depth on menu-driven games, the command engine's timing, independent hardware evidence, FM-PAC |
+| MSX2+ | supported (since 1.7.6; experimental from 1.7.4) | route depth (Golvellius II's intro, Pachipro Densetsu's date entry), the Linux half of shared paths, MSX-MUSIC's level on games, independent hardware evidence, FM-PAC |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
@@ -166,6 +167,14 @@ cassettes and the FM-PAC are out of scope today; disk games are the MSX2+'s.
 Supported since 1.7.5 with the MSX (open as experimental in 1.7.3), the second profile of the family ([MSX.md](MSX.md#8-the-msx2-msx2)): MSX2 cartridges on the V9938 drawn by line, with its command
 engine (its timing approximated), a memory mapper and the RP5C01 clock, booted by C-BIOS or the player's own BIOS pair. Its panel of eight cartridges was converted again on 14 November 2026 with the MSX's (the same letters but battery saves, partial). Next: the
 command engine's timing, battery saves shown on an MSX2 game. Cassettes and the FM-PAC are out of scope today; the MSX2+ is its own profile.
+
+### MSX2+
+
+Supported since 1.7.6, on the owner's decision of 14 November 2026 after his play test of six games (open as experimental in 1.7.4;
+[MSX.md](MSX.md#9-the-msx2-msx2plus)): MSX2+ cartridges and disk games on the V9958 with MSX-MUSIC, your own kanji font as an option, the next
+disk given when a game asks, and shared paths (the experimental tier of the base). Its panel of nine was converted on Windows and on a Debian 13
+PC with equal fields on every route. Next: route depth on Golvellius II and Pachipro Densetsu, the Linux half of the shared paths and a path
+qualified by another player, MSX-MUSIC's level compared on games, independent hardware evidence. Cassettes and the FM-PAC are out of scope today.
 
 ### Adventure games (ScummVM)
 

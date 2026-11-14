@@ -271,11 +271,12 @@ class Msx2OrMsx2PlusTests(unittest.TestCase):
 
 
 class StatusTests(unittest.TestCase):
-    def test_the_msx_and_msx2_are_supported_and_the_msx2plus_experimental(self):
-        """The owner's play test of 14 November 2026 (G14): the MSX and the MSX2 leave the experimental status; the MSX2+ stays."""
+    def test_the_msx_msx2_and_msx2plus_are_supported(self):
+        """The owner's play tests of 14 November 2026 (G14): the MSX and the MSX2 leave the experimental status in 1.7.5, the MSX2+
+        in 1.7.6."""
         from retrorecomp.systems import get_profile
-        self.assertEqual([get_profile(s).status for s in ('msx', 'msx2', 'msx2plus')], ['supported', 'supported', 'experimental'])
-        self.assertEqual([get_profile(s).linux for s in ('msx', 'msx2')], ['witnessed', 'witnessed'])
+        self.assertEqual([get_profile(s).status for s in ('msx', 'msx2', 'msx2plus')], ['supported', 'supported', 'supported'])
+        self.assertEqual([get_profile(s).linux for s in ('msx', 'msx2', 'msx2plus')], ['witnessed', 'witnessed', 'witnessed'])
 
 
 class Msx2PlusDiskInputTests(unittest.TestCase):

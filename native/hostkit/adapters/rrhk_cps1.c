@@ -109,10 +109,10 @@ static void dip_draw(RrhkUi *ui, const RrhkMenuCtx *ctx) {
     for (int n = 0; n < shown && top + n < count; ++n) {
         const RrCps1Dip *dip = rr_cps1_dip(rows[top + n]);
         const int setting = rr_cps1_dip_setting(rows[top + n]), y = RR_MENU_FIRST_LINE + n * RR_MENU_LINE;
-        char name[48];
         if (top + n == ui->row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
-        snprintf(name, sizeof name, "%c %s", top + n == ui->row ? '>' : ' ', dip->name);
-        rr_menu_text_fit(ren, ox, oy, unit, 14, y, 126, name, RR_MENU_GOLD);
+        if (top + n == ui->row) rr_menu_text(ren, ox, oy, unit, 14, y, ">", RR_MENU_ACCENT);
+        rrhk_menu_icon(ctx, 20, y, RR_ICON_ROW_DIP);       /* 1.7.6: each switch has its icon, the name after it */
+        rr_menu_text_fit(ren, ox, oy, unit, 32, y, 108, dip->name, RR_MENU_GOLD);
         rr_menu_text_fit(ren, ox, oy, unit, 144, y, 98, setting < 0 ? "?" : dip->labels[setting], RR_MENU_GOLD);
     }
     if (count) {
