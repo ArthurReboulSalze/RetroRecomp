@@ -1,6 +1,7 @@
 # MSX
 
-Experimental profiles (`msx`, and `msx2` for the MSX2, described in section 8), experimental since 1.7.3. The `msx` profile converts an MSX1 cartridge into a standalone Windows
+Profiles `msx`, and `msx2` for the MSX2 (described in section 8): supported since 1.7.5, on the owner's decision of 14 November 2026 after his play test (open as
+experimental in 1.7.3; the MSX2+ of section 9 stays experimental). The `msx` profile converts an MSX1 cartridge into a standalone Windows
 executable whose Z80 code, as far as the conversion saw it run, is translated ahead of time to C, with a counted interpreter for the rest.
 The cartridge boots on C-BIOS 0.29a or on the player's own MSX BIOS. Nothing here says that a game plays completely, that the hardware is
 reproduced faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each, and
@@ -8,7 +9,7 @@ for the MSX most of them are not known yet.
 
 ## 1. What is converted, and what is not
 
-| Converted (experimental) | Not yet |
+| Converted | Not yet |
 | --- | --- |
 | MSX1 cartridges, read from a `.rom`, a `.mx1` or a ZIP holding one (a `.rom` or `.bin` is the MSX's when its bytes hold an MSX cartridge header; a `.mx1` always is) | The turbo R; disk games (a `.dsk` is the MSX2+'s, section 9; the MSX2 is the `msx2` profile, section 8) |
 | Plain cartridges of 8 KiB to 64 KiB, and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers, with the battery SRAM of an ASCII cartridge (since 1.7.4, section 4) | The other mappers (the rare ones), FM-PAC and its SRAM, the MSX2 clock's memory between runs |
@@ -59,7 +60,7 @@ These are the panel's measures (section 7). They say nothing for other games, ot
 
 ## 4. Controls
 
-The keys of a converted game, also in [CONTROLS.md](CONTROLS.md#msx-and-msx2-experimental):
+The keys of a converted game, also in [CONTROLS.md](CONTROLS.md#msx-and-msx2):
 
 | Key | MSX |
 | --- | --- |
@@ -113,10 +114,10 @@ The `msx` and `msx2` columns of [QUALIFICATION.md](QUALIFICATION.md) were evalua
 machine converted at the extended level from an empty library, on Windows and on a Debian 13 PC (the evidence of each letter is there). Met: the status
 (G1), the common report (G2), native coverage (G3), the fresh reference run (G4), the replay of the delivered file (G5), the fresh-process quick states
 (G6), liveness (G8), the independent Z80 vectors (G10), the panel (G12), the Linux witness (G13: the sixteen games give the same report fields on both
-systems), honesty (G15) and, on the MSX, battery saves (G7: two games). Partial: battery saves on the MSX2 (G7: no MSX2 game of the panel selected its
+systems), honesty (G15), the owner's acceptance (G14, 14 November 2026) and, on the MSX, battery saves (G7: two games). Partial: battery saves on the MSX2 (G7: no MSX2 game of the panel selected its
 SRAM on its routes), route depth (G9: thirteen of the sixteen long routes reach play; Deep Dungeon stays in its name entry, Super Daisenryaku in its map
-setup, Heroes of the Lance at a question of its menu) and independent hardware evidence (G11). Unknown: the owner's acceptance (G14; his play checklist is
-in QUALIFICATION.md).
+setup, Heroes of the Lance at a question of its menu) and independent hardware evidence (G11). The owner played the six games of his checklist and decided the exit (the
+owner-acceptance table of QUALIFICATION.md).
 
 **Shared paths: declined (G16 `-`).** Sharing paths serves no purpose here, so the MSX and the MSX2 do not share them (the owner's rule of 14 November
 2026). The evidence is the panel's: the only code its sixteen games run from RAM is the BIOS hooks they write, a jump into the cartridge followed by a return
@@ -124,18 +125,18 @@ in QUALIFICATION.md).
 C-BIOS's own start-up code (about 24,700 on most games) and those hooks. A received path would add no native instruction and save no conversion pass. The sharing code that was
 written for them is kept apart, should a game ever run cartridge code from RAM.
 
-Leaving the experimental status is the owner's own decision (G14), and nothing here asks for it.
+**Status.** The MSX and the MSX2 are supported since 1.7.5, on the owner's decision of 14 November 2026, in his words: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » The MSX2+ stays experimental (section 9).
 
 ## 8. The MSX2 (`msx2`)
 
-Experimental profile `msx2`, the second profile of the MSX family, beside `msx` as the Game Gear is beside the Master System. It shares the Z80 chain, the
-keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is experimental since 1.7.3, and
+Profile `msx2`, the second profile of the MSX family, beside `msx` as the Game Gear is beside the Master System. It shares the Z80 chain, the
+keyboard, the sound and the cartridge mappers of the MSX1 and adds the V9938, a memory mapper and a clock. It is supported since 1.7.5 (open as experimental in 1.7.3), and
 **the V9938 command engine's timing is approximated**.
 
 **Converted:** MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), from a `.mx2`, `.rom` or ZIP that you
 choose as MSX2 in the console list or that sits in a folder named `msx2` (a `.mx2` with no such hint goes to the MSX2+: section 9). The machine (implemented, and checked only as section 8's table says): the V9938 drawn line by line (all screen modes, sprite mode 2, the
 palette, scrolling, the line interrupt, the display pages; VRAM is held as the chip holds it, in two banks, so Graphic 6 and 7 reach their logical addresses interleaved), the V9938 command engine (all twelve commands, HMMC, YMMM, HMMM, HMMV, LMMC, LMCM, LMMM, LMMV, LINE, SRCH, PSET and POINT, and STOP, with the logical operations, in the bitmap modes G4 to G7 only; V9938 commands: all twelve, timing approximated), the memory mapper (128, 256 or 512 KiB of RAM, chosen in Options > MSX2, default 256) and the
-RP5C01 clock, frozen at 2000-01-01 12:00:00 and then running on machine time (not your PC's clock). The picture is 544 x 228 (see [CONTROLS.md](CONTROLS.md#msx-and-msx2-experimental)).
+RP5C01 clock, frozen at 2000-01-01 12:00:00 and then running on machine time (not your PC's clock). The picture is 544 x 228 (see [CONTROLS.md](CONTROLS.md#msx-and-msx2)).
 
 **Firmware:** C-BIOS 0.29a MSX2 images (main ROM, logo and sub-ROM), fetched and pinned like the MSX1's, or your own MSX2 BIOS pair: the main ROM
 (`msx2_bios`) and its 16 KiB sub-ROM (`msx2_subrom`, the file beginning "CD"), chosen in Options > MSX2 and never shipped. The same rules as for the MSX1:

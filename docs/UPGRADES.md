@@ -79,7 +79,7 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
-## MSX and MSX2: the mapper probe of battery-backed boards, the exit panel (1.7.5)
+## MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status (1.7.5)
 
 **What changes.** The mapper probe of an ASCII cartridge runs the reference with a blank SRAM behind every bank value past the cartridge
 (`--sram-probe` of `msx_reference_main.c`): the game's writes to that SRAM are counted apart (`sram_writes`) instead of as writes the cartridge
@@ -95,6 +95,12 @@ memory is not kept.
 **What moves:** the MSX, MSX2 and MSX2+ game stamps (`msx_build.py`, `msx_conversion.py`, `msx_reference_main.c`, `systems/msx.py`). No other
 machine's stamp moves (checked against `v1.7.4` and main with `RetroRecomp.py _compilation-stamps`). A previous export of an ASCII cartridge whose
 probe now chooses another mapper was built with the wrong one: convert it again (Deep Dungeon and Super Daisenryaku among the panel's).
+
+**Status.** The MSX and the MSX2 are supported from 1.7.5, on the owner's decision of 14 November 2026 after his play test (the owner-acceptance
+table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); the MSX2+ stays experimental. The status lives in `retrorecomp/systems/msx.py`,
+which the three profiles share, so the change moves the MSX, MSX2 and MSX2+ game stamps once more; the 1.7.5 update handles it as for the PC
+Engine, and the delivered exports are not converted again. `tools/status_lint.py` no longer reads the page name `MSX.md` in a link as the
+MSX (the three profiles share their page).
 
 **Quick states:** the layout is unchanged (`msx-state-5`).
 
