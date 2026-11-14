@@ -1014,6 +1014,11 @@ INPUTS = _resolve({
     'shares:m68k_media_knowledge': (
         'retrorecomp.m68k_media_knowledge',
     ),
+    # The schema 3 handling of path records that every machine of its kind shares (naming, comparing, uniting, salvaging and gathering
+    # records, the player's library record): the 68000 computers' media knowledge stands on it. Game role.
+    'shares:path_records': (
+        'retrorecomp.path_records',
+    ),
     # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System, the Game Gear, the MSX and the MSX2): what a machine declares
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
     # The emitter and the step loop it parametrises (native/banked_*) are under ALL above; native/banked_reference_state.inc, which no
