@@ -580,7 +580,7 @@ static int decrunch(RrResload *r, uint32_t regs[16]) {
     for (uint32_t i = 0; i < sizeof head; i++) head[i] = rd8(r, regs[A0] + i);
     int format = rr_pack_format(head, sizeof head);
     if (format == RR_PACK_NONE) { regs[D0] = 0; return RR_RESLOAD_RETURN; }    /* unknown data: size 0, as WHDLoad */
-    uint32_t total = format == RR_PACK_RNC1 || format == RR_PACK_RNC2 ? 18 + (head[8] << 24 | head[9] << 16 | head[10] << 8 | head[11]) : 0;
+    uint32_t total = rr_pack_packed_size(head, sizeof head);     /* RNC1, RNC2 (refused by its name below) and Crunch-Mania */
     if (!total) {
         r->refused_offset = RL_DECRUNCH;
         snprintf(r->message, sizeof r->message, "resload_Decrunch: %s is not unpacked yet", rr_pack_name(format));

@@ -189,7 +189,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   host kit's parts
   (`amiga_conversion.NOTICE_FILES`).
 - WHDLoad is freeware with all rights reserved and is not distributed or run. The JST resload emulation (MIT) was read as a
-  reference only; none of its decrunchers is copied.
+  reference only; none of its decrunchers is copied. The Crunch-Mania unpacker of `resload_Decrunch` (1.7.6) is our own C, written from the
+  format as the `ancient` library describes it (Teemu Suutari, BSD-2-Clause, read and not copied), and tested on files our own test packs.
 - Upstream pins and review: [UPSTREAMS.md](UPSTREAMS.md).
 
 ## 6. Where it stands in the qualification
@@ -236,5 +237,6 @@ not changed by it.
   modes (up to 22 bytes) stays interpreted, counted.
 - **The five measures** stay apart and are not measured yet: no panel has run. Hardware fidelity is not claimed (vAmiga marks its AGA
   Denise as partly done).
-- **Not yet:** installs that ask for a Kickstart 3.x, Crunch-Mania packed files (`resload_Decrunch`, the Amiga 500's gap too), AGA
-  super-hires shown at full width (the picture keeps one column per hires pixel).
+- **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
+  Gloom and Super Stardust convert with it.
+- **Not yet:** AGA super-hires shown at full width (the picture keeps one column per hires pixel).

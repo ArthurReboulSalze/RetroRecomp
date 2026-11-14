@@ -591,6 +591,25 @@ static void rnc1(void) {
     CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "CRC"));
 }
 
+/* Further packed formats (Crunch-Mania): resload_Decrunch in memory gives the plain bytes; the stream cut short is refused. */
+static void decrunch_pair(const char *packed_path, const char *plain_path) {
+    uint32_t packed_n = 0, plain_n = 0;
+    unsigned char *packed = read_all(packed_path, &packed_n), *plain = read_all(plain_path, &plain_n);
+    CHECK(packed && plain);
+    if (!packed || !plain) return;
+    RrResload r = make(17, 0);
+    uint32_t regs[16] = {0};
+    memcpy(mem + 0x200000, packed, packed_n);
+    regs[8] = 0x200000; regs[9] = 0x300000;
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_RETURN && regs[0] == plain_n);
+    CHECK(!memcmp(mem + 0x300000, plain, plain_n));
+    mem[0x200000 + 13] = (unsigned char)(mem[0x200000 + 13] - 2);      /* the packed size two bytes short: the stream no longer lands */
+    regs[8] = 0x200000; regs[9] = 0x300000;
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "Crunch-Mania"));
+    free(packed);
+    free(plain);
+}
+
 int main(int argc, char **argv) {
     files_and_disks();
     crc_and_control();
@@ -606,6 +625,7 @@ int main(int argc, char **argv) {
         CHECK(packed_file && expected_file);
         if (packed_file && expected_file) rnc1();
     }
+    for (int i = 3; i + 1 < argc; i += 2) decrunch_pair(argv[i], argv[i + 1]);
     printf("%s (%d failures)\n", failures ? "FAILED" : "OK", failures);
     return failures;
 }

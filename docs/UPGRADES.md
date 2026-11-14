@@ -110,7 +110,8 @@ schema, neither of which reads a stamp). **Site limits:** unchanged. **Hot path:
 adapter as the Amiga 500, run with the A1200 model: vAmiga's A1200 scheme (68EC020 with its instruction cache, AGA, 2 MiB of chip RAM, the
 A1200 bank map), the 68EC020's instructions as native code (Moira's 68020 core specialised per opcode, lengths read from the extension words:
 `retrorecomp/m68020_lengths.py`) and the player's Kickstart 3.x over `$F80000` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-amiga1200)). The
-Amiga 500's conversions give the same outputs: its opcode table is byte-identical, its generated code unchanged.
+Amiga 500's conversions give the same outputs: its opcode table is byte-identical, its generated code unchanged. On both Amigas,
+`resload_Decrunch` now unpacks Crunch-Mania files (`native/amiga_whdload/rr_decrunch.c`): an install that stopped there converts.
 
 **Stamps** (`compilation_inputs.role_stamps`, this branch against main `a87db1fe`): **the game stamps of the Amiga (`df26554edb79` to
 `f518d06f1ee4`), the Atari ST (`6116a5b0bb28` to `2c7abad214e0`) and the X68000 (`d2ca5b2765b2` to `cec9c4a08a86`)**; no host or build stamp
