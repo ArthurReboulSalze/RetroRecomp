@@ -113,6 +113,11 @@ The Amiga joins `path_profiles.SHARED_SYSTEMS` as the X68000 did: schema 3 recor
   ($FC0000-$FFFFFF). Its layout stays empty, as the Game Boy Advance's (no format number of its own): a branch of `path_profiles` for it would
   move every machine's game stamp. `amiga_knowledge.RECORD_RULES` states the rest for the site's builder; the common part refuses a media of
   an odd size.
+- **The player observes 12-byte windows.** The common part takes one instruction's words; `m68k_media_knowledge.exact` cuts each Amiga window to
+  the instruction it starts with before a path is made or compared (the first proof conversions promoted nothing without it).
+- **Proof and decision** (14 November 2026, [AMIGA.md](AMIGA.md#shared-paths-175)): a receiver of another player's paths for Lotus 2, Lemmings and
+  Another World passed with one pass, the same interpreted counts and wall time as a control with nothing imported, and a few hundred instructions
+  made native by the paths alone. The owner decided that the Amiga shares (« Oui, partage direct »).
 - **Stamps** (`compilation_inputs.role_stamps`, this change against `01d1d7d1`): **the game stamps of the Amiga and the X68000** (the X68000 for
   `knowledge.received` in its report, below); no host or build stamp; no quick-state key.
 - **What the received paths gave: `knowledge.received`**, the same field on the three 68000 computers (the Amiga, the X68000 from this release, the

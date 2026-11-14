@@ -198,7 +198,17 @@ The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence
 
 ### Shared paths (1.7.5)
 
-The Amiga's paths travel through the shared base, as the experimental tier, like the X68000's ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#commodore-amiga-joins-the-base-in-the-experimental-tier-175-14-november-2026)): RAM code found as it is in the player's own install, and Kickstart instructions of the player's own image, as numbers only. A conversion that receives them rebuilds the instructions from its own archive, makes them native and validates the game on its routes as always; the report says what they gave (`knowledge.received`). Code a game unpacks does not travel (Monkey Island 2's files are packed: none of its observed code is in them). G16 is `P`: the sharing works from one player to another on the installs of the proof, and no Amiga path is qualified in the base yet (qualified: reached and validated by a conversion that received it from another player, counted by the site).
+The Amiga's paths travel through the shared base, as the experimental tier, like the X68000's ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#commodore-amiga-joins-the-base-in-the-experimental-tier-175-14-november-2026)): RAM code found as it is in the player's own install, and Kickstart instructions of the player's own image, as numbers only. A conversion that receives them rebuilds the instructions from its own archive, makes them native and validates the game on its routes as always; the report says what they gave (`knowledge.received`). Code a game unpacks does not travel (Monkey Island 2's files are packed: none of its observed code is in them). The owner decided on 14 November 2026 that the Amiga shares its paths (« Oui, partage direct »). G16 is `P`.
+
+The proof of 14 November 2026 (tree `ceed7b28`, one conversion at a time, each player with its own data folder): player A converted three installs at the extended level and exported its paths; player B imported them into an empty library and converted the same installs at the standard level; player C converted them the same way with nothing imported.
+
+| Install | Passes, B / C | Interpreted after pass 1, B / C | Received: offered, reached, added | Native generated, B minus C | Wall time, B / C |
+|---|---|---|---|---|---|
+| Lotus 2 | 1 / 1 | 0 / 0 | 8,848, 8,246, 602 | +20 | 391 s / 420 s |
+| Lemmings (Image) | 1 / 1 | 0 / 0 | 3,847, 3,780, 67 | 0 | 663 s / 680 s |
+| Another World (FR) | 1 / 1 | 38 / 38 (the Kickstart's) | 22,353, 21,791, 562 | +489 | 695 s / 690 s |
+
+On these routes the received paths saved no pass and changed neither the interpreted counts nor the wall time; they made a few hundred instructions native that the routes did not run, most of which the conversion's own sweep of memory finds anyway. The gain beyond the routes was not measured on the Amiga: the decision rests on the shared mechanism and on the Atari ST's Turrican II, whose unpacked code ties to the player's own disk (about 90 % fewer interpreted instructions on a route beyond the receiver's own). No Amiga path is qualified in the base yet (reached and validated by a conversion that received it from another player, counted by the site).
 
 ### Leaving the experimental status
 

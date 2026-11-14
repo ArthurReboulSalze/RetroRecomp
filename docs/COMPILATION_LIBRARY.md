@@ -1880,6 +1880,14 @@ that passed (`<library>/amiga/<archive SHA-256>/paths-record.json`), never from 
 paths. The report's `knowledge.received` (`offered`, `reached`, `added`) says what the received paths gave, the same field on the X68000 and the Atari
 ST. A failure with imported paths is converted again without them (the batch); the quick check from shared paths is declined.
 
+**The proof and the decision** (14 November 2026, [AMIGA.md](AMIGA.md#shared-paths-175) has the table). A player's paths for Lotus 2, Lemmings and
+Another World, exported in a version 3 file and imported by another player into an empty library: the receiver's conversions passed with one pass each,
+the same interpreted counts and wall time as a control with nothing imported, and 602, 67 and 562 instructions made native by the paths alone (20, 0 and
+489 more than the control once the sweep is counted). The owner decided that the Amiga shares (« Oui, partage direct »): the gain beyond the routes was
+not measured on the Amiga, and the decision rests on the shared mechanism and on the Atari ST's Turrican II (about 90 % fewer interpreted instructions on
+a route beyond the receiver's own, its unpacked code tied to the player's disk). The first proof run found that the Amiga observes 12-byte windows: a
+window is cut to its instruction (`m68k_media_knowledge.exact`) before a path is made or compared.
+
 **The engine identity** (`cores`, `amiga_knowledge.engine`): the vAmiga pin, the text of the native files that run the steps (`amiga_bus`,
 `moira_map`) and `GENERATOR_REVISION` for the Python that generates (`tests/amiga_generator_pins.json` pins those sources). `amiga_knowledge.RECORD_RULES`
 states for the site's builder what the module enforces beyond the schema.
