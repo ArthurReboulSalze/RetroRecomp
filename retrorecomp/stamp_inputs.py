@@ -185,6 +185,8 @@ NOT_INPUTS = (
     'assets/RetroRecomp-UI-JP.otf', 'assets/RetroRecomp-UI-SC.otf', 'assets/board-',
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
+    # emu2413's own licence file, kept beside the vendored sources (its text is licenses/emu2413.md, which games embed).
+    'native/msx_machine/emu2413/LICENSE',
     'licenses/upx-5.3.0-src.tar.xz',
     # Notices of the converter's own distribution (its Python runtime, its interface fonts, its Linux desktop parts) and of
     # development test vectors: no game embeds them, so they move no game's stamp. A notice a game embeds is declared on
@@ -710,6 +712,8 @@ INPUTS = _resolve({
         'native/msx_machine/msx_sram.h',
         'native/msx_machine/msx_headless.inc',
         'native/msx_machine/msx_route.inc',
+        # The disk-request rule (G9): machine-neutral, the MSX2+ its first user; the X68000 and the Atari ST keep their own for now.
+        'native/media_request.h',
         'native/msx_machine/msx_state.c',
         'native/msx_machine/msx_state_file.inc',
         'native/msx_machine/msx_tiles.inc',
@@ -721,6 +725,7 @@ INPUTS = _resolve({
         'retrorecomp.msx_cbios',
         'retrorecomp.msx_conversion',
         'retrorecomp.msx_disk',
+        'retrorecomp.msx_knowledge', 'retrorecomp.msx2plus_knowledge',
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
     ),
@@ -926,6 +931,16 @@ INPUTS = _resolve({
     ('pce', 'msx', 'msx2', 'msx2plus'): (
         'retrorecomp.route_start',
     ),
+    # The MSX2+ alone (1.7.6): MSX-MUSIC, the YM2413 on emu2413 (vendored unmodified, MIT; its provenance in revision.json),
+    # staged and compiled only into an MSX2+ program (msx_build.MUSIC_FILES).
+    ('msx2plus',): (
+        'native/msx_machine/emu2413/emu2413.c',
+        'native/msx_machine/emu2413/emu2413.h',
+        'native/msx_machine/emu2413/revision.json',
+        'native/msx_machine/msx_music.c',
+        'native/msx_machine/msx_music.h',
+        'native/msx_machine/msx_opll_state.inc',
+    ),
     # The Sony PlayStation (experimental, docs/PLAYSTATION.md): its disc and BIOS readers, its input module, the pack of the disc,
     # the preparation of the pinned Beetle PSX machine, the session that drives it and the machine's notices.
     ('psx',): (
@@ -1013,6 +1028,11 @@ INPUTS = _resolve({
     # Amiga and the Atari ST when they share their paths). Game role.
     'shares:m68k_media_knowledge': (
         'retrorecomp.m68k_media_knowledge',
+    ),
+    # The schema 3 handling of path records that every machine of its kind shares (naming, comparing, uniting, salvaging and gathering
+    # records, the player's library record): the 68000 computers' media knowledge stands on it. Game role.
+    'shares:path_records': (
+        'retrorecomp.path_records',
     ),
     # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System, the Game Gear, the MSX and the MSX2): what a machine declares
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.

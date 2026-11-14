@@ -108,6 +108,9 @@ static void start_transfer(MsxFdc *f, int write)
     f->drive = f->cmd[1] & 3;
     f->head = (f->cmd[1] >> 2) & 1;
     f->c = f->cmd[2]; f->h = f->cmd[3]; f->r = f->cmd[4]; f->n = f->cmd[5]; f->eot = f->cmd[6];
+    ++f->commands;
+    if (!write && f->c == 0 && f->h == 0 && f->r == 1)
+        ++f->boot_reads;
     f->pos = 0;
     f->at_end = 0;
     if (f->drive >= MSX_FDC_DRIVES || !f->disk[f->drive].data) {
