@@ -46,7 +46,7 @@ Windows games with your own BIOS (`gba_bios.bin`, supplied in Options; a convert
 exports to `Games/Game Boy Advance`. Its status is experimental; its paths come after the others in the path order (11) and its
 gameplay feedback kind is 21. See [Game Boy Advance](GAME_BOY_ADVANCE.md).
 
-The **Commodore Amiga** profile (`amiga`, experimental since 1.7.0) converts `.lha` WHDLoad installs
+The **Commodore Amiga** profile (`amiga`, supported since 1.7.5, open since 1.7.0) converts `.lha` WHDLoad installs
 (a Kickstart 1.x of your own for those that ask for one) and exports to `Games/Amiga`; see [Amiga](AMIGA.md).
 
 The **Sony PlayStation** profile (`psx`, experimental since 1.7.1) converts discs (EBOOT, CUE/BIN, CloneCD, ISO)
