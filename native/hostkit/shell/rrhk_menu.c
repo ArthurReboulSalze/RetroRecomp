@@ -229,7 +229,8 @@ void rrhk_close_menu(void) {
  * Drawn by the kit like every menu, never a window of the system. "No" is selected when it opens. */
 void rrhk_quit_ask(void) {
     if (rrhk.menu == RRHK_MENU_QUIT) return;
-    rrhk.parent_menu = rrhk.menu == RRHK_MENU_PAUSE ? RRHK_MENU_PAUSE : 0;
+    /* No and Esc come back to the Pause menu or (1.7.6) to the options page it was asked from, else to the game */
+    rrhk.parent_menu = rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_OPTIONS ? rrhk.menu : 0;
     rrhk.menu = RRHK_MENU_QUIT; rrhk.capturing = 0;
     quit_yes = false;
 }
@@ -311,7 +312,8 @@ static void help_line(const RrhkMenuCtx *ctx, int y, const char *text) {
 void rrhk_menu_draw(SDL_Renderer *ren) {
     const RrhkMachine *m = rrhk.machine;
     /* A menu left another way (a quick state loaded, a restart, the help opened over a page) forgets the tiles. */
-    if (rrhk.menu != RRHK_MENU_HUB && rrhk.menu != RRHK_MENU_GRAPHICS && !rrhk_pages_open(rrhk.menu)) { from_hub = false; hub_parent = 0; }
+    if (rrhk.menu != RRHK_MENU_HUB && rrhk.menu != RRHK_MENU_GRAPHICS && !rrhk_pages_open(rrhk.menu) &&
+        !(rrhk.menu == RRHK_MENU_QUIT && rrhk.parent_menu == RRHK_MENU_OPTIONS)) { from_hub = false; hub_parent = 0; }
     if (!rrhk.menu) {
         if (rrhk.paused) {      /* F11 (X68000): the picture stays under the word */
             int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
