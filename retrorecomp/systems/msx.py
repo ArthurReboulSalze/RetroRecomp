@@ -1,4 +1,4 @@
-"""MSX and MSX2 profiles (experimental: see docs/MSX.md).
+"""MSX and MSX2 profiles (supported since 1.7.5, open as experimental in 1.7.3; the MSX2+ stays experimental: see docs/MSX.md).
 
 What it converts: an MSX1 cartridge (plain 8 KiB to 64 KiB, Konami, Konami SCC, ASCII 8 KiB or ASCII 16 KiB mapper, read from a
 .rom, a .mx1 or a ZIP holding one), booted by C-BIOS 0.29a or by the player's own MSX BIOS. The cartridge and the BIOS are
@@ -42,7 +42,7 @@ class MsxProfile(SystemProfile):
     archived_rom_limits = (('.mx1', 0x200000),)
     export_folder = 'MSX'
     video_modes = ('ntsc', 'pal')
-    status = 'experimental'
+    status = 'supported'
     scope_note = ('MSX1 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX BIOS; '
                   'MSX2 cartridges are the MSX2 profile; no disks or cassettes yet')
     # The machine has one processor; the PSG and the SCC are chips of our own C, not CPUs.
@@ -56,7 +56,7 @@ class MsxProfile(SystemProfile):
     quick_state_family = 'msx'
     host_adapter = 'adapters/rrhk_msx.inc'
     linux = 'witnessed'   # Nemesis (MSX1) and Metal Gear (MSX2) converted headless on a Debian 13 PC, 12 November 2026: same report fields as Windows, quick states pass; not played in a window there
-    # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: the player records nothing for path sharing yet.
+    # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: nothing is recorded for path sharing, which the MSX declines (docs/MSX.md, section 7).
     feedback_kinds = frozenset({26})
     # The third-party components compiled into its games (retrorecomp/notices.py; the player shell's are added): the banked
     # Z80 chain's generator and core, the corrected reference interpreter of the counted fallback; C-BIOS only in a game that
@@ -115,7 +115,8 @@ class Msx2Profile(MsxProfile):
     archived_rom_limits = (('.mx2', 0x200000),)
     export_folder = 'MSX2'
     scope_note = ('MSX2 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2 '
-                  'BIOS; the V9938 with all twelve commands, timing approximated; no disks or cassettes')
+                  'BIOS; the V9938 with all twelve commands, timing approximated; no disks or cassettes; the battery memory of the clock '
+                  'is not kept between runs')
     # The player's own MSX2 BIOS is two files (the main ROM and its sub-ROM), optional together; the mapper RAM's size is
     # part of the request (the machine differs).
     firmware = ('bios', 'subrom')
@@ -197,10 +198,11 @@ def decided(path: Path) -> str | None:
 
 class Msx2PlusProfile(Msx2Profile):
     """The MSX2+ (experimental since 1.7.4): the MSX2's board with the V9958 (YJK and YAE modes, the horizontal scroll) and the
-    port F4h, booted by C-BIOS 0.29a's MSX2+ images or by the player's own MSX2+ BIOS pair. Cartridges only for now: disks,
-    MSX-MUSIC and the kanji ROM come in later steps (docs/MSX.md)."""
+    port F4h, booted by C-BIOS 0.29a's MSX2+ images or by the player's own MSX2+ BIOS pair. Cartridges, and disk games with the
+    player's own BIOS pair and disk ROM; MSX-MUSIC and the kanji ROM are not converted yet (docs/MSX.md)."""
     id = 'msx2plus'
     name = 'MSX2+'
+    status = 'experimental'     # the MSX and the MSX2 are supported; the MSX2+ is not (docs/MSX.md, section 9)
     # A .mx2 with no other hint and a .rom or ZIP chosen or in an msx2+ folder (identify_path below); a .dsk, or an M3U of
     # them (rom_sources.disk_sets groups "(Disk n of m)" files into one, marked with this machine).
     extensions = ('.mx2', '.dsk')

@@ -60,7 +60,7 @@ ROOT_ENV = 'RETRO_RECOMP_ROMS'
 # profile's: a machine that is not listed is looked for in a folder named after its id.
 SHARE_FOLDERS = {'sms': 'mastersystem', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'megadrive',
                  'snes': 'snes', 'ng': 'neogeo', 'cps1': 'fbneo', 'cps2': 'fbneo', 'x68': 'x68000', 'pce': 'pcengine',
-                 'msx2plus': 'msx2+'}
+                 'msx': 'msx1', 'msx2plus': 'msx2+'}
 # Files a share keeps beside the profile's own extensions (headered and headerless Mega Drive dumps).
 SHARE_EXTRA_EXTENSIONS = {'md': ('.smd', '.bin')}
 DEFAULT_FOLDERS = {profile.id: SHARE_FOLDERS.get(profile.id, profile.id) for profile in ALL_PROFILES}

@@ -54,7 +54,7 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [Kitware/CMake](https://github.com/Kitware/CMake) | all (Windows build) | `4.4.4` | `4.4.4` | `toolchain.CMAKE_VERSION` |
 | [ninja-build/ninja](https://github.com/ninja-build/ninja) | all (Windows build) | `1.13.2` | `1.13.2` | `toolchain.NINJA_VERSION` |
 | [upx/upx](https://github.com/upx/upx) | all | `5.3.0` | `5.3.0` | `packing.UPX_VERSION` |
-| [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | sms, gg, md | `ebe1875` | `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7` | `tools/fetch_z80_vectors.REVISION` |
+| [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | sms, gg, md, msx, msx2, msx2plus | `ebe1875` | `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7` | `tools/fetch_z80_vectors.REVISION` |
 | [SingleStepTests/65816](https://github.com/SingleStepTests/65816) | snes | `307c63f` | `307c63f5673c8c6b861c52f71ddb89212a227480` | `tools/fetch_snes_vectors.REVISION_65816` |
 | [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700) | snes | `67d15f4` | `67d15f492b2740964abd4efd1229e0ec9c342228` | `tools/fetch_snes_vectors.REVISION_SPC700` |
 | [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) | gb | `f9c3021` | `f9c30210245dd691661db39f5ace022c465ecc2f` | `tools/fetch_sm83_vectors.REVISION` |
