@@ -1129,6 +1129,41 @@ latency measure.
 |---|---|---|---|---|
 | (to fill) | Nintendo NES | (to fill) | (to fill) | (to fill) |
 
+### Checklist for Arthur: Atari ST play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executables** that stand in `Export/Games/Atari ST/` (converted from the final tree of the release you are
+judging, online covers on; nothing here asks you to convert anything). One short session, seven games, about ten minutes each. Nothing here says exact hardware, complete gameplay or latency;
+a tick means "it looked and sounded right to you in this test". The games that start on EmuTOS need no file from you; Turrican II was converted with your TOS 1.04.
+
+| | Bomb Jack | Turrican II | Operation Stealth | The Lurking Horror | Kick Off 2 | Lethal Xcess | Battle Probe |
+|---|---|---|---|---|---|---|---|
+| Why it is here | the control: EmuTOS, starts by itself, joystick | needs the player's own TOS 1.04 (EmuTOS stops it) | three disks, started by the desktop, a colour-code protection | the game that saves to its disk; keyboard | a sports game: two players, the joystick on both ports | two disks, the disk change, a shooter | started by the desktop, a joystick game |
+| It starts without an error window | | | | | | | |
+| Controls: arrows, **W** (fire), **Enter** (Start); a gamepad is player 1 | | | the mouse drives it; **Ctrl+Alt+M** lets the mouse go | you type: **Ctrl+Alt+K** gives the keyboard to the Atari | player 2 on its own keys or a second gamepad | | |
+| Sound is the game's (music and effects) | | | | | | | |
+| The disk change: **Ctrl+Alt+Page Up / Page Down** when the game asks | not applicable | not applicable | at each "insert disk" | not applicable | not applicable | "INSERT DISK B" | not applicable |
+| **F8** in play, move on, **F9** goes back to the saved moment | | | | | | | |
+| Close the window, start again, **F9** loads the state saved before | | | | | | | |
+| Nothing odd: a frozen picture, silence where there was sound, a wrong colour | | | | | | | |
+
+Then three checks, each on the game that fits:
+
+1. **A save made in the game.** In The Lurking Horror, walk a room, type `save`, then a file name, quit, start the game again and type `restore`, the same name: you must find the room you left.
+   What the game writes to its disk is kept in `datas/games/atarist-<identity>/disk-writes.bin` beside the player; the disk image inside the executable never changes. A damaged file is
+   moved to `disk-writes.bin.unusable-1` and the game starts from its disks.
+2. **A protection.** Operation Stealth asks for a colour code from its card: the conversion's routes stop there on purpose, because no route
+   answers or skips a protection. If you own the card, type the answer yourself (**Ctrl+Alt+K** first) and tell me whether the game goes on.
+3. **A game of your own.** Add one disk or ZIP of the ST library that is not in this list to the queue, convert it, and play it like the others: which one, and what it did, is the most useful
+   line of this checklist.
+
+Known limits to keep in mind while you play: the STE, the Mega STE, the TT, the Falcon, hard disks and the monochrome monitor are not supported; a game that formats a track on an IPF disk
+cannot keep that write; Metro-Cross, Pharaoh III and Trinity do not run as they should (listed in KNOWN_FAILURES.md). Keep the five measures apart when you judge: the CPU is Hatari's,
+checked against an independent corpus and the hardware against authored programs, not against a real ST, and a good feel here is neither an exact fidelity nor a latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| (to fill) | Atari ST | (to fill) | (to fill) | (to fill) |
+
 ## Running the verification campaign
 
 `tools/campaign.py` is a developer tool: it prepares and runs the pre-release

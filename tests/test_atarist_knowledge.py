@@ -119,6 +119,7 @@ class RecordTests(unittest.TestCase):
         raw = b'IPFRAW' * 100
         content = ak.disk_content([('stx', raw)])
         self.assertEqual(content, raw)                                    # no standard sector: the images themselves
+        self.assertEqual(ak.disk_content([('stx', raw + b'x')]), raw + b'x\0')   # an odd size is padded: the common part refuses it
         record, counts = ak.promote(IDENTITY, content, tos_image(), program_observed() + tos_observed())
         self.assertEqual(ak.rows(record)[0], [])                         # nothing of the program is in the images
         self.assertEqual(len(ak.rows(record)[1]), 2)                     # the TOS rows travel

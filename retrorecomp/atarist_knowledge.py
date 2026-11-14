@@ -89,7 +89,8 @@ def disk_content(blobs) -> bytes:
     record can still carry the TOS rows, and a record needs a source for its media."""
     from .atarist_disk import logical_content
     content = b''.join(logical_content(data, extension) for extension, data in blobs)
-    return content or b''.join(data for _, data in blobs)
+    content = content or b''.join(data for _, data in blobs)
+    return content + b'\0' * (len(content) & 1)          # the common part refuses media of an odd size
 
 
 def _tos_rows(tos: bytes | None, observed) -> tuple[list, int, int]:
