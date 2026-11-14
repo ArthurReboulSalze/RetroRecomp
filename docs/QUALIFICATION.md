@@ -14,6 +14,11 @@ always the maintainer's own: he decides whether a machine leaves the experimenta
 dated acceptance, worded as he gave it (G14). No tool and no agent fills G14, or moves a profile to `supported`, without his explicit
 yes.
 
+Path sharing (G16) is not asked of a machine on which it serves no purpose (the maintainer's decision of 14 November 2026): when the
+panel shows that received paths would add no native instruction and save no conversion pass, the machine does not share, G16 reads `-`
+with that evidence in its entry, and `tests/test_machine_registry.py` lists it in `DECLINED['path_sharing']`. Sharing that serves a
+purpose is still required.
+
 ## Gates
 
 | # | Gate | Short name | Defined by |

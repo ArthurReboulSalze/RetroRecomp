@@ -157,7 +157,7 @@ its own measure category.
 | Panel and platforms | varied boards, none dropped for failing; Windows and Linux give identical route hashes |
 | Owner acceptance | the owner's play test, recorded |
 | Honesty | hardware fidelity, full-game coverage and latency are never claimed without proof |
-| Shared knowledge | hints are numeric, rechecked, and the conversion retries without them on failure |
+| Shared knowledge | hints are numeric, rechecked, and the conversion retries without them on failure; a machine on which sharing serves no purpose (its panel shows that received paths would add no native instruction and save no pass) does not share, on the maintainer's decision (14 November 2026), and G16 reads `-` |
 
 Leaving `experimental` keeps the bar very high (every gate proved, none relaxed) and is always the maintainer's own decision: no tool
 and no agent fills the owner-acceptance gate or sets a profile to `supported` without his explicit yes
