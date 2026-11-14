@@ -15,6 +15,66 @@
   - **Battery-backed boards.** The mapper probe now recognises ASCII cartridges with 2 KiB of battery SRAM (Deep Dungeon, Super
     Daisenryaku), which it read with the wrong mapper before.
   - **Known C-BIOS failure.** Heroes of the Lance shows its Japanese text with the wrong characters under C-BIOS; the game runs.
+- **Every machine: Quick save and Quick load on the gamepad.** Player 1's gamepad page has two more rows, **Quick save** and
+  **Quick load**, unassigned until you bind them: hold the button 0.5 s to save, 1 s to load. F8 and F9 do not change.
+- **Every machine: L2 and R2 as buttons.** The triggers can be bound to every control on every machine, the game's buttons
+  included; until 1.7.4 only the PlayStation and the Nintendo 64 took them. A trigger bound to a control is no longer a speed
+  control; an unbound one still is.
+- **Every machine: icons in the menus.** Each row of the control, options and graphics pages has a pixel icon.
+- **Commodore Amiga: a second joystick on the mouse port.** Port 1 follows the device used last, as on the machine: player 2's
+  pad plugs a joystick in, a move or a click of the mouse plugs the mouse back, and a plate says which. A **Mouse port** row on
+  player 2's pad page (Auto, Mouse, Pad 2) keeps one device for a game that needs it. Lotus 2 races in split screen with two
+  pads; its two-player route equals the fresh reference on every frame. An older flaw is fixed: a button held when a quick state
+  was saved came back released after loading it.
+- **Amiga and Atari ST: paths shared with other players**, in the base's first tier, where a machine's paths start. A path is numbers about your
+  own disks, install, TOS or Kickstart, never their bytes; a path you receive is checked again by your own conversion, and a
+  conversion that fails with received paths is made again without them.
+  - **Atari ST:** on Turrican II, a route the receiving conversion did not play went from 30.5 million interpreted instructions
+    to 2.9 million with the paths received (about 90 % fewer); the routes it plays do not change, no conversion pass is saved,
+    and the speed is not measured.
+  - **Amiga:** the same mechanism; on Lotus 2, Lemmings and Another World the receiver passed in one pass with the same
+    interpreted counts on its routes; the gain beyond them is not measured.
+  - A machine where sharing would serve no purpose does not share (the rule of 14 November): the MSX and the MSX2.
+- **Mega Drive and Super Nintendo: quick states survive an interface change.** Their key now hashes only the files that fix the
+  state's layout, so a quick state of 1.7.4 loads in 1.7.5 (the 1.7.4 keys of Windows and Linux are accepted; on Windows, a 1.7.4
+  state of Sonic The Hedgehog 2 and of Super Mario World continues with the same hashes for 300 frames). A change of the menus no
+  longer refuses them.
+- **The converter window on Linux is faster.** The hover hints added a handler to the window each time the options opened; there
+  is now one per window. On a 4-core Debian 13 PC, choosing a console took 0.6 to 2.6 s and now takes about 45 ms, and closing
+  the options took up to 3.6 s and now takes about 170 ms. Every system gets the fix.
+
+**Speed.** [SPEED: pending]
+
+These are four machines leaving the experimental status, on the owner's decision after his play tests, new controls on every
+machine and paths shared on two of them, each on the evidence above; none of them is a measure of hardware fidelity, complete
+gameplay or physical latency, and the interpreter fallback is still counted and shown per CPU and per device wherever it is
+used.
+
+**Your exports and quick states.** 1.7.5 moves the game stamp of the Mega Drive, Super Nintendo, Neo Geo, CPS-1, CPS-2, PC
+Engine, PlayStation, X68000, Amiga, Atari ST, MSX, MSX2 and MSX2+, so **every export of 1.7.4 on those machines is converted
+again once** when you update, at the quick level, from its learned paths, and the window offers it; the shared paths of the base
+are kept. The host stamp of every machine moves with the menus: exports of the Master System, Game Gear, Game Boy, NES, Game Boy
+Advance, Nintendo 64 and Adventure (ScummVM) are only **upgraded**, rebuilt from their learned paths with no rediscovery. No build
+stamp moves. A quick state of 1.7.4 is refused cleanly on the Amiga (a new state format) and on the Atari ST and the Nintendo 64
+(their key takes every input of the machine), with a message (nothing is lost but the state). It loads on the other machines, the
+Mega Drive and the Super Nintendo included; on the MSX, a cartridge whose mapper the probe now reads differently (Deep Dungeon,
+Super Daisenryaku) refuses its old states. A Game Boy Advance quick state is the engine's own file, with no key of ours. Cartridge
+saves are kept; a save the new export cannot use is set aside and never crashes or blocks the game. The details are in
+[UPGRADES.md](UPGRADES.md#exports-of-174-in-175).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
 
 # RetroRecomp v1.7.4 — The MSX2+ opens as an experimental machine, with cartridges and disks; a new in-game interface on every machine; the MSX, the Atari ST and the Mega Drive move up the qualification list
 
