@@ -69,6 +69,8 @@ class Run:
     ewram: bytes | None = None       # the 256 KB of work RAM at the end of the run (code a game copies there is matched with its source)
     samples: tuple = ()              # (address, 1,024 live bytes) found at the first miss of a RAM address, and again when they changed
     capped: tuple = ()               # (address, versions kept) of the RAM addresses whose further versions the probe's cap refused
+    audio_hash: str = ''             # a hash of every sample the sound mixer produced up to that VBlank, in order
+    audio_samples: int | None = None  # and how many there were
 
 
 def recompiler(stage: Path, key: str, cmake, generator: str, emit: Callable[[str], None]) -> Path:
@@ -294,10 +296,11 @@ def run_scenario(host: Path, rom_path: Path, rom_sha1: str, bios_path: Path, fol
     picture = work / 'frame.png'
     # The engine's final line also prints `cycles=`: the cycles it spent in its idle pump, which stopped growing after the first
     # seconds of every cartridge seen (62,191,750 on three of them). The snapshot is taken at the first VBlank after the frame limit.
-    snapshot = re.search(r'vblank_snapshot frame=\d+ cycles=(\d+) mem=([0-9a-f]+) cpu=([0-9a-f]+)', result.stdout)
+    snapshot = re.search(r'vblank_snapshot frame=\d+ cycles=(\d+) mem=([0-9a-f]+) cpu=([0-9a-f]+)(?: audio=([0-9a-f]+) audio_samples=(\d+))?', result.stdout)
     return Run(scenario, frames, result.returncode, result.stdout, data,
                miss.read_text(encoding='utf-8') if miss.is_file() else '',
                dump.read_bytes() if dump.is_file() else None, aborted,
                hashlib.sha256(picture.read_bytes()).hexdigest() if picture.is_file() else '',
                int(snapshot[1]) if snapshot else None, snapshot[2] if snapshot else '', snapshot[3] if snapshot else '',
-               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file), _capped(samples_file))
+               wram_dump.read_bytes() if wram_dump.is_file() else None, _samples(samples_file), _capped(samples_file),
+               snapshot[4] or '' if snapshot else '', int(snapshot[5]) if snapshot and snapshot[5] else None)

@@ -477,7 +477,7 @@ class ConversionWiringTests(unittest.TestCase):
         interpreted = 0 if reference or not misses else 40
         different = reference and self.reference_differs
         return build.Run(name, frames, 0, '', {'interpreted_insns': interpreted, 'coverage': 'NOT_STATIC' if interpreted else 'FULLY_STATIC', 'distinct_misses': 1 if misses else 0},
-                         misses, None, '', 'picture' if not different else 'other', 1000, 'memory', 'registers')
+                         misses, None, '', 'picture' if not different else 'other', 1000, 'memory', 'registers', audio_hash='sound', audio_samples=10)
 
     def receive(self, roots=(0x200, 0x301), spans=((0x03000100, 0x400, 0x40),), core=None):
         rom = self.cartridge.read_bytes()

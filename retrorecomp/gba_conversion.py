@@ -95,11 +95,12 @@ def _matches(native, reference) -> bool | None:
         return None
     if native.cycles is None or reference.cycles is None or not native.mem_hash or not reference.mem_hash:
         return False
-    # The picture, the guest's cycle count and the state of the machine (memories, device registers, CPU registers) at the first
-    # VBlank after the frame limit, which both runs reach at the same machine cycle.
+    # The picture, the guest's cycle count, the state of the machine (memories, device registers, CPU registers) and the sound (a hash of every
+    # sample the mixer produced, and how many) at the first VBlank after the frame limit, which both runs reach at the same machine cycle.
     return bool(native.frame_sha256 and native.frame_sha256 == reference.frame_sha256
                 and abs(native.cycles - reference.cycles) <= CYCLE_TOLERANCE
-                and native.mem_hash == reference.mem_hash and native.cpu_hash == reference.cpu_hash)
+                and native.mem_hash == reference.mem_hash and native.cpu_hash == reference.cpu_hash
+                and native.audio_hash and native.audio_hash == reference.audio_hash and native.audio_samples == reference.audio_samples)
 
 
 def validation_failures(rows: list, runs: dict) -> list[str]:
@@ -288,7 +289,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
         raise ConversionError('Game Boy Advance: the check against the engine\'s interpreter failed; no game was built. ' + '; '.join(failures) + '.')
     checked = [row for row in rows if row['reference_match'] is not None]
     validation = {'passed': (all(row['reference_match'] for row in checked) if checked else None),
-                  'method': "final picture, guest cycle count and a hash of the machine state (memories, device registers, CPU registers) at the first VBlank after the frame limit, against the engine's own interpreter, same scenario",
+                  'method': "final picture, guest cycle count and a hash of the machine state (memories, device registers, CPU registers) and a hash of every sound sample the mixer produced at the first VBlank after the frame limit, against the engine's own interpreter, same scenario",
                   'scope': "bounded scripted scenarios; the interpreter is the engine's, not an independent oracle",
                   'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                   'scenarios': [{'scenario': row['scenario'], 'frames': row['frames'], 'match': row['reference_match']}
