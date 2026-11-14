@@ -99,6 +99,27 @@ int rrhk_pages_goto(int page, int *control) { return rr_pages_goto(settings_page
 bool rrhk_pages_open(int menu) { return rr_pages_open(menu); }
 int rrhk_pages_step(const SDL_Event *event) { return rr_pages_step(event); }
 
+/* The icon of an options row (1.7.5), chosen by its key: the kit's rows, the shared ones, a computer's keyboard row. */
+int rrhk_option_icon(int key) {
+    switch (key) {
+    case SDL_SCANCODE_F3: return RR_ICON_ROW_FILTER;
+    case SDL_SCANCODE_F4: return RR_ICON_ROW_DISPLAY;
+    case SDL_SCANCODE_F6: return RR_ICON_ROW_AUTOFIRE;
+    case SDL_SCANCODE_F7: return RR_ICON_ROW_LANGUAGE;
+    case SDL_SCANCODE_F12: return RR_ICON_ROW_RECORD;
+    case SDL_SCANCODE_M: return RR_ICON_ROW_SOUND;
+    case SDL_SCANCODE_GRAVE: return RR_ICON_ROW_SPEED;
+    case RRHK_KEY_RUMBLE: return RR_ICON_ROW_RUMBLE;
+    case RRHK_KEY_START_HELP: return RR_ICON_ROW_REMINDER;
+    case RR_ROW_AUDIO: return RR_ICON_ROW_WAVE;
+    case RR_ROW_FKEYS: return RR_ICON_ROW_FKEY;
+    case RR_ROW_VOLUME: return RR_ICON_ROW_VOLUME;
+    case RR_ROW_DEVICE: return RR_ICON_ROW_HEADPHONES;
+    case RRHK_ROW_KEYBOARD: return RR_ICON_ROW_KEYBOARD;
+    default: return RR_ICON_ROW_GENERIC;     /* a machine's own row (F5, F11): HOST_KIT.md D20 lists them */
+    }
+}
+
 /* Option rows run their function keys exactly as the shortcuts do. */
 static RrhkOptionRows option_rows(void) {
     const RrhkMachine *m = rrhk.machine;
@@ -128,6 +149,7 @@ static RrOptionRows option_window(const RrhkOptionRows *all, int first) {
     for (int i = 0; i < d.count; ++i) {
         memcpy(d.text[i], all->text[first + i], sizeof d.text[i]);
         d.keys[i] = all->keys[first + i];
+        d.icons[i] = rrhk_option_icon(d.keys[i]);
     }
     return d;
 }

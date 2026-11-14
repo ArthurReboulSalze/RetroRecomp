@@ -66,6 +66,15 @@ typedef struct RrhkRun {
  * SDL_NUM_SCANCODES + 1), so that no keyboard sends them. */
 #define RRHK_KEY_RUMBLE (SDL_NUM_SCANCODES + 16)
 #define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
+/* The keyboard row of the computers' options page (rrhk_computer.inc, RRC_ROW_KEYBOARD): its icon is chosen by this key. */
+#define RRHK_ROW_KEYBOARD (SDL_NUM_SCANCODES + 1)
+
+/* menu.c: the row icons (1.7.5) */
+int rrhk_action_icon(const char *name, char letters[4]);   /* the icon of a control by its English name; a face button's letters */
+int rrhk_option_icon(int key);                              /* the icon of an options row by its key */
+int rrhk_combo_icon(int index);                             /* Quit, Restart, Quick save, Quick load */
+int rrhk_gfx_icon(const char *name);                        /* a graphics option by its English name */
+void rrhk_draw_icon(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, int icon, const char *letters);
 
 double rrhk_thread_cpu(void);
 void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkTiming *timing,

@@ -334,6 +334,10 @@ void rrhk_toggle_autofire(void);                   /* F6: flip, forget held butt
 void rrhk_options_observe(const SDL_Event *event); /* keys and buttons held, for the quit/restart combinations */
 bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu);
 void rrhk_menu_line(const RrhkMenuCtx *ctx, int y, const char *text);
+/* Row icons (1.7.5): a 9 x 9 pictogram drawn at (x, y) in menu units, at the left of a menu row: one of retro_menu.h's
+ * RR_ICON_ROW_*. A page an adapter draws itself puts one before each of its rows; RR_ICON_ROW_GENERIC is the one for a row with
+ * no picture of its own. */
+void rrhk_menu_icon(const RrhkMenuCtx *ctx, int x, int y, int icon);
 void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);
 extern const RrhkPage rrhk_pointer_page;
