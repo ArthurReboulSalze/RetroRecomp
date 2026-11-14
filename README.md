@@ -3,11 +3,11 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · MSX · MSX2 · Commodore Amiga · Game Boy Advance · Atari ST · Nintendo 64 · Sony PlayStation · MSX2+ (the last five experimental)</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · MSX · MSX2 · Commodore Amiga · Atari ST · Game Boy Advance · Nintendo 64 · Sony PlayStation · MSX2+ (the last four experimental)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.7.4-d4a737" alt="Release version 1.7.4">
+  <img src="https://img.shields.io/badge/release-1.7.5-d4a737" alt="Release version 1.7.5">
   <img src="https://img.shields.io/badge/console_profiles-17-626262" alt="Seventeen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -78,9 +78,9 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████████░` 94 % |
-| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | experimental | `█████████░` 88 % |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████████░` 91 % |
 | [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████████░` 91 % |
-| [Atari ST](docs/ATARI_ST.md)\* | experimental | `████████░░` 84 % |
+| [Atari ST](docs/ATARI_ST.md)\* | supported | `█████████░` 91 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
 | [MSX](docs/MSX.md) | supported | `█████████░` 93 % |
@@ -116,7 +116,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.4.** The MSX2+ opens as an experimental machine, for cartridges and, with your own BIOS and disk ROM, disk games. Every machine's games get a new in-game interface: F2 as tiles, a "Quit?" question, the keys shown when a game opens, and a stretched F4 mode. The MSX and the MSX2 keep the battery saves of their ASCII cartridges, the Atari ST reads more disks as the TOS does, and the Mega Drive's report says what each conversion checked, with the same routes on Windows and Linux. The Amiga refuses a damaged quick state and keeps the files of games that save, like Panza Kick Boxing's boxers. X68000 games open from a linked folder, and Lagoon gets its system disk back by itself. The Game Boy Advance conversion replays the file it delivers against the player it built, and twelve cartridges' routes into play are checked (69 % of its checklist). Every export of 1.7.3 is converted again once, except on Adventure (ScummVM), where it is only rebuilt. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.5.** The MSX, the MSX2, the Commodore Amiga and the Atari ST are now supported; the Amiga and the Atari ST share their paths with other players. On every machine, quick save and quick load can be bound to the gamepad (a short hold), the L2 and R2 triggers bind like any button, and the in-game menus get small pixel icons. Amiga games take a second joystick on the mouse port, so Lotus 2 races in split screen with two pads. Mega Drive and Super Nintendo quick states of 1.7.4 still load. The converter's window no longer slows down on small Linux PCs. Exports of 1.7.4 on the machines whose games changed are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

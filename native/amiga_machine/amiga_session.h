@@ -49,6 +49,14 @@ RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, size_t error
 /* Inputs of the next frame: the joystick of port 2, the mouse of port 1 (relative motion), the Amiga raw keys held. */
 void rr_amiga_joystick(RrAmigaSession *s, unsigned bits);
 void rr_amiga_mouse(RrAmigaSession *s, int dx, int dy, int left, int right);
+/* The second joystick, plugged into port 1 (the mouse port), as for two-player games on a real Amiga. What port 1 holds:
+ * RR_AMIGA_PORT1_FOLLOW (the default) gives it to the device used last, as vAmiga's own ports do (a joystick action plugs the
+ * joystick, a mouse motion or button plugs the mouse back); MOUSE and JOYSTICK keep it there whatever is used. The device
+ * plugged now is rr_amiga_port1_device (0 the mouse, 1 the joystick); it is part of a quick state. */
+enum { RR_AMIGA_PORT1_FOLLOW = 0, RR_AMIGA_PORT1_MOUSE = 1, RR_AMIGA_PORT1_JOYSTICK = 2 };
+void rr_amiga_joystick2(RrAmigaSession *s, unsigned bits);
+void rr_amiga_port1_mode(RrAmigaSession *s, int mode);
+int rr_amiga_port1_device(RrAmigaSession *s);
 void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]);
 
 /* Runs one frame (resload calls answered on the way). 0: the frame ran; -1: the install stopped (resload refused, Abort, or

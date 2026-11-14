@@ -4,7 +4,7 @@ Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
 never hidden. Nineteen machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
-Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the Commodore Amiga and, experimental, the Game Boy Advance, the Atari ST,
+Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the Commodore Amiga, the Atari ST and, experimental, the Game Boy Advance,
 the Nintendo 64, the Sony PlayStation and the MSX2+; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
@@ -43,7 +43,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Sharp X68000](X68000.md) | main | none | none | none | none |
 | [Capcom CPS-2](CPS2.md) | main | sound | none | none | none |
 | [Commodore Amiga](AMIGA.md) | main | none | none | none | none |
-| [Atari ST](ATARI_ST.md) (experimental) | main | none | none | none | none |
+| [Atari ST](ATARI_ST.md) | main | none | none | none | none |
 | [MSX](MSX.md) | none | main | none | none | none |
 | [MSX2](MSX.md#8-the-msx2-msx2) | none | main | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
@@ -117,7 +117,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (HuCards, panel, shared paths, limits; open since 1.6.9, supported since 1.7.2).
 - **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (experimental since 1.7.0: scope, BIOS, engine, the first panel, known gaps).
 - **Commodore Amiga** — [AMIGA.md](AMIGA.md) (supported since 1.7.5, open since 1.7.0: Amiga 500 WHDLoad installs, with your own Kickstart 1.x when one asks for it; scope, the five measures, licences).
-- **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (experimental since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences); [ATARI_ST_TRANSLATION.md](ATARI_ST_TRANSLATION.md) (a plan for translated 68000 code, not started).
+- **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (supported since 1.7.5, open since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences); [ATARI_ST_TRANSLATION.md](ATARI_ST_TRANSLATION.md) (a plan for translated 68000 code, not started).
 - **Nintendo 64** — [NINTENDO_64.md](NINTENDO_64.md) (experimental since 1.7.1: cartridges on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded native blocks of the VR4300; scope, the five measures, licences).
 - **Sony PlayStation** — [PLAYSTATION.md](PLAYSTATION.md) (experimental since 1.7.1: discs on Beetle PSX with guarded native steps; scope, the five measures, licences).
 - **MSX** — [MSX.md](MSX.md) (supported since 1.7.5, open since 1.7.3: MSX1 cartridges booted by C-BIOS or your own MSX BIOS, on the shared Z80 chain; scope, the five measures, licences, known C-BIOS failures); [section 8](MSX.md#8-the-msx2-msx2) is the MSX2 profile (the V9938 with its command engine, its timing approximated).
