@@ -79,6 +79,73 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.4 in 1.7.5
+
+1.7.5 is the release after 1.7.4 (published on 14 November 2026). This section is the index of its changes, one line per section below, with the
+stamps that section says move. Each section computed its stamps for its own change alone, on the tree of its branch.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status](#msx-and-msx2-the-mapper-probe-of-battery-backed-boards-the-exit-panel-and-the-exit-from-the-experimental-status-175) | the MSX, the MSX2 and the MSX2+ | none | none (`msx-state-5`) |
+| [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
+| [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
+
+## Commodore Amiga: its paths are shared, as the experimental tier of the base (1.7.5, G16)
+
+The Amiga joins `path_profiles.SHARED_SYSTEMS` as the X68000 did: schema 3 records only, qualified per engine revision, withdrawable in one line
+(`EXPERIMENTAL_SHARED`). `retrorecomp/amiga_knowledge.py` binds the common part (`m68k_media_knowledge`) to the Amiga's names.
+
+- **What a path is.** A run of instructions a fresh reference run observed in RAM, found as it is in the install's media (the slave, then the
+  files the slave may load by name, each padded to an even length): a row `[address, offset, length]`. A Kickstart instruction whose words are
+  the image's: a row of the player's 256 KiB Kickstart, valid only for an image of that SHA-256. Numbers only. Code a game unpacks or relocates
+  is not in the files: it stays private and is counted (`knowledge.promotion` in the report).
+- **What a conversion does with received paths.** It rebuilds the instructions from the player's own archive (and Kickstart), checks them like
+  an observation file, and makes them native next to its own; they are never added to the observations the library keeps. The routes then
+  validate the game as always. A failure with imported paths is converted again without them (the batch, as for every machine); one with the
+  player's own record is converted again without it, like the remembered observations. The quick check from shared paths is declined
+  (`quick_check_from_shared=False`): a first conversion runs its own routes.
+- **What it keeps.** The record of its fresh reference runs (never the player's F12 record, the remembered observations or the received
+  paths), merged with the install's earlier one, in `<library>/amiga/<archive SHA-256>/paths-record.json`; the report names it
+  (`knowledge.record_sha256`), which is what the sharing checks before sending it.
+- **Engine identity.** `amiga_knowledge.engine()` hashes the vAmiga pin, the native files that run the steps and `GENERATOR_REVISION` (1),
+  which tests/amiga_generator_pins.json ties to the generator's Python sources (`amiga_codegen`, `amiga_translate`, `amiga_vamiga`,
+  `m68k_observed`): editing one of them fails that test until the revision is raised.
+- **Schema.** In the Amiga's profile, its path sources become `install` and `kickstart` (256 KiB) and its windows gain the Kickstart's
+  ($FC0000-$FFFFFF). Its layout stays empty, as the Game Boy Advance's (no format number of its own): a branch of `path_profiles` for it would
+  move every machine's game stamp. `amiga_knowledge.RECORD_RULES` states the rest for the site's builder; the common part refuses a media of
+  an odd size.
+- **The player observes 12-byte windows.** The common part takes one instruction's words; `m68k_media_knowledge.exact` cuts each Amiga window to
+  the instruction it starts with before a path is made or compared (the first proof conversions promoted nothing without it).
+- **Proof and decision** (14 November 2026, [AMIGA.md](AMIGA.md#shared-paths-175)): a receiver of another player's paths for Lotus 2, Lemmings and
+  Another World passed with one pass, the same interpreted counts and wall time as a control with nothing imported, and a few hundred instructions
+  made native by the paths alone. The owner decided that the Amiga shares (« Oui, partage direct »).
+- **Stamps** (`compilation_inputs.role_stamps`, this change against `01d1d7d1`): **the game stamps of the Amiga and the X68000** (the X68000 for
+  `knowledge.received` in its report, below); no host or build stamp; no quick-state key.
+- **What the received paths gave: `knowledge.received`**, the same field on the three 68000 computers (the Amiga, the X68000 from this release, the
+  Atari ST when it shares): `offered` (instructions rebuilt from received paths), `reached` (those this conversion's own fresh reference runs ran
+  too, so validated on its routes) and `added` (made native only because a path named them: their guard checks them when a player reaches them).
+  Computed by the conversion (`m68k_media_knowledge.received_use`), no counter in the players. The common report carries it inside
+  `knowledge.record` as it carries `knowledge.use`; no window shows either. The X68000's records do not change: only its report gains the field.
+
+## 68000 computers: the shared paths' common part cut out of the X68000's module (1.7.5)
+
+The Amiga and the Atari ST share their paths like the X68000: RAM code tied to positions in the player's own media, firmware instructions tied to the
+player's own firmware image (the IPL, the Kickstart, the TOS). The code that does it was the X68000's (`x68_knowledge.py`); it is now
+`retrorecomp/m68k_media_knowledge.py`, one `MediaKnowledge` per machine, and nothing in it names a machine.
+
+- **What is common.** The word-count table, the search of runs of observed instructions in the media, the records (make, validate, merge,
+  rebuild, entry set), promotion, the expansion of received paths from the player's own images, the guidance of the three banks and the player's
+  library record.
+- **What stays the X68000's** (`x68_knowledge.py`): its names, bounds, windows and the words of its refusals, its engine identity
+  (`engine_core`, `GENERATOR_REVISION`), its disk content, the IPL as the machine maps it and which observed IPL entries become rows.
+- **Identical results.** `tests/test_m68k_media_knowledge.py` runs twelve deterministic scenarios through every function of the X68000 module
+  (records, counts, merges, rebuilds, expansions, the guidance a conversion receives, every refusal's words) and pins the SHA-256 of all outcomes,
+  computed on the module before the cut (`9f9e9ce9`): it holds. `tests/test_x68_knowledge.py` passes, with one test now lowering the bound on the
+  common part. The engine identity does not move, so every X68000 path qualified for its engine stays qualified.
+- **Stamps** (`compilation_inputs.role_stamps`, this branch against `9f9e9ce9`): **the game stamp of the X68000 only** (the new module is in its
+  inputs, the group `shares:m68k_media_knowledge`); no host or build stamp; no quick-state key. An X68000 export of 1.7.4 is converted once in full,
+  with the same result.
+
 ## MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status (1.7.5)
 
 **What changes.** The mapper probe of an ASCII cartridge runs the reference with a blank SRAM behind every bank value past the cartridge

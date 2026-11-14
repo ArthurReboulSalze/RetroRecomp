@@ -116,15 +116,17 @@ def shared_hints(source, disk, ipl, native, work):
     return _read_observations(native,[hints],ipl),info
 
 
-def knowledge_block(record, promotion, hints_used):
+def knowledge_block(record, promotion, hints_used, received=None):
     """The report's `knowledge` section. `shared` says whether the X68000 is in the sharing at all (`path_profiles.EXPERIMENTAL_SHARED`),
-    not that this conversion shared anything."""
+    not that this conversion shared anything. `received`: what the received paths gave (`m68k_media_knowledge.received_use`, the field of
+    every 68000 computer)."""
     from . import path_profiles, x68_knowledge
     from .systems.x68000 import X68000Profile
     return {'machine_status':X68000Profile.status,'shared':'x68' in path_profiles.SHARED_SYSTEMS,'record_format':x68_knowledge.FORMAT,
             'cores':x68_knowledge.engine(),'record_sha256':x68_knowledge.record_digest(record),'paths':promotion['paths'],
             'promotion':{key:promotion[key] for key in ('ram','other_windows','malformed','ipl','truncated')},
             'source':'fresh reference runs of this conversion','use':dict(hints_used),
+            'received':received or {'offered':0,'reached':0,'added':0},
             'raw_words_stored':False,'fresh_validation_required':True}
 
 
@@ -671,6 +673,10 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         # conversion (every check above passed). What cannot be tied to an image stays private and is counted.
         record,promotion=(x68_knowledge.promote(source.game_key,disk_image,ipl,fresh_observations['variants'],fresh_observations.get('spans',()),
                                                 previous=x68_knowledge.library_record(source.game_key)) if disk_image is not None else (None,None))
+        # Of the instructions the received paths named, those these fresh runs observed too and those made native by the paths alone.
+        from .m68k_media_knowledge import received_use
+        from tools.x68000_native import span_variants
+        received=received_use(shared_pairs,{(v['pc'],v['words']) for v in fresh_observations['variants']}|set(span_variants(fresh_observations.get('spans',[]),ipl)))
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
           'system':{'id':'x68','name':'Sharp X68000'},'status':get_profile('x68').status,'private_development_only':False,
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
@@ -702,7 +708,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'hardware_accuracy_validated':False,'full_game_validated':False,'latency_ms':None,
           'qualification_scope':{'controls':'joystick, keyboard and mouse routes; the validation routes are bounded scripts',
                                  'media':'floppy disks only','universal_zero_fallback_claim':False},
-          **({'knowledge':knowledge_block(record,promotion,hints_used)} if record else {}),
+          **({'knowledge':knowledge_block(record,promotion,hints_used,received)} if record else {}),
           'conversion_wall_seconds':round(time.perf_counter()-started,3)}
         write_report(output/'conversion-report.json',report)
         # Written in the library, whatever folder the earlier ones were read from (that one is left as it is).

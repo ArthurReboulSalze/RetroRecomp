@@ -662,6 +662,7 @@ INPUTS = _resolve({
         'retrorecomp.computer_routes',
         'retrorecomp.amiga_conversion',
         'retrorecomp.amiga_kickstart',
+        'retrorecomp.amiga_knowledge',
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_whdload',
@@ -1006,6 +1007,11 @@ INPUTS = _resolve({
     # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
     'shares:m68k_observed': (
         'retrorecomp.m68k_observed',
+    ),
+    # The shared paths of a 68000 computer: RAM code tied to the player's own media, firmware rows tied to a firmware image (the X68000; the
+    # Amiga and the Atari ST when they share their paths). Game role.
+    'shares:m68k_media_knowledge': (
+        'retrorecomp.m68k_media_knowledge',
     ),
     # The banked Z80 chain of a machine whose main CPU is a Z80 (the Master System, the Game Gear, the MSX and the MSX2): what a machine declares
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.

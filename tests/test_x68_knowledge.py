@@ -180,7 +180,7 @@ class TranslationTests(unittest.TestCase):
 
     def test_the_rows_are_bounded_and_the_cut_is_reported(self):
         variants = [variant(0x1000 + 0x10 * index, MOVE_W) for index in range(20)]
-        with patch.object(x68_knowledge, 'SPAN_LIMIT', 5):
+        with patch.object(x68_knowledge.KNOWLEDGE, 'span_limit', 5):       # the bound of the common part (m68k_media_knowledge)
             record, counts = x68_knowledge.promote(IDENTITY, disk(), None, variants, [])
         self.assertTrue(counts['truncated'])
         self.assertEqual(len(x68_knowledge.rows(record)[0]), 5)
