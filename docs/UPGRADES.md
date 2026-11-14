@@ -254,7 +254,10 @@ control, options and graphics pages has its icon, and player 1's gamepad page bi
   load", their two hold hints, "Already used by %s" and "F8 and F9: fixed keys".
 * **Triggers.** L2 and R2 (axes in SDL) count as buttons in the four combinations, alone or with others, with a hysteresis
   (pressed past 16000, released under 8000); the shell's game rows and speed controls read them through the same function. A
-  trigger used by a combination is no longer a speed control. Masks keep the triggers in bits 24 and 25.
+  trigger used by a combination is no longer a speed control. Masks keep the triggers in bits 24 and 25. A game control
+  may be bound to L2 or R2 on every machine (until 1.7.4, the PlayStation and the Nintendo 64 only): F2 captures it, the
+  preferences keep it (`RRHK_PAD_LEFT_TRIGGER` 64, `RRHK_PAD_RIGHT_TRIGGER` 65, as before), play reads it with the same
+  function; a trigger bound to a control is no longer a speed control, an unbound one still is.
 * **Per-frame cost.** Two more combination checks per frame, beside Quit and Restart (mask comparisons on player 1's pad); not
   measured on its own, covered by the release's frame-cost comparison.
 * **Checks.** `tools/game_options_selftest.py` (defaults, fixed keyboard rows, refusal, the two holds once each, persistence)

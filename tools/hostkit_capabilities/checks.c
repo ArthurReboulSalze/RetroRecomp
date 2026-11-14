@@ -584,8 +584,9 @@ static void plain_script(void) {
     case 7:
         CHECK(rrhk_device_row() && !rrhk_deadzone_row());
         key(SDL_SCANCODE_F2);
-        /* the triggers are the speed controls: a saved trigger binding is not read, and the right trigger fast-forwards */
-        CHECK(ui->buttons[0][A_L1] == SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+        /* 1.7.5: a saved trigger binding is read on every machine (L1 on the left trigger, from the first run); a trigger no
+         * control has is still a speed control: the right one fast-forwards (this machine's R2 row has no trigger) */
+        CHECK(ui->buttons[0][A_L1] == RRHK_PAD_LEFT_TRIGGER && ui->buttons[0][A_R2] != RRHK_PAD_RIGHT_TRIGGER);
         axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);
         break;
     case 10:
@@ -761,6 +762,31 @@ static void quick_script(void) {
     }
 }
 
+/* 1.7.5: on a console profile (no trigger_buttons), a game row bound to R2 by F2, then held in play: the row's bit, no speed. */
+static void r2_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); break;
+    case 1:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
+        ui->row = A_CROSS; key(SDL_SCANCODE_RETURN);
+        break;
+    case 2: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -10000); break;   /* about 11400 for SDL: under the threshold */
+    case 3: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767); break;
+    case 4:
+        CHECK(!ui->capturing && ui->buttons[0][A_CROSS] == RRHK_PAD_RIGHT_TRIGGER);
+        CHECK(ini(L"Test3D.Gamepad.Player1", L"Cross") == (int)RRHK_PAD_RIGHT_TRIGGER);
+        axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -32768);
+        key(SDL_SCANCODE_F2);
+        break;
+    case 5: CHECK(ui->menu == 0); axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767); break;
+    case 8: CHECK((last_pad[0] & CROSS_BIT) && !ui->fast_hold); axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, -32768); break;
+    case 11: CHECK(!(last_pad[0] & CROSS_BIT)); break;
+    case 12: stop = true; break;
+    default: break;
+    }
+}
+
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
@@ -858,6 +884,11 @@ int main(int argc, char **argv) {
     remove(report);
     /* 4. The same machine with every new field left out. */
     RrhkMachine plain = full;
+    /* a console's pad: its L2 and R2 rows on shoulder buttons, not on the triggers */
+    static RrhkAction plain_actions[ACTIONS];
+    memcpy(plain_actions, actions, sizeof actions);
+    plain_actions[A_L2].pad[0] = SDL_CONTROLLER_BUTTON_PADDLE2; plain_actions[A_R2].pad[0] = SDL_CONTROLLER_BUTTON_PADDLE3;
+    plain.actions = plain_actions;
     plain.analog_sticks = 0; plain.script_axes = NULL; plain.trigger_buttons = false;
     plain.gfx_options = NULL; plain.gfx_option_count = 0; plain.gfx_apply = NULL;
     plain.pixel_pitch = NULL; plain.rumble = false;
@@ -880,6 +911,10 @@ int main(int argc, char **argv) {
     begin(quick_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 20);
+    /* 7. 1.7.5: a game row on R2 on a console profile. */
+    begin(r2_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 13);
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();

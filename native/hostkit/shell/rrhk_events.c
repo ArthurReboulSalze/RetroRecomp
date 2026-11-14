@@ -240,8 +240,9 @@ void rrhk_poll_events(RrhkRun *run) {
             }
             continue;
         }
-        /* A machine whose triggers are buttons: a trigger pulled on the selected player's pad binds it like a button. */
-        if (event.type == SDL_CONTROLLERAXISMOTION && m->trigger_buttons && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing &&
+        /* A trigger pulled on the selected player's pad binds it like a button, on every machine (1.7.5; before, only on those
+         * with trigger_buttons). */
+        if (event.type == SDL_CONTROLLERAXISMOTION && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing &&
             rrhk.gamepad_page == 1 && rrhk_trigger_step(false, event.caxis.value) &&
             (event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
             if (rrhk.pads[rrhk.player] &&
