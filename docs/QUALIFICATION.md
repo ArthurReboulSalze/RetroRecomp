@@ -1048,6 +1048,29 @@ What the panel found: Pinball Dreams took no key at all, on the native code and 
 
 Every route of the nine equals the fresh interpreted reference on every frame (picture, sound, RAM, CPU registers, resload calls), the compressed copy too; F8/F9 continue for 600 frames in a fresh process; 17 damaged states are refused and a missing one creates nothing (G6). The five installs whose routes did not change since the tree `96a70fa0` give the same trace digests on every route as on that tree. Rick Dangerous, of the earlier panel, ran on `96a70fa0` only (Windows and Debian, G13).
 
+### Checklist for Arthur: Commodore Amiga play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours, and leaving the experimental status is your decision alone. Play the
+executables already in `Export/Games/Amiga`: six of the eight installs of [the panel of 13 November](#commodore-amiga-the-panel-of-13-november-2026),
+delivered from the tree `be3f4483` (Lotus 2 as the interface specialist built it), whose games behave as in 1.7.4. One short session: a few
+minutes a game. Nothing here says exact hardware, complete gameplay or latency; a tick means "it looked and sounded right to you in this test".
+F2 shows each game's keys; the joystick is the arrows and **W** (fire) or a gamepad.
+
+| | Lotus 2 | Another World | Monkey Island 2 | Lemmings | Pinball Dreams | Panza Kick Boxing |
+|---|---|---|---|---|---|---|
+| Why it is here | the test game: a 3D road, colour steps | your Kickstart, polygons, the code wheel | your Kickstart, many files, the recipe protection | the mouse | NTSC, keys choose the table | saves its boxers |
+| It starts without an error window | | | | | | |
+| The window title ends with | Native CPU, emulated hardware | Interpreter fallback (19 Kickstart instructions) | Interpreter fallback (19 Kickstart instructions) | Native CPU, emulated hardware | Native CPU, emulated hardware | Interpreter fallback (7 Kickstart instructions) |
+| What to do | choose a race in the menu and drive a lap | on the code wheel, enter your wheel's symbols (the conversion's routes pass it with the joystick: fire four times, right three times, fire, three times over); then play the pool scene | type any four digits and Return on the recipe screen, then click the box; watch the opening, then walk Guybrush a few steps | click **1 PLAYER** (the mouse is captured on a click, **Ctrl+Alt+M** releases it), then play level 1 | **Ctrl+Alt+K**, then **F1** to **F4** pick the table; launch a ball and use the flippers | change your boxer (train him, or pick another), then OPTIONS, the save row (SAUVEGARDE), **MAINTENANT** and fire; close the game, start it again: your boxer is as you left him |
+| Sound is the game's (music and effects) | | | | | | |
+| **F8** in play, move on, **F9** goes back to the saved moment | | | | | | |
+| Close the window, start it again, **F9** loads the state saved before | | | | | | |
+| Nothing odd: a frozen picture, silence where there was sound, a wrong colour, lag on fast left/right | | | | | | |
+
+Known, not a failure: on Another World's code-wheel screen a left click, **C** or a second fire button opens the install's access-code
+screen and locks the game until it is restarted ([AMIGA.md](AMIGA.md#4-known-limits)); Pinball Dreams' other three tables run partly on the
+interpreter, as the window title says once you reach them. A state saved before 1.7.4 is refused, as between any two builds.
+
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 
 A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executable** of the release you are judging

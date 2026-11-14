@@ -194,4 +194,16 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
 
 ## 6. Where it stands in the qualification
 
-The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 13 November 2026: `Y` on G1 to G9, G12, G13 and G15; `P` on G10, G11 and G14; `-` on G16 (the Amiga shares no paths). The evidence of 13 November is [its panel of eight installs](QUALIFICATION.md#commodore-amiga-the-panel-of-13-november-2026). Each `P` names what is shown and what is missing there; no letter says hardware fidelity, gameplay coverage or latency. Leaving the experimental status is the maintainer's own decision, after a very high evidence bar.
+The Amiga column of [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-evidence-behind-its-column-8-november-2026) reads, on 14 November 2026: `Y` on G1 to G9, G12, G13 and G15; `P` on G10, G11, G14 and G16. The evidence of 13 November is [its panel of eight installs](QUALIFICATION.md#commodore-amiga-the-panel-of-13-november-2026). Each `P` names what is shown and what is missing there; no letter says hardware fidelity, gameplay coverage or latency.
+
+### Shared paths (1.7.5)
+
+The Amiga's paths travel through the shared base, as the experimental tier, like the X68000's ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#commodore-amiga-joins-the-base-in-the-experimental-tier-175-14-november-2026)): RAM code found as it is in the player's own install, and Kickstart instructions of the player's own image, as numbers only. A conversion that receives them rebuilds the instructions from its own archive, makes them native and validates the game on its routes as always; the report says what they gave (`knowledge.received`). Code a game unpacks does not travel (Monkey Island 2's files are packed: none of its observed code is in them). G16 is `P`: the sharing works from one player to another on the installs of the proof, and no Amiga path is qualified in the base yet (qualified: reached and validated by a conversion that received it from another player, counted by the site).
+
+### Leaving the experimental status
+
+The checks of tests/test_machine_registry.py for a `supported` machine pass on a copy of the profile marked `supported` (14 November 2026): the Amiga shares its paths (`path_profiles.SHARED_SYSTEMS`), has five risk cases in tools/campaign-risk-cases.json, is witnessed on Linux and has no failed gate. The status in the profile is not changed. What is left is the maintainer's:
+
+- **G14, the play test**: [the checklist](QUALIFICATION.md#checklist-for-arthur-commodore-amiga-play-test-g14), six installs already in `Export/Games/Amiga`, one short session.
+- **The decision** to leave the experimental status, the maintainer's alone, after that test. G10 (Moira against MAME-made vectors, 322 differences in named families) and G11 (pictures compared with another emulator, not with the chips) stay `P`, worded as they are: G11 is `P` on every machine, and the X68000 left the experimental status with G10 `P` too.
+- **The site side of the sharing**, deployed with the release: the limits of the `amiga` machine and the schema 3 validation of its records.
