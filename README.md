@@ -3,12 +3,12 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000 · Capcom CPS-2 · PC Engine / TurboGrafx-16 · MSX · MSX2 · Commodore Amiga · Atari ST · Game Boy Advance · Nintendo 64 · Sony PlayStation · MSX2+ (the last three experimental)</p>
+<p align="center">Atari ST · Capcom CPS-1 · Capcom CPS-2 · Commodore Amiga · Game Boy · Game Boy Advance · Game Gear · Master System · Mega Drive · MSX · MSX2 · Neo Geo · NES · PC Engine / TurboGrafx-16 · Sharp X68000 · Super Nintendo · then, experimental: MSX2+ · Nintendo 64 · Sony PlayStation · and Adventure (ScummVM)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.7.5-d4a737" alt="Release version 1.7.5">
-  <img src="https://img.shields.io/badge/console_profiles-17-626262" alt="Seventeen machine profiles, and Adventure (ScummVM) as a category of its own">
+  <img src="https://img.shields.io/badge/console_profiles-19-626262" alt="Nineteen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -67,25 +67,25 @@ The full guide, with portable downloads, updates and uninstalling, is
 
 | Console | Status | Qualification progress |
 | --- | --- | --- |
-| [Master System](docs/MASTER_SYSTEM.md) | supported | `██████████` 97 % |
-| [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |
-| [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
-| [Nintendo NES](docs/NES.md) | supported | `█████████░` 91 % |
-| [Mega Drive](docs/MEGADRIVE.md) | supported | `██████████` 97 % |
-| [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
-| [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
-| [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
-| [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
-| [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
-| [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████████░` 94 % |
-| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████████░` 91 % |
-| [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████████░` 91 % |
 | [Atari ST](docs/ATARI_ST.md)\* | supported | `█████████░` 91 % |
-| [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
-| [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
+| [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
+| [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
+| [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████████░` 91 % |
+| [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████████░` 91 % |
+| [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |
+| [Master System](docs/MASTER_SYSTEM.md) | supported | `██████████` 97 % |
+| [Mega Drive](docs/MEGADRIVE.md) | supported | `██████████` 97 % |
 | [MSX](docs/MSX.md) | supported | `█████████░` 93 % |
 | [MSX2](docs/MSX.md) | supported | `█████████░` 90 % |
+| [Neo Geo](docs/NEOGEO.md) | supported | `█████████░` 94 % |
+| [Nintendo NES](docs/NES.md) | supported | `█████████░` 91 % |
+| [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████████░` 94 % |
+| [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
+| [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
 | [MSX2+](docs/MSX.md) | experimental | `███████░░░` 67 % |
+| [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
+| [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).

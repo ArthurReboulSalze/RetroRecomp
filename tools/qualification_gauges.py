@@ -159,7 +159,9 @@ def short(text: str) -> str:
     """The short form for the README: one line per console (linked to its page), its status and its bar, the emulated categories, then the notes."""
     pages = read_pages(text)
     lines = ['| Console | Status | Qualification progress |', '| --- | --- | --- |']
-    for row in gauges(text):
+    # By name, the experimental machines after the supported ones (Arthur, 14 Nov 2026); the emulated categories come last.
+    ordered = sorted(gauges(text), key=lambda row: (row['status'] == 'experimental', row['name'].casefold()))
+    for row in ordered:
         mark = '\\*' if row['id'] in EMULATOR_CORE else ''
         lines.append(f"| [{row['name']}](docs/{pages[row['id']]}){mark} | {row['status']} | `{row['bar']}` {row['percent']} % |")
     for console, name, status in emulated_categories():
