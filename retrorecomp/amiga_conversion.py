@@ -167,11 +167,18 @@ def long_route(identity: str, index: int, frames: int, key_exit: int) -> list[tu
     return long_events(f'amiga-long:{identity}:{index}', frames, tuple(key for key in LONG_ROUTE_KEYS if key != key_exit))
 
 
-# The second joystick on the proof routes, by the install's SHA-256: `joy2` events (port 1's joystick, the second player's, which takes the
-# port from the mouse when it is used), added to the main route of the installs listed here only, so that a two-player path runs on the
-# fresh reference and the native game alike. Reviewed data, the inputs a second player gives; no route of another install changes. In play,
-# no table is needed: port 1 follows the device used last (amiga_session.cpp, rr_amiga_joystick2).
-ROUTE_PLAYER2: dict[str, dict] = {}
+# The second joystick on the proof routes, by the install's SHA-256: the main route of an install listed here is its two-player route, the
+# inputs two players give (player 1's joystick `joy` chooses two players in the game's menu, then `joy2`, port 1's joystick, the second
+# player's, which takes the port from the mouse when it is used), so that a two-player path runs on the fresh reference and the native game
+# alike. Reviewed data; the exploration and long routes, and every route of another install, do not change. In play no table is needed:
+# port 1 follows the device used last (amiga_session.cpp, rr_amiga_joystick2).
+# Lotus 2 (the menu's PLAYERS row set to two, GAME, then a split-screen race: both players accelerate, each steers a little; 14 Nov).
+ROUTE_PLAYER2: dict[str, dict] = {
+    '827a20e727a7825848febba8cf2afdc9fa94d73072b5865f303bacc917edbfb1': {
+        'events': [(600, 608, 'joy', 4, 1), (1000, 1008, 'joy', 0, 1), (1060, 1068, 'joy', 0, 1), (1120, 1128, 'joy', 4, 1),
+                   (1180, 1188, 'joy', 1, 1), (1240, 1248, 'joy', 1, 1), (1300, 1308, 'joy', 4, 1), (1700, 3600, 'joy', 4, 1),
+                   (1700, 3600, 'joy2', 4, 1), (2200, 2260, 'joy2', 2, 1), (2600, 2650, 'joy', 3, 1), (3000, 3060, 'joy2', 3, 1)]},
+}
 
 
 def route_events(identity: str, name: str, frames: int, key_exit: int, answered: bool = True) -> list[tuple[int, int, str, int, int]]:
@@ -192,8 +199,8 @@ def route_events(identity: str, name: str, frames: int, key_exit: int, answered:
     else:
         events = generic(frames) if generic else main_route(frames, key_exit)
     player2 = ROUTE_PLAYER2.get(identity) if answered and name == 'main' else None
-    if player2:
-        events = sorted(events + [event for event in player2['events'] if event[1] <= frames])
+    if player2:      # the two-player route replaces the generic main route, cut to the route's frames
+        events = sorted((begin, min(end, frames), kind, code, value) for begin, end, kind, code, value in player2['events'] if begin < frames)
     return events
 
 

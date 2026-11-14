@@ -255,6 +255,13 @@ On the computers (Sharp X68000 and Commodore Amiga), a click in the window captu
 captures it at launch. **Ctrl+Alt+M** or, since 1.7.0, a **press of the middle button** (the wheel) releases it: neither
 machine's mouse had a middle button, so the game never needs it. Losing the window's focus releases it too.
 
+### The Amiga's second joystick (1.7.5)
+
+On a real Amiga a two-player game (Lotus 2's split screen, Speedball 2) takes the mouse out of port 1 and a second joystick in. Here
+player 2's pad does it: as soon as it is used, port 1 holds the joystick, and a motion or a click of the mouse gives the port back to the
+mouse; a plate says which device the port holds. **Mouse port**, on player 2's pad page, keeps the port on one device for a game that
+needs it (Auto, Mouse or Pad 2, kept per game). Player 2's keys and buttons are set on player 2's own pages, as on the other machines.
+
 ## Game options (1.1.8)
 
 The audio filter is on the options page, the last page of F2; the controller
