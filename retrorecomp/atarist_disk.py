@@ -186,7 +186,8 @@ def _track_sectors(stream, out: dict, cylinder: int, head: int) -> None:
     return None
 
 
-def ipf_sectors(blob: bytes) -> dict:
+def ipf_sectors(blob: bytes, cylinders: int = 2) -> dict:
+    """The standard-format sectors of the first `cylinders` cylinders (the desktop rules need two; `logical_content` asks for all of them)."""
     tracks, keys = {}, {}
     if blob[:4] != b'CAPS':
         raise DiskError('not an IPF image')
@@ -201,7 +202,7 @@ def ipf_sectors(blob: bytes) -> dict:
                 tracks[keys[key]]['data'] = pos + 28
     out: dict = {}
     for (cylinder, head), track in sorted(tracks.items()):
-        if 'data' in track and cylinder < 2:          # the boot sector, the FATs and the root are on the first two cylinders
+        if 'data' in track and cylinder < cylinders:          # the boot sector, the FATs and the root are on the first two cylinders
             _track_sectors(_ipf_stream(blob, track['data'], track['blocks']), out, cylinder, head)
     return out
 
@@ -288,6 +289,18 @@ def root_entries(sectors: dict) -> list[dict]:
             out.append({'name': entry[:8].decode('latin-1').rstrip(), 'ext': entry[8:11].decode('latin-1').rstrip(),
                         'attr': entry[11], 'size': struct.unpack('<I', entry[28:32])[0]})
     return out
+
+
+def logical_content(blob: bytes, extension: str) -> bytes:
+    """The standard-format sectors of a whole disk image, one after the other in (cylinder, side, sector) order: what a TOS or a loader reads from a disk, and so what a program
+    loaded from it is made of (a program that is relocated or unpacked on loading no longer matches it). A track written in a custom format has no standard sector and
+    adds nothing; an image this module cannot read (STX) has no content. Used to tie observed instructions to the player's own disks (`atarist_knowledge`)."""
+    extension = extension.lower().lstrip('.')
+    try:
+        sectors = ipf_sectors(blob, 1 << 16) if extension == 'ipf' else read_sectors(blob, extension)
+    except DiskError:
+        return b''
+    return b''.join(data for _, data in sorted(sectors.items()))
 
 
 def read_sectors(blob: bytes, extension: str) -> dict:

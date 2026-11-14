@@ -92,6 +92,10 @@ stamps that section says move. Each section computed its stamps for its own chan
 | [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
 | [Mega Drive and Super Nintendo: an interface change no longer refuses the quick states](#mega-drive-and-super-nintendo-an-interface-change-no-longer-refuses-the-quick-states-175) | the Mega Drive, the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16_state.py`); nothing a game runs changes | none | Mega Drive and Super Nintendo keys move once; the 1.7.4 keys are accepted (Windows and Linux) |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
+| [Every machine: row icons in the menus, Quick save and Quick load on the gamepad](#every-machine-row-icons-in-the-menus-quick-save-and-quick-load-on-the-gamepad-175) | none | host of all 20 profiles | none once the state key keeps only the layout files (spec/state-key-175) |
+| [Every machine: a machine's own row on a player's gamepad page](#every-machine-a-machines-own-row-on-a-players-gamepad-page-175) | none | host of all 20 profiles | none |
+| [Atari ST: its paths are shared, as the experimental tier of the base, and the checks toward leaving the experimental status](#atari-st-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16-and-the-checks-toward-leaving-the-experimental-status) | the Atari ST (`atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile) | none | none |
+| [Atari ST: a key held at F8 and let go before F9 no longer stays down](#atari-st-a-key-held-at-f8-and-let-go-before-f9-no-longer-stays-down-175-gate-g6) | the Atari ST (`atarist_hatari.py`) | the Atari ST (its adapter `rrhk_atarist.inc`) | none |
 
 ## Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units (1.7.5)
 
@@ -199,6 +203,52 @@ player's own firmware image (the IPL, the Kickstart, the TOS). The code that doe
   inputs, the group `shares:m68k_media_knowledge`); no host or build stamp; no quick-state key. An X68000 export of 1.7.4 is converted once in full,
   with the same result.
 
+## Atari ST: its paths are shared, as the experimental tier of the base (1.7.5, G16), and the checks toward leaving the experimental status
+
+The Atari ST joins `path_profiles.SHARED_SYSTEMS` (Arthur, 14 November 2026: «Oui, il partage»): schema 3 records only, qualified per engine revision, withdrawable in one line (`EXPERIMENTAL_SHARED`).
+`retrorecomp/atarist_knowledge.py` binds the common part (`m68k_media_knowledge`) to the Atari ST's names.
+
+- **What a path is.** A TOS instruction: a row `[address, offset, length]` of the player's 192 KiB TOS, valid only for a TOS of the SHA-256 the record states. A run of instructions a fresh reference run
+  observed in RAM and found as it is in the **logical content** of the disks (the standard-format sectors of every image, in (cylinder, side, sector) order, `atarist_disk.logical_content`): a row of that
+  content. Numbers only. Code a loader relocates or unpacks, custom-format tracks, STX images and Hatari's own code of the desktop hook stay private and are counted (`knowledge.promotion`). The game is the
+  SHA-256 of the file the player gave.
+- **What a conversion does with received paths.** It rebuilds the instructions from the player's own images, makes them native next to its own (never added to the observations the library keeps), and the
+  routes validate the game as always. A failure with imported paths is converted again without them (the batch, for every machine). The quick check from shared paths is declined. The report's
+  `knowledge.received` (`offered`, `reached`, `added`, computed by `m68k_media_knowledge.received_use`, no counter in the player) is the field of the X68000 and the Amiga.
+- **What it keeps.** The record of its fresh reference runs, in `<library>/atarist/<game>/tos-<key>/compilation.json` (one per TOS, united by `library_record`); the report names it
+  (`knowledge.record_sha256`). **Engine identity:** `atarist_knowledge.engine()` hashes Hatari's pin, the four native files that run the steps and `GENERATOR_REVISION` (1), which
+  `tests/atarist_generator_pins.json` ties to `atarist_codegen.py` and `atarist_hatari.py`.
+- **Schema.** The layout stays empty, as the Amiga's and the Game Boy Advance's: `path_profiles` is not edited (a branch for it would move every machine's game stamp), so the record carries no format
+  number of its own. `atarist_knowledge.RECORD_RULES` states the rest for the site's builder. The profile's sources were already `disk` and `tos`.
+- **What it gives** (measured on Operation Stealth, The Lurking Horror and Turrican II, [ATARI_ST.md](ATARI_ST.md#2-how-the-conversion-works) item 9): no conversion pass saved (1 and 1), nothing
+  changed on the routes the receiver runs, native code added beyond them (Turrican II: 30,455,168 interpreted instructions on a route the receiver did not run, 2,920,653 with the paths received; the two
+  others within 1 % and 8 %); the speed value is not measured.
+- **Also in this change**, none of it in a game: `tools/atarist_saves_game.py --exe` runs the save of The Lurking Horror on a delivered executable (G7); five risk cases for the Atari ST in
+  `tools/campaign-risk-cases.json`; the owner's play checklist for seven games ([QUALIFICATION.md](QUALIFICATION.md#checklist-for-arthur-atari-st-play-test-g14)); `atarist_disk.logical_content`
+  (all tracks of an IPF, where the desktop rules read two cylinders).
+- **Stamps** (`compilation_inputs.role_stamps`, this branch against main `19ad2cb8`, `RetroRecomp.py` tree of each): **the game stamp of the Atari ST only** (`f414185b00f5` to `08644c6cc052`; its inputs are
+  `atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile and the group `shares:m68k_media_knowledge`); no other machine's game stamp, no host or build stamp, no native file, no
+  quick-state key. An Atari ST export of 1.7.4 is converted once in full, with the same result on the routes; the seven games delivered for the owner's play were built one merge before the last
+  (which added the function `exact` to `m68k_media_knowledge.py`, unused by the Atari ST): they carry the stamp before it.
+
+## Atari ST: a key held at F8 and let go before F9 no longer stays down (1.7.5, gate G6)
+
+**What was wrong.** The host sends the guest's keys as changes only. A typed key held when F8 saved the state and released before F9 loaded it was released in the old machine, then
+the load brought back a snapshot that holds the key down: the key stayed down in the guest (The Lurking Horror: from the first frame after the load, 0 of 500 frames equal the timeline in which the
+key was let go). A key still held at F9 but not at F8 was never pressed again (the host had already sent its press). The pad, the fire button and the mouse buttons are read again every frame and come
+back right (checked on Bomb Jack: held and still held, held and released, pressed after, 300 of 300 frames equal the timeline each time, against a control where the holds change it).
+
+**What changes.** After Hatari's restore (the adaptation of `memorySnapShot.c` in `retrorecomp/atarist_hatari.py`), every key that `Keyboard.KeyStates` shows as down gets its break code, as the host
+had sent it before the load. In the host adapter (`native/hostkit/adapters/rrhk_atarist.inc`), a state load makes the adapter wait three frames (Hatari restores inside the next frame) and then forget what
+it had sent, so the keys still held are pressed again. `tools/atarist_keys_check.py` runs the check on executables a conversion delivered (`--pad` on Bomb Jack, `--keys` on The Lurking Horror). **Results on the fixed build** (14 November 2026, Windows, Bomb Jack
+and The Lurking Horror converted from this branch at the quick level, headless): the pad cases still 300 of 300 frames equal the timeline each (control: the holds change it), and the key held at F8 and
+released before F9 **500 of 500 frames equal the timeline** (the 1.7.4 build, the same check: 0 of 500; the same check with no key held: 500 of 500).
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `6115b82d`): **the Atari ST game stamp** (`08644c6cc052` to `b5cfd4de57c4`: `atarist_hatari.py` is one of its inputs) **and its host
+stamp** (`ef245155bc7c` to `fd8405ed4de4`: the adapter); no other machine, no build stamp, no quick-state key (a state is tied to the build that wrote it and is refused between builds, as after any reconversion). **The engine identity of the shared
+paths does not move** (`atarist_knowledge.GENERATOR_REVISION` stays 1): the generated native code and the guards are the same, so no path qualified for it waits again; `tests/atarist_generator_pins.json`
+follows the new text of `atarist_hatari.py`, the one thing that test pins. The seven games delivered for the owner's play keep their stamp: the fix only touches a key held across F8.
+
 ## MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status (1.7.5)
 
 **What changes.** The mapper probe of an ASCII cartridge runs the reference with a blank SRAM behind every bank value past the cartridge
@@ -223,6 +273,52 @@ Engine, and the delivered exports are not converted again. `tools/status_lint.py
 MSX (the three profiles share their page).
 
 **Quick states:** the layout is unchanged (`msx-state-5`).
+
+## Every machine: a machine's own row on a player's gamepad page (1.7.5)
+
+The shell gains `RrhkMachine.pad_rows` ([HOST_KIT.md](HOST_KIT.md#d22), D22): rows of a machine at the top of one player's
+gamepad page. The Amiga's Mouse port row uses it (its adapter, on the Amiga's own branch); no other machine declares one.
+
+* **Stamps.** The host stamp of all 20 profiles moves (`hostkit/hostkit.h`, `hostkit/hostkit_internal.h`, the shell's
+  `rrhk_menu.c`, `rrhk_events.c`, `rrhk_input.c`, `native/retro_menu.c` and `retro_menu.h` for the two port icons,
+  `runtime_catalog.inc` and the seven locale files); no game or build stamp, no quick-state key (none of these files fixes a
+  state layout).
+* **What players see.** Nothing on a machine without a row; on the Amiga, once its adapter declares it, the Mouse port row.
+* **Texts.** Four new entries in the five game languages: "Mouse port", "Auto (last used)", "Mouse", "Pad 2".
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 8: the row on player 2's gamepad page only, values chosen and wrapped,
+  the controls below it still bound by F2 (271 checks).
+
+## Every machine: row icons in the menus, Quick save and Quick load on the gamepad (1.7.5)
+
+The player shell changes on every machine at once ([HOST_KIT.md](HOST_KIT.md#d20), decisions D20 and D21): each row of the
+control, options and graphics pages has its icon, and player 1's gamepad page binds Quick save and Quick load.
+
+* **Stamps.** The host stamp of **all 20 profiles** moves; no game stamp and no build stamp moves, so every export of 1.7.4 is
+  upgraded without rediscovery. Files: `native/retro_menu.c`, `retro_menu.h`, `game_options.h`, `game_options_checks.c`,
+  `runtime_catalog.inc`, `hostkit/hostkit.h`, `hostkit/hostkit_internal.h` and the shell's `rrhk_main.c`, `rrhk_menu.c`,
+  `rrhk_options.c`; the seven locale files. Adventure (ScummVM) is among them because its profile lists the shared host files,
+  although its games do not link the kit: nothing changes in them.
+* **What players see.** An icon before every row of F2's control pages, the options page and the F3 graphics page; on player
+  1's pages two rows more, **Quick save** and **Quick load** (F8 and F9 on the keyboard page). A control page with more than
+  fifteen rows scrolls, as since 1.7.0.
+* **Quick states.** The shell's change moves nothing in a state. The Mega Drive and Super Nintendo keys hashed every listed
+  file directly below `native/`, the menus' included; spec/state-key-175 makes them hash only the files that fix the state
+  layout, so that this section moves no key. Measured against that main before merging.
+* **Preferences.** Two keys added, `[<Console>.Options] quick_save_pad` and `quick_load_pad` (button masks, missing =
+  unassigned): a file of 1.7.4 loads unchanged. An export of 1.7.4 reading a file written by 1.7.5 ignores them.
+* **Texts.** Six new entries in the catalogue of the five game languages (and in the seven locale files): "Quick save", "Quick
+  load", their two hold hints, "Already used by %s" and "F8 and F9: fixed keys".
+* **Triggers.** L2 and R2 (axes in SDL) count as buttons in the four combinations, alone or with others, with a hysteresis
+  (pressed past 16000, released under 8000); the shell's game rows and speed controls read them through the same function. A
+  trigger used by a combination is no longer a speed control. Masks keep the triggers in bits 24 and 25. A game control
+  may be bound to L2 or R2 on every machine (until 1.7.4, the PlayStation and the Nintendo 64 only): F2 captures it, the
+  preferences keep it (`RRHK_PAD_LEFT_TRIGGER` 64, `RRHK_PAD_RIGHT_TRIGGER` 65, as before), play reads it with the same
+  function; a trigger bound to a control is no longer a speed control, an unbound one still is.
+* **Per-frame cost.** Two more combination checks per frame, beside Quit and Restart (mask comparisons on player 1's pad); not
+  measured on its own, covered by the release's frame-cost comparison.
+* **Checks.** `tools/game_options_selftest.py` (defaults, fixed keyboard rows, refusal, the two holds once each, persistence)
+  and `tools/hostkit_capabilities_selftest.py` (247 checks: binding on a virtual pad, refusal, save and load held in play,
+  nothing inside a menu, a control page of 24 rows), with the portable toolchain.
 
 ## Exports of 1.7.3 in 1.7.4
 

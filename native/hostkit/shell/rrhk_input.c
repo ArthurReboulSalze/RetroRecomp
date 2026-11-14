@@ -174,7 +174,7 @@ void rrhk_load_bindings(void) {
             binding_entry(sec, entry, p, a, mode != 0);
             const int value = rr_ini_int(sec, entry, MISSING, rrhk.read_file);
             if (mode && ((value >= -1 && value < SDL_CONTROLLER_BUTTON_MAX) ||
-                         (m->trigger_buttons && (value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER))))
+                         value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER))
                 rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
             if (!mode && value >= 0 && value < SDL_NUM_SCANCODES) { rrhk.keys[p][a] = (SDL_Scancode)value; kit_key[p][a] = false; }
         }
@@ -216,7 +216,7 @@ static void store_entry(int p, int action, bool pad) {
     rr_ini_set(sec, entry, value, rrhk.ini_file);
 }
 
-void rrhk_store_binding(void) { store_entry(rrhk.player, rrhk.row, rrhk.gamepad_page != 0); }
+void rrhk_store_binding(void) { store_entry(rrhk.player, rrhk_action_row(), rrhk.gamepad_page != 0); }
 
 /* F2 binds a key or a pad button to one action. The keyboard is shared: a key that already drives another action, of any player
  * in play, would make both act at once, so the two actions swap their keys (the other one gets the key this action had, perhaps
@@ -236,8 +236,8 @@ void rrhk_assign(int p, int action, bool pad, int value) {
 
 /* Delete on a binding row (machines with clearable bindings): no key, no button. */
 void rrhk_clear_binding(void) {
-    if (rrhk.gamepad_page) rrhk.buttons[rrhk.player][rrhk.row] = (SDL_GameControllerButton)-1;
-    else rrhk.keys[rrhk.player][rrhk.row] = SDL_SCANCODE_UNKNOWN;
+    if (rrhk.gamepad_page) rrhk.buttons[rrhk.player][rrhk_action_row()] = (SDL_GameControllerButton)-1;
+    else rrhk.keys[rrhk.player][rrhk_action_row()] = SDL_SCANCODE_UNKNOWN;
     rrhk_store_binding();
 }
 
@@ -429,18 +429,21 @@ void rrhk_pad_value(char *out, size_t size, int p) {
     else snprintf(out, size, rr_tr("%s (disconnected)"), choice[p].name[0] ? choice[p].name : rr_tr("Gamepad"));
 }
 
-/* A pad button held; on a machine whose triggers are buttons (trigger_buttons), a trigger past the stick threshold (D1). */
+/* A pad button held, or a trigger bound to a control past the stick threshold (D1); on every machine since 1.7.5. */
 static bool pad_held(SDL_GameController *pad, SDL_GameControllerButton button) {
     if (!pad || button < 0) return false;
     if (button < SDL_CONTROLLER_BUTTON_MAX) return SDL_GameControllerGetButton(pad, button) != 0;
-    if (!rrhk.machine->trigger_buttons || (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER)) return false;
-    return SDL_GameControllerGetAxis(pad, button == RRHK_PAD_LEFT_TRIGGER ? SDL_CONTROLLER_AXIS_TRIGGERLEFT : SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000;
+    if (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER) return false;
+    return rrhk_trigger_step(false, SDL_GameControllerGetAxis(pad, button == RRHK_PAD_LEFT_TRIGGER ? SDL_CONTROLLER_AXIS_TRIGGERLEFT :
+                                                                                                   SDL_CONTROLLER_AXIS_TRIGGERRIGHT));
 }
 
-/* A trigger of player 1's pad (0 right, 1 left) bound to a control of a machine with trigger_buttons: no speed control then. */
+/* A trigger of player 1's pad (0 right, 1 left) bound to a control of the game or (1.7.5) used by one of the host combinations:
+ * no speed control then. */
 bool rrhk_trigger_bound(int side) {
     const RrhkMachine *m = rrhk.machine;
-    if (!m || !m->trigger_buttons) return false;
+    if (rrhk_combo_trigger(side)) return true;
+    if (!m) return false;
     const SDL_GameControllerButton trigger = side ? RRHK_PAD_LEFT_TRIGGER : RRHK_PAD_RIGHT_TRIGGER;
     for (int a = 0; a < m->action_count; ++a) if (rrhk.buttons[0][a] == trigger) return true;
     return false;

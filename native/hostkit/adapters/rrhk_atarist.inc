@@ -87,6 +87,7 @@ static struct {
    int16_t audio[2 * 8192];
    size_t audio_count, audio_taken;
    uint8_t held[RETROK_LAST];       /* the keys the guest holds, to send changes only */
+   unsigned settle;                 /* frames to wait after a state load: its restore released the keys the guest held, the keys still held are pressed again after it */
 } sa;
 
 static unsigned s_joystick_bits(uint16_t pad) {
@@ -130,8 +131,10 @@ static void s_inputs(void) {
    rr_st_joystick(session, 1, bits1);
    rr_st_joystick(session, 0, bits0);
    rr_st_mouse(session, dx, dy, left, right);
-   for (n = 1; n < RETROK_LAST; n++)
-      if (held[n] != sa.held[n]) { rr_st_key(session, n, held[n]); sa.held[n] = held[n]; }
+   if (sa.settle && !--sa.settle) memset(sa.held, 0, sizeof sa.held);
+   if (!sa.settle)
+      for (n = 1; n < RETROK_LAST; n++)
+         if (held[n] != sa.held[n]) { rr_st_key(session, n, held[n]); sa.held[n] = held[n]; }
 }
 
 /* A floppy change asked by the keys of rrhk_computer.inc (Ctrl+Alt+Page Up/Down): the previous or next disk of the game in
@@ -198,7 +201,12 @@ static bool s_state_path(wchar_t *path, size_t capacity) { return rr_from_utf8(s
 static bool s_state_file(const wchar_t *path, bool load) {
    char utf8[PATH_CAP];
    if (!rr_to_utf8(path, utf8, sizeof utf8)) return false;
-   return (load ? state_load(utf8) : state_save(utf8, false)) == 0;
+   if (load) {
+      if (state_load(utf8)) return false;
+      sa.settle = 3;                /* Hatari restores inside the next frame: the keys are pressed again after it */
+      return true;
+   }
+   return state_save(utf8, false) == 0;
 }
 
 const RrhkMachine *rrhk_adapter(void) {

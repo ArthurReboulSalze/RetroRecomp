@@ -239,6 +239,10 @@ static bool begin_frame(RrhkRun *r) {
         quit_asked = false;
         if (rrhk_options_restart(rrhk.menu)) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
     }
+    /* 1.7.5: Quick save and Quick load on player 1's pad, as F8 and F9 in play (the same request, the same notices). Both are
+     * watched every frame, so that a hold begun in a menu is never taken for a new one; they act in play only. */
+    const bool quick_save = rrhk_options_quick_save(rrhk.menu), quick_load = rrhk_options_quick_load(rrhk.menu);
+    if (!rrhk.menu && !r->pending_state && (quick_save || quick_load)) r->pending_state = quick_load ? 2 : 1;
     if (!r->running) return false;
     /* A computer's fast loading key: no pacing, no sound, a picture every eighth frame. */
     bool fast = m->fast_forward && m->fast_forward();

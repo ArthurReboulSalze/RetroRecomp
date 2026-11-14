@@ -231,7 +231,12 @@ REPLACEMENTS = [
      '\tif (MemorySnapShot_OpenFile(Temp_FileName, false, Temp_Confirm))\n\t{\n\t\trr_snapshot_restoring = 1;\n\t\tConfiguration_MemorySnapShot_Capture(false);\n'),
     ('src/memorySnapShot.c',
      '\t\tMemorySnapShot_CloseFile();\n\n\t\t/* changes may affect also info shown in statusbar */\n',
-     '\t\tMemorySnapShot_CloseFile();\n\t\trr_snapshot_restoring = 0;\n\n\t\t/* changes may affect also info shown in statusbar */\n'),
+     '\t\tMemorySnapShot_CloseFile();\n'
+     '\t\t/* Retro-Recomp modification (GPL-2.0, like this file): a key the snapshot holds down is released, as the host released it before the load\n'
+     '\t\t * (the host sends changes only: a key held at the save and let go before the load would stay down in the guest). */\n'
+     '\t\t{\n\t\t\tint rr_scan;\n\t\t\tfor ( rr_scan = 1 ; rr_scan < (int)( sizeof ( Keyboard.KeyStates ) / sizeof ( Keyboard.KeyStates[0] ) ) ; rr_scan++ )\n'
+     '\t\t\t\tif ( Keyboard.KeyStates[rr_scan] )\n\t\t\t\t{\n\t\t\t\t\tIKBD_PressSTKey ( (uint8_t)rr_scan , false );\n\t\t\t\t\tKeyboard.KeyStates[rr_scan] = false;\n\t\t\t\t}\n\t\t}\n'
+     '\t\trr_snapshot_restoring = 0;\n\n\t\t/* changes may affect also info shown in statusbar */\n'),
     # The sound continues too: the filters' memory and the mixing buffer that a restore clears (Reset_Cold) are part of the state.
     ('src/sound.c',
      'ymsample	Subsonic_IIR_HPF_Left(ymsample x0)\n{\n\tstatic	yms32	x1 = 0, y1 = 0, y0 = 0;\n\n\tif ( YM2149_HPF_Filter == YM2149_HPF_FILTER_NONE )\n\t\treturn x0;\n\n\ty1 += ((x0 - x1) * 32768) - (y0 * 64);\n\ty0 = y1 / 32768;\n\tx1 = x0;\n\n\treturn y0;\n}\n',

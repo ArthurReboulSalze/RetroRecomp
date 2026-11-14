@@ -201,7 +201,7 @@ static void speed_event(const SDL_Event *event) {
         const int side = event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
         if (event_player(event->caxis.which) != 0) return;
         if (rrhk_trigger_bound(side)) return;     /* a control of the game on that trigger (trigger_buttons) */
-        const bool down = event->caxis.value > 16000;      /* the stick threshold of decision D1 */
+        const bool down = rrhk_trigger_step(trigger_down[side], event->caxis.value);   /* D1's threshold, with its hysteresis */
         const bool pressed = down && !trigger_down[side];
         trigger_down[side] = down;
         if (!side) {
@@ -235,24 +235,25 @@ void rrhk_poll_events(RrhkRun *run) {
             /* Which pad may bind (divergence 3, decided 28 October 2026): the selected player's pad only, on every console. */
             if (rrhk.pads[rrhk.player] &&
                 event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {
-                rrhk_assign(rrhk.player, rrhk.row, true, event.cbutton.button);
+                rrhk_assign(rrhk.player, rrhk_action_row(), true, event.cbutton.button);
                 rrhk.capturing = 0; rrhk.status[0] = 0;
             }
             continue;
         }
-        /* A machine whose triggers are buttons: a trigger pulled on the selected player's pad binds it like a button. */
-        if (event.type == SDL_CONTROLLERAXISMOTION && m->trigger_buttons && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing &&
-            rrhk.gamepad_page == 1 && event.caxis.value > 16000 &&
+        /* A trigger pulled on the selected player's pad binds it like a button, on every machine (1.7.5; before, only on those
+         * with trigger_buttons). */
+        if (event.type == SDL_CONTROLLERAXISMOTION && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing &&
+            rrhk.gamepad_page == 1 && rrhk_trigger_step(false, event.caxis.value) &&
             (event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
             if (rrhk.pads[rrhk.player] &&
                 event.caxis.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {
                 /* A host-side action (`bit` 0: Pause/Menu, Change disc) acts on a button press, never on a trigger: refused,
                  * the row still waits for a button. */
-                if (rrhk.row < m->action_count && !m->actions[rrhk.row].bit) {
+                if (rrhk_action_row() < m->action_count && !m->actions[rrhk_action_row()].bit) {
                     snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Reserved button or config unavailable"));
                     continue;
                 }
-                rrhk_assign(rrhk.player, rrhk.row, true,
+                rrhk_assign(rrhk.player, rrhk_action_row(), true,
                             event.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT ? RRHK_PAD_LEFT_TRIGGER : RRHK_PAD_RIGHT_TRIGGER);
                 rrhk.capturing = 0; rrhk.status[0] = 0;
             }
@@ -317,7 +318,7 @@ void rrhk_poll_events(RrhkRun *run) {
             if (key == SDL_SCANCODE_ESCAPE) rrhk.capturing = 0;
             else if (!rrhk.gamepad_page && key > SDL_SCANCODE_UNKNOWN && key < SDL_NUM_SCANCODES &&
                      !(key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12)) {
-                rrhk_assign(rrhk.player, rrhk.row, false, key); rrhk.capturing = 0;
+                rrhk_assign(rrhk.player, rrhk_action_row(), false, key); rrhk.capturing = 0;
             }
             continue;
         }
@@ -379,7 +380,12 @@ void rrhk_poll_events(RrhkRun *run) {
             bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
             if (key == SDL_SCANCODE_UP) rrhk.row = (rrhk.row + rrhk_page_rows() - 1) % rrhk_page_rows();
             else if (key == SDL_SCANCODE_DOWN) rrhk.row = (rrhk.row + 1) % rrhk_page_rows();
-            else if (rrhk_device_row()) {
+            else if (rrhk_pad_row_at(rrhk.row)) {
+                /* 1.7.5: a machine row (RrhkMachine.pad_rows): Enter the next value, - the previous one */
+                const RrhkPadRow *own = rrhk_pad_row_at(rrhk.row);
+                const int step = enter ? 1 : (key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS) ? -1 : 0;
+                if (step && own->get && own->set) own->set(((own->get() + step) % own->count + own->count) % own->count);
+            } else if (rrhk_device_row()) {
                 /* Divergence 10 (decided 28 October 2026): which pad this player uses. */
                 if (enter) rrhk_pad_next(rrhk.player);
                 else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_pad_automatic(rrhk.player);
@@ -387,10 +393,10 @@ void rrhk_poll_events(RrhkRun *run) {
                 /* A machine with analog sticks: this player's dead zone. */
                 if (enter) rrhk_deadzone_step(rrhk.player, false);
                 else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_deadzone_step(rrhk.player, true);
-            } else if (rrhk.row >= m->action_count) {
+            } else if (rrhk_action_row() >= m->action_count) {
                 /* Quit and restart combinations: hold them one second in play. */
-                if (enter) rrhk_combo_start(rrhk.row - m->action_count, rrhk.gamepad_page != 0);
-                else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_combo_clear(rrhk.row - m->action_count, rrhk.gamepad_page != 0);
+                if (enter) rrhk_combo_start(rrhk_action_row() - m->action_count, rrhk.gamepad_page != 0);
+                else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_combo_clear(rrhk_action_row() - m->action_count, rrhk.gamepad_page != 0);
             } else if (m->bindings_clearable && key == SDL_SCANCODE_DELETE) rrhk_clear_binding();
             else if (enter) rrhk.capturing = 1;
         }
