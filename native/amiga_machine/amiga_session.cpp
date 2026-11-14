@@ -937,6 +937,13 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     // The inputs held when the state was saved: what the machine's ports hold now.
     s->joy = head.joy; s->mouse_left = (int)head.mouse_left; s->mouse_right = (int)head.mouse_right;
     s->joy2 = head.port1 >> 8 & 0xFFu;
+    // vAmiga's joysticks and mouse buttons come back from a snapshot neutral (a fire button held at the save was lost: a state saved in a
+    // Lotus 2 race, fire held, continued with the fire released, 14 Nov 2026), and the next frame's inputs, unchanged, would not press them
+    // again: what was held is pressed again here, from neutral, as the frame's inputs would. Port 1 is then plugged as it was saved.
+    joystick_actions(s->amiga->controlPort2.joystick, 0, s->joy);
+    joystick_actions(s->amiga->controlPort1.joystick, 0, s->joy2);
+    if (s->mouse_left) s->amiga->controlPort1.mouse.trigger(GamePadAction::PRESS_LEFT);
+    if (s->mouse_right) s->amiga->controlPort1.mouse.trigger(GamePadAction::PRESS_RIGHT);
     s->port1_joystick = (int)(head.port1 & 1u);
     s->amiga->controlPort1.setDevice(s->port1_joystick ? ControlPortDevice::JOYSTICK : ControlPortDevice::MOUSE);
     memcpy(s->keys, keys, sizeof keys);
