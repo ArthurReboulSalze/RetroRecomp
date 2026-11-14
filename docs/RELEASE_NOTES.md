@@ -43,7 +43,7 @@
   is now one per window. On a 4-core Debian 13 PC, choosing a console took 0.6 to 2.6 s and now takes about 45 ms, and closing
   the options took up to 3.6 s and now takes about 170 ms. Every system gets the fix.
 
-**Speed.** [SPEED: pending]
+**Speed.** On a quiet PC against 1.7.4 (one pinned core, 1,200 frames, one warm-up then the best of three): Lotus 2 (Amiga) 1.00 of its 1.7.4 time per frame (6.88 ms against 6.86 ms), Sonic The Hedgehog 2 (Mega Drive) 1.00 (2.45 ms against 2.45 ms). The only per-frame addition is the gamepad combinations for quick save and quick load. Host cost per frame, not latency; Windows only.
 
 These are four machines leaving the experimental status, on the owner's decision after his play tests, new controls on every
 machine and paths shared on two of them, each on the evidence above; none of them is a measure of hardware fidelity, complete
