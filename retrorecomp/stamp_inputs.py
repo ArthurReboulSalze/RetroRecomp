@@ -662,6 +662,7 @@ INPUTS = _resolve({
         'retrorecomp.computer_routes',
         'retrorecomp.amiga_conversion',
         'retrorecomp.amiga_kickstart',
+        'retrorecomp.amiga_knowledge',
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_whdload',

@@ -13,11 +13,13 @@ witnessed, not played.
 from pathlib import Path
 
 from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
-from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape
+from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape, SharedKnowledge
 
 # The Amiga 500 as the converter lays it out for a WHDLoad install: chip RAM from 0 (up to 2 MiB), fast RAM at $200000
 # (up to 8 MiB), slow RAM at $C00000 (1.5 MiB: ExpMem, then the slave). No code runs from the ROM (an authored boot ROM).
 APERTURES = ((0, 0x200000, 0x200000), (0x200000, 0xa00000, 0xa00000), (0xc00000, 0xdc0000, 0xdc0000))
+# Where the player's Kickstart 1.x runs (its writable-ROM alias, 256 KiB): a shared path may name an instruction there (retrorecomp/amiga_knowledge.py).
+KICKSTART_WINDOW = (0xfc0000, 0x1000000)
 
 
 class AmigaProfile(SystemProfile):
@@ -47,17 +49,22 @@ class AmigaProfile(SystemProfile):
     default_frames = 3000
     quick_frames = 3000
     fallback_display = 'opcodes'
-    stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates')
+    stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates', 'm68k_media_knowledge')
+    # A record's sources (retrorecomp/amiga_knowledge.py): the install's media (the slave and its files, each padded to an even length) and,
+    # when it holds Kickstart rows, the 256 KiB Kickstart they belong to. Spans run in RAM, Kickstart rows in the Kickstart window.
     path_spec = PathSpec(order=12, sections=(('m68k', 'amiga'),),
-                         source_bounds=(('lha', (1, 1 << 30)),),
-                         shapes=(('m68k', 'amiga', dict(roles=('lha',), caps={'insn': 65536, 'span': 16384},
-                                                        windows=tuple((low, last) for low, last, _ in APERTURES),
+                         source_bounds=(('install', (2, 1 << 30)), ('kickstart', (0x40000, 0x40000))),
+                         shapes=(('m68k', 'amiga', dict(roles=('install', 'kickstart'), caps={'insn': 65536, 'span': 16384},
+                                                        windows=tuple((low, last) for low, last, _ in APERTURES) + (KICKSTART_WINDOW,),
                                                         contained=True, length=(2, 16), length_align=2,
                                                         offset_align=2, address_align=2, span_max=131072)),))
     # The instructions run from RAM become native code, Moira's code specialised per opcode (C++ with C linkage); the index that
     # finds them is C (retrorecomp/amiga_codegen.py).
     observed_code = ObservedCode('amiga_codegen:moira_bodies', 'rr_amiga_', 'RrAmigaStep', APERTURES,
                                  source_extension='.cpp', steps_head='#include "step_semantics.h"\n', index_extension='.c')
+    # Shares its paths as the experimental tier of the shared base, like the X68000: schema 3 only, withdrawable (docs/COMPILATION_LIBRARY.md). The quick
+    # check from shared paths is declined: code a game unpacks is not in the install's files and does not travel, so a first conversion runs its own routes.
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='amiga_knowledge')
     report_shape = ReportShape('amiga_conversion', 'whdload')
     catalogues = Catalogues(libretro='libretro-thumbnails/Commodore_-_Amiga')
     library_layout = LibraryLayout(folder='amiga', summary_glob='*/compilation.json')
