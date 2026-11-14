@@ -397,6 +397,13 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
     # macros OTZ, Z_FIFO(i), Reg23, LZCS and LZCR read the live registers), not from the state: the values read from the file
     # are the locals of the same names. Seen by the CPU-state column of the per-frame trace (14 November 2026: Ape Escape's
     # F9 continuation differed in the GTE on 37 of 600 frames, RAM, picture and sound equal).
+    # And the state kept LZCR computed from LZCS, not the register itself, which GTE_Power sets to 0 (the computed value of
+    # LZCS 0 is 32): a game that has not written LZCS yet had LZCR 0 before the save and 32 after the load (Soul Reaver's F9
+    # continuation, 14 November 2026: the CPU state differed on all 600 frames, only there). The register is kept as it is.
+    ('mednafen/psx/gte.c',
+     '      _LZCR = MDFN_lzcount32(DR[30] ^ ((int32_t)DR[30] >> 31));\n',
+     '      /* Retro-Recomp modification (GPL-2.0, like this file): the register as it is (see GTE_Power). */\n'
+     '      _LZCR = DR[31];\n'),
     ('mednafen/psx/gte.c',
      '      DR[7] = (uint16_t)OTZ;\n',
      '      /* Retro-Recomp modification (GPL-2.0, like this file): the values of the state, not the live registers. */\n'

@@ -112,8 +112,9 @@ another step holds at the same address (code loaded over other code) hands it to
 with an interrupt pending, is held by a step too. Ape Escape, at the extended level: 0 interpreted instructions on its three routes
 (before: 6,527, 6,613 and 84,619).
 
-**A fix of the machine.** Loading a quick state left five of the GTE's registers as they were before the load (Beetle's
-`GTE_StateAction`; carried as our anchored fix, [UPSTREAMS.md](UPSTREAMS.md#playstation-a-fix-carried-on-beetle-psx-176)).
+**Two fixes of the machine.** Loading a quick state left five of the GTE's registers as they were before the load, and gave
+LZCR a computed value instead of the register's (Beetle's `GTE_StateAction`; carried as our anchored fixes,
+[UPSTREAMS.md](UPSTREAMS.md#playstation-a-fix-carried-on-beetle-psx-176)).
 
 **Memory card.** A card file the game cannot use (another size, a folder, unreadable) is moved aside whole as
 `<card>.mcr.unusable-N` and the game starts with an empty card; the window says so once. It used to be left in place, unread, and
