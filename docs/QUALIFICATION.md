@@ -40,7 +40,7 @@ purpose is still required.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026)
 
 ### Progress through the qualification list
 
@@ -70,8 +70,8 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Atari ST | experimental | `████████░░` 83 % | ✅ 11 · 🟡 3 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
-| MSX | experimental | `████████░░` 77 % | ✅ 9 · 🟡 5 · ❔ 1 |
-| MSX2 | experimental | `████████░░` 77 % | ✅ 9 · 🟡 5 · ❔ 1 |
+| MSX | experimental | `█████████░` 87 % | ✅ 12 · 🟡 2 · ❔ 1 |
+| MSX2 | experimental | `████████░░` 83 % | ✅ 11 · 🟡 3 · ❔ 1 |
 | MSX2+ | experimental | `███████░░░` 67 % | ✅ 7 · 🟡 6 · ❔ 2 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
@@ -84,15 +84,15 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | 🟡 |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ➖ | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
@@ -114,15 +114,15 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | Y |
 | G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | P | P | P | P | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | P | P | P | Y | P | P |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | ? | Y | Y | P |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | ? | P | P | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | P | P | P |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | P | P | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | P |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | ? | ? | ? |
-| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | P | P | P |
+| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | - | - | ? | - | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
@@ -275,6 +275,40 @@ The page of each console, which the README links its line to (a console of the m
   corrected (F8/F9 said unavailable, Salamander still black in three places, the development-era figures, Metal Gear's held route unsaid, a stale
   "pending", the roadmap's next step, the profile's scope note); left: the published 1.7.3 release notes, whose Salamander sentence a later note
   must correct. G11, G12 and G13 stay `P`, G14 `?`.
+- MSX and MSX2 (14 November 2026; branch `spec/msx-175` from `v1.7.4`, panel tree `d0b32436`; the owner's go of the same day to prepare the exit, the
+  flip and G14 being his): a new panel of eight cartridges per machine, each with its reason, none dropped for failing, converted at the **extended** level
+  (attract, play and an 18,000-frame route) from an empty library and an empty build cache, C-BIOS 0.29a, online covers on, two at a time. MSX: Knightmare
+  (plain 32 KiB, the control case), Road Fighter (plain 16 KiB), Space Invaders (plain 16 KiB), Nemesis (Konami), Salamander (Konami SCC), Spy vs Spy II
+  (PAL; the probe chooses Konami SCC), Dragon Slayer II - Xanadu (ASCII 8, 8 KiB battery SRAM), Deep Dungeon (ASCII 8, 2 KiB battery SRAM). MSX2: Metal Gear
+  (Konami), Space Manbow (Konami SCC, the vertical scroll), Aleste (ASCII 16, chosen by the probe), Hydlide 3 (ASCII 8), Super Daisenryaku (ASCII 16, 2 KiB
+  battery SRAM, looks for an FM-PAC), Vampire Killer (Konami), Fantasy Zone II (ASCII 16, scrolling), Heroes of the Lance (ASCII 8, 512 KiB, 8 KiB battery
+  SRAM). Two of them first showed a converter fault, fixed in the shared mechanism: the mapper probe now counts the writes to a battery SRAM apart from
+  the writes a cartridge would ignore (Deep Dungeon was read as ASCII 16) and no longer takes one register write as evidence when another run made two
+  (Super Daisenryaku was read as ASCII 8); the 16 other probed cartridges keep their choice. Results: 16 of 16 converted, 0 interpreted Z80 instructions
+  on all 48 routes (from 78.1 to 121.8 million native instructions a long route), each route equal to its fresh reference and to the packed file, the
+  quick states passing on all 16; delivered to `Export/Games/MSX` and `Export/Games/MSX2`. G7 MSX `Y`: Xanadu and Deep Dungeon write their SRAM on the
+  play route, a fresh process finds it, eleven damaged files are set aside; the FM-PAC and its SRAM are not converted (no MSX-MUSIC model) and the MSX2
+  clock's battery memory is not kept (the owner's decision of 14 November 2026), both stated as limits. G7 MSX2 `P`: the MSX2 runs the same SRAM code, but
+  no MSX2 game of the panel selected its SRAM on its routes (Super Daisenryaku and Heroes of the Lance have battery SRAM). G8 `Y`: the captures of every
+  route were looked at by the specialist (not the owner). G9 `P` (from `Y`: this panel is deeper than the last): thirteen of the sixteen long routes reach
+  play; Deep Dungeon stays in its name entry (where it writes its save), Super Daisenryaku in its map setup, Heroes of the Lance at a question of its menu,
+  whose Japanese text C-BIOS draws with the wrong characters ([MSX.md](MSX.md#5-known-c-bios-failures)). G12 `Y`: eight a machine, the plain, Konami,
+  Konami SCC, ASCII 8 and ASCII 16 boards, battery SRAM, NTSC and PAL, none dropped. G13 `Y`: the sixteen converted again on a Debian 13 PC with the
+  system GCC 14.2 from the same tree, one at a time through the machine's job slots, the ROM copied in for the step and deleted after: every report field
+  compared is equal to Windows on every route (21 a route: the native, guarded, halt and interpreted counts, the interpreted cycles, the frames, the input
+  script and its events, the frame trace, the RAM, VRAM, picture and sound hashes, the sound samples, the interrupts, the reference, frame-row and packed-row
+  equalities, the liveness), and the mapper, standard and learning counts too; Knightmare's Linux export was opened in its window on a virtual display (no
+  screen), titled "Native code", and drew its title screen. G15 `Y`: read on 14 November 2026 (MSX.md, COMPATIBILITY, CONTROLS, ROADMAP, KNOWN_FAILURES,
+  UPSTREAMS, the release notes, README, INDEX, the profile, the report's strings and the option notes in the eight languages); corrected: the vectors said
+  not run (MSX.md), "no game other than section 3", the published 1.7.3 notes' Salamander sentence (already corrected by the 1.7.4 notes, so the line
+  of the 13 November entry above is stale), SRAM said not converted (COMPATIBILITY, the option notes), the MSX2+ said not converted or in development
+  (COMPATIBILITY, ROADMAP, MSX.md), a `.dsk` said refused (KNOWN_FAILURES), the Z80 vectors' machines (UPSTREAMS), the option notes' "instructions seen
+  running" (the cartridge and the BIOS are translated ahead of time; RAM code is learned). G16 `-`: path sharing is declined on the panel's evidence (the
+  owner's rule of 14 November 2026, `DECLINED['path_sharing']`): the only RAM code its sixteen games run is the BIOS hooks they write, `C3 nn nn C9` (a
+  jump into the cartridge, then a return), 1 to 4 windows a game and 259 on Hydlide 3 (a hook table), whose bytes are in no cartridge, so every record
+  holds 0 paths; the 0 to 49,521 instructions a game's first conversion interprets are C-BIOS's start-up code (about 24,700 on most games) and those hooks; a received path
+  would add no native instruction and save no pass. The sharing code written for them is parked on `spec/msx-175-sharing-parked`. A scratch run of
+  `registry_problems` with the status set to `supported` finds nothing for `msx` and `msx2` (not committed: the flip and G14 are the owner's).
 - MSX2+ (13 November 2026; experimental profile `msx2plus`, the third profile of the MSX family, branch `spec/msx2plus-174`): G1 `P`: the
   profile is declared experimental and `tools/status_lint.py` agrees; not offered in a release yet. Every other gate but G16 is `?`: no panel has run.
   G16 `-`: the MSX2+ shares no paths and is not in `SHARED_SYSTEMS`. Scope and the five measures: [MSX.md](MSX.md#9-the-msx2-msx2plus).

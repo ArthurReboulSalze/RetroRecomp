@@ -240,18 +240,19 @@ The **MSX** profile is experimental since 1.7.3 ([status](MSX.md)): it converts 
 holding one: plain 8 KiB to 64 KiB, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), booted by C-BIOS 0.29a or by your own MSX BIOS, within
 [its documented scope](MSX.md). It has no list of compatible games. The cartridge and the BIOS are translated ahead of time by the shared banked Z80 chain,
 code run from RAM is learned and translated, and what is left runs on a reference Z80 interpreter and is counted. Native code, CPU fidelity, hardware
-fidelity, gameplay validation and physical latency are separate measures ([MSX.md](MSX.md#3-the-five-measures)): on the panel of the 1.7.3 release tree
-(extended level), six MSX1 cartridges (Knightmare, Road Fighter, Space Invaders, Nemesis, Salamander, Spy vs Spy II) end at 0 interpreted instructions on
+fidelity, gameplay validation and physical latency are separate measures ([MSX.md](MSX.md#3-the-five-measures)): on the panel of 14 November 2026
+(extended level, on Windows and on a Debian 13 PC), eight MSX1 cartridges (Knightmare, Road Fighter, Space Invaders, Nemesis, Salamander, Spy vs Spy II, Dragon Slayer II - Xanadu, Deep Dungeon) end at 0 interpreted instructions on
 every route and equal the reference interpreter frame by frame; no game is validated as played, and hardware fidelity and latency are not claimed
-([qualification](QUALIFICATION.md)). Salamander (Japan), once seen with a black playfield under C-BIOS in development, is drawn under C-BIOS on the panel's routes ([known failures](MSX.md#5-known-c-bios-failures)). Disks, cassettes,
-FM-PAC, SRAM and the rarer mappers are not converted yet.
+([qualification](QUALIFICATION.md)). Salamander (Japan), once seen with a black playfield under C-BIOS in development, is drawn under C-BIOS on the panel's routes ([known failures](MSX.md#5-known-c-bios-failures)). The battery SRAM of ASCII
+cartridges is kept (checked on Xanadu and Deep Dungeon). Cassettes, the FM-PAC and the rarer mappers are not converted, and disk games are the MSX2+'s.
 
 The **MSX2** profile (`msx2`) is experimental since 1.7.3 too ([status](MSX.md#8-the-msx2-msx2)): it converts MSX2 cartridges
 (a `.mx2`, `.rom` or ZIP chosen as MSX2 or kept in a folder named `msx2`; the same mappers as the MSX), on C-BIOS 0.29a's MSX2 images or your own MSX2 BIOS pair,
 with the V9938 drawn by line and a memory mapper. The V9938 command engine runs all twelve commands with their timing approximated (the chip's access slots are not modelled), in the bitmap modes only. On 14 authored
-cases native code equals the reference interpreter and ends at 0 interpreted instructions after learning; the four panel games (Metal Gear, Space Manbow, Aleste, Hydlide 3) reach 0 interpreted instructions on every route, but Hydlide 3's routes never leave its
-Set Up menu and Metal Gear's play route stops at its first transceiver call, so their play is covered only in part; no game has been played through (gameplay validation: none), and hardware fidelity and
-latency are not claimed. Disks, cassettes, FM-PAC and MSX2+ are not converted.
+cases native code equals the reference interpreter and ends at 0 interpreted instructions after learning; the eight panel games of 14 November 2026 (Metal Gear, Space Manbow, Aleste, Hydlide 3, Super Daisenryaku, Vampire Killer, Fantasy Zone II, Heroes of the Lance) reach 0 interpreted instructions on every route, on Windows and on a
+Debian 13 PC; three long routes stop in a menu (Hydlide 3's set-up at this level, Super Daisenryaku's map setup, a question of Heroes of the Lance, whose Japanese
+text C-BIOS draws with the wrong characters) and Metal Gear's play route stops at its first transceiver call, so their play is covered only in part; no game has been played through (gameplay validation: none), and hardware fidelity and
+latency are not claimed. Cassettes, the FM-PAC and the clock's battery memory are not converted; disk games are the MSX2+'s.
 
 The **MSX2+** profile (`msx2plus`) is experimental since 1.7.4 ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
 cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`, or a `.mx2` that nothing marks as MSX2:

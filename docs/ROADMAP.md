@@ -29,8 +29,8 @@ fallback stays counted and shown wherever it is used.
 | Atari ST | experimental (since 1.7.1) | more games played, the Linux play, the STE |
 | Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
 | Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
-| MSX | experimental (since 1.7.3) | the qualification gates still partial (route depth, CPU vectors, a larger panel, the Linux panel), more cartridges, the owner's play, disks, FM-PAC and cartridge SRAM, windowed play on Linux |
-| MSX2 | experimental (since 1.7.3) | the qualification gates still partial (route depth past Hydlide 3's menu, CPU vectors, a larger panel), the command engine's timing, more cartridges, the owner's play, disks, FM-PAC, MSX2+, windowed play on Linux |
+| MSX | experimental (since 1.7.3) | the owner's play (G14), then his decision on the status; route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
+| MSX2 | experimental (since 1.7.3) | the owner's play (G14), then his decision on the status; battery saves shown on an MSX2 game, route depth on menu-driven games, the command engine's timing, independent hardware evidence, FM-PAC |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
@@ -159,14 +159,14 @@ the owner's play of the panel discs, more discs, the Linux witness beyond one di
 ### MSX
 
 Experimental since 1.7.3 ([MSX.md](MSX.md)): MSX1 cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16) booted by C-BIOS, a free BIOS, or the player's own
-BIOS (never shipped), native Z80 code from the shared banked chain. Its panel was qualified on 13 November 2026 (G3 to G6 met, [QUALIFICATION.md](QUALIFICATION.md)). Next: the partial gates, more cartridges, the owner's play, cartridge saves, windowed play on Linux. MSX2+ and
-the turbo R, disks, cassettes, FM-PAC and the SRAM mappers are out of scope today.
+BIOS (never shipped), native Z80 code from the shared banked chain. Its panel of eight cartridges was converted again on 14 November 2026 on Windows and on a Debian 13 PC (G1 to G8, G10, G12, G13 and G15 met, [QUALIFICATION.md](QUALIFICATION.md)); path sharing is declined, as it would serve no purpose. Next: the owner's play and his decision, route depth on menu-driven games. The turbo R,
+cassettes and the FM-PAC are out of scope today; disk games are the MSX2+'s.
 
 ### MSX2
 
 Experimental since 1.7.3, the second profile of the family ([MSX.md](MSX.md#8-the-msx2-msx2)): MSX2 cartridges on the V9938 drawn by line, with its command
-engine (its timing approximated), a memory mapper and the RP5C01 clock, booted by C-BIOS or the player's own BIOS pair. Its panel was qualified on 13 November 2026 with the MSX's. Next: the partial gates, the
-command engine's timing, the owner's play, windowed play on Linux. Disks, cassettes, FM-PAC and MSX2+ are out of scope today.
+engine (its timing approximated), a memory mapper and the RP5C01 clock, booted by C-BIOS or the player's own BIOS pair. Its panel of eight cartridges was converted again on 14 November 2026 with the MSX's (the same letters but battery saves, partial). Next: the owner's play and his decision, the
+command engine's timing, battery saves shown on an MSX2 game. Cassettes and the FM-PAC are out of scope today; the MSX2+ is its own profile.
 
 ### Adventure games (ScummVM)
 

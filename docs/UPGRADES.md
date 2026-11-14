@@ -79,6 +79,25 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## MSX and MSX2: the mapper probe of battery-backed boards, the exit panel (1.7.5)
+
+**What changes.** The mapper probe of an ASCII cartridge runs the reference with a blank SRAM behind every bank value past the cartridge
+(`--sram-probe` of `msx_reference_main.c`): the game's writes to that SRAM are counted apart (`sram_writes`) instead of as writes the cartridge
+would ignore, and one register write is no longer evidence when another candidate's run made two (`msx_build.choose_mapper`). Deep Dungeon
+(ASCII 8, 2 KiB SRAM) was read as ASCII 16 and Super Daisenryaku (ASCII 16, 2 KiB SRAM) as ASCII 8; both convert with their own mapper now,
+and the sixteen other cartridges probed keep their choice. Five risk cases each for the MSX and the MSX2 join `tools/campaign-risk-cases.json`,
+and the campaign's MSX share folder is `msx1`. Path sharing is declined for the MSX and the MSX2 (`DECLINED['path_sharing']`; the evidence is in
+[MSX.md](MSX.md#7-where-it-stands-in-the-qualification)), so nothing of the base changes for them. The MSX2 profile's note says its clock's battery
+memory is not kept.
+
+**Hot path:** none; the probe runs before the conversion, on the reference only.
+
+**What moves:** the MSX, MSX2 and MSX2+ game stamps (`msx_build.py`, `msx_conversion.py`, `msx_reference_main.c`, `systems/msx.py`). No other
+machine's stamp moves (checked against `v1.7.4` and main with `RetroRecomp.py _compilation-stamps`). A previous export of an ASCII cartridge whose
+probe now chooses another mapper was built with the wrong one: convert it again (Deep Dungeon and Super Daisenryaku among the panel's).
+
+**Quick states:** the layout is unchanged (`msx-state-5`).
+
 ## Exports of 1.7.3 in 1.7.4
 
 1.7.4 is the release after 1.7.3 (published on 13 November 2026). This section is the index of its changes, one line per section below (or per page when a change has no

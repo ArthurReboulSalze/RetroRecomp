@@ -49,13 +49,13 @@ Kept separate here, as everywhere. Interpreter fallback is always counted, per C
 
 | Measure | What is known | What is not |
 | --- | --- | --- |
-| Native code | On the Windows panel of 12 November 2026 (extended level: attract, play and an 18,000-frame route), six MSX1 cartridges (Road Fighter, Knightmare, Space Invaders, Nemesis, Salamander, Spy vs Spy II; plain, Konami, Konami SCC, NTSC and PAL) end at 0 interpreted instructions on every route, Salamander also with an MSX BIOS of its owner | Nemesis also on a Debian 13 PC (same counts as Windows); nothing is said of the games not named here |
-| CPU fidelity | On the same games the native code is equal to the reference Z80 interpreter on every route, on the state fields at its end and on one row per frame (CPU, RAM, picture, sound); the delivered (compressed) game gives the same rows. This is agreement with our own reference interpreter, not with a real MSX | No independent comparison on a real machine or a second emulator is claimed; no CPU vector set is run for the MSX yet |
+| Native code | On the panel of 14 November 2026 (extended level: attract, play and an 18,000-frame route, from an empty library, C-BIOS 0.29a), eight MSX1 cartridges (Knightmare, Road Fighter, Space Invaders, Nemesis, Salamander, Spy vs Spy II, Dragon Slayer II - Xanadu, Deep Dungeon; plain, Konami, Konami SCC, ASCII 8 with battery SRAM, NTSC and PAL) end at 0 interpreted instructions on every route, on Windows and on a Debian 13 PC alike; Salamander also with an MSX BIOS of its owner (12 November) | Nothing is said of the games not named here. A game's first conversion interprets C-BIOS's own start-up code (about 24,700 instructions, the same for every game) until its second pass translates it |
+| CPU fidelity | On the same games the native code is equal to the reference Z80 interpreter on every route, on the state fields at its end and on one row per frame (CPU, RAM, picture, sound); the delivered (compressed) game gives the same rows, and the Debian 13 PC the same fields as Windows. The 51,328 SingleStepTests/z80 vectors pass through the MSX's own build of the generator (13 November 2026). This is agreement with our own reference interpreter and with an emulator's vectors, not with a real MSX | No comparison on a real machine; the vectors run on a flat test bus, so the region map is covered by the panel, not by them |
 | Hardware fidelity | Nothing is claimed. The mixing levels of the sound (PSG, key click, SCC) are a stated choice, not validated; only the key click's level was measured against openMSX (a private comparison emulator, run as a separate program) | The TMS9918A, the AY-3-8910 and the SCC against an independent reference |
-| Gameplay validation | None: no game has been played through by the owner | Everything |
+| Gameplay validation | None: no game has been played through by the owner (his play checklist is in [QUALIFICATION.md](QUALIFICATION.md)) | Everything |
 | Physical latency | Not measured | No latency figure; none is claimed |
 
-These were development checks and are not a qualification (see section 7). They say nothing for other games, other mappers or the player's own BIOS.
+These are the panel's measures (section 7). They say nothing for other games, other mappers or the player's own BIOS.
 
 ## 4. Controls
 
@@ -77,10 +77,12 @@ and damaged or missing states must be refused and left as they were. The F2 page
 
 **Saves (battery SRAM, since 1.7.4).** An ASCII 8 KiB or 16 KiB cartridge with battery SRAM keeps it in `datas/saves/<game>-<cartridge>.rrsram`
 beside the game: loaded at start, written two seconds after the game last wrote it and when the window closes. The conversion finds the SRAM
-from the bank values the game writes (a bit above the bank number, which depends on the cartridge's wiring), so a game that selects its SRAM
-only later than its start, or a variant of another size (2 KiB or 32 KiB on ASCII 8, 8 KiB on ASCII 16), is not told apart: 8 KiB on ASCII 8
-and 2 KiB repeated over the page on ASCII 16. A file the game cannot use is moved aside (`.unusable-1`) and the game starts blank. Checked
-on Dragon Slayer II - Xanadu (Japan). Quick states carry the SRAM of their moment. The FM-PAC and its SRAM are not converted. The MSX2 clock's battery memory (the RP5C01's 26 nibbles, where the BIOS keeps its screen settings, a title and a password) is not kept between runs: no game was checked for it and none of the panel is known to use it, and it can be added if a game needs it (the owner's decision, 14 November 2026).
+from the bank values the game writes (a bit above the bank number, which depends on the cartridge's wiring); its mapper probe counts the writes to
+that SRAM apart from the writes a cartridge would ignore (since 14 November 2026: Deep Dungeon, ASCII 8 with 2 KiB of SRAM, was read as ASCII 16
+before, and Super Daisenryaku, ASCII 16 with 2 KiB, as ASCII 8). The size is the mapper's, not the board's: 8 KiB on ASCII 8 and 2 KiB repeated over
+the page on ASCII 16 (Deep Dungeon's 2 KiB live in an 8 KiB file); a game that selects its SRAM only later than its routes keeps none. A file the game
+cannot use is moved aside (`.unusable-1`) and the game starts blank. Checked on Dragon Slayer II - Xanadu and Deep Dungeon (Japan): the play route
+writes the SRAM, a fresh process finds it, damaged files are set aside. No MSX2 game of the panel selected its SRAM on its routes. Quick states carry the SRAM of their moment. The FM-PAC and its SRAM are not converted. The MSX2 clock's battery memory (the RP5C01's 26 nibbles, where the BIOS keeps its screen settings, a title and a password) is not kept between runs: no game was checked for it and none of the panel is known to use it, and it can be added if a game needs it (the owner's decision, 14 November 2026).
 
 ## 5. Known C-BIOS failures
 
@@ -91,6 +93,9 @@ C-BIOS is a free BIOS, not Microsoft's, and a few games depend on what only the 
   routes, as with the owner's own MSX BIOS (the stars, the ships, the enemies, the mothership and the score panel of the first stage, the same pictures
   on both BIOSes). Why the earlier run differed is not established, and nothing past the start of the first stage was looked at; if your copy shows a
   black playfield, choose your own MSX BIOS in Options > MSX.
+- **Heroes of the Lance (Japan, MSX2): its Japanese text is drawn with the wrong characters under C-BIOS** (seen on the panel of 14 November 2026:
+  the character introductions and the menus show Greek letters and symbols). C-BIOS's character set is not a Japanese MSX's; with your own Japanese
+  MSX2 BIOS it is not checked yet. The game runs (0 interpreted instructions on every route).
 - **BASIC cartridges** are refused under C-BIOS, which has no MSX-BASIC.
 
 Other known limits: the FM-PAC and cassettes are not converted, disk games are the MSX2+'s (section 9; MSX2 cartridges are the `msx2` profile, section 8), and no game other than the ones named in sections 3 and 4 has been checked.
@@ -104,13 +109,22 @@ their own licences, listed in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md
 
 ## 7. Where it stands in the qualification
 
-The `msx` and `msx2` columns of [QUALIFICATION.md](QUALIFICATION.md) were evaluated on 13 November 2026 on the panel converted at the
-thorough level (the evidence of each letter is there). Met: the status (G1), the common report (G2), native coverage (G3), the fresh reference run
-(G4), the replay of the delivered file (G5), the fresh-process quick states (G6), liveness (G8), route depth (G9) and the independent Z80 vectors
-through the MSX's generator (G10). Partial: battery saves (G7: ASCII cartridges' SRAM kept and checked on one game; FM-PAC and clock memory not),
-independent hardware evidence (G11), the panel (G12), the Linux witness (G13, one game each) and honesty (G15: the published 1.7.3 notes keep an old
-sentence on Salamander). Unknown: the owner's acceptance (G14). Not applicable: shared paths (G16). Leaving the experimental status is the owner's own
-decision (G14), and nothing here asks for it.
+The `msx` and `msx2` columns of [QUALIFICATION.md](QUALIFICATION.md) were evaluated again on 14 November 2026, on a panel of eight cartridges per
+machine converted at the extended level from an empty library, on Windows and on a Debian 13 PC (the evidence of each letter is there). Met: the status
+(G1), the common report (G2), native coverage (G3), the fresh reference run (G4), the replay of the delivered file (G5), the fresh-process quick states
+(G6), liveness (G8), the independent Z80 vectors (G10), the panel (G12), the Linux witness (G13: the sixteen games give the same report fields on both
+systems), honesty (G15) and, on the MSX, battery saves (G7: two games). Partial: battery saves on the MSX2 (G7: no MSX2 game of the panel selected its
+SRAM on its routes), route depth (G9: thirteen of the sixteen long routes reach play; Deep Dungeon stays in its name entry, Super Daisenryaku in its map
+setup, Heroes of the Lance at a question of its menu) and independent hardware evidence (G11). Unknown: the owner's acceptance (G14; his play checklist is
+in QUALIFICATION.md).
+
+**Shared paths: declined (G16 `-`).** Sharing paths serves no purpose here, so the MSX and the MSX2 do not share them (the owner's rule of 14 November
+2026). The evidence is the panel's: the only code its sixteen games run from RAM is the BIOS hooks they write, a jump into the cartridge followed by a return
+(`C3 nn nn C9`), whose bytes are in no cartridge, so a game's record would hold no path; and the instructions a game's first conversion interprets are
+C-BIOS's own start-up code (about 24,700 on most games) and those hooks. A received path would add no native instruction and save no conversion pass. The sharing code that was
+written for them is kept apart, should a game ever run cartridge code from RAM.
+
+Leaving the experimental status is the owner's own decision (G14), and nothing here asks for it.
 
 ## 8. The MSX2 (`msx2`)
 
@@ -140,14 +154,14 @@ the profile follows openMSX's reading; that is a choice, not a proof.
 
 | Measure | What is known | What is not |
 | --- | --- | --- |
-| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; on the Windows panel of 12 November 2026 (extended level) Metal Gear, Space Manbow, Aleste and Hydlide 3 end at 0 interpreted instructions on every route, equal to our reference interpreter frame by frame | Metal Gear also on a Debian 13 PC (same counts as Windows); Hydlide 3's routes stay in its character set-up menu, so its play is not covered; Metal Gear's play route stops at its first transceiver call (its long route goes on) |
+| Native code | On 14 authored cases, on both boards, 0 interpreted instructions after learning; on the panel of 14 November 2026 (extended level, from an empty library) Metal Gear, Space Manbow, Aleste, Hydlide 3, Super Daisenryaku, Vampire Killer, Fantasy Zone II, Heroes of the Lance end at 0 interpreted instructions on every route, equal to our reference interpreter frame by frame, on Windows and on a Debian 13 PC alike | Hydlide 3's long route stays in its character set-up menu at this level (at the thorough level, 13 November, it walks the overworld); Super Daisenryaku stays in its map setup and Heroes of the Lance at a question of its menu; Metal Gear's play route stops at its first transceiver call (its long route goes on); pad routes, not full games |
 | CPU fidelity | On the same 14 cases the native code equals the reference Z80 interpreter on 39 compared fields (the 37 of the MSX1 plus the V9938 state and the mapper). This is agreement with our own reference, not with a real MSX2 | No independent comparison on a real machine |
 | Hardware fidelity | Nothing is claimed as exact. 682 hand-worked checks of the V9938, the engine and the MSX2 board pass (development checks, not a qualification): they check our model against our own reading of the documents. Against openMSX (a private comparison emulator, never shipped) the 128 KiB VRAM, the 47 VDP registers and the palette are equal at chosen still frames for the C-BIOS logo, two authored cartridges, Metal Gear, Space Manbow, Aleste and Hydlide 3; at other frames the differences are timing (a command still running, a palette fade step, a sprite double-buffer phase) | Other frames; command timing; the RP5C01; everything in the list above |
 | Gameplay validation | None: no game has been played through | Everything |
 | Physical latency | Not measured | No latency figure; none is claimed |
 
-Section 3's remarks apply here too: these are development checks, not a qualification. The `msx2` column of [QUALIFICATION.md](QUALIFICATION.md) has the same
-letters as the `msx` column (section 7).
+Section 3's remarks apply here too. The `msx2` column of [QUALIFICATION.md](QUALIFICATION.md) has the `msx` column's letters but for battery saves
+(G7, partial: section 7).
 
 ## 9. The MSX2+ (`msx2plus`)
 
