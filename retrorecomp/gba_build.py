@@ -78,8 +78,12 @@ class Run:
 def exclusive(lock_file: Path):
     """One process at a time holds `lock_file` (a lock the system drops with the process, so that a crashed conversion leaves nothing behind)."""
     lock_file.parent.mkdir(parents=True, exist_ok=True)
-    if not lock_file.exists() or lock_file.stat().st_size == 0:
-        lock_file.write_bytes(b'x')                                         # a byte to lock
+    try:
+        descriptor = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(descriptor, b'x')                                          # a byte to lock
+        os.close(descriptor)
+    except FileExistsError:
+        pass
     with open(lock_file, 'r+b') as handle:
         if os.name == 'nt':
             import msvcrt
