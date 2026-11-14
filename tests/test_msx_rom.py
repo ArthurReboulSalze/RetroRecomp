@@ -230,5 +230,12 @@ class MapperProbeChoiceTests(unittest.TestCase):
     def test_the_raw_count_never_decides(self):
         self.assertEqual(self.choose(None, ascii16=(10, 0, 10), ascii8=(5000, 0, 10)), 'ascii16')
 
+    def test_one_register_write_is_no_evidence_when_another_run_made_more(self):
+        # Super Daisenryaku (ASCII 16, 2 KiB SRAM): under ASCII 8 it stops after one bank switch; under ASCII 16 it goes on and looks for an
+        # FM-PAC in the other slots (writes at 4000h and 5FFEh/5FFFh, counted as other writes).
+        self.assertEqual(self.choose('ascii16', ascii16=(5, 10, 222), ascii8=(1, 0, 198), konami_scc=(1, 3, 396), konami=(1, 167, 396)),
+                         'ascii16')
+        self.assertEqual(self.choose('konami', konami=(1, 0, 10), ascii8=(1, 3, 10)), 'konami')     # one write each: still a choice
+
     def test_no_credible_run_gives_no_choice(self):
         self.assertIsNone(self.choose('konami', konami=(0, 30, 10), ascii8=(5, 0, 900000)))
