@@ -24,6 +24,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F7 | Next menu language: EN → FR → IT → ES → DE |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
+| Gamepad | Since 1.7.5, **Quick save** and **Quick load** can be bound on player 1's gamepad page (F2): held 0.5 s saves, held 1 s loads, once per hold; unassigned by default |
 | F10 | Free: the options are the last F2 page |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
@@ -251,6 +252,9 @@ The choice is kept per game, in the game's own `player.cfg`; each game starts wi
 
 ### The mouse of a computer
 
+On the Amiga, player 2's gamepad page starts with a **Mouse port** row (1.7.5): Auto (the device used last), Mouse or Pad 2;
+Enter or A changes it, and its icon shows what is plugged in the port now.
+
 On the computers (Sharp X68000 and Commodore Amiga), a click in the window captures the mouse and a mouse game
 captures it at launch. **Ctrl+Alt+M** or, since 1.7.0, a **press of the middle button** (the wheel) releases it: neither
 machine's mouse had a middle button, so the game never needs it. Losing the window's focus releases it too.
@@ -287,6 +291,13 @@ pages.
 - **Restart (keyboard page / gamepad page):** assigned the same way. The keyboard row is
   unassigned by default (Shift+F1 always restarts); the gamepad default is
   **Start+Select (Back)**. A held restart fires once, then waits for release.
+- **Quick save and Quick load (gamepad page, 1.7.5):** assigned the same way, buttons only (the
+  keyboard page shows F8 and F9, which stay the keys). L2 and R2 count as buttons here, alone or with others, as in
+  Quit and Restart; a trigger used by one of these combinations no longer changes the speed. Since 1.7.5 a game control
+  can also be bound to L2 or R2 on every console's gamepad page (before, on the PlayStation and the Nintendo 64 only). Unassigned by default. In play, held half a second
+  the Quick save combination saves the quick state, held one second the Quick load combination loads it,
+  once per hold, as F8 and F9 do; inside a menu they do nothing. A combination already used by Quit,
+  Restart or the other quick one is refused and the page says by which.
 - **Hold the key, button or combination for one second** to quit through the normal shutdown
   path, preserving ordinary saves and shutdown-only fallback hints. Configured
   quit buttons take priority over host pause/reset shortcuts; cartridge inputs

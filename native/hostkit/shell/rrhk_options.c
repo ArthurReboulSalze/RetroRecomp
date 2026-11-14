@@ -21,7 +21,7 @@ typedef char rrhk_menu_numbers_follow_game_options[
  * row is not shown, and stderr says so once. */
 #define RRHK_OPTION_ROWS 32
 #define RRHK_OPTION_WINDOW ((int)(sizeof ((RrOptionRows *)0)->keys / sizeof ((RrOptionRows *)0)->keys[0]))
-struct RrhkOptionRows { char text[RRHK_OPTION_ROWS][80]; int keys[RRHK_OPTION_ROWS], count; };
+struct RrhkOptionRows { char text[RRHK_OPTION_ROWS][80]; int keys[RRHK_OPTION_ROWS], icons[RRHK_OPTION_ROWS], count; };   /* icons: -1 by key */
 
 static void add_row(RrhkOptionRows *rows, int key, const char *text) {
     static bool told;
@@ -31,12 +31,19 @@ static void add_row(RrhkOptionRows *rows, int key, const char *text) {
         return;
     }
     snprintf(rows->text[rows->count], sizeof rows->text[0], "%s", text);
+    rows->icons[rows->count] = -1;
     rows->keys[rows->count++] = key;
 }
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value) {
     char text[80];
     snprintf(text, sizeof text, rr_tr(format), value);       /* as rr_option_row formats it */
     add_row(rows, key, text);
+}
+/* 1.7.5: the same row with its own icon (RR_ICON_ROW_*), for a machine's row the kit cannot choose one for by its key. */
+void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value) {
+    const int before = rows->count;
+    rrhk_option_row(rows, key, format, value);
+    if (rows->count > before) rows->icons[before] = icon >= 0 && icon < RR_ICON_COUNT ? icon : -1;
 }
 
 void rrhk_options_init(const wchar_t *console) {
@@ -47,7 +54,15 @@ void rrhk_options_keyboard(const char *machine, int count) { rr_options_keyboard
 void rrhk_options_observe(const SDL_Event *event) { rr_options_observe(event); }
 bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu) { return rr_options_host_fkey(key, mod, menu); }
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture) {
-    return rr_options_event(event, menu, binding_capture);
+    const bool used = rr_options_event(event, menu, binding_capture);
+    rrhk_options_notice();
+    return used;
+}
+/* 1.7.5: a combination refused (another one has it) or a fixed key: game_options.h says why, the kit shows it. */
+void rrhk_options_notice(void) {
+    if (!rr_options.notice) return;
+    rr_options.notice = 0;
+    rrhk_notice(rr_options.status, 2200);
 }
 bool rrhk_options_component(int key, int button) { return rr_options_component(key, button); }
 /* The gamepad Quit and Restart combinations are held on player 1's pad only, as the F2 capture takes the selected player's:
@@ -70,6 +85,8 @@ static bool player1_only(bool (*check)(int), int menu) {
 }
 bool rrhk_options_quit(int menu) { return player1_only(rr_options_quit, menu); }
 bool rrhk_options_restart(int menu) { return player1_only(rr_options_restart, menu); }
+bool rrhk_options_quick_save(int menu) { return player1_only(rr_options_quick_save, menu); }
+bool rrhk_options_quick_load(int menu) { return player1_only(rr_options_quick_load, menu); }
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate) {
     rr_options_audio(pcm, frames, channels, floating, rate);
 }
@@ -98,6 +115,27 @@ int rrhk_pages_index(void) {
 int rrhk_pages_goto(int page, int *control) { return rr_pages_goto(settings_pages(), page, control); }
 bool rrhk_pages_open(int menu) { return rr_pages_open(menu); }
 int rrhk_pages_step(const SDL_Event *event) { return rr_pages_step(event); }
+
+/* The icon of an options row (1.7.5), chosen by its key: the kit's rows, the shared ones, a computer's keyboard row. */
+int rrhk_option_icon(int key) {
+    switch (key) {
+    case SDL_SCANCODE_F3: return RR_ICON_ROW_FILTER;
+    case SDL_SCANCODE_F4: return RR_ICON_ROW_DISPLAY;
+    case SDL_SCANCODE_F6: return RR_ICON_ROW_AUTOFIRE;
+    case SDL_SCANCODE_F7: return RR_ICON_ROW_LANGUAGE;
+    case SDL_SCANCODE_F12: return RR_ICON_ROW_RECORD;
+    case SDL_SCANCODE_M: return RR_ICON_ROW_SOUND;
+    case SDL_SCANCODE_GRAVE: return RR_ICON_ROW_SPEED;
+    case RRHK_KEY_RUMBLE: return RR_ICON_ROW_RUMBLE;
+    case RRHK_KEY_START_HELP: return RR_ICON_ROW_REMINDER;
+    case RR_ROW_AUDIO: return RR_ICON_ROW_WAVE;
+    case RR_ROW_FKEYS: return RR_ICON_ROW_FKEY;
+    case RR_ROW_VOLUME: return RR_ICON_ROW_VOLUME;
+    case RR_ROW_DEVICE: return RR_ICON_ROW_HEADPHONES;
+    case RRHK_ROW_KEYBOARD: return RR_ICON_ROW_KEYBOARD;
+    default: return RR_ICON_ROW_GENERIC;     /* a machine's own row (F5, F11): HOST_KIT.md D20 lists them */
+    }
+}
 
 /* Option rows run their function keys exactly as the shortcuts do. */
 static RrhkOptionRows option_rows(void) {
@@ -128,6 +166,7 @@ static RrOptionRows option_window(const RrhkOptionRows *all, int first) {
     for (int i = 0; i < d.count; ++i) {
         memcpy(d.text[i], all->text[first + i], sizeof d.text[i]);
         d.keys[i] = all->keys[first + i];
+        d.icons[i] = all->icons[first + i] >= 0 ? all->icons[first + i] : rrhk_option_icon(d.keys[i]);
     }
     return d;
 }
@@ -187,21 +226,27 @@ void rrhk_option_page_draw(SDL_Renderer *renderer) {
  * player without a pad waits, and the page says so (rrhk_menu_draw). */
 void rrhk_combo_start(int index, bool gamepad) {
     rr_combo_start(index, gamepad);
+    rrhk_options_notice();
     if (!gamepad) return;
     SDL_GameController *pad = rrhk.pads[rrhk.player];
     rr_options.capture_guard = 1;
     rr_options.capture_from = pad ? SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad)) : -1;
 }
-bool rrhk_combo_capturing_pad(void) { return rr_options.capture == 2 || rr_options.capture == 4; }
+bool rrhk_combo_capturing_pad(void) { return rr_options.capture && rr_options.capture % 2 == 0; }
 bool rrhk_combo_capturing(int index, bool gamepad) { return rr_options.capture == rr_combo_id(index, gamepad); }
-bool rrhk_combo_set(int index, bool gamepad) {
-    if (gamepad) return (index ? rr_options.rpad : rr_options.pad) != 0;
-    return (index ? rr_options.rkey : rr_options.key)[0] != 0;
+bool rrhk_combo_set(int index, bool gamepad) { return rr_combo_set(index, gamepad); }
+/* 1.7.5: the one trigger reading (game_options.h), for the shell's own (game rows, speed controls). */
+bool rrhk_trigger_step(bool down, int value) { return rr_trigger_step(down, value); }
+/* A trigger of player 1's pad (0 right, 1 left) in one of the host combinations: no speed control then. */
+bool rrhk_combo_trigger(int side) {
+    const Uint32 bit = side ? RR_PAD_L2 : RR_PAD_R2;
+    for (int c = 0; c < RR_COMBO_ROWS; ++c) if ((Uint32)rr_options.combo[c].pad & bit) return true;
+    return false;
 }
 void rrhk_combo_clear(int index, bool gamepad) { rr_combo_clear(index, gamepad); }
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_combo_value(out, size, index, gamepad); }
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }
-const char *rrhk_combo_hint(int index) { return rr_combo_hint(index); }
+const char *rrhk_combo_hint(int index, bool gamepad) { return rr_combo_hint(index, gamepad); }
 const char *rrhk_filter_name(int filter) { return rr_option_filter_name(filter); }
 const char *rrhk_display_name(int mode) { return rr_option_mode_name(mode); }
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title) {

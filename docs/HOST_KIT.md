@@ -197,7 +197,7 @@ field, so a machine that declares none of them pays no new per-frame cost (no al
 
 | Capability | `RrhkMachine` fields | Kit service | Player-facing |
 | --- | --- | --- | --- |
-| More controls | `RRHK_MAX_ACTIONS` 20 (12 before), `trigger_buttons` | | a pad of up to twenty controls (a PlayStation's seventeen: four directions, four face buttons, L1 to R3, Start, Select, and the Analog button as a host-side action); the pad word stays 16 bits. An F2 control page shows fifteen rows at once and scrolls past them around the selected row (`^` and `v` at the right edge); every page of 1.6.9 has at most fifteen rows and never scrolls. With `trigger_buttons` a binding may be a trigger (`RRHK_PAD_LEFT_TRIGGER` 64, `RRHK_PAD_RIGHT_TRIGGER` 65: fixed values outside any range of SDL's buttons, stored as such, so a saved binding survives an SDL update), held past the D1 threshold, captured by F2 when pulled on the selected player's pad, shown by SDL's name (`lefttrigger`); a host-side row (`bit` 0) refuses a trigger with the kit's notice "Reserved button or config unavailable" and keeps waiting for a button; only a trigger player 1 has **bound** is no longer a speed control (D12), as a bound key is no longer a shortcut; an unbound trigger keeps its speed control |
+| More controls | `RRHK_MAX_ACTIONS` 20 (12 before), `trigger_buttons` | | a pad of up to twenty controls (a PlayStation's seventeen: four directions, four face buttons, L1 to R3, Start, Select, and the Analog button as a host-side action); the pad word stays 16 bits. An F2 control page shows fifteen rows at once and scrolls past them around the selected row (`^` and `v` at the right edge); every page of 1.6.9 has at most fifteen rows and never scrolls. A binding may be a trigger (until 1.7.4 with `trigger_buttons` only, on every machine since 1.7.5) (`RRHK_PAD_LEFT_TRIGGER` 64, `RRHK_PAD_RIGHT_TRIGGER` 65: fixed values outside any range of SDL's buttons, stored as such, so a saved binding survives an SDL update), held past the D1 threshold, captured by F2 when pulled on the selected player's pad, shown by SDL's name (`lefttrigger`); a host-side row (`bit` 0) refuses a trigger with the kit's notice "Reserved button or config unavailable" and keeps waiting for a button; only a trigger player 1 has **bound** is no longer a speed control (D12), as a bound key is no longer a shortcut; an unbound trigger keeps its speed control |
 | Analog sticks | `analog_sticks` (1 or 2), `script_axes` | `rrhk_pad_axes(player, frame, axes[RRHK_AXES])`: LX, LY, RX, RY, -32768..32767, SDL's axes (Y down positive); false and centred without a pad | the left stick no longer drives the four directions on that machine (the d-pad does); a **Stick dead zone** row (0 to 30 %, Enter steps by 5 %, Delete: 0 %) at the end of each player's gamepad page of F2, `[<Console>.Gamepad.PlayerN] deadzone`, default 0 % (the raw values: the machine has its own calibration); a round dead zone, the travel left spread over the whole range, the length not clamped to the circle and each axis clamped to its own range, so a pad whose stick reaches the corners of a square still gives full scale on both axes there |
 | Graphics page (D14) | `gfx_options` (`RrhkGfxOption`: name, `ini_key`, values, count, default), `gfx_option_count` (at most 12), `gfx_apply(option, value)` | `rrhk_gfx_override(machine, "key=index")` for `--gfx`, `rrhk_gfx_value(option)` | F3 opens the page: one row per option (Left/Right, or Enter / A / + and -, change it at once), the kit's **Filter** row (the four filters, F3's order), **Restore defaults** (every option and the filter); Esc, B or F3 closes it, and the machine waits while it is open as in every menu; `[<Console>.Video] <ini_key>=<index>`, an unknown or out-of-range value keeps the default (`ini_key` must be plain ASCII: it is also the `--gfx` name and the timing report prints it with `%ls`, which glibc converts by the locale); the F1 line says "F3  Graphics options"; the Filter row adds "(not at this size)" when the chosen filter does nothing at the current size (xBR works up to 1024 x 1024 pixels of picture, scanlines need a window at least twice as tall as the picture's rows) |
 | Larger pictures | `pixel_pitch` | `rrhk_picture_limit(&w, &h)`: the renderer's largest texture (`SDL_RendererInfo`, 0 when SDL states none) | the texture grows when `visible_width`/`visible_height` pass it (never shrinks during a run); `max_width`/`max_height` are then the opening size only; Scale2x is left out for a picture past half the limit, or when its buffer cannot be made; a store that cannot grow (no texture, no Scale2x buffer) keeps its texture and buffer as they were, shows the part that fits, and is not tried again until the picture's size changes |
@@ -413,6 +413,43 @@ X68000 too, without asking again**.
   means the same mode. A machine that reads its former display key in `settings_loaded` and knows three modes (Master System,
   Game Gear, Game Boy) keeps the stretched mode all the same: the kit reads its own key again after that hook. F4 now shows the
   mode's name for 1.8 s (Windowed, Pixel perfect, Fit to screen, Stretched), as F3 names the filter.
+
+* <a id="d20"></a>**D20 — A row icon on every row of the menus** (owner's request of 14 November 2026, 1.7.5), on every machine.
+  Each row of the control pages, the options page and the graphics page starts with a 9 x 9 pictogram in the style of the F2
+  tiles: the d-pad with an arrow for a direction, a ring with its letters for a face button (A, 1 to 6, L1, I to IV, the
+  PlayStation shapes), Start, Select, Coin, Pause, Quit, Restart, Quick save, Quick load, the Gamepad row, the stick, and one
+  per option (filter, display, autofire, language, fallback hints, audio filter, volume, sound, output device, function keys,
+  start-up reminders, maximum speed, vibration, a computer's keyboard). Which icon is data: a control by its English name, an
+  options row by its key, a graphics option by its name (`rrhk_menu.c`, `rrhk_options.c`). A row the kit has no picture for
+  gets the generic gem, never nothing: today the machines' own option rows (F5 palette of the Game Boy, F5 sprite reduction of
+  the NES and the Master System, F5 enhanced Neo Geo, F11 MVS/AES), the graphics options other than resolution, aspect and
+  overscan, and controls such as "DIP switches"; an adapter names its own row's icon with `rrhk_option_row_icon` (the requests to
+  the machines' specialists wait for 1.7.6). A page an adapter draws itself (the CPS-1 DIP switches, the computers' disk
+  and mouse pages) can put one before its rows with `rrhk_menu_icon`. The icons are 31 packed rows in `native/retro_menu.c`,
+  in the tiles' table (`RR_ICON_ROW_*`, about 2.3 KB), drawn after the picture like every menu; a long options row is narrowed
+  rather than drawn past its box.
+* <a id="d21"></a>**D21 — Quick save and Quick load on the gamepad** (owner's request of 14 November 2026, 1.7.5), on every
+  machine with quick states. Player 1's pages get two more combinations after Quit and Restart: on the gamepad page they are
+  bound like Quit (one button or several, Delete clears; L2 and R2 count as buttons, alone or in a combination, in every host
+  combination: a trigger is pressed past the stick threshold of D1 and released under half of it, the kit's one trigger
+  reading, `rr_trigger_step`; a trigger in a host combination is no longer a speed control), **unassigned by default** so that no existing game saves or loads by
+  accident; on the keyboard page they show F8 and F9, which stay the keys and cannot be changed there. In play, a quick
+  combination held **0.5 s saves** and held **1 s loads** (the owner's durations, one constant each: `RR_COMBO_SAVE_MS`,
+  `RR_COMBO_LOAD_MS`), once per hold, through the same request and the same notices as F8 and F9; in a menu it does nothing.
+  The guard is the hold: one quick slot means that a stray save destroys as surely as a stray load, so both need one and the
+  load the longer. A binding equal to another combination of the same kind (Quit, Restart, the other quick one) is refused
+  with "Already used by …". Player 1's pad only, as Quit and Restart (D13). The four combinations are one table in
+  `game_options.h` (`rr_combo_info`). Preferences: `[<Console>.Options] quick_save_pad` and `quick_load_pad` (button masks;
+  missing means unassigned, so a file of an earlier release loads unchanged).
+
+* <a id="d22"></a>**D22 — A machine's own row on a player's gamepad page** (owner's decision of 14 November 2026, 1.7.5).
+  `RrhkMachine.pad_rows` (`RrhkPadRow`: the player, an English label, a few English values, `get`, `set`, an optional `icon`)
+  puts rows of the machine at the top of that player's gamepad page, above its controls: a setting that belongs to that pad.
+  Enter (A) chooses the next value, - the previous one, the machine applies and keeps it in `set` and shows its own notice if it
+  wants one; Left/Right still turn the page. The row has the icon the machine returns now (`icon`, an `RR_ICON_ROW_*`), else the
+  generic one. The first one is the Amiga's **Mouse port** on player 2's page (Auto, the last device used / Mouse / Pad 2),
+  whose icon is a DB9 port seen face-on with the device plugged in now (`RR_ICON_ROW_PORT_MOUSE`, `RR_ICON_ROW_PORT_JOYSTICK`);
+  the Atari ST can reuse it for its own port. Nothing changes on a machine that declares no row.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

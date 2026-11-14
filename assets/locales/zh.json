@@ -1052,6 +1052,16 @@
     "Reset": "重置",
     "Start-up reminders: %s": "启动提示：%s",
     "Stretched": "全屏填充",
-    "F4  Window / Pixel / Fit / Stretched": "F4  窗口 / 像素 / 适应 / 全屏填充"
+    "F4  Window / Pixel / Fit / Stretched": "F4  窗口 / 像素 / 适应 / 全屏填充",
+    "Quick save": "快速保存",
+    "Quick load": "快速读取",
+    "Hold quick save combo": "长按以保存",
+    "Hold quick load combo": "长按以读取",
+    "Already used by %s": "已被%s使用",
+    "F8 and F9: fixed keys": "F8 和 F9：固定按键",
+    "Mouse port": "鼠标端口",
+    "Auto (last used)": "自动（最后使用）",
+    "Mouse": "鼠标",
+    "Pad 2": "手柄 2"
   }
 }

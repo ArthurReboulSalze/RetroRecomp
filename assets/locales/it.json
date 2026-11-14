@@ -1052,6 +1052,16 @@
     "Reset": "Reset",
     "Start-up reminders: %s": "Promemoria all'avvio: %s",
     "Stretched": "Allungato",
-    "F4  Window / Pixel / Fit / Stretched": "F4  Finestra / Pixel / Adatta / Allungato"
+    "F4  Window / Pixel / Fit / Stretched": "F4  Finestra / Pixel / Adatta / Allungato",
+    "Quick save": "Salva stato",
+    "Quick load": "Carica stato",
+    "Hold quick save combo": "Tieni premuto per salvare",
+    "Hold quick load combo": "Tieni premuto per caricare",
+    "Already used by %s": "Già usata da %s",
+    "F8 and F9: fixed keys": "F8 e F9: tasti fissi",
+    "Mouse port": "Porta del mouse",
+    "Auto (last used)": "Auto (ultimo usato)",
+    "Mouse": "Mouse",
+    "Pad 2": "Pad 2"
   }
 }

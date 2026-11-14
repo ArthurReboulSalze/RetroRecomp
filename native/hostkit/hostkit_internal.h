@@ -6,7 +6,7 @@
 #include "scanline_sdl.h"
 #include "xbr_sdl.h"
 
-#define RRHK_COMBO_ROWS 2
+#define RRHK_COMBO_ROWS 4     /* Quit, Restart, Quick save, Quick load (1.7.5): game_options.h's table */
 
 extern RrhkUi rrhk;
 
@@ -66,6 +66,15 @@ typedef struct RrhkRun {
  * SDL_NUM_SCANCODES + 1), so that no keyboard sends them. */
 #define RRHK_KEY_RUMBLE (SDL_NUM_SCANCODES + 16)
 #define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
+/* The keyboard row of the computers' options page (rrhk_computer.inc, RRC_ROW_KEYBOARD): its icon is chosen by this key. */
+#define RRHK_ROW_KEYBOARD (SDL_NUM_SCANCODES + 1)
+
+/* menu.c: the row icons (1.7.5) */
+int rrhk_action_icon(const char *name, char letters[4]);   /* the icon of a control by its English name; a face button's letters */
+int rrhk_option_icon(int key);                              /* the icon of an options row by its key */
+int rrhk_combo_icon(int index);                             /* Quit, Restart, Quick save, Quick load */
+int rrhk_gfx_icon(const char *name);                        /* a graphics option by its English name */
+void rrhk_draw_icon(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, int icon, const char *letters);
 
 double rrhk_thread_cpu(void);
 void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkTiming *timing,
@@ -90,6 +99,11 @@ void rrhk_gfx_set(int option, int value);   /* the page: apply and keep */
 void rrhk_gfx_defaults(void);            /* the page's Restore defaults: every option to its default, applied and kept */
 void rrhk_toggle_rumble(void);           /* the Vibration row: flip, keep, stop a vibration in progress */
 void rrhk_rumble_stop(void);
+int rrhk_pad_rows_here(void);            /* the machine's own rows at the top of the page shown (RrhkMachine.pad_rows) */
+const RrhkPadRow *rrhk_pad_row_at(int row);   /* the machine row at this page row, NULL for a row of the kit */
+int rrhk_action_row(void);               /* the selected row as an action / combination index (the machine rows come first) */
+bool rrhk_trigger_step(bool down, int value);   /* L2/R2 as a button: game_options.h's one reading (threshold, hysteresis) */
+bool rrhk_combo_trigger(int side);       /* 0 right, 1 left: a host combination (Quit, Restart, quick ones) uses that trigger */
 bool rrhk_trigger_bound(int side);       /* 0 right, 1 left: player 1 has a control on that trigger (trigger_buttons) */
 
 /* main.c: the plates a game shows for a few seconds when it opens (D17), and the options row that turns them off. */
@@ -129,6 +143,9 @@ void rrhk_options_keyboard(const char *machine, int count);
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture);
 bool rrhk_options_quit(int menu);
 bool rrhk_options_restart(int menu);
+void rrhk_options_notice(void);           /* shows why a combination was not taken, once */
+bool rrhk_options_quick_save(int menu);     /* 1.7.5: player 1's pad combination, once per hold */
+bool rrhk_options_quick_load(int menu);
 bool rrhk_options_component(int key, int button);   /* a key or button that belongs to a quit/restart combination being captured or held */
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
@@ -151,7 +168,7 @@ bool rrhk_combo_set(int index, bool gamepad);         /* this combination has ke
 void rrhk_combo_clear(int index, bool gamepad);
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad);
 const char *rrhk_combo_label(int index);
-const char *rrhk_combo_hint(int index);
+const char *rrhk_combo_hint(int index, bool gamepad);
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title);
 const char *rrhk_filter_name(int filter);
 const char *rrhk_display_name(int mode);    /* "Windowed", "Pixel perfect", "Fit to screen", "Stretched" (translated) */   /* the translated name of a picture filter, as the options page shows it */

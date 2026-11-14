@@ -50,9 +50,23 @@ void rr_menu_page_header(SDL_Renderer *renderer, int ox, int oy, int unit,
 /* Pixel art of the menus (1.7.4): small icons, block letters, key caps and notice plates, all drawn from packed rows of
  * retro_menu.c (no image, no texture). Coordinates are menu units, as for the text. */
 #define RR_MENU_SHADE 46, 38, 20     /* dark gold: icon fills, the lower edge of a key cap, separators */
+/* 1.7.5: the 9 x 9 row icons (RR_ICON_ROW_*) follow the tiles', drawn by the same rr_menu_icon. */
 enum { RR_ICON_KEYBOARD, RR_ICON_GAMEPAD, RR_ICON_OPTIONS, RR_ICON_POINTER, RR_ICON_SWITCHES, RR_ICON_LOGO,
-       RR_ICON_KEYBOARD_SMALL, RR_ICON_GAMEPAD_SMALL, RR_ICON_OPTIONS_SMALL, RR_ICON_COUNT };
+       RR_ICON_KEYBOARD_SMALL, RR_ICON_GAMEPAD_SMALL, RR_ICON_OPTIONS_SMALL,
+       /* <row enum> */
+       RR_ICON_ROW_UP, RR_ICON_ROW_DOWN, RR_ICON_ROW_LEFT, RR_ICON_ROW_RIGHT, RR_ICON_ROW_BUTTON, RR_ICON_ROW_START,
+       RR_ICON_ROW_SELECT, RR_ICON_ROW_COIN, RR_ICON_ROW_PAUSE, RR_ICON_ROW_QUIT, RR_ICON_ROW_RESTART, RR_ICON_ROW_SAVE,
+       RR_ICON_ROW_LOAD, RR_ICON_ROW_GAMEPAD, RR_ICON_ROW_STICK, RR_ICON_ROW_KEYBOARD, RR_ICON_ROW_FILTER,
+       RR_ICON_ROW_DISPLAY, RR_ICON_ROW_AUTOFIRE, RR_ICON_ROW_LANGUAGE, RR_ICON_ROW_RECORD, RR_ICON_ROW_WAVE,
+       RR_ICON_ROW_VOLUME, RR_ICON_ROW_SOUND, RR_ICON_ROW_HEADPHONES, RR_ICON_ROW_FKEY, RR_ICON_ROW_REMINDER,
+       RR_ICON_ROW_SPEED, RR_ICON_ROW_RUMBLE, RR_ICON_ROW_RESTORE, RR_ICON_ROW_PORT_MOUSE, RR_ICON_ROW_PORT_JOYSTICK,
+       RR_ICON_ROW_GENERIC,
+       /* </row enum> */ RR_ICON_COUNT };
 int rr_menu_icon_width(int icon);
+/* A face button's row icon (1.7.5): the ring with up to three letters inside ("A", "3", "L1", "ii" for II, "^" "o" "[" "x" for the
+ * PlayStation shapes); false when a letter has no drawing (the caller then shows the generic icon). */
+bool rr_menu_button_letters(const char *letters);
+void rr_menu_button(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, const char *letters);
 void rr_menu_icon(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, int icon, bool dim);
 /* Block letters, five cells tall, `k` units a cell; both translate `text` and return its width in units. */
 int rr_menu_block_width(const char *text, int k);
