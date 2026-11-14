@@ -68,7 +68,8 @@ def alias_pattern(console_id: str) -> re.Pattern[str]:
     names = "|".join(re.escape(alias) for alias in ALIASES[console_id])
     # Edges by lookaround rather than \b: the same for a name that begins and ends with a letter or a digit, and right for
     # one that ends with another sign ("MSX2+").
-    return re.compile(rf"(?<!\w)(?:{names})(?!\w){_OTHER_MACHINE}")
+    # A page name is not the machine: "MSX.md" in a link of the MSX2+ row names no MSX (the MSX and the MSX2+ share their page).
+    return re.compile(rf"(?<!\w)(?:{names})(?!\w)(?!\.md(?!\w)){_OTHER_MACHINE}")
 
 
 def sentence_status(sentence: str) -> str | None:

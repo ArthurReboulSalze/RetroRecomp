@@ -40,7 +40,7 @@ purpose is still required.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns, and their G14, of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026)
 
 ### Progress through the qualification list
 
@@ -70,8 +70,8 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Atari ST | experimental | `████████░░` 83 % | ✅ 11 · 🟡 3 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
-| MSX | experimental | `█████████░` 87 % | ✅ 12 · 🟡 2 · ❔ 1 |
-| MSX2 | experimental | `████████░░` 83 % | ✅ 11 · 🟡 3 · ❔ 1 |
+| MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
+| MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | experimental | `███████░░░` 67 % | ✅ 7 · 🟡 6 · ❔ 2 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
@@ -91,7 +91,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ✅ | ✅ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ➖ | ❔ | ➖ | ➖ | ➖ | ➖ |
 
@@ -121,7 +121,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | P |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | ? |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | ? | ? | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | P | ? | Y | Y | ? |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | - | - | ? | - | - | - | - |
 
@@ -309,6 +309,11 @@ The page of each console, which the README links its line to (a console of the m
   holds 0 paths; the 0 to 49,521 instructions a game's first conversion interprets are C-BIOS's start-up code (about 24,700 on most games) and those hooks; a received path
   would add no native instruction and save no pass. The sharing code written for them is parked on `spec/msx-175-sharing-parked`. A scratch run of
   `registry_problems` with the status set to `supported` finds nothing for `msx` and `msx2` (not committed: the flip and G14 are the owner's).
+- MSX and MSX2 (14 November 2026, G14 and G1; branch `spec/msx-exit-175`): G14 `?` to `Y`: the owner played the six games of his checklist
+  (Knightmare, Salamander, Dragon Slayer II - Xanadu (MSX), Metal Gear, Space Manbow, Aleste (MSX2)), the panel's exports, and decided the exit: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » G1 stays `Y` with the status now `supported` in `retrorecomp/systems/msx.py`
+  (the MSX2+ stays `experimental`), the option notes of the eight languages, MSX.md, the README, COMPATIBILITY, INDEX, ROADMAP, CONTROLS and the
+  agents' guide; `tools/status_lint.py` and `tests/test_machine_registry.py` agree on the real profiles (the supported tier included: Linux
+  witnessed, risk cases, path sharing declined on the evidence, no gate `N`).
 - MSX2+ (13 November 2026; experimental profile `msx2plus`, the third profile of the MSX family, branch `spec/msx2plus-174`): G1 `P`: the
   profile is declared experimental and `tools/status_lint.py` agrees; not offered in a release yet. Every other gate but G16 is `?`: no panel has run.
   G16 `-`: the MSX2+ shares no paths and is not in `SHARED_SYSTEMS`. Scope and the five measures: [MSX.md](MSX.md#9-the-msx2-msx2plus).
@@ -1042,6 +1047,7 @@ owner fills it in.
 | 5 November 2026 | PC Engine | Blazing Lazers, Bomberman '93, Gradius, Raiden, Santatlantean, Space Harrier, Splatterhouse, Street Fighter II' Champion Edition (the eight HuCards of `Export\Games\PC Engine`), converted with the tree of `spec/pce-170` **before** its merge of `main` (commits up to `ad4d7ec`, the host kit without the four-player change; every one 0 interpreted instructions on the tested routes except Street Fighter II', which keeps a counted interpreted share) in a player's conditions and delivered in `Export` | Arthur, after playing them: « Je viens de faire une campagne de test des jeux CPS-2 et PC Engine. J'ai testé les 8 jeux de chaque console et les 8 marchent parfaitement. Bravo! » | A play trial that passed, **not** a decision to leave the experimental status: the PC Engine stays experimental and G14 reads `P`. The exports played come from a tree older than the one that opens the machine in 1.6.9 and are not the exports of that tree. |
 | 6 November 2026 | Commodore Amiga | The ten panel installs (Rick Dangerous, Lemmings, Elite, Pinball Dreams NTSC, Speedball 2, Turrican 2, Shadow of the Beast, Lotus 2, Cannon Fodder, Prince of Persia), converted with the tree of `spec/amiga-170` at `977cf63e` (the display window and the middle click included) and delivered in `Export\Games\Amiga`; every one 0 interpreted instructions on its two routes of 3,000 frames | Arthur, on a first build of the panel the same morning: « ça marche parfaitement », apart from a large black frame and a picture that did not grow with the window (both fixed in `31d7da35`); then on these exports: « je viens de tester les jeux Amiga, c'est nickel » | A play trial that passed, **not** a decision to leave the experimental status: the Amiga stays experimental and G14 reads `P`. It says nothing of hardware fidelity, of the installs that need a Kickstart, of other games or of latency. |
 | 8 November 2026 | Nintendo 64 | Super Mario 64, The Legend of Zelda: Ocarina of Time, Mario Kart 64 (PAL), converted at the Standard level with the tree of the branch `spec/n64-171` at `9380f67c`, delivered in `Export\Games\Nintendo 64` | Arthur, after playing the three: « Globalement, ça se passe bien. Pour moi, c'est OK pour la version expérimentale. On a encore quelques bugs, bien sûr. » He found Super Mario 64's text unreadable. This is his go for the experimental opening, not an exit from it: the games he played predate the correction of that text (hidden RDRAM, [NINTENDO_64.md](NINTENDO_64.md#6-evidence)). |
+| 14 November 2026 | MSX, MSX2 | The six games of the checklist (Knightmare, Salamander, Dragon Slayer II - Xanadu (MSX), Metal Gear, Space Manbow, Aleste (MSX2)), the panel exports of 14 November 2026 in `Export\Games\MSX` and `Export\Games\MSX2` (tree `d0b32436` of `spec/msx-175`, extended level, C-BIOS 0.29a) | Arthur, after playing them: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » | Exit from the experimental status decided: the MSX and the MSX2 are supported from 1.7.5; the MSX2+ stays experimental. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine; the exports are not converted again |
 
 ### Commodore Amiga: the panel (9 November 2026)
 
@@ -1204,7 +1210,7 @@ openMSX comparisons, not against a real MSX, and a good feel here is neither an 
 
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
-| (to fill) | MSX, MSX2 | (to fill) | (to fill) | (to fill) |
+| 14 November 2026 | MSX, MSX2 | Knightmare, Salamander, Dragon Slayer II - Xanadu (MSX), Metal Gear, Space Manbow, Aleste (MSX2) | « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » | the exit from the experimental status (the owner-acceptance table) |
 
 ## Running the verification campaign
 
