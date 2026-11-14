@@ -74,6 +74,20 @@ def instruction(words) -> bytes | None:
     return raw if len(raw) == 2 * word_count(raw[0] << 8 | raw[1]) else None
 
 
+def exact(words) -> str | None:
+    """The words of the instruction a window of observed words starts with, cut to its length by the word-count table (a machine that observes
+    a fixed window, the Amiga's 12 bytes, gives more than the instruction), or None when the window is malformed or shorter than it. The form
+    `translate` and `received_use` compare."""
+    if not isinstance(words, str) or len(words) % 4 or not 4 <= len(words) <= 2 * LONGEST_INSTRUCTION:
+        return None
+    try:
+        raw = bytes.fromhex(words)
+    except ValueError:
+        return None
+    size = 2 * word_count(raw[0] << 8 | raw[1])
+    return raw[:size].hex() if len(raw) >= size else None
+
+
 def instructions_of_span(data: bytes, address: int) -> list[tuple[int, str]]:
     """The (pc, words) of the instructions of a span's bytes, decoded from its first word; ValueError when the last one overruns."""
     out, position = [], 0
