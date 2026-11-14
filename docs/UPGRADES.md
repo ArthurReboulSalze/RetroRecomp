@@ -88,6 +88,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Game Boy Advance: supported](#game-boy-advance-supported-176) | the Game Boy Advance (`retrorecomp/systems/gba.py`, its status) | none | none |
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
+| [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
 
 ## Game Boy Advance: supported (1.7.6)
 
@@ -116,6 +117,16 @@ every outcome, the X68000's records are byte for byte the same, nothing a conver
 (a new group `shares:path_records`, and `m68k_media_knowledge` moved); their host and build stamps and every other machine's stamps are
 unchanged. **Existing exports:** converted again in full at their next conversion, from the player's own paths; the records already in a
 library or a bank keep being read (same format, same engine strings).
+
+## MSX2+: supported (1.7.6)
+
+**Status.** The MSX2+ is supported from 1.7.6, on the owner's decision of 14 November 2026 after his play test of the six games of the
+checklist (G14, the owner-acceptance table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance); [MSX.md](MSX.md#9-the-msx2-msx2plus)).
+The profile's status is `supported`, the report's `status` is read from the profile, the Options note loses "experimental" in the eight
+languages (and now names MSX-MUSIC, the kanji font and the disk requests in place of a stale "not yet"). Nothing a conversion does changes.
+
+**Stamps:** the MSX game stamps move with `retrorecomp/systems/msx.py` (shared by the MSX, the MSX2 and the MSX2+, already moving in this
+release), and the MSX2+ host stamp with its option note. **Existing exports:** as in the section below.
 
 ## MSX2+: MSX-MUSIC, the kanji font, shared paths (1.7.6)
 

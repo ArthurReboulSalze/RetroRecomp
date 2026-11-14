@@ -72,13 +72,13 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
-| MSX2+ | experimental | `████████░░` 81 % | ✅ 11 · 🟡 4 · ❔ 1 |
+| MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
@@ -91,7 +91,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | ✅ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ✅ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | ✅ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | 🟡 |
 
@@ -108,7 +108,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | P |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
@@ -121,7 +121,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | Y |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | Y |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | P |
 
@@ -357,6 +357,7 @@ The page of each console, which the README links its line to (a console of the m
   firmware; no cartridge game on this panel; not compared on Linux. G13 `?`: no Linux run. G14 `?`: no owner verdict. G15 `P`: read for this
   step (MSX.md section 9, COMPATIBILITY, UPGRADES, the profile's scope note, the report's device names); one statement corrected (the report
   named a plain cartridge for a disk game); the full read of every page and string for the MSX2+ is to do.
+- MSX2+ (14 November 2026, night; branch `spec/msx2plus-supported-176`): **G14 moves from `?` to `Y`** on the owner's play test of the six games of the checklist (the owner-acceptance table below), and the MSX2+ **leaves the experimental status: it is supported from 1.7.6**, on Arthur's word (« Oui, sors-le »). **G1 moves to `Y`**: the profile is declared `supported` and `tools/status_lint.py` agrees on the README, the compatibility page, the release notes and the interface strings in eight languages; `registry_problems` finds nothing for the real profile. The matrix is otherwise unchanged: `Y` on G1 to G8, G10, G12 to G15, `P` on G9 (route depth), G11 (two openMSX comparisons, no independent emulator on the panel) and G16 (the experimental tier of the base).
 - MSX2+ panel of 1.7.6 (14 November 2026, night; branch `spec/msx2plus-176`): **G7, G12, G13 and G15 move to `Y`**; G9 and G11 stay `P`,
   G14 `?` (the owner's). The panel: four cartridges on C-BIOS 0.29a (Family Stadium Professional Baseball, the V9958 scroll and MSX-MUSIC;
   Pachipro Densetsu, ASCII 8; The Goonies R Good Enough, Konami SCC; Dragon Slayer II - Xanadu, ASCII 8 with battery SRAM, the G7 game) and
@@ -1125,6 +1126,7 @@ owner fills it in.
 | 14 November 2026 | Commodore Amiga | The six games of the checklist (Lotus 2, Another World (FR), Monkey Island 2, Lemmings (Image), Pinball Dreams (NTSC), Panza Kick Boxing (FR)), the exports of 13 November 2026 in `Export\Games\Amiga` (tree `be3f4483` of `spec/amiga-176`, extended level, llvm-mingw; Lotus 2 as the interface specialist built it) | Arthur, after playing them: « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » | Exit from the experimental status decided: the Amiga is supported from 1.7.5. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine and the MSX; the exports are not converted again. A play test of six installs, not a coverage claim: code past the routes runs interpreted, counted and shown in the window title. |
 | 14 November 2026 | Atari ST | The seven games of the checklist (Bomb Jack, Turrican II (the player's TOS 1.04), Operation Stealth, The Lurking Horror, Kick Off 2, Lethal Xcess, Battle Probe), the exports of 14 November 2026 in `Export\Games\Atari ST` (built by the batch from the tree of `spec/atarist-175`, Standard level, llvm-mingw, online covers on) | Arthur, after playing them: « Ok, donc Atari ça marche, nickel, j'ai testé les jeux. »; asked "Je sors l'Atari ST de l'expérimental ?": « Oui, sors-le » | Exit from the experimental status decided: the Atari ST is supported from 1.7.5. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine, the MSX and the Amiga; the exports are not converted again (they predate the interface merge: the 1.7.5 reconversion brings the pad quick save and load rows he found missing). A play test of seven games, not a coverage claim; the STE, the Mega STE, the TT, the Falcon, hard disks and the monochrome monitor are not converted. |
 | 14 November 2026 | Game Boy Advance | The six games of the checklist (Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald), the exports of 14 November 2026 in `Export\Games\Game Boy Advance` (built from the final tree of `spec/gba-175`, empty library, online covers on, llvm-mingw) | Arthur, after playing them: « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. »; asked "Je sors la GBA de l'expérimental pour la 1.7.6 ?": « Oui, sors-la » | Exit from the experimental status decided: the Game Boy Advance is supported from 1.7.6 (1.7.5 was frozen the same morning). The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no level won, no latency or hardware-fidelity measure; G10, G11 and G16 stay `P`. |
+| 14 November 2026 | MSX2+ | The six games of the checklist (Family Stadium Professional Baseball, The Goonies R Good Enough, Dragon Slayer II - Xanadu, Laydock 2 - Last Attack, F-1 Spirit 3D Special, Xak III - The Tower of Gazzel), the exports of 14 November 2026 in `Export\Games\MSX2+` (tree `05f8d828` of `spec/msx2plus-176`, the player's default level, online covers on; C-BIOS 0.29a for the cartridges, the owner's FS-A1WSX firmware with its kanji font for the disks) | Arthur, after playing them: « Ok, je viens de tester MSX2, donc c'est ok, ça marche. » (he said "MSX2"; the games he had just played were the MSX2+ ones); asked "Je sors le MSX2+ de l'expérimental ?": « Oui, sors-le » | Exit from the experimental status decided: the MSX2+ is supported from 1.7.6. The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no game played through, no latency or hardware-fidelity measure; G9, G11 and G16 stay `P`. |
 
 ### Commodore Amiga: the panel (9 November 2026)
 
@@ -1385,6 +1387,10 @@ need your own firmware); cassettes and the FM-PAC are not converted; the V9958's
 approximated; MSX-MUSIC's level was set against openMSX on one authored cartridge, not on games. Keep the five measures apart when you judge:
 the CPU is checked against our own reference interpreter and independent vectors, the hardware against our reading of the documents and a
 few openMSX comparisons, not against a real MSX2+, and a good feel here is neither an exact fidelity nor a latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| 14 November 2026 | MSX2+ | Family Stadium Professional Baseball, The Goonies R Good Enough, Dragon Slayer II - Xanadu, Laydock 2 - Last Attack, F-1 Spirit 3D Special, Xak III - The Tower of Gazzel | « Ok, je viens de tester MSX2, donc c'est ok, ça marche. » (the MSX2+ games), then « Oui, sors-le » | the exit from the experimental status (the owner-acceptance table) |
 
 ### Checklist for Arthur: Game Boy Advance play test (G14)
 

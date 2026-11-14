@@ -1,7 +1,7 @@
 # MSX
 
 Profiles `msx`, and `msx2` for the MSX2 (described in section 8): supported since 1.7.5, on the owner's decision of 14 November 2026 after his play test (open as
-experimental in 1.7.3; the MSX2+ of section 9 stays experimental). The `msx` profile converts an MSX1 cartridge into a standalone Windows
+experimental in 1.7.3); the MSX2+ of section 9 is supported since 1.7.6 (open as experimental in 1.7.4). The `msx` profile converts an MSX1 cartridge into a standalone Windows
 executable whose Z80 code, as far as the conversion saw it run, is translated ahead of time to C, with a counted interpreter for the rest.
 The cartridge boots on C-BIOS 0.29a or on the player's own MSX BIOS. Nothing here says that a game plays completely, that the hardware is
 reproduced faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each, and
@@ -125,7 +125,7 @@ owner-acceptance table of QUALIFICATION.md).
 C-BIOS's own start-up code (about 24,700 on most games) and those hooks. A received path would add no native instruction and save no conversion pass. The sharing code that was
 written for them now serves the MSX2+ (section 9), whose disk games load their program from the disks into RAM.
 
-**Status.** The MSX and the MSX2 are supported since 1.7.5, on the owner's decision of 14 November 2026, in his words: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » The MSX2+ stays experimental (section 9).
+**Status.** The MSX and the MSX2 are supported since 1.7.5, on the owner's decision of 14 November 2026, in his words: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » The MSX2+ followed in 1.7.6 (section 9).
 
 ## 8. The MSX2 (`msx2`)
 
@@ -166,7 +166,8 @@ Section 3's remarks apply here too. The `msx2` column of [QUALIFICATION.md](QUAL
 
 ## 9. The MSX2+ (`msx2plus`)
 
-Experimental profile `msx2plus`, the third profile of the family, experimental since 1.7.4. It is the MSX2's board with the V9958
+Profile `msx2plus`, the third profile of the family: supported since 1.7.6, on the owner's decision of 14 November 2026, in his words, after playing the six games of the checklist: « Ok, je viens de tester MSX2, donc c'est ok, ça marche. » (he said "MSX2"; the games he had just played were the MSX2+ ones), then, asked whether to take the MSX2+ out of the experimental status: « Oui, sors-le ».
+It was experimental from 1.7.4. It is the MSX2's board with the V9958
 in place of the V9938 and the I/O port F4h, and the same cartridges, mappers, SRAM, routes, checks and quick states.
 
 **Converted:** MSX2+ cartridges, from a `.rom` or ZIP that you choose as MSX2+ in the console list or that sits in a folder named `msx2+`
