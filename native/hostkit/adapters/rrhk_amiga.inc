@@ -127,11 +127,11 @@ static void a_port1_load(void) {
    a_set_port1_mode(mode, false);
 }
 
-/* The plate when port 1 changes device, in the five languages of the games (Latin-1 letters only, as their fonts). */
+/* The plate when port 1 changes device, in the five languages of the games, without accents (as the games write their texts). */
 static void a_port1_notice(void) {
    static const char *const text[2][5] = {
-      {"Mouse port: mouse", "Port souris : souris", "Mausport: Maus", "Puerto del rat\xc3\xb3n: rat\xc3\xb3n", "Porta del mouse: mouse"},
-      {"Mouse port: pad 2", "Port souris : manette 2", "Mausport: Pad 2", "Puerto del rat\xc3\xb3n: mando 2", "Porta del mouse: pad 2"}};
+      {"Mouse port: mouse", "Port souris : souris", "Mausport: Maus", "Puerto del raton: raton", "Porta del mouse: mouse"},
+      {"Mouse port: pad 2", "Port souris : manette 2", "Mausport: Pad 2", "Puerto del raton: mando 2", "Porta del mouse: pad 2"}};
    static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
    const char *code = rr_language_code(rr_language_get());
    int device = a_port1_device(), language = 0, n;
