@@ -1,4 +1,5 @@
-"""Atari ST saves on a real game (gate G7): `python -B tools/atarist_saves_game.py GAME.ipf TOS104.img [EMUTOS.img]`, disks and TOS the player's own, read in place, never copied here.
+"""Atari ST saves on a real game (gate G7): `python -B tools/atarist_saves_game.py GAME.ipf TOS104.img [EMUTOS.img]`, disks and TOS the player's own, read in place, never copied here;
+or `python -B tools/atarist_saves_game.py --exe DELIVERED.exe`, the executable a conversion delivered (its disks and its TOS inside it, EmuTOS), run as it is.
 
 The Lurking Horror (Infocom) saves by GEMDOS on its own disk, under the player's file name. The route walks one room, saves, and a new process, given the file of the disk writes, restores: the
 game must find the room it left, which a process without the file cannot. Run on the TOS 1.04 desktop (mouse) and, with EmuTOS, through the autostart: EmuTOS seeks without verifying, which is
@@ -87,7 +88,64 @@ def check_tos(player: Path, check, disk: Path, tos: Path, name: str, desktop: li
     return failures
 
 
+def check_delivered(exe: Path, start: int = 1500) -> list[str]:
+    """The same save on a delivered executable (EmuTOS and the autostart are inside it), in separate processes: 27 sectors written, a new process given the file finds the room of the save, the
+    executable (the disks inside it) is byte for byte unchanged, and a damaged file is kept aside as `<name>.unusable-1` while the game starts from its disks, its picture the one of a process
+    without the file."""
+    import os
+    import subprocess
+    folder = WORK / 'delivered'
+    shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir(parents=True)
+    failures = []
+
+    def expect(condition, text):
+        print(f'delivered: {"ok  " if condition else "FAIL"} {text}', flush=True)
+        if not condition:
+            failures.append(text)
+
+    def run(run_name, route, count, writes=None):
+        place = folder / run_name
+        place.mkdir()
+        write_events(place / 'events.txt', route)
+        args = [str(exe), '--headless', '--frames', str(count), '--report', str(place / 'report.json'), '--input-events', str(place / 'events.txt'), '--capture', str(place / 'cap.ppm')]
+        if writes is not None:
+            args += ['--disk-writes', str(writes)]
+        done = subprocess.run(args, cwd=place, env=dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy'), capture_output=True, text=True, timeout=900)
+        if done.returncode:
+            raise SystemExit(f'{run_name}: exit {done.returncode}: {done.stderr[-400:]}')
+        import json
+        return json.loads((place / 'report.json').read_text(encoding='utf-8')), (place / 'cap.ppm').read_bytes()
+
+    before = hashlib.sha256(exe.read_bytes()).hexdigest()
+    writes = folder / 'writes.bin'
+    events, frames = save_route(start)
+    report, _ = run('save', events, frames, writes)
+    expect(report['disk_writes'] == EXPECTED_WRITES, f"the delivered game saved: {report['disk_writes']} sectors written, {EXPECTED_WRITES} expected")
+    expect(writes.is_file(), 'the file of the disk writes exists')
+    written = writes.read_bytes() if writes.is_file() else b''
+    events, frames = restore_route(start)
+    report, restored = run('restore', events, frames, writes)
+    _, without = run('without', events, frames)
+    expect(report['disk_writes'] == EXPECTED_WRITES, 'a new process finds the writes')
+    expect(writes.read_bytes() == written, 'restoring writes nothing')
+    expect(restored != without, 'the game restored: its picture differs from a process without the file (the room of the save, against the first room)')
+    damaged = folder / 'damaged.bin'
+    damaged.write_bytes(written[:len(written) // 2] + b'\xff' * 7)
+    report, aside_picture = run('damaged', events, frames, damaged)
+    expect(bool(sorted(folder.glob('damaged.bin.unusable-*'))), 'a damaged file is kept aside as damaged.bin.unusable-1')
+    expect(report['disk_writes'] == 0, f"the game starts from its disks: {report['disk_writes']} writes found")
+    expect(aside_picture == without, 'its picture equals the process without the file')
+    expect(hashlib.sha256(exe.read_bytes()).hexdigest() == before, 'the delivered executable (the disks inside it) is byte for byte unchanged')
+    print(f'look at {folder / "restore" / "cap.ppm"} and {folder / "without" / "cap.ppm"}')
+    return failures
+
+
 def main(arguments) -> int:
+    if len(arguments) == 2 and arguments[0] == '--exe':
+        failures = check_delivered(Path(arguments[1]))
+        print('OK' if not failures else 'FAILED')
+        return 1 if failures else 0
     if len(arguments) < 2:
         print(__doc__)
         return 2

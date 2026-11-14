@@ -67,7 +67,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | PC Engine / TurboGrafx-16 | supported | `█████████░` 94 % | ✅ 14 · 🟡 2 · ❔ 0 |
 | Game Boy Advance | experimental | `███████░░░` 69 % | ✅ 6 · 🟡 10 · ❔ 0 |
 | Commodore Amiga | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| Atari ST | experimental | `████████░░` 83 % | ✅ 11 · 🟡 3 · ❔ 1 |
+| Atari ST | experimental | `████████░░` 84 % | ✅ 12 · 🟡 3 · ❔ 1 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
@@ -84,7 +84,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
@@ -93,7 +93,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | 🟡 | ❔ | ✅ | ✅ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | ❔ | ➖ | ➖ | ➖ | ➖ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -114,7 +114,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | Y | Y | Y |
 | G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | P | P | P | Y | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | P | Y | Y | P | P | Y | P | P |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | ? | P | P | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
@@ -123,7 +123,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? | P | ? | Y | Y | ? |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | Y | Y | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | - | ? | - | - | - | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -253,6 +253,19 @@ The page of each console, which the README links its line to (a console of the m
   is to do. G16 `-`: the MSX shares no paths and is not in `SHARED_SYSTEMS`. Not yet implemented: disks, cassettes, FM-PAC, the SRAM mappers, MSX2+.
   Scope and the five measures: [MSX.md](MSX.md).
 
+- Atari ST (14 November 2026; branch `spec/atarist-175`, Windows, toward leaving the experimental status): **G7 moves from `P` to `Y`**, and **G16 from `-` to `P`**; every other letter is as of 13 November
+  (`Y` on G1 to G6, G8, G9, G12, G13 and G15; `P` on G10 and G11; `?` on G14). **G7 `Y`:** the save is shown on the delivered executable of a panel game, not only on the reference player
+  (`python -B tools/atarist_saves_game.py --exe "Lurking Horror, The.exe"`, the file the batch delivered into `Export/Games/Atari ST`, EmuTOS inside, headless, separate processes): 27 sectors written, the file of the
+  disk writes found by a new process (the room of the save, "Second Floor", where a process without the file shows "Terminal Room" and "Failed."), the executable byte for byte unchanged, and a damaged file kept aside as
+  `<name>.unusable-1` while the game starts from its disks. It is the one panel game that saves by a script (the routes are joystick, mouse and keyboard scripts; a track a game formats is not kept: limit in
+  [ATARI_ST.md](ATARI_ST.md#5-known-limits)). **G16 `P`**, like the other experimental sharers: the Atari ST shares its paths (Arthur's decision of 14 November 2026, «Oui, il partage») as schema 3 records of rows into the
+  player's own TOS and into the logical sectors of the player's own disks, on the common `m68k_media_knowledge`; `knowledge.received` (offered, reached, added) reports what received paths gave. Shown on Operation Stealth,
+  The Lurking Horror and Turrican II: a library at the extended level exports its record, an empty library imports it, the conversion is equal to the fresh reference on every route with and without it (traces 32 of 32).
+  **Not a gain in conversion passes** (1 and 1 in all twelve conversions), nothing changed on the routes the receiver runs, native code added beyond them: on a route the receiver did not run Turrican II goes from
+  30,455,168 interpreted instructions to 2,920,653 (-90 %), The Lurking Horror by 1.1 % and Operation Stealth by 8 %; the speed value is not measured (the added forms run Hatari's handlers, the saving is the interpreter's
+  dispatch). Safety on Turrican II: a record moved to addresses no run reaches leaves the conversion equal to the reference, a record of other disks is ignored with its reason. Not yet: the Linux half of G16. The 1.7.5
+  work also settles the Atari ST's risk cases (five in `tools/campaign-risk-cases.json`) and a play checklist for the owner (below); the simulated flip to `supported` (a scratch run of `registry_problems`, nothing
+  committed) lists no other requirement of the registry; the four texts a flip changes are README, COMPATIBILITY, the release notes and the interface strings (`tools/status_lint.py`). G14 and the flip are the owner's.
 - MSX and MSX2 (13 November 2026, afternoon; branch `spec/msx-174` after `def76191`): G1, G2, G8, G9 and G10 moved from `P` to `Y`, G7
   from `N` to `P`, G15 from `?` to `P`. The panel of the morning entry plus Dragon Slayer II - Xanadu (Japan) (ASCII 8 with battery SRAM) was converted
   again at the **thorough** level (attract, play and two pseudo-random routes of 18,000 frames) from an empty library, two at a time: 44 routes, 0
@@ -1202,6 +1215,41 @@ latency measure.
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 | (to fill) | Nintendo NES | (to fill) | (to fill) | (to fill) |
+
+### Checklist for Arthur: Atari ST play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executables** that stand in `Export/Games/Atari ST/` (converted from the final tree of the release you are
+judging, online covers on; nothing here asks you to convert anything). One short session, seven games, about ten minutes each. Nothing here says exact hardware, complete gameplay or latency;
+a tick means "it looked and sounded right to you in this test". The games that start on EmuTOS need no file from you; Turrican II was converted with your TOS 1.04.
+
+| | Bomb Jack | Turrican II | Operation Stealth | The Lurking Horror | Kick Off 2 | Lethal Xcess | Battle Probe |
+|---|---|---|---|---|---|---|---|
+| Why it is here | the control: EmuTOS, starts by itself, joystick | needs the player's own TOS 1.04 (EmuTOS stops it) | three disks, started by the desktop, a colour-code protection | the game that saves to its disk; keyboard | a sports game: two players, the joystick on both ports | two disks, the disk change, a shooter | started by the desktop, a joystick game |
+| It starts without an error window | | | | | | | |
+| Controls: arrows, **W** (fire), **Enter** (Start); a gamepad is player 1 | | | the mouse drives it; **Ctrl+Alt+M** lets the mouse go | you type: **Ctrl+Alt+K** gives the keyboard to the Atari | player 2 on its own keys or a second gamepad | | |
+| Sound is the game's (music and effects) | | | | | | | |
+| The disk change: **Ctrl+Alt+Page Up / Page Down** when the game asks | not applicable | not applicable | at each "insert disk" | not applicable | not applicable | "INSERT DISK B" | not applicable |
+| **F8** in play, move on, **F9** goes back to the saved moment | | | | | | | |
+| Close the window, start again, **F9** loads the state saved before | | | | | | | |
+| Nothing odd: a frozen picture, silence where there was sound, a wrong colour | | | | | | | |
+
+Then three checks, each on the game that fits:
+
+1. **A save made in the game.** In The Lurking Horror, walk a room, type `save`, then a file name, quit, start the game again and type `restore`, the same name: you must find the room you left.
+   What the game writes to its disk is kept in `datas/games/atarist-<identity>/disk-writes.bin` beside the player; the disk image inside the executable never changes. A damaged file is
+   moved to `disk-writes.bin.unusable-1` and the game starts from its disks.
+2. **A protection.** Operation Stealth asks for a colour code from its card: the conversion's routes stop there on purpose, because no route
+   answers or skips a protection. If you own the card, type the answer yourself (**Ctrl+Alt+K** first) and tell me whether the game goes on.
+3. **A game of your own.** Add one disk or ZIP of the ST library that is not in this list to the queue, convert it, and play it like the others: which one, and what it did, is the most useful
+   line of this checklist.
+
+Known limits to keep in mind while you play: the STE, the Mega STE, the TT, the Falcon, hard disks and the monochrome monitor are not supported; a game that formats a track on an IPF disk
+cannot keep that write; Metro-Cross, Pharaoh III and Trinity do not run as they should (listed in KNOWN_FAILURES.md). Keep the five measures apart when you judge: the CPU is Hatari's,
+checked against an independent corpus and the hardware against authored programs, not against a real ST, and a good feel here is neither an exact fidelity nor a latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| (to fill) | Atari ST | (to fill) | (to fill) | (to fill) |
 
 ### Checklist for Arthur: MSX and MSX2 play test (G14)
 

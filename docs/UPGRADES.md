@@ -92,6 +92,7 @@ stamps that section says move. Each section computed its stamps for its own chan
 | [Mega Drive and Super Nintendo: an interface change no longer refuses the quick states](#mega-drive-and-super-nintendo-an-interface-change-no-longer-refuses-the-quick-states-175) | the Mega Drive, the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16_state.py`); nothing a game runs changes | none | Mega Drive and Super Nintendo keys move once; the 1.7.4 keys are accepted (Windows and Linux) |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
 | [Every machine: row icons in the menus, Quick save and Quick load on the gamepad](#every-machine-row-icons-in-the-menus-quick-save-and-quick-load-on-the-gamepad-175) | none | host of all 20 profiles | none once the state key keeps only the layout files (spec/state-key-175) |
+| [Atari ST: its paths are shared, as the experimental tier of the base, and the checks toward leaving the experimental status](#atari-st-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16-and-the-checks-toward-leaving-the-experimental-status) | the Atari ST (`atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile) | none | none |
 
 ## Commodore Amiga: supported (1.7.5)
 
@@ -177,6 +178,34 @@ player's own firmware image (the IPL, the Kickstart, the TOS). The code that doe
 - **Stamps** (`compilation_inputs.role_stamps`, this branch against `9f9e9ce9`): **the game stamp of the X68000 only** (the new module is in its
   inputs, the group `shares:m68k_media_knowledge`); no host or build stamp; no quick-state key. An X68000 export of 1.7.4 is converted once in full,
   with the same result.
+
+## Atari ST: its paths are shared, as the experimental tier of the base (1.7.5, G16), and the checks toward leaving the experimental status
+
+The Atari ST joins `path_profiles.SHARED_SYSTEMS` (Arthur, 14 November 2026: «Oui, il partage»): schema 3 records only, qualified per engine revision, withdrawable in one line (`EXPERIMENTAL_SHARED`).
+`retrorecomp/atarist_knowledge.py` binds the common part (`m68k_media_knowledge`) to the Atari ST's names.
+
+- **What a path is.** A TOS instruction: a row `[address, offset, length]` of the player's 192 KiB TOS, valid only for a TOS of the SHA-256 the record states. A run of instructions a fresh reference run
+  observed in RAM and found as it is in the **logical content** of the disks (the standard-format sectors of every image, in (cylinder, side, sector) order, `atarist_disk.logical_content`): a row of that
+  content. Numbers only. Code a loader relocates or unpacks, custom-format tracks, STX images and Hatari's own code of the desktop hook stay private and are counted (`knowledge.promotion`). The game is the
+  SHA-256 of the file the player gave.
+- **What a conversion does with received paths.** It rebuilds the instructions from the player's own images, makes them native next to its own (never added to the observations the library keeps), and the
+  routes validate the game as always. A failure with imported paths is converted again without them (the batch, for every machine). The quick check from shared paths is declined. The report's
+  `knowledge.received` (`offered`, `reached`, `added`, computed by `m68k_media_knowledge.received_use`, no counter in the player) is the field of the X68000 and the Amiga.
+- **What it keeps.** The record of its fresh reference runs, in `<library>/atarist/<game>/tos-<key>/compilation.json` (one per TOS, united by `library_record`); the report names it
+  (`knowledge.record_sha256`). **Engine identity:** `atarist_knowledge.engine()` hashes Hatari's pin, the four native files that run the steps and `GENERATOR_REVISION` (1), which
+  `tests/atarist_generator_pins.json` ties to `atarist_codegen.py` and `atarist_hatari.py`.
+- **Schema.** The layout stays empty, as the Amiga's and the Game Boy Advance's: `path_profiles` is not edited (a branch for it would move every machine's game stamp), so the record carries no format
+  number of its own. `atarist_knowledge.RECORD_RULES` states the rest for the site's builder. The profile's sources were already `disk` and `tos`.
+- **What it gives** (measured on Operation Stealth, The Lurking Horror and Turrican II, [ATARI_ST.md](ATARI_ST.md#2-how-the-conversion-works) item 9): no conversion pass saved (1 and 1), nothing
+  changed on the routes the receiver runs, native code added beyond them (Turrican II: 30,455,168 interpreted instructions on a route the receiver did not run, 2,920,653 with the paths received; the two
+  others within 1 % and 8 %); the speed value is not measured.
+- **Also in this change**, none of it in a game: `tools/atarist_saves_game.py --exe` runs the save of The Lurking Horror on a delivered executable (G7); five risk cases for the Atari ST in
+  `tools/campaign-risk-cases.json`; the owner's play checklist for seven games ([QUALIFICATION.md](QUALIFICATION.md#checklist-for-arthur-atari-st-play-test-g14)); `atarist_disk.logical_content`
+  (all tracks of an IPF, where the desktop rules read two cylinders).
+- **Stamps** (`compilation_inputs.role_stamps`, this branch against main `19ad2cb8`, `RetroRecomp.py` tree of each): **the game stamp of the Atari ST only** (`f414185b00f5` to `08644c6cc052`; its inputs are
+  `atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile and the group `shares:m68k_media_knowledge`); no other machine's game stamp, no host or build stamp, no native file, no
+  quick-state key. An Atari ST export of 1.7.4 is converted once in full, with the same result on the routes; the seven games delivered for the owner's play were built one merge before the last
+  (which added the function `exact` to `m68k_media_knowledge.py`, unused by the Atari ST): they carry the stamp before it.
 
 ## MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status (1.7.5)
 
