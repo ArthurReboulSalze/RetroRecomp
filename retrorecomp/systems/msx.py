@@ -198,8 +198,8 @@ def decided(path: Path) -> str | None:
 
 class Msx2PlusProfile(Msx2Profile):
     """The MSX2+ (experimental since 1.7.4): the MSX2's board with the V9958 (YJK and YAE modes, the horizontal scroll) and the
-    port F4h, booted by C-BIOS 0.29a's MSX2+ images or by the player's own MSX2+ BIOS pair. Cartridges only for now: disks,
-    MSX-MUSIC and the kanji ROM come in later steps (docs/MSX.md)."""
+    port F4h, booted by C-BIOS 0.29a's MSX2+ images or by the player's own MSX2+ BIOS pair. Cartridges, and disk games with the
+    player's own BIOS pair and disk ROM; MSX-MUSIC and the kanji ROM are not converted yet (docs/MSX.md)."""
     id = 'msx2plus'
     name = 'MSX2+'
     # A .mx2 with no other hint and a .rom or ZIP chosen or in an msx2+ folder (identify_path below); a .dsk, or an M3U of
