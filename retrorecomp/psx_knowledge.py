@@ -263,12 +263,18 @@ class DiscFiles:
         files.sort(key=lambda e: (boot is None or e.lba != boot.lba, e.lba))
         self.blob = bytearray()
         self.segments = []                      # (disc offset, blob start, length), by disc offset
+        self.unreadable = 0
         for entry in files:
             length = min(entry.size, data.size - entry.lba * USER)
             if length <= 0 or len(self.blob) + length > SEARCH_BYTES:
                 continue
+            try:
+                content = data.read(entry.lba * USER, length)
+            except psx_disc.DiscError:
+                self.unreadable += 1            # a file over sectors that hold no user data (mode 0, audio): not searched
+                continue
             start = len(self.blob)
-            self.blob += data.read(entry.lba * USER, length)
+            self.blob += content
             self.blob += bytes(-len(self.blob) % 4)
             self.segments.append((entry.lba * USER, start, length))
         self.segments.sort()
@@ -466,11 +472,14 @@ def receive(identity: str, path, bios: bytes | None, pairs: dict) -> dict:
         return {'shared': False}
     from . import knowledge
     from .psx_native import Observed
-    found, info = shared_words(identity, path, bios, qualified=knowledge.qualified_game(SYSTEM, identity),
-                               imported=knowledge.imported_game(SYSTEM, identity), library=library_record(identity))
+    try:
+        found, info = shared_words(identity, path, bios, qualified=knowledge.qualified_game(SYSTEM, identity),
+                                   imported=knowledge.imported_game(SYSTEM, identity), library=library_record(identity))
+    except (ValueError, OSError) as error:          # a sharing failure never fails a conversion: it runs on its own observations
+        return {'shared': True, 'error': str(error)[:200], 'new_to_this_build': 0, 'received_words': 0}
     new = [pair for pair in found if pair not in pairs]
     for pair in new:
-        pairs[pair] = Observed(1, False)
+        pairs[pair] = Observed(0, False)        # after every observed word of its address (the four kept are the most run)
     info['new_to_this_build'] = len(new)
     info['received_words'] = len(found)
     return info
@@ -485,11 +494,14 @@ def conclude(identity: str, path, digests, bios: bytes | None, own: dict, use: d
     if SYSTEM not in pp.SHARED_SYSTEMS:
         return block
     sizes = []
-    for index in range(len(digests)):
-        data = DiscData(path, index)
-        sizes.append(data.size)
-        data.close()
-    record, counts = promote(identity, path, digests, sizes, bios, own, previous=library_record(identity))
+    try:
+        for index in range(len(digests)):
+            data = DiscData(path, index)
+            sizes.append(data.size)
+            data.close()
+        record, counts = promote(identity, path, digests, sizes, bios, own, previous=library_record(identity))
+    except (ValueError, OSError) as error:      # psx_disc.DiscError is a ValueError: a sharing failure never fails a conversion
+        return {**block, 'record_error': str(error)[:200]}
     records().write_library_record(identity, record, title=title,
                                    record_source="the words this player's own conversions observed", record_counts=counts)
     return {**block, 'cores': engine(), 'record_sha256': record_digest(record), 'promotion': counts,
