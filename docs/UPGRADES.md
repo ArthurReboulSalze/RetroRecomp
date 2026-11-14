@@ -89,6 +89,7 @@ stamps that section says move. Each section computed its stamps for its own chan
 | [MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status](#msx-and-msx2-the-mapper-probe-of-battery-backed-boards-the-exit-panel-and-the-exit-from-the-experimental-status-175) | the MSX, the MSX2 and the MSX2+ | none | none (`msx-state-5`) |
 | [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
+| [Every machine: row icons in the menus, Quick save and Quick load on the gamepad](#every-machine-row-icons-in-the-menus-quick-save-and-quick-load-on-the-gamepad-175) | none | host of all 20 profiles | none once the state key keeps only the layout files (spec/state-key-175) |
 
 ## Commodore Amiga: its paths are shared, as the experimental tier of the base (1.7.5, G16)
 
@@ -170,6 +171,32 @@ Engine, and the delivered exports are not converted again. `tools/status_lint.py
 MSX (the three profiles share their page).
 
 **Quick states:** the layout is unchanged (`msx-state-5`).
+
+## Every machine: row icons in the menus, Quick save and Quick load on the gamepad (1.7.5)
+
+The player shell changes on every machine at once ([HOST_KIT.md](HOST_KIT.md#d20), decisions D20 and D21): each row of the
+control, options and graphics pages has its icon, and player 1's gamepad page binds Quick save and Quick load.
+
+* **Stamps.** The host stamp of **all 20 profiles** moves; no game stamp and no build stamp moves, so every export of 1.7.4 is
+  upgraded without rediscovery. Files: `native/retro_menu.c`, `retro_menu.h`, `game_options.h`, `game_options_checks.c`,
+  `runtime_catalog.inc`, `hostkit/hostkit.h`, `hostkit/hostkit_internal.h` and the shell's `rrhk_main.c`, `rrhk_menu.c`,
+  `rrhk_options.c`; the seven locale files. Adventure (ScummVM) is among them because its profile lists the shared host files,
+  although its games do not link the kit: nothing changes in them.
+* **What players see.** An icon before every row of F2's control pages, the options page and the F3 graphics page; on player
+  1's pages two rows more, **Quick save** and **Quick load** (F8 and F9 on the keyboard page). A control page with more than
+  fifteen rows scrolls, as since 1.7.0.
+* **Quick states.** The shell's change moves nothing in a state. The Mega Drive and Super Nintendo keys hashed every listed
+  file directly below `native/`, the menus' included; spec/state-key-175 makes them hash only the files that fix the state
+  layout, so that this section moves no key. Measured against that main before merging.
+* **Preferences.** Two keys added, `[<Console>.Options] quick_save_pad` and `quick_load_pad` (button masks, missing =
+  unassigned): a file of 1.7.4 loads unchanged. An export of 1.7.4 reading a file written by 1.7.5 ignores them.
+* **Texts.** Six new entries in the catalogue of the five game languages (and in the seven locale files): "Quick save", "Quick
+  load", their two hold hints, "Already used by %s" and "F8 and F9: fixed keys".
+* **Per-frame cost.** Two more combination checks per frame, beside Quit and Restart (mask comparisons on player 1's pad); not
+  measured on its own, covered by the release's frame-cost comparison.
+* **Checks.** `tools/game_options_selftest.py` (defaults, fixed keyboard rows, refusal, the two holds once each, persistence)
+  and `tools/hostkit_capabilities_selftest.py` (247 checks: binding on a virtual pad, refusal, save and load held in play,
+  nothing inside a menu, a control page of 24 rows), with the portable toolchain.
 
 ## Exports of 1.7.3 in 1.7.4
 

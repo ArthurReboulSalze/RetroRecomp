@@ -414,6 +414,31 @@ X68000 too, without asking again**.
   Game Gear, Game Boy) keeps the stretched mode all the same: the kit reads its own key again after that hook. F4 now shows the
   mode's name for 1.8 s (Windowed, Pixel perfect, Fit to screen, Stretched), as F3 names the filter.
 
+* <a id="d20"></a>**D20 — A row icon on every row of the menus** (owner's request of 14 November 2026, 1.7.5), on every machine.
+  Each row of the control pages, the options page and the graphics page starts with a 9 x 9 pictogram in the style of the F2
+  tiles: the d-pad with an arrow for a direction, a ring with its letters for a face button (A, 1 to 6, L1, I to IV, the
+  PlayStation shapes), Start, Select, Coin, Pause, Quit, Restart, Quick save, Quick load, the Gamepad row, the stick, and one
+  per option (filter, display, autofire, language, fallback hints, audio filter, volume, sound, output device, function keys,
+  start-up reminders, maximum speed, vibration, a computer's keyboard). Which icon is data: a control by its English name, an
+  options row by its key, a graphics option by its name (`rrhk_menu.c`, `rrhk_options.c`). A row the kit has no picture for
+  gets the generic gem, never nothing: today the machines' own option rows (F5 palette of the Game Boy, F5 sprite reduction of
+  the NES and the Master System, F5 enhanced Neo Geo, F11 MVS/AES), the graphics options other than resolution, aspect and
+  overscan, and controls such as "DIP switches". A page an adapter draws itself (the CPS-1 DIP switches, the computers' disk
+  and mouse pages) can put one before its rows with `rrhk_menu_icon`. The icons are 31 packed rows in `native/retro_menu.c`,
+  in the tiles' table (`RR_ICON_ROW_*`, about 2.3 KB), drawn after the picture like every menu; a long options row is narrowed
+  rather than drawn past its box.
+* <a id="d21"></a>**D21 — Quick save and Quick load on the gamepad** (owner's request of 14 November 2026, 1.7.5), on every
+  machine with quick states. Player 1's pages get two more combinations after Quit and Restart: on the gamepad page they are
+  bound like Quit (one button or several, Delete clears), **unassigned by default** so that no existing game saves or loads by
+  accident; on the keyboard page they show F8 and F9, which stay the keys and cannot be changed there. In play, a quick
+  combination held **0.5 s saves** and held **1 s loads** (the owner's durations, one constant each: `RR_COMBO_SAVE_MS`,
+  `RR_COMBO_LOAD_MS`), once per hold, through the same request and the same notices as F8 and F9; in a menu it does nothing.
+  The guard is the hold: one quick slot means that a stray save destroys as surely as a stray load, so both need one and the
+  load the longer. A binding equal to another combination of the same kind (Quit, Restart, the other quick one) is refused
+  with "Already used by …". Player 1's pad only, as Quit and Restart (D13). The four combinations are one table in
+  `game_options.h` (`rr_combo_info`). Preferences: `[<Console>.Options] quick_save_pad` and `quick_load_pad` (button masks;
+  missing means unassigned, so a file of an earlier release loads unchanged).
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in
