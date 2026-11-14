@@ -106,7 +106,6 @@ UPSTREAM_CREDITS = (
 UPSTREAM_CREDIT_NOTES = {
     'Sharp X68000': 'credits_x68_status',
     'Game Boy Advance': 'credits_experimental',
-    'Commodore Amiga': 'credits_experimental',
     'Atari ST': 'credits_experimental',
     'Nintendo 64': 'credits_experimental',
     'Sony PlayStation': 'credits_experimental',

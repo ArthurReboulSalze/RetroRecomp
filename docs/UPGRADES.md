@@ -87,8 +87,21 @@ stamps that section says move. Each section computed its stamps for its own chan
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status](#msx-and-msx2-the-mapper-probe-of-battery-backed-boards-the-exit-panel-and-the-exit-from-the-experimental-status-175) | the MSX, the MSX2 and the MSX2+ | none | none (`msx-state-5`) |
+| [Commodore Amiga: supported](#commodore-amiga-supported-175) | the Amiga (`retrorecomp/systems/amiga.py`, its status) | none (the interface strings are in no stamp) | none |
 | [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
 | [68000 computers: the shared paths' common part cut out of the X68000's module](#68000-computers-the-shared-paths-common-part-cut-out-of-the-x68000s-module-175) | the X68000 (`m68k_media_knowledge.py` joins its game inputs); its outcomes do not change | none | none |
+
+## Commodore Amiga: supported (1.7.5)
+
+**Status.** The Amiga is supported from 1.7.5, on the owner's decision of 14 November 2026 after his play test of six installs (G14, the
+owner-acceptance table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance); [AMIGA.md](AMIGA.md#leaving-the-experimental-status-14-november-2026)).
+The profile's status is `supported`, the Options note loses "(experimental)" in the eight languages and the credits no longer mark it. Nothing a
+conversion does changes.
+
+**What moves:** the Amiga's game stamp only (`retrorecomp/systems/amiga.py` holds the status; `compilation_inputs.role_stamps` against `efdc0585`).
+The 1.7.5 update handles it as for the PC Engine and the MSX: the delivered exports are not converted again.
+
+**Quick states:** the Amiga's key moves, as between any two Amiga builds.
 
 ## Commodore Amiga: its paths are shared, as the experimental tier of the base (1.7.5, G16)
 
