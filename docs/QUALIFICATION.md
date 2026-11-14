@@ -357,6 +357,14 @@ The page of each console, which the README links its line to (a console of the m
   firmware; no cartridge game on this panel; not compared on Linux. G13 `?`: no Linux run. G14 `?`: no owner verdict. G15 `P`: read for this
   step (MSX.md section 9, COMPATIBILITY, UPGRADES, the profile's scope note, the report's device names); one statement corrected (the report
   named a plain cartridge for a disk game); the full read of every page and string for the MSX2+ is to do.
+- MSX2+ disk requests (14 November 2026; branch `spec/msx2plus-176`): G9 stays `P`, with Xak III's stop removed. The routes and the player answer
+  a game's disk requests (`native/media_request.h`: a lone read of the boot sector, no other drive command for 60 frames before and after,
+  the picture still for 16 frames) with the next disk of the set, instead of 1.7.5's fixed changes at frames 6,000, 9,000... The rule was
+  measured first: on the first disk of each multi-disk game of the panel (F-1 Spirit 3D Special, Golvellius II, Laydock 2, Xak III; 18,000
+  frames each), it fires only on Xak III's five reads of its "SET DISK" screen, none elsewhere. Converted at the extended level with it
+  (owner's FS-A1WSX firmware), Xak III's long route gets disk 2 at frame 16,759 and disk 3 at 16,963 (its request was for disk 3; disk 2 was
+  refused by the game and the rule moved on) and loads from disk 3 until the route ends; Golvellius II stays in its intro (it asks nothing
+  there). 0 interpreted and equal to the reference on all six routes. Eleven fixtures check the rule (`msx_hardware_checks.c`).
 - MSX2+ path sharing (14 November 2026; branch `spec/msx2plus-176`): **G16 moves from `-` to `P`**, like the other experimental sharers. The
   MSX2+ shares its paths (Arthur's decision of 14 November 2026, « Oui, il partage ») as schema 3 records of the experimental tier: the RAM
   windows a conversion learned, as offsets in the cartridge (`rom`) or in the disks (`disk1` ... `diskN`, keyed by the disk set; the BIOS image

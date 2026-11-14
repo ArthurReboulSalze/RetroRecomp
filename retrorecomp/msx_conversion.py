@@ -252,6 +252,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         check_run_budget(passes, frames, 'MSX: a conversion runs 1 to 10 learning passes on routes of 1 to 10,000 frames.')
         machine_args = [*bios_args, *guess.arguments(), *standard_args]
         watch = [w for a in WATCH for w in ('--watch', f'{a:04X}')]
+        # A game of several disks has its disk requests answered on every route, by the three programs alike (G9).
+        disk_requests = msx_routes.auto_disk(len(disks.disks) if disks is not None else 1)
         folder = work / 'routes'
         folder.mkdir(parents=True, exist_ok=True)
         reference_exe = reference_probe or msx_build.build_reference(work, emit)
@@ -261,7 +263,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             script = folder / f'{name}.inputs'
             if not script.is_file() or script.read_text(encoding='ascii') != text:
                 script.write_text(text, encoding='ascii', newline='\n')
-            return ['--frames', str(count), *watch, '--script', str(script)]
+            return ['--frames', str(count), *watch, '--script', str(script), *disk_requests]
 
         def reference_rows(name: str, count: int, text: str) -> tuple[dict, Path]:
             rows = folder / f'{name}-reference.csv'

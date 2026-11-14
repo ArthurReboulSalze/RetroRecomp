@@ -4,6 +4,7 @@
  * TMS9918A and AY-3-8910 data manuals (the expected number is written next to each check). Prints one line per check
  * and exits 1 if any fails. */
 #include "msx_machine.h"
+#include "media_request.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -467,6 +468,62 @@ static void kanji_checks(void)
     check("kanji: a font of another size is refused", msx_in(&m, 0xD9), 0xFF);
 }
 
+/* The disk-request rule (media_request.h) with quiet 60 and still 16: frames run with one picture unless said, commands given. */
+static int media_run(RrMediaRequest *q, uint64_t *frame, int frames, uint32_t picture)
+{
+    int due = 0;
+    for (int i = 0; i < frames; ++i) due += rr_media_frame(q, (*frame)++, picture);
+    return due;
+}
+
+static void media_request_checks(void)
+{
+    RrMediaRequest q;
+    uint64_t f = 0;
+    rr_media_request_init(&q, 60, 16);
+    media_run(&q, &f, 100, 1);                                   /* a still screen, no drive command */
+    rr_media_command(&q, f - 1, 1, 1);                           /* a lone boot-sector read at frame 99 */
+    check("media: a lone identity read waits for its quiet frames", media_run(&q, &f, 59, 1), 0);
+    check("media: 60 frames after it, the next disk is due", media_run(&q, &f, 1, 1), 1);
+    check("media: once", media_run(&q, &f, 200, 1), 0);
+    rr_media_command(&q, f - 1, 1, 1);                           /* another lone read: the program refused that disk too */
+    check("media: a second request is answered", media_run(&q, &f, 60, 1), 1);
+    check("media: two answered", (long)q.answered, 2);
+
+    rr_media_request_init(&q, 60, 16);
+    f = 0;
+    media_run(&q, &f, 100, 1);
+    rr_media_command(&q, f - 1, 1, 1);
+    media_run(&q, &f, 10, 1);
+    rr_media_command(&q, f - 1, 3, 0);                           /* more reads follow: the program is loading */
+    check("media: an identity read followed by others is not a request", media_run(&q, &f, 200, 1), 0);
+    rr_media_command(&q, f - 1, 1, 1);
+    rr_media_command(&q, f, 1, 0);                               /* another read the next frame */
+    check("media: nor one with a read right after it", media_run(&q, &f, 200, 1), 0);
+
+    rr_media_request_init(&q, 60, 16);
+    f = 0;
+    media_run(&q, &f, 100, 1);
+    rr_media_command(&q, f - 1, 2, 0);                           /* a read at frame 99 */
+    media_run(&q, &f, 30, 1);
+    rr_media_command(&q, f - 1, 1, 1);                           /* an identity read 30 frames later */
+    check("media: nor one with a read 30 frames before it", media_run(&q, &f, 200, 1), 0);
+
+    rr_media_request_init(&q, 60, 16);
+    f = 0;
+    for (int i = 0; i < 100; ++i) rr_media_frame(&q, f++, (uint32_t)i);   /* a moving picture */
+    rr_media_command(&q, f - 1, 1, 1);
+    check("media: nor one while the picture moves", media_run(&q, &f, 200, 1), 0);
+    rr_media_request_init(&q, 60, 16);
+    f = 0;
+    for (int i = 0; i < 100; ++i) rr_media_frame(&q, f++, (uint32_t)i);
+    media_run(&q, &f, 16, 7);                                    /* 16 frames of one picture: still_frames 15 */
+    rr_media_command(&q, f - 1, 1, 1);
+    check("media: a picture still for 15 frames is not enough", media_run(&q, &f, 200, 7), 0);
+    rr_media_command(&q, f - 1, 1, 1);
+    check("media: still long enough later, it is", media_run(&q, &f, 200, 7), 1);
+}
+
 int main(void)
 {
     video_checks();
@@ -474,6 +531,7 @@ int main(void)
     cartridge_checks();
     scc_checks();
     kanji_checks();
+    media_request_checks();
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures ? 1 : 0;
 }

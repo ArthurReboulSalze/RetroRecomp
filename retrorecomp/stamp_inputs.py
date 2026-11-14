@@ -712,6 +712,8 @@ INPUTS = _resolve({
         'native/msx_machine/msx_sram.h',
         'native/msx_machine/msx_headless.inc',
         'native/msx_machine/msx_route.inc',
+        # The disk-request rule (G9): machine-neutral, the MSX2+ its first user; the X68000 and the Atari ST keep their own for now.
+        'native/media_request.h',
         'native/msx_machine/msx_state.c',
         'native/msx_machine/msx_state_file.inc',
         'native/msx_machine/msx_tiles.inc',

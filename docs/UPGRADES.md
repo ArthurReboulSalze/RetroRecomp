@@ -129,6 +129,9 @@ main). [MSX.md](MSX.md#9-the-msx2-msx2plus) has the details and the five measure
 (the machine files they share: `msx_machine.c`, `msx_psg.c`, `msx_state.c`, the runners, `msx_conversion.py`, `systems/msx.py`), **the MSX2+
 host stamp** (its option labels); plus the X68000, Amiga and Atari ST game stamps of the change above. Every other stamp is unchanged.
 
+**Disk requests.** A game of several disks gets the next disk when it asks for one, in its routes and in play (the player is told;
+Page Up / Page Down stay the player's); the routes no longer change disks at fixed frames (MSX.md, "Disk requests").
+
 **Existing exports:** MSX, MSX2 and MSX2+ games are converted again in full at their next conversion. **Quick states:** the layout is
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.

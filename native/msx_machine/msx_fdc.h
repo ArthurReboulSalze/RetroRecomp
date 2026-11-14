@@ -33,6 +33,9 @@ typedef struct {
     uint16_t pos;           /* byte of the current sector (format: byte of the 4-byte ID) */
     uint8_t format_left, format_fill, format_id[4];
     uint8_t at_end;         /* the sector EOT is done: terminal count ends normally, more data ends "end of cylinder" */
+    /* What the program asked of the drives, counted for its disk requests (media_request.h); not part of a quick state. */
+    uint32_t commands;      /* READ and WRITE commands given */
+    uint32_t boot_reads;    /* of them, READ of the boot sector (cylinder 0, head 0, sector 1): the disk's identity */
 } MsxFdc;
 
 enum { MSX_FDC_COMMAND = 0, MSX_FDC_EXEC_READ, MSX_FDC_EXEC_WRITE, MSX_FDC_EXEC_FORMAT, MSX_FDC_RESULT };

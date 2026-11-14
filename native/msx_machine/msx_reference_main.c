@@ -135,6 +135,9 @@ static void msx_route_disk(unsigned index)
         msx_fdc_insert(&fdc, 0, disk_image[index], disk_length[index], 0);
 }
 
+static MsxFdc *msx_route_fdc(void) { return disk_files ? &fdc : NULL; }
+static unsigned msx_route_disk_count(void) { return disk_files; }
+
 static int attach_disk(MsxMachine *m, long (*loader)(const char *, uint8_t *, long))
 {
     if (!diskrom_file)

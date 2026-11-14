@@ -121,8 +121,12 @@ static void msx_route_disk(unsigned index)
     disk_index = index;
     msx_fdc_insert(&fdc, 0, disk_data[index], disk_sizes[index], 0);
 }
+static MsxFdc *msx_route_fdc(void) { return &fdc; }
+static unsigned msx_route_disk_count(void) { return RR_MSX_DISKS; }
 #else
 static void msx_route_disk(unsigned index) { (void)index; }
+static MsxFdc *msx_route_fdc(void) { return NULL; }
+static unsigned msx_route_disk_count(void) { return 0; }
 #endif
 
 /* The cartridge's battery SRAM (msx_cart.c, msx_sram.c), when the conversion found one (RR_MSX_SRAM_BIT): beside the game in a
@@ -160,10 +164,42 @@ static int headless;                           /* --headless: a route replayed, 
  * so): the frame is handed over there, so the inputs taken back reach the game's own vertical-blank interrupt that follows
  * (not one frame later). */
 static int handed_this_frame;                  /* one hand-over per frame even when R#9 LN changes mid-frame */
+#if RR_MSX_DISKS > 1
+/* In play, the game's own disk requests are answered as a route answers them (msx_route.inc, media_request.h): the next disk
+ * goes in drive A and the player is told. Page Up / Page Down stay the player's. */
+static RrMediaRequest play_media;
+static uint32_t play_media_commands, play_media_boot;
+static int play_media_ready;
+
+static void play_disk_request(void)
+{
+    if (!play_media_ready) {
+        rr_media_request_init(&play_media, MSX_MEDIA_QUIET, MSX_MEDIA_STILL);
+        play_media_commands = fdc.commands;
+        play_media_boot = fdc.boot_reads;
+        play_media_ready = 1;
+    }
+    if (!msx_media_due(&play_media, &fdc, &play_media_commands, &play_media_boot))
+        return;
+    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_index = (disk_index + 1u) % RR_MSX_DISKS;
+    msx_fdc_insert(&fdc, 0, disk_data[disk_index], disk_sizes[disk_index], 0);
+    char text[96];
+    snprintf(text, sizeof text, rrhk_tr("The game asked for a disk: disk %u of %u in drive A",
+                                        "Le jeu demande une disquette : disquette %u sur %u dans le lecteur A"), disk_index + 1u,
+             (unsigned)RR_MSX_DISKS);
+    rrhk_notice(text, 3500);
+}
+#endif
+
 static void line_hook(void)
 {
     if (machine.line == 0)
         handed_this_frame = 0;
+#if RR_MSX_DISKS > 1
+    if (machine.line == 0 && machine.frames)
+        play_disk_request();
+#endif
     if (!handed_this_frame && machine.line >= machine.vblank_line) {
         handed_this_frame = 1;
         frame_ended = 1;

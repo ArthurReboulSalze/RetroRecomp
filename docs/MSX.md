@@ -208,6 +208,15 @@ and steps the five low bits (the 32 bytes of a 16 x 16 glyph). C-BIOS has none: 
 (`msx_hardware_checks.c`) and an authored cartridge (`tools/msx_kanji_cart.py`): with the font its picture follows the glyphs (18 distinct
 pictures against 7 without), 0 interpreted, equal to the reference and in the delivered file.
 
+**Disk requests (1.7.6).** A game of several disks gets the next disk when it asks for one, in its routes and in play: the
+machine's drive tells when the program reads the boot sector (the sector that tells one disk of a set from another) with no other drive
+command for a second before and after it, while the picture has held still for a quarter of a second; the program looked at which disk is
+in and went back to waiting ("SET DISK 3 AND PUSH SPACE PLEASE"). The next disk of the set then goes in drive A, round the set, and in play
+a notice says so; Page Up / Page Down stay yours. The rule names no game and no disk (`native/media_request.h`, written to serve other
+machines too). It was set on the four multi-disk games of the disk panel: on each game's first disk, 18,000 frames each, the rule fires only on
+Xak III's request screen. Xak III, converted with it, gets disk 2 and then disk 3 on its two requests and loads from disk 3 to the end of its
+long route (1.7.5's fixed rhythm left it on that screen). The routes no longer change disks at fixed frames.
+
 **Shared paths (1.7.6, G16 `P`).** The MSX2+ shares the RAM windows a conversion learned, as offsets in your cartridge or in your disks
 (`retrorecomp/msx_knowledge.py`), the experimental tier of the base: a disk game loads its program into RAM, so most of what a first
 conversion learns is in the disks (Quinpl: 540 of 561 windows). Received windows are translated from the first pass, each guarded by its four
