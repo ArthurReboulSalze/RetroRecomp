@@ -352,51 +352,53 @@ def translate(path, discs: int, bios: bytes | None, pairs) -> tuple[list, list, 
             bios_rows += [(address + n, at + n, 4) for n in range(0, len(data), 4)]
             kernel.add(address)
         pending = left
-    spans, searched, found_runs = [], 0, 0
+    # The discs: every observed word of main RAM (each of the words kept at an address, overlays included) that a known RAM-to-disc
+    # difference places, checked word for word. A difference is found by searching the longest run not placed yet in the disc's files.
+    bios_words = {(address, int.from_bytes(bios[offset:offset + 4], 'little')) for address, offset, _ in bios_rows} if bios else set()
+    remaining = {(address, word) for address, words in ranked.items() if address < RAM_LIMIT for word in words} - bios_words
+    runs = [(address, run) for address, run in pending if len(run) >= 4 * FIND_MIN_WORDS]
+    spans, searched, differences = [], 0, 0
     for index in range(discs):
-        if not pending:
+        if not remaining:
             break
         data = DiscData(path, index)
         try:
             files = DiscFiles(data)
-            deltas, misses, left = [], 0, []
-            queue = list(pending)
-            while queue:
-                address, run = queue.pop(0)
-                placed = False
-                for delta in deltas:
-                    have = files.at(address - delta, len(run))
-                    count = _prefix(have, run)
-                    if count:
-                        spans.append((index, address, address - delta, 4 * count))
-                        if count * 4 < len(run):
-                            queue.insert(0, (address + 4 * count, run[4 * count:]))
-                        placed = True
-                        break
-                if placed:
-                    continue
-                if len(run) >= 4 * FIND_MIN_WORDS and searched < FIND_BUDGET and misses < FIND_MISSES:
-                    searched += 1
-                    offset = files.find(run[:4 * FIND_MIN_WORDS])
-                    count = _prefix(files.at(offset, len(run)), run) if offset >= 0 else 0
-                    if count >= FIND_MIN_WORDS:
-                        misses, found_runs = 0, found_runs + 1
-                        deltas.insert(0, address - offset)
-                        spans.append((index, address, offset, 4 * count))
-                        if count * 4 < len(run):
-                            queue.insert(0, (address + 4 * count, run[4 * count:]))
-                        continue
+            placed: dict = {}
+            misses = 0
+            for address, run in runs:
+                if not remaining or searched >= FIND_BUDGET or misses >= FIND_MISSES:
+                    break
+                if (address, int.from_bytes(run[:4], 'little')) not in remaining:
+                    continue                            # already placed by a difference found before
+                searched += 1
+                offset = files.find(run[:4 * FIND_MIN_WORDS])
+                if offset < 0 or _prefix(files.at(offset, len(run)), run) < FIND_MIN_WORDS:
                     misses += 1
-                left.append((address, run))
-            pending = left
+                    continue
+                misses, differences = 0, differences + 1
+                delta = address - offset
+                for pair in list(remaining):
+                    if files.at(pair[0] - delta, 4) == pair[1].to_bytes(4, 'little'):
+                        placed[pair] = delta
+                        remaining.discard(pair)
+            # Consecutive addresses placed by one difference make one span.
+            current = None
+            for (address, _), delta in sorted(placed.items(), key=lambda item: (item[1], item[0][0])):
+                if current and current[0] == delta and address == current[1] + current[2]:
+                    current[2] += 4
+                else:
+                    current = [delta, address, 4]
+                    spans.append(current)
+            spans = [span if isinstance(span, tuple) else (index, span[1], span[1] - span[0], span[2]) for span in spans]
         finally:
             data.close()
     words = sum(len(w) for w in ranked.values())
     in_spans = sum(length for *_, length in spans) // 4
-    return spans, sorted(set(bios_rows)), {
+    return sorted(spans), sorted(set(bios_rows)), {
         'observed_words': words, 'in_discs': in_spans, 'in_bios': len(set(bios_rows)),
-        'private': sum(len(run) for _, run in pending) // 4, 'private_runs': len(pending), 'searches': searched,
-        'kernel_runs_in_bios': len(kernel)}
+        'private': len(remaining) + sum(len(w) for a, w in ranked.items() if a >= BIOS_BASE) - sum(1 for a, _, _ in set(bios_rows) if a >= BIOS_BASE),
+        'searches': searched, 'differences': differences, 'kernel_runs_in_bios': len(kernel)}
 
 
 def promote(identity: str, path, digests, sizes, bios: bytes | None, pairs, *, previous: dict | None = None) -> tuple[dict, dict]:
