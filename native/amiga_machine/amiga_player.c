@@ -42,6 +42,8 @@
 static bool guest_keyboard, mouse_grab, mouse_game, input_focus = true, fast_forward, want_swap, want_eject;
 static int loading_holdoff, swap_drive, swap_direction;
 static bool interpreter_only;                       /* --reference-cpu: every instruction runs on the interpreter (the window says so) */
+static int port1_option = -1;                       /* --port1: port 1's mode for this run, not saved (-1: the player's saved choice) */
+static char port1_config[PATH_CAP];                 /* the player's choice for port 1, kept per game (rrhk_amiga.inc) */
 static const Uint8 *keys;
 static int mouse_dx, mouse_dy;
 static Uint32 mouse_buttons;
@@ -195,8 +197,9 @@ typedef struct { unsigned begin, end; char kind; int code, value; } Event;
 static Event events[MAX_EVENTS];
 static unsigned event_count;
 
-/* "begin end kind code value" per line: kind joy (code = bit 0..5), mouse (code 0 dx, 1 dy: value per frame; 2 left, 3 right),
- * key (code = Amiga raw key 0..127); frames are the machine's own (absolute, so that a resumed state sees the same inputs). */
+/* "begin end kind code value" per line: kind joy (code = bit 0..5: the joystick of port 2), joy2 (the same bits for the joystick of
+ * port 1, the second player's, which takes the port from the mouse when it is used), mouse (code 0 dx, 1 dy: value per frame; 2 left,
+ * 3 right), key (code = Amiga raw key 0..127); frames are the machine's own (absolute, so that a resumed state sees the same inputs). */
 static bool load_events(const char *path) {
    wchar_t wide[PATH_CAP];
    FILE *f;
@@ -209,6 +212,7 @@ static bool load_events(const char *path) {
       if (event_count >= MAX_EVENTS || begin >= end || end > MAX_FRAMES) { fclose(f); return false; }
       e->begin = begin; e->end = end; e->code = code; e->value = value;
       if (!strcmp(kind, "joy") && code >= 0 && code < 6) e->kind = 'j';
+      else if (!strcmp(kind, "joy2") && code >= 0 && code < 6) e->kind = '2';
       else if (!strcmp(kind, "mouse") && code >= 0 && code < 4) e->kind = 'm';
       else if (!strcmp(kind, "key") && code >= 0 && code < 128) e->kind = 'k';
       else { fclose(f); return false; }
@@ -219,7 +223,7 @@ static bool load_events(const char *path) {
 }
 
 static void scripted_inputs(uint64_t frame) {
-   unsigned bits = 0, n;
+   unsigned bits = 0, bits2 = 0, n;
    int dx = 0, dy = 0, left = 0, right = 0;
    uint8_t held[128];
    memset(held, 0, sizeof held);
@@ -227,6 +231,7 @@ static void scripted_inputs(uint64_t frame) {
       const Event *e = &events[n];
       if (frame < e->begin || frame >= e->end) continue;
       if (e->kind == 'j') bits |= 1u << e->code;
+      else if (e->kind == '2') bits2 |= 1u << e->code;
       else if (e->kind == 'k') held[e->code] = 1;
       else if (e->code == 0) dx += e->value;
       else if (e->code == 1) dy += e->value;
@@ -234,6 +239,7 @@ static void scripted_inputs(uint64_t frame) {
       else right = 1;
    }
    rr_amiga_joystick(session, bits);
+   rr_amiga_joystick2(session, bits2);     /* before the mouse: a mouse used in the same frame keeps the port */
    rr_amiga_mouse(session, dx, dy, left, right);
    rr_amiga_keys(session, held);
 }
@@ -346,10 +352,10 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       rr_amiga_write_display(session, r);
       fputc(',', r);
       fprintf(r, "\"quit\":%s,\"frames\":%u,\"stopped\":%s,\"error\":\"%s\",\"native\":%llu,\"translated\":%llu,\"swept\":%llu,\"learned\":%llu,\"walked\":%llu,\"interpreted\":%llu,\"resload_calls\":%ld,"
-                 "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s}\n",
+                 "\"nonblack_frames\":%u,\"audible_frames\":%u,\"fps\":%.4f,\"state_loaded\":%s,\"port1\":\"%s\"}\n",
               rr_amiga_quit(session) ? "true" : "false", n, stopped ? "true" : "false", escaped, (unsigned long long)rr_amiga_native_count(session),
               (unsigned long long)rr_amiga_translated_count(session), (unsigned long long)rr_amiga_swept_count(session), (unsigned long long)rr_amiga_learned_count(session), (unsigned long long)rr_amiga_walked_count(session), (unsigned long long)rr_amiga_interpreted_count(session), rr_amiga_resload_calls(session), nonblack, audible,
-              RR_AMIGA_NTSC_RUN ? 59.94 : 49.92, load_start ? "true" : "false");
+              RR_AMIGA_NTSC_RUN ? 59.94 : 49.92, load_start ? "true" : "false", rr_amiga_port1_device(session) ? "joystick" : "mouse");
       if (fclose(r)) { fail("Cannot write the report"); return 1; }
    }
    return stopped ? 2 : 0;
@@ -370,6 +376,7 @@ int main(int argc, char **argv) {
    char base_path[PATH_CAP], game_dir[PATH_CAP], saves[PATH_CAP], error[256];
    const char *install_dir = NULL, *trace_path = NULL, *report_path = NULL, *observe_path = NULL, *capture_path = NULL;
    const char *events_path = NULL, *resload_path = NULL, *slot = NULL, *save_dir_arg = NULL;
+   int port1 = -1;      /* --port1: the player's choice for port 1 (RR_AMIGA_PORT1_*); -1: the window's saved one, headless follow */
    bool headless = false, reference_cpu = false, load_start = false;
    unsigned save_at = 0;
    RrAmigaGame game;
@@ -389,7 +396,7 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Amiga player\n--headless --frames N --input-events FILE --trace TSV --report JSON --observations FILE --memory-image FILE\n"
               "--capture PPM --capture-every N --resload-log FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start\n"
-              "--install DIR (a build without an embedded game) --saves DIR");
+              "--install DIR (a build without an embedded game) --saves DIR --port1 follow|mouse|joystick");
          return 0;
       } else if (i + 1 < argc) {
          const char *v = argv[++i];
@@ -406,6 +413,12 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--state-save-at")) { char *end; unsigned long n = strtoul(v, &end, 10); if (*end || !n || n > MAX_FRAMES) { fail("Invalid state frame"); return 1; } save_at = (unsigned)n; }
          else if (!strcmp(a, "--install")) install_dir = v;
          else if (!strcmp(a, "--saves")) save_dir_arg = v;
+         else if (!strcmp(a, "--port1")) {
+            if (!strcmp(v, "follow")) port1 = RR_AMIGA_PORT1_FOLLOW;
+            else if (!strcmp(v, "mouse")) port1 = RR_AMIGA_PORT1_MOUSE;
+            else if (!strcmp(v, "joystick")) port1 = RR_AMIGA_PORT1_JOYSTICK;
+            else { fail("Invalid --port1 (follow, mouse or joystick)"); return 1; }
+         }
          else { fail("Unknown option"); return 1; }
       } else { fail("Unknown option or missing value"); return 1; }
    }
@@ -430,6 +443,7 @@ int main(int argc, char **argv) {
    snprintf(state_slot, sizeof state_slot, "%s", slot ? slot : "");
    if (!slot) snprintf(state_slot, sizeof state_slot, "%s/quick.rrstate", game_dir);
    snprintf(player_config, sizeof player_config, "%s/player.cfg", game_dir);
+   snprintf(port1_config, sizeof port1_config, "%s/port1.cfg", game_dir);
    game.save_dir = saves;
    ntsc_run = game.ntsc;
    a_view_init(game.ntsc, RR_AMIGA_VIEW_X, RR_AMIGA_VIEW_Y, RR_AMIGA_VIEW_W, RR_AMIGA_VIEW_H);
@@ -437,6 +451,8 @@ int main(int argc, char **argv) {
    if (!session) { fail(error); return 1; }
    if (!reference_cpu && !rr_amiga_set_native(session, 1)) { fail("This build has no native steps"); return 1; }
    if (observe_path) rr_amiga_set_observe(session, 1);
+   if (port1 >= 0) rr_amiga_port1_mode(session, port1);
+   port1_option = port1;
 #ifdef RR_AMIGA_LINKED
    rr_feedback_start(!headless);    /* Headless, only with RETRO_RECOMP_FEEDBACK=1. */
    /* In a window F12 can switch recording on later: the shared recorder keeps nothing while it is off. */

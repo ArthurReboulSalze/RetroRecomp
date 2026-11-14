@@ -236,17 +236,35 @@ class RouteScriptTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             amiga_route_captures.plan(report)
 
+    def test_the_two_player_route_is_the_main_route_of_the_installs_listed_only(self):
+        identity, other = 'c' * 64, 'd' * 64
+        player2 = {'events': [(600, 608, 'joy', 4, 1), (1000, 4000, 'joy2', 4, 1), (5000, 5010, 'joy2', 3, 1)]}
+        with unittest.mock.patch.dict(conversion.ROUTE_PLAYER2, {identity: player2}):
+            main = conversion.route_events(identity, 'main', 3600, 0x59)
+            self.assertEqual(main, [(600, 608, 'joy', 4, 1), (1000, 3600, 'joy2', 4, 1)])   # cut to the route, nothing after its end
+            self.assertFalse([e for e in conversion.route_events(identity, 'explore', 3600, 0x59) if e[2] == 'joy2'])
+            self.assertFalse([e for e in conversion.route_events(identity, 'main', 3600, 0x59, answered=False) if e[2] == 'joy2'])
+            self.assertEqual(conversion.route_events(other, 'main', 3600, 0x59), conversion.main_route(3600, 0x59))
+        lotus = conversion.ROUTE_PLAYER2['827a20e727a7825848febba8cf2afdc9fa94d73072b5865f303bacc917edbfb1']['events']
+        self.assertTrue([e for e in lotus if e[2] == 'joy2'] and [e for e in lotus if e[2] == 'joy'])   # two players, both on the route
+        self.assertTrue(all(kind in ('joy', 'joy2') and 0 <= code < 6 and begin < end for begin, end, kind, code, _ in lotus))
+        # The player reads the kind (amiga_player.c: joy2, codes 0..5 as joy).
+        player = (Path(conversion.__file__).parents[1] / 'native' / 'amiga_machine' / 'amiga_player.c').read_text(encoding='utf-8')
+        self.assertIn('!strcmp(kind, "joy2") && code >= 0 && code < 6', player)
+
     def test_the_damaged_states_follow_the_players_header(self):
         # The offsets the conversion flips are the fields of StateHead in amiga_session.cpp (200 bytes, asserted there too).
         source = (Path(conversion.__file__).parents[1] / 'native' / 'amiga_machine' / 'amiga_session.cpp').read_text(encoding='utf-8')
         self.assertIn('char magic[16]; char abi[72]; char identity[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, '
-                      'snapshot_size, audio_size, reserved; uint64_t checksum;', source)
+                      'snapshot_size, audio_size, port1; uint64_t checksum;', source)
         self.assertIn('sizeof(StateHead) == 200', source)
+        self.assertIn('STATE_MAGIC[16] = "RRAMIGA-STATE-4"', source)
         self.assertEqual(conversion.STATE_HEADER, 200)
         self.assertEqual(conversion.STATE_OFFSETS['checksum'], 192)
+        self.assertEqual(conversion.STATE_OFFSETS['port1'], 188)       # the device port 1 holds and the second joystick's bits
         state = bytes(range(256)) * 64
         damaged = conversion.damaged_states(state)
-        self.assertTrue({'empty', 'one-byte-short', 'one-byte-longer', 'magic', 'abi', 'identity', 'checksum', 'payload'} <= set(damaged))
+        self.assertTrue({'empty', 'one-byte-short', 'one-byte-longer', 'magic', 'abi', 'identity', 'checksum', 'payload', 'port1'} <= set(damaged))
         self.assertTrue(all(data != state for data in damaged.values()))
 
     def test_a_route_script_is_the_same_lf_bytes_on_every_system(self):

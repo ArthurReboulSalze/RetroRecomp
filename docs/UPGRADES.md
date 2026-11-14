@@ -87,6 +87,7 @@ stamps that section says move. Each section computed its stamps for its own chan
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [MSX and MSX2: the mapper probe of battery-backed boards, the exit panel and the exit from the experimental status](#msx-and-msx2-the-mapper-probe-of-battery-backed-boards-the-exit-panel-and-the-exit-from-the-experimental-status-175) | the MSX, the MSX2 and the MSX2+ | none | none (`msx-state-5`) |
+| [Commodore Amiga: the second joystick on port 1](#commodore-amiga-the-second-joystick-on-port-1-175) | the Amiga (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, `amiga_conversion.py`) | **the Amiga's host stamp** (`native/hostkit/adapters/rrhk_amiga.inc`) | **every Amiga state is refused** (format `RRAMIGA-STATE-4`) |
 | [Commodore Amiga: supported](#commodore-amiga-supported-175) | the Amiga (`retrorecomp/systems/amiga.py`, its status) | none (the interface strings are in no stamp) | none |
 | [Commodore Amiga: its paths are shared, as the experimental tier of the base](#commodore-amiga-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16) | the Amiga (`amiga_knowledge.py`, `amiga_conversion.py`, its profile) and the X68000 (`knowledge.received` in its report) | none | none |
 | [Mega Drive and Super Nintendo: an interface change no longer refuses the quick states](#mega-drive-and-super-nintendo-an-interface-change-no-longer-refuses-the-quick-states-175) | the Mega Drive, the Super Nintendo, the Neo Geo, the CPS-1, the CPS-2, the PC Engine and the PlayStation (`console16_state.py`); nothing a game runs changes | none | Mega Drive and Super Nintendo keys move once; the 1.7.4 keys are accepted (Windows and Linux) |
@@ -95,6 +96,39 @@ stamps that section says move. Each section computed its stamps for its own chan
 | [Every machine: a machine's own row on a player's gamepad page](#every-machine-a-machines-own-row-on-a-players-gamepad-page-175) | none | host of all 20 profiles | none |
 | [Atari ST: its paths are shared, as the experimental tier of the base, and the checks toward leaving the experimental status](#atari-st-its-paths-are-shared-as-the-experimental-tier-of-the-base-175-g16-and-the-checks-toward-leaving-the-experimental-status) | the Atari ST (`atarist_knowledge.py`, `atarist_conversion.py`, `atarist_disk.py`, its profile) | none | none |
 | [Atari ST: a key held at F8 and let go before F9 no longer stays down](#atari-st-a-key-held-at-f8-and-let-go-before-f9-no-longer-stays-down-175-gate-g6) | the Atari ST (`atarist_hatari.py`) | the Atari ST (its adapter `rrhk_atarist.inc`) | none |
+
+## Commodore Amiga: the second joystick on port 1 (1.7.5)
+
+On a real Amiga a two-player game takes the mouse out of port 1 and a second joystick in (Lotus 2's split screen, Speedball 2). Arthur's
+proposal, approved on 14 November 2026 (« Oui, on valide »), for 1.7.5:
+
+- **Port 1 follows the device used last**, as vAmiga's own ports do: player 2's pad plugs the joystick into port 1, a motion or a click of
+  the mouse plugs the mouse back. A plate says which device the port holds, in the five languages of the games. Nothing changes for a game
+  where player 2's pad is not used: port 1 stays the mouse, as before.
+- **Mouse port**, a row at the top of player 2's pad page (the shell's row and icon, by the interface specialist), keeps the port on one
+  device for a game that needs it: Auto (the default), Mouse or Pad 2, kept per game in the game's own `port1.cfg`. The adapter's calls are
+  `a_port1_mode`, `a_set_port1_mode` and `a_port1_device` (`rrhk_amiga.inc`); F2 offers two players' pages.
+- **The session** (`rr_amiga_joystick2`, `rr_amiga_port1_mode`, `rr_amiga_port1_device`) keeps its own copy of the device port 1 holds:
+  vAmiga's is private and its snapshot does not keep it. A quick state carries it with the second joystick's bits, in the header's field that
+  was reserved (`RRAMIGA-STATE-4`, still 200 bytes; a state whose field holds other bits is refused).
+- **Routes.** The headless player reads `joy2` events (port 1's joystick) and takes `--port1`. `amiga_conversion.ROUTE_PLAYER2` makes the
+  main route of the installs it lists their two-player route (reviewed data by SHA-256); Lotus 2's chooses two players in its menu and races
+  split-screen. No other install's route changes, so their traces do not either.
+- **A held button survives F9** (an older flaw, every Amiga build before this one). vAmiga's joysticks and mouse buttons come back neutral
+  from a snapshot, and the next frame's inputs, unchanged, did not press them again: a state saved with a button held (Lotus 2's race, fire
+  held to accelerate) continued with it released (three bytes of slow RAM differ one frame after the load, the fire bit). Found by this
+  proof, reproduced on the export of 13 November in a one-player race. After the load the session presses again, from neutral, what was held
+  (port 2's joystick, port 1's, the mouse buttons), then plugs port 1 as saved. The panel's G6 had passed because nothing was held at its save.
+- **Proof** (Lotus 2, this branch): the two-player route equals the fresh reference on every frame, the compressed copy too, and the quick
+  state saved in the race (port 1 on the joystick, both players accelerating) continues for 600 frames in a fresh process; a state saved in
+  the race and reloaded continues the saved timeline in the three cases tried (two players with and without player 2's inputs, one player);
+  the adapter's checks pass in `tests/amiga_menu_harness.c` (34).
+
+**Hot path:** two calls a frame (port 1's joystick and the mouse), each a comparison when nothing changes.
+
+**What moves:** the Amiga's game stamp (the session, the player, the conversion) and its host stamp (the adapter); no other machine.
+
+**Quick states:** every Amiga state is refused (`RRAMIGA-STATE-4`), as between any two Amiga builds.
 
 ## Commodore Amiga: supported (1.7.5)
 
