@@ -1129,6 +1129,44 @@ latency measure.
 |---|---|---|---|---|
 | (to fill) | Nintendo NES | (to fill) | (to fill) | (to fill) |
 
+### Checklist for Arthur: MSX and MSX2 play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executables** in `Export/Games/MSX` and
+`Export/Games/MSX2`: the panel of 14 November 2026 (extended level, C-BIOS 0.29a, online covers on), converted from tree `d0b32436` of
+`spec/msx-175`. About twenty minutes: a few minutes a game. Nothing here says exact hardware, complete gameplay or latency; a tick means "it
+looked and sounded right to you in this test".
+
+| | Knightmare | Salamander | Dragon Slayer II - Xanadu | Metal Gear | Space Manbow | Aleste |
+|---|---|---|---|---|---|---|
+| Machine and why it is here | MSX, plain 32 KiB: the control case | MSX, Konami SCC sound | MSX, ASCII 8 with battery SRAM | MSX2, Konami, the V9938 | MSX2, Konami SCC, the vertical scroll | MSX2, ASCII 16, fast scrolling |
+| It starts without an error window | | | | | | |
+| Controls: **arrows**, **X** (trigger A, SPACE), **W** (trigger B), **Enter** (SPACE), **right Shift** (MSX F1) | | | | | | |
+| Sound is the game's (music and effects) | | the SCC's voices | | | the SCC's voices | |
+| The scroll is smooth (no judder, no torn band) | | | | | the backgrounds you saw choppy before 1.7.3 | |
+| **F8** in play, move on, **F9** goes back | | | | | | |
+| Close the window, start again, **F9** loads the state saved before | | | | | | |
+| A save made in the game is still there after closing and starting again | not applicable | not applicable | | not applicable | not applicable | not applicable |
+| **F3** changes the picture filter, **F4** the window mode | | | | | | |
+| Nothing odd: a frozen picture, a flickering sprite row, a wrong colour | | | | | | |
+
+Then three checks:
+
+1. **Battery save.** In Xanadu, save in the game (its own save menu), quit, start again and load it. The file is
+   `datas/saves/<game>-<cartridge>.rrsram` beside the player; it is written two seconds after the game last writes it and when the window
+   closes.
+2. **The whole keyboard.** **Ctrl+Alt+K** hands the keyboard to the MSX (F1 to F5 then go to the MSX, the help is at Ctrl+F1); again
+   gives it back.
+3. **Language.** **F7** changes the language of the player's own menus (the game's text is the cartridge's).
+
+Known limits to keep in mind while you play: C-BIOS boots no MSX-BASIC, disk or cassette; the FM-PAC and its SRAM and the MSX2 clock's
+battery memory are not converted; the V9938's command timing is approximated. Keep the five measures apart when you judge: the CPU is
+checked against our own reference interpreter and independent vectors, the hardware against our reading of the documents and a few
+openMSX comparisons, not against a real MSX, and a good feel here is neither an exact fidelity nor a latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| (to fill) | MSX, MSX2 | (to fill) | (to fill) | (to fill) |
+
 ## Running the verification campaign
 
 `tools/campaign.py` is a developer tool: it prepares and runs the pre-release

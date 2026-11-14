@@ -253,7 +253,7 @@ cases native code equals the reference interpreter and ends at 0 interpreted ins
 Set Up menu and Metal Gear's play route stops at its first transceiver call, so their play is covered only in part; no game has been played through (gameplay validation: none), and hardware fidelity and
 latency are not claimed. Disks, cassettes, FM-PAC and MSX2+ are not converted.
 
-The **MSX2+** profile (`msx2plus`) is experimental and in development, not in a release yet ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
+The **MSX2+** profile (`msx2plus`) is experimental since 1.7.4 ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
 cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`, or a `.mx2` that nothing marks as MSX2:
 [the rule](MSX.md#9-the-msx2-msx2plus)), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, with
 the V9958 (its YJK modes and horizontal scroll) on the MSX2's board, and disk games (a `.dsk` or a set of them) with your own MSX2+ BIOS

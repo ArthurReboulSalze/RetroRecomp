@@ -10,7 +10,7 @@ for the MSX most of them are not known yet.
 
 | Converted (experimental) | Not yet |
 | --- | --- |
-| MSX1 cartridges, read from a `.rom`, a `.mx1` or a ZIP holding one (a `.rom` or `.bin` is the MSX's when its bytes hold an MSX cartridge header; a `.mx1` always is) | MSX2+ and the turbo R (the MSX2 is the `msx2` profile, section 8) |
+| MSX1 cartridges, read from a `.rom`, a `.mx1` or a ZIP holding one (a `.rom` or `.bin` is the MSX's when its bytes hold an MSX cartridge header; a `.mx1` always is) | The turbo R; disk games (a `.dsk` is the MSX2+'s, section 9; the MSX2 is the `msx2` profile, section 8) |
 | Plain cartridges of 8 KiB to 64 KiB, and the Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers, with the battery SRAM of an ASCII cartridge (since 1.7.4, section 4) | The other mappers (the rare ones), FM-PAC and its SRAM, the MSX2 clock's memory between runs |
 | C-BIOS 0.29a (BSD-2-Clause), fetched by the converter from its official release on first use and pinned by SHA-256; or the player's own MSX1 BIOS (a 32 KiB main ROM; an MSX2 or later BIOS is refused), chosen in Options > MSX | Disks, cassettes, MSX-BASIC under C-BIOS |
 | The keyboard, joysticks 1 and 2 (the keyboard's arrows and keys or a gamepad, and a second gamepad), the TMS9918A picture and sprites, the AY-3-8910 sound, the key click and the Konami SCC sound; quick states (F8/F9) | The FM-PAC's sound |
@@ -51,7 +51,7 @@ Kept separate here, as everywhere. Interpreter fallback is always counted, per C
 | --- | --- | --- |
 | Native code | On the Windows panel of 12 November 2026 (extended level: attract, play and an 18,000-frame route), six MSX1 cartridges (Road Fighter, Knightmare, Space Invaders, Nemesis, Salamander, Spy vs Spy II; plain, Konami, Konami SCC, NTSC and PAL) end at 0 interpreted instructions on every route, Salamander also with an MSX BIOS of its owner | Nemesis also on a Debian 13 PC (same counts as Windows); nothing is said of the games not named here |
 | CPU fidelity | On the same games the native code is equal to the reference Z80 interpreter on every route, on the state fields at its end and on one row per frame (CPU, RAM, picture, sound); the delivered (compressed) game gives the same rows. This is agreement with our own reference interpreter, not with a real MSX | No independent comparison on a real machine or a second emulator is claimed; no CPU vector set is run for the MSX yet |
-| Hardware fidelity | Nothing is claimed. The mixing levels of the sound (PSG, key click, SCC) are a stated choice, not validated | The TMS9918A, the AY-3-8910 and the SCC against an independent reference |
+| Hardware fidelity | Nothing is claimed. The mixing levels of the sound (PSG, key click, SCC) are a stated choice, not validated; only the key click's level was measured against openMSX (a private comparison emulator, run as a separate program) | The TMS9918A, the AY-3-8910 and the SCC against an independent reference |
 | Gameplay validation | None: no game has been played through by the owner | Everything |
 | Physical latency | Not measured | No latency figure; none is claimed |
 
@@ -80,7 +80,7 @@ beside the game: loaded at start, written two seconds after the game last wrote 
 from the bank values the game writes (a bit above the bank number, which depends on the cartridge's wiring), so a game that selects its SRAM
 only later than its start, or a variant of another size (2 KiB or 32 KiB on ASCII 8, 8 KiB on ASCII 16), is not told apart: 8 KiB on ASCII 8
 and 2 KiB repeated over the page on ASCII 16. A file the game cannot use is moved aside (`.unusable-1`) and the game starts blank. Checked
-on Dragon Slayer II - Xanadu (Japan). Quick states carry the SRAM of their moment. The FM-PAC and its SRAM are not converted. The MSX2 clock's battery memory (the RP5C01's 26 nibbles, where the BIOS keeps its screen settings, a title and a password) is not kept between runs: no panel game is known to use it, and it can be added if a game needs it (the owner's decision, 14 November 2026).
+on Dragon Slayer II - Xanadu (Japan). Quick states carry the SRAM of their moment. The FM-PAC and its SRAM are not converted. The MSX2 clock's battery memory (the RP5C01's 26 nibbles, where the BIOS keeps its screen settings, a title and a password) is not kept between runs: no game was checked for it and none of the panel is known to use it, and it can be added if a game needs it (the owner's decision, 14 November 2026).
 
 ## 5. Known C-BIOS failures
 
@@ -93,7 +93,7 @@ C-BIOS is a free BIOS, not Microsoft's, and a few games depend on what only the 
   black playfield, choose your own MSX BIOS in Options > MSX.
 - **BASIC cartridges** are refused under C-BIOS, which has no MSX-BASIC.
 
-Other known limits: the FM-PAC, disk and cassette are not converted (MSX2 cartridges are the `msx2` profile, section 8), and no game other than the ones named in section 3 has been checked.
+Other known limits: the FM-PAC and cassettes are not converted, disk games are the MSX2+'s (section 9; MSX2 cartridges are the `msx2` profile, section 8), and no game other than the ones named in sections 3 and 4 has been checked.
 
 ## 6. Licences
 
@@ -130,7 +130,7 @@ the input is never changed, and a game converted with your own BIOS holds it and
 **Timing approximated** means an average cost per byte or dot in three classes (display off or outside the picture; picture with sprites off; with sprites on) plus a line-end cost; the chip's access slots and the slots the CPU takes are not modelled. C-BIOS's MSX2 logo, drawn by an HMMC, now appears.
 
 **Not yet:** disks,
-cassettes, FM-PAC, MSX2+, the turbo R, windowed play on Linux.
+cassettes, FM-PAC, the turbo R, windowed play on Linux (the MSX2+ is its own profile, section 9).
 
 **Not modelled in the V9938:** the access-slot timing of port 98h and of the command engine, the F and FH status flags' lost windows, the change of frame length when R#9's LN bit
 switches, mid-line effects, the field offset of interlace, superimpose and digitise, and expansion RAM, and a flags-only sprite pass after the picture. The audio of an MSX2 game under heavy load is an open point, to check on a quiet PC. Where hardware reports disagree on sprite mode 2's rules,
@@ -151,7 +151,7 @@ letters as the `msx` column (section 7).
 
 ## 9. The MSX2+ (`msx2plus`)
 
-Experimental profile `msx2plus`, the third profile of the family, in development (not in a release yet). It is the MSX2's board with the V9958
+Experimental profile `msx2plus`, the third profile of the family, experimental since 1.7.4. It is the MSX2's board with the V9958
 in place of the V9938 and the I/O port F4h, and the same cartridges, mappers, SRAM, routes, checks and quick states.
 
 **Converted:** MSX2+ cartridges, from a `.rom` or ZIP that you choose as MSX2+ in the console list or that sits in a folder named `msx2+`
