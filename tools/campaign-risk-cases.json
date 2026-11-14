@@ -69,6 +69,13 @@
       {"title": "Lemmings (Imagineer)", "category": "mouse", "reason": "Mouse game that drives the SCC mouse channel itself", "source": "docs/X68000.md"},
       {"title": "Super Hang-On", "category": "disk-eject", "reason": "Two-disk set that ejects its disks after loading; must run exactly as without the policy", "source": "docs/X68000.md", "prefix": true}
     ],
+    "gba": [
+      {"title": "Golden Sun", "category": "ram-code", "reason": "Runs code it copies into work RAM (three code shapes behind one IWRAM routine, 40,656 calls): its guarded native RAM code, and the longest first conversion from an empty library (5 passes; 72 million interpreted instructions in the generic scenario at pass 1)", "source": "docs/GAME_BOY_ADVANCE.md"},
+      {"title": "Legend of Zelda, The - The Minish Cap", "category": "large-cartridge", "reason": "16 MB EEPROM cartridge: the generator can hang on one wrong root inside cartridge data, which a received shared-path row could carry (a time limit stops it and the conversion is made again without received rows)", "source": "docs/GAME_BOY_ADVANCE.md"},
+      {"title": "Pokemon - Emerald Version", "category": "clock-cartridge", "reason": "A clock cartridge (the guest-timed clock keeps two runs equal) with a 128 KB Flash save: the case for the save read back by a fresh process and for a route that runs millions of interpreted instructions", "source": "docs/GAME_BOY_ADVANCE.md"},
+      {"title": "Crazy Taxi - Catch a Ride", "category": "software-3d", "reason": "A software 3D game in bitmap modes: 60.7 million interpreted instructions at pass 1, two passes to 0; the case for a picture that changes on every frame", "source": "docs/GAME_BOY_ADVANCE.md"},
+      {"title": "Mario & Luigi - Superstar Saga", "category": "large-first-pass", "reason": "The largest first pass seen (153 million interpreted instructions in the generic scenario) on a 16 MB EEPROM cartridge: three passes to 0", "source": "docs/GAME_BOY_ADVANCE.md"}
+    ],
     "pce": [
       {"title": "Bonk's Adventure", "category": "regression-baseline", "reason": "Control case: 0 interpreted instructions on its routes; the play route needs two Run presses because a third pauses the game", "source": "docs/PC_ENGINE.md"},
       {"title": "Street Fighter II' - Champion Edition", "category": "identity-bound", "reason": "2.5 MiB board with 466 bank contexts: needs more than 65,536 instruction identities, so it takes the engine's larger capture format (734,635 emitted); a 25 MB game and a long conversion, and whatever passes 1,048,576 is left out and counted", "source": "docs/PC_ENGINE.md"},

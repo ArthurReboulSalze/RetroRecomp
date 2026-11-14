@@ -143,6 +143,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
     from .conversion_common import check_run_budget, resolve_scan_level, write_if_changed
     from .core import slug, toolchain
     from .delivery_evidence import report_fields
+    from .sega_evidence import route_warnings
     from .gba import bios_status, read_bytes
     from .library import atomic_json, library_root
     from .paths import ROOT, selected_bios_path
@@ -324,7 +325,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
                       'sound_heard': any(record['audible_frames'] for record in liveness.values())}
         for row in rows:
             row['liveness'] = report_fields(liveness[row['scenario']], LIVENESS_FIELDS)
-        delivery_extra = {**delivered.report_fields(), 'delivered_file': delivered.kind,
+        delivery_extra = {**delivered.report_fields(), 'delivered_file': delivered.kind, 'route_warnings': route_warnings(rows),
                           'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()}}
     report = report_of(rom, level, rows, validation=validation, coverage=coverage, compiler=compiler,
                        extra={'history': history, 'backend': 'gbarecomp-player' if exported else 'gbarecomp-probe-host',
@@ -333,6 +334,10 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
                               'build_directory': str(project), 'artwork': artwork,
                               'knowledge': gba_knowledge.knowledge_block(record, promotion, {**received_info, **proof}),
                               'conversion_wall_seconds': round(time.perf_counter() - started, 6), **delivery_extra,
+                              'hardware_devices': [dict(entry, details=dict(entry['details'])) for entry in HARDWARE_DEVICES],
+                              'qualification_scope': {'controls': 'two bounded key scripts of the engine (boot: none, generic: A, Start, Right, taps of A and B)',
+                                                      'media': 'one cartridge image, its save chip read from its library strings',
+                                                      'universal_zero_fallback_claim': False},
                               'player': ('host kit: window, controls, menus, sound at 32768 Hz mono, quick state, battery save'
                                          if exported else 'none: the probe host has no window and no sound')})
     destination = (output.resolve() if output else project) / 'conversion-report.json'
@@ -349,6 +354,13 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
     return exported or host
 
 
+# The units the engine models that are not the ARM7TDMI: named in the report (gate G2), without a counter of their own: the engine runs them as C models and the
+# ARM core's instruction counts below do not include them.
+HARDWARE_DEVICES = (
+    {'id': 'gba_ppu', 'kind': 'video_unit', 'mode': 'emulated',
+     'details': {'by': 'the pinned engine (src/gba), a C model', 'what': 'the picture processing unit: background modes 0 to 5, affine layers, sprites, windows, blending'}},
+    {'id': 'gba_sound', 'kind': 'audio_unit', 'mode': 'emulated',
+     'details': {'by': 'the pinned engine (src/gba), a C model', 'what': 'the four tone channels, the two Direct Sound channels and their DMA, mixed at 32768 Hz'}})
 # The liveness keys of the report, from the common record of delivery_evidence.
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'picture_changes': 'picture_changes',
                    'last_picture_change_frame': 'last_picture_change_frame', 'audible_frames': 'audible_frames',

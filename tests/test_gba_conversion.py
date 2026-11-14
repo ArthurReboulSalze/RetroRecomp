@@ -517,5 +517,27 @@ class DeliveryEvidenceTests(unittest.TestCase):
         self.assertIn('never changes', str(caught.exception))
 
 
+
+class ReportContractTests(unittest.TestCase):
+    """Gate G2: the units that are not the ARM core are named, the warnings and the scope are the common ones."""
+
+    def test_the_common_report_names_the_ppu_and_the_sound_unit_and_has_no_zero_fallback_claim(self):
+        from retrorecomp import report_schema
+        document = gba_conversion.report_of(types_source(), 'standard', [gba_conversion._row('generic', 3600, None, 0, liveness={'frames': 3600, 'last_picture_change_frame': 3599})],
+                                           extra={'hardware_devices': [dict(entry, details=dict(entry['details'])) for entry in gba_conversion.HARDWARE_DEVICES],
+                                                  'route_warnings': [], 'qualification_scope': {'universal_zero_fallback_claim': False}})
+        report = report_schema.read_report(document, lenient=True)
+        self.assertEqual([(device['id'], device['kind']) for device in report['devices']], [('gba_ppu', 'video_unit'), ('gba_sound', 'audio_unit')])
+        self.assertEqual(report['honesty']['universal_zero_fallback_claim'], False)
+        self.assertEqual(report['honesty']['route_warnings'], [])
+        self.assertEqual([cpu['arch'] for cpu in report['cpus']], ['arm7tdmi'])
+        self.assertFalse(report['honesty']['hardware_fidelity_validated'])
+
+
+def types_source():
+    import types
+    return types.SimpleNamespace(metadata=lambda: {'sha256': 'a' * 64, 'bytes': 1, 'file': 'x.gba'})
+
+
 if __name__ == '__main__':
     unittest.main()
