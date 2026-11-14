@@ -254,7 +254,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
                              distinct_misses=outcome.coverage.get('distinct_misses'), healed_native=outcome.coverage.get('healed_native'),
                              aborted=outcome.aborted or None,
                              exit_code=outcome.returncode, picture_sha256=outcome.frame_sha256 or None,
-                             cycles_total=outcome.cycles))
+                             cycles_total=outcome.cycles, audio_hash=outcome.audio_hash or None, audio_samples=outcome.audio_samples))
             history.append({**rows[-1], 'pass': number})
             emit(f"Game Boy Advance {name}: {outcome.coverage.get('coverage', 'no coverage report')}, "
                  f"{interpreted} interpreted instructions, {outcome.coverage.get('distinct_misses')} distinct addresses"

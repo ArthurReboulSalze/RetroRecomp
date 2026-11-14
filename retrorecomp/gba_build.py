@@ -11,6 +11,7 @@ Three programs come out of the staged engine (`gba_engine.py`):
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -73,20 +74,54 @@ class Run:
     audio_samples: int | None = None  # and how many there were
 
 
+@contextlib.contextmanager
+def exclusive(lock_file: Path):
+    """One process at a time holds `lock_file` (a lock the system drops with the process, so that a crashed conversion leaves nothing behind)."""
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
+    if not lock_file.exists() or lock_file.stat().st_size == 0:
+        lock_file.write_bytes(b'x')                                         # a byte to lock
+    with open(lock_file, 'r+b') as handle:
+        if os.name == 'nt':
+            import msvcrt
+            while True:
+                try:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)        # waits up to ten seconds, then raises: asked again
+                    break
+                except OSError:
+                    continue
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
+
 def recompiler(stage: Path, key: str, cmake, generator: str, emit: Callable[[str], None]) -> Path:
-    """`gba_recompile` of the staged engine, built once per `key` (engine revision and patch set)."""
+    """`gba_recompile` of the staged engine, built once per `key` (engine revision and patch set). Two conversions of one batch that need the same new key
+    build it one after the other (the second finds it built): two builds in one folder broke the second one's configuration."""
     build = ROOT / '.deps' / f'gbarecomp-build-{key}'
     program = build_executable(build, 'gba_recompile')
     if program.is_file():
         return program
-    emit('Building the Game Boy Advance recompiler…')
-    run([cmake, '-S', stage / 'engine', '-B', build, '-G', generator, *cmake_target_args(),
-         '-DGBARECOMP_COMPILER_CACHE=OFF'], log=build.with_suffix('.log'), timeout=900)
-    with timings.phase('compile'):
-        run([cmake, '--build', build, '--target', 'gba_recompile', '--parallel', build_jobs()],
-            log=build.with_suffix('.log'), timeout=3600)
-    if not program.is_file():
-        raise ConversionError('The Game Boy Advance recompiler was not built.')
+    with exclusive(build.with_suffix('.lock')):
+        if program.is_file():
+            return program
+        emit('Building the Game Boy Advance recompiler…')
+        run([cmake, '-S', stage / 'engine', '-B', build, '-G', generator, *cmake_target_args(),
+             '-DGBARECOMP_COMPILER_CACHE=OFF'], log=build.with_suffix('.log'), timeout=900)
+        with timings.phase('compile'):
+            run([cmake, '--build', build, '--target', 'gba_recompile', '--parallel', build_jobs()],
+                log=build.with_suffix('.log'), timeout=3600)
+        if not program.is_file():
+            raise ConversionError('The Game Boy Advance recompiler was not built.')
     return program
 
 

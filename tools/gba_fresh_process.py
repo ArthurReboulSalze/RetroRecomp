@@ -12,7 +12,7 @@ place). Two checks, each of them with two or three separate processes:
   refusals  the state file process A saved is damaged in eight ways (emptied, cut, grown, header and identity inverted, noise, one byte in
           the middle) and a fresh process tries to load each, then one tries to load none: every one must say `quick state refused` (the
           missing one nothing), end with code 0 as a run that never loaded a state (same picture and frame count as the control), and the
-          missing one must create no state file. A byte inverted in the middle is reported, not required (memory has no checksum).
+          missing one must create no state file.
   route    one process plays a key script (tools/gba_routes/*.keys) to a frame limit and reports the last picture's SHA-256, the frame count and
           the instructions the interpreter ran: the numbers two systems must give equal for the same converted game (gate G13) and the depth
           a route reaches (gate G9). It says nothing about what the picture shows: read it.
@@ -62,7 +62,7 @@ WIDTH, HEIGHT = 240, 160
 BUTTONS = {'a': 0x1, 'b': 0x2, 'select': 0x4, 'start': 0x8, 'right': 0x10, 'left': 0x20, 'up': 0x40, 'down': 0x80, 'r': 0x100,
            'l': 0x200}
 # Test switches of the player that an environment inherited from a shell must not leak into a check.
-PLAYER_SWITCHES = ('RETRORECOMP_GBA_INPUT', 'RETRORECOMP_GBA_DUMP', 'RETRORECOMP_GBA_STATE', 'RETRORECOMP_GBA_SELFTEST',
+PLAYER_SWITCHES = ('RETRORECOMP_GBA_INPUT', 'RETRORECOMP_GBA_DUMP', 'RETRORECOMP_GBA_STATE', 'RETRORECOMP_GBA_SELFTEST', 'RETRORECOMP_GBA_SHOTS', 'RETRORECOMP_GBA_SHOT_DIR',
                    'RETRORECOMP_HOST_TEST_FRAMES', 'RETRORECOMP_HOST_TEST_NO_AUDIO', 'RETRORECOMP_HOST_TEST_FILTER')
 STATS_LINE = re.compile(r'\[host\] frames=(\d+).*?interpreted=(\d+)')
 STATE_LINE = re.compile(r'\[state\] (save|load) at frame (\d+) (ok|FAILED)')
@@ -218,7 +218,7 @@ def state_switch(save_frame: int | None = None, load_frame: int | None = None, r
     return ','.join(steps)
 
 
-def player_environment(folder: Path, frames: int, keys: Path | None, dump: Path, state: str = '') -> dict:
+def player_environment(folder: Path, frames: int, keys: Path | None, dump: Path, state: str = '', extra: dict | None = None) -> dict:
     env = {k: v for k, v in os.environ.items() if k not in PLAYER_SWITCHES}
     env.update(RETRORECOMP_HOST_TEST_FRAMES=str(frames), RETRORECOMP_HOST_TEST_NO_AUDIO='1', RETRORECOMP_GBA_DUMP=str(Path(dump).resolve()),
                SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
@@ -226,17 +226,18 @@ def player_environment(folder: Path, frames: int, keys: Path | None, dump: Path,
         env['RETRORECOMP_GBA_INPUT'] = str(Path(keys).resolve())      # the player runs in the check's folder, not in ours
     if state:
         env['RETRORECOMP_GBA_STATE'] = state
+    env.update(extra or {})
     return env
 
 
-def run_player(exe: Path, folder: Path, label: str, frames: int, keys: Path | None, state: str = '', timeout: int = 1800) -> RunResult:
+def run_player(exe: Path, folder: Path, label: str, frames: int, keys: Path | None, state: str = '', timeout: int = 1800, extra: dict | None = None) -> RunResult:
     """One process: hidden (no console window, dummy video and audio), bounded by the frame limit, killed at the timeout."""
     dump = folder / f'{label}.ppm'
     if dump.exists():
         dump.unlink()
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     try:
-        done = subprocess.run([str(exe)], cwd=folder, env=player_environment(folder, frames, keys, dump, state), capture_output=True,
+        done = subprocess.run([str(exe)], cwd=folder, env=player_environment(folder, frames, keys, dump, state, extra), capture_output=True,
                               text=True, errors='replace', timeout=timeout, creationflags=flags)
     except subprocess.TimeoutExpired as error:
         raise CheckError(f'{label}: the player did not end within {timeout} s (killed)') from error
@@ -380,8 +381,8 @@ def run_state_check(exe: Path, work: Path, keys: Path | None, save_frame: int, m
 
 
 def damaged_states(data: bytes) -> dict[str, tuple[bytes, bool]]:
-    """{name: (bytes, required)} the damaged forms of a quick state. `required`: the player must refuse it (it breaks the container: magic, identity or
-    size). The one byte flipped in the middle is only reported: a state of memory has no checksum to refuse it by."""
+    """{name: (bytes, required)} the damaged forms of a quick state. `required`: the player must refuse it. Every form is required since the player's own envelope
+    (a length and a checksum of the engine's bytes); before it the one byte flipped in the middle was only reported, a state of memory having no checksum to refuse it by."""
     noise = bytearray()
     block = 0
     while len(noise) < len(data):
@@ -397,7 +398,7 @@ def damaged_states(data: bytes) -> dict[str, tuple[bytes, bool]]:
         'first 16 bytes inverted': (bytes(byte ^ 0xFF for byte in data[:16]) + data[16:], True),
         'cartridge identity damaged': (data[:8] + bytes(byte ^ 0xFF for byte in data[8:28]) + data[28:], True),
         'noise of the same size': (bytes(noise[: len(data)]), True),
-        'one byte inverted in the middle': (bytes(middle), False),
+        'one byte inverted in the middle': (bytes(middle), True),
     }
 
 

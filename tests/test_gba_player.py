@@ -99,5 +99,19 @@ class EngineSeamTests(unittest.TestCase):
         self.assertEqual(files, {'src/runtime/runtime.cpp', 'src/runtime/asset_picker.cpp'})
 
 
+
+class QuickStateEnvelopeTests(unittest.TestCase):
+    """The player wraps the engine's state in an envelope of its own (a length and a checksum), so that a file damaged anywhere is refused."""
+
+    def test_the_state_file_is_written_and_read_through_the_envelope(self):
+        from retrorecomp.paths import ROOT
+        source = (ROOT / 'native' / 'gba_machine.cpp').read_text(encoding='utf-8')
+        self.assertIn("kStateMagic[4] = {'R', 'R', 'G', 'S'}", source)
+        self.assertIn('write_atomically(path, wrap_state(bytes))', source)
+        self.assertIn('unwrap_state(bytes, engine, error) && g_api->load_state(engine, error)', source)
+        for reason in ('wrong or missing header', 'another version', 'cut or grown', 'checksum differs'):
+            self.assertIn(reason, source)
+
+
 if __name__ == '__main__':
     unittest.main()

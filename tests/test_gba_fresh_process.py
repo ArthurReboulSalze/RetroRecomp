@@ -348,11 +348,11 @@ class ChecksAgainstAFakePlayerTest(unittest.TestCase):
         with self.assertRaises(tool.CheckError):
             self.run_refusals(FakeProcess(old_player=True))
 
-    def test_the_damaged_forms_break_the_container_but_one(self):
+    def test_every_damaged_form_is_required(self):
         data = bytes(range(256)) * 4
         forms = tool.damaged_states(data)
         self.assertEqual(len(forms), 8)
-        self.assertEqual([name for name, (_, required) in forms.items() if not required], ['one byte inverted in the middle'])
+        self.assertTrue(all(required for _, required in forms.values()))
         self.assertTrue(all(blob != data for blob, _ in forms.values()))
         self.assertEqual(forms['noise of the same size'][0], tool.damaged_states(data)['noise of the same size'][0])   # deterministic
         self.assertEqual(len(forms['noise of the same size'][0]), len(data))

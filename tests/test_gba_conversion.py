@@ -351,6 +351,30 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(forced, [False, True])           # only the reference run asks for the engine's interpreter alone
 
 
+
+class RecompilerLockTests(unittest.TestCase):
+    def test_two_conversions_of_a_batch_build_the_recompiler_one_after_the_other(self):
+        import threading
+        import time
+        order = []
+
+        def work(number):
+            with build.exclusive(Path(folder) / 'recompiler.lock'):
+                order.append(('in', number))
+                time.sleep(0.2)
+                order.append(('out', number))
+
+        with tempfile.TemporaryDirectory() as folder:
+            threads = [threading.Thread(target=work, args=(number,)) for number in range(3)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+        for index in range(0, 6, 2):
+            self.assertEqual(order[index][0], 'in')
+            self.assertEqual(order[index + 1], ('out', order[index][1]))      # nobody comes in before the holder is out
+
+
 class ConversionTests(unittest.TestCase):
     def test_the_agreement_of_a_run_with_the_engines_interpreter(self):
         make = lambda sha, cycles, code=0, mem='m', cpu='c', audio='s', samples=7: build.Run('s', 10, code, '', {}, '', None, '', sha, cycles, mem, cpu, audio_hash=audio, audio_samples=samples)
