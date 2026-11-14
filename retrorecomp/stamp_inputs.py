@@ -961,6 +961,7 @@ INPUTS = _resolve({
         'retrorecomp.psx_conversion',
         'retrorecomp.psx_disc',
         'retrorecomp.psx_native',
+        'retrorecomp.psx_knowledge',
         'retrorecomp.psx_pack',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four

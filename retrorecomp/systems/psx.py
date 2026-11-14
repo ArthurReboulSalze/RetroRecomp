@@ -11,7 +11,7 @@ core's interpreter. The game executable is GPL-2.0 as a whole and holds no nonco
 from pathlib import Path
 
 from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
-from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
+from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 # Physical addresses where R3000A code may run: main RAM (2 MiB), the scratchpad (1 KiB) and the BIOS ROM (512 KiB). The
 # segments KUSEG, KSEG0 and KSEG1 are views of the same memory, so a path keeps the physical address only.
@@ -44,13 +44,17 @@ class PlayStationProfile(SystemProfile):
     quick_frames = 3600
     fallback_display = 'opcodes'
     option_keys = (OptionKey('psx_bios', kind='path', label='psx_bios'),)
-    stamp_groups = ('conversion_gates',)
+    stamp_groups = ('conversion_gates', 'path_records')
     host_adapter = 'adapters/rrhk_psx.c'
     path_spec = PathSpec(order=14, sections=(('r3000a', 'psx'),),
                          source_bounds=(('disc', (1, 1 << 32)), ('bios', (1, 1 << 20))),
                          shapes=(('r3000a', 'psx', dict(roles=('disc', 'bios'), caps={'insn': 262144, 'span': 65536},
                                                         windows=APERTURES, contained=True, length=(4, 4), length_align=4,
                                                         offset_align=4, address_align=4, span_max=1 << 21)),))
+    # Shares its paths as the experimental tier of the shared base (Arthur, 14 November 2026: « Oui, elle partage »): schema 3 only,
+    # withdrawable (docs/COMPILATION_LIBRARY.md). The quick check from shared paths is declined: a conversion always plays its own routes
+    # (one pass), and code a game decompresses is not on its disc and does not travel.
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='psx_knowledge')
     report_shape = ReportShape('psx_conversion', 'disc')
     # The observations of a game live under the library's psx folder; no record the memory window summarises yet.
     library_layout = LibraryLayout(folder='psx')

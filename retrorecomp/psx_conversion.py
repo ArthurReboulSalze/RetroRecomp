@@ -304,8 +304,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         phase = time.perf_counter()
         with stages.phase('code_generation'):
             pairs, overflow = psx_native.read_observations(observations)
+            own = dict(pairs)             # this conversion's own observations: the only words its record shares
             from .feedback import records
             hints = psx_native.add_hints(pairs, records('psx', sha, psx_native.HINT_KIND))
+            from . import psx_knowledge
+            bios_data = bios.data() if bios else None
+            use = psx_knowledge.receive(sha, item.path, bios_data, pairs)
             native = psx_native.write(tree / 'mednafen' / 'psx' / 'cpu.c', pairs, project)
             psx_build.set_native(project, tree, True)
         emit(f'PlayStation: {native["instructions"]} observed instructions in {native["steps"]} native steps; '
@@ -337,6 +341,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             states = check_states(final, checks / 'states', 'play', play[1], scripts['play'], results['play']['trace'])
             inputs = check_inputs(final, checks / 'inputs-check')
         timings['state_checks'] = round(time.perf_counter() - phase, 3)
+        knowledge = psx_knowledge.conclude(sha, item.path, item.disc_digests, bios_data, own, use, title)
     if not any(reference[name]['nonzero_samples'] for name, _, _ in plan):
         emit('PlayStation: no route produced sound (reported, not refused).')
     final_sha = file_sha256(final)
@@ -369,7 +374,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                      'adaptation': psx_beetle.adaptation_digest(),
                      'native_cpu': 'guarded native steps of the observed R3000A code (the interpreter\'s handler bodies, its '
                                    'timing kept); the rest runs on the core interpreter and is counted',
-                     'native_steps': native | {'observation_overflow': overflow, 'runtime_hints_added': hints}},
+                     'native_steps': native | {'observation_overflow': overflow, 'runtime_hints_added': hints,
+                                               'received_words_added': use.get('new_to_this_build', 0)}},
+        'knowledge': knowledge,
         'final_checks': checks_rows,
         'route_warnings': route_stops(sha),
         'native_validation': {'passed': True, 'scope': 'every route played on the published game (native steps) gives the '
