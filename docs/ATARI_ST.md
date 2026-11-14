@@ -298,7 +298,9 @@ gameplay validation of any game, and it changes no gate.
   state of the loaded one, stored block by stored block: Hatari's restore ejects and reinserts the floppies after the controller came back, which restarted the
   drive's rotation and its loaded track (a later read met the disk elsewhere: Bomb Jack saved during a load, Turrican II before its next load); the filters' memory
   and the mixing buffer were not in a state; the restore's reset sent its silent mixing buffer to the speakers. A damaged state, or one of another build, is refused
-  before the machine is touched, a missing one creates nothing (`tools/atarist_saves_check.py`).
+  before the machine is touched, a missing one creates nothing (`tools/atarist_saves_check.py`). **Inputs held across a state** (14 November 2026): the pad, the fire button and the mouse buttons are read again every frame and
+  come back right; a typed key is sent as a change only, so a key held at F8 and let go before F9 used to stay down in the guest (The Lurking Horror: 0 of 500 frames equal the timeline). The adapted Hatari now releases the keys a
+  snapshot holds down once a restore is over, and the adapter presses again the keys still held (`tools/atarist_keys_check.py`: 500 of 500 frames equal the timeline on The Lurking Horror, the pad cases 300 of 300 on Bomb Jack).
 - Saves: what a game writes to its disks (any image format; on IPF Hatari itself refused every write with "record not found") is kept beside the quick state, in
   `datas/games/atarist-<game>/disk-writes.bin`, and survives without F8/F9; the image is never changed. A file that is not valid is kept aside as
   `disk-writes.bin.unusable-N` and the game starts from its disks. A state brings the disks back as they were when it was saved. Not kept: a track the game formats
