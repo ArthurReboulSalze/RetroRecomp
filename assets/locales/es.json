@@ -1101,6 +1101,8 @@
     "Smooth scaling (console)": "Escalado suavizado (consola)",
     "Dither smoothing": "Suavizado del tramado",
     "Supersampling": "Supermuestreo",
-    "Screen format: %s": "Formato de pantalla: %s"
+    "Screen format: %s": "Formato de pantalla: %s",
+    "Enter: remap | Del/X: clear | Left/Right: page": "Enter: asignar | Supr/X: borrar | </>: página",
+    "Enter / A: restore this page": "Enter / A: restaurar la página"
   }
 }

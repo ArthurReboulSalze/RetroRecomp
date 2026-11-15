@@ -385,7 +385,9 @@ void rrhk_poll_events(RrhkRun *run) {
             bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
             if (key == SDL_SCANCODE_UP) rrhk.row = (rrhk.row + rrhk_page_rows() - 1) % rrhk_page_rows();
             else if (key == SDL_SCANCODE_DOWN) rrhk.row = (rrhk.row + 1) % rrhk_page_rows();
-            else if (rrhk_pad_row_at(rrhk.row)) {
+            else if (rrhk_restore_row()) {
+                if (enter) rrhk_restore_page();
+            } else if (rrhk_pad_row_at(rrhk.row)) {
                 /* 1.7.5: a machine row (RrhkMachine.pad_rows): Enter the next value, - the previous one */
                 const RrhkPadRow *own = rrhk_pad_row_at(rrhk.row);
                 const int step = enter ? 1 : (key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS) ? -1 : 0;
@@ -402,7 +404,7 @@ void rrhk_poll_events(RrhkRun *run) {
                 /* Quit and restart combinations: hold them one second in play. */
                 if (enter) rrhk_combo_start(rrhk_action_row() - m->action_count, rrhk.gamepad_page != 0);
                 else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_combo_clear(rrhk_action_row() - m->action_count, rrhk.gamepad_page != 0);
-            } else if (m->bindings_clearable && key == SDL_SCANCODE_DELETE) rrhk_clear_binding();
+            } else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_clear_binding();   /* 1.7.6: every machine */
             else if (enter) rrhk.capturing = 1;
         }
     }
