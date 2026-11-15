@@ -91,6 +91,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
+| [Sony PlayStation: a stick pushed straight left no longer goes right](#sony-playstation-a-stick-pushed-straight-left-no-longer-goes-right-176) | none | the PlayStation's host stamp (`psx_session.c`) | none (the state holds no stick) |
 | [Sony PlayStation: the graphics page without deinterlacing and 8x](#sony-playstation-the-graphics-page-without-deinterlacing-and-8x-176) | the PlayStation (`native/hostkit/adapters/rrhk_psx.c`) | none | none |
 | [Sony PlayStation: supported](#sony-playstation-supported-176) | the PlayStation (`retrorecomp/systems/psx.py`, its status) | none | none |
 | [Sony PlayStation: shared paths](#sony-playstation-shared-paths-176) | the PlayStation | none | none |
@@ -494,6 +495,18 @@ nothing was saved for that session. The card stays the raw 128 KiB other program
 **Stamps** (`compilation_inputs.role_stamps`, the branch as a whole, the shared paths and G11 included, against main `ffbaee01`, at `6a5d9e9b`): the PlayStation's game stamp (`55f0e406d72d` to `8a84b9740b28`) and host stamp (`bd8f35608de2` to `58aa32803f59`); every other machine's stamps equal main's. **Existing exports:** converted again in full at their next conversion. **Quick states:** a PlayStation state of 1.7.5 is
 refused (another build), as for any change of the game. **Hot path:** the step hook calls one more step lookup when a step hands
 back a word, which the routes measure as a gain (no interpreted instruction left on Ape Escape's routes); no timing was taken.
+
+## Sony PlayStation: a stick pushed straight left no longer goes right (1.7.6)
+
+**What changes** (Arthur, 15 November 2026, Ape Escape: « si je fais gauche bien droite sur le stick, gauche toute sur le stick,
+ça part vers la droite », diagonals going left). A gamepad's stick at its very edge reads -32768 on its negative side. Beetle's
+DualShock computes the byte the game reads as `32768 + right - left * 32768 / 32767`: for -32768 that is -1, shifted to 0xFF, the
+other edge. The session now holds a stick value at -32767, the edge of libretro's analog range; nothing else of the stick changes.
+Checked through the core on a private build (the byte the DualShock hands the game for the left stick's X): -32768 gave 255
+before and gives 0 now; -32767, 0 and 32767 give 0, 128 and 255 as before.
+
+**Stamps:** the PlayStation's host stamp (`psx_session.c`). **Existing exports:** rebuilt at their next conversion.
+**Quick states:** unchanged. **Hot path:** no.
 
 ## Sony PlayStation: the graphics page without deinterlacing and 8x (1.7.6)
 
