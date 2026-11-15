@@ -131,17 +131,15 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(msx_routes.candidates(3600), [1, 2, 3, 4, 6, (1, 'RETURN'), (2, 'RETURN'), (3, 'RETURN')])
         self.assertEqual(sorted(msx_routes.candidates(3600), key=msx_routes.variant_order)[:2], [1, (1, 'RETURN')])
 
-    def test_a_multi_disk_game_gets_its_next_disks_on_the_long_routes(self):
+    def test_a_multi_disk_game_has_its_disk_requests_answered_not_scripted(self):
         from retrorecomp import msx_routes
-        self.assertEqual(msx_routes.disk_changes(18000, 1), [])
-        self.assertEqual(msx_routes.disk_changes(18000, 3), [('disk', 6000, 1), ('disk', 9000, 2)])
+        self.assertEqual(msx_routes.auto_disk(1), [])                # one disk: nothing to answer with
+        self.assertEqual(msx_routes.auto_disk(3), ['--auto-disk', '1'])
         rows = msx_routes.routes(self.IDENTITY, frames=3600, level='extended', disks=3)
-        self.assertNotIn(' disk ', rows[1][2])                       # play: never a disk change
-        long_route = rows[2][2].splitlines()
-        self.assertIn('6000 disk 1', long_route)
-        self.assertIn('9000 disk 2', long_route)
-        frames = [int(line.split()[0]) for line in long_route]
-        self.assertEqual(frames, sorted(frames))
+        for _, _, text in rows:                                      # no route script changes a disk any more (G9)
+            self.assertNotIn(' disk ', text)
+            frames = [int(line.split()[0]) for line in text.splitlines()]
+            self.assertEqual(frames, sorted(frames))
 
 
 
@@ -273,11 +271,12 @@ class Msx2OrMsx2PlusTests(unittest.TestCase):
 
 
 class StatusTests(unittest.TestCase):
-    def test_the_msx_and_msx2_are_supported_and_the_msx2plus_experimental(self):
-        """The owner's play test of 14 November 2026 (G14): the MSX and the MSX2 leave the experimental status; the MSX2+ stays."""
+    def test_the_msx_msx2_and_msx2plus_are_supported(self):
+        """The owner's play tests of 14 November 2026 (G14): the MSX and the MSX2 leave the experimental status in 1.7.5, the MSX2+
+        in 1.7.6."""
         from retrorecomp.systems import get_profile
-        self.assertEqual([get_profile(s).status for s in ('msx', 'msx2', 'msx2plus')], ['supported', 'supported', 'experimental'])
-        self.assertEqual([get_profile(s).linux for s in ('msx', 'msx2')], ['witnessed', 'witnessed'])
+        self.assertEqual([get_profile(s).status for s in ('msx', 'msx2', 'msx2plus')], ['supported', 'supported', 'supported'])
+        self.assertEqual([get_profile(s).linux for s in ('msx', 'msx2', 'msx2plus')], ['witnessed', 'witnessed', 'witnessed'])
 
 
 class Msx2PlusDiskInputTests(unittest.TestCase):
@@ -369,9 +368,10 @@ class ReportTests(unittest.TestCase):
         disk = hardware_devices(SimpleNamespace(mapper='plain', base=0x4000, mirrored=False, reason='no cartridge: a disk game'),
                                 True, True, 2)
         self.assertEqual([(u['id'], u['kind']) for u in disk],
-                         [('disk-interface', 'cartridge_mapper'), ('v9958', 'video_unit'), ('ay-3-8910', 'audio_unit')])
+                         [('disk-interface', 'cartridge_mapper'), ('v9958', 'video_unit'), ('ay-3-8910', 'audio_unit'),
+                          ('ym2413', 'audio_unit')])          # MSX-MUSIC, built into the MSX2+
         self.assertEqual(disk[0]['details']['disks'], 2)
-        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': disk})), 3)
+        self.assertEqual(len(report_schema._hardware_devices({'hardware_devices': disk})), 4)
         for unit in units + plain + disk:
             self.assertFalse(unit['details']['hardware_fidelity_validated'])
 

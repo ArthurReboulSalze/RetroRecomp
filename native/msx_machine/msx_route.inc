@@ -14,8 +14,41 @@
  * there exactly: msx_psg_catch_up_to; the sound stream itself does not depend on when it is taken), their count, whether
  * they hold two different values (the AY output has no DC removal: silence is a constant, not zero), and the PC. */
 
+#include "msx_fdc.h"
+#include "media_request.h"
+
+/* The disk-request rule's numbers (media_request.h): a second of no other drive command before and after the boot-sector
+ * read, and a picture still for a quarter of a second when it came (set on the four multi-disk games of the panel: Xak III's
+ * "SET DISK" screen gives the rule's only answers in 18,000 frames on each game's first disk). */
+#define MSX_MEDIA_QUIET 60
+#define MSX_MEDIA_STILL 16
+
 typedef struct { unsigned long frame; int joy, a, b, c; } MsxRouteEvent;   /* joy: 0 a key, 1 a joystick, 2 a disk */
 static void msx_route_disk(unsigned index);
+/* The includer's disk drive and how many disks the set has (NULL and 0 with no disk interface). */
+static MsxFdc *msx_route_fdc(void);
+static unsigned msx_route_disk_count(void);
+
+/* `--auto-disk`: the route answers the program's disk requests (media_request.h: a lone read of the boot sector while the
+ * picture holds still) by putting the next disk of the set in drive A, after the last one the route put there, round the
+ * set. The decision is taken at a frame's first line from the machine's own state, so at the same instant on both CPUs. */
+static int route_auto_disk;
+static RrMediaRequest route_media;
+static uint32_t route_media_commands, route_media_boot;
+static unsigned route_disk_now;
+
+/* At a frame's boundary: the drive's commands of the frame that ended and its picture, given to the rule; 1 when the next disk
+ * is due. Shared by the route and the player's own play. */
+static int msx_media_due(RrMediaRequest *q, MsxFdc *f, uint32_t *seen_commands, uint32_t *seen_boot)
+{
+    if (!f)
+        return 0;
+    uint32_t count = f->commands - *seen_commands, boot = f->boot_reads - *seen_boot;
+    *seen_commands = f->commands;
+    *seen_boot = f->boot_reads;
+    rr_media_command(q, machine.frames - 1, count, count == 1 && boot == 1);
+    return rr_media_frame(q, machine.frames, msx_frame_hash(&machine));
+}
 
 static MsxRouteEvent *route_events;
 static size_t route_event_count, route_event_cap, route_next_event;
@@ -64,6 +97,11 @@ static int msx_route_option(const char *a, const char *v)
 {
     if (!strcmp(a, "--event")) return route_event_text(v, 0) ? 1 : -1;
     if (!strcmp(a, "--audio")) { route_audio_file = fopen(v, "wb"); return route_audio_file ? 1 : -1; }
+    if (!strcmp(a, "--auto-disk")) {             /* a value is read with every option: 1 on, 0 off */
+        route_auto_disk = !strcmp(v, "1");
+        rr_media_request_init(&route_media, MSX_MEDIA_QUIET, MSX_MEDIA_STILL);
+        return !strcmp(v, "1") || !strcmp(v, "0") ? 1 : -1;
+    }
     if (!strcmp(a, "--rows")) {
         route_trace_file = fopen(v, "wb");
         if (!route_trace_file) return -1;
@@ -111,7 +149,7 @@ static void msx_route_events(void)
 {
     for (; route_next_event < route_event_count && route_events[route_next_event].frame <= machine.frames; ++route_next_event) {
         const MsxRouteEvent *e = &route_events[route_next_event];
-        if (e->joy == 2) msx_route_disk((unsigned)e->a);
+        if (e->joy == 2) { route_disk_now = (unsigned)e->a; msx_route_disk((unsigned)e->a); }
         else if (e->joy) msx_joystick(&machine, e->a, (uint8_t)e->b);
         else msx_key(&machine, e->a, e->b, e->c);
     }
@@ -121,6 +159,11 @@ static void msx_route_events(void)
 static void msx_route_line(void)
 {
     msx_route_events();
+    if (machine.line == 0 && machine.frames && route_auto_disk && msx_route_disk_count() > 1
+            && msx_media_due(&route_media, msx_route_fdc(), &route_media_commands, &route_media_boot)) {
+        route_disk_now = (route_disk_now + 1) % msx_route_disk_count();
+        msx_route_disk(route_disk_now);
+    }
     if (machine.line == 0 && machine.frames) {
         msx_psg_catch_up_to(&machine, machine.next_line - MSX_CYCLES_PER_LINE);
         route_take_audio();

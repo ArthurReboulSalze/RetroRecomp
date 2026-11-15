@@ -72,28 +72,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
-| MSX2+ | experimental | `███████░░░` 67 % | ✅ 7 · 🟡 6 · ❔ 2 |
+| MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
 | G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
 | G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
 | G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | ➖ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ✅ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | 🟡 |
 
 <!-- qualification-gauges:end -->
 
@@ -108,22 +108,22 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
 | G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
 | G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
 | G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | P | Y | P | Y |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | P | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | ? |
-| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | - |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | Y |
+| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | P |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -358,7 +358,49 @@ The page of each console, which the README links its line to (a console of the m
   step (MSX.md section 9, COMPATIBILITY, UPGRADES, the profile's scope note, the report's device names); one statement corrected (the report
   named a plain cartridge for a disk game); the full read of every page and string for the MSX2+ is to do.
 - Nintendo 64 (15 November 2026; branch `spec/n64-176`, experimental): **G1 to G9, G12, G13 and G15 move to `Y`, G10 to `P`**; G14 stays `P`, G11 and G16 stay `?`. The evidence is [its section](#nintendo-64-evidence-behind-its-column-15-november-2026): a panel of eight PAL cartridges at the Extended level, none dropped, every route equal to the core's pure interpreter frame by frame on Windows and byte for byte equal on a Debian 13 PC; every interpreted instruction listed with its class (two coverage gaps found that way and fixed: the run after an MFC0 and TLB-mapped code); the quick state continued with its sound and 16 damaged states refused; every save kind read back by a fresh process; krom's 114 CPU tests, 90 passing on the core's interpreter, the failures named. G14 waits for the owner's play test of the panel, G16 for his decision on sharing (the panel shows that received paths would add native code). No hardware fidelity, gameplay coverage or latency is claimed.
-
+- MSX2+ (14 November 2026, night; branch `spec/msx2plus-supported-176`): **G14 moves from `?` to `Y`** on the owner's play test of the six games of the checklist (the owner-acceptance table below), and the MSX2+ **leaves the experimental status: it is supported from 1.7.6**, on Arthur's word (« Oui, sors-le »). **G1 moves to `Y`**: the profile is declared `supported` and `tools/status_lint.py` agrees on the README, the compatibility page, the release notes and the interface strings in eight languages; `registry_problems` finds nothing for the real profile. The matrix is otherwise unchanged: `Y` on G1 to G8, G10, G12 to G15, `P` on G9 (route depth), G11 (two openMSX comparisons, no independent emulator on the panel) and G16 (the experimental tier of the base).
+- MSX2+ panel of 1.7.6 (14 November 2026, night; branch `spec/msx2plus-176`): **G7, G12, G13 and G15 move to `Y`**; G9 and G11 stay `P`,
+  G14 `?` (the owner's). The panel: four cartridges on C-BIOS 0.29a (Family Stadium Professional Baseball, the V9958 scroll and MSX-MUSIC;
+  Pachipro Densetsu, ASCII 8; The Goonies R Good Enough, Konami SCC; Dragon Slayer II - Xanadu, ASCII 8 with battery SRAM, the G7 game) and
+  five disk games with the owner's FS-A1WSX firmware (Laydock 2, F-1 Spirit 3D Special, Xak III, Quinpl, Golvellius II), none dropped, at
+  the extended level: all 27 routes 0 interpreted, equal to the fresh reference, the packed file equal, the quick states equal in a fresh
+  process. G7 `Y`: Xanadu's play route writes its SRAM, the memory survives a fresh process and damaged files are set aside, on the MSX2+;
+  disk writes as on 13 November. G12 `Y`: nine games, cartridges and disks, every mapper the profile reads but ASCII 16 without SRAM
+  (Family Stadium is ASCII 16), one to four disks. The Goonies R Good Enough first came out as ASCII 8 (a blue screen): the mapper probe
+  did not count the SCC's sound registers as the Konami SCC's; fixed (`05f8d828`), and the 13 mapper cartridges of the 1.7.5 MSX and
+  MSX2 panels, probed again, keep their mappers. G13 `Y`: the nine converted again on a Debian 13 PC (system GCC 14.2, the branch's tree
+  at `05f8d828`, one job slot each, the ROM, the disks and the firmware copied in for the step and deleted after): the 21 fields of every
+  route equal Windows on all 27 routes; the learning counts differ on four disk games only because their Windows build folders had already
+  learned in earlier runs (F-1 Spirit 3D Special, with none, equal there too). G9 `P`: the long routes reach play on six of the nine,
+  Xak III answers its disk request and loads disk 3, Golvellius II stays in its intro, Pachipro Densetsu in its birth-date entry. G15 `Y`:
+  read for the 1.7.6 changes (MSX.md section 9 with MSX-MUSIC, kanji, disk requests and shared paths, COMPATIBILITY, UPGRADES, the
+  profile's scope note and option labels, the report's devices and BIOS sources); the five measures are kept apart and no page claims
+  exact fidelity or latency. The flip to `supported`, simulated (`registry_problems` with the status changed, nothing committed), asks
+  for nothing more once the five risk cases of `tools/campaign-risk-cases.json` are in. The checklist for the owner is below.
+- MSX2+ disk requests (14 November 2026; branch `spec/msx2plus-176`): G9 stays `P`, with Xak III's stop removed. The routes and the player answer
+  a game's disk requests (`native/media_request.h`: a lone read of the boot sector, no other drive command for 60 frames before and after,
+  the picture still for 16 frames) with the next disk of the set, instead of 1.7.5's fixed changes at frames 6,000, 9,000... The rule was
+  measured first: on the first disk of each multi-disk game of the panel (F-1 Spirit 3D Special, Golvellius II, Laydock 2, Xak III; 18,000
+  frames each), it fires only on Xak III's five reads of its "SET DISK" screen, none elsewhere. Converted at the extended level with it
+  (owner's FS-A1WSX firmware), Xak III's long route gets disk 2 at frame 16,759 and disk 3 at 16,963 (its request was for disk 3; disk 2 was
+  refused by the game and the rule moved on) and loads from disk 3 until the route ends; Golvellius II stays in its intro (it asks nothing
+  there). 0 interpreted and equal to the reference on all six routes. Eleven fixtures check the rule (`msx_hardware_checks.c`).
+- MSX2+ path sharing (14 November 2026; branch `spec/msx2plus-176`): **G16 moves from `-` to `P`**, like the other experimental sharers. The
+  MSX2+ shares its paths (Arthur's decision of 14 November 2026, « Oui, il partage ») as schema 3 records of the experimental tier: the RAM
+  windows a conversion learned, as offsets in the cartridge (`rom`) or in the disks (`disk1` ... `diskN`, keyed by the disk set; the BIOS image
+  they were found with, disk ROM included, is stated and hashed), `retrorecomp/msx_knowledge.py` on `retrorecomp/path_records.py`. The MSX and
+  the MSX2 keep `-`. Step 0 (Quinpl, quick level): of the 561 windows its first conversion learned, 540 are in the disk's bytes and 21 are built
+  in RAM; with the 540 received before learning, its first pass interpreted 957 Z80 instructions instead of 2,043,837 and the conversion took
+  31.5 s instead of 40.4 s. The proof (Quinpl, one disk; Laydock 2 - Last Attack, two disks; standard level, the owner's FS-A1WSX firmware;
+  Windows): converted from an empty library (A), their records exported to a version 3 knowledge file by the real exchange code, the library,
+  banks and build cache emptied, the file imported, converted again (B): the first pass interprets 7,076 instructions instead of 8,713,776
+  (Quinpl) and 536,934 instead of 2,795,253 (Laydock 2: its 124 windows built in RAM stay private, counted), the translation and learning
+  phase 16.4 s instead of 20.7 s and 16.0 s instead of 19.0 s, every route at 0 interpreted and equal to the reference in A and in B. Safety
+  (C): an imported record of 400 random places of the same disks (windows no route runs as code) changes nothing: 0 interpreted, every route
+  equal to the reference. **The limit, stated:** what sharing buys is time and a smaller first pass, not a better game: the delivered
+  executables of A and B pass the same checks. A received window is shared again only once this player's own conversion learns it (the
+  Master System's rule): B's own record holds only what it learned itself. Not yet: the Linux half of G16, a path qualified by another
+  player's conversion.
 - Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees; the machine is offered to players in 1.7.1 (the owner's go of 8 November 2026, in the owner-acceptance table). G2 `P`: the common report v2 of every conversion, the VR4300 counted in
   instructions (a jump and its delay slot as one). G3 `P`: Super Mario 64 and Ocarina of Time (PAL) converted at the Standard level,
@@ -1141,6 +1183,7 @@ owner fills it in.
 | 14 November 2026 | Commodore Amiga | The six games of the checklist (Lotus 2, Another World (FR), Monkey Island 2, Lemmings (Image), Pinball Dreams (NTSC), Panza Kick Boxing (FR)), the exports of 13 November 2026 in `Export\Games\Amiga` (tree `be3f4483` of `spec/amiga-176`, extended level, llvm-mingw; Lotus 2 as the interface specialist built it) | Arthur, after playing them: « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » | Exit from the experimental status decided: the Amiga is supported from 1.7.5. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine and the MSX; the exports are not converted again. A play test of six installs, not a coverage claim: code past the routes runs interpreted, counted and shown in the window title. |
 | 14 November 2026 | Atari ST | The seven games of the checklist (Bomb Jack, Turrican II (the player's TOS 1.04), Operation Stealth, The Lurking Horror, Kick Off 2, Lethal Xcess, Battle Probe), the exports of 14 November 2026 in `Export\Games\Atari ST` (built by the batch from the tree of `spec/atarist-175`, Standard level, llvm-mingw, online covers on) | Arthur, after playing them: « Ok, donc Atari ça marche, nickel, j'ai testé les jeux. »; asked "Je sors l'Atari ST de l'expérimental ?": « Oui, sors-le » | Exit from the experimental status decided: the Atari ST is supported from 1.7.5. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine, the MSX and the Amiga; the exports are not converted again (they predate the interface merge: the 1.7.5 reconversion brings the pad quick save and load rows he found missing). A play test of seven games, not a coverage claim; the STE, the Mega STE, the TT, the Falcon, hard disks and the monochrome monitor are not converted. |
 | 14 November 2026 | Game Boy Advance | The six games of the checklist (Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald), the exports of 14 November 2026 in `Export\Games\Game Boy Advance` (built from the final tree of `spec/gba-175`, empty library, online covers on, llvm-mingw) | Arthur, after playing them: « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. »; asked "Je sors la GBA de l'expérimental pour la 1.7.6 ?": « Oui, sors-la » | Exit from the experimental status decided: the Game Boy Advance is supported from 1.7.6 (1.7.5 was frozen the same morning). The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no level won, no latency or hardware-fidelity measure; G10, G11 and G16 stay `P`. |
+| 14 November 2026 | MSX2+ | The six games of the checklist (Family Stadium Professional Baseball, The Goonies R Good Enough, Dragon Slayer II - Xanadu, Laydock 2 - Last Attack, F-1 Spirit 3D Special, Xak III - The Tower of Gazzel), the exports of 14 November 2026 in `Export\Games\MSX2+` (tree `05f8d828` of `spec/msx2plus-176`, the player's default level, online covers on; C-BIOS 0.29a for the cartridges, the owner's FS-A1WSX firmware with its kanji font for the disks) | Arthur, after playing them: « Ok, je viens de tester MSX2, donc c'est ok, ça marche. » (he said "MSX2"; the games he had just played were the MSX2+ ones); asked "Je sors le MSX2+ de l'expérimental ?": « Oui, sors-le » | Exit from the experimental status decided: the MSX2+ is supported from 1.7.6. The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no game played through, no latency or hardware-fidelity measure; G9, G11 and G16 stay `P`. |
 
 ### Commodore Amiga: the panel (9 November 2026)
 
@@ -1366,6 +1409,45 @@ openMSX comparisons, not against a real MSX, and a good feel here is neither an 
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 | 14 November 2026 | MSX, MSX2 | Knightmare, Salamander, Dragon Slayer II - Xanadu (MSX), Metal Gear, Space Manbow, Aleste (MSX2) | « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » | the exit from the experimental status (the owner-acceptance table) |
+
+### Checklist for Arthur: MSX2+ play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executables** in `Export/Games/MSX2+`, converted on
+14 November 2026 from tree `05f8d828` of `spec/msx2plus-176` as a player converts (the default level, online covers on): the three
+cartridges on C-BIOS 0.29a, the three disk games with your own Panasonic FS-A1WSX firmware (main ROM, sub-ROM, disk ROM, MSX-MUSIC BIOS and
+kanji font). About thirty minutes: a few minutes a game, more for Xak III if you want to see it ask for a disk. Nothing here says exact
+hardware, complete gameplay or latency; a tick means "it looked and sounded right to you in this test".
+
+| | Family Stadium Professional Baseball | The Goonies R Good Enough | Dragon Slayer II - Xanadu | Laydock 2 - Last Attack | F-1 Spirit 3D Special | Xak III - The Tower of Gazzel |
+|---|---|---|---|---|---|---|
+| What it is and why it is here | Cartridge, ASCII 16: the V9958's horizontal scroll, MSX-MUSIC | Cartridge, Konami SCC: the mapper fixed today, SCC music | Cartridge, ASCII 8 with battery SRAM (an MSX game on the MSX2+) | Two disks, a shooter | Three disks, 3D racing | Four disks, role-playing: asks for its disks |
+| It starts without an error window | | | | | | |
+| Controls: **arrows**, **X** (trigger A, SPACE), **W** (trigger B), **Enter** (SPACE), **right Shift** (MSX F1) | | | | | | |
+| Sound is the game's (music and effects) | the FM music (MSX-MUSIC) | the SCC's voices | | the FM music | the FM music | the FM music |
+| The scroll is smooth (no judder, no torn band) | the title sliding in | | | | | |
+| **F8** in play, move on, **F9** goes back | | | | | | |
+| Close the window, start again, **F9** loads the state saved before | | | | | | |
+| A save made in the game is still there after closing and starting again | not applicable | not applicable | | the game's DATA SAVE (on its disk) | | |
+| Nothing odd: a frozen picture, a flickering sprite row, a wrong colour | | | | | | |
+
+Then three checks:
+
+1. **Disk requests.** In Xak III, when the game says "SET DISK n AND PUSH SPACE PLEASE", press SPACE: the player puts the next disk in by
+   itself and says so ("The game asked for a disk"); if it was not the one asked for, press SPACE again and it tries the next. **Page Up /
+   Page Down** still change the disk by hand.
+2. **Battery save.** In Xanadu, save in the game, quit, start again and load it (`datas/saves/<game>-<cartridge>.rrsram`).
+3. **A written disk.** In a disk game that saves (Laydock 2's DATA SAVE), save, quit, start again: the save is in the copy of the disk kept
+   beside the game (`datas/games/msx2plus-<identity>/disk-<n>.dsk`); the embedded disks never change.
+
+Known limits to keep in mind while you play: the MSX2+ stays experimental until your decision; C-BIOS boots no MSX-BASIC or disk (disk games
+need your own firmware); cassettes and the FM-PAC are not converted; the V9958's command timing and the disk drive's timing are
+approximated; MSX-MUSIC's level was set against openMSX on one authored cartridge, not on games. Keep the five measures apart when you judge:
+the CPU is checked against our own reference interpreter and independent vectors, the hardware against our reading of the documents and a
+few openMSX comparisons, not against a real MSX2+, and a good feel here is neither an exact fidelity nor a latency measure.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| 14 November 2026 | MSX2+ | Family Stadium Professional Baseball, The Goonies R Good Enough, Dragon Slayer II - Xanadu, Laydock 2 - Last Attack, F-1 Spirit 3D Special, Xak III - The Tower of Gazzel | « Ok, je viens de tester MSX2, donc c'est ok, ça marche. » (the MSX2+ games), then « Oui, sors-le » | the exit from the experimental status (the owner-acceptance table) |
 
 ### Checklist for Arthur: Game Boy Advance play test (G14)
 

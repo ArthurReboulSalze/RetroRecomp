@@ -237,5 +237,13 @@ class MapperProbeChoiceTests(unittest.TestCase):
                          'ascii16')
         self.assertEqual(self.choose('konami', konami=(1, 0, 10), ascii8=(1, 3, 10)), 'konami')     # one write each: still a choice
 
+    def test_the_scc_sound_registers_are_the_konami_scc_mappers_own(self):
+        # The Goonies R Good Enough (Konami SCC): under Konami SCC 37 bank writes and 145 to the SCC's sound at 9800h (window 19), under
+        # ASCII 8 a run that stops early (6 register writes of 24). Counted as the mapper's own, the sound writes keep Konami SCC.
+        from retrorecomp.msx_build import PROBE_WINDOWS
+        self.assertIn(0x9800 >> 11, PROBE_WINDOWS['konami-scc'])
+        self.assertEqual(self.choose('konami-scc', konami_scc=(37 + 145, 0, 198), ascii8=(6, 18, 198), ascii16=(1, 189, 198),
+                                     konami=(0, 182, 198)), 'konami-scc')
+
     def test_no_credible_run_gives_no_choice(self):
         self.assertIsNone(self.choose('konami', konami=(0, 30, 10), ascii8=(5, 0, 900000)))

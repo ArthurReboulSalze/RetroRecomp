@@ -350,6 +350,8 @@ void rrhk_poll_events(RrhkRun *run) {
             save_filter();
         } else if (key == RRHK_KEY_RUMBLE && from_row) {
             rrhk_toggle_rumble();
+        } else if (key == RRHK_KEY_QUIT && from_row) {
+            if (run->test_frames) run->running = false; else rrhk_quit_ask();     /* the one question; No comes back here */
         } else if (key == RRHK_KEY_START_HELP && from_row) {
             rrhk_toggle_start_help();
         } else if (key == SDL_SCANCODE_F4) {

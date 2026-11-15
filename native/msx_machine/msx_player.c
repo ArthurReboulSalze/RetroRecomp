@@ -121,8 +121,12 @@ static void msx_route_disk(unsigned index)
     disk_index = index;
     msx_fdc_insert(&fdc, 0, disk_data[index], disk_sizes[index], 0);
 }
+static MsxFdc *msx_route_fdc(void) { return &fdc; }
+static unsigned msx_route_disk_count(void) { return RR_MSX_DISKS; }
 #else
 static void msx_route_disk(unsigned index) { (void)index; }
+static MsxFdc *msx_route_fdc(void) { return NULL; }
+static unsigned msx_route_disk_count(void) { return 0; }
 #endif
 
 /* The cartridge's battery SRAM (msx_cart.c, msx_sram.c), when the conversion found one (RR_MSX_SRAM_BIT): beside the game in a
@@ -160,10 +164,42 @@ static int headless;                           /* --headless: a route replayed, 
  * so): the frame is handed over there, so the inputs taken back reach the game's own vertical-blank interrupt that follows
  * (not one frame later). */
 static int handed_this_frame;                  /* one hand-over per frame even when R#9 LN changes mid-frame */
+#if RR_MSX_DISKS > 1
+/* In play, the game's own disk requests are answered as a route answers them (msx_route.inc, media_request.h): the next disk
+ * goes in drive A and the player is told. Page Up / Page Down stay the player's. */
+static RrMediaRequest play_media;
+static uint32_t play_media_commands, play_media_boot;
+static int play_media_ready;
+
+static void play_disk_request(void)
+{
+    if (!play_media_ready) {
+        rr_media_request_init(&play_media, MSX_MEDIA_QUIET, MSX_MEDIA_STILL);
+        play_media_commands = fdc.commands;
+        play_media_boot = fdc.boot_reads;
+        play_media_ready = 1;
+    }
+    if (!msx_media_due(&play_media, &fdc, &play_media_commands, &play_media_boot))
+        return;
+    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_index = (disk_index + 1u) % RR_MSX_DISKS;
+    msx_fdc_insert(&fdc, 0, disk_data[disk_index], disk_sizes[disk_index], 0);
+    char text[96];
+    snprintf(text, sizeof text, rrhk_tr("The game asked for a disk: disk %u of %u in drive A",
+                                        "Le jeu demande une disquette : disquette %u sur %u dans le lecteur A"), disk_index + 1u,
+             (unsigned)RR_MSX_DISKS);
+    rrhk_notice(text, 3500);
+}
+#endif
+
 static void line_hook(void)
 {
     if (machine.line == 0)
         handed_this_frame = 0;
+#if RR_MSX_DISKS > 1
+    if (machine.line == 0 && machine.frames)
+        play_disk_request();
+#endif
     if (!handed_this_frame && machine.line >= machine.vblank_line) {
         handed_this_frame = 1;
         frame_ended = 1;
@@ -336,7 +372,7 @@ static int setup_machine(void)
     size_t cart_size = 0, bios_size = 0;
     const uint8_t *cartridge = rr_resource(103, &cart_size), *bios_image = rr_resource(104, &bios_size);
     if (!cartridge || !bios_image || !cart_size || cart_size > sizeof cart || bios_size > sizeof slot0
-        || (RR_MSX_MODEL >= 2 && bios_size != (RR_MSX_DISKS ? 0x14000u : 0x10000u))) {
+        || (RR_MSX_MODEL >= 2 && bios_size != (RR_MSX_MUSIC ? 0x18000u : RR_MSX_DISKS ? 0x14000u : 0x10000u))) {
         fprintf(stderr, "[msx] the game's cartridge or BIOS resource is missing\n");
         return 3;
     }
@@ -345,6 +381,20 @@ static int setup_machine(void)
     memcpy(slot0, bios_image, bios_size);
     if (RR_MSX_MODEL >= 2) {                      /* the MSX2 board: main, logo page and sub-ROM in one BIOS source */
         (RR_MSX_MODEL == 3 ? msx_setup_msx2plus : msx_setup_msx2)(&machine, slot0, mapper_ram, RR_MSX_MAPPER_SEGMENTS, &v9938);
+#if RR_MSX_MUSIC
+        MsxFm *fm = msx_music_create();          /* MSX-MUSIC: its BIOS ends the BIOS source (14000h) */
+        if (!fm) { fprintf(stderr, "[msx] MSX-MUSIC could not start\n"); return 3; }
+        msx_set_music(&machine, slot0 + 0x14000, 10, fm);
+#endif
+#if RR_MSX_KANJI
+        size_t kanji_size = 0;                   /* the player's own kanji font (resource 107), never shipped */
+        const uint8_t *kanji = rr_resource(107, &kanji_size);
+        if (!kanji || (kanji_size != 0x20000 && kanji_size != 0x40000)) {
+            fprintf(stderr, "[msx] the game's kanji font resource is missing\n");
+            return 3;
+        }
+        msx_set_kanji(&machine, kanji, (uint32_t)kanji_size);
+#endif
     } else {
         MsxDevice bios = { MSX_DEV_ROM, slot0, (uint32_t)bios_size, 0, NULL };
         bios.source = 1;

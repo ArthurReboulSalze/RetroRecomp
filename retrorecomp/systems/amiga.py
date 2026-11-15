@@ -49,7 +49,7 @@ class AmigaProfile(SystemProfile):
     default_frames = 3000
     quick_frames = 3000
     fallback_display = 'opcodes'
-    stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates', 'm68k_media_knowledge')
+    stamp_groups = ('m68k_observed', 'hostkit_computer', 'conversion_gates', 'm68k_media_knowledge', 'path_records')
     # A record's sources (retrorecomp/amiga_knowledge.py): the install's media (the slave and its files, each padded to an even length) and,
     # when it holds Kickstart rows, the 256 KiB Kickstart they belong to. Spans run in RAM, Kickstart rows in the Kickstart window.
     path_spec = PathSpec(order=12, sections=(('m68k', 'amiga'),),

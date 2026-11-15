@@ -112,17 +112,12 @@ def events(frames: int, seed: int, variant) -> list[tuple]:
     return out
 
 
-# A multi-disk game (MSX2+ disks) gets the next disk in drive A on its long routes, at a fixed rhythm (as the Atari ST's long
-# routes change disk): disk 2 at frame DISK_FIRST, the next every DISK_EVERY frames, each disk once, the last one kept. A route
-# cannot see the game's "insert disk" request; a change it did not ask for is read as the game reads it.
-DISK_FIRST = 6000
-DISK_EVERY = 3000
-
-
-def disk_changes(frames: int, disks: int) -> list[tuple]:
-    """('disk', frame, index) events of a long route of a game of `disks` disks."""
-    return [('disk', DISK_FIRST + DISK_EVERY * (index - 1), index) for index in range(1, disks)
-            if DISK_FIRST + DISK_EVERY * (index - 1) < frames]
+# A multi-disk game (MSX2+ disks) gets no disk change in its scripts: its routes answer the game's own disk requests (the
+# runners' `--auto-disk 1`, native/media_request.h: a lone read of the boot sector while the picture holds still puts the next
+# disk in drive A), as the player does in play. 1.7.5 and before changed disks at a fixed rhythm the game did not ask for.
+def auto_disk(disks: int) -> list[str]:
+    """The runners' option for a game of `disks` disks: the disk requests answered when there is another disk to give."""
+    return ['--auto-disk', '1'] if disks > 1 else []
 
 
 def script(route_events: list[tuple]) -> str:
@@ -140,12 +135,12 @@ def script(route_events: list[tuple]) -> str:
 
 def routes(identity: str, *, frames: int, level: str, variant=1, disks: int = 1) -> list[tuple[str, int, str]]:
     """(name, frames, script) of a conversion at `level`: attract and play (play alone at the quick level), then the long
-    routes, with the disk changes of a game of `disks` disks. `variant` is the chosen start (an int, or (presses, 'RETURN'))."""
+    routes. `disks` is kept for the callers: the disks are changed on the game's request (`auto_disk`), not by the script.
+    `variant` is the chosen start (an int, or (presses, 'RETURN'))."""
     rows = [] if level == 'quick' else [('attract', frames, '')]
     play = max(frames, PLAY_FRAMES)
     rows.append(('play', play, script(events(play, route_seed(identity, 'play'), variant))))
     for index in range(LONG_ROUTES[level]):
         name = f'long-{index + 1}'
-        rows.append((name, LONG_ROUTE_FRAMES, script(events(LONG_ROUTE_FRAMES, route_seed(identity, name), variant)
-                                                     + disk_changes(LONG_ROUTE_FRAMES, disks))))
+        rows.append((name, LONG_ROUTE_FRAMES, script(events(LONG_ROUTE_FRAMES, route_seed(identity, name), variant))))
     return rows

@@ -1,7 +1,7 @@
 # MSX
 
 Profiles `msx`, and `msx2` for the MSX2 (described in section 8): supported since 1.7.5, on the owner's decision of 14 November 2026 after his play test (open as
-experimental in 1.7.3; the MSX2+ of section 9 stays experimental). The `msx` profile converts an MSX1 cartridge into a standalone Windows
+experimental in 1.7.3); the MSX2+ of section 9 is supported since 1.7.6 (open as experimental in 1.7.4). The `msx` profile converts an MSX1 cartridge into a standalone Windows
 executable whose Z80 code, as far as the conversion saw it run, is translated ahead of time to C, with a counted interpreter for the rest.
 The cartridge boots on C-BIOS 0.29a or on the player's own MSX BIOS. Nothing here says that a game plays completely, that the hardware is
 reproduced faithfully or how long input takes to reach the screen: those are separate measures, listed below with what is known of each, and
@@ -123,9 +123,9 @@ owner-acceptance table of QUALIFICATION.md).
 2026). The evidence is the panel's: the only code its sixteen games run from RAM is the BIOS hooks they write, a jump into the cartridge followed by a return
 (`C3 nn nn C9`), whose bytes are in no cartridge, so a game's record would hold no path; and the instructions a game's first conversion interprets are
 C-BIOS's own start-up code (about 24,700 on most games) and those hooks. A received path would add no native instruction and save no conversion pass. The sharing code that was
-written for them is kept apart, should a game ever run cartridge code from RAM.
+written for them now serves the MSX2+ (section 9), whose disk games load their program from the disks into RAM.
 
-**Status.** The MSX and the MSX2 are supported since 1.7.5, on the owner's decision of 14 November 2026, in his words: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » The MSX2+ stays experimental (section 9).
+**Status.** The MSX and the MSX2 are supported since 1.7.5, on the owner's decision of 14 November 2026, in his words: « Donc, je viens de tester les jeux MSX1 et MSX2, ça marche impeccable. Tu peux les sortir de l'expérimental. » The MSX2+ followed in 1.7.6 (section 9).
 
 ## 8. The MSX2 (`msx2`)
 
@@ -166,7 +166,8 @@ Section 3's remarks apply here too. The `msx2` column of [QUALIFICATION.md](QUAL
 
 ## 9. The MSX2+ (`msx2plus`)
 
-Experimental profile `msx2plus`, the third profile of the family, experimental since 1.7.4. It is the MSX2's board with the V9958
+Profile `msx2plus`, the third profile of the family: supported since 1.7.6, on the owner's decision of 14 November 2026, in his words, after playing the six games of the checklist: « Ok, je viens de tester MSX2, donc c'est ok, ça marche. » (he said "MSX2"; the games he had just played were the MSX2+ ones), then, asked whether to take the MSX2+ out of the experimental status: « Oui, sors-le ».
+It was experimental from 1.7.4. It is the MSX2's board with the V9958
 in place of the V9938 and the I/O port F4h, and the same cartridges, mappers, SRAM, routes, checks and quick states.
 
 **Converted:** MSX2+ cartridges, from a `.rom` or ZIP that you choose as MSX2+ in the console list or that sits in a folder named `msx2+`
@@ -191,8 +192,37 @@ B = (5Y - 2J - K) / 4 rounded down, each clipped to 0-31; with YAE a byte with b
 command engine in every screen mode with CMD (as Graphic 7). Sprites do not scroll; in the YJK modes they take the palette's colours. Port F4h
 is a latch, 00h at power-on.
 
-**Not modelled:** WTE's wait states (no access slots here), the VDS pin, the horizontal scroll in the text modes. **Not yet:** MSX-MUSIC
-(YM2413), the kanji ROM, cassettes, disks on the MSX1 and MSX2 profiles.
+**Not modelled:** WTE's wait states (no access slots here), the VDS pin, the horizontal scroll in the text modes. **Not yet:** cassettes,
+disks on the MSX1 and MSX2 profiles.
+
+**MSX-MUSIC (1.7.6).** The YM2413 every MSX2+ has, on I/O ports 7Ch-7Dh, from emu2413 v1.5.9 (MIT, vendored unmodified in
+`native/msx_machine/emu2413/`, the files the NES engine vendors for its VRC7), one sample every 72 Z80 cycles at its own rate, added to the
+other sounds; its BIOS in slot 3-1 page 1: C-BIOS's music ROM by default, or your own (16 KiB with the "APRLOPLL" signature, Options > MSX2+,
+never shipped). Built only into MSX2+ games: an MSX or MSX2 game links nothing of it and its sound is unchanged (the same image and sound
+hashes on Aleste). Its level against the PSG was set to openMSX 22.0's balance on an authored cartridge (`tools/msx_fm_cart.py`, one voice
+and one PSG tone): the FM 0.382 and the PSG 0.379 of openMSX's levels, the envelope per frame correlated at 0.91, the pitches within 0.5 %; not
+compared on games. The chip is in the quick state (layout `msx-state-6`).
+
+**Kanji (1.7.6).** Your own kanji font ROM (128 KiB for JIS level 1, 256 KiB with level 2, Options > MSX2+, never shipped), on ports
+D8h-DBh as openMSX's kanji device reads it: D8h/DAh set the address's bits 5-10, D9h/DBh bits 11-16, and each read of D9h/DBh returns a byte
+and steps the five low bits (the 32 bytes of a 16 x 16 glyph). C-BIOS has none: without your font the ports read FFh. Checked by ten fixtures
+(`msx_hardware_checks.c`) and an authored cartridge (`tools/msx_kanji_cart.py`): with the font its picture follows the glyphs (18 distinct
+pictures against 7 without), 0 interpreted, equal to the reference and in the delivered file.
+
+**Disk requests (1.7.6).** A game of several disks gets the next disk when it asks for one, in its routes and in play: the
+machine's drive tells when the program reads the boot sector (the sector that tells one disk of a set from another) with no other drive
+command for a second before and after it, while the picture has held still for a quarter of a second; the program looked at which disk is
+in and went back to waiting ("SET DISK 3 AND PUSH SPACE PLEASE"). The next disk of the set then goes in drive A, round the set, and in play
+a notice says so; Page Up / Page Down stay yours. The rule names no game and no disk (`native/media_request.h`, written to serve other
+machines too). It was set on the four multi-disk games of the disk panel: on each game's first disk, 18,000 frames each, the rule fires only on
+Xak III's request screen. Xak III, converted with it, gets disk 2 and then disk 3 on its two requests and loads from disk 3 to the end of its
+long route (1.7.5's fixed rhythm left it on that screen). The routes no longer change disks at fixed frames.
+
+**Shared paths (1.7.6, G16 `P`).** The MSX2+ shares the RAM windows a conversion learned, as offsets in your cartridge or in your disks
+(`retrorecomp/msx_knowledge.py`), the experimental tier of the base: a disk game loads its program into RAM, so most of what a first
+conversion learns is in the disks (Quinpl: 540 of 561 windows). Received windows are translated from the first pass, each guarded by its four
+bytes, so a window that does not fit never runs; the routes are replayed whatever was received. What it buys is time and a smaller first pass,
+not a better game (the evidence is in [QUALIFICATION.md](QUALIFICATION.md)). The MSX and the MSX2 decline it (section 7).
 
 ### Disks (13 November 2026, branch `spec/msx2plus-disk-174`)
 
@@ -235,14 +265,14 @@ one WRITE command a sector, each ended by the terminal count. `tools/msx_fdc_sel
 compiler): one sector asked, one written and the rest of the image unchanged; up to EOT; past EOT without terminal count; write protection; a
 sector off the track; a stray byte in the result phase; a read.
 
-**First comparison, and an open difference (13 November 2026).** Family Stadium Professional Baseball slides its title in with the
-horizontal scroll (R#25 = 3, R#26 from 0 to 32, ending at R#26 = 32, R#27 = 4); openMSX 22.0 (a private comparison emulator run as a separate
-program, never shipped) with its C-BIOS MSX2+ machine shows the same slide and the same final values, about 60 frames later (its boot is
-longer). Open: after the slide openMSX's R#1 has the line interrupt off (42h) and ours keeps it on (62h). openMSX's C-BIOS MSX2+ machine also
-has MSX-MUSIC, which ours does not yet, and that can change the game's path; the cause is not proven.
+**First comparison (13 and 14 November 2026).** Family Stadium Professional Baseball slides its title in with the horizontal scroll
+(R#25 = 3, R#26 from 0 to 32, ending at R#26 = 32, R#27 = 4); openMSX 22.0 (a private comparison emulator run as a separate program, never
+shipped) with its C-BIOS MSX2+ machine shows the same slide at the same speed and the same final values, about 60 frames later (its boot is
+longer). The R#1 difference seen on 13 November (openMSX's line interrupt off, 42h; ours on, 62h) came from MSX-MUSIC: the game takes another
+path when the chip is there. With MSX-MUSIC (1.7.6) our R#1 is 42h too; without the FM BIOS it is 62h again.
 
-**The five measures:** native code: 0 interpreted Z80 instructions on the 24 routes of the disk panel (the first conversion of each game
-learns its paths: between 0 and 40.5 million interpreted instructions in that pass, none after). CPU fidelity: each route equals a fresh
-run of the reference (the same Z80 interpreter on the same machine model), not real hardware. Hardware fidelity: not validated (the V9958, the
-PSG and the disk controller are C models; one openMSX comparison, above). Gameplay: bounded pad routes, not full games. Physical latency: not
-measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has the letters and their evidence.
+**The five measures:** native code: 0 interpreted Z80 instructions on the 27 routes of the 1.7.6 panel (four cartridges, five disk games;
+the first conversion of each game learns its paths, counted in that pass, none after). CPU fidelity: each route equals a fresh run of the
+reference (the same Z80 interpreter on the same machine model), not real hardware. Hardware fidelity: not validated (the V9958, the PSG, the
+YM2413 and the disk controller are C models; openMSX comparisons of the scroll and of MSX-MUSIC's levels, above). Gameplay: bounded pad
+routes, not full games. Physical latency: not measured. The `msx2plus` column of [QUALIFICATION.md](QUALIFICATION.md) has the letters and their evidence.
