@@ -465,6 +465,17 @@ X68000 too, without asking again**.
   switch; the computers' shortcut page (Ctrl+Alt+H, `rrhk_computer.inc`: X68000, Atari ST, MSX, Amiga) one per line, a floppy
   for each of the machine's disk lines. The generic gem stays for the rows nothing names.
 
+* <a id="d25"></a>**D25 — The pad's speed controls are combinations, and the graphics page has its entries** (owner's
+  requests of 15 November 2026, 1.7.6). Fast forward (held) and Max speed (a press toggles it) join the table of the four
+  combinations (D21) as two more rows of player 1's gamepad page: R2 and L2 by default, as the speed controls of D12 always were,
+  movable and clearable (Delete), so that L2 and R2 can be left to the game; Tab and the backquote stay their keys, shown fixed on
+  the keyboard page. A capture equal to another combination is refused (D21), so a trigger is the speed control's or another
+  combination's, never both. As before, a speed combination on a trigger the game has (a control bound to it: the PlayStation's
+  and the Nintendo 64's L2/R2) does nothing: the game wins. On a machine with a graphics page (D14, `gfx_option_count`), F2 ends
+  with a Graphics tile (a 3D shape on a screen) that opens the page and comes back to the tiles, and the options page's F3 row,
+  which already opened it there, says so ("F3 Graphics"; the filter is one of the graphics page's rows). No row is added: every
+  options page still fits, Quit the game stays last.
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

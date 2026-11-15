@@ -147,6 +147,26 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
 
+## Every machine: the pad's speed controls as combinations, the graphics page from F2 and from the pad (1.7.6)
+
+Fast forward and Max speed become rows of player 1's gamepad page; a machine with a graphics page gets a Graphics tile in F2
+and an "F3 Graphics" row on its options page ([HOST_KIT.md](HOST_KIT.md#d25), D25).
+
+* **Stamps.** The host stamp of all 20 profiles moves (`native/game_options.h`, `game_options_checks.c`, `retro_menu.c`,
+  `retro_menu.h`, `runtime_catalog.inc`, `hostkit/hostkit_internal.h`, the shell's `rrhk_events.c`, `rrhk_input.c`,
+  `rrhk_main.c`, `rrhk_menu.c`, `rrhk_options.c`, the seven locale files); no adapter, no game or build stamp, no quick-state key
+  (none of these files fixes a state layout).
+* **What players see.** Nothing changes in play: R2 still fast-forwards and L2 still toggles the maximum speed, unless the game
+  has the trigger (as before) or the player moves or clears them. Two more rows on player 1's control pages; on the N64 and the
+  PlayStation a Graphics tile and the "F3 Graphics" row.
+* **Preferences.** Two keys, `[<Console>.Options] fast_forward_pad` and `max_speed_pad` (missing: R2 and L2; 0: cleared): a file
+  of 1.7.5 loads unchanged.
+* **Texts.** Six new entries in the five game languages: "Fast forward", "Max speed", their two hints, "Tab and `: fixed keys",
+  "F3 Graphics".
+* **Per-frame cost.** The trigger reading of the speed controls moves from the event loop to two combination checks a frame.
+* **Checks.** `tools/game_options_selftest.py` (defaults, held and toggled, refusal while they hold a trigger) and
+  `tools/hostkit_capabilities_selftest.py` runs 1, 4, 6 and 10 (290 checks).
+
 ## Machines' own rows and pages: their icons (1.7.6)
 
 The rows and pages a machine draws or adds itself get their icons ([HOST_KIT.md](HOST_KIT.md#d24), D24).

@@ -25,6 +25,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
 | Gamepad | Since 1.7.5, **Quick save** and **Quick load** can be bound on player 1's gamepad page (F2): held 0.5 s saves, held 1 s loads, once per hold; unassigned by default |
+| Gamepad | Since 1.7.6, **Fast forward** (held, R2 by default) and **Max speed** (a press toggles it, L2 by default) are rows of player 1's gamepad page too: move them, or clear them (Delete) to leave L2 and R2 to the game. Tab and ` stay the keys |
 | F10 | Free: the options are the last F2 page |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
