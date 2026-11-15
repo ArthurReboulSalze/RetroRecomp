@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.7.5-d4a737" alt="Release version 1.7.5">
+  <img src="https://img.shields.io/badge/release-1.7.6-d4a737" alt="Release version 1.7.6">
   <img src="https://img.shields.io/badge/console_profiles-19-626262" alt="Nineteen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -117,7 +117,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.5.** The MSX, the MSX2, the Commodore Amiga and the Atari ST are now supported; the Amiga and the Atari ST share their paths with other players. On every machine, quick save and quick load can be bound to the gamepad (a short hold), the L2 and R2 triggers bind like any button, and the in-game menus get small pixel icons. Amiga games take a second joystick on the mouse port, so Lotus 2 races in split screen with two pads. Mega Drive and Super Nintendo quick states of 1.7.4 still load. The converter's window no longer slows down on small Linux PCs. Exports of 1.7.4 on the machines whose games changed are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.6.** The Commodore Amiga 1200 opens, as an experimental machine. The Game Boy Advance, the MSX2+, the Nintendo 64 and the PlayStation are now supported, and the PlayStation and the MSX2+ share their paths with other players. On every machine, player 1's keys move to S D F / E R T (the same place on QWERTY and AZERTY), a stick direction can be bound to any control, any binding can be cleared, the speed controls are bindable, and "Quit the game" closes the Options page. The Nintendo 64 gets supersampling, its C buttons on the right stick and a picture without its blank border; Amiga interlaced screens no longer shake, and an Amiga CPU speed choice (Normal / x2 / x4) works like an accelerator card. Exports of 1.7.5 on the machines whose games changed are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

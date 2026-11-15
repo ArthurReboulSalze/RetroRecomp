@@ -1,4 +1,4 @@
-# RetroRecomp v1.7.6 — The Game Boy Advance, the MSX2+, the Nintendo 64 and the PlayStation are supported [TITLE: confirm at release]
+# RetroRecomp v1.7.6 — The Game Boy Advance, the MSX2+, the Nintendo 64 and the PlayStation are supported; the Amiga 1200 opens
 
 - **Game Boy Advance (supported).** On the owner's decision of 14 November 2026, after his play test of six cartridges, the Game Boy
   Advance is supported ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)):
@@ -57,7 +57,7 @@
   No game is validated as played through, and hardware fidelity and latency are not claimed. PlayStation quick states of 1.7.5 are refused
   cleanly.
 - **Every machine: "Quit the game" in the options.** The last row of the Options page (the page the pad's menu button opens) asks the
-  same "Quit? No / Yes" as Esc; No comes back to the page. Every page now fits without scrolling.
+  same "Quit? No / Yes" as Esc; No comes back to the page. The Options page fits without scrolling.
 - **Every machine: new keyboard defaults.** Player 1's buttons sit on **S D F** (buttons 1-3) and **E R T** (4-6) on the machines with
   few buttons and the computers' joystick, at the same place on QWERTY, AZERTY and QWERTZ; the PlayStation and the Nintendo 64 keep
   theirs. A saved key still on the former default (W X C, A S D) moves by itself; a key you chose is kept. Players 3 and 4 of the
@@ -70,8 +70,16 @@
   the Neo Geo's rows, the CPS-1's DIP switch page and the computers' Ctrl+Alt+H page get their own icons.
 - **Shared paths, under the hood.** The bookkeeping of path records is one module for the X68000, the Amiga, the Atari ST and the
   MSX2+; the records keep their format and nothing a conversion does changes.
-- [N64 SSAA: pending branch]
-- [AMIGA 1200: pending branch]
+- **Commodore Amiga 1200 (experimental).** A profile of its own beside the Amiga 500 ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)):
+  AGA WHDLoad installs with your own Kickstart 3.x, on the vAmiga A1200 model (68EC020, AGA chipset). A panel of eight converts with 0 or
+  1 interpreted instruction per route; the owner played it. Known failures: Pinball Illusions stays on a black screen with music after
+  its intro, and Alien Breed 3D does not start; the AGA super-hires picture is shown at half width. It stays experimental.
+- **Amiga: interlaced screens shown whole.** A screen in interlace (Banshee's and Fears's first pictures) was shown one field a frame
+  and shook on a flat screen; both fields are now woven into one picture, on both models, whatever the game. The machine is unchanged.
+- **Amiga: Crunch-Mania.** Installs packed with Crunch-Mania are unpacked by our own code, written from the format as Teemu Suutari's
+  ancient library describes it (credited in the notices).
+- **Every machine: clear a binding, restore the defaults.** Any control of any page can be left unbound (Delete, or the pad gesture
+  the page shows) and stays so; each control page ends with Restore defaults.
 - **Amiga: a CPU speed choice, Normal / ×2 / ×4**, like an accelerator card, in F2's options of both models; Normal by default and
   kept per game; games are converted and checked at Normal ([AMIGA.md](AMIGA.md#2-how-the-conversion-works)). A slow 3D game such as
   Fears draws more pictures a second at ×2 and ×4 without running faster; a game whose music or delays count CPU cycles may not
@@ -92,7 +100,7 @@ moves. A quick state of 1.7.5 is refused cleanly, with a message, on the MSX, MS
 Advance (the checksum), the Nintendo 64 and the PlayStation (their new state formats) and the Amiga and the Atari ST (their key takes
 every input of the machine); nothing is lost but the state. It loads on the other machines, the Mega Drive and the Super Nintendo
 included. Cartridge saves, memory cards and the copies of written disks are kept; a save the new export cannot use is set aside and never
-crashes or blocks the game. [EXPORTS: check again after the N64 SSAA and Amiga 1200 branches] The details are in
+crashes or blocks the game. The details are in
 [UPGRADES.md](UPGRADES.md#exports-of-175-in-176).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
