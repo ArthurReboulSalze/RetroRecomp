@@ -102,6 +102,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Nintendo 64: the graphics page in five rows](#nintendo-64-the-graphics-page-in-five-rows-176) | none | **the host stamp of all 20 profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Nintendo 64: Supersampling and 8x on the graphics page](#nintendo-64-supersampling-and-8x-on-the-graphics-page-176) | none | **the host stamp of all 20 profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Nintendo 64: the C buttons on the right stick, "Left stick", the 16:9 screen format](#nintendo-64-the-c-buttons-on-the-right-stick-left-stick-the-169-screen-format-176) | none | **the Nintendo 64's host stamp** (`rrhk_n64.inc`) | the Nintendo 64 key moves (every input, the host's included) |
+| [Nintendo 64: "Picture area (auto)", the overscan crop by default](#nintendo-64-picture-area-auto-the-overscan-crop-by-default-176) | **the Nintendo 64** (the glue and the session) | **the host stamp of all profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | **the Nintendo 64 key moves**; the Amiga and Atari ST keys move (every input, the host's included) |
 | [Every machine: "Quit the game", the last row of the options page](#every-machine-quit-the-game-the-last-row-of-the-options-page-176) | none | **the host stamp of all 20 profiles** (the shell, `retro_menu.c`, `runtime_catalog.inc`, the locale files) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units](#game-boy-advance-the-sound-is-compared-the-quick-state-has-a-checksum-a-save-larger-than-its-chip-is-set-aside-the-report-names-its-units-175) (titled 1.7.5, but not in the `v1.7.5` tag: it ships in 1.7.6 with the merge of `spec/gba-175`) | the Game Boy Advance | none | **the Game Boy Advance states of 1.7.5 are refused** (the checksum envelope) |
 | emu2413's `LICENSE` keeps its exact bytes on a Windows checkout (`-text` in `.gitattributes`; no section of this page; commit `ffbaee01`) | none | none | none |
@@ -343,6 +344,31 @@ the picture by two: same picture size, each pixel the mean of four. At 8x, the r
 * **Checks.** A quick conversion of Super Mario 64; its game run headless at the defaults (trace equal to the build before), at 4x,
   4x with Supersampling, 1x with Supersampling, 8x and 8x with Supersampling (sizes, equal traces at 8x), with Supersampling turned on
   and off at given frames; a rough unpaced cost of each size; the suite. No hot-path change: the renderer's options only.
+
+## Nintendo 64: "Picture area (auto)", the overscan crop by default (1.7.6)
+
+On the owner's word of 15 November 2026 (« Oui, auto par défaut », then « auto par défaut, mais que ça soit une option qu'on puisse
+désactiver »), the Overscan crop row of F3 gains **Picture area (auto)**, its new default: each frame is cut to the window the game's
+video interface opens (its H_START and V_START registers, PAL told by V_SYNC as parallel-rdp tells it, less the VI's guard band of 8 and
+7 pixels), through parallel-rdp's `crop_rect`, so the blank border a television hid is not shown; the pixels keep their shape (the
+session reports the uncropped frame, `rr_n64_picture_frame`, and the adapter's display width follows it)
+([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)). **Off** shows the console's whole picture, borders included; 8 and 16 pixels stay.
+
+* **Stamps** (`compilation_inputs.role_stamps`, branch `spec/n64-overscan-176` against main `893748a9`). The Nintendo 64's game stamp
+  moves (`8a8f380f9f2c` to `b187be879648`: the glue `parallel_glue.cpp` and `parallel.h`, the session `n64_session.cpp` and `.h`, which
+  start every run with the crop, the reference player's included) and its host stamp (`68c9dd815779` to `fcf22888e83d`, the adapter);
+  the host stamp of every other profile moves for the game catalogue (`runtime_catalog.inc` and the locale files: one new entry). No
+  build stamp.
+* **Existing exports:** the game stamp moves, so a Nintendo 64 export is converted again in full at its next conversion (already the
+  case between 1.7.5 and 1.7.6). **Quick states:** the Nintendo 64 key moves (a state of a build before is refused cleanly).
+  **Cartridge saves:** unchanged.
+* **What players see.** A larger picture with no blank border in the window and in Fit to screen (Super Mario 64, PAL: 625 x 237
+  instead of 640 x 288 with 8, 8, 25 and 26 blank pixels). A player who chose a value of the row keeps it (the row's values keep their
+  index; the new one is last); one who never touched it gets the crop. The kit saves a row only when the player changes it.
+* **Texts.** One new entry in the five game languages: "Picture area (auto)".
+* **Checks.** The eight panel games converted at the Quick level (native against reference with the crop in both: all ready); each
+  game run headless to frame 3,600 of its main route with the crop and with Off: no blank edge left with the crop except a game's own
+  black (F-Zero X draws a black frame inside its picture; Majora's Mask's frame is a text screen), the HUDs whole; the suite.
 
 ## Nintendo 64: the C buttons on the right stick, "Left stick", the 16:9 screen format (1.7.6)
 
