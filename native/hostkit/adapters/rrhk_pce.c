@@ -25,12 +25,12 @@ int rr_pce_reset(void);
 #define PADS(button) {button, button, button, button}
 enum { I, II, III, IV, V, VI, SELECT, RUN, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
-    {"I", L"I", 0x001, RRHK_FACE, SDLK_x, {SDL_SCANCODE_X, SDL_SCANCODE_KP_9}, PADS(SDL_CONTROLLER_BUTTON_B)},
-    {"II", L"II", 0x002, RRHK_FACE, SDLK_w, {SDL_SCANCODE_W, SDL_SCANCODE_KP_8}, PADS(SDL_CONTROLLER_BUTTON_A)},
-    {"III", L"III", 0x100, RRHK_FACE, SDLK_c, {SDL_SCANCODE_C, SDL_SCANCODE_KP_7}, PADS(SDL_CONTROLLER_BUTTON_X)},
-    {"IV", L"IV", 0x200, RRHK_FACE, SDLK_a, {SDL_SCANCODE_A, SDL_SCANCODE_KP_4}, PADS(SDL_CONTROLLER_BUTTON_Y)},
-    {"V", L"V", 0x400, RRHK_FACE, SDLK_s, {SDL_SCANCODE_S, SDL_SCANCODE_KP_6}, PADS(SDL_CONTROLLER_BUTTON_LEFTSHOULDER)},
-    {"VI", L"VI", 0x800, RRHK_FACE, SDLK_d, {SDL_SCANCODE_D, SDL_SCANCODE_KP_PLUS}, PADS(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)},
+    {"I", L"I", 0x001, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, PADS(SDL_CONTROLLER_BUTTON_B), NULL, SDLK_x},
+    {"II", L"II", 0x002, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, PADS(SDL_CONTROLLER_BUTTON_A), NULL, SDLK_w},
+    {"III", L"III", 0x100, RRHK_FACE, 0, {SDL_SCANCODE_F, SDL_SCANCODE_KP_7}, PADS(SDL_CONTROLLER_BUTTON_X), NULL, SDLK_c},
+    {"IV", L"IV", 0x200, RRHK_FACE, 0, {SDL_SCANCODE_E, SDL_SCANCODE_KP_4}, PADS(SDL_CONTROLLER_BUTTON_Y), NULL, SDLK_a},
+    {"V", L"V", 0x400, RRHK_FACE, 0, {SDL_SCANCODE_R, SDL_SCANCODE_KP_6}, PADS(SDL_CONTROLLER_BUTTON_LEFTSHOULDER), NULL, SDLK_s},
+    {"VI", L"VI", 0x800, RRHK_FACE, 0, {SDL_SCANCODE_T, SDL_SCANCODE_KP_PLUS}, PADS(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER), NULL, SDLK_d},
     {"Select", L"Select", 0x004, RRHK_SYSTEM, 0, {SDL_SCANCODE_LSHIFT, SDL_SCANCODE_KP_0}, PADS(SDL_CONTROLLER_BUTTON_BACK)},
     {"Run", L"Run", 0x008, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER}, PADS(SDL_CONTROLLER_BUTTON_START)},
     {"Up", L"Up", 0x010, RRHK_DIR, 0, {SDL_SCANCODE_UP, SDL_SCANCODE_KP_5}, PADS(SDL_CONTROLLER_BUTTON_DPAD_UP)},
@@ -74,10 +74,10 @@ static uint64_t input_frame(void) { return rr_pce_frame_index(); }
 
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
-    rrhk_menu_line(ctx, y, rrhk_tr("Arrows; X: I, W: II; Enter Run; Shift Select",
-                                   "Fleches; X : I, W : II; Entree Run; Maj Select"));
-    rrhk_menu_line(ctx, y + RR_MENU_LINE, RR_PCE_PAD_BUTTONS == 6 ? rrhk_tr("C/A/S/D: III-VI (six-button pad)",
-                                                                              "C/A/S/D : III-VI (manette six boutons)")
+    rrhk_menu_line(ctx, y, rrhk_tr("Arrows; D: I, S: II; Enter Run; Shift Select",
+                                   "Fleches; D : I, S : II; Entree Run; Maj Select"));
+    rrhk_menu_line(ctx, y + RR_MENU_LINE, RR_PCE_PAD_BUTTONS == 6 ? rrhk_tr("F/E/R/T: III-VI (six-button pad)",
+                                                                              "F/E/R/T : III-VI (manette six boutons)")
                                                                    : RR_PCE_PLAYERS > 2 ? rrhk_tr("Up to four players", "Jusqu'a quatre joueurs")
                                                                                         : rrhk_tr("Two players", "Deux joueurs"));
 }

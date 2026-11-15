@@ -205,10 +205,14 @@ class SoundAndSpeedTests(unittest.TestCase):
         self.assertNotIn('if (!run->audio) return false;', body)
 
     def test_a_pad_plugged_or_unplugged_never_leaves_the_fast_forward_held(self):
+        # 1.7.6: the pad's fast forward is a combination read every frame: an unplugged pad forgets its buttons (game_options.h),
+        # so the hold ends at the next frame.
         events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
-        speed = events.split('static void speed_event(', 1)[1].split('\n}\n', 1)[0]
-        self.assertIn('SDL_CONTROLLERDEVICEREMOVED', speed)
-        self.assertIn('rrhk.fast_hold &= ~HOLD_TRIGGER', speed)
+        speed = events.split('void rrhk_speed_combos(void) {', 1)[1].split('\n}\n', 1)[0]
+        self.assertIn('rrhk.fast_hold &= ~HOLD_PAD', speed)
+        options = (ROOT / 'native/game_options.h').read_text(encoding='utf-8')
+        removed = options.split('e->type == SDL_CONTROLLERDEVICEREMOVED', 1)[1].split('} else if', 1)[0]
+        self.assertIn('rr_options.pads[i].mask = 0', removed)
 
     def test_a_chord_of_the_quit_or_restart_combination_is_not_a_sound_key(self):
         events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')

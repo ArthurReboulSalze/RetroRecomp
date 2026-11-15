@@ -32,8 +32,8 @@ static const RrhkAction m_actions[M_ACTIONS] = {
    {"Down", L"Down", 1u << M_DOWN, RRHK_DIR, 0, {SDL_SCANCODE_DOWN, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_DOWN}},
    {"Left", L"Left", 1u << M_LEFT, RRHK_DIR, 0, {SDL_SCANCODE_LEFT, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_LEFT}},
    {"Right", L"Right", 1u << M_RIGHT, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT}},
-   {"Trigger A", L"Trigger A", 1u << M_A, RRHK_FACE, SDLK_x, {SDL_SCANCODE_X, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}},
-   {"Trigger B", L"Trigger B", 1u << M_B, RRHK_FACE, SDLK_w, {SDL_SCANCODE_W, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}},
+   {"Trigger A", L"Trigger A", 1u << M_A, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_x},
+   {"Trigger B", L"Trigger B", 1u << M_B, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_w},
    {"Start (SPACE)", L"Start", 1u << M_START, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
    {"Select (F1)", L"Select", 1u << M_SELECT, RRHK_SYSTEM, 0, {SDL_SCANCODE_RSHIFT, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_BACK}},
    {"Pause", L"Pause", 1u << M_PAUSE, RRHK_SYSTEM, 0, {SDL_SCANCODE_UNKNOWN, SDL_SCANCODE_UNKNOWN}, {M_NO_PAD, M_NO_PAD}}};
@@ -230,8 +230,8 @@ static bool m_state_path(wchar_t *path, size_t capacity) { return msx_game_state
 
 static void m_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
    (void)ui;
-   rrhk_menu_line(ctx, y, rrhk_tr("Arrows: joystick 1; X: trigger A (and SPACE), W: trigger B",
-                                  "Fleches : manette 1 ; X : bouton A (et ESPACE), W : bouton B"));
+   rrhk_menu_line(ctx, y, rrhk_tr("Arrows: joystick 1; D: trigger A (and SPACE), S: trigger B",
+                                  "Fleches : manette 1 ; D : bouton A (et ESPACE), S : bouton B"));
    rrhk_menu_line(ctx, y + RR_MENU_LINE, rrhk_tr("Enter: SPACE; right Shift: F1; Ctrl+Alt+K: the MSX keyboard",
                                                  "Entree : ESPACE ; Maj droite : F1 ; Ctrl+Alt+K : le clavier MSX"));
 }

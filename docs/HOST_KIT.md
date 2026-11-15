@@ -465,6 +465,40 @@ X68000 too, without asking again**.
   switch; the computers' shortcut page (Ctrl+Alt+H, `rrhk_computer.inc`: X68000, Atari ST, MSX, Amiga) one per line, a floppy
   for each of the machine's disk lines. The generic gem stays for the rows nothing names.
 
+* <a id="d25"></a>**D25 — The pad's speed controls are combinations, and the graphics page has its entries** (owner's
+  requests of 15 November 2026, 1.7.6). Fast forward (held) and Max speed (a press toggles it) join the table of the four
+  combinations (D21) as two more rows of player 1's gamepad page: R2 and L2 by default, as the speed controls of D12 always were,
+  movable and clearable (Delete), so that L2 and R2 can be left to the game; Tab and the backquote stay their keys, shown fixed on
+  the keyboard page. A capture equal to another combination is refused (D21), so a trigger is the speed control's or another
+  combination's, never both. As before, a speed combination on a trigger the game has (a control bound to it: the PlayStation's
+  and the Nintendo 64's L2/R2) does nothing: the game wins. On a machine with a graphics page (D14, `gfx_option_count`), F2 ends
+  with a Graphics tile (a 3D shape on a screen) that opens the page and comes back to the tiles, and the options page's F3 row,
+  which already opened it there, says so ("F3 Graphics"; the filter is one of the graphics page's rows). No row is added: every
+  options page still fits, Quit the game stays last.
+
+* <a id="d26"></a>**D26 — Stick directions as inputs; player 1's keyboard defaults on S D F / E R T** (owner's requests of 15
+  November 2026, 1.7.6). F2's capture takes a stick pushed on the selected player's pad (left or right, four directions:
+  `RRHK_PAD_LSTICK_UP` .. `RRHK_PAD_RSTICK_RIGHT`, 66 to 73, stored as such) for any digital row, on every machine; in play it
+  is held past the D1 threshold and released under half of it (`rr_trigger_step`). It only adds a press: a machine's own reading
+  of the sticks (`rrhk_pad_axes`) is unchanged, and a host-side row (bit 0) refuses it, as it refuses a trigger.
+  `RrhkAction.pad_label` names on the gamepad page what the pad does for a row it does not bind (the Nintendo 64's keyboard
+  stick rows: "Left stick"). On the machines with few buttons (Master System, Game Gear, Game Boy, NES, Mega Drive, Super
+  Nintendo, Game Boy Advance, Neo Geo, CPS-1/2, PC Engine) and the four computers' joystick buttons, player 1's buttons 1-3 are
+  on S D F and 4-6 on E R T, by position (keys at the same place on QWERTY, AZERTY and QWERTZ; each machine keeps its order;
+  SNES L/R on F/T, Neo Geo D on E); the PlayStation and the Nintendo 64 keep their tables. A saved key still equal to the row's
+  former default on that layout (`RrhkAction.former_letter`) moves by itself; a key the player chose stays, and a default a
+  saved key uses is dropped, never shared. The kit's players 3 and 4 move to I K J L + U O N and G B V H + C X 9.
+
+* <a id="d27"></a>**D27 — A 16:9 screen format for the games' own widescreen mode; scanlines per console line** (owner's
+  decisions of 15 November 2026, 1.7.6). A machine whose games may draw an anamorphic widescreen picture (squeezed by their own
+  16:9 option: the Nintendo 64's GoldenEye or Banjo-Tooie, some PlayStation games) declares `RrhkMachine.widescreen`; its
+  options page then has a "Screen format: 4:3 / 16:9" row (default 4:3), kept per game (`[<Console>.Widescreen]`, one key per
+  game title), and at 16:9 the kit shows the picture 16 wide for 9 high (`rrhk_game_rect`, from `raster_height`). Only the
+  displayed rectangle changes: the machine, its picture, the menus and the notices are untouched, and the filters and scanlines
+  follow the rectangle; a letterboxed "16:9" (black bands drawn by the game) needs nothing and gains nothing. The scanlines are
+  drawn one per line of the console (`raster_height`), no longer one per row of a raised internal resolution (`visible_height`):
+  a 240-line game shown at 2x or 4x keeps 240 visible dark lines (the PlayStation specialist's finding).
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

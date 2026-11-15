@@ -46,7 +46,7 @@ int main(void){
     {wchar_t ini[4096];rr_executable_directory(ini,4000);rr_wide_append(ini,4096,RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini");rr_remove(ini);}
     rrhk_bind(rrhk_adapter());rrhk_load_bindings();rrhk_options_init(L"X68000");rrhk_options_keyboard("X68000",10);
     ca.windowed=true;input_focus=true;release_all();
-    check(rrhk_ui()->keys[0][X_A]==SDL_GetScancodeFromKey(SDLK_w)&&rrhk_ui()->keys[0][X_B]==SDL_GetScancodeFromKey(SDLK_x),"unsaved defaults use logical W and X");
+    check(rrhk_ui()->keys[0][X_A]==SDL_SCANCODE_S&&rrhk_ui()->keys[0][X_B]==SDL_SCANCODE_D,"unsaved defaults are S and D by position (1.7.6)");
     check(rrhk_ui()->buttons[0][X_PAUSE]==X_NO_PAD&&rrhk_ui()->keys[0][X_PAUSE]==SDL_SCANCODE_UNKNOWN&&X_ACTIONS==X_PAUSE+1,"no pause binding by default and no restart row");
     first=SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER,SDL_CONTROLLER_AXIS_MAX,SDL_CONTROLLER_BUTTON_MAX,0);
     check(first>=0,"SDL virtual first controller attached");if(first<0)return 2;
@@ -80,9 +80,10 @@ int main(void){
     SDL_JoystickSetVirtualAxis(virtual_pad[1],SDL_CONTROLLER_AXIS_LEFTX,0);SDL_JoystickSetVirtualAxis(virtual_pad[1],SDL_CONTROLLER_AXIS_LEFTY,0);SDL_JoystickUpdate();
     held()[SDL_SCANCODE_LEFT]=held()[SDL_SCANCODE_RIGHT]=1;next();
     check(!joy(0,RETRO_DEVICE_ID_JOYPAD_LEFT)&&!joy(0,RETRO_DEVICE_ID_JOYPAD_RIGHT),"opposite directions cancel, as on every console");
-    release_all();held()[SDL_GetScancodeFromKey(SDLK_w)]=1;next();
-    check(joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!joy(1,RETRO_DEVICE_ID_JOYPAD_B),"keyboard W is resolved by logical layout and only affects port one");
+    release_all();held()[SDL_SCANCODE_S]=1;next();
+    check(joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!joy(1,RETRO_DEVICE_ID_JOYPAD_B),"keyboard S (button A since 1.7.6) only affects port one");
     check(key_scan(RETROK_z)==(unsigned)SDL_GetScancodeFromKey(SDLK_z),"guest keyboard Z follows SDL logical layout rather than US physical position");
+    held()[SDL_GetScancodeFromKey(SDLK_w)]=1;
     check(guest_key(RETROK_w)==1&&guest_key(RETROK_z)==0,"logical W and Z stay distinct for guest keyboard");
     /* F8 and F9 belong to the kit unless full typing hands them to the guest. */
     release_all();held()[SDL_SCANCODE_F8]=held()[SDL_SCANCODE_F9]=1;guest_keyboard=false;key_event(SDLK_F8,KMOD_NONE);key_event(SDLK_F9,KMOD_NONE);
@@ -106,15 +107,15 @@ int main(void){
     check(!guest_keyboard,"the same chord returns to game shortcuts");
     release_all();
     /* Autofire: the common rule (decision D4, 28 October 2026): each new press starts on, per button, guest frames. */
-    held()[SDL_GetScancodeFromKey(SDLK_w)]=1;rrhk_ui()->autofire=1;input_frame=0;
+    held()[SDL_SCANCODE_S]=1;rrhk_ui()->autofire=1;input_frame=0;
     ca.pad[0]=rrhk_pad_word(0,input_frame);check(joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: a new press starts on");
     input_frame=1;ca.pad[0]=rrhk_pad_word(0,input_frame);check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: the next guest frame releases");
     input_frame=2;ca.pad[0]=rrhk_pad_word(0,input_frame);check(joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire: one pulse per two guest frames");
     input_frame=3;ca.pad[0]=rrhk_pad_word(0,input_frame);
-    check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!guest_key(RETROK_w),"the key bound to the button is the button: both release on the same guest frame");
+    check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!guest_key(RETROK_s),"the key bound to the button is the button: both release on the same guest frame");
     input_frame=4;ca.pad[0]=rrhk_pad_word(0,input_frame);
-    check(joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&guest_key(RETROK_w),"keyboard and joystick share the autofire press phase");
-    held()[SDL_GetScancodeFromKey(SDLK_x)]=1;input_frame=5;ca.pad[0]=rrhk_pad_word(0,input_frame);
+    check(joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&guest_key(RETROK_s),"keyboard and joystick share the autofire press phase");
+    held()[SDL_SCANCODE_D]=1;input_frame=5;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(joy(0,RETRO_DEVICE_ID_JOYPAD_A)&&!joy(0,RETRO_DEVICE_ID_JOYPAD_B),"autofire is per button: a second button pressed later starts on its own");
     release_all();input_frame=7;ca.pad[0]=rrhk_pad_word(0,input_frame);
     check(!joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!joy(0,RETRO_DEVICE_ID_JOYPAD_A),"released buttons stay released");
@@ -173,7 +174,7 @@ int main(void){
     check(!guest_key(RETROK_F1),"Ctrl+F1 stays with Retro-Recomp and cannot leak into the guest");
     SDL_SetModState(KMOD_NONE);
     guest_keyboard=false;
-    release_all();held()[SDL_GetScancodeFromKey(SDLK_w)]=1;
+    release_all();held()[SDL_SCANCODE_S]=1;
     SDL_SetModState((SDL_Keymod)(KMOD_CTRL|KMOD_ALT));held()[SDL_SCANCODE_UP]=1;held()[SDL_GetScancodeFromKey(SDLK_h)]=1;next();
     check(!guest_key(RETROK_h)&&!joy(0,RETRO_DEVICE_ID_JOYPAD_B)&&!joy(0,RETRO_DEVICE_ID_JOYPAD_UP),"Ctrl Alt shortcuts are not forwarded as guest keyboard or keyboard joystick input");
     SDL_JoystickSetVirtualButton(virtual_pad[0],SDL_CONTROLLER_BUTTON_START,1);SDL_JoystickUpdate();next();

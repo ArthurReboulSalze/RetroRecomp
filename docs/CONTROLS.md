@@ -25,6 +25,8 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
 | Gamepad | Since 1.7.5, **Quick save** and **Quick load** can be bound on player 1's gamepad page (F2): held 0.5 s saves, held 1 s loads, once per hold; unassigned by default |
+| Gamepad | Since 1.7.6 a control can also be bound to a stick direction (left or right stick), on every console |
+| Gamepad | Since 1.7.6, **Fast forward** (held, R2 by default) and **Max speed** (a press toggles it, L2 by default) are rows of player 1's gamepad page too: move them, or clear them (Delete) to leave L2 and R2 to the game. Tab and ` stay the keys |
 | F10 | Free: the options are the last F2 page |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
@@ -42,6 +44,11 @@ binding on one Shift also answers to the other one, unless that other key has
 a binding of its own on any player's page. F2 shows the bound key ("Left
 Shift"); everything stays rebindable there, and saved bindings are kept. The
 Master System has no Start on its pad, so Enter remains its Pause/Menu key.
+
+Since 1.7.6, player 1's buttons are on **S D F** (buttons 1-3) and **E R T** (4-6) on the Master System, Game Gear, Game Boy,
+NES, Mega Drive, Super Nintendo (L and R on F and T), Game Boy Advance, Neo Geo, CPS-1/2, PC Engine and the four computers'
+joystick: keys at the same place on QWERTY and AZERTY. The PlayStation and the Nintendo 64 keep their keys. A key you chose in
+F2 stays; one still on the former default (W X C, A S D) moves by itself.
 
 Every console uses the same two system shortcuts: **F1** opens help and
 **Shift+F1** restarts the game. The help lists the function keys in order,
@@ -67,7 +74,7 @@ combinations, Shift+F1 and Esc.
 
 ### Capcom CPS-1
 
-Arrows move; W/X/C are buttons 1–3 and A/S/D buttons 4–6 (Light Punch to
+Arrows move; S/D/F are buttons 1–3 and E/R/T buttons 4–6 (Light Punch to
 Heavy Kick in Street Fighter II). Enter is Start and Shift (or Back on a
 controller) inserts a coin. On a controller, A/B/X/Y and the two shoulder
 buttons are buttons 1–6. Player 2 uses the numeric keypad or the second
@@ -122,16 +129,16 @@ menu (Configuration, System, *Chute type* in Shadow over Mystara) is set to more
 
 ### PC Engine
 
-Arrows move; **X** is button I, **W** is button II, **Enter** is Run and **Shift** is Select. Player 2 uses the numeric
+Arrows move; **D** is button I, **S** is button II, **Enter** is Run and **Shift** is Select. Player 2 uses the numeric
 keypad (9 and 8 for I and II, Enter for Run, 0 for Select). On a controller, B is I, A is II, Start is Run and Back is
-Select. Games that use the six-button pad (the Street Fighter II board) read **C / A / S / D** as III to VI (controller: X, Y
+Select. Games that use the six-button pad (the Street Fighter II board) read **F / E / R / T** as III to VI (controller: X, Y
 and the two shoulder buttons). Most games pause on Run, so the first press of a new game may be a pause. F8/F9 quick states,
 F6 autofire and the F2 pages work as on the other machines. The multitap takes five players on a real console; a converted
 game is built for two today and the fifth multitap player is never offered.
 
 ### Game Boy Advance
 
-One player, ten buttons. Arrows move; **X** is A, **W** is B, **A** is L, **S** is R, **Enter** is Start and **Shift** is Select. On a controller,
+One player, ten buttons. Arrows move; **D** is A, **S** is B, **E** is L, **R** is R, **Enter** is Start and **Shift** is Select. On a controller,
 B is A, A is B, the shoulder buttons are L and R, Start is Start and Back is Select, and the D-pad moves. Every key can be changed in F2
 (see the common rules above); there is no player 2. The quick states (F8/F9), autofire (F6), the F2 pages, the speed and sound controls
 below and the two shortcuts F1 and Shift+F1 are the common ones of the host kit, not repeated here. The cartridge save (SRAM, Flash or
@@ -141,7 +148,7 @@ EEPROM) is kept in `datas/saves` and written when it changes and at exit. The he
 
 The MSX1 and MSX2 profiles share these controls. The MSX2 picture is 544 x 228.
 
-Joystick 1 is on the **arrow keys**, which also press the MSX cursor keys. Trigger A is **X** (it also presses the SPACE key) and trigger B is **W**.
+Joystick 1 is on the **arrow keys**, which also press the MSX cursor keys. Trigger A is **D** (it also presses the SPACE key) and trigger B is **S**.
 **Start** (Enter, pad Start) presses the MSX SPACE key and **Select** (right Shift, pad Back) presses the MSX **F1**; on a controller, the D-pad moves and A and
 B are the triggers. **Ctrl+Alt+K** hands the whole keyboard to the MSX (the same switch as on the other computers; F1 to F5 then go to the MSX, and the help is
 at Ctrl+F1). The F2 pages, autofire (F6) and the speed and sound controls are the common ones. F8 saves a quick state and F9 loads it, refused when the cartridge, the BIOS, the options or the build differ. See
@@ -336,7 +343,7 @@ game is closed. On each gamepad page the last row,
 Gamepad, chooses the controller of that player ([pad slots](HOST_KIT.md): Automatic
 by default, a connected controller, or None).
 
-Game Gear has one player and no gun. Arrows and W/X control the game; **Enter**
+Game Gear has one player and no gun. Arrows and S/D control the game; **Enter**
 is the cartridge Start button (S before 1.5.0). On a gamepad, A/B are the two
 game buttons, Start reaches the cartridge and Back opens the pause/menu. **P**
 opens that menu on the keyboard (Enter did before 1.5.0; a saved Pause/Menu
@@ -347,7 +354,7 @@ bindings have their own INI sections so they do not overwrite Master System
 controls when games share an executable folder.
 
 The Neo Geo MVS profile shares the same menus and four filters.
-Player 1: arrows, **W/X/C/V** for **A/B/C/D**, **Enter** for Start and either
+Player 1: arrows, **S/D/F/E** for **A/B/C/D**, **Enter** for Start and either
 **Shift** for Coin. Player 2: keypad **5/2/1/3**, **8/9/6/4**, keypad Enter and
 keypad 0 respectively. Two controllers use D-pad/left stick, A/B/X/Y, Start
 and Back (Coin in arcade MVS). In console AES, the Coin action is inactive:
@@ -366,7 +373,7 @@ press F5 after F9 to compare the same scene in enhanced mode. This is an optiona
 change to the console's original limits, qualified on the documented Metal Slug 3
 paths rather than every game.
 
-Game Boy has one player and no gun. Arrows move, **W/X** are A/B,
+Game Boy has one player and no gun. Arrows move, **S/D** are A/B,
 **Enter** is cartridge Start and either **Shift** is cartridge Select.
 These letter bindings follow the active keyboard layout. On a controller, the
 D-pad/left stick moves, the two primary face buttons are A/B, Start and
@@ -391,7 +398,7 @@ Master System defaults:
 
 | Player | Directions | Buttons | Menu |
 | --- | --- | --- | --- |
-| J1 keyboard | Arrows | W / X | Enter (P no longer pauses) |
+| J1 keyboard | Arrows | S / D | Enter (P no longer pauses) |
 | J2 keyboard | Keypad 5 / 2 / 1 / 3 | Keypad 8 / 9 | Keypad 7 |
 | Each gamepad | D-pad / left stick | A / B | Start/Menu |
 

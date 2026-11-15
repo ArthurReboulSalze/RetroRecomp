@@ -21,21 +21,21 @@
 #if RR_MD_SIX_BUTTONS
 enum { A, B, C, X, Y, Z, MODE, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
-    {"A", L"A", 64, RRHK_FACE, SDLK_w, {SDL_SCANCODE_W, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}},
-    {"B", L"B", 16, RRHK_FACE, SDLK_x, {SDL_SCANCODE_X, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}},
-    {"C", L"C", 32, RRHK_FACE, SDLK_c, {SDL_SCANCODE_C, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_X}},
-    {"X", L"X", 256, RRHK_FACE, SDLK_a, {SDL_SCANCODE_A, SDL_SCANCODE_KP_0}, {SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_Y}},
-    {"Y", L"Y", 512, RRHK_FACE, SDLK_s, {SDL_SCANCODE_S, SDL_SCANCODE_KP_PERIOD}, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_CONTROLLER_BUTTON_LEFTSHOULDER}},
-    {"Z", L"Z", 1024, RRHK_FACE, SDLK_d, {SDL_SCANCODE_D, SDL_SCANCODE_KP_ENTER}, {SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER}},
+    {"A", L"A", 64, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_w},
+    {"B", L"B", 16, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_x},
+    {"C", L"C", 32, RRHK_FACE, 0, {SDL_SCANCODE_F, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_X}, NULL, SDLK_c},
+    {"X", L"X", 256, RRHK_FACE, 0, {SDL_SCANCODE_E, SDL_SCANCODE_KP_0}, {SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_Y}, NULL, SDLK_a},
+    {"Y", L"Y", 512, RRHK_FACE, 0, {SDL_SCANCODE_R, SDL_SCANCODE_KP_PERIOD}, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_CONTROLLER_BUTTON_LEFTSHOULDER}, NULL, SDLK_s},
+    {"Z", L"Z", 1024, RRHK_FACE, 0, {SDL_SCANCODE_T, SDL_SCANCODE_KP_ENTER}, {SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER}, NULL, SDLK_d},
     {"Mode", L"Mode", 2048, RRHK_SYSTEM, 0, {SDL_SCANCODE_RSHIFT, SDL_SCANCODE_KP_4}, {SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_BACK}},
     {"Start", L"Start", 128, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
     DIRECTIONS};
 #else
 enum { A, B, C, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
-    {"A", L"A", 64, RRHK_FACE, SDLK_w, {SDL_SCANCODE_W, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}},
-    {"B", L"B", 16, RRHK_FACE, SDLK_x, {SDL_SCANCODE_X, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}},
-    {"C", L"C", 32, RRHK_FACE, SDLK_c, {SDL_SCANCODE_C, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_X}},
+    {"A", L"A", 64, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_w},
+    {"B", L"B", 16, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_x},
+    {"C", L"C", 32, RRHK_FACE, 0, {SDL_SCANCODE_F, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_X}, NULL, SDLK_c},
     {"Start", L"Start", 128, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
     DIRECTIONS};
 #endif
@@ -82,10 +82,10 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
         rrhk_menu_line(ctx, y + RR_MENU_LINE, RR16_GUN == RR_GUN_SCOPE ? rrhk_tr("Right: cursor | Middle/Enter: gun pause", "Droit : curseur | Milieu/Entree : pause gun") :
             rrhk_tr("Right: B | Middle: C | Enter: Start", "Droit : B | Milieu : C | Entree : Start"));
     } else if (RR_MD_SIX_BUTTONS) {
-        rrhk_menu_line(ctx, y, rrhk_tr("Arrows; W/X/C: A/B/C; Enter: Start", "Fleches; W/X/C : A/B/C; Entree : Start"));
-        rrhk_menu_line(ctx, y + RR_MENU_LINE, rrhk_tr("A/S/D: X/Y/Z; Right Shift: Mode", "A/S/D : X/Y/Z; Maj droite : Mode"));
+        rrhk_menu_line(ctx, y, rrhk_tr("Arrows; S/D/F: A/B/C; Enter: Start", "Fleches; S/D/F : A/B/C; Entree : Start"));
+        rrhk_menu_line(ctx, y + RR_MENU_LINE, rrhk_tr("E/R/T: X/Y/Z; Right Shift: Mode", "E/R/T : X/Y/Z; Maj droite : Mode"));
     } else {
-        rrhk_menu_line(ctx, y, rrhk_tr("Arrows + W/X/C; Enter Start", "Fleches + W/X/C; Entree Start"));
+        rrhk_menu_line(ctx, y, rrhk_tr("Arrows + S/D/F; Enter Start", "Fleches + S/D/F; Entree Start"));
         rrhk_menu_line(ctx, y + RR_MENU_LINE, rrhk_tr("Two controllers supported", "Deux manettes disponibles"));
     }
     rrhk_help_sound_line(ctx, y + 2 * RR_MENU_LINE);
