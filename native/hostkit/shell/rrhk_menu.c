@@ -531,7 +531,8 @@ void rrhk_menu_icon(const RrhkMenuCtx *ctx, int x, int y, int icon) {
 
 /* The combinations below player 1's controls: Quit, Restart (1.7.5: then Quick save and Quick load). */
 int rrhk_combo_icon(int index) {
-    static const int icons[] = {RR_ICON_ROW_QUIT, RR_ICON_ROW_RESTART, RR_ICON_ROW_SAVE, RR_ICON_ROW_LOAD};
+    static const int icons[] = {RR_ICON_ROW_QUIT, RR_ICON_ROW_RESTART, RR_ICON_ROW_SAVE, RR_ICON_ROW_LOAD, RR_ICON_ROW_SPEED,
+                                RR_ICON_ROW_MAXSPEED};
     return index >= 0 && index < (int)(sizeof icons / sizeof icons[0]) ? icons[index] : RR_ICON_ROW_GENERIC;
 }
 

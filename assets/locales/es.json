@@ -1065,6 +1065,11 @@
     "Auto (last used)": "Auto (último usado)",
     "Mouse": "Ratón",
     "Pad 2": "Mando 2",
-    "Quit the game": "Salir del juego"
+    "Quit the game": "Salir del juego",
+    "Fast forward": "Avance rápido",
+    "Max speed": "Vel. máxima",
+    "Hold: fast forward": "Mantén: avance rápido",
+    "Press: maximum speed on/off": "Pulsa: velocidad máxima sí/no",
+    "Tab and `: fixed keys": "Tab y `: teclas fijas"
   }
 }

@@ -306,6 +306,7 @@ static const uint64_t icon_row_disk[9] = {0x1555ull, 0x5bf9ull, 0x1abf9ull, 0x1a
 static const uint64_t icon_row_mouse[9] = {0x100ull, 0x40ull, 0x1550ull, 0x7df4ull, 0x5554ull, 0x6aa4ull, 0x6aa4ull, 0x6aa4ull, 0x1550ull};
 static const uint64_t icon_row_help[9] = {0x1550ull, 0x6fe4ull, 0x1bab9ull, 0x1aea9ull, 0x1aba9ull, 0x1aba9ull, 0x1aaa9ull, 0x6ba4ull, 0x1550ull};
 static const uint64_t icon_row_sliders[9] = {0x14ull, 0x1557dull, 0x14ull, 0x1400ull, 0x15f55ull, 0x1400ull, 0x140ull, 0x157d5ull, 0x140ull};
+static const uint64_t icon_row_maxspeed[9] = {0x0ull, 0x14101ull, 0x14505ull, 0x15d1dull, 0x17d7dull, 0x15d1dull, 0x14505ull, 0x14101ull, 0x0ull};
 static const uint64_t icon_row_generic[9] = {0x0ull, 0x540ull, 0x1fd0ull, 0x7ef4ull, 0x1fabdull, 0x7ef4ull, 0x1fd0ull, 0x540ull, 0x0ull};
 /* 3 x 5 letters of the face buttons, bit (row * 3 + x): i the narrow I of II to IV, ^ o [ x the PlayStation shapes. */
 static const char row_letter_chars[] = "ABCXYZLRI123456DKPSFGHMEVi^o[x";
@@ -325,7 +326,7 @@ static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_
     {icon_row_speed, 9, 9}, {icon_row_rumble, 9, 9}, {icon_row_restore, 9, 9}, {icon_row_port_mouse, 9, 9},
     {icon_row_port_joystick, 9, 9}, {icon_row_exit, 9, 9}, {icon_row_palette, 9, 9}, {icon_row_sprite, 9, 9},
     {icon_row_dip, 9, 9}, {icon_row_disk, 9, 9}, {icon_row_mouse, 9, 9}, {icon_row_help, 9, 9}, {icon_row_sliders, 9, 9},
-    {icon_row_generic, 9, 9}
+    {icon_row_maxspeed, 9, 9}, {icon_row_generic, 9, 9}
     /* </row table> */};
 int rr_menu_icon_width(int icon) { return icon >= 0 && icon < RR_ICON_COUNT ? icons[icon].w : 0; }
 

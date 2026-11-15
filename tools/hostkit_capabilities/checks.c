@@ -300,7 +300,7 @@ static void full_script(void) {
     case 21:
         CHECK(ui->deadzone[0] == 0 && ini(L"Test3D.Gamepad.Player1", L"deadzone") == 0);
         /* the window moves only when the selected row would leave it */
-        ui->row = 10; CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
+        ui->row = ACTIONS + RRHK_COMBO_ROWS + 2 - 14; CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
         ui->row = 0; CHECK(rrhk_page_scroll() == 0);
         ui->row = 14; CHECK(rrhk_page_scroll() == 0);
         ui->row = 16; CHECK(rrhk_page_scroll() == 2);
@@ -704,6 +704,10 @@ static void quick_script(void) {
     case 6: pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false); break;
     case 7:
         CHECK(!rrhk_combo_set(3, true) && !strcmp(ui->status, "Already used by Quick save"));
+        /* 1.7.6: L2 is Max speed's by default: L2 alone for Quick load is refused until Max speed is cleared */
+        CHECK(rrhk_combo_set(RRHK_COMBO_MAX, true) && rrhk_combo_triggers(RRHK_COMBO_MAX) == 2u);
+        rrhk_combo_clear(RRHK_COMBO_MAX, true);
+        CHECK(!rrhk_combo_set(RRHK_COMBO_MAX, true) && ini(L"Test3D.Options", L"max_speed_pad") == 0);
         key(SDL_SCANCODE_RETURN);
         break;
     case 8: axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, 32767); break;      /* L2 alone (an axis in SDL) */

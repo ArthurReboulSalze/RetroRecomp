@@ -149,9 +149,7 @@ static void graphics_key(RrhkRun *run, SDL_Scancode key) {
  * never gets them. The same holds for the triggers of player 1's pad: the right one held is the fast-forward, the left one
  * toggles the maximum speed (a trigger is no button of any control). Another player's triggers change nothing, as the Quit and
  * Restart combinations are watched on player 1's pad only: the speed is the whole game's. */
-enum { HOLD_KEY = 1, HOLD_TRIGGER = 2 };
-static bool trigger_down[2];     /* [0] right, [1] left of player 1's pad: past the threshold since the last event */
-static SDL_JoystickID trigger_pad = -1;   /* the pad those are of: another pad for player 1 forgets them */
+enum { HOLD_KEY = 1, HOLD_PAD = 2 };
 
 static bool key_bound(SDL_Scancode key) {
     const RrhkMachine *m = rrhk.machine;
@@ -175,40 +173,27 @@ static void toggle_mute(void) {
     rrhk_notice(rr_tr(muted ? "Sound muted" : "Sound on"), 1800);
 }
 
+/* 1.7.6: the pad's speed controls are two combinations of player 1's pad (game_options.h: Fast forward, R2 by default, held;
+ * Max speed, L2 by default, a press toggles it), read each frame; F2 moves or clears them. A combination that uses a trigger the
+ * game has (a control bound to it, the PlayStation's and the Nintendo 64's L2/R2) does nothing: the game wins, as before. */
+static bool speed_free(int index) {
+    const unsigned triggers = rrhk_combo_triggers(index);
+    return !((triggers & 1u) && rrhk_trigger_bound(0)) && !((triggers & 2u) && rrhk_trigger_bound(1));
+}
+void rrhk_speed_combos(void) {
+    const bool fast = rrhk_options_fast_forward(rrhk.menu), max = rrhk_options_max_speed(rrhk.menu);
+    const bool open = !rrhk.menu && sound_keys_open();
+    if (fast && open && speed_free(RRHK_COMBO_FAST)) rrhk.fast_hold |= HOLD_PAD; else rrhk.fast_hold &= ~HOLD_PAD;
+    if (max && open && speed_free(RRHK_COMBO_MAX)) toggle_max_speed();
+}
+
 /* The speed events that come before everything else, so that a key released in a menu or a lost window never stays held. */
 static void speed_event(const SDL_Event *event) {
-    /* Player 1 changed pads (the Gamepad row of F2, a redeal after hot-plug): a trigger held on the former pad never sticks. */
-    const SDL_JoystickID owner = rrhk.pads[0] ? SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[0])) : -1;
-    if (owner != trigger_pad) {
-        trigger_pad = owner;
-        rrhk.fast_hold &= ~HOLD_TRIGGER;
-        memset(trigger_down, 0, sizeof trigger_down);
-    }
     if (event->type == SDL_KEYUP && event->key.keysym.scancode == SDL_SCANCODE_TAB) rrhk.fast_hold &= ~HOLD_KEY;
     else if (event->type == SDL_KEYDOWN && !event->key.repeat && event->key.keysym.scancode == SDL_SCANCODE_TAB &&
              !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
         rrhk.fast_hold |= HOLD_KEY;
-    /* A pad plugged or unplugged: the trigger it held is gone, and the slots are dealt again (the hold would stick). */
-    else if (event->type == SDL_CONTROLLERDEVICEADDED || event->type == SDL_CONTROLLERDEVICEREMOVED) {
-        rrhk.fast_hold &= ~HOLD_TRIGGER;
-        memset(trigger_down, 0, sizeof trigger_down);
-    }
-    else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-        rrhk.fast_hold = 0;
-        memset(trigger_down, 0, sizeof trigger_down);
-    } else if (event->type == SDL_CONTROLLERAXISMOTION &&
-               (event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT || event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT)) {
-        const int side = event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
-        if (event_player(event->caxis.which) != 0) return;
-        if (rrhk_trigger_bound(side)) return;     /* a control of the game on that trigger (trigger_buttons) */
-        const bool down = rrhk_trigger_step(trigger_down[side], event->caxis.value);   /* D1's threshold, with its hysteresis */
-        const bool pressed = down && !trigger_down[side];
-        trigger_down[side] = down;
-        if (!side) {
-            if (!down) rrhk.fast_hold &= ~HOLD_TRIGGER;
-            else if (!rrhk.menu && sound_keys_open()) rrhk.fast_hold |= HOLD_TRIGGER;
-        } else if (pressed && !rrhk.menu && sound_keys_open()) toggle_max_speed();
-    }
+    else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) rrhk.fast_hold = 0;
 }
 
 /* Help (F1) and Pause: open it, or go back to the menu it was opened from. Opening one while the Pause menu is up remembers it. */

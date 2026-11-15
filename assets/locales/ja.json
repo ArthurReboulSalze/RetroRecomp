@@ -1065,6 +1065,11 @@
     "Auto (last used)": "自動（最後に使用）",
     "Mouse": "マウス",
     "Pad 2": "パッド2",
-    "Quit the game": "ゲームを終了"
+    "Quit the game": "ゲームを終了",
+    "Fast forward": "早送り",
+    "Max speed": "最高速度",
+    "Hold: fast forward": "長押し: 早送り",
+    "Press: maximum speed on/off": "押す: 最高速度 オン/オフ",
+    "Tab and `: fixed keys": "Tab と `: 固定キー"
   }
 }

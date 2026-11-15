@@ -13,7 +13,8 @@
  * other files of the kit use these names. A mismatch is a negative array size. */
 typedef char rrhk_menu_numbers_follow_game_options[
     (RRHK_MENU_CONTROLS == RR_CONTROLS_MENU && RRHK_MENU_PAGE == RR_GUN_MENU &&
-     RRHK_MENU_OPTIONS == RR_OPTIONS_MENU && RRHK_COMBO_ROWS == RR_COMBO_ROWS) ? 1 : -1];
+     RRHK_MENU_OPTIONS == RR_OPTIONS_MENU && RRHK_COMBO_ROWS == RR_COMBO_ROWS &&
+     RRHK_COMBO_FAST == RR_COMBO_FAST && RRHK_COMBO_MAX == RR_COMBO_MAX) ? 1 : -1];
 
 /* The options page holds more rows than the fourteen game_options.h draws at once (1.7.0: the kit's own rows, the shared ones
  * and a machine's): the kit keeps them all here and hands game_options.h a window of fourteen around the selected row, which
@@ -87,6 +88,8 @@ bool rrhk_options_quit(int menu) { return player1_only(rr_options_quit, menu); }
 bool rrhk_options_restart(int menu) { return player1_only(rr_options_restart, menu); }
 bool rrhk_options_quick_save(int menu) { return player1_only(rr_options_quick_save, menu); }
 bool rrhk_options_quick_load(int menu) { return player1_only(rr_options_quick_load, menu); }
+bool rrhk_options_fast_forward(int menu) { return player1_only(rr_options_fast_forward, menu); }
+bool rrhk_options_max_speed(int menu) { return player1_only(rr_options_max_speed, menu); }
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate) {
     rr_options_audio(pcm, frames, channels, floating, rate);
 }
@@ -125,7 +128,7 @@ int rrhk_option_icon(int key) {
     case SDL_SCANCODE_F7: return RR_ICON_ROW_LANGUAGE;
     case SDL_SCANCODE_F12: return RR_ICON_ROW_RECORD;
     case SDL_SCANCODE_M: return RR_ICON_ROW_SOUND;
-    case SDL_SCANCODE_GRAVE: return RR_ICON_ROW_SPEED;
+    case SDL_SCANCODE_GRAVE: return RR_ICON_ROW_MAXSPEED;
     case RRHK_KEY_RUMBLE: return RR_ICON_ROW_RUMBLE;
     case RRHK_KEY_START_HELP: return RR_ICON_ROW_REMINDER;
     case RRHK_KEY_QUIT: return RR_ICON_ROW_EXIT;
@@ -242,11 +245,9 @@ bool rrhk_combo_capturing(int index, bool gamepad) { return rr_options.capture =
 bool rrhk_combo_set(int index, bool gamepad) { return rr_combo_set(index, gamepad); }
 /* 1.7.5: the one trigger reading (game_options.h), for the shell's own (game rows, speed controls). */
 bool rrhk_trigger_step(bool down, int value) { return rr_trigger_step(down, value); }
-/* A trigger of player 1's pad (0 right, 1 left) in one of the host combinations: no speed control then. */
-bool rrhk_combo_trigger(int side) {
-    const Uint32 bit = side ? RR_PAD_L2 : RR_PAD_R2;
-    for (int c = 0; c < RR_COMBO_ROWS; ++c) if ((Uint32)rr_options.combo[c].pad & bit) return true;
-    return false;
+unsigned rrhk_combo_triggers(int index) {
+    const Uint32 pad = (Uint32)rr_options.combo[index].pad;
+    return ((pad & RR_PAD_R2) ? 1u : 0u) | ((pad & RR_PAD_L2) ? 2u : 0u);
 }
 void rrhk_combo_clear(int index, bool gamepad) { rr_combo_clear(index, gamepad); }
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_combo_value(out, size, index, gamepad); }

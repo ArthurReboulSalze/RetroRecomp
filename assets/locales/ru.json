@@ -1065,6 +1065,11 @@
     "Auto (last used)": "Авто (последнее)",
     "Mouse": "Мышь",
     "Pad 2": "Геймпад 2",
-    "Quit the game": "Выйти из игры"
+    "Quit the game": "Выйти из игры",
+    "Fast forward": "Перемотка",
+    "Max speed": "Макс. скорость",
+    "Hold: fast forward": "Удерживай: перемотка",
+    "Press: maximum speed on/off": "Нажми: макс. скорость вкл/выкл",
+    "Tab and `: fixed keys": "Tab и `: фиксированные клавиши"
   }
 }

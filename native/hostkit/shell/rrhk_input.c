@@ -438,11 +438,9 @@ static bool pad_held(SDL_GameController *pad, SDL_GameControllerButton button) {
                                                                                                    SDL_CONTROLLER_AXIS_TRIGGERRIGHT));
 }
 
-/* A trigger of player 1's pad (0 right, 1 left) bound to a control of the game or (1.7.5) used by one of the host combinations:
- * no speed control then. */
+/* A trigger of player 1's pad (0 right, 1 left) bound to a control of the game: the game has it, no speed combination on it. */
 bool rrhk_trigger_bound(int side) {
     const RrhkMachine *m = rrhk.machine;
-    if (rrhk_combo_trigger(side)) return true;
     if (!m) return false;
     const SDL_GameControllerButton trigger = side ? RRHK_PAD_LEFT_TRIGGER : RRHK_PAD_RIGHT_TRIGGER;
     for (int a = 0; a < m->action_count; ++a) if (rrhk.buttons[0][a] == trigger) return true;

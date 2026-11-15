@@ -241,6 +241,7 @@ static bool begin_frame(RrhkRun *r) {
     }
     /* 1.7.5: Quick save and Quick load on player 1's pad, as F8 and F9 in play (the same request, the same notices). Both are
      * watched every frame, so that a hold begun in a menu is never taken for a new one; they act in play only. */
+    rrhk_speed_combos();      /* 1.7.6: Fast forward and Max speed, player 1's pad combinations */
     const bool quick_save = rrhk_options_quick_save(rrhk.menu), quick_load = rrhk_options_quick_load(rrhk.menu);
     if (!rrhk.menu && !r->pending_state && (quick_save || quick_load)) r->pending_state = quick_load ? 2 : 1;
     if (!r->running) return false;

@@ -1065,6 +1065,11 @@
     "Auto (last used)": "自动（最后使用）",
     "Mouse": "鼠标",
     "Pad 2": "手柄 2",
-    "Quit the game": "退出游戏"
+    "Quit the game": "退出游戏",
+    "Fast forward": "快进",
+    "Max speed": "最高速度",
+    "Hold: fast forward": "按住: 快进",
+    "Press: maximum speed on/off": "按下: 最高速度 开/关",
+    "Tab and `: fixed keys": "Tab 和 `: 固定按键"
   }
 }
