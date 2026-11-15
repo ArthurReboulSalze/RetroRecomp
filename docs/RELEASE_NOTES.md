@@ -51,8 +51,6 @@
   - **Shared paths.** The code a conversion saw run, as places in your own disc and BIOS, shared as the experimental tier of the base.
   - **Resolution.** The picture is drawn in software: 1x and 2x hold speed; 4x falls behind in 3D scenes, and 8x is no longer
     offered (never in time on one thread). The graphics page (F3) loses its deinterlacing row: the picture is always progressive.
-  - **Fullscreen.** The picture is shown 4:3 by default and fills a 4:3 area of the screen: before, with the overscan cropped, it
-    was shown narrower (1.22 for 1) and kept wide black bars. "Corrected" stays a choice of F3's Aspect ratio row.
   No game is validated as played through, and hardware fidelity and latency are not claimed. PlayStation quick states of 1.7.5 are refused
   cleanly.
 - **Every machine: "Quit the game" in the options.** The last row of the Options page (the page the pad's menu button opens) asks the
