@@ -124,19 +124,28 @@ int rr_vk_host_open(RrVkHost *h, PFN_vkGetInstanceProcAddr gipa, const char *app
     VkPhysicalDevice *gpus = count ? (VkPhysicalDevice *)calloc(count, sizeof *gpus) : NULL;
     if (gpus) h->f.EnumeratePhysicalDevices(h->instance, &count, gpus);
     if (!count || !gpus) { free(gpus); h->error = "No Vulkan graphics device."; return 0; }
-    /* A named device, else the first discrete GPU, else the first device. */
+    /* A named device, else the first discrete GPU; without one (1.7.7), the best other kind: integrated, then virtual, then any
+     * other, a device emulated on the CPU (Mesa's llvmpipe) last. On a computer with a discrete GPU the choice is the one before. */
     VkPhysicalDevice gpu = gpus[0];
-    int chosen = 0;
+    int chosen = 0, best_rank = -1;
     for (uint32_t i = 0; i < count; ++i) {
         VkPhysicalDeviceProperties p;
         h->f.GetPhysicalDeviceProperties(gpus[i], &p);
         const int match = wanted_gpu ? strstr(p.deviceName, wanted_gpu) != NULL : p.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
         if (match && !chosen) { gpu = gpus[i]; chosen = 1; }
+        const int rank = p.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ? 3 : p.deviceType == VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU ? 2
+                       : p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU ? 0 : 1;
+        if (!wanted_gpu && rank > best_rank) { best_rank = rank; if (!chosen) gpu = gpus[i]; }
     }
     free(gpus);
     VkPhysicalDeviceProperties props;
     h->f.GetPhysicalDeviceProperties(gpu, &props);
     snprintf(h->gpu_name, sizeof h->gpu_name, "%s", props.deviceName);
+    h->gpu_type = (int)props.deviceType;
+    if (h->refuse_cpu_device && props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) {
+        h->error = "No graphics card for Vulkan (only a device emulated on the CPU).";
+        return 0;
+    }
     if (!h->negotiation || !h->negotiation->create_device) { h->error = "The renderer gave no Vulkan device."; return 0; }
     static VkPhysicalDeviceFeatures no_features;   /* the core reads it */
     if (!h->negotiation->create_device(&h->context, h->instance, gpu, VK_NULL_HANDLE, gipa, NULL, 0, NULL, 0, &no_features)) {

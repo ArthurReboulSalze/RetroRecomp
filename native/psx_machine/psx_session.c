@@ -619,7 +619,8 @@ RrPsxSession *rr_psx_open(const RrPsxGame *game, char *error, size_t error_size)
              * the CPU renderer (the game has not run a frame), and the note says why. */
             const char *why = !vulkan.negotiation ? "The graphics card renderer did not start."
                             : test_device ? "The Vulkan device lacks what the renderer needs (a test)."
-                            : !rr_vk_host_open(&vulkan, rr_vk_host_loader(), "Retro-Recomp PSX", NULL, NULL, NULL) ? vulkan.error : NULL;
+                            : (vulkan.refuse_cpu_device = 1, !rr_vk_host_open(&vulkan, rr_vk_host_loader(), "Retro-Recomp PSX", NULL,
+                                                                             NULL, NULL)) ? vulkan.error : NULL;
             if (why) {
                 snprintf(s->renderer_note, sizeof s->renderer_note, "%s", why ? why : "");
                 retro_unload_game();

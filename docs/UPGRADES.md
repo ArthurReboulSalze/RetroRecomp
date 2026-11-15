@@ -115,6 +115,12 @@ which the Nintendo 64 never calls); the host stamp of every profile (`runtime_ca
 converted again in full at their next conversion. **Quick states:** none moves by this change; a state loads with either renderer.
 **Hot path:** the card's frame is read back each frame (the Nintendo 64's way); the CPU renderer's path is unchanged.
 
+**The device chosen** (the same release). Without a discrete GPU the shared Vulkan side now takes the best other device (an
+integrated GPU, then a virtual one, then any other, a device emulated on the CPU last) instead of the first one listed; on a
+computer with a discrete GPU the choice is unchanged (the Nintendo 64's included). The PlayStation refuses a device emulated on
+the CPU (Mesa's llvmpipe, which WSL offers): its own CPU renderer is better than an emulated card, so it falls back with the
+notice. The Nintendo 64, which needs Vulkan, still uses such a device when it is the only one.
+
 ## Sony PlayStation: the trace records the VRAM (format 2) (1.7.7)
 
 **What changes.** The per-frame trace a PlayStation game writes for its checks (`--trace`) gains a ninth column, `vram`: the hash

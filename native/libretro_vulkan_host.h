@@ -83,6 +83,8 @@ typedef struct RrVkHost {
     PFN_vkGetInstanceProcAddr get_instance_proc_addr;
     RrVkFunctions f;
     char gpu_name[256];
+    int gpu_type;                        /* the chosen device's VkPhysicalDeviceType */
+    int refuse_cpu_device;               /* set before rr_vk_host_open: a device emulated on the CPU (llvmpipe) is no graphics card */
     const char *error;                   /* why rr_vk_host_open or a read-back failed, in the player's words */
 } RrVkHost;
 
@@ -97,8 +99,9 @@ PFN_vkGetInstanceProcAddr rr_vk_host_loader(void);
 int rr_vk_host_environment(RrVkHost *host, unsigned command, void *data, int *answer);
 
 /* The instance (app_name, Vulkan 1.1 or what the core asks for), the device the core creates through its negotiation on the GPU
- * whose name holds `wanted_gpu` (NULL: the first discrete GPU, else the first one), the interface given to the core, the command
- * pool, buffer and fence of the read-back. 0 with host->error set when Vulkan or a device is missing. */
+ * whose name holds `wanted_gpu` (NULL: the first discrete GPU, else the first integrated one, else a virtual one, else any other,
+ * a device emulated on the CPU last), the interface given to the core, the command pool, buffer and fence of the read-back. 0 with
+ * host->error set when Vulkan or a device is missing, or when only a CPU device is left and `refuse_cpu_device` is set. */
 int rr_vk_host_open(RrVkHost *host, PFN_vkGetInstanceProcAddr get_instance_proc_addr, const char *app_name, const char *wanted_gpu,
                     RrVkInstanceHook on_instance, RrVkDeviceHook on_device);
 
