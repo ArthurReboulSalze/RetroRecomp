@@ -290,6 +290,7 @@ static const char *const rr_translations[][5] = {
     {"Stick right","Stick droite","Stick destra","Stick derecha","Stick rechts"},
     {"Stick up","Stick haut","Stick su","Stick arriba","Stick hoch"},
     {"Stretched","Etire","Allungato","Estirado","Gestreckt"},
+    {"Supersampling","Surechantillonnage","Supercampionamento","Supermuestreo","Supersampling"},
     {"System default","Defaut du systeme","Predefinito di sistema","Predeterminado del sistema","Systemstandard"},
     {"Tab  Fast-forward | `  Max speed | M  Mute","Tab  Avance rapide | `  Vitesse max | M  Muet","Tab  Avanti veloce | `  Velocita max | M  Muto","Tab  Avance rapido | `  Velocidad max. | M  Silencio","Tab  Vorlauf | `  Hoechsttempo | M  Stumm"},
     {"Two controllers supported","Deux manettes disponibles","Supporta due pad","Admite dos mandos","Zwei Controller unterstuetzt"},

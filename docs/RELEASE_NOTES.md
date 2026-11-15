@@ -19,9 +19,13 @@
   a quick state now continues the sound too, and states of 1.7.5 are refused cleanly. A panel of eight is equal on Windows and on a
   Debian 13 PC; no game is validated as played through, and hardware fidelity and latency are not claimed. Its paths are not shared:
   the gain was judged too small.
-- **Nintendo 64: a simpler graphics page.** F3 keeps five rows: Internal resolution, Edge smoothing (console), Smooth scaling (console),
-  Dither smoothing and Overscan crop. The others are fixed at the settings every check uses (Bob deinterlacing:
+- **Nintendo 64: a simpler graphics page, and supersampling.** F3 keeps five rows: Internal resolution, Edge smoothing (console), Smooth
+  scaling (console), Dither smoothing and Overscan crop. The others are fixed at the settings every check uses (Bob deinterlacing:
   the N64 has no progressive mode for an interlaced picture). A changed value of a removed row, such as Weave, goes back to the default.
+  A new **Supersampling** row (Off by default) draws at twice the internal resolution and reduces the picture by two: smoother edges and
+  less shimmer on fine textures, at the same picture size, for four times the graphics card's drawing (at 4x, a powerful card). The
+  resolution row gains **8x**, which is heavy: on an RTX 3090 it does not hold full speed (its picture is too large to read back each
+  frame); 4x with Supersampling is the better choice. A weak or integrated graphics card may not hold either.
 
 - **Sony PlayStation (supported).** On the owner's decision of 15 November 2026, after his play test, the PlayStation is supported
   (section 8 of [PLAYSTATION.md](PLAYSTATION.md)): discs as EBOOT, CUE/BIN,

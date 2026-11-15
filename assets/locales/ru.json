@@ -1060,6 +1060,7 @@
     "Quit the game": "Выйти из игры",
     "Edge smoothing (console)": "Сглаживание краёв (консоль)",
     "Smooth scaling (console)": "Плавное масштабирование (консоль)",
-    "Dither smoothing": "Сглаживание дизеринга"
+    "Dither smoothing": "Сглаживание дизеринга",
+    "Supersampling": "Суперсэмплинг"
   }
 }

@@ -203,6 +203,25 @@ closed his F-Zero X remark: its level of detail is the game's own)
 * **Checks.** A quick conversion of Super Mario 64, its game run headless with each kept row changed, and run with an ini that still
   holds the removed rows; the suite.
 
+## Nintendo 64: Supersampling and 8x on the graphics page (1.7.6)
+
+On the owner's word of 15 November 2026 (« Ok pour ta proposition d'anti-crénelage. », then « Dans la 1.7.6 »), the F3 page of the
+Nintendo 64 gains a **Supersampling** row under Internal resolution, Off by default, and the resolution row gains **8x**
+([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)). Supersampling draws at twice the internal resolution and ParaLLEl's scanout reduces
+the picture by two: same picture size, each pixel the mean of four. At 8x, the renderer's largest, it does nothing.
+
+* **Stamps** (`compilation_inputs.role_stamps`, branch `spec/n64-ssaa-176` against main `deb44dae`). The host stamp of all 20 profiles
+  moves (`native/runtime_catalog.inc` and the seven locale files: one new entry); the Nintendo 64's host stamp (`e3bb3877160c` to
+  `b6b4c55e1937`) moves also for its adapter `rrhk_n64.inc`. No game or build stamp moves, no quick-state key: existing exports are not
+  converted again for it, quick states and cartridge saves are unchanged.
+* **What players see.** Six rows on the page. A player who touches nothing gets the same picture as before (the whole trace of a run
+  equal). 8x is heavy: on an RTX 3090 it does not hold full speed (the read-back of a 5120 x 2304 picture each frame); 4x with
+  Supersampling draws at 8x for the read-back cost of 4x. A weak or integrated graphics card may hold neither.
+* **Texts.** One new entry in the five game languages: "Supersampling".
+* **Checks.** A quick conversion of Super Mario 64; its game run headless at the defaults (trace equal to the build before), at 4x,
+  4x with Supersampling, 1x with Supersampling, 8x and 8x with Supersampling (sizes, equal traces at 8x), with Supersampling turned on
+  and off at given frames; a rough unpaced cost of each size; the suite. No hot-path change: the renderer's options only.
+
 ## Every machine: "Quit the game", the last row of the options page (1.7.6)
 
 The options page ends with a **Quit the game** row ([HOST_KIT.md](HOST_KIT.md#d23), D23) that asks the same "Quit? No / Yes"

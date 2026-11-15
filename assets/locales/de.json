@@ -1060,6 +1060,7 @@
     "Quit the game": "Spiel beenden",
     "Edge smoothing (console)": "Kantenglättung (Konsole)",
     "Smooth scaling (console)": "Weiche Skalierung (Konsole)",
-    "Dither smoothing": "Dither-Glättung"
+    "Dither smoothing": "Dither-Glättung",
+    "Supersampling": "Supersampling"
   }
 }

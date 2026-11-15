@@ -41,31 +41,47 @@ static const RrhkAction n64_actions[N_ACTIONS] = {
  * are the reference: the super-sampled read-back off, native texture LOD off (it acts only above 1x; F-Zero X's level of detail is the
  * game's own models), Bob deinterlacing (an N64 has no progressive mode for an interlaced picture, and
  * Bob never combs; ParaLLEl keeps Weave for 1x with CRT shaders), the gamma dither on and native texture rectangles on, as the console;
- * the divot filter follows "Edge smoothing", whose notches it removes. A saved value of a removed row is read by no one. */
-static const char *const n64_resolutions[] = {"1x (native)", "2x", "4x"};
-static const char *const n64_resolution_values[] = {"1x", "2x", "4x"};
+ * the divot filter follows "Edge smoothing", whose notches it removes. A saved value of a removed row is read by no one.
+ * Supersampling (Arthur, 15 November 2026: « Ok pour ta proposition d'anti-crénelage. ») draws at twice the internal resolution and
+ * ParaLLEl's scanout reduces the picture by two after the VI: the picture keeps the size the resolution row gives, each pixel the
+ * mean of four drawn ones, for four times the GPU work. Off, the renderer gets exactly the options it got before the row. 8x, ParaLLEl's
+ * largest drawing (Arthur, « Dans la 1.7.6 »), joins the resolution row; at 8x Supersampling has nothing larger to draw and does
+ * nothing. */
+static const char *const n64_resolutions[] = {"1x (native)", "2x", "4x", "8x"};
+static const char *const n64_upscalings[] = {"1x", "2x", "4x", "8x"};
 static const char *const n64_off_on[] = {"Off", "On"};
 static const char *const n64_false_true[] = {"False", "True"};
 static const char *const n64_crops[] = {"Off", "8 pixels", "16 pixels"};
 static const char *const n64_crop_values[] = {"0", "8", "16"};
-enum { G_RESOLUTION, G_EDGES, G_SCALING, G_DITHER, G_OVERSCAN, G_COUNT };
+enum { G_RESOLUTION, G_SUPERSAMPLING, G_EDGES, G_SCALING, G_DITHER, G_OVERSCAN, G_COUNT };
 static const RrhkGfxOption n64_gfx_options[G_COUNT] = {
-    {"Internal resolution", L"resolution", n64_resolutions, 3, 0},
+    {"Internal resolution", L"resolution", n64_resolutions, 4, 0},
+    {"Supersampling", L"supersampling", n64_off_on, 2, 0},
     {"Edge smoothing (console)", L"viaa", n64_off_on, 2, 1},
     {"Smooth scaling (console)", L"vibilinear", n64_off_on, 2, 1},
     {"Dither smoothing", L"ditherfilter", n64_off_on, 2, 1},
     {"Overscan crop", L"overscan", n64_crops, 3, 0}};
+/* The rows a core option follows directly; the resolution and supersampling rows set the upscaling and downscaling together. */
 static const char *const *const n64_gfx_values[G_COUNT] = {
-    n64_resolution_values, n64_false_true, n64_false_true, n64_false_true, n64_crop_values};
+    NULL, NULL, n64_false_true, n64_false_true, n64_false_true, n64_crop_values};
 static const char *const n64_gfx_keys[G_COUNT] = {
-    "parallel-rdp-upscaling", "parallel-rdp-vi-aa", "parallel-rdp-vi-bilinear", "parallel-rdp-dither-filter", "parallel-rdp-overscan"};
-static int n64_scale = 1;   /* the internal resolution in force */
+    NULL, NULL, "parallel-rdp-vi-aa", "parallel-rdp-vi-bilinear", "parallel-rdp-dither-filter", "parallel-rdp-overscan"};
+static int n64_scale = 1;   /* the internal resolution in force: the picture's size against the console's, supersampled or not */
+static int n64_resolution = 0, n64_supersampling = 0;
 
 static void n64_gfx_apply(int option, int value) {
     if (option < 0 || option >= G_COUNT || value < 0 || value >= n64_gfx_options[option].count) return;
+    if (option == G_RESOLUTION || option == G_SUPERSAMPLING) {
+        if (option == G_RESOLUTION) n64_resolution = value;
+        else n64_supersampling = value;
+        const bool reduce = n64_supersampling && n64_resolution < 3;
+        rr_n64_option(session, "parallel-rdp-upscaling", n64_upscalings[n64_resolution + reduce]);
+        rr_n64_option(session, "parallel-rdp-downscaling", reduce ? "1/2" : "disable");
+        n64_scale = 1 << n64_resolution;
+        return;
+    }
     rr_n64_option(session, n64_gfx_keys[option], n64_gfx_values[option][value]);
     if (option == G_EDGES) rr_n64_option(session, "parallel-rdp-divot-filter", n64_gfx_values[option][value]);
-    if (option == G_RESOLUTION) n64_scale = 1 << value;
 }
 
 /* Headless runs never open the kit: the defaults (or `--gfx key=index`, for a capture) are applied here. */

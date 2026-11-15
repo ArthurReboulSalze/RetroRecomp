@@ -73,9 +73,11 @@ image; Retro-Recomp publishes no game and no firmware (the console needs none: t
 
 The pad: A, B, Z (left trigger), Start, L, R, the four C buttons (the right stick, or Y and B on a gamepad, I/K/J/L on the
 keyboard), the d-pad, and the control stick (a gamepad's left stick; the arrows push it to its edge on the keyboard). F2 shows every
-binding and the stick's dead zone. F3 opens the graphics page, five rows since 1.7.6: internal resolution (1x, 2x, 4x), edge
-smoothing (the console's anti-aliasing, with its divot filter), smooth scaling (the console's horizontal filter), dither smoothing,
-and overscan crop. Each changes only what the player sees; the defaults are the setting every check uses. The
+binding and the stick's dead zone. F3 opens the graphics page, six rows since 1.7.6: internal resolution (1x, 2x, 4x, 8x),
+supersampling (off by default: the renderer draws at twice the internal resolution and reduces the picture by two after the
+console's video interface, so each pixel shown is the mean of four drawn ones, at the size the resolution row gives; at 8x, the
+renderer's largest, it has nothing larger to draw and does nothing; the cost is below), edge smoothing (the console's anti-aliasing, with its divot filter), smooth scaling (the console's horizontal
+filter), dither smoothing, and overscan crop. Each changes only what the player sees; the defaults are the setting every check uses. The
 renderer's other settings are fixed at those defaults: no super-sampled read-back, native texture LOD off, Bob deinterlacing (an N64 has no progressive mode
 for an interlaced picture; Bob never combs, and ParaLLEl keeps Weave for 1x with CRT shaders), the gamma dither and native texture
 rectangles on, as the console. A value saved for a removed row is no longer read. The Vibration row
@@ -191,6 +193,17 @@ cartridge save as it was when the state was taken, as a player's game keeps its 
 1152. The options were also changed in the middle of a run (the internal resolution up and down, and a VI filter, at given frames, through the kit's path): the
 rate held, with one stall of up to about 100 ms at a change of resolution. Ocarina of Time's SRAM: a file created in one process is
 found by a fresh process, and reading it leaves the file as it was.
+
+**Supersampling and 8x, 15 November 2026** (Super Mario 64, a quick conversion, its game run without a visible window, 3,000 frames of
+its main route). Supersampling off, the whole trace and the last picture equal the build before the row: a player who touches nothing
+gets the same picture. On, the picture keeps the size of its resolution row (2560 x 1152 at 4x) and the edges of 3D shapes are smoother;
+at 8x it changes nothing (equal traces). Turned on and off in the middle of a run, the game runs on; the frame of the change has the
+size of the renderer before the change (one frame, as with a change of resolution). **Cost, roughly** (one unpaced run each on the
+maintainer's PC, an RTX 3090, not quiet, so not a timing run; the picture still read back each frame, nothing shown): about 8 ms a
+frame at 1x, 17 ms at 4x, 20 ms at 4x with supersampling, 44 ms at 8x. Supersampling at 4x costs little more than 4x on that card;
+**8x does not hold 60 frames per second there**: its picture of 5120 x 2304 (11.8 million pixels) read back from the card and copied
+every frame is the bottleneck, before the drawing. 4x with supersampling draws at 8x for the read-back cost of 4x. A weak or
+integrated graphics card may not hold 4x with supersampling, nor even 4x: lower the resolution row if the game slows down.
 
 **Every save kind, 15 November 2026** (`tools/n64_saves_check.py` on the delivered programs of the panel, tree `4d41dd6a`). Each game writes its
 save on its own route, with nothing forced: the EEPROM of Super Mario 64 and GoldenEye 007 (4 Kbit) and of Banjo-Tooie (16 Kbit), the SRAM of

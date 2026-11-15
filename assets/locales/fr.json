@@ -307,6 +307,7 @@
     "Quit the game": "Quitter le jeu",
     "Edge smoothing (console)": "Lissage des bords (console)",
     "Smooth scaling (console)": "Mise à l'échelle lissée (console)",
-    "Dither smoothing": "Lissage du tramage"
+    "Dither smoothing": "Lissage du tramage",
+    "Supersampling": "Suréchantillonnage"
   }
 }

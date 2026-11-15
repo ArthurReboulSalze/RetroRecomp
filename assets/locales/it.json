@@ -1060,6 +1060,7 @@
     "Quit the game": "Esci dal gioco",
     "Edge smoothing (console)": "Smussatura dei bordi (console)",
     "Smooth scaling (console)": "Scala smussata (console)",
-    "Dither smoothing": "Smussatura del dithering"
+    "Dither smoothing": "Smussatura del dithering",
+    "Supersampling": "Supercampionamento"
   }
 }

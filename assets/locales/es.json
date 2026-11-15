@@ -1060,6 +1060,7 @@
     "Quit the game": "Salir del juego",
     "Edge smoothing (console)": "Suavizado de bordes (consola)",
     "Smooth scaling (console)": "Escalado suavizado (consola)",
-    "Dither smoothing": "Suavizado del tramado"
+    "Dither smoothing": "Suavizado del tramado",
+    "Supersampling": "Supermuestreo"
   }
 }

@@ -1060,6 +1060,7 @@
     "Quit the game": "退出游戏",
     "Edge smoothing (console)": "边缘平滑（主机）",
     "Smooth scaling (console)": "平滑缩放（主机）",
-    "Dither smoothing": "抖动平滑"
+    "Dither smoothing": "抖动平滑",
+    "Supersampling": "超级采样"
   }
 }
