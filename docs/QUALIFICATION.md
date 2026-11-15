@@ -40,7 +40,7 @@ purpose is still required.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns, and their G14, of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026, and its G14 and G16 of 14 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns, and their G14, of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026, and its G14 and G16 of 14 November 2026; the Nintendo 64 column of 15 November 2026)
 
 ### Progress through the qualification list
 
@@ -68,7 +68,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Game Boy Advance | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Commodore Amiga | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Atari ST | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
+| Nintendo 64 | experimental | `████████░░` 81 % | ✅ 12 · 🟡 2 · ❔ 2 |
 | Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
@@ -78,21 +78,21 @@ console's status is never a threshold of this bar: leaving the experimental stat
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | 🟡 | 🟡 |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ❔ |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | 🟡 |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | ➖ |
 
 <!-- qualification-gauges:end -->
@@ -108,21 +108,21 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | P |
-| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | P | P | Y | P | P |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | P | P | P |
-| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P |
+| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | P | P |
+| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | P |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | ? |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | ? |
-| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | P |
+| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
@@ -357,6 +357,8 @@ The page of each console, which the README links its line to (a console of the m
   firmware; no cartridge game on this panel; not compared on Linux. G13 `?`: no Linux run. G14 `?`: no owner verdict. G15 `P`: read for this
   step (MSX.md section 9, COMPATIBILITY, UPGRADES, the profile's scope note, the report's device names); one statement corrected (the report
   named a plain cartridge for a disk game); the full read of every page and string for the MSX2+ is to do.
+- Nintendo 64 (15 November 2026; branch `spec/n64-176`, experimental): **G1 to G9, G12, G13 and G15 move to `Y`, G10 to `P`**; G14 stays `P`, G11 and G16 stay `?`. The evidence is [its section](#nintendo-64-evidence-behind-its-column-15-november-2026): a panel of eight PAL cartridges at the Extended level, none dropped, every route equal to the core's pure interpreter frame by frame on Windows and byte for byte equal on a Debian 13 PC; every interpreted instruction listed with its class (two coverage gaps found that way and fixed: the run after an MFC0 and TLB-mapped code); the quick state continued with its sound and 16 damaged states refused; every save kind read back by a fresh process; krom's 114 CPU tests, 90 passing on the core's interpreter, the failures named. G14 waits for the owner's play test of the panel, G16 for his decision on sharing (the panel shows that received paths would add native code). No hardware fidelity, gameplay coverage or latency is claimed.
+
 - Nintendo 64 (7 November 2026; experimental profile, branch `spec/n64-171`): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees; the machine is offered to players in 1.7.1 (the owner's go of 8 November 2026, in the owner-acceptance table). G2 `P`: the common report v2 of every conversion, the VR4300 counted in
   instructions (a jump and its delay slot as one). G3 `P`: Super Mario 64 and Ocarina of Time (PAL) converted at the Standard level,
@@ -974,6 +976,62 @@ shown and the rest is named; `?` is not measured. Nothing here says hardware fid
 | G14 | Y | The owner played the six installs of [the checklist](#checklist-for-arthur-commodore-amiga-play-test-g14) on 14 November 2026 (the exports of 13 November in `Export\Games\Amiga`) and decided the exit: « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » (owner-acceptance table); the owner had played the ten panel installs of 6 November 2026 | Six installs played, not a coverage claim: code past the routes runs interpreted, counted and shown in the window title. Not converted: Kickstart 3.x installs, ADF disks, the Amiga 1200 |
 | G15 | Y | The audit of 8 November 2026 (report writer, profile, strings in eight languages, AMIGA.md, the caveat, UPGRADES, README, COMPATIBILITY, SYSTEM_PROFILES, INDEX, CPU_68000, the adapter and the player), its findings applied; and on 13 November 2026 an exported game read in its window on a hidden desktop: Lotus 2 (tree `96a70fa0`) titled `Lotus 2 | Commodore Amiga | Native CPU, emulated hardware`, Another World (tree `be3f4483`, the new interface) titled `... | Interpreter fallback` (it runs 19 Kickstart instructions on the interpreter); the F1, F2 and F12 pages and messages of both claim no exactness, latency or whole-game native code. The report keeps `independent_cpu_oracle: false`, `hardware_accuracy_validated` false and `latency_ms: null` | The wording of `rr_resload.c` was searched for claim words, not read line by line |
 | G16 | P | The Amiga shares its paths as the experimental tier of the base since 1.7.5, on the owner's decision of 14 November 2026 (« Oui, partage direct »): `retrorecomp/amiga_knowledge.py` on the common part of the 68000 computers (`m68k_media_knowledge.py`, the X68000's, whose outcomes a test pins). Numbers only: runs of observed RAM code found as they are in the player's own install, Kickstart instructions of the player's own image; what a game unpacks stays private and is counted. **Proof (14 November 2026, tree `ceed7b28`, llvm, one conversion at a time, three players each with its own data folder):** player A converted Lotus 2, Lemmings and Another World (FR) at the extended level (records of 736, 1,289 and 352 spans, Another World's with 19,760 Kickstart rows) and exported them (a version 3 file, 22,137 paths); player B imported that file into an empty library and converted the three at the standard level, every check passing; player C converted them the same way with nothing imported. B against C: one pass each; the same instructions still interpreted after it (0 and 0, 0 and 0, 38 and 38, the Kickstart's); the same native counts on the routes; wall time 391 and 420 s, 663 and 680 s, 695 and 690 s; the received paths offered 8,848, 3,847 and 22,353 instructions, of which B's own fresh runs reached 8,246, 3,780 and 21,791 and 602, 67 and 562 were made native by the paths alone (`knowledge.received`); with the sweep, B generated 20, 0 and 489 native instructions more than C, of about 37,000. The library keeps its own observations on the player's PC: one that cannot be read or is past the bound of an observation is ignored, and a conversion that fails after merging it is tried once more without it (Rick Dangerous at the quick level with a valid 13.6 MB file of 1,048,577 lines: ignored, ready in 6 min 34 s, the report says so, the file is replaced by the run's own 4,896 lines). | No pass saved and little native code added on these routes. The gain beyond the routes was not measured on the Amiga: the decision rests on the shared mechanism and on the Atari ST's Turrican II (its unpacked code tied to the player's own disk: about 90 % fewer interpreted instructions on a route beyond the receiver's own). No Amiga path is qualified in the base yet (reached and validated by a conversion that received it from another player, counted by the site, whose side is deployed with the release). Monkey Island 2's files are packed: none of its observed code travels |
+
+## Nintendo 64: evidence behind its column (15 November 2026)
+
+The Nintendo 64 is **experimental** (open to players since 1.7.1; [NINTENDO_64.md](NINTENDO_64.md)). It runs on a complete emulator core
+(Mupen64Plus-Next with ParaLLEl-RSP and ParaLLEl-RDP) whose VR4300 code the conversion makes native as guarded blocks; the gates are read as
+for the Amiga and the Atari ST ([what "met" means](NINTENDO_64.md#what-met-means-for-the-nintendo-64-the-target-for-leaving-the-experimental-status-14-november-2026)).
+The evidence is [the panel of 15 November 2026](NINTENDO_64.md#the-panel-of-15-november-2026-176): eight PAL cartridges at the Extended level,
+Windows (llvm-mingw, an NVIDIA GeForce RTX 3090, tree `7b33bd9d`) and a Debian 13 PC (GCC, an Intel HD Graphics 520, tree `4d41dd6a`, the
+same blocks and traces: the later commit adds only the quick state's checksum). Nothing here says hardware fidelity, gameplay coverage or latency.
+
+| Gate | Nintendo 64 | Evidence | What is missing |
+|---|---|---|---|
+| G1 | Y | The profile is `experimental`; NINTENDO_64.md, README, COMPATIBILITY and the interface say so; `tools/status_lint.py` finds no contradiction | |
+| G2 | Y | `n64_conversion` writes the common report v2; `tools/release_check.py`'s report gates read the eight panel reports through the common reader: conversion, native against reference, fallback, packed copy and states pass on all eight | The report has no device section: the RSP and the RDP are the core's, named as emulated |
+| G3 | Y | Every interpreted VR4300 instruction of every route is listed where it ran (address, word, count, class) and the counts add up on 20 of 20 routes (`final_checks[].interpreted_sites_complete`; the report gives the totals by class and the 256 most run sites, the whole listing is a file of the qualification folder named with its SHA-256). Classes: the boot code (about 169,000 instructions a route), mapped pages never observed (20 to 110,275), guard misses (0 to 291,783), the generator's coverage cut (the rest); none unseen. 99.25 % to 99.79 % native a route | The coverage cut (the rarest 0.5 % of the executions) is left with its reason: covering it triples the blocks for half a point. Code past the routes runs interpreted, counted |
+| G4 | Y | Every route of the eight (20 routes, up to 16,800 frames) equals a fresh run of the same core with the VR4300 on its pure interpreter, every frame (picture, sound, RDRAM, CPU registers); native plus interpreted equals the reference's count but the instruction in flight | The reference is the core's interpreter: agreement with Mupen64Plus, not with a VR4300 (G10) |
+| G5 | Y | The compressed program is replayed on every route of the eight against the same reference, on Windows and on the Debian 13 PC (the common fallback delivers the build unpacked when a compressed copy fails twice: not needed on this panel) | |
+| G6 | Y | `conversion_gates.check_quick_states` on every conversion: a state saved on the main route, loaded by a fresh process given the save memory as it was, continues 400 frames (CPU, RDRAM, picture and sound); 16 damaged copies refused (exit 4) and left as they were; a missing state creates nothing (format `RRN64QS5`, with a checksum) | |
+| G7 | Y | `tools/n64_saves_check.py` on the delivered programs: EEPROM 4 Kbit (Super Mario 64, GoldenEye 007), 16 Kbit (Banjo-Tooie), SRAM (Ocarina of Time, F-Zero X), Flash (Majora's Mask) and the controller pak (Rayman 2), each written by its route: a fresh process reads the kept file (a copy with one byte changed makes RDRAM differ), reading leaves it as it was, an earlier quick state does not roll it back, a cut, empty or folder file never stops the game | The Transfer Pak and the 64DD are not supported |
+| G8 | Y | A moving picture is required on the main route; liveness of every route in the report; captures of every play route read | |
+| G9 | Y | Every panel game reaches play: play routes of their own for Super Mario 64, Ocarina of Time, Majora's Mask and Rayman 2; the main route races in Mario Kart 64 and F-Zero X, reaches Spiral Mountain in Banjo-Tooie and the Dam in GoldenEye 007 | Generic routes of games outside the panel may stay in menus |
+| G10 | P | `tools/n64_cpu_tests.py`, 15 November 2026: krom's 114 CPU test programs (PeterLemon/N64 at `7085543`, public domain; CPU, COP0, COP1, exceptions, PI DMA alignment), each run on the core's pure interpreter for 200 frames and its own verdict read on its picture (PASS and FAIL in its result column; the 13 floating-point compare tables against krom's reference picture): **90 pass**. 22 fail in named families, each the core's behaviour: the two timing tests (no cycle model), the exception tests (Syscall 4, Trap 2, TLB miss 6, Compare 1: on the four pictures read, the Status register after the exception), unaligned accesses that raise no exception (2), CAUSE's initial and written values (1), PI DMA from the cartridge at odd alignments (4); one draws no verdict (COP1 full mode, a table without PASS or FAIL) and one stops the reference player (LL, LLD, SC, SCD). Programs also converted like games (COP0 Cause and Register, COP1 ABS, ADD and C.EQ, and the sample of the night's summary): the native blocks equal the interpreter on every frame and draw the same verdicts | The tests and the interpreter are not silicon; krom's reference pictures were not made on our side. No VR4300 vectors exist; nemu64-tests not run (it needs a Rust nightly toolchain, a download not made). The failures are the core's (Mupen64Plus), reproduced by the native blocks, not fixed here |
+| G11 | ? | Not measured | No comparison with a console or another emulator |
+| G12 | Y | The panel of eight, none dropped, converted on Windows and on the Debian 13 PC; every route has the same trace hash and the same native and interpreted counts on both | |
+| G13 | Y | Same as G12: the traces of the eight games' 20 routes byte for byte equal on Windows and on a Debian 13 PC with integrated graphics; the compressed copy replayed on both | Nothing was played on Linux (window, sound, pad) |
+| G14 | P | The owner played three games for the experimental opening (8 November 2026) and F-Zero X; the play test of the eight is [the checklist below](#checklist-for-arthur-nintendo-64-play-test-g14) | The owner's play test of the panel and his decision |
+| G15 | Y | The report sets `hardware_accuracy_validated: false`, `full_game_validated: false`, `latency_ms: null`; the pages keep the five measures apart and say the N64 is not a fully recompiled system | |
+| G16 | ? | The N64 shares no paths. A received path would add native code beyond the receiver's routes: of a play route's instructions a Standard conversion leaves 2.3 % to 11.5 % on the interpreter (the panel) | The owner's decision: build the sharing, or not |
+
+### Checklist for Arthur: Nintendo 64 play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executables** in `Export/Games/Nintendo 64/` (converted on
+15 November 2026 from the tree `7b33bd9d`, Extended level, online covers on; nothing here asks you to convert anything). Eight games, about ten
+minutes each. A tick means "it looked and sounded right to you in this test"; nothing here says exact hardware, complete gameplay or latency.
+
+| | Super Mario 64 | Mario Kart 64 | F-Zero X | Banjo-Tooie | GoldenEye 007 | Rayman 2 | Majora's Mask | Ocarina of Time |
+|---|---|---|---|---|---|---|---|---|
+| Why it is here | the control; EEPROM | EEPROM and pak | SRAM; your open remark (vibration, vehicles' detail) | EEPROM 16 Kbit; the state's sound | its code under the TLB | saves on the controller pak | Flash; a long intro | SRAM; overlays |
+| It starts without an error window | | | | | | | | |
+| Stick and buttons answer (a gamepad is player 1; **F1** shows the keys) | | | | | | | | |
+| Sound is the game's (music and effects) | | | | | | | | |
+| **F8** in play, move on, **F9** goes back to the saved moment, sound included | | | | | | | | |
+| Close the window, start again, **F9** loads the state saved before | | | | | | | | |
+| **F3** graphics page: the picture stays right at another internal resolution | | | | | | | | |
+| Nothing odd: a frozen picture, silence, wrong colours, a crash | | | | | | | | |
+
+Then three checks:
+
+1. **A save made in the game.** In Super Mario 64 collect a star (or in Ocarina of Time save at a save prompt), quit, start again: the file
+   must be there. The cartridge save and the paks are kept in `datas/games/n64-<identity>/saves.bin`.
+2. **The controller pak.** In Rayman 2 start a new game, quit, start again and choose Load: the slot must be listed.
+3. **A game of your own.** Convert one cartridge of the library that is not in this list and play it like the others: which one, and what it
+   did, is the most useful line of this checklist.
+
+Known limits to keep in mind: no 64DD, Transfer Pak or VRU; the boot code and the rarest code run interpreted, counted; frame pacing is
+uneven in Ocarina of Time and not yet timed again; F-Zero X's two remarks are an open item. Keep the five measures apart when you judge.
 
 ## Panel sizes
 

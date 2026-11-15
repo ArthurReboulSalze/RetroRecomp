@@ -52,8 +52,9 @@ image; Retro-Recomp publishes no game and no firmware (the console needs none: t
    with no block runs the core's cached interpreter, also counted.
 4. **Validation.** The game executable is copied alone and replayed headless on the same bounded scripts (a main route of pad and
    stick inputs and, at the Standard level, a second exploration route, 3,600 frames each): the picture, sound, RDRAM and CPU
-   registers of every frame must equal the fresh reference's, and the report lists where every interpreted instruction ran, with
-   its class (gate G3). So must the compressed copy that is delivered. A quick state saved by the game is loaded by a fresh process,
+   registers of every frame must equal the fresh reference's, and every interpreted instruction is listed where it ran, with its
+   class (gate G3): the report gives the totals by class and the 256 most run sites, and names the file of the whole listing, with
+   its SHA-256, in the conversion's qualification folder. So must the compressed copy that is delivered. A quick state saved by the game is loaded by a fresh process,
    given the cartridge save as it was when the state was taken; its CPU, RDRAM, picture and sound must continue the unbroken run
    (section 6). A conversion that fails a check keeps the earlier export.
 
@@ -62,7 +63,7 @@ image; Retro-Recomp publishes no game and no firmware (the console needs none: t
 | Measure | What is known |
 | --- | --- |
 | **Native code** | The share of VR4300 instructions run by native blocks on the routes of each conversion, in its report (`final_checks[].native_instructions` and `interpreted_instructions`, counted the way the interpreter's loop counts them: a jump and its delay slot are one). The RSP's microcode runs on ParaLLEl-RSP's own recompiler and the RDP on the GPU: neither is VR4300 code and neither is counted as native. |
-| **CPU fidelity** | The native blocks equal the core's interpreter on every frame of the routes run (trace equality with a fresh reference). Agreement with the core, not with a real VR4300: no independent processor vectors have been run. |
+| **CPU fidelity** | The native blocks equal the core's interpreter on every frame of the routes run (trace equality with a fresh reference). Agreement with the core, not with a real VR4300. krom's 114 CPU test programs on the core's interpreter: 90 pass, 22 fail in named families (timing, the Status register after exceptions, unaligned accesses, CAUSE, PI DMA alignment), one draws no verdict and one stops the player ([QUALIFICATION.md](QUALIFICATION.md#nintendo-64-evidence-behind-its-column-15-november-2026), G10); no per-instruction vectors exist for the VR4300. |
 | **Hardware fidelity** | Mupen64Plus's and ParaLLEl's, unmeasured here. ParaLLEl-RDP is a low-level RDP; the RSP runs its real microcode. No comparison with a console. |
 | **Gameplay validation** | None: the routes are short bounded scripts, not play. |
 | **Physical latency** | Not measured. No speed or real-time claim is made: a game's speed depends on the graphics card, and integrated graphics are unverified. |
@@ -185,7 +186,15 @@ cartridge save as it was when the state was taken, as a player's game keeps its 
 **Graphics page and saves.** In runs without a visible window, every option of the F3 page was applied at start and the game kept its picture, 2x and 4x giving 1280 x 576 and 2560 x
 1152. The options were also changed in the middle of a run (the internal resolution up and down, and a VI filter, at given frames, through the kit's path): the
 rate held, with one stall of up to about 100 ms at a change of resolution. Ocarina of Time's SRAM: a file created in one process is
-found by a fresh process, and reading it leaves the file as it was. EEPROM, Flash and the controller paks were not exercised.
+found by a fresh process, and reading it leaves the file as it was.
+
+**Every save kind, 15 November 2026** (`tools/n64_saves_check.py` on the delivered programs of the panel, tree `4d41dd6a`). Each game writes its
+save on its own route, with nothing forced: the EEPROM of Super Mario 64 and GoldenEye 007 (4 Kbit) and of Banjo-Tooie (16 Kbit), the SRAM of
+Ocarina of Time and F-Zero X, the Flash of Majora's Mask, the controller pak of Rayman 2 (the note of the game it starts). For each, a fresh
+process given the kept file plays on, and again with a copy in which one byte of the written kind is changed: their RDRAM differs (from frame
+0 to 510 depending on when the game reads it), so the game reads the kept file, and reading it leaves the file as it was; a quick state taken
+before the save was written, loaded by a fresh process, leaves the file holding what the route wrote; a file cut to half, an empty file or a
+folder in its place never stops the game (600 frames) and is left as it was.
 
 **F-Zero X: what the owner saw, an open item (14 November 2026).** The owner played F-Zero X (PAL) and accepted it for the experimental version, seeing a vibration on
 the objects and an odd level of detail on the vehicles. He played at the 4x internal resolution with super-sampled read-back on and Weave deinterlacing. Measured from one
@@ -200,7 +209,7 @@ rate will decide.
 ### The panel of 15 November 2026 (1.7.6)
 
 Eight PAL cartridges chosen for what each adds, converted one at a time at the Extended level from an empty library each (Windows,
-llvm-mingw, an NVIDIA GeForce RTX 3090, tree `4d41dd6a`), none dropped: every route of every game equal to its fresh reference on the
+llvm-mingw, an NVIDIA GeForce RTX 3090, tree `7b33bd9d`; the same figures on `4d41dd6a`, before the state's checksum), none dropped: every route of every game equal to its fresh reference on the
 pure interpreter, frame by frame (picture, sound, RDRAM, CPU registers), the compressed copy too; the quick state continued in a fresh
 process on every frame of 400, sound included; the report lists every interpreted instruction, the counts adding up on every route.
 

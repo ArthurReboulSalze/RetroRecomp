@@ -365,6 +365,7 @@ def continuation(timeline: Path, resumed: Path) -> dict:
 
 
 STATE_SETTLE = 400            # frames a state loaded by a fresh process must continue the unbroken run
+REPORTED_SITES = 256          # the most run interpreted sites a route's report lists (the whole listing is a file of the qualification folder)
 # A quick state's header (native/n64_machine/n64_session.cpp): magic 8, the build's key 64, the frame 8, the sizes of the renderer's, the
 # audio's and the RSP's blocks 8 each, the checksum 8; then the blocks and the core's state.
 STATE_HEADER = 112
@@ -548,6 +549,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             done = results[name]
             sites = n64_native.classify_sites(done.get('interpreted_sites') or (), variants)
             classes = {kind: sum(site['count'] for site in sites if site['class'] == kind) for kind in n64_native.SITE_CLASSES}
+            # The whole listing stays in the qualification folder (tens of thousands of sites: tens of megabytes); the report keeps the
+            # totals by class and the most run sites.
+            listing = checks / f'interpreted-sites-{name}.json'
+            atomic_json(listing, sites)
             folder = checks / 'packed' / name
             # native_entries / interpreted_opcodes are the keys the common report (report_schema, v2) reads for the main CPU: here
             # VR4300 instructions, a jump and its delay slot counted as one by both.
@@ -559,7 +564,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
                          # Gate G3: where each interpreted instruction ran, with its class; the counts add up to the run's total.
-                         'interpreted_classes': {kind: n for kind, n in classes.items() if n}, 'interpreted_sites': sites,
+                         'interpreted_classes': {kind: n for kind, n in classes.items() if n}, 'interpreted_sites': sites[:REPORTED_SITES],
+                         'interpreted_sites_listing': {'file': str(listing), 'sites': len(sites), 'sha256': file_sha256(listing)},
                          'interpreted_sites_distinct': done.get('interpreted_sites_distinct'),
                          'interpreted_sites_unlisted': done.get('interpreted_sites_unlisted'),
                          'interpreted_sites_complete': native and sum(classes.values()) + (done.get('interpreted_sites_unlisted') or 0) == done['interpreted'],
