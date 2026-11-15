@@ -1100,6 +1100,8 @@
     "Smooth scaling (console)": "Плавное масштабирование (консоль)",
     "Dither smoothing": "Сглаживание дизеринга",
     "Supersampling": "Суперсэмплинг",
-    "Screen format: %s": "Формат экрана: %s"
+    "Screen format: %s": "Формат экрана: %s",
+    "Enter: remap | Del/X: clear | Left/Right: page": "Enter: назначить | Del/X: очистить | </>: страница",
+    "Enter / A: restore this page": "Enter / A: сбросить страницу"
   }
 }

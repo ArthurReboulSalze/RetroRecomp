@@ -280,17 +280,18 @@ static void full_script(void) {
         CHECK(last_has[0] && last_axes[0][0] == 1000 && last_axes[0][1] == 2000 && last_axes[0][2] == 3000 && last_axes[0][3] == 4000);
         scripted = false;
         axis(SDL_CONTROLLER_AXIS_LEFTX, 0);
-        /* F2 opens the tiles (1.7.4): Right is player 1's gamepad, Enter opens its page; Up wraps to the last row: the Stick
-         * dead zone row; Enter steps it */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RETURN);
+        /* F2 opens the tiles (1.7.4): Right is player 1's gamepad, Enter opens its page; Up wraps to the last row (1.7.6: Restore
+         * defaults), Up again: the Stick dead zone row; Enter steps it */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP);
+        key(SDL_SCANCODE_RETURN);
         break;
     case 19:
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
-        CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 2);
-        CHECK(rrhk_deadzone_row() && !rrhk_device_row());
+        CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 3);
+        CHECK(rrhk_deadzone_row() && !rrhk_device_row() && !rrhk_restore_row());
         CHECK(ui->deadzone[0] == 15);
-        /* 24 rows (1.7.5: four combinations): the page shows fifteen, scrolled to the selected last row */
-        CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
+        /* 1.7.6: six combinations and Restore defaults: the page shows fifteen, the selected row (Up twice in one frame) the last */
+        CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 3 - 16);
         key(SDL_SCANCODE_UP);      /* the Gamepad row is just above it */
         break;
     case 20:
@@ -300,7 +301,7 @@ static void full_script(void) {
     case 21:
         CHECK(ui->deadzone[0] == 0 && ini(L"Test3D.Gamepad.Player1", L"deadzone") == 0);
         /* the window moves only when the selected row would leave it */
-        ui->row = ACTIONS + RRHK_COMBO_ROWS + 2 - 14; CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
+        ui->row = ACTIONS + RRHK_COMBO_ROWS + 3 - 14; CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 3 - 16);
         ui->row = 0; CHECK(rrhk_page_scroll() == 0);
         ui->row = 14; CHECK(rrhk_page_scroll() == 0);
         ui->row = 16; CHECK(rrhk_page_scroll() == 2);
@@ -578,8 +579,8 @@ static void plain_script(void) {
         break;
     case 6:     /* no Stick dead zone row */
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1);
-        CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 1);
-        key(SDL_SCANCODE_UP);
+        CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 2);
+        key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP);     /* 1.7.6: Restore defaults, then the Gamepad row */
         break;
     case 7:
         CHECK(rrhk_device_row() && !rrhk_deadzone_row());
@@ -685,7 +686,7 @@ static void quick_script(void) {
         break;
     case 1:
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
-        CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 1);
+        CHECK(rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 2);
         CHECK(!rrhk_combo_set(2, true) && !rrhk_combo_set(3, true) && rrhk_combo_set(2, false) && rrhk_combo_set(3, false));
         ui->row = QUICK_ROW; key(SDL_SCANCODE_RETURN);
         break;
@@ -806,12 +807,12 @@ static void pad_row_script(void) {
         break;
     case 1:     /* player 1's gamepad page has no machine row */
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
-        CHECK(rrhk_pad_rows_here() == 0 && rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 1 && rrhk_action_row() == ui->row);
+        CHECK(rrhk_pad_rows_here() == 0 && rrhk_page_rows() == ACTIONS + RRHK_COMBO_ROWS + 2 && rrhk_action_row() == ui->row);
         key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RIGHT);      /* player 2's keyboard page, then its gamepad page */
         break;
     case 2:
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 1);
-        CHECK(rrhk_pad_rows_here() == 1 && rrhk_page_rows() == 1 + ACTIONS + 1 && ui->row == 0);
+        CHECK(rrhk_pad_rows_here() == 1 && rrhk_page_rows() == 1 + ACTIONS + 2 && ui->row == 0);
         CHECK(rrhk_pad_row_at(0) == &port_row && !rrhk_pad_row_at(1) && rrhk_action_row() == -1);
         key(SDL_SCANCODE_RETURN);                              /* Enter: the next value */
         break;
@@ -919,6 +920,83 @@ static void stick_script(void) {
     case 17: CHECK(!(last_pad[0] & CROSS_BIT)); axis(SDL_CONTROLLER_AXIS_RIGHTX, -30000); break; /* the other way: nothing */
     case 20: CHECK(!(last_pad[0] & CROSS_BIT)); axis(SDL_CONTROLLER_AXIS_RIGHTX, 0); break;
     case 21: stop = true; break;
+    default: break;
+    }
+}
+
+/* 1.7.6: any binding row of any machine (this one sets no bindings_clearable) is cleared without a capture: Delete and Backspace on
+ * a keyboard page, the pad's X on a gamepad page, a combination too; each is written as cleared and the next start keeps it so
+ * (clear_again). There, Restore defaults (the last row) gives the page's defaults back, swapping a default another action holds;
+ * the other player's keys are untouched. */
+static SDL_Scancode player2_key;
+static void clear_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); break;                /* player 1's keyboard page */
+    case 1:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 0 && ui->player == 0);
+        ui->row = A_CROSS; key(SDL_SCANCODE_DELETE);
+        break;
+    case 2:
+        CHECK(!ui->capturing && ui->keys[0][A_CROSS] == SDL_SCANCODE_UNKNOWN);
+        CHECK(ini(L"Test3D.Keyboard.Player1", L"Cross") == 0);
+        ui->row = A_CIRCLE; key(SDL_SCANCODE_BACKSPACE);
+        break;
+    case 3:
+        CHECK(!ui->capturing && ui->keys[0][A_CIRCLE] == SDL_SCANCODE_UNKNOWN && ini(L"Test3D.Keyboard.Player1", L"Circle") == 0);
+        rrhk_assign(0, A_CIRCLE, false, SDL_SCANCODE_W);       /* as F2 would: Circle on Cross's default key */
+        CHECK(ui->keys[0][A_CROSS] == SDL_SCANCODE_UNKNOWN);   /* assigning takes nothing from a row without a key */
+        key(SDL_SCANCODE_RIGHT);                               /* player 1's gamepad page */
+        break;
+    case 4:
+        CHECK(ui->gamepad_page == 1 && ui->player == 0);
+        ui->row = A_SQUARE; button(SDL_CONTROLLER_BUTTON_X, true);
+        break;
+    case 5:
+        button(SDL_CONTROLLER_BUTTON_X, false);
+        CHECK(!ui->capturing && (int)ui->buttons[0][A_SQUARE] == -1 && ini(L"Test3D.Gamepad.Player1", L"Square") == -1);
+        ui->row = ACTIONS + RRHK_COMBO_FAST; key(SDL_SCANCODE_DELETE);     /* Fast forward, R2 by default */
+        break;
+    case 6:
+        CHECK(!rrhk_combo_set(RRHK_COMBO_FAST, true));
+        player2_key = ui->keys[1][A_CROSS];
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 7: stop = true; break;
+    default: break;
+    }
+}
+static void clear_again(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0:     /* read back as cleared, not as the defaults */
+        CHECK(ui->keys[0][A_CROSS] == SDL_SCANCODE_UNKNOWN && ui->keys[0][A_CIRCLE] == SDL_SCANCODE_W);
+        CHECK((int)ui->buttons[0][A_SQUARE] == -1 && !rrhk_combo_set(RRHK_COMBO_FAST, true));
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP);
+        break;
+    case 1:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 0 && rrhk_restore_row());
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 2:
+        CHECK(ui->keys[0][A_CROSS] == SDL_SCANCODE_W && ui->keys[0][A_CIRCLE] == SDL_SCANCODE_X);
+        CHECK(ini(L"Test3D.Keyboard.Player1", L"Cross") == SDL_SCANCODE_W && ini(L"Test3D.Keyboard.Player1", L"Circle") == SDL_SCANCODE_X);
+        CHECK(ui->keys[1][A_CROSS] == player2_key && !strcmp(ui->status, "Default bindings restored"));
+        CHECK((int)ui->buttons[0][A_SQUARE] == -1);             /* the keyboard page restores keys only */
+        key(SDL_SCANCODE_RIGHT);
+        break;
+    case 3: ui->row = 0; key(SDL_SCANCODE_UP); break;          /* the gamepad page's last row */
+    case 4:
+        CHECK(ui->gamepad_page == 1 && rrhk_restore_row());
+        button(SDL_CONTROLLER_BUTTON_A, true);                  /* A: Enter */
+        break;
+    case 5:
+        button(SDL_CONTROLLER_BUTTON_A, false);
+        CHECK(ui->buttons[0][A_SQUARE] == SDL_CONTROLLER_BUTTON_X && ui->buttons[0][A_CROSS] == SDL_CONTROLLER_BUTTON_A);
+        CHECK(ini(L"Test3D.Gamepad.Player1", L"Square") == SDL_CONTROLLER_BUTTON_X && rrhk_combo_set(RRHK_COMBO_FAST, true));
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 6: stop = true; break;
     default: break;
     }
 }
@@ -1111,6 +1189,13 @@ int main(int argc, char **argv) {
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 2);
     plain.widescreen = false;
+    /* 13. 1.7.6: clearing any binding, Restore defaults. */
+    begin(clear_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 8);
+    begin(clear_again);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 7);
     /* 10. 1.7.6: the graphics page from F2 and from the options page, on the machine that has one. */
     current = &full;
     begin(graphics_entry_script);

@@ -254,6 +254,22 @@ unsigned rrhk_combo_triggers(int index) {
     return ((pad & RR_PAD_R2) ? 1u : 0u) | ((pad & RR_PAD_L2) ? 2u : 0u);
 }
 void rrhk_combo_clear(int index, bool gamepad) { rr_combo_clear(index, gamepad); }
+/* 1.7.6: the combination's row has the page's own footer (Enter, Delete): not a fixed key, no capture under way. */
+bool rrhk_combo_plain(int index, bool gamepad) { return !rr_options.capture && !rr_combo_fixed(index, gamepad); }
+/* 1.7.6: Restore defaults on player 1's page: every combination of that page as a first start gives it (no keys; the pad's
+ * defaults), written as such. */
+void rrhk_combo_restore(bool gamepad) {
+    for (int c = 0; c < RR_COMBO_ROWS; ++c) {
+        if (rr_combo_fixed(c, gamepad)) continue;
+        RrCombo *combo = &rr_options.combo[c];
+        if (!gamepad) {
+            const wchar_t *const *entries = rr_combo_info[c].keys;
+            if (rr_options_store(entries[0], 0) && rr_options_store(entries[1], 0) && rr_options_store(entries[2], 0))
+                memset(combo->key, 0, sizeof combo->key);
+        } else if (rr_options_store(rr_combo_info[c].pad, (int)rr_combo_info[c].pad_default)) combo->pad = (int)rr_combo_info[c].pad_default;
+    }
+    rr_options.status[0] = 0;
+}
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_combo_value(out, size, index, gamepad); }
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }
 const char *rrhk_combo_hint(int index, bool gamepad) { return rr_combo_hint(index, gamepad); }

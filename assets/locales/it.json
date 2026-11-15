@@ -1100,6 +1100,8 @@
     "Smooth scaling (console)": "Scala smussata (console)",
     "Dither smoothing": "Smussatura del dithering",
     "Supersampling": "Supercampionamento",
-    "Screen format: %s": "Formato schermo: %s"
+    "Screen format: %s": "Formato schermo: %s",
+    "Enter: remap | Del/X: clear | Left/Right: page": "Invio: assegna | Canc/X: cancella | </>: pagina",
+    "Enter / A: restore this page": "Invio / A: ripristina la pagina"
   }
 }
