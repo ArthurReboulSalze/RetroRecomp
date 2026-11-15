@@ -1,4 +1,4 @@
-"""Sony PlayStation profile (experimental since 1.7.1: see docs/PLAYSTATION.md).
+"""Sony PlayStation profile (supported since 1.7.6, open as experimental in 1.7.1: see docs/PLAYSTATION.md).
 
 The machine is listed when the installation carries the converter's own files (`available()`).
 
@@ -31,7 +31,7 @@ class PlayStationProfile(SystemProfile):
     extensions = DISC_EXTENSIONS
     export_folder = 'PlayStation'
     video_modes = ('ntsc', 'pal')
-    status = 'experimental'
+    status = 'supported'        # the owner's decision of 15 November 2026 after his play test (G14; docs/PLAYSTATION.md, section 8)
     scope_note = 'PlayStation discs (NTSC-U, NTSC-J, PAL), software rendering'
     cpus = (Cpu('r3000a', 'main', 'instructions'),)
     media_kinds = ('disc',)

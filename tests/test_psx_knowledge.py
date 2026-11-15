@@ -110,5 +110,15 @@ class PsxKnowledgeTests(unittest.TestCase):
             __import__('json').dumps(one, sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest())
 
 
+class StatusTests(unittest.TestCase):
+    def test_the_playstation_is_supported_and_shares_as_the_experimental_tier(self):
+        """The owner's play test of 15 November 2026 (G14): the PlayStation leaves the experimental status in 1.7.6; its shared paths
+        stay the experimental tier of the base, as on the other machines that left it."""
+        from retrorecomp.systems import get_profile
+        profile = get_profile('psx')
+        self.assertEqual((profile.status, profile.linux), ('supported', 'witnessed'))
+        self.assertEqual(profile.shared_knowledge.tier, 'experimental')
+
+
 if __name__ == '__main__':
     unittest.main()

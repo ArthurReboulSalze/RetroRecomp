@@ -231,10 +231,11 @@ recognises becomes one executable holding the whole game, with ScummVM as its ru
 nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
 that need Ogg Vorbis, FLAC or MP3 decoders are not supported yet ([details](SCUMMVM.md)).
 
-The **Sony PlayStation** profile is experimental since 1.7.1 ([status](PLAYSTATION.md)): a conversion makes a
+The **Sony PlayStation** profile is supported since 1.7.6, on the owner's decision of 15 November 2026 after his play test (open in 1.7.1; [status](PLAYSTATION.md)): a conversion makes a
 playable game whose R3000A code, as far as its routes saw it run, is guarded native steps; the rest runs on the interpreter and
 is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
-pad) and its checks are on [its page](PLAYSTATION.md).
+pad) and its checks are on [its page](PLAYSTATION.md). Its picture is drawn in software on one thread: 1x and 2x hold speed, a higher
+internal resolution is heavy in 3D scenes.
 
 The **MSX** profile is supported since 1.7.5, on the owner's decision of 14 November 2026 (it opened in 1.7.3; [G14](QUALIFICATION.md#owner-acceptance), [status](MSX.md)): it converts MSX1 cartridges (`.rom`, `.mx1`, or a ZIP
 holding one: plain 8 KiB to 64 KiB, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), booted by C-BIOS 0.29a or by your own MSX BIOS, within

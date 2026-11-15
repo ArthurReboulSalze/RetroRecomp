@@ -1,6 +1,7 @@
-# Sony PlayStation (experimental)
+# Sony PlayStation
 
-The PlayStation profile is **experimental** since 1.7.1. A conversion
+The PlayStation profile is **supported** since 1.7.6, on the owner's decision of 15 November 2026 after his play test (open as
+experimental in 1.7.1; [section 8](#8-the-exit-from-the-experimental-status-15-november-2026-supported-from-176)). A conversion
 makes a playable game whose R3000A code, as far as the conversion saw it run, is **native steps**; the rest runs on the machine's
 interpreter and is counted and reported. This page says what it converts, how, and what it does not claim. The five measures
 stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency.
@@ -111,7 +112,7 @@ Each line is one measure; none says anything about the others. The record is in
 - **Linux**: Ape Escape (EBOOT) and WipEout 2097 (CUE/BIN, PAL), converted on a Debian 13 PC with GCC, give the same values as
   Windows on all three routes. No game played on Linux.
 
-## 5. Leaving the experimental status: what each gate means here
+## 5. What each gate meant here (written before the exit)
 
 The PlayStation is, like the Amiga and the Atari ST, an emulator core with native code. Beetle PSX runs the machine, and the
 conversion turns the R3000A code its routes ran into native steps. The gates of [STANDARDS.md](STANDARDS.md#supported-checklist)
@@ -196,3 +197,24 @@ zeros give the R3000A's NOP, which real code holds too).
 ## 7. Not in this first scope
 
 Mouse, multitap, light guns, the hardware renderers, LibCrypt and other sub-channel protections, CHD images, the PSP-derived BIOS.
+
+## 8. The exit from the experimental status (15 November 2026, supported from 1.7.6)
+
+The owner played the delivered exports on 15 November 2026 (said of the Nintendo 64 and the PlayStation together):
+« Je viens de tester la Nintendo 64 et la PlayStation sur plusieurs jeux. Donc, le comportement du jeu en lui-même, ça me paraît plutôt solide et plutôt réactif. Je n'ai pas eu de bug graphique. J'ai pu aussi faire une sauvegarde sur Gran Turismo 2 qui a fonctionné. » Asked whether to take the PlayStation out of the experimental status: « Oui, sors-la ».
+
+What the exit rests on ([QUALIFICATION.md](QUALIFICATION.md#sony-playstation-evidence-behind-its-column-15-november-2026)): eight discs at 0
+interpreted instructions on all 24 routes, every frame equal to the interpreter including the CPU state, F9 in a fresh process on all eight, the
+same values on a Debian 13 PC, two games' saves read back in a fresh process, the routes read into play or named with their stop, the ps1-tests
+GPU programs drawing what a console drew, and shared paths.
+
+**Limits, written:**
+- **Resolution.** The picture is drawn in software on one thread. 1x and 2x hold speed (the owner's own test held at 1x); 4x is too heavy for 3D
+  racing on the owner's PC (frames up to 33 ms on one licence drive of Gran Turismo 2, a full race heavier) and 8x is never in time. 2x is the
+  advised raised resolution.
+- **Native code** is the code the routes ran: code a game reaches later runs on the counted interpreter, shown in the window title, and becomes
+  native at the next conversion with the player's F12 hints. What a game decompresses stays private in the shared paths.
+- **Route depth.** Metal Gear Solid's routes go back to its title after the level select; Gran Turismo 2's stay in its credits (its races were
+  driven by the owner and on a licence route).
+- No hardware-fidelity claim, no latency measure, no game validated as played through.
+

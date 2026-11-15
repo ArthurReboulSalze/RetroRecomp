@@ -28,7 +28,7 @@ fallback stays counted and shown wherever it is used.
 | Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
 | Atari ST | supported (since 1.7.5; shares its paths since 1.7.5) | the Linux half of the sharing, more games played, the Linux play, the STE |
 | Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
-| Sony PlayStation | experimental (since 1.7.1) | the owner's play of the panel discs, more discs, the Linux witness on more than one disc |
+| Sony PlayStation | supported (since 1.7.6; experimental from 1.7.1) | 2x and 4x at speed (a threaded or hardware renderer), Metal Gear Solid's and Gran Turismo 2's route depth, the GTE vectors through native steps, mouse, multitap and light guns |
 | MSX | supported (since 1.7.5) | route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
 | MSX2 | supported (since 1.7.5) | battery saves shown on an MSX2 game, route depth on menu-driven games, the command engine's timing, independent hardware evidence, FM-PAC |
 | MSX2+ | supported (since 1.7.6; experimental from 1.7.4) | route depth (Golvellius II's intro, Pachipro Densetsu's date entry), the Linux half of shared paths, MSX-MUSIC's level on games, independent hardware evidence, FM-PAC |
@@ -153,8 +153,10 @@ a game played on Linux. The 64DD is out of scope today.
 
 ### Sony PlayStation
 
-Experimental since 1.7.1 ([PLAYSTATION.md](PLAYSTATION.md)): discs on Beetle PSX with native R3000A steps for the code the conversion saw run. Next:
-the owner's play of the panel discs, more discs, the Linux witness beyond one disc, and the mouse, multitap and light guns, which are out of scope today.
+Supported since 1.7.6, on the owner's decision of 15 November 2026 after his play test (open as experimental in 1.7.1;
+[PLAYSTATION.md](PLAYSTATION.md)): discs on Beetle PSX with native R3000A steps for the code the conversion saw run, the CPU state compared
+on every frame, shared paths. Next: 2x and 4x at speed (the renderer is software on one thread), the route depth of Metal Gear Solid and Gran Turismo 2,
+the GTE vectors through native steps, and the mouse, multitap and light guns, which are out of scope today.
 
 ### MSX
 

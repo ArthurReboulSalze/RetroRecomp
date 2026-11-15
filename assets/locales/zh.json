@@ -563,7 +563,7 @@
     "options_pce": "PC Engine / TurboGrafx-16",
     "options_pce_note": "PC Engine / TurboGrafx-16 配置：支持标准板和 Street Fighter II 板的 HuCard（.pce，或包含它的 ZIP；美版 TurboGrafx-16 卡带，两种转储方式都可），NTSC，双人。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。不支持 CD-ROM2 和 SuperGrafx。",
     "options_psx": "Sony PlayStation",
-    "options_psx_note": "实验性的 Sony PlayStation 配置：光盘（EBOOT .pbp、CUE/BIN、CloneCD .ccd、ISO），NTSC 和 PAL，双人。请提供自己的 BIOS（没有时使用 OpenBIOS）。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。",
+    "options_psx_note": "Sony PlayStation 配置：光盘（EBOOT .pbp、CUE/BIN、CloneCD .ccd、ISO），NTSC 和 PAL，双人。请提供自己的 BIOS（没有时使用 OpenBIOS）。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。",
     "psx_bios": "PlayStation BIOS（文件）",
     "knowledge_achievement": "成就解锁",
     "knowledge_discovery": "项发现",

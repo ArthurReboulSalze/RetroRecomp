@@ -49,7 +49,7 @@ gameplay feedback kind is 21. See [Game Boy Advance](GAME_BOY_ADVANCE.md).
 The **Commodore Amiga** profile (`amiga`, supported since 1.7.5, open since 1.7.0) converts `.lha` WHDLoad installs
 (a Kickstart 1.x of your own for those that ask for one) and exports to `Games/Amiga`; see [Amiga](AMIGA.md).
 
-The **Sony PlayStation** profile (`psx`, experimental since 1.7.1) converts discs (EBOOT, CUE/BIN, CloneCD, ISO)
+The **Sony PlayStation** profile (`psx`, supported since 1.7.6, open in 1.7.1) converts discs (EBOOT, CUE/BIN, CloneCD, ISO)
 and exports to `Games/PlayStation`; see [PlayStation](PLAYSTATION.md).
 
 The **MSX** profile (`msx`, experimental since 1.7.3) identifies MSX1 cartridges (`.mx1`, or a `.rom` or `.bin` whose bytes hold an MSX cartridge

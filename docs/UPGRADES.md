@@ -89,6 +89,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
+| [Sony PlayStation: supported](#sony-playstation-supported-176) | the PlayStation (`retrorecomp/systems/psx.py`, its status) | none | none |
 | [Sony PlayStation: shared paths](#sony-playstation-shared-paths-176) | the PlayStation | none | none |
 | [Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable](#sony-playstation-the-cpu-state-is-compared-every-interpreted-instruction-is-listed-the-gtes-quick-state-is-fixed-the-memory-card-is-set-aside-when-unusable-176) | the PlayStation | the PlayStation's host stamp | PlayStation states of 1.7.5 refused (another build) |
 
@@ -197,6 +198,17 @@ nothing was saved for that session. The card stays the raw 128 KiB other program
 **Stamps** (`compilation_inputs.role_stamps`, the branch as a whole, the shared paths and G11 included, against main `ffbaee01`, at `6a5d9e9b`): the PlayStation's game stamp (`55f0e406d72d` to `8a84b9740b28`) and host stamp (`bd8f35608de2` to `58aa32803f59`); every other machine's stamps equal main's. **Existing exports:** converted again in full at their next conversion. **Quick states:** a PlayStation state of 1.7.5 is
 refused (another build), as for any change of the game. **Hot path:** the step hook calls one more step lookup when a step hands
 back a word, which the routes measure as a gain (no interpreted instruction left on Ape Escape's routes); no timing was taken.
+
+## Sony PlayStation: supported (1.7.6)
+
+**Status.** The PlayStation is supported from 1.7.6, on the owner's decision of 15 November 2026 after his play test (G14, the owner-acceptance
+table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance); [PLAYSTATION.md](PLAYSTATION.md#8-the-exit-from-the-experimental-status-15-november-2026-supported-from-176)).
+The profile's status is `supported`, the conversion report's `status` is read from the profile and the Options note loses "experimental" in
+the eight languages. Nothing a conversion does changes.
+
+**Stamps:** the PlayStation's game stamp (the profile is among its inputs); its host and build stamps do not move for this change.
+**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged by this change. **Site limits:**
+unchanged by this change. **Hot path:** no.
 
 ## Sony PlayStation: shared paths (1.7.6)
 
