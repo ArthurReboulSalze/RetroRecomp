@@ -258,6 +258,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
                                  (self.language_field, 'language', 'tip_language')):
             self.tooltips.append(Tooltip(field, lambda name=name, tip=tip: f'{self.tr(name)}\n{self.tr(tip)}'))
         self.header_fields = (self.system_field, self.language_field)
+        self.size_header_fields()
         self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='ne')
                                     for field in self.header_fields)
         # The player's account: portrait, name, score and the board.
