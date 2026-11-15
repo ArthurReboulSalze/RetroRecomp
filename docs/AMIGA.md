@@ -254,8 +254,8 @@ not changed by it.
   with another emulator only); gameplay rests on Arthur's play test, still to come; latency is not measured.
 - **One known failure:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
   real WHDLoad does not reach it is not found).
-- **Pinball Illusions' black title, fixed in 1.7.7.** In 1.7.6 its screen stayed black with the music playing after the intro. The game
-  was running: its title is an eight-plane dual playfield whose two priorities in `BPLCON2` are 7 (`$003F`). OCS and ECS Denise draw
+- **Pinball Illusions' black title, fixed in 1.7.7.** In 1.7.6 its screen stayed black with the music playing after the intro; that
+  screen is the table selection, and F1 to F4 still choose a table there (Arthur, 15 November 2026). The game was running: its title is an eight-plane dual playfield whose two priorities in `BPLCON2` are 7 (`$003F`). OCS and ECS Denise draw
   such a playfield transparent; AGA's Lisa draws it, and vAmiga applied the OCS rule on every chipset, so each pixel became colour 0.
   The adapted Core now keeps that rule for OCS and ECS only (`retrorecomp/amiga_vamiga_display.py`, picture-only changes kept apart
   from the generator's sources). The picture alone changes: on 5,600 frames of the game the sound, the memory and the CPU are the

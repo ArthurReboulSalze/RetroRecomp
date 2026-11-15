@@ -1538,7 +1538,8 @@ JST's), reaches a loop that calls `OpenResource` through that ExecBase and stops
 
 **Pinball Illusions** passed every check of the panel in 1.7.6, but after its intro the screen stayed black with the music playing
 (Arthur's play test of 15 November 2026), where the private oracle under the real WHDLoad goes on to « Loading » and the title. The
-interpreted reference machine showed the same black screen: the checks compare the native run with that machine, so they could not see
+interpreted reference machine showed the same black screen. It is the table-selection screen: F1 to F4 still choose a table on it
+(Arthur), so in 1.7.6 the game can be played. The checks compare the native run with that machine, so they could not see
 it. **Cause, found and fixed in 1.7.7:** the game was running and its copper list was the title's (`COP1LC` `$A748`, `DMACON` `$03FE`,
 `BPLCON0` `$0611`: eight planes in dual playfield); it writes `$003F` to `BPLCON2`, priority 7 for both playfields. vAmiga drew a
 dual playfield whose priority is above 4 transparent on every chipset, which only OCS and ECS Denise do; every pixel was colour 0. The
