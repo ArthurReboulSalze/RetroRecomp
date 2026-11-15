@@ -287,9 +287,9 @@ int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]) {
         for (size_t n = 0; n < frame_audio_count; n++) nonzero += frame_audio[n] != 0;
         if (info.nonblack) nonuniform_frames++;
         if (trace_file)
-            fprintf(trace_file, "%u,%016llx,%016llx,%016llx,%u,%d,%dx%d,%016llx\n", frame, (unsigned long long)info.ram,
+            fprintf(trace_file, "%u,%016llx,%016llx,%016llx,%u,%d,%dx%d,%016llx,%016llx\n", frame, (unsigned long long)info.ram,
                     (unsigned long long)info.video, (unsigned long long)info.pcm, info.samples, info.audible, info.width,
-                    info.height, (unsigned long long)info.cpu);
+                    info.height, (unsigned long long)info.cpu, (unsigned long long)info.vram);
     }
     if (save_path && save_at == frame && !state_file(save_path, 0)) save_failed = 1;
     if (capture_dir && !(frame % capture_every)) {
@@ -494,7 +494,7 @@ static int execute(int argc, char **argv) {
         if (!rr_psx_gfx_assign(gfx[n], !headless)) { fprintf(stderr, "unknown graphics option %s\n", gfx[n]); return 2; }
     if (trace_path) {
         if (!(trace_file = file_open(trace_path, L"wb"))) return 3;
-        fprintf(trace_file, "frame,ram,image,pcm,samples,audible,size,cpu\n");
+        fprintf(trace_file, "frame,ram,image,pcm,samples,audible,size,cpu,vram\n");   /* format 2 (retrorecomp/psx_conversion.py) */
     }
     if (load_path) {
         state_loaded = state_file(load_path, 1);

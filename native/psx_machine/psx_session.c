@@ -19,6 +19,7 @@
 #include "psx_session.h"
 
 #include <libretro.h>
+#include "mednafen/psx/gpu.h"
 #include <encodings/deflate.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -685,6 +686,10 @@ static uint64_t fnv(const void *data, size_t size, uint64_t h) {
     return h;
 }
 
+/* The core's GPU (mednafen/psx/gpu.c): its VRAM, at its upscale factor. With the Vulkan renderer the software renderer keeps
+ * a copy at 1x ("Software Framebuffer"), the one a game reads back. */
+extern PS_GPU GPU;
+
 void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info) {
     const uint64_t basis = 0xcbf29ce484222325ull;
     memset(info, 0, sizeof *info);
@@ -705,6 +710,7 @@ void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info) {
     for (size_t n = 0; n < sizeof cpu / sizeof cpu[0]; ++n)
         for (unsigned b = 0; b < 4; ++b) bytes[n * 4 + b] = (uint8_t)(cpu[n] >> (8 * b));
     info->cpu = fnv(bytes, sizeof bytes, basis);
+    info->vram = GPU.vram ? fnv(GPU.vram, ((size_t)1024 << GPU.upscale_shift) * ((size_t)512 << GPU.upscale_shift) * 2u, basis) : 0;
     for (int y = 0; s->picture && y < s->height && !info->nonblack; ++y)
         for (int x = 0; x < s->width; ++x) if (s->picture[(size_t)y * s->pitch + x] & 0x00ffffffu) { info->nonblack = 1; break; }
     for (size_t i = 0; i < s->audio_frames * 2; ++i) if (s->audio[i] > 64 || s->audio[i] < -64) { info->audible = 1; break; }

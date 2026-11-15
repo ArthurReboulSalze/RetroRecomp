@@ -114,18 +114,42 @@ def routes(identity: str, *, frames: int, level: str) -> list[tuple[str, int, st
 
 # ------------------------------------------------------------------ runs and traces
 
+# The per-frame trace a game writes with --trace (native/psx_machine/psx_main.c), by format: its header names its columns. Format 2
+# (1.7.7) adds `vram`, the hash of the core's VRAM, which is what the console drew whichever renderer shows it (the Vulkan
+# renderer's picture is the graphics card's own, never compared). Format 1 is the traces of 1.7.1 to 1.7.6.
+TRACE_FORMATS = {
+    1: 'frame,ram,image,pcm,samples,audible,size,cpu',
+    2: 'frame,ram,image,pcm,samples,audible,size,cpu,vram',
+}
+TRACE_FORMAT = 2
+
+
+def trace_format(trace: Path) -> int:
+    """The format of a trace from its header; a trace of no known format is refused."""
+    lines = Path(trace).read_text(encoding='ascii').splitlines()
+    header = lines[0] if lines else ''
+    for number, columns in TRACE_FORMATS.items():
+        if header == columns:
+            return number
+    raise ConversionError(f'{Path(trace).name}: not a PlayStation trace of a known format (its header is "{header[:80]}").')
+
+
 def trace_rows(trace: Path):
     from .delivery_evidence import FrameRow
-    for line in Path(trace).read_text(encoding='ascii').splitlines():
+    width = len(TRACE_FORMATS[trace_format(trace)].split(','))
+    for line in Path(trace).read_text(encoding='ascii').splitlines()[1:]:
         fields = line.split(',')
-        if len(fields) != 8 or not fields[0].isdigit():
+        if len(fields) != width or not fields[0].isdigit():
             continue
         yield FrameRow(int(fields[0]), fields[2], sound=fields[3], audible=fields[5] == '1')
 
 
 def trace_difference(actual: Path, expected: Path) -> int | None:
-    """The first frame where two traces differ (None: the same RAM, picture, sound and CPU state on every frame)."""
+    """The first frame where two traces differ (None: the same RAM, picture, sound, CPU state and, from format 2, VRAM on every
+    frame). Traces of two formats are never compared: one of them comes from another build."""
     from .conversion_gates import first_difference
+    if trace_format(actual) != trace_format(expected):
+        raise ConversionError('PlayStation traces of two formats cannot be compared (one comes from a build before 1.7.7).')
     one = Path(actual).read_text(encoding='ascii').splitlines()[1:]
     other = Path(expected).read_text(encoding='ascii').splitlines()[1:]
     return first_difference(one, other)

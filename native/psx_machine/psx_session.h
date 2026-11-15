@@ -85,6 +85,9 @@ typedef struct RrPsxFrameInfo {
                                         * pending load, SR, CAUSE, EPC, and the GTE's 64 registers */
     uint32_t samples;                  /* stereo frames of sound this frame */
     int width, height, nonblack, audible;
+    uint64_t vram;                     /* FNV-1a 64 of the core's VRAM (1024 x 512 halfwords at 1x, the software renderer's own
+                                        * copy; larger at a raised resolution of the software renderer): what the console drew,
+                                        * whichever renderer shows it (1.7.7) */
 } RrPsxFrameInfo;
 void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info);
 

@@ -85,8 +85,28 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [Sony PlayStation: the trace records the VRAM (format 2)](#sony-playstation-the-trace-records-the-vram-format-2-177) | the PlayStation (`psx_session.c`, `psx_session.h`, `psx_main.c`, `psx_conversion.py`) | the PlayStation's host stamp (`psx_session.c`) | none |
 | [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
 | [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
+
+## Sony PlayStation: the trace records the VRAM (format 2) (1.7.7)
+
+**What changes.** The per-frame trace a PlayStation game writes for its checks (`--trace`) gains a ninth column, `vram`: the hash
+of the core's VRAM, the 1 MiB the console drew into (larger when the software renderer draws at a raised resolution). With the
+Vulkan renderer the picture a game shows is the graphics card's own and is never compared; the VRAM, kept by the software
+renderer's copy at 1x, is what a check compares instead (on Ape Escape it is equal to the software renderer's on every frame,
+with RAM, CPU state and sound). The trace has a format, named by its header line (`psx_conversion.TRACE_FORMATS`): format 1 is
+the eight columns of 1.7.1 to 1.7.6, format 2 the nine of 1.7.7. Both are read; a trace of no known format is refused with a
+sentence, and two traces of different formats are never compared (one of them comes from another build).
+
+**Existing reports and qualified evidence.** A conversion report carries no trace, only what the routes showed (liveness fields):
+reports of 1.7.6 are unchanged and still read. The traces kept as evidence of the 1.7.6 qualification are format 1 and stay
+readable; they are never compared with a 1.7.7 trace (a comparison across builds was never a proof). The conversion compares
+traces of one build only, so nothing it checks changes.
+
+**Stamps:** the PlayStation's game stamp (`psx_main.c`, `psx_session.h`, `psx_conversion.py`) and host stamp (`psx_session.c`).
+**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged by this change. **Hot path:**
+no (the VRAM is hashed in the checks' headless runs only).
 
 ## Nintendo 64 and PlayStation: one Vulkan frontend (1.7.7)
 
