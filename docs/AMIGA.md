@@ -252,11 +252,15 @@ not changed by it.
   2026, [the evidence](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)): 0 or 1 interpreted instruction a
   route, the 1 a Kickstart instruction. Hardware fidelity is not claimed (vAmiga marks its AGA Denise as partly done; pictures are compared
   with another emulator only); gameplay rests on Arthur's play test, still to come; latency is not measured.
-- **Two known failures:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
-  real WHDLoad does not reach it is not found). Pinball Illusions converts with every check passed, but after its intro the screen stays
-  black with the music playing, where the private oracle under the real WHDLoad goes on to « Loading » and the title; the interpreted
-  reference machine shows the same black screen, so it is our machine model or layer, not the native code; the cause is not found (its
-  copper lists program no beam; it uses eight planes in dual playfield, `FMODE` `$000F` and `BPLCON4`).
+- **One known failure:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
+  real WHDLoad does not reach it is not found).
+- **Pinball Illusions' black title, fixed in 1.7.7.** In 1.7.6 its screen stayed black with the music playing after the intro; that
+  screen is the table selection, and F1 to F4 still choose a table there (Arthur, 15 November 2026). The game was running: its title is an eight-plane dual playfield whose two priorities in `BPLCON2` are 7 (`$003F`). OCS and ECS Denise draw
+  such a playfield transparent; AGA's Lisa draws it, and vAmiga applied the OCS rule on every chipset, so each pixel became colour 0.
+  The adapted Core now keeps that rule for OCS and ECS only (`retrorecomp/amiga_vamiga_display.py`, picture-only changes kept apart
+  from the generator's sources). The picture alone changes: on 5,600 frames of the game the sound, the memory and the CPU are the
+  same before and after, and the pictures differ from the title's first frame on. The title then matches the private oracle's
+  (« Loading », then the rings and the credits). Slam Tilt and Roadkill (AGA) and Civilization (Amiga 500) give the same trace as before, pictures included.
 - **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
   Gloom and Super Stardust convert with it on the Amiga 1200, and Five A Side Soccer on the Amiga 500 (46 files unpacked on its main
   route, every check passed).
@@ -264,4 +268,8 @@ not changed by it.
   weaves them into one of twice the lines, so it no longer moves a line every frame (Arthur's play test of 15 November 2026 found it on
   Banshee's title). A display change only: the machine, the CPU and the checks are as before; a screen without LACE is shown as it was,
   byte for byte (Slam Tilt's traces unchanged); the field held for the weave is part of a quick state.
+  **Where the screen moves (1.7.7)**, the two fields, 1/50 s apart, combed: Pinball Illusions' whole-table view (F10, interlaced hi-res)
+  doubled every moving edge while the table scrolled. The weave now follows the motion: a pixel of the held field is kept where this
+  frame's field is the same as two frames before around it, and replaced by the mean of this field's lines above and below where it
+  changed. A still interlaced screen is the plain weave, byte for byte; each field keeps its own rows, so nothing shakes again.
 - **Not yet:** AGA super-hires shown at full width (the picture keeps one column per hires pixel).

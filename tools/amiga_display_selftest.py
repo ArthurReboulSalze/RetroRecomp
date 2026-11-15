@@ -565,10 +565,10 @@ def main() -> int:
     parser.add_argument('--workspace', type=Path, default=ROOT, help='where .deps and .build live')
     parser.add_argument('--against', type=Path, help="a checks program built before a change (side A): each scenario's record from it must equal this build's")
     arguments = parser.parse_args()
-    from retrorecomp import amiga_vamiga, paths
+    from retrorecomp import amiga_vamiga, amiga_vamiga_display, paths
     paths.ROOT = amiga_vamiga.ROOT = arguments.workspace.resolve()
     work = paths.ROOT / '.build' / 'amiga-display'
-    core = amiga_vamiga.adapt(amiga_vamiga.source(), work / 'vamiga')
+    core = amiga_vamiga_display.adapt(amiga_vamiga.source(), work / 'vamiga')
     program = build(work, core)
     runs = work / 'runs'
     runs.mkdir(parents=True, exist_ok=True)

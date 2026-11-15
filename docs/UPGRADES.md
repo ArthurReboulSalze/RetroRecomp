@@ -88,6 +88,8 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Every machine: no crash when a machine has no picture yet](#every-machine-no-crash-when-a-machine-has-no-picture-yet-177) | none | **the host stamp of all 21 profiles** (`rrhk_video.c`, `hostkit/hostkit.h`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Every machine: Sync to display (Auto / Locked / Free / Variable refresh)](#every-machine-sync-to-display-auto--locked--free--variable-refresh-177) | none | **the host stamp of all 21 profiles** (the shell, `hostkit/hostkit.h`, `audio_cushion.h`, `audio_output.inc`, `retro_menu.c` and `.h`, `runtime_catalog.inc`, the locale files, `rrhk_sms.c`, `rrhk_msx.inc`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Mega Drive: its sound follows a game locked to the display](#mega-drive-its-sound-follows-a-game-locked-to-the-display-177) | none | the Mega Drive's host stamp (`retrorecomp/megadrive_audio.py`, `hostkit/adapters/rrhk_md.c`) | none |
+| [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
+| [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
 
@@ -155,6 +157,45 @@ violation), because both read the picture themselves. Sharp pixels and scanlines
 * **Checks.** `tools/hostkit_capabilities_selftest.py`, run 14: a machine with no picture (NULL, then 0 x 0) under each of the four
   filters, on a console (F3 cycles) and on the machine whose picture grows (the F3 page): a black game area, no crash, then the picture
   again. Without the change the same run ends in an access violation (exit 0xC0000005).
+
+## Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn (1.7.7)
+
+In dual-playfield mode, OCS and ECS Denise draw a playfield transparent when its priority in `BPLCON2` is above 4. vAmiga applied
+that on every chipset; AGA's Lisa draws the playfield. An Amiga 1200 game that writes 7 to both priorities (Pinball Illusions'
+title, `BPLCON2` `$003F`, eight planes) showed colour 0 on every pixel: a black screen with the music playing. The adapted Core now
+keeps the rule for OCS and ECS only; where the playfield stands among the sprites is unchanged.
+
+- **What changes:** the picture of an AGA dual-playfield line whose priority is above 4, nothing else. On Pinball Illusions, 5,600
+  frames before and after: sound, memory and CPU equal on every frame, pictures different from the title's first frame on. The Amiga
+  500 is not concerned (the rule stays as it was for OCS and ECS).
+- **Where:** a new module, `retrorecomp/amiga_vamiga_display.py`, holds the picture-only changes to the adapted vAmiga Core. It is
+  not one of the generator's sources (`amiga_knowledge.GENERATOR_SOURCES`): a change that only decides a pixel's colour cannot be
+  noticed by a path, so `GENERATOR_REVISION` stays 2 and the qualified paths stay qualified. `tests/test_amiga_vamiga_display.py`
+  limits the module to the listed functions of Denise. `amiga_vamiga.py` is unchanged.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (the new module, and the adaptation's digest in the build's
+  identity). Their exports of 1.7.6 are converted again in full on the first batch; no other machine moves. Quick states of an
+  earlier build are refused, as every build's are.
+- **Upstream:** a gap of vAmiga `f51a6bf` (`Denise::translateDPF`), offered as dirkwhoffmann/vAmiga#1039; kept as our patch until
+  it is merged and the pin moves ([UPSTREAMS.md](UPSTREAMS.md)).
+
+## Commodore Amiga: the weave of interlaced screens follows the motion (1.7.7)
+
+Since 1.7.6 an interlaced screen (LACE) is shown woven: the long and the short field side by side, twice the lines. The two fields
+are 1/50 s apart, so where the screen moves the picture combed (Pinball Illusions' whole-table view, F10, while the table scrolls:
+every moving edge doubled). Owner's decision of 15 November 2026, « Oui, lance-le »: no option, for every interlaced screen.
+
+- **What changes:** the session keeps the field of the frame before the held one (the same parity as the coming field). A pixel of
+  the held field stays where this frame's field, on the lines just above and below it, equals that older field; where it changed,
+  the pixel becomes the mean of those two lines. A still screen is the 1.7.6 weave byte for byte; a moving area shows this frame's
+  field at its own rows (no comb, no line jump). Generic: the LACE bit and the long-frame bit only.
+- **Measured on the interpreted reference machine, before and after:** Pinball Illusions' table pan in F10 (6,400 frames), pictures
+  different on the pan only, comb index of the table 19.3 before, 0.7 after; Banshee's interlaced title, 1 picture of 1,200 different
+  (its first interlaced fade-in); Fears, Super Stardust, Slam Tilt, Roadkill and Civilization (Amiga 500) identical, pictures
+  included. Sound, memory and CPU equal on every frame of every game. Super Stardust's bonus screen is not reached without play.
+- **Quick states:** `RRAMIGA-STATE-7`, the older field after the held one. A state saved in the F10 pan, loaded, gives the continuous
+  run's pictures from the fourth frame on (sound, memory and CPU from the first). The first frames after a load differ in one field
+  of the table in 1.7.6 already (2 frames, the bitplane state at a save, an open note); the motion test makes it 3.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`), with the section above; nothing else moves.
 
 ## Exports of 1.7.5 in 1.7.6
 
