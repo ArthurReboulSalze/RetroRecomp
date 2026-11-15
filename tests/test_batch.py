@@ -22,7 +22,7 @@ def exports(folder):
 
 def folder_entries(names):
     names=set(names)
-    return names|{'datas'}|({name+'.desktop' for name in names}|{'.hidden'} if os.name!='nt' else set())
+    return names|{'datas'}|({name+'.desktop' for name in names} if os.name!='nt' else set())  # the game stays visible: no .hidden (1.7.6)
 
 
 class BatchTests(unittest.TestCase):
