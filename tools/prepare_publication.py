@@ -110,7 +110,7 @@ native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c nat
 native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
-native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/n64_machine/n64_stubs.c
+native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c
 native/n64_machine/glue/parallel_glue.cpp native/n64_machine/glue/parallel.h native/n64_machine/glue/libretro_private.h
 native/n64_machine/glue/libretro_memory.h native/n64_machine/glue/osal_export.h native/n64_machine/glue/GLideN64_libretro.h
 native/hostkit/adapters/rrhk_n64.inc licenses/mupen64plus-next.md tests/test_n64_profile.py tests/test_n64_native.py tools/n64_saves_check.py tools/n64_cpu_tests.py

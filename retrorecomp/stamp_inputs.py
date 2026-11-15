@@ -860,6 +860,12 @@ INPUTS = _resolve({
     ('amiga', 'atarist'): (
         'retrorecomp.m68k_record_walk',
     ),
+    # The libretro frontend's Vulkan side (1.7.7): moved out of the Nintendo 64's session, shared with the PlayStation's Vulkan
+    # renderer.
+    ('n64', 'psx'): (
+        'native/libretro_vulkan_host.c',
+        'native/libretro_vulkan_host.h',
+    ),
     # The CPS-1 family: the CPS-2 is built from the same board model, host and pipeline, so both own these files.
     ('cps1', 'cps2'): (
         'assets/cps1-catalogue.json',

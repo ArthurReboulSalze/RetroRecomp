@@ -85,7 +85,26 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
 | [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
+
+## Nintendo 64 and PlayStation: one Vulkan frontend (1.7.7)
+
+**What changes.** The Vulkan side of the Nintendo 64's libretro frontend (the instance, the device the core creates through its
+negotiation, the libretro Vulkan interface given to the core, the read-back of each frame into the picture) moves out of
+`native/n64_machine/n64_session.cpp` into `native/libretro_vulkan_host.c`, so that the PlayStation's Vulkan renderer uses the same
+code rather than a copy. The calls are the same, in the same order: the functions come from the same loader (the Nintendo 64 still
+initialises volk and loads its tables at the same two points, through two hooks), the queue is behind one lock (an SDL mutex in
+place of a C++ one), and the error messages are unchanged.
+
+**What it does not change.** The Nintendo 64's pictures, sound, memory and CPU state: the gate is the Nintendo 64 specialist's
+(three games, the same exes built from both trees at one folder path, every trace column, the captures and RDRAM byte-equal on the
+main route and on the graphics paths the read-back touches; quick states equal apart from their key).
+
+**Stamps:** the Nintendo 64's game stamp (`n64_session.cpp`, `CMakeLists.txt`, the shared files) and the PlayStation's (the shared
+files, declared for both). **Existing exports:** converted again in full at their next conversion. **Quick states:** Nintendo 64
+states of 1.7.6 are refused cleanly (the state key hashes the session and the shared files). **Hot path:** the read-back of each
+frame, the same calls.
 
 ## Sony PlayStation: the Vulkan renderer compiled in, not yet used (1.7.7)
 

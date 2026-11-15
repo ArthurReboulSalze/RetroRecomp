@@ -152,7 +152,8 @@ set_source_files_properties(n64_session.cpp PROPERTIES COMPILE_OPTIONS "-O2;-fno
 
 # The quick-state key: states of different builds are never mixed.
 set(RR_STATE_INPUT "n64-state-v1|${CMAKE_SYSTEM_NAME}|${CMAKE_SYSTEM_PROCESSOR}|${CMAKE_SIZEOF_VOID_P}|${CMAKE_C_COMPILER_ID}|${RR_N64_STATE_INPUT}")
-foreach(RR_STATE_SOURCE n64_session.cpp n64_session.h n64_cpu.c "${RR_N64_TREE}/../ready.json")
+foreach(RR_STATE_SOURCE n64_session.cpp n64_session.h n64_cpu.c "${RR_COMMON_NATIVE}/libretro_vulkan_host.c"
+        "${RR_COMMON_NATIVE}/libretro_vulkan_host.h" "${RR_N64_TREE}/../ready.json")
   if(NOT IS_ABSOLUTE "${RR_STATE_SOURCE}")
     set(RR_STATE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${RR_STATE_SOURCE}")
   endif()
@@ -168,7 +169,8 @@ string(SHA256 RR_STATE_ABI "${RR_STATE_INPUT}")
 if(NOT RR_RECOMP_VERSION)
   set(RR_RECOMP_VERSION "dev")
 endif()
-add_executable(n64_player n64_player.c n64_session.cpp ${RR_N64_GAME_C} "${RR_COMMON_NATIVE}/platform_io.c")
+add_executable(n64_player n64_player.c n64_session.cpp ${RR_N64_GAME_C} "${RR_COMMON_NATIVE}/platform_io.c"
+  "${RR_COMMON_NATIVE}/libretro_vulkan_host.c")
 target_include_directories(n64_player PRIVATE "${RR_COMMON_NATIVE}" "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(n64_player PRIVATE rr_n64_core)
 set_target_properties(n64_player PROPERTIES OUTPUT_NAME "RetroRecomp-N64")
