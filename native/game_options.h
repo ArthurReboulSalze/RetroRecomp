@@ -34,8 +34,11 @@ static inline bool rr_trigger_step(bool down, int value) {return down ? value >=
 #define RR_PAD_L2 (1u << 24)
 #define RR_PAD_R2 (1u << 25)
 #define RR_PAD_MASK (((1u << SDL_CONTROLLER_BUTTON_MAX) - 1u) | RR_PAD_L2 | RR_PAD_R2)
-#define RR_COMBO_ROWS 4
-enum { RR_COMBO_QUIT, RR_COMBO_RESTART, RR_COMBO_SAVE, RR_COMBO_LOAD };
+/* 1.7.6: Fast forward (held) and Max speed (a press toggles it) join the table, on the triggers by default as the speed
+ * controls of decision D12 always were (R2 and L2), Tab and ` fixed on the keyboard; the player may move or clear them, so that
+ * L2 and R2 are free for the game. */
+#define RR_COMBO_ROWS 6
+enum { RR_COMBO_QUIT, RR_COMBO_RESTART, RR_COMBO_SAVE, RR_COMBO_LOAD, RR_COMBO_FAST, RR_COMBO_MAX };
 #define RR_COMBO_SAVE_MS 500
 #define RR_COMBO_LOAD_MS 1000
 typedef struct { int key[3], pad, held, fired; Uint64 hold; } RrCombo;
@@ -45,14 +48,20 @@ static const struct {
     unsigned pad_default;        /* a missing gamepad entry; a stored 0 is an explicitly cleared one */
     SDL_Scancode fixed_key;
     Uint64 hold_ms;
-    const char *label, *hint;
+    const char *label, *hint, *fixed_hint;
 } rr_combo_info[RR_COMBO_ROWS] = {
     {{L"quit_key0", L"quit_key1", L"quit_key2"}, L"quit_pad", RR_OPTIONS_QUIT_PAD, SDL_SCANCODE_UNKNOWN, 1000,
-     "Quit", "Hold quit combo for 1 second"},
+     "Quit", "Hold quit combo for 1 second", NULL},
     {{L"restart_key0", L"restart_key1", L"restart_key2"}, L"restart_pad", RR_OPTIONS_RESTART_PAD, SDL_SCANCODE_UNKNOWN, 1000,
-     "Restart", "Hold restart combo for 1 second"},
-    {{NULL, NULL, NULL}, L"quick_save_pad", 0, SDL_SCANCODE_F8, RR_COMBO_SAVE_MS, "Quick save", "Hold quick save combo"},
-    {{NULL, NULL, NULL}, L"quick_load_pad", 0, SDL_SCANCODE_F9, RR_COMBO_LOAD_MS, "Quick load", "Hold quick load combo"}};
+     "Restart", "Hold restart combo for 1 second", NULL},
+    {{NULL, NULL, NULL}, L"quick_save_pad", 0, SDL_SCANCODE_F8, RR_COMBO_SAVE_MS, "Quick save", "Hold quick save combo",
+     "F8 and F9: fixed keys"},
+    {{NULL, NULL, NULL}, L"quick_load_pad", 0, SDL_SCANCODE_F9, RR_COMBO_LOAD_MS, "Quick load", "Hold quick load combo",
+     "F8 and F9: fixed keys"},
+    {{NULL, NULL, NULL}, L"fast_forward_pad", RR_PAD_R2, SDL_SCANCODE_TAB, 0, "Fast forward", "Hold: fast forward",
+     "Tab and `: fixed keys"},
+    {{NULL, NULL, NULL}, L"max_speed_pad", RR_PAD_L2, SDL_SCANCODE_GRAVE, 0, "Max speed", "Press: maximum speed on/off",
+     "Tab and `: fixed keys"}};
 static struct {
     wchar_t file[32768], dir[32768], section[64];
     SDL_atomic_t audio_mode;
@@ -383,7 +392,7 @@ static bool rr_combo_fixed(int index, bool gamepad) {return !gamepad && !rr_comb
 static const char *rr_combo_label(int index) {return rr_tr(rr_combo_info[index].label);}
 static void rr_combo_start(int index, bool gamepad) {
     if (rr_combo_fixed(index, gamepad)) {
-        snprintf(rr_options.status, sizeof rr_options.status, "%s", rr_tr("F8 and F9: fixed keys"));
+        snprintf(rr_options.status, sizeof rr_options.status, "%s", rr_tr(rr_combo_info[index].fixed_hint));
         rr_options.notice = 1;
         return;
     }
@@ -433,7 +442,7 @@ static void rr_combo_value(char *out, size_t size, int index, bool gamepad) {
 /* Hint line for a selected combination row. */
 static const char *rr_combo_hint(int index, bool gamepad) {
     if (rr_options.capture) return rr_tr("Esc: cancel binding");
-    return rr_tr(rr_combo_fixed(index, gamepad) ? "F8 and F9: fixed keys" : rr_combo_info[index].hint);
+    return rr_tr(rr_combo_fixed(index, gamepad) ? rr_combo_info[index].fixed_hint : rr_combo_info[index].hint);
 }
 
 /* The options page: the function-key settings, the audio filter and, on
@@ -634,4 +643,13 @@ static bool rr_options_fired(int index) {
 static bool rr_options_restart(int menu) {(void)menu; return rr_options_fired(RR_COMBO_RESTART);}
 static bool rr_options_quick_save(int menu) {(void)menu; return rr_options_fired(RR_COMBO_SAVE);}
 static bool rr_options_quick_load(int menu) {(void)menu; return rr_options_fired(RR_COMBO_LOAD);}
+/* 1.7.6: Max speed toggles on the press (no hold); Fast forward lasts while the whole combination is held. */
+static bool rr_options_max_speed(int menu) {(void)menu; return rr_options_fired(RR_COMBO_MAX);}
+static bool rr_options_fast_forward(int menu) {
+    (void)menu;
+    RrCombo *combo = &rr_options.combo[RR_COMBO_FAST];
+    if (!rr_options.focused || rr_options.capture) {combo->held = 0; return false;}
+    combo->held = rr_combo_source(combo);
+    return combo->held != 0;
+}
 #endif

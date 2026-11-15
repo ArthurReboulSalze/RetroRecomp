@@ -24,8 +24,8 @@ static const RrhkAction rr_gb_actions[RR_GB_ACTIONS] = {
     {"Left", L"Left", 0x02, RRHK_DIR, 0, {SDL_SCANCODE_LEFT}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT}},
     {"Right", L"Right", 0x01, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT}},
     /* W and X follow the keyboard layout; the controller's east and south buttons are A and B, as on the console. */
-    {"Button A", L"A", 0x10, RRHK_FACE, SDLK_w, {SDL_SCANCODE_W}, {SDL_CONTROLLER_BUTTON_B}},
-    {"Button B", L"B", 0x20, RRHK_FACE, SDLK_x, {SDL_SCANCODE_X}, {SDL_CONTROLLER_BUTTON_A}},
+    {"Button A", L"A", 0x10, RRHK_FACE, 0, {SDL_SCANCODE_S}, {SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_w},
+    {"Button B", L"B", 0x20, RRHK_FACE, 0, {SDL_SCANCODE_D}, {SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_x},
     {"Start", L"Start", 0x80, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN}, {SDL_CONTROLLER_BUTTON_START}},
     {"Select", L"Select", 0x40, RRHK_SYSTEM, 0, {SDL_SCANCODE_LSHIFT}, {SDL_CONTROLLER_BUTTON_BACK}},
     /* The Pause menu is the host's own row: it has no bit, the cartridge never sees it. */

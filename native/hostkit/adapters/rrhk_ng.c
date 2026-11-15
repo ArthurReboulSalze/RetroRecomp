@@ -16,10 +16,10 @@
 
 enum { A, B, C, D, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
-    {"A", L"A", 16, RRHK_FACE, SDLK_w, {SDL_SCANCODE_W, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}},
-    {"B", L"B", 32, RRHK_FACE, SDLK_x, {SDL_SCANCODE_X, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}},
-    {"C", L"C", 64, RRHK_FACE, SDLK_c, {SDL_SCANCODE_C, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_X}},
-    {"D", L"D", 128, RRHK_FACE, SDLK_v, {SDL_SCANCODE_V, SDL_SCANCODE_KP_4}, {SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_Y}},
+    {"A", L"A", 16, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_w},
+    {"B", L"B", 32, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_x},
+    {"C", L"C", 64, RRHK_FACE, 0, {SDL_SCANCODE_F, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_X}, NULL, SDLK_c},
+    {"D", L"D", 128, RRHK_FACE, 0, {SDL_SCANCODE_E, SDL_SCANCODE_KP_4}, {SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_Y}, NULL, SDLK_v},
     {"Start", L"Start", 256, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
     {"Coin", L"Coin", 512, RRHK_SYSTEM, 0, {SDL_SCANCODE_LSHIFT, SDL_SCANCODE_KP_0}, {SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_BACK}},
     {"Up", L"Up", 1, RRHK_DIR, 0, {SDL_SCANCODE_UP, SDL_SCANCODE_KP_5}, {SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_UP}},
@@ -55,7 +55,7 @@ static void help_lines(int slot, const char **lines, int *count) {
 
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
-    rrhk_menu_line(ctx, y, rrhk_tr("Arrows + W/X/C/V: A/B/C/D", "Fleches + W/X/C/V : A/B/C/D"));
+    rrhk_menu_line(ctx, y, rrhk_tr("Arrows + S/D/F/E: A/B/C/D", "Fleches + S/D/F/E : A/B/C/D"));
     /* In AES the Coin action drives nothing (rr_ng_host_coin_bits), so only Start is listed. */
     rrhk_menu_line(ctx, y + RR_MENU_LINE, rr_ng_aes() ? rrhk_tr("Enter / pad Start: cartridge Start", "Entree / Start manette : Start jeu") :
                                                        rrhk_tr("Enter: Start; Shift/Back: coin", "Entree : Start; Maj/Back : credit"));

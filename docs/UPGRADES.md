@@ -150,6 +150,64 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
 
+## Every machine: a 16:9 screen format for the games' own widescreen mode, scanlines per console line (1.7.6)
+
+A machine whose games may draw an anamorphic widescreen picture can show it at 16:9, kept per game; the scanlines follow the
+console's lines on every machine ([HOST_KIT.md](HOST_KIT.md#d27), D27).
+
+* **Stamps.** The host stamp of all 20 profiles moves (`hostkit/hostkit.h`: `RrhkMachine.widescreen`, `RrhkUi.widescreen`;
+  `hostkit/hostkit_internal.h`; the shell's `rrhk_video.c`, `rrhk_input.c`, `rrhk_options.c`, `rrhk_events.c`, `rrhk_main.c`,
+  `rrhk_menu.c`; `retro_menu.c` and `retro_menu.h` for the icon; `runtime_catalog.inc` and the locales). No game or build
+  stamp, no quick-state key. The row appears on a machine once its adapter sets `widescreen` (the Nintendo 64 and the
+  PlayStation, by their specialists).
+* **What players see.** On those machines a "Screen format" row (4:3 by default). On every machine, scanlines at 2x or 4x
+  internal resolution: one dark line per console line, visible again (before: one per internal row, too thin to see at 2x and
+  not drawn at all at 4x below a 1920-row screen).
+* **Preferences.** One section, `[<Console>.Widescreen]`, one key per game (its title, letters and digits), 1 for 16:9.
+* **Texts.** One new entry in the five game languages: "Screen format: %s" (the values 4:3 and 16:9 are not translated).
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 12 (the row, the key kept for the game, the 16:9 rectangle, read back
+  at the next start); the filter measurement of the 3D geometries before and after the scanline fix.
+
+## Every machine: stick directions as inputs, new keyboard defaults on S D F / E R T (1.7.6)
+
+A stick direction can be bound to any digital control, and player 1's keyboard defaults of the machines with few buttons move to
+S D F / E R T ([HOST_KIT.md](HOST_KIT.md#d26), D26).
+
+* **Stamps.** The host stamp of all 20 profiles moves (`hostkit/hostkit.h`: the stick values, `pad_label`, `former_letter`; the
+  shell's `rrhk_input.c`, `rrhk_events.c`, `rrhk_menu.c`; `runtime_catalog.inc` and the locales). The adapters whose tables
+  change are host files of their machines: `rrhk_gb.inc`, `rrhk_nes.c`, `rrhk_sms.c`, `rrhk_md.c`, `rrhk_snes.c`, `rrhk_gba.c`,
+  `rrhk_ng.c`, `rrhk_cps1.c`, `rrhk_pce.c`, `rrhk_amiga.inc`, `rrhk_atarist.inc`, `rrhk_x68k.inc`, `rrhk_msx.inc`. No game or
+  build stamp, no quick-state key.
+* **What players see.** After the upgrade, buttons 1-3 on S D F and 4-6 on E R T on those machines; a key the player chose in
+  F2 is kept. The PlayStation and the Nintendo 64 are unchanged. A stick direction appears on the gamepad page as "R stick right"
+  and so on.
+* **Preferences.** Nothing to migrate by hand: a saved key equal to the former default moves by itself; the stick values 66-73
+  are new binding values (a 1.7.5 export reading them ignores them).
+* **Texts.** Nine new entries in the five game languages: the eight stick directions and "Left stick".
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 11 (a stick bound by F2, refused on a host-side row, held and
+  released with the hysteresis) and `tools/hostkit_players_selftest.py` (the new defaults of the CPS-1 adapter, players 3 and 4,
+  the migration of a former default, a default a saved key uses dropped).
+
+## Every machine: the pad's speed controls as combinations, the graphics page from F2 and from the pad (1.7.6)
+
+Fast forward and Max speed become rows of player 1's gamepad page; a machine with a graphics page gets a Graphics tile in F2
+and an "F3 Graphics" row on its options page ([HOST_KIT.md](HOST_KIT.md#d25), D25).
+
+* **Stamps.** The host stamp of all 20 profiles moves (`native/game_options.h`, `game_options_checks.c`, `retro_menu.c`,
+  `retro_menu.h`, `runtime_catalog.inc`, `hostkit/hostkit_internal.h`, the shell's `rrhk_events.c`, `rrhk_input.c`,
+  `rrhk_main.c`, `rrhk_menu.c`, `rrhk_options.c`, the seven locale files); no adapter, no game or build stamp, no quick-state key
+  (none of these files fixes a state layout).
+* **What players see.** Nothing changes in play: R2 still fast-forwards and L2 still toggles the maximum speed, unless the game
+  has the trigger (as before) or the player moves or clears them. Two more rows on player 1's control pages; on the N64 and the
+  PlayStation a Graphics tile and the "F3 Graphics" row.
+* **Preferences.** Two keys, `[<Console>.Options] fast_forward_pad` and `max_speed_pad` (missing: R2 and L2; 0: cleared): a file
+  of 1.7.5 loads unchanged.
+* **Texts.** Six new entries in the five game languages: "Fast forward", "Max speed", their two hints, "Tab and `: fixed keys",
+  "F3 Graphics".
+* **Per-frame cost.** The trigger reading of the speed controls moves from the event loop to two combination checks a frame.
+* **Checks.** `tools/game_options_selftest.py` (defaults, held and toggled, refusal while they hold a trigger) and
+  `tools/hostkit_capabilities_selftest.py` runs 1, 4, 6 and 10 (290 checks).
+
 ## Machines' own rows and pages: their icons (1.7.6)
 
 The rows and pages a machine draws or adds itself get their icons ([HOST_KIT.md](HOST_KIT.md#d24), D24).

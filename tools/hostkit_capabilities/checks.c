@@ -300,7 +300,7 @@ static void full_script(void) {
     case 21:
         CHECK(ui->deadzone[0] == 0 && ini(L"Test3D.Gamepad.Player1", L"deadzone") == 0);
         /* the window moves only when the selected row would leave it */
-        ui->row = 10; CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
+        ui->row = ACTIONS + RRHK_COMBO_ROWS + 2 - 14; CHECK(rrhk_page_scroll() == ACTIONS + RRHK_COMBO_ROWS + 2 - 15);
         ui->row = 0; CHECK(rrhk_page_scroll() == 0);
         ui->row = 14; CHECK(rrhk_page_scroll() == 0);
         ui->row = 16; CHECK(rrhk_page_scroll() == 2);
@@ -704,6 +704,10 @@ static void quick_script(void) {
     case 6: pad_hold(SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false); break;
     case 7:
         CHECK(!rrhk_combo_set(3, true) && !strcmp(ui->status, "Already used by Quick save"));
+        /* 1.7.6: L2 is Max speed's by default: L2 alone for Quick load is refused until Max speed is cleared */
+        CHECK(rrhk_combo_set(RRHK_COMBO_MAX, true) && rrhk_combo_triggers(RRHK_COMBO_MAX) == 2u);
+        rrhk_combo_clear(RRHK_COMBO_MAX, true);
+        CHECK(!rrhk_combo_set(RRHK_COMBO_MAX, true) && ini(L"Test3D.Options", L"max_speed_pad") == 0);
         key(SDL_SCANCODE_RETURN);
         break;
     case 8: axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, 32767); break;      /* L2 alone (an axis in SDL) */
@@ -871,6 +875,90 @@ static void quit_row_script(void) {
     }
 }
 
+/* 1.7.6: on a machine with a graphics page, the last F2 tile opens it (and comes back to the tiles), and the options page's
+ * F3 row, "F3 Graphics", opens it too (and comes back to the options). */
+static void graphics_entry_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Left from the first: the last */
+    case 1: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
+    case 2: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Options: before it */
+    case 3: CHECK(ui->menu == RRHK_MENU_OPTIONS && rrhk_option_selected() == 0); key(SDL_SCANCODE_RETURN); break;
+    case 4: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
+    case 5: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE); break;
+    case 6: CHECK(ui->menu == 0); stop = true; break;
+    default: break;
+    }
+}
+
+/* 1.7.6: a stick direction bound to a game row on a console profile: captured by F2 (a host-side row refuses it), kept, held in
+ * play with the hysteresis of the triggers; the machine's own reading of the sticks is untouched. */
+static void stick_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); break;
+    case 1: ui->row = A_ANALOG; key(SDL_SCANCODE_RETURN); break;              /* a host-side row */
+    case 2: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_RIGHTX, 30000); break;
+    case 3:
+        CHECK(ui->capturing && !strcmp(ui->status, "Reserved button or config unavailable"));
+        axis(SDL_CONTROLLER_AXIS_RIGHTX, 0); key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 4: ui->row = A_CROSS; key(SDL_SCANCODE_RETURN); break;
+    case 5: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_RIGHTX, 12000); break;    /* under the threshold: still waiting */
+    case 6: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_RIGHTX, 30000); break;
+    case 7:
+        CHECK(!ui->capturing && ui->buttons[0][A_CROSS] == RRHK_PAD_RSTICK_RIGHT);
+        CHECK(ini(L"Test3D.Gamepad.Player1", L"Cross") == (int)RRHK_PAD_RSTICK_RIGHT);
+        CHECK(!strcmp(rrhk_pad_binding_name(RRHK_PAD_RSTICK_RIGHT), "R stick right"));
+        axis(SDL_CONTROLLER_AXIS_RIGHTX, 0);
+        key(SDL_SCANCODE_F2);
+        break;
+    case 8: CHECK(ui->menu == 0); axis(SDL_CONTROLLER_AXIS_RIGHTX, 20000); break;
+    case 11: CHECK(last_pad[0] & CROSS_BIT); axis(SDL_CONTROLLER_AXIS_RIGHTX, 10000); break;   /* under the threshold, above half */
+    case 14: CHECK(last_pad[0] & CROSS_BIT); axis(SDL_CONTROLLER_AXIS_RIGHTX, 5000); break;     /* under half: released */
+    case 17: CHECK(!(last_pad[0] & CROSS_BIT)); axis(SDL_CONTROLLER_AXIS_RIGHTX, -30000); break; /* the other way: nothing */
+    case 20: CHECK(!(last_pad[0] & CROSS_BIT)); axis(SDL_CONTROLLER_AXIS_RIGHTX, 0); break;
+    case 21: stop = true; break;
+    default: break;
+    }
+}
+
+/* 1.7.6: a machine whose games may draw a widescreen picture: the options page's "Screen format" row, kept for this game, and
+ * the picture shown 16 wide for 9 high; the next start reads it back. */
+static void widescreen_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: {
+        CHECK(ui->widescreen == 0);
+        int w = 0, h = 0;
+        SDL_GetRendererOutputSize(SDL_GetRenderer(rrhk_window()), &w, &h);
+        const SDL_Rect dst = rrhk_game_rect(SDL_GetRenderer(rrhk_window()));
+        CHECK(dst.w * 3 == dst.h * 4 || dst.w * 3 == dst.h * 4 + 1 || dst.w * 3 + 1 == dst.h * 4);   /* the machine's 4:3 */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN);      /* the options tile: the last */
+        break;
+    }
+    case 1: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN); break;
+    case 2: {
+        CHECK(ui->widescreen == 1 && !strcmp(ui->status, "16:9"));
+        CHECK(ini(L"Test3D.Widescreen", L"Capabilities") == 1);
+        const SDL_Rect dst = rrhk_game_rect(SDL_GetRenderer(rrhk_window()));
+        CHECK(dst.h > 0 && dst.w * 9 >= dst.h * 16 - 16 && dst.w * 9 <= dst.h * 16 + 16);    /* 16:9 */
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
+        break;
+    }
+    case 3: stop = true; break;
+    default: break;
+    }
+}
+static void widescreen_again(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: CHECK(ui->widescreen == 1); break;         /* read back at the next start */
+    case 1: stop = true; break;
+    default: break;
+    }
+}
+
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
@@ -1009,6 +1097,25 @@ int main(int argc, char **argv) {
     begin(quit_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 9);
+
+    /* 11. 1.7.6: a stick direction bound to a game row. */
+    begin(stick_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 22);
+    /* 12. 1.7.6: the screen format of a machine whose games may draw a widescreen picture. */
+    plain.widescreen = true;
+    begin(widescreen_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 4);
+    begin(widescreen_again);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 2);
+    plain.widescreen = false;
+    /* 10. 1.7.6: the graphics page from F2 and from the options page, on the machine that has one. */
+    current = &full;
+    begin(graphics_entry_script);
+    CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
+    CHECK(step >= 7);
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();

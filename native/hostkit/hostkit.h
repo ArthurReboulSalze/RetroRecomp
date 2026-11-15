@@ -37,6 +37,18 @@ extern "C" {
  * preferences: a saved binding means the same trigger after an SDL update. */
 #define RRHK_PAD_LEFT_TRIGGER ((SDL_GameControllerButton)64)
 #define RRHK_PAD_RIGHT_TRIGGER ((SDL_GameControllerButton)65)
+/* 1.7.6: a stick direction as a binding of a digital control, on every machine (66..73, fixed and stored as such): pushed past
+ * the stick threshold of D1, released under half of it (rr_trigger_step). It only adds a press: what a machine reads of the
+ * sticks themselves (rrhk_pad_axes) is unchanged. A host-side action (bit 0) refuses it, as it refuses a trigger. */
+#define RRHK_PAD_LSTICK_UP ((SDL_GameControllerButton)66)
+#define RRHK_PAD_LSTICK_DOWN ((SDL_GameControllerButton)67)
+#define RRHK_PAD_LSTICK_LEFT ((SDL_GameControllerButton)68)
+#define RRHK_PAD_LSTICK_RIGHT ((SDL_GameControllerButton)69)
+#define RRHK_PAD_RSTICK_UP ((SDL_GameControllerButton)70)
+#define RRHK_PAD_RSTICK_DOWN ((SDL_GameControllerButton)71)
+#define RRHK_PAD_RSTICK_LEFT ((SDL_GameControllerButton)72)
+#define RRHK_PAD_RSTICK_RIGHT ((SDL_GameControllerButton)73)
+#define RRHK_PAD_IS_STICK(value) ((int)(value) >= 66 && (int)(value) <= 73)
 
 /* Menu numbers of RrhkUi.menu (options.c checks them against game_options.h). */
 #define RRHK_MENU_HELP 1
@@ -83,6 +95,12 @@ typedef struct {
     SDL_Keycode    letter;    /* layout-aware default of player 1, 0 = none */
     SDL_Scancode   key[RRHK_MAX_PLAYERS];
     SDL_GameControllerButton pad[RRHK_MAX_PLAYERS];
+    /* 1.7.6: what the gamepad page shows for a row the pad does not bind (a host-side row the machine reads otherwise, as the
+     * Nintendo 64's keyboard stick, which is the pad's left stick): English, translated; NULL shows "-". */
+    const char    *pad_label;
+    /* 1.7.6: player 1's letter default before 1.7.6 (W X C A S D, layout-aware), when the row's default moved (to S D F E R T, by
+     * position): a saved key still equal to it on this layout moves to the new default by itself; a key the player chose stays. */
+    SDL_Keycode    former_letter;
 } RrhkAction;
 
 /* One option of a 3D machine's graphics page (decision D14), declared by the adapter. Changing it changes only what the
@@ -127,6 +145,7 @@ typedef struct RrhkUi {
     int gfx[RRHK_MAX_GFX_OPTIONS];         /* the value index in force of each graphics option */
     int gfx_row;                           /* the selected row of the graphics page */
     int rumble;                            /* the shared Vibration row: [Manettes] rumble, default on */
+    int widescreen;                        /* 1.7.6: this game shown at 16:9 ([<Console>.Widescreen] <game>=1) */
 } RrhkUi;
 
 /* Where the loop is, for the machine hooks that run inside it. */
@@ -292,6 +311,10 @@ typedef struct RrhkMachine {
      * play, it asks media_select for the next disc (after the last, the first) and shows "Disc 2/3". The swap itself (lid,
      * eject, insert over several frames) is the machine's. */
     int host_media;
+    /* 1.7.6: the machine's games may draw an anamorphic widescreen picture (squeezed by their own 16:9 option): the options page
+     * offers "Screen format: 4:3 / 16:9", kept per game, and at 16:9 the kit shows the picture 16 wide for 9 high. Only the
+     * displayed rectangle changes; the machine and its picture do not. false: no row. */
+    bool widescreen;
     /* Rows of the machine on a player's gamepad page, above its controls (RrhkPadRow). NULL / 0: none. */
     const RrhkPadRow *pad_rows;
     int pad_row_count;

@@ -22,8 +22,8 @@ void rr_nes_extra_sprites(bool enabled);
 
 enum { A, B, SELECT, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
-    {"A", L"A", 128, RRHK_FACE, SDLK_w, {SDL_SCANCODE_W, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}},
-    {"B", L"B", 64, RRHK_FACE, SDLK_x, {SDL_SCANCODE_X, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}},
+    {"A", L"A", 128, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_w},
+    {"B", L"B", 64, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_x},
     {"Select", L"Select", 32, RRHK_SYSTEM, 0, {SDL_SCANCODE_LSHIFT, SDL_SCANCODE_KP_4}, {SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_BACK}},
     {"Start", L"Start", 16, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
     {"Up", L"Up", 8, RRHK_DIR, 0, {SDL_SCANCODE_UP, SDL_SCANCODE_KP_5}, {SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_UP}},
@@ -94,7 +94,7 @@ static void help_lines(int slot, const char **lines, int *count) {
 
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
-    rrhk_menu_line(ctx, y, rrhk_tr("NES: arrows + W/X; Enter Start", "NES : fleches + W/X; Entree Start"));
+    rrhk_menu_line(ctx, y, rrhk_tr("NES: arrows + S/D; Enter Start", "NES : fleches + S/D; Entree Start"));
     rrhk_menu_line(ctx, y + RR_MENU_LINE, RR_NES_ZAPPER ? rrhk_tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran") :
         rrhk_tr("Shift Select; two controllers", "Maj Select; deux manettes"));
 }
