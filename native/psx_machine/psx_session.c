@@ -597,7 +597,13 @@ void rr_psx_close(RrPsxSession *s) {
 void rr_psx_pad(RrPsxSession *s, int player, unsigned bits, const int16_t sticks[4]) {
     if (player < 0 || player > 1) return;
     s->pad[player] = bits & 0xffffu;
-    for (int i = 0; i < 4; ++i) s->sticks[player][i] = sticks ? sticks[i] : 0;
+    /* A stick at its very edge reads -32768 on one side: Beetle's DualShock turns -32768 into the byte of the other edge
+     * (32768 + right - left * 32768 / 32767 is -1, shifted to 0xFF), so a stick pushed straight left went right while every
+     * diagonal went left (Ape Escape, 15 November 2026). libretro's analog range is -32767..32767: the edge is held there. */
+    for (int i = 0; i < 4; ++i) {
+        const int16_t v = sticks ? sticks[i] : 0;
+        s->sticks[player][i] = v < -32767 ? -32767 : v;
+    }
 }
 
 void rr_psx_analog_button(RrPsxSession *s, int player, int held) {

@@ -53,7 +53,7 @@
   - **Memory card.** A card file the game cannot use is set aside whole and the game starts with an empty card; the window says so.
   - **Shared paths.** The code a conversion saw run, as places in your own disc and BIOS, shared as the experimental tier of the base.
   - **Resolution.** The picture is drawn in software: 1x and 2x hold speed; 4x falls behind in 3D scenes, and 8x is no longer
-    offered (never in time on one thread). The graphics page (F3) loses its deinterlacing row: the picture is always progressive.
+    offered (never in time on one thread). The graphics page (F3) loses its deinterlacing row: the picture is always progressive. A raised resolution on this renderer also changes the emulated drawing time: the game runs slightly differently from the checked 1x (the checks always run at 1x).
   No game is validated as played through, and hardware fidelity and latency are not claimed. PlayStation quick states of 1.7.5 are refused
   cleanly.
 - **Every machine: "Quit the game" in the options.** The last row of the Options page (the page the pad's menu button opens) asks the
@@ -78,6 +78,13 @@
   and shook on a flat screen; both fields are now woven into one picture, on both models, whatever the game. The machine is unchanged.
 - **Amiga: Crunch-Mania.** Installs packed with Crunch-Mania are unpacked by our own code, written from the format as Teemu Suutari's
   ancient library describes it (credited in the notices).
+- **Every machine: a stick pushed to its very edge stays there.** A pad's stick at its extreme left or top gave a value the
+  PlayStation read as the opposite edge (Ape Escape: full left went right; in every PlayStation export since 1.7.1) and the
+  Nintendo 64 read as centred in the up-left corner. The value is now held at the edge on every machine.
+- **Linux: a moved game keeps working.** The game file is no longer hidden behind its launcher (GNOME Files does not start a
+  launcher outside the menus), and a game started from a new folder rewrites its own launcher, cover included, so a game
+  folder copied to another PC or a USB key works again after one start. Adventure (ScummVM) launchers are refreshed by
+  the converter.
 - **Every machine: clear a binding, restore the defaults.** Any control of any page can be left unbound (Delete, or the pad gesture
   the page shows) and stays so; each control page ends with Restore defaults.
 - **Amiga: a CPU speed choice, Normal / ×2 / ×4**, like an accelerator card, in F2's options of both models; Normal by default and

@@ -23,14 +23,18 @@ compared with the figures of a machine whose game code is translated, and it say
 - **The DualShock pad** of each player: the d-pad, the four face buttons, L1, R1, L2 and R2 (the gamepad's triggers), L3, R3,
   Start, Select, both sticks and vibration. It powers on in digital mode, as the console's pad does (a game reads its d-pad);
   the **Analog** action (F, or the gamepad's extra button) switches it to analog mode, and a game that wants analog mode
-  switches it itself. While a pad is digital, the gamepad's left stick also works as the d-pad. A game the core's database knows
+  switches it itself. A stick pushed to its very edge is held at the edge of libretro's range (since 1.7.6: a gamepad whose
+  stick read -32768 straight left was read by the core as full right; Ape Escape). While a pad is digital, the gamepad's left
+  stick also works as the d-pad. A game the core's database knows
   as digital-only gets a standard pad on that port (Crash Bandicoot). A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
 - **Aspect ratio.** "Corrected", the default, shows the console's own pixel shape: with the overscan cropped (the default) that is
   1.22 wide for 1 high for most games (the part of a 4:3 line the game draws), so a fullscreen picture keeps black bars at its
   sides. "4:3" fills a 4:3 area instead and stretches the picture about 9 % wider than the console's signal; "Uncorrected" shows
   square pixels. None of them changes a pixel of the picture or a check.
-- **F3** opens the graphics page: internal resolution (1x, 2x, 4x), dithering, aspect ratio and overscan crop. They change only
-  the picture; the conversion's checks use the defaults (1x, the core's own settings). 8x is not offered (64 times the pixels,
+- **F3** opens the graphics page: internal resolution (1x, 2x, 4x), dithering, aspect ratio and overscan crop. Dithering, aspect
+  ratio and overscan crop change only the picture; a raised internal resolution also changes the emulated drawing time, so the
+  game runs slightly differently from the checked 1x (measured on Ape Escape: at 2x, RAM and CPU differ from frame 96 on). The
+  conversion's checks use the defaults (1x, the core's own settings). 8x is not offered (64 times the pixels,
   never in time on one thread), and since 1.7.6 there is no deinterlacing row: the picture is always progressive.
 - **Screen format: 4:3 / 16:9** on the options page (since 1.7.6, kept per game): for a game that has its own widescreen option and
   draws a squeezed picture for a 16:9 television, 16:9 shows that picture 16 wide for 9 high. It changes only the rectangle the
@@ -42,7 +46,7 @@ compared with the figures of a machine whose game code is translated, and it say
   up). The game says so with a notice when a raised resolution stays behind; 1x and 2x are the settings to try first.
 - **Interlaced pictures** (480 lines, Tobal No. 1's) are shown **progressive** by default: the GPU draws both fields of the
   displayed frame, so the picture is whole, without combing (the console itself draws one field per frame there; its drawing
-  time is kept). Weave and Bob, on the graphics page, show the console's fields instead.
+  time is kept).
 - **The gaps of CD-audio tracks** are given back to their tracks when a CUE sheet lists only each audio track's INDEX 01 while the
   image keeps its gap before it as digital silence (from one second, at most two): the core then sees the track boundary where
   the disc has it. A game that seeks to a track's start, known in whole seconds, can land in that gap; without it, it lands in the

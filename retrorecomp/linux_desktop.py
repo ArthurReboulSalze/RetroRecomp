@@ -1,4 +1,9 @@
-"""Local Linux launchers with cover icons; the ELF stays independently runnable."""
+"""Local Linux launchers with cover icons; the ELF stays independently runnable and visible.
+
+A launcher holds absolute paths (the Desktop Entry format has no path relative to the launcher that every
+desktop honours: GLib leaves %k empty). A moved game folder is healed by the game itself: at start a Linux game
+rewrites its own launcher (the one carrying its identity) when the paths no longer match, so the game file is
+kept visible to be double-clicked once after a move."""
 from contextlib import contextmanager
 import os
 from pathlib import Path
@@ -38,6 +43,22 @@ def _argument(text):
     text = str(text).replace('%', '%%')
     text = ''.join('\\' + c if c in '\\"$`' else c for c in text)
     return _value('"' + text + '"')
+
+
+def _unhide(folder, name):
+    """Remove our game's line from the folder's .hidden, as bytes: the player's other lines stay as written, whatever
+    their encoding."""
+    hidden = folder / '.hidden'
+    if not hidden.is_file():
+        return
+    ours = os.fsencode(name)
+    lines = hidden.read_bytes().splitlines()
+    if ours in lines:
+        kept = [line for line in lines if line != ours]
+        if kept:
+            _write(hidden, b'\n'.join(kept) + b'\n')
+        else:
+            hidden.unlink()
 
 
 def _write(path, data, mode=None):
@@ -104,13 +125,9 @@ def publish_launcher(executable: Path, report_path: Path, report: dict) -> Path 
             'Terminal=false', 'Categories=Game;', 'StartupNotify=false', marker, '',
         ))
         _write(launcher, text.encode('utf-8'), 0o755)
-        # Dolphin/GIO honor .hidden. Keep other entries and show one cover
-        # launcher per game; Show Hidden Files still exposes the original ELF.
-        hidden = folder / '.hidden'
-        names = hidden.read_text(encoding='utf-8').splitlines() if hidden.exists() else []
-        if executable.name not in names:
-            names.append(executable.name)
-            _write(hidden, ('\n'.join(names) + '\n').encode('utf-8'))
+        # The game file stays visible: GNOME Files does not start a .desktop file outside the menus, so a hidden
+        # game left nothing to double-click there (1.7.6). Undo the hiding older versions wrote; other entries stay.
+        _unhide(folder, executable.name)
     return launcher
 
 
@@ -127,8 +144,5 @@ def retire_launcher(executable: Path, identity: str) -> bool:
                 launcher.read_text(encoding='utf-8').splitlines()):
             return False
         launcher.unlink()
-        hidden = executable.parent/'.hidden'
-        if hidden.is_file():
-            names=hidden.read_text(encoding='utf-8').splitlines()
-            _write(hidden,('\n'.join(name for name in names if name!=executable.name)+'\n').encode('utf-8'))
+        _unhide(executable.parent, executable.name)
         return True

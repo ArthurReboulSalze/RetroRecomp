@@ -214,4 +214,13 @@ SDL_AudioDeviceID rrhk_ring_device(void);
 /* events.c */
 void rrhk_poll_events(RrhkRun *run);
 bool rrhk_set_filter(RrhkRun *run, int filter);   /* a new texture for the filter, kept in the preferences; false: no texture */
+
+/* main.c, 1.7.6 (HOST_KIT D29): a Linux game's launcher `<game>.desktop`, healed after its folder moved. The text: -1 not ours
+ * (no X-RetroRecomp-Identity line), 0 ours and current (or a path too long to write), 1 ours and stale: `healed` (malloc'd) has
+ * its Exec, Path and Icon lines for `exe`, every other byte as it was. The file (not on Windows): the same, read and written
+ * atomically (mode 0755), then our line taken out of the folder's .hidden; -1 also for any failure. */
+int rrhk_launcher_text(const char *text, size_t len, const char *exe, char **healed, size_t *healed_len);
+#ifndef _WIN32
+int rrhk_heal_launcher(const char *exe);
+#endif
 #endif
