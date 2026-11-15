@@ -1424,7 +1424,8 @@ below ran on Windows (llvm-mingw), one at a time, from an empty scratch library,
 for one. Nothing here says exact hardware, complete gameplay or latency: the five measures stay apart, and only native code and CPU
 agreement with the reference are measured.
 
-**The panel** (standard level: a main route and an exploration route of 3,600 frames each; the installs of the A1200 folder):
+**The panel** (standard level: a main route and an exploration route of 3,600 frames each; the installs of the A1200 folder; run again on the
+branch at `0f0ca6f1` on 15 November 2026, the same native counts where the first run had them):
 
 | Install | What it tests | Native on the main route | Interpreted (main, explore) | Checks |
 |---|---|---|---|---|
@@ -1434,12 +1435,13 @@ agreement with the reference are measured.
 | Banshee | Kickstart 3.1, a 68020 shooter | 40,576,307 | 1, 1 (a Kickstart instruction) | all |
 | Fears | a chunky 3D engine | 70,462,637 | 0, 0 | all |
 | Roadkill | Kickstart 3.1 | 232,904,955 | 1, 1 (a Kickstart instruction) | all |
-| Gloom | Crunch-Mania files (quick level, after the unpacker) | 163,677,702 | 0 | all |
+| Gloom | Crunch-Mania files | 195,552,589 | 0, 0 | all |
+| Super Stardust | Crunch-Mania files, an intro in AGA super-hires | 67,488,880 | 0, 0 | all |
 | Alien Breed 3D | a known failure | — | — | black screen |
 
 "All" means: the native game's trace (picture, sound, RAM and CPU registers of every frame) equals the fresh reference on every route, so
 do the resload calls; the compressed copy replays equal; a quick state saved in it continues the same timeline in a fresh process and its 18
-damaged copies are refused. Super Stardust (Crunch-Mania, quick level) passes them too: 57,098,875 native, 0 interpreted.
+damaged copies are refused.
 
 **Alien Breed 3D** stays black on our A1200 model, while the private oracle under the real WHDLoad shows its intro. What is known: its slave
 builds its own ExecBase with most vectors set to ILLEGAL; the game, patched by `resload_PatchSeg` (whose offsets and `PL_S` encoding follow
@@ -1469,7 +1471,7 @@ frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA fo
 | G9 | P | The routes reach play on Slam Tilt and Zool 2 (pictures); not checked install by install | A per-install record of where the routes end |
 | G10 | ? | Moira's 68EC020 is the reference CPU; its own tests compare it with Musashi; our lengths agree with Moira's disassembler on 19,084 random instructions | Independent 68020 vectors |
 | G11 | P | The oracle comparison above (8 installs) | Hardware evidence beyond another emulator |
-| G12 | P | A panel of 8 named, one failure named with what is known | Alien Breed 3D |
+| G12 | P | A panel of 9 named: 8 pass, one failure named with what is known | Alien Breed 3D |
 | G13 | P | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included | More installs, and the Kickstart 3.1 ones |
 | G14 | ? | | Arthur's play test |
 | G15 | P | AMIGA.md section 7 and this section keep the five measures apart and name the failure | |
