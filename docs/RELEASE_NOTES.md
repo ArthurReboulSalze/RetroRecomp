@@ -85,7 +85,7 @@
   Fears draws more pictures a second at ×2 and ×4 without running faster; a game whose music or delays count CPU cycles may not
   like it, and Normal is one press away.
 
-**Speed.** [SPEED: pending]
+**Speed.** On a quiet PC against 1.7.5 (one pinned core, 2,400 frames, one warm-up then the best of three): Lotus 2 (Amiga) 1.00 of its 1.7.5 time per frame (6.85 ms against 6.86 ms), Sonic The Hedgehog 2 (Mega Drive) 0.99 (2.90 ms against 2.94 ms). The per-frame additions (stick directions as inputs, the interlace weave on the Amiga) cost nothing measurable here. Host cost per frame, not latency; Windows only.
 
 These are four machines leaving the experimental status, on the owner's decision after his play tests, and changes to the controls
 and menus of every game, each on the evidence above; none of them is a measure of hardware fidelity, complete gameplay or physical
