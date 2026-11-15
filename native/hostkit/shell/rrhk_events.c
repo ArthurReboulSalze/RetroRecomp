@@ -173,7 +173,7 @@ static void toggle_mute(void) {
     rrhk_notice(rr_tr(muted ? "Sound muted" : "Sound on"), 1800);
 }
 
-/* 1.7.6: the pad's speed controls are two combinations of player 1's pad (game_options.h: Fast forward, R2 by default, held;
+/* 1.7.6: the pad's speed controls are two combinations of player 1's pad (the options' table: Fast forward, R2 by default, held;
  * Max speed, L2 by default, a press toggles it), read each frame; F2 moves or clears them. A combination that uses a trigger the
  * game has (a control bound to it, the PlayStation's and the Nintendo 64's L2/R2) does nothing: the game wins, as before. */
 static bool speed_free(int index) {

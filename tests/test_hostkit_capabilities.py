@@ -65,8 +65,8 @@ class DefaultsOffTests(unittest.TestCase):
         self.assertIn('enum { PAGE_ROWS = 15 };', menu)
         self.assertIn('if (rows <= PAGE_ROWS) return page_first = 0;', menu)
         self.assertIn('if (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER) return false;', input_c)
-        self.assertIn('if (rrhk_combo_trigger(side)) return true;', input_c)
-        self.assertIn('value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER))', input_c)
+        self.assertIn('bool rrhk_trigger_bound(int side) {', input_c)
+        self.assertIn('value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER || RRHK_PAD_IS_STICK(value)))', input_c)
         self.assertNotIn('m->trigger_buttons', input_c)
         # The trigger values are fixed, outside SDL's buttons; an options page of fourteen rows or fewer is handed over whole.
         header = (KIT / 'hostkit.h').read_text(encoding='utf-8')
