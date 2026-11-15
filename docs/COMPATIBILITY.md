@@ -220,7 +220,7 @@ compatible games. The 68000 instructions its reference run saw become native cod
 instruction runs on Hatari's interpreter and is counted per route; the video, sound and disk chips are Hatari's. CPU fidelity, hardware fidelity, gameplay
 validation and physical latency are separate measures ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)): hardware fidelity and latency are not claimed, and no game is validated as played. STE, TT, Falcon and hard disks are not converted.
 
-The **Nintendo 64** profile is experimental since 1.7.1 ([status](NINTENDO_64.md)): it converts cartridge images (.z64, .v64, .n64, in any byte order) on
+The **Nintendo 64** profile is supported since 1.7.6 and no longer experimental, on the owner's decision of 15 November 2026 (it opened in 1.7.1; [status](NINTENDO_64.md)): it converts cartridge images (.z64, .v64, .n64, in any byte order) on
 Mupen64Plus-Next with the ParaLLEl renderer, which needs a graphics card with Vulkan 1.1 (integrated graphics unverified), within
 [its documented scope](NINTENDO_64.md). It has no list of compatible games: the VR4300 code a conversion sees running becomes guarded native blocks
 and the rest is counted as interpreted; CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures that are

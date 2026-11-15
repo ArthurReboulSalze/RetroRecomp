@@ -1,8 +1,8 @@
 # Standards for adding to Retro-Recomp
 
 Retro-Recomp converts games for nineteen machines (Master System, Game Gear, Game
-Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the MSX2+, the Commodore Amiga, the Atari ST, the Game Boy Advance and, as
-experimental machines, the Nintendo 64 and the Sony PlayStation),
+Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the MSX2+, the Commodore Amiga, the Atari ST, the Game Boy Advance, the Nintendo 64 and, as
+an experimental machine, the Sony PlayStation),
 and runs adventure games through ScummVM as a category of its own; more are planned. This page states the rules every change follows and the
 shape the code is converging to, so that a new machine costs a profile, a CPU
 core and a host adapter, not a copy of everything. The inventory behind it
@@ -157,7 +157,7 @@ its own measure category.
 | Panel and platforms | varied boards, none dropped for failing; Windows and Linux give identical route hashes |
 | Owner acceptance | the owner's play test, recorded |
 | Honesty | hardware fidelity, full-game coverage and latency are never claimed without proof |
-| Shared knowledge | hints are numeric, rechecked, and the conversion retries without them on failure; a machine on which sharing serves no purpose (its panel shows that received paths would add no native instruction and save no pass) does not share, on the maintainer's decision (14 November 2026), and G16 reads `-` |
+| Shared knowledge | hints are numeric, rechecked, and the conversion retries without them on failure; a machine on which sharing serves no purpose (its panel shows that received paths would add no native instruction and save no pass), or on which the panel shows a gain the maintainer judges too small to be worth it (15 November 2026), does not share, on the maintainer's decision (14 November 2026), and G16 reads `-` |
 
 Leaving `experimental` keeps the bar very high (every gate proved, none relaxed) and is always the maintainer's own decision: no tool
 and no agent fills the owner-acceptance gate or sets a profile to `supported` without his explicit yes

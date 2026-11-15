@@ -1,7 +1,8 @@
 # Nintendo 64
 
-Experimental profile (`n64`): the converter offers it when the installation carries the Nintendo 64 files, and it is not shared
-through the compilation library. It converts a Nintendo 64 cartridge image into a standalone Windows executable that runs the game on
+Supported profile (`n64`) since 1.7.6, on the owner's decision of 15 November 2026 (open as experimental in 1.7.1): the converter offers it
+when the installation carries the Nintendo 64 files, and it does not share its paths through the compilation library (the owner's
+decision: the gain is small, section 6). It converts a Nintendo 64 cartridge image into a standalone Windows executable that runs the game on
 [Mupen64Plus-Next](https://github.com/libretro/mupen64plus-libretro-nx) with the ParaLLEl renderer on Vulkan, with guarded native
 blocks for the VR4300 code its reference runs observed and the core's interpreter, counted, for the rest. Nothing here says that a
 game plays completely, that the hardware is reproduced faithfully, that a game runs in real time on a given computer or how long
@@ -15,7 +16,7 @@ fidelity. See [ARCHITECTURE.md](ARCHITECTURE.md#machines-that-run-on-an-emulator
 
 ## 1. What is converted, and what is not
 
-| Converted (experimental) | Not yet |
+| Converted | Not yet |
 | --- | --- |
 | Cartridge images in any of the three byte orders (`.z64` big-endian, `.v64` byte-swapped, `.n64` word-swapped; a `.rom` whose content is a cartridge image), NTSC and PAL | The 64DD and its disks; the Transfer Pak; the Voice Recognition Unit |
 | The Expansion Pak (8 MiB) always present; a controller pak in every pad (memory pak by default, Rumble Pak on request) | Per-game choice of pak in the interface |
@@ -72,9 +73,12 @@ image; Retro-Recomp publishes no game and no firmware (the console needs none: t
 
 The pad: A, B, Z (left trigger), Start, L, R, the four C buttons (the right stick, or Y and B on a gamepad, I/K/J/L on the
 keyboard), the d-pad, and the control stick (a gamepad's left stick; the arrows push it to its edge on the keyboard). F2 shows every
-binding and the stick's dead zone. F3 opens the graphics page: internal resolution (1x, 2x, 4x), super-sampled read-back, the
-VI filters (anti-aliasing, divot, gamma dither, bilinear scaling, dither filter), deinterlacing, overscan crop, native texture
-rectangles and texture LOD. Each changes only what the player sees; the defaults are the setting every check uses. The Vibration row
+binding and the stick's dead zone. F3 opens the graphics page, five rows since 1.7.6: internal resolution (1x, 2x, 4x), edge
+smoothing (the console's anti-aliasing, with its divot filter), smooth scaling (the console's horizontal filter), dither smoothing,
+and overscan crop. Each changes only what the player sees; the defaults are the setting every check uses. The
+renderer's other settings are fixed at those defaults: no super-sampled read-back, native texture LOD off, Bob deinterlacing (an N64 has no progressive mode
+for an interlaced picture; Bob never combs, and ParaLLEl keeps Weave for 1x with CRT shaders), the gamma dither and native texture
+rectangles on, as the console. A value saved for a removed row is no longer read. The Vibration row
 of the options page turns rumble off.
 
 ## 5. Licences
@@ -196,15 +200,30 @@ process given the kept file plays on, and again with a copy in which one byte of
 before the save was written, loaded by a fresh process, leaves the file holding what the route wrote; a file cut to half, an empty file or a
 folder in its place never stops the game (600 frames) and is left as it was.
 
-**F-Zero X: what the owner saw, an open item (14 November 2026).** The owner played F-Zero X (PAL) and accepted it for the experimental version, seeing a vibration on
+**F-Zero X: what the owner saw, closed on 15 November 2026.** The owner played F-Zero X (PAL) and accepted it for the experimental version, seeing a vibration on
 the objects and an odd level of detail on the vehicles. He played at the 4x internal resolution with super-sampled read-back on and Weave deinterlacing. Measured from one
 race state over 300 frames (Windows, Standard conversion, main route 95.5 % native): at 4x the CPU, RDRAM and sound are identical to 1x on every frame, only the picture
 differs; with super-sampled read-back the RDRAM differs too (the framebuffer written back) while the CPU and sound stay identical; the native game equals the cached and pure
 interpreters; every frame is a new picture (50 a second) and the HUD does not move. So the vehicles' motion and the choice of their models are the game's as Mupen64Plus runs
 it, not the native blocks' and not the graphics settings'; their fidelity to a console is not measured. Two causes remain, not yet told apart: the host's pacing (the
 picture is presented with vsync while the 50 Hz game keeps its own clock, so on a 60 or 144 Hz screen some pictures stay one refresh longer, a regular judder shared by
-every PAL game), or the game's own effects (machines that shake at speed, rivals drawn with fewer polygons at a distance). The owner's description and his screen's refresh
-rate will decide.
+every PAL game), or the game's own effects (machines that shake at speed, rivals drawn with fewer polygons at a distance). On 15 November 2026 the owner played it
+again and closed the item: nothing vibrates, the levels of detail seen are the game's own (« c'est le jeu, donc j'ai pas de problème avec F-Zero »).
+
+### Supported from 1.7.6 (15 November 2026)
+
+The Nintendo 64 is **supported from 1.7.6**. The owner played the eight exports of [the checklist](QUALIFICATION.md#checklist-for-arthur-nintendo-64-play-test-g14)
+(15 November 2026, delivered from the tree `7b33bd9d`) and wrote « Je viens de tester la Nintendo 64 et la PlayStation sur plusieurs jeux. Donc, le
+comportement du jeu en lui-même, ça me paraît plutôt solide et plutôt réactif. Je n'ai pas eu de bug graphique. »; told that without sharing the machine
+would stay experimental under the rule of the time, he decided: « Ça me paraît bien faible pour partager les chemins. Si on a que 10% de gain max, […] on va
+sortir Nintendo de l'expérimental, mais on va pas partager les chemins. » (G14 `Y`, G16 `-`; the rule now says a gain judged too small counts like none.)
+
+**Scope of the status.** PAL and NTSC cartridge images (.z64, .v64, .n64, in any byte order) with EEPROM, SRAM, Flash and controller-pak saves, on a graphics card
+with Vulkan 1.1; Windows executables, and the same conversion on Linux (witnessed on a Debian 13 PC, not played there). Not converted: the 64DD, the Transfer Pak and
+the VRU. **The measures stay apart:** the native share is that of the VR4300 only (the RSP and the RDP run on the core's own recompiler and on the GPU), 99.25 % to
+99.79 % on the panel's routes at the Extended level; a Standard conversion leaves 2.3 % to 11.5 % of a play route's instructions on the interpreter, counted and
+shown, and no received path makes it native (sharing declined). The CPU is the core's, checked against krom's tests with its failures named; the hardware is the
+core's and the ParaLLEl renderer's, not measured against a console; no game is validated as played through, and the latency is not measured.
 
 ### The panel of 15 November 2026 (1.7.6)
 
@@ -236,7 +255,7 @@ on the Count register; 94.2 % native before) and TLB-mapped code (GoldenEye 007:
 **What received paths would add (G16).** An N64 conversion is one observation pass, so a received path cannot save a pass. It can make
 code native beyond the receiver's own routes: of the instructions each play route ran, a Standard conversion (main and explore routes
 only) would have left on the interpreter 2.3 % (Majora's Mask), 3.9 % (Rayman 2), 7.3 % (Ocarina of Time) and 11.5 % (Super Mario 64);
-an Extended conversion that plays the route leaves 0.54 % to 0.72 %. The Nintendo 64 does not share paths yet (not in `SHARED_SYSTEMS`).
+an Extended conversion that plays the route leaves 0.54 % to 0.72 %. The Nintendo 64 does not share its paths: the owner judged the gain too small (15 November 2026, `DECLINED['path_sharing']`).
 
 ### What "met" means for the Nintendo 64 (the target for leaving the experimental status, 14 November 2026)
 
@@ -268,8 +287,6 @@ the panel. None of the gates measures hardware fidelity, gameplay coverage or la
 
 - TLB-mapped code becomes native only in the pages the TLB maps when the reference observes it, and a page the game maps to other code
   later is a guard miss (counted). The uncached KSEG1 code (the boot code) always runs on the interpreter.
-- F-Zero X: a vibration on the objects and an odd level of detail on the vehicles, seen by the owner, cause not settled (section 6); neither the native blocks nor
-  the graphics settings change what the game computes.
 - Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
 - krom's ExceptionTEQDelay (a trap in a jump's delay slot): converted like a game, a quick state taken by the delivered program does not
   continue in a fresh process (RDRAM and CPU differ from the first frame), so the conversion is refused; on the core's interpreter alone it

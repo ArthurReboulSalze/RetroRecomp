@@ -36,41 +36,35 @@ static const RrhkAction n64_actions[N_ACTIONS] = {
     {"Stick left", L"StickLeft", 0, RRHK_SYSTEM, 0, {SDL_SCANCODE_LEFT, SDL_SCANCODE_KP_1}, N64_PADS(N64_NO_PAD)},
     {"Stick right", L"StickRight", 0, RRHK_SYSTEM, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_KP_3}, N64_PADS(N64_NO_PAD)}};
 
-/* ---- the graphics page (D14): what the player sees only; each default is the reference setting every check uses ---- */
+/* ---- the graphics page (D14): what the player sees only; each default is the reference setting every check uses ----
+ * Five rows since 1.7.6 (Arthur, 15 November 2026: « Oui, valide »). The renderer's other settings are fixed at the glue's defaults, which
+ * are the reference: the super-sampled read-back off, native texture LOD off (it acts only above 1x; F-Zero X's level of detail is the
+ * game's own models), Bob deinterlacing (an N64 has no progressive mode for an interlaced picture, and
+ * Bob never combs; ParaLLEl keeps Weave for 1x with CRT shaders), the gamma dither on and native texture rectangles on, as the console;
+ * the divot filter follows "Edge smoothing", whose notches it removes. A saved value of a removed row is read by no one. */
 static const char *const n64_resolutions[] = {"1x (native)", "2x", "4x"};
 static const char *const n64_resolution_values[] = {"1x", "2x", "4x"};
 static const char *const n64_off_on[] = {"Off", "On"};
 static const char *const n64_false_true[] = {"False", "True"};
-static const char *const n64_deinterlacing[] = {"Bob", "Weave"};
-static const char *const n64_deinterlacing_values[] = {"Bob", "Weave"};
 static const char *const n64_crops[] = {"Off", "8 pixels", "16 pixels"};
 static const char *const n64_crop_values[] = {"0", "8", "16"};
-enum { G_RESOLUTION, G_READ_BACK, G_DEINTERLACE, G_VI_AA, G_DIVOT, G_GAMMA, G_BILINEAR, G_DITHER, G_OVERSCAN, G_TEX_RECT, G_LOD,
-       G_COUNT };
+enum { G_RESOLUTION, G_EDGES, G_SCALING, G_DITHER, G_OVERSCAN, G_COUNT };
 static const RrhkGfxOption n64_gfx_options[G_COUNT] = {
     {"Internal resolution", L"resolution", n64_resolutions, 3, 0},
-    {"Super-sampled read-back", L"ssreadback", n64_off_on, 2, 0},
-    {"Deinterlacing", L"deinterlacing", n64_deinterlacing, 2, 0},
-    {"VI anti-aliasing", L"viaa", n64_off_on, 2, 1},
-    {"Divot filter", L"divot", n64_off_on, 2, 1},
-    {"Gamma dither", L"gammadither", n64_off_on, 2, 1},
-    {"VI bilinear scaling", L"vibilinear", n64_off_on, 2, 1},
-    {"Dither filter", L"ditherfilter", n64_off_on, 2, 1},
-    {"Overscan crop", L"overscan", n64_crops, 3, 0},
-    {"Native texture rectangles", L"nativetexrect", n64_off_on, 2, 1},
-    {"Native texture LOD", L"nativelod", n64_off_on, 2, 0}};
+    {"Edge smoothing (console)", L"viaa", n64_off_on, 2, 1},
+    {"Smooth scaling (console)", L"vibilinear", n64_off_on, 2, 1},
+    {"Dither smoothing", L"ditherfilter", n64_off_on, 2, 1},
+    {"Overscan crop", L"overscan", n64_crops, 3, 0}};
 static const char *const *const n64_gfx_values[G_COUNT] = {
-    n64_resolution_values, n64_false_true, n64_deinterlacing_values, n64_false_true, n64_false_true, n64_false_true,
-    n64_false_true, n64_false_true, n64_crop_values, n64_false_true, n64_false_true};
+    n64_resolution_values, n64_false_true, n64_false_true, n64_false_true, n64_crop_values};
 static const char *const n64_gfx_keys[G_COUNT] = {
-    "parallel-rdp-upscaling", "parallel-rdp-super-sampled-read-back", "parallel-rdp-deinterlace-method", "parallel-rdp-vi-aa",
-    "parallel-rdp-divot-filter", "parallel-rdp-gamma-dither", "parallel-rdp-vi-bilinear", "parallel-rdp-dither-filter",
-    "parallel-rdp-overscan", "parallel-rdp-native-tex-rect", "parallel-rdp-native-texture-lod"};
+    "parallel-rdp-upscaling", "parallel-rdp-vi-aa", "parallel-rdp-vi-bilinear", "parallel-rdp-dither-filter", "parallel-rdp-overscan"};
 static int n64_scale = 1;   /* the internal resolution in force */
 
 static void n64_gfx_apply(int option, int value) {
     if (option < 0 || option >= G_COUNT || value < 0 || value >= n64_gfx_options[option].count) return;
     rr_n64_option(session, n64_gfx_keys[option], n64_gfx_values[option][value]);
+    if (option == G_EDGES) rr_n64_option(session, "parallel-rdp-divot-filter", n64_gfx_values[option][value]);
     if (option == G_RESOLUTION) n64_scale = 1 << value;
 }
 

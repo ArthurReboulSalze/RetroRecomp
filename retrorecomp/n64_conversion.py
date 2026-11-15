@@ -1,4 +1,4 @@
-"""Nintendo 64 conversion (experimental): a cartridge image becomes a standalone game (MIT; the executable it builds is linked with
+"""Nintendo 64 conversion: a cartridge image becomes a standalone game (MIT; the executable it builds is linked with
 Mupen64Plus-Next and is GPL-3.0 as a whole: licenses/mupen64plus-next.md).
 
 Every conversion starts from a fresh reference run: the game runs on Mupen64Plus with the ParaLLEl RDP (Vulkan, deterministic
