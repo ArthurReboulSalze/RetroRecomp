@@ -24,6 +24,7 @@ def main():
             shutil.copy2(ROOT / 'native' / resource, folder / resource)
     for resource in ('md_audio_mix.h', 'md_audio_mix_checks.c'):
         shutil.copy2(ROOT / 'native' / resource, project / resource)
+    shutil.copy2(ROOT / 'native' / 'md_audio_locked_checks.c', project / 'optimized' / 'md_audio_locked_checks.c')
     (project / 'CMakeLists.txt').write_text('''cmake_minimum_required(VERSION 3.20)
 project(MdAudioBridgeChecks C)
 set(CMAKE_C_STANDARD 11)
@@ -38,6 +39,11 @@ foreach(name reference ntt optimized)
     target_link_libraries(${name} PRIVATE m)
   endif()
 endforeach()
+add_executable(locked optimized/md_audio_locked_checks.c)
+if(NOT MSVC)
+  target_compile_options(locked PRIVATE -O3)
+  target_link_libraries(locked PRIVATE m)
+endif()
 ''', encoding='utf-8')
     cmake, generator = toolchain()
     log = project / 'build.log'
@@ -59,7 +65,7 @@ endforeach()
                          for name in ('reference', 'optimized')}
     assert results['steady']['reference']['hash'] == results['steady']['optimized']['hash']
     # A game locked to the display (1.7.7): the feed-forward keeps the fill in its band, nothing concealed or dropped.
-    results['locked'] = json.loads(run([build_executable(project / 'build', 'optimized'), '--locked'], timeout=300))
+    results['locked'] = json.loads(run([build_executable(project / 'build', 'locked')], timeout=300))
     assert results['locked']['passed'], results['locked']
     (project / 'result.json').write_text(json.dumps(results, indent=2), encoding='utf-8')
     print(json.dumps(results))

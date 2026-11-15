@@ -50,6 +50,7 @@ static void genesis_audio_callback(void *user, Uint8 *stream, int len)''')
         '    if (cfg.ring_ms < 230.0) cfg.ring_ms = 230.0; /* room for the adaptive reserve */')
     replace('    s_bridge_ready   = 1;',
         '    rr_md_device_rate = got.freq; rr_md_psg_rate = psg_sample_rate;\n'
+        '    s_bridge.rr_feed = rr_md_audio_feed; /* a device opened again keeps the display lock in force */\n'
         '    s_bridge_ready   = 1;\n'
         '    rr_md_target_base = s_bridge.cfg.target_ms; rr_md_high_base = s_bridge.cfg.em_high_ms;\n'
         '    memset(&rr_md_cushion, 0, sizeof(rr_md_cushion));')
@@ -71,6 +72,7 @@ static SDL_AudioDeviceID rr_md_audio_open(const SDL_AudioSpec *want, SDL_AudioSp
     return id ? id : SDL_OpenAudioDevice(NULL, 0, want, have, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 }
 static RrAudioCushion rr_md_cushion;
+static double rr_md_audio_feed = 1.0; /* 1/base of the kit's last audio_ratio call */
 static double rr_md_target_base, rr_md_high_base;
 static void rr_md_apply_cushion(void) {
     SDL_LockAudioDevice(s_dev);
@@ -94,6 +96,7 @@ int rr_md_audio_reopen(void) {
  * fill controller corrects the rest). Outside [0.97, 1.03] or at 1.0 the pinned step is used unchanged. */
 void rr_md_audio_base(double base) {
     double feed = (base >= 0.97 && base <= 1.03 && base != 1.0) ? 1.0 / base : 1.0;
+    rr_md_audio_feed = feed;
     if(!s_dev || !s_bridge_ready || s_bridge.rr_feed == feed) return;
     SDL_LockAudioDevice(s_dev);
     s_bridge.rr_feed = feed;
@@ -135,7 +138,9 @@ def bridge(source: str) -> str:
             '        free(b->ring); b->ring = NULL; free(b->coeffs); b->coeffs = NULL; return 8;\n'
             '    }\n'
             '    b->loop_pcm = (int16_t *)malloc((size_t)b->cap * sizeof(int16_t));\n'
-            '    rr_md_loop_prepare(b);\n    rab_reset(b);\n    return 0;')
+            '    rr_md_loop_prepare(b);\n'
+            '    b->rr_feed = 1.0; /* rab_reset keeps it: the kit sends a new value only when it changes */\n'
+            '    rab_reset(b);\n    return 0;')
     # The kit paces a Locked game by the display's refresh (base = machine Hz / refresh Hz): the device must then take
     # base x what the machine made, so each output frame consumes 1/base source frames. A pure feed-forward on the step:
     # the bridge's own fill controller (P, low-pass, slew, +/-0.5 %) still corrects what is left. At 1.0 the pinned
@@ -143,9 +148,6 @@ def bridge(source: str) -> str:
     replace('    b->cur_step = (c->source_rate / c->host_rate) * (1.0 + b->corr);',
             '    b->cur_step = (c->source_rate / c->host_rate) * (1.0 + b->corr);\n'
             '    if (b->rr_feed != 1.0) b->cur_step *= b->rr_feed;')
-    replace('    b->cur_step = b->cfg.source_rate / b->cfg.host_rate;',
-            '    b->cur_step = b->cfg.source_rate / b->cfg.host_rate;\n'
-            '    b->rr_feed  = 1.0;')
     replace('    free(b->ring);   b->ring   = NULL;',
             '    free(b->ring);   b->ring   = NULL;\n'
             '    free(b->loop_history); b->loop_history = NULL;\n'
