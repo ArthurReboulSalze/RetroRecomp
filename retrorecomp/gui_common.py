@@ -86,6 +86,7 @@ UPSTREAM_CREDITS = (
     # Credited before they join the converter: their upstreams are chosen and in use on the specialists' branches.
     ('Commodore Amiga', (
         ('dirkwhoffmann/vAmiga', 'https://github.com/dirkwhoffmann/vAmiga', 'credits_amiga_hardware'),
+        ('temisu/ancient', 'https://github.com/temisu/ancient', 'credits_amiga_crunchmania'),
         ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
     )),
     ('Atari ST', (
