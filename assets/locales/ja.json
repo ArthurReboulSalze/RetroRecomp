@@ -1118,6 +1118,21 @@
     "Picture area (auto)": "画像領域 (自動)",
     "Screen format: %s": "画面比率: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter: 割り当て | Del/X: 消去 | 左右: ページ",
-    "Enter / A: restore this page": "Enter / A: このページを初期化"
+    "Enter / A: restore this page": "Enter / A: このページを初期化",
+    "Sync to display: %s": "画面同期: %s",
+    "Auto": "自動",
+    "Auto (locked)": "自動 (同期)",
+    "Auto (free)": "自動 (自由)",
+    "Locked": "同期",
+    "Locked (free)": "同期 (自由)",
+    "Free": "自由",
+    "Variable refresh": "可変リフレッシュレート",
+    "Variable refresh: the screen follows the game": "可変リフレッシュレート: 画面がゲームに合わせます",
+    "Variable refresh: from the next start": "可変リフレッシュレート: 次回起動から",
+    "Free: the game's own %s Hz": "自由: ゲーム本来の %s Hz",
+    "Locked to the screen: %s Hz, game %s Hz (%s)": "画面に同期: %s Hz、ゲーム %s Hz (%s)",
+    "Free: screen %s Hz, game %s Hz": "自由: 画面 %s Hz、ゲーム %s Hz",
+    "Free: this machine's sound cannot follow yet": "自由: この機種の音声はまだ追従できません",
+    "Free: the screen's refresh is unknown": "自由: 画面のリフレッシュレートが不明"
   }
 }

@@ -37,6 +37,12 @@ void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkT
             fprintf(file, "%s\"%ls\":%d", i ? "," : "", machine->gfx_options[i].ini_key, rrhk.gfx[i]);
         fprintf(file, "}");
     }
+    /* 1.7.7 (D30): Sync to display: the mode, the measured refresh, the decision and the cadence of the locked frames (how many
+     * refreshes each was held: evenness of the picture, never a latency) */
+    fprintf(file, ",\"sync\":{\"mode\":%d,\"active\":%s,\"refresh_hz\":%.6f,\"machine_hz\":%.6f,\"locked\":%s,\"held\":[%llu,%llu,%llu,%llu]}",
+        rrhk_sync.mode, rrhk_sync.active ? "true" : "false", rrhk_sync.refresh_hz, rrhk_sync.machine_hz, rrhk_sync.lock ? "true" : "false",
+        (unsigned long long)rrhk_sync.held[0], (unsigned long long)rrhk_sync.held[1], (unsigned long long)rrhk_sync.held[2],
+        (unsigned long long)rrhk_sync.held[3]);
     if (machine->timing_report) machine->timing_report(file, frequency);
     fprintf(file, "}\n"); fclose(file);
 }

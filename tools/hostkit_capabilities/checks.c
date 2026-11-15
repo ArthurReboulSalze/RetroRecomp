@@ -20,6 +20,7 @@
  *   - discs: the Change disc key and pad button select the next disc with a "Disc 2/3" notice, a refused change, nothing in a
  *     menu;
  *   - with the fields left out: F3 cycles the filter, the left stick is the directions, no dead zone row, no rumble, no disc.
+ *   - Sync to display (1.7.7): the decision for given rates, the sound's factor and its closed loop, the row, the pacing;
  *   - no picture (1.7.7): a machine whose pixels() is NULL, or 0 x 0, shows a black game area under each filter, no crash;
  *   - F4 (1.7.4): window, pixel-perfect, fit, stretched (the whole output), kept and read back, even by a machine that clamps
  *     its former value to three modes;
@@ -407,9 +408,10 @@ static void full_script(void) {
         CHECK(rumble_calls == 1 && rumble_low == 1000 && rumble_high == 2000);
         rrhk_rumble(1, 3000, 4000, 10000);
         CHECK(rumble_calls == 1);
-        /* the Vibration row of the options page: F3, F4, F6, F7, then Vibration */
+        /* the Vibration row of the options page: F3, F4, Sync to display (1.7.7), F6, F7, then Vibration */
         ui->menu = RRHK_MENU_OPTIONS;
-        key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN);
+        key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN);
+        key(SDL_SCANCODE_RETURN);
         break;
     case 45:    /* off: the vibration stops, none starts, kept */
         CHECK(ui->menu == RRHK_MENU_OPTIONS && ui->rumble == 0);
@@ -510,7 +512,7 @@ static void full_script(void) {
         CHECK(ui->menu == 0 && !ui->capturing);
         extra_rows = true;
         ui->menu = RRHK_MENU_OPTIONS;
-        option_rows_total = 18;      /* 1.7.4: the Start-up reminders row, before the last one */
+        option_rows_total = 19;      /* 1.7.4: the Start-up reminders row, before the last one; 1.7.7: Sync to display */
         for (int k = rrhk_option_selected(); k < option_rows_total - 1; ++k) key(SDL_SCANCODE_DOWN);
         break;
     case 67:    /* the last row (` Max speed) is reached, the window scrolled; Enter runs it */
@@ -524,24 +526,24 @@ static void full_script(void) {
         break;
     case 69:
         CHECK(ui->max_speed == 0 && rrhk_option_selected() == 0 && rrhk_option_scroll() == 0);
-        for (int k = 0; k < 9; ++k) key(SDL_SCANCODE_DOWN);     /* the machine's third row of slot 1 */
+        for (int k = 0; k < 10; ++k) key(SDL_SCANCODE_DOWN);    /* the machine's third row of slot 1 */
         key(SDL_SCANCODE_RETURN);
         break;
     case 70:
-        CHECK(machine_key == EXTRA_KEY + 5 && rrhk_option_selected() == 9 && rrhk_option_scroll() == 0);
+        CHECK(machine_key == EXTRA_KEY + 5 && rrhk_option_selected() == 10 && rrhk_option_scroll() == 0);
         for (int k = 0; k < 5; ++k) key(SDL_SCANCODE_DOWN);
         break;
     case 71:
-        CHECK(rrhk_option_selected() == 14 && rrhk_option_scroll() == 1);
+        CHECK(rrhk_option_selected() == 15 && rrhk_option_scroll() == 2);
         key(SDL_SCANCODE_UP);       /* Volume: still inside the window, which does not move */
         break;
     case 72:    /* 1.7.4: the Start-up reminders row, three rows down, is kept in [Interface] start_help */
-        CHECK(rrhk_option_selected() == 13 && rrhk_option_scroll() == 1);
+        CHECK(rrhk_option_selected() == 14 && rrhk_option_scroll() == 2);
         CHECK(ini(L"Interface", L"start_help") == -1000);
         key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN);
         break;
     case 73:
-        CHECK(rrhk_option_selected() == 16 && ini(L"Interface", L"start_help") == 0);
+        CHECK(rrhk_option_selected() == 17 && ini(L"Interface", L"start_help") == 0);
         key(SDL_SCANCODE_RETURN);
         break;
     case 74:
@@ -1112,6 +1114,139 @@ static void null_picture_script(void) {
     if (s == 37) { CHECK(picture_checks == null_checks + 1 && picture_ok); stop = true; }   /* the picture again */
 }
 
+/* 1.7.7 (HOST_KIT D30): Sync to display, without a display. The decision Auto and Locked make for given rates; the sound's
+ * factor held within its bounds; a locked game's sound buffer neither grows nor runs dry over ten simulated minutes, also when
+ * the refresh was measured 0.1 % off; then through the real loop with a stand-in refresh (RETRORECOMP_TEST_REFRESH_HZ): the
+ * row cycles Auto, Locked, Free, Variable refresh and is kept, the game is paced by the present in play only (free in the menus,
+ * under Tab and at max speed), its sound factor is machine / refresh while locked and exactly 1 otherwise. */
+static void sync_pure_checks(void) {
+    CHECK(rrhk_sync_decide(RRHK_SYNC_AUTO, 60.0, 59.9228));          /* Mega Drive, Master System on a 60 Hz screen */
+    CHECK(rrhk_sync_decide(RRHK_SYNC_AUTO, 60.0, 60.0988));          /* NES, Super Nintendo */
+    CHECK(rrhk_sync_decide(RRHK_SYNC_AUTO, 59.94, 59.7275));         /* Game Boy on a 59.94 Hz screen */
+    CHECK(!rrhk_sync_decide(RRHK_SYNC_AUTO, 60.0, 59.1856));         /* Neo Geo: 1.4 %, beyond Auto */
+    CHECK(rrhk_sync_decide(RRHK_SYNC_LOCKED, 60.0, 59.1856));        /* ... but within Locked's 3 % */
+    CHECK(!rrhk_sync_decide(RRHK_SYNC_AUTO, 60.0, 50.0) && !rrhk_sync_decide(RRHK_SYNC_LOCKED, 60.0, 50.0));   /* PAL on 60 Hz */
+    CHECK(!rrhk_sync_decide(RRHK_SYNC_AUTO, 144.0, 59.9228) && !rrhk_sync_decide(RRHK_SYNC_LOCKED, 144.0, 59.9228));
+    CHECK(rrhk_sync_decide(RRHK_SYNC_AUTO, 50.0, 49.92));            /* an Amiga PAL game on a 50 Hz screen */
+    CHECK(!rrhk_sync_decide(RRHK_SYNC_FREE, 60.0, 60.0) && !rrhk_sync_decide(RRHK_SYNC_VARIABLE, 60.0, 60.0));
+    CHECK(!rrhk_sync_decide(RRHK_SYNC_AUTO, 0.0, 60.0) && !rrhk_sync_decide(RRHK_SYNC_AUTO, 60.0, 0.0));
+    /* the factor: base clamped to 3 %, the fill's correction to 0.5 % */
+    const double base = 59.9228 / 60.0;
+    CHECK(SDL_fabs(rr_drc_ratio(base, 1000.0, 1000.0) - base) < 1e-12);
+    CHECK(SDL_fabs(rr_drc_ratio(base, 0.0, 1000.0) - base * 1.005) < 1e-12);
+    CHECK(SDL_fabs(rr_drc_ratio(base, 1e9, 1000.0) - base * 0.995) < 1e-12);
+    CHECK(SDL_fabs(rr_drc_ratio(0.5, 1000.0, 1000.0) - 0.97) < 1e-12 && SDL_fabs(rr_drc_ratio(2.0, 1000.0, 1000.0) - 1.03) < 1e-12);
+    for (int i = 0; i <= 100; ++i) {
+        const double r = rr_drc_ratio(0.9 + i * 0.002, i * 50.0, 2500.0);
+        CHECK(r >= 0.97 * 0.995 - 1e-12 && r <= 1.03 * 1.005 + 1e-12);
+    }
+    /* the resampler: continuous, its length follows the ratio */
+    static int16_t in[48000 * 2], out[50000 * 2];
+    for (int i = 0; i < 48000; ++i) in[2 * i] = in[2 * i + 1] = (int16_t)(10000.0 * SDL_sin(i * 0.01));
+    RrDrcResampler r; memset(&r, 0, sizeof r);
+    size_t total = 0;
+    for (int block = 0; block < 60; ++block) total += rr_drc_resample(&r, in + block * 800 * 2, 800, 2, base, out, 50000 - total);
+    CHECK(total >= 47937 && total <= 47939);                  /* 48000 x 0.99871 */
+    memset(&r, 0, sizeof r);
+    CHECK(rr_drc_resample(&r, in, 800, 2, 1.0, out, 50000) == 800 && out[2] == in[0] && out[4] == in[2]);   /* 1.0: a sample late, no change */
+    /* closed loop: a locked game (one frame per refresh) makes 48000 / machine_hz frames of sound a frame, the device plays
+     * 48000 / true_refresh; the factor is computed from the measured refresh. The buffer before each push stays near its target. */
+    for (int trial = 0; trial < 2; ++trial) {
+        const double machine = 59.9228, measured = 60.0, real = trial ? 59.94 : 60.0;   /* 2nd: the refresh measured 0.1 % off */
+        const double target = 2000.0;
+        double fill = target, made = 0.0, lowest = 1e9, highest = 0.0;
+        RrDrcResampler loop; memset(&loop, 0, sizeof loop);
+        for (int frame = 0; frame < 60 * 600; ++frame) {
+            made += 48000.0 / machine;
+            const size_t frames = (size_t)made; made -= (double)frames;
+            static int16_t block[1000 * 2], stretched[1100 * 2];
+            for (size_t i = 0; i < frames; ++i) block[2 * i] = block[2 * i + 1] = (int16_t)(frame + (int)i);
+            fill += (double)rr_drc_resample(&loop, block, frames, 2, rr_drc_ratio(machine / measured, fill, target), stretched, 1100);
+            fill -= 48000.0 / real;
+            if (frame > 600) { if (fill < lowest) lowest = fill; if (fill > highest) highest = fill; }
+        }
+        CHECK(lowest > target * 0.5 && highest < target * 1.5);
+        if (failures) fprintf(stderr, "  sync loop %d: fill %.1f .. %.1f\n", trial, lowest, highest);
+    }
+}
+
+static void set_env(const char *name, const char *value);
+static void refresh(const char *hz) { set_env("RETRORECOMP_TEST_REFRESH_HZ", hz); rrhk_sync.remeasure = true; }
+static void sync_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0:     /* Auto, the stand-in screen at 60.06 Hz, a 60 Hz machine: locked, its sound by 60 / 60.06 in play */
+        CHECK(rrhk_sync.active && rrhk_sync.mode == RRHK_SYNC_AUTO);
+        break;
+    case 3:
+        CHECK(rrhk_sync.lock && SDL_fabs(rrhk_sync.refresh_hz - 60.06) < 1e-9 && SDL_fabs(rrhk_audio_base() - 60.0 / 60.06) < 1e-12);
+        ui->menu = RRHK_MENU_OPTIONS;          /* a menu: free, the factor 1, vsync kept */
+        break;
+    case 5:
+        CHECK(rrhk_sync.lock && rrhk_audio_base() == 1.0);
+        ui->menu = 0;
+        break;
+    case 7:
+        CHECK(rrhk_audio_base() != 1.0);
+        ui->max_speed = 1;                     /* max speed: free */
+        break;
+    case 9:
+        CHECK(rrhk_audio_base() == 1.0);
+        ui->max_speed = 0;
+        break;
+    case 11:
+        CHECK(rrhk_audio_base() != 1.0 && rrhk_sync.quick_presents > 0);   /* the dummy driver never waits: held to 105 % */
+        refresh("144");                        /* another display, 144 Hz: Auto is free, and says why */
+        break;
+    case 13: {
+        CHECK(!rrhk_sync.lock && rrhk_audio_base() == 1.0 && rrhk_sync.why && !strcmp(rrhk_sync.why, "far"));
+        char value[48]; rrhk_sync_value(value, sizeof value);
+        CHECK(!strcmp(value, "Auto (free)"));
+        refresh("61.5");                       /* 2.5 %: Auto free, Locked locks */
+        break;
+    }
+    case 15:
+        CHECK(!rrhk_sync.lock);
+        ui->menu = RRHK_MENU_OPTIONS;
+        for (int k = rrhk_option_selected(); k > 2; --k) key(SDL_SCANCODE_UP);     /* F3 page, F4, then Sync to display */
+        for (int k = rrhk_option_selected(); k < 2; ++k) key(SDL_SCANCODE_DOWN);
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 18: {  /* Locked, kept; named once measured */
+        CHECK(rrhk_sync.mode == RRHK_SYNC_LOCKED && ini(L"Test3D.Video", L"sync") == RRHK_SYNC_LOCKED && rrhk_sync.lock);
+        CHECK(strstr(ui->status, "61.50 Hz") && strstr(ui->status, "60.00 Hz") && strstr(ui->status, "+2.50 %"));
+        char value[48]; rrhk_sync_value(value, sizeof value);
+        CHECK(!strcmp(value, "Locked"));
+        key(SDL_SCANCODE_RETURN);
+        break;
+    }
+    case 21:    /* Free: the game's own clock, vsync off */
+        CHECK(rrhk_sync.mode == RRHK_SYNC_FREE && !rrhk_sync.lock && !rrhk_sync.vsync && rrhk_audio_base() == 1.0);
+        CHECK(strstr(ui->status, "60.00 Hz") != NULL);
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 24:    /* Variable refresh: free, vsync off; on Windows the next start opens Direct3D 12 */
+        CHECK(rrhk_sync.mode == RRHK_SYNC_VARIABLE && !rrhk_sync.lock && !rrhk_sync.vsync && ini(L"Test3D.Video", L"sync") == 3);
+        ui->menu = 0; stop = true;          /* the machine runs again and ends the run */
+        break;
+    default: break;
+    }
+}
+static void sync_again(void) {
+    switch (step++) {
+    case 0:
+        CHECK(rrhk_sync.mode == RRHK_SYNC_VARIABLE && !rrhk_sync.lock);
+#ifdef _WIN32
+        CHECK(SDL_GetHint(SDL_HINT_RENDER_DRIVER) && !strcmp(SDL_GetHint(SDL_HINT_RENDER_DRIVER), "direct3d12"));
+#endif
+        rrhk_sync_next();                      /* back to Auto for the runs after this one */
+        CHECK(rrhk_sync.mode == RRHK_SYNC_AUTO && ini(L"Test3D.Video", L"sync") == 0);
+        break;
+    case 2: stop = true; break;
+    default: break;
+    }
+}
+
 static void (*script)(void);
 static void frame_start(void *window, void *renderer) { (void)window; (void)renderer; if (script) script(); }
 
@@ -1337,6 +1472,19 @@ int main(int argc, char **argv) {
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
     CHECK(step >= 38);
     graphics_page = false;
+    /* 15. 1.7.7 (HOST_KIT D30): Sync to display (the checks set SDL_RENDER_VSYNC=0, which keeps the kit's vsync as the
+     * conversion's runs have it; this run lifts it and stands in for the measured refresh). */
+    sync_pure_checks();
+    set_env("SDL_RENDER_VSYNC", "");
+    set_env("RETRORECOMP_TEST_REFRESH_HZ", "60.06");
+    begin(sync_script);
+    CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
+    CHECK(step >= 25);
+    begin(sync_again);
+    CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
+    CHECK(step >= 3);
+    set_env("RETRORECOMP_TEST_REFRESH_HZ", "");
+    set_env("SDL_RENDER_VSYNC", "0");
     /* 10. 1.7.6: the graphics page from F2 and from the options page, on the machine that has one. */
     begin(graphics_entry_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
