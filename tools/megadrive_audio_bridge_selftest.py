@@ -58,6 +58,9 @@ endforeach()
     results['steady'] = {name: json.loads(run([build_executable(project / 'build', name), '--steady'], timeout=30))
                          for name in ('reference', 'optimized')}
     assert results['steady']['reference']['hash'] == results['steady']['optimized']['hash']
+    # A game locked to the display (1.7.7): the feed-forward keeps the fill in its band, nothing concealed or dropped.
+    results['locked'] = json.loads(run([build_executable(project / 'build', 'optimized'), '--locked'], timeout=300))
+    assert results['locked']['passed'], results['locked']
     (project / 'result.json').write_text(json.dumps(results, indent=2), encoding='utf-8')
     print(json.dumps(results))
 
