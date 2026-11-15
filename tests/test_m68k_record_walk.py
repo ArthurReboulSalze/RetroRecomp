@@ -46,6 +46,27 @@ class WalkTests(unittest.TestCase):
 SWEEP_WORDS = {0x6000: 2, 0x6600: 2, 0x51c8: 2, 0x4eb9: 3, 0x4ef8: 2, 0x4efa: 2, 0x203c: 3}
 
 
+class Walk68020Tests(unittest.TestCase):
+    # move.l ([$10,a0,d0.w],$0),d0 with a full extension word (8 bytes; its first word says 2 words), then nop. The 68EC020's walk reads the
+    # extension words (size: m68020_lengths.length) and finds the nop; by the opcode's brief length it cuts the instruction and walks its extension words as code.
+    def test_a_full_extension_word_is_walked_over_with_its_whole_length(self):
+        from retrorecomp.m68020_lengths import brief_words, length
+        data = bytes.fromhex('2030013000000010' '4e71')
+        common = dict(observed=Open, words=brief_words, stops=lambda op: op >> 12 in (0xa, 0xf))
+        started, walked = walk_windows([(0x1000, data)], size=length, **common)
+        self.assertEqual(started, [(0x1000, '2030013000000010')])
+        self.assertEqual(walked, [(0x1008, '4e71')])
+        started, walked = walk_windows([(0x1000, data)], **common)
+        self.assertEqual(started, [(0x1000, '20300130')])
+        self.assertIn((0x1004, '00000010'), walked)       # the extension words taken for an instruction of their own
+
+    def test_an_instruction_the_window_cuts_ends_the_walk(self):
+        from retrorecomp.m68020_lengths import brief_words, length
+        started, walked = walk_windows([(0x1000, bytes.fromhex('4e71' '20300130'))], observed=Open, words=brief_words,
+                                       stops=lambda op: False, size=length)
+        self.assertEqual((started, walked), ([(0x1000, '4e71')], []))
+
+
 class Low:
     """Apertures that accept an even address below $400."""
     @staticmethod

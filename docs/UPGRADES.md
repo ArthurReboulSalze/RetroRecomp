@@ -90,6 +90,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Mega Drive: its sound follows a game locked to the display](#mega-drive-its-sound-follows-a-game-locked-to-the-display-177) | none | the Mega Drive's host stamp (`retrorecomp/megadrive_audio.py`, `hostkit/adapters/rrhk_md.c`) | none |
 | [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
+| [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
 
@@ -196,6 +197,25 @@ every moving edge doubled). Owner's decision of 15 November 2026, « Oui, lance-
   run's pictures from the fourth frame on (sound, memory and CPU from the first). The first frames after a load differ in one field
   of the table in 1.7.6 already (2 frames, the bitplane state at a save, an open note); the motion test makes it 3.
 - **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`), with the section above; nothing else moves.
+
+## Commodore Amiga 1200: a player's record walked with the 68EC020's lengths (1.7.7)
+
+A player's own record (F12, kind 22) is a list of windows of bytes, each noted where an instruction ran on the interpreter; the next
+conversion walks each window into instructions (`retrorecomp/m68k_record_walk.py`). The Amiga 1200's walk used the length its opcodes
+give alone, the 68000's rule. A 68EC020 instruction with a full extension word is longer than its first word says, so the walk cut it
+and took its extension words for instructions of their own. That code is guarded by the opcode the CPU latches, so it never ran wrong,
+but it was code that never runs, and what followed it in the window was lost.
+
+- **What changes:** the Amiga 1200's walk reads the extension words (`m68020_lengths.length`, the lengths its sweep and its translator
+  already use; `amiga_conversion.walk_record`); a window that cuts an instruction ends the walk there. The Amiga 500's walk is
+  `amiga_codegen.walk_records`, unchanged, and the Atari ST's too (`m68k_record_walk.walk_windows` takes an optional length by bytes).
+- **Measured on the owner's six Amiga 1200 records of 15 November 2026** (counts only): five of six walked differently; Fears' 4,096
+  windows give 382 entries of the old walk the new one does not make (cut instructions and extension words read as code) and 79 it
+  adds (the instructions after them).
+- **Generator pins:** `amiga_codegen.py` is not edited, so `GENERATOR_REVISION` stays 2 and the Amiga 500's qualified paths stay
+  qualified; the Amiga 1200 shares no path.
+- **Stamps:** the game stamp of the Amiga, of the Amiga 1200 and of the Atari ST (the shared walk); the output of the Amiga 500 and of the
+  Atari ST is unchanged. Their exports are converted again in full on the first batch.
 
 ## Exports of 1.7.5 in 1.7.6
 
