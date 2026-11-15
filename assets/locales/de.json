@@ -1091,6 +1091,7 @@
     "Edge smoothing (console)": "Kantenglättung (Konsole)",
     "Smooth scaling (console)": "Weiche Skalierung (Konsole)",
     "Dither smoothing": "Dither-Glättung",
+    "Supersampling": "Supersampling",
     "Screen format: %s": "Bildformat: %s"
   }
 }

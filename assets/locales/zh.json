@@ -1091,6 +1091,7 @@
     "Edge smoothing (console)": "边缘平滑（主机）",
     "Smooth scaling (console)": "平滑缩放（主机）",
     "Dither smoothing": "抖动平滑",
+    "Supersampling": "超级采样",
     "Screen format: %s": "画面比例: %s"
   }
 }

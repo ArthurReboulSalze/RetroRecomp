@@ -1091,6 +1091,7 @@
     "Edge smoothing (console)": "Smussatura dei bordi (console)",
     "Smooth scaling (console)": "Scala smussata (console)",
     "Dither smoothing": "Smussatura del dithering",
+    "Supersampling": "Supercampionamento",
     "Screen format: %s": "Formato schermo: %s"
   }
 }

@@ -318,6 +318,7 @@ static const char *const rr_translations[][5] = {
     {"Stick up","Stick haut","Stick su","Stick arriba","Stick hoch"},
     {"Stretched","Etire","Allungato","Estirado","Gestreckt"},
     {"Super-sampled read-back","Relecture surechantillonnee","Rilettura supercampionata","Relectura supermuestreada","Supersampling-Ruecklesen"},
+    {"Supersampling","Surechantillonnage","Supercampionamento","Supermuestreo","Supersampling"},
     {"System default","Defaut du systeme","Predefinito di sistema","Predeterminado del sistema","Systemstandard"},
     {"Tab  Fast-forward | `  Max speed | M  Mute","Tab  Avance rapide | `  Vitesse max | M  Muet","Tab  Avanti veloce | `  Velocita max | M  Muto","Tab  Avance rapido | `  Velocidad max. | M  Silencio","Tab  Vorlauf | `  Hoechsttempo | M  Stumm"},
     {"Tab and `: fixed keys","Tab et ` : touches fixes","Tab e `: tasti fissi","Tab y `: teclas fijas","Tab und `: feste Tasten"},

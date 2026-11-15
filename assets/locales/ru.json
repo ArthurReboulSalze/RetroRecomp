@@ -1091,6 +1091,7 @@
     "Edge smoothing (console)": "Сглаживание краёв (консоль)",
     "Smooth scaling (console)": "Плавное масштабирование (консоль)",
     "Dither smoothing": "Сглаживание дизеринга",
+    "Supersampling": "Суперсэмплинг",
     "Screen format: %s": "Формат экрана: %s"
   }
 }

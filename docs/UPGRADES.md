@@ -99,6 +99,8 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Machines' own rows and pages: their icons](#machines-own-rows-and-pages-their-icons-176) | none | **the host stamp of all 20 profiles** (`retro_menu.c`, `retro_menu.h`, `hostkit/hostkit.h` and six adapters) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Nintendo 64: supported](#nintendo-64-supported-176) | the Nintendo 64 (TLB-mapped code and the run after an MFC0 become native blocks, the report's interpreted listing, the quick state) | **the Nintendo 64's host stamp**, and the host stamp of every other profile (`runtime_catalog.inc`) | **the Nintendo 64 states of 1.7.5 are refused** (`RRN64QS2`); the Amiga and Atari ST keys move (every input) |
 | [Nintendo 64: the graphics page in five rows](#nintendo-64-the-graphics-page-in-five-rows-176) | none | **the host stamp of all 20 profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Nintendo 64: Supersampling and 8x on the graphics page](#nintendo-64-supersampling-and-8x-on-the-graphics-page-176) | none | **the host stamp of all 20 profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Nintendo 64: the C buttons on the right stick, "Left stick", the 16:9 screen format](#nintendo-64-the-c-buttons-on-the-right-stick-left-stick-the-169-screen-format-176) | none | **the Nintendo 64's host stamp** (`rrhk_n64.inc`) | the Nintendo 64 key moves (every input, the host's included) |
 | [Every machine: "Quit the game", the last row of the options page](#every-machine-quit-the-game-the-last-row-of-the-options-page-176) | none | **the host stamp of all 20 profiles** (the shell, `retro_menu.c`, `runtime_catalog.inc`, the locale files) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units](#game-boy-advance-the-sound-is-compared-the-quick-state-has-a-checksum-a-save-larger-than-its-chip-is-set-aside-the-report-names-its-units-175) (titled 1.7.5, but not in the `v1.7.5` tag: it ships in 1.7.6 with the merge of `spec/gba-175`) | the Game Boy Advance | none | **the Game Boy Advance states of 1.7.5 are refused** (the checksum envelope) |
 | emu2413's `LICENSE` keeps its exact bytes on a Windows checkout (`-text` in `.gitattributes`; no section of this page; commit `ffbaee01`) | none | none | none |
@@ -271,6 +273,45 @@ closed his F-Zero X remark: its level of detail is the game's own)
 * **Texts.** Three new entries in the five game languages: "Edge smoothing (console)", "Smooth scaling (console)", "Dither smoothing".
 * **Checks.** A quick conversion of Super Mario 64, its game run headless with each kept row changed, and run with an ini that still
   holds the removed rows; the suite.
+
+## Nintendo 64: Supersampling and 8x on the graphics page (1.7.6)
+
+On the owner's word of 15 November 2026 (« Ok pour ta proposition d'anti-crénelage. », then « Dans la 1.7.6 »), the F3 page of the
+Nintendo 64 gains a **Supersampling** row under Internal resolution, Off by default, and the resolution row gains **8x**
+([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)). Supersampling draws at twice the internal resolution and ParaLLEl's scanout reduces
+the picture by two: same picture size, each pixel the mean of four. At 8x, the renderer's largest, it does nothing.
+
+* **Stamps** (`compilation_inputs.role_stamps`, branch `spec/n64-ssaa-176` against main `deb44dae`). The host stamp of all 20 profiles
+  moves (`native/runtime_catalog.inc` and the seven locale files: one new entry); the Nintendo 64's host stamp (`e3bb3877160c` to
+  `b6b4c55e1937`) moves also for its adapter `rrhk_n64.inc`. No game or build stamp moves: existing exports are not converted again
+  for it. The Nintendo 64's quick-state key moves (it hashes every input, the host's included): a state of a build before is refused
+  cleanly. Cartridge saves are unchanged.
+* **What players see.** Six rows on the page. A player who touches nothing gets the same picture as before (the whole trace of a run
+  equal). 8x is heavy: on an RTX 3090 it does not hold full speed (the read-back of a 5120 x 2304 picture each frame); 4x with
+  Supersampling draws at 8x for the read-back cost of 4x. A weak or integrated graphics card may hold neither.
+* **Texts.** One new entry in the five game languages: "Supersampling".
+* **Checks.** A quick conversion of Super Mario 64; its game run headless at the defaults (trace equal to the build before), at 4x,
+  4x with Supersampling, 1x with Supersampling, 8x and 8x with Supersampling (sizes, equal traces at 8x), with Supersampling turned on
+  and off at given frames; a rough unpaced cost of each size; the suite. No hot-path change: the renderer's options only.
+
+## Nintendo 64: the C buttons on the right stick, "Left stick", the 16:9 screen format (1.7.6)
+
+On the stick plan the owner saw, with the kit's stick directions as inputs (the section above): the four C buttons default to the right
+stick's four directions (`RRHK_PAD_RSTICK_*`, rebindable in F2 like any button), Y and B are free, and the right stick's axes are no
+longer handed to the core (which read them as C buttons past half way); the four keyboard Stick rows show "Left stick" on the gamepad
+page; the adapter sets `widescreen`, so the options page offers **Screen format: 4:3 / 16:9** for games that squeeze a widescreen
+picture with their own option ([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)).
+
+* **Stamps** (`compilation_inputs.role_stamps`, branch `spec/n64-ssaa-176`): the Nintendo 64's host stamp (its adapter
+  `rrhk_n64.inc`). No game or build stamp; the Nintendo 64's quick-state key moves (every input, the host's included).
+* **What players see.** The C buttons on the right stick as before, now through the kit (the kit's threshold instead of the core's
+  half way); Y and B do nothing until bound. A C binding saved in F2 is kept. The control stick is unchanged.
+* **Checks.** `tools/n64_sticks_selftest.py` (the kit's shell and this adapter around a stub session, one virtual pad, no window): the
+  left stick reaches the core as the kit reads it at several positions, each right-stick direction presses its C button past the
+  threshold and none under it, the right stick's axes reach the core as 0, Y and B press nothing; an adapter that still passes the axes
+  on fails it. A Super Mario 64 run of 3,600 frames (main route: the stick in every direction, C buttons) keeps its whole trace against
+  the build before. GoldenEye 007's Ratio 16:9 set from its watch menu by a scripted route, captured without a window: the squeezed
+  picture the 16:9 format stretches.
 
 ## Every machine: "Quit the game", the last row of the options page (1.7.6)
 

@@ -114,6 +114,7 @@ native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/n64_m
 native/n64_machine/glue/parallel_glue.cpp native/n64_machine/glue/parallel.h native/n64_machine/glue/libretro_private.h
 native/n64_machine/glue/libretro_memory.h native/n64_machine/glue/osal_export.h native/n64_machine/glue/GLideN64_libretro.h
 native/hostkit/adapters/rrhk_n64.inc licenses/mupen64plus-next.md tests/test_n64_profile.py tests/test_n64_native.py tools/n64_saves_check.py tools/n64_cpu_tests.py
+tools/n64_sticks_selftest.py tools/n64_sticks/checks.c tests/test_n64_sticks.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
 tests/test_x68000_conversion.py tests/test_x68000_fixture_disk.py tests/test_x68000_fixtures.py

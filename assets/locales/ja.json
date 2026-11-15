@@ -1091,6 +1091,7 @@
     "Edge smoothing (console)": "エッジの平滑化（本体）",
     "Smooth scaling (console)": "なめらかな拡大（本体）",
     "Dither smoothing": "ディザの平滑化",
+    "Supersampling": "スーパーサンプリング",
     "Screen format: %s": "画面比率: %s"
   }
 }
