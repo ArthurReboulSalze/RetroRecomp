@@ -18,6 +18,11 @@
 #include "retro_menu.h"
 #include "runtime_feedback_sdl.h"
 #include "hostkit/hostkit_internal.h"
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 static RrhkRun run;
 /* Divergence 8 (decided, D3): the window keeps its position and size when it goes fullscreen and back, and when the guest
@@ -74,6 +79,177 @@ static void opening_size(const RrhkMachine *m, int scale, int *width, int *heigh
     *width = native_w * k; *height = native_h * k;
 }
 
+/* ---- 1.7.6: a Linux game heals its own launcher after its folder moved (HOST_KIT D29). The launcher `<game>.desktop` beside
+ * the game holds absolute paths (retrorecomp/linux_desktop.py: no relative Exec works on every desktop, GLib leaves %k empty).
+ * Only a launcher carrying our marker (X-RetroRecomp-Identity=<the ROM's SHA-256>) is touched; its Exec, Path and Icon lines
+ * are written again, escaped as linux_desktop.py escapes them, when Exec or Path no longer name this game. ---- */
+
+/* Desktop Entry escaping (linux_desktop.py `_value`), appended at out[n]; returns the new length (past cap: too long). */
+static size_t desktop_value(char *out, size_t cap, size_t n, const char *s) {
+    for (; *s; ++s) {
+        const char c = *s;
+        const char escaped = c == '\\' ? '\\' : c == '\n' ? 'n' : c == '\r' ? 'r' : c == '\t' ? 't' : 0;
+        if (escaped && n + 1 < cap) out[n] = '\\';
+        if (escaped) ++n;
+        if (n + 1 < cap) out[n] = escaped ? escaped : c;
+        ++n;
+    }
+    if (n < cap) out[n] = 0;
+    return n;
+}
+
+/* An Exec argument (linux_desktop.py `_argument`): % doubled, \ " $ ` escaped, quoted, then the Desktop Entry escaping. */
+static size_t desktop_argument(char *out, size_t cap, size_t n, const char *s) {
+    char quoted[8192];
+    size_t q = 0;
+    quoted[q++] = '"';
+    for (; *s && q + 3 < sizeof quoted; ++s) {
+        if (*s == '%') quoted[q++] = '%';
+        else if (*s == '\\' || *s == '"' || *s == '$' || *s == '`') quoted[q++] = '\\';
+        quoted[q++] = *s;
+    }
+    if (*s || q + 2 > sizeof quoted) return cap;   /* too long: never a truncated path */
+    quoted[q++] = '"'; quoted[q] = 0;
+    return desktop_value(out, cap, n, quoted);
+}
+
+static bool line_is(const char *line, size_t len, const char *text) { return strlen(text) == len && !memcmp(line, text, len); }
+
+int rrhk_launcher_text(const char *text, size_t len, const char *exe, char **healed, size_t *healed_len) {
+    static const char marker[] = "X-RetroRecomp-Identity=";
+    const size_t marker_len = sizeof marker - 1;
+    char identity[65] = "";
+    *healed = NULL; *healed_len = 0;
+    for (size_t at = 0; at < len;) {   /* our marker: the ROM's SHA-256, 64 lower-case hex digits, alone on its line */
+        const char *end = memchr(text + at, '\n', len - at);
+        const size_t n = end ? (size_t)(end - (text + at)) : len - at;
+        if (n == marker_len + 64 && !memcmp(text + at, marker, marker_len)) {
+            bool hex = true;
+            for (size_t i = 0; i < 64; ++i) { const char c = text[at + marker_len + i]; hex = hex && ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')); }
+            if (hex) { memcpy(identity, text + at + marker_len, 64); identity[64] = 0; }
+        }
+        at += n + 1;
+    }
+    const char *slash = strrchr(exe, '/');
+    if (!identity[0] || !slash || slash == exe) return -1;
+    char folder[4096], icon[4600], want[3][9000];
+    const size_t folder_len = (size_t)(slash - exe);
+    if (folder_len >= sizeof folder) return -1;
+    memcpy(folder, exe, folder_len); folder[folder_len] = 0;
+    snprintf(icon, sizeof icon, "%s/datas/launchers/%s.png", folder, identity);
+    strcpy(want[0], "Exec="); strcpy(want[1], "Path="); strcpy(want[2], "Icon=");
+    if (desktop_argument(want[0], sizeof want[0], 5, exe) >= sizeof want[0] ||
+        desktop_value(want[1], sizeof want[1], 5, folder) >= sizeof want[1] ||
+        desktop_value(want[2], sizeof want[2], 5, icon) >= sizeof want[2]) return 0;
+    /* Stale: an Exec or Path line of the [Desktop Entry] group that does not name this game. */
+    bool stale = false, entry = false;
+    size_t size = 1;   /* the healed file's size, counted here */
+    for (size_t at = 0; at < len;) {
+        const char *line = text + at, *end = memchr(line, '\n', len - at);
+        const size_t n = end ? (size_t)(end - line) : len - at;
+        size_t put = n;
+        if (n && line[0] == '[') entry = line_is(line, n, "[Desktop Entry]");
+        else if (entry && n >= 5 && !memcmp(line, "Exec=", 5)) { stale = stale || !line_is(line, n, want[0]); put = strlen(want[0]); }
+        else if (entry && n >= 5 && !memcmp(line, "Path=", 5)) { stale = stale || !line_is(line, n, want[1]); put = strlen(want[1]); }
+        else if (entry && n >= 5 && !memcmp(line, "Icon=", 5)) put = strlen(want[2]);
+        size += put + 1;
+        at += n + 1;
+    }
+    if (!stale) return 0;
+    char *out = (char *)malloc(size);
+    if (!out) return 0;
+    size_t o = 0;
+    entry = false;
+    for (size_t at = 0; at < len;) {   /* every other byte as it was */
+        const char *line = text + at, *end = memchr(line, '\n', len - at);
+        const size_t n = end ? (size_t)(end - line) : len - at;
+        const char *put = NULL;
+        if (n && line[0] == '[') entry = line_is(line, n, "[Desktop Entry]");
+        else if (entry && n >= 5 && !memcmp(line, "Exec=", 5)) put = want[0];
+        else if (entry && n >= 5 && !memcmp(line, "Path=", 5)) put = want[1];
+        else if (entry && n >= 5 && !memcmp(line, "Icon=", 5)) put = want[2];
+        if (put) { memcpy(out + o, put, strlen(put)); o += strlen(put); }
+        else { memcpy(out + o, line, n); o += n; }
+        if (end) out[o++] = '\n';
+        at += n + 1;
+    }
+    *healed = out; *healed_len = o;
+    return 1;
+}
+
+#ifndef _WIN32
+/* A whole small file (at most `limit` bytes); NULL when absent, unreadable or larger. */
+static char *read_small(const char *path, size_t limit, size_t *len, mode_t *mode) {
+    struct stat st;
+    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode) || (size_t)st.st_size > limit) return NULL;
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    char *data = (char *)malloc((size_t)st.st_size + 1);
+    *len = data ? fread(data, 1, (size_t)st.st_size, f) : 0;
+    const bool ok = data && !ferror(f) && *len == (size_t)st.st_size;
+    fclose(f);
+    if (!ok) { free(data); return NULL; }
+    if (mode) *mode = st.st_mode & 07777;
+    return data;
+}
+
+/* Written beside the file, synced, then renamed over it: a reader sees the old file or the new one, never half of one. */
+static bool replace_file(const char *path, const char *data, size_t len, mode_t mode) {
+    char temp[4600];
+    const char *slash = strrchr(path, '/');
+    if (!slash || snprintf(temp, sizeof temp, "%.*s/.%s.XXXXXX", (int)(slash - path), path, slash + 1) >= (int)sizeof temp) return false;
+    const int fd = mkstemp(temp);
+    if (fd < 0) return false;
+    bool ok = true;
+    for (size_t done = 0; ok && done < len;) {
+        const ssize_t w = write(fd, data + done, len - done);
+        if (w <= 0) ok = false; else done += (size_t)w;
+    }
+    ok = ok && fchmod(fd, mode) == 0 && fsync(fd) == 0;
+    if (close(fd) != 0) ok = false;
+    ok = ok && rename(temp, path) == 0;
+    if (!ok) unlink(temp);
+    return ok;
+}
+
+int rrhk_heal_launcher(const char *exe) {
+    char path[4600];
+    size_t len = 0, healed_len = 0;
+    if (snprintf(path, sizeof path, "%s.desktop", exe) >= (int)sizeof path) return -1;
+    char *text = read_small(path, 65536, &len, NULL), *healed = NULL;
+    if (!text) return -1;
+    const int result = rrhk_launcher_text(text, len, exe, &healed, &healed_len);
+    free(text);
+    if (result < 0) return -1;   /* not ours: never touched */
+    if (result > 0 && !replace_file(path, healed, healed_len, 0755)) { free(healed); return -1; }
+    free(healed);
+    /* The game file stays visible (1.7.6): the line 1.7.5 wrote in the folder's .hidden goes; the player's lines stay, byte for
+     * byte; a .hidden left empty is removed. */
+    const char *slash = strrchr(exe, '/'), *name = slash + 1;
+    mode_t mode = 0644;
+    if (snprintf(path, sizeof path, "%.*s/.hidden", (int)(slash - exe), exe) >= (int)sizeof path) return result;
+    char *hidden = read_small(path, 1 << 20, &len, &mode);
+    if (!hidden) return result;
+    char *kept = (char *)malloc(len + 1);
+    size_t k = 0;
+    bool found = false;
+    for (size_t at = 0; kept && at < len;) {
+        const char *line = hidden + at, *end = memchr(line, '\n', len - at);
+        const size_t n = end ? (size_t)(end - line) : len - at;
+        const size_t bare = n && line[n - 1] == '\r' ? n - 1 : n;
+        if (line_is(line, bare, name)) found = true;
+        else { memcpy(kept + k, line, end ? n + 1 : n); k += end ? n + 1 : n; }
+        at += n + 1;
+    }
+    if (kept && found) {
+        if (k) replace_file(path, kept, k, mode);
+        else unlink(path);
+    }
+    free(kept); free(hidden);
+    return result;
+}
+#endif
+
 /* Everything before the first iteration. false: no window, and nothing is left open. */
 static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     RrhkRun *r = &run;
@@ -83,6 +259,15 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     r->driven = m->driven;
     SDL_SetMainReady();
     set_hints();
+#ifdef __linux__
+    {   /* once per process, before anything else; any failure is silent (a read-only folder never stops the game) */
+        static bool launcher_checked;
+        char exe[4096];
+        const ssize_t n = launcher_checked ? -1 : readlink("/proc/self/exe", exe, sizeof exe - 1);
+        launcher_checked = true;
+        if (n > 0 && (size_t)n < sizeof exe - 1) { exe[n] = 0; rrhk_heal_launcher(exe); }
+    }
+#endif
     /* A driven machine that opens its own sound device (Master System, Game Gear) starts no audio subsystem; one that plays
      * through the kit's ring (Game Boy) does, with the timer. */
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER |

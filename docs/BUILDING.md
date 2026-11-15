@@ -86,10 +86,13 @@ downloads in `Export/datas/BoxArt/<console>/Downloaded` and associations in `Sav
 The game's window icon is embedded in the ELF. Linux file managers and app menus
 use a `.desktop` launcher whose `Icon` references a PNG; the raw ELF does not have
 a Windows Explorer-style file icon. Exports now create that launcher and a local
-PNG in `datas/launchers`, with the raw ELF listed in `.hidden` for file managers.
-Existing current exports can repair their launcher without recompilation. The
-launcher uses absolute paths; ask the converter to refresh it after moving the
-folder. Optional API credentials use the desktop Secret Service keyring;
+PNG in `datas/launchers`; the ELF stays visible beside it (since 1.7.6: GNOME Files
+does not start a `.desktop` file outside the menus, and the line earlier versions
+wrote in `.hidden` is taken out again). Existing current exports can repair their
+launcher without recompilation. The launcher uses absolute paths (no relative
+form works on every desktop); after the folder is moved, start the game once from
+its ELF and it writes its own launcher again for the new place (1.7.6, games of
+the host kit). Optional API credentials use the desktop Secret Service keyring;
 public cover sources need no API account. See [LINUX.md](LINUX.md).
 
 Useful target-native checks (an optional `--rom` is a private supplied witness):

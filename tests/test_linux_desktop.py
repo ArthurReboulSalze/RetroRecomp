@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from retrorecomp.linux_desktop import publish_launcher, retire_launcher, _argument
+from retrorecomp.linux_desktop import publish_launcher, retire_launcher, _argument, _value
 
 
 class LinuxDesktopTests(unittest.TestCase):
@@ -21,8 +21,10 @@ class LinuxDesktopTests(unittest.TestCase):
         self.report = {'rom': {'sha256': 'a'*64}, 'artwork': {'embedded': True}}
 
     @patch('retrorecomp.linux_desktop.platform.system', return_value='Linux')
-    def test_cover_launcher_and_non_destructive_hidden_merge(self, _):
-        (self.root / '.hidden').write_text('existing user file\n')
+    def test_cover_launcher_keeps_the_game_visible(self, _):
+        # 1.7.5 hid the game behind its launcher; GNOME Files does not start a launcher outside the menus, so the
+        # game must stay visible: our old entry is removed, the player's own entries stay.
+        (self.root / '.hidden').write_bytes(b'existing user file \xe9\n' + self.exe.name.encode('utf-8') + b'\n')
         path = publish_launcher(self.exe, self.report_path, self.report)
         parser = configparser.ConfigParser(interpolation=None)
         parser.read(path, encoding='utf-8')
@@ -30,7 +32,8 @@ class LinuxDesktopTests(unittest.TestCase):
         self.assertEqual(entry['Name'], self.exe.name)
         self.assertEqual(entry['Exec'], _argument(self.exe.resolve()))
         self.assertEqual(Path(entry['Icon']).read_bytes(), self.art.read_bytes())
-        self.assertEqual((self.root / '.hidden').read_text(encoding='utf-8').splitlines(), ['existing user file', self.exe.name])
+        self.assertEqual((self.root / '.hidden').read_bytes(), b'existing user file \xe9\n')
+        self.assertEqual(entry['Path'], _value(self.root.resolve()))
         before = path.read_bytes()
         self.art.unlink()  # The persistent copy remains independent of reports.
         self.assertTrue(Path(entry['Icon']).is_file())
@@ -64,7 +67,13 @@ class LinuxDesktopTests(unittest.TestCase):
         self.exe.unlink()
         self.assertTrue(retire_launcher(self.exe,'a'*64))
         self.assertFalse(old.exists());self.assertTrue(new.is_file())
-        self.assertEqual((self.root/'.hidden').read_text(encoding='utf-8').splitlines(),['New title'])
+        self.assertFalse((self.root/'.hidden').exists())  # nothing hidden by us, nothing of the player's
         old.write_text('[Desktop Entry]\nName=Personal\n',encoding='utf-8')
         self.assertFalse(retire_launcher(self.exe,'a'*64))
         self.assertTrue(old.is_file())
+
+    @patch('retrorecomp.linux_desktop.platform.system', return_value='Linux')
+    def test_a_hidden_file_holding_only_our_old_entry_goes_away(self, _):
+        (self.root / '.hidden').write_bytes(self.exe.name.encode('utf-8') + b'\n')
+        publish_launcher(self.exe, self.report_path, self.report)
+        self.assertFalse((self.root / '.hidden').exists())

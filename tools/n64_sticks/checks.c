@@ -111,7 +111,8 @@ static bool player_frame(void) {
     /* What the kit reads of the left stick is what the core gets: the path before 1.7.6 handed rrhk_pad_axes' LX and LY on. */
     int16_t kit[RRHK_AXES] = {0, 0, 0, 0};
     CHECK(rrhk_pad_axes(0, frame_number, kit));
-    CHECK(kit[RRHK_AXIS_LX] == s->lx && kit[RRHK_AXIS_LY] == s->ly);
+    /* 1.7.6 (HOST_KIT D29): the kit gives SDL's -32768 as -32767, the sticks symmetric for the core. */
+    CHECK(kit[RRHK_AXIS_LX] == (s->lx < -32767 ? -32767 : s->lx) && kit[RRHK_AXIS_LY] == (s->ly < -32767 ? -32767 : s->ly));
     if (s->left_stick_through) CHECK(recorded[RRHK_AXIS_LX] == kit[RRHK_AXIS_LX] && recorded[RRHK_AXIS_LY] == kit[RRHK_AXIS_LY]);
     CHECK(recorded[RRHK_AXIS_RX] == 0 && recorded[RRHK_AXIS_RY] == 0);
     CHECK((recorded_bits & C_ALL) == s->bits);
