@@ -72,15 +72,21 @@ static const char *const dithering_values[] = {"1x(native)", "internal resolutio
  * (psx_session.c): the GPU draws both fields of the displayed frame, so a 480-line picture is shown whole, without combing and
  * without the shaking of Bob. A game that would need the console's fields becomes a per-disc data row, not a menu choice. A
  * saved `deinterlace=` of 1.7.5 is a key no row reads: ignored, the file stays as it is. */
-static const char *const aspects[] = {"Corrected", "Uncorrected", "4:3", "NTSC"};
-static const char *const aspect_values[] = {"corrected", "uncorrected", "4:3", "ntsc"};
+/* 4:3 first, the default: with the overscan cropped (the default) the core's "Corrected" aspect is the cropped window's share of a
+ * 4:3 line of 2800 GPU clocks, 1.22 wide for 1 high for the usual 2560-clock window, so a fullscreen picture kept wide black bars
+ * (1317 x 1080 on a full-HD screen; measured on three games, 15 November 2026). A television shows that window across its 4:3
+ * tube: "4:3" gives 1440 x 1080. */
+static const char *const aspects[] = {"4:3", "Corrected", "Uncorrected", "NTSC"};
+static const char *const aspect_values[] = {"4:3", "corrected", "uncorrected", "ntsc"};
 static const char *const crops[] = {"Horizontal and vertical", "Horizontal", "Off"};
 static const char *const crop_values[] = {"smart", "static", "disabled"};
 enum { GFX_RESOLUTION, GFX_DITHER, GFX_ASPECT, GFX_CROP, GFX_COUNT };
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
     {"Internal resolution", L"resolution", resolutions, 3, 0},
     {"Dithering", L"dithering", dithering, 3, 0},
-    {"Aspect ratio", L"aspect", aspects, 4, 0},
+    /* "aspect_ratio", not 1.7.5's "aspect": its saved index named another list (Corrected first), and would keep a player who
+     * had opened the page on the narrow picture. */
+    {"Aspect ratio", L"aspect_ratio", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
 static const char *const *const gfx_core_values[GFX_COUNT] = {resolution_values, dithering_values, aspect_values, crop_values};
 static const char *const gfx_core_keys[GFX_COUNT] = {"internal_resolution", "dither_mode", "aspect_ratio", "crop_overscan"};

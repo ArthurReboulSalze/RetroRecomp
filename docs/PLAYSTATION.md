@@ -28,6 +28,11 @@ compared with the figures of a machine whose game code is translated, and it say
 - **F3** opens the graphics page: internal resolution (1x, 2x, 4x), dithering, aspect ratio and overscan crop. They change only
   the picture; the conversion's checks use the defaults (1x, the core's own settings). 8x is not offered (64 times the pixels,
   never in time on one thread), and since 1.7.6 there is no deinterlacing row: the picture is always progressive.
+- **The picture is shown 4:3 by default** (F3's Aspect ratio row, since 1.7.6): with the overscan cropped, the core's own
+  "Corrected" aspect is the cropped window's share of a 4:3 line, 1.22 wide for 1 high for most games, which left wide black bars
+  in fullscreen (1317 x 1080 on a full-HD screen, measured on Ape Escape, Gran Turismo 2 and Symphony of the Night); a television
+  shows that window across its 4:3 tube, and 4:3 gives 1440 x 1080. "Corrected" stays a choice of the row. The per-frame traces
+  are equal with either (the row changes the shape the picture is shown at, no pixel and no size).
 - **Screen format: 4:3 / 16:9** on the options page (since 1.7.6, kept per game): for a game that has its own widescreen option and
   draws a squeezed picture for a 16:9 television, 16:9 shows that picture 16 wide for 9 high. It changes only the rectangle the
   picture is shown in (the Aspect ratio row of F3 is not read then); a game without such an option is simply stretched. Checked
