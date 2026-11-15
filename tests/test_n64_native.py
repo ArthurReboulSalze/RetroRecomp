@@ -81,6 +81,32 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(n64_native.executed((ADDIU, LW)), 2)
 
 
+class MappedCodeTests(unittest.TestCase):
+    """TLB-mapped code becomes blocks too: a run stays in its 4 KiB page; the uncached KSEG1 code stays on the interpreter."""
+
+    def setUp(self):
+        self.folder = Path(tempfile.mkdtemp(prefix='n64-mapped-'))
+
+    def tearDown(self):
+        shutil.rmtree(self.folder, ignore_errors=True)
+
+    def observe(self, *lines):
+        path = self.folder / 'observations.txt'
+        path.write_text(''.join(line + '\n' for line in lines), encoding='ascii')
+        return n64_native.read_observations([path])
+
+    def test_mapped_runs_are_kept_and_kseg1_is_not(self):
+        words = f'{ADDIU:08x} {JR_RA:08x} {NOP:08x}'
+        variants = self.observe(f'7f000100 5 3 {words}', f'a4000040 9 3 {words}', f'80001000 2 3 {words}')
+        self.assertEqual(sorted(pc for pc, _ in variants), [0x7F000100, 0x80001000])
+        self.assertTrue(n64_native.mapped(0x7F000100) and n64_native.mapped(0xC0000000))
+        self.assertFalse(n64_native.mapped(0x80001000) or n64_native.mapped(0xA4000040))
+
+    def test_a_mapped_run_across_a_page_is_refused(self):
+        with self.assertRaisesRegex(ConversionError, 'page'):
+            self.observe(f'7f000ffc 1 2 {ADDIU:08x} {NOP:08x}')
+
+
 class SiteTests(unittest.TestCase):
     """Gate G3: every interpreted instruction of a run gets a class; the counts are kept as the player gave them."""
 

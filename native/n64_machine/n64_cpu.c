@@ -21,6 +21,7 @@
 #include "device/r4300/r4300_core.h"
 #include "device/r4300/cp0.h"
 #include "device/device.h"
+#include "device/memory/memory.h"
 #include "main/main.h"
 #include "n64_cpu.h"
 
@@ -62,19 +63,41 @@ int rr_n64_has_delay(uint32_t op)
     return major == 17 && rs == 8;
 }
 
+/* The live words at a PC with no side effect: KSEG0 and KSEG1 directly, a TLB-mapped address through the core's lookup table of the
+ * pages the TLB maps (an unmapped page gives NULL, never a TLB exception: the interpreter then takes it as the console would). */
+static const uint32_t *live_words(struct r4300_core *r4300, uint32_t pc)
+{
+    uint32_t entry;
+    if ((pc & 0xC0000000u) == 0x80000000u) return mem_base_u32(r4300->mem->base, pc & 0x1FFFFFFCu);
+    entry = r4300->cp0.tlb.LUT_r[pc >> 12];
+    if (!entry) return NULL;
+    return mem_base_u32(r4300->mem->base, ((entry & 0xFFFFF000u) | (pc & 0xFFCu)) & 0x1FFFFFFCu);
+}
+
+/* A run of TLB-mapped code stays within its 4 KiB page: the next virtual page may map another physical one. */
+static int mapped(uint32_t pc) { return (pc & 0xC0000000u) != 0x80000000u; }
+
 static void observe_leader(uint32_t pc)
 {
-    const uint32_t *w = fast_mem_access(cpu, pc);
-    uint32_t len = 0, slot, i;
+    const uint32_t *w = live_words(cpu, pc);
+    uint32_t len = 0, slot, i, cap = RUN_MAX;
     uint64_t hash = 1469598103934665603ull;
     if (!w || observe_overflow) return;
-    while (len < RUN_MAX) {
+    if (mapped(pc) && (0x1000u - (pc & 0xFFFu)) / 4 < cap) cap = (0x1000u - (pc & 0xFFFu)) / 4;
+    while (len < cap) {
         uint32_t op = w[len++];
-        if (rr_n64_is_flow(op)) { if (rr_n64_has_delay(op)) len++; break; }
+        if (rr_n64_is_flow(op)) {
+            if (rr_n64_has_delay(op)) {
+                if (len == cap && cap < RUN_MAX) { len--; break; }   /* the delay slot is on the next page: the jump runs interpreted */
+                len++;
+            }
+            break;
+        }
     }
-    /* A run that ends on an instruction with no delay slot that does not jump (MFC0, CACHE) or at RUN_MAX goes on in a straight line:
-     * the instruction after it starts a run of its own (else it never becomes a block: SM64's wait on the Count register). */
     run_end = pc + 4 * len;
+    if (!len) return;
+    /* A run that ends on an instruction with no delay slot that does not jump (MFC0, CACHE), at RUN_MAX or at a page's end goes on in a
+     * straight line: the instruction after it starts a run of its own (else it never becomes a block: SM64's wait on the Count register). */
     for (i = 0; i < len; i++) { hash ^= w[i]; hash *= 1099511628211ull; }
     slot = (uint32_t)((hash ^ (pc * 2654435761u)) >> 7);
     for (;;) {
@@ -133,6 +156,14 @@ int rr_n64_write_observations(FILE *out)
 /* ---- native blocks ---- */
 static uint32_t *table;   /* (pc & 0x7FFFFF) >> 2 -> 1 + the first variant of that address, KSEG0 only */
 
+/* A block of TLB-mapped code: the first variant of its address by a binary search of the table, which the generator sorts by address. */
+static uint32_t first_variant(uint32_t pc)
+{
+    uint32_t lo = 0, hi = rr_n64_block_count;
+    while (lo < hi) { uint32_t mid = (lo + hi) / 2; if (rr_n64_blocks[mid].pc < pc) lo = mid + 1; else hi = mid; }
+    return lo < rr_n64_block_count && rr_n64_blocks[lo].pc == pc ? lo + 1 : 0;
+}
+
 void rr_n64_cpu_start(struct r4300_core *r4300)
 {
     cpu = r4300;
@@ -172,7 +203,7 @@ static void note_site(struct r4300_core *r4300, uint32_t pc, uint32_t reason)
     /* A guard miss always starts a stretch of its own, even inside one: else it took the class of the stretch it fell in. */
     if (!stretch_reason || reason == 3) { stretch_reason = reason; stretch_start = pc; }
     if (!sites) return;
-    w = fast_mem_access(r4300, pc);
+    w = live_words(r4300, pc);
     word = w ? *w : 0;
     slot = (pc * 2654435761u) ^ (word * 40503u) ^ (stretch_start * 97u) ^ stretch_reason;
     for (;;) {
@@ -212,8 +243,8 @@ int rr_n64_run_blocks(struct r4300_core *r4300)
 {
     int ran = 0;
     uint32_t pc = *r4300_pc(r4300), first;
-    while ((pc & 0xFF800000u) == 0x80000000u && (first = table[(pc & 0x7FFFFFu) >> 2]) != 0) {
-        const uint32_t *live = fast_mem_access(r4300, pc);
+    while ((first = (pc & 0xFF800000u) == 0x80000000u ? table[(pc & 0x7FFFFFu) >> 2] : mapped(pc) ? first_variant(pc) : 0) != 0) {
+        const uint32_t *live = live_words(r4300, pc);
         const RrN64Block *block = 0;
         uint32_t k;
         if (live)
@@ -228,7 +259,7 @@ int rr_n64_run_blocks(struct r4300_core *r4300)
         if (*r4300_stop(r4300)) return ran;
         pc = *r4300_pc(r4300);
     }
-    if (!ran) note_site(r4300, pc, (pc & 0xFF800000u) == 0x80000000u ? 2 : 1);
+    if (!ran) note_site(r4300, pc, (pc & 0xFF800000u) == 0x80000000u || mapped(pc) ? 2 : 1);
     return ran;
 }
 

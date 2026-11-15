@@ -12,8 +12,9 @@ is not where a straight run puts it (an exception, an interrupt check that moved
 its own words with the live ones (code that writes itself). A block that ends on a jump or a branch runs it, its delay slot
 included (the core's jump functions run the delay slot themselves), and the next block follows without going back to the loop.
 
-Only KSEG0 addresses of RDRAM are kept (TLB-mapped code, the boot code in the RSP's memory and the cartridge's own addresses run
-on the interpreter). Nothing else is claimed: the blocks are the core's own semantics, and a fresh reference run of the same game
+KSEG0 addresses of RDRAM are kept, and TLB-mapped addresses (KUSEG, KSEG2, KSEG3: a run never leaves its 4 KiB page, and the block
+reads its live words through the TLB's page table, so a page mapped elsewhere fails the guard); the uncached KSEG1 code (the boot
+code in the RSP's memory, the cartridge's own addresses) runs on the interpreter. Nothing else is claimed: the blocks are the core's own semantics, and a fresh reference run of the same game
 on the interpreter checks every frame.
 """
 from __future__ import annotations
@@ -27,6 +28,12 @@ from .core import ConversionError
 FORMAT = 1
 RUN_MAX = 130                  # the observation's bound (128 words) plus a delay slot
 KSEG0 = (0x80000000, 0x80800000)
+KSEG1 = (0xA0000000, 0xC0000000)
+
+
+def mapped(pc: int) -> bool:
+    """A TLB-mapped address (KUSEG, KSEG2, KSEG3)."""
+    return not 0x80000000 <= pc < 0xC0000000
 MAX_VARIANTS = 1 << 21
 PER_SHARD = 1500
 
@@ -66,7 +73,10 @@ def read_observations(paths, variants: dict | None = None) -> dict:
                 raise ConversionError(f'Nintendo 64 observation {Path(path).name}:{number} is malformed.') from None
             if length != len(words) or not 1 <= length <= RUN_MAX or count < 1 or pc % 4 or any(w >> 32 for w in words):
                 raise ConversionError(f'Nintendo 64 observation {Path(path).name}:{number} is invalid.')
-            if not KSEG0[0] <= pc < KSEG0[1] or pc + 4 * length > KSEG0[1]:
+            if mapped(pc):
+                if (pc & 0xFFF) + 4 * length > 0x1000:
+                    raise ConversionError(f'Nintendo 64 observation {Path(path).name}:{number} crosses a page.')
+            elif not KSEG0[0] <= pc < KSEG0[1] or pc + 4 * length > KSEG0[1]:
                 continue
             variants[(pc, words)] += count
             if len(variants) > MAX_VARIANTS:
@@ -90,7 +100,7 @@ def classify_sites(rows, variants: dict) -> list[dict]:
         inside.update(range(pc + 4, pc + 4 * len(words), 4))
     sites = []
     for pc, word, reason, start, count in rows:
-        if reason == 'outside_kseg0':
+        if reason == 'outside_kseg0' or (reason == 'no_block' and mapped(start) and start not in leaders and start not in inside):
             kind = 'boot_rsp_memory' if 0xA4000000 <= pc < 0xA4002000 else 'kseg1' if 0xA0000000 <= pc < 0xC0000000 else 'tlb_mapped'
         elif reason == 'guard_miss':
             kind = 'guard_miss'
