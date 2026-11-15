@@ -536,6 +536,42 @@ X68000 too, without asking again**.
   Launchers keep absolute paths: KDE fills `%k` with the launcher's path but GLib (GNOME, Cinnamon) leaves it empty. Adventure
   (ScummVM) games do not run the kit's loop and are not healed.
 
+* <a id="d30"></a>**D30 — Sync to display** (owner's words of 15 November 2026, 1.7.7: « Oui, lance-le », « Version complète »,
+  FreeSync on his 144 Hz screen, « faut que ça soit géré pour Linux aussi »; the study `vsync-study-177`). A row of the options
+  page, **Sync to display: Auto / Locked / Free / Variable refresh**, kept per machine (`[<Console>.Video] sync`, 0 to 3,
+  default Auto), with its own icon. Before 1.7.7 every game ran on its own clock (the performance counter) and the screen showed
+  its frames at its own refresh: on a 60 Hz screen a 59.92 Hz game drifted against it and showed a short burst of doubled and
+  skipped frames about every 12 s (the Neo Geo's 59.19 Hz every 1.2 s). On Windows the Direct3D 11 flip-model present without
+  the tearing flag never tears; on Linux the vsync hint was asked.
+  * **Auto** measures the refresh (26 presents with vsync on, the median of the last 20 intervals; SDL2's display mode gives whole
+    hertz) when the window opens, after the row changes and when the window moves to another display, and locks when the
+    machine's rate is within 1 % of it; otherwise it behaves as before 1.7.7 (Windows presents without waiting, Linux with
+    vsync). **Locked** locks up to 3 %. **Free**: the machine's own clock, vsync off on both systems (Linux drops the hint).
+    **Variable refresh**: free, vsync off, and on Windows the window opens with SDL's Direct3D 12 renderer (SDL 2.32 creates
+    its swap chain with `DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING` and presents with `DXGI_PRESENT_ALLOW_TEARING` when vsync is off),
+    so a FreeSync / G-Sync / HDMI VRR screen refreshes when the game's frame arrives, at the game's own rate, PAL included;
+    from the next start when chosen in play. On Linux the same row means vsync off; whether the screen follows is the
+    desktop's (X11: the driver's VRR option and an unredirected fullscreen window; Wayland: the compositor, per window). DXGI
+    can tell that tearing is allowed, never whether FreeSync is on in the driver and the monitor: Auto never chooses it, it is
+    the player's choice. The Direct3D 12 renderer draws the four filters, the menus and `SDL_RenderReadPixels` pixel for pixel
+    as Direct3D 11 does (an offscreen gallery, hidden window, the same seven pictures).
+  * **Locked**: the present paces the game (vsync on; a present that does not wait is held to 105 % of the machine's speed, and
+    thirty in a row end the lock), so the game runs at the refresh, 60.00 Hz instead of 59.92 (+0.13 %), and every sound path
+    follows by its rate: base = machine_hz / refresh_hz, with a correction from the path's own fill of at most 0.5 %
+    (`audio_cushion.h` `rr_drc_ratio`, one copy; `rr_drc_resample` for the kit's queue and ring; the band-limited converter of
+    `audio_output.inc` for the Master System, Game Gear and MSX; the Mega Drive's bridge takes base as a feed-forward on its
+    resampling step and keeps its own fill controller, without `rr_drc_ratio` on top; all through `RrhkMachine.audio_ratio`).
+    A machine that opens its own sound device without that hook stays free and the row says why. The notice names the
+    refresh, the game's rate and the speed difference ("Locked: 60.00 Hz, game 59.92 Hz (+0.13 %)").
+  * Never locked: a hidden-window test run (the conversion's checks), `SDL_RENDER_VSYNC` set (a diagnostic: the kit then leaves
+    vsync alone), the menus and pause (vsync stays on, their presents wait for the refresh), fast forward and every speed but
+    100 % (vsync off meanwhile). A locked machine's rate change (PAL/NTSC, a computer's screen mode) is decided again.
+  * What this is not: no latency figure. Locked adds no wait over Windows' composed present (it aligns the frame to the refresh
+    instead of letting it land anywhere in it); physical latency stays unmeasured, and the five measures stay separate. The
+    timing report (`RETRORECOMP_TIMING_REPORT`) and stderr give the mode, the measured refresh, the decision and the cadence of
+    the locked frames (how many refreshes each was held), never a latency. A 2:1 lock for 120 Hz screens, frame delay and
+    run-ahead are not part of 1.7.7 (`vsync-study-177`, sections 5 to 7).
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

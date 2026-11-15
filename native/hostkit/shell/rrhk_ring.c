@@ -90,10 +90,30 @@ static void SDLCALL rrhk_ring_callback(void *unused, Uint8 *stream, int bytes) {
     } else rr_cushion_clean(&rrhk_ring.cushion, take, rrhk_ring.rate);
 }
 
+/* 1.7.7 (HOST_KIT D30): while the game is locked to the display, the factor on the sound's length (machine_hz / refresh_hz),
+ * exactly 1.0 otherwise. The ring's target is its start reserve plus half a frame (8 ms). */
+static double ring_base = 1.0;
+static RrDrcResampler ring_drc;
+void rrhk_ring_set_base(double base) {
+    if (base == ring_base) return;
+    ring_base = base;
+    memset(&ring_drc, 0, sizeof ring_drc);
+}
+
 /* `count` frames of the machine's PCM: that many samples when it is mono, twice as many int16 values when it is stereo. */
 void rrhk_ring_submit(const int16_t *pcm, uint32_t count) {
+    static int16_t stretched[(4096 + 4096 / 20 + 8) * 2];
     if (!rrhk_ring.id || !count) return;
     SDL_LockAudioDevice(rrhk_ring.id);
+    if (ring_base != 1.0) {
+        const double target = (double)rrhk_ring.spec.samples +
+            (double)rrhk_ring.rate * (rrhk_ring.margin + (uint32_t)rr_cushion_ms(&rrhk_ring.cushion) + 8u) / 1000.0;
+        const size_t room = sizeof stretched / sizeof stretched[0] / rrhk_ring.source;
+        count = (uint32_t)rr_drc_resample(&ring_drc, pcm, SDL_min(count, 4096u), (int)rrhk_ring.source,
+                                          rr_drc_ratio(ring_base, (double)rrhk_ring.fill, target), stretched, room);
+        pcm = stretched;
+        if (!count) { SDL_UnlockAudioDevice(rrhk_ring.id); return; }
+    }
     rr_cushion_pushed(&rrhk_ring.cushion);
     uint32_t extra = rr_cushion_frames(&rrhk_ring.cushion, rrhk_ring.rate);
     if (!rrhk_ring.started && !rrhk_ring.fill) {

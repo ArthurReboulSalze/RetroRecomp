@@ -64,6 +64,9 @@ extern void (*rr_md_audio_stage)(void *pcm, unsigned frames, int channels, int f
 extern const char *rr_md_audio_device_name;
 extern int rr_md_audio_reopen(void);
 extern unsigned rr_md_audio_device_id(void);
+/* Sync to display (D30): while the kit paces the game by the screen, base = machine Hz / refresh Hz (1.0 otherwise); the
+ * engine's bridge then takes base x the machine's sound as a feed-forward on its step (megadrive_audio.py). */
+extern void rr_md_audio_base(double base);
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 static void sound_ready(void) {
     rr_md_audio_device_name = rrhk_audio_device();
@@ -122,6 +125,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .timing_report = timing_report,
             .sound_ready = sound_ready, .audio_reopen = audio_reopen, .audio_device_id = audio_device_id,
+            .audio_ratio = rr_md_audio_base,
         };
     }
     return &machine;

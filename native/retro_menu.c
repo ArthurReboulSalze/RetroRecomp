@@ -313,6 +313,8 @@ static const uint64_t icon_row_sliders[9] = {0x14ull, 0x1557dull, 0x14ull, 0x140
 static const uint64_t icon_row_maxspeed[9] = {0x0ull, 0x14101ull, 0x14505ull, 0x15d1dull, 0x17d7dull, 0x15d1dull, 0x14505ull, 0x14101ull, 0x0ull};
 static const uint64_t icon_row_graphics[9] = {0x15555ull, 0x1aaa9ull, 0x1aba9ull, 0x1a5e9ull, 0x195f9ull, 0x1aaa9ull, 0x15555ull, 0x540ull, 0x5554ull};
 static const uint64_t icon_row_widescreen[9] = {0x0ull, 0x15555ull, 0x1aaa9ull, 0x1bab9ull, 0x1fffdull, 0x1bab9ull, 0x1aaa9ull, 0x15555ull, 0x0ull};
+/* 1.7.7 (HOST_KIT D30): Sync to display, a screen and its refresh wave */
+static const uint64_t icon_row_sync[9] = {0x15555ull, 0x1aaa9ull, 0x1eae9ull, 0x1bbb9ull, 0x1aeadull, 0x15555ull, 0x540ull, 0x5554ull, 0x0ull};
 static const uint64_t icon_row_generic[9] = {0x0ull, 0x540ull, 0x1fd0ull, 0x7ef4ull, 0x1fabdull, 0x7ef4ull, 0x1fd0ull, 0x540ull, 0x0ull};
 /* 3 x 5 letters of the face buttons, bit (row * 3 + x): i the narrow I of II to IV, ^ o [ x the PlayStation shapes. */
 static const char row_letter_chars[] = "ABCXYZLRI123456DKPSFGHMEVi^o[x";
@@ -333,7 +335,8 @@ static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_
     {icon_row_speed, 9, 9}, {icon_row_rumble, 9, 9}, {icon_row_restore, 9, 9}, {icon_row_port_mouse, 9, 9},
     {icon_row_port_joystick, 9, 9}, {icon_row_exit, 9, 9}, {icon_row_palette, 9, 9}, {icon_row_sprite, 9, 9},
     {icon_row_dip, 9, 9}, {icon_row_disk, 9, 9}, {icon_row_mouse, 9, 9}, {icon_row_help, 9, 9}, {icon_row_sliders, 9, 9},
-    {icon_row_maxspeed, 9, 9}, {icon_row_graphics, 9, 9}, {icon_row_widescreen, 9, 9}, {icon_row_generic, 9, 9}
+    {icon_row_maxspeed, 9, 9}, {icon_row_graphics, 9, 9}, {icon_row_widescreen, 9, 9}, {icon_row_sync, 9, 9},
+    {icon_row_generic, 9, 9}
     /* </row table> */};
 int rr_menu_icon_width(int icon) { return icon >= 0 && icon < RR_ICON_COUNT ? icons[icon].w : 0; }
 

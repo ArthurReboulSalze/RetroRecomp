@@ -203,6 +203,25 @@ first). No console of this release declares any of them, so nothing below appear
 - **Change disc**: a control of the F2 pages like the others (its default key is the machine's); in play it takes the next
   disc, after the last the first, and shows "Disc 2/3".
 
+## Sync to display (1.7.7)
+
+A row of the options page on every machine, kept for each machine (`[<Console>.Video] sync`):
+
+- **Auto** (the default): the game measures your screen's refresh when it opens. When its own rate is within 1 % of it (most
+  consoles on a 60 Hz screen: 59.92 Hz, 60.10 Hz), it is **locked** to the screen: each of its frames is shown for exactly one
+  refresh, with no periodic hitch. It then runs at the screen's rate, 60.00 Hz instead of 59.92 (0.13 % faster), and its sound
+  is resampled by the same fraction so it stays in step. Otherwise (a 144 Hz screen, a 50 Hz PAL game on a 60 Hz screen) it
+  runs on its own clock as before 1.7.7. The row shows **Auto (locked)** or **Auto (free)**.
+- **Locked**: the same, up to 3 % (the Neo Geo's 59.19 Hz on a 60 Hz screen).
+- **Free**: the game's own clock, vsync off (on Linux too).
+- **Variable refresh**: for a FreeSync, G-Sync or HDMI VRR screen. The game runs on its own clock and the screen refreshes when
+  each frame arrives, at the game's own rate, PAL games included. On Windows it takes effect at the next start; play in
+  fullscreen (F4) unless Windows' variable refresh for windowed games is on. Whether the screen really follows depends on the
+  monitor, the graphics driver and, on Linux, the desktop: the game cannot detect it, so Auto never picks it.
+
+A notice says what the row decided ("Locked: 60.00 Hz, game 59.92 Hz (+0.13 %)"). The menus, pause, fast forward and the
+other speeds are never locked. None of this is a latency figure: physical latency is not measured.
+
 ## F2 settings pages
 
 F2 gathers every setting in one place, on every console. Since 1.7.4 it opens a **menu of tiles**, one per page, each

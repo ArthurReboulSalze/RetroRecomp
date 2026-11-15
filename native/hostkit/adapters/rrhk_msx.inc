@@ -254,6 +254,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.display_width = m_display_width;
       machine.audio = m_no_audio; machine.interpreted = m_interpreted; machine.audio_interpreted = m_zero;
       machine.audio_reopen = host_audio_reopen; machine.audio_device_id = host_audio_device_id;
+      machine.audio_ratio = host_audio_ratio;   /* 1.7.7 (HOST_KIT D30): Sync to display */
       machine.state_ready = m_state_ready; machine.state_file = m_state_file; machine.state_path = m_state_path;
       machine.input_frame = m_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = m_help_controls;

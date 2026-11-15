@@ -10,6 +10,20 @@
 #include <string.h>
 #include "hostkit/hostkit_internal.h"
 
+/* 1.7.7 (HOST_KIT D30): the factor on the sound's length while the game is locked to the display (machine_hz / refresh_hz),
+ * exactly 1.0 otherwise. The queue model resamples here, the ring model in rrhk_ring.c, a machine with its own device through
+ * its audio_ratio hook. */
+static double audio_base = 1.0;
+static RrDrcResampler queue_drc;
+void rrhk_audio_set_base(RrhkRun *run, double base) {
+    if (base == audio_base) return;
+    audio_base = base;
+    memset(&queue_drc, 0, sizeof queue_drc);
+    rrhk_ring_set_base(base);
+    if (run->machine->audio_ratio) run->machine->audio_ratio(base);
+}
+double rrhk_audio_base(void) { return audio_base; }
+
 /* The queue device: the output the player asked for (rrhk_audio_device()), or the system default when there is none or it
  * cannot be opened. */
 static SDL_AudioDeviceID open_queue_device(const SDL_AudioSpec *want, SDL_AudioSpec *have) {
@@ -128,7 +142,8 @@ void rrhk_audio_frame(RrhkRun *run) {
  * little for a costly frame. */
 void rrhk_audio_wait_room(RrhkRun *run) {
     run->audio_target = run->audio_preroll + rr_cushion_frames(&run->cushion, (Uint32)run->have.freq) * 4;
-    if (run->audio && run->audio_playing && !rrhk.menu && !rrhk.paused) {
+    /* 1.7.7: a game locked to the display is paced by the screen; its sound keeps its level by its rate instead (D30). */
+    if (run->audio && run->audio_playing && !rrhk.menu && !rrhk.paused && audio_base == 1.0) {
         Uint64 until = SDL_GetTicks64() + 20;
         while (SDL_GetQueuedAudioSize(run->audio) > run->audio_target && SDL_GetTicks64() < until)
             SDL_Delay(1);
@@ -137,6 +152,15 @@ void rrhk_audio_wait_room(RrhkRun *run) {
 
 /* `samples` int16 values (frames * 2) from the machine, through the audio filter and into the queue. */
 void rrhk_audio_push(RrhkRun *run, int16_t *pcm, size_t samples) {
+    /* 1.7.7 (D30): locked to the display, the block is resampled by base and the queue's distance from its target */
+    static int16_t stretched[(2048 + 2048 / 20 + 8) * 2];
+    if (audio_base != 1.0) {
+        const double fill = (double)SDL_GetQueuedAudioSize(run->audio) / 4.0, target = (double)run->audio_target / 4.0;
+        samples = 2 * rr_drc_resample(&queue_drc, pcm, samples / 2, 2, rr_drc_ratio(audio_base, fill, target), stretched,
+                                      sizeof stretched / sizeof stretched[0] / 2);
+        pcm = stretched;
+        if (!samples) return;
+    }
     rrhk_options_audio(pcm, (unsigned)(samples / 2), 2, false, run->have.freq);
     /* Only our pushes refill the queue: empty now means the device
      * ran dry since the last frame. Re-prime with a larger reserve. */

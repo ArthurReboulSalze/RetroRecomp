@@ -277,6 +277,46 @@ static void cadence_checks(void) {
     puts("cadence: PAL/NTSC, 256/480/1024-frame callbacks, 16 starting phases, 1 ms jitter: no underrun or trim");
 }
 
+/* 1.7.7 (HOST_KIT D30): a game locked to the display. Its frames come at the screen's refresh (60 Hz) with the machine's sound
+ * of a 59.9228 Hz frame each (+0.13 %). Without the factor the backlog grows until it is trimmed (the control); with
+ * host_audio_ratio(machine / refresh) nothing is trimmed and nothing runs dry over a simulated minute, also when the refresh was
+ * measured 0.1 % off (the screen really at 59.94 Hz). */
+static void locked_checks(void) {
+    int16_t source[2048 * 2] = {0}, output[2048 * 2];
+    const uint32_t rate = 223721;
+    const double machine = 59.9228, source_per_frame = rate / machine;
+    const Uint16 saved_period = rr_audio.device.samples;
+    virtual_clock = true;
+    for (int trial = 0; trial < 3; ++trial) {
+        const double screen = trial == 2 ? 59.94 : 60.0, frame_us = 1e6 / screen, callback_us = 480 * 1e6 / 48000;
+        rr_audio.device.samples = 480;
+        reset_test(rate, 48000);
+        host_audio_ratio(trial ? machine / 60.0 : 1.0);
+        unsigned callback = 0;
+        for (int frame = 0; frame < 60 * 60; ++frame) {
+            const double submit_us = frame * frame_us + (frame % 7) * 1000.0 / 6;
+            while (callback * callback_us < submit_us) {
+                virtual_us = (Uint64)(callback * callback_us);
+                audio_callback(NULL, (Uint8 *)output, 480 * 4);
+                ++callback;
+            }
+            size_t count = (size_t)((frame + 1) * source_per_frame) - (size_t)(frame * source_per_frame);
+            virtual_us = (Uint64)submit_us;
+            while (count) { size_t chunk = SDL_min(count, 2048u); host_audio_submit(source, chunk); count -= chunk; }
+        }
+        printf("locked to the display (%s): produced=%llu played=%llu trimmed=%llu underrun=%llu peak=%.3f ms\n",
+            trial == 0 ? "control, no factor" : trial == 1 ? "60 Hz" : "measured 60, really 59.94",
+            (unsigned long long)rr_audio.produced, (unsigned long long)rr_audio.played, (unsigned long long)rr_audio.dropped,
+            (unsigned long long)rr_audio.underrun, rr_audio.peak * 1000.0 / 48000);
+        if (trial == 0) assert(rr_audio.dropped > 0);            /* the drift the factor is for */
+        else assert(!rr_audio.dropped && !rr_audio.underrun && rr_audio.started);
+    }
+    host_audio_ratio(1.0);
+    rr_audio.device.samples = saved_period;
+    virtual_clock = false;
+    puts("locked: the factor keeps the buffer, a minute at 60 Hz and at 59.94 Hz measured as 60, no trim, no underrun");
+}
+
 static void steady_check(void) {
     reset_test(223721, rr_audio.device.freq);
     int16_t source[2048 * 2] = {0};
@@ -306,7 +346,7 @@ int main(int argc, char **argv) {
     if (!host_audio_init(223721)) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
     SDL_PauseAudioDevice(audio_device, 1);
     if (device) { burst_check(); steady_check(); }
-    else { conversion_checks(); ring_checks(); cushion_checks(); float_callback_check(); cadence_checks(); reset_test(223721, 48000); burst_check(); }
+    else { conversion_checks(); ring_checks(); cushion_checks(); float_callback_check(); cadence_checks(); locked_checks(); reset_test(223721, 48000); burst_check(); }
     /* Another output device (decision D12): the same stream on a new device, its id known, the audio subsystem not started once more per reopen. */
     SDL_AudioDeviceID before = host_audio_device_id();
     assert(before && host_audio_reopen() && host_audio_device_id() && rr_audio.source_rate == 223721);

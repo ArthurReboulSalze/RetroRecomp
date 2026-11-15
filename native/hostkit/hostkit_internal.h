@@ -62,7 +62,38 @@ typedef struct RrhkRun {
     size_t upscaled_pixels;
     int refused_w, refused_h;      /* the last picture size the store could not grow to: not tried again until the size changes */
     bool double_refused;           /* Scale2x's buffer could not be made for this store: the picture is shown without it */
+    Uint64 presented;              /* 1.7.7: when the last present returned */
 } RrhkRun;
+
+/* 1.7.7 (HOST_KIT D30): Sync to display, the row of the options page kept per machine ([<Console>.Video] sync).
+ * Auto: locked when the screen's measured refresh is within 1 % of the machine's rate, otherwise as before 1.7.7 (Windows
+ * presents without waiting, Linux with the vsync hint). Locked: the same up to 3 %. Free: the machine's own clock, vsync off on
+ * both systems. Variable refresh: free, vsync off, and on Windows the Direct3D 12 renderer, whose presents allow tearing so a
+ * FreeSync / G-Sync screen follows the game (DXGI cannot tell whether the screen and the driver do: the player's choice).
+ * Locked, the present paces the game (the machine runs at the refresh) and every sound path follows by its rate
+ * (audio_cushion.h rr_drc_ratio). Never locked: a hidden-window test run, SDL_RENDER_VSYNC set, the menus and pause (vsync stays
+ * on), fast forward and any speed but 100 % (vsync off meanwhile). */
+enum { RRHK_SYNC_AUTO, RRHK_SYNC_LOCKED, RRHK_SYNC_FREE, RRHK_SYNC_VARIABLE, RRHK_SYNC_MODES };
+#define RRHK_SYNC_AUTO_GAP 0.01
+typedef struct {
+    int mode;                      /* the row's value */
+    bool active;                   /* not a test run, no SDL_RENDER_VSYNC: the kit drives vsync */
+    bool vsync;                    /* the renderer presents on the refresh now */
+    bool lock;                     /* the decision: locked while playing */
+    bool remeasure, announce;      /* measure the refresh at the next iteration (start, row, other display); then say the outcome */
+    bool vrr_renderer;             /* the window was opened with Direct3D 12 for Variable refresh */
+    const char *why;               /* the English reason the decision is free, NULL when locked or Free/Variable asked */
+    double refresh_hz;             /* measured, 0: unknown */
+    double machine_hz;             /* the machine's rate the decision was made for */
+    int quick_presents;            /* locked presents in a row that did not wait for a refresh */
+    uint64_t held[4];              /* locked frames held 1, 2, 3, 4 or more refreshes (the cadence; not a latency) */
+} RrhkSync;
+extern RrhkSync rrhk_sync;
+bool rrhk_sync_decide(int mode, double refresh_hz, double machine_hz);   /* pure: lock or not */
+void rrhk_sync_load(bool test_run);       /* the row's value, before the renderer (Variable refresh: the renderer hint) */
+void rrhk_sync_next(void);                /* the row: Auto, Locked, Free, Variable refresh; kept */
+void rrhk_sync_value(char *out, size_t size);   /* the row's value as shown */
+void rrhk_sync_notice(void);              /* the outcome, named by a notice */
 
 /* Pseudo-keys of the kit's own option rows: past every scancode and past the machines' own rows (rrhk_computer.inc uses
  * SDL_NUM_SCANCODES + 1), so that no keyboard sends them. */
@@ -70,6 +101,7 @@ typedef struct RrhkRun {
 #define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
 #define RRHK_KEY_QUIT (SDL_NUM_SCANCODES + 18)         /* the "Quit the game" row, last of the page (1.7.6) */
 #define RRHK_KEY_WIDESCREEN (SDL_NUM_SCANCODES + 19)   /* the "Screen format: 4:3 / 16:9" row (1.7.6) */
+#define RRHK_KEY_SYNC (SDL_NUM_SCANCODES + 20)         /* the "Sync to display" row (1.7.7, D30) */
 
 /* menu.c: the row icons (1.7.5) */
 int rrhk_action_icon(const char *name, char letters[4]);   /* the icon of a control by its English name; a face button's letters */
@@ -201,6 +233,8 @@ bool rrhk_audio_reopen(RrhkRun *run);
 SDL_AudioDeviceID rrhk_audio_device_id(const RrhkRun *run);
 void rrhk_audio_pace(RrhkRun *run, Uint64 now);
 void rrhk_audio_close(RrhkRun *run);
+void rrhk_audio_set_base(RrhkRun *run, double base);   /* 1.7.7 (D30): machine_hz / refresh_hz while locked, else 1.0 */
+double rrhk_audio_base(void);
 
 /* ring.c: the callback-ring output (RRHK_AUDIO_RING). */
 bool rrhk_ring_open(unsigned rate, unsigned channels, unsigned margin_ms);
@@ -210,6 +244,7 @@ void rrhk_ring_submit(const int16_t *pcm, uint32_t count);
 void rrhk_ring_clear(void);
 void rrhk_ring_close(void);
 SDL_AudioDeviceID rrhk_ring_device(void);
+void rrhk_ring_set_base(double base);   /* 1.7.7 (D30) */
 
 /* events.c */
 void rrhk_poll_events(RrhkRun *run);

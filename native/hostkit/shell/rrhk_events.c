@@ -195,6 +195,10 @@ static void speed_event(const SDL_Event *event) {
              !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
         rrhk.fast_hold |= HOLD_KEY;
     else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) rrhk.fast_hold = 0;
+    /* 1.7.7 (D30): another display, another refresh: measured again, the decision said again */
+    else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED && rrhk_sync.active) {
+        rrhk_sync.remeasure = true; rrhk_sync.announce = true;
+    }
 }
 
 /* Help (F1) and Pause: open it, or go back to the menu it was opened from. Opening one while the Pause menu is up remembers it. */
@@ -353,6 +357,8 @@ void rrhk_poll_events(RrhkRun *run) {
             rrhk_toggle_rumble();
         } else if (key == RRHK_KEY_WIDESCREEN && from_row) {
             rrhk_widescreen_toggle();
+        } else if (key == RRHK_KEY_SYNC && from_row) {
+            rrhk_sync_next();         /* 1.7.7 (D30): the outcome is named once the refresh is measured */
         } else if (key == RRHK_KEY_QUIT && from_row) {
             if (run->test_frames) run->running = false; else rrhk_quit_ask();     /* the one question; No comes back here */
         } else if (key == RRHK_KEY_START_HELP && from_row) {

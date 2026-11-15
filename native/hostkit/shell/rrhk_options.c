@@ -130,6 +130,7 @@ int rrhk_option_icon(int key) {
     case SDL_SCANCODE_M: return RR_ICON_ROW_SOUND;
     case SDL_SCANCODE_GRAVE: return RR_ICON_ROW_MAXSPEED;
     case RRHK_KEY_RUMBLE: return RR_ICON_ROW_RUMBLE;
+    case RRHK_KEY_SYNC: return RR_ICON_ROW_SYNC;
     case RRHK_KEY_START_HELP: return RR_ICON_ROW_REMINDER;
     case RRHK_KEY_QUIT: return RR_ICON_ROW_EXIT;
     case RR_ROW_AUDIO: return RR_ICON_ROW_WAVE;
@@ -151,6 +152,11 @@ static RrhkOptionRows option_rows(void) {
     rrhk_option_row(&d, SDL_SCANCODE_F4, "F4 Display: %s", rr_option_mode_name(rrhk.fullscreen));
     /* 1.7.6: on a machine whose games may draw a widescreen picture, this game's screen format */
     if (m->widescreen) rrhk_option_row_icon(&d, RRHK_KEY_WIDESCREEN, RR_ICON_ROW_WIDESCREEN, "Screen format: %s", rrhk.widescreen ? "16:9" : "4:3");
+    {   /* 1.7.7 (D30): Sync to display, kept for this machine */
+        char value[48];
+        rrhk_sync_value(value, sizeof value);
+        rrhk_option_row(&d, RRHK_KEY_SYNC, "Sync to display: %s", value);
+    }
     if (m->option_rows) m->option_rows(0, &d);
     rrhk_option_row(&d, SDL_SCANCODE_F6, "F6 Autofire: %s", rr_tr(rrhk.autofire ? "ON" : "OFF"));
     rrhk_option_row(&d, SDL_SCANCODE_F7, "F7 Language: %s", rr_language_name(rrhk.language));
