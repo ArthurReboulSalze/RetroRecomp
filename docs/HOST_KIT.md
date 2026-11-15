@@ -367,8 +367,9 @@ X68000 too, without asking again**.
   3D machine, declared by the adapter, no `if console ==`); each machine says which options it offers. An option that changes
   the guest's timing (CPU or disc speed, overclock) is never declared; headless runs, routes and gates use each option's
   default.
-  **One exception, the Amiga's CPU speed** (owner's decision of 15 November 2026, for 1.7.7: asked « On autorise une option
-  de vitesse processeur sur l'Amiga pour la 1.7.7 ? », « Oui, pour la 1.7.7 »). Some Amiga games are slow because they ask more of
+  **One exception, the Amiga's CPU speed** (owner's decision of 15 November 2026: asked « On autorise une option de vitesse
+  processeur sur l'Amiga pour la 1.7.7 ? », « Oui, pour la 1.7.7 »; then brought into 1.7.6, « On pourrait peut-être fusionner la
+  branche Amiga sur la 1.7.6 si elle est déjà prête. »). Some Amiga games are slow because they ask more of
   the CPU than the machine has (Fears, a chunky 3D engine, draws about one picture every 3.4 frames on the A1200 model), and an
   accelerator card was the real machine's answer. The row « CPU speed: Normal / x2 / x4 » is on F2's options page of both Amiga
   models, under the computers' keyboard row (`rrhk_amiga.inc`), Normal by default, kept per game; the conversion's checks, routes
