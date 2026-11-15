@@ -25,6 +25,10 @@ compared with the figures of a machine whose game code is translated, and it say
   the **Analog** action (F, or the gamepad's extra button) switches it to analog mode, and a game that wants analog mode
   switches it itself. While a pad is digital, the gamepad's left stick also works as the d-pad. A game the core's database knows
   as digital-only gets a standard pad on that port (Crash Bandicoot). A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
+- **Aspect ratio.** "Corrected", the default, shows the console's own pixel shape: with the overscan cropped (the default) that is
+  1.22 wide for 1 high for most games (the part of a 4:3 line the game draws), so a fullscreen picture keeps black bars at its
+  sides. "4:3" fills a 4:3 area instead and stretches the picture about 9 % wider than the console's signal; "Uncorrected" shows
+  square pixels. None of them changes a pixel of the picture or a check.
 - **F3** opens the graphics page: internal resolution (1x, 2x, 4x), dithering, aspect ratio and overscan crop. They change only
   the picture; the conversion's checks use the defaults (1x, the core's own settings). 8x is not offered (64 times the pixels,
   never in time on one thread), and since 1.7.6 there is no deinterlacing row: the picture is always progressive.

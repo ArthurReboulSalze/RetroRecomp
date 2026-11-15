@@ -79,6 +79,34 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.6 in 1.7.7
+
+1.7.7 is the release after 1.7.6 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
+
+## Sony PlayStation: the Vulkan renderer compiled in, not yet used (1.7.7)
+
+**What changes.** Step 1 of the graphics-card renderer ([PLAYSTATION.md](PLAYSTATION.md)): every PlayStation game now holds Beetle
+PSX's Vulkan renderer (`rhi/rhi_lib_vulkan.c`, `rhi/rhi_upscaler.c`, MIT, with their prebuilt shaders and the texture tracker
+they call), compiled with Beetle's `HAVE_VULKAN` and `HAVE_HW`. It is not opened yet: the session asks for the software renderer,
+the reference of every check. What the renderer needs and the game cannot hold is replaced: SPIRV-Cross (Apache-2.0) by our
+`native/psx_machine/psx_spirv_reflect.c` (equal on all 92 prebuilt shaders, `tools/psx_spirv_reflect_selftest.py`), the HDR
+transform by `native/psx_machine/psx_hdr_none.c` ("off"), Beetle's Apache-2.0 copy of the Vulkan headers by Khronos's own,
+pinned and taken under MIT (`psx_beetle.VULKAN_HEADERS_REV`, a new upstream). The game stays GPL-2.0-only as a whole; its notice
+gains the renderer's MIT and ISC terms and Khronos's MIT terms. A core built with its hardware renderers names its options
+`beetle_psx_hw_<name>`: the session answers them under the names it already used.
+
+**What it does not change.** The picture and every check: the per-frame trace of a game built this way equals the trace of the
+software-only build (frame, RAM, picture, sound, CPU state; checked on Ape Escape).
+
+**Stamps:** the PlayStation's game stamp (the prepared tree's sources, defines and include folders, the two new files, the Vulkan
+headers) and host stamp (`psx_session.c`). **Existing exports:** converted again in full at their next conversion. **Quick
+states:** PlayStation states of 1.7.6 are refused cleanly (the state key holds the prepared tree's digest). **Site limits:**
+unchanged. **Hot path:** no (the renderer is not opened; the game is about 5 MB larger).
+
 ## Exports of 1.7.5 in 1.7.6
 
 1.7.6 is the release after 1.7.5 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.

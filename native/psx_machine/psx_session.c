@@ -352,6 +352,8 @@ static const char *const DEFAULTS[][2] = {
     {"beetle_psx_analog_toggle", "enabled"},
     /* A 480-line picture shown whole (the GPU draws both fields of the displayed frame), the graphics page's default. */
     {"beetle_psx_deinterlacer", "off"},
+    /* The software renderer draws (the reference of every check); the Vulkan renderer compiled beside it is not opened. */
+    {"beetle_psx_renderer", "software"},
 };
 
 static void set_option(RrPsxSession *s, const char *key, const char *value) {
@@ -412,8 +414,16 @@ static bool RETRO_CALLCONV environment(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_GET_VARIABLE: {
         struct retro_variable *var = (struct retro_variable *)data;
         var->value = NULL;
+        /* A core built with its hardware renderers (1.7.7: the Vulkan one) names its options beetle_psx_hw_<name>: they are
+         * answered under the name the session and the graphics page use, beetle_psx_<name>. */
+        char plain[96];
+        const char *key = var->key;
+        if (key && !strncmp(key, "beetle_psx_hw_", 14) && strlen(key) < sizeof plain) {
+            snprintf(plain, sizeof plain, "beetle_psx_%s", key + 14);
+            key = plain;
+        }
         for (int i = 0; s && i < s->option_count; ++i)
-            if (strcmp(s->options[i].key, var->key) == 0) { var->value = s->options[i].value; return true; }
+            if (strcmp(s->options[i].key, key) == 0) { var->value = s->options[i].value; return true; }
         for (int i = 0; i < core_default_count; ++i)
             if (strcmp(core_defaults[i].key, var->key) == 0) { var->value = core_defaults[i].value; return true; }
         return false;

@@ -8,8 +8,13 @@ repository is built. Left out on purpose (licences/AGENTS decisions of 6 Novembe
 * `mednafen/cdrom/CDAccess_PBP.c`: it embeds GPL-3.0 code (KIRK, amctrl) and PlayStation Portable keys. EBOOTs are read by our
   own reader (retrorecomp/psx_disc.py) and reach the core as raw sectors through the disc pack.
 * `deps/lightrec`, `deps/lightning` (LGPL-2.1+ / LGPL-3.0+): the dynamic recompiler; the core's interpreter runs instead.
-* `parallel-psx`, `rhi/rhi_lib_vulkan.c`, `rhi/rhi_lib_gl.c` and the texture-replacement files: the hardware renderers (Apache-2.0
-  SPIRV-Cross, unlicensed ACES2 tables, a Blender-derived LUT). The software renderer is the reference.
+* `parallel-psx` (Apache-2.0 SPIRV-Cross and an Apache-2.0 copy of the Vulkan headers), `rhi/rhi_spirv_reflect.cpp` (SPIRV-Cross's
+  user) and the HDR display transform (`rhi/hdr_transform.c`, `rhi/hdr_aces2.c` and their tables: no notice, tables transcribed from
+  the Academy's ACES code and one derived from Blender's). The Vulkan renderer itself is compiled (1.7.7: `rhi/rhi_lib_vulkan.c`
+  and `rhi/rhi_upscaler.c`, MIT, the parallel-psx renderer folded in, with its prebuilt shaders): our own
+  `native/psx_machine/psx_spirv_reflect.c` reads the shaders' layout in SPIRV-Cross's place, `native/psx_machine/psx_hdr_none.c`
+  answers "off" for HDR, and the Vulkan headers come from Khronos's own repository, under MIT (`VULKAN_HEADERS_REV`). The software
+  renderer is the reference: every check of a conversion runs it. The OpenGL renderer (`rhi/rhi_lib_gl.c`) is not compiled.
 
 Each replacement below must find its pinned text exactly once, so an upstream change fails loudly instead of building something
 else; our changes to a GPL file are GPL like it (licenses/beetle-psx.md).
@@ -22,10 +27,20 @@ import shutil
 from pathlib import Path
 
 from .core import serialized_setup
-from .paths import ROOT
+from .paths import ASSETS, ROOT
+
+OWN = ASSETS / 'native' / 'psx_machine'    # our own files compiled with the machine (OWN_SOURCES)
 
 BEETLE_REPOSITORY = 'https://github.com/libretro/beetle-psx-libretro.git'
 BEETLE_REV = '71ee81e77acd49296ecf4a683f5a61568ba80bf9'
+# The Vulkan headers the renderer compiles against: Khronos's own repository, tag v1.4.368, whose headers say "Apache-2.0 OR
+# MIT" (taken under MIT: the game is GPL-2.0-only). Beetle's bundled copy (parallel-psx/khronos, 1.1.95) is Apache-2.0 only.
+VULKAN_HEADERS_REPOSITORY = 'https://github.com/KhronosGroup/Vulkan-Headers.git'
+VULKAN_HEADERS_REV = '88487f687f3100ebe1d3559a8a34d971ee85b977'
+# The headers a game compiles (vulkan.h includes no platform header unless a VK_USE_PLATFORM_ macro asks: none does), the
+# video codec headers vulkan_core.h includes, and the licence.
+VULKAN_HEADERS = ('include/vulkan/vulkan.h', 'include/vulkan/vulkan_core.h', 'include/vulkan/vk_platform.h', 'LICENSE.md')
+VULKAN_HEADER_FOLDERS = ('include/vk_video',)
 FORMAT = 1
 
 # The C files of the software-rendered machine (Beetle's Makefile.common with HAVE_CHD=0, HAVE_LIGHTREC=0, no HW, no PBP,
@@ -62,17 +77,37 @@ SOURCES = (
     'libretro-common/rthreads/rthreads.c', 'libretro-common/rthreads/retro_eventcount.c',
     'libretro-common/queues/retro_spsc.c', 'libretro-common/queues/retro_waitable_spsc.c',
     'libretro-common/features/features_cpu.c',
+    # The Vulkan renderer (1.7.7) and what it calls: the texture tracker and its image decoders (the HD texture replacement is
+    # never asked for: no file is given), the streams they read through.
+    'rhi/rhi_lib_vulkan.c', 'rhi/rhi_upscaler.c', 'rhi/rhi_tt.c', 'rhi/tt_io_channel.c',
+    'libretro-common/formats/image_texture.c', 'libretro-common/formats/image_transfer.c', 'libretro-common/formats/png/rpng.c',
+    'libretro-common/formats/png/rpng_encode.c', 'libretro-common/file/rpng_file.c', 'libretro-common/formats/png/rpng_apng.c',
+    'libretro-common/formats/jpeg/rjpeg.c', 'libretro-common/formats/bmp/rbmp.c', 'libretro-common/formats/tga/rtga.c',
+    'libretro-common/formats/webp/rwebp.c', 'libretro-common/formats/vp8/rvp8.c', 'libretro-common/formats/dds/rdds.c',
+    'libretro-common/streams/trans_stream.c', 'libretro-common/streams/trans_stream_deflate.c',
+    'libretro-common/streams/trans_stream_pipe.c', 'libretro-common/streams/interface_stream.c',
+    'libretro-common/streams/memory_stream.c',
 )
+# Our own files compiled with the machine (native/psx_machine): the shaders' resource layout and HDR switched off (see above).
+OWN_SOURCES = ('psx_spirv_reflect.c', 'psx_hdr_none.c')
 # Folders copied whole (headers, files included by other files: gpu.c includes gpu_polygon.c, gpu_sprite.c, gpu_line.c).
 FOLDERS = ('mednafen', 'libretro-common', 'pgxp', 'rhi', 'deps/openbios', 'include')
 FILES = ('COPYING', 'libretro_core_options.h', 'libretro_core_options_intl.h', 'libretro_options.h', 'libretro_cbs.h',
          'libretro_game_database.h', 'input.h', 'input_compatibility.h', 'mc_async.h', 'osd_message.h',
          'beetle_psx_globals.h', 'database/psx_games.inc')
 # Files of the copied folders that are never compiled nor shipped with the sources (licence reasons above).
-EXCLUDED = ('mednafen/cdrom/CDAccess_PBP.c', 'mednafen/cdrom/CDAccess_PBP.h')
+EXCLUDED = ('mednafen/cdrom/CDAccess_PBP.c', 'mednafen/cdrom/CDAccess_PBP.h',
+            'rhi/rhi_spirv_reflect.cpp', 'rhi/hdr_transform.c', 'rhi/hdr_aces2.c', 'rhi/hdr_aces2.h',
+            'rhi/hdr_filmic_contrast.h', 'rhi/hdr_filmic_desat.h')
 DEFINES = ('__LIBRETRO__', 'NEED_CD', 'NEED_DEINTERLACER', 'WANT_32BPP', 'MEDNAFEN_VERSION_NUMERIC=9386', 'STDC_HEADERS',
-           '__STDC_LIMIT_MACROS', '__STDC_CONSTANT_MACROS', '_FILE_OFFSET_BITS=64')
-INCLUDES = ('.', 'mednafen', 'mednafen/include', 'libretro-common/include')
+           '__STDC_LIMIT_MACROS', '__STDC_CONSTANT_MACROS', '_FILE_OFFSET_BITS=64',
+           # the Vulkan renderer (Beetle's Makefile with HAVE_VULKAN=1: HAVE_HW and the texture tracker's decoders)
+           'HAVE_VULKAN', 'HAVE_HW', 'TEXTURE_DUMPING_ENABLED', 'HAVE_RPNG', 'HAVE_RJPEG', 'HAVE_RBMP', 'HAVE_RTGA', 'HAVE_RWEBP',
+           'HAVE_RDDS',
+           # two enum sizes of the Vulkan 1.1 headers Beetle was written against, gone from today's (VK_IMAGE_TYPE_3D + 1 and
+           # VK_IMAGE_VIEW_TYPE_CUBE_ARRAY + 1): the renderer uses them as "none" markers
+           'VK_IMAGE_TYPE_RANGE_SIZE=3', 'VK_IMAGE_VIEW_TYPE_RANGE_SIZE=7')
+INCLUDES = ('.', 'mednafen', 'mednafen/include', 'libretro-common/include', 'rhi', 'khronos/include')
 
 REPLACEMENTS: list[tuple[str, str, str]] = [
     # The player's BIOS comes from memory (it is embedded in the game), never from a file: the session sets rr_psx_bios_data
@@ -433,6 +468,9 @@ def adaptation_digest() -> str:
     value = hashlib.sha256(b'psx-beetle-adaptation\0' + str(FORMAT).encode() + b'\0' + BEETLE_REV.encode())
     for part in (SOURCES, FOLDERS, FILES, EXCLUDED, DEFINES, INCLUDES):
         value.update(b'\0' + '\n'.join(part).encode())
+    value.update(b'\0' + VULKAN_HEADERS_REV.encode() + b'\0' + '\n'.join(VULKAN_HEADERS + VULKAN_HEADER_FOLDERS).encode())
+    for name in OWN_SOURCES:
+        value.update(b'\0' + name.encode() + b'\0' + (OWN / name).read_bytes())
     for rel, old, new in REPLACEMENTS:
         value.update(b'\0' + rel.encode() + b'\0' + old.encode() + b'\0' + new.encode())
     return value.hexdigest()
@@ -461,9 +499,31 @@ def source(emit=print) -> Path:
     return target
 
 
-def adapt(checkout: Path, target: Path) -> Path:
+@serialized_setup
+def vulkan_headers_source(emit=print) -> Path:
+    """The pinned Vulkan-Headers checkout under `.deps` (cloned when missing, refused when moved or edited)."""
+    from .conversion_common import pinned_checkout
+    from .core import run
+    target = ROOT / '.deps' / 'vulkan-headers'
+
+    def git(*arguments, **options):
+        return run(['git', '-C', target, *arguments], **options)
+
+    def clone():
+        emit('PlayStation: fetching the Vulkan headers at their pinned revision.')
+        run(['git', 'clone', '--no-hardlinks', '--filter=blob:none', '--no-checkout', VULKAN_HEADERS_REPOSITORY, target])
+        git('checkout', '--detach', VULKAN_HEADERS_REV)
+
+    def refuse(head):
+        raise ValueError('Vulkan headers revision differs from the pinned one.')
+    pinned_checkout(target, VULKAN_HEADERS_REV, git, present=target.exists(), clone=clone, moved=refuse,
+                    dirty=lambda: ValueError('Vulkan headers changed; the converter takes them as pinned.'))
+    return target
+
+
+def adapt(checkout: Path, target: Path, headers: Path | None = None) -> Path:
     """Copy what the game compiles to `target/beetle` and apply the replacements; returns that folder. Done once per adaptation
-    digest (a `ready.json` beside it)."""
+    digest (a `ready.json` beside it). `headers`: the Vulkan-Headers checkout (default: the pinned one under `.deps`)."""
     ready = target / 'ready.json'
     digest = adaptation_digest()
     tree = target / 'beetle'
@@ -482,6 +542,17 @@ def adapt(checkout: Path, target: Path) -> Path:
         shutil.copyfile(checkout / rel, destination)
     for rel in EXCLUDED:
         (tree / rel).unlink(missing_ok=True)
+    headers = headers or vulkan_headers_source()
+    for rel in VULKAN_HEADERS:
+        destination = tree / 'khronos' / rel
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(headers / rel, destination)
+    for folder in VULKAN_HEADER_FOLDERS:
+        shutil.copytree(headers / folder, tree / 'khronos' / folder)
+    for name in OWN_SOURCES:
+        destination = tree / 'rr' / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(OWN / name, destination)
     for rel, old, new in REPLACEMENTS:
         path = tree / rel
         text = path.read_text(encoding='utf-8')
@@ -489,7 +560,8 @@ def adapt(checkout: Path, target: Path) -> Path:
             raise ValueError(f'Beetle PSX {rel}: the pinned text was not found exactly once.')
         path.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
     (tree / 'rr_sources.cmake').write_text(
-        'set(RR_BEETLE_SOURCES\n' + ''.join(f'    "${{RR_BEETLE_TREE}}/{rel}"\n' for rel in SOURCES) + ')\n'
+        'set(RR_BEETLE_SOURCES\n' + ''.join(f'    "${{RR_BEETLE_TREE}}/{rel}"\n' for rel in SOURCES)
+        + ''.join(f'    "${{RR_BEETLE_TREE}}/rr/{name}"\n' for name in OWN_SOURCES) + ')\n'
         'set(RR_BEETLE_DEFINES ' + ' '.join(DEFINES) + ')\n'
         'set(RR_BEETLE_INCLUDES\n' + ''.join(f'    "${{RR_BEETLE_TREE}}/{rel}"\n' for rel in INCLUDES) + ')\n',
         encoding='utf-8', newline='\n')
