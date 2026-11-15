@@ -271,6 +271,9 @@ the panel. None of the gates measures hardware fidelity, gameplay coverage or la
 - F-Zero X: a vibration on the objects and an odd level of detail on the vehicles, seen by the owner, cause not settled (section 6); neither the native blocks nor
   the graphics settings change what the game computes.
 - Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
+- krom's ExceptionTEQDelay (a trap in a jump's delay slot): converted like a game, a quick state taken by the delivered program does not
+  continue in a fresh process (RDRAM and CPU differ from the first frame), so the conversion is refused; on the core's interpreter alone it
+  continues. No panel game meets it; the cause, in the native blocks' handling of an exception in a delay slot, is not found yet.
 - A quick state is refused by another build of the same game. At an internal resolution above 1x the upscaled coverage is not in the state (the first two
   frames after a load show the 1x content), and only the default resolution is checked.
 - Linux is witnessed on two games, headless, one of them delivered unpacked (section 6). The owner played three games on Windows
