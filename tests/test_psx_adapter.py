@@ -90,5 +90,19 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('.widescreen = true,', ADAPTER)
 
 
+    def test_a_stick_at_its_edge_is_not_read_as_the_other_edge(self):
+        # Beetle's DualShock turns -32768 into the byte of the other edge (32768 + right - left * 32768 / 32767 = -1, then
+        # 0xFF): a stick pushed straight left went right (Ape Escape, 15 November 2026). The session holds the edge at -32767.
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('s->sticks[player][i] = v < -32767 ? -32767 : v;', session)
+        # the core's arithmetic, as frontio.c computes the byte the game reads
+        def byte(x):
+            right, left = max(x, 0), max(-x, 0)
+            return ((32768 + right - left * 32768 // 32767) >> 8) & 0xFF
+        self.assertEqual(byte(-32768), 0xFF)            # unclamped: the right edge
+        self.assertEqual(byte(max(-32768, -32767)), 0)  # clamped: the left edge
+        self.assertEqual((byte(32767), byte(0)), (0xFF, 0x80))
+
+
 if __name__ == '__main__':
     unittest.main()
