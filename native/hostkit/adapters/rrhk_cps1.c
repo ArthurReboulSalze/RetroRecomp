@@ -129,7 +129,7 @@ static const RrhkPage dip_page = {"DIP switches", dip_available, dip_draw, dip_k
 
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
-    rrhk_menu_line(ctx, y, rr_tr("Arrows; W/X/C + A/S/D: buttons 1-6"));
+    rrhk_menu_line(ctx, y, rr_tr("Arrows; S/D/F + E/R/T: buttons 1-6"));
     rrhk_menu_line(ctx, y + RR_MENU_LINE, rr_tr("Enter: Start; Shift/Back: coin"));
     rrhk_menu_line(ctx, y + 2 * RR_MENU_LINE, rr16_audio_interpreted() ? rr_tr("Sound CPU: interpreter fallback") :
                                                                           rr_tr("Sound CPU: native code"));

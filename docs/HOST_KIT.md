@@ -476,6 +476,19 @@ X68000 too, without asking again**.
   which already opened it there, says so ("F3 Graphics"; the filter is one of the graphics page's rows). No row is added: every
   options page still fits, Quit the game stays last.
 
+* <a id="d26"></a>**D26 — Stick directions as inputs; player 1's keyboard defaults on S D F / E R T** (owner's requests of 15
+  November 2026, 1.7.6). F2's capture takes a stick pushed on the selected player's pad (left or right, four directions:
+  `RRHK_PAD_LSTICK_UP` .. `RRHK_PAD_RSTICK_RIGHT`, 66 to 73, stored as such) for any digital row, on every machine; in play it
+  is held past the D1 threshold and released under half of it (`rr_trigger_step`). It only adds a press: a machine's own reading
+  of the sticks (`rrhk_pad_axes`) is unchanged, and a host-side row (bit 0) refuses it, as it refuses a trigger.
+  `RrhkAction.pad_label` names on the gamepad page what the pad does for a row it does not bind (the Nintendo 64's keyboard
+  stick rows: "Left stick"). On the machines with few buttons (Master System, Game Gear, Game Boy, NES, Mega Drive, Super
+  Nintendo, Game Boy Advance, Neo Geo, CPS-1/2, PC Engine) and the four computers' joystick buttons, player 1's buttons 1-3 are
+  on S D F and 4-6 on E R T, by position (keys at the same place on QWERTY, AZERTY and QWERTZ; each machine keeps its order;
+  SNES L/R on F/T, Neo Geo D on E); the PlayStation and the Nintendo 64 keep their tables. A saved key still equal to the row's
+  former default on that layout (`RrhkAction.former_letter`) moves by itself; a key the player chose stays, and a default a
+  saved key uses is dropped, never shared. The kit's players 3 and 4 move to I K J L + U O N and G B V H + C X 9.
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

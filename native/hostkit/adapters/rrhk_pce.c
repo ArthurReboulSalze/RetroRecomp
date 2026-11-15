@@ -74,10 +74,10 @@ static uint64_t input_frame(void) { return rr_pce_frame_index(); }
 
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
-    rrhk_menu_line(ctx, y, rrhk_tr("Arrows; X: I, W: II; Enter Run; Shift Select",
-                                   "Fleches; X : I, W : II; Entree Run; Maj Select"));
-    rrhk_menu_line(ctx, y + RR_MENU_LINE, RR_PCE_PAD_BUTTONS == 6 ? rrhk_tr("C/A/S/D: III-VI (six-button pad)",
-                                                                              "C/A/S/D : III-VI (manette six boutons)")
+    rrhk_menu_line(ctx, y, rrhk_tr("Arrows; D: I, S: II; Enter Run; Shift Select",
+                                   "Fleches; D : I, S : II; Entree Run; Maj Select"));
+    rrhk_menu_line(ctx, y + RR_MENU_LINE, RR_PCE_PAD_BUTTONS == 6 ? rrhk_tr("F/E/R/T: III-VI (six-button pad)",
+                                                                              "F/E/R/T : III-VI (manette six boutons)")
                                                                    : RR_PCE_PLAYERS > 2 ? rrhk_tr("Up to four players", "Jusqu'a quatre joueurs")
                                                                                         : rrhk_tr("Two players", "Deux joueurs"));
 }

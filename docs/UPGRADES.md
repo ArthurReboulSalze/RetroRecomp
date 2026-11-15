@@ -147,6 +147,26 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
 
+## Every machine: stick directions as inputs, new keyboard defaults on S D F / E R T (1.7.6)
+
+A stick direction can be bound to any digital control, and player 1's keyboard defaults of the machines with few buttons move to
+S D F / E R T ([HOST_KIT.md](HOST_KIT.md#d26), D26).
+
+* **Stamps.** The host stamp of all 20 profiles moves (`hostkit/hostkit.h`: the stick values, `pad_label`, `former_letter`; the
+  shell's `rrhk_input.c`, `rrhk_events.c`, `rrhk_menu.c`; `runtime_catalog.inc` and the locales). The adapters whose tables
+  change are host files of their machines: `rrhk_gb.inc`, `rrhk_nes.c`, `rrhk_sms.c`, `rrhk_md.c`, `rrhk_snes.c`, `rrhk_gba.c`,
+  `rrhk_ng.c`, `rrhk_cps1.c`, `rrhk_pce.c`, `rrhk_amiga.inc`, `rrhk_atarist.inc`, `rrhk_x68k.inc`, `rrhk_msx.inc`. No game or
+  build stamp, no quick-state key.
+* **What players see.** After the upgrade, buttons 1-3 on S D F and 4-6 on E R T on those machines; a key the player chose in
+  F2 is kept. The PlayStation and the Nintendo 64 are unchanged. A stick direction appears on the gamepad page as "R stick right"
+  and so on.
+* **Preferences.** Nothing to migrate by hand: a saved key equal to the former default moves by itself; the stick values 66-73
+  are new binding values (a 1.7.5 export reading them ignores them).
+* **Texts.** Nine new entries in the five game languages: the eight stick directions and "Left stick".
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 11 (a stick bound by F2, refused on a host-side row, held and
+  released with the hysteresis) and `tools/hostkit_players_selftest.py` (the new defaults of the CPS-1 adapter, players 3 and 4,
+  the migration of a former default, a default a saved key uses dropped).
+
 ## Every machine: the pad's speed controls as combinations, the graphics page from F2 and from the pad (1.7.6)
 
 Fast forward and Max speed become rows of player 1's gamepad page; a machine with a graphics page gets a Graphics tile in F2

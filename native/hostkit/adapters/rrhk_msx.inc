@@ -230,8 +230,8 @@ static bool m_state_path(wchar_t *path, size_t capacity) { return msx_game_state
 
 static void m_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
    (void)ui;
-   rrhk_menu_line(ctx, y, rrhk_tr("Arrows: joystick 1; X: trigger A (and SPACE), W: trigger B",
-                                  "Fleches : manette 1 ; X : bouton A (et ESPACE), W : bouton B"));
+   rrhk_menu_line(ctx, y, rrhk_tr("Arrows: joystick 1; D: trigger A (and SPACE), S: trigger B",
+                                  "Fleches : manette 1 ; D : bouton A (et ESPACE), S : bouton B"));
    rrhk_menu_line(ctx, y + RR_MENU_LINE, rrhk_tr("Enter: SPACE; right Shift: F1; Ctrl+Alt+K: the MSX keyboard",
                                                  "Entree : ESPACE ; Maj droite : F1 ; Ctrl+Alt+K : le clavier MSX"));
 }

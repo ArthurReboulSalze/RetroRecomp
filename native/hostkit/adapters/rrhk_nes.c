@@ -94,7 +94,7 @@ static void help_lines(int slot, const char **lines, int *count) {
 
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
-    rrhk_menu_line(ctx, y, rrhk_tr("NES: arrows + W/X; Enter Start", "NES : fleches + W/X; Entree Start"));
+    rrhk_menu_line(ctx, y, rrhk_tr("NES: arrows + S/D; Enter Start", "NES : fleches + S/D; Entree Start"));
     rrhk_menu_line(ctx, y + RR_MENU_LINE, RR_NES_ZAPPER ? rrhk_tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran") :
         rrhk_tr("Shift Select; two controllers", "Maj Select; deux manettes"));
 }

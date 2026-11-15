@@ -32,7 +32,7 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
         rrhk_menu_line(ctx, y + RR_MENU_LINE, RR16_GUN == RR_GUN_SCOPE ? rrhk_tr("Right: cursor | Middle/Enter: gun pause", "Droit : curseur | Milieu/Entree : pause gun") :
             rrhk_tr("Right: B | Middle: C | Enter: Start", "Droit : B | Milieu : C | Entree : Start"));
     } else {
-        rrhk_menu_line(ctx, y, rrhk_tr("Arrows + W/X/A/S; Q/E shoulders", "Fleches + W/X/A/S; Q/E gachettes"));
+        rrhk_menu_line(ctx, y, rrhk_tr("Arrows + S/D/E/R; F/T shoulders", "Fleches + S/D/E/R; F/T gachettes"));
         rrhk_menu_line(ctx, y + RR_MENU_LINE, rrhk_tr("Enter Start; Shift Select", "Entree Start; Maj Select"));
     }
     rrhk_help_sound_line(ctx, y + 2 * RR_MENU_LINE);

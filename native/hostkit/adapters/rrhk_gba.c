@@ -49,7 +49,7 @@ static bool state_ready(void) { return true; }
 
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
-    rrhk_menu_line(ctx, y, rrhk_tr("GBA: arrows + X (A), W (B), A (L), S (R)", "GBA : fleches + X (A), W (B), A (L), S (R)"));
+    rrhk_menu_line(ctx, y, rrhk_tr("GBA: arrows + D (A), S (B), E (L), R (R)", "GBA : fleches + D (A), S (B), E (L), R (R)"));
     rrhk_menu_line(ctx, y + RR_MENU_LINE, rrhk_tr("Enter Start, Shift Select", "Entree Start, Maj Select"));
 }
 
