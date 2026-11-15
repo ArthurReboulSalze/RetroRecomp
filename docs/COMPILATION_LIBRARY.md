@@ -1867,6 +1867,17 @@ What it gives, on three panel games, is in [ATARI_ST.md](ATARI_ST.md#2-how-the-c
 
 **Server side, to deploy with the release and only on the maintainer's word:** the site's limits for the `atarist` machine regenerated from the profile (a machine that starts sharing before the site names it has its uploads refused whole, as the PC Engine's were until 11 November). Withdrawing it is one line (`EXPERIMENTAL_SHARED`).
 
+## Sony PlayStation joins the base, in the experimental tier (1.7.6, 14 November 2026)
+
+The PlayStation shares its paths as schema 3 records with an empty layout (`retrorecomp/psx_knowledge.py`, on the common `path_records`):
+spans `[address, offset, length]` of the player's own discs, the offset counting the user data of each disc's ISO 9660 volume (one span block,
+`srcs` over the discs of a multi-disc game), and single instructions of the player's own BIOS (code run from the ROM or from the kernel it
+copies). The game is `psx:` plus `psx.game_key` of the discs' digests (raw sectors), so a CUE/BIN and an EBOOT of the same dump are one game and a
+record's key is checked from the record alone; `RECORD_RULES` says what the site must enforce. What a game decompresses stays private, counted.
+The engine identity (`cores`) is the Beetle PSX pin and `GENERATOR_REVISION`. Arthur decided it on 14 November 2026 (« Oui, elle partage ») after
+the measure, and the proof with players A, B, C and D is in [PLAYSTATION.md](PLAYSTATION.md#6-shared-paths-the-experimental-tier-of-the-base-from-176).
+Withdrawn with one line, as every experimental machine (`path_profiles.EXPERIMENTAL_SHARED`).
+
 ## Commodore Amiga joins the base, in the experimental tier (1.7.5, 14 November 2026)
 
 The Amiga shares its paths as the X68000 does, through the same code: `retrorecomp/m68k_media_knowledge.py` (cut out of `x68_knowledge` with the

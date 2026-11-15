@@ -69,7 +69,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Commodore Amiga | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Atari ST | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
-| Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
+| Sony PlayStation | experimental | `████░░░░░░` 41 % | ✅ 0 · 🟡 13 · ❔ 3 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | experimental | `████████░░` 81 % | ✅ 11 · 🟡 4 · ❔ 1 |
@@ -93,7 +93,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | ✅ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | 🟡 |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ➖ | ➖ | 🟡 |
 
 <!-- qualification-gauges:end -->
 
@@ -123,7 +123,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | ? |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | Y |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | P |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | P | - | - | P |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -990,7 +990,7 @@ players' toolchain (llvm-mingw). `P` means a part is shown and the rest is named
 | G13 | P | Ape Escape converted on a Debian 13 PC with the system GCC (14.2) on 8 November 2026: on both routes the native, interpreted and unrun counts, the picture, sound and trace hashes and the native-step digest equal the Windows run's; controls and F8/F9 pass there too | One disc, as chosen; a quick state is not compared across systems; no game played on Linux |
 | G14 | ? | The owner tried Tobal No. 1 during development (8 November 2026: playable; its fight music, after the CD-audio fix: "c'est ok"; whether the sudden crackles measured at 4x are gone was not said): a trial, not an acceptance | The owner's decision; a play test of the panel |
 | G15 | P | Nothing is claimed beyond "native equals the core's interpreter"; the five measures are kept apart in [PLAYSTATION.md](PLAYSTATION.md) and in the report (`honesty`) | A read of the interface and the exported game |
-| G16 | - | The PlayStation shares no paths; it is not in `SHARED_SYSTEMS` (its runtime hints stay on the player's PC) | |
+| G16 | P | The PlayStation shares its paths as the experimental tier of the base from 1.7.6, on the owner's decision of 14 November 2026 (« Oui, elle partage »), after the measure: a receiver at the standard level given another player's long-route observations ran Ape Escape's first level with 0 interpreted instructions instead of 924,083,036, no pass saved. `retrorecomp/psx_knowledge.py` on `path_records`: spans of the player's own discs (ISO 9660 user-data offsets, the same in every container) and rows of his own BIOS, keyed by the discs' digests; code a game decompresses stays private, counted. **Proof** (14-15 November 2026, tree `4f70b43c`, one conversion at a time, an empty library each): A extended + version 3 export, B imported + standard, C standard: Ape Escape (B received 67,257 words; long route 924,083,036 → 220,036,709 interpreted, the rest is its decompressed code) and Metal Gear Solid, two discs (51,170 words; 594 → 0); every check passes, B's own record equals C's, the same picture at the end; a record with random offsets (D) changes nothing a conversion checks ([PLAYSTATION.md](PLAYSTATION.md#6-shared-paths-the-experimental-tier-of-the-base-from-176)) | No pass saved; code a game decompresses never travels; no PlayStation path is qualified in the base yet (reached and validated by a conversion that received it from another player, counted by the site) |
 
 ## Commodore Amiga: evidence behind its column (8 November 2026)
 

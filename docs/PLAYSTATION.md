@@ -150,9 +150,43 @@ The other gates are read as on the Amiga and the Atari ST:
 - **Owner acceptance (G14):** the owner plays the delivered discs and decides. No tool or agent fills this gate.
 - **Honesty (G15):** the interface, the exported game's window and its report are read for claims.
 - **Shared knowledge (G16):** a supported machine either shares its paths or is declined on its panel's measured evidence that
-  received paths would add no native instruction and save no conversion pass (the owner's rule of 14 November 2026). The
-  PlayStation shares nothing today and that evidence is not measured, so G16 needs either that measurement or the sharing.
+  received paths would add no native instruction and save no conversion pass (the owner's rule of 14 November 2026). Measured:
+  received paths add native code beyond the receiver's own routes, so the PlayStation shares them (section 6).
 
-## 6. Not in this first scope
+## 6. Shared paths (the experimental tier of the base, from 1.7.6)
+
+The owner decided on 14 November 2026 that the PlayStation shares its paths (« Oui, elle partage »), after this measure on Ape
+Escape: a receiver converting at the standard level (its attract and play routes, 48,809 observed words) and given the
+observations of another player's long route (36,024 words more) runs the first level, which its own routes never reach, with no
+instruction on the interpreter instead of 924,083,036 (19 % of 4.86 billion); no conversion pass is saved (a PlayStation
+conversion is always one pass).
+
+**What travels** (`retrorecomp/psx_knowledge.py`, on the common `path_records`): numbers about the player's own disc and BIOS,
+never their bytes. A run of R3000A code a conversion observed whose words are found, as they are, in a file of the disc becomes a
+span `[address, offset, length]`; the offset counts the user data of the disc's ISO 9660 volume, so a CUE/BIN and an EBOOT of the
+same dump read the same words. Code run from the BIOS ROM, or from the kernel the BIOS copies into low RAM, becomes a row of the
+player's BIOS, used only by a player whose BIOS has the same SHA-256. The record is keyed by the discs' digests. Words found in
+neither stay private, counted: code a game decompresses (Ape Escape's main code is packed in its data file) never travels.
+A record is made only from a conversion's own observations once every check passed; what a player received is not shared again
+until his own conversion observes it. Received words become native steps behind the same guard as observed ones (the word the
+CPU fetches), ranked after every observed word of their address, so a received word that does not fit runs on the interpreter,
+counted. The whole sharing is withdrawn with one line (`path_profiles.EXPERIMENTAL_SHARED`).
+
+**The proof** (14 and 15 November 2026, Windows, one conversion at a time, each player with an empty library of its own; tree of
+`4f70b43c`): player A converts at the extended level and exports a version 3 file; player B imports it and converts at the standard
+level; player C converts at the standard level with nothing imported; then A's 18,000-frame route is played by B's and C's games.
+
+| Disc | A's record | B received | B's and C's checks | Long route: interpreted, C → B | Picture at the end |
+|---|---|---|---|---|---|
+| Ape Escape | 60,269 words in the disc, 6,988 in the BIOS, 17,576 private (of 84,833) | 67,257 words, 31,890 new | all pass, 0 interpreted on their routes, B's own record equal to C's | 924,083,036 → 220,036,709 (−76 %) | the same |
+| Metal Gear Solid (2 discs) | 43,313 in the discs, 7,857 in the BIOS, 13,543 private (of 64,713) | 51,170 words, 3 new | all pass, 0 interpreted, B's record equal to C's | 594 → 0 | the same |
+
+Ape Escape's remaining 220 million are the code it decompresses: its words are in none of the disc's files. Metal Gear Solid's
+routes stay at its title screen (section 4), so its long route runs almost nothing its standard routes did not. A record whose
+spans were moved to random places of the disc (player D, Ape Escape) changes nothing a conversion checks: every check passes, 0
+interpreted on the routes, the same picture at the end of the long route (886,115,939 interpreted there: random places that hold
+zeros give the R3000A's NOP, which real code holds too).
+
+## 7. Not in this first scope
 
 Mouse, multitap, light guns, the hardware renderers, LibCrypt and other sub-channel protections, CHD images, the PSP-derived BIOS.
