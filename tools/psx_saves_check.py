@@ -1,6 +1,9 @@
 """The memory card of a converted PlayStation game, in fresh processes of the delivered file (gate G7 evidence).
 
     python tools/psx_saves_check.py EXE --save ROUTE --save-frames N --load ROUTE --load-frames M [--out DIR]
+    python tools/psx_saves_check.py EXE --card FILE --load ROUTE --load-frames M [--out DIR]
+
+`--card` starts from a card a player saved on (a copy is used; the file itself is only read) instead of the save route.
 
 ROUTE is an input script of the game ("frame p1 p2" lines, the pads' hex words, as the conversion's routes; tools/psx_routes/).
 Every run is headless (no window, no sound out) with `--card`, the option that reads and writes a card file as the window does
@@ -70,8 +73,9 @@ def damaged(good: bytes) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('exe', type=Path)
-    parser.add_argument('--save', type=Path, required=True)
-    parser.add_argument('--save-frames', type=int, required=True)
+    parser.add_argument('--save', type=Path)
+    parser.add_argument('--save-frames', type=int)
+    parser.add_argument('--card', type=Path, help="a card a player saved on (read only: a copy is used)")
     parser.add_argument('--load', type=Path, required=True)
     parser.add_argument('--load-frames', type=int, required=True)
     parser.add_argument('--out', type=Path)
@@ -80,18 +84,29 @@ def main() -> int:
     out = (arguments.out or ROOT / '.build' / 'psx-saves' / exe.stem).resolve()
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
-    save, load = arguments.save.resolve(), arguments.load.resolve()
-    result = {'exe': exe.name, 'exe_sha256': digest(exe), 'save_route': save.name, 'load_route': load.name,
-              'save_route_sha256': digest(save), 'load_route_sha256': digest(load)}
+    if not arguments.card and not (arguments.save and arguments.save_frames):
+        parser.error('give --save and --save-frames, or --card')
+    load = arguments.load.resolve()
+    result = {'exe': exe.name, 'exe_sha256': digest(exe), 'load_route': load.name, 'load_route_sha256': digest(load)}
     checks = {}
 
     card = out / 'saved' / 'card.mcr'
-    saved = run(exe, out / 'saved', 'save', arguments.save_frames, save, card, capture=True)
-    written = card.is_file() and card.stat().st_size == CARD_BYTES
-    files = saved_files(card.read_bytes()) if written else []
-    result['saved_files'] = files
-    # The core gives a formatted card that the card file may record before any game save: a file in its directory is the save.
-    checks['the save route writes a file on the card'] = saved['exit'] == 0 and bool(files)
+    if arguments.card:
+        card.parent.mkdir(parents=True)
+        card.write_bytes(arguments.card.read_bytes())
+        written = card.stat().st_size == CARD_BYTES
+        files = saved_files(card.read_bytes()) if written else []
+        result.update(card_given=arguments.card.name, card_given_sha256=digest(arguments.card), saved_files=files)
+        checks["the player's card holds a file"] = bool(files)
+    else:
+        save = arguments.save.resolve()
+        result.update(save_route=save.name, save_route_sha256=digest(save))
+        saved = run(exe, out / 'saved', 'save', arguments.save_frames, save, card, capture=True)
+        written = card.is_file() and card.stat().st_size == CARD_BYTES
+        files = saved_files(card.read_bytes()) if written else []
+        result['saved_files'] = files
+        # The core gives a formatted card that the card file may record before any game save: a file in its directory is the save.
+        checks['the save route writes a file on the card'] = saved['exit'] == 0 and bool(files)
     result['card_sha256'] = digest(card)
     if not files:
         result['checks'] = checks
