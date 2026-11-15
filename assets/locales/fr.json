@@ -342,6 +342,21 @@
     "Picture area (auto)": "Zone d'image (auto)",
     "Screen format: %s": "Format d'écran : %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Entrée : attribuer | Suppr/X : effacer | </> : page",
-    "Enter / A: restore this page": "Entrée / A : rétablir cette page"
+    "Enter / A: restore this page": "Entrée / A : rétablir cette page",
+    "Sync to display: %s": "Calage sur l'écran : %s",
+    "Auto": "Auto",
+    "Auto (locked)": "Auto (calé)",
+    "Auto (free)": "Auto (libre)",
+    "Locked": "Calé",
+    "Locked (free)": "Calé (libre)",
+    "Free": "Libre",
+    "Variable refresh": "Fréquence variable",
+    "Variable refresh: the screen follows the game": "Fréquence variable : l'écran suit le jeu",
+    "Variable refresh: from the next start": "Fréquence variable : au prochain lancement",
+    "Free: the game's own %s Hz": "Libre : le jeu à ses propres %s Hz",
+    "Locked to the screen: %s Hz, game %s Hz (%s)": "Calé sur l'écran : %s Hz, jeu %s Hz (%s)",
+    "Free: screen %s Hz, game %s Hz": "Libre : écran %s Hz, jeu %s Hz",
+    "Free: this machine's sound cannot follow yet": "Libre : le son de cette machine ne suit pas encore",
+    "Free: the screen's refresh is unknown": "Libre : fréquence de l'écran inconnue"
   }
 }

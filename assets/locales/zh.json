@@ -1118,6 +1118,21 @@
     "Picture area (auto)": "画面区域 (自动)",
     "Screen format: %s": "画面比例: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter：重新映射 | Del/X：清除 | 左/右：翻页",
-    "Enter / A: restore this page": "Enter / A：恢复本页默认"
+    "Enter / A: restore this page": "Enter / A：恢复本页默认",
+    "Sync to display: %s": "同步显示器: %s",
+    "Auto": "自动",
+    "Auto (locked)": "自动 (锁定)",
+    "Auto (free)": "自动 (自由)",
+    "Locked": "锁定",
+    "Locked (free)": "锁定 (自由)",
+    "Free": "自由",
+    "Variable refresh": "可变刷新率",
+    "Variable refresh: the screen follows the game": "可变刷新率: 屏幕跟随游戏",
+    "Variable refresh: from the next start": "可变刷新率: 下次启动时生效",
+    "Free: the game's own %s Hz": "自由: 游戏自身的 %s Hz",
+    "Locked to the screen: %s Hz, game %s Hz (%s)": "锁定到屏幕: %s Hz，游戏 %s Hz (%s)",
+    "Free: screen %s Hz, game %s Hz": "自由: 屏幕 %s Hz，游戏 %s Hz",
+    "Free: this machine's sound cannot follow yet": "自由: 该机器的声音暂时无法跟随",
+    "Free: the screen's refresh is unknown": "自由: 屏幕刷新率未知"
   }
 }

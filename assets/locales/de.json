@@ -1118,6 +1118,21 @@
     "Picture area (auto)": "Bildbereich (auto)",
     "Screen format: %s": "Bildformat: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter: belegen | Entf/X: löschen | </>: Seite",
-    "Enter / A: restore this page": "Enter / A: Seite zurücksetzen"
+    "Enter / A: restore this page": "Enter / A: Seite zurücksetzen",
+    "Sync to display: %s": "Bildsynchronisation: %s",
+    "Auto": "Auto",
+    "Auto (locked)": "Auto (gekoppelt)",
+    "Auto (free)": "Auto (frei)",
+    "Locked": "Gekoppelt",
+    "Locked (free)": "Gekoppelt (frei)",
+    "Free": "Frei",
+    "Variable refresh": "Variable Bildrate",
+    "Variable refresh: the screen follows the game": "Variable Bildrate: der Bildschirm folgt dem Spiel",
+    "Variable refresh: from the next start": "Variable Bildrate: ab dem nächsten Start",
+    "Free: the game's own %s Hz": "Frei: das Spiel mit eigenen %s Hz",
+    "Locked to the screen: %s Hz, game %s Hz (%s)": "An den Bildschirm gekoppelt: %s Hz, Spiel %s Hz (%s)",
+    "Free: screen %s Hz, game %s Hz": "Frei: Bildschirm %s Hz, Spiel %s Hz",
+    "Free: this machine's sound cannot follow yet": "Frei: der Ton dieser Maschine kann noch nicht folgen",
+    "Free: the screen's refresh is unknown": "Frei: Bildwiederholrate unbekannt"
   }
 }

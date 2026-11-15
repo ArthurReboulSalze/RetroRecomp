@@ -1118,6 +1118,21 @@
     "Picture area (auto)": "Area dell'immagine (auto)",
     "Screen format: %s": "Formato schermo: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Invio: assegna | Canc/X: cancella | </>: pagina",
-    "Enter / A: restore this page": "Invio / A: ripristina la pagina"
+    "Enter / A: restore this page": "Invio / A: ripristina la pagina",
+    "Sync to display: %s": "Sincronia con lo schermo: %s",
+    "Auto": "Auto",
+    "Auto (locked)": "Auto (agganciato)",
+    "Auto (free)": "Auto (libero)",
+    "Locked": "Agganciato",
+    "Locked (free)": "Agganciato (libero)",
+    "Free": "Libero",
+    "Variable refresh": "Frequenza variabile",
+    "Variable refresh: the screen follows the game": "Frequenza variabile: lo schermo segue il gioco",
+    "Variable refresh: from the next start": "Frequenza variabile: dal prossimo avvio",
+    "Free: the game's own %s Hz": "Libero: il gioco ai suoi %s Hz",
+    "Locked to the screen: %s Hz, game %s Hz (%s)": "Agganciato allo schermo: %s Hz, gioco %s Hz (%s)",
+    "Free: screen %s Hz, game %s Hz": "Libero: schermo %s Hz, gioco %s Hz",
+    "Free: this machine's sound cannot follow yet": "Libero: il suono di questa macchina non può ancora seguire",
+    "Free: the screen's refresh is unknown": "Libero: frequenza dello schermo sconosciuta"
   }
 }

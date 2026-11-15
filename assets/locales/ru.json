@@ -1118,6 +1118,21 @@
     "Picture area (auto)": "Область изображения (авто)",
     "Screen format: %s": "Формат экрана: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter: назначить | Del/X: очистить | </>: страница",
-    "Enter / A: restore this page": "Enter / A: сбросить страницу"
+    "Enter / A: restore this page": "Enter / A: сбросить страницу",
+    "Sync to display: %s": "Синхронизация с экраном: %s",
+    "Auto": "Авто",
+    "Auto (locked)": "Авто (привязано)",
+    "Auto (free)": "Авто (свободно)",
+    "Locked": "Привязано",
+    "Locked (free)": "Привязано (свободно)",
+    "Free": "Свободно",
+    "Variable refresh": "Переменная частота",
+    "Variable refresh: the screen follows the game": "Переменная частота: экран следует за игрой",
+    "Variable refresh: from the next start": "Переменная частота: со следующего запуска",
+    "Free: the game's own %s Hz": "Свободно: собственные %s Гц игры",
+    "Locked to the screen: %s Hz, game %s Hz (%s)": "Привязано к экрану: %s Гц, игра %s Гц (%s)",
+    "Free: screen %s Hz, game %s Hz": "Свободно: экран %s Гц, игра %s Гц",
+    "Free: this machine's sound cannot follow yet": "Свободно: звук этой машины пока не может следовать",
+    "Free: the screen's refresh is unknown": "Свободно: частота экрана неизвестна"
   }
 }
