@@ -186,6 +186,7 @@ static const char *const rr_translations[][5] = {
     {"Language: English","Langue : francais","Lingua: italiano","Idioma: espanol","Sprache: Deutsch"},
     {"Left","Gauche","Sinistra","Izquierda","Links"},
     {"Left arrow","Fleche gauche","Freccia sinistra","Flecha izquierda","Pfeil links"},
+    {"Left stick","Stick gauche","Stick sinistro","Stick izquierdo","Linker Stick"},
     {"Left stick click","Clic stick gauche","Clic stick sinistro","Clic palanca izquierda","Linken Stick druecken"},
     {"Left/Right: page | Esc: close","Gauche/Droite : page | Echap : fermer","Sinistra/Destra: pagina | Esc: chiudi","Izq./Der.: pagina | Esc: cerrar","Links/Rechts: Seite | Esc: schliessen"},
     {"Light","Leger","Leggero","Ligero","Leicht"},

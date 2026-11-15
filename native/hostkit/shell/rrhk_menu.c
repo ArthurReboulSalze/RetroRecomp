@@ -440,7 +440,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
             } else {
                 const SDL_GameControllerButton pad = rrhk.buttons[rrhk.player][a];
                 const char *button = !rrhk.gamepad_page ? NULL : rrhk_pad_binding_name(pad);
-                const char *bound = rrhk.gamepad_page ? (button ? button : "-") :
+                const char *bound = rrhk.gamepad_page ? (button ? button : m->actions[a].pad_label ? m->actions[a].pad_label : "-") :
                     rrhk.keys[rrhk.player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(rrhk.keys[rrhk.player][a]);
                 waiting = rrhk.capturing && r == rrhk.row;
                 cap = !waiting && strcmp(bound, "-") != 0;

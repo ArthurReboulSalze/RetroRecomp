@@ -24,6 +24,7 @@
 #include "retro_console16.h"
 #include "console16_state.h"
 #include "platform_io.h"
+#include "retro_keyboard.h"
 #include "hostkit/hostkit_internal.h"
 
 static int failures;
@@ -109,10 +110,11 @@ static void deal(void) {
     }
     /* Players 3 and 4: the kit's keys (directions, buttons 1-3, Start, Coin); no key drives two actions of the players in play,
      * and none is a key of the kit. */
-    static const SDL_Scancode third[ROWS] = {SDL_SCANCODE_R, SDL_SCANCODE_Y, SDL_SCANCODE_B, 0, 0, 0, SDL_SCANCODE_3, SDL_SCANCODE_7,
-                                             SDL_SCANCODE_T, SDL_SCANCODE_G, SDL_SCANCODE_F, SDL_SCANCODE_H};
-    static const SDL_Scancode fourth[ROWS] = {SDL_SCANCODE_U, SDL_SCANCODE_O, SDL_SCANCODE_N, 0, 0, 0, SDL_SCANCODE_4, SDL_SCANCODE_8,
-                                              SDL_SCANCODE_I, SDL_SCANCODE_K, SDL_SCANCODE_J, SDL_SCANCODE_L};
+    /* 1.7.6: player 1 on S D F / E R T; player 3 on I K J L + U O N, player 4 on G B V H + C X 9 */
+    static const SDL_Scancode third[ROWS] = {SDL_SCANCODE_U, SDL_SCANCODE_O, SDL_SCANCODE_N, 0, 0, 0, SDL_SCANCODE_3, SDL_SCANCODE_7,
+                                             SDL_SCANCODE_I, SDL_SCANCODE_K, SDL_SCANCODE_J, SDL_SCANCODE_L};
+    static const SDL_Scancode fourth[ROWS] = {SDL_SCANCODE_C, SDL_SCANCODE_X, SDL_SCANCODE_9, 0, 0, 0, SDL_SCANCODE_4, SDL_SCANCODE_8,
+                                              SDL_SCANCODE_G, SDL_SCANCODE_B, SDL_SCANCODE_V, SDL_SCANCODE_H};
     for (int a = 0; a < ROWS; ++a) CHECK(ui->keys[2][a] == third[a] && ui->keys[3][a] == fourth[a]);
     static const SDL_Scancode kit[] = {SDL_SCANCODE_ESCAPE, SDL_SCANCODE_TAB, SDL_SCANCODE_GRAVE, SDL_SCANCODE_M, SDL_SCANCODE_P,
                                        SDL_SCANCODE_DELETE, SDL_SCANCODE_BACKSPACE, SDL_SCANCODE_MINUS, SDL_SCANCODE_EQUALS};
@@ -204,10 +206,10 @@ static void bindings(void) {
     CHECK(ui->buttons[1][A_ROW] == SDL_CONTROLLER_BUTTON_A && ui->buttons[1][B_ROW] == SDL_CONTROLLER_BUTTON_B);
     rrhk_assign(0, C_ROW, false, ui->keys[0][C_ROW]);    /* the same key again: nothing moves */
     CHECK(ui->keys[0][A_ROW] == x && ui->keys[0][B_ROW] == p2a);
-    /* A swap into nothing: player 3's button 4 has no key; taking R from button 1 leaves button 1 with none. */
+    /* A swap into nothing: player 3's button 4 has no key; taking U from button 1 leaves button 1 with none. */
     if (RR_CPS1_PLAYERS > 3) {
-        rrhk_assign(2, X_ROW, false, SDL_SCANCODE_R);
-        CHECK(ui->keys[2][X_ROW] == SDL_SCANCODE_R && ui->keys[2][A_ROW] == SDL_SCANCODE_UNKNOWN);
+        rrhk_assign(2, X_ROW, false, SDL_SCANCODE_U);
+        CHECK(ui->keys[2][X_ROW] == SDL_SCANCODE_U && ui->keys[2][A_ROW] == SDL_SCANCODE_UNKNOWN);
     }
     unique_keys();
 
@@ -216,16 +218,33 @@ static void bindings(void) {
     rrhk_bind(board); rrhk_load_bindings();
     CHECK(ui->keys[0][A_ROW] == x && ui->keys[0][B_ROW] == p2a && ui->keys[1][A_ROW] == w);
     CHECK(ui->buttons[0][A_ROW] == SDL_CONTROLLER_BUTTON_B && ui->buttons[0][B_ROW] == SDL_CONTROLLER_BUTTON_A);
-    if (RR_CPS1_PLAYERS > 3) CHECK(ui->keys[2][X_ROW] == SDL_SCANCODE_R && ui->keys[2][A_ROW] == SDL_SCANCODE_UNKNOWN);
+    if (RR_CPS1_PLAYERS > 3) CHECK(ui->keys[2][X_ROW] == SDL_SCANCODE_U && ui->keys[2][A_ROW] == SDL_SCANCODE_UNKNOWN);
     unique_keys();
 
-    /* A file of 1.6.8 that put player 1's button 4 on T, the new default Up of player 3: the saved key wins, the default goes. */
+    /* A file that put player 1's button 4 on I, the default Up of player 3 (1.7.6): the saved key wins, the default goes. */
     wchar_t value[16];
-    swprintf(value, 16, L"%d", (int)SDL_SCANCODE_T);
+    swprintf(value, 16, L"%d", (int)SDL_SCANCODE_I);
     CHECK(rr_ini_set(L"CPS1.Keyboard.Player1", L"B4", value, ui->ini_file));
     rrhk_bind(board); rrhk_load_bindings();
-    CHECK(ui->keys[0][X_ROW] == SDL_SCANCODE_T && ui->keys[2][UP_ROW] == SDL_SCANCODE_UNKNOWN);
-    CHECK(ui->keys[2][DOWN_ROW] == SDL_SCANCODE_G);   /* the other defaults stay */
+    CHECK(ui->keys[0][X_ROW] == SDL_SCANCODE_I && ui->keys[2][UP_ROW] == SDL_SCANCODE_UNKNOWN);
+    CHECK(ui->keys[2][DOWN_ROW] == SDL_SCANCODE_K);   /* the other defaults stay */
+    unique_keys();
+
+    /* 1.7.6: player 1's defaults moved from W X C / A S D to S D F / E R T (by position). A saved key still equal to the former
+     * default on this layout (W) is no choice: the new default (S) comes back; a key the player chose (K) stays. */
+    swprintf(value, 16, L"%d", (int)rr_keyboard_letter(SDLK_w, SDL_SCANCODE_W));
+    CHECK(rr_ini_set(L"CPS1.Keyboard.Player1", L"B1", value, ui->ini_file));
+    swprintf(value, 16, L"%d", (int)SDL_SCANCODE_K);
+    CHECK(rr_ini_set(L"CPS1.Keyboard.Player1", L"B2", value, ui->ini_file));
+    rrhk_bind(board); rrhk_load_bindings();
+    /* player 2 saved S above (the swap): player 1's new default S is dropped, never shared; the chosen K stays */
+    CHECK(ui->keys[1][A_ROW] == SDL_SCANCODE_S && ui->keys[0][A_ROW] == SDL_SCANCODE_UNKNOWN);
+    CHECK(ui->keys[0][B_ROW] == SDL_SCANCODE_K && ui->keys[0][C_ROW] == SDL_SCANCODE_F);
+    unique_keys();
+    swprintf(value, 16, L"%d", (int)SDL_SCANCODE_KP_7);
+    CHECK(rr_ini_set(L"CPS1.Keyboard.Player2", L"B1", value, ui->ini_file));
+    rrhk_bind(board); rrhk_load_bindings();
+    CHECK(ui->keys[0][A_ROW] == SDL_SCANCODE_S && ui->keys[0][B_ROW] == SDL_SCANCODE_K && ui->keys[1][A_ROW] == SDL_SCANCODE_KP_7);
     unique_keys();
 
     /* An adapter that writes two pad columns (every one but CPS-1): players 3 and 4 get player 1's layout, never all A. */
@@ -244,8 +263,8 @@ static void bindings(void) {
     rrhk_bind(&fixture);
     for (int p = 2; p < 4; ++p) for (int a = 0; a < 8; ++a) CHECK(ui->buttons[p][a] == two[a].pad[0]);
     /* Its players 3 and 4 get the kit's keys too: Select is the button player 1 has on Shift. */
-    CHECK(ui->keys[2][0] == SDL_SCANCODE_R && ui->keys[2][1] == SDL_SCANCODE_Y && ui->keys[2][2] == SDL_SCANCODE_7);
-    CHECK(ui->keys[2][3] == SDL_SCANCODE_3 && ui->keys[3][4] == SDL_SCANCODE_I && ui->keys[3][7] == SDL_SCANCODE_L);
+    CHECK(ui->keys[2][0] == SDL_SCANCODE_U && ui->keys[2][1] == SDL_SCANCODE_O && ui->keys[2][2] == SDL_SCANCODE_7);
+    CHECK(ui->keys[2][3] == SDL_SCANCODE_3 && ui->keys[3][4] == SDL_SCANCODE_G && ui->keys[3][7] == SDL_SCANCODE_H);
     rrhk_bind(board);
 }
 

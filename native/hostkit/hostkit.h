@@ -95,6 +95,12 @@ typedef struct {
     SDL_Keycode    letter;    /* layout-aware default of player 1, 0 = none */
     SDL_Scancode   key[RRHK_MAX_PLAYERS];
     SDL_GameControllerButton pad[RRHK_MAX_PLAYERS];
+    /* 1.7.6: what the gamepad page shows for a row the pad does not bind (a host-side row the machine reads otherwise, as the
+     * Nintendo 64's keyboard stick, which is the pad's left stick): English, translated; NULL shows "-". */
+    const char    *pad_label;
+    /* 1.7.6: player 1's letter default before 1.7.6 (W X C A S D, layout-aware), when the row's default moved (to S D F E R T, by
+     * position): a saved key still equal to it on this layout moves to the new default by itself; a key the player chose stays. */
+    SDL_Keycode    former_letter;
 } RrhkAction;
 
 /* One option of a 3D machine's graphics page (decision D14), declared by the adapter. Changing it changes only what the
