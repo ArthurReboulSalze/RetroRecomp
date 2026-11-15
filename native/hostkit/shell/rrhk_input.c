@@ -85,8 +85,9 @@ static void drop_shadowed_extras(const RrhkMachine *m) {
     }
 }
 
-void rrhk_bind(const RrhkMachine *machine) {
-    rrhk.machine = machine;
+/* The bindings a first start gives: the adapter's table, player 1's pad layout for players it leaves empty, the kit's keys of
+ * players 3 and 4. Player 1's letters follow the layout once SDL's video runs (rrhk_load_bindings, default_letters). */
+static void default_bindings(const RrhkMachine *machine) {
     memset(rrhk.keys, 0, sizeof rrhk.keys);
     memset(rrhk.buttons, 0, sizeof rrhk.buttons);
     memset(kit_key, 0, sizeof kit_key);
@@ -102,6 +103,15 @@ void rrhk_bind(const RrhkMachine *machine) {
         if (empty) for (int a = 0; a < machine->action_count; ++a) rrhk.buttons[p][a] = rrhk.buttons[0][a];
     }
     for (int p = 2; p < machine->table_players && p < RRHK_MAX_PLAYERS; ++p) extra_player_keys(machine, p);
+}
+static void default_letters(const RrhkMachine *m) {
+    for (int a = 0; a < m->action_count; ++a)
+        if (m->actions[a].letter) rrhk.keys[0][a] = rr_keyboard_letter(m->actions[a].letter, m->actions[a].key[0]);
+}
+
+void rrhk_bind(const RrhkMachine *machine) {
+    rrhk.machine = machine;
+    default_bindings(machine);
     if (machine->video_section) swprintf(rrhk.video_section, 64, L"%ls", machine->video_section);
     else swprintf(rrhk.video_section, 64, L"%ls.Video", machine->ini_section);
     if (machine->pointer_section) swprintf(rrhk.pointer_section, 64, L"%ls", machine->pointer_section);
@@ -169,8 +179,7 @@ void rrhk_load_bindings(void) {
     const RrhkMachine *m = rrhk.machine;
     /* Resolve letters after SDL video initialization, before loading physical
      * bindings saved by the user. W must mean W on AZERTY and QWERTY alike. */
-    for (int a = 0; a < m->action_count; ++a)
-        if (m->actions[a].letter) rrhk.keys[0][a] = rr_keyboard_letter(m->actions[a].letter, m->actions[a].key[0]);
+    default_letters(m);
     rrhk_settings_path();
     if (!rrhk.ini_file[0]) { drop_shadowed_extras(m); return; }
     rr_display_load(rrhk.read_file, rrhk.video_section, &rrhk.filter, &rrhk.fullscreen);
@@ -245,7 +254,8 @@ void rrhk_store_binding(void) { store_entry(rrhk.player, rrhk_action_row(), rrhk
 void rrhk_assign(int p, int action, bool pad, int value) {
     const RrhkMachine *m = rrhk.machine;
     const int old = pad ? (int)rrhk.buttons[p][action] : (int)rrhk.keys[p][action];
-    if (old != value) for (int q = 0; q < m->players(); ++q) for (int a = 0; a < m->action_count; ++a) {
+    const bool none = pad ? value < 0 : value == SDL_SCANCODE_UNKNOWN;     /* no binding takes nothing from another action */
+    if (old != value && !none) for (int q = 0; q < m->players(); ++q) for (int a = 0; a < m->action_count; ++a) {
         if ((pad && q != p) || (q == p && a == action)) continue;
         if (pad && rrhk.buttons[q][a] == (SDL_GameControllerButton)value) { rrhk.buttons[q][a] = (SDL_GameControllerButton)old; store_entry(q, a, true); }
         if (!pad && rrhk.keys[q][a] == (SDL_Scancode)value) { rrhk.keys[q][a] = (SDL_Scancode)old; kit_key[q][a] = false; store_entry(q, a, false); }
@@ -255,11 +265,44 @@ void rrhk_assign(int p, int action, bool pad, int value) {
     store_entry(p, action, pad);
 }
 
-/* Delete on a binding row (machines with clearable bindings): no key, no button. */
+/* Delete, Backspace or the pad's X on a binding row (every machine since 1.7.6): no key, no button. It is saved as such (key 0,
+ * button -1), so the next start keeps the row empty instead of giving the default back. */
 void rrhk_clear_binding(void) {
-    if (rrhk.gamepad_page) rrhk.buttons[rrhk.player][rrhk_action_row()] = (SDL_GameControllerButton)-1;
-    else rrhk.keys[rrhk.player][rrhk_action_row()] = SDL_SCANCODE_UNKNOWN;
+    const int a = rrhk_action_row();
+    if (a < 0 || a >= rrhk.machine->action_count) return;
+    if (rrhk.gamepad_page) rrhk.buttons[rrhk.player][a] = (SDL_GameControllerButton)-1;
+    else { rrhk.keys[rrhk.player][a] = SDL_SCANCODE_UNKNOWN; kit_key[rrhk.player][a] = false; }
     rrhk_store_binding();
+}
+
+/* 1.7.6: Restore defaults, the last row of a control page: this player's keys (or buttons) as a first start gives them, each
+ * through rrhk_assign (a default another action holds now swaps with it, as F2 does), written to the preferences; on player 1's
+ * pages the combinations of that page too, and on a gamepad page the dead zone. The gamepad choice and the machine's own rows
+ * (an Amiga's mouse port) stay: they are not bindings. */
+void rrhk_restore_page(void) {
+    const RrhkMachine *m = rrhk.machine;
+    const int p = rrhk.player;
+    const bool pad = rrhk.gamepad_page != 0;
+    static SDL_Scancode keys[RRHK_MAX_PLAYERS][RRHK_MAX_ACTIONS];
+    static SDL_GameControllerButton buttons[RRHK_MAX_PLAYERS][RRHK_MAX_ACTIONS];
+    static bool kit[RRHK_MAX_PLAYERS][RRHK_MAX_ACTIONS];
+    int wanted[RRHK_MAX_ACTIONS];
+    bool wanted_kit[RRHK_MAX_ACTIONS];
+    memcpy(keys, rrhk.keys, sizeof keys); memcpy(buttons, rrhk.buttons, sizeof buttons); memcpy(kit, kit_key, sizeof kit);
+    default_bindings(m);
+    default_letters(m);
+    for (int a = 0; a < m->action_count; ++a) {
+        wanted[a] = pad ? (int)rrhk.buttons[p][a] : (int)rrhk.keys[p][a];
+        wanted_kit[a] = kit_key[p][a];
+    }
+    memcpy(rrhk.keys, keys, sizeof keys); memcpy(rrhk.buttons, buttons, sizeof buttons); memcpy(kit_key, kit, sizeof kit);
+    for (int a = 0; a < m->action_count; ++a) {
+        rrhk_assign(p, a, pad, wanted[a]);
+        if (!pad) kit_key[p][a] = wanted_kit[a];
+    }
+    if (p == 0) rrhk_combo_restore(pad);
+    if (pad && m->analog_sticks > 0) rrhk_deadzone_step(p, true);
+    snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Default bindings restored"));
 }
 
 const wchar_t *rrhk_autofire_section(void) { return autofire_section(); }

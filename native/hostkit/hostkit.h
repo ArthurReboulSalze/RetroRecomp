@@ -213,7 +213,7 @@ typedef struct RrhkMachine {
     const wchar_t *video_section;     /* section of filter and display mode, NULL: <ini_section>.Video */
     const wchar_t *autofire_section;  /* section of the autofire key, NULL: Manettes */
     bool indexed_bindings;            /* bindings are [<ini_section>] p<player>_key<action index> / p<player>_pad<action index> */
-    bool bindings_clearable;          /* Delete / X on a binding row clears it (key 0, button -1) */
+    bool bindings_clearable;          /* before 1.7.6, Delete / X cleared a binding on these machines only; every machine now (unread) */
     int machine_fkeys;                /* a computer's own F1..Fn: the options page offers to hand them to the guest, 0: none */
     bool audio_chunked;               /* queue model: the machine may hold more than one buffer of sound per frame */
     /* The guest owns the loop (Master System, Game Gear: the recompiled code calls the host once per frame). The adapter

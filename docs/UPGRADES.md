@@ -193,6 +193,26 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
 
+## Every machine: clear any binding, Restore defaults on each control page (1.7.6)
+
+On the owner's request of 15 November 2026 (a button he had put on the Nintendo 64's Stick rows could not be removed): any binding
+of any machine can be cleared, and each control page can be put back to its defaults ([HOST_KIT.md](HOST_KIT.md#d28), D28).
+
+* **Stamps.** The host stamp of all 21 profiles moves (`hostkit/hostkit.h` (a comment), `hostkit/hostkit_internal.h`, the shell's
+  `rrhk_input.c`, `rrhk_events.c`, `rrhk_menu.c`, `rrhk_options.c`, `runtime_catalog.inc` and the seven locale files). No adapter,
+  no game or build stamp: existing exports are not converted again for it. The quick-state keys of the machines that hash every
+  input (the Nintendo 64, the Amiga, the Atari ST) move; no other quick-state key.
+* **What players see.** Delete, Backspace or the pad's X on a binding or combination row clears it, and it stays cleared. A last
+  row, **Restore defaults**, on every control page; so a page that showed fifteen rows exactly now scrolls by one. A button bound
+  on a Nintendo 64 Stick row reads "X / Left stick". The ^ and v marks of a scrolling page are visible.
+* **Preferences.** Unchanged formats: a cleared row is the key 0 / button -1 every machine already read as "no binding"; Restore
+  writes the default values themselves.
+* **Texts.** Two new entries in the five game languages: "Enter: remap | Del/X: clear | Left/Right: page" and "Enter / A: restore
+  this page".
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 13 (Delete, Backspace and the pad's X clear keys, buttons and a
+  combination, read back as cleared at the next start; Restore defaults on the keyboard and gamepad pages, the swap, the other
+  player untouched); a gallery of the owner's saved Nintendo 64 page (before, cleared, restored) in French and English.
+
 ## Every machine: a 16:9 screen format for the games' own widescreen mode, scanlines per console line (1.7.6)
 
 A machine whose games may draw an anamorphic widescreen picture can show it at 16:9, kept per game; the scanlines follow the

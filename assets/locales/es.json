@@ -1102,6 +1102,9 @@
     "Dither smoothing": "Suavizado del tramado",
     "Supersampling": "Supermuestreo",
     "Picture area (auto)": "Área de imagen (auto)",
-    "Screen format: %s": "Formato de pantalla: %s"
+    "Screen format: %s": "Formato de pantalla: %s",
+    "Screen format: %s": "Formato de pantalla: %s",
+    "Enter: remap | Del/X: clear | Left/Right: page": "Enter: asignar | Supr/X: borrar | </>: página",
+    "Enter / A: restore this page": "Enter / A: restaurar la página"
   }
 }
