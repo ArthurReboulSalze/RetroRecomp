@@ -116,13 +116,12 @@ The shared menus (F1 help, F2 settings, F3 filter, F4 display, F6 autofire, F7 l
 | Action | Keyboard (player 1) | Controller |
 |---|---|---|
 | Directions | Arrow keys | D-pad |
-| A / B / C | W / X / C | A / B / X |
+| A / B / C | S / D / F | A / B / X |
 | Start | Enter (also pauses the game itself) | Start |
-| X / Y / Z (six-button games) | A / S / D | Y / left shoulder / right shoulder |
+| X / Y / Z (six-button games) | E / R / T | Y / left shoulder / right shoulder |
 | Mode (six-button games) | Right Shift (either Shift works) | Back |
 
-Player two uses the numeric keypad. Letter defaults and F2 labels follow the active keyboard layout (AZERTY included);
-a saved custom mapping keeps its physical key positions. Two controller ports are wired; whether a game offers two
+Player two uses the numeric keypad. Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X C, A S D) moves to the new one by itself, and a key you chose in F2 is kept. F2 labels follow the active keyboard layout. Two controller ports are wired; whether a game offers two
 players is the game's own choice. F2 lists the controls the console actually has: three buttons and Start, or six
 buttons, Mode and Start.
 
