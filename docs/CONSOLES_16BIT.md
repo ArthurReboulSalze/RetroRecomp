@@ -35,14 +35,14 @@ fullscreen scaling and HiDPI output, without darkening alternate game rows.
 Below 2x vertical scaling, the image stays intact because those gaps cannot
 be resolved. Only presentation changes; game pixels and timing remain untouched.
 
-Mega Drive defaults to arrows, W/X/C for A/B/C and Enter for Start. The qualified
+Mega Drive defaults to arrows, S/D/F for A/B/C and Enter for Start. The qualified
 Street Fighter II' Plus and Mortal Kombat II profiles expose X/Y/Z and Mode in
-F2, using A/S/D and right Shift (either Shift works) by default. Their two
+F2, using E/R/T and right Shift (either Shift works) by default. Their two
 controller ports use the six-button protocol; other profiles retain
-three-button pads. SNES defaults to arrows, W/X/A/S for A/B/X/Y, Q/E for L/R,
+three-button pads. SNES defaults to arrows, S/D/E/R for A/B/X/Y, F/T for L/R,
 Shift for Select (left by default, either Shift works since 1.5.0) and Enter
 for Start. Player two uses the numeric keypad and has no reset
-shortcut. F2 exposes the console's actual controls.
+shortcut. Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X C and A S D on the Mega Drive, W X A S and Q E on the Super Nintendo) moves to the new one by itself, and a key you chose in F2 is kept. F2 exposes the console's actual controls.
 Letter defaults and F2 key labels follow the active keyboard layout,
 including AZERTY. Saved custom mappings retain their physical key positions.
 

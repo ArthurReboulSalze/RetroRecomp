@@ -95,15 +95,17 @@ AZERTY (F2 shows the names of your layout):
 
 | Player | Up / Down / Left / Right | Buttons 1 / 2 / 3 | Start | Coin |
 | --- | --- | --- | --- | --- |
-| 3 | T / G / F / H | R / Y / B | 3 | 7 |
-| 4 | I / K / J / L | U / O / N | 4 | 8 |
+| 3 | I / K / J / L | U / O / N | 3 | 7 |
+| 4 | G / B / V / H | C / X / 9 | 4 | 8 |
 
 Start and the coin sit on the digit row as in the usual arcade layout (starts
 on 1 to 4, coins on 5 to 8). The keyboard has no clean room for buttons 4 to 6
 of players 3 and 4: they have no default key, and F2 binds them. Every three-
 and four-player set of the CPS-1 catalogue reads two or three buttons for
 those players (three on Saturday Night Slam Masters and Muscle Bomber), so the
-defaults cover them. Any key can be changed in F2.
+defaults cover them. Any key can be changed in F2. Since 1.7.6 players 3 and 4 have these keys (before: player 3 T G F H
+with R Y B, player 4 I K J L with U O N), clear of player 1's new buttons; a saved key still on a former default moves by
+itself, and a key you chose is kept.
 
 The **DIP switches** page, after the control pages, lists the board's
 switches with MAME's names and settings (coinage, difficulty, lives, number

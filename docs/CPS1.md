@@ -156,11 +156,11 @@ is counted in the conversion report (`knowledge`).
 
 The game uses the shared 16-bit menus (F1 help, F2 controls, F3 filter, F4
 display, F6 autofire, F7 language, F8/F9 quick state, F12 gameplay feedback).
-Keys and pads are in [CONTROLS.md](CONTROLS.md#capcom-cps-1): arrows, W/X/C and
-A/S/D for the six buttons, Enter for Start, Shift (or Back) for a coin. The
+Keys and pads are in [CONTROLS.md](CONTROLS.md#capcom-cps-1): arrows, S/D/F and
+E/R/T for the six buttons, Enter for Start, Shift (or Back) for a coin. The
 third and fourth controllers play three- and four-player boards (Captain
-Commando, The King of Dragons, Knights of the Round, Mercs); they have no
-default keys.
+Commando, The King of Dragons, Knights of the Round, Mercs), as do the keys of
+[players 3 and 4](CONTROLS.md#players-3-and-4). Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X C, A S D) moves to the new one by itself, and a key you chose in F2 is kept.
 
 - **Display**: the 384x224 picture is shown at 4:3; vertical games (1941,
   Varth, Mercs…) are rotated and shown at 3:4.
