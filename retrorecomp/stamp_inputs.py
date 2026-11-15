@@ -53,6 +53,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_common', 'gui_drawing', 'gui_window', 'gui_queue', 'gui_conversion',
                                'gui_collection', 'gui_updates', 'gui_options', 'gui_sharing', 'gui_reports',
                                'gui_account', 'gui_leaderboard', 'console_menu',
+                               # Find firmware in a folder (Options): reads the player's files, writes only the Options fields.
+                               'gui_firmware', 'firmware_search',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
