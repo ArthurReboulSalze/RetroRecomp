@@ -71,9 +71,13 @@ image; Retro-Recomp publishes no game and no firmware (the console needs none: t
 
 ## 4. In the game
 
-The pad: A, B, Z (left trigger), Start, L, R, the four C buttons (the right stick, or Y and B on a gamepad, I/K/J/L on the
-keyboard), the d-pad, and the control stick (a gamepad's left stick; the arrows push it to its edge on the keyboard). F2 shows every
-binding and the stick's dead zone. F3 opens the graphics page, six rows since 1.7.6: internal resolution (1x, 2x, 4x, 8x),
+The pad: A, B, Z (left trigger), Start, L, R, the four C buttons (the right stick's four directions on a gamepad, I/K/J/L on the
+keyboard), the d-pad, and the control stick (a gamepad's left stick; the arrows push it to its edge on the keyboard). Since 1.7.6 the
+C buttons are the kit's stick-direction bindings, rebindable in F2 like any button; the right stick's axes no longer reach the core,
+and Y and B are free. F2 shows every binding (the four Stick rows read "Left stick" on the gamepad page) and the stick's dead zone,
+which comes on top of the core's own (a round 15 %). The options page offers **Screen format: 4:3 / 16:9**, kept per game, for a game
+that squeezes a widescreen picture with its own option (GoldenEye 007's Ratio 16:9): at 16:9 the picture is shown 16 wide for 9 high;
+the game and its picture are not changed. F3 opens the graphics page, six rows since 1.7.6: internal resolution (1x, 2x, 4x, 8x),
 supersampling (off by default: the renderer draws at twice the internal resolution and reduces the picture by two after the
 console's video interface, so each pixel shown is the mean of four drawn ones, at the size the resolution row gives; at 8x, the
 renderer's largest, it has nothing larger to draw and does nothing; the cost is below), edge smoothing (the console's anti-aliasing, with its divot filter), smooth scaling (the console's horizontal
