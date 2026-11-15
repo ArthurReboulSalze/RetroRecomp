@@ -21,6 +21,7 @@
 #include "device/r4300/r4300_core.h"
 #include "device/r4300/cp0.h"
 #include "device/device.h"
+#include "device/memory/memory.h"
 #include "main/main.h"
 #include "n64_cpu.h"
 
@@ -41,7 +42,7 @@ const uint32_t rr_n64_block_count = 0;
 typedef struct { uint32_t pc, len; uint64_t hash, count; uint32_t words; } Observed;
 static Observed *observed;
 static uint32_t *words, words_used, words_cap, observed_used;
-static uint32_t last_pc;
+static uint32_t last_pc, run_end;
 static int observe_overflow;
 
 int rr_n64_is_flow(uint32_t op)
@@ -62,16 +63,41 @@ int rr_n64_has_delay(uint32_t op)
     return major == 17 && rs == 8;
 }
 
+/* The live words at a PC with no side effect: KSEG0 and KSEG1 directly, a TLB-mapped address through the core's lookup table of the
+ * pages the TLB maps (an unmapped page gives NULL, never a TLB exception: the interpreter then takes it as the console would). */
+static const uint32_t *live_words(struct r4300_core *r4300, uint32_t pc)
+{
+    uint32_t entry;
+    if ((pc & 0xC0000000u) == 0x80000000u) return mem_base_u32(r4300->mem->base, pc & 0x1FFFFFFCu);
+    entry = r4300->cp0.tlb.LUT_r[pc >> 12];
+    if (!entry) return NULL;
+    return mem_base_u32(r4300->mem->base, ((entry & 0xFFFFF000u) | (pc & 0xFFCu)) & 0x1FFFFFFCu);
+}
+
+/* A run of TLB-mapped code stays within its 4 KiB page: the next virtual page may map another physical one. */
+static int mapped(uint32_t pc) { return (pc & 0xC0000000u) != 0x80000000u; }
+
 static void observe_leader(uint32_t pc)
 {
-    const uint32_t *w = fast_mem_access(cpu, pc);
-    uint32_t len = 0, slot, i;
+    const uint32_t *w = live_words(cpu, pc);
+    uint32_t len = 0, slot, i, cap = RUN_MAX;
     uint64_t hash = 1469598103934665603ull;
     if (!w || observe_overflow) return;
-    while (len < RUN_MAX) {
+    if (mapped(pc) && (0x1000u - (pc & 0xFFFu)) / 4 < cap) cap = (0x1000u - (pc & 0xFFFu)) / 4;
+    while (len < cap) {
         uint32_t op = w[len++];
-        if (rr_n64_is_flow(op)) { if (rr_n64_has_delay(op)) len++; break; }
+        if (rr_n64_is_flow(op)) {
+            if (rr_n64_has_delay(op)) {
+                if (len == cap && cap < RUN_MAX) { len--; break; }   /* the delay slot is on the next page: the jump runs interpreted */
+                len++;
+            }
+            break;
+        }
     }
+    run_end = pc + 4 * len;
+    if (!len) return;
+    /* A run that ends on an instruction with no delay slot that does not jump (MFC0, CACHE), at RUN_MAX or at a page's end goes on in a
+     * straight line: the instruction after it starts a run of its own (else it never becomes a block: SM64's wait on the Count register). */
     for (i = 0; i < len; i++) { hash ^= w[i]; hash *= 1099511628211ull; }
     slot = (uint32_t)((hash ^ (pc * 2654435761u)) >> 7);
     for (;;) {
@@ -98,7 +124,7 @@ static void observe_leader(uint32_t pc)
 
 void rr_n64_observe(uint32_t pc)
 {
-    if (pc != last_pc + 4) observe_leader(pc);
+    if (pc != last_pc + 4 || pc == run_end) observe_leader(pc);
     last_pc = pc;
 }
 
@@ -130,10 +156,19 @@ int rr_n64_write_observations(FILE *out)
 /* ---- native blocks ---- */
 static uint32_t *table;   /* (pc & 0x7FFFFF) >> 2 -> 1 + the first variant of that address, KSEG0 only */
 
+/* A block of TLB-mapped code: the first variant of its address by a binary search of the table, which the generator sorts by address. */
+static uint32_t first_variant(uint32_t pc)
+{
+    uint32_t lo = 0, hi = rr_n64_block_count;
+    while (lo < hi) { uint32_t mid = (lo + hi) / 2; if (rr_n64_blocks[mid].pc < pc) lo = mid + 1; else hi = mid; }
+    return lo < rr_n64_block_count && rr_n64_blocks[lo].pc == pc ? lo + 1 : 0;
+}
+
 void rr_n64_cpu_start(struct r4300_core *r4300)
 {
     cpu = r4300;
     last_pc = 0;
+    run_end = 0;
     if (rr_n64_cpu_mode == 2 && !table && rr_n64_block_count) {
         /* The generator lists the variants of one address together, the most run first. */
         uint32_t i;
@@ -145,25 +180,115 @@ void rr_n64_cpu_start(struct r4300_core *r4300)
     if (rr_n64_cpu_mode == 2 && !table) rr_n64_cpu_mode = 0;
 }
 
+/* ---- where the interpreter ran (gate G3), only when asked (--interpreted-sites): one entry per (pc, word, reason) with its
+ * count. The reason is the one that started the interpreted stretch the instruction belongs to (a stretch ends when a block runs):
+ * the PC outside KSEG0, no block at a KSEG0 address, or a guard miss. */
+#define SITE_SLOTS (1u << 21)
+typedef struct { uint32_t pc, word, reason, start; uint64_t count; } Site;
+static Site *sites;
+static uint32_t sites_used;
+static uint64_t sites_unlisted;
+static uint32_t stretch_reason, stretch_start;   /* 0: a block ran last (the next interpreted instruction starts a stretch) */
+
+int rr_n64_set_sites(int enabled)
+{
+    if (enabled && !sites) sites = calloc(SITE_SLOTS, sizeof *sites);
+    return !enabled || sites != 0;
+}
+
+static void note_site(struct r4300_core *r4300, uint32_t pc, uint32_t reason)
+{
+    const uint32_t *w;
+    uint32_t word, slot;
+    /* A guard miss always starts a stretch of its own, even inside one: else it took the class of the stretch it fell in. */
+    if (!stretch_reason || reason == 3) { stretch_reason = reason; stretch_start = pc; }
+    if (!sites) return;
+    w = live_words(r4300, pc);
+    word = w ? *w : 0;
+    slot = (pc * 2654435761u) ^ (word * 40503u) ^ (stretch_start * 97u) ^ stretch_reason;
+    for (;;) {
+        Site *s;
+        slot &= SITE_SLOTS - 1;
+        s = &sites[slot];
+        if (s->count && s->pc == pc && s->word == word && s->reason == stretch_reason && s->start == stretch_start) { s->count++; return; }
+        if (!s->count) {
+            if (sites_used >= SITE_SLOTS / 2) { sites_unlisted++; return; }
+            s->pc = pc; s->word = word; s->reason = stretch_reason; s->start = stretch_start; s->count = 1; sites_used++;
+            return;
+        }
+        slot++;
+    }
+}
+
+size_t rr_n64_site_distinct(void) { return sites_used; }
+uint64_t rr_n64_site_unlisted(void) { return sites_unlisted; }
+static const char *const reason_names[] = {"", "outside_kseg0", "no_block", "guard_miss"};
+/* JSON rows [pc, word, reason, stretch start, count], comma-separated, no brackets. */
+int rr_n64_write_sites(FILE *out)
+{
+    uint32_t i;
+    int first = 1;
+    if (!out) return 0;
+    for (i = 0; sites && i < SITE_SLOTS; i++) {
+        const Site *s = &sites[i];
+        if (!s->count) continue;
+        fprintf(out, "%s[%u,%u,\"%s\",%u,%llu]", first ? "" : ",", s->pc, s->word, reason_names[s->reason], s->start,
+                (unsigned long long)s->count);
+        first = 0;
+    }
+    return !ferror(out);
+}
+
 int rr_n64_run_blocks(struct r4300_core *r4300)
 {
     int ran = 0;
     uint32_t pc = *r4300_pc(r4300), first;
-    while ((pc & 0xFF800000u) == 0x80000000u && (first = table[(pc & 0x7FFFFFu) >> 2]) != 0) {
-        const uint32_t *live = fast_mem_access(r4300, pc);
+    while ((first = (pc & 0xFF800000u) == 0x80000000u ? table[(pc & 0x7FFFFFu) >> 2] : mapped(pc) ? first_variant(pc) : 0) != 0) {
+        const uint32_t *live = live_words(r4300, pc);
         const RrN64Block *block = 0;
         uint32_t k;
         if (live)
             for (k = first - 1; k < rr_n64_block_count && rr_n64_blocks[k].pc == pc; k++)
                 if (memcmp(live, rr_n64_blocks[k].words, rr_n64_blocks[k].len * 4) == 0) { block = &rr_n64_blocks[k]; break; }
-        if (!block) { rr_n64_guard_misses++; break; }
+        /* After a chain of blocks the loop calls again at this PC, which misses again: only that call notes the site. */
+        if (!block) { rr_n64_guard_misses++; if (!ran) note_site(r4300, pc, 3); return ran; }
         rr_n64_native += (uint64_t)block->run(r4300, live);
         rr_n64_block_entries++;
+        stretch_reason = 0;
         ran = 1;
-        if (*r4300_stop(r4300)) break;
+        if (*r4300_stop(r4300)) return ran;
         pc = *r4300_pc(r4300);
     }
+    if (!ran) note_site(r4300, pc, (pc & 0xFF800000u) == 0x80000000u || mapped(pc) ? 2 : 1);
     return ran;
+}
+
+/* ---- what the core's own state leaves out ----
+ * A quick state keeps what the core rebuilds wrongly or clears when it loads one: the addresses of the two audio DMAs queued in the AI
+ * (the core sets both to the last one written, so the AI played another buffer: Banjo-Tooie's sound and two audio buffers in RDRAM
+ * differed from the first frame after a load), the AI's format flag, whether an RSP task stopped on an interrupt and waits to go on
+ * (rsp_task_locked, cleared by the core: the task would be marked done at the next SP event) and the CPU's "unsafe" flags with it. */
+size_t rr_n64_core_extra_size(void) { return 5 * sizeof(uint32_t); }
+
+void rr_n64_core_extra(void *out, const void *in)
+{
+    uint32_t v[5];
+    if (out) {
+        v[0] = g_dev.sp.rsp_task_locked;
+        v[1] = g_dev.r4300.cp0.interrupt_unsafe_state;
+        v[2] = g_dev.ai.fifo[0].address;
+        v[3] = g_dev.ai.fifo[1].address;
+        v[4] = g_dev.ai.samples_format_changed;
+        memcpy(out, v, sizeof v);
+    }
+    if (in) {
+        memcpy(v, in, sizeof v);
+        g_dev.sp.rsp_task_locked = v[0];
+        g_dev.r4300.cp0.interrupt_unsafe_state = v[1];
+        g_dev.ai.fifo[0].address = v[2];
+        g_dev.ai.fifo[1].address = v[3];
+        g_dev.ai.samples_format_changed = v[4];
+    }
 }
 
 /* ---- evidence ---- */

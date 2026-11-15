@@ -111,6 +111,110 @@ STATE_RETURN = ('        if (savestates_get_job() == savestates_job_{job})\n    
 CACHED_DEBUG = '        if (g_DebuggerActive) update_debugger((*r4300_pc_struct(r4300))->addr);\n#endif\n'
 CACHED_OPS = CACHED_DEBUG + '        (*r4300_pc_struct(r4300))->ops();\n    }\n}'
 
+RSP_STATE = '''\t/* Retro-Recomp modification (under this file's own licence): the RSP's registers for a quick state (native/n64_machine/
+\t * n64_session.cpp): its PC and delay slot, the scalar registers, the vector unit (registers, flags, accumulators, divider), and the
+\t * plugin's MFC0 counters and status wait. */
+\tsize_t rr_n64_rsp_state_size(void)
+\t{
+\t\treturn sizeof(uint32_t) * 3 + sizeof(RSP::cpu.get_state().sr) + sizeof(RSP::CP2) + sizeof(RSP::MFC0_count) + sizeof(int);
+\t}
+
+\tvoid rr_n64_rsp_state(void *out, const void *in)
+\t{
+\t\tauto &s = RSP::cpu.get_state();
+\t\tstruct Field { void *at; size_t size; } fields[] = {
+\t\t\t{ &s.pc, sizeof s.pc }, { &s.has_delay_slot, sizeof s.has_delay_slot }, { &s.branch_target, sizeof s.branch_target },
+\t\t\t{ s.sr, sizeof s.sr }, { &s.cp2, sizeof(RSP::CP2) }, { RSP::MFC0_count, sizeof RSP::MFC0_count },
+\t\t\t{ &RSP::SP_STATUS_TIMEOUT, sizeof RSP::SP_STATUS_TIMEOUT } };
+\t\tsize_t at = 0;
+\t\tfor (auto &f : fields)
+\t\t{
+\t\t\tif (out)
+\t\t\t\tmemcpy(static_cast<uint8_t *>(out) + at, f.at, f.size);
+\t\t\tif (in)
+\t\t\t\tmemcpy(f.at, static_cast<const uint8_t *>(in) + at, f.size);
+\t\t\tat += f.size;
+\t\t}
+\t}
+
+'''
+SINC = 'libretro-common/audio/resampler/drivers/sinc_resampler.c'
+AUDIO = 'custom/mupen64plus-core/plugin/audio_libretro/audio_backend_libretro.c'
+SINC_STATE = '''/* Retro-Recomp modification (under this file's own licence): the resampler's running state, for a quick state (its position, its
+ * time and the history of both channels; the phase table is fixed by its settings). rr_sinc_state copies it out when `out` is
+ * given, in when `in` is. */
+size_t rr_sinc_state_size(void *data)
+{
+   const rarch_sinc_resampler_t *re = (const rarch_sinc_resampler_t*)data;
+   return re ? 3 * sizeof(uint32_t) + 4 * re->taps * sizeof(float) : 0;
+}
+
+void rr_sinc_state(void *data, void *out, const void *in)
+{
+   rarch_sinc_resampler_t *re = (rarch_sinc_resampler_t*)data;
+   const size_t history = 2 * re->taps * sizeof(float);
+   uint32_t head[3];
+   if (out)
+   {
+      head[0] = re->taps;
+      head[1] = re->ptr;
+      head[2] = re->time;
+      memcpy(out, head, sizeof head);
+      memcpy((uint8_t*)out + sizeof head, re->buffer_l, history);
+      memcpy((uint8_t*)out + sizeof head + history, re->buffer_r, history);
+   }
+   if (in)
+   {
+      memcpy(head, in, sizeof head);
+      if (head[0] != re->taps)
+         return;
+      re->ptr  = head[1];
+      re->time = head[2];
+      memcpy(re->buffer_l, (const uint8_t*)in + sizeof head, history);
+      memcpy(re->buffer_r, (const uint8_t*)in + sizeof head + history, history);
+   }
+}
+'''
+AUDIO_STATE = '''/* Retro-Recomp modification (GPL-2.0-or-later, like this file): the plugin's running state for a quick state, which the core's
+ * own state leaves out: the game's audio rate and the resampler's position and history (native/n64_machine/n64_session.cpp). */
+static void aiDacrateChanged(void *user_data, unsigned int frequency);
+#ifndef __APPLE__
+size_t rr_sinc_state_size(void *data);
+void rr_sinc_state(void *data, void *out, const void *in);
+#endif
+
+size_t rr_n64_audio_state_size(void)
+{
+#ifdef __APPLE__
+   return sizeof(int);
+#else
+   return sizeof(int) + rr_sinc_state_size(resampler_audio_data);
+#endif
+}
+
+void rr_n64_audio_state_save(void *out)
+{
+   memcpy(out, &GameFreq, sizeof(int));
+#ifndef __APPLE__
+   rr_sinc_state(resampler_audio_data, (uint8_t*)out + sizeof(int), NULL);
+#endif
+}
+
+int rr_n64_audio_state_load(const void *in, size_t size)
+{
+   int frequency;
+   if (size != rr_n64_audio_state_size())
+      return 0;
+   memcpy(&frequency, in, sizeof(int));
+   if (frequency > 0)
+      aiDacrateChanged(NULL, (unsigned)frequency);
+#ifndef __APPLE__
+   rr_sinc_state(resampler_audio_data, NULL, (const uint8_t*)in + sizeof(int));
+#endif
+   return 1;
+}
+'''
+
 REPLACEMENTS = [
     # Our glue's C interface (native/n64_machine/glue/parallel.h) instead of the unmarked one beside the plugin.
     ('libretro/libretro.c', '#include "../mupen64plus-video-paraLLEl/parallel.h"', '#include "parallel.h"'),
@@ -134,7 +238,13 @@ REPLACEMENTS = [
     # glue copies it through a staging buffer and needs the two buffers, which the renderer keeps private.
     ('mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_device.hpp', '\tsize_t get_hidden_rdram_size() const;\n',
      '\tsize_t get_hidden_rdram_size() const;\n\t/* Retro-Recomp modification (MIT, like this file): the buffers a quick state copies. */\n'
-     '\tVulkan::Buffer &rr_hidden_rdram() { return *hidden_rdram; }\n\tVulkan::Buffer &rr_tmem() { return *tmem; }\n'),
+     '\tVulkan::Buffer &rr_hidden_rdram() { return *hidden_rdram; }\n\tVulkan::Buffer &rr_tmem() { return *tmem; }\n'
+     '\tuint32_t &rr_base_primitive_index() { return renderer.rr_base_primitive_index(); }\n'),
+    # ... and the renderer's count of primitives since it started, the seed of the RDP's dither noise per primitive: a fresh process
+    # counted from its own start, so an effect drawn with noise came out otherwise after a load (GoldenEye 007, 95 frames on).
+    ('mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_renderer.hpp', '\texplicit Renderer(CommandProcessor &processor);\n',
+     '\texplicit Renderer(CommandProcessor &processor);\n\t/* Retro-Recomp modification (MIT, like this file): the noise seed\'s base, for a quick state. */\n'
+     '\tuint32_t &rr_base_primitive_index() { return base_primitive_index; }\n'),
     # The core's ROM database (save types, timing per game) is built in (custom/mupen64plus-core/main/mupen64plus.ini.h); upstream
     # writes it into a folder of the host at every start and reads it back. It is read from memory instead: nothing is written,
     # and a path the host's code page cannot spell does not lose it.
@@ -147,6 +257,16 @@ REPLACEMENTS = [
      '    fPtr = NULL;\n    if (inifile[0] == 0)\n'),
     ('mupen64plus-core/src/main/rom.c', 'fgets(buffer, 255, fPtr) != NULL', 'rr_n64_ini_gets(buffer, 255, &rr_cursor) != NULL'),
     ('mupen64plus-core/src/main/rom.c', '    fclose(fPtr);\n    romdatabase_resolve();', '    (void)fPtr;\n    romdatabase_resolve();'),
+    # A quick state holds the audio plugin's running state, which the core's own state leaves out: a resumed game delivered other
+    # samples (and another number of them per frame) than the unbroken run. The sinc resampler's position and history ...
+    (SINC, '} rarch_sinc_resampler_t;\n', '} rarch_sinc_resampler_t;\n\n' + SINC_STATE),
+    # ... and the game's audio rate, read and written by the session (native/n64_machine/n64_session.cpp).
+    (AUDIO, '#endif\n\nvoid deinit_audio_libretro(void)\n', '#endif\n\n' + AUDIO_STATE + '\nvoid deinit_audio_libretro(void)\n'),
+    # A quick state holds the RSP's own registers, which ParaLLEl-RSP keeps outside the core's state: a task the RSP left on an
+    # interrupt goes on from them, and a microcode may start from what the last task left (Banjo-Tooie's sound and RDRAM differed
+    # from the first frame after a load).
+    ('mupen64plus-rsp-paraLLEl/parallel.cpp', '\t// Hack entry point to use when loading savestates when we\'re tracing.\n',
+     RSP_STATE + '\t// Hack entry point to use when loading savestates when we\'re tracing.\n'),
 ]
 
 

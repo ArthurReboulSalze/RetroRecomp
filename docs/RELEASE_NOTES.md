@@ -12,6 +12,16 @@
   - **Mapper probe.** Konami SCC cartridges that play SCC music are no longer taken for ASCII 8 (The Goonies R Good Enough).
   - A panel of nine converts at 0 interpreted instructions on every route, equal on Windows and on a Debian 13 PC; no game is validated as
     played through, and hardware fidelity and latency are not claimed. MSX, MSX2 and MSX2+ quick states of 1.7.5 are refused cleanly.
+- **Nintendo 64 (supported).** On the owner's decision of 15 November 2026, after his play test of eight games, the Nintendo 64 is
+  supported ([NINTENDO_64.md](NINTENDO_64.md#supported-from-176-15-november-2026)): PAL and NTSC cartridges on
+  Mupen64Plus-Next with the ParaLLEl renderer (a Vulkan 1.1 graphics card), with every save kind (EEPROM, SRAM, Flash, controller pak).
+  More of each game's code is native (the code a game maps through the TLB, as GoldenEye 007 does, and loops that wait on the clock);
+  a quick state now continues the sound too, and states of 1.7.5 are refused cleanly. A panel of eight is equal on Windows and on a
+  Debian 13 PC; no game is validated as played through, and hardware fidelity and latency are not claimed. Its paths are not shared:
+  the gain was judged too small.
+- **Nintendo 64: a simpler graphics page.** F3 keeps five rows: Internal resolution, Edge smoothing (console), Smooth scaling (console),
+  Dither smoothing and Overscan crop. The others are fixed at the settings every check uses (Bob deinterlacing:
+  the N64 has no progressive mode for an interlaced picture). A changed value of a removed row, such as Weave, goes back to the default.
 
 - **Sony PlayStation (supported).** On the owner's decision of 15 November 2026, after his play test, the PlayStation is supported
   (section 8 of [PLAYSTATION.md](PLAYSTATION.md)): discs as EBOOT, CUE/BIN,

@@ -3,18 +3,10 @@
     "Internal resolution": "Résolution interne",
     "1x (native)": "1x (native)",
     "On": "Oui",
-    "Super-sampled read-back": "Relecture suréchantillonnée",
     "Deinterlacing": "Désentrelacement",
-    "VI anti-aliasing": "Anticrénelage VI",
-    "Divot filter": "Filtre divot",
-    "Gamma dither": "Tramage gamma",
-    "VI bilinear scaling": "Mise à l’échelle bilinéaire VI",
-    "Dither filter": "Filtre de tramage",
     "Overscan crop": "Rognage du surbalayage",
     "8 pixels": "8 pixels",
     "16 pixels": "16 pixels",
-    "Native texture rectangles": "Rectangles de texture natifs",
-    "Native texture LOD": "LOD de texture natif",
     "C-Up": "C-Haut",
     "C-Down": "C-Bas",
     "C-Left": "C-Gauche",
@@ -312,6 +304,9 @@
     "Auto (last used)": "Auto (dernier utilisé)",
     "Mouse": "Souris",
     "Pad 2": "Manette 2",
-    "Quit the game": "Quitter le jeu"
+    "Quit the game": "Quitter le jeu",
+    "Edge smoothing (console)": "Lissage des bords (console)",
+    "Smooth scaling (console)": "Mise à l'échelle lissée (console)",
+    "Dither smoothing": "Lissage du tramage"
   }
 }

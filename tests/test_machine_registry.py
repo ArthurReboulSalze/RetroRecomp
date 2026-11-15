@@ -59,11 +59,15 @@ DECLINED = {
     'memory_view': {'cps1', 'cps2', 'pce', 'gba', 'psx'},
     # Path sharing (gate G16) for a supported machine. Arthur, 14 Nov 2026: a machine on which sharing paths serves no purpose
     # does not share them and can still leave the experimental status. A console is listed here only on the measured evidence
-    # of its panel (received paths would add no native instruction and save no conversion pass), written in its
+    # of its panel (received paths would add no native instruction and save no conversion pass, or a gain Arthur judges too small to be
+    # worth it, 15 Nov 2026), written in its
     # QUALIFICATION.md entry, with G16 `-`; it then stays out of path_profiles.SHARED_SYSTEMS.
     # MSX and MSX2: the 16-game panel of 14 November 2026 learns only BIOS hooks built in RAM (C3 nn nn C9), none in the cartridge
     # (QUALIFICATION.md, "MSX and MSX2 (14 November 2026)").
-    'path_sharing': {'msx', 'msx2'},
+    # Nintendo 64: declined by Arthur (15 November 2026) because the gain is small, not because it is nil: received paths would make native
+    # what a Standard conversion leaves on the interpreter beyond its own routes, 2.3 % to 11.5 % of a play route's instructions on the
+    # panel (QUALIFICATION.md, "Nintendo 64: evidence behind its column"); « Ça me paraît bien faible pour partager les chemins. »
+    'path_sharing': {'msx', 'msx2', 'n64'},
 }
 # An emulated machine (SystemProfile.emulated) is not recompiled: its profile gives the reason in a sentence, and the registry
 # asks it for no CPU, path profile, scan level, feedback kind or quick-state family, no qualification column (it is a category
@@ -273,7 +277,7 @@ def registry_problems(profile: SystemProfile) -> list[str]:
             return problems
         if system not in path_profiles.SHARED_SYSTEMS and system not in DECLINED['path_sharing']:
             add('supported: shared knowledge (gate G16) needs the console in path_profiles.SHARED_SYSTEMS '
-                '(or DECLINED["path_sharing"] on the evidence that sharing would change nothing)')
+                '(or DECLINED["path_sharing"] on the evidence that sharing would change nothing, or too little to be worth it as Arthur decides)')
         if system in path_profiles.SHARED_SYSTEMS and system in DECLINED['path_sharing']:
             add('supported: a console cannot both share its paths and decline the sharing')
         # Arthur, 27 Oct 2026: four or five risk cases a console, plus two random games.

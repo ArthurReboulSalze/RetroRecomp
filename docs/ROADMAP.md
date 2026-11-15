@@ -27,7 +27,7 @@ fallback stays counted and shown wherever it is used.
 | Game Boy Advance | supported (since 1.7.6; experimental from 1.7.0) | a level won on a panel game, the LDM/STM vectors, an independent emulator comparison (G10, G11), the quiet-PC cost of a frame, the cartridge sensors |
 | Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
 | Atari ST | supported (since 1.7.5; shares its paths since 1.7.5) | the Linux half of the sharing, more games played, the Linux play, the STE |
-| Nintendo 64 | experimental (since 1.7.1) | frame pacing on Ocarina of Time, independent processor vectors, more games played, the Linux play |
+| Nintendo 64 | supported (since 1.7.6; experimental from 1.7.1) | frame pacing on Ocarina of Time timed on a quiet PC, the stick directions on the pad page, the krom families the core fails (G10), a game played on Linux |
 | Sony PlayStation | supported (since 1.7.6; experimental from 1.7.1) | 2x and 4x at speed (a threaded or hardware renderer), Metal Gear Solid's and Gran Turismo 2's route depth, the GTE vectors through native steps, mouse, multitap and light guns |
 | MSX | supported (since 1.7.5) | route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
 | MSX2 | supported (since 1.7.5) | battery saves shown on an MSX2 game, route depth on menu-driven games, the command engine's timing, independent hardware evidence, FM-PAC |
@@ -147,9 +147,9 @@ native steps for the 68000 code the reference run saw, the player's record and a
 
 ### Nintendo 64
 
-Experimental since 1.7.1 ([NINTENDO_64.md](NINTENDO_64.md)): cartridge images on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded
-native blocks for the VR4300 code the reference run saw. Next: frame pacing on Ocarina of Time, independent processor vectors, more games and
-a game played on Linux. The 64DD is out of scope today.
+Supported since 1.7.6, on the owner's decision of 15 November 2026 (open as experimental in 1.7.1; [NINTENDO_64.md](NINTENDO_64.md)): cartridge
+images on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded native blocks for the VR4300 code the reference run saw, KSEG0 and
+TLB-mapped. Next: frame pacing on Ocarina of Time timed on a quiet PC, the right stick as rebindable C buttons, and a game played on Linux. The 64DD is out of scope today.
 
 ### Sony PlayStation
 

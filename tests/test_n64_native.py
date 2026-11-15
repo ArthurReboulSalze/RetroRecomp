@@ -43,13 +43,8 @@ class ContinuationTests(unittest.TestCase):
         self.assertEqual((result['frames'], result['equal_frames'], result['matches'], result['differing_columns']), (5, 5, True, []))
         n64_conversion.require_continuation(result)
 
-    def test_the_sound_alone_may_differ(self):
-        result = n64_conversion.continuation(self.timeline, self.resumed(pcm='other', samples='801'))
-        self.assertEqual((result['equal_frames'], result['matches'], result['differing_columns']), (0, True, ['pcm', 'samples']))
-        n64_conversion.require_continuation(result)
-
-    def test_cpu_rdram_or_picture_differences_refuse_the_conversion(self):
-        for column in ('cpu', 'rdram', 'video'):
+    def test_cpu_rdram_picture_or_sound_differences_refuse_the_conversion(self):
+        for column in ('cpu', 'rdram', 'video', 'pcm', 'samples'):
             with self.subTest(column=column):
                 result = n64_conversion.continuation(self.timeline, self.resumed(**{column: 'other'}))
                 self.assertFalse(result['matches'])
@@ -84,6 +79,68 @@ class ClassificationTests(unittest.TestCase):
     def test_executed_stops_at_the_first_flow_instruction(self):
         self.assertEqual(n64_native.executed((ADDIU, SW, JR_RA, NOP)), 3)
         self.assertEqual(n64_native.executed((ADDIU, LW)), 2)
+
+
+class DamagedStateTests(unittest.TestCase):
+    """G6: every damaged copy differs from the state, every header field is flipped once, and the cut and longer copies are there."""
+
+    def test_the_list(self):
+        state = bytes(range(256)) * 200
+        damaged = n64_conversion.damaged_states(state)
+        self.assertTrue(all(data != state for data in damaged.values()))
+        for field in n64_conversion.STATE_OFFSETS:
+            self.assertIn(field, damaged)
+        self.assertEqual(len(damaged['one-byte-short']), len(state) - 1)
+        self.assertEqual(len(damaged['one-byte-longer']), len(state) + 1)
+        self.assertEqual(damaged['empty'], b'')
+        self.assertEqual(n64_conversion.STATE_OFFSETS['checksum'] + 8, n64_conversion.STATE_HEADER)
+
+
+class MappedCodeTests(unittest.TestCase):
+    """TLB-mapped code becomes blocks too: a run stays in its 4 KiB page; the uncached KSEG1 code stays on the interpreter."""
+
+    def setUp(self):
+        self.folder = Path(tempfile.mkdtemp(prefix='n64-mapped-'))
+
+    def tearDown(self):
+        shutil.rmtree(self.folder, ignore_errors=True)
+
+    def observe(self, *lines):
+        path = self.folder / 'observations.txt'
+        path.write_text(''.join(line + '\n' for line in lines), encoding='ascii')
+        return n64_native.read_observations([path])
+
+    def test_mapped_runs_are_kept_and_kseg1_is_not(self):
+        words = f'{ADDIU:08x} {JR_RA:08x} {NOP:08x}'
+        variants = self.observe(f'7f000100 5 3 {words}', f'a4000040 9 3 {words}', f'80001000 2 3 {words}')
+        self.assertEqual(sorted(pc for pc, _ in variants), [0x7F000100, 0x80001000])
+        self.assertTrue(n64_native.mapped(0x7F000100) and n64_native.mapped(0xC0000000))
+        self.assertFalse(n64_native.mapped(0x80001000) or n64_native.mapped(0xA4000040))
+
+    def test_a_mapped_run_across_a_page_is_refused(self):
+        with self.assertRaisesRegex(ConversionError, 'page'):
+            self.observe(f'7f000ffc 1 2 {ADDIU:08x} {NOP:08x}')
+
+
+class SiteTests(unittest.TestCase):
+    """Gate G3: every interpreted instruction of a run gets a class; the counts are kept as the player gave them."""
+
+    def test_classes(self):
+        variants = {(0x80001000, (ADDIU, SW, JR_RA, NOP)): 5}
+        rows = [[0xA4000040, ADDIU, 'outside_kseg0', 0xA4000040, 7], [0xA0001000, LW, 'outside_kseg0', 0xA0001000, 1],
+                [0x00400000, SW, 'outside_kseg0', 0x00400000, 2], [0x80001000, ADDIU, 'guard_miss', 0x80001000, 3],
+                [0x80001008, JR_RA, 'no_block', 0x80001008, 4], [0x80001000, ADDIU, 'no_block', 0x80001000, 6],
+                [0x80002000, NOP, 'no_block', 0x80002000, 9],
+                # the rest of a stretch keeps the class of its first instruction: here a leader without a block
+                [0x80001004, SW, 'no_block', 0x80001000, 6]]
+        sites = n64_native.classify_sites(rows, variants)
+        kinds = {(int(s['pc'], 16), s['class']): s['count'] for s in sites}
+        self.assertEqual(kinds, {(0xA4000040, 'boot_rsp_memory'): 7, (0xA0001000, 'kseg1'): 1, (0x00400000, 'tlb_mapped'): 2,
+                                 (0x80001000, 'guard_miss'): 3, (0x80001008, 'mid_run'): 4, (0x80001000, 'leader_without_block'): 6,
+                                 (0x80002000, 'unseen'): 9, (0x80001004, 'leader_without_block'): 6})
+        self.assertEqual([s['count'] for s in sites], sorted((s['count'] for s in sites), reverse=True))
+        self.assertTrue(all(s['class'] in n64_native.SITE_CLASSES for s in sites))
+        self.assertEqual(sites[0]['word'], f'0x{NOP:08x}')
 
 
 class ObservationTests(unittest.TestCase):

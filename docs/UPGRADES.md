@@ -163,6 +163,46 @@ The rows and pages a machine draws or adds itself get their icons ([HOST_KIT.md]
   `rrhk_computer.inc`; the CPS-1 adapter is built by `tools/hostkit_players_selftest.py`), the gallery of the five pages in
   English and French, the suite.
 
+## Nintendo 64: supported (1.7.6)
+
+**Status.** The Nintendo 64 is supported from 1.7.6, on the owner's decision of 15 November 2026 after his play test of the eight panel
+exports (G14, the owner-acceptance table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance);
+[NINTENDO_64.md](NINTENDO_64.md#supported-from-176-15-november-2026)). It does not share its paths, on the same decision (the gain
+judged too small: 2.3 % to 11.5 % of a play route at the Standard level). The profile's status is `supported`, the report's `status` is read
+from the profile, the Options note loses "experimental" in the eight languages and the credits no longer list the machine among the
+experimental ones.
+
+**What else the branch brings** (`spec/n64-176`): TLB-mapped code and the run after an MFC0 become native blocks; the report lists every
+interpreted instruction by class (the totals and the 256 most run sites; the whole listing in the qualification folder); the quick state
+(format `RRN64QS5`) holds what the core and its plugins left out, carries a checksum and continues with its sound; the restart check gives
+the save memory as it was; Majora's Mask and Rayman 2 have play routes.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `03b1daa7`): the Nintendo 64 game stamp (`b2f1227b519d` to
+`8a8f380f9f2c`) and host stamp (`f8f6db677f10` to `e3bb3877160c`) move; its build stamp is unchanged. The host stamp of every other profile
+moves for the game catalogue (`native/runtime_catalog.inc`, the graphics page below); their game and build stamps equal main's.
+
+**Existing exports:** the game stamp moves, so a Nintendo 64 export is converted again in full at its next conversion. **Quick states:** the
+1.7.5 ones (`RRN64QS2`) are refused cleanly (exit status 4 in a test run; in play, the kit's notice). **Cartridge saves:** unchanged, the same
+file of 296,960 bytes beside the game. **Site limits:** unchanged (no shared paths). **Hot path:** the native blocks' dispatch adds a binary
+search for TLB-mapped addresses only; KSEG0 dispatch is unchanged.
+
+## Nintendo 64: the graphics page in five rows (1.7.6)
+
+On the owner's word of 15 November 2026 (« Oui, valide »), the F3 page of the Nintendo 64 keeps five rows: Internal resolution, Edge
+smoothing (console), Smooth scaling (console), Dither smoothing and Overscan crop (Native texture LOD left too once the owner
+closed his F-Zero X remark: its level of detail is the game's own)
+([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)).
+
+* **Stamps.** The host stamp of all 20 profiles moves (`native/runtime_catalog.inc` and the seven locale files: three new entries,
+  eight N64-only entries removed); the Nintendo 64's host stamp moves for its adapter `rrhk_n64.inc`. No game or build stamp, no
+  quick-state key.
+* **What players see.** Six rows fewer. The renderer's other settings are fixed at the defaults every check uses: no super-sampled
+  read-back, native texture LOD off, Bob deinterlacing, the gamma dither and native texture rectangles on; the divot filter follows Edge smoothing. A player who
+  had changed a removed row (Weave, the read-back) gets the default back; the kept rows keep their saved values (same ini keys).
+* **Texts.** Three new entries in the five game languages: "Edge smoothing (console)", "Smooth scaling (console)", "Dither smoothing".
+* **Checks.** A quick conversion of Super Mario 64, its game run headless with each kept row changed, and run with an ini that still
+  holds the removed rows; the suite.
+
 ## Every machine: "Quit the game", the last row of the options page (1.7.6)
 
 The options page ends with a **Quit the game** row ([HOST_KIT.md](HOST_KIT.md#d23), D23) that asks the same "Quit? No / Yes"

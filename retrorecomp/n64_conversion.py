@@ -1,4 +1,4 @@
-"""Nintendo 64 conversion (experimental): a cartridge image becomes a standalone game (MIT; the executable it builds is linked with
+"""Nintendo 64 conversion: a cartridge image becomes a standalone game (MIT; the executable it builds is linked with
 Mupen64Plus-Next and is GPL-3.0 as a whole: licenses/mupen64plus-next.md).
 
 Every conversion starts from a fresh reference run: the game runs on Mupen64Plus with the ParaLLEl RDP (Vulkan, deterministic
@@ -27,7 +27,7 @@ import time
 
 from . import __version__, timings
 from .conversion_common import resolve_scan_level, spawn
-from .conversion_gates import require_same_file
+from .conversion_gates import check_quick_states, require_same_file
 from .core import ConversionError, executable_name, run, toolchain
 from .delivery_evidence import FrameRow, deliver_packed, liveness_summary, replay_packed, report_fields, require_moving_picture, same_trace
 from .library import atomic_json, entry_lock, file_sha256, library_root
@@ -138,9 +138,31 @@ def _oot_pal() -> tuple[int, list]:
     return 16800, sorted(events)
 
 
+def _mm_pal() -> tuple[int, list]:
+    """The Legend of Zelda: Majora's Mask (PAL, NZSP): the main route's menus (file 1 created with the name "A" and opened), the
+    intro's words and scenes advanced with A, then Link walks, rolls and swings his sword in the forest (play from about frame 13,000)."""
+    events = [event for event in main_route(1500) if event[0] < 1500] + _presses(1500, 12401, 40, PAD_A)
+    events += [(13050, 13350, 'stick', STICK_Y, 30000), (13350, 13600, 'stick', STICK_X, 30000), (13450, 13456, 'pad', PAD_A, 0),
+               (13600, 13900, 'stick', STICK_Y, -30000), (13750, 13756, 'pad', PAD_B, 0), (13900, 14150, 'stick', STICK_X, -30000),
+               (14000, 14006, 'pad', PAD_B, 0), (14150, 14400, 'stick', STICK_Y, 30000), (14250, 14256, 'pad', PAD_A, 0)]
+    return 14600, sorted(events)
+
+
+def _rayman2_pal() -> tuple[int, list]:
+    """Rayman 2: The Great Escape (PAL, NY2P): the main route's menus to a slot and the name "QAZ", A to start the game (it creates its
+    note on the controller pak), the intro's words advanced with A, then Rayman walks, jumps and throws his fist in the prison ship
+    (play from about frame 12,500)."""
+    events = [event for event in main_route(3600) if event[0] < 3260] + [(3280, 3288, 'pad', PAD_A, 0)] + _presses(3400, 12401, 60, PAD_A)
+    events += [(12550, 12850, 'stick', STICK_X, 30000), (12650, 12656, 'pad', PAD_A, 0), (12850, 13150, 'stick', STICK_Y, 30000),
+               (12950, 12956, 'pad', PAD_B, 0), (13150, 13450, 'stick', STICK_X, -30000), (13300, 13306, 'pad', PAD_A, 0),
+               (13450, 13750, 'stick', STICK_Y, -30000), (13600, 13606, 'pad', PAD_B, 0), (13750, 14000, 'stick', STICK_X, 30000)]
+    return 14200, sorted(events)
+
+
 # Routes that reach play, per game, by its game code (numbers about the cartridge, never its bytes), tuned on the dumps named in
-# docs/NINTENDO_64.md. Played at the Extended and Thorough levels (route depth, gate G9). Mario Kart 64's main route already races.
-PLAY_ROUTES = {'NSMP': _sm64_pal, 'NZLP': _oot_pal}
+# docs/NINTENDO_64.md. Played at the Extended and Thorough levels (route depth, gate G9). The main route already reaches play on
+# Mario Kart 64, F-Zero X, Banjo-Tooie and GoldenEye 007 (a race, Spiral Mountain, the Dam).
+PLAY_ROUTES = {'NSMP': _sm64_pal, 'NZLP': _oot_pal, 'NZSP': _mm_pal, 'NY2P': _rayman2_pal}
 
 
 def play_route(game_code: str) -> tuple[int, list] | None:
@@ -320,10 +342,10 @@ def trace_digests(path: Path) -> dict:
             for name, indexes in columns.items()}
 
 
-# The only thing a resumed process may differ on: the core's state leaves out the libretro audio resampler, so the samples after a
-# load differ (on every frame compared, and in number by under 0.05 %). A difference in the machine (CPU, RDRAM, picture) refuses
-# the conversion.
-CONTINUATION_IGNORED = ('pcm', 'samples')
+# Nothing a resumed process may differ on: since the state holds the audio plugin's running state and the RSP's registers (format
+# RRN64QS4 and after), the sound continues too, so a difference in the CPU, RDRAM, picture or sound refuses the conversion, as on the other machines. (Until then
+# the samples after a load differed on every frame compared and were the one tolerated difference.)
+CONTINUATION_IGNORED = ()
 
 
 def continuation(timeline: Path, resumed: Path) -> dict:
@@ -340,6 +362,27 @@ def continuation(timeline: Path, resumed: Path) -> dict:
     kept = sum(1 for row in later if row[0] in earlier and all(row[i] == earlier[row[0]][i] for i in keep))
     differing = sorted({header[i] for row in later if row[0] in earlier for i in range(len(header)) if row[i] != earlier[row[0]][i]})
     return {'frames': len(later), 'equal_frames': exact, 'matches': bool(later) and kept == len(later), 'differing_columns': differing}
+
+
+STATE_SETTLE = 400            # frames a state loaded by a fresh process must continue the unbroken run
+REPORTED_SITES = 256          # the most run interpreted sites a route's report lists (the whole listing is a file of the qualification folder)
+# A quick state's header (native/n64_machine/n64_session.cpp): magic 8, the build's key 64, the frame 8, the sizes of the renderer's, the
+# audio's and the RSP's blocks 8 each, the checksum 8; then the blocks and the core's state.
+STATE_HEADER = 112
+STATE_OFFSETS = {'magic': 0, 'key': 8, 'frame': 72, 'renderer-size': 80, 'audio-size': 88, 'rsp-size': 96, 'checksum': 104}
+
+
+def damaged_states(state: bytes) -> dict[str, bytes]:
+    """Damaged copies of a Nintendo 64 quick state, by what is wrong with them: the game must refuse every one (exit 4) and leave it as
+    it was (conversion_gates.check_quick_states). A changed byte anywhere is caught by the checksum, a cut or a longer file by the size."""
+    def flipped(offset: int) -> bytes:
+        data = bytearray(state)
+        data[offset] ^= 0x80
+        return bytes(data)
+    return {'empty': b'', 'header-cut': state[:STATE_HEADER // 2], 'one-byte-short': state[:-1], 'one-byte-longer': state + b'\0',
+            'body-cut': state[:len(state) // 2], **{label: flipped(offset) for label, offset in STATE_OFFSETS.items()},
+            'renderer': flipped(STATE_HEADER), 'payload': flipped(len(state) // 2), 'last-byte': flipped(len(state) - 1),
+            'not-a-state': b'not a state.' * 4096}
 
 
 def require_continuation(resumed: dict) -> None:
@@ -443,7 +486,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                 folder.mkdir(parents=True, exist_ok=True)
                 exported = folder / candidate.name
                 shutil.copy2(candidate, exported)
-                results[name] = replay(exported, folder, frames_, scripts[name])
+                results[name] = replay(exported, folder, frames_, scripts[name], extra=['--interpreted-sites'] if native else ())
                 require_same_file(folder / 'trace.tsv', checks / f'reference-{name}' / 'trace.tsv',
                                   lambda: ConversionError(f'Nintendo 64 {name}: the game and the fresh reference diverged; existing export preserved.'))
         # The delivered file: the compressed copy is replayed on every route against the same fresh reference; the main route
@@ -452,7 +495,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         delivered = deliver_packed(candidate, packed, 'Nintendo 64', emit)
         state_frame = count - 600
         packed_runs = [(name, checks / 'packed' / name, checks / f'reference-{name}', frames_,
-                        ['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate')] if name == 'main' else [])
+                        ['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate'),
+                         '--saves-at-state', str(checks / 'packed' / name / 'at-state.saves')] if name == 'main' else [])
                        for name, frames_, _ in routes]
 
         def replay_copy(run_):
@@ -477,13 +521,38 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         restart.mkdir()
         fresh = restart / candidate.name
         shutil.copy2(packed, fresh)
+        saved = checks / 'packed' / 'main' / 'quick.rrstate'
+
+        def table(path: Path) -> list[tuple]:
+            return [tuple(line.split('\t')) for line in path.read_text(encoding='ascii').splitlines()[1:]]
+
+        def continued():
+            # The fresh process gets the cartridge save as it was when the state was taken, as a player's game keeps its file.
+            shutil.copy2(checks / 'packed' / 'main' / 'at-state.saves', restart / 'saves.bin')
+            replay(fresh, restart, STATE_SETTLE, scripts['main'], extra=['--state-load-start', '--state-slot', saved, '--saves', restart / 'saves.bin'])
+            return table(checks / 'packed' / 'main' / 'trace.tsv'), table(restart / 'trace.tsv')
+
+        def refused(path: Path) -> bool:
+            return spawn([str(fresh), '--headless', '--frames', '1', '--state-load-start', '--state-slot', str(path)],
+                         cwd=restart, timeout=180, capture_output=True).returncode == 4
         with timings.phase('state_checks'):
-            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'])
-        resumed = continuation(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv')
+            first_frame = int(table(checks / 'packed' / 'main' / 'trace.tsv')[0][0])
+            try:
+                state_check = check_quick_states(restart, saved, machine='Nintendo 64', route='main', at=state_frame + 1 - first_frame,
+                                                 settle=STATE_SETTLE, continued=continued, refused=refused, damaged=damaged_states,
+                                                 error=ConversionError)
+            finally:
+                resumed = continuation(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv')
         require_continuation(resumed)
         rows = []
         for (name, frames_, events), result in zip(routes, packed_results):
             done = results[name]
+            sites = n64_native.classify_sites(done.get('interpreted_sites') or (), variants)
+            classes = {kind: sum(site['count'] for site in sites if site['class'] == kind) for kind in n64_native.SITE_CLASSES}
+            # The whole listing stays in the qualification folder (tens of thousands of sites: tens of megabytes); the report keeps the
+            # totals by class and the most run sites.
+            listing = checks / f'interpreted-sites-{name}.json'
+            atomic_json(listing, sites)
             folder = checks / 'packed' / name
             # native_entries / interpreted_opcodes are the keys the common report (report_schema, v2) reads for the main CPU: here
             # VR4300 instructions, a jump and its delay slot counted as one by both.
@@ -494,6 +563,12 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                          'packed_reference_match': True, 'reference_interpreted_instructions': expected[name]['interpreted'],
                          'trace_sha256': file_sha256(folder / 'trace.tsv'), **trace_digests(folder / 'trace.tsv'),
                          'steps': len(events), 'script_sha256': file_sha256(scripts[name]),
+                         # Gate G3: where each interpreted instruction ran, with its class; the counts add up to the run's total.
+                         'interpreted_classes': {kind: n for kind, n in classes.items() if n}, 'interpreted_sites': sites[:REPORTED_SITES],
+                         'interpreted_sites_listing': {'file': str(listing), 'sites': len(sites), 'sha256': file_sha256(listing)},
+                         'interpreted_sites_distinct': done.get('interpreted_sites_distinct'),
+                         'interpreted_sites_unlisted': done.get('interpreted_sites_unlisted'),
+                         'interpreted_sites_complete': native and sum(classes.values()) + (done.get('interpreted_sites_unlisted') or 0) == done['interpreted'],
                          **({'state_saved_at': state_frame, 'state_restart_match': resumed['matches']} if name == 'main' else {})})
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
         report = {
@@ -524,12 +599,14 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
                             'compatibility': 'the exact game and build that wrote the state; refused between builds',
-                            'schema': 'RRN64QS2', 'machine': 'n64', 'rom_identity': source.sha256,
+                            'schema': 'RRN64QS5', 'machine': 'n64', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': delivered.kind == 'packed', 'saved_at_frame': state_frame,
                                            'continuation_frames': resumed['frames'], 'continuation_matches': resumed['matches'],
                                            'equal_frames': resumed['equal_frames'], 'differing_columns': resumed['differing_columns'],
                                            'saving_leaves_the_timeline': True,
-                                           'compared': 'CPU registers, RDRAM and picture of every frame; not the sound samples'}},
+                                           'compared': 'CPU registers, RDRAM, picture and sound of every frame',
+                                           **{key: state_check[key] for key in ('truncated_state_rejected', 'damaged_states_refused',
+                                                                                'missing_state_creates_nothing', 'state_bytes')}}},
             'ordinary_saves': {'supported': True, 'scope': 'EEPROM, SRAM, Flash and the four controller paks, one file in the game\'s '
                                                            'data folder (written when they change during play)', 'validated': False},
             'input_players': 4, 'peripheral': {'pads': 4, 'stick': 'analog (a gamepad\'s left stick; arrows on the keyboard)',
