@@ -342,6 +342,7 @@ constructor, closing, the single-instance check, the start-up picture and
 | `gui_options.py` | the options window and its pages |
 | `gui_sharing.py`, `gui_reports.py` | discoveries, the shared base and sending; problem reports |
 | `gui_account.py`, `gui_leaderboard.py` | the player corner and sign-in; leaderboard, achievement and closing cards |
+| `console_menu.py` | the short labels of the console menu (data by profile id, interface only) and the sizes of the field and its list |
 
 All of them are interface modules: no stamp hashes them
 (`INTERFACE_MODULES` in `retrorecomp/stamp_inputs.py`). A test or a tool that

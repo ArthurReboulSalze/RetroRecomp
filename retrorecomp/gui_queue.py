@@ -19,6 +19,7 @@ from .systems.registry import discover_games
 from .branding import COLORS
 from .platforms import open_local
 from .gui_common import PROFILES
+from .console_menu import menu_label, profile_for_label
 
 
 # Shapes a dump can come in besides a machine's own extension (an archive, a raw dump, a Game Boy Color cartridge).
@@ -78,16 +79,18 @@ class QueueMixin:
             self.messages.put(('log', self.tr('drop_unreadable')))
 
     def system_choices(self):
-        return (self.tr('automatic'), *(profile.name for profile in PROFILES))
+        # The short menu label of each machine (console_menu.py), never its long name.
+        return (self.tr('automatic'), *(menu_label(profile) for profile in PROFILES))
 
     def system_display(self):
-        return self.tr('automatic') if self.system_mode == 'auto' else get_profile(self.system_mode).name
+        return self.tr('automatic') if self.system_mode == 'auto' else menu_label(get_profile(self.system_mode))
 
     def change_system(self, event=None):
         if self.busy:
             return
         selected = self.system_name.get()
-        self.system_mode = next((profile.id for profile in PROFILES if profile.name == selected), 'auto')
+        profile = profile_for_label(PROFILES, selected)
+        self.system_mode = profile.id if profile else 'auto'
         self.reload_queue()
 
     def update_output_controls(self):

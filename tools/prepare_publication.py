@@ -224,10 +224,10 @@ retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gate
 tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_delivery_evidence.py tests/test_packed_fallback.py tests/test_x68000_common.py tests/x68000_common_golden.json tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py tools/startup_cost.py tests/test_startup_cost.py tools/gba_frame_cost.py tests/test_gba_frame_cost.py tests/test_sdl_install.py tests/test_dependency_pins.py
 retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
-retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py
+retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py retrorecomp/console_menu.py
 retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
-retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py tests/test_compress_option.py
+retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py tests/test_compress_option.py tests/test_console_menu.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 tests/test_qualified_bank.py
 retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_knowledge_exchange.py

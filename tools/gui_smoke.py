@@ -63,6 +63,13 @@ def smoke(window):
     assert application.body.grid_rowconfigure(1)['weight'] == 4
     assert application.body.grid_rowconfigure(7)['weight'] == 2
     assert application.banner is not None
+    # The console menu: short unique labels, a field wide enough for them, a drop-down as wide as its longest entry.
+    labels = application.system_field.cget('values')
+    assert len(labels) == len(set(labels)) == len(PROFILES) + 1 and 'Amiga 500' in labels and 'Amiga 1200' in labels
+    assert int(application.system_field.cget('width')) == int(application.language_field.cget('width')) >= 14
+    application.size_popdown(application.system_field)
+    assert application.system_field.cget('postcommand')
+    assert len(application.style.lookup('Header.TCombobox', 'postoffset').split()) == 4
     assert application.banner.width() <= 600 and application.banner.height() < 175
     banner_items = application.header.find_withtag('banner')
     assert len(banner_items) == 1

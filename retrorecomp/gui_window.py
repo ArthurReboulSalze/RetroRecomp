@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import tkinter as tk
 import webbrowser
-from tkinter import messagebox, ttk
+from tkinter import font as tkfont, messagebox, ttk
 
 from . import __version__, online
 from .batch import system_output
@@ -14,6 +14,7 @@ from .languages import LANGUAGES, LANGUAGE_NAMES, language_name
 from .tooltips import Tooltip
 from .ui_fonts import family
 from .systems import get_profile
+from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
 from .dialogs import center_dialog
 from .gui_common import HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
@@ -220,6 +221,21 @@ class WindowMixin:
         self.status_key, self.status_values = key, values
         self.status.set(self.tr(key, **values))
 
+    def size_header_fields(self):
+        """Console and language fields: wide enough for the longest menu label (the same width for both),
+        and a drop-down list as wide as its longest entry (a ttk list is only as wide as its field)."""
+        font = tkfont.Font(root=self.app, font=self.system_field.cget('font'))
+        labels = (*self.system_choices(), *LANGUAGE_NAMES)
+        width = field_characters(font, labels)
+        for field in self.header_fields:
+            field.configure(width=width, postcommand=lambda field=field: self.size_popdown(field))
+
+    def size_popdown(self, field):
+        font = tkfont.Font(root=self.app, font=field.cget('font'))
+        extra = popdown_extra(font, field.cget('values'), field.winfo_width())
+        # The list opens under the field and grows to its left (the field sits at the window's right edge).
+        self.style.configure('Header.TCombobox', postoffset=(-extra, 0, extra, 0))
+
     def refresh_language(self):
         previous_font = self.ui_font
         self.ui_font = family(self.language)
@@ -266,6 +282,9 @@ class WindowMixin:
                     widget.current(index)
             for child in widget.winfo_children(): update(child)
         update(self.app)
+        # After the fonts followed the language: the fields keep room for their longest entry.
+        self.size_header_fields()
+        self.layout_header()
         # Section titles whose English text another key shares ("Box art").
         for name, key in (('account_frame', 'options_account'), ('covers_frame', 'options_boxart'),
                           ('disk_frame', 'options_disk_space')):
