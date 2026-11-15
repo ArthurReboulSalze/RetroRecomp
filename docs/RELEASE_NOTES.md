@@ -37,6 +37,9 @@
   less shimmer on fine textures, at the same picture size, for four times the graphics card's drawing (at 4x, a powerful card). The
   resolution row gains **8x**, which is heavy: on an RTX 3090 it does not hold full speed (its picture is too large to read back each
   frame); 4x with Supersampling is the better choice. A weak or integrated graphics card may not hold either.
+- **Nintendo 64: the C buttons on the right stick's bindings, and 16:9.** The four C buttons are the right stick's directions as kit
+  bindings, rebindable in F2 (Y and B are free); the left stick is unchanged. The Screen format row offers 16:9 for games with their own
+  widescreen option, such as GoldenEye 007's Ratio 16:9.
 - **Sony PlayStation (supported).** On the owner's decision of 15 November 2026, after his play test, the PlayStation is supported
   (section 8 of [PLAYSTATION.md](PLAYSTATION.md)): discs as EBOOT, CUE/BIN,
   CloneCD or ISO, NTSC and PAL, with your own BIOS or the free OpenBIOS.
