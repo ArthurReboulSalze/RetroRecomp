@@ -79,6 +79,30 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.6 in 1.7.7
+
+1.7.7 is the release after 1.7.6 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Every machine: no crash when a machine has no picture yet](#every-machine-no-crash-when-a-machine-has-no-picture-yet-177) | none | **the host stamp of all 21 profiles** (`rrhk_video.c`, `hostkit/hostkit.h`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+
+## Every machine: no crash when a machine has no picture yet (1.7.7)
+
+Found by the PlayStation specialist on 15 November 2026: switching the PlayStation's renderer in F3 reopened its session, which
+had no picture until its next frame, and the menu holds the machine; with the xBR or Scale2x filter the game closed (access
+violation), because both read the picture themselves. Sharp pixels and scanlines survived (SDL refuses a NULL upload).
+
+* **The kit** (`rrhk_video.c`, [HOST_KIT.md](HOST_KIT.md), Pictures): when `pixels()` returns NULL or the visible size is 0 x 0,
+  the game's area is black under every filter and nothing is read; the picture comes back with the machine's next one. Any machine whose picture is missing
+  for a moment (a session reopened, a Restart under a menu) is covered; the PlayStation's session also never returns NULL now
+  (its own branch).
+* **Stamps.** The host stamp of all 21 profiles moves (`rrhk_video.c`, `hostkit/hostkit.h`, a comment). No game or build
+  stamp. The quick-state keys of the Nintendo 64, the Amiga and the Atari ST move (they hash every input); no other.
+* **Checks.** `tools/hostkit_capabilities_selftest.py`, run 14: a machine with no picture (NULL, then 0 x 0) under each of the four
+  filters, on a console (F3 cycles) and on the machine whose picture grows (the F3 page): a black game area, no crash, then the picture
+  again. Without the change the same run ends in an access violation (exit 0xC0000005).
+
 ## Exports of 1.7.5 in 1.7.6
 
 1.7.6 is the release after 1.7.5 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
