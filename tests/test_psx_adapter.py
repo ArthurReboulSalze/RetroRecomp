@@ -66,20 +66,23 @@ class PsxAdapterTest(unittest.TestCase):
 
     def test_a_raised_resolution_the_pc_cannot_draw_is_said(self):
         # Tobal No. 1 at 4x runs 18 % too slow in combat and its sound breaks up: the labels and a notice say so.
-        self.assertIn('"4x (heavy)", "8x (very heavy)"', ADAPTER)
+        self.assertIn('"2x", "4x (heavy)"};', ADAPTER)
+        # 8x is not offered on the software renderer (the owner, 15 November 2026: « le 8x, c'est injouable »)
+        self.assertNotIn('8x', ADAPTER.split('static const char *const resolution_values[]')[1].split(';')[0])
         self.assertIn('watch_load();', ADAPTER)
         self.assertIn('if (scale == 1 || warned_scale == scale || interrupted)', ADAPTER)
 
     def test_graphics_defaults_are_the_cores(self):
-        # The default of each option is the setting every gate uses: Beetle's own, except deinterlacing (progressive).
-        defaults = {'resolution_values': '1x(native)', 'dithering_values': '1x(native)', 'deinterlacing_values': 'off',
+        # The default of each option is the setting every gate uses: Beetle's own.
+        defaults = {'resolution_values': '1x(native)', 'dithering_values': '1x(native)',
                     'aspect_values': 'corrected', 'crop_values': 'smart'}
         for table, value in defaults.items():
             first = re.search(rf'{table}\[\] = \{{"([^"]+)"', ADAPTER).group(1)
             self.assertEqual(first, value, table)
-        self.assertRegex(ADAPTER, r'\{"Internal resolution", L"resolution", resolutions, 4, 0\}')
-        # The first build's key held an index into another list (Weave first): a new key, so every player starts progressive.
-        self.assertIn('{"Deinterlacing", L"deinterlace", deinterlacing, 4, 0}', ADAPTER)
+        self.assertRegex(ADAPTER, r'\{"Internal resolution", L"resolution", resolutions, 3, 0\}')
+        # No deinterlacing row (the owner's « ok » of 15 November 2026): always progressive, the session's core setting.
+        self.assertNotIn('Deinterlacing', ADAPTER)
+        self.assertIn('{"beetle_psx_deinterlacer", "off"},', (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8'))
 
 
 if __name__ == '__main__':

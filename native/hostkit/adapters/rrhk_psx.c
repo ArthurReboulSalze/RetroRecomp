@@ -61,33 +61,30 @@ static const int ps_bits[ACTIONS] = {14, 13, 15, 12, 10, 11, 8, 9, 1, 2, 3, 0, 4
 
 /* ---- the graphics page (D14): what the player sees only; the default of each is the reference the gates use ---- */
 /* The renderer is the core's, in software, on one thread: 4x is more than a fast desktop draws in time in a busy scene (Tobal
- * No. 1 in combat on a Ryzen 9 3900X: 18 % too slow, its sound in pieces; 2x holds). */
-static const char *const resolutions[] = {"1x (native)", "2x", "4x (heavy)", "8x (very heavy)"};
-static const char *const resolution_values[] = {"1x(native)", "2x", "4x", "8x"};
+ * No. 1 in combat on a Ryzen 9 3900X: 18 % too slow, its sound in pieces; 2x holds, and held in the owner's own test of 15
+ * November 2026). 8x is not offered: 64 times the pixels, never in time on one thread (« le 8x, c'est injouable »); a saved
+ * index 3 is out of range and keeps the default. */
+static const char *const resolutions[] = {"1x (native)", "2x", "4x (heavy)"};
+static const char *const resolution_values[] = {"1x(native)", "2x", "4x"};
 static const char *const dithering[] = {"Native", "At the internal resolution", "Off"};
 static const char *const dithering_values[] = {"1x(native)", "internal resolution", "disabled"};
-/* Progressive: the GPU draws both fields of the displayed frame, so a 480-line picture is shown whole, without combing or a
- * field missing (Beetle's "Off"; the console itself draws one field per frame there). Weave and Bob are the console's fields. */
-static const char *const deinterlacing[] = {"Progressive", "Weave (lines on motion)", "Bob (shakes)", "Bob, offset (shakes)"};
-static const char *const deinterlacing_values[] = {"off", "weave", "bob", "bob_offset"};
+/* No deinterlacing row (the owner's « ok » of 15 November 2026): the picture is always progressive, the session's core setting
+ * (psx_session.c): the GPU draws both fields of the displayed frame, so a 480-line picture is shown whole, without combing and
+ * without the shaking of Bob. A game that would need the console's fields becomes a per-disc data row, not a menu choice. A
+ * saved `deinterlace=` of 1.7.5 is a key no row reads: ignored, the file stays as it is. */
 static const char *const aspects[] = {"Corrected", "Uncorrected", "4:3", "NTSC"};
 static const char *const aspect_values[] = {"corrected", "uncorrected", "4:3", "ntsc"};
 static const char *const crops[] = {"Horizontal and vertical", "Horizontal", "Off"};
 static const char *const crop_values[] = {"smart", "static", "disabled"};
-enum { GFX_RESOLUTION, GFX_DITHER, GFX_DEINTERLACE, GFX_ASPECT, GFX_CROP, GFX_COUNT };
+enum { GFX_RESOLUTION, GFX_DITHER, GFX_ASPECT, GFX_CROP, GFX_COUNT };
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
-    {"Internal resolution", L"resolution", resolutions, 4, 0},
+    {"Internal resolution", L"resolution", resolutions, 3, 0},
     {"Dithering", L"dithering", dithering, 3, 0},
-    /* "deinterlace", not the first build's "deinterlacing": its saved index named another list (Weave first), and kept a
-     * player who had tried it from ever seeing the progressive default. */
-    {"Deinterlacing", L"deinterlace", deinterlacing, 4, 0},
     {"Aspect ratio", L"aspect", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
-static const char *const *const gfx_core_values[GFX_COUNT] = {resolution_values, dithering_values, deinterlacing_values,
-                                                              aspect_values, crop_values};
-static const char *const gfx_core_keys[GFX_COUNT] = {"internal_resolution", "dither_mode", "deinterlacer", "aspect_ratio",
-                                                     "crop_overscan"};
-static int scale = 1;   /* the internal resolution in force (1, 2, 4, 8) */
+static const char *const *const gfx_core_values[GFX_COUNT] = {resolution_values, dithering_values, aspect_values, crop_values};
+static const char *const gfx_core_keys[GFX_COUNT] = {"internal_resolution", "dither_mode", "aspect_ratio", "crop_overscan"};
+static int scale = 1;   /* the internal resolution in force (1, 2, 4) */
 
 static void gfx_apply(int option, int value) {
     if (option < 0 || option >= GFX_COUNT || value < 0 || value >= gfx_options[option].count) return;

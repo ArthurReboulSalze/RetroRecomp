@@ -89,6 +89,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
+| [Sony PlayStation: the graphics page without deinterlacing and 8x](#sony-playstation-the-graphics-page-without-deinterlacing-and-8x-176) | the PlayStation (`native/hostkit/adapters/rrhk_psx.c`) | none | none |
 | [Sony PlayStation: supported](#sony-playstation-supported-176) | the PlayStation (`retrorecomp/systems/psx.py`, its status) | none | none |
 | [Sony PlayStation: shared paths](#sony-playstation-shared-paths-176) | the PlayStation | none | none |
 | [Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable](#sony-playstation-the-cpu-state-is-compared-every-interpreted-instruction-is-listed-the-gtes-quick-state-is-fixed-the-memory-card-is-set-aside-when-unusable-176) | the PlayStation | the PlayStation's host stamp | PlayStation states of 1.7.5 refused (another build) |
@@ -296,6 +297,19 @@ nothing was saved for that session. The card stays the raw 128 KiB other program
 **Stamps** (`compilation_inputs.role_stamps`, the branch as a whole, the shared paths and G11 included, against main `ffbaee01`, at `6a5d9e9b`): the PlayStation's game stamp (`55f0e406d72d` to `8a84b9740b28`) and host stamp (`bd8f35608de2` to `58aa32803f59`); every other machine's stamps equal main's. **Existing exports:** converted again in full at their next conversion. **Quick states:** a PlayStation state of 1.7.5 is
 refused (another build), as for any change of the game. **Hot path:** the step hook calls one more step lookup when a step hands
 back a word, which the routes measure as a gain (no interpreted instruction left on Ape Escape's routes); no timing was taken.
+
+## Sony PlayStation: the graphics page without deinterlacing and 8x (1.7.6)
+
+**What changes.** F3's page loses two choices (the owner, 15 November 2026). The **Deinterlacing** row is gone: the picture is always
+progressive, the session's core setting that was already the row's default (« ok »). **8x** leaves the internal resolution list
+(« le 8x, c'est injouable »: 64 times the pixels, never in time on one thread); 1x, 2x and 4x stay. A settings file of 1.7.5 loads
+cleanly: its `deinterlace=` is a key no row reads any more (ignored, left in the file), and a saved `resolution=3` is out of range and
+keeps the default, 1x.
+
+**Stamps:** the PlayStation's host stamp (the adapter is among its host inputs); its game and build stamps do not move for this change.
+**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged (the deinterlacer's setting was already progressive
+by default; a state taken at 8x in 1.7.5 is refused cleanly like every PlayStation state of 1.7.5). **Site limits:** unchanged.
+**Hot path:** no.
 
 ## Sony PlayStation: supported (1.7.6)
 
