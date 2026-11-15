@@ -128,6 +128,7 @@ int rrhk_option_icon(int key) {
     case SDL_SCANCODE_GRAVE: return RR_ICON_ROW_SPEED;
     case RRHK_KEY_RUMBLE: return RR_ICON_ROW_RUMBLE;
     case RRHK_KEY_START_HELP: return RR_ICON_ROW_REMINDER;
+    case RRHK_KEY_QUIT: return RR_ICON_ROW_EXIT;
     case RR_ROW_AUDIO: return RR_ICON_ROW_WAVE;
     case RR_ROW_FKEYS: return RR_ICON_ROW_FKEY;
     case RR_ROW_VOLUME: return RR_ICON_ROW_VOLUME;
@@ -156,6 +157,10 @@ static RrhkOptionRows option_rows(void) {
     /* 1.7.4: the plates of the first seconds (F1, F2, Esc, the gamepad's combinations, a computer's keyboard) may be turned off. */
     rrhk_option_row(&d, RRHK_KEY_START_HELP, "Start-up reminders: %s", rr_tr(rrhk_start_help() ? "ON" : "OFF"));
     rrhk_option_row(&d, SDL_SCANCODE_GRAVE, "` Max speed: %s", rr_tr(rrhk.max_speed ? "ON" : "OFF"));
+    /* 1.7.6: the last row quits, through the one "Quit? No / Yes" (a player who knows neither Esc nor the pad's combination, or
+     * whose keyboard belongs to the computer). The fullest pages (the computers, the Neo Geo) reach fourteen rows with it: no
+     * scrolling on any machine. */
+    rrhk_option_row(&d, RRHK_KEY_QUIT, "%s", rr_tr("Quit the game"));
     return d;
 }
 

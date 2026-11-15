@@ -254,7 +254,8 @@ Debian 13 PC; three long routes stop in a menu (Hydlide 3's set-up at this level
 text C-BIOS draws with the wrong characters) and Metal Gear's play route stops at its first transceiver call, so their play is covered only in part; no game has been played through (gameplay validation: none), and hardware fidelity and
 latency are not claimed. Cassettes, the FM-PAC and the clock's battery memory are not converted; disk games are the MSX2+'s.
 
-The **MSX2+** profile (`msx2plus`) is experimental since 1.7.4 ([status](MSX.md#9-the-msx2-msx2plus)): MSX2+
+The **MSX2+** profile (`msx2plus`) is supported since 1.7.6, on the owner's decision of 14 November 2026 after his play test of six games
+(open in 1.7.4; [status](MSX.md#9-the-msx2-msx2plus)): MSX2+
 cartridges (a `.rom` or ZIP chosen as MSX2+ or kept in a folder named `msx2+`, or a `.mx2` with no other hint:
 [the rule](MSX.md#9-the-msx2-msx2plus)), on C-BIOS 0.29a's MSX2+ images or your own MSX2+ BIOS pair, and disk games (a `.dsk` or a set of them) with your own MSX2+ BIOS
 pair and your own disk ROM. Its board is the MSX2's, with the V9958 in place of the V9938 (its YJK modes and horizontal scroll), MSX-MUSIC

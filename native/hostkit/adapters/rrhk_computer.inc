@@ -29,7 +29,7 @@ static struct {
 /* The F2 options row that hands the whole keyboard to the computer, as Ctrl+Alt+K does: a pseudo-key past every scancode,
  * which no keyboard sends, so only the row reaches the machine's key hook (decision of 5 November 2026: a keyboard game
  * keeps its keys, the pad keys bound on the keyboard stop, and only a real gamepad plays the joystick). */
-#define RRC_ROW_KEYBOARD (SDL_NUM_SCANCODES + 1)
+#define RRC_ROW_KEYBOARD RRHK_ROW_KEYBOARD      /* the shell's key for this row, which chooses its icon */
 
 static int player_blocked(void) { const RrhkUi *ui = rrhk_ui(); return ca.windowed && (ui->menu || ui->paused); }
 static int player_escape_held(void) { return ca.windowed && ca.escape_held; }
@@ -288,10 +288,19 @@ static bool x_help_page(RrhkUi *ui, const RrhkMenuCtx *ctx) {
    const char *const lines[] = {"Ctrl+Alt+K: full guest keyboard", rrhk_tr("Ctrl+Alt+M / middle click: mouse", "Ctrl+Alt+M / clic milieu : souris"), "Ctrl+Alt+F: rapid fire",
       RRC_HELP_DISKS "Ctrl+Alt+H: help", "Ctrl+Alt+O: options",
       "Ctrl+Alt+Enter: display mode", "Ctrl+Alt+Q: quit", "Ctrl+F1-F12: Retro-Recomp shortcuts"};
+   /* 1.7.6: each line has its icon; the computer's disk lines (RRC_HELP_DISKS, between the first three and the last five) the
+    * floppy */
+   static const int first_icons[3] = {RR_ICON_ROW_KEYBOARD, RR_ICON_ROW_MOUSE, RR_ICON_ROW_AUTOFIRE};
+   static const int last_icons[5] = {RR_ICON_ROW_HELP, RR_ICON_ROW_SLIDERS, RR_ICON_ROW_DISPLAY, RR_ICON_ROW_EXIT, RR_ICON_ROW_FKEY};
+   const unsigned count = sizeof lines / sizeof lines[0];
    unsigned n;
    (void)ui;
    if (!ca.help_page) return false;
-   for (n = 0; n < sizeof lines / sizeof lines[0]; n++) rrhk_menu_line(ctx, RR_MENU_FIRST_LINE + (int)n * RR_MENU_LINE, rr_tr(lines[n]));
+   for (n = 0; n < count; n++) {
+      const int y = RR_MENU_FIRST_LINE + (int)n * RR_MENU_LINE;
+      rrhk_menu_icon(ctx, 20, y, n < 3 ? first_icons[n] : n >= count - 5 ? last_icons[n - (count - 5)] : RR_ICON_ROW_DISK);
+      rr_menu_text(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, 32, y, rr_tr(lines[n]), RR_MENU_GOLD);
+   }
    rrhk_menu_line(ctx, RR_MENU_LAST_LINE, rr_tr("Tab: game / computer shortcuts"));
    return true;
 }
