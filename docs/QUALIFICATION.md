@@ -1519,7 +1519,7 @@ branch at `0f0ca6f1` on 15 November 2026, the same native counts where the first
 | Install | What it tests | Native on the main route | Interpreted (main, explore) | Checks |
 |---|---|---|---|---|
 | Slam Tilt | the test game: a 68020 and AGA slave, 256-colour tables | 71,723,069 | 0, 0 | all |
-| Pinball Illusions | the player's Kickstart 3.1 over `$F80000` | 172,559,712 | 1, 1 (a Kickstart instruction) | all |
+| Pinball Illusions | the player's Kickstart 3.1 over `$F80000` | 172,559,712 | 1, 1 (a Kickstart instruction) | all; a known failure in play (below) |
 | Zool 2 AGA | AGA sprites and scrolling | 46,198,804 | 0, 0 | all |
 | Banshee | Kickstart 3.1, a 68020 shooter | 40,576,307 | 1, 1 (a Kickstart instruction) | all |
 | Fears | a chunky 3D engine | 70,462,637 | 0, 0 | all |
@@ -1535,6 +1535,12 @@ damaged copies are refused.
 **Alien Breed 3D** stays black on our A1200 model, while the private oracle under the real WHDLoad shows its intro. What is known: its slave
 builds its own ExecBase with most vectors set to ILLEGAL; the game, patched by `resload_PatchSeg` (whose offsets and `PL_S` encoding follow
 JST's), reaches a loop that calls `OpenResource` through that ExecBase and stops there. Why it does not on the real WHDLoad is not found.
+
+**Pinball Illusions** passes every check of the panel, but after its intro the screen stays black with the music playing (Arthur's play
+test of 15 November 2026), where the private oracle under the real WHDLoad goes on to « Loading » and the title. The interpreted reference
+machine shows the same black screen, so the native code is not the cause: it is our machine model or layer. What is known: its copper
+lists program no beam; the screen uses eight planes in dual playfield (`BPLCON0` `$0611`), `FMODE` `$000F` and `BPLCON4`. The cause is
+not found; a register comparison inside the machine is the next step.
 
 **G11 (private oracle).** Copperline (GPL-3.0, built privately, never shipped) runs the same install on its A1200 model under the real
 WHDLoad 20.1, with no input, one picture a second; the converted game runs headless with no input, a picture every 5 frames over 70 seconds.
@@ -1560,7 +1566,7 @@ frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA fo
 | G9 | P | The routes reach play on Slam Tilt and Zool 2 (pictures); not checked install by install | A per-install record of where the routes end |
 | G10 | ? | Moira's 68EC020 is the reference CPU; its own tests compare it with Musashi; our lengths agree with Moira's disassembler on 19,084 random instructions | Independent 68020 vectors |
 | G11 | P | The oracle comparison above (8 installs) | Hardware evidence beyond another emulator |
-| G12 | P | A panel of 9 named: 8 pass, one failure named with what is known | Alien Breed 3D |
+| G12 | P | A panel of 9 named: 8 pass every check, of which Pinball Illusions stays black after its intro; one fails to start; both named with what is known | Alien Breed 3D, Pinball Illusions |
 | G13 | P | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included | More installs, and the Kickstart 3.1 ones |
 | G14 | ? | | Arthur's play test |
 | G15 | P | AMIGA.md section 7 and this section keep the five measures apart and name the failure | |

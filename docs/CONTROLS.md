@@ -232,8 +232,24 @@ show how many pages there are: those up to the current page are filled, the
 current one brightest. Up/Down choose a row; Enter/A binds a control or changes
 a value (+ next, - previous on gun and option rows); Esc or B closes F2, and F2
 closes it from any page. F2 opens on the first page; moving between control
-pages keeps the selected row, and every control of a page is shown at once.
+pages keeps the selected row. A control page shows fifteen rows at once; a
+longer one (a PlayStation's or a Nintendo 64's gamepad page) scrolls with the
+selected row, ^ and v at the right edge saying more lies above or below.
 The game stays paused while F2 is open.
+
+**Clearing and restoring (1.7.6).** On any control page of any machine, Delete
+or Backspace (the pad's X) clears the selected binding or combination without
+waiting for a new one: the row shows "-" (or "Unassigned") and stays empty at
+the next start. X is the pad's button for "clear" on every F2 row (the gamepad
+choice, the dead zone) and never moves or confirms anything, so browsing with
+the D-pad, A and B cannot clear by accident. Each control page ends with
+**Restore defaults**: Enter (or A) gives that page's keys or buttons back as a
+first start gives them (a default another control holds swaps with it, as F2
+does), on player 1's pages the combinations of that page too, and on a gamepad
+page the stick dead zone; the gamepad choice stays. A row a machine drives from
+a stick (the Nintendo 64's Stick rows: "Left stick") keeps that stick; a button
+bound there is a second way to push it ("X / Left stick"), and clearing it
+leaves the stick alone.
 
 F10 is free on every console, and so are the former gun shortcuts: F10 and G on
 the Master System, F5 on Mega Drive and SNES gun games. The controller Guide

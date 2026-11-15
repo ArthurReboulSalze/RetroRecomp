@@ -339,6 +339,8 @@
     "Smooth scaling (console)": "Mise à l'échelle lissée (console)",
     "Dither smoothing": "Lissage du tramage",
     "Supersampling": "Suréchantillonnage",
-    "Screen format: %s": "Format d'écran : %s"
+    "Screen format: %s": "Format d'écran : %s",
+    "Enter: remap | Del/X: clear | Left/Right: page": "Entrée : attribuer | Suppr/X : effacer | </> : page",
+    "Enter / A: restore this page": "Entrée / A : rétablir cette page"
   }
 }

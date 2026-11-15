@@ -218,6 +218,26 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
 
+## Every machine: clear any binding, Restore defaults on each control page (1.7.6)
+
+On the owner's request of 15 November 2026 (a button he had put on the Nintendo 64's Stick rows could not be removed): any binding
+of any machine can be cleared, and each control page can be put back to its defaults ([HOST_KIT.md](HOST_KIT.md#d28), D28).
+
+* **Stamps.** The host stamp of all 21 profiles moves (`hostkit/hostkit.h` (a comment), `hostkit/hostkit_internal.h`, the shell's
+  `rrhk_input.c`, `rrhk_events.c`, `rrhk_menu.c`, `rrhk_options.c`, `runtime_catalog.inc` and the seven locale files). No adapter,
+  no game or build stamp: existing exports are not converted again for it. The quick-state keys of the machines that hash every
+  input (the Nintendo 64, the Amiga, the Atari ST) move; no other quick-state key.
+* **What players see.** Delete, Backspace or the pad's X on a binding or combination row clears it, and it stays cleared. A last
+  row, **Restore defaults**, on every control page; so a page that showed fifteen rows exactly now scrolls by one. A button bound
+  on a Nintendo 64 Stick row reads "X / Left stick". The ^ and v marks of a scrolling page are visible.
+* **Preferences.** Unchanged formats: a cleared row is the key 0 / button -1 every machine already read as "no binding"; Restore
+  writes the default values themselves.
+* **Texts.** Two new entries in the five game languages: "Enter: remap | Del/X: clear | Left/Right: page" and "Enter / A: restore
+  this page".
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 13 (Delete, Backspace and the pad's X clear keys, buttons and a
+  combination, read back as cleared at the next start; Restore defaults on the keyboard and gamepad pages, the swap, the other
+  player untouched); a gallery of the owner's saved Nintendo 64 page (before, cleared, restored) in French and English.
+
 ## Every machine: a 16:9 screen format for the games' own widescreen mode, scanlines per console line (1.7.6)
 
 A machine whose games may draw an anamorphic widescreen picture can show it at 16:9, kept per game; the scanlines follow the
@@ -411,6 +431,12 @@ progressive, the session's core setting that was already the row's default (« o
 (« le 8x, c'est injouable »: 64 times the pixels, never in time on one thread); 1x, 2x and 4x stay. A settings file of 1.7.5 loads
 cleanly: its `deinterlace=` is a key no row reads any more (ignored, left in the file), and a saved `resolution=3` is out of range and
 keeps the default, 1x.
+
+**Aspect ratio: 4:3 by default** (15 November 2026, on the owner's remark that Fit did not fill the screen). The row's list is now
+4:3, Corrected, Uncorrected, NTSC, under a new settings key (`aspect_ratio`): a saved `aspect=` of 1.7.5 named the old list and
+is no longer read, so every player starts at 4:3. With the overscan cropped the core's "Corrected" aspect is 1.22 for 1 (the
+cropped window's share of a 4:3 line): in fullscreen 1317 x 1080 on a full-HD screen, now 1440 x 1080. No pixel of the picture
+changes and the per-frame traces are equal with either choice (checked on a private build, 3,300 frames of one game).
 
 **Stamps:** the PlayStation's host stamp (the adapter is among its host inputs); its game and build stamps do not move for this change.
 **Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged (the deinterlacer's setting was already progressive

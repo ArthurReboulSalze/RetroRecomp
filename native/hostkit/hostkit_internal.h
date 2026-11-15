@@ -87,6 +87,10 @@ void rrhk_settings_path(void);
 void rrhk_store_binding(void);
 void rrhk_assign(int player, int action, bool pad, int value);   /* F2: bind, swapping with an action that had it; kept */
 void rrhk_clear_binding(void);
+void rrhk_restore_page(void);
+bool rrhk_restore_row(void);
+bool rrhk_combo_plain(int index, bool gamepad);
+void rrhk_combo_restore(bool gamepad);
 const wchar_t *rrhk_autofire_section(void);
 void rrhk_open_pads(void);
 void rrhk_close_pads(void);
