@@ -1109,6 +1109,8 @@
     "Graphics card (Vulkan)": "グラフィックカード (Vulkan)",
     "8x (graphics card)": "8x (グラフィックカード)",
     "8x needs the graphics card: 4x on the CPU": "8x にはグラフィックカードが必要です: CPU では 4x",
-    "No usable graphics card: the CPU draws the picture": "使えるグラフィックカードがありません: CPU が描画します"
+    "No usable graphics card: the CPU draws the picture": "使えるグラフィックカードがありません: CPU が描画します",
+    "Geometry precision (PGXP)": "ジオメトリ精度 (PGXP)",
+    "Perspective-correct textures": "パースペクティブ補正テクスチャ"
   }
 }

@@ -1109,6 +1109,8 @@
     "Graphics card (Vulkan)": "Tarjeta gráfica (Vulkan)",
     "8x (graphics card)": "8x (tarjeta gráfica)",
     "8x needs the graphics card: 4x on the CPU": "8x necesita la tarjeta gráfica: 4x en la CPU",
-    "No usable graphics card: the CPU draws the picture": "Ninguna tarjeta gráfica utilizable: la CPU dibuja la imagen"
+    "No usable graphics card: the CPU draws the picture": "Ninguna tarjeta gráfica utilizable: la CPU dibuja la imagen",
+    "Geometry precision (PGXP)": "Precisión geométrica (PGXP)",
+    "Perspective-correct textures": "Texturas con perspectiva correcta"
   }
 }

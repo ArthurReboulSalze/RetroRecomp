@@ -1109,6 +1109,8 @@
     "Graphics card (Vulkan)": "显卡 (Vulkan)",
     "8x (graphics card)": "8x (显卡)",
     "8x needs the graphics card: 4x on the CPU": "8x 需要显卡: CPU 上为 4x",
-    "No usable graphics card: the CPU draws the picture": "没有可用的显卡: 由 CPU 绘制画面"
+    "No usable graphics card: the CPU draws the picture": "没有可用的显卡: 由 CPU 绘制画面",
+    "Geometry precision (PGXP)": "几何精度 (PGXP)",
+    "Perspective-correct textures": "透视校正纹理"
   }
 }

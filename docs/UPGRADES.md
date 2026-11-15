@@ -85,10 +85,27 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [Sony PlayStation: geometry precision (PGXP)](#sony-playstation-geometry-precision-pgxp-177) | none | the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales: two new strings) | none |
 | [Sony PlayStation: the graphics card draws the picture](#sony-playstation-the-graphics-card-draws-the-picture-177) | the PlayStation (`psx_main.c`, `psx_session.h`, `psx_build.py`, the shared Vulkan side compiled in) and the Nintendo 64 (the shared Vulkan side gains its closing functions) | the PlayStation's (`psx_session.c`, `rrhk_psx.c`), and the host stamp of all 20 profiles (`runtime_catalog.inc` and the locales: five new strings) | none (a state loads with either renderer) |
 | [Sony PlayStation: the trace records the VRAM (format 2)](#sony-playstation-the-trace-records-the-vram-format-2-177) | the PlayStation (`psx_session.c`, `psx_session.h`, `psx_main.c`, `psx_conversion.py`) | the PlayStation's host stamp (`psx_session.c`) | none |
 | [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
 | [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
+
+## Sony PlayStation: geometry precision (PGXP) (1.7.7)
+
+**What changes.** F3 gains two rows after the internal resolution, both Off by default: « Geometry precision (PGXP) » (Beetle's
+PGXP in its "memory only" mode) and « Perspective-correct textures ». They change in play, on the card and on the CPU, without
+reopening the session. Beetle's "memory + CPU" mode, its PGXP culling and its vertex cache are not offered.
+
+**What it does not change.** With both rows Off (the default) every frame is byte for byte what it was: on Ape Escape, 3,300 frames
+on the CPU and on the card, every trace column equal to the build before this change, picture included. The checks of a
+conversion run with PGXP off. With PGXP on the run stays at 0 interpreted instructions and differs slightly from the checked one
+(RAM and CPU state on some frames: written on the PlayStation's page). Turning it on and off in play was checked headless and in a
+window of the real Windows video driver under each filter, the machine held after each change: the game continues.
+
+**Stamps:** the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales).
+**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged (PGXP keeps nothing in a state;
+after F9 its precision comes back as the game recomputes its vertices). **Hot path:** with PGXP off, the same.
 
 ## Sony PlayStation: the graphics card draws the picture (1.7.7)
 

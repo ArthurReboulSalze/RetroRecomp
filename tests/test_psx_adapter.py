@@ -132,5 +132,15 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('!strcmp(argv[i], "--gfx-at")', main)
 
 
+    def test_pgxp_is_offered_off_and_only_in_memory_mode(self):
+        # 1.7.7 (study section 7): two rows, both Off by default; "On" is Beetle's "memory only"; the checks run with it off
+        self.assertIn('{"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 0},', ADAPTER)
+        self.assertIn('{"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 0},', ADAPTER)
+        self.assertIn('static const char *const pgxp_mode_values[] = {"disabled", "memory only"};', ADAPTER)
+        self.assertNotIn('memory + CPU', ADAPTER.split('pgxp_mode_values[]')[1].split(';')[0])
+        self.assertNotIn('pgxp_nclip', ADAPTER)
+        self.assertNotIn('pgxp_vertex', ADAPTER)
+
+
 if __name__ == '__main__':
     unittest.main()

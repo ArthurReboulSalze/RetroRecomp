@@ -1109,6 +1109,8 @@
     "Graphics card (Vulkan)": "Видеокарта (Vulkan)",
     "8x (graphics card)": "8x (видеокарта)",
     "8x needs the graphics card: 4x on the CPU": "8x требует видеокарту: на ЦП 4x",
-    "No usable graphics card: the CPU draws the picture": "Нет подходящей видеокарты: изображение рисует ЦП"
+    "No usable graphics card: the CPU draws the picture": "Нет подходящей видеокарты: изображение рисует ЦП",
+    "Geometry precision (PGXP)": "Точность геометрии (PGXP)",
+    "Perspective-correct textures": "Перспективная коррекция текстур"
   }
 }

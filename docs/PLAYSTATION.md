@@ -40,6 +40,15 @@ compared with the figures of a machine whose game code is translated, and it say
   says so; nothing fails. Changing the row in play opens the machine again on the other renderer and gives it back as a quick
   state (a state saved with one renderer loads with the other: checked both ways, 600 frames equal). The Vulkan headers come from
   Khronos, and the shader layout and the HDR pieces the renderer asks for are our own files ([licence](../licenses/beetle-psx.md)).
+- **Geometry precision (PGXP)** (1.7.7, on the owner's question: « Est-ce qu'on peut, nous aussi, utiliser comme Beetle PGXP ? »).
+  Two F3 rows, both **Off** by default: « Geometry precision (PGXP) » keeps the GTE's results with sub-pixel precision and carries
+  them through memory to the GPU, so 3D models stop wobbling (Beetle's "memory only" mode); « Perspective-correct textures » draws
+  textures with perspective (it acts only with the first row On). Both change in play, on the card and on the CPU. PGXP on changes
+  the emulated run slightly, as a raised resolution does on the CPU: on Ape Escape (3,300 frames) the RAM differs on about 450
+  frames and the CPU state on about 380, then comes back; the conversion's checks therefore always run with it off, and a run with
+  PGXP on is never compared with them. It still runs at 0 interpreted instructions (the native steps carry PGXP's own calls). Not
+  offered: Beetle's "memory + CPU" mode (marked « Buggy » upstream), its PGXP primitive culling (known to lock some games) and its
+  vertex cache; the core's game database still turns PGXP off for the games it knows break with it.
 - **F3** also has the internal resolution (1x, 2x, 4x, and 8x on the card only: asked for on the CPU it draws 4x and says so),
   dithering, aspect ratio and overscan crop. Dithering, aspect ratio and overscan crop change only the picture. On the CPU a
   raised internal resolution also changes the emulated drawing time, so the game runs slightly differently from the checked 1x

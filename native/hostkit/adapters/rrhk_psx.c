@@ -72,6 +72,17 @@ static const char *const renderers[] = {"Graphics card (Vulkan)", "CPU"};
  * drawing time. 8x only on the card (« le 8x, c'est injouable » on the CPU): chosen with the CPU drawing, it draws 4x and says so. */
 static const char *const resolutions[] = {"1x (native)", "2x", "4x", "8x (graphics card)"};
 static const char *const resolution_values[] = {"1x(native)", "2x", "4x", "8x"};
+/* PGXP (1.7.7, the owner's question of 15 November 2026: « Est-ce qu'on peut, nous aussi, utiliser comme Beetle PGXP ? »): the
+ * GTE's results kept with sub-pixel precision and carried through memory to the GPU, so 3D models stop wobbling; and textures
+ * drawn with perspective. Both Off by default, Beetle's own default: with PGXP on the emulated run changes slightly (the drawing
+ * time follows the vertices: on Ape Escape the RAM and the CPU state differ on some frames and come back), so the conversion's
+ * checks always run with it off. "On" is Beetle's "memory only"; its "memory + CPU" mode (« Buggy »), its own primitive culling
+ * (known to lock some games) and its vertex cache are not offered. The core's game database still turns PGXP off for the games
+ * it knows break with it. Both rows change on the fly: no reopening. */
+static const char *const pgxp_modes[] = {"Off", "On"};
+static const char *const pgxp_mode_values[] = {"disabled", "memory only"};
+static const char *const pgxp_textures[] = {"Off", "On"};
+static const char *const pgxp_texture_values[] = {"disabled", "enabled"};
 static const char *const dithering[] = {"Native", "At the internal resolution", "Off"};
 static const char *const dithering_values[] = {"1x(native)", "internal resolution", "disabled"};
 /* No deinterlacing row (the owner's « ok » of 15 November 2026): the picture is always progressive, the session's core setting
@@ -82,17 +93,21 @@ static const char *const aspects[] = {"Corrected", "Uncorrected", "4:3", "NTSC"}
 static const char *const aspect_values[] = {"corrected", "uncorrected", "4:3", "ntsc"};
 static const char *const crops[] = {"Horizontal and vertical", "Horizontal", "Off"};
 static const char *const crop_values[] = {"smart", "static", "disabled"};
-enum { GFX_RENDERER, GFX_RESOLUTION, GFX_DITHER, GFX_ASPECT, GFX_CROP, GFX_COUNT };
+enum { GFX_RENDERER, GFX_RESOLUTION, GFX_PGXP, GFX_PGXP_TEXTURE, GFX_DITHER, GFX_ASPECT, GFX_CROP, GFX_COUNT };
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
     {"Renderer", L"renderer", renderers, 2, 0},
     {"Internal resolution", L"resolution", resolutions, 4, 0},
+    {"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 0},
+    {"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 0},
     {"Dithering", L"dithering", dithering, 3, 0},
     {"Aspect ratio", L"aspect", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
-static const char *const *const gfx_core_values[GFX_COUNT] = {NULL, resolution_values, dithering_values, aspect_values, crop_values};
-static const char *const gfx_core_keys[GFX_COUNT] = {NULL, "internal_resolution", "dither_mode", "aspect_ratio", "crop_overscan"};
+static const char *const *const gfx_core_values[GFX_COUNT] = {NULL, resolution_values, pgxp_mode_values, pgxp_texture_values,
+                                                              dithering_values, aspect_values, crop_values};
+static const char *const gfx_core_keys[GFX_COUNT] = {NULL, "internal_resolution", "pgxp_mode", "pgxp_texture", "dither_mode",
+                                                     "aspect_ratio", "crop_overscan"};
 static int scale = 1;   /* the internal resolution in force (1, 2, 4, 8) */
-static int chosen[GFX_COUNT] = {0, 0, 0, 0, 0};   /* each row's value, given again to a session opened again */
+static int chosen[GFX_COUNT];   /* each row's value, given again to a session opened again */
 
 static void core_option(int option, int value) {
     RrPsxSession *s = rr_psx_host_session();
