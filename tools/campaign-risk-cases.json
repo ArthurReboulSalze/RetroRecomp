@@ -100,7 +100,7 @@
       {
         "title": "Pinball Illusions",
         "category": "kickstart-3",
-        "reason": "Asks for the player's Kickstart 3.1 (40.068 A1200), run from the 512 KiB window over $F80000; one Kickstart instruction stays interpreted",
+        "reason": "Asks for the player's Kickstart 3.1 (40.068 A1200), run from the 512 KiB window over $F80000; one Kickstart instruction stays interpreted. A known failure in play: after its intro the screen stays black with the music, where the real WHDLoad goes on to Loading and the title (the interpreted reference too: our model or layer, cause not found)",
         "source": "docs/AMIGA.md"
       },
       {
