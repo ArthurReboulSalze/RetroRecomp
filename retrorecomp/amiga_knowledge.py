@@ -163,7 +163,7 @@ def library_record(identity: str, system: str = SYSTEM) -> dict | None:
 
 # --- The Amiga 1200: the same names and rules, its own system and section, the 68EC020's instruction lengths ----------------------
 # Not shared while the profile is experimental (it is not in path_profiles.SHARED_SYSTEMS): the player's own record only.
-SYSTEM_A1200 = 'amiga1200'
+SYSTEM_A1200 = 'a1200'
 
 
 def _a1200_knowledge():
@@ -182,5 +182,5 @@ KNOWLEDGE_A1200 = _a1200_knowledge()
 
 
 def knowledge_for(system: str) -> media.MediaKnowledge:
-    """The shared-path rules of the Amiga 500 (`amiga`) or of the Amiga 1200 (`amiga1200`)."""
+    """The shared-path rules of the Amiga 500 (`amiga`) or of the Amiga 1200 (`a1200`)."""
     return {SYSTEM: KNOWLEDGE, SYSTEM_A1200: KNOWLEDGE_A1200}[system]

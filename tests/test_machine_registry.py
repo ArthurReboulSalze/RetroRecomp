@@ -49,7 +49,7 @@ DECLINED = {
     # The Atari ST likewise (atarist_conversion.main_route / explore_route: joystick and keyboard events in its own script format).
     # The Nintendo 64 too (n64_conversion.main_route / explore_route: pad buttons and analog stick events in its own script format).
     # The MSX, MSX2 and MSX2+: their routes come from msx_routes (the default mapping's keys and joystick).
-    'random_routes': {'x68', 'pce', 'amiga', 'amiga1200', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus'},
+    'random_routes': {'x68', 'pce', 'amiga', 'a1200', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),

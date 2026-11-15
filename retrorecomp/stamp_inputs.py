@@ -646,7 +646,7 @@ INPUTS = _resolve({
     # adapter (host role: it is in HOST_NATIVE above). The profile module comes from the profile; the CPU chain, the
     # observed-code generator and the computer adapters it shares are named by its stamp_groups. The licence of the engine
     # is listed here, not under every console (that would move every host stamp).
-    ('amiga', 'amiga1200'): (
+    ('amiga', 'a1200'): (
         'native/amiga_machine/CMakeLists.txt',
         'native/amiga_machine/amiga_player.c',
         'native/amiga_machine/amiga_savefile.h',

@@ -219,7 +219,7 @@ The Amiga is **supported from 1.7.5**. The owner played the six installs of [the
 
 **Still to deploy with the release:** the site side of the sharing, the limits of the `amiga` machine and the schema 3 validation of its records.
 
-## 7. The Amiga 1200 (`amiga1200`)
+## 7. The Amiga 1200 (`a1200`)
 
 **Experimental, in development for 1.7.6** (the owner's go of 14 November 2026). The Amiga 1200 has a profile of its own beside the Amiga 500,
 as the MSX2+ beside the MSX2: the same converter, session, resload layer and host adapter, run with the A1200 model. The Amiga 500 profile is
@@ -242,5 +242,6 @@ not changed by it.
 - **A known failure:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
   real WHDLoad does not reach it is not found).
 - **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
-  Gloom and Super Stardust convert with it.
+  Gloom and Super Stardust convert with it on the Amiga 1200, and Five A Side Soccer on the Amiga 500 (46 files unpacked on its main
+  route, every check passed).
 - **Not yet:** AGA super-hires shown at full width (the picture keeps one column per hires pixel).

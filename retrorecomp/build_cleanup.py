@@ -85,8 +85,8 @@ _MSX = re.compile(r'([0-9a-f]{12})-[0-9a-f]{8}')
 _FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE))
 # Machines whose project sits below a shared base <machine>/<host>/<SDK12>/: how many folders the game takes there.
 _BASED = {'x68': 1, 'amiga': 1, 'n64': 1, 'atarist': 2}
-# A profile that shares another one's build folder (the MSX2 converts with the MSX's converter).
-_FOLDER_OF = {'msx2': 'msx', 'msx2plus': 'msx'}
+# A profile that shares another one's build folder (the MSX2 converts with the MSX's converter, the Amiga 1200 with the Amiga's).
+_FOLDER_OF = {'msx2': 'msx', 'msx2plus': 'msx', 'a1200': 'amiga'}
 _REMOVING = re.compile(re.escape(REMOVING) + r'[0-9a-f]{16}')
 _SHA = re.compile(r'[0-9a-f]{64}')
 

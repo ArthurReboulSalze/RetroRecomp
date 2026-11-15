@@ -90,7 +90,7 @@
       {"title": "Lemmings", "prefer": "Image", "category": "mouse", "reason": "Mouse game: its routes wait for the intro, move the pointer onto 1 PLAYER and click; generic inputs during the intro shorten it and click where no button is", "source": "docs/AMIGA.md"},
       {"title": "Superfrog", "category": "not-an-install", "expect": "refusal", "reason": "The archive holds no WHDLoad slave: not an Amiga WHDLoad install, so the conversion must refuse it with its sentence", "source": "docs/QUALIFICATION.md"}
     ],
-    "amiga1200": [
+    "a1200": [
       {
         "title": "Slam Tilt",
         "category": "regression-baseline",

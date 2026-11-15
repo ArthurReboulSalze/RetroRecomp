@@ -73,7 +73,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| Commodore Amiga 1200 | experimental | `█████░░░░░` 53 % | ✅ 6 · 🟡 5 · ❔ 5 |
+| Commodore Amiga 1200 | experimental | `██████░░░░` 56 % | ✅ 6 · 🟡 6 · ❔ 4 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -91,7 +91,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ | ❔ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ❔ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ✅ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | 🟡 | ❔ |
@@ -107,7 +107,7 @@ md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
 x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = Game Boy Advance, amiga = Commodore Amiga, atarist = Atari ST, n64 = Nintendo 64,
 psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus | amiga1200 |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus | a1200 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y | P |
 | G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y | Y |
@@ -121,7 +121,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y | ? |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | Y | P |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y | ? |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | Y | ? |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | P | ? |
@@ -149,7 +149,7 @@ The page of each console, which the README links its line to (a console of the m
 | msx | [MSX.md](MSX.md) |
 | msx2 | [MSX.md](MSX.md) |
 | msx2plus | [MSX.md](MSX.md) |
-| amiga1200 | [AMIGA.md](AMIGA.md) |
+| a1200 | [AMIGA.md](AMIGA.md) |
 
 </details>
 
@@ -1419,7 +1419,7 @@ the cartridge sensors, the link cable and the e-Reader are not converted. Keep t
 
 ## Commodore Amiga 1200: evidence behind its column (15 November 2026)
 
-The experimental profile `amiga1200` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-amiga1200)), branch `spec/amiga1200-176`. Every conversion
+The experimental profile `a1200` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)), branch `spec/amiga1200-176`. Every conversion
 below ran on Windows (llvm-mingw), one at a time, from an empty scratch library, with the player's own Kickstart 3.1 where the install asks
 for one. Nothing here says exact hardware, complete gameplay or latency: the five measures stay apart, and only native code and CPU
 agreement with the reference are measured.
@@ -1456,10 +1456,10 @@ text, almost every frame unique); no colour or layout difference was seen. A com
 **Frame cost** (a quiet PC, Arthur's OK, 14 November 2026): Slam Tilt 10.6 ms a frame on the A1200 model, Lotus 2 on the A500 7.0 ms (PAL
 frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA for now.
 
-| Gate | amiga1200 | Evidence | What is missing |
+| Gate | a1200 | Evidence | What is missing |
 |---|---|---|---|
 | G1 | P | The profile exists, experimental, with its own column, library folder, quick-state family and path section | The exit, which is Arthur's |
-| G2 | Y | Every panel conversion writes the common report, its system `amiga1200`, its status read from the profile | |
+| G2 | Y | Every panel conversion writes the common report, its system `a1200`, its status read from the profile | |
 | G3 | Y | Interpreted instructions counted per route and shown (0 or 1, the 1 a Kickstart instruction) | |
 | G4 | Y | Native traces equal the fresh reference on every route of the panel | |
 | G5 | Y | The compressed copy replays equal on every route | |
@@ -1470,7 +1470,7 @@ frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA fo
 | G10 | ? | Moira's 68EC020 is the reference CPU; its own tests compare it with Musashi; our lengths agree with Moira's disassembler on 19,084 random instructions | Independent 68020 vectors |
 | G11 | P | The oracle comparison above (8 installs) | Hardware evidence beyond another emulator |
 | G12 | P | A panel of 8 named, one failure named with what is known | Alien Breed 3D |
-| G13 | ? | | A Debian 13 witness |
+| G13 | P | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included | More installs, and the Kickstart 3.1 ones |
 | G14 | ? | | Arthur's play test |
 | G15 | P | AMIGA.md section 7 and this section keep the five measures apart and name the failure | |
 | G16 | ? | Not shared (experimental) | A decision once its panel is stable |

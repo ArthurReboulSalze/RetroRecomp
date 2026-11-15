@@ -69,9 +69,9 @@ class Model:
 
     @property
     def feedback(self) -> str:
-        """The machine a player's record names: 'amiga' for both (the record's header holds 8 bytes; the A1200 shares the A500's kind, and a
-        record is keyed by the archive's SHA-256)."""
-        return 'amiga'
+        """The machine a player's record names: the profile's id (8 bytes at most, the size of the record's header field); the A1200 shares
+        the A500's record kind, as the MSX2+ the MSX2's."""
+        return self.system
 
     @property
     def knowledge(self):
@@ -80,7 +80,7 @@ class Model:
 
 
 MODELS = {'amiga': Model('amiga', 500, 'amiga500', '', 'moira-map-68000.txt'),
-          'amiga1200': Model('amiga1200', 1200, 'amiga1200', '68ec020', 'moira-map-68ec020.txt')}
+          'a1200': Model('a1200', 1200, 'amiga1200', '68ec020', 'moira-map-68ec020.txt')}
 A500 = MODELS['amiga']
 # The liveness keys of the report, from the common record of delivery_evidence.
 LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures', 'distinct_audio_blocks': 'distinct_sound_blocks',
@@ -806,7 +806,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
     dependencies16('md', emit)   # SDL and the shared 68000 decoder of the generator
     core = machine_core(base, emit)
     reference_player, table = reference_build(base, core, stamp, emit, model)
-    work = base / (source.sha256[:16] if model is A500 else f'{source.sha256[:16]}-{model.number}')
+    # The work folder: the archive's identity, or for the A1200 one derived from it and the model (the same archive may be converted as both).
+    work = base / (source.sha256[:16] if model is A500 else hashlib.sha256(f'{source.sha256}:{model.number}'.encode()).hexdigest()[:16])
     with entry_lock(work / 'lock', timeout=3600):
         checks = Path(tempfile.mkdtemp(prefix='qa-', dir=work))
         extracted = extract_install(source, work / 'install', model)
