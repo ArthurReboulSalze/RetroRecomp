@@ -1104,6 +1104,11 @@
     "Picture area (auto)": "Область изображения (авто)",
     "Screen format: %s": "Формат экрана: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter: назначить | Del/X: очистить | </>: страница",
-    "Enter / A: restore this page": "Enter / A: сбросить страницу"
+    "Enter / A: restore this page": "Enter / A: сбросить страницу",
+    "Renderer": "Рендерер",
+    "Graphics card (Vulkan)": "Видеокарта (Vulkan)",
+    "8x (graphics card)": "8x (видеокарта)",
+    "8x needs the graphics card: 4x on the CPU": "8x требует видеокарту: на ЦП 4x",
+    "No usable graphics card: the CPU draws the picture": "Нет подходящей видеокарты: изображение рисует ЦП"
   }
 }

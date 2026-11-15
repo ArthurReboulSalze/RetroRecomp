@@ -31,11 +31,21 @@ compared with the figures of a machine whose game code is translated, and it say
   1.22 wide for 1 high for most games (the part of a 4:3 line the game draws), so a fullscreen picture keeps black bars at its
   sides. "4:3" fills a 4:3 area instead and stretches the picture about 9 % wider than the console's signal; "Uncorrected" shows
   square pixels. None of them changes a pixel of the picture or a check.
-- **F3** opens the graphics page: internal resolution (1x, 2x, 4x), dithering, aspect ratio and overscan crop. Dithering, aspect
-  ratio and overscan crop change only the picture; a raised internal resolution also changes the emulated drawing time, so the
-  game runs slightly differently from the checked 1x (measured on Ape Escape: at 2x, RAM and CPU differ from frame 96 on). The
-  conversion's checks use the defaults (1x, the core's own settings). 8x is not offered (64 times the pixels,
-  never in time on one thread), and since 1.7.6 there is no deinterlacing row: the picture is always progressive.
+- **The graphics card draws the picture** (1.7.7, the owner's decision of 15 November 2026: Beetle's Vulkan renderer). F3's first
+  row, **Renderer**, chooses between the graphics card (the default) and the CPU (Beetle's software renderer, the reference of the
+  conversion's checks, which never open the card). With the card the machine stays the checked one: beside it the software
+  renderer keeps its own copy of the console's VRAM at 1x, and on Ape Escape the RAM, the CPU state, the sound and that VRAM equal
+  the CPU renderer's at 1x on every one of 3,300 frames, with the card drawing at 1x or at 8x; only the picture is the card's own.
+  A computer with no usable card (no Vulkan loader, no device, a device the renderer cannot run on) opens the game on the CPU and
+  says so; nothing fails. Changing the row in play opens the machine again on the other renderer and gives it back as a quick
+  state (a state saved with one renderer loads with the other: checked both ways, 600 frames equal). The Vulkan headers come from
+  Khronos, and the shader layout and the HDR pieces the renderer asks for are our own files ([licence](../licenses/beetle-psx.md)).
+- **F3** also has the internal resolution (1x, 2x, 4x, and 8x on the card only: asked for on the CPU it draws 4x and says so),
+  dithering, aspect ratio and overscan crop. Dithering, aspect ratio and overscan crop change only the picture. On the CPU a
+  raised internal resolution also changes the emulated drawing time, so the game runs slightly differently from the checked 1x
+  (measured on Ape Escape: at 2x, RAM and CPU differ from frame 96 on); on the card it does not (the comparison above). The
+  conversion's checks use the CPU at 1x and the core's own settings. Since 1.7.6 there is no deinterlacing row: the picture is
+  always progressive.
 - **Screen format: 4:3 / 16:9** on the options page (since 1.7.6, kept per game): for a game that has its own widescreen option and
   draws a squeezed picture for a 16:9 television, 16:9 shows that picture 16 wide for 9 high. It changes only the rectangle the
   picture is shown in (the Aspect ratio row of F3 is not read then); a game without such an option is simply stretched. Checked

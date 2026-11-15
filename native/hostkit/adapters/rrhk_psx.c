@@ -26,6 +26,7 @@ void rr_psx_host_analog(int player);
 size_t rr_psx_take_audio(int16_t *out, size_t capacity);
 unsigned rr_psx_frame_index(void);
 int rr_psx_host_reset(void);
+int rr_psx_host_set_renderer(int vulkan);
 unsigned rr_psx_card_notice(void);   /* psx_main.c: 1 a memory card file set aside, 2 saving off */
 RrPsxSession *rr_psx_host_session(void);
 
@@ -59,13 +60,18 @@ static const RrhkAction actions[ACTIONS] = {
 /* The console's bit of each action (-1: none, Change disc). */
 static const int ps_bits[ACTIONS] = {14, 13, 15, 12, 10, 11, 8, 9, 1, 2, 3, 0, 4, 6, 7, 5, 16, -1};
 
-/* ---- the graphics page (D14): what the player sees only; the default of each is the reference the gates use ---- */
-/* The renderer is the core's, in software, on one thread: 4x is more than a fast desktop draws in time in a busy scene (Tobal
- * No. 1 in combat on a Ryzen 9 3900X: 18 % too slow, its sound in pieces; 2x holds, and held in the owner's own test of 15
- * November 2026). 8x is not offered: 64 times the pixels, never in time on one thread (« le 8x, c'est injouable »); a saved
- * index 3 is out of range and keeps the default. */
-static const char *const resolutions[] = {"1x (native)", "2x", "4x (heavy)"};
-static const char *const resolution_values[] = {"1x(native)", "2x", "4x"};
+/* ---- the graphics page (D14): what the player sees ---- */
+/* The renderer (1.7.7, the owner's decisions of 15 November 2026: « je veux que par défaut, on ait une accélération graphique
+ * Vulkan », the CPU when no card can be used): the graphics card (Beetle's Vulkan renderer) or the CPU (its software renderer, the
+ * reference of the conversion's checks, which never open the card). The card keeps the machine the checked one: its RAM, CPU state,
+ * sound and VRAM equal the CPU renderer's at 1x on every frame (the trace's columns), only the picture is its own. Changing the row
+ * opens the session again on the other renderer and gives the machine back as a quick state. */
+static const char *const renderers[] = {"Graphics card (Vulkan)", "CPU"};
+/* The internal resolution. On the CPU it is drawn on one thread: 4x is more than a fast desktop draws in time in a busy scene
+ * (Tobal No. 1 in combat on a Ryzen 9 3900X: 18 % too slow; 2x holds), and a raised resolution there also changes the emulated
+ * drawing time. 8x only on the card (« le 8x, c'est injouable » on the CPU): chosen with the CPU drawing, it draws 4x and says so. */
+static const char *const resolutions[] = {"1x (native)", "2x", "4x", "8x (graphics card)"};
+static const char *const resolution_values[] = {"1x(native)", "2x", "4x", "8x"};
 static const char *const dithering[] = {"Native", "At the internal resolution", "Off"};
 static const char *const dithering_values[] = {"1x(native)", "internal resolution", "disabled"};
 /* No deinterlacing row (the owner's « ok » of 15 November 2026): the picture is always progressive, the session's core setting
@@ -76,24 +82,45 @@ static const char *const aspects[] = {"Corrected", "Uncorrected", "4:3", "NTSC"}
 static const char *const aspect_values[] = {"corrected", "uncorrected", "4:3", "ntsc"};
 static const char *const crops[] = {"Horizontal and vertical", "Horizontal", "Off"};
 static const char *const crop_values[] = {"smart", "static", "disabled"};
-enum { GFX_RESOLUTION, GFX_DITHER, GFX_ASPECT, GFX_CROP, GFX_COUNT };
+enum { GFX_RENDERER, GFX_RESOLUTION, GFX_DITHER, GFX_ASPECT, GFX_CROP, GFX_COUNT };
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
-    {"Internal resolution", L"resolution", resolutions, 3, 0},
+    {"Renderer", L"renderer", renderers, 2, 0},
+    {"Internal resolution", L"resolution", resolutions, 4, 0},
     {"Dithering", L"dithering", dithering, 3, 0},
     {"Aspect ratio", L"aspect", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
-static const char *const *const gfx_core_values[GFX_COUNT] = {resolution_values, dithering_values, aspect_values, crop_values};
-static const char *const gfx_core_keys[GFX_COUNT] = {"internal_resolution", "dither_mode", "aspect_ratio", "crop_overscan"};
-static int scale = 1;   /* the internal resolution in force (1, 2, 4) */
+static const char *const *const gfx_core_values[GFX_COUNT] = {NULL, resolution_values, dithering_values, aspect_values, crop_values};
+static const char *const gfx_core_keys[GFX_COUNT] = {NULL, "internal_resolution", "dither_mode", "aspect_ratio", "crop_overscan"};
+static int scale = 1;   /* the internal resolution in force (1, 2, 4, 8) */
+static int chosen[GFX_COUNT] = {0, 0, 0, 0, 0};   /* each row's value, given again to a session opened again */
 
-static void gfx_apply(int option, int value) {
-    if (option < 0 || option >= GFX_COUNT || value < 0 || value >= gfx_options[option].count) return;
-    rr_psx_option(rr_psx_host_session(), gfx_core_keys[option], gfx_core_values[option][value]);
+static void core_option(int option, int value) {
+    RrPsxSession *s = rr_psx_host_session();
+    if (option == GFX_RESOLUTION && value == 3 && !rr_psx_renderer(s)) {
+        value = 2;
+        rrhk_notice(rrhk_tr("8x needs the graphics card: 4x on the CPU", "8x demande la carte graphique : 4x sur le CPU"), 4000);
+    }
+    rr_psx_option(s, gfx_core_keys[option], gfx_core_values[option][value]);
     if (option == GFX_RESOLUTION) scale = 1 << value;
 }
 
-/* Headless runs never open the kit: the defaults (or `--gfx key=index`, for a capture) are applied here. */
-void rr_psx_gfx_defaults(void) { for (int i = 0; i < GFX_COUNT; ++i) gfx_apply(i, gfx_options[i].def); }
+static void gfx_apply(int option, int value) {
+    if (option < 0 || option >= GFX_COUNT || value < 0 || value >= gfx_options[option].count) return;
+    chosen[option] = value;
+    if (option != GFX_RENDERER) { core_option(option, value); return; }
+    if (!rr_psx_host_set_renderer(value == 0)) return;
+    RrPsxSession *s = rr_psx_host_session();
+    for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);
+    if (value == 0 && !rr_psx_renderer(s)) {
+        fprintf(stderr, "[host] graphics card not used: %s\n", rr_psx_renderer_note(s) ? rr_psx_renderer_note(s) : "unknown");
+        rrhk_notice(rrhk_tr("No usable graphics card: the CPU draws the picture",
+                            "Pas de carte graphique utilisable : le CPU dessine l'image"), 6000);
+    }
+}
+
+/* Headless runs never open the kit: the defaults (or `--gfx key=index`, for a capture) are applied here. The renderer is not: a
+ * headless run is a check and draws with the CPU, unless `--gfx renderer=0` asks for the card. */
+void rr_psx_gfx_defaults(void) { for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) gfx_apply(i, gfx_options[i].def); }
 bool rr_psx_gfx_assign(const char *assignment, bool windowed) {
     if (windowed) return rrhk_gfx_override(rrhk_adapter(), assignment);
     const char *equals = strchr(assignment, '=');
@@ -113,7 +140,11 @@ bool rr_psx_gfx_assign(const char *assignment, bool windowed) {
 
 /* ---- the machine ---- */
 static int players(void) { return 2; }
-static void reset(void) { rr_psx_host_reset(); rrhk_autofire_reset(); }
+static void reset(void) {
+    rr_psx_host_reset();
+    for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);   /* the session opened again: its options */
+    rrhk_autofire_reset();
+}
 static uint16_t rumbling[2][2];
 static void rumble(void) {
     for (int p = 0; p < 2; ++p) {

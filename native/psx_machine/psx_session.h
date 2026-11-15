@@ -20,7 +20,7 @@ extern "C" {
 #define RR_PSX_AUDIO_RATE 44100u
 #define RR_PSX_MAX_WIDTH 1024     /* the picture at the console's resolution fits in this */
 #define RR_PSX_MAX_HEIGHT 576
-#define RR_PSX_PICTURE_LIMIT 4096 /* a larger internal resolution: the picture grows up to this on each side */
+#define RR_PSX_PICTURE_LIMIT 8192 /* a larger internal resolution: the picture grows up to this on each side (8x on the card) */
 
 /* Pad bits of one player (the order of the PlayStation pad, libretro's joypad ids). */
 enum {
@@ -36,13 +36,22 @@ typedef struct RrPsxGame {
     const uint8_t *bios;        /* the player's BIOS (RR_PSX_BIOS_BYTES), NULL: OpenBIOS, built into the core */
     const char *save_dir;       /* UTF-8 folder of the memory card, NULL: no card is written */
     int disc;                   /* the disc to start with (0-based) */
+    int vulkan;                 /* 1.7.7: 1 the graphics card draws (Beetle's Vulkan renderer), 0 the CPU (its software renderer) */
 } RrPsxGame;
 
 typedef struct RrPsxSession RrPsxSession;
 
-/* Opens the machine with the pack's first disc (or `disc`). NULL with a reason in `error`. */
+/* Opens the machine with the pack's first disc (or `disc`). NULL with a reason in `error`. With `vulkan`, a graphics card that cannot
+ * be used (no Vulkan loader, no device, a device the renderer cannot run on) is never an error: the machine opens with the CPU
+ * renderer and rr_psx_renderer_note says why. */
 RrPsxSession *rr_psx_open(const RrPsxGame *game, char *error, size_t error_size);
 void rr_psx_close(RrPsxSession *s);
+
+/* The renderer drawing: 1 the graphics card (Vulkan), 0 the CPU. Why the card was asked for and not used, or NULL. The card's
+ * name, or "" without the card. */
+int rr_psx_renderer(const RrPsxSession *s);
+const char *rr_psx_renderer_note(const RrPsxSession *s);
+const char *rr_psx_gpu_name(const RrPsxSession *s);
 
 /* Inputs of the next frame: the pad bits and the two sticks (-32768..32767) of a player (0 or 1). */
 void rr_psx_pad(RrPsxSession *s, int player, unsigned bits, const int16_t sticks[4]);

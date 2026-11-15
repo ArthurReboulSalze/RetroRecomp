@@ -322,6 +322,9 @@ size_t rr_psx_take_audio(int16_t *out, size_t capacity) {
 unsigned rr_psx_frame_index(void) { return frame; }
 
 static int open_session(void);
+/* The renderer asked for (1.7.7): 1 the graphics card (Vulkan), 0 the CPU. A window starts with the card (the saved choice of F3 then
+ * switches it at once); a headless run, a check of the conversion, draws with the CPU unless --gfx renderer=0 asks for the card. */
+static int want_vulkan;
 int rr_psx_host_reset(void) {
     card_sync(0);
     rr_psx_close(session);
@@ -329,6 +332,23 @@ int rr_psx_host_reset(void) {
     frame = 0; script_pos = 0; memset(script_pads, 0, sizeof script_pads);
     frame_audio_count = audio_read = 0;
     return open_session();
+}
+
+/* The renderer, switched in play: the machine taken as a quick state, the session opened again with the other renderer, the state
+ * given back (nothing to keep before the first frame). 1 done (the card may still be refused: rr_psx_renderer_note), 0 the session
+ * could not open again (`fault`). */
+int rr_psx_host_set_renderer(int vulkan) {
+    if (!session || want_vulkan == (vulkan != 0)) return session != NULL;
+    want_vulkan = vulkan != 0;
+    size_t size = 0;
+    uint8_t *state = frame ? rr16_state_capture(&size) : NULL;
+    card_sync(0);
+    rr_psx_close(session);
+    session = NULL;
+    const int opened = open_session();
+    if (opened && state && !rr16_state_restore(state, size)) frame = 0;
+    free(state);
+    return opened;
 }
 
 /* ------------------------------------------------------------ quick states (console16_state.c) */
@@ -388,7 +408,7 @@ static int open_session(void) {
     if (bios && bios_size != RR_PSX_BIOS_BYTES) bios = NULL;
     if (pack_override) snprintf(pack, sizeof pack, "%s", pack_override);
     else if (!self_path(pack, sizeof pack)) { snprintf(fault, sizeof fault, "cannot find this executable's path"); return 0; }
-    RrPsxGame game = {pack, bios, NULL, 0};
+    RrPsxGame game = {pack, bios, NULL, 0, want_vulkan};
     session = rr_psx_open(&game, fault, sizeof fault);
     if (!session) return 0;
     if (!headless || card_option) card_sync(1);
@@ -478,6 +498,7 @@ static int execute(int argc, char **argv) {
     }
     if (frames < 0 || frames > 1000000 || (headless && !frames && !input_check) || !capture_every) return 2;
     diagnostics = report_path || trace_path;
+    want_vulkan = !headless && !input_check;
     if (!headless) rr_game_data_file(card_path, 4096, "saves", RR16_STATE_NAME, RR16_STATE_ROM, ".mcr");
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     if (!open_session()) { fprintf(stderr, "%s\n", fault[0] ? fault : "no PlayStation disc in this executable"); SDL_Quit(); return 3; }

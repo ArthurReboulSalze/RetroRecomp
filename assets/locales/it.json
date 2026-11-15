@@ -1104,6 +1104,11 @@
     "Picture area (auto)": "Area dell'immagine (auto)",
     "Screen format: %s": "Formato schermo: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Invio: assegna | Canc/X: cancella | </>: pagina",
-    "Enter / A: restore this page": "Invio / A: ripristina la pagina"
+    "Enter / A: restore this page": "Invio / A: ripristina la pagina",
+    "Renderer": "Renderer",
+    "Graphics card (Vulkan)": "Scheda grafica (Vulkan)",
+    "8x (graphics card)": "8x (scheda grafica)",
+    "8x needs the graphics card: 4x on the CPU": "8x richiede la scheda grafica: 4x sulla CPU",
+    "No usable graphics card: the CPU draws the picture": "Nessuna scheda grafica utilizzabile: l'immagine è disegnata dalla CPU"
   }
 }

@@ -1104,6 +1104,11 @@
     "Picture area (auto)": "画面区域 (自动)",
     "Screen format: %s": "画面比例: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter：重新映射 | Del/X：清除 | 左/右：翻页",
-    "Enter / A: restore this page": "Enter / A：恢复本页默认"
+    "Enter / A: restore this page": "Enter / A：恢复本页默认",
+    "Renderer": "渲染器",
+    "Graphics card (Vulkan)": "显卡 (Vulkan)",
+    "8x (graphics card)": "8x (显卡)",
+    "8x needs the graphics card: 4x on the CPU": "8x 需要显卡: CPU 上为 4x",
+    "No usable graphics card: the CPU draws the picture": "没有可用的显卡: 由 CPU 绘制画面"
   }
 }

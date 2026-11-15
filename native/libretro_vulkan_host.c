@@ -165,6 +165,11 @@ int rr_vk_host_open(RrVkHost *h, PFN_vkGetInstanceProcAddr gipa, const char *app
     DEVICE_FUNCTION(EndCommandBuffer);
     DEVICE_FUNCTION(CmdPipelineBarrier);
     DEVICE_FUNCTION(CmdCopyImageToBuffer);
+    DEVICE_FUNCTION(DeviceWaitIdle);
+    DEVICE_FUNCTION(DestroyCommandPool);
+    DEVICE_FUNCTION(DestroyFence);
+    DEVICE_FUNCTION(DestroyDevice);
+    INSTANCE_FUNCTION(DestroyInstance);
     struct retro_hw_render_interface_vulkan *v = &h->vk;
     v->interface_type = RETRO_HW_RENDER_INTERFACE_VULKAN;
     v->interface_version = RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION;
@@ -318,4 +323,29 @@ void rr_vk_host_wait_idle(RrVkHost *h)
     lock(h);
     h->f.QueueWaitIdle(h->context.queue);
     unlock(h);
+}
+
+void rr_vk_host_close_context(RrVkHost *h)
+{
+    if (!h->context.device || !h->hw.context_destroy) return;
+    rr_vk_host_wait_idle(h);
+    h->hw.context_destroy();
+    h->hw.context_destroy = NULL;
+}
+
+void rr_vk_host_close(RrVkHost *h)
+{
+    void *queue_lock = h->queue_lock;
+    VkDevice d = h->context.device;
+    if (d) {
+        if (h->f.DeviceWaitIdle) h->f.DeviceWaitIdle(d);
+        if (h->buffer) { h->f.UnmapMemory(d, h->memory); h->f.DestroyBuffer(d, h->buffer, NULL); h->f.FreeMemory(d, h->memory, NULL); }
+        if (h->fence) h->f.DestroyFence(d, h->fence, NULL);
+        if (h->pool) h->f.DestroyCommandPool(d, h->pool, NULL);   /* frees its command buffer */
+        if (h->negotiation && h->negotiation->interface_version >= 2 && h->negotiation->destroy_device) h->negotiation->destroy_device();
+        else if (h->f.DestroyDevice) h->f.DestroyDevice(d, NULL);
+    }
+    if (h->instance && h->f.DestroyInstance) h->f.DestroyInstance(h->instance, NULL);
+    memset(h, 0, sizeof *h);
+    h->queue_lock = queue_lock;
 }

@@ -85,9 +85,35 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [Sony PlayStation: the graphics card draws the picture](#sony-playstation-the-graphics-card-draws-the-picture-177) | the PlayStation (`psx_main.c`, `psx_session.h`, `psx_build.py`, the shared Vulkan side compiled in) and the Nintendo 64 (the shared Vulkan side gains its closing functions) | the PlayStation's (`psx_session.c`, `rrhk_psx.c`), and the host stamp of all 20 profiles (`runtime_catalog.inc` and the locales: five new strings) | none (a state loads with either renderer) |
 | [Sony PlayStation: the trace records the VRAM (format 2)](#sony-playstation-the-trace-records-the-vram-format-2-177) | the PlayStation (`psx_session.c`, `psx_session.h`, `psx_main.c`, `psx_conversion.py`) | the PlayStation's host stamp (`psx_session.c`) | none |
 | [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
 | [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
+
+## Sony PlayStation: the graphics card draws the picture (1.7.7)
+
+**What changes** (the owner's decisions of 15 November 2026: Vulkan, by default, the CPU when no card can be used). A PlayStation
+game opens Beetle PSX's Vulkan renderer through the libretro Vulkan side it shares with the Nintendo 64
+(`native/libretro_vulkan_host.c`), reads each frame back from the card and shows it. F3 gains a first row, **Renderer**: Graphics
+card (Vulkan), the default, or CPU (the software renderer). The software renderer keeps its copy of VRAM at 1x beside the card
+(Beetle's "Software Framebuffer", forced on), so a game that reads VRAM back reads the console's. The internal resolution list is
+1x, 2x, 4x and 8x (graphics card); 8x asked for on the CPU draws 4x and says so. A computer with no usable card opens on the CPU
+and the player is told once ("No usable graphics card: the CPU draws the picture"); `RETRORECOMP_TEST_VULKAN=none|device` makes a
+test run behave as such a computer. Changing the renderer in play takes a quick state, opens the session again on the other
+renderer and loads it back; the same reopening (and a Restart) now gives every F3 row its value again (before, a Restart left the
+core's defaults until the row was touched).
+
+**What it does not change.** Every check of a conversion: a headless run draws with the CPU at 1x unless `--gfx renderer=0` asks
+for the card. Checked on Ape Escape (3,300 frames, a build of this tree): with the card at 1x and at 8x, the RAM, the CPU state, the
+sound and the VRAM equal the CPU renderer's on every frame; both fallbacks (no loader, a device refused) run exactly as the CPU
+renderer, picture included; a quick state saved on one renderer and loaded on the other continues for 600 frames equal to the
+uninterrupted run.
+
+**Stamps:** the PlayStation's game stamp (`psx_main.c`, `psx_session.h`, `psx_build.py`; the shared Vulkan side, declared for both
+machines) and host stamp (`psx_session.c`, `rrhk_psx.c`); the Nintendo 64's game stamp (the shared side's two closing functions,
+which the Nintendo 64 never calls); the host stamp of every profile (`runtime_catalog.inc`, the locales). **Existing exports:**
+converted again in full at their next conversion. **Quick states:** none moves by this change; a state loads with either renderer.
+**Hot path:** the card's frame is read back each frame (the Nintendo 64's way); the CPU renderer's path is unchanged.
 
 ## Sony PlayStation: the trace records the VRAM (format 2) (1.7.7)
 

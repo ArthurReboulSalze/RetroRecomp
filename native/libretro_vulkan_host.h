@@ -53,6 +53,12 @@ typedef struct RrVkFunctions {
     PFN_vkEndCommandBuffer EndCommandBuffer;
     PFN_vkCmdPipelineBarrier CmdPipelineBarrier;
     PFN_vkCmdCopyImageToBuffer CmdCopyImageToBuffer;
+    /* closing (rr_vk_host_close) */
+    PFN_vkDeviceWaitIdle DeviceWaitIdle;
+    PFN_vkDestroyCommandPool DestroyCommandPool;
+    PFN_vkDestroyFence DestroyFence;
+    PFN_vkDestroyDevice DestroyDevice;
+    PFN_vkDestroyInstance DestroyInstance;
 } RrVkFunctions;
 
 typedef struct RrVkHost {
@@ -105,6 +111,12 @@ void rr_vk_host_picture(const uint8_t *bytes, int bgra, uint32_t *picture, size_
 
 /* Waits until the queue is idle (before the core starts its renderer again on the same device). */
 void rr_vk_host_wait_idle(RrVkHost *host);
+
+/* Everything opened, closed in the order libretro asks: the core's context (its context_destroy; call it after the core's last
+ * frame, before retro_unload_game), then the read-back's own objects, the device (the core's destroy_device when it gives one,
+ * else vkDestroyDevice), the instance. The host keeps its lock and can be opened again. Nothing happens when it was never opened. */
+void rr_vk_host_close_context(RrVkHost *host);
+void rr_vk_host_close(RrVkHost *host);
 
 #ifdef __cplusplus
 }

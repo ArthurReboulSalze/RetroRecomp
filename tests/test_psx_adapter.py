@@ -65,10 +65,12 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('failures += mode == 1;', ADAPTER)
 
     def test_a_raised_resolution_the_pc_cannot_draw_is_said(self):
-        # Tobal No. 1 at 4x runs 18 % too slow in combat and its sound breaks up: the labels and a notice say so.
-        self.assertIn('"2x", "4x (heavy)"};', ADAPTER)
-        # 8x is not offered on the software renderer (the owner, 15 November 2026: « le 8x, c'est injouable »)
-        self.assertNotIn('8x', ADAPTER.split('static const char *const resolution_values[]')[1].split(';')[0])
+        # Tobal No. 1 at 4x runs 18 % too slow in combat on the CPU renderer and its sound breaks up: a notice says so.
+        self.assertIn('"1x (native)", "2x", "4x", "8x (graphics card)"};', ADAPTER)
+        # 8x only on the graphics card (the owner, 15 November 2026: « le 8x, c'est injouable » on the CPU): asked for with the
+        # CPU drawing, it draws 4x and says so
+        self.assertIn('if (option == GFX_RESOLUTION && value == 3 && !rr_psx_renderer(s)) {', ADAPTER)
+        self.assertIn('"8x needs the graphics card: 4x on the CPU"', ADAPTER)
         self.assertIn('watch_load();', ADAPTER)
         self.assertIn('if (scale == 1 || warned_scale == scale || interrupted)', ADAPTER)
 
@@ -79,11 +81,27 @@ class PsxAdapterTest(unittest.TestCase):
         for table, value in defaults.items():
             first = re.search(rf'{table}\[\] = \{{"([^"]+)"', ADAPTER).group(1)
             self.assertEqual(first, value, table)
-        self.assertRegex(ADAPTER, r'\{"Internal resolution", L"resolution", resolutions, 3, 0\}')
+        self.assertRegex(ADAPTER, r'\{"Internal resolution", L"resolution", resolutions, 4, 0\}')
         # No deinterlacing row (the owner's « ok » of 15 November 2026): always progressive, the session's core setting.
         self.assertNotIn('Deinterlacing', ADAPTER)
         self.assertIn('{"beetle_psx_deinterlacer", "off"},', (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8'))
 
+
+    def test_the_renderer_row_starts_on_the_graphics_card_and_checks_stay_on_the_cpu(self):
+        # 1.7.7 (the owner, 15 November 2026: « je veux que par défaut, on ait une accélération graphique Vulkan »): the first
+        # row, the card by default; a headless run (a check) never applies it, so it draws with the CPU unless asked
+        self.assertIn('{"Renderer", L"renderer", renderers, 2, 0},', ADAPTER)
+        self.assertIn('static const char *const renderers[] = {"Graphics card (Vulkan)", "CPU"};', ADAPTER)
+        self.assertIn('for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) gfx_apply(i, gfx_options[i].def); }', ADAPTER)
+        main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
+        self.assertIn('want_vulkan = !headless && !input_check;', main)
+        # a card that cannot be used is never an error: the session opens on the CPU and says why; the player is told
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('set_option(s, "beetle_psx_renderer", "software");', session)
+        self.assertIn('set_option(s, "beetle_psx_renderer_software_fb", "enabled");', session)
+        self.assertIn('"No usable graphics card: the CPU draws the picture"', ADAPTER)
+        # the session opened again (renderer switch, Restart) gets every row's value again
+        self.assertIn('for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);', ADAPTER)
 
     def test_the_screen_format_row_is_offered(self):
         # D27 (1.7.6): a game with its own anamorphic 16:9 option can be shown 16 wide for 9 high, kept per game.

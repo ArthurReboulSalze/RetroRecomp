@@ -20,6 +20,7 @@
 
 #include <libretro.h>
 #include "mednafen/psx/gpu.h"
+#include "libretro_vulkan_host.h"
 #include <encodings/deflate.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -74,8 +75,15 @@ struct RrPsxSession {
     unsigned pad[2];
     int16_t sticks[2][4];
     uint16_t rumble[2][2];
+    int loaded;                     /* the core has the game: it is unloaded at close */
+    /* 1.7.7: the renderer drawing (1 the graphics card, 0 the CPU), why the card asked for was not used, the card's picture
+     * read back (0x00RRGGBB, `hw_capacity` pixels). */
+    int renderer;
+    char renderer_note[160];
+    uint32_t *hw_picture;
+    size_t hw_capacity;
     /* The last picture: the core's own frame surface, never copied (it lives until the core's next frame); `pitch` pixels
-     * between rows. Its pixels are 0x00RRGGBB (Beetle writes no alpha). */
+     * between rows. Its pixels are 0x00RRGGBB (Beetle writes no alpha). With the graphics card, `hw_picture`. */
     const uint32_t *picture;
     int pitch;
     int width, height;
@@ -409,8 +417,15 @@ static void keep_core_defaults(const struct retro_variable *v) {
     }
 }
 
+/* The libretro Vulkan side shared with the Nintendo 64 (native/libretro_vulkan_host.c): one per process, like the core. */
+static RrVkHost vulkan;
+
 static bool RETRO_CALLCONV environment(unsigned cmd, void *data) {
     RrPsxSession *s = g;
+    {
+        int answer = 0;
+        if (rr_vk_host_environment(&vulkan, cmd, data, &answer)) return answer != 0;
+    }
     switch (cmd) {
     case RETRO_ENVIRONMENT_GET_VARIABLE: {
         struct retro_variable *var = (struct retro_variable *)data;
@@ -498,6 +513,25 @@ static bool RETRO_CALLCONV environment(unsigned cmd, void *data) {
 static void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned height, size_t pitch) {
     RrPsxSession *s = g;
     if (!s || !data) return;   /* a duplicated frame keeps the last picture */
+    if (data == RETRO_HW_FRAME_BUFFER_VALID) {
+        /* The graphics card's picture of this frame, copied into ours (a frame it could not give keeps the last picture). */
+        int bgra = 0;
+        const uint8_t *src = width && height && width <= RR_PSX_PICTURE_LIMIT && height <= RR_PSX_PICTURE_LIMIT
+                                 ? rr_vk_host_read_back(&vulkan, width, height, &bgra) : NULL;
+        if (!src) return;
+        if ((size_t)width * height > s->hw_capacity) {
+            uint32_t *grown = (uint32_t *)realloc(s->hw_picture, (size_t)width * height * sizeof(uint32_t));
+            if (!grown) return;
+            s->hw_picture = grown;
+            s->hw_capacity = (size_t)width * height;
+        }
+        rr_vk_host_picture(src, bgra, s->hw_picture, (size_t)width * height);
+        s->picture = s->hw_picture;
+        s->pitch = (int)width;
+        s->width = (int)width;
+        s->height = (int)height;
+        return;
+    }
     if (width > RR_PSX_PICTURE_LIMIT) width = RR_PSX_PICTURE_LIMIT;
     if (height > RR_PSX_PICTURE_LIMIT) height = RR_PSX_PICTURE_LIMIT;
     s->picture = (const uint32_t *)data;
@@ -545,6 +579,18 @@ RrPsxSession *rr_psx_open(const RrPsxGame *game, char *error, size_t error_size)
     s->aspect = 4.0 / 3.0;
     s->fps = 59.94;
     for (size_t i = 0; i < sizeof DEFAULTS / sizeof DEFAULTS[0]; ++i) set_option(s, DEFAULTS[i][0], DEFAULTS[i][1]);
+    /* The graphics card, when asked for and when this computer has a Vulkan loader at all. The software renderer keeps its copy
+     * of VRAM at 1x beside it ("Software Framebuffer"): what a game reads back is the console's, and the checks compare it. */
+    /* RETRORECOMP_TEST_VULKAN (tests only): "none" acts as a computer without a Vulkan loader, "device" as a card whose device
+     * the renderer cannot run on; the fallback to the CPU is then what a player without a usable card gets. */
+    const char *test_vulkan = getenv("RETRORECOMP_TEST_VULKAN");
+    const int test_none = test_vulkan && !strcmp(test_vulkan, "none"), test_device = test_vulkan && !strcmp(test_vulkan, "device");
+    const int want_card = game->vulkan && !test_none && rr_vk_host_loader() != NULL;
+    if (game->vulkan && !want_card) snprintf(s->renderer_note, sizeof s->renderer_note, "%s", "No Vulkan loader on this computer.");
+    if (want_card) {
+        set_option(s, "beetle_psx_renderer", "hardware_vk");
+        set_option(s, "beetle_psx_renderer_software_fb", "enabled");
+    }
     s->options_changed = 0;
     if (!open_pack(s, game->pack)) goto failed;
     s->disc = game->disc >= 0 && game->disc < s->disc_count ? game->disc : 0;
@@ -567,6 +613,29 @@ RrPsxSession *rr_psx_open(const RrPsxGame *game, char *error, size_t error_size)
         memset(&info, 0, sizeof info);
         info.path = path;
         if (!retro_load_game(&info)) { fail(s, "the core could not load %s", s->discs[s->disc]); retro_deinit(); goto failed; }
+        s->loaded = 1;
+        if (want_card) {
+            /* The device the renderer creates through its negotiation, then its context. Any refusal: the machine starts again on
+             * the CPU renderer (the game has not run a frame), and the note says why. */
+            const char *why = !vulkan.negotiation ? "The graphics card renderer did not start."
+                            : test_device ? "The Vulkan device lacks what the renderer needs (a test)."
+                            : !rr_vk_host_open(&vulkan, rr_vk_host_loader(), "Retro-Recomp PSX", NULL, NULL, NULL) ? vulkan.error : NULL;
+            if (why) {
+                snprintf(s->renderer_note, sizeof s->renderer_note, "%s", why ? why : "");
+                retro_unload_game();
+                retro_deinit();
+                s->loaded = 0;
+                rr_vk_host_close(&vulkan);
+                set_option(s, "beetle_psx_renderer", "software");
+                s->options_changed = 0;
+                retro_init();
+                if (!retro_load_game(&info)) { fail(s, "the core could not load %s", s->discs[s->disc]); retro_deinit(); goto failed; }
+                s->loaded = 1;
+            } else {
+                if (vulkan.hw.context_reset) vulkan.hw.context_reset();
+                s->renderer = 1;
+            }
+        }
     }
     retro_set_controller_port_device(0, RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_ANALOG, 1));   /* DualShock */
     retro_set_controller_port_device(1, RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_ANALOG, 1));
@@ -585,7 +654,10 @@ failed:
 
 void rr_psx_close(RrPsxSession *s) {
     if (!s) return;
-    if (g == s && s->disc_count && s->width) { retro_unload_game(); retro_deinit(); }
+    if (g == s && s->renderer) rr_vk_host_close_context(&vulkan);
+    if (g == s && s->loaded) { retro_unload_game(); retro_deinit(); }
+    if (g == s && s->renderer) rr_vk_host_close(&vulkan);
+    free(s->hw_picture);
     for (int i = 0; i < s->file_count; ++i) { free(s->files[i].block_offset); free(s->files[i].block_size); }
     for (int i = 0; i < MAX_SOURCES; ++i) if (s->sources[i]) fclose(s->sources[i]);
     rr_psx_bios_data = NULL;
@@ -830,3 +902,7 @@ int rr_psx_state_load(RrPsxSession *s, const char *path, const char *abi) {
     if (ok) s->disc = (int)disc;
     return ok ? 0 : 3;
 }
+
+int rr_psx_renderer(const RrPsxSession *s) { return s ? s->renderer : 0; }
+const char *rr_psx_renderer_note(const RrPsxSession *s) { return s && s->renderer_note[0] ? s->renderer_note : NULL; }
+const char *rr_psx_gpu_name(const RrPsxSession *s) { return s && s->renderer ? vulkan.gpu_name : ""; }
