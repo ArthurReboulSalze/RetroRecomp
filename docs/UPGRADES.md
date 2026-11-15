@@ -85,12 +85,123 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [Every machine: no crash when a machine has no picture yet](#every-machine-no-crash-when-a-machine-has-no-picture-yet-177) | none | **the host stamp of all 21 profiles** (`rrhk_video.c`, `hostkit/hostkit.h`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Every machine: Sync to display (Auto / Locked / Free / Variable refresh)](#every-machine-sync-to-display-auto--locked--free--variable-refresh-177) | none | **the host stamp of all 21 profiles** (the shell, `hostkit/hostkit.h`, `audio_cushion.h`, `audio_output.inc`, `retro_menu.c` and `.h`, `runtime_catalog.inc`, the locale files, `rrhk_sms.c`, `rrhk_msx.inc`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Mega Drive: its sound follows a game locked to the display](#mega-drive-its-sound-follows-a-game-locked-to-the-display-177) | none | the Mega Drive's host stamp (`retrorecomp/megadrive_audio.py`, `hostkit/adapters/rrhk_md.c`) | none |
+| [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
+| [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
 | [Sony PlayStation: anti-aliasing and texture filtering](#sony-playstation-anti-aliasing-and-texture-filtering-177) | none | the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales: five new strings) | none |
 | [Sony PlayStation: geometry precision (PGXP)](#sony-playstation-geometry-precision-pgxp-177) | none | the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales: two new strings) | none |
 | [Sony PlayStation: the graphics card draws the picture](#sony-playstation-the-graphics-card-draws-the-picture-177) | the PlayStation (`psx_main.c`, `psx_session.h`, `psx_build.py`, the shared Vulkan side compiled in) and the Nintendo 64 (the shared Vulkan side gains its closing functions) | the PlayStation's (`psx_session.c`, `rrhk_psx.c`), and the host stamp of all 20 profiles (`runtime_catalog.inc` and the locales: five new strings) | none (a state loads with either renderer) |
 | [Sony PlayStation: the trace records the VRAM (format 2)](#sony-playstation-the-trace-records-the-vram-format-2-177) | the PlayStation (`psx_session.c`, `psx_session.h`, `psx_main.c`, `psx_conversion.py`) | the PlayStation's host stamp (`psx_session.c`) | none |
 | [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
 | [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
+
+## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
+
+On the owner's question of 15 November 2026 about vsync (« j'ai un petit écran 4:3 qui est en 60 Hz, et j'ai l'impression que
+c'est plus visible là »), his go (« Oui, lance-le », then « Version complète »), FreeSync on his 144 Hz screen and « faut que ça
+soit géré pour Linux aussi ». The study is `vsync-study-177` (private notes).
+
+* **What changes for players.** The options page has a new row, **Sync to display**, kept per machine
+  (`[<Console>.Video] sync`), default **Auto**: a game whose rate is within 1 % of the screen's measured refresh is locked to
+  it (each frame shown for exactly one refresh, no more hitch every few seconds), running at the screen's rate (60.00 Hz
+  instead of 59.92, +0.13 %) with its sound resampled by the same fraction; otherwise it runs as in 1.7.6. **Locked** goes up
+  to 3 %, **Free** is the game's own clock with vsync off (on Linux too, where 1.7.6 always asked vsync), **Variable
+  refresh** is for FreeSync / G-Sync / HDMI VRR screens (on Windows the Direct3D 12 renderer, from the next start). See
+  [CONTROLS.md](CONTROLS.md#sync-to-display-177) and [HOST_KIT.md](HOST_KIT.md#d30) (D30).
+* **What it is not.** No latency figure: the lock aligns frames to the refresh and adds no wait over Windows' composed present;
+  physical latency stays unmeasured. Variable refresh cannot be detected (DXGI reports tearing support, not FreeSync): the
+  player chooses it.
+* **Never locked**: the conversion's hidden-window checks (their runs and stamps are unchanged), `SDL_RENDER_VSYNC` set, the
+  menus, pause, fast forward and other speeds. An own-audio machine without the `audio_ratio` hook stays free and says so.
+* **Stamps.** The host stamp of all 21 profiles moves; no game or build stamp. The quick-state keys of the Nintendo 64, the
+  Amiga and the Atari ST move (they hash every input); the Mega Drive and Super Nintendo keys hash no host file and do not.
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 15: Auto and Locked's decision for given rates (60 Hz with 59.92,
+  60.10 and 59.73 Hz; the Neo Geo's 59.19 Hz beyond Auto and within Locked; PAL on 60 Hz and 144 Hz screens never locked),
+  the sound factor's bounds, a ten-minute closed loop (also with the refresh measured 0.1 % off), then the real loop with a
+  stand-in refresh: the row's four values and their preference, locked in play only (free in a menu and at max speed), the
+  notice. `tools/audio_selftest.py`: the Master System / MSX converter locked for a simulated minute, nothing trimmed and no
+  underrun, against a control without the factor that trims. Both also pass on Linux (Debian, headless). An offscreen gallery
+  (hidden window) shows the four filters and the menus identical pixel for pixel on Direct3D 11 and Direct3D 12. Not
+  checkable without a screen: the smoothness itself, judged by the owner on his 60 Hz and 144 Hz screens.
+
+## Mega Drive: its sound follows a game locked to the display (1.7.7)
+
+With « Sync to display » ([HOST_KIT.md](HOST_KIT.md), decision D30), a game Locked to the screen runs at the screen's rate (Sonic 2 at
+60.00 Hz instead of 59.92, +0.13 %): the machine makes its sound that much faster while the device still plays it at its own rate. The kit
+tells the machine the factor (`RrhkMachine.audio_ratio`, base = machine Hz / refresh Hz, exactly 1.0 when not locked, in menus, pause,
+fast forward or a speed other than 100 %); the Mega Drive adapter hands it to the engine's bridge (`rr_md_audio_base`, written by
+`retrorecomp/megadrive_audio.py`), which uses it as a feed-forward on its resampling step: each output frame consumes 1/base source
+frames. The bridge's own fill controller (the pinned one: P on the fill error, low-pass, slew, +/-0.5 %) keeps correcting the rest, so the
+kit's `rr_drc_ratio` is not stacked on it. The value is set from the producer side under the device lock, nothing is allocated in the
+callback, a device opened again keeps it, and at 1.0 the pinned step runs alone.
+
+- **Checked** (`tools/megadrive_audio_bridge_selftest.py` and its new `native/md_audio_locked_checks.c`, a development check outside the stamps, portable toolchain): at 1.0 the PCM and loop choices equal the pinned bridge's,
+  hashes unchanged (`c4a3f668...`, steady `e467be96...`); a locked mode runs 300 simulated seconds: with the feed-forward the fill stays at
+  25.93 ms for base 0.99871 and 1.003, as at 1.0 (the controller alone would hold it 0.7 ms high or 4.7 ms low), with no stretch, underrun or
+  overflow. Sonic 2 converted on this tree: its routes run no interpreter and match the reference, the compressed copy too.
+- **Not checked here:** a real locked run needs a window on a real screen (the kit's test runs and the dummy video driver do not lock); it
+  is Arthur's eyes test on Sonic 2, where `md_audio_stretch_events` of the timing report and the stderr line « sync to display: ... locked »
+  say whether it held. Physical latency stays unmeasured.
+- **Stamps:** the Mega Drive's host stamp only (`megadrive_audio.py`, a host module, and `hostkit/adapters/rrhk_md.c`); no game stamp,
+  nothing a game runs changes; no quick-state key moves (the locked check is a new file outside the stamps, so the key, which hashes the
+  game-role native files, is not touched).
+
+## Every machine: no crash when a machine has no picture yet (1.7.7)
+
+Found by the PlayStation specialist on 15 November 2026: switching the PlayStation's renderer in F3 reopened its session, which
+had no picture until its next frame, and the menu holds the machine; with the xBR or Scale2x filter the game closed (access
+violation), because both read the picture themselves. Sharp pixels and scanlines survived (SDL refuses a NULL upload).
+
+* **The kit** (`rrhk_video.c`, [HOST_KIT.md](HOST_KIT.md), Pictures): when `pixels()` returns NULL or the visible size is 0 x 0,
+  the game's area is black under every filter and nothing is read; the picture comes back with the machine's next one. Any machine whose picture is missing
+  for a moment (a session reopened, a Restart under a menu) is covered; the PlayStation's session also never returns NULL now
+  (its own branch).
+* **Stamps.** The host stamp of all 21 profiles moves (`rrhk_video.c`, `hostkit/hostkit.h`, a comment). No game or build
+  stamp. The quick-state keys of the Nintendo 64, the Amiga and the Atari ST move (they hash every input); no other.
+* **Checks.** `tools/hostkit_capabilities_selftest.py`, run 14: a machine with no picture (NULL, then 0 x 0) under each of the four
+  filters, on a console (F3 cycles) and on the machine whose picture grows (the F3 page): a black game area, no crash, then the picture
+  again. Without the change the same run ends in an access violation (exit 0xC0000005).
+
+## Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn (1.7.7)
+
+In dual-playfield mode, OCS and ECS Denise draw a playfield transparent when its priority in `BPLCON2` is above 4. vAmiga applied
+that on every chipset; AGA's Lisa draws the playfield. An Amiga 1200 game that writes 7 to both priorities (Pinball Illusions'
+title, `BPLCON2` `$003F`, eight planes) showed colour 0 on every pixel: a black screen with the music playing. The adapted Core now
+keeps the rule for OCS and ECS only; where the playfield stands among the sprites is unchanged.
+
+- **What changes:** the picture of an AGA dual-playfield line whose priority is above 4, nothing else. On Pinball Illusions, 5,600
+  frames before and after: sound, memory and CPU equal on every frame, pictures different from the title's first frame on. The Amiga
+  500 is not concerned (the rule stays as it was for OCS and ECS).
+- **Where:** a new module, `retrorecomp/amiga_vamiga_display.py`, holds the picture-only changes to the adapted vAmiga Core. It is
+  not one of the generator's sources (`amiga_knowledge.GENERATOR_SOURCES`): a change that only decides a pixel's colour cannot be
+  noticed by a path, so `GENERATOR_REVISION` stays 2 and the qualified paths stay qualified. `tests/test_amiga_vamiga_display.py`
+  limits the module to the listed functions of Denise. `amiga_vamiga.py` is unchanged.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (the new module, and the adaptation's digest in the build's
+  identity). Their exports of 1.7.6 are converted again in full on the first batch; no other machine moves. Quick states of an
+  earlier build are refused, as every build's are.
+- **Upstream:** a gap of vAmiga `f51a6bf` (`Denise::translateDPF`), offered as dirkwhoffmann/vAmiga#1039; kept as our patch until
+  it is merged and the pin moves ([UPSTREAMS.md](UPSTREAMS.md)).
+
+## Commodore Amiga: the weave of interlaced screens follows the motion (1.7.7)
+
+Since 1.7.6 an interlaced screen (LACE) is shown woven: the long and the short field side by side, twice the lines. The two fields
+are 1/50 s apart, so where the screen moves the picture combed (Pinball Illusions' whole-table view, F10, while the table scrolls:
+every moving edge doubled). Owner's decision of 15 November 2026, « Oui, lance-le »: no option, for every interlaced screen.
+
+- **What changes:** the session keeps the field of the frame before the held one (the same parity as the coming field). A pixel of
+  the held field stays where this frame's field, on the lines just above and below it, equals that older field; where it changed,
+  the pixel becomes the mean of those two lines. A still screen is the 1.7.6 weave byte for byte; a moving area shows this frame's
+  field at its own rows (no comb, no line jump). Generic: the LACE bit and the long-frame bit only.
+- **Measured on the interpreted reference machine, before and after:** Pinball Illusions' table pan in F10 (6,400 frames), pictures
+  different on the pan only, comb index of the table 19.3 before, 0.7 after; Banshee's interlaced title, 1 picture of 1,200 different
+  (its first interlaced fade-in); Fears, Super Stardust, Slam Tilt, Roadkill and Civilization (Amiga 500) identical, pictures
+  included. Sound, memory and CPU equal on every frame of every game. Super Stardust's bonus screen is not reached without play.
+- **Quick states:** `RRAMIGA-STATE-7`, the older field after the held one. A state saved in the F10 pan, loaded, gives the continuous
+  run's pictures from the fourth frame on (sound, memory and CPU from the first). The first frames after a load differ in one field
+  of the table in 1.7.6 already (2 frames, the bitplane state at a save, an open note); the motion test makes it 3.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`), with the section above; nothing else moves.
 
 ## Sony PlayStation: anti-aliasing and texture filtering (1.7.7)
 

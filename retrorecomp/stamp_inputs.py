@@ -52,7 +52,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # The window, split by responsibility (gui.py assembles the Application).
                                'gui_common', 'gui_drawing', 'gui_window', 'gui_queue', 'gui_conversion',
                                'gui_collection', 'gui_updates', 'gui_options', 'gui_sharing', 'gui_reports',
-                               'gui_account', 'gui_leaderboard',
+                               'gui_account', 'gui_leaderboard', 'console_menu',
+                               # Find firmware in a folder (Options): reads the player's files, writes only the Options fields.
+                               'gui_firmware', 'firmware_search',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
@@ -220,7 +222,7 @@ NOT_INPUTS = (
     'native/amiga_machine/amiga_vector_checks.cpp',
     # tools/megadrive_moira_vectors.py (Moira, built from the adapted vAmiga, against the Mega Drive's native 68000 steps on forms no fixture
     # holds): the maker is built against vAmiga for a check and the decimal check against the generated steps, never into a game.
-    'native/amiga_machine/moira_vector_maker.cpp', 'native/md_bcd_checks.c',
+    'native/amiga_machine/moira_vector_maker.cpp', 'native/md_bcd_checks.c', 'native/md_audio_locked_checks.c',
     # tools/amiga_blitter_selftest.py (the Blitter's specialised routines against vAmiga's microprogram): the same, a check, never in a game.
     'native/amiga_machine/amiga_blit_checks.cpp',
     # tools/amiga_display_selftest.py (Agnus and Denise recorded instruction by instruction and frame by frame, for the fast paths to come): the same, a check, never in a game.
@@ -667,6 +669,7 @@ INPUTS = _resolve({
         'retrorecomp.amiga_knowledge',
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
+        'retrorecomp.amiga_vamiga_display',
         'retrorecomp.amiga_whdload',
         'retrorecomp.m68020_lengths',
     ),

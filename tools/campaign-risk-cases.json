@@ -100,7 +100,7 @@
       {
         "title": "Pinball Illusions",
         "category": "kickstart-3",
-        "reason": "Asks for the player's Kickstart 3.1 (40.068 A1200), run from the 512 KiB window over $F80000; one Kickstart instruction stays interpreted. A known failure in play: after its intro the screen stays black with the music, where the real WHDLoad goes on to Loading and the title (the interpreted reference too: our model or layer, cause not found)",
+        "reason": "Asks for the player's Kickstart 3.1 (40.068 A1200), run from the 512 KiB window over $F80000; one Kickstart instruction stays interpreted. Its title is an eight-plane dual playfield with both priorities at 7 (BPLCON2 $003F): black in 1.7.6, drawn since 1.7.7 (the OCS rule that blanks such a playfield is not AGA's)",
         "source": "docs/AMIGA.md"
       },
       {

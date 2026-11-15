@@ -8,6 +8,8 @@
 #include <string.h>
 #include "scale2x.h"
 #include "console16_video.h"
+#include "platform_io.h"
+#include "runtime_i18n.h"
 #include "hostkit/hostkit_internal.h"
 
 /* Scale2x into a store of store_w x store_h source pixels (the target is twice that, store_w * 2 pixels a row). */
@@ -110,7 +112,15 @@ static void grow_store(RrhkRun *run) {
 void rrhk_present_picture(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     SDL_Renderer *ren = run->ren;
+    /* 1.7.7: a machine may have no picture yet (a session reopened by a graphics option, its first frame not run while a menu
+     * holds it, or a Restart under a menu): a NULL or zero-size picture shows the game's area black and nothing is read. xBR
+     * and Scale2x read the picture themselves and crashed on it (the PlayStation's renderer switch, F3). */
+    const uint32_t *pixels = m->pixels();
     int width = m->visible_width(), height = m->visible_height(), pitch = m->max_width;
+    if (!pixels || width <= 0 || height <= 0) {
+        SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
+        return;
+    }
     if (m->pixel_pitch) {
         /* The rows of the picture are pixel_pitch apart; only the visible part is uploaded (the buffer may be smaller than the store). */
         pitch = m->pixel_pitch();
@@ -118,24 +128,98 @@ void rrhk_present_picture(RrhkRun *run) {
         width = SDL_min(width, run->store_w); height = SDL_min(height, run->store_h);
         if (doubled(run)) {
             /* the buffer is the store's size: rrhk_texture_create made it before the doubled texture */
-            scale2x_store(m->pixels(), pitch, run->store_w, run->store_h, width, height, run->upscaled);
+            scale2x_store(pixels, pitch, run->store_w, run->store_h, width, height, run->upscaled);
             SDL_Rect area = {0, 0, width * 2 + (width < run->store_w), height * 2 + (height < run->store_h)};
             SDL_UpdateTexture(run->tex, &area, run->upscaled, run->store_w * 2 * 4);
         } else {
             SDL_Rect area = {0, 0, width, height};
-            SDL_UpdateTexture(run->tex, &area, m->pixels(), pitch * 4);
+            SDL_UpdateTexture(run->tex, &area, pixels, pitch * 4);
         }
-    } else if (rrhk.filter == 2) { rrhk_scale2x(m->pixels(), run->upscaled); SDL_UpdateTexture(run->tex, NULL, run->upscaled, m->max_width * 2 * 4); }
-    else SDL_UpdateTexture(run->tex, NULL, m->pixels(), m->max_width * 4);
+    } else if (rrhk.filter == 2) { rrhk_scale2x(pixels, run->upscaled); SDL_UpdateTexture(run->tex, NULL, run->upscaled, m->max_width * 2 * 4); }
+    else SDL_UpdateTexture(run->tex, NULL, pixels, m->max_width * 4);
     SDL_Rect dst = rrhk_game_rect(ren);
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
     int texture_scale = doubled(run) ? 2 : 1;
     SDL_Rect source = {0, 0, width * texture_scale, height * texture_scale};
-    SDL_Texture *smooth = rrhk.filter == 1 ? rr_xbr_update(ren, &run->xbr, m->pixels(), width, height, pitch) : NULL;
+    SDL_Texture *smooth = rrhk.filter == 1 ? rr_xbr_update(ren, &run->xbr, pixels, width, height, pitch) : NULL;
     if (smooth) SDL_RenderCopy(ren, smooth, NULL, &dst);
     else SDL_RenderCopy(ren, run->tex, &source, &dst);
     /* 1.7.6: one scanline per line of the console (raster_height), not per row of a raised internal resolution (visible_height):
      * a 240-line game drawn at 2x or 4x keeps its 240 dark lines, which show on any screen of 480 rows or more */
     if (rrhk.filter == 3) rr_scanlines_draw(ren, &run->scanlines, &dst, m->raster_height());
     rrhk_pointer_draw(ren, &dst);
+}
+
+/* ---- 1.7.7 (HOST_KIT D30): Sync to display. The row, its preference, the decision and the notices; the measurement of the
+ * refresh and the pacing are rrhk_main.c's (end_frame). ---- */
+RrhkSync rrhk_sync;
+
+bool rrhk_sync_decide(int mode, double refresh_hz, double machine_hz) {
+    if (refresh_hz <= 0.0 || machine_hz <= 0.0) return false;
+    const double gap = SDL_fabs(machine_hz / refresh_hz - 1.0);
+    if (mode == RRHK_SYNC_AUTO) return gap <= RRHK_SYNC_AUTO_GAP;
+    if (mode == RRHK_SYNC_LOCKED) return gap <= RR_DRC_BASE_LIMIT;
+    return false;
+}
+
+void rrhk_sync_load(bool test_run) {
+    const int saved = rrhk.read_file[0] ? rr_ini_int(rrhk.video_section, L"sync", RRHK_SYNC_AUTO, rrhk.read_file) : RRHK_SYNC_AUTO;
+    memset(&rrhk_sync, 0, sizeof rrhk_sync);
+    rrhk_sync.mode = saved >= 0 && saved < RRHK_SYNC_MODES ? saved : RRHK_SYNC_AUTO;
+    const char *diagnostic = getenv("SDL_RENDER_VSYNC");
+    rrhk_sync.active = !test_run && !(diagnostic && *diagnostic);
+    rrhk_sync.remeasure = rrhk_sync.active;
+#ifdef _WIN32
+    /* Variable refresh: Direct3D 12, whose swap chain allows tearing (SDL 2.32: DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING, presents
+     * with DXGI_PRESENT_ALLOW_TEARING when vsync is off); Direct3D 11 otherwise, as before. An SDL_RENDER_DRIVER set by the
+     * player still wins (its priority is higher). */
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, rrhk_sync.active && rrhk_sync.mode == RRHK_SYNC_VARIABLE ? "direct3d12" : "direct3d11");
+#endif
+}
+
+void rrhk_sync_next(void) {
+    rrhk_sync.mode = (rrhk_sync.mode + 1) % RRHK_SYNC_MODES;
+    rrhk_sync.remeasure = rrhk_sync.active;
+    rrhk_sync.announce = true;
+    wchar_t value[8];
+    swprintf(value, 8, L"%d", rrhk_sync.mode);
+    if (!rrhk_write_ready() || !rr_ini_set(rrhk.video_section, L"sync", value, rrhk.ini_file))
+        snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Config unavailable"));
+}
+
+void rrhk_sync_value(char *out, size_t size) {
+    const char *value;
+    switch (rrhk_sync.mode) {
+    case RRHK_SYNC_AUTO: value = !rrhk_sync.active ? "Auto" : rrhk_sync.lock ? "Auto (locked)" : "Auto (free)"; break;
+    case RRHK_SYNC_LOCKED: value = rrhk_sync.active && !rrhk_sync.lock ? "Locked (free)" : "Locked"; break;
+    case RRHK_SYNC_FREE: value = "Free"; break;
+    default: value = "Variable refresh"; break;
+    }
+    snprintf(out, size, "%s", rr_tr(value));
+}
+
+/* The outcome of the row or of a measurement, once: what the game now does, with the speed difference when locked. */
+void rrhk_sync_notice(void) {
+    char text[160], game[16], screen[16], gap[16];
+    rrhk_sync.announce = false;
+    snprintf(game, sizeof game, "%.2f", rrhk_sync.machine_hz);
+    snprintf(screen, sizeof screen, "%.2f", rrhk_sync.refresh_hz);
+    snprintf(gap, sizeof gap, "%+.2f %%", rrhk_sync.machine_hz > 0.0 ? 100.0 * (rrhk_sync.refresh_hz / rrhk_sync.machine_hz - 1.0) : 0.0);
+    if (rrhk_sync.mode == RRHK_SYNC_VARIABLE) {
+#ifdef _WIN32
+        snprintf(text, sizeof text, "%s", rr_tr(rrhk_sync.vrr_renderer ? "Variable refresh: screen follows game" :
+                                                "Variable refresh: from the next start"));
+#else
+        snprintf(text, sizeof text, "%s", rr_tr("Variable refresh: screen follows game"));
+#endif
+    } else if (rrhk_sync.mode == RRHK_SYNC_FREE) {
+        snprintf(text, sizeof text, rr_tr("Free: the game's own %s Hz"), game);
+    } else if (rrhk_sync.lock) {
+        snprintf(text, sizeof text, rr_tr("Locked: %s Hz, game %s Hz (%s)"), screen, game, gap);
+    } else if (rrhk_sync.why && !strcmp(rrhk_sync.why, "far")) {
+        snprintf(text, sizeof text, rr_tr("Free: screen %s Hz, game %s Hz"), screen, game);
+    } else if (rrhk_sync.why) {
+        snprintf(text, sizeof text, "%s", rr_tr(rrhk_sync.why));
+    } else return;
+    rrhk_notice(text, 3200);
 }

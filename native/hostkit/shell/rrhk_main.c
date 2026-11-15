@@ -293,6 +293,7 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     r->video_clock_test = r->test_frames && test_no_audio && test_no_audio[0] == '1';
     if (m->state_path) m->state_path(r->state_path, 32768);
     if (scale < 1) scale = 3;
+    rrhk_sync_load(r->test_frames != 0);     /* 1.7.7 (D30): before the renderer, whose driver Variable refresh chooses */
     snprintf(r->caption, sizeof(r->caption), "%s | %s", title, m->native_caption ? m->native_caption : "Native code");
     int open_w, open_h;
     opening_size(m, scale, &open_w, &open_h);
@@ -313,6 +314,8 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
             r->limit_w = info.max_texture_width; r->limit_h = info.max_texture_height;
             fprintf(stderr, "[host] renderer=%s, vsync=%s; physical latency is unmeasured\n",
                 info.name, info.flags & SDL_RENDERER_PRESENTVSYNC ? "on" : "off");
+            rrhk_sync.vsync = (info.flags & SDL_RENDERER_PRESENTVSYNC) != 0;
+            rrhk_sync.vrr_renderer = info.name && !strcmp(info.name, "direct3d12");
         }
     }
     r->store_w = m->max_width; r->store_h = m->max_height;
@@ -492,6 +495,105 @@ static bool begin_frame(RrhkRun *r) {
     return true;
 }
 
+/* ---- 1.7.7 (HOST_KIT D30): Sync to display ----
+ * The refresh is measured, not read (SDL2's display mode gives whole hertz: 60 for 59.94): 26 presents with vsync on, the median
+ * of the last 20 intervals; a present that does not wait (a hidden window, the dummy driver, a driver that forces vsync off)
+ * gives no refresh. RETRORECOMP_TEST_REFRESH_HZ stands for the measurement in the kit's own checks. The game does not run
+ * meanwhile: at start (before its first picture), after the row changed (in the menu) or the window moved to another display. */
+static double measure_refresh(RrhkRun *r) {
+    const char *test = getenv("RETRORECOMP_TEST_REFRESH_HZ");
+    if (test && *test) return atof(test);
+    enum { PRESENTS = 26, SKIP = 6 };
+    Uint64 at[PRESENTS], gaps[PRESENTS - SKIP];
+    if (!rrhk_sync.vsync) SDL_RenderSetVSync(r->ren, 1);
+    for (int i = 0; i < PRESENTS; ++i) {
+        if (r->frame) { rrhk_present_picture(r); rrhk_menu_draw(r->ren); }
+        else { SDL_SetRenderDrawColor(r->ren, 0, 0, 0, 255); SDL_RenderClear(r->ren); }
+        SDL_RenderPresent(r->ren);
+        at[i] = now_ticks();
+    }
+    if (!rrhk_sync.vsync) SDL_RenderSetVSync(r->ren, 0);
+    for (int i = SKIP; i < PRESENTS; ++i) gaps[i - SKIP] = at[i] - at[i - 1];
+    for (int i = 1; i < PRESENTS - SKIP; ++i)
+        for (int j = i; j > 0 && gaps[j] < gaps[j - 1]; --j) { const Uint64 t = gaps[j]; gaps[j] = gaps[j - 1]; gaps[j - 1] = t; }
+    const double period = (double)gaps[(PRESENTS - SKIP) / 2] / (double)r->frequency;
+    return period >= 1.0 / 400.0 && period <= 1.0 / 20.0 ? 1.0 / period : 0.0;
+}
+
+/* The decision for the machine's current rate (a machine may change it: PAL/NTSC, a computer's screen mode). */
+static void sync_decide(RrhkRun *r) {
+    const RrhkMachine *m = r->machine;
+    rrhk_sync.machine_hz = m->frame_seconds > 0.0 ? 1.0 / m->frame_seconds : 0.0;
+    rrhk_sync.lock = false;
+    rrhk_sync.why = NULL;
+    if (!rrhk_sync.active || rrhk_sync.mode == RRHK_SYNC_FREE || rrhk_sync.mode == RRHK_SYNC_VARIABLE) return;
+    if (m->own_audio && !m->audio_ratio) rrhk_sync.why = "Free: its sound cannot follow yet";
+    else if (rrhk_sync.refresh_hz <= 0.0) rrhk_sync.why = "Free: the screen's refresh is unknown";
+    else if (!rrhk_sync_decide(rrhk_sync.mode, rrhk_sync.refresh_hz, rrhk_sync.machine_hz)) rrhk_sync.why = "far";
+    else rrhk_sync.lock = true;
+}
+
+/* Each iteration, before the picture: the measurement when one is due, the vsync the mode wants now, the sound's factor.
+ * true: this iteration is paced by the present. */
+static bool sync_frame(RrhkRun *r) {
+    const RrhkMachine *m = r->machine;
+    if (!rrhk_sync.active || !r->ren) return false;
+    const bool wants_refresh = rrhk_sync.mode == RRHK_SYNC_AUTO || rrhk_sync.mode == RRHK_SYNC_LOCKED;
+    if (rrhk_sync.remeasure) {
+        rrhk_sync.remeasure = false;
+        if (wants_refresh) {
+            rrhk_audio_pause_output(r);
+            rrhk_sync.refresh_hz = measure_refresh(r);
+            r->next = now_ticks();
+        }
+        rrhk_sync.machine_hz = -1.0;
+    }
+    if (rrhk_sync.machine_hz != (m->frame_seconds > 0.0 ? 1.0 / m->frame_seconds : 0.0)) {
+        sync_decide(r);
+        fprintf(stderr, "[host] sync to display: %s, screen %.3f Hz (measured), machine %.3f Hz, %s; physical latency unmeasured\n",
+                rrhk_sync.mode == RRHK_SYNC_AUTO ? "auto" : rrhk_sync.mode == RRHK_SYNC_LOCKED ? "locked" :
+                rrhk_sync.mode == RRHK_SYNC_FREE ? "free" : "variable refresh", rrhk_sync.refresh_hz, rrhk_sync.machine_hz,
+                rrhk_sync.lock ? "locked" : "free");
+    }
+    if (rrhk_sync.announce) rrhk_sync_notice();
+    const bool other_speed = r->fast || r->speed != 100;
+    const bool paced = rrhk_sync.lock && !other_speed && !rrhk.menu && !rrhk.paused;
+#ifdef _WIN32
+    const bool usual = false;          /* before 1.7.7: Windows presents without waiting */
+#else
+    const bool usual = true;           /* before 1.7.7: the vsync hint on Linux */
+#endif
+    const bool vsync = rrhk_sync.mode == RRHK_SYNC_FREE || rrhk_sync.mode == RRHK_SYNC_VARIABLE ? false :
+                       rrhk_sync.lock ? !other_speed : usual;
+    if (vsync != rrhk_sync.vsync && SDL_RenderSetVSync(r->ren, vsync ? 1 : 0) == 0) rrhk_sync.vsync = vsync;
+    rrhk_audio_set_base(r, paced && rrhk_sync.machine_hz > 0.0 ? rrhk_sync.machine_hz / rrhk_sync.refresh_hz : 1.0);
+    return paced;
+}
+
+/* After the present of a locked iteration: the present waited for the refresh, so the next frame starts now. A present that
+ * did not wait is held to 105 % of the machine's speed; thirty in a row (a minimized window, a driver forcing vsync off) end
+ * the lock. The refreshes each frame was held are counted (the cadence, never a latency). */
+static void sync_paced(RrhkRun *r, Uint64 now) {
+    const Uint64 period = (Uint64)(r->machine->frame_seconds * (double)r->frequency);
+    const Uint64 refresh = (Uint64)((double)r->frequency / rrhk_sync.refresh_hz);
+    if (r->presented && now - r->presented < refresh / 2) {
+        if (++rrhk_sync.quick_presents >= 30 && !getenv("RETRORECOMP_TEST_REFRESH_HZ")) {
+            rrhk_sync.lock = false; rrhk_sync.why = "Free: the screen's refresh is unknown";
+            fprintf(stderr, "[host] sync to display: the presents do not wait for the refresh, free from now on\n");
+            rrhk_audio_set_base(r, 1.0);
+        }
+        const Uint64 floor = r->presented + period * 95 / 100;
+        while (now_ticks() < floor) { if (floor - now_ticks() > r->frequency / 500) SDL_Delay(1); }
+        now = now_ticks();
+    } else if (r->presented) {
+        rrhk_sync.quick_presents = 0;
+        const Uint64 held = (now - r->presented + refresh / 2) / (refresh ? refresh : 1);
+        ++rrhk_sync.held[held < 1 ? 0 : held > 4 ? 3 : held - 1];
+    }
+    r->presented = now;
+    r->next = now;
+}
+
 /* The second half: the sound of the frame just run, the picture, the title, the menus and notices, and the pacing. */
 static void end_frame(RrhkRun *r) {
     const RrhkMachine *m = r->machine;
@@ -502,6 +604,7 @@ static void end_frame(RrhkRun *r) {
     } else rrhk_audio_idle(r);
     if (r->timing_enabled) r->ticks[3] = now_ticks();
     const bool shown = !r->fast || (r->frame & 7) == 0;
+    const bool paced = sync_frame(r);      /* 1.7.7 (D30) */
     if (shown) rrhk_present_picture(r);
 
     int current_title_state = (m->interpreted() || m->audio_interpreted() ? 1 : 0);
@@ -526,7 +629,25 @@ static void end_frame(RrhkRun *r) {
     r->ticks[5] = now;
     if (r->work_started && m->cost) m->cost(1000.0 * (now - r->work_started) / r->frequency,
                                            1000.0 * (now - present_started) / r->frequency);
-    if (rrhk.menu || rrhk.paused) { r->next = now; SDL_Delay(16); return; }
+    if (rrhk.menu || rrhk.paused) {
+        /* 1.7.7: a locked game's menus keep vsync on: a present that waited for the refresh needs no other wait */
+        if (!(rrhk_sync.lock && rrhk_sync.vsync && r->presented && now - r->presented > r->frequency / 250)) SDL_Delay(16);
+        r->presented = now; r->next = now; return;
+    }
+    if (paced && shown) {
+        sync_paced(r, now);
+        if (r->timing_enabled && r->ran_frame) {
+            r->ticks[6] = now_ticks();
+            ++r->timing.frames; r->timing.thread_cpu += rrhk_thread_cpu() - r->cpu_started;
+            for (unsigned n = 0; n < 6; ++n) {
+                double seconds = (double)(r->ticks[n + 1] - r->ticks[n]) / r->frequency;
+                r->timing.total[n] += seconds;
+                if (seconds > r->timing.maximum[n]) r->timing.maximum[n] = seconds;
+            }
+        }
+        return;
+    }
+    r->presented = now;
     if (r->fast) { r->next = now; return; }
     Uint64 period = (Uint64)(m->frame_seconds * r->frequency);
     if (r->speed != 100) period = period * 100 / (Uint64)r->speed;
@@ -559,6 +680,11 @@ static void close_run(RrhkRun *r) {
                 r->video_clock_test ? "true" : "false");
     }
     rrhk_timing_write(m, r->timing_path, &r->timing, r->ren, r->frequency);
+    if (rrhk_sync.held[0] + rrhk_sync.held[1] + rrhk_sync.held[2] + rrhk_sync.held[3])
+        fprintf(stderr, "[host] sync to display: locked frames held 1 refresh %llu, 2 %llu, 3 %llu, 4+ %llu (the cadence, not a latency)\n",
+                (unsigned long long)rrhk_sync.held[0], (unsigned long long)rrhk_sync.held[1],
+                (unsigned long long)rrhk_sync.held[2], (unsigned long long)rrhk_sync.held[3]);
+    rrhk_audio_set_base(r, 1.0);
     rr_feedback_close_screen(r->ren);
     remember_window();
     rrhk_audio_close(r);

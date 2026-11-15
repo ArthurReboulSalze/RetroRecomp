@@ -48,6 +48,7 @@ from .gui_conversion import ConversionMixin
 from .gui_collection import CollectionMixin
 from .gui_updates import UpdatesMixin
 from .gui_options import OptionsMixin, FIRMWARE_ROWS
+from .gui_firmware import FirmwareSearchMixin
 from .gui_sharing import SharingMixin
 from .gui_reports import ReportsMixin
 from .gui_account import AccountMixin
@@ -55,7 +56,7 @@ from .gui_leaderboard import LeaderboardMixin
 
 
 class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, UpdatesMixin, OptionsMixin,
-                 SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin):
+                 SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin):
     """The window. Its methods live in the mixins above, one responsibility each; no name is
     defined twice, so the order of the bases decides nothing."""
     def __init__(self, app: tk.Tk):
@@ -258,6 +259,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
                                  (self.language_field, 'language', 'tip_language')):
             self.tooltips.append(Tooltip(field, lambda name=name, tip=tip: f'{self.tr(name)}\n{self.tr(tip)}'))
         self.header_fields = (self.system_field, self.language_field)
+        self.size_header_fields()
         self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='ne')
                                     for field in self.header_fields)
         # The player's account: portrait, name, score and the board.

@@ -73,8 +73,11 @@ only the chosen rows. Other recovered rows remain available after closing.
 Remove/Clear retires them. Small checkpoint files stay in the converter's private
 `datas/pending-batches`; they contain paths and progress, never ROM copies.
 
-Linux games request VSync by default, keeping the console's clock limiter.
-`SDL_RENDER_VSYNC=0` is an explicit diagnostic override. Window managers and
+Linux games request VSync by default, keeping the console's clock limiter; since
+1.7.7 the options page's **Sync to display** row may lock a game to the screen's
+refresh or turn VSync off (Free, Variable refresh), as on Windows
+([HOST_KIT.md](HOST_KIT.md#d30), D30). `SDL_RENDER_VSYNC=0` is an explicit
+diagnostic override: the game then leaves VSync alone and is never locked. Window managers and
 display drivers still determine physical presentation; a renderer flag alone
 does not prove tear-free output. Menus draw plain ASCII with the public-domain
 Misc Fixed 10x20 bitmap in 5 x 10 cells, scaled to the window by area coverage (6x10 at 1x);

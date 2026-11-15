@@ -262,7 +262,9 @@ class OptionsMixin:
             self.build_console_tab(profile, page_of(profile), checkbox)
         picker = ttk.Combobox(top, state='readonly', width=36, values=[self.tr(key) for _, key, _ in pages])
         picker._retro_value_keys = [key for _, key, _ in pages]   # retranslated by refresh_language
-        picker.pack(anchor='w')
+        picker.pack(side='left')
+        # Fills the firmware paths of every machine from one folder (gui_firmware.py), after a review.
+        self.build_firmware_search_button(top)
         self.options_console_picker = picker
         self.options_console_pages = pages
 

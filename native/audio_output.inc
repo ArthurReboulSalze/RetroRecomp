@@ -215,14 +215,26 @@ bool host_audio_init(uint32_t rate) {
     return true;
 }
 
+/* 1.7.7 (HOST_KIT D30): while the game is locked to the display, the factor on the sound's length (machine_hz / refresh_hz,
+ * the kit's RrhkMachine.audio_ratio); exactly 1.0 otherwise, the conversion then as before. Locked, the band-limited converter
+ * runs at an output rate of device x rr_drc_ratio(base, fill, target), the target being the start reserve plus half a frame. */
+static double rr_audio_base = 1.0;
+void host_audio_ratio(double base) { rr_audio_base = base; }
+
 void host_audio_submit(const int16_t *samples, size_t count) {
     if (!audio_device || !samples || !count) return;
 #ifdef RR_HOST_AUDIO_HELD
     if (RR_HOST_AUDIO_HELD()) return;
 #endif
+    uint32_t step = (uint32_t)rr_audio.device.freq;
+    if (rr_audio_base != 1.0) {
+        const double target = (double)rr_audio.device.samples +
+            (double)audio_ms_frames(RR_AUDIO_JITTER_MS + 8u + (uint32_t)rr_cushion_ms(&rr_audio.cushion));
+        step = (uint32_t)lrint(rr_audio.device.freq * rr_drc_ratio(rr_audio_base, (double)rr_audio.fill, target));
+    }
     /* Conversion stays on the producer thread. A short causal FIR avoids
      * SDL_AudioStream's future-sample padding at the PSG's ~223 kHz rate. */
-    if (rr_audio.source_rate == (uint32_t)rr_audio.device.freq) {
+    if (rr_audio.source_rate == step) {
         while (count) {
             uint32_t chunk = (uint32_t)SDL_min(count, 1024u);
             audio_push(samples, chunk); samples += chunk * 2u; count -= chunk;
@@ -234,10 +246,10 @@ void host_audio_submit(const int16_t *samples, size_t count) {
         rr_audio.history_pos = (rr_audio.history_pos + 1u) % RR_AUDIO_TAPS;
         rr_audio.history[rr_audio.history_pos * 2u] = *samples++;
         rr_audio.history[rr_audio.history_pos * 2u + 1u] = *samples++;
-        rr_audio.phase += (uint32_t)rr_audio.device.freq;
+        rr_audio.phase += step;
         while (rr_audio.phase >= rr_audio.source_rate) {
             rr_audio.phase -= rr_audio.source_rate;
-            uint32_t phase = (uint32_t)((uint64_t)rr_audio.phase * RR_AUDIO_PHASES / rr_audio.device.freq);
+            uint32_t phase = (uint32_t)((uint64_t)rr_audio.phase * RR_AUDIO_PHASES / step);
             phase = SDL_min(phase, RR_AUDIO_PHASES - 1u);
             double left, right;
             rr_stereo_fir(rr_audio.history,rr_audio.history_pos,

@@ -90,7 +90,7 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
 def sdk_stamp(part: str | None = None) -> str:
     """The identity of the Amiga's build inputs (its stamped files and the vAmiga adaptation); part='game' leaves the shell out."""
     from .compilation_inputs import engine_stamp, role_stamps
-    from .amiga_vamiga import adaptation_digest
+    from .amiga_vamiga_display import adaptation_digest
     value = hashlib.sha256(b'amiga-sdk-v1\0')
     value.update((role_stamps('amiga')['game'] if part == 'game' else engine_stamp('amiga')).encode())
     value.update(b'\0' + adaptation_digest().encode())
@@ -258,9 +258,9 @@ def write_events(path: Path, events) -> Path:
 
 # --------------------------------------------------------------------------------------------------------- building
 def machine_core(base: Path, emit) -> Path:
-    from . import amiga_vamiga
+    from . import amiga_vamiga, amiga_vamiga_display
     with entry_lock(base / 'vamiga-lock', timeout=1800):
-        return amiga_vamiga.adapt(amiga_vamiga.source(emit), base / 'vamiga')
+        return amiga_vamiga_display.adapt(amiga_vamiga.source(emit), base / 'vamiga')
 
 
 def cmake_build(build: Path, core: Path, *, emit, generated: Path | None = None, payload: Path | None = None, tools: bool = False,
@@ -1075,7 +1075,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                                                                    'generator': 'computer_routes.long_events'} for name, frames_, events in routes if name.startswith('long-')]},
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True, 'slots': 1,
                             'compatibility': 'the exact install and the build that wrote the state; refused between builds',
-                            'schema': 'RRAMIGA-STATE-6', 'machine': model.machine, 'rom_identity': source.sha256,
+                            'schema': 'RRAMIGA-STATE-7', 'machine': model.machine, 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': True, 'saved_at_frame': state_frame,
                                            'continuation_frames': STATE_SETTLE, 'continuation_matches': True,
                                            **{key: state_check[key] for key in ('fresh_process_match', 'truncated_state_rejected',

@@ -32,7 +32,10 @@ alert.
    file of your own: the Neo Geo a BIOS ZIP (**Options > Neo Geo**), the Sharp
    X68000 an IPL ROM and a font ROM, and a split CPS-1 clone the ZIP of its
    parent beside it. The machine pages say which ([Neo Geo](NEOGEO.md),
-   [CPS-1](CPS1.md), [X68000](X68000.md)).
+   [CPS-1](CPS1.md), [X68000](X68000.md)). If your BIOS files are in one
+   folder (a Batocera `bios` folder, or files in bulk), **Options > Consoles >
+   Find firmware in a folder…** fills the firmware paths of every machine at
+   once: see [Finding firmware in a folder](#finding-firmware-in-a-folder).
 3. The first conversion offers to install the missing build tools itself (a
    portable Git and a portable compiler on Windows, without administrator
    rights; a few packages on Debian and Ubuntu), because every game is compiled
@@ -45,6 +48,35 @@ alert.
 
 Playing a converted game needs no development tools. ROMs and downloaded box art
 are never included with Retro-Recomp: bring your own.
+
+### Finding firmware in a folder
+
+**Options > Consoles > Find firmware in a folder…** (since 1.7.7) looks through
+the folder you choose and its subfolders once and proposes, machine by machine
+and option by option, the files that fill the firmware paths: the Neo Geo BIOS
+archive, the QSound DSP ROM (CPS-1.5 and CPS-2), the Game Boy Advance BIOS, the
+PlayStation BIOS, the Amiga 500 and Amiga 1200 Kickstarts, the Atari ST TOS, the
+X68000 IPL and font ROM, and the MSX, MSX2 and MSX2+ BIOS files (with the MSX2+
+sub-ROM, disk ROM, MSX-MUSIC BIOS and kanji ROM).
+
+- A file is recognised by its content, with the check the converter already
+  makes when it converts (hashes, sizes, headers), never by its name: a renamed
+  BIOS is found, an unknown or damaged one is left out. For the X68000, whose
+  conversion checks sizes only, the search knows the public digests of the IPL
+  and font ROM images. C-BIOS and OpenBIOS are not proposed (the converter brings
+  its own).
+- The PlayStation, Amiga and Atari ST options receive the folder that holds the
+  images: the converter picks the one each game needs there.
+- Nothing changes before you confirm. Each line has a checkbox; a path you
+  already set is shown and left unticked, and where several different files fit
+  one option with no preference of the converter (several MSX BIOS images, or
+  MSX ROMs that only a header tells apart) you choose in the list before ticking.
+  **Use the ticked paths** writes only the ticked ones into the fields, as
+  Browse does; they are saved with the other options.
+- Your files are only read: never copied, moved, renamed, changed or sent.
+  Links and junctions are not followed, so nothing outside the chosen folder is
+  read; files over 16 MiB are skipped, the search stops after 100,000 files and
+  Cancel stops it at any time.
 
 ## What the installers contain
 

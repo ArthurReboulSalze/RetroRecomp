@@ -67,4 +67,47 @@ static inline bool rr_cushion_clean(RrAudioCushion *c, Uint32 frames, Uint32 rat
     SDL_AtomicSet(&c->extra_ms, extra - RR_CUSHION_STEP_MS);
     return true;
 }
+
+/* 1.7.7 (HOST_KIT D30): the sound of a game locked to the display. Locked, the game runs at the screen's refresh instead of its
+ * own rate (60.00 Hz instead of 59.92: +0.13 %), so each output path shrinks or stretches the sound it made by
+ * base = machine_hz / refresh_hz, with a small correction from its own buffer fill so that the buffer neither grows nor runs
+ * dry (dynamic rate control). base == 1.0 exactly means not locked: callers bypass all of this, byte for byte as before.
+ * rr_drc_ratio: the factor on the output length, base within RR_DRC_BASE_LIMIT, the fill's correction within
+ * RR_DRC_CORRECTION (below the target a little more sound, above it a little less). */
+#define RR_DRC_BASE_LIMIT 0.03
+#define RR_DRC_CORRECTION 0.005
+static inline double rr_drc_ratio(double base, double fill, double target) {
+    if (base < 1.0 - RR_DRC_BASE_LIMIT) base = 1.0 - RR_DRC_BASE_LIMIT;
+    if (base > 1.0 + RR_DRC_BASE_LIMIT) base = 1.0 + RR_DRC_BASE_LIMIT;
+    double c = target > 0.0 ? RR_DRC_CORRECTION * (target - fill) / target : 0.0;
+    if (c < -RR_DRC_CORRECTION) c = -RR_DRC_CORRECTION;
+    if (c > RR_DRC_CORRECTION) c = RR_DRC_CORRECTION;
+    return base * (1.0 + c);
+}
+/* Linear interpolation of interleaved int16 frames (1 or 2 channels) by `ratio` output frames per input frame, continuous
+ * across calls (the last input frame and the position are kept). Returns the output frames written, at most `capacity`. */
+typedef struct { double position; int16_t last[2]; bool primed; } RrDrcResampler;
+static inline size_t rr_drc_resample(RrDrcResampler *r, const int16_t *in, size_t frames, int channels, double ratio,
+                                     int16_t *out, size_t capacity) {
+    size_t written = 0;
+    if (!frames || ratio <= 0.0) return 0;
+    if (!r->primed) { for (int c = 0; c < channels; ++c) r->last[c] = in[c]; r->primed = true; r->position = 0.0; }
+    const double step = 1.0 / ratio;
+    /* position 0 is the last frame of the previous call, k the input frame k - 1 */
+    while (r->position < (double)frames && written < capacity) {
+        const size_t i = (size_t)r->position;
+        const double f = r->position - (double)i;
+        for (int c = 0; c < channels; ++c) {
+            const double a = i ? in[(i - 1) * (size_t)channels + (size_t)c] : r->last[c], b = in[i * (size_t)channels + (size_t)c];
+            const double v = a + (b - a) * f;
+            out[written * (size_t)channels + (size_t)c] = (int16_t)(v < -32768.0 ? -32768 : v > 32767.0 ? 32767 : (int)(v + (v < 0 ? -0.5 : 0.5)));
+        }
+        ++written;
+        r->position += step;
+    }
+    r->position -= (double)frames;
+    if (r->position < 0.0) r->position = 0.0;
+    for (int c = 0; c < channels; ++c) r->last[c] = in[(frames - 1) * (size_t)channels + (size_t)c];
+    return written;
+}
 #endif

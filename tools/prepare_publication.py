@@ -85,11 +85,11 @@ tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardwa
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 retrorecomp/m68k_observed.py retrorecomp/m68k_media_knowledge.py retrorecomp/path_records.py retrorecomp/m68020_lengths.py tests/test_m68020_lengths.py retrorecomp/m68k_record_walk.py tests/test_m68k_observed.py tests/test_m68k_media_knowledge.py tests/test_m68k_record_walk.py retrorecomp/x68_knowledge.py tests/test_x68_knowledge.py tests/x68_generator_pins.json tests/test_schema3_modules.py
 retrorecomp/systems/amiga.py retrorecomp/amiga.py retrorecomp/amiga_lha.py retrorecomp/amiga_whdload.py
-retrorecomp/amiga_codegen.py retrorecomp/amiga_translate.py retrorecomp/amiga_conversion.py retrorecomp/amiga_kickstart.py retrorecomp/amiga_knowledge.py retrorecomp/amiga_vamiga.py docs/AMIGA.md tests/test_amiga_knowledge.py tests/amiga_generator_pins.json
+retrorecomp/amiga_codegen.py retrorecomp/amiga_translate.py retrorecomp/amiga_conversion.py retrorecomp/amiga_kickstart.py retrorecomp/amiga_knowledge.py retrorecomp/amiga_vamiga.py retrorecomp/amiga_vamiga_display.py docs/AMIGA.md tests/test_amiga_knowledge.py tests/amiga_generator_pins.json
 native/amiga_whdload/rr_resload.c native/amiga_whdload/rr_resload.h native/amiga_whdload/rr_decrunch.c native/amiga_whdload/rr_decrunch.h
 native/amiga_machine/CMakeLists.txt native/amiga_machine/amiga_session.h native/amiga_machine/amiga_session.cpp
 native/amiga_machine/amiga_player.c native/amiga_machine/moira_map.cpp native/hostkit/adapters/rrhk_amiga.inc licenses/vamiga.md
-tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_translate.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_routes.py tests/test_amiga_whdload.py
+tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_translate.py tests/test_amiga_vamiga_display.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_routes.py tests/test_amiga_whdload.py
 tests/amiga_resload_harness.c tests/test_observed_index_contract.py
 retrorecomp/systems/atari_st.py retrorecomp/atarist.py retrorecomp/atarist_tos.py retrorecomp/atarist_disk.py retrorecomp/atarist_emutos.py retrorecomp/atarist_hatari.py retrorecomp/atarist_codegen.py retrorecomp/atarist_conversion.py retrorecomp/atarist_notes.py retrorecomp/atarist_knowledge.py docs/ATARI_ST.md
 native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c native/atarist_machine/atarist_session.h
@@ -224,10 +224,11 @@ retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gate
 tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_delivery_evidence.py tests/test_packed_fallback.py tests/test_x68000_common.py tests/x68000_common_golden.json tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py tools/startup_cost.py tests/test_startup_cost.py tools/gba_frame_cost.py tests/test_gba_frame_cost.py tests/test_sdl_install.py tests/test_dependency_pins.py
 retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
-retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py
+retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py retrorecomp/console_menu.py
+retrorecomp/gui_firmware.py retrorecomp/firmware_search.py tests/test_firmware_search.py
 retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
-retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py tests/test_compress_option.py
+retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py tests/test_compress_option.py tests/test_console_menu.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 tests/test_qualified_bank.py
 retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
@@ -431,7 +432,7 @@ retrorecomp/megadrive_bus.py native/md_bus_scheduler.h native/md_z80_bus.inc
 native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
 native/md_prefetch_plan_checks.c tools/megadrive_prefetch_plan_selftest.py
 tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
-native/md_bcd_checks.c native/amiga_machine/moira_vector_maker.cpp tools/megadrive_moira_vectors.py tests/test_md_moira_vectors.py
+native/md_bcd_checks.c native/md_audio_locked_checks.c native/amiga_machine/moira_vector_maker.cpp tools/megadrive_moira_vectors.py tests/test_md_moira_vectors.py
 tests/test_m68000_shifts.py tools/build_m68000_shift_fixture.py tests/fixtures/m68k-shifts/cases.json tests/fixtures/m68k-shifts/LICENSE
 tests/test_megadrive_rules.py tests/test_m68k_groups_fixture.py tools/build_m68000_groups_fixture.py tools/megadrive_groups_selftest.py tools/megadrive_variant_cap_selftest.py tools/megadrive_mame_compare.py tools/megadrive_cross_os.py
 tests/fixtures/m68k-groups/cases.json tests/fixtures/m68k-groups/deviations.json tests/fixtures/m68k-groups/LICENSE

@@ -63,6 +63,13 @@ def smoke(window):
     assert application.body.grid_rowconfigure(1)['weight'] == 4
     assert application.body.grid_rowconfigure(7)['weight'] == 2
     assert application.banner is not None
+    # The console menu: short unique labels, a field wide enough for them, a drop-down as wide as its longest entry.
+    labels = application.system_field.cget('values')
+    assert len(labels) == len(set(labels)) == len(PROFILES) + 1 and 'Amiga 500' in labels and 'Amiga 1200' in labels
+    assert int(application.system_field.cget('width')) == int(application.language_field.cget('width')) >= 14
+    application.size_popdown(application.system_field)
+    assert application.system_field.cget('postcommand')
+    assert len(application.style.lookup('Header.TCombobox', 'postoffset').split()) == 4
     assert application.banner.width() <= 600 and application.banner.height() < 175
     banner_items = application.header.find_withtag('banner')
     assert len(banner_items) == 1
@@ -338,6 +345,9 @@ def smoke(window):
     assert picker.get() == application.tr('options_ng')
     assert [frame.winfo_manager() for _, _, frame in application.options_console_pages].count('pack') == 1
     assert application.options_console_pages[neo_geo][2].winfo_manager() == 'pack'
+    # Beside the machine list, the search that fills every machine's firmware paths from one folder (its dialog is not opened here).
+    assert application.firmware_search_button.cget('text') == application.tr('firmware_search')
+    assert application.firmware_search_button.winfo_manager() == 'pack'
     assert application.account_status.get() == application.tr('account_coming')
     assert not application.account_sync.winfo_manager() and not application.account_rewards.winfo_manager()
     # Signed in: the balance, the title, the site's titles and the two shared-base options.

@@ -233,7 +233,7 @@ typedef struct RrhkMachine {
     void (*reset)(void);
     bool (*run_frame)(uint16_t p1, uint16_t p2);
     void (*pause)(bool paused);
-    const uint32_t *(*pixels)(void);
+    const uint32_t *(*pixels)(void);           /* NULL (or a 0 x 0 visible size): no picture yet, shown black (1.7.7) */
     int (*visible_width)(void);
     int (*visible_height)(void);
     int (*raster_height)(void);
@@ -276,6 +276,11 @@ typedef struct RrhkMachine {
      * closes it and opens it again with rrhk_audio_device() when the player chooses another output; false: it could not. */
     bool (*audio_reopen)(void);
     SDL_AudioDeviceID (*audio_device_id)(void);   /* the id SDL gave that device, 0 when it has none: an SDL_AUDIODEVICEREMOVED for it reopens it */
+    /* 1.7.7 (D30, Sync to display): while the game is locked to the display, the factor its own sound output applies to the
+     * length of what the machine made, base = machine_hz / refresh_hz (audio_cushion.h rr_drc_ratio adds the fill's
+     * correction); exactly 1.0 otherwise, the output then as before. Called when the value changes. NULL: a machine that
+     * opens its own device and cannot follow is never locked. */
+    void (*audio_ratio)(double base);
     /* Called once the preferences and the sound controls are read, after the kit opened its own sound output: a machine that
      * opened its device before that (Mega Drive) attaches the kit's sound stage (rrhk_options_audio) to it here. */
     void (*sound_ready)(void);
