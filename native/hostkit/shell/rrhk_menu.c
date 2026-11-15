@@ -93,7 +93,7 @@ void rrhk_graphics_draw(SDL_Renderer *ren) {
             char value[80], name[80];
             const SDL_Rect dst = rrhk_game_rect(ren);
             const bool inert = (rrhk.filter == 1 && (m->visible_width() > 1024 || m->visible_height() > 1024)) ||
-                               (rrhk.filter == 3 && dst.h < 2 * m->visible_height());
+                               (rrhk.filter == 3 && dst.h < 2 * m->raster_height());
             if (inert) snprintf(name, sizeof name, rr_tr("%s (not at this size)"), rrhk_filter_name(rrhk.filter));
             else snprintf(name, sizeof name, "%s", rrhk_filter_name(rrhk.filter));
             snprintf(value, sizeof value, rr_tr("Filter: %s"), name);

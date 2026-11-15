@@ -291,6 +291,7 @@ static const char *const rr_translations[][5] = {
     {"Save unreadable: set aside","Sauvegarde illisible : mise de cote","Salvataggio illeggibile: messo da parte","Guardado ilegible: apartado","Spielstand unlesbar: beiseite gelegt"},
     {"Saving fallback hints...","Enregistrement des recours...","Salvataggio indizi fallback...","Guardando pistas de fallback...","Fallback-Hinweise speichern..."},
     {"Scanlines","Scanlines","Scanline","Lineas de barrido","Scanlines"},
+    {"Screen format: %s","Format d'ecran : %s","Formato schermo: %s","Formato de pantalla: %s","Bildformat: %s"},
     {"Select","Select","Select","Select","Select"},
     {"Settings saved","Reglages enregistres","Impostazioni salvate","Opciones guardadas","Gespeichert"},
     {"Shape","Forme","Forma","Forma","Form"},

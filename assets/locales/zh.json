@@ -1090,6 +1090,7 @@
     "Arrows; W/X/C + A/S/D: buttons 1-6": "方向键；W/X/C + A/S/D：按钮1-6",
     "Edge smoothing (console)": "边缘平滑（主机）",
     "Smooth scaling (console)": "平滑缩放（主机）",
-    "Dither smoothing": "抖动平滑"
+    "Dither smoothing": "抖动平滑",
+    "Screen format: %s": "画面比例: %s"
   }
 }

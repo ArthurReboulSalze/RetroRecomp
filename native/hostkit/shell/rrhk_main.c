@@ -95,6 +95,7 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     rrhk.status[0] = 0;
     rrhk_bind(m);
     rrhk_load_bindings();
+    rrhk_widescreen_load(title);      /* 1.7.6: this game's screen format (RrhkMachine.widescreen) */
     rrhk_options_init(m->ini_section);
     r->speed = 100;
     r->device_serial = rrhk_audio_device_serial();

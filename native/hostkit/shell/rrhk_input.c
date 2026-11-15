@@ -628,6 +628,33 @@ bool rrhk_gfx_override(const RrhkMachine *machine, const char *assignment) {
     return false;
 }
 
+/* 1.7.6: the screen format of this game (RrhkMachine.widescreen), under [<Console>.Widescreen], one key per game: its title
+ * with every character but letters and digits turned to '_'. */
+static wchar_t widescreen_key[64];
+void rrhk_widescreen_load(const char *title) {
+    const RrhkMachine *m = rrhk.machine;
+    rrhk.widescreen = 0;
+    widescreen_key[0] = 0;
+    if (!m->widescreen || !title) return;
+    size_t n = 0;
+    for (const char *c = title; *c && n + 1 < sizeof widescreen_key / sizeof widescreen_key[0]; ++c)
+        widescreen_key[n++] = (wchar_t)(((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9')) ? *c : '_');
+    widescreen_key[n] = 0;
+    wchar_t section[80];
+    swprintf(section, 80, L"%ls.Widescreen", m->ini_section);
+    rrhk.widescreen = n && rr_ini_int(section, widescreen_key, 0, rrhk.read_file) == 1;
+}
+void rrhk_widescreen_toggle(void) {
+    const RrhkMachine *m = rrhk.machine;
+    if (!m->widescreen) return;
+    rrhk.widescreen = !rrhk.widescreen;
+    rrhk_notice(rrhk.widescreen ? "16:9" : "4:3", 1800);
+    wchar_t section[80];
+    swprintf(section, 80, L"%ls.Widescreen", m->ini_section);
+    if (!widescreen_key[0] || !rrhk_write_ready() || !rr_ini_set(section, widescreen_key, rrhk.widescreen ? L"1" : L"0", rrhk.ini_file))
+        snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Config unavailable"));
+}
+
 int rrhk_gfx_value(int option) { return option >= 0 && option < RRHK_MAX_GFX_OPTIONS ? rrhk.gfx[option] : 0; }
 
 void rrhk_gfx_start(bool test_run) {

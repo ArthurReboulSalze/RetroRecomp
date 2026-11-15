@@ -45,8 +45,9 @@ SDL_Rect rrhk_game_rect(SDL_Renderer *renderer) {
     if (m->even_scale2x && rrhk.filter == 2 && density < 2 && w >= 2 * m->display_width() && h >= 2 * m->raster_height()) density = 2;
     /* Divergence 9 (decided, D2): whole pixels, centred, in the window and in the first fullscreen mode; only the second
      * fullscreen mode (Fit) stretches to the largest size that keeps the aspect. */
-    Rr16Rect r = rr16_video_rect(w, h, m->display_width(), m->raster_height(),
-                                density, rrhk.fullscreen != 2);
+    /* 1.7.6: a game shown at 16:9 (its own anamorphic widescreen option, RrhkMachine.widescreen) is 16 wide for 9 high */
+    const int display_width = m->widescreen && rrhk.widescreen ? (m->raster_height() * 16 + 4) / 9 : m->display_width();
+    Rr16Rect r = rr16_video_rect(w, h, display_width, m->raster_height(), density, rrhk.fullscreen != 2);
     SDL_Rect rect = {r.x, r.y, r.w, r.h};
     return rect;
 }
@@ -133,6 +134,8 @@ void rrhk_present_picture(RrhkRun *run) {
     SDL_Texture *smooth = rrhk.filter == 1 ? rr_xbr_update(ren, &run->xbr, m->pixels(), width, height, pitch) : NULL;
     if (smooth) SDL_RenderCopy(ren, smooth, NULL, &dst);
     else SDL_RenderCopy(ren, run->tex, &source, &dst);
-    if (rrhk.filter == 3) rr_scanlines_draw(ren, &run->scanlines, &dst, m->visible_height());
+    /* 1.7.6: one scanline per line of the console (raster_height), not per row of a raised internal resolution (visible_height):
+     * a 240-line game drawn at 2x or 4x keeps its 240 dark lines, which show on any screen of 480 rows or more */
+    if (rrhk.filter == 3) rr_scanlines_draw(ren, &run->scanlines, &dst, m->raster_height());
     rrhk_pointer_draw(ren, &dst);
 }

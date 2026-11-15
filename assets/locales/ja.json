@@ -1090,6 +1090,7 @@
     "Arrows; W/X/C + A/S/D: buttons 1-6": "矢印；W/X/C + A/S/D：ボタン1-6",
     "Edge smoothing (console)": "エッジの平滑化（本体）",
     "Smooth scaling (console)": "なめらかな拡大（本体）",
-    "Dither smoothing": "ディザの平滑化"
+    "Dither smoothing": "ディザの平滑化",
+    "Screen format: %s": "画面比率: %s"
   }
 }

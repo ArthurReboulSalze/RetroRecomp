@@ -1090,6 +1090,7 @@
     "Arrows; W/X/C + A/S/D: buttons 1-6": "Frecce; W/X/C + A/S/D: pulsanti 1-6",
     "Edge smoothing (console)": "Smussatura dei bordi (console)",
     "Smooth scaling (console)": "Scala smussata (console)",
-    "Dither smoothing": "Smussatura del dithering"
+    "Dither smoothing": "Smussatura del dithering",
+    "Screen format: %s": "Formato schermo: %s"
   }
 }

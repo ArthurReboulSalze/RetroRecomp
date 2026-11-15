@@ -1090,6 +1090,7 @@
     "Arrows; W/X/C + A/S/D: buttons 1-6": "Pfeile; W/X/C + A/S/D: Tasten 1-6",
     "Edge smoothing (console)": "Kantenglättung (Konsole)",
     "Smooth scaling (console)": "Weiche Skalierung (Konsole)",
-    "Dither smoothing": "Dither-Glättung"
+    "Dither smoothing": "Dither-Glättung",
+    "Screen format: %s": "Bildformat: %s"
   }
 }

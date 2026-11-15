@@ -489,6 +489,16 @@ X68000 too, without asking again**.
   former default on that layout (`RrhkAction.former_letter`) moves by itself; a key the player chose stays, and a default a
   saved key uses is dropped, never shared. The kit's players 3 and 4 move to I K J L + U O N and G B V H + C X 9.
 
+* <a id="d27"></a>**D27 — A 16:9 screen format for the games' own widescreen mode; scanlines per console line** (owner's
+  decisions of 15 November 2026, 1.7.6). A machine whose games may draw an anamorphic widescreen picture (squeezed by their own
+  16:9 option: the Nintendo 64's GoldenEye or Banjo-Tooie, some PlayStation games) declares `RrhkMachine.widescreen`; its
+  options page then has a "Screen format: 4:3 / 16:9" row (default 4:3), kept per game (`[<Console>.Widescreen]`, one key per
+  game title), and at 16:9 the kit shows the picture 16 wide for 9 high (`rrhk_game_rect`, from `raster_height`). Only the
+  displayed rectangle changes: the machine, its picture, the menus and the notices are untouched, and the filters and scanlines
+  follow the rectangle; a letterboxed "16:9" (black bands drawn by the game) needs nothing and gains nothing. The scanlines are
+  drawn one per line of the console (`raster_height`), no longer one per row of a raised internal resolution (`visible_height`):
+  a 240-line game shown at 2x or 4x keeps 240 visible dark lines (the PlayStation specialist's finding).
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

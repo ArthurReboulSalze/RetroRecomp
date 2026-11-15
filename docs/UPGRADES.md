@@ -150,6 +150,24 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
 
+## Every machine: a 16:9 screen format for the games' own widescreen mode, scanlines per console line (1.7.6)
+
+A machine whose games may draw an anamorphic widescreen picture can show it at 16:9, kept per game; the scanlines follow the
+console's lines on every machine ([HOST_KIT.md](HOST_KIT.md#d27), D27).
+
+* **Stamps.** The host stamp of all 20 profiles moves (`hostkit/hostkit.h`: `RrhkMachine.widescreen`, `RrhkUi.widescreen`;
+  `hostkit/hostkit_internal.h`; the shell's `rrhk_video.c`, `rrhk_input.c`, `rrhk_options.c`, `rrhk_events.c`, `rrhk_main.c`,
+  `rrhk_menu.c`; `retro_menu.c` and `retro_menu.h` for the icon; `runtime_catalog.inc` and the locales). No game or build
+  stamp, no quick-state key. The row appears on a machine once its adapter sets `widescreen` (the Nintendo 64 and the
+  PlayStation, by their specialists).
+* **What players see.** On those machines a "Screen format" row (4:3 by default). On every machine, scanlines at 2x or 4x
+  internal resolution: one dark line per console line, visible again (before: one per internal row, too thin to see at 2x and
+  not drawn at all at 4x below a 1920-row screen).
+* **Preferences.** One section, `[<Console>.Widescreen]`, one key per game (its title, letters and digits), 1 for 16:9.
+* **Texts.** One new entry in the five game languages: "Screen format: %s" (the values 4:3 and 16:9 are not translated).
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 12 (the row, the key kept for the game, the 16:9 rectangle, read back
+  at the next start); the filter measurement of the 3D geometries before and after the scanline fix.
+
 ## Every machine: stick directions as inputs, new keyboard defaults on S D F / E R T (1.7.6)
 
 A stick direction can be bound to any digital control, and player 1's keyboard defaults of the machines with few buttons move to

@@ -923,6 +923,42 @@ static void stick_script(void) {
     }
 }
 
+/* 1.7.6: a machine whose games may draw a widescreen picture: the options page's "Screen format" row, kept for this game, and
+ * the picture shown 16 wide for 9 high; the next start reads it back. */
+static void widescreen_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: {
+        CHECK(ui->widescreen == 0);
+        int w = 0, h = 0;
+        SDL_GetRendererOutputSize(SDL_GetRenderer(rrhk_window()), &w, &h);
+        const SDL_Rect dst = rrhk_game_rect(SDL_GetRenderer(rrhk_window()));
+        CHECK(dst.w * 3 == dst.h * 4 || dst.w * 3 == dst.h * 4 + 1 || dst.w * 3 + 1 == dst.h * 4);   /* the machine's 4:3 */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN);      /* the options tile: the last */
+        break;
+    }
+    case 1: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN); break;
+    case 2: {
+        CHECK(ui->widescreen == 1 && !strcmp(ui->status, "16:9"));
+        CHECK(ini(L"Test3D.Widescreen", L"Capabilities") == 1);
+        const SDL_Rect dst = rrhk_game_rect(SDL_GetRenderer(rrhk_window()));
+        CHECK(dst.h > 0 && dst.w * 9 >= dst.h * 16 - 16 && dst.w * 9 <= dst.h * 16 + 16);    /* 16:9 */
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
+        break;
+    }
+    case 3: stop = true; break;
+    default: break;
+    }
+}
+static void widescreen_again(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: CHECK(ui->widescreen == 1); break;         /* read back at the next start */
+    case 1: stop = true; break;
+    default: break;
+    }
+}
+
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
@@ -1066,6 +1102,15 @@ int main(int argc, char **argv) {
     begin(stick_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 22);
+    /* 12. 1.7.6: the screen format of a machine whose games may draw a widescreen picture. */
+    plain.widescreen = true;
+    begin(widescreen_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 4);
+    begin(widescreen_again);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 2);
+    plain.widescreen = false;
     /* 10. 1.7.6: the graphics page from F2 and from the options page, on the machine that has one. */
     current = &full;
     begin(graphics_entry_script);

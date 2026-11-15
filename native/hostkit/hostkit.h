@@ -145,6 +145,7 @@ typedef struct RrhkUi {
     int gfx[RRHK_MAX_GFX_OPTIONS];         /* the value index in force of each graphics option */
     int gfx_row;                           /* the selected row of the graphics page */
     int rumble;                            /* the shared Vibration row: [Manettes] rumble, default on */
+    int widescreen;                        /* 1.7.6: this game shown at 16:9 ([<Console>.Widescreen] <game>=1) */
 } RrhkUi;
 
 /* Where the loop is, for the machine hooks that run inside it. */
@@ -310,6 +311,10 @@ typedef struct RrhkMachine {
      * play, it asks media_select for the next disc (after the last, the first) and shows "Disc 2/3". The swap itself (lid,
      * eject, insert over several frames) is the machine's. */
     int host_media;
+    /* 1.7.6: the machine's games may draw an anamorphic widescreen picture (squeezed by their own 16:9 option): the options page
+     * offers "Screen format: 4:3 / 16:9", kept per game, and at 16:9 the kit shows the picture 16 wide for 9 high. Only the
+     * displayed rectangle changes; the machine and its picture do not. false: no row. */
+    bool widescreen;
     /* Rows of the machine on a player's gamepad page, above its controls (RrhkPadRow). NULL / 0: none. */
     const RrhkPadRow *pad_rows;
     int pad_row_count;

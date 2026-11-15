@@ -149,6 +149,8 @@ static RrhkOptionRows option_rows(void) {
     if (m->gfx_option_count > 0) rrhk_option_row_icon(&d, SDL_SCANCODE_F3, RR_ICON_ROW_GRAPHICS, "%s", rr_tr("F3 Graphics"));
     else rrhk_option_row(&d, SDL_SCANCODE_F3, "F3 Filter: %s", rr_option_filter_name(rrhk.filter));
     rrhk_option_row(&d, SDL_SCANCODE_F4, "F4 Display: %s", rr_option_mode_name(rrhk.fullscreen));
+    /* 1.7.6: on a machine whose games may draw a widescreen picture, this game's screen format */
+    if (m->widescreen) rrhk_option_row_icon(&d, RRHK_KEY_WIDESCREEN, RR_ICON_ROW_WIDESCREEN, "Screen format: %s", rrhk.widescreen ? "16:9" : "4:3");
     if (m->option_rows) m->option_rows(0, &d);
     rrhk_option_row(&d, SDL_SCANCODE_F6, "F6 Autofire: %s", rr_tr(rrhk.autofire ? "ON" : "OFF"));
     rrhk_option_row(&d, SDL_SCANCODE_F7, "F7 Language: %s", rr_language_name(rrhk.language));
