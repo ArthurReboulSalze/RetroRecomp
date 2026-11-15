@@ -1101,6 +1101,7 @@
     "Smooth scaling (console)": "平滑缩放（主机）",
     "Dither smoothing": "抖动平滑",
     "Supersampling": "超级采样",
+    "Picture area (auto)": "画面区域 (自动)",
     "Screen format: %s": "画面比例: %s"
   }
 }

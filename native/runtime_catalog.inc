@@ -239,6 +239,7 @@ static const char *const rr_translations[][5] = {
     {"P: resume","P : reprendre","P: riprendi","P: continuar","P: fortsetzen"},
     {"Pad 2","Manette 2","Pad 2","Mando 2","Pad 2"},
     {"Pause/Menu","Pause/Menu","Pausa/Menu","Pausa/Menu","Pause/Menue"},
+    {"Picture area (auto)","Zone d'image (auto)","Area dell'immagine (auto)","Area de imagen (auto)","Bildbereich (auto)"},
     {"Pixel perfect","Pixels parfaits","Pixel perfetti","Pixeles perfectos","Pixelgenau"},
     {"Player","Joueur","Giocatore","Jugador","Spieler"},
     {"Player %d  [Left/Right: P1/P2]","Joueur %d  [Gauche/Droite : J1/J2]","Giocatore %d [Sin./Des.: G1/G2]","Jugador %d [Izq./Der.: J1/J2]","Spieler %d [Links/Rechts: S1/S2]"},

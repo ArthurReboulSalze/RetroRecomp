@@ -81,7 +81,7 @@ the game and its picture are not changed. F3 opens the graphics page, six rows s
 supersampling (off by default: the renderer draws at twice the internal resolution and reduces the picture by two after the
 console's video interface, so each pixel shown is the mean of four drawn ones, at the size the resolution row gives; at 8x, the
 renderer's largest, it has nothing larger to draw and does nothing; the cost is below), edge smoothing (the console's anti-aliasing, with its divot filter), smooth scaling (the console's horizontal
-filter), dither smoothing, and overscan crop. Each changes only what the player sees; the defaults are the setting every check uses. The
+filter), dither smoothing, and overscan crop. The overscan crop is **Picture area (auto)** by default since 1.7.6 (the owner's word: « auto par défaut, mais que ça soit une option qu'on puisse désactiver »): each frame is cut to the window the game's video interface opens (its H_START and V_START registers, less the VI's 8- and 7-pixel guard band), so the blank border a television hid is not shown, and the pixels keep their shape; **Off** shows the console's whole picture, borders included; 8 and 16 pixels cut the same amount on every side, as before. A value a player chose is kept. Each changes only what the player sees; the defaults are the setting every check uses. The
 renderer's other settings are fixed at those defaults: no super-sampled read-back, native texture LOD off, Bob deinterlacing (an N64 has no progressive mode
 for an interlaced picture; Bob never combs, and ParaLLEl keeps Weave for 1x with CRT shaders), the gamma dither and native texture
 rectangles on, as the console. A value saved for a removed row is no longer read. The Vibration row

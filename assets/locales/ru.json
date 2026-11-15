@@ -1101,6 +1101,7 @@
     "Smooth scaling (console)": "Плавное масштабирование (консоль)",
     "Dither smoothing": "Сглаживание дизеринга",
     "Supersampling": "Суперсэмплинг",
+    "Picture area (auto)": "Область изображения (авто)",
     "Screen format: %s": "Формат экрана: %s"
   }
 }

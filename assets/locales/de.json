@@ -1101,6 +1101,7 @@
     "Smooth scaling (console)": "Weiche Skalierung (Konsole)",
     "Dither smoothing": "Dither-Glättung",
     "Supersampling": "Supersampling",
+    "Picture area (auto)": "Bildbereich (auto)",
     "Screen format: %s": "Bildformat: %s"
   }
 }

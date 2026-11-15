@@ -53,8 +53,11 @@ static const char *const n64_resolutions[] = {"1x (native)", "2x", "4x", "8x"};
 static const char *const n64_upscalings[] = {"1x", "2x", "4x", "8x"};
 static const char *const n64_off_on[] = {"Off", "On"};
 static const char *const n64_false_true[] = {"False", "True"};
-static const char *const n64_crops[] = {"Off", "8 pixels", "16 pixels"};
-static const char *const n64_crop_values[] = {"0", "8", "16"};
+/* Overscan crop: "Picture area (auto)" (1.7.6, the default, Arthur: « Oui, auto par défaut ») cuts the frame to the window the game's
+ * VI opens (the glue, each frame), so the blank area a television hid is not shown and the pixels keep their shape. It is the last
+ * value so a saved choice keeps its index: Off, 8 and 16 pixels stay what a player chose; one who never touched the row gets auto. */
+static const char *const n64_crops[] = {"Off", "8 pixels", "16 pixels", "Picture area (auto)"};
+static const char *const n64_crop_values[] = {"0", "8", "16", "auto"};
 enum { G_RESOLUTION, G_SUPERSAMPLING, G_EDGES, G_SCALING, G_DITHER, G_OVERSCAN, G_COUNT };
 static const RrhkGfxOption n64_gfx_options[G_COUNT] = {
     {"Internal resolution", L"resolution", n64_resolutions, 4, 0},
@@ -62,7 +65,7 @@ static const RrhkGfxOption n64_gfx_options[G_COUNT] = {
     {"Edge smoothing (console)", L"viaa", n64_off_on, 2, 1},
     {"Smooth scaling (console)", L"vibilinear", n64_off_on, 2, 1},
     {"Dither smoothing", L"ditherfilter", n64_off_on, 2, 1},
-    {"Overscan crop", L"overscan", n64_crops, 3, 0}};
+    {"Overscan crop", L"overscan", n64_crops, 4, 3}};
 /* The rows a core option follows directly; the resolution and supersampling rows set the upscaling and downscaling together. */
 static const char *const *const n64_gfx_values[G_COUNT] = {
     NULL, NULL, n64_false_true, n64_false_true, n64_false_true, n64_crop_values};
@@ -154,10 +157,16 @@ static const uint32_t *n64_pixels(void) { return rr_n64_picture(session, NULL, N
 static int n64_pixel_pitch(void) { int w = 0; rr_n64_picture(session, &w, NULL); return w ? w : 320; }
 static int n64_visible_width(void) { int w = 0; rr_n64_picture(session, &w, NULL); return w ? w : 320; }
 static int n64_visible_height(void) { int h = 0; rr_n64_picture(session, NULL, &h); return h ? h : 240; }
-/* The shape the picture is shown at: the console's lines (the picture's divided by the internal resolution) at the core's display
- * aspect (4:3 on a television). */
+/* The shape the picture is shown at: the console's lines (the picture's divided by the internal resolution); the whole frame has the
+ * core's display aspect (4:3 on a television), so a picture cut to the VI's window keeps the frame's pixel shape. */
 static int n64_raster_height(void) { const int h = n64_visible_height() / n64_scale; return h > 0 ? h : 240; }
-static int n64_display_width(void) { return (int)(rr_n64_aspect(session) * n64_raster_height() + 0.5); }
+static int n64_display_width(void) {
+    int w = 0, h = 0, fw = 0, fh = 0;
+    rr_n64_picture(session, &w, &h);
+    rr_n64_picture_frame(session, &fw, &fh);
+    if (w <= 0 || h <= 0 || fw < w || fh < h) return (int)(rr_n64_aspect(session) * n64_raster_height() + 0.5);
+    return (int)(rr_n64_aspect(session) * ((double)fh / n64_scale) * w / fw + 0.5);
+}
 static size_t n64_audio(int16_t *pcm, size_t capacity) { return player_audio(pcm, capacity); }
 static bool n64_audio_enable(unsigned rate) { return rate == rr_n64_audio_rate(session); }
 static uint64_t n64_interpreted(void) { return rr_n64_interpreted_count(session); }

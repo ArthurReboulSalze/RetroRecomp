@@ -1101,6 +1101,7 @@
     "Smooth scaling (console)": "なめらかな拡大（本体）",
     "Dither smoothing": "ディザの平滑化",
     "Supersampling": "スーパーサンプリング",
+    "Picture area (auto)": "画像領域 (自動)",
     "Screen format: %s": "画面比率: %s"
   }
 }

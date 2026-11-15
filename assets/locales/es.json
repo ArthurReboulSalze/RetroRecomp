@@ -1101,6 +1101,7 @@
     "Smooth scaling (console)": "Escalado suavizado (consola)",
     "Dither smoothing": "Suavizado del tramado",
     "Supersampling": "Supermuestreo",
+    "Picture area (auto)": "Área de imagen (auto)",
     "Screen format: %s": "Formato de pantalla: %s"
   }
 }

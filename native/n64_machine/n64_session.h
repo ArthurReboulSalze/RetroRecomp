@@ -72,6 +72,9 @@ const char *rr_n64_error(const RrN64Session *s);
 const uint32_t *rr_n64_picture(const RrN64Session *s, int *width, int *height);
 /* The display aspect the core reports (4:3 on a television). */
 double rr_n64_aspect(const RrN64Session *s);
+/* The size the picture would have without the crop to the VI's active window (1.7.6, the default "Picture area"): the picture is
+   the part of this frame the game's VI shows, and the frame, not the part, has the display aspect. */
+void rr_n64_picture_frame(const RrN64Session *s, int *width, int *height);
 /* The sound of the last frame: interleaved stereo int16 at rr_n64_audio_rate; returns stereo frames copied. */
 size_t rr_n64_audio(RrN64Session *s, int16_t *pcm, size_t capacity_frames);
 unsigned rr_n64_audio_rate(const RrN64Session *s);

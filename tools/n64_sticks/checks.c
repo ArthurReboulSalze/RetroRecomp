@@ -57,6 +57,7 @@ const uint32_t *rr_n64_picture(const RrN64Session *s, int *width, int *height) {
     return pixels;
 }
 double rr_n64_aspect(const RrN64Session *s) { (void)s; return 4.0 / 3.0; }
+void rr_n64_picture_frame(const RrN64Session *s, int *width, int *height) { (void)s; *width = 320; *height = 240; }
 unsigned rr_n64_audio_rate(const RrN64Session *s) { (void)s; return 44100; }
 double rr_n64_fps(const RrN64Session *s) { (void)s; return 60.0; }
 int rr_n64_rumble(const RrN64Session *s, int player, uint16_t *strong, uint16_t *weak) {

@@ -1101,6 +1101,7 @@
     "Smooth scaling (console)": "Scala smussata (console)",
     "Dither smoothing": "Smussatura del dithering",
     "Supersampling": "Supercampionamento",
+    "Picture area (auto)": "Area dell'immagine (auto)",
     "Screen format: %s": "Formato schermo: %s"
   }
 }
