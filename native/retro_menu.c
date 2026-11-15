@@ -263,6 +263,10 @@ static const uint64_t icon_gamepad_small[9] = {
     0x54000054ull};
 static const uint64_t icon_options_small[9] = {
     0x3f00ull, 0x2aaaabf55ull, 0x3f00ull, 0x3f00000ull, 0x2abf55555ull, 0x3f00000ull, 0x3f000ull, 0x2aaabf555ull, 0x3f000ull};
+/* 1.7.6: the F2 tile of the graphics page (D14), a 3D shape on a screen. */
+static const uint64_t icon_graphics[18] = {
+    0x15555555555540ull, 0x1aaaaaaaaaaa40ull, 0x1aaaaaaaaaaa40ull, 0x1aaaaa7eaaaa40ull, 0x1aaaa97faaaa40ull, 0x1aaaa57feaaa40ull, 0x1aaa957ffaaa40ull, 0x1aaa557ffeaa40ull, 0x1aa9557fffaa40ull,
+    0x1aa5557fffea40ull, 0x1a95557ffffa40ull, 0x1a55557ffffe40ull, 0x1aaaaaaaaaaa40ull, 0x15555555555540ull, 0x555000000ull, 0x55555550000ull, 0x0ull, 0x0ull};
 /* <row icons> */
 /* Row icons (1.7.5): 9 x 9, at the left of the rows of the control, options and graphics pages. Drawn by hand (the drawing
  * and its packing script are kept with the interface notes); a face button is the ring with its letters drawn inside. */
@@ -307,6 +311,7 @@ static const uint64_t icon_row_mouse[9] = {0x100ull, 0x40ull, 0x1550ull, 0x7df4u
 static const uint64_t icon_row_help[9] = {0x1550ull, 0x6fe4ull, 0x1bab9ull, 0x1aea9ull, 0x1aba9ull, 0x1aba9ull, 0x1aaa9ull, 0x6ba4ull, 0x1550ull};
 static const uint64_t icon_row_sliders[9] = {0x14ull, 0x1557dull, 0x14ull, 0x1400ull, 0x15f55ull, 0x1400ull, 0x140ull, 0x157d5ull, 0x140ull};
 static const uint64_t icon_row_maxspeed[9] = {0x0ull, 0x14101ull, 0x14505ull, 0x15d1dull, 0x17d7dull, 0x15d1dull, 0x14505ull, 0x14101ull, 0x0ull};
+static const uint64_t icon_row_graphics[9] = {0x15555ull, 0x1aaa9ull, 0x1aba9ull, 0x1a5e9ull, 0x195f9ull, 0x1aaa9ull, 0x15555ull, 0x540ull, 0x5554ull};
 static const uint64_t icon_row_generic[9] = {0x0ull, 0x540ull, 0x1fd0ull, 0x7ef4ull, 0x1fabdull, 0x7ef4ull, 0x1fd0ull, 0x540ull, 0x0ull};
 /* 3 x 5 letters of the face buttons, bit (row * 3 + x): i the narrow I of II to IV, ^ o [ x the PlayStation shapes. */
 static const char row_letter_chars[] = "ABCXYZLRI123456DKPSFGHMEVi^o[x";
@@ -316,6 +321,7 @@ static const uint16_t row_letters[] = {0x5bea, 0x3aeb, 0x624e, 0x5aad, 0x24ad, 0
 static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_COUNT] = {
     {icon_keyboard, 30, 18}, {icon_gamepad, 30, 18}, {icon_options, 30, 18}, {icon_pointer, 30, 18}, {icon_switches, 30, 18},
     {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9},
+    {icon_graphics, 30, 18},
     /* <row table> */
     {icon_row_up, 9, 9}, {icon_row_down, 9, 9}, {icon_row_left, 9, 9}, {icon_row_right, 9, 9}, {icon_row_button, 9, 9},
     {icon_row_start, 9, 9}, {icon_row_select, 9, 9}, {icon_row_coin, 9, 9}, {icon_row_pause, 9, 9}, {icon_row_quit, 9, 9},
@@ -326,7 +332,7 @@ static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_
     {icon_row_speed, 9, 9}, {icon_row_rumble, 9, 9}, {icon_row_restore, 9, 9}, {icon_row_port_mouse, 9, 9},
     {icon_row_port_joystick, 9, 9}, {icon_row_exit, 9, 9}, {icon_row_palette, 9, 9}, {icon_row_sprite, 9, 9},
     {icon_row_dip, 9, 9}, {icon_row_disk, 9, 9}, {icon_row_mouse, 9, 9}, {icon_row_help, 9, 9}, {icon_row_sliders, 9, 9},
-    {icon_row_maxspeed, 9, 9}, {icon_row_generic, 9, 9}
+    {icon_row_maxspeed, 9, 9}, {icon_row_graphics, 9, 9}, {icon_row_generic, 9, 9}
     /* </row table> */};
 int rr_menu_icon_width(int icon) { return icon >= 0 && icon < RR_ICON_COUNT ? icons[icon].w : 0; }
 

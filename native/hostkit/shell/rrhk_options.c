@@ -145,7 +145,9 @@ int rrhk_option_icon(int key) {
 static RrhkOptionRows option_rows(void) {
     const RrhkMachine *m = rrhk.machine;
     RrhkOptionRows d; d.count = 0;
-    rrhk_option_row(&d, SDL_SCANCODE_F3, "F3 Filter: %s", rr_option_filter_name(rrhk.filter));
+    /* 1.7.6: on a machine with a graphics page (D14), F3 opens that page (the filter is one of its rows): the row says so */
+    if (m->gfx_option_count > 0) rrhk_option_row_icon(&d, SDL_SCANCODE_F3, RR_ICON_ROW_GRAPHICS, "%s", rr_tr("F3 Graphics"));
+    else rrhk_option_row(&d, SDL_SCANCODE_F3, "F3 Filter: %s", rr_option_filter_name(rrhk.filter));
     rrhk_option_row(&d, SDL_SCANCODE_F4, "F4 Display: %s", rr_option_mode_name(rrhk.fullscreen));
     if (m->option_rows) m->option_rows(0, &d);
     rrhk_option_row(&d, SDL_SCANCODE_F6, "F6 Autofire: %s", rr_tr(rrhk.autofire ? "ON" : "OFF"));

@@ -105,12 +105,12 @@ bool rrhk_set_filter(RrhkRun *run, int filter) {
     return true;
 }
 
-/* F3 on a machine with graphics options (D14): open the graphics page, or close it. Opened from the Pause menu or the options
- * page, it returns there. */
+/* F3 on a machine with graphics options (D14): open the graphics page, or close it. Opened from the Pause menu, the options page
+ * or (1.7.6) the F2 tiles, it returns there. */
 static void toggle_graphics(void) {
     rrhk.capturing = 0;
     if (rrhk.menu == RRHK_MENU_GRAPHICS) { rrhk_close_menu(); return; }
-    rrhk.parent_menu = rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_OPTIONS ? rrhk.menu : 0;
+    rrhk.parent_menu = rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_OPTIONS || rrhk.menu == RRHK_MENU_HUB ? rrhk.menu : 0;
     rrhk.menu = RRHK_MENU_GRAPHICS;
     rrhk.gfx_row = 0;
     rrhk.status[0] = 0;
@@ -180,6 +180,7 @@ static bool speed_free(int index) {
     const unsigned triggers = rrhk_combo_triggers(index);
     return !((triggers & 1u) && rrhk_trigger_bound(0)) && !((triggers & 2u) && rrhk_trigger_bound(1));
 }
+void rrhk_open_graphics(void) { if (rrhk.menu != RRHK_MENU_GRAPHICS) toggle_graphics(); }
 void rrhk_speed_combos(void) {
     const bool fast = rrhk_options_fast_forward(rrhk.menu), max = rrhk_options_max_speed(rrhk.menu);
     const bool open = !rrhk.menu && sound_keys_open();

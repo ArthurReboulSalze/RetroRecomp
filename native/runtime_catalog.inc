@@ -109,6 +109,7 @@ static const char *const rr_translations[][5] = {
     {"F3  Next filter","F3  Changer le filtre","F3  Cambia filtro","F3  Siguiente filtro","F3  Naechster Filter"},
     {"F3 Filter  F4 Fullscreen","F3 Filtre  F4 Plein ecran","F3 Filtro  F4 Schermo intero","F3 Filtro  F4 Pantalla completa","F3 Filter  F4 Vollbild"},
     {"F3 Filter: %s","F3 Filtre : %s","F3 Filtro: %s","F3 Filtro: %s","F3 Filter: %s"},
+    {"F3 Graphics","F3 Graphismes","F3 Grafica","F3 Graficos","F3 Grafik"},
     {"F4  Window / Pixel / Fit","F4  Fenetre / Pixels / Ajuste","F4  Finestra / Pixel / Adatta","F4  Ventana / Pixel / Ajustar","F4  Fenster / Pixel / Anpassen"},
     {"F4  Window / Pixel / Fit / Stretched","F4  Fenetre / Pixels / Ajuste / Etire","F4  Finestra / Pixel / Adatta / Allungato","F4  Ventana / Pixel / Ajustar / Estirado","F4  Fenster / Pixel / Anpassen / Gestreckt"},
     {"F4 Display: %s","F4 Affichage : %s","F4 Schermo: %s","F4 Pantalla: %s","F4 Anzeige: %s"},

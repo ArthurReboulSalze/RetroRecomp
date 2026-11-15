@@ -875,6 +875,22 @@ static void quit_row_script(void) {
     }
 }
 
+/* 1.7.6: on a machine with a graphics page, the last F2 tile opens it (and comes back to the tiles), and the options page's
+ * F3 row, "F3 Graphics", opens it too (and comes back to the options). */
+static void graphics_entry_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Left from the first: the last */
+    case 1: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
+    case 2: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Options: before it */
+    case 3: CHECK(ui->menu == RRHK_MENU_OPTIONS && rrhk_option_selected() == 0); key(SDL_SCANCODE_RETURN); break;
+    case 4: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
+    case 5: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE); break;
+    case 6: CHECK(ui->menu == 0); stop = true; break;
+    default: break;
+    }
+}
+
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
@@ -1013,6 +1029,12 @@ int main(int argc, char **argv) {
     begin(quit_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 9);
+
+    /* 10. 1.7.6: the graphics page from F2 and from the options page, on the machine that has one. */
+    current = &full;
+    begin(graphics_entry_script);
+    CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
+    CHECK(step >= 7);
 
     if (stick) SDL_JoystickClose(stick);
     SDL_Quit();

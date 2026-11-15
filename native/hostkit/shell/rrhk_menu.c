@@ -127,7 +127,10 @@ static int hub_tile, hub_parent;
 static bool from_hub;
 static bool quit_yes;
 
+/* 1.7.6: a machine with a graphics page (D14) has one tile more, the last: it opens that page, which comes back to the tiles. */
+static int hub_tiles(void) { return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0); }
 static void hub_open(int tile) {
+    if (tile >= rrhk_pages_count()) { rrhk_open_graphics(); return; }
     int control;
     rrhk.menu = rrhk_pages_goto(tile, &control);
     rrhk.player = control / 2; rrhk.gamepad_page = control % 2;
@@ -135,7 +138,7 @@ static void hub_open(int tile) {
     from_hub = true;
 }
 void rrhk_hub_key(SDL_Scancode key) {
-    const int tiles = rrhk_pages_count();
+    const int tiles = hub_tiles();
     if (hub_tile < 0 || hub_tile >= tiles) hub_tile = 0;
     if (key == SDL_SCANCODE_LEFT) hub_tile = (hub_tile + tiles - 1) % tiles;
     else if (key == SDL_SCANCODE_RIGHT) hub_tile = (hub_tile + 1) % tiles;
@@ -144,16 +147,17 @@ void rrhk_hub_key(SDL_Scancode key) {
     else if (key == SDL_SCANCODE_DOWN && hub_tile < HUB_COLUMNS && tiles > HUB_COLUMNS) hub_tile = tiles - 1;
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) hub_open(hub_tile);
 }
-/* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1) or the options (-2). */
+/* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), the graphics page
+ * (-3, 1.7.6). */
 static int hub_kind(int tile) {
     const int controls = 2 * rrhk.machine->players();
-    return tile < controls ? tile : tile == rrhk_pages_count() - 1 ? -2 : -1;
+    return tile < controls ? tile : tile >= rrhk_pages_count() ? -3 : tile == rrhk_pages_count() - 1 ? -2 : -1;
 }
 static void hub_draw(const RrhkMenuCtx *ctx) {
     const RrhkMachine *m = rrhk.machine;
     SDL_Renderer *ren = ctx->renderer;
     const int ox = ctx->ox, oy = ctx->oy, unit = ctx->unit;
-    const int tiles = rrhk_pages_count(), lines = (tiles + HUB_COLUMNS - 1) / HUB_COLUMNS;
+    const int tiles = hub_tiles(), lines = (tiles + HUB_COLUMNS - 1) / HUB_COLUMNS;
     if (hub_tile < 0 || hub_tile >= tiles) hub_tile = 0;
     rr_menu_header(ren, ox, oy, unit, rr_tr("Controls"), NULL);
     const int top = lines > 1 ? 38 : 44;
@@ -171,7 +175,7 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
             rr_menu_box(ren, ox, oy, unit, x, y, TILE_W, TILE_H, RR_MENU_SHADE, 255);
             rr_menu_box(ren, ox, oy, unit, x + 1, y + 1, TILE_W - 2, TILE_H - 2, 26, 24, 20, 255);
         }
-        const int icon = kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
+        const int icon = kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
             kind % 2 ? RR_ICON_GAMEPAD : RR_ICON_KEYBOARD;
         rr_menu_icon(ren, ox, oy, unit, x + (TILE_W - rr_menu_icon_width(icon)) / 2, y + (kind >= 0 ? 4 : 11), icon, !selected);
         if (kind >= 0) {
@@ -188,7 +192,7 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     if (kind >= 0) snprintf(title, sizeof title, rr_tr(kind % 2 ? "Player %d - Gamepad" : "Player %d - Keyboard"), kind / 2 + 1);
     else {
         /* A page's title names the converter ("Retro-Recomp - Gun"): under the tiles the page alone is named. */
-        const char *name = rr_tr(kind == -2 ? "Options" : m->page->title);
+        const char *name = rr_tr(kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
         if (!strncmp(name, "Retro-Recomp - ", 15)) name += 15;
         snprintf(title, sizeof title, "%s", name);
     }

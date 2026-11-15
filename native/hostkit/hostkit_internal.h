@@ -107,7 +107,8 @@ bool rrhk_trigger_step(bool down, int value);   /* L2/R2 as a button: game_optio
 bool rrhk_options_fast_forward(int menu);   /* 1.7.6: player 1's pad combination held (R2 by default) */
 bool rrhk_options_max_speed(int menu);      /* 1.7.6: pressed once (L2 by default) */
 unsigned rrhk_combo_triggers(int index);    /* the triggers of a combination's buttons: 1 right, 2 left */
-void rrhk_speed_combos(void);               /* events.c: the pad's speed combinations, each frame */
+void rrhk_speed_combos(void);
+void rrhk_open_graphics(void);              /* events.c: the graphics page, back to the menu it was opened from */               /* events.c: the pad's speed combinations, each frame */
 bool rrhk_trigger_bound(int side);       /* 0 right, 1 left: player 1 has a control on that trigger (trigger_buttons) */
 
 /* main.c: the plates a game shows for a few seconds when it opens (D17), and the options row that turns them off. */
