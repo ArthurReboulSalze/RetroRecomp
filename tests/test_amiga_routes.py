@@ -1,5 +1,6 @@
 """A route the game ends itself (its own Quit) is a valid reference when it ran long enough; any other stop is a failure."""
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -252,13 +253,34 @@ class RouteScriptTests(unittest.TestCase):
         player = (Path(conversion.__file__).parents[1] / 'native' / 'amiga_machine' / 'amiga_player.c').read_text(encoding='utf-8')
         self.assertIn('!strcmp(kind, "joy2") && code >= 0 && code < 6', player)
 
+    def test_the_cpu_speed_table_marks_only_the_installs_listed(self):
+        # HOST_KIT D14's exception: every game offers the CPU row; an install listed by SHA-256 (reviewed data) keeps the normal
+        # speed, through a line of its payload header that no other install gets (their generated code is unchanged).
+        listed, other = 'e' * 64, 'f' * 64
+        project = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, project, True)
+        extracted = {'slave': b'\0' * 32, 'files': {}, 'custom': [0] * 5}
+        with unittest.mock.patch.dict(conversion.CPU_STOCK_ONLY, {listed: 'a timing loop (test)'}), \
+                unittest.mock.patch('retrorecomp.metadata.write_game_metadata', return_value={}), \
+                unittest.mock.patch('retrorecomp.resources.embed_resources'), unittest.mock.patch.object(conversion.shutil, 'copy2'):
+            for identity, expected in ((listed, True), (other, False)):
+                (project / 'game_resources.rc').write_text('', encoding='utf-8')
+                source = unittest.mock.Mock(sha256=identity, path=Path('Game.lha'))
+                conversion.payload(project, source, extracted, project, 'T', False, None, model=conversion.MODELS['a1200'])
+                header = (project / 'amiga_payload.h').read_text(encoding='utf-8')
+                self.assertEqual('#define RR_AMIGA_CPU_STOCK_ONLY 1' in header, expected, identity)
+        player = (Path(conversion.__file__).parents[1] / 'native' / 'amiga_machine' / 'amiga_player.c').read_text(encoding='utf-8')
+        self.assertIn('#if RR_AMIGA_CPU_STOCK_ONLY\n   cpu_stock_only = true;', player)
+        # The conversion's own runs never pass the factor: their routes and checks run at the normal speed.
+        self.assertNotIn('--cpu-factor', Path(conversion.__file__).read_text(encoding='utf-8'))
+
     def test_the_damaged_states_follow_the_players_header(self):
         # The offsets the conversion flips are the fields of StateHead in amiga_session.cpp (200 bytes, asserted there too).
         source = (Path(conversion.__file__).parents[1] / 'native' / 'amiga_machine' / 'amiga_session.cpp').read_text(encoding='utf-8')
         self.assertIn('char magic[16]; char abi[72]; char identity[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, '
                       'snapshot_size, audio_size, port1; uint64_t checksum;', source)
         self.assertIn('sizeof(StateHead) == 200', source)
-        self.assertIn('STATE_MAGIC[16] = "RRAMIGA-STATE-4"', source)
+        self.assertIn('STATE_MAGIC[16] = "RRAMIGA-STATE-6"', source)
         self.assertEqual(conversion.STATE_HEADER, 200)
         self.assertEqual(conversion.STATE_OFFSETS['checksum'], 192)
         self.assertEqual(conversion.STATE_OFFSETS['port1'], 188)       # the device port 1 holds and the second joystick's bits

@@ -97,6 +97,11 @@ shipped; you supply your own IPL and font ROM.
 | ScummVM at `7d2709da5136` (tag v2026.4.0) with Retro-Recomp's patch `native/scummvm`, and FreeType at `42608f77f207` (tag VER-2-13-3): the runtime of the Adventure (ScummVM) executables, a separate program fetched and built at its pin; Retro-Recomp's MIT code only starts it and appends the player's game files to it | ScummVM and the patch: GPL-3.0-or-later (the GPL text and a written offer of the corresponding source are inside each such executable); FreeType: FreeType License | [Offer and notices](licenses/scummvm.md), [GPL text](native/scummvm/LICENSE), [FreeType](licenses/freetype.md) |
 | FMGEN OPM (X68000; part of the hissorii/px68k sources) | cisc's freeware terms (noncommercial distribution, notice, modifications stated) | [Original text and modifications](licenses/fmgen.md) |
 
+Named out of courtesy, nothing of it included: the Amiga's Crunch-Mania unpacker
+(`resload_Decrunch`, 1.7.6) is Retro-Recomp's own MIT code, written from the format
+as temisu/ancient (Teemu Suutari, BSD-2-Clause) describes it. No code of ancient is
+copied, so its licence places no obligation here.
+
 Game toolchain source and test vectors are not bundled in the converter executable.
 Generated games contain parts of that toolchain and the user's ROM; each one embeds the notices of the components
 compiled into it (not this complete list). They are

@@ -212,7 +212,12 @@ The **Commodore Amiga** profile is supported since 1.7.5, on the owner's decisio
 WHDLoad (an `.lha` with a `.Slave`), with a Kickstart 1.x of your own for those that ask for one, within [its documented scope](AMIGA.md). It has
 no list of compatible games: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures there too.
 Native code and CPU fidelity are measured on a panel of eight installs, hardware fidelity is not claimed, gameplay rests on owner play trials, latency is
-not measured ([AMIGA.md](AMIGA.md#3-the-five-measures)). Kickstart 3.x installs, ADF disks and the Amiga 1200 are not converted.
+not measured ([AMIGA.md](AMIGA.md#3-the-five-measures)). Kickstart 3.x installs and ADF disks are not converted; the Amiga 1200 has a profile of its own.
+
+The **Commodore Amiga 1200** profile (`a1200`) is experimental, in development for 1.7.6 ([status](AMIGA.md#7-the-amiga-1200-a1200)): Amiga 1200
+WHDLoad installs (an `.lha` kept in a folder named `amiga1200`, chosen as Amiga 1200, or whose slave asks for a 68020 or AGA), run on the same converter
+with the A1200 model (68EC020, AGA chips, 2 MiB of chip RAM). Nothing is claimed yet: the five measures are kept apart there too and stay unmeasured
+until its panel is run.
 
 The **Atari ST** profile is supported since 1.7.5, on the owner's decision of 14 November 2026 (it opened in 1.7.1; [G14](QUALIFICATION.md#owner-acceptance), [status](ATARI_ST.md)): it converts ST, STF and Mega ST floppy games (IPF, STX, MSA or ST
 images, or a ZIP holding only them) on Hatari, with EmuTOS 1.4 by default or your own TOS 1.00 to 1.04, within [its documented scope](ATARI_ST.md). It has no list of

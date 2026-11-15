@@ -354,7 +354,8 @@ X68000 too, without asking again**.
   * **No silent duplicate in F2**: binding a key that another action already uses, of any player in play (the keyboard is
     shared), swaps the two actions' keys; binding a pad button another action of the same player uses swaps the two buttons.
     Both entries are written (`rrhk_assign`). An action a swap leaves without a key or button is stored as key 0 / button -1,
-    which every machine reads back as "no binding" (only the X68000, `bindings_clearable`, did before 1.6.9).
+    which every machine reads back as "no binding" (only the X68000, `bindings_clearable`, did before 1.6.9). Since 1.7.6 every
+    machine also clears a binding on purpose ([D28](#d28)).
   A ROM-free check runs the real loop with four virtual pads on a four- and a two-player CPS-1 adapter build
   (`tools/hostkit_players_selftest.py`, `tests/test_hostkit_players.py`).
 * <a id="d14"></a>**D14 — On a 3D machine, F3 opens a graphics menu** (owner's decision of 5 November 2026; **implemented in
@@ -366,6 +367,14 @@ X68000 too, without asking again**.
   3D machine, declared by the adapter, no `if console ==`); each machine says which options it offers. An option that changes
   the guest's timing (CPU or disc speed, overclock) is never declared; headless runs, routes and gates use each option's
   default.
+  **One exception, the Amiga's CPU speed** (owner's decision of 15 November 2026: asked « On autorise une option de vitesse
+  processeur sur l'Amiga pour la 1.7.7 ? », « Oui, pour la 1.7.7 »; then brought into 1.7.6, « On pourrait peut-être fusionner la
+  branche Amiga sur la 1.7.6 si elle est déjà prête. »). Some Amiga games are slow because they ask more of
+  the CPU than the machine has (Fears, a chunky 3D engine, draws about one picture every 3.4 frames on the A1200 model), and an
+  accelerator card was the real machine's answer. The row « CPU speed: Normal / x2 / x4 » is on F2's options page of both Amiga
+  models, under the computers' keyboard row (`rrhk_amiga.inc`), Normal by default, kept per game; the conversion's checks, routes
+  and state proofs run at Normal, and a quick state loads at the player's current choice ([AMIGA.md](AMIGA.md), section 2). It is
+  not on the graphics page and stays the only timing option; another machine asking for one is a new decision.
 
 * <a id="d15"></a>**D15 — F2 opens a menu of tiles** (owner's decision of 13 November 2026, 1.7.4), on every machine. One tile
   per page, with an icon: each player's keyboard and gamepad, the machine's own page when it has one (guns, DIP switches), the
@@ -498,6 +507,19 @@ X68000 too, without asking again**.
   follow the rectangle; a letterboxed "16:9" (black bands drawn by the game) needs nothing and gains nothing. The scanlines are
   drawn one per line of the console (`raster_height`), no longer one per row of a raised internal resolution (`visible_height`):
   a 240-line game shown at 2x or 4x keeps 240 visible dark lines (the PlayStation specialist's finding).
+* <a id="d28"></a>**D28 — Any binding can be cleared; each control page can be restored** (owner's request of 15 November 2026,
+  1.7.6: « pouvoir enlever un binding sans forcément en mettre un », on every machine). On every control page of every machine,
+  Delete, Backspace or the pad's X on a binding row or a combination row (the speed controls included) clears it without a
+  capture; it is written as cleared (key 0, button -1, a combination's 0) and the next start keeps it empty, never the default.
+  The pad's X was already "clear" on the F2 rows that had one (the gamepad choice, the dead zone): it is not used to move or to
+  confirm, so browsing with the D-pad, A and B never clears. The footer says it: "Enter: remap | Del/X: clear | Left/Right: page"
+  (outside English the page part reads `</>` so the key caps fit); a combination's hold ("Hold quit combo for 1 second") moves to
+  the status line. Every control page ends with **Restore defaults**: that player's keys (or buttons) as a first start gives them,
+  each through `rrhk_assign` (a default another control holds swaps with it), on player 1's pages that page's combinations, on a
+  gamepad page the dead zone; the gamepad choice and a machine's own rows (`pad_rows`) stay. Assigning "no binding" no longer
+  takes anything from another row. A row with `pad_label` (a machine drives it from a stick: the Nintendo 64's Stick rows) shows
+  "X / Left stick" when a button is bound there too, "Left stick" when not. The page's ^ and v scroll marks, drawn past the text
+  width since 1.7.0 and so never seen, are drawn again.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
@@ -906,7 +928,8 @@ Settings the kit gained for this family (each one a named per-machine field, non
 14 and 15 being "later": `[X68000] filter`, `display_mode`, `autofire`, `guest_keyboard` (until 1.6.8; since 1.6.9 the keyboard's
 owner is kept per game in `player.cfg` and chosen from an F2 row, [UPGRADES.md](UPGRADES.md)), `p<player>_key<n>`,
 `p<player>_pad<n>`, `[X68000.Options] fkeys_machine`), `bindings_clearable` (Delete clears a binding: the old page had
-it; the other consoles are not given it by this phase), `audio_rate` for the queue model (44,100 Hz stereo), `audio_chunked`
+it; the other consoles are not given it by this phase; since 1.7.6 every machine clears, [D28](#d28), and the field is no longer
+read), `audio_rate` for the queue model (44,100 Hz stereo), `audio_chunked`
 (more than one buffer of sound per frame), `machine_fkeys`, and the hooks `event`, `keyboard_pad`, `action_held`,
 `fast_forward`, `game_rect`, `help_page`.
 

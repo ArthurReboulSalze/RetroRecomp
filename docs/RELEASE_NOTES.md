@@ -1,5 +1,16 @@
-# RetroRecomp v1.7.6 (draft) — the MSX2+ and the Sony PlayStation are supported
+# RetroRecomp v1.7.6 — The Game Boy Advance, the MSX2+, the Nintendo 64 and the PlayStation are supported; the Amiga 1200 opens
 
+- **Game Boy Advance (supported).** On the owner's decision of 14 November 2026, after his play test of six cartridges, the Game Boy
+  Advance is supported ([GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md)):
+  `.gba` cartridges with your own BIOS, for one player, on Windows and Linux; the four save chips and the clock; quick states.
+  - **The sound is part of the verdict.** A conversion now compares the sound of its native run with the engine's interpreter, next to
+    the picture, the cycles, the memory and the CPU.
+  - **Quick states have a checksum.** A damaged state file is refused; a state of 1.7.5 is refused cleanly, with a message.
+  - **A save file larger than the cartridge's chip** is set aside as `.damaged` and the game opens without it; before, the game did not open.
+  - **The report** names the picture and sound units and warns about a route whose picture stops changing early.
+  - Twelve cartridges converted from an empty library equal the engine's interpreter on two scenarios (picture, cycles, memory, CPU,
+    sound), and eight scripted routes give the same pictures on a Debian 13 PC. Gameplay rests on the owner's play of six games, not on
+    complete playthroughs; hardware fidelity and latency are not claimed.
 - **MSX2+ (supported).** On the owner's decision of 14 November 2026, after his play test of six games, the MSX2+ is supported
   ([MSX.md](MSX.md#9-the-msx2-msx2plus)): MSX2+ cartridges, and disk games with your own MSX2+ firmware.
   - **MSX-MUSIC.** The YM2413 every MSX2+ has (emu2413, MIT), with C-BIOS's music ROM or your own; its level against the PSG set to
@@ -19,10 +30,19 @@
   a quick state now continues the sound too, and states of 1.7.5 are refused cleanly. A panel of eight is equal on Windows and on a
   Debian 13 PC; no game is validated as played through, and hardware fidelity and latency are not claimed. Its paths are not shared:
   the gain was judged too small.
-- **Nintendo 64: a simpler graphics page.** F3 keeps five rows: Internal resolution, Edge smoothing (console), Smooth scaling (console),
-  Dither smoothing and Overscan crop. The others are fixed at the settings every check uses (Bob deinterlacing:
+- **Nintendo 64: a simpler graphics page, and supersampling.** F3 keeps five rows: Internal resolution, Edge smoothing (console), Smooth
+  scaling (console), Dither smoothing and Overscan crop. The others are fixed at the settings every check uses (Bob deinterlacing:
   the N64 has no progressive mode for an interlaced picture). A changed value of a removed row, such as Weave, goes back to the default.
-
+  A new **Supersampling** row (Off by default) draws at twice the internal resolution and reduces the picture by two: smoother edges and
+  less shimmer on fine textures, at the same picture size, for four times the graphics card's drawing (at 4x, a powerful card). The
+  resolution row gains **8x**, which is heavy: on an RTX 3090 it does not hold full speed (its picture is too large to read back each
+  frame); 4x with Supersampling is the better choice. A weak or integrated graphics card may not hold either.
+- **Nintendo 64: the C buttons on the right stick's bindings, and 16:9.** The four C buttons are the right stick's directions as kit
+  bindings, rebindable in F2 (Y and B are free); the left stick is unchanged. The Screen format row offers 16:9 for games with their own
+  widescreen option, such as GoldenEye 007's Ratio 16:9.
+- **Nintendo 64: the picture without its blank border.** The Overscan crop row is **Picture area (auto)** by default: the picture is
+  cut to the area the game shows, so the black border a television hid is gone and the picture is larger, without being stretched.
+  **Off** shows the console's whole picture, borders included. Nintendo 64 games are converted again in full at their next conversion.
 - **Sony PlayStation (supported).** On the owner's decision of 15 November 2026, after his play test, the PlayStation is supported
   (section 8 of [PLAYSTATION.md](PLAYSTATION.md)): discs as EBOOT, CUE/BIN,
   CloneCD or ISO, NTSC and PAL, with your own BIOS or the free OpenBIOS.
@@ -36,6 +56,66 @@
     offered (never in time on one thread). The graphics page (F3) loses its deinterlacing row: the picture is always progressive.
   No game is validated as played through, and hardware fidelity and latency are not claimed. PlayStation quick states of 1.7.5 are refused
   cleanly.
+- **Every machine: "Quit the game" in the options.** The last row of the Options page (the page the pad's menu button opens) asks the
+  same "Quit? No / Yes" as Esc; No comes back to the page. The Options page fits without scrolling.
+- **Every machine: new keyboard defaults.** Player 1's buttons sit on **S D F** (buttons 1-3) and **E R T** (4-6) on the machines with
+  few buttons and the computers' joystick, at the same place on QWERTY, AZERTY and QWERTZ; the PlayStation and the Nintendo 64 keep
+  theirs. A saved key still on the former default (W X C, A S D) moves by itself; a key you chose is kept. Players 3 and 4 of the
+  four-player boards move to I K J L + U O N and G B V H + C X 9. A stick direction can now be bound to any control.
+- **Every machine: the pad's speed controls** (Fast forward, Max speed) are rows you can bind or clear like the others, and the graphics
+  page opens from F2 and from the pad.
+- **A 16:9 screen format** for games that have a widescreen mode of their own, kept per game, on the machines whose adapter offers it;
+  scanlines follow the console's lines.
+- **Every machine: the machines' own rows have their icons.** The Game Boy's palette, the NES's and the Master System's sprite flicker,
+  the Neo Geo's rows, the CPS-1's DIP switch page and the computers' Ctrl+Alt+H page get their own icons.
+- **Shared paths, under the hood.** The bookkeeping of path records is one module for the X68000, the Amiga, the Atari ST and the
+  MSX2+; the records keep their format and nothing a conversion does changes.
+- **Commodore Amiga 1200 (experimental).** A profile of its own beside the Amiga 500 ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)):
+  AGA WHDLoad installs with your own Kickstart 3.x, on the vAmiga A1200 model (68EC020, AGA chipset). A panel of eight converts with 0 or
+  1 interpreted instruction per route; the owner played it. Known failures: Pinball Illusions stays on a black screen with music after
+  its intro, and Alien Breed 3D does not start; the AGA super-hires picture is shown at half width. It stays experimental.
+- **Amiga: interlaced screens shown whole.** A screen in interlace (Banshee's and Fears's first pictures) was shown one field a frame
+  and shook on a flat screen; both fields are now woven into one picture, on both models, whatever the game. The machine is unchanged.
+- **Amiga: Crunch-Mania.** Installs packed with Crunch-Mania are unpacked by our own code, written from the format as Teemu Suutari's
+  ancient library describes it (credited in the notices).
+- **Every machine: clear a binding, restore the defaults.** Any control of any page can be left unbound (Delete, or the pad gesture
+  the page shows) and stays so; each control page ends with Restore defaults.
+- **Amiga: a CPU speed choice, Normal / ×2 / ×4**, like an accelerator card, in F2's options of both models; Normal by default and
+  kept per game; games are converted and checked at Normal ([AMIGA.md](AMIGA.md#2-how-the-conversion-works)). A slow 3D game such as
+  Fears draws more pictures a second at ×2 and ×4 without running faster; a game whose music or delays count CPU cycles may not
+  like it, and Normal is one press away.
+
+**Speed.** [SPEED: pending]
+
+These are four machines leaving the experimental status, on the owner's decision after his play tests, and changes to the controls
+and menus of every game, each on the evidence above; none of them is a measure of hardware fidelity, complete gameplay or physical
+latency, and the interpreter fallback is still counted and shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** 1.7.6 moves the game stamp of the Game Boy Advance, the MSX, the MSX2, the MSX2+, the Nintendo 64,
+the PlayStation, the X68000, the Amiga and the Atari ST, so **every export of 1.7.5 on those machines is converted again once** when you
+update, at the quick level, from its learned paths, and the window offers it; the shared paths of the base are kept. The host stamp of
+every machine moves with the menus: exports of the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo, CPS-1,
+CPS-2, PC Engine and Adventure (ScummVM) are only **upgraded**, rebuilt from their learned paths with no rediscovery. No build stamp
+moves. A quick state of 1.7.5 is refused cleanly, with a message, on the MSX, MSX2 and MSX2+ (a new state layout), the Game Boy
+Advance (the checksum), the Nintendo 64 and the PlayStation (their new state formats) and the Amiga and the Atari ST (their key takes
+every input of the machine); nothing is lost but the state. It loads on the other machines, the Mega Drive and the Super Nintendo
+included. Cartridge saves, memory cards and the copies of written disks are kept; a save the new export cannot use is set aside and never
+crashes or blocks the game. The details are in
+[UPGRADES.md](UPGRADES.md#exports-of-175-in-176).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
 
 # RetroRecomp v1.7.5 — The MSX, the MSX2, the Commodore Amiga and the Atari ST are supported
 

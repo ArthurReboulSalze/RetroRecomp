@@ -92,6 +92,19 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    standard window is shown (320 x 256 PAL, 320 x 200 NTSC). In the window and the first fullscreen mode the picture grows in whole
    steps of one lores pixel per line (320 x 256 PAL: 2x at 640 x 512, 3x at 960 x 768), as the other machines do; the second
    fullscreen mode fills the screen with the 4:3 aspect. The window opens at 3x.
+8. **The CPU's speed (1.7.6), a player's option.** The row « CPU speed » of F2's options page sets Normal (the model's own clock: the
+   68000's 7 MHz, the A1200's 68EC020 at 14 MHz), x2 or x4, as an accelerator card gave; it is kept per game (`cpu.cfg` beside its quick
+   state). vAmiga runs the CPU's own cycles faster, while chip-bus and CIA accesses keep the chipset's pace. The conversion never uses
+   it: its routes, checks and state proofs run at Normal, and nothing it generates depends on the speed (each native form calls the same
+   cycle accounting as the interpreter). A quick state loads at the player's current speed, whatever speed it was saved at. An install
+   listed as needing the normal speed (`amiga_conversion.CPU_STOCK_ONLY`, reviewed data by SHA-256, empty in 1.7.6) keeps the row at
+   Normal and says so; WHDLoad has no flag for it. The exception to the host kit's rule that no option changes a game's timing
+   ([HOST_KIT.md, D14](HOST_KIT.md#d14)) is the owner's decision of 15 November 2026. What it does, measured headless on Fears (the A1200,
+   800 frames walking and turning, an indicative host figure on a PC that was not quiet): a new picture every 3.36, 2.19 and 1.33 frames
+   at Normal, x2 and x4, the corridor reached at the same frame in all three (the game's logic follows time, not pictures), the host
+   18.2, 19.4 and 20.5 ms a frame. These host costs are indicative only: no timing pass on a quiet PC has been made for x2 and x4
+   yet, and a slower PC may not hold 50 frames a second at x4 on a demanding game. A game whose logic counts pictures, or whose music or delays count CPU cycles, would run faster or
+   break: the player sees it and goes back to Normal.
 
 ## 3. The five measures
 
@@ -189,7 +202,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
   host kit's parts
   (`amiga_conversion.NOTICE_FILES`).
 - WHDLoad is freeware with all rights reserved and is not distributed or run. The JST resload emulation (MIT) was read as a
-  reference only; none of its decrunchers is copied.
+  reference only; none of its decrunchers is copied. The Crunch-Mania unpacker of `resload_Decrunch` (1.7.6) is our own C, written from the
+  format as the `ancient` library describes it (Teemu Suutari, BSD-2-Clause, read and not copied), and tested on files our own test packs.
 - Upstream pins and review: [UPSTREAMS.md](UPSTREAMS.md).
 
 ## 6. Where it stands in the qualification
@@ -217,3 +231,37 @@ The Amiga is **supported from 1.7.5**. The owner played the six installs of [the
 **Scope of the status.** Amiga 500 games installed for WHDLoad (an `.lha` with a slave), with the player's own Kickstart 1.x for those that ask for one, on the evidence above: a panel of eight installs at the extended level and six played by the owner. Not converted yet: installs that need Kickstart 3.x, ADF disk images, the Amiga 1200 (AGA). Code past the routes runs interpreted, counted and shown; the hardware is vAmiga's (Agnus, Denise, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is claimed.
 
 **Still to deploy with the release:** the site side of the sharing, the limits of the `amiga` machine and the schema 3 validation of its records.
+
+## 7. The Amiga 1200 (`a1200`)
+
+**Experimental, in development for 1.7.6** (the owner's go of 14 November 2026). The Amiga 1200 has a profile of its own beside the Amiga 500,
+as the MSX2+ beside the MSX2: the same converter, session, resload layer and host adapter, run with the A1200 model. The Amiga 500 profile is
+not changed by it.
+
+- **The machine.** vAmiga's own A1200 scheme: a 68EC020 with its instruction cache (Moira), the AGA chips (Alice and Lisa), 2 MiB of chip RAM
+  on a 32-bit bus, the A1200 bank map. The slave is told an AGA machine with a 68020 (`resload_Control`: AttnFlags, ChipRevBits), and
+  `resload_SetCACR` and `resload_FlushCache` drive the instruction cache. Gayle, IDE, PCMCIA and the CD32's Akiko are not modelled (vAmiga
+  has none): WHDLoad installs do not need them.
+- **Which installs.** An `.lha` chosen as Amiga 1200, kept in a folder named `amiga1200` (or `a1200`, `aga`), or whose slave asks for a
+  68020 or for AGA (`WHDLF_Req68020`, `WHDLF_ReqAGA`). Any other install stays the Amiga 500's.
+- **Native code.** The 68EC020 instructions seen running become Moira's 68020 code specialised per opcode, with the same one-comparison
+  guard as on the Amiga 500. A 68020 instruction's length depends on its extension words (up to 22 bytes): `retrorecomp/m68020_lengths.py`
+  holds Moira's own table of where they sit, and the conversion checks it against the Moira it builds. The observation window is 16 bytes: a MOVE between two full-extension
+  modes (up to 22 bytes) stays interpreted, counted.
+- **The five measures** stay apart. Native code and CPU agreement with the reference are measured on a panel of eight installs (15 November
+  2026, [the evidence](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)): 0 or 1 interpreted instruction a
+  route, the 1 a Kickstart instruction. Hardware fidelity is not claimed (vAmiga marks its AGA Denise as partly done; pictures are compared
+  with another emulator only); gameplay rests on Arthur's play test, still to come; latency is not measured.
+- **Two known failures:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
+  real WHDLoad does not reach it is not found). Pinball Illusions converts with every check passed, but after its intro the screen stays
+  black with the music playing, where the private oracle under the real WHDLoad goes on to « Loading » and the title; the interpreted
+  reference machine shows the same black screen, so it is our machine model or layer, not the native code; the cause is not found (its
+  copper lists program no beam; it uses eight planes in dual playfield, `FMODE` `$000F` and `BPLCON4`).
+- **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
+  Gloom and Super Stardust convert with it on the Amiga 1200, and Five A Side Soccer on the Amiga 500 (46 files unpacked on its main
+  route, every check passed).
+- **Interlaced screens** (on both Amigas, for any game that sets LACE): the machine draws a long and a short field in turn; the picture
+  weaves them into one of twice the lines, so it no longer moves a line every frame (Arthur's play test of 15 November 2026 found it on
+  Banshee's title). A display change only: the machine, the CPU and the checks are as before; a screen without LACE is shown as it was,
+  byte for byte (Slam Tilt's traces unchanged); the field held for the weave is part of a quick state.
+- **Not yet:** AGA super-hires shown at full width (the picture keeps one column per hires pixel).

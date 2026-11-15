@@ -86,6 +86,8 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Game Boy Advance: supported](#game-boy-advance-supported-176) | the Game Boy Advance (`retrorecomp/systems/gba.py`, its status) | none | none |
+| [Commodore Amiga 1200: an experimental profile beside the Amiga 500](#commodore-amiga-1200-an-experimental-profile-beside-the-amiga-500-176) | the Amiga, the Atari ST and the X68000 (the shared 68000 path records and their instruction lengths); the new `a1200` | the host stamps of `amiga` and `a1200` (interlaced screens woven) | **every Amiga state is refused** (format `RRAMIGA-STATE-6`) |
+| [Commodore Amiga: the CPU's speed, a player's option](#commodore-amiga-the-cpus-speed-a-players-option-176) | the Amiga and the Amiga 1200 (`amiga_session.cpp`, `amiga_player.c`, `amiga_conversion.py`) | the Amiga and the Amiga 1200 (`rrhk_amiga.inc`) | none (`RRAMIGA-STATE-6`; a state of an earlier build is refused, as every build's are) |
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
@@ -93,6 +95,19 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Sony PlayStation: supported](#sony-playstation-supported-176) | the PlayStation (`retrorecomp/systems/psx.py`, its status) | none | none |
 | [Sony PlayStation: shared paths](#sony-playstation-shared-paths-176) | the PlayStation | none | none |
 | [Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable](#sony-playstation-the-cpu-state-is-compared-every-interpreted-instruction-is-listed-the-gtes-quick-state-is-fixed-the-memory-card-is-set-aside-when-unusable-176) | the PlayStation | the PlayStation's host stamp | PlayStation states of 1.7.5 refused (another build) |
+| [Every machine: a 16:9 screen format for the games' own widescreen mode, scanlines per console line](#every-machine-a-169-screen-format-for-the-games-own-widescreen-mode-scanlines-per-console-line-176) | none | **the host stamp of all 20 profiles** | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Every machine: stick directions as inputs, new keyboard defaults on S D F / E R T](#every-machine-stick-directions-as-inputs-new-keyboard-defaults-on-s-d-f--e-r-t-176) | none | **the host stamp of all 20 profiles** (`hostkit/hostkit.h`, the shell, the adapters' default keys) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Every machine: the pad's speed controls as combinations, the graphics page from F2 and from the pad](#every-machine-the-pads-speed-controls-as-combinations-the-graphics-page-from-f2-and-from-the-pad-176) | none | **the host stamp of all 20 profiles** (`game_options.h`, `retro_menu.c`, the shell, the locale files) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Machines' own rows and pages: their icons](#machines-own-rows-and-pages-their-icons-176) | none | **the host stamp of all 20 profiles** (`retro_menu.c`, `retro_menu.h`, `hostkit/hostkit.h` and six adapters) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Nintendo 64: supported](#nintendo-64-supported-176) | the Nintendo 64 (TLB-mapped code and the run after an MFC0 become native blocks, the report's interpreted listing, the quick state) | **the Nintendo 64's host stamp**, and the host stamp of every other profile (`runtime_catalog.inc`) | **the Nintendo 64 states of 1.7.5 are refused** (`RRN64QS2`); the Amiga and Atari ST keys move (every input) |
+| [Nintendo 64: the graphics page in five rows](#nintendo-64-the-graphics-page-in-five-rows-176) | none | **the host stamp of all 20 profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Nintendo 64: Supersampling and 8x on the graphics page](#nintendo-64-supersampling-and-8x-on-the-graphics-page-176) | none | **the host stamp of all 20 profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Nintendo 64: the C buttons on the right stick, "Left stick", the 16:9 screen format](#nintendo-64-the-c-buttons-on-the-right-stick-left-stick-the-169-screen-format-176) | none | **the Nintendo 64's host stamp** (`rrhk_n64.inc`) | the Nintendo 64 key moves (every input, the host's included) |
+| [Nintendo 64: "Picture area (auto)", the overscan crop by default](#nintendo-64-picture-area-auto-the-overscan-crop-by-default-176) | **the Nintendo 64** (the glue and the session) | **the host stamp of all profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | **the Nintendo 64 key moves**; the Amiga and Atari ST keys move (every input, the host's included) |
+| [Every machine: "Quit the game", the last row of the options page](#every-machine-quit-the-game-the-last-row-of-the-options-page-176) | none | **the host stamp of all 20 profiles** (the shell, `retro_menu.c`, `runtime_catalog.inc`, the locale files) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units](#game-boy-advance-the-sound-is-compared-the-quick-state-has-a-checksum-a-save-larger-than-its-chip-is-set-aside-the-report-names-its-units-175) (titled 1.7.5, but not in the `v1.7.5` tag: it ships in 1.7.6 with the merge of `spec/gba-175`) | the Game Boy Advance | none | **the Game Boy Advance states of 1.7.5 are refused** (the checksum envelope) |
+| emu2413's `LICENSE` keeps its exact bytes on a Windows checkout (`-text` in `.gitattributes`; no section of this page; commit `ffbaee01`) | none | none | none |
+| The README's console order (no section of this page; merge `a87db1fe`) | none | none | none |
 
 ## Game Boy Advance: supported (1.7.6)
 
@@ -107,6 +122,60 @@ and every other machine's stamps equal main's.
 **Existing exports:** the game stamp moves, so an export is converted again in full at its next conversion, from the player's own paths; the Game Boy Advance's exports are private (a game holds code derived from the player's BIOS) and
 there is no frozen legacy stamp for them. The six exports of 14 November 2026 are not converted again for this change. **Quick states:** unchanged (the Game Boy Advance quick state is checked by the game's SHA-256 and the envelope's
 schema, neither of which reads a stamp). **Site limits:** unchanged. **Hot path:** no.
+
+## Commodore Amiga 1200: an experimental profile beside the Amiga 500 (1.7.6)
+
+**What changes.** A new profile, `a1200` (experimental), converts Amiga 1200 WHDLoad installs on the same converter, session and host
+adapter as the Amiga 500, run with the A1200 model: vAmiga's A1200 scheme (68EC020 with its instruction cache, AGA, 2 MiB of chip RAM, the
+A1200 bank map), the 68EC020's instructions as native code (Moira's 68020 core specialised per opcode, lengths read from the extension words:
+`retrorecomp/m68020_lengths.py`) and the player's Kickstart 3.x over `$F80000` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)). The
+Amiga 500's conversions give the same outputs: its opcode table is byte-identical, its generated code unchanged. On both Amigas,
+`resload_Decrunch` now unpacks Crunch-Mania files (`native/amiga_whdload/rr_decrunch.c`): an install that stopped there converts.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `a87db1fe`): **the game stamps of the Amiga (`df26554edb79` to
+`f518d06f1ee4`), the Atari ST (`6116a5b0bb28` to `2c7abad214e0`) and the X68000 (`d2ca5b2765b2` to `cec9c4a08a86`)**; no host or build stamp
+moves. The Amiga's from its own files (the session, the resload layer, the opcode-table tool, the generator, the conversion); the three
+together from `retrorecomp/m68k_media_knowledge.py` and `retrorecomp/path_records.py`: the common record handling cut out on the MSX2+ branch
+(`eef2e984`, carried here as the same patch) and the instruction-length hook on it, whose 68000 answers are the old ones
+(`tests/test_m68020_lengths.py`). The Amiga's `GENERATOR_REVISION` is 2: the Amiga paths qualified by revision 1 wait again.
+
+**Interlaced screens (15 November 2026, after Arthur's play test).** On both Amigas, a screen with LACE set is shown woven: the long and the
+short field in one picture of twice the lines (`amiga_session.cpp`), so it no longer moves a line every frame; the adapter shows the twice-as-many
+rows in the same window (`rrhk_amiga.inc`). Generic: it keys on the machine's LACE bit and the frame's long-field bit, never on a game. The
+picture hash of interlaced frames changes, the same in the reference and native runs; a game without LACE is unchanged byte for byte
+(Slam Tilt: every field of its report equal). Banshee's title no longer alternates; a quick state saved during it continues 100 frames
+equal in a fresh process. A quick state now carries the held field and, on the A1200, restores the window of a 512 KiB Kickstart. Stamps of
+this part, against `4d875fbc`: **the game and host stamps of `amiga` and `a1200`**, nothing else.
+
+**Existing exports:** the three game stamps move, so their exports are converted again in full at their next conversion. **Quick states:**
+every Amiga state is refused (`RRAMIGA-STATE-6`: the resload state grew by the A1200's chip revision bits, and the held interlaced field follows the sound). The X68000's and
+the Atari ST's states do not read these files. **Site limits:** the `a1200` machine is not shared (experimental). **Hot path:** the
+A500's native steps are unchanged; the A1200's frame cost was measured on a quiet PC (Slam Tilt 10.6 ms a frame, Lotus 2 on the A500 7.0 ms).
+
+## Commodore Amiga: the CPU's speed, a player's option (1.7.6)
+
+**What changes.** Both Amiga models get the row « CPU speed: Normal / x2 / x4 » on F2's options page (`rrhk_amiga.inc`), Normal by
+default, kept per game in `cpu.cfg`; the player's `--cpu-factor 1|2|4` sets it for one run. The session sets vAmiga's CPU overclocking
+for it (`rr_amiga_cpu_factor`, `amiga_session.cpp`: A500 0, 2, 4; A1200 2, 4, 8) and sets the player's choice again after a quick-state
+load (the snapshot carries the factor it was saved with). The exception to D14 is the owner's decision of 15 November 2026
+([HOST_KIT.md](HOST_KIT.md#d14)). The conversion never passes the factor: routes, checks and state proofs run at Normal, and at Normal the
+session changes nothing (it sets the option only when it differs). `amiga_conversion.CPU_STOCK_ONLY` (reviewed data by SHA-256, empty)
+adds `RR_AMIGA_CPU_STOCK_ONLY` to the payload of a listed install, which keeps the row at Normal; no other install's payload changes.
+
+**Proof.** Headless on Fears (A1200, converted at the quick level on this branch with every check passing): a new picture every 3.36,
+2.19 and 1.33 frames at Normal, x2 and x4, the same place in the corridor at the same frame; a state saved at x4 and loaded with no factor
+runs at Normal (3.0 frames a picture), loaded at x4 at x4 (1.0); the in-play state saved at Normal loaded at x4 runs at x4 (1.07). The menu
+harness (`tests/amiga_menu_harness.c`, 48 checks): the row cycles and says the model's clock, the choice is kept, `--cpu-factor` is for one
+run, an unknown value or a damaged file reads as Normal, a listed game stays at Normal. Host cost, indicative (a PC that was not quiet):
+18.2, 19.4 and 20.5 ms a frame on Fears; the quiet-PC timing pass waits for the owner's OK. Normal changes nothing: Slam Tilt and Banshee
+(A1200) and Five A Side Soccer (A500), converted again at the quick level on this branch, give reports whose every field of every route
+equals their earlier conversions' (`2d92f029` and `eb6b6a6e`), trace digests included.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `3a03053e`): **the game and host stamps of `amiga` and `a1200`**
+(`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, `amiga_conversion.py`; `rrhk_amiga.inc`), nothing else. **Existing exports:**
+converted again in full at their next conversion. **Quick states:** the format is unchanged (`RRAMIGA-STATE-6`); a state of an earlier
+build is refused, as every build's are. **Site limits:** unchanged. **Hot path:** at Normal, none (one comparison after a state load); at
+x2 and x4 the CPU runs that many more cycles a frame (the host figures above).
 
 ## Path records: one copy for the 68000 computers and the MSX2+ (1.7.6)
 
@@ -150,6 +219,26 @@ Page Up / Page Down stay the player's); the routes no longer change disks at fix
 **Existing exports:** MSX, MSX2 and MSX2+ games are converted again in full at their next conversion. **Quick states:** the layout is
 `msx-state-6` (the YM2413 and the kanji addresses are in it), so the quick states of 1.7.5 games are refused cleanly at load, never
 misread; cartridge SRAM and the copies of written disks are kept.
+
+## Every machine: clear any binding, Restore defaults on each control page (1.7.6)
+
+On the owner's request of 15 November 2026 (a button he had put on the Nintendo 64's Stick rows could not be removed): any binding
+of any machine can be cleared, and each control page can be put back to its defaults ([HOST_KIT.md](HOST_KIT.md#d28), D28).
+
+* **Stamps.** The host stamp of all 21 profiles moves (`hostkit/hostkit.h` (a comment), `hostkit/hostkit_internal.h`, the shell's
+  `rrhk_input.c`, `rrhk_events.c`, `rrhk_menu.c`, `rrhk_options.c`, `runtime_catalog.inc` and the seven locale files). No adapter,
+  no game or build stamp: existing exports are not converted again for it. The quick-state keys of the machines that hash every
+  input (the Nintendo 64, the Amiga, the Atari ST) move; no other quick-state key.
+* **What players see.** Delete, Backspace or the pad's X on a binding or combination row clears it, and it stays cleared. A last
+  row, **Restore defaults**, on every control page; so a page that showed fifteen rows exactly now scrolls by one. A button bound
+  on a Nintendo 64 Stick row reads "X / Left stick". The ^ and v marks of a scrolling page are visible.
+* **Preferences.** Unchanged formats: a cleared row is the key 0 / button -1 every machine already read as "no binding"; Restore
+  writes the default values themselves.
+* **Texts.** Two new entries in the five game languages: "Enter: remap | Del/X: clear | Left/Right: page" and "Enter / A: restore
+  this page".
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 13 (Delete, Backspace and the pad's X clear keys, buttons and a
+  combination, read back as cleared at the next start; Restore defaults on the keyboard and gamepad pages, the swap, the other
+  player untouched); a gallery of the owner's saved Nintendo 64 page (before, cleared, restored) in French and English.
 
 ## Every machine: a 16:9 screen format for the games' own widescreen mode, scanlines per console line (1.7.6)
 
@@ -261,6 +350,70 @@ closed his F-Zero X remark: its level of detail is the game's own)
 * **Texts.** Three new entries in the five game languages: "Edge smoothing (console)", "Smooth scaling (console)", "Dither smoothing".
 * **Checks.** A quick conversion of Super Mario 64, its game run headless with each kept row changed, and run with an ini that still
   holds the removed rows; the suite.
+
+## Nintendo 64: Supersampling and 8x on the graphics page (1.7.6)
+
+On the owner's word of 15 November 2026 (« Ok pour ta proposition d'anti-crénelage. », then « Dans la 1.7.6 »), the F3 page of the
+Nintendo 64 gains a **Supersampling** row under Internal resolution, Off by default, and the resolution row gains **8x**
+([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)). Supersampling draws at twice the internal resolution and ParaLLEl's scanout reduces
+the picture by two: same picture size, each pixel the mean of four. At 8x, the renderer's largest, it does nothing.
+
+* **Stamps** (`compilation_inputs.role_stamps`, branch `spec/n64-ssaa-176` against main `deb44dae`). The host stamp of all 20 profiles
+  moves (`native/runtime_catalog.inc` and the seven locale files: one new entry); the Nintendo 64's host stamp (`e3bb3877160c` to
+  `b6b4c55e1937`) moves also for its adapter `rrhk_n64.inc`. No game or build stamp moves: existing exports are not converted again
+  for it. The Nintendo 64's quick-state key moves (it hashes every input, the host's included): a state of a build before is refused
+  cleanly. Cartridge saves are unchanged.
+* **What players see.** Six rows on the page. A player who touches nothing gets the same picture as before (the whole trace of a run
+  equal). 8x is heavy: on an RTX 3090 it does not hold full speed (the read-back of a 5120 x 2304 picture each frame); 4x with
+  Supersampling draws at 8x for the read-back cost of 4x. A weak or integrated graphics card may hold neither.
+* **Texts.** One new entry in the five game languages: "Supersampling".
+* **Checks.** A quick conversion of Super Mario 64; its game run headless at the defaults (trace equal to the build before), at 4x,
+  4x with Supersampling, 1x with Supersampling, 8x and 8x with Supersampling (sizes, equal traces at 8x), with Supersampling turned on
+  and off at given frames; a rough unpaced cost of each size; the suite. No hot-path change: the renderer's options only.
+
+## Nintendo 64: "Picture area (auto)", the overscan crop by default (1.7.6)
+
+On the owner's word of 15 November 2026 (« Oui, auto par défaut », then « auto par défaut, mais que ça soit une option qu'on puisse
+désactiver »), the Overscan crop row of F3 gains **Picture area (auto)**, its new default: each frame is cut to the window the game's
+video interface opens (its H_START and V_START registers, PAL told by V_SYNC as parallel-rdp tells it, less the VI's guard band of 8 and
+7 pixels), through parallel-rdp's `crop_rect`, so the blank border a television hid is not shown; the pixels keep their shape (the
+session reports the uncropped frame, `rr_n64_picture_frame`, and the adapter's display width follows it)
+([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)). **Off** shows the console's whole picture, borders included; 8 and 16 pixels stay.
+
+* **Stamps** (`compilation_inputs.role_stamps`, branch `spec/n64-overscan-176` against main `893748a9`). The Nintendo 64's game stamp
+  moves (`8a8f380f9f2c` to `b187be879648`: the glue `parallel_glue.cpp` and `parallel.h`, the session `n64_session.cpp` and `.h`, which
+  start every run with the crop, the reference player's included) and its host stamp (`68c9dd815779` to `fcf22888e83d`, the adapter);
+  the host stamp of every other profile moves for the game catalogue (`runtime_catalog.inc` and the locale files: one new entry). No
+  build stamp.
+* **Existing exports:** the game stamp moves, so a Nintendo 64 export is converted again in full at its next conversion (already the
+  case between 1.7.5 and 1.7.6). **Quick states:** the Nintendo 64 key moves (a state of a build before is refused cleanly).
+  **Cartridge saves:** unchanged.
+* **What players see.** A larger picture with no blank border in the window and in Fit to screen (Super Mario 64, PAL: 625 x 237
+  instead of 640 x 288 with 8, 8, 25 and 26 blank pixels). A player who chose a value of the row keeps it (the row's values keep their
+  index; the new one is last); one who never touched it gets the crop. The kit saves a row only when the player changes it.
+* **Texts.** One new entry in the five game languages: "Picture area (auto)".
+* **Checks.** The eight panel games converted at the Quick level (native against reference with the crop in both: all ready); each
+  game run headless to frame 3,600 of its main route with the crop and with Off: no blank edge left with the crop except a game's own
+  black (F-Zero X draws a black frame inside its picture; Majora's Mask's frame is a text screen), the HUDs whole; the suite.
+
+## Nintendo 64: the C buttons on the right stick, "Left stick", the 16:9 screen format (1.7.6)
+
+On the stick plan the owner saw, with the kit's stick directions as inputs (the section above): the four C buttons default to the right
+stick's four directions (`RRHK_PAD_RSTICK_*`, rebindable in F2 like any button), Y and B are free, and the right stick's axes are no
+longer handed to the core (which read them as C buttons past half way); the four keyboard Stick rows show "Left stick" on the gamepad
+page; the adapter sets `widescreen`, so the options page offers **Screen format: 4:3 / 16:9** for games that squeeze a widescreen
+picture with their own option ([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)).
+
+* **Stamps** (`compilation_inputs.role_stamps`, branch `spec/n64-ssaa-176`): the Nintendo 64's host stamp (its adapter
+  `rrhk_n64.inc`). No game or build stamp; the Nintendo 64's quick-state key moves (every input, the host's included).
+* **What players see.** The C buttons on the right stick as before, now through the kit (the kit's threshold instead of the core's
+  half way); Y and B do nothing until bound. A C binding saved in F2 is kept. The control stick is unchanged.
+* **Checks.** `tools/n64_sticks_selftest.py` (the kit's shell and this adapter around a stub session, one virtual pad, no window): the
+  left stick reaches the core as the kit reads it at several positions, each right-stick direction presses its C button past the
+  threshold and none under it, the right stick's axes reach the core as 0, Y and B press nothing; an adapter that still passes the axes
+  on fails it. A Super Mario 64 run of 3,600 frames (main route: the stick in every direction, C buttons) keeps its whole trace against
+  the build before. GoldenEye 007's Ratio 16:9 set from its watch menu by a scripted route, captured without a window: the squeezed
+  picture the 16:9 format stretches.
 
 ## Every machine: "Quit the game", the last row of the options page (1.7.6)
 

@@ -48,6 +48,14 @@ uint32_t rr_pack_unpacked_size(const uint8_t *d, size_t size) {
     int f = rr_pack_format(d, size);
     if ((f == RR_PACK_RNC1 || f == RR_PACK_RNC2) && size >= 18) return be32(d + 4);
     if ((f == RR_PACK_IMP || f == RR_PACK_TPWM) && size >= 8) return be32(d + 4);
+    if (f == RR_PACK_CRM && size >= 14) return be32(d + 6);
+    return 0;
+}
+
+uint32_t rr_pack_packed_size(const uint8_t *d, size_t size) {
+    int f = rr_pack_format(d, size);
+    if ((f == RR_PACK_RNC1 || f == RR_PACK_RNC2) && size >= 12) return 18 + be32(d + 8);
+    if (f == RR_PACK_CRM && size >= 14) return 14 + be32(d + 10);
     return 0;
 }
 
@@ -166,10 +174,128 @@ static uint32_t rnc1(const uint8_t *data, size_t size, uint8_t *out, size_t cap,
     return unpacked;
 }
 
+/* ---- Crunch-Mania ("CrM!", "Crm!", "CrM2", "Crm2") ----------------------------------------------------------------
+ * Written for Retro-Recomp from the format as the "ancient" library describes it (Teemu Suutari, BSD-2-Clause, src/CRMDecompressor.cpp,
+ * read, not copied). A 14-byte header (id, two bytes, unpacked size, packed size); the packed stream is read backward from its end, bits
+ * least significant first, and the output is written backward from its end. Its last six bytes give the first bits: a long whose top
+ * (16 + shift) bits are pending, and the shift. "CrM!" is the standard mode (fixed codes), "CrM2" the LZH mode (Huffman tables per
+ * block); a lower-case "m" means the output is delta coded ("sampled"). */
+
+typedef struct CrmBits { const uint8_t *start, *p; uint32_t buf; int count; int bad; } CrmBits;
+
+static uint32_t crm_bits(CrmBits *b, int n) {
+    uint32_t v = 0;
+    int pos = 0;
+    while (n) {
+        if (!b->count) {
+            if (b->p <= b->start) { b->bad = 1; return 0; }
+            b->buf = *--b->p;
+            b->count = 8;
+        }
+        int k = n < b->count ? n : b->count;
+        v |= (b->buf & ((1u << k) - 1u)) << pos;
+        b->buf >>= k;
+        b->count -= k;
+        n -= k;
+        pos += k;
+    }
+    return v;
+}
+
+/* A table of the LZH mode: codes numbered in order of their depth, each depth's codes consecutive (read most significant bit first). */
+typedef struct CrmHuff { int max, n; uint32_t first[16], count[16], offset[16]; uint16_t value[512]; } CrmHuff;
+
+static int crm_table(CrmBits *b, CrmHuff *h, int code_length) {
+    uint32_t lengths[15];
+    h->max = (int)crm_bits(b, 4);
+    h->n = 0;
+    if (!h->max) return 0;
+    for (int i = 0; i < h->max; i++) lengths[i] = crm_bits(b, i + 1 < code_length ? i + 1 : code_length);
+    uint32_t code = 0;
+    for (int depth = 1; depth <= h->max; depth++) {
+        h->first[depth] = code >> (h->max - depth);
+        h->count[depth] = lengths[depth - 1];
+        h->offset[depth] = (uint32_t)h->n;
+        for (uint32_t i = 0; i < lengths[depth - 1]; i++) {
+            if (h->n >= 512) return 0;
+            h->value[h->n++] = (uint16_t)crm_bits(b, code_length);
+            code += 1u << (h->max - depth);
+        }
+    }
+    return !b->bad && code <= 1u << h->max;
+}
+
+static int crm_decode(CrmBits *b, const CrmHuff *h, uint32_t *out) {
+    uint32_t acc = 0;
+    for (int len = 1; len <= h->max; len++) {
+        acc = acc << 1 | crm_bits(b, 1);
+        if (acc - h->first[len] < h->count[len]) { *out = h->value[h->offset[len] + acc - h->first[len]]; return 1; }
+    }
+    return 0;
+}
+
+static uint32_t crm(const uint8_t *data, size_t size, uint8_t *out, size_t cap, const char **why) {
+    uint32_t unpacked = be32(data + 6), packed = be32(data + 10);
+    int lzh = data[3] == '2', sampled = data[2] == 'm';
+    if (!unpacked || packed < 6 || 14 + (size_t)packed > size) { *why = "Crunch-Mania data shorter than its header says"; return 0; }
+    if (unpacked > cap) { *why = "Crunch-Mania output larger than the room given"; return 0; }
+    const uint8_t *tail = data + 14 + packed - 6;
+    uint32_t shift = be16(tail + 4);
+    if (shift > 16) { *why = "Crunch-Mania stream with a bad start"; return 0; }
+    CrmBits b = {data + 14, tail, be32(tail) >> (16 - shift), (int)shift + 16, 0};
+    uint32_t o = unpacked;          /* the output is written backward: o bytes are left to write */
+#define CRM_PUT(v) do { if (!o) { *why = "Crunch-Mania output overruns"; return 0; } out[--o] = (uint8_t)(v); } while (0)
+#define CRM_COPY(distance, count) do { uint32_t d_ = (distance), c_ = (count); \
+        if (!d_ || c_ > o || o + d_ > unpacked) { *why = "Crunch-Mania match out of range"; return 0; } \
+        for (uint32_t k_ = 0; k_ < c_; k_++, o--) out[o - 1] = out[o + d_ - 1]; } while (0)
+    if (lzh) {
+        do {
+            CrmHuff lengths, distances;
+            if (!crm_table(&b, &lengths, 9) || !crm_table(&b, &distances, 4)) { *why = "Crunch-Mania bad table"; return 0; }
+            uint32_t items = crm_bits(&b, 16) + 1;
+            for (uint32_t i = 0; i < items; i++) {
+                uint32_t count, bits;
+                if (!crm_decode(&b, &lengths, &count)) { *why = "Crunch-Mania bad length code"; return 0; }
+                if (count & 0x100) { CRM_PUT(count); continue; }
+                if (!crm_decode(&b, &distances, &bits)) { *why = "Crunch-Mania bad distance code"; return 0; }
+                uint32_t distance = bits ? (crm_bits(&b, (int)bits) | 1u << bits) + 1 : crm_bits(&b, 1) + 1;
+                CRM_COPY(distance, count + 3);
+            }
+            if (b.bad) { *why = "Crunch-Mania stream ends early"; return 0; }
+        } while (crm_bits(&b, 1));
+    } else {
+        static const uint32_t length_bits[4] = {1, 2, 4, 8}, length_base[4] = {0, 2, 6, 22};
+        static const uint32_t distance_bits[3] = {5, 9, 14}, distance_base[3] = {0, 32, 544};
+        while (o) {
+            if (crm_bits(&b, 1)) { CRM_PUT(crm_bits(&b, 8)); continue; }
+            int li = !crm_bits(&b, 1) ? 0 : !crm_bits(&b, 1) ? 1 : !crm_bits(&b, 1) ? 2 : 3;
+            uint32_t count = length_base[li] + crm_bits(&b, (int)length_bits[li]) + 2;
+            if (count == 23) {
+                count = crm_bits(&b, 1) ? crm_bits(&b, 5) + 15 : crm_bits(&b, 14) + 15;
+                for (uint32_t i = 0; i < count; i++) CRM_PUT(crm_bits(&b, 8));
+            } else {
+                if (count > 23) count--;
+                int di = !crm_bits(&b, 1) ? 1 : !crm_bits(&b, 1) ? 0 : 2;
+                CRM_COPY(distance_base[di] + crm_bits(&b, (int)distance_bits[di]), count);
+            }
+            if (b.bad) { *why = "Crunch-Mania stream ends early"; return 0; }
+        }
+    }
+#undef CRM_PUT
+#undef CRM_COPY
+    if (o || b.bad) { *why = "Crunch-Mania stream ends early"; return 0; }
+    if (sampled) {
+        uint8_t sum = 0;
+        for (uint32_t i = 0; i < unpacked; i++) { sum = (uint8_t)(sum + out[i]); out[i] = sum; }
+    }
+    return unpacked;
+}
+
 uint32_t rr_unpack(const uint8_t *data, size_t size, uint8_t *out, size_t cap, const char **why) {
     int f = rr_pack_format(data, size);
     *why = NULL;
     if (f == RR_PACK_RNC1 && size >= 18) return rnc1(data, size, out, cap, why);
+    if (f == RR_PACK_CRM && size >= 20) return crm(data, size, out, cap, why);
     *why = f == RR_PACK_NONE ? "not a packed format" : "this packed format is not unpacked yet";
     return 0;
 }

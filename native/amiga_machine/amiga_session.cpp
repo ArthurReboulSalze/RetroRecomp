@@ -40,7 +40,7 @@ static constexpr uint32_t FAST_BASE = 0x200000;
 static constexpr uint32_t FAST_MAX = 0x800000;
 static uint32_t slow_slave_area(uint32_t exp_size) { return (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu; }
 static bool exp_in_fast(uint32_t exp_size) { return exp_size && slow_slave_area(exp_size) + 0x7FFF0 >= SLOW_BASE + SLOW_SIZE; }
-static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-4";
+static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-6";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
 // Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
 // display window's edges (DIWSTRT/DIWSTOP, in that unit) land on picture column (edge - SHRES_AT_TEXEL0 - FIRST_TEXEL) / 2.
@@ -52,6 +52,7 @@ struct RrAmigaSession {
     std::map<std::string, std::vector<uint8_t>> files;   // lower-case name -> bytes
     fs::path save_dir;
     bool saves = false, ntsc = false;
+    int model = RR_AMIGA_MODEL_A500;
     RrResloadHost host{};
     RrResload rl{};
     uint32_t resload_table = 0;
@@ -63,6 +64,7 @@ struct RrAmigaSession {
     int mouse_left = 0, mouse_right = 0;
     unsigned joy2 = 0;              // the joystick of port 1 (the second player's), held bits
     int port1_mode = 0;             // RR_AMIGA_PORT1_FOLLOW, _MOUSE or _JOYSTICK (the player's choice; not part of a state)
+    int cpu_factor = 1;             // rr_amiga_cpu_factor: 1, 2 or 4 (the player's choice; a state load keeps it)
     // The device port 1 holds (1: the joystick). vAmiga keeps its own private: this copy moves with the calls that move it (a mouse
     // motion or button plugs the mouse, a joystick action the joystick, a forced mode or a state load sets it).
     int port1_joystick = 0;
@@ -71,6 +73,12 @@ struct RrAmigaSession {
     std::vector<int16_t> pcm;
     std::vector<uint32_t> picture;
     int lines = 0;
+    // An interlaced screen (LACE) is drawn as a long and a short field in turn. The picture weaves the field of this frame with the one
+    // of the frame before into twice the lines (`rows`); one field alone is shown line-doubled. The held field is part of a quick state.
+    int rows = 0;
+    std::vector<uint32_t> held;      // the field of the last frame, while LACE is set (lines rows)
+    int held_lof = -1;               // its long-frame bit, -1: none held
+    uint64_t held_frame = 0;         // the frame it ended
     bool view_seen = false;
     int view[4] = {};          // union of the display windows opened so far: left, top, right, bottom (picture columns, rows)
     bool observing = false, native = false;
@@ -216,7 +224,8 @@ static void native_kick_window() {
 // The player's Kickstart into ExpMem, when the slave's request matches it. The image keeps the addresses it was built for (no
 // relocation table): vAmiga's WOM (the A1000's writable ROM, left unlocked) is pointed at the copy, so the window
 // $FC0000-$FFFFFF reads and writes the same bytes as ExpMem, and what the slave patches or writes into the image through either
-// address is what runs. 256 KiB images only (Kickstart 1.x): a 512 KiB image would need the whole $F80000 window writable.
+// address is what runs. A 256 KiB image (Kickstart 1.x) takes $FC0000-$FFFFFF and stays writable there; a 512 KiB one (3.x, the A1200's)
+// takes the whole $F80000 window, read-only there as an A1200's ROM is (the slave patches it through ExpMem).
 // The window over the copy in ExpMem (on), or vAmiga's own ROM mapping (off, around a snapshot).
 static void kick_window(bool on) {
     if (!S->kick_size) return;
@@ -224,12 +233,12 @@ static void kick_window(bool on) {
     uint8_t *copy = on ? host_ram(S->kick_base, S->kick_size) : nullptr;
     mem.wom = copy;
     mem.womMask = copy ? S->kick_size - 1 : 0;
-    mem.womIsLocked = false;
+    mem.womIsLocked = copy && S->kick_size == 0x80000;     // locked: banks $F8-$FF all show the copy (unlocked, $F8-$FB show the boot ROM)
     mem.updateMemSrcTables();
 }
 
 static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t destination) {
-    if (S->kick.size() != size || size != 0x40000) return 0;
+    if (S->kick.size() != size || !(size == 0x40000 || (size == 0x80000 && S->model == RR_AMIGA_MODEL_A1200))) return 0;
     if (!host_ram(destination, size) || (destination & (size - 1)) != 0) return 0;
     for (uint32_t i = 0; i < size; i++) poke(nullptr, destination + i, S->kick[i]);
     if (rr_resload_crc16(&S->rl, destination, size) != crc16) {
@@ -243,10 +252,11 @@ static int kick_cb(void *, uint32_t size, uint16_t crc16, const char *, uint32_t
     return 1;
 }
 
+static uint32_t kick_low() { return 0x1000000u - S->kick_size; }
 static bool in_kickstart(uint32_t pc) {
-    // The window the writable-ROM alias covers ($FC0000-$FFFFFF for a 256 KiB image), or the copy in ExpMem; the authored boot
-    // ROM below the window is not the Kickstart.
-    return S->kick_size && (pc >= 0xFC0000 || (pc >= S->kick_base && pc < S->kick_base + S->kick_size));
+    // The window the writable-ROM alias covers ($FC0000-$FFFFFF for a 256 KiB image, $F80000- for 512 KiB), or the copy in ExpMem; the
+    // authored boot ROM below the window is not the Kickstart.
+    return S->kick_size && (pc >= kick_low() || (pc >= S->kick_base && pc < S->kick_base + S->kick_size));
 }
 
 // A save goes to the game's own folder (and replaces the install's file there on the next start). Below that folder only (a name
@@ -304,9 +314,9 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
     // here stays in the conversion's private work folder, where the image itself is, and only the addresses are remembered.
     if (in_kickstart(pc)) {
         S->kick_interpreted++;
-        if (S->observing && pc >= 0xFC0000) {
-            char hex[25];
-            int length = (int)std::min<uint32_t>(12, 0x1000000u - pc) & ~1;
+        if (S->observing && pc >= kick_low()) {
+            char hex[33];
+            int length = (int)std::min<uint32_t>(S->model == RR_AMIGA_MODEL_A1200 ? 16 : 12, 0x1000000u - pc) & ~1;
             for (int i = 0; i < length; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
             S->kick_observed.insert({pc, hex});
         }
@@ -314,8 +324,11 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
     }
     if (S->recorder && in_ram(pc)) record_window(pc);
     if (S->observing && in_ram(pc)) {
-        char hex[25];
-        for (int i = 0; i < 12; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
+        // 12 bytes hold any 68000 instruction (10 at most). On the A1200, 16 (the bound of every machine's observations) hold every
+        // 68EC020 instruction but a MOVE between two full-extension modes (up to 22 bytes), which stays interpreted and counted.
+        char hex[33];
+        int window = S->model == RR_AMIGA_MODEL_A1200 ? 16 : 12;
+        for (int i = 0; i < window; i++) snprintf(hex + 2 * i, 3, "%02x", peek(nullptr, pc + (uint32_t)i));
         S->observed.insert({pc, hex});
     }
     return false;
@@ -412,7 +425,24 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     S->host = RrResloadHost{nullptr, peek, poke, file_cb, game->save_dir ? save_cb : nullptr, game->save_dir ? remove_cb : nullptr, nullptr};
     S->host.list = list_cb;
     S->host.kickstart = kick_cb;
+    if (S->model == RR_AMIGA_MODEL_A1200) {
+        // The 68EC020's instruction cache: what resload_FlushCache (and every load or patch, as WHDLoad clears the caches after
+        // them) empties, and what resload_SetCACR switches. The A500's 68000 has none, so its host keeps neither.
+        S->host.flush = [](void *) { CPU &cpu = S->amiga->cpu; cpu.setCACR(cpu.getCACR() | 0x8u); };
+        S->host.cacr = [](void *, uint32_t value, uint32_t mask) -> uint32_t {
+            CPU &cpu = S->amiga->cpu;
+            // exec's CACR bits for the instruction cache are the 68020's own (EnableI 0, FreezeI 1, ClearI 3); the 68EC020 has no data cache.
+            uint32_t old = cpu.getCACR() & 0x3u;
+            uint32_t now = ((old & ~mask) | (value & mask)) & 0xBu;
+            cpu.setCACR(now);
+            return old;
+        };
+    }
     rr_resload_init(&S->rl, &S->host, slave_area, version, flags);
+    if (S->model == RR_AMIGA_MODEL_A1200) {
+        S->rl.attn_flags = 0x0003u;    // AFF_68010 | AFF_68020, as exec reports a 68EC020 without an FPU
+        S->rl.chip_rev = 0x000Fu;      // GFXF_HR_AGNUS | GFXF_HR_DENISE | GFXF_AA_ALICE | GFXF_AA_LISA
+    }
     for (int k = 0; k < 5; k++) S->rl.custom[k] = game->custom[k];
     S->rl.exp_mem_size = exp_size;
     S->rl.scratch = S->resload_table + 0x1000;
@@ -428,7 +458,7 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     // A v16+ slave that names a Kickstart in its header gets it at the start of ExpMem before ws_GameLoader, as WHDLoad does
     // (resload_LoadKick serves the older slaves at run time). Kickstart 1.x only for now.
     S->rl.exp_mem = exp_base;
-    if (version >= 16 && peek32(slave_area + 44) == 0x80000)
+    if (version >= 16 && peek32(slave_area + 44) == 0x80000 && S->model != RR_AMIGA_MODEL_A1200)
         return fail(error, error_size, "This install needs a 512 KiB Kickstart (3.x); only 256 KiB Kickstarts (1.x) are supported yet.");
     if (rr_resload_load_slave_kickstart(&S->rl) != RR_RESLOAD_RETURN)
         return fail(error, error_size, std::string("Kickstart: ") + S->rl.message);
@@ -451,8 +481,10 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
 
 extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, size_t error_size) {
     if (S) { fail(error, error_size, "One Amiga session per process."); return nullptr; }
+    if (game->model != RR_AMIGA_MODEL_A500 && game->model != RR_AMIGA_MODEL_A1200) { fail(error, error_size, "Unknown Amiga model."); return nullptr; }
     S = new RrAmigaSession;
     S->ntsc = game->ntsc != 0;
+    S->model = game->model;
     for (unsigned i = 0; i < game->file_count; i++) {
         S->files[lower(game->files[i].name)] = std::vector<uint8_t>(game->files[i].data, game->files[i].data + game->files[i].size);
         S->display[lower(game->files[i].name)] = game->files[i].name;
@@ -486,7 +518,15 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         }
         S->emu = new Emulator;
         S->emu->initialize();
-        S->emu->set(ConfigScheme::A500_ECS_1MB);
+        if (S->model == RR_AMIGA_MODEL_A1200) {
+            // vAmiga's A1200 scheme sets the CPU, the chips, the 32-bit bus and the chip RAM, not the A1200 bank map (its own
+            // window sets that separately). An A1200 always has 2 MiB of chip RAM.
+            S->emu->set(ConfigScheme::A1200_2MB);
+            S->emu->set(Opt::MEM_BANKMAP, (i64)BankMap::A1200);
+            chip_kb = 2048;
+        } else {
+            S->emu->set(ConfigScheme::A500_ECS_1MB);
+        }
         S->emu->set(Opt::AMIGA_VIDEO_FORMAT, S->ntsc ? (i64)TV::NTSC : (i64)TV::PAL);
         S->emu->set(Opt::MEM_SLOW_RAM, SLOW_SIZE / 1024);
         S->emu->set(Opt::MEM_CHIP_RAM, chip_kb);
@@ -528,7 +568,8 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         return nullptr;
     }
     S->lines = S->ntsc ? RR_AMIGA_PICTURE_LINES_NTSC : RR_AMIGA_PICTURE_LINES_PAL;
-    S->picture.assign((size_t)RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_HEIGHT, 0xFF000000u);
+    S->rows = S->lines;
+    S->picture.assign((size_t)RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_ROWS, 0xFF000000u);
     return S;
 }
 
@@ -577,6 +618,21 @@ extern "C" void rr_amiga_port1_mode(RrAmigaSession *s, int mode) {
     if (mode == RR_AMIGA_PORT1_JOYSTICK) { s->amiga->controlPort1.setDevice(ControlPortDevice::JOYSTICK); s->port1_joystick = 1; }
 }
 
+// vAmiga's CPU_OVERCLOCKING for the session's factor: its A1200 scheme sets 2 (the 68EC020's 14 MHz, twice the 68000's 7 MHz, which
+// is 0, no overclocking); x2 and x4 multiply the model's own clock (A500: 2 and 4, 14 and 28 MHz; A1200: 4 and 8, 28 and 56 MHz).
+static void apply_cpu_factor(RrAmigaSession *s) {
+    const long base = s->model == RR_AMIGA_MODEL_A1200 ? 2 : 1;
+    const long value = s->cpu_factor == 1 ? (s->model == RR_AMIGA_MODEL_A1200 ? 2 : 0) : base * s->cpu_factor;
+    if (s->amiga->cpu.getOption(Opt::CPU_OVERCLOCKING) == value) return;
+    s->amiga->cpu.resyncOverclockedCpu();   // the CPU's sub-cycle debt is settled at the old factor first
+    s->emu->set(Opt::CPU_OVERCLOCKING, value);
+}
+
+extern "C" void rr_amiga_cpu_factor(RrAmigaSession *s, int factor) {
+    s->cpu_factor = factor == 2 || factor == 4 ? factor : 1;
+    apply_cpu_factor(s);
+}
+
 extern "C" int rr_amiga_port1_device(RrAmigaSession *s) {
     return s->port1_joystick;
 }
@@ -591,6 +647,25 @@ extern "C" void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) {
         if (held[k]) s->amiga->keyboard.press((KeyCode)k); else s->amiga->keyboard.release((KeyCode)k);
         s->keys[k] = held[k] ? 1 : 0;
     }
+}
+
+// An interlaced frame (LACE): `field` (this frame's lines, `lof` its long-frame bit) and the field held from the frame just before, of the other
+// parity, become one picture of twice the lines: the long field's line y on row 2y, the short field's on row 2y + 1. A field with no partner
+// (the first interlaced frame, two fields of one parity, a frame missed) is shown alone, each line on two rows. The display only: the machine
+// draws its fields as it does; the picture the player shows (and the trace hashes) is the woven one, the same in every run.
+static void weave(RrAmigaSession *s, std::vector<uint32_t> &&field, int lof) {
+    const size_t w = RR_AMIGA_PICTURE_WIDTH;
+    const bool pair = s->held_lof >= 0 && s->held_lof != lof && s->held_frame + 1 == s->frame && s->held.size() == field.size();
+    const uint32_t *top = pair ? (lof ? field.data() : s->held.data()) : field.data();
+    const uint32_t *bottom = pair ? (lof ? s->held.data() : field.data()) : field.data();
+    for (int y = 0; y < s->lines; y++) {
+        memcpy(s->picture.data() + (size_t)(2 * y) * w, top + (size_t)y * w, w * sizeof(uint32_t));
+        memcpy(s->picture.data() + (size_t)(2 * y + 1) * w, bottom + (size_t)y * w, w * sizeof(uint32_t));
+    }
+    s->rows = 2 * s->lines;
+    s->held = std::move(field);
+    s->held_lof = lof;
+    s->held_frame = s->frame;
 }
 
 extern "C" int rr_amiga_frame(RrAmigaSession *s) {
@@ -659,12 +734,23 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
     const Texture &tex = amiga.denise.pixelEngine.getStableBuffer();
     const uint32_t *px = (const uint32_t *)tex.pixels.ptr;
     int first = s->ntsc ? FIRST_LINE_NTSC : FIRST_LINE_PAL;
+    const bool lace = amiga.denise.lace();
+    // Without LACE the field is the picture; with it, the field goes to a buffer of its own first (woven below).
+    std::vector<uint32_t> field;
+    if (lace) field.resize((size_t)RR_AMIGA_PICTURE_WIDTH * s->lines);
     for (int y = 0; y < s->lines; y++) {
         const uint32_t *row = px + (size_t)(first + y) * Tex::width + FIRST_TEXEL;
-        uint32_t *out = s->picture.data() + (size_t)y * RR_AMIGA_PICTURE_WIDTH;
+        uint32_t *out = (lace ? field.data() : s->picture.data()) + (size_t)y * RR_AMIGA_PICTURE_WIDTH;
         // One hires pixel per Texel (its first half); the texture is ARGB already (HOST_TEX_FORMAT above), the alpha is opaque.
         for (int x = 0; x < RR_AMIGA_PICTURE_WIDTH; x++) out[x] = 0xFF000000u | row[2 * x];
     }
+    if (!lace) {
+        s->rows = s->lines;
+        s->held_lof = -1;              // a screen without LACE ends what was held: no stale field joins a later interlaced one
+        s->held.clear();
+        return 0;
+    }
+    weave(s, std::move(field), tex.lof ? 1 : 0);
     return 0;
 }
 
@@ -692,7 +778,7 @@ extern "C" int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w
 }
 
 extern "C" const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *height) {
-    *width = RR_AMIGA_PICTURE_WIDTH; *height = s->lines;
+    *width = RR_AMIGA_PICTURE_WIDTH; *height = s->rows;
     return s->picture.data();
 }
 
@@ -717,7 +803,7 @@ extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *i
     // The picture the player shows (every row of it is drawn each frame), not vAmiga's whole texture: the texture's
     // blanking lines are not redrawn every frame, so after a quick state is loaded they still hold what the new process
     // drew before (North And South showed it on the first frame after a load), which is no part of the game's picture.
-    info->video = fnv(basis, s->picture.data(), (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines * sizeof(uint32_t));
+    info->video = fnv(basis, s->picture.data(), (size_t)RR_AMIGA_PICTURE_WIDTH * s->rows * sizeof(uint32_t));
     info->pcm = fnv(basis, s->pcm.data(), s->pcm.size() * sizeof(int16_t));
     uint64_t ram = fnv(basis, amiga.mem.chip, (size_t)amiga.mem.chipRamSize());
     if (amiga.mem.slow) ram = fnv(ram, amiga.mem.slow, (size_t)amiga.mem.slowRamSize());
@@ -727,7 +813,7 @@ extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *i
     for (int i = 0; i < 8; i++) { info->d[i] = amiga.cpu.getD(i); info->a[i] = amiga.cpu.getA(i); }
     info->samples = (uint32_t)(s->pcm.size() / 2);
     for (size_t i = 0; i < s->pcm.size() && !info->audible; i++) info->audible = s->pcm[i] != 0;
-    for (size_t i = 0; i < (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines && !info->nonblack; i++) info->nonblack = (s->picture[i] & 0xFFFFFFu) != 0;
+    for (size_t i = 0; i < (size_t)RR_AMIGA_PICTURE_WIDTH * s->rows && !info->nonblack; i++) info->nonblack = (s->picture[i] & 0xFFFFFFu) != 0;
 }
 
 extern "C" int rr_amiga_set_native(RrAmigaSession *s, int enabled) {
@@ -864,17 +950,23 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
         std::vector<uint8_t> audio;
         s->amiga->audioPort.rrSaveAudio(audio);
         head.audio_size = (uint32_t)audio.size();
+        // The interlaced field held for the picture's weave (amiga_session.h), after the sound: 0, or 1 | its long-frame bit << 1, then its lines.
+        const uint32_t held_info = s->held_lof >= 0 && s->held.size() == (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines ? 1u | (uint32_t)s->held_lof << 1 : 0u;
+        const size_t held_bytes = held_info ? s->held.size() * sizeof(uint32_t) : 0;
         uint64_t sum = fnv(14695981039346656037ull, &head, sizeof head);
         sum = fnv(sum, &s->rl, sizeof s->rl);
         sum = fnv(sum, s->keys, sizeof s->keys);
         sum = fnv(sum, snap->data.ptr, (size_t)snap->data.size);
-        head.checksum = fnv(sum, audio.data(), audio.size());
+        sum = fnv(sum, audio.data(), audio.size());
+        sum = fnv(sum, &held_info, sizeof held_info);
+        head.checksum = fnv(sum, s->held.data(), held_bytes);
         std::string temporary = std::string(path) + ".tmp";
         FILE *f = open_file(temporary.c_str(), "wb");
         if (!f) return 4;
         bool ok = fwrite(&head, sizeof head, 1, f) == 1 && fwrite(&s->rl, sizeof s->rl, 1, f) == 1 &&
                   fwrite(s->keys, sizeof s->keys, 1, f) == 1 && fwrite(snap->data.ptr, 1, (size_t)snap->data.size, f) == (size_t)snap->data.size &&
-                  fwrite(audio.data(), 1, audio.size(), f) == audio.size();
+                  fwrite(audio.data(), 1, audio.size(), f) == audio.size() && fwrite(&held_info, sizeof held_info, 1, f) == 1 &&
+                  fwrite(s->held.data(), 1, held_bytes, f) == held_bytes;
         ok = fclose(f) == 0 && ok;
         std::error_code ec;
         if (ok) fs::rename(upath(temporary), upath(path), ec);
@@ -900,8 +992,12 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     std::vector<uint8_t> audio;
     if (ok) { data.resize(head.snapshot_size); ok = fread(data.data(), 1, data.size(), f) == data.size(); }
     if (ok) { audio.resize(head.audio_size); ok = fread(audio.data(), 1, audio.size(), f) == audio.size(); }
+    uint32_t held_info = 0;
+    std::vector<uint32_t> held;
+    ok = ok && fread(&held_info, sizeof held_info, 1, f) == 1 && !(held_info & ~3u) && (held_info & 1u || !held_info);
+    if (ok && held_info) { held.resize((size_t)RR_AMIGA_PICTURE_WIDTH * s->lines); ok = fread(held.data(), sizeof(uint32_t), held.size(), f) == held.size(); }
     uint8_t extra;
-    ok = ok && fread(&extra, 1, 1, f) == 0;      // nothing after the sound path's memory
+    ok = ok && fread(&extra, 1, 1, f) == 0;      // nothing after the held field
     fclose(f);
     if (ok) {
         const uint64_t expected = head.checksum;
@@ -910,7 +1006,9 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
         sum = fnv(sum, &rl, sizeof rl);
         sum = fnv(sum, keys, sizeof keys);
         sum = fnv(sum, data.data(), data.size());
-        ok = fnv(sum, audio.data(), audio.size()) == expected;
+        sum = fnv(sum, audio.data(), audio.size());
+        sum = fnv(sum, &held_info, sizeof held_info);
+        ok = fnv(sum, held.data(), held.size() * sizeof(uint32_t)) == expected;
     }
     if (!ok) return 3;
     kick_window(false);
@@ -927,13 +1025,17 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     s->rl = rl;
     // The Kickstart the saved timeline had loaded, wherever it came from (a header loads it before the slave, but
     // resload_LoadKick only when the slave calls it): its copy is in the restored ExpMem, so only the window is set again.
-    if (s->rl.kick_loaded && s->rl.exp_mem && s->rl.kick_size == 0x40000 && s->kick.size() == s->rl.kick_size) {
+    if (s->rl.kick_loaded && s->rl.exp_mem && (s->rl.kick_size == 0x40000 || s->rl.kick_size == 0x80000) && s->kick.size() == s->rl.kick_size) {
         s->kick_base = s->rl.exp_mem;
         s->kick_size = s->rl.kick_size;
         native_kick_window();
     }
     kick_window(true);
     s->frame = head.frame;
+    // The field the saved frame ended with, for the next frame's weave (none held: the next interlaced frame starts alone).
+    s->held = std::move(held);
+    s->held_lof = held_info ? (int)(held_info >> 1 & 1u) : -1;
+    s->held_frame = head.frame;
     // The inputs held when the state was saved: what the machine's ports hold now.
     s->joy = head.joy; s->mouse_left = (int)head.mouse_left; s->mouse_right = (int)head.mouse_right;
     s->joy2 = head.port1 >> 8 & 0xFFu;
@@ -947,6 +1049,8 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     s->port1_joystick = (int)(head.port1 & 1u);
     s->amiga->controlPort1.setDevice(s->port1_joystick ? ControlPortDevice::JOYSTICK : ControlPortDevice::MOUSE);
     memcpy(s->keys, keys, sizeof keys);
+    // The snapshot restored the CPU speed it was saved with; the player's own choice holds.
+    apply_cpu_factor(s);
     set_traps();
     update_hook();
     return 0;

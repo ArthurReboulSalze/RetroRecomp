@@ -47,6 +47,8 @@ void parallel_set_upscaling(unsigned factor, bool super_sampled);
 void parallel_set_super_sampled_read_back_dither(bool enable);
 void parallel_set_downscaling_steps(unsigned steps);
 void parallel_set_overscan_crop(unsigned pixels);
+void parallel_set_overscan_auto(bool enable);
+void parallel_frame_full_size(unsigned *width, unsigned *height);
 void parallel_set_divot_filter(bool enable);
 void parallel_set_gamma_dither(bool enable);
 void parallel_set_vi_aa(bool enable);

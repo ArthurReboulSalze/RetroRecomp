@@ -80,7 +80,7 @@ static int save(void *u, const char *name, uint32_t offset, const uint8_t *data,
 static void on_flush(void *u) { (void)u; flushes++; }
 
 static RrResload make(uint16_t version, uint16_t flags) {
-    RrResloadHost host = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, kickstart_cb};
+    RrResloadHost host = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, kickstart_cb, NULL};
     RrResload r;
     rr_resload_init(&r, &host, 0x100000, version, flags);
     return r;
@@ -410,7 +410,7 @@ static void kickstart(void) {
     put32(base + 44, 0);
     CHECK(rr_resload_load_slave_kickstart(&h) == RR_RESLOAD_RETURN && !h.kick_loaded && kick_calls == 0);
     /* a host without a Kickstart refuses */
-    RrResloadHost bare = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, NULL};
+    RrResloadHost bare = {NULL, rd, wr, lookup, save, NULL, on_flush, list_files_cb, NULL, NULL};
     RrResload b;
     rr_resload_init(&b, &bare, base, 17, 0);
     b.exp_mem = EXPMEM;
@@ -552,7 +552,7 @@ static void examine_and_list(void) {
     puts_at(0x2000, "nowhere"); regs[0] = 64;
     CHECK(rr_resload_call(&strict, 0x14, regs) == RR_RESLOAD_ABORT && strstr(strict.message, "nowhere"));
     /* a host with no listing: only the data folder exists, and a file is still found by name */
-    RrResloadHost plain = {NULL, rd, wr, lookup, save, NULL, on_flush, NULL, NULL};
+    RrResloadHost plain = {NULL, rd, wr, lookup, save, NULL, on_flush, NULL, NULL, NULL};
     RrResload p;
     rr_resload_init(&p, &plain, 0x100000, 17, 0);
     puts_at(0x2000, "main"); regs[8] = 0x2000; regs[9] = fib;
@@ -591,6 +591,25 @@ static void rnc1(void) {
     CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "CRC"));
 }
 
+/* Further packed formats (Crunch-Mania): resload_Decrunch in memory gives the plain bytes; the stream cut short is refused. */
+static void decrunch_pair(const char *packed_path, const char *plain_path) {
+    uint32_t packed_n = 0, plain_n = 0;
+    unsigned char *packed = read_all(packed_path, &packed_n), *plain = read_all(plain_path, &plain_n);
+    CHECK(packed && plain);
+    if (!packed || !plain) return;
+    RrResload r = make(17, 0);
+    uint32_t regs[16] = {0};
+    memcpy(mem + 0x200000, packed, packed_n);
+    regs[8] = 0x200000; regs[9] = 0x300000;
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_RETURN && regs[0] == plain_n);
+    CHECK(!memcmp(mem + 0x300000, plain, plain_n));
+    mem[0x200000 + 13] = (unsigned char)(mem[0x200000 + 13] - 2);      /* the packed size two bytes short: the stream no longer lands */
+    regs[8] = 0x200000; regs[9] = 0x300000;
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "Crunch-Mania"));
+    free(packed);
+    free(plain);
+}
+
 int main(int argc, char **argv) {
     files_and_disks();
     crc_and_control();
@@ -606,6 +625,7 @@ int main(int argc, char **argv) {
         CHECK(packed_file && expected_file);
         if (packed_file && expected_file) rnc1();
     }
+    for (int i = 3; i + 1 < argc; i += 2) decrunch_pair(argv[i], argv[i + 1]);
     printf("%s (%d failures)\n", failures ? "FAILED" : "OK", failures);
     return failures;
 }

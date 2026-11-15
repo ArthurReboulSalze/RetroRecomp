@@ -40,12 +40,14 @@ int rrhk_pad_rows_here(void) {
     return count;
 }
 int rrhk_action_row(void) { return rrhk.row - rrhk_pad_rows_here(); }
+/* 1.7.6: every control page ends with Restore defaults. */
 int rrhk_page_rows(void) {
     return rrhk_pad_rows_here() + rrhk.machine->action_count + (rrhk.player ? 0 : RRHK_COMBO_ROWS) + (rrhk.gamepad_page ? 1 : 0) +
-           stick_row();
+           stick_row() + 1;
 }
-bool rrhk_device_row(void) { return rrhk.gamepad_page && rrhk.row == rrhk_page_rows() - 1 - stick_row(); }
-bool rrhk_deadzone_row(void) { return stick_row() && rrhk.row == rrhk_page_rows() - 1; }
+bool rrhk_device_row(void) { return rrhk.gamepad_page && rrhk.row == rrhk_page_rows() - 2 - stick_row(); }
+bool rrhk_deadzone_row(void) { return stick_row() && rrhk.row == rrhk_page_rows() - 2; }
+bool rrhk_restore_row(void) { return rrhk.row == rrhk_page_rows() - 1; }
 
 /* A control page shows fifteen rows at once (every machine before 1.7.0 had at most fifteen: nothing scrolled). Past them the
  * window follows the selected row, moving only when that row would leave it. */
@@ -397,8 +399,9 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         const int hint_y = shown > 14 ? 173 : RR_MENU_HINT_LINE;
         if (shown > 14) status_y = 182;
         const int stick = stick_row();
-        if (first > 0) rr_menu_text(ren, ox, oy, unit, 246, RR_MENU_FIRST_LINE, "^", RR_MENU_HINT);
-        if (first + shown < rows) rr_menu_text(ren, ox, oy, unit, 246, RR_MENU_FIRST_LINE + (shown - 1) * RR_MENU_LINE, "v", RR_MENU_HINT);
+        /* 1.7.6: drawn in their own cell (rr_menu_text fits text up to x 242: at 246 it had no room and drew nothing) */
+        if (first > 0) rr_menu_text_plain(ren, ox, oy, unit, 245, RR_MENU_FIRST_LINE, 5, "^", RR_MENU_HINT);
+        if (first + shown < rows) rr_menu_text_plain(ren, ox, oy, unit, 245, RR_MENU_FIRST_LINE + (shown - 1) * RR_MENU_LINE, 5, "v", RR_MENU_HINT);
         const int extra = rrhk_pad_rows_here();
         for (int r = first; r < first + shown; ++r) {
             const int a = r - extra;       /* the action or combination of the row; below 0, a machine row */
@@ -419,11 +422,16 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
             bool cap = false, waiting = false;      /* the value is a key or a button: drawn as a key cap */
             int icon = RR_ICON_ROW_GENERIC;
             char letters[4] = "";
-            if (rrhk.gamepad_page && r == rows - 1 - stick) {
+            if (r == rows - 1) {
+                /* 1.7.6: this page's bindings (and on player 1's, its combinations and dead zone) as at first start */
+                value[0] = 0;
+                name = rr_tr("Restore defaults");
+                icon = RR_ICON_ROW_RESTORE;
+            } else if (rrhk.gamepad_page && r == rows - 2 - stick) {
                 rrhk_pad_value(value, sizeof value, rrhk.player);
                 name = rr_tr("Gamepad");
                 icon = RR_ICON_ROW_GAMEPAD;
-            } else if (stick && r == rows - 1) {
+            } else if (stick && r == rows - 2) {
                 /* "Stick dead zone: %s": the name is what stands before the colon */
                 static char dead[48];
                 snprintf(dead, sizeof dead, rr_tr("Stick dead zone: %s"), "");
@@ -444,25 +452,37 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
                     rrhk.keys[rrhk.player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(rrhk.keys[rrhk.player][a]);
                 waiting = rrhk.capturing && r == rrhk.row;
                 cap = !waiting && strcmp(bound, "-") != 0;
-                snprintf(value, sizeof value, "%s", waiting ? rrhk_tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
+                /* 1.7.6: a row the machine drives from a stick (pad_label) keeps it; a button bound there is a second way: "X / Left stick" */
+                if (!waiting && button && m->actions[a].pad_label)
+                    snprintf(value, sizeof value, "%s / %s", rr_tr(button), rr_tr(m->actions[a].pad_label));
+                else snprintf(value, sizeof value, "%s", waiting ? rrhk_tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
                 name = rr_tr(m->actions[a].name);
                 icon = rrhk_action_icon(m->actions[a].name, letters);
             }
             rrhk_draw_icon(ren, ox, oy, unit, ICON_X, y, icon, letters);
             if (r == rrhk.row) rr_menu_text(ren, ox, oy, unit, 14, y, ">", RR_MENU_ACCENT);
-            if (r == rrhk.row) rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, name, RR_MENU_ACCENT);
-            else rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, VALUE_X - NAME_X - 4, name, RR_MENU_GOLD);
+            const int name_w = value[0] || waiting ? VALUE_X - NAME_X - 4 : 240 - NAME_X;     /* a row without value (Restore) */
+            if (r == rrhk.row) rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, name_w, name, RR_MENU_ACCENT);
+            else rr_menu_text_plain(ren, ox, oy, unit, NAME_X, y, name_w, name, RR_MENU_GOLD);
             if (cap && rr_menu_text_width(value) + 4 <= 242 - VALUE_X) rr_menu_keycap(ren, ox, oy, unit, VALUE_X, y, value);
             else if (waiting) rr_menu_text_plain(ren, ox, oy, unit, VALUE_X + 2, y, 240 - VALUE_X, value, RR_MENU_ACCENT);
             else rr_menu_text_plain(ren, ox, oy, unit, VALUE_X + 2, y, 240 - VALUE_X, value, RR_MENU_GOLD);
         }
         {
-            const char *hint = rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
-                rrhk_deadzone_row() ? rr_tr("Enter / A: change") :
+            /* 1.7.6: Delete, Backspace or the pad's X clears any binding or combination; the hold a combination needs is said
+             * on the status line below. */
+            const int combo = rrhk_action_row() - m->action_count;
+            const bool combo_row = !rrhk_restore_row() && !rrhk_device_row() && !rrhk_deadzone_row() && combo >= 0;
+            const bool plain_combo = combo_row && rrhk_combo_plain(combo, rrhk.gamepad_page != 0);
+            const char *hint = rrhk_restore_row() ? rr_tr("Enter / A: restore this page") :
+                rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
+                rrhk_deadzone_row() ? rr_tr("Enter / A: change | X: clear") :
                 rrhk_pad_row_at(rrhk.row) ? rr_tr("Enter / A: change") :
-                rrhk_action_row() >= m->action_count ? rrhk_combo_hint(rrhk_action_row() - m->action_count, rrhk.gamepad_page != 0) :
-                rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page");
+                combo_row && !plain_combo ? rrhk_combo_hint(combo, rrhk.gamepad_page != 0) :
+                rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Del/X: clear | Left/Right: page");
             rr_menu_hints(ren, ox, oy, unit, 14, hint_y, 228, hint, RR_MENU_HINT);
+            if (plain_combo && !rrhk.status[0])
+                snprintf(missing, sizeof missing, "%s", rrhk_combo_hint(combo, rrhk.gamepad_page != 0));
         }
         /* A binding or a combination waits for the selected player's own pad (divergence 3): say so when that
          * player has none. */

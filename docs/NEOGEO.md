@@ -183,11 +183,11 @@ Licences and notices: [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 The Neo Geo shares the common menus, the four filters and the F2 pages
 ([CONTROLS.md](CONTROLS.md)).
 
-- **Player 1**: arrows, **W/X/C/V** for A/B/C/D (letters follow the active keyboard
+- **Player 1**: arrows, **S/D/F/E** for A/B/C/D (the same place on every keyboard
   layout), **Enter** for Start, either **Shift** for Coin. **Player 2**: keypad
   5/2/1/3, 8/9/6/4 for A/B/C/D, keypad Enter, keypad 0. **Controllers**: D-pad or
   left stick, A/B/X/Y, Start, Back (Coin). Start of player 2 is wired to
-  STATUS_B bit 2, separately from Select. F2 remaps keyboard and gamepad per player.
+  STATUS_B bit 2, separately from Select. F2 remaps keyboard and gamepad per player. Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X C V) moves to the new one by itself, and a key you chose in F2 is kept.
 - **Coin and AES.** In arcade MVS, Back is Coin. In console AES the host does not
   drive the firmware Select lines from the Coin action, so Back never opens the
   BIOS menu by accident; explicit hardware-test scripts keep the raw switch lines.

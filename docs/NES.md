@@ -265,10 +265,10 @@ and may affect existing exports ([UPGRADES.md](UPGRADES.md)).
 
 The NES host is the NES adapter of the shared host kit ([HOST_KIT.md](HOST_KIT.md))
 and uses the shared RetroRecomp menu canvas. Player 1 uses arrows,
-W/X, Enter for Start and Shift for Select (left by default, either Shift
+S/D, Enter for Start and Shift for Select (left by default, either Shift
 works since 1.5.0). Player 2 uses keypad
 5/2/1/3, 8/9, 7 for Start and 4 for Select. Gamepads use D-pad/left stick,
-A/B and Start/Back. F2 edits per-player bindings; the pad defaults for quit
+A/B and Start/Back. Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X) moves to the new one by itself, and a key you chose in F2 is kept. F2 edits per-player bindings; the pad defaults for quit
 (L3+R3 held) and restart (Start+Select) are the host kit's, described in
 [CONTROLS.md](CONTROLS.md).
 

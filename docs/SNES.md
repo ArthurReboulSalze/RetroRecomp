@@ -160,14 +160,13 @@ are in [CONTROLS.md](CONTROLS.md). Enter, the cartridge Start, pauses the game i
 
 | SNES button | Player 1 keyboard | Player 2 keypad | Controller |
 |---|---|---|---|
-| A / B | W / X | 8 / 9 | A / B |
-| X / Y | A / S | 0 / . | X / Y |
-| L / R | Q / E | / and * | Shoulders |
+| A / B | S / D | 8 / 9 | A / B |
+| X / Y | E / R | 0 / . | X / Y |
+| L / R | F / T | / and * | Shoulders |
 | Select / Start | Shift (either) / Enter | 4 / 7 | Back / Start |
 | Directions | Arrows | 5 up, 2 down, 1 left, 3 right | D-pad |
 
-Letter defaults and F2 labels follow the active keyboard layout (AZERTY included); saved custom mappings keep their physical
-key positions. Player 2 has no reset shortcut. F2 shows twelve actions per player. Autofire is F6.
+Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X A S, Q E) moves to the new one by itself, and a key you chose in F2 is kept. F2 labels follow the active keyboard layout. Player 2 has no reset shortcut. F2 shows twelve actions per player. Autofire is F6.
 
 Super Scope games add the gun page of F2: mouse aim, left button fires, right button is Cursor, middle button or Enter is the
 Scope Pause; cross or dot, size 1-12, red/white/green, and a **Scope Turbo** row (on by default, the gun's physical turbo
