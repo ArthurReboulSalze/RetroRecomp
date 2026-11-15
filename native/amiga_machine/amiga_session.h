@@ -21,6 +21,8 @@ extern "C" {
 #define RR_AMIGA_PICTURE_LINES_PAL 280
 #define RR_AMIGA_PICTURE_LINES_NTSC 236
 #define RR_AMIGA_PICTURE_MAX_HEIGHT RR_AMIGA_PICTURE_LINES_PAL
+/* An interlaced screen (LACE set) is shown woven: its two fields, one row per line each, give twice the rows. */
+#define RR_AMIGA_PICTURE_MAX_ROWS (2 * RR_AMIGA_PICTURE_MAX_HEIGHT)
 #define RR_AMIGA_AUDIO_RATE 48000u
 
 /* Joystick bits of port 2 (the game port). */
@@ -72,7 +74,8 @@ int rr_amiga_quit(const RrAmigaSession *s);
 uint64_t rr_amiga_kickstart_native_count(const RrAmigaSession *s);
 const char *rr_amiga_error(const RrAmigaSession *s);
 
-/* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row. */
+/* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row: one row per line (`height` the lines), or, while the screen
+ * is interlaced, two (`height` twice the lines: the long field's line y on row 2y, the short field's on row 2y + 1). */
 const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *height);
 /* The union of the display windows the game opened so far (DIWSTRT/DIWSTOP, from vAmiga's viewport tracking), in picture
  * columns and rows: what the player shows instead of the whole overscan picture. 0 while no window was opened. */

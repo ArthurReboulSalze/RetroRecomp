@@ -40,7 +40,7 @@ static constexpr uint32_t FAST_BASE = 0x200000;
 static constexpr uint32_t FAST_MAX = 0x800000;
 static uint32_t slow_slave_area(uint32_t exp_size) { return (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu; }
 static bool exp_in_fast(uint32_t exp_size) { return exp_size && slow_slave_area(exp_size) + 0x7FFF0 >= SLOW_BASE + SLOW_SIZE; }
-static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-5";
+static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-6";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
 // Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
 // display window's edges (DIWSTRT/DIWSTOP, in that unit) land on picture column (edge - SHRES_AT_TEXEL0 - FIRST_TEXEL) / 2.
@@ -72,6 +72,12 @@ struct RrAmigaSession {
     std::vector<int16_t> pcm;
     std::vector<uint32_t> picture;
     int lines = 0;
+    // An interlaced screen (LACE) is drawn as a long and a short field in turn. The picture weaves the field of this frame with the one
+    // of the frame before into twice the lines (`rows`); one field alone is shown line-doubled. The held field is part of a quick state.
+    int rows = 0;
+    std::vector<uint32_t> held;      // the field of the last frame, while LACE is set (lines rows)
+    int held_lof = -1;               // its long-frame bit, -1: none held
+    uint64_t held_frame = 0;         // the frame it ended
     bool view_seen = false;
     int view[4] = {};          // union of the display windows opened so far: left, top, right, bottom (picture columns, rows)
     bool observing = false, native = false;
@@ -561,7 +567,8 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         return nullptr;
     }
     S->lines = S->ntsc ? RR_AMIGA_PICTURE_LINES_NTSC : RR_AMIGA_PICTURE_LINES_PAL;
-    S->picture.assign((size_t)RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_HEIGHT, 0xFF000000u);
+    S->rows = S->lines;
+    S->picture.assign((size_t)RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_ROWS, 0xFF000000u);
     return S;
 }
 
@@ -624,6 +631,25 @@ extern "C" void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) {
         if (held[k]) s->amiga->keyboard.press((KeyCode)k); else s->amiga->keyboard.release((KeyCode)k);
         s->keys[k] = held[k] ? 1 : 0;
     }
+}
+
+// An interlaced frame (LACE): `field` (this frame's lines, `lof` its long-frame bit) and the field held from the frame just before, of the other
+// parity, become one picture of twice the lines: the long field's line y on row 2y, the short field's on row 2y + 1. A field with no partner
+// (the first interlaced frame, two fields of one parity, a frame missed) is shown alone, each line on two rows. The display only: the machine
+// draws its fields as it does; the picture the player shows (and the trace hashes) is the woven one, the same in every run.
+static void weave(RrAmigaSession *s, std::vector<uint32_t> &&field, int lof) {
+    const size_t w = RR_AMIGA_PICTURE_WIDTH;
+    const bool pair = s->held_lof >= 0 && s->held_lof != lof && s->held_frame + 1 == s->frame && s->held.size() == field.size();
+    const uint32_t *top = pair ? (lof ? field.data() : s->held.data()) : field.data();
+    const uint32_t *bottom = pair ? (lof ? s->held.data() : field.data()) : field.data();
+    for (int y = 0; y < s->lines; y++) {
+        memcpy(s->picture.data() + (size_t)(2 * y) * w, top + (size_t)y * w, w * sizeof(uint32_t));
+        memcpy(s->picture.data() + (size_t)(2 * y + 1) * w, bottom + (size_t)y * w, w * sizeof(uint32_t));
+    }
+    s->rows = 2 * s->lines;
+    s->held = std::move(field);
+    s->held_lof = lof;
+    s->held_frame = s->frame;
 }
 
 extern "C" int rr_amiga_frame(RrAmigaSession *s) {
@@ -692,12 +718,23 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
     const Texture &tex = amiga.denise.pixelEngine.getStableBuffer();
     const uint32_t *px = (const uint32_t *)tex.pixels.ptr;
     int first = s->ntsc ? FIRST_LINE_NTSC : FIRST_LINE_PAL;
+    const bool lace = amiga.denise.lace();
+    // Without LACE the field is the picture; with it, the field goes to a buffer of its own first (woven below).
+    std::vector<uint32_t> field;
+    if (lace) field.resize((size_t)RR_AMIGA_PICTURE_WIDTH * s->lines);
     for (int y = 0; y < s->lines; y++) {
         const uint32_t *row = px + (size_t)(first + y) * Tex::width + FIRST_TEXEL;
-        uint32_t *out = s->picture.data() + (size_t)y * RR_AMIGA_PICTURE_WIDTH;
+        uint32_t *out = (lace ? field.data() : s->picture.data()) + (size_t)y * RR_AMIGA_PICTURE_WIDTH;
         // One hires pixel per Texel (its first half); the texture is ARGB already (HOST_TEX_FORMAT above), the alpha is opaque.
         for (int x = 0; x < RR_AMIGA_PICTURE_WIDTH; x++) out[x] = 0xFF000000u | row[2 * x];
     }
+    if (!lace) {
+        s->rows = s->lines;
+        s->held_lof = -1;              // a screen without LACE ends what was held: no stale field joins a later interlaced one
+        s->held.clear();
+        return 0;
+    }
+    weave(s, std::move(field), tex.lof ? 1 : 0);
     return 0;
 }
 
@@ -725,7 +762,7 @@ extern "C" int rr_amiga_viewport(const RrAmigaSession *s, int *x, int *y, int *w
 }
 
 extern "C" const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *height) {
-    *width = RR_AMIGA_PICTURE_WIDTH; *height = s->lines;
+    *width = RR_AMIGA_PICTURE_WIDTH; *height = s->rows;
     return s->picture.data();
 }
 
@@ -750,7 +787,7 @@ extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *i
     // The picture the player shows (every row of it is drawn each frame), not vAmiga's whole texture: the texture's
     // blanking lines are not redrawn every frame, so after a quick state is loaded they still hold what the new process
     // drew before (North And South showed it on the first frame after a load), which is no part of the game's picture.
-    info->video = fnv(basis, s->picture.data(), (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines * sizeof(uint32_t));
+    info->video = fnv(basis, s->picture.data(), (size_t)RR_AMIGA_PICTURE_WIDTH * s->rows * sizeof(uint32_t));
     info->pcm = fnv(basis, s->pcm.data(), s->pcm.size() * sizeof(int16_t));
     uint64_t ram = fnv(basis, amiga.mem.chip, (size_t)amiga.mem.chipRamSize());
     if (amiga.mem.slow) ram = fnv(ram, amiga.mem.slow, (size_t)amiga.mem.slowRamSize());
@@ -760,7 +797,7 @@ extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *i
     for (int i = 0; i < 8; i++) { info->d[i] = amiga.cpu.getD(i); info->a[i] = amiga.cpu.getA(i); }
     info->samples = (uint32_t)(s->pcm.size() / 2);
     for (size_t i = 0; i < s->pcm.size() && !info->audible; i++) info->audible = s->pcm[i] != 0;
-    for (size_t i = 0; i < (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines && !info->nonblack; i++) info->nonblack = (s->picture[i] & 0xFFFFFFu) != 0;
+    for (size_t i = 0; i < (size_t)RR_AMIGA_PICTURE_WIDTH * s->rows && !info->nonblack; i++) info->nonblack = (s->picture[i] & 0xFFFFFFu) != 0;
 }
 
 extern "C" int rr_amiga_set_native(RrAmigaSession *s, int enabled) {
@@ -897,17 +934,23 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
         std::vector<uint8_t> audio;
         s->amiga->audioPort.rrSaveAudio(audio);
         head.audio_size = (uint32_t)audio.size();
+        // The interlaced field held for the picture's weave (amiga_session.h), after the sound: 0, or 1 | its long-frame bit << 1, then its lines.
+        const uint32_t held_info = s->held_lof >= 0 && s->held.size() == (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines ? 1u | (uint32_t)s->held_lof << 1 : 0u;
+        const size_t held_bytes = held_info ? s->held.size() * sizeof(uint32_t) : 0;
         uint64_t sum = fnv(14695981039346656037ull, &head, sizeof head);
         sum = fnv(sum, &s->rl, sizeof s->rl);
         sum = fnv(sum, s->keys, sizeof s->keys);
         sum = fnv(sum, snap->data.ptr, (size_t)snap->data.size);
-        head.checksum = fnv(sum, audio.data(), audio.size());
+        sum = fnv(sum, audio.data(), audio.size());
+        sum = fnv(sum, &held_info, sizeof held_info);
+        head.checksum = fnv(sum, s->held.data(), held_bytes);
         std::string temporary = std::string(path) + ".tmp";
         FILE *f = open_file(temporary.c_str(), "wb");
         if (!f) return 4;
         bool ok = fwrite(&head, sizeof head, 1, f) == 1 && fwrite(&s->rl, sizeof s->rl, 1, f) == 1 &&
                   fwrite(s->keys, sizeof s->keys, 1, f) == 1 && fwrite(snap->data.ptr, 1, (size_t)snap->data.size, f) == (size_t)snap->data.size &&
-                  fwrite(audio.data(), 1, audio.size(), f) == audio.size();
+                  fwrite(audio.data(), 1, audio.size(), f) == audio.size() && fwrite(&held_info, sizeof held_info, 1, f) == 1 &&
+                  fwrite(s->held.data(), 1, held_bytes, f) == held_bytes;
         ok = fclose(f) == 0 && ok;
         std::error_code ec;
         if (ok) fs::rename(upath(temporary), upath(path), ec);
@@ -933,8 +976,12 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     std::vector<uint8_t> audio;
     if (ok) { data.resize(head.snapshot_size); ok = fread(data.data(), 1, data.size(), f) == data.size(); }
     if (ok) { audio.resize(head.audio_size); ok = fread(audio.data(), 1, audio.size(), f) == audio.size(); }
+    uint32_t held_info = 0;
+    std::vector<uint32_t> held;
+    ok = ok && fread(&held_info, sizeof held_info, 1, f) == 1 && !(held_info & ~3u) && (held_info & 1u || !held_info);
+    if (ok && held_info) { held.resize((size_t)RR_AMIGA_PICTURE_WIDTH * s->lines); ok = fread(held.data(), sizeof(uint32_t), held.size(), f) == held.size(); }
     uint8_t extra;
-    ok = ok && fread(&extra, 1, 1, f) == 0;      // nothing after the sound path's memory
+    ok = ok && fread(&extra, 1, 1, f) == 0;      // nothing after the held field
     fclose(f);
     if (ok) {
         const uint64_t expected = head.checksum;
@@ -943,7 +990,9 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
         sum = fnv(sum, &rl, sizeof rl);
         sum = fnv(sum, keys, sizeof keys);
         sum = fnv(sum, data.data(), data.size());
-        ok = fnv(sum, audio.data(), audio.size()) == expected;
+        sum = fnv(sum, audio.data(), audio.size());
+        sum = fnv(sum, &held_info, sizeof held_info);
+        ok = fnv(sum, held.data(), held.size() * sizeof(uint32_t)) == expected;
     }
     if (!ok) return 3;
     kick_window(false);
@@ -960,13 +1009,17 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     s->rl = rl;
     // The Kickstart the saved timeline had loaded, wherever it came from (a header loads it before the slave, but
     // resload_LoadKick only when the slave calls it): its copy is in the restored ExpMem, so only the window is set again.
-    if (s->rl.kick_loaded && s->rl.exp_mem && s->rl.kick_size == 0x40000 && s->kick.size() == s->rl.kick_size) {
+    if (s->rl.kick_loaded && s->rl.exp_mem && (s->rl.kick_size == 0x40000 || s->rl.kick_size == 0x80000) && s->kick.size() == s->rl.kick_size) {
         s->kick_base = s->rl.exp_mem;
         s->kick_size = s->rl.kick_size;
         native_kick_window();
     }
     kick_window(true);
     s->frame = head.frame;
+    // The field the saved frame ended with, for the next frame's weave (none held: the next interlaced frame starts alone).
+    s->held = std::move(held);
+    s->held_lof = held_info ? (int)(held_info >> 1 & 1u) : -1;
+    s->held_frame = head.frame;
     // The inputs held when the state was saved: what the machine's ports hold now.
     s->joy = head.joy; s->mouse_left = (int)head.mouse_left; s->mouse_right = (int)head.mouse_right;
     s->joy2 = head.port1 >> 8 & 0xFFu;

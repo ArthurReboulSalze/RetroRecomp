@@ -208,7 +208,8 @@ static void a_inputs(void) {
 #define A_PAR_PAL (16.0 / 15.0)      /* a PAL lores pixel on a 4:3 screen (320 x 256 fills it) */
 #define A_PAR_NTSC (5.0 / 6.0)       /* an NTSC one (320 x 200) */
 static struct { int x, y, w, h, ntsc; } av;
-static uint32_t av_pixels[RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_HEIGHT];
+static uint32_t av_pixels[RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_ROWS];
+static int av_rows = 1;      /* rows per line of the last picture: 2 while the screen is interlaced (woven fields, amiga_session.h) */
 
 static void a_view_place(int x, int y, int w, int h) {
    int lines = av.ntsc ? RR_AMIGA_PICTURE_LINES_NTSC : RR_AMIGA_PICTURE_LINES_PAL;
@@ -242,13 +243,13 @@ static void a_view_follow(void) {
 static const uint32_t *a_pixels(void) {
    int w, h, row;
    const uint32_t *src = rr_amiga_picture(session, &w, &h);
-   for (row = 0; row < av.h; row++)
-      memcpy(av_pixels + (size_t)row * RR_AMIGA_PICTURE_WIDTH, src + (size_t)(av.y + row) * (size_t)w + (size_t)av.x, (size_t)av.w * sizeof(uint32_t));
+   for (row = 0; row < av.h * av_rows; row++)
+      memcpy(av_pixels + (size_t)row * RR_AMIGA_PICTURE_WIDTH, src + (size_t)(av.y * av_rows + row) * (size_t)w + (size_t)av.x, (size_t)av.w * sizeof(uint32_t));
    return av_pixels;
 }
 static int a_width(void) { return av.w; }             /* texture columns (hires) */
 static int a_display_width(void) { return av.w / 2; } /* lores pixels */
-static int a_height(void) { return av.h; }            /* lines, one row each */
+static int a_height(void) { return av.h * av_rows; }  /* lines, one row each (two while interlaced: the same window, twice the rows) */
 
 static size_t a_audio(int16_t *pcm, size_t capacity) {
    size_t n = aa.audio_count - aa.audio_taken;
@@ -267,6 +268,11 @@ static bool a_run_frame(uint16_t p1, uint16_t p2) {
    if (rr_amiga_frame(session) != 0) { fail(rr_amiga_error(session)); return false; }
    frame_number++;
    a_view_follow();
+   {  /* the rows of this frame's picture, known before the kit asks for its height or its pixels */
+      int w, h;
+      rr_amiga_picture(session, &w, &h);
+      av_rows = h > (av.ntsc ? RR_AMIGA_PICTURE_LINES_NTSC : RR_AMIGA_PICTURE_LINES_PAL) ? 2 : 1;
+   }
    if (aa.audio_taken) { memmove(aa.audio, aa.audio + aa.audio_taken, (aa.audio_count - aa.audio_taken) * sizeof(int16_t)); aa.audio_count -= aa.audio_taken; aa.audio_taken = 0; }
    got = rr_amiga_audio(session, aa.audio + aa.audio_count, (sizeof aa.audio / sizeof aa.audio[0] - aa.audio_count) / 2);
    aa.audio_count += got * 2;
@@ -298,7 +304,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.table_players = 2; machine.players = a_players;
       machine.actions = a_actions; machine.action_count = A_ACTIONS;
       machine.up = A_UP; machine.down = A_DOWN; machine.left = A_LEFT; machine.right = A_RIGHT; machine.start = A_START;
-      machine.max_width = RR_AMIGA_PICTURE_WIDTH; machine.max_height = RR_AMIGA_PICTURE_MAX_HEIGHT;
+      machine.max_width = RR_AMIGA_PICTURE_WIDTH; machine.max_height = RR_AMIGA_PICTURE_MAX_ROWS;
       machine.frame_seconds = 1.0 / 50.0;
       machine.audio_model = RRHK_AUDIO_QUEUE; machine.audio_rate = RR_AMIGA_AUDIO_RATE; machine.audio_chunked = true;
       machine.video_section = L"Amiga"; machine.autofire_section = L"Amiga"; machine.indexed_bindings = true; machine.bindings_clearable = true;

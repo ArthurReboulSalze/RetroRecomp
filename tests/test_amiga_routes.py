@@ -258,7 +258,7 @@ class RouteScriptTests(unittest.TestCase):
         self.assertIn('char magic[16]; char abi[72]; char identity[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, '
                       'snapshot_size, audio_size, port1; uint64_t checksum;', source)
         self.assertIn('sizeof(StateHead) == 200', source)
-        self.assertIn('STATE_MAGIC[16] = "RRAMIGA-STATE-5"', source)
+        self.assertIn('STATE_MAGIC[16] = "RRAMIGA-STATE-6"', source)
         self.assertEqual(conversion.STATE_HEADER, 200)
         self.assertEqual(conversion.STATE_OFFSETS['checksum'], 192)
         self.assertEqual(conversion.STATE_OFFSETS['port1'], 188)       # the device port 1 holds and the second joystick's bits

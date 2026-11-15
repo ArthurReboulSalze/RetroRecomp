@@ -244,4 +244,8 @@ not changed by it.
 - **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
   Gloom and Super Stardust convert with it on the Amiga 1200, and Five A Side Soccer on the Amiga 500 (46 files unpacked on its main
   route, every check passed).
+- **Interlaced screens** (on both Amigas, for any game that sets LACE): the machine draws a long and a short field in turn; the picture
+  weaves them into one of twice the lines, so it no longer moves a line every frame (Arthur's play test of 15 November 2026 found it on
+  Banshee's title). A display change only: the machine, the CPU and the checks are as before; a screen without LACE is shown as it was,
+  byte for byte (Slam Tilt's traces unchanged); the field held for the weave is part of a quick state.
 - **Not yet:** AGA super-hires shown at full width (the picture keeps one column per hires pixel).
