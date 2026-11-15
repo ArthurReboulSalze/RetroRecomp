@@ -520,6 +520,19 @@ X68000 too, without asking again**.
   takes anything from another row. A row with `pad_label` (a machine drives it from a stick: the Nintendo 64's Stick rows) shows
   "X / Left stick" when a button is bound there too, "Left stick" when not. The page's ^ and v scroll marks, drawn past the text
   width since 1.7.0 and so never seen, are drawn again.
+* <a id="d29"></a>**D29 — Sticks are symmetric; a Linux game heals its own launcher** (owner's words of 15 November 2026, 1.7.6:
+  « Oui, inclus-la » for the sticks, « qu'on puisse déplacer notre jeu sans que ça casse tous les chemins » for the launchers).
+  `rrhk_pad_axes` gives -32767..32767: SDL's -32768 at a stick's left or top edge is given as -32767, before and after the dead
+  zone (Beetle's DualShock turned -32768 into the opposite edge; Mupen64Plus-Next's `x*x + y*y` overflowed in the up-left
+  corner); a replay's recorded axes are given as recorded. On Linux, at start (`open_run`, once per process), a game reads
+  `/proc/self/exe`; when `<its file name>.desktop` beside it carries `X-RetroRecomp-Identity=` with 64 hex digits (only ours) and
+  its Exec or Path line no longer names this game, the Exec, Path and Icon lines of its `[Desktop Entry]` group are written
+  again for the current folder (Icon `<folder>/datas/launchers/<identity>.png`), escaped as `retrorecomp/linux_desktop.py`
+  escapes them, every other byte kept, through a temporary file renamed over it (mode 0755); then our line in the folder's
+  `.hidden` (written up to 1.7.5) is taken out, the player's lines kept byte for byte, an emptied `.hidden` removed. Any failure
+  is silent: a read-only folder never stops the game. A launcher without our marker is never touched; nothing runs on Windows.
+  Launchers keep absolute paths: KDE fills `%k` with the launcher's path but GLib (GNOME, Cinnamon) leaves it empty. Adventure
+  (ScummVM) games do not run the kit's loop and are not healed.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

@@ -598,9 +598,14 @@ static void dead_zone(int16_t *x, int16_t *y, int percent) {
     if (length <= zone) { *x = *y = 0; return; }
     const double factor = (length - zone) / (32767.0 - zone) * 32767.0 / length;
     const double nx = fx * factor, ny = fy * factor;
-    *x = (int16_t)(nx > 32767.0 ? 32767 : nx < -32768.0 ? -32768 : nx);
-    *y = (int16_t)(ny > 32767.0 ? 32767 : ny < -32768.0 ? -32768 : ny);
+    *x = (int16_t)(nx > 32767.0 ? 32767 : nx < -32767.0 ? -32767 : nx);
+    *y = (int16_t)(ny > 32767.0 ? 32767 : ny < -32767.0 ? -32767 : ny);
 }
+
+/* 1.7.6: a stick is symmetric for the machines, -32767..32767. SDL gives -32768 at the left or top edge, which a core may not take:
+ * Beetle's DualShock turned it into the opposite edge (32768 + v * 32768 / 32767 = -1, byte 0xFF), and Mupen64Plus-Next's
+ * x*x + y*y overflows an int when both axes are -32768 (the stick read as centred). */
+static int16_t symmetric(int16_t value) { return value < -32767 ? -32767 : value; }
 
 bool rrhk_pad_axes(int p, uint64_t frame, int16_t axes[RRHK_AXES]) {
     const RrhkMachine *m = rrhk.machine;
@@ -613,7 +618,7 @@ bool rrhk_pad_axes(int p, uint64_t frame, int16_t axes[RRHK_AXES]) {
     for (int i = 0; i < RRHK_AXES; ++i) axes[i] = 0;
     SDL_GameController *pad = rrhk.pads[p];
     if (!pad || !SDL_GameControllerGetAttached(pad)) return false;
-    for (int i = 0; i < RRHK_AXES; ++i) axes[i] = SDL_GameControllerGetAxis(pad, source[i]);
+    for (int i = 0; i < RRHK_AXES; ++i) axes[i] = symmetric(SDL_GameControllerGetAxis(pad, source[i]));
     dead_zone(&axes[RRHK_AXIS_LX], &axes[RRHK_AXIS_LY], rrhk.deadzone[p]);
     dead_zone(&axes[RRHK_AXIS_RX], &axes[RRHK_AXIS_RY], rrhk.deadzone[p]);
     return true;

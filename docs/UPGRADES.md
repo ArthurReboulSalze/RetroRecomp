@@ -104,6 +104,9 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Nintendo 64: Supersampling and 8x on the graphics page](#nintendo-64-supersampling-and-8x-on-the-graphics-page-176) | none | **the host stamp of all 20 profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Nintendo 64: the C buttons on the right stick, "Left stick", the 16:9 screen format](#nintendo-64-the-c-buttons-on-the-right-stick-left-stick-the-169-screen-format-176) | none | **the Nintendo 64's host stamp** (`rrhk_n64.inc`) | the Nintendo 64 key moves (every input, the host's included) |
 | [Nintendo 64: "Picture area (auto)", the overscan crop by default](#nintendo-64-picture-area-auto-the-overscan-crop-by-default-176) | **the Nintendo 64** (the glue and the session) | **the host stamp of all profiles** (`runtime_catalog.inc`, the locale files), the Nintendo 64's for `rrhk_n64.inc` | **the Nintendo 64 key moves**; the Amiga and Atari ST keys move (every input, the host's included) |
+| [Every machine: clear any binding, Restore defaults on each control page](#every-machine-clear-any-binding-restore-defaults-on-each-control-page-176) | none | **the host stamp of all 21 profiles** (the shell, `hostkit/hostkit_internal.h`, `runtime_catalog.inc`, the locale files) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Every machine: symmetric sticks, -32767..32767](#every-machine-symmetric-sticks-176) | none | **the host stamp of all 21 profiles** (`rrhk_input.c`, `hostkit/hostkit.h`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Linux: a moved game folder keeps a working launcher](#linux-a-moved-game-folder-keeps-a-working-launcher-176) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `hostkit/hostkit_internal.h`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Every machine: "Quit the game", the last row of the options page](#every-machine-quit-the-game-the-last-row-of-the-options-page-176) | none | **the host stamp of all 20 profiles** (the shell, `retro_menu.c`, `runtime_catalog.inc`, the locale files) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
 | [Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units](#game-boy-advance-the-sound-is-compared-the-quick-state-has-a-checksum-a-save-larger-than-its-chip-is-set-aside-the-report-names-its-units-175) (titled 1.7.5, but not in the `v1.7.5` tag: it ships in 1.7.6 with the merge of `spec/gba-175`) | the Game Boy Advance | none | **the Game Boy Advance states of 1.7.5 are refused** (the checksum envelope) |
 | emu2413's `LICENSE` keeps its exact bytes on a Windows checkout (`-text` in `.gitattributes`; no section of this page; commit `ffbaee01`) | none | none | none |
@@ -239,6 +242,47 @@ of any machine can be cleared, and each control page can be put back to its defa
 * **Checks.** `tools/hostkit_capabilities_selftest.py` run 13 (Delete, Backspace and the pad's X clear keys, buttons and a
   combination, read back as cleared at the next start; Restore defaults on the keyboard and gamepad pages, the swap, the other
   player untouched); a gallery of the owner's saved Nintendo 64 page (before, cleared, restored) in French and English.
+
+## Every machine: symmetric sticks (1.7.6)
+
+On the owner's word of 15 November 2026 (« Oui, inclus-la »), after the PlayStation's stick fix: SDL gives -32768 at a stick's
+left or top edge, and a core may not take it. Beetle's DualShock turned it into the opposite edge (Ape Escape: full left went
+right), and Mupen64Plus-Next's `x*x + y*y` overflows an int when both axes are -32768 (the stick read as centred in that corner).
+The kit's `rrhk_pad_axes`, which every machine that reads the sticks calls, now gives -32768 as -32767, before and after the dead
+zone; a replay's recorded axes are given as recorded. The PlayStation keeps its own clamp for its script and reference runs.
+
+* **Stamps.** The host stamp of all 21 profiles moves (the shell's `rrhk_input.c`, `hostkit/hostkit.h` (a comment)). No adapter,
+  no game or build stamp: existing exports are not converted again for it. The quick-state keys of the machines that hash every
+  input (the Nintendo 64, the Amiga, the Atari ST) move, as 1.7.6 already moves them; no other quick-state key.
+* **What players see.** A stick pushed fully left or up reaches the edge on every machine that reads the sticks (today the
+  PlayStation and the Nintendo 64); one step of 32767 is lost on that side only, nothing a game can tell.
+* **Checks.** `tools/hostkit_capabilities_selftest.py`: a virtual pad at -32768 (SDL really gives it) comes out -32767 at 0 %,
+  32767 stays, the dead zone's corners stay at or above -32767, and a script's -32768 is given as recorded.
+
+## Linux: a moved game folder keeps a working launcher (1.7.6)
+
+On the owner's report of 15 November 2026 (Linux exports copied to another PC started from nothing): « qu'on puisse déplacer
+notre jeu sans que ça casse tous les chemins ». The launcher `<game>.desktop` beside each Linux game holds absolute paths (no
+relative form works on every desktop: GLib leaves `%k` empty), and up to 1.7.5 the game file itself was listed in the folder's
+`.hidden`, so after a move nothing could be started.
+
+* **The converter** (`retrorecomp/linux_desktop.py`) no longer hides the game file, and takes the line earlier versions wrote out
+  of `.hidden` (the player's lines kept byte for byte) when it writes or retires a launcher.
+* **The game** (the kit's `rrhk_main.c`, [HOST_KIT.md](HOST_KIT.md#d29), D29), at start on Linux: when its own launcher carries
+  our identity marker and no longer names its folder, its Exec, Path and Icon lines are written again for the current folder
+  (atomically, mode 0755, every other byte kept); our `.hidden` line is taken out the same way. Any failure is silent; a
+  launcher without our marker is never touched; nothing runs on Windows. Adventure (ScummVM) games do not run the kit and are
+  not healed: the converter refreshes their launcher.
+* **What players do.** After moving a folder, double-click the game file once (it is visible now); its launcher works again
+  from then on. A game rebuilt by 1.7.6 (its host stamp moves) carries the heal; a 1.7.5 game file moved as it is does not.
+* **Stamps.** The host stamp of all 21 profiles moves (`rrhk_main.c`, `hostkit/hostkit_internal.h`); `linux_desktop.py` is
+  interface code and moves none. No game or build stamp. The quick-state keys of the Nintendo 64, the Amiga and the Atari ST
+  move, as 1.7.6 already moves them; no other.
+* **Checks.** `tools/hostkit_capabilities_selftest.py`: the healed text equals the lines `linux_desktop.py` writes for a path
+  with a space, `$`, `"`, a backquote, `%` and a backslash, every other byte kept (a second group's Exec untouched); a current
+  launcher, one without our marker, one with an upper-case identity and a too-long path are left alone; on Linux, the files
+  (mode 0755, the player's `.hidden` lines kept, an emptied `.hidden` removed, a foreign launcher byte-identical).
+  `tests/test_linux_desktop.py` for the converter.
 
 ## Every machine: a 16:9 screen format for the games' own widescreen mode, scanlines per console line (1.7.6)
 

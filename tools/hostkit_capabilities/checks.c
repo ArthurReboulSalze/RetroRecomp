@@ -5,7 +5,7 @@
  * rumble and three discs, then the same machine with every one of those fields left out. One virtual game controller (with a
  * rumble callback) is attached before the window opens (dummy video and audio drivers, a hidden window); keys are pushed as
  * SDL events, as a player's keys arrive. It checks that
- *   - sticks: the left stick no longer drives the directions (the d-pad still does), rrhk_pad_axes gives the raw axes at 0 %,
+ *   - sticks: the left stick no longer drives the directions (the d-pad still does), rrhk_pad_axes gives the raw axes at 0 % (SDL's -32768 as -32767, 1.7.6),
  *     the dead zone row of F2 (Enter, Delete) and its preference, the round dead zone and its rescaling, a player without a
  *     pad, a script's axes;
  *   - a pad of seventeen controls (a PlayStation's, eighteen rows with Change disc, past the old limit of twelve): the F2 page
@@ -36,6 +36,10 @@
 #include "platform_io.h"
 #include "retro_menu.h"
 #include "hostkit/hostkit_internal.h"
+#ifndef _WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 static int failures, checks;
 #define CHECK(condition) do { ++checks; if (!(condition)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #condition); ++failures; } } while (0)
@@ -128,6 +132,7 @@ static bool script_axes(int player, uint64_t frame, int16_t axes[RRHK_AXES]) {
     (void)frame;
     if (!scripted || player) return false;
     for (int i = 0; i < RRHK_AXES; ++i) axes[i] = (int16_t)(1000 * (i + 1));
+    axes[RRHK_AXIS_RY] = -32768;   /* 1.7.6: a recording is given as recorded, its -32768 too */
     return true;
 }
 static int media_count(void) { return 3; }
@@ -239,6 +244,17 @@ static void full_script(void) {
         CHECK(last_axes[0][RRHK_AXIS_RX] == -12345 && last_axes[0][RRHK_AXIS_RY] == 32767);
         CHECK(!last_has[1]);       /* player 2 has no pad: centred */
         for (int i = 0; i < RRHK_AXES; ++i) CHECK(last_axes[1][i] == 0);
+        {   /* 1.7.6: SDL's -32768 (left or top edge) is given as -32767, the sticks symmetric for the cores; 32767 stays */
+            int16_t a[RRHK_AXES];
+            axis(SDL_CONTROLLER_AXIS_LEFTX, -32768); axis(SDL_CONTROLLER_AXIS_LEFTY, -32768);
+            axis(SDL_CONTROLLER_AXIS_RIGHTX, -32768); axis(SDL_CONTROLLER_AXIS_RIGHTY, 32767);
+            SDL_GameControllerUpdate();
+            CHECK(SDL_GameControllerGetAxis(ui->pads[0], SDL_CONTROLLER_AXIS_LEFTX) == -32768);   /* the pad really gives it */
+            CHECK(rrhk_pad_axes(0, frames, a));
+            CHECK(a[RRHK_AXIS_LX] == -32767 && a[RRHK_AXIS_LY] == -32767);
+            CHECK(a[RRHK_AXIS_RX] == -32767 && a[RRHK_AXIS_RY] == 32767);
+            for (int i = 0; i < RRHK_AXES; ++i) axis((SDL_GameControllerAxis)(SDL_CONTROLLER_AXIS_LEFTX + i), 0);
+        }
         button(SDL_CONTROLLER_BUTTON_DPAD_LEFT, true);
         break;
     case 6:     /* the d-pad keeps the directions */
@@ -267,6 +283,7 @@ static void full_script(void) {
                 CHECK(rrhk_pad_axes(0, frames, a));
                 CHECK(a[RRHK_AXIS_LX] >= corners[c][2] - 2 && a[RRHK_AXIS_LX] <= corners[c][2] + 2);
                 CHECK(a[RRHK_AXIS_LY] >= corners[c][3] - 2 && a[RRHK_AXIS_LY] <= corners[c][3] + 2);
+                CHECK(a[RRHK_AXIS_LX] >= -32767 && a[RRHK_AXIS_LY] >= -32767);   /* the dead zone keeps the sticks symmetric */
             }
             axis(SDL_CONTROLLER_AXIS_LEFTY, 0);
         }
@@ -277,7 +294,7 @@ static void full_script(void) {
         scripted = true;
         break;
     case 18:    /* a replay's axes, as recorded */
-        CHECK(last_has[0] && last_axes[0][0] == 1000 && last_axes[0][1] == 2000 && last_axes[0][2] == 3000 && last_axes[0][3] == 4000);
+        CHECK(last_has[0] && last_axes[0][0] == 1000 && last_axes[0][1] == 2000 && last_axes[0][2] == 3000 && last_axes[0][3] == -32768);
         scripted = false;
         axis(SDL_CONTROLLER_AXIS_LEFTX, 0);
         /* F2 opens the tiles (1.7.4): Right is player 1's gamepad, Enter opens its page; Up wraps to the last row (1.7.6: Restore
@@ -1081,8 +1098,80 @@ static void set_env(const char *name, const char *value) {
 
 static void begin(void (*next)(void)) { script = next; step = 0; stop = false; apply_count = 0; }
 
+/* 1.7.6 (HOST_KIT D29): a Linux game's launcher healed after its folder moved. The expected lines are retrorecomp/linux_desktop.py's
+ * own `_argument` / `_value` for this path (a space, $, ", `, % and a backslash). */
+#define LAUNCHER_ID "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+static const char moved_exe[] = "/home/arthur/Mes Jeux/Sonic $2 \"x\" `y` 100%\\b.elf";
+static const char want_exec[] = "Exec=\"/home/arthur/Mes Jeux/Sonic \\\\$2 \\\\\"x\\\\\" \\\\`y\\\\` 100%%\\\\\\\\b.elf\"";
+static const char want_path[] = "Path=/home/arthur/Mes Jeux";
+static const char want_icon[] = "Icon=/home/arthur/Mes Jeux/datas/launchers/" LAUNCHER_ID ".png";
+#define OLD_LAUNCHER(exec, path, icon, marker) "[Desktop Entry]\nType=Application\nVersion=1.0\nName=Sonic.elf\n" exec "\n" path "\n" \
+    icon "\nTerminal=false\nCategories=Game;\nStartupNotify=false\nX-Custom=kept\n" marker "\n\n[Desktop Action Other]\nExec=other\n"
+static void launcher_checks(void) {
+    static const char stale[] = OLD_LAUNCHER("Exec=\"/media/old/Sonic.elf\"", "Path=/media/old", "Icon=/media/old/datas/launchers/"
+                                             LAUNCHER_ID ".png", "X-RetroRecomp-Identity=" LAUNCHER_ID);
+    char *healed = NULL, expected[2048];
+    size_t len = 0;
+    snprintf(expected, sizeof expected, OLD_LAUNCHER("%s", "%s", "%s", "X-RetroRecomp-Identity=" LAUNCHER_ID), want_exec, want_path, want_icon);
+    CHECK(rrhk_launcher_text(stale, strlen(stale), moved_exe, &healed, &len) == 1);
+    CHECK(healed && len == strlen(expected) && !memcmp(healed, expected, len));   /* the three lines, every other byte kept */
+    {   /* healed once: current, untouched */
+        char *again = NULL; size_t again_len = 0;
+        CHECK(healed && rrhk_launcher_text(healed, len, moved_exe, &again, &again_len) == 0 && !again);
+    }
+    free(healed);
+    /* not ours: no marker, or a marker that is not 64 lower-case hex digits */
+    static const char foreign[] = OLD_LAUNCHER("Exec=/media/old/Sonic.elf", "Path=/media/old", "Icon=x", "X-Other=1");
+    static const char upper[] = OLD_LAUNCHER("Exec=/media/old/Sonic.elf", "Path=/media/old", "Icon=x",
+                                             "X-RetroRecomp-Identity=0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef");
+    healed = NULL;
+    CHECK(rrhk_launcher_text(foreign, strlen(foreign), moved_exe, &healed, &len) == -1 && !healed);
+    CHECK(rrhk_launcher_text(upper, strlen(upper), moved_exe, &healed, &len) == -1 && !healed);
+    /* only Exec moved (the game renamed with its launcher): healed too; a path too long is left alone */
+    char only_exec[2048];
+    snprintf(only_exec, sizeof only_exec, OLD_LAUNCHER("Exec=\"/old.elf\"", "%s", "%s", "X-RetroRecomp-Identity=" LAUNCHER_ID), want_path, want_icon);
+    CHECK(rrhk_launcher_text(only_exec, strlen(only_exec), moved_exe, &healed, &len) == 1 && healed);
+    free(healed); healed = NULL;
+    static char long_exe[9500];   /* past the 8 KiB of an Exec line: never a truncated path */
+    memset(long_exe, 'a', sizeof long_exe - 1); long_exe[0] = '/'; long_exe[100] = '/';
+    CHECK(rrhk_launcher_text(stale, strlen(stale), long_exe, &healed, &len) <= 0 && !healed);
+#ifndef _WIN32
+    {   /* the files: a moved folder's launcher rewritten (0755), our .hidden line gone, the player's kept byte for byte */
+        char folder[] = "/tmp/rrhk-launcher-XXXXXX", exe[512], path[600], data[2048];
+        CHECK(mkdtemp(folder) != NULL);
+        snprintf(exe, sizeof exe, "%s/Sonic.elf", folder);
+        snprintf(path, sizeof path, "%s.desktop", exe);
+        FILE *f = fopen(path, "wb"); CHECK(f != NULL); if (f) { fputs(stale, f); fclose(f); }
+        snprintf(path, sizeof path, "%s/.hidden", folder);
+        f = fopen(path, "wb"); CHECK(f != NULL); if (f) { fputs("mine\xe9\r\nSonic.elf\nother\n", f); fclose(f); }
+        CHECK(rrhk_heal_launcher(exe) == 1);
+        snprintf(path, sizeof path, "%s.desktop", exe);
+        struct stat st;
+        CHECK(stat(path, &st) == 0 && (st.st_mode & 0777) == 0755);
+        f = fopen(path, "rb"); size_t n = f ? fread(data, 1, sizeof data - 1, f) : 0; if (f) fclose(f); data[n] = 0;
+        CHECK(strstr(data, "Path=") && !strncmp(strstr(data, "Path=") + 5, folder, strlen(folder)) && !strstr(data, "/media/old"));
+        CHECK(strstr(data, "X-Custom=kept\n") && strstr(data, "\nExec=other\n"));
+        snprintf(path, sizeof path, "%s/.hidden", folder);
+        f = fopen(path, "rb"); n = f ? fread(data, 1, sizeof data - 1, f) : 0; if (f) fclose(f); data[n] = 0;
+        CHECK(!strcmp(data, "mine\xe9\r\nother\n"));
+        CHECK(rrhk_heal_launcher(exe) == 0);    /* current now */
+        f = fopen(path, "wb"); if (f) { fputs("Sonic.elf\n", f); fclose(f); }
+        CHECK(rrhk_heal_launcher(exe) == 0 && stat(path, &st) != 0);   /* a .hidden left empty is removed */
+        snprintf(path, sizeof path, "%s.desktop", exe);
+        f = fopen(path, "wb"); if (f) { fputs(foreign, f); fclose(f); }
+        CHECK(rrhk_heal_launcher(exe) == -1);   /* not ours: untouched */
+        f = fopen(path, "rb"); n = f ? fread(data, 1, sizeof data - 1, f) : 0; if (f) fclose(f); data[n] = 0;
+        CHECK(!strcmp(data, foreign));
+        unlink(path);
+        CHECK(rrhk_heal_launcher(exe) == -1);   /* no launcher */
+        rmdir(folder);
+    }
+#endif
+}
+
 int main(int argc, char **argv) {
     (void)argc; (void)argv;
+    launcher_checks();
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 2; }
     picture = (uint32_t *)calloc((size_t)BASE_W * 4 * BASE_H * 4, sizeof(uint32_t));
