@@ -1111,6 +1111,11 @@
     "8x needs the graphics card: 4x on the CPU": "8x 需要显卡: CPU 上为 4x",
     "No usable graphics card: the CPU draws the picture": "没有可用的显卡: 由 CPU 绘制画面",
     "Geometry precision (PGXP)": "几何精度 (PGXP)",
-    "Perspective-correct textures": "透视校正纹理"
+    "Perspective-correct textures": "透视校正纹理",
+    "Anti-aliasing (graphics card)": "抗锯齿 (显卡)",
+    "Texture filtering (graphics card)": "纹理过滤 (显卡)",
+    "Bilinear": "双线性",
+    "3-point": "三点",
+    "Graphics card only: no effect while the CPU draws": "仅限显卡：CPU 绘制时无效"
   }
 }

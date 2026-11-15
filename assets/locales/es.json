@@ -1111,6 +1111,11 @@
     "8x needs the graphics card: 4x on the CPU": "8x necesita la tarjeta gráfica: 4x en la CPU",
     "No usable graphics card: the CPU draws the picture": "Ninguna tarjeta gráfica utilizable: la CPU dibuja la imagen",
     "Geometry precision (PGXP)": "Precisión geométrica (PGXP)",
-    "Perspective-correct textures": "Texturas con perspectiva correcta"
+    "Perspective-correct textures": "Texturas con perspectiva correcta",
+    "Anti-aliasing (graphics card)": "Antialiasing (tarjeta gráfica)",
+    "Texture filtering (graphics card)": "Filtrado de texturas (tarjeta gráfica)",
+    "Bilinear": "Bilineal",
+    "3-point": "3 puntos",
+    "Graphics card only: no effect while the CPU draws": "Solo tarjeta gráfica: sin efecto cuando dibuja la CPU"
   }
 }

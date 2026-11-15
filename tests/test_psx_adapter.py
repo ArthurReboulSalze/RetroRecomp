@@ -142,5 +142,17 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertNotIn('pgxp_vertex', ADAPTER)
 
 
+    def test_antialiasing_and_texture_filtering_are_card_rows_off_by_default(self):
+        # 1.7.7 (the owner's questions of 15 November 2026): one anti-aliasing row (MSAA or Supersampling, never both), one texture
+        # filtering row (nearest, bilinear, 3-point), Off by default; no texture upscaler, no mipmapping
+        self.assertIn('{"Anti-aliasing (graphics card)", L"antialiasing", antialiasing, 5, 0},', ADAPTER)
+        self.assertIn('{"Texture filtering (graphics card)", L"texture_filter", texture_filters, 3, 0},', ADAPTER)
+        self.assertIn('static const char *const msaa_values[] = {"1x", "2x", "4x", "8x", "1x"};', ADAPTER)
+        self.assertIn('static const char *const texture_filter_values[] = {"nearest", "bilinear", "3-point"};', ADAPTER)
+        self.assertIn('rr_psx_option(s, "super_sampling", value == 4 ? "enabled" : "disabled");', ADAPTER)
+        for upscaler in ('"xBR"', '"SABR"', '"JINC2"', 'adaptive_smoothing', 'mdec_yuv', 'replace_textures'):
+            self.assertNotIn(upscaler, ADAPTER)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -40,6 +40,18 @@ compared with the figures of a machine whose game code is translated, and it say
   says so; nothing fails. Changing the row in play opens the machine again on the other renderer and gives it back as a quick
   state (a state saved with one renderer loads with the other: checked both ways, 600 frames equal). The Vulkan headers come from
   Khronos, and the shader layout and the HDR pieces the renderer asks for are our own files ([licence](../licenses/beetle-psx.md)).
+- **Anti-aliasing and texture filtering** (1.7.7, on the owner's questions: « il me semble pas avoir vu d'options
+  d'anti-aliasing pour la PlayStation », then « juste au moins pouvoir activer ou pas le filtrage des textures »). Two F3 rows,
+  the graphics card only, both **Off** by default. « Anti-aliasing »: MSAA 2x, 4x or 8x (several samples per pixel on the
+  polygons' edges, at the internal resolution), or Supersampling (Beetle draws at the internal resolution and reduces the picture
+  to the console's size, each pixel the mean of the drawn ones; at 1x it has nothing to reduce). They are values of one row
+  because both together only add cost. « Texture filtering »: the console's nearest texel, bilinear, or 3-point (the Nintendo
+  64's own filter). Beetle's xBR, SABR and JINC2 texture upscalers, its adaptive smoothing, its MDEC chroma filter and texture
+  replacement are not offered, and there is no mipmapping (the console has none and Beetle adds none). Both rows act on the card's
+  drawing alone: on Ape Escape (3,300 frames) with MSAA 8x, with Supersampling at 4x, with bilinear and with 3-point plus MSAA 4x
+  at 4x, the RAM, the CPU state, the sound and the VRAM equal the run with both Off on every frame, at 0 interpreted
+  instructions; with the CPU drawing the rows change nothing (every column equal, picture included) and the game says so once.
+  Their cost is the card's: MSAA multiplies the samples drawn, Supersampling draws the internal resolution in full.
 - **Geometry precision (PGXP)** (1.7.7, on the owner's question: « Est-ce qu'on peut, nous aussi, utiliser comme Beetle PGXP ? »).
   Two F3 rows, both **Off** by default: « Geometry precision (PGXP) » keeps the GTE's results with sub-pixel precision and carries
   them through memory to the GPU, so 3D models stop wobbling (Beetle's "memory only" mode); « Perspective-correct textures » draws

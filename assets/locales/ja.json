@@ -1111,6 +1111,11 @@
     "8x needs the graphics card: 4x on the CPU": "8x にはグラフィックカードが必要です: CPU では 4x",
     "No usable graphics card: the CPU draws the picture": "使えるグラフィックカードがありません: CPU が描画します",
     "Geometry precision (PGXP)": "ジオメトリ精度 (PGXP)",
-    "Perspective-correct textures": "パースペクティブ補正テクスチャ"
+    "Perspective-correct textures": "パースペクティブ補正テクスチャ",
+    "Anti-aliasing (graphics card)": "アンチエイリアス (グラフィックカード)",
+    "Texture filtering (graphics card)": "テクスチャフィルタリング (グラフィックカード)",
+    "Bilinear": "バイリニア",
+    "3-point": "3点",
+    "Graphics card only: no effect while the CPU draws": "グラフィックカード専用: CPU描画中は効果なし"
   }
 }

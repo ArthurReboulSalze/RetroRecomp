@@ -83,6 +83,21 @@ static const char *const pgxp_modes[] = {"Off", "On"};
 static const char *const pgxp_mode_values[] = {"disabled", "memory only"};
 static const char *const pgxp_textures[] = {"Off", "On"};
 static const char *const pgxp_texture_values[] = {"disabled", "enabled"};
+/* Anti-aliasing and texture filtering (1.7.7, the owner's questions of 15 November 2026: « il me semble pas avoir vu d'options
+ * d'anti-aliasing pour la PlayStation », « juste au moins pouvoir activer ou pas le filtrage des textures »): the card only, both
+ * Off by default (Beetle's defaults: one sample, the console's nearest texel). They act on the card's drawing alone: the machine
+ * (RAM, CPU state, sound, VRAM) is the CPU renderer's whatever they are, and the CPU renderer ignores them (it says so once).
+ * One anti-aliasing row: MSAA (2, 4 or 8 samples per pixel on the polygons' edges, at the internal resolution) or Supersampling
+ * (Beetle draws at the internal resolution and reduces the picture to the console's size, each pixel the mean of the drawn ones:
+ * at 1x it has nothing to reduce). Both together only add cost, so they are values of one row; 16x is left out (beyond what
+ * most cards give a colour target, Beetle settles for less). Texture filtering: nearest (the console), bilinear or 3-point (the
+ * Nintendo 64's own filter); Beetle's xBR, SABR and JINC2 texture upscalers are not offered, and no mipmapping exists (the
+ * console has none and Beetle adds none). Both change on the fly; the anti-aliasing row rebuilds the card's targets as the
+ * resolution row does. */
+static const char *const antialiasing[] = {"Off", "MSAA 2x", "MSAA 4x", "MSAA 8x", "Supersampling"};
+static const char *const msaa_values[] = {"1x", "2x", "4x", "8x", "1x"};
+static const char *const texture_filters[] = {"Off", "Bilinear", "3-point"};
+static const char *const texture_filter_values[] = {"nearest", "bilinear", "3-point"};
 static const char *const dithering[] = {"Native", "At the internal resolution", "Off"};
 static const char *const dithering_values[] = {"1x(native)", "internal resolution", "disabled"};
 /* No deinterlacing row (the owner's « ok » of 15 November 2026): the picture is always progressive, the session's core setting
@@ -93,19 +108,23 @@ static const char *const aspects[] = {"Corrected", "Uncorrected", "4:3", "NTSC"}
 static const char *const aspect_values[] = {"corrected", "uncorrected", "4:3", "ntsc"};
 static const char *const crops[] = {"Horizontal and vertical", "Horizontal", "Off"};
 static const char *const crop_values[] = {"smart", "static", "disabled"};
-enum { GFX_RENDERER, GFX_RESOLUTION, GFX_PGXP, GFX_PGXP_TEXTURE, GFX_DITHER, GFX_ASPECT, GFX_CROP, GFX_COUNT };
+enum { GFX_RENDERER, GFX_RESOLUTION, GFX_ANTIALIASING, GFX_TEXTURE_FILTER, GFX_PGXP, GFX_PGXP_TEXTURE, GFX_DITHER, GFX_ASPECT,
+       GFX_CROP, GFX_COUNT };
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
     {"Renderer", L"renderer", renderers, 2, 0},
     {"Internal resolution", L"resolution", resolutions, 4, 0},
+    {"Anti-aliasing (graphics card)", L"antialiasing", antialiasing, 5, 0},
+    {"Texture filtering (graphics card)", L"texture_filter", texture_filters, 3, 0},
     {"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 0},
     {"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 0},
     {"Dithering", L"dithering", dithering, 3, 0},
     {"Aspect ratio", L"aspect", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
-static const char *const *const gfx_core_values[GFX_COUNT] = {NULL, resolution_values, pgxp_mode_values, pgxp_texture_values,
-                                                              dithering_values, aspect_values, crop_values};
-static const char *const gfx_core_keys[GFX_COUNT] = {NULL, "internal_resolution", "pgxp_mode", "pgxp_texture", "dither_mode",
-                                                     "aspect_ratio", "crop_overscan"};
+static const char *const *const gfx_core_values[GFX_COUNT] = {NULL, resolution_values, msaa_values, texture_filter_values,
+                                                              pgxp_mode_values, pgxp_texture_values, dithering_values,
+                                                              aspect_values, crop_values};
+static const char *const gfx_core_keys[GFX_COUNT] = {NULL, "internal_resolution", "msaa", "filter", "pgxp_mode", "pgxp_texture",
+                                                     "dither_mode", "aspect_ratio", "crop_overscan"};
 static int scale = 1;   /* the internal resolution in force (1, 2, 4, 8) */
 static int chosen[GFX_COUNT];   /* each row's value, given again to a session opened again */
 
@@ -116,13 +135,25 @@ static void core_option(int option, int value) {
         rrhk_notice(rrhk_tr("8x needs the graphics card: 4x on the CPU", "8x demande la carte graphique : 4x sur le CPU"), 4000);
     }
     rr_psx_option(s, gfx_core_keys[option], gfx_core_values[option][value]);
+    if (option == GFX_ANTIALIASING) rr_psx_option(s, "super_sampling", value == 4 ? "enabled" : "disabled");
     if (option == GFX_RESOLUTION) scale = 1 << value;
+}
+
+/* The picture's size against the console's: the internal resolution, or 1 when the card reduces it again (Supersampling). */
+static int picture_scale(void) {
+    return chosen[GFX_ANTIALIASING] == 4 && rr_psx_renderer(rr_psx_host_session()) ? 1 : scale;
 }
 
 static void gfx_apply(int option, int value) {
     if (option < 0 || option >= GFX_COUNT || value < 0 || value >= gfx_options[option].count) return;
     chosen[option] = value;
-    if (option != GFX_RENDERER) { core_option(option, value); return; }
+    if (option != GFX_RENDERER) {
+        core_option(option, value);
+        if ((option == GFX_ANTIALIASING || option == GFX_TEXTURE_FILTER) && value && !rr_psx_renderer(rr_psx_host_session()))
+            rrhk_notice(rrhk_tr("Graphics card only: no effect while the CPU draws",
+                                "Carte graphique seulement : sans effet quand le CPU dessine"), 4000);
+        return;
+    }
     if (!rr_psx_host_set_renderer(value == 0)) return;
     RrPsxSession *s = rr_psx_host_session();
     for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);
@@ -257,7 +288,7 @@ static int visible_width(void) { int w = 0; rr_psx_picture(rr_psx_host_session()
 static int visible_height(void) { int h = 0; rr_psx_picture(rr_psx_host_session(), NULL, &h, NULL); return h ? h : 240; }
 /* The shape the picture is shown at: the console's rows (the picture's divided by the internal resolution) and the width the
  * core's display aspect gives them (4:3 on a television; a 480-line picture is two fields of a 4:3 screen). */
-static int raster_height(void) { const int h = visible_height() / scale; return h > 0 ? h : 240; }
+static int raster_height(void) { const int h = visible_height() / picture_scale(); return h > 0 ? h : 240; }
 static int display_width(void) {
     double aspect = 0;
     rr_psx_picture(rr_psx_host_session(), NULL, NULL, &aspect);
