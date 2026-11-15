@@ -79,6 +79,31 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Commodore Amiga: the CPU's speed, a player's option (1.7.7)
+
+**What changes.** Both Amiga models get the row « CPU speed: Normal / x2 / x4 » on F2's options page (`rrhk_amiga.inc`), Normal by
+default, kept per game in `cpu.cfg`; the player's `--cpu-factor 1|2|4` sets it for one run. The session sets vAmiga's CPU overclocking
+for it (`rr_amiga_cpu_factor`, `amiga_session.cpp`: A500 0, 2, 4; A1200 2, 4, 8) and sets the player's choice again after a quick-state
+load (the snapshot carries the factor it was saved with). The exception to D14 is the owner's decision of 15 November 2026
+([HOST_KIT.md](HOST_KIT.md#d14)). The conversion never passes the factor: routes, checks and state proofs run at Normal, and at Normal the
+session changes nothing (it sets the option only when it differs). `amiga_conversion.CPU_STOCK_ONLY` (reviewed data by SHA-256, empty)
+adds `RR_AMIGA_CPU_STOCK_ONLY` to the payload of a listed install, which keeps the row at Normal; no other install's payload changes.
+
+**Proof.** Headless on Fears (A1200, converted at the quick level on this branch with every check passing): a new picture every 3.36,
+2.19 and 1.33 frames at Normal, x2 and x4, the same place in the corridor at the same frame; a state saved at x4 and loaded with no factor
+runs at Normal (3.0 frames a picture), loaded at x4 at x4 (1.0); the in-play state saved at Normal loaded at x4 runs at x4 (1.07). The menu
+harness (`tests/amiga_menu_harness.c`, 48 checks): the row cycles and says the model's clock, the choice is kept, `--cpu-factor` is for one
+run, an unknown value or a damaged file reads as Normal, a listed game stays at Normal. Host cost, indicative (a PC that was not quiet):
+18.2, 19.4 and 20.5 ms a frame on Fears; the quiet-PC timing pass waits for the owner's OK. Normal changes nothing: Slam Tilt and Banshee
+(A1200) and Five A Side Soccer (A500), converted again at the quick level on this branch, give reports whose every field of every route
+equals their earlier conversions' (`2d92f029` and `eb6b6a6e`), trace digests included.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `3a03053e`): **the game and host stamps of `amiga` and `a1200`**
+(`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, `amiga_conversion.py`; `rrhk_amiga.inc`), nothing else. **Existing exports:**
+converted again in full at their next conversion. **Quick states:** the format is unchanged (`RRAMIGA-STATE-6`); a state of an earlier
+build is refused, as every build's are. **Site limits:** unchanged. **Hot path:** at Normal, none (one comparison after a state load); at
+x2 and x4 the CPU runs that many more cycles a frame (the host figures above).
+
 ## Exports of 1.7.5 in 1.7.6
 
 1.7.6 is the release after 1.7.5 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.

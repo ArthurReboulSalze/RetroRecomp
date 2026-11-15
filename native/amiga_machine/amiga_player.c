@@ -33,6 +33,10 @@
 #define RR_AMIGA_VIEW_W 0
 #define RR_AMIGA_VIEW_H 0
 #endif
+/* A game the conversion lists as needing the normal CPU speed (amiga_conversion.CPU_STOCK_ONLY, reviewed data by SHA-256). */
+#ifndef RR_AMIGA_CPU_STOCK_ONLY
+#define RR_AMIGA_CPU_STOCK_ONLY 0
+#endif
 
 #define PATH_CAP 2048
 #define MAX_FRAMES 360000u
@@ -44,6 +48,10 @@ static int loading_holdoff, swap_drive, swap_direction;
 static bool interpreter_only;                       /* --reference-cpu: every instruction runs on the interpreter (the window says so) */
 static int port1_option = -1;                       /* --port1: port 1's mode for this run, not saved (-1: the player's saved choice) */
 static char port1_config[PATH_CAP];                 /* the player's choice for port 1, kept per game (rrhk_amiga.inc) */
+static int cpu_option;                              /* --cpu-factor: the CPU speed for this run, not saved (0: the player's saved choice) */
+static char cpu_config[PATH_CAP];                   /* the player's CPU speed, kept per game (rrhk_amiga.inc) */
+static bool cpu_stock_only;                         /* the conversion lists this game as needing the normal speed */
+static int cpu_mhz = 7;                             /* the model's own CPU clock, for the row: 7 (68000) or 14 (68EC020) */
 static const Uint8 *keys;
 static int mouse_dx, mouse_dy;
 static Uint32 mouse_buttons;
@@ -404,7 +412,7 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Amiga player\n--headless --frames N --input-events FILE --trace TSV --report JSON --observations FILE --memory-image FILE\n"
               "--capture PPM --capture-every N --resload-log FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start\n"
-              "--install DIR (a build without an embedded game) --saves DIR --port1 follow|mouse|joystick");
+              "--install DIR (a build without an embedded game) --saves DIR --port1 follow|mouse|joystick --cpu-factor 1|2|4");
          return 0;
       } else if (i + 1 < argc) {
          const char *v = argv[++i];
@@ -426,6 +434,10 @@ int main(int argc, char **argv) {
             else if (!strcmp(v, "mouse")) port1 = RR_AMIGA_PORT1_MOUSE;
             else if (!strcmp(v, "joystick")) port1 = RR_AMIGA_PORT1_JOYSTICK;
             else { fail("Invalid --port1 (follow, mouse or joystick)"); return 1; }
+         }
+         else if (!strcmp(a, "--cpu-factor")) {
+            if (!strcmp(v, "1") || !strcmp(v, "2") || !strcmp(v, "4")) cpu_option = v[0] - '0';
+            else { fail("Invalid --cpu-factor (1, 2 or 4)"); return 1; }
          }
          else { fail("Unknown option"); return 1; }
       } else { fail("Unknown option or missing value"); return 1; }
@@ -452,6 +464,7 @@ int main(int argc, char **argv) {
    if (!slot) snprintf(state_slot, sizeof state_slot, "%s/quick.rrstate", game_dir);
    snprintf(player_config, sizeof player_config, "%s/player.cfg", game_dir);
    snprintf(port1_config, sizeof port1_config, "%s/port1.cfg", game_dir);
+   snprintf(cpu_config, sizeof cpu_config, "%s/cpu.cfg", game_dir);
    game.save_dir = saves;
    ntsc_run = game.ntsc;
    a_view_init(game.ntsc, RR_AMIGA_VIEW_X, RR_AMIGA_VIEW_Y, RR_AMIGA_VIEW_W, RR_AMIGA_VIEW_H);
@@ -460,6 +473,12 @@ int main(int argc, char **argv) {
    if (!reference_cpu && !rr_amiga_set_native(session, 1)) { fail("This build has no native steps"); return 1; }
    if (observe_path) rr_amiga_set_observe(session, 1);
    if (port1 >= 0) rr_amiga_port1_mode(session, port1);
+   cpu_mhz = game.model == RR_AMIGA_MODEL_A1200 ? 14 : 7;
+#if RR_AMIGA_CPU_STOCK_ONLY
+   cpu_stock_only = true;
+#endif
+   /* Headless: the normal speed unless --cpu-factor says otherwise (the conversion never passes it); a window reads cpu.cfg. */
+   if (headless && cpu_option) rr_amiga_cpu_factor(session, cpu_stock_only ? 1 : cpu_option);
    port1_option = port1;
 #ifdef RR_AMIGA_LINKED
    rr_feedback_start(!headless);    /* Headless, only with RETRO_RECOMP_FEEDBACK=1. */

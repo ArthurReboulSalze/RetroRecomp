@@ -65,6 +65,11 @@ void rr_amiga_joystick2(RrAmigaSession *s, unsigned bits);
 void rr_amiga_port1_mode(RrAmigaSession *s, int mode);
 int rr_amiga_port1_device(RrAmigaSession *s);
 void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]);
+/* The CPU's speed, the player's option (as an accelerator card would give): 1, the model's own clock (the default, and what every
+ * check, route and state proof of a conversion runs at), 2 or 4 times it. vAmiga runs the CPU's own cycles that much faster;
+ * chip-bus and CIA accesses keep the chipset's pace, as on a real accelerated Amiga. Any other value is taken as 1. A quick state
+ * carries the factor it was saved with: the load sets the session's own again. */
+void rr_amiga_cpu_factor(RrAmigaSession *s, int factor);
 
 /* Runs one frame (resload calls answered on the way). 0: the frame ran; -1: the install stopped (resload refused, Abort, or
  * the CPU left the resload table at a breakpoint); the reason is rr_amiga_error. */

@@ -218,6 +218,13 @@ ROUTE_PLAYER2: dict[str, dict] = {
 }
 
 
+# The installs that need the normal CPU speed, by the install's SHA-256, with what breaks when it is raised (a timing loop, music tied to the
+# CPU's speed, a Blitter not waited for). Reviewed data, added only once a game has been seen to break at x2 or x4: the game's CPU row then
+# stays at Normal and says so (RR_AMIGA_CPU_STOCK_ONLY). WHDLoad has no flag for it, and every other game offers the choice (HOST_KIT D14's
+# exception, 15 November 2026). The conversion's routes and checks run at the normal speed for every game.
+CPU_STOCK_ONLY: dict[str, str] = {}
+
+
 def route_events(identity: str, name: str, frames: int, key_exit: int, answered: bool = True) -> list[tuple[int, int, str, int, int]]:
     """The input script of route `name` ('main', 'explore' or 'long-N') of the exact install, `frames` long, as the conversion plays it: an
     answered install (ROUTE_ANSWERS) starts every route with its answer, unless `answered` is false (a qualification script replaces the main
@@ -375,6 +382,7 @@ def payload(project: Path, source, extracted: dict, folder: Path, title: str, mo
               '#define RR_AMIGA_SOURCE_IDENTITY ' + json.dumps(source.sha256),
               f'#define RR_AMIGA_NTSC {int(ntsc_install(source))}', f'#define RR_AMIGA_MOUSE_GAME {int(mouse_game)}',
               *(['#define RR_AMIGA_MODEL RR_AMIGA_MODEL_A1200'] if model.number == 1200 else []),
+              *(['#define RR_AMIGA_CPU_STOCK_ONLY 1'] if source.sha256 in CPU_STOCK_ONLY else []),
               '#define RR_AMIGA_CUSTOM {' + ','.join(f'{value}u' for value in extracted['custom']) + '}',
               *(f'#define RR_AMIGA_VIEW_{axis} {value}' for axis, value in zip('XYWH', view or (0, 0, 0, 0))),
               '#define RR_AMIGA_SLAVE_RESOURCE 300',
