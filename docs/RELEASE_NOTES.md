@@ -78,6 +78,13 @@
   and shook on a flat screen; both fields are now woven into one picture, on both models, whatever the game. The machine is unchanged.
 - **Amiga: Crunch-Mania.** Installs packed with Crunch-Mania are unpacked by our own code, written from the format as Teemu Suutari's
   ancient library describes it (credited in the notices).
+- **Every machine: a stick pushed to its very edge stays there.** A pad's stick at its extreme left or top gave a value the
+  PlayStation read as the opposite edge (Ape Escape: full left went right; in every PlayStation export since 1.7.1) and the
+  Nintendo 64 read as centred in the up-left corner. The value is now held at the edge on every machine.
+- **Linux: a moved game keeps working.** The game file is no longer hidden behind its launcher (GNOME Files does not start a
+  launcher outside the menus), and a game started from a new folder rewrites its own launcher, cover included, so a game
+  folder copied to another PC or a USB key works again after one start. Adventure (ScummVM) launchers are refreshed by
+  the converter.
 - **Every machine: clear a binding, restore the defaults.** Any control of any page can be left unbound (Delete, or the pad gesture
   the page shows) and stays so; each control page ends with Restore defaults.
 - **Amiga: a CPU speed choice, Normal / ×2 / ×4**, like an accelerator card, in F2's options of both models; Normal by default and
