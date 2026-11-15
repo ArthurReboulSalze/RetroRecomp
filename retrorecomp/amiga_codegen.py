@@ -35,8 +35,10 @@ from . import amiga_translate, amiga_vamiga, m68k_observed
 from .megadrive_codegen import write_changed
 
 FORMAT = 7
-# Moira's template parameter for the CPU of the machine.
+# Moira's template parameter for the CPU of the machine: the A500's 68000, or the 68020 core for the A1200's 68EC020 (set by `load_opcode_map`).
 CORE = 'C68000'
+# The most words a sweep reads for a 68EC020 instruction (retrorecomp/m68020_lengths.LONGEST_INSTRUCTION).
+LONGEST_WORDS = 11
 PARTS = 16
 # How far a sweep goes, instructions per conversion: a bound on the build, not on what is right.
 SWEEP_LIMIT = 150000
@@ -55,21 +57,47 @@ _MAP_SHA256 = ''
 
 
 def load_opcode_map(path: Path) -> dict[int, tuple[str, int, int, int]]:
-    """The opcode -> (handler, Instr, Mode, Size) table of the 68000 core, and each opcode's number of words; every one of the 65,536 opcodes must be there."""
-    global _MAP, _WORDS, _MAP_SHA256
+    """The opcode -> (handler, Instr, Mode, Size) table of the machine's CPU, and each opcode's number of words; every one of the 65,536 opcodes must be there.
+    A 68000 table has six fields a line; the 68EC020's (the A1200) a seventh, where its indexed modes' extension words sit (`moira_map.cpp`): it sets `CORE`
+    to Moira's 68020 core and must agree with the lengths `m68020_lengths` holds, which the shared paths use."""
+    global _MAP, _WORDS, _MAP_SHA256, CORE
     table = {}
     words = {}
+    positions = {}
     text = Path(path).read_text(encoding='ascii')
     for line in text.splitlines():
-        code, name, instr, mode, size, count = line.split()
+        fields = line.split()
+        if len(fields) not in (6, 7):
+            raise ValueError('Invalid Moira opcode table line: ' + line[:80])
+        code, name, instr, mode, size, count = fields[:6]
         if not name.isidentifier():
             raise ValueError('Invalid Moira handler name: ' + name)
         table[int(code, 16)] = (name, int(instr), int(mode), int(size))
         words[int(code, 16)] = int(count)
+        if len(fields) == 7:
+            positions[int(code, 16)] = () if fields[6] == '-' else tuple(int(p) for p in fields[6].split(','))
     if len(table) != 65536:
         raise ValueError('The Moira opcode table is incomplete.')
+    if positions and len(positions) != 65536:
+        raise ValueError('The Moira opcode table mixes two CPUs.')
+    if positions:
+        from . import m68020_lengths
+        if any(words[op] != m68020_lengths.brief_words(op) or positions[op] != m68020_lengths.extension_positions(op) for op in table):
+            raise ValueError("Moira's 68EC020 lengths differ from retrorecomp/m68020_lengths.py (regenerate its table for this Moira).")
     _MAP, _WORDS, _MAP_SHA256 = table, words, hashlib.sha256(text.encode()).hexdigest()
+    CORE = 'C68020' if positions else 'C68000'
     return table
+
+
+def _size(words: list) -> int | None:
+    """The words of the instruction `words` starts with (as many as are known), None when they do not hold all of it. A 68000's length is its
+    first word's; a 68EC020's also reads its extension words."""
+    if CORE == 'C68000':
+        count = _WORDS[words[0]]
+        return count if count <= len(words) else None
+    from .m68020_lengths import length
+    size = length(b''.join(word.to_bytes(2, 'big') for word in words))
+    return None if size is None else size // 2
 
 
 def _semantics(prefix: str, alias) -> str:
@@ -132,7 +160,7 @@ def _symbol(prefix: str, pc: int, opcode: int) -> str:
 
 def _count(pc: int) -> str:
     """The Kickstart's instructions are counted apart: its window, or its copy in ExpMem, which is outside chip RAM and known at run time only."""
-    if pc >= 0xfc0000:
+    if pc >= (0xfc0000 if CORE == 'C68000' else 0xf80000):       # a 256 KiB Kickstart's window, or the A1200's 512 KiB one
         return ' rr_amiga_kick_total++;'
     if pc >= 0x200000:
         return f' if (0x{pc:x}u - rr_amiga_kick_base < rr_amiga_kick_size) rr_amiga_kick_total++;'
@@ -156,6 +184,9 @@ def _target(pc: int, words: list) -> int | None:
     handler, _, mode, _ = _MAP[words[0]]
     if handler in ('Bcc', 'Bra', 'Bsr'):
         displacement = words[0] & 0xff
+        if displacement == 0xff and CORE != 'C68000':
+            # A 68020's 32-bit displacement (on a 68000, $FF is the 8-bit displacement -1: an odd target, never chained).
+            return pc + 2 + _signed(words[1] << 16 | words[2], 32) if len(words) > 2 else None
         if displacement:
             return pc + 2 + _signed(displacement, 8)
         return pc + 2 + _signed(words[1], 16) if len(words) > 1 else None
@@ -198,9 +229,21 @@ def sweep(samples: list, images: list, *, observed, limit: int = SWEEP_LIMIT, cu
             opcode = read(pc)
             if opcode is None or _MAP[opcode][0] in ('Illegal', 'LineA', 'LineF'):
                 return None
-            words = [read(pc + 2 * n) for n in range(_WORDS[opcode])]
-            if None in words:
-                return None
+            if CORE == 'C68000':
+                words = [read(pc + 2 * n) for n in range(_WORDS[opcode])]
+                if None in words:
+                    return None
+            else:
+                words = []
+                for n in range(LONGEST_WORDS):
+                    word = read(pc + 2 * n)
+                    if word is None:
+                        break
+                    words.append(word)
+                size = _size(words)
+                if size is None:
+                    return None
+                words = words[:size]
             text = ''.join(f'{word:04x}' for word in words)
             try:
                 observed.check_sample(pc, text)
@@ -217,7 +260,9 @@ def sweep(samples: list, images: list, *, observed, limit: int = SWEEP_LIMIT, cu
             target = _target(pc, words)
             places = [] if target is None else [target & 0xffffff]
             if _MAP[words[0]][0] not in _NO_FALL_THROUGH:
-                places.append((pc + 2 * _WORDS[words[0]]) & 0xffffff)
+                size = _size(words)
+                if size is not None:
+                    places.append((pc + 2 * size) & 0xffffff)
             queue.extend(place for place in places if not place & 1)
         walk: list[tuple[int, int]] = []
         for pc, text in by_address:
@@ -318,7 +363,9 @@ def write_steps(project: Path, samples: list, *, observed, swept: list = (), sha
     following: dict[tuple[int, int], list] = {}
     for pc, text in sorted(set(samples) | set(swept) | set(learned) | set(walked)):
         seen = [int(text[n:n + 4], 16) for n in range(0, len(text) - 3, 4)]
-        count = _WORDS[seen[0]]
+        count = _WORDS[seen[0]] if CORE == 'C68000' else _size(seen)
+        if count is None:
+            continue           # a window that does not hold its whole 68EC020 instruction (or a reserved encoding): it stays on the interpreter
         seen = seen[:count]
         if (pc, text) in observed_samples:
             words.add((pc, tuple(seen)))

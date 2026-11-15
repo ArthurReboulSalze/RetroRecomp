@@ -93,6 +93,104 @@ def rnc1(chunks):
     return header + body, bytes(plain)
 
 
+def crunchmania(plain: bytes, lzh: bool = False, sampled: bool = False) -> bytes:
+    """An authored Crunch-Mania file of `plain` (no byte of any game), written from the format's rules: tokens made from the end of the
+    data backward (the unpacker writes backward), greedy matches, the bits laid out so that the unpacker's first read comes from the
+    stream's tail. Standard mode ("CrM!") with its fixed codes, or LZH mode ("CrM2") with one block of single-depth tables; "Crm" when
+    the data is delta coded first ("sampled")."""
+    data = bytes((plain[i] - (plain[i - 1] if i else 0)) & 0xFF for i in range(len(plain))) if sampled else plain
+    rev = data[::-1]
+    bits: list[int] = []
+
+    def put(value: int, count: int):                 # read least significant bit first
+        bits.extend((value >> i) & 1 for i in range(count))
+
+    def code(pattern: str):                          # a code read most significant bit first
+        bits.extend(int(c) for c in pattern)
+
+    def best(j: int, limit: int, longest: int):
+        found = (0, 0)
+        for d in range(1, min(j, limit) + 1):
+            n = 0
+            while j + n < len(rev) and n < longest and rev[j + n] == rev[j + n - d]:
+                n += 1
+            if n > found[0]:
+                found = (n, d)
+        return found
+
+    tokens, j = [], 0
+    while j < len(rev):
+        n, d = best(j, 16927 if not lzh else 65536, 278 if not lzh else 258)
+        if n >= 3 and d >= 1:
+            tokens.append(('match', n, d))
+            j += n
+        else:
+            tokens.append(('literal', rev[j]))
+            j += 1
+    if not lzh:
+        for token in tokens:
+            if token[0] == 'literal':
+                put(1, 1)
+                put(token[1], 8)
+                continue
+            _, n, d = token
+            put(0, 1)
+            if n <= 3:
+                code('0'); put(n - 2, 1)
+            elif n <= 7:
+                code('10'); put(n - 4, 2)
+            elif n <= 22:
+                code('110'); put(n - 8, 4)
+            else:
+                code('111'); put(n - 23, 8)
+            if d < 32:
+                code('10'); put(d, 5)
+            elif d < 544:
+                code('0'); put(d - 32, 9)
+            else:
+                code('11'); put(d - 544, 14)
+    else:
+        def distance_bits(d: int) -> tuple[int, int, int]:
+            if d <= 2:
+                return 0, d - 1, 1
+            b = (d - 1).bit_length() - 1
+            return b, (d - 1) - (1 << b), b
+        lengths = sorted({0x100 | t[1] if t[0] == 'literal' else t[1] - 3 for t in tokens})
+        distances = sorted({distance_bits(t[2])[0] for t in tokens if t[0] == 'match'}) or [0]
+
+        def table(values: list[int], code_length: int) -> dict:
+            depth = len(values).bit_length()             # the count is written in `depth` bits: it must be below 2**depth
+            put(depth, 4)
+            for i in range(depth):
+                put(len(values) if i + 1 == depth else 0, min(i + 1, code_length))
+            for v in values:
+                put(v, code_length)
+            return {v: format(k, f'0{depth}b') for k, v in enumerate(values)}
+        length_codes = table(lengths, 9)
+        distance_codes = table(distances, 4)
+        put(len(tokens) - 1, 16)
+        for token in tokens:
+            if token[0] == 'literal':
+                code(length_codes[0x100 | token[1]])
+                continue
+            _, n, d = token
+            code(length_codes[n - 3])
+            b, extra, width = distance_bits(d)
+            code(distance_codes[b])
+            put(extra, width)
+        put(0, 1)                                    # no further block
+    while len(bits) < 16:
+        bits.append(0)
+    shift = (len(bits) - 16) % 8
+    first = 16 + shift
+    pending = sum(bit << i for i, bit in enumerate(bits[:first]))
+    rest = bits[first:]
+    stream = bytes(sum(bit << i for i, bit in enumerate(rest[k:k + 8])) for k in range(0, len(rest), 8))[::-1]
+    packed = stream + struct.pack('>IH', (pending << (16 - shift)) & 0xFFFFFFFF, shift)
+    ident = (b'Crm' if sampled else b'CrM') + (b'2' if lzh else b'!')
+    return ident + b'\0\0' + struct.pack('>II', len(plain), len(packed)) + packed
+
+
 class ResloadHarnessTest(unittest.TestCase):
     def test_the_authored_harness_passes(self):
         from retrorecomp.core import toolchain
@@ -117,6 +215,16 @@ class ResloadHarnessTest(unittest.TestCase):
                                   (bytes(range(200)), (200, 300)), (b'end of file', None)])
             (project / 'packed.rnc').write_bytes(packed)
             (project / 'plain.bin').write_bytes(plain)
+            # Crunch-Mania, the four variants, on authored data: repeats near and far, a long literal stretch, a slow ramp for the delta mode.
+            sample = (b'WHDLoad install data, ' * 6 + bytes(range(256)) + b'0123456789' * 40 + bytes((i * 7) & 0xFF for i in range(900))
+                      + bytes(range(256)) + b'end of file')
+            pairs = []
+            for lzh in (False, True):
+                for sampled in (False, True):
+                    name = f'crm-{int(lzh)}{int(sampled)}'
+                    (project / f'{name}.pak').write_bytes(crunchmania(sample, lzh, sampled))
+                    (project / f'{name}.bin').write_bytes(sample)
+                    pairs += [str(project / f'{name}.pak'), str(project / f'{name}.bin')]
             cmake, generator = toolchain()
             for command in ([str(cmake), '-S', str(project), '-B', str(project / 'build'), '-G', generator,
                              *cmake_target_args()],
@@ -124,7 +232,7 @@ class ResloadHarnessTest(unittest.TestCase):
                 built = subprocess.run(command, capture_output=True, text=True)
                 self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
             result = subprocess.run([str(build_executable(project / 'build', 'resload-checks')),
-                                     str(project / 'packed.rnc'), str(project / 'plain.bin')],
+                                     str(project / 'packed.rnc'), str(project / 'plain.bin'), *pairs],
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn('OK (0 failures)', result.stdout)

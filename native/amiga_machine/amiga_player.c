@@ -95,7 +95,8 @@ static uint8_t *read_file(const char *path, uint32_t *size) {
    return data;
 }
 
-/* install.txt of an extracted install: "slave <file>", "ntsc 0|1", then "file <name>\t<file>" lines (files relative to DIR). */
+/* install.txt of an extracted install: "slave <file>", "ntsc 0|1", "model 500|1200" (500 when absent), then "file <name>\t<file>" lines
+   (files relative to DIR). */
 static bool load_install(const char *dir, RrAmigaGame *game, RrAmigaFile **files) {
    char path[PATH_CAP], line[PATH_CAP * 2];
    wchar_t wide[PATH_CAP];
@@ -112,6 +113,10 @@ static bool load_install(const char *dir, RrAmigaGame *game, RrAmigaFile **files
          if (!game->slave) { fclose(f); return false; }
       } else if (!strncmp(line, "ntsc ", 5)) {
          game->ntsc = atoi(line + 5) != 0;
+      } else if (!strncmp(line, "model ", 6)) {          /* "model 500" (the default) or "model 1200" */
+         int model = atoi(line + 6);
+         if (model != 500 && model != 1200) { fclose(f); return false; }
+         game->model = model == 1200 ? RR_AMIGA_MODEL_A1200 : RR_AMIGA_MODEL_A500;
       } else if (!strncmp(line, "custom ", 7)) {        /* "custom N VALUE": CUSTOMn from the install's icon */
          unsigned k = 0, value = 0;
          if (sscanf(line + 7, "%u %u", &k, &value) != 2 || k < 1 || k > 5) { fclose(f); return false; }
@@ -161,6 +166,9 @@ static bool embedded_install(RrAmigaGame *game, RrAmigaFile **files) {
    game->files = *files;
    game->file_count = RR_AMIGA_FILE_COUNT;
    game->ntsc = RR_AMIGA_NTSC;
+#ifdef RR_AMIGA_MODEL
+   game->model = RR_AMIGA_MODEL;
+#endif
 #ifdef RR_AMIGA_CUSTOM
    {
       static const uint32_t custom[5] = RR_AMIGA_CUSTOM;

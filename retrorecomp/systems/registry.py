@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import SystemProfile
-from .amiga import AMIGA
+from .amiga import AMIGA, AMIGA1200
 from .atari_st import ATARI_ST
 from .cps1 import CPS1
 from .cps2 import CPS2
@@ -73,7 +73,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, AMIGA1200, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS):
     register(_profile)
 del _profile
 

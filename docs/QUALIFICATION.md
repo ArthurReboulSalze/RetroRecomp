@@ -74,27 +74,28 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
+| Commodore Amiga 1200 | experimental | `██████░░░░` 56 % | ✅ 6 · 🟡 6 · ❔ 4 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
-| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 |
+| Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ | Commodore Amiga 1200 |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ❔ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | ❔ |
 
 <!-- qualification-gauges:end -->
 
@@ -107,24 +108,24 @@ md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
 x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = Game Boy Advance, amiga = Commodore Amiga, atarist = Atari ST, n64 = Nintendo 64,
 psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
-| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P |
-| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y |
-| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P |
+| Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus | a1200 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
+| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | ? |
+| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | ? |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -149,6 +150,7 @@ The page of each console, which the README links its line to (a console of the m
 | msx | [MSX.md](MSX.md) |
 | msx2 | [MSX.md](MSX.md) |
 | msx2plus | [MSX.md](MSX.md) |
+| a1200 | [AMIGA.md](AMIGA.md) |
 
 </details>
 
@@ -1502,6 +1504,67 @@ the cartridge sensors, the link cable and the e-Reader are not converted. Keep t
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 | 14 November 2026 | Game Boy Advance | Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald | « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. »; asked whether to take the Game Boy Advance out of the experimental status: « Oui, sors-la » | the exit from the experimental status (the owner-acceptance table) |
+
+
+## Commodore Amiga 1200: evidence behind its column (15 November 2026)
+
+The experimental profile `a1200` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)), branch `spec/amiga1200-176`. Every conversion
+below ran on Windows (llvm-mingw), one at a time, from an empty scratch library, with the player's own Kickstart 3.1 where the install asks
+for one. Nothing here says exact hardware, complete gameplay or latency: the five measures stay apart, and only native code and CPU
+agreement with the reference are measured.
+
+**The panel** (standard level: a main route and an exploration route of 3,600 frames each; the installs of the A1200 folder; run again on the
+branch at `0f0ca6f1` on 15 November 2026, the same native counts where the first run had them):
+
+| Install | What it tests | Native on the main route | Interpreted (main, explore) | Checks |
+|---|---|---|---|---|
+| Slam Tilt | the test game: a 68020 and AGA slave, 256-colour tables | 71,723,069 | 0, 0 | all |
+| Pinball Illusions | the player's Kickstart 3.1 over `$F80000` | 172,559,712 | 1, 1 (a Kickstart instruction) | all |
+| Zool 2 AGA | AGA sprites and scrolling | 46,198,804 | 0, 0 | all |
+| Banshee | Kickstart 3.1, a 68020 shooter | 40,576,307 | 1, 1 (a Kickstart instruction) | all |
+| Fears | a chunky 3D engine | 70,462,637 | 0, 0 | all |
+| Roadkill | Kickstart 3.1 | 232,904,955 | 1, 1 (a Kickstart instruction) | all |
+| Gloom | Crunch-Mania files | 195,552,589 | 0, 0 | all |
+| Super Stardust | Crunch-Mania files, an intro in AGA super-hires | 67,488,880 | 0, 0 | all |
+| Alien Breed 3D | a known failure | — | — | black screen |
+
+"All" means: the native game's trace (picture, sound, RAM and CPU registers of every frame) equals the fresh reference on every route, so
+do the resload calls; the compressed copy replays equal; a quick state saved in it continues the same timeline in a fresh process and its 18
+damaged copies are refused.
+
+**Alien Breed 3D** stays black on our A1200 model, while the private oracle under the real WHDLoad shows its intro. What is known: its slave
+builds its own ExecBase with most vectors set to ILLEGAL; the game, patched by `resload_PatchSeg` (whose offsets and `PL_S` encoding follow
+JST's), reaches a loop that calls `OpenResource` through that ExecBase and stops there. Why it does not on the real WHDLoad is not found.
+
+**G11 (private oracle).** Copperline (GPL-3.0, built privately, never shipped) runs the same install on its A1200 model under the real
+WHDLoad 20.1, with no input, one picture a second; the converted game runs headless with no input, a picture every 5 frames over 70 seconds.
+An oracle picture is "found" when it appears whole inside one of ours (8 bits per channel; lores widened to our hires columns, super-hires
+taken every second pixel). Counts of the distinct non-black oracle pictures found: Slam Tilt 20 of 48, Pinball Illusions 24 of 37, Zool 2
+18 of 23, Banshee 16 of 34, Roadkill 18 of 31, Fears 1 of 1, Gloom 2 of 4, Super Stardust 6 of 62. The pictures not found, looked at for Slam
+Tilt and Super Stardust, are WHDLoad's own splash screen, fades and scrolls caught at other instants (Super Stardust's intro is a scrolling
+text, almost every frame unique); no colour or layout difference was seen. A comparison of two emulators, not of the chips: G11 is `P`.
+
+**Frame cost** (a quiet PC, Arthur's OK, 14 November 2026): Slam Tilt 10.6 ms a frame on the A1200 model, Lotus 2 on the A500 7.0 ms (PAL
+frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA for now.
+
+| Gate | a1200 | Evidence | What is missing |
+|---|---|---|---|
+| G1 | P | The profile exists, experimental, with its own column, library folder, quick-state family and path section | The exit, which is Arthur's |
+| G2 | Y | Every panel conversion writes the common report, its system `a1200`, its status read from the profile | |
+| G3 | Y | Interpreted instructions counted per route and shown (0 or 1, the 1 a Kickstart instruction) | |
+| G4 | Y | Native traces equal the fresh reference on every route of the panel | |
+| G5 | Y | The compressed copy replays equal on every route | |
+| G6 | Y | The quick state continues in a fresh process; 18 damaged copies refused, in every conversion | |
+| G7 | ? | Not exercised on the A1200 (the Amiga 500's saves use the same layer) | A save on an A1200 install |
+| G8 | Y | Moving picture and sound on the routes (the conversion's liveness checks) | |
+| G9 | P | The routes reach play on Slam Tilt and Zool 2 (pictures); not checked install by install | A per-install record of where the routes end |
+| G10 | ? | Moira's 68EC020 is the reference CPU; its own tests compare it with Musashi; our lengths agree with Moira's disassembler on 19,084 random instructions | Independent 68020 vectors |
+| G11 | P | The oracle comparison above (8 installs) | Hardware evidence beyond another emulator |
+| G12 | P | A panel of 9 named: 8 pass, one failure named with what is known | Alien Breed 3D |
+| G13 | P | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included | More installs, and the Kickstart 3.1 ones |
+| G14 | ? | | Arthur's play test |
+| G15 | P | AMIGA.md section 7 and this section keep the five measures apart and name the failure | |
+| G16 | ? | Not shared (experimental) | A decision once its panel is stable |
 
 ## Running the verification campaign
 

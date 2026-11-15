@@ -522,7 +522,7 @@ static int control(RrResload *r, uint32_t regs[16]) {
         case 6: wr32(r, slot, (uint32_t)r->button_wait); break;      /* BUTTONWAIT_GET */
         case 7: case 8: case 9: case 10: case 11: wr32(r, slot, r->custom[tag - 0x88000007u]); break;
         case 12: r->cbswitch = rd32(r, slot); break;                 /* CBSWITCH_SET */
-        case 13: wr32(r, slot, 0); break;                            /* CHIPREVBITS_GET: OCS */
+        case 13: wr32(r, slot, r->chip_rev); break;                  /* CHIPREVBITS_GET: the modelled chips */
         case 14: wr32(r, slot, r->io_error); break;                  /* IOERR_GET */
         case 16: r->cbaf = rd32(r, slot); break;                     /* CBAF_SET */
         case 17: wr32(r, slot, RR_RESLOAD_WHDLOAD_VERSION); break;   /* VERSION_GET */
@@ -580,7 +580,7 @@ static int decrunch(RrResload *r, uint32_t regs[16]) {
     for (uint32_t i = 0; i < sizeof head; i++) head[i] = rd8(r, regs[A0] + i);
     int format = rr_pack_format(head, sizeof head);
     if (format == RR_PACK_NONE) { regs[D0] = 0; return RR_RESLOAD_RETURN; }    /* unknown data: size 0, as WHDLoad */
-    uint32_t total = format == RR_PACK_RNC1 || format == RR_PACK_RNC2 ? 18 + (head[8] << 24 | head[9] << 16 | head[10] << 8 | head[11]) : 0;
+    uint32_t total = rr_pack_packed_size(head, sizeof head);     /* RNC1, RNC2 (refused by its name below) and Crunch-Mania */
     if (!total) {
         r->refused_offset = RL_DECRUNCH;
         snprintf(r->message, sizeof r->message, "resload_Decrunch: %s is not unpacked yet", rr_pack_name(format));
@@ -1004,7 +1004,10 @@ int rr_resload_call(RrResload *r, uint32_t offset, uint32_t regs[16]) {
         return RR_RESLOAD_RETURN;
     case RL_CRC16: regs[D0] = rr_resload_crc16(r, regs[A0], regs[D0]); return RR_RESLOAD_RETURN;
     case RL_FLUSHCACHE: flush(r); return RR_RESLOAD_RETURN;
-    case RL_SETCACR: case RL_SETCPU: regs[D0] = 0; return RR_RESLOAD_RETURN;    /* a 68000 has no cache */
+    case RL_SETCACR:                     /* D0 new bits, D1 mask: D0 the bits before; a 68000 has no cache (0, unchanged) */
+        regs[D0] = r->host.cacr ? r->host.cacr(r->host.user, regs[D0], regs[D1]) : 0;
+        return RR_RESLOAD_RETURN;
+    case RL_SETCPU: regs[D0] = 0; return RR_RESLOAD_RETURN;     /* the MMU and cache modes it sets do not exist here */
     case RL_DELAY: return RR_RESLOAD_RETURN;     /* returns at once: the wait is not modelled yet */
     case RL_CONTROL: return control(r, regs);
     case RL_LOADKICK: return load_kick(r, regs);

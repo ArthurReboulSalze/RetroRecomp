@@ -51,6 +51,9 @@ typedef struct RrResloadHost {
        start of ExpMem; any relocation of the image is the host's). Returns 0, touching no guest memory, when the
        player has no such image. NULL: the host has no Kickstart. */
     int (*kickstart)(void *user, uint32_t size, uint16_t crc16, const char *name, uint32_t destination);
+    /* The CPU's cache control as resload_SetCACR changes it: the bits of `mask` take those of `value` (exec's CACRF_* bits);
+       returns the bits before the call. NULL: the CPU has no cache (a 68000), the call answers 0 and changes nothing. */
+    uint32_t (*cacr)(void *user, uint32_t value, uint32_t mask);
 } RrResloadHost;
 
 typedef struct RrScan {
@@ -65,6 +68,7 @@ typedef struct RrResload {
     uint32_t custom[5];                /* the Custom1-5 options */
     int32_t button_wait;               /* 0 or -1 */
     uint32_t attn_flags;               /* exec AttnFlags of the modelled CPU (0 for a 68000) */
+    uint32_t chip_rev;                 /* graphics ChipRevBits0 of the modelled chips (0: OCS, as before; $F: AGA) */
     uint32_t eclock;                   /* E clock in Hz: 709379 PAL, 715909 NTSC */
     uint32_t monitor;                  /* monitor id: 0x00021000 PAL, 0x00011000 NTSC */
     uint32_t exp_mem_size;

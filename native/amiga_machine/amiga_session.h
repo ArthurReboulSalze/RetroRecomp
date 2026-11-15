@@ -21,6 +21,8 @@ extern "C" {
 #define RR_AMIGA_PICTURE_LINES_PAL 280
 #define RR_AMIGA_PICTURE_LINES_NTSC 236
 #define RR_AMIGA_PICTURE_MAX_HEIGHT RR_AMIGA_PICTURE_LINES_PAL
+/* An interlaced screen (LACE set) is shown woven: its two fields, one row per line each, give twice the rows. */
+#define RR_AMIGA_PICTURE_MAX_ROWS (2 * RR_AMIGA_PICTURE_MAX_HEIGHT)
 #define RR_AMIGA_AUDIO_RATE 48000u
 
 /* Joystick bits of port 2 (the game port). */
@@ -39,7 +41,12 @@ typedef struct RrAmigaGame {
     const uint8_t *kickstart; uint32_t kickstart_size;
     /* CUSTOM1..5 as the install's own icon sets them (its ToolTypes), what resload_Control's CUSTOMn_GET answer. */
     uint32_t custom[5];
+    /* The machine: RR_AMIGA_MODEL_A500 (68000, ECS, 0 the default) or RR_AMIGA_MODEL_A1200 (68EC020 with its instruction
+     * cache, AGA, 2 MiB of chip RAM on a 32-bit bus: vAmiga's own A1200 scheme with the A1200 bank map). */
+    int model;
 } RrAmigaGame;
+
+enum { RR_AMIGA_MODEL_A500 = 0, RR_AMIGA_MODEL_A1200 = 1 };
 
 typedef struct RrAmigaSession RrAmigaSession;
 
@@ -67,7 +74,8 @@ int rr_amiga_quit(const RrAmigaSession *s);
 uint64_t rr_amiga_kickstart_native_count(const RrAmigaSession *s);
 const char *rr_amiga_error(const RrAmigaSession *s);
 
-/* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row. */
+/* The picture of the last frame, 0xAARRGGBB, RR_AMIGA_PICTURE_WIDTH per row: one row per line (`height` the lines), or, while the screen
+ * is interlaced, two (`height` twice the lines: the long field's line y on row 2y, the short field's on row 2y + 1). */
 const uint32_t *rr_amiga_picture(const RrAmigaSession *s, int *width, int *height);
 /* The union of the display windows the game opened so far (DIWSTRT/DIWSTOP, from vAmiga's viewport tracking), in picture
  * columns and rows: what the player shows instead of the whole overscan picture. 0 while no window was opened. */
@@ -91,7 +99,7 @@ void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *info);
 /* Native steps (only in a build with RR_AMIGA_NATIVE) and the observation of executed RAM instructions. */
 int rr_amiga_set_native(RrAmigaSession *s, int enabled);   /* 0: this build has no native steps */
 void rr_amiga_set_observe(RrAmigaSession *s, int enabled);
-int rr_amiga_write_observations(const RrAmigaSession *s, const char *path);   /* lines "pc words" (12 bytes) */
+int rr_amiga_write_observations(const RrAmigaSession *s, const char *path);   /* lines "pc words" (12 bytes; 16 on the A1200) */
 uint64_t rr_amiga_native_count(const RrAmigaSession *s);
 /* Of those, the instructions whose form is translated C; the others are Moira's code specialised. */
 uint64_t rr_amiga_translated_count(const RrAmigaSession *s);

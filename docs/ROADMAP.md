@@ -185,7 +185,7 @@ Supported since 1.7.1 as a category of its own, emulated and 0 % native by desig
 
 ## Planned after that
 
-- Amiga 1200 AGA (WHDLoad-based)
+- Amiga 1200 AGA (WHDLoad-based): in development since 14 November 2026 as the experimental profile `a1200` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200))
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).

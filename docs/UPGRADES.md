@@ -86,6 +86,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Game Boy Advance: supported](#game-boy-advance-supported-176) | the Game Boy Advance (`retrorecomp/systems/gba.py`, its status) | none | none |
+| [Commodore Amiga 1200: an experimental profile beside the Amiga 500](#commodore-amiga-1200-an-experimental-profile-beside-the-amiga-500-176) | the Amiga, the Atari ST and the X68000 (the shared 68000 path records and their instruction lengths); the new `a1200` | the host stamps of `amiga` and `a1200` (interlaced screens woven) | **every Amiga state is refused** (format `RRAMIGA-STATE-6`) |
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
@@ -119,6 +120,35 @@ and every other machine's stamps equal main's.
 **Existing exports:** the game stamp moves, so an export is converted again in full at its next conversion, from the player's own paths; the Game Boy Advance's exports are private (a game holds code derived from the player's BIOS) and
 there is no frozen legacy stamp for them. The six exports of 14 November 2026 are not converted again for this change. **Quick states:** unchanged (the Game Boy Advance quick state is checked by the game's SHA-256 and the envelope's
 schema, neither of which reads a stamp). **Site limits:** unchanged. **Hot path:** no.
+
+## Commodore Amiga 1200: an experimental profile beside the Amiga 500 (1.7.6)
+
+**What changes.** A new profile, `a1200` (experimental), converts Amiga 1200 WHDLoad installs on the same converter, session and host
+adapter as the Amiga 500, run with the A1200 model: vAmiga's A1200 scheme (68EC020 with its instruction cache, AGA, 2 MiB of chip RAM, the
+A1200 bank map), the 68EC020's instructions as native code (Moira's 68020 core specialised per opcode, lengths read from the extension words:
+`retrorecomp/m68020_lengths.py`) and the player's Kickstart 3.x over `$F80000` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)). The
+Amiga 500's conversions give the same outputs: its opcode table is byte-identical, its generated code unchanged. On both Amigas,
+`resload_Decrunch` now unpacks Crunch-Mania files (`native/amiga_whdload/rr_decrunch.c`): an install that stopped there converts.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `a87db1fe`): **the game stamps of the Amiga (`df26554edb79` to
+`f518d06f1ee4`), the Atari ST (`6116a5b0bb28` to `2c7abad214e0`) and the X68000 (`d2ca5b2765b2` to `cec9c4a08a86`)**; no host or build stamp
+moves. The Amiga's from its own files (the session, the resload layer, the opcode-table tool, the generator, the conversion); the three
+together from `retrorecomp/m68k_media_knowledge.py` and `retrorecomp/path_records.py`: the common record handling cut out on the MSX2+ branch
+(`eef2e984`, carried here as the same patch) and the instruction-length hook on it, whose 68000 answers are the old ones
+(`tests/test_m68020_lengths.py`). The Amiga's `GENERATOR_REVISION` is 2: the Amiga paths qualified by revision 1 wait again.
+
+**Interlaced screens (15 November 2026, after Arthur's play test).** On both Amigas, a screen with LACE set is shown woven: the long and the
+short field in one picture of twice the lines (`amiga_session.cpp`), so it no longer moves a line every frame; the adapter shows the twice-as-many
+rows in the same window (`rrhk_amiga.inc`). Generic: it keys on the machine's LACE bit and the frame's long-field bit, never on a game. The
+picture hash of interlaced frames changes, the same in the reference and native runs; a game without LACE is unchanged byte for byte
+(Slam Tilt: every field of its report equal). Banshee's title no longer alternates; a quick state saved during it continues 100 frames
+equal in a fresh process. A quick state now carries the held field and, on the A1200, restores the window of a 512 KiB Kickstart. Stamps of
+this part, against `4d875fbc`: **the game and host stamps of `amiga` and `a1200`**, nothing else.
+
+**Existing exports:** the three game stamps move, so their exports are converted again in full at their next conversion. **Quick states:**
+every Amiga state is refused (`RRAMIGA-STATE-6`: the resload state grew by the A1200's chip revision bits, and the held interlaced field follows the sound). The X68000's and
+the Atari ST's states do not read these files. **Site limits:** the `a1200` machine is not shared (experimental). **Hot path:** the
+A500's native steps are unchanged; the A1200's frame cost was measured on a quiet PC (Slam Tilt 10.6 ms a frame, Lotus 2 on the A500 7.0 ms).
 
 ## Path records: one copy for the 68000 computers and the MSX2+ (1.7.6)
 

@@ -3,7 +3,7 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Atari ST · Capcom CPS-1 · Capcom CPS-2 · Commodore Amiga · Game Boy · Game Boy Advance · Game Gear · Master System · Mega Drive · MSX · MSX2 · MSX2+ · Neo Geo · NES · Nintendo 64 · PC Engine / TurboGrafx-16 · Sharp X68000 · Sony PlayStation · Super Nintendo · and Adventure (ScummVM)</p>
+<p align="center">Atari ST · Capcom CPS-1 · Capcom CPS-2 · Commodore Amiga · Game Boy · Game Boy Advance · Game Gear · Master System · Mega Drive · MSX · MSX2 · MSX2+ · Neo Geo · NES · Nintendo 64 · PC Engine / TurboGrafx-16 · Sharp X68000 · Sony PlayStation · Super Nintendo · then, experimental: Commodore Amiga 1200 · and Adventure (ScummVM)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -86,6 +86,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████████░░` 81 % |
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
+| [Commodore Amiga 1200](docs/AMIGA.md) | experimental | `██████░░░░` 56 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
@@ -109,7 +110,7 @@ and its limits are on its page.
 
 No other machine is available yet. Each new one starts as an experimental profile; no date is promised.
 
-Planned: the Amiga 1200. Per-machine plans are in the [roadmap](docs/ROADMAP.md).
+Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
 Compatibility depends on the game and the revision; there is no fixed game list. See the
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native
