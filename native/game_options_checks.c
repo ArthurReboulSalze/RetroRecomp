@@ -218,6 +218,22 @@ static void chords(void) {
     button(8,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,0);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
     /* 1.7.5: L2 and R2 are axes in SDL: pulled past the threshold they are buttons, alone or in a combination, with a
      * hysteresis (released only under half the threshold). L2 alone loads; R2 + A saves. */
+    /* 1.7.6: Fast forward and Max speed are on R2 and L2 by default; held R2 is fast forward at once, a press of L2 toggles the
+     * maximum speed once per press; their keyboard rows are Tab and the backquote, fixed. */
+    assert(rr_options.combo[RR_COMBO_FAST].pad==(int)RR_PAD_R2 && rr_options.combo[RR_COMBO_MAX].pad==(int)RR_PAD_L2);
+    rr_combo_value(value,sizeof value,RR_COMBO_FAST,false);assert(!strcmp(value,rr_keyboard_name(SDL_SCANCODE_TAB)));
+    rr_combo_value(value,sizeof value,RR_COMBO_MAX,true);assert(!strcmp(value,"L2"));
+    now_ms=56500;assert(!rr_options_fast_forward(menu) && !rr_options_max_speed(menu));
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERRIGHT,30000);assert(rr_options_fast_forward(menu));now_ms=56600;assert(rr_options_fast_forward(menu));
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERRIGHT,0);assert(!rr_options_fast_forward(menu));
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,30000);assert(rr_options_max_speed(menu));now_ms=57000;assert(!rr_options_max_speed(menu));
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,0);assert(!rr_options_max_speed(menu));
+    /* L2 for Quick load is refused while Max speed has it; cleared, Max speed leaves it free */
+    const int load_before=rr_options.combo[RR_COMBO_LOAD].pad;
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_LOAD,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,30000);trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,0);
+    assert(!rr_options.capture && rr_options.combo[RR_COMBO_LOAD].pad==load_before && !strcmp(rr_options.status,"Already used by Max speed"));
+    rr_combo_clear(RR_COMBO_MAX,true);assert(!rr_options.combo[RR_COMBO_MAX].pad);
     button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_LOAD,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
     trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,12000);assert(rr_options.capture==8 && !rr_options.pending_pad);   /* not yet */
     trigger(8,SDL_CONTROLLER_AXIS_TRIGGERLEFT,30000);assert(rr_options.pending_pad==RR_PAD_L2);
