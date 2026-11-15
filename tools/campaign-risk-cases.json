@@ -90,6 +90,38 @@
       {"title": "Lemmings", "prefer": "Image", "category": "mouse", "reason": "Mouse game: its routes wait for the intro, move the pointer onto 1 PLAYER and click; generic inputs during the intro shorten it and click where no button is", "source": "docs/AMIGA.md"},
       {"title": "Superfrog", "category": "not-an-install", "expect": "refusal", "reason": "The archive holds no WHDLoad slave: not an Amiga WHDLoad install, so the conversion must refuse it with its sentence", "source": "docs/QUALIFICATION.md"}
     ],
+    "amiga1200": [
+      {
+        "title": "Slam Tilt",
+        "category": "regression-baseline",
+        "reason": "The A1200 test game: a slave that asks for a 68020 and AGA, 256-colour tables, 0 interpreted instructions on its routes",
+        "source": "docs/AMIGA.md"
+      },
+      {
+        "title": "Pinball Illusions",
+        "category": "kickstart-3",
+        "reason": "Asks for the player's Kickstart 3.1 (40.068 A1200), run from the 512 KiB window over $F80000; one Kickstart instruction stays interpreted",
+        "source": "docs/AMIGA.md"
+      },
+      {
+        "title": "Gloom",
+        "category": "packed-files",
+        "reason": "Its files are packed with Crunch-Mania: resload_Decrunch must unpack them before the game starts",
+        "source": "docs/AMIGA.md"
+      },
+      {
+        "title": "Super Stardust",
+        "category": "super-hires",
+        "reason": "Crunch-Mania files and an intro in AGA super-hires, which the picture shows at half its width (one column per hires pixel)",
+        "source": "docs/AMIGA.md"
+      },
+      {
+        "title": "Alien Breed 3D",
+        "category": "known-failure",
+        "reason": "Stays black on the A1200 model while the private oracle under the real WHDLoad shows its intro: a known failure, its cause not found yet",
+        "source": "docs/AMIGA.md"
+      }
+    ],
     "atarist": [
       {"title": "Bomb Jack", "category": "regression-baseline", "reason": "Control case of the panel of eight: EmuTOS, starts by itself, one disk, a joystick game; 5 interpreted instructions on its routes (the start of EmuTOS)", "source": "docs/ATARI_ST.md"},
       {"title": "Operation Stealth", "category": "multi-disk-desktop", "reason": "Three disks started by the desktop (Hatari's GEMDOS hook runs on the interpreter) and a colour-code protection that the routes stop on, with the reason in route_warnings", "source": "docs/ATARI_ST.md"},

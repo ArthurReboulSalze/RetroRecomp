@@ -235,8 +235,12 @@ not changed by it.
   guard as on the Amiga 500. A 68020 instruction's length depends on its extension words (up to 22 bytes): `retrorecomp/m68020_lengths.py`
   holds Moira's own table of where they sit, and the conversion checks it against the Moira it builds. The observation window is 16 bytes: a MOVE between two full-extension
   modes (up to 22 bytes) stays interpreted, counted.
-- **The five measures** stay apart and are not measured yet: no panel has run. Hardware fidelity is not claimed (vAmiga marks its AGA
-  Denise as partly done).
+- **The five measures** stay apart. Native code and CPU agreement with the reference are measured on a panel of eight installs (15 November
+  2026, [the evidence](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)): 0 or 1 interpreted instruction a
+  route, the 1 a Kickstart instruction. Hardware fidelity is not claimed (vAmiga marks its AGA Denise as partly done; pictures are compared
+  with another emulator only); gameplay rests on Arthur's play test, still to come; latency is not measured.
+- **A known failure:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
+  real WHDLoad does not reach it is not found).
 - **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
   Gloom and Super Stardust convert with it.
 - **Not yet:** AGA super-hires shown at full width (the picture keeps one column per hires pixel).

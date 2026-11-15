@@ -84,7 +84,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████████░` 94 % |
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
-| [Commodore Amiga 1200](docs/AMIGA.md) | experimental | `░░░░░░░░░░` 3 % |
+| [Commodore Amiga 1200](docs/AMIGA.md) | experimental | `█████░░░░░` 53 % |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | experimental | `███░░░░░░░` 34 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | experimental | `████░░░░░░` 40 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
