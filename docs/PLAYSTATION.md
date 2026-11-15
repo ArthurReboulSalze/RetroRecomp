@@ -25,8 +25,9 @@ compared with the figures of a machine whose game code is translated, and it say
   the **Analog** action (F, or the gamepad's extra button) switches it to analog mode, and a game that wants analog mode
   switches it itself. While a pad is digital, the gamepad's left stick also works as the d-pad. A game the core's database knows
   as digital-only gets a standard pad on that port (Crash Bandicoot). A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
-- **F3** opens the graphics page: internal resolution (1x, 2x, 4x, 8x), dithering, deinterlacing, aspect ratio and overscan
-  crop. They change only the picture; the conversion's checks use the defaults (1x, the core's own settings, progressive).
+- **F3** opens the graphics page: internal resolution (1x, 2x, 4x), dithering, aspect ratio and overscan crop. They change only
+  the picture; the conversion's checks use the defaults (1x, the core's own settings). 8x is not offered (64 times the pixels,
+  never in time on one thread), and since 1.7.6 there is no deinterlacing row: the picture is always progressive.
 - **A raised internal resolution has a real cost**: the renderer works in software on one thread. In combat in Tobal No. 1 on
   a Ryzen 9 3900X (informal, a busy PC), 2x holds the console's speed and 4x does not (about 18 % too slow, the sound breaks
   up). The game says so with a notice when a raised resolution stays behind; 1x and 2x are the settings to try first.
@@ -209,9 +210,9 @@ same values on a Debian 13 PC, two games' saves read back in a fresh process, th
 GPU programs drawing what a console drew, and shared paths.
 
 **Limits, written:**
-- **Resolution.** The picture is drawn in software on one thread. 1x and 2x hold speed (the owner's own test held at 1x); 4x is too heavy for 3D
-  racing on the owner's PC (frames up to 33 ms on one licence drive of Gran Turismo 2, a full race heavier) and 8x is never in time. 2x is the
-  advised raised resolution.
+- **Resolution.** The picture is drawn in software on one thread. On the owner's PC 1x and 2x hold speed and 4x falls behind (« Le 2x tient
+  très bien. […] le 4x, ça commence à ralentir et le 8x, c'est injouable »; frames up to 33 ms at 4x on one licence drive of Gran Turismo 2,
+  a full race heavier). 8x is no longer offered. 2x is the advised raised resolution.
 - **Native code** is the code the routes ran: code a game reaches later runs on the counted interpreter, shown in the window title, and becomes
   native at the next conversion with the player's F12 hints. What a game decompresses stays private in the shared paths.
 - **Route depth.** Metal Gear Solid's routes go back to its title after the level select; Gran Turismo 2's stay in its credits (its races were

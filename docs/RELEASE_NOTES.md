@@ -22,7 +22,8 @@
   - **Quick states.** Two defects of the core's GTE state were fixed: a state loaded no longer keeps some GTE registers of before.
   - **Memory card.** A card file the game cannot use is set aside whole and the game starts with an empty card; the window says so.
   - **Shared paths.** The code a conversion saw run, as places in your own disc and BIOS, shared as the experimental tier of the base.
-  - **Resolution.** The picture is drawn in software: 1x and 2x hold speed; 4x is heavy in 3D scenes, and 8x is too heavy.
+  - **Resolution.** The picture is drawn in software: 1x and 2x hold speed; 4x falls behind in 3D scenes, and 8x is no longer
+    offered (never in time on one thread). The graphics page (F3) loses its deinterlacing row: the picture is always progressive.
   No game is validated as played through, and hardware fidelity and latency are not claimed. PlayStation quick states of 1.7.5 are refused
   cleanly.
 
