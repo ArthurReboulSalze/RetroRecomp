@@ -239,8 +239,11 @@ not changed by it.
   2026, [the evidence](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)): 0 or 1 interpreted instruction a
   route, the 1 a Kickstart instruction. Hardware fidelity is not claimed (vAmiga marks its AGA Denise as partly done; pictures are compared
   with another emulator only); gameplay rests on Arthur's play test, still to come; latency is not measured.
-- **A known failure:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
-  real WHDLoad does not reach it is not found).
+- **Two known failures:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
+  real WHDLoad does not reach it is not found). Pinball Illusions converts with every check passed, but after its intro the screen stays
+  black with the music playing, where the private oracle under the real WHDLoad goes on to « Loading » and the title; the interpreted
+  reference machine shows the same black screen, so it is our machine model or layer, not the native code; the cause is not found (its
+  copper lists program no beam; it uses eight planes in dual playfield, `FMODE` `$000F` and `BPLCON4`).
 - **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
   Gloom and Super Stardust convert with it on the Amiga 1200, and Five A Side Soccer on the Amiga 500 (46 files unpacked on its main
   route, every check passed).
