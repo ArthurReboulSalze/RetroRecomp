@@ -86,26 +86,30 @@ neither figure. CPU fidelity: what the core's interpreter does (each route's nat
 `tools/psx_vector_selftest.py` runs independent vectors on both paths, without a game: see below. Hardware fidelity: not measured;
 with the free BIOS the report says so. Gameplay validation: only the conversion's routes. Physical latency: not measured.
 
-## 4. Where it stands (8 November 2026)
+## 4. Where it stands (15 November 2026)
 
 Each line is one measure; none says anything about the others. The record is in
-[QUALIFICATION.md](QUALIFICATION.md#sony-playstation-evidence-behind-its-column-8-november-2026).
+[QUALIFICATION.md](QUALIFICATION.md#sony-playstation-evidence-behind-its-column-15-november-2026).
 
-- **Native code**: on the two routes of the ten panel discs, at most 0.0003 % to 0.0131 % of the instructions ran on the
-  interpreter, depending on the disc (0.0165 % on Tobal No. 1, an eleventh disc). This covers those routes only: a part of the
-  game they did not reach starts on the interpreter, counted.
-- **CPU fidelity**: every route of every panel disc is identical, frame by frame, to the core's interpreter. Independently of any
-  game, 55,000 R3000A vectors pass on the interpreter and on the native steps, and 1,150 GTE vectors pass on the GTE. The CPU
-  vectors come from ares's model, not from a console, and hold no COP0 or GTE instruction: this is agreement with a model, not
-  proof against the silicon.
+- **Native code**: on the 24 routes of the eight panel discs (attract, play and an 18,000-frame route each), no instruction ran on
+  the interpreter: 54.5 billion native instructions. This covers those routes only: code a game reaches later starts on the
+  interpreter, counted, shown in the window title, and becomes native at the next conversion with the player's F12 hints (Gran
+  Turismo 2's licence drive: 24 % interpreted before the owner's hints were taken, 2.2 % after).
+- **CPU fidelity**: every frame of every route equals the core's interpreter in RAM, picture, sound and CPU state (registers, COP0,
+  GTE). Independently of any game, 55,000 R3000A vectors pass on the interpreter and on the native steps, and 1,150 GTE vectors
+  pass on the GTE. The CPU vectors come from ares's model, not from a console, and hold no COP0 or GTE instruction: this is
+  agreement with a model, not proof against the silicon.
 - **Hardware fidelity**: Beetle's. Measured on named behaviours only (`tools/psx_hardware_selftest.py`, 15 November 2026): the GPU
   tests of ps1-tests, booted through the BIOS like a game, draw what a console drew on 9 of 11 to the pixel, the CLUT cache and line
   ends apart; the timer, DMA and CD-ROM tests print cycle counts that differ from the console's ([QUALIFICATION.md](QUALIFICATION.md)).
-- **Gameplay validation**: scripted routes reaching title screens, intros, menus or a first level, no deeper. Nobody has played
-  the panel. Ape Escape's play route stops at a dark screen after its "DUALSHOCK required" notice: its gameplay is not shown.
-- **Physical latency**: not measured.
-- **Linux**: Ape Escape, converted on a Debian 13 PC with GCC, gives the same hashes as Windows on both routes. One disc, and no
-  game played on Linux.
+- **Gameplay validation**: scripted routes; the long route reaches play on six of the eight discs, the two others are named with
+  their reason in the report (Metal Gear Solid returns to its title, Gran Turismo 2 stays in its credits). The owner played Gran
+  Turismo 2 on 15 November 2026 ("c'est fonctionnel"); the panel's play test (G14) is his.
+- **Physical latency**: not measured. The frame cost was measured once on a quiet PC (15 November 2026, Gran Turismo 2 driving,
+  an off-screen window with the sound device): 6.5 ms a frame at 1x, 7.6 ms at 2x, 11.7 ms at 4x with frames up to 33 ms, and no
+  sample missing on that drive; 4x is labelled heavy and is too heavy for 3D racing on that PC (a stated limit).
+- **Linux**: Ape Escape (EBOOT) and WipEout 2097 (CUE/BIN, PAL), converted on a Debian 13 PC with GCC, give the same values as
+  Windows on all three routes. No game played on Linux.
 
 ## 5. Leaving the experimental status: what each gate means here
 

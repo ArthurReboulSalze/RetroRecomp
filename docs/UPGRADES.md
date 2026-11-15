@@ -157,9 +157,7 @@ LZCR a computed value instead of the register's (Beetle's `GTE_StateAction`; car
 nothing was saved for that session. The card stays the raw 128 KiB other programs read. The move is the new shared helper
 `native/save_set_aside.c`, the PlayStation's alone for now.
 
-**Stamps** (`compilation_inputs.role_stamps`, this branch against main `a87db1fe`, at its commit `559e7536`): the PlayStation's game
-stamp (`55f0e406d72d` to `523d46a67f00`) and host stamp (`bd8f35608de2` to `58aa32803f59`); every other machine's stamps equal
-main's. **Existing exports:** converted again in full at their next conversion. **Quick states:** a PlayStation state of 1.7.5 is
+**Stamps** (`compilation_inputs.role_stamps`, the branch as a whole, the shared paths and G11 included, against main `ffbaee01`, at `6a5d9e9b`): the PlayStation's game stamp (`55f0e406d72d` to `8a84b9740b28`) and host stamp (`bd8f35608de2` to `58aa32803f59`); every other machine's stamps equal main's. **Existing exports:** converted again in full at their next conversion. **Quick states:** a PlayStation state of 1.7.5 is
 refused (another build), as for any change of the game. **Hot path:** the step hook calls one more step lookup when a step hands
 back a word, which the routes measure as a gain (no interpreted instruction left on Ape Escape's routes); no timing was taken.
 
