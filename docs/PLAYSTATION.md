@@ -28,6 +28,11 @@ compared with the figures of a machine whose game code is translated, and it say
 - **F3** opens the graphics page: internal resolution (1x, 2x, 4x), dithering, aspect ratio and overscan crop. They change only
   the picture; the conversion's checks use the defaults (1x, the core's own settings). 8x is not offered (64 times the pixels,
   never in time on one thread), and since 1.7.6 there is no deinterlacing row: the picture is always progressive.
+- **Screen format: 4:3 / 16:9** on the options page (since 1.7.6, kept per game): for a game that has its own widescreen option and
+  draws a squeezed picture for a 16:9 television, 16:9 shows that picture 16 wide for 9 high. It changes only the rectangle the
+  picture is shown in (the Aspect ratio row of F3 is not read then); a game without such an option is simply stretched. Checked
+  on a game without a widescreen mode (a synthetic check: the saved choice gives a 1708 x 960 rectangle on a full-HD screen where
+  4:3 gives 1228 x 960); no game's own widescreen mode has been tried.
 - **A raised internal resolution has a real cost**: the renderer works in software on one thread. In combat in Tobal No. 1 on
   a Ryzen 9 3900X (informal, a busy PC), 2x holds the console's speed and 4x does not (about 18 % too slow, the sound breaks
   up). The game says so with a notice when a raised resolution stays behind; 1x and 2x are the settings to try first.
