@@ -27,7 +27,7 @@ import time
 
 from . import __version__, timings
 from .conversion_common import resolve_scan_level, spawn
-from .conversion_gates import require_same_file
+from .conversion_gates import check_quick_states, require_same_file
 from .core import ConversionError, executable_name, run, toolchain
 from .delivery_evidence import FrameRow, deliver_packed, liveness_summary, replay_packed, report_fields, require_moving_picture, same_trace
 from .library import atomic_json, entry_lock, file_sha256, library_root
@@ -343,7 +343,7 @@ def trace_digests(path: Path) -> dict:
 
 
 # Nothing a resumed process may differ on: since the state holds the audio plugin's running state and the RSP's registers (format
-# RRN64QS4), the sound continues too, so a difference in the CPU, RDRAM, picture or sound refuses the conversion, as on the other machines. (Until then
+# RRN64QS4 and after), the sound continues too, so a difference in the CPU, RDRAM, picture or sound refuses the conversion, as on the other machines. (Until then
 # the samples after a load differed on every frame compared and were the one tolerated difference.)
 CONTINUATION_IGNORED = ()
 
@@ -362,6 +362,26 @@ def continuation(timeline: Path, resumed: Path) -> dict:
     kept = sum(1 for row in later if row[0] in earlier and all(row[i] == earlier[row[0]][i] for i in keep))
     differing = sorted({header[i] for row in later if row[0] in earlier for i in range(len(header)) if row[i] != earlier[row[0]][i]})
     return {'frames': len(later), 'equal_frames': exact, 'matches': bool(later) and kept == len(later), 'differing_columns': differing}
+
+
+STATE_SETTLE = 400            # frames a state loaded by a fresh process must continue the unbroken run
+# A quick state's header (native/n64_machine/n64_session.cpp): magic 8, the build's key 64, the frame 8, the sizes of the renderer's, the
+# audio's and the RSP's blocks 8 each, the checksum 8; then the blocks and the core's state.
+STATE_HEADER = 112
+STATE_OFFSETS = {'magic': 0, 'key': 8, 'frame': 72, 'renderer-size': 80, 'audio-size': 88, 'rsp-size': 96, 'checksum': 104}
+
+
+def damaged_states(state: bytes) -> dict[str, bytes]:
+    """Damaged copies of a Nintendo 64 quick state, by what is wrong with them: the game must refuse every one (exit 4) and leave it as
+    it was (conversion_gates.check_quick_states). A changed byte anywhere is caught by the checksum, a cut or a longer file by the size."""
+    def flipped(offset: int) -> bytes:
+        data = bytearray(state)
+        data[offset] ^= 0x80
+        return bytes(data)
+    return {'empty': b'', 'header-cut': state[:STATE_HEADER // 2], 'one-byte-short': state[:-1], 'one-byte-longer': state + b'\0',
+            'body-cut': state[:len(state) // 2], **{label: flipped(offset) for label, offset in STATE_OFFSETS.items()},
+            'renderer': flipped(STATE_HEADER), 'payload': flipped(len(state) // 2), 'last-byte': flipped(len(state) - 1),
+            'not-a-state': b'not a state.' * 4096}
 
 
 def require_continuation(resumed: dict) -> None:
@@ -500,12 +520,28 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         restart.mkdir()
         fresh = restart / candidate.name
         shutil.copy2(packed, fresh)
-        with timings.phase('state_checks'):
+        saved = checks / 'packed' / 'main' / 'quick.rrstate'
+
+        def table(path: Path) -> list[tuple]:
+            return [tuple(line.split('\t')) for line in path.read_text(encoding='ascii').splitlines()[1:]]
+
+        def continued():
             # The fresh process gets the cartridge save as it was when the state was taken, as a player's game keeps its file.
             shutil.copy2(checks / 'packed' / 'main' / 'at-state.saves', restart / 'saves.bin')
-            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate',
-                                                                '--saves', restart / 'saves.bin'])
-        resumed = continuation(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv')
+            replay(fresh, restart, STATE_SETTLE, scripts['main'], extra=['--state-load-start', '--state-slot', saved, '--saves', restart / 'saves.bin'])
+            return table(checks / 'packed' / 'main' / 'trace.tsv'), table(restart / 'trace.tsv')
+
+        def refused(path: Path) -> bool:
+            return spawn([str(fresh), '--headless', '--frames', '1', '--state-load-start', '--state-slot', str(path)],
+                         cwd=restart, timeout=180, capture_output=True).returncode == 4
+        with timings.phase('state_checks'):
+            first_frame = int(table(checks / 'packed' / 'main' / 'trace.tsv')[0][0])
+            try:
+                state_check = check_quick_states(restart, saved, machine='Nintendo 64', route='main', at=state_frame + 1 - first_frame,
+                                                 settle=STATE_SETTLE, continued=continued, refused=refused, damaged=damaged_states,
+                                                 error=ConversionError)
+            finally:
+                resumed = continuation(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv')
         require_continuation(resumed)
         rows = []
         for (name, frames_, events), result in zip(routes, packed_results):
@@ -557,12 +593,14 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
                             'compatibility': 'the exact game and build that wrote the state; refused between builds',
-                            'schema': 'RRN64QS4', 'machine': 'n64', 'rom_identity': source.sha256,
+                            'schema': 'RRN64QS5', 'machine': 'n64', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': delivered.kind == 'packed', 'saved_at_frame': state_frame,
                                            'continuation_frames': resumed['frames'], 'continuation_matches': resumed['matches'],
                                            'equal_frames': resumed['equal_frames'], 'differing_columns': resumed['differing_columns'],
                                            'saving_leaves_the_timeline': True,
-                                           'compared': 'CPU registers, RDRAM and picture of every frame; not the sound samples'}},
+                                           'compared': 'CPU registers, RDRAM, picture and sound of every frame',
+                                           **{key: state_check[key] for key in ('truncated_state_rejected', 'damaged_states_refused',
+                                                                                'missing_state_creates_nothing', 'state_bytes')}}},
             'ordinary_saves': {'supported': True, 'scope': 'EEPROM, SRAM, Flash and the four controller paks, one file in the game\'s '
                                                            'data folder (written when they change during play)', 'validated': False},
             'input_players': 4, 'peripheral': {'pads': 4, 'stick': 'analog (a gamepad\'s left stick; arrows on the keyboard)',

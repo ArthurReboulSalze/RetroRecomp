@@ -81,6 +81,21 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(n64_native.executed((ADDIU, LW)), 2)
 
 
+class DamagedStateTests(unittest.TestCase):
+    """G6: every damaged copy differs from the state, every header field is flipped once, and the cut and longer copies are there."""
+
+    def test_the_list(self):
+        state = bytes(range(256)) * 200
+        damaged = n64_conversion.damaged_states(state)
+        self.assertTrue(all(data != state for data in damaged.values()))
+        for field in n64_conversion.STATE_OFFSETS:
+            self.assertIn(field, damaged)
+        self.assertEqual(len(damaged['one-byte-short']), len(state) - 1)
+        self.assertEqual(len(damaged['one-byte-longer']), len(state) + 1)
+        self.assertEqual(damaged['empty'], b'')
+        self.assertEqual(n64_conversion.STATE_OFFSETS['checksum'] + 8, n64_conversion.STATE_HEADER)
+
+
 class MappedCodeTests(unittest.TestCase):
     """TLB-mapped code becomes blocks too: a run stays in its 4 KiB page; the uncached KSEG1 code stays on the interpreter."""
 

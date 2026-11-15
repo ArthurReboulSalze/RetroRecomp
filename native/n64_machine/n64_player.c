@@ -291,7 +291,8 @@ static int run_headless(const char *trace_path, const char *report_path, const c
     const Uint64 frequency = SDL_GetPerformanceFrequency();
     if ((trace_path && !trace) || (times_path && !times)) { fail("Cannot write the trace"); return 1; }
     if (trace) fputs("frame\tvideo\tpcm\tram\tcpu\tPC\tsamples\tsize\n", trace);
-    if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); if (trace) fclose(trace); return 1; }
+    /* A refused state (damaged, another build, missing) ends the run with exit status 4, the file left as it was. */
+    if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); if (trace) fclose(trace); return 4; }
     for (n = 0; n < frame_limit; n++) {
         RrN64FrameInfo info;
         int16_t pcm[2 * 4096];
@@ -520,7 +521,7 @@ int main(int argc, char **argv) {
     } else {
 #ifdef RR_N64_WINDOWED
         for (k = 0; k < gfx_count; k++) if (!n64_gfx_assign(gfx[k], true)) { fail("Unknown --gfx option or value"); return 1; }
-        if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); return 1; }
+        if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); return 4; }
         if (times_path && !(frame_log = open_utf8(times_path, L"wb"))) { fail("Cannot write the frame times"); return 1; }
 #ifdef RR_N64_LINKED
         result = player_run_windowed(RR_N64_GAME_TITLE " | Nintendo 64");
@@ -537,5 +538,5 @@ int main(int argc, char **argv) {
     }
     fflush(stdout); fflush(stderr);
     /* The core's threads and coroutines are torn down with the process. */
-    _Exit(failed ? 1 : result);
+    _Exit(result == 4 ? 4 : failed ? 1 : result);   /* 4: a refused quick state, whatever else was said */
 }

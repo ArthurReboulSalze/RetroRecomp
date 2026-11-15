@@ -40,16 +40,21 @@ image; Retro-Recomp publishes no game and no firmware (the console needs none: t
    per core revision; a game compiles only its own blocks, the session and the player against it.
 3. **Native blocks.** The fresh reference run of a conversion runs the VR4300 on the core's pure interpreter and observes, at every
    place the code jumps to, the straight run that starts there up to its first jump or branch and that instruction's delay slot,
-   once per address and per code identity (overlays load different code at one place: each version is kept). Those runs become C
-   (`retrorecomp/n64_native.py`): each block calls the core's own function for each instruction with the opcode a constant (no
-   fetch, no decode), stops as soon as the PC leaves the straight line (an exception), re-checks its own words after every store,
-   and runs only when its words are the live ones (the guard); blocks follow one another without going back to the interpreter's
-   loop. Code at other addresses (TLB-mapped code, the boot code) and code not seen runs on the interpreter, counted. A game with no
-   block runs the core's cached interpreter, also counted.
+   once per address and per code identity (overlays load different code at one place: each version is kept). A run also ends at
+   128 instructions and on an instruction that has no delay slot and does not jump (MFC0, CACHE); the instruction after it starts a
+   run of its own. Those runs become C (`retrorecomp/n64_native.py`): each block calls the core's own function for each instruction
+   with the opcode a constant (no fetch, no decode), stops as soon as the PC leaves the straight line (an exception), re-checks its
+   own words after every store, and runs only when its words are the live ones (the guard); blocks follow one another without going
+   back to the interpreter's loop. KSEG0 code and TLB-mapped code both become blocks: a run of mapped code stays within its 4 KiB page,
+   and its block reads the live words through the TLB's page table, so a page mapped elsewhere fails the guard; an unmapped page has
+   no block and the interpreter takes the TLB exception. The uncached KSEG1 code (the boot code) and the rarest runs (the generator
+   keeps the runs that make 99.5 % of the executions, and every version of a kept address) run on the interpreter, counted. A game
+   with no block runs the core's cached interpreter, also counted.
 4. **Validation.** The game executable is copied alone and replayed headless on the same bounded scripts (a main route of pad and
    stick inputs and, at the Standard level, a second exploration route, 3,600 frames each): the picture, sound, RDRAM and CPU
-   registers of every frame must equal the fresh reference's. So must the compressed copy that is delivered. A quick state saved by
-   the game is loaded by a fresh process, whose CPU, RDRAM and picture must continue the unbroken run; only the sound may differ
+   registers of every frame must equal the fresh reference's, and the report lists where every interpreted instruction ran, with
+   its class (gate G3). So must the compressed copy that is delivered. A quick state saved by the game is loaded by a fresh process,
+   given the cartridge save as it was when the state was taken; its CPU, RDRAM, picture and sound must continue the unbroken run
    (section 6). A conversion that fails a check keeps the earlier export.
 
 ## 3. The five measures
@@ -165,6 +170,18 @@ Mario Kart 64 included, were measured before that correction.
 in CPU, RDRAM or picture is refused. On the three games (8 November 2026, Windows, 400 frames from frame 3,000): CPU, RDRAM and picture continue on every frame. The sound does not: its samples
 differ on all 400 frames, their number per frame on 35 to 115 of them, by under 0.05 % in total (the core's state leaves out the audio resampler). Whether that can be heard has not been judged.
 
+**What the quick state holds since 1.7.6 (format `RRN64QS5`).** A checksum covers every byte of a state and its size must be exact: a damaged
+state (16 kinds checked by every conversion: cut, longer, empty, each header field and bytes of the body changed, another file) is refused
+before the machine is touched, the program ends with exit status 4 and leaves the file as it was, and a missing state creates nothing. Beside the core's own state and the renderer's memory, the state keeps what the core and its plugins leave out
+or rebuild otherwise, each found by comparing a fresh process resumed from a state with the unbroken run (and with a reload in the same process, which stayed equal), byte for
+byte in RDRAM at the first frame that differed: the audio backend's rate and the sinc resampler's position and history (the sound now continues on every frame); the AI's two
+queued DMA addresses, which the core's own load sets both to the last one written (Banjo-Tooie's sound and two audio buffers in RDRAM differed from the first frame), with its
+format flag; whether an RSP task stopped on an interrupt and waits to go on, which the core's load clears; the RSP's own registers, which ParaLLEl-RSP keeps outside the core;
+the renderer's count of primitives, the seed of the RDP's dither noise (GoldenEye 007 drew an effect otherwise 95 frames after a load); the RDP's registers (modes, combiner,
+colours, scissor, images, tile descriptors), kept as the last command that set each and replayed after a load before the texture memory is restored; and a command cut at the
+end of a list. With all of them, a resumed game must continue CPU, RDRAM, picture and sound: no difference is tolerated any more. The check gives the fresh process the
+cartridge save as it was when the state was taken, as a player's game keeps its file; a quick state never holds the cartridge save.
+
 **Graphics page and saves.** In runs without a visible window, every option of the F3 page was applied at start and the game kept its picture, 2x and 4x giving 1280 x 576 and 2560 x
 1152. The options were also changed in the middle of a run (the internal resolution up and down, and a VI filter, at given frames, through the kit's path): the
 rate held, with one stall of up to about 100 ms at a change of resolution. Ocarina of Time's SRAM: a file created in one process is
@@ -179,6 +196,38 @@ it, not the native blocks' and not the graphics settings'; their fidelity to a c
 picture is presented with vsync while the 50 Hz game keeps its own clock, so on a 60 or 144 Hz screen some pictures stay one refresh longer, a regular judder shared by
 every PAL game), or the game's own effects (machines that shake at speed, rivals drawn with fewer polygons at a distance). The owner's description and his screen's refresh
 rate will decide.
+
+### The panel of 15 November 2026 (1.7.6)
+
+Eight PAL cartridges chosen for what each adds, converted one at a time at the Extended level from an empty library each (Windows,
+llvm-mingw, an NVIDIA GeForce RTX 3090, tree `4d41dd6a`), none dropped: every route of every game equal to its fresh reference on the
+pure interpreter, frame by frame (picture, sound, RDRAM, CPU registers), the compressed copy too; the quick state continued in a fresh
+process on every frame of 400, sound included; the report lists every interpreted instruction, the counts adding up on every route.
+
+| Game | Saves | Routes (frames) | Native share of the VR4300 instructions | Interpreted, by class (main route) | Guard misses (main) | Blocks | Conversion |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Super Mario 64 (`NSMP`) | EEPROM 4 Kbit | main, explore, play (3,600, 3,600, 6,000) | 99.69 %, 99.69 %, 99.28 % | boot 168,910; TLB 20; coverage cut 1,235,055 | 0 | 3,880 | 385 s |
+| Mario Kart 64 (`NKTP`) | EEPROM 4 Kbit, pak | main, explore | 99.25 %, 99.78 % | boot 168,910; TLB 20; cut 4,500,578 | 0 | 4,641 | 213 s |
+| F-Zero X (`NFZP`) | SRAM | main, explore | 99.41 %, 99.60 % | boot 172,201; TLB 23; guard misses 239,761; cut 2,918,763 | 19,297 | 3,120 | 239 s |
+| Banjo-Tooie (`NB7P`) | EEPROM 16 Kbit | main, explore | 99.51 %, 99.48 % | boot 169,139; TLB 20; guard misses 217,071; cut 2,952,439 | 26,659 | 12,871 | 287 s |
+| GoldenEye 007 (`NGEP`) | EEPROM 4 Kbit | main, explore | 99.27 %, 99.79 % | boot 168,910; TLB 110,275; guard misses 291,783; cut 6,834,253 | 494,307 | 6,971 | 321 s |
+| Rayman 2 (`NY2P`) | controller pak | main, explore, play (14,200) | 99.65 %, 99.64 %, 99.43 % | boot 168,910; TLB 20; cut 4,747,966 | 0 | 6,460 | 1,187 s |
+| Majora's Mask (`NZSP`) | Flash | main, explore, play (14,600) | 99.57 %, 99.68 %, 99.43 % | boot 169,139; TLB 20; guard misses 11,057; cut 2,366,432 | 987 | 6,018 | 757 s |
+| Ocarina of Time (`NZLP`) | SRAM | main, explore, play (16,800) | 99.63 %, 99.57 %, 99.46 % | boot 169,139; TLB 20; guard misses 28,345; cut 1,768,658 | 1,167 | 5,201 | 765 s |
+
+The classes: "boot" is the boot code in the RSP's memory (uncached KSEG1, always interpreted); "TLB" is mapped code in a page the
+reference never observed as a run; "guard misses" are stretches that started where a block's words were not the live ones (an overlay
+or a remapped page with code no observation holds); "cut" is code the reference ran whose runs the generator left out (it keeps the
+runs that make 99.5 % of the executions: covering all of them triples the blocks of Super Mario 64 for half a point). No interpreted
+instruction is unclassified and none is "unseen". The play routes reach play: Mario in the castle grounds, Link in his house and in the
+forest, Rayman in the prison ship; the main route reaches a race in Mario Kart 64 and F-Zero X, Spiral Mountain in Banjo-Tooie and the Dam
+in GoldenEye 007. Two coverage gaps were found by the listing and fixed before this panel: the run after an MFC0 (Super Mario 64's wait
+on the Count register; 94.2 % native before) and TLB-mapped code (GoldenEye 007: 1.1 % before).
+
+**What received paths would add (G16).** An N64 conversion is one observation pass, so a received path cannot save a pass. It can make
+code native beyond the receiver's own routes: of the instructions each play route ran, a Standard conversion (main and explore routes
+only) would have left on the interpreter 2.3 % (Majora's Mask), 3.9 % (Rayman 2), 7.3 % (Ocarina of Time) and 11.5 % (Super Mario 64);
+an Extended conversion that plays the route leaves 0.54 % to 0.72 %. The Nintendo 64 does not share paths yet (not in `SHARED_SYSTEMS`).
 
 ### What "met" means for the Nintendo 64 (the target for leaving the experimental status, 14 November 2026)
 
@@ -208,12 +257,13 @@ the panel. None of the gates measures hardware fidelity, gameplay coverage or la
 
 ## 7. Known limits
 
-- A game whose code moves under the TLB keeps that code on the interpreter.
+- TLB-mapped code becomes native only in the pages the TLB maps when the reference observes it, and a page the game maps to other code
+  later is a guard miss (counted). The uncached KSEG1 code (the boot code) always runs on the interpreter.
 - F-Zero X: a vibration on the objects and an odd level of detail on the vehicles, seen by the owner, cause not settled (section 6); neither the native blocks nor
   the graphics settings change what the game computes.
 - Only the games with a route of their own reach play, at the Extended level; the generic routes of the others may stay in menus.
-- A quick state is refused by another build of the same game. A resumed game's sound samples differ from the unbroken run (section 6). At an internal resolution above 1x the upscaled
-  coverage is not in the state, and only the default resolution is checked.
+- A quick state is refused by another build of the same game. At an internal resolution above 1x the upscaled coverage is not in the state (the first two
+  frames after a load show the 1x content), and only the default resolution is checked.
 - Linux is witnessed on two games, headless, one of them delivered unpacked (section 6). The owner played three games on Windows
   ([QUALIFICATION.md](QUALIFICATION.md)); no game has been played on Linux, and rumble has not been exercised.
 - Frame pacing is uneven on Ocarina of Time (section 6); no speed requirement is claimed.
