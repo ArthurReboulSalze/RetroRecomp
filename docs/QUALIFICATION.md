@@ -69,7 +69,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Commodore Amiga | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Atari ST | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
-| Sony PlayStation | experimental | `████░░░░░░` 41 % | ✅ 0 · 🟡 13 · ❔ 3 |
+| Sony PlayStation | experimental | `████░░░░░░` 44 % | ✅ 0 · 🟡 14 · ❔ 2 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | experimental | `████████░░` 81 % | ✅ 11 · 🟡 4 · ❔ 1 |
@@ -88,7 +88,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | ✅ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ❔ |
@@ -118,7 +118,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | P | P | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
-| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
+| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | Y |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | ? |
@@ -985,7 +985,7 @@ players' toolchain (llvm-mingw). `P` means a part is shown and the rest is named
 | G8 | P | Every route must show a moving picture; the report gives picture changes and audible frames | Only routes of 3,600 and 3,900 frames, and they show little: Hi-Octane's attract picture stops changing after frame 1,537, Ape Escape's play route ends on a dark screen after its "DUALSHOCK required" notice, without gameplay |
 | G9 | ? | Not measured: the long routes of the higher levels exist and were not run on the panel | |
 | G10 | P | `tools/psx_vector_selftest.py` on 8 November 2026: SingleStepTests/r3000, generated from ares's interpreter (55,000 of 55,000 on the core's interpreter, 55,000 of 55,000 on the native steps), and the GTE vectors of JaCzekanski/ps1-tests (1,150 of 1,150); the check of the check corrupts vectors and sees it on each path | The CPU vectors come from a model, not silicon, and hold no COP0 or GTE instruction; the GTE values come from a console according to their author and run on the GTE directly, not through a COP2 step |
-| G11 | ? | No independent hardware comparison | |
+| G11 | P | `tools/psx_hardware_selftest.py` (15 November 2026): the prebuilt programs of JaCzekanski/ps1-tests (release build-158, MIT; their expected results recorded on a console by the suite's authors) boot through the player's BIOS from a small disc the tool builds (licensed volume, SYSTEM.CNF, every sector with its EDC and ECC) on the machine prepared as a conversion prepares it. GPU, the whole VRAM against the console's: in the 320x240 area the tests draw, 9 of 11 equal to the pixel (clipping, quad, rectangles, texture-flip, texture-overflow, transparency, triangle, uv-interpolation, vram-to-vram-overlap), clut-cache 99.67 % (one row: the CLUT cache is not modelled), lines 99.92 % (line ends); mask-bit prints 7 of 7 lines as the console, gp0-e1 10 of 12 | Named behaviours, not the chips. The tests that print cycle counts measured on the console differ wherever the timing does (timers 1 of 129 lines, the DMA tests 2-10 of 11-132, CD-ROM getloc 16 of 45, timing 2 of 19; the lines are compared in order); disc-swap stops at 5 of 11 lines (no lid opened); SPU and MDEC tests not run; one console's output, one BIOS |
 | G12 | P | Ten discs with different risks, none dropped: Ape Escape, Crash Bandicoot, Final Fantasy VII (3 discs), Hi-Octane (PAL, CloneCD), Metal Gear Solid (2 discs), R4 (NTSC-J), Soul Reaver, Symphony of the Night, Tomba!, WipEout 2097 (PAL, CUE). Hi-Octane stands in for Soul Blade, which the owner's library does not hold. All convert and pass the checks above | A broader panel. Routes reach a title screen, an intro, a menu or a first level, not the depth of a game |
 | G13 | P | Ape Escape converted on a Debian 13 PC with the system GCC (14.2) on 8 November 2026: on both routes the native, interpreted and unrun counts, the picture, sound and trace hashes and the native-step digest equal the Windows run's; controls and F8/F9 pass there too | One disc, as chosen; a quick state is not compared across systems; no game played on Linux |
 | G14 | ? | The owner tried Tobal No. 1 during development (8 November 2026: playable; its fight music, after the CD-audio fix: "c'est ok"; whether the sudden crackles measured at 4x are gone was not said): a trial, not an acceptance | The owner's decision; a play test of the panel |

@@ -98,7 +98,9 @@ Each line is one measure; none says anything about the others. The record is in
   game, 55,000 R3000A vectors pass on the interpreter and on the native steps, and 1,150 GTE vectors pass on the GTE. The CPU
   vectors come from ares's model, not from a console, and hold no COP0 or GTE instruction: this is agreement with a model, not
   proof against the silicon.
-- **Hardware fidelity**: not measured. It is Beetle's.
+- **Hardware fidelity**: Beetle's. Measured on named behaviours only (`tools/psx_hardware_selftest.py`, 15 November 2026): the GPU
+  tests of ps1-tests, booted through the BIOS like a game, draw what a console drew on 9 of 11 to the pixel, the CLUT cache and line
+  ends apart; the timer, DMA and CD-ROM tests print cycle counts that differ from the console's ([QUALIFICATION.md](QUALIFICATION.md)).
 - **Gameplay validation**: scripted routes reaching title screens, intros, menus or a first level, no deeper. Nobody has played
   the panel. Ape Escape's play route stops at a dark screen after its "DUALSHOCK required" notice: its gameplay is not shown.
 - **Physical latency**: not measured.
