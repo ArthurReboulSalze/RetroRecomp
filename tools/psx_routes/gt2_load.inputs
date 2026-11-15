@@ -1,0 +1,4 @@
+# Gran Turismo 2 (Simulation Mode disc): the title, Start Game; with a saved card the game reads its data at start (gate G7,
+# tools/psx_saves_check.py --card). "frame p1 p2", the pads held from that frame.
+2100 0001 0000
+2108 0000 0000

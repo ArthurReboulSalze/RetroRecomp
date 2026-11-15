@@ -25,21 +25,21 @@ tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py 
 retrorecomp/gba_knowledge.py tests/test_gba_knowledge.py tools/gba_bogus_rows_audit.py tests/test_gba_bogus_rows_audit.py
 tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
 tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py tools/gba_fresh_process.py tests/test_gba_fresh_process.py tools/gba_routes/advance_wars_field_training.keys tools/gba_routes/metroid_fusion_new_game.keys tools/gba_routes/sonic_advance_2_save_show.keys tools/gba_routes/sonic_advance_2_save_write.keys tools/gba_routes/wario_land_4_entry_passage.keys tools/gba_routes/pokemon_emerald_new_game_house.keys tools/gba_routes/minish_cap_new_file_home.keys tools/gba_routes/golden_sun_new_game_vale.keys tools/gba_routes/pokemon_emerald_save_write.keys tools/gba_routes/pokemon_emerald_save_show.keys tools/gba_routes/pokemon_ruby_new_game_house.keys tools/gba_routes/mario_and_luigi_superstar_saga_new_game_toad.keys tools/gba_routes/mario_kart_super_circuit_first_race.keys tools/gba_routes/mega_man_zero_3_new_game_first_stage.keys tools/gba_routes/crazy_taxi_catch_a_ride_driving.keys tools/gba_routes/minish_cap_save_show.keys tools/gba_routes/f_zero_maximum_velocity_save_write.keys tools/gba_routes/f_zero_maximum_velocity_save_show.keys tools/gba_routes/minish_cap_walk_in_the_house.keys tools/gba_routes/mario_kart_super_circuit_long_race.keys tools/gba_routes/crazy_taxi_catch_a_ride_long_drive.keys tools/gba_routes/golden_sun_vale_walk.keys tools/gba_route_captures.py tests/test_gba_route_captures.py
-tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c
+tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c tools/psx_hardware_selftest.py native/psx_vector_checks/psx_hardware.c tests/test_psx_hardware_selftest.py tools/psx_route_captures.py tools/psx_saves_check.py tools/psx_routes/wipeout2097_save.inputs tools/psx_routes/wipeout2097_load.inputs tools/psx_routes/gt2_load.inputs
 native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
 retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_backup.c native/pce_backup.h
-native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py
+native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py native/save_set_aside.c native/save_set_aside.h
 native/hostkit/adapters/rrhk_pce.c
 retrorecomp/systems/scummvm.py retrorecomp/scummvm_build.py retrorecomp/scummvm_export.py docs/SCUMMVM.md
 native/scummvm/LICENSE native/scummvm/README.md native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch native/scummvm/patches/0002-retrorecomp-options-page.patch native/scummvm/patches/0003-retrorecomp-theme-colours.patch
 licenses/scummvm.md licenses/freetype.md tools/build_scummvm_source_archive.py tests/test_scummvm_export.py
 retrorecomp/psx.py retrorecomp/psx_bios.py retrorecomp/psx_disc.py retrorecomp/systems/psx.py
-tests/test_psx_disc.py tests/test_psx_pack.py tests/test_psx_native.py tests/test_psx_adapter.py docs/PLAYSTATION.md retrorecomp/psx_beetle.py retrorecomp/psx_pack.py licenses/beetle-psx.md
+tests/test_psx_disc.py tests/test_psx_pack.py tests/test_psx_native.py tests/test_psx_adapter.py tests/test_psx_knowledge.py docs/PLAYSTATION.md retrorecomp/psx_beetle.py retrorecomp/psx_pack.py licenses/beetle-psx.md
 native/psx_machine/CMakeLists.txt native/psx_machine/psx_session.c native/psx_machine/psx_session.h native/psx_machine/psx_reference.c
-native/psx_machine/psx_main.c native/psx_machine/psx_observe.c retrorecomp/psx_native.py retrorecomp/psx_build.py native/hostkit/adapters/rrhk_psx.c retrorecomp/psx_conversion.py
+native/psx_machine/psx_main.c native/psx_machine/psx_observe.c retrorecomp/psx_native.py retrorecomp/psx_knowledge.py retrorecomp/psx_build.py native/hostkit/adapters/rrhk_psx.c retrorecomp/psx_conversion.py
 tests/test_x68000_availability.py tests/test_x68000_mouse.py tests/test_x68000_native_forms.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h
@@ -113,7 +113,7 @@ native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machin
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/n64_machine/n64_stubs.c
 native/n64_machine/glue/parallel_glue.cpp native/n64_machine/glue/parallel.h native/n64_machine/glue/libretro_private.h
 native/n64_machine/glue/libretro_memory.h native/n64_machine/glue/osal_export.h native/n64_machine/glue/GLideN64_libretro.h
-native/hostkit/adapters/rrhk_n64.inc licenses/mupen64plus-next.md tests/test_n64_profile.py tests/test_n64_native.py
+native/hostkit/adapters/rrhk_n64.inc licenses/mupen64plus-next.md tests/test_n64_profile.py tests/test_n64_native.py tools/n64_saves_check.py tools/n64_cpu_tests.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
 tests/test_x68000_conversion.py tests/test_x68000_fixture_disk.py tests/test_x68000_fixtures.py

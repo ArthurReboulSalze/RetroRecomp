@@ -32,6 +32,16 @@
 static RrN64Session *session;
 static unsigned frame_limit, frame_number;
 static bool quit_requested, restart_requested, failed;
+static int interpreted_sites_on;   /* --interpreted-sites: the report lists where the interpreter ran beside the blocks (G3) */
+/* --captures DIR --capture-every N: a picture every N frames of a test run, DIR/<frame>.ppm (route tuning and reading) */
+static const char *captures_dir;
+static unsigned capture_every;
+/* --dump-rdram FRAME:PATH: the RDRAM after that frame, raw (diagnosis of a run that leaves another; test runs only) */
+static const char *dump_rdram;
+/* --state-reload-at FRAME: save a state and load it back in the same process (diagnosis: a fresh process against the same one) */
+static unsigned reload_at;
+/* --saves-at-state PATH: the cartridge save memory written when --state-save-at saves the state */
+static const char *saves_snapshot;
 static char state_slot[PATH_CAP], save_path[PATH_CAP];
 static uint64_t save_hash;
 static int16_t frame_audio[2 * 8192];
@@ -281,7 +291,8 @@ static int run_headless(const char *trace_path, const char *report_path, const c
     const Uint64 frequency = SDL_GetPerformanceFrequency();
     if ((trace_path && !trace) || (times_path && !times)) { fail("Cannot write the trace"); return 1; }
     if (trace) fputs("frame\tvideo\tpcm\tram\tcpu\tPC\tsamples\tsize\n", trace);
-    if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); if (trace) fclose(trace); return 1; }
+    /* A refused state (damaged, another build, missing) ends the run with exit status 4, the file left as it was. */
+    if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); if (trace) fclose(trace); return 4; }
     for (n = 0; n < frame_limit; n++) {
         RrN64FrameInfo info;
         int16_t pcm[2 * 4096];
@@ -302,6 +313,28 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                     (unsigned long long)info.video, (unsigned long long)info.pcm, (unsigned long long)info.ram,
                     (unsigned long long)info.cpu, info.pc, info.samples, info.width, info.height);
         while (rr_n64_audio(session, pcm, 4096)) {}
+        if (captures_dir && capture_every && info.frame % capture_every == 0) {
+            char path[PATH_CAP];
+            snprintf(path, sizeof path, "%s/%06llu.ppm", captures_dir, (unsigned long long)info.frame);
+            if (!write_capture(path)) { fail("Cannot write a capture"); stopped = true; error = "capture failed"; break; }
+        }
+        if (dump_rdram && info.frame == strtoull(dump_rdram, NULL, 10) && strchr(dump_rdram, ':')) {
+            size_t size = 0;
+            const uint8_t *ram = rr_n64_rdram(session, &size);
+            FILE *f = open_utf8(strchr(dump_rdram, ':') + 1, L"wb");
+            if (f) { if (ram) fwrite(ram, 1, size, f); fclose(f); }
+        }
+        if (reload_at && info.frame == reload_at && (state_save(state_slot) || state_load(state_slot))) {
+            fail("The state reload failed"); stopped = true; error = "state reload failed"; break;
+        }
+        if (save_at && info.frame == save_at && saves_snapshot) {
+            /* The cartridge save as it is when the state is taken: the file a player's game keeps beside its states (test runs). */
+            size_t size = 0;
+            const uint8_t *memory = rr_n64_save_memory(session, &size);
+            FILE *f = open_utf8(saves_snapshot, L"wb");
+            if (!f || !memory || fwrite(memory, 1, size, f) != size) { if (f) fclose(f); fail("Cannot write the save snapshot"); return 1; }
+            fclose(f);
+        }
         if (save_at && info.frame == save_at && state_save(state_slot)) {
             fail("The quick state could not be saved"); stopped = true; error = "state save failed"; break;
         }
@@ -328,6 +361,12 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                 (unsigned long long)rr_n64_observed_count(session), nonblack, audible, rr_n64_fps(session),
                 rr_n64_audio_rate(session), w, h, load_start ? "true" : "false");
         json_text(r, rr_n64_gpu_name(session));
+        if (interpreted_sites_on) {
+            fputs(",\"interpreted_sites\":[", r);
+            if (!rr_n64_sites_write(session, r)) { fclose(r); fail("Cannot write the report"); return 1; }
+            fprintf(r, "],\"interpreted_sites_distinct\":%llu,\"interpreted_sites_unlisted\":%llu",
+                    (unsigned long long)rr_n64_site_distinct_count(session), (unsigned long long)rr_n64_site_unlisted_count(session));
+        }
         fputs("}\n", r);
         if (fclose(r)) { fail("Cannot write the report"); return 1; }
     }
@@ -396,6 +435,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--verbose")) verbose = true;
         else if (!strcmp(a, "--state-load-start")) load_start = true;
         else if (!strcmp(a, "--threaded-rdp")) game.threaded_rdp = 1;
+        else if (!strcmp(a, "--interpreted-sites")) game.interpreted_sites = interpreted_sites_on = 1;
         else if (!strcmp(a, "--help")) {
             puts("Retro-Recomp Nintendo 64 player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
                  "--observations FILE --frame-times TSV --cpu cached|pure|observe|native --gpu NAME --gfx KEY=INDEX --threaded-rdp\n"
@@ -409,6 +449,11 @@ int main(int argc, char **argv) {
             else if (!strcmp(a, "--trace")) trace_path = v;
             else if (!strcmp(a, "--report")) report_path = v;
             else if (!strcmp(a, "--capture")) capture_path = v;
+            else if (!strcmp(a, "--captures")) captures_dir = v;
+            else if (!strcmp(a, "--dump-rdram")) dump_rdram = v;
+            else if (!strcmp(a, "--state-reload-at")) reload_at = (unsigned)strtoul(v, NULL, 10);
+            else if (!strcmp(a, "--saves-at-state")) saves_snapshot = v;
+            else if (!strcmp(a, "--capture-every")) capture_every = (unsigned)strtoul(v, NULL, 10);
             else if (!strcmp(a, "--observations")) observe_path = v;
             else if (!strcmp(a, "--frame-times")) times_path = v;
             else if (!strcmp(a, "--cpu")) { if ((game.cpu = cpu_mode(v)) < 0) { fail("Unknown CPU mode"); return 1; } }
@@ -476,7 +521,7 @@ int main(int argc, char **argv) {
     } else {
 #ifdef RR_N64_WINDOWED
         for (k = 0; k < gfx_count; k++) if (!n64_gfx_assign(gfx[k], true)) { fail("Unknown --gfx option or value"); return 1; }
-        if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); return 1; }
+        if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); return 4; }
         if (times_path && !(frame_log = open_utf8(times_path, L"wb"))) { fail("Cannot write the frame times"); return 1; }
 #ifdef RR_N64_LINKED
         result = player_run_windowed(RR_N64_GAME_TITLE " | Nintendo 64");
@@ -493,5 +538,5 @@ int main(int argc, char **argv) {
     }
     fflush(stdout); fflush(stderr);
     /* The core's threads and coroutines are torn down with the process. */
-    _Exit(failed ? 1 : result);
+    _Exit(result == 4 ? 4 : failed ? 1 : result);   /* 4: a refused quick state, whatever else was said */
 }

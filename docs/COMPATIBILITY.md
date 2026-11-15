@@ -220,7 +220,7 @@ compatible games. The 68000 instructions its reference run saw become native cod
 instruction runs on Hatari's interpreter and is counted per route; the video, sound and disk chips are Hatari's. CPU fidelity, hardware fidelity, gameplay
 validation and physical latency are separate measures ([ATARI_ST.md](ATARI_ST.md#3-the-five-measures)): hardware fidelity and latency are not claimed, and no game is validated as played. STE, TT, Falcon and hard disks are not converted.
 
-The **Nintendo 64** profile is experimental since 1.7.1 ([status](NINTENDO_64.md)): it converts cartridge images (.z64, .v64, .n64, in any byte order) on
+The **Nintendo 64** profile is supported since 1.7.6 and no longer experimental, on the owner's decision of 15 November 2026 (it opened in 1.7.1; [status](NINTENDO_64.md)): it converts cartridge images (.z64, .v64, .n64, in any byte order) on
 Mupen64Plus-Next with the ParaLLEl renderer, which needs a graphics card with Vulkan 1.1 (integrated graphics unverified), within
 [its documented scope](NINTENDO_64.md). It has no list of compatible games: the VR4300 code a conversion sees running becomes guarded native blocks
 and the rest is counted as interpreted; CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures that are
@@ -231,10 +231,11 @@ recognises becomes one executable holding the whole game, with ScummVM as its ru
 nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
 that need Ogg Vorbis, FLAC or MP3 decoders are not supported yet ([details](SCUMMVM.md)).
 
-The **Sony PlayStation** profile is experimental since 1.7.1 ([status](PLAYSTATION.md)): a conversion makes a
+The **Sony PlayStation** profile is supported since 1.7.6, on the owner's decision of 15 November 2026 after his play test (open in 1.7.1; [status](PLAYSTATION.md)): a conversion makes a
 playable game whose R3000A code, as far as its routes saw it run, is guarded native steps; the rest runs on the interpreter and
 is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
-pad) and its checks are on [its page](PLAYSTATION.md).
+pad) and its checks are on [its page](PLAYSTATION.md). Its picture is drawn in software on one thread: 1x and 2x hold speed, a higher
+internal resolution is heavy in 3D scenes.
 
 The **MSX** profile is supported since 1.7.5, on the owner's decision of 14 November 2026 (it opened in 1.7.3; [G14](QUALIFICATION.md#owner-acceptance), [status](MSX.md)): it converts MSX1 cartridges (`.rom`, `.mx1`, or a ZIP
 holding one: plain 8 KiB to 64 KiB, Konami, Konami SCC, ASCII 8 KiB and ASCII 16 KiB mappers), booted by C-BIOS 0.29a or by your own MSX BIOS, within

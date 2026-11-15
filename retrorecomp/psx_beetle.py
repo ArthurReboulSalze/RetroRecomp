@@ -109,12 +109,15 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '/* Fetches that run no instruction: the interrupt entry (the instruction runs after the handler returns) and the\n'
      ' * fetches repeated while a DMA holds the CPU (Halted): counted apart, neither native nor interpreted. */\n'
      'uint64_t rr_psx_unrun_count = 0;\n'
+     '/* An instruction runs when no interrupt is pending, and a COP2 one (the GTE) even when one is: the dispatch table\n'
+     ' * maps COP2 | 0x80 to COP2, the interrupt is taken at the next instruction. */\n'
+     '#define RR_PSX_RUNS(word) (!IPCache || ((word) >> 26) == 0x12)\n'
      '#ifdef RR_PSX_OBSERVE\n'
      'void rr_psx_observe(uint32_t pc, uint32_t instr);\n'
-     '#define RR_PSX_OBSERVE_STEP if (!IPCache) rr_psx_observe(PC, instr);\n'
+     '#define RR_PSX_OBSERVE_STEP if (RR_PSX_RUNS(instr)) rr_psx_observe(PC, instr);\n'
      '#elif defined(RR_PSX_NATIVE)\n'
      'void rr_psx_fallback(uint32_t pc, uint32_t instr);\n'
-     '#define RR_PSX_OBSERVE_STEP if (!IPCache) rr_psx_fallback(PC, instr);\n'
+     '#define RR_PSX_OBSERVE_STEP if (RR_PSX_RUNS(instr)) rr_psx_fallback(PC, instr);\n'
      '#else\n'
      '#define RR_PSX_OBSERVE_STEP\n'
      '#endif\n'
@@ -128,7 +131,7 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '   if (physical - 0x1FC00000 < 0x80000)\n      return rr_psx_bios_steps[(physical - 0x1FC00000) >> 2];\n'
      '   return NULL;\n}\n'
      '#define RR_PSX_STEP_HOOK \\\n'
-     '   if (MDFN_LIKELY(!IPCache)) \\\n'
+     '   if (MDFN_LIKELY(RR_PSX_RUNS(instr))) \\\n'
      '   { \\\n'
      '    const RrPsxStep rr_step_ = rr_psx_step_at(PC); \\\n'
      '    if (rr_step_) \\\n'
@@ -136,7 +139,18 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '     RrPsxRegs rr_regs_; \\\n'
      '     rr_regs_.timestamp = timestamp; rr_regs_.PC = PC; rr_regs_.new_PC = new_PC; \\\n'
      '     rr_regs_.LDWhich = LDWhich; rr_regs_.LDValue = LDValue; rr_regs_.instr = instr; \\\n'
-     '     const int rr_fetched_ = rr_step_(&rr_regs_); \\\n'
+     '     uint32_t rr_entry_ = PC; \\\n'
+     '     int rr_fetched_ = rr_step_(&rr_regs_); \\\n'
+     '     /* A step that went on to a word it does not hold (code of another run at that address) hands it to the step \\\n'
+     '      * that holds it, entered with the word just fetched; one that made no progress hands it to the interpreter. */ \\\n'
+     '     while (rr_fetched_ && rr_regs_.PC != rr_entry_) \\\n'
+     '     { \\\n'
+     '      const RrPsxStep rr_next_ = rr_psx_step_at(rr_regs_.PC); \\\n'
+     '      if (!rr_next_) \\\n'
+     '       break; \\\n'
+     '      rr_entry_ = rr_regs_.PC; \\\n'
+     '      rr_fetched_ = rr_next_(&rr_regs_); \\\n'
+     '     } \\\n'
      '     timestamp = rr_regs_.timestamp; PC = rr_regs_.PC; new_PC = rr_regs_.new_PC; \\\n'
      '     LDWhich = rr_regs_.LDWhich; LDValue = rr_regs_.LDValue; instr = rr_regs_.instr; \\\n'
      '     if (!rr_fetched_) \\\n'
@@ -188,7 +202,15 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      'NO_INLINE uint32_t rr_psx_exception(uint32_t code, uint32_t pc, uint32_t np, uint32_t instr) '
      '{ return CPU_Exception(code, pc, np, instr); }\n'
      'NO_INLINE void rr_psx_recalc_ipcache(void) { CPU_RecalcIPCache(); }\n'
-     '#endif\n\n'
+     '#endif\n'
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the CPU state a game sees, for the per-frame trace (between two\n'
+     ' * frames the interpreter\'s locals are written back): the 32 registers, LO, HI, the PC and the next one, the pending\n'
+     ' * load, and SR, CAUSE and EPC. */\n'
+     'void rr_psx_cpu_registers(uint32_t out[41])\n{\n'
+     '   unsigned n;\n'
+     '   for (n = 0; n < 34; n++)\n      out[n] = GPR[n];\n'
+     '   out[34] = BACKED_PC; out[35] = BACKED_new_PC; out[36] = BACKED_LDWhich; out[37] = BACKED_LDValue;\n'
+     '   out[38] = cpu_CP0.n.SR; out[39] = cpu_CP0.n.CAUSE; out[40] = cpu_CP0.n.EPC;\n}\n\n'
      'int32_t CPU_Run(PS_CPU *self, int32_t timestamp_in)\n{\n'),
     # The CPU state the steps share with the interpreter: defined here, declared in a slice of steps.
     ('mednafen/psx/cpu.c',
@@ -371,6 +393,38 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '      if (pix)\n'
      '         GPU_BlankUndrawnRows((uint32_t *)pix, pitch, width, height, Deinterlacer_GetType(&deint) == DEINT_BOB);\n\n'
      '      if (     pix\n            && (GPU_get_display_possibly_dirty()\n'),
+    # A quick state's load gave back OTZ, the Z FIFO, register 23 and LZCS/LZCR from the GTE as it was before the load (the
+    # macros OTZ, Z_FIFO(i), Reg23, LZCS and LZCR read the live registers), not from the state: the values read from the file
+    # are the locals of the same names. Seen by the CPU-state column of the per-frame trace (14 November 2026: Ape Escape's
+    # F9 continuation differed in the GTE on 37 of 600 frames, RAM, picture and sound equal).
+    # And the state kept LZCR computed from LZCS, not the register itself, which GTE_Power sets to 0 (the computed value of
+    # LZCS 0 is 32): a game that has not written LZCS yet had LZCR 0 before the save and 32 after the load (Soul Reaver's F9
+    # continuation, 14 November 2026: the CPU state differed on all 600 frames, only there). The register is kept as it is.
+    ('mednafen/psx/gte.c',
+     '      _LZCR = MDFN_lzcount32(DR[30] ^ ((int32_t)DR[30] >> 31));\n',
+     '      /* Retro-Recomp modification (GPL-2.0, like this file): the register as it is (see GTE_Power). */\n'
+     '      _LZCR = DR[31];\n'),
+    ('mednafen/psx/gte.c',
+     '      DR[7] = (uint16_t)OTZ;\n',
+     '      /* Retro-Recomp modification (GPL-2.0, like this file): the values of the state, not the live registers. */\n'
+     '      DR[7] = (uint16_t)_OTZ;\n'),
+    ('mednafen/psx/gte.c',
+     '      DR[16] = (uint16_t)Z_FIFO(0);\n'
+     '      DR[17] = (uint16_t)Z_FIFO(1);\n'
+     '      DR[18] = (uint16_t)Z_FIFO(2);\n'
+     '      DR[19] = (uint16_t)Z_FIFO(3);\n',
+     '      DR[16] = (uint16_t)Z_FIFO[0];\n'
+     '      DR[17] = (uint16_t)Z_FIFO[1];\n'
+     '      DR[18] = (uint16_t)Z_FIFO[2];\n'
+     '      DR[19] = (uint16_t)Z_FIFO[3];\n'),
+    ('mednafen/psx/gte.c',
+     '      DR[23] = Reg23;\n',
+     '      DR[23] = _Reg23;\n'),
+    ('mednafen/psx/gte.c',
+     '      DR[30] = LZCS;\n'
+     '      DR[31] = LZCR;\n',
+     '      DR[30] = _LZCS;\n'
+     '      DR[31] = _LZCR;\n'),
 ]
 
 

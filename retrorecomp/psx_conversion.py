@@ -4,8 +4,9 @@ The game executable is the Beetle PSX machine with the player's BIOS embedded (O
 appended. The conversion first builds the observing machine (the interpreter alone, recording the R3000A code it runs) and plays
 its routes on it: those runs are the reference. From the code they ran it writes the game's native steps (retrorecomp/psx_native.py:
 the interpreter's handler bodies with each instruction word constant, its timing kept, the fetched word as guard), builds the game
-with them, and plays every route again on the executable that is published (the disc inside it): each frame's picture, sound and
-RAM must be the reference's. The instructions the steps do not hold run on the interpreter and are counted. It then checks F8/F9
+with them, and plays every route again on the executable that is published (the disc inside it): each frame's picture, sound,
+RAM and CPU state (registers, COP0, GTE) must be the reference's. The instructions the steps do not hold run on the interpreter
+and are counted, each by address with its reason. It then checks F8/F9
 in a fresh process and the refusal of a damaged state, and writes the report. A game that carries its disc after the program is
 published as built: UPX would move the data the program reads.
 
@@ -43,26 +44,61 @@ def _script(rows) -> str:
     return ''.join(f'{frame} {p1:04x} {p2:04x}\n' for frame, p1, p2 in rows) or '0 0000 0000\n'
 
 
+MENU_PERIOD = 900               # frames between two menu pushes of the walk
+
+
 def play_rows(frames: int, seed: int) -> list:
     """Start and Cross pressed through the title screens once the BIOS has booted, then a deterministic walk: a held
-    direction changing every second or so, with Cross and Circle tapped. Start is never pressed in the walk (it pauses)."""
+    direction changing every second or so, with Cross and Circle tapped, or with Cross held (to accelerate, to run). Every
+    MENU_PERIOD frames the walk pushes through a menu: Start twice, then Cross twice. In play the two Starts are a pause and
+    its release; on a title, a name entry or a menu that the first screens did not get past (a title that comes late, a
+    demo that loops), they are the steps a player takes. Nothing in it answers one game."""
     rows = []
     for at in range(BOOT_FRAMES, min(frames, BOOT_FRAMES + 1200), 240):
         rows += [(at, START, 0), (at + 8, 0, 0), (at + 120, CROSS, 0), (at + 128, 0, 0)]
     state = seed & 0xFFFFFFFF or 1
     directions = (RIGHT, RIGHT | UP, RIGHT | DOWN, LEFT, UP, DOWN, RIGHT)
     frame = BOOT_FRAMES + 1200
+    menu = frame + MENU_PERIOD // 2
     while frame < frames:
+        if frame >= menu:
+            for offset, button in ((0, START), (40, START), (80, CROSS), (120, CROSS)):
+                rows += [(frame + offset, button, 0), (frame + offset + 6, 0, 0)]
+            frame += 160
+            menu += MENU_PERIOD
+            continue
         state = (state * 1103515245 + 12345) & 0x7FFFFFFF
         held = directions[state % len(directions)]
         span = 30 + (state >> 8) % 60
-        for tap in range(0, span - 4, 12):
-            button = CROSS if (state >> (tap % 7)) & 1 else CIRCLE
-            rows += [(frame + tap, held | button, 0), (frame + tap + 4, held, 0)]
+        if (state >> 20) & 1:
+            rows.append((frame, held | CROSS, 0))
+        else:
+            for tap in range(0, span - 4, 12):
+                button = CROSS if (state >> (tap % 7)) & 1 else CIRCLE
+                rows += [(frame + tap, held | button, 0), (frame + tap + 4, held, 0)]
         frame += span
     rows = [row for row in rows if row[0] < frames]
     assert all(a[0] <= b[0] for a, b in zip(rows, rows[1:])), 'route frames must not go back'
     return rows
+
+
+# What the routes of a disc are known to stop on before play, by the disc's SHA-256: words about a game, never its bytes, read on
+# the captures of a panel and carried into the report's `route_warnings` (gate G9 names each panel disc whose routes do not reach
+# play, with its reason). It changes nothing a conversion does: no route is chosen from it.
+ROUTE_STOPS = {
+    '229817221df105882cc2fc23fa20ec60747b21d5c878e106ad0617d5bf3640ad':
+        'Metal Gear Solid: the routes pass its title, its menu and its level select, and the game goes back to its title '
+        'screen; the 18,000-frame route never starts a mission',
+    'cf687987dc11de870035643d5a4126a374b33c258eb925b2b2c81fda7bbff972':
+        'Gran Turismo 2 (Simulation Mode disc): the routes reach its world map and then its credit pages, where the walk '
+        'stays; no race is driven',
+}
+
+
+def route_stops(identity: str) -> list[str]:
+    """The known stop of a disc, as the words `route_warnings` carries: [] for a disc that is not in the table."""
+    note = ROUTE_STOPS.get(identity)
+    return [f'known stop (panel of 14 November 2026): {note}'] if note else []
 
 
 def routes(identity: str, *, frames: int, level: str) -> list[tuple[str, int, str]]:
@@ -82,13 +118,13 @@ def trace_rows(trace: Path):
     from .delivery_evidence import FrameRow
     for line in Path(trace).read_text(encoding='ascii').splitlines():
         fields = line.split(',')
-        if len(fields) != 7 or not fields[0].isdigit():
+        if len(fields) != 8 or not fields[0].isdigit():
             continue
         yield FrameRow(int(fields[0]), fields[2], sound=fields[3], audible=fields[5] == '1')
 
 
 def trace_difference(actual: Path, expected: Path) -> int | None:
-    """The first frame where two traces differ (None: the same picture, sound and RAM on every frame)."""
+    """The first frame where two traces differ (None: the same RAM, picture, sound and CPU state on every frame)."""
     from .conversion_gates import first_difference
     one = Path(actual).read_text(encoding='ascii').splitlines()[1:]
     other = Path(expected).read_text(encoding='ascii').splitlines()[1:]
@@ -268,8 +304,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         phase = time.perf_counter()
         with stages.phase('code_generation'):
             pairs, overflow = psx_native.read_observations(observations)
+            own = dict(pairs)             # this conversion's own observations: the only words its record shares
             from .feedback import records
             hints = psx_native.add_hints(pairs, records('psx', sha, psx_native.HINT_KIND))
+            from . import psx_knowledge
+            bios_data = bios.data() if bios else None
+            use = psx_knowledge.receive(sha, item.path, bios_data, pairs)
             native = psx_native.write(tree / 'mednafen' / 'psx' / 'cpu.c', pairs, project)
             psx_build.set_native(project, tree, True)
         emit(f'PlayStation: {native["instructions"]} observed instructions in {native["steps"]} native steps; '
@@ -285,7 +325,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         with stages.phase('reference_and_native_runs'):
             for name, count, _ in plan:
                 emit(f'PlayStation: route {name} on the game ({count} frames, native steps).')
-                results[name] = run(final, checks / 'routes', name, count, scripts[name])
+                results[name] = run(final, checks / 'routes', name, count, scripts[name],
+                                    '--interpreted', str(checks / 'routes' / (name + '.interpreted')))
+                results[name]['interpreted_by_address'] = psx_native.explain_interpreted(
+                    tree / 'mednafen' / 'psx' / 'cpu.c', pairs, checks / 'routes' / (name + '.interpreted'))
                 difference = trace_difference(results[name]['trace'], reference[name]['trace'])
                 require(difference is None, lambda: ConversionError(
                     f'PlayStation {name}: the native steps differ from the interpreter at frame {difference}; '
@@ -298,6 +341,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             states = check_states(final, checks / 'states', 'play', play[1], scripts['play'], results['play']['trace'])
             inputs = check_inputs(final, checks / 'inputs-check')
         timings['state_checks'] = round(time.perf_counter() - phase, 3)
+        knowledge = psx_knowledge.conclude(sha, item.path, item.disc_digests, bios_data, own, use, title)
     if not any(reference[name]['nonzero_samples'] for name, _, _ in plan):
         emit('PlayStation: no route produced sound (reported, not refused).')
     final_sha = file_sha256(final)
@@ -311,6 +355,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                             'interpreted_opcodes': r['interpreted_instructions'],
                             'interpreter_percent': round(100.0 * r['interpreted_instructions'] / ran, 4) if ran else 0.0,
                             'reference_interpreted_opcodes': reference[name]['interpreted_instructions'],
+                            # each interpreted instruction of the route by address, with its reason (psx_native.REASONS)
+                            'interpreted_by_address': r['interpreted_by_address'],
                             # fetches that ran no instruction (an interrupt taken, the CPU held by a DMA): neither count
                             'unrun_fetches': r['unrun_fetches'],
                             'image_hash': r['image_hash'], 'pcm_hash': r['pcm_hash'], 'nonzero_samples': r['nonzero_samples'],
@@ -328,10 +374,14 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                      'adaptation': psx_beetle.adaptation_digest(),
                      'native_cpu': 'guarded native steps of the observed R3000A code (the interpreter\'s handler bodies, its '
                                    'timing kept); the rest runs on the core interpreter and is counted',
-                     'native_steps': native | {'observation_overflow': overflow, 'runtime_hints_added': hints}},
+                     'native_steps': native | {'observation_overflow': overflow, 'runtime_hints_added': hints,
+                                               'received_words_added': use.get('new_to_this_build', 0)}},
+        'knowledge': knowledge,
         'final_checks': checks_rows,
+        'route_warnings': route_stops(sha),
         'native_validation': {'passed': True, 'scope': 'every route played on the published game (native steps) gives the '
-                                                        'same picture, sound and RAM on every frame as the interpreter alone '
+                                                        'same picture, sound, RAM and CPU state (R3000A registers, HI, LO, PC, '
+                                                        'SR, CAUSE, EPC, GTE registers) on every frame as the interpreter alone '
                                                         '(the observing build, another process)',
                               'reference_kind': "the core's interpreter (Beetle PSX at the same revision)",
                               'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,

@@ -1,4 +1,4 @@
-"""Nintendo 64 profile (experimental: see docs/NINTENDO_64.md).
+"""Nintendo 64 profile (supported since 1.7.6, open as experimental in 1.7.1: see docs/NINTENDO_64.md).
 
 The machine is listed when the installation carries the converter's own files (`available()`); an N64 image is refused with a
 sentence otherwise.
@@ -27,7 +27,7 @@ class Nintendo64Profile(SystemProfile):
     extensions = ('.z64', '.v64', '.n64')
     export_folder = 'Nintendo 64'
     video_modes = ('ntsc', 'pal')
-    status = 'experimental'
+    status = 'supported'
     scope_note = 'Nintendo 64 cartridges (NTSC, PAL), Vulkan renderer, no 64DD'
     cpus = (Cpu('vr4300', 'main', 'instructions'),)
     media_kinds = ('cartridge',)
@@ -62,7 +62,7 @@ class Nintendo64Profile(SystemProfile):
         if not recognise(path):
             return None
         if not self.available():
-            raise UnsupportedConsoleError('The experimental Nintendo 64 profile is unavailable in this installation.')
+            raise UnsupportedConsoleError('The Nintendo 64 profile is unavailable in this installation.')
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected Nintendo 64; choose Automatic or Nintendo 64.', self.id)
         return self

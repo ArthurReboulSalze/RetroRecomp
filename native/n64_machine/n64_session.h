@@ -48,6 +48,7 @@ typedef struct RrN64Game {
     const char *gpu;                      /* a part of the Vulkan device's name to prefer; NULL: the first discrete GPU */
     int evidence;                         /* 1: each frame waits for the GPU before RDRAM is hashed (headless checks) */
     int threaded_rdp;                     /* 1: parallel-rdp records on its worker thread (faster, not deterministic) */
+    int interpreted_sites;                /* 1: keep where the interpreter ran beside the blocks (gate G3; test runs only) */
     const char *pak;                      /* controller pak of every pad: "memory" (default), "rumble", "none" */
     void (*log)(const char *line);        /* the core's warnings, for diagnostics; NULL: quiet */
 } RrN64Game;
@@ -103,6 +104,11 @@ uint64_t rr_n64_guard_miss_count(const RrN64Session *s);
 /* The observation (RR_N64_CPU_OBSERVE): lines "pc count len word..." per (address, code identity). 1: written. */
 int rr_n64_observations_write(const RrN64Session *s, void *file);
 size_t rr_n64_observed_count(const RrN64Session *s);
+/* Where the interpreter ran beside the native blocks (game->interpreted_sites): distinct (pc, word, reason) entries, the
+ * instructions beyond the table, and the entries as JSON rows [pc, word, "reason", count] separated by commas (1: written). */
+size_t rr_n64_site_distinct_count(const RrN64Session *s);
+uint64_t rr_n64_site_unlisted_count(const RrN64Session *s);
+int rr_n64_sites_write(const RrN64Session *s, void *file);
 /* The Vulkan device the renderer runs on (its name), for the report. */
 const char *rr_n64_gpu_name(const RrN64Session *s);
 

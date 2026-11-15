@@ -105,7 +105,6 @@ UPSTREAM_CREDITS = (
 # A line under a machine's name in the credits: its terms, or where it stands.
 UPSTREAM_CREDIT_NOTES = {
     'Sharp X68000': 'credits_x68_status',
-    'Nintendo 64': 'credits_experimental',
     'Sony PlayStation': 'credits_experimental',
     'Adventure (ScummVM)': 'credits_emulated',
 }

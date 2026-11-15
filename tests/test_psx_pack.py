@@ -112,6 +112,28 @@ class PackTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(game.stat().st_mode), 0o755)
 
 
+class RouteTests(unittest.TestCase):
+    """The play and long routes: the same script for the same disc, Start only on the first screens and in the walk's menu
+    pushes (two Starts, then two Crosses), every MENU_PERIOD frames."""
+
+    def test_the_walk_pushes_through_menus_at_a_fixed_period(self):
+        c = psx_conversion
+        rows = c.play_rows(c.LONG_FRAMES, 0x1234ABCD)
+        self.assertEqual(rows, c.play_rows(c.LONG_FRAMES, 0x1234ABCD))
+        self.assertNotEqual(rows, c.play_rows(c.LONG_FRAMES, 0x1234ABCE))
+        self.assertTrue(all(a[0] <= b[0] for a, b in zip(rows, rows[1:])))
+        walk = c.BOOT_FRAMES + 1200
+        starts = [frame for frame, pads, _ in rows if pads & c.START]
+        self.assertEqual([f for f in starts if f < walk], list(range(c.BOOT_FRAMES, walk, 240)))
+        pushes = [f for f in starts if f >= walk][::2]
+        self.assertTrue(pushes and all(b - a == c.MENU_PERIOD for a, b in zip(pushes, pushes[1:])))
+        self.assertTrue(all((f + 40, c.START, 0) in rows and (f + 80, c.CROSS, 0) in rows and (f + 120, c.CROSS, 0) in rows
+                            for f in pushes))
+        # half of the walk's spans hold Cross with the direction (to accelerate, to run)
+        self.assertTrue(any(pads & c.CROSS and pads & (c.LEFT | c.RIGHT | c.UP | c.DOWN) and (f + 4, pads & ~c.CROSS, 0)
+                            not in rows for f, pads, _ in rows))
+
+
 class UndrawnRowsTests(unittest.TestCase):
     def test_the_rows_a_wrapping_display_reads_stay_at_their_place_and_are_only_those_the_game_cannot_draw(self):
         gpu = next(new for rel, old, new in psx_beetle.REPLACEMENTS if 'GPU_BlankUndrawnRows' in new and rel.endswith('gpu.c'))

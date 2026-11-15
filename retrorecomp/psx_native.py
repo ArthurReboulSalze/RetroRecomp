@@ -98,11 +98,16 @@ def _strip_comments(text: str) -> str:
 @dataclass(frozen=True)
 class Handlers:
     table: tuple[str, ...]          # handler name of each opf value without a pending interrupt (128 entries)
+    pending: tuple[str, ...]        # and with one (opf | 0x80): INTERRUPT, except COP2, which runs anyway
     bodies: dict                    # name -> body text, comments removed
     digest: str
 
     def name(self, word: int) -> str:
         return self.table[opf(word)]
+
+    def runs_with_interrupt_pending(self, word: int) -> bool:
+        """True when the interpreter runs this word even with an interrupt pending (its handler, not INTERRUPT)."""
+        return self.pending[opf(word)] == self.name(word)
 
 
 def handlers(cpu_text: str) -> Handlers:
@@ -129,7 +134,7 @@ def handlers(cpu_text: str) -> Handlers:
             raise NativeError(f'Beetle PSX cpu.c: the {name} handler leaves its body; it cannot be a native step.')
     digest = hashlib.sha256('\0'.join(f'{n}\0{bodies[n]}' for n in sorted(bodies)).encode()
                             + '\0'.join(table).encode()).hexdigest()
-    return Handlers(table[:128], bodies, digest)
+    return Handlers(table[:128], table[128:], bodies, digest)
 
 
 def opf(word: int) -> int:
@@ -234,6 +239,8 @@ void rr_psx_recalc_ipcache(void);
    if ((PC & 0x1FFFFFFF) != (physical)) goto rr_out; \\
    rr_word = RR_READ_INSTRUCTION;
 #define RR_GUARD(word) if (rr_word != (word) || IPCache) goto rr_fetched;
+/* A word the interpreter runs even with an interrupt pending (COP2): the guard is the word alone, as its dispatch. */
+#define RR_GUARD_RUNS(word) if (rr_word != (word)) goto rr_fetched;
 #define RR_TICK \\
    if (ReadAbsorb[ReadAbsorbWhich]) ReadAbsorb[ReadAbsorbWhich]--; else timestamp++; \\
    ++rr_psx_native_count;
@@ -291,7 +298,8 @@ def _step(table: Handlers, start: int, rank: int, run: list) -> str:
         lines.append(f'   /* {address:08x}: {word:08x} {name} */\n')
         if index:
             lines.append(f'   RR_FETCH(0x{address:08x}u)\n')
-        lines.append(f'   rr_e{index}: RR_GUARD(0x{word:08x}u)\n' if len(run) > 1 else f'   RR_GUARD(0x{word:08x}u)\n')
+        guard = 'RR_GUARD_RUNS' if table.runs_with_interrupt_pending(word) else 'RR_GUARD'
+        lines.append(f'   rr_e{index}: {guard}(0x{word:08x}u)\n' if len(run) > 1 else f'   {guard}(0x{word:08x}u)\n')
         branch = 'DO_BRANCH(' in table.bodies[name]
         if branch:
             lines.append(f'#undef BRANCH_DISPATCH\n#define BRANCH_DISPATCH goto rr_b{index};\n')
@@ -416,3 +424,65 @@ def write(cpu_c: Path, pairs: dict, folder: Path) -> dict:
             'addresses_with_variants': len(shared), 'handlers': sorted(used), 'handler_digest': table.digest,
             'variants_left_to_interpreter': p.variants_left, 'observed_executions': p.observed_runs,
             'observed_executions_in_steps': p.covered_runs, 'sources': sources, 'sha256': digest.hexdigest()}
+
+
+# ------------------------------------------------------------------ the interpreted remainder, by address (G3)
+
+INTERPRETED_MAGIC = 'RRPSX-INTERPRETED 1'
+REASONS = {
+    'other_run': 'held by a native step, but reached from the step of another word at the address before it, which hands '
+                 'it to the interpreter',
+    'variant_left': 'a word beyond the four kept for its address',
+    'not_observed': 'code the observed routes did not run',
+    'outside': 'outside main RAM and the BIOS, where no step is made',
+}
+LISTED = 400                        # rows listed per route in the report, the most run first (the rest summed by reason)
+
+
+def read_interpreted(path) -> tuple[list[tuple[int, int, int]], int, bool]:
+    """The game's --interpreted file: [(physical address, word, count)], the total of interpreted instructions, and whether
+    its table filled up."""
+    lines = Path(path).read_text(encoding='ascii').splitlines()
+    if not lines or lines[0] != INTERPRETED_MAGIC:
+        raise NativeError(f'{Path(path).name}: not a PlayStation interpreted-instruction file.')
+    rows, total, full = [], None, False
+    for line in lines[1:]:
+        fields = line.split()
+        if fields == ['full']:
+            full = True
+        elif len(fields) == 2 and fields[0] == 'total':
+            total = int(fields[1])
+        elif len(fields) == 3:
+            rows.append((int(fields[0], 16), int(fields[1], 16), int(fields[2])))
+        else:
+            raise NativeError(f'{Path(path).name}: unreadable line {line!r}.')
+    if total is None:
+        raise NativeError(f'{Path(path).name}: no total.')
+    return rows, total, full
+
+
+def explain_interpreted(cpu_c: Path, pairs: dict, path) -> dict:
+    """Each instruction the interpreter ran on a route of the game, with its reason (REASONS): the reasons summed, the
+    rows the most run first (LISTED of them), and what no reason explains ('unexplained', which must be 0)."""
+    rows, total, full = read_interpreted(path)
+    p = plan(pairs, handlers(Path(cpu_c).read_text(encoding='utf-8')))
+    held = {pair for _, _, run in p.steps for pair in run}
+    by_reason = dict.fromkeys(REASONS, 0)
+    listed = []
+    for address, word, count in rows:
+        if not executable(address):
+            reason = 'outside'
+        elif (address, word) in held:
+            reason = 'other_run'
+        elif (address, word) in pairs:
+            reason = 'variant_left'
+        else:
+            reason = 'not_observed'
+        by_reason[reason] += count
+        listed.append({'address': f'0x{address:08x}', 'word': f'0x{word:08x}', 'count': count, 'reason': reason})
+    # Every interpreted instruction passes the step hook, so the file lists them all: a difference is not explained.
+    unlisted = total - sum(count for _, _, count in rows)
+    listed.sort(key=lambda row: (-row['count'], row['address'], row['word']))
+    return {'total': total, 'pairs': len(rows), 'by_reason': by_reason, 'reasons': REASONS,
+            'rows': listed[:LISTED], 'rows_not_listed': max(0, len(listed) - LISTED), 'table_full': full,
+            'unlisted': unlisted, 'unexplained': abs(unlisted) + (1 if full else 0)}

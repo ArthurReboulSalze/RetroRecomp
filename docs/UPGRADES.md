@@ -89,6 +89,9 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
+| [Sony PlayStation: supported](#sony-playstation-supported-176) | the PlayStation (`retrorecomp/systems/psx.py`, its status) | none | none |
+| [Sony PlayStation: shared paths](#sony-playstation-shared-paths-176) | the PlayStation | none | none |
+| [Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable](#sony-playstation-the-cpu-state-is-compared-every-interpreted-instruction-is-listed-the-gtes-quick-state-is-fixed-the-memory-card-is-set-aside-when-unusable-176) | the PlayStation | the PlayStation's host stamp | PlayStation states of 1.7.5 refused (another build) |
 
 ## Game Boy Advance: supported (1.7.6)
 
@@ -200,6 +203,46 @@ The rows and pages a machine draws or adds itself get their icons ([HOST_KIT.md]
   `rrhk_computer.inc`; the CPS-1 adapter is built by `tools/hostkit_players_selftest.py`), the gallery of the five pages in
   English and French, the suite.
 
+## Nintendo 64: supported (1.7.6)
+
+**Status.** The Nintendo 64 is supported from 1.7.6, on the owner's decision of 15 November 2026 after his play test of the eight panel
+exports (G14, the owner-acceptance table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance);
+[NINTENDO_64.md](NINTENDO_64.md#supported-from-176-15-november-2026)). It does not share its paths, on the same decision (the gain
+judged too small: 2.3 % to 11.5 % of a play route at the Standard level). The profile's status is `supported`, the report's `status` is read
+from the profile, the Options note loses "experimental" in the eight languages and the credits no longer list the machine among the
+experimental ones.
+
+**What else the branch brings** (`spec/n64-176`): TLB-mapped code and the run after an MFC0 become native blocks; the report lists every
+interpreted instruction by class (the totals and the 256 most run sites; the whole listing in the qualification folder); the quick state
+(format `RRN64QS5`) holds what the core and its plugins left out, carries a checksum and continues with its sound; the restart check gives
+the save memory as it was; Majora's Mask and Rayman 2 have play routes.
+
+**Stamps** (`compilation_inputs.role_stamps`, this branch against main `03b1daa7`): the Nintendo 64 game stamp (`b2f1227b519d` to
+`8a8f380f9f2c`) and host stamp (`f8f6db677f10` to `e3bb3877160c`) move; its build stamp is unchanged. The host stamp of every other profile
+moves for the game catalogue (`native/runtime_catalog.inc`, the graphics page below); their game and build stamps equal main's.
+
+**Existing exports:** the game stamp moves, so a Nintendo 64 export is converted again in full at its next conversion. **Quick states:** the
+1.7.5 ones (`RRN64QS2`) are refused cleanly (exit status 4 in a test run; in play, the kit's notice). **Cartridge saves:** unchanged, the same
+file of 296,960 bytes beside the game. **Site limits:** unchanged (no shared paths). **Hot path:** the native blocks' dispatch adds a binary
+search for TLB-mapped addresses only; KSEG0 dispatch is unchanged.
+
+## Nintendo 64: the graphics page in five rows (1.7.6)
+
+On the owner's word of 15 November 2026 (« Oui, valide »), the F3 page of the Nintendo 64 keeps five rows: Internal resolution, Edge
+smoothing (console), Smooth scaling (console), Dither smoothing and Overscan crop (Native texture LOD left too once the owner
+closed his F-Zero X remark: its level of detail is the game's own)
+([NINTENDO_64.md](NINTENDO_64.md#4-in-the-game)).
+
+* **Stamps.** The host stamp of all 20 profiles moves (`native/runtime_catalog.inc` and the seven locale files: three new entries,
+  eight N64-only entries removed); the Nintendo 64's host stamp moves for its adapter `rrhk_n64.inc`. No game or build stamp, no
+  quick-state key.
+* **What players see.** Six rows fewer. The renderer's other settings are fixed at the defaults every check uses: no super-sampled
+  read-back, native texture LOD off, Bob deinterlacing, the gamma dither and native texture rectangles on; the divot filter follows Edge smoothing. A player who
+  had changed a removed row (Weave, the read-back) gets the default back; the kept rows keep their saved values (same ini keys).
+* **Texts.** Three new entries in the five game languages: "Edge smoothing (console)", "Smooth scaling (console)", "Dither smoothing".
+* **Checks.** A quick conversion of Super Mario 64, its game run headless with each kept row changed, and run with an ini that still
+  holds the removed rows; the suite.
+
 ## Every machine: "Quit the game", the last row of the options page (1.7.6)
 
 The options page ends with a **Quit the game** row ([HOST_KIT.md](HOST_KIT.md#d23), D23) that asks the same "Quit? No / Yes"
@@ -212,6 +255,53 @@ as Esc; No comes back to the page.
 * **Texts.** One new entry in the five game languages: "Quit the game".
 * **Checks.** `tools/hostkit_capabilities_selftest.py` run 9: the row asks, No and Esc come back to the page while the game
   waits, Esc then goes back to the tiles, Yes ends the loop (280 checks).
+
+## Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable (1.7.6)
+
+**What changes for a conversion.** The per-frame trace of every route carries a hash of the CPU state a game sees (the R3000A's 32
+registers, LO, HI, the PC, the pending load, SR, CAUSE, EPC and the GTE's 64 registers), so the published game is compared with the
+interpreter on it too, and so is the F9 continuation. Every instruction the interpreter runs on a route is listed by address in the
+report with its reason (`final_checks[].interpreted_by_address`). Two gaps of the native steps are closed: a step that reaches a word
+another step holds at the same address (code loaded over other code) hands it to that step, and a COP2 instruction, which Beetle runs
+with an interrupt pending, is held by a step too. Ape Escape, at the extended level: 0 interpreted instructions on its three routes
+(before: 6,527, 6,613 and 84,619).
+
+**Two fixes of the machine.** Loading a quick state left five of the GTE's registers as they were before the load, and gave
+LZCR a computed value instead of the register's (Beetle's `GTE_StateAction`; carried as our anchored fixes,
+[UPSTREAMS.md](UPSTREAMS.md#playstation-a-fix-carried-on-beetle-psx-176)).
+
+**Memory card.** A card file the game cannot use (another size, a folder, unreadable) is moved aside whole as
+`<card>.mcr.unusable-N` and the game starts with an empty card; the window says so once. It used to be left in place, unread, and
+nothing was saved for that session. The card stays the raw 128 KiB other programs read. The move is the new shared helper
+`native/save_set_aside.c`, the PlayStation's alone for now.
+
+**Stamps** (`compilation_inputs.role_stamps`, the branch as a whole, the shared paths and G11 included, against main `ffbaee01`, at `6a5d9e9b`): the PlayStation's game stamp (`55f0e406d72d` to `8a84b9740b28`) and host stamp (`bd8f35608de2` to `58aa32803f59`); every other machine's stamps equal main's. **Existing exports:** converted again in full at their next conversion. **Quick states:** a PlayStation state of 1.7.5 is
+refused (another build), as for any change of the game. **Hot path:** the step hook calls one more step lookup when a step hands
+back a word, which the routes measure as a gain (no interpreted instruction left on Ape Escape's routes); no timing was taken.
+
+## Sony PlayStation: supported (1.7.6)
+
+**Status.** The PlayStation is supported from 1.7.6, on the owner's decision of 15 November 2026 after his play test (G14, the owner-acceptance
+table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance); [PLAYSTATION.md](PLAYSTATION.md#8-the-exit-from-the-experimental-status-15-november-2026-supported-from-176)).
+The profile's status is `supported`, the conversion report's `status` is read from the profile and the Options note loses "experimental" in
+the eight languages. Nothing a conversion does changes.
+
+**Stamps:** the PlayStation's game stamp (the profile is among its inputs); its host and build stamps do not move for this change.
+**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged by this change. **Site limits:**
+unchanged by this change. **Hot path:** no.
+
+## Sony PlayStation: shared paths (1.7.6)
+
+**What changes.** The PlayStation joins the experimental tier of the shared base (Arthur, 14 November 2026: « Oui, elle partage »;
+[PLAYSTATION.md](PLAYSTATION.md#6-shared-paths-the-experimental-tier-of-the-base-from-176)). A conversion receives the words of the qualified bank,
+the player's library record and the imported bank before its native steps are written, and writes its own record into the player's library once
+every check passed; the report gains `knowledge` (what was received, and the record's counts and digest). A failure of the sharing is reported there
+and never fails a conversion. `PsxInput` keeps each disc's digest (`disc_digests`); the game's identity is unchanged.
+
+**Stamps:** the PlayStation's game stamp only (`retrorecomp/psx_knowledge.py` and the profile's `shared_knowledge` are its inputs, with
+`path_records`); its host and build stamps do not move for this change. **Existing exports:** converted again in full at their next conversion.
+**Quick states:** unchanged by this change. **Site limits:** the site must know the PlayStation's records before 1.7.6 is published
+(`RECORD_RULES`, sent to the web specialist on 14 November 2026). **Hot path:** no (received words become native steps like observed ones).
 
 ## Exports of 1.7.4 in 1.7.5
 

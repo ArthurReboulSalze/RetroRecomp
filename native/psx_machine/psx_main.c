@@ -13,6 +13,7 @@
 #endif
 #include <SDL.h>
 #include <math.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +23,7 @@
 #include "psx_game.h"
 #include "psx_session.h"
 #include "runtime_feedback.h"
+#include "save_set_aside.h"
 
 /* Runtime hints: the instructions of main RAM or the BIOS that the game's native steps did not hold and the interpreter ran,
  * while the player records hints (F12). They are gathered by 16-byte block (the words run there, a mask of which, how often)
@@ -33,10 +35,44 @@ typedef struct { uint32_t block, words[4], count; uint8_t mask; } Hint;
 static Hint *hints;
 static unsigned hint_count;
 
+/* --interpreted: every (physical address, word) the interpreter ran in this process, with its count (the
+ * conversion lists them by address in its report, each with its reason). Exact, unlike the hints: a full table is said. */
+enum { RAN_SLOTS = 1 << 18 };
+typedef struct { uint32_t address, word; uint64_t count; } Ran;
+static Ran *ran;
+static unsigned ran_count;
+static int ran_full;
+static const char *interpreted_path;
+
+static void ran_note(uint32_t physical, uint32_t instr) {
+    if (!ran && !(ran = (Ran *)calloc(RAN_SLOTS, sizeof *ran))) { ran_full = 1; return; }
+    for (unsigned slot = ((physical >> 2) * 2654435761u ^ instr * 40503u) & (RAN_SLOTS - 1), n = 0; n < RAN_SLOTS;
+         ++n, slot = (slot + 1) & (RAN_SLOTS - 1)) {
+        Ran *r = &ran[slot];
+        if (!r->count) {
+            if (ran_count >= RAN_SLOTS / 2) { ran_full = 1; return; }
+            r->address = physical; r->word = instr; ran_count++;
+        } else if (r->address != physical || r->word != instr) {
+            continue;
+        }
+        r->count++;
+        return;
+    }
+}
+
+static int ran_order(const void *a, const void *b) {
+    const Ran *x = (const Ran *)a, *y = (const Ran *)b;
+    if (x->address != y->address) return x->address < y->address ? -1 : 1;
+    return x->word < y->word ? -1 : x->word > y->word;
+}
+
+static int ran_write(void);
+
 void rr_psx_fallback(uint32_t pc, uint32_t instr) {
-    if (!rr_feedback_enabled()) return;
     const uint32_t physical = pc & 0x1FFFFFFFu;
+    if (interpreted_path) ran_note(physical, instr);
     if (!(physical < 0x200000u || physical - 0x1FC00000u < 0x80000u) || (physical & 3)) return;
+    if (!rr_feedback_enabled()) return;
     if (!hints && !(hints = (Hint *)calloc(HINT_SLOTS, sizeof *hints))) return;
     const uint32_t block = physical & ~15u;
     const unsigned word = (physical >> 2) & 3;
@@ -112,6 +148,9 @@ static FILE *pcm_file;   /* --pcm: the sound of every frame as the host receives
 static size_t frame_audio_count, audio_read;
 static wchar_t card_path[4096];
 static uint64_t card_hash;
+static int card_option;     /* --card: a headless run reads and writes this card file as the window does its own (evidence) */
+static unsigned card_notice; /* 0 nothing to say; 1 an unusable card file was set aside; 2 it could not be, saving is off */
+unsigned rr_psx_card_notice(void) { return card_notice; }
 
 RrPsxSession *rr_psx_host_session(void) { return session; }
 
@@ -152,21 +191,33 @@ static uint64_t fnv(const void *data, size_t size, uint64_t h) {
     return h;
 }
 
-/* The memory card of slot 1 is written to the game's data folder when it changed (the core keeps it in memory). */
+/* The memory card of slot 1 is written to the game's data folder when it changed (the core keeps it in memory). It is the raw
+ * 128 KiB of the card (the .mcr form other programs read too). A file the game cannot use (another size, a folder, unreadable)
+ * is moved aside whole to "<card>.unusable-N" and the game starts with the core's empty card; when it cannot be moved, it stays
+ * untouched and nothing is saved this session. A card of the right size with damaged contents is the console's own case: the
+ * BIOS or the game says so and offers to format it. */
 static void card_sync(int load) {
     size_t size = 0;
     uint8_t *card = rr_psx_card(session, &size);
     if (!card || !size || !card_path[0]) return;
     if (load) {
+        uint8_t *read = (uint8_t *)malloc(size);
+        if (!read) { card_path[0] = 0; card_notice = 2; return; }
+        errno = 0;
         FILE *f = rr_fopen(card_path, L"rb");
+        int usable = 0, present = f != NULL || (errno != 0 && errno != ENOENT);
         if (f) {
-            /* A card of another size is not this machine's: it is left alone, never loaded and never overwritten. */
-            fseek(f, 0, SEEK_END);
-            long n = ftell(f);
-            fseek(f, 0, SEEK_SET);
-            if (n == (long)size && fread(card, 1, size, f) != size) memset(card, 0, size);
-            if (n != (long)size) card_path[0] = 0;
+            usable = fread(read, 1, size, f) == size && fgetc(f) == EOF && !ferror(f);
             fclose(f);
+        }
+        if (usable) memcpy(card, read, size);
+        free(read);
+        if (present && !usable) {
+            card_notice = rr_save_set_aside(card_path) ? 1 : 2;
+            if (card_notice == 2) card_path[0] = 0;
+            fprintf(stderr, card_notice == 1 ? "The memory card file could not be used: set aside, the game starts with an "
+                                               "empty card.\n"
+                                             : "The memory card file could not be used nor set aside: nothing is saved.\n");
         }
         card_hash = fnv(card, size, FNV_BASIS);
         return;
@@ -236,9 +287,9 @@ int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]) {
         for (size_t n = 0; n < frame_audio_count; n++) nonzero += frame_audio[n] != 0;
         if (info.nonblack) nonuniform_frames++;
         if (trace_file)
-            fprintf(trace_file, "%u,%016llx,%016llx,%016llx,%u,%d,%dx%d\n", frame, (unsigned long long)info.ram,
+            fprintf(trace_file, "%u,%016llx,%016llx,%016llx,%u,%d,%dx%d,%016llx\n", frame, (unsigned long long)info.ram,
                     (unsigned long long)info.video, (unsigned long long)info.pcm, info.samples, info.audible, info.width,
-                    info.height);
+                    info.height, (unsigned long long)info.cpu);
     }
     if (save_path && save_at == frame && !state_file(save_path, 0)) save_failed = 1;
     if (capture_dir && !(frame % capture_every)) {
@@ -257,7 +308,7 @@ int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]) {
         }
         if (fclose(image)) { snprintf(fault, sizeof fault, "picture capture failed"); return 0; }
     }
-    if (!headless && !(frame % 300)) card_sync(0);
+    if ((!headless || card_option) && !(frame % 300)) card_sync(0);
     return 1;
 }
 
@@ -340,8 +391,27 @@ static int open_session(void) {
     RrPsxGame game = {pack, bios, NULL, 0};
     session = rr_psx_open(&game, fault, sizeof fault);
     if (!session) return 0;
-    if (!headless) card_sync(1);
+    if (!headless || card_option) card_sync(1);
     return 1;
+}
+
+/* "RRPSX-INTERPRETED 1", then "<address> <word> <count>" (hex, hex, decimal) sorted by address, then the total of the
+ * interpreted instructions ("total": those outside main RAM and the BIOS are the difference) and "full" if the table
+ * filled up. */
+static int ran_write(void) {
+    FILE *f = file_open(interpreted_path, L"wb");
+    if (!f) return 0;
+    fprintf(f, "RRPSX-INTERPRETED 1\n");
+    if (ran) {
+        unsigned used = 0;
+        for (unsigned n = 0; n < RAN_SLOTS; ++n) if (ran[n].count) ran[used++] = ran[n];
+        qsort(ran, used, sizeof *ran, ran_order);
+        for (unsigned n = 0; n < used; ++n)
+            fprintf(f, "%08x %08x %llu\n", ran[n].address, ran[n].word, (unsigned long long)ran[n].count);
+    }
+    fprintf(f, "total %llu\n%s", (unsigned long long)(session ? rr_psx_interpreted(session) : 0), ran_full ? "full\n" : "");
+    int okay = !ferror(f);
+    return fclose(f) == 0 && okay;
 }
 
 static int report(void) {
@@ -395,6 +465,11 @@ static int execute(int argc, char **argv) {
         else if (i + 1 < argc && !strcmp(argv[i], "--gfx") && gfx_count < 8) gfx[gfx_count++] = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--pcm")) { if (!(pcm_file = file_open(argv[++i], L"wb"))) return 3; }
         else if (!strcmp(argv[i], "--input-check")) input_check = 1;
+        else if (i + 1 < argc && !strcmp(argv[i], "--interpreted")) interpreted_path = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--card")) {
+            if (!rr_from_utf8(argv[++i], card_path, 4096)) return 2;
+            card_option = 1;
+        }
 #ifdef RR_PSX_OBSERVE
         else if (i + 1 < argc && !strcmp(argv[i], "--observe")) observe_path = argv[++i];
 #endif
@@ -419,7 +494,7 @@ static int execute(int argc, char **argv) {
         if (!rr_psx_gfx_assign(gfx[n], !headless)) { fprintf(stderr, "unknown graphics option %s\n", gfx[n]); return 2; }
     if (trace_path) {
         if (!(trace_file = file_open(trace_path, L"wb"))) return 3;
-        fprintf(trace_file, "frame,ram,image,pcm,samples,audible,size\n");
+        fprintf(trace_file, "frame,ram,image,pcm,samples,audible,size,cpu\n");
     }
     if (load_path) {
         state_loaded = state_file(load_path, 1);
@@ -430,6 +505,7 @@ static int execute(int argc, char **argv) {
     if (headless) {
         static const uint16_t released[2];
         for (int n = 0; n < frames && ran; n++) ran = rr_psx_host_frame(released, NULL);
+        if (card_option) card_sync(0);
     } else {
         host_result = rr_psx_sdl_main(RR_PSX_TITLE, 3);
         ran = !fault[0];
@@ -446,6 +522,7 @@ static int execute(int argc, char **argv) {
     }
 #endif
     if (trace_file && fclose(trace_file)) okay = 0;
+    if (interpreted_path && !ran_write()) okay = 0;
     if (pcm_file && fclose(pcm_file)) okay = 0;
     hints_finish();
     rr_psx_close(session);

@@ -111,12 +111,26 @@
       {"title": "Hydlide 3 - The Space Memories", "category": "route-depth", "reason": "ASCII 8 role-playing game whose routes stayed in its character set-up menu at the extended level", "source": "docs/MSX.md"},
       {"title": "Metal Gear", "category": "route-depth", "reason": "Konami; the play route stops at the first transceiver call, the long route goes on", "source": "docs/MSX.md"}
     ],
+    "n64": [
+      {"title": "Super Mario 64", "category": "regression-baseline", "reason": "Control case: EEPROM 4 Kbit written on its main route, a play route in the castle grounds; the run after an MFC0 wait loop that never became a block before 1.7.6 (94 % native then, over 99 % now)", "source": "docs/NINTENDO_64.md"},
+      {"title": "007 - GoldenEye", "category": "tlb-mapped-code", "reason": "Its game code runs at TLB-mapped addresses: 1.1 % native while only KSEG0 code became blocks; blocks of mapped code, bounded to their page, read through the TLB's page table", "source": "docs/NINTENDO_64.md"},
+      {"title": "The Legend of Zelda - Ocarina of Time", "category": "overlay-guard-misses", "reason": "Overlays load different code at one address (every observed version becomes a block, the rest are guard misses, counted); SRAM; the longest play route (16,800 frames)", "source": "docs/NINTENDO_64.md"},
+      {"title": "Banjo-Tooie", "category": "quick-state-sound", "reason": "EEPROM 16 Kbit; a resumed game played another audio buffer until the quick state kept the AI's two queued DMA addresses, which the core's own state rebuilds wrongly", "source": "docs/NINTENDO_64.md"},
+      {"title": "Rayman 2 - The Great Escape", "category": "controller-pak", "reason": "Saves only to the controller pak: its play route starts a game, which writes the game's note on pak 1", "source": "docs/NINTENDO_64.md"}
+    ],
     "msx2plus": [
       {"title": "The Goonies R Good Enough", "category": "mapper-probe", "reason": "Konami SCC whose SCC music writes outnumber its bank writes; read as ASCII 8 (a blue screen) until the SCC's sound registers counted as the mapper's own (14 November 2026)", "source": "docs/MSX.md"},
       {"title": "Xak III - The Tower of Gazzel", "category": "disk-request", "reason": "Four disks; asks for disk 3 on a still screen and checks the boot sector at each key; stayed there under 1.7.5's fixed disk changes, answered by the request rule from 1.7.6", "source": "docs/MSX.md"},
       {"title": "Family Stadium Professional Baseball", "category": "regression-baseline", "reason": "V9958 horizontal scroll (R#25-R#27) compared with openMSX; takes another path when MSX-MUSIC is present (R#1)", "source": "docs/MSX.md"},
       {"title": "Quinpl", "category": "path-sharing", "reason": "Disk game whose RAM code is almost all in the disk's bytes (540 of 561 windows): the G16 proof's single-disk game", "source": "docs/MSX.md"},
       {"title": "Golvellius II", "category": "route-depth", "reason": "Three disks; its routes stay in the Japanese intro and never ask for a disk", "source": "docs/MSX.md"}
+    ],
+    "psx": [
+      {"title": "Ape Escape", "category": "analog-pad", "reason": "Asks for the DualShock in analog mode (its DUALSHOCK required notice); the pad powers on digital, as the console's, and the routes never press the Analog button", "source": "docs/QUALIFICATION.md"},
+      {"title": "Final Fantasy VII", "category": "multi-disc", "reason": "Three discs in one PS1 Classics EBOOT, much code and overlays: the most native steps of the panel, several words at many addresses", "source": "docs/QUALIFICATION.md"},
+      {"title": "R4 - Ridge Racer Type 4", "category": "region", "reason": "NTSC-J disc from a CUE sheet with CD-audio tracks: needs the player's Japanese BIOS, the region the converter must match", "source": "docs/QUALIFICATION.md"},
+      {"title": "WIPEOUT2", "category": "pal-cd-audio", "reason": "WipEout 2097, PAL at 50 Hz from a CUE sheet whose music is CD audio: the frame rate and the drive's audio path", "source": "docs/QUALIFICATION.md"},
+      {"title": "Gran Turismo 2", "category": "memory-card", "reason": "Simulation Mode disc (the Arcade disc is apart): saves its licences and garage to the first memory card early, the case for saves read back in a fresh process", "source": "docs/PLAYSTATION.md"}
     ]
   }
 }

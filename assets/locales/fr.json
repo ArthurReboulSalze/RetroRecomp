@@ -327,6 +327,16 @@
     "R stick down": "Stick D bas",
     "R stick left": "Stick D gauche",
     "R stick right": "Stick D droite",
-    "Left stick": "Stick gauche"
+    "Left stick": "Stick gauche",
+    "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D : X/Y/Z; Maj droite : Mode",
+    "Arrows + W/X/A/S; Q/E shoulders": "Fleches + W/X/A/S; Q/E gachettes",
+    "Arrows + W/X/C/V: A/B/C/D": "Fleches + W/X/C/V : A/B/C/D",
+    "Arrows + W/X/C; Enter Start": "Fleches + W/X/C; Entree Start",
+    "Arrows; W/X/C: A/B/C; Enter: Start": "Fleches; W/X/C : A/B/C; Entree : Start",
+    "NES: arrows + W/X; Enter Start": "NES : fleches + W/X; Entree Start",
+    "Arrows; W/X/C + A/S/D: buttons 1-6": "Flèches ; W/X/C + A/S/D : boutons 1-6",
+    "Edge smoothing (console)": "Lissage des bords (console)",
+    "Smooth scaling (console)": "Mise à l'échelle lissée (console)",
+    "Dither smoothing": "Lissage du tramage"
   }
 }

@@ -81,6 +81,8 @@ int rr_psx_option(RrPsxSession *s, const char *key, const char *value);
 /* Evidence of the last frame for the trace (deterministic: no clock, no host state). */
 typedef struct RrPsxFrameInfo {
     uint64_t frame, video, pcm, ram;   /* FNV-1a 64 of the picture, of this frame's samples, of the 2 MiB of RAM */
+    uint64_t cpu;                      /* FNV-1a 64 of the CPU state a game sees: the R3000A's registers, HI, LO, PC, the
+                                        * pending load, SR, CAUSE, EPC, and the GTE's 64 registers */
     uint32_t samples;                  /* stereo frames of sound this frame */
     int width, height, nonblack, audible;
 } RrPsxFrameInfo;
