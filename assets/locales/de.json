@@ -1126,8 +1126,6 @@
     "No usable graphics card: the CPU draws the picture": "Keine nutzbare Grafikkarte: die CPU zeichnet das Bild",
     "Geometry precision (PGXP)": "Geometriegenauigkeit (PGXP)",
     "Perspective-correct textures": "Perspektivkorrekte Texturen",
-    "Anti-aliasing (graphics card)": "Kantenglättung (Grafikkarte)",
-    "Texture filtering (graphics card)": "Texturfilterung (Grafikkarte)",
     "Bilinear": "Bilinear",
     "3-point": "3-Punkt",
     "Graphics card only: no effect while the CPU draws": "Nur Grafikkarte: keine Wirkung, wenn die CPU zeichnet",
@@ -1145,6 +1143,9 @@
     "Free: the screen's refresh is unknown": "Frei: Bildrate unbekannt",
     "Variable refresh: screen follows game": "Variable Bildrate: Bildschirm folgt dem Spiel",
     "Locked: %s Hz, game %s Hz (%s)": "Gekoppelt: %s Hz, Spiel %s Hz (%s)",
-    "Free: its sound cannot follow yet": "Frei: Ton folgt noch nicht"
+    "Free: its sound cannot follow yet": "Frei: Ton folgt noch nicht",
+    "Anti-aliasing (GPU)": "Kantenglättung (GPU)",
+    "Texture filtering (GPU)": "Texturfilterung (GPU)",
+    "Needs geometry precision (PGXP) On": "Erfordert Geometriegenauigkeit (PGXP) an"
   }
 }

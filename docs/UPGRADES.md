@@ -206,8 +206,8 @@ every moving edge doubled). Owner's decision of 15 November 2026, « Oui, lance-
 ## Sony PlayStation: anti-aliasing and texture filtering (1.7.7)
 
 **What changes.** F3 gains two rows after the internal resolution, for the graphics card only, both Off by default:
-« Anti-aliasing » (MSAA 2x, 4x, 8x, or Supersampling: drawn at the internal resolution and reduced to the console's size) and
-« Texture filtering » (bilinear or 3-point). They change in play; with the CPU drawing they do nothing and the game says so once.
+« Anti-aliasing (GPU) » (MSAA 2x, 4x, 8x, or Supersampling: drawn at the internal resolution and reduced to the console's size) and
+« Texture filtering (GPU) » (bilinear or 3-point). They change in play; with the CPU drawing they do nothing and the game says so once.
 No mipmapping is offered (the console has none).
 
 **What it does not change.** With both rows Off (the default) every frame is byte for byte what it was: on Ape Escape, 3,300 frames
@@ -223,11 +223,14 @@ Off, the same.
 
 ## Sony PlayStation: geometry precision (PGXP) (1.7.7)
 
-**What changes.** F3 gains two rows after the internal resolution, both Off by default: « Geometry precision (PGXP) » (Beetle's
-PGXP in its "memory only" mode) and « Perspective-correct textures ». They change in play, on the card and on the CPU, without
-reopening the session. Beetle's "memory + CPU" mode, its PGXP culling and its vertex cache are not offered.
+**What changes.** F3 gains two rows after the internal resolution, both **On by default for the player** (the owner's decision of
+15 November 2026, after trying them): « Geometry precision (PGXP) » (Beetle's PGXP in its "memory only" mode) and
+« Perspective-correct textures » (held off while PGXP is Off: it corrects only what PGXP carries). A choice a player saved is kept.
+They change in play, on the card and on the CPU, without reopening the session. Beetle's "memory + CPU" mode, its PGXP culling
+and its vertex cache are not offered. **What a player sees by default is not the checked run:** with PGXP on the emulated run
+differs slightly (RAM and CPU state on some frames, written on the PlayStation's page), and no fidelity is claimed for it.
 
-**What it does not change.** With both rows Off (the default) every frame is byte for byte what it was: on Ape Escape, 3,300 frames
+**What it does not change.** The conversion's checks run with both rows Off, and there every frame is byte for byte what it was: on Ape Escape, 3,300 frames
 on the CPU and on the card, every trace column equal to the build before this change, picture included. The checks of a
 conversion run with PGXP off. With PGXP on the run stays at 0 interpreted instructions and differs slightly from the checked one
 (RAM and CPU state on some frames: written on the PlayStation's page). Turning it on and off in play was checked headless and in a
@@ -235,7 +238,8 @@ window of the real Windows video driver under each filter, the machine held afte
 
 **Stamps:** the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales).
 **Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged (PGXP keeps nothing in a state;
-after F9 its precision comes back as the game recomputes its vertices). **Hot path:** with PGXP off, the same.
+after F9 its precision comes back as the game recomputes its vertices). **Hot path:** with PGXP off, the same; On (the player's
+default) adds Beetle's PGXP bookkeeping to the GTE and memory steps (not timed: no timing run for this change).
 
 ## Sony PlayStation: the graphics card draws the picture (1.7.7)
 

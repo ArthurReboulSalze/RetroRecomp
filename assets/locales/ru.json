@@ -1126,8 +1126,6 @@
     "No usable graphics card: the CPU draws the picture": "Нет подходящей видеокарты: изображение рисует ЦП",
     "Geometry precision (PGXP)": "Точность геометрии (PGXP)",
     "Perspective-correct textures": "Перспективная коррекция текстур",
-    "Anti-aliasing (graphics card)": "Сглаживание (видеокарта)",
-    "Texture filtering (graphics card)": "Фильтрация текстур (видеокарта)",
     "Bilinear": "Билинейная",
     "3-point": "3 точки",
     "Graphics card only: no effect while the CPU draws": "Только видеокарта: не действует при отрисовке на CPU",
@@ -1145,6 +1143,9 @@
     "Free: the screen's refresh is unknown": "Свободно: частота экрана неизвестна",
     "Variable refresh: screen follows game": "Переменная частота: экран следует за игрой",
     "Locked: %s Hz, game %s Hz (%s)": "Привязано: %s Гц, игра %s Гц (%s)",
-    "Free: its sound cannot follow yet": "Свободно: звук пока не может следовать"
+    "Free: its sound cannot follow yet": "Свободно: звук пока не может следовать",
+    "Anti-aliasing (GPU)": "Сглаживание (GPU)",
+    "Texture filtering (GPU)": "Фильтрация текстур (GPU)",
+    "Needs geometry precision (PGXP) On": "Нужна точность геометрии (PGXP)"
   }
 }

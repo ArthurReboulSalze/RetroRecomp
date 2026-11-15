@@ -42,7 +42,7 @@ compared with the figures of a machine whose game code is translated, and it say
   Khronos, and the shader layout and the HDR pieces the renderer asks for are our own files ([licence](../licenses/beetle-psx.md)).
 - **Anti-aliasing and texture filtering** (1.7.7, on the owner's questions: « il me semble pas avoir vu d'options
   d'anti-aliasing pour la PlayStation », then « juste au moins pouvoir activer ou pas le filtrage des textures »). Two F3 rows,
-  the graphics card only, both **Off** by default. « Anti-aliasing »: MSAA 2x, 4x or 8x (several samples per pixel on the
+  the graphics card only (marked « (GPU) »), both **Off** by default. « Anti-aliasing »: MSAA 2x, 4x or 8x (several samples per pixel on the
   polygons' edges, at the internal resolution), or Supersampling (Beetle draws at the internal resolution and reduces the picture
   to the console's size, each pixel the mean of the drawn ones; at 1x it has nothing to reduce). They are values of one row
   because both together only add cost. « Texture filtering »: the console's nearest texel, bilinear, or 3-point (the Nintendo
@@ -53,12 +53,14 @@ compared with the figures of a machine whose game code is translated, and it say
   instructions; with the CPU drawing the rows change nothing (every column equal, picture included) and the game says so once.
   Their cost is the card's: MSAA multiplies the samples drawn, Supersampling draws the internal resolution in full.
 - **Geometry precision (PGXP)** (1.7.7, on the owner's question: « Est-ce qu'on peut, nous aussi, utiliser comme Beetle PGXP ? »).
-  Two F3 rows, both **Off** by default: « Geometry precision (PGXP) » keeps the GTE's results with sub-pixel precision and carries
-  them through memory to the GPU, so 3D models stop wobbling (Beetle's "memory only" mode); « Perspective-correct textures » draws
-  textures with perspective (it acts only with the first row On). Both change in play, on the card and on the CPU. PGXP on changes
-  the emulated run slightly, as a raised resolution does on the CPU: on Ape Escape (3,300 frames) the RAM differs on about 450
-  frames and the CPU state on about 380, then comes back; the conversion's checks therefore always run with it off, and a run with
-  PGXP on is never compared with them. It still runs at 0 interpreted instructions (the native steps carry PGXP's own calls). Not
+  Two F3 rows: « Geometry precision (PGXP) » keeps the GTE's results with sub-pixel precision and carries them through memory to
+  the GPU, so 3D models stop wobbling (Beetle's "memory only" mode); « Perspective-correct textures » draws textures with
+  perspective. Both are **On** by default for the player since the owner tried them (« C'est impeccable. Il faut l'activer par
+  défaut »); a choice a player saved is kept, and a player who never touched the rows gets On. Perspective-correct textures need
+  PGXP: with PGXP Off the second row is held off and says so. Both change in play, on the card and on the CPU. **The run a player
+  sees by default is therefore not the checked run.** PGXP changes the emulated run slightly, as a raised resolution does on the
+  CPU: on Ape Escape (3,300 frames) the RAM differs on about 450 frames and the CPU state on about 380, then comes back. The
+  conversion's checks always run with both rows Off, and no fidelity is claimed for the run with them On. It still runs at 0 interpreted instructions (the native steps carry PGXP's own calls). Not
   offered: Beetle's "memory + CPU" mode (marked « Buggy » upstream), its PGXP primitive culling (known to lock some games) and its
   vertex cache; the core's game database still turns PGXP off for the games it knows break with it.
 - **F3** also has the internal resolution (1x, 2x, 4x, and 8x on the card only: asked for on the CPU it draws 4x and says so),

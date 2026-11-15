@@ -1126,8 +1126,6 @@
     "No usable graphics card: the CPU draws the picture": "Ninguna tarjeta gráfica utilizable: la CPU dibuja la imagen",
     "Geometry precision (PGXP)": "Precisión geométrica (PGXP)",
     "Perspective-correct textures": "Texturas con perspectiva correcta",
-    "Anti-aliasing (graphics card)": "Antialiasing (tarjeta gráfica)",
-    "Texture filtering (graphics card)": "Filtrado de texturas (tarjeta gráfica)",
     "Bilinear": "Bilineal",
     "3-point": "3 puntos",
     "Graphics card only: no effect while the CPU draws": "Solo tarjeta gráfica: sin efecto cuando dibuja la CPU",
@@ -1145,6 +1143,9 @@
     "Free: the screen's refresh is unknown": "Libre: frecuencia de pantalla desconocida",
     "Variable refresh: screen follows game": "Frec. variable: la pantalla sigue al juego",
     "Locked: %s Hz, game %s Hz (%s)": "Anclado: %s Hz, juego %s Hz (%s)",
-    "Free: its sound cannot follow yet": "Libre: audio aún no compatible"
+    "Free: its sound cannot follow yet": "Libre: audio aún no compatible",
+    "Anti-aliasing (GPU)": "Antialiasing (GPU)",
+    "Texture filtering (GPU)": "Filtrado de texturas (GPU)",
+    "Needs geometry precision (PGXP) On": "Requiere la precisión geométrica (PGXP) activada"
   }
 }

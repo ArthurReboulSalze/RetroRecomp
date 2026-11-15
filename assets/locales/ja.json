@@ -1126,8 +1126,6 @@
     "No usable graphics card: the CPU draws the picture": "使えるグラフィックカードがありません: CPU が描画します",
     "Geometry precision (PGXP)": "ジオメトリ精度 (PGXP)",
     "Perspective-correct textures": "パースペクティブ補正テクスチャ",
-    "Anti-aliasing (graphics card)": "アンチエイリアス (グラフィックカード)",
-    "Texture filtering (graphics card)": "テクスチャフィルタリング (グラフィックカード)",
     "Bilinear": "バイリニア",
     "3-point": "3点",
     "Graphics card only: no effect while the CPU draws": "グラフィックカード専用: CPU描画中は効果なし",
@@ -1145,6 +1143,9 @@
     "Free: the screen's refresh is unknown": "自由: 画面のリフレッシュレートが不明",
     "Variable refresh: screen follows game": "可変リフレッシュレート: 画面がゲームに追従",
     "Locked: %s Hz, game %s Hz (%s)": "同期: %s Hz、ゲーム %s Hz (%s)",
-    "Free: its sound cannot follow yet": "自由: 音声がまだ追従できません"
+    "Free: its sound cannot follow yet": "自由: 音声がまだ追従できません",
+    "Anti-aliasing (GPU)": "アンチエイリアス (GPU)",
+    "Texture filtering (GPU)": "テクスチャフィルタリング (GPU)",
+    "Needs geometry precision (PGXP) On": "ジオメトリ精度 (PGXP) のオンが必要"
   }
 }

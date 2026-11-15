@@ -74,11 +74,14 @@ static const char *const resolutions[] = {"1x (native)", "2x", "4x", "8x (graphi
 static const char *const resolution_values[] = {"1x(native)", "2x", "4x", "8x"};
 /* PGXP (1.7.7, the owner's question of 15 November 2026: « Est-ce qu'on peut, nous aussi, utiliser comme Beetle PGXP ? »): the
  * GTE's results kept with sub-pixel precision and carried through memory to the GPU, so 3D models stop wobbling; and textures
- * drawn with perspective. Both Off by default, Beetle's own default: with PGXP on the emulated run changes slightly (the drawing
- * time follows the vertices: on Ape Escape the RAM and the CPU state differ on some frames and come back), so the conversion's
- * checks always run with it off. "On" is Beetle's "memory only"; its "memory + CPU" mode (« Buggy »), its own primitive culling
- * (known to lock some games) and its vertex cache are not offered. The core's game database still turns PGXP off for the games
- * it knows break with it. Both rows change on the fly: no reopening. */
+ * drawn with perspective. Both On by default for the player (the owner, after trying them: « C'est impeccable. Il faut l'activer
+ * par défaut »); a saved choice is kept, a player who never touched the rows gets On. With PGXP on the emulated run changes slightly
+ * (the drawing time follows the vertices: on Ape Escape the RAM and the CPU state differ on some frames and come back), so the
+ * conversion's checks run with both Off (`check_default`, headless) and nothing is claimed of the run with them on. "On" is
+ * Beetle's "memory only"; its "memory + CPU" mode (« Buggy »), its own primitive culling (known to lock some games) and its vertex
+ * cache are not offered. The core's game database still turns PGXP off for the games it knows break with it. Perspective-correct
+ * textures need PGXP (Beetle corrects only the primitives PGXP carried): with PGXP Off the row is held off and says why. Both rows
+ * change on the fly: no reopening. */
 static const char *const pgxp_modes[] = {"Off", "On"};
 static const char *const pgxp_mode_values[] = {"disabled", "memory only"};
 static const char *const pgxp_textures[] = {"Off", "On"};
@@ -113,10 +116,10 @@ enum { GFX_RENDERER, GFX_RESOLUTION, GFX_ANTIALIASING, GFX_TEXTURE_FILTER, GFX_P
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
     {"Renderer", L"renderer", renderers, 2, 0},
     {"Internal resolution", L"resolution", resolutions, 4, 0},
-    {"Anti-aliasing (graphics card)", L"antialiasing", antialiasing, 5, 0},
-    {"Texture filtering (graphics card)", L"texture_filter", texture_filters, 3, 0},
-    {"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 0},
-    {"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 0},
+    {"Anti-aliasing (GPU)", L"antialiasing", antialiasing, 5, 0},
+    {"Texture filtering (GPU)", L"texture_filter", texture_filters, 3, 0},
+    {"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 1},
+    {"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 1},
     {"Dithering", L"dithering", dithering, 3, 0},
     {"Aspect ratio", L"aspect", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
@@ -128,14 +131,21 @@ static const char *const gfx_core_keys[GFX_COUNT] = {NULL, "internal_resolution"
 static int scale = 1;   /* the internal resolution in force (1, 2, 4, 8) */
 static int chosen[GFX_COUNT];   /* each row's value, given again to a session opened again */
 
+/* The value a check runs with (headless, no `--gfx`): each row's default, except PGXP and its textures, which a check keeps off. */
+static int check_default(int option) {
+    return option == GFX_PGXP || option == GFX_PGXP_TEXTURE ? 0 : gfx_options[option].def;
+}
+
 static void core_option(int option, int value) {
     RrPsxSession *s = rr_psx_host_session();
+    if (option == GFX_PGXP_TEXTURE && !chosen[GFX_PGXP]) value = 0;   /* held off without PGXP */
     if (option == GFX_RESOLUTION && value == 3 && !rr_psx_renderer(s)) {
         value = 2;
         rrhk_notice(rrhk_tr("8x needs the graphics card: 4x on the CPU", "8x demande la carte graphique : 4x sur le CPU"), 4000);
     }
     rr_psx_option(s, gfx_core_keys[option], gfx_core_values[option][value]);
     if (option == GFX_ANTIALIASING) rr_psx_option(s, "super_sampling", value == 4 ? "enabled" : "disabled");
+    if (option == GFX_PGXP) core_option(GFX_PGXP_TEXTURE, chosen[GFX_PGXP_TEXTURE]);
     if (option == GFX_RESOLUTION) scale = 1 << value;
 }
 
@@ -152,6 +162,9 @@ static void gfx_apply(int option, int value) {
         if ((option == GFX_ANTIALIASING || option == GFX_TEXTURE_FILTER) && value && !rr_psx_renderer(rr_psx_host_session()))
             rrhk_notice(rrhk_tr("Graphics card only: no effect while the CPU draws",
                                 "Carte graphique seulement : sans effet quand le CPU dessine"), 4000);
+        if (option == GFX_PGXP_TEXTURE && value && !chosen[GFX_PGXP])
+            rrhk_notice(rrhk_tr("Needs geometry precision (PGXP) On",
+                                "Demande la precision geometrique (PGXP) activee"), 4000);
         return;
     }
     if (!rr_psx_host_set_renderer(value == 0)) return;
@@ -164,9 +177,9 @@ static void gfx_apply(int option, int value) {
     }
 }
 
-/* Headless runs never open the kit: the defaults (or `--gfx key=index`, for a capture) are applied here. The renderer is not: a
+/* Headless runs never open the kit: the checks' values (or `--gfx key=index`, for a capture) are applied here. The renderer is not: a
  * headless run is a check and draws with the CPU, unless `--gfx renderer=0` asks for the card. */
-void rr_psx_gfx_defaults(void) { for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) gfx_apply(i, gfx_options[i].def); }
+void rr_psx_gfx_defaults(void) { for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) gfx_apply(i, check_default(i)); }
 bool rr_psx_gfx_assign(const char *assignment, bool windowed) {
     if (windowed) return rrhk_gfx_override(rrhk_adapter(), assignment);
     const char *equals = strchr(assignment, '=');

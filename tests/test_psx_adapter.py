@@ -92,7 +92,7 @@ class PsxAdapterTest(unittest.TestCase):
         # row, the card by default; a headless run (a check) never applies it, so it draws with the CPU unless asked
         self.assertIn('{"Renderer", L"renderer", renderers, 2, 0},', ADAPTER)
         self.assertIn('static const char *const renderers[] = {"Graphics card (Vulkan)", "CPU"};', ADAPTER)
-        self.assertIn('for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) gfx_apply(i, gfx_options[i].def); }', ADAPTER)
+        self.assertIn('for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) gfx_apply(i, check_default(i)); }', ADAPTER)
         main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
         self.assertIn('want_vulkan = !headless && !input_check;', main)
         # a card that cannot be used is never an error: the session opens on the CPU and says why; the player is told
@@ -134,8 +134,12 @@ class PsxAdapterTest(unittest.TestCase):
 
     def test_pgxp_is_offered_off_and_only_in_memory_mode(self):
         # 1.7.7 (study section 7): two rows, both Off by default; "On" is Beetle's "memory only"; the checks run with it off
-        self.assertIn('{"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 0},', ADAPTER)
-        self.assertIn('{"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 0},', ADAPTER)
+        # On for the player since the owner's decision (15 November 2026); the checks (headless) keep both off
+        self.assertIn('{"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 1},', ADAPTER)
+        self.assertIn('{"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 1},', ADAPTER)
+        self.assertIn('return option == GFX_PGXP || option == GFX_PGXP_TEXTURE ? 0 : gfx_options[option].def;', ADAPTER)
+        self.assertIn('gfx_apply(i, check_default(i));', ADAPTER)
+        self.assertIn('if (option == GFX_PGXP_TEXTURE && !chosen[GFX_PGXP]) value = 0;', ADAPTER)
         self.assertIn('static const char *const pgxp_mode_values[] = {"disabled", "memory only"};', ADAPTER)
         self.assertNotIn('memory + CPU', ADAPTER.split('pgxp_mode_values[]')[1].split(';')[0])
         self.assertNotIn('pgxp_nclip', ADAPTER)
@@ -145,8 +149,8 @@ class PsxAdapterTest(unittest.TestCase):
     def test_antialiasing_and_texture_filtering_are_card_rows_off_by_default(self):
         # 1.7.7 (the owner's questions of 15 November 2026): one anti-aliasing row (MSAA or Supersampling, never both), one texture
         # filtering row (nearest, bilinear, 3-point), Off by default; no texture upscaler, no mipmapping
-        self.assertIn('{"Anti-aliasing (graphics card)", L"antialiasing", antialiasing, 5, 0},', ADAPTER)
-        self.assertIn('{"Texture filtering (graphics card)", L"texture_filter", texture_filters, 3, 0},', ADAPTER)
+        self.assertIn('{"Anti-aliasing (GPU)", L"antialiasing", antialiasing, 5, 0},', ADAPTER)
+        self.assertIn('{"Texture filtering (GPU)", L"texture_filter", texture_filters, 3, 0},', ADAPTER)
         self.assertIn('static const char *const msaa_values[] = {"1x", "2x", "4x", "8x", "1x"};', ADAPTER)
         self.assertIn('static const char *const texture_filter_values[] = {"nearest", "bilinear", "3-point"};', ADAPTER)
         self.assertIn('rr_psx_option(s, "super_sampling", value == 4 ? "enabled" : "disabled");', ADAPTER)
