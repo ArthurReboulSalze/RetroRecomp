@@ -193,9 +193,11 @@ the shared speed and sound controls are in [CONTROLS.md](CONTROLS.md).
 | Action | Keyboard | Gamepad |
 |---|---|---|
 | D-pad | Arrows | D-pad / left stick |
-| A, B | **W**, **X** (follow the current keyboard layout) | The east and south face buttons (A and B as on the console) |
+| A, B | **S**, **D** (the same place on every keyboard layout) | The east and south face buttons (A and B as on the console) |
 | Start, Select | **Enter**, either **Shift** | Start, Back |
 | Pause menu | P | Guide |
+
+Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X) moves to the new one by itself, and a key you chose in F2 is kept.
 
 Shared Game Boy settings written with the old default keys by a release before 1.6.0 keep them (they are no longer migrated). Custom
 mappings remain available.

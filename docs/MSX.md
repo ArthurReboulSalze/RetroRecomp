@@ -65,11 +65,13 @@ The keys of a converted game, also in [CONTROLS.md](CONTROLS.md#msx-and-msx2):
 | Key | MSX |
 | --- | --- |
 | Arrow keys | Joystick 1; they also press the MSX cursor keys |
-| X | Trigger A (it also presses SPACE) |
-| W | Trigger B |
+| D | Trigger A (it also presses SPACE) |
+| S | Trigger B |
 | Start (Enter, pad Start) | The MSX SPACE key |
 | Select (right Shift, pad Back) | The MSX F1 key |
 | Ctrl+Alt+K | Hands the whole keyboard to the MSX; F1 to F5 then go to the MSX, and the help is at Ctrl+F1 |
+
+Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X) moves to the new one by itself, and a key you chose in F2 is kept.
 
 F8 saves a quick state and F9 loads it, at the end of a frame, in the game's folder beside its settings (`datas/games/msx-<identity>`, or `msx2-<identity>`
 on the MSX2). A state is refused, and the game goes on untouched, when anything differs: the cartridge, the BIOS, the options or the build. Each conversion

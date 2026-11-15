@@ -130,9 +130,11 @@ Defaults (full tables and the shared shortcuts are in [CONTROLS.md](CONTROLS.md)
 
 | Player | Directions | Buttons | Menu |
 |---|---|---|---|
-| 1, keyboard | Arrows | W / X | Enter (the console's Pause button is on the console, not on the pad) |
+| 1, keyboard | Arrows | S / D | Enter (the console's Pause button is on the console, not on the pad) |
 | 2, keyboard | Keypad 5 / 2 / 1 / 3 | Keypad 8 / 9 | Keypad 7 |
 | Each gamepad | D-pad / left stick | A / B | Start / Menu |
+
+Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X) moves to the new one by itself, and a key you chose in F2 is kept.
 
 - **F2** pages: player 1 keyboard and gamepad, player 2 keyboard and gamepad, then the options; a **Light Phaser** page sits
   after the control pages. Each gamepad page ends with a *Gamepad* row (Automatic, a connected controller, or None). Shift+F1

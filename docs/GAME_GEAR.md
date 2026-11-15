@@ -66,10 +66,12 @@ moves the game stamps of both consoles.
 | Input | Keyboard | Gamepad |
 |---|---|---|
 | Directions | Arrows | D-pad / left stick |
-| Buttons 1 and 2 | W / X | A / B |
+| Buttons 1 and 2 | S / D | A / B |
 | Cartridge Start | Enter | Start |
 | Pause / menu | P | Back |
 | Help, restart | F1, Shift+F1 | held restart combination |
+
+Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X) moves to the new one by itself, and a key you chose in F2 is kept.
 
 - **F2** maps the single player's keys and buttons (one gamepad row to pin a controller); there is no second-player or Light
   Phaser page. Game Gear bindings have their own `[GameGear.*]` sections of `datas/Retro-Recomp.ini`, so they do not overwrite
