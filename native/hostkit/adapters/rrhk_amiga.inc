@@ -148,6 +148,80 @@ static void a_pad_port1_set(int value) { a_set_port1_mode(value, true); }
 static int a_pad_port1_icon(void) { return a_port1_device() ? RR_ICON_ROW_PORT_JOYSTICK : RR_ICON_ROW_PORT_MOUSE; }
 static const RrhkPadRow a_pad_rows[1] = {{2, "Mouse port", 3, a_port1_values, a_port1_mode, a_pad_port1_set, a_pad_port1_icon}};
 
+/* The CPU's speed, the player's option (HOST_KIT D14's one exception, the owner's decision of 15 November 2026): Normal (the model's
+ * own clock, the default), x2 or x4, as an accelerator card gave. The row on F2's options page cycles it; the choice is kept per game in
+ * cpu.cfg ("cpu=N") and holds across quick states (the session sets it again after a load). --cpu-factor sets it for one run, not saved.
+ * A game the conversion lists as needing the normal speed (cpu_stock_only) stays at Normal and says so. Headless runs never read cpu.cfg:
+ * the conversion's routes and checks run at Normal. Texts in the five languages of the games, without accents. */
+#define A_ROW_CPU (SDL_NUM_SCANCODES + 2)   /* the row's key: past the computers' keyboard row (+1), before the kit's own rows (+16) */
+static int a_cpu_choice = 1;
+
+static int a_language(void) {
+   static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
+   const char *code = rr_language_code(rr_language_get());
+   int n;
+   for (n = 0; n < 5; n++) if (code && !strcmp(code, codes[n])) return n;
+   return 0;
+}
+
+/* `save`: kept for the next start (a choice made in the window), or this run only (--cpu-factor). */
+static void a_set_cpu(int factor, bool save) {
+   FILE *f;
+   wchar_t wide[PATH_CAP];
+   if (cpu_stock_only || (factor != 2 && factor != 4)) factor = 1;
+   a_cpu_choice = factor;
+   rr_amiga_cpu_factor(session, factor);
+   if (!save || !cpu_config[0] || !rr_from_utf8(cpu_config, wide, PATH_CAP) || !(f = rr_fopen(wide, L"wb"))) return;
+   fprintf(f, "cpu=%d\n", factor);
+   fclose(f);
+}
+
+static void a_cpu_load(void) {
+   FILE *f;
+   wchar_t wide[PATH_CAP];
+   int factor = 1;
+   char extra;
+   if (cpu_option) { a_set_cpu(cpu_option, false); return; }
+   if (cpu_config[0] && rr_from_utf8(cpu_config, wide, PATH_CAP) && (f = rr_fopen(wide, L"rb"))) {
+      if (fscanf(f, "cpu=%d %c", &factor, &extra) != 1) factor = 1;     /* anything else: the normal speed */
+      fclose(f);
+   }
+   a_set_cpu(factor, false);
+}
+
+/* The row's label (a format with one %s) and its value now, e.g. "CPU speed: x2 (28 MHz)". */
+static const char *a_cpu_label(void) {
+   static const char *const label[5] = {"CPU speed: %s", "Vitesse du processeur : %s", "CPU-Takt: %s", "Velocidad de la CPU: %s",
+                                        "Velocita della CPU: %s"};
+   return label[a_language()];
+}
+static const char *a_cpu_value(void) {
+   static const char *const normal[5] = {"Normal", "Normale", "Normal", "Normal", "Normale"};
+   static const char *const only[5] = {"Normal (this game)", "Normale (ce jeu)", "Normal (dieses Spiel)", "Normal (este juego)",
+                                       "Normale (questo gioco)"};
+   static char text[64];
+   int language = a_language();
+   if (cpu_stock_only) return only[language];
+   if (a_cpu_choice == 1) snprintf(text, sizeof text, "%s (%d MHz)", normal[language], cpu_mhz);
+   else snprintf(text, sizeof text, "x%d (%d MHz)", a_cpu_choice, cpu_mhz * a_cpu_choice);
+   return text;
+}
+
+static void a_option_rows(int slot, RrhkOptionRows *rows) {
+   x_option_rows(slot, rows);
+   if (slot == 1) rrhk_option_row_icon(rows, A_ROW_CPU, RR_ICON_ROW_SPEED, a_cpu_label(), a_cpu_value());
+}
+
+/* The row cycles Normal, x2, x4; a plate says the new speed (or, for a game listed as needing it, that it stays at Normal). */
+static bool a_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
+   char plate[96];
+   if ((int)key != A_ROW_CPU) return x_key_event(ui, key, running);
+   if (!cpu_stock_only) a_set_cpu(a_cpu_choice == 1 ? 2 : a_cpu_choice == 2 ? 4 : 1, true);
+   snprintf(plate, sizeof plate, a_cpu_label(), a_cpu_value());
+   rrhk_notice(plate, 2500);
+   return true;
+}
+
 /* The guest's inputs of this frame from the kit's pad words, the keyboard and the mouse. */
 static void a_inputs(void) {
    uint8_t held[128];
@@ -318,7 +392,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.state_path = a_state_path; machine.state_ready = a_state_ready; machine.state_file = a_state_file; machine.input_frame = a_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = x_help_controls;
       /* The F2 row "Keyboard (Ctrl+Alt+K): game controls / computer only" of rrhk_computer.inc, kept per game in player.cfg. */
-      machine.option_rows = x_option_rows; machine.key_event = x_key_event;
+      machine.option_rows = a_option_rows; machine.key_event = a_key_event;   /* the computers' keyboard row, then the CPU's speed */
       machine.frame_start = x_frame_start; machine.finished = x_finished;
       machine.event = x_event; machine.keyboard_pad = x_keyboard_pad; machine.fast_forward = x_fast_forward; machine.game_rect = x_game_rect;
       machine.help_page = x_help_page; machine.action_held = x_action_held;
@@ -334,5 +408,6 @@ static int player_run_windowed(const char *title, int ntsc) {
    ca.windowed = true;
    a_port1_load();
    a_port1_shown = a_port1_device();
+   a_cpu_load();
    return rrhk_main(machine, title, 3);
 }

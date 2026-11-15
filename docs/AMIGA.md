@@ -92,6 +92,19 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    standard window is shown (320 x 256 PAL, 320 x 200 NTSC). In the window and the first fullscreen mode the picture grows in whole
    steps of one lores pixel per line (320 x 256 PAL: 2x at 640 x 512, 3x at 960 x 768), as the other machines do; the second
    fullscreen mode fills the screen with the 4:3 aspect. The window opens at 3x.
+8. **The CPU's speed (1.7.6), a player's option.** The row « CPU speed » of F2's options page sets Normal (the model's own clock: the
+   68000's 7 MHz, the A1200's 68EC020 at 14 MHz), x2 or x4, as an accelerator card gave; it is kept per game (`cpu.cfg` beside its quick
+   state). vAmiga runs the CPU's own cycles faster, while chip-bus and CIA accesses keep the chipset's pace. The conversion never uses
+   it: its routes, checks and state proofs run at Normal, and nothing it generates depends on the speed (each native form calls the same
+   cycle accounting as the interpreter). A quick state loads at the player's current speed, whatever speed it was saved at. An install
+   listed as needing the normal speed (`amiga_conversion.CPU_STOCK_ONLY`, reviewed data by SHA-256, empty in 1.7.6) keeps the row at
+   Normal and says so; WHDLoad has no flag for it. The exception to the host kit's rule that no option changes a game's timing
+   ([HOST_KIT.md, D14](HOST_KIT.md#d14)) is the owner's decision of 15 November 2026. What it does, measured headless on Fears (the A1200,
+   800 frames walking and turning, an indicative host figure on a PC that was not quiet): a new picture every 3.36, 2.19 and 1.33 frames
+   at Normal, x2 and x4, the corridor reached at the same frame in all three (the game's logic follows time, not pictures), the host
+   18.2, 19.4 and 20.5 ms a frame. These host costs are indicative only: no timing pass on a quiet PC has been made for x2 and x4
+   yet, and a slower PC may not hold 50 frames a second at x4 on a demanding game. A game whose logic counts pictures, or whose music or delays count CPU cycles, would run faster or
+   break: the player sees it and goes back to Normal.
 
 ## 3. The five measures
 

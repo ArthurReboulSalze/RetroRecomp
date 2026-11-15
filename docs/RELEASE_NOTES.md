@@ -69,6 +69,10 @@
   MSX2+; the records keep their format and nothing a conversion does changes.
 - [N64 SSAA: pending branch]
 - [AMIGA 1200: pending branch]
+- **Amiga: a CPU speed choice, Normal / ×2 / ×4**, like an accelerator card, in F2's options of both models; Normal by default and
+  kept per game; games are converted and checked at Normal ([AMIGA.md](AMIGA.md#2-how-the-conversion-works)). A slow 3D game such as
+  Fears draws more pictures a second at ×2 and ×4 without running faster; a game whose music or delays count CPU cycles may not
+  like it, and Normal is one press away.
 
 **Speed.** [SPEED: pending]
 

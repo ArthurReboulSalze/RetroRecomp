@@ -64,6 +64,7 @@ struct RrAmigaSession {
     int mouse_left = 0, mouse_right = 0;
     unsigned joy2 = 0;              // the joystick of port 1 (the second player's), held bits
     int port1_mode = 0;             // RR_AMIGA_PORT1_FOLLOW, _MOUSE or _JOYSTICK (the player's choice; not part of a state)
+    int cpu_factor = 1;             // rr_amiga_cpu_factor: 1, 2 or 4 (the player's choice; a state load keeps it)
     // The device port 1 holds (1: the joystick). vAmiga keeps its own private: this copy moves with the calls that move it (a mouse
     // motion or button plugs the mouse, a joystick action the joystick, a forced mode or a state load sets it).
     int port1_joystick = 0;
@@ -617,6 +618,21 @@ extern "C" void rr_amiga_port1_mode(RrAmigaSession *s, int mode) {
     if (mode == RR_AMIGA_PORT1_JOYSTICK) { s->amiga->controlPort1.setDevice(ControlPortDevice::JOYSTICK); s->port1_joystick = 1; }
 }
 
+// vAmiga's CPU_OVERCLOCKING for the session's factor: its A1200 scheme sets 2 (the 68EC020's 14 MHz, twice the 68000's 7 MHz, which
+// is 0, no overclocking); x2 and x4 multiply the model's own clock (A500: 2 and 4, 14 and 28 MHz; A1200: 4 and 8, 28 and 56 MHz).
+static void apply_cpu_factor(RrAmigaSession *s) {
+    const long base = s->model == RR_AMIGA_MODEL_A1200 ? 2 : 1;
+    const long value = s->cpu_factor == 1 ? (s->model == RR_AMIGA_MODEL_A1200 ? 2 : 0) : base * s->cpu_factor;
+    if (s->amiga->cpu.getOption(Opt::CPU_OVERCLOCKING) == value) return;
+    s->amiga->cpu.resyncOverclockedCpu();   // the CPU's sub-cycle debt is settled at the old factor first
+    s->emu->set(Opt::CPU_OVERCLOCKING, value);
+}
+
+extern "C" void rr_amiga_cpu_factor(RrAmigaSession *s, int factor) {
+    s->cpu_factor = factor == 2 || factor == 4 ? factor : 1;
+    apply_cpu_factor(s);
+}
+
 extern "C" int rr_amiga_port1_device(RrAmigaSession *s) {
     return s->port1_joystick;
 }
@@ -1033,6 +1049,8 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     s->port1_joystick = (int)(head.port1 & 1u);
     s->amiga->controlPort1.setDevice(s->port1_joystick ? ControlPortDevice::JOYSTICK : ControlPortDevice::MOUSE);
     memcpy(s->keys, keys, sizeof keys);
+    // The snapshot restored the CPU speed it was saved with; the player's own choice holds.
+    apply_cpu_factor(s);
     set_traps();
     update_hook();
     return 0;

@@ -8,6 +8,7 @@ static Uint32 harness_buttons;
 static int harness_left = -1;
 static unsigned harness_joy2;                 /* what the adapter sent to port 1's joystick */
 static int harness_port1_mode, harness_port1_device;
+static int harness_cpu_factor = -1;       /* what the adapter set as the CPU's speed */
 static Uint32 harness_relative_state(int *x, int *y) { if (x) *x = 0; if (y) *y = 0; return harness_buttons; }
 #define SDL_GetRelativeMouseState harness_relative_state
 #define main rr_unused_player_main
@@ -35,6 +36,7 @@ void rr_amiga_port1_mode(RrAmigaSession *s, int mode) {
    if (mode == RR_AMIGA_PORT1_JOYSTICK) harness_port1_device = 1;
 }
 int rr_amiga_port1_device(RrAmigaSession *s) { (void)s; return harness_port1_device; }
+void rr_amiga_cpu_factor(RrAmigaSession *s, int factor) { (void)s; harness_cpu_factor = factor; }
 void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) { (void)s; (void)held; }
 int rr_amiga_frame(RrAmigaSession *s) { (void)s; return -1; }
 const char *rr_amiga_error(const RrAmigaSession *s) { (void)s; return "stub"; }
@@ -74,8 +76,8 @@ int main(int argc, char **argv) {
    rrhk_bind(machine); rrhk_load_bindings(); rrhk_options_init(L"Amiga"); rrhk_options_keyboard("Amiga", 10);
    ui = rrhk_ui(); ca.windowed = true;
    snprintf(player_config, sizeof player_config, "%s", "amiga-menu-player.cfg");
-   check(machine->option_rows == x_option_rows, "the Amiga table offers the keyboard row of the F2 options");
-   check(machine->key_event == x_key_event, "the Amiga table hands the row's key to the computer part");
+   check(machine->option_rows == a_option_rows, "the Amiga table offers its F2 rows: the computers' keyboard row, then the CPU's speed");
+   check(machine->key_event == a_key_event, "the Amiga table hands the rows' keys to its own part, then to the computer part");
    x_settings_loaded(ui);
    check(!guest_keyboard, "a game starts with the game controls (the keyboard's owner is per game, never read from the shared ini)");
    check(!machine->key_event(ui, SDL_SCANCODE_K, &harness_running) && !guest_keyboard, "a real K does not toggle the keyboard");
@@ -169,6 +171,51 @@ int main(int argc, char **argv) {
       a_port1_load();
       check(a_port1_mode() == RR_AMIGA_PORT1_FOLLOW, "and so is a damaged file");
       remove(port1_config);
+   }
+   /* The CPU's speed (HOST_KIT D14's exception): the F2 row cycles Normal, x2, x4, kept per game in cpu.cfg; --cpu-factor is for one run;
+    * a game listed as needing the normal speed stays at it. */
+   {
+      snprintf(cpu_config, sizeof cpu_config, "%s", "amiga-menu-cpu.cfg");
+      remove(cpu_config);
+      cpu_mhz = 14; cpu_option = 0; cpu_stock_only = false;
+      a_cpu_load();
+      check(a_cpu_choice == 1 && harness_cpu_factor == 1, "no saved choice: the normal speed");
+      check(!strcmp(a_cpu_label(), "CPU speed: %s") && !strcmp(a_cpu_value(), "Normal (14 MHz)"), "the row says the model's own clock");
+      check(machine->key_event(ui, (SDL_Scancode)A_ROW_CPU, &harness_running) && a_cpu_choice == 2 && harness_cpu_factor == 2,
+            "the row sets x2");
+      check(!strcmp(rrhk.status, "CPU speed: x2 (28 MHz)"), "and the plate says so");
+      machine->key_event(ui, (SDL_Scancode)A_ROW_CPU, &harness_running);
+      check(a_cpu_choice == 4 && harness_cpu_factor == 4 && !strcmp(rrhk.status, "CPU speed: x4 (56 MHz)"), "then x4");
+      a_cpu_choice = 1; harness_cpu_factor = -1;
+      a_cpu_load();
+      check(a_cpu_choice == 4 && harness_cpu_factor == 4, "the choice is kept for the game (cpu.cfg)");
+      machine->key_event(ui, (SDL_Scancode)A_ROW_CPU, &harness_running);
+      check(a_cpu_choice == 1 && harness_cpu_factor == 1 && !strcmp(rrhk.status, "CPU speed: Normal (14 MHz)"), "then back to Normal");
+      cpu_option = 2;
+      a_cpu_load();
+      check(a_cpu_choice == 2 && harness_cpu_factor == 2, "--cpu-factor sets this run's speed");
+      cpu_option = 0;
+      a_cpu_load();
+      check(a_cpu_choice == 1, "and is not kept: the saved choice comes back");
+      f = fopen(cpu_config, "wb");
+      if (f) { fputs("cpu=3\n", f); fclose(f); }
+      a_cpu_load();
+      check(a_cpu_choice == 1 && harness_cpu_factor == 1, "an unknown value is read as the normal speed");
+      f = fopen(cpu_config, "wb");
+      if (f) { fputs("cpu=4 extra\n", f); fclose(f); }
+      a_cpu_load();
+      check(a_cpu_choice == 1, "and so is a damaged file");
+      cpu_stock_only = true;
+      machine->key_event(ui, (SDL_Scancode)A_ROW_CPU, &harness_running);
+      check(a_cpu_choice == 1 && harness_cpu_factor == 1 && !strcmp(rrhk.status, "CPU speed: Normal (this game)"),
+            "a game listed as needing the normal speed stays at it, and says so");
+      cpu_option = 4;
+      a_cpu_load();
+      check(a_cpu_choice == 1 && harness_cpu_factor == 1, "even with --cpu-factor");
+      cpu_option = 0; cpu_stock_only = false; cpu_mhz = 7;
+      a_set_cpu(2, false);
+      check(!strcmp(a_cpu_value(), "x2 (14 MHz)"), "the Amiga 500's 68000: x2 is 14 MHz");
+      remove(cpu_config);
    }
    printf("%u checks, %u failures\n", checks, failures);
    SDL_Quit();
