@@ -30,13 +30,16 @@ bool parallel_rdp_memory_load(const void *in, size_t size);
 size_t rr_n64_audio_state_size(void);
 void rr_n64_audio_state_save(void *out);
 int rr_n64_audio_state_load(const void *in, size_t size);
+// The RSP's own registers, which ParaLLEl-RSP keeps outside the core's state (a modification of its parallel.cpp, n64_core.py).
+size_t rr_n64_rsp_state_size(void);
+void rr_n64_rsp_state(void *out, const void *in);
 void parallel_set_threaded_commands(bool enable);
 bool parallel_init(void);
 }
 
 namespace {
 constexpr uint64_t FNV_BASIS = 1469598103934665603ull, FNV_PRIME = 1099511628211ull;
-constexpr char STATE_MAGIC[8] = {'R', 'R', 'N', '6', '4', 'Q', 'S', '3'};
+constexpr char STATE_MAGIC[8] = {'R', 'R', 'N', '6', '4', 'Q', 'S', '4'};
 
 uint64_t fnv(const void *data, size_t size, uint64_t h = FNV_BASIS)
 {
@@ -581,50 +584,56 @@ uint64_t rr_n64_site_unlisted_count(const RrN64Session *) { return ::rr_n64_site
 int rr_n64_sites_write(const RrN64Session *, void *file) { return ::rr_n64_write_sites(static_cast<FILE *>(file)); }
 const char *rr_n64_gpu_name(const RrN64Session *s) { return s ? s->gpu_name.c_str() : ""; }
 
-// A state: the magic, the build's key (64 bytes), the session's frame, the sizes of the renderer's and the audio's blocks, the
-// renderer's hidden RDRAM and TMEM, the audio plugin's running state, the core's own state.
+// A state: the magic, the build's key (64 bytes), the session's frame, the sizes of the renderer's, the audio's and the RSP's blocks,
+// the renderer's hidden RDRAM and TMEM, the audio plugin's running state, the RSP's registers, the core's own state.
 int rr_n64_state_capture(RrN64Session *s, const char *abi, uint8_t **out, size_t *size)
 {
     if (!s || !abi || !out || !size) return 4;
     const size_t core = retro_serialize_size();
-    const uint64_t hidden = parallel_rdp_memory_size(), sound = rr_n64_audio_state_size();
-    const size_t head = sizeof STATE_MAGIC + 64 + 8 + 8 + 8;
-    uint8_t *data = static_cast<uint8_t *>(malloc(head + hidden + sound + core));
-    if (!data || !core || !hidden || !sound) { free(data); return 4; }
+    const uint64_t hidden = parallel_rdp_memory_size(), sound = rr_n64_audio_state_size(), rsp = rr_n64_rsp_state_size() + rr_n64_core_extra_size();
+    const size_t head = sizeof STATE_MAGIC + 64 + 8 + 8 + 8 + 8;
+    uint8_t *data = static_cast<uint8_t *>(malloc(head + hidden + sound + rsp + core));
+    if (!data || !core || !hidden || !sound || !rsp) { free(data); return 4; }
     memcpy(data, STATE_MAGIC, sizeof STATE_MAGIC);
     memset(data + 8, 0, 64);
     memcpy(data + 8, abi, strnlen(abi, 64));
     memcpy(data + 72, &s->frame, 8);
     memcpy(data + 80, &hidden, 8);
     memcpy(data + 88, &sound, 8);
-    if (!retro_serialize(data + head + hidden + sound, core) || !parallel_rdp_memory_save(data + head, hidden)) { free(data); return 4; }
+    memcpy(data + 96, &rsp, 8);
+    if (!retro_serialize(data + head + hidden + sound + rsp, core) || !parallel_rdp_memory_save(data + head, hidden)) { free(data); return 4; }
     rr_n64_audio_state_save(data + head + hidden);
+    rr_n64_rsp_state(data + head + hidden + sound, nullptr);
+    rr_n64_core_extra(data + head + hidden + sound + rr_n64_rsp_state_size(), nullptr);
     *out = data;
-    *size = head + hidden + sound + core;
+    *size = head + hidden + sound + rsp + core;
     return 0;
 }
 
 int rr_n64_state_restore(RrN64Session *s, const char *abi, const uint8_t *data, size_t size)
 {
-    const size_t head = sizeof STATE_MAGIC + 64 + 8 + 8 + 8;
+    const size_t head = sizeof STATE_MAGIC + 64 + 8 + 8 + 8 + 8;
     if (!s || !data || size <= head || memcmp(data, STATE_MAGIC, sizeof STATE_MAGIC)) return 3;
     char key[64] = {};
     memcpy(key, abi, strnlen(abi, 64));
     if (memcmp(data + 8, key, 64)) return 2;
-    uint64_t hidden = 0, sound = 0;
+    uint64_t hidden = 0, sound = 0, rsp = 0;
     memcpy(&hidden, data + 80, 8);
     memcpy(&sound, data + 88, 8);
-    if (!hidden || !sound || hidden >= size - head || sound >= size - head - hidden) return 3;
+    memcpy(&rsp, data + 96, 8);
+    if (!hidden || !sound || !rsp || hidden >= size - head || sound >= size - head - hidden || rsp >= size - head - hidden - sound) return 3;
     // The core starts its machine in the first frames it runs: a state loaded before them would land on nothing. Two frames
     // without input run first; the state then replaces all of the machine (the session's frame counter included).
     for (int warm = 0; s->frame == 0 && warm < 2; ++warm) {
         retro_run();
         s->audio.clear();
     }
-    if (hidden != parallel_rdp_memory_size() || sound != rr_n64_audio_state_size()) return 3;
-    if (!retro_unserialize(data + head + hidden + sound, size - head - hidden - sound)) return 3;
+    if (hidden != parallel_rdp_memory_size() || sound != rr_n64_audio_state_size() || rsp != rr_n64_rsp_state_size() + rr_n64_core_extra_size()) return 3;
+    if (!retro_unserialize(data + head + hidden + sound + rsp, size - head - hidden - sound - rsp)) return 3;
     if (!parallel_rdp_memory_load(data + head, hidden)) return 3;
     if (!rr_n64_audio_state_load(data + head + hidden, sound)) return 3;
+    rr_n64_rsp_state(nullptr, data + head + hidden + sound);
+    rr_n64_core_extra(nullptr, data + head + hidden + sound + rr_n64_rsp_state_size());
     memcpy(&s->frame, data + 72, 8);
     return 0;
 }

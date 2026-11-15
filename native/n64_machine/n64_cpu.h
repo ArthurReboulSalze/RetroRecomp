@@ -40,6 +40,10 @@ size_t rr_n64_site_distinct(void);
 uint64_t rr_n64_site_unlisted(void);
 int rr_n64_write_sites(FILE *out);
 
+/* What the core's own state leaves out and a quick state keeps: an RSP task waiting to go on, and the CPU's unsafe flags. */
+size_t rr_n64_core_extra_size(void);
+void rr_n64_core_extra(void *out, const void *in);
+
 int rr_n64_is_flow(uint32_t op);
 int rr_n64_has_delay(uint32_t op);
 

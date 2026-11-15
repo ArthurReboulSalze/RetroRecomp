@@ -5,6 +5,7 @@
  * interface (libretro_vulkan.h), the public parallel-rdp API (rdp_device.hpp, video_interface.hpp, MIT) and its MIT
  * integration example, and the RDP command lengths of the hardware documentation. It replaces unmarked glue files. */
 #include "parallel.h"
+#include <algorithm>
 #include <memory>
 #include <vector>
 #include <cstring>
@@ -51,6 +52,63 @@ unsigned command_length(uint32_t op)
 	case 0x24: case 0x25: return 2;                                                          // texture rectangles
 	default: return 1;
 	}
+}
+
+/* The RDP's own registers outlive a display list (the modes, the combiner, the colours, the scissor, the images, the tile descriptors)
+   and no state holds them: a game that sets one once (GoldenEye 007 draws a small object with a colour it set long before) drew it
+   otherwise after a quick state. The glue keeps the last command that set each one and replays them after a load, before the texture
+   memory is restored (so the loads it replays leave nothing behind); none of them draws. The words of a command cut at the end of a
+   list, still waiting for the rest, are kept too. */
+struct RdpShadow
+{
+	uint32_t single[64][2];          // by opcode: the last Set Other Modes, Set Combine, Set ... Color, Key, Convert, Scissor, images
+	uint32_t tile_set[8][2];         // per tile: the last Set Tile
+	uint32_t tile_size[8][2];        // per tile: the last command that set its size (Set Tile Size, Load Tile, Load Block, Load TLUT)
+	uint32_t tile_image[8][2];       // per tile: the Set Texture Image in force when that command ran
+	uint32_t base_primitive_index;   // the renderer's count of primitives: the seed of the dither noise of each one
+	uint32_t pending_count;          // words of a cut command
+	uint32_t pending[64];
+	uint8_t have_single[64], have_set[8], have_size[8];
+};
+RdpShadow g_shadow;
+
+bool shadow_single(uint32_t op)
+{
+	return (op >= 0x2a && op <= 0x2f) || (op >= 0x37 && op <= 0x3f);
+}
+
+void shadow_note(uint32_t op, const uint32_t *w)
+{
+	const uint32_t tile = (w[1] >> 24) & 7;
+	if (shadow_single(op)) {
+		memcpy(g_shadow.single[op], w, 8);
+		g_shadow.have_single[op] = 1;
+	} else if (op == 0x35) {
+		memcpy(g_shadow.tile_set[tile], w, 8);
+		g_shadow.have_set[tile] = 1;
+	} else if (op == 0x30 || op == 0x32 || op == 0x33 || op == 0x34) {
+		memcpy(g_shadow.tile_size[tile], w, 8);
+		memcpy(g_shadow.tile_image[tile], g_shadow.single[0x3d], 8);
+		g_shadow.have_size[tile] = 1;
+	}
+}
+
+void shadow_replay(void)
+{
+	if (!g_rdp)
+		return;
+	for (uint32_t t = 0; t < 8; t++) {
+		if (g_shadow.have_set[t])
+			g_rdp->enqueue_command(2, g_shadow.tile_set[t]);
+		if (g_shadow.have_size[t]) {
+			g_rdp->enqueue_command(2, g_shadow.tile_image[t]);
+			g_rdp->enqueue_command(2, g_shadow.tile_size[t]);
+		}
+	}
+	for (uint32_t op = 0; op < 64; op++)
+		if (g_shadow.have_single[op])
+			g_rdp->enqueue_command(2, g_shadow.single[op]);
+	g_words.assign(g_shadow.pending, g_shadow.pending + std::min<uint32_t>(g_shadow.pending_count, 64));
 }
 
 constexpr uint32_t MI_INTR_DP = 0x20;
@@ -238,7 +296,7 @@ static bool transfer_rdp_buffer(Vulkan::Buffer &buffer, void *out, const void *i
 
 size_t parallel_rdp_memory_size(void)
 {
-	return g_rdp ? g_rdp->rr_hidden_rdram().get_create_info().size + g_rdp->rr_tmem().get_create_info().size : 0;
+	return g_rdp ? g_rdp->rr_hidden_rdram().get_create_info().size + g_rdp->rr_tmem().get_create_info().size + sizeof(RdpShadow) : 0;
 }
 
 bool parallel_rdp_memory_save(void *out, size_t size)
@@ -247,18 +305,25 @@ bool parallel_rdp_memory_save(void *out, size_t size)
 		return false;
 	parallel_quiesce();
 	auto *bytes = static_cast<uint8_t *>(out);
-	return transfer_rdp_buffer(g_rdp->rr_hidden_rdram(), bytes, nullptr) &&
-	       transfer_rdp_buffer(g_rdp->rr_tmem(), bytes + g_rdp->rr_hidden_rdram().get_create_info().size, nullptr);
+	const size_t hidden = g_rdp->rr_hidden_rdram().get_create_info().size, tmem = g_rdp->rr_tmem().get_create_info().size;
+	g_shadow.base_primitive_index = g_rdp->rr_base_primitive_index();
+	g_shadow.pending_count = uint32_t(std::min<size_t>(g_words.size(), 64));
+	std::copy(g_words.begin(), g_words.begin() + g_shadow.pending_count, g_shadow.pending);
+	memcpy(bytes + hidden + tmem, &g_shadow, sizeof g_shadow);
+	return transfer_rdp_buffer(g_rdp->rr_hidden_rdram(), bytes, nullptr) && transfer_rdp_buffer(g_rdp->rr_tmem(), bytes + hidden, nullptr);
 }
 
 bool parallel_rdp_memory_load(const void *in, size_t size)
 {
 	if (!g_rdp || !size || size != parallel_rdp_memory_size())
 		return false;
-	parallel_quiesce();
 	auto *bytes = static_cast<const uint8_t *>(in);
-	return transfer_rdp_buffer(g_rdp->rr_hidden_rdram(), nullptr, bytes) &&
-	       transfer_rdp_buffer(g_rdp->rr_tmem(), nullptr, bytes + g_rdp->rr_hidden_rdram().get_create_info().size);
+	const size_t hidden = g_rdp->rr_hidden_rdram().get_create_info().size, tmem = g_rdp->rr_tmem().get_create_info().size;
+	memcpy(&g_shadow, bytes + hidden + tmem, sizeof g_shadow);
+	shadow_replay();
+	parallel_quiesce();
+	g_rdp->rr_base_primitive_index() = g_shadow.base_primitive_index;
+	return transfer_rdp_buffer(g_rdp->rr_hidden_rdram(), nullptr, bytes) && transfer_rdp_buffer(g_rdp->rr_tmem(), nullptr, bytes + hidden);
 }
 
 void parallel_profile_video_refresh_begin(void) {}
@@ -332,6 +397,7 @@ void parallelProcessRDPList(void)
 			break;
 		if (op >= 8 && g_rdp)
 			g_rdp->enqueue_command(unsigned(len), &g_words[i]);
+		shadow_note(op, &g_words[i]);
 		if (op == RDP_SYNC_FULL) {
 			if (o_sync && g_rdp)
 				g_rdp->wait_for_timeline(g_rdp->signal_timeline());

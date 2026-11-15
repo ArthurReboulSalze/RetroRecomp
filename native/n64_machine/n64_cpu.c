@@ -152,7 +152,7 @@ void rr_n64_cpu_start(struct r4300_core *r4300)
 /* ---- where the interpreter ran (gate G3), only when asked (--interpreted-sites): one entry per (pc, word, reason) with its
  * count. The reason is the one that started the interpreted stretch the instruction belongs to (a stretch ends when a block runs):
  * the PC outside KSEG0, no block at a KSEG0 address, or a guard miss. */
-#define SITE_SLOTS (1u << 18)
+#define SITE_SLOTS (1u << 21)
 typedef struct { uint32_t pc, word, reason, start; uint64_t count; } Site;
 static Site *sites;
 static uint32_t sites_used;
@@ -169,7 +169,8 @@ static void note_site(struct r4300_core *r4300, uint32_t pc, uint32_t reason)
 {
     const uint32_t *w;
     uint32_t word, slot;
-    if (!stretch_reason) { stretch_reason = reason; stretch_start = pc; }
+    /* A guard miss always starts a stretch of its own, even inside one: else it took the class of the stretch it fell in. */
+    if (!stretch_reason || reason == 3) { stretch_reason = reason; stretch_start = pc; }
     if (!sites) return;
     w = fast_mem_access(r4300, pc);
     word = w ? *w : 0;
@@ -229,6 +230,34 @@ int rr_n64_run_blocks(struct r4300_core *r4300)
     }
     if (!ran) note_site(r4300, pc, (pc & 0xFF800000u) == 0x80000000u ? 2 : 1);
     return ran;
+}
+
+/* ---- what the core's own state leaves out ----
+ * A quick state keeps what the core rebuilds wrongly or clears when it loads one: the addresses of the two audio DMAs queued in the AI
+ * (the core sets both to the last one written, so the AI played another buffer: Banjo-Tooie's sound and two audio buffers in RDRAM
+ * differed from the first frame after a load), the AI's format flag, whether an RSP task stopped on an interrupt and waits to go on
+ * (rsp_task_locked, cleared by the core: the task would be marked done at the next SP event) and the CPU's "unsafe" flags with it. */
+size_t rr_n64_core_extra_size(void) { return 5 * sizeof(uint32_t); }
+
+void rr_n64_core_extra(void *out, const void *in)
+{
+    uint32_t v[5];
+    if (out) {
+        v[0] = g_dev.sp.rsp_task_locked;
+        v[1] = g_dev.r4300.cp0.interrupt_unsafe_state;
+        v[2] = g_dev.ai.fifo[0].address;
+        v[3] = g_dev.ai.fifo[1].address;
+        v[4] = g_dev.ai.samples_format_changed;
+        memcpy(out, v, sizeof v);
+    }
+    if (in) {
+        memcpy(v, in, sizeof v);
+        g_dev.sp.rsp_task_locked = v[0];
+        g_dev.r4300.cp0.interrupt_unsafe_state = v[1];
+        g_dev.ai.fifo[0].address = v[2];
+        g_dev.ai.fifo[1].address = v[3];
+        g_dev.ai.samples_format_changed = v[4];
+    }
 }
 
 /* ---- evidence ---- */

@@ -111,6 +111,33 @@ STATE_RETURN = ('        if (savestates_get_job() == savestates_job_{job})\n    
 CACHED_DEBUG = '        if (g_DebuggerActive) update_debugger((*r4300_pc_struct(r4300))->addr);\n#endif\n'
 CACHED_OPS = CACHED_DEBUG + '        (*r4300_pc_struct(r4300))->ops();\n    }\n}'
 
+RSP_STATE = '''\t/* Retro-Recomp modification (under this file's own licence): the RSP's registers for a quick state (native/n64_machine/
+\t * n64_session.cpp): its PC and delay slot, the scalar registers, the vector unit (registers, flags, accumulators, divider), and the
+\t * plugin's MFC0 counters and status wait. */
+\tsize_t rr_n64_rsp_state_size(void)
+\t{
+\t\treturn sizeof(uint32_t) * 3 + sizeof(RSP::cpu.get_state().sr) + sizeof(RSP::CP2) + sizeof(RSP::MFC0_count) + sizeof(int);
+\t}
+
+\tvoid rr_n64_rsp_state(void *out, const void *in)
+\t{
+\t\tauto &s = RSP::cpu.get_state();
+\t\tstruct Field { void *at; size_t size; } fields[] = {
+\t\t\t{ &s.pc, sizeof s.pc }, { &s.has_delay_slot, sizeof s.has_delay_slot }, { &s.branch_target, sizeof s.branch_target },
+\t\t\t{ s.sr, sizeof s.sr }, { &s.cp2, sizeof(RSP::CP2) }, { RSP::MFC0_count, sizeof RSP::MFC0_count },
+\t\t\t{ &RSP::SP_STATUS_TIMEOUT, sizeof RSP::SP_STATUS_TIMEOUT } };
+\t\tsize_t at = 0;
+\t\tfor (auto &f : fields)
+\t\t{
+\t\t\tif (out)
+\t\t\t\tmemcpy(static_cast<uint8_t *>(out) + at, f.at, f.size);
+\t\t\tif (in)
+\t\t\t\tmemcpy(f.at, static_cast<const uint8_t *>(in) + at, f.size);
+\t\t\tat += f.size;
+\t\t}
+\t}
+
+'''
 SINC = 'libretro-common/audio/resampler/drivers/sinc_resampler.c'
 AUDIO = 'custom/mupen64plus-core/plugin/audio_libretro/audio_backend_libretro.c'
 SINC_STATE = '''/* Retro-Recomp modification (under this file's own licence): the resampler's running state, for a quick state (its position, its
@@ -211,7 +238,13 @@ REPLACEMENTS = [
     # glue copies it through a staging buffer and needs the two buffers, which the renderer keeps private.
     ('mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_device.hpp', '\tsize_t get_hidden_rdram_size() const;\n',
      '\tsize_t get_hidden_rdram_size() const;\n\t/* Retro-Recomp modification (MIT, like this file): the buffers a quick state copies. */\n'
-     '\tVulkan::Buffer &rr_hidden_rdram() { return *hidden_rdram; }\n\tVulkan::Buffer &rr_tmem() { return *tmem; }\n'),
+     '\tVulkan::Buffer &rr_hidden_rdram() { return *hidden_rdram; }\n\tVulkan::Buffer &rr_tmem() { return *tmem; }\n'
+     '\tuint32_t &rr_base_primitive_index() { return renderer.rr_base_primitive_index(); }\n'),
+    # ... and the renderer's count of primitives since it started, the seed of the RDP's dither noise per primitive: a fresh process
+    # counted from its own start, so an effect drawn with noise came out otherwise after a load (GoldenEye 007, 95 frames on).
+    ('mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_renderer.hpp', '\texplicit Renderer(CommandProcessor &processor);\n',
+     '\texplicit Renderer(CommandProcessor &processor);\n\t/* Retro-Recomp modification (MIT, like this file): the noise seed\'s base, for a quick state. */\n'
+     '\tuint32_t &rr_base_primitive_index() { return base_primitive_index; }\n'),
     # The core's ROM database (save types, timing per game) is built in (custom/mupen64plus-core/main/mupen64plus.ini.h); upstream
     # writes it into a folder of the host at every start and reads it back. It is read from memory instead: nothing is written,
     # and a path the host's code page cannot spell does not lose it.
@@ -229,6 +262,11 @@ REPLACEMENTS = [
     (SINC, '} rarch_sinc_resampler_t;\n', '} rarch_sinc_resampler_t;\n\n' + SINC_STATE),
     # ... and the game's audio rate, read and written by the session (native/n64_machine/n64_session.cpp).
     (AUDIO, '#endif\n\nvoid deinit_audio_libretro(void)\n', '#endif\n\n' + AUDIO_STATE + '\nvoid deinit_audio_libretro(void)\n'),
+    # A quick state holds the RSP's own registers, which ParaLLEl-RSP keeps outside the core's state: a task the RSP left on an
+    # interrupt goes on from them, and a microcode may start from what the last task left (Banjo-Tooie's sound and RDRAM differed
+    # from the first frame after a load).
+    ('mupen64plus-rsp-paraLLEl/parallel.cpp', '\t// Hack entry point to use when loading savestates when we\'re tracing.\n',
+     RSP_STATE + '\t// Hack entry point to use when loading savestates when we\'re tracing.\n'),
 ]
 
 

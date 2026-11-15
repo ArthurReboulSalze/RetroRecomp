@@ -342,8 +342,8 @@ def trace_digests(path: Path) -> dict:
             for name, indexes in columns.items()}
 
 
-# Nothing a resumed process may differ on: since the state holds the audio plugin's running state (format RRN64QS3), the sound
-# continues too, so a difference in the CPU, RDRAM, picture or sound refuses the conversion, as on the other machines. (Until then
+# Nothing a resumed process may differ on: since the state holds the audio plugin's running state and the RSP's registers (format
+# RRN64QS4), the sound continues too, so a difference in the CPU, RDRAM, picture or sound refuses the conversion, as on the other machines. (Until then
 # the samples after a load differed on every frame compared and were the one tolerated difference.)
 CONTINUATION_IGNORED = ()
 
@@ -474,7 +474,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         delivered = deliver_packed(candidate, packed, 'Nintendo 64', emit)
         state_frame = count - 600
         packed_runs = [(name, checks / 'packed' / name, checks / f'reference-{name}', frames_,
-                        ['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate')] if name == 'main' else [])
+                        ['--state-save-at', str(state_frame), '--state-slot', str(checks / 'packed' / name / 'quick.rrstate'),
+                         '--saves-at-state', str(checks / 'packed' / name / 'at-state.saves')] if name == 'main' else [])
                        for name, frames_, _ in routes]
 
         def replay_copy(run_):
@@ -500,7 +501,10 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         fresh = restart / candidate.name
         shutil.copy2(packed, fresh)
         with timings.phase('state_checks'):
-            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate'])
+            # The fresh process gets the cartridge save as it was when the state was taken, as a player's game keeps its file.
+            shutil.copy2(checks / 'packed' / 'main' / 'at-state.saves', restart / 'saves.bin')
+            replay(fresh, restart, 400, scripts['main'], extra=['--state-load-start', '--state-slot', checks / 'packed' / 'main' / 'quick.rrstate',
+                                                                '--saves', restart / 'saves.bin'])
         resumed = continuation(checks / 'packed' / 'main' / 'trace.tsv', restart / 'trace.tsv')
         require_continuation(resumed)
         rows = []
@@ -553,7 +557,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             'final_checks': rows, **delivered.report_fields(), 'liveness': liveness, 'scan_level': level,
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': resumed['matches'], 'slots': 1,
                             'compatibility': 'the exact game and build that wrote the state; refused between builds',
-                            'schema': 'RRN64QS3', 'machine': 'n64', 'rom_identity': source.sha256,
+                            'schema': 'RRN64QS4', 'machine': 'n64', 'rom_identity': source.sha256,
                             'validation': {'process': 'fresh', 'compressed_copy': delivered.kind == 'packed', 'saved_at_frame': state_frame,
                                            'continuation_frames': resumed['frames'], 'continuation_matches': resumed['matches'],
                                            'equal_frames': resumed['equal_frames'], 'differing_columns': resumed['differing_columns'],

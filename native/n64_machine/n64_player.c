@@ -36,6 +36,12 @@ static int interpreted_sites_on;   /* --interpreted-sites: the report lists wher
 /* --captures DIR --capture-every N: a picture every N frames of a test run, DIR/<frame>.ppm (route tuning and reading) */
 static const char *captures_dir;
 static unsigned capture_every;
+/* --dump-rdram FRAME:PATH: the RDRAM after that frame, raw (diagnosis of a run that leaves another; test runs only) */
+static const char *dump_rdram;
+/* --state-reload-at FRAME: save a state and load it back in the same process (diagnosis: a fresh process against the same one) */
+static unsigned reload_at;
+/* --saves-at-state PATH: the cartridge save memory written when --state-save-at saves the state */
+static const char *saves_snapshot;
 static char state_slot[PATH_CAP], save_path[PATH_CAP];
 static uint64_t save_hash;
 static int16_t frame_audio[2 * 8192];
@@ -311,6 +317,23 @@ static int run_headless(const char *trace_path, const char *report_path, const c
             snprintf(path, sizeof path, "%s/%06llu.ppm", captures_dir, (unsigned long long)info.frame);
             if (!write_capture(path)) { fail("Cannot write a capture"); stopped = true; error = "capture failed"; break; }
         }
+        if (dump_rdram && info.frame == strtoull(dump_rdram, NULL, 10) && strchr(dump_rdram, ':')) {
+            size_t size = 0;
+            const uint8_t *ram = rr_n64_rdram(session, &size);
+            FILE *f = open_utf8(strchr(dump_rdram, ':') + 1, L"wb");
+            if (f) { if (ram) fwrite(ram, 1, size, f); fclose(f); }
+        }
+        if (reload_at && info.frame == reload_at && (state_save(state_slot) || state_load(state_slot))) {
+            fail("The state reload failed"); stopped = true; error = "state reload failed"; break;
+        }
+        if (save_at && info.frame == save_at && saves_snapshot) {
+            /* The cartridge save as it is when the state is taken: the file a player's game keeps beside its states (test runs). */
+            size_t size = 0;
+            const uint8_t *memory = rr_n64_save_memory(session, &size);
+            FILE *f = open_utf8(saves_snapshot, L"wb");
+            if (!f || !memory || fwrite(memory, 1, size, f) != size) { if (f) fclose(f); fail("Cannot write the save snapshot"); return 1; }
+            fclose(f);
+        }
         if (save_at && info.frame == save_at && state_save(state_slot)) {
             fail("The quick state could not be saved"); stopped = true; error = "state save failed"; break;
         }
@@ -426,6 +449,9 @@ int main(int argc, char **argv) {
             else if (!strcmp(a, "--report")) report_path = v;
             else if (!strcmp(a, "--capture")) capture_path = v;
             else if (!strcmp(a, "--captures")) captures_dir = v;
+            else if (!strcmp(a, "--dump-rdram")) dump_rdram = v;
+            else if (!strcmp(a, "--state-reload-at")) reload_at = (unsigned)strtoul(v, NULL, 10);
+            else if (!strcmp(a, "--saves-at-state")) saves_snapshot = v;
             else if (!strcmp(a, "--capture-every")) capture_every = (unsigned)strtoul(v, NULL, 10);
             else if (!strcmp(a, "--observations")) observe_path = v;
             else if (!strcmp(a, "--frame-times")) times_path = v;
