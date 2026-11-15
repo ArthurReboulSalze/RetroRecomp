@@ -217,7 +217,9 @@ Rules:
   declares options. The page is shown over the last picture; a machine that wants the change seen before the page closes
   renders it at its next frame.
 * **Pictures.** With `pixel_pitch`, `pixels()` holds `visible_height()` rows of at least `visible_width()` pixels,
-  `pixel_pitch()` pixels apart; only that area is uploaded. **Aspect** is the existing pair `display_width()` /
+  `pixel_pitch()` pixels apart; only that area is uploaded. `pixels()` may return NULL, or the visible size be 0 x 0, while a machine has no
+  picture yet (a session reopened under a menu, before its first frame): the kit shows the game's area black under every filter
+  and reads nothing (1.7.7; xBR and Scale2x crashed on it before). **Aspect** is the existing pair `display_width()` /
   `raster_height()` (the shape the picture is shown at, as the CPS-1 and the Mega Drive already report it), not a new hook: a
   picture of 368 x 240 shown at 4:3 reports `display_width` 320 and `raster_height` 240, the same picture at a 2x internal
   resolution reports 736 x 480 visible and the same 320 x 240, and the kit's rule (D2) keeps whole multiples of the raster

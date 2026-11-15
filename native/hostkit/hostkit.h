@@ -233,7 +233,7 @@ typedef struct RrhkMachine {
     void (*reset)(void);
     bool (*run_frame)(uint16_t p1, uint16_t p2);
     void (*pause)(bool paused);
-    const uint32_t *(*pixels)(void);
+    const uint32_t *(*pixels)(void);           /* NULL (or a 0 x 0 visible size): no picture yet, shown black (1.7.7) */
     int (*visible_width)(void);
     int (*visible_height)(void);
     int (*raster_height)(void);

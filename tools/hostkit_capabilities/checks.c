@@ -20,6 +20,7 @@
  *   - discs: the Change disc key and pad button select the next disc with a "Disc 2/3" notice, a refused change, nothing in a
  *     menu;
  *   - with the fields left out: F3 cycles the filter, the left stick is the directions, no dead zone row, no rumble, no disc.
+ *   - no picture (1.7.7): a machine whose pixels() is NULL, or 0 x 0, shows a black game area under each filter, no crash;
  *   - F4 (1.7.4): window, pixel-perfect, fit, stretched (the whole output), kept and read back, even by a machine that clamps
  *     its former value to three modes;
  *   - the F2 tiles (1.7.4): F2 opens them, Enter opens a page, Esc comes back to them and then to the game; "Quit?": Esc in play
@@ -93,6 +94,7 @@ static const RrhkGfxOption options[] = {{"Internal resolution", L"resolution", r
 #define GREEN 0x00ff00u
 static uint32_t *picture;          /* BASE x 4 at most, `scale` x BASE in use, rows `width` apart */
 static int scale = 1;
+static bool no_picture, zero_size; /* 1.7.7: the machine hands no picture (NULL) or a 0 x 0 one, as a session just reopened may */
 static uint64_t frames;
 static uint16_t last_pad[2];
 static int16_t last_axes[2][RRHK_AXES];
@@ -117,11 +119,11 @@ static void gfx_apply(int option, int value) {
     ++apply_count;
     if (option == 0) { scale = 1 << value; draw_picture(); }
 }
-static int width(void) { return BASE_W * scale; }
-static int height(void) { return BASE_H * scale; }
+static int width(void) { return zero_size ? 0 : BASE_W * scale; }
+static int height(void) { return zero_size ? 0 : BASE_H * scale; }
 static int base_width(void) { return BASE_W; }
 static int base_height(void) { return BASE_H; }
-static const uint32_t *pixels(void) { return picture; }
+static const uint32_t *pixels(void) { return no_picture ? NULL : picture; }
 static int players(void) { return 2; }
 static void reset(void) {}
 static void pause_machine(bool paused) { (void)paused; }
@@ -160,7 +162,16 @@ static Uint32 read_pixel(SDL_Renderer *renderer, int x, int y) {
     SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, &value, 4);
     return value & 0xffffffu;
 }
+static int black_seen[4], black_wrong;
 static void before_present(SDL_Renderer *renderer) {
+    if ((no_picture || zero_size) && !rrhk_ui()->menu) {    /* 1.7.7: no picture, whatever the filter: black (the last one was green) */
+        int w = 0, h = 0;
+        SDL_GetRendererOutputSize(renderer, &w, &h);
+        const int filter = rrhk_ui()->filter;
+        if (w > 0 && read_pixel(renderer, w / 2, h / 2) == 0 && read_pixel(renderer, w / 4, h / 4) == 0 &&
+            read_pixel(renderer, w * 3 / 4, h * 3 / 4) == 0 && filter >= 0 && filter < 4) ++black_seen[filter];
+        else ++black_wrong;
+    }
     if (!want_picture || rrhk_ui()->menu) return;
     const SDL_Rect dst = rrhk_game_rect(renderer);
     picture_ok = dst.w > 0 && read_pixel(renderer, dst.x + dst.w - 1, dst.y + dst.h - 1) == RED &&
@@ -1070,6 +1081,37 @@ static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     return true;
 }
 
+/* 1.7.7: a machine with no picture (pixels() NULL), then a 0 x 0 one, under each of the four filters: no crash (xBR and Scale2x
+ * read the picture), a black game area, then the picture again once the machine has one. `graphics_page`: the filter changed on the F3 page (a
+ * machine with graphics options and a growing picture), otherwise F3 cycles it. */
+static bool graphics_page;
+static int null_filter, null_checks;
+static void next_filter(void) {
+    if (graphics_page) { key(SDL_SCANCODE_F3); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_ESCAPE); }
+    else key(SDL_SCANCODE_F3);
+}
+static void null_picture_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    const int s = step++;
+    if (s == 0) {
+        memset(black_seen, 0, sizeof black_seen); black_wrong = 0;
+        null_filter = ui->filter; no_picture = true;
+        return;
+    }
+    /* four filters, three presents or more each: NULL (steps 1-16), then 0 x 0 (steps 18-33) */
+    if ((s >= 1 && s <= 16) || (s >= 18 && s <= 33)) { if (s % 4 == 0) next_filter(); return; }
+    if (s == 17 || s == 34) {
+        CHECK(ui->filter == null_filter);                       /* back to the first one */
+        for (int f = 0; f < 4; ++f) CHECK(black_seen[f] > 0);
+        CHECK(black_wrong == 0);
+        memset(black_seen, 0, sizeof black_seen); black_wrong = 0;
+        no_picture = false; zero_size = s == 17;
+        if (s == 34) { null_checks = picture_checks; want_picture = true; }
+        return;
+    }
+    if (s == 37) { CHECK(picture_checks == null_checks + 1 && picture_ok); stop = true; }   /* the picture again */
+}
+
 static void (*script)(void);
 static void frame_start(void *window, void *renderer) { (void)window; (void)renderer; if (script) script(); }
 
@@ -1285,8 +1327,17 @@ int main(int argc, char **argv) {
     begin(clear_again);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 7);
-    /* 10. 1.7.6: the graphics page from F2 and from the options page, on the machine that has one. */
+    /* 14. 1.7.7: no picture under each filter, on a console (F3 cycles) and on the machine whose picture grows (the F3 page). */
+    begin(null_picture_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 38);
     current = &full;
+    graphics_page = true;
+    begin(null_picture_script);
+    CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
+    CHECK(step >= 38);
+    graphics_page = false;
+    /* 10. 1.7.6: the graphics page from F2 and from the options page, on the machine that has one. */
     begin(graphics_entry_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
     CHECK(step >= 7);

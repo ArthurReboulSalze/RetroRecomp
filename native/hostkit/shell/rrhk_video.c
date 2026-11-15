@@ -110,7 +110,15 @@ static void grow_store(RrhkRun *run) {
 void rrhk_present_picture(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     SDL_Renderer *ren = run->ren;
+    /* 1.7.7: a machine may have no picture yet (a session reopened by a graphics option, its first frame not run while a menu
+     * holds it, or a Restart under a menu): a NULL or zero-size picture shows the game's area black and nothing is read. xBR
+     * and Scale2x read the picture themselves and crashed on it (the PlayStation's renderer switch, F3). */
+    const uint32_t *pixels = m->pixels();
     int width = m->visible_width(), height = m->visible_height(), pitch = m->max_width;
+    if (!pixels || width <= 0 || height <= 0) {
+        SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
+        return;
+    }
     if (m->pixel_pitch) {
         /* The rows of the picture are pixel_pitch apart; only the visible part is uploaded (the buffer may be smaller than the store). */
         pitch = m->pixel_pitch();
@@ -118,20 +126,20 @@ void rrhk_present_picture(RrhkRun *run) {
         width = SDL_min(width, run->store_w); height = SDL_min(height, run->store_h);
         if (doubled(run)) {
             /* the buffer is the store's size: rrhk_texture_create made it before the doubled texture */
-            scale2x_store(m->pixels(), pitch, run->store_w, run->store_h, width, height, run->upscaled);
+            scale2x_store(pixels, pitch, run->store_w, run->store_h, width, height, run->upscaled);
             SDL_Rect area = {0, 0, width * 2 + (width < run->store_w), height * 2 + (height < run->store_h)};
             SDL_UpdateTexture(run->tex, &area, run->upscaled, run->store_w * 2 * 4);
         } else {
             SDL_Rect area = {0, 0, width, height};
-            SDL_UpdateTexture(run->tex, &area, m->pixels(), pitch * 4);
+            SDL_UpdateTexture(run->tex, &area, pixels, pitch * 4);
         }
-    } else if (rrhk.filter == 2) { rrhk_scale2x(m->pixels(), run->upscaled); SDL_UpdateTexture(run->tex, NULL, run->upscaled, m->max_width * 2 * 4); }
-    else SDL_UpdateTexture(run->tex, NULL, m->pixels(), m->max_width * 4);
+    } else if (rrhk.filter == 2) { rrhk_scale2x(pixels, run->upscaled); SDL_UpdateTexture(run->tex, NULL, run->upscaled, m->max_width * 2 * 4); }
+    else SDL_UpdateTexture(run->tex, NULL, pixels, m->max_width * 4);
     SDL_Rect dst = rrhk_game_rect(ren);
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
     int texture_scale = doubled(run) ? 2 : 1;
     SDL_Rect source = {0, 0, width * texture_scale, height * texture_scale};
-    SDL_Texture *smooth = rrhk.filter == 1 ? rr_xbr_update(ren, &run->xbr, m->pixels(), width, height, pitch) : NULL;
+    SDL_Texture *smooth = rrhk.filter == 1 ? rr_xbr_update(ren, &run->xbr, pixels, width, height, pitch) : NULL;
     if (smooth) SDL_RenderCopy(ren, smooth, NULL, &dst);
     else SDL_RenderCopy(ren, run->tex, &source, &dst);
     /* 1.7.6: one scanline per line of the console (raster_height), not per row of a raised internal resolution (visible_height):
