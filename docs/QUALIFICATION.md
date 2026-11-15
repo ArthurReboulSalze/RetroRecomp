@@ -74,7 +74,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| Commodore Amiga 1200 | experimental | `██████░░░░` 56 % | ✅ 6 · 🟡 6 · ❔ 4 |
+| Commodore Amiga 1200 | experimental | `██████░░░░` 59 % | ✅ 6 · 🟡 7 · ❔ 3 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -89,7 +89,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ❔ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
@@ -119,7 +119,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
-| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | ? |
+| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
@@ -1572,7 +1572,7 @@ frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA fo
 | G7 | ? | Not exercised on the A1200 (the Amiga 500's saves use the same layer) | A save on an A1200 install |
 | G8 | Y | Moving picture and sound on the routes (the conversion's liveness checks) | |
 | G9 | P | The routes reach play on Slam Tilt and Zool 2 (pictures); not checked install by install | A per-install record of where the routes end |
-| G10 | ? | Moira's 68EC020 is the reference CPU; its own tests compare it with Musashi; our lengths agree with Moira's disassembler on 19,084 random instructions | Independent 68020 vectors |
+| G10 | P | Moira's 68EC020 is the reference CPU; our lengths agree with Moira's disassembler on 19,084 random instructions. `tools/amiga_m68020_vectors.py` (16 November 2026, seed 1): 200,000 random instructions from random states, Moira as vAmiga builds it against Musashi's 68EC020 (an independent model, MIT, built for the check only): 192,264 equal on registers, SR, PC and the bytes written (clocks not compared); every one of the 7,731 others in a written family: 4,938 coprocessor instructions (no FPU on the A1200: Moira takes line F, Musashi models a 68881), 2,322 flags or results the manual leaves undefined (CHK, CHK2, DIV, BCD, MUL.L), 384 where the manual sides with Moira (PACK/UNPK byte order, RTE format error), 87 to referee (LINK A7, MOVEM to -(An) with An listed, bit fields, CAS2) | A third model or hardware for the 87; Musashi is a model, not the silicon |
 | G11 | P | The oracle comparison above (8 installs) | Hardware evidence beyond another emulator |
 | G12 | P | A panel of 9 named: 8 pass every check, of which Pinball Illusions stayed black after its intro in 1.7.6 (fixed in 1.7.7); one fails to start; both named with what is known | Alien Breed 3D, Pinball Illusions |
 | G13 | P | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included | More installs, and the Kickstart 3.1 ones |
