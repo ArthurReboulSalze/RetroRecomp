@@ -1103,7 +1103,6 @@
     "Supersampling": "超级采样",
     "Picture area (auto)": "画面区域 (自动)",
     "Screen format: %s": "画面比例: %s",
-    "Screen format: %s": "画面比例: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter：重新映射 | Del/X：清除 | 左/右：翻页",
     "Enter / A: restore this page": "Enter / A：恢复本页默认"
   }

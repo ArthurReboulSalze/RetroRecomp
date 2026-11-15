@@ -1103,7 +1103,6 @@
     "Supersampling": "Supersampling",
     "Picture area (auto)": "Bildbereich (auto)",
     "Screen format: %s": "Bildformat: %s",
-    "Screen format: %s": "Bildformat: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter: belegen | Entf/X: löschen | </>: Seite",
     "Enter / A: restore this page": "Enter / A: Seite zurücksetzen"
   }
