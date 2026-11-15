@@ -110,6 +110,13 @@
       {"title": "Super Daisenryaku", "category": "sram-probe", "reason": "ASCII 16 with 2 KiB battery SRAM that looks for an FM-PAC in the other slots; read as ASCII 8 until one register write stopped counting as evidence (14 November 2026)", "source": "docs/MSX.md"},
       {"title": "Hydlide 3 - The Space Memories", "category": "route-depth", "reason": "ASCII 8 role-playing game whose routes stayed in its character set-up menu at the extended level", "source": "docs/MSX.md"},
       {"title": "Metal Gear", "category": "route-depth", "reason": "Konami; the play route stops at the first transceiver call, the long route goes on", "source": "docs/MSX.md"}
+    ],
+    "n64": [
+      {"title": "Super Mario 64", "category": "regression-baseline", "reason": "Control case: EEPROM 4 Kbit written on its main route, a play route in the castle grounds; the run after an MFC0 wait loop that never became a block before 1.7.6 (94 % native then, over 99 % now)", "source": "docs/NINTENDO_64.md"},
+      {"title": "007 - GoldenEye", "category": "tlb-mapped-code", "reason": "Its game code runs at TLB-mapped addresses: 1.1 % native while only KSEG0 code became blocks; blocks of mapped code, bounded to their page, read through the TLB's page table", "source": "docs/NINTENDO_64.md"},
+      {"title": "The Legend of Zelda - Ocarina of Time", "category": "overlay-guard-misses", "reason": "Overlays load different code at one address (every observed version becomes a block, the rest are guard misses, counted); SRAM; the longest play route (16,800 frames)", "source": "docs/NINTENDO_64.md"},
+      {"title": "Banjo-Tooie", "category": "quick-state-sound", "reason": "EEPROM 16 Kbit; a resumed game played another audio buffer until the quick state kept the AI's two queued DMA addresses, which the core's own state rebuilds wrongly", "source": "docs/NINTENDO_64.md"},
+      {"title": "Rayman 2 - The Great Escape", "category": "controller-pak", "reason": "Saves only to the controller pak: its play route starts a game, which writes the game's note on pak 1", "source": "docs/NINTENDO_64.md"}
     ]
   }
 }
