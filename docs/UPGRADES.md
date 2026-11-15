@@ -89,6 +89,11 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
+| [Machines' own rows and pages: their icons](#machines-own-rows-and-pages-their-icons-176) | none | **the host stamp of all 20 profiles** (`retro_menu.c`, `retro_menu.h`, `hostkit/hostkit.h` and six adapters) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Every machine: "Quit the game", the last row of the options page](#every-machine-quit-the-game-the-last-row-of-the-options-page-176) | none | **the host stamp of all 20 profiles** (the shell, `retro_menu.c`, `runtime_catalog.inc`, the locale files) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Game Boy Advance: the sound is compared, the quick state has a checksum, a save larger than its chip is set aside, the report names its units](#game-boy-advance-the-sound-is-compared-the-quick-state-has-a-checksum-a-save-larger-than-its-chip-is-set-aside-the-report-names-its-units-175) (titled 1.7.5, but not in the `v1.7.5` tag: it ships in 1.7.6 with the merge of `spec/gba-175`) | the Game Boy Advance | none | **the Game Boy Advance states of 1.7.5 are refused** (the checksum envelope) |
+| emu2413's `LICENSE` keeps its exact bytes on a Windows checkout (`-text` in `.gitattributes`; no section of this page; commit `ffbaee01`) | none | none | none |
+| The README's console order (no section of this page; merge `a87db1fe`) | none | none | none |
 
 ## Game Boy Advance: supported (1.7.6)
 
