@@ -306,6 +306,12 @@ progressive, the session's core setting that was already the row's default (« o
 cleanly: its `deinterlace=` is a key no row reads any more (ignored, left in the file), and a saved `resolution=3` is out of range and
 keeps the default, 1x.
 
+**Aspect ratio: 4:3 by default** (15 November 2026, on the owner's remark that Fit did not fill the screen). The row's list is now
+4:3, Corrected, Uncorrected, NTSC, under a new settings key (`aspect_ratio`): a saved `aspect=` of 1.7.5 named the old list and
+is no longer read, so every player starts at 4:3. With the overscan cropped the core's "Corrected" aspect is 1.22 for 1 (the
+cropped window's share of a 4:3 line): in fullscreen 1317 x 1080 on a full-HD screen, now 1440 x 1080. No pixel of the picture
+changes and the per-frame traces are equal with either choice (checked on a private build, 3,300 frames of one game).
+
 **Stamps:** the PlayStation's host stamp (the adapter is among its host inputs); its game and build stamps do not move for this change.
 **Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged (the deinterlacer's setting was already progressive
 by default; a state taken at 8x in 1.7.5 is refused cleanly like every PlayStation state of 1.7.5). **Site limits:** unchanged.

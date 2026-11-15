@@ -75,7 +75,11 @@ class PsxAdapterTest(unittest.TestCase):
     def test_graphics_defaults_are_the_cores(self):
         # The default of each option is the setting every gate uses: Beetle's own.
         defaults = {'resolution_values': '1x(native)', 'dithering_values': '1x(native)',
-                    'aspect_values': 'corrected', 'crop_values': 'smart'}
+                    'crop_values': 'smart'}
+        # The aspect ratio is 4:3 by default, not the core's "corrected": with the overscan cropped that one is 1.22 for 1, which
+        # left wide bars in fullscreen; it changes no pixel and no size of the picture, only the shape it is shown at.
+        self.assertIn('aspect_values[] = {"4:3", "corrected", "uncorrected", "ntsc"};', ADAPTER)
+        self.assertIn('{"Aspect ratio", L"aspect_ratio", aspects, 4, 0}', ADAPTER)
         for table, value in defaults.items():
             first = re.search(rf'{table}\[\] = \{{"([^"]+)"', ADAPTER).group(1)
             self.assertEqual(first, value, table)
