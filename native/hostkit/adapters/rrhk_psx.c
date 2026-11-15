@@ -255,6 +255,10 @@ const RrhkMachine *rrhk_adapter(void) {
             .input_frame = input_frame, .help_controls = help_controls, .event = event,
             .analog_sticks = 2, .trigger_buttons = true, .rumble = true, .native_caption = RRHK_CORE_CAPTION,
             .gfx_options = gfx_options, .gfx_option_count = GFX_COUNT, .gfx_apply = gfx_apply,
+            /* Some games have their own 16:9 option and draw a squeezed (anamorphic) picture: the options page offers "Screen
+             * format: 4:3 / 16:9", kept per game (D27). At 16:9 the kit shows the picture 16 wide for 9 high, whatever the
+             * Aspect ratio row says; the machine and its picture are untouched. */
+            .widescreen = true,
             .host_media = 1 + DISC, .media_count = media_count, .media_current = media_current, .media_select = media_select,
         };
     }

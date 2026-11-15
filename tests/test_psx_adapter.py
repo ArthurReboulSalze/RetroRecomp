@@ -85,5 +85,10 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('{"beetle_psx_deinterlacer", "off"},', (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8'))
 
 
+    def test_the_screen_format_row_is_offered(self):
+        # D27 (1.7.6): a game with its own anamorphic 16:9 option can be shown 16 wide for 9 high, kept per game.
+        self.assertIn('.widescreen = true,', ADAPTER)
+
+
 if __name__ == '__main__':
     unittest.main()
