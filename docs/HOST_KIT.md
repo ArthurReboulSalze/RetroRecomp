@@ -559,7 +559,8 @@ X68000 too, without asking again**.
     thirty in a row end the lock), so the game runs at the refresh, 60.00 Hz instead of 59.92 (+0.13 %), and every sound path
     follows by its rate: base = machine_hz / refresh_hz, with a correction from the path's own fill of at most 0.5 %
     (`audio_cushion.h` `rr_drc_ratio`, one copy; `rr_drc_resample` for the kit's queue and ring; the band-limited converter of
-    `audio_output.inc` for the Master System, Game Gear and MSX; the Mega Drive's bridge through `RrhkMachine.audio_ratio`).
+    `audio_output.inc` for the Master System, Game Gear and MSX; the Mega Drive's bridge takes base as a feed-forward on its
+    resampling step and keeps its own fill controller, without `rr_drc_ratio` on top; all through `RrhkMachine.audio_ratio`).
     A machine that opens its own sound device without that hook stays free and the row says why. The notice names the
     refresh, the game's rate and the speed difference ("Locked: 60.00 Hz, game 59.92 Hz (+0.13 %)").
   * Never locked: a hidden-window test run (the conversion's checks), `SDL_RENDER_VSYNC` set (a diagnostic: the kit then leaves
