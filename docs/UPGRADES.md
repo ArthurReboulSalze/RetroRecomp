@@ -90,6 +90,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Mega Drive: its sound follows a game locked to the display](#mega-drive-its-sound-follows-a-game-locked-to-the-display-177) | none | the Mega Drive's host stamp (`retrorecomp/megadrive_audio.py`, `hostkit/adapters/rrhk_md.c`) | none |
 | [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
+| [Commodore Amiga: no battery clock](#commodore-amiga-no-battery-clock-177) | the Amiga and the Amiga 1200 (`amiga_session.cpp`) | none | refused (every build's are) |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
 
@@ -196,6 +197,16 @@ every moving edge doubled). Owner's decision of 15 November 2026, « Oui, lance-
   run's pictures from the fourth frame on (sound, memory and CPU from the first). The first frames after a load differ in one field
   of the table in 1.7.6 already (2 frames, the bitplane state at a save, an open note); the motion test makes it 3.
 - **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`), with the section above; nothing else moves.
+
+## Commodore Amiga: no battery clock (1.7.7)
+
+vAmiga gives every machine an OKI battery clock that reads the host's time. Neither a stock Amiga 500 nor a stock Amiga 1200 has one,
+and a clock that follows the host makes two runs of the same game differ as soon as the game or its Kickstart reads it: the reference
+run and the native one would disagree for a reason that is not the game's. The session now sets no clock (`Opt::RTC_MODEL` NONE).
+
+- **Measured:** Pinball Illusions (5,000 frames), Slam Tilt, Civilization and Gloom (3,000), Banshee and Fears (2,000), before and after
+  on the interpreted reference machine: identical traces, pictures included. None of them reads the clock.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`); their exports are converted again in full.
 
 ## Exports of 1.7.5 in 1.7.6
 
