@@ -90,7 +90,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Mega Drive: its sound follows a game locked to the display](#mega-drive-its-sound-follows-a-game-locked-to-the-display-177) | none | the Mega Drive's host stamp (`retrorecomp/megadrive_audio.py`, `hostkit/adapters/rrhk_md.c`) | none |
 | [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
-| [Sony PlayStation: anti-aliasing and texture filtering](#sony-playstation-anti-aliasing-and-texture-filtering-177) | none | the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales: five new strings) | none |
+| [Sony PlayStation: anti-aliasing and texture filtering](#sony-playstation-anti-aliasing-and-texture-filtering-177) | the PlayStation's (`psx_main.c`, `psx_session.c`: a session opened again keeps its options) | the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales: five new strings) | none |
 | [Sony PlayStation: geometry precision (PGXP)](#sony-playstation-geometry-precision-pgxp-177) | none | the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales: two new strings) | none |
 | [Sony PlayStation: the graphics card draws the picture](#sony-playstation-the-graphics-card-draws-the-picture-177) | the PlayStation (`psx_main.c`, `psx_session.h`, `psx_build.py`, the shared Vulkan side compiled in) and the Nintendo 64 (the shared Vulkan side gains its closing functions) | the PlayStation's (`psx_session.c`, `rrhk_psx.c`), and the host stamp of all 20 profiles (`runtime_catalog.inc` and the locales: five new strings) | none (a state loads with either renderer) |
 | [Sony PlayStation: the trace records the VRAM (format 2)](#sony-playstation-the-trace-records-the-vram-format-2-177) | the PlayStation (`psx_session.c`, `psx_session.h`, `psx_main.c`, `psx_conversion.py`) | the PlayStation's host stamp (`psx_session.c`) | none |
@@ -215,11 +215,15 @@ on the CPU and on the card, every trace column equal to the build before this ch
 machine is the same: RAM, CPU state, sound and VRAM equal on every frame (MSAA 8x; Supersampling at 4x; bilinear; 3-point with
 MSAA 4x at 4x), at 0 interpreted instructions; only the card's picture differs. Changing them in play (with the resolution, through
 Supersampling's return to the console's size) was checked in a window of the real Windows video driver under each filter, on the
-card and on the CPU: the game continues.
+card and on the CPU: the game continues. MSAA changed in play opens the session again (a quick state, as a renderer switch does)
+with its multisampling set before the renderer is built: the first build of this change rebuilt Beetle's renderer in place, which
+kept the programs of the old sample count, and the picture broke at the game's next display mode change (the owner's report of
+15 November 2026). A session opened again now starts with the core options it had (`RrPsxGame.options`). The proof compares the
+picture as well as the machine: same size as the run without MSAA, content over the whole width.
 
-**Stamps:** the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales).
-**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged. **Hot path:** with both rows
-Off, the same.
+**Stamps:** the PlayStation's host stamp (`rrhk_psx.c`), its game stamp (`psx_main.c`, `psx_session.c`), and the host stamp of every
+profile (`runtime_catalog.inc`, the locales). **Existing exports:** converted again in full at their next conversion. **Quick
+states:** unchanged. **Hot path:** with both rows Off, the same.
 
 ## Sony PlayStation: geometry precision (PGXP) (1.7.7)
 

@@ -337,9 +337,23 @@ int rr_psx_host_reset(void) {
 /* The renderer, switched in play: the machine taken as a quick state, the session opened again with the other renderer, the state
  * given back (nothing to keep before the first frame). 1 done (the card may still be refused: rr_psx_renderer_note), 0 the session
  * could not open again (`fault`). */
+static int reopen_session(void);
 int rr_psx_host_set_renderer(int vulkan) {
     if (!session || want_vulkan == (vulkan != 0)) return session != NULL;
     want_vulkan = vulkan != 0;
+    return reopen_session();
+}
+
+/* The session opened again on the same renderer, the machine carried as a quick state: a change Beetle's renderer cannot take in
+ * place (multisampling: the in-place rebuild keeps the programs of the old sample count, and the picture breaks at the game's
+ * next display mode change). */
+int rr_psx_host_reopen(void) { return session ? reopen_session() : 0; }
+
+static char carried[64][2][64];   /* the core options a session opened again starts with */
+static int carried_count;
+static int reopen_session(void) {
+    carried_count = rr_psx_option_count(session) < 64 ? rr_psx_option_count(session) : 64;
+    for (int i = 0; i < carried_count; ++i) rr_psx_option_at(session, i, carried[i][0], carried[i][1]);
     size_t size = 0;
     uint8_t *state = frame ? rr16_state_capture(&size) : NULL;
     /* The last picture, shown again until the machine's next frame: a window draws while F3 holds the machine. */
@@ -416,8 +430,9 @@ static int open_session(void) {
     if (bios && bios_size != RR_PSX_BIOS_BYTES) bios = NULL;
     if (pack_override) snprintf(pack, sizeof pack, "%s", pack_override);
     else if (!self_path(pack, sizeof pack)) { snprintf(fault, sizeof fault, "cannot find this executable's path"); return 0; }
-    RrPsxGame game = {pack, bios, NULL, 0, want_vulkan};
+    RrPsxGame game = {pack, bios, NULL, 0, want_vulkan, (const char (*)[2][64])carried, carried_count};
     session = rr_psx_open(&game, fault, sizeof fault);
+    carried_count = 0;
     if (!session) return 0;
     if (!headless || card_option) card_sync(1);
     return 1;

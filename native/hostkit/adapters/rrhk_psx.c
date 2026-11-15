@@ -27,6 +27,7 @@ size_t rr_psx_take_audio(int16_t *out, size_t capacity);
 unsigned rr_psx_frame_index(void);
 int rr_psx_host_reset(void);
 int rr_psx_host_set_renderer(int vulkan);
+int rr_psx_host_reopen(void);
 unsigned rr_psx_card_notice(void);   /* psx_main.c: 1 a memory card file set aside, 2 saving off */
 RrPsxSession *rr_psx_host_session(void);
 
@@ -156,7 +157,19 @@ static int picture_scale(void) {
 
 static void gfx_apply(int option, int value) {
     if (option < 0 || option >= GFX_COUNT || value < 0 || value >= gfx_options[option].count) return;
+    const int before = chosen[option];
     chosen[option] = value;
+    /* Multisampling changed while the card draws: Beetle's in-place rebuild keeps the programs of the old sample count (the picture
+     * then broke at the game's next display mode change: half of it black or stale, the owner's report of 15 November 2026), so
+     * the session opens again with the machine carried as a quick state, as for a renderer switch, its renderer built with the new
+     * multisampling from the start (the options carried into the open), and gets every row again. */
+    if (option == GFX_ANTIALIASING && strcmp(msaa_values[before], msaa_values[value]) && rr_psx_renderer(rr_psx_host_session()) &&
+        rr_psx_frame_index() > 0) {
+        core_option(option, value);   /* into the session's options, which the session opened again starts with */
+        if (!rr_psx_host_reopen()) return;
+        for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);
+        return;
+    }
     if (option != GFX_RENDERER) {
         core_option(option, value);
         if ((option == GFX_ANTIALIASING || option == GFX_TEXTURE_FILTER) && value && !rr_psx_renderer(rr_psx_host_session()))

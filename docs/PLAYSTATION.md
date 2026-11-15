@@ -51,7 +51,13 @@ compared with the figures of a machine whose game code is translated, and it say
   drawing alone: on Ape Escape (3,300 frames) with MSAA 8x, with Supersampling at 4x, with bilinear and with 3-point plus MSAA 4x
   at 4x, the RAM, the CPU state, the sound and the VRAM equal the run with both Off on every frame, at 0 interpreted
   instructions; with the CPU drawing the rows change nothing (every column equal, picture included) and the game says so once.
-  Their cost is the card's: MSAA multiplies the samples drawn, Supersampling draws the internal resolution in full.
+  Their cost is the card's: MSAA multiplies the samples drawn, Supersampling draws the internal resolution in full. MSAA
+  changed in play opens the session again with the machine carried as a quick state and the new multisampling set before the
+  renderer is built: Beetle's own rebuild in place kept the programs of the old sample count, and the picture broke at the game's
+  next display mode change (half of it squeezed, the other half an old frame: the owner's report of 15 November 2026, a check of
+  the machine's columns could not see it). The proof now compares the picture too: R4 at 4x with MSAA changed five times in
+  14,000 frames, and Ape Escape changed twice in 3,300, keep the machine columns and the picture's size equal to the run without
+  MSAA and its content over the whole width (each half's brightness, every 250 and 100 frames).
 - **Geometry precision (PGXP)** (1.7.7, on the owner's question: « Est-ce qu'on peut, nous aussi, utiliser comme Beetle PGXP ? »).
   Two F3 rows: « Geometry precision (PGXP) » keeps the GTE's results with sub-pixel precision and carries them through memory to
   the GPU, so 3D models stop wobbling (Beetle's "memory only" mode); « Perspective-correct textures » draws textures with

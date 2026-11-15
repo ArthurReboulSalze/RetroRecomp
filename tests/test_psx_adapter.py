@@ -158,5 +158,15 @@ class PsxAdapterTest(unittest.TestCase):
             self.assertNotIn(upscaler, ADAPTER)
 
 
+    def test_multisampling_changed_in_play_reopens_the_session_with_its_options(self):
+        # Beetle's in-place rebuild kept the old sample count's programs: half the picture broke (the owner's report, 15 Nov 2026)
+        self.assertIn('if (!rr_psx_host_reopen()) return;', ADAPTER)
+        main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
+        self.assertIn('int rr_psx_host_reopen(void) { return session ? reopen_session() : 0; }', main)
+        self.assertIn('(const char (*)[2][64])carried, carried_count};', main)
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('for (int i = 0; game->options && i < game->option_count; ++i)', session)
+
+
 if __name__ == '__main__':
     unittest.main()

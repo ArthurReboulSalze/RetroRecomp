@@ -579,6 +579,11 @@ RrPsxSession *rr_psx_open(const RrPsxGame *game, char *error, size_t error_size)
     s->aspect = 4.0 / 3.0;
     s->fps = 59.94;
     for (size_t i = 0; i < sizeof DEFAULTS / sizeof DEFAULTS[0]; ++i) set_option(s, DEFAULTS[i][0], DEFAULTS[i][1]);
+    /* A session opened again keeps the options it had (the renderer is built with them: Beetle's in-place rebuild keeps the programs
+     * of the old multisampling); the renderer itself is decided below. */
+    for (int i = 0; game->options && i < game->option_count; ++i)
+        if (strcmp(game->options[i][0], "beetle_psx_renderer") && strcmp(game->options[i][0], "beetle_psx_renderer_software_fb"))
+            set_option(s, game->options[i][0], game->options[i][1]);
     /* The graphics card, when asked for and when this computer has a Vulkan loader at all. The software renderer keeps its copy
      * of VRAM at 1x beside it ("Software Framebuffer"): what a game reads back is the console's, and the checks compare it. */
     /* RETRORECOMP_TEST_VULKAN (tests only): "none" acts as a computer without a Vulkan loader, "device" as a card whose device
@@ -770,6 +775,12 @@ int rr_psx_disc_select(RrPsxSession *s, int index) {
     s->swap_target = index;
     s->swap_frames = 60;
     return 1;
+}
+
+int rr_psx_option_count(const RrPsxSession *s) { return s ? s->option_count : 0; }
+void rr_psx_option_at(const RrPsxSession *s, int index, char key[64], char value[64]) {
+    snprintf(key, 64, "%s", s && index >= 0 && index < s->option_count ? s->options[index].key : "");
+    snprintf(value, 64, "%s", s && index >= 0 && index < s->option_count ? s->options[index].value : "");
 }
 
 int rr_psx_option(RrPsxSession *s, const char *key, const char *value) {

@@ -37,6 +37,8 @@ typedef struct RrPsxGame {
     const char *save_dir;       /* UTF-8 folder of the memory card, NULL: no card is written */
     int disc;                   /* the disc to start with (0-based) */
     int vulkan;                 /* 1.7.7: 1 the graphics card draws (Beetle's Vulkan renderer), 0 the CPU (its software renderer) */
+    const char (*options)[2][64];   /* 1.7.7: core options (full key, value) set before the game loads (a session opened again), or NULL */
+    int option_count;
 } RrPsxGame;
 
 typedef struct RrPsxSession RrPsxSession;
@@ -89,6 +91,9 @@ int rr_psx_disc_select(RrPsxSession *s, int index);
 
 /* A core option (Beetle's key without its prefix, its value as the core names it), applied before the next frame. */
 int rr_psx_option(RrPsxSession *s, const char *key, const char *value);
+/* The session's core options (full key and value), for a session opened again with them: the count, and each pair. */
+int rr_psx_option_count(const RrPsxSession *s);
+void rr_psx_option_at(const RrPsxSession *s, int index, char key[64], char value[64]);
 
 /* Evidence of the last frame for the trace (deterministic: no clock, no host state). */
 typedef struct RrPsxFrameInfo {
