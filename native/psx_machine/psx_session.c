@@ -717,14 +717,34 @@ int rr_psx_frame(RrPsxSession *s) {
 
 const char *rr_psx_error(const RrPsxSession *s) { return s->error; }
 
+/* A session that has drawn nothing yet (just opened: a Restart, a renderer switch, while a menu holds the machine) shows black,
+ * never no picture: the window's filters read the pixels (xBR and Scale2x read them directly). 320 x 240 with a pitch of 320,
+ * the sizes the adapter assumes when the session gives none. */
+static const uint32_t black_picture[320 * 240];
+
 const uint32_t *rr_psx_picture(const RrPsxSession *s, int *width, int *height, double *aspect) {
-    if (width) *width = s->width;
-    if (height) *height = s->height;
+    if (width) *width = s->picture ? s->width : 0;
+    if (height) *height = s->picture ? s->height : 0;
     if (aspect) *aspect = s->aspect;
-    return s->picture;
+    return s->picture ? s->picture : black_picture;
 }
 
-int rr_psx_picture_pitch(const RrPsxSession *s) { return s->pitch; }
+void rr_psx_keep_picture(RrPsxSession *s, const uint32_t *pixels, int w, int h, int pitch) {
+    if (!s || !pixels || w <= 0 || h <= 0 || pitch < w) return;
+    if ((size_t)w * h > s->hw_capacity) {
+        uint32_t *grown = (uint32_t *)realloc(s->hw_picture, (size_t)w * h * sizeof(uint32_t));
+        if (!grown) return;
+        s->hw_picture = grown;
+        s->hw_capacity = (size_t)w * h;
+    }
+    for (int y = 0; y < h; ++y) memcpy(s->hw_picture + (size_t)y * w, pixels + (size_t)y * pitch, (size_t)w * sizeof(uint32_t));
+    s->picture = s->hw_picture;
+    s->pitch = w;
+    s->width = w;
+    s->height = h;
+}
+
+int rr_psx_picture_pitch(const RrPsxSession *s) { return s->picture ? s->pitch : 0; }
 
 size_t rr_psx_audio(RrPsxSession *s, int16_t *pcm, size_t capacity) {
     size_t n = s->audio_frames < capacity ? s->audio_frames : capacity;

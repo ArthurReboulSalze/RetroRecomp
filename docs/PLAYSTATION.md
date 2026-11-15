@@ -242,3 +242,21 @@ GPU programs drawing what a console drew, and shared paths.
   driven by the owner and on a licence route).
 - No hardware-fidelity claim, no latency measure, no game validated as played through.
 
+## 9. The graphics card (1.7.7): what it rests on
+
+- **The eight discs.** Each panel disc converted from the 1.7.7 tree, then its three routes (24 routes, 204,000 frames) played again
+  with the graphics card (`--gfx renderer=0`): the RAM, the CPU state, the sound and the VRAM equal, on every frame, the CPU
+  renderer's traces the conversion itself recorded (Windows, an NVIDIA GeForce RTX 3090). No run fell back to the CPU.
+- **A real Linux driver.** Ape Escape converted on a Debian 13 PC with an Intel HD Graphics 520 (Mesa's ANV driver): its three
+  routes (25,500 frames) with the card, the same four columns equal to the CPU renderer's, the picture the card's own. Linux tests
+  now run in WSL Debian on the Windows PC, where Vulkan goes through Microsoft's D3D12 layer or Mesa's llvmpipe: that Debian PC
+  stays the evidence for a Linux GPU driver.
+- **No card.** In WSL the only Vulkan device is Mesa's llvmpipe (a device emulated on the CPU): the game refuses it, draws with
+  its own CPU renderer and says so, and its trace equals the CPU renderer's on every column, picture included (Ape Escape, 3,900
+  frames). `RETRORECOMP_TEST_VULKAN=none|device` gives the same fallback on any computer.
+- **Switching in play.** Card to CPU and CPU to card from F3, while the machine waits in the menu, under each of the four filters,
+  in a hidden window of the real Windows video driver (Direct3D 11): the game continues. The first 1.7.7 build closed there under
+  xBR and Scale2x (the session opened again had no picture yet and those filters read it); the session now always gives a picture,
+  the last one until the next frame (the owner's report of 15 November 2026: « dès que je switch de moteur […] le jeu se ferme
+  tout de suite »).
+

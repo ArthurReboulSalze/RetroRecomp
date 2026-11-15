@@ -50,6 +50,9 @@ void rr_psx_close(RrPsxSession *s);
 /* The renderer drawing: 1 the graphics card (Vulkan), 0 the CPU. Why the card was asked for and not used, or NULL. The card's
  * name, or "" without the card. */
 int rr_psx_renderer(const RrPsxSession *s);
+/* The picture `pixels` (w x h, `pitch` pixels a row) copied into the session as its last picture, shown until its next frame
+ * (a renderer switch: the session opened again has drawn nothing yet). */
+void rr_psx_keep_picture(RrPsxSession *s, const uint32_t *pixels, int w, int h, int pitch);
 const char *rr_psx_renderer_note(const RrPsxSession *s);
 const char *rr_psx_gpu_name(const RrPsxSession *s);
 

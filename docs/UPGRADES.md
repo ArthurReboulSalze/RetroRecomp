@@ -101,7 +101,10 @@ card (Vulkan), the default, or CPU (the software renderer). The software rendere
 and the player is told once ("No usable graphics card: the CPU draws the picture"); `RETRORECOMP_TEST_VULKAN=none|device` makes a
 test run behave as such a computer. Changing the renderer in play takes a quick state, opens the session again on the other
 renderer and loads it back; the same reopening (and a Restart) now gives every F3 row its value again (before, a Restart left the
-core's defaults until the row was touched).
+core's defaults until the row was touched). A session that has drawn nothing yet gives the window a black picture, and a renderer
+switch keeps the last picture until the next frame: the first build of this change closed the game when F3 switched the renderer
+under the xBR or Scale2x filter (the owner's report of 15 November 2026), since those filters read the picture while the menu held
+the machine. `--gfx-at FRAME:KEY=INDEX` changes a row during a headless run, as on the Nintendo 64.
 
 **What it does not change.** Every check of a conversion: a headless run draws with the CPU at 1x unless `--gfx renderer=0` asks
 for the card. Checked on Ape Escape (3,300 frames, a build of this tree): with the card at 1x and at 8x, the RAM, the CPU state, the

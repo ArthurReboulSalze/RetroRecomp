@@ -122,5 +122,15 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertEqual((byte(32767), byte(0)), (0xFF, 0x80))
 
 
+    def test_the_window_always_gets_a_picture(self):
+        # A session that has drawn nothing yet (a Restart, a renderer switch while F3 holds the machine) gives black, never NULL:
+        # the xBR and Scale2x filters read the pixels (the owner's report of 15 November 2026: the game closed on a switch)
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('return s->picture ? s->picture : black_picture;', session)
+        main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
+        self.assertIn('if (opened && last) rr_psx_keep_picture(session, last, w, h, w);', main)
+        self.assertIn('!strcmp(argv[i], "--gfx-at")', main)
+
+
 if __name__ == '__main__':
     unittest.main()
