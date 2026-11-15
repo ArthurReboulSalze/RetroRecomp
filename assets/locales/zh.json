@@ -1071,6 +1071,14 @@
     "Hold: fast forward": "按住: 快进",
     "Press: maximum speed on/off": "按下: 最高速度 开/关",
     "Tab and `: fixed keys": "Tab 和 `: 固定按键",
-    "F3 Graphics": "F3 图形"
+    "F3 Graphics": "F3 图形",
+    "L stick up": "左摇杆上",
+    "L stick down": "左摇杆下",
+    "L stick left": "左摇杆左",
+    "L stick right": "左摇杆右",
+    "R stick up": "右摇杆上",
+    "R stick down": "右摇杆下",
+    "R stick left": "右摇杆左",
+    "R stick right": "右摇杆右"
   }
 }

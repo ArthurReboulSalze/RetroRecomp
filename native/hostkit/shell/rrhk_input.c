@@ -11,6 +11,7 @@
 #include "autofire.h"
 #include "display_settings.h"
 #include "runtime_i18n.h"
+#include "retro_menu.h"
 #include "hostkit/hostkit_internal.h"
 
 RrhkUi rrhk;
@@ -174,7 +175,7 @@ void rrhk_load_bindings(void) {
             binding_entry(sec, entry, p, a, mode != 0);
             const int value = rr_ini_int(sec, entry, MISSING, rrhk.read_file);
             if (mode && ((value >= -1 && value < SDL_CONTROLLER_BUTTON_MAX) ||
-                         value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER))
+                         value == RRHK_PAD_LEFT_TRIGGER || value == RRHK_PAD_RIGHT_TRIGGER || RRHK_PAD_IS_STICK(value)))
                 rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
             if (!mode && value >= 0 && value < SDL_NUM_SCANCODES) { rrhk.keys[p][a] = (SDL_Scancode)value; kit_key[p][a] = false; }
         }
@@ -429,10 +430,37 @@ void rrhk_pad_value(char *out, size_t size, int p) {
     else snprintf(out, size, rr_tr("%s (disconnected)"), choice[p].name[0] ? choice[p].name : rr_tr("Gamepad"));
 }
 
-/* A pad button held, or a trigger bound to a control past the stick threshold (D1); on every machine since 1.7.5. */
-static bool pad_held(SDL_GameController *pad, SDL_GameControllerButton button) {
+/* 1.7.6: a stick direction bound to a control: which axis, which way. */
+static const struct { SDL_GameControllerAxis axis; int sign; const char *name; } stick_dirs[8] = {
+    {SDL_CONTROLLER_AXIS_LEFTY, -1, "L stick up"}, {SDL_CONTROLLER_AXIS_LEFTY, 1, "L stick down"},
+    {SDL_CONTROLLER_AXIS_LEFTX, -1, "L stick left"}, {SDL_CONTROLLER_AXIS_LEFTX, 1, "L stick right"},
+    {SDL_CONTROLLER_AXIS_RIGHTY, -1, "R stick up"}, {SDL_CONTROLLER_AXIS_RIGHTY, 1, "R stick down"},
+    {SDL_CONTROLLER_AXIS_RIGHTX, -1, "R stick left"}, {SDL_CONTROLLER_AXIS_RIGHTX, 1, "R stick right"}};
+int rrhk_stick_direction(int axis, int value) {
+    for (int d = 0; d < 8; ++d)
+        if (stick_dirs[d].axis == axis && rrhk_trigger_step(false, stick_dirs[d].sign * value)) return (int)RRHK_PAD_LSTICK_UP + d;
+    return -1;
+}
+const char *rrhk_pad_binding_name(int value) {
+    if (value == RRHK_PAD_LEFT_TRIGGER) return "L2";
+    if (value == RRHK_PAD_RIGHT_TRIGGER) return "R2";
+    if (RRHK_PAD_IS_STICK(value)) return stick_dirs[value - (int)RRHK_PAD_LSTICK_UP].name;
+    return value >= 0 && value < SDL_CONTROLLER_BUTTON_MAX ? rr_menu_pad_name(value) : NULL;
+}
+/* A stick direction held, with the hysteresis of the triggers' reading: pressed past the threshold, released under half. */
+static bool stick_down[RRHK_MAX_PLAYERS][8];
+static bool stick_held(int p, SDL_GameController *pad, SDL_GameControllerButton button) {
+    const int d = (int)button - (int)RRHK_PAD_LSTICK_UP;
+    const int value = stick_dirs[d].sign * SDL_GameControllerGetAxis(pad, stick_dirs[d].axis);
+    return stick_down[p][d] = rrhk_trigger_step(stick_down[p][d], value);
+}
+
+/* A pad button held, or a trigger bound to a control past the stick threshold (D1); on every machine since 1.7.5. 1.7.6: or a
+ * stick direction. */
+static bool pad_held(int p, SDL_GameController *pad, SDL_GameControllerButton button) {
     if (!pad || button < 0) return false;
     if (button < SDL_CONTROLLER_BUTTON_MAX) return SDL_GameControllerGetButton(pad, button) != 0;
+    if (RRHK_PAD_IS_STICK(button)) return stick_held(p, pad, button);
     if (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER) return false;
     return rrhk_trigger_step(false, SDL_GameControllerGetAxis(pad, button == RRHK_PAD_LEFT_TRIGGER ? SDL_CONTROLLER_AXIS_TRIGGERLEFT :
                                                                                                    SDL_CONTROLLER_AXIS_TRIGGERRIGHT));
@@ -456,7 +484,7 @@ uint16_t rrhk_pad_word(int p, uint64_t frame) {
         const RrhkAction *action = &m->actions[a];
         /* Enter is Start and either Shift is Select/Coin (retro_keyboard.h). */
         bool down = (keyboard && rr_keyboard_held(state, rrhk.keys[p][a], &rrhk.keys[0][0], (int)(sizeof rrhk.keys / sizeof rrhk.keys[0][0]))) ||
-            pad_held(rrhk.pads[p], rrhk.buttons[p][a]) ||
+            pad_held(p, rrhk.pads[p], rrhk.buttons[p][a]) ||
             (m->action_held && m->action_held(p, a));
         if (action->group == RRHK_FACE) down = rr_autofire(&fire_state[p][a], down, rrhk.autofire != 0, frame);
         if (down) value |= action->bit;

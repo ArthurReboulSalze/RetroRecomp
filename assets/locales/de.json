@@ -1071,6 +1071,14 @@
     "Hold: fast forward": "Halten: vorspulen",
     "Press: maximum speed on/off": "Drücken: Höchsttempo an/aus",
     "Tab and `: fixed keys": "Tab und `: feste Tasten",
-    "F3 Graphics": "F3 Grafik"
+    "F3 Graphics": "F3 Grafik",
+    "L stick up": "L-Stick oben",
+    "L stick down": "L-Stick unten",
+    "L stick left": "L-Stick links",
+    "L stick right": "L-Stick rechts",
+    "R stick up": "R-Stick oben",
+    "R stick down": "R-Stick unten",
+    "R stick left": "R-Stick links",
+    "R stick right": "R-Stick rechts"
   }
 }

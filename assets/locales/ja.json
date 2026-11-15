@@ -1071,6 +1071,14 @@
     "Hold: fast forward": "長押し: 早送り",
     "Press: maximum speed on/off": "押す: 最高速度 オン/オフ",
     "Tab and `: fixed keys": "Tab と `: 固定キー",
-    "F3 Graphics": "F3 グラフィック"
+    "F3 Graphics": "F3 グラフィック",
+    "L stick up": "左スティック上",
+    "L stick down": "左スティック下",
+    "L stick left": "左スティック左",
+    "L stick right": "左スティック右",
+    "R stick up": "右スティック上",
+    "R stick down": "右スティック下",
+    "R stick left": "右スティック左",
+    "R stick right": "右スティック右"
   }
 }

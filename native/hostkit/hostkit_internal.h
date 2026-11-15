@@ -103,7 +103,9 @@ void rrhk_rumble_stop(void);
 int rrhk_pad_rows_here(void);            /* the machine's own rows at the top of the page shown (RrhkMachine.pad_rows) */
 const RrhkPadRow *rrhk_pad_row_at(int row);   /* the machine row at this page row, NULL for a row of the kit */
 int rrhk_action_row(void);               /* the selected row as an action / combination index (the machine rows come first) */
-bool rrhk_trigger_step(bool down, int value);   /* L2/R2 as a button: game_options.h's one reading (threshold, hysteresis) */
+bool rrhk_trigger_step(bool down, int value);
+int rrhk_stick_direction(int axis, int value);    /* input.c: the RRHK_PAD_*STICK_* a stick axis value pushes past the threshold, else -1 */
+const char *rrhk_pad_binding_name(int value);     /* "A", "L2", "L stick up" (English, for rr_tr), NULL for none */   /* L2/R2 as a button: game_options.h's one reading (threshold, hysteresis) */
 bool rrhk_options_fast_forward(int menu);   /* 1.7.6: player 1's pad combination held (R2 by default) */
 bool rrhk_options_max_speed(int menu);      /* 1.7.6: pressed once (L2 by default) */
 unsigned rrhk_combo_triggers(int index);    /* the triggers of a combination's buttons: 1 right, 2 left */

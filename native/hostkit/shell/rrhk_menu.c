@@ -439,9 +439,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
                 waiting = rrhk_combo_capturing(a - m->action_count, rrhk.gamepad_page != 0);
             } else {
                 const SDL_GameControllerButton pad = rrhk.buttons[rrhk.player][a];
-                const char *button = !rrhk.gamepad_page ? NULL :
-                    pad == RRHK_PAD_LEFT_TRIGGER ? "L2" : pad == RRHK_PAD_RIGHT_TRIGGER ? "R2" :
-                    pad >= 0 && pad < SDL_CONTROLLER_BUTTON_MAX ? rr_menu_pad_name(pad) : NULL;
+                const char *button = !rrhk.gamepad_page ? NULL : rrhk_pad_binding_name(pad);
                 const char *bound = rrhk.gamepad_page ? (button ? button : "-") :
                     rrhk.keys[rrhk.player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(rrhk.keys[rrhk.player][a]);
                 waiting = rrhk.capturing && r == rrhk.row;

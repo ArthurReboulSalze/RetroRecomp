@@ -37,6 +37,18 @@ extern "C" {
  * preferences: a saved binding means the same trigger after an SDL update. */
 #define RRHK_PAD_LEFT_TRIGGER ((SDL_GameControllerButton)64)
 #define RRHK_PAD_RIGHT_TRIGGER ((SDL_GameControllerButton)65)
+/* 1.7.6: a stick direction as a binding of a digital control, on every machine (66..73, fixed and stored as such): pushed past
+ * the stick threshold of D1, released under half of it (rr_trigger_step). It only adds a press: what a machine reads of the
+ * sticks themselves (rrhk_pad_axes) is unchanged. A host-side action (bit 0) refuses it, as it refuses a trigger. */
+#define RRHK_PAD_LSTICK_UP ((SDL_GameControllerButton)66)
+#define RRHK_PAD_LSTICK_DOWN ((SDL_GameControllerButton)67)
+#define RRHK_PAD_LSTICK_LEFT ((SDL_GameControllerButton)68)
+#define RRHK_PAD_LSTICK_RIGHT ((SDL_GameControllerButton)69)
+#define RRHK_PAD_RSTICK_UP ((SDL_GameControllerButton)70)
+#define RRHK_PAD_RSTICK_DOWN ((SDL_GameControllerButton)71)
+#define RRHK_PAD_RSTICK_LEFT ((SDL_GameControllerButton)72)
+#define RRHK_PAD_RSTICK_RIGHT ((SDL_GameControllerButton)73)
+#define RRHK_PAD_IS_STICK(value) ((int)(value) >= 66 && (int)(value) <= 73)
 
 /* Menu numbers of RrhkUi.menu (options.c checks them against game_options.h). */
 #define RRHK_MENU_HELP 1

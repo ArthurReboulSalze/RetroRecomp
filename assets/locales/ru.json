@@ -1071,6 +1071,14 @@
     "Hold: fast forward": "Удерживай: перемотка",
     "Press: maximum speed on/off": "Нажми: макс. скорость вкл/выкл",
     "Tab and `: fixed keys": "Tab и `: фиксированные клавиши",
-    "F3 Graphics": "F3 Графика"
+    "F3 Graphics": "F3 Графика",
+    "L stick up": "Левый стик вверх",
+    "L stick down": "Левый стик вниз",
+    "L stick left": "Левый стик влево",
+    "L stick right": "Левый стик вправо",
+    "R stick up": "Правый стик вверх",
+    "R stick down": "Правый стик вниз",
+    "R stick left": "Правый стик влево",
+    "R stick right": "Правый стик вправо"
   }
 }

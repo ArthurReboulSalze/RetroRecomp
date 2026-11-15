@@ -245,6 +245,21 @@ void rrhk_poll_events(RrhkRun *run) {
             }
             continue;
         }
+        /* 1.7.6: a stick pushed on the selected player's pad binds that direction like a button, on every machine; a host-side
+         * action (bit 0: the Nintendo 64's keyboard stick, Pause/Menu) refuses it, as it refuses a trigger. */
+        if (event.type == SDL_CONTROLLERAXISMOTION && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing && rrhk.gamepad_page == 1 &&
+            rrhk_stick_direction(event.caxis.axis, event.caxis.value) >= 0) {
+            if (rrhk.pads[rrhk.player] &&
+                event.caxis.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {
+                if (rrhk_action_row() < m->action_count && !m->actions[rrhk_action_row()].bit) {
+                    snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Reserved button or config unavailable"));
+                    continue;
+                }
+                rrhk_assign(rrhk.player, rrhk_action_row(), true, rrhk_stick_direction(event.caxis.axis, event.caxis.value));
+                rrhk.capturing = 0; rrhk.status[0] = 0;
+            }
+            continue;
+        }
         SDL_Scancode key = event.type == SDL_KEYDOWN && !event.key.repeat ? event.key.keysym.scancode : SDL_SCANCODE_UNKNOWN;
         bool from_row = false;
         /* An option row behaves as its function key. */

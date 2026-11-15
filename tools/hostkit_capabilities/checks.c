@@ -891,6 +891,38 @@ static void graphics_entry_script(void) {
     }
 }
 
+/* 1.7.6: a stick direction bound to a game row on a console profile: captured by F2 (a host-side row refuses it), kept, held in
+ * play with the hysteresis of the triggers; the machine's own reading of the sticks is untouched. */
+static void stick_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); break;
+    case 1: ui->row = A_ANALOG; key(SDL_SCANCODE_RETURN); break;              /* a host-side row */
+    case 2: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_RIGHTX, 30000); break;
+    case 3:
+        CHECK(ui->capturing && !strcmp(ui->status, "Reserved button or config unavailable"));
+        axis(SDL_CONTROLLER_AXIS_RIGHTX, 0); key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 4: ui->row = A_CROSS; key(SDL_SCANCODE_RETURN); break;
+    case 5: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_RIGHTX, 12000); break;    /* under the threshold: still waiting */
+    case 6: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_RIGHTX, 30000); break;
+    case 7:
+        CHECK(!ui->capturing && ui->buttons[0][A_CROSS] == RRHK_PAD_RSTICK_RIGHT);
+        CHECK(ini(L"Test3D.Gamepad.Player1", L"Cross") == (int)RRHK_PAD_RSTICK_RIGHT);
+        CHECK(!strcmp(rrhk_pad_binding_name(RRHK_PAD_RSTICK_RIGHT), "R stick right"));
+        axis(SDL_CONTROLLER_AXIS_RIGHTX, 0);
+        key(SDL_SCANCODE_F2);
+        break;
+    case 8: CHECK(ui->menu == 0); axis(SDL_CONTROLLER_AXIS_RIGHTX, 20000); break;
+    case 11: CHECK(last_pad[0] & CROSS_BIT); axis(SDL_CONTROLLER_AXIS_RIGHTX, 10000); break;   /* under the threshold, above half */
+    case 14: CHECK(last_pad[0] & CROSS_BIT); axis(SDL_CONTROLLER_AXIS_RIGHTX, 5000); break;     /* under half: released */
+    case 17: CHECK(!(last_pad[0] & CROSS_BIT)); axis(SDL_CONTROLLER_AXIS_RIGHTX, -30000); break; /* the other way: nothing */
+    case 20: CHECK(!(last_pad[0] & CROSS_BIT)); axis(SDL_CONTROLLER_AXIS_RIGHTX, 0); break;
+    case 21: stop = true; break;
+    default: break;
+    }
+}
+
 /* The machine's own option rows (slots 0 and 1, three each, while extra_rows is set) and the key hook that receives them. */
 static void option_rows_hook(int slot, RrhkOptionRows *rows) {
     if (!extra_rows) return;
@@ -1030,6 +1062,10 @@ int main(int argc, char **argv) {
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 9);
 
+    /* 11. 1.7.6: a stick direction bound to a game row. */
+    begin(stick_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 22);
     /* 10. 1.7.6: the graphics page from F2 and from the options page, on the machine that has one. */
     current = &full;
     begin(graphics_entry_script);
