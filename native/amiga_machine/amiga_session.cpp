@@ -40,7 +40,7 @@ static constexpr uint32_t FAST_BASE = 0x200000;
 static constexpr uint32_t FAST_MAX = 0x800000;
 static uint32_t slow_slave_area(uint32_t exp_size) { return (SLOW_BASE + exp_size + 0xFFF) & ~0xFFFu; }
 static bool exp_in_fast(uint32_t exp_size) { return exp_size && slow_slave_area(exp_size) + 0x7FFF0 >= SLOW_BASE + SLOW_SIZE; }
-static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-6";
+static constexpr const char STATE_MAGIC[16] = "RRAMIGA-STATE-7";
 static constexpr int FIRST_LINE_PAL = 32, FIRST_LINE_NTSC = 26, FIRST_TEXEL = 308;
 // Denise's horizontal counter, in super-hires pixels, at texel 0 of a line (HBLANK_MIN * 8, Denise::updateBorderBuffer): the
 // display window's edges (DIWSTRT/DIWSTOP, in that unit) land on picture column (edge - SHRES_AT_TEXEL0 - FIRST_TEXEL) / 2.
@@ -74,11 +74,15 @@ struct RrAmigaSession {
     std::vector<uint32_t> picture;
     int lines = 0;
     // An interlaced screen (LACE) is drawn as a long and a short field in turn. The picture weaves the field of this frame with the one
-    // of the frame before into twice the lines (`rows`); one field alone is shown line-doubled. The held field is part of a quick state.
+    // of the frame before into twice the lines (`rows`); one field alone is shown line-doubled. Where the screen moves, the field of
+    // the frame before is replaced by this field's own lines (weave()). The held field and the one before it are part of a quick state.
     int rows = 0;
     std::vector<uint32_t> held;      // the field of the last frame, while LACE is set (lines rows)
     int held_lof = -1;               // its long-frame bit, -1: none held
     uint64_t held_frame = 0;         // the frame it ended
+    std::vector<uint32_t> prior;     // the field of the frame before that one (the parity of the next frame's field)
+    int prior_lof = -1;
+    uint64_t prior_frame = 0;
     bool view_seen = false;
     int view[4] = {};          // union of the display windows opened so far: left, top, right, bottom (picture columns, rows)
     bool observing = false, native = false;
@@ -649,20 +653,44 @@ extern "C" void rr_amiga_keys(RrAmigaSession *s, const uint8_t held[128]) {
     }
 }
 
+// The mean of two ARGB pixels, channel by channel (the alpha of two opaque pixels stays opaque).
+static inline uint32_t mean_pixel(uint32_t a, uint32_t b) { return (a & b) + (((a ^ b) & 0xFEFEFEFEu) >> 1); }
+
 // An interlaced frame (LACE): `field` (this frame's lines, `lof` its long-frame bit) and the field held from the frame just before, of the other
 // parity, become one picture of twice the lines: the long field's line y on row 2y, the short field's on row 2y + 1. A field with no partner
 // (the first interlaced frame, two fields of one parity, a frame missed) is shown alone, each line on two rows. The display only: the machine
 // draws its fields as it does; the picture the player shows (and the trace hashes) is the woven one, the same in every run.
+//
+// Motion (1.7.7, Arthur's go of 15 November 2026): the two fields are 1/50 s apart, so where the screen moves the woven picture combs
+// (Pinball Illusions' interlaced table, scrolling). The field of this parity two frames back (`prior`) tells where: a pixel of this field
+// equal to the same pixel two frames back is still. A row of the held field is kept where this field's lines above and below it are still
+// at that column (a still screen is the plain weave, every detail of both fields), and is replaced by their mean where they moved. Each
+// field keeps its own rows, so a moving area does not jump by a line. Display only; nothing here is read back by the machine.
 static void weave(RrAmigaSession *s, std::vector<uint32_t> &&field, int lof) {
     const size_t w = RR_AMIGA_PICTURE_WIDTH;
     const bool pair = s->held_lof >= 0 && s->held_lof != lof && s->held_frame + 1 == s->frame && s->held.size() == field.size();
+    const bool known = pair && s->prior_lof == lof && s->prior_frame + 2 == s->frame && s->prior.size() == field.size();
     const uint32_t *top = pair ? (lof ? field.data() : s->held.data()) : field.data();
     const uint32_t *bottom = pair ? (lof ? s->held.data() : field.data()) : field.data();
     for (int y = 0; y < s->lines; y++) {
         memcpy(s->picture.data() + (size_t)(2 * y) * w, top + (size_t)y * w, w * sizeof(uint32_t));
         memcpy(s->picture.data() + (size_t)(2 * y + 1) * w, bottom + (size_t)y * w, w * sizeof(uint32_t));
     }
+    if (known) {
+        const uint32_t *now = field.data(), *before = s->prior.data();
+        for (int y = 0; y < s->lines; y++) {
+            // The held field's line y: row 2y + 1 between this field's lines y and y + 1 (this field long), or row 2y between y - 1 and y.
+            const int a = lof ? y : std::max(y - 1, 0), b = lof ? std::min(y + 1, s->lines - 1) : y;
+            const uint32_t *na = now + (size_t)a * w, *nb = now + (size_t)b * w, *ba = before + (size_t)a * w, *bb = before + (size_t)b * w;
+            uint32_t *out = s->picture.data() + (size_t)(lof ? 2 * y + 1 : 2 * y) * w;
+            for (size_t x = 0; x < w; x++)
+                if (na[x] != ba[x] || nb[x] != bb[x]) out[x] = mean_pixel(na[x], nb[x]);
+        }
+    }
     s->rows = 2 * s->lines;
+    s->prior = std::move(s->held);
+    s->prior_lof = s->held_lof;
+    s->prior_frame = s->held_frame;
     s->held = std::move(field);
     s->held_lof = lof;
     s->held_frame = s->frame;
@@ -748,6 +776,8 @@ extern "C" int rr_amiga_frame(RrAmigaSession *s) {
         s->rows = s->lines;
         s->held_lof = -1;              // a screen without LACE ends what was held: no stale field joins a later interlaced one
         s->held.clear();
+        s->prior_lof = -1;
+        s->prior.clear();
         return 0;
     }
     weave(s, std::move(field), tex.lof ? 1 : 0);
@@ -953,20 +983,27 @@ extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const ch
         // The interlaced field held for the picture's weave (amiga_session.h), after the sound: 0, or 1 | its long-frame bit << 1, then its lines.
         const uint32_t held_info = s->held_lof >= 0 && s->held.size() == (size_t)RR_AMIGA_PICTURE_WIDTH * s->lines ? 1u | (uint32_t)s->held_lof << 1 : 0u;
         const size_t held_bytes = held_info ? s->held.size() * sizeof(uint32_t) : 0;
+        // Then the field before it, the same way (kept only when it is the frame just before the held one).
+        const uint32_t prior_info = held_info && s->prior_lof >= 0 && s->prior_frame + 1 == s->held_frame && s->prior.size() == s->held.size()
+                                    ? 1u | (uint32_t)s->prior_lof << 1 : 0u;
+        const size_t prior_bytes = prior_info ? s->prior.size() * sizeof(uint32_t) : 0;
         uint64_t sum = fnv(14695981039346656037ull, &head, sizeof head);
         sum = fnv(sum, &s->rl, sizeof s->rl);
         sum = fnv(sum, s->keys, sizeof s->keys);
         sum = fnv(sum, snap->data.ptr, (size_t)snap->data.size);
         sum = fnv(sum, audio.data(), audio.size());
         sum = fnv(sum, &held_info, sizeof held_info);
-        head.checksum = fnv(sum, s->held.data(), held_bytes);
+        sum = fnv(sum, s->held.data(), held_bytes);
+        sum = fnv(sum, &prior_info, sizeof prior_info);
+        head.checksum = fnv(sum, s->prior.data(), prior_bytes);
         std::string temporary = std::string(path) + ".tmp";
         FILE *f = open_file(temporary.c_str(), "wb");
         if (!f) return 4;
         bool ok = fwrite(&head, sizeof head, 1, f) == 1 && fwrite(&s->rl, sizeof s->rl, 1, f) == 1 &&
                   fwrite(s->keys, sizeof s->keys, 1, f) == 1 && fwrite(snap->data.ptr, 1, (size_t)snap->data.size, f) == (size_t)snap->data.size &&
                   fwrite(audio.data(), 1, audio.size(), f) == audio.size() && fwrite(&held_info, sizeof held_info, 1, f) == 1 &&
-                  fwrite(s->held.data(), 1, held_bytes, f) == held_bytes;
+                  fwrite(s->held.data(), 1, held_bytes, f) == held_bytes && fwrite(&prior_info, sizeof prior_info, 1, f) == 1 &&
+                  fwrite(s->prior.data(), 1, prior_bytes, f) == prior_bytes;
         ok = fclose(f) == 0 && ok;
         std::error_code ec;
         if (ok) fs::rename(upath(temporary), upath(path), ec);
@@ -996,8 +1033,12 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     std::vector<uint32_t> held;
     ok = ok && fread(&held_info, sizeof held_info, 1, f) == 1 && !(held_info & ~3u) && (held_info & 1u || !held_info);
     if (ok && held_info) { held.resize((size_t)RR_AMIGA_PICTURE_WIDTH * s->lines); ok = fread(held.data(), sizeof(uint32_t), held.size(), f) == held.size(); }
+    uint32_t prior_info = 0;
+    std::vector<uint32_t> prior;
+    ok = ok && fread(&prior_info, sizeof prior_info, 1, f) == 1 && !(prior_info & ~3u) && (prior_info & 1u || !prior_info) && (held_info || !prior_info);
+    if (ok && prior_info) { prior.resize((size_t)RR_AMIGA_PICTURE_WIDTH * s->lines); ok = fread(prior.data(), sizeof(uint32_t), prior.size(), f) == prior.size(); }
     uint8_t extra;
-    ok = ok && fread(&extra, 1, 1, f) == 0;      // nothing after the held field
+    ok = ok && fread(&extra, 1, 1, f) == 0;      // nothing after the fields
     fclose(f);
     if (ok) {
         const uint64_t expected = head.checksum;
@@ -1008,7 +1049,9 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
         sum = fnv(sum, data.data(), data.size());
         sum = fnv(sum, audio.data(), audio.size());
         sum = fnv(sum, &held_info, sizeof held_info);
-        ok = fnv(sum, held.data(), held.size() * sizeof(uint32_t)) == expected;
+        sum = fnv(sum, held.data(), held.size() * sizeof(uint32_t));
+        sum = fnv(sum, &prior_info, sizeof prior_info);
+        ok = fnv(sum, prior.data(), prior.size() * sizeof(uint32_t)) == expected;
     }
     if (!ok) return 3;
     kick_window(false);
@@ -1036,6 +1079,9 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     s->held = std::move(held);
     s->held_lof = held_info ? (int)(held_info >> 1 & 1u) : -1;
     s->held_frame = head.frame;
+    s->prior = std::move(prior);
+    s->prior_lof = prior_info ? (int)(prior_info >> 1 & 1u) : -1;
+    s->prior_frame = head.frame - 1;
     // The inputs held when the state was saved: what the machine's ports hold now.
     s->joy = head.joy; s->mouse_left = (int)head.mouse_left; s->mouse_right = (int)head.mouse_right;
     s->joy2 = head.port1 >> 8 & 0xFFu;

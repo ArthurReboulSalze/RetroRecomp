@@ -96,8 +96,27 @@ keeps the rule for OCS and ECS only; where the playfield stands among the sprite
 - **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (the new module, and the adaptation's digest in the build's
   identity). Their exports of 1.7.6 are converted again in full on the first batch; no other machine moves. Quick states of an
   earlier build are refused, as every build's are.
-- **Upstream:** a gap of vAmiga `f51a6bf` (`Denise::translateDPF`), kept as our patch until it is offered and merged
-  ([UPSTREAMS.md](UPSTREAMS.md)).
+- **Upstream:** a gap of vAmiga `f51a6bf` (`Denise::translateDPF`), offered as dirkwhoffmann/vAmiga#1039; kept as our patch until
+  it is merged and the pin moves ([UPSTREAMS.md](UPSTREAMS.md)).
+
+## Commodore Amiga: the weave of interlaced screens follows the motion (1.7.7)
+
+Since 1.7.6 an interlaced screen (LACE) is shown woven: the long and the short field side by side, twice the lines. The two fields
+are 1/50 s apart, so where the screen moves the picture combed (Pinball Illusions' whole-table view, F10, while the table scrolls:
+every moving edge doubled). Owner's decision of 15 November 2026, « Oui, lance-le »: no option, for every interlaced screen.
+
+- **What changes:** the session keeps the field of the frame before the held one (the same parity as the coming field). A pixel of
+  the held field stays where this frame's field, on the lines just above and below it, equals that older field; where it changed,
+  the pixel becomes the mean of those two lines. A still screen is the 1.7.6 weave byte for byte; a moving area shows this frame's
+  field at its own rows (no comb, no line jump). Generic: the LACE bit and the long-frame bit only.
+- **Measured on the interpreted reference machine, before and after:** Pinball Illusions' table pan in F10 (6,400 frames), pictures
+  different on the pan only, comb index of the table 19.3 before, 0.7 after; Banshee's interlaced title, 1 picture of 1,200 different
+  (its first interlaced fade-in); Fears, Super Stardust, Slam Tilt, Roadkill and Civilization (Amiga 500) identical, pictures
+  included. Sound, memory and CPU equal on every frame of every game. Super Stardust's bonus screen is not reached without play.
+- **Quick states:** `RRAMIGA-STATE-7`, the older field after the held one. A state saved in the F10 pan, loaded, gives the continuous
+  run's pictures from the fourth frame on (sound, memory and CPU from the first). The first frames after a load differ in one field
+  of the table in 1.7.6 already (2 frames, the bitplane state at a save, an open note); the motion test makes it 3.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`), with the section above; nothing else moves.
 
 ## Exports of 1.7.5 in 1.7.6
 

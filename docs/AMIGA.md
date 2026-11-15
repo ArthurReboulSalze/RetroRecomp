@@ -268,4 +268,8 @@ not changed by it.
   weaves them into one of twice the lines, so it no longer moves a line every frame (Arthur's play test of 15 November 2026 found it on
   Banshee's title). A display change only: the machine, the CPU and the checks are as before; a screen without LACE is shown as it was,
   byte for byte (Slam Tilt's traces unchanged); the field held for the weave is part of a quick state.
+  **Where the screen moves (1.7.7)**, the two fields, 1/50 s apart, combed: Pinball Illusions' whole-table view (F10, interlaced hi-res)
+  doubled every moving edge while the table scrolled. The weave now follows the motion: a pixel of the held field is kept where this
+  frame's field is the same as two frames before around it, and replaced by the mean of this field's lines above and below where it
+  changed. A still interlaced screen is the plain weave, byte for byte; each field keeps its own rows, so nothing shakes again.
 - **Not yet:** AGA super-hires shown at full width (the picture keeps one column per hires pixel).
