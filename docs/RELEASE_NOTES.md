@@ -1,4 +1,4 @@
-# RetroRecomp v1.7.6 (draft) — the MSX2+ is supported
+# RetroRecomp v1.7.6 (draft) — the MSX2+ and the Sony PlayStation are supported
 
 - **MSX2+ (supported).** On the owner's decision of 14 November 2026, after his play test of six games, the MSX2+ is supported
   ([MSX.md](MSX.md#9-the-msx2-msx2plus)): MSX2+ cartridges, and disk games with your own MSX2+ firmware.
@@ -12,6 +12,19 @@
   - **Mapper probe.** Konami SCC cartridges that play SCC music are no longer taken for ASCII 8 (The Goonies R Good Enough).
   - A panel of nine converts at 0 interpreted instructions on every route, equal on Windows and on a Debian 13 PC; no game is validated as
     played through, and hardware fidelity and latency are not claimed. MSX, MSX2 and MSX2+ quick states of 1.7.5 are refused cleanly.
+
+- **Sony PlayStation (supported).** On the owner's decision of 15 November 2026, after his play test, the PlayStation is supported
+  (section 8 of [PLAYSTATION.md](PLAYSTATION.md)): discs as EBOOT, CUE/BIN,
+  CloneCD or ISO, NTSC and PAL, with your own BIOS or the free OpenBIOS.
+  - **The CPU state is compared** on every frame of every route (registers, COP0, GTE), and every instruction left to the interpreter is
+    listed with its reason; a panel of eight discs converts at 0 interpreted instructions on every route, equal on Windows and on a Debian
+    13 PC.
+  - **Quick states.** Two defects of the core's GTE state were fixed: a state loaded no longer keeps some GTE registers of before.
+  - **Memory card.** A card file the game cannot use is set aside whole and the game starts with an empty card; the window says so.
+  - **Shared paths.** The code a conversion saw run, as places in your own disc and BIOS, shared as the experimental tier of the base.
+  - **Resolution.** The picture is drawn in software: 1x and 2x hold speed; 4x is heavy in 3D scenes, and 8x is too heavy.
+  No game is validated as played through, and hardware fidelity and latency are not claimed. PlayStation quick states of 1.7.5 are refused
+  cleanly.
 
 # RetroRecomp v1.7.5 — The MSX, the MSX2, the Commodore Amiga and the Atari ST are supported
 

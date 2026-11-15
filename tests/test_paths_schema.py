@@ -733,17 +733,17 @@ class GameModuleTests(unittest.TestCase):
         from retrorecomp import knowledge_build, knowledge_exchange, online
         self.assertEqual(knowledge_exchange.SYSTEMS, pp.SHARED_SYSTEMS)
         self.assertEqual(knowledge_exchange.SYSTEMS, (*knowledge_build.SYSTEMS, 'ng', *pp.EXPERIMENTAL_SHARED))
-        self.assertEqual(pp.SCHEMA3_ONLY, ('cps1', 'x68', 'cps2', 'pce', 'gba', 'amiga', 'atarist', 'msx2plus'))
+        self.assertEqual(pp.SCHEMA3_ONLY, ('cps1', 'x68', 'cps2', 'pce', 'gba', 'amiga', 'atarist', 'psx', 'msx2plus'))
         digest = '0123456789abcdef' * 4
         for pattern in (online._ROM_KEY, knowledge_exchange._GAME_KEY):
             for system in pp.SHARED_SYSTEMS:
                 self.assertTrue(pattern.fullmatch(f'{system}:{digest}'), system)
-            for system in ('psx', 'zx'):
+            for system in ('n64', 'zx'):
                 self.assertFalse(pattern.fullmatch(f'{system}:{digest}'), system)
             self.assertFalse(pattern.fullmatch('md:' + digest[:-1]))
         # Adding a console to the sharing is one name in the list.
-        wider = pp.game_key((*pp.SHARED_SYSTEMS, 'psx'))
-        self.assertTrue(wider.fullmatch(f'cps1:{digest}') and wider.fullmatch(f'psx:{digest}'))
+        wider = pp.game_key((*pp.SHARED_SYSTEMS, 'n64'))
+        self.assertTrue(wider.fullmatch(f'cps1:{digest}') and wider.fullmatch(f'n64:{digest}'))
         from retrorecomp.systems import ALL_PROFILES
         # The machines of the schema that do not share their discoveries (none since the X68000 joined in 1.6.9; a new machine is one).
         self.assertEqual(set(pp.SYSTEMS) - set(pp.SHARED_SYSTEMS),

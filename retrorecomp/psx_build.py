@@ -19,7 +19,8 @@ BUILD_TIMEOUT = 3600
 GAME_FILES = ('platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_state.c', 'console16_state.h',
               'console16_video.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h',
               'runtime_catalog.inc', 'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h',
-              'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h')
+              'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
+              'save_set_aside.c', 'save_set_aside.h')
 MACHINE_FILES = ('psx_main.c', 'psx_session.c', 'psx_session.h', 'psx_observe.c')
 STATE_SYSTEM = 6      # the quick-state header's machine number (1 MD, 2 SNES, 3 Neo Geo, 4 CPS-1, 5 PC Engine)
 FPS = {'ntsc': 59.826, 'pal': 49.761}     # Beetle's frame rates (core_timing_fps), NTSC and PAL
@@ -82,7 +83,7 @@ def game_cmake(tree: Path, version: str, *, native: tuple[str, ...] = ()) -> str
         'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
         'find_package(SDL2 CONFIG REQUIRED)',
         'function(rr_psx_program name cpu)',
-        f'  add_executable(${{name}} psx_main.c psx_session.c {kit} console16_state.c retro_menu.c runtime_feedback.c ${{ARGN}})',
+        f'  add_executable(${{name}} psx_main.c psx_session.c {kit} console16_state.c retro_menu.c runtime_feedback.c save_set_aside.c ${{ARGN}})',
         '  target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")',
         '  if(WIN32)', '    target_sources(${name} PRIVATE content.rc)',
         '    target_link_libraries(${name} PRIVATE shell32 user32 gdi32)',

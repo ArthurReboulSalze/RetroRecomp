@@ -117,6 +117,13 @@
       {"title": "Family Stadium Professional Baseball", "category": "regression-baseline", "reason": "V9958 horizontal scroll (R#25-R#27) compared with openMSX; takes another path when MSX-MUSIC is present (R#1)", "source": "docs/MSX.md"},
       {"title": "Quinpl", "category": "path-sharing", "reason": "Disk game whose RAM code is almost all in the disk's bytes (540 of 561 windows): the G16 proof's single-disk game", "source": "docs/MSX.md"},
       {"title": "Golvellius II", "category": "route-depth", "reason": "Three disks; its routes stay in the Japanese intro and never ask for a disk", "source": "docs/MSX.md"}
+    ],
+    "psx": [
+      {"title": "Ape Escape", "category": "analog-pad", "reason": "Asks for the DualShock in analog mode (its DUALSHOCK required notice); the pad powers on digital, as the console's, and the routes never press the Analog button", "source": "docs/QUALIFICATION.md"},
+      {"title": "Final Fantasy VII", "category": "multi-disc", "reason": "Three discs in one PS1 Classics EBOOT, much code and overlays: the most native steps of the panel, several words at many addresses", "source": "docs/QUALIFICATION.md"},
+      {"title": "R4 - Ridge Racer Type 4", "category": "region", "reason": "NTSC-J disc from a CUE sheet with CD-audio tracks: needs the player's Japanese BIOS, the region the converter must match", "source": "docs/QUALIFICATION.md"},
+      {"title": "WIPEOUT2", "category": "pal-cd-audio", "reason": "WipEout 2097, PAL at 50 Hz from a CUE sheet whose music is CD audio: the frame rate and the drive's audio path", "source": "docs/QUALIFICATION.md"},
+      {"title": "Gran Turismo 2", "category": "memory-card", "reason": "Simulation Mode disc (the Arcade disc is apart): saves its licences and garage to the first memory card early, the case for saves read back in a fresh process", "source": "docs/PLAYSTATION.md"}
     ]
   }
 }

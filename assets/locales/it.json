@@ -563,7 +563,7 @@
     "options_pce": "PC Engine / TurboGrafx-16",
     "options_pce_note": "Profilo PC Engine / TurboGrafx-16: HuCard (.pce, o uno ZIP che ne contiene una; schede americane del TurboGrafx-16 nei due ordini di dump) delle schede standard e della scheda di Street Fighter II, NTSC, due giocatori. Il codice nativo viene da ciò che il gioco è stato visto eseguire; il resto resta interpretato e contato. Né CD-ROM2 né SuperGrafx.",
     "options_psx": "Sony PlayStation",
-    "options_psx_note": "Profilo PlayStation sperimentale: dischi in EBOOT (.pbp), CUE/BIN, CloneCD (.ccd) o ISO, NTSC e PAL, due giocatori. Il tuo BIOS va nel gioco; senza, si usa l’OpenBIOS libero. Il codice nativo viene da ciò che il gioco è stato visto eseguire; il resto resta interpretato e contato. Nessun BIOS scaricato o fornito.",
+    "options_psx_note": "Profilo PlayStation: dischi in EBOOT (.pbp), CUE/BIN, CloneCD (.ccd) o ISO, NTSC e PAL, due giocatori. Il tuo BIOS va nel gioco; senza, si usa l’OpenBIOS libero. Il codice nativo viene da ciò che il gioco è stato visto eseguire; il resto resta interpretato e contato. Nessun BIOS scaricato o fornito.",
     "psx_bios": "BIOS PlayStation (file o cartella)",
     "knowledge_achievement": "Obiettivo sbloccato",
     "knowledge_discovery": "scoperta",

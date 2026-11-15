@@ -82,16 +82,21 @@ class PsxInput:
     discs: tuple            # psx_disc.DiscIdentity per disc
 
     @cached_property
-    def sha256(self) -> str:
-        """The digest of every disc in order (each disc's psx_disc digest)."""
-        h = hashlib.sha256(b'rr-psx-game\0')
+    def disc_digests(self) -> tuple[str, ...]:
+        """Each disc's psx_disc digest, in order (read once: each reads the whole disc)."""
+        out = []
         for index in range(len(self.discs)):
             disc = psx_disc.open_disc(self.path, index)
             try:
-                h.update(disc.digest().encode() + b'\0')
+                out.append(disc.digest())
             finally:
                 disc.close()
-        return h.hexdigest()
+        return tuple(out)
+
+    @cached_property
+    def sha256(self) -> str:
+        """The digest of every disc in order (each disc's psx_disc digest): `game_key` of those digests."""
+        return game_key(self.disc_digests)
 
     @property
     def game_key(self) -> str:
@@ -109,6 +114,14 @@ class PsxInput:
         return {'name': self.path.name, 'path': str(self.path), 'sha256': self.sha256, 'size': self.size,
                 'format': self.discs[0].container, 'serial': self.serial, 'region': self.region,
                 'discs': [d.metadata() for d in self.discs]}
+
+
+def game_key(digests) -> str:
+    """The game's identity from its discs' digests in order (a shared record states them, so a reader checks the key from it)."""
+    h = hashlib.sha256(b'rr-psx-game\0')
+    for digest in digests:
+        h.update(digest.encode() + b'\0')
+    return h.hexdigest()
 
 
 def read_input(path) -> PsxInput:

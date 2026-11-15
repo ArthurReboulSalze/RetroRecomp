@@ -1,6 +1,7 @@
-# Sony PlayStation (experimental)
+# Sony PlayStation
 
-The PlayStation profile is **experimental** since 1.7.1. A conversion
+The PlayStation profile is **supported** since 1.7.6, on the owner's decision of 15 November 2026 after his play test (open as
+experimental in 1.7.1; [section 8](#8-the-exit-from-the-experimental-status-15-november-2026-supported-from-176)). A conversion
 makes a playable game whose R3000A code, as far as the conversion saw it run, is **native steps**; the rest runs on the machine's
 interpreter and is counted and reported. This page says what it converts, how, and what it does not claim. The five measures
 stay separate: native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency.
@@ -86,25 +87,134 @@ neither figure. CPU fidelity: what the core's interpreter does (each route's nat
 `tools/psx_vector_selftest.py` runs independent vectors on both paths, without a game: see below. Hardware fidelity: not measured;
 with the free BIOS the report says so. Gameplay validation: only the conversion's routes. Physical latency: not measured.
 
-## 4. Where it stands (8 November 2026)
+## 4. Where it stands (15 November 2026)
 
 Each line is one measure; none says anything about the others. The record is in
-[QUALIFICATION.md](QUALIFICATION.md#sony-playstation-evidence-behind-its-column-8-november-2026).
+[QUALIFICATION.md](QUALIFICATION.md#sony-playstation-evidence-behind-its-column-15-november-2026).
 
-- **Native code**: on the two routes of the ten panel discs, at most 0.0003 % to 0.0131 % of the instructions ran on the
-  interpreter, depending on the disc (0.0165 % on Tobal No. 1, an eleventh disc). This covers those routes only: a part of the
-  game they did not reach starts on the interpreter, counted.
-- **CPU fidelity**: every route of every panel disc is identical, frame by frame, to the core's interpreter. Independently of any
-  game, 55,000 R3000A vectors pass on the interpreter and on the native steps, and 1,150 GTE vectors pass on the GTE. The CPU
-  vectors come from ares's model, not from a console, and hold no COP0 or GTE instruction: this is agreement with a model, not
-  proof against the silicon.
-- **Hardware fidelity**: not measured. It is Beetle's.
-- **Gameplay validation**: scripted routes reaching title screens, intros, menus or a first level, no deeper. Nobody has played
-  the panel. Ape Escape's play route stops at a dark screen after its "DUALSHOCK required" notice: its gameplay is not shown.
-- **Physical latency**: not measured.
-- **Linux**: Ape Escape, converted on a Debian 13 PC with GCC, gives the same hashes as Windows on both routes. One disc, and no
-  game played on Linux.
+- **Native code**: on the 24 routes of the eight panel discs (attract, play and an 18,000-frame route each), no instruction ran on
+  the interpreter: 54.5 billion native instructions. This covers those routes only: code a game reaches later starts on the
+  interpreter, counted, shown in the window title, and becomes native at the next conversion with the player's F12 hints (Gran
+  Turismo 2's licence drive: 24 % interpreted before the owner's hints were taken, 2.2 % after).
+- **CPU fidelity**: every frame of every route equals the core's interpreter in RAM, picture, sound and CPU state (registers, COP0,
+  GTE). Independently of any game, 55,000 R3000A vectors pass on the interpreter and on the native steps, and 1,150 GTE vectors
+  pass on the GTE. The CPU vectors come from ares's model, not from a console, and hold no COP0 or GTE instruction: this is
+  agreement with a model, not proof against the silicon.
+- **Hardware fidelity**: Beetle's. Measured on named behaviours only (`tools/psx_hardware_selftest.py`, 15 November 2026): the GPU
+  tests of ps1-tests, booted through the BIOS like a game, draw what a console drew on 9 of 11 to the pixel, the CLUT cache and line
+  ends apart; the timer, DMA and CD-ROM tests print cycle counts that differ from the console's ([QUALIFICATION.md](QUALIFICATION.md)).
+- **Gameplay validation**: scripted routes; the long route reaches play on six of the eight discs, the two others are named with
+  their reason in the report (Metal Gear Solid returns to its title, Gran Turismo 2 stays in its credits). The owner played Gran
+  Turismo 2 on 15 November 2026 ("c'est fonctionnel"); the panel's play test (G14) is his.
+- **Physical latency**: not measured. The frame cost was measured once on a quiet PC (15 November 2026, Gran Turismo 2 driving,
+  an off-screen window with the sound device): 6.5 ms a frame at 1x, 7.6 ms at 2x, 11.7 ms at 4x with frames up to 33 ms, and no
+  sample missing on that drive; 4x is labelled heavy and is too heavy for 3D racing on that PC (a stated limit).
+- **Linux**: Ape Escape (EBOOT) and WipEout 2097 (CUE/BIN, PAL), converted on a Debian 13 PC with GCC, give the same values as
+  Windows on all three routes. No game played on Linux.
 
-## 5. Not in this first scope
+## 5. What each gate meant here (written before the exit)
+
+The PlayStation is, like the Amiga and the Atari ST, an emulator core with native code. Beetle PSX runs the machine, and the
+conversion turns the R3000A code its routes ran into native steps. The gates of [STANDARDS.md](STANDARDS.md#supported-checklist)
+are read for it as they were for those two machines, which left the experimental status in 1.7.5. A gate is `Y` only when what
+is written here is shown. Anything less is `P`, with what is missing named. No gate says hardware fidelity, gameplay coverage or
+latency.
+
+- **Native code (G3).** Native: the R3000A instructions in main RAM and in the BIOS that the routes ran, as guarded steps holding
+  the interpreter's own handler bodies. Not native, and not counted as such: the GPU, SPU, CD-ROM controller, MDEC, DMA and
+  timers, which Beetle emulates (as vAmiga emulates the Amiga's chips), and the GTE's arithmetic, which a COP2 step calls in
+  Beetle's GTE code. **Met:** on every final route of every panel disc, either no instruction runs on the interpreter, or each
+  one that does is listed in the report by address, with its count and its reason (`final_checks[].interpreted_by_address`).
+  The reasons are a word beyond the four kept for one address, code the observation did not hold, code outside main RAM and
+  the BIOS, or a word a step holds but was reached from the step of another word at the address before it. None may be left
+  unexplained: the game's own count must equal the sum of the list. An interrupt pending is not a reason: the fetch then runs
+  no instruction (it is counted apart), except a COP2 instruction, which Beetle runs before taking the interrupt and which a
+  step therefore holds too. Code past the routes runs on the counted interpreter, as on every machine: no whole-game claim.
+- **CPU fidelity, the reference (G4).** The reference is a fresh run of the same machine with every instruction on Beetle's
+  interpreter: the observing build, which records the code it runs and does not change the machine. **Met:** on every frame of
+  every final route of every panel disc, the delivered executable equals that reference in RAM, picture and sound, as today,
+  and in the CPU's own state. That state is the 32 registers, HI and LO, the PC, the COP0 registers a game sees (SR, CAUSE,
+  EPC) and the GTE's registers. Today's per-frame trace holds RAM, picture and sound only, so the CPU state is the part to add
+  (the Amiga's trace carries its registers). This is agreement with Beetle's interpreter, not with a real R3000A.
+- **CPU fidelity, independent (G10).** The corpus: SingleStepTests/r3000 (55,000 vectors, made from ares's interpreter), run
+  on Beetle's interpreter and on the native steps, and the GTE vectors of JaCzekanski/ps1-tests (1,150, recorded on a console
+  according to their author). **Met for `Y`:** every vector passes on both paths with none unexplained, the check of the check
+  sees a corrupted vector, and the GTE vectors also pass through native COP2 steps, not only on the GTE directly. The R3000A
+  vectors hold no COP0 or GTE instruction and come from a model, not silicon; that stays written beside the letter. Without the
+  COP2 path, G10 stays `P`, as it was for the Amiga, the Atari ST and the X68000 when they left.
+
+The other gates are read as on the Amiga and the Atari ST:
+
+- **Saves (G7):** two games save to the first memory card on their route. A fresh process of the delivered file reads the card
+  back, and a damaged card file is set aside and never blocks the game.
+- **Liveness and depth (G8, G9):** each panel disc's long route gets past its loading screens and cut-scenes into play, and its
+  pictures are read. A route that cannot do so (a protection, a peripheral the game requires) is named in the report with its
+  reason, and is never forced past it by a patch.
+- **Hardware evidence (G11):** ps1-tests' GPU, timer and CD-ROM tests run on the machine and their results are recorded. This is
+  `P` on every machine: named behaviours, not the chips.
+- **Panel and platforms (G12, G13):** 7 or 8 discs with written reasons, none dropped for failing, and at least four of them as
+  risk cases in `tools/campaign-risk-cases.json`. One or two discs on a Debian 13 PC give the same route hashes as on Windows.
+- **Owner acceptance (G14):** the owner plays the delivered discs and decides. No tool or agent fills this gate.
+- **Honesty (G15):** the interface, the exported game's window and its report are read for claims.
+- **Shared knowledge (G16):** a supported machine either shares its paths or is declined on its panel's measured evidence that
+  received paths would add no native instruction and save no conversion pass (the owner's rule of 14 November 2026). Measured:
+  received paths add native code beyond the receiver's own routes, so the PlayStation shares them (section 6).
+
+## 6. Shared paths (the experimental tier of the base, from 1.7.6)
+
+The owner decided on 14 November 2026 that the PlayStation shares its paths (« Oui, elle partage »), after this measure on Ape
+Escape: a receiver converting at the standard level (its attract and play routes, 48,809 observed words) and given the
+observations of another player's long route (36,024 words more) runs the first level, which its own routes never reach, with no
+instruction on the interpreter instead of 924,083,036 (19 % of 4.86 billion); no conversion pass is saved (a PlayStation
+conversion is always one pass).
+
+**What travels** (`retrorecomp/psx_knowledge.py`, on the common `path_records`): numbers about the player's own disc and BIOS,
+never their bytes. A run of R3000A code a conversion observed whose words are found, as they are, in a file of the disc becomes a
+span `[address, offset, length]`; the offset counts the user data of the disc's ISO 9660 volume, so a CUE/BIN and an EBOOT of the
+same dump read the same words. Code run from the BIOS ROM, or from the kernel the BIOS copies into low RAM, becomes a row of the
+player's BIOS, used only by a player whose BIOS has the same SHA-256. The record is keyed by the discs' digests. Words found in
+neither stay private, counted: code a game decompresses (Ape Escape's main code is packed in its data file) never travels.
+A record is made only from a conversion's own observations once every check passed; what a player received is not shared again
+until his own conversion observes it. Received words become native steps behind the same guard as observed ones (the word the
+CPU fetches), ranked after every observed word of their address, so a received word that does not fit runs on the interpreter,
+counted. The whole sharing is withdrawn with one line (`path_profiles.EXPERIMENTAL_SHARED`).
+
+**The proof** (14 and 15 November 2026, Windows, one conversion at a time, each player with an empty library of its own; tree of
+`4f70b43c`): player A converts at the extended level and exports a version 3 file; player B imports it and converts at the standard
+level; player C converts at the standard level with nothing imported; then A's 18,000-frame route is played by B's and C's games.
+
+| Disc | A's record | B received | B's and C's checks | Long route: interpreted, C → B | Picture at the end |
+|---|---|---|---|---|---|
+| Ape Escape | 60,269 words in the disc, 6,988 in the BIOS, 17,576 private (of 84,833) | 67,257 words, 31,890 new | all pass, 0 interpreted on their routes, B's own record equal to C's | 924,083,036 → 220,036,709 (−76 %) | the same |
+| Metal Gear Solid (2 discs) | 43,313 in the discs, 7,857 in the BIOS, 13,543 private (of 64,713) | 51,170 words, 3 new | all pass, 0 interpreted, B's record equal to C's | 594 → 0 | the same |
+
+Ape Escape's remaining 220 million are the code it decompresses: its words are in none of the disc's files. Metal Gear Solid's
+routes stay at its title screen (section 4), so its long route runs almost nothing its standard routes did not. A record whose
+spans were moved to random places of the disc (player D, Ape Escape) changes nothing a conversion checks: every check passes, 0
+interpreted on the routes, the same picture at the end of the long route (886,115,939 interpreted there: random places that hold
+zeros give the R3000A's NOP, which real code holds too).
+
+## 7. Not in this first scope
 
 Mouse, multitap, light guns, the hardware renderers, LibCrypt and other sub-channel protections, CHD images, the PSP-derived BIOS.
+
+## 8. The exit from the experimental status (15 November 2026, supported from 1.7.6)
+
+The owner played the delivered exports on 15 November 2026 (said of the Nintendo 64 and the PlayStation together):
+« Je viens de tester la Nintendo 64 et la PlayStation sur plusieurs jeux. Donc, le comportement du jeu en lui-même, ça me paraît plutôt solide et plutôt réactif. Je n'ai pas eu de bug graphique. J'ai pu aussi faire une sauvegarde sur Gran Turismo 2 qui a fonctionné. » Asked whether to take the PlayStation out of the experimental status: « Oui, sors-la ».
+
+What the exit rests on ([QUALIFICATION.md](QUALIFICATION.md#sony-playstation-evidence-behind-its-column-15-november-2026)): eight discs at 0
+interpreted instructions on all 24 routes, every frame equal to the interpreter including the CPU state, F9 in a fresh process on all eight, the
+same values on a Debian 13 PC, two games' saves read back in a fresh process, the routes read into play or named with their stop, the ps1-tests
+GPU programs drawing what a console drew, and shared paths.
+
+**Limits, written:**
+- **Resolution.** The picture is drawn in software on one thread. 1x and 2x hold speed (the owner's own test held at 1x); 4x is too heavy for 3D
+  racing on the owner's PC (frames up to 33 ms on one licence drive of Gran Turismo 2, a full race heavier) and 8x is never in time. 2x is the
+  advised raised resolution.
+- **Native code** is the code the routes ran: code a game reaches later runs on the counted interpreter, shown in the window title, and becomes
+  native at the next conversion with the player's F12 hints. What a game decompresses stays private in the shared paths.
+- **Route depth.** Metal Gear Solid's routes go back to its title after the level select; Gran Turismo 2's stay in its credits (its races were
+  driven by the owner and on a licence route).
+- No hardware-fidelity claim, no latency measure, no game validated as played through.
+

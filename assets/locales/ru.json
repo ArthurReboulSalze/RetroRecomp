@@ -563,7 +563,7 @@
     "options_pce": "PC Engine / TurboGrafx-16",
     "options_pce_note": "Профиль PC Engine / TurboGrafx-16: HuCard (.pce или ZIP с одной картой; американские карты TurboGrafx-16 в обоих порядках дампа) стандартных плат и платы Street Fighter II, NTSC, два игрока. Нативный код берётся из того, что игра реально выполняла; остальное остаётся интерпретируемым и подсчитывается. Без CD-ROM2 и без SuperGrafx.",
     "options_psx": "Sony PlayStation",
-    "options_psx_note": "Экспериментальный профиль PlayStation: диски EBOOT (.pbp), CUE/BIN, CloneCD (.ccd) или ISO, NTSC и PAL, два игрока. Собственный BIOS входит в игру; без него используется свободный OpenBIOS. Нативный код берётся из того, что игра реально выполняла; остальное остаётся интерпретируемым и подсчитывается. BIOS не загружается и не поставляется.",
+    "options_psx_note": "Профиль PlayStation: диски EBOOT (.pbp), CUE/BIN, CloneCD (.ccd) или ISO, NTSC и PAL, два игрока. Собственный BIOS входит в игру; без него используется свободный OpenBIOS. Нативный код берётся из того, что игра реально выполняла; остальное остаётся интерпретируемым и подсчитывается. BIOS не загружается и не поставляется.",
     "psx_bios": "BIOS PlayStation (файл или папка)",
     "knowledge_achievement": "Достижение получено",
     "knowledge_discovery": "находка",

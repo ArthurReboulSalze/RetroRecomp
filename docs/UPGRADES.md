@@ -89,6 +89,9 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Path records: one copy for the 68000 computers and the MSX2+](#path-records-one-copy-for-the-68000-computers-and-the-msx2-176) | the X68000, the Amiga and the Atari ST (`retrorecomp/m68k_media_knowledge.py` set on the new `retrorecomp/path_records.py`) | none | none |
 | [MSX2+: MSX-MUSIC, the kanji font, shared paths](#msx2-msx-music-the-kanji-font-shared-paths-176) | the MSX, the MSX2 and the MSX2+ (the shared MSX machine files) | the MSX2+ (its option labels) | MSX, MSX2 and MSX2+: refused (layout `msx-state-6`) |
 | [MSX2+: supported](#msx2-supported-176) | the MSX2+ (`retrorecomp/systems/msx.py`, its status) | the MSX2+ (its option note) | none |
+| [Sony PlayStation: supported](#sony-playstation-supported-176) | the PlayStation (`retrorecomp/systems/psx.py`, its status) | none | none |
+| [Sony PlayStation: shared paths](#sony-playstation-shared-paths-176) | the PlayStation | none | none |
+| [Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable](#sony-playstation-the-cpu-state-is-compared-every-interpreted-instruction-is-listed-the-gtes-quick-state-is-fixed-the-memory-card-is-set-aside-when-unusable-176) | the PlayStation | the PlayStation's host stamp | PlayStation states of 1.7.5 refused (another build) |
 
 ## Game Boy Advance: supported (1.7.6)
 
@@ -172,6 +175,53 @@ as Esc; No comes back to the page.
 * **Texts.** One new entry in the five game languages: "Quit the game".
 * **Checks.** `tools/hostkit_capabilities_selftest.py` run 9: the row asks, No and Esc come back to the page while the game
   waits, Esc then goes back to the tiles, Yes ends the loop (280 checks).
+
+## Sony PlayStation: the CPU state is compared, every interpreted instruction is listed, the GTE's quick state is fixed, the memory card is set aside when unusable (1.7.6)
+
+**What changes for a conversion.** The per-frame trace of every route carries a hash of the CPU state a game sees (the R3000A's 32
+registers, LO, HI, the PC, the pending load, SR, CAUSE, EPC and the GTE's 64 registers), so the published game is compared with the
+interpreter on it too, and so is the F9 continuation. Every instruction the interpreter runs on a route is listed by address in the
+report with its reason (`final_checks[].interpreted_by_address`). Two gaps of the native steps are closed: a step that reaches a word
+another step holds at the same address (code loaded over other code) hands it to that step, and a COP2 instruction, which Beetle runs
+with an interrupt pending, is held by a step too. Ape Escape, at the extended level: 0 interpreted instructions on its three routes
+(before: 6,527, 6,613 and 84,619).
+
+**Two fixes of the machine.** Loading a quick state left five of the GTE's registers as they were before the load, and gave
+LZCR a computed value instead of the register's (Beetle's `GTE_StateAction`; carried as our anchored fixes,
+[UPSTREAMS.md](UPSTREAMS.md#playstation-a-fix-carried-on-beetle-psx-176)).
+
+**Memory card.** A card file the game cannot use (another size, a folder, unreadable) is moved aside whole as
+`<card>.mcr.unusable-N` and the game starts with an empty card; the window says so once. It used to be left in place, unread, and
+nothing was saved for that session. The card stays the raw 128 KiB other programs read. The move is the new shared helper
+`native/save_set_aside.c`, the PlayStation's alone for now.
+
+**Stamps** (`compilation_inputs.role_stamps`, the branch as a whole, the shared paths and G11 included, against main `ffbaee01`, at `6a5d9e9b`): the PlayStation's game stamp (`55f0e406d72d` to `8a84b9740b28`) and host stamp (`bd8f35608de2` to `58aa32803f59`); every other machine's stamps equal main's. **Existing exports:** converted again in full at their next conversion. **Quick states:** a PlayStation state of 1.7.5 is
+refused (another build), as for any change of the game. **Hot path:** the step hook calls one more step lookup when a step hands
+back a word, which the routes measure as a gain (no interpreted instruction left on Ape Escape's routes); no timing was taken.
+
+## Sony PlayStation: supported (1.7.6)
+
+**Status.** The PlayStation is supported from 1.7.6, on the owner's decision of 15 November 2026 after his play test (G14, the owner-acceptance
+table of [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance); [PLAYSTATION.md](PLAYSTATION.md#8-the-exit-from-the-experimental-status-15-november-2026-supported-from-176)).
+The profile's status is `supported`, the conversion report's `status` is read from the profile and the Options note loses "experimental" in
+the eight languages. Nothing a conversion does changes.
+
+**Stamps:** the PlayStation's game stamp (the profile is among its inputs); its host and build stamps do not move for this change.
+**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged by this change. **Site limits:**
+unchanged by this change. **Hot path:** no.
+
+## Sony PlayStation: shared paths (1.7.6)
+
+**What changes.** The PlayStation joins the experimental tier of the shared base (Arthur, 14 November 2026: « Oui, elle partage »;
+[PLAYSTATION.md](PLAYSTATION.md#6-shared-paths-the-experimental-tier-of-the-base-from-176)). A conversion receives the words of the qualified bank,
+the player's library record and the imported bank before its native steps are written, and writes its own record into the player's library once
+every check passed; the report gains `knowledge` (what was received, and the record's counts and digest). A failure of the sharing is reported there
+and never fails a conversion. `PsxInput` keeps each disc's digest (`disc_digests`); the game's identity is unchanged.
+
+**Stamps:** the PlayStation's game stamp only (`retrorecomp/psx_knowledge.py` and the profile's `shared_knowledge` are its inputs, with
+`path_records`); its host and build stamps do not move for this change. **Existing exports:** converted again in full at their next conversion.
+**Quick states:** unchanged by this change. **Site limits:** the site must know the PlayStation's records before 1.7.6 is published
+(`RECORD_RULES`, sent to the web specialist on 14 November 2026). **Hot path:** no (received words become native steps like observed ones).
 
 ## Exports of 1.7.4 in 1.7.5
 

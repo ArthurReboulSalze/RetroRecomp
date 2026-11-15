@@ -69,7 +69,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Commodore Amiga | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Atari ST | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Nintendo 64 | experimental | `███░░░░░░░` 34 % | ✅ 0 · 🟡 11 · ❔ 5 |
-| Sony PlayStation | experimental | `████░░░░░░` 40 % | ✅ 0 · 🟡 12 · ❔ 3 |
+| Sony PlayStation | supported | `████████░░` 81 % | ✅ 10 · 🟡 6 · ❔ 0 |
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
@@ -78,22 +78,22 @@ console's status is never a threshold of this bar: leaving the experimental stat
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | 🟡 | ✅ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | 🟡 |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ✅ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ✅ | ✅ | ✅ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | ✅ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ❔ | ✅ | ✅ | ✅ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ✅ | ✅ | ✅ | ✅ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ✅ | ✅ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ➖ | ➖ | ➖ | 🟡 |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ➖ | ➖ | 🟡 |
 
 <!-- qualification-gauges:end -->
 
@@ -108,22 +108,22 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
 | G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
 | G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | P | P | Y | P | Y |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | P | P | P |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | P | Y | Y | P | Y |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | P | P | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | ? | P | Y | Y | Y |
-| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | ? | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | Y |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | ? | Y | Y | Y |
+| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | Y | Y | Y | Y |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | Y | Y |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | - | - | - | P |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | ? | P | - | - | P |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -358,6 +358,7 @@ The page of each console, which the README links its line to (a console of the m
   step (MSX.md section 9, COMPATIBILITY, UPGRADES, the profile's scope note, the report's device names); one statement corrected (the report
   named a plain cartridge for a disk game); the full read of every page and string for the MSX2+ is to do.
 - MSX2+ (14 November 2026, night; branch `spec/msx2plus-supported-176`): **G14 moves from `?` to `Y`** on the owner's play test of the six games of the checklist (the owner-acceptance table below), and the MSX2+ **leaves the experimental status: it is supported from 1.7.6**, on Arthur's word (« Oui, sors-le »). **G1 moves to `Y`**: the profile is declared `supported` and `tools/status_lint.py` agrees on the README, the compatibility page, the release notes and the interface strings in eight languages; `registry_problems` finds nothing for the real profile. The matrix is otherwise unchanged: `Y` on G1 to G8, G10, G12 to G15, `P` on G9 (route depth), G11 (two openMSX comparisons, no independent emulator on the panel) and G16 (the experimental tier of the base).
+- Sony PlayStation (15 November 2026; branch `spec/psx-176`): on the final panel pass of the night (tree `6a5d9e9b`) and the Debian 13 witness, **G3, G4, G5, G8, G9, G12 and G13 move to `Y`**, **G7 to `Y`** (WipEout 2097 on a route and the owner's own Gran Turismo 2 save, each read back in a fresh process), **G11 to `P`** (ps1-tests through the BIOS) and **G16 to `P`** (shared paths, on the owner's « Oui, elle partage » of 14 November). **G14 moves to `Y`** on the owner's play test and the PlayStation **leaves the experimental status: it is supported from 1.7.6**, on Arthur's word (« Oui, sors-la »). **G1 moves to `Y`**: the profile is declared `supported` and `tools/status_lint.py` agrees on the README, the compatibility page, the release notes and the interface strings in eight languages. `P` stays on G2 (the report gates of release_check not run on its reports), G6 (a truncated state only), G10 (the GTE vectors not through native steps), G11, G15 (read in the code, not in a window) and G16 (the experimental tier of the base).
 - MSX2+ panel of 1.7.6 (14 November 2026, night; branch `spec/msx2plus-176`): **G7, G12, G13 and G15 move to `Y`**; G9 and G11 stay `P`,
   G14 `?` (the owner's). The panel: four cartridges on C-BIOS 0.29a (Family Stadium Professional Baseball, the V9958 scroll and MSX-MUSIC;
   Pachipro Densetsu, ASCII 8; The Goonies R Good Enough, Konami SCC; Dragon Slayer II - Xanadu, ASCII 8 with battery SRAM, the G7 game) and
@@ -969,29 +970,31 @@ fidelity, gameplay coverage or latency; the owner's play trials (eight games on 
 | G15 | Y | The honesty audit of 9 November 2026 read the documents, the interface strings in eight languages, the exported game and the report fields: no claim of exactness, hardware fidelity, whole-game coverage or latency without proof; every flag that should be false is false and every claim string names what was tested. It found one misleading line ("ready (native code only)", now "no interpreter on the routes played"), the scope note, and counts that disagreed; all fixed | Two shared items, not this profile's, were fixed in 1.7.3: the report lists the five languages a game ships (it listed the eight of the converter), and the CPS-1 prints "no interpreter on the routes played" too |
 | G16 | P | Numeric paths: PC, eight MPRs and a ROM offset per instruction, with no byte of the ROM; a record is made only from the captures of a conversion that passed, and a player's conversion gives the engine the received rows as declared roots (`pce-declared-roots-1`), never as captures. A failed conversion starts again without them, and one line withdraws them (`path_profiles.EXPERIMENTAL_SHARED`). The proof on Soldier Blade, from two empty libraries: the routes of the conversion that received the paths equal those of a control with none, and A's long route, which it never played, runs 535,661,326 native, 219 interpreted (work-RAM code, which does not travel) and 219 guard misses against 7,348,650 interpreted on the control, equal to the fresh reference; a card with one byte changed is refused ([PC_ENGINE.md](PC_ENGINE.md#7-shared-paths)) | No path is qualified in the base yet (a conversion that received it from another player through the base must reach it); a declared row is qualified only by a window that runs it; one card in the proof; work-RAM code and the Street Fighter II board do not travel. The PC Engine stays in the experimental tier of the base (a tier of the base, not the machine's status) |
 
-## Sony PlayStation: evidence behind its column (8 November 2026)
+## Sony PlayStation: evidence behind its column (15 November 2026)
 
-The PlayStation is **experimental since 1.7.1** ([PLAYSTATION.md](PLAYSTATION.md)): the panel of ten discs was converted once on 8 November 2026 on Windows with the
-players' toolchain (llvm-mingw). `P` means a part is shown and the rest is named; `?` is not measured. Nothing here says hardware fidelity, gameplay coverage or latency.
+The PlayStation is **supported since 1.7.6**, on the owner's decision of 15 November 2026 (open as experimental in 1.7.1; [PLAYSTATION.md](PLAYSTATION.md#8-the-exit-from-the-experimental-status-15-november-2026-supported-from-176)). The final panel pass of 15 November 2026 ran on the tree `6a5d9e9b`
+(Windows, the players' toolchain llvm-mingw, the extended level: attract, play and an 18,000-frame route, one conversion at a time), its games delivered
+to `Export/Games/PlayStation`; Gran Turismo 2's export of the same game stamp (00:34 UTC, with the owner's runtime hints) stands for it. `P` means a part
+is shown and the rest is named; `?` is not measured. Nothing here says hardware fidelity, gameplay coverage or latency.
 
 | Gate | PlayStation | Evidence | What is missing |
 |---|---|---|---|
-| G1 | P | `retrorecomp/systems/psx.py` (status `experimental`), [PLAYSTATION.md](PLAYSTATION.md), the README, COMPATIBILITY and the interface strings agree (`status_lint`) | No owner decision |
-| G2 | P | `retrorecomp/psx_conversion.py` goes through `report_schema.write_report`: native and interpreted instructions per route, the fetches that run no instruction apart, `latency_ms: null` | Scenario sections are filled for the routes played only |
-| G3 | P | On the two routes of each of the ten discs the interpreter ran 0.0003 % (Ape Escape, WipEout 2097) to 0.0131 % (Soul Reaver) of the instructions at most; Tobal No. 1, an eleventh disc, 0.0165 % | Only the code the routes ran is native: code seen for the first time runs on the interpreter, counted. No whole-game claim |
-| G4 | P | The published game equals the observing build, which runs the core's interpreter alone, on every frame of every route (picture, sound, RAM) on the ten discs | Agreement with Beetle's interpreter, not with a real R3000A |
-| G5 | P | The routes above are played by the published executable, disc inside and not compressed, against a fresh reference | No replay on a second machine of the same file |
-| G6 | P | F8/F9 continue the saved timeline in a fresh process for 600 frames on the play route of the ten discs; a truncated state is refused | A longer continuation; corrupted-state cases other than a truncated file |
-| G7 | P | The first memory card is written to `datas/saves` beside the game, atomically, and read back at start | No check saves in a game and reads it back after a restart; the second card port is off |
-| G8 | P | Every route must show a moving picture; the report gives picture changes and audible frames | Only routes of 3,600 and 3,900 frames, and they show little: Hi-Octane's attract picture stops changing after frame 1,537, Ape Escape's play route ends on a dark screen after its "DUALSHOCK required" notice, without gameplay |
-| G9 | ? | Not measured: the long routes of the higher levels exist and were not run on the panel | |
+| G1 | Y | `retrorecomp/systems/psx.py` (status `supported` since 1.7.6, on the owner's decision of 15 November 2026), [PLAYSTATION.md](PLAYSTATION.md), the README, COMPATIBILITY, INDEX, ROADMAP, SYSTEM_PROFILES, STANDARDS, the release notes and the Options note in eight languages agree (`status_lint`: 0 contradictions); `tests/test_machine_registry.py` passes on the real profile, the supported tier included | |
+| G2 | P | `retrorecomp/psx_conversion.py` goes through `report_schema.write_report` (v2): native, interpreted and unrun instructions per route, every interpreted instruction listed by address with its reason (`interpreted_by_address`), the liveness of each route, the route warnings, the F9 validation, the shared paths' `knowledge` (what was received, the record's digest and counts), `latency_ms: null` | The report gates of `tools/release_check.py` were not run on the PlayStation's reports |
+| G3 | Y | The panel of 8 discs below: **0 interpreted instructions on every one of the 24 routes**, 0 unexplained (the report lists each interpreted instruction by address with its reason; there are none). 54.5 billion native instructions over the 24 routes. Two gaps of the native steps were closed on the way: a step reaching a word another step holds at that address (overlays) hands it over, and a COP2 instruction, which Beetle runs with an interrupt pending, is held too ([PLAYSTATION.md](PLAYSTATION.md)) | Only the code the routes ran is native: code reached later runs on the counted interpreter, shown in the window title (Gran Turismo 2's races: 24 % of a licence drive before the owner's hints were taken, 2.2 % after). No whole-game claim |
+| G4 | Y | On every frame of the 24 routes, the published game equals the observing build, which runs every instruction on Beetle's interpreter, in RAM, picture, sound **and the CPU state** (the 32 registers, LO, HI, PC, the pending load, SR, CAUSE, EPC and the GTE's 64 registers, in the per-frame trace since 1.7.6). The CPU column found two defects of Beetle's GTE quick states (carried fixes, [UPSTREAMS.md](UPSTREAMS.md#playstation-a-fix-carried-on-beetle-psx-176)) | Agreement with Beetle's interpreter, not with a real R3000A |
+| G5 | Y | The routes are played by the published executable (disc inside, not compressed) against a fresh reference in another process, on Windows and on a Debian 13 PC (G13) | |
+| G6 | P | On the 8 discs, F9 continues the saved timeline for 600 frames in a fresh process, CPU state included; a truncated state is refused | Damaged states other than a truncated file; a continuation longer than 600 frames |
+| G7 | Y | `tools/psx_saves_check.py`, two games, 15 November 2026. WipEout 2097: its own save menu writes `WO2097 A` on card 1 on a route; a fresh process with that card lists it, one with none shows an empty card. Gran Turismo 2: the owner saved in the delivered game (« J'ai pu aussi faire une sauvegarde sur Gran Turismo 2 qui a fonctionné »; `BASCUS-94455GAME`, 4 blocks); a fresh process given a copy of his card (`--card`, the file itself only read) differs from one with none from frame 1,045 on. On both: five unusable card files (empty, half, one byte short, one byte long, a folder) are each set aside whole as `<card>.unusable-1` and the game plays exactly as with no card. A card stays the raw 128 KiB other programs read | His first Gran Turismo 2 save of the night before did not reach the card (not explained; the second did); a full disk and a refused rename are not made; the card of slot 2 is off |
+| G8 | Y | `liveness` on the 24 routes: every route shows a moving picture (215 to 14,337 distinct pictures) and every route is audible (944 to 17,467 audible frames); the last picture change of every 18,000-frame route falls within 94 frames of its end | Silent routes would be reported, not refused |
+| G9 | Y | The routes push through menus every 900 frames and hold Cross on half the walk (1.7.6, generic, no game named). `tools/psx_route_captures.py` (which refuses a route whose rewritten script differs from the report's) took 12 pictures of each play and long route; the specialist read them: the long route reaches play on 6 of 8 (Ape Escape's first level, Final Fantasy VII's Midgar, Soul Reaver, Symphony of the Night's prologue, WipEout 2097 and R4 racing). The two that do not are named with their reason in `route_warnings` (`psx_conversion.ROUTE_STOPS`, by disc SHA-256): Metal Gear Solid goes back to its title after its level select; Gran Turismo 2 stays in its credit pages (driving was shown by a licence route made for G7, not by the conversion's routes) | Read by the specialist, not by the owner; routes do not finish a game |
 | G10 | P | `tools/psx_vector_selftest.py` on 8 November 2026: SingleStepTests/r3000, generated from ares's interpreter (55,000 of 55,000 on the core's interpreter, 55,000 of 55,000 on the native steps), and the GTE vectors of JaCzekanski/ps1-tests (1,150 of 1,150); the check of the check corrupts vectors and sees it on each path | The CPU vectors come from a model, not silicon, and hold no COP0 or GTE instruction; the GTE values come from a console according to their author and run on the GTE directly, not through a COP2 step |
-| G11 | ? | No independent hardware comparison | |
-| G12 | P | Ten discs with different risks, none dropped: Ape Escape, Crash Bandicoot, Final Fantasy VII (3 discs), Hi-Octane (PAL, CloneCD), Metal Gear Solid (2 discs), R4 (NTSC-J), Soul Reaver, Symphony of the Night, Tomba!, WipEout 2097 (PAL, CUE). Hi-Octane stands in for Soul Blade, which the owner's library does not hold. All convert and pass the checks above | A broader panel. Routes reach a title screen, an intro, a menu or a first level, not the depth of a game |
-| G13 | P | Ape Escape converted on a Debian 13 PC with the system GCC (14.2) on 8 November 2026: on both routes the native, interpreted and unrun counts, the picture, sound and trace hashes and the native-step digest equal the Windows run's; controls and F8/F9 pass there too | One disc, as chosen; a quick state is not compared across systems; no game played on Linux |
-| G14 | ? | The owner tried Tobal No. 1 during development (8 November 2026: playable; its fight music, after the CD-audio fix: "c'est ok"; whether the sudden crackles measured at 4x are gone was not said): a trial, not an acceptance | The owner's decision; a play test of the panel |
-| G15 | P | Nothing is claimed beyond "native equals the core's interpreter"; the five measures are kept apart in [PLAYSTATION.md](PLAYSTATION.md) and in the report (`honesty`) | A read of the interface and the exported game |
-| G16 | - | The PlayStation shares no paths; it is not in `SHARED_SYSTEMS` (its runtime hints stay on the player's PC) | |
+| G11 | P | `tools/psx_hardware_selftest.py` (15 November 2026): the prebuilt programs of JaCzekanski/ps1-tests (release build-158, MIT; their expected results recorded on a console by the suite's authors) boot through the player's BIOS from a small disc the tool builds (licensed volume, SYSTEM.CNF, every sector with its EDC and ECC) on the machine prepared as a conversion prepares it. GPU, the whole VRAM against the console's: in the 320x240 area the tests draw, 9 of 11 equal to the pixel (clipping, quad, rectangles, texture-flip, texture-overflow, transparency, triangle, uv-interpolation, vram-to-vram-overlap), clut-cache 99.67 % (one row: the CLUT cache is not modelled), lines 99.92 % (line ends); mask-bit prints 7 of 7 lines as the console, gp0-e1 10 of 12 | Named behaviours, not the chips. The tests that print cycle counts measured on the console differ wherever the timing does (timers 1 of 129 lines, the DMA tests 2-10 of 11-132, CD-ROM getloc 16 of 45, timing 2 of 19; the lines are compared in order); disc-swap stops at 5 of 11 lines (no lid opened); SPU and MDEC tests not run; one console's output, one BIOS |
+| G12 | Y | Eight discs with written reasons, none dropped, at most eight by the owner's rule: Ape Escape (the DualShock asked for), Final Fantasy VII (three discs in one EBOOT, much code), Metal Gear Solid (two discs, codec, a title it returns to), Soul Reaver (streaming, the most native steps), Symphony of the Night (2D, name entry), WipEout 2097 (PAL, CUE/BIN, CD audio), R4 (NTSC-J, CUE/BIN, the Japanese BIOS), Gran Turismo 2 (the Simulation Mode disc, the owner's choice of 14 November 2026; its Arcade disc is outside the panel). Five of them are risk cases in `tools/campaign-risk-cases.json`. All convert and pass every check above | Chosen by the specialist and the owner; the panel of 8 November (ten discs) is the earlier one |
+| G13 | Y | Ape Escape (EBOOT, NTSC-U) and WipEout 2097 (CUE/BIN with CD audio, PAL), converted on a Debian 13 PC with the system GCC on 15 November 2026, tree `6a5d9e9b`, from an empty library: the native, interpreted and unrun counts, the picture, sound, trace and script digests of the three routes, the native steps' digest, their count and the shared record's digest equal the Windows panel's (27 of 27 values a disc); F9 passes there. The copies of the discs and BIOS were deleted after | Not played on Linux (window, sound out, gamepad); two discs |
+| G14 | Y | The owner played the delivered PlayStation exports on 15 November 2026 (said of the Nintendo 64 and the PlayStation together): « Je viens de tester la Nintendo 64 et la PlayStation sur plusieurs jeux. Donc, le comportement du jeu en lui-même, ça me paraît plutôt solide et plutôt réactif. Je n'ai pas eu de bug graphique. J'ai pu aussi faire une sauvegarde sur Gran Turismo 2 qui a fonctionné. » Asked « Je sors la PlayStation de l'expérimental ? »: « Oui, sors-la » (the owner-acceptance table). At 1x nothing slowed down in his test; 4x is too heavy for 3D racing on his PC (a written limit) | A play test, not a coverage claim: code past the routes runs interpreted, counted and shown in the window title |
+| G15 | P | The audit of 8 November 2026 (report, profile, interface strings, PLAYSTATION.md), and on 15 November 2026 a read of the PlayStation's own words in the code of the game: the window title (`… | Native CPU, emulated hardware`, or `Interpreter fallback` when the interpreter runs), the keys page, the notices (resolution too heavy, card set aside). The report keeps `cpu_fidelity_validated`, `independent_cpu_oracle` and `hardware_accuracy_validated` false and `latency_ms: null` | The pages were read in the code, not captured in a window (the off-screen harness of the host kit has no PlayStation) |
+| G16 | P | The PlayStation shares its paths as the experimental tier of the base from 1.7.6, on the owner's decision of 14 November 2026 (« Oui, elle partage »), after the measure: a receiver at the standard level given another player's long-route observations ran Ape Escape's first level with 0 interpreted instructions instead of 924,083,036, no pass saved. `retrorecomp/psx_knowledge.py` on `path_records`: spans of the player's own discs (ISO 9660 user-data offsets, the same in every container) and rows of his own BIOS, keyed by the discs' digests; code a game decompresses stays private, counted. **Proof** (14-15 November 2026, tree `4f70b43c`, one conversion at a time, an empty library each): A extended + version 3 export, B imported + standard, C standard: Ape Escape (B received 67,257 words; long route 924,083,036 → 220,036,709 interpreted, the rest is its decompressed code) and Metal Gear Solid, two discs (51,170 words; 594 → 0); every check passes, B's own record equals C's, the same picture at the end; a record with random offsets (D) changes nothing a conversion checks ([PLAYSTATION.md](PLAYSTATION.md#6-shared-paths-the-experimental-tier-of-the-base-from-176)) | No pass saved; code a game decompresses never travels; no PlayStation path is qualified in the base yet (reached and validated by a conversion that received it from another player, counted by the site) |
 
 ## Commodore Amiga: evidence behind its column (8 November 2026)
 
@@ -1127,6 +1130,7 @@ owner fills it in.
 | 14 November 2026 | Atari ST | The seven games of the checklist (Bomb Jack, Turrican II (the player's TOS 1.04), Operation Stealth, The Lurking Horror, Kick Off 2, Lethal Xcess, Battle Probe), the exports of 14 November 2026 in `Export\Games\Atari ST` (built by the batch from the tree of `spec/atarist-175`, Standard level, llvm-mingw, online covers on) | Arthur, after playing them: « Ok, donc Atari ça marche, nickel, j'ai testé les jeux. »; asked "Je sors l'Atari ST de l'expérimental ?": « Oui, sors-le » | Exit from the experimental status decided: the Atari ST is supported from 1.7.5. The stamp move of the status change is handled by the 1.7.5 update, as for the PC Engine, the MSX and the Amiga; the exports are not converted again (they predate the interface merge: the 1.7.5 reconversion brings the pad quick save and load rows he found missing). A play test of seven games, not a coverage claim; the STE, the Mega STE, the TT, the Falcon, hard disks and the monochrome monitor are not converted. |
 | 14 November 2026 | Game Boy Advance | The six games of the checklist (Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald), the exports of 14 November 2026 in `Export\Games\Game Boy Advance` (built from the final tree of `spec/gba-175`, empty library, online covers on, llvm-mingw) | Arthur, after playing them: « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. »; asked "Je sors la GBA de l'expérimental pour la 1.7.6 ?": « Oui, sors-la » | Exit from the experimental status decided: the Game Boy Advance is supported from 1.7.6 (1.7.5 was frozen the same morning). The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no level won, no latency or hardware-fidelity measure; G10, G11 and G16 stay `P`. |
 | 14 November 2026 | MSX2+ | The six games of the checklist (Family Stadium Professional Baseball, The Goonies R Good Enough, Dragon Slayer II - Xanadu, Laydock 2 - Last Attack, F-1 Spirit 3D Special, Xak III - The Tower of Gazzel), the exports of 14 November 2026 in `Export\Games\MSX2+` (tree `05f8d828` of `spec/msx2plus-176`, the player's default level, online covers on; C-BIOS 0.29a for the cartridges, the owner's FS-A1WSX firmware with its kanji font for the disks) | Arthur, after playing them: « Ok, je viens de tester MSX2, donc c'est ok, ça marche. » (he said "MSX2"; the games he had just played were the MSX2+ ones); asked "Je sors le MSX2+ de l'expérimental ?": « Oui, sors-le » | Exit from the experimental status decided: the MSX2+ is supported from 1.7.6. The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no game played through, no latency or hardware-fidelity measure; G9, G11 and G16 stay `P`. |
+| 15 November 2026 | Sony PlayStation | The eight discs delivered in `Export\Games\PlayStation` from the tree `6a5d9e9b` (Gran Turismo 2 of 00:34 UTC, with his hints), several of them played | « Je viens de tester la Nintendo 64 et la PlayStation sur plusieurs jeux. Donc, le comportement du jeu en lui-même, ça me paraît plutôt solide et plutôt réactif. Je n'ai pas eu de bug graphique. J'ai pu aussi faire une sauvegarde sur Gran Turismo 2 qui a fonctionné. » Then « Oui, sors-la » | At 1x nothing slowed down; 4x cut the sound in Gran Turismo 2's races (a written limit); his Gran Turismo 2 save was read back by the G7 check |
 
 ### Commodore Amiga: the panel (9 November 2026)
 
@@ -1171,6 +1175,27 @@ What the panel found: Pinball Dreams took no key at all, on the native code and 
 | Panza Kick Boxing (FR), outside the count | Saves (G7), French | 256.3 | 7, the Kickstart's | Training, then fights in the ring |
 
 Every route of the nine equals the fresh interpreted reference on every frame (picture, sound, RAM, CPU registers, resload calls), the compressed copy too; F8/F9 continue for 600 frames in a fresh process; 17 damaged states are refused and a missing one creates nothing (G6). The five installs whose routes did not change since the tree `96a70fa0` give the same trace digests on every route as on that tree. Rick Dangerous, of the earlier panel, ran on `96a70fa0` only (Windows and Debian, G13).
+
+### Checklist for Arthur: Sony PlayStation play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours, and leaving the experimental status is your decision alone. Play the
+executables in `Export/Games/PlayStation`, delivered on 15 November 2026 from the tree `6a5d9e9b` (Gran Turismo 2 at 00:34 UTC, with your hints).
+A few minutes a game. Nothing here says exact hardware, complete gameplay or latency; a tick means "it looked and sounded right to you in this
+test". F2 shows the keys (Cross X, Circle C, Square W, Triangle A, Start Enter, Select Shift; F Analog; N change disc). **F3 → Internal resolution:
+2x is the advised setting; 4x is labelled heavy and is too heavy for 3D racing on this PC.**
+
+| | Ape Escape | Final Fantasy VII | Metal Gear Solid | Soul Reaver | Symphony of the Night | WipEout 2097 | R4 | Gran Turismo 2 |
+|---|---|---|---|---|---|---|---|---|
+| Why it is here | the DualShock (press F once for analog) | three discs, much code | two discs | streaming | 2D, saves in save rooms | PAL, CD audio | Japanese, your Japanese BIOS | a full race at 2x; your save |
+| It starts without an error window | | | | | | | | |
+| The window title ends with "Native CPU, emulated hardware" until new code runs | | | | | | | | |
+| Sound is the game's (music and effects) | | | | | | | | |
+| **F8**, move on, **F9** goes back | | | | | | | | |
+| A save from the game's menu, then quit, start again: the game finds it | | | | | | | | |
+| Nothing odd: a frozen picture, silence, a wrong colour, lag on fast left/right | | | | | | | | |
+
+Known, not a failure: code a game reaches for the first time runs on the interpreter (the window title says so) and becomes native at the
+next conversion with your F12 hints; Gran Turismo 2's last save did not reach its card (to be looked at with you).
 
 ### Checklist for Arthur: Commodore Amiga play test (G14)
 
