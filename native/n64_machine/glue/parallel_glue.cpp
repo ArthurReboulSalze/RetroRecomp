@@ -34,12 +34,14 @@ bool g_have_gfx;
 bool o_sync = true, o_ss_read_back = false, o_ss_dither = true, o_divot = true, o_gamma = true, o_vi_aa = true;
 bool o_vi_scale = true, o_dither = true, o_weave = false, o_native_lod = false, o_native_texrect = true;
 unsigned o_upscale = 1, o_downscale = 0, o_overscan = 0;
+bool o_overscan_auto = false;                   // crop to the VI's active window each frame (the session's default, 1.7.6)
 bool g_threaded_commands = false;               // parallel-rdp's command worker thread (play only: not deterministic)
 
 std::vector<Vulkan::ImageHandle> g_held;        // one presented image per frontend sync index
 std::vector<retro_vulkan_image> g_images;
 bool g_valid = false;
 unsigned g_width = 0, g_height = 0;
+unsigned g_full_width = 0, g_full_height = 0;   // the frame before any crop, at the same scale
 std::vector<uint32_t> g_words;                  // RDP command words not yet complete
 
 // Length of each RDP command in 64-bit words, by its 6-bit opcode (hardware documentation): a triangle is 4 words of edge
@@ -229,6 +231,7 @@ void parallel_deinit(void)
 bool parallel_frame_is_valid(void) { return g_valid; }
 unsigned parallel_frame_width(void) { return g_width; }
 unsigned parallel_frame_height(void) { return g_height; }
+void parallel_frame_full_size(unsigned *width, unsigned *height) { *width = g_full_width; *height = g_full_height; }
 
 void parallel_get_geometry(struct retro_game_geometry *geometry)
 {
@@ -334,6 +337,7 @@ void parallel_set_upscaling(unsigned f, bool ss) { o_upscale = (f == 2 || f == 4
 void parallel_set_super_sampled_read_back_dither(bool e) { o_ss_dither = e; }
 void parallel_set_downscaling_steps(unsigned s) { o_downscale = s; }
 void parallel_set_overscan_crop(unsigned p) { o_overscan = p; }
+void parallel_set_overscan_auto(bool e) { o_overscan_auto = e; }
 void parallel_set_divot_filter(bool e) { o_divot = e; }
 void parallel_set_gamma_dither(bool e) { o_gamma = e; }
 void parallel_set_vi_aa(bool e) { o_vi_aa = e; }
@@ -433,6 +437,30 @@ void parallelUpdateScreen(void)
 
 	RDP::ScanoutOptions opts = {};
 	opts.crop_overscan_pixels = o_overscan;
+	/* "Picture area (auto)": the frame cut to the window the game's VI registers open on the 640-pixel scan line and the field's
+	   lines (H_START, V_START, PAL told by V_SYNC as parallel-rdp tells it), less the VI's guard band of 8 and 7 pixels where the
+	   window is not clamped, so the blank area a television hid is not shown; the pixels keep their shape. A window too small to be
+	   a picture (a VI not yet set up) is not cut. */
+	unsigned crop_l = 0, crop_r = 0, crop_t = 0, crop_b = 0;
+	if (o_overscan_auto) {
+		const bool pal = (*g_gfx.VI_V_SYNC_REG & 0x3ff) > RDP::VI_V_SYNC_NTSC + 25;
+		const int h_off = pal ? int(RDP::VI_H_OFFSET_PAL) : int(RDP::VI_H_OFFSET_NTSC);
+		const int v_off = pal ? int(RDP::VI_V_OFFSET_PAL) : int(RDP::VI_V_OFFSET_NTSC);
+		const int lines = int(pal ? RDP::VI_V_RES_PAL : RDP::VI_V_RES_NTSC) / 2;
+		int h0 = int((*g_gfx.VI_H_START_REG >> 16) & 0x3ff) - h_off, h1 = int(*g_gfx.VI_H_START_REG & 0x3ff) - h_off;
+		int v0 = (int((*g_gfx.VI_V_START_REG >> 16) & 0x3ff) - v_off) / 2, v1 = (int(*g_gfx.VI_V_START_REG & 0x3ff) - v_off) / 2;
+		h0 = h0 < 0 ? 0 : h0 + 8;
+		h1 = h1 > RDP::VI_SCANOUT_WIDTH ? RDP::VI_SCANOUT_WIDTH : h1 - 7;
+		v0 = v0 < 0 ? 0 : v0;
+		v1 = v1 > lines ? lines : v1;
+		if (h1 - h0 >= 64 && v1 - v0 >= 32) {
+			opts.crop_rect.enable = true;
+			opts.crop_rect.left = crop_l = unsigned(h0);
+			opts.crop_rect.right = crop_r = unsigned(RDP::VI_SCANOUT_WIDTH - h1);
+			opts.crop_rect.top = crop_t = unsigned(v0);
+			opts.crop_rect.bottom = crop_b = unsigned(lines - v1);
+		}
+	}
 	opts.downscale_steps = o_downscale;
 	opts.persist_frame_on_invalid_input = true;
 	opts.upscale_deinterlacing = !o_weave;
@@ -458,6 +486,8 @@ void parallelUpdateScreen(void)
 		g_held[index] = image;
 		g_width = image->get_width();
 		g_height = image->get_height();
+		g_full_width = g_width + ((crop_l + crop_r) * o_upscale >> o_downscale);
+		g_full_height = g_height + ((crop_t + crop_b) * o_upscale >> o_downscale);
 		g_valid = true;
 	} else {
 		g_valid = false;

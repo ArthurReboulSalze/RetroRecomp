@@ -34,6 +34,8 @@ int rr_n64_audio_state_load(const void *in, size_t size);
 size_t rr_n64_rsp_state_size(void);
 void rr_n64_rsp_state(void *out, const void *in);
 void parallel_set_threaded_commands(bool enable);
+void parallel_set_overscan_auto(bool enable);
+void parallel_frame_full_size(unsigned *width, unsigned *height);
 bool parallel_init(void);
 }
 
@@ -89,6 +91,7 @@ struct RrN64Session {
     // the frame
     std::vector<uint32_t> picture;
     int width = 0, height = 0;
+    int full_width = 0, full_height = 0;   // the frame before the crop to the VI's window, at the same scale
     bool frame_new = false;
     std::vector<int16_t> audio;   // this frame's sound, interleaved stereo
     size_t audio_taken = 0;
@@ -298,6 +301,10 @@ bool read_back(RrN64Session *s, unsigned w, unsigned h)
     }
     s->width = int(w);
     s->height = int(h);
+    unsigned fw = 0, fh = 0;
+    parallel_frame_full_size(&fw, &fh);
+    s->full_width = fw >= w ? int(fw) : int(w);
+    s->full_height = fh >= h ? int(fh) : int(h);
     return true;
 }
 
@@ -418,6 +425,10 @@ RrN64Session *rr_n64_open(const RrN64Game *game, char *error, size_t error_size)
     o["mupen64plus-rsp-plugin"] = "parallel";
     o["mupen64plus-cpucore"] = game->cpu == RR_N64_CPU_CACHED ? "cached_interpreter" : "pure_interpreter";
     o["mupen64plus-parallel-rdp-upscaling"] = "1x";
+    // The picture cut to the VI's active window by default (1.7.6, Arthur: « Oui, auto par défaut »): the core reads "auto" as no
+    // crop in pixels, and the glue cuts the frame to the window each frame (rr_n64_option keeps the two together).
+    o["mupen64plus-parallel-rdp-overscan"] = "auto";
+    parallel_set_overscan_auto(true);
     o["mupen64plus-parallel-rdp-synchronous"] = "True";
     o["mupen64plus-ForceDisableExtraMem"] = "False";
     const char *pak = game->pak && *game->pak ? game->pak : "memory";
@@ -449,8 +460,8 @@ RrN64Session *rr_n64_open(const RrN64Game *game, char *error, size_t error_size)
     if (av.timing.sample_rate > 0) s->audio_rate = unsigned(av.timing.sample_rate + 0.5);
     if (av.geometry.aspect_ratio > 0) s->aspect = av.geometry.aspect_ratio;
     s->picture.assign(320 * 240, 0);
-    s->width = 320;
-    s->height = 240;
+    s->width = s->full_width = 320;
+    s->height = s->full_height = 240;
     return s;
 }
 
@@ -511,6 +522,11 @@ const uint32_t *rr_n64_picture(const RrN64Session *s, int *width, int *height)
     return s && !s->picture.empty() ? s->picture.data() : nullptr;
 }
 double rr_n64_aspect(const RrN64Session *s) { return s ? s->aspect : 4.0 / 3.0; }
+void rr_n64_picture_frame(const RrN64Session *s, int *width, int *height)
+{
+    if (width) *width = s ? s->full_width : 0;
+    if (height) *height = s ? s->full_height : 0;
+}
 
 size_t rr_n64_audio(RrN64Session *s, int16_t *pcm, size_t capacity_frames)
 {
@@ -541,6 +557,7 @@ int rr_n64_option(RrN64Session *s, const char *key, const char *value)
     s->options[name] = value;
     s->options_changed = true;
     if (!strcmp(key, "parallel-rdp-upscaling") || !strcmp(key, "parallel-rdp-super-sampled-read-back")) s->renderer_reset = true;
+    if (!strcmp(key, "parallel-rdp-overscan")) parallel_set_overscan_auto(!strcmp(value, "auto"));
     return 1;
 }
 

@@ -40,6 +40,9 @@
 - **Nintendo 64: the C buttons on the right stick's bindings, and 16:9.** The four C buttons are the right stick's directions as kit
   bindings, rebindable in F2 (Y and B are free); the left stick is unchanged. The Screen format row offers 16:9 for games with their own
   widescreen option, such as GoldenEye 007's Ratio 16:9.
+- **Nintendo 64: the picture without its blank border.** The Overscan crop row is **Picture area (auto)** by default: the picture is
+  cut to the area the game shows, so the black border a television hid is gone and the picture is larger, without being stretched.
+  **Off** shows the console's whole picture, borders included. Nintendo 64 games are converted again in full at their next conversion.
 - **Sony PlayStation (supported).** On the owner's decision of 15 November 2026, after his play test, the PlayStation is supported
   (section 8 of [PLAYSTATION.md](PLAYSTATION.md)): discs as EBOOT, CUE/BIN,
   CloneCD or ISO, NTSC and PAL, with your own BIOS or the free OpenBIOS.
