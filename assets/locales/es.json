@@ -1119,7 +1119,7 @@
     "Screen format: %s": "Formato de pantalla: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter: asignar | Supr/X: borrar | </>: página",
     "Enter / A: restore this page": "Enter / A: restaurar la página",
-    "Sync to display: %s": "Sincronía con la pantalla: %s",
+    "Sync to display: %s": "Sincronizar pantalla: %s",
     "Auto": "Auto",
     "Auto (locked)": "Auto (anclado)",
     "Auto (free)": "Auto (libre)",
@@ -1127,12 +1127,12 @@
     "Locked (free)": "Anclado (libre)",
     "Free": "Libre",
     "Variable refresh": "Frecuencia variable",
-    "Variable refresh: the screen follows the game": "Frecuencia variable: la pantalla sigue al juego",
-    "Variable refresh: from the next start": "Frecuencia variable: desde el próximo inicio",
-    "Free: the game's own %s Hz": "Libre: el juego a sus propios %s Hz",
-    "Locked to the screen: %s Hz, game %s Hz (%s)": "Anclado a la pantalla: %s Hz, juego %s Hz (%s)",
+    "Variable refresh: from the next start": "Frec. variable: desde el próximo inicio",
+    "Free: the game's own %s Hz": "Libre: el juego a %s Hz",
     "Free: screen %s Hz, game %s Hz": "Libre: pantalla %s Hz, juego %s Hz",
-    "Free: this machine's sound cannot follow yet": "Libre: el sonido de esta máquina aún no puede seguir",
-    "Free: the screen's refresh is unknown": "Libre: frecuencia de la pantalla desconocida"
+    "Free: the screen's refresh is unknown": "Libre: frecuencia de pantalla desconocida",
+    "Variable refresh: screen follows game": "Frec. variable: la pantalla sigue al juego",
+    "Locked: %s Hz, game %s Hz (%s)": "Anclado: %s Hz, juego %s Hz (%s)",
+    "Free: its sound cannot follow yet": "Libre: audio aún no compatible"
   }
 }

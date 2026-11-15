@@ -1127,12 +1127,12 @@
     "Locked (free)": "同期 (自由)",
     "Free": "自由",
     "Variable refresh": "可変リフレッシュレート",
-    "Variable refresh: the screen follows the game": "可変リフレッシュレート: 画面がゲームに合わせます",
     "Variable refresh: from the next start": "可変リフレッシュレート: 次回起動から",
     "Free: the game's own %s Hz": "自由: ゲーム本来の %s Hz",
-    "Locked to the screen: %s Hz, game %s Hz (%s)": "画面に同期: %s Hz、ゲーム %s Hz (%s)",
     "Free: screen %s Hz, game %s Hz": "自由: 画面 %s Hz、ゲーム %s Hz",
-    "Free: this machine's sound cannot follow yet": "自由: この機種の音声はまだ追従できません",
-    "Free: the screen's refresh is unknown": "自由: 画面のリフレッシュレートが不明"
+    "Free: the screen's refresh is unknown": "自由: 画面のリフレッシュレートが不明",
+    "Variable refresh: screen follows game": "可変リフレッシュレート: 画面がゲームに追従",
+    "Locked: %s Hz, game %s Hz (%s)": "同期: %s Hz、ゲーム %s Hz (%s)",
+    "Free: its sound cannot follow yet": "自由: 音声がまだ追従できません"
   }
 }

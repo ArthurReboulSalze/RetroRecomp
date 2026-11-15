@@ -86,6 +86,36 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Every machine: no crash when a machine has no picture yet](#every-machine-no-crash-when-a-machine-has-no-picture-yet-177) | none | **the host stamp of all 21 profiles** (`rrhk_video.c`, `hostkit/hostkit.h`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+| [Every machine: Sync to display (Auto / Locked / Free / Variable refresh)](#every-machine-sync-to-display-auto--locked--free--variable-refresh-177) | none | **the host stamp of all 21 profiles** (the shell, `hostkit/hostkit.h`, `audio_cushion.h`, `audio_output.inc`, `retro_menu.c` and `.h`, `runtime_catalog.inc`, the locale files, `rrhk_sms.c`, `rrhk_msx.inc`) | the Amiga, Atari ST and Nintendo 64 keys move (every input, the host's included); the others do not |
+
+## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
+
+On the owner's question of 15 November 2026 about vsync (« j'ai un petit écran 4:3 qui est en 60 Hz, et j'ai l'impression que
+c'est plus visible là »), his go (« Oui, lance-le », then « Version complète »), FreeSync on his 144 Hz screen and « faut que ça
+soit géré pour Linux aussi ». The study is `vsync-study-177` (private notes).
+
+* **What changes for players.** The options page has a new row, **Sync to display**, kept per machine
+  (`[<Console>.Video] sync`), default **Auto**: a game whose rate is within 1 % of the screen's measured refresh is locked to
+  it (each frame shown for exactly one refresh, no more hitch every few seconds), running at the screen's rate (60.00 Hz
+  instead of 59.92, +0.13 %) with its sound resampled by the same fraction; otherwise it runs as in 1.7.6. **Locked** goes up
+  to 3 %, **Free** is the game's own clock with vsync off (on Linux too, where 1.7.6 always asked vsync), **Variable
+  refresh** is for FreeSync / G-Sync / HDMI VRR screens (on Windows the Direct3D 12 renderer, from the next start). See
+  [CONTROLS.md](CONTROLS.md#sync-to-display-177) and [HOST_KIT.md](HOST_KIT.md#d30) (D30).
+* **What it is not.** No latency figure: the lock aligns frames to the refresh and adds no wait over Windows' composed present;
+  physical latency stays unmeasured. Variable refresh cannot be detected (DXGI reports tearing support, not FreeSync): the
+  player chooses it.
+* **Never locked**: the conversion's hidden-window checks (their runs and stamps are unchanged), `SDL_RENDER_VSYNC` set, the
+  menus, pause, fast forward and other speeds. An own-audio machine without the `audio_ratio` hook stays free and says so.
+* **Stamps.** The host stamp of all 21 profiles moves; no game or build stamp. The quick-state keys of the Nintendo 64, the
+  Amiga and the Atari ST move (they hash every input); the Mega Drive and Super Nintendo keys hash no host file and do not.
+* **Checks.** `tools/hostkit_capabilities_selftest.py` run 15: Auto and Locked's decision for given rates (60 Hz with 59.92,
+  60.10 and 59.73 Hz; the Neo Geo's 59.19 Hz beyond Auto and within Locked; PAL on 60 Hz and 144 Hz screens never locked),
+  the sound factor's bounds, a ten-minute closed loop (also with the refresh measured 0.1 % off), then the real loop with a
+  stand-in refresh: the row's four values and their preference, locked in play only (free in a menu and at max speed), the
+  notice. `tools/audio_selftest.py`: the Master System / MSX converter locked for a simulated minute, nothing trimmed and no
+  underrun, against a control without the factor that trims. Both also pass on Linux (Debian, headless). An offscreen gallery
+  (hidden window) shows the four filters and the menus identical pixel for pixel on Direct3D 11 and Direct3D 12. Not
+  checkable without a screen: the smoothness itself, judged by the owner on his 60 Hz and 144 Hz screens.
 
 ## Every machine: no crash when a machine has no picture yet (1.7.7)
 

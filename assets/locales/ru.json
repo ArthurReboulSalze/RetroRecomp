@@ -1127,12 +1127,12 @@
     "Locked (free)": "Привязано (свободно)",
     "Free": "Свободно",
     "Variable refresh": "Переменная частота",
-    "Variable refresh: the screen follows the game": "Переменная частота: экран следует за игрой",
     "Variable refresh: from the next start": "Переменная частота: со следующего запуска",
     "Free: the game's own %s Hz": "Свободно: собственные %s Гц игры",
-    "Locked to the screen: %s Hz, game %s Hz (%s)": "Привязано к экрану: %s Гц, игра %s Гц (%s)",
     "Free: screen %s Hz, game %s Hz": "Свободно: экран %s Гц, игра %s Гц",
-    "Free: this machine's sound cannot follow yet": "Свободно: звук этой машины пока не может следовать",
-    "Free: the screen's refresh is unknown": "Свободно: частота экрана неизвестна"
+    "Free: the screen's refresh is unknown": "Свободно: частота экрана неизвестна",
+    "Variable refresh: screen follows game": "Переменная частота: экран следует за игрой",
+    "Locked: %s Hz, game %s Hz (%s)": "Привязано: %s Гц, игра %s Гц (%s)",
+    "Free: its sound cannot follow yet": "Свободно: звук пока не может следовать"
   }
 }

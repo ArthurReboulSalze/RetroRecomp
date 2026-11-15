@@ -1127,12 +1127,12 @@
     "Locked (free)": "锁定 (自由)",
     "Free": "自由",
     "Variable refresh": "可变刷新率",
-    "Variable refresh: the screen follows the game": "可变刷新率: 屏幕跟随游戏",
     "Variable refresh: from the next start": "可变刷新率: 下次启动时生效",
     "Free: the game's own %s Hz": "自由: 游戏自身的 %s Hz",
-    "Locked to the screen: %s Hz, game %s Hz (%s)": "锁定到屏幕: %s Hz，游戏 %s Hz (%s)",
     "Free: screen %s Hz, game %s Hz": "自由: 屏幕 %s Hz，游戏 %s Hz",
-    "Free: this machine's sound cannot follow yet": "自由: 该机器的声音暂时无法跟随",
-    "Free: the screen's refresh is unknown": "自由: 屏幕刷新率未知"
+    "Free: the screen's refresh is unknown": "自由: 屏幕刷新率未知",
+    "Variable refresh: screen follows game": "可变刷新率: 屏幕跟随游戏",
+    "Locked: %s Hz, game %s Hz (%s)": "锁定: %s Hz，游戏 %s Hz (%s)",
+    "Free: its sound cannot follow yet": "自由: 声音暂时无法跟随"
   }
 }

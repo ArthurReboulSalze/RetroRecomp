@@ -527,7 +527,7 @@ static void sync_decide(RrhkRun *r) {
     rrhk_sync.lock = false;
     rrhk_sync.why = NULL;
     if (!rrhk_sync.active || rrhk_sync.mode == RRHK_SYNC_FREE || rrhk_sync.mode == RRHK_SYNC_VARIABLE) return;
-    if (m->own_audio && !m->audio_ratio) rrhk_sync.why = "Free: this machine's sound cannot follow yet";
+    if (m->own_audio && !m->audio_ratio) rrhk_sync.why = "Free: its sound cannot follow yet";
     else if (rrhk_sync.refresh_hz <= 0.0) rrhk_sync.why = "Free: the screen's refresh is unknown";
     else if (!rrhk_sync_decide(rrhk_sync.mode, rrhk_sync.refresh_hz, rrhk_sync.machine_hz)) rrhk_sync.why = "far";
     else rrhk_sync.lock = true;

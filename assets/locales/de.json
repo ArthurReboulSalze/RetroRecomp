@@ -1127,12 +1127,12 @@
     "Locked (free)": "Gekoppelt (frei)",
     "Free": "Frei",
     "Variable refresh": "Variable Bildrate",
-    "Variable refresh: the screen follows the game": "Variable Bildrate: der Bildschirm folgt dem Spiel",
     "Variable refresh: from the next start": "Variable Bildrate: ab dem nächsten Start",
-    "Free: the game's own %s Hz": "Frei: das Spiel mit eigenen %s Hz",
-    "Locked to the screen: %s Hz, game %s Hz (%s)": "An den Bildschirm gekoppelt: %s Hz, Spiel %s Hz (%s)",
+    "Free: the game's own %s Hz": "Frei: das Spiel mit %s Hz",
     "Free: screen %s Hz, game %s Hz": "Frei: Bildschirm %s Hz, Spiel %s Hz",
-    "Free: this machine's sound cannot follow yet": "Frei: der Ton dieser Maschine kann noch nicht folgen",
-    "Free: the screen's refresh is unknown": "Frei: Bildwiederholrate unbekannt"
+    "Free: the screen's refresh is unknown": "Frei: Bildrate unbekannt",
+    "Variable refresh: screen follows game": "Variable Bildrate: Bildschirm folgt dem Spiel",
+    "Locked: %s Hz, game %s Hz (%s)": "Gekoppelt: %s Hz, Spiel %s Hz (%s)",
+    "Free: its sound cannot follow yet": "Frei: Ton folgt noch nicht"
   }
 }

@@ -334,6 +334,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .pointer_input = pointer_input,
             .page = sms_light_phaser ? &page : NULL,
             .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
+            .audio_ratio = host_audio_ratio,     /* 1.7.7 (HOST_KIT D30): Sync to display */
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
             .help_controls = help_controls, .key_event = key_event, .game_rect = game_rect, .pause_page = pause_page,
         };

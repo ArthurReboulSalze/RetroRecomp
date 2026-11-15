@@ -207,15 +207,15 @@ void rrhk_sync_notice(void) {
     snprintf(gap, sizeof gap, "%+.2f %%", rrhk_sync.machine_hz > 0.0 ? 100.0 * (rrhk_sync.refresh_hz / rrhk_sync.machine_hz - 1.0) : 0.0);
     if (rrhk_sync.mode == RRHK_SYNC_VARIABLE) {
 #ifdef _WIN32
-        snprintf(text, sizeof text, "%s", rr_tr(rrhk_sync.vrr_renderer ? "Variable refresh: the screen follows the game" :
+        snprintf(text, sizeof text, "%s", rr_tr(rrhk_sync.vrr_renderer ? "Variable refresh: screen follows game" :
                                                 "Variable refresh: from the next start"));
 #else
-        snprintf(text, sizeof text, "%s", rr_tr("Variable refresh: the screen follows the game"));
+        snprintf(text, sizeof text, "%s", rr_tr("Variable refresh: screen follows game"));
 #endif
     } else if (rrhk_sync.mode == RRHK_SYNC_FREE) {
         snprintf(text, sizeof text, rr_tr("Free: the game's own %s Hz"), game);
     } else if (rrhk_sync.lock) {
-        snprintf(text, sizeof text, rr_tr("Locked to the screen: %s Hz, game %s Hz (%s)"), screen, game, gap);
+        snprintf(text, sizeof text, rr_tr("Locked: %s Hz, game %s Hz (%s)"), screen, game, gap);
     } else if (rrhk_sync.why && !strcmp(rrhk_sync.why, "far")) {
         snprintf(text, sizeof text, rr_tr("Free: screen %s Hz, game %s Hz"), screen, game);
     } else if (rrhk_sync.why) {
