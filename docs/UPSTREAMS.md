@@ -488,6 +488,18 @@ and the native steps' hook, the Analog button, the CPU state of the trace). Two 
 To propose upstream (the maintainer posts): these two fixes, as a small pull request to `libretro/beetle-psx-libretro`. A bump of the
 pin re-checks the anchors before anything else.
 
+## Commodore Amiga: a picture fix carried on vAmiga (1.7.7)
+
+vAmiga's Core is prepared by anchored replacements (`amiga_vamiga.REPLACEMENTS`, and since 1.7.7 the picture-only ones of
+`amiga_vamiga_display.REPLACEMENTS`, applied after them; an anchor not found exactly once refuses the pinned tree).
+
+| Fix | Measure | File of the machine | Anchors |
+|---|---|---|---|
+| In dual-playfield mode a playfield whose `BPLCON2` priority is above 4 was drawn transparent on every chipset. OCS and ECS Denise do that; AGA's Lisa draws the playfield (vAmiga already limits the single-playfield form of the rule to OCS and ECS). Pinball Illusions' title (`BPLCON2` `$003F`) was black | 5,600 frames of Pinball Illusions on the interpreted machine before and after: sound, memory and CPU equal, pictures different from the title's first frame on, the title as the private oracle shows it; Slam Tilt, Roadkill and Civilization (Amiga 500) unchanged | `Components/Denise/Denise.cpp` (`Denise::translateDPF`) | the two `mask1` / `mask2` lines |
+
+To propose upstream (the maintainer posts): an issue or a small pull request to `dirkwhoffmann/vAmiga`, with a reproducer program
+(eight planes in dual playfield, `BPLCON2` `$003F`, on the A1200 scheme). A bump of the pin re-checks the anchors before anything else.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

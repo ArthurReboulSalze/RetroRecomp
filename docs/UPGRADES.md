@@ -79,6 +79,26 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn (1.7.7)
+
+In dual-playfield mode, OCS and ECS Denise draw a playfield transparent when its priority in `BPLCON2` is above 4. vAmiga applied
+that on every chipset; AGA's Lisa draws the playfield. An Amiga 1200 game that writes 7 to both priorities (Pinball Illusions'
+title, `BPLCON2` `$003F`, eight planes) showed colour 0 on every pixel: a black screen with the music playing. The adapted Core now
+keeps the rule for OCS and ECS only; where the playfield stands among the sprites is unchanged.
+
+- **What changes:** the picture of an AGA dual-playfield line whose priority is above 4, nothing else. On Pinball Illusions, 5,600
+  frames before and after: sound, memory and CPU equal on every frame, pictures different from the title's first frame on. The Amiga
+  500 is not concerned (the rule stays as it was for OCS and ECS).
+- **Where:** a new module, `retrorecomp/amiga_vamiga_display.py`, holds the picture-only changes to the adapted vAmiga Core. It is
+  not one of the generator's sources (`amiga_knowledge.GENERATOR_SOURCES`): a change that only decides a pixel's colour cannot be
+  noticed by a path, so `GENERATOR_REVISION` stays 2 and the qualified paths stay qualified. `tests/test_amiga_vamiga_display.py`
+  limits the module to the listed functions of Denise. `amiga_vamiga.py` is unchanged.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (the new module, and the adaptation's digest in the build's
+  identity). Their exports of 1.7.6 are converted again in full on the first batch; no other machine moves. Quick states of an
+  earlier build are refused, as every build's are.
+- **Upstream:** a gap of vAmiga `f51a6bf` (`Denise::translateDPF`), kept as our patch until it is offered and merged
+  ([UPSTREAMS.md](UPSTREAMS.md)).
+
 ## Exports of 1.7.5 in 1.7.6
 
 1.7.6 is the release after 1.7.5 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
