@@ -137,7 +137,10 @@ name in the registration list; that module is not an input of any stamp). The pr
 used to hold: `path_spec`, `report_shape`, `catalogues`, `library_layout`, `input_layout`, `shared_knowledge`, `host_adapter`,
 `identify`, `stamp_groups` (steps 3 to 11). A firmware option is `OptionKey('<id>_<firmware>', signature=False, kind='path',
 label=...)` plus a `request_identity` hook that hashes the verified firmware: a path in the request makes the signature
-differ from one run to the next (`tests/test_std_baseline.py` caught it). Gate: G1.
+differ from one run to the next (`tests/test_std_baseline.py` caught it). Each firmware option also gets its line in
+`RECOGNISERS` of `retrorecomp/firmware_search.py` (keyed by the option's name: the check the conversion already makes, or digests
+in `KNOWN_DIGESTS`), so that Options' « Find firmware in a folder… » looks for it; that module is interface code, so the line
+moves no stamp. Gate: G1.
 
 **3. Detection and input.** `retrorecomp/<module>.py` (a reader returning an object with `sha256`, `size` or `data`). The
 extensions come from `profile.extensions` (`ROM_CANDIDATE_EXTENSIONS` is derived; only a foreign format the converter does
@@ -234,7 +237,8 @@ Atari ST reuses the 68000 chain and the Amiga 500 has its own, on Moira, with tr
 `tests/test_machine_registry.py` runs `registry_problems(profile)` on every profile and returns sentences. For every machine:
 status and CPU declarations; `ROM_CANDIDATE_EXTENSIONS`; the derived lists (`scan_levels`, `feedback`, `compilation_inputs`); `path_profiles`
 (`SYSTEMS`, `SYSTEM_SECTIONS`, `PROFILES`, `SOURCE_BOUNDS`); `report_schema._SHAPES` equal to the profile's CPUs; the stamp manifest (profile
-module listed, stamps computable, kit adapter for `rr16`); the firmware options in the command line, preferences and window; the tab and scan
+module listed, stamps computable, kit adapter for `rr16`); the firmware options in the command line, preferences and window, and their
+recognisers in `firmware_search.RECOGNISERS`; the tab and scan
 note in `i18n` and in the six locale files; the tab in `gui_options.py`; `status_lint`, README, COMPATIBILITY, the QUALIFICATION column,
 `PUBLIC_FILES`; `release_check`, `campaign`, risk cases, `std_baseline`; `tests/test_upstreams.py` checks that the machine declares its upstreams and that each pin is on the [UPSTREAMS.md](UPSTREAMS.md) page. Registries a machine may decline (random routes, artwork,
 memory view) are listed in `DECLINED` with the reason, in the same change. Only for `supported`: Linux witness, shared knowledge, four risk

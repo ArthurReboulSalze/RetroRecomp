@@ -209,6 +209,14 @@ def registry_problems(profile: SystemProfile) -> list[str]:
         if option not in paths.path_option_names():
             add(f'retrorecomp/paths.py does not save {option!r} relative to the export folder (firmware option of the console)')
 
+    # --- firmware search (Options, "Find firmware in a folder"): it holds no list of machines, it reads the path options of
+    # the profiles, so each of them needs a recogniser keyed by its name (retrorecomp/firmware_search.py, RECOGNISERS).
+    from retrorecomp import firmware_search
+    for key in profile.option_keys:
+        if key.kind == 'path' and key.name not in firmware_search.RECOGNISERS:
+            add(f'retrorecomp/firmware_search.py RECOGNISERS has no recogniser for the firmware option {key.name!r} '
+                '(the firmware search would not look for it)')
+
     # --- interface: tab, scan note, translations in every language -------------------------------
     tab = LEGACY_TAB_KEYS.get(system, 'options_' + system)
     for key in (tab, 'scan_note_' + system):
@@ -428,6 +436,16 @@ class DetectionOfGapsTests(unittest.TestCase):
         for expected in ('supported: the conversion must be witnessed on Linux', 'supported: shared knowledge',
                          'supported: tools/campaign-risk-cases.json needs at least four'):
             self.assertIn(expected, problems)
+
+    def test_a_firmware_option_without_a_recogniser_is_reported(self):
+        from retrorecomp.systems import OptionKey
+        from unittest.mock import patch
+        fake = self.profile(option_keys=(OptionKey('zx_rom', signature=False, kind='path', label='zx_rom'),))
+        with patch(__name__ + '.system_ids', return_value=(*system_ids(), 'zx')):
+            problems = ' | '.join(registry_problems(fake))
+        self.assertIn("RECOGNISERS has no recogniser for the firmware option 'zx_rom'", problems)
+        from retrorecomp import firmware_search
+        self.assertEqual(firmware_search.missing_recognisers(), [])
 
     def test_an_emulated_machine_is_asked_for_no_cpu_and_no_path_but_still_for_the_rest(self):
         from unittest.mock import patch

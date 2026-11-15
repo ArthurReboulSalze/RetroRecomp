@@ -338,6 +338,9 @@ def smoke(window):
     assert picker.get() == application.tr('options_ng')
     assert [frame.winfo_manager() for _, _, frame in application.options_console_pages].count('pack') == 1
     assert application.options_console_pages[neo_geo][2].winfo_manager() == 'pack'
+    # Beside the machine list, the search that fills every machine's firmware paths from one folder (its dialog is not opened here).
+    assert application.firmware_search_button.cget('text') == application.tr('firmware_search')
+    assert application.firmware_search_button.winfo_manager() == 'pack'
     assert application.account_status.get() == application.tr('account_coming')
     assert not application.account_sync.winfo_manager() and not application.account_rewards.winfo_manager()
     # Signed in: the balance, the title, the site's titles and the two shared-base options.
