@@ -520,6 +520,23 @@ def display_counts(report: dict) -> dict:
             'sprite_slot_events_left_out': counts.get('sprite_slots_left_out', 0)}
 
 
+def walk_record(windows: list, observed, system: str) -> tuple[list, list]:
+    """The walk of a player's own record (retrorecomp/m68k_record_walk.py). The Amiga 500's goes through `amiga_codegen.walk_records`, the 68000's
+    lengths by opcode. The 68EC020 of the Amiga 1200 also reads its extension words for a length (a full extension word makes an instruction longer
+    than its first word says), so its walk takes `m68020_lengths.length`, the lengths its sweep and its translator use (1.7.7; before, an A1200
+    record was walked with its opcodes' brief lengths and lost its alignment after such an instruction: guarded code that never ran, not wrong
+    code). Kept here and not in `amiga_codegen`, a generator source pinned for the qualified paths of the Amiga 500, whose walk does not change
+    (the Amiga 1200 shares no path). The stops are `amiga_codegen.walk_records`' own: Moira's illegal, line A and line F handlers."""
+    from . import amiga_codegen
+    from .amiga_knowledge import SYSTEM_A1200
+    if system != SYSTEM_A1200:
+        return amiga_codegen.walk_records(windows, observed=observed)
+    from .m68020_lengths import length
+    from .m68k_record_walk import walk_windows
+    return walk_windows(windows, observed=observed, words=amiga_codegen._WORDS.__getitem__,
+                        stops=lambda opcode: amiga_codegen._MAP[opcode][0] in ('Illegal', 'LineA', 'LineF'), size=length)
+
+
 def generate(project: Path, samples: list, table: Path, images: list = (), reports=(), windows: list = (), system: str = 'amiga') -> dict:
     """The native code of these observations, of what a sweep reaches from them over these images of memory, of the Blitter shapes these reports saw and of the windows of a player's own record (amiga_codegen)."""
     from . import amiga_codegen, m68k_observed
@@ -527,7 +544,7 @@ def generate(project: Path, samples: list, table: Path, images: list = (), repor
     amiga_codegen.load_opcode_map(table)
     project.mkdir(parents=True, exist_ok=True)
     m68k_observed.write_step_semantics(project, observed.load_bodies(None), observed.prefix, lambda text: text)
-    learned, walked = amiga_codegen.walk_records(windows, observed=observed)
+    learned, walked = walk_record(windows, observed, system)
     cut: dict = {}
     swept = amiga_codegen.sweep(samples, images, observed=observed, cut=cut)
     steps = amiga_codegen.write_steps(project, samples, observed=observed, swept=swept, shapes=amiga_codegen.blit_shapes(reports), learned=learned,

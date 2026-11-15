@@ -7,14 +7,16 @@ opcode the CPU has latched. Nothing here says the walked ones ran.
 
 What an instruction is differs by machine and is given by the caller: `words(opcode)`, its length in 16-bit words, and `stops(opcode)`, true for an opcode that never becomes native
 code there (an illegal opcode, line A, line F). `observed.check_sample` keeps an instruction inside the machine's apertures. `whole`: stop at an instruction the window cuts (the
-Amiga keeps the cut words, as it always has).
+Amiga keeps the cut words, as it always has). `size(raw)`, when given, replaces `words` for a CPU whose length also depends on extension words (the 68EC020 of the
+Amiga 1200, `m68020_lengths.length`): the bytes of the instruction `raw` starts with, or None when the window does not hold all of it (the walk stops there).
 """
 from __future__ import annotations
 
 from typing import Callable
 
 
-def walk_windows(records: list, *, observed, words: Callable[[int], int], stops: Callable[[int], bool], whole: bool = False) -> tuple[list, list]:
+def walk_windows(records: list, *, observed, words: Callable[[int], int], stops: Callable[[int], bool], whole: bool = False,
+                 size: Callable[[bytes], int | None] | None = None) -> tuple[list, list]:
     """(started, walked): the (pc, words in hex) of the instruction each window starts with, and of those a walk through the rest finds, the started ones left out of walked."""
     started: dict[tuple[int, int], str] = {}
     walked: dict[tuple[int, int], str] = {}
@@ -24,17 +26,17 @@ def walk_windows(records: list, *, observed, words: Callable[[int], int], stops:
             opcode = data[at] << 8 | data[at + 1]
             if stops(opcode):
                 break
-            size = 2 * words(opcode)
-            if whole and at + size > len(data):
+            length = size(data[at:]) if size else 2 * words(opcode)
+            if length is None or (whole and at + length > len(data)):
                 break
-            text = data[at:at + size].hex()
+            text = data[at:at + length].hex()
             text = text[:len(text) // 4 * 4]
             try:
                 observed.check_sample(pc + at, text)
             except ValueError:
                 break
             (started if at == 0 else walked).setdefault((pc + at, opcode), text)
-            at += size
+            at += length
     return (sorted((pc, text) for (pc, _), text in started.items()),
             sorted((key[0], text) for key, text in walked.items() if key not in started))
 
