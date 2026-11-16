@@ -88,6 +88,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares](#commodore-amiga-500-and-1200-play-travels-the-amiga-1200-shares-179) | **the Amiga and the Amiga 1200** (`amiga_conversion.py`, `amiga_knowledge.py`, `systems/amiga.py`, the new `a1200_knowledge.py`) | none | the Amiga and Amiga 1200 keys move (every input); the others are unchanged |
 | [Mega Drive: shadow and highlight follow the chip](#mega-drive-shadow-and-highlight-follow-the-chip-179) | **the Mega Drive** (`megadrive_video.py`, `md_vdp_pixels.inc`) | none | the Mega Drive key moves (`md_vdp_pixels.inc`; older Mega Drive states refused cleanly, no compatibility key); the others are unchanged |
 | [NES: a PAL NES 2.0 header is accepted](#nes-a-pal-nes-20-header-is-accepted-179) | **the Nintendo NES** (`nes_codegen.py`, `nes_machine.py`) | none | the key of a build made from LF files (every published release) does not move; a source checkout with CRLF files now gives that same key (it moved once, see the section) |
+| [The converter: a welcome in the log panel and the developer's message](#the-converter-a-welcome-in-the-log-panel-and-the-developers-message-179) | none | none (window modules only) | unchanged |
 
 ## Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares (1.7.9)
 
@@ -115,6 +116,16 @@ Three players' reports (1.6.6 and 1.7.4: Super Mario Bros. 3, Mega Man 2 and Chi
 - **Stamps:** the NES game stamp (`nes_codegen.py` and `nes_machine.py` are inputs). No host or build stamp moves. **Quick states:** the PAL header patch does not move `RR_NES_STATE_ABI` (the header is hashed as the engine wrote it; no saved structure changes; a test pins this). See the next point for the key. **Existing exports:** an NTSC or iNES export is converted again at its next conversion with identical code; nothing played changes.
 - **The state key no longer depends on line ends** (16 November 2026, with Arthur's word). `prepare_machine` hashed eight native files (`retro_nes.h`, `nes_machine_state.inc`, `nes_mapper_state.inc`, `nes_state.c`, `nes_ppu_fast.inc`, `nes_ppu_lazy.inc`, `nes_sprite_extra.inc`, `nes_sprite_shift.h`) and appended `nes_ram.inc` to the staged mapper source as raw bytes, while the engine's own files were already hashed with `\r\n` read as `\n`. A source checkout with CRLF files (Windows with `autocrlf`) therefore gave another `RR_NES_STATE_ABI` than an LF one on the same commit (`3d647ca1…` against `e8c2939c…`). The files in question were stale CRLF copies in the maintainer's main checkout (checked out before the `eol=lf` rules; the index holds LF); they were rewritten from the index and `tests/test_stamp_inputs.py` now refuses a CRLF stamp input, and this normalisation stays as a second guard. Now the key names the text. **What moves:** only the key of a CRLF source checkout, once: quick states written by an export converted from such a tree are refused cleanly, like at any key change. **What does not:** a build made from LF files, which is what every published release bundles (the canonical source audit of 1.7.8 lists `native/nes_state.c` at 4,065 bytes, the LF size), keeps its key; so do the states of its games. A test builds the machine from an LF and a CRLF copy of the native files and requires one key; it fails when the normalisation is removed.
 - **Not covered:** Dendy dumps (no Dendy timing in the converter); NES 2.0 variants the engine lists as unsupported for other reasons (the check names them the same way).
+
+## The converter: a welcome in the log panel and the developer's message (1.7.9)
+
+`retrorecomp/gui_welcome.py` and `retrorecomp/announcement.py`: the log panel shows an English ASCII welcome until a real line
+is written, then the site's message to every player (`GET /api/v1/announcement`, `{"active", "message", "updated_utc"}`, read
+at start while the start-up check is on), or « Not connected to the Internet. » when the site cannot be reached. Two new
+interface modules and one changed hint in the eight languages (`assets/locales/` is outside the stamps); the window's single
+side margin (`gui_common.EDGE`, 12 px, with the status bar's marks in the corners), the Knowledge button's picture
+(`gui_drawing.py`) and the leaderboard's crown room (`gui_leaderboard.py`) are window code too.
+**Stamps:** none (game, host and build stamps of the 21 profiles checked identical to `main`). **Existing exports:** unchanged.
 
 ## Exports of 1.7.7 in 1.7.8
 

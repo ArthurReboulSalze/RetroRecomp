@@ -322,7 +322,7 @@
     "update_available": "发现版本 {version}（{megabytes} MB）。是否下载、关闭 RetroRecomp 并重启更新？",
     "update_connection_failed": "无法连接 GitHub。请检查网络连接或防火墙后重试。",
     "startup_update_check": "启动时检查更新",
-    "tip_startup_update_check": "打开 Retro-Recomp 时（最多每 6 小时一次），会在后台通过 GitHub 查找软件的新版本，并通过 Retro-Recomp 网站查找共享库的新版本。只读取版本信息：不会下载任何内容，也不会发送游戏或账户数据。更新按钮上的小圆点表示有新内容。关闭后，只有在你点击按钮时才会检查。",
+    "tip_startup_update_check": "打开 Retro-Recomp 时（最多每 6 小时一次），会在后台通过 GitHub 查找软件的新版本，并通过 Retro-Recomp 网站查找共享库的新版本。只读取版本信息，以及每次打开时开发者对玩家的简短留言（如有，显示在下方记录区）：不会下载任何内容，也不会发送游戏或账户数据。更新按钮上的小圆点表示有新内容。关闭后，只有在你点击按钮时才会检查。",
     "update_news_software": "新版本 {version}",
     "update_news_base": "新共享库 {version}",
     "update_choice_question": "有新内容。要更新哪些内容？",

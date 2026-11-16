@@ -228,6 +228,7 @@ retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py
 retrorecomp/gui_estimates.py retrorecomp/time_estimates.py assets/conversion-times.json tools/conversion_times.py tests/test_time_estimates.py
 retrorecomp/gui_firmware.py retrorecomp/firmware_search.py tests/test_firmware_search.py
 retrorecomp/gui_covers.py tests/test_gui_covers.py
+retrorecomp/gui_welcome.py retrorecomp/announcement.py tests/test_announcement.py
 retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
 retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py tests/test_compress_option.py tests/test_console_menu.py

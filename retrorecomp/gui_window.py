@@ -17,7 +17,7 @@ from .systems import get_profile
 from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
 from .dialogs import center_dialog
-from .gui_common import HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
+from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
     header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
@@ -41,7 +41,7 @@ class WindowMixin:
     def layout_header(self, event=None):
         header_width = event.width if event is not None else self.header.winfo_width()
         self.queue_background(self.header)
-        right = header_width - 24
+        right = header_width - EDGE
         # The two selector rows keep the right end, each label above its
         # field; the player's account sits just left of them.
         field_height = self.system_field.winfo_reqheight()
@@ -357,7 +357,7 @@ class WindowMixin:
         button = ttk.Button(parent, text=text, command=command, style=style)
         symbol = {'choose_roms': 'folder', 'choose_directory': 'add_folder',
                   'remove_selected': 'remove', 'clear': 'clear', 'check_updates': 'download',
-                  'show_options': 'options', 'show_credits': 'info',
+                  'show_options': 'options', 'show_credits': 'info', 'knowledge_menu': 'network',
                   'choose_cover': 'image', 'automatic_cover': 'auto'}.get(command.__name__)
         if symbol:
             self.decorate_button(button, symbol, primary)

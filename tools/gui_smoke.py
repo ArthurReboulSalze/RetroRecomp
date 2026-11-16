@@ -52,6 +52,27 @@ def smoke(window):
     window.update_idletasks()
     assert window.title() == "Retro-Recomp"
     application = window._retro_application
+    # The log panel's welcome (gui_welcome.py): armed while the window is hidden, nothing written yet; its last picture
+    # holds the ASCII logo and the invite in English, then the developer's message (a fake one: RETRO_RECOMP_SERVICE is
+    # empty, nothing is requested) as plain text; the first real log line clears it for good.
+    from retrorecomp.gui_welcome import WELCOME_LOGO, MESSAGE_PREFIX
+    from retrorecomp.announcement import pick
+    from retrorecomp.i18n import tr as translate
+    assert application.welcome['state'] == 'waiting' and application.log.get('1.0', 'end-1c') == ''
+    application.welcome_finish()
+    shown = application.log.get('1.0', 'end-1c')
+    assert shown.split('\n')[:6] == list(WELCOME_LOGO) and translate('ready', 'en') in shown, shown
+    text = pick({'active': True, 'message': 'Hello <b>players</b>' + chr(27), 'updated_utc': ''})
+    application.welcome_announcement(('message', text))
+    shown = application.log.get('1.0', 'end-1c')
+    assert shown.endswith(MESSAGE_PREFIX + ' Hello <b>players</b> '), shown
+    assert not application.session_log and application.welcome['job'] is None    # hidden: nothing left waiting
+    application.messages.put(('log', 'First real line'))
+    deadline = time.monotonic() + 5
+    while application.welcome['state'] != 'gone' and time.monotonic() < deadline:
+        window.update()
+        time.sleep(0.01)
+    assert application.log.get('1.0', 'end-1c') == 'First real line\n', application.log.get('1.0', 'end-1c')
     # The check must not depend on a user's local ROM collection or queue.
     fixtures = tempfile.TemporaryDirectory()
     for number in range(5):
@@ -73,7 +94,19 @@ def smoke(window):
     assert application.banner.width() <= 600 and application.banner.height() < 175
     banner_items = application.header.find_withtag('banner')
     assert len(banner_items) == 1
-    assert application.header.coords(banner_items[0]) == [24.0, 0.0]
+    # One side margin for the whole window (gui_common.EDGE, 12 px on Arthur's choice of 16 Nov 2026): the banner, every
+    # row of the body and the status bar, whose green dot and gold squares sit flush in the two bottom corners.
+    from retrorecomp.gui_common import EDGE
+    assert application.header.coords(banner_items[0]) == [float(EDGE), 0.0]
+    rows = {int(widget.grid_info()['row']): widget for widget in application.body.grid_slaves()}
+    assert all(int(str(rows[row].grid_info()['padx'])) == EDGE for row in range(9)), \
+        [(row, rows[row].grid_info()['padx']) for row in sorted(rows)]
+    footer = application.status_dot.master
+    assert footer.pack_slaves()[0] is application.status_dot
+    assert application.status_dot.coords('dot')[0] == 0                                  # flush left
+    squares = next(child for child in footer.pack_slaves() if isinstance(child, tk.Canvas)
+                   and child is not application.status_dot)
+    assert max(squares.coords(item)[2] for item in squares.find_all()) == int(squares.cget('width'))   # flush right
     assert application.tagline.master is application.footer_label.master
     initial_tuning = application.frames.get(), application.passes.get()
     before = len(application.items)

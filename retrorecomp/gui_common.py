@@ -15,6 +15,11 @@ PROFILES = available_profiles()
 
 LOCAL_PLATFORM = 'windows-x64' if os.name == 'nt' else target_id()
 PLATFORMS = {LOCAL_PLATFORM: 'Windows version' if os.name == 'nt' else 'Linux version'}
+# The window's side margin: the header's banner and fields, every row of the body and the status bar keep it, so the
+# panels' edges line up with the green dot (bottom-left corner) and the gold squares (bottom-right corner).
+EDGE = 12
+# The status bar's marks: the dot and the squares' outer edges sit EDGE from the window's side and bottom.
+STATUS_MARK = 12
 HELP_URL = 'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/INDEX.md'
 UPX_SOURCE_URL = ('https://github.com/ArthurReboulSalze/RetroRecomp/blob/'
                   '3846c13bf21575ecb9dbaecead2943f72403e5c9/licenses/upx-5.3.0-src.tar.xz')

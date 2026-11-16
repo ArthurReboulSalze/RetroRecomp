@@ -12,6 +12,7 @@ from tkinter import ttk, filedialog, messagebox
 
 from .dialogs import popup_menu
 from .branding import COLORS
+from .gui_common import EDGE
 from .compiled_games import LEVEL_STARS, Game, default_roots, scan, refresh
 from .path_profiles import STABLE_SHARED
 from .paths import APP_NAME
@@ -64,7 +65,7 @@ def stars(level):
 
 class CompiledGamesView(ttk.Frame):
     def __init__(self, owner, parent):
-        super().__init__(parent, padding=(24, 0, 24, 0))
+        super().__init__(parent, padding=(EDGE, 0, EDGE, 0))   # the window's side margin (gui_common.EDGE)
         self.owner, self.tr, self.inventory = owner, owner.tr, owner.compiled_inventory
         self.events, self.running = queue.Queue(), False
         self.relocation_attempted = False

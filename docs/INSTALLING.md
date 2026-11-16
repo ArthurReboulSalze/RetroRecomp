@@ -224,7 +224,9 @@ published release notes of every skipped version, in English) before you
 choose to download it. The Windows installer shows the same notes before
 installing. When the window opens, the converter also looks quietly (at most every
 6 hours, downloading nothing) for a new version and a new shared base, and shows a
-dot on the button; **Options › Common › Check for updates at startup** turns that
+dot on the button, and it reads the developer's short message to players, if there is one,
+shown in the log panel (a plain request to retro-recomp.com that sends nothing about
+you or your games); **Options › Common › Check for updates at startup** turns that
 off. The update downloads the
 matching native converter, checks size, SHA-256, architecture and version, then
 replaces the application and the base copy of the same release

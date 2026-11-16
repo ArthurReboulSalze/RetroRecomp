@@ -1,6 +1,7 @@
 """Drawing helpers of the interface: portraits, styled names, pins, badges, header themes and icons."""
 from __future__ import annotations
 
+import math
 import os
 import time
 import tkinter as tk
@@ -418,6 +419,23 @@ ICON_PATHS.setdefault('add_rom_folder', _FOLDER_PLUS + ((5, 8, 11, 8, 11, 13, 5,
                                                         (7, 13, 7, 14), (9, 13, 9, 14)))
 ICON_PATHS.setdefault('add_exe_folder', _FOLDER_PLUS + ((6, 8, 11, 11, 6, 14, 6, 8),))
 ICON_PATHS.setdefault('new_paths', ((1, 14, 5, 9, 9, 11, 14, 4), (10, 4, 14, 4, 14, 8)))
+
+
+def _shared_network(radius=3, nodes=((8, 3), (3, 12.5), (13, 12.5))):
+    """Knowledge: a shared network, three small circles (top, bottom-left, bottom-right) joined top to left, top to
+    right and left to right, each link stopping at the circles' edges."""
+    rings = tuple(tuple(value for step in range(13) for value in
+                        (x + radius * math.cos(step * math.pi / 6), y + radius * math.sin(step * math.pi / 6)))
+                  for x, y in nodes)
+    links = []
+    for (x1, y1), (x2, y2) in ((nodes[0], nodes[1]), (nodes[0], nodes[2]), (nodes[1], nodes[2])):
+        length = math.hypot(x2 - x1, y2 - y1)
+        ux, uy = (x2 - x1) / length, (y2 - y1) / length
+        links.append((x1 + ux * radius, y1 + uy * radius, x2 - ux * radius, y2 - uy * radius))
+    return rings + tuple(links)
+
+
+ICON_PATHS.setdefault('network', _shared_network())
 
 
 def _toolbar_styles(style):

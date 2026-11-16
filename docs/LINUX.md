@@ -60,8 +60,10 @@ still apply; Arcade Italia has no credential fields.
 
 Use **Check for updates** to request a GitHub update. When the window opens, the
 converter also looks (at most every 6 hours, quietly, downloading nothing) for a
-new version and a new shared base, and shows a dot on the button; **Options ›
-Common › Check for updates at startup** turns that off.
+new version and a new shared base, and shows a dot on the button, and it reads
+the developer's short message to players, if there is one, shown in the log panel (a
+plain request to retro-recomp.com that sends nothing about you or your games);
+**Options › Common › Check for updates at startup** turns that off.
 Only the Linux x86-64 asset is selected; its size, SHA-256, ELF architecture and
 reported version are checked before installation. A temporary helper waits for
 the converter to close, replaces it and restarts it. Installation failure rolls

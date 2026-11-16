@@ -18,6 +18,19 @@
   The figures come only from conversions already made on that PC, no conversion was run to time them
   ([assets/conversion-times.json](../assets/conversion-times.json), read with `tools/conversion_times.py`); a level not measured
   for a machine is worked out from its Standard time and said so. No game stamp moves.
+- **The converter: a welcome in the log panel, and the developer's message.** Before anything is written to the log panel,
+  a small ASCII terminal types the Retro-Recomp logo in gold, followed by the version and the usual invite, in English
+  whatever the interface language; the first conversion, or any real log line, clears it and the panel works as before. When
+  the site has a short message for every player (English, plain text, at most 200 characters), it is typed in under the logo
+  after « Message from the developer: ». Without an Internet connection one calm line says « Not connected to the
+  Internet. », never an error; when the site has no message, nothing is added. The message is read once when the window
+  opens, only while **Options › Common › Check for updates at startup** is on: a plain request to retro-recomp.com that sends
+  nothing about you or your games and needs no account. Interface modules only (`gui_welcome.py`, `announcement.py`): no
+  stamp moves.
+- **The converter: small polish.** The window's side margins are narrower (12 pixels instead of 24) and the same everywhere,
+  so the panels line up with the status bar, whose green dot and two gold squares now sit in the bottom corners. The Knowledge
+  button has its own picture, a shared network (three linked circles), like the gear of Options. In the leaderboard, the first
+  place's crown is drawn whole again: its points were cut off under the text above the podium.
 
 ---
 

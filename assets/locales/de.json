@@ -322,7 +322,7 @@
     "update_available": "Version {version} ist verfügbar ({megabytes} MB). Herunterladen, RetroRecomp schließen und aktualisiert starten?",
     "update_connection_failed": "Keine Verbindung zu GitHub. Prüfe Internetverbindung oder Firewall und versuche es erneut.",
     "startup_update_check": "Beim Start nach Updates suchen",
-    "tip_startup_update_check": "Beim Öffnen von Retro-Recomp (höchstens alle 6 Stunden) wird im Hintergrund nach einer neuen Programmversion auf GitHub und einer neuen Version der gemeinsamen Basis auf der Retro-Recomp-Seite gesucht. Es werden nur Versionsangaben gelesen: Nichts wird heruntergeladen, und es werden keine Spiel- oder Kontodaten gesendet. Ein kleiner Punkt am Update-Button zeigt, dass etwas Neues da ist. Ist die Option aus, wird erst beim Klick auf den Button geprüft.",
+    "tip_startup_update_check": "Beim Öffnen von Retro-Recomp (höchstens alle 6 Stunden) wird im Hintergrund nach einer neuen Programmversion auf GitHub und einer neuen Version der gemeinsamen Basis auf der Retro-Recomp-Seite gesucht. Es werden nur Versionsangaben gelesen, dazu bei jedem Öffnen die kurze Nachricht des Entwicklers an die Spieler, falls es eine gibt (im Protokoll angezeigt): Nichts wird heruntergeladen, und es werden keine Spiel- oder Kontodaten gesendet. Ein kleiner Punkt am Update-Button zeigt, dass etwas Neues da ist. Ist die Option aus, wird erst beim Klick auf den Button geprüft.",
     "update_news_software": "Neue Version {version}",
     "update_news_base": "Neue Basis {version}",
     "update_choice_question": "Es gibt Neuigkeiten. Was möchtest du aktualisieren?",
