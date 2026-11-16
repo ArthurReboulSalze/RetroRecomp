@@ -90,6 +90,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Mega Drive: its sound follows a game locked to the display](#mega-drive-its-sound-follows-a-game-locked-to-the-display-177) | none | the Mega Drive's host stamp (`retrorecomp/megadrive_audio.py`, `hostkit/adapters/rrhk_md.c`) | none |
 | [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
+| [Commodore Amiga: resload_Decrunch unpacks the Imploder](#commodore-amiga-resload_decrunch-unpacks-the-imploder-177) | the Amiga and the Amiga 1200 (`rr_decrunch.c`, `rr_decrunch.h`) | none | refused (every build's are) |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
@@ -216,6 +217,20 @@ but it was code that never runs, and what followed it in the window was lost.
   qualified; the Amiga 1200 shares no path.
 - **Stamps:** the game stamp of the Amiga, of the Amiga 1200 and of the Atari ST (the shared walk); the output of the Amiga 500 and of the
   Atari ST is unchanged. Their exports are converted again in full on the first batch.
+
+## Commodore Amiga: resload_Decrunch unpacks the Imploder (1.7.7)
+
+`resload_Decrunch` recognised the File Imploder (`IMP!`, `ATN!`) and refused it by name. Two Amiga 1200 installs of the NAS stopped at
+their first frame for it (Alien Breed 2 and Body Blows Galactic, both AGA).
+
+- **What changes:** an Imploder unpacker in `native/amiga_whdload/rr_decrunch.c`, our own C written from the format's description
+  (temisu/ancient's, BSD-2, credited with Crunch-Mania): the stream read backward with its first 12 bytes in the trailer, literal
+  runs and matches from short prefix codes and the trailer's tables, the closing checksum checked. RNC method 2 and TPWM are still
+  refused by name.
+- **Measured:** both installs convert (quick level, every check passed, 0 interpreted instructions); the three Imploder files of
+  their archives unpack with their checksum; `tests/test_amiga_resload.py` unpacks an authored stream byte for byte and refuses a
+  damaged one.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200; exports converted again in full.
 
 ## Exports of 1.7.5 in 1.7.6
 

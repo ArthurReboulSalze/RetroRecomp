@@ -93,6 +93,77 @@ def rnc1(chunks):
     return header + body, bytes(plain)
 
 
+def imploder(plain: bytes) -> bytes:
+    """An authored File Imploder ("IMP!") stream of `plain`, made the way the unpacker reads one: literal runs and matches of 2 to 5
+    bytes at distances 1 to 16, the stream laid out backward with its first 12 bytes moved into the trailer, then the checksum. Not
+    the Imploder's own packer (whose choices are its own): only a stream the format allows, so the unpacker is checked on its reading."""
+    n = len(plain)
+    reads, bits = [], {'slot': None, 'used': 8}
+
+    def put_bits(value, count):
+        for k in range(count - 1, -1, -1):
+            if bits['used'] == 8:
+                reads.append(0)
+                bits['slot'], bits['used'] = len(reads) - 1, 0
+            reads[bits['slot']] |= (value >> k & 1) << (7 - bits['used'])
+            bits['used'] += 1
+
+    def match_at(pos):        # the longest match of 2 to 5 bytes ending at pos from bytes already written above it
+        for count in (5, 4, 3, 2):
+            for distance in range(1, 17):
+                if pos - count >= 0 and pos + distance <= n and plain[pos - count:pos] == plain[pos - count + distance:pos + distance]:
+                    return count, distance
+        return None
+
+    def run_from(pos, limit):  # literals until a match is possible (or the start), at most `limit`
+        run = 0
+        while pos - run > 0 and run < limit and (run == 0 or match_at(pos - run) is None):
+            run += 1
+        while pos - run > 0 and match_at(pos - run) is None and run < limit:
+            run += 1
+        return run
+
+    pos, first = n, None
+    first = run_from(n, 1 << 30)
+    for k in range(first):
+        reads.append(plain[pos - 1 - k])
+    pos -= first
+    run_max = {0: 21, 1: 41, 2: 137, 3: 16401}
+    while pos:
+        count, distance = match_at(pos)
+        selector = count - 2
+        put_bits((1 << selector) - 1 << 1, selector + 1)          # the length's code: selector ones, then a zero
+        pos -= count
+        run = run_from(pos, run_max[selector]) if pos else 0
+        if run <= 1:
+            put_bits(0, 1); put_bits(run, 1)
+        elif run < 2 + (1 << (2, 3, 3, 4)[selector]):
+            put_bits(0b10, 2); put_bits(run - 2, (2, 3, 3, 4)[selector])
+        else:
+            put_bits(0b11, 2); put_bits(run - (6, 10, 10, 18)[selector], (4, 5, 7, 14)[selector])
+        put_bits(0, 1); put_bits(distance - 1, 4)                  # the distance: code 0, four bits
+        for k in range(run):
+            reads.append(plain[pos - 1 - k])
+        pos -= run
+    end = max(len(reads), 12)
+    end += end & 1
+    data = bytearray(end + 0x32)
+    data[0:12] = b'IMP!' + n.to_bytes(4, 'big') + end.to_bytes(4, 'big')
+    for k, value in enumerate(reads):
+        i = end - 1 - k
+        at = i if i >= 12 else end + 8 + i if i < 4 else end + i if i < 8 else end + i - 8
+        data[at] = value
+    data[end + 12:end + 16] = first.to_bytes(4, 'big')
+    data[end + 16] = 0x80                                          # the stream starts at its end
+    data[end + 17] = 0                                             # no bits left in a first byte
+    for i, value in enumerate((16, 16, 16, 16, 272, 272, 272, 272)):
+        data[end + 18 + 2 * i:end + 20 + 2 * i] = value.to_bytes(2, 'big')
+    data[end + 34:end + 46] = bytes((4, 4, 4, 4, 8, 8, 8, 8, 12, 12, 12, 12))
+    total = (7 + sum(int.from_bytes(data[i:i + 2], 'big') for i in range(0, end + 0x2E, 2))) & 0xFFFFFFFF
+    data[end + 0x2E:end + 0x32] = total.to_bytes(4, 'big')
+    return bytes(data)
+
+
 def crunchmania(plain: bytes, lzh: bool = False, sampled: bool = False) -> bytes:
     """An authored Crunch-Mania file of `plain` (no byte of any game), written from the format's rules: tokens made from the end of the
     data backward (the unpacker writes backward), greedy matches, the bits laid out so that the unpacker's first read comes from the
@@ -225,6 +296,10 @@ class ResloadHarnessTest(unittest.TestCase):
                     (project / f'{name}.pak').write_bytes(crunchmania(sample, lzh, sampled))
                     (project / f'{name}.bin').write_bytes(sample)
                     pairs += [str(project / f'{name}.pak'), str(project / f'{name}.bin')]
+            # Imploder: the same sample (runs of literals, short and long, and matches at distances 1 to 16).
+            (project / 'imp.pak').write_bytes(imploder(sample))
+            (project / 'imp.bin').write_bytes(sample)
+            pairs += [str(project / 'imp.pak'), str(project / 'imp.bin')]
             cmake, generator = toolchain()
             for command in ([str(cmake), '-S', str(project), '-B', str(project / 'build'), '-G', generator,
                              *cmake_target_args()],

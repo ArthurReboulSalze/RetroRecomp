@@ -2,8 +2,8 @@
  *
  * Provided: Rob Northen ProPack method 1 ("RNC\1"), checked against the CRC-16 of the packed and unpacked data that its
  * header carries; Crunch-Mania ("CrM!", "CrM2", "Crm!", "Crm2": standard and LZH modes, delta-coded or not; the format has no
- * checksum, so a stream is checked by its end landing exactly on the start of the output). Recognised but not unpacked yet (the
- * caller refuses with the name): RNC method 2, Imploder ("IMP!", "ATN!"), TPWM.
+ * checksum, so a stream is checked by its end landing exactly on the start of the output); Imploder ("IMP!", "ATN!", 1.7.7), checked by
+ * the 32-bit checksum that closes it. Recognised but not unpacked yet (the caller refuses with the name): RNC method 2, TPWM.
  */
 #ifndef RR_DECRUNCH_H
 #define RR_DECRUNCH_H

@@ -603,9 +603,11 @@ static void decrunch_pair(const char *packed_path, const char *plain_path) {
     regs[8] = 0x200000; regs[9] = 0x300000;
     CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_RETURN && regs[0] == plain_n);
     CHECK(!memcmp(mem + 0x300000, plain, plain_n));
-    mem[0x200000 + 13] = (unsigned char)(mem[0x200000 + 13] - 2);      /* the packed size two bytes short: the stream no longer lands */
+    const int imploder = !memcmp(packed, "IMP!", 4);
+    if (imploder) mem[0x200000 + 20] ^= 0x55;                          /* a byte of the stream changed: the checksum differs */
+    else mem[0x200000 + 13] = (unsigned char)(mem[0x200000 + 13] - 2); /* the packed size two bytes short: the stream no longer lands */
     regs[8] = 0x200000; regs[9] = 0x300000;
-    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, "Crunch-Mania"));
+    CHECK(rr_resload_call(&r, 0x18, regs) == RR_RESLOAD_REFUSED && strstr(r.message, imploder ? "Imploder" : "Crunch-Mania"));
     free(packed);
     free(plain);
 }
