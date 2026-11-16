@@ -277,11 +277,11 @@ not changed by it.
 - **No battery clock (1.7.7, both Amigas).** A stock Amiga 500 or Amiga 1200 has no clock; vAmiga gave both an OKI clock reading the
   host's time, so a game or a Kickstart that read it would have seen another date in the reference run and in the native one. The
   clock is off; Pinball Illusions, Slam Tilt, Banshee, Fears, Gloom and Civilization give the same traces as before (none reads it).
-- **The Amiga 1200's memory keeps the slow RAM at `$C00000` (decided 16 November 2026).** A stock A1200 has 2 MiB of chip RAM and
+- **The Amiga 1200's memory keeps the slow RAM at `$C00000` (Arthur's decision, 16 November 2026: « Ok, on garde comme ça, note-le »).** A stock A1200 has 2 MiB of chip RAM and
   nothing else, and the real WHDLoad puts ExpMem in fast RAM when a card gives some, in chip RAM otherwise. Our 1.5 MiB at `$C00000`
   sits on the chip bus, as chip RAM does, so code there runs at a stock A1200's speed; a WHDLoad game takes ExpMem where the slave is
   told it is. Moving it would move every address a player's record keeps, for no gain a game shows. An install whose ExpMem does
-  not fit still gets fast RAM at `$200000`, as with a card (faster: Fears, Pinball Illusions).
+  not fit still gets fast RAM at `$200000`, as with a card (faster: Fears, Pinball Illusions). The owner decided it on that explanation.
 - **The display's speed shortcuts on the Amiga 1200 (1.7.7).** The four shortcuts of the Amiga 500's display (one pass for both
   parities of a line, a line's bitplane slots in a batch, the quiet line, the idle sprites) were switched off under AGA until they were
   checked there; an AGA game paid vAmiga's slower path for every line. They are open to AGA, each replayed against vAmiga's own path
@@ -326,4 +326,4 @@ they stay `P`; no gate was relaxed for the exit.
 (or 1.3) for those that ask for one, on the evidence above and [in QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026).
 Not converted: ADF disk images, the CD32. Known: AGA super-hires at half its detail. Code past the routes runs interpreted, counted and
 shown; the hardware is vAmiga's (Alice, Lisa, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is
-claimed. The slow RAM at `$C00000` is kept as it is.
+claimed. The slow RAM at `$C00000` is kept as it is, on the owner's decision of 16 November 2026 (« Ok, on garde comme ça, note-le »).
