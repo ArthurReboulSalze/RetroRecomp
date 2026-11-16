@@ -68,6 +68,12 @@
   third segment landed 8 bytes early. With the exact size it shows its title and its music, converted at the standard level with every
   check passed and 0 interpreted instructions; the game itself was not played beyond its menu. Fourteen other installs give the same
   traces before and after ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)).
+- **Amiga: more installs convert.** A slave that hands its Kickstart to WHDLoad in registers now gets the image it names (its size,
+  checksum and name are read from the slave's own code; the version choice of before stays as the fallback): All New World of
+  Lemmings converts, and on 500 installs of the owner's collection 46 of the 47 that load their Kickstart this way are read so.
+  Installs packed with Imploder are unpacked by our own code, written from the format as Teemu Suutari's ancient library describes
+  it (credited in the notices): Alien Breed 2 and Body Blows Galactic convert with 0 interpreted instructions. On a Debian 13 PC
+  and on Windows, three Amiga 1200 installs give the same reports, trace digests included.
 - **Amiga: no battery clock.** vAmiga gave both models a clock that read the PC's time, which neither a stock Amiga 500 nor a stock
   Amiga 1200 has, and which would make two runs of the same game differ. It is removed; six games give the same traces.
 - **Amiga 1200: the display's shortcuts under AGA.** The four shortcuts of the Amiga 500's display (one pass for both parities of a line,
