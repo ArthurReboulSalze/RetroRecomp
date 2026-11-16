@@ -495,15 +495,14 @@ class FrontEndView(tk.Frame):
         canvas.create_line(0, 0, width, 0, fill=COLORS['subtle_border'])
         game = self.focused()
         pads = self.controller is not None or self.force_pad_hints
+        screen = 'front_end_windowed' if getattr(self.owner, 'front_end_fullscreen', False) else 'front_end_fullscreen'
         if pads:
-            back = 'front_end_windowed' if getattr(self.owner, 'front_end_fullscreen', False) else 'front_end_back'
-            hints = [(('A',), 'play'), (('B',), back), (('L2', 'R2'), 'front_end_density'),
-                     (('MENU',), 'front_end_actions')]
+            hints = [(('A',), 'play'), (('B',), 'front_end_back'), (('X',), screen), (('Y',), 'front_end_actions'),
+                     (('L2', 'R2'), 'front_end_density')]
         else:
-            back = 'front_end_windowed' if getattr(self.owner, 'front_end_fullscreen', False) else 'front_end_back'
-            hints = [((self.tr('front_end_key_enter'),), 'play'), ((self.tr('front_end_key_escape'),), back),
-                     (('\u2212', '+'), 'front_end_density'), ((self.tr('front_end_key_space'),), 'front_end_actions'),
-                     (('Tab',), 'front_end_console')]
+            hints = [((self.tr('front_end_key_enter'),), 'play'), ((self.tr('front_end_key_escape'),), 'front_end_back'),
+                     (('F11',), screen), ((self.tr('front_end_key_space'),), 'front_end_actions'),
+                     (('\u2212', '+'), 'front_end_density')]
         colors = {'A': '#3c7d4a', 'B': '#8a3b3b', 'X': '#365f8f', 'Y': '#8a7a2e'}
         x = width - self.cx(14)
         for glyphs, key in reversed(hints):
@@ -962,8 +961,9 @@ class FrontEndView(tk.Frame):
             self.change_columns(-1 if event == 'l2' else 1)
         elif event in ('start', 'y'):
             self.open_menu()
-        elif event == 'x' and self.menu_items is None and self.games:
-            self.favorites(self.chosen(), not all(game.favorite for game in self.chosen()))
+        elif event == 'x' and self.menu_items is None:
+            # X: full screen and back (Arthur: on one of the four main buttons, like the actions on Y).
+            self.toggle_tv()
         elif event in ('lb', 'rb'):
             self.switch(-1 if event == 'lb' else 1)
         elif event == 'back':
