@@ -79,6 +79,21 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.7 in 1.7.8
+
+1.7.8 is the release after 1.7.7 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Commodore Amiga 1200: supported](#commodore-amiga-1200-supported-178) | **the Amiga and the Amiga 1200** (`retrorecomp/systems/amiga.py`) | none | refused (every build's are) |
+
+## Commodore Amiga 1200: supported (1.7.8)
+
+The Amiga 1200 leaves the experimental status on the owner's play test of eight installs, 16 November 2026 (G14; [AMIGA.md](AMIGA.md#leaving-the-experimental-status-16-november-2026)).
+
+- **What changes:** the profile's status is `supported`, its Linux witness is declared (`linux = 'witnessed'`), its paths are declined (`DECLINED['path_sharing']`, the owner's word); the Options note loses "experimental" (English and French; the six other languages never said it); the README marks it as running on an emulator core, as the Amiga 500. The machine, its conversion and the game are unchanged.
+- **Stamps:** the game stamp of the Amiga 1200 **and of the Amiga 500**: `retrorecomp/systems/amiga.py` holds both profiles and is a game input of both, hashed as a whole, so the status line moves both. No host or build stamp moves (the interface strings are not stamp inputs). An export of 1.7.7 is converted again in full on either machine.
+
 ## Exports of 1.7.6 in 1.7.7
 
 1.7.7 is the release after 1.7.6 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.

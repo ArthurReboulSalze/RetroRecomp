@@ -121,12 +121,12 @@ class Amiga1200Profile(AmigaProfile):
     id = 'a1200'
     name = 'Commodore Amiga 1200'
     export_folder = 'Amiga 1200'
-    status = 'experimental'
+    status = 'supported'     # from 1.7.8, on the owner's G14 of 16 November 2026 (open as experimental in 1.7.6)
     scope_note = 'Amiga 1200 WHDLoad installs (68EC020, AGA)'
     cpus = (Cpu('m68ec020', 'main', 'instructions'),)
     option_keys = (OptionKey('a1200_kickstart', signature=False, kind='path', label='amiga_kickstart_label'),)
     quick_state_family = 'a1200'
-    linux = 'pending'
+    linux = 'witnessed'      # Slam Tilt on a Debian 13 PC, then three installs on WSL Debian 13 (GCC), 16 November 2026: every report field equals Windows'
     feedback_kinds = frozenset({22})       # RR_FB_AMIGA, shared with the Amiga 500 as the MSX2+ shares the MSX2's: one record format
     path_spec = PathSpec(order=19, sections=(('m68k', 'a1200'),),
                          source_bounds=(('install', (2, 1 << 30)), ('kickstart', (0x40000, 0x80000))),
@@ -134,7 +134,7 @@ class Amiga1200Profile(AmigaProfile):
                                                             windows=tuple((low, last) for low, last, _ in APERTURES) + (KICKSTART_3X_WINDOW,),
                                                             contained=True, length=(2, 22), length_align=2,
                                                             offset_align=2, address_align=2, span_max=131072)),))
-    # Not shared while experimental (docs/NEW_MACHINE.md, "Experimental, then supported").
+    # Not shared: declined by the owner (15 November 2026), G16 `-` (tests/test_machine_registry.py, DECLINED['path_sharing']).
     shared_knowledge = None
     library_layout = LibraryLayout(folder='a1200', summary_glob='*/compilation.json')
     # Before the Amiga 500 (40): an install in an A1200 folder, or one whose slave asks for a 68020 or AGA, is the A1200's.

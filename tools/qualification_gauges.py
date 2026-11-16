@@ -38,9 +38,9 @@ SYMBOLS = {'Y': '✅', 'P': '🟡', 'N': '❌', '?': '❔', '-': '➖'}
 MEANING = {'Y': 'met', 'P': 'partial', 'N': 'no', '?': 'unknown', '-': 'not applicable'}
 CELLS = 10
 # The machines of the matrix whose game runs on a complete emulator core, marked with an asterisk in the README (docs/ARCHITECTURE.md).
-EMULATOR_CORE = ('amiga', 'atarist', 'n64', 'psx')
+EMULATOR_CORE = ('amiga', 'a1200', 'atarist', 'n64', 'psx')
 EMULATOR_CORE_NOTE = (
-    "\\* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core "
+    "\\* The PlayStation, the Nintendo 64, the Atari ST and the two Amigas are not fully recompiled systems: each game runs on a complete emulator core "
     "inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' "
     "([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).")
 # The page of each emulated category (profile.emulated): these have no column in the matrix, so no entry in its table of pages.

@@ -26,6 +26,7 @@ fallback stays counted and shown wherever it is used.
 | PC Engine / TurboGrafx-16 | supported (since 1.7.2) | the window and Linux proof of the player's own record (in 1.7.3), more HuCards |
 | Game Boy Advance | supported (since 1.7.6; experimental from 1.7.0) | a level won on a panel game, the LDM/STM vectors, an independent emulator comparison (G10, G11), the quiet-PC cost of a frame, the cartridge sensors |
 | Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
+| Commodore Amiga 1200 | supported (since 1.7.8; experimental from 1.7.6) | AGA super-hires at full detail, the 76 68EC020 vector cases to referee (G10), the frame cost of the display's shortcuts on a quiet PC, a game played on Linux |
 | Atari ST | supported (since 1.7.5; shares its paths since 1.7.5) | the Linux half of the sharing, more games played, the Linux play, the STE |
 | Nintendo 64 | supported (since 1.7.6; experimental from 1.7.1) | frame pacing on Ocarina of Time timed on a quiet PC, the stick directions on the pad page, the krom families the core fails (G10), a game played on Linux |
 | Sony PlayStation | supported (since 1.7.6; experimental from 1.7.1) | 2x and 4x at speed (a threaded or hardware renderer), Metal Gear Solid's and Gran Turismo 2's route depth, the GTE vectors through native steps, mouse, multitap and light guns |
@@ -184,8 +185,6 @@ Supported since 1.7.1 as a category of its own, emulated and 0 % native by desig
 (games that need CD audio rips or compressed speech), and the witness on Linux of more engine families.
 
 ## Planned after that
-
-- Amiga 1200 AGA (WHDLoad-based): in development since 14 November 2026 as the experimental profile `a1200` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200))
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).

@@ -39,6 +39,9 @@ class ProfileTests(unittest.TestCase):
                          ('Commodore Amiga', 'supported', 'witnessed', False))   # the owner's G14 of 14 November 2026
         self.assertEqual(profile.extensions, ('.lha',))
         self.assertEqual([cpu.arch for cpu in profile.cpus], ['m68000'])
+        a1200 = get_profile('a1200')
+        self.assertEqual((a1200.name, a1200.status, a1200.linux, a1200.developer_only),
+                         ('Commodore Amiga 1200', 'supported', 'witnessed', False))   # the owner's G14 of 16 November 2026
 
     def test_an_install_with_one_slave_is_the_amigas(self):
         path = self.write(install('Game/Game.Slave'))
