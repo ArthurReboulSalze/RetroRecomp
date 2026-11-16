@@ -56,11 +56,12 @@ from .gui_leaderboard import LeaderboardMixin
 from .gui_covers import MissingCoversMixin
 from .gui_estimates import EstimatesMixin
 from .gui_welcome import WelcomeMixin
+from .gui_front_end import FrontEndMixin
 
 
 class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, UpdatesMixin, OptionsMixin,
                  SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin, MissingCoversMixin,
-                 EstimatesMixin, WelcomeMixin):
+                 EstimatesMixin, WelcomeMixin, FrontEndMixin):
     """The window. Its methods live in the mixins above, one responsibility each; no name is
     defined twice, so the order of the bases decides nothing."""
     def __init__(self, app: tk.Tk):
@@ -95,6 +96,8 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.compiled_inventory = Inventory()
         self.compiled_view = None
         self.collection_visible = False
+        self.front_end_visible = self.front_end_fullscreen = False
+        self.front_end_view = None
         self.library_view = None
         self.status_key, self.status_values = 'ready', {}
         # Conversion time estimates (gui_estimates.py): what a first use still needs (None until looked at), the batch clock.
@@ -317,6 +320,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.render_player()
         header.bind('<Configure>', self.layout_header)
         stripe = tk.Canvas(app, height=2, bg=COLORS['subtle_border'], highlightthickness=0)
+        self.header_stripe = stripe
         stripe.pack(fill='x')
         def gradient(event):
             stripe.delete('all')
@@ -381,6 +385,8 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.knowledge_button = self.button(toolbar, self.tr('knowledge') + ' \u25be', self.knowledge_menu,
                                             'tip_knowledge')
         self.knowledge_button.pack(side='right', padx=(0, 8))
+        # The front-end: the compiled games as a wall of box art (gui_front_end), left of Knowledge.
+        self.front_end_button_create(toolbar).pack(side='right', padx=(0, 8))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=EDGE)

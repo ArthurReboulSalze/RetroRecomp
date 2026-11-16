@@ -114,6 +114,8 @@ class OptionsMixin:
         if self.options_panel is not None and self.options_panel.winfo_exists():
             self.close_options()
             return
+        if getattr(self, 'front_end_visible', False):
+            self.leave_front_end(then='queue')
         if self.collection_visible:
             self.toggle_compiled_games()
         # The options live inside the main window, in place of the queue, like
