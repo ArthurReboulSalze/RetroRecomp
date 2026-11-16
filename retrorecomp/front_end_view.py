@@ -957,8 +957,8 @@ class FrontEndView(tk.Frame):
         elif event == 'b':
             self.back()
         elif event in ('l2', 'r2'):
-            # L2: fewer, larger covers; R2: more covers per row (this console only, remembered).
-            self.change_columns(-1 if event == 'l2' else 1)
+            # L2: more covers per row; R2: fewer, larger covers (this console only, remembered; Arthur, 16 Nov 2026).
+            self.change_columns(1 if event == 'l2' else -1)
         elif event in ('start', 'y'):
             self.open_menu()
         elif event == 'x' and self.menu_items is None:
