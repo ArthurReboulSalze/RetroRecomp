@@ -5,6 +5,19 @@
   conversion's routes never reach it. The Amiga 1200 shares its paths like the Amiga 500, in the experimental tier of the base, on the
   owner's decision of 16 November 2026 ([AMIGA.md](AMIGA.md#shared-paths-179)). Numbers only: positions in your own install and Kickstart,
   never a byte of them. Amiga 500 and Amiga 1200 exports of 1.7.8 are converted again in full (their game stamp moves).
+- **The converter: how long a conversion usually takes.** The window now gives an order of magnitude per console, as a rounded
+  range measured on a reference PC (a Ryzen 9 3900X under Windows, three games at once): under the queue for the whole queue, in
+  Options next to each machine's scan level for one game at that level (an Amiga 1200 game at Standard: usually 10 to 20 minutes
+  there), and during a batch as a clock under the status and in each running game's row, with a reminder that a step can show
+  nothing new for several minutes. The Stop dialog, which closing the window also opens, says how long the batch has run against
+  its usual time. A short note says that other players' paths can make a conversion shorter on the consoles where received paths
+  replace the discovery with a quick check, and that they make more of the game native everywhere they are shared (on the Amiga,
+  the Atari ST or the PlayStation the conversion still runs its full discovery: no time saving is promised there). The first use
+  is stated apart: building the shared pieces once (about 3 minutes there) and the downloads, whose time depends on your
+  connection; the build tools window says why the first conversion takes longer. These are estimates on that PC, never a promise.
+  The figures come only from conversions already made on that PC, no conversion was run to time them
+  ([assets/conversion-times.json](../assets/conversion-times.json), read with `tools/conversion_times.py`); a level not measured
+  for a machine is worked out from its Standard time and said so. No game stamp moves.
 
 ---
 

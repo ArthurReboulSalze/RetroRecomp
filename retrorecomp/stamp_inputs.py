@@ -57,6 +57,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_firmware', 'firmware_search',
                                # Box art not found (Options): asks the player for a cover, applied by Reconvert.
                                'gui_covers',
+                               # Conversion time estimates in the window (assets/conversion-times.json); a conversion never reads them.
+                               'gui_estimates', 'time_estimates',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
@@ -188,6 +190,8 @@ NOT_INPUTS = (
     'assets/Retro-Recomp-banner.png', 'assets/Retro-Recomp-consoles.png',
     'assets/RetroRecomp-UI-JP.otf', 'assets/RetroRecomp-UI-SC.otf', 'assets/board-',
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
+    # The window's conversion time estimates (time_estimates.py): read by the interface only.
+    'assets/conversion-times.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     # emu2413's own licence file, kept beside the vendored sources (its text is licenses/emu2413.md, which games embed).
     'native/msx_machine/emu2413/LICENSE',

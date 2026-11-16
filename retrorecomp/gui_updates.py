@@ -360,7 +360,9 @@ class UpdatesMixin:
                 return True
             # Tools present, shared pieces not built yet: prepare them now,
             # behind the progress window, rather than inside the first game.
-            if messagebox.askyesno(APP_NAME, self.tr('deps_intro') + '\n\n' + self.tr('deps_question'), parent=self.app):
+            note = self.first_use_note()     # the first conversion takes longer, and why (gui_estimates.py)
+            if messagebox.askyesno(APP_NAME, self.tr('deps_intro') + ('\n\n' + note if note else '') + '\n\n'
+                                   + self.tr('deps_question'), parent=self.app):
                 self.install_build_tools({}, retry)
             return False
         if os.name == 'nt':
@@ -374,6 +376,9 @@ class UpdatesMixin:
                                    parent=self.app)
             return False
         text += '\n\n' + self.tr('tools_deps_note')
+        note = self.first_use_note()
+        if note:
+            text += '\n\n' + note
         if messagebox.askyesno(APP_NAME, text + '\n\n' + self.tr('tools_question'), parent=self.app):
             self.install_build_tools(missing, retry)
         return False
@@ -402,6 +407,10 @@ class UpdatesMixin:
         detail = tk.Label(body, text='', bg=background, fg=COLORS['muted'], font=(self.ui_font, 8),
                           wraplength=440, justify='left')
         detail.pack(anchor='w', pady=(6, 0))
+        note = self.first_use_note()
+        if note:
+            tk.Label(body, text=note, bg=background, fg=COLORS['muted'], font=(self.ui_font, 8),
+                     wraplength=440, justify='left').pack(anchor='w', pady=(10, 0))
         window.update_idletasks()
         center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
         window.deiconify()
@@ -470,6 +479,7 @@ class UpdatesMixin:
             self.updating = False
             self.set_controls(True)
             outcome, error = state['result']
+            self.refresh_first_use()      # the queue's estimate stops counting what is now installed
             if outcome == 'ok':
                 self.messages.put(('log', self.tr('tools_done')))
                 messagebox.showinfo(APP_NAME, self.tr('tools_done'), parent=self.app)

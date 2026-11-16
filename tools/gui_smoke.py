@@ -91,6 +91,34 @@ def smoke(window):
         time.sleep(0.01)
     assert not application.importing and len(application.items) == before + 12, len(application.items)
     assert str(application.start_button.cget('state')) == 'normal'
+    # Conversion time estimates (gui_estimates.py, assets/conversion-times.json), always on the reference PC: the queue
+    # line when no single game is selected, with the first use apart; the clock under the status and in the running
+    # row; the Stop dialog's reminder; the tools window's note.
+    reference = 'Ryzen 9 3900X'
+    application.table.selection_set(())
+    application.first_use_state = None
+    application.selection_changed()
+    assert reference in application.detail.get(), application.detail.get()
+    assert application.tr('estimate_first_download') not in application.detail.get()
+    application.first_use_state = {'tools_missing': True, 'shared_missing': True}
+    application.selection_changed()
+    assert application.tr('estimate_first_build', time=application.duration(180, up=True)) in application.detail.get()
+    application.first_use_state = None
+    assert reference in application.first_use_note()
+    rows, saved_rows = list(application.table.get_children()), application.active_rows
+    application.active_rows = rows
+    application.batch_estimate = application.rows_estimate(rows, first_use=False)
+    application.batch_started, application.job_started = time.monotonic() - 90, {0: time.monotonic() - 65}
+    application.set_status('batch_running', completed=0, total=len(rows), active=1)
+    status = application.status.get()
+    assert status.startswith(application.tr('batch_running', completed=0, total=len(rows), active=1) + '\n'), status
+    assert '1:30' in status, status
+    assert '1:05' in application.row_running_text(0)
+    assert reference in application.stop_estimate_text()
+    application.batch_started, application.batch_estimate, application.job_started = None, None, {}
+    application.active_rows = saved_rows
+    application.set_status('ready')
+    assert application.status.get() == application.tr('ready')
     # A game already compiled in the output folder is offered for removal
     # once the whole addition is in; No leaves it out, Yes keeps it.
     from retrorecomp.batch import identify, system_output
@@ -651,6 +679,10 @@ def smoke(window):
         assert open_notebook.tab(1, 'text') == application.tr('options_consoles')
         assert application.options_console_picker.get() == application.tr(
             application.options_console_pages[application.options_console_index][1])
+        # The time per game at the chosen level follows the language, and names the reference PC.
+        assert application.level_timings, 'no level estimate in the Options'
+        for console, timing in application.level_timings.items():
+            assert timing.get() == application.level_estimate_text(console) and reference in timing.get(), (language, console)
         common_page = open_notebook.nametowidget(open_notebook.tabs()[0])
         frames = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TLabelframe'}
         assert {application.tr('options_account'), application.tr('options_boxart'),

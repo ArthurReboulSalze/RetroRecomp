@@ -180,6 +180,7 @@ class ConversionMixin:
         self.log.configure(state='disabled')
         self.set_controls(False)
         self.set_status('starting', count=len(items))
+        self.start_estimate_clock(chosen_rows)      # the estimate in the log, then a clock under the status
         recovered=self.recovered_batch
         inventory_preferences=self.preferences()
         # « Box art not found »: each game that ends without a cover joins one window; the batch never waits for it.
@@ -306,6 +307,12 @@ class ConversionMixin:
         body.pack(fill='both', expand=True)
         tk.Label(body, text=self.tr('stop_title').upper(), bg=background, fg=COLORS['gold'],
                  font=(self.ui_font, 9, 'bold')).pack(anchor='w')
+        # Closing the window comes here too: how long the batch has run against its usual time, so a long step
+        # is not taken for a frozen conversion.
+        running = self.stop_estimate_text()
+        if running:
+            tk.Label(body, text=running, bg=background, fg=COLORS['text'], font=(self.ui_font, 9),
+                     wraplength=420, justify='left').pack(anchor='w', pady=(10, 0))
         def answer(value):
             chosen['value'] = value
             window.destroy()
@@ -363,7 +370,8 @@ class ConversionMixin:
                 elif kind == 'start':
                     row = self.active_rows[event[1]]
                     self.running_jobs.add(event[1])
-                    self.table.set(row, 'status', self.tr('converting'))
+                    self.job_began(event[1])
+                    self.table.set(row, 'status', self.row_running_text(event[1]))
                     self.row_status[row] = 'converting'
                     self.table.see(row)
                     if not self.cancel.is_set():
@@ -402,6 +410,8 @@ class ConversionMixin:
                     self.selection_changed()
                 elif kind in ('done', 'fatal'):
                     self.busy = self.converting = False
+                    self.batch_started = None       # the clock stops with the batch
+                    self.refresh_first_use()        # tools and engines built by this batch are ready now
                     from .core import reset_stop
                     reset_stop()
                     for index in self.running_jobs:
@@ -505,6 +515,8 @@ class ConversionMixin:
                         return
                     self.send_discoveries_soon()
                     self.apply_dropped_covers()     # images given while this reconversion ran
+                elif kind == 'first_use':
+                    self.first_use_ready(event[1])
                 elif kind == 'cover_missing':
                     self.cover_missing(*event[1:])
                 elif kind == 'cover_drop':
