@@ -829,7 +829,8 @@
     "time_up_to": "bis zu {high}",
     "estimate_paths_queue": "Auf manchen Konsolen kann es kürzer sein, wenn die Pfade anderer Spieler für ein Spiel schon bekannt sind; diese Pfade machen auch mehr vom Spiel nativ.",
     "estimate_paths_shorter": "Kann kürzer sein, wenn die Pfade anderer Spieler für das Spiel schon bekannt sind (eine schnelle Prüfung ersetzt die Erkundung); diese Pfade machen auch mehr vom Spiel nativ.",
-    "estimate_paths_native": "Die Pfade anderer Spieler machen, wenn bekannt, mehr vom Spiel nativ; auf dieser Konsole läuft die Erkundung trotzdem vollständig."
+    "estimate_paths_native": "Die Pfade anderer Spieler machen, wenn bekannt, mehr vom Spiel nativ; auf dieser Konsole läuft die Erkundung trotzdem vollständig.",
+    "estimate_paths_time": "Mit den Pfaden anderer Spieler: {span} auf dem Referenz-PC (Neukompilierung ohne Erkundung der Pfade)."
   },
   "runtime": {
     "Internal resolution": "Interne Auflösung",

@@ -86,6 +86,14 @@ def validate(data) -> dict:
             isinstance(entry, dict) and isinstance(entry.get('seconds'), (int, float))
             for entry in (first.get('machines') or {}).values()):
         raise ValueError('conversion times: first use')
+    # Optional: the time of a conversion that received other players' paths, per machine, [low, high] seconds with
+    # where it comes from (a figure the owner gave is said to be his, never passed off as a measure).
+    for machine, entry in (data.get('with_paths') or {}).items():
+        seconds = entry.get('seconds') if isinstance(entry, dict) else None
+        if (machine not in machines or not isinstance(seconds, list) or len(seconds) != 2
+                or not all(isinstance(x, (int, float)) and x > 0 for x in seconds) or seconds[0] > seconds[1]
+                or not isinstance(entry.get('source'), str) or not entry['source']):
+            raise ValueError(f'conversion times: with paths, {machine}')
     return data
 
 
@@ -195,6 +203,14 @@ def paths_effect(system: str) -> str | None:
     if shared is None:
         return None
     return 'shorter' if getattr(shared, 'quick_check_from_shared', True) else 'native'
+
+
+def with_paths_time(system: str, data: dict | None = None) -> tuple | None:
+    """(low, high) seconds of a conversion of this machine that received other players' paths, when the table has
+    one, else None. The window shows it only for a machine that shares paths."""
+    data = table() if data is None else data
+    entry = (data or {}).get('with_paths', {}).get(system)
+    return tuple(entry['seconds']) if entry else None
 
 
 # The display rounds generously: an order of magnitude per console, not a timing. Steps in minutes, by size.
