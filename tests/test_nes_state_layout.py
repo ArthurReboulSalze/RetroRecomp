@@ -101,6 +101,20 @@ class StateKeyTests(unittest.TestCase):
         self.assertEqual(keys[0], keys[1])
         self.assertRegex(keys[0], r'#define RR_NES_STATE_ABI "[0-9a-f]{64}"')
 
+    def test_the_pal_header_patch_is_staged_and_leaves_the_state_key_alone(self):
+        from unittest import mock
+        from retrorecomp import nes_machine
+        keys = []
+        with tempfile.TemporaryDirectory() as folder:
+            machine = nes_machine.prepare_machine(Path(folder) / 'a', ENGINE)
+            staged = (machine.parents[1] / 'common' / 'nes_cart.h').read_text(encoding='utf-8')
+            keys.append((machine / 'nes_state_abi.h').read_text())
+            self.assertIn('c->nes2 && c->timing == 3', staged)
+            self.assertNotIn('c->timing != 0', staged)
+            with mock.patch.object(nes_machine, 'patched_cart_header', lambda text: text):
+                keys.append((nes_machine.prepare_machine(Path(folder) / 'b', ENGINE) / 'nes_state_abi.h').read_text())
+        self.assertEqual(keys[0], keys[1], 'the patch changes no saved structure: the key must not move with it')
+
     def test_the_serialisers_are_staged_with_the_engine_structs(self):
         from retrorecomp.nes_machine import prepare_machine
         with tempfile.TemporaryDirectory() as folder:
@@ -159,7 +173,7 @@ class AuthoredPrgCartridgeTests(unittest.TestCase):
         for board, spec in check.BOARDS.items():
             with self.subTest(board=board):
                 rom = check.authored_cartridge(board)
-                self.assertEqual(rom[:4], b'NES')
+                self.assertEqual(rom[:4], b'NES\x1a')
                 self.assertEqual(len(rom), 16 + check.PRG_SIZE + 0x2000)
                 self.assertEqual((rom[7] & 0xF0) | (rom[6] >> 4), spec['mapper'])
                 prg = rom[16:16 + check.PRG_SIZE]

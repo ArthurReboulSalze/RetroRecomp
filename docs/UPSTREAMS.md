@@ -502,6 +502,18 @@ vAmiga's Core is prepared by anchored replacements (`amiga_vamiga.REPLACEMENTS`,
 To propose upstream (the maintainer posts): an issue or a small pull request to `dirkwhoffmann/vAmiga`, with a reproducer program
 (eight planes in dual playfield, `BPLCON2` `$003F`, on the A1200 scheme). A bump of the pin re-checks the anchors before anything else.
 
+## NES: a PAL NES 2.0 header carried on nesrecomp (1.7.9)
+
+The staged copy of `common/nes_cart.h` is prepared by one anchored replacement (`nes_codegen.patched_cart_header`, used by the compiler's
+stage and by the machine; a line not found exactly once refuses the pinned tree).
+
+| Fix | Measure | File of the machine | Anchors |
+|---|---|---|---|
+| `nes_cart_variant_supported` refused every NES 2.0 header whose timing field is not 0 or 2, so a PAL (1) dump failed with « unsupported cartridge metadata » in the compiler and in the runtime although the converter models PAL itself. Only Dendy (3) is refused now. | A Super Mario Bros. 3 header rewritten as NES 2.0 timing 1 stopped in the compiler of 1.7.8 and converts now (pass 1, no interpreted cycle); the state key does not move | `nes_codegen.py` | `c->nes2 && c->timing != 0 && c->timing != 2` |
+
+The engine's master already has this: its check refuses only timing 3 (read on 16 November 2026 on `common/nes_cart.h`; it came with its own PAL
+work after our pin). Nothing to propose upstream; the patch goes when the pin moves past that work.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

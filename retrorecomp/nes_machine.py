@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from .core import replace_once, ConversionError
+from .nes_codegen import patched_cart_header
 from .paths import ASSETS
 from . import nes_state_layout
 
@@ -437,6 +438,11 @@ def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
                 data = _machine(data.decode('utf-8'), fast_ppu=fast_ppu).encode('utf-8')
             elif name == 'runner/cyc/hw_ppu.c':
                 data = _ppu(data.decode('utf-8'), fast_ppu=fast_ppu).encode('utf-8')
+            elif name == 'common/nes_cart.h':
+                # PAL NES 2.0 headers are accepted (see nes_codegen.patched_cart_header). The quick-state layout does not change,
+                # so the state key keeps hashing the engine's own header.
+                identity_inputs[name] = data
+                data = patched_cart_header(data.decode('utf-8')).encode('utf-8')
             elif name == 'runner/cyc/hw_internal.h':
                 text = replace_once(data.decode('utf-8'), '    uint8_t  tick;',
                     '    uint8_t  pal_bus_pending; /* New bus cycle before cycle-count commit. */\n    uint8_t  tick;')

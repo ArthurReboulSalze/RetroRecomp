@@ -86,6 +86,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares](#commodore-amiga-500-and-1200-play-travels-the-amiga-1200-shares-179) | **the Amiga and the Amiga 1200** (`amiga_conversion.py`, `amiga_knowledge.py`, `systems/amiga.py`, the new `a1200_knowledge.py`) | none | the Amiga and Amiga 1200 keys move (every input); the others are unchanged |
+| [NES: a PAL NES 2.0 header is accepted](#nes-a-pal-nes-20-header-is-accepted-179) | **the Nintendo NES** (`nes_codegen.py`, `nes_machine.py`) | none | unchanged (`RR_NES_STATE_ABI` does not move) |
 
 ## Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares (1.7.9)
 
@@ -95,6 +96,15 @@ On the owner's word of 16 November 2026 (« Je préfère que tu mettes en place 
 - **Stamps:** the game stamps of the Amiga 500 and of the Amiga 1200 (both convert through `amiga_conversion.py` and `amiga_knowledge.py`, and `systems/amiga.py` holds both profiles); `path_profiles.py` is not edited, so no other machine moves. No host or build stamp moves. An export of 1.7.8 is converted again in full on either machine; the player's own record of an install (`paths-record.json`) is read as before and gains rows.
 - **A replay stopped from outside says so** (both Amigas): a player run that ends with an error code and no message of its own (on Windows, a process ended from the Task Manager or a converter closed) is reported with the frame it reached and as stopped from outside, not by the game (`amiga_conversion.replay_failure`; 1869, 16 November 2026).
 - **Site:** the `a1200` limits must be on retro-recomp.com before the release, or an upload holding an A1200 game is refused whole.
+
+## NES: a PAL NES 2.0 header is accepted (1.7.9)
+
+Three players' reports (1.6.6 and 1.7.4: Super Mario Bros. 3, Mega Man 2 and Chip 'n Dale, European dumps) ended pass 1 with `[cyc] unsupported cartridge metadata for mapper 4 submapper 0` (mapper 1 for the others). The pinned `nes_cart_variant_supported` (nesrecomp `1b0c621`) refuses every NES 2.0 header whose timing field is not 0 (NTSC) or 2 (multi-region), so **every NES 2.0 dump that declares PAL (1) failed**, in the compiler and again in the runtime check. The converter models PAL itself (`RR_NES_PAL`); the refusal was a leftover of an engine that did not.
+
+- **What changes:** the staged copy of `common/nes_cart.h` (the compiler's and the machine's) refuses only Dendy (3), as the engine's later revisions do (`nes_codegen.patched_cart_header`, a fail-closed replacement: it stops if the pinned line changes). The pin does not move. Dendy stays refused, with the converter's existing message.
+- **Reproduced** with Super Mario Bros. 3 (USA) from the maintainer's library with its header rewritten in a scratch folder as NES 2.0 with timing 1 (PAL): the compiler of 1.7.8 stops with the message above; the corrected one generates the sources (tests: the four timings through the real compiler; the refusal is the only text that changes). The library holds no NES 2.0 dump of its own: the three reports are the only real ones.
+- **Stamps:** the NES game stamp (`nes_codegen.py` and `nes_machine.py` are inputs). No host or build stamp moves. **Quick states:** `RR_NES_STATE_ABI` does not move (the header is hashed as the engine wrote it; no saved structure changes; a test pins this). **Existing exports:** an NTSC or iNES export is converted again at its next conversion with identical code; nothing played changes.
+- **Not covered:** Dendy dumps (no Dendy timing in the converter); NES 2.0 variants the engine lists as unsupported for other reasons (the check names them the same way).
 
 ## Exports of 1.7.7 in 1.7.8
 
