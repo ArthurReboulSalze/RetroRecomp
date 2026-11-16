@@ -326,7 +326,8 @@ def _check_output(output: Path) -> None:
 def _command(job: Path) -> list:
     if getattr(sys, 'frozen', False):
         return [sys.executable, INTERNAL_COMMAND, str(job)]
-    return [sys.executable, '-B', str(Path(__file__).resolve().parents[1] / 'RetroRecomp.py'), INTERNAL_COMMAND, str(job)]
+    from .paths import ROOT     # the roots come from paths.py, never from a module's own file
+    return [sys.executable, '-B', str(ROOT / 'RetroRecomp.py'), INTERNAL_COMMAND, str(job)]
 
 
 def apply_recipe(recipe, rom_path: Path, output: Path, *, language: str = 'en', compress: bool | None = None,
