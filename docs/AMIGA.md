@@ -282,6 +282,12 @@ not changed by it.
   by `tools/amiga_display_selftest.py` on AGA scenarios (eight planes, FMODE's wide fetches, colour banks, BPLCON4's XOR), and real
   A1200 games give the same traces with and without them (Pinball Illusions (6,400 frames, its F10 interlaced table), Slam Tilt, Banshee, Fears, Gloom, Zool 2, Roadkill, Super Stardust and Alien Breed 3D (3,000 frames each), Civilization and an Amiga 500 game (2,500): identical traces, pictures included; on Fears 936,000 of 939,000 lines are batched and 858,003 visible lines take the one-pass loop, against none before). The gain per frame is not measured yet (a timing pass on a
   quiet PC). The shortcuts live in `retrorecomp/amiga_vamiga_display.py`, outside the generator pins.
+- **The Kickstart a slave asks for in its code (1.7.7).** A slave that does not name its Kickstart in its header calls
+  `resload_LoadKick` with the image's size and CRC-16 in its registers. The converter used to choose for it by version (1.3 first,
+  256 KiB), an Amiga 500 habit: All New World of Lemmings (AGA) asks for 3.1 (512 KiB, `$9FF5`) and stopped at its first frame. The
+  converter now reads what the code passes, just before each call (`moveq`/`move.l` into D0, `move.w`/`move.l` into D1, the name
+  in A0), and matches it exactly; the old choice stays for a call it cannot read. On 250 installs sampled in each NAS folder, 46 of
+  the 47 slaves of that kind are read so, and the player's images match every one.
 - **Interlaced screens** (on both Amigas, for any game that sets LACE): the machine draws a long and a short field in turn; the picture
   weaves them into one of twice the lines, so it no longer moves a line every frame (Arthur's play test of 15 November 2026 found it on
   Banshee's title). A display change only: the machine, the CPU and the checks are as before; a screen without LACE is shown as it was,

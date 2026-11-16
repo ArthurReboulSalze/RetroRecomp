@@ -217,6 +217,19 @@ class RequestTests(unittest.TestCase):
         both = K.request_of_slave(hunk_file(patched_slave(kick=('kick34005.A500',), call=0x4EAD)))
         self.assertEqual(both.mode, 'both')
 
+    def test_what_the_code_passes_to_loadkick_is_read_before_the_call(self):
+        # moveq #8,d0 ; swap d0 ; move.w #$9FF5,d1 ; lea name(pc),a0 ; jsr $68(a5) ; then the name (All New World of Lemmings' form)
+        base = bytearray(slave_code())
+        call = struct.pack('>HHHHHhHH', 0x7008, 0x4840, 0x323C, 0x9FF5, 0x41FA, 6, 0x4EAD, 0x68) + b'40068.a1200\x00'
+        request = K.request_of_slave(hunk_file(bytes(base + call)))
+        self.assertEqual((request.mode, request.accepted), ('resload_LoadKick', ({'name': '40068.a1200', 'size': 0x80000, 'crc16': 0x9FF5},)))
+        # move.l #$40000,d0 ; move.w #$1234,d1 ; jsr $68(a5): no name
+        call = struct.pack('>HIHHHH', 0x203C, 0x40000, 0x323C, 0x1234, 0x4EAD, 0x68) + bytes.fromhex('4e71')      # a nop: whole longwords
+        self.assertEqual(K.request_of_slave(hunk_file(bytes(base + call))).accepted, ({'name': '', 'size': 0x40000, 'crc16': 0x1234},))
+        # A size that is no Kickstart's, or no CRC: nothing read, the old choice by version applies.
+        call = struct.pack('>HIHH', 0x203C, 0x12345, 0x4EAD, 0x68) + bytes.fromhex('4e71')      # a nop: whole longwords
+        self.assertEqual(K.request_of_slave(hunk_file(bytes(base + call))).accepted, ())
+
     def test_other_displacements_odd_offsets_and_old_slaves_are_not_calls(self):
         self.assertEqual(K.request_of_slave(hunk_file(patched_slave(call=0x4EAD, odd=True))).mode, '')
         self.assertEqual(K.request_of_slave(hunk_file(patched_slave(version=10, call=0x4EAD))).mode, '')

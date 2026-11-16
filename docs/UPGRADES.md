@@ -98,6 +98,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Sony PlayStation: the trace records the VRAM (format 2)](#sony-playstation-the-trace-records-the-vram-format-2-177) | the PlayStation (`psx_session.c`, `psx_session.h`, `psx_main.c`, `psx_conversion.py`) | the PlayStation's host stamp (`psx_session.c`) | none |
 | [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
 | [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
+| [Commodore Amiga: the Kickstart a slave's code asks for](#commodore-amiga-the-kickstart-a-slaves-code-asks-for-177) | the Amiga and the Amiga 1200 (`amiga_kickstart.py`) | none | none |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 | « Find firmware in a folder… » in Options › Consoles ([INSTALLING.md](INSTALLING.md#finding-firmware-in-a-folder); no section of this page; merge `246103b7`) | none | none (`firmware_search.py` and `gui_firmware.py` are interface modules, outside the stamps) | none |
 | The converter's console menu: short labels, a field and a list as wide as their longest entry (no section of this page; merge `b318698e`) | none | none (`console_menu.py` is an interface module, outside the stamps) | none |
@@ -407,6 +408,21 @@ off under AGA: an Amiga 1200 game ran vAmiga's slower path for every line.
   in its summary.
 - **Not measured:** the gain per frame (a timing pass on a quiet PC, with the owner's agreement).
 - **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (the adaptation's digest); exports converted again in full.
+
+## Commodore Amiga: the Kickstart a slave's code asks for (1.7.7)
+
+A WHDLoad slave names the Kickstart it needs in its header, or passes it to `resload_LoadKick` in its registers: the size in D0, the
+CRC-16 in D1, the name in A0. For the second kind the converter chose an image by version, 1.3 first and 256 KiB only; an Amiga 1200
+slave that asks for 3.1 that way (All New World of Lemmings: 512 KiB, `$9FF5`, `40068.a1200`) got a 1.3 image and stopped at its
+first frame, the player's 3.1 unused.
+
+- **What changes:** `amiga_kickstart.request_of_slave` reads, in the 24 bytes before each call, `move.l #imm,d0` or `moveq #n,d0`
+  with `swap d0` (the size), `move.w #imm,d1` or `move.l #imm,d1` (the CRC-16) and `lea d16(pc),a0` (the name); the request is then
+  matched exactly, as a header's. A call it cannot read keeps the old choice. The call still checks the image at run time.
+- **Measured:** All New World of Lemmings converts (quick level, every check passed; its 59,006 interpreted instructions are all the
+  Kickstart's, 0.12 %); on 250 installs sampled in each NAS folder, 46 of the 47 LoadKick-only slaves are read, and the player's
+  Kickstarts match all 46.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_kickstart.py`); exports converted again in full.
 
 ## Exports of 1.7.5 in 1.7.6
 

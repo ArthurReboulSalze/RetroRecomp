@@ -236,8 +236,8 @@ MIN_LOADKICK_VERSION = 11       # resload_LoadKick exists from this ws_Version
 @dataclass(frozen=True)
 class Request:
     """What an install's slave asks of the Kickstart. `accepted` lists the images its header accepts, in the slave's order:
-    {'name', 'size', 'crc16'}; it is empty for a slave that only calls `resload_LoadKick`. `mode` is 'header',
-    'resload_LoadKick' or 'both'."""
+    {'name', 'size', 'crc16'}; for a slave that only calls `resload_LoadKick`, the images its code passes to the call when they can
+    be read before it (`_loadkick_entries`), else nothing. `mode` is 'header', 'resload_LoadKick' or 'both'."""
     title: str
     mode: str
     accepted: tuple[dict, ...]
@@ -273,6 +273,43 @@ def _calls_loadkick(loaded) -> bool:
     return False
 
 
+def _loadkick_entries(loaded) -> tuple[dict, ...]:
+    """The images a slave's own code passes to `resload_LoadKick`, read in the 24 bytes before each call: the size in D0
+    (`move.l #imm,d0`, or `moveq #n,d0` then `swap d0`), the CRC-16 in D1 (`move.w #imm,d1` or `move.l #imm,d1`) and the name in A0
+    (`lea d16(pc),a0`). All New World of Lemmings (AGA) passes 512 KiB, $9FF5, "40068.a1200" so. A call whose size or CRC is not
+    found this way gives nothing (the old choice by version then applies); the call itself checks the image at run time."""
+    found = []
+    for hunk in loaded:
+        if hunk.kind != 'code':
+            continue
+        code = hunk.data
+        word = lambda at: code[at] << 8 | code[at + 1]
+        for pos in range(0, len(code) - 3, 2):
+            if not (word(pos) in _JSR_OR_JMP_D16 and code[pos + 2] == 0 and code[pos + 3] == LOADKICK_OFFSET):
+                continue
+            size = crc = None
+            name = ''
+            for at in range(max(0, pos - 24), pos, 2):
+                w = word(at)
+                if w == 0x203C and at + 6 <= pos:                       # move.l #imm,d0
+                    size = struct.unpack_from('>I', code, at + 2)[0]
+                elif w & 0xFF00 == 0x7000 and at + 4 <= pos and word(at + 2) == 0x4840:   # moveq #n,d0 ; swap d0
+                    size = (w & 0xFF) << 16
+                elif w == 0x323C and at + 4 <= pos:                     # move.w #imm,d1
+                    crc = word(at + 2)
+                elif w == 0x223C and at + 6 <= pos:                     # move.l #imm,d1
+                    crc = struct.unpack_from('>I', code, at + 2)[0] & 0xFFFF
+                elif w == 0x41FA and at + 4 <= pos:                     # lea d16(pc),a0
+                    target = at + 2 + struct.unpack_from('>h', code, at + 2)[0]
+                    end = code.find(b'\x00', target) if 0 <= target < len(code) else -1
+                    name = code[target:end].decode('latin-1') if end > target else ''
+            if size in (0x40000, 0x80000) and crc is not None:
+                entry = {'name': name, 'size': size, 'crc16': crc}
+                if entry not in found:
+                    found.append(entry)
+    return tuple(found)
+
+
 def request_of_slave(blob: bytes) -> Request:
     """The request of a slave given as the bytes of its hunk file. Raises `amiga_whdload.InstallError` when it is no slave."""
     from . import amiga_whdload
@@ -281,6 +318,8 @@ def request_of_slave(blob: bytes) -> Request:
     accepted = _header_entries(loaded[0].data, slave)
     by_call = slave.version >= MIN_LOADKICK_VERSION and _calls_loadkick(loaded)
     mode = 'both' if accepted and by_call else 'header' if accepted else 'resload_LoadKick' if by_call else ''
+    if mode == 'resload_LoadKick':
+        accepted = _loadkick_entries(loaded)
     return Request((slave.name.split('\n', 1)[0].strip()), mode, accepted, slave.version)
 
 
@@ -381,8 +420,8 @@ def require(option, install_path, language: str = 'en') -> Kickstart | None:
         except OSError:
             records = []
     if not request.accepted:
-        # A slave that only calls resload_LoadKick names its image in code, not in its header: prefer 1.3 (34.005, what
-        # these slaves ask for), then any other 256 KiB image; the exact image is checked by the call itself.
+        # A slave that only calls resload_LoadKick, whose code does not show what it passes (`_loadkick_entries`): prefer 1.3
+        # (34.005, what these slaves ask for), then any other 256 KiB image; the exact image is checked by the call itself.
         known = sorted((r for r in records if r.version and r.size == 0x40000),
                        key=lambda r: r.version.get('version') != '34.005')
         if known:
