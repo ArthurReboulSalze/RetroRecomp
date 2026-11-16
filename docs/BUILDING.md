@@ -129,11 +129,14 @@ and `windres`, UCRT variant), CMake 4.4.4 and Ninja 1.13.2. The download is abou
 245 MB and 380 MB are installed once the unused parts (32-bit and ARM targets,
 Python, debugger) are left out. Every console uses the same tools, and none needs
 Rust any more (Super Mario World uses the generic SNES analysis since 1.4.1).
-Games built this way need Windows 10 or later (UCRT). A Visual Studio Build Tools
-installation stays a fallback: the converter uses it only when the portable tools
-are absent, and `RETRO_RECOMP_TOOLCHAIN=llvm` or `msvc` forces one of the two
-(the two never share a build folder; switching rebuilds). Source usage keeps the
-list below.
+Games built this way need Windows 10 or later (UCRT). Nobody needs Visual Studio:
+since 1.7.8 the converter builds only with these tools, even when Visual Studio is
+installed (before, it fell back to an installed Visual Studio, a toolchain no check
+runs with, and a player's Game Boy Advance recompiler came out as a Debug build).
+Visual Studio Build Tools is used only when asked for by name,
+`RETRO_RECOMP_TOOLCHAIN=msvc` (a developer's choice, and the CI's Windows runner,
+which has no portable tools); the two never share a build folder, and switching
+rebuilds. Source usage keeps the list below.
 
 With the portable tools, a Super Nintendo game (since 1.6.5 a Mega Drive game too) is built twice: once with clang's
 instrumentation and ThinLTO, run for 1,800 frames of the standard play route
@@ -146,9 +149,9 @@ in Super FX gameplay and in F-Zero, see [SNES_SUPERFX.md](SNES_SUPERFX.md#host-c
 
 - Python 3.11 or newer for source usage (release built with 3.14.5).
 - Git on PATH.
-- The portable build tools above (installed by the converter on first use) or
-  Visual Studio Build Tools 2022 or a detected supported Visual Studio
-  installation, with x64 C++ tools, CMake and Windows SDK.
+- The portable build tools above (installed by the converter on first use). A developer
+  may ask for Visual Studio Build Tools 2022 instead (`RETRO_RECOMP_TOOLCHAIN=msvc`,
+  x64 C++ tools, CMake and Windows SDK); the converter never picks it by itself.
 - Internet for first-time dependency setup; optional for missing-cover lookup.
 
 The packaged converter includes Python. Generated games include their runtime

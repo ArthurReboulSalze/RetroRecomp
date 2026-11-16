@@ -46,14 +46,20 @@ class ToolchainTests(unittest.TestCase):
         entries = os.environ['PATH'].split(os.pathsep)
         self.assertEqual(entries[:3], [str(path) for path in toolchain.portable_path_entries()])
 
-    def test_visual_studio_is_the_fallback_and_can_be_requested(self):
+    def test_visual_studio_only_when_asked_for_by_name(self):
         with self.studio():
+            with self.assertRaises(toolchain.ToolchainError):      # installed is not asked for (1.7.8)
+                toolchain.select()
+        with self.studio(), patch.dict(os.environ, {'RETRO_RECOMP_TOOLCHAIN': 'msvc'}):
             self.assertEqual(toolchain.select().kind, toolchain.MSVC)
             self.assertEqual(toolchain.cmake_arguments(), ['-A', 'x64'])
             self.assertEqual(toolchain.suffix(), '')
         install_fake(self.tools)
         with self.studio(), patch.dict(os.environ, {'RETRO_RECOMP_TOOLCHAIN': 'msvc'}):
             self.assertEqual(toolchain.select().kind, toolchain.MSVC)
+        with self.nothing(), patch.dict(os.environ, {'RETRO_RECOMP_TOOLCHAIN': 'msvc'}):
+            with self.assertRaises(toolchain.ToolchainError):
+                toolchain.select()
 
     def test_nothing_installed_is_reported_and_llvm_cannot_be_forced(self):
         with self.nothing():

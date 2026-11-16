@@ -194,7 +194,7 @@ def machine_core(toolchain_root: Path, emit) -> tuple[Path, Path]:
         with timings.phase('compile'):
             run([cmake, '-S', tree, '-B', build, '-G', generator, *cmake_target_args(),
                  *atarist_hatari.configure_arguments(libretro)], log=build / 'build.log')
-            run([cmake, '--build', build, '--parallel', build_jobs(), '--target', 'retro-hatari'], log=build / 'build.log', timeout=3600)
+            run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs(), '--target', 'retro-hatari'], log=build / 'build.log', timeout=3600)
         atomic_json(ready, {'adaptation': digest})
         return tree, build
 
@@ -208,7 +208,7 @@ def cmake_build(build: Path, tree: Path, hatari_build: Path, *, generated: Path 
          f'-DRR_ST_GENERATED={generated.as_posix() if generated else ""}',
          f'-DRR_ST_PAYLOAD_DIR={payload.as_posix() if payload else ""}', f'-DRR_ST_STATE_INPUT={stamp}',
          f'-DRR_RECOMP_VERSION={__version__}'], log=build / 'build.log')
-    run([cmake, '--build', build, '--parallel', build_jobs(), '--target', 'atarist_player'], log=build / 'build.log', timeout=1800)
+    run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs(), '--target', 'atarist_player'], log=build / 'build.log', timeout=1800)
     return build_executable(build, PLAYER)
 
 

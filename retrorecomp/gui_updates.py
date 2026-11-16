@@ -479,9 +479,11 @@ class UpdatesMixin:
                 self.messages.put(('log', log_text(error, self.language)))
                 messagebox.showerror(APP_NAME, self.tr('deps_download_failed'), parent=self.app)
             else:
-                manual = (self.tr('tools_manual_windows') if os.name == 'nt' else
+                # Windows: no other compiler to suggest (Visual Studio is never used unless asked for by name, 1.7.8);
+                # the next conversion offers the download again.
+                manual = ('' if os.name == 'nt' else
                           'sudo ' + ' '.join(updater.linux_install_command(missing.get('packages', ()))))
-                messagebox.showerror(APP_NAME, self.tr('tools_failed', error=error) + '\n\n' + manual,
+                messagebox.showerror(APP_NAME, self.tr('tools_failed', error=error) + ('\n\n' + manual if manual else ''),
                                      parent=self.app)
 
         threading.Thread(target=worker, daemon=True).start()

@@ -18,4 +18,7 @@ jobs:
           python-version: '3.14'
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests
+        env:
+          # The runner has Visual Studio, not the converter's portable tools: the native tests ask for it by name (1.7.8).
+          RETRO_RECOMP_TOOLCHAIN: ${{ matrix.os == 'windows-latest' && 'msvc' || '' }}
       - run: python tools/prepare_publication.py --tracked

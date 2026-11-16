@@ -223,7 +223,7 @@ def machine_core(toolchain_root: Path, emit) -> tuple[Path, Path]:
         cmake, _ = toolchain()
         with timings.phase('compile'):
             run(configure(build, tree), log=build / 'build.log')
-            run([cmake, '--build', build, '--parallel', build_jobs(), '--target', 'rr_n64_core'], log=build / 'build.log', timeout=7200)
+            run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs(), '--target', 'rr_n64_core'], log=build / 'build.log', timeout=7200)
         if not library.is_file():
             raise ConversionError('Nintendo 64: the machine library was not built.')
         atomic_json(ready, identity)
@@ -234,7 +234,7 @@ def cmake_build(build: Path, tree: Path, core: Path, *, generated: Path | None =
                 stamp: str = '') -> Path:
     cmake, _ = toolchain()
     run(configure(build, tree, core=core, generated=generated, payload=payload, stamp=stamp), log=build / 'build.log')
-    run([cmake, '--build', build, '--parallel', build_jobs(), '--target', 'n64_player'], log=build / 'build.log', timeout=3600)
+    run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs(), '--target', 'n64_player'], log=build / 'build.log', timeout=3600)
     return build_executable(build, PLAYER)
 
 

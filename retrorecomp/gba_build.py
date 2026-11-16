@@ -122,7 +122,7 @@ def recompiler(stage: Path, key: str, cmake, generator: str, emit: Callable[[str
         run([cmake, '-S', stage / 'engine', '-B', build, '-G', generator, *cmake_target_args(),
              '-DGBARECOMP_COMPILER_CACHE=OFF'], log=build.with_suffix('.log'), timeout=900)
         with timings.phase('compile'):
-            run([cmake, '--build', build, '--target', 'gba_recompile', '--parallel', build_jobs()],
+            run([cmake, '--build', build, '--config', 'Release', '--target', 'gba_recompile', '--parallel', build_jobs()],
                 log=build.with_suffix('.log'), timeout=3600)
         if not program.is_file():
             raise ConversionError('The Game Boy Advance recompiler was not built.')
@@ -186,7 +186,7 @@ def build_host(project: Path, cmake, generator: str, emit: Callable[[str], None]
     folder, build = project / 'host', project / 'host-build'
     run([cmake, '-S', folder, '-B', build, '-G', generator, *cmake_target_args()], log=project / 'build.log', timeout=900)
     with timings.phase('compile'):
-        run([cmake, '--build', build, '--target', HOST_NAME, '--parallel', build_jobs()],
+        run([cmake, '--build', build, '--config', 'Release', '--target', HOST_NAME, '--parallel', build_jobs()],
             log=project / 'build.log', timeout=7200)
     program = build_executable(build, HOST_NAME)
     if not program.is_file():

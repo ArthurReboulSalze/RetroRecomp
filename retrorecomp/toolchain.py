@@ -112,21 +112,22 @@ def requested() -> str | None:
 
 
 def select() -> Selection:
-    """The toolchain every build uses: RETRO_RECOMP_TOOLCHAIN=llvm|msvc, else
-    the portable tools when installed, else Visual Studio when present."""
+    """The toolchain every build uses: the converter's own portable tools (llvm-mingw, CMake, Ninja), the ones every
+    check of every machine runs with. Visual Studio only when asked for by name (RETRO_RECOMP_TOOLCHAIN=msvc, a
+    developer's or the CI's choice), never because it happens to be installed: nobody needs Visual Studio (the owner's
+    rule), and a silent fallback built a player's Game Boy Advance recompiler as Debug (GitHub issue 1, 1.7.8)."""
     if os.name != 'nt':
         return Selection(NATIVE, Path(shutil.which('cmake') or 'cmake'), 'Ninja')
-    want = requested()
-    if want != MSVC and portable_installed():
+    if requested() == MSVC:
+        studio = visual_studio()
+        if studio:
+            return Selection(MSVC, *studio)
+        raise ToolchainError('RETRO_RECOMP_TOOLCHAIN=msvc asks for Visual Studio, which is not installed.')
+    if portable_installed():
         _prepare_path()
         return Selection(LLVM, tools_directory() / 'cmake' / 'bin' / 'cmake.exe', 'Ninja')
-    if want == LLVM:
-        raise ToolchainError('The portable build tools (llvm-mingw, CMake, Ninja) are not installed.')
-    studio = visual_studio()
-    if studio:
-        return Selection(MSVC, *studio)
-    raise ToolchainError('No C compiler found: install the portable build tools offered by Retro-Recomp, '
-                         'or Visual Studio Build Tools (C++ x64 and CMake).')
+    raise ToolchainError('The build tools are not installed: Retro-Recomp offers to download its own (llvm-mingw, '
+                         'CMake, Ninja) when a conversion starts.')
 
 
 def active() -> str:

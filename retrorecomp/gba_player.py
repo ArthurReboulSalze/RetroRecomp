@@ -122,7 +122,7 @@ def build(player: Path, cmake, generator: str, sdl: Path, emit: Callable[[str], 
     run([cmake, '-S', player, '-B', folder, '-G', generator, *cmake_target_args(), f'-DSDL2_DIR={configuration.as_posix()}',
          '-DCMAKE_BUILD_TYPE=Release'], log=player / 'build.log', timeout=900)
     emit('Building the Game Boy Advance player…')
-    run([cmake, '--build', folder, '--target', 'game', '--parallel', build_jobs()], log=player / 'build.log', timeout=7200)
+    run([cmake, '--build', folder, '--config', 'Release', '--target', 'game', '--parallel', build_jobs()], log=player / 'build.log', timeout=7200)
     program = build_executable(folder, 'game')
     if not program.is_file():
         raise ConversionError('The Game Boy Advance player was not built.')
