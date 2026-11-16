@@ -200,7 +200,7 @@ def grid(width, aspect, scale=1.0, line_height=16, columns=None):
     gap = max(6, round(22 * scale * min(1.0, 6 / columns)))
     margin = round(16 * scale)
     usable = max(1, width - 2 * margin)
-    tile_width = usable // columns
+    tile_width = max(1, usable // columns)
     cover_width = max(16, tile_width - gap)
     cover_height = max(16, round(cover_width / aspect))
     title_lines = 2 if cover_width >= 110 * scale else 1 if cover_width >= 70 * scale else 0

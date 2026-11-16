@@ -119,35 +119,11 @@ class Cards:
 
     def cover(self, game):
         """Fast cache/report lookup first; only then recover an export's icon."""
-        from .artwork import _saved_cover, _read_image, resolve_cover, ArtworkError
-        own = self.folder(game)/'cover.png'
-        cached=None
-        stamp=_report_stamp(game.report)
-        if own.is_file():
-            try:
-                cached=_read_image(own)
-                record=self.load(game).get('cover',{})
-                if (stamp is None or isinstance(record,dict) and (
-                        record.get('override') is True or record.get('report_stamp')==stamp)):
-                    return cached
-            except (OSError, ValueError):pass
-        report = {}
-        try:report = read_json(game.report)
-        except (OSError, ValueError):pass
-        art = report.get('artwork', {})
-        if not isinstance(art,dict):art={}
+        payload, cached, stamp = self._cached_cover(game)
+        if payload is not None:
+            return payload
+        from .artwork import _read_image, resolve_cover
         cache = boxart_cache_directory(game.system)
-        # Some cartridge readers normalize headers; saved-art keys hash the
-        # original file. Prefer the exact conversion's image path when present.
-        choices = [Path(art['image'])] if isinstance(art, dict) and art.get('image') else []
-        saved = _saved_cover(cache, game.identity, game.system, False, True)
-        if saved:choices.insert(0,saved['path'])
-        for path in choices:
-            try:
-                payload = _read_image(path)
-                self.set_cover(game,payload,source=art.get('source_page',''),report_stamp=stamp)
-                return payload
-            except (OSError, ValueError):pass
         try:
             cover = resolve_cover(Path(game.title+'.rom'),game.title,cache,online=False,
                                   system_id=game.system,settings={'box_3d':False,'accounts':{}},emit=lambda _:None)
@@ -172,6 +148,46 @@ class Cards:
                 return payload
         except (OSError, ValueError, struct.error):pass
         return cached
+
+    def cached_cover(self, game):
+        """Only what is already saved: the card's own image, the conversion's box art or the saved download. No
+        local image search, no icon and nothing read from the executable, so a long list stays quick (the
+        front-end); None when there is none."""
+        payload, cached, _ = self._cached_cover(game)
+        return payload if payload is not None else cached
+
+    def _cached_cover(self, game):
+        """(payload, stale own image, report stamp): the first two steps of cover()."""
+        from .artwork import _saved_cover, _read_image
+        own = self.folder(game)/'cover.png'
+        cached=None
+        stamp=_report_stamp(game.report)
+        if own.is_file():
+            try:
+                cached=_read_image(own)
+                record=self.load(game).get('cover',{})
+                if (stamp is None or isinstance(record,dict) and (
+                        record.get('override') is True or record.get('report_stamp')==stamp)):
+                    return cached, cached, stamp
+            except (OSError, ValueError):pass
+        report = {}
+        try:report = read_json(game.report)
+        except (OSError, ValueError):pass
+        art = report.get('artwork', {})
+        if not isinstance(art,dict):art={}
+        cache = boxart_cache_directory(game.system)
+        # Some cartridge readers normalize headers; saved-art keys hash the
+        # original file. Prefer the exact conversion's image path when present.
+        choices = [Path(art['image'])] if isinstance(art, dict) and art.get('image') else []
+        saved = _saved_cover(cache, game.identity, game.system, False, True)
+        if saved:choices.insert(0,saved['path'])
+        for path in choices:
+            try:
+                payload = _read_image(path)
+                self.set_cover(game,payload,source=art.get('source_page',''),report_stamp=stamp)
+                return payload, cached, stamp
+            except (OSError, ValueError):pass
+        return None, cached, stamp
 
     def online_cover(self, game):
         from .artwork import resolve_cover

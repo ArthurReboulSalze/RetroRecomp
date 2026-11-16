@@ -31,7 +31,7 @@ KEEP_PHOTOS = 160            # Tk pictures kept for the tiles drawn or just scro
 
 
 class CoverLoader:
-    """One worker thread: reads each wanted game's cover through the game cards and scales it to `box`. The view
+    """One worker thread: reads each wanted game's saved cover through the game cards and scales it to `box`. The view
     gives it the games in the order it wants them (the visible ones first) and gets ('cover', key, image|None, ratio)
     back on `events`. Pillow only; no Tk call happens here."""
     def __init__(self, events, cards):
@@ -70,7 +70,10 @@ class CoverLoader:
                 self.done.add(key)
             image, ratio = None, None
             try:
-                payload = self.cards.cover(game)
+                # Only what is already saved (Cards.cached_cover): nothing is searched or read from the executable,
+                # so hundreds of games stay quick; a game without one shows its placeholder until the player asks
+                # for the missing covers online.
+                payload = self.cards.cached_cover(game)
                 if payload:
                     with Image.open(BytesIO(payload)) as source:
                         ratio = source.width / source.height if source.height else None
@@ -141,7 +144,9 @@ class FrontEndView(tk.Frame):
         # Games chosen with Ctrl / Shift + click (or Ctrl+A) on the console shown: the menu then acts on all of them.
         self.selected, self.anchor = set(), 0
         self.searching = None      # (done, total, found) while covers are searched online
+        self.search_result = None  # (total, total, found) once the last search of covers ended
         self.controller, self.pad = None, GridPad()
+        self.jobs = {}                 # the view's own `after` jobs, cancelled when it is destroyed
         self.pad_seen = False
         self.force_pad_hints = False
         self.scale = self.wanted_scale()
@@ -201,7 +206,7 @@ class FrontEndView(tk.Frame):
                                  ('<Shift-F10>', self.open_menu), ('<F11>', self.toggle_tv)):
             self.wall.bind(sequence, lambda event, action=action: self.key(event, action))
         self.wall.bind('<Key>', self.letter)
-        self.after(30, self.drain)
+        self.later('drain', 30, self.drain)
 
     # ---- sizes and fonts
     def px(self, value):
@@ -228,6 +233,14 @@ class FrontEndView(tk.Frame):
 
     def wanted_scale(self):
         return SCALE_TV if getattr(self.owner, 'front_end_fullscreen', False) else SCALE_WINDOW
+
+    def relocalize(self):
+        """The interface language changed: names of the favourites and the search, fonts, every text drawn."""
+        current = self.shelf_id()
+        if self.shelves:
+            self.build_shelves()
+            self.shelf = self.index_of(current)
+        self.apply_scale()
 
     def apply_scale(self):
         self.scale = self.wanted_scale()
@@ -299,7 +312,7 @@ class FrontEndView(tk.Frame):
     def slide(self, direction):
         self.strip_offset = direction * self.cx(110)
         if self.strip_timer is None:
-            self.strip_timer = self.after(16, self.slide_step)
+            self.strip_timer = self.later('slide', 16, self.slide_step)
 
     def slide_step(self):
         self.strip_timer = None
@@ -309,7 +322,7 @@ class FrontEndView(tk.Frame):
         if abs(self.strip_offset) < 1.5:
             self.strip_offset = 0.0
         else:
-            self.strip_timer = self.after(16, self.slide_step)
+            self.strip_timer = self.later('slide', 16, self.slide_step)
         self.draw_tabs()
 
     # ---- the favourites and the search, over every console
@@ -835,7 +848,7 @@ class FrontEndView(tk.Frame):
         else:
             hints = [((self.tr('front_end_key_enter'),), 'play'), ((self.tr('front_end_key_escape'),), 'front_end_back'),
                      (('F11',), screen), ((self.tr('front_end_key_space'),), 'front_end_actions'),
-                     (('\u2212', '+'), 'front_end_density'), (('Ctrl+F',), 'front_end_search')]
+                     (('-', '+'), 'front_end_density'), (('Ctrl+F',), 'front_end_search')]
         colors = {'A': '#3c7d4a', 'B': '#8a3b3b', 'X': '#365f8f', 'Y': '#8a7a2e'}
         x = width - self.cx(14)
         for glyphs, key in reversed(hints):
@@ -970,7 +983,7 @@ class FrontEndView(tk.Frame):
         if self.layout:
             pending = getattr(self, '_scroll_pending', None)
             if pending is None:
-                self._scroll_pending = self.after(15, self.after_scroll)
+                self._scroll_pending = self.later('scroll', 15, self.after_scroll)
 
     def after_scroll(self):
         self._scroll_pending = None
@@ -1121,9 +1134,13 @@ class FrontEndView(tk.Frame):
         idle = not (self.owner.busy or self.owner.updating)
         order = ORDERS[(ORDERS.index(self.memory.order) + 1) % len(ORDERS)]
         games = self.chosen()
+        # The shelf's games still without a cover once their saved image was looked for: searched online on demand,
+        # for the front-end only (the executables keep their icon).
+        missing = [g for g in self.games if game_key(g) in self.no_cover]
+        find_missing = ('front_end_find_missing', lambda: self.find_covers(missing), bool(missing) and not self.searching)
         if len(games) > 1:
             favorite = all(g.favorite for g in games)
-            return [('front_end_find_covers', lambda: self.find_covers(games), not self.searching),
+            return [('front_end_find_covers', lambda: self.find_covers(games), not self.searching), find_missing,
                     ('front_end_choose_covers', lambda: self.owner.choose_compiled_covers(games), True),
                     ('favorite_remove' if favorite else 'favorite_add', lambda: self.favorites(games, not favorite),
                      True),
@@ -1134,7 +1151,7 @@ class FrontEndView(tk.Frame):
                     ('front_end_leave', self.confirm_leave, True)]
         items = [('play', self.play, True),
                  ('card_choose_cover', lambda: self.owner.choose_compiled_covers([game]), True),
-                 ('front_end_find_cover', lambda: self.find_covers([game]), not self.searching),
+                 ('front_end_find_cover', lambda: self.find_covers([game]), not self.searching), find_missing,
                  ('favorite_remove' if game.favorite else 'favorite_add', lambda: self.favorite(game), True),
                  # Network play will join here once it exists: host and join from the chosen game.
                  ('front_end_network_later', lambda: None, False),
@@ -1179,6 +1196,8 @@ class FrontEndView(tk.Frame):
     def menu_label(self, key):
         if key in ('front_end_find_covers', 'front_end_choose_covers'):
             return self.tr(key, count=len(self.selected))
+        if key == 'front_end_find_missing':
+            return self.tr(key, count=sum(game_key(g) in self.no_cover for g in self.games))
         if key == 'front_end_next_order':
             following = ORDERS[(ORDERS.index(self.memory.order) + 1) % len(ORDERS)]
             return self.tr(key, order=self.tr('front_end_order_' + following))
@@ -1287,7 +1306,7 @@ class FrontEndView(tk.Frame):
             return
         self.pad = GridPad()
         self.draw_details()
-        self.after(40, self.poll_controller)
+        self.later('pad', 40, self.poll_controller)
 
     def close_controller(self):
         if self.controller is not None:
@@ -1298,7 +1317,7 @@ class FrontEndView(tk.Frame):
         if not self.winfo_exists() or self.controller is None:
             return
         # The next poll first: an error in one action must never stop the gamepad for the rest of the session.
-        self.after(40, self.poll_controller)
+        self.later('pad', 40, self.poll_controller)
         compiled = self.owner.compiled_view
         running = compiled is not None and compiled.game_process is not None and compiled.game_process.poll() is None
         focus = self.focus_displayof()
@@ -1383,7 +1402,7 @@ class FrontEndView(tk.Frame):
         if changed:
             self.update_aspect()
             self.draw_wall()
-        self.after(30, self.drain)
+        self.later('drain', 30, self.drain)
 
     def update_aspect(self):
         """Once a dozen covers of the shelf are read, its slots take their shape (once per console; again for
@@ -1397,9 +1416,20 @@ class FrontEndView(tk.Frame):
         self.aspects[shelf] = cell_aspect(found)
         self.relayout(reload=True)
 
+    def later(self, name, delay, callback):
+        """`after`, remembered by name, so that destroying the view cancels what is still waiting."""
+        job = self.after(delay, callback)
+        self.jobs[name] = job
+        return job
+
     def destroy(self):
         self.loader.close()
         self.close_controller()
+        for job in getattr(self, 'jobs', {}).values():
+            try:
+                self.after_cancel(job)
+            except tk.TclError:
+                pass
         super().destroy()
 
 

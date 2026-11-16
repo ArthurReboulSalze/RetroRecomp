@@ -17,6 +17,14 @@ class FrontEndMixin:
         self.front_end_button = button
         return button
 
+    def front_end_localize(self):
+        """A new interface language: the button, and the front-end's fonts (Chinese and Japanese have their own) and
+        texts when it exists."""
+        self.front_end_button.configure(text=self.tr('front_end'))
+        view = getattr(self, 'front_end_view', None)
+        if view is not None:
+            view.relocalize()
+
     def front_end_start_options(self, parent, checkbox):
         """Options › Common: « Start in Front-end mode », then « …in full screen » below it, greyed while the first
         is off (it only counts with the first)."""
