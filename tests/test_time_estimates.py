@@ -170,9 +170,9 @@ class WithPathsTests(unittest.TestCase):
         self.assertIn('owner', te.table()['with_paths']['a1200']['source'])
         self.assertIsNone(te.with_paths_time('md'))
         window = Window()
-        self.assertNotIn('estimate_paths', window.level_estimate_text('a1200'))      # not shared today
-        with patch.object(te, 'paths_effect', return_value='native'):
-            text = window.level_estimate_text('a1200')
+        with patch.object(te, 'paths_effect', return_value=None):                    # a machine that does not share
+            self.assertNotIn('estimate_paths', window.level_estimate_text('a1200'))
+        text = window.level_estimate_text('a1200')                                     # the A1200 shares since 1.7.9
         self.assertIn('estimate_paths_native', text)
         self.assertIn('estimate_paths_time:span=time_range:high=time_minutes:minutes=25,low=time_minutes:minutes=20', text)
         bad = copy.deepcopy(TABLE)
