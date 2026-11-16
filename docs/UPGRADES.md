@@ -92,6 +92,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
 | [Commodore Amiga: a LoadSeg list keeps the sizes AmigaDOS stores](#commodore-amiga-a-loadseg-list-keeps-the-sizes-amigados-stores-177) | the Amiga and the Amiga 1200 (`rr_resload.c`) | none | refused (every build's are) |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
+| [Commodore Amiga: no battery clock](#commodore-amiga-no-battery-clock-177) | the Amiga and the Amiga 1200 (`amiga_session.cpp`) | none | refused (every build's are) |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
 
@@ -232,6 +233,16 @@ bytes early, and the game stayed black.
   Super Stardust (Amiga 1200), and six Amiga 500 installs (Civilization among them; five of the fourteen call Relocate or PatchSeg):
   identical traces before and after, 2,500 frames each, pictures included.
 - **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`rr_resload.c`); their exports are converted again in full.
+
+## Commodore Amiga: no battery clock (1.7.7)
+
+vAmiga gives every machine an OKI battery clock that reads the host's time. Neither a stock Amiga 500 nor a stock Amiga 1200 has one,
+and a clock that follows the host makes two runs of the same game differ as soon as the game or its Kickstart reads it: the reference
+run and the native one would disagree for a reason that is not the game's. The session now sets no clock (`Opt::RTC_MODEL` NONE).
+
+- **Measured:** Pinball Illusions (5,000 frames), Slam Tilt, Civilization and Gloom (3,000), Banshee and Fears (2,000), before and after
+  on the interpreted reference machine: identical traces, pictures included. None of them reads the clock.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`); their exports are converted again in full.
 
 ## Exports of 1.7.5 in 1.7.6
 

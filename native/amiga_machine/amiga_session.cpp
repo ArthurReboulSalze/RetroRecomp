@@ -532,6 +532,9 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
             S->emu->set(ConfigScheme::A500_ECS_1MB);
         }
         S->emu->set(Opt::AMIGA_VIDEO_FORMAT, S->ntsc ? (i64)TV::NTSC : (i64)TV::PAL);
+        // No battery clock (1.7.7): neither a stock Amiga 500 nor a stock Amiga 1200 has one, and vAmiga's (an OKI chip by default) reads the
+        // host's time, so a game or a Kickstart that read it would see another value in the reference run and in the native one.
+        S->emu->set(Opt::RTC_MODEL, (i64)RTCRevision::NONE);
         S->emu->set(Opt::MEM_SLOW_RAM, SLOW_SIZE / 1024);
         S->emu->set(Opt::MEM_CHIP_RAM, chip_kb);
         // The chipset's collision detection is always there on a real Amiga (CLXCON/CLXDAT: sprite-sprite, sprite-playfield and
