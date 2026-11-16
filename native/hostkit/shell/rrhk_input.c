@@ -538,7 +538,14 @@ bool rrhk_trigger_bound(int side) {
     return false;
 }
 
+/* In a multiplayer session every port's word comes from the session (hostkit_session.h), whichever adapter asks and however
+ * often in a frame; alone, the game reads its controls as it always did. */
 uint16_t rrhk_pad_word(int p, uint64_t frame) {
+    if (rrhk_session_on) return rrhk_session_port(p);
+    return rrhk_local_pad_word(p, frame);
+}
+
+uint16_t rrhk_local_pad_word(int p, uint64_t frame) {
     const RrhkMachine *m = rrhk.machine;
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     uint16_t value = 0;

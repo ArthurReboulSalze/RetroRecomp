@@ -327,6 +327,20 @@ typedef struct RrhkMachine {
     int (*media_count)(void);
     int (*media_current)(void);       /* 0-based */
     bool (*media_select)(int index);  /* false: refused (the notice then names the disc in place) */
+    /* Multiplayer (hostkit_session.h). Every field is NULL when left out, and none is called outside a session. */
+    /* An in-process snapshot for rollback: never a file, never sent, no envelope, no allocation per call, valid after any
+     * run_frame. NULL: the machine plays on the delay tier only. snap_save returns the bytes written, 0 on failure. */
+    size_t (*snap_bound)(void);
+    size_t (*snap_save)(void *buffer, size_t capacity);
+    bool (*snap_load)(const void *buffer, size_t size);
+    /* The guest's deterministic state after the last frame, as named fields in a fixed byte order (never a raw struct), the
+     * same on Windows and Linux. A machine without it is not offered in multiplayer. */
+    uint64_t (*digest)(void);
+    /* What a frame may do outside the guest (cartridge save writes, fallback recording): off for silent frames, and for a
+     * guest's cartridge save during the whole session. NULL: none. */
+    void (*side_effects)(bool allowed);
+    /* A run-changing option the host pushes before frame 0, from the machine's declared list. false: cannot honour it. */
+    bool (*session_option)(const char *key, const char *value);
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
@@ -390,6 +404,11 @@ void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const ch
 /* 1.7.5: an options row with its own icon (RR_ICON_ROW_*); rrhk_option_row lets the kit choose by the row's key (D20). */
 void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);
 extern const RrhkPage rrhk_pointer_page;
+
+/* Multiplayer: true only while the game plays in a session the converter started (hostkit_session.h); silent while a frame is
+ * re-simulated (an adapter that delivers its own sound drops that frame's). */
+bool rrhk_session_active(void);
+bool rrhk_session_silent(void);
 
 /* Each adapter returns its machine; the link has exactly one. */
 const RrhkMachine *rrhk_adapter(void);

@@ -18,6 +18,7 @@
 #include "retro_menu.h"
 #include "runtime_feedback_sdl.h"
 #include "hostkit/hostkit_internal.h"
+#include "hostkit/hostkit_session.h"
 #ifndef _WIN32
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -25,6 +26,7 @@
 #endif
 
 static RrhkRun run;
+static void close_run(RrhkRun *r);
 /* Divergence 8 (decided, D3): the window keeps its position and size when it goes fullscreen and back, and when the guest
  * is restarted and the window is made again. Not claimed across runs of the program. */
 static SDL_Rect saved_window;
@@ -350,6 +352,8 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     quit_asked = false;
     start_help = rr_ini_int(L"Interface", L"start_help", 1, rrhk.read_file) != 0;
     if (!r->test_frames && !start_shown) { start_shown = true; start_until = start_help ? SDL_GetTicks64() + 4500 : 0; }
+    /* Multiplayer: only when the converter started this game in a session (hostkit_session.h); alone, nothing happens. */
+    if (!rrhk_session_open(r)) { close_run(r); return false; }
     return true;
 }
 
@@ -426,7 +430,7 @@ static bool begin_frame(RrhkRun *r) {
         if (r->test_frames) r->running = false; else rrhk_quit_ask();
     } else if (!quit_held) {
         quit_asked = false;
-        if (rrhk_options_restart(rrhk.menu)) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
+        if (rrhk_options_restart(rrhk.menu) && !rrhk_session_on) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
     }
     /* 1.7.5: Quick save and Quick load on player 1's pad, as F8 and F9 in play (the same request, the same notices). Both are
      * watched every frame, so that a hold begun in a menu is never taken for a new one; they act in play only. */
@@ -434,8 +438,13 @@ static bool begin_frame(RrhkRun *r) {
     const bool quick_save = rrhk_options_quick_save(rrhk.menu), quick_load = rrhk_options_quick_load(rrhk.menu);
     if (!rrhk.menu && !r->pending_state && (quick_save || quick_load)) r->pending_state = quick_load ? 2 : 1;
     if (!r->running) return false;
+    /* Multiplayer: no quick state for anyone (F8, F9 and their combinations say so), no fast loading, no speed key. */
+    if (rrhk_session_on && r->pending_state) {
+        r->pending_state = 0;
+        rrhk_notice(rrhk_tr("Quick states are off in multiplayer", "Sauvegardes rapides desactivees en multijoueur"), 1800);
+    }
     /* A computer's fast loading key: no pacing, no sound, a picture every eighth frame. */
-    bool fast = m->fast_forward && m->fast_forward();
+    bool fast = !rrhk_session_on && m->fast_forward && m->fast_forward();
     if (fast != r->fast) { r->fast = fast; r->next = now_ticks(); rrhk_audio_pause_output(r); }
     if (r->pending_state && m->state_ready()) {
         bool load = r->pending_state == 2;
@@ -457,7 +466,7 @@ static bool begin_frame(RrhkRun *r) {
     /* The speed (decision D12): Tab held 2.5x, max speed 5x, as the Game Boy host ran them. Only the pacing changes, and the
      * output stays silent meanwhile: the machine's sound is dropped by rrhk_audio_frame, the machine told to hold its own
      * output like a pause (its pause hook), the ring cleared at each change. */
-    const int speed = rrhk.menu || rrhk.paused ? 100 : rrhk.max_speed ? 500 : rrhk.fast_hold ? 250 : 100;
+    const int speed = rrhk.menu || rrhk.paused || rrhk_session_on ? 100 : rrhk.max_speed ? 500 : rrhk.fast_hold ? 250 : 100;
     if (speed != r->speed) {
         r->speed = speed; r->next = now_ticks();
         rrhk_sound_hold(speed != 100);
@@ -473,13 +482,21 @@ static bool begin_frame(RrhkRun *r) {
      * on until then. A machine whose guest owns the loop (Game Boy, Master System, Game Gear) never does: its guest would keep
      * running, and receive the pad, behind the menu; the request stays pending until the menu is closed and a boundary comes. */
     bool idle = (rrhk.menu != 0 || rrhk.paused) && (!r->pending_state || r->driven);
+    /* Multiplayer: the worker says when the live frame runs (a menu or the Pause key asks everyone to pause instead of
+     * stopping this PC alone); silent frames run inside rrhk_session_frame. */
+    int session = 0;
+    if (rrhk_session_on) {
+        session = rrhk_session_frame(r, m->input_frame ? m->input_frame() : r->frame);
+        if (session < 0) { r->running = false; return false; }
+        idle = session == 0;
+    }
     m->pause(idle || speed != 100);
     /* Explicit performance reports only; include CPU, audio preparation,
      * drawing and Present, but exclude intentional pacing/menu waits. */
     r->work_started = m->cost_enabled && m->cost_enabled() && !rrhk.menu && !rrhk.paused ? now_ticks() : 0;
     uint64_t input_frame = m->input_frame ? m->input_frame() : r->frame;
     uint16_t pad1 = rrhk_pad_word(0, input_frame);
-    if (m->pointer) rrhk_pointer_sample(r->win, r->ren, pad1);
+    if (m->pointer && !rrhk_session_on) rrhk_pointer_sample(r->win, r->ren, pad1);
     r->ran = !idle;
     if (r->ran) {
         if (r->timing_enabled) r->ticks[1] = now_ticks();
@@ -488,7 +505,9 @@ static bool begin_frame(RrhkRun *r) {
                                     (unsigned)r->have.freq, r->have.samples};
             m->before_frame(&probe, input_frame);
         }
+        const Uint64 session_started = session ? now_ticks() : 0;
         if (!m->run_frame(pad1, m->pointer && !m->pointer_keeps_player2 ? 0 : rrhk_pad_word(1, input_frame))) { r->running = false; return false; }
+        if (session) rrhk_session_frame_done(r, now_ticks() - session_started);
         ++r->frame;
         r->ran_frame = true;
     }
@@ -556,7 +575,7 @@ static bool sync_frame(RrhkRun *r) {
                 rrhk_sync.lock ? "locked" : "free");
     }
     if (rrhk_sync.announce) rrhk_sync_notice();
-    const bool other_speed = r->fast || r->speed != 100;
+    const bool other_speed = r->fast || r->speed != 100 || rrhk_session_on;
     const bool paced = rrhk_sync.lock && !other_speed && !rrhk.menu && !rrhk.paused;
 #ifdef _WIN32
     const bool usual = false;          /* before 1.7.7: Windows presents without waiting */
@@ -651,6 +670,7 @@ static void end_frame(RrhkRun *r) {
     if (r->fast) { r->next = now; return; }
     Uint64 period = (Uint64)(m->frame_seconds * r->frequency);
     if (r->speed != 100) period = period * 100 / (Uint64)r->speed;
+    if (rrhk_session_on) period = rrhk_session_period(period);
     r->next += period;
     rrhk_audio_pace(r, now);
     if (r->next > now) {
@@ -671,6 +691,7 @@ static void end_frame(RrhkRun *r) {
 
 static void close_run(RrhkRun *r) {
     const RrhkMachine *m = r->machine;
+    rrhk_session_close(r, r->running ? RRHK_EXIT_FAILED : RRHK_EXIT_CLOSED);
     double elapsed = (double)(SDL_GetPerformanceCounter() - r->test_started) / r->frequency;
     if (m->finished) m->finished(elapsed);
     if (r->test_frames) {
@@ -774,3 +795,6 @@ void rrhk_state_done(bool load, int result) {
     } else if (load) rrhk_notice(rrhk_tr("No compatible quick state to load", "Aucune sauvegarde compatible"), 1800);
     else rrhk_notice(m && m->save_failed_en ? rrhk_tr(m->save_failed_en, m->save_failed_fr) : rrhk_tr("Cannot save game state", "Impossible de sauvegarder"), 1800);
 }
+
+/* Multiplayer (hostkit_session.h): included here so that no machine's build list changes. */
+#include "rrhk_session.inc"

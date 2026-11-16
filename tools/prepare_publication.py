@@ -360,15 +360,17 @@ retrorecomp/systems/cps1.py retrorecomp/systems/cps2.py tests/test_cps1_integrat
 tools/cps1_release_check.py tools/release_check.py tests/test_release_check.py
 tools/campaign.py tools/campaign-risk-cases.json tests/test_campaign.py
 native/retro_console16.h native/console16_main.c native/scanlines.h
-native/hostkit/hostkit.h native/hostkit/hostkit_internal.h retrorecomp/hostkit.py
+native/hostkit/hostkit.h native/hostkit/hostkit_internal.h native/hostkit/hostkit_session.h retrorecomp/hostkit.py
 native/hostkit/shell/rrhk_audio.c native/hostkit/shell/rrhk_events.c native/hostkit/shell/rrhk_input.c
 native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit/shell/rrhk_options.c
-native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_timing.c
+native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_session.inc
+native/hostkit/shell/rrhk_timing.c
 native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
 native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_computer.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py tools/sega_states_selftest.py tests/test_sega_evidence.py tools/sega_bank_dispatch_check.py tools/sega_campaign.py tools/sega_cross_os.py tests/test_sega_cross_os.py
 tools/hostkit_players_selftest.py tools/hostkit_players/checks.c tests/test_hostkit_players.py
 tools/hostkit_capabilities_selftest.py tools/hostkit_capabilities/checks.c tests/test_hostkit_capabilities.py
+tools/hostkit_session_selftest.py tools/hostkit_session/fake.c tests/test_hostkit_session.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py

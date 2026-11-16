@@ -258,4 +258,21 @@ int rrhk_launcher_text(const char *text, size_t len, const char *exe, char **hea
 #ifndef _WIN32
 int rrhk_heal_launcher(const char *exe);
 #endif
+
+/* session.c: multiplayer (hostkit_session.h). rrhk_session_on is false unless the converter started the game in a session:
+ * then and only then does any of the functions below do anything. */
+extern bool rrhk_session_on;
+bool rrhk_session_open(RrhkRun *run);          /* at open; false: the session could not start (the run stops, the reason said) */
+/* Before the machine's frame: report the local pad, execute the worker's commands (silent frames included); 1: run the live
+ * frame now with the session's port words, 0: nothing to run this iteration (waiting or paused), -1: the session ended. */
+int rrhk_session_frame(RrhkRun *run, uint64_t input_frame);
+void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks);   /* after the live frame ran */
+uint16_t rrhk_session_port(int port);         /* the word of a port for the frame being run */
+Uint64 rrhk_session_period(Uint64 period);    /* the frame period with the worker's time sync applied */
+bool rrhk_session_paused(void);
+void rrhk_session_close(RrhkRun *run, int reason);
+/* input.c: the pad word of this PC's player as today's solo game reads it (player `player`'s bindings, autofire applied). */
+uint16_t rrhk_local_pad_word(int player, uint64_t frame);
+/* audio.c: take the machine's sound of the frame just run and drop it (a silent frame). */
+void rrhk_audio_discard(RrhkRun *run);
 #endif

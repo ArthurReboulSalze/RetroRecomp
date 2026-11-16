@@ -26,10 +26,12 @@ class StagingTests(unittest.TestCase):
                 adapters = [name for name in listed if '/adapters/' in name]
                 self.assertEqual(adapters, [] if included else [f'hostkit/adapters/rrhk_{family}.c'])
                 staged = [*listed, *([included] if included else [])]
-                for name in (*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h'):
+                for name in (*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h', 'hostkit/hostkit_session.h',
+                             'hostkit/shell/rrhk_session.inc'):
                     self.assertEqual((project / name).read_bytes(), (KIT / name.split('/', 1)[1]).read_bytes())
                 self.assertEqual(sorted(path.relative_to(project).as_posix() for path in (project / 'hostkit').rglob('*')
-                                        if path.is_file()), sorted([*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h']))
+                                        if path.is_file()), sorted([*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
+                                                                   'hostkit/hostkit_session.h', 'hostkit/shell/rrhk_session.inc']))
 
     def test_an_unchanged_file_keeps_its_timestamp(self):
         with tempfile.TemporaryDirectory() as folder:

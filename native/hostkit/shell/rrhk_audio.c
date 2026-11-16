@@ -110,6 +110,16 @@ unsigned rrhk_audio_queued(const RrhkRun *run) {
     return run->audio && run->machine->audio_model == RRHK_AUDIO_QUEUE ? SDL_GetQueuedAudioSize(run->audio) : 0;
 }
 
+/* A silent (re-simulated) frame of a multiplayer session: its sound is taken from the machine and dropped, as at a speed that is
+ * not 100 %, so the next frame's sound is not mixed with it and nothing is heard twice. */
+void rrhk_audio_discard(RrhkRun *run) {
+    const RrhkMachine *m = run->machine;
+    int16_t pcm[4096]; size_t n;
+    if (m->own_audio || !m->audio) return;
+    if (m->audio_model == RRHK_AUDIO_RING) while (m->audio(pcm, 4096) > 0) {}
+    else { n = m->audio(pcm, 4096); while (m->audio_chunked && n == 4096 && (n = m->audio(pcm, 4096)) > 0) {} }
+}
+
 /* The sound of the frame just run, from the machine to the device. The ring model drains the
  * machine until it has nothing more; the queue model takes one block. */
 void rrhk_audio_frame(RrhkRun *run) {
