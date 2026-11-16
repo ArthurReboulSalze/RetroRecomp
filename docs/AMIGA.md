@@ -311,7 +311,9 @@ converted by the 1.7.7 candidate (`rc-177` at `35ac18c9`, the standard level) an
 « Je viens de tester les huit jeux Amiga 1200, ça marche impeccable, tu peux le sortir de l'expérimental. » (G14, [the owner-acceptance table](QUALIFICATION.md#owner-acceptance)). All eight passed
 every check of their conversion: 0 interpreted instructions on both routes, but for one Kickstart instruction on Pinball Illusions and
 Banshee and the Kickstart's 59,006 on All New World of Lemmings (0.10 %), counted and shown. The checks of tests/test_machine_registry.py
-for a `supported` machine pass on the real profile: five risk cases, witnessed on Linux, no failed gate.
+for a `supported` machine pass on the real profile: five risk cases, witnessed on Linux, no failed gate. On the exit's tree, four of
+them (Slam Tilt, Pinball Illusions, Alien Breed 3D, All New World of Lemmings) were converted again on Windows (llvm-mingw) and on WSL
+Debian 13 (GCC): every field of every route is the same on both and the same as in the conversions the owner played.
 
 **Its paths are not shared for now** (G16 `?`): on the owner's word of 15 November 2026, when he cancelled the sharing measurement, « on n'active pas le partage de chemin encore. On verra si c'est pertinent. Pour l'instant, ça n'a pas l'air de l'être. »
 On 16 November 2026: « pour le partage des chemins, on fera des tests plus tard. Faudra qu'on fasse des tests quand même. » A measure with and without another player's paths is to come, after this exit; until then
