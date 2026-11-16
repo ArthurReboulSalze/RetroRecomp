@@ -80,6 +80,7 @@ class FrontEndMixin:
         self.front_end_visible = True
         self.front_end_button.state(['pressed'])
         self.front_end_view.show()
+        self.app.after(60, self.front_end_view.take_focus)
         # The front-end opens in full screen (Arthur, 16 Nov 2026); Esc / B / F11 bring the window back.
         if fullscreen:
             self.set_front_end_fullscreen(True)
@@ -125,3 +126,6 @@ class FrontEndMixin:
             pass
         if getattr(self, 'front_end_view', None) is not None:
             self.front_end_view.apply_scale()
+            # Twice: Windows settles the full-screen switch a moment later and may move the focus again.
+            for delay in (60, 400):
+                self.app.after(delay, self.front_end_view.take_focus)

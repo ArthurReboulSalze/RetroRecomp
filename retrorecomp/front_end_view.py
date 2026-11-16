@@ -102,6 +102,9 @@ class FrontEndView(tk.Frame):
         self.photos = OrderedDict()       # (key, width, height) -> PhotoImage
         self.layout = None
         self.menu_items, self.menu_index = None, 0
+        # Games chosen with Ctrl / Shift + click (or Ctrl+A) on the console shown: the menu then acts on all of them.
+        self.selected, self.anchor = set(), 0
+        self.searching = None      # (done, total, found) while covers are searched online
         self.controller, self.pad = None, GridPad()
         self.pad_seen = False
         self.force_pad_hints = False
@@ -145,6 +148,7 @@ class FrontEndView(tk.Frame):
                                  ('<KP_Subtract>', lambda: self.change_columns(-1)),
                                  ('<plus>', lambda: self.change_columns(1)), ('<equal>', lambda: self.change_columns(1)),
                                  ('<KP_Add>', lambda: self.change_columns(1)),
+                                 ('<Control-a>', self.select_all), ('<Control-A>', self.select_all),
                                  ('<Shift-F10>', self.open_menu), ('<F11>', self.toggle_tv)):
             self.wall.bind(sequence, lambda event, action=action: (action(), 'break')[1])
         self.wall.bind('<Key>', self.letter)
@@ -199,6 +203,7 @@ class FrontEndView(tk.Frame):
         profile, games = self.shelves[index]
         self.memory.console = profile.id
         self.memory.save()
+        self.selected.clear()
         self.games = sort_games(games, self.memory.order, self.memory.played)
         keys = [game_key(game) for game in self.games]
         self.focus_index = keys.index(game_key(previous)) if previous and game_key(previous) in keys else 0
@@ -310,6 +315,15 @@ class FrontEndView(tk.Frame):
         else:
             box = (x, y, x + width, bottom)
             canvas.create_rectangle(*box, fill=COLORS['field'], outline=COLORS['subtle_border'], tags='tile')
+        if key in self.selected:
+            # A chosen game: dimmed a little, a gold frame and a check mark in its corner.
+            canvas.create_rectangle(*box, outline=COLORS['gold_hover'], width=self.px(3), tags='tile')
+            r = self.px(11)
+            cx, cy = box[0] + r + self.px(4), box[1] + r + self.px(4)
+            canvas.create_oval(cx - r, cy - r, cx + r, cy + r, fill=COLORS['gold'], outline=COLORS['gold_text'],
+                               width=self.px(1.5), tags='tile')
+            canvas.create_line(cx - r * 0.45, cy, cx - r * 0.1, cy + r * 0.4, cx + r * 0.5, cy - r * 0.35,
+                               fill=COLORS['gold_text'], width=self.px(2.5), tags='tile')
         if focus:
             pad = self.px(4)
             canvas.create_rectangle(box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad, outline=COLORS['gold'],
@@ -360,12 +374,9 @@ class FrontEndView(tk.Frame):
         if not self.shelves:
             return
         glyph = self.px(30)
-        # Full screen hides the window's toolbar: a button at the right end brings the window back (mouse).
-        restore = self.px(34) if getattr(self.owner, 'front_end_fullscreen', False) else 0
+        # Full screen and back: a labelled button at the right end, always there (Arthur, 16 Nov 2026).
+        restore = self.draw_screen_button(width, height // 2 - self.px(2))
         width -= restore
-        self.restore_box = None
-        if restore:
-            self.draw_restore(width + self.px(6), height // 2 - self.px(2))
         spacing = self.px(26)
         items = []
         for index, (profile, games) in enumerate(self.shelves):
@@ -402,18 +413,29 @@ class FrontEndView(tk.Frame):
         self.pill(canvas, width - glyph, middle, 'RB')
         canvas.create_line(0, height - 1, width + restore, height - 1, fill=COLORS['subtle_border'])
 
-    def draw_restore(self, left, middle):
-        """The « back to the window » button: two overlapping frames, as the title bars show it."""
-        canvas, size = self.tabs, self.px(26)
-        self.restore_box = (left, left + size)
-        canvas.create_rectangle(left, middle - size // 2, left + size, middle + size // 2, fill=COLORS['button'],
-                                outline=COLORS['subtle_border'])
-        unit = self.px(4)
-        x, y = left + size // 2, middle
-        canvas.create_rectangle(x - unit - 1, y - unit + 2, x + unit - 1, y + unit + 2, outline=COLORS['text'],
-                                width=max(1, self.px(1.2)))
-        canvas.create_line(x - unit + 2, y - unit - 1, x + unit + 2, y - unit - 1, x + unit + 2, y + unit - 1,
-                           fill=COLORS['text'], width=max(1, self.px(1.2)))
+    def draw_screen_button(self, right, middle):
+        """« Full screen » (one frame) in the window, « Window » (two frames) in full screen, at the right end of the
+        strip; returns the room it takes."""
+        canvas = self.tabs
+        full = getattr(self.owner, 'front_end_fullscreen', False)
+        label = self.tr('front_end_windowed' if full else 'front_end_fullscreen')
+        unit, pad, height = self.px(4), self.px(10), self.px(26)
+        width = pad * 2 + unit * 3 + self.px(8) + self.font_hint.measure(label)
+        left = right - width
+        self.restore_box = (left, right)
+        canvas.create_rectangle(left, middle - height // 2, right, middle + height // 2, fill=COLORS['button'],
+                                outline=COLORS['gold'])
+        x, y, line = left + pad + unit, middle, max(1, self.px(1.2))
+        if full:
+            canvas.create_rectangle(x - unit, y - unit + 2, x + unit - 2, y + unit + 2, outline=COLORS['text'],
+                                    width=line)
+            canvas.create_line(x - unit + 2, y - unit - 1, x + unit + 1, y - unit - 1, x + unit + 1, y + unit - 1,
+                               fill=COLORS['text'], width=line)
+        else:
+            canvas.create_rectangle(x - unit, y - unit, x + unit + 1, y + unit, outline=COLORS['text'], width=line)
+        canvas.create_text(x + unit * 2 + self.px(6), middle, text=label, anchor='w', font=self.font_hint,
+                           fill=COLORS['text'])
+        return width + self.px(10)
 
     def draw_density(self, right, middle):
         """Right of the consoles: the covers per row of this console between a minus and a plus button; returns
@@ -499,6 +521,12 @@ class FrontEndView(tk.Frame):
         if game.status == 'fallback':
             facts.append(self.tr('front_end_fallback'))
         facts.append(self.tr('front_end_sorted', order=order))
+        if self.searching:
+            facts.insert(0, self.tr('front_end_searching', done=self.searching[0], total=self.searching[1]))
+        elif getattr(self, 'search_result', None):
+            facts.insert(0, self.tr('front_end_search_done', found=self.search_result[2], total=self.search_result[1]))
+        if self.selected:
+            facts.insert(0, self.tr('front_end_selected', count=len(self.selected)))
         left = self.px(16)
         room = max(40, hints_left - left - self.px(20))
         title = clamp_lines(self.font_detail, game.title, room, 1)[0]
@@ -623,8 +651,39 @@ class FrontEndView(tk.Frame):
             return
         index = self.layout.at(self.wall.canvasx(event.x), self.wall.canvasy(event.y), len(self.games)) \
             if self.layout else None
-        if index is not None:
-            self.go(index)
+        if index is None:
+            return
+        control, shift = bool(event.state & 0x4), bool(event.state & 0x1)
+        if control or shift:
+            if not self.selected and not shift:
+                self.selected.add(game_key(self.games[self.focus_index]))
+            if shift:
+                low, high = sorted((self.anchor, index))
+                self.selected.update(game_key(game) for game in self.games[low:high + 1])
+            else:
+                key = game_key(self.games[index])
+                self.selected.symmetric_difference_update({key})
+                self.anchor = index
+        else:
+            if self.selected:
+                self.selected.clear()
+                self.draw_wall()
+            self.anchor = index
+        self.go(index)
+        self.draw_wall()
+        self.draw_details()
+
+    def chosen(self):
+        """The games the menu acts on: the selection, else the focused game."""
+        if self.selected:
+            return [game for game in self.games if game_key(game) in self.selected]
+        return [self.focused()] if self.games else []
+
+    def select_all(self):
+        if self.menu_items is None and self.games:
+            self.selected = {game_key(game) for game in self.games}
+            self.draw_wall()
+            self.draw_details()
 
     def tab_clicked(self, event):
         box = getattr(self, 'restore_box', None)
@@ -641,7 +700,13 @@ class FrontEndView(tk.Frame):
                 return
 
     def context_menu(self, event):
-        self.clicked(event)
+        """Right-click: on a chosen game the selection stays (the menu acts on all of them); elsewhere it is that game."""
+        index = self.layout.at(self.wall.canvasx(event.x), self.wall.canvasy(event.y), len(self.games)) \
+            if self.layout and self.menu_items is None else None
+        if index is not None and game_key(self.games[index]) in self.selected:
+            self.go(index)
+        elif self.menu_items is None:
+            self.clicked(event)
         if self.games:
             self.open_menu()
 
@@ -664,6 +729,10 @@ class FrontEndView(tk.Frame):
     def back(self):
         if self.menu_items is not None:
             self.close_menu()
+        elif self.selected:
+            self.selected.clear()
+            self.draw_wall()
+            self.draw_details()
         elif getattr(self.owner, 'front_end_fullscreen', False):
             self.owner.set_front_end_fullscreen(False)
         else:
@@ -674,9 +743,21 @@ class FrontEndView(tk.Frame):
         game = self.focused()
         idle = not (self.owner.busy or self.owner.updating)
         order = ORDERS[(ORDERS.index(self.memory.order) + 1) % len(ORDERS)]
+        games = self.chosen()
+        if len(games) > 1:
+            favorite = all(g.favorite for g in games)
+            return [('front_end_find_covers', lambda: self.find_covers(games), not self.searching),
+                    ('front_end_choose_covers', lambda: self.owner.choose_compiled_covers(games), True),
+                    ('favorite_remove' if favorite else 'favorite_add', lambda: self.favorites(games, not favorite),
+                     True),
+                    ('reconvert', lambda: self.owner.reconvert_games(games), idle),
+                    ('front_end_select_none', self.back, True),
+                    ('front_end_tv_leave' if self.owner.front_end_fullscreen else 'front_end_tv', self.toggle_tv,
+                     True),
+                    ('front_end_leave', self.owner.toggle_front_end, True)]
         items = [('play', self.play, True),
                  ('card_choose_cover', lambda: self.owner.choose_compiled_covers([game]), True),
-                 ('front_end_find_cover', lambda: self.find_cover(game), True),
+                 ('front_end_find_cover', lambda: self.find_covers([game]), not self.searching),
                  ('favorite_remove' if game.favorite else 'favorite_add', lambda: self.favorite(game), True),
                  # Network play will join here once it exists: host and join from the chosen game.
                  ('front_end_network_later', lambda: None, False),
@@ -715,11 +796,12 @@ class FrontEndView(tk.Frame):
         return left, top, width, height, line, labels
 
     def menu_label(self, key):
-        game = self.focused()
+        if key in ('front_end_find_covers', 'front_end_choose_covers'):
+            return self.tr(key, count=len(self.selected))
         if key == 'front_end_next_order':
             following = ORDERS[(ORDERS.index(self.memory.order) + 1) % len(ORDERS)]
             return self.tr(key, order=self.tr('front_end_order_' + following))
-        return self.tr(key) if key != 'card_choose_cover' or game is None else self.tr(key)
+        return self.tr(key)
 
     def draw_menu(self):
         canvas = self.wall
@@ -728,7 +810,9 @@ class FrontEndView(tk.Frame):
                                 tags='tile')
         canvas.create_rectangle(left, top, left + width, top + height, fill=COLORS['panel'], outline=COLORS['gold'],
                                 width=self.px(2), tags='tile')
-        title = clamp_lines(self.font_focus, self.focused().title, width - self.px(32), 1)[0]
+        heading = (self.tr('front_end_selected', count=len(self.selected)) if len(self.selected) > 1
+                   else self.focused().title)
+        title = clamp_lines(self.font_focus, heading, width - self.px(32), 1)[0]
         canvas.create_text(left + self.px(20), top + self.px(18), text=title, anchor='w', font=self.font_focus,
                            fill=COLORS['gold_hover'], tags='tile')
         y = top + self.px(40)
@@ -750,18 +834,30 @@ class FrontEndView(tk.Frame):
         return index if 0 <= index < len(self.menu_items) and self.menu_items[index][2] else None
 
     def favorite(self, game):
-        self.owner.compiled_inventory.set_favorite(game, not game.favorite)
+        self.favorites([game], not game.favorite)
+
+    def favorites(self, games, value):
+        for game in games:
+            self.owner.compiled_inventory.set_favorite(game, value)
         self.draw_wall()
 
-    def find_cover(self, game):
-        key = game_key(game)
+    def find_covers(self, games):
+        """Search each game's box art online, one after the other off Tk (game_details.Cards.online_cover: the
+        image becomes the game card's cover); the details line follows the count, the wall shows each new cover."""
+        if self.searching or not games:
+            return
+        self.searching = (0, len(games), 0)
         def worker():
-            try:
-                payload = self.cards.online_cover(game)
-            except Exception:
-                payload = None
-            self.events.put(('found', 0, key, payload, None))
+            found = 0
+            for done, game in enumerate(games, 1):
+                try:
+                    payload = self.cards.online_cover(game)
+                except Exception:
+                    payload = None
+                found += bool(payload)
+                self.events.put(('found', (done, len(games), found), game_key(game), payload, None))
         threading.Thread(target=worker, daemon=True).start()
+        self.draw_details()
 
     def cover_changed(self, game):
         """A new cover was given (the box-art window or a search): read it again."""
@@ -776,6 +872,18 @@ class FrontEndView(tk.Frame):
 
     def toggle_tv(self):
         self.owner.set_front_end_fullscreen(not self.owner.front_end_fullscreen)
+
+    def take_focus(self):
+        """After a switch to or from full screen, Windows may give the foreground to another window (the console that
+        started the converter, say): the gamepad only drives the front-end while its window is in front, so it seemed
+        lost (Arthur, 16 Nov 2026). Take the foreground and the keyboard back."""
+        if not self.winfo_exists() or not self.winfo_viewable():
+            return
+        try:
+            self.owner.app.focus_force()
+            self.wall.focus_set()
+        except tk.TclError:
+            pass
 
     # ---- the gamepad and the loader's results
     def start_controller(self):
@@ -799,6 +907,8 @@ class FrontEndView(tk.Frame):
     def poll_controller(self):
         if not self.winfo_exists() or self.controller is None:
             return
+        # The next poll first: an error in one action must never stop the gamepad for the rest of the session.
+        self.after(40, self.poll_controller)
         compiled = self.owner.compiled_view
         running = compiled is not None and compiled.game_process is not None and compiled.game_process.poll() is None
         focus = self.focus_displayof()
@@ -810,22 +920,28 @@ class FrontEndView(tk.Frame):
             self.close_controller()
             return
         for event in events:
-            if isinstance(event, tuple):
-                self.step(event[1], event[2])
-            elif event == 'a':
-                self.accept()
-            elif event == 'b':
-                self.back()
-            elif event in ('x', 'y'):
-                # X: fewer, larger covers; Y: more covers per row (this console only).
-                self.change_columns(-1 if event == 'x' else 1)
-            elif event == 'start':
-                self.open_menu()
-            elif event in ('lb', 'rb'):
-                self.switch(-1 if event == 'lb' else 1)
-            elif event == 'back':
-                self.set_order(ORDERS[(ORDERS.index(self.memory.order) + 1) % len(ORDERS)])
-        self.after(40, self.poll_controller)
+            try:
+                self.pad_event(event)
+            except Exception:
+                import traceback
+                traceback.print_exc()
+
+    def pad_event(self, event):
+        if isinstance(event, tuple):
+            self.step(event[1], event[2])
+        elif event == 'a':
+            self.accept()
+        elif event == 'b':
+            self.back()
+        elif event in ('x', 'y'):
+            # X: fewer, larger covers; Y: more covers per row (this console only).
+            self.change_columns(-1 if event == 'x' else 1)
+        elif event == 'start':
+            self.open_menu()
+        elif event in ('lb', 'rb'):
+            self.switch(-1 if event == 'lb' else 1)
+        elif event == 'back':
+            self.set_order(ORDERS[(ORDERS.index(self.memory.order) + 1) % len(ORDERS)])
 
     def drain(self):
         if not self.winfo_exists():
@@ -838,6 +954,10 @@ class FrontEndView(tk.Frame):
                     game = next((g for g in self.games if game_key(g) == key), None)
                     if game is not None and image:
                         self.cover_changed(game)
+                    done, total, found = generation
+                    self.searching = None if done >= total else generation
+                    self.search_result = generation if done >= total else None
+                    self.draw_details()
                     continue
                 if image is None:
                     self.no_cover.add(key)
