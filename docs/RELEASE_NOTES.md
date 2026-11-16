@@ -5,6 +5,9 @@
   folder, and CMake refused it at every later launch (« does not match the source … used to generate cache »: seen on the
   Amiga 1200 with 1869; the Atari ST and the Nintendo 64 build the same way). Such a folder is now deleted before the build
   starts again, so the conversion rebuilds it and goes on.
+- **The converter: no silent close during a batch.** A window variable or picture released while a conversion ran in the
+  background could make Tk abort the whole converter with no message (« Tcl_AsyncDelete »). Such objects are now always
+  released by the window's own thread.
 
 ---
 
