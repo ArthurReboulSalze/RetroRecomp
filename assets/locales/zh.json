@@ -482,7 +482,7 @@
     "credits_x68_cpu": "原型使用的 Musashi 参考 CPU",
     "credits_cps2_board": "主板逻辑、ROM 集目录与指令解密 · CPS-2 驱动 (Paul Leaman, Andreas Naive, Nicola Salmoria, Charles MacDonald)、QSound (superctr, Valley Bell)",
     "credits_amiga_hardware": "机器运行库 (Agnus, Denise, Paula, CIA, 软盘) 及其 68000 核心 Moira · Dirk W. Hoffmann",
-    "credits_amiga_crunchmania": "Crunch-Mania 格式描述 (自有解压代码) · Teemu Suutari",
+    "credits_amiga_crunchmania": "Crunch-Mania / Imploder 格式描述 (自有解压代码) · Teemu Suutari",
     "credits_psx_machine": "机器运行库 (R3000A, GTE, GPU, SPU, CD-ROM, MDEC), 源自 Mednafen · Beetle PSX 与 Mednafen 开发者",
     "credits_atarist_hardware": "机器运行库 (68000, Shifter, MFP, YM2149, IKBD, 软盘) · Hatari 开发者",
     "credits_n64_machine": "机器运行时（Mupen64Plus 核心、ParaLLEl-RSP、ParaLLEl-RDP）· Mupen64Plus 小组、Hans-Kristian Arntzen、libretro 贡献者",

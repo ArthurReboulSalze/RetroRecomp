@@ -482,7 +482,7 @@
     "credits_x68_cpu": "Musashi-Referenz-CPU des Prototyps",
     "credits_cps2_board": "Platinenlogik, Romset-Katalog und Befehlsentschlüsselung · CPS-2-Treiber (Paul Leaman, Andreas Naive, Nicola Salmoria, Charles MacDonald), QSound (superctr, Valley Bell)",
     "credits_amiga_hardware": "Maschinen-Laufzeit (Agnus, Denise, Paula, CIAs, Diskette) und ihr 68000-Kern Moira · Dirk W. Hoffmann",
-    "credits_amiga_crunchmania": "Beschreibung des Crunch-Mania-Formats (eigener Entpacker) · Teemu Suutari",
+    "credits_amiga_crunchmania": "Beschreibung der Formate Crunch-Mania und Imploder (eigene Entpacker) · Teemu Suutari",
     "credits_psx_machine": "Maschinen-Laufzeit (R3000A, GTE, GPU, SPU, CD-ROM, MDEC), abgeleitet von Mednafen · die Teams von Beetle PSX und Mednafen",
     "credits_atarist_hardware": "Maschinen-Laufzeit (68000, Shifter, MFP, YM2149, IKBD, Diskette) · das Hatari-Team",
     "credits_n64_machine": "Maschinen-Laufzeit (Mupen64Plus-Kern, ParaLLEl-RSP, ParaLLEl-RDP) · das Mupen64Plus-Team, Hans-Kristian Arntzen, die libretro-Mitwirkenden",
