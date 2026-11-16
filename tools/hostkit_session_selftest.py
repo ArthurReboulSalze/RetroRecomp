@@ -246,7 +246,7 @@ def check_digest(game: Game, history: list) -> None:
 def stop(game: Game) -> None:
     game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS['RRHK_STOP_ENDED']))
     exit_payload = game.expect('RRHK_MSG_EXIT', timeout=10)
-    assert struct.unpack('<H', exit_payload)[0] == CONSTANTS['RRHK_EXIT_CLOSED']
+    assert struct.unpack('<H', exit_payload)[0] == CONSTANTS['RRHK_EXIT_STOPPED']     # not the player closing the window
 
 
 def scenarios(executable: Path, out: Path) -> list[str]:

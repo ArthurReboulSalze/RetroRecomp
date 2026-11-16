@@ -53,6 +53,7 @@ static struct {
     bool local_sent;                /* LOCAL already reported for `live` */
     uint16_t word_sent, system_sent;   /* what that LOCAL said: a change of the system bits before the RUN is reported again */
     Uint64 ending_until;            /* the session ended: the message stays on screen until then, then the game closes */
+    uint16_t exit_reason;           /* what EXIT says then (RRHK_EXIT_*): stopped by Retro-Recomp, lost, refused */
     int32_t ppm;                    /* time sync: added to the frame period */
     uint8_t *ring;                  /* depth slots of slot_size bytes */
     size_t slot_size;
@@ -245,7 +246,7 @@ bool rrhk_session_open(RrhkRun *run) {
     }
     memset(s.ports, 0, sizeof s.ports);
     memset(s.slot_used, 0, sizeof s.slot_used);
-    s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.ppm = 0; s.ending_until = 0; s.system_sent = 0;
+    s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.ppm = 0; s.ending_until = 0; s.system_sent = 0; s.exit_reason = 0;
     s.setup = false; s.setup_until = SDL_GetTicks64() + 15000;
     rrhk_session_on = true;           /* from here the frames wait for SETUP inside the loop (events and pictures go on) */
     return true;
@@ -292,8 +293,9 @@ static bool set_ports(const uint8_t *payload, uint16_t length) {
 /* The session is over (lost, refused, stopped): the reason stays on screen about 3.5 s (events polled, pictures presented, no
  * frame run), then the game closes. Never a window that simply vanishes. */
 #define RRHK_SESSION_ENDING_MS 3500
-static int ending(const char *message) {
+static int ending(const char *message, uint16_t reason) {
     if (!s.ending_until) {
+        s.exit_reason = reason;
         rrhk_notice(message, RRHK_SESSION_ENDING_MS + 500);
         s.ending_until = SDL_GetTicks64() + RRHK_SESSION_ENDING_MS;    /* nothing more is read; EXIT is sent at close */
     }
@@ -302,7 +304,7 @@ static int ending(const char *message) {
 static int lost(RrhkRun *run, const char *why) {
     (void)run;
     fprintf(stderr, "[session] %s\n", why);
-    return ending(rr_tr("Connection to Retro-Recomp lost"));
+    return ending(rr_tr("Connection to Retro-Recomp lost"), RRHK_EXIT_LOST);
 }
 
 int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
@@ -316,7 +318,11 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         uint16_t length = 0;
         const uint16_t type = take(payload, &length);
         if (s.broken) return lost(run, "a message broke the rules");
-        if (type == RRHK_MSG_SETUP) return setup(m, payload, length) ? 0 : lost(run, "the setup was refused");
+        if (type == RRHK_MSG_SETUP) {
+            if (setup(m, payload, length)) return 0;
+            fprintf(stderr, "[session] the setup was refused\n");
+            return ending(rr_tr("Connection to Retro-Recomp lost"), RRHK_EXIT_FAILED);
+        }
         if (type) return lost(run, "a message before the setup");
         if (SDL_GetTicks64() >= s.setup_until) return lost(run, "no setup from Retro-Recomp");
         wait_input(4);
@@ -433,7 +439,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             const uint16_t reason = length >= 2 ? (uint16_t)(payload[0] | payload[1] << 8) : 0;
             fprintf(stderr, "[session] stopped by Retro-Recomp (%u)\n", (unsigned)reason);
             return ending(reason == RRHK_STOP_DESYNC ? rr_tr("The games went out of step: the match stops") :
-                          rr_tr("The match is over"));
+                          rr_tr("The match is over"), RRHK_EXIT_STOPPED);
         }
         default:
             refuse(RRHK_REFUSED_COMMAND, "unknown");
@@ -455,7 +461,8 @@ void rrhk_session_close(RrhkRun *run, int reason) {
     (void)run;
     if (!rrhk_session_on) return;
     uint8_t out[2];
-    put16(out, (uint16_t)reason);
+    /* The reason the session recorded when it ended (stopped, lost, refused) wins over the window's own (closed, failed). */
+    put16(out, s.exit_reason ? s.exit_reason : (uint16_t)reason);
     send_message(RRHK_MSG_EXIT, out, sizeof out);
 #ifdef _WIN32
     CloseHandle(s.in); CloseHandle(s.out);
