@@ -247,7 +247,7 @@ def status() -> dict:
     return _call('GET', 'status')[1]
 
 
-# The site's message to every player (announcement.py reads it): a few short texts, read in at most this many bytes.
+# The site's message to every player (announcement.py reads it): one short text, read in at most this many bytes.
 ANNOUNCEMENT_BYTES = 32 * 1024
 
 

@@ -86,7 +86,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares](#commodore-amiga-500-and-1200-play-travels-the-amiga-1200-shares-179) | **the Amiga and the Amiga 1200** (`amiga_conversion.py`, `amiga_knowledge.py`, `systems/amiga.py`, the new `a1200_knowledge.py`) | none | the Amiga and Amiga 1200 keys move (every input); the others are unchanged |
-| [The converter: a welcome in the log panel and Arthur's message](#the-converter-a-welcome-in-the-log-panel-and-arthurs-message-179) | none | none (window modules only) | unchanged |
+| [The converter: a welcome in the log panel and the developer's message](#the-converter-a-welcome-in-the-log-panel-and-the-developers-message-179) | none | none (window modules only) | unchanged |
 
 ## Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares (1.7.9)
 
@@ -97,11 +97,13 @@ On the owner's word of 16 November 2026 (« Je préfère que tu mettes en place 
 - **A replay stopped from outside says so** (both Amigas): a player run that ends with an error code and no message of its own (on Windows, a process ended from the Task Manager or a converter closed) is reported with the frame it reached and as stopped from outside, not by the game (`amiga_conversion.replay_failure`; 1869, 16 November 2026).
 - **Site:** the `a1200` limits must be on retro-recomp.com before the release, or an upload holding an A1200 game is refused whole.
 
-## The converter: a welcome in the log panel and Arthur's message (1.7.9)
+## The converter: a welcome in the log panel and the developer's message (1.7.9)
 
-`retrorecomp/gui_welcome.py` and `retrorecomp/announcement.py`: the log panel shows the ASCII logo until a real line is written,
-and the site's message to every player (`GET /api/v1/announcement`, read at start while the start-up check is on). Two new
-interface modules, one new string and one changed hint in the eight languages (`assets/locales/` is outside the stamps).
+`retrorecomp/gui_welcome.py` and `retrorecomp/announcement.py`: the log panel shows an English ASCII welcome until a real line
+is written, then the site's message to every player (`GET /api/v1/announcement`, `{"active", "message", "updated_utc"}`, read
+at start while the start-up check is on), or « Not connected to the Internet. » when the site cannot be reached. Two new
+interface modules and one changed hint in the eight languages (`assets/locales/` is outside the stamps); the Knowledge button's
+picture (`gui_drawing.py`) and the leaderboard's crown room (`gui_leaderboard.py`) are window code too.
 **Stamps:** none (game, host and build stamps of the 21 profiles checked identical to `main`). **Existing exports:** unchanged.
 
 ## Exports of 1.7.7 in 1.7.8

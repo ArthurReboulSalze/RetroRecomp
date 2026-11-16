@@ -59,7 +59,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_covers',
                                # Conversion time estimates in the window (assets/conversion-times.json); a conversion never reads them.
                                'gui_estimates', 'time_estimates',
-                               # The log panel's welcome and Arthur's message to the players, read from the site at start.
+                               # The log panel's welcome and the developer's message to the players, read from the site at start.
                                'gui_welcome', 'announcement',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',

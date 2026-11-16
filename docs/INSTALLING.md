@@ -224,7 +224,7 @@ published release notes of every skipped version, in English) before you
 choose to download it. The Windows installer shows the same notes before
 installing. When the window opens, the converter also looks quietly (at most every
 6 hours, downloading nothing) for a new version and a new shared base, and shows a
-dot on the button, and it reads Arthur's short message to players, if there is one,
+dot on the button, and it reads the developer's short message to players, if there is one,
 shown in the log panel (a plain request to retro-recomp.com that sends nothing about
 you or your games); **Options › Common › Check for updates at startup** turns that
 off. The update downloads the

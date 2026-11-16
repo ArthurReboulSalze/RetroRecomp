@@ -53,16 +53,19 @@ def smoke(window):
     assert window.title() == "Retro-Recomp"
     application = window._retro_application
     # The log panel's welcome (gui_welcome.py): armed while the window is hidden, nothing written yet; its last picture
-    # holds the ASCII logo and the invite, then Arthur's message (a fake answer: RETRO_RECOMP_SERVICE is empty, nothing is
-    # requested) as plain text in the player's language or English; the first real log line clears it for good.
-    from retrorecomp.gui_welcome import WELCOME_LOGO
+    # holds the ASCII logo and the invite in English, then the developer's message (a fake one: RETRO_RECOMP_SERVICE is
+    # empty, nothing is requested) as plain text; the first real log line clears it for good.
+    from retrorecomp.gui_welcome import WELCOME_LOGO, MESSAGE_PREFIX
+    from retrorecomp.announcement import pick
+    from retrorecomp.i18n import tr as translate
     assert application.welcome['state'] == 'waiting' and application.log.get('1.0', 'end-1c') == ''
     application.welcome_finish()
     shown = application.log.get('1.0', 'end-1c')
-    assert shown.split('\n')[:6] == list(WELCOME_LOGO) and application.tr('ready') in shown, shown
-    application.welcome_announcement({'active': True, 'messages': {'en': 'Hello <b>players</b>' + chr(27)}, 'updated_utc': ''})
+    assert shown.split('\n')[:6] == list(WELCOME_LOGO) and translate('ready', 'en') in shown, shown
+    text = pick({'active': True, 'message': 'Hello <b>players</b>' + chr(27), 'updated_utc': ''})
+    application.welcome_announcement(('message', text))
     shown = application.log.get('1.0', 'end-1c')
-    assert shown.endswith(application.tr('welcome_from_arthur') + ' Hello <b>players</b> '), shown
+    assert shown.endswith(MESSAGE_PREFIX + ' Hello <b>players</b> '), shown
     assert not application.session_log and application.welcome['job'] is None    # hidden: nothing left waiting
     application.messages.put(('log', 'First real line'))
     deadline = time.monotonic() + 5

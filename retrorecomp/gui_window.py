@@ -298,7 +298,6 @@ class WindowMixin:
         self.render_disk_space()
         self.render_option_actions()
         self.render_level_estimates()
-        self.welcome_language()
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
@@ -358,7 +357,7 @@ class WindowMixin:
         button = ttk.Button(parent, text=text, command=command, style=style)
         symbol = {'choose_roms': 'folder', 'choose_directory': 'add_folder',
                   'remove_selected': 'remove', 'clear': 'clear', 'check_updates': 'download',
-                  'show_options': 'options', 'show_credits': 'info',
+                  'show_options': 'options', 'show_credits': 'info', 'knowledge_menu': 'network',
                   'choose_cover': 'image', 'automatic_cover': 'auto'}.get(command.__name__)
         if symbol:
             self.decorate_button(button, symbol, primary)

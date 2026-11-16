@@ -1,17 +1,19 @@
-"""The welcome of the log panel: Retro-Recomp's logo typed in while nothing has been written to the log yet, then
-Arthur's message to the players when the site has one (announcement.py).
+"""The welcome of the log panel: Retro-Recomp's logo typed in while nothing has been written to the log yet, then the
+developer's message to the players when the site has one (announcement.py).
 
-The logo is plain ASCII, so every font and every interface language draws it. It is typed in column by column in
-the converter's gold, blinks once, then the version, the platform and the invite fade in under it, and the message is
-typed in below like on a typewriter; a small cursor then blinks for about a minute and stays lit. Every
-step is a Tk after() call on the Tk thread (no thread, no busy loop), and the whole picture takes about two seconds
-before the message. It only moves while the log panel is on screen: hidden (window minimised or withdrawn, Compiled
-Games shown), it jumps to its last picture and stops, and the cursor blinks again once the panel is back.
+A small ASCII terminal, in English only whatever the interface language (the owner's decision, 16 November 2026). The
+logo is plain ASCII, so every font draws it. It is typed in column by column in the converter's gold, blinks once, then
+the version, the platform and the invite fade in under it, and the message is typed in below like on a typewriter
+(« Message from the developer: »); without a connection one calm line says so instead (« Not connected to the
+Internet. »), never an error. A small cursor then blinks for about a minute and stays lit. Every step is a Tk after()
+call on the Tk thread (no thread, no busy loop); the picture takes about a second and a half before the message. It
+only moves while the log panel is on screen: hidden (window minimised or withdrawn, Compiled Games shown), it jumps to
+its last picture and stops, and the cursor blinks again once the panel is back.
 
 The first real log line (a conversion, an import, any message of the window) clears the welcome for good, and so does
 the start of a batch: the panel then works exactly as before. The welcome never reaches the session log that problem
 reports carry. The message is read once, in a worker, when the window opens (launch), and only when the start-up look
-for updates is on (Options) and a service is set; it is shown as plain text, in the player's language or else English.
+for updates is on (Options) and a service is set.
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ import tkinter as tk
 from . import __version__, announcement, online
 from .branding import COLORS
 from .gui_common import PLATFORMS
+from .i18n import tr
 
 # Hand-drawn in the figlet style, six rows of equal width, ASCII only.
 WELCOME_LOGO = (
@@ -33,6 +36,9 @@ WELCOME_LOGO = (
     r"|_| \_\___|\__|_|  \___/          |_| \_\___|\___\___/|_| |_| |_| .__/ ",
     r"                                                                |_|    ",
 )
+# English only, in every interface language: the terminal is not translated.
+MESSAGE_PREFIX = 'Message from the developer:'
+OFFLINE_LINE = 'Not connected to the Internet.'
 # The typing follows the clock, not the number of steps (a Tk timer can fire later than asked, by up to a system tick).
 TYPE_STEP_MS = 20           # the logo: typed in TYPE_SECONDS whatever the steps
 TYPE_SECONDS = 0.7
@@ -54,64 +60,73 @@ def _mix(start: str, end: str, share: float) -> str:
 
 
 class WelcomeMixin:
-    """The welcome of the log panel and Arthur's message."""
+    """The welcome of the log panel and the developer's message."""
 
     # --- set-up and the message's request ---------------------------------------------------------------------------
 
     def start_welcome(self):
         """Arm the welcome (end of the window's construction): it plays once the log panel is first on screen."""
-        self.welcome = {'state': 'waiting', 'job': None, 'answer': None, 'column': 0, 'step': 0, 'pending': [],
+        self.welcome = {'state': 'waiting', 'job': None, 'news': None, 'column': 0, 'step': 0, 'pending': [],
                         'typed': 0, 'started': 0.0, 'blinks': 0, 'cursor_on': True}
         self.welcome_styles()
         self.app.bind('<Map>', self.welcome_mapped, add='+')
         self.app.after_idle(self.welcome_mapped)
 
     def fetch_announcement(self):
-        """Read Arthur's message in a worker when the window opens; it never delays the start. Only with the start-up
-        look of Options on and a service set; nothing is said when it cannot be read."""
+        """Read the developer's message in a worker when the window opens; it never delays the start. Only with the
+        start-up look of Options on and a service set. The window hears ('message', text) or ('offline', ''); nothing
+        when the site has nothing to show."""
         if not self.check_at_startup.get() or not online.service_url():
             return
         def worker():
-            answer = announcement.fetch_answer()
-            if answer is not None:
-                self.messages.put(('announcement', answer))
+            kind, text = announcement.read()
+            if kind != announcement.NOTHING:
+                self.messages.put(('announcement', (kind, text)))
         threading.Thread(target=worker, daemon=True, name='retro-recomp-announcement').start()
 
     def welcome_styles(self):
-        """The tags of the welcome (again when the language changes the interface face). Later tags win over earlier
-        ones: the hidden columns of the logo over its gold, the typing head over both."""
+        """The tags of the welcome, all in one fixed-width face (the log's own when it is one, else Tk's). Later tags
+        win over earlier ones: the hidden columns of the logo over its gold, the typing head over both."""
         log = self.log
+        face = log.cget('font')
         try:
-            fixed = self.app.tk.call('font', 'metrics', log.cget('font'), '-fixed')
-        except tk.TclError:
-            fixed = 0
-        logo_font = log.cget('font') if str(fixed) == '1' else 'TkFixedFont'
-        log.tag_configure('welcome_logo', foreground=COLORS['gold'], font=logo_font, wrap='none')
+            if str(self.app.tk.call('font', 'metrics', face, '-fixed')) != '1':
+                face = 'TkFixedFont'
+            actual = self.app.tk.call('font', 'actual', face)
+            options = dict(zip(actual[::2], actual[1::2]))
+            plain = (str(options['-family']), int(options['-size']))
+        except (tk.TclError, KeyError, ValueError):
+            plain = ('TkFixedFont', 9)
+        bold = (*plain, 'bold')
+        log.tag_configure('welcome_logo', foreground=COLORS['gold'], font=plain, wrap='none')
         log.tag_configure('welcome_hidden', foreground=COLORS['field'])
         log.tag_configure('welcome_head', background=COLORS['selected'])
-        log.tag_configure('welcome_subtitle', foreground=COLORS['muted'], font=(self.ui_font, 9), spacing1=6)
+        log.tag_configure('welcome_subtitle', foreground=COLORS['muted'], font=plain, spacing1=6)
         log.tag_configure('welcome_line', spacing1=8)
-        log.tag_configure('welcome_prefix', foreground=COLORS['gold'], font=(self.ui_font, 9, 'bold'))
-        log.tag_configure('welcome_message', foreground=COLORS['text'], font=(self.ui_font, 9))
-        log.tag_configure('welcome_cursor', background=COLORS['gold'], font=(self.ui_font, 9))
+        log.tag_configure('welcome_prefix', foreground=COLORS['gold'], font=bold)
+        log.tag_configure('welcome_message', foreground=COLORS['text'], font=plain)
+        log.tag_configure('welcome_offline', foreground=COLORS['muted'], font=plain)
+        log.tag_configure('welcome_cursor', background=COLORS['gold'], font=plain)
         for name in ('welcome_hidden', 'welcome_head'):
             log.tag_raise(name)
 
     # --- what is shown ------------------------------------------------------------------------------------------
 
     def welcome_subtitle(self):
-        """The line under the logo: the version and platform (as in the status line) and the invite."""
-        return f'v{__version__} · {PLATFORMS[self.platform_id]} — {self.tr("ready")}'
+        """The line under the logo: the version and platform (as in the status line) and the invite, in English."""
+        return f'v{__version__} · {PLATFORMS[self.platform_id]} — {tr("ready", "en")}'
 
-    def welcome_message(self):
-        """(prefix, text) of Arthur's message for the player's language, or None."""
-        text = announcement.pick(self.welcome.get('answer'), self.language)
-        return (self.tr('welcome_from_arthur'), text) if text else None
-
-    def welcome_shown(self):
-        """Whether the welcome is in the panel (playing or still)."""
-        welcome = getattr(self, 'welcome', None)
-        return bool(welcome) and welcome['state'] not in ('waiting', 'gone')
+    def welcome_news(self):
+        """The line under the subtitle as (text, tag) pieces: the developer's message, the offline line, or None."""
+        news = self.welcome.get('news')
+        if not isinstance(news, tuple) or len(news) != 2:
+            return None
+        kind, text = news
+        if kind == announcement.MESSAGE and isinstance(text, str) and text:
+            return [(MESSAGE_PREFIX + ' ', 'welcome_prefix'), (text, 'welcome_message')]
+        if kind == announcement.OFFLINE:
+            return [(OFFLINE_LINE, 'welcome_offline')]
+        return None
 
     def _welcome_visible(self):
         try:
@@ -137,7 +152,7 @@ class WelcomeMixin:
 
     def _welcome_write(self, final):
         """Write the welcome again from the start: hidden logo and subtitle to play, or the last picture (the
-        message too when there is one, the cursor at its end)."""
+        message or the offline line too when there is one, the cursor at its end)."""
         log = self.log
         log.configure(state='normal')
         log.delete('1.0', 'end')
@@ -148,15 +163,15 @@ class WelcomeMixin:
         self._welcome_insert('end', self.welcome_subtitle(), 'welcome_subtitle')
         log.tag_configure('welcome_logo', foreground=COLORS['gold'])
         log.tag_configure('welcome_subtitle', foreground=COLORS['muted'] if final else COLORS['field'])
-        message = self.welcome_message() if final else None
-        if message:
+        news = self.welcome_news() if final else None
+        if news:
             self._welcome_insert('end', '\n')
-            self._welcome_insert('end', message[0] + ' ', 'welcome_prefix', 'welcome_line')
-            self._welcome_insert('end', message[1], 'welcome_message', 'welcome_line')
+            for text, tag in news:
+                self._welcome_insert('end', text, tag, 'welcome_line')
         if final:
             self._welcome_cursor_at_end()
         log.yview_moveto(0)
-        if message:
+        if news:
             log.see('end')
 
     def _welcome_cursor_at_end(self):
@@ -240,17 +255,15 @@ class WelcomeMixin:
             self._welcome_later(FADE_MS, self._welcome_fade)
             return
         self._welcome_cursor_at_end()
-        self._welcome_type_message_or_rest()
+        self._welcome_type_news_or_rest()
 
-    def _welcome_type_message_or_rest(self):
-        """After the subtitle (or when the message arrives later): type the message in, or rest with the cursor."""
-        message = self.welcome_message()
-        if not message:
+    def _welcome_type_news_or_rest(self):
+        """After the subtitle (or when the news arrives later): type the message or the offline line in, or rest."""
+        news = self.welcome_news()
+        if not news:
             self._welcome_rest()
             return
-        prefix, text = message
-        self.welcome['pending'] = ([(character, 'welcome_prefix') for character in prefix + ' ']
-                                   + [(character, 'welcome_message') for character in text])
+        self.welcome['pending'] = [(character, tag) for text, tag in news for character in text]
         self.welcome.update(state='message', cursor_on=True, typed=0, started=time.monotonic())
         self.log.tag_configure('welcome_cursor', background=COLORS['gold'])
         self._welcome_insert('welcome_cursor.first', '\n')
@@ -265,8 +278,8 @@ class WelcomeMixin:
         count = max(1, math.floor((time.monotonic() - welcome['started']) * MESSAGE_RATE) - welcome['typed'])
         chunk, pending[:count] = pending[:count], []
         welcome['typed'] += len(chunk)
-        for character, kind in chunk:
-            self._welcome_insert('welcome_cursor.first', character, kind, 'welcome_line')
+        for character, tag in chunk:
+            self._welcome_insert('welcome_cursor.first', character, tag, 'welcome_line')
         self.log.see('welcome_cursor.first')
         if pending:
             self._welcome_later(MESSAGE_STEP_MS, self._welcome_type_message)
@@ -302,8 +315,8 @@ class WelcomeMixin:
     # --- what ends or changes it ------------------------------------------------------------------------------
 
     def welcome_finish(self):
-        """Jump to the last picture (hidden panel, language change): no step is left waiting; the cursor blinks
-        again while the panel is on screen."""
+        """Jump to the last picture (hidden panel): no step is left waiting; the cursor blinks again while the panel
+        is on screen."""
         welcome = getattr(self, 'welcome', None)
         if not welcome or welcome['state'] == 'gone':
             return
@@ -311,31 +324,24 @@ class WelcomeMixin:
         self._welcome_write(final=True)
         self._welcome_rest()
 
-    def welcome_announcement(self, answer):
-        """The site's answer reached the window ('announcement' message): keep it; typed in at once when the welcome
-        already rests, by the animation's own step otherwise; dropped once the panel holds real lines."""
+    def welcome_announcement(self, news):
+        """The site's answer reached the window ('announcement' message, (kind, text)): keep it; typed in at once
+        when the welcome already rests, by the animation's own step otherwise; dropped once the panel holds real
+        lines."""
         welcome = getattr(self, 'welcome', None)
-        if not welcome or welcome['state'] == 'gone':
+        if not welcome or welcome['state'] == 'gone' or welcome['news'] is not None:
             return
-        welcome['answer'] = answer
-        if welcome['state'] != 'still' or not self.welcome_message():
+        welcome['news'] = news
+        if welcome['state'] != 'still' or not self.welcome_news():
             return
         self._welcome_cancel()
         if not self._welcome_visible():
             self.welcome_finish()
             return
         try:
-            self._welcome_type_message_or_rest()
+            self._welcome_type_news_or_rest()
         except tk.TclError:
             pass
-
-    def welcome_language(self):
-        """The language changed: the welcome is written again in it, at once (refresh_language)."""
-        if self.welcome_shown():
-            self.welcome_styles()
-            self.welcome_finish()
-        elif getattr(self, 'welcome', None):
-            self.welcome_styles()
 
     def end_welcome(self):
         """A real line reaches the log, or a batch starts: the welcome leaves for good and the panel is as before."""
@@ -344,7 +350,7 @@ class WelcomeMixin:
             return
         self._welcome_cancel()
         shown = welcome['state'] != 'waiting'
-        welcome.update(state='gone', answer=None, pending=[])
+        welcome.update(state='gone', news=None, pending=[])
         if not shown:
             return
         log = self.log

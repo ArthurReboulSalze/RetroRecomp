@@ -2284,8 +2284,9 @@ looks, at most every six hours and in the background, at whether a newer
 program or a newer base exists, and marks the update button. It only looks:
 nothing is downloaded until you choose. With it on, each opening also reads
 the site's short message to every player (`GET /api/v1/announcement`, 1.7.9:
-no query, no account, nothing about the player or the games), shown as plain
-text in the log panel; offline, or without a message, nothing is shown.
+no query, no account, nothing about the player or the games; one English text),
+shown as plain text in the log panel; without a message nothing is added, and
+when the site cannot be reached one calm line says the computer is not connected.
 
 **Before a batch.** For each ROM of the batch the converter reads its entry.
 The qualified paths of this converter's engine are merged, game by game and

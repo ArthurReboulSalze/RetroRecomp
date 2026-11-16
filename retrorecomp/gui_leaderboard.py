@@ -156,8 +156,10 @@ class LeaderboardMixin:
                             command=lambda: load()).pack(side='right', padx=(8, 0))
         # The shop's catalog ({id: item}) once the board has answered.
         catalog = {}
-        # Podium: second, first, third, on steps of different heights.
-        podium = tk.Canvas(body, height=196, bg=background, highlightthickness=0)
+        # Podium: second, first, third, on steps of different heights. CROWN_ROOM keeps the first place's crown (24 px
+        # above its name) inside the canvas: drawn above y = 0 it was cut off under the text above the podium.
+        CROWN_ROOM = 14
+        podium = tk.Canvas(body, height=196 + CROWN_ROOM, bg=background, highlightthickness=0)
         podium.pack(fill='x', pady=(10, 8))
         podium.rows = []
         podium.bind('<Configure>', lambda event: draw_podium(podium.rows))
@@ -208,14 +210,14 @@ class LeaderboardMixin:
                 2: (-16, 0, -16, -13, -6, -6, 0, -15, 6, -6, 16, -13, 16, 0),
                 3: (-15, 0, -15, -10, -7, -5, 0, -11, 7, -5, 15, -10, 15, 0)}
             podium.create_polygon(*[middle + v if i % 2 == 0 else base + v for i, v in enumerate(shapes[place])],
-                                  fill=colour, outline='')
+                                  fill=colour, outline='', tags=('crown',))
             # A darker band at the foot, and one jewel per rank's worth.
             podium.create_rectangle(middle + shapes[place][0], base - 3, middle - shapes[place][0], base,
-                                    fill=_tint(colour, '#000000', 0.35), outline='')
+                                    fill=_tint(colour, '#000000', 0.35), outline='', tags=('crown',))
             jewels = {1: (-10, 0, 10), 2: (-6, 6), 3: (0,)}[place]
             for offset in jewels:
                 podium.create_oval(middle + offset - 2, base - 8, middle + offset + 2, base - 4,
-                                   fill=COLORS['panel'], outline='')
+                                   fill=COLORS['panel'], outline='', tags=('crown',))
 
         def draw_podium(rows, animate=False):
             podium.rows = rows
@@ -231,7 +233,8 @@ class LeaderboardMixin:
             inner = step - 16   # content stays inside each step's box
             left = (width - 3 * step) // 2
             # Each place: its column, the top of its name, and its step's height.
-            places = {2: (left, 38, 100), 1: (left + step, 16, 122), 3: (left + 2 * step, 56, 82)}
+            places = {2: (left, 38 + CROWN_ROOM, 100), 1: (left + step, 16 + CROWN_ROOM, 122),
+                      3: (left + 2 * step, 56 + CROWN_ROOM, 82)}
             shades = {1: COLORS['gold'], 2: '#c9ced6', 3: '#c58a4a'}
             if not rows:
                 podium.create_text(width // 2, bottom // 2, text=self.tr('leaderboard_empty'),
@@ -301,6 +304,7 @@ class LeaderboardMixin:
                     wide = badges_width(podium, look['badges'], badge_font)
                     draw_badges(podium, middle - wide / 2, bottom - height + 49, look['badges'], badge_font,
                                 tags=('podium_badge',), top=online.top_badges(entry))
+            podium.tag_raise('crown')     # nothing of the podium is ever drawn over a crown
             if moving or elapsed < DELAYS[1] + RISE + 0.05:
                 pending = getattr(podium, 'frame', None)
                 if pending:
