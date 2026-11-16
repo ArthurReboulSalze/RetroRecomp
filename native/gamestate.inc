@@ -64,6 +64,19 @@ static void smsrecomp_machine_state(RetroStateIO *io) {
     }
 }
 
+/* Multiplayer (native/hostkit/hostkit_session.h): the digest players compare, FNV-1a 64 over the machine as the quick state
+ * writes it field by field (the same bytes on Windows and Linux), envelope left out. Taken between two frames only. */
+uint64_t smsrecomp_digest(void) {
+    static uint8_t *data;
+    if (!data && !(data = (uint8_t *)malloc(RR_STATE_CAPACITY))) return 0;
+    RetroStateIO io = {data, RR_STATE_CAPACITY, 0, RR_STATE_WRITE, true};
+    smsrecomp_machine_state(&io);
+    if (!io.ok) return 0;
+    uint64_t hash = 14695981039346656037ull;
+    for (size_t i = 0; i < io.pos; ++i) { hash ^= data[i]; hash *= 1099511628211ull; }
+    return hash;
+}
+
 /* The envelope is shared (state_envelope.h): the Master System's magic, schema, model and cartridge identity. */
 static uint32_t smsrecomp_state_crc(const uint8_t *bytes, size_t size) { return rr_state_crc(bytes, size); }
 static RetroStateEnvelope smsrecomp_state_envelope(void) {

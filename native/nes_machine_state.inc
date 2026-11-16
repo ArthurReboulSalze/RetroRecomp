@@ -149,3 +149,55 @@ bool rr_nes_state_load(const void *buffer, size_t size) {
     state_error = "Quick state loaded";
     return true;
 }
+
+/* Multiplayer rollback (native/hostkit/hostkit_session.h): the same machine as a quick state, raw, for this process only. It
+ * loads only what this process saved a few frames earlier, so it has no header, no checksum, no allocation and no validation;
+ * the quick-state files, their format and their key are untouched. The cartridge's PRG/CHR pointers never change in a run and
+ * are copied as they are; the CHR RAM they point into is copied beside. */
+#define RR_NES_SNAP_FIELDS(X) X(cpu) X(hw) X(hw_cart) X(ppu) X(zapper) X(hw_frame_done) X(hw_dma_stalls)
+size_t rr_nes_snap_bound(void) {
+#define RR_NES_SNAP_SIZE(name) sizeof(name) +
+    return RR_NES_SNAP_FIELDS(RR_NES_SNAP_SIZE) 2 + sizeof(((RrMachineState *)0)->image) + hw_cart.chr_ram_len +
+           rr_nes_apu_size() + rr_nes_mapper_audio_size();
+#undef RR_NES_SNAP_SIZE
+}
+size_t rr_nes_snap_save(void *buffer, size_t capacity) {
+    const size_t size = rr_nes_snap_bound();
+    if (!buffer || capacity < size) return 0;
+    rr_ppu_sync();
+    uint8_t *cursor = (uint8_t *)buffer;
+#define RR_NES_SNAP_PUT(name) memcpy(cursor, &name, sizeof(name)); cursor += sizeof(name);
+    RR_NES_SNAP_FIELDS(RR_NES_SNAP_PUT)
+#undef RR_NES_SNAP_PUT
+    rr_nes_ppu_aux_save(cursor); cursor += 2;
+    memcpy(cursor, hw_frame_index, sizeof(((RrMachineState *)0)->image)); cursor += sizeof(((RrMachineState *)0)->image);
+    memcpy(cursor, hw_cart.chr + hw_cart.chr_ram_base, hw_cart.chr_ram_len); cursor += hw_cart.chr_ram_len;
+    rr_nes_apu_save(cursor); cursor += rr_nes_apu_size();
+    rr_nes_mapper_audio_save(cursor); cursor += rr_nes_mapper_audio_size();
+    return (size_t)(cursor - (uint8_t *)buffer) == size ? size : 0;
+}
+bool rr_nes_snap_load(const void *buffer, size_t size) {
+    if (!buffer || size != rr_nes_snap_bound()) return false;
+    const uint8_t *cursor = (const uint8_t *)buffer;
+#define RR_NES_SNAP_GET(name) memcpy(&name, cursor, sizeof(name)); cursor += sizeof(name);
+    RR_NES_SNAP_FIELDS(RR_NES_SNAP_GET)
+#undef RR_NES_SNAP_GET
+    rr_nes_ppu_aux_load(cursor); cursor += 2;
+    memcpy(hw_frame_index, cursor, sizeof(((RrMachineState *)0)->image)); cursor += sizeof(((RrMachineState *)0)->image);
+    memcpy(hw_cart.chr + hw_cart.chr_ram_base, cursor, hw_cart.chr_ram_len); cursor += hw_cart.chr_ram_len;
+    rr_nes_apu_load(cursor); cursor += rr_nes_apu_size();
+    rr_nes_mapper_audio_load(cursor);
+    return true;
+}
+/* The digest a session compares between players: FNV-1a 64 over the quick state's field-written payload (the same bytes on
+ * Windows and Linux), header left out. NULL-safe: 0 when the payload cannot be made. */
+uint64_t rr_nes_digest(void) {
+    static uint8_t *payload;
+    static size_t capacity;
+    const size_t size = rr_nes_state_size(), head = rr_size_RrStateHeader();
+    if (size > capacity) { free(payload); payload = (uint8_t *)malloc(size); capacity = payload ? size : 0; }
+    if (!payload || !rr_nes_state_save(payload, size)) return 0;
+    uint64_t hash = 14695981039346656037ull;
+    for (size_t i = head; i < size; ++i) { hash ^= payload[i]; hash *= 1099511628211ull; }
+    return hash;
+}

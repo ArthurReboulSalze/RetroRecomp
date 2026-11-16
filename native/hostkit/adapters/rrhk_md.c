@@ -95,6 +95,10 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
 }
 
 static int players(void) { return 2; }
+/* Multiplayer (hostkit_session.h): the Mega Drive plays on the delay tier; md_backend.c gives the digest and holds the guest's
+ * cartridge save. */
+uint64_t rr16_md_digest(void);
+void rr16_md_side_effects(bool allowed);
 static void pointer_input(RrhkPointer p) {
     rr16_gun_input((Rr16GunInput){.x = p.x, .y = p.y, .fire = p.fire, .aux = p.aux, .secondary = p.secondary,
                                   .start = p.start, .turbo = p.turbo, .pause = p.pause, .offscreen = p.offscreen});
@@ -122,6 +126,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = rr16_audio, .interpreted = rr16_interpreted, .audio_interpreted = rr16_audio_interpreted,
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
             .pointer_input = pointer_input,
+            .digest = rr16_md_digest, .side_effects = rr16_md_side_effects,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .timing_report = timing_report,
             .sound_ready = sound_ready, .audio_reopen = audio_reopen, .audio_device_id = audio_device_id,

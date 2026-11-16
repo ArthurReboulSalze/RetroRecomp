@@ -150,6 +150,9 @@ static uint64_t interpreted(void) {
     return getenv("SMSRECOMP_REFERENCE") ? 1 : smsrecomp_interpreter_cycles();
 }
 static uint64_t no_count(void) { return 0; }
+/* Multiplayer (hostkit_session.h): delay tier; the session's words answer host_refresh_input's re-reads, so every read
+ * of a frame sees the same word. */
+uint64_t smsrecomp_digest(void);
 static bool state_ready(void) { return true; }
 /* The guest services the request after a completed banked CPU instruction and reports through state_completed. */
 static bool state_file(const wchar_t *path, bool load) {
@@ -332,6 +335,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = no_audio, .interpreted = interpreted, .audio_interpreted = no_count,
             .state_ready = state_ready, .state_file = state_file, .input_frame = input_frame,
             .pointer_input = pointer_input,
+            .digest = smsrecomp_digest,
             .page = sms_light_phaser ? &page : NULL,
             .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
             .audio_ratio = host_audio_ratio,     /* 1.7.7 (HOST_KIT D30): Sync to display */

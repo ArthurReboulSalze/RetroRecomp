@@ -8,6 +8,7 @@
 #include <SDL.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <wchar.h>
 #include "platform_io.h"
 #include "cyc_core.h"
@@ -19,6 +20,11 @@
 #include "hostkit/hostkit.h"
 
 void rr_nes_extra_sprites(bool enabled);
+/* Multiplayer (hostkit_session.h): the raw in-process snapshot and the portable digest of nes_machine_state.inc. */
+size_t rr_nes_snap_bound(void);
+size_t rr_nes_snap_save(void *buffer, size_t capacity);
+bool rr_nes_snap_load(const void *buffer, size_t size);
+uint64_t rr_nes_digest(void);
 
 enum { A, B, SELECT, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
@@ -66,8 +72,17 @@ static void settings_loaded(RrhkUi *ui) {
 }
 
 /* F5 sprite flicker reduction. F6 autofire is the shell's own key, with its notice (divergence 11). */
+/* Multiplayer: the extra sprites are sealed by the host for everyone (they may change what the game sees of sprite 0 and the
+ * overflow flag until a probe shows otherwise), and F5 does not change them during a match. */
+static bool session_option(const char *key, const char *value) {
+    if (strcmp(key, "extra_sprites") || (strcmp(value, "0") && strcmp(value, "1"))) return false;
+    extra_sprites = value[0] == '1'; rr_nes_extra_sprites(extra_sprites != 0);
+    return true;
+}
+
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)running;
+    if (key == SDL_SCANCODE_F5 && rrhk_session_active()) return true;
     if (key == SDL_SCANCODE_F5) {
         extra_sprites = !extra_sprites; rr_nes_extra_sprites(extra_sprites != 0);
         rrhk_notice(extra_sprites ? rrhk_tr("Sprite flicker reduction ON", "Reduction du scintillement ON") :
@@ -122,6 +137,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .page = RR_NES_ZAPPER ? &rrhk_pointer_page : NULL,
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
             .help_controls = help_controls, .key_event = key_event,
+            .snap_bound = rr_nes_snap_bound, .snap_save = rr_nes_snap_save, .snap_load = rr_nes_snap_load,
+            .digest = rr_nes_digest, .session_option = session_option,
         };
     }
     return &machine;

@@ -7,6 +7,11 @@
 #include "cpu6502.h"
 #include "hw_internal.h"
 #include "retro_nes.h"
+/* Multiplayer rollback (native/hostkit/hostkit_session.h), defined in nes_machine_state.inc. */
+size_t rr_nes_snap_bound(void);
+size_t rr_nes_snap_save(void *buffer, size_t capacity);
+bool rr_nes_snap_load(const void *buffer, size_t size);
+uint64_t rr_nes_digest(void);
 
 bool cyc_native_has(uint16_t pc) { (void)pc; return false; }
 void cyc_native_run(void) { abort(); }
@@ -126,6 +131,29 @@ static void state_checks(void) {
     }
     CHECK(!rr_nes_state_load(saved,size-1));
     free(saved);free(bad);
+    /* Multiplayer rollback: the raw snapshot of this process, eight frames with changing pads, back to it, the same pads
+     * again: the same machine and sound, the same digest at every frame; a digest taken every frame (as a session asks)
+     * changes nothing against a run that takes none; a write made after the snapshot is undone by loading it. */
+    size_t raw_size=rr_nes_snap_bound(); uint8_t *raw=malloc(raw_size); CHECK(raw);
+    CHECK(rr_nes_snap_save(raw,raw_size)==raw_size); CHECK(rr_nes_snap_save(raw,raw_size-1)==0);
+    uint64_t start_hw=cyc_hw_state_hash(), start_mem=cyc_mem_state_hash(), digests[8];
+    for(int f=0;f<8;f++) {
+        cyc_set_controller(0,(uint8_t)(f*37)); cyc_set_controller(1,(uint8_t)(f*11));
+        cyc_run_frame(); digests[f]=rr_nes_digest(); CHECK(digests[f]!=0);
+    }
+    uint64_t end_hw=cyc_hw_state_hash(), end_mem=cyc_mem_state_hash(), end_pcm=audio_hash();
+    hw_cart.wram[7]^=0xFF;
+    CHECK(rr_nes_snap_load(raw,raw_size)); CHECK(!rr_nes_snap_load(raw,raw_size-1));
+    CHECK(cyc_hw_state_hash()==start_hw && cyc_mem_state_hash()==start_mem);
+    for(int f=0;f<8;f++) {
+        cyc_set_controller(0,(uint8_t)(f*37)); cyc_set_controller(1,(uint8_t)(f*11));
+        cyc_run_frame(); CHECK(rr_nes_digest()==digests[f]);
+    }
+    CHECK(cyc_hw_state_hash()==end_hw && cyc_mem_state_hash()==end_mem && audio_hash()==end_pcm);
+    CHECK(rr_nes_snap_load(raw,raw_size));
+    for(int f=0;f<8;f++) { cyc_set_controller(0,(uint8_t)(f*37)); cyc_set_controller(1,(uint8_t)(f*11)); cyc_run_frame(); }
+    CHECK(cyc_hw_state_hash()==end_hw && cyc_mem_state_hash()==end_mem && rr_nes_digest()==digests[7]);
+    free(raw);
 }
 static void pending_state_checks(void) {
     /* Save at a legal CPU boundary with transfers/interrupts still pending.

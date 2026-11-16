@@ -295,7 +295,7 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
     Uint64 delivery_started=timing_enabled?SDL_GetPerformanceCounter():0;
     if (audible) audio_flush(genesis_sim_tick_count(), 1, fm, fn, psg, pn);
     if(timing_enabled)timing_delivery+=SDL_GetPerformanceCounter()-delivery_started;
-    if (!headless_mode) rr_md_battery_flush(&g_machine.bus,SDL_GetTicks64(),false);
+    if (!headless_mode && battery_writes) rr_md_battery_flush(&g_machine.bus,SDL_GetTicks64(),false);
     return ok != 0 && !execution_fault;
 }
 const uint32_t *rr16_pixels(void) { return pixels; }
@@ -354,6 +354,30 @@ static uint64_t bytes_hash(const void *data, size_t size) {
     for (size_t i = 0; i < size; ++i) { hash ^= bytes[i]; hash *= 1099511628211ull; }
     return hash;
 }
+/* Multiplayer (native/hostkit/hostkit_session.h): the digest players compare, over named fields in a fixed byte order (the CPU's
+ * registers one by one, never the structure with its padding), the same on Windows and Linux: 68000 registers, work RAM, VDP
+ * memories and registers, Z80 registers and RAM, cartridge save. */
+uint64_t rr16_md_digest(void) {
+    uint8_t cpu[16 * 4 + 2 + 4 + 4];
+    size_t n = 0;
+    for (int i = 0; i < 8; ++i) for (unsigned s = 0; s < 32; s += 8) cpu[n++] = (uint8_t)(g_cpu.D[i] >> s);
+    for (int i = 0; i < 8; ++i) for (unsigned s = 0; s < 32; s += 8) cpu[n++] = (uint8_t)(g_cpu.A[i] >> s);
+    cpu[n++] = (uint8_t)g_cpu.SR; cpu[n++] = (uint8_t)(g_cpu.SR >> 8);
+    for (unsigned s = 0; s < 32; s += 8) cpu[n++] = (uint8_t)(g_cpu.PC >> s);
+    for (unsigned s = 0; s < 32; s += 8) cpu[n++] = (uint8_t)(g_cpu.USP >> s);
+    const uint64_t parts[] = {bytes_hash(cpu, n), bytes_hash(g_ram, sizeof g_ram),
+        bytes_hash(g_machine.vdp.vram, sizeof g_machine.vdp.vram), bytes_hash(g_machine.vdp.cram, sizeof g_machine.vdp.cram),
+        bytes_hash(g_machine.vdp.vsram, sizeof g_machine.vdp.vsram), bytes_hash(g_machine.vdp.reg, sizeof g_machine.vdp.reg),
+        z80_state_hash(&g_machine.z80), bytes_hash(g_machine.bus.z80_ram, sizeof g_machine.bus.z80_ram),
+        bytes_hash(g_machine.bus.sram, gbus_sram_size(&g_machine.bus))};
+    uint8_t packed[sizeof parts];
+    for (size_t i = 0; i < sizeof parts / sizeof *parts; ++i)
+        for (unsigned s = 0; s < 64; s += 8) packed[i * 8 + s / 8] = (uint8_t)(parts[i] >> s);
+    return bytes_hash(packed, sizeof packed);
+}
+/* A multiplayer guest never writes its cartridge save (the host's is the one that counts). */
+static bool battery_writes = true;
+void rr16_md_side_effects(bool allowed) { battery_writes = allowed; }
 void rr16_report_details(FILE *file) {
     fprintf(file, ",\"retired_interpreted_opcodes\":%llu",
         RR_MD_STEP_AOT ? rom_fallback + ram_fallback : interpreted);
