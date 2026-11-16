@@ -19,6 +19,8 @@
 #include "psx_session.h"
 
 #include <libretro.h>
+#include "mednafen/psx/gpu.h"
+#include "libretro_vulkan_host.h"
 #include <encodings/deflate.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -73,8 +75,18 @@ struct RrPsxSession {
     unsigned pad[2];
     int16_t sticks[2][4];
     uint16_t rumble[2][2];
+    int loaded;                     /* the core has the game: it is unloaded at close */
+    /* 1.7.7: the renderer drawing (1 the graphics card, 0 the CPU), why the card asked for was not used, the card's picture
+     * read back (0x00RRGGBB, `hw_capacity` pixels). */
+    int renderer;
+    char renderer_note[160];
+    uint32_t *hw_picture;
+    size_t hw_capacity;
+    int halve;                  /* the card's frames reduced by two (Supersampling) */
+    int halve_next, halve_wait; /* a change waiting for the core's new drawing size (it comes a frame after the option) */
+    unsigned last_w, last_h;    /* the card's last frame as drawn (placeholders under 128 pixels left out) */
     /* The last picture: the core's own frame surface, never copied (it lives until the core's next frame); `pitch` pixels
-     * between rows. Its pixels are 0x00RRGGBB (Beetle writes no alpha). */
+     * between rows. Its pixels are 0x00RRGGBB (Beetle writes no alpha). With the graphics card, `hw_picture`. */
     const uint32_t *picture;
     int pitch;
     int width, height;
@@ -352,6 +364,8 @@ static const char *const DEFAULTS[][2] = {
     {"beetle_psx_analog_toggle", "enabled"},
     /* A 480-line picture shown whole (the GPU draws both fields of the displayed frame), the graphics page's default. */
     {"beetle_psx_deinterlacer", "off"},
+    /* The software renderer draws (the reference of every check); the Vulkan renderer compiled beside it is not opened. */
+    {"beetle_psx_renderer", "software"},
 };
 
 static void set_option(RrPsxSession *s, const char *key, const char *value) {
@@ -406,14 +420,29 @@ static void keep_core_defaults(const struct retro_variable *v) {
     }
 }
 
+/* The libretro Vulkan side shared with the Nintendo 64 (native/libretro_vulkan_host.c): one per process, like the core. */
+static RrVkHost vulkan;
+
 static bool RETRO_CALLCONV environment(unsigned cmd, void *data) {
     RrPsxSession *s = g;
+    {
+        int answer = 0;
+        if (rr_vk_host_environment(&vulkan, cmd, data, &answer)) return answer != 0;
+    }
     switch (cmd) {
     case RETRO_ENVIRONMENT_GET_VARIABLE: {
         struct retro_variable *var = (struct retro_variable *)data;
         var->value = NULL;
+        /* A core built with its hardware renderers (1.7.7: the Vulkan one) names its options beetle_psx_hw_<name>: they are
+         * answered under the name the session and the graphics page use, beetle_psx_<name>. */
+        char plain[96];
+        const char *key = var->key;
+        if (key && !strncmp(key, "beetle_psx_hw_", 14) && strlen(key) < sizeof plain) {
+            snprintf(plain, sizeof plain, "beetle_psx_%s", key + 14);
+            key = plain;
+        }
         for (int i = 0; s && i < s->option_count; ++i)
-            if (strcmp(s->options[i].key, var->key) == 0) { var->value = s->options[i].value; return true; }
+            if (strcmp(s->options[i].key, key) == 0) { var->value = s->options[i].value; return true; }
         for (int i = 0; i < core_default_count; ++i)
             if (strcmp(core_defaults[i].key, var->key) == 0) { var->value = core_defaults[i].value; return true; }
         return false;
@@ -487,6 +516,63 @@ static bool RETRO_CALLCONV environment(unsigned cmd, void *data) {
 static void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsigned height, size_t pitch) {
     RrPsxSession *s = g;
     if (!s || !data) return;   /* a duplicated frame keeps the last picture */
+    if (data == RETRO_HW_FRAME_BUFFER_VALID) {
+        /* The graphics card's picture of this frame, copied into ours (a frame it could not give keeps the last picture). */
+        int bgra = 0;
+        const uint8_t *src = width && height && width <= RR_PSX_PICTURE_LIMIT && height <= RR_PSX_PICTURE_LIMIT
+                                 ? rr_vk_host_read_back(&vulkan, width, height, &bgra) : NULL;
+        if (!src) return;
+        /* A change of Supersampling takes effect with the first frame drawn at the new size (twice or half the last one), at
+         * most four frames later; a session that has drawn nothing yet takes it at once. Beetle's small placeholder frames (64 x
+         * 64 while the console shows nothing) are never reduced and do not count as a size. */
+        const int placeholder = width < 128 || height < 128;
+        if (s->halve_wait && !placeholder) {
+            const int doubled = width == 2 * s->last_w && height == 2 * s->last_h, halved = 2 * width == s->last_w && 2 * height == s->last_h;
+            if ((s->halve_next && doubled) || (!s->halve_next && halved) || !s->last_w || --s->halve_wait == 0) {
+                s->halve = s->halve_next;
+                s->halve_wait = 0;
+            }
+        }
+        if (!placeholder) { s->last_w = width; s->last_h = height; }
+        if (s->halve && !placeholder) {
+            /* Supersampling: each pixel the mean of a 2x2 block of the card's frame, rounded (an odd last row or column is left). */
+            const unsigned ow = width / 2, oh = height / 2;
+            if ((size_t)ow * oh > s->hw_capacity) {
+                uint32_t *grown = (uint32_t *)realloc(s->hw_picture, (size_t)ow * oh * sizeof(uint32_t));
+                if (!grown) return;
+                s->hw_picture = grown;
+                s->hw_capacity = (size_t)ow * oh;
+            }
+            const int r = bgra ? 2 : 0, b = bgra ? 0 : 2;
+            for (unsigned y = 0; y < oh; ++y) {
+                const uint8_t *row0 = src + (size_t)(2 * y) * width * 4, *row1 = row0 + (size_t)width * 4;
+                uint32_t *out = s->hw_picture + (size_t)y * ow;
+                for (unsigned x = 0; x < ow; ++x) {
+                    const uint8_t *p = row0 + x * 8, *q = row1 + x * 8;
+                    const unsigned red = (p[r] + p[4 + r] + q[r] + q[4 + r] + 2) >> 2;
+                    const unsigned green = (p[1] + p[5] + q[1] + q[5] + 2) >> 2;
+                    const unsigned blue = (p[b] + p[4 + b] + q[b] + q[4 + b] + 2) >> 2;
+                    out[x] = (uint32_t)red << 16 | (uint32_t)green << 8 | blue;
+                }
+            }
+            s->picture = s->hw_picture;
+            s->pitch = s->width = (int)ow;
+            s->height = (int)oh;
+            return;
+        }
+        if ((size_t)width * height > s->hw_capacity) {
+            uint32_t *grown = (uint32_t *)realloc(s->hw_picture, (size_t)width * height * sizeof(uint32_t));
+            if (!grown) return;
+            s->hw_picture = grown;
+            s->hw_capacity = (size_t)width * height;
+        }
+        rr_vk_host_picture(src, bgra, s->hw_picture, (size_t)width * height);
+        s->picture = s->hw_picture;
+        s->pitch = (int)width;
+        s->width = (int)width;
+        s->height = (int)height;
+        return;
+    }
     if (width > RR_PSX_PICTURE_LIMIT) width = RR_PSX_PICTURE_LIMIT;
     if (height > RR_PSX_PICTURE_LIMIT) height = RR_PSX_PICTURE_LIMIT;
     s->picture = (const uint32_t *)data;
@@ -534,6 +620,23 @@ RrPsxSession *rr_psx_open(const RrPsxGame *game, char *error, size_t error_size)
     s->aspect = 4.0 / 3.0;
     s->fps = 59.94;
     for (size_t i = 0; i < sizeof DEFAULTS / sizeof DEFAULTS[0]; ++i) set_option(s, DEFAULTS[i][0], DEFAULTS[i][1]);
+    /* A session opened again keeps the options it had (the renderer is built with them: Beetle's in-place rebuild keeps the programs
+     * of the old multisampling); the renderer itself is decided below. */
+    for (int i = 0; game->options && i < game->option_count; ++i)
+        if (strcmp(game->options[i][0], "beetle_psx_renderer") && strcmp(game->options[i][0], "beetle_psx_renderer_software_fb"))
+            set_option(s, game->options[i][0], game->options[i][1]);
+    /* The graphics card, when asked for and when this computer has a Vulkan loader at all. The software renderer keeps its copy
+     * of VRAM at 1x beside it ("Software Framebuffer"): what a game reads back is the console's, and the checks compare it. */
+    /* RETRORECOMP_TEST_VULKAN (tests only): "none" acts as a computer without a Vulkan loader, "device" as a card whose device
+     * the renderer cannot run on; the fallback to the CPU is then what a player without a usable card gets. */
+    const char *test_vulkan = getenv("RETRORECOMP_TEST_VULKAN");
+    const int test_none = test_vulkan && !strcmp(test_vulkan, "none"), test_device = test_vulkan && !strcmp(test_vulkan, "device");
+    const int want_card = game->vulkan && !test_none && rr_vk_host_loader() != NULL;
+    if (game->vulkan && !want_card) snprintf(s->renderer_note, sizeof s->renderer_note, "%s", "No Vulkan loader on this computer.");
+    if (want_card) {
+        set_option(s, "beetle_psx_renderer", "hardware_vk");
+        set_option(s, "beetle_psx_renderer_software_fb", "enabled");
+    }
     s->options_changed = 0;
     if (!open_pack(s, game->pack)) goto failed;
     s->disc = game->disc >= 0 && game->disc < s->disc_count ? game->disc : 0;
@@ -556,6 +659,30 @@ RrPsxSession *rr_psx_open(const RrPsxGame *game, char *error, size_t error_size)
         memset(&info, 0, sizeof info);
         info.path = path;
         if (!retro_load_game(&info)) { fail(s, "the core could not load %s", s->discs[s->disc]); retro_deinit(); goto failed; }
+        s->loaded = 1;
+        if (want_card) {
+            /* The device the renderer creates through its negotiation, then its context. Any refusal: the machine starts again on
+             * the CPU renderer (the game has not run a frame), and the note says why. */
+            const char *why = !vulkan.negotiation ? "The graphics card renderer did not start."
+                            : test_device ? "The Vulkan device lacks what the renderer needs (a test)."
+                            : (vulkan.refuse_cpu_device = 1, !rr_vk_host_open(&vulkan, rr_vk_host_loader(), "Retro-Recomp PSX", NULL,
+                                                                             NULL, NULL)) ? vulkan.error : NULL;
+            if (why) {
+                snprintf(s->renderer_note, sizeof s->renderer_note, "%s", why ? why : "");
+                retro_unload_game();
+                retro_deinit();
+                s->loaded = 0;
+                rr_vk_host_close(&vulkan);
+                set_option(s, "beetle_psx_renderer", "software");
+                s->options_changed = 0;
+                retro_init();
+                if (!retro_load_game(&info)) { fail(s, "the core could not load %s", s->discs[s->disc]); retro_deinit(); goto failed; }
+                s->loaded = 1;
+            } else {
+                if (vulkan.hw.context_reset) vulkan.hw.context_reset();
+                s->renderer = 1;
+            }
+        }
     }
     retro_set_controller_port_device(0, RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_ANALOG, 1));   /* DualShock */
     retro_set_controller_port_device(1, RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_ANALOG, 1));
@@ -574,7 +701,10 @@ failed:
 
 void rr_psx_close(RrPsxSession *s) {
     if (!s) return;
-    if (g == s && s->disc_count && s->width) { retro_unload_game(); retro_deinit(); }
+    if (g == s && s->renderer) rr_vk_host_close_context(&vulkan);
+    if (g == s && s->loaded) { retro_unload_game(); retro_deinit(); }
+    if (g == s && s->renderer) rr_vk_host_close(&vulkan);
+    free(s->hw_picture);
     for (int i = 0; i < s->file_count; ++i) { free(s->files[i].block_offset); free(s->files[i].block_size); }
     for (int i = 0; i < MAX_SOURCES; ++i) if (s->sources[i]) fclose(s->sources[i]);
     rr_psx_bios_data = NULL;
@@ -633,14 +763,34 @@ int rr_psx_frame(RrPsxSession *s) {
 
 const char *rr_psx_error(const RrPsxSession *s) { return s->error; }
 
+/* A session that has drawn nothing yet (just opened: a Restart, a renderer switch, while a menu holds the machine) shows black,
+ * never no picture: the window's filters read the pixels (xBR and Scale2x read them directly). 320 x 240 with a pitch of 320,
+ * the sizes the adapter assumes when the session gives none. */
+static const uint32_t black_picture[320 * 240];
+
 const uint32_t *rr_psx_picture(const RrPsxSession *s, int *width, int *height, double *aspect) {
-    if (width) *width = s->width;
-    if (height) *height = s->height;
+    if (width) *width = s->picture ? s->width : 0;
+    if (height) *height = s->picture ? s->height : 0;
     if (aspect) *aspect = s->aspect;
-    return s->picture;
+    return s->picture ? s->picture : black_picture;
 }
 
-int rr_psx_picture_pitch(const RrPsxSession *s) { return s->pitch; }
+void rr_psx_keep_picture(RrPsxSession *s, const uint32_t *pixels, int w, int h, int pitch) {
+    if (!s || !pixels || w <= 0 || h <= 0 || pitch < w) return;
+    if ((size_t)w * h > s->hw_capacity) {
+        uint32_t *grown = (uint32_t *)realloc(s->hw_picture, (size_t)w * h * sizeof(uint32_t));
+        if (!grown) return;
+        s->hw_picture = grown;
+        s->hw_capacity = (size_t)w * h;
+    }
+    for (int y = 0; y < h; ++y) memcpy(s->hw_picture + (size_t)y * w, pixels + (size_t)y * pitch, (size_t)w * sizeof(uint32_t));
+    s->picture = s->hw_picture;
+    s->pitch = w;
+    s->width = w;
+    s->height = h;
+}
+
+int rr_psx_picture_pitch(const RrPsxSession *s) { return s->picture ? s->pitch : 0; }
 
 size_t rr_psx_audio(RrPsxSession *s, int16_t *pcm, size_t capacity) {
     size_t n = s->audio_frames < capacity ? s->audio_frames : capacity;
@@ -668,6 +818,18 @@ int rr_psx_disc_select(RrPsxSession *s, int index) {
     return 1;
 }
 
+void rr_psx_set_halve(RrPsxSession *s, int halve) {
+    if (!s) return;
+    s->halve_next = halve != 0;
+    s->halve_wait = s->halve_next != s->halve ? 4 : 0;
+    if (!s->last_w) { s->halve = s->halve_next; s->halve_wait = 0; }   /* nothing drawn yet: at once */
+}
+int rr_psx_option_count(const RrPsxSession *s) { return s ? s->option_count : 0; }
+void rr_psx_option_at(const RrPsxSession *s, int index, char key[64], char value[64]) {
+    snprintf(key, 64, "%s", s && index >= 0 && index < s->option_count ? s->options[index].key : "");
+    snprintf(value, 64, "%s", s && index >= 0 && index < s->option_count ? s->options[index].value : "");
+}
+
 int rr_psx_option(RrPsxSession *s, const char *key, const char *value) {
     char full[64];
     snprintf(full, sizeof full, "beetle_psx_%s", key);
@@ -680,6 +842,10 @@ static uint64_t fnv(const void *data, size_t size, uint64_t h) {
     for (size_t i = 0; i < size; ++i) { h ^= p[i]; h *= 0x100000001b3ull; }
     return h;
 }
+
+/* The core's GPU (mednafen/psx/gpu.c): its VRAM, at its upscale factor. With the Vulkan renderer the software renderer keeps
+ * a copy at 1x ("Software Framebuffer"), the one a game reads back. */
+extern PS_GPU GPU;
 
 void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info) {
     const uint64_t basis = 0xcbf29ce484222325ull;
@@ -701,6 +867,7 @@ void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info) {
     for (size_t n = 0; n < sizeof cpu / sizeof cpu[0]; ++n)
         for (unsigned b = 0; b < 4; ++b) bytes[n * 4 + b] = (uint8_t)(cpu[n] >> (8 * b));
     info->cpu = fnv(bytes, sizeof bytes, basis);
+    info->vram = GPU.vram ? fnv(GPU.vram, ((size_t)1024 << GPU.upscale_shift) * ((size_t)512 << GPU.upscale_shift) * 2u, basis) : 0;
     for (int y = 0; s->picture && y < s->height && !info->nonblack; ++y)
         for (int x = 0; x < s->width; ++x) if (s->picture[(size_t)y * s->pitch + x] & 0x00ffffffu) { info->nonblack = 1; break; }
     for (size_t i = 0; i < s->audio_frames * 2; ++i) if (s->audio[i] > 64 || s->audio[i] < -64) { info->audible = 1; break; }
@@ -814,3 +981,7 @@ int rr_psx_state_load(RrPsxSession *s, const char *path, const char *abi) {
     if (ok) s->disc = (int)disc;
     return ok ? 0 : 3;
 }
+
+int rr_psx_renderer(const RrPsxSession *s) { return s ? s->renderer : 0; }
+const char *rr_psx_renderer_note(const RrPsxSession *s) { return s && s->renderer_note[0] ? s->renderer_note : NULL; }
+const char *rr_psx_gpu_name(const RrPsxSession *s) { return s && s->renderer ? vulkan.gpu_name : ""; }

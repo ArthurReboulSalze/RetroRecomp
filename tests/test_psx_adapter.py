@@ -65,10 +65,12 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('failures += mode == 1;', ADAPTER)
 
     def test_a_raised_resolution_the_pc_cannot_draw_is_said(self):
-        # Tobal No. 1 at 4x runs 18 % too slow in combat and its sound breaks up: the labels and a notice say so.
-        self.assertIn('"2x", "4x (heavy)"};', ADAPTER)
-        # 8x is not offered on the software renderer (the owner, 15 November 2026: « le 8x, c'est injouable »)
-        self.assertNotIn('8x', ADAPTER.split('static const char *const resolution_values[]')[1].split(';')[0])
+        # Tobal No. 1 at 4x runs 18 % too slow in combat on the CPU renderer and its sound breaks up: a notice says so.
+        self.assertIn('"1x (native)", "2x", "4x", "8x (graphics card)"};', ADAPTER)
+        # 8x only on the graphics card (the owner, 15 November 2026: « le 8x, c'est injouable » on the CPU): asked for with the
+        # CPU drawing, it draws 4x and says so
+        self.assertIn('if (resolution == 3 && !card) {', ADAPTER)
+        self.assertIn('"8x needs the graphics card: 4x on the CPU"', ADAPTER)
         self.assertIn('watch_load();', ADAPTER)
         self.assertIn('if (scale == 1 || warned_scale == scale || interrupted)', ADAPTER)
 
@@ -79,11 +81,27 @@ class PsxAdapterTest(unittest.TestCase):
         for table, value in defaults.items():
             first = re.search(rf'{table}\[\] = \{{"([^"]+)"', ADAPTER).group(1)
             self.assertEqual(first, value, table)
-        self.assertRegex(ADAPTER, r'\{"Internal resolution", L"resolution", resolutions, 3, 0\}')
+        self.assertRegex(ADAPTER, r'\{"Internal resolution", L"resolution", resolutions, 4, 0\}')
         # No deinterlacing row (the owner's « ok » of 15 November 2026): always progressive, the session's core setting.
         self.assertNotIn('Deinterlacing', ADAPTER)
         self.assertIn('{"beetle_psx_deinterlacer", "off"},', (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8'))
 
+
+    def test_the_renderer_row_starts_on_the_graphics_card_and_checks_stay_on_the_cpu(self):
+        # 1.7.7 (the owner, 15 November 2026: « je veux que par défaut, on ait une accélération graphique Vulkan »): the first
+        # row, the card by default; a headless run (a check) never applies it, so it draws with the CPU unless asked
+        self.assertIn('{"Renderer", L"renderer", renderers, 2, 0},', ADAPTER)
+        self.assertIn('static const char *const renderers[] = {"Graphics card (Vulkan)", "CPU"};', ADAPTER)
+        self.assertIn('for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) gfx_apply(i, check_default(i)); }', ADAPTER)
+        main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
+        self.assertIn('want_vulkan = !headless && !input_check;', main)
+        # a card that cannot be used is never an error: the session opens on the CPU and says why; the player is told
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('set_option(s, "beetle_psx_renderer", "software");', session)
+        self.assertIn('set_option(s, "beetle_psx_renderer_software_fb", "enabled");', session)
+        self.assertIn('"No usable graphics card: the CPU draws the picture"', ADAPTER)
+        # the session opened again (renderer switch, Restart) gets every row's value again
+        self.assertIn('for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);', ADAPTER)
 
     def test_the_screen_format_row_is_offered(self):
         # D27 (1.7.6): a game with its own anamorphic 16:9 option can be shown 16 wide for 9 high, kept per game.
@@ -102,6 +120,57 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertEqual(byte(-32768), 0xFF)            # unclamped: the right edge
         self.assertEqual(byte(max(-32768, -32767)), 0)  # clamped: the left edge
         self.assertEqual((byte(32767), byte(0)), (0xFF, 0x80))
+
+
+    def test_the_window_always_gets_a_picture(self):
+        # A session that has drawn nothing yet (a Restart, a renderer switch while F3 holds the machine) gives black, never NULL:
+        # the xBR and Scale2x filters read the pixels (the owner's report of 15 November 2026: the game closed on a switch)
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('return s->picture ? s->picture : black_picture;', session)
+        main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
+        self.assertIn('if (opened && last) rr_psx_keep_picture(session, last, w, h, w);', main)
+        self.assertIn('!strcmp(argv[i], "--gfx-at")', main)
+
+
+    def test_pgxp_is_offered_off_and_only_in_memory_mode(self):
+        # 1.7.7 (study section 7): two rows, both Off by default; "On" is Beetle's "memory only"; the checks run with it off
+        # On for the player since the owner's decision (15 November 2026); the checks (headless) keep both off
+        self.assertIn('{"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 1},', ADAPTER)
+        self.assertIn('{"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 1},', ADAPTER)
+        self.assertIn('return option == GFX_PGXP || option == GFX_PGXP_TEXTURE ? 0 : gfx_options[option].def;', ADAPTER)
+        self.assertIn('gfx_apply(i, check_default(i));', ADAPTER)
+        self.assertIn('if (option == GFX_PGXP_TEXTURE && !chosen[GFX_PGXP]) value = 0;', ADAPTER)
+        self.assertIn('static const char *const pgxp_mode_values[] = {"disabled", "memory only"};', ADAPTER)
+        self.assertNotIn('memory + CPU', ADAPTER.split('pgxp_mode_values[]')[1].split(';')[0])
+        self.assertNotIn('pgxp_nclip', ADAPTER)
+        self.assertNotIn('pgxp_vertex', ADAPTER)
+
+
+    def test_antialiasing_and_texture_filtering_are_card_rows_off_by_default(self):
+        # 1.7.7 (the owner's questions of 15 November 2026): one anti-aliasing row (MSAA or Supersampling, never both), one texture
+        # filtering row (nearest, bilinear, 3-point), Off by default; no texture upscaler, no mipmapping
+        self.assertIn('{"Anti-aliasing (GPU)", L"antialiasing", antialiasing, 5, 0},', ADAPTER)
+        self.assertIn('{"Texture filtering (GPU)", L"texture_filter", texture_filters, 3, 0},', ADAPTER)
+        self.assertIn('static const char *const msaa_values[] = {"1x", "2x", "4x", "8x", "1x"};', ADAPTER)
+        self.assertIn('static const char *const texture_filter_values[] = {"nearest", "bilinear", "3-point"};', ADAPTER)
+        # Supersampling as on the N64: drawn at twice the resolution, the frames reduced by two; never Beetle's (down to 1x)
+        self.assertIn('rr_psx_option(s, "internal_resolution", resolution_values[resolution + supersampled]);', ADAPTER)
+        self.assertIn('rr_psx_option(s, "super_sampling", "disabled");', ADAPTER)
+        self.assertIn('rr_psx_set_halve(s, supersampled);', ADAPTER)
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('const unsigned red = (p[r] + p[4 + r] + q[r] + q[4 + r] + 2) >> 2;', session)
+        for upscaler in ('"xBR"', '"SABR"', '"JINC2"', 'adaptive_smoothing', 'mdec_yuv', 'replace_textures'):
+            self.assertNotIn(upscaler, ADAPTER)
+
+
+    def test_multisampling_changed_in_play_reopens_the_session_with_its_options(self):
+        # Beetle's in-place rebuild kept the old sample count's programs: half the picture broke (the owner's report, 15 Nov 2026)
+        self.assertIn('if (!rr_psx_host_reopen()) return;', ADAPTER)
+        main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
+        self.assertIn('int rr_psx_host_reopen(void) { return session ? reopen_session() : 0; }', main)
+        self.assertIn('(const char (*)[2][64])carried, carried_count};', main)
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('for (int i = 0; game->options && i < game->option_count; ++i)', session)
 
 
 if __name__ == '__main__':

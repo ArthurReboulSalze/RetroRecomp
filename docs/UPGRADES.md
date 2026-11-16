@@ -92,6 +92,12 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
 | [Commodore Amiga: a LoadSeg list keeps the sizes AmigaDOS stores](#commodore-amiga-a-loadseg-list-keeps-the-sizes-amigados-stores-177) | the Amiga and the Amiga 1200 (`rr_resload.c`) | none | refused (every build's are) |
 | [Commodore Amiga 1200: the display's speed shortcuts under AGA](#commodore-amiga-1200-the-displays-speed-shortcuts-under-aga-177) | the Amiga and the Amiga 1200 (the adaptation's digest) | none | refused (every build's are) |
+| [Sony PlayStation: anti-aliasing and texture filtering](#sony-playstation-anti-aliasing-and-texture-filtering-177) | the PlayStation's (`psx_main.c`, `psx_session.c`: a session opened again keeps its options) | the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales: five new strings) | none |
+| [Sony PlayStation: geometry precision (PGXP)](#sony-playstation-geometry-precision-pgxp-177) | none | the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales: two new strings) | none |
+| [Sony PlayStation: the graphics card draws the picture](#sony-playstation-the-graphics-card-draws-the-picture-177) | the PlayStation (`psx_main.c`, `psx_session.h`, `psx_build.py`, the shared Vulkan side compiled in) and the Nintendo 64 (the shared Vulkan side gains its closing functions) | the PlayStation's (`psx_session.c`, `rrhk_psx.c`), and the host stamp of all 20 profiles (`runtime_catalog.inc` and the locales: five new strings) | none (a state loads with either renderer) |
+| [Sony PlayStation: the trace records the VRAM (format 2)](#sony-playstation-the-trace-records-the-vram-format-2-177) | the PlayStation (`psx_session.c`, `psx_session.h`, `psx_main.c`, `psx_conversion.py`) | the PlayStation's host stamp (`psx_session.c`) | none |
+| [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
+| [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 | [Commodore Amiga: no battery clock](#commodore-amiga-no-battery-clock-177) | the Amiga and the Amiga 1200 (`amiga_session.cpp`) | none | refused (every build's are) |
 
@@ -200,6 +206,140 @@ every moving edge doubled). Owner's decision of 15 November 2026, « Oui, lance-
   run's pictures from the fourth frame on (sound, memory and CPU from the first). The first frames after a load differ in one field
   of the table in 1.7.6 already (2 frames, the bitplane state at a save, an open note); the motion test makes it 3.
 - **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`), with the section above; nothing else moves.
+
+## Sony PlayStation: anti-aliasing and texture filtering (1.7.7)
+
+**What changes.** F3 gains two rows after the internal resolution, for the graphics card only, both Off by default:
+« Anti-aliasing (GPU) » (MSAA 2x, 4x, 8x, or Supersampling as on the Nintendo 64: drawn at twice the internal resolution and
+reduced by two as the frame is read back, so the picture keeps the size the resolution row gives; nothing at 8x) and
+« Texture filtering (GPU) » (bilinear or 3-point). They change in play; with the CPU drawing they do nothing and the game says so once.
+No mipmapping is offered (the console has none).
+
+**What it does not change.** With both rows Off (the default) every frame is byte for byte what it was: on Ape Escape, 3,300 frames
+on the CPU and on the card, every trace column equal to the build before this change, picture included. With the rows on, the
+machine is the same: RAM, CPU state, sound and VRAM equal on every frame (MSAA 8x; Supersampling at 4x; bilinear; 3-point with
+MSAA 4x at 4x), at 0 interpreted instructions; only the card's picture differs. Changing them in play (with the resolution, through
+Supersampling's change of drawing size) was checked in a window of the real Windows video driver under each filter, on the
+card and on the CPU: the game continues. MSAA changed in play opens the session again (a quick state, as a renderer switch does)
+with its multisampling set before the renderer is built: the first build of this change rebuilt Beetle's renderer in place, which
+kept the programs of the old sample count, and the picture broke at the game's next display mode change (the owner's report of
+15 November 2026). A session opened again now starts with the core options it had (`RrPsxGame.options`). The proof compares the
+picture as well as the machine: same size as the run without MSAA, content over the whole width.
+
+**Stamps:** the PlayStation's host stamp (`rrhk_psx.c`), its game stamp (`psx_main.c`, `psx_session.c`), and the host stamp of every
+profile (`runtime_catalog.inc`, the locales). **Existing exports:** converted again in full at their next conversion. **Quick
+states:** unchanged. **Hot path:** with both rows Off, the same.
+
+## Sony PlayStation: geometry precision (PGXP) (1.7.7)
+
+**What changes.** F3 gains two rows after the internal resolution, both **On by default for the player** (the owner's decision of
+15 November 2026, after trying them): « Geometry precision (PGXP) » (Beetle's PGXP in its "memory only" mode) and
+« Perspective-correct textures » (held off while PGXP is Off: it corrects only what PGXP carries). A choice a player saved is kept.
+They change in play, on the card and on the CPU, without reopening the session. Beetle's "memory + CPU" mode, its PGXP culling
+and its vertex cache are not offered. **What a player sees by default is not the checked run:** with PGXP on the emulated run
+differs slightly (RAM and CPU state on some frames, written on the PlayStation's page), and no fidelity is claimed for it.
+
+**What it does not change.** The conversion's checks run with both rows Off, and there every frame is byte for byte what it was: on Ape Escape, 3,300 frames
+on the CPU and on the card, every trace column equal to the build before this change, picture included. The checks of a
+conversion run with PGXP off. With PGXP on the run stays at 0 interpreted instructions and differs slightly from the checked one
+(RAM and CPU state on some frames: written on the PlayStation's page). Turning it on and off in play was checked headless and in a
+window of the real Windows video driver under each filter, the machine held after each change: the game continues.
+
+**Stamps:** the PlayStation's host stamp (`rrhk_psx.c`) and the host stamp of every profile (`runtime_catalog.inc`, the locales).
+**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged (PGXP keeps nothing in a state;
+after F9 its precision comes back as the game recomputes its vertices). **Hot path:** with PGXP off, the same; On (the player's
+default) adds Beetle's PGXP bookkeeping to the GTE and memory steps (not timed: no timing run for this change).
+
+## Sony PlayStation: the graphics card draws the picture (1.7.7)
+
+**What changes** (the owner's decisions of 15 November 2026: Vulkan, by default, the CPU when no card can be used). A PlayStation
+game opens Beetle PSX's Vulkan renderer through the libretro Vulkan side it shares with the Nintendo 64
+(`native/libretro_vulkan_host.c`), reads each frame back from the card and shows it. F3 gains a first row, **Renderer**: Graphics
+card (Vulkan), the default, or CPU (the software renderer). The software renderer keeps its copy of VRAM at 1x beside the card
+(Beetle's "Software Framebuffer", forced on), so a game that reads VRAM back reads the console's. The internal resolution list is
+1x, 2x, 4x and 8x (graphics card); 8x asked for on the CPU draws 4x and says so. A computer with no usable card opens on the CPU
+and the player is told once ("No usable graphics card: the CPU draws the picture"); `RETRORECOMP_TEST_VULKAN=none|device` makes a
+test run behave as such a computer. Changing the renderer in play takes a quick state, opens the session again on the other
+renderer and loads it back; the same reopening (and a Restart) now gives every F3 row its value again (before, a Restart left the
+core's defaults until the row was touched). A session that has drawn nothing yet gives the window a black picture, and a renderer
+switch keeps the last picture until the next frame: the first build of this change closed the game when F3 switched the renderer
+under the xBR or Scale2x filter (the owner's report of 15 November 2026), since those filters read the picture while the menu held
+the machine. `--gfx-at FRAME:KEY=INDEX` changes a row during a headless run, as on the Nintendo 64.
+
+**What it does not change.** Every check of a conversion: a headless run draws with the CPU at 1x unless `--gfx renderer=0` asks
+for the card. Checked on Ape Escape (3,300 frames, a build of this tree): with the card at 1x and at 8x, the RAM, the CPU state, the
+sound and the VRAM equal the CPU renderer's on every frame; both fallbacks (no loader, a device refused) run exactly as the CPU
+renderer, picture included; a quick state saved on one renderer and loaded on the other continues for 600 frames equal to the
+uninterrupted run.
+
+**Stamps:** the PlayStation's game stamp (`psx_main.c`, `psx_session.h`, `psx_build.py`; the shared Vulkan side, declared for both
+machines) and host stamp (`psx_session.c`, `rrhk_psx.c`); the Nintendo 64's game stamp (the shared side's two closing functions,
+which the Nintendo 64 never calls); the host stamp of every profile (`runtime_catalog.inc`, the locales). **Existing exports:**
+converted again in full at their next conversion. **Quick states:** none moves by this change; a state loads with either renderer.
+**Hot path:** the card's frame is read back each frame (the Nintendo 64's way); the CPU renderer's path is unchanged.
+
+**The device chosen** (the same release). Without a discrete GPU the shared Vulkan side now takes the best other device (an
+integrated GPU, then a virtual one, then any other, a device emulated on the CPU last) instead of the first one listed; on a
+computer with a discrete GPU the choice is unchanged (the Nintendo 64's included). The PlayStation refuses a device emulated on
+the CPU (Mesa's llvmpipe, which WSL offers): its own CPU renderer is better than an emulated card, so it falls back with the
+notice. The Nintendo 64, which needs Vulkan, still uses such a device when it is the only one.
+
+## Sony PlayStation: the trace records the VRAM (format 2) (1.7.7)
+
+**What changes.** The per-frame trace a PlayStation game writes for its checks (`--trace`) gains a ninth column, `vram`: the hash
+of the core's VRAM, the 1 MiB the console drew into (larger when the software renderer draws at a raised resolution). With the
+Vulkan renderer the picture a game shows is the graphics card's own and is never compared; the VRAM, kept by the software
+renderer's copy at 1x, is what a check compares instead (on Ape Escape it is equal to the software renderer's on every frame,
+with RAM, CPU state and sound). The trace has a format, named by its header line (`psx_conversion.TRACE_FORMATS`): format 1 is
+the eight columns of 1.7.1 to 1.7.6, format 2 the nine of 1.7.7. Both are read; a trace of no known format is refused with a
+sentence, and two traces of different formats are never compared (one of them comes from another build).
+
+**Existing reports and qualified evidence.** A conversion report carries no trace, only what the routes showed (liveness fields):
+reports of 1.7.6 are unchanged and still read. The traces kept as evidence of the 1.7.6 qualification are format 1 and stay
+readable; they are never compared with a 1.7.7 trace (a comparison across builds was never a proof). The conversion compares
+traces of one build only, so nothing it checks changes.
+
+**Stamps:** the PlayStation's game stamp (`psx_main.c`, `psx_session.h`, `psx_conversion.py`) and host stamp (`psx_session.c`).
+**Existing exports:** converted again in full at their next conversion. **Quick states:** unchanged by this change. **Hot path:**
+no (the VRAM is hashed in the checks' headless runs only).
+
+## Nintendo 64 and PlayStation: one Vulkan frontend (1.7.7)
+
+**What changes.** The Vulkan side of the Nintendo 64's libretro frontend (the instance, the device the core creates through its
+negotiation, the libretro Vulkan interface given to the core, the read-back of each frame into the picture) moves out of
+`native/n64_machine/n64_session.cpp` into `native/libretro_vulkan_host.c`, so that the PlayStation's Vulkan renderer uses the same
+code rather than a copy. The calls are the same, in the same order: the functions come from the same loader (the Nintendo 64 still
+initialises volk and loads its tables at the same two points, through two hooks), the queue is behind one lock (an SDL mutex in
+place of a C++ one), and the error messages are unchanged.
+
+**What it does not change.** The Nintendo 64's pictures, sound, memory and CPU state: the gate is the Nintendo 64 specialist's
+(three games, the same exes built from both trees at one folder path, every trace column, the captures and RDRAM byte-equal on the
+main route and on the graphics paths the read-back touches; quick states equal apart from their key).
+
+**Stamps:** the Nintendo 64's game stamp (`n64_session.cpp`, `CMakeLists.txt`, the shared files) and the PlayStation's (the shared
+files, declared for both). **Existing exports:** converted again in full at their next conversion. **Quick states:** Nintendo 64
+states of 1.7.6 are refused cleanly (the state key hashes the session and the shared files). **Hot path:** the read-back of each
+frame, the same calls.
+
+## Sony PlayStation: the Vulkan renderer compiled in, not yet used (1.7.7)
+
+**What changes.** Step 1 of the graphics-card renderer ([PLAYSTATION.md](PLAYSTATION.md)): every PlayStation game now holds Beetle
+PSX's Vulkan renderer (`rhi/rhi_lib_vulkan.c`, `rhi/rhi_upscaler.c`, MIT, with their prebuilt shaders and the texture tracker
+they call), compiled with Beetle's `HAVE_VULKAN` and `HAVE_HW`. It is not opened yet: the session asks for the software renderer,
+the reference of every check. What the renderer needs and the game cannot hold is replaced: SPIRV-Cross (Apache-2.0) by our
+`native/psx_machine/psx_spirv_reflect.c` (equal on all 92 prebuilt shaders, `tools/psx_spirv_reflect_selftest.py`), the HDR
+transform by `native/psx_machine/psx_hdr_none.c` ("off"), Beetle's Apache-2.0 copy of the Vulkan headers by Khronos's own,
+pinned and taken under MIT (`psx_beetle.VULKAN_HEADERS_REV`, a new upstream). The game stays GPL-2.0-only as a whole; its notice
+gains the renderer's MIT and ISC terms and Khronos's MIT terms. A core built with its hardware renderers names its options
+`beetle_psx_hw_<name>`: the session answers them under the names it already used.
+
+**What it does not change.** The picture and every check: the per-frame trace of a game built this way equals the trace of the
+software-only build (frame, RAM, picture, sound, CPU state; checked on Ape Escape).
+
+**Stamps:** the PlayStation's game stamp (the prepared tree's sources, defines and include folders, the two new files, the Vulkan
+headers) and host stamp (`psx_session.c`). **Existing exports:** converted again in full at their next conversion. **Quick
+states:** PlayStation states of 1.7.6 are refused cleanly (the state key holds the prepared tree's digest). **Site limits:**
+unchanged. **Hot path:** no (the renderer is not opened; the game is about 5 MB larger).
 
 ## Commodore Amiga 1200: a player's record walked with the 68EC020's lengths (1.7.7)
 

@@ -866,6 +866,12 @@ INPUTS = _resolve({
     ('amiga', 'atarist'): (
         'retrorecomp.m68k_record_walk',
     ),
+    # The libretro frontend's Vulkan side (1.7.7): moved out of the Nintendo 64's session, shared with the PlayStation's Vulkan
+    # renderer.
+    ('n64', 'psx'): (
+        'native/libretro_vulkan_host.c',
+        'native/libretro_vulkan_host.h',
+    ),
     # The CPS-1 family: the CPS-2 is built from the same board model, host and pipeline, so both own these files.
     ('cps1', 'cps2'): (
         'assets/cps1-catalogue.json',
@@ -957,6 +963,10 @@ INPUTS = _resolve({
         'native/psx_machine/psx_reference.c',
         'native/psx_machine/psx_session.c',
         'native/psx_machine/psx_session.h',
+        # the resource layout of the Vulkan renderer's prebuilt shaders, in place of upstream's SPIRV-Cross (Apache-2.0)
+        'native/psx_machine/psx_spirv_reflect.c',
+        # HDR switched off for the Vulkan renderer (its upstream transform and tables are not compiled)
+        'native/psx_machine/psx_hdr_none.c',
         # the one helper that sets an unusable save file aside (the memory card here); cart_save.c, the Atari ST and the
         # X68000 move to it in a later release, with identical results, and join its owners then
         'native/save_set_aside.c',

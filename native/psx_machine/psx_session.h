@@ -20,7 +20,7 @@ extern "C" {
 #define RR_PSX_AUDIO_RATE 44100u
 #define RR_PSX_MAX_WIDTH 1024     /* the picture at the console's resolution fits in this */
 #define RR_PSX_MAX_HEIGHT 576
-#define RR_PSX_PICTURE_LIMIT 4096 /* a larger internal resolution: the picture grows up to this on each side */
+#define RR_PSX_PICTURE_LIMIT 8192 /* a larger internal resolution: the picture grows up to this on each side (8x on the card) */
 
 /* Pad bits of one player (the order of the PlayStation pad, libretro's joypad ids). */
 enum {
@@ -36,13 +36,27 @@ typedef struct RrPsxGame {
     const uint8_t *bios;        /* the player's BIOS (RR_PSX_BIOS_BYTES), NULL: OpenBIOS, built into the core */
     const char *save_dir;       /* UTF-8 folder of the memory card, NULL: no card is written */
     int disc;                   /* the disc to start with (0-based) */
+    int vulkan;                 /* 1.7.7: 1 the graphics card draws (Beetle's Vulkan renderer), 0 the CPU (its software renderer) */
+    const char (*options)[2][64];   /* 1.7.7: core options (full key, value) set before the game loads (a session opened again), or NULL */
+    int option_count;
 } RrPsxGame;
 
 typedef struct RrPsxSession RrPsxSession;
 
-/* Opens the machine with the pack's first disc (or `disc`). NULL with a reason in `error`. */
+/* Opens the machine with the pack's first disc (or `disc`). NULL with a reason in `error`. With `vulkan`, a graphics card that cannot
+ * be used (no Vulkan loader, no device, a device the renderer cannot run on) is never an error: the machine opens with the CPU
+ * renderer and rr_psx_renderer_note says why. */
 RrPsxSession *rr_psx_open(const RrPsxGame *game, char *error, size_t error_size);
 void rr_psx_close(RrPsxSession *s);
+
+/* The renderer drawing: 1 the graphics card (Vulkan), 0 the CPU. Why the card was asked for and not used, or NULL. The card's
+ * name, or "" without the card. */
+int rr_psx_renderer(const RrPsxSession *s);
+/* The picture `pixels` (w x h, `pitch` pixels a row) copied into the session as its last picture, shown until its next frame
+ * (a renderer switch: the session opened again has drawn nothing yet). */
+void rr_psx_keep_picture(RrPsxSession *s, const uint32_t *pixels, int w, int h, int pitch);
+const char *rr_psx_renderer_note(const RrPsxSession *s);
+const char *rr_psx_gpu_name(const RrPsxSession *s);
 
 /* Inputs of the next frame: the pad bits and the two sticks (-32768..32767) of a player (0 or 1). */
 void rr_psx_pad(RrPsxSession *s, int player, unsigned bits, const int16_t sticks[4]);
@@ -77,6 +91,12 @@ int rr_psx_disc_select(RrPsxSession *s, int index);
 
 /* A core option (Beetle's key without its prefix, its value as the core names it), applied before the next frame. */
 int rr_psx_option(RrPsxSession *s, const char *key, const char *value);
+/* The session's core options (full key and value), for a session opened again with them: the count, and each pair. */
+/* 1.7.7: 1 the card's frames are reduced by two (each pixel the mean of a 2x2 block) as they are read back: Supersampling, the card
+ * drawing at twice the internal resolution chosen. The machine is untouched; the CPU renderer's frames never are. */
+void rr_psx_set_halve(RrPsxSession *s, int halve);
+int rr_psx_option_count(const RrPsxSession *s);
+void rr_psx_option_at(const RrPsxSession *s, int index, char key[64], char value[64]);
 
 /* Evidence of the last frame for the trace (deterministic: no clock, no host state). */
 typedef struct RrPsxFrameInfo {
@@ -85,6 +105,9 @@ typedef struct RrPsxFrameInfo {
                                         * pending load, SR, CAUSE, EPC, and the GTE's 64 registers */
     uint32_t samples;                  /* stereo frames of sound this frame */
     int width, height, nonblack, audible;
+    uint64_t vram;                     /* FNV-1a 64 of the core's VRAM (1024 x 512 halfwords at 1x, the software renderer's own
+                                        * copy; larger at a raised resolution of the software renderer): what the console drew,
+                                        * whichever renderer shows it (1.7.7) */
 } RrPsxFrameInfo;
 void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info);
 

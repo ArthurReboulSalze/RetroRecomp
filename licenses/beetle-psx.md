@@ -14,8 +14,16 @@ the generated files of the game). It holds no code under noncommercial terms. Re
 host kit, the generated native steps) are MIT and stay MIT on their own.
 
 **Left out on purpose**: Beetle's EBOOT reader (`mednafen/cdrom/CDAccess_PBP.c`, which embeds GPL-3.0 code and PlayStation
-Portable keys), the lightrec dynamic recompiler and GNU lightning (LGPL), and the hardware renderers (Vulkan with Apache-2.0
-SPIRV-Cross, OpenGL with files of unclear terms). Our changes to a Beetle file are GPL like that file.
+Portable keys), the lightrec dynamic recompiler and GNU lightning (LGPL), the OpenGL renderer, SPIRV-Cross and Beetle's copy of the
+Vulkan headers (Apache-2.0, which the GPL version 2 does not admit), and the HDR display transform (`rhi/hdr_transform.c`,
+`rhi/hdr_aces2.c` and their tables: no notice, tables transcribed from the Academy's ACES code and one derived from Blender's). Our
+changes to a Beetle file are GPL like that file.
+
+**The Vulkan renderer (from 1.7.7).** `rhi/rhi_lib_vulkan.c` and `rhi/rhi_upscaler.c` are MIT (their headers say so); the renderer
+folds in parallel-psx (ISC, notice below). In SPIRV-Cross's place a game compiles Retro-Recomp's own `psx_spirv_reflect.c` (MIT),
+which reads the prebuilt shaders' layout from the SPIR-V specification, and `psx_hdr_none.c` (MIT), which answers "off" for HDR.
+The Vulkan headers are Khronos's (`KhronosGroup/Vulkan-Headers` at `88487f687f3100ebe1d3559a8a34d971ee85b977`, tag v1.4.368),
+offered under "Apache-2.0 OR MIT" and taken under MIT (notice below).
 
 The BIOS the player gives is his; OpenBIOS (PCSX-Redux, MIT, notice below) is built into the core and used when he has none.
 
@@ -415,3 +423,34 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMA
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
+
+## parallel-psx (Tiny Tiger), folded into the Vulkan renderer
+
+```
+ISC License
+
+Copyright (c) 2016, Tiny Tiger
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided
+that the above copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
+DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+## The Vulkan headers (The Khronos Group), taken under MIT
+
+```
+MIT License
+
+Copyright (c) 2015-2023 The Khronos Group Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+

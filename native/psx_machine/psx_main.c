@@ -287,9 +287,9 @@ int rr_psx_host_frame(const uint16_t pads[2], const int16_t axes[2][4]) {
         for (size_t n = 0; n < frame_audio_count; n++) nonzero += frame_audio[n] != 0;
         if (info.nonblack) nonuniform_frames++;
         if (trace_file)
-            fprintf(trace_file, "%u,%016llx,%016llx,%016llx,%u,%d,%dx%d,%016llx\n", frame, (unsigned long long)info.ram,
+            fprintf(trace_file, "%u,%016llx,%016llx,%016llx,%u,%d,%dx%d,%016llx,%016llx\n", frame, (unsigned long long)info.ram,
                     (unsigned long long)info.video, (unsigned long long)info.pcm, info.samples, info.audible, info.width,
-                    info.height, (unsigned long long)info.cpu);
+                    info.height, (unsigned long long)info.cpu, (unsigned long long)info.vram);
     }
     if (save_path && save_at == frame && !state_file(save_path, 0)) save_failed = 1;
     if (capture_dir && !(frame % capture_every)) {
@@ -322,6 +322,9 @@ size_t rr_psx_take_audio(int16_t *out, size_t capacity) {
 unsigned rr_psx_frame_index(void) { return frame; }
 
 static int open_session(void);
+/* The renderer asked for (1.7.7): 1 the graphics card (Vulkan), 0 the CPU. A window starts with the card (the saved choice of F3 then
+ * switches it at once); a headless run, a check of the conversion, draws with the CPU unless --gfx renderer=0 asks for the card. */
+static int want_vulkan;
 int rr_psx_host_reset(void) {
     card_sync(0);
     rr_psx_close(session);
@@ -329,6 +332,45 @@ int rr_psx_host_reset(void) {
     frame = 0; script_pos = 0; memset(script_pads, 0, sizeof script_pads);
     frame_audio_count = audio_read = 0;
     return open_session();
+}
+
+/* The renderer, switched in play: the machine taken as a quick state, the session opened again with the other renderer, the state
+ * given back (nothing to keep before the first frame). 1 done (the card may still be refused: rr_psx_renderer_note), 0 the session
+ * could not open again (`fault`). */
+static int reopen_session(void);
+int rr_psx_host_set_renderer(int vulkan) {
+    if (!session || want_vulkan == (vulkan != 0)) return session != NULL;
+    want_vulkan = vulkan != 0;
+    return reopen_session();
+}
+
+/* The session opened again on the same renderer, the machine carried as a quick state: a change Beetle's renderer cannot take in
+ * place (multisampling: the in-place rebuild keeps the programs of the old sample count, and the picture breaks at the game's
+ * next display mode change). */
+int rr_psx_host_reopen(void) { return session ? reopen_session() : 0; }
+
+static char carried[64][2][64];   /* the core options a session opened again starts with */
+static int carried_count;
+static int reopen_session(void) {
+    carried_count = rr_psx_option_count(session) < 64 ? rr_psx_option_count(session) : 64;
+    for (int i = 0; i < carried_count; ++i) rr_psx_option_at(session, i, carried[i][0], carried[i][1]);
+    size_t size = 0;
+    uint8_t *state = frame ? rr16_state_capture(&size) : NULL;
+    /* The last picture, shown again until the machine's next frame: a window draws while F3 holds the machine. */
+    int w = 0, h = 0;
+    const uint32_t *shown = rr_psx_picture(session, &w, &h, NULL);
+    const int pitch = rr_psx_picture_pitch(session);
+    uint32_t *last = w > 0 && h > 0 && pitch >= w ? (uint32_t *)malloc((size_t)w * h * sizeof(uint32_t)) : NULL;
+    if (last) for (int y = 0; y < h; ++y) memcpy(last + (size_t)y * w, shown + (size_t)y * pitch, (size_t)w * sizeof(uint32_t));
+    card_sync(0);
+    rr_psx_close(session);
+    session = NULL;
+    const int opened = open_session();
+    if (opened && state && !rr16_state_restore(state, size)) frame = 0;
+    if (opened && last) rr_psx_keep_picture(session, last, w, h, w);
+    free(last);
+    free(state);
+    return opened;
 }
 
 /* ------------------------------------------------------------ quick states (console16_state.c) */
@@ -388,8 +430,9 @@ static int open_session(void) {
     if (bios && bios_size != RR_PSX_BIOS_BYTES) bios = NULL;
     if (pack_override) snprintf(pack, sizeof pack, "%s", pack_override);
     else if (!self_path(pack, sizeof pack)) { snprintf(fault, sizeof fault, "cannot find this executable's path"); return 0; }
-    RrPsxGame game = {pack, bios, NULL, 0};
+    RrPsxGame game = {pack, bios, NULL, 0, want_vulkan, (const char (*)[2][64])carried, carried_count};
     session = rr_psx_open(&game, fault, sizeof fault);
+    carried_count = 0;
     if (!session) return 0;
     if (!headless || card_option) card_sync(1);
     return 1;
@@ -451,6 +494,10 @@ bool rr_psx_gfx_assign(const char *assignment, bool windowed);
 static int execute(int argc, char **argv) {
     const char *gfx[8];
     int gfx_count = 0, input_check = 0;
+    /* --gfx-at FRAME:KEY=INDEX (tests): a graphics row changed between two frames of a headless run, as F3 changes it in play. */
+    unsigned gfx_at_frame[8];
+    const char *gfx_at[8];
+    int gfx_at_count = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--headless")) headless = 1;
         else if (i + 1 < argc && !strcmp(argv[i], "--frames")) frames = atoi(argv[++i]);
@@ -463,6 +510,12 @@ static int execute(int argc, char **argv) {
         else if (i + 1 < argc && !strcmp(argv[i], "--capture-every")) capture_every = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--pack")) pack_override = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--gfx") && gfx_count < 8) gfx[gfx_count++] = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--gfx-at") && gfx_at_count < 8) {
+            const char *spec = argv[++i], *colon = strchr(spec, ':');
+            if (!colon) return 2;
+            gfx_at_frame[gfx_at_count] = (unsigned)atoi(spec);
+            gfx_at[gfx_at_count++] = colon + 1;
+        }
         else if (i + 1 < argc && !strcmp(argv[i], "--pcm")) { if (!(pcm_file = file_open(argv[++i], L"wb"))) return 3; }
         else if (!strcmp(argv[i], "--input-check")) input_check = 1;
         else if (i + 1 < argc && !strcmp(argv[i], "--interpreted")) interpreted_path = argv[++i];
@@ -478,6 +531,7 @@ static int execute(int argc, char **argv) {
     }
     if (frames < 0 || frames > 1000000 || (headless && !frames && !input_check) || !capture_every) return 2;
     diagnostics = report_path || trace_path;
+    want_vulkan = !headless && !input_check;
     if (!headless) rr_game_data_file(card_path, 4096, "saves", RR16_STATE_NAME, RR16_STATE_ROM, ".mcr");
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     if (!open_session()) { fprintf(stderr, "%s\n", fault[0] ? fault : "no PlayStation disc in this executable"); SDL_Quit(); return 3; }
@@ -494,7 +548,7 @@ static int execute(int argc, char **argv) {
         if (!rr_psx_gfx_assign(gfx[n], !headless)) { fprintf(stderr, "unknown graphics option %s\n", gfx[n]); return 2; }
     if (trace_path) {
         if (!(trace_file = file_open(trace_path, L"wb"))) return 3;
-        fprintf(trace_file, "frame,ram,image,pcm,samples,audible,size,cpu\n");
+        fprintf(trace_file, "frame,ram,image,pcm,samples,audible,size,cpu,vram\n");   /* format 2 (retrorecomp/psx_conversion.py) */
     }
     if (load_path) {
         state_loaded = state_file(load_path, 1);
@@ -504,7 +558,14 @@ static int execute(int argc, char **argv) {
     int ran = 1, host_result = 0;
     if (headless) {
         static const uint16_t released[2];
-        for (int n = 0; n < frames && ran; n++) ran = rr_psx_host_frame(released, NULL);
+        for (int n = 0; n < frames && ran; n++) {
+            for (int k = 0; k < gfx_at_count; ++k)
+                if (gfx_at_frame[k] == frame && !rr_psx_gfx_assign(gfx_at[k], false)) {
+                    fprintf(stderr, "graphics option %s at frame %u failed%s%s\n", gfx_at[k], frame, fault[0] ? ": " : "", fault);
+                    ran = 0;
+                }
+            if (ran) ran = rr_psx_host_frame(released, NULL);
+        }
         if (card_option) card_sync(0);
     } else {
         host_result = rr_psx_sdl_main(RR_PSX_TITLE, 3);

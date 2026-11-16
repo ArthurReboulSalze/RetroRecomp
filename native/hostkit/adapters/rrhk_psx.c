@@ -26,6 +26,8 @@ void rr_psx_host_analog(int player);
 size_t rr_psx_take_audio(int16_t *out, size_t capacity);
 unsigned rr_psx_frame_index(void);
 int rr_psx_host_reset(void);
+int rr_psx_host_set_renderer(int vulkan);
+int rr_psx_host_reopen(void);
 unsigned rr_psx_card_notice(void);   /* psx_main.c: 1 a memory card file set aside, 2 saving off */
 RrPsxSession *rr_psx_host_session(void);
 
@@ -59,13 +61,50 @@ static const RrhkAction actions[ACTIONS] = {
 /* The console's bit of each action (-1: none, Change disc). */
 static const int ps_bits[ACTIONS] = {14, 13, 15, 12, 10, 11, 8, 9, 1, 2, 3, 0, 4, 6, 7, 5, 16, -1};
 
-/* ---- the graphics page (D14): what the player sees only; the default of each is the reference the gates use ---- */
-/* The renderer is the core's, in software, on one thread: 4x is more than a fast desktop draws in time in a busy scene (Tobal
- * No. 1 in combat on a Ryzen 9 3900X: 18 % too slow, its sound in pieces; 2x holds, and held in the owner's own test of 15
- * November 2026). 8x is not offered: 64 times the pixels, never in time on one thread (« le 8x, c'est injouable »); a saved
- * index 3 is out of range and keeps the default. */
-static const char *const resolutions[] = {"1x (native)", "2x", "4x (heavy)"};
-static const char *const resolution_values[] = {"1x(native)", "2x", "4x"};
+/* ---- the graphics page (D14): what the player sees ---- */
+/* The renderer (1.7.7, the owner's decisions of 15 November 2026: « je veux que par défaut, on ait une accélération graphique
+ * Vulkan », the CPU when no card can be used): the graphics card (Beetle's Vulkan renderer) or the CPU (its software renderer, the
+ * reference of the conversion's checks, which never open the card). The card keeps the machine the checked one: its RAM, CPU state,
+ * sound and VRAM equal the CPU renderer's at 1x on every frame (the trace's columns), only the picture is its own. Changing the row
+ * opens the session again on the other renderer and gives the machine back as a quick state. */
+static const char *const renderers[] = {"Graphics card (Vulkan)", "CPU"};
+/* The internal resolution. On the CPU it is drawn on one thread: 4x is more than a fast desktop draws in time in a busy scene
+ * (Tobal No. 1 in combat on a Ryzen 9 3900X: 18 % too slow; 2x holds), and a raised resolution there also changes the emulated
+ * drawing time. 8x only on the card (« le 8x, c'est injouable » on the CPU): chosen with the CPU drawing, it draws 4x and says so. */
+static const char *const resolutions[] = {"1x (native)", "2x", "4x", "8x (graphics card)"};
+static const char *const resolution_values[] = {"1x(native)", "2x", "4x", "8x"};
+/* PGXP (1.7.7, the owner's question of 15 November 2026: « Est-ce qu'on peut, nous aussi, utiliser comme Beetle PGXP ? »): the
+ * GTE's results kept with sub-pixel precision and carried through memory to the GPU, so 3D models stop wobbling; and textures
+ * drawn with perspective. Both On by default for the player (the owner, after trying them: « C'est impeccable. Il faut l'activer
+ * par défaut »); a saved choice is kept, a player who never touched the rows gets On. With PGXP on the emulated run changes slightly
+ * (the drawing time follows the vertices: on Ape Escape the RAM and the CPU state differ on some frames and come back), so the
+ * conversion's checks run with both Off (`check_default`, headless) and nothing is claimed of the run with them on. "On" is
+ * Beetle's "memory only"; its "memory + CPU" mode (« Buggy »), its own primitive culling (known to lock some games) and its vertex
+ * cache are not offered. The core's game database still turns PGXP off for the games it knows break with it. Perspective-correct
+ * textures need PGXP (Beetle corrects only the primitives PGXP carried): with PGXP Off the row is held off and says why. Both rows
+ * change on the fly: no reopening. */
+static const char *const pgxp_modes[] = {"Off", "On"};
+static const char *const pgxp_mode_values[] = {"disabled", "memory only"};
+static const char *const pgxp_textures[] = {"Off", "On"};
+static const char *const pgxp_texture_values[] = {"disabled", "enabled"};
+/* Anti-aliasing and texture filtering (1.7.7, the owner's questions of 15 November 2026: « il me semble pas avoir vu d'options
+ * d'anti-aliasing pour la PlayStation », « juste au moins pouvoir activer ou pas le filtrage des textures »): the card only, both
+ * Off by default (Beetle's defaults: one sample, the console's nearest texel). They act on the card's drawing alone: the machine
+ * (RAM, CPU state, sound, VRAM) is the CPU renderer's whatever they are, and the CPU renderer ignores them (it says so once).
+ * One anti-aliasing row: MSAA (2, 4 or 8 samples per pixel on the polygons' edges, at the internal resolution) or Supersampling
+ * as on the Nintendo 64 (the owner, 16 November 2026: « quand on se met en mode 2x, il calcule en 4x et il donne scale en 2x, mais
+ * il descend pas à 1x »): the card draws at twice the internal resolution chosen and the session reduces each frame by two as it
+ * reads it back (an exact 2x2 mean), so the picture keeps the size the resolution row gives. Beetle's own supersampling, which
+ * reduces to the console's size, is not used. At 8x there is nothing larger to draw: it does nothing and says so. Both together
+ * only add cost, so they are values of one row; 16x MSAA is left out (beyond what most cards give a colour target, Beetle settles
+ * for less). Texture filtering: nearest (the console), bilinear or 3-point (the
+ * Nintendo 64's own filter); Beetle's xBR, SABR and JINC2 texture upscalers are not offered, and no mipmapping exists (the
+ * console has none and Beetle adds none). Both change on the fly; the anti-aliasing row rebuilds the card's targets as the
+ * resolution row does. */
+static const char *const antialiasing[] = {"Off", "MSAA 2x", "MSAA 4x", "MSAA 8x", "Supersampling"};
+static const char *const msaa_values[] = {"1x", "2x", "4x", "8x", "1x"};
+static const char *const texture_filters[] = {"Off", "Bilinear", "3-point"};
+static const char *const texture_filter_values[] = {"nearest", "bilinear", "3-point"};
 static const char *const dithering[] = {"Native", "At the internal resolution", "Off"};
 static const char *const dithering_values[] = {"1x(native)", "internal resolution", "disabled"};
 /* No deinterlacing row (the owner's « ok » of 15 November 2026): the picture is always progressive, the session's core setting
@@ -76,24 +115,98 @@ static const char *const aspects[] = {"Corrected", "Uncorrected", "4:3", "NTSC"}
 static const char *const aspect_values[] = {"corrected", "uncorrected", "4:3", "ntsc"};
 static const char *const crops[] = {"Horizontal and vertical", "Horizontal", "Off"};
 static const char *const crop_values[] = {"smart", "static", "disabled"};
-enum { GFX_RESOLUTION, GFX_DITHER, GFX_ASPECT, GFX_CROP, GFX_COUNT };
+enum { GFX_RENDERER, GFX_RESOLUTION, GFX_ANTIALIASING, GFX_TEXTURE_FILTER, GFX_PGXP, GFX_PGXP_TEXTURE, GFX_DITHER, GFX_ASPECT,
+       GFX_CROP, GFX_COUNT };
 static const RrhkGfxOption gfx_options[GFX_COUNT] = {
-    {"Internal resolution", L"resolution", resolutions, 3, 0},
+    {"Renderer", L"renderer", renderers, 2, 0},
+    {"Internal resolution", L"resolution", resolutions, 4, 0},
+    {"Anti-aliasing (GPU)", L"antialiasing", antialiasing, 5, 0},
+    {"Texture filtering (GPU)", L"texture_filter", texture_filters, 3, 0},
+    {"Geometry precision (PGXP)", L"pgxp", pgxp_modes, 2, 1},
+    {"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 1},
     {"Dithering", L"dithering", dithering, 3, 0},
     {"Aspect ratio", L"aspect", aspects, 4, 0},
     {"Overscan crop", L"crop", crops, 3, 0}};
-static const char *const *const gfx_core_values[GFX_COUNT] = {resolution_values, dithering_values, aspect_values, crop_values};
-static const char *const gfx_core_keys[GFX_COUNT] = {"internal_resolution", "dither_mode", "aspect_ratio", "crop_overscan"};
-static int scale = 1;   /* the internal resolution in force (1, 2, 4) */
+static const char *const *const gfx_core_values[GFX_COUNT] = {NULL, resolution_values, msaa_values, texture_filter_values,
+                                                              pgxp_mode_values, pgxp_texture_values, dithering_values,
+                                                              aspect_values, crop_values};
+static const char *const gfx_core_keys[GFX_COUNT] = {NULL, "internal_resolution", "msaa", "filter", "pgxp_mode", "pgxp_texture",
+                                                     "dither_mode", "aspect_ratio", "crop_overscan"};
+static int scale = 1;   /* the internal resolution in force (1, 2, 4, 8) */
+static int chosen[GFX_COUNT];   /* each row's value, given again to a session opened again */
+
+/* The value a check runs with (headless, no `--gfx`): each row's default, except PGXP and its textures, which a check keeps off. */
+static int check_default(int option) {
+    return option == GFX_PGXP || option == GFX_PGXP_TEXTURE ? 0 : gfx_options[option].def;
+}
+
+/* What the card or the CPU draws, from the resolution and anti-aliasing rows: the internal resolution (8x on the card only), drawn
+ * at twice that with Supersampling on the card below 8x, the frames then reduced by two. */
+static void apply_drawing(RrPsxSession *s, bool tell) {
+    const int card = rr_psx_renderer(s);
+    int resolution = chosen[GFX_RESOLUTION];
+    if (resolution == 3 && !card) {
+        resolution = 2;
+        if (tell) rrhk_notice(rrhk_tr("8x needs the graphics card: 4x on the CPU", "8x demande la carte graphique : 4x sur le CPU"), 4000);
+    }
+    const int supersampled = chosen[GFX_ANTIALIASING] == 4 && card && resolution < 3;
+    rr_psx_option(s, "internal_resolution", resolution_values[resolution + supersampled]);
+    rr_psx_option(s, "super_sampling", "disabled");
+    rr_psx_set_halve(s, supersampled);
+    scale = 1 << resolution;
+}
+
+static void core_option(int option, int value) {
+    RrPsxSession *s = rr_psx_host_session();
+    if (option == GFX_PGXP_TEXTURE && !chosen[GFX_PGXP]) value = 0;   /* held off without PGXP */
+    if (option == GFX_RESOLUTION) { apply_drawing(s, true); return; }
+    rr_psx_option(s, gfx_core_keys[option], gfx_core_values[option][value]);
+    if (option == GFX_ANTIALIASING) apply_drawing(s, false);
+    if (option == GFX_PGXP) core_option(GFX_PGXP_TEXTURE, chosen[GFX_PGXP_TEXTURE]);
+}
 
 static void gfx_apply(int option, int value) {
     if (option < 0 || option >= GFX_COUNT || value < 0 || value >= gfx_options[option].count) return;
-    rr_psx_option(rr_psx_host_session(), gfx_core_keys[option], gfx_core_values[option][value]);
-    if (option == GFX_RESOLUTION) scale = 1 << value;
+    const int before = chosen[option];
+    chosen[option] = value;
+    /* Multisampling changed while the card draws: Beetle's in-place rebuild keeps the programs of the old sample count (the picture
+     * then broke at the game's next display mode change: half of it black or stale, the owner's report of 15 November 2026), so
+     * the session opens again with the machine carried as a quick state, as for a renderer switch, its renderer built with the new
+     * multisampling from the start (the options carried into the open), and gets every row again. */
+    if (option == GFX_ANTIALIASING && strcmp(msaa_values[before], msaa_values[value]) && rr_psx_renderer(rr_psx_host_session()) &&
+        rr_psx_frame_index() > 0) {
+        core_option(option, value);   /* into the session's options, which the session opened again starts with */
+        if (!rr_psx_host_reopen()) return;
+        for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);
+        return;
+    }
+    if (option != GFX_RENDERER) {
+        core_option(option, value);
+        if ((option == GFX_ANTIALIASING || option == GFX_TEXTURE_FILTER) && value && !rr_psx_renderer(rr_psx_host_session()))
+            rrhk_notice(rrhk_tr("Graphics card only: no effect while the CPU draws",
+                                "Carte graphique seulement : sans effet quand le CPU dessine"), 4000);
+        if ((option == GFX_ANTIALIASING || option == GFX_RESOLUTION) && chosen[GFX_ANTIALIASING] == 4 && chosen[GFX_RESOLUTION] == 3 &&
+            rr_psx_renderer(rr_psx_host_session()))
+            rrhk_notice(rrhk_tr("Supersampling: nothing larger than 8x to draw", "Surechantillonnage : rien de plus grand que 8x a dessiner"),
+                        4000);
+        if (option == GFX_PGXP_TEXTURE && value && !chosen[GFX_PGXP])
+            rrhk_notice(rrhk_tr("Needs geometry precision (PGXP) On",
+                                "Demande la precision geometrique (PGXP) activee"), 4000);
+        return;
+    }
+    if (!rr_psx_host_set_renderer(value == 0)) return;
+    RrPsxSession *s = rr_psx_host_session();
+    for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);
+    if (value == 0 && !rr_psx_renderer(s)) {
+        fprintf(stderr, "[host] graphics card not used: %s\n", rr_psx_renderer_note(s) ? rr_psx_renderer_note(s) : "unknown");
+        rrhk_notice(rrhk_tr("No usable graphics card: the CPU draws the picture",
+                            "Pas de carte graphique utilisable : le CPU dessine l'image"), 6000);
+    }
 }
 
-/* Headless runs never open the kit: the defaults (or `--gfx key=index`, for a capture) are applied here. */
-void rr_psx_gfx_defaults(void) { for (int i = 0; i < GFX_COUNT; ++i) gfx_apply(i, gfx_options[i].def); }
+/* Headless runs never open the kit: the checks' values (or `--gfx key=index`, for a capture) are applied here. The renderer is not: a
+ * headless run is a check and draws with the CPU, unless `--gfx renderer=0` asks for the card. */
+void rr_psx_gfx_defaults(void) { for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) gfx_apply(i, check_default(i)); }
 bool rr_psx_gfx_assign(const char *assignment, bool windowed) {
     if (windowed) return rrhk_gfx_override(rrhk_adapter(), assignment);
     const char *equals = strchr(assignment, '=');
@@ -113,7 +226,11 @@ bool rr_psx_gfx_assign(const char *assignment, bool windowed) {
 
 /* ---- the machine ---- */
 static int players(void) { return 2; }
-static void reset(void) { rr_psx_host_reset(); rrhk_autofire_reset(); }
+static void reset(void) {
+    rr_psx_host_reset();
+    for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);   /* the session opened again: its options */
+    rrhk_autofire_reset();
+}
 static uint16_t rumbling[2][2];
 static void rumble(void) {
     for (int p = 0; p < 2; ++p) {
