@@ -84,10 +84,15 @@ class OptionsMixin:
         level_box = ttk.Combobox(row, textvariable=shown, values=list(labels.values()), width=16, state='readonly')
         level_box.grid(row=1, column=0, sticky='w', padx=(0, 22), pady=(5, 0))
 
-        def pick(_event=None, console=console, shown=shown, labels=labels):
+        # The time one game usually takes at the chosen level on the reference PC (gui_estimates.py).
+        timing = tk.StringVar(value=self.level_estimate_text(console))
+        self.level_timings[console] = timing     # written again when the language changes (render_level_estimates)
+
+        def pick(_event=None, console=console, shown=shown, labels=labels, timing=timing):
             for level, label in labels.items():
                 if label == shown.get():
                     self.scan_level[console].set(level)
+            timing.set(self.level_estimate_text(console))
         level_box.bind('<<ComboboxSelected>>', pick)
         self.option_controls.append((level_box, 'readonly'))
         self.hint(level_box, 'tip_scan_level')
@@ -100,6 +105,8 @@ class OptionsMixin:
             control.grid(row=1, column=column, sticky='w', padx=(0, 22), pady=(5, 0))
             self.option_controls.append((control, 'normal'))
             self.hint(control, 'tip_' + key)
+        ttk.Label(section, textvariable=timing, style='Muted.TLabel', wraplength=840,
+                  justify='left').pack(anchor='w', pady=(8, 0))
 
     def show_options(self):
         if self.busy:
@@ -114,6 +121,7 @@ class OptionsMixin:
         panel = ttk.Frame(self.body)
         self.options_panel = panel
         self.option_controls = []
+        self.level_timings = {}
         self.option_tooltips_start = len(self.tooltips)
         for widget in self.compiler_widgets:
             widget.grid_remove()
@@ -947,6 +955,7 @@ class OptionsMixin:
         for widget in self.compiler_widgets:
             widget.grid()
         self.queue_actions.pack(side='left', padx=(12, 0), after=self.compiled_button)
+        self.selection_changed()     # the queue's estimate follows the levels and numbers chosen
         try:
             self.options_button.state(['!selected'])
         except (AttributeError, tk.TclError):

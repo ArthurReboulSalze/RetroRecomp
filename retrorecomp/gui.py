@@ -54,10 +54,12 @@ from .gui_reports import ReportsMixin
 from .gui_account import AccountMixin
 from .gui_leaderboard import LeaderboardMixin
 from .gui_covers import MissingCoversMixin
+from .gui_estimates import EstimatesMixin
 
 
 class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, UpdatesMixin, OptionsMixin,
-                 SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin, MissingCoversMixin):
+                 SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin, MissingCoversMixin,
+                 EstimatesMixin):
     """The window. Its methods live in the mixins above, one responsibility each; no name is
     defined twice, so the order of the bases decides nothing."""
     def __init__(self, app: tk.Tk):
@@ -94,6 +96,8 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.collection_visible = False
         self.library_view = None
         self.status_key, self.status_values = 'ready', {}
+        # Conversion time estimates (gui_estimates.py): what a first use still needs (None until looked at), the batch clock.
+        self.first_use_state, self.batch_started, self.batch_estimate, self.job_started = None, None, None, {}
         preferences = load_preferences()
         self.language = language_code(preferences.get('language'))
         app.title(APP_NAME)
@@ -499,6 +503,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # Games played or converted elsewhere: rows re-read only if changed.
         app.after(1500, self.quiet_refresh_collection)
         app.after(2500, self.refresh_player)
+        app.after(2000, self.refresh_first_use)
         if self.discoveries_waiting:   # left waiting when the window last closed
             app.after(6000, self.send_new_discoveries)
         app.bind('<FocusIn>', lambda event: self.quiet_refresh_collection(every=20), add='+')

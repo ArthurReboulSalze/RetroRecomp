@@ -219,7 +219,7 @@ class WindowMixin:
 
     def set_status(self, key, **values):
         self.status_key, self.status_values = key, values
-        self.status.set(self.tr(key, **values))
+        self.render_status()
 
     def size_header_fields(self):
         """Console and language fields: wide enough for the longest menu label (the same width for both),
@@ -297,6 +297,7 @@ class WindowMixin:
         self.update_account_options()
         self.render_disk_space()
         self.render_option_actions()
+        self.render_level_estimates()
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
@@ -310,7 +311,7 @@ class WindowMixin:
             self.table.set(row, 'status', self.same_rom_text(row, result)
                 if self.row_status[row] == 'duplicate' and result.get('duplicate_of')
                 else self.tr(self.row_status[row]))
-        self.status.set(self.tr(self.status_key, **self.status_values))
+        self.render_status()
         self.selection_changed()
         self.queue_background(self.header)
         self.queue_background(self.body)

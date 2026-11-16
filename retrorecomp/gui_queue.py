@@ -276,6 +276,7 @@ class QueueMixin:
     def _finish_adding(self):
         self.count.set(f'{len(self.items)} ROM' + ('s' if len(self.items) != 1 else ''))
         self.update_empty_state()
+        self.selection_changed()     # the queue's estimate follows what was added
         self.app.after_idle(self.fit_minimum_width)
 
     def _add_paths(self, paths):
@@ -518,7 +519,8 @@ class QueueMixin:
             text += ' · ' + self.video_display(item, result)
             self.detail.set(text)
         else:
-            self.detail.set(self.tr('shared'))
+            estimate = self.queue_estimate_text()
+            self.detail.set(self.tr('shared') + ('\n' + estimate if estimate else ''))
 
     def failed_rows(self):
         return [row for row in self.table.get_children() if self.row_status.get(row) in ('error', 'stopped')]

@@ -225,6 +225,7 @@ tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_delive
 retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
 retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py retrorecomp/console_menu.py
+retrorecomp/gui_estimates.py retrorecomp/time_estimates.py assets/conversion-times.json tools/conversion_times.py tests/test_time_estimates.py
 retrorecomp/gui_firmware.py retrorecomp/firmware_search.py tests/test_firmware_search.py
 retrorecomp/gui_covers.py tests/test_gui_covers.py
 retrorecomp/i18n.py retrorecomp/updater.py

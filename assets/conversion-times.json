@@ -1,0 +1,115 @@
+{
+ "format": 1,
+ "about": "Typical conversion times of one game, measured on the reference PC, for the estimates of the converter window (retrorecomp/time_estimates.py). An estimate, never a promise: another PC, another game or another release takes more or less time.",
+ "reference": {
+  "label": "Ryzen 9 3900X",
+  "cpu": "AMD Ryzen 9 3900X (12 cores, 24 threads)",
+  "system": "Windows 11",
+  "toolchain": "portable llvm-mingw, CMake and Ninja",
+  "games_at_once": 3
+ },
+ "measured_on": "2026-11-16",
+ "method": "tools/conversion_times.py over the conversion reports of the reference PC (its exports and the campaign outputs), read only: the wall time of one game (timings.total), Windows reports built with the portable toolchain, releases 1.7.0 and later (1.6.x for a cell with fewer than three such reports), totals under 5 s left out (exports taken over as they were). seconds = [first quartile, median, third quartile]; longest = the longest seen. The games were converted in batches, three at once by default, so a figure is the time a player waits for one game of such a batch.",
+ "level_factors": {"quick": 0.5, "standard": 1.0, "extended": 2.3, "thorough": 2.5},
+ "level_factors_source": "Used only for a level a machine has no measured cell for: the median ratio to the standard time of the machines measured at both levels in this table (quick: 7 machines, ratios 0.30 to 1.31, median 0.49; extended: 13 machines, 1.18 to 4.06, median 2.33; thorough: 5 machines, 1.69 to 3.85, median 2.43, rounded up to 2.5 since it runs one long route more than extended).",
+ "machines": {
+  "sms": {
+   "quick": {"seconds": [19, 22, 33], "longest": 59, "reports": 4, "versions": "1.7.2..1.7.5"},
+   "standard": {"seconds": [32, 32, 37], "longest": 79, "reports": 6, "versions": "1.7.1..1.7.4"},
+   "extended": {"seconds": [70, 77, 110], "longest": 209, "reports": 19, "versions": "1.6.8..1.6.8"}
+  },
+  "gg": {
+   "standard": {"seconds": [40, 42, 43], "longest": 45, "reports": 4, "versions": "1.7.1..1.7.4"},
+   "extended": {"seconds": [101, 114, 163], "longest": 831, "reports": 19, "versions": "1.6.8..1.6.8"}
+  },
+  "gb": {
+   "quick": {"seconds": [44, 48, 52], "longest": 158, "reports": 6, "versions": "1.7.1..1.7.6"},
+   "standard": {"seconds": [91, 132, 166], "longest": 802, "reports": 16, "versions": "1.6.4..1.6.8"}
+  },
+  "nes": {
+   "quick": {"seconds": [186, 205, 217], "longest": 229, "reports": 6, "versions": "1.7.1..1.7.5"},
+   "standard": {"seconds": [85, 156, 193], "longest": 757, "reports": 22, "versions": "1.6.2..1.7.4"}
+  },
+  "md": {
+   "quick": {"seconds": [85, 95, 112], "longest": 155, "reports": 10, "versions": "1.7.1..1.7.6"},
+   "standard": {"seconds": [290, 319, 341], "longest": 356, "reports": 14, "versions": "1.7.2..1.7.7"},
+   "extended": {"seconds": [1181, 1294, 1376], "longest": 1823, "reports": 7, "versions": "1.7.3..1.7.3"},
+   "thorough": {"seconds": [877, 1229, 1477], "longest": 1556, "reports": 4, "versions": "1.7.4..1.7.8"}
+  },
+  "snes": {
+   "quick": {"seconds": [115, 119, 121], "longest": 122, "reports": 4, "versions": "1.7.1..1.7.4"},
+   "standard": {"seconds": [370, 383, 428], "longest": 444, "reports": 6, "versions": "1.7.0..1.7.4"},
+   "thorough": {"seconds": [1016, 1273, 1699], "longest": 2040, "reports": 10, "versions": "1.6.5..1.6.9"}
+  },
+  "ng": {
+   "standard": {"seconds": [196, 225, 335], "longest": 431, "reports": 8, "versions": "1.7.1..1.7.4"}
+  },
+  "x68": {
+   "standard": {"seconds": [171, 192, 202], "longest": 239, "reports": 7, "versions": "1.7.0..1.7.4"}
+  },
+  "cps1": {
+   "standard": {"seconds": [76, 80, 102], "longest": 131, "reports": 12, "versions": "1.7.0..1.7.8"},
+   "extended": {"seconds": [147, 150, 177], "longest": 259, "reports": 4, "versions": "1.6.4..1.6.9"}
+  },
+  "cps2": {
+   "standard": {"seconds": [143, 150, 185], "longest": 202, "reports": 6, "versions": "1.7.0..1.7.4"},
+   "extended": {"seconds": [257, 350, 388], "longest": 448, "reports": 18, "versions": "1.6.9..1.6.9"},
+   "thorough": {"seconds": [264, 266, 269], "longest": 272, "reports": 3, "versions": "1.6.9..1.6.9"}
+  },
+  "pce": {
+   "standard": {"seconds": [565, 587, 610], "longest": 722, "reports": 8, "versions": "1.7.0..1.7.3"},
+   "extended": {"seconds": [1014, 1124, 1238], "longest": 2970, "reports": 30, "versions": "1.7.1..1.7.1"}
+  },
+  "gba": {
+   "standard": {"seconds": [1117, 1415, 2075], "longest": 2963, "reports": 29, "versions": "1.7.0..1.7.8"}
+  },
+  "amiga": {
+   "quick": {"seconds": [264, 341, 398], "longest": 431, "reports": 12, "versions": "1.7.1..1.7.5"},
+   "standard": {"seconds": [580, 702, 823], "longest": 1712, "reports": 108, "versions": "1.7.0..1.7.7"},
+   "extended": {"seconds": [1307, 1427, 1557], "longest": 2732, "reports": 43, "versions": "1.7.1..1.7.4"}
+  },
+  "a1200": {
+   "quick": {"seconds": [403, 466, 521], "longest": 574, "reports": 13, "versions": "1.7.5..1.7.6"},
+   "standard": {"seconds": [646, 774, 1107], "longest": 1463, "reports": 35, "versions": "1.7.5..1.7.8"}
+  },
+  "atarist": {
+   "standard": {"seconds": [196, 258, 301], "longest": 459, "reports": 20, "versions": "1.7.1..1.7.5"},
+   "extended": {"seconds": [462, 476, 498], "longest": 627, "reports": 7, "versions": "1.7.3..1.7.3"}
+  },
+  "n64": {
+   "standard": {"seconds": [260, 293, 307], "longest": 339, "reports": 6, "versions": "1.7.1..1.7.6"},
+   "extended": {"seconds": [294, 346, 724], "longest": 1156, "reports": 8, "versions": "1.7.5..1.7.5"}
+  },
+  "scummvm": {
+   "standard": {"seconds": [44, 50, 54], "longest": 58, "reports": 3, "versions": "1.7.0..1.7.1"}
+  },
+  "psx": {
+   "standard": {"seconds": [194, 219, 259], "longest": 382, "reports": 5, "versions": "1.7.0..1.7.7"},
+   "extended": {"seconds": [542, 565, 620], "longest": 710, "reports": 8, "versions": "1.7.5..1.7.6"}
+  },
+  "msx": {
+   "standard": {"seconds": [14, 36, 45], "longest": 76, "reports": 14, "versions": "1.7.2..1.7.5"},
+   "extended": {"seconds": [51, 57, 69], "longest": 80, "reports": 27, "versions": "1.7.2..1.7.4"},
+   "thorough": {"seconds": [57, 61, 72], "longest": 81, "reports": 9, "versions": "1.7.3..1.7.3"}
+  },
+  "msx2": {
+   "standard": {"seconds": [49, 54, 62], "longest": 75, "reports": 12, "versions": "1.7.2..1.7.5"},
+   "extended": {"seconds": [124, 131, 150], "longest": 174, "reports": 24, "versions": "1.7.2..1.7.4"},
+   "thorough": {"seconds": [120, 131, 135], "longest": 142, "reports": 8, "versions": "1.7.3..1.7.3"}
+  },
+  "msx2plus": {
+   "standard": {"seconds": [59, 67, 79], "longest": 90, "reports": 18, "versions": "1.7.3..1.7.6"},
+   "extended": {"seconds": [156, 162, 167], "longest": 177, "reports": 10, "versions": "1.7.3..1.7.3"}
+  }
+ },
+ "first_use": {
+  "tools_download_mb": 245,
+  "tools_source": "Windows: the portable build tools (llvm-mingw, CMake, Ninja), 245 MB to download, 380 MB installed. Download time not measured: it depends on the connection.",
+  "shared_build_seconds": 180,
+  "shared_source": "The shared pieces every conversion needs, built once: the static SDL2 took 96 s and 146 s on the reference PC (file times of its two llvm build folders), the Z80 translator a few seconds; rounded up to 3 min. The engine and SDL source downloads are not measured.",
+  "machines": {
+   "scummvm": {"seconds": 420, "source": "The ScummVM engine, built once: 374 s of build files on the reference PC (.deps/scummvm-build), rounded up to 7 min; its source download is not measured."}
+  },
+  "machines_source": "The first conversion of any other machine downloads that machine's pinned sources (not measured) and builds its pieces inside the game's own compile step, already counted in the game's time."
+ }
+}

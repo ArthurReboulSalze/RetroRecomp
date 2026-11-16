@@ -1,3 +1,18 @@
+# RetroRecomp v1.7.9 (in preparation)
+
+- **The converter: how long a conversion usually takes.** The window now says how long a conversion usually takes, measured on
+  a reference PC (a Ryzen 9 3900X under Windows, three games at once): under the queue for the whole queue, in Options next to
+  each machine's scan level for one game at that level (an Amiga 1200 game at Standard: usually 11 to 19 minutes there), and
+  during a batch as a clock under the status and in each running game's row, with a reminder that a step can show nothing new for
+  several minutes. The Stop dialog, which closing the window also opens, says how long the batch has run against its usual time.
+  The first use is stated apart: building the shared pieces once (about 3 minutes there) and the downloads, whose time depends on
+  your connection; the build tools window says why the first conversion takes longer. These are estimates on that PC, never a
+  promise: another PC, another game or another release takes more or less time. The figures come from the conversion reports of
+  that PC ([assets/conversion-times.json](../assets/conversion-times.json), measured with `tools/conversion_times.py`); a level not
+  measured for a machine is worked out from its Standard time and said so. No game stamp moves.
+
+---
+
 # RetroRecomp v1.7.8 — The Amiga 1200 is supported; drop a cover when none is found; no Visual Studio needed
 
 - **Commodore Amiga 1200: supported.** The Amiga 1200 is supported and no longer experimental, on the owner's play test of eight
