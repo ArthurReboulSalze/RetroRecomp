@@ -1381,6 +1381,10 @@ def probe(executable: Path, directory: Path, frames: int, *, strict: bool = Fals
 
 def import_previous(rom: Rom, destination: Path, memory: GameMemory) -> int:
     """Migrate older outputs only when their report identifies the exact ROM."""
+    from .knowledge import recipe_directory
+    if recipe_directory() is not None:
+        # Recipe mode (multiplayer): the host's record only, nothing of this player's earlier exports.
+        return 0
     candidates = {destination}
     for previous_root in (ROOT / 'output', games_directory()):
         if previous_root.exists():

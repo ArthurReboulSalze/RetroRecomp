@@ -577,10 +577,14 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
 def _convert_in_budget(parallel_games, *args):
     # Context-local caps cannot leak between simultaneous workers.
     from .platforms import compilation_budget
-    from .knowledge import discard_imported, imported_game, imported_observations, imported_record, imported_set_aside
+    from .knowledge import (discard_imported, imported_game, imported_observations, imported_record, imported_set_aside,
+                            recipe_directory)
     item, emit = args[1], args[8]
     with compilation_budget(parallel_games):
         result = _convert_one(*args)
+        if recipe_directory() is not None:
+            # Recipe mode (multiplayer): the paths are the host's record; without them it would be another game.
+            return result
         # Shared hints may come from another converter and be wrong: a failed
         # conversion that had some (hints or observations) is retried once
         # without them. If it then succeeds, they caused the failure and leave

@@ -69,6 +69,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # conversion, for its report; it changes nothing a game is or does, and its own schema
                                # number is part of what it hashes.
                                'simulation_identity',
+                               # The multiplayer recipe: makes and checks a ROM-free document and starts a conversion in
+                               # recipe mode (the mode itself is in knowledge, feedback, core and batch, which are hashed).
+                               'netplay_recipe',
                                # Declares the pinned upstreams per machine (docs/UPSTREAMS.md); a conversion never reads it.
                                'upstreams',
                                # Measures the time of each phase of a conversion; changes nothing a game is or does.

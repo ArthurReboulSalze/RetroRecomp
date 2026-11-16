@@ -242,6 +242,7 @@ retrorecomp/gameboy_host.py
 retrorecomp/report_schema.py tests/test_report_schema.py tests/test_report_writers.py
 retrorecomp/timings.py tests/test_timings.py
 retrorecomp/simulation_identity.py tests/test_simulation_identity.py tools/simulation_identity_selftest.py
+retrorecomp/netplay_recipe.py tests/test_netplay_recipe.py tools/netplay_recipe_selftest.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
 retrorecomp/dropfiles.py tests/test_dropfiles.py tests/test_popup_menu.py
 native/snes_dsp1_projection.inc
@@ -472,6 +473,7 @@ tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
 tests/test_toolchain.py tests/test_build_config.py tests/test_build_tools_offer.py tests/test_tooltips.py tests/test_legacy_compat.py tests/test_zz_datas_guard.py tools/toolchain_compare.py tools/nes_state_cross.py
 tools/state16_cross.py tools/neogeo_state_cross.py tools/x68000_cross.py
+tools/mixed_build_gate.py tests/test_mixed_build_gate.py
 tools/selftest_build.py tests/test_selftest_build.py
 tests/test_validation.py tests/test_publication.py
 tests/test_peripherals.py

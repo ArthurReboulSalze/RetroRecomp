@@ -340,7 +340,10 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
     preferences = load_preferences()
     isolated = _isolated()
     locations = [] if isolated else _export_locations(system, preferences)
-    if output is not None:
+    # Recipe mode (multiplayer, knowledge.recipe_directory): the host's record only, so not even the record a game
+    # left beside this output; rows the host's conversion used come with the recipe (knowledge.imported_observations).
+    from .knowledge import recipe_directory
+    if output is not None and recipe_directory() is None:
         selected = Path(output).resolve()
         locations += [selected, *selected.parents]
     found: dict[Observation, int] = {}
