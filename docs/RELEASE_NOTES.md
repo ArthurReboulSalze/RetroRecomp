@@ -1,4 +1,4 @@
-# RetroRecomp v1.7.8 (in preparation)
+# RetroRecomp v1.7.8 — The Amiga 1200 is supported; drop a cover when none is found; no Visual Studio needed
 
 - **Commodore Amiga 1200: supported.** The Amiga 1200 is supported and no longer experimental, on the owner's play test of eight
   installs (Slam Tilt, Pinball Illusions, Alien Breed 3D, Fears, Banshee, Super Stardust, Chaos Engine, All New World of Lemmings) and his decision of 16 November 2026
@@ -6,6 +6,30 @@
   with your own Kickstart 3.1 when one asks for it. Its paths are not shared for now, on his decision; a measure with and without received paths comes later. The five measures stay apart: native code
   and CPU agreement are measured on a panel of nine installs, hardware fidelity and latency are not claimed, AGA super-hires is shown at
   half its detail. Amiga 500 and Amiga 1200 exports of 1.7.7 are converted again in full (their game stamp moves).
+
+- **The converter: a window for missing box art.** When a conversion finds no cover for a game (or only a title screen stood
+  in for one), a window opens where you drop an image or choose a file; the exported game gets it at once, by rebuilding only its
+  icon and menus (about 30 seconds, the game itself is not converted again). In a batch, one window lists every game that ends
+  without a cover, and the batch never waits for you. On by default (Options > Box art, or « Don't ask again » in the window). The
+  same window now serves the queue's « Choose box art… » (several games at once) and the Compiled Games card and right-click, where
+  the image now reaches the exported game without a manual reconversion. Command-line conversions never open it.
+- **The converter: no Visual Studio needed, ever.** A player who had Visual Studio installed and not the converter's own build tools
+  was never offered them: the converter built with Visual Studio, a toolchain none of our checks runs with, and the Game Boy Advance
+  recompiler came out in the wrong configuration (« The Game Boy Advance recompiler was not built », GitHub issue 1). Now the
+  converter only builds with its own tools (llvm-mingw, CMake, Ninja, downloaded once, about 245 MB, no administrator rights) and
+  offers them even when Visual Studio is installed; Visual Studio is used only when a developer asks for it by name
+  (`RETRO_RECOMP_TOOLCHAIN=msvc`). Every build of every machine also names its Release configuration (the Game Boy Advance, the
+  Atari ST and the Nintendo 64 did not), and a test keeps it so ([BUILDING.md](BUILDING.md#windows-x64-prerequisites)).
+- **The converter:** Find firmware in a folder recognises a firmware path written in its Windows short form (`PROGRA~1`) as the one
+  already set.
+
+**Your exports and quick states.** 1.7.8 moves the game stamp of the Amiga, the Amiga 1200, the Atari ST, the Game Boy Advance and
+the Nintendo 64: those exports of 1.7.7 are converted again once, from their learned paths. The choice of the build tools moved
+too, so every other export is rebuilt and checked again on its quick routes (an upgrade, not a new conversion). Quick states of
+1.7.7 are refused cleanly on the Amiga, the Amiga 1200, the Atari ST and the Nintendo 64; cartridge saves and memory cards are kept.
+
+None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used.
 
 # RetroRecomp v1.7.7 — The PlayStation draws with the graphics card; Sync to display on every machine; your firmware found in a folder; Pinball Illusions and Alien Breed 3D on the Amiga 1200
 

@@ -81,11 +81,14 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 ## Exports of 1.7.7 in 1.7.8
 
-1.7.8 is the release after 1.7.7 (in preparation). This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
+1.7.8 is the release after 1.7.7. This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Commodore Amiga 1200: supported](#commodore-amiga-1200-supported-178) | **the Amiga and the Amiga 1200** (`retrorecomp/systems/amiga.py`) | none | refused (every build's are) |
+| [Builds: the converter's own tools only, Release everywhere](#builds-the-converters-own-tools-only-release-everywhere-178) | **the Atari ST, the Game Boy Advance and the Nintendo 64** (`atarist_conversion.py`, `gba_build.py`, `gba_player.py`, `n64_conversion.py`) | **the build stamp of every profile** (`retrorecomp/toolchain.py`) | the Amiga, Atari ST and Nintendo 64 keys move (every input); the others are unchanged |
+| [The converter: a window for missing box art](#the-converter-a-window-for-missing-box-art-178) | none | none (window modules only) | unchanged |
+| [Find firmware in a folder: short paths](#find-firmware-in-a-folder-short-paths-178) | none | none (window module only) | unchanged |
 
 ## Commodore Amiga 1200: supported (1.7.8)
 
@@ -93,6 +96,34 @@ The Amiga 1200 leaves the experimental status on the owner's play test of eight 
 
 - **What changes:** the profile's status is `supported`, its Linux witness is declared (`linux = 'witnessed'`), its paths stay out of the sharing for now (`DECLINED['path_sharing']`, the owner's word, pending a measure); the Options note loses "experimental" (English and French; the six other languages never said it); the README marks it as running on an emulator core, as the Amiga 500. The machine, its conversion and the game are unchanged.
 - **Stamps:** the game stamp of the Amiga 1200 **and of the Amiga 500**: `retrorecomp/systems/amiga.py` holds both profiles and is a game input of both, hashed as a whole, so the status line moves both. No host or build stamp moves (the interface strings are not stamp inputs). An export of 1.7.7 is converted again in full on either machine.
+
+## Builds: the converter's own tools only, Release everywhere (1.7.8)
+
+GitHub issue 1 (16 November 2026): a player with Visual Studio installed and without the portable tools had every Game Boy Advance
+conversion stop with « The Game Boy Advance recompiler was not built ». The converter had picked Visual Studio by itself; its
+multi-configuration build made a Debug program in `Debug/` while `platforms.build_executable` looks in `Release/`.
+
+- **What changes:** `toolchain.select()` returns the portable tools, or Visual Studio only when `RETRO_RECOMP_TOOLCHAIN=msvc` asks for
+  it; an installed Visual Studio is never picked by itself, so the window offers the download instead (the owner's rule: nobody needs
+  Visual Studio). The failed-download message no longer suggests installing Visual Studio (its string is gone in the eight
+  languages). The Game Boy Advance (recompiler, probe host, player), the Atari ST and the Nintendo 64 pass `--config Release` like
+  every other machine; `tests/test_build_config.py` scans every `cmake --build` of the converter. The CI's Windows runner asks for
+  Visual Studio by name.
+- **Stamps:** the game stamps of the Atari ST, the Game Boy Advance and the Nintendo 64 (their build modules); the build stamp of
+  every profile (`toolchain.py`). With the portable tools the programs built are the same: the option is ignored by Ninja.
+- **Existing exports:** Atari ST, Game Boy Advance and Nintendo 64 exports are converted again once (the owner's word: « c'est pas
+  grave si ça doit être reconverti »); every other export is upgraded (recompiled, checked again on its quick routes).
+
+## The converter: a window for missing box art (1.7.8)
+
+`retrorecomp/gui_covers.py`: with the option on (a window preference, on by default), a queue game that ends without box art joins
+one window where the player drops or chooses an image; it becomes the game card's cover and reaches the export through the Compiled
+Games reconversion, whose game part is unchanged, so only the shell is rebuilt. The queue's « Choose box art… » and the Compiled
+Games card and right-click open the same window. **Stamps:** none (window modules). **Existing exports:** unchanged.
+
+## Find firmware in a folder: short paths (1.7.8)
+
+The already-set comparison resolves both paths, so a value in its Windows 8.3 form (`PROGRA~1`) is the same file. **Stamps:** none.
 
 ## Exports of 1.7.6 in 1.7.7
 
