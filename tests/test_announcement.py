@@ -184,6 +184,12 @@ class Welcome(unittest.TestCase):
         for job in self.root.tk.call('after', 'info'):
             owners.get(self.root.tk.call('after', 'info', job)[0], self.root).after_cancel(job)
         self.root.destroy()
+        # The panel's Tk variable (check_at_startup) must die here, on the main thread: left to a later garbage collection, it
+        # can be collected in a batch's worker thread (test_batch runs conversions there) and Tcl aborts the process
+        # ("Tcl_AsyncDelete: async handler deleted by the wrong thread").
+        self.panel = None
+        import gc
+        gc.collect()
 
     def text(self):
         return self.panel.log.get('1.0', 'end-1c')
