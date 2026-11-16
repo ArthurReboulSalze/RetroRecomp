@@ -655,6 +655,9 @@ def smoke(window):
         frames = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TLabelframe'}
         assert {application.tr('options_account'), application.tr('options_boxart'),
                 application.tr('options_disk_space')} <= frames, frames
+        # « Box art not found »: on by default, its checkbox in the Box art section, in every language.
+        boxes = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TCheckbutton'}
+        assert application.ask_missing_cover.get() is True and application.tr('cover_ask_option') in boxes, language
         assert application.compiled_button.cget('text') == application.tr('compiled_games')
         assert application.knowledge_button.cget('text') == application.tr('knowledge') + ' ▾'
         # Every text button keeps its hover hint in every language (keys given, not looked up by text).

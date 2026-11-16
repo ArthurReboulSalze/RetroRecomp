@@ -53,10 +53,11 @@ from .gui_sharing import SharingMixin
 from .gui_reports import ReportsMixin
 from .gui_account import AccountMixin
 from .gui_leaderboard import LeaderboardMixin
+from .gui_covers import MissingCoversMixin
 
 
 class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, UpdatesMixin, OptionsMixin,
-                 SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin):
+                 SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin, MissingCoversMixin):
     """The window. Its methods live in the mixins above, one responsibility each; no name is
     defined twice, so the order of the bases decides nothing."""
     def __init__(self, app: tk.Tk):
@@ -176,6 +177,9 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.feedback_status = {profile.id: tk.StringVar() for profile in PROFILES}
         self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
+        # Ask for a cover when a conversion finds none (gui_covers): on until the player turns it off (Options,
+        # or « Don't ask again » in the window itself).
+        self.ask_missing_cover = tk.BooleanVar(value=preferences.get('ask_missing_cover', True) is not False)
         # Signed in to the shared base: its paths before each batch, and this
         # player's new discoveries sent after it (both on unless turned off).
         self.use_shared_base = tk.BooleanVar(value=preferences.get('use_shared_base', True) is not False)

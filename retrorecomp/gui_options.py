@@ -857,6 +857,7 @@ class OptionsMixin:
         self.cover_settings = load_cover_settings()
         self.cover_3d = tk.BooleanVar(value=self.cover_settings['box_3d'])
         checkbox(page, 'cover_box_3d', self.cover_3d, 'tip_cover_box_3d')
+        checkbox(page, 'cover_ask_option', self.ask_missing_cover, 'tip_cover_ask_option')
         ttk.Label(page, text=self.tr('cover_sources_note'), style='Muted.TLabel',
                   wraplength=610).pack(anchor='w', pady=(0, 12))
         providers = list(COVER_PROVIDERS)

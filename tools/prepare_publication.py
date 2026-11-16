@@ -226,6 +226,7 @@ retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py r
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
 retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py retrorecomp/console_menu.py
 retrorecomp/gui_firmware.py retrorecomp/firmware_search.py tests/test_firmware_search.py
+retrorecomp/gui_covers.py tests/test_gui_covers.py
 retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
 retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py tests/test_compress_option.py tests/test_console_menu.py

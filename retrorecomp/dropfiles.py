@@ -65,6 +65,10 @@ class WindowsFileDrop:
             if child.winfo_toplevel() == self.root:
                 self._widgets(child)
 
+    def add(self, widget):
+        """Register widgets created after the drop target (a row added to a dialog)."""
+        self._widgets(widget)
+
     def _message(self, handle, message, wparam, lparam, identity, data):
         if message == 0x0233:  # WM_DROPFILES; this window owns the HDROP now.
             try:
@@ -121,24 +125,30 @@ class LinuxFileDrop:
         from tkinterdnd2 import TkinterDnD, DND_FILES
         self.root, self.receive, self.failed = root, receive, failed
         self.widgets = []
+        self.files = DND_FILES
         try:
             TkinterDnD.require(root)
-            def register(widget):
-                widget.drop_target_register(DND_FILES)
-                self.widgets.append(widget)
-                widget.dnd_bind('<<Drop>>', self._drop)
-                for child in widget.winfo_children():
-                    if child.winfo_toplevel() == root:
-                        register(child)
             # Tk itself is not a BaseWidget; tkinterdnd2 extends its children.
             # Our canvases fill the toplevel, including banner, stripe and body.
             for child in root.winfo_children():
                 if child.winfo_toplevel() == root:
-                    register(child)
+                    self._register(child)
         except Exception:
             self.close()
             raise OSError('Could not enable Linux file drops (tkdnd).') from None
         root.bind('<Destroy>', self._destroy, add='+')
+
+    def _register(self, widget):
+        widget.drop_target_register(self.files)
+        self.widgets.append(widget)
+        widget.dnd_bind('<<Drop>>', self._drop)
+        for child in widget.winfo_children():
+            if child.winfo_toplevel() == self.root:
+                self._register(child)
+
+    def add(self, widget):
+        """Register widgets created after the drop target (a row added to a dialog)."""
+        self._register(widget)
 
     def _drop(self, event):
         try:
