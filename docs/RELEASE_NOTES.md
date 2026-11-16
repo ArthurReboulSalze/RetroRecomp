@@ -76,7 +76,7 @@
   Eleven games give the same traces, pictures included; on Fears, 936,000 of 939,000 lines take the batch. The gain per frame is not
   measured yet.
 
-**Speed.** [SPEED: pending]
+**Speed.** On a quiet PC against 1.7.6 (one pinned core, 2,400 frames, one warm-up then the best of three): Lotus 2 (Amiga) 1.00 of its 1.7.6 time per frame (6.69 ms against 6.66 ms), Sonic The Hedgehog 2 (Mega Drive) 1.00 (2.66 ms against 2.67 ms). The Amiga 1200's display shortcuts are not in this comparison (an Amiga 500 game). Host cost per frame, not latency; Windows only.
 
 These are a new renderer for the PlayStation, changes to the timing and the menus of every game, to the converter's window and to the
 Amiga's machine and picture, each on the evidence above; none of them is a measure of hardware fidelity, complete gameplay or physical latency, and the interpreter fallback
