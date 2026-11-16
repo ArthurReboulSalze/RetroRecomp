@@ -86,7 +86,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████████░░` 81 % |
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
-| [Commodore Amiga 1200](docs/AMIGA.md) | experimental | `███████░░░` 66 % |
+| [Commodore Amiga 1200](docs/AMIGA.md) | experimental | `███████░░░` 69 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).

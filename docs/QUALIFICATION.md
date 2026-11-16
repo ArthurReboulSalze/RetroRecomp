@@ -74,7 +74,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| Commodore Amiga 1200 | experimental | `███████░░░` 66 % | ✅ 7 · 🟡 7 · ❔ 2 |
+| Commodore Amiga 1200 | experimental | `███████░░░` 69 % | ✅ 8 · 🟡 6 · ❔ 2 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -92,7 +92,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | ❔ |
@@ -122,7 +122,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | ? |
@@ -1578,7 +1578,7 @@ frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA fo
 | G10 | P | Moira's 68EC020 is the reference CPU; our lengths agree with Moira's disassembler on 19,084 random instructions. `tools/amiga_m68020_vectors.py` (16 November 2026, seed 1): 200,000 random instructions from random states, Moira as vAmiga builds it against Musashi's 68EC020 (an independent model, MIT, built for the check only): 192,264 equal on registers, SR, PC and the bytes written (clocks not compared); every one of the 7,731 others in a written family: 4,938 coprocessor instructions (no FPU on the A1200: Moira takes line F, Musashi models a 68881), 2,322 flags or results the manual leaves undefined (CHK, CHK2, DIV, BCD, MUL.L), 395 where Moira is right and this Musashi is not (PACK/UNPK byte order and RTE format error by the manual, LINK A7 by WinUAE's hardware-confirmed model), 76 to referee (MOVEM to -(An) with An listed, bit fields, CAS2) | A third model or hardware for the 76; Musashi is a model, not the silicon |
 | G11 | P | The oracle comparison above (8 installs) | Hardware evidence beyond another emulator |
 | G12 | P | A panel of 9 named: 8 pass every check, of which Pinball Illusions stayed black after its intro in 1.7.6; one did not start in 1.7.6 (Alien Breed 3D); both fixed in 1.7.7, named with the cause | Both converted again on the 1.7.7 build, then Arthur's play |
-| G13 | P | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included | More installs, and the Kickstart 3.1 ones |
+| G13 | Y | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included. Then Pinball Illusions (the player's Kickstart 3.1), Gloom (Crunch-Mania) and Zool 2 at the standard level on WSL Debian 13 (GCC) and on Windows (llvm), tree `97f8712c`, 16 November 2026: every field of both routes of all three equal, trace digests included | A game played interactively on Linux (window, sound, pad) |
 | G14 | ? | | Arthur's play test |
 | G15 | P | AMIGA.md section 7 and this section keep the five measures apart and name the failure | |
 | G16 | ? | Not shared (experimental) | A decision once its panel is stable |
