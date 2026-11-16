@@ -208,6 +208,10 @@ class ManifestTests(unittest.TestCase):
             info, name = entry.split('\t', 1)
             if inputs._file_kind(name) == 'text' and name not in stamp_inputs.RAW_FILES:
                 self.assertTrue(info.startswith('i/lf') or info.startswith('i/none'), entry)
+                # The working tree too: the state-ABI keys of several machines hash these files as they are on disk, so a
+                # stale CRLF copy (checked out before the LF rule) gives that checkout another key than a player's build
+                # (16 Nov 2026: 36 such files in the main checkout). Fix: delete the file and `git checkout -- <file>`.
+                self.assertNotIn('w/crlf', info.split(), entry)
 
 
 class ReproducibleTests(WorkTree, unittest.TestCase):
