@@ -829,7 +829,8 @@
     "time_up_to": "hasta {high}",
     "estimate_paths_queue": "Puede ser más corto en algunas consolas cuando ya se conocen los caminos de otros jugadores para un juego; esos caminos también hacen nativa una mayor parte del juego.",
     "estimate_paths_shorter": "Puede ser más corto cuando ya se conocen los caminos de otros jugadores para el juego (una comprobación rápida sustituye al descubrimiento); esos caminos también hacen nativa una mayor parte del juego.",
-    "estimate_paths_native": "Los caminos de otros jugadores, cuando se conocen, hacen nativa una mayor parte del juego; en esta consola la conversión sigue haciendo su descubrimiento completo."
+    "estimate_paths_native": "Los caminos de otros jugadores, cuando se conocen, hacen nativa una mayor parte del juego; en esta consola la conversión sigue haciendo su descubrimiento completo.",
+    "estimate_paths_time": "Con los caminos de otros jugadores: {span} en el PC de referencia (recompilación sin descubrir caminos)."
   },
   "runtime": {
     "Internal resolution": "Resolución interna",

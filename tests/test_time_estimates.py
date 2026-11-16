@@ -151,8 +151,37 @@ class TextTests(unittest.TestCase):
                     'estimate_unknown', 'estimate_first_build', 'estimate_first_download', 'estimate_level',
                     'estimate_level_derived', 'estimate_log', 'estimate_elapsed', 'estimate_running',
                     'estimate_running_over', 'converting_elapsed', 'converting_clock', 'stop_elapsed', 'first_use_note',
-                    'time_range', 'time_up_to', 'estimate_paths_queue', 'estimate_paths_shorter', 'estimate_paths_native'):
+                    'time_range', 'time_up_to', 'estimate_paths_queue', 'estimate_paths_shorter', 'estimate_paths_native',
+                    'estimate_paths_time'):
             self.assertIn(key, STRINGS)
+
+
+class WithPathsTests(unittest.TestCase):
+    def test_the_owner_s_a1200_figure_shows_only_once_the_machine_shares_paths(self):
+        from unittest.mock import patch
+        from retrorecomp.gui_estimates import EstimatesMixin
+
+        class Window(EstimatesMixin):
+            def tr(self, key, **values):
+                return tr(key, **values)
+
+        # Arthur, 16 Nov 2026: about 20 to 25 min of recompilation without discovery when the A1200 shares paths.
+        self.assertEqual(te.with_paths_time('a1200'), (1200, 1500))
+        self.assertIn('owner', te.table()['with_paths']['a1200']['source'])
+        self.assertIsNone(te.with_paths_time('md'))
+        window = Window()
+        self.assertNotIn('estimate_paths', window.level_estimate_text('a1200'))      # not shared today
+        with patch.object(te, 'paths_effect', return_value='native'):
+            text = window.level_estimate_text('a1200')
+        self.assertIn('estimate_paths_native', text)
+        self.assertIn('estimate_paths_time:span=time_range:high=time_minutes:minutes=25,low=time_minutes:minutes=20', text)
+        bad = copy.deepcopy(TABLE)
+        bad['with_paths'] = {'aa': {'seconds': [1500, 1200], 'source': 'x'}}
+        with self.assertRaises(ValueError):
+            te.validate(bad)
+        bad['with_paths'] = {'zz': {'seconds': [1200, 1500], 'source': 'x'}}
+        with self.assertRaises(ValueError):
+            te.validate(bad)
 
 
 class MeasureToolTests(unittest.TestCase):

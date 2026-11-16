@@ -102,6 +102,9 @@
    "extended": {"seconds": [156, 162, 167], "longest": 177, "reports": 10, "versions": "1.7.3..1.7.3"}
   }
  },
+ "with_paths": {
+  "a1200": {"seconds": [1200, 1500], "source": "The owner's figure for his reference PC (16 November 2026): about 20 to 25 minutes of recompilation without path discovery when the Amiga 1200 shares paths. Not measured from a report; shown only once the machine shares paths (it does not yet, pending the A/B measure)."}
+ },
  "first_use": {
   "tools_download_mb": 245,
   "tools_source": "Windows: the portable build tools (llvm-mingw, CMake, Ninja), 245 MB to download, 380 MB installed. Download time not measured: it depends on the connection.",

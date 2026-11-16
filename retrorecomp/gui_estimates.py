@@ -122,7 +122,11 @@ class EstimatesMixin:
         text = self.tr('estimate_level' if found.measured else 'estimate_level_derived',
                        span=self.span(found.low, found.high), reference=time_estimates.reference_label())
         effect = time_estimates.paths_effect(console)
-        return text + (' ' + self.tr('estimate_paths_' + effect) if effect else '')
+        if not effect:
+            return text
+        text += ' ' + self.tr('estimate_paths_' + effect)
+        received = time_estimates.with_paths_time(console)
+        return text + (' ' + self.tr('estimate_paths_time', span=self.span(*received)) if received else '')
 
     # --- a running batch ------------------------------------------------------------------------------------------
 
