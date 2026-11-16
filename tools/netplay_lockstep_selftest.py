@@ -420,7 +420,9 @@ def pace_jitter(name, latency, jitter, frames, limit):
         match.finish(limit)
         line = in_step(match, frames)
         changes = [driver.stats['pace_changes'] for driver in match.drivers]
-        assert max(changes) <= 3, f'the pace changed {changes} times in {frames} frames'
+        # At most one change every 150 frames (2.5 s): the flapping this guards against was 28 in 1,800 frames (about 14 per
+        # 900); real worker processes on a busy PC see scheduler noise, and 4 in 900 was seen once there.
+        assert max(changes) <= frames // 150, f'the pace changed {changes} times in {frames} frames'
         assert all(driver.stats['waits'] == 0 for driver in match.drivers), match.counts('waits')
         # The median advantage over the slowest seat, as each seat's time sync saw it every quarter second: wide while
         # the match starts (the seats start apart by what the host measured), then within a fraction of a frame.
