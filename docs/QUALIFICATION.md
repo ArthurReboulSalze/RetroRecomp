@@ -1526,15 +1526,18 @@ branch at `0f0ca6f1` on 15 November 2026, the same native counts where the first
 | Roadkill | Kickstart 3.1 | 232,904,955 | 1, 1 (a Kickstart instruction) | all |
 | Gloom | Crunch-Mania files | 195,552,589 | 0, 0 | all |
 | Super Stardust | Crunch-Mania files, an intro in AGA super-hires | 67,488,880 | 0, 0 | all |
-| Alien Breed 3D | a known failure | — | — | black screen |
+| Alien Breed 3D | LoadSeg sizes (black in 1.7.6, starts since 1.7.7) | — | — | its title and music (below) |
 
 "All" means: the native game's trace (picture, sound, RAM and CPU registers of every frame) equals the fresh reference on every route, so
 do the resload calls; the compressed copy replays equal; a quick state saved in it continues the same timeline in a fresh process and its 18
 damaged copies are refused.
 
-**Alien Breed 3D** stays black on our A1200 model, while the private oracle under the real WHDLoad shows its intro. What is known: its slave
-builds its own ExecBase with most vectors set to ILLEGAL; the game, patched by `resload_PatchSeg` (whose offsets and `PL_S` encoding follow
-JST's), reaches a loop that calls `OpenResource` through that ExecBase and stops there. Why it does not on the real WHDLoad is not found.
+**Alien Breed 3D** stayed black on our A1200 model in 1.7.6, while the private oracle under the real WHDLoad shows its intro. Its slave
+builds its own ExecBase with most vectors set to ILLEGAL and patches the game with `resload_PatchSeg`, whose offsets run across the
+segments of a LoadSeg list by their stored sizes. Our `resload_Relocate` stored each size padded to 8 bytes (AmigaDOS stores the hunk's
+size plus 8), so the slave's patches in the game's third segment landed 8 bytes early; its skip over the `ciaa.resource` probe fell inside
+the probe, and the game called `OpenResource` through the slave's ExecBase. **Fixed in 1.7.7** (`rr_resload.c`, generic): the title and its
+music come; the A1200 panel and six Amiga 500 installs give the same traces before and after (2,500 frames each, pictures included).
 
 **Pinball Illusions** passed every check of the panel in 1.7.6, but after its intro the screen stayed black with the music playing
 (Arthur's play test of 15 November 2026), where the private oracle under the real WHDLoad goes on to « Loading » and the title. The
@@ -1572,9 +1575,9 @@ frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA fo
 | G7 | Y | `tools/amiga_saves_check.py --system a1200` on Super Stardust (16 November 2026, Windows, llvm, two conversions with fresh libraries): it writes `ssd.prefs` (94 bytes) by itself on the exploration route; the file is kept at relaunch and read back by the game; a quick state does not roll it back; cut to half or empty, the game still starts and runs; a refused save (a folder in the file's place) stops the game with WHDLoad's message, no temporary left (the game writes its preferences at start, so the folder case is that refusal too); kept after a second conversion, in one data folder | |
 | G8 | Y | Moving picture and sound on the routes (the conversion's liveness checks) | |
 | G9 | P | The routes reach play on Slam Tilt and Zool 2 (pictures); not checked install by install | A per-install record of where the routes end |
-| G10 | P | Moira's 68EC020 is the reference CPU; our lengths agree with Moira's disassembler on 19,084 random instructions. `tools/amiga_m68020_vectors.py` (16 November 2026, seed 1): 200,000 random instructions from random states, Moira as vAmiga builds it against Musashi's 68EC020 (an independent model, MIT, built for the check only): 192,264 equal on registers, SR, PC and the bytes written (clocks not compared); every one of the 7,731 others in a written family: 4,938 coprocessor instructions (no FPU on the A1200: Moira takes line F, Musashi models a 68881), 2,322 flags or results the manual leaves undefined (CHK, CHK2, DIV, BCD, MUL.L), 384 where the manual sides with Moira (PACK/UNPK byte order, RTE format error), 87 to referee (LINK A7, MOVEM to -(An) with An listed, bit fields, CAS2) | A third model or hardware for the 87; Musashi is a model, not the silicon |
+| G10 | P | Moira's 68EC020 is the reference CPU; our lengths agree with Moira's disassembler on 19,084 random instructions. `tools/amiga_m68020_vectors.py` (16 November 2026, seed 1): 200,000 random instructions from random states, Moira as vAmiga builds it against Musashi's 68EC020 (an independent model, MIT, built for the check only): 192,264 equal on registers, SR, PC and the bytes written (clocks not compared); every one of the 7,731 others in a written family: 4,938 coprocessor instructions (no FPU on the A1200: Moira takes line F, Musashi models a 68881), 2,322 flags or results the manual leaves undefined (CHK, CHK2, DIV, BCD, MUL.L), 395 where Moira is right and this Musashi is not (PACK/UNPK byte order and RTE format error by the manual, LINK A7 by WinUAE's hardware-confirmed model), 76 to referee (MOVEM to -(An) with An listed, bit fields, CAS2) | A third model or hardware for the 76; Musashi is a model, not the silicon |
 | G11 | P | The oracle comparison above (8 installs) | Hardware evidence beyond another emulator |
-| G12 | P | A panel of 9 named: 8 pass every check, of which Pinball Illusions stayed black after its intro in 1.7.6 (fixed in 1.7.7); one fails to start; both named with what is known | Alien Breed 3D, Pinball Illusions |
+| G12 | P | A panel of 9 named: 8 pass every check, of which Pinball Illusions stayed black after its intro in 1.7.6; one did not start in 1.7.6 (Alien Breed 3D); both fixed in 1.7.7, named with the cause | Both converted again on the 1.7.7 build, then Arthur's play |
 | G13 | P | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included | More installs, and the Kickstart 3.1 ones |
 | G14 | ? | | Arthur's play test |
 | G15 | P | AMIGA.md section 7 and this section keep the five measures apart and name the failure | |

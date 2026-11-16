@@ -90,6 +90,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Mega Drive: its sound follows a game locked to the display](#mega-drive-its-sound-follows-a-game-locked-to-the-display-177) | none | the Mega Drive's host stamp (`retrorecomp/megadrive_audio.py`, `hostkit/adapters/rrhk_md.c`) | none |
 | [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
+| [Commodore Amiga: a LoadSeg list keeps the sizes AmigaDOS stores](#commodore-amiga-a-loadseg-list-keeps-the-sizes-amigados-stores-177) | the Amiga and the Amiga 1200 (`rr_resload.c`) | none | refused (every build's are) |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
@@ -216,6 +217,21 @@ but it was code that never runs, and what followed it in the window was lost.
   qualified; the Amiga 1200 shares no path.
 - **Stamps:** the game stamp of the Amiga, of the Amiga 1200 and of the Atari ST (the shared walk); the output of the Amiga 500 and of the
   Atari ST is unchanged. Their exports are converted again in full on the first batch.
+
+## Commodore Amiga: a LoadSeg list keeps the sizes AmigaDOS stores (1.7.7)
+
+`resload_Relocate` with `WHDLTAG_LOADSEG` lays an executable out as AmigaDOS's LoadSeg does: each segment is its size, the BPTR to the
+next, then the hunk. The size was stored padded to the alignment (8 bytes); AmigaDOS stores the hunk's size plus 8, and the alignment
+only decides where the next segment goes. `resload_PatchSeg` counts its offsets across the segments with the stored sizes, so each
+padded segment moved the patches after it by 4 bytes. Alien Breed 3D's slave patches the game's third segment: its patches landed 8
+bytes early, and the game stayed black.
+
+- **What changes:** the stored size only (placement unchanged); `tests/amiga_resload_harness.c` checks the size and a patch past a
+  padded segment.
+- **Measured:** Alien Breed 3D shows its title with its music. Pinball Illusions, Slam Tilt, Banshee, Fears, Gloom, Zool 2, Roadkill and
+  Super Stardust (Amiga 1200), and six Amiga 500 installs (Civilization among them; five of the fourteen call Relocate or PatchSeg):
+  identical traces before and after, 2,500 frames each, pictures included.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`rr_resload.c`); their exports are converted again in full.
 
 ## Exports of 1.7.5 in 1.7.6
 

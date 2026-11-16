@@ -97,8 +97,8 @@ FAMILIES: dict[str, tuple[set, str, str]] = {
     'UnpkPd': ({'isp', 'usp', 'memory'}, 'oracle', 'UNPK -(Ax),-(Ay): the same byte order as PACK, written; also the byte step of -(A7).'),
     'Rte': ({'memory'}, 'oracle', 'RTE with a frame format the 68EC020 does not know: the format error stacks the address of the RTE (Moira, the '
             'manual); this Musashi stacks the next one.'),
-    'Link': ({'memory'}, 'referee', 'LINK A7: the value of A7 pushed. The manual pushes the decremented A7 (Musashi, UAE); Moira pushes the value '
-             'before. Real code does not link A7; to check with a third model.'),
+    'Link': ({'memory'}, 'oracle', 'LINK A7: Moira pushes the value of A7 before the decrement, as WinUAE does on the 68000 to 68030 (its '
+             'generator marks LINK confirmed on hardware); this Musashi pushes the decremented value.'),
     'MovemRgEa': ({'memory'}, 'referee', 'MOVEM to -(An) with An in the list: the value of An written; to check with a third model.'),
     'BitFieldEa': (_REGS | {'memory', 'sr'}, 'referee', 'Bit-field instructions in memory: the bytes written for a field across bytes; to check '
                    'with a third model.'),

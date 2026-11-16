@@ -252,8 +252,12 @@ not changed by it.
   2026, [the evidence](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)): 0 or 1 interpreted instruction a
   route, the 1 a Kickstart instruction. Hardware fidelity is not claimed (vAmiga marks its AGA Denise as partly done; pictures are compared
   with another emulator only); gameplay rests on Arthur's play test, still to come; latency is not measured.
-- **One known failure:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
-  real WHDLoad does not reach it is not found).
+- **Alien Breed 3D starts (1.7.7).** In 1.7.6 it stayed black. `resload_Relocate` building a LoadSeg list wrote each segment's size
+  padded to the alignment, where AmigaDOS stores the hunk's size plus 8; `resload_PatchSeg` counts its offsets with those sizes, so
+  every padded segment moved the patches after it by 4 bytes. The slave's skip over the game's `ciaa.resource` probe landed 8 bytes
+  early, inside the code it skips, and the game called `OpenResource` through the slave's ExecBase, where it is ILLEGAL. The size is
+  now the exact one; its title and its music come (2,969 pictures of 3,000 not black, on the interpreted machine). Thirteen other
+  installs, five of them using Relocate or PatchSeg, give the same traces as before.
 - **Pinball Illusions' black title, fixed in 1.7.7.** In 1.7.6 its screen stayed black with the music playing after the intro; that
   screen is the table selection, and F1 to F4 still choose a table there (Arthur, 15 November 2026). The game was running: its title is an eight-plane dual playfield whose two priorities in `BPLCON2` are 7 (`$003F`). OCS and ECS Denise draw
   such a playfield transparent; AGA's Lisa draws it, and vAmiga applied the OCS rule on every chipset, so each pixel became colour 0.
