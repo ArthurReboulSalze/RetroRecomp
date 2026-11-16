@@ -19,6 +19,11 @@ def build():
     out = ROOT / '.build/player-gamepad'
     out.mkdir(parents=True, exist_ok=True)
     log = out / 'build.log'
+    # The pinned SDL2 sources first: a packaging tree (a release's source/ folder) starts without them, and
+    # ensure_sdl below builds from them (the test exe of 16 Nov 2026 stopped on « source directory does not exist »).
+    if not sdl.exists():
+        run(['git','clone','https://github.com/libsdl-org/SDL.git',sdl], log=log)
+        run(['git','-C',sdl,'checkout','--detach',SDL_REV], log=log)
     if os.name == 'nt':
         # Windows: the games' own static SDL2 of the active toolchain (llvm-mingw for the portable toolchain); an
         # install made by another compiler cannot be linked (an MSVC archive asks lld for LIBCMT).
@@ -30,9 +35,6 @@ def build():
         prefix = ROOT/'.deps/player-sdl/install'
     sdk = prefix.parent
     if not any((prefix / p).is_file() for p in ('cmake/SDL2Config.cmake', 'lib/cmake/SDL2/SDL2Config.cmake')):
-        if not sdl.exists():
-            run(['git','clone','https://github.com/libsdl-org/SDL.git',sdl], log=log)
-            run(['git','-C',sdl,'checkout','--detach',SDL_REV], log=log)
         if run(['git','-C',sdl,'rev-parse','HEAD']).strip() != SDL_REV:
             raise RuntimeError('Unexpected SDL2 source revision.')
         options = [] if os.name == 'nt' else ['-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
