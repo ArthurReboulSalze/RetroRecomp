@@ -435,8 +435,11 @@ def pace_jitter(name, latency, jitter, frames, limit):
 def drift(name, fast_seat, frames, limit, pace=True):
     """Two game clocks that differ by 0.5 %: the fast seat's PACE slows it, in a star, whichever seat it is."""
     def scenario(executable, out):
+        # The delay is set (4 frames: a link of 10 ms needs 2, so two frames of lead cost nothing): what is tested is the
+        # pace, not the host's choice of the delay. At the floor delay (the measured one on a quiet LAN) a 0.5 % drift
+        # has almost no slack to use: time sync then halves the waits instead of removing them (see STAGE1.md, stage 1b).
         match = Match(executable, out, name, 2, hz=60, last_frame=frames, digest_every=60, waiting_after=0.5, pace=pace,
-                      link={'latency_ms': 10.0, 'jitter_ms': 2.0}, per_seat={fast_seat: {'clock_ppm': -5000}}).start()
+                      delay=4, link={'latency_ms': 10.0, 'jitter_ms': 2.0}, per_seat={fast_seat: {'clock_ppm': -5000}}).start()
         match.finish(limit)
         line = in_step(match, frames)
         fast, slow_seat = match.drivers[fast_seat], match.drivers[1 - fast_seat]
@@ -484,7 +487,7 @@ SCENARIOS = [
     pace_jitter('pace-jitter-120ms', 120.0, 20.0, 1800, 120),
     drift('pace-drift-host-fast', 0, 900, 80),
     drift('pace-drift-guest-fast', 1, 900, 80),
-    drift('pace-drift-without-time-sync', 0, 1000, 80, pace=False),
+    drift('pace-drift-without-time-sync', 0, 1100, 80, pace=False),
 ]
 
 
