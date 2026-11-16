@@ -220,6 +220,9 @@ NOT_INPUTS = (
     # tools/amiga_vector_selftest.py (Moira and a native step against an independent corpus): built against the adapted vAmiga for a check,
     # never into a game (the folder's CMakeLists.txt does not build it).
     'native/amiga_machine/amiga_vector_checks.cpp',
+    # tools/amiga_m68020_vectors.py (the Amiga 1200's 68EC020, Moira against Musashi on random instructions): built against the adapted
+    # vAmiga and the workspace's copy of Musashi for a check, never into a game.
+    'native/amiga_machine/m68020_vector_checks.cpp',
     # tools/megadrive_moira_vectors.py (Moira, built from the adapted vAmiga, against the Mega Drive's native 68000 steps on forms no fixture
     # holds): the maker is built against vAmiga for a check and the decimal check against the generated steps, never into a game.
     'native/amiga_machine/moira_vector_maker.cpp', 'native/md_bcd_checks.c', 'native/md_audio_locked_checks.c',

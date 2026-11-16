@@ -1,6 +1,6 @@
 """Show, on a real Amiga game, what happens to a file the game saves: written, read back, kept at relaunch and across a reconversion.
 
-    python tools/amiga_saves_check.py <install.lha> --output .build/saves-<name> [--frames 6000] [--kickstart FOLDER]
+    python tools/amiga_saves_check.py <install.lha> --output .build/saves-<name> [--frames 6000] [--kickstart FOLDER] [--system a1200]
 
 Evidence for gate G7 (saves) of docs/QUALIFICATION.md; a developer tool, never part of a conversion. The game must write a file on the
 standard exploration route by itself (5th Gear saves its high scores), or on the route given with --events (a file of the routes'
@@ -90,6 +90,7 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--frames', type=int, default=6000)
     parser.add_argument('--kickstart', default=None)
+    parser.add_argument('--system', choices=('amiga', 'a1200'), default='amiga', help='the profile to convert for (a1200: an Amiga 1200 install)')
     parser.add_argument('--events', type=Path, default=None, help='a route that makes the game save, instead of the exploration route')
     parser.add_argument('--read-frames', type=int, default=1500, help='frames of the runs that read the kept file')
     options = parser.parse_args(argv)
@@ -112,7 +113,7 @@ def main(argv=None):
     def build(number):
         os.environ['RETRO_RECOMP_LIBRARY_DIR'] = str(output / f'library-{number}')
         made = convert(options.lha, output=output / f'out-{number}', scan_level='quick', use_cover=False, online_cover=False,
-                       emit=lambda message: None, amiga_kickstart=options.kickstart)
+                       emit=lambda message: None, amiga_kickstart=options.kickstart, system=options.system)
         target = play / name
         shutil.copy2(made, target)
         if os.name != 'nt':

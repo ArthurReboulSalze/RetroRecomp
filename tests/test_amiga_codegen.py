@@ -152,6 +152,25 @@ class AmigaCodegenTest(unittest.TestCase):
         started, walked = amiga_codegen.walk_records([(0x1000, data)], observed=observed)
         self.assertEqual((started, walked), ([(0x1000, '7001')], []))
 
+    def test_the_amiga_1200_walks_its_record_with_the_68ec020_lengths_and_the_amiga_500_as_before(self):
+        from retrorecomp import amiga_conversion, m68020_lengths
+        lines = []
+        for op in range(65536):
+            name = {0x2030: 'Move', 0x4e71: 'Nop', 0x7001: 'Moveq'}.get(op, 'Illegal')
+            positions = m68020_lengths.extension_positions(op)
+            lines.append(f'{op:04x} {name} 1 0 0 {m68020_lengths.brief_words(op)} {",".join(map(str, positions)) if positions else "-"}')
+        self.path.write_text('\n'.join(lines) + '\n', encoding='ascii')
+        amiga_codegen.load_opcode_map(self.path)
+        data = bytes.fromhex('2030013000000010' '4e71')
+        observed = get_profile('a1200').observed_code
+        self.assertEqual(amiga_conversion.walk_record([(0x1000, data)], observed, 'a1200'),
+                         ([(0x1000, '2030013000000010')], [(0x1008, '4e71')]))
+        # The Amiga 500's walk is amiga_codegen.walk_records, unchanged.
+        self.sweep_table()
+        observed = get_profile('amiga').observed_code
+        record = [(0x1000, bytes.fromhex('70014e754e71'))]
+        self.assertEqual(amiga_conversion.walk_record(record, observed, 'amiga'), amiga_codegen.walk_records(record, observed=observed))
+
     def test_an_instruction_that_also_began_a_window_counts_as_having_run(self):
         self.sweep_table()
         observed = get_profile('amiga').observed_code

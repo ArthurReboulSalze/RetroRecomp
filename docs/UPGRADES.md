@@ -96,6 +96,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Sony PlayStation: the trace records the VRAM (format 2)](#sony-playstation-the-trace-records-the-vram-format-2-177) | the PlayStation (`psx_session.c`, `psx_session.h`, `psx_main.c`, `psx_conversion.py`) | the PlayStation's host stamp (`psx_session.c`) | none |
 | [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
 | [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
+| [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
 
@@ -215,7 +216,7 @@ No mipmapping is offered (the console has none).
 on the CPU and on the card, every trace column equal to the build before this change, picture included. With the rows on, the
 machine is the same: RAM, CPU state, sound and VRAM equal on every frame (MSAA 8x; Supersampling at 4x; bilinear; 3-point with
 MSAA 4x at 4x), at 0 interpreted instructions; only the card's picture differs. Changing them in play (with the resolution, through
-Supersampling's return to the console's size) was checked in a window of the real Windows video driver under each filter, on the
+Supersampling's change of drawing size) was checked in a window of the real Windows video driver under each filter, on the
 card and on the CPU: the game continues. MSAA changed in play opens the session again (a quick state, as a renderer switch does)
 with its multisampling set before the renderer is built: the first build of this change rebuilt Beetle's renderer in place, which
 kept the programs of the old sample count, and the picture broke at the game's next display mode change (the owner's report of
@@ -336,6 +337,25 @@ software-only build (frame, RAM, picture, sound, CPU state; checked on Ape Escap
 headers) and host stamp (`psx_session.c`). **Existing exports:** converted again in full at their next conversion. **Quick
 states:** PlayStation states of 1.7.6 are refused cleanly (the state key holds the prepared tree's digest). **Site limits:**
 unchanged. **Hot path:** no (the renderer is not opened; the game is about 5 MB larger).
+
+## Commodore Amiga 1200: a player's record walked with the 68EC020's lengths (1.7.7)
+
+A player's own record (F12, kind 22) is a list of windows of bytes, each noted where an instruction ran on the interpreter; the next
+conversion walks each window into instructions (`retrorecomp/m68k_record_walk.py`). The Amiga 1200's walk used the length its opcodes
+give alone, the 68000's rule. A 68EC020 instruction with a full extension word is longer than its first word says, so the walk cut it
+and took its extension words for instructions of their own. That code is guarded by the opcode the CPU latches, so it never ran wrong,
+but it was code that never runs, and what followed it in the window was lost.
+
+- **What changes:** the Amiga 1200's walk reads the extension words (`m68020_lengths.length`, the lengths its sweep and its translator
+  already use; `amiga_conversion.walk_record`); a window that cuts an instruction ends the walk there. The Amiga 500's walk is
+  `amiga_codegen.walk_records`, unchanged, and the Atari ST's too (`m68k_record_walk.walk_windows` takes an optional length by bytes).
+- **Measured on the owner's six Amiga 1200 records of 15 November 2026** (counts only): five of six walked differently; Fears' 4,096
+  windows give 382 entries of the old walk the new one does not make (cut instructions and extension words read as code) and 79 it
+  adds (the instructions after them).
+- **Generator pins:** `amiga_codegen.py` is not edited, so `GENERATOR_REVISION` stays 2 and the Amiga 500's qualified paths stay
+  qualified; the Amiga 1200 shares no path.
+- **Stamps:** the game stamp of the Amiga, of the Amiga 1200 and of the Atari ST (the shared walk); the output of the Amiga 500 and of the
+  Atari ST is unchanged. Their exports are converted again in full on the first batch.
 
 ## Exports of 1.7.5 in 1.7.6
 
