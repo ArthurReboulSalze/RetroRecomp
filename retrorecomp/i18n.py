@@ -932,7 +932,7 @@ STRINGS = {
     'start_front_end': ('Start Retro-Recomp in Front-end mode', 'Démarrer Retro-Recomp en mode Front-end'),
     'start_front_end_fullscreen': ('…in full screen', '…en plein écran'),
     'tip_start_front_end': ('At start, show your compiled games as a wall of box art instead of the conversion queue.', 'Au démarrage, affiche tes jeux compilés en mur de jaquettes au lieu de la file de conversion.'),
-    'tip_start_front_end_fullscreen': ('The front-end opened at start fills the screen. Esc, B or F11 bring the window back.', 'Le front-end ouvert au démarrage occupe tout l’écran. Échap, B ou F11 ramènent la fenêtre.'),
+    'tip_start_front_end_fullscreen': ('The front-end opened at start fills the screen. X on the gamepad or F11 bring the window back.', 'Le front-end ouvert au démarrage occupe tout l’écran. X à la manette ou F11 ramènent la fenêtre.'),
 }
 
 

@@ -741,9 +741,9 @@ class FrontEndView(tk.Frame):
             self.selected.clear()
             self.draw_wall()
             self.draw_details()
-        elif getattr(self.owner, 'front_end_fullscreen', False):
-            self.owner.set_front_end_fullscreen(False)
         else:
+            # Full screen or not, Back asks to leave the front-end (Arthur, 16 Nov 2026); X, F11 and the corner button
+            # are the ways back to the window.
             self.confirm_leave()
 
     def confirm_leave(self):

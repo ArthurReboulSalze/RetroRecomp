@@ -81,7 +81,7 @@ class FrontEndMixin:
         self.front_end_button.state(['pressed'])
         self.front_end_view.show()
         self.app.after(60, self.front_end_view.take_focus)
-        # The front-end opens in full screen (Arthur, 16 Nov 2026); Esc / B / F11 bring the window back.
+        # The front-end opens in full screen (Arthur, 16 Nov 2026); X / F11 / the corner button bring the window back.
         if fullscreen:
             self.set_front_end_fullscreen(True)
         self.queue_background(self.body)
