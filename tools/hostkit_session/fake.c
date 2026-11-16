@@ -121,6 +121,10 @@ int main(int argc, char **argv) {
     SDL_SetMainReady();
     const char *menu = getenv("SESSION_FAKE_MENU_AT");
     menu_at = menu ? (unsigned)atoi(menu) : 0;
+    /* SESSION_FAKE_HZ=n: the machine's frame rate (500 by default, so the checks are short; 60 for the checks of a slow link,
+     * where the input delay is counted in frames of a real machine). */
+    const char *hz = getenv("SESSION_FAKE_HZ");
+    if (hz && atoi(hz) >= 20 && atoi(hz) <= 1000) machine.frame_seconds = 1.0 / atoi(hz);
     const int status = rrhk_main(&machine, "Session fake", 1);
     printf("RESULT frames=%u live=%u silent=%u quick=%u effects_off=%u options=%u digest=%016llx\n",
            state.frames, live_runs, silent_runs, quick_calls, effects_off_runs, option_calls,

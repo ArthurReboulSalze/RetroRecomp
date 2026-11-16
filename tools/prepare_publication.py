@@ -243,6 +243,9 @@ retrorecomp/report_schema.py tests/test_report_schema.py tests/test_report_write
 retrorecomp/timings.py tests/test_timings.py
 retrorecomp/simulation_identity.py tests/test_simulation_identity.py tools/simulation_identity_selftest.py
 retrorecomp/netplay_recipe.py tests/test_netplay_recipe.py tools/netplay_recipe_selftest.py
+retrorecomp/netplay/__init__.py retrorecomp/netplay/session_pipe.py retrorecomp/netplay/session_game.py
+retrorecomp/netplay/input_records.py retrorecomp/netplay/session_transport.py retrorecomp/netplay/link_simulator.py
+retrorecomp/netplay/lockstep.py tests/test_netplay_lockstep.py tools/netplay_lockstep_selftest.py tools/netplay_game_smoke.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
 retrorecomp/dropfiles.py tests/test_dropfiles.py tests/test_popup_menu.py
 native/snes_dsp1_projection.inc
