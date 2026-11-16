@@ -175,6 +175,7 @@ class ConversionMixin:
             self.table.set(row, 'status', self.tr('waiting'))
             self.row_status[row] = 'waiting'
         self.progress.configure(value=0, maximum=len(items))
+        self.end_welcome()      # the log panel's welcome leaves with the first batch
         self.log.configure(state='normal')
         self.log.delete('1.0', 'end')
         self.log.configure(state='disabled')
@@ -343,6 +344,7 @@ class ConversionMixin:
                 kind = event[0]
                 if kind == 'log':
                     getattr(self, 'session_log', []).append(event[1])
+                    self.end_welcome()      # the first real line clears the welcome for good
                     self.log.configure(state='normal')
                     self.log.insert('end', event[1] + '\n')
                     self.log.see('end')
@@ -517,6 +519,8 @@ class ConversionMixin:
                     self.apply_dropped_covers()     # images given while this reconversion ran
                 elif kind == 'first_use':
                     self.first_use_ready(event[1])
+                elif kind == 'announcement':
+                    self.welcome_announcement(event[1])
                 elif kind == 'cover_missing':
                     self.cover_missing(*event[1:])
                 elif kind == 'cover_drop':

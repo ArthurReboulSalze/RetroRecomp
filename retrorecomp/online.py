@@ -247,6 +247,17 @@ def status() -> dict:
     return _call('GET', 'status')[1]
 
 
+# The site's message to every player (announcement.py reads it): a few short texts, read in at most this many bytes.
+ANNOUNCEMENT_BYTES = 32 * 1024
+
+
+def announcement(timeout: float = 5) -> dict | None:
+    """The answer of `GET announcement` when the site answers 200, else None. A plain request like `status`:
+    no query, no token, nothing about the player. Raises like `_call` (offline, no service, an invalid answer)."""
+    code, answer = _call('GET', 'announcement', timeout=timeout, limit=ANNOUNCEMENT_BYTES)
+    return answer if code == 200 else None
+
+
 _VERSION = re.compile(r'\d{1,4}\.\d{1,4}\.\d{1,4}')
 
 

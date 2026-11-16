@@ -52,6 +52,24 @@ def smoke(window):
     window.update_idletasks()
     assert window.title() == "Retro-Recomp"
     application = window._retro_application
+    # The log panel's welcome (gui_welcome.py): armed while the window is hidden, nothing written yet; its last picture
+    # holds the ASCII logo and the invite, then Arthur's message (a fake answer: RETRO_RECOMP_SERVICE is empty, nothing is
+    # requested) as plain text in the player's language or English; the first real log line clears it for good.
+    from retrorecomp.gui_welcome import WELCOME_LOGO
+    assert application.welcome['state'] == 'waiting' and application.log.get('1.0', 'end-1c') == ''
+    application.welcome_finish()
+    shown = application.log.get('1.0', 'end-1c')
+    assert shown.split('\n')[:6] == list(WELCOME_LOGO) and application.tr('ready') in shown, shown
+    application.welcome_announcement({'active': True, 'messages': {'en': 'Hello <b>players</b>' + chr(27)}, 'updated_utc': ''})
+    shown = application.log.get('1.0', 'end-1c')
+    assert shown.endswith(application.tr('welcome_from_arthur') + ' Hello <b>players</b> '), shown
+    assert not application.session_log and application.welcome['job'] is None    # hidden: nothing left waiting
+    application.messages.put(('log', 'First real line'))
+    deadline = time.monotonic() + 5
+    while application.welcome['state'] != 'gone' and time.monotonic() < deadline:
+        window.update()
+        time.sleep(0.01)
+    assert application.log.get('1.0', 'end-1c') == 'First real line\n', application.log.get('1.0', 'end-1c')
     # The check must not depend on a user's local ROM collection or queue.
     fixtures = tempfile.TemporaryDirectory()
     for number in range(5):

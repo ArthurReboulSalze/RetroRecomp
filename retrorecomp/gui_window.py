@@ -298,6 +298,7 @@ class WindowMixin:
         self.render_disk_space()
         self.render_option_actions()
         self.render_level_estimates()
+        self.welcome_language()
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():

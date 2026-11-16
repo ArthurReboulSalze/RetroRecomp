@@ -18,6 +18,14 @@
   The figures come only from conversions already made on that PC, no conversion was run to time them
   ([assets/conversion-times.json](../assets/conversion-times.json), read with `tools/conversion_times.py`); a level not measured
   for a machine is worked out from its Standard time and said so. No game stamp moves.
+- **The converter: a welcome in the log panel, and Arthur's message.** Before anything is written to the log panel, the
+  Retro-Recomp logo (plain ASCII) is typed in there in gold, followed by the version and the usual invite; the first conversion,
+  or any real log line, clears it and the panel works as before. When the site has a short message for every player, it is
+  typed in under the logo, in your language when it was written in it, otherwise in English, as plain text of at most 200
+  characters. The message is read once when the window opens, only while **Options › Common › Check for updates at startup**
+  is on: a plain request to retro-recomp.com that sends nothing about you or your games and needs no account; offline, or
+  with no message, nothing is shown and nothing is said. Interface modules only (`gui_welcome.py`, `announcement.py`): no
+  stamp moves.
 
 ---
 

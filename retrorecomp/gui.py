@@ -55,11 +55,12 @@ from .gui_account import AccountMixin
 from .gui_leaderboard import LeaderboardMixin
 from .gui_covers import MissingCoversMixin
 from .gui_estimates import EstimatesMixin
+from .gui_welcome import WelcomeMixin
 
 
 class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, UpdatesMixin, OptionsMixin,
                  SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin, MissingCoversMixin,
-                 EstimatesMixin):
+                 EstimatesMixin, WelcomeMixin):
     """The window. Its methods live in the mixins above, one responsibility each; no name is
     defined twice, so the order of the bases decides nothing."""
     def __init__(self, app: tk.Tk):
@@ -513,6 +514,8 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         app.after_idle(self.fit_minimum_width)
         app.after(100, self.drain)
         self.compiler_widgets = [w for w in body.grid_slaves() if 1 <= int(w.grid_info()['row']) <= 7]
+        # The log panel's welcome (gui_welcome): the logo, then Arthur's message, until a real line is written.
+        self.start_welcome()
 
     def tr(self, key, **values):
         return tr(key, self.language, **values)
@@ -728,6 +731,8 @@ def launch(update_error: str | None = None):
     if not application.restore_queue() and roms.is_dir():
         application.add_paths(discover_roms(roms))
     app._retro_application = application
+    # Arthur's message to the players, read in a worker: it never delays the window.
+    application.fetch_announcement()
     # A few seconds after the window opens, never before: the look for something new.
     app.after(4000, application.startup_update_check)
     if update_error:
