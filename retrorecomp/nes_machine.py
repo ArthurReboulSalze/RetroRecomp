@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from .core import replace_once, ConversionError
+from .nes_codegen import patched_cart_header
 from .paths import ASSETS
 from . import nes_state_layout
 
@@ -437,6 +438,11 @@ def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
                 data = _machine(data.decode('utf-8'), fast_ppu=fast_ppu).encode('utf-8')
             elif name == 'runner/cyc/hw_ppu.c':
                 data = _ppu(data.decode('utf-8'), fast_ppu=fast_ppu).encode('utf-8')
+            elif name == 'common/nes_cart.h':
+                # PAL NES 2.0 headers are accepted (see nes_codegen.patched_cart_header). The quick-state layout does not change,
+                # so the state key keeps hashing the engine's own header.
+                identity_inputs[name] = data
+                data = patched_cart_header(data.decode('utf-8')).encode('utf-8')
             elif name == 'runner/cyc/hw_internal.h':
                 text = replace_once(data.decode('utf-8'), '    uint8_t  tick;',
                     '    uint8_t  pal_bus_pending; /* New bus cycle before cycle-count commit. */\n    uint8_t  tick;')
@@ -466,7 +472,7 @@ static inline void rr_ppu_sync(void) { if (rr_ppu_due) rr_ppu_flush(); }
             elif name == 'runner/cyc/hw_mapper.c':
                 if fast_mmc1:
                     data = _mmc1_a12(data.decode('utf-8')).encode('utf-8')
-                data += b'\n#include "nes_mapper_state.inc"\n' + (ASSETS / 'native/nes_ram.inc').read_bytes()
+                data += b'\n#include "nes_mapper_state.inc"\n' + (ASSETS / 'native/nes_ram.inc').read_bytes().replace(b'\r\n', b'\n')
             elif name == 'runner/cyc/hw.h':
                 text = data.decode('utf-8')
                 text = replace_once(text, 'bool hw_prg_is_rom(uint16_t addr);', '''bool hw_prg_is_rom(uint16_t addr);
@@ -526,7 +532,8 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
     for name, data in sorted(identity_inputs.items()):
         identity.update(name.encode('utf-8')); identity.update(data)
     for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_ppu_lazy.inc', 'nes_sprite_extra.inc', 'nes_sprite_shift.h'):
-        identity.update((ASSETS / 'native' / name).read_bytes())
+        # As with the engine's files above: the key names the text, not the line ends of the checkout it was read from.
+        identity.update((ASSETS / 'native' / name).read_bytes().replace(b'\r\n', b'\n'))
     _write(root / 'runner/cyc/nes_state_abi.h',
            f'#define RR_NES_STATE_ABI "{identity.hexdigest()}"\n'.encode('ascii'))
     return root / 'runner/cyc'

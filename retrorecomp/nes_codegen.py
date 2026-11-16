@@ -146,11 +146,22 @@ static uint8_t insn_byte(const Program *p, const Pos *at, uint32_t delta) {
     return source
 
 
+def patched_cart_header(source: str) -> str:
+    """`common/nes_cart.h` of the pinned engine, with the PAL NES 2.0 header accepted.
+
+    The pinned `nes_cart_variant_supported` refuses every NES 2.0 header whose timing field is not 0 or 2, so a dump that
+    declares PAL (1) failed with "unsupported cartridge metadata" in the compiler and again in the runtime, although the
+    converter models PAL itself (RR_NES_PAL). Only Dendy (3) stays refused, as the engine's later revisions do. The compiler's
+    staged copy and the machine's copy of the header take this one change."""
+    return replace_once(source, 'c->nes2 && c->timing != 0 && c->timing != 2', 'c->nes2 && c->timing == 3')
+
+
 def prepare_compiler(engine: Path, cmake: str | Path, generator: str, emit) -> Path:
     upstream = (engine / 'recompiler/src/cyc_codegen.c').read_text(encoding='utf-8')
     patched = patched_codegen(upstream)
+    cart_header = patched_cart_header((engine / 'common/nes_cart.h').read_text(encoding='utf-8'))
     revision = run(['git', '-C', engine, 'rev-parse', 'HEAD']).strip()
-    identity = sha256(patched.encode('utf-8')).hexdigest()[:12]
+    identity = sha256((patched + cart_header).encode('utf-8')).hexdigest()[:12]
     stage = ROOT / '.build' / 'nes-compiler' / f'{revision[:8]}-{identity}'
     source = stage / 'source'
     if not source.is_dir():
@@ -158,13 +169,17 @@ def prepare_compiler(engine: Path, cmake: str | Path, generator: str, emit) -> P
     common = stage / 'common'
     if not common.is_dir():
         shutil.copytree(engine / 'common', common)
+    header = common / 'nes_cart.h'
+    header_changed = header.read_text(encoding='utf-8') != cart_header
+    if header_changed:
+        header.write_text(cart_header, encoding='utf-8')
     codegen = source / 'src/cyc_codegen.c'
     source_changed = not codegen.is_file() or codegen.read_text(encoding='utf-8') != patched
     if source_changed:
         codegen.write_text(patched, encoding='utf-8')
     build = stage / 'build'
     compiler = build_executable(build, 'NESRecomp')
-    if source_changed or not compiler.is_file():
+    if source_changed or header_changed or not compiler.is_file():
         emit('Building NES compiler with bank-independent native ROM coverage…')
         run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args()], timeout=600)
         run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs()], timeout=1800)

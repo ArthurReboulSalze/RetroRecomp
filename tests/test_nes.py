@@ -217,6 +217,42 @@ class NesProfileTests(unittest.TestCase):
                 self.assertNotIn('cpu_interp_step', dense)
                 self.assertNotIn('switch (opcode)', dense)
 
+    def test_nes2_pal_header_compiles_and_dendy_is_refused(self):
+        # The pinned engine refused every NES 2.0 timing but 0 and 2 ("unsupported cartridge metadata"); the converter models PAL
+        # itself, so PAL (1) and multi-region (2) compile, as does NTSC (0), and only Dendy (3) stays refused.
+        engine = ROOT / '.deps/nesrecomp'
+        if not (engine / 'recompiler/src/cyc_codegen.c').is_file():
+            self.skipTest('Pinned NESRecomp checkout unavailable')
+        cmake, generator = toolchain()
+        compiler = prepare_compiler(engine, cmake, generator, lambda _message: None)
+        config = self.root / 'game.toml'
+        config.write_text('[game]\n', encoding='ascii')
+        prg = bytearray([0xEA] * 32768)
+        prg[-6:] = b'\x00\x80' * 3
+        for timing, compiles in ((0, True), (1, True), (2, True), (3, False)):
+            with self.subTest(timing=timing):
+                header = bytearray(16)
+                header[:4] = b'NES\x1a'
+                header[4], header[5], header[7], header[12] = 2, 1, 0x08, timing
+                rom = self.root / f'nes2-timing{timing}.nes'
+                rom.write_bytes(bytes(header) + prg + bytes(8192))
+                out = self.root / f'nes2-timing{timing}'
+                out.mkdir()
+                command = [compiler, rom, '--game', config, '--cycle-accurate', '--output-prefix', 'game']
+                if compiles:
+                    run(command, cwd=out)
+                    self.assertTrue(any((out / 'generated').glob('game_cyc*.c')))
+                else:
+                    with self.assertRaisesRegex(ConversionError, 'unsupported cartridge metadata for mapper 0'):
+                        run(command, cwd=out)
+
+    def test_pal_header_patch_changes_only_the_timing_refusal(self):
+        from retrorecomp.nes_codegen import patched_cart_header
+        original = 'if (c->console || (c->nes2 && c->timing != 0 && c->timing != 2)) return false;'
+        self.assertEqual(patched_cart_header(original), 'if (c->console || (c->nes2 && c->timing == 3)) return false;')
+        with self.assertRaises(ConversionError):
+            patched_cart_header('a header that no longer has the refusal')
+
     def test_gameplay_probes_keep_exercising_inputs_without_repeated_start(self):
         for frames in (12, 1800):
             for name, path in _write_probe_scripts(self.root, frames).items():
