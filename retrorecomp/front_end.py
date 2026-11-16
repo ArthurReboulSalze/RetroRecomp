@@ -50,6 +50,65 @@ def shelves(games, profiles):
     return [(profile, found[profile.id]) for profile in profiles if profile.id in found]
 
 
+def searchable(text) -> str:
+    """A title or a query as the search compares them: no case, no accents."""
+    import unicodedata
+    return ''.join(char for char in unicodedata.normalize('NFKD', str(text).casefold())
+                   if not unicodedata.combining(char))
+
+
+def search(games, query):
+    """The games whose title holds every word of `query`, on every console (no case, no accents)."""
+    words = searchable(query).split()
+    if not words:
+        return []
+    return [game for game in games if all(word in searchable(game.title) for word in words)]
+
+
+def favorites(games):
+    return [game for game in games if game.favorite]
+
+
+def carousel(count, chosen):
+    """The console strip as a band around the chosen entry, which stays in the middle: (left, right), the indices
+    drawn on each side from the nearest outwards. The band goes round, each entry appears once."""
+    others = count - 1
+    right = [(chosen + step) % count for step in range(1, others - others // 2 + 1)]
+    left = [(chosen - step) % count for step in range(1, others // 2 + 1)]
+    return left, right
+
+
+# The on-screen keyboard of the search (gamepad, mouse): letters in order, digits, then space (two cells), delete
+# and done. No layout to guess and no glyph outside the interface fonts.
+KEYBOARD = (tuple('ABCDEFGHIJ'), tuple('KLMNOPQRST'), tuple('UVWXYZ0123'),
+            ('4', '5', '6', '7', '8', '9', 'space', 'space', 'delete', 'done'))
+MAX_QUERY = 40
+
+
+def keyboard_move(row, column, dx, dy):
+    """The cell reached on the on-screen keyboard; a key two cells wide is one stop, and the edges wrap."""
+    rows, columns = len(KEYBOARD), len(KEYBOARD[0])
+    if dy:
+        return (row + dy) % rows, column
+    key = KEYBOARD[row][column]
+    for _ in range(columns):
+        column = (column + dx) % columns
+        if KEYBOARD[row][column] != key:
+            break
+    return row, column
+
+
+def type_key(query, key):
+    """`query` after one key of the keyboard: a character, 'space' or 'delete'."""
+    if key == 'delete':
+        return query[:-1]
+    if key == 'space':
+        key = ' '
+    if len(key) != 1 or not key.isprintable() or len(query) >= MAX_QUERY or (key == ' ' and not query.strip()):
+        return query
+    return query + key.casefold()
+
+
 def sort_games(games, order, played):
     """`order`: 'last_played' (the last played first, then never played games by title), 'title', or 'converted'
     (the newest export first)."""

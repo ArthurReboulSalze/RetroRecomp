@@ -20,8 +20,9 @@ from PIL import Image, ImageTk
 
 from .branding import COLORS
 from .compiled_games_view import stars
-from .front_end import (DEFAULT_ASPECT, FOCUS_GROWTH, ORDERS, SCALE_TV, SCALE_WINDOW, GridPad, Memory, cell_aspect,
-                        fit, game_key, grid, move, shelves, sort_games, step_columns)
+from .front_end import (DEFAULT_ASPECT, FOCUS_GROWTH, KEYBOARD, MAX_COLUMNS, MIN_COLUMNS, ORDERS, SCALE_TV,
+                        SCALE_WINDOW, GridPad, Memory, carousel, cell_aspect, favorites, fit, game_key, grid,
+                        keyboard_move, move, search, shelves, sort_games, step_columns, type_key)
 from .platforms import open_local
 from .systems import available_profiles
 
@@ -83,6 +84,34 @@ class CoverLoader:
             self.events.put(('cover', generation, key, image, ratio))
 
 
+FAVORITES, SEARCH = 'favorites', 'search'
+
+
+class Shelf:
+    """An entry of the strip that is not a console: the favourites and the search, both over every console. It gives
+    the strip what a console profile gives it (an id and a name)."""
+    def __init__(self, id, name):
+        self.id, self.name = id, name
+
+
+def rounded(canvas, x0, y0, x1, y1, radius, **options):
+    """A rectangle with round corners (one smoothed polygon)."""
+    r = min(radius, (x1 - x0) / 2, (y1 - y0) / 2)
+    points = (x0 + r, y0, x1 - r, y0, x1, y0, x1, y0 + r, x1, y1 - r, x1, y1, x1 - r, y1, x0 + r, y1, x0, y1,
+              x0, y1 - r, x0, y0 + r, x0, y0)
+    return canvas.create_polygon(points, smooth=True, **options)
+
+
+def star_points(x, y, radius):
+    import math
+    points = []
+    for step in range(10):
+        angle = math.radians(-90 + step * 36)
+        r = radius if step % 2 == 0 else radius * 0.45
+        points += [x + r * math.cos(angle), y + r * math.sin(angle)]
+    return points
+
+
 class FrontEndView(tk.Frame):
     def __init__(self, owner, parent, *, memory=None, cards=None):
         super().__init__(parent, bg=COLORS['background'])
@@ -95,8 +124,14 @@ class FrontEndView(tk.Frame):
         self.profiles = available_profiles()
         self.shelves, self.shelf, self.games = [], 0, []
         self.focus_index = 0
-        self.aspects = {}
-        self.ratios = {}                  # system -> {key: width / height of its cover}
+        self.aspects = {}                 # shelf id -> the shape of its cover slots
+        self.ratio_of = {}                # game key -> width / height of its cover
+        self.all_games, self.console_names = [], {}
+        # The search over every console: its entry in the strip exists while `search_open`; `editing` while the
+        # on-screen keyboard is up. `return_shelf`: the console to go back to from the search or the favourites.
+        self.query, self.search_open, self.editing, self.kb = '', False, False, (0, 0)
+        self.return_shelf = ''
+        self.strip_offset, self.strip_timer, self.hover_tool = 0.0, None, None
         self.thumbnails = OrderedDict()   # key -> PIL image at the focused size
         self.no_cover = set()
         self.photos = OrderedDict()       # (key, width, height) -> PhotoImage
@@ -128,6 +163,17 @@ class FrontEndView(tk.Frame):
         self.tabs.bind('<Configure>', lambda event: self.draw_tabs())
         self.details.bind('<Configure>', lambda event: self.draw_details())
         self.tabs.bind('<Button-1>', self.tab_clicked)
+        self.tabs.bind('<Motion>', self.tab_motion)
+        self.tabs.bind('<Leave>', self.tab_motion)
+        from .tooltips import Tooltip
+        self.hints = [Tooltip(self.tabs, text, item=tag) for tag, text in (
+            ('tool_favorites', lambda: self.tr('front_end_tip_favorites')),
+            ('tool_search', lambda: self.tr('front_end_tip_search')),
+            ('tool_fewer', lambda: self.tr('front_end_fewer_covers')),
+            ('tool_more', lambda: self.tr('front_end_more_covers')),
+            ('tool_count', lambda: self.tr('front_end_per_row', count=self.layout.columns if self.layout else 0)),
+            ('tool_screen', lambda: self.tr('front_end_tv_leave' if self.owner.front_end_fullscreen
+                                            else 'front_end_tv')))]
         self.wall.bind('<Button-1>', self.clicked)
         self.wall.bind('<Double-1>', lambda event: self.play())
         self.wall.bind('<Button-3>', self.context_menu)
@@ -150,8 +196,10 @@ class FrontEndView(tk.Frame):
                                  ('<plus>', lambda: self.change_columns(1)), ('<equal>', lambda: self.change_columns(1)),
                                  ('<KP_Add>', lambda: self.change_columns(1)),
                                  ('<Control-a>', self.select_all), ('<Control-A>', self.select_all),
+                                 ('<Control-f>', self.open_search), ('<Control-F>', self.open_search),
+                                 ('<F3>', self.open_search),
                                  ('<Shift-F10>', self.open_menu), ('<F11>', self.toggle_tv)):
-            self.wall.bind(sequence, lambda event, action=action: (action(), 'break')[1])
+            self.wall.bind(sequence, lambda event, action=action: self.key(event, action))
         self.wall.bind('<Key>', self.letter)
         self.after(30, self.drain)
 
@@ -172,6 +220,7 @@ class FrontEndView(tk.Frame):
         self.font_small = tkfont.Font(root=self, family=family, size=self.px(8))
         self.font_strip = tkfont.Font(root=self, family=family, size=self.cx(10))
         self.font_strip_bold = tkfont.Font(root=self, family=family, size=self.cx(10), weight='bold')
+        self.font_chosen = tkfont.Font(root=self, family=family, size=self.cx(12), weight='bold')
         self.font_count = tkfont.Font(root=self, family=family, size=self.cx(8))
         self.font_detail = tkfont.Font(root=self, family=family, size=self.cx(11), weight='bold')
         self.font_hint = tkfont.Font(root=self, family=family, size=self.cx(9))
@@ -190,16 +239,37 @@ class FrontEndView(tk.Frame):
         self.draw_tabs()
 
     # ---- data
+    def build_shelves(self):
+        """The strip's entries: the search (while it is open) and the favourites, both over every console, then the
+        consoles that have games."""
+        consoles = shelves(self.owner.compiled_inventory.snapshot(), self.profiles)
+        self.all_games = [game for _, games in consoles for game in games]
+        self.console_names = {profile.id: profile.name for profile in self.profiles}
+        virtual = [(Shelf(FAVORITES, self.tr('front_end_favorites')), favorites(self.all_games))]
+        if self.search_open:
+            virtual.insert(0, (Shelf(SEARCH, self.tr('front_end_search')), search(self.all_games, self.query)))
+        self.shelves = virtual + consoles
+
+    def shelf_id(self):
+        return self.shelves[self.shelf][0].id if self.shelves else ''
+
+    def index_of(self, shelf_id):
+        """The strip index of a shelf id; the first console when it is not there (the favourites when there is
+        no console at all)."""
+        ids = [entry.id for entry, _ in self.shelves]
+        if shelf_id in ids:
+            return ids.index(shelf_id)
+        return next((i for i, name in enumerate(ids) if name not in (FAVORITES, SEARCH)), 0)
+
     def show(self):
         """Read the inventory again (the view may have been away while games were converted) and draw."""
-        current = self.shelves[self.shelf][0].id if self.shelves else self.memory.console
-        self.shelves = shelves(self.owner.compiled_inventory.snapshot(), self.profiles)
-        ids = [profile.id for profile, _ in self.shelves]
-        self.select_shelf(ids.index(current) if current in ids else 0, keep_focus=True)
+        current = self.shelf_id() or self.memory.console
+        self.build_shelves()
+        self.select_shelf(self.index_of(current), keep_focus=True, slide=False)
         self.start_controller()
         self.wall.focus_set()
 
-    def select_shelf(self, index, keep_focus=False):
+    def select_shelf(self, index, keep_focus=False, slide=True):
         if not self.shelves:
             self.games = []
             self.relayout()
@@ -207,10 +277,16 @@ class FrontEndView(tk.Frame):
             return
         index %= len(self.shelves)
         previous = self.games[self.focus_index] if keep_focus and self.games else None
+        if slide and index != self.shelf:
+            # The band slides under the centre: the new entry comes from the side it was on.
+            count = len(self.shelves)
+            forward = (index - self.shelf) % count
+            self.slide(1 if forward <= count - forward else -1)
         self.shelf = index
-        profile, games = self.shelves[index]
-        self.memory.console = profile.id
-        self.memory.save()
+        entry, games = self.shelves[index]
+        if entry.id != SEARCH:
+            self.memory.console = entry.id
+            self.memory.save()
         self.selected.clear()
         self.games = sort_games(games, self.memory.order, self.memory.played)
         keys = [game_key(game) for game in self.games]
@@ -219,6 +295,98 @@ class FrontEndView(tk.Frame):
         self.wall.yview_moveto(0)
         self.relayout(reload=True)
         self.draw_tabs()
+
+    def slide(self, direction):
+        self.strip_offset = direction * self.cx(110)
+        if self.strip_timer is None:
+            self.strip_timer = self.after(16, self.slide_step)
+
+    def slide_step(self):
+        self.strip_timer = None
+        if not self.winfo_exists():
+            return
+        self.strip_offset *= 0.55
+        if abs(self.strip_offset) < 1.5:
+            self.strip_offset = 0.0
+        else:
+            self.strip_timer = self.after(16, self.slide_step)
+        self.draw_tabs()
+
+    # ---- the favourites and the search, over every console
+    def toggle_favorites(self):
+        """The star: the favourites of every console, and back to the console it was opened from."""
+        if self.editing:
+            self.finish_editing()
+        if self.shelf_id() == FAVORITES:
+            self.select_shelf(self.index_of(self.return_shelf))
+        else:
+            if self.shelf_id() != SEARCH:
+                self.return_shelf = self.shelf_id()
+            self.select_shelf(self.index_of(FAVORITES))
+
+    def open_search(self):
+        """The search of a title over every console: its entry joins the strip and the keyboard comes up."""
+        self.close_menu(draw=False)
+        if not self.search_open:
+            if self.shelf_id() != FAVORITES:
+                self.return_shelf = self.shelf_id()
+            self.search_open = True
+        self.editing, self.kb = True, (0, 0)
+        self.refresh_search()
+
+    def refresh_search(self):
+        self.build_shelves()
+        self.aspects.pop(SEARCH, None)
+        self.select_shelf(self.index_of(SEARCH), slide=False)
+
+    def finish_editing(self):
+        """The keyboard goes; the results stay (an empty search closes)."""
+        self.editing = False
+        if not self.query.strip():
+            self.close_search()
+        else:
+            self.draw_tabs()
+            self.draw_wall()
+            self.draw_details()
+
+    def close_search(self):
+        self.editing, self.search_open, self.query = False, False, ''
+        self.build_shelves()
+        self.select_shelf(self.index_of(self.return_shelf), slide=False)
+
+    def type(self, key):
+        """One key of the search: a character, 'space', 'delete' or 'done'."""
+        if key == 'done':
+            self.finish_editing()
+            return
+        query = type_key(self.query, key)
+        if query != self.query:
+            self.query = query
+            self.refresh_search()
+
+    def key(self, event, action):
+        """A bound key: while the search is typed it goes to the search (F11 still switches the screen)."""
+        if self.editing and event.keysym != 'F11':
+            self.edit_key(event)
+        else:
+            action()
+        return 'break'
+
+    def edit_key(self, event):
+        symbol = event.keysym
+        if symbol in ('Return', 'KP_Enter'):
+            self.finish_editing()
+        elif symbol == 'Escape':
+            self.close_search()
+        elif symbol == 'BackSpace':
+            self.type('delete')
+        elif symbol in ('Left', 'Right', 'Up', 'Down'):
+            dx = {'Left': -1, 'Right': 1}.get(symbol, 0)
+            dy = {'Up': -1, 'Down': 1}.get(symbol, 0)
+            self.kb = keyboard_move(*self.kb, dx, dy)
+            self.draw_wall()
+        elif event.char and event.char.isprintable():
+            self.type(event.char)
 
     def focused(self):
         return self.games[self.focus_index] if self.games else None
@@ -236,10 +404,10 @@ class FrontEndView(tk.Frame):
     # ---- layout and drawing
     def relayout(self, reload=False):
         width = max(1, self.wall.winfo_width())
-        system = self.shelves[self.shelf][0].id if self.shelves else ''
-        aspect = self.aspects.get(system) or DEFAULT_ASPECT
+        shelf = self.shelf_id()
+        aspect = self.aspects.get(shelf) or DEFAULT_ASPECT
         line = self.font_title.metrics('linespace')
-        layout = grid(width, aspect, self.scale, line, self.memory.columns.get(system))
+        layout = grid(width, aspect, self.scale, line, self.memory.columns.get(shelf))
         changed = layout != self.layout
         self.layout = layout
         self.wall.configure(scrollregion=(0, 0, width, max(layout.height(len(self.games)), self.wall.winfo_height())))
@@ -254,7 +422,7 @@ class FrontEndView(tk.Frame):
         """More (+1) or fewer (-1) covers per row, for the console shown only; remembered."""
         if not self.shelves or not self.layout or self.menu_items is not None:
             return
-        system = self.shelves[self.shelf][0].id
+        system = self.shelf_id()
         columns = step_columns(self.layout.columns, change)
         if columns == self.layout.columns:
             return
@@ -282,10 +450,14 @@ class FrontEndView(tk.Frame):
         if not self.layout:
             return
         if not self.games:
-            canvas.create_text(canvas.winfo_width() // 2, canvas.winfo_height() // 2, text=self.tr('front_end_empty'),
-                               fill=COLORS['muted'], font=self.font_tab, width=canvas.winfo_width() - 80,
-                               justify='center', tags='tile')
-            return
+            shelf = self.shelf_id()
+            message = (self.tr('front_end_empty') if not self.all_games
+                       else self.tr('front_end_favorites_empty') if shelf == FAVORITES
+                       else self.tr('front_end_search_hint') if not self.query.strip()
+                       else self.tr('front_end_search_none', query=self.query.strip()))
+            canvas.create_text(canvas.winfo_width() // 2, canvas.canvasy(0) + canvas.winfo_height() // (4 if self.editing
+                               else 2), text=message, fill=COLORS['muted'], font=self.font_tab,
+                               width=canvas.winfo_width() - 80, justify='center', tags='tile')
         focused = None
         for index in self.visible_range():
             if index == self.focus_index:
@@ -293,9 +465,77 @@ class FrontEndView(tk.Frame):
                 continue
             self.draw_tile(index, False)
         if focused is not None:
-            self.draw_tile(focused, True)
+            self.draw_tile(focused, not self.editing)
+        if self.editing:
+            self.draw_keyboard()
         if self.menu_items is not None:
             self.draw_menu()
+
+    def keyboard_geometry(self):
+        canvas = self.wall
+        cell_w, cell_h, pad = self.px(46), self.px(40), self.px(14)
+        width = cell_w * len(KEYBOARD[0]) + pad * 2
+        height = cell_h * len(KEYBOARD) + pad * 2 + self.px(34)
+        left = (canvas.winfo_width() - width) // 2
+        top = canvas.canvasy(0) + canvas.winfo_height() - height - self.px(16)
+        return left, top, width, height, cell_w, cell_h, pad
+
+    def draw_keyboard(self):
+        """The search's keyboard, at the bottom of the wall: the gamepad moves on it, the mouse clicks it, and a
+        real keyboard just types."""
+        canvas = self.wall
+        left, top, width, height, cell_w, cell_h, pad = self.keyboard_geometry()
+        canvas.create_rectangle(left + 6, top + 6, left + width + 6, top + height + 6, fill='#0f0f0f', outline='',
+                                tags='tile')
+        canvas.create_rectangle(left, top, left + width, top + height, fill=COLORS['panel'], outline=COLORS['gold'],
+                                width=self.px(2), tags='tile')
+        text = self.query or self.tr('front_end_search_hint')
+        shown = clamp_lines(self.font_tab, text, width - pad * 2 - self.px(90), 1)[0]
+        canvas.create_text(left + pad, top + pad + self.px(8), text=shown, anchor='w', font=self.font_tab,
+                           fill=COLORS['gold_hover'] if self.query else COLORS['disabled'], tags='tile')
+        if self.query:
+            caret = left + pad + self.font_tab.measure(shown) + self.px(3)
+            canvas.create_line(caret, top + pad - self.px(2), caret, top + pad + self.px(18), fill=COLORS['gold'],
+                               width=self.px(2), tags='tile')
+        canvas.create_text(left + width - pad, top + pad + self.px(8), anchor='e', font=self.font_title,
+                           text=self.tr('games_count', count=len(self.games)), fill=COLORS['muted'], tags='tile')
+        self.kb_boxes = []
+        chosen = KEYBOARD[self.kb[0]][self.kb[1]]
+        y = top + pad + self.px(34)
+        for row, keys in enumerate(KEYBOARD):
+            column = 0
+            while column < len(keys):
+                key = keys[column]
+                span = 1
+                while column + span < len(keys) and keys[column + span] == key:
+                    span += 1
+                x0, x1 = left + pad + column * cell_w + 2, left + pad + (column + span) * cell_w - 2
+                active = row == self.kb[0] and key == chosen
+                rounded(canvas, x0, y + 2, x1, y + cell_h - 2, self.px(7), tags='tile',
+                        fill=COLORS['selected'] if active else COLORS['button'],
+                        outline=COLORS['gold'] if active else COLORS['subtle_border'])
+                color = COLORS['gold_hover'] if active else COLORS['text']
+                cx, cy, unit = (x0 + x1) // 2, y + cell_h // 2, self.px(5)
+                if key == 'space':
+                    canvas.create_line(cx - unit * 3, cy - unit // 2, cx - unit * 3, cy + unit, cx + unit * 3, cy + unit,
+                                       cx + unit * 3, cy - unit // 2, fill=color, width=self.px(2), tags='tile')
+                elif key == 'delete':
+                    canvas.create_line(cx + unit * 2, cy, cx - unit * 2, cy, fill=color, width=self.px(2), tags='tile')
+                    canvas.create_line(cx - unit, cy - unit, cx - unit * 2, cy, cx - unit, cy + unit, fill=color,
+                                       width=self.px(2), tags='tile')
+                else:
+                    canvas.create_text(cx, cy, text='OK' if key == 'done' else key, font=self.font_tab_bold
+                                       if key == 'done' else self.font_tab, fill=color, tags='tile')
+                self.kb_boxes.append((x0, y, x1, y + cell_h, row, column))
+                column += span
+            y += cell_h
+
+    def keyboard_hit(self, x, y):
+        y = self.wall.canvasy(y)
+        for x0, y0, x1, y1, row, column in getattr(self, 'kb_boxes', []):
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                return row, column
+        return None
 
     def draw_tile(self, index, focus):
         canvas, layout, game = self.wall, self.layout, self.games[index]
@@ -353,7 +593,7 @@ class FrontEndView(tk.Frame):
         canvas.create_rectangle(*box, fill=COLORS['panel'], outline=COLORS['subtle_border'], tags='tile')
         x0, y0, x1, y1 = box
         inner = x1 - x0 - self.px(16)
-        system = self.shelves[self.shelf][0].name if self.shelves else ''
+        system = self.console_names.get(game.system, '')
         canvas.create_text((x0 + x1) // 2, y0 + self.px(12), text=system.upper(), anchor='n', fill=COLORS['gold'],
                            font=self.font_small, width=inner, justify='center', tags='tile')
         lines = clamp_lines(self.font_tab_bold, game.title, inner, 4)
@@ -375,104 +615,185 @@ class FrontEndView(tk.Frame):
             self.photos.move_to_end(name)
         return photo
 
+    def entry_width(self, index, chosen):
+        entry, games = self.shelves[index]
+        font = self.font_chosen if chosen else self.font_strip
+        icon = self.cx(20) if entry.id in (FAVORITES, SEARCH) else 0
+        caret = self.cx(6) if entry.id == SEARCH and self.editing else 0
+        return icon + font.measure(self.entry_label(entry)) + caret + self.font_count.measure(f'  {len(games)}')
+
+    def entry_label(self, entry):
+        return (self.query or entry.name) if entry.id == SEARCH else entry.name
+
+    def draw_entry(self, x, middle, index, distance):
+        """One entry of the strip from `x`: its picture (favourites, search), its name and its number of games."""
+        canvas = self.tabs
+        entry, games = self.shelves[index]
+        chosen = distance == 0
+        font = self.font_chosen if chosen else self.font_strip
+        color = (COLORS['gold_hover'] if chosen else COLORS['muted'] if distance == 1 else '#8f8f8f' if distance == 2
+                 else COLORS['disabled'])
+        if entry.id == FAVORITES:
+            canvas.create_polygon(star_points(x + self.cx(7), middle, self.cx(7)), fill=color, outline='')
+            x += self.cx(20)
+        elif entry.id == SEARCH:
+            self.draw_loupe(x + self.cx(7), middle, color)
+            x += self.cx(20)
+        label = self.entry_label(entry)
+        canvas.create_text(x, middle, text=label, anchor='w', font=font, fill=color)
+        x += font.measure(label)
+        if entry.id == SEARCH and self.editing and chosen:
+            canvas.create_line(x + self.cx(3), middle - self.cx(8), x + self.cx(3), middle + self.cx(8),
+                               fill=COLORS['gold'], width=self.cx(2))
+            x += self.cx(6)
+        canvas.create_text(x, middle + self.cx(1), text=f'  {len(games)}', anchor='w', font=self.font_count,
+                           fill=COLORS['gold'] if chosen else COLORS['disabled'])
+
+    def draw_loupe(self, x, y, color, canvas=None, tags=()):
+        canvas = canvas or self.tabs
+        r = self.cx(5)
+        canvas.create_oval(x - r - 1, y - r - 2, x + r - 1, y + r - 2, outline=color, width=self.cx(2), tags=tags)
+        canvas.create_line(x + r - 2, y + r - 3, x + r + self.cx(3), y + r + self.cx(2), fill=color, width=self.cx(2),
+                           tags=tags)
+
     def draw_tabs(self):
+        """The strip: the chosen entry stays in the middle and the band of consoles slides under it (LB / RB, a
+        click on a name); right of it the favourites, the search, the covers per row and the full screen."""
         canvas = self.tabs
         canvas.delete('all')
         width, height = canvas.winfo_width(), int(canvas['height'])
+        middle = height // 2 - self.cx(1)
+        tools_left = self.draw_tools(width, middle)
+        self.tab_boxes = []
+        canvas.create_line(0, height - 1, width, height - 1, fill=COLORS['subtle_border'])
         if not self.shelves:
             return
         glyph = self.cx(30)
-        # Full screen and back: a labelled button at the right end, always there (Arthur, 16 Nov 2026).
-        restore = self.draw_screen_button(width, height // 2 - self.cx(2))
-        width -= restore
-        spacing = self.cx(26)
-        items = []
-        for index, (profile, games) in enumerate(self.shelves):
-            font = self.font_strip_bold if index == self.shelf else self.font_strip
-            name = profile.name
-            count = f'  {len(games)}'
-            items.append((index, name, count, font, font.measure(name) + self.font_count.measure(count)))
-        total = sum(item[4] for item in items) + spacing * (len(items) - 1)
-        density = self.draw_density(width - glyph - self.cx(14), height // 2 - self.cx(2))
-        room = width - 2 * (glyph + self.cx(14)) - density
-        start = glyph + self.cx(14)
-        if total > room:
-            # Keep the chosen console in view: scroll the strip so it sits near the middle.
-            before = sum(item[4] + spacing for item in items[:self.shelf])
-            offset = min(max(0, before - room // 2 + items[self.shelf][4] // 2), total - room)
-            start -= offset
-        self.tab_boxes = []
-        x = start
-        middle = height // 2 - self.cx(2)
-        for index, name, count, font, size in items:
-            chosen = index == self.shelf
-            # Only whole names: a console cut by the edge waits for the strip to scroll to it.
-            if x >= glyph + self.cx(8) and x + size <= width - glyph - self.cx(8) - density:
-                canvas.create_text(x, middle, text=name, anchor='w', font=font,
-                                   fill=COLORS['gold_hover'] if chosen else COLORS['muted'])
-                canvas.create_text(x + font.measure(name), middle + self.cx(1), text=count, anchor='w',
-                                   font=self.font_count, fill=COLORS['gold'] if chosen else COLORS['disabled'])
-                if chosen:
-                    canvas.create_rectangle(x, height - self.cx(6), x + size, height - self.cx(3), fill=COLORS['gold'],
-                                            outline='')
-            self.tab_boxes.append((x, x + size, index))
-            x += size + spacing
+        zone_left, zone_right = glyph + self.cx(10), tools_left - glyph - self.cx(18)
+        # The middle of the screen, not of the room left by the buttons: the chosen entry sits under the eye.
+        centre = min(width // 2, zone_right - self.entry_width(self.shelf, True) // 2) + round(self.strip_offset)
+        spacing = self.cx(30)
+        size = self.entry_width(self.shelf, True)
+        x = centre - size // 2
+        self.draw_entry(x, middle, self.shelf, 0)
+        canvas.create_rectangle(x, height - self.cx(5), x + size, height - self.cx(2), fill=COLORS['gold'], outline='')
+        self.tab_boxes.append((x, x + size, self.shelf))
+        left, right = carousel(len(self.shelves), self.shelf)
+        edge = x + size + spacing
+        for distance, index in enumerate(right, 1):
+            size = self.entry_width(index, False)
+            if edge + size > zone_right:
+                break
+            self.draw_entry(edge, middle, index, distance)
+            self.tab_boxes.append((edge, edge + size, index))
+            edge += size + spacing
+        edge = x - spacing
+        for distance, index in enumerate(left, 1):
+            size = self.entry_width(index, False)
+            if edge - size < zone_left:
+                break
+            self.draw_entry(edge - size, middle, index, distance)
+            self.tab_boxes.append((edge - size, edge, index))
+            edge -= size + spacing
         self.pill(canvas, 0, middle, 'LB')
-        self.pill(canvas, width - glyph, middle, 'RB')
-        canvas.create_line(0, height - 1, width + restore, height - 1, fill=COLORS['subtle_border'])
+        self.pill(canvas, zone_right + self.cx(8), middle, 'RB')
 
-    def draw_screen_button(self, right, middle):
-        """« Full screen » (one frame) in the window, « Window » (two frames) in full screen, at the right end of the
-        strip; returns the room it takes."""
+    def draw_tools(self, right, middle):
+        """Right of the strip, one family of round buttons: favourites, search, covers per row (minus, the number,
+        plus) and full screen. Returns where they start."""
         canvas = self.tabs
+        height, gap, radius = self.cx(26), self.cx(7), self.cx(9)
+        top, bottom = middle - height // 2, middle + height - height // 2
+        self.tool_boxes = []
+
+        def chip(x0, x1, name, active=False):
+            hover = self.hover_tool == name
+            rounded(canvas, x0, top, x1, bottom, radius, tags=('tool_' + name,),
+                    fill=COLORS['selected'] if active else COLORS['hover'] if hover else COLORS['button'],
+                    outline=COLORS['gold'] if active or hover else COLORS['subtle_border'])
+            self.tool_boxes.append((x0, x1, name))
+            return COLORS['gold_hover'] if active else COLORS['text']
+
+        icon_w = self.cx(34)
         full = getattr(self.owner, 'front_end_fullscreen', False)
-        label = self.tr('front_end_windowed' if full else 'front_end_fullscreen')
-        unit, pad, height = self.cx(4), self.cx(10), self.cx(26)
-        width = pad * 2 + unit * 3 + self.cx(8) + self.font_hint.measure(label)
-        left = right - width
-        self.restore_box = (left, right)
-        canvas.create_rectangle(left, middle - height // 2, right, middle + height // 2, fill=COLORS['button'],
-                                outline=COLORS['gold'])
-        x, y, line = left + pad + unit, middle, max(1, self.cx(1.2))
-        if full:
-            canvas.create_rectangle(x - unit, y - unit + 2, x + unit - 2, y + unit + 2, outline=COLORS['text'],
-                                    width=line)
-            canvas.create_line(x - unit + 2, y - unit - 1, x + unit + 1, y - unit - 1, x + unit + 1, y + unit - 1,
-                               fill=COLORS['text'], width=line)
-        else:
-            canvas.create_rectangle(x - unit, y - unit, x + unit + 1, y + unit, outline=COLORS['text'], width=line)
-        canvas.create_text(x + unit * 2 + self.cx(6), middle, text=label, anchor='w', font=self.font_hint,
-                           fill=COLORS['text'])
-        return width + self.cx(10)
+        # Full screen: four corners pointing out; back to the window: pointing in.
+        x1 = right
+        x0 = x1 - icon_w
+        color = chip(x0, x1, 'screen')
+        cx, cy, far, arm, line = (x0 + x1) // 2, middle, self.cx(6), self.cx(4), self.cx(2)
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                if full:
+                    near = self.cx(2)
+                    points = (cx + sx * near, cy + sy * (near + arm), cx + sx * near, cy + sy * near,
+                              cx + sx * (near + arm), cy + sy * near)
+                else:
+                    points = (cx + sx * far, cy + sy * (far - arm), cx + sx * far, cy + sy * far,
+                              cx + sx * (far - arm), cy + sy * far)
+                canvas.create_line(*points, fill=color, width=line, tags=('tool_screen',))
+        # Covers per row: one pill, minus | a small grid and the number | plus.
+        x1 = x0 - gap
+        side = self.cx(26)
+        columns = self.layout.columns if self.layout else 0
+        number = str(columns)
+        inner = self.cx(18) + self.font_strip_bold.measure(number) + self.cx(10)
+        x0 = x1 - side * 2 - inner
+        hover = self.hover_tool in ('fewer', 'more', 'count')
+        rounded(canvas, x0, top, x1, bottom, radius, fill=COLORS['button'], tags=('tool_count',),
+                outline=COLORS['gold'] if hover else COLORS['subtle_border'])
+        for name, a, b in (('fewer', x0, x0 + side), ('more', x1 - side, x1)):
+            if self.hover_tool == name:
+                rounded(canvas, a + 2, top + 2, b - 2, bottom - 2, radius - 2, fill=COLORS['hover'], outline='',
+                        tags=('tool_' + name,))
+            enabled = columns > MIN_COLUMNS if name == 'fewer' else columns < MAX_COLUMNS
+            color = COLORS['text'] if enabled else COLORS['disabled']
+            centre, half = (a + b) // 2, self.cx(4)
+            canvas.create_line(centre - half, middle, centre + half + 1, middle, fill=color, width=self.cx(2),
+                               tags=('tool_' + name,))
+            if name == 'more':
+                canvas.create_line(centre, middle - half, centre, middle + half + 1, fill=color, width=self.cx(2),
+                                   tags=('tool_' + name,))
+            # A clear zone over the whole side, so the hint and the click do not depend on hitting the thin sign.
+            canvas.create_rectangle(a, top, b, bottom, fill='', outline='', tags=('tool_' + name,))
+            self.tool_boxes.append((a, b, name))
+        gx, cell = x0 + side + self.cx(3), self.cx(4)
+        for row in (0, 1):
+            for column in (0, 1):
+                canvas.create_rectangle(gx + column * (cell + 2), middle - cell - 1 + row * (cell + 2),
+                                        gx + column * (cell + 2) + cell, middle - 1 + row * (cell + 2),
+                                        fill=COLORS['gold'], outline='', tags=('tool_count',))
+        canvas.create_text(gx + self.cx(16), middle, text=number, anchor='w', font=self.font_strip_bold,
+                           fill=COLORS['text'], tags=('tool_count',))
+        # The search, then the favourites.
+        x1 = x0 - gap
+        x0 = x1 - icon_w
+        color = chip(x0, x1, 'search', self.search_open)
+        self.draw_loupe((x0 + x1) // 2, middle + 1, color, tags=('tool_search',))
+        x1 = x0 - gap
+        x0 = x1 - icon_w
+        active = self.shelf_id() == FAVORITES
+        color = chip(x0, x1, 'favorites', active)
+        canvas.create_polygon(star_points((x0 + x1) // 2, middle, self.cx(8)), tags=('tool_favorites',),
+                              fill=COLORS['gold'] if active else '', outline=color, width=self.cx(1.5))
+        return x0 - self.cx(4)
 
-    def draw_density(self, right, middle):
-        """Right of the consoles: the covers per row of this console between a minus and a plus button; returns
-        the room it takes."""
-        canvas = self.tabs
-        if not self.layout:
-            self.density_boxes = []
-            return 0
-        label = self.tr('front_end_per_row', count=self.layout.columns)
-        button = self.cx(22)
-        width = button * 2 + self.font_hint.measure(label) + self.cx(20)
-        left = right - width
-        self.density_boxes = [(left, left + button, -1), (right - button, right, 1)]
-        for x0, x1, change in self.density_boxes:
-            canvas.create_rectangle(x0, middle - button // 2, x1, middle + button // 2, fill=COLORS['button'],
-                                    outline=COLORS['subtle_border'])
-            half = self.cx(5)
-            centre = (x0 + x1) // 2
-            canvas.create_line(centre - half, middle, centre + half + 1, middle, fill=COLORS['text'], width=self.cx(2))
-            if change > 0:
-                canvas.create_line(centre, middle - half, centre, middle + half + 1, fill=COLORS['text'],
-                                   width=self.cx(2))
-        canvas.create_text((left + right) // 2, middle, text=label, font=self.font_hint, fill=COLORS['muted'])
-        return width + self.cx(18)
+    def tool_at(self, x):
+        return next((name for x0, x1, name in getattr(self, 'tool_boxes', []) if x0 <= x <= x1), None)
+
+    def tab_motion(self, event):
+        """The round button under the pointer lights up; a hand over what can be clicked."""
+        inside = str(event.type) == 'Motion' or getattr(event.type, 'name', '') == 'Motion'
+        tool = self.tool_at(event.x) if inside else None
+        entry = inside and any(x0 <= event.x <= x1 for x0, x1, _ in getattr(self, 'tab_boxes', []))
+        self.tabs.configure(cursor='hand2' if tool or entry else '')
+        if tool != self.hover_tool:
+            self.hover_tool = tool
+            self.draw_tabs()
 
     def pill(self, canvas, x, y, text, color=None):
         """A gamepad button drawn as a small rounded label (letters only: every interface font has them)."""
         font = self.font_glyph
-        width = self.cx(26) if text == 'MENU' else max(font.measure(text) + self.cx(12), self.cx(22))
+        width = self.cx(26) if text in ('MENU', 'VIEW') else max(font.measure(text) + self.cx(12), self.cx(22))
         height = self.cx(20)
         color = color or COLORS['border']
         r = height // 2
@@ -484,6 +805,12 @@ class FrontEndView(tk.Frame):
             for dy in (-4, 0, 4):
                 canvas.create_line(x + width // 2 - self.cx(5), y + self.cx(dy), x + width // 2 + self.cx(5),
                                    y + self.cx(dy), fill=COLORS['text'], width=max(1, self.cx(1.5)))
+        elif text == 'VIEW':
+            # The Back / View button: two small frames.
+            mid, unit = x + width // 2, self.cx(3)
+            canvas.create_rectangle(mid - unit - 2, y - unit, mid + unit - 2, y + unit + 1, outline=COLORS['text'])
+            canvas.create_rectangle(mid - unit + 2, y - unit - 2, mid + unit + 2, y + unit - 1, outline=COLORS['text'],
+                                    fill=color)
         else:
             canvas.create_text(x + width // 2, y, text=text, font=font, fill=COLORS['text'])
         return width
@@ -496,13 +823,19 @@ class FrontEndView(tk.Frame):
         game = self.focused()
         pads = self.controller is not None or self.force_pad_hints
         screen = 'front_end_windowed' if getattr(self.owner, 'front_end_fullscreen', False) else 'front_end_fullscreen'
-        if pads:
+        if self.editing and pads:
+            hints = [(('A',), 'front_end_kb_type'), (('B',), 'front_end_cancel'), (('X',), 'front_end_kb_delete'),
+                     (('Y',), 'front_end_key_space'), (('MENU',), 'front_end_kb_done')]
+        elif self.editing:
+            hints = [((self.tr('front_end_key_enter'),), 'front_end_kb_done'),
+                     ((self.tr('front_end_key_escape'),), 'front_end_cancel')]
+        elif pads:
             hints = [(('A',), 'play'), (('B',), 'front_end_back'), (('X',), screen), (('Y',), 'front_end_actions'),
-                     (('L2', 'R2'), 'front_end_density')]
+                     (('L2', 'R2'), 'front_end_density'), (('VIEW',), 'front_end_search')]
         else:
             hints = [((self.tr('front_end_key_enter'),), 'play'), ((self.tr('front_end_key_escape'),), 'front_end_back'),
                      (('F11',), screen), ((self.tr('front_end_key_space'),), 'front_end_actions'),
-                     (('\u2212', '+'), 'front_end_density')]
+                     (('\u2212', '+'), 'front_end_density'), (('Ctrl+F',), 'front_end_search')]
         colors = {'A': '#3c7d4a', 'B': '#8a3b3b', 'X': '#365f8f', 'Y': '#8a7a2e'}
         x = width - self.cx(14)
         for glyphs, key in reversed(hints):
@@ -511,7 +844,8 @@ class FrontEndView(tk.Frame):
             canvas.create_text(x, height // 2, text=label, anchor='w', font=self.font_hint, fill=COLORS['muted'])
             x -= self.cx(6)
             for glyph in reversed(glyphs):
-                size = self.cx(26) if glyph == 'MENU' else max(self.font_glyph.measure(glyph) + self.cx(12), self.cx(22))
+                size = (self.cx(26) if glyph in ('MENU', 'VIEW')
+                        else max(self.font_glyph.measure(glyph) + self.cx(12), self.cx(22)))
                 self.pill(canvas, x - size, height // 2, glyph, colors.get(glyph))
                 x -= size + self.cx(3)
             x -= self.cx(13)
@@ -520,7 +854,7 @@ class FrontEndView(tk.Frame):
             return
         order = self.tr('front_end_order_' + self.memory.order)
         played = self.memory.played.get(game_key(game))
-        facts = [self.shelves[self.shelf][0].name, self.played_text(played)]
+        facts = [self.console_names.get(game.system, ''), self.played_text(played)]
         # The saved card, when there is one (Compiled Games' « Fetch details »): its year and developer.
         facts[1:1] = self.card_facts(game)
         if stars(game.level):
@@ -562,6 +896,10 @@ class FrontEndView(tk.Frame):
 
     # ---- moving
     def step(self, dx, dy):
+        if self.editing:
+            self.kb = keyboard_move(*self.kb, dx, dy)
+            self.draw_wall()
+            return
         if self.menu_items is not None:
             step = dy or dx
             if step:
@@ -604,11 +942,14 @@ class FrontEndView(tk.Frame):
         self.request_covers()
 
     def switch(self, direction):
-        if self.menu_items is None and self.shelves:
+        if self.menu_items is None and self.shelves and not self.editing:
             self.select_shelf(self.shelf + direction)
 
     def letter(self, event):
-        """A letter or digit jumps to the next game whose title starts with it."""
+        """A letter or digit jumps to the next game whose title starts with it (it types while the search is)."""
+        if self.editing:
+            self.edit_key(event)
+            return 'break'
         char = event.char.casefold() if event.char and event.char.isprintable() and not event.char.isspace() else ''
         if not char or self.menu_items is not None or not self.games:
             return None
@@ -649,6 +990,17 @@ class FrontEndView(tk.Frame):
 
     def clicked(self, event):
         self.wall.focus_set()
+        if self.editing:
+            hit = self.keyboard_hit(event.x, event.y)
+            if hit is not None:
+                self.kb = hit
+                self.type(KEYBOARD[hit[0]][hit[1]])
+                if self.editing:
+                    self.draw_wall()
+                return
+            self.finish_editing()
+            if self.shelf_id() != SEARCH:
+                return
         if self.menu_items is not None:
             hit = self.menu_hit(event.x, event.y)
             if hit is None:
@@ -694,18 +1046,21 @@ class FrontEndView(tk.Frame):
             self.draw_details()
 
     def tab_clicked(self, event):
-        box = getattr(self, 'restore_box', None)
-        if box and box[0] <= event.x <= box[1]:
+        tool = self.tool_at(event.x)
+        if tool == 'screen':
             self.toggle_tv()
-            return
-        for left, right, change in getattr(self, 'density_boxes', []):
-            if left <= event.x <= right:
-                self.change_columns(change)
-                return
-        for left, right, index in getattr(self, 'tab_boxes', []):
-            if left <= event.x <= right:
-                self.select_shelf(index)
-                return
+        elif tool == 'favorites':
+            self.toggle_favorites()
+        elif tool == 'search':
+            self.finish_editing() if self.editing else self.open_search()
+        elif tool in ('fewer', 'more'):
+            self.change_columns(-1 if tool == 'fewer' else 1)
+        elif not self.editing:
+            for left, right, index in getattr(self, 'tab_boxes', []):
+                if left <= event.x <= right:
+                    self.select_shelf(index)
+                    break
+        self.wall.focus_set()
 
     def context_menu(self, event):
         """Right-click: on a chosen game the selection stays (the menu acts on all of them); elsewhere it is that game."""
@@ -741,6 +1096,8 @@ class FrontEndView(tk.Frame):
             self.selected.clear()
             self.draw_wall()
             self.draw_details()
+        elif self.search_open and (self.editing or self.shelf_id() == SEARCH):
+            self.close_search()        # Back leaves the search first, then asks to leave the front-end
         else:
             # Full screen or not, Back asks to leave the front-end (Arthur, 16 Nov 2026); X, F11 and the corner button
             # are the ways back to the window.
@@ -781,6 +1138,7 @@ class FrontEndView(tk.Frame):
                  ('favorite_remove' if game.favorite else 'favorite_add', lambda: self.favorite(game), True),
                  # Network play will join here once it exists: host and join from the chosen game.
                  ('front_end_network_later', lambda: None, False),
+                 ('front_end_search_open', self.open_search, True),
                  ('front_end_next_order', lambda: self.set_order(order), True),
                  ('front_end_more_covers', lambda: self.change_columns(1), True),
                  ('front_end_fewer_covers', lambda: self.change_columns(-1), True),
@@ -791,7 +1149,7 @@ class FrontEndView(tk.Frame):
         return items
 
     def open_menu(self):
-        if not self.games:
+        if not self.games or self.editing:
             return
         if self.menu_items is not None:
             self.close_menu()
@@ -862,6 +1220,15 @@ class FrontEndView(tk.Frame):
     def favorites(self, games, value):
         for game in games:
             self.owner.compiled_inventory.set_favorite(game, value)
+        # The favourites' entry follows: its number everywhere, its games when it is the one shown.
+        current, focus = self.shelf_id(), self.focus_index
+        self.build_shelves()
+        if current == FAVORITES:
+            self.select_shelf(self.index_of(FAVORITES), slide=False)
+            self.go(min(focus, max(0, len(self.games) - 1)))
+        else:
+            self.shelf = self.index_of(current)
+        self.draw_tabs()
         self.draw_wall()
 
     def find_covers(self, games):
@@ -950,6 +1317,20 @@ class FrontEndView(tk.Frame):
                 traceback.print_exc()
 
     def pad_event(self, event):
+        if self.editing and not isinstance(event, tuple):
+            # The search's keyboard: A types the key, X deletes, Y is a space, Start (or Back) keeps the results,
+            # B gives the search up.
+            if event == 'a':
+                self.type(KEYBOARD[self.kb[0]][self.kb[1]])
+                if self.editing:
+                    self.draw_wall()
+            elif event in ('x', 'y'):
+                self.type('delete' if event == 'x' else 'space')
+            elif event in ('start', 'back'):
+                self.finish_editing()
+            elif event == 'b':
+                self.close_search()
+            return
         if isinstance(event, tuple):
             self.step(event[1], event[2])
         elif event == 'a':
@@ -966,8 +1347,8 @@ class FrontEndView(tk.Frame):
             self.toggle_tv()
         elif event in ('lb', 'rb'):
             self.switch(-1 if event == 'lb' else 1)
-        elif event == 'back':
-            self.set_order(ORDERS[(ORDERS.index(self.memory.order) + 1) % len(ORDERS)])
+        elif event == 'back' and self.menu_items is None:
+            self.open_search()         # Back / View: the search; the order is in the actions
 
     def drain(self):
         if not self.winfo_exists():
@@ -995,7 +1376,7 @@ class FrontEndView(tk.Frame):
                         with self.loader.condition:
                             self.loader.done.discard(old)
                     if ratio:
-                        self.ratios.setdefault(key.partition(':')[0], {})[key] = ratio
+                        self.ratio_of[key] = ratio
                 changed = True
         except queue.Empty:
             pass
@@ -1005,14 +1386,15 @@ class FrontEndView(tk.Frame):
         self.after(30, self.drain)
 
     def update_aspect(self):
-        """Once a dozen covers of the console are read, the slots take their shape (once per console)."""
-        if not self.shelves:
+        """Once a dozen covers of the shelf are read, its slots take their shape (once per console; again for
+        each new search)."""
+        shelf = self.shelf_id()
+        if not shelf or shelf in self.aspects:
             return
-        system = self.shelves[self.shelf][0].id
-        found = self.ratios.get(system, {})
-        if system in self.aspects or len(found) < min(12, len(self.games)):
+        found = [self.ratio_of[key] for key in map(game_key, self.games) if key in self.ratio_of]
+        if not found or len(found) < min(12, len(self.games)):
             return
-        self.aspects[system] = cell_aspect(list(found.values()))
+        self.aspects[shelf] = cell_aspect(found)
         self.relayout(reload=True)
 
     def destroy(self):
