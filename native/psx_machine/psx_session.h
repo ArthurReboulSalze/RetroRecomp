@@ -92,6 +92,9 @@ int rr_psx_disc_select(RrPsxSession *s, int index);
 /* A core option (Beetle's key without its prefix, its value as the core names it), applied before the next frame. */
 int rr_psx_option(RrPsxSession *s, const char *key, const char *value);
 /* The session's core options (full key and value), for a session opened again with them: the count, and each pair. */
+/* 1.7.7: 1 the card's frames are reduced by two (each pixel the mean of a 2x2 block) as they are read back: Supersampling, the card
+ * drawing at twice the internal resolution chosen. The machine is untouched; the CPU renderer's frames never are. */
+void rr_psx_set_halve(RrPsxSession *s, int halve);
 int rr_psx_option_count(const RrPsxSession *s);
 void rr_psx_option_at(const RrPsxSession *s, int index, char key[64], char value[64]);
 

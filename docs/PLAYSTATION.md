@@ -43,14 +43,22 @@ compared with the figures of a machine whose game code is translated, and it say
 - **Anti-aliasing and texture filtering** (1.7.7, on the owner's questions: « il me semble pas avoir vu d'options
   d'anti-aliasing pour la PlayStation », then « juste au moins pouvoir activer ou pas le filtrage des textures »). Two F3 rows,
   the graphics card only (marked « (GPU) »), both **Off** by default. « Anti-aliasing »: MSAA 2x, 4x or 8x (several samples per pixel on the
-  polygons' edges, at the internal resolution), or Supersampling (Beetle draws at the internal resolution and reduces the picture
-  to the console's size, each pixel the mean of the drawn ones; at 1x it has nothing to reduce). They are values of one row
+  polygons' edges, at the internal resolution), or Supersampling as on the Nintendo 64 (the owner, 16 November 2026: « quand on
+  se met en mode 2x, il calcule en 4x et il donne scale en 2x, mais il descend pas à 1x »): the card draws at twice the internal
+  resolution and the session reduces each frame by two as it reads it back (each pixel the exact mean of a 2x2 block), so the
+  picture keeps the size the resolution row gives; at 8x there is nothing larger to draw, it does nothing and says so. Beetle's
+  own supersampling, which reduces to the console's size (a 4x drawing shown as 1x), is not used. The reduction is done on the
+  processor in the copy that already reads every pixel of the card's frame: an exact mean whatever the driver, and the Vulkan
+  frontend shared with the Nintendo 64 is untouched; its transfer is the one of the next resolution up (4x with Supersampling
+  reads an 8x frame). A change takes effect with the first frame the core draws at the new size, so no frame has the wrong size. They are values of one row
   because both together only add cost. « Texture filtering »: the console's nearest texel, bilinear, or 3-point (the Nintendo
   64's own filter). Beetle's xBR, SABR and JINC2 texture upscalers, its adaptive smoothing, its MDEC chroma filter and texture
   replacement are not offered, and there is no mipmapping (the console has none and Beetle adds none). Both rows act on the card's
   drawing alone: on Ape Escape (3,300 frames) with MSAA 8x, with Supersampling at 4x, with bilinear and with 3-point plus MSAA 4x
   at 4x, the RAM, the CPU state, the sound and the VRAM equal the run with both Off on every frame, at 0 interpreted
-  instructions; with the CPU drawing the rows change nothing (every column equal, picture included) and the game says so once.
+  instructions (Supersampling: at 4x from the start, and turned on and off in play at 2x; the picture's size equal to the run
+  without it on every frame); with the CPU drawing the rows change nothing (every column equal, picture included) and the game
+  says so once.
   Their cost is the card's: MSAA multiplies the samples drawn, Supersampling draws the internal resolution in full. MSAA
   changed in play opens the session again with the machine carried as a quick state and the new multisampling set before the
   renderer is built: Beetle's own rebuild in place kept the programs of the old sample count, and the picture broke at the game's

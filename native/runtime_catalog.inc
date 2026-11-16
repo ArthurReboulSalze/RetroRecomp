@@ -345,6 +345,7 @@ static const char *const rr_translations[][5] = {
     {"Stretched","Etire","Allungato","Estirado","Gestreckt"},
     {"Super-sampled read-back","Relecture surechantillonnee","Rilettura supercampionata","Relectura supermuestreada","Supersampling-Ruecklesen"},
     {"Supersampling","Surechantillonnage","Supercampionamento","Supermuestreo","Supersampling"},
+    {"Supersampling: nothing larger than 8x to draw","Surechantillonnage : rien de plus grand que 8x a dessiner","Supercampionamento: niente oltre 8x da disegnare","Supermuestreo: nada mayor que 8x que dibujar","Supersampling: nichts Groesseres als 8x zu zeichnen"},
     {"Sync to display: %s","Calage sur l'ecran : %s","Sincronia schermo: %s","Sincronizar pantalla: %s","Bildsynchronisation: %s"},
     {"System default","Defaut du systeme","Predefinito di sistema","Predeterminado del sistema","Systemstandard"},
     {"Tab  Fast-forward | `  Max speed | M  Mute","Tab  Avance rapide | `  Vitesse max | M  Muet","Tab  Avanti veloce | `  Velocita max | M  Muto","Tab  Avance rapido | `  Velocidad max. | M  Silencio","Tab  Vorlauf | `  Hoechsttempo | M  Stumm"},

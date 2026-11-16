@@ -92,9 +92,12 @@ static const char *const pgxp_texture_values[] = {"disabled", "enabled"};
  * Off by default (Beetle's defaults: one sample, the console's nearest texel). They act on the card's drawing alone: the machine
  * (RAM, CPU state, sound, VRAM) is the CPU renderer's whatever they are, and the CPU renderer ignores them (it says so once).
  * One anti-aliasing row: MSAA (2, 4 or 8 samples per pixel on the polygons' edges, at the internal resolution) or Supersampling
- * (Beetle draws at the internal resolution and reduces the picture to the console's size, each pixel the mean of the drawn ones:
- * at 1x it has nothing to reduce). Both together only add cost, so they are values of one row; 16x is left out (beyond what
- * most cards give a colour target, Beetle settles for less). Texture filtering: nearest (the console), bilinear or 3-point (the
+ * as on the Nintendo 64 (the owner, 16 November 2026: « quand on se met en mode 2x, il calcule en 4x et il donne scale en 2x, mais
+ * il descend pas à 1x »): the card draws at twice the internal resolution chosen and the session reduces each frame by two as it
+ * reads it back (an exact 2x2 mean), so the picture keeps the size the resolution row gives. Beetle's own supersampling, which
+ * reduces to the console's size, is not used. At 8x there is nothing larger to draw: it does nothing and says so. Both together
+ * only add cost, so they are values of one row; 16x MSAA is left out (beyond what most cards give a colour target, Beetle settles
+ * for less). Texture filtering: nearest (the console), bilinear or 3-point (the
  * Nintendo 64's own filter); Beetle's xBR, SABR and JINC2 texture upscalers are not offered, and no mipmapping exists (the
  * console has none and Beetle adds none). Both change on the fly; the anti-aliasing row rebuilds the card's targets as the
  * resolution row does. */
@@ -137,22 +140,29 @@ static int check_default(int option) {
     return option == GFX_PGXP || option == GFX_PGXP_TEXTURE ? 0 : gfx_options[option].def;
 }
 
+/* What the card or the CPU draws, from the resolution and anti-aliasing rows: the internal resolution (8x on the card only), drawn
+ * at twice that with Supersampling on the card below 8x, the frames then reduced by two. */
+static void apply_drawing(RrPsxSession *s, bool tell) {
+    const int card = rr_psx_renderer(s);
+    int resolution = chosen[GFX_RESOLUTION];
+    if (resolution == 3 && !card) {
+        resolution = 2;
+        if (tell) rrhk_notice(rrhk_tr("8x needs the graphics card: 4x on the CPU", "8x demande la carte graphique : 4x sur le CPU"), 4000);
+    }
+    const int supersampled = chosen[GFX_ANTIALIASING] == 4 && card && resolution < 3;
+    rr_psx_option(s, "internal_resolution", resolution_values[resolution + supersampled]);
+    rr_psx_option(s, "super_sampling", "disabled");
+    rr_psx_set_halve(s, supersampled);
+    scale = 1 << resolution;
+}
+
 static void core_option(int option, int value) {
     RrPsxSession *s = rr_psx_host_session();
     if (option == GFX_PGXP_TEXTURE && !chosen[GFX_PGXP]) value = 0;   /* held off without PGXP */
-    if (option == GFX_RESOLUTION && value == 3 && !rr_psx_renderer(s)) {
-        value = 2;
-        rrhk_notice(rrhk_tr("8x needs the graphics card: 4x on the CPU", "8x demande la carte graphique : 4x sur le CPU"), 4000);
-    }
+    if (option == GFX_RESOLUTION) { apply_drawing(s, true); return; }
     rr_psx_option(s, gfx_core_keys[option], gfx_core_values[option][value]);
-    if (option == GFX_ANTIALIASING) rr_psx_option(s, "super_sampling", value == 4 ? "enabled" : "disabled");
+    if (option == GFX_ANTIALIASING) apply_drawing(s, false);
     if (option == GFX_PGXP) core_option(GFX_PGXP_TEXTURE, chosen[GFX_PGXP_TEXTURE]);
-    if (option == GFX_RESOLUTION) scale = 1 << value;
-}
-
-/* The picture's size against the console's: the internal resolution, or 1 when the card reduces it again (Supersampling). */
-static int picture_scale(void) {
-    return chosen[GFX_ANTIALIASING] == 4 && rr_psx_renderer(rr_psx_host_session()) ? 1 : scale;
 }
 
 static void gfx_apply(int option, int value) {
@@ -175,6 +185,10 @@ static void gfx_apply(int option, int value) {
         if ((option == GFX_ANTIALIASING || option == GFX_TEXTURE_FILTER) && value && !rr_psx_renderer(rr_psx_host_session()))
             rrhk_notice(rrhk_tr("Graphics card only: no effect while the CPU draws",
                                 "Carte graphique seulement : sans effet quand le CPU dessine"), 4000);
+        if ((option == GFX_ANTIALIASING || option == GFX_RESOLUTION) && chosen[GFX_ANTIALIASING] == 4 && chosen[GFX_RESOLUTION] == 3 &&
+            rr_psx_renderer(rr_psx_host_session()))
+            rrhk_notice(rrhk_tr("Supersampling: nothing larger than 8x to draw", "Surechantillonnage : rien de plus grand que 8x a dessiner"),
+                        4000);
         if (option == GFX_PGXP_TEXTURE && value && !chosen[GFX_PGXP])
             rrhk_notice(rrhk_tr("Needs geometry precision (PGXP) On",
                                 "Demande la precision geometrique (PGXP) activee"), 4000);
@@ -314,7 +328,7 @@ static int visible_width(void) { int w = 0; rr_psx_picture(rr_psx_host_session()
 static int visible_height(void) { int h = 0; rr_psx_picture(rr_psx_host_session(), NULL, &h, NULL); return h ? h : 240; }
 /* The shape the picture is shown at: the console's rows (the picture's divided by the internal resolution) and the width the
  * core's display aspect gives them (4:3 on a television; a 480-line picture is two fields of a 4:3 screen). */
-static int raster_height(void) { const int h = visible_height() / picture_scale(); return h > 0 ? h : 240; }
+static int raster_height(void) { const int h = visible_height() / scale; return h > 0 ? h : 240; }
 static int display_width(void) {
     double aspect = 0;
     rr_psx_picture(rr_psx_host_session(), NULL, NULL, &aspect);

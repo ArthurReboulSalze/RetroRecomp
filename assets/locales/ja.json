@@ -1146,6 +1146,7 @@
     "Free: its sound cannot follow yet": "自由: 音声がまだ追従できません",
     "Anti-aliasing (GPU)": "アンチエイリアス (GPU)",
     "Texture filtering (GPU)": "テクスチャフィルタリング (GPU)",
-    "Needs geometry precision (PGXP) On": "ジオメトリ精度 (PGXP) のオンが必要"
+    "Needs geometry precision (PGXP) On": "ジオメトリ精度 (PGXP) のオンが必要",
+    "Supersampling: nothing larger than 8x to draw": "スーパーサンプリング: 8xより大きく描けません"
   }
 }

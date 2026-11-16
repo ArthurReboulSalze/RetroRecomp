@@ -206,7 +206,8 @@ every moving edge doubled). Owner's decision of 15 November 2026, « Oui, lance-
 ## Sony PlayStation: anti-aliasing and texture filtering (1.7.7)
 
 **What changes.** F3 gains two rows after the internal resolution, for the graphics card only, both Off by default:
-« Anti-aliasing (GPU) » (MSAA 2x, 4x, 8x, or Supersampling: drawn at the internal resolution and reduced to the console's size) and
+« Anti-aliasing (GPU) » (MSAA 2x, 4x, 8x, or Supersampling as on the Nintendo 64: drawn at twice the internal resolution and
+reduced by two as the frame is read back, so the picture keeps the size the resolution row gives; nothing at 8x) and
 « Texture filtering (GPU) » (bilinear or 3-point). They change in play; with the CPU drawing they do nothing and the game says so once.
 No mipmapping is offered (the console has none).
 

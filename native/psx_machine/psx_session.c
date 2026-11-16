@@ -82,6 +82,9 @@ struct RrPsxSession {
     char renderer_note[160];
     uint32_t *hw_picture;
     size_t hw_capacity;
+    int halve;                  /* the card's frames reduced by two (Supersampling) */
+    int halve_next, halve_wait; /* a change waiting for the core's new drawing size (it comes a frame after the option) */
+    unsigned last_w, last_h;    /* the card's last frame as drawn (placeholders under 128 pixels left out) */
     /* The last picture: the core's own frame surface, never copied (it lives until the core's next frame); `pitch` pixels
      * between rows. Its pixels are 0x00RRGGBB (Beetle writes no alpha). With the graphics card, `hw_picture`. */
     const uint32_t *picture;
@@ -519,6 +522,44 @@ static void RETRO_CALLCONV video_refresh(const void *data, unsigned width, unsig
         const uint8_t *src = width && height && width <= RR_PSX_PICTURE_LIMIT && height <= RR_PSX_PICTURE_LIMIT
                                  ? rr_vk_host_read_back(&vulkan, width, height, &bgra) : NULL;
         if (!src) return;
+        /* A change of Supersampling takes effect with the first frame drawn at the new size (twice or half the last one), at
+         * most four frames later; a session that has drawn nothing yet takes it at once. Beetle's small placeholder frames (64 x
+         * 64 while the console shows nothing) are never reduced and do not count as a size. */
+        const int placeholder = width < 128 || height < 128;
+        if (s->halve_wait && !placeholder) {
+            const int doubled = width == 2 * s->last_w && height == 2 * s->last_h, halved = 2 * width == s->last_w && 2 * height == s->last_h;
+            if ((s->halve_next && doubled) || (!s->halve_next && halved) || !s->last_w || --s->halve_wait == 0) {
+                s->halve = s->halve_next;
+                s->halve_wait = 0;
+            }
+        }
+        if (!placeholder) { s->last_w = width; s->last_h = height; }
+        if (s->halve && !placeholder) {
+            /* Supersampling: each pixel the mean of a 2x2 block of the card's frame, rounded (an odd last row or column is left). */
+            const unsigned ow = width / 2, oh = height / 2;
+            if ((size_t)ow * oh > s->hw_capacity) {
+                uint32_t *grown = (uint32_t *)realloc(s->hw_picture, (size_t)ow * oh * sizeof(uint32_t));
+                if (!grown) return;
+                s->hw_picture = grown;
+                s->hw_capacity = (size_t)ow * oh;
+            }
+            const int r = bgra ? 2 : 0, b = bgra ? 0 : 2;
+            for (unsigned y = 0; y < oh; ++y) {
+                const uint8_t *row0 = src + (size_t)(2 * y) * width * 4, *row1 = row0 + (size_t)width * 4;
+                uint32_t *out = s->hw_picture + (size_t)y * ow;
+                for (unsigned x = 0; x < ow; ++x) {
+                    const uint8_t *p = row0 + x * 8, *q = row1 + x * 8;
+                    const unsigned red = (p[r] + p[4 + r] + q[r] + q[4 + r] + 2) >> 2;
+                    const unsigned green = (p[1] + p[5] + q[1] + q[5] + 2) >> 2;
+                    const unsigned blue = (p[b] + p[4 + b] + q[b] + q[4 + b] + 2) >> 2;
+                    out[x] = (uint32_t)red << 16 | (uint32_t)green << 8 | blue;
+                }
+            }
+            s->picture = s->hw_picture;
+            s->pitch = s->width = (int)ow;
+            s->height = (int)oh;
+            return;
+        }
         if ((size_t)width * height > s->hw_capacity) {
             uint32_t *grown = (uint32_t *)realloc(s->hw_picture, (size_t)width * height * sizeof(uint32_t));
             if (!grown) return;
@@ -777,6 +818,12 @@ int rr_psx_disc_select(RrPsxSession *s, int index) {
     return 1;
 }
 
+void rr_psx_set_halve(RrPsxSession *s, int halve) {
+    if (!s) return;
+    s->halve_next = halve != 0;
+    s->halve_wait = s->halve_next != s->halve ? 4 : 0;
+    if (!s->last_w) { s->halve = s->halve_next; s->halve_wait = 0; }   /* nothing drawn yet: at once */
+}
 int rr_psx_option_count(const RrPsxSession *s) { return s ? s->option_count : 0; }
 void rr_psx_option_at(const RrPsxSession *s, int index, char key[64], char value[64]) {
     snprintf(key, 64, "%s", s && index >= 0 && index < s->option_count ? s->options[index].key : "");

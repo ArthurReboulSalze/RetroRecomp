@@ -1146,6 +1146,7 @@
     "Free: its sound cannot follow yet": "自由: 声音暂时无法跟随",
     "Anti-aliasing (GPU)": "抗锯齿 (GPU)",
     "Texture filtering (GPU)": "纹理过滤 (GPU)",
-    "Needs geometry precision (PGXP) On": "需要开启几何精度 (PGXP)"
+    "Needs geometry precision (PGXP) On": "需要开启几何精度 (PGXP)",
+    "Supersampling: nothing larger than 8x to draw": "超级采样：没有比 8x 更大的绘制"
   }
 }

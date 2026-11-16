@@ -69,7 +69,7 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('"1x (native)", "2x", "4x", "8x (graphics card)"};', ADAPTER)
         # 8x only on the graphics card (the owner, 15 November 2026: « le 8x, c'est injouable » on the CPU): asked for with the
         # CPU drawing, it draws 4x and says so
-        self.assertIn('if (option == GFX_RESOLUTION && value == 3 && !rr_psx_renderer(s)) {', ADAPTER)
+        self.assertIn('if (resolution == 3 && !card) {', ADAPTER)
         self.assertIn('"8x needs the graphics card: 4x on the CPU"', ADAPTER)
         self.assertIn('watch_load();', ADAPTER)
         self.assertIn('if (scale == 1 || warned_scale == scale || interrupted)', ADAPTER)
@@ -153,7 +153,12 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('{"Texture filtering (GPU)", L"texture_filter", texture_filters, 3, 0},', ADAPTER)
         self.assertIn('static const char *const msaa_values[] = {"1x", "2x", "4x", "8x", "1x"};', ADAPTER)
         self.assertIn('static const char *const texture_filter_values[] = {"nearest", "bilinear", "3-point"};', ADAPTER)
-        self.assertIn('rr_psx_option(s, "super_sampling", value == 4 ? "enabled" : "disabled");', ADAPTER)
+        # Supersampling as on the N64: drawn at twice the resolution, the frames reduced by two; never Beetle's (down to 1x)
+        self.assertIn('rr_psx_option(s, "internal_resolution", resolution_values[resolution + supersampled]);', ADAPTER)
+        self.assertIn('rr_psx_option(s, "super_sampling", "disabled");', ADAPTER)
+        self.assertIn('rr_psx_set_halve(s, supersampled);', ADAPTER)
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        self.assertIn('const unsigned red = (p[r] + p[4 + r] + q[r] + q[4 + r] + 2) >> 2;', session)
         for upscaler in ('"xBR"', '"SABR"', '"JINC2"', 'adaptive_smoothing', 'mdec_yuv', 'replace_textures'):
             self.assertNotIn(upscaler, ADAPTER)
 

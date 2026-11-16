@@ -1146,6 +1146,7 @@
     "Free: its sound cannot follow yet": "Frei: Ton folgt noch nicht",
     "Anti-aliasing (GPU)": "Kantenglättung (GPU)",
     "Texture filtering (GPU)": "Texturfilterung (GPU)",
-    "Needs geometry precision (PGXP) On": "Erfordert Geometriegenauigkeit (PGXP) an"
+    "Needs geometry precision (PGXP) On": "Erfordert Geometriegenauigkeit (PGXP) an",
+    "Supersampling: nothing larger than 8x to draw": "Supersampling: nichts Größeres als 8x zu zeichnen"
   }
 }
