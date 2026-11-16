@@ -47,7 +47,10 @@ static int rr_md_compose_pixels(uint8_t *out,int begin,int end,
         __m128i s_on=rr_md_nonzero(_mm_loadu_si128((const __m128i *)(so+x)));
         __m128i a_hi=_mm_cmpeq_epi8(_mm_and_si128(av,high_opaque),high_opaque);
         __m128i b_hi=_mm_cmpeq_epi8(_mm_and_si128(bv,high_opaque),high_opaque);
-        __m128i s_hi=_mm_and_si128(s_on,rr_md_nonzero(_mm_loadu_si128((const __m128i *)(sh+x))));
+        __m128i s_pri=rr_md_nonzero(_mm_loadu_si128((const __m128i *)(sh+x)));
+        __m128i s_hi=_mm_and_si128(s_on,s_pri);
+        /* A tile's priority bit, opaque or not, for shadow/highlight. */
+        __m128i plane_normal=rr_md_nonzero(_mm_and_si128(_mm_or_si128(av,bv),_mm_set1_epi8((char)0x80)));
         av=_mm_and_si128(av,mask63);bv=_mm_and_si128(bv,mask63);
         /* Same first-wins ordering as the scalar renderer, from low to high. */
         __m128i px=rr_md_choose(b_on,bv,bg);
@@ -55,12 +58,20 @@ static int rr_md_compose_pixels(uint8_t *out,int begin,int end,
         px=rr_md_choose(b_hi,bv,px);px=rr_md_choose(a_hi,av,px);
         px=rr_md_choose(s_hi,sv,px);
         if(shade) {
-            __m128i any_hi=_mm_or_si128(_mm_or_si128(a_hi,b_hi),s_hi);
-            __m128i dark=_mm_or_si128(_mm_andnot_si128(any_hi,ones),
+            /* The scalar rules of megadrive_video.SHADE_NEW, sixteen pixels at a time. The sprite slot holds a colour
+             * (s_on) or an operator, never both; a low one under an opaque high plane pixel does nothing. */
+            __m128i over=_mm_or_si128(s_pri,_mm_andnot_si128(_mm_or_si128(a_hi,b_hi),ones));
+            __m128i shown=_mm_and_si128(s_on,over);
+            __m128i fourteen=_mm_cmpeq_epi8(_mm_and_si128(sv,_mm_set1_epi8(0x0f)),_mm_set1_epi8(0x0e));
+            __m128i sprite_dark=_mm_andnot_si128(_mm_or_si128(_mm_or_si128(s_pri,plane_normal),fourteen),ones);
+            __m128i shade_op=_mm_and_si128(over,
                 rr_md_nonzero(_mm_loadu_si128((const __m128i *)(shadow+x))));
-            __m128i op=rr_md_nonzero(_mm_loadu_si128((const __m128i *)(highlight+x)));
-            __m128i bright=_mm_andnot_si128(dark,op);
-            dark=_mm_andnot_si128(op,dark);
+            __m128i light_op=_mm_and_si128(over,
+                rr_md_nonzero(_mm_loadu_si128((const __m128i *)(highlight+x))));
+            __m128i plane_dark=_mm_or_si128(shade_op,_mm_andnot_si128(_mm_or_si128(plane_normal,light_op),ones));
+            __m128i plane_bright=_mm_and_si128(light_op,plane_normal);
+            __m128i dark=rr_md_choose(shown,sprite_dark,plane_dark);
+            __m128i bright=_mm_andnot_si128(shown,plane_bright);
             __m128i normal=_mm_cmpeq_epi8(_mm_and_si128(px,high_opaque),_mm_setzero_si128());
             __m128i add=_mm_or_si128(_mm_and_si128(dark,_mm_set1_epi8(GVDP_PALETTE_SHADOW)),
                 _mm_and_si128(bright,_mm_set1_epi8((char)GVDP_PALETTE_HIGHLIGHT)));
