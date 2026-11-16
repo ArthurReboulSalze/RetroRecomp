@@ -1,4 +1,6 @@
-"""Box art not found (retrorecomp/gui_covers.py): which games are listed, what an image does, where it is applied."""
+"""The box-art window (retrorecomp/gui_covers.py): which games are listed, what an image does, where it is applied.
+
+Three ways in: a game a batch left without box art, the queue's « Choose box art… », a Compiled Games card."""
 from pathlib import Path
 import queue
 import sys
@@ -39,6 +41,8 @@ class Window(gc.MissingCoversMixin):
         self.ask_missing_cover = Mock()
         self.preferences = Mock(return_value={})
         self.hint = Mock()
+        self.use_cover = Mock()
+        self.active_rows = []
 
     def tr(self, key, **values):
         return key
@@ -103,7 +107,8 @@ class Requests(unittest.TestCase):
         requests = gc.CoverRequests()
         self.assertIsNotNone(requests.add(game(SHA_B, 'Second'), 'b.sms', 'row2'))
         self.assertIsNotNone(requests.add(game(SHA_A, 'First'), 'a.sms', 'row1'))
-        self.assertIsNone(requests.add(game(SHA_A, 'First'), 'a.sms', 'row1'))
+        first = requests.entries[('sms', SHA_A)]
+        self.assertIs(requests.add(game(SHA_A, 'First'), 'a.sms', 'row1'), first)     # still open: the same row
         self.assertIsNotNone(requests.add(game(SHA_A, 'Same dump, other console', 'gg'), 'a.gg'))
         self.assertEqual([request.game.title for request in requests.open()], ['Second', 'First', 'Same dump, other console'])
 
@@ -243,6 +248,105 @@ class Flow(unittest.TestCase):
         window.close_cover_window.assert_called_once()
 
 
+class ChooseBoxArt(unittest.TestCase):
+    """« Choose box art… » of the queue and « Choose cover… » of a Compiled Games card open the same window."""
+
+    def setUp(self):
+        self.folder = Path(tempfile.mkdtemp())
+        patcher = patch('retrorecomp.game_details.data_directory', return_value=self.folder / 'datas')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.window = Window()
+        self.window.show_cover_rows = Mock()
+        self.window.cover_refresh = Mock()
+
+    def queue_row(self, row='row1', cover=None):
+        rom = self.folder / f'{row}.sms'
+        rom.write_bytes(b'\x00' * 64)
+        self.window.items[row] = item = Mock(system='sms', sha256=SHA_A, cover=cover, path=rom, title='Queued')
+        return item
+
+    def test_a_queue_row_takes_the_file_itself_as_its_chosen_box_art_and_nothing_is_rebuilt(self):
+        from retrorecomp.game_details import Cards
+        old = png(self.folder / 'old.png', colour=(0, 200, 0, 255))
+        item = self.queue_row(cover=old)
+        self.queue_row('row2')
+        self.window.choose_queue_covers(['row1', 'row2', 'gone'])
+        (shown,), _ = self.window.show_cover_rows.call_args
+        self.assertEqual([request.key for request in shown], [('row', 'row1'), ('row', 'row2')])
+        self.assertEqual(shown[0].current, old.read_bytes())                 # its box art now, as the thumbnail
+        self.assertIsNone(shown[1].current)
+        new = png(self.folder / 'new.png')
+        self.assertTrue(self.window.give_missing_cover(('row', 'row1'), new))
+        self.assertEqual(item.cover, new)
+        self.assertEqual(shown[0].state, 'chosen')
+        self.window.table.set.assert_called_with('row1', 'cover', 'chosen')
+        self.window.use_cover.set.assert_called_once_with(True)
+        self.assertIsNone(Cards().override(game()))                          # the game card is not touched
+        self.window.begin_reconvert.assert_not_called()
+        self.window.app.after.assert_not_called()
+
+    def test_a_queue_row_already_converting_is_not_changed_under_its_conversion(self):
+        item = self.queue_row()
+        self.window.busy, self.window.active_rows = True, ['row1']
+        self.window.row_status['row1'] = 'converting'
+        self.window.choose_queue_covers(['row1'])
+        self.assertFalse(self.window.give_missing_cover(('row', 'row1'), png(self.folder / 'new.png')))
+        self.assertIsNone(item.cover)
+        self.assertEqual(self.window.cover_requests().entries[('row', 'row1')].message, 'cover_pick_busy')
+
+    def test_a_card_image_becomes_the_override_and_is_applied_to_the_export(self):
+        from retrorecomp.game_details import Cards
+        rom = self.folder / 'game.sms'
+        rom.write_bytes(b'\x00' * 64)
+        exported = Game('x', 'sms', SHA_A, 'Exported', source=str(rom))
+        self.window.choose_card_cover(exported, current=b'old picture')
+        request = self.window.cover_requests().entries[('sms', SHA_A)]
+        self.assertEqual((request.kind, request.source, request.current), ('card', rom, b'old picture'))
+        self.window.give_missing_cover(('sms', SHA_A), png(self.folder / 'new.png'))
+        self.assertIsNotNone(Cards().override(exported))
+        (pairs,), _ = self.window.begin_reconvert.call_args
+        self.assertEqual([(g.identity, source) for g, source in pairs], [(SHA_A, rom)])
+        self.window.cover_reconverted('sms', SHA_A, 'success')
+        self.assertEqual(request.state, 'applied')
+
+    def test_a_card_whose_rom_is_gone_keeps_the_image_for_its_next_reconvert(self):
+        from retrorecomp.game_details import Cards
+        exported = Game('x', 'sms', SHA_A, 'Exported', source=str(self.folder / 'moved.sms'))
+        self.window.choose_card_cover(exported)
+        self.assertIsNone(self.window.cover_requests().entries[('sms', SHA_A)].source)
+        self.window.give_missing_cover(('sms', SHA_A), png(self.folder / 'new.png'))
+        self.assertIsNotNone(Cards().override(exported))
+        self.assertEqual(self.window.cover_requests().entries[('sms', SHA_A)].state, 'ready')
+        self.window.apply_dropped_covers()
+        self.window.begin_reconvert.assert_not_called()
+        self.window.app.after.assert_not_called()                            # nothing to wait for either
+
+    def test_a_card_finds_its_rom_in_the_queue_when_its_own_source_is_gone(self):
+        item = self.queue_row()
+        self.window.choose_card_cover(Game('x', 'sms', SHA_A, 'Exported', source=''))
+        self.assertEqual(self.window.cover_requests().entries[('sms', SHA_A)].source, item.path)
+
+    def test_the_list_right_click_opens_one_row_per_game_with_the_card_image_it_keeps(self):
+        from retrorecomp.game_details import Cards
+        kept, plain = Game('x', 'sms', SHA_A, 'Kept'), Game('x', 'md', SHA_B, 'Plain')
+        Cards().set_cover(kept, png(self.folder / 'kept.png').read_bytes(), override=True)
+        self.window.choose_compiled_covers([kept, plain])
+        (shown,), _ = self.window.show_cover_rows.call_args
+        self.assertEqual([(r.key, r.kind) for r in shown], [(('sms', SHA_A), 'card'), (('md', SHA_B), 'card')])
+        self.assertEqual(shown[0].current[1:4], b'PNG')                       # the card's saved image
+        self.assertIsNone(shown[1].current)
+
+    def test_closing_forgets_the_rows_opened_to_choose_and_never_blocks_the_batch_window(self):
+        requests = gc.CoverRequests()
+        requests.add(Mock(system='sms', title='Queued'), 'q.sms', 'row1', kind='queue')
+        requests.add(game(SHA_B), 'b.sms', kind='card')
+        requests.close()
+        self.assertEqual(requests.entries, {})
+        self.assertFalse(requests.declined)
+        self.assertIsNotNone(requests.add(game(SHA_A), 'a.sms'))
+
+
 class HiddenWindow(unittest.TestCase):
     def test_one_window_for_the_batch_one_row_per_game_and_a_drop_on_the_only_waiting_game(self):
         import tkinter as tk
@@ -267,6 +371,16 @@ class HiddenWindow(unittest.TestCase):
             window.cover_drop_paths([str(png(folder / 'box.png'))])     # only First still waits
             self.assertEqual(window.cover_requests().entries[('sms', SHA_A)].state, 'applying')
             window.begin_reconvert.assert_called_once()
+            self.assertEqual(first.title(), 'cover_ask_title')
+            self.assertTrue(window.cover_never.winfo_manager())                # « Don't ask again » for these games
+            window.close_cover_window()
+            # « Choose box art… » of the queue: the same window, its own title, no « Don't ask again ».
+            window.items['q'] = Mock(system='sms', sha256=SHA_A, cover=None, path=folder / 'q.sms', title='Queued')
+            window.cover_requests().new_batch()
+            window.choose_queue_covers(['q'])
+            self.assertEqual(window.cover_window.title(), 'cover_pick_title')
+            self.assertFalse(window.cover_never.winfo_manager())
+            self.assertFalse(window.cover_rows[('row', 'q')]['skip'].winfo_manager())
             window.close_cover_window()
         self.assertIsNone(window.cover_window)
         self.assertFalse(first.winfo_exists())

@@ -1,11 +1,10 @@
 """Offline-first selected-game card. All file/network work stays off Tk."""
 from io import BytesIO
-from pathlib import Path
 import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox
 
 from PIL import Image, ImageTk
 
@@ -172,17 +171,9 @@ class GameCardView(ttk.Frame):
         self.controls()
 
     def choose_cover(self):
+        # The box-art window (gui_covers): drop or choose an image; it is applied to the exported game.
         if not self.game or self.pending:return
-        name=filedialog.askopenfilename(parent=self.owner.app,title=self.tr('pick_cover'),
-            filetypes=[(self.tr('images'),'*.png *.jpg *.jpeg *.webp *.bmp *.ico')])
-        if not name:return
-        game=self.game
-        def save():
-            from .artwork import _read_image
-            payload=_read_image(Path(name))
-            self.cards.set_cover(game,payload,override=True)
-            return payload
-        self.run('cover',game,save)
+        self.owner.choose_card_cover(self.game,getattr(self,'payload',None))
 
     def search_cover(self):
         if self.game and not self.pending:
