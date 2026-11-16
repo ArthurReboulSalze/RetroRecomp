@@ -136,7 +136,8 @@ class TextTests(unittest.TestCase):
         self.assertEqual(te.paths_effect('md'), 'shorter')
         self.assertEqual(te.paths_effect('amiga'), 'native')
         self.assertEqual(te.paths_effect('psx'), 'native')
-        self.assertIsNone(te.paths_effect('a1200'))
+        self.assertEqual(te.paths_effect('a1200'), 'native')          # shares since 1.7.9, full discovery kept
+        self.assertIsNone(te.paths_effect('n64'))                     # does not share
         self.assertIsNone(te.paths_effect('no-such-machine'))
         self.assertTrue(te.queue_estimate([('md', 'standard')], jobs=3).paths)
         self.assertFalse(te.queue_estimate([('n64', 'standard')], jobs=3).paths)
