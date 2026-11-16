@@ -121,6 +121,10 @@ int main(int argc, char **argv) {
     SDL_SetMainReady();
     const char *menu = getenv("SESSION_FAKE_MENU_AT");
     menu_at = menu ? (unsigned)atoi(menu) : 0;
+    /* SESSION_FAKE_BOOT_SALT=n: this copy starts from another state (a stand-in for another battery, an option the seal
+     * missed, a damaged export): its digest before frame 0 differs, which the boot-digest check of the worker must refuse. */
+    const char *salt = getenv("SESSION_FAKE_BOOT_SALT");
+    if (salt) state.acc ^= strtoull(salt, NULL, 0);
     /* SESSION_FAKE_HZ=n: the machine's frame rate (500 by default, so the checks are short; 60 for the checks of a slow link,
      * where the input delay is counted in frames of a real machine). */
     const char *hz = getenv("SESSION_FAKE_HZ");

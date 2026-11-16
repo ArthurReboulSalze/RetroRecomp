@@ -6,6 +6,11 @@ from pathlib import Path
 import sys
 from retrorecomp.platforms import restore_system_library_path
 restore_system_library_path()
+if sys.argv[1:] == ['_netplay-worker']:
+    # The multiplayer worker (retrorecomp/netplay/worker.py): a process of its own, started by the converter, that owns
+    # one game's pipes and its lockstep driver. Handled before the converter's heavy imports: no window, no Tk.
+    from retrorecomp.netplay.worker import main as _netplay_worker
+    sys.exit(_netplay_worker())
 from retrorecomp.core import ConversionError, convert, dependencies, read_rom
 from retrorecomp.library import GameMemory, list_games, library_root
 from retrorecomp.paths import ROOT, save_game_language, games_root, load_preferences, console_options

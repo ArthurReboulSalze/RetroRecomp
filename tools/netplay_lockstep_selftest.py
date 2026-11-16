@@ -1,23 +1,30 @@
-"""The converter's delay-lockstep driver against real games in sessions, ROM-free (retrorecomp/netplay).
+"""The converter's netplay worker against real games in sessions, ROM-free (retrorecomp/netplay).
 
-    python -B tools/netplay_lockstep_selftest.py [--output DIR] [--only NAME]
+    python -B tools/netplay_lockstep_selftest.py [--output DIR] [--only NAME] [--inproc]
 
 Two, three or four copies of the fake machine of tools/hostkit_session/fake.c (built by
 tools/hostkit_session_selftest.py: its state folds the four ports' words of every frame) are each driven by their own
-`LockstepDriver` through real anonymous pipes, and the drivers are joined by the in-memory link simulator: no socket,
-no port. Every seat has a scripted pad (a hidden game has no player) that changes every frame, so a frame run on a
-guessed input would show in the history.
+**worker process** (`RetroRecomp.py _netplay-worker`, retrorecomp/netplay/worker.py) that owns the game's two anonymous
+pipes and a `LockstepDriver`, and talks to this process over its own two pipes (stdin and stdout). The packets between
+the seats are carried by this process: each worker hands them out over its pipe and this test side passes them through
+the in-memory `LinkSimulator` (latency, jitter, loss) into the pipe of the target worker. No socket, no port, not even
+on loopback: the hub is plain Python, in memory. `--inproc` runs the same drivers as threads of this process instead
+(faster to debug, not what the suite runs). Every seat has a scripted pad (a hidden game has no player) that changes
+every frame, so a frame run on a guessed input would show in the history.
 
-Scenarios: links at 0 ms, at 30 ms with jitter, reordering and duplicates, with 2 % loss, three and four seats; a
-pause from one seat's menu, a pause the host resumes; the host stopping; two games forced out of step; a pipe lost; a
-seat gone silent; and three slow links on a 60 Hz machine (one seat at 120 ms, everyone at 150 ms, a seat silent for
-2 s), where the host chooses the delay from what the seats measured.
+The topology is a star: guests talk to the host only and the host forwards (the checks assert that no packet ever went
+from one guest to another). Scenarios: links at 0 ms, at 30 ms with jitter, reordering and duplicates, with 2 % loss,
+three and four seats through the host, one mesh run; a boot-digest mismatch that refuses the launch; a pause from one
+seat's menu, a pause the host resumes; the host stopping; two games forced out of step; a pipe lost; a seat gone
+silent; the converter going away; three slow links on a 60 Hz machine, where the host chooses the delay from what the
+seats measured; and time sync: few PACE changes on a link of 120 +- 20 ms, and two game clocks that really differ by
+0.5 % (the faster seat slows, the frame gap stays bounded, against a run with time sync off).
 
 "In step" means: every seat's history of port words is the same and is the scripts shifted by the delay, every
 game's final digest is the fold of that history, and the digests the games gave during the match are equal. The
 counts printed (late frames, waits) are events, not durations: nothing here measures speed. Every scenario has a
 time limit, after which its games are ended and it fails. Needs the C toolchain and the pinned static SDL2 of
-`.deps`; nothing is written outside DIR (default .build/netplay-lockstep-selftest). About a minute.
+`.deps`; nothing is written outside DIR (default .build/netplay-lockstep-selftest).
 """
 from __future__ import annotations
 
@@ -32,29 +39,33 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from retrorecomp.netplay import LinkSimulator, LockstepDriver, SessionGame, Settings   # noqa: E402
-from retrorecomp.netplay import input_records as wire                                   # noqa: E402
-from retrorecomp.netplay import session_pipe as pipe                                    # noqa: E402
+from retrorecomp.netplay import LinkSimulator, LockstepDriver, SessionGame, Settings, WorkerProcess   # noqa: E402
+from retrorecomp.netplay import input_records as wire                                                # noqa: E402
+from retrorecomp.netplay import scripted_inputs, session_pipe as pipe                               # noqa: E402
+from retrorecomp.netplay.worker import settings_from                                                 # noqa: E402
 
 _spec = importlib.util.spec_from_file_location('hostkit_session_selftest', ROOT / 'tools/hostkit_session_selftest.py')
 fake = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(fake)
 
 NAMES = ('Arthur', 'Nadia', 'Hélène', 'Karl')
-HIDDEN = {'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy', 'SDL_RENDER_VSYNC': '0'}
+# A hidden game reads no pad of the PC it runs on (a stray gamepad would open its menu on every copy at once).
+HIDDEN = {'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy', 'SDL_RENDER_VSYNC': '0',
+          'SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT': '0x0000/0x0000'}
+INPROC = False          # --inproc: drivers as threads of this process, not worker processes
 
 
 def pad(seat: int, frame: int) -> int:
-    """A seat's scripted pad word: different for every seat, different on every frame."""
-    return (frame * (7 + 6 * seat) + 0x31 * (seat + 1)) & 0xff
+    return scripted_inputs.pad(seat, frame)
 
 
-def script(seat: int, pause_from: int | None = None):
-    def source(frame, _word, system):
-        if pause_from is not None and frame >= pause_from:
-            system |= pipe.SYS_PAUSE
-        return pad(seat, frame), system
-    return source
+def script(seat: int, pause_from: int | None = None, menu: bool = False) -> dict:
+    spec = {'kind': 'pad', 'seat': seat}
+    if pause_from is not None:
+        spec['pause_from'] = pause_from
+    if menu:
+        spec['system'] = 'game'         # the game's own menu is the one that pauses
+    return spec
 
 
 def expected(seats: int, delay: int, frames: int) -> list[tuple]:
@@ -65,14 +76,19 @@ def fold(history) -> int:
     return fake.digest_of([tuple(words) + (0,) * (4 - len(words)) for words in history])
 
 
+def describe(driver) -> str:
+    return driver.summary() if hasattr(driver, 'summary') else str(driver.snapshot())
+
+
 class Match:
-    """N hidden games, N drivers, one simulated link; ended, whatever happens, within its time limit."""
+    """N hidden games, each with its worker process (or driver thread), one simulated link the test side carries the
+    workers' packets through; ended, whatever happens, within its time limit."""
 
     def __init__(self, executable: Path, out: Path, name: str, seats: int, *, seed: int = 1, link: dict | None = None,
                  hz: int | None = None, env: dict | None = None, per_seat: dict | None = None, **settings):
         self.name, self.seats = name, seats
         self.link = LinkSimulator(seats, seed=seed, **(link or {}))
-        self.games, self.drivers, self.folders = [], [], []
+        self.drivers, self.folders, self.games = [], [], []
         for seat in range(seats):
             folder = out / name / f'seat{seat + 1}'
             folder.mkdir(parents=True, exist_ok=True)
@@ -80,14 +96,24 @@ class Match:
             if hz:
                 environment['SESSION_FAKE_HZ'] = str(hz)
             environment.update((env or {}).get(seat, {}))
-            game = SessionGame(executable, cwd=folder, env=environment, stdout=folder / 'stdout.txt',
-                               stderr=folder / 'stderr.txt')
-            values = dict(seat=seat, seats=seats, names=NAMES[:seats], options='speed=1', local_source=script(seat))
+            values = dict(seat=seat, seats=seats, names=list(NAMES[:seats]), options='speed=1', local_source=script(seat))
             values.update(settings)
             values.update((per_seat or {}).get(seat, {}))
-            self.games.append(game)
+            game = dict(exe=str(executable), cwd=str(folder), env=environment, stdout=str(folder / 'stdout.txt'),
+                        stderr=str(folder / 'stderr.txt'))
             self.folders.append(folder)
-            self.drivers.append(LockstepDriver(game, self.link.endpoint(seat), Settings(**values)))
+            if INPROC:
+                session = SessionGame(executable, cwd=folder, env=environment, stdout=folder / 'stdout.txt',
+                                      stderr=folder / 'stderr.txt')
+                self.games.append(session)
+                self.drivers.append(LockstepDriver(session, self.link.endpoint(seat), settings_from(values)))
+            else:
+                worker = WorkerProcess(dict(game=game, settings=values), carry=self._carry(seat), log=folder / 'worker.txt')
+                self.drivers.append(worker)
+                self.link.endpoint(seat).open(lambda source, data, worker=worker: worker.deliver(source, data))
+
+    def _carry(self, seat: int):
+        return lambda to_seat, data: self.link.endpoint(seat).send(to_seat, data)
 
     def start(self):
         for driver in self.drivers:
@@ -97,17 +123,30 @@ class Match:
     def finish(self, limit: float) -> None:
         until = time.monotonic() + limit
         try:
-            late = [driver.seat + 1 for driver in self.drivers if not driver.join(max(0.0, until - time.monotonic()))]
-            if late:
-                where = '; '.join(f'seat {d.seat + 1}: {d._phase}, delay {d.delay}, next frame {d.next_run}, game at '
-                                  f'{d.game_frame}, records held {[len(r) for r in d._records]}, paused {d.paused}, '
-                                  f'{d.outcome} {d.detail}' for d in self.drivers)
-                raise AssertionError(f'{self.name}: seats {late} did not end within {limit:g} s ({where})')
+            while True:
+                if all(driver.done for driver in self.drivers):
+                    break
+                if time.monotonic() >= until:
+                    where = '; '.join(describe(driver) for driver in self.drivers)
+                    late = [driver.seat + 1 for driver in self.drivers if not driver.done]
+                    raise AssertionError(f'{self.name}: seats {late} did not end within {limit:g} s ({where})')
+                threading.Event().wait(0.05)
+            for driver in self.drivers:         # (in-process drivers are done as soon as their thread is)
+                if not INPROC:
+                    assert driver.join(10), f'{self.name}: the worker of seat {driver.seat + 1} never exited'
         finally:
-            for game in self.games:
-                if game.alive():
-                    game.process.kill()
+            for driver in self.drivers:
+                if INPROC:
+                    if driver.game.alive():
+                        driver.game.process.kill()
+                else:
+                    driver.cleanup()
             self.link.close()
+        if not INPROC:
+            for driver in self.drivers:
+                assert driver.exit_code_of_process == 0, (
+                    f'{self.name}: the worker of seat {driver.seat + 1} exited with {driver.exit_code_of_process}: '
+                    + (self.folders[driver.seat] / 'worker.txt').read_text(encoding='utf-8', errors='replace'))
 
     def result(self, seat: int) -> dict:
         text = (self.folders[seat] / 'stdout.txt').read_text(encoding='utf-8', errors='replace')
@@ -119,6 +158,14 @@ class Match:
 
     def counts(self, key: str) -> str:
         return '/'.join(str(driver.stats[key]) for driver in self.drivers)
+
+    def only_through_the_host(self) -> int:
+        """In a star no packet goes from one guest to another: the fates of those links are empty. Returns the
+        number of packets that did go through the host's links."""
+        for a in range(1, self.seats):
+            for b in range(1, self.seats):
+                assert a == b or not self.link.fates[(a, b)], f'{self.name}: a packet went from seat {a + 1} to seat {b + 1}'
+        return sum(len(self.link.fates[(0, seat)]) + len(self.link.fates[(seat, 0)]) for seat in range(1, self.seats))
 
 
 def in_step(match: Match, frames: int, delay: int | None = None) -> str:
@@ -132,6 +179,8 @@ def in_step(match: Match, frames: int, delay: int | None = None) -> str:
     used = delays.pop()
     assert delay is None or used == delay, (used, delay)
     wanted = expected(match.seats, used, frames)
+    boots = {driver.boot_digest for driver in drivers}
+    assert len(boots) == 1 and None not in boots, f'{match.name}: the boot digests are not one: {boots}'
     for driver in drivers:
         assert driver.history == wanted, f'{match.name}: seat {driver.seat + 1} ran other words than the scripts'
         result = match.result(driver.seat)
@@ -140,18 +189,31 @@ def in_step(match: Match, frames: int, delay: int | None = None) -> str:
         assert int(result['effects_off']) == (frames if driver.seat else 0), result      # a guest writes no save
         assert driver.digests == drivers[0].digests, 'the digests differ between seats'
         assert driver.desync is None and driver.stats['final_compared'], (driver.desync, driver.stats)
-    every = drivers[0].settings.digest_every
+    every = drivers[0].settings.digest_every if INPROC else drivers[0].config['settings']['digest_every']
     assert len(drivers[0].digests) == frames // every + (1 if frames % every else 0), drivers[0].digests.keys()
     assert drivers[0].digests[frames - 1] == fold(wanted)
+    topology = ''
+    if match.seats > 2 and not mesh_run(match):
+        through = match.only_through_the_host()
+        assert drivers[0].stats['records_forwarded'] > 0, 'the host forwarded nothing'
+        topology = f'; star: no packet between guests, {through} through the host'
     return (f'{frames} frames, delay {used}, {len(drivers[0].digests)} digests equal on {match.seats} seats; '
-            f'late frames {match.counts("late_frames")}, waits {match.counts("waits")}')
+            f'late frames {match.counts("late_frames")}, waits {match.counts("waits")}{topology}')
+
+
+def mesh_run(match: Match) -> bool:
+    driver = match.drivers[0]
+    settings = driver.settings if INPROC else driver.config['settings']
+    return (settings.topology if INPROC else settings.get('topology', 'star')) == 'mesh'
 
 
 # ---- the scenarios: (name, time limit in seconds, function(executable, out) -> line) ----
 
 def plain(name, seats, frames, limit, delay, **link):
+    extra = link.pop('extra', {})
+
     def scenario(executable, out):
-        match = Match(executable, out, name, seats, link=link, delay=delay, last_frame=frames, digest_every=50).start()
+        match = Match(executable, out, name, seats, link=link, delay=delay, last_frame=frames, digest_every=50, **extra).start()
         match.finish(limit)
         lost = match.link.counts
         line = in_step(match, frames, delay)
@@ -162,11 +224,30 @@ def plain(name, seats, frames, limit, delay, **link):
     return name, limit, scenario
 
 
+def boot_mismatch(executable, out):
+    # Seat 3's copy starts from another state (a stand-in for another battery or an option the seal missed): the host
+    # compares the boot digests before frame 0 and refuses the launch with a reason; no game ran a frame. The link
+    # loses a fifth of its packets: the verdict still reaches everyone.
+    match = Match(executable, out, 'boot-mismatch', 3, delay=2, last_frame=100, digest_every=50, link={'loss': 0.2},
+                  env={2: {'SESSION_FAKE_BOOT_SALT': '5'}}).start()
+    match.finish(40)
+    for driver in match.drivers:
+        assert driver.outcome == 'boot_mismatch', (driver.seat, driver.outcome, driver.detail)
+        assert driver.next_run == 0 and driver.history == [] and driver.delay is None, (driver.seat, driver.next_run)
+        assert driver.exit_code == 0 and driver.exit_reason == pipe.EXIT_STOPPED, (driver.exit_code, driver.exit_reason)
+        result = match.result(driver.seat)
+        assert int(result['frames']) == 0 and int(result['live']) == 0, result          # no frame ever ran
+        assert 'stopped by Retro-Recomp (3)' in match.stderr(driver.seat)
+    assert 'Hélène' in match.drivers[0].detail and 'boot digest' in match.drivers[0].detail, match.drivers[0].detail
+    assert 'Hélène' in match.drivers[1].detail, match.drivers[1].detail
+    return f'seat 3 starts from another state: the launch was refused before frame 0 on all three seats ({match.drivers[0].detail})'
+
+
 def pause_by_menu(executable, out):
     # Seat 2 opens Help during frame 39: its LOCAL of frame 40 asks for a pause, which every seat applies before frame
     # 40 + D; the menu closes by itself thirty iterations later and the same seat's word resumes everyone.
     match = Match(executable, out, 'pause-menu', 2, delay=2, last_frame=200, digest_every=50,
-                  env={1: {'SESSION_FAKE_MENU_AT': '40'}}).start()
+                  env={1: {'SESSION_FAKE_MENU_AT': '40'}}, per_seat={1: {'local_source': script(1, menu=True)}}).start()
     match.finish(40)
     for driver in match.drivers:
         assert driver.pauses == [(42, 1, 1)], (driver.seat, driver.pauses)
@@ -183,7 +264,7 @@ def pause_host_resumes(executable, out):
             assert driver.paused == (63, [2]), driver.paused
         match.drivers[1].resume()
         assert match.drivers[1].wait_for(lambda d: d.stats['resumes_refused'] == 1, 10)
-        threading.Event().wait(0.3)
+        threading.Event().wait(0.5)
         assert all(driver.paused is not None and driver.next_run == 63 for driver in match.drivers), 'a frame ran while paused'
         match.drivers[0].resume()
     finally:
@@ -213,11 +294,10 @@ def host_stops(executable, out):
 
 
 def forced_desync(executable, out):
-    # Seat 2's driver tells its own game another word for player 1 at frame 77: the digests of frame 99 differ.
-    def tamper(frame, words):
-        return (words[0] ^ 0x40, *words[1:]) if frame == 77 else words
+    # Seat 2's driver tells its own game another word for player 1 at frame 77: the digests of frame 99 differ. The
+    # host compares with every guest and tells the third seat.
     match = Match(executable, out, 'desync', 3, delay=2, digest_every=50, drop_after=8.0,
-                  per_seat={1: {'words_filter': tamper}}).start()
+                  per_seat={1: {'words_filter': {'kind': 'xor', 'frame': 77, 'port': 0, 'mask': 0x40}}}).start()
     match.finish(40)
     found = [driver.desync for driver in match.drivers if driver.desync]
     assert found and all(item[0] == 99 for item in found), found
@@ -231,11 +311,12 @@ def forced_desync(executable, out):
 
 
 def pipe_lost(executable, out):
-    # Seat 2's worker loses its game: the pipe closes, that game says so and closes by itself, the others are stopped.
+    # Seat 2's worker loses its game: the pipe closes, that game says so and closes by itself, the host stops its own
+    # and tells seat 3, which stops too.
     match = Match(executable, out, 'pipe-lost', 3, delay=2, digest_every=50).start()
     try:
         assert match.drivers[1].reached(100, 20), 'frame 100 never came'
-        match.games[1].close_pipe()
+        match.drivers[1].close_game_pipe()
     finally:
         match.finish(40)
     outcomes = [driver.outcome for driver in match.drivers]
@@ -247,7 +328,7 @@ def pipe_lost(executable, out):
         result = match.result(driver.seat)
         assert int(result['digest'], 16) == fold(driver.history[:int(result['frames'])]), result
     assert all(match.drivers[seat].exit_reason == pipe.EXIT_STOPPED for seat in (0, 2))
-    return 'seat 2 lost its pipe: its game closed by itself, the two others were stopped, every game left with code 0'
+    return 'seat 2 lost its pipe: its game closed by itself, the host and seat 3 were told and stopped, every game left with code 0'
 
 
 def seat_silent(executable, out):
@@ -264,6 +345,24 @@ def seat_silent(executable, out):
         result = match.result(driver.seat)
         assert int(result['digest'], 16) == fold(driver.history), result
     return f'seat 2 silent: one wait on each seat, both games stopped after 1.5 s of silence (waits {match.counts("waits")})'
+
+
+def converter_gone(executable, out):
+    # The converter side of seat 2 goes away (its pipes close): that worker ends the match as a seat leaving, its game
+    # stops, and the host, told by the link, stops its own. Nothing is left running.
+    match = Match(executable, out, 'converter-gone', 2, delay=2, digest_every=50).start()
+    try:
+        assert match.drivers[1].reached(100, 20), 'frame 100 never came'
+        match.drivers[1].close()        # its stdin: the worker sees the converter go
+    finally:
+        match.finish(40)
+    host, guest = match.drivers
+    assert host.outcome == 'seat_left' and host.exit_code == 0, (host.outcome, host.detail, host.exit_code)
+    assert guest.outcome == 'left' and guest.exit_code == 0, (guest.outcome, guest.detail, guest.exit_code)
+    assert 'stopped by Retro-Recomp' in match.stderr(1), match.stderr(1)
+    result = match.result(1)
+    assert int(result['digest'], 16) == fold(host.history[:int(result['frames'])]), result
+    return 'seat 2\'s converter went away: its worker left the match, its game stopped and the host stopped too, both processes exit 0'
 
 
 FRAME_60 = 1000.0 / 60.0
@@ -311,21 +410,81 @@ def all_far(link):
         link.set_seat(seat, latency_ms=150.0)
 
 
+def pace_jitter(name, latency, jitter, frames, limit):
+    # Both clocks the same on a 60 Hz machine: the estimate of the frame advantage is noisy by more than a frame, and the
+    # pace must stay (almost) where it is. Before the median, the dead band by the delay and the hold time, the pace
+    # flipped 28 times on the host in 1,800 frames at 120 +- 20 ms.
+    def scenario(executable, out):
+        match = Match(executable, out, name, 2, hz=60, last_frame=frames, digest_every=60, waiting_after=0.5,
+                      link={'latency_ms': latency, 'jitter_ms': jitter}).start()
+        match.finish(limit)
+        line = in_step(match, frames)
+        changes = [driver.stats['pace_changes'] for driver in match.drivers]
+        assert max(changes) <= 3, f'the pace changed {changes} times in {frames} frames'
+        assert all(driver.stats['waits'] == 0 for driver in match.drivers), match.counts('waits')
+        # The median advantage over the slowest seat, as each seat's time sync saw it every quarter second: wide while
+        # the match starts (the seats start apart by what the host measured), then within a fraction of a frame.
+        medians = [item[1] for driver in match.drivers for item in driver.pace_trace]
+        settled = [item[1] for driver in match.drivers for item in driver.pace_trace if item[0] >= frames // 3]
+        return (f'PACE changes {changes[0]}/{changes[1]} in {frames} frames (largest pace {match.counts("pace_ppm_max")} ppm; '
+                f'the median advantage {min(medians):.2f} to {max(medians):.2f} frames, from frame {frames // 3} on '
+                f'{min(settled):.2f} to {max(settled):.2f}); {line}')
+    return name, limit, scenario
+
+
+def drift(name, fast_seat, frames, limit, pace=True):
+    """Two game clocks that differ by 0.5 %: the fast seat's PACE slows it, in a star, whichever seat it is."""
+    def scenario(executable, out):
+        match = Match(executable, out, name, 2, hz=60, last_frame=frames, digest_every=60, waiting_after=0.5, pace=pace,
+                      link={'latency_ms': 10.0, 'jitter_ms': 2.0}, per_seat={fast_seat: {'clock_ppm': -5000}}).start()
+        match.finish(limit)
+        line = in_step(match, frames)
+        fast, slow_seat = match.drivers[fast_seat], match.drivers[1 - fast_seat]
+        delay = fast.delay
+        late = fast.stats['late_frames']
+        # How far ahead each seat found itself of the other, as its time sync saw it (the median of the samples of the
+        # last three seconds, every quarter second): lockstep bounds it by the delay, time sync keeps it well below.
+        ahead = max((item[1] for driver in match.drivers for item in driver.pace_trace), default=0.0)
+        assert ahead <= delay, f'a seat found itself {ahead} frames ahead of the other (delay {delay})'
+        if pace:
+            assert fast.stats['pace_ppm_max'] >= 2500, f'the faster seat never slowed: {fast.pace_trace[-5:]}'
+            assert slow_seat.stats['pace_ppm_max'] <= 2500, f'the slower seat was slowed: {slow_seat.stats["pace_ppm_max"]}'
+            assert late <= frames // 4, (f'the faster seat waited for records on {late} of {frames} frames; delay {delay}; its time sync '
+                                          f'(frame, median, ppm): {fast.pace_trace[::4]}')
+            assert not fast.stats['waits'], fast.stats
+            return (f'seat {fast_seat + 1} runs 0.5 % fast: it slowed to {fast.pace["ppm"]} ppm ({fast.stats["pace_changes"]} changes, '
+                    f'the slower seat {slow_seat.stats["pace_ppm_max"]} ppm); no seat was more than {ahead:.2f} frames '
+                    f'ahead of the other (delay {delay}); the faster seat found its records late on {late} of {frames} frames; {line}')
+        assert fast.stats['pace_changes'] == 0 and late >= 100, f'without time sync: late frames {late}'
+        return (f'time sync off, seat {fast_seat + 1} 0.5 % fast: it found its records late on {late} of {frames} frames '
+                f'(it waits for the slower seat once the gap is the delay of {delay} frames: about frame {delay * 200}); {line}')
+    return name, limit, scenario
+
+
 SCENARIOS = [
     plain('two-seats-0ms', 2, 600, 40, 1),
     plain('two-seats-30ms-jitter', 2, 600, 40, 15, latency_ms=30.0, jitter_ms=10.0, reorder=0.02, duplicate=0.02),
     plain('two-seats-loss', 2, 1000, 40, 2, latency_ms=2.0, loss=0.02),
     plain('three-seats-loss-jitter', 3, 500, 40, 6, latency_ms=10.0, jitter_ms=5.0, loss=0.02),
+    plain('four-seats-loss-jitter', 4, 500, 60, 6, latency_ms=10.0, jitter_ms=5.0, loss=0.02, reorder=0.02, duplicate=0.02),
     plain('four-seats-0ms', 4, 500, 40, 1),
+    plain('three-seats-mesh', 3, 400, 40, 3, latency_ms=5.0, loss=0.02, extra={'topology': 'mesh'}),
+    ('boot-mismatch', 40, boot_mismatch),
     ('pause-menu', 40, pause_by_menu),
     ('pause-host', 40, pause_host_resumes),
     ('host-stops', 40, host_stops),
     ('desync', 40, forced_desync),
     ('pipe-lost', 40, pipe_lost),
     ('seat-silent', 40, seat_silent),
+    ('converter-gone', 40, converter_gone),
     slow('lag-one-seat-120ms', 3, 240, 60, one_far, (120.0, 20.0)),
     slow('lag-all-150ms', 2, 240, 60, all_far, (150.0, 0.0)),
     ('lag-burst', 60, burst),
+    pace_jitter('pace-jitter-30ms', 30.0, 10.0, 900, 60),
+    pace_jitter('pace-jitter-120ms', 120.0, 20.0, 1800, 120),
+    drift('pace-drift-host-fast', 0, 900, 80),
+    drift('pace-drift-guest-fast', 1, 900, 80),
+    drift('pace-drift-without-time-sync', 0, 1000, 80, pace=False),
 ]
 
 
@@ -345,10 +504,13 @@ def run_checks(out: Path, only: str | None = None) -> tuple[int, str, float]:
 
 
 def main() -> int:
+    global INPROC
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--output', type=Path, default=ROOT / '.build/netplay-lockstep-selftest')
     parser.add_argument('--only', help='run the scenarios whose name contains this')
+    parser.add_argument('--inproc', action='store_true', help='drivers as threads of this process (no worker processes)')
     args = parser.parse_args()
+    INPROC = args.inproc
     reason = fake.ready()
     if reason:
         print('skipped:', reason)

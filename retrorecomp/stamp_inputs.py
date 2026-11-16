@@ -78,7 +78,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # finished games in a session and drives them through their pipes; no conversion
                                # reads it and it changes nothing a game is or does.
                                'netplay', 'session_pipe', 'session_game', 'input_records', 'session_transport',
-                               'link_simulator', 'lockstep',
+                               'link_simulator', 'lockstep', 'time_sync', 'worker_channel', 'worker', 'worker_client',
+                               'scripted_inputs',
                                # Declares the pinned upstreams per machine (docs/UPSTREAMS.md); a conversion never reads it.
                                'upstreams',
                                # Measures the time of each phase of a conversion; changes nothing a game is or does.

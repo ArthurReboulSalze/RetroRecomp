@@ -3,8 +3,8 @@
 Without a compiler: the pipe codec against the C header, the input packets (round trip, bounded parsing), the delay
 and time-sync rules, what a HELLO is refused for, the link simulator (the same seed gives every packet the same
 fate). With a C compiler and the pinned SDL2 build: tools/netplay_lockstep_selftest.py, two to four fake games each
-driven by its own driver through the simulator (clean, slow and lossy links, pause, stop, forced desync, lost pipe,
-silent seat). No ROM, no visible window, no sound device, and no socket: the package opens none."""
+driven by its own worker process, the workers joined through the link simulator (clean, slow and lossy links, a star
+through the host, a boot-digest mismatch, pause, stop, forced desync, lost pipe, silent seat, time sync). No ROM, no visible window, no sound device, and no socket: the package opens none."""
 import importlib.util
 from pathlib import Path
 import random
@@ -82,35 +82,40 @@ class PipeCodecTests(unittest.TestCase):
 class InputRecordTests(unittest.TestCase):
     def test_an_input_packet_round_trips(self):
         records = [(frame * 3 & 0xffff, frame & 1) for frame in range(32)]
-        data = wire.encode_input(2, 1234, 1200, [(2, 1201, records)], delay=5, hold_ms=140, resume_frame=1100,
-                                 digest_frame=1199, digest=0xfedcba9876543210)
+        data = wire.encode_input(2, 1234, [1300, wire.NONE, 1200, 7], [(2, 1201, records)], delay=5, hold_ms=140,
+                                 resume_frame=1100, digest_frame=1199, digest=0xfedcba9876543210)
         packet = wire.decode(data, 4)
-        self.assertEqual((packet.kind, packet.seat, packet.sender_frame, packet.ack_frame, packet.delay, packet.hold_ms,
+        self.assertEqual((packet.kind, packet.seat, packet.sender_frame, packet.acks, packet.delay, packet.hold_ms,
                           packet.resume_frame, packet.digest_frame, packet.digest),
-                         (wire.INPUT, 2, 1234, 1200, 5, 140, 1100, 1199, 0xfedcba9876543210))
+                         (wire.INPUT, 2, 1234, (1300, wire.NONE, 1200, 7), 5, 140, 1100, 1199, 0xfedcba9876543210))
         self.assertEqual(packet.sections, (wire.Section(2, 1201, tuple(records)),))
         self.assertLessEqual(len(data), wire.MAX_PACKET)
         with self.assertRaises(ValueError):
-            wire.encode_input(0, 0, 0, [(0, 0, [(0, 0)] * 33)])
+            wire.encode_input(0, 0, [], [(0, 0, [(0, 0)] * 33)])
         self.assertEqual(wire.decode(wire.encode_ping(1, 77), 2).time, 77)
         self.assertEqual(wire.decode(wire.encode_pong(1, 2 ** 32 + 5), 2).time, 5)
         measure = wire.decode(wire.encode_measure(1, 120.2, 19.5), 2)
         self.assertEqual((measure.one_way_ms, measure.jitter_ms), (121, 20))
         bye = wire.decode(wire.encode_bye(0, wire.BYE_DESYNC, 99), 2)
-        self.assertEqual((bye.kind, bye.reason, bye.frame), (wire.BYE, wire.BYE_DESYNC, 99))
+        self.assertEqual((bye.kind, bye.reason, bye.frame, bye.who), (wire.BYE, wire.BYE_DESYNC, 99, wire.NO_SEAT))
+        gone = wire.decode(wire.encode_bye(0, wire.BYE_SEAT_GONE, 5, 1), 3)
+        self.assertEqual((gone.reason, gone.who), (wire.BYE_SEAT_GONE, 1))
+        self.assertIsNone(wire.decode(wire.encode_bye(0, wire.BYE_SEAT_GONE, 5, 3), 3))     # a seat the match does not have
+        boot = wire.decode(wire.encode_boot(2, 0xfedcba9876543210), 3)
+        self.assertEqual((boot.kind, boot.seat, boot.digest), (wire.BOOT, 2, 0xfedcba9876543210))
 
     def test_a_packet_out_of_the_rules_is_ignored_whole(self):
-        good = wire.encode_input(1, 10, 9, [(1, 8, [(1, 0), (2, 0), (3, 1)])], delay=2)
+        good = wire.encode_input(1, 10, [9, 9], [(1, 8, [(1, 0), (2, 0), (3, 1)])], delay=2)
         self.assertIsNotNone(wire.decode(good, 2))
         self.assertIsNone(wire.decode(good, 1))                             # a seat the match does not have
         self.assertIsNone(wire.decode(b'XXXX' + good[4:], 2))               # another magic
-        self.assertIsNone(wire.decode(good[:4] + b'\x02' + good[5:], 2))    # another protocol version
+        self.assertIsNone(wire.decode(good[:4] + bytes([wire.PROTO - 1]) + good[5:], 2))    # the first protocol version
         self.assertIsNone(wire.decode(good + b'\0', 2))                     # bytes after the last record
         self.assertIsNone(wire.decode(good + b'\0' * 600, 2))               # above the size limit
-        self.assertIsNone(wire.decode(wire.encode_bye(0, wire.BYE_LEFT, 1)[:-5] + b'\x09\0\0\0\0', 2))    # unknown reason
+        self.assertIsNone(wire.decode(wire.encode_bye(0, wire.BYE_LEFT, 1)[:-6] + b'\x09\0\0\0\0\xff', 2))    # unknown reason
         for cut in range(len(good)):                                        # truncated anywhere
             self.assertIsNone(wire.decode(good[:cut], 2), cut)
-        count_at = 8 + 28 + 5                                       # the section's record count
+        count_at = 8 + wire._INPUT.size + 5                         # the section's record count
         self.assertIsNone(wire.decode(good[:count_at] + b'\xff' + good[count_at + 1:], 2))
         chance = random.Random(5)
         for _ in range(3000):                                               # noise never raises
@@ -139,8 +144,9 @@ class InputRecordTests(unittest.TestCase):
     def test_time_sync_only_slows_and_by_two_per_cent_at_most(self):
         self.assertEqual([wire.pace_for(value) for value in (-3, 0, 0.5)], [0, 0, 0])
         self.assertEqual(wire.pace_for(0.6), 2500)
-        self.assertEqual(wire.pace_for(1.5), 12500)
+        self.assertEqual(wire.pace_for(1.5), 7500)
         self.assertEqual(wire.pace_for(40), 20000)
+        self.assertEqual([wire.pace_for(value, 2.0) for value in (1.9, 2.0, 2.1, 3.0)], [0, 0, 2500, 5000 + 2500])
         values = [wire.pace_for(step / 10) for step in range(0, 60)]
         self.assertEqual(values, sorted(values))
         self.assertTrue(all(0 <= value <= pipe.PACE_LIMIT for value in values))
@@ -199,15 +205,15 @@ class NothingOpenedTests(unittest.TestCase):
 
 
 class DriversThroughRealPipesTests(unittest.TestCase):
-    def test_two_to_four_games_stay_in_step_pause_stop_and_end_together(self):
+    def test_two_to_four_worker_processes_stay_in_step_pause_stop_and_end_together(self):
         reason = selftest.fake.ready()
         if reason:
             self.skipTest(reason)
         code, output, seconds = selftest.run_checks(ROOT / '.build/netplay-lockstep-selftest')
         self.assertEqual(code, 0, output)
         self.assertIn(f'PASS: {len(selftest.SCENARIOS)} scenarios', output)
-        self.assertEqual(len(selftest.SCENARIOS), 14)
-        self.assertLess(seconds, 600, output)     # a hang, not a speed
+        self.assertEqual(len(selftest.SCENARIOS), 23)
+        self.assertLess(seconds, 900, output)     # a hang, not a speed
 
 
 if __name__ == '__main__':
