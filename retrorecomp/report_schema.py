@@ -64,7 +64,8 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
   optional on disk: a report from before it, or one no batch completed, reads ``None``, and so does a value that is not a
   record with a schema number. No section changes and no claim of the report depends on it, so a reader of the release
   before reads the sections it knows and ignores the key (checked by reading such a report with the 1.7.9 module). A
-  ``None`` identity inside the record is a refusal with its reason, never an equality.
+  ``None`` identity inside the record is a refusal with its reason, never an equality. The record carries its own
+  schema number (2: the engine part is the machine's game-role files and upstream pins, no longer the game stamp).
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 

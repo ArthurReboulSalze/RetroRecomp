@@ -13,7 +13,7 @@ from retrorecomp.report_schema import OPTIONAL_ON_DISK, REQUIRED_KEYS, read_repo
 from retrorecomp.systems import ALL_PROFILES, OptionKey, SimulationSource, get_profile
 
 ROM = 'a' * 64
-ENGINE = 'e' * 64
+ENGINE = {'files': 2, 'pins': {'zzrecomp': 'abc'}, 'sha256': 'e' * 64}
 
 
 class FakeProfile:
@@ -101,7 +101,7 @@ class SimulationIdentityTest(unittest.TestCase):
     def test_engine_stamp_rom_and_run_options_count(self):
         folder = project(self.root / 'one')
         first = record(folder)
-        self.assertNotEqual(first['identity'], record(folder, engine='f' * 64)['identity'])
+        self.assertNotEqual(first['identity'], record(folder, engine={**ENGINE, 'sha256': 'f' * 64})['identity'])
         self.assertNotEqual(first['identity'], record(folder, rom='b' * 64)['identity'])
         self.assertNotEqual(first['identity'], record(folder, {'zz_ram': 128})['identity'])
         self.assertNotEqual(first['identity'], record(folder, {'standard_override': 'pal'})['identity'])
@@ -147,18 +147,26 @@ class SimulationIdentityTest(unittest.TestCase):
     def test_same_simulation_needs_two_identities(self):
         first = record(project(self.root / 'one'))
         self.assertFalse(identity.same_simulation(first, None))
-        self.assertFalse(identity.same_simulation(first, {**first, 'schema': 2}))
+        # A record of another schema (1 hashed the game stamp) is never comparable.
+        self.assertFalse(identity.same_simulation(first, {**first, 'schema': 1}))
         self.assertFalse(identity.same_simulation({**first, 'identity': None}, {**first, 'identity': None}))
 
-    def test_the_real_engine_stamp_is_used(self):
-        from retrorecomp.compilation_inputs import role_stamps
+    def test_the_engine_content_of_the_machine_is_used(self):
         profile = get_profile('sms')
         folder = self.root / 'sms'
         (folder / 'generated').mkdir(parents=True)
         (folder / 'generated' / 'game_banked_index.c').write_text('int positions;\n', encoding='ascii')
         result = identity.compute(profile, ROM, {}, folder)
-        self.assertEqual(result['engine'], role_stamps('sms')['game'])
+        self.assertEqual(result['engine'], identity.engine_content('sms'))
         self.assertEqual(result['sources']['files'], 1)
+        self.assertEqual(len(result['identity']), 64)
+
+    def test_an_unreadable_pin_gives_no_identity(self):
+        folder = project(self.root / 'one')
+        with mock.patch.object(identity, 'engine_pins', return_value={'zzrecomp': None}):
+            result = identity.compute(FakeProfile(), ROM, {}, folder)
+        self.assertIsNone(result['identity'])
+        self.assertIn('zzrecomp', result['reason'])
 
     def test_for_conversion_reads_the_project_the_report_names(self):
         build = self.root / '.build'
@@ -167,7 +175,7 @@ class SimulationIdentityTest(unittest.TestCase):
                   'published_directory': 'D:/Games/Master System'}
         profile = FakeProfile()
         profile.id = 'sms'
-        with mock.patch('retrorecomp.compilation_inputs.role_stamps', return_value={'game': ENGINE}):
+        with mock.patch.object(identity, 'engine_content', return_value=ENGINE):
             first = identity.for_conversion(profile, ROM, {}, report, root=self.root)
             other = identity.for_conversion(profile, ROM, {}, {**report, 'title': 'B', 'artwork': {'embedded': False},
                                                                 'published_directory': 'E:/Elsewhere'}, root=self.root)
@@ -176,6 +184,67 @@ class SimulationIdentityTest(unittest.TestCase):
         self.assertEqual(len(first['identity']), 64)
         self.assertEqual(first, other)
         self.assertIsNone(outside['identity'])
+
+
+class EngineContentTest(unittest.TestCase):
+    """The engine part: files and pins of one source tree, never the bytecode of a Python module."""
+
+    def test_only_game_role_files_in_manifest_order(self):
+        from retrorecomp.compilation_inputs import manifest_names, role
+        for system in ('sms', 'md', 'cps2', 'x68', 'scummvm'):
+            with self.subTest(machine=system):
+                names = [name for name, _ in identity.engine_files(system)]
+                self.assertTrue(names)
+                self.assertFalse([name for name in names if name.startswith('retrorecomp')])
+                self.assertFalse([name for name in names if role(name) != 'game'])
+                self.assertFalse([name for name in names if name.startswith('native/hostkit/')])
+                self.assertEqual(names, [name for name in manifest_names(system) if name in set(names)])
+
+    def test_a_file_is_hashed_with_lf_line_ends(self):
+        import hashlib
+        from retrorecomp.compilation_inputs import input_bytes
+        from retrorecomp.paths import ASSETS
+        name, digest = next(entry for entry in identity.engine_files('sms') if entry[0].endswith(('.c', '.h', '.inc')))
+        data = (ASSETS / name).read_bytes().replace(b'\r\n', b'\n')
+        self.assertEqual(digest, hashlib.sha256(data).hexdigest())
+        self.assertEqual(data, input_bytes(ASSETS / name, name))
+
+    def test_every_machine_reads_its_pins_as_the_upstreams_page_does(self):
+        from retrorecomp import upstreams
+        for profile in ALL_PROFILES:
+            with self.subTest(machine=profile.id):
+                pins = identity.engine_pins(profile.id)
+                expected = {item.key: upstreams.read_pin(item.pin) for item in upstreams.MACHINE_UPSTREAMS[profile.id]
+                            if item.pin.kind != 'submodule'}
+                self.assertEqual(pins, expected)
+                self.assertTrue(pins)
+                self.assertTrue(all(isinstance(value, str) and value for value in pins.values()))
+                content = identity.engine_content(profile.id)
+                self.assertEqual(len(content['sha256']), 64)
+                self.assertEqual(content['pins'], pins)
+
+    def test_a_pin_is_read_from_the_module_when_the_source_is_not_on_disk(self):
+        from retrorecomp import upstreams
+        pin = upstreams.MACHINE_UPSTREAMS['md'][0].pin
+        self.assertEqual(pin.kind, 'dict')
+        from_source = (upstreams.read_pin(pin), upstreams.read_pin(upstreams.MACHINE_UPSTREAMS['sms'][0].pin))
+        self.assertTrue(all(from_source))
+        with mock.patch.object(upstreams, 'read_pin', return_value=None):
+            self.assertEqual((identity._pin_text(pin), identity._pin_text(upstreams.MACHINE_UPSTREAMS['sms'][0].pin)),
+                             from_source)
+
+    def test_a_file_or_a_pin_changes_the_content_and_python_modules_do_not_enter_it(self):
+        first = identity.engine_content('sms')
+        files = identity.engine_files('sms')
+        changed = [(files[0][0], '0' * 64), *files[1:]]
+        with mock.patch.object(identity, 'engine_files', return_value=changed):
+            self.assertNotEqual(first['sha256'], identity.engine_content('sms')['sha256'])
+        with mock.patch.object(identity, 'engine_pins', return_value={**first['pins'], 'smsggrecomp': 'another'}):
+            self.assertNotEqual(first['sha256'], identity.engine_content('sms')['sha256'])
+        # The game stamp's module fingerprints are never asked for.
+        with mock.patch('retrorecomp.compilation_inputs.code_fingerprint', side_effect=AssertionError), \
+                mock.patch('retrorecomp.compilation_inputs._code_digest', side_effect=AssertionError):
+            self.assertEqual(first, identity.engine_content('sms'))
 
 
 class ProfileDeclarationsTest(unittest.TestCase):
@@ -258,7 +327,7 @@ class ReportFieldTest(unittest.TestCase):
         self.assertNotIn('simulation_identity', document)
         self.assertIsNone(read_report(document)['simulation_identity'])
         self.assertIsNone(read_report(legacy)['simulation_identity'])
-        value = {'schema': 1, 'identity': 'c' * 64, 'engine': ENGINE, 'rom': ROM, 'options': {'standard_override': None},
+        value = {'schema': 2, 'identity': 'c' * 64, 'engine': ENGINE, 'rom': ROM, 'options': {'standard_override': None},
                  'sources': {'files': 3, 'sha256': 'd' * 64}, 'reason': None}
         written = with_schema_v2({**legacy, 'simulation_identity': value})
         self.assertEqual(written['simulation_identity'], value)
