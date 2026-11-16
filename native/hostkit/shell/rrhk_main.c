@@ -420,7 +420,8 @@ static bool begin_frame(RrhkRun *r) {
     r->cpu_started = r->timing_enabled ? rrhk_thread_cpu() : 0;
     r->ran_frame = false;
     if (r->timing_enabled) r->ticks[0] = now_ticks();
-    rrhk_audio_wait_room(r);
+    /* A session paces itself (the worker's time sync): the sound queue never holds a frame back there. */
+    if (!rrhk_session_on) rrhk_audio_wait_room(r);
     if (m->frame_start) m->frame_start(r->win, r->ren);
     rrhk_poll_events(r);
     /* 1.7.4: the Quit combination asks "Quit?" like Esc, once per hold (a hidden-window test run stops as before). */
@@ -434,7 +435,7 @@ static bool begin_frame(RrhkRun *r) {
     }
     /* 1.7.5: Quick save and Quick load on player 1's pad, as F8 and F9 in play (the same request, the same notices). Both are
      * watched every frame, so that a hold begun in a menu is never taken for a new one; they act in play only. */
-    rrhk_speed_combos();      /* 1.7.6: Fast forward and Max speed, player 1's pad combinations */
+    if (!rrhk_session_on) rrhk_speed_combos();      /* 1.7.6: Fast forward and Max speed, player 1's pad combinations */
     const bool quick_save = rrhk_options_quick_save(rrhk.menu), quick_load = rrhk_options_quick_load(rrhk.menu);
     if (!rrhk.menu && !r->pending_state && (quick_save || quick_load)) r->pending_state = quick_load ? 2 : 1;
     if (!r->running) return false;
@@ -546,7 +547,9 @@ static void sync_decide(RrhkRun *r) {
     rrhk_sync.lock = false;
     rrhk_sync.why = NULL;
     if (!rrhk_sync.active || rrhk_sync.mode == RRHK_SYNC_FREE || rrhk_sync.mode == RRHK_SYNC_VARIABLE) return;
-    if (m->own_audio && !m->audio_ratio) rrhk_sync.why = "Free: its sound cannot follow yet";
+    /* Multiplayer first: the session sets the pace (Variable refresh is already free and stays so). */
+    if (rrhk_session_on) rrhk_sync.why = "Free: network play sets the pace";
+    else if (m->own_audio && !m->audio_ratio) rrhk_sync.why = "Free: its sound cannot follow yet";
     else if (rrhk_sync.refresh_hz <= 0.0) rrhk_sync.why = "Free: the screen's refresh is unknown";
     else if (!rrhk_sync_decide(rrhk_sync.mode, rrhk_sync.refresh_hz, rrhk_sync.machine_hz)) rrhk_sync.why = "far";
     else rrhk_sync.lock = true;
@@ -575,7 +578,7 @@ static bool sync_frame(RrhkRun *r) {
                 rrhk_sync.lock ? "locked" : "free");
     }
     if (rrhk_sync.announce) rrhk_sync_notice();
-    const bool other_speed = r->fast || r->speed != 100 || rrhk_session_on;
+    const bool other_speed = r->fast || r->speed != 100;
     const bool paced = rrhk_sync.lock && !other_speed && !rrhk.menu && !rrhk.paused;
 #ifdef _WIN32
     const bool usual = false;          /* before 1.7.7: Windows presents without waiting */
@@ -585,7 +588,9 @@ static bool sync_frame(RrhkRun *r) {
     const bool vsync = rrhk_sync.mode == RRHK_SYNC_FREE || rrhk_sync.mode == RRHK_SYNC_VARIABLE ? false :
                        rrhk_sync.lock ? !other_speed : usual;
     if (vsync != rrhk_sync.vsync && SDL_RenderSetVSync(r->ren, vsync ? 1 : 0) == 0) rrhk_sync.vsync = vsync;
-    rrhk_audio_set_base(r, paced && rrhk_sync.machine_hz > 0.0 ? rrhk_sync.machine_hz / rrhk_sync.refresh_hz : 1.0);
+    /* In a session the sound follows the worker's time sync instead (rrhk_session_audio_base: 1.0 at ppm 0). */
+    rrhk_audio_set_base(r, rrhk_session_on ? rrhk_session_audio_base() :
+                        paced && rrhk_sync.machine_hz > 0.0 ? rrhk_sync.machine_hz / rrhk_sync.refresh_hz : 1.0);
     return paced;
 }
 
@@ -648,7 +653,8 @@ static void end_frame(RrhkRun *r) {
     r->ticks[5] = now;
     if (r->work_started && m->cost) m->cost(1000.0 * (now - r->work_started) / r->frequency,
                                            1000.0 * (now - present_started) / r->frequency);
-    if (rrhk.menu || rrhk.paused) {
+    /* In a session a menu does not stop the frames (everyone pauses only when the session says so). */
+    if (rrhk_session_on ? rrhk_session_paused() : (rrhk.menu || rrhk.paused)) {
         /* 1.7.7: a locked game's menus keep vsync on: a present that waited for the refresh needs no other wait */
         if (!(rrhk_sync.lock && rrhk_sync.vsync && r->presented && now - r->presented > r->frequency / 250)) SDL_Delay(16);
         r->presented = now; r->next = now; return;
@@ -672,7 +678,7 @@ static void end_frame(RrhkRun *r) {
     if (r->speed != 100) period = period * 100 / (Uint64)r->speed;
     if (rrhk_session_on) period = rrhk_session_period(period);
     r->next += period;
-    rrhk_audio_pace(r, now);
+    if (!rrhk_session_on) rrhk_audio_pace(r, now);     /* a session's period is the worker's */
     if (r->next > now) {
         Uint32 ms = (Uint32)((r->next - now) * 1000 / r->frequency);
         if (ms > 1) SDL_Delay(ms - 1);

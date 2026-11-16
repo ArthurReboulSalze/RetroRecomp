@@ -366,7 +366,8 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         const char *lines[16]; int count = 0;
         char fire[64];
         snprintf(fire, sizeof(fire), rr_tr("F6  Autofire: %s"), rr_tr(rrhk.autofire ? "ON" : "OFF"));
-        lines[count++] = rr_tr("F1  Help | Shift+F1 Restart");
+        /* In a multiplayer session the keys refused there are left out (Shift+F1, F8/F9, Tab, the Max speed key). */
+        lines[count++] = rr_tr(rrhk_session_on ? "F1  Help" : "F1  Help | Shift+F1 Restart");
         lines[count++] = rr_tr("F2  Controls & options");
         lines[count++] = rr_tr(m->gfx_option_count > 0 ? "F3  Graphics options" : "F3  Next filter");
         lines[count++] = rr_tr("F4  Window / Pixel / Fit / Stretched");
@@ -377,9 +378,9 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
          * its own, then two of controls) still ends inside the panel. */
         char states[120];
         snprintf(states, sizeof states, "%s | %s", rr_tr("F8  Save game state"), rr_tr("F9  Load game state"));
-        lines[count++] = states;
+        if (!rrhk_session_on) lines[count++] = states;
         if (m->help_lines) m->help_lines(1, lines, &count);
-        lines[count++] = rr_tr("Tab  Fast-forward | `  Max speed | M  Mute");   /* decision D12: on every console */
+        lines[count++] = rr_tr(rrhk_session_on ? "M  Mute" : "Tab  Fast-forward | `  Max speed | M  Mute");   /* D12 */
         lines[count++] = rr_feedback_label();
         lines[count++] = rrhk_tr("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)");
         int y = 36;

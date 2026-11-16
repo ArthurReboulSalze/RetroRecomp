@@ -82,7 +82,6 @@ static bool session_option(const char *key, const char *value) {
 
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)running;
-    if (key == SDL_SCANCODE_F5 && rrhk_session_active()) return true;
     if (key == SDL_SCANCODE_F5) {
         extra_sprites = !extra_sprites; rr_nes_extra_sprites(extra_sprites != 0);
         rrhk_notice(extra_sprites ? rrhk_tr("Sprite flicker reduction ON", "Reduction du scintillement ON") :
@@ -95,7 +94,7 @@ static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
 }
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
-    if (slot == 0) rrhk_option_row_icon(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
+    if (slot == 0) rrhk_option_row_run(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
                                         rr_tr(extra_sprites ? "ON" : "OFF"));
 }
 

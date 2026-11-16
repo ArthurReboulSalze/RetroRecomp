@@ -1,7 +1,7 @@
 """The host kit's multiplayer session through its real loop (tools/hostkit_session_selftest.py): alone as before, delay with four
-ports, rollback with silent frames, a guest, pause for everyone, a refused option, the pipe lost, F8 refused. Runs when a C compiler
-and the pinned SDL2 build are available, and skips cleanly otherwise. No ROM, no visible window, no sound device, no network: the
-two pipes are anonymous and local."""
+ports, rollback with silent frames, a guest, pause for everyone, a refused option, the pipe lost, F8 refused, no session in a
+test run. Runs when a C compiler and the pinned SDL2 build are available, and skips cleanly otherwise. No ROM, no visible window,
+no sound device, no network: the two pipes are anonymous and local."""
 import importlib.util
 from pathlib import Path
 import re
@@ -21,7 +21,7 @@ class SessionThroughTheLoopTests(unittest.TestCase):
             self.skipTest(reason)
         code, output, seconds = selftest.run_checks(ROOT / '.build/hostkit-session-selftest')
         self.assertEqual(code, 0, output)
-        self.assertIn('PASS: 7 scenarios', output)
+        self.assertIn('PASS: 8 scenarios', output)
         self.assertLess(seconds, 120, output)     # a hang, not a speed
 
 

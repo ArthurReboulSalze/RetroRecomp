@@ -181,6 +181,8 @@ typedef struct {
     bool (*available)(void);                             /* NULL: always */
     void (*draw)(RrhkUi *ui, const RrhkMenuCtx *ctx);    /* the page body */
     void (*key)(RrhkUi *ui, SDL_Scancode key);           /* a key while the page is open */
+    bool run_changing;                                   /* its settings change the run (DIP switches): read-only in a
+                                                          * multiplayer session, the host sets them */
 } RrhkPage;
 
 typedef struct RrhkMachine {
@@ -403,6 +405,9 @@ void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);
 /* 1.7.5: an options row with its own icon (RR_ICON_ROW_*); rrhk_option_row lets the kit choose by the row's key (D20). */
 void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);
+/* The same row for an option that changes the run (keep it in line with RrhkMachine.session_option): in a multiplayer
+ * session the host sets it, the row is faded and its key refused with a notice. */
+void rrhk_option_row_run(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);
 extern const RrhkPage rrhk_pointer_page;
 
 /* Multiplayer: true only while the game plays in a session the converter started (hostkit_session.h); silent while a frame is

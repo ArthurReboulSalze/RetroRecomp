@@ -99,11 +99,15 @@ def digest_of(history: list[tuple[int, int, int, int]]) -> int:
 class Game:
     """The fake game started in a session (or alone): its pipes, a reader thread, its exit."""
 
-    def __init__(self, executable: Path, out: Path, session: bool = True, frames: int = 100000):
-        env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0',
-                   RETRORECOMP_HOST_TEST_FRAMES=str(frames))
-        for name in (ENV, 'RETRORECOMP_TIMING_REPORT', 'RETRORECOMP_HOST_TEST_NO_AUDIO', 'RETRORECOMP_HOST_TEST_FILTER'):
+    def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None):
+        # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
+        # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
+        env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
+        for name in (ENV, 'RETRORECOMP_TIMING_REPORT', 'RETRORECOMP_HOST_TEST_NO_AUDIO', 'RETRORECOMP_HOST_TEST_FILTER',
+                     'RETRORECOMP_HOST_TEST_FRAMES'):
             env.pop(name, None)
+        if frames:
+            env['RETRORECOMP_HOST_TEST_FRAMES'] = str(frames)
         self.messages: queue.Queue = queue.Queue()
         self.pending: list = []
         self.write = None
@@ -334,14 +338,14 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     assert code == 0 and int(result['frames']) == 32, result
     passed.append('pause: nothing runs while paused, frame 31 after resume')
 
-    # 6. An option the machine cannot honour: refused with its key, the game does not start.
+    # 6. An option the machine cannot honour: refused with its key, the session ends before frame 0.
     game = Game(executable, out)
     setup(game, options='bogus=1')
     refused = game.expect('RRHK_MSG_REFUSED')
     code_refused, length = struct.unpack_from('<HB', refused)
     assert code_refused == CONSTANTS['RRHK_REFUSED_OPTION'] and refused[3:3 + length] == b'bogus', refused
     code, result, _text = game.finish()
-    assert code != 0 and int(result['frames']) == 0, (code, result)
+    assert int(result['frames']) == 0, (code, result)
     passed.append('option refused: key named, nothing run')
 
     # 7. The pipe lost: the game stops by itself, it does not hang.
@@ -355,6 +359,13 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     assert code == 0 and int(result['frames']) == 20, (code, result, text)
     assert 'pipe is closed' in text, text
     passed.append(f'pipe lost: stopped in {time.perf_counter() - started:.2f} s')
+
+    # 8. A hidden-window test run (the conversion's checks) is never a session, even with the pipes handed to it.
+    game = Game(executable, out, frames=50)
+    assert game.quiet(1.0), 'a test run spoke to the worker'
+    code, result, text = game.finish()
+    assert code == 0 and int(result['frames']) == 50 and int(result['quick']) == 1, (code, result, text)
+    passed.append('test run: no session, plays alone (50 frames)')
     return passed
 
 

@@ -1204,6 +1204,18 @@
     "Anti-aliasing (GPU)": "Anti-aliasing (GPU)",
     "Texture filtering (GPU)": "Filtro texture (GPU)",
     "Needs geometry precision (PGXP) On": "Richiede la precisione geometrica (PGXP) attiva",
-    "Supersampling: nothing larger than 8x to draw": "Supercampionamento: niente oltre 8x da disegnare"
+    "Supersampling: nothing larger than 8x to draw": "Supercampionamento: niente oltre 8x da disegnare",
+    "Quick states are off in multiplayer": "Stati rapidi disattivati in multigiocatore",
+    "Set by the host in multiplayer": "Impostato dall'host in multigiocatore",
+    "Paused by %s": "In pausa da %s",
+    "Waiting for %s": "In attesa di %s",
+    "%s left the game": "%s ha lasciato la partita",
+    "Resumed": "Ripresa",
+    "Connection to Retro-Recomp lost": "Connessione a Retro-Recomp persa",
+    "The games went out of step: the match stops": "Partite desincronizzate: si ferma tutto",
+    "The match is over": "La partita è finita",
+    "Free: network play sets the pace": "Libero: il gioco in rete detta il ritmo",
+    "F1  Help": "F1  Aiuto",
+    "M  Mute": "M  Muto"
   }
 }

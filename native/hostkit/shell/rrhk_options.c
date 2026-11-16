@@ -22,7 +22,10 @@ typedef char rrhk_menu_numbers_follow_game_options[
  * row is not shown, and stderr says so once. */
 #define RRHK_OPTION_ROWS 32
 #define RRHK_OPTION_WINDOW ((int)(sizeof ((RrOptionRows *)0)->keys / sizeof ((RrOptionRows *)0)->keys[0]))
-struct RrhkOptionRows { char text[RRHK_OPTION_ROWS][80]; int keys[RRHK_OPTION_ROWS], icons[RRHK_OPTION_ROWS], count; };   /* icons: -1 by key */
+/* icons: -1 by key. run: the row changes the run (multiplayer: the host sets it for everyone, the row is faded and its key
+ * refused during a match). */
+struct RrhkOptionRows { char text[RRHK_OPTION_ROWS][80]; int keys[RRHK_OPTION_ROWS], icons[RRHK_OPTION_ROWS], count;
+                        bool run[RRHK_OPTION_ROWS]; };
 
 static void add_row(RrhkOptionRows *rows, int key, const char *text) {
     static bool told;
@@ -33,6 +36,7 @@ static void add_row(RrhkOptionRows *rows, int key, const char *text) {
     }
     snprintf(rows->text[rows->count], sizeof rows->text[0], "%s", text);
     rows->icons[rows->count] = -1;
+    rows->run[rows->count] = false;
     rows->keys[rows->count++] = key;
 }
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value) {
@@ -45,6 +49,14 @@ void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *f
     const int before = rows->count;
     rrhk_option_row(rows, key, format, value);
     if (rows->count > before) rows->icons[before] = icon >= 0 && icon < RR_ICON_COUNT ? icon : -1;
+}
+
+/* A row that changes the run (a machine's sprite option, its region, its DIP-like switches): the same row, marked. In a
+ * multiplayer session the host sets it for everyone (RrhkMachine.session_option): it is faded and its key refused. */
+void rrhk_option_row_run(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value) {
+    const int before = rows->count;
+    rrhk_option_row_icon(rows, key, icon, format, value);
+    if (rows->count > before) rows->run[before] = true;
 }
 
 void rrhk_options_init(const wchar_t *console) {
@@ -170,11 +182,19 @@ static RrhkOptionRows option_rows(void) {
     /* 1.7.4: the plates of the first seconds (F1, F2, Esc, the gamepad's combinations, a computer's keyboard) may be turned off. */
     rrhk_option_row(&d, RRHK_KEY_START_HELP, "Start-up reminders: %s", rr_tr(rrhk_start_help() ? "ON" : "OFF"));
     rrhk_option_row(&d, SDL_SCANCODE_GRAVE, "` Max speed: %s", rr_tr(rrhk.max_speed ? "ON" : "OFF"));
+    if (d.count && d.keys[d.count - 1] == SDL_SCANCODE_GRAVE) d.run[d.count - 1] = true;   /* the pace is the session's */
     /* 1.7.6: the last row quits, through the one "Quit? No / Yes" (a player who knows neither Esc nor the pad's combination, or
      * whose keyboard belongs to the computer). The fullest pages (the computers, the Neo Geo) reach fourteen rows with it: no
      * scrolling on any machine. */
     rrhk_option_row(&d, RRHK_KEY_QUIT, "%s", rr_tr("Quit the game"));
     return d;
+}
+
+bool rrhk_option_key_run(int key) {
+    if (!key) return false;
+    RrhkOptionRows all = option_rows();
+    for (int i = 0; i < all.count; ++i) if (all.keys[i] == key && all.run[i]) return true;
+    return false;
 }
 
 /* The rows game_options.h is handed: all of them up to its fourteen, else the window that starts at `first`. */
@@ -219,11 +239,21 @@ int rrhk_option_page_event(const SDL_Event *event) {
     rr_options.row += first;
     return chosen;
 }
+/* Multiplayer: the rows the host sets are drawn faded (the panel's colour over them), the selected one included. */
+static void fade_run_rows(SDL_Renderer *renderer, const RrhkOptionRows *all, int first, int count) {
+    if (!rrhk_session_on) return;
+    int x, y, unit; rr_menu_layout(renderer, &x, &y, &unit);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    for (int i = 0; i < count; ++i)
+        if (all->run[first + i]) rr_menu_box(renderer, x, y, unit, 12, RR_MENU_FIRST_LINE + i * RR_MENU_LINE, 232, RR_MENU_LINE,
+                                             RR_MENU_PANEL_RGB, 160);
+}
 void rrhk_option_page_draw(SDL_Renderer *renderer) {
     RrhkOptionRows all = option_rows();
     if (all.count <= RRHK_OPTION_WINDOW) {
         RrOptionRows d = option_window(&all, 0);
         rr_option_page_draw(renderer, &d, rrhk_pages_index(), rrhk_pages_count());
+        fade_run_rows(renderer, &all, 0, d.count);
         return;
     }
     const int first = rrhk_option_scroll();
@@ -231,6 +261,7 @@ void rrhk_option_page_draw(SDL_Renderer *renderer) {
     rr_options.row -= first;
     rr_option_page_draw(renderer, &d, rrhk_pages_index(), rrhk_pages_count());
     rr_options.row += first;
+    fade_run_rows(renderer, &all, first, d.count);
     /* ^ and v at the right edge: more rows above or below, as on the control pages */
     int x, y, unit; rr_menu_layout(renderer, &x, &y, &unit);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);

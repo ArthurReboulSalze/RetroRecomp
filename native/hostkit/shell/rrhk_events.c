@@ -8,6 +8,7 @@
 #include <string.h>
 #include "platform_io.h"
 #include "retro_menu.h"
+#include "runtime_i18n.h"
 #include "display_settings.h"
 #include "runtime_feedback.h"
 #include "hostkit/hostkit_internal.h"
@@ -192,7 +193,7 @@ void rrhk_speed_combos(void) {
 static void speed_event(const SDL_Event *event) {
     if (event->type == SDL_KEYUP && event->key.keysym.scancode == SDL_SCANCODE_TAB) rrhk.fast_hold &= ~HOLD_KEY;
     else if (event->type == SDL_KEYDOWN && !event->key.repeat && event->key.keysym.scancode == SDL_SCANCODE_TAB &&
-             !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
+             !rrhk.menu && !rrhk_session_on && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
         rrhk.fast_hold |= HOLD_KEY;
     else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) rrhk.fast_hold = 0;
     /* 1.7.7 (D30): another display, another refresh: measured again, the decision said again */
@@ -306,10 +307,10 @@ void rrhk_poll_events(RrhkRun *run) {
                 b == SDL_CONTROLLER_BUTTON_A ? SDL_SCANCODE_RETURN : SDL_SCANCODE_UNKNOWN;
             if (key != SDL_SCANCODE_UNKNOWN) { graphics_key(run, key); continue; }
         }
-        /* A gamepad button bound to Change disc, in play. */
+        /* A gamepad button bound to Change disc, in play (not in a multiplayer session: the disc is everyone's). */
         if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN &&
             media_pressed(&event, key) && !rrhk_options_component(0, event.cbutton.button)) {
-            change_disc();
+            if (rrhk_session_on) rrhk_notice(rr_tr("Set by the host in multiplayer"), 1800); else change_disc();
             continue;
         }
         /* A gamepad button bound to Pause/Menu opens or closes the Pause menu (a key does after the binding capture below). */
@@ -326,6 +327,22 @@ void rrhk_poll_events(RrhkRun *run) {
                 rrhk_assign(rrhk.player, rrhk_action_row(), false, key); rrhk.capturing = 0;
             }
             continue;
+        }
+        /* Multiplayer: a key that would change the run on this PC alone is refused with one notice, before every other branch
+         * (the kit's and the machine's key_event): Shift+F1, F8/F9, the Max speed key, Change disc, the shortcut of an option
+         * row the host sets, a key of a machine page that changes the run (DIP switches). Menus, bindings, filters, sound,
+         * language and Quit stay this player's own. */
+        if (rrhk_session_on) {
+            const bool states = key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9;
+            const bool refused = states || (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) ||
+                (key == SDL_SCANCODE_GRAVE && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) ||
+                (media_pressed(&event, key) && !rrhk_options_component(key, -1)) || rrhk_option_key_run(key) ||
+                (rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
+                 key != SDL_SCANCODE_F2);
+            if (refused) {
+                rrhk_notice(rr_tr(states ? "Quick states are off in multiplayer" : "Set by the host in multiplayer"), 1800);
+                continue;
+            }
         }
         if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
             /* Shift+F1 restarts at once, without a confirmation. */

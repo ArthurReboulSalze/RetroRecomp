@@ -1204,6 +1204,18 @@
     "Anti-aliasing (GPU)": "抗锯齿 (GPU)",
     "Texture filtering (GPU)": "纹理过滤 (GPU)",
     "Needs geometry precision (PGXP) On": "需要开启几何精度 (PGXP)",
-    "Supersampling: nothing larger than 8x to draw": "超级采样：没有比 8x 更大的绘制"
+    "Supersampling: nothing larger than 8x to draw": "超级采样：没有比 8x 更大的绘制",
+    "Quick states are off in multiplayer": "多人游戏中快速存档已关闭",
+    "Set by the host in multiplayer": "多人游戏中由主机设置",
+    "Paused by %s": "%s 暂停了游戏",
+    "Waiting for %s": "正在等待 %s",
+    "%s left the game": "%s 已离开游戏",
+    "Resumed": "已继续",
+    "Connection to Retro-Recomp lost": "与 Retro-Recomp 的连接已断开",
+    "The games went out of step: the match stops": "游戏不同步：比赛结束",
+    "The match is over": "比赛结束",
+    "Free: network play sets the pace": "自由：由联网游戏决定节奏",
+    "F1  Help": "F1  帮助",
+    "M  Mute": "M  静音"
   }
 }

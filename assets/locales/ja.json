@@ -1204,6 +1204,18 @@
     "Anti-aliasing (GPU)": "アンチエイリアス (GPU)",
     "Texture filtering (GPU)": "テクスチャフィルタリング (GPU)",
     "Needs geometry precision (PGXP) On": "ジオメトリ精度 (PGXP) のオンが必要",
-    "Supersampling: nothing larger than 8x to draw": "スーパーサンプリング: 8xより大きく描けません"
+    "Supersampling: nothing larger than 8x to draw": "スーパーサンプリング: 8xより大きく描けません",
+    "Quick states are off in multiplayer": "マルチプレイではクイック状態は使えません",
+    "Set by the host in multiplayer": "マルチプレイではホストが設定します",
+    "Paused by %s": "%s が一時停止しました",
+    "Waiting for %s": "%s を待っています",
+    "%s left the game": "%s が退出しました",
+    "Resumed": "再開",
+    "Connection to Retro-Recomp lost": "Retro-Recomp との接続が切れました",
+    "The games went out of step: the match stops": "ゲームの同期がずれたため対戦を終了します",
+    "The match is over": "対戦終了",
+    "Free: network play sets the pace": "自由: ネット対戦がテンポを決めます",
+    "F1  Help": "F1  ヘルプ",
+    "M  Mute": "M  ミュート"
   }
 }

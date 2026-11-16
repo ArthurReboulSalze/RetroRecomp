@@ -125,7 +125,7 @@ static void dip_draw(RrhkUi *ui, const RrhkMenuCtx *ctx) {
     rr_menu_text(ren, ox, oy, unit, 14, RR_MENU_HINT_LINE, rr_tr("Enter / A / +: next | -: previous"), RR_MENU_GOLD);
     if (!ui->status[0]) rr_menu_text(ren, ox, oy, unit, 14, RR_MENU_LAST_LINE, rr_tr("Left/Right: page | Esc: close"), RR_MENU_GOLD);
 }
-static const RrhkPage dip_page = {"DIP switches", dip_available, dip_draw, dip_key};
+static const RrhkPage dip_page = {"DIP switches", dip_available, dip_draw, dip_key, true};   /* run_changing */
 
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;

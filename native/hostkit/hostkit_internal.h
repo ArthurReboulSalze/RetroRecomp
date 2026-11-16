@@ -269,6 +269,8 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame);
 void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks);   /* after the live frame ran */
 uint16_t rrhk_session_port(int port);         /* the word of a port for the frame being run */
 Uint64 rrhk_session_period(Uint64 period);    /* the frame period with the worker's time sync applied */
+double rrhk_session_audio_base(void);         /* the sound's factor under that time sync (rrhk_audio_set_base) */
+bool rrhk_option_key_run(int key);            /* options.c: this key is the shortcut of a row that changes the run */
 bool rrhk_session_paused(void);
 void rrhk_session_close(RrhkRun *run, int reason);
 /* input.c: the pad word of this PC's player as today's solo game reads it (player `player`'s bindings, autofire applied). */

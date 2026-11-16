@@ -217,8 +217,17 @@ static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     return true;
 }
 
+/* Multiplayer: the sprite option is sealed by the host for everyone (it may change what the game reads of the sprite
+ * overflow until a probe shows otherwise). */
+static bool session_option(const char *key, const char *value) {
+    if (strcmp(key, "extra_sprites") || (strcmp(value, "0") && strcmp(value, "1"))) return false;
+    reduce_sprites = value[0] == '1';
+    smsrecomp_video_set_sprite_flicker_reduction(reduce_sprites);
+    return true;
+}
+
 static void option_rows(int slot, RrhkOptionRows *rows) {
-    if (slot == 0) rrhk_option_row_icon(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
+    if (slot == 0) rrhk_option_row_run(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
                                         rr_tr(reduce_sprites ? "ON" : "OFF"));
 }
 
@@ -335,7 +344,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = no_audio, .interpreted = interpreted, .audio_interpreted = no_count,
             .state_ready = state_ready, .state_file = state_file, .input_frame = input_frame,
             .pointer_input = pointer_input,
-            .digest = smsrecomp_digest,
+            .digest = smsrecomp_digest, .session_option = session_option,
             .page = sms_light_phaser ? &page : NULL,
             .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
             .audio_ratio = host_audio_ratio,     /* 1.7.7 (HOST_KIT D30): Sync to display */

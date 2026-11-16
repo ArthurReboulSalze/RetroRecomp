@@ -1204,6 +1204,18 @@
     "Anti-aliasing (GPU)": "Сглаживание (GPU)",
     "Texture filtering (GPU)": "Фильтрация текстур (GPU)",
     "Needs geometry precision (PGXP) On": "Нужна точность геометрии (PGXP)",
-    "Supersampling: nothing larger than 8x to draw": "Суперсэмплинг: больше 8x рисовать нечего"
+    "Supersampling: nothing larger than 8x to draw": "Суперсэмплинг: больше 8x рисовать нечего",
+    "Quick states are off in multiplayer": "Быстрые сохранения отключены в сетевой игре",
+    "Set by the host in multiplayer": "В сетевой игре это задаёт хост",
+    "Paused by %s": "Пауза: %s",
+    "Waiting for %s": "Ожидание: %s",
+    "%s left the game": "%s выходит из игры",
+    "Resumed": "Продолжено",
+    "Connection to Retro-Recomp lost": "Связь с Retro-Recomp потеряна",
+    "The games went out of step: the match stops": "Игры рассинхронизировались: матч окончен",
+    "The match is over": "Матч окончен",
+    "Free: network play sets the pace": "Свободно: темп задаёт сетевая игра",
+    "F1  Help": "F1  Справка",
+    "M  Mute": "M  Без звука"
   }
 }

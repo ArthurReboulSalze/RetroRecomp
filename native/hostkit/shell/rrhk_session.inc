@@ -19,6 +19,7 @@
 #include <string.h>
 #include "hostkit/hostkit_internal.h"
 #include "hostkit/hostkit_session.h"
+#include "runtime_i18n.h"
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -44,7 +45,9 @@ static struct {
     bool silent;                    /* a re-simulated frame is running */
     bool guest;
     bool paused;
-    char paused_by[64];
+    char paused_by[24];
+    bool setup;                     /* SETUP received and applied: frames may run */
+    Uint64 setup_until;             /* SETUP must come before this (SDL ticks) */
     uint32_t live;                  /* the frame the next live RUN must name */
     uint32_t last_run;              /* the last frame run, live or silent */
     bool local_sent;                /* LOCAL already reported for `live` */
@@ -64,6 +67,9 @@ uint16_t rrhk_session_port(int port) { return port >= 0 && port < RRHK_MAX_PLAYE
 Uint64 rrhk_session_period(Uint64 period) {
     return s.ppm ? (Uint64)((double)period * (1.0 + (double)s.ppm / 1e6)) : period;
 }
+/* The sound's factor while the worker stretches the frame period by ppm (time sync): the frames come 1 + ppm slower, so the
+ * machine's sound is stretched by as much (the same hook as Sync to display, rrhk_audio_set_base). */
+double rrhk_session_audio_base(void) { return 1.0 + (double)s.ppm / 1e6; }
 
 /* ---- the pipe ---- */
 
@@ -161,10 +167,13 @@ static void refuse(uint16_t code, const char *text) {
 }
 
 /* A name from the worker (already cleaned there), kept printable here too. */
+/* A player's name in a notice: games draw ASCII only, so anything else becomes '?', and at most 16 characters are kept (the
+ * worker transliterates accents before sending). */
 static void copy_name(char *out, size_t cap, const uint8_t *text, size_t length) {
-    size_t n = length < cap - 1 ? length : cap - 1;
-    memcpy(out, text, n); out[n] = 0;
-    for (size_t i = 0; i < n; ++i) if ((unsigned char)out[i] < 32) out[i] = ' ';
+    size_t n = length < 16 ? length : 16;
+    if (n > cap - 1) n = cap - 1;
+    for (size_t i = 0; i < n; ++i) out[i] = text[i] >= 32 && text[i] < 127 ? (char)text[i] : '?';
+    out[n] = 0;
 }
 
 /* ---- opening ---- */
@@ -193,6 +202,7 @@ bool rrhk_session_open(RrhkRun *run) {
     if (rrhk_session_on) return true;                   /* a driven guest restarted: the session goes on */
     const char *value = getenv(RRHK_SESSION_ENV);
     if (!value || !*value) return true;                 /* alone: nothing changes */
+    if (run->test_frames) return true;                  /* a hidden-window test run (the conversion's checks) is never a session */
     const RrhkMachine *m = run->machine;
     char in_text[32] = {0};
     const char *comma = strchr(value, ',');
@@ -224,38 +234,40 @@ bool rrhk_session_open(RrhkRun *run) {
     hello[12] = (uint8_t)name_length;
     memcpy(hello + 13, name, name_length);
     if (!send_message(RRHK_MSG_HELLO, hello, 13 + name_length)) { fprintf(stderr, "[session] the pipe is closed\n"); return false; }
-    /* SETUP within fifteen seconds; the window stays responsive meanwhile. */
-    uint8_t payload[RRHK_SESSION_MAX_PAYLOAD];
-    uint16_t length = 0, type = 0;
-    const Uint64 until = SDL_GetTicks64() + 15000;
-    while (!(type = take(payload, &length)) && !s.broken && SDL_GetTicks64() < until) {
-        SDL_PumpEvents();
-        wait_input(20);
-        pump();
-    }
-    if (type != RRHK_MSG_SETUP || length < 6) {
-        fprintf(stderr, "[session] no setup from Retro-Recomp\n");
-        refuse(RRHK_REFUSED_COMMAND, "setup");
+    /* A gun or pointer (the local mouse), sticks or a computer's keyboard live outside the pad words: such a game is not
+     * offered until LOCAL carries them. */
+    if (m->pointer || m->analog_sticks || m->keyboard_pad) {
+        refuse(RRHK_REFUSED_COMMAND, m->pointer ? "pointer" : m->analog_sticks ? "axes" : "keyboard");
+        fprintf(stderr, "[session] this game's controls cannot be shared yet\n");
         return false;
     }
+    memset(s.ports, 0, sizeof s.ports);
+    memset(s.slot_used, 0, sizeof s.slot_used);
+    s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.ppm = 0;
+    s.setup = false; s.setup_until = SDL_GetTicks64() + 15000;
+    rrhk_session_on = true;           /* from here the frames wait for SETUP inside the loop (events and pictures go on) */
+    return true;
+}
+
+/* SETUP: the seat, the ports, the snapshot ring and the host's run-changing options, applied before frame 0. */
+static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length) {
+    if (length < 6) { refuse(RRHK_REFUSED_COMMAND, "setup"); return false; }
     const unsigned seat = payload[0], ports = payload[1], depth = payload[2];
     const uint16_t options = (uint16_t)(payload[4] | payload[5] << 8);
-    if (seat >= RRHK_MAX_PLAYERS || ports > RRHK_MAX_PLAYERS || depth > RRHK_SESSION_MAX_RING || 6u + options > length) {
+    if (seat >= RRHK_MAX_PLAYERS || ports > RRHK_MAX_PLAYERS || depth > RRHK_SESSION_MAX_RING || 6u + options != length) {
         refuse(RRHK_REFUSED_COMMAND, "setup");
         return false;
     }
     s.guest = (payload[3] & RRHK_SETUP_GUEST) != 0;
     if (!apply_options(m, payload + 6, options)) return false;
+    const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
     if (depth && bound) {
         s.ring = (uint8_t *)malloc(bound * depth);
         if (!s.ring) { refuse(RRHK_REFUSED_SNAPSHOT, "memory"); return false; }
         s.slot_size = bound; s.depth = depth;
     } else if (depth) { refuse(RRHK_REFUSED_SNAPSHOT, "none"); return false; }
-    memset(s.ports, 0, sizeof s.ports);
-    memset(s.slot_used, 0, sizeof s.slot_used);
-    s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.ppm = 0;
     if (s.guest && m->side_effects) m->side_effects(false);
-    rrhk_session_on = true;
+    s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
             seat + 1, ports, depth, s.guest ? "guest" : "host");
     return true;
@@ -278,16 +290,32 @@ static bool set_ports(const uint8_t *payload, uint16_t length) {
 static int lost(RrhkRun *run, const char *why) {
     (void)run;
     fprintf(stderr, "[session] %s\n", why);
-    rrhk_notice(rrhk_tr("Connection to Retro-Recomp lost", "Connexion a Retro-Recomp perdue"), 4000);
+    rrhk_notice(rr_tr("Connection to Retro-Recomp lost"), 4000);
     return -1;
 }
 
 int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     const RrhkMachine *m = run->machine;
+    uint8_t payload[RRHK_SESSION_MAX_PAYLOAD];
+    if (!s.setup) {
+        /* No frame before SETUP; the loop keeps polling events and presenting meanwhile. */
+        pump();
+        if (s.broken) return lost(run, "the pipe is closed");
+        uint16_t length = 0;
+        const uint16_t type = take(payload, &length);
+        if (s.broken) return lost(run, "a message broke the rules");
+        if (type == RRHK_MSG_SETUP) return setup(m, payload, length) ? 0 : lost(run, "the setup was refused");
+        if (type) return lost(run, "a message before the setup");
+        if (SDL_GetTicks64() >= s.setup_until) return lost(run, "no setup from Retro-Recomp");
+        wait_input(4);
+        return 0;
+    }
     if (!s.local_sent) {
         uint8_t local[8];
         put32(local, s.live);
-        put16(local + 4, rrhk_local_pad_word(0, input_frame));
+        /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
+         * sends the neutral word, and asks everyone to pause. */
+        put16(local + 4, rrhk.menu || rrhk.capturing ? 0 : rrhk_local_pad_word(0, input_frame));
         put16(local + 6, (uint16_t)(rrhk.menu || rrhk.paused ? RRHK_SYS_PAUSE : 0));
         if (!send_message(RRHK_MSG_LOCAL, local, sizeof local)) return lost(run, "the pipe is closed");
         s.local_sent = true;
@@ -295,7 +323,6 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     /* Wait for the live frame at most three quarters of a frame, then show the last picture and come back. */
     const unsigned budget = m->frame_seconds > 0.0 ? (unsigned)(m->frame_seconds * 750.0) : 12;
     const Uint64 until = SDL_GetTicks64() + budget;
-    uint8_t payload[RRHK_SESSION_MAX_PAYLOAD];
     for (;;) {
         pump();
         if (s.broken) return lost(run, "the pipe is closed");
@@ -305,7 +332,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         if (!type) {
             if (s.paused) {
                 char text[96];
-                snprintf(text, sizeof text, rrhk_tr("Paused by %s", "Pause par %s"), s.paused_by);
+                snprintf(text, sizeof text, rr_tr("Paused by %s"), s.paused_by);
                 rrhk_notice(text, 500);
                 return 0;
             }
@@ -366,16 +393,17 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             if (length < 2 || length != 2u + payload[1]) return lost(run, "a PAUSE broke the rules");
             s.paused = payload[0] != 0;
             copy_name(s.paused_by, sizeof s.paused_by, payload + 2, payload[1]);
-            if (!s.paused) rrhk_notice(rrhk_tr("Resumed", "Reprise"), 1200);
+            if (!s.paused) rrhk_notice(rr_tr("Resumed"), 1200);
             break;
         case RRHK_MSG_NOTICE: {
             if (length < 3 || length != 3u + payload[2]) return lost(run, "a NOTICE broke the rules");
-            char name[64], text[128];
+            char name[24], text[128];
             copy_name(name, sizeof name, payload + 3, payload[2]);
             const uint16_t code = (uint16_t)(payload[0] | payload[1] << 8);
-            if (code == RRHK_NOTICE_WAITING) snprintf(text, sizeof text, rrhk_tr("Waiting for %s", "En attente de %s"), name);
-            else if (code == RRHK_NOTICE_LEFT) snprintf(text, sizeof text, rrhk_tr("%s left the game", "%s a quitte la partie"), name);
-            else snprintf(text, sizeof text, "%s", rrhk_tr("Resumed", "Reprise"));
+            /* The code chooses a catalogue string; only the name comes from the pipe. */
+            if (code == RRHK_NOTICE_WAITING) snprintf(text, sizeof text, rr_tr("Waiting for %s"), name);
+            else if (code == RRHK_NOTICE_LEFT) snprintf(text, sizeof text, rr_tr("%s left the game"), name);
+            else snprintf(text, sizeof text, "%s", rr_tr("Resumed"));
             rrhk_notice(text, 1800);
             break;
         }
@@ -387,9 +415,8 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         }
         case RRHK_MSG_STOP: {
             const uint16_t reason = length >= 2 ? (uint16_t)(payload[0] | payload[1] << 8) : 0;
-            rrhk_notice(reason == RRHK_STOP_DESYNC ? rrhk_tr("The games went out of step: the match stops",
-                                                             "Les parties se sont desynchronisees : fin du match") :
-                        rrhk_tr("The match is over", "Le match est termine"), 4000);
+            rrhk_notice(reason == RRHK_STOP_DESYNC ? rr_tr("The games went out of step: the match stops") :
+                        rr_tr("The match is over"), 4000);
             fprintf(stderr, "[session] stopped by Retro-Recomp (%u)\n", (unsigned)reason);
             return -1;
         }
