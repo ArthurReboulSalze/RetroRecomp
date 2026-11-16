@@ -561,6 +561,9 @@ class MissingCoversMixin:
 
     def card_cover_shown(self, request, message):
         """The Compiled Games card of this game, when it is the one shown: its new picture and where it stands."""
+        front_end = getattr(self, 'front_end_view', None)
+        if front_end is not None and request.payload is not None:
+            front_end.cover_changed(request.game)     # its tile on the front-end's wall too
         card = getattr(getattr(self, 'compiled_view', None), 'card', None)
         game = getattr(card, 'game', None)
         if game is None or (game.system, game.identity) != request.key:

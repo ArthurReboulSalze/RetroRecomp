@@ -10,6 +10,11 @@
 #define RR_PAD_API __attribute__((visibility("default")))
 #endif
 typedef struct { SDL_GameController *pad[4]; } RrPlayerPads;
+/* L2 and R2 are axes in SDL; past half travel they are reported as two more bits of the button mask, above
+ * every SDL button (SDL_CONTROLLER_BUTTON_MAX is 21), so the 12 values of a poll keep their layout. */
+#define RR_PAD_LEFT_TRIGGER (1u << 29)
+#define RR_PAD_RIGHT_TRIGGER (1u << 30)
+#define RR_PAD_TRIGGER_PRESSED 16000
 static void refresh(RrPlayerPads *p) {
     for (int i = 0; i < 4; ++i) if (p->pad[i] && !SDL_GameControllerGetAttached(p->pad[i])) {
         SDL_GameControllerClose(p->pad[i]); p->pad[i] = NULL;
@@ -42,6 +47,10 @@ RR_PAD_API int rr_player_pads_poll(RrPlayerPads *p, int32_t *values) {
             ++count;
             for (int b = 0; b < SDL_CONTROLLER_BUTTON_MAX; ++b)
                 if (SDL_GameControllerGetButton(p->pad[i], (SDL_GameControllerButton)b)) mask |= 1u << b;
+            if (SDL_GameControllerGetAxis(p->pad[i], SDL_CONTROLLER_AXIS_TRIGGERLEFT) > RR_PAD_TRIGGER_PRESSED)
+                mask |= RR_PAD_LEFT_TRIGGER;
+            if (SDL_GameControllerGetAxis(p->pad[i], SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > RR_PAD_TRIGGER_PRESSED)
+                mask |= RR_PAD_RIGHT_TRIGGER;
         }
         values[i * 3] = (int32_t)mask;
         values[i * 3 + 1] = p->pad[i] ? SDL_GameControllerGetAxis(p->pad[i], SDL_CONTROLLER_AXIS_LEFTX) : 0;

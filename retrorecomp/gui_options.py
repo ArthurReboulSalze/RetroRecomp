@@ -114,6 +114,8 @@ class OptionsMixin:
         if self.options_panel is not None and self.options_panel.winfo_exists():
             self.close_options()
             return
+        if getattr(self, 'front_end_visible', False):
+            self.leave_front_end(then='queue')
         if self.collection_visible:
             self.toggle_compiled_games()
         # The options live inside the main window, in place of the queue, like
@@ -194,6 +196,8 @@ class OptionsMixin:
             control = checkbox(shared, key, variable, hint)
             if key == 'icon_tags':
                 self.icon_tags_control = control
+            if key == 'startup_update_check':
+                self.front_end_start_options(shared, checkbox)
             if key == 'compress_games':
                 # Why the option exists, in plain sight (not only in the hint): Windows Defender.
                 ttk.Label(shared, text=self.tr('compress_games_note'), style='Muted.TLabel', wraplength=760,

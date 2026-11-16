@@ -16,11 +16,19 @@ def build():
     # Game executables use SDL's existing static archive. ELF shared libraries
     # require PIC objects; build a separate controller-only archive so their
     # configuration and performance are not changed by the converter UI.
-    sdk = sdl if os.name == 'nt' else ROOT/'.deps/player-sdl'
-    prefix = sdk/'install'
     out = ROOT / '.build/player-gamepad'
     out.mkdir(parents=True, exist_ok=True)
     log = out / 'build.log'
+    if os.name == 'nt':
+        # Windows: the games' own static SDL2 of the active toolchain (llvm-mingw for the portable toolchain); an
+        # install made by another compiler cannot be linked (an MSVC archive asks lld for LIBCMT).
+        from retrorecomp.core import ensure_sdl
+        from retrorecomp.platforms import sdl_install
+        prefix = sdl_install()
+        ensure_sdl(cmake, generator, sdl, prefix, log)
+    else:
+        prefix = ROOT/'.deps/player-sdl/install'
+    sdk = prefix.parent
     if not any((prefix / p).is_file() for p in ('cmake/SDL2Config.cmake', 'lib/cmake/SDL2/SDL2Config.cmake')):
         if not sdl.exists():
             run(['git','clone','https://github.com/libsdl-org/SDL.git',sdl], log=log)
@@ -40,7 +48,8 @@ def build():
         *cmake_target_args(),f'-DCMAKE_PREFIX_PATH={prefix.as_posix()}',f'-DSDL2_DIR={config.as_posix()}'],log=log)
     run([cmake,'--build',out/'build','--config','Release','--parallel','4'],log=log)
     name = 'retro_gamepad.dll' if os.name == 'nt' else 'libretro_gamepad.so'
-    source = out/'build'/('Release' if os.name == 'nt' else '')/name
+    # Visual Studio puts the library in Release/, Ninja beside the build files.
+    source = next(path for path in (out/'build'/'Release'/name, out/'build'/name) if path.is_file())
     target = out/'runtime'/name
     target.parent.mkdir(exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=target.parent,delete=False) as f: pending = Path(f.name)

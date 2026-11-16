@@ -385,20 +385,24 @@ class CompiledGamesView(ttk.Frame):
         popup_menu(menu,event.x_root,event.y_root)
 
     def play(self):
-        if self.running:return
-        if self.game_process is not None and self.game_process.poll() is None:return
         games = self.chosen()
-        if len(games)!=1:return
-        game = games[0]
+        if len(games)==1:self.owner.launch_compiled_game(games[0])
+
+    def launch(self, game):
+        """Start one compiled game (this view's Play and the front-end's); one at a time. True once started."""
+        if self.running:return False
+        if self.game_process is not None and self.game_process.poll() is None:return False
         if game.target != target_id():
             messagebox.showinfo(APP_NAME,self.tr('game_other_platform'),parent=self.owner.app)
-            return
+            return False
         try:
             path = Path(game.executable)
             self.game_process = subprocess.Popen([str(path)],cwd=path.parent)
             self.played = game
+            return True
         except OSError:
             messagebox.showerror(APP_NAME,self.tr('game_launch_failed'),parent=self.owner.app)
+            return False
 
     def add_folder(self):
         folder = filedialog.askdirectory(parent=self.owner.app,title=self.tr('scan_folder'))

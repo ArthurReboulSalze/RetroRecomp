@@ -58,6 +58,8 @@ class ConversionMixin:
             use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
             compress_games=self.compress_games.get(),
             startup_update_check=self.check_at_startup.get(), last_update_check=self.last_update_check,
+            start_front_end=self.start_front_end.get(),
+            start_front_end_fullscreen=self.start_front_end_fullscreen.get(),
             discoveries_waiting=self.discoveries_waiting,
             overwrite=self.overwrite.get(), force=self.force.get(),
             **{key.name: getattr(self, key.name).get() for _, key in console_options('path', 'choice')},
