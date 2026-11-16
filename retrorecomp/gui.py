@@ -723,8 +723,12 @@ def launch(update_error: str | None = None):
     load_fonts()
     # The class name is what Linux desktops match the launcher's
     # StartupWMClass against, to stop their "starting" cursor.
+    # A Tk variable or image freed in a batch or download thread is released on this thread instead (no Tcl abort).
+    from . import tk_threads
+    tk_threads.install()
     app = tk.Tk(className='Retro-Recomp')
     app.withdraw()
+    tk_threads.keep_draining(app)
     splash = None
     try:
         splash = StartupSplash(app, load_preferences().get('language', 'en'))
