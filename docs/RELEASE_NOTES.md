@@ -5,7 +5,7 @@
   switches between the two in play ([PLAYSTATION.md](PLAYSTATION.md#9-the-graphics-card-177-what-it-rests-on)).
   - **The machine stays the checked one.** The conversion's checks still draw with the processor at 1x. On Ape Escape, with the card at
     1x and at 8x, the RAM, the CPU state, the sound and the VRAM equal the processor renderer's on every frame; only the picture is the
-    card's. [PS1 GATE: the eight-disc gate on the final tree is pending] The checks' trace now records the VRAM, which is what is
+    card's. On the final tree, the eight panel discs on their three routes each (204,000 frames) give the same RAM, CPU, sound and VRAM with the graphics card as with the processor, on every frame. The checks' trace now records the VRAM, which is what is
     compared when the card draws.
   - **New rows in F3**, for the card: **8x** internal resolution; **Anti-aliasing (GPU)**, MSAA 2x, 4x or 8x, or **Supersampling** as on
     the Nintendo 64 (drawn at twice the internal resolution and reduced by two, so the picture keeps its size; nothing at 8x); **Texture
