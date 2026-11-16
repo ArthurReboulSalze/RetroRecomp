@@ -422,7 +422,8 @@ def _same_path(value: str, path: Path) -> bool:
     chosen = selected_bios_path(value)
     if chosen is None:
         return False
-    return os.path.normcase(os.path.abspath(chosen)) == os.path.normcase(os.path.abspath(path))
+    # Both sides resolved: a folder given in its Windows 8.3 short form (RUNNER~1) is the same folder as its long name.
+    return os.path.normcase(str(chosen)) == os.path.normcase(str(Path(path).resolve()))
 
 
 def review(result: Search, current: dict) -> tuple[list, list]:

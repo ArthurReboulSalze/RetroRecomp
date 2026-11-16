@@ -246,7 +246,7 @@ class ReviewTests(unittest.TestCase):
 
     def test_the_same_path_is_recognised_as_already_set(self):
         with tempfile.TemporaryDirectory() as temp:
-            path = Path(temp).resolve() / 'gba.bin'  # long form: a runner's temp folder can be an 8.3 short name (1.7.8 compares both resolved)
+            path = Path(temp) / 'gba.bin'  # as given: a runner's temp folder can be an 8.3 short name, and both sides are resolved
             lines, _ = fs.review(self.result(gba_bios=[(str(path), 0, 'a')]), {'gba_bios': str(path)})
         self.assertTrue(lines[0].same)
         self.assertFalse(lines[0].ticked)
