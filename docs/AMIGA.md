@@ -313,9 +313,10 @@ every check of their conversion: 0 interpreted instructions on both routes, but 
 Banshee and the Kickstart's 59,006 on All New World of Lemmings (0.10 %), counted and shown. The checks of tests/test_machine_registry.py
 for a `supported` machine pass on the real profile: five risk cases, witnessed on Linux, no failed gate.
 
-**Its paths are not shared** (G16 `-`): on the owner's word of 15 November 2026, when he cancelled the sharing measurement, « on n'active pas le partage de chemin encore. On verra si c'est pertinent. Pour l'instant, ça n'a pas l'air de l'être. »
-The panel's routes leave nothing for a received path to make native (0 interpreted instructions, or a Kickstart instruction); the gain beyond
-them is not measured. The profile is listed in `DECLINED['path_sharing']` and stays out of the shared base.
+**Its paths are not shared for now** (G16 `?`): on the owner's word of 15 November 2026, when he cancelled the sharing measurement, « on n'active pas le partage de chemin encore. On verra si c'est pertinent. Pour l'instant, ça n'a pas l'air de l'être. »
+On 16 November 2026: « pour le partage des chemins, on fera des tests plus tard. Faudra qu'on fasse des tests quand même. » A measure with and without another player's paths is to come, after this exit; until then
+the profile is listed in `DECLINED['path_sharing']` and stays out of the shared base. The panel's routes leave nothing for a received path
+to make native (0 interpreted instructions, or a Kickstart instruction); the gain beyond them is not measured.
 
 **Partial, worded as they are:** G9 (routes reach play on Slam Tilt and Zool 2, not recorded install by install), G10 (Moira against
 Musashi's 68EC020 on 200,000 random instructions, 76 cases still to referee), G11 (pictures compared with another emulator, not with

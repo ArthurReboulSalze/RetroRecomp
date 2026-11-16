@@ -219,8 +219,8 @@ opened in 1.7.6; [G14](QUALIFICATION.md#owner-acceptance), [status](AMIGA.md#7-t
 `.lha` kept in a folder named `amiga1200`, chosen as Amiga 1200, or whose slave asks for a 68020 or AGA), with a Kickstart 3.1 of your own for those
 that ask for one, on the same converter with the A1200 model (68EC020, AGA chips, 2 MiB of chip RAM). It has no list of compatible games: native
 code and CPU fidelity are measured on a panel of nine installs, hardware fidelity is not claimed, gameplay rests on the owner's play test of eight
-installs, latency is not measured ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)). Its paths are not shared (the owner's decision), and AGA
-super-hires is shown at half its detail.
+installs, latency is not measured ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)). Its paths are not shared for now (the owner's decision; a measure with
+and without received paths is to come), and AGA super-hires is shown at half its detail.
 
 The **Atari ST** profile is supported since 1.7.5, on the owner's decision of 14 November 2026 (it opened in 1.7.1; [G14](QUALIFICATION.md#owner-acceptance), [status](ATARI_ST.md)): it converts ST, STF and Mega ST floppy games (IPF, STX, MSA or ST
 images, or a ZIP holding only them) on Hatari, with EmuTOS 1.4 by default or your own TOS 1.00 to 1.04, within [its documented scope](ATARI_ST.md). It has no list of

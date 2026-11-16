@@ -157,7 +157,7 @@ its own measure category.
 | Panel and platforms | varied boards, none dropped for failing; Windows and Linux give identical route hashes |
 | Owner acceptance | the owner's play test, recorded |
 | Honesty | hardware fidelity, full-game coverage and latency are never claimed without proof |
-| Shared knowledge | hints are numeric, rechecked, and the conversion retries without them on failure; a machine on which sharing serves no purpose (its panel shows that received paths would add no native instruction and save no pass), or on which the panel shows a gain the maintainer judges too small to be worth it (15 November 2026), or whose panel routes leave nothing to receive while the maintainer judges sharing not relevant yet (the Amiga 1200, 15 November 2026), does not share, on the maintainer's decision (14 November 2026), and G16 reads `-` |
+| Shared knowledge | hints are numeric, rechecked, and the conversion retries without them on failure; a machine on which sharing serves no purpose (its panel shows that received paths would add no native instruction and save no pass), or on which the panel shows a gain the maintainer judges too small to be worth it (15 November 2026), does not share, on the maintainer's decision (14 November 2026), and G16 reads `-`; a machine may also leave `experimental` without sharing for now, on the maintainer's word, pending a measure with and without received paths (the Amiga 1200, 16 November 2026), with G16 `?` until then |
 
 Leaving `experimental` keeps the bar very high (every gate proved, none relaxed) and is always the maintainer's own decision: no tool
 and no agent fills the owner-acceptance gate or sets a profile to `supported` without his explicit yes

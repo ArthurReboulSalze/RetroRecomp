@@ -71,7 +71,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████████░` 91 % |
-| [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `█████████░` 87 % |
+| [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `████████░░` 81 % |
 | [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████████░` 91 % |
 | [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |

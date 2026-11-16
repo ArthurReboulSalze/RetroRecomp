@@ -91,7 +91,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 The Amiga 1200 leaves the experimental status on the owner's play test of eight installs, 16 November 2026 (G14; [AMIGA.md](AMIGA.md#leaving-the-experimental-status-16-november-2026)).
 
-- **What changes:** the profile's status is `supported`, its Linux witness is declared (`linux = 'witnessed'`), its paths are declined (`DECLINED['path_sharing']`, the owner's word); the Options note loses "experimental" (English and French; the six other languages never said it); the README marks it as running on an emulator core, as the Amiga 500. The machine, its conversion and the game are unchanged.
+- **What changes:** the profile's status is `supported`, its Linux witness is declared (`linux = 'witnessed'`), its paths stay out of the sharing for now (`DECLINED['path_sharing']`, the owner's word, pending a measure); the Options note loses "experimental" (English and French; the six other languages never said it); the README marks it as running on an emulator core, as the Amiga 500. The machine, its conversion and the game are unchanged.
 - **Stamps:** the game stamp of the Amiga 1200 **and of the Amiga 500**: `retrorecomp/systems/amiga.py` holds both profiles and is a game input of both, hashed as a whole, so the status line moves both. No host or build stamp moves (the interface strings are not stamp inputs). An export of 1.7.7 is converted again in full on either machine.
 
 ## Exports of 1.7.6 in 1.7.7

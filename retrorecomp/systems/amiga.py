@@ -134,7 +134,7 @@ class Amiga1200Profile(AmigaProfile):
                                                             windows=tuple((low, last) for low, last, _ in APERTURES) + (KICKSTART_3X_WINDOW,),
                                                             contained=True, length=(2, 22), length_align=2,
                                                             offset_align=2, address_align=2, span_max=131072)),))
-    # Not shared: declined by the owner (15 November 2026), G16 `-` (tests/test_machine_registry.py, DECLINED['path_sharing']).
+    # Not shared for now, on the owner's word (15 November 2026), pending a measure (G16 `?`; DECLINED['path_sharing'] in tests/test_machine_registry.py).
     shared_knowledge = None
     library_layout = LibraryLayout(folder='a1200', summary_glob='*/compilation.json')
     # Before the Amiga 500 (40): an install in an A1200 folder, or one whose slave asks for a 68020 or AGA, is the A1200's.
