@@ -889,7 +889,7 @@ STRINGS = {
     'conversions_wait_day': ('about 1 day', 'environ 1 jour'),
     # Front-end (gui_front_end, front_end_view): the compiled games as a wall of box art.
     'front_end': ('Front-end', 'Front-end'),
-    'tip_front_end': ('Front-end: your compiled games as a wall of box art, one console at a time. Mouse, keyboard or gamepad: LB/RB change console, X/Y set the covers per row, A plays, B goes back.', 'Front-end : tes jeux compilés en mur de jaquettes, une console à la fois. Souris, clavier ou manette : LB/RB changent de console, X/Y règlent les jaquettes par ligne, A lance, B revient.'),
+    'tip_front_end': ('Front-end: your compiled games as a wall of box art, one console at a time. Mouse, keyboard or gamepad: LB/RB change console, L2/R2 set the covers per row, A plays, B goes back.', 'Front-end : tes jeux compilés en mur de jaquettes, une console à la fois. Souris, clavier ou manette : LB/RB changent de console, L2/R2 règlent les jaquettes par ligne, A lance, B revient.'),
     'front_end_empty': ('No compiled game yet. Convert a game, or scan your folders in Compiled Games.', 'Aucun jeu compilé pour l’instant. Convertis un jeu, ou analyse tes dossiers dans Jeux recompilés.'),
     'front_end_add_cover': ('Add a cover', 'Ajouter une jaquette'),
     'front_end_back': ('Back', 'Retour'),
@@ -919,6 +919,9 @@ STRINGS = {
     'front_end_tv_leave': ('Back to the window (F11)', 'Revenir en fenêtre (F11)'),
     'front_end_windowed': ('Window', 'Fenêtre'),
     'front_end_fullscreen': ('Full screen', 'Plein écran'),
+    'front_end_leave_question': ('Leave the front-end?', 'Quitter le front-end ?'),
+    'front_end_yes': ('Yes', 'Oui'),
+    'front_end_no': ('No', 'Non'),
     'front_end_selected': ('{count} games selected', '{count} jeux sélectionnés'),
     'front_end_select_none': ('Clear the selection', 'Tout désélectionner'),
     'front_end_find_covers': ('Search the box art online ({count} games)', 'Chercher les jaquettes en ligne ({count} jeux)'),

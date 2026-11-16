@@ -102,6 +102,7 @@ class FrontEndView(tk.Frame):
         self.photos = OrderedDict()       # (key, width, height) -> PhotoImage
         self.layout = None
         self.menu_items, self.menu_index = None, 0
+        self.menu_heading = None   # a question in place of the game's title (« Leave the front-end? »)
         # Games chosen with Ctrl / Shift + click (or Ctrl+A) on the console shown: the menu then acts on all of them.
         self.selected, self.anchor = set(), 0
         self.searching = None      # (done, total, found) while covers are searched online
@@ -111,9 +112,9 @@ class FrontEndView(tk.Frame):
         self.scale = self.wanted_scale()
         self.fonts()
 
-        self.tabs = tk.Canvas(self, bg=COLORS['background'], highlightthickness=0, height=self.px(48))
+        self.tabs = tk.Canvas(self, bg=COLORS['background'], highlightthickness=0, height=self.cx(38))
         self.tabs.pack(fill='x', padx=12, pady=(4, 0))
-        self.details = tk.Canvas(self, bg=COLORS['header'], highlightthickness=0, height=self.px(54))
+        self.details = tk.Canvas(self, bg=COLORS['header'], highlightthickness=0, height=self.cx(44))
         self.details.pack(side='bottom', fill='x')
         middle = tk.Frame(self, bg=COLORS['background'])
         middle.pack(fill='both', expand=True)
@@ -158,6 +159,10 @@ class FrontEndView(tk.Frame):
     def px(self, value):
         return max(1, round(value * self.scale))
 
+    def cx(self, value):
+        """Sizes of the two bars: in full screen they grow far less than the covers, so they stay thin (Arthur)."""
+        return max(1, round(value * (1.15 if self.scale > 1 else 1.0)))
+
     def fonts(self):
         family = self.owner.ui_font
         self.font_title = tkfont.Font(root=self, family=family, size=self.px(9))
@@ -165,9 +170,12 @@ class FrontEndView(tk.Frame):
         self.font_tab = tkfont.Font(root=self, family=family, size=self.px(11))
         self.font_tab_bold = tkfont.Font(root=self, family=family, size=self.px(11), weight='bold')
         self.font_small = tkfont.Font(root=self, family=family, size=self.px(8))
-        self.font_detail = tkfont.Font(root=self, family=family, size=self.px(12), weight='bold')
-        self.font_hint = tkfont.Font(root=self, family=family, size=self.px(9))
-        self.font_glyph = tkfont.Font(root=self, family=family, size=self.px(8), weight='bold')
+        self.font_strip = tkfont.Font(root=self, family=family, size=self.cx(10))
+        self.font_strip_bold = tkfont.Font(root=self, family=family, size=self.cx(10), weight='bold')
+        self.font_count = tkfont.Font(root=self, family=family, size=self.cx(8))
+        self.font_detail = tkfont.Font(root=self, family=family, size=self.cx(11), weight='bold')
+        self.font_hint = tkfont.Font(root=self, family=family, size=self.cx(9))
+        self.font_glyph = tkfont.Font(root=self, family=family, size=self.cx(8), weight='bold')
 
     def wanted_scale(self):
         return SCALE_TV if getattr(self.owner, 'front_end_fullscreen', False) else SCALE_WINDOW
@@ -175,8 +183,8 @@ class FrontEndView(tk.Frame):
     def apply_scale(self):
         self.scale = self.wanted_scale()
         self.fonts()
-        self.tabs.configure(height=self.px(48))
-        self.details.configure(height=self.px(54))
+        self.tabs.configure(height=self.cx(38))
+        self.details.configure(height=self.cx(44))
         self.photos.clear()
         self.relayout(reload=True)
         self.draw_tabs()
@@ -373,21 +381,21 @@ class FrontEndView(tk.Frame):
         width, height = canvas.winfo_width(), int(canvas['height'])
         if not self.shelves:
             return
-        glyph = self.px(30)
+        glyph = self.cx(30)
         # Full screen and back: a labelled button at the right end, always there (Arthur, 16 Nov 2026).
-        restore = self.draw_screen_button(width, height // 2 - self.px(2))
+        restore = self.draw_screen_button(width, height // 2 - self.cx(2))
         width -= restore
-        spacing = self.px(26)
+        spacing = self.cx(26)
         items = []
         for index, (profile, games) in enumerate(self.shelves):
-            font = self.font_tab_bold if index == self.shelf else self.font_tab
+            font = self.font_strip_bold if index == self.shelf else self.font_strip
             name = profile.name
             count = f'  {len(games)}'
-            items.append((index, name, count, font, font.measure(name) + self.font_small.measure(count)))
+            items.append((index, name, count, font, font.measure(name) + self.font_count.measure(count)))
         total = sum(item[4] for item in items) + spacing * (len(items) - 1)
-        density = self.draw_density(width - glyph - self.px(14), height // 2 - self.px(2))
-        room = width - 2 * (glyph + self.px(14)) - density
-        start = glyph + self.px(14)
+        density = self.draw_density(width - glyph - self.cx(14), height // 2 - self.cx(2))
+        room = width - 2 * (glyph + self.cx(14)) - density
+        start = glyph + self.cx(14)
         if total > room:
             # Keep the chosen console in view: scroll the strip so it sits near the middle.
             before = sum(item[4] + spacing for item in items[:self.shelf])
@@ -395,17 +403,17 @@ class FrontEndView(tk.Frame):
             start -= offset
         self.tab_boxes = []
         x = start
-        middle = height // 2 - self.px(2)
+        middle = height // 2 - self.cx(2)
         for index, name, count, font, size in items:
             chosen = index == self.shelf
             # Only whole names: a console cut by the edge waits for the strip to scroll to it.
-            if x >= glyph + self.px(8) and x + size <= width - glyph - self.px(8) - density:
+            if x >= glyph + self.cx(8) and x + size <= width - glyph - self.cx(8) - density:
                 canvas.create_text(x, middle, text=name, anchor='w', font=font,
                                    fill=COLORS['gold_hover'] if chosen else COLORS['muted'])
-                canvas.create_text(x + font.measure(name), middle + self.px(1), text=count, anchor='w',
-                                   font=self.font_small, fill=COLORS['gold'] if chosen else COLORS['disabled'])
+                canvas.create_text(x + font.measure(name), middle + self.cx(1), text=count, anchor='w',
+                                   font=self.font_count, fill=COLORS['gold'] if chosen else COLORS['disabled'])
                 if chosen:
-                    canvas.create_rectangle(x, height - self.px(6), x + size, height - self.px(3), fill=COLORS['gold'],
+                    canvas.create_rectangle(x, height - self.cx(6), x + size, height - self.cx(3), fill=COLORS['gold'],
                                             outline='')
             self.tab_boxes.append((x, x + size, index))
             x += size + spacing
@@ -419,13 +427,13 @@ class FrontEndView(tk.Frame):
         canvas = self.tabs
         full = getattr(self.owner, 'front_end_fullscreen', False)
         label = self.tr('front_end_windowed' if full else 'front_end_fullscreen')
-        unit, pad, height = self.px(4), self.px(10), self.px(26)
-        width = pad * 2 + unit * 3 + self.px(8) + self.font_hint.measure(label)
+        unit, pad, height = self.cx(4), self.cx(10), self.cx(26)
+        width = pad * 2 + unit * 3 + self.cx(8) + self.font_hint.measure(label)
         left = right - width
         self.restore_box = (left, right)
         canvas.create_rectangle(left, middle - height // 2, right, middle + height // 2, fill=COLORS['button'],
                                 outline=COLORS['gold'])
-        x, y, line = left + pad + unit, middle, max(1, self.px(1.2))
+        x, y, line = left + pad + unit, middle, max(1, self.cx(1.2))
         if full:
             canvas.create_rectangle(x - unit, y - unit + 2, x + unit - 2, y + unit + 2, outline=COLORS['text'],
                                     width=line)
@@ -433,9 +441,9 @@ class FrontEndView(tk.Frame):
                                fill=COLORS['text'], width=line)
         else:
             canvas.create_rectangle(x - unit, y - unit, x + unit + 1, y + unit, outline=COLORS['text'], width=line)
-        canvas.create_text(x + unit * 2 + self.px(6), middle, text=label, anchor='w', font=self.font_hint,
+        canvas.create_text(x + unit * 2 + self.cx(6), middle, text=label, anchor='w', font=self.font_hint,
                            fill=COLORS['text'])
-        return width + self.px(10)
+        return width + self.cx(10)
 
     def draw_density(self, right, middle):
         """Right of the consoles: the covers per row of this console between a minus and a plus button; returns
@@ -445,27 +453,27 @@ class FrontEndView(tk.Frame):
             self.density_boxes = []
             return 0
         label = self.tr('front_end_per_row', count=self.layout.columns)
-        button = self.px(22)
-        width = button * 2 + self.font_hint.measure(label) + self.px(20)
+        button = self.cx(22)
+        width = button * 2 + self.font_hint.measure(label) + self.cx(20)
         left = right - width
         self.density_boxes = [(left, left + button, -1), (right - button, right, 1)]
         for x0, x1, change in self.density_boxes:
             canvas.create_rectangle(x0, middle - button // 2, x1, middle + button // 2, fill=COLORS['button'],
                                     outline=COLORS['subtle_border'])
-            half = self.px(5)
+            half = self.cx(5)
             centre = (x0 + x1) // 2
-            canvas.create_line(centre - half, middle, centre + half + 1, middle, fill=COLORS['text'], width=self.px(2))
+            canvas.create_line(centre - half, middle, centre + half + 1, middle, fill=COLORS['text'], width=self.cx(2))
             if change > 0:
                 canvas.create_line(centre, middle - half, centre, middle + half + 1, fill=COLORS['text'],
-                                   width=self.px(2))
+                                   width=self.cx(2))
         canvas.create_text((left + right) // 2, middle, text=label, font=self.font_hint, fill=COLORS['muted'])
-        return width + self.px(18)
+        return width + self.cx(18)
 
     def pill(self, canvas, x, y, text, color=None):
         """A gamepad button drawn as a small rounded label (letters only: every interface font has them)."""
         font = self.font_glyph
-        width = self.px(26) if text == 'MENU' else max(font.measure(text) + self.px(12), self.px(22))
-        height = self.px(20)
+        width = self.cx(26) if text == 'MENU' else max(font.measure(text) + self.cx(12), self.cx(22))
+        height = self.cx(20)
         color = color or COLORS['border']
         r = height // 2
         canvas.create_oval(x, y - r, x + height, y + r, fill=color, outline='')
@@ -474,8 +482,8 @@ class FrontEndView(tk.Frame):
         if text == 'MENU':
             # The Start / Menu button: three short lines rather than a glyph some fonts lack.
             for dy in (-4, 0, 4):
-                canvas.create_line(x + width // 2 - self.px(5), y + self.px(dy), x + width // 2 + self.px(5),
-                                   y + self.px(dy), fill=COLORS['text'], width=max(1, self.px(1.5)))
+                canvas.create_line(x + width // 2 - self.cx(5), y + self.cx(dy), x + width // 2 + self.cx(5),
+                                   y + self.cx(dy), fill=COLORS['text'], width=max(1, self.cx(1.5)))
         else:
             canvas.create_text(x + width // 2, y, text=text, font=font, fill=COLORS['text'])
         return width
@@ -489,7 +497,7 @@ class FrontEndView(tk.Frame):
         pads = self.controller is not None or self.force_pad_hints
         if pads:
             back = 'front_end_windowed' if getattr(self.owner, 'front_end_fullscreen', False) else 'front_end_back'
-            hints = [(('A',), 'play'), (('B',), back), (('X', 'Y'), 'front_end_density'),
+            hints = [(('A',), 'play'), (('B',), back), (('L2', 'R2'), 'front_end_density'),
                      (('MENU',), 'front_end_actions')]
         else:
             back = 'front_end_windowed' if getattr(self.owner, 'front_end_fullscreen', False) else 'front_end_back'
@@ -497,17 +505,17 @@ class FrontEndView(tk.Frame):
                      (('\u2212', '+'), 'front_end_density'), ((self.tr('front_end_key_space'),), 'front_end_actions'),
                      (('Tab',), 'front_end_console')]
         colors = {'A': '#3c7d4a', 'B': '#8a3b3b', 'X': '#365f8f', 'Y': '#8a7a2e'}
-        x = width - self.px(14)
+        x = width - self.cx(14)
         for glyphs, key in reversed(hints):
             label = self.tr(key)
             x -= self.font_hint.measure(label)
             canvas.create_text(x, height // 2, text=label, anchor='w', font=self.font_hint, fill=COLORS['muted'])
-            x -= self.px(6)
+            x -= self.cx(6)
             for glyph in reversed(glyphs):
-                size = self.px(26) if glyph == 'MENU' else max(self.font_glyph.measure(glyph) + self.px(12), self.px(22))
+                size = self.cx(26) if glyph == 'MENU' else max(self.font_glyph.measure(glyph) + self.cx(12), self.cx(22))
                 self.pill(canvas, x - size, height // 2, glyph, colors.get(glyph))
-                x -= size + self.px(3)
-            x -= self.px(13)
+                x -= size + self.cx(3)
+            x -= self.cx(13)
         hints_left = x
         if not game:
             return
@@ -527,12 +535,12 @@ class FrontEndView(tk.Frame):
             facts.insert(0, self.tr('front_end_search_done', found=self.search_result[2], total=self.search_result[1]))
         if self.selected:
             facts.insert(0, self.tr('front_end_selected', count=len(self.selected)))
-        left = self.px(16)
-        room = max(40, hints_left - left - self.px(20))
+        left = self.cx(16)
+        room = max(40, hints_left - left - self.cx(20))
         title = clamp_lines(self.font_detail, game.title, room, 1)[0]
-        canvas.create_text(left, height // 2 - self.px(9), text=title, anchor='w', font=self.font_detail,
+        canvas.create_text(left, height // 2 - self.cx(8), text=title, anchor='w', font=self.font_detail,
                            fill=COLORS['text'])
-        canvas.create_text(left, height // 2 + self.px(12), text=clamp_lines(self.font_hint, '  ·  '.join(facts),
+        canvas.create_text(left, height // 2 + self.cx(10), text=clamp_lines(self.font_hint, '  ·  '.join(facts),
                            room, 1)[0], anchor='w', font=self.font_hint, fill=COLORS['muted'])
 
     def card_facts(self, game):
@@ -556,10 +564,11 @@ class FrontEndView(tk.Frame):
     # ---- moving
     def step(self, dx, dy):
         if self.menu_items is not None:
-            if dy:
-                self.menu_index = (self.menu_index + dy) % len(self.menu_items)
+            step = dy or dx
+            if step:
+                self.menu_index = (self.menu_index + step) % len(self.menu_items)
                 while not self.menu_items[self.menu_index][2]:
-                    self.menu_index = (self.menu_index + dy) % len(self.menu_items)
+                    self.menu_index = (self.menu_index + step) % len(self.menu_items)
                 self.draw_wall()
             return
         if self.layout and self.games:
@@ -736,7 +745,19 @@ class FrontEndView(tk.Frame):
         elif getattr(self.owner, 'front_end_fullscreen', False):
             self.owner.set_front_end_fullscreen(False)
         else:
-            self.owner.toggle_front_end()
+            self.confirm_leave()
+
+    def confirm_leave(self):
+        """« Leave the front-end? » with Yes and No, in the same overlay as the menu: up/down or left/right choose,
+        A / Enter / a click confirm, B / Esc answer No. Yes is chosen first, so B then A leaves."""
+        self.close_menu(draw=False)
+        self.menu_heading = self.tr('front_end_leave_question')
+        self.menu_items = [('front_end_yes', self.leave, True), ('front_end_no', lambda: None, True)]
+        self.menu_index = 0
+        self.draw_wall()
+
+    def leave(self):
+        self.owner.toggle_front_end()
 
     def actions(self):
         """The actions of the chosen game, in the order of the menu: (key, action, enabled)."""
@@ -754,7 +775,7 @@ class FrontEndView(tk.Frame):
                     ('front_end_select_none', self.back, True),
                     ('front_end_tv_leave' if self.owner.front_end_fullscreen else 'front_end_tv', self.toggle_tv,
                      True),
-                    ('front_end_leave', self.owner.toggle_front_end, True)]
+                    ('front_end_leave', self.confirm_leave, True)]
         items = [('play', self.play, True),
                  ('card_choose_cover', lambda: self.owner.choose_compiled_covers([game]), True),
                  ('front_end_find_cover', lambda: self.find_covers([game]), not self.searching),
@@ -767,7 +788,7 @@ class FrontEndView(tk.Frame):
                  ('front_end_tv_leave' if self.owner.front_end_fullscreen else 'front_end_tv', self.toggle_tv, True),
                  ('open_folder', lambda: open_local(Path(game.executable).parent), True),
                  ('reconvert', lambda: self.owner.reconvert_games([game]), idle),
-                 ('front_end_leave', self.owner.toggle_front_end, True)]
+                 ('front_end_leave', self.confirm_leave, True)]
         return items
 
     def open_menu(self):
@@ -780,6 +801,7 @@ class FrontEndView(tk.Frame):
         self.draw_wall()
 
     def close_menu(self, draw=True):
+        self.menu_heading = None
         if self.menu_items is not None:
             self.menu_items = None
             if draw:
@@ -789,7 +811,9 @@ class FrontEndView(tk.Frame):
         canvas = self.wall
         line = self.font_tab.metrics('linespace') + self.px(12)
         labels = [self.menu_label(key) for key, _, _ in self.menu_items]
-        width = max(self.font_tab.measure(label) for label in labels) + self.px(56)
+        heading = self.menu_heading or ''
+        width = max(max(self.font_tab.measure(label) for label in labels), self.font_focus.measure(heading),
+                    self.px(160)) + self.px(56)
         height = line * len(labels) + self.px(56)
         left = (canvas.winfo_width() - width) // 2
         top = canvas.canvasy(0) + max(self.px(12), (canvas.winfo_height() - height) // 2)
@@ -810,8 +834,8 @@ class FrontEndView(tk.Frame):
                                 tags='tile')
         canvas.create_rectangle(left, top, left + width, top + height, fill=COLORS['panel'], outline=COLORS['gold'],
                                 width=self.px(2), tags='tile')
-        heading = (self.tr('front_end_selected', count=len(self.selected)) if len(self.selected) > 1
-                   else self.focused().title)
+        heading = self.menu_heading or (self.tr('front_end_selected', count=len(self.selected))
+                                        if len(self.selected) > 1 else self.focused().title)
         title = clamp_lines(self.font_focus, heading, width - self.px(32), 1)[0]
         canvas.create_text(left + self.px(20), top + self.px(18), text=title, anchor='w', font=self.font_focus,
                            fill=COLORS['gold_hover'], tags='tile')
@@ -933,11 +957,13 @@ class FrontEndView(tk.Frame):
             self.accept()
         elif event == 'b':
             self.back()
-        elif event in ('x', 'y'):
-            # X: fewer, larger covers; Y: more covers per row (this console only).
-            self.change_columns(-1 if event == 'x' else 1)
-        elif event == 'start':
+        elif event in ('l2', 'r2'):
+            # L2: fewer, larger covers; R2: more covers per row (this console only, remembered).
+            self.change_columns(-1 if event == 'l2' else 1)
+        elif event in ('start', 'y'):
             self.open_menu()
+        elif event == 'x' and self.menu_items is None and self.games:
+            self.favorites(self.chosen(), not all(game.favorite for game in self.chosen()))
         elif event in ('lb', 'rb'):
             self.switch(-1 if event == 'lb' else 1)
         elif event == 'back':

@@ -27,7 +27,7 @@ ASPECT_RANGE = (0.62, 1.45)
 # Text and margins: the window, and TV mode (full screen, read from the sofa).
 SCALE_WINDOW, SCALE_TV = 1.0, 1.6
 # Covers per row, chosen per console (the density); until then, about 150 px wide covers fill the row.
-MIN_COLUMNS, MAX_COLUMNS = 2, 12
+MIN_COLUMNS, MAX_COLUMNS = 4, 12      # never fewer than 4 covers per row (Arthur, 16 Nov 2026)
 # The chosen cover grows a little, around the middle of its bottom edge; the grid leaves it room above the first row.
 FOCUS_GROWTH = 1.08
 MAX_PLAYED = 5000
@@ -176,13 +176,15 @@ def step_columns(current, change):
 
 # SDL game controller buttons, as player_gamepad.Controller reports them (the bit of each button).
 BUTTONS = {'a': 0, 'b': 1, 'x': 2, 'y': 3, 'back': 4, 'start': 6, 'lb': 9, 'rb': 10,
-           'up': 11, 'down': 12, 'left': 13, 'right': 14}
+           'up': 11, 'down': 12, 'left': 13, 'right': 14,
+           # L2 and R2 past half travel: two bits the bridge adds above the SDL buttons (native/player_gamepad.c).
+           'l2': 29, 'r2': 30}
 STICK = 16000
 
 
 class GridPad:
     """The gamepad on the wall: four directions with a paced repeat (the d-pad or the left stick), and one event per
-    press of A, B, X, Y, LB, RB, Back and Start. Like player_gamepad.Navigation it waits for every pad to be at rest
+    press of A, B, X, Y, LB, RB, L2, R2, Back and Start. Like player_gamepad.Navigation it waits for every pad to be at rest
     before it acts, so the press that opened the front-end never acts in it."""
     def __init__(self):
         self.armed = False
@@ -226,7 +228,7 @@ class GridPad:
         self.direction = direction
         pressed = buttons & ~self.buttons
         self.buttons = buttons
-        for name in ('a', 'b', 'x', 'y', 'lb', 'rb', 'back', 'start'):
+        for name in ('a', 'b', 'x', 'y', 'lb', 'rb', 'l2', 'r2', 'back', 'start'):
             if pressed & 1 << BUTTONS[name]:
                 events.append(name)
         return events
