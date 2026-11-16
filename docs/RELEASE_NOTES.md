@@ -1,5 +1,24 @@
-# RetroRecomp v1.7.7 — Sync to display on every machine; your firmware found in a folder; Pinball Illusions' title on the Amiga 1200 [TITLE: confirm at release]
+# RetroRecomp v1.7.7 — The PlayStation draws with the graphics card; Sync to display on every machine; your firmware found in a folder; Pinball Illusions and Alien Breed 3D on the Amiga 1200 [TITLE: confirm at release]
 
+- **Sony PlayStation: the graphics card draws the picture.** A PlayStation game now draws with the graphics card by default (Vulkan,
+  Beetle PSX's own renderer) and falls back to the processor when no card can be used, saying so once; the first row of F3, **Renderer**,
+  switches between the two in play ([PLAYSTATION.md](PLAYSTATION.md#9-the-graphics-card-177-what-it-rests-on)).
+  - **The machine stays the checked one.** The conversion's checks still draw with the processor at 1x. On Ape Escape, with the card at
+    1x and at 8x, the RAM, the CPU state, the sound and the VRAM equal the processor renderer's on every frame; only the picture is the
+    card's. [PS1 GATE: the eight-disc gate on the final tree is pending] The checks' trace now records the VRAM, which is what is
+    compared when the card draws.
+  - **New rows in F3**, for the card: **8x** internal resolution; **Anti-aliasing (GPU)**, MSAA 2x, 4x or 8x, or **Supersampling** as on
+    the Nintendo 64 (drawn at twice the internal resolution and reduced by two, so the picture keeps its size; nothing at 8x); **Texture
+    filtering (GPU)**, bilinear or 3-point. Off by default; Off, every frame is what it was.
+  - **Geometry precision (PGXP)** and **Perspective-correct textures**, which keep 3D models and textures from wobbling, are **On by
+    default** for players (a choice you saved is kept). They change the emulated run slightly (on Ape Escape the RAM and the CPU state
+    differ on some frames, then meet again): what you play by default is **not the checked run**. The conversion's checks run with
+    them Off, and no fidelity is claimed with them On.
+  - Changing the renderer or the anti-aliasing in play opens the session again through a quick state (a short pause); the game no longer
+    closes when the renderer is switched under the xBR or Scale2x filter, and MSAA turned on in play no longer breaks the picture at the
+    next display-mode change.
+  - On Linux the card is used through Mesa; a Vulkan device emulated on the processor (Mesa's llvmpipe, as WSL offers) is refused and
+    the processor draws. Not measured: the cost of Supersampling at 4x (an 8x frame read back each frame), and latency.
 - **Every machine: Sync to display.** A new row of the options page, kept per machine
   ([CONTROLS.md](CONTROLS.md#sync-to-display-177), [HOST_KIT.md](HOST_KIT.md#d30), decision D30):
   - **Auto** (the default) measures the screen's refresh when the game opens. A game whose own rate is within 1 % of it (most consoles
@@ -24,7 +43,7 @@
   Engine, PlayStation and ScummVM, and its field and list are as wide as their longest entry, so no name is cut. The machines'
   names in reports, folders and covers are unchanged.
 - **Every machine: no crash when a machine has no picture yet.** Under the xBR or Scale2x filter, a machine whose picture was missing
-  for a moment (a session reopened under a menu) closed the game; the game's area is now black until the next picture, under every
+  for a moment (a session reopened under a menu, as a PlayStation renderer switch does) closed the game; the game's area is now black until the next picture, under every
   filter.
 - **Amiga 1200: Pinball Illusions' title shows.** In 1.7.6 its table-selection screen stayed black with the music playing (F1 to F4
   still chose a table). The game was running: its title is an eight-plane dual playfield with both priorities at 7, which AGA's Lisa
@@ -43,25 +62,34 @@
   read back, not rolled back by a quick state, and a damaged copy still starts). Its 68EC020 is compared with an independent model
   (G10: 200,000 random instructions of Moira against Musashi, 192,264 equal, every other one in a written family, 87 of them still to
   referee; Musashi is a model, not the silicon). Its qualification column goes from 56 % to 66 %
-  ([QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)). Alien Breed 3D still does
-  not start ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
-- [PS1 VULKAN: pending branch]
-- [AMIGA NIGHT: pending branches]
+  ([QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)).
+- **Amiga 1200: Alien Breed 3D starts.** It stayed black in 1.7.6. The list of segments our WHDLoad layer builds, as AmigaDOS's LoadSeg
+  does, stored each segment's size padded to 8 bytes where AmigaDOS stores the exact size plus 8, so the slave's patches to the game's
+  third segment landed 8 bytes early. With the exact size it shows its title and its music, converted at the standard level with every
+  check passed and 0 interpreted instructions; the game itself was not played beyond its menu. Fourteen other installs give the same
+  traces before and after ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)).
+- **Amiga: no battery clock.** vAmiga gave both models a clock that read the PC's time, which neither a stock Amiga 500 nor a stock
+  Amiga 1200 has, and which would make two runs of the same game differ. It is removed; six games give the same traces.
+- **Amiga 1200: the display's shortcuts under AGA.** The four shortcuts of the Amiga 500's display (one pass for both parities of a line,
+  a line's bitplane slots in a batch, the quiet line, the idle sprites) now work under AGA too, each replayed against vAmiga's own path
+  by the display self-test (12 AGA scenarios, which found and fixed one difference: a wide fetch leaves its last word on the data bus).
+  Eleven games give the same traces, pictures included; on Fears, 936,000 of 939,000 lines take the batch. The gain per frame is not
+  measured yet.
 
 **Speed.** [SPEED: pending]
 
-These are changes to the timing and the menus of every game, to the converter's window and to the Amiga's picture, each on the
-evidence above; none of them is a measure of hardware fidelity, complete gameplay or physical latency, and the interpreter fallback
+These are a new renderer for the PlayStation, changes to the timing and the menus of every game, to the converter's window and to the
+Amiga's machine and picture, each on the evidence above; none of them is a measure of hardware fidelity, complete gameplay or physical latency, and the interpreter fallback
 is still counted and shown per CPU and per device wherever it is used.
 
-**Your exports and quick states.** 1.7.7 moves the game stamp of the Amiga, the Amiga 1200 and the Atari ST, so **every export of
-1.7.6 on those machines is converted again once** on the first batch after you update, from the paths it already learned; the shared
-paths of the base stay qualified (the Amiga's generator revision does not move). The host stamp of every machine moves with Sync to
-display: exports of the other machines are only **upgraded**, rebuilt from their learned paths with no rediscovery. No build stamp
-moves. A quick state of 1.7.6 is refused cleanly, with a message, on the Amiga, the Amiga 1200, the Atari ST and the Nintendo 64
-(their key takes every input of the machine, the host's included); it loads on the other machines, the Mega Drive and the Super
-Nintendo included. Cartridge saves, memory cards and the copies of written disks are kept. [EXPORTS: check again after the PS1 Vulkan
-and Amiga night branches] The details are in [UPGRADES.md](UPGRADES.md#exports-of-176-in-177).
+**Your exports and quick states.** 1.7.7 moves the game stamp of the Amiga, the Amiga 1200, the Atari ST, the Nintendo 64 and the
+PlayStation, so **every export of 1.7.6 on those machines is converted again once** on the first batch after you update, from the
+paths it already learned; the shared paths of the base stay qualified (the Amiga's generator revision does not move). The host stamp
+of every machine moves with Sync to display: exports of the other machines are only **upgraded**, rebuilt from their learned paths with
+no rediscovery. No build stamp moves. A quick state of 1.7.6 is refused cleanly, with a message, on the Amiga, the Amiga 1200, the
+Atari ST and the Nintendo 64 (their key takes every input of the machine, the host's included) and on the PlayStation (its key holds
+the renderer's tree); it loads on the other machines, the Mega Drive and the Super Nintendo included. Cartridge saves, memory cards
+and the copies of written disks are kept. The details are in [UPGRADES.md](UPGRADES.md#exports-of-176-in-177).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
 code-signing certificate yet. On first launch Windows may show "Windows
