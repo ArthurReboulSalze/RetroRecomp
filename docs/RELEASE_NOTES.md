@@ -1,4 +1,4 @@
-# RetroRecomp v1.7.7 — The PlayStation draws with the graphics card; Sync to display on every machine; your firmware found in a folder; Pinball Illusions and Alien Breed 3D on the Amiga 1200 [TITLE: confirm at release]
+# RetroRecomp v1.7.7 — The PlayStation draws with the graphics card; Sync to display on every machine; your firmware found in a folder; Pinball Illusions and Alien Breed 3D on the Amiga 1200
 
 - **Sony PlayStation: the graphics card draws the picture.** A PlayStation game now draws with the graphics card by default (Vulkan,
   Beetle PSX's own renderer) and falls back to the processor when no card can be used, saying so once; the first row of F3, **Renderer**,
