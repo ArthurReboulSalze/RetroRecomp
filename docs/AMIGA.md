@@ -276,6 +276,12 @@ not changed by it.
   sits on the chip bus, as chip RAM does, so code there runs at a stock A1200's speed; a WHDLoad game takes ExpMem where the slave is
   told it is. Moving it would move every address a player's record keeps, for no gain a game shows. An install whose ExpMem does
   not fit still gets fast RAM at `$200000`, as with a card (faster: Fears, Pinball Illusions).
+- **The display's speed shortcuts on the Amiga 1200 (1.7.7).** The four shortcuts of the Amiga 500's display (one pass for both
+  parities of a line, a line's bitplane slots in a batch, the quiet line, the idle sprites) were switched off under AGA until they were
+  checked there; an AGA game paid vAmiga's slower path for every line. They are open to AGA, each replayed against vAmiga's own path
+  by `tools/amiga_display_selftest.py` on AGA scenarios (eight planes, FMODE's wide fetches, colour banks, BPLCON4's XOR), and real
+  A1200 games give the same traces with and without them (Pinball Illusions (6,400 frames, its F10 interlaced table), Slam Tilt, Banshee, Fears, Gloom, Zool 2, Roadkill, Super Stardust and Alien Breed 3D (3,000 frames each), Civilization and an Amiga 500 game (2,500): identical traces, pictures included; on Fears 936,000 of 939,000 lines are batched and 858,003 visible lines take the one-pass loop, against none before). The gain per frame is not measured yet (a timing pass on a
+  quiet PC). The shortcuts live in `retrorecomp/amiga_vamiga_display.py`, outside the generator pins.
 - **Interlaced screens** (on both Amigas, for any game that sets LACE): the machine draws a long and a short field in turn; the picture
   weaves them into one of twice the lines, so it no longer moves a line every frame (Arthur's play test of 15 November 2026 found it on
   Banshee's title). A display change only: the machine, the CPU and the checks are as before; a screen without LACE is shown as it was,

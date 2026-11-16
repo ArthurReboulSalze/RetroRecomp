@@ -172,8 +172,15 @@ int main(int argc, char **argv) {
             Denise::rrQuiet = false;
             DiskController::rrLazyOn = false;
             Agnus::rrSprSkip = false;
+            Denise::rrBothOnce = false;
         } else if (!strcmp(argv[i], "--spr-off")) {
             Agnus::rrSprSkip = false;
+        } else if (!strcmp(argv[i], "--bpl-off")) {          // one shortcut at a time, to find which one a difference comes from
+            Agnus::rrBplBatching = false;
+        } else if (!strcmp(argv[i], "--quiet-off")) {
+            Denise::rrQuiet = false;
+        } else if (!strcmp(argv[i], "--both-off")) {
+            Denise::rrBothOnce = false;
         } else if (!strcmp(argv[i], "--spr-fault") && i + 1 < argc) {
             Agnus::rrSprFault = atoi(argv[i + 1]);
             i += 1;
@@ -203,7 +210,7 @@ int main(int argc, char **argv) {
     if (!read_file(argv[1], scenario)) { fprintf(stderr, "Cannot read %s\n", argv[1]); return 2; }
     FILE *record = nullptr;
     try {
-        // Scenario, little endian: "RRDS", version 1, flags (bit 0: NTSC), chip KiB, frames, fault address, ROM size, ROM, then regions
+        // Scenario, little endian: "RRDS", version 1, flags (bit 0: NTSC, bit 1: the Amiga 1200's AGA machine), chip KiB, frames, fault address, ROM size, ROM, then regions
         // (address, size, bytes) written into chip RAM after power-on, before the first instruction.
         if (scenario.size() < 4 || memcmp(scenario.data(), "RRDS", 4) || le32(scenario, 4) != 1) throw std::runtime_error("Not a scenario of this version.");
         const uint32_t flags = le32(scenario, 8), chip_kb = le32(scenario, 12), frames = le32(scenario, 16);
@@ -216,7 +223,12 @@ int main(int argc, char **argv) {
 
         // The machine as amiga_session.cpp configures it for an export.
         c.emu.initialize();
-        c.emu.set(ConfigScheme::A500_ECS_1MB);
+        if (flags & 2) {
+            c.emu.set(ConfigScheme::A1200_2MB);              // the A1200 as amiga_session.cpp sets it: AGA, 68EC020, its bank map
+            c.emu.set(Opt::MEM_BANKMAP, (i64)BankMap::A1200);
+        } else {
+            c.emu.set(ConfigScheme::A500_ECS_1MB);
+        }
         c.emu.set(Opt::AMIGA_VIDEO_FORMAT, (flags & 1) ? (i64)TV::NTSC : (i64)TV::PAL);
         c.emu.set(Opt::MEM_SLOW_RAM, 0x180000 / 1024);
         c.emu.set(Opt::MEM_CHIP_RAM, chip_kb);

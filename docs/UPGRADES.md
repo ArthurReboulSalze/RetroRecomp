@@ -91,6 +91,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
 | [Commodore Amiga: a LoadSeg list keeps the sizes AmigaDOS stores](#commodore-amiga-a-loadseg-list-keeps-the-sizes-amigados-stores-177) | the Amiga and the Amiga 1200 (`rr_resload.c`) | none | refused (every build's are) |
+| [Commodore Amiga 1200: the display's speed shortcuts under AGA](#commodore-amiga-1200-the-displays-speed-shortcuts-under-aga-177) | the Amiga and the Amiga 1200 (the adaptation's digest) | none | refused (every build's are) |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 | [Commodore Amiga: no battery clock](#commodore-amiga-no-battery-clock-177) | the Amiga and the Amiga 1200 (`amiga_session.cpp`) | none | refused (every build's are) |
 
@@ -243,6 +244,26 @@ run and the native one would disagree for a reason that is not the game's. The s
 - **Measured:** Pinball Illusions (5,000 frames), Slam Tilt, Civilization and Gloom (3,000), Banshee and Fears (2,000), before and after
   on the interpreted reference machine: identical traces, pictures included. None of them reads the clock.
 - **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_session.cpp`); their exports are converted again in full.
+
+## Commodore Amiga 1200: the display's speed shortcuts under AGA (1.7.7)
+
+Owner's decision of 16 November 2026 (« c'est quelque chose qui est important »). The Amiga 500's display shortcuts, added stage by
+stage (one pass for both parities of a line, the bitplane slots of a line in a batch, the quiet line, the idle sprites), were switched
+off under AGA: an Amiga 1200 game ran vAmiga's slower path for every line.
+
+- **What changes:** the four are open to AGA. One pass: both parities are prepared first (their state is disjoint). The batch: the
+  range it checks is taken for FMODE's widest fetch, and a wide fetch leaves its last word on the data bus, as vAmiga's own path does
+  (a read of a write-only register returns it; found by the self-test's AGA scenario 8008). The quiet line: BPLCON4's XOR and
+  BPLCON3's playfield 2 offset are in its key. The idle sprites: unchanged rule.
+- **Where:** `retrorecomp/amiga_vamiga_display.py`, whose rule widens from picture-only changes to the display pipeline: Denise's
+  drawing and the bitplane and sprite slots of Agnus, each replayed against vAmiga's own path by the self-test; never the CPU, the
+  memory, the CIAs, Paula, the Copper or the Blitter (`tests/test_amiga_vamiga_display.py`). `amiga_vamiga.py` is not edited:
+  `GENERATOR_REVISION` stays 2 and the Amiga 500's qualified paths stay qualified.
+- **Proof:** tools/amiga_display_selftest.py passes with 12 AGA scenarios beside the 12 OCS/ECS and 8 super-hires ones (1,568,415 instructions recorded, every record of the batched run equal to vAmiga's per-slot run, 64 of 64 planted faults seen); its AGA scenario 8008 found the data-bus difference above. Real games, reference machine, with and without: Pinball Illusions (6,400 frames, its F10 interlaced table), Slam Tilt, Banshee, Fears, Gloom, Zool 2, Roadkill, Super Stardust and Alien Breed 3D (3,000 frames each), Civilization and an Amiga 500 game (2,500): identical traces, pictures included; on Fears 936,000 of 939,000 lines are batched and 858,003 visible lines take the one-pass loop, against none before.
+- **The bus model in shadow** (stage 7) is not compared on AGA scenarios: it holds the OCS/ECS slot table only; the self-test says so
+  in its summary.
+- **Not measured:** the gain per frame (a timing pass on a quiet PC, with the owner's agreement).
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (the adaptation's digest); exports converted again in full.
 
 ## Exports of 1.7.5 in 1.7.6
 
