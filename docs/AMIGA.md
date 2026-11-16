@@ -265,6 +265,9 @@ not changed by it.
   from the generator's sources). The picture alone changes: on 5,600 frames of the game the sound, the memory and the CPU are the
   same before and after, and the pictures differ from the title's first frame on. The title then matches the private oracle's
   (« Loading », then the rings and the credits). Slam Tilt and Roadkill (AGA) and Civilization (Amiga 500) give the same trace as before, pictures included.
+- **Imploder (1.7.7).** `resload_Decrunch` also unpacks the File Imploder (`IMP!`, `ATN!`), our own C written from the format's
+  description (the one temisu/ancient gives, as for Crunch-Mania), checked by the checksum that closes each file. Alien Breed 2 and
+  Body Blows Galactic (AGA) stopped at their first frame without it; both convert now, every check passed, 0 interpreted instructions.
 - **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
   Gloom and Super Stardust convert with it on the Amiga 1200, and Five A Side Soccer on the Amiga 500 (46 files unpacked on its main
   route, every check passed).

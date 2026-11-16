@@ -56,6 +56,7 @@ uint32_t rr_pack_packed_size(const uint8_t *d, size_t size) {
     int f = rr_pack_format(d, size);
     if ((f == RR_PACK_RNC1 || f == RR_PACK_RNC2) && size >= 12) return 18 + be32(d + 8);
     if (f == RR_PACK_CRM && size >= 14) return 14 + be32(d + 10);
+    if (f == RR_PACK_IMP && size >= 12) return be32(d + 8) + 0x32;      /* the stream's end, then the 0x32 bytes of the trailer */
     return 0;
 }
 
@@ -291,11 +292,85 @@ static uint32_t crm(const uint8_t *data, size_t size, uint8_t *out, size_t cap, 
     return unpacked;
 }
 
+/* ---- Imploder ("IMP!", "ATN!") -------------------------------------------------------------------------------
+ * Written from the format's description (the File Imploder's layout as temisu/ancient documents it, BSD-2): the header holds the
+ * unpacked size and the offset of the end of the stream; the stream is read backward from there, the output written backward from its
+ * end. The first 12 bytes of the stream were moved by the packer into a trailer after it (the header took their place), with the first
+ * literal run's length, a start marker, the bits left in the first byte, and the tables of match distances; a 32-bit checksum (the sum
+ * of the 16-bit words before it, plus 7) closes the file. Literal runs and matches alternate: a match's length, the next run's length and
+ * the match's distance come from short prefix codes, each with a selector that picks the extra bits and bases from the trailer's tables.
+ */
+typedef struct ImpIn { const uint8_t *data; uint32_t end, cur; uint32_t buf; int left; int bad; } ImpIn;
+
+static uint8_t imp_byte(ImpIn *in) {
+    if (!in->cur) { in->bad = 1; return 0; }
+    uint32_t i = --in->cur;
+    /* the stream's first 12 bytes live in the trailer: 0-3 at end+8, 4-7 at end+4, 8-11 at end */
+    uint32_t at = i >= 12 ? i : i < 4 ? in->end + 8 + i : i < 8 ? in->end + i : in->end + i - 8;
+    return in->data[at];
+}
+
+static uint32_t imp_bits(ImpIn *in, int n) {
+    uint32_t value = 0;
+    while (n) {
+        if (!in->left) { in->buf = imp_byte(in); in->left = 8; }
+        int take = n < in->left ? n : in->left;
+        in->left -= take;
+        value = value << take | (in->buf >> in->left & ((1u << take) - 1));
+        n -= take;
+    }
+    return value;
+}
+
+static uint32_t imp(const uint8_t *data, size_t size, uint8_t *out, size_t cap, const char **why) {
+    uint32_t unpacked = be32(data + 4), end = be32(data + 8);
+    if (!unpacked || (end & 1) || end < 12 || (size_t)end + 0x32 > size) { *why = "Imploder data shorter than its header says"; return 0; }
+    if (unpacked > cap) { *why = "Imploder output larger than the room given"; return 0; }
+    uint32_t sum = 7;
+    for (uint32_t i = 0; i < end + 0x2E; i += 2) sum += be16(data + i);
+    if (sum != be32(data + end + 0x2E)) { *why = "Imploder checksum differs"; return 0; }
+    ImpIn in = {data, end, end, 0, 0, 0};
+    if (!(data[end + 16] & 0x80)) in.cur--;                 /* the marker: the stream starts one byte lower */
+    const uint8_t first = data[end + 17];                   /* the bits left in the first byte, above its lowest set bit */
+    for (int i = 0; i < 7; i++)
+        if (first & 1 << i) { in.buf = first >> (i + 1); in.left = 7 - i; break; }
+    uint32_t base[2][4];
+    uint8_t extra[3][4];
+    for (int i = 0; i < 8; i++) base[i >> 2][i & 3] = be16(data + end + 18 + 2 * i);
+    for (int i = 0; i < 12; i++) extra[i >> 2][i & 3] = data[end + 34 + i];
+    static const uint8_t run_base[4] = {6, 10, 10, 18};
+    static const uint8_t run_bits[3][4] = {{1, 1, 1, 1}, {2, 3, 3, 4}, {4, 5, 7, 14}};
+    uint32_t run = be32(data + end + 12), o = unpacked;    /* o bytes are left to write, from the end */
+    for (;;) {
+        for (uint32_t k = 0; k < run; k++) {
+            if (!o) { *why = "Imploder output overruns"; return 0; }
+            out[--o] = imp_byte(&in);
+        }
+        if (in.bad) { *why = "Imploder stream ends early"; return 0; }
+        if (!o) break;
+        uint32_t code = 0;                                 /* 0, 10, 110, 1110, 11110, 11111 */
+        while (code < 5 && imp_bits(&in, 1)) code++;
+        uint32_t selector = code < 4 ? code : 3, count = code + 2;
+        if (count == 6) count += imp_bits(&in, 3);
+        else if (count == 7 && !(count = imp_byte(&in))) { *why = "Imploder match of no length"; return 0; }
+        uint32_t i1 = imp_bits(&in, 1) ? 1 + imp_bits(&in, 1) : 0;     /* 0, 10, 11 */
+        run = i1 == 2 ? run_base[selector] : i1 + i1;
+        run += imp_bits(&in, run_bits[i1][selector]);
+        uint32_t i2 = imp_bits(&in, 1) ? 1 + imp_bits(&in, 1) : 0;
+        uint32_t distance = 1 + (i2 ? base[i2 - 1][selector] : 0) + imp_bits(&in, extra[i2][selector]);
+        if (in.bad) { *why = "Imploder stream ends early"; return 0; }
+        if (count > o || o + distance > unpacked) { *why = "Imploder match out of range"; return 0; }
+        for (uint32_t k = 0; k < count; k++, o--) out[o - 1] = out[o + distance - 1];
+    }
+    return unpacked;
+}
+
 uint32_t rr_unpack(const uint8_t *data, size_t size, uint8_t *out, size_t cap, const char **why) {
     int f = rr_pack_format(data, size);
     *why = NULL;
     if (f == RR_PACK_RNC1 && size >= 18) return rnc1(data, size, out, cap, why);
     if (f == RR_PACK_CRM && size >= 20) return crm(data, size, out, cap, why);
+    if (f == RR_PACK_IMP && size >= 0x32) return imp(data, size, out, cap, why);
     *why = f == RR_PACK_NONE ? "not a packed format" : "this packed format is not unpacked yet";
     return 0;
 }

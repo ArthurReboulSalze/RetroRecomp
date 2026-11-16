@@ -99,6 +99,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Nintendo 64 and PlayStation: one Vulkan frontend](#nintendo-64-and-playstation-one-vulkan-frontend-177) | the Nintendo 64 (`n64_session.cpp`, `CMakeLists.txt`, the new `native/libretro_vulkan_host.c` and `.h`), the PlayStation (the same two files, not yet compiled into its games) | none | **Nintendo 64 states of 1.7.6 are refused** (the state key hashes the session and the shared files) |
 | [Sony PlayStation: the Vulkan renderer compiled in, not yet used](#sony-playstation-the-vulkan-renderer-compiled-in-not-yet-used-177) | the PlayStation (the prepared Beetle tree: its sources, defines, include folders and the Vulkan headers) | the PlayStation's host stamp (`psx_session.c`) | PlayStation states of 1.7.6 refused (another build: the state key holds the prepared tree's digest) |
 | [Commodore Amiga: the Kickstart a slave's code asks for](#commodore-amiga-the-kickstart-a-slaves-code-asks-for-177) | the Amiga and the Amiga 1200 (`amiga_kickstart.py`) | none | none |
+| [Commodore Amiga: resload_Decrunch unpacks the Imploder](#commodore-amiga-resload_decrunch-unpacks-the-imploder-177) | the Amiga and the Amiga 1200 (`rr_decrunch.c`, `rr_decrunch.h`) | none | refused (every build's are) |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 | « Find firmware in a folder… » in Options › Consoles ([INSTALLING.md](INSTALLING.md#finding-firmware-in-a-folder); no section of this page; merge `246103b7`) | none | none (`firmware_search.py` and `gui_firmware.py` are interface modules, outside the stamps) | none |
 | The converter's console menu: short labels, a field and a list as wide as their longest entry (no section of this page; merge `b318698e`) | none | none (`console_menu.py` is an interface module, outside the stamps) | none |
@@ -423,6 +424,20 @@ first frame, the player's 3.1 unused.
   Kickstart's, 0.12 %); on 250 installs sampled in each NAS folder, 46 of the 47 LoadKick-only slaves are read, and the player's
   Kickstarts match all 46.
 - **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_kickstart.py`); exports converted again in full.
+
+## Commodore Amiga: resload_Decrunch unpacks the Imploder (1.7.7)
+
+`resload_Decrunch` recognised the File Imploder (`IMP!`, `ATN!`) and refused it by name. Two Amiga 1200 installs of the NAS stopped at
+their first frame for it (Alien Breed 2 and Body Blows Galactic, both AGA).
+
+- **What changes:** an Imploder unpacker in `native/amiga_whdload/rr_decrunch.c`, our own C written from the format's description
+  (temisu/ancient's, BSD-2, credited with Crunch-Mania): the stream read backward with its first 12 bytes in the trailer, literal
+  runs and matches from short prefix codes and the trailer's tables, the closing checksum checked. RNC method 2 and TPWM are still
+  refused by name.
+- **Measured:** both installs convert (quick level, every check passed, 0 interpreted instructions); the three Imploder files of
+  their archives unpack with their checksum; `tests/test_amiga_resload.py` unpacks an authored stream byte for byte and refuses a
+  damaged one.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200; exports converted again in full.
 
 ## Exports of 1.7.5 in 1.7.6
 
