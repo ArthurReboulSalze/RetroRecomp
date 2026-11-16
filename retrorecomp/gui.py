@@ -32,7 +32,7 @@ from .branding import COLORS, apply_theme, ICON_PATHS
 from .gui_common import (
     PROFILES, LOCAL_PLATFORM, PLATFORMS, HELP_URL, UPX_SOURCE_URL, update_error_text, UPSTREAM_CREDITS,
     typed_pseudonym, SENDING_AVAILABLE, SEND_EVERY, UPDATE_CHECK_EVERY, base_is_newer, CLOSING_SEND, BUSY_SEND_RETRY,
-    INTERFACE_PREFERENCES,
+    INTERFACE_PREFERENCES, EDGE, STATUS_MARK,
 )
 from .gui_drawing import (
     HATCH_SPACING, HEADER_SCALE, HEADER_HEIGHT, PORTRAIT_SIZE, NUMBER_MARKS, compact_number, _scaled_photo,
@@ -231,11 +231,11 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         banner_path = ASSETS / 'assets/Retro-Recomp-banner.png'
         try:
             self.banner = _scaled_photo(banner_path, app)
-            header.create_image(24, 0, image=self.banner, anchor='nw', tags='banner')
+            header.create_image(EDGE, 0, image=self.banner, anchor='nw', tags='banner')
         except (OSError, ValueError, tk.TclError):
             self.banner = None
         # The wordmark starts at x=172 of the banner; the tagline sits under it.
-        self.brand_tagline = header.create_text(24 + round(172 * HEADER_SCALE), round(92 * HEADER_SCALE),
+        self.brand_tagline = header.create_text(EDGE + round(172 * HEADER_SCALE), round(92 * HEADER_SCALE),
             text=self.tr('brand_tagline'),
             anchor='nw', fill=COLORS['text'], font=(self.ui_font, 8), tags='brand_tagline')
         if os.name != 'nt':
@@ -320,7 +320,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         stripe.pack(fill='x')
         def gradient(event):
             stripe.delete('all')
-            stripe.create_rectangle(24, 0, 174, 2, fill=COLORS['gold'], outline='')
+            stripe.create_rectangle(EDGE, 0, EDGE + 150, 2, fill=COLORS['gold'], outline='')
         stripe.bind('<Configure>', gradient)
 
         body = tk.Canvas(app, bg=COLORS['background'], highlightthickness=0, borderwidth=0)
@@ -332,7 +332,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         body.rowconfigure(7, weight=2, minsize=52)
         toolbar = ttk.Frame(body)
         self.toolbar = toolbar
-        toolbar.grid(row=0, column=0, sticky='ew', padx=24, pady=(16, 10))
+        toolbar.grid(row=0, column=0, sticky='ew', padx=EDGE, pady=(16, 10))
         # The queue/collection switch never moves: it comes first, and the
         # buttons of the visible view follow it in their own frame.
         self.compiled_button = ttk.Button(toolbar, text=self.tr('compiled_games'),
@@ -383,7 +383,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.knowledge_button.pack(side='right', padx=(0, 8))
 
         table_frame = ttk.Frame(body)
-        table_frame.grid(row=1, column=0, sticky='nsew', padx=24)
+        table_frame.grid(row=1, column=0, sticky='nsew', padx=EDGE)
         self.table = ttk.Treeview(table_frame, columns=('title', 'system', 'video', 'size', 'cover', 'status'), show='headings', selectmode='extended', height=3)
         for key, caption, width in [('title', self.tr('game'), 350), ('system', self.tr('console'), 125),
                                     ('video', self.tr('video_timing'), 115), ('size', 'ROM', 70),
@@ -418,7 +418,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.table.bind('<Configure>', self.layout_empty_state, add='+')
 
         selection = ttk.Frame(body)
-        selection.grid(row=2, column=0, sticky='ew', padx=24, pady=(8, 12))
+        selection.grid(row=2, column=0, sticky='ew', padx=EDGE, pady=(8, 12))
         self.cover_button = self.button(selection, self.tr('choose_cover'), self.choose_cover, 'tip_choose_cover')
         self.cover_button.pack(side='left')
         self.auto_cover_button = self.button(selection, self.tr('auto_cover'), self.automatic_cover, 'tip_auto_cover')
@@ -439,10 +439,10 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.decorate_button(self.memory_button, 'gamepad')
         self.memory_button.pack(side='right')
         self.hint(self.memory_button, 'tip_memory')
-        ttk.Label(body, textvariable=self.detail, style='Muted.TLabel', wraplength=850).grid(row=3, column=0, sticky='ew', padx=24, pady=(0, 12))
+        ttk.Label(body, textvariable=self.detail, style='Muted.TLabel', wraplength=850).grid(row=3, column=0, sticky='ew', padx=EDGE, pady=(0, 12))
 
         actions = ttk.Frame(body)
-        actions.grid(row=4, column=0, sticky='ew', padx=24, pady=(0, 8))
+        actions.grid(row=4, column=0, sticky='ew', padx=EDGE, pady=(0, 8))
         self.start_button = ttk.Button(actions, text=self.tr('start'), command=self.start, style='Primary.TButton')
         self.decorate_button(self.start_button, 'refresh', primary=True)
         self.start_button.pack(side='left')
@@ -465,10 +465,10 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         open_button.pack(side='right')
         self.hint(open_button, 'tip_open_folder')
         self.progress = ttk.Progressbar(body, mode='determinate')
-        self.progress.grid(row=5, column=0, sticky='ew', padx=24, pady=(0, 8))
-        ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=6, column=0, sticky='ew', padx=24, pady=(0, 8))
+        self.progress.grid(row=5, column=0, sticky='ew', padx=EDGE, pady=(0, 8))
+        ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=6, column=0, sticky='ew', padx=EDGE, pady=(0, 8))
         log_frame = tk.Frame(body, bg=COLORS['field'], highlightthickness=1, highlightbackground=COLORS['border'])
-        log_frame.grid(row=7, column=0, sticky='nsew', padx=24)
+        log_frame.grid(row=7, column=0, sticky='nsew', padx=EDGE)
         self.log = tk.Text(log_frame, height=2, font=('Consolas', 9), bg=COLORS['field'],
                            fg=COLORS['muted'], relief='flat', padx=10, pady=9,
                            state='disabled', wrap='word', insertbackground=COLORS['gold'])
@@ -479,19 +479,19 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # A thin status line: one row of small text, tight margins, so the
         # queue and the log keep the height.
         footer = ttk.Frame(body)
-        footer.grid(row=8, column=0, sticky='ew', padx=24, pady=(4, 5))
-        status_dot = self.status_dot = tk.Canvas(footer, width=12, height=12, bg=COLORS['background'],
+        footer.grid(row=8, column=0, sticky='ew', padx=EDGE, pady=(4, EDGE - 2))
+        status_dot = self.status_dot = tk.Canvas(footer, width=8, height=STATUS_MARK, bg=COLORS['background'],
                                                  highlightthickness=0)
-        status_dot.create_oval(2, 3, 8, 9, fill=COLORS['green'], outline='', tags='dot')
-        status_dot.pack(side='left', padx=(0, 5))
+        status_dot.create_oval(0, STATUS_MARK - 7, 7, STATUS_MARK, fill=COLORS['green'], outline='', tags='dot')
+        status_dot.pack(side='left', padx=(0, 6))
         self.sending_count = 0
         self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel',
                                       font=(self.ui_font, 8), padding=0)
         self.footer_label.pack(side='left')
         # Bottom right: the two gold squares in the corner, the version and
         # platform, then the motto.
-        squares = tk.Canvas(footer, width=18, height=12, bg=COLORS['background'], highlightthickness=0)
-        for x, y, size in ((11, 6, 6), (3, 0, 7)):
+        squares = tk.Canvas(footer, width=15, height=STATUS_MARK, bg=COLORS['background'], highlightthickness=0)
+        for x, y, size in ((9, 6, 6), (0, 0, 7)):
             squares.create_rectangle(x, y, x + size, y + size, fill=COLORS['gold'], outline='')
         squares.pack(side='right')
         self.version_label = ttk.Label(footer, text=f'v{__version__} · {PLATFORMS[self.platform_id]}',

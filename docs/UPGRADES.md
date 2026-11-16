@@ -102,8 +102,9 @@ On the owner's word of 16 November 2026 (« Je préfère que tu mettes en place 
 `retrorecomp/gui_welcome.py` and `retrorecomp/announcement.py`: the log panel shows an English ASCII welcome until a real line
 is written, then the site's message to every player (`GET /api/v1/announcement`, `{"active", "message", "updated_utc"}`, read
 at start while the start-up check is on), or « Not connected to the Internet. » when the site cannot be reached. Two new
-interface modules and one changed hint in the eight languages (`assets/locales/` is outside the stamps); the Knowledge button's
-picture (`gui_drawing.py`) and the leaderboard's crown room (`gui_leaderboard.py`) are window code too.
+interface modules and one changed hint in the eight languages (`assets/locales/` is outside the stamps); the window's single
+side margin (`gui_common.EDGE`, 12 px, with the status bar's marks in the corners), the Knowledge button's picture
+(`gui_drawing.py`) and the leaderboard's crown room (`gui_leaderboard.py`) are window code too.
 **Stamps:** none (game, host and build stamps of the 21 profiles checked identical to `main`). **Existing exports:** unchanged.
 
 ## Exports of 1.7.7 in 1.7.8

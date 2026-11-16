@@ -94,7 +94,19 @@ def smoke(window):
     assert application.banner.width() <= 600 and application.banner.height() < 175
     banner_items = application.header.find_withtag('banner')
     assert len(banner_items) == 1
-    assert application.header.coords(banner_items[0]) == [24.0, 0.0]
+    # One side margin for the whole window (gui_common.EDGE, 12 px on Arthur's choice of 16 Nov 2026): the banner, every
+    # row of the body and the status bar, whose green dot and gold squares sit flush in the two bottom corners.
+    from retrorecomp.gui_common import EDGE
+    assert application.header.coords(banner_items[0]) == [float(EDGE), 0.0]
+    rows = {int(widget.grid_info()['row']): widget for widget in application.body.grid_slaves()}
+    assert all(int(str(rows[row].grid_info()['padx'])) == EDGE for row in range(9)), \
+        [(row, rows[row].grid_info()['padx']) for row in sorted(rows)]
+    footer = application.status_dot.master
+    assert footer.pack_slaves()[0] is application.status_dot
+    assert application.status_dot.coords('dot')[0] == 0                                  # flush left
+    squares = next(child for child in footer.pack_slaves() if isinstance(child, tk.Canvas)
+                   and child is not application.status_dot)
+    assert max(squares.coords(item)[2] for item in squares.find_all()) == int(squares.cget('width'))   # flush right
     assert application.tagline.master is application.footer_label.master
     initial_tuning = application.frames.get(), application.passes.get()
     before = len(application.items)

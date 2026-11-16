@@ -27,9 +27,10 @@
   opens, only while **Options › Common › Check for updates at startup** is on: a plain request to retro-recomp.com that sends
   nothing about you or your games and needs no account. Interface modules only (`gui_welcome.py`, `announcement.py`): no
   stamp moves.
-- **The converter: small polish.** The Knowledge button has its own picture, a shared network (three linked circles), like
-  the gear of Options. In the leaderboard, the first place's crown is drawn whole again: its points were cut off under the text
-  above the podium.
+- **The converter: small polish.** The window's side margins are narrower (12 pixels instead of 24) and the same everywhere,
+  so the panels line up with the status bar, whose green dot and two gold squares now sit in the bottom corners. The Knowledge
+  button has its own picture, a shared network (three linked circles), like the gear of Options. In the leaderboard, the first
+  place's crown is drawn whole again: its points were cut off under the text above the podium.
 
 ---
 

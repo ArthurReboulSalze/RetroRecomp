@@ -17,7 +17,7 @@ from .cover_settings import (
 from .cover_keyring import KeyringError
 from .cover_sources import PROVIDERS as COVER_PROVIDERS
 from .branding import COLORS
-from .gui_common import PROFILES, SENDING_AVAILABLE
+from .gui_common import EDGE, PROFILES, SENDING_AVAILABLE
 
 # How each machine's options page is laid out. The page itself is built from the profile (build_console_tab);
 # only the look that differs between machines is listed here, and a machine missing from the table gets the
@@ -129,7 +129,7 @@ class OptionsMixin:
         self.body.rowconfigure(1, weight=1, minsize=100)
         self.body.rowconfigure(7, weight=0, minsize=0)
         # Same side margins as the queue table and the log below it.
-        panel.grid(row=1, column=0, rowspan=7, sticky='nsew', padx=24, pady=(0, 12))
+        panel.grid(row=1, column=0, rowspan=7, sticky='nsew', padx=EDGE, pady=(0, 12))
         try:
             self.options_button.state(['selected'])
         except (AttributeError, tk.TclError):
