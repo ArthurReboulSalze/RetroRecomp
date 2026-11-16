@@ -416,7 +416,7 @@ class QueueMixin:
                          state=state(one and self.report_available()
                                      and self.row_status.get(rows[0]) not in ('waiting', 'converting', 'duplicate', None)))
         menu.add_separator()
-        menu.add_command(label=self.tr('choose_cover'), command=self.choose_cover, state=state(one and free))
+        menu.add_command(label=self.tr('choose_cover'), command=self.choose_cover, state=state(free))
         menu.add_command(label=self.tr('auto_cover'), command=self.automatic_cover, state=state(free))
         if item is not None and not item.error:
             video = tk.Menu(menu, tearoff=False, **colors)
@@ -465,16 +465,12 @@ class QueueMixin:
             self.reload_queue()
 
     def choose_cover(self):
-        rows = self.table.selection()
-        if len(rows) != 1:
+        """The box-art window (gui_covers) for the selected rows: drop an image on a game or choose a file."""
+        rows = [row for row in self.table.selection() if row in self.items]
+        if not rows:
             messagebox.showinfo(APP_NAME, self.tr('one_cover'))
             return
-        path = filedialog.askopenfilename(title=self.tr('pick_cover'), initialdir=ROOT / 'BoxArt', filetypes=[(self.tr('images'), '*.png *.jpg *.jpeg *.webp *.bmp *.ico')])
-        if path:
-            self.items[rows[0]].cover = Path(path)
-            self.table.set(rows[0], 'cover', self.tr('chosen'))
-            self.use_cover.set(True)
-            self.selection_changed()
+        self.choose_queue_covers(rows)
 
     def automatic_cover(self):
         for row in self.table.selection():

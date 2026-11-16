@@ -356,6 +356,8 @@ class CompiledGamesView(ttk.Frame):
         menu.add_command(label=self.tr('favorite_remove' if all(g.favorite for g in self.chosen()) else 'favorite_add'),command=self.toggle_favorites)
         menu.add_command(label=self.tr('card_fetch_info'),command=lambda:self.card.search_games(self.chosen()),
                          state='disabled' if self.card.pending else 'normal')
+        # The box-art window (gui_covers): one row per selected game, applied to the exports.
+        menu.add_command(label=self.tr('card_choose_cover'),command=lambda:self.owner.choose_compiled_covers(self.chosen()))
         menu.add_separator()
         menu.add_command(label=self.tr('reconvert'),command=lambda:self.owner.reconvert_games(self.chosen()),
                          state='disabled' if self.running or self.owner.busy or self.owner.updating else 'normal')

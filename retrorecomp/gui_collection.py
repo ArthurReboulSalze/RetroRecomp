@@ -281,9 +281,11 @@ class CollectionMixin:
         self.busy = self.converting = True
         self.cancel.clear()
         self.set_controls(False)
-        self.compiled_view.progress.start(15)
-        self.compiled_view.clear_log()
-        self.compiled_view.status.set(self.tr('reconverting_games'))
+        # Also started from the « Box art not found » window, before Compiled Games was ever opened.
+        if self.compiled_view is not None:
+            self.compiled_view.progress.start(15)
+            self.compiled_view.clear_log()
+            self.compiled_view.status.set(self.tr('reconverting_games'))
         def worker():
             from .queue_state import console_jobs, run_limited
             from .batch import _convert_in_budget, _embedded_export_identity, reported_owner
@@ -325,6 +327,7 @@ class CollectionMixin:
                     folder,target,[],lambda text:self.messages.put(('log',text)),
                     {**options,'gb_parallel_games':games_at_once,'ng_parallel_games':games_at_once,'shared_paths':shared})
                 results.append({**result,'system':item.system,'sha256':item.sha256})
+                self.messages.put(('reconverted',game.system,game.identity,result['status'],result.get('message','')))
                 if result['status'] in ('success','current'):
                     game = game_from_report(Path(result['report']),target.parent,source=str(source))
                     self.compiled_inventory.remember(refresh(game,{}))
@@ -345,6 +348,7 @@ class CollectionMixin:
                     counts['failed'] += 1
                     errors.append(str(exc))
                     self.messages.put(('log',str(exc)))
+                    self.messages.put(('reconverted',pair[0].system,pair[0].identity,'error',str(exc)))
             try:
                 run_limited(chosen,lambda pair:pair[0].system,jobs,per_console,guarded,finished)
                 self.compiled_inventory.save()

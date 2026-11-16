@@ -54,6 +54,7 @@ class ConversionMixin:
             console_jobs=self.console_jobs_preferences(),
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
+            ask_missing_cover=self.ask_missing_cover.get(),
             use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
             compress_games=self.compress_games.get(),
             startup_update_check=self.check_at_startup.get(), last_update_check=self.last_update_check,
@@ -181,6 +182,10 @@ class ConversionMixin:
         self.set_status('starting', count=len(items))
         recovered=self.recovered_batch
         inventory_preferences=self.preferences()
+        # « Box art not found »: each game that ends without a cover joins one window; the batch never waits for it.
+        ask_covers = self.ask_missing_cover.get() and self.use_cover.get()
+        self.cover_requests().new_batch()
+        batch_rows = list(self.active_rows)
         # A selected-only conversion must leave the other recovered rows
         # recoverable, including after a later window close or crash.
         recovered_indices={}
@@ -209,6 +214,7 @@ class ConversionMixin:
                             checkpoint_failed=True
                             self.messages.put(('log',self.tr('queue_save_failed')))
                     if kind=='result':self.remember_export(value,inventory_preferences)
+                    if kind=='result' and ask_covers:self.check_missing_cover(batch_rows[index],value)
                     self.messages.put((kind,index,value))
                 # The shared base's paths for these ROMs join the imported
                 # banks first; each conversion checks them again.
@@ -415,6 +421,7 @@ class ConversionMixin:
                         self.set_status('summary', **record)
                         self.announce_finished(record)
                         self.send_discoveries_soon()
+                    self.apply_dropped_covers()     # the images given during the batch reach their games now
                 elif kind == 'update_check':
                     if len(event) > 2:
                         self.manual_check_done(event[1], event[2])
@@ -497,6 +504,15 @@ class ConversionMixin:
                         self.close()
                         return
                     self.send_discoveries_soon()
+                    self.apply_dropped_covers()     # images given while this reconversion ran
+                elif kind == 'cover_missing':
+                    self.cover_missing(*event[1:])
+                elif kind == 'cover_drop':
+                    self.cover_drop_paths(event[1])
+                elif kind == 'cover_drop_error':
+                    self.messages.put(('log', self.tr('cover_ask_no_drop')))
+                elif kind == 'reconverted':
+                    self.cover_reconverted(*event[1:])
                 elif kind == 'auto_sent':
                     self.auto_sent(event[1], event[2])
                 elif kind == 'report_sent':
