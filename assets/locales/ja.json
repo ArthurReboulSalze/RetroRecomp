@@ -854,7 +854,7 @@
     "front_end_played_yesterday": "1 日前にプレイ",
     "front_end_played_days": "{days} 日前にプレイ",
     "front_end_fallback": "予備インタープリターを使用",
-    "front_end_find_cover": "パッケージをオンラインで検索（フロントエンドのみ）",
+    "front_end_find_cover": "パッケージをオンラインで検索",
     "front_end_network_later": "ネットワークプレイ（準備中）",
     "front_end_tv": "全画面（F11）",
     "front_end_tv_leave": "ウィンドウに戻る（F11）",
@@ -877,7 +877,7 @@
     "front_end_no": "いいえ",
     "front_end_selected": "{count} 本を選択中",
     "front_end_select_none": "選択を解除",
-    "front_end_find_covers": "パッケージをオンラインで検索（{count} 本、フロントエンドのみ）",
+    "front_end_find_covers": "パッケージをオンラインで検索（{count}）",
     "front_end_choose_covers": "パッケージを選択…（{count} 本）",
     "front_end_searching": "パッケージを検索中：{done}/{total}",
     "front_end_search_done": "{total} 本中 {found} 本のパッケージが見つかりました",
@@ -886,7 +886,8 @@
     "start_front_end_fullscreen": "…全画面で",
     "tip_start_front_end": "起動時に、変換キューの代わりにコンパイル済みゲームをパッケージの一覧で表示します。",
     "tip_start_front_end_fullscreen": "起動時に開くフロントエンドを全画面で表示します。ゲームパッドの X または F11 でウィンドウに戻ります。",
-    "front_end_find_missing": "足りないパッケージをオンラインで検索（{count} 本、フロントエンドのみ）"
+    "front_end_find_missing": "足りないパッケージを検索（{count}）",
+    "front_end_only_note": "フロントエンド専用です。ゲーム本体は変わりません。"
   },
   "runtime": {
     "Internal resolution": "内部解像度",

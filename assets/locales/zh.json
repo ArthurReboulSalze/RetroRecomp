@@ -854,7 +854,7 @@
     "front_end_played_yesterday": "1 天前游玩过",
     "front_end_played_days": "{days} 天前游玩过",
     "front_end_fallback": "使用备用解释器",
-    "front_end_find_cover": "在线搜索封面（仅限前端）",
+    "front_end_find_cover": "在线搜索封面",
     "front_end_network_later": "网络游戏（即将推出）",
     "front_end_tv": "全屏（F11）",
     "front_end_tv_leave": "回到窗口（F11）",
@@ -877,7 +877,7 @@
     "front_end_no": "否",
     "front_end_selected": "已选择 {count} 个游戏",
     "front_end_select_none": "取消选择",
-    "front_end_find_covers": "在线搜索封面（{count} 个游戏，仅限前端）",
+    "front_end_find_covers": "在线搜索封面（{count}）",
     "front_end_choose_covers": "选择封面…（{count} 个游戏）",
     "front_end_searching": "正在搜索封面：{done}/{total}",
     "front_end_search_done": "{total} 个游戏中找到 {found} 个封面",
@@ -886,7 +886,8 @@
     "start_front_end_fullscreen": "…全屏",
     "tip_start_front_end": "启动时以封面墙显示已编译游戏，而不是转换队列。",
     "tip_start_front_end_fullscreen": "启动时打开的前端使用整个屏幕。按手柄 X 或 F11 回到窗口。",
-    "front_end_find_missing": "在线搜索缺少的封面（{count} 个游戏，仅限前端）"
+    "front_end_find_missing": "搜索缺少的封面（{count}）",
+    "front_end_only_note": "仅用于前端：游戏本身不会改变。"
   },
   "runtime": {
     "Internal resolution": "内部分辨率",

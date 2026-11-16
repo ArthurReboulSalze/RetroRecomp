@@ -854,7 +854,7 @@
     "front_end_played_yesterday": "Gestern gespielt",
     "front_end_played_days": "Vor {days} Tagen gespielt",
     "front_end_fallback": "Nutzt den Ersatz-Interpreter",
-    "front_end_find_cover": "Cover online suchen (nur Front-end)",
+    "front_end_find_cover": "Cover online suchen",
     "front_end_network_later": "Netzwerkspiel (kommt später)",
     "front_end_tv": "Vollbild (F11)",
     "front_end_tv_leave": "Zurück zum Fenster (F11)",
@@ -877,7 +877,7 @@
     "front_end_no": "Nein",
     "front_end_selected": "{count} Spiele ausgewählt",
     "front_end_select_none": "Auswahl aufheben",
-    "front_end_find_covers": "Cover online suchen ({count} Spiele, nur Front-end)",
+    "front_end_find_covers": "Cover online suchen ({count})",
     "front_end_choose_covers": "Cover wählen… ({count} Spiele)",
     "front_end_searching": "Cover-Suche: {done}/{total}",
     "front_end_search_done": "Cover für {found} von {total} Spielen gefunden",
@@ -886,7 +886,8 @@
     "start_front_end_fullscreen": "…im Vollbild",
     "tip_start_front_end": "Beim Start deine kompilierten Spiele als Cover-Wand statt der Konvertierungsliste zeigen.",
     "tip_start_front_end_fullscreen": "Das beim Start geöffnete Front-end füllt den Bildschirm. X auf dem Gamepad oder F11 holen das Fenster zurück.",
-    "front_end_find_missing": "Fehlende Cover online suchen ({count} Spiele, nur Front-end)"
+    "front_end_find_missing": "Fehlende Cover suchen ({count})",
+    "front_end_only_note": "Nur für das Front-end: die Spiele bleiben unverändert."
   },
   "runtime": {
     "Internal resolution": "Interne Auflösung",

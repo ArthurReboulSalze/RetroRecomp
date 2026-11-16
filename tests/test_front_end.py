@@ -374,6 +374,12 @@ class HiddenView(unittest.TestCase):
         self.assertEqual(self.view.cards.online_cover.call_count, 2)
         self.assertEqual(self.view.search_result, (2, 2, 0))
 
+    def test_the_cover_actions_open_the_box_art_window_of_gui_covers(self):
+        self.view.select_shelf(self.view.index_of('sms'), slide=False)
+        actions = {key: action for key, action, _ in self.view.actions()}
+        actions['card_choose_cover']()
+        self.owner.choose_compiled_covers.assert_called_once_with([self.view.focused()])
+
     def test_the_gamepad_does_nothing_while_a_game_runs(self):
         running = Mock()
         running.poll.return_value = None
@@ -387,6 +393,163 @@ class HiddenView(unittest.TestCase):
         self.view.poll_controller()
         self.assertEqual(self.view.layout.columns, columns)
         self.view.controller = None
+
+
+class FakeView:
+    """Stands for FrontEndView in the mixin's tests: a frame that records what the window asks of it."""
+    def __init__(self, owner, parent):
+        import tkinter as tk
+        self.frame = tk.Frame(parent)
+        self.calls = []
+
+    def __getattr__(self, name):
+        if name in ('grid', 'grid_remove', 'winfo_manager'):
+            return getattr(self.frame, name)
+        return lambda *args, **kwargs: self.calls.append(name)
+
+
+class Window(unittest.TestCase):
+    """gui_front_end.FrontEndMixin on a stand-in window: entering and leaving, full screen, the start options."""
+
+    def setUp(self):
+        import tkinter as tk
+        from tkinter import ttk
+        from unittest.mock import patch
+        try:
+            self.root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('no display')
+        self.root.withdraw()
+        self.addCleanup(self.root.destroy)
+        from retrorecomp.gui_front_end import FrontEndMixin
+
+        class Owner(FrontEndMixin):
+            pass
+
+        owner = self.owner = Owner()
+        root = owner.app = self.root
+        owner.tr = lambda key, **values: key
+        owner.hint = Mock()
+        owner.decorate_button = Mock()
+        owner.queue_background = Mock()
+        owner.toggle_compiled_games = Mock()
+        owner.close_options = Mock()
+        owner.options_panel = None
+        owner.collection_visible = False
+        owner.front_end_visible = owner.front_end_fullscreen = False
+        owner.front_end_view = None
+        owner.header = tk.Frame(root, height=10)
+        owner.header.pack(fill='x')
+        owner.header_stripe = tk.Frame(root, height=2)
+        owner.header_stripe.pack(fill='x')
+        owner.body = tk.Frame(root)
+        owner.body.pack(fill='both', expand=True)
+        owner.toolbar = tk.Frame(owner.body)
+        owner.toolbar.grid(row=0, column=0)
+        owner.compiled_button = ttk.Button(owner.toolbar)
+        owner.compiled_button.pack(side='left')
+        owner.queue_actions = tk.Frame(owner.toolbar)
+        owner.queue_actions.pack(side='left')
+        owner.credits_button = ttk.Button(owner.toolbar)
+        owner.credits_button.pack(side='right')
+        owner.count_label = ttk.Label(owner.toolbar)
+        owner.count_label.pack(side='right')
+        owner.front_end_button_create(owner.toolbar).pack(side='right')
+        owner.compiler_widgets = [tk.Frame(owner.body) for _ in range(2)]
+        for row, widget in enumerate(owner.compiler_widgets, 1):
+            widget.grid(row=row, column=0)
+        footer = tk.Frame(owner.body)
+        footer.grid(row=8, column=0)
+        owner.status_dot = tk.Canvas(footer)
+        self.fullscreen = []
+        original = root.attributes
+
+        def attributes(*args):
+            if args and args[0] == '-fullscreen':
+                self.fullscreen.append(args)          # never a real full screen in the suite
+                return None
+            return original(*args)
+
+        root.attributes = attributes
+        patcher = patch('retrorecomp.front_end_view.FrontEndView', FakeView)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_button_opens_in_full_screen_and_leaving_restores_the_window(self):
+        owner = self.owner
+        owner.front_end_button.invoke()
+        self.assertTrue(owner.front_end_visible and owner.front_end_fullscreen)
+        self.assertEqual(self.fullscreen[-1], ('-fullscreen', True))
+        self.assertEqual(owner.header.winfo_manager(), '')
+        self.assertEqual(owner.toolbar.winfo_manager(), '')
+        self.assertEqual(owner.status_dot.master.winfo_manager(), '')
+        self.assertTrue(all(w.winfo_manager() == '' for w in owner.compiler_widgets))
+        self.assertIn('show', owner.front_end_view.calls)
+        # X / F11: back to the window, still in the front-end.
+        owner.set_front_end_fullscreen(False)
+        self.assertEqual(self.fullscreen[-1], ('-fullscreen', False))
+        self.assertTrue(owner.front_end_visible)
+        self.assertEqual((owner.header.winfo_manager(), owner.toolbar.winfo_manager()), ('pack', 'grid'))
+        owner.set_front_end_fullscreen(True)
+        # Leaving (from full screen): the window and the queue come back.
+        owner.toggle_front_end()
+        self.assertFalse(owner.front_end_visible or owner.front_end_fullscreen)
+        self.assertEqual(self.fullscreen[-1], ('-fullscreen', False))
+        self.assertEqual((owner.header.winfo_manager(), owner.toolbar.winfo_manager()), ('pack', 'grid'))
+        self.assertTrue(all(w.winfo_manager() == 'grid' for w in owner.compiler_widgets))
+        self.assertEqual(owner.queue_actions.winfo_manager(), 'pack')
+        self.assertIn('close_controller', owner.front_end_view.calls)
+        owner.toggle_compiled_games.assert_not_called()
+
+    def test_opened_from_compiled_games_it_goes_back_there_and_can_open_in_a_window(self):
+        owner = self.owner
+        owner.collection_visible = True
+        owner.toggle_compiled_games.side_effect = lambda: setattr(owner, 'collection_visible',
+                                                                  not owner.collection_visible)
+        owner.enter_front_end(fullscreen=False)
+        self.assertFalse(owner.front_end_fullscreen)
+        self.assertEqual(self.fullscreen, [])
+        self.assertEqual(owner.header.winfo_manager(), 'pack')
+        owner.leave_front_end()
+        self.assertTrue(owner.collection_visible)
+        self.assertEqual(owner.toggle_compiled_games.call_count, 2)
+
+    def test_the_second_start_option_is_greyed_until_the_first_is_ticked(self):
+        import tkinter as tk
+        from tkinter import ttk
+        owner = self.owner
+        owner.start_front_end = tk.BooleanVar(master=self.root, value=False)
+        owner.start_front_end_fullscreen = tk.BooleanVar(master=self.root, value=True)
+        page = tk.Frame(self.root)
+
+        def checkbox(parent, key, variable, hint):
+            control = ttk.Checkbutton(parent, text=key, variable=variable)
+            control.pack()
+            return control
+
+        first, second = owner.front_end_start_options(page, checkbox)
+        self.assertTrue(second.instate(['disabled']))
+        first.invoke()                                       # ticked: the second can be chosen
+        self.assertTrue(owner.start_front_end.get())
+        self.assertFalse(second.instate(['disabled']))
+        first.invoke()                                       # unticked again: greyed
+        self.assertTrue(second.instate(['disabled']))
+
+    def test_the_start_options_are_window_preferences_never_given_to_a_converter(self):
+        from retrorecomp.gui_common import INTERFACE_PREFERENCES
+        self.assertIn('start_front_end', INTERFACE_PREFERENCES)
+        self.assertIn('start_front_end_fullscreen', INTERFACE_PREFERENCES)
+
+
+class CoverActions(unittest.TestCase):
+    """A cover given in the box-art window (gui_covers) reaches the front-end's wall."""
+
+    def test_a_cover_given_in_the_box_art_window_is_shown_on_the_wall(self):
+        from retrorecomp.gui_covers import MissingCoversMixin
+        owner = Mock(compiled_view=None)
+        request = Mock(payload=b'png', game=game('Sonic', 'md'), key=('md', sha('mdSonic')))
+        MissingCoversMixin.card_cover_shown(owner, request, 'cover_ask_ready')
+        owner.front_end_view.cover_changed.assert_called_once_with(request.game)
 
 
 if __name__ == '__main__':

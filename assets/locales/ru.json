@@ -854,7 +854,7 @@
     "front_end_played_yesterday": "Запускалась вчера",
     "front_end_played_days": "Запускалась {days} дн. назад",
     "front_end_fallback": "Использует резервный интерпретатор",
-    "front_end_find_cover": "Найти обложку в сети (только фронтенд)",
+    "front_end_find_cover": "Найти обложку в сети",
     "front_end_network_later": "Сетевая игра (скоро)",
     "front_end_tv": "Полный экран (F11)",
     "front_end_tv_leave": "Вернуться в окно (F11)",
@@ -877,7 +877,7 @@
     "front_end_no": "Нет",
     "front_end_selected": "Выбрано игр: {count}",
     "front_end_select_none": "Снять выделение",
-    "front_end_find_covers": "Найти обложки в сети (игр: {count}, только фронтенд)",
+    "front_end_find_covers": "Найти обложки в сети ({count})",
     "front_end_choose_covers": "Выбрать обложки… (игр: {count})",
     "front_end_searching": "Поиск обложек: {done}/{total}",
     "front_end_search_done": "Обложки найдены для {found} из {total} игр",
@@ -886,7 +886,8 @@
     "start_front_end_fullscreen": "…в полноэкранном режиме",
     "tip_start_front_end": "При запуске показывать скомпилированные игры стеной обложек вместо очереди конвертации.",
     "tip_start_front_end_fullscreen": "Фронтенд, открытый при запуске, занимает весь экран. X на геймпаде или F11 возвращают окно.",
-    "front_end_find_missing": "Найти в сети недостающие обложки (игр: {count}, только фронтенд)"
+    "front_end_find_missing": "Найти недостающие обложки ({count})",
+    "front_end_only_note": "Только для фронтенда: сами игры не меняются."
   },
   "runtime": {
     "Internal resolution": "Внутреннее разрешение",

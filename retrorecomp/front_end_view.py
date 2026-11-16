@@ -88,6 +88,9 @@ class CoverLoader:
 
 
 FAVORITES, SEARCH = 'favorites', 'search'
+# Menu entries with a short note shown under the menu while they are chosen (the labels stay short).
+MENU_NOTES = {'front_end_find_cover': 'front_end_only_note', 'front_end_find_covers': 'front_end_only_note',
+              'front_end_find_missing': 'front_end_only_note'}
 
 
 class Shelf:
@@ -1189,6 +1192,11 @@ class FrontEndView(tk.Frame):
         width = max(max(self.font_tab.measure(label) for label in labels), self.font_focus.measure(heading),
                     self.px(160)) + self.px(56)
         height = line * len(labels) + self.px(56)
+        notes = [MENU_NOTES[key] for key, _, _ in self.menu_items if key in MENU_NOTES]
+        if notes:
+            # The room of the longest note, wrapped to the menu's width, kept still while the choice moves.
+            lines = max(len(clamp_lines(self.font_title, self.tr(note), width - self.px(40), 3)) for note in notes)
+            height += lines * self.font_title.metrics('linespace') + self.px(14)
         left = (canvas.winfo_width() - width) // 2
         top = canvas.canvasy(0) + max(self.px(12), (canvas.winfo_height() - height) // 2)
         return left, top, width, height, line, labels
@@ -1224,6 +1232,11 @@ class FrontEndView(tk.Frame):
                                fill=(COLORS['gold_hover'] if index == self.menu_index else COLORS['text'])
                                if enabled else COLORS['disabled'], tags='tile')
             y += line
+        note = MENU_NOTES.get(self.menu_items[self.menu_index][0])
+        if note:
+            canvas.create_text(left + self.px(20), y + self.px(8), anchor='nw', font=self.font_title,
+                               text='\n'.join(clamp_lines(self.font_title, self.tr(note), width - self.px(40), 3)),
+                               fill=COLORS['muted'], tags='tile')
 
     def menu_hit(self, x, y):
         left, top, width, height, line, labels = self.menu_geometry()

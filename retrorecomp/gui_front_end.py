@@ -115,7 +115,8 @@ class FrontEndMixin:
         self.queue_background(self.body)
 
     def set_front_end_fullscreen(self, on):
-        """TV mode: the whole screen for the wall, without the window's header and toolbar (F11 or Back leaves it)."""
+        """Full screen: the whole screen for the wall, without the window's header, toolbar and status line (X, F11
+        or the strip's corner button go back to the window; leaving the front-end leaves it too)."""
         self.front_end_fullscreen = bool(on)
         footer = self.status_dot.master
         if on:

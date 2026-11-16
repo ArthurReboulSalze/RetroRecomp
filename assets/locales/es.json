@@ -854,7 +854,7 @@
     "front_end_played_yesterday": "Jugado ayer",
     "front_end_played_days": "Jugado hace {days} días",
     "front_end_fallback": "Usa el intérprete de reserva",
-    "front_end_find_cover": "Buscar la carátula en línea (solo front-end)",
+    "front_end_find_cover": "Buscar la carátula en línea",
     "front_end_network_later": "Juego en red (próximamente)",
     "front_end_tv": "Pantalla completa (F11)",
     "front_end_tv_leave": "Volver a la ventana (F11)",
@@ -877,7 +877,7 @@
     "front_end_no": "No",
     "front_end_selected": "{count} juegos seleccionados",
     "front_end_select_none": "Quitar la selección",
-    "front_end_find_covers": "Buscar las carátulas en línea ({count} juegos, solo front-end)",
+    "front_end_find_covers": "Buscar las carátulas en línea ({count})",
     "front_end_choose_covers": "Elegir las carátulas… ({count} juegos)",
     "front_end_searching": "Buscando carátulas: {done}/{total}",
     "front_end_search_done": "Carátulas encontradas para {found} de {total} juegos",
@@ -886,7 +886,8 @@
     "start_front_end_fullscreen": "…en pantalla completa",
     "tip_start_front_end": "Al iniciar, muestra tus juegos compilados como un muro de carátulas en lugar de la cola de conversión.",
     "tip_start_front_end_fullscreen": "El front-end abierto al iniciar ocupa toda la pantalla. X en el mando o F11 vuelven a la ventana.",
-    "front_end_find_missing": "Buscar en línea las carátulas que faltan ({count} juegos, solo front-end)"
+    "front_end_find_missing": "Buscar las carátulas que faltan ({count})",
+    "front_end_only_note": "Solo para el front-end: los juegos no cambian."
   },
   "runtime": {
     "Internal resolution": "Resolución interna",

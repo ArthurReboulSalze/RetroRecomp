@@ -854,7 +854,7 @@
     "front_end_played_yesterday": "Giocato ieri",
     "front_end_played_days": "Giocato {days} giorni fa",
     "front_end_fallback": "Usa l’interprete di riserva",
-    "front_end_find_cover": "Cerca la copertina online (solo front-end)",
+    "front_end_find_cover": "Cerca la copertina online",
     "front_end_network_later": "Gioco in rete (in arrivo)",
     "front_end_tv": "Schermo intero (F11)",
     "front_end_tv_leave": "Torna alla finestra (F11)",
@@ -877,7 +877,7 @@
     "front_end_no": "No",
     "front_end_selected": "{count} giochi selezionati",
     "front_end_select_none": "Deseleziona tutto",
-    "front_end_find_covers": "Cerca le copertine online ({count} giochi, solo front-end)",
+    "front_end_find_covers": "Cerca le copertine online ({count})",
     "front_end_choose_covers": "Scegli le copertine… ({count} giochi)",
     "front_end_searching": "Ricerca copertine: {done}/{total}",
     "front_end_search_done": "Copertine trovate per {found} giochi su {total}",
@@ -886,7 +886,8 @@
     "start_front_end_fullscreen": "…a schermo intero",
     "tip_start_front_end": "All’avvio, mostra i tuoi giochi compilati come un muro di copertine invece della coda di conversione.",
     "tip_start_front_end_fullscreen": "Il front-end aperto all’avvio occupa tutto lo schermo. X sul controller o F11 riportano la finestra.",
-    "front_end_find_missing": "Cerca online le copertine mancanti ({count} giochi, solo front-end)"
+    "front_end_find_missing": "Cerca le copertine mancanti ({count})",
+    "front_end_only_note": "Solo per il front-end: i giochi non cambiano."
   },
   "runtime": {
     "Internal resolution": "Risoluzione interna",
