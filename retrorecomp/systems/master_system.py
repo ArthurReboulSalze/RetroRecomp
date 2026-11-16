@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from . import Capabilities, Cpu, SystemProfile, find_profile
+from . import Capabilities, Cpu, find_profile, SimulationSource, SystemProfile
 from ..z80_chain import SEGA_MAPPER
 from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,
                     SharedKnowledge)
@@ -39,6 +39,15 @@ def refine_by_header(profile: SystemProfile, path: Path, data: bytes | None) -> 
 
 class MasterSystemProfile(SystemProfile):
     id = "sms"
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The translated Z80 code, the clocks of the video standard, the glue patched for it, the recompiler's
+    # settings; of the file that embeds the ROM (known by its SHA-256) and the title, only the Light Phaser values.
+    simulation_sources = (SimulationSource('generated/*.c'),
+                          SimulationSource('generated/*.h'),
+                          SimulationSource('runtime_glue.c'),
+                          SimulationSource('sms_clocks.h'),
+                          SimulationSource('game.toml'),
+                          SimulationSource('embedded_rom.c', keep='const int sms_light_phaser\\w* = -?\\d+;'),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')
     name = "Master System"

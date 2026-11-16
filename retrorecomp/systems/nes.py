@@ -3,13 +3,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import Capabilities, Cpu, OptionKey, SystemProfile
+from . import Capabilities, Cpu, OptionKey, SimulationSource, SystemProfile
 from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,
                     SharedKnowledge)
 
 
 class NesProfile(SystemProfile):
     id = "nes"
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The standard, the Zapper and the mapper are compile definitions of the project's CMake file, whose other
+    # lines hold paths and the version.
+    simulation_sources = (SimulationSource('cycle/native/generated/game_cyc*.c'),
+                          SimulationSource('CMakeLists.txt', keep='RR_NES_(?:PAL|ZAPPER|STATIC_MAPPER)=\\d+'),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/nesrecomp.md', 'licenses/emu2413.md')
     name = "Nintendo NES"

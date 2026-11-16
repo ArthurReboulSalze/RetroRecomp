@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile, UnsupportedConsoleError
 from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 # The CPU shape of the paths (docs/GAME_BOY_ADVANCE.md, "Paths"): function roots are `phys` entries, a ROM offset
@@ -23,6 +23,12 @@ _EWRAM = (0x02000000, 0x02040000)
 
 class GameBoyAdvanceProfile(SystemProfile):
     id = 'gba'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    simulation_sources = (SimulationSource('generated/recompiled_*.cpp'),
+                          SimulationSource('generated/dispatch_table.cpp'),
+                          SimulationSource('generated/symbol_map.cpp'),
+                          SimulationSource('generated/recompiled.h'),
+                          SimulationSource('player/gba_game.h', drop=('RR_GBA_TITLE', 'RR_GBA_NAME')),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/gbarecomp.md',)
     name = 'Game Boy Advance'

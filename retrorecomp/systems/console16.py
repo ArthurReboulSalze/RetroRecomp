@@ -1,12 +1,21 @@
 """Separate 16-bit standard-cartridge profiles, with circuit-specific support gates."""
 from pathlib import Path
-from . import Capabilities, Cpu, OptionKey, SystemProfile
+from . import Capabilities, Cpu, OptionKey, SimulationSource, SystemProfile
 from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,
                     SharedKnowledge)
 
 
 class MegaDriveProfile(SystemProfile):
     id = 'md'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The layout file's first line holds its own absolute path.
+    simulation_sources = (SimulationSource('steps/*.c'),
+                          SimulationSource('generated/*_layout.c', drop=('AUTO-GENERATED',)),
+                          SimulationSource('md_z80_generated.c'),
+                          SimulationSource('md_step_semantics.h'),
+                          SimulationSource('m68000_state_helpers.h'),
+                          SimulationSource('retro_md_game.h', drop=('RR_MD_TITLE',)),
+                          SimulationSource('retro_gun_game.h'),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/segagenesisrecomp.md',)
     name = 'Mega Drive'
@@ -67,6 +76,12 @@ class MegaDriveProfile(SystemProfile):
 
 class SnesProfile(SystemProfile):
     id = 'snes'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    simulation_sources = (SimulationSource('generated/*.c'),
+                          SimulationSource('snes_native_ops.inc'),
+                          SimulationSource('snes_spc_ops.inc'),
+                          SimulationSource('retro_snes_game.h', drop=('RR_SN_TITLE',)),
+                          SimulationSource('retro_gun_game.h'),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/snesrecomp.md',)
     name = 'Super Nintendo'

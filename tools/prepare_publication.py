@@ -241,6 +241,7 @@ tests/test_problem_reports.py tests/test_gui_player.py tests/test_gui_state.py t
 retrorecomp/gameboy_host.py
 retrorecomp/report_schema.py tests/test_report_schema.py tests/test_report_writers.py
 retrorecomp/timings.py tests/test_timings.py
+retrorecomp/simulation_identity.py tests/test_simulation_identity.py tools/simulation_identity_selftest.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
 retrorecomp/dropfiles.py tests/test_dropfiles.py tests/test_popup_menu.py
 native/snes_dsp1_projection.inc

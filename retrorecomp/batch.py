@@ -492,6 +492,10 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             report['shared_paths'] = shared_used
         if known_used:
             report['bundled_paths'] = known_used
+        # Do two exports of this game compute the same frames (multiplayer)? Read from the generated sources
+        # while the build project is still there; never from the cover, the title or the folder.
+        from . import simulation_identity
+        report[simulation_identity.REPORT_KEY] = simulation_identity.for_conversion(system, item.sha256, settings, report)
         shutil.copy2(Path(report.get('build_executable', executable)), temporary)
         report.setdefault('rom', {})['sha256'] = item.sha256
         report.update(executable=target.name, published_directory=str(game_output),

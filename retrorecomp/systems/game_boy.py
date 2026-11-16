@@ -3,13 +3,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import Capabilities, Cpu, OptionKey, SystemProfile
+from . import Capabilities, Cpu, OptionKey, SimulationSource, SystemProfile
 from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,
                     SharedKnowledge)
 
 
 class GameBoyProfile(SystemProfile):
     id = "gb"
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # game_main.c pins the model; its two lines that name the save folder carry the title.
+    simulation_sources = (SimulationSource('game.c'),
+                          SimulationSource('game.h'),
+                          SimulationSource('game_internal.h'),
+                          SimulationSource('game_funcs_*.c'),
+                          SimulationSource('game_dispatch_chunk_*.c'),
+                          SimulationSource('game_main.c', drop=('datas/games/', 'gb_context_set_save_id')),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/gb-recompiled.md', 'licenses/dear-imgui.md')
     name = "Game Boy"

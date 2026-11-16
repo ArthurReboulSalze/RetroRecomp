@@ -59,6 +59,12 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
   path), ``input_players``, ``peripheral`` (pad type and gun device) and ``sdl_revision``. What only a tool run proves (the
   ``validation`` of the saves, the state check in a fresh process unless route chaining ran) stays None, as does the compiler
   signature (no 16-bit writer computes one). The Super Nintendo's reading is unchanged.
+* ``simulation_identity`` was added to schema 2 without a new schema number, as ``timings`` was: the record of
+  retrorecomp/simulation_identity.py (do two exports of one game compute the same frames), written by the batch. It is
+  optional on disk: a report from before it, or one no batch completed, reads ``None``, and so does a value that is not a
+  record with a schema number. No section changes and no claim of the report depends on it, so a reader of the release
+  before reads the sections it knows and ignores the key (checked by reading such a report with the 1.7.9 module). A
+  ``None`` identity inside the record is a refusal with its reason, never an equality.
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 
@@ -112,6 +118,7 @@ missing, because the old readers take a null for a value)::
                    'bundled_paths'}
     build         {'executable', 'build_executable', 'toolchain', ...}
     timings       {phase: seconds, ..., 'total': seconds} | None
+    simulation_identity   {'schema', 'identity', 'engine', 'rom', 'options', 'sources', 'reason'} | None
     upgrade, export_receipt                 as written, else None
     legacy        keys of the old shapes with no schema-2 home yet
 """
@@ -127,7 +134,7 @@ SCHEMA_VERSION = 2
 
 REQUIRED_KEYS = ('schema', 'read_from', 'tool', 'version', 'created_utc', 'target', 'system', 'rom', 'scan',
                  'cpus', 'devices', 'validation', 'honesty', 'packed', 'states', 'saves', 'runtime',
-                 'knowledge', 'build', 'timings', 'upgrade', 'export_receipt', 'legacy')
+                 'knowledge', 'build', 'timings', 'simulation_identity', 'upgrade', 'export_receipt', 'legacy')
 MEASURES = ('native_code', 'cpu_fidelity', 'hardware_fidelity', 'gameplay', 'latency')
 # The kinds of device a writer may add with `hardware_devices`, beside the cartridge coprocessor: no counter, no fallback of their own
 # (`video_unit` since 1.6.9).
@@ -755,6 +762,17 @@ def _timings(value):
     return figures if _count(figures.get('total')) is not None else None
 
 
+def _simulation_identity(value):
+    """The simulation identity record as written (retrorecomp/simulation_identity.py), else None: a value that is not
+    a record with a schema number is not one, and its identity is a string or None, never anything else."""
+    if not isinstance(value, dict) or _count(value.get('schema')) is None:
+        return None
+    record = _copy(value)
+    if not isinstance(record.get('identity'), str) or not record['identity']:
+        record['identity'] = None
+    return record
+
+
 # ---------------------------------------------------------------- entry points
 
 # Keys only schema 2 introduces. Writers still write the old keys beside them (dual-write, one version): a
@@ -765,7 +783,7 @@ V2_ONLY_KEYS = ('schema', 'read_from', 'scan', 'cpus', 'devices', 'validation', 
 # Schema-2 keys whose names the old shapes already use. A writer leaves out what it does not know, and old readers
 # take a missing key for "absent" but a null for a value (`report.get('upgrade', {})`, `report.get('target', t)`),
 # so a document on disk never carries these as null; read_report still returns them, as None.
-OPTIONAL_ON_DISK = ('version', 'created_utc', 'target', 'timings', 'upgrade', 'export_receipt')
+OPTIONAL_ON_DISK = ('version', 'created_utc', 'target', 'timings', 'simulation_identity', 'upgrade', 'export_receipt')
 # `knowledge` is also an old key (Neo Geo writes its memory record there). On disk the two meet in one object:
 # the writer's own keys stay, the schema-2 keys are added beside them.
 KNOWLEDGE_KEYS = ('record', 'learning', 'library_identity', 'shared_paths', 'bundled_paths')
@@ -783,6 +801,7 @@ def _validate_v2(data):
     # Only the schema-2 keys: the old keys of a dual-written document are not part of the document read.
     report = {key: _copy(data.get(key)) for key in REQUIRED_KEYS}
     report['timings'] = _timings(data.get('timings'))
+    report['simulation_identity'] = _simulation_identity(data.get('simulation_identity'))
     if isinstance(data.get('engine'), dict):
         # The engine section of an emulated machine (see above); absent for every other machine.
         report['engine'] = _copy(data['engine'])
@@ -877,7 +896,7 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
         'scan': _scan(shape, data, rows), 'cpus': cpus, 'devices': devices, 'validation': validation,
         'honesty': _honesty(data, validation), 'packed': _packed(shape, data, rows), 'states': _states(data),
         'saves': _saves(shape, data), 'runtime': _runtime(data), 'knowledge': _knowledge(data), 'build': _build(shape, data),
-        'timings': _timings(data.get('timings')),
+        'timings': _timings(data.get('timings')), 'simulation_identity': _simulation_identity(data.get('simulation_identity')),
         'upgrade': _copy(data.get('upgrade')), 'export_receipt': _copy(data.get('export_receipt')),
         # Written by the old shapes, not yet given a schema-2 home. reference_vdp_trace_match is kept here
         # because the X68000 writer hard-coded it to True (it writes null now): it is not a measurement and

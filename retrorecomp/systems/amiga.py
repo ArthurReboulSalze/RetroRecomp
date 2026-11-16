@@ -12,7 +12,7 @@ witnessed, not played.
 """
 from pathlib import Path
 
-from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile, UnsupportedConsoleError
 from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape, SharedKnowledge
 
 # The Amiga 500 as the converter lays it out for a WHDLoad install: chip RAM from 0 (up to 2 MiB), fast RAM at $200000
@@ -24,6 +24,12 @@ KICKSTART_WINDOW = (0xfc0000, 0x1000000)
 
 class AmigaProfile(SystemProfile):
     id = 'amiga'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The Amiga 1200 inherits the list.
+    simulation_sources = (SimulationSource('native/steps/*.cpp'),
+                          SimulationSource('native/steps/*.c'),
+                          SimulationSource('native/step_semantics.h'),
+                          SimulationSource('payload/amiga_payload.h', drop=('RR_AMIGA_GAME_TITLE',)),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/vamiga.md',)
     name = 'Commodore Amiga'

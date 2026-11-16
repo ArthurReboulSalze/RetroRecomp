@@ -12,7 +12,7 @@ runs, counted, on the core's interpreter. The game executable is GPL-3.0 as a wh
 """
 from pathlib import Path
 
-from . import Capabilities, ConsoleMismatchError, Cpu, SystemProfile, UnsupportedConsoleError
+from . import Capabilities, ConsoleMismatchError, Cpu, SimulationSource, SystemProfile, UnsupportedConsoleError
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
 
 # Where native blocks may start: KSEG0 view of RDRAM (8 MiB with the Expansion Pak).
@@ -21,6 +21,9 @@ APERTURES = ((0x80000000, 0x80800000),)
 
 class Nintendo64Profile(SystemProfile):
     id = 'n64'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    simulation_sources = (SimulationSource('native/blocks/*.c'),
+                          SimulationSource('payload/n64_payload.h', drop=('RR_N64_GAME_TITLE',)),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/mupen64plus-next.md',)
     name = 'Nintendo 64'

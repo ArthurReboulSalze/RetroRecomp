@@ -65,6 +65,10 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
                                'report_schema',
+                               # Do two exports compute the same frames (multiplayer): hashes generated sources after a
+                               # conversion, for its report; it changes nothing a game is or does, and its own schema
+                               # number is part of what it hashes.
+                               'simulation_identity',
                                # Declares the pinned upstreams per machine (docs/UPSTREAMS.md); a conversion never reads it.
                                'upstreams',
                                # Measures the time of each phase of a conversion; changes nothing a game is or does.

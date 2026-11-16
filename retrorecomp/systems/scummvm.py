@@ -32,7 +32,7 @@ class ScummvmProfile(SystemProfile):
     linux = 'witnessed'   # one small game (Lure of the Temptress) from its packed exe on a Debian 13 PC, 6 November 2026 (docs/SCUMMVM.md)
     fallback_display = 'opcodes'
     option_keys = (OptionKey('scummvm_choice', kind='choice', label='scummvm_choice', hint='tip_scummvm_choice',
-                             choices=tuple(range(0, 10)), default=0),
+                             choices=tuple(range(0, 10)), default=0, changes_run=True),
                    OptionKey('scummvm_pack', signature=False, kind='action', label='scummvm_pack', hint='tip_scummvm_pack'))
     # A folder is claimed in the stage that looks at the input itself, before any other machine (a file is never this one's).
     identify = Identify(path_order=5)
