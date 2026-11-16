@@ -52,6 +52,9 @@ static void *cold_state;
 static size_t cold_length;
 static bool reset_ok = true;
 static bool execution_fault;
+/* A multiplayer guest never writes its cartridge save (the host's is the one that counts). */
+static bool battery_writes = true;
+void rr16_md_side_effects(bool allowed) { battery_writes = allowed; }
 extern void rr_md_portable_restart(uint32_t pc);
 static uint64_t frame_audio_hash;
 static uint64_t bytes_hash(const void *data, size_t size);
@@ -375,9 +378,6 @@ uint64_t rr16_md_digest(void) {
         for (unsigned s = 0; s < 64; s += 8) packed[i * 8 + s / 8] = (uint8_t)(parts[i] >> s);
     return bytes_hash(packed, sizeof packed);
 }
-/* A multiplayer guest never writes its cartridge save (the host's is the one that counts). */
-static bool battery_writes = true;
-void rr16_md_side_effects(bool allowed) { battery_writes = allowed; }
 void rr16_report_details(FILE *file) {
     fprintf(file, ",\"retired_interpreted_opcodes\":%llu",
         RR_MD_STEP_AOT ? rom_fallback + ram_fallback : interpreted);
