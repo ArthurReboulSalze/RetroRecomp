@@ -89,6 +89,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Mega Drive: shadow and highlight follow the chip](#mega-drive-shadow-and-highlight-follow-the-chip-179) | **the Mega Drive** (`megadrive_video.py`, `md_vdp_pixels.inc`) | none | the Mega Drive key moves (`md_vdp_pixels.inc`; older Mega Drive states refused cleanly, no compatibility key); the others are unchanged |
 | [NES: a PAL NES 2.0 header is accepted](#nes-a-pal-nes-20-header-is-accepted-179) | **the Nintendo NES** (`nes_codegen.py`, `nes_machine.py`) | none | the key of a build made from LF files (every published release) does not move; a source checkout with CRLF files now gives that same key (it moved once, see the section) |
 | [The converter: a welcome in the log panel and the developer's message](#the-converter-a-welcome-in-the-log-panel-and-the-developers-message-179) | none | none (window modules only) | unchanged |
+| Time estimates in the window (RELEASE_NOTES 1.7.9) | none | none (window modules and `assets/conversion-times.json`, interface only) | unchanged |
 
 ## Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares (1.7.9)
 

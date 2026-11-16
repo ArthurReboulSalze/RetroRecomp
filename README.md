@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.7.8-d4a737" alt="Release version 1.7.8">
+  <img src="https://img.shields.io/badge/release-1.7.9-d4a737" alt="Release version 1.7.9">
   <img src="https://img.shields.io/badge/console_profiles-19-626262" alt="Nineteen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -117,7 +117,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.8.** The Commodore Amiga 1200 is supported: its WHDLoad installs convert on the A1200 model (68EC020, AGA), with your own Kickstart 3.1 when one asks for it. When a conversion finds no box art, a window lets you drop a cover, and the exported game gets it in about thirty seconds; in a batch, one window lists every game still missing one. The converter now only builds with its own tools, never with an installed Visual Studio, which fixes Game Boy Advance conversions on computers that had it. Exports of 1.7.7 on the Amiga, the Amiga 1200, the Atari ST, the Game Boy Advance and the Nintendo 64 are converted again once; the others are only rebuilt. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.7.9.** On the Amiga 500 and the Amiga 1200, the code your game reaches while you play now travels with the paths you share, so other players get it native even when their own conversion never reaches it; the Amiga 1200 shares its paths too. The converter tells you how long a conversion usually takes on each console, greets you in its log panel and shows a short message from the developer when there is one. Players' reports are fixed: European NES 2.0 dumps convert again, and the Mega Drive's shadow and highlight follow the chip. Exports of 1.7.8 on the Amiga, the Amiga 1200, the Mega Drive and the NES are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

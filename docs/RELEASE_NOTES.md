@@ -1,4 +1,4 @@
-# RetroRecomp v1.7.9 (in preparation)
+# RetroRecomp v1.7.9 — What you play on the Amiga is shared; conversion times; the developer's message; players' reports fixed
 
 - **Commodore Amiga 500 and 1200: what you play is shared.** The code your game ran on the interpreter while you played (F12, on by
   default) now joins the paths you share once a conversion has made it native, so other players get it native too, even when their own
@@ -31,6 +31,21 @@
   so the panels line up with the status bar, whose green dot and two gold squares now sit in the bottom corners. The Knowledge
   button has its own picture, a shared network (three linked circles), like the gear of Options. In the leaderboard, the first
   place's crown is drawn whole again: its points were cut off under the text above the podium.
+- **Players' reports, fixed.** Thank you for sending them from the converter:
+  - **Nintendo NES:** European dumps with a NES 2.0 header (Super Mario Bros. 3, Mega Man 2, Chip 'n Dale) stopped at the first
+    pass with « unsupported cartridge metadata »: the engine refused the PAL timing that our converter already handles. Every PAL
+    NES 2.0 dump now converts (Dendy dumps stay refused, with a message).
+  - **Mega Drive:** in shadow and highlight mode the picture now follows the chip's rules, as MAME and Genesis Plus GX do (Puyo Puyo
+    Tsuu's pieces were dark unless they rested on another). An authored grid of 256 cases gives the same answer as MAME on all of
+    them (1.7.8: 112 wrong).
+
+**Your exports and quick states.** 1.7.9 moves the game stamp of the Amiga, the Amiga 1200, the Mega Drive and the NES: those exports
+of 1.7.8 are converted again once, from their learned paths; the other machines' exports are kept as they are. Quick states of 1.7.8
+are refused cleanly on the Amiga, the Amiga 1200 and the Mega Drive (and on the NES for a converter run from a source checkout whose
+files had Windows line ends); cartridge saves and memory cards are kept.
+
+None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used.
 
 ---
 
