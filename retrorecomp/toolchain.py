@@ -184,7 +184,7 @@ def reset_incompatible_cache(command, cwd=None) -> None:
     A folder cannot be reused after switching between Visual Studio and the
     portable tools; rebuilding it is the only correct outcome.
     """
-    if os.name != 'nt' or len(command) < 4 or Path(str(command[0])).stem.lower() != 'cmake':
+    if len(command) < 4 or Path(str(command[0])).stem.lower() != 'cmake':
         return
     command = [str(part) for part in command]
     if '-B' not in command or '-G' not in command:
@@ -200,8 +200,19 @@ def reset_incompatible_cache(command, cwd=None) -> None:
     generator = command[command.index('-G') + 1]
     compiler = next((part.split('=', 1)[1] for part in command if part.startswith('-DCMAKE_C_COMPILER=')), None)
     cached_compiler = entries.get('CMAKE_C_COMPILER:FILEPATH', '')
-    stale = entries.get('CMAKE_GENERATOR:INTERNAL') != generator
-    if compiler and cached_compiler and Path(cached_compiler).as_posix().lower() != Path(compiler).as_posix().lower():
+    stale = os.name == 'nt' and entries.get('CMAKE_GENERATOR:INTERNAL') != generator      # Windows: Visual Studio or the portable tools
+    # A folder configured from another source directory: a packaged converter unpacks itself into a new temporary folder
+    # (_MEIxxxx) at every launch, so a build it left half done (closed during a conversion) names a source CMake refuses
+    # (« does not match the source ... used to generate cache ») at the next launch, every time (Amiga, Atari ST, N64; 1.7.9). On Linux too: the packaged converter unpacks into /tmp/_MEIxxxx.
+    if '-S' in command:
+        source = Path(command[command.index('-S') + 1])
+        if not source.is_absolute() and cwd:
+            source = Path(cwd) / source
+        cached_source = entries.get('CMAKE_HOME_DIRECTORY:INTERNAL', '')
+        fold = (lambda text: text.lower()) if os.name == 'nt' else (lambda text: text)      # Windows paths ignore case
+        if cached_source and fold(Path(cached_source).as_posix()) != fold(source.as_posix()):
+            stale = True
+    if os.name == 'nt' and compiler and cached_compiler and Path(cached_compiler).as_posix().lower() != Path(compiler).as_posix().lower():
         stale = True
     if stale:
         shutil.rmtree(build, ignore_errors=True)

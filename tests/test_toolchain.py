@@ -122,10 +122,46 @@ class ToolchainTests(unittest.TestCase):
         fresh = root / 'fresh'
         toolchain.reset_incompatible_cache(command(fresh, 'Ninja'))
         self.assertFalse(fresh.exists())
+        # A packaged converter's previous launch unpacked its sources elsewhere (_MEIxxxx): a folder it configured is discarded.
+        def from_source(name, source):
+            build = configured(name, 'Ninja', compiler)
+            with (build / 'CMakeCache.txt').open('a', encoding='utf-8') as cache:
+                cache.write(f'CMAKE_HOME_DIRECTORY:INTERNAL={source}' + chr(10))
+            return build
+        moved = from_source('moved', 'C:/Temp/_MEI0000b4942/native/amiga_machine')
+        toolchain.reset_incompatible_cache(['cmake', '-S', 'C:/Temp/_MEI0000abf42/native/amiga_machine',
+                                            '-B', str(moved), '-G', 'Ninja', f'-DCMAKE_C_COMPILER={compiler}'])
+        self.assertFalse(moved.exists())
+        kept = from_source('kept', 'C:/Src/native/amiga_machine')
+        toolchain.reset_incompatible_cache(['cmake', '-S', 'C:/Src/native/amiga_machine', '-B', str(kept), '-G', 'Ninja',
+                                            f'-DCMAKE_C_COMPILER={compiler}'])
+        self.assertTrue(kept.exists())
         # Visual Studio asked for a folder the portable tools configured.
         ninja = configured('ninja', 'Ninja', compiler)
         toolchain.reset_incompatible_cache(['cmake', '-S', 'src', '-B', str(ninja), '-G', 'Visual Studio 17 2022', '-A', 'x64'])
         self.assertFalse(ninja.exists())
+
+
+class MovedSourceTests(unittest.TestCase):
+    """Every system: a build folder configured from another source directory (a packaged converter's previous launch, unpacked
+    into another temporary folder) is discarded before CMake configures it again (16 November 2026, Arthur's 1869)."""
+
+    def folder(self, name, source):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        build = Path(directory.name) / name
+        build.mkdir()
+        (build / 'CMakeCache.txt').write_text('CMAKE_GENERATOR:INTERNAL=Ninja\nCMAKE_HOME_DIRECTORY:INTERNAL=' + source + '\n',
+                                              encoding='utf-8')
+        return build
+
+    def test_another_unpacked_source_discards_the_folder_and_the_same_keeps_it(self):
+        moved = self.folder('moved', '/tmp/_MEIaaaa/native/amiga_machine')
+        toolchain.reset_incompatible_cache(['cmake', '-S', '/tmp/_MEIbbbb/native/amiga_machine', '-B', str(moved), '-G', 'Ninja'])
+        self.assertFalse(moved.exists())
+        kept = self.folder('kept', '/tmp/_MEIbbbb/native/amiga_machine')
+        toolchain.reset_incompatible_cache(['cmake', '-S', '/tmp/_MEIbbbb/native/amiga_machine', '-B', str(kept), '-G', 'Ninja'])
+        self.assertTrue(kept.exists())
 
 
 if __name__ == '__main__':

@@ -1,3 +1,13 @@
+# RetroRecomp, next release (in preparation)
+
+- **Every machine: a build left half done no longer blocks the next conversion.** A packaged converter unpacks itself into a new
+  temporary folder at each launch. A machine build it left unfinished (the window closed during a conversion) still named the old
+  folder, and CMake refused it at every later launch (« does not match the source … used to generate cache »: seen on the
+  Amiga 1200 with 1869; the Atari ST and the Nintendo 64 build the same way). Such a folder is now deleted before the build
+  starts again, so the conversion rebuilds it and goes on.
+
+---
+
 # RetroRecomp v1.7.9 — What you play on the Amiga is shared; conversion times; the developer's message; players' reports fixed
 
 - **Commodore Amiga 500 and 1200: what you play is shared.** The code your game ran on the interpreter while you played (F12, on by

@@ -79,6 +79,22 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.9 in the next release
+
+The release after 1.7.9 (in preparation). One line per change, with the stamps it moves.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [A build folder from another source directory is discarded](#a-build-folder-from-another-source-directory-is-discarded) | none | **the build stamp of every profile** (`retrorecomp/toolchain.py`) | unchanged |
+
+## A build folder from another source directory is discarded
+
+`toolchain.reset_incompatible_cache` (run before every CMake configure) also deletes a build folder whose `CMakeCache.txt` names another
+source directory than the `-S` it is given. A packaged converter's sources live in a temporary folder that changes at each launch, so a
+machine build left unfinished by a closed window was refused by CMake at every later launch (16 November 2026, Arthur's 1869 on the
+Amiga 1200). **Stamps:** the build stamp of every profile (`toolchain.py` is the build input): every export is upgraded once (recompiled
+and checked on its quick routes), none converted again.
+
 ## Exports of 1.7.8 in 1.7.9
 
 1.7.9 is the release after 1.7.8. This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
