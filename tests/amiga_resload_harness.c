@@ -310,10 +310,17 @@ static void relocate(void) {
     put32(0x50108, 0x88100002u); put32(0x5010C, 8); put32(0x50110, 0);
     regs[8] = a; regs[9] = 0x50100;
     CHECK(rr_resload_call(&r, 0x50, regs) == RR_RESLOAD_RETURN);
-    /* segments: code [a: 16 bytes + 8 = 16], data [a+16: 4+8 -> 16], BSS [a+32: 8+8 = 16] */
+    /* segments: code [a: 8 bytes + 8 = 16], data [a+16: 4 + 8 = 12, placed on 16], BSS [a+32: 8 + 8 = 16]. The size longword is the hunk's
+     * plus 8, as AmigaDOS stores it; the alignment pads only where the next segment goes. */
     CHECK(get32(a) == 16 && get32(a + 4) == (a + 16 + 4) >> 2 && get32(a + 8) == 0x4E714E71 && get32(a + 12) == a + 24);
-    CHECK(get32(a + 16) == 16 && get32(a + 20) == (a + 32 + 4) >> 2 && get32(a + 24) == a + 12);
+    CHECK(get32(a + 16) == 12 && get32(a + 20) == (a + 32 + 4) >> 2 && get32(a + 24) == a + 12);
     CHECK(get32(a + 36) == 0 && regs[0] == 48);
+    /* resload_PatchSeg counts its offsets with those sizes: offset 12 is the first byte of the BSS segment (code 8, data 4), not a byte
+     * inside the data segment's padding (Alien Breed 3D's slave patched 8 bytes too early when the sizes were padded). */
+    put16(0x50200, 0x8007); put16(0x50202, 12); put16(0x50204, 0x1234); put16(0x50206, 0);
+    regs[8] = 0x50200; regs[9] = (a + 4) >> 2;
+    CHECK(rr_resload_call(&r, 0x74, regs) == RR_RESLOAD_RETURN);
+    CHECK(get16(a + 40) == 0x1234 && get32(a + 24) == a + 12);
 }
 
 static uint16_t crc_of(const unsigned char *data, size_t n) {

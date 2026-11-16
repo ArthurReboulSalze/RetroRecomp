@@ -117,8 +117,8 @@
       },
       {
         "title": "Alien Breed 3D",
-        "category": "known-failure",
-        "reason": "Stays black on the A1200 model while the private oracle under the real WHDLoad shows its intro: a known failure, its cause not found yet",
+        "category": "patchseg-loadseg",
+        "reason": "Its slave patches the game across the segments of a LoadSeg list (resload_PatchSeg): black in 1.7.6, when Relocate stored padded segment sizes; starts since 1.7.7",
         "source": "docs/AMIGA.md"
       }
     ],

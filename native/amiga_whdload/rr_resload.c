@@ -459,10 +459,12 @@ static int relocate(RrResload *r, uint32_t regs[16]) {
     }
 #undef FILE32
     free(file);
-    if (loadseg) {   /* each segment: allocation size, BPTR to the next segment, then the hunk */
+    /* each segment: its size, BPTR to the next segment, then the hunk. The size is the hunk's plus 8, as AmigaDOS's LoadSeg stores it: the
+     * alignment pads where the next segment goes, not the size. resload_PatchSeg counts its offsets with these sizes (target_address), so a
+     * padded size moved every patch past that segment (Alien Breed 3D: 8 bytes after two segments, a skip that landed in the code it skips). */
+    if (loadseg) {
         for (uint32_t i = 0; i < count; i++) {
-            uint32_t need = (sizes[i] + extra + align - 1) & ~(align - 1);
-            wr32(r, at[i], need);
+            wr32(r, at[i], sizes[i] + extra);
             wr32(r, at[i] + 4, i + 1 < count ? (at[i + 1] + 4) >> 2 : 0);
         }
     }
