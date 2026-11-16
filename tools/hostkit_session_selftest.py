@@ -99,7 +99,7 @@ def digest_of(history: list[tuple[int, int, int, int]]) -> int:
 class Game:
     """The fake game started in a session (or alone): its pipes, a reader thread, its exit."""
 
-    def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None):
+    def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -108,6 +108,9 @@ class Game:
             env.pop(name, None)
         if frames:
             env['RETRORECOMP_HOST_TEST_FRAMES'] = str(frames)
+        env.pop('SESSION_FAKE_MENU_AT', None)
+        if menu_at:
+            env['SESSION_FAKE_MENU_AT'] = str(menu_at)
         self.messages: queue.Queue = queue.Queue()
         self.pending: list = []
         self.write = None
@@ -242,7 +245,7 @@ def check_digest(game: Game, history: list) -> None:
 
 def stop(game: Game) -> None:
     game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS['RRHK_STOP_ENDED']))
-    exit_payload = game.expect('RRHK_MSG_EXIT')
+    exit_payload = game.expect('RRHK_MSG_EXIT', timeout=10)
     assert struct.unpack('<H', exit_payload)[0] == CONSTANTS['RRHK_EXIT_CLOSED']
 
 
@@ -358,7 +361,31 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     code, result, text = game.finish(timeout=10)
     assert code == 0 and int(result['frames']) == 20, (code, result, text)
     assert 'pipe is closed' in text, text
-    passed.append(f'pipe lost: stopped in {time.perf_counter() - started:.2f} s')
+    seconds = time.perf_counter() - started
+    assert 3.0 < seconds < 8.0, seconds       # the message stays about 3.5 s, then the game closes by itself
+    passed.append(f'pipe lost: message shown, closed by itself in {seconds:.1f} s')
+
+    # 8b. A menu opened by the player asks everyone to pause; closing it while paused is reported, and the game resumes.
+    game = Game(executable, out, menu_at=31)
+    setup(game)
+    history = []
+    for frame in range(31):
+        live_frame(game, frame, (0, *remote(frame)), history)
+    frame, word, system = struct.unpack('<IHH', game.expect('RRHK_MSG_LOCAL'))
+    assert (frame, word, system) == (31, 0, CONSTANTS['RRHK_SYS_PAUSE']), (frame, word, system)
+    name = b'Arthur'
+    game.send('RRHK_MSG_PAUSE', bytes([1, len(name)]) + name)
+    frame, word, system = struct.unpack('<IHH', game.expect('RRHK_MSG_LOCAL', timeout=10))
+    assert (frame, word, system) == (31, 0, 0), (frame, word, system)        # Help closed: the same frame, no pause asked
+    game.send('RRHK_MSG_PAUSE', bytes([0, 0]))
+    game.send('RRHK_MSG_RUN', run_payload(31, (0, *remote(31))))
+    assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == 31
+    history.append((0, *remote(31)))
+    check_digest(game, history)
+    stop(game)
+    code, result, _text = game.finish()
+    assert code == 0 and int(result['frames']) == 32, result
+    passed.append('menu: pause asked by opening Help, resumed by closing it')
 
     # 8. A hidden-window test run (the conversion's checks) is never a session, even with the pipes handed to it.
     game = Game(executable, out, frames=50)

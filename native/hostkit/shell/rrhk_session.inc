@@ -51,6 +51,8 @@ static struct {
     uint32_t live;                  /* the frame the next live RUN must name */
     uint32_t last_run;              /* the last frame run, live or silent */
     bool local_sent;                /* LOCAL already reported for `live` */
+    uint16_t word_sent, system_sent;   /* what that LOCAL said: a change of the system bits before the RUN is reported again */
+    Uint64 ending_until;            /* the session ended: the message stays on screen until then, then the game closes */
     int32_t ppm;                    /* time sync: added to the frame period */
     uint8_t *ring;                  /* depth slots of slot_size bytes */
     size_t slot_size;
@@ -243,7 +245,7 @@ bool rrhk_session_open(RrhkRun *run) {
     }
     memset(s.ports, 0, sizeof s.ports);
     memset(s.slot_used, 0, sizeof s.slot_used);
-    s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.ppm = 0;
+    s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.ppm = 0; s.ending_until = 0; s.system_sent = 0;
     s.setup = false; s.setup_until = SDL_GetTicks64() + 15000;
     rrhk_session_on = true;           /* from here the frames wait for SETUP inside the loop (events and pictures go on) */
     return true;
@@ -287,16 +289,26 @@ static bool set_ports(const uint8_t *payload, uint16_t length) {
     return true;
 }
 
+/* The session is over (lost, refused, stopped): the reason stays on screen about 3.5 s (events polled, pictures presented, no
+ * frame run), then the game closes. Never a window that simply vanishes. */
+#define RRHK_SESSION_ENDING_MS 3500
+static int ending(const char *message) {
+    if (!s.ending_until) {
+        rrhk_notice(message, RRHK_SESSION_ENDING_MS + 500);
+        s.ending_until = SDL_GetTicks64() + RRHK_SESSION_ENDING_MS;    /* nothing more is read; EXIT is sent at close */
+    }
+    return 0;
+}
 static int lost(RrhkRun *run, const char *why) {
     (void)run;
     fprintf(stderr, "[session] %s\n", why);
-    rrhk_notice(rr_tr("Connection to Retro-Recomp lost"), 4000);
-    return -1;
+    return ending(rr_tr("Connection to Retro-Recomp lost"));
 }
 
 int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     const RrhkMachine *m = run->machine;
     uint8_t payload[RRHK_SESSION_MAX_PAYLOAD];
+    if (s.ending_until) return SDL_GetTicks64() >= s.ending_until ? -1 : 0;
     if (!s.setup) {
         /* No frame before SETUP; the loop keeps polling events and presenting meanwhile. */
         pump();
@@ -310,15 +322,19 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         wait_input(4);
         return 0;
     }
-    if (!s.local_sent) {
+    /* The system bits are read every iteration: a menu opened asks everyone to pause, and closing it (while the session is
+     * paused, so no RUN comes) is reported again for the same frame, with the same word; the worker takes the latest. */
+    const uint16_t system = (uint16_t)(rrhk.menu || rrhk.paused ? RRHK_SYS_PAUSE : 0);
+    if (!s.local_sent || system != s.system_sent) {
+        /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
+         * sends the neutral word. */
+        if (!s.local_sent) s.word_sent = rrhk.menu || rrhk.capturing ? 0 : rrhk_local_pad_word(0, input_frame);
         uint8_t local[8];
         put32(local, s.live);
-        /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
-         * sends the neutral word, and asks everyone to pause. */
-        put16(local + 4, rrhk.menu || rrhk.capturing ? 0 : rrhk_local_pad_word(0, input_frame));
-        put16(local + 6, (uint16_t)(rrhk.menu || rrhk.paused ? RRHK_SYS_PAUSE : 0));
+        put16(local + 4, s.word_sent);
+        put16(local + 6, system);
         if (!send_message(RRHK_MSG_LOCAL, local, sizeof local)) return lost(run, "the pipe is closed");
-        s.local_sent = true;
+        s.local_sent = true; s.system_sent = system;
     }
     /* Wait for the live frame at most three quarters of a frame, then show the last picture and come back. */
     const unsigned budget = m->frame_seconds > 0.0 ? (unsigned)(m->frame_seconds * 750.0) : 12;
@@ -415,10 +431,9 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         }
         case RRHK_MSG_STOP: {
             const uint16_t reason = length >= 2 ? (uint16_t)(payload[0] | payload[1] << 8) : 0;
-            rrhk_notice(reason == RRHK_STOP_DESYNC ? rr_tr("The games went out of step: the match stops") :
-                        rr_tr("The match is over"), 4000);
             fprintf(stderr, "[session] stopped by Retro-Recomp (%u)\n", (unsigned)reason);
-            return -1;
+            return ending(reason == RRHK_STOP_DESYNC ? rr_tr("The games went out of step: the match stops") :
+                          rr_tr("The match is over"));
         }
         default:
             refuse(RRHK_REFUSED_COMMAND, "unknown");

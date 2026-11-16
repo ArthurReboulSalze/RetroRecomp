@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
 #include "hostkit/hostkit.h"
@@ -31,6 +32,19 @@ static State state = {0x9e3779b97f4a7c15ull, 0};
 static uint32_t picture[16 * 16];
 static unsigned live_runs, silent_runs, quick_calls, effects_off_runs, option_calls;
 static bool effects_allowed = true;
+/* SESSION_FAKE_MENU_AT=n: the player opens Help (F1) during frame n - 1 and closes it (Esc) thirty iterations later, while
+ * the session may be paused and no frame runs: the menu's pause request and its end must both reach the worker. */
+static unsigned menu_at, menu_countdown;
+static void key(SDL_Scancode code, SDL_Keycode sym) {
+    SDL_Event event; SDL_zero(event);
+    event.type = SDL_KEYDOWN; event.key.keysym.scancode = code; event.key.keysym.sym = sym;
+    SDL_PushEvent(&event);
+    event.type = SDL_KEYUP; SDL_PushEvent(&event);
+}
+static void frame_start(void *window, void *renderer) {
+    (void)window; (void)renderer;
+    if (menu_countdown && !--menu_countdown) key(SDL_SCANCODE_ESCAPE, SDLK_ESCAPE);
+}
 
 /* The fold the worker repeats: splitmix64 of the accumulator mixed with the four words and the frame. */
 static uint64_t mix(uint64_t x) {
@@ -47,6 +61,7 @@ static void reset(void) {}
 static void pause_machine(bool paused) { (void)paused; }
 static size_t audio(int16_t *pcm, size_t capacity) { (void)pcm; (void)capacity; return 0; }
 static uint64_t zero(void) { return 0; }
+static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) { (void)ui; (void)ctx; (void)y; }   /* F1 draws it */
 
 static bool run_frame(uint16_t p1, uint16_t p2) {
     const uint16_t p3 = rrhk_pad_word(2, state.frames), p4 = rrhk_pad_word(3, state.frames);
@@ -57,6 +72,7 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
     if (!effects_allowed) ++effects_off_runs;
     picture[state.frames % 256] = (uint32_t)state.acc;
     /* frame 10 of the run: the player presses F8, which a session must refuse with a notice */
+    if (menu_at && state.frames == menu_at && !rrhk_session_silent()) { key(SDL_SCANCODE_F1, SDLK_F1); menu_countdown = 30; }
     if (state.frames == 10 && !rrhk_session_silent()) {
         SDL_Event event; SDL_zero(event);
         event.type = SDL_KEYDOWN; event.key.keysym.scancode = SDL_SCANCODE_F8; event.key.keysym.sym = SDLK_F8;
@@ -94,15 +110,17 @@ static RrhkMachine machine = {
     .max_width = 16, .max_height = 16, .frame_seconds = 1.0 / 500.0,
     .reset = reset, .run_frame = run_frame, .pause = pause_machine, .pixels = pixels,
     .visible_width = size16, .visible_height = size16, .raster_height = size16, .display_width = size16,
-    .audio = audio, .interpreted = zero, .audio_interpreted = zero,
+    .audio = audio, .interpreted = zero, .audio_interpreted = zero, .help_controls = help_controls,
     .state_path = quick_path, .state_ready = quick_ready, .state_file = quick_file,
     .snap_bound = snap_bound, .snap_save = snap_save, .snap_load = snap_load, .digest = digest,
-    .side_effects = side_effects, .session_option = session_option};
+    .side_effects = side_effects, .session_option = session_option, .frame_start = frame_start};
 const RrhkMachine *rrhk_adapter(void) { return &machine; }
 
 int main(int argc, char **argv) {
     (void)argc; (void)argv;
     SDL_SetMainReady();
+    const char *menu = getenv("SESSION_FAKE_MENU_AT");
+    menu_at = menu ? (unsigned)atoi(menu) : 0;
     const int status = rrhk_main(&machine, "Session fake", 1);
     printf("RESULT frames=%u live=%u silent=%u quick=%u effects_off=%u options=%u digest=%016llx\n",
            state.frames, live_runs, silent_runs, quick_calls, effects_off_runs, option_calls,

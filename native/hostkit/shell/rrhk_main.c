@@ -16,6 +16,7 @@
 #include "display_settings.h"
 #include "embedded_resources.h"
 #include "retro_menu.h"
+#include "runtime_i18n.h"
 #include "runtime_feedback_sdl.h"
 #include "hostkit/hostkit_internal.h"
 #include "hostkit/hostkit_session.h"
@@ -442,7 +443,7 @@ static bool begin_frame(RrhkRun *r) {
     /* Multiplayer: no quick state for anyone (F8, F9 and their combinations say so), no fast loading, no speed key. */
     if (rrhk_session_on && r->pending_state) {
         r->pending_state = 0;
-        rrhk_notice(rrhk_tr("Quick states are off in multiplayer", "Sauvegardes rapides desactivees en multijoueur"), 1800);
+        rrhk_notice(rr_tr("Quick states are off in multiplayer"), 1800);
     }
     /* A computer's fast loading key: no pacing, no sound, a picture every eighth frame. */
     bool fast = !rrhk_session_on && m->fast_forward && m->fast_forward();

@@ -338,7 +338,8 @@ void rrhk_poll_events(RrhkRun *run) {
                 (key == SDL_SCANCODE_GRAVE && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) ||
                 (media_pressed(&event, key) && !rrhk_options_component(key, -1)) || rrhk_option_key_run(key) ||
                 (rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
-                 key != SDL_SCANCODE_F2);
+                 key != SDL_SCANCODE_F2 && key != SDL_SCANCODE_F1 && key != SDL_SCANCODE_UP && key != SDL_SCANCODE_DOWN &&
+                 key != SDL_SCANCODE_PAGEUP && key != SDL_SCANCODE_PAGEDOWN);
             if (refused) {
                 rrhk_notice(rr_tr(states ? "Quick states are off in multiplayer" : "Set by the host in multiplayer"), 1800);
                 continue;
