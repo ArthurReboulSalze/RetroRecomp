@@ -31,6 +31,8 @@ too, so every other export is rebuilt and checked again on its quick routes (an 
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used.
 
+---
+
 # RetroRecomp v1.7.7 — The PlayStation draws with the graphics card; Sync to display on every machine; your firmware found in a folder; Pinball Illusions and Alien Breed 3D on the Amiga 1200
 
 - **Sony PlayStation: the graphics card draws the picture.** A PlayStation game now draws with the graphics card by default (Vulkan,
