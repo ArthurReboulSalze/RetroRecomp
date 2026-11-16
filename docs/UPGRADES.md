@@ -86,6 +86,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares](#commodore-amiga-500-and-1200-play-travels-the-amiga-1200-shares-179) | **the Amiga and the Amiga 1200** (`amiga_conversion.py`, `amiga_knowledge.py`, `systems/amiga.py`, the new `a1200_knowledge.py`) | none | the Amiga and Amiga 1200 keys move (every input); the others are unchanged |
+| [Mega Drive: shadow and highlight follow the chip](#mega-drive-shadow-and-highlight-follow-the-chip-179) | **the Mega Drive** (`megadrive_video.py`, `md_vdp_pixels.inc`) | none | the Mega Drive key moves (`md_vdp_pixels.inc`; the layout is unchanged); the others are unchanged |
 
 ## Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares (1.7.9)
 
@@ -95,6 +96,14 @@ On the owner's word of 16 November 2026 (« Je préfère que tu mettes en place 
 - **Stamps:** the game stamps of the Amiga 500 and of the Amiga 1200 (both convert through `amiga_conversion.py` and `amiga_knowledge.py`, and `systems/amiga.py` holds both profiles); `path_profiles.py` is not edited, so no other machine moves. No host or build stamp moves. An export of 1.7.8 is converted again in full on either machine; the player's own record of an install (`paths-record.json`) is read as before and gains rows.
 - **A replay stopped from outside says so** (both Amigas): a player run that ends with an error code and no message of its own (on Windows, a process ended from the Task Manager or a converter closed) is reported with the frame it reached and as stopped from outside, not by the game (`amiga_conversion.replay_failure`; 1869, 16 November 2026).
 - **Site:** the `a1200` limits must be on retro-recomp.com before the release, or an upload holding an A1200 game is refused whole.
+
+## Mega Drive: shadow and highlight follow the chip (1.7.9)
+
+From a player's report of 9 November 2026 (Puyo Puyo Tsuu, converted with 1.7.1: « the puyos are dark except when at the bottom or above another puyo »).
+
+- **What changes:** in shadow/highlight mode, the pinned VDP shaded a pixel unless an opaque high-priority layer covered it. On the chip, a plane tile's priority bit lifts the shadow even where its pixel is transparent. The other three rules of the chip, also absent from the pinned VDP: an operator sprite pixel (palette 3, colour 14 or 15) is a sprite pixel that wins over later sprites and collides; a low-priority operator does nothing over an opaque high-priority plane pixel; sprite colours $0E, $1E and $2E are always at normal intensity. Outside shadow/highlight mode the picture is unchanged (operators exist only in that mode). The private VDP copy carries the rules, scalar and SSE2 (`megadrive_video.SHADE_NEW`, `native/md_vdp_pixels.inc`).
+- **Checked:** `tools/megadrive_shadow_selftest.py` replays an authored grid of 256 cases (planes absent, transparent high, opaque low, opaque high, crossed with colours, colour 14 of each palette, operators of either priority, operators over and under another sprite) on the VDP as a game builds it, three ways (batched SSE2, batched scalar, unbatched scalar): all 256 match the rules; on the 1.7.8 VDP, 112 do not. The same grid as a small authored 68000 program, run in MAME 0.289 (`--rom`), gives the 256 values of the rules (MAME's 315-5313 and Genesis Plus GX agree on them). `megadrive_vdp_batch_selftest.py` (random lines, shadow/highlight on half of them) keeps scalar, batched and SSE2 equal. **Not checked:** Puyo Puyo Tsuu itself (no dump here); no game was played.
+- **Stamps:** the Mega Drive game stamp (`3fd2b602140a` to `2b841c000d84`); no host or build stamp, no other machine. An export of 1.7.8 is converted again in full. The Mega Drive quick-state key moves because `md_vdp_pixels.inc` is one of its files; the state layout does not change.
 
 ## Exports of 1.7.7 in 1.7.8
 
