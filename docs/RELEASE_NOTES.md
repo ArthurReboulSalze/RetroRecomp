@@ -1,3 +1,82 @@
+# RetroRecomp v1.7.7 — Sync to display on every machine; your firmware found in a folder; Pinball Illusions' title on the Amiga 1200 [TITLE: confirm at release]
+
+- **Every machine: Sync to display.** A new row of the options page, kept per machine
+  ([CONTROLS.md](CONTROLS.md#sync-to-display-177), [HOST_KIT.md](HOST_KIT.md#d30), decision D30):
+  - **Auto** (the default) measures the screen's refresh when the game opens. A game whose own rate is within 1 % of it (most consoles
+    on a 60 Hz screen) is **locked** to the screen: each frame is shown for exactly one refresh, with no hitch every few seconds. It then
+    runs at the screen's rate (60.00 Hz instead of 59.92, 0.13 % faster) and its sound is resampled by the same fraction, on every machine,
+    the Mega Drive's own sound bridge included. Otherwise (a 144 Hz screen, a PAL game on a 60 Hz screen) the game runs on its own clock
+    as in 1.7.6. The row says which: **Auto (locked)** or **Auto (free)**.
+  - **Locked** goes up to 3 % (the Neo Geo's 59.19 Hz on a 60 Hz screen); **Free** is the game's own clock with vsync off, on Linux too
+    (1.7.6 always asked vsync there); **Variable refresh** is for FreeSync, G-Sync and HDMI VRR screens (on Windows through the Direct3D 12
+    renderer, from the next start). A game cannot detect a variable-refresh screen, so Auto never picks it.
+  - Menus, pause, fast forward and the other speeds are never locked, and neither are the conversion's own checks: their runs and
+    stamps are unchanged. The lock aligns frames with the refresh; it is not a latency figure, and physical latency is still not
+    measured. Checked by the kit's self-tests (the lock's decision, the sound factor, a ten-minute closed loop, the Mega Drive bridge
+    over 300 simulated seconds), on Windows and on a Debian 13 PC (headless); the smoothness itself is judged by eye on a real screen.
+- **The converter: find your firmware in a folder.** **Options > Consoles > Find firmware in a folder…** looks through a folder and its
+  subfolders once (a Batocera `bios` folder, files in bulk) and proposes, machine by machine and option by option, the files that fill
+  the firmware paths: the Neo Geo BIOS, the QSound ROM, the Game Boy Advance and PlayStation BIOS, the Amiga Kickstarts, the Atari ST
+  TOS, the X68000 ROMs and the MSX family's BIOS files ([INSTALLING.md](INSTALLING.md#finding-firmware-in-a-folder)). A file is
+  recognised by its content, with the checks the converter already makes, never by its name. Nothing changes before you confirm, a
+  path you already set is left unticked, and your files are only read: never copied, moved, changed or sent.
+- **The converter: shorter names in the console menu.** The menu at the top right of the window shows Amiga 500, Amiga 1200, PC
+  Engine, PlayStation and ScummVM, and its field and list are as wide as their longest entry, so no name is cut. The machines'
+  names in reports, folders and covers are unchanged.
+- **Every machine: no crash when a machine has no picture yet.** Under the xBR or Scale2x filter, a machine whose picture was missing
+  for a moment (a session reopened under a menu) closed the game; the game's area is now black until the next picture, under every
+  filter.
+- **Amiga 1200: Pinball Illusions' title shows.** In 1.7.6 its table-selection screen stayed black with the music playing (F1 to F4
+  still chose a table). The game was running: its title is an eight-plane dual playfield with both priorities at 7, which AGA's Lisa
+  draws and OCS and ECS Denise leave transparent; vAmiga applied the OCS rule on every chipset. The adapted core now keeps it for OCS
+  and ECS only ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)), and the fix is offered upstream to vAmiga. On 5,600 frames of the game,
+  sound, memory and CPU are the same before and after; only the pictures change, from the title's first frame on. The Amiga 500 is not
+  concerned.
+- **Amiga: interlaced screens that move no longer comb.** Since 1.7.6 an interlaced screen is woven from its two fields; where the
+  picture moved, the fields, 1/50 s apart, doubled every moving edge (Pinball Illusions' whole-table view while it scrolls). The weave
+  now follows the motion: a still screen is the 1.7.6 weave byte for byte, a moving area shows this frame's field. A display change
+  only, on both models: sound, memory and CPU are equal on every frame of the games measured.
+- **Amiga 1200: a player's record read with the 68EC020's lengths.** A player's own record (F12) is now walked with the 68EC020's
+  instruction lengths, extension words included: five of the owner's six Amiga 1200 records give different, more useful entries. The
+  Amiga 500's and the Atari ST's walks give the same output as before.
+- **Amiga 1200: more evidence, still experimental.** Game saves are exercised (G7: Super Stardust writes its preferences, they are kept,
+  read back, not rolled back by a quick state, and a damaged copy still starts). Its 68EC020 is compared with an independent model
+  (G10: 200,000 random instructions of Moira against Musashi, 192,264 equal, every other one in a written family, 87 of them still to
+  referee; Musashi is a model, not the silicon). Its qualification column goes from 56 % to 66 %
+  ([QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)). Alien Breed 3D still does
+  not start ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
+- [PS1 VULKAN: pending branch]
+- [AMIGA NIGHT: pending branches]
+
+**Speed.** [SPEED: pending]
+
+These are changes to the timing and the menus of every game, to the converter's window and to the Amiga's picture, each on the
+evidence above; none of them is a measure of hardware fidelity, complete gameplay or physical latency, and the interpreter fallback
+is still counted and shown per CPU and per device wherever it is used.
+
+**Your exports and quick states.** 1.7.7 moves the game stamp of the Amiga, the Amiga 1200 and the Atari ST, so **every export of
+1.7.6 on those machines is converted again once** on the first batch after you update, from the paths it already learned; the shared
+paths of the base stay qualified (the Amiga's generator revision does not move). The host stamp of every machine moves with Sync to
+display: exports of the other machines are only **upgraded**, rebuilt from their learned paths with no rediscovery. No build stamp
+moves. A quick state of 1.7.6 is refused cleanly, with a message, on the Amiga, the Amiga 1200, the Atari ST and the Nintendo 64
+(their key takes every input of the machine, the host's included); it loads on the other machines, the Mega Drive and the Super
+Nintendo included. Cartridge saves, memory cards and the copies of written disks are kept. [EXPORTS: check again after the PS1 Vulkan
+and Amiga night branches] The details are in [UPGRADES.md](UPGRADES.md#exports-of-176-in-177).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
+
+---
+
 # RetroRecomp v1.7.6 — The Game Boy Advance, the MSX2+, the Nintendo 64 and the PlayStation are supported; the Amiga 1200 opens
 
 - **Game Boy Advance (supported).** On the owner's decision of 14 November 2026, after his play test of six cartridges, the Game Boy

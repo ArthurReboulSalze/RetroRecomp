@@ -91,6 +91,9 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
+| « Find firmware in a folder… » in Options › Consoles ([INSTALLING.md](INSTALLING.md#finding-firmware-in-a-folder); no section of this page; merge `246103b7`) | none | none (`firmware_search.py` and `gui_firmware.py` are interface modules, outside the stamps) | none |
+| The converter's console menu: short labels, a field and a list as wide as their longest entry (no section of this page; merge `b318698e`) | none | none (`console_menu.py` is an interface module, outside the stamps) | none |
+| The Amiga 1200's 68EC020 against an independent model (G10, [QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026); no section of this page; commit `1f9c582a`) | none | none (`m68020_vector_checks.cpp` is a check, outside the stamps) | none |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
 
