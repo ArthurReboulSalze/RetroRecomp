@@ -324,13 +324,13 @@ class ProfileContractTests(unittest.TestCase):
         self.assertEqual(get_profile('x68').shared_knowledge.tier, 'experimental')
 
     def test_the_x68000_the_pc_engine_the_gba_the_amiga_and_the_atari_st_decline_the_quick_check_from_shared_paths(self):
-        # Paths other players qualified allow the quick check (main route only) on every machine that shares, except the Atari ST (what its received rows add is code no route ran), the PC Engine, whose record is made from all its routes, the Game Boy Advance and the Amiga, whose RAM code does not all travel (a first conversion runs its own passes), and the X68000, whose
+        # Paths other players qualified allow the quick check (main route only) on every machine that shares, except the Atari ST (what its received rows add is code no route ran), the PC Engine, whose record is made from all its routes, the Game Boy Advance and the two Amigas (500 and 1200), whose RAM code does not all travel (a first conversion runs its own passes), and the X68000, whose
         # input routes (mouse, keyboard) are found by replaying them and are not carried by the shared paths. The MSX2+ replays its routes whatever it received
         # (its RAM windows that are not in the cartridge or the disks stay private), and so does the PlayStation (one pass; code a game decompresses stays private).
         declined = {p.id for p in ALL_PROFILES if p.shared_knowledge and not p.shared_knowledge.quick_check_from_shared}
-        self.assertEqual(declined, {'x68', 'pce', 'gba', 'amiga', 'atarist', 'psx', 'msx2plus'})
+        self.assertEqual(declined, {'x68', 'pce', 'gba', 'amiga', 'a1200', 'atarist', 'psx', 'msx2plus'})
         for profile in ALL_PROFILES:
-            if profile.shared_knowledge and profile.id not in ('x68', 'pce', 'gba', 'amiga', 'atarist', 'psx', 'msx2plus'):
+            if profile.shared_knowledge and profile.id not in ('x68', 'pce', 'gba', 'amiga', 'a1200', 'atarist', 'psx', 'msx2plus'):
                 self.assertIs(profile.shared_knowledge.quick_check_from_shared, True, profile.id)
 
     def test_host_adapter_equals_the_host_kit_table(self):

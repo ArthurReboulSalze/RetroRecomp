@@ -277,6 +277,87 @@ class ConversionTests(unittest.TestCase):
         self.assertEqual(block['promotion']['kickstart'], {'observed': 2, 'tied': 2, 'private': 0})
 
 
+    def test_what_the_players_game_ran_in_play_joins_the_record_and_is_counted_apart(self):
+        """1.7.9 (the owner's decision of 16 November 2026): an F12 window at an interpreted RAM instruction, made native by the conversion that
+        passed, joins the shared record when it sits in the install; one the game built or unpacked stays private. The instructions after the
+        first one of a window are not shared (nothing says they ran)."""
+        windows = [(LOAD + 6, install()[0x406:0x416]), (0x30000, bytes.fromhex(BSR) + bytes(12))]
+        played = amiga_conversion.played_pairs(windows)
+        record, promotion = amiga_conversion.promoted_record(self.source, install(), None, set(), set(), played=played)
+        self.assertEqual(amiga_knowledge.rows(record), ([(LOAD + 6, 0x406, len(MOVE_L))], []))
+        self.assertEqual(promotion['play'], {'offered': 2, 'new': 2, 'tied': 1, 'anchored': 0, 'private': 1})
+        # What the fresh runs saw as well is not counted again as play's.
+        fresh = {(v['pc'], v['words']) for v in program_variants()}
+        record, promotion = amiga_conversion.promoted_record(self.source, install(), None, fresh, set(), played=played)
+        self.assertEqual(promotion['play'], {'offered': 2, 'new': 1, 'tied': 0, 'anchored': 0, 'private': 1})
+        self.assertEqual(amiga_knowledge.rows(record)[0], [(LOAD, 0x400, len(PROGRAM))])
+        self.assertIn('play (F12)', amiga_conversion.knowledge_block(record, promotion, {})['source'])
+        self.assertEqual(amiga_conversion.knowledge_block(record, promotion, {})['promotion']['play']['new'], 1)
+
+
+class ReplayFailureTests(unittest.TestCase):
+    def test_an_exit_with_no_message_says_it_was_stopped_from_outside_and_where(self):
+        with tempfile.TemporaryDirectory() as name:
+            folder = Path(name)
+            (folder / 'stderr.log').write_text('', encoding='utf-8')
+            (folder / 'trace.tsv').write_text('frame\tvideo\n' + ''.join(f'{n}\tx\n' for n in range(1, 1146)), encoding='ascii')
+            message = amiga_conversion.replay_failure(folder, 1, 3600)
+            self.assertIn('at frame 1145 of 3600', message)
+            self.assertIn('stopped from outside', message)
+            (folder / 'stderr.log').write_text('Cannot write the trace\n', encoding='utf-8')
+            self.assertEqual(amiga_conversion.replay_failure(folder, 1, 3600), 'Amiga replay failed (exit code 1): Cannot write the trace')
+
+
+class Amiga1200Tests(unittest.TestCase):
+    """The Amiga 1200 shares from 1.7.9 like the Amiga 500 (the owner's decision of 16 November 2026): its own module and section, the 68EC020's
+    lengths and its Kickstart 3.x, 512 KiB at $F80000."""
+
+    @staticmethod
+    def kickstart_3x():
+        data = bytearray(NOP * (0x80000 // 2))
+        data[0x100:0x104] = MOVE_W
+        return bytes(data)
+
+    def test_the_a1200_is_in_the_experimental_tier_with_its_own_module(self):
+        from retrorecomp import a1200_knowledge
+        self.assertIn('a1200', pp.EXPERIMENTAL_SHARED)
+        self.assertIn('a1200', pp.SCHEMA3_ONLY)
+        self.assertIn('a1200', pp.WITHDRAWABLE)
+        self.assertIs(knowledge.schema3_module('a1200'), a1200_knowledge)
+        self.assertEqual((a1200_knowledge.KNOWLEDGE.memory_map, a1200_knowledge.KNOWLEDGE.firmware_sizes), ('a1200', (0x80000,)))
+        self.assertEqual(a1200_knowledge.engine(), amiga_knowledge.engine())
+        self.assertEqual(a1200_knowledge.RECORD_RULES['paths']['m68k']['ram_code']['window'], [0xF80000, 0x1000000])
+        with patch.object(pp, 'SHARED_SYSTEMS', tuple(system for system in pp.SHARED_SYSTEMS if system != 'a1200')):
+            self.assertIsNone(knowledge.schema3_module('a1200'))
+
+    def test_a_record_of_the_a1200_ties_its_kickstart_3x_and_the_amiga_500_refuses_it(self):
+        from retrorecomp import a1200_knowledge
+        record, counts = a1200_knowledge.promote(IDENTITY, install(), self.kickstart_3x(), program_variants(), [(0xF80100, MOVE_W.hex() + '4e71')])
+        self.assertEqual(a1200_knowledge.rows(record), ([(LOAD, 0x400, len(PROGRAM))], [(0xF80100, 0x100, 4)]))
+        self.assertEqual(record['cpus']['m68k']['map'], 'a1200')
+        self.assertEqual(record['identity']['sources']['kickstart']['bytes'], 0x80000)
+        pp.validate_game({**record, 'game': 'a1200:' + IDENTITY})
+        with self.assertRaises(ValueError):
+            amiga_knowledge.validate_record(record, IDENTITY)
+        # A 256 KiB Kickstart on the Amiga 1200 is not the one its rows count: its rows stay private.
+        _, counts = a1200_knowledge.promote(IDENTITY, install(), kickstart(), [], KICK_OBSERVED)
+        self.assertEqual(counts['kickstart'], {'observed': 2, 'tied': 0, 'private': 2})
+        rows, left = a1200_knowledge.expanded_rows(record, install(), self.kickstart_3x())
+        self.assertEqual(left, {})
+        self.assertIn((0xF80100, MOVE_W.hex()), rows)
+
+    def test_received_kickstart_rows_of_the_a1200_are_split_at_its_own_window(self):
+        from retrorecomp import a1200_knowledge
+        record, _ = a1200_knowledge.promote(IDENTITY, install(), self.kickstart_3x(), program_variants(), [(0xF80100, MOVE_W.hex())])
+        source = SimpleNamespace(game_key=IDENTITY, sha256=IDENTITY)
+        with patch.object(knowledge, 'qualified_game', return_value=None), patch.object(knowledge, 'imported_game', return_value=record):
+            ram, kick, info = amiga_conversion.shared_hints(source, install(), self.kickstart_3x(), use_library=False,
+                                                            model=amiga_conversion.MODELS['a1200'])
+        self.assertEqual(kick, {0xF80100})
+        self.assertEqual(len(ram), 4)
+        self.assertEqual(info['imported'], 5)
+
+
 class EngineTests(unittest.TestCase):
     def setUp(self):
         amiga_knowledge.engine_core.cache_clear()

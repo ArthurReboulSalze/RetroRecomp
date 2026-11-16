@@ -1,3 +1,13 @@
+# RetroRecomp v1.7.9 (in preparation)
+
+- **Commodore Amiga 500 and 1200: what you play is shared.** The code your game ran on the interpreter while you played (F12, on by
+  default) now joins the paths you share once a conversion has made it native, so other players get it native too, even when their own
+  conversion's routes never reach it. The Amiga 1200 shares its paths like the Amiga 500, in the experimental tier of the base, on the
+  owner's decision of 16 November 2026 ([AMIGA.md](AMIGA.md#shared-paths-179)). Numbers only: positions in your own install and Kickstart,
+  never a byte of them. Amiga 500 and Amiga 1200 exports of 1.7.8 are converted again in full (their game stamp moves).
+
+---
+
 # RetroRecomp v1.7.8 — The Amiga 1200 is supported; drop a cover when none is found; no Visual Studio needed
 
 - **Commodore Amiga 1200: supported.** The Amiga 1200 is supported and no longer experimental, on the owner's play test of eight

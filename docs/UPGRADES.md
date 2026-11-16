@@ -79,6 +79,23 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.7.8 in 1.7.9
+
+1.7.9 is the release after 1.7.8. This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares](#commodore-amiga-500-and-1200-play-travels-the-amiga-1200-shares-179) | **the Amiga and the Amiga 1200** (`amiga_conversion.py`, `amiga_knowledge.py`, `systems/amiga.py`, the new `a1200_knowledge.py`) | none | the Amiga and Amiga 1200 keys move (every input); the others are unchanged |
+
+## Commodore Amiga 500 and 1200: play travels, the Amiga 1200 shares (1.7.9)
+
+On the owner's word of 16 November 2026 (« Je préfère que tu mettes en place directement le partage de chemin pour l'Amiga 500 et 1200. »; [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#commodore-amiga-1200-joins-the-base-and-play-travels-179-16-november-2026)).
+
+- **What changes:** a conversion that passed puts into its shared record, beside its routes' instructions, the first instruction of each window of the player's F12 record that it made native, when it sits in the install (`amiga_conversion.promoted_record`; the report's `knowledge.promotion.play` counts it). The Amiga 1200 joins the experimental tier of the base (`SharedKnowledge`, module `retrorecomp/a1200_knowledge.py`, out of `DECLINED['path_sharing']`), and its record counts its Kickstart 3.x as 512 KiB at $F80000 (before, every Kickstart instruction of an A1200 stayed private); received Kickstart rows are split at the model's own window. The game itself, its routes and its checks are unchanged.
+- **Stamps:** the game stamps of the Amiga 500 and of the Amiga 1200 (both convert through `amiga_conversion.py` and `amiga_knowledge.py`, and `systems/amiga.py` holds both profiles); `path_profiles.py` is not edited, so no other machine moves. No host or build stamp moves. An export of 1.7.8 is converted again in full on either machine; the player's own record of an install (`paths-record.json`) is read as before and gains rows.
+- **A replay stopped from outside says so** (both Amigas): a player run that ends with an error code and no message of its own (on Windows, a process ended from the Task Manager or a converter closed) is reported with the frame it reached and as stopped from outside, not by the game (`amiga_conversion.replay_failure`; 1869, 16 November 2026).
+- **Site:** the `a1200` limits must be on retro-recomp.com before the release, or an upload holding an A1200 game is refused whole.
+
 ## Exports of 1.7.7 in 1.7.8
 
 1.7.8 is the release after 1.7.7. This section is the index of its changes, one line per section below, with the stamps that section says move, computed for its own change on the tree of its branch.
