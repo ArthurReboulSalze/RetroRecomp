@@ -39,6 +39,10 @@
     Tsuu's pieces were dark unless they rested on another). An authored grid of 256 cases gives the same answer as MAME on all of
     them (1.7.8: 112 wrong).
 
+**Speed.** On a quiet PC against 1.7.8 (one pinned core, 2,400 frames, one warm-up then the best of three): Sonic The Hedgehog 2
+(Mega Drive) 0.99 of its 1.7.8 time per frame (2.741 ms against 2.757 ms), Vectorman (Mega Drive, shadow and highlight) 1.01 (2.459 ms
+against 2.444 ms). Host cost per frame, not latency; Windows only.
+
 **Your exports and quick states.** 1.7.9 moves the game stamp of the Amiga, the Amiga 1200, the Mega Drive and the NES: those exports
 of 1.7.8 are converted again once, from their learned paths; the other machines' exports are kept as they are. Quick states of 1.7.8
 are refused cleanly on the Amiga, the Amiga 1200 and the Mega Drive (and on the NES for a converter run from a source checkout whose
