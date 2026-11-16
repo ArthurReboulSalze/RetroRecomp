@@ -79,9 +79,9 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
-## Exports of 1.7.9 in the next release
+## Exports of 1.7.9 in 1.8.0
 
-The release after 1.7.9 (in preparation). One line per change, with the stamps it moves.
+1.8.0 is the release after 1.7.9. One line per change, with the stamps it moves.
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |

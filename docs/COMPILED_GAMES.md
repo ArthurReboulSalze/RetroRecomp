@@ -26,6 +26,28 @@ and no copy of it is made (backward compatibility is owed to the previous releas
 only, [UPGRADES.md](UPGRADES.md#the-rule-the-previous-release-only)).
 Two existing exports in separate folders remain separate collection entries.
 
+## Front-end (1.8.0)
+
+The **Front-end** button, left of Knowledge, shows the same compiled games as a wall of box art, one console at a time, each
+game's name under its cover, made to be used from the sofa with a gamepad (keyboard and mouse work too):
+
+| Gamepad | Keyboard | What it does |
+| --- | --- | --- |
+| LB / RB | Shift+Tab / Tab | Previous / next console (the current one stays in the middle of the top strip) |
+| D-pad, stick | Arrows, Page Up / Down, Home / End | Move in the wall |
+| A | Enter | Play the game |
+| Y | Space or the Menu key | Actions: choose or search the box art, favourite, sort, open the folder, reconvert |
+| X | F11 | Full screen / window |
+| L2 / R2 | − / + (or Ctrl + wheel) | Fewer / more covers per row (4 to 12, kept per console) |
+| B | Esc or Backspace | Back; leaving the front-end asks first |
+| | Ctrl+F or F3 | Search a title |
+
+The star shows your favourites and the magnifier searches a title, over every console; an on-screen keyboard lets you type with
+the gamepad. A game whose box art is not saved yet shows its name on a plain card; **Search the missing box art online** fetches
+covers for the front-end only (the games and their icons do not change). **Options › Common** can start Retro-Recomp straight in
+the front-end, and then in full screen (the second box is available once the first is ticked). Nothing is converted again: the
+front-end is another view of this list.
+
 ## Keeping the list current
 
 Each row remembers the sizes and dates of the files it shows: the game, its

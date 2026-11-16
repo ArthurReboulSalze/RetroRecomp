@@ -1,4 +1,4 @@
-# RetroRecomp, next release (in preparation)
+# RetroRecomp v1.8.0 — The Front-end: your games as a wall of box art, played with the gamepad
 
 - **Every machine: a build left half done no longer blocks the next conversion.** A packaged converter unpacks itself into a new
   temporary folder at each launch. A machine build it left unfinished (the window closed during a conversion) still named the old
@@ -24,6 +24,15 @@
   **Options › Common** can start Retro-Recomp straight in the front-end, and then in full screen. The front-end is another
   view of Compiled Games: the same games, covers and launch, nothing converted again.
   The converter's controller bridge now also reads the L2 and R2 triggers.
+
+**Your exports and quick states.** No game stamp moves in 1.8.0, so no game is converted again. The build and host parts move for
+every machine (the build tools' choice and the controller bridge), so each export of 1.7.9 is rebuilt once and checked again on
+its quick routes, from its learned paths. Quick states keep working on every machine except where a machine's state key hashes
+all its inputs (the Amiga, the Amiga 1200, the Atari ST and the Nintendo 64), where they are refused cleanly; cartridge saves and
+memory cards are kept.
+
+None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used.
 
 ---
 
