@@ -2,7 +2,8 @@
 
 Supported profile (`amiga`) since 1.7.5, on the owner's decision of 14 November 2026 (opened as experimental in 1.7.0): the converter
 offers it when the installation carries the Amiga files, and its paths travel through the shared base (section 6). It converts an Amiga 500 game installed for WHDLoad into a standalone Windows
-executable, with guarded native code for the 68000 code the game runs from RAM and a counted interpreter for everything else.
+executable, with guarded native code for the 68000 code the game runs from RAM and a counted interpreter for everything else. The Amiga
+1200 has a profile of its own, supported since 1.7.8 ([section 7](#7-the-amiga-1200-a1200)).
 Nothing here says that a game plays completely, that the hardware is reproduced faithfully or how long input takes to reach the
 screen: those are separate measures, listed below with what is known of each.
 
@@ -228,13 +229,15 @@ On these routes the received paths saved no pass and changed neither the interpr
 
 The Amiga is **supported from 1.7.5**. The owner played the six installs of [the checklist](QUALIFICATION.md#checklist-for-arthur-commodore-amiga-play-test-g14) (the exports of 13 November in `Export/Games/Amiga`) and wrote « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » (G14, [the owner-acceptance table](QUALIFICATION.md#owner-acceptance)). The checks of tests/test_machine_registry.py for a `supported` machine pass on the real profile: the Amiga shares its paths, has five risk cases, is witnessed on Linux and has no failed gate. G10 (Moira against MAME-made vectors, 322 differences in named families) and G11 (pictures compared with another emulator, not with the chips) stay `P`, worded as they are: G11 is `P` on every machine, and the X68000 left the experimental status with G10 `P` too.
 
-**Scope of the status.** Amiga 500 games installed for WHDLoad (an `.lha` with a slave), with the player's own Kickstart 1.x for those that ask for one, on the evidence above: a panel of eight installs at the extended level and six played by the owner. Not converted yet: installs that need Kickstart 3.x, ADF disk images, the Amiga 1200 (AGA). Code past the routes runs interpreted, counted and shown; the hardware is vAmiga's (Agnus, Denise, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is claimed.
+**Scope of the status.** Amiga 500 games installed for WHDLoad (an `.lha` with a slave), with the player's own Kickstart 1.x for those that ask for one, on the evidence above: a panel of eight installs at the extended level and six played by the owner. Not converted yet: installs that need Kickstart 3.x, ADF disk images, the Amiga 1200 (AGA) (its own profile since 1.7.6, supported since 1.7.8:
+[section 7](#7-the-amiga-1200-a1200)). Code past the routes runs interpreted, counted and shown; the hardware is vAmiga's (Agnus, Denise, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is claimed.
 
 **Still to deploy with the release:** the site side of the sharing, the limits of the `amiga` machine and the schema 3 validation of its records.
 
 ## 7. The Amiga 1200 (`a1200`)
 
-**Experimental, in development for 1.7.6** (the owner's go of 14 November 2026). The Amiga 1200 has a profile of its own beside the Amiga 500,
+**Supported from 1.7.8** (the owner's decision of 16 November 2026; [the exit record](#leaving-the-experimental-status-16-november-2026)), opened
+as experimental in 1.7.6 on his go of 14 November 2026. The Amiga 1200 has a profile of its own beside the Amiga 500,
 as the MSX2+ beside the MSX2: the same converter, session, resload layer and host adapter, run with the A1200 model. The Amiga 500 profile is
 not changed by it.
 
@@ -251,7 +254,7 @@ not changed by it.
 - **The five measures** stay apart. Native code and CPU agreement with the reference are measured on a panel of eight installs (15 November
   2026, [the evidence](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)): 0 or 1 interpreted instruction a
   route, the 1 a Kickstart instruction. Hardware fidelity is not claimed (vAmiga marks its AGA Denise as partly done; pictures are compared
-  with another emulator only); gameplay rests on Arthur's play test, still to come; latency is not measured.
+  with another emulator only); gameplay rests on Arthur's play test of eight installs (16 November 2026); latency is not measured.
 - **Alien Breed 3D starts (1.7.7).** In 1.7.6 it stayed black. `resload_Relocate` building a LoadSeg list wrote each segment's size
   padded to the alignment, where AmigaDOS stores the hunk's size plus 8; `resload_PatchSeg` counts its offsets with those sizes, so
   every padded segment moved the patches after it by 4 bytes. The slave's skip over the game's `ciaa.resource` probe landed 8 bytes
@@ -274,11 +277,11 @@ not changed by it.
 - **No battery clock (1.7.7, both Amigas).** A stock Amiga 500 or Amiga 1200 has no clock; vAmiga gave both an OKI clock reading the
   host's time, so a game or a Kickstart that read it would have seen another date in the reference run and in the native one. The
   clock is off; Pinball Illusions, Slam Tilt, Banshee, Fears, Gloom and Civilization give the same traces as before (none reads it).
-- **The Amiga 1200's memory keeps the slow RAM at `$C00000` (decided 16 November 2026).** A stock A1200 has 2 MiB of chip RAM and
+- **The Amiga 1200's memory keeps the slow RAM at `$C00000` (Arthur's decision, 16 November 2026: « Ok, on garde comme ça, note-le »).** A stock A1200 has 2 MiB of chip RAM and
   nothing else, and the real WHDLoad puts ExpMem in fast RAM when a card gives some, in chip RAM otherwise. Our 1.5 MiB at `$C00000`
   sits on the chip bus, as chip RAM does, so code there runs at a stock A1200's speed; a WHDLoad game takes ExpMem where the slave is
   told it is. Moving it would move every address a player's record keeps, for no gain a game shows. An install whose ExpMem does
-  not fit still gets fast RAM at `$200000`, as with a card (faster: Fears, Pinball Illusions).
+  not fit still gets fast RAM at `$200000`, as with a card (faster: Fears, Pinball Illusions). The owner decided it on that explanation.
 - **The display's speed shortcuts on the Amiga 1200 (1.7.7).** The four shortcuts of the Amiga 500's display (one pass for both
   parities of a line, a line's bitplane slots in a batch, the quiet line, the idle sprites) were switched off under AGA until they were
   checked there; an AGA game paid vAmiga's slower path for every line. They are open to AGA, each replayed against vAmiga's own path
@@ -300,3 +303,30 @@ not changed by it.
   frame's field is the same as two frames before around it, and replaced by the mean of this field's lines above and below where it
   changed. A still interlaced screen is the plain weave, byte for byte; each field keeps its own rows, so nothing shakes again.
 - **Not yet:** AGA super-hires shown at full width (the picture keeps one column per hires pixel).
+
+### Leaving the experimental status (16 November 2026)
+
+The Amiga 1200 is **supported from 1.7.8**. The owner played the eight installs of his checklist (Slam Tilt, Pinball Illusions, Alien Breed 3D, Fears, Banshee, Super Stardust, Chaos Engine, All New World of Lemmings),
+converted by the 1.7.7 candidate (`rc-177` at `35ac18c9`, the standard level) and delivered in `Export/Games/Amiga 1200`, and wrote
+« Je viens de tester les huit jeux Amiga 1200, ça marche impeccable, tu peux le sortir de l'expérimental. » (G14, [the owner-acceptance table](QUALIFICATION.md#owner-acceptance)). All eight passed
+every check of their conversion: 0 interpreted instructions on both routes, but for one Kickstart instruction on Pinball Illusions and
+Banshee and the Kickstart's 59,006 on All New World of Lemmings (0.10 %), counted and shown. The checks of tests/test_machine_registry.py
+for a `supported` machine pass on the real profile: five risk cases, witnessed on Linux, no failed gate. On the exit's tree, four of
+them (Slam Tilt, Pinball Illusions, Alien Breed 3D, All New World of Lemmings) were converted again on Windows (llvm-mingw) and on WSL
+Debian 13 (GCC): every field of every route is the same on both and the same as in the conversions the owner played.
+
+**Its paths are not shared for now** (G16 `?`): on the owner's word of 15 November 2026, when he cancelled the sharing measurement, « on n'active pas le partage de chemin encore. On verra si c'est pertinent. Pour l'instant, ça n'a pas l'air de l'être. »
+On 16 November 2026: « pour le partage des chemins, on fera des tests plus tard. Faudra qu'on fasse des tests quand même. » A measure with and without another player's paths is to come, after this exit; until then
+the profile is listed in `DECLINED['path_sharing']` and stays out of the shared base. The panel's routes leave nothing for a received path
+to make native (0 interpreted instructions, or a Kickstart instruction); the gain beyond them is not measured.
+
+**Partial, worded as they are:** G9 (routes reach play on Slam Tilt and Zool 2, not recorded install by install), G10 (Moira against
+Musashi's 68EC020 on 200,000 random instructions, 76 cases still to referee), G11 (pictures compared with another emulator, not with
+the chips) and G15 (no exported A1200 game read in its window for the interpreter-fallback title yet). As on the Amiga 500 and the X68000,
+they stay `P`; no gate was relaxed for the exit.
+
+**Scope of the status.** Amiga 1200 WHDLoad installs (an `.lha` with a slave) on the A1200 model, with the player's own Kickstart 3.1
+(or 1.3) for those that ask for one, on the evidence above and [in QUALIFICATION.md](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026).
+Not converted: ADF disk images, the CD32. Known: AGA super-hires at half its detail. Code past the routes runs interpreted, counted and
+shown; the hardware is vAmiga's (Alice, Lisa, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is
+claimed. The slow RAM at `$C00000` is kept as it is, on the owner's decision of 16 November 2026 (« Ok, on garde comme ça, note-le »).

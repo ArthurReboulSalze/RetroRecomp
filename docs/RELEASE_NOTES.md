@@ -1,3 +1,12 @@
+# RetroRecomp v1.7.8 (in preparation)
+
+- **Commodore Amiga 1200: supported.** The Amiga 1200 is supported and no longer experimental, on the owner's play test of eight
+  installs (Slam Tilt, Pinball Illusions, Alien Breed 3D, Fears, Banshee, Super Stardust, Chaos Engine, All New World of Lemmings) and his decision of 16 November 2026
+  ([AMIGA.md](AMIGA.md#leaving-the-experimental-status-16-november-2026)). Amiga 1200 WHDLoad installs on the A1200 model (68EC020, AGA),
+  with your own Kickstart 3.1 when one asks for it. Its paths are not shared for now, on his decision; a measure with and without received paths comes later. The five measures stay apart: native code
+  and CPU agreement are measured on a panel of nine installs, hardware fidelity and latency are not claimed, AGA super-hires is shown at
+  half its detail. Amiga 500 and Amiga 1200 exports of 1.7.7 are converted again in full (their game stamp moves).
+
 # RetroRecomp v1.7.7 — The PlayStation draws with the graphics card; Sync to display on every machine; your firmware found in a folder; Pinball Illusions and Alien Breed 3D on the Amiga 1200
 
 - **Sony PlayStation: the graphics card draws the picture.** A PlayStation game now draws with the graphics card by default (Vulkan,

@@ -3,7 +3,7 @@
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Atari ST · Capcom CPS-1 · Capcom CPS-2 · Commodore Amiga · Game Boy · Game Boy Advance · Game Gear · Master System · Mega Drive · MSX · MSX2 · MSX2+ · Neo Geo · NES · Nintendo 64 · PC Engine / TurboGrafx-16 · Sharp X68000 · Sony PlayStation · Super Nintendo · then, experimental: Commodore Amiga 1200 · and Adventure (ScummVM)</p>
+<p align="center">Atari ST · Capcom CPS-1 · Capcom CPS-2 · Commodore Amiga · Commodore Amiga 1200 · Game Boy · Game Boy Advance · Game Gear · Master System · Mega Drive · MSX · MSX2 · MSX2+ · Neo Geo · NES · Nintendo 64 · PC Engine / TurboGrafx-16 · Sharp X68000 · Sony PlayStation · Super Nintendo · and Adventure (ScummVM)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -71,6 +71,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████████░` 90 % |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████████░` 94 % |
 | [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████████░` 91 % |
+| [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `████████░░` 81 % |
 | [Game Boy](docs/GAME_BOY.md) | supported | `██████████` 97 % |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████████░` 91 % |
 | [Game Gear](docs/GAME_GEAR.md) | supported | `█████████░` 93 % |
@@ -86,10 +87,9 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████████░` 91 % |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████████░░` 81 % |
 | [Super Nintendo](docs/SNES.md) | supported | `█████████░` 94 % |
-| [Commodore Amiga 1200](docs/AMIGA.md) | experimental | `███████░░░` 69 % |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code |
 
-\* The PlayStation, the Nintendo 64, the Atari ST and the Amiga are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
+\* The PlayStation, the Nintendo 64, the Atari ST and the two Amigas are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
 
 **Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a
 partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five

@@ -18,7 +18,9 @@ Path sharing (G16) is not asked of a machine on which it serves no purpose (the 
 panel shows that received paths would add no native instruction and save no conversion pass, or a gain the maintainer judges too
 small to be worth it (his decision of 15 November 2026, the Nintendo 64), the machine does not share, G16 reads `-`
 with that evidence in its entry, and `tests/test_machine_registry.py` lists it in `DECLINED['path_sharing']`. Sharing that serves a
-purpose is still required.
+purpose is still required. A machine may also leave the experimental status without sharing for now, on the maintainer's word,
+pending a measure with and without received paths (the Amiga 1200, 16 November 2026): it is listed in `DECLINED['path_sharing']`
+meanwhile, and G16 reads `?` until that measure and his decision.
 
 ## Gates
 
@@ -41,7 +43,7 @@ purpose is still required.
 | G15 | Honesty | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | Shared hints | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns, and their G14, of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026, and its G14 and G16 of 14 November 2026; the Nintendo 64 column of 15 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026; G8 and G10 of the Neo Geo of 2 November 2026; G10 of the Game Boy and G14 of the NES, CPS-1 and X68000 of 3 November 2026; G1 to G4, G13 and G15 of the Game Boy, G1, G7 to G10 and G15 of the Super Nintendo and G8 of the Mega Drive of 4 November 2026; G2, G10, G13 and G15 of the Mega Drive of 13 November 2026; G14 and G16 of the X68000 of 5 November 2026; the PC Engine and Amiga columns of 5 November 2026; the CPS-2 column of 6 November 2026; the PlayStation column of 8 November 2026; G7, G15 and G16 of the Amiga of 8 November 2026; G13 and G14 of the PC Engine of 10 November 2026; the MSX and MSX2 columns, and their G13, of 12 November 2026; G1 to G15 of the MSX and MSX2, and G2 to G12 and G15 of the MSX2+, of 13 November 2026; the MSX and MSX2 columns, and their G14, of 14 November 2026; G1 to G5, G8, G12 and G15 of the Atari ST of 13 November 2026; G2 to G9, G12, G13 and G15 of the Amiga of 13 November 2026, and its G14 and G16 of 14 November 2026; the Nintendo 64 column of 15 November 2026; G1, G12 and G14 of the Amiga 1200 of 16 November 2026)
 
 ### Progress through the qualification list
 
@@ -74,13 +76,13 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX | supported | `█████████░` 93 % | ✅ 13 · 🟡 2 · ❔ 0 |
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
-| Commodore Amiga 1200 | experimental | `███████░░░` 69 % | ✅ 8 · 🟡 6 · ❔ 2 |
+| Commodore Amiga 1200 | supported | `████████░░` 81 % | ✅ 11 · 🟡 4 · ❔ 1 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ | Commodore Amiga 1200 |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -91,9 +93,9 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | ❔ |
 
@@ -110,7 +112,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus | a1200 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
 | G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
@@ -121,9 +123,9 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+.
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | ? |
 
@@ -360,6 +362,7 @@ The page of each console, which the README links its line to (a console of the m
   firmware; no cartridge game on this panel; not compared on Linux. G13 `?`: no Linux run. G14 `?`: no owner verdict. G15 `P`: read for this
   step (MSX.md section 9, COMPATIBILITY, UPGRADES, the profile's scope note, the report's device names); one statement corrected (the report
   named a plain cartridge for a disk game); the full read of every page and string for the MSX2+ is to do.
+- Commodore Amiga 1200 (16 November 2026; branch `spec/a1200-exit-178`): **G14 moves from `?` to `Y`** on the owner's play test of the eight installs of the checklist (Slam Tilt, Pinball Illusions, Alien Breed 3D, Fears, Banshee, Super Stardust, Chaos Engine, All New World of Lemmings), converted by the 1.7.7 candidate (`rc-177` at `35ac18c9`) and delivered in `Export\Games\Amiga 1200`: « Je viens de tester les huit jeux Amiga 1200, ça marche impeccable, tu peux le sortir de l'expérimental. » **G12 moves from `P` to `Y`**: the two installs named in 1.7.6 (Pinball Illusions, Alien Breed 3D) were converted again on that tree, passed every check and were played. **G16 stays `?`**: its paths are not shared for now, on his word of 15 November 2026 (« on n'active pas le partage de chemin encore. On verra si c'est pertinent. Pour l'instant, ça n'a pas l'air de l'être. »), and a measure with and without received paths is to be done later, not in this exit (16 November 2026: « pour le partage des chemins, on fera des tests plus tard. Faudra qu'on fasse des tests quand même. »). **G1 moves to `Y`**: the profile is declared `supported` and `tools/status_lint.py` agrees on the README, the compatibility page, the release notes and the interface strings in eight languages. The Amiga 1200 **leaves the experimental status: it is supported from 1.7.8**. G9, G10, G11 and G15 stay `P`, with their evidence and what is missing named in [its section](#commodore-amiga-1200-evidence-behind-its-column-15-november-2026); no gate is relaxed. Replayed on the exit branch (16 November 2026, the standard level, from empty scratch libraries): Slam Tilt, Pinball Illusions, Alien Breed 3D and All New World of Lemmings on Windows (llvm-mingw) and on WSL Debian 13 (GCC), every field of every route equal between the two and equal to the conversions the owner played; only the report's status reads `supported`. The scope is in [AMIGA.md](AMIGA.md#leaving-the-experimental-status-16-november-2026): no game played through, no hardware fidelity or latency claimed, the interpreted share counted and shown.
 - Nintendo 64 (15 November 2026, afternoon; branch `spec/n64-176`): **G14 moves from `P` to `Y`** on the owner's play test of the eight exports of the checklist (the owner-acceptance table below), **G16 from `?` to `-`** (sharing declined on his decision, the gain being small, not nil), and the Nintendo 64 **leaves the experimental status: it is supported from 1.7.6**, on Arthur's word: « Ça me paraît bien faible pour partager les chemins. Si on a que 10% de gain max, […] on va sortir Nintendo de l'expérimental, mais on va pas partager les chemins. » The matrix is otherwise unchanged (`Y` on G1 to G9, G12, G13, G15; `P` on G10, krom's tests with the core's failures named; `?` on G11). The flip, simulated before (`registry_problems` on the real profile), asks for nothing more. The scope and limits are in [NINTENDO_64.md](NINTENDO_64.md#supported-from-176-15-november-2026): no game played through, no hardware fidelity or latency claimed, the interpreted share counted and shown.
 - Nintendo 64 (15 November 2026; branch `spec/n64-176`, experimental): **G1 to G9, G12, G13 and G15 move to `Y`, G10 to `P`**; G14 stays `P`, G11 and G16 stay `?`. The evidence is [its section](#nintendo-64-evidence-behind-its-column-15-november-2026): a panel of eight PAL cartridges at the Extended level, none dropped, every route equal to the core's pure interpreter frame by frame on Windows and byte for byte equal on a Debian 13 PC; every interpreted instruction listed with its class (two coverage gaps found that way and fixed: the run after an MFC0 and TLB-mapped code); the quick state continued with its sound and 16 damaged states refused; every save kind read back by a fresh process; krom's 114 CPU tests, 90 passing on the core's interpreter, the failures named. G14 waits for the owner's play test of the panel, G16 for his decision on sharing (the panel shows that received paths would add native code). No hardware fidelity, gameplay coverage or latency is claimed.
 - MSX2+ (14 November 2026, night; branch `spec/msx2plus-supported-176`): **G14 moves from `?` to `Y`** on the owner's play test of the six games of the checklist (the owner-acceptance table below), and the MSX2+ **leaves the experimental status: it is supported from 1.7.6**, on Arthur's word (« Oui, sors-le »). **G1 moves to `Y`**: the profile is declared `supported` and `tools/status_lint.py` agrees on the README, the compatibility page, the release notes and the interface strings in eight languages; `registry_problems` finds nothing for the real profile. The matrix is otherwise unchanged: `Y` on G1 to G8, G10, G12 to G15, `P` on G9 (route depth), G11 (two openMSX comparisons, no independent emulator on the panel) and G16 (the experimental tier of the base).
@@ -1196,6 +1199,7 @@ owner fills it in.
 | 14 November 2026 | Game Boy Advance | The six games of the checklist (Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald), the exports of 14 November 2026 in `Export\Games\Game Boy Advance` (built from the final tree of `spec/gba-175`, empty library, online covers on, llvm-mingw) | Arthur, after playing them: « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. »; asked "Je sors la GBA de l'expérimental pour la 1.7.6 ?": « Oui, sors-la » | Exit from the experimental status decided: the Game Boy Advance is supported from 1.7.6 (1.7.5 was frozen the same morning). The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no level won, no latency or hardware-fidelity measure; G10, G11 and G16 stay `P`. |
 | 14 November 2026 | MSX2+ | The six games of the checklist (Family Stadium Professional Baseball, The Goonies R Good Enough, Dragon Slayer II - Xanadu, Laydock 2 - Last Attack, F-1 Spirit 3D Special, Xak III - The Tower of Gazzel), the exports of 14 November 2026 in `Export\Games\MSX2+` (tree `05f8d828` of `spec/msx2plus-176`, the player's default level, online covers on; C-BIOS 0.29a for the cartridges, the owner's FS-A1WSX firmware with its kanji font for the disks) | Arthur, after playing them: « Ok, je viens de tester MSX2, donc c'est ok, ça marche. » (he said "MSX2"; the games he had just played were the MSX2+ ones); asked "Je sors le MSX2+ de l'expérimental ?": « Oui, sors-le » | Exit from the experimental status decided: the MSX2+ is supported from 1.7.6. The stamp move of the status change is handled by the 1.7.6 update; the exports are not converted again. A play test of six games, not a coverage claim: no game played through, no latency or hardware-fidelity measure; G9, G11 and G16 stay `P`. |
 | 15 November 2026 | Sony PlayStation | The eight discs delivered in `Export\Games\PlayStation` from the tree `6a5d9e9b` (Gran Turismo 2 of 00:34 UTC, with his hints), several of them played | « Je viens de tester la Nintendo 64 et la PlayStation sur plusieurs jeux. Donc, le comportement du jeu en lui-même, ça me paraît plutôt solide et plutôt réactif. Je n'ai pas eu de bug graphique. J'ai pu aussi faire une sauvegarde sur Gran Turismo 2 qui a fonctionné. » Then « Oui, sors-la » | 1x and 2x hold on his PC, 4x falls behind and cut the sound in Gran Turismo 2's races, 8x was unplayable and is no longer offered (a written limit); his Gran Turismo 2 save was read back by the G7 check |
+| 16 November 2026 | Commodore Amiga 1200 | The eight installs of the checklist (Slam Tilt, Pinball Illusions, Alien Breed 3D, Fears, Banshee, Super Stardust, Chaos Engine, All New World of Lemmings), converted by the 1.7.7 candidate (`rc-177` at `35ac18c9`, the standard level) and delivered in `Export\Games\Amiga 1200` | « Je viens de tester les huit jeux Amiga 1200, ça marche impeccable, tu peux le sortir de l'expérimental. » | His decision: the Amiga 1200 leaves the experimental status in 1.7.8. Its paths are not shared for now, on his word of 15 November 2026: « on n'active pas le partage de chemin encore. On verra si c'est pertinent. Pour l'instant, ça n'a pas l'air de l'être. » Then: « pour le partage des chemins, on fera des tests plus tard. Faudra qu'on fasse des tests quand même. » |
 | 15 November 2026 | Nintendo 64 | The eight exports of the checklist (Super Mario 64, Mario Kart 64, F-Zero X, Banjo-Tooie, GoldenEye 007, Rayman 2, Majora's Mask, Ocarina of Time), delivered from the tree `7b33bd9d` | « Je viens de tester la Nintendo 64 et la PlayStation sur plusieurs jeux. Donc, le comportement du jeu en lui-même, ça me paraît plutôt solide et plutôt réactif. Je n'ai pas eu de bug graphique. » On F-Zero X: « non, non, ça vibre pas. […] c'est le jeu, donc j'ai pas de problème avec F-Zero. Ça marche très bien. » | His decision the same day: the Nintendo 64 leaves the experimental status in 1.7.6 and does not share its paths: « Ça me paraît bien faible pour partager les chemins. Si on a que 10% de gain max, […] on va sortir Nintendo de l'expérimental, mais on va pas partager les chemins. » |
 
 ### Commodore Amiga: the panel (9 November 2026)
@@ -1289,6 +1293,29 @@ interpreter, as the window title says once you reach them. A state saved before 
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 | 14 November 2026 | Commodore Amiga | Lotus 2, Another World (FR), Monkey Island 2, Lemmings (Image), Pinball Dreams (NTSC), Panza Kick Boxing (FR) | « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » | the exit from the experimental status (the owner-acceptance table) |
+
+### Checklist for Arthur: Commodore Amiga 1200 play test (G14)
+
+A checklist, not a record: the verdicts and the notes are yours. Play the **delivered executables** of the 1.7.7 candidate in
+`Export\Games\Amiga 1200` (a game converted by an older build does not show the 1.7.7 fixes). For each: it starts and reaches play
+past the title screens; the picture is right (AGA colours, nothing shifted, an interlaced screen that neither shakes nor combs when it
+scrolls); the sound; the controls (the pad, the keyboard for the pinballs, Ctrl+Alt+K when a game wants its F1 to F10 keys); F8, play
+on, F9 goes back; your fast left/right test (an impression, not a measure).
+
+| Install | What it tests | Look at |
+|---|---|---|
+| Slam Tilt | 68020 and AGA, 256 colours (the test game) | the tables, the scrolling, the flippers |
+| Pinball Illusions | the player's Kickstart 3.1; AGA dual playfield | the table selection (F1 to F4), a table; Ctrl+Alt+K then F10: the whole interlaced view, no comb while it scrolls |
+| Alien Breed 3D | the slave's patches across segments | past the title, the 3D game |
+| Fears | a 3D engine, code in fast RAM | smoothness; F2, the processor speed row |
+| Banshee | Kickstart 3.1, an interlaced title | the title (still, sharp), the shots, the sound |
+| Super Stardust | Crunch-Mania; it keeps its preferences | an option changed, quit, restart: it stays. The super-hires intro at half detail is the known limit |
+| Chaos Engine | 2D action | the first level, both characters |
+| All New World of Lemmings | the Kickstart 3.1 asked in the slave's code | it starts, then a level |
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| 16 November 2026 | Commodore Amiga 1200 | Slam Tilt, Pinball Illusions, Alien Breed 3D, Fears, Banshee, Super Stardust, Chaos Engine, All New World of Lemmings | « Je viens de tester les huit jeux Amiga 1200, ça marche impeccable, tu peux le sortir de l'expérimental. » | Exit decided (G14) |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 
@@ -1508,7 +1535,8 @@ the cartridge sensors, the link cable and the e-Reader are not converted. Keep t
 
 ## Commodore Amiga 1200: evidence behind its column (15 November 2026)
 
-The experimental profile `a1200` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)), branch `spec/amiga1200-176`. Every conversion
+The profile `a1200` ([AMIGA.md](AMIGA.md#7-the-amiga-1200-a1200)), branch `spec/amiga1200-176`, supported from 1.7.8 on the owner's
+decision of 16 November 2026 (the exports he played are below the panel). Every conversion
 below ran on Windows (llvm-mingw), one at a time, from an empty scratch library, with the player's own Kickstart 3.1 where the install asks
 for one. Nothing here says exact hardware, complete gameplay or latency: the five measures stay apart, and only native code and CPU
 agreement with the reference are measured.
@@ -1527,6 +1555,21 @@ branch at `0f0ca6f1` on 15 November 2026, the same native counts where the first
 | Gloom | Crunch-Mania files | 195,552,589 | 0, 0 | all |
 | Super Stardust | Crunch-Mania files, an intro in AGA super-hires | 67,488,880 | 0, 0 | all |
 | Alien Breed 3D | LoadSeg sizes (black in 1.7.6, starts since 1.7.7) | — | — | its title and music (below) |
+
+**The exports the owner played** (16 November 2026): the eight installs of his checklist, converted by the 1.7.7 candidate (`rc-177` at
+`35ac18c9`, Windows, llvm-mingw, the standard level, covers on, one at a time from an empty scratch library) and delivered in
+`Export\Games\Amiga 1200`. Every check passed on all eight, the quick state continued in a fresh process.
+
+| Install | Native on the main route | Interpreted (main, explore) |
+|---|---|---|
+| Slam Tilt | 71,723,069 | 0, 0 |
+| Pinball Illusions | 172,559,712 | 1, 1 (a Kickstart instruction) |
+| Alien Breed 3D | 196,897,271 | 0, 0 |
+| Fears | 70,462,637 | 0, 0 |
+| Banshee | 40,576,307 | 1, 1 (a Kickstart instruction) |
+| Super Stardust | 67,488,880 | 0, 0 |
+| Chaos Engine | 52,599,094 | 0, 0 |
+| All New World of Lemmings | 62,198,151 | 59,006, 59,006 (the Kickstart's, 0.10 %) |
 
 "All" means: the native game's trace (picture, sound, RAM and CPU registers of every frame) equals the fresh reference on every route, so
 do the resload calls; the compressed copy replays equal; a quick state saved in it continues the same timeline in a fresh process and its 18
@@ -1566,7 +1609,7 @@ frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA fo
 
 | Gate | a1200 | Evidence | What is missing |
 |---|---|---|---|
-| G1 | P | The profile exists, experimental, with its own column, library folder, quick-state family and path section | The exit, which is Arthur's |
+| G1 | Y | The profile is declared `supported` (16 November 2026, the owner's decision), with its own column, library folder, quick-state family and path section; `tools/status_lint.py` agrees on the README, the compatibility page, the release notes and the interface strings in eight languages | |
 | G2 | Y | Every panel conversion writes the common report, its system `a1200`, its status read from the profile | |
 | G3 | Y | Interpreted instructions counted per route and shown (0 or 1, the 1 a Kickstart instruction) | |
 | G4 | Y | Native traces equal the fresh reference on every route of the panel | |
@@ -1577,11 +1620,11 @@ frames are 20 ms). Our four fast paths of vAmiga's display stay off under AGA fo
 | G9 | P | The routes reach play on Slam Tilt and Zool 2 (pictures); not checked install by install | A per-install record of where the routes end |
 | G10 | P | Moira's 68EC020 is the reference CPU; our lengths agree with Moira's disassembler on 19,084 random instructions. `tools/amiga_m68020_vectors.py` (16 November 2026, seed 1): 200,000 random instructions from random states, Moira as vAmiga builds it against Musashi's 68EC020 (an independent model, MIT, built for the check only): 192,264 equal on registers, SR, PC and the bytes written (clocks not compared); every one of the 7,731 others in a written family: 4,938 coprocessor instructions (no FPU on the A1200: Moira takes line F, Musashi models a 68881), 2,322 flags or results the manual leaves undefined (CHK, CHK2, DIV, BCD, MUL.L), 395 where Moira is right and this Musashi is not (PACK/UNPK byte order and RTE format error by the manual, LINK A7 by WinUAE's hardware-confirmed model), 76 to referee (MOVEM to -(An) with An listed, bit fields, CAS2) | A third model or hardware for the 76; Musashi is a model, not the silicon |
 | G11 | P | The oracle comparison above (8 installs) | Hardware evidence beyond another emulator |
-| G12 | P | A panel of 9 named: 8 pass every check, of which Pinball Illusions stayed black after its intro in 1.7.6; one did not start in 1.7.6 (Alien Breed 3D); both fixed in 1.7.7, named with the cause | Both converted again on the 1.7.7 build, then Arthur's play |
+| G12 | Y | A panel of 9 named, none dropped: 8 pass every check, of which Pinball Illusions stayed black after its intro in 1.7.6; one did not start in 1.7.6 (Alien Breed 3D); both fixed in 1.7.7, named with the cause, converted again by the 1.7.7 candidate (`rc-177` at `35ac18c9`), every check passed, and played by the owner on 16 November 2026 | |
 | G13 | Y | Slam Tilt converted on a Debian 13 PC (GCC, tree `f5e125a6`, the standard level): every field of both routes equals the Windows report, every trace digest included. Then Pinball Illusions (the player's Kickstart 3.1), Gloom (Crunch-Mania) and Zool 2 at the standard level on WSL Debian 13 (GCC) and on Windows (llvm), tree `97f8712c`, 16 November 2026: every field of both routes of all three equal, trace digests included | A game played interactively on Linux (window, sound, pad) |
-| G14 | ? | | Arthur's play test |
-| G15 | P | AMIGA.md section 7 and this section keep the five measures apart and name the failure | |
-| G16 | ? | Not shared (experimental) | A decision once its panel is stable |
+| G14 | Y | The owner played the eight installs of [the checklist](#checklist-for-arthur-commodore-amiga-1200-play-test-g14) on 16 November 2026 (the exports of the 1.7.7 candidate in `Export\Games\Amiga 1200`) and decided the exit: « Je viens de tester les huit jeux Amiga 1200, ça marche impeccable, tu peux le sortir de l'expérimental. » (owner-acceptance table) | Eight installs played, not a coverage claim: code past the routes runs interpreted, counted and shown in the window title |
+| G15 | P | AMIGA.md section 7 and this section keep the five measures apart and name the failures | An exported A1200 game read in its window (the title naming the interpreter fallback), as on the Amiga 500 |
+| G16 | ? | Not shared for now, on the owner's word of 15 November 2026, when he cancelled the sharing measurement: « on n'active pas le partage de chemin encore. On verra si c'est pertinent. Pour l'instant, ça n'a pas l'air de l'être. » Listed in `DECLINED['path_sharing']` (`tests/test_machine_registry.py`) meanwhile, not as a final no: « pour le partage des chemins, on fera des tests plus tard. Faudra qu'on fasse des tests quand même. » The panel's routes leave nothing for a received path to make native (0 interpreted instructions, or a Kickstart instruction) | The A/B measure (conversions with and without another player's paths), then the owner's decision |
 
 ## Running the verification campaign
 
