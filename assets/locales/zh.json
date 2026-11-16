@@ -1119,6 +1119,16 @@
     "Screen format: %s": "画面比例: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter：重新映射 | Del/X：清除 | 左/右：翻页",
     "Enter / A: restore this page": "Enter / A：恢复本页默认",
+    "Renderer": "渲染器",
+    "Graphics card (Vulkan)": "显卡 (Vulkan)",
+    "8x (graphics card)": "8x (显卡)",
+    "8x needs the graphics card: 4x on the CPU": "8x 需要显卡: CPU 上为 4x",
+    "No usable graphics card: the CPU draws the picture": "没有可用的显卡: 由 CPU 绘制画面",
+    "Geometry precision (PGXP)": "几何精度 (PGXP)",
+    "Perspective-correct textures": "透视校正纹理",
+    "Bilinear": "双线性",
+    "3-point": "三点",
+    "Graphics card only: no effect while the CPU draws": "仅限显卡：CPU 绘制时无效",
     "Sync to display: %s": "同步显示器: %s",
     "Auto": "自动",
     "Auto (locked)": "自动 (锁定)",
@@ -1133,6 +1143,10 @@
     "Free: the screen's refresh is unknown": "自由: 屏幕刷新率未知",
     "Variable refresh: screen follows game": "可变刷新率: 屏幕跟随游戏",
     "Locked: %s Hz, game %s Hz (%s)": "锁定: %s Hz，游戏 %s Hz (%s)",
-    "Free: its sound cannot follow yet": "自由: 声音暂时无法跟随"
+    "Free: its sound cannot follow yet": "自由: 声音暂时无法跟随",
+    "Anti-aliasing (GPU)": "抗锯齿 (GPU)",
+    "Texture filtering (GPU)": "纹理过滤 (GPU)",
+    "Needs geometry precision (PGXP) On": "需要开启几何精度 (PGXP)",
+    "Supersampling: nothing larger than 8x to draw": "超级采样：没有比 8x 更大的绘制"
   }
 }

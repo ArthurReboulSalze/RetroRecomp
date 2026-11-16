@@ -1119,6 +1119,16 @@
     "Screen format: %s": "Formato schermo: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Invio: assegna | Canc/X: cancella | </>: pagina",
     "Enter / A: restore this page": "Invio / A: ripristina la pagina",
+    "Renderer": "Renderer",
+    "Graphics card (Vulkan)": "Scheda grafica (Vulkan)",
+    "8x (graphics card)": "8x (scheda grafica)",
+    "8x needs the graphics card: 4x on the CPU": "8x richiede la scheda grafica: 4x sulla CPU",
+    "No usable graphics card: the CPU draws the picture": "Nessuna scheda grafica utilizzabile: l'immagine è disegnata dalla CPU",
+    "Geometry precision (PGXP)": "Precisione geometrica (PGXP)",
+    "Perspective-correct textures": "Texture con prospettiva corretta",
+    "Bilinear": "Bilineare",
+    "3-point": "3 punti",
+    "Graphics card only: no effect while the CPU draws": "Solo scheda grafica: nessun effetto quando disegna la CPU",
     "Sync to display: %s": "Sincronia schermo: %s",
     "Auto": "Auto",
     "Auto (locked)": "Auto (agganciato)",
@@ -1133,6 +1143,10 @@
     "Free: the screen's refresh is unknown": "Libero: frequenza dello schermo ignota",
     "Variable refresh: screen follows game": "Freq. variabile: lo schermo segue il gioco",
     "Locked: %s Hz, game %s Hz (%s)": "Agganciato: %s Hz, gioco %s Hz (%s)",
-    "Free: its sound cannot follow yet": "Libero: audio non ancora compatibile"
+    "Free: its sound cannot follow yet": "Libero: audio non ancora compatibile",
+    "Anti-aliasing (GPU)": "Anti-aliasing (GPU)",
+    "Texture filtering (GPU)": "Filtro texture (GPU)",
+    "Needs geometry precision (PGXP) On": "Richiede la precisione geometrica (PGXP) attiva",
+    "Supersampling: nothing larger than 8x to draw": "Supercampionamento: niente oltre 8x da disegnare"
   }
 }

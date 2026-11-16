@@ -27,11 +27,62 @@ compared with the figures of a machine whose game code is translated, and it say
   stick read -32768 straight left was read by the core as full right; Ape Escape). While a pad is digital, the gamepad's left
   stick also works as the d-pad. A game the core's database knows
   as digital-only gets a standard pad on that port (Crash Bandicoot). A multi-disc game has a **Change disc** action (N), which opens the lid, swaps the disc and closes it.
-- **F3** opens the graphics page: internal resolution (1x, 2x, 4x), dithering, aspect ratio and overscan crop. Dithering, aspect
-  ratio and overscan crop change only the picture; a raised internal resolution also changes the emulated drawing time, so the
-  game runs slightly differently from the checked 1x (measured on Ape Escape: at 2x, RAM and CPU differ from frame 96 on). The
-  conversion's checks use the defaults (1x, the core's own settings). 8x is not offered (64 times the pixels,
-  never in time on one thread), and since 1.7.6 there is no deinterlacing row: the picture is always progressive.
+- **Aspect ratio.** "Corrected", the default, shows the console's own pixel shape: with the overscan cropped (the default) that is
+  1.22 wide for 1 high for most games (the part of a 4:3 line the game draws), so a fullscreen picture keeps black bars at its
+  sides. "4:3" fills a 4:3 area instead and stretches the picture about 9 % wider than the console's signal; "Uncorrected" shows
+  square pixels. None of them changes a pixel of the picture or a check.
+- **The graphics card draws the picture** (1.7.7, the owner's decision of 15 November 2026: Beetle's Vulkan renderer). F3's first
+  row, **Renderer**, chooses between the graphics card (the default) and the CPU (Beetle's software renderer, the reference of the
+  conversion's checks, which never open the card). With the card the machine stays the checked one: beside it the software
+  renderer keeps its own copy of the console's VRAM at 1x, and on Ape Escape the RAM, the CPU state, the sound and that VRAM equal
+  the CPU renderer's at 1x on every one of 3,300 frames, with the card drawing at 1x or at 8x; only the picture is the card's own.
+  A computer with no usable card (no Vulkan loader, no device, a device the renderer cannot run on) opens the game on the CPU and
+  says so; nothing fails. Changing the row in play opens the machine again on the other renderer and gives it back as a quick
+  state (a state saved with one renderer loads with the other: checked both ways, 600 frames equal). The Vulkan headers come from
+  Khronos, and the shader layout and the HDR pieces the renderer asks for are our own files ([licence](../licenses/beetle-psx.md)).
+- **Anti-aliasing and texture filtering** (1.7.7, on the owner's questions: « il me semble pas avoir vu d'options
+  d'anti-aliasing pour la PlayStation », then « juste au moins pouvoir activer ou pas le filtrage des textures »). Two F3 rows,
+  the graphics card only (marked « (GPU) »), both **Off** by default. « Anti-aliasing »: MSAA 2x, 4x or 8x (several samples per pixel on the
+  polygons' edges, at the internal resolution), or Supersampling as on the Nintendo 64 (the owner, 16 November 2026: « quand on
+  se met en mode 2x, il calcule en 4x et il donne scale en 2x, mais il descend pas à 1x »): the card draws at twice the internal
+  resolution and the session reduces each frame by two as it reads it back (each pixel the exact mean of a 2x2 block), so the
+  picture keeps the size the resolution row gives; at 8x there is nothing larger to draw, it does nothing and says so. Beetle's
+  own supersampling, which reduces to the console's size (a 4x drawing shown as 1x), is not used. The reduction is done on the
+  processor in the copy that already reads every pixel of the card's frame: an exact mean whatever the driver, and the Vulkan
+  frontend shared with the Nintendo 64 is untouched; its transfer is the one of the next resolution up (4x with Supersampling
+  reads an 8x frame). A change takes effect with the first frame the core draws at the new size, so no frame has the wrong size. They are values of one row
+  because both together only add cost. « Texture filtering »: the console's nearest texel, bilinear, or 3-point (the Nintendo
+  64's own filter). Beetle's xBR, SABR and JINC2 texture upscalers, its adaptive smoothing, its MDEC chroma filter and texture
+  replacement are not offered, and there is no mipmapping (the console has none and Beetle adds none). Both rows act on the card's
+  drawing alone: on Ape Escape (3,300 frames) with MSAA 8x, with Supersampling at 4x, with bilinear and with 3-point plus MSAA 4x
+  at 4x, the RAM, the CPU state, the sound and the VRAM equal the run with both Off on every frame, at 0 interpreted
+  instructions (Supersampling: at 4x from the start, and turned on and off in play at 2x; the picture's size equal to the run
+  without it on every frame); with the CPU drawing the rows change nothing (every column equal, picture included) and the game
+  says so once.
+  Their cost is the card's: MSAA multiplies the samples drawn, Supersampling draws the internal resolution in full. MSAA
+  changed in play opens the session again with the machine carried as a quick state and the new multisampling set before the
+  renderer is built: Beetle's own rebuild in place kept the programs of the old sample count, and the picture broke at the game's
+  next display mode change (half of it squeezed, the other half an old frame: the owner's report of 15 November 2026, a check of
+  the machine's columns could not see it). The proof now compares the picture too: R4 at 4x with MSAA changed five times in
+  14,000 frames, and Ape Escape changed twice in 3,300, keep the machine columns and the picture's size equal to the run without
+  MSAA and its content over the whole width (each half's brightness, every 250 and 100 frames).
+- **Geometry precision (PGXP)** (1.7.7, on the owner's question: « Est-ce qu'on peut, nous aussi, utiliser comme Beetle PGXP ? »).
+  Two F3 rows: « Geometry precision (PGXP) » keeps the GTE's results with sub-pixel precision and carries them through memory to
+  the GPU, so 3D models stop wobbling (Beetle's "memory only" mode); « Perspective-correct textures » draws textures with
+  perspective. Both are **On** by default for the player since the owner tried them (« C'est impeccable. Il faut l'activer par
+  défaut »); a choice a player saved is kept, and a player who never touched the rows gets On. Perspective-correct textures need
+  PGXP: with PGXP Off the second row is held off and says so. Both change in play, on the card and on the CPU. **The run a player
+  sees by default is therefore not the checked run.** PGXP changes the emulated run slightly, as a raised resolution does on the
+  CPU: on Ape Escape (3,300 frames) the RAM differs on about 450 frames and the CPU state on about 380, then comes back. The
+  conversion's checks always run with both rows Off, and no fidelity is claimed for the run with them On. It still runs at 0 interpreted instructions (the native steps carry PGXP's own calls). Not
+  offered: Beetle's "memory + CPU" mode (marked « Buggy » upstream), its PGXP primitive culling (known to lock some games) and its
+  vertex cache; the core's game database still turns PGXP off for the games it knows break with it.
+- **F3** also has the internal resolution (1x, 2x, 4x, and 8x on the card only: asked for on the CPU it draws 4x and says so),
+  dithering, aspect ratio and overscan crop. Dithering, aspect ratio and overscan crop change only the picture. On the CPU a
+  raised internal resolution also changes the emulated drawing time, so the game runs slightly differently from the checked 1x
+  (measured on Ape Escape: at 2x, RAM and CPU differ from frame 96 on); on the card it does not (the comparison above). The
+  conversion's checks use the CPU at 1x and the core's own settings. Since 1.7.6 there is no deinterlacing row: the picture is
+  always progressive.
 - **Screen format: 4:3 / 16:9** on the options page (since 1.7.6, kept per game): for a game that has its own widescreen option and
   draws a squeezed picture for a 16:9 television, 16:9 shows that picture 16 wide for 9 high. It changes only the rectangle the
   picture is shown in (the Aspect ratio row of F3 is not read then); a game without such an option is simply stretched. Checked
@@ -227,4 +278,22 @@ GPU programs drawing what a console drew, and shared paths.
 - **Route depth.** Metal Gear Solid's routes go back to its title after the level select; Gran Turismo 2's stay in its credits (its races were
   driven by the owner and on a licence route).
 - No hardware-fidelity claim, no latency measure, no game validated as played through.
+
+## 9. The graphics card (1.7.7): what it rests on
+
+- **The eight discs.** Each panel disc converted from the 1.7.7 tree, then its three routes (24 routes, 204,000 frames) played again
+  with the graphics card (`--gfx renderer=0`): the RAM, the CPU state, the sound and the VRAM equal, on every frame, the CPU
+  renderer's traces the conversion itself recorded (Windows, an NVIDIA GeForce RTX 3090). No run fell back to the CPU.
+- **A real Linux driver.** Ape Escape converted on a Debian 13 PC with an Intel HD Graphics 520 (Mesa's ANV driver): its three
+  routes (25,500 frames) with the card, the same four columns equal to the CPU renderer's, the picture the card's own. Linux tests
+  now run in WSL Debian on the Windows PC, where Vulkan goes through Microsoft's D3D12 layer or Mesa's llvmpipe: that Debian PC
+  stays the evidence for a Linux GPU driver.
+- **No card.** In WSL the only Vulkan device is Mesa's llvmpipe (a device emulated on the CPU): the game refuses it, draws with
+  its own CPU renderer and says so, and its trace equals the CPU renderer's on every column, picture included (Ape Escape, 3,900
+  frames). `RETRORECOMP_TEST_VULKAN=none|device` gives the same fallback on any computer.
+- **Switching in play.** Card to CPU and CPU to card from F3, while the machine waits in the menu, under each of the four filters,
+  in a hidden window of the real Windows video driver (Direct3D 11): the game continues. The first 1.7.7 build closed there under
+  xBR and Scale2x (the session opened again had no picture yet and those filters read it); the session now always gives a picture,
+  the last one until the next frame (the owner's report of 15 November 2026: « dès que je switch de moteur […] le jeu se ferme
+  tout de suite »).
 

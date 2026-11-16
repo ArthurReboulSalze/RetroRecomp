@@ -21,6 +21,7 @@ UPSTREAM_NOTICES = {
     'snesrecomp': ('licenses/snesrecomp.md',),
     'pcenginerecomp': ('licenses/pcenginerecomp.md',),
     'beetle-psx-libretro': ('licenses/beetle-psx.md',),
+    'Vulkan-Headers': ('licenses/beetle-psx.md',),                # the page holds Khronos's MIT terms too
     # Geolith's own BSD terms cover the Neo Geo machine; the CPS family and the X68000 compile only its Musashi copy.
     'geolith-libretro': ('licenses/geolith.md', 'licenses/musashi.md'),
     'lithogen': ('licenses/lithogen.md',),

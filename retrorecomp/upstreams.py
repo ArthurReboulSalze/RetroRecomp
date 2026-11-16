@@ -134,9 +134,16 @@ BEETLE_PSX = Upstream(
     'PlayStation machine (derived from Mednafen): R3000A interpreter, GTE, GPU software renderer, SPU, CD-ROM, MDEC, pads, cards',
     'GPL-2.0-or-later for the files that say so, GPL v2 for the rest: the game executable is GPL-2.0-only as a whole '
     '(licenses/beetle-psx.md); OpenBIOS inside is MIT',
-    'the software-rendered machine (no EBOOT reader, no lightrec, no hardware renderer), fetched at the pin when a conversion '
-    'needs it and compiled into the game (no copy in the repository)',
+    'the machine with its software renderer and, from 1.7.7, its Vulkan renderer (no EBOOT reader, no lightrec, no OpenGL renderer, '
+    'no SPIRV-Cross, no HDR transform), fetched at the pin when a conversion needs it and compiled into the game (no copy in the '
+    'repository)',
     _py('retrorecomp/psx_beetle.py', 'BEETLE_REV'), checkout='beetle-psx')
+VULKAN_HEADERS = Upstream(
+    'Vulkan-Headers', 'KhronosGroup/Vulkan-Headers', 'main', 'the Vulkan C headers the PlayStation\'s Vulkan renderer compiles against',
+    'Apache-2.0 OR MIT (taken under MIT: licenses/beetle-psx.md)',
+    'include/vulkan/vulkan.h, vulkan_core.h, vk_platform.h and include/vk_video (declarations only), fetched at the pin when a '
+    'conversion needs them (no copy in the repository)',
+    _py('retrorecomp/psx_beetle.py', 'VULKAN_HEADERS_REV'), checkout='vulkan-headers')
 GEOLITH = Upstream(
     'geolith-libretro', 'libretro/geolith-libretro', 'master',
     'Neo Geo hardware runtime; its Musashi 68000 is the reference CPU of Neo Geo, CPS-1 and X68000', 'BSD-3-Clause',
@@ -311,7 +318,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     # The Nintendo 64 runs on Mupen64Plus-Next; its native blocks call the core's own instruction functions.
     'n64': (MUPEN64PLUS_NEXT,),
     'scummvm': (SCUMMVM, FREETYPE),
-    'psx': (BEETLE_PSX,),
+    'psx': (BEETLE_PSX, VULKAN_HEADERS),
     # The MSX runs on the banked Z80 chain of the Master System (smsggrecomp's generator on the MSX's own region map) and boots C-BIOS.
     'msx': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
     'msx2': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),

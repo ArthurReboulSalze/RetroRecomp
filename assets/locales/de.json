@@ -1119,6 +1119,16 @@
     "Screen format: %s": "Bildformat: %s",
     "Enter: remap | Del/X: clear | Left/Right: page": "Enter: belegen | Entf/X: löschen | </>: Seite",
     "Enter / A: restore this page": "Enter / A: Seite zurücksetzen",
+    "Renderer": "Renderer",
+    "Graphics card (Vulkan)": "Grafikkarte (Vulkan)",
+    "8x (graphics card)": "8x (Grafikkarte)",
+    "8x needs the graphics card: 4x on the CPU": "8x braucht die Grafikkarte: 4x auf der CPU",
+    "No usable graphics card: the CPU draws the picture": "Keine nutzbare Grafikkarte: die CPU zeichnet das Bild",
+    "Geometry precision (PGXP)": "Geometriegenauigkeit (PGXP)",
+    "Perspective-correct textures": "Perspektivkorrekte Texturen",
+    "Bilinear": "Bilinear",
+    "3-point": "3-Punkt",
+    "Graphics card only: no effect while the CPU draws": "Nur Grafikkarte: keine Wirkung, wenn die CPU zeichnet",
     "Sync to display: %s": "Bildsynchronisation: %s",
     "Auto": "Auto",
     "Auto (locked)": "Auto (gekoppelt)",
@@ -1133,6 +1143,10 @@
     "Free: the screen's refresh is unknown": "Frei: Bildrate unbekannt",
     "Variable refresh: screen follows game": "Variable Bildrate: Bildschirm folgt dem Spiel",
     "Locked: %s Hz, game %s Hz (%s)": "Gekoppelt: %s Hz, Spiel %s Hz (%s)",
-    "Free: its sound cannot follow yet": "Frei: Ton folgt noch nicht"
+    "Free: its sound cannot follow yet": "Frei: Ton folgt noch nicht",
+    "Anti-aliasing (GPU)": "Kantenglättung (GPU)",
+    "Texture filtering (GPU)": "Texturfilterung (GPU)",
+    "Needs geometry precision (PGXP) On": "Erfordert Geometriegenauigkeit (PGXP) an",
+    "Supersampling: nothing larger than 8x to draw": "Supersampling: nichts Größeres als 8x zu zeichnen"
   }
 }
