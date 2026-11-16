@@ -198,6 +198,9 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # Look for a new version of the software and of the base when the window
         # opens (on unless turned off); `last_update_check` spaces the looks.
         self.check_at_startup = tk.BooleanVar(value=preferences.get('startup_update_check', True) is not False)
+        # Start in the front-end, and then in full screen (gui_front_end); the second only counts with the first.
+        self.start_front_end = tk.BooleanVar(value=preferences.get('start_front_end') is True)
+        self.start_front_end_fullscreen = tk.BooleanVar(value=preferences.get('start_front_end_fullscreen') is True)
         saved_check = preferences.get('last_update_check')
         self.last_update_check = (saved_check if isinstance(saved_check, (int, float))
                                   and not isinstance(saved_check, bool) else None)
@@ -509,6 +512,8 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         app.protocol('WM_DELETE_WINDOW', self.close)
         # Games played or converted elsewhere: rows re-read only if changed.
         app.after(1500, self.quiet_refresh_collection)
+        if self.start_front_end.get():
+            app.after(300, lambda: self.enter_front_end(fullscreen=self.start_front_end_fullscreen.get()))
         app.after(2500, self.refresh_player)
         app.after(2000, self.refresh_first_use)
         if self.discoveries_waiting:   # left waiting when the window last closed

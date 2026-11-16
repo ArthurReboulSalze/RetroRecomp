@@ -360,6 +360,12 @@ class FrontEndView(tk.Frame):
         if not self.shelves:
             return
         glyph = self.px(30)
+        # Full screen hides the window's toolbar: a button at the right end brings the window back (mouse).
+        restore = self.px(34) if getattr(self.owner, 'front_end_fullscreen', False) else 0
+        width -= restore
+        self.restore_box = None
+        if restore:
+            self.draw_restore(width + self.px(6), height // 2 - self.px(2))
         spacing = self.px(26)
         items = []
         for index, (profile, games) in enumerate(self.shelves):
@@ -394,7 +400,20 @@ class FrontEndView(tk.Frame):
             x += size + spacing
         self.pill(canvas, 0, middle, 'LB')
         self.pill(canvas, width - glyph, middle, 'RB')
-        canvas.create_line(0, height - 1, width, height - 1, fill=COLORS['subtle_border'])
+        canvas.create_line(0, height - 1, width + restore, height - 1, fill=COLORS['subtle_border'])
+
+    def draw_restore(self, left, middle):
+        """The « back to the window » button: two overlapping frames, as the title bars show it."""
+        canvas, size = self.tabs, self.px(26)
+        self.restore_box = (left, left + size)
+        canvas.create_rectangle(left, middle - size // 2, left + size, middle + size // 2, fill=COLORS['button'],
+                                outline=COLORS['subtle_border'])
+        unit = self.px(4)
+        x, y = left + size // 2, middle
+        canvas.create_rectangle(x - unit - 1, y - unit + 2, x + unit - 1, y + unit + 2, outline=COLORS['text'],
+                                width=max(1, self.px(1.2)))
+        canvas.create_line(x - unit + 2, y - unit - 1, x + unit + 2, y - unit - 1, x + unit + 2, y + unit - 1,
+                           fill=COLORS['text'], width=max(1, self.px(1.2)))
 
     def draw_density(self, right, middle):
         """Right of the consoles: the covers per row of this console between a minus and a plus button; returns
@@ -447,10 +466,12 @@ class FrontEndView(tk.Frame):
         game = self.focused()
         pads = self.controller is not None or self.force_pad_hints
         if pads:
-            hints = [(('A',), 'play'), (('B',), 'front_end_back'), (('X', 'Y'), 'front_end_density'),
+            back = 'front_end_windowed' if getattr(self.owner, 'front_end_fullscreen', False) else 'front_end_back'
+            hints = [(('A',), 'play'), (('B',), back), (('X', 'Y'), 'front_end_density'),
                      (('MENU',), 'front_end_actions')]
         else:
-            hints = [((self.tr('front_end_key_enter'),), 'play'), ((self.tr('front_end_key_escape'),), 'front_end_back'),
+            back = 'front_end_windowed' if getattr(self.owner, 'front_end_fullscreen', False) else 'front_end_back'
+            hints = [((self.tr('front_end_key_enter'),), 'play'), ((self.tr('front_end_key_escape'),), back),
                      (('\u2212', '+'), 'front_end_density'), ((self.tr('front_end_key_space'),), 'front_end_actions'),
                      (('Tab',), 'front_end_console')]
         colors = {'A': '#3c7d4a', 'B': '#8a3b3b', 'X': '#365f8f', 'Y': '#8a7a2e'}
@@ -606,6 +627,10 @@ class FrontEndView(tk.Frame):
             self.go(index)
 
     def tab_clicked(self, event):
+        box = getattr(self, 'restore_box', None)
+        if box and box[0] <= event.x <= box[1]:
+            self.toggle_tv()
+            return
         for left, right, change in getattr(self, 'density_boxes', []):
             if left <= event.x <= right:
                 self.change_columns(change)
@@ -639,6 +664,8 @@ class FrontEndView(tk.Frame):
     def back(self):
         if self.menu_items is not None:
             self.close_menu()
+        elif getattr(self.owner, 'front_end_fullscreen', False):
+            self.owner.set_front_end_fullscreen(False)
         else:
             self.owner.toggle_front_end()
 

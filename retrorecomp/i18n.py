@@ -915,9 +915,14 @@ STRINGS = {
     'front_end_fallback': ('Uses the interpreter fallback', 'Utilise l’interpréteur de secours'),
     'front_end_find_cover': ('Search the box art online', 'Chercher la jaquette en ligne'),
     'front_end_network_later': ('Network play (coming later)', 'Jouer en réseau (bientôt)'),
-    'front_end_tv': ('TV mode (full screen)', 'Mode TV (plein écran)'),
-    'front_end_tv_leave': ('Leave TV mode', 'Quitter le mode TV'),
+    'front_end_tv': ('Full screen (F11)', 'Plein écran (F11)'),
+    'front_end_tv_leave': ('Back to the window (F11)', 'Revenir en fenêtre (F11)'),
+    'front_end_windowed': ('Window', 'Fenêtre'),
     'front_end_leave': ('Leave the front-end', 'Quitter le front-end'),
+    'start_front_end': ('Start Retro-Recomp in Front-end mode', 'Démarrer Retro-Recomp en mode Front-end'),
+    'start_front_end_fullscreen': ('…in full screen', '…en plein écran'),
+    'tip_start_front_end': ('At start, show your compiled games as a wall of box art instead of the conversion queue.', 'Au démarrage, affiche tes jeux compilés en mur de jaquettes au lieu de la file de conversion.'),
+    'tip_start_front_end_fullscreen': ('The front-end opened at start fills the screen. Esc, B or F11 bring the window back.', 'Le front-end ouvert au démarrage occupe tout l’écran. Échap, B ou F11 ramènent la fenêtre.'),
 }
 
 

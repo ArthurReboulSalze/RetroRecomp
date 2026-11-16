@@ -17,6 +17,22 @@ class FrontEndMixin:
         self.front_end_button = button
         return button
 
+    def front_end_start_options(self, parent, checkbox):
+        """Options › Common: « Start in Front-end mode », then « …in full screen » below it, greyed while the first
+        is off (it only counts with the first)."""
+        first = checkbox(parent, 'start_front_end', self.start_front_end, 'tip_start_front_end')
+        second = ttk.Checkbutton(parent, text=self.tr('start_front_end_fullscreen'),
+                                 variable=self.start_front_end_fullscreen)
+        second.pack(anchor='w', padx=(24, 0), pady=(0, 8))
+        self.hint(second, 'tip_start_front_end_fullscreen')
+        def follow(*unused):
+            if second.winfo_exists():
+                second.state(['!disabled'] if self.start_front_end.get() else ['disabled'])
+        first.configure(command=follow)
+        follow()
+        self.start_front_end_controls = (first, second)
+        return first, second
+
     def played_memory(self):
         if getattr(self, 'front_end_memory', None) is None:
             from .front_end import Memory
@@ -42,7 +58,7 @@ class FrontEndMixin:
         else:
             self.enter_front_end()
 
-    def enter_front_end(self):
+    def enter_front_end(self, fullscreen=True):
         if self.options_panel is not None and self.options_panel.winfo_exists():
             self.close_options()
             if self.options_panel is not None:
@@ -64,6 +80,9 @@ class FrontEndMixin:
         self.front_end_visible = True
         self.front_end_button.state(['pressed'])
         self.front_end_view.show()
+        # The front-end opens in full screen (Arthur, 16 Nov 2026); Esc / B / F11 bring the window back.
+        if fullscreen:
+            self.set_front_end_fullscreen(True)
         self.queue_background(self.body)
 
     def leave_front_end(self, then=None):
