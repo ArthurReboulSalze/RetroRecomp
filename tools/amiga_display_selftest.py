@@ -61,6 +61,9 @@ DSKBYTR, DSKLEN, DSKSYNC = 0x01A, 0x024, 0x07E
 VPOSW, BEAMCON0 = 0x02A, 0x1DC
 CIAB_PRB = 0xBFD100
 BPLCON0, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, BPL1DAT, COLOR = 0x100, 0x102, 0x104, 0x108, 0x10A, 0x110, 0x180
+BPLCON3, BPLCON4, FMODE = 0x106, 0x10C, 0x1FC        # AGA (Lisa and Alice)
+AGA_CHIP_KB = 2048        # the Amiga 1200's chip RAM
+AGA_PLANES = 0x80000      # planes 7 and 8 of an AGA scenario, 0x8000 bytes each
 
 
 class Assembler:
@@ -175,11 +178,13 @@ class Scenario:
     regions: list = field(default_factory=list)     # (address, bytes)
     fault_address: int = 0
     summary: dict = field(default_factory=dict)
+    aga: bool = False                               # the Amiga 1200's machine (flags bit 1): AGA, 68EC020, 2 MiB of chip RAM
 
     def write(self, path: Path) -> None:
         rom = boot_rom()
         out = bytearray(b'RRDS')
-        out += struct.pack('<6I', 1, 1 if self.ntsc else 0, CHIP_KB, self.frames, self.fault_address, len(rom))
+        out += struct.pack('<6I', 1, (1 if self.ntsc else 0) | (2 if self.aga else 0), AGA_CHIP_KB if self.aga else CHIP_KB, self.frames,
+                           self.fault_address, len(rom))
         out += rom
         out += struct.pack('<I', len(self.regions))
         for address, data in self.regions:
@@ -188,15 +193,21 @@ class Scenario:
         path.write_bytes(bytes(out))
 
 
-def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = False) -> Scenario:
-    """A random but plausible display and a random program that works on it. Everything stays inside the scenario's own memory."""
+def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = False, aga: bool = False) -> Scenario:
+    """A random but plausible display and a random program that works on it. Everything stays inside the scenario's own memory.
+    With `aga`, on the Amiga 1200's machine: up to eight planes (HAM8 among them), FMODE's wide fetches and sprites, BPLCON3's colour
+    banks and playfield 2 offset, BPLCON4's colour XOR, each also written within the frame by the Copper and the program."""
     r = random.Random(seed)
     ntsc = r.random() < 0.25
     hires = r.random() < 0.3
-    planes = r.randint(1, 4 if hires else 6)
+    planes = r.randint(1, 8) if aga else r.randint(1, 4 if hires else 6)
     dual = planes >= 2 and r.random() < 0.25
-    ham = not hires and planes == 6 and not dual and r.random() < 0.4
-    bplcon0 = planes << 12 | (0x8000 if hires else 0) | (0x0400 if dual else 0) | (0x0800 if ham else 0) | 0x0200 | (0x0040 if shres else 0)
+    ham = not hires and planes in ((6, 8) if aga else (6,)) and not dual and r.random() < 0.4
+    bplcon0 = ((planes & 7) << 12 | (0x0010 if planes == 8 else 0) | (0x8000 if hires else 0) | (0x0400 if dual else 0) | (0x0800 if ham else 0)
+               | 0x0200 | (0x0040 if shres else 0))
+    fmode = (r.randrange(4) | r.randrange(4) << 2) if aga else 0
+    bplcon3 = (r.randrange(8) << 13 | r.randrange(8) << 10 | (0x0020 if r.random() < 0.2 else 0)) if aga else 0
+    bplcon4 = r.randrange(0x10000) if aga else 0
     width = 80 if hires else 40
     stop_line = 0x2C if not ntsc else 0xF4          # PAL stops at line 300 ($12C), NTSC at 244
     diwstrt = (0x2C + r.choice((0, 0, 0, 4, -6))) << 8 | (0x81 + r.choice((0, 0, 8, -8, 16)))
@@ -204,11 +215,11 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = 
     ddf = r.choice(((0x3C, 0xD4), (0x38, 0xD0), (0x30, 0xD0), (0x38, 0xC8))) if hires else r.choice(((0x38, 0xD0), (0x38, 0xD0), (0x30, 0xD0), (0x28, 0xD8), (0x40, 0xC8)))
     modulo = lambda: r.choice((0, 0, 0, 2, -2, -width, 8, 40))
     colours = [r.randrange(0x1000) for _ in range(32)]
-    plane = lambda n: BITMAP + n * 0x8000
+    plane = lambda n: BITMAP + n * 0x8000 if n < 6 else AGA_PLANES + (n - 6) * 0x8000
 
     # Chip RAM: bitmaps of noise with runs of zero (so some lines are plain), random scratch, sprites, the Copper list.
     regions = []
-    for n in range(6):
+    for n in range(8 if aga else 6):
         bitmap = bytearray(r.randbytes(0x8000))
         for _ in range(12):
             start = r.randrange(0x8000)
@@ -233,6 +244,8 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = 
     colour_words = []                               # chip addresses of the Copper's colour values, rewritten while it runs
     line = 0x20
     safe = [COLOR + 2 * n for n in range(32)] + [BPLCON1] * 6 + [BPLCON2, BPL1MOD, BPL2MOD] + [BPLPT + 2 + 4 * n for n in range(planes)]
+    if aga:
+        safe += [BPLCON3, BPLCON3, BPLCON4, FMODE]
     while line < 0xF0:
         line += r.randrange(1, 24)
         if line >= 0xF0:
@@ -248,6 +261,12 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = 
                 value = r.randrange(0x80)
             elif register in (BPL1MOD, BPL2MOD):
                 value = modulo() & 0xFFFF
+            elif register == BPLCON3:
+                value = bplcon3 ^ r.choice((0x2000, 0x4000, 0x0400, 0x0200, 0x0200, 0x0020))
+            elif register == BPLCON4:
+                value = r.randrange(0x10000)
+            elif register == FMODE:
+                value = fmode ^ r.choice((1, 2, 3, 4, 8))
             else:
                 value = r.randrange(0x1000)
                 colour_words.append(COPPER + 2 * (len(copper) + 1))
@@ -261,10 +280,19 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = 
     for register, value in ((BPLCON0, bplcon0), (BPLCON1, r.randrange(0x100)), (BPLCON2, r.randrange(0x80)), (BPL1MOD, modulo()), (BPL2MOD, modulo()),
                             (DIWSTRT, diwstrt), (DIWSTOP, diwstop), (DDFSTRT, ddf[0]), (DDFSTOP, ddf[1]), (CLXCON, r.randrange(0x10000))):
         a.move_w_imm_abs(value, custom(register))
-    for n in range(6):
+    for n in range(8 if aga else 6):
         a.move_l_imm_abs(plane(n), custom(BPLPT + 4 * n))
     for n in range(8):
         a.move_l_imm_abs(SPRITES + n * 0x200 if n in live else NULL_SPRITE, custom(SPRPT + 4 * n))
+    if aga:
+        # The 256 colours: each of the eight banks, the high nibbles then (LOCT) the low ones, with random values.
+        for bank in range(8):
+            for loct in (0, 0x0200):
+                a.move_w_imm_abs(bank << 13 | loct, custom(BPLCON3))
+                for n in range(32):
+                    a.move_w_imm_abs(r.randrange(0x1000), custom(COLOR + 2 * n))
+        for register, value in ((BPLCON3, bplcon3), (BPLCON4, bplcon4), (FMODE, fmode)):
+            a.move_w_imm_abs(value, custom(register))
     for n, colour in enumerate(colours):
         a.move_w_imm_abs(colour, custom(COLOR + 2 * n))
     a.move_l_imm_abs(COPPER, custom(COP1LC))
@@ -298,10 +326,17 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = 
         kind = r.random()
         d = reads % 6
         if kind < 0.28:
-            register = r.choice([BPLCON1, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, COLOR + 2 * r.randrange(32), DDFSTRT, DDFSTOP, DIWSTRT, DIWSTOP, BPLCON0, CLXCON, DMACON])
+            register = r.choice([BPLCON1, BPLCON1, BPLCON2, BPL1MOD, BPL2MOD, COLOR + 2 * r.randrange(32), DDFSTRT, DDFSTOP, DIWSTRT, DIWSTOP, BPLCON0, CLXCON, DMACON,
+                                 *((BPLCON3, BPLCON3, BPLCON4, FMODE) if aga else ())])
             if register == BPLCON0:
-                value = bplcon0 ^ r.choice((0x0400 if planes >= 2 else 0, 0x8000 if planes <= 4 else 0, 0x1000 if planes in (2, 4) else 0, 0,
-                                            *((0x0040, 0x0040) if shres else ())))
+                value = bplcon0 ^ r.choice((0x0400 if planes >= 2 else 0, 0x8000 if planes <= 4 or aga else 0, 0x1000 if planes in (2, 4) else 0, 0,
+                                            *((0x0040, 0x0040) if shres else ()), *((0x0010, 0x0800) if aga else ())))
+            elif register == BPLCON3:
+                value = bplcon3 ^ r.choice((0x2000, 0x4000, 0x0400, 0x0200, 0x0020))
+            elif register == BPLCON4:
+                value = r.randrange(0x10000)
+            elif register == FMODE:
+                value = fmode ^ r.choice((1, 2, 3, 4, 8))
             elif register == DMACON:
                 bit = r.choice((0x0100, 0x0020, 0x0080))
                 a.move_w_imm_abs(bit, custom(DMACON))            # off for a moment, then on again
@@ -336,7 +371,7 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = 
             a.move_w_abs_d(custom(r.choice((VHPOSR, VHPOSR, VPOSR, CLXDAT, DMACONR, JOY0DAT))), d)
             reads += 1
         elif kind < 0.71:
-            a.move_w_abs_d(r.choice((plane(r.randrange(6)), SCRATCH)) + (r.randrange(0, 0x7F00) & ~1), d)
+            a.move_w_abs_d(r.choice((plane(r.randrange(8 if aga else 6)), SCRATCH)) + (r.randrange(0, 0x7F00) & ~1), d)
             reads += 1
         elif kind < 0.74:
             a.move_w_abs_d(UNMAPPED + (r.randrange(0, 0x1000) & ~1), d)
@@ -407,9 +442,10 @@ def generate(seed: int, frames: int = FRAMES, actions: int = 900, shres: bool = 
     if PROGRAM + len(program) > COPPER:
         raise ValueError('The scenario program is too long.')
     regions.insert(0, (PROGRAM, program))
-    summary = {'seed': seed, 'ntsc': ntsc, 'hires': hires, **({'shres': True} if shres else {}), 'planes': planes, 'dual': dual, 'ham': ham, 'sprites': len(live), 'blitter': blitter_on, 'interrupts': interrupts,
+    summary = {'seed': seed, 'ntsc': ntsc, 'hires': hires, **({'shres': True} if shres else {}), **({'aga': True, 'fmode': fmode} if aga else {}),
+               'planes': planes, 'dual': dual, 'ham': ham, 'sprites': len(live), 'blitter': blitter_on, 'interrupts': interrupts,
                'ddf': [hex(ddf[0]), hex(ddf[1])], 'program_bytes': len(program), 'copper_words': len(copper)}
-    return Scenario(seed, ntsc, frames, regions, fault_address, summary)
+    return Scenario(seed, ntsc, frames, regions, fault_address, summary, aga)
 
 
 # Frames cut short at their end, where the session takes quick states (stage 7, checkpoint 3): the idle disk controller holds its
@@ -534,6 +570,7 @@ def play(program: Path, scenario: Path, record: Path, *extra: str) -> dict:
 COLOUR_FAULTS = {1: 'a border chunk of one colour written one bit off', 2: "a hires cell's second entry written one bit off",
                  3: 'hires cells taken without the pair check (must be seen on the super-hires scenarios)'}
 SHRES_SCENARIOS = 8   # extra scenarios with BPLCON0's SHRES bit, seeds 9000 + n (ECS Agnus, OCS Denise: super-hires draws on quiet lines)
+AGA_SCENARIOS = 12    # extra scenarios on the Amiga 1200's AGA machine, seeds 8000 + n (1.7.7: the four shortcuts open to AGA)
 
 
 # Faults planted in stage 7's bus model (amiga_bus.cpp, `--shadow-fault N`): each must make the model disagree with vAmiga somewhere.
@@ -562,6 +599,7 @@ def main() -> int:
     parser.add_argument('--frames', type=int, default=FRAMES)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--shres', type=int, default=SHRES_SCENARIOS, help='extra super-hires scenarios')
+    parser.add_argument('--aga', type=int, default=AGA_SCENARIOS, help="extra scenarios on the Amiga 1200's AGA machine")
     parser.add_argument('--workspace', type=Path, default=ROOT, help='where .deps and .build live')
     parser.add_argument('--against', type=Path, help="a checks program built before a change (side A): each scenario's record from it must equal this build's")
     arguments = parser.parse_args()
@@ -580,20 +618,29 @@ def main() -> int:
     disk, disk_controls, disk_seen = [0, 0, 0, 0], 0, 0
     sprite_left_out, sprite_controls, sprite_seen = 0, 0, 0
     cells_refused, cells_broken = 0, 0
-    for n in range(arguments.scenarios + arguments.shres):
-        seed = arguments.seed * 1000 + n if n < arguments.scenarios else 9000 + n - arguments.scenarios
-        scenario = generate(seed, arguments.frames, shres=n >= arguments.scenarios)
+    aga_shadow_skipped, aga_files = 0, set()
+    for n in range(arguments.scenarios + arguments.shres + arguments.aga):
+        extra = n - arguments.scenarios
+        aga = extra >= arguments.shres
+        seed = arguments.seed * 1000 + n if extra < 0 else 8000 + extra - arguments.shres if aga else 9000 + extra
+        scenario = generate(seed, arguments.frames, shres=0 <= extra < arguments.shres, aga=aga)
         path = runs / f'scenario-{seed}.bin'
         scenario.write(path)
         first = play(program, path, runs / f'{seed}-a.rec')
         second = play(arguments.against or program, path, runs / f'{seed}-b.rec', *(() if arguments.against else ('--per-slot',)))
         scenario_files.append(path)
-        # Stage 7's model in shadow: its table and its predicted waits equal vAmiga's on both runs.
-        for run_name, result in (('batched', first), ('per_slot', second)):
-            if 'bus_mismatches' in result and result['bus_mismatches']:
-                failures.append({'seed': seed, 'bus': run_name, 'mismatches': result['bus_mismatches'], 'first': result['bus'].get('first', [])[:6]})
-        if 'bus' in first:
-            add_bus(bus_total, first['bus'])
+        # Stage 7's model in shadow: its table and its predicted waits equal vAmiga's on both runs. Not on AGA scenarios: the model holds
+        # the OCS/ECS slot table only (FMODE's wide fetches and AGA's bitplane slot layout are not in it), so it disagrees with Alice by
+        # construction; there the batched run against vAmiga's per-slot run (the record comparison below) is what checks the shortcuts.
+        if aga:
+            aga_shadow_skipped += 1
+            aga_files.add(path)
+        else:
+            for run_name, result in (('batched', first), ('per_slot', second)):
+                if 'bus_mismatches' in result and result['bus_mismatches']:
+                    failures.append({'seed': seed, 'bus': run_name, 'mismatches': result['bus_mismatches'], 'first': result['bus'].get('first', [])[:6]})
+            if 'bus' in first:
+                add_bus(bus_total, first['bus'])
         cells_refused += first.get('cells_refused', 0)
         cells_broken += first.get('cells_broken', 0)
         if first.get('cells_broken'):
@@ -614,8 +661,11 @@ def main() -> int:
             placed += found is not None and (found['at'] == 'frame' or found['index'] >= middle)
             if found is None:
                 failures.append({'seed': seed, 'fault': kind, 'missed': True})
-        # Stage 7's idle-disk catch-up: one held-back event lost must change the records (where events were held back at all).
-        if first.get('disk', [0])[0]:
+        # Stage 7's idle-disk catch-up: one held-back event lost must change the records (where events were held back at all). Not on
+        # AGA scenarios: Paula's disk controller is the same on the Amiga 1200, the OCS/ECS scenarios check that shortcut, and a lost
+        # event of an idle drive can show nowhere in a program that reads none of what it moves (AGA scenario 8004, the same with every
+        # display shortcut off).
+        if first.get('disk', [0])[0] and not aga:
             disk_controls += 1
             play(program, path, runs / f'{seed}-disk.rec', '--disk-fault', '1')
             if compare(a, read_record(runs / f'{seed}-disk.rec')) is None:
@@ -679,13 +729,15 @@ def main() -> int:
                 failures.append({'mid_line_state': seed, 'step': step, 'equal': equal, 'fault_seen': seen_fault, 'lazy_saved': first.get('lazy_saved')})
         if not mid_line['scenarios']:
             failures.append({'mid_line_state': 'no scenario has a batched line in frame 1'})
-    controls = 2 * (arguments.scenarios + arguments.shres - sum(1 for f in failures if 'replay' in f))
+    controls = 2 * (arguments.scenarios + arguments.shres + arguments.aga - sum(1 for f in failures if 'replay' in f))   # two per scenario, AGA ones too
     # Planted faults of the model: each must be seen on at least one scenario.
     model_faults = {}
     if bus_total:
         for kind, what in SHADOW_FAULTS.items():
             model_faults[kind] = 0
             for path in scenario_files:
+                if path in aga_files:          # the model is not compared there (above)
+                    continue
                 found = play(program, path, runs / f'model-fault-{kind}.rec', '--shadow-fault', str(kind))
                 if found.get('bus_mismatches'):
                     model_faults[kind] += 1
@@ -713,7 +765,7 @@ def main() -> int:
         return 1
     other = (f'every record equal to the one of {arguments.against.name} (built before the change)' if arguments.against else
              "every record equal to the one of the same build with every line on vAmiga's events and line pass")
-    print(f'Display self-test passed: {arguments.scenarios} scenarios and {arguments.shres} super-hires ones of {arguments.frames} frames, {instructions} instructions recorded, '
+    print(f'Display self-test passed: {arguments.scenarios} scenarios, {arguments.shres} super-hires ones and {arguments.aga} AGA ones of {arguments.frames} frames, {instructions} instructions recorded, '
           f'{lines[0]} lines batched ({lines[2]} of them given back midway) and {lines[1]} on events, {quiet[0]} visible lines passed in one loop and {quiet[1]} on vAmiga\'s pass, {other}, '
           f'{seen} of {controls} injected faults seen at or after their instruction. This shows that two runs agree, not that anything matches the hardware.')
     print(f"Stage 7's idle sprites: {sprite_left_out} sprite slot events left out of their lines, every record equal to the run with all of them; an armed sprite taken for idle seen in {sprite_seen} of {sprite_controls} scenarios.")
@@ -736,6 +788,9 @@ def main() -> int:
               f"0 differences in the table and in {sum(v[0] for k, v in bus_total.get('waits', {}).items() if k in ('fast', 'static'))} predicted CPU waits; "
               f"{len(model_faults)} planted faults of the model each seen (in {min(model_faults.values()) if model_faults else 0} to "
               f"{max(model_faults.values()) if model_faults else 0} of {arguments.scenarios + arguments.shres} scenarios). Equal to vAmiga, not to the hardware.")
+    if aga_shadow_skipped:
+        print(f"The bus model is not compared on the {aga_shadow_skipped} AGA scenarios: it holds the OCS/ECS slot table only (FMODE and AGA's "
+              f"bitplane slots are not in it); there the batched run against vAmiga's per-slot run checks the shortcuts.")
     return 0
 
 

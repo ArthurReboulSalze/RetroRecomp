@@ -252,8 +252,12 @@ not changed by it.
   2026, [the evidence](QUALIFICATION.md#commodore-amiga-1200-evidence-behind-its-column-15-november-2026)): 0 or 1 interpreted instruction a
   route, the 1 a Kickstart instruction. Hardware fidelity is not claimed (vAmiga marks its AGA Denise as partly done; pictures are compared
   with another emulator only); gameplay rests on Arthur's play test, still to come; latency is not measured.
-- **One known failure:** Alien Breed 3D stays black (its slave's patched game reaches an exec call its own ExecBase leaves ILLEGAL; why the
-  real WHDLoad does not reach it is not found).
+- **Alien Breed 3D starts (1.7.7).** In 1.7.6 it stayed black. `resload_Relocate` building a LoadSeg list wrote each segment's size
+  padded to the alignment, where AmigaDOS stores the hunk's size plus 8; `resload_PatchSeg` counts its offsets with those sizes, so
+  every padded segment moved the patches after it by 4 bytes. The slave's skip over the game's `ciaa.resource` probe landed 8 bytes
+  early, inside the code it skips, and the game called `OpenResource` through the slave's ExecBase, where it is ILLEGAL. The size is
+  now the exact one; its title and its music come (2,969 pictures of 3,000 not black, on the interpreted machine). Thirteen other
+  installs, five of them using Relocate or PatchSeg, give the same traces as before.
 - **Pinball Illusions' black title, fixed in 1.7.7.** In 1.7.6 its screen stayed black with the music playing after the intro; that
   screen is the table selection, and F1 to F4 still choose a table there (Arthur, 15 November 2026). The game was running: its title is an eight-plane dual playfield whose two priorities in `BPLCON2` are 7 (`$003F`). OCS and ECS Denise draw
   such a playfield transparent; AGA's Lisa draws it, and vAmiga applied the OCS rule on every chipset, so each pixel became colour 0.
@@ -264,6 +268,20 @@ not changed by it.
 - **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
   Gloom and Super Stardust convert with it on the Amiga 1200, and Five A Side Soccer on the Amiga 500 (46 files unpacked on its main
   route, every check passed).
+- **No battery clock (1.7.7, both Amigas).** A stock Amiga 500 or Amiga 1200 has no clock; vAmiga gave both an OKI clock reading the
+  host's time, so a game or a Kickstart that read it would have seen another date in the reference run and in the native one. The
+  clock is off; Pinball Illusions, Slam Tilt, Banshee, Fears, Gloom and Civilization give the same traces as before (none reads it).
+- **The Amiga 1200's memory keeps the slow RAM at `$C00000` (decided 16 November 2026).** A stock A1200 has 2 MiB of chip RAM and
+  nothing else, and the real WHDLoad puts ExpMem in fast RAM when a card gives some, in chip RAM otherwise. Our 1.5 MiB at `$C00000`
+  sits on the chip bus, as chip RAM does, so code there runs at a stock A1200's speed; a WHDLoad game takes ExpMem where the slave is
+  told it is. Moving it would move every address a player's record keeps, for no gain a game shows. An install whose ExpMem does
+  not fit still gets fast RAM at `$200000`, as with a card (faster: Fears, Pinball Illusions).
+- **The display's speed shortcuts on the Amiga 1200 (1.7.7).** The four shortcuts of the Amiga 500's display (one pass for both
+  parities of a line, a line's bitplane slots in a batch, the quiet line, the idle sprites) were switched off under AGA until they were
+  checked there; an AGA game paid vAmiga's slower path for every line. They are open to AGA, each replayed against vAmiga's own path
+  by `tools/amiga_display_selftest.py` on AGA scenarios (eight planes, FMODE's wide fetches, colour banks, BPLCON4's XOR), and real
+  A1200 games give the same traces with and without them (Pinball Illusions (6,400 frames, its F10 interlaced table), Slam Tilt, Banshee, Fears, Gloom, Zool 2, Roadkill, Super Stardust and Alien Breed 3D (3,000 frames each), Civilization and an Amiga 500 game (2,500): identical traces, pictures included; on Fears 936,000 of 939,000 lines are batched and 858,003 visible lines take the one-pass loop, against none before). The gain per frame is not measured yet (a timing pass on a
+  quiet PC). The shortcuts live in `retrorecomp/amiga_vamiga_display.py`, outside the generator pins.
 - **Interlaced screens** (on both Amigas, for any game that sets LACE): the machine draws a long and a short field in turn; the picture
   weaves them into one of twice the lines, so it no longer moves a line every frame (Arthur's play test of 15 November 2026 found it on
   Banshee's title). A display change only: the machine, the CPU and the checks are as before; a screen without LACE is shown as it was,
