@@ -525,8 +525,7 @@ def walk_record(windows: list, observed, system: str) -> tuple[list, list]:
     lengths by opcode. The 68EC020 of the Amiga 1200 also reads its extension words for a length (a full extension word makes an instruction longer
     than its first word says), so its walk takes `m68020_lengths.length`, the lengths its sweep and its translator use (1.7.7; before, an A1200
     record was walked with its opcodes' brief lengths and lost its alignment after such an instruction: guarded code that never ran, not wrong
-    code). Kept here and not in `amiga_codegen`, a generator source pinned for the qualified paths of the Amiga 500, whose walk does not change
-    (the Amiga 1200 shares no path). The stops are `amiga_codegen.walk_records`' own: Moira's illegal, line A and line F handlers."""
+    code). Kept here and not in `amiga_codegen`, a generator source pinned for the qualified paths, whose walk of the Amiga 500 does not change. The stops are `amiga_codegen.walk_records`' own: Moira's illegal, line A and line F handlers."""
     from . import amiga_codegen
     from .amiga_knowledge import SYSTEM_A1200
     if system != SYSTEM_A1200:
@@ -574,7 +573,7 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, install: Pa
     with (folder / 'stdout.log').open('wb') as out, (folder / 'stderr.log').open('wb') as err:
         result = spawn(args, cwd=folder, timeout=max(600, frames // 4), stdout=out, stderr=err)
     if result.returncode not in (0, 2):
-        raise ConversionError(f'Amiga replay failed (exit code {result.returncode}): ' + (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace')[-2000:])
+        raise ConversionError(replay_failure(folder, result.returncode, frames))
     report = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
     if report.get('stopped') and game_may_quit and report.get('quit') and report.get('frames', 0) >= MIN_ENDED_ROUTE_FRAMES:
         report['ended_by_game'] = True
@@ -584,6 +583,24 @@ def replay(binary: Path, folder: Path, frames: int, events: Path, *, install: Pa
     if report.get('frames') != frames:
         raise ConversionError('Amiga validation returned an incomplete run.')
     return report
+
+
+def replay_failure(folder: Path, code: int, frames: int) -> str:
+    """The message of a replay that ended with an error. The player writes a line on its error output before each of its own failures
+    (`fail` in amiga_player.c), so an exit with nothing written there was not the player's: on Windows, code 1 with no message is what
+    ending a process from outside gives (the Task Manager, a closed parent). Said as such, with the last frame its trace reached
+    (1869, 16 November 2026: a reference run ended at frame 1145 that, run again, reached its 3,600 frames)."""
+    message = (folder / 'stderr.log').read_text(encoding='utf-8', errors='replace').strip()[-2000:]
+    if message:
+        return f'Amiga replay failed (exit code {code}): {message}'
+    reached = 0
+    try:
+        with (folder / 'trace.tsv').open('rb') as trace:
+            reached = max(0, sum(1 for _ in trace) - 1)
+    except OSError:
+        pass
+    return (f'Amiga replay ended with exit code {code} at frame {reached} of {frames}, with no message from the player: it was stopped from '
+            'outside (a process ended from the Task Manager, or the converter closed), not by the game. Converting again normally passes.')
 
 
 def trace_rows(path: Path):
@@ -678,8 +695,9 @@ def shared_hints(source, media, kick_image, *, use_library=True, model: Model = 
                                              library=amiga_knowledge.library_record(source.game_key, model.system) if use_library else None)
     observed = get_profile(model.system).observed_code
     ram, kick = set(), set()
+    low, end = model.knowledge.firmware_window       # the Kickstart's window of this model: $FC0000 (A500), $F80000 (A1200)
     for pc, words in rows:
-        if KICK_WINDOW[0] <= pc < KICK_WINDOW[1]:
+        if low <= pc < end:
             kick.add(pc)
         else:
             observed.check_sample(pc, words)
@@ -687,17 +705,38 @@ def shared_hints(source, media, kick_image, *, use_library=True, model: Model = 
     return ram, kick, info
 
 
-def promoted_record(source, media, kick_image, fresh_observed, fresh_kick, model: Model = A500) -> tuple[dict | None, dict | None]:
-    """(record, counts) of this conversion's fresh reference runs (`amiga_knowledge.promote`), merged with the player's own record of the
-    install; (None, None) when the media cannot be read or the record cannot be made (the conversion is not failed for it)."""
+def played_pairs(windows) -> list[tuple[int, str]]:
+    """The (pc, words) of the player's own record (F12, kind 22: 16-byte windows at an interpreted RAM instruction of a real session) in the
+    form of an observation: the window as words, which `exact_pairs` cuts to the instruction that ran. The instructions a walk finds after it
+    are not among them (nothing says they ran)."""
+    return [(address, bytes(data[:len(data) // 2 * 2]).hex()) for address, data in windows or () if len(data) >= 2]
+
+
+def promoted_record(source, media, kick_image, fresh_observed, fresh_kick, model: Model = A500, played=()) -> tuple[dict | None, dict | None]:
+    """(record, counts) of this conversion's fresh reference runs and of the instructions the player's game ran during play that this
+    conversion made native (`played`, from `played_pairs`; 1.7.9, the owner's decision of 16 November 2026: play reaches code the routes do
+    not, and other players gain it), merged with the player's own record of the install (`amiga_knowledge.promote`). `counts['play']` says
+    what play added: the instructions it named that the fresh runs did not see (`new`) and how many of those sit in the install (`tied`,
+    `anchored`) or stay private (code a game unpacks or builds). (None, None) when the media cannot be read or the record cannot be made (the
+    conversion is not failed for it)."""
     from . import amiga_knowledge
     if media is None:
         return None, None
+    fresh = exact_pairs(fresh_observed, model.isa)
+    play = exact_pairs(played, model.isa)
+    new = sorted(play - fresh)
     try:
-        return model.knowledge.promote(source.game_key, media, kick_image, [{'pc': pc, 'words': words} for pc, words in sorted(exact_pairs(fresh_observed, model.isa))],
-                                       sorted(fresh_kick), previous=amiga_knowledge.library_record(source.game_key, model.system))
+        record, counts = model.knowledge.promote(source.game_key, media, kick_image, [{'pc': pc, 'words': words} for pc, words in sorted(fresh | play)],
+                                                 sorted(fresh_kick), previous=amiga_knowledge.library_record(source.game_key, model.system))
+        ram = model.knowledge.translate(media, None, [{'pc': pc, 'words': words} for pc, words in new], ())[2]['ram']
     except ValueError:
         return None, None
+    counts['play'] = {'offered': len(play), 'new': len(new), 'tied': ram['tied'], 'anchored': ram['anchored'], 'private': ram['private']}
+    return record, counts
+
+
+# What a shared record is made of (the report's `knowledge.source`, the library's `record_source`).
+RECORD_SOURCE = "fresh reference runs of this conversion and the instructions the player's game ran on the interpreter in play (F12) that it made native"
 
 
 def knowledge_block(record, promotion, hints_used, received=None, model: Model = A500) -> dict:
@@ -706,8 +745,8 @@ def knowledge_block(record, promotion, hints_used, received=None, model: Model =
     from . import amiga_knowledge, path_profiles
     return {'machine_status': get_profile(model.system).status, 'shared': model.system in path_profiles.SHARED_SYSTEMS, 'record_format': amiga_knowledge.FORMAT,
             'cores': amiga_knowledge.engine(), 'record_sha256': amiga_knowledge.record_digest(record), 'paths': promotion['paths'],
-            'promotion': {key: promotion[key] for key in ('ram', 'other_windows', 'malformed', 'kickstart', 'truncated')},
-            'source': 'fresh reference runs of this conversion', 'use': dict(hints_used),
+            'promotion': {key: promotion[key] for key in ('ram', 'other_windows', 'malformed', 'kickstart', 'truncated', 'play')},
+            'source': RECORD_SOURCE, 'use': dict(hints_used),
             'received': received or {'offered': 0, 'reached': 0, 'added': 0},
             'raw_words_stored': False, 'fresh_validation_required': True}
 
@@ -721,7 +760,7 @@ def keep_record(source, record, promotion, model: Model = A500) -> None:
     with entry_lock(entry, timeout=1800):
         atomic_json(entry / amiga_knowledge.RECORD_FILE, {
             'schema': 1, 'system': model.system, 'game': source.game_key, 'private_development_only': True, 'fresh_reference_passed': True,
-            'record': record, 'record_format': amiga_knowledge.FORMAT, 'cores': amiga_knowledge.engine(), 'record_source': 'fresh reference runs',
+            'record': record, 'record_format': amiga_knowledge.FORMAT, 'cores': amiga_knowledge.engine(), 'record_source': RECORD_SOURCE,
             'record_counts': promotion})
 
 
@@ -823,7 +862,8 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     emit('Amiga: reading the WHDLoad install (slave and data files).')
-    # The player's own record: only an interpreted instruction of a real session, private to this player, never shared. It carries the same guard and counts apart; the routes below prove the game as usual.
+    # The player's own record: only an interpreted instruction of a real session. It carries the same guard and counts apart; the routes below prove the game as usual.
+    # The instruction each window starts with, once this conversion has made it native and passed, joins the shared record (`promoted_record`, 1.7.9).
     from .feedback import ingest, records
     feedback = ingest(model.feedback, source.sha256, output, emit=emit)
     windows = [(row.address, row.data) for row in records(model.feedback, source.sha256, FEEDBACK_KIND)] if use_remembered else []
@@ -876,7 +916,7 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                     kick_observed |= read_kick_observation(checks / f'reference-{name}' / 'observations.txt.kick', kick_window(kick))
                 except (OSError, ValueError) as error:
                     raise ConversionError(f'Amiga {name}: the Kickstart addresses of the reference run are unreadable: {error}') from error
-        # The fresh reference runs' own observations: the only source of the shared record (`amiga_knowledge.promote`).
+        # The fresh reference runs' own observations: with the player's play record that this conversion makes native, the sources of the shared record (`promoted_record`).
         fresh_observed, fresh_kick = set(samples), set(kick_observed)
         memory = game_entry(source, kick, model.system)
         remembered = memory / OBSERVATIONS
@@ -1021,9 +1061,10 @@ def _convert_once(path, *, title=None, output=None, cover=None, use_cover=True, 
                          **({'ended_by_game': True, 'frames_run': ended[name]} if name in ended else {}),
                          **({'state_restart_match': True, 'state_frame': state_frame} if name == 'main' else {})})
         sound_routes = [name for (name, _, _), result in zip(routes, packed_results) if result['audible_frames']]
-        # The shared path record: numbers about this install's own media (and Kickstart), made only from the fresh reference runs of this
-        # conversion (every check above passed). What cannot be tied to them stays private and is counted.
-        record, promotion = promoted_record(source, media, kick_image or None, fresh_observed, fresh_kick, model)
+        # The shared path record: numbers about this install's own media (and Kickstart), made from the fresh reference runs of this
+        # conversion and from the player's own play record it made native (every check above passed). What cannot be tied to them stays
+        # private and is counted; received paths never enter it.
+        record, promotion = promoted_record(source, media, kick_image or None, fresh_observed, fresh_kick, model, played_pairs(windows))
         from .m68k_media_knowledge import received_use as _received_use
         received_use = _received_use(received_all | {('kickstart', pc) for pc in received_kick},
                                      exact_pairs(fresh_observed, model.isa) | {('kickstart', pc) for pc, _ in fresh_kick})

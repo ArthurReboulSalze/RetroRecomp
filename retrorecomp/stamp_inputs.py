@@ -670,6 +670,7 @@ INPUTS = _resolve({
         'retrorecomp.amiga_translate',
         'retrorecomp.computer_routes',
         'retrorecomp.amiga_conversion',
+        'retrorecomp.a1200_knowledge',
         'retrorecomp.amiga_kickstart',
         'retrorecomp.amiga_knowledge',
         'retrorecomp.amiga_lha',

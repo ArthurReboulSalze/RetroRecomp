@@ -7,7 +7,7 @@ What it converts: an Amiga 500 game installed for WHDLoad (an LHA archive holdin
 WHDLoad by our MIT resload layer on the vAmiga machine (MPL-2.0), with the 68000 instructions it runs
 from RAM compiled to native code (Moira's code specialised per opcode) and the rest counted on the interpreter. An install that
 asks for a Kickstart 1.x runs it from the player's own image (Options); its instructions seen running become native code too,
-the rest is counted on the interpreter. Not yet: Kickstart 3.x installs, the Amiga 1200, disk images (ADF); Linux is
+the rest is counted on the interpreter. Not yet: disk images (ADF); the Amiga 1200 is its own profile below. Linux is
 witnessed, not played.
 """
 from pathlib import Path
@@ -134,8 +134,9 @@ class Amiga1200Profile(AmigaProfile):
                                                             windows=tuple((low, last) for low, last, _ in APERTURES) + (KICKSTART_3X_WINDOW,),
                                                             contained=True, length=(2, 22), length_align=2,
                                                             offset_align=2, address_align=2, span_max=131072)),))
-    # Not shared for now, on the owner's word (15 November 2026), pending a measure (G16 `?`; DECLINED['path_sharing'] in tests/test_machine_registry.py).
-    shared_knowledge = None
+    # Shares its paths from 1.7.9 like the Amiga 500, in the experimental tier, withdrawable, on the owner's word of 16 November 2026 (play reaches
+    # code the routes do not: other players gain it); its own module binds the Amiga 1200's rules (retrorecomp/a1200_knowledge.py).
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='a1200_knowledge')
     library_layout = LibraryLayout(folder='a1200', summary_glob='*/compilation.json')
     # Before the Amiga 500 (40): an install in an A1200 folder, or one whose slave asks for a 68020 or AGA, is the A1200's.
     identify = Identify(path_order=39)

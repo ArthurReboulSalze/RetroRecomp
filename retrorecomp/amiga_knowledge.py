@@ -107,17 +107,19 @@ def install_content(blob: bytes) -> bytes:
     return b''.join(part + b'\0' * (len(part) & 1) for part in parts)
 
 
-def _kickstart_view(kickstart: bytes | None) -> bytes | None:
-    """The Kickstart as the machine maps it (the image itself, 256 KiB at $FC0000), or None for another size."""
-    return kickstart if kickstart is not None and len(kickstart) == KICKSTART_BYTES else None
+def _kickstart_view(kickstart: bytes | None, size: int = KICKSTART_BYTES) -> bytes | None:
+    """The Kickstart as the machine maps it (the image itself: 256 KiB at $FC0000 on the Amiga 500, 512 KiB at $F80000 on the Amiga 1200),
+    or None for another size."""
+    return kickstart if kickstart is not None and len(kickstart) == size else None
 
 
-def _kickstart_rows(kickstart: bytes | None, observed, isa: media.InstructionSet = media.MC68000) -> tuple[list, int, int]:
+def _kickstart_rows(kickstart: bytes | None, observed, isa: media.InstructionSet = media.MC68000, size: int = KICKSTART_BYTES,
+                    window: tuple = KICKSTART_WINDOW) -> tuple[list, int, int]:
     """The Kickstart rows of the observed Kickstart instructions `(pc, words)`: (rows, observed, kept private). A row is an instruction of the
     word-count table inside the Kickstart window whose words are the image's at its place."""
-    view = _kickstart_view(kickstart)
+    view = _kickstart_view(kickstart, size)
     rows, seen, private = [], 0, 0
-    low, end = KICKSTART_WINDOW
+    low, end = window
     for row in observed or ():
         seen += 1
         pc, words = row if isinstance(row, (tuple, list)) and len(row) == 2 else (None, None)
@@ -161,21 +163,25 @@ def library_record(identity: str, system: str = SYSTEM) -> dict | None:
     return knowledge_for(system).library_record(identity, RECORD_FILE)
 
 
-# --- The Amiga 1200: the same names and rules, its own system and section, the 68EC020's instruction lengths ----------------------
-# Not shared while the profile is experimental (it is not in path_profiles.SHARED_SYSTEMS): the player's own record only.
+# --- The Amiga 1200: the same names and rules, its own system and section, the 68EC020's instruction lengths and its Kickstart 3.x ------
+# Shared from 1.7.9 like the Amiga 500, in the experimental tier (its module of the base is `a1200_knowledge`, which binds the names below).
+# Its Kickstart is the 512 KiB image of a 3.x ROM, run at $F80000; a Kickstart of another size stays private, counted.
 SYSTEM_A1200 = 'a1200'
+KICKSTART_3X_BYTES = 0x80000
+KICKSTART_3X_WINDOW = (0xF80000, 0x1000000)
 
 
 def _a1200_knowledge():
     from .m68020_lengths import MC68EC020
     return media.MediaKnowledge(
-        system=SYSTEM_A1200, memory_map=SYSTEM_A1200, media=INSTALL, firmware=KICKSTART, firmware_sizes=(KICKSTART_BYTES,),
-        firmware_window=KICKSTART_WINDOW, ram_limit=RAM_LIMIT, span_limit=SPAN_LIMIT, firmware_limit=KICKSTART_LIMIT,
+        system=SYSTEM_A1200, memory_map=SYSTEM_A1200, media=INSTALL, firmware=KICKSTART, firmware_sizes=(KICKSTART_3X_BYTES,),
+        firmware_window=KICKSTART_3X_WINDOW, ram_limit=RAM_LIMIT, span_limit=SPAN_LIMIT, firmware_limit=KICKSTART_LIMIT,
         span_bytes=SPAN_BYTES, anchor_bytes=ANCHOR_BYTES, span_path='amiga_span', firmware_path='amiga_kick', format=FORMAT, formats=FORMATS,
         words=media.Words(machine='Amiga 1200', article='an', media_set='install', media_plural='install files', firmware='Kickstart',
-                          firmware_article='a', firmware_size='256 KiB'),
-        engine=lambda: engine(), firmware_view=lambda kickstart: _kickstart_view(kickstart),
-        firmware_rows=lambda kickstart, observed: _kickstart_rows(kickstart, observed, MC68EC020), isa=MC68EC020)
+                          firmware_article='a', firmware_size='512 KiB'),
+        engine=lambda: engine(), firmware_view=lambda kickstart: _kickstart_view(kickstart, KICKSTART_3X_BYTES),
+        firmware_rows=lambda kickstart, observed: _kickstart_rows(kickstart, observed, MC68EC020, KICKSTART_3X_BYTES, KICKSTART_3X_WINDOW),
+        isa=MC68EC020)
 
 
 KNOWLEDGE_A1200 = _a1200_knowledge()

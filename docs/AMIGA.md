@@ -225,6 +225,8 @@ The proof of 14 November 2026 (tree `ceed7b28`, one conversion at a time, each p
 
 On these routes the received paths saved no pass and changed neither the interpreted counts nor the wall time; they made a few hundred instructions native that the routes did not run, most of which the conversion's own sweep of memory finds anyway. The gain beyond the routes was not measured on the Amiga: the decision rests on the shared mechanism and on the Atari ST's Turrican II, whose unpacked code ties to the player's own disk (about 90 % fewer interpreted instructions on a route beyond the receiver's own). No Amiga path is qualified in the base yet (reached and validated by a conversion that received it from another player, counted by the site).
 
+**What travels, and since when.** Until 1.7.8 a record held only what the fresh reference runs of a conversion saw: the instructions the player's game ran on the interpreter during play (the F12 record, kind 22) were made native for that player alone and never travelled. From 1.7.9 they travel too, on the owner's word of 16 November 2026: « Je préfère que tu mettes en place directement le partage de chemin pour l'Amiga 500 et 1200. Ça permettra à tous les joueurs d'utiliser les temps de jeu des autres utilisateurs, même si à la recompilation du jeu, on n'a rien découvert. Il y a certaines personnes qui peuvent lancer des recompilations très avancées et nous faire découvrir d'autres chemins. » A conversion that passed puts into the record, beside its routes' instructions, the first instruction of each window of the player's F12 record (the one that ran; the instructions a walk finds after it do not travel, nothing says they ran), tied to the player's own install like the others; code a game unpacks or builds stays private and is counted. The report says what play added (`knowledge.promotion.play`: offered, new, tied, anchored, private). The same holds for the Amiga 1200 ([section 7](#shared-paths-179)).
+
 ### Leaving the experimental status (14 November 2026)
 
 The Amiga is **supported from 1.7.5**. The owner played the six installs of [the checklist](QUALIFICATION.md#checklist-for-arthur-commodore-amiga-play-test-g14) (the exports of 13 November in `Export/Games/Amiga`) and wrote « je te valide bien que tous ces jeux marchent parfaitement. »; asked whether to take the Amiga out of the experimental status: « Oui, sors-le » (G14, [the owner-acceptance table](QUALIFICATION.md#owner-acceptance)). The checks of tests/test_machine_registry.py for a `supported` machine pass on the real profile: the Amiga shares its paths, has five risk cases, is witnessed on Linux and has no failed gate. G10 (Moira against MAME-made vectors, 322 differences in named families) and G11 (pictures compared with another emulator, not with the chips) stay `P`, worded as they are: G11 is `P` on every machine, and the X68000 left the experimental status with G10 `P` too.
@@ -315,10 +317,38 @@ for a `supported` machine pass on the real profile: five risk cases, witnessed o
 them (Slam Tilt, Pinball Illusions, Alien Breed 3D, All New World of Lemmings) were converted again on Windows (llvm-mingw) and on WSL
 Debian 13 (GCC): every field of every route is the same on both and the same as in the conversions the owner played.
 
-**Its paths are not shared for now** (G16 `?`): on the owner's word of 15 November 2026, when he cancelled the sharing measurement, « on n'active pas le partage de chemin encore. On verra si c'est pertinent. Pour l'instant, ça n'a pas l'air de l'être. »
-On 16 November 2026: « pour le partage des chemins, on fera des tests plus tard. Faudra qu'on fasse des tests quand même. » A measure with and without another player's paths is to come, after this exit; until then
-the profile is listed in `DECLINED['path_sharing']` and stays out of the shared base. The panel's routes leave nothing for a received path
-to make native (0 interpreted instructions, or a Kickstart instruction); the gain beyond them is not measured.
+**Its paths were not shared in 1.7.8** (G16 `?`): on the owner's word of 15 November 2026, then pending a measure with and without
+received paths. They are shared from 1.7.9 ([below](#shared-paths-179)).
+
+### Shared paths (1.7.9)
+
+The Amiga 1200 shares its paths from 1.7.9, like the Amiga 500 and in the same experimental tier of the base, on the owner's word of
+16 November 2026 (« Je préfère que tu mettes en place directement le partage de chemin pour l'Amiga 500 et 1200. Ça permettra à tous les
+joueurs d'utiliser les temps de jeu des autres utilisateurs, même si à la recompilation du jeu, on n'a rien découvert. »); the measure
+planned before was cancelled with it. Its module is `retrorecomp/a1200_knowledge.py`: the Amiga 500's rules on its own `a1200` section, the
+68EC020's lengths and its Kickstart 3.x (512 KiB at $F80000; a Kickstart 1.3 run on the A1200 keeps its Kickstart rows private). What the
+player's game ran in play travels too, on both Amigas ([section 6](#shared-paths-175)).
+
+The proof (16 November 2026, branch `spec/a1200-share-179`, Windows, llvm-mingw, the standard level, one conversion at a time, each player
+with an empty data folder of its own): player A converted All New World of Lemmings with the owner's own F12 record of that install (219
+instructions his game ran on the interpreter, written while he played it) and exported its paths (a version 3 file of 28,310 bytes);
+player B imported that file and converted the same install with no F12 record; player C converted it with nothing.
+
+| | A (sender) | B (receiver) | C (nothing received) |
+|---|---|---|---|
+| Record: RAM spans, Kickstart rows | 364, 28,616 | 186, 28,616 | 186, 28,616 |
+| Play (`knowledge.promotion.play`): offered, tied, private | 219, 217, 2 | 0 | 0 |
+| Received (`knowledge.received`): offered, reached, added | 0 | 32,127, 31,910, 217 | 0 |
+| The 219 played instructions native in the generated game | (its own F12) | 219 | 0 |
+| Native instructions generated (observed and swept) | | 93,053 | 82,949 |
+| Interpreted on each route (the Kickstart's) | 59,006 | 59,006 | 59,006 |
+| Wall time | 693 s | 601 s | 604 s |
+
+The routes' traces are the same for the three (CPU, RAM, picture and sound), so the received paths change nothing the routes see: what
+they add is code the routes do not run. B got as native the 217 played instructions that sit in the install, and its sweep of memory went on
+from them to 2 more and to 10,104 native instructions C does not have. Before 1.7.9 the Amiga 1200's record held no Kickstart row (its 3.x
+image was counted as a 256 KiB one: all private); A's holds 28,616. Not measured: how much of a later play session these instructions
+cover; no path is qualified in the base yet.
 
 **Partial, worded as they are:** G9 (routes reach play on Slam Tilt and Zool 2, not recorded install by install), G10 (Moira against
 Musashi's 68EC020 on 200,000 random instructions, 76 cases still to referee), G11 (pictures compared with another emulator, not with
