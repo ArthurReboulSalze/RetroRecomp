@@ -25,6 +25,8 @@
   view of Compiled Games: the same games, covers and launch, nothing converted again.
   The converter's controller bridge now also reads the L2 and R2 triggers.
 
+**Speed.** Not measured again for 1.8.0, on the owner's word: nothing the games run while they play changed (the window, the choice of the build tools and the converter's controller bridge only); the frame cost of 1.7.9 stands.
+
 **Your exports and quick states.** No game stamp moves in 1.8.0, so no game is converted again. The build and host parts move for
 every machine (the build tools' choice and the controller bridge), so each export of 1.7.9 is rebuilt once and checked again on
 its quick routes, from its learned paths. Quick states keep working on every machine except where a machine's state key hashes
