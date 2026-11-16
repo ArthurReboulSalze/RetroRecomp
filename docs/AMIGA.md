@@ -264,6 +264,12 @@ not changed by it.
 - **Packed files.** `resload_Decrunch` unpacks Crunch-Mania (standard and LZH modes, delta-coded or not) on both Amigas since 1.7.6:
   Gloom and Super Stardust convert with it on the Amiga 1200, and Five A Side Soccer on the Amiga 500 (46 files unpacked on its main
   route, every check passed).
+- **The Kickstart a slave asks for in its code (1.7.7).** A slave that does not name its Kickstart in its header calls
+  `resload_LoadKick` with the image's size and CRC-16 in its registers. The converter used to choose for it by version (1.3 first,
+  256 KiB), an Amiga 500 habit: All New World of Lemmings (AGA) asks for 3.1 (512 KiB, `$9FF5`) and stopped at its first frame. The
+  converter now reads what the code passes, just before each call (`moveq`/`move.l` into D0, `move.w`/`move.l` into D1, the name
+  in A0), and matches it exactly; the old choice stays for a call it cannot read. On 250 installs sampled in each NAS folder, 46 of
+  the 47 slaves of that kind are read so, and the player's images match every one.
 - **Interlaced screens** (on both Amigas, for any game that sets LACE): the machine draws a long and a short field in turn; the picture
   weaves them into one of twice the lines, so it no longer moves a line every frame (Arthur's play test of 15 November 2026 found it on
   Banshee's title). A display change only: the machine, the CPU and the checks are as before; a screen without LACE is shown as it was,

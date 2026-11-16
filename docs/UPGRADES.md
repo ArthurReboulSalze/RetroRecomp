@@ -90,6 +90,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 | [Mega Drive: its sound follows a game locked to the display](#mega-drive-its-sound-follows-a-game-locked-to-the-display-177) | none | the Mega Drive's host stamp (`retrorecomp/megadrive_audio.py`, `hostkit/adapters/rrhk_md.c`) | none |
 | [Commodore Amiga: an AGA dual playfield with a priority above 4 is drawn](#commodore-amiga-an-aga-dual-playfield-with-a-priority-above-4-is-drawn-177) | the Amiga and the Amiga 1200 | none | refused (every build's are) |
 | [Commodore Amiga: the weave of interlaced screens follows the motion](#commodore-amiga-the-weave-of-interlaced-screens-follows-the-motion-177) | the Amiga and the Amiga 1200 | none | `RRAMIGA-STATE-7` (refused) |
+| [Commodore Amiga: the Kickstart a slave's code asks for](#commodore-amiga-the-kickstart-a-slaves-code-asks-for-177) | the Amiga and the Amiga 1200 (`amiga_kickstart.py`) | none | none |
 | [Commodore Amiga 1200: a player's record walked with the 68EC020's lengths](#commodore-amiga-1200-a-players-record-walked-with-the-68ec020s-lengths-177) | the Amiga, the Amiga 1200 and the Atari ST (`amiga_conversion.py`, `m68k_record_walk.py`) | none | none |
 
 ## Every machine: Sync to display (Auto / Locked / Free / Variable refresh) (1.7.7)
@@ -216,6 +217,21 @@ but it was code that never runs, and what followed it in the window was lost.
   qualified; the Amiga 1200 shares no path.
 - **Stamps:** the game stamp of the Amiga, of the Amiga 1200 and of the Atari ST (the shared walk); the output of the Amiga 500 and of the
   Atari ST is unchanged. Their exports are converted again in full on the first batch.
+
+## Commodore Amiga: the Kickstart a slave's code asks for (1.7.7)
+
+A WHDLoad slave names the Kickstart it needs in its header, or passes it to `resload_LoadKick` in its registers: the size in D0, the
+CRC-16 in D1, the name in A0. For the second kind the converter chose an image by version, 1.3 first and 256 KiB only; an Amiga 1200
+slave that asks for 3.1 that way (All New World of Lemmings: 512 KiB, `$9FF5`, `40068.a1200`) got a 1.3 image and stopped at its
+first frame, the player's 3.1 unused.
+
+- **What changes:** `amiga_kickstart.request_of_slave` reads, in the 24 bytes before each call, `move.l #imm,d0` or `moveq #n,d0`
+  with `swap d0` (the size), `move.w #imm,d1` or `move.l #imm,d1` (the CRC-16) and `lea d16(pc),a0` (the name); the request is then
+  matched exactly, as a header's. A call it cannot read keeps the old choice. The call still checks the image at run time.
+- **Measured:** All New World of Lemmings converts (quick level, every check passed; its 59,006 interpreted instructions are all the
+  Kickstart's, 0.12 %); on 250 installs sampled in each NAS folder, 46 of the 47 LoadKick-only slaves are read, and the player's
+  Kickstarts match all 46.
+- **Stamps:** the game stamp of the Amiga and of the Amiga 1200 (`amiga_kickstart.py`); exports converted again in full.
 
 ## Exports of 1.7.5 in 1.7.6
 
