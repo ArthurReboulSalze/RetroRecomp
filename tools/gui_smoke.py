@@ -564,6 +564,10 @@ def smoke(window):
     assert application.compiled_button.cget('width') == switch_width
     assert application.collection_actions.winfo_manager() and not application.queue_actions.winfo_manager()
     assert application.knowledge_button in toolbar_slaves()
+    slaves = toolbar_slaves()
+    assert application.front_end_button in slaves
+    window.update_idletasks()
+    assert application.front_end_button.winfo_x() < application.knowledge_button.winfo_x()
     application.compiled_view.show_log('first line\nsecond line\nthird line ' + 'x' * 200)
     assert application.compiled_view.log_text.get().splitlines()[0] == 'second line'
     assert len(application.compiled_view.log_text.get().splitlines()[1]) == 150
@@ -725,6 +729,12 @@ def smoke(window):
         assert application.ask_missing_cover.get() is True and application.tr('cover_ask_option') in boxes, language
         assert application.compiled_button.cget('text') == application.tr('compiled_games')
         assert application.knowledge_button.cget('text') == application.tr('knowledge') + ' ▾'
+        # Front-end: its button left of Knowledge, and the two start options of Common, the second greyed while the
+        # first is off.
+        assert application.front_end_button.cget('text') == application.tr('front_end')
+        assert application.tr('start_front_end') in boxes and application.tr('start_front_end_fullscreen') in boxes
+        first, second = application.start_front_end_controls
+        assert application.start_front_end.get() is False and second.instate(['disabled']), language
         # Every text button keeps its hover hint in every language (keys given, not looked up by text).
         hints = {id(hint.widget): hint.text() for hint in application.tooltips}
         for widget, key in ((application.add_roms_button, 'tip_add_roms'), (application.credits_button, 'tip_credits'),

@@ -57,11 +57,13 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_firmware', 'firmware_search',
                                # Box art not found (Options): asks the player for a cover, applied by Reconvert.
                                'gui_covers',
+                               # Front-end: the compiled games as a wall of box art (another view of Compiled Games).
+                               'gui_front_end', 'front_end', 'front_end_view',
                                # Conversion time estimates in the window (assets/conversion-times.json); a conversion never reads them.
                                'gui_estimates', 'time_estimates',
                                # The log panel's welcome and the developer's message to the players, read from the site at start.
                                'gui_welcome', 'announcement',
-                               'dropfiles', 'updater', 'linux_desktop', 'queue_state',
+                               'dropfiles', 'updater', 'linux_desktop', 'queue_state', 'tk_threads',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
                                'report_schema',

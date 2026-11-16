@@ -5,6 +5,25 @@
   folder, and CMake refused it at every later launch (« does not match the source … used to generate cache »: seen on the
   Amiga 1200 with 1869; the Atari ST and the Nintendo 64 build the same way). Such a folder is now deleted before the build
   starts again, so the conversion rebuilds it and goes on.
+- **The converter: no silent close during a batch.** A window variable or picture released while a conversion ran in the
+  background could make Tk abort the whole converter with no message (« Tcl_AsyncDelete »). Such objects are now always
+  released by the window's own thread.
+- **The converter: a Front-end mode, for playing from the sofa.** A new **Front-end** button, left of Knowledge, turns the window
+  into a wall of box art: your compiled games, one console at a time, with each game's name under its cover. It opens in full
+  screen (X on the gamepad, F11 or the button at the top right bring the window back). The console you are on stays in the
+  middle of the top strip and the others slide under it (LB / RB); next to them, the star shows your favourites and the
+  magnifier searches a title, both over every console (an on-screen keyboard lets you type with the gamepad). Each console
+  keeps its own number of covers per row, from 4 to 12 (L2 / R2, or the − and + buttons), so square boxes, tall boxes and wide
+  ones each get the size that suits them; covers are never stretched. A plays, Y opens the actions (choose or search the box
+  art, favourite, sort by last played, name or conversion date, open the folder, reconvert), and Back asks before leaving
+  the front-end. With the mouse, Ctrl + click and Shift + click choose several games, and the right-click acts on all of
+  them (for example, search the box art of a whole series online). While a game you launched is running, the front-end
+  behind it ignores the gamepad. A game whose box art is not saved yet shows its name on a plain card: the front-end
+  never digs a picture out of the executables, so even a long list opens at once, and **Search the missing box art
+  online** (in the actions) fetches them for the front-end only: the games themselves and their icons do not change.
+  **Options › Common** can start Retro-Recomp straight in the front-end, and then in full screen. The front-end is another
+  view of Compiled Games: the same games, covers and launch, nothing converted again.
+  The converter's controller bridge now also reads the L2 and R2 triggers.
 
 ---
 

@@ -3,8 +3,16 @@ project(RetroPlayerGamepad C)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 find_package(SDL2 CONFIG REQUIRED)
 add_library(retro_gamepad SHARED ../../native/player_gamepad.c)
+# One name with every compiler (mingw would otherwise call it libretro_gamepad.dll).
+set_target_properties(retro_gamepad PROPERTIES PREFIX "")
 target_link_libraries(retro_gamepad PRIVATE SDL2::SDL2-static)
 if(NOT MSVC)
   target_compile_options(retro_gamepad PRIVATE -O2 -fvisibility=hidden)
-  target_link_options(retro_gamepad PRIVATE -Wl,--exclude-libs,ALL -s)
+  # --exclude-libs is a GNU ld option for ELF; lld in mingw mode (llvm-mingw, the portable toolchain) refuses it, and
+  # a Windows DLL exports only what is marked __declspec(dllexport) anyway.
+  if(WIN32)
+    target_link_options(retro_gamepad PRIVATE -s)
+  else()
+    target_link_options(retro_gamepad PRIVATE -Wl,--exclude-libs,ALL -s)
+  endif()
 endif()

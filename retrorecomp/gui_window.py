@@ -323,6 +323,7 @@ class WindowMixin:
         if self.compiled_view is not None:
             self.compiled_view.localize()
             self.compiled_view.render()
+        self.front_end_localize()
 
     def change_language(self, event=None):
         self.language = next((code for code, name in zip(LANGUAGES, LANGUAGE_NAMES)

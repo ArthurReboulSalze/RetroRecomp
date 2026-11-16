@@ -97,13 +97,13 @@ class CollectionMixin:
         self.library_panels.append(self.library_view.panel)
 
     def toggle_compiled_games(self):
+        if getattr(self, 'front_end_visible', False):
+            self.leave_front_end(then='queue')
         if self.options_panel is not None and self.options_panel.winfo_exists():
             self.close_options()
             if self.options_panel is not None:
                 return
-        if self.compiled_view is None:
-            from .compiled_games_view import CompiledGamesView
-            self.compiled_view = CompiledGamesView(self, self.body)
+        self.ensure_compiled_view()
         self.collection_visible = not self.collection_visible
         if self.collection_visible:
             for widget in self.compiler_widgets:widget.grid_remove()

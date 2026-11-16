@@ -150,6 +150,8 @@ INTERFACE_PREFERENCES = ('coverage_default_revision', 'gb_validation_default_rev
                          # Read by packing.set_compression before the batch (the window), never by a converter.
                          'compress_games',
                          'startup_update_check', 'last_update_check', 'discoveries_waiting',
+                         # Start in the front-end (and in full screen): read by the window at start only.
+                         'start_front_end', 'start_front_end_fullscreen',
                          # The « Box art not found » window (gui_covers): asked by the window, never by a converter.
                          'ask_missing_cover',
                          # Games converted at once per console: the window cuts the queue by it.

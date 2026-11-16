@@ -436,6 +436,9 @@ def _shared_network(radius=3, nodes=((8, 3), (3, 12.5), (13, 12.5))):
 
 
 ICON_PATHS.setdefault('network', _shared_network())
+# Front-end: a wall of four boxes.
+ICON_PATHS.setdefault('front_end', ((1, 1, 7, 1, 7, 7, 1, 7, 1, 1), (9, 1, 15, 1, 15, 7, 9, 7, 9, 1),
+                                    (1, 9, 7, 9, 7, 15, 1, 15, 1, 9), (9, 9, 15, 9, 15, 15, 9, 15, 9, 9)))
 
 
 def _toolbar_styles(style):
