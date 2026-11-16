@@ -1,15 +1,18 @@
 # RetroRecomp v1.7.9 (in preparation)
 
-- **The converter: how long a conversion usually takes.** The window now says how long a conversion usually takes, measured on
-  a reference PC (a Ryzen 9 3900X under Windows, three games at once): under the queue for the whole queue, in Options next to
-  each machine's scan level for one game at that level (an Amiga 1200 game at Standard: usually 11 to 19 minutes there), and
-  during a batch as a clock under the status and in each running game's row, with a reminder that a step can show nothing new for
-  several minutes. The Stop dialog, which closing the window also opens, says how long the batch has run against its usual time.
-  The first use is stated apart: building the shared pieces once (about 3 minutes there) and the downloads, whose time depends on
-  your connection; the build tools window says why the first conversion takes longer. These are estimates on that PC, never a
-  promise: another PC, another game or another release takes more or less time. The figures come from the conversion reports of
-  that PC ([assets/conversion-times.json](../assets/conversion-times.json), measured with `tools/conversion_times.py`); a level not
-  measured for a machine is worked out from its Standard time and said so. No game stamp moves.
+- **The converter: how long a conversion usually takes.** The window now gives an order of magnitude per console, as a rounded
+  range measured on a reference PC (a Ryzen 9 3900X under Windows, three games at once): under the queue for the whole queue, in
+  Options next to each machine's scan level for one game at that level (an Amiga 1200 game at Standard: usually 10 to 20 minutes
+  there), and during a batch as a clock under the status and in each running game's row, with a reminder that a step can show
+  nothing new for several minutes. The Stop dialog, which closing the window also opens, says how long the batch has run against
+  its usual time. A short note says that other players' paths can make a conversion shorter on the consoles where received paths
+  replace the discovery with a quick check, and that they make more of the game native everywhere they are shared (on the Amiga,
+  the Atari ST or the PlayStation the conversion still runs its full discovery: no time saving is promised there). The first use
+  is stated apart: building the shared pieces once (about 3 minutes there) and the downloads, whose time depends on your
+  connection; the build tools window says why the first conversion takes longer. These are estimates on that PC, never a promise.
+  The figures come only from conversions already made on that PC, no conversion was run to time them
+  ([assets/conversion-times.json](../assets/conversion-times.json), read with `tools/conversion_times.py`); a level not measured
+  for a machine is worked out from its Standard time and said so. No game stamp moves.
 
 ---
 

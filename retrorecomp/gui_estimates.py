@@ -78,14 +78,20 @@ class EstimatesMixin:
     def duration(self, seconds, *, up=False):
         return time_estimates.duration_text(seconds, self.tr, up=up)
 
+    def span(self, low, high):
+        """'A to B' or 'up to B', rounded generously: an order of magnitude, not a timing."""
+        return time_estimates.span_text(low, high, self.tr)
+
     def estimate_lines(self, estimate):
-        """The queue's estimate in sentences: the time, what is not counted, the first use."""
+        """The queue's estimate in sentences: the time, other players' paths, what is not counted, the first use."""
         if estimate is None or not time_estimates.table():
             return []
         lines = []
         if estimate.games:
-            lines.append(self.tr('estimate_queue', typical=self.duration(estimate.typical),
-                                 high=self.duration(estimate.high, up=True), reference=time_estimates.reference_label()))
+            lines.append(self.tr('estimate_queue', span=self.span(estimate.typical, estimate.high),
+                                 reference=time_estimates.reference_label()))
+            if estimate.paths:
+                lines.append(self.tr('estimate_paths_queue'))
         if estimate.unknown:
             lines.append(self.tr('estimate_unknown', count=estimate.unknown))
         if estimate.first_build:
@@ -113,9 +119,10 @@ class EstimatesMixin:
         found = time_estimates.game_time(console, self.row_level(console))
         if found is None:
             return ''
-        values = dict(low=self.duration(found.low), high=self.duration(found.high, up=True),
-                      longest=self.duration(found.longest, up=True), reference=time_estimates.reference_label())
-        return self.tr('estimate_level' if found.measured else 'estimate_level_derived', **values)
+        text = self.tr('estimate_level' if found.measured else 'estimate_level_derived',
+                       span=self.span(found.low, found.high), reference=time_estimates.reference_label())
+        effect = time_estimates.paths_effect(console)
+        return text + (' ' + self.tr('estimate_paths_' + effect) if effect else '')
 
     # --- a running batch ------------------------------------------------------------------------------------------
 
@@ -126,8 +133,7 @@ class EstimatesMixin:
         self.batch_estimate = self.rows_estimate(rows, first_use=False)
         estimate = self.batch_estimate
         if estimate is not None and estimate.games and time_estimates.table():
-            self.messages.put(('log', self.tr('estimate_log', typical=self.duration(estimate.typical),
-                                             high=self.duration(estimate.high, up=True),
+            self.messages.put(('log', self.tr('estimate_log', span=self.span(estimate.typical, estimate.high),
                                              reference=time_estimates.reference_label())))
         self.estimate_clock = getattr(self, 'estimate_clock', 0) + 1
         self.tick_estimate(self.estimate_clock)
@@ -146,10 +152,9 @@ class EstimatesMixin:
         if estimate is None or not estimate.games:
             return self.tr('estimate_elapsed', elapsed=clock)
         if elapsed > estimate.high:
-            return self.tr('estimate_running_over', elapsed=clock, high=self.duration(estimate.high, up=True),
+            return self.tr('estimate_running_over', elapsed=clock, span=self.span(estimate.typical, estimate.high),
                            longest=self.duration(estimate.longest, up=True))
-        return self.tr('estimate_running', elapsed=clock, typical=self.duration(estimate.typical),
-                       high=self.duration(estimate.high, up=True))
+        return self.tr('estimate_running', elapsed=clock, span=self.span(estimate.typical, estimate.high))
 
     def row_running_text(self, index):
         """A running game's status cell: its own clock and its usual time."""
@@ -195,8 +200,8 @@ class EstimatesMixin:
         if started is None or estimate is None or not estimate.games:
             return ''
         return self.tr('stop_elapsed', elapsed=time_estimates.elapsed_text(time.monotonic() - started),
-                       typical=self.duration(estimate.typical), high=self.duration(estimate.high, up=True),
-                       longest=self.duration(estimate.longest, up=True), reference=time_estimates.reference_label())
+                       span=self.span(estimate.typical, estimate.high), longest=self.duration(estimate.longest, up=True),
+                       reference=time_estimates.reference_label())
 
     # --- the tools window ------------------------------------------------------------------------------------------
 

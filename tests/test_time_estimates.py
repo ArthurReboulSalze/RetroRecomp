@@ -106,15 +106,40 @@ class BatchTests(unittest.TestCase):
 
 
 class TextTests(unittest.TestCase):
-    def test_durations(self):
+    def test_durations_round_generously(self):
+        # An order of magnitude per console (Arthur, 16 Nov 2026): 1 min steps under 5 min, 5 under 30, 10 under an
+        # hour, then half hours.
         self.assertEqual(te.duration_text(30, tr), 'time_under_minute')
         self.assertEqual(te.duration_text(30, tr, up=True), 'time_minutes:minutes=1')
-        self.assertEqual(te.duration_text(799, tr), 'time_minutes:minutes=13')
-        self.assertEqual(te.duration_text(1107, tr, up=True), 'time_minutes:minutes=19')
+        self.assertEqual(te.duration_text(200, tr), 'time_minutes:minutes=3')
+        self.assertEqual(te.duration_text(799, tr), 'time_minutes:minutes=15')
+        self.assertEqual(te.duration_text(1107, tr, up=True), 'time_minutes:minutes=20')
+        self.assertEqual(te.duration_text(1463, tr, up=True), 'time_minutes:minutes=25')
+        self.assertEqual(te.duration_text(2580, tr, up=True), 'time_minutes:minutes=50')
+        self.assertEqual(te.duration_text(3300, tr, up=True), 'time_hours_only:hours=1')
         self.assertEqual(te.duration_text(3600, tr), 'time_hours_only:hours=1')
-        self.assertEqual(te.duration_text(4500, tr), 'time_hours:hours=1,minutes=15')
-        self.assertEqual(te.duration_text(4501, tr, up=True), 'time_hours:hours=1,minutes=20')
+        self.assertEqual(te.duration_text(4501, tr, up=True), 'time_hours:hours=1,minutes=30')
         self.assertEqual(te.rounded_minutes(0), 0)
+        self.assertEqual(te.rounded_minutes(0, up=True), 0)
+
+    def test_ranges(self):
+        # The Amiga 1200 at Standard: 646 s to 1107 s measured, shown as 10 to 20 min.
+        self.assertEqual(te.span_text(646, 1107, tr),
+                         'time_range:high=time_minutes:minutes=20,low=time_minutes:minutes=10')
+        self.assertEqual(te.span_text(32, 37, tr), 'time_up_to:high=time_minutes:minutes=1')
+        self.assertEqual(te.span_text(600, 600, tr), 'time_up_to:high=time_minutes:minutes=10')
+        self.assertEqual(te.span_text(2580, 4800, tr),
+                         'time_range:high=time_hours:hours=1,minutes=30,low=time_minutes:minutes=40')
+
+    def test_paths_effect_follows_the_profiles(self):
+        # Quick check from received paths: shorter; full discovery kept: more native code only; no sharing: no note.
+        self.assertEqual(te.paths_effect('md'), 'shorter')
+        self.assertEqual(te.paths_effect('amiga'), 'native')
+        self.assertEqual(te.paths_effect('psx'), 'native')
+        self.assertIsNone(te.paths_effect('a1200'))
+        self.assertIsNone(te.paths_effect('no-such-machine'))
+        self.assertTrue(te.queue_estimate([('md', 'standard')], jobs=3).paths)
+        self.assertFalse(te.queue_estimate([('n64', 'standard')], jobs=3).paths)
         self.assertEqual(te.elapsed_text(75), '1:15')
         self.assertEqual(te.elapsed_text(3725), '1:02:05')
         self.assertEqual(te.elapsed_text(-3), '0:00')
@@ -124,7 +149,8 @@ class TextTests(unittest.TestCase):
         for key in ('time_under_minute', 'time_minutes', 'time_hours', 'time_hours_only', 'estimate_queue',
                     'estimate_unknown', 'estimate_first_build', 'estimate_first_download', 'estimate_level',
                     'estimate_level_derived', 'estimate_log', 'estimate_elapsed', 'estimate_running',
-                    'estimate_running_over', 'converting_elapsed', 'converting_clock', 'stop_elapsed', 'first_use_note'):
+                    'estimate_running_over', 'converting_elapsed', 'converting_clock', 'stop_elapsed', 'first_use_note',
+                    'time_range', 'time_up_to', 'estimate_paths_queue', 'estimate_paths_shorter', 'estimate_paths_native'):
             self.assertIn(key, STRINGS)
 
 

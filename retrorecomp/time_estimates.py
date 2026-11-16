@@ -50,6 +50,7 @@ class QueueEstimate:
     first_build: float = 0.0
     first_download: bool = False
     new_machines: tuple = field(default_factory=tuple)
+    paths: bool = False      # a queued machine shares paths (paths_effect)
 
 
 def _cell(value) -> bool:
@@ -178,28 +179,67 @@ def queue_estimate(entries, *, jobs: int, per_console: dict | None = None, tools
     build, download = first_use(tools_missing=tools_missing, shared_missing=shared_missing, new_machines=new, data=data)
     return QueueEstimate(games=len(typical), unknown=unknown, typical=batch_seconds(typical, jobs, per_console),
                          high=batch_seconds(high, jobs, per_console), longest=longest, first_build=build,
-                         first_download=download, new_machines=new)
+                         first_download=download, new_machines=new,
+                         paths=any(paths_effect(system) for system in systems))
 
 
-def rounded_minutes(seconds: float, *, up: bool = False) -> int:
-    """Whole minutes for a display: to the nearest (or the next, for an upper bound), never 0 for a time over 0;
-    past an hour, to five minutes."""
-    minutes = seconds / 60
-    value = math.ceil(minutes - 1e-9) if up else round(minutes)
-    if value >= 60:
-        value = 5 * (math.ceil(value / 5 - 1e-9) if up else round(value / 5))
-    return max(1, int(value)) if seconds > 0 else 0
+def paths_effect(system: str) -> str | None:
+    """What other players' paths do to a machine's conversion, from its profile (never a time promised):
+    'shorter' when the machine shares paths and a conversion whose paths were received at its level runs a quick check
+    instead of its discovery (batch.py, `quick_check_from_shared`); 'native' when it shares them but still runs its full
+    discovery (the paths add native code: one pass with or without them on the Amiga, the Atari ST and the PlayStation,
+    docs/COMPILATION_LIBRARY.md); None when it does not share paths."""
+    from .systems import ALL_PROFILES
+    profile = next((profile for profile in ALL_PROFILES if profile.id == system), None)
+    shared = getattr(profile, 'shared_knowledge', None)
+    if shared is None:
+        return None
+    return 'shorter' if getattr(shared, 'quick_check_from_shared', True) else 'native'
 
 
-def duration_text(seconds: float, tr, *, up: bool = False) -> str:
-    """'under a minute', 'N min' or 'H h M min' in the interface language (`tr(key, **values)`)."""
-    if seconds < 45 and not up:
+# The display rounds generously: an order of magnitude per console, not a timing. Steps in minutes, by size.
+STEPS = ((5, 1), (30, 5), (60, 10))
+HOUR_STEP = 30
+
+
+def step(minutes: float) -> int:
+    return next((size for limit, size in STEPS if minutes < limit), HOUR_STEP)
+
+
+def rounded_minutes(seconds: float, *, up: bool = False, down: bool = False) -> int:
+    """Minutes for a display, on the step of their size (1 min under 5 min, 5 min under 30, 10 min under an hour,
+    then half hours): to the nearest, or the step below or above for the bounds of a range. 0 means under a minute."""
+    minutes = max(0.0, seconds) / 60
+    size = step(minutes)
+    if up:
+        value = math.ceil(minutes / size - 1e-9) * size
+        return max(value, 1) if seconds > 0 else 0
+    value = (math.floor(minutes / size + 1e-9) if down else round(minutes / size)) * size
+    return int(value)
+
+
+def minutes_text(minutes: int, tr) -> str:
+    if minutes <= 0:
         return tr('time_under_minute')
-    minutes = rounded_minutes(seconds, up=up)
     if minutes < 60:
         return tr('time_minutes', minutes=minutes)
     hours, minutes = divmod(minutes, 60)
     return tr('time_hours', hours=hours, minutes=minutes) if minutes else tr('time_hours_only', hours=hours)
+
+
+def duration_text(seconds: float, tr, *, up: bool = False, down: bool = False) -> str:
+    """'under a minute', 'N min' or 'H h M min' in the interface language (`tr(key, **values)`), rounded generously."""
+    return minutes_text(rounded_minutes(seconds, up=up, down=down), tr)
+
+
+def span_text(low: float, high: float, tr) -> str:
+    """A range in the interface language: 'A to B', or 'up to B' when the rounded bounds meet or the low one is under
+    a minute."""
+    top = rounded_minutes(high, up=True)
+    bottom = rounded_minutes(min(low, high), down=True)
+    if bottom <= 0 or bottom >= top:
+        return tr('time_up_to', high=minutes_text(top, tr))
+    return tr('time_range', low=minutes_text(bottom, tr), high=minutes_text(top, tr))
 
 
 def elapsed_text(seconds: float) -> str:
