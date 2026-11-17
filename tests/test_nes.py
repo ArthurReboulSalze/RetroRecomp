@@ -94,6 +94,21 @@ class NesProfileTests(unittest.TestCase):
         self.assertIn('Nintendo NES PAL',info['FileDescription'])
         self.assertIn('Zapper',info['Controls'])
 
+    def test_the_four_score_games_are_known_by_header_or_exact_title_and_a_gun_game_never_is_one(self):
+        from retrorecomp.nes_catalog import four_score_game
+        for name in ('Gauntlet II (USA).zip', 'Super Off Road.nes', 'Nintendo World Cup (USA).nes', 'R.C. Pro-Am II (USA).zip',
+                     'Nightmare on Elm Street, A (USA).zip', 'Bomberman II (USA).nes'):
+            self.assertTrue(four_score_game(cartridge(), name), name)
+        for name in ('Super Mario Bros.nes', 'Gauntlet.nes', 'Gauntlet II Fan Edition.nes', 'Duck Hunt (World).nes'):
+            self.assertFalse(four_score_game(cartridge(), name), name)
+        data = bytearray(cartridge(nes2=True)); data[15] = 2            # default expansion device: NES Four Score / Satellite
+        self.assertTrue(four_score_game(bytes(data), 'Unlabelled.nes'))
+        data[15] = 1                                                    # a standard controller
+        self.assertFalse(four_score_game(bytes(data), 'Unlabelled.nes'))
+        data[15] = 8                                                    # a Zapper: port 2 holds the gun
+        self.assertFalse(four_score_game(bytes(data), 'Unlabelled.nes'))
+        self.assertFalse(four_score_game(cartridge(), 'Gumshoe (USA).zip') or four_score_game(b'', 'Gauntlet II.nes'))
+
     def test_probe_accepts_zero_fallback_and_counts_other_interpretation(self):
         executable = self.root / 'game.exe'
         executable.write_bytes(b'fixture executable')

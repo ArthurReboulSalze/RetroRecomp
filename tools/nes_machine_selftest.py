@@ -22,6 +22,12 @@ add_executable(checks${{pal}} ${{NESRECOMP_CYC_SOURCES}} "{ROOT.as_posix()}/nati
 target_include_directories(checks${{pal}} PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} "{ROOT.as_posix()}/native" "{project.as_posix()}")
 target_compile_definitions(checks${{pal}} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PAL=${{pal}} RR_NES_ZAPPER=1)
 target_link_libraries(checks${{pal}} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
+# The same checks for a game that reads the Four Score (players 3 and 4): the four pads and the signature. The Zapper stays
+# on in this fixture as in the one above (it holds the machine's PPU in its immediate mode, which the clock checks read).
+add_executable(fourscore${{pal}} ${{NESRECOMP_CYC_SOURCES}} "{ROOT.as_posix()}/native/nes_machine_checks.c" "{ROOT.as_posix()}/native/platform_io.c")
+target_include_directories(fourscore${{pal}} PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} "{ROOT.as_posix()}/native" "{project.as_posix()}")
+target_compile_definitions(fourscore${{pal}} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PAL=${{pal}} RR_NES_ZAPPER=1 RR_NES_FOUR_SCORE=1)
+target_link_libraries(fourscore${{pal}} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
 endforeach()
 ''')
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
@@ -30,6 +36,10 @@ endforeach()
     for pal in (0, 1):
         for mapper in (0, 1, 2, 4, 5, 69, 85, 153):
             output = run([build_executable(project / 'build', f'checks{pal}'), str(mapper)])
+            print(output, flush=True)
+            results.append(json.loads(output))
+        for mapper in (0, 4):
+            output = run([build_executable(project / 'build', f'fourscore{pal}'), str(mapper)])
             print(output, flush=True)
             results.append(json.loads(output))
     (project / 'results.json').write_text(json.dumps(results, indent=2) + '\n')

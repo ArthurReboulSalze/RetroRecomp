@@ -13,7 +13,7 @@ from . import __version__, hostkit
 
 
 def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str,
-                 *, standard: str = 'ntsc', zapper: bool = False, mapper: int | None = None) -> None:
+                 *, standard: str = 'ntsc', zapper: bool = False, mapper: int | None = None, four_score: bool = False) -> None:
     machine = prepare_machine(project, engine)
     native = stage_native(project, ASSETS / 'native')
     kit = ' '.join(hostkit.stage(project, 'nes'))   # the player shell, below the project (docs/HOST_KIT.md)
@@ -168,7 +168,7 @@ add_library(nes_hardware OBJECT ${{NESRECOMP_CYC_SOURCES}})
 target_include_directories(nes_hardware PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} ${{RETRO_NATIVE_DIR}} "${{CMAKE_CURRENT_SOURCE_DIR}}")
 target_compile_features(nes_hardware PRIVATE c_std_11)
 target_compile_definitions(nes_hardware PRIVATE _CRT_SECURE_NO_WARNINGS CYC_WITH_SDL
-    RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
+    RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)} RR_NES_FOUR_SCORE={int(four_score)})
 add_executable(game $<TARGET_OBJECTS:nes_hardware> ${{CYC_PROJECT_SOURCES}}
     cyc_host.c {kit}
     ${{RETRO_NATIVE_DIR}}/nes_state.c
@@ -185,7 +185,7 @@ target_link_libraries(game PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
 target_compile_features(game PRIVATE c_std_11)
 target_compile_definitions(game PRIVATE _CRT_SECURE_NO_WARNINGS CYC_WITH_SDL)
 target_compile_definitions(game PRIVATE [[RR_RECOMP_VERSION="{__version__}"]])
-target_compile_definitions(game PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
+target_compile_definitions(game PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)} RR_NES_FOUR_SCORE={int(four_score)})
 if(MSVC)
     target_compile_options(game PRIVATE /bigobj /utf-8)
     target_compile_options(nes_hardware PRIVATE /bigobj /utf-8)
@@ -218,7 +218,7 @@ if(UNIX AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_library(nes_training_code OBJECT EXCLUDE_FROM_ALL ${{CYC_PROJECT_SOURCES}})
     target_include_directories(nes_training_code PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} ${{RETRO_NATIVE_DIR}} "${{CMAKE_CURRENT_SOURCE_DIR}}")
     target_compile_features(nes_training_code PRIVATE c_std_11)
-    target_compile_definitions(nes_training_code PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
+    target_compile_definitions(nes_training_code PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)} RR_NES_FOUR_SCORE={int(four_score)})
     set_property(TARGET nes_training_code PROPERTY INTERPROCEDURAL_OPTIMIZATION FALSE)
     add_executable(nes_profile EXCLUDE_FROM_ALL $<TARGET_OBJECTS:nes_hardware> $<TARGET_OBJECTS:nes_training_code>
         "${{NESRECOMP_CYC_DIR}}/cyc_host.c"
