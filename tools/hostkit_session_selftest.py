@@ -6,7 +6,9 @@ The kit's shell is compiled as an export compiles it, around the fake machine of
 the four ports' words of every frame), and driven through two anonymous pipes by a scripted worker written here, which folds the
 same words in Python and compares digests. Scenarios: alone (no session: the game plays as before, F8 still saves); delay
 (four ports, players 3 and 4 included); rollback (snapshots, loads, silent frames, then the live frame); a guest (no side
-effects); pause for everyone; an option the machine cannot honour; the pipe lost; F8 refused in a session. Runs under SDL's
+effects); pause for everyone; an option the machine cannot honour; the pipe lost; F8 refused in a session; the restart
+(alone at once as before; in a session the host's Shift+F1 is a request in its LOCAL and the machine restarts only on the
+worker's RUN, live or silent; a guest's is refused). Runs under SDL's
 dummy video and audio drivers (no window, no sound device). Needs the C toolchain and the pinned static SDL2 of `.deps`;
 nothing is written outside DIR (default .build/hostkit-session-selftest). A few seconds.
 """
@@ -96,9 +98,16 @@ def clean(word: int) -> int:
     return word
 
 
-def digest_of(history: list[tuple[int, int, int, int]]) -> int:
+RESTART = 0x5245534554       # what the fake's restart mixes into its accumulator (fake.c reset)
+
+
+def digest_of(history: list[tuple[int, int, int, int]], restarts=()) -> int:
+    """The fake's digest after `history`; `restarts`: the frames the machine restarted before (the frame count goes on)."""
     acc, frames = 0x9e3779b97f4a7c15, 0
+    restarts = set(restarts)
     for p1, p2, p3, p4 in history:
+        if frames in restarts:
+            acc = mix(acc ^ RESTART)
         p1, p2, p3, p4 = clean(p1), clean(p2), clean(p3), clean(p4)
         words = p1 | p2 << 16 | p3 << 32 | p4 << 48
         acc = mix(acc ^ words ^ ((frames << 7) & M))
@@ -111,7 +120,8 @@ def digest_of(history: list[tuple[int, int, int, int]]) -> int:
 class Game:
     """The fake game started in a session (or alone): its pipes, a reader thread, its exit."""
 
-    def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0):
+    def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
+                 restart_at: int = 0):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -121,8 +131,11 @@ class Game:
         if frames:
             env['RETRORECOMP_HOST_TEST_FRAMES'] = str(frames)
         env.pop('SESSION_FAKE_MENU_AT', None)
+        env.pop('SESSION_FAKE_RESTART_AT', None)
         if menu_at:
             env['SESSION_FAKE_MENU_AT'] = str(menu_at)
+        if restart_at:
+            env['SESSION_FAKE_RESTART_AT'] = str(restart_at)
         self.messages: queue.Queue = queue.Queue()
         self.pending: list = []
         self.write = None
@@ -226,8 +239,9 @@ def setup(game: Game, *, seat: int = 0, ports: int = 4, depth: int = 0, guest: b
                                             len(text)) + text)
 
 
-def run_payload(frame: int, words, silent: bool = False) -> bytes:
-    return struct.pack('<IBB', frame, CONSTANTS['RRHK_RUN_SILENT'] if silent else 0, len(words)) + \
+def run_payload(frame: int, words, silent: bool = False, reset: bool = False, flags: int = 0) -> bytes:
+    flags |= (CONSTANTS['RRHK_RUN_SILENT'] if silent else 0) | (CONSTANTS['RRHK_RUN_RESET'] if reset else 0)
+    return struct.pack('<IBB', frame, flags, len(words)) + \
         struct.pack(f'<{len(words)}H', *words)
 
 
@@ -235,24 +249,26 @@ def remote(frame: int, salt: int = 0) -> tuple[int, int, int]:
     return ((frame * 7 + salt) & 0xff, (frame * 13 + salt) & 0xff, (frame * 29 + salt) & 0xff)
 
 
-def live_frame(game: Game, frame: int, words, history: list, *, save: bool = False):
+def live_frame(game: Game, frame: int, words, history: list, *, save: bool = False, reset: bool = False) -> int:
+    """Runs `frame` live; returns the system bits of its LOCAL."""
     local = game.expect('RRHK_MSG_LOCAL')
-    got_frame, word, _system = struct.unpack('<IHH', local)
+    got_frame, word, system = struct.unpack('<IHH', local)
     assert got_frame == frame, (got_frame, frame)
     assert word == 0, word                    # no key, no pad in a test run
     if save:
         game.send('RRHK_MSG_SAVE', struct.pack('<I', frame))
-    game.send('RRHK_MSG_RUN', run_payload(frame, words))
+    game.send('RRHK_MSG_RUN', run_payload(frame, words, reset=reset))
     done = game.expect('RRHK_MSG_DONE')
     assert struct.unpack_from('<I', done)[0] == frame
     history.append(tuple(words))
+    return system
 
 
-def check_digest(game: Game, history: list) -> None:
+def check_digest(game: Game, history: list, restarts=()) -> None:
     game.send('RRHK_MSG_DIGEST')
     frame, low, high = struct.unpack('<III', game.expect('RRHK_MSG_DIGEST_OF'))
     assert frame == len(history) - 1, (frame, len(history))
-    assert (low | high << 32) == digest_of(history), 'digest differs from the fold'
+    assert (low | high << 32) == digest_of(history, restarts), 'digest differs from the fold'
 
 
 def stop(game: Game) -> None:
@@ -405,6 +421,85 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     code, result, text = game.finish()
     assert code == 0 and int(result['frames']) == 50 and int(result['quick']) == 1, (code, result, text)
     passed.append('test run: no session, plays alone (50 frames)')
+    passed.extend(restart_scenarios(executable, out))
+    return passed
+
+
+def restart_scenarios(executable: Path, out: Path) -> list[str]:
+    passed = []
+    restart_bit = CONSTANTS['RRHK_SYS_RESTART']
+
+    # 9. Alone, Shift+F1 restarts at once, as before the session existed: the machine restarts before frame 50, nothing
+    # else changes (the session's restart is inert without the pipes).
+    game = Game(executable, out, session=False, frames=200, restart_at=50)
+    code, result, text = game.finish()
+    assert code == 0, text
+    assert int(result['frames']) == 200 and int(result['resets']) == 1, result
+    assert int(result['digest'], 16) == digest_of([(0, 0, 0, 0)] * 200, {50}), result
+    passed.append('restart alone: Shift+F1 restarts at once before frame 50, as before')
+
+    # 10. The host's Shift+F1 in a session: no restart on this PC alone; the request is in the LOCALs of one frame, and the
+    # machine restarts when the worker's RUN says so (here 3 frames later, as the input delay would put it), live; then a
+    # correction runs the restart again in a silent frame after a LOAD, and the digests follow the fold.
+    game = Game(executable, out, restart_at=20)
+    setup(game, depth=16)
+    history, restarts, asked = [], [], []
+    for frame in range(30):
+        reset = frame == 23
+        if reset:
+            restarts.append(frame)
+        if live_frame(game, frame, (0, *remote(frame)), history, save=True, reset=reset) & restart_bit:
+            asked.append(frame)
+    assert asked == [20], asked                 # pressed during frame 19: in the LOCAL of frame 20 only
+    check_digest(game, history, restarts)
+    local = game.expect('RRHK_MSG_LOCAL')
+    assert struct.unpack('<IHH', local)[0] == 30
+    game.send('RRHK_MSG_LOAD', struct.pack('<I', 22))       # back before the restart: frames 22..29 again, silent
+    del history[22:]
+    for again in range(22, 30):
+        words = (0, *remote(again, salt=0x33))
+        game.send('RRHK_MSG_SAVE', struct.pack('<I', again))
+        game.send('RRHK_MSG_RUN', run_payload(again, words, silent=True, reset=again == 23))
+        history.append(words)
+    game.send('RRHK_MSG_RUN', run_payload(30, (0, *remote(30))))
+    assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == 30
+    history.append((0, *remote(30)))
+    check_digest(game, history, restarts)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0, text
+    assert int(result['resets']) == 2 and int(result['silent']) == 8, result      # live once, silent once
+    assert int(result['digest'], 16) == digest_of(history, restarts), result
+    passed.append('restart, host: Shift+F1 asked in the LOCAL of frame 20 only, restarted on the RUN of frame 23 (live, then '
+                  'again silent after a LOAD), digests equal')
+
+    # 11. A guest's Shift+F1 is refused ("Only the host can restart"): nothing in its LOCALs, no restart; the host's RUN
+    # still restarts it.
+    game = Game(executable, out, restart_at=10)
+    setup(game, seat=1, guest=True)
+    history, restarts = [], []
+    for frame in range(30):
+        reset = frame == 25
+        if reset:
+            restarts.append(frame)
+        assert not live_frame(game, frame, (*remote(frame)[:1], 0, 0, 0), history, reset=reset) & restart_bit, frame
+    check_digest(game, history, restarts)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0 and int(result['resets']) == 1, result
+    passed.append('restart, guest: Shift+F1 refused, nothing asked; the host\'s RUN restarts it at frame 25')
+
+    # 12. A RUN with a flag the kit does not know ends the session (never a guess at its meaning).
+    game = Game(executable, out)
+    setup(game)
+    history = []
+    for frame in range(5):
+        live_frame(game, frame, (0, 0, 0, 0), history)
+    game.expect('RRHK_MSG_LOCAL')
+    game.send('RRHK_MSG_RUN', run_payload(5, (0, 0, 0, 0), flags=0x80))
+    code, result, text = game.finish(timeout=10)
+    assert code == 0 and int(result['frames']) == 5 and 'unknown flags' in text, (code, result, text)
+    passed.append('a RUN with an unknown flag: the session ends, nothing run')
     return passed
 
 

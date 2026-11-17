@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 /* Raised whenever a message, a field or the meaning of one changes. The lobby also compares the host stamp. */
-#define RRHK_SESSION_ABI 1
+#define RRHK_SESSION_ABI 2           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET) */
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
 #define RRHK_SESSION_ENV "RETRORECOMP_NETPLAY_PIPE"
@@ -49,8 +49,10 @@ enum {
 enum { RRHK_CAP_SNAPSHOT = 1, RRHK_CAP_DIGEST = 2, RRHK_CAP_POINTER = 4, RRHK_CAP_AXES = 8, RRHK_CAP_KEYBOARD = 16,
        RRHK_CAP_DRIVEN = 32 };
 enum { RRHK_SETUP_GUEST = 1 };          /* a guest never writes its cartridge save */
-enum { RRHK_RUN_SILENT = 1 };           /* re-simulation: no picture, no sound, no side effects */
-enum { RRHK_SYS_PAUSE = 1 };            /* the player asked for a pause (the Pause key, a menu) */
+enum { RRHK_RUN_SILENT = 1,            /* re-simulation: no picture, no sound, no side effects */
+       RRHK_RUN_RESET = 2 };           /* the machine restarts before this frame runs (live or silent): the host asked it */
+enum { RRHK_SYS_PAUSE = 1,             /* the player asked for a pause (the Pause key, a menu) */
+       RRHK_SYS_RESTART = 2 };         /* the host asked to restart (Shift+F1, the pad combination): in one frame's LOCALs */
 enum { RRHK_REFUSED_OPTION = 1, RRHK_REFUSED_SNAPSHOT = 2, RRHK_REFUSED_COMMAND = 3 };
 enum { RRHK_EXIT_CLOSED = 1, RRHK_EXIT_LOST = 2, RRHK_EXIT_STOPPED = 3, RRHK_EXIT_FAILED = 4 };
 enum { RRHK_NOTICE_WAITING = 1, RRHK_NOTICE_RESUMED = 2, RRHK_NOTICE_LEFT = 3 };

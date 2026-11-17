@@ -45,6 +45,11 @@ static struct {
     bool silent;                    /* a re-simulated frame is running */
     bool guest;
     bool paused;
+    bool restart_pending;           /* the host asked to restart: reported in the LOCALs of one frame */
+    bool restarting;                /* a driven machine restarts for everyone: its shell closes and opens again, the session
+                                     * stays (pipes, frame count, setup) */
+    uint8_t options[RRHK_SESSION_MAX_PAYLOAD];      /* the host's run-changing options of SETUP, applied again then */
+    uint16_t options_length;
     char paused_by[24];
     bool setup;                     /* SETUP received and applied: frames may run */
     Uint64 setup_until;             /* SETUP must come before this (SDL ticks) */
@@ -67,6 +72,13 @@ bool rrhk_session_active(void) { return rrhk_session_on; }
 bool rrhk_session_silent(void) { return s.silent; }
 bool rrhk_session_paused(void) { return rrhk_session_on && s.paused; }
 uint16_t rrhk_session_port(int port) { return port >= 0 && port < RRHK_MAX_PLAYERS ? s.ports[port] : 0; }
+bool rrhk_session_guest(void) { return rrhk_session_on && s.guest; }
+bool rrhk_session_restart(void) {
+    if (!rrhk_session_on) return false;
+    if (s.guest) { rrhk_notice(rr_tr("Only the host can restart"), 1800); return false; }
+    s.restart_pending = true;
+    return true;
+}
 Uint64 rrhk_session_period(Uint64 period) {
     return s.ppm ? (Uint64)((double)period * (1.0 + (double)s.ppm / 1e6)) : period;
 }
@@ -202,7 +214,14 @@ static bool apply_options(const RrhkMachine *m, const uint8_t *text, size_t leng
 }
 
 bool rrhk_session_open(RrhkRun *run) {
-    if (rrhk_session_on) return true;                   /* a driven guest restarted: the session goes on */
+    if (rrhk_session_on) {
+        /* A driven machine restarted for everyone (RRHK_RUN_RESET): the session goes on from the next frame, with the host's
+         * options and a guest's side effects set again on the new run. */
+        const RrhkMachine *m = run->machine;
+        if (s.setup && !apply_options(m, s.options, s.options_length)) return false;
+        if (s.guest && m->side_effects) m->side_effects(false);
+        return true;
+    }
     const char *value = getenv(RRHK_SESSION_ENV);
     if (!value || !*value) return true;                 /* alone: nothing changes */
     if (run->test_frames) return true;                  /* a hidden-window test run (the conversion's checks) is never a session */
@@ -246,9 +265,16 @@ bool rrhk_session_open(RrhkRun *run) {
     }
     memset(s.ports, 0, sizeof s.ports);
     memset(s.slot_used, 0, sizeof s.slot_used);
-    s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.ppm = 0; s.ending_until = 0; s.system_sent = 0; s.exit_reason = 0;
+    s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.restart_pending = false; s.ppm = 0; s.ending_until = 0; s.system_sent = 0; s.exit_reason = 0;
     s.setup = false; s.setup_until = SDL_GetTicks64() + 15000;
     rrhk_session_on = true;           /* from here the frames wait for SETUP inside the loop (events and pictures go on) */
+    /* The worker started this game from a window in the background: without the focus, the keyboard reaches nothing and the
+     * pads are ignored (or read twice through two of Windows' paths, seen on a ThinkPad on 17 Nov 2026). The game asks for it
+     * once, as a game opened by the player has it. */
+    if (run->win) {
+        SDL_SetHint(SDL_HINT_FORCE_RAISEWINDOW, "1");
+        SDL_RaiseWindow(run->win);
+    }
     return true;
 }
 
@@ -263,6 +289,7 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
     }
     s.guest = (payload[3] & RRHK_SETUP_GUEST) != 0;
     if (!apply_options(m, payload + 6, options)) return false;
+    memcpy(s.options, payload + 6, options); s.options_length = options;
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
     if (depth && bound) {
         s.ring = (uint8_t *)malloc(bound * depth);
@@ -345,7 +372,8 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     }
     /* The system bits are read every iteration: a menu opened asks everyone to pause, and closing it (while the session is
      * paused, so no RUN comes) is reported again for the same frame, with the same word; the worker takes the latest. */
-    const uint16_t system = (uint16_t)(rrhk.menu || rrhk.paused ? RRHK_SYS_PAUSE : 0);
+    const uint16_t system = (uint16_t)((rrhk.menu || rrhk.paused ? RRHK_SYS_PAUSE : 0) |
+                                       (s.restart_pending ? RRHK_SYS_RESTART : 0));
     if (!s.local_sent || system != s.system_sent) {
         /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
          * sends the neutral word. */
@@ -382,11 +410,13 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         case RRHK_MSG_RUN: {
             if (length < 6 || !set_ports(m, payload, length)) return lost(run, "a RUN broke the rules");
             const uint32_t frame = u32(payload);
+            if (payload[4] & ~(RRHK_RUN_SILENT | RRHK_RUN_RESET)) return lost(run, "a RUN with unknown flags");
             if (payload[4] & RRHK_RUN_SILENT) {
                 /* Re-simulation after a LOAD: frames in order, up to the one before the live frame. */
                 if (m->driven || !s.ring) { refuse(RRHK_REFUSED_COMMAND, "silent"); return lost(run, "a silent frame without snapshots"); }
                 if (frame != s.live) return lost(run, "a silent RUN out of order");
                 s.silent = true; effects(m, false);
+                if (payload[4] & RRHK_RUN_RESET) m->reset();       /* the host's restart, run again after a correction */
                 const bool ok = m->run_frame(s.ports[0], s.ports[1]);
                 rrhk_audio_discard(run);
                 s.silent = false; effects(m, true);
@@ -396,6 +426,13 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
                 break;
             }
             if (frame != s.live) return lost(run, "a RUN for another frame");
+            if (payload[4] & RRHK_RUN_RESET) {
+                /* The host's restart, at the same frame on every seat: the machine restarts, then this frame runs (a driven
+                 * machine unwinds after it, as Shift+F1 does alone). */
+                m->reset(); rrhk_audio_pause_output(run);
+                rrhk_notice(rr_tr("Restarted by the host"), 1800);
+                if (m->driven) s.restarting = true;    /* its shell closes after this frame and opens again: not the end */
+            }
             s.last_run = frame;
             return 1;
         }
@@ -470,12 +507,14 @@ void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks) {
     put32(done + 4, (uint32_t)(run->frequency ? cost_ticks * 1000000u / run->frequency : 0));
     send_message(RRHK_MSG_DONE, done, sizeof done);
     ++s.live;
+    if (s.system_sent & RRHK_SYS_RESTART) s.restart_pending = false;     /* the worker saw it in this frame's LOCAL */
     s.local_sent = false;
 }
 
 void rrhk_session_close(RrhkRun *run, int reason) {
     (void)run;
     if (!rrhk_session_on) return;
+    if (s.restarting && !s.ending_until) { s.restarting = false; return; }      /* the shell opens again at once */
     uint8_t out[2];
     /* The reason the session recorded when it ended (stopped, lost, refused) wins over the window's own (closed, failed). */
     put16(out, s.exit_reason ? s.exit_reason : (uint16_t)reason);

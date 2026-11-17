@@ -1263,6 +1263,8 @@
     "Needs geometry precision (PGXP) On": "需要开启几何精度 (PGXP)",
     "Supersampling: nothing larger than 8x to draw": "超级采样：没有比 8x 更大的绘制",
     "Quick states are off in multiplayer": "多人游戏中快速存档已关闭",
+    "Only the host can restart": "只有主机可以重新开始",
+    "Restarted by the host": "主机已重新开始",
     "Set by the host in multiplayer": "多人游戏中由主机设置",
     "Paused by %s": "%s 暂停了游戏",
     "Waiting for %s": "正在等待 %s",

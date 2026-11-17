@@ -14,7 +14,7 @@ import threading
 import unittest
 
 from retrorecomp.netplay import LockstepDriver, RollbackDriver, Settings, driver_for, input_records as wire
-from retrorecomp.netplay import control, lockstep, rollback, scripted_inputs, session_pipe as pipe
+from retrorecomp.netplay import control, lockstep, rollback, scripted_inputs, seat_map, session_pipe as pipe
 from retrorecomp.netplay.launch import Refusal, launch_settings
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +25,9 @@ MASK = 0xffffffffffffffff
 _spec = importlib.util.spec_from_file_location('netplay_rollback_selftest', ROOT / 'tools/netplay_rollback_selftest.py')
 selftest = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(selftest)
+
+
+RESTART = 0x5245534554       # what a restart mixes into the stepped game's state
 
 
 def fold(state, frame, words):
@@ -108,6 +111,11 @@ class SteppedGame:
                 return self._fail('a silent frame without snapshots')
             if not silent and not self.asked and self.depth:     # (the delay tier may answer before the game asks: the pipe keeps it)
                 return self._fail(f'a live RUN {frame} the game did not ask for')
+            if flags & ~(pipe.RUN_SILENT | pipe.RUN_RESET):
+                return self._fail(f'RUN {frame} with unknown flags {flags}')
+            if flags & pipe.RUN_RESET:
+                self.state = fold(self.state ^ RESTART, frame, ())      # the machine restarts before the frame
+                self.commands.append(('RESET', frame))
             self.state = fold(self.state, frame, words)
             self.live = frame + 1
             if silent:
@@ -394,6 +402,53 @@ SNAP = hello_of(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT)
 PLAIN = hello_of(pipe.CAP_DIGEST, 0)
 
 
+class RestartTests(unittest.TestCase):
+    """The host's restart (session ABI 2): its game's restart bit is a request that rides the host's next record, and every
+    game restarts before that frame; a guest's record never restarts anyone, and a restart is never guessed."""
+
+    def test_the_pipe_and_the_mapper_speak_restart_as_the_header_says(self):
+        header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
+        self.assertIn('RRHK_RUN_RESET = 2', header)
+        self.assertIn('RRHK_SYS_RESTART = 2', header)
+        self.assertEqual(pipe.run(5, (1, 2), silent=True, reset=True)[4 + 4], pipe.RUN_SILENT | pipe.RUN_RESET)
+        self.assertEqual(pipe.run(5, (1, 2))[4 + 4], 0)
+        self.assertTrue(seat_map.restart([(0, seat_map.SYS_RESTART), (0, 0)]))
+        self.assertFalse(seat_map.restart([(0, 0), (0, seat_map.SYS_RESTART)]))       # a guest's bit restarts nobody
+        self.assertFalse(seat_map.restart([]))
+        self.assertEqual(rollback.predicted([(5, seat_map.SYS_RESTART)]), (5, 0))     # never guessed
+        self.assertFalse(seat_map.SYS_RESTART & (seat_map.SYS_GAME_MASK | seat_map.SYS_CONTROL_MASK))
+
+    def test_the_hosts_game_asks_once_and_every_frame_after_restarts_nothing(self):
+        with Host(self, cap=4) as host:
+            host.ask(0)
+            host.peer(1, (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0))
+            host.ask(1)
+            mark = len(host.game.commands)
+            host.game.local(2, system=pipe.SYS_RESTART)          # pressed during frame 1: in the LOCAL of frame 2
+            settle(host.driver)
+            host.game.local(2, system=pipe.SYS_RESTART)          # the same LOCAL again (a menu bit changed): no second request
+            settle(host.driver)
+            self.assertEqual(host.driver._records[0][3][1] & seat_map.SYS_RESTART, seat_map.SYS_RESTART)
+            self.assertEqual(host.ask(3)[-2:], [('RESET', 3), ('RUN', 3, (own(3), 0))])
+            for frame in range(4, 7):
+                self.assertNotIn('RESET', [command[0] for command in host.ask(frame)])
+            self.assertEqual(host.driver.restarts, [3])
+            self.assertEqual([c for c in host.game.commands[mark:] if c[0] == 'RESET'], [('RESET', 3)])
+            self.assertEqual(host.game.errors, [])
+
+    def test_a_guest_driver_never_turns_its_games_bit_into_a_request(self):
+        class NoGame:
+            def attach(self, _sink):
+                pass
+        link = type('Link', (), {'open': lambda self, sink: None, 'send': lambda self, *a: None})()
+        guest = LockstepDriver(NoGame(), link, Settings(seat=1, seats=2, delay=2))
+        guest._phase, guest._holding = 'play', False
+        guest._set_delay(2, 0.0)
+        guest._holding = False
+        guest._local(0, 0, pipe.SYS_RESTART)
+        self.assertEqual(guest._records[1][2], (0, 0))
+
+
 class LaunchTierTests(unittest.TestCase):
     """The tier byte of the LAN room's LAUNCH: its encoding, its bounds and the host's decision (all pure)."""
 
@@ -484,7 +539,7 @@ class RollbackThroughRealPipesTests(unittest.TestCase):
         code, output, seconds = selftest.run_checks(ROOT / '.build/netplay-rollback-selftest')
         self.assertEqual(code, 0, output)
         self.assertIn(f'PASS: {len(selftest.SCENARIOS)} scenarios', output)
-        self.assertEqual(len(selftest.SCENARIOS), 13)
+        self.assertEqual(len(selftest.SCENARIOS), 14)
         self.assertLess(seconds, 900, output)     # a hang, not a speed
 
 

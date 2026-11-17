@@ -47,6 +47,7 @@ SYS_PAUSE = 0x0001           # the game's (session_pipe.SYS_PAUSE); the only bit
 SYS_PASS = 0x0002
 SYS_TO_SHIFT, SYS_TO_MASK = 8, 0x0700
 SYS_SET_ALL, SYS_SET_TURNS = 0x1000, 0x2000
+SYS_RESTART = 0x4000         # host only: every game restarts before this frame runs (one record = one restart; a guest's is ignored)
 SYS_GAME_MASK = SYS_PAUSE
 SYS_CONTROL_MASK = SYS_PASS | SYS_TO_MASK | SYS_SET_ALL | SYS_SET_TURNS
 
@@ -129,6 +130,12 @@ def merge(words, opposites=()) -> int:
         if word & first and word & second:
             word &= ~(first | second) & 0xffff
     return word
+
+
+def restart(records) -> bool:
+    """Whether the machines restart before this frame: the host's record of it carries SYS_RESTART. Only the host's counts,
+    whatever the mode; a guest's bit is ignored. A predicted record has no system bit, so a restart is never guessed."""
+    return bool(records) and bool(records[HOST][1] & SYS_RESTART)
 
 
 def step(state: SeatState, records, opposites=()) -> tuple[tuple, SeatState]:

@@ -39,7 +39,7 @@ DEFAULTS = {
     'desync': lambda: None, 'measured': lambda: None, 'boot_digest': lambda: None, 'exit_code': lambda: None,
     'exit_reason': lambda: None, 'pace': dict, 'hello': lambda: None, 'history': list, 'digests': dict,
     'pace_trace': list, 'sharing': lambda: 'per_player', 'token': lambda: 0, 'tier': lambda: 'delay',
-    'rollback_depths': list, 'history_frames': lambda: 0, 'history_digest': lambda: '',
+    'rollback_depths': list, 'history_frames': lambda: 0, 'history_digest': lambda: '', 'restarts': list,
 }
 
 

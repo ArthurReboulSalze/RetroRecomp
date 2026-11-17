@@ -22,6 +22,19 @@ from . import session_pipe as pipe
 NEVER_IN_A_SESSION = ('RETRORECOMP_HOST_TEST_FRAMES',)
 
 
+def _allow_foreground() -> None:
+    """Windows: lets the game about to start take the foreground (its window then has the keyboard and the pads, as a game
+    the player opened does). A process may only pass on a right it has: from a background worker this does nothing, and it
+    is never an error."""
+    if os.name != 'nt':
+        return
+    try:
+        import ctypes
+        ctypes.windll.user32.AllowSetForegroundWindow(-1)      # ASFW_ANY
+    except (AttributeError, OSError):
+        pass
+
+
 class SessionGame:
     def __init__(self, executable: Path, cwd: Path | None = None, env: dict | None = None,
                  stdout: Path | None = None, stderr: Path | None = None):
@@ -63,6 +76,7 @@ class SessionGame:
             else:
                 environment[pipe.ENV] = f'{game_in},{game_out}'
                 kwargs.update(pass_fds=(game_in, game_out))
+            _allow_foreground()
             self.process = subprocess.Popen([str(self.executable)], **kwargs)
         except BaseException:
             for descriptor in (self._write, self._read):

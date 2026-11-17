@@ -329,12 +329,12 @@ void rrhk_poll_events(RrhkRun *run) {
             continue;
         }
         /* Multiplayer: a key that would change the run on this PC alone is refused with one notice, before every other branch
-         * (the kit's and the machine's key_event): Shift+F1, F8/F9, the Max speed key, Change disc, the shortcut of an option
+         * (the kit's and the machine's key_event): F8/F9, the Max speed key, Change disc, the shortcut of an option
          * row the host sets, a key of a machine page that changes the run (DIP switches). Menus, bindings, filters, sound,
          * language and Quit stay this player's own. */
         if (rrhk_session_on) {
             const bool states = key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9;
-            const bool refused = states || (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) ||
+            const bool refused = states ||
                 (key == SDL_SCANCODE_GRAVE && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) ||
                 (media_pressed(&event, key) && !rrhk_options_component(key, -1)) || rrhk_option_key_run(key) ||
                 (rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
@@ -346,8 +346,9 @@ void rrhk_poll_events(RrhkRun *run) {
             }
         }
         if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
-            /* Shift+F1 restarts at once, without a confirmation. */
-            m->reset(); rrhk_audio_pause_output(run);
+            /* Shift+F1 restarts at once, without a confirmation; in multiplayer the host restarts everyone at the same frame. */
+            if (rrhk_session_on) rrhk_session_restart();
+            else { m->reset(); rrhk_audio_pause_output(run); }
         } else if (pause_pressed(&event, key) && !rrhk_options_component(key, -1)) {
             rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
         } else if (media_pressed(&event, key) && !rrhk_options_component(key, -1)) {

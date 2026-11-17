@@ -73,6 +73,7 @@ PACE_EVERY = 0.25
 HELLO_WITHIN = 15.0
 GATE_WITHIN = 20.0           # from SETUP to the start: boot digests, measures, the host's word
 CLOSE_WITHIN = 12.0          # a stopped game shows its message about 3.5 s, then closes
+RESTART_FOLD = 0x9e3779b97f4a7c15      # what a restart adds to the history digest's fold
 LINGER = 3.0                 # after the last frame: time left to the others to get the last records and digest
 CLOSING_MIN = 0.5            # a seat that ended well goes on sending this long: its last digest may have been lost
 BYE_COPIES = 3
@@ -214,6 +215,8 @@ class LockstepDriver:
         self._holding = True                    # until the start: LOCALs are kept, no frame is given
         self._hold_ms = 0
         self._game_system = 0
+        self._game_restart = False              # the game's restart bit in its latest LOCAL (a request on its rising edge)
+        self.restarts: list[int] = []           # the frames this game was told to restart before (verified ones on rollback)
         self._host_saw_pause = False
         self._resumed: set[int] = set()
         self._my_resume = wire.NONE
@@ -304,6 +307,7 @@ class LockstepDriver:
             'pauses': [list(item) for item in self.pauses], 'desync': list(self.desync) if self.desync else None,
             'measured': list(self.measured) if self.measured else None, 'boot_digest': self.boot_digest,
             'exit_code': self.exit_code, 'exit_reason': self.exit_reason, 'history_frames': self.history_frames,
+            'restarts': list(self.restarts[-64:]),
             'history_digest': f'{self.history_digest:016x}',
             'pace': {'ppm': self._pace.ppm, 'median': round(self._pace.median, 3), 'changes': self._pace.changes},
             'hello': None if hello is None else {'name': hello.name, 'players': hello.players, 'caps': hello.caps,
@@ -499,6 +503,13 @@ class LockstepDriver:
         if self._phase in ('hello', 'gate') or self._holding:
             self._pending_locals.append((frame, word, system))     # kept in order until the match starts
             return
+        # The host's restart (Shift+F1, the pad combination): the rising edge of the game's bit is a request that rides the
+        # next record of this seat, so every game restarts at that frame. A guest's game never asks (the kit refuses it);
+        # ignored if it did. Read before a test's script replaces the system bits, so a scripted seat can restart too.
+        asked = bool(system & pipe.SYS_RESTART)
+        if asked and not self._game_restart and self.seat == HOST:
+            self._request |= seat_map.SYS_RESTART
+        self._game_restart = asked
         if self.settings.local_source is not None:
             word, system = self.settings.local_source(frame, word, system)
             word, system = word & 0xffff, system & 0xffff
@@ -700,8 +711,9 @@ class LockstepDriver:
                     self.pauses.append((frame, pausers[0], None))
                     self._tell(pipe.pause(True, self.names[pausers[0]]))
                     continue
-            words, self._seat_state = seat_map.step(self._seat_state, [self._records[seat][frame] for seat in range(self.seats)],
-                                                    self.settings.opposites)
+            records = [self._records[seat][frame] for seat in range(self.seats)]
+            reset = seat_map.restart(records)
+            words, self._seat_state = seat_map.step(self._seat_state, records, self.settings.opposites)
             if self.settings.words_filter is not None:
                 words = tuple(self.settings.words_filter(frame, words))
             if frame and self.game_frame >= frame:
@@ -710,8 +722,8 @@ class LockstepDriver:
                 self._tell(pipe.notice(pipe.NOTICE_RESUMED))
                 self._waiting_noticed = False
             self._blocked_since = None
-            self._tell(pipe.run(frame, words))
-            self._remember(frame, words)
+            self._tell(pipe.run(frame, words, reset=reset))
+            self._remember(frame, words, reset)
             self.stats['runs'] += 1
             self.next_run = frame + 1
             if self.next_run % self.settings.digest_every == 0 or self.next_run == self.settings.last_frame:
@@ -731,11 +743,15 @@ class LockstepDriver:
                 self._local(*local)
         return True
 
-    def _remember(self, frame: int, words: tuple):
-        """What this game was told to run: kept whole only for tests (`keep_history`); always as a running fold."""
+    def _remember(self, frame: int, words: tuple, reset: bool = False):
+        """What this game was told to run: kept whole only for tests (`keep_history`); always as a running fold (a restart
+        before the frame folds in too)."""
         value = frame
         for port, word in enumerate(words):
             value ^= word << (16 * port + 7)
+        if reset:
+            value ^= RESTART_FOLD
+            self.restarts.append(frame)
         self.history_digest = ((self.history_digest * 0x100000001b3) ^ value) & 0xffffffffffffffff
         self.history_frames += 1
         if self.settings.keep_history:

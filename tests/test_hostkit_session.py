@@ -21,7 +21,7 @@ class SessionThroughTheLoopTests(unittest.TestCase):
             self.skipTest(reason)
         code, output, seconds = selftest.run_checks(ROOT / '.build/hostkit-session-selftest')
         self.assertEqual(code, 0, output)
-        self.assertIn('PASS: 9 scenarios', output)
+        self.assertIn('PASS: 13 scenarios', output)       # restart alone, host, guest, unknown flag (ABI 2)
         self.assertLess(seconds, 120, output)     # a hang, not a speed
 
 
@@ -44,6 +44,17 @@ class SoloPathTests(unittest.TestCase):
         self.assertIn('shell/rrhk_session.inc', hostkit.SHELL_INCLUDED)
         main = (KIT / 'shell/rrhk_main.c').read_text(encoding='utf-8')
         self.assertTrue(main.rstrip().endswith('#include "rrhk_session.inc"'))
+
+    def test_the_restart_is_the_solo_one_without_a_session(self):
+        # Shift+F1 and the pad combination restart at once alone, exactly as before; the session's request is reached only
+        # through rrhk_session_on (and answers false without it). The selftest's "restart alone" runs it through the loop.
+        events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
+        self.assertIn('if (rrhk_session_on) rrhk_session_restart();\n            else { m->reset(); rrhk_audio_pause_output(run); }',
+                      events)
+        main = (KIT / 'shell/rrhk_main.c').read_text(encoding='utf-8')
+        self.assertIn('if (!rrhk_session_on) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }', main)
+        session = (KIT / 'shell/rrhk_session.inc').read_text(encoding='utf-8')
+        self.assertIn('bool rrhk_session_restart(void) {\n    if (!rrhk_session_on) return false;', session)
 
     def test_the_abi_is_versioned(self):
         header = (KIT / 'hostkit_session.h').read_text(encoding='utf-8')

@@ -74,8 +74,8 @@ def expected(seats: int, delay: int, frames: int) -> list[tuple]:
     return [tuple(pad(seat, frame - delay) if frame >= delay else 0 for seat in range(seats)) for frame in range(frames)]
 
 
-def fold(history) -> int:
-    return fake.digest_of([tuple(words) + (0,) * (4 - len(words)) for words in history])
+def fold(history, restarts=()) -> int:
+    return fake.digest_of([tuple(words) + (0,) * (4 - len(words)) for words in history], restarts)
 
 
 # The fake machine's pad bits (tools/hostkit_session/fake.c): Right 1, Left 2, Down 4, Up 8, and four buttons. The kit cancels
@@ -201,7 +201,8 @@ class Match:
         return sum(len(self.link.fates[(0, seat)]) + len(self.link.fates[(seat, 0)]) for seat in range(1, self.seats))
 
 
-def in_step(match: Match, frames: int, delay: int | None = None, wanted: list | None = None, seen: list | None = None) -> str:
+def in_step(match: Match, frames: int, delay: int | None = None, wanted: list | None = None, seen: list | None = None,
+            restarts=()) -> str:
     """Every seat ran the same `frames` frames with the same words, and the games agree with the drivers. `wanted`: the port
     words the drivers must have told their games (else one controller per player: the scripts, shifted by the delay); `seen`:
     the words the games folded (else the same: a game cleans what it is given)."""
@@ -221,13 +222,14 @@ def in_step(match: Match, frames: int, delay: int | None = None, wanted: list | 
         assert driver.history == wanted, f'{match.name}: seat {driver.seat + 1} ran other words than the scripts'
         result = match.result(driver.seat)
         assert int(result['frames']) == frames and int(result['live']) == frames and int(result['silent']) == 0, result
-        assert int(result['digest'], 16) == fold(seen), f'{match.name}: seat {driver.seat + 1}: the game ran other words'
+        assert list(driver.restarts) == list(restarts), f'{match.name}: seat {driver.seat + 1} restarted before {driver.restarts}'
+        assert int(result['digest'], 16) == fold(seen, restarts), f'{match.name}: seat {driver.seat + 1}: the game ran other words'
         assert int(result['effects_off']) == (frames if driver.seat else 0), result      # a guest writes no save
         assert driver.digests == drivers[0].digests, 'the digests differ between seats'
         assert driver.desync is None and driver.stats['final_compared'], (driver.desync, driver.stats)
     every = drivers[0].settings.digest_every if INPROC else drivers[0].config['settings']['digest_every']
     assert len(drivers[0].digests) == frames // every + (1 if frames % every else 0), drivers[0].digests.keys()
-    assert drivers[0].digests[frames - 1] == fold(seen)
+    assert drivers[0].digests[frames - 1] == fold(seen, restarts)
     topology = ''
     if match.seats > 2 and not mesh_run(match):
         through = match.only_through_the_host()
@@ -339,6 +341,17 @@ def pause_by_menu(executable, out):
     for driver in match.drivers:
         assert driver.pauses == [(42, 1, 1)], (driver.seat, driver.pauses)
     return 'paused by seat 2 before frame 42 on both seats, resumed by seat 2; ' + in_step(match, 200, 2)
+
+
+def restart_for_everyone(executable, out):
+    # The host presses Shift+F1 during frame 99: its LOCAL of frame 100 asks, the request rides its record of frame 102, and
+    # every game restarts before frame 102. Seat 2 presses it during frame 149: refused in its game, nothing restarts.
+    match = Match(executable, out, 'restart', 2, delay=2, last_frame=300, digest_every=50,
+                  env={0: {'SESSION_FAKE_RESTART_AT': '100'}, 1: {'SESSION_FAKE_RESTART_AT': '150'}}).start()
+    match.finish(40)
+    for driver in match.drivers:
+        assert int(match.result(driver.seat)['resets']) == 1, (driver.seat, match.result(driver.seat))
+    return 'the host restarted every game before frame 102, seat 2\'s restart refused; ' + in_step(match, 300, 2, restarts=[102])
 
 
 def pause_host_resumes(executable, out):
@@ -566,6 +579,7 @@ SCENARIOS = [
     ('boot-mismatch', 40, boot_mismatch),
     ('pause-menu', 40, pause_by_menu),
     ('pause-host', 40, pause_host_resumes),
+    ('restart', 40, restart_for_everyone),
     ('host-stops', 40, host_stops),
     ('desync', 40, forced_desync),
     ('pipe-lost', 40, pipe_lost),

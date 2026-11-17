@@ -65,7 +65,7 @@ def counts(match: Match, key: str) -> str:
     return '/'.join(str(stat(driver, key)) for driver in match.drivers)
 
 
-def rolled(match: Match, frames: int, wanted: list, cap: int = CAP, delay: int | None = None) -> str:
+def rolled(match: Match, frames: int, wanted: list, cap: int = CAP, delay: int | None = None, restarts=()) -> str:
     """Every seat is on the rollback tier, its confirmed history is `wanted`, its game ends in the state that history
     folds to, and the counts of the driver are the counts of the game."""
     drivers = match.drivers
@@ -77,11 +77,12 @@ def rolled(match: Match, frames: int, wanted: list, cap: int = CAP, delay: int |
     assert len(delays) == 1 and (delay is None or delays == {delay}), delays
     boots = {driver.boot_digest for driver in drivers}
     assert len(boots) == 1 and None not in boots, f'{match.name}: the boot digests are not one: {boots}'
-    final = base.fold(wanted)
+    final = base.fold(wanted, restarts)
     every = drivers[0].config['settings']['digest_every'] if not base.INPROC else drivers[0].settings.digest_every
     for driver in drivers:
         label = f'{match.name}: seat {driver.seat + 1}'
         assert driver.history == wanted, f'{label}: the confirmed history is not the scripts'
+        assert list(driver.restarts) == list(restarts), f'{label}: restarted before {driver.restarts}, not {list(restarts)}'
         result = match.result(driver.seat)
         silent, again = int(result['silent']), stat(driver, 'rollback_frames')
         assert int(result['frames']) == frames and int(result['live']) == frames, (label, result)
@@ -99,7 +100,8 @@ def rolled(match: Match, frames: int, wanted: list, cap: int = CAP, delay: int |
     assert drivers[0].digests[frames - 1] == final
     # every digest given during the match is the fold of the confirmed history up to its frame
     for frame, value in drivers[0].digests.items():
-        assert value == base.fold(wanted[:frame + 1]), f'{match.name}: the digest of frame {frame} is not of confirmed frames'
+        assert value == base.fold(wanted[:frame + 1], [r for r in restarts if r <= frame]), \
+            f'{match.name}: the digest of frame {frame} is not of confirmed frames'
     return (f'{frames} frames, delay {delays.pop()}, cap {cap}, {len(drivers[0].digests)} digests of confirmed frames equal on '
             f'{match.seats} seats and equal to the fold of the confirmed history; per seat: rollbacks {counts(match, "rollbacks")}, '
             f'frames run again {counts(match, "rollback_frames")}, deepest {counts(match, "rollback_depth_max")}, frames run on a '
@@ -165,6 +167,22 @@ def shared_turns(executable, out):
         state = base.state_of(driver)
         assert (state['sharing'], state['token']) == ('turns', 2), state
     return 'turns on three seats, the token and the mode moved on confirmed records only; ' + rolled(match, frames, wanted, CAP, delay)
+
+
+def restart_over_lag(executable, out):
+    # The host restarts (Shift+F1 during its frame 99: its record of frame 100 + D carries the request) over 120 +- 20 ms:
+    # seat 2 runs that frame on a guess without the restart (a restart is never predicted), then corrects: LOAD, the restart
+    # in a silent frame, and both games end in the state of the confirmed history with that one restart.
+    frames = 300
+    match = Match(executable, out, 'rollback-restart', 2, hz=60, delay=2, rollback=CAP, last_frame=frames, digest_every=60,
+                  link={'latency_ms': 120.0, 'jitter_ms': 20.0}, env={0: {'SESSION_FAKE_RESTART_AT': '100'}},
+                  per_seat={seat: {'local_source': held(seat, 6)} for seat in range(2)}).start()
+    match.finish(90)
+    restarts = [100 + match.drivers[0].delay]
+    guest = match.result(1)
+    assert int(guest['resets']) >= 1 and int(guest['silent']) > 0, guest      # the restart reached seat 2 through corrections
+    return (f"the host's restart before frame {restarts[0]}, over 120 ms: seat 2's game ran {guest['resets']} restart(s) "
+            f'(silent ones included); ' + rolled(match, frames, expected(2, 2, frames, 6), CAP, 2, restarts))
 
 
 def pause_host_resumes(executable, out):
@@ -236,6 +254,7 @@ SCENARIOS = [
     auto_delay('rollback-delay-chosen-far', 40.0, 5.0, 2),
     ('rollback-shared-turns', 90, shared_turns),
     ('rollback-pause', 60, pause_host_resumes),
+    ('rollback-restart', 90, restart_over_lag),
     ('rollback-desync', 60, forced_desync),
     ('rollback-asked-no-snapshot', 60, without_snapshots),
 ]

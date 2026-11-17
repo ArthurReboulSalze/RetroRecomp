@@ -1263,6 +1263,8 @@
     "Needs geometry precision (PGXP) On": "Нужна точность геометрии (PGXP)",
     "Supersampling: nothing larger than 8x to draw": "Суперсэмплинг: больше 8x рисовать нечего",
     "Quick states are off in multiplayer": "Быстрые сохранения отключены в сетевой игре",
+    "Only the host can restart": "Перезапуск доступен только хосту",
+    "Restarted by the host": "Хост перезапустил игру",
     "Set by the host in multiplayer": "В сетевой игре это задаёт хост",
     "Paused by %s": "Пауза: %s",
     "Waiting for %s": "Ожидание: %s",

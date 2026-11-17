@@ -1263,6 +1263,8 @@
     "Needs geometry precision (PGXP) On": "Requiere la precisión geométrica (PGXP) activada",
     "Supersampling: nothing larger than 8x to draw": "Supermuestreo: nada mayor que 8x que dibujar",
     "Quick states are off in multiplayer": "Estados rápidos desactivados en multijugador",
+    "Only the host can restart": "Solo el anfitrión puede reiniciar",
+    "Restarted by the host": "Reiniciado por el anfitrión",
     "Set by the host in multiplayer": "Lo decide el anfitrión en multijugador",
     "Paused by %s": "Pausado por %s",
     "Waiting for %s": "Esperando a %s",

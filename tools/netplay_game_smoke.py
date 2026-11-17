@@ -2,7 +2,8 @@
 joined through the host (a star) by the in-memory link, which this process carries the workers' packets through.
 
     python -B tools/netplay_game_smoke.py GAME.exe [--seats 2] [--frames 3000] [--latency MS] [--jitter MS]
-                                          [--loss RATE] [--delay FRAMES] [--rollback CAP] [--hold FRAMES] [--output DIR]
+                                          [--loss RATE] [--delay FRAMES] [--rollback CAP] [--hold FRAMES] [--restart-at FRAME]
+                                          [--output DIR]
 
 Not part of the test suite: it needs a game the player converted (never in the repository). Each seat gets its own
 copy of the executable in its own folder under DIR (default .build/netplay-game-smoke), so the copies share no file.
@@ -20,7 +21,8 @@ duration or a speed.
 a game that keeps no snapshot stays on the delay tier and the line of its seat says so. The history compared is then the
 confirmed one, the digests are of confirmed frames, and the corrections are counted (how many, how many frames run again,
 the deepest, by depth). `--hold` is how many frames the scripted pads keep a word (default 12; smaller: inputs that change
-more often, so more wrong guesses).
+more often, so more wrong guesses). `--restart-at F`: the host restarts the game for everyone (its LOCAL of frame F asks, as its Shift+F1 would): every seat
+must restart before the same frame (F plus the delay) and the digests stay equal.
 """
 from __future__ import annotations
 
@@ -34,7 +36,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from retrorecomp.netplay import LinkSimulator, WorkerProcess   # noqa: E402
+from retrorecomp.netplay import LinkSimulator, WorkerProcess, seat_map   # noqa: E402
 
 HIDDEN = {'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy', 'SDL_RENDER_VSYNC': '0',
           'SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT': '0x0000/0x0000'}
@@ -52,6 +54,7 @@ def main() -> int:
     parser.add_argument('--delay', type=int, help='input delay in frames (default: measured and chosen by the host)')
     parser.add_argument('--rollback', type=int, default=0, help='prediction cap of the rollback tier (default 0: the delay tier)')
     parser.add_argument('--hold', type=int, default=12, help='frames a scripted pad keeps its word')
+    parser.add_argument('--restart-at', type=int, default=0, help='the host asks a restart for everyone in its LOCAL of this frame')
     parser.add_argument('--digest-every', type=int, default=60)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--limit', type=float, default=0.0, help='seconds before the games are ended (default: from --frames)')
@@ -72,9 +75,11 @@ def main() -> int:
         folder.mkdir(parents=True)
         copy = folder / game.name
         shutil.copy2(game, copy)
+        script = {'kind': 'random', 'seat': seat, 'hold': args.hold}
+        if seat == 0 and args.restart_at:
+            script['system_at'] = {str(args.restart_at): seat_map.SYS_RESTART}     # rides its record of F + delay
         settings = dict(seat=seat, seats=args.seats, names=list(NAMES[:args.seats]), digest_every=args.digest_every,
-                        last_frame=args.frames, local_source={'kind': 'random', 'seat': seat, 'hold': args.hold}, keep_history=True,
-                        rollback=args.rollback)
+                        last_frame=args.frames, local_source=script, keep_history=True, rollback=args.rollback)
         if seat == 0 and args.delay:
             settings['delay'] = args.delay
         config = dict(game=dict(exe=str(copy), cwd=str(folder), env=HIDDEN, stdout=str(folder / 'stdout.txt'),
@@ -121,6 +126,10 @@ def main() -> int:
             problems.append(f'{label}: {worker.outcome} {worker.detail}')
         if worker.boot_digest is None or worker.boot_digest != first.boot_digest:
             problems.append(f'{label}: boot digest {worker.boot_digest} against seat 1: {first.boot_digest}')
+        if args.restart_at:
+            print(f'    restarted before frames {list(worker.restarts)}')
+            if list(worker.restarts) != list(first.restarts) or len(worker.restarts) != 1:
+                problems.append(f'{label}: restarts {list(worker.restarts)} against seat 1: {list(first.restarts)}')
         if worker.history != first.history:
             problems.append(f'{label}: other port words than seat 1')
         if worker.digests != first.digests:

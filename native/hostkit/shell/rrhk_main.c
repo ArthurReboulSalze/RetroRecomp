@@ -400,11 +400,11 @@ static void draw_notices(RrhkRun *r) {
             else snprintf(line, sizeof line, "%s", rr_tr("Game controls on the keyboard"));
             rr_menu_plate(r->ren, ox, oy, unit, y, line, guest_keyboard ? RR_ICON_KEYBOARD_SMALL : RR_ICON_GAMEPAD_SMALL);
             y -= 16;
-        } else if (rrhk.pads[0] && (rrhk_combo_set(0, true) || rrhk_combo_set(1, true))) {
+        } else if (rrhk.pads[0] && (rrhk_combo_set(0, true) || (rrhk_combo_set(1, true) && !rrhk_session_guest()))) {
             rrhk_combo_value(quit, sizeof quit, 0, true);
             rrhk_combo_value(restart, sizeof restart, 1, true);
             used = rrhk_combo_set(0, true) ? snprintf(line, sizeof line, "%s: %s", quit, rr_tr("Quit")) : 0;
-            if (rrhk_combo_set(1, true) && used >= 0 && used < (int)sizeof line)
+            if (rrhk_combo_set(1, true) && !rrhk_session_guest() && used >= 0 && used < (int)sizeof line)   /* a guest cannot restart */
                 snprintf(line + used, sizeof line - (size_t)used, "%s%s: %s", used ? " | " : "", restart, rr_tr("Reset"));
             rr_menu_plate(r->ren, ox, oy, unit, y, line, RR_ICON_GAMEPAD_SMALL);
             y -= 16;
@@ -432,7 +432,11 @@ static bool begin_frame(RrhkRun *r) {
         if (r->test_frames) r->running = false; else rrhk_quit_ask();
     } else if (!quit_held) {
         quit_asked = false;
-        if (rrhk_options_restart(rrhk.menu) && !rrhk_session_on) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
+        if (rrhk_options_restart(rrhk.menu)) {
+            /* In multiplayer the host's restart goes to everyone at the same frame (a guest is told only the host can). */
+            if (!rrhk_session_on) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
+            else if (rrhk_session_restart()) rrhk.menu = 0;
+        }
     }
     /* 1.7.5: Quick save and Quick load on player 1's pad, as F8 and F9 in play (the same request, the same notices). Both are
      * watched every frame, so that a hold begun in a menu is never taken for a new one; they act in play only. */

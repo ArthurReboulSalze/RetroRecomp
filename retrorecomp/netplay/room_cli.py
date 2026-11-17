@@ -27,6 +27,7 @@ import argparse
 from pathlib import Path
 import sys
 import tempfile
+import threading
 
 from . import control, invitation, seat_map
 from .rollback import DEFAULT_PREDICTION, TIER_MODES
@@ -36,9 +37,17 @@ DEFAULT_MACHINE = 'cli'
 ZERO = '00' * 32
 
 
+_SAY = threading.Lock()
+
+
 def say(text: str) -> None:
+    """One whole line. The worker's events are said from its reader thread while the command says its own: each line is
+    written with its end in one write, under a lock, so two lines never run into each other."""
     encoding = sys.stdout.encoding or 'ascii'
-    print(text.encode(encoding, 'replace').decode(encoding), flush=True)
+    line = text.encode(encoding, 'replace').decode(encoding) + '\n'
+    with _SAY:
+        sys.stdout.write(line)
+        sys.stdout.flush()
 
 
 def _hex32(text: str) -> str:
@@ -224,11 +233,16 @@ def run_guest(args, tests: bool = False) -> int:
                 say('no answer: check the invitation, or the host\'s firewall')
             return 1
         say('in the room; waiting for the host to launch (Ctrl+C to leave)')
+        launched = False
         try:
             while worker.wait_event('match_over', 1.0) is None:
+                launched = launched or worker.wait_event('launch_request', 0.0) is not None
                 if worker.done or worker.wait_event('host_gone', 0.0):
                     say('the host is gone')
-                    return 1
+                    if not launched:
+                        return 1
+                    worker.wait_event('match_over', 5.0)      # a match in progress ends with the room: its result is still said
+                    break
         except KeyboardInterrupt:
             worker.stop()
             worker.wait_event('match_over', 60.0)

@@ -272,6 +272,10 @@ Uint64 rrhk_session_period(Uint64 period);    /* the frame period with the worke
 double rrhk_session_audio_base(void);         /* the sound's factor under that time sync (rrhk_audio_set_base) */
 bool rrhk_option_key_run(int key);            /* options.c: this key is the shortcut of a row that changes the run */
 bool rrhk_session_paused(void);
+/* The player asked to restart in a session: the host's request goes to the worker, which restarts every game at the same
+ * frame (RRHK_RUN_RESET); a guest is told only the host can. true: the request was taken (the host). */
+bool rrhk_session_restart(void);
+bool rrhk_session_guest(void);              /* in a session as a guest (the host restarts, a guest cannot) */
 void rrhk_session_close(RrhkRun *run, int reason);
 /* input.c: the pad word of this PC's player as today's solo game reads it (player `player`'s bindings, autofire applied). */
 uint16_t rrhk_local_pad_word(int player, uint64_t frame);
