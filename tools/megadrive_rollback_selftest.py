@@ -3,8 +3,9 @@
 `python -B tools/megadrive_rollback_selftest.py PROJECT --output DIR [--game-frames N]` links the checks with the objects
 of a kept Mega Drive build (a conversion with --keep-build) and runs them twice: `authored` (an authored program in work
 RAM, no game code: frames end with the 68000 inside an instruction under DMA, with the sound CPU inside a bus read and
-with a bus request pending, each a rollback that must replay exactly, plus negative controls) and `game` (that build's own
-game from power-on with changing pads). The game's dump stays where the player's build put it; nothing of it is kept here.
+with a bus request pending, each a rollback that must replay exactly, plus negative controls), `multitap` (the Team
+Player, 4 Way Play and J-Cart protocols driven through the bus, whatever the build's own adapter) and `game` (that build's
+own game from power-on with changing pads). The game's dump stays where the player's build put it; nothing of it is kept here.
 """
 from pathlib import Path
 import argparse
@@ -22,7 +23,7 @@ def check(project, output, game_frames=1800):
     harness = (ROOT / 'native/md_rollback_checks.c').read_text(encoding='utf-8')
     exe = native_executable(project, output, harness)
     result = {}
-    for mode, extra in (('authored', []), ('game', [str(game_frames)])):
+    for mode, extra in (('authored', []), ('multitap', []), ('game', [str(game_frames)])):
         text = run([exe, mode, *extra], timeout=1800).strip().splitlines()[-1]
         result[mode] = json.loads(text)
     (output / 'rollback.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')

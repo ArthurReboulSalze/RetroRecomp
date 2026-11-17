@@ -32,9 +32,9 @@ static unsigned checks;
 
 #define RUN 8u                       /* frames run from a snapshot, then again after loading it */
 enum { PART_EXEC, PART_CPU, PART_SCHED, PART_RAM, PART_BUS, PART_VDP, PART_FM, PART_PSG, PART_EVQ, PART_INPUT,
-       PART_GLUE, PART_INTERP, PART_Z80, PART_YM, PART_GUN, PART_CART, PARTS };
+       PART_GLUE, PART_INTERP, PART_Z80, PART_YM, PART_GUN, PART_CART, PART_TAP, PARTS };
 static const char *const part_names[PARTS] = {"exec", "cpu", "sched", "ram", "bus", "vdp", "fm", "psg", "evq", "input",
-                                             "glue", "interp", "z80", "ym", "gun", "cart"};
+                                             "glue", "interp", "z80", "ym", "gun", "cart", "tap"};
 static uint8_t *start, *first, *second, *mixed;
 static size_t bound;
 static uint32_t seed = 0x2468ace1u;
@@ -227,6 +227,85 @@ static int game(unsigned frames) {
            frames, tally.tested, tally.instruction, tally.sound_cpu, tally.handshake);
     return 1;
 }
+/* The multitaps (retrorecomp/megadrive_multitap.py), driven through the bus as a game drives them, whatever the build's own
+ * adapter: the Team Player's sequence, the 4 Way Play's selection and signature, the J-Cart's two pads at both addresses, a
+ * plain pad when the game speaks neither, and the adapters' state in the rollback snapshot. */
+extern int rr_md_tap_mode;
+extern void rr16_md_extra_pads(uint16_t p3, uint16_t p4);
+#define PAD_U 0x01
+#define PAD_D 0x02
+#define PAD_L 0x04
+#define PAD_R 0x08
+#define PAD_B 0x10
+#define PAD_C 0x20
+#define PAD_A 0x40
+#define PAD_S 0x80
+static uint8_t io(uint32_t port_data, uint8_t value) { gbus_write8(&g_machine.bus, port_data, value); return gbus_read8(&g_machine.bus, port_data); }
+static void multitap(void) {
+    GenesisBus *b = &g_machine.bus;
+    const uint16_t pads[4] = {PAD_U | PAD_A, PAD_D | PAD_B, PAD_L | PAD_C, PAD_R | PAD_S};
+    b->pad[0] = pads[0]; b->pad[1] = pads[1]; rr16_md_extra_pads(pads[2], pads[3]);
+    rr_md_tap_mode = 1;
+    /* The Team Player as games identify it, with TH alone as an output ($70 / $30 written, TR left high): 3, then F. */
+    gbus_write8(b, 0xa10009, 0x40);
+    CHECK(io(0xa10003, 0x70) == 0x73);
+    CHECK(io(0xa10003, 0x30) == 0x3f);
+    /* Then TH and TR as outputs for the handshake and the data, TL echoing TR. */
+    gbus_write8(b, 0xa10009, 0x60);
+    CHECK(io(0xa10003, 0x00) == 0x00);                    /* acknowledge 0, TL low */
+    CHECK(io(0xa10003, 0x20) == 0x30);
+    const uint8_t type = RR_MD_SIX_BUTTONS ? 1 : 0;
+    for (int pad = 0; pad < 4; ++pad) CHECK((io(0xa10003, (uint8_t)(pad & 1 ? 0x20 : 0x00)) & 0x0f) == type);
+    const unsigned groups = RR_MD_SIX_BUTTONS ? 3 : 2;
+    unsigned tr = 0x20;   /* the last type read left TR high */
+    for (int pad = 0; pad < 4; ++pad) {
+        const uint16_t p = pads[pad];
+        const uint8_t want[3] = {
+            (uint8_t)(~(((p & PAD_R) ? 8 : 0) | ((p & PAD_L) ? 4 : 0) | ((p & PAD_D) ? 2 : 0) | ((p & PAD_U) ? 1 : 0)) & 15),
+            (uint8_t)(~(((p & PAD_S) ? 8 : 0) | ((p & PAD_A) ? 4 : 0) | ((p & PAD_C) ? 2 : 0) | ((p & PAD_B) ? 1 : 0)) & 15),
+            0x0f};
+        for (unsigned g = 0; g < groups; ++g) { tr ^= 0x20; CHECK((io(0xa10003, (uint8_t)tr) & 0x0f) == want[g]); }
+    }
+    CHECK(io(0xa10003, 0x60) == 0x73);                    /* TH high starts again */
+    /* The 4 Way Play: selection on port B, signature $7C, then each pad through port A with port A's TH. */
+    gbus_write8(b, 0xa10009, 0x40); gbus_write8(b, 0xa1000b, 0x7f);
+    gbus_write8(b, 0xa10005, 0x7c);
+    CHECK(io(0xa10003, 0x40) == 0x7c);
+    for (int pad = 0; pad < 4; ++pad) {
+        const uint16_t p = pads[pad];
+        gbus_write8(b, 0xa10005, (uint8_t)(pad << 4 | 0x0c));
+        const uint8_t high = (uint8_t)(0x40 | (~(((p & PAD_C) ? 0x20 : 0) | ((p & PAD_B) ? 0x10 : 0) | ((p & PAD_R) ? 8 : 0) |
+                                                 ((p & PAD_L) ? 4 : 0) | ((p & PAD_D) ? 2 : 0) | ((p & PAD_U) ? 1 : 0)) & 0x3f));
+        const uint8_t low = (uint8_t)(~(((p & PAD_S) ? 0x20 : 0) | ((p & PAD_A) ? 0x10 : 0) | ((p & PAD_D) ? 2 : 0) |
+                                        ((p & PAD_U) ? 1 : 0)) & 0x33);
+        CHECK(io(0xa10003, 0x40) == high);
+        CHECK(io(0xa10003, 0x00) == low);
+    }
+    CHECK(gbus_read8(b, 0xa10005) == 0x7f);               /* port B carries no pad of its own */
+    /* The adapters' state is part of the rollback snapshot: a selection made after a save is undone by its load. */
+    gbus_write8(b, 0xa10005, 0x2c);
+    size_t n = rr16_md_snap_save(start, bound);
+    CHECK(n);
+    gbus_write8(b, 0xa10005, 0x7c);
+    CHECK(io(0xa10003, 0x40) == 0x7c);
+    CHECK(rr16_md_snap_load(start, n));
+    CHECK(io(0xa10003, 0x40) != 0x7c);
+    /* The J-Cart: pads 3 and 4 at $38FFFE and $3FFFFE, bit 0 of a write as TH. */
+    rr_md_tap_mode = 2;
+    for (uint32_t at = 0x38fffe; at <= 0x3ffffe; at += 0x070000) {
+        gbus_write16(b, at, 1);
+        uint16_t w = gbus_read16(b, at);
+        CHECK((w & 0xff) == (0xc0 | (~(PAD_L | PAD_C) & 0x3f)) && (w >> 8) == (0xc0 | (~PAD_R & 0x3f)));
+        gbus_write8(b, at + 1, 0);
+        w = gbus_read16(b, at);
+        CHECK((w & 0xff) == (0x80 | 0x33) && (w >> 8) == (0x80 | (~0x20 & 0x33)));   /* pad 4: Start */
+        CHECK(gbus_read8(b, at) == (w >> 8) && gbus_read8(b, at + 1) == (w & 0xff));
+    }
+    rr_md_tap_mode = 0;
+    gbus_write8(b, 0xa10009, 0x40);
+    CHECK(io(0xa10003, 0x40) == (0x40 | (~PAD_U & 0x3f)));   /* no adapter: the ordinary pad */
+    printf(",\"multitap\":{\"team_player\":true,\"way_play\":true,\"j_cart\":true,\"plain_pad\":true,\"snapshot\":true}");
+}
 static int checks_main(int argc, wchar_t **argv) {
     CHECK(argc >= 2 && rr16_init(true));
     bound = rr16_md_snap_bound();
@@ -236,6 +315,7 @@ static int checks_main(int argc, wchar_t **argv) {
     printf("{\"bound\":%zu", bound);
     buffer_rules();
     if (!wcscmp(argv[1], L"authored")) authored();
+    else if (!wcscmp(argv[1], L"multitap")) multitap();
     else game(argc >= 3 ? (unsigned)wcstoul(argv[2], NULL, 10) : 1800u);
     buffer_rules();
     printf(",\"largest_save\":%zu,\"game_stack_peak\":%zu,\"sound_stack_peak\":%zu,\"events_peak\":%zu,\"checks\":%u,"

@@ -566,6 +566,18 @@ def _notice(engine: Path, system_id: str) -> str:
     return notice_text(system_id, extra=extra)
 
 
+def md_multitap(rom) -> dict:
+    from .megadrive_multitap import detect
+    return detect(rom)
+
+
+def md_controls(rom) -> str:
+    found = md_multitap(rom)
+    adapter = {'team_player_and_4_way_play': ' (players 3 and 4 through the Team Player or the 4 Way Play the game asks for)',
+               'j_cart': " (players 3 and 4 through the cartridge's J-Cart ports)"}.get(found['multitap'], '')
+    return f"players 1 to {found['players']}{adapter}: three- or six-button pads as the cartridge declares"
+
+
 def _md_scan_script(directory: Path, frames: int, *, six_buttons=False, gun_menu=None) -> Path:
     """Reproducible host input only: never patch guest memory or game code."""
     events = {0: (0, 0)}
@@ -1166,10 +1178,13 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                       'not a full playthrough',
             'cartridge_hardware': 'standard linear cartridges, the Sega 512 KiB mapper and three serial EEPROM families; '
                                   'other boards are refused or converted with a stated limit',
+            # "players 1 to N" is what the multiplayer lobby seats (netplay/lobby_check.players_in_report).
+            'controls': md_controls(rom),
             'universal_zero_fallback_claim': False}),
-        # The Mega Drive host takes two pads (native/hostkit/adapters/rrhk_md.c: table_players and players()); the pad is three or
+        # The Mega Drive host takes two pads, four in a game made for a multitap (megadrive_multitap.detect; rrhk_md.c:
+        # table_players and players() from RR_MD_PLAYERS); the pad is three or
         # six buttons as the cartridge profile says (`six_buttons` above); a gun is the catalogue's (guns16.gun_game).
-        **({'input_players': 2} if system_id == 'md' else {}),
+        **({'input_players': md_multitap(rom)['players'], 'multitap': md_multitap(rom)['multitap']} if system_id == 'md' else {}),
         'peripheral': (({'pad': 'six_button' if six_buttons else 'three_button', 'gun_device': gun.device if gun else None,
                          **({'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else {})})
                        if system_id == 'md' else ({'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None)),

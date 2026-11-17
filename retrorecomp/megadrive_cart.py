@@ -22,7 +22,9 @@ def bus(source):
     # SRAM overlay registers do not enable serial memory as parallel RAM.
     source = source.replace('b->sram_enabled = (uint8_t)(v & 3);',
                             'if(!RR_MD_EEPROM_KIND)b->sram_enabled = (uint8_t)(v & 3);')
-    return source
+    # The multitaps: the J-Cart goes before the cartridge hooks above; the Team Player and the 4 Way Play are the ports'.
+    from .megadrive_multitap import bus as multitap_bus
+    return multitap_bus(source)
 
 
 def machine(source):

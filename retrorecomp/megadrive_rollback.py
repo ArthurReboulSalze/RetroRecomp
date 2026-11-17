@@ -54,6 +54,9 @@ extern size_t rr16_gun_state_save(void *data, size_t capacity);
 extern bool rr16_gun_state_load(const void *data, size_t size);
 extern void rr16_md_instruction(bool active);
 extern bool rr16_md_instruction_busy(void);
+extern size_t rr_md_tap_live_size(void);
+extern void rr_md_tap_live_save(void *data);
+extern void rr_md_tap_live_load(const void *data);
 /* The game fiber's live stack (its header and registers included), the PSG's undrained samples and the queued sound
  * events are bounded: a frame ends far below these (the probe reports the largest seen), and a frame that does not fails
  * its save, which the session reports, instead of writing past its slot. */
@@ -62,7 +65,7 @@ extern bool rr16_md_instruction_busy(void);
 #define RR_MD_SNAP_EVENTS 4096u
 enum { RR_MD_SNAP_EXEC, RR_MD_SNAP_CPU, RR_MD_SNAP_SCHED, RR_MD_SNAP_RAM, RR_MD_SNAP_BUS, RR_MD_SNAP_VDP,
        RR_MD_SNAP_FM, RR_MD_SNAP_PSG_PART, RR_MD_SNAP_EVQ, RR_MD_SNAP_INPUT, RR_MD_SNAP_GLUE, RR_MD_SNAP_INTERP,
-       RR_MD_SNAP_Z80, RR_MD_SNAP_YM, RR_MD_SNAP_GUN, RR_MD_SNAP_CART, RR_MD_SNAP_PARTS };
+       RR_MD_SNAP_Z80, RR_MD_SNAP_YM, RR_MD_SNAP_GUN, RR_MD_SNAP_CART, RR_MD_SNAP_TAP, RR_MD_SNAP_PARTS };
 typedef struct { M68KState cpu; uint32_t stopped; RrMdPrefetch prefetch; } RrMdSnapCpu;
 typedef struct { uint32_t pending_stall; int32_t unlimited_sprites; } RrMdSnapVdp;
 typedef struct { GenesisSimInput in; uint32_t ticks; } RrMdSnapInput;
@@ -86,6 +89,7 @@ static size_t rr_md_snap_part_bound(unsigned part) {
     case RR_MD_SNAP_YM: return sizeof(RrMdYmTimers);
     case RR_MD_SNAP_GUN: return rr16_gun_state_save(NULL, 0) + 1u;
     case RR_MD_SNAP_CART: return sizeof(RrMdCartState);
+    case RR_MD_SNAP_TAP: return rr_md_tap_live_size();
     }
     return 0;
 }
@@ -151,6 +155,7 @@ static size_t rr_md_snap_part_save(unsigned part, uint8_t *o, size_t cap) {
         return n + 1;
     }
     case RR_MD_SNAP_CART: memcpy(o, rr_md_cart_state(), sizeof(RrMdCartState)); return sizeof(RrMdCartState);
+    case RR_MD_SNAP_TAP: rr_md_tap_live_save(o); return rr_md_tap_live_size();   /* the multitaps (megadrive_multitap.py) */
     }
     return 0;
 }
@@ -183,7 +188,8 @@ bool rr16_md_snap_load(const void *buffer, size_t size) {
     if (p != size) return false;
     /* The fixed parts must have their size, and the cartridge chips a valid state, before anything changes. */
     static const unsigned fixed[] = {RR_MD_SNAP_CPU, RR_MD_SNAP_RAM, RR_MD_SNAP_VDP, RR_MD_SNAP_INPUT, RR_MD_SNAP_GLUE,
-                                     RR_MD_SNAP_INTERP, RR_MD_SNAP_Z80, RR_MD_SNAP_YM, RR_MD_SNAP_GUN, RR_MD_SNAP_CART};
+                                     RR_MD_SNAP_INTERP, RR_MD_SNAP_Z80, RR_MD_SNAP_YM, RR_MD_SNAP_GUN, RR_MD_SNAP_CART,
+                                     RR_MD_SNAP_TAP};
     for (size_t i = 0; i < sizeof fixed / sizeof *fixed; ++i)
         if (length[fixed[i]] != rr_md_snap_part_bound(fixed[i])) return false;
     RrMdCartState cart; memcpy(&cart, at[RR_MD_SNAP_CART], sizeof cart);
@@ -212,6 +218,7 @@ bool rr16_md_snap_load(const void *buffer, size_t size) {
     size_t gun = length[RR_MD_SNAP_GUN] - 1;
     if (!rr16_gun_state_load(at[RR_MD_SNAP_GUN], gun)) return false;
     rr16_md_instruction(at[RR_MD_SNAP_GUN][gun] != 0);
+    rr_md_tap_live_load(at[RR_MD_SNAP_TAP]);
     return rr_md_cart_restore(&cart) != 0;
 }
 #else
@@ -451,11 +458,33 @@ AUDIO_SILENT = (
         return;''')
 
 
+# The host's save in a session (hostkit.h session_save / session_save_put, session ABI 8): the cartridge's battery SRAM or
+# serial EEPROM, both kept in the bus's save bytes (md_battery.c loads the file there at power-on; md_cart.inc keeps the
+# EEPROM's bytes there). A guest plays on the host's bytes in memory only; its side effects are off, so nothing is written.
+SESSION_SAVE = r'''
+/* Multiplayer, the host's save (retrorecomp/megadrive_rollback.py): the bytes the game reads back, in every build. */
+size_t rr16_md_session_save(void *out, size_t capacity) {
+    const GenesisBus *b = &g_machine.bus;
+    if (!b->sram_present || !b->sram_battery || !b->sram_size || b->sram_size > sizeof b->sram) return 0;
+    if (!out) return b->sram_size;
+    if (capacity < b->sram_size) return 0;
+    memcpy(out, b->sram, b->sram_size);
+    return b->sram_size;
+}
+bool rr16_md_session_save_put(const void *in, size_t size) {
+    GenesisBus *b = &g_machine.bus;
+    if (!in || !b->sram_present || !b->sram_battery || !b->sram_size || size != b->sram_size) return false;
+    memcpy(b->sram, in, size);
+    return true;
+}
+'''
+
+
 def glue(source: str) -> str:
     source = _replace(source, 'size_t glue_rb_exec_save(void *dst, size_t cap)\n{',
                       'fiber_t glue_rb_game_fiber(void) { return s_game_fiber; }\n'
                       'size_t glue_rb_exec_save(void *dst, size_t cap)\n{', 'Mega Drive glue exec section')
-    return source + GLUE_LIVE
+    return source + GLUE_LIVE + SESSION_SAVE
 
 
 def machine(source: str) -> str:

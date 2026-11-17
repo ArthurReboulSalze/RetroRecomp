@@ -607,6 +607,7 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_fifo',
         'retrorecomp.megadrive_hardware',
         'retrorecomp.megadrive_memory',
+        'retrorecomp.megadrive_multitap',
         'retrorecomp.megadrive_read',
         'retrorecomp.megadrive_rollback',
         'retrorecomp.megadrive_runtime',

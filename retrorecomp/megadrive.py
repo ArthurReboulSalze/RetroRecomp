@@ -386,6 +386,9 @@ def write_spec(project: Path, rom, title: str, standard='ntsc') -> None:
         # choices. Region checks remain untouched in the cartridge.
         output.write(f'#define RR_MD_PAL {int(standard == "pal")}\n')
         output.write(f'#define RR_MD_SIX_BUTTONS {int(profile.get("six_buttons", "street-fighter" in profile["id"]))}\n')
+        # Players 3 and 4: the Team Player, the 4 Way Play or the J-Cart the game was made for (megadrive_multitap.py).
+        from .megadrive_multitap import header_lines
+        output.write(header_lines(rom))
         output.write(f'#define RR_MD_OVERSEAS {int(bool(region_mask(rom) & (8 if standard == "pal" else 4)))}\n')
 
 

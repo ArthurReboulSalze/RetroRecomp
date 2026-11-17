@@ -233,9 +233,13 @@ class HandheldsAndSeats(unittest.TestCase):
         report['qualification_scope']['controls'] = 'players 1 to 4: joystick'
         self.assertEqual(lobby_check.players_in_report(report), 4)
         for broken in ({}, {'system': {'id': 'cps1'}}, {'system': {'id': 'cps1'}, 'qualification_scope': {'controls': 'a stick'}},
-                       {'system': {'id': 'cps1'}, 'qualification_scope': {'controls': 'players 1 to 9'}},
-                       {'system': {'id': 'md'}, 'qualification_scope': {'controls': 'players 1 to 4'}}, None, 'text'):
+                       {'system': {'id': 'cps1'}, 'qualification_scope': {'controls': 'players 1 to 9'}}, None, 'text'):
             self.assertIsNone(lobby_check.players_in_report(broken))
+        # The Mega Drive is a ceiling too since its four-player games (Team Player, 4 Way Play, J-Cart): its report says the number.
+        self.assertTrue(lobby_check.seats_ceiling('md'))
+        for players in (2, 4):
+            self.assertEqual(lobby_check.players_in_report(
+                {'system': {'id': 'md'}, 'qualification_scope': {'controls': f'players 1 to {players}: pads'}}), players)
 
     def test_the_nes_seats_two_and_its_report_says_four_for_a_four_score_game(self):
         self.assertEqual(lobby_check.machine_seats('nes'), 2)          # without a number in the report: two, never more
