@@ -18,6 +18,7 @@ from . import __version__, timings
 from .library import atomic_json
 from .report_schema import write_report
 from .console16_state import MD_PORTABLE_STATE_ABI
+from .snes_multitap import multitap_pads
 from .snes_chips import device_entry
 from . import hostkit, megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart, snes_cart
 
@@ -1155,6 +1156,11 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'qualification_scope': ({
             'routes': 'the pad routes of the scan level (pseudo-random and authored), not a full playthrough',
             'coprocessors': 'SA-1, Super FX and CX4 programs are interpreted and counted per device; DSP-1 and S-DD1 run as command models',
+            # The pads the game reads: two, or the number of its entry on the reviewed Super Multitap list (retrorecomp/snes_multitap.py),
+            # which is read in a multiplayer room of three or four seats. The list is third-party data: no game was played with four pads.
+            'controls': (f'players 1 to {multitap_pads(rom.sha256)}: pad, Start, Select; Super Multitap (reviewed list, not played with '
+                         'that many pads, in a room of three or four seats)' if multitap_pads(rom.sha256) else
+                         'players 1 to 2: pad, Start, Select'),
             'universal_zero_fallback_claim': False} if system_id == 'snes' else {
             'routes': 'the pad routes of the scan level (attract, play, varied input, pseudo-random and authored), '
                       'not a full playthrough',

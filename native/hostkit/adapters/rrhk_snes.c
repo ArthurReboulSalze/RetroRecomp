@@ -61,7 +61,29 @@ static void before_frame(const RrhkAudioProbe *audio, uint64_t input_frame) {
     else if (state == 2) rrhk_notice(rr_tr("Save unreadable: saving is off"), 6000);
 }
 
-static int players(void) { return 2; }
+/* A game on the converter's list of Super Multitap games reads the pads 3 and 4 in a session of three or four seats, through a tap in
+ * console port 2 (snes_backend.c, RR_SN_MULTITAP); the others two pads. */
+int rr16_snes_players(void);
+bool rr16_snes_multitap(void);
+void rr16_snes_plug_multitap(bool plug);
+void rr16_snes_extra_pads(uint16_t third, uint16_t fourth);
+uint64_t rr16_snes_frame(void);
+static int players(void) { return rr16_snes_players(); }
+/* The tap is plugged when the session starts and again at every restart of it (after SETUP, before the boot digest and frame 0). */
+static void session_begin(uint64_t clock) {
+    (void)clock;
+    rr16_snes_plug_multitap(rrhk_session_ports() >= 3);
+}
+/* Pads 3 and 4 are read here, in the frame itself, and not in before_frame: a frame run again after a correction in a multiplayer
+ * session (a "silent" frame) calls run_frame with the session's words but never before_frame. In a session rrhk_pad_word answers
+ * the session's word of that port. */
+static bool run_frame(uint16_t p1, uint16_t p2) {
+    if (rr16_snes_multitap()) {
+        const uint64_t frame = rr16_snes_frame();
+        rr16_snes_extra_pads(rrhk_pad_word(2, frame), rrhk_pad_word(3, frame));
+    }
+    return rr16_frame(p1, p2);
+}
 static int display_width(void) { return 256; }
 /* Multiplayer (hostkit_session.h): the digest and the snapshot of snes_backend.c, over the engine's own serializers (the audio
  * output ring left out). Boards proven for rollback (17 November 2026): the ones without an enhancement chip, on LoROM and HiROM
@@ -72,6 +94,9 @@ size_t rr16_snes_snap_bound(void);
 size_t rr16_snes_snap_save(void *buffer, size_t capacity);
 bool rr16_snes_snap_load(const void *buffer, size_t size);
 void rr16_snes_side_effects(bool allowed);
+/* The host's cartridge save (battery RAM) travels to every seat for the match, in memory only: a guest never writes its own file. */
+size_t rr16_snes_session_save(void *out, size_t capacity);
+bool rr16_snes_session_save_put(const void *in, size_t size);
 static void pointer_input(RrhkPointer p) {
     rr16_gun_input((Rr16GunInput){.x = p.x, .y = p.y, .fire = p.fire, .aux = p.aux, .secondary = p.secondary,
                                   .start = p.start, .turbo = p.turbo, .pause = p.pause, .offscreen = p.offscreen});
@@ -85,18 +110,19 @@ const RrhkMachine *rrhk_adapter(void) {
     if (!machine.actions) {
         machine = (RrhkMachine){
             .ini_section = RR16_SECTION, .console_name = RR16_CONSOLE,
-            .table_players = 2, .players = players,
+            .table_players = rr16_snes_players(), .players = players,
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,
             .max_width = RR16_WIDTH, .max_height = RR16_HEIGHT, .frame_seconds = RR16_FRAME_SECONDS,
             .pointer = RR16_GUN,
-            .reset = rr16_reset, .run_frame = rr16_frame, .pause = rr16_pause,
+            .reset = rr16_reset, .run_frame = run_frame, .pause = rr16_pause,
             .pixels = rr16_pixels, .visible_width = rr16_visible_width, .visible_height = rr16_visible_height,
             .raster_height = rr16_raster_height, .display_width = display_width,
             .audio = rr16_audio, .interpreted = rr16_interpreted, .audio_interpreted = rr16_audio_interpreted,
             .device_interpreted = rr16_device_interpreted,
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
-            .pointer_input = pointer_input, .digest = rr16_snes_digest, .side_effects = rr16_snes_side_effects,
+            .pointer_input = pointer_input, .digest = rr16_snes_digest, .side_effects = rr16_snes_side_effects, .session_begin = session_begin,
+            .session_save = rr16_snes_session_save, .session_save_put = rr16_snes_session_save_put,
             .snap_bound = rr16_snes_snap_bound, .snap_save = rr16_snes_snap_save, .snap_load = rr16_snes_snap_load,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .help_lines = help_lines, .before_frame = before_frame,
