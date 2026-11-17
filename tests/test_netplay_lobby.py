@@ -681,7 +681,7 @@ class ModelTests(unittest.TestCase):
             model.apply(event)
         self.assertEqual((model.room, model.address, model.selection, model.phase, model.version), ('open', ('127.0.0.1', 5000), 2, 'lobby', 13))
         self.assertEqual(model.checks, {1: {'name': 'Nadia', 'status': 'same', 'reasons': 0, 'version': [1, 7, 9], 'text': 'same game'}})    # an old pick's answer is not shown
-        self.assertEqual(list(model.chat), [{'sender': 1, 'name': 'Nadia', 'text': 'hi', 'ascii': 'hi'}])
+        self.assertEqual(list(model.chat), [{'sender': 1, 'name': 'Nadia', 'text': 'hi', 'ascii': 'hi', 'phrase': 0}])
         self.assertEqual((model.last_launch['names'], model.last_back, model.matches[0]['outcome'], model.errors[0]['detail']),
                          (['Arthur', 'Nadia'], {'match_id': 1, 'reason': 'ended'}, 'ended', 'busy'))
 
@@ -761,6 +761,61 @@ class ControllerTests(unittest.TestCase):
                 lobby.game_from_dict({**data, **change})
         with self.assertRaises(ValueError):
             lobby.game_from_dict([])
+
+
+class WindowApiTests(unittest.TestCase):
+    """What the Multiplayer window calls (`lobby_client`): configs, codes it can translate, the link line, a safe close."""
+
+    def test_configs_codes_link_and_invitation_of_the_port_really_bound(self):
+        from pathlib import Path
+        from retrorecomp.netplay import invitation, lobby_client
+        from retrorecomp.netplay.lan_transport import RoomError, room_code, NO_ANSWER
+        config, text = lobby_client.host_config('192.168.1.18', 24611, 'Arthur', 'per_player', Path('logs'))
+        room = config['room']
+        self.assertEqual((room['role'], room['capacity'], room['port'], config['tests']), ('host', 4, 24611, False))
+        self.assertEqual(invitation.parse(text).port, 24611)
+        with self.assertRaises(ValueError):
+            lobby_client.host_config('8.8.8.8', 24611, 'Arthur', 'per_player', Path('logs'))
+        guest = lobby_client.guest_config(' ' + text + ' ', 'Nadia', Path('logs'))
+        self.assertEqual((guest['room']['role'], guest['room']['invitation'], len(guest['room']['version'])), ('guest', text, 3))
+        with self.assertRaises(invitation.InvitationError):
+            lobby_client.guest_config('not an invitation', 'Nadia', Path('logs'))
+        self.assertEqual([room_code(r) for r in (NO_ANSWER, 'the room is full', 'update Retro-Recomp on both PCs',
+                                                  'the host closed the room', 'the connection to the host broke',
+                                                  'the host was silent for ten seconds', 'something new')],
+                         ['unreachable', 'full', 'other_version', 'closed', 'lost', 'timeout', 'other'])
+        self.assertEqual(RoomError('the room is full').code, 'full')
+        model = lobby_client.LobbyModel()
+        model.secret = bytes.fromhex(room['secret'])
+        model.apply({'event': 'room_open', 'address': '192.168.1.18', 'port': 24700})
+        self.assertEqual(invitation.parse(model.invitation).port, 24700)        # the port the room bound, not the one asked
+        model.apply({'event': 'launching', 'tier': 'rollback', 'prediction': 5})
+        model.apply({'event': 'slow_link', 'delay': 10})
+        self.assertEqual(model.link, {'tier': 'rollback', 'prediction': 5, 'delay': None, 'slow': 10})
+        model.apply({'event': 'lobby_back', 'match_id': 1, 'reason': 'ended'})
+        self.assertIsNone(model.link)
+        model.apply({'event': 'host_gone', 'detail': 'the host closed the room', 'code': 'closed'})
+        self.assertEqual((model.room, model.room_code), ('host_gone', 'closed'))
+        model.apply({'event': 'launch_refused', 'detail': 'x'})
+        self.assertEqual(model.errors[-1]['code'], 'launch_refused')
+
+    def test_close_is_safe_twice_and_from_any_thread(self):
+        import threading
+        from retrorecomp.netplay import lobby_client
+        calls = []
+        worker = type('Worker', (), {'call': lambda self, name, **f: calls.append(name), 'join': lambda self, t=None: True,
+                                     'cleanup': lambda self: calls.append('cleanup'), 'status': {'delay': 2}})()
+        controller = lobby_client.LobbyController(library=None)
+        controller.attach(worker)
+        controller.model.apply({'event': 'launch_request', 'tier': 'rollback', 'prediction': 5})
+        self.assertEqual(controller.link()['delay'], 2)
+        threads = [threading.Thread(target=controller.close) for _ in range(3)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(5)
+        controller.close()
+        self.assertEqual(calls, ['close_room', 'cleanup'])
 
 
 if __name__ == '__main__':

@@ -19,15 +19,42 @@
 from __future__ import annotations
 
 import collections
+from pathlib import Path
 import threading
 from typing import Callable
 
-from . import control
+from . import control, invitation
 from .lobby import game_dict, game_from_dict
 from .lobby_check import LocalLibrary, game_config
+from .worker_client import WorkerProcess
 
 CHAT_KEPT = 200
 NOTICES_KEPT = 50
+ROOM_CAPACITY = 4                  # the host and up to three guests
+
+
+def host_config(address: str, port: int, name: str, sharing: str, log_dir, tests: bool = False) -> tuple[dict, str]:
+    """A host's worker config and the invitation for the port asked (the room may bind another one if it is taken: the
+    model's `invitation`, made when the room opened, is the one to show). Raises ValueError for an address that is not
+    on a local network. The secret is new for every room and lives only in this config and the invitation."""
+    invitation.check_bind_address(address, tests)
+    secret = invitation.new_secret()
+    log = Path(log_dir)
+    config = {'room': {'role': 'host', 'address': address, 'port': int(port), 'secret': secret.hex(), 'capacity': ROOM_CAPACITY,
+                       'name': name, 'log': str(log / 'room.log'), 'sharing': sharing}, 'tests': tests}
+    return config, invitation.format_invitation(address, int(port), secret, tests)
+
+
+def guest_config(invitation_text: str, name: str, log_dir, tests: bool = False) -> dict:
+    """A guest's worker config; raises `invitation.InvitationError` (a sentence) when the text is not an invitation. A guest
+    keeps no room log (`log_dir` is taken for the same call as the host's; the worker's own text goes to `start(log=...)`)."""
+    del log_dir
+    from .. import __version__
+    from .room_cli import version_numbers
+    text = invitation_text.strip()
+    invitation.parse(text, tests)
+    return {'room': {'role': 'guest', 'invitation': text, 'name': name, 'version': list(version_numbers(__version__))},
+            'tests': tests}
 
 
 class LobbyModel:
@@ -36,6 +63,11 @@ class LobbyModel:
         self.version = 0                    # counts the events taken: a window redraws when it changed
         self.room: str = 'connecting'       # connecting, open (a host), joined (a guest), error, closed, host_gone
         self.room_detail: str = ''
+        self.room_code: str = ''            # the same in a word, for the window's own language (`lan_transport.room_code`)
+        self.secret: bytes | None = None    # a host's: the invitation is made with the port the room really bound
+        self.tests = False
+        self.invitation: str = ''
+        self.link: dict | None = None       # {tier, prediction, delay, slow} of the match being launched or played
         self.address: tuple | None = None   # a host's address and port, for its invitation text
         self.phase = 'lobby'
         self.revision: int | None = None
@@ -77,7 +109,9 @@ class LobbyModel:
             self.checks[event.get('guest')] = {key: event.get(key) for key in ('name', 'status', 'reasons', 'version', 'text')}
 
     def _on_lobby_chat(self, event: dict) -> None:
-        self.chat.append({key: event.get(key) for key in ('sender', 'name', 'text', 'ascii')})
+        line = {key: event.get(key) for key in ('sender', 'name', 'text', 'ascii')}
+        line['phrase'] = event.get('phrase') or 0     # 1-6: a ready-made phrase, shown in the window's language
+        self.chat.append(line)
 
     def _on_lobby_notice(self, event: dict) -> None:
         self.notices.append({'code': event.get('code'), 'detail': event.get('detail', '')})
@@ -88,39 +122,58 @@ class LobbyModel:
     def _on_lobby_back(self, event: dict) -> None:
         self.last_back = {'match_id': event.get('match_id'), 'reason': event.get('reason')}
         self.phase = 'lobby'
+        self.link = None
 
     def _on_lobby_error(self, event: dict) -> None:
-        self.errors.append({'call': event.get('call'), 'detail': event.get('detail', '')})
+        self.errors.append({'call': event.get('call'), 'code': 'lobby_error', 'detail': event.get('detail', '')})
 
     # ---- the room's own events ----
 
     def _on_room_open(self, event: dict) -> None:
         self.room, self.address = 'open', (event.get('address'), event.get('port'))
+        if self.secret is not None:
+            self.invitation = invitation.format_invitation(event.get('address'), event.get('port'), self.secret, self.tests)
 
     def _on_joined_room(self, event: dict) -> None:
         self.room, self.me = 'joined', event.get('guest')
 
     def _on_room_error(self, event: dict) -> None:
-        self.room, self.room_detail = 'error', event.get('detail', '')
+        self.room, self.room_detail, self.room_code = 'error', event.get('detail', ''), event.get('code', 'other')
 
     def _on_room_closed(self, event: dict) -> None:
         self.room = 'closed'
 
     def _on_host_gone(self, event: dict) -> None:
-        self.room, self.room_detail = 'host_gone', event.get('detail', '')
+        self.room, self.room_detail, self.room_code = 'host_gone', event.get('detail', ''), event.get('code', 'other')
 
     def _on_match_over(self, event: dict) -> None:
         self.matches.append({key: event.get(key) for key in ('match_id', 'outcome', 'detail')})
         del self.matches[:-NOTICES_KEPT]
+        self.link = None
 
+    # The link line: the tier and cap the launch says, the delay the match applies (from the worker's status, `controller
+    # .link()`), and `slow` when the host applied a delay above the slow-link threshold (the owner's decision: applied, said).
+    def _on_launching(self, event: dict) -> None:
+        self.link = {'tier': event.get('tier', 'delay'), 'prediction': event.get('prediction'), 'delay': None, 'slow': None}
+
+    def _on_launch_request(self, event: dict) -> None:
+        self.link = {'tier': event.get('tier', 'delay'), 'prediction': event.get('prediction'), 'delay': None, 'slow': None}
+
+    def _on_slow_link(self, event: dict) -> None:
+        if self.link is None:
+            self.link = {'tier': None, 'prediction': None, 'delay': None, 'slow': None}
+        self.link['slow'] = event.get('delay')
+
+    # Launch errors: `code` is the event's name (launch_error: this PC could not start it; launch_failed: a seat did not start;
+    # launch_refused: this guest's game cannot play it), the detail an English sentence for a log.
     def _on_launch_error(self, event: dict) -> None:
-        self.errors.append({'call': 'launch', 'detail': event.get('detail', '')})
+        self.errors.append({'call': 'launch', 'code': 'launch_error', 'detail': event.get('detail', '')})
 
     def _on_launch_failed(self, event: dict) -> None:
-        self.errors.append({'call': 'launch', 'detail': event.get('detail', '')})
+        self.errors.append({'call': 'launch', 'code': 'launch_failed', 'detail': event.get('detail', '')})
 
     def _on_launch_refused(self, event: dict) -> None:
-        self.errors.append({'call': 'launch', 'detail': event.get('detail', '')})
+        self.errors.append({'call': 'launch', 'code': 'launch_refused', 'detail': event.get('detail', '')})
 
 
 class LobbyController:
@@ -141,6 +194,39 @@ class LobbyController:
 
     def attach(self, worker) -> None:
         self.worker = worker
+
+    def start(self, config: dict, log=None) -> WorkerProcess:
+        """Starts the room's worker for `config` (`host_config` / `guest_config`), wired to this controller."""
+        room = config.get('room', {})
+        with self.model.lock:
+            self.model.secret = bytes.fromhex(room['secret']) if room.get('role') == 'host' else None
+            self.model.tests = config.get('tests') is True
+        worker = WorkerProcess(config, log=Path(log) if log else None, on_event=self.on_event, resolve=self.resolve)
+        self.attach(worker)
+        self._closed = False
+        return worker.start()
+
+    def close(self, timeout: float = 15.0) -> None:
+        """Leaves (a guest) or closes (the host) the room and ends its worker. Any thread, any number of times."""
+        with self._lock:
+            worker, closed = self.worker, getattr(self, '_closed', False)
+            self._closed = True
+        if worker is None or closed:
+            return
+        try:
+            worker.call('close_room')
+            worker.join(timeout)
+        finally:
+            worker.cleanup()
+
+    def link(self) -> dict | None:
+        """The link line of the match: the model's, with the delay the driver applies now (None before it is chosen)."""
+        with self.model.lock:
+            line = dict(self.model.link) if self.model.link else None
+        if line is not None and self.worker is not None:
+            status = getattr(self.worker, 'status', None) or {}
+            line['delay'] = status.get('delay')
+        return line
 
     # ---- the worker's events ----
 

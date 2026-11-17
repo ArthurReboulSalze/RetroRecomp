@@ -52,12 +52,31 @@ PENDING_LIMIT = 64 * 1024           # bytes waiting on one control connection: p
 CLOSING_SECONDS = 2.0               # a peer being turned away keeps its place this long, whatever waits to be sent (N4)
 
 
+def room_code(reason: str) -> str:
+    """A short code for a room's sentence (`RoomError.reason`, a host_gone detail), for a window that says it in its own
+    language: unreachable, full, other_version, match_running, kicked, bad_invitation, not_local, port, closed, timeout,
+    lost, other."""
+    if reason.startswith('the room could not open a port') or reason == 'this PC could not open a datagram port':
+        return 'port'
+    known = {NO_ANSWER: 'unreachable', REJECTIONS[control.REJECT_FULL]: 'full',
+             REJECTIONS[control.REJECT_VERSION]: 'other_version', REJECTIONS[control.REJECT_BUSY]: 'match_running',
+             REJECTIONS[control.REJECT_KICKED]: 'kicked', 'this invitation is not for a room on a local network': 'bad_invitation',
+             'this PC reaches that room through an address that is not on a local network': 'not_local',
+             'the host closed the room': 'closed', 'the host closed the connection': 'closed',
+             'the host was silent for ten seconds': 'timeout'}
+    if reason in known:
+        return known[reason]
+    return 'lost' if 'connection' in reason or 'control frame' in reason or 'did not read' in reason else 'other'
+
+
 class RoomError(Exception):
-    """The room could not be opened or joined; `reason` is a sentence for the player, free of anything secret."""
+    """The room could not be opened or joined; `reason` is a sentence for the player, free of anything secret, and `code`
+    the same in a word (`room_code`)."""
 
     def __init__(self, reason: str):
         super().__init__(reason)
         self.reason = reason
+        self.code = room_code(reason)
 
 
 # ---- this PC's addresses ----
@@ -1213,7 +1232,7 @@ class RoomGuest:
         if match is not None:
             self._outbox.append(('sink', match, 0, wire.encode_bye(0, wire.BYE_HOST_CLOSED, 0)))
         if event:
-            self._emit({'event': 'host_gone', 'detail': reason})
+            self._emit({'event': 'host_gone', 'detail': reason, 'code': room_code(reason)})
 
     def _emit(self, event: dict) -> None:
         self._outbox.append(('event', event))

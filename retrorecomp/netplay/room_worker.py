@@ -146,10 +146,11 @@ class RoomWorker:
                 guest.connect()
                 self.room = guest
         except (RoomError, invitation.InvitationError) as error:
-            self.emit({'event': 'room_error', 'detail': error.reason})
+            self.emit({'event': 'room_error', 'detail': error.reason,
+                       'code': error.code if isinstance(error, RoomError) else 'bad_invitation'})
             return False
         except (KeyError, ValueError, TypeError):
-            self.emit({'event': 'room_error', 'detail': 'the room settings are not what they should be'})
+            self.emit({'event': 'room_error', 'detail': 'the room settings are not what they should be', 'code': 'other'})
             return False
         return True
 
