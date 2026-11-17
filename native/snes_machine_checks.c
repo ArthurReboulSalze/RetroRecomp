@@ -3,7 +3,9 @@
  * second run equals the first; a save over a buffer of other bytes equals the first save; a load then a save gives the same
  * bytes; a load of a wrong size or a too small capacity is refused and leaves the machine alone.
  * Usage: checks [frames-per-run] [warm-up frames]. */
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,7 +65,23 @@ static void same(const Seen *a, const Seen *b, unsigned count) {
         if (a[n].sound != b[n].sound) { ++sound_differences; if (first_sound == ~0u) first_sound = n; }
     }
 }
+/* `checks trace N`: the digest of every frame of the scripted route, one line each (frame, digest, the seven partitions), for the
+ * comparison of two systems (tools/snes_digest_cross_os.py). Hashes only: no ROM byte, no picture. */
+static int trace(unsigned frames) {
+    CHECK(rr16_init(true));
+    rr16_reset();
+    for (unsigned n = 0; n < frames; ++n) {
+        CHECK(rr16_frame(pad(0, n), pad(1, n)));
+        const uint64_t digest = rr16_snes_digest();
+        printf("%u %016llx", n, (unsigned long long)digest);
+        for (unsigned part = 0; part < 7; ++part) printf(" %016llx", (unsigned long long)rr16_snes_digest_parts[part]);
+        printf("\n");
+    }
+    rr16_shutdown();
+    return 0;
+}
 int main(int argc, char **argv) {
+    if (argc > 2 && !strcmp(argv[1], "trace")) return trace((unsigned)atoi(argv[2]));
     const unsigned length = argc > 1 ? (unsigned)atoi(argv[1]) : 40;
     const unsigned warm = argc > 2 ? (unsigned)atoi(argv[2]) : 30;
     CHECK(length >= 4 && length <= 600);
@@ -148,4 +166,6 @@ int main(int argc, char **argv) {
     rr16_shutdown();
     return 0;
 }
+#ifdef _WIN32
 int WINAPI WinMain(HINSTANCE a, HINSTANCE b, LPSTR c, int d) { (void)a; (void)b; (void)c; (void)d; return main(__argc, __argv); }
+#endif
