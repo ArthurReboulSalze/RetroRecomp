@@ -275,6 +275,8 @@ bool rrhk_session_paused(void);
 /* The player asked to restart in a session: the host's request goes to the worker, which restarts every game at the same
  * frame (RRHK_RUN_RESET); a guest is told only the host can. true: the request was taken (the host). */
 bool rrhk_session_restart(void);
+void rrhk_session_state(bool load);          /* F8 / F9 in a session: the host's for everyone, this match only */
+bool rrhk_session_states(void);             /* this seat is the host and its machine keeps the match's state */
 bool rrhk_session_guest(void);              /* in a session as a guest (the host restarts, a guest cannot) */
 void rrhk_session_close(RrhkRun *run, int reason);
 /* input.c: the pad word of this PC's player as today's solo game reads it (player `player`'s bindings, autofire applied). */

@@ -19,8 +19,9 @@
 #include <stdint.h>
 
 /* Raised whenever a message, a field or the meaning of one changes. The lobby also compares the host stamp. */
-#define RRHK_SESSION_ABI 3           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
-                                     * the turn notices, NOTICE_CHAT_SLOW) */
+#define RRHK_SESSION_ABI 4           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
+                                     * the turn notices, NOTICE_CHAT_SLOW); 4: the host's quick save and load for everyone
+                                     * (RRHK_SYS_STATE_*, RRHK_RUN_STATE_*) */
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
 #define RRHK_SESSION_ENV "RETRORECOMP_NETPLAY_PIPE"
@@ -56,9 +57,16 @@ enum { RRHK_CAP_SNAPSHOT = 1, RRHK_CAP_DIGEST = 2, RRHK_CAP_POINTER = 4, RRHK_CA
        RRHK_CAP_DRIVEN = 32 };
 enum { RRHK_SETUP_GUEST = 1 };          /* a guest never writes its cartridge save */
 enum { RRHK_RUN_SILENT = 1,            /* re-simulation: no picture, no sound, no side effects */
-       RRHK_RUN_RESET = 2 };           /* the machine restarts before this frame runs (live or silent): the host asked it */
+       RRHK_RUN_RESET = 2,             /* the machine restarts before this frame runs (live or silent): the host asked it */
+       RRHK_RUN_STATE_SAVE = 4,        /* the match's state is saved before this frame runs (the host's F8, on every seat) */
+       RRHK_RUN_STATE_LOAD = 8 };      /* the match's state is loaded back before this frame runs (the host's F9). The
+                                      * match's state is one slot in memory: never a file, never sent, gone with the match;
+                                      * the player's own quick states are not touched. At most one of RESET, STATE_SAVE,
+                                      * STATE_LOAD in a RUN. */
 enum { RRHK_SYS_PAUSE = 1,             /* the player asked for a pause (the Pause key, a menu) */
-       RRHK_SYS_RESTART = 2 };         /* the host asked to restart (Shift+F1, the pad combination): in one frame's LOCALs */
+       RRHK_SYS_RESTART = 2,           /* the host asked to restart (Shift+F1, the pad combination): in one frame's LOCALs */
+       RRHK_SYS_STATE_SAVE = 4,        /* the host asked to save the match's state (F8, the pad's Quick save) */
+       RRHK_SYS_STATE_LOAD = 8 };      /* the host asked to load it back (F9, the pad's Quick load) */
 enum { RRHK_REFUSED_OPTION = 1, RRHK_REFUSED_SNAPSHOT = 2, RRHK_REFUSED_COMMAND = 3 };
 enum { RRHK_EXIT_CLOSED = 1, RRHK_EXIT_LOST = 2, RRHK_EXIT_STOPPED = 3, RRHK_EXIT_FAILED = 4 };
 enum { RRHK_NOTICE_WAITING = 1, RRHK_NOTICE_RESUMED = 2, RRHK_NOTICE_LEFT = 3,

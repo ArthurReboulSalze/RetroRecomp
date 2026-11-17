@@ -52,6 +52,7 @@ class SteppedGame:
         self.caps, self.bound = caps, bound
         self.state, self.live, self.asked = 1, 0, False
         self.ring, self.depth = {}, 0
+        self.slot = None              # the match's state (the host's F8 / F9 for everyone, session ABI 4)
         self.commands, self.errors = [], []
         self.notices, self.chat = [], []
         self.live_runs, self.silent_runs = 0, 0
@@ -113,11 +114,21 @@ class SteppedGame:
                 return self._fail('a silent frame without snapshots')
             if not silent and not self.asked and self.depth:     # (the delay tier may answer before the game asks: the pipe keeps it)
                 return self._fail(f'a live RUN {frame} the game did not ask for')
-            if flags & ~(pipe.RUN_SILENT | pipe.RUN_RESET):
+            if flags & ~(pipe.RUN_SILENT | pipe.RUN_RESET | pipe.RUN_STATE_SAVE | pipe.RUN_STATE_LOAD):
                 return self._fail(f'RUN {frame} with unknown flags {flags}')
+            if bin(flags & ~pipe.RUN_SILENT).count('1') > 1:
+                return self._fail(f'RUN {frame} with two actions {flags}')
             if flags & pipe.RUN_RESET:
                 self.state = fold(self.state ^ RESTART, frame, ())      # the machine restarts before the frame
                 self.commands.append(('RESET', frame))
+            if flags & pipe.RUN_STATE_SAVE:
+                self.slot = self.state
+                self.commands.append(('STATE_SAVE', frame))
+            if flags & pipe.RUN_STATE_LOAD:
+                if self.slot is None:
+                    return self._fail(f'RUN {frame}: a load without a saved state')
+                self.state = self.slot
+                self.commands.append(('STATE_LOAD', frame))
             self.state = fold(self.state, frame, words)
             self.live = frame + 1
             if silent:
@@ -465,6 +476,96 @@ class RestartTests(unittest.TestCase):
         guest._set_delay(2, 0.0)
         guest._holding = False
         guest._local(0, 0, pipe.SYS_RESTART)
+        self.assertEqual(guest._records[1][2], (0, 0))
+
+
+class MatchStateTests(unittest.TestCase):
+    """The host's F8 / F9 for everyone (session ABI 4): its game's state bit is a request that rides one of the host's records,
+    every game saves or loads the match's state (memory only, this match only) before that frame, a correction runs it again,
+    and two of them are kept a snapshot ring apart on the rollback tier."""
+
+    def test_the_pipe_and_the_mapper_speak_it_as_the_header_says(self):
+        header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
+        for name in ('RRHK_RUN_STATE_SAVE = 4', 'RRHK_RUN_STATE_LOAD = 8', 'RRHK_SYS_STATE_SAVE = 4', 'RRHK_SYS_STATE_LOAD = 8',
+                     'RRHK_SESSION_ABI 4'):
+            self.assertIn(name, header)
+        self.assertEqual(pipe.run(5, (1, 2), silent=True, action=pipe.RUN_STATE_LOAD)[8], pipe.RUN_SILENT | pipe.RUN_STATE_LOAD)
+        with self.assertRaises(ValueError):
+            pipe.run(5, (1, 2), action=pipe.RUN_STATE_LOAD | pipe.RUN_STATE_SAVE)
+        with self.assertRaises(ValueError):
+            pipe.run(5, (1, 2), reset=True, action=pipe.RUN_STATE_SAVE)
+        self.assertEqual(seat_map.action([(0, seat_map.SYS_STATE_SAVE), (0, 0)]), pipe.RUN_STATE_SAVE)
+        self.assertEqual(seat_map.action([(0, seat_map.SYS_STATE_SAVE | seat_map.SYS_STATE_LOAD), (0, 0)]), pipe.RUN_STATE_LOAD)
+        self.assertEqual(seat_map.action([(0, seat_map.SYS_RESTART | seat_map.SYS_STATE_LOAD), (0, 0)]), pipe.RUN_RESET)
+        self.assertEqual(seat_map.action([(0, 0), (0, seat_map.SYS_STATE_LOAD)]), 0)        # a guest's bit does nothing
+        self.assertEqual(seat_map.action([]), 0)
+        self.assertEqual(rollback.predicted([(5, seat_map.SYS_STATE_SAVE)]), (5, 0))        # never guessed
+        bits = seat_map.SYS_STATE_SAVE | seat_map.SYS_STATE_LOAD
+        self.assertFalse(bits & (seat_map.SYS_GAME_MASK | seat_map.SYS_CONTROL_MASK | seat_map.SYS_RESTART))
+
+    def test_a_save_run_again_by_a_correction_and_a_load_a_ring_later_give_one_state_everywhere(self):
+        with Host(self, cap=4) as host:
+            host.ask(0)
+            host.ask(1)
+            host.game.local(2, system=pipe.SYS_STATE_SAVE)      # F8 pressed during frame 1: in the LOCAL of frame 2
+            settle(host.driver)
+            host.game.local(2, system=pipe.SYS_STATE_SAVE)      # the same LOCAL again: no second request
+            settle(host.driver)
+            self.assertEqual(host.ask(3)[-2:], [('STATE_SAVE', 3), ('RUN', 3, (own(3), 0))])
+            # seat 2's true records differ from the guesses since frame 1: the correction saves the match's state again
+            host.peer(1, *[(0x40, 0)] * 4)
+            again = host.ask(4)
+            self.assertIn(('STATE_SAVE', 3), again)
+            self.assertLess(again.index(('STATE_SAVE', 3)), again.index(('SILENT', 3, (own(3), 0x40))))
+            # F9 at once: it waits for a record a ring after the save (frames run again never see a later save)
+            host.game.local(5, system=pipe.SYS_STATE_LOAD)
+            settle(host.driver)
+            host.peer(5, *[(0x40, 0)] * 10)
+            seen = []
+            for frame in range(5, 13):
+                seen += host.ask(frame)
+            spacing = host.driver.ring + 1
+            loads = [command for command in seen if command[0] == 'STATE_LOAD']
+            self.assertEqual(loads, [('STATE_LOAD', 3 + spacing)])
+            self.assertEqual(host.driver.states, [(3, 'save'), (3 + spacing, 'load')])
+            # the game's state is the history run with the save and the load at their frames
+            state, slot = 1, None
+            for frame, words in enumerate(host.driver.history):
+                if frame == 3:
+                    slot = state
+                if frame == 3 + spacing:
+                    state = slot
+                state = fold(state, frame, words)
+            ran = [command for command in host.game.commands if command[0] == 'RUN']
+            for _name, frame, words in ran:
+                if frame >= len(host.driver.history):
+                    state = fold(state, frame, words)
+            self.assertEqual(host.game.state, state)
+            self.assertEqual(host.game.errors, [])
+
+    def test_on_the_delay_tier_the_save_and_the_load_ride_the_next_records(self):
+        with Host(self, cap=0) as host:
+            host.peer(0, *[(0, 0)] * 12)
+            host.ask(0)
+            host.game.local(1, system=pipe.SYS_STATE_SAVE)
+            settle(host.driver)
+            host.game.local(2, system=pipe.SYS_STATE_LOAD)
+            settle(host.driver)
+            for frame in range(3, 6):
+                host.ask(frame)
+            self.assertEqual(host.driver.states, [(2, 'save'), (3, 'load')])
+            self.assertEqual(host.game.errors, [])
+
+    def test_a_guests_bits_never_become_a_request(self):
+        class NoGame:
+            def attach(self, _sink):
+                pass
+        link = type('Link', (), {'open': lambda self, sink: None, 'send': lambda self, *a: None})()
+        guest = LockstepDriver(NoGame(), link, Settings(seat=1, seats=2, delay=2))
+        guest._phase, guest._holding = 'play', False
+        guest._set_delay(2, 0.0)
+        guest._holding = False
+        guest._local(0, 0, pipe.SYS_STATE_SAVE | pipe.SYS_STATE_LOAD)
         self.assertEqual(guest._records[1][2], (0, 0))
 
 

@@ -10,7 +10,8 @@ from dataclasses import dataclass
 import struct
 import unicodedata
 
-ABI = 3                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices
+ABI = 4                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
+                             # 4: the host's quick save and load for everyone (SYS_STATE_*, RUN_STATE_*)
 MAX_PAYLOAD = 4096
 MAX_RING = 64
 ENV = 'RETRORECOMP_NETPLAY_PIPE'
@@ -23,8 +24,9 @@ MSG_SETUP, MSG_RUN, MSG_SAVE, MSG_LOAD, MSG_DIGEST, MSG_PAUSE, MSG_NOTICE, MSG_P
 
 CAP_SNAPSHOT, CAP_DIGEST, CAP_POINTER, CAP_AXES, CAP_KEYBOARD, CAP_DRIVEN = 1, 2, 4, 8, 16, 32
 SETUP_GUEST = 1
-RUN_SILENT, RUN_RESET = 1, 2
-SYS_PAUSE, SYS_RESTART = 1, 2
+RUN_SILENT, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD = 1, 2, 4, 8
+RUN_ACTIONS = (0, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD)       # at most one of them before a frame
+SYS_PAUSE, SYS_RESTART, SYS_STATE_SAVE, SYS_STATE_LOAD = 1, 2, 4, 8
 REFUSED_OPTION, REFUSED_SNAPSHOT, REFUSED_COMMAND = 1, 2, 3
 EXIT_CLOSED, EXIT_LOST, EXIT_STOPPED, EXIT_FAILED = 1, 2, 3, 4
 NOTICE_WAITING, NOTICE_RESUMED, NOTICE_LEFT, NOTICE_TURN, NOTICE_YOUR_TURN, NOTICE_CHAT_SLOW = 1, 2, 3, 4, 5, 6
@@ -48,7 +50,9 @@ HEADER_NAMES = {
     'RRHK_CAP_SNAPSHOT': CAP_SNAPSHOT, 'RRHK_CAP_DIGEST': CAP_DIGEST, 'RRHK_CAP_POINTER': CAP_POINTER,
     'RRHK_CAP_AXES': CAP_AXES, 'RRHK_CAP_KEYBOARD': CAP_KEYBOARD, 'RRHK_CAP_DRIVEN': CAP_DRIVEN,
     'RRHK_SETUP_GUEST': SETUP_GUEST, 'RRHK_RUN_SILENT': RUN_SILENT, 'RRHK_RUN_RESET': RUN_RESET,
+    'RRHK_RUN_STATE_SAVE': RUN_STATE_SAVE, 'RRHK_RUN_STATE_LOAD': RUN_STATE_LOAD,
     'RRHK_SYS_PAUSE': SYS_PAUSE, 'RRHK_SYS_RESTART': SYS_RESTART,
+    'RRHK_SYS_STATE_SAVE': SYS_STATE_SAVE, 'RRHK_SYS_STATE_LOAD': SYS_STATE_LOAD,
     'RRHK_REFUSED_OPTION': REFUSED_OPTION, 'RRHK_REFUSED_SNAPSHOT': REFUSED_SNAPSHOT,
     'RRHK_REFUSED_COMMAND': REFUSED_COMMAND,
     'RRHK_EXIT_CLOSED': EXIT_CLOSED, 'RRHK_EXIT_LOST': EXIT_LOST, 'RRHK_EXIT_STOPPED': EXIT_STOPPED,
@@ -207,9 +211,12 @@ def setup(seat: int, ports: int, ring_depth: int = 0, guest: bool = False, optio
     return frame(MSG_SETUP, struct.pack('<BBBBH', seat, ports, ring_depth, SETUP_GUEST if guest else 0, len(text)) + text)
 
 
-def run(frame_number: int, words, silent: bool = False, reset: bool = False) -> bytes:
-    """`reset`: the machine restarts before this frame runs (the host's restart, on every seat at this frame)."""
-    flags = (RUN_SILENT if silent else 0) | (RUN_RESET if reset else 0)
+def run(frame_number: int, words, silent: bool = False, reset: bool = False, action: int = 0) -> bytes:
+    """`reset`: the machine restarts before this frame runs (the host's restart, on every seat at this frame). `action`: one of
+    `RUN_ACTIONS`, done before the frame runs (the host's restart, or its save or load of the match's state)."""
+    if action not in RUN_ACTIONS or (reset and action not in (0, RUN_RESET)):
+        raise ValueError('one action at most before a frame')
+    flags = (RUN_SILENT if silent else 0) | (RUN_RESET if reset else 0) | action
     return frame(MSG_RUN, struct.pack(f'<IBB{len(words)}H', frame_number, flags, len(words), *words))
 
 

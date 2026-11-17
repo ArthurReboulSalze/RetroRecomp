@@ -48,6 +48,8 @@ SYS_PASS = 0x0002
 SYS_TO_SHIFT, SYS_TO_MASK = 8, 0x0700
 SYS_SET_ALL, SYS_SET_TURNS = 0x1000, 0x2000
 SYS_RESTART = 0x4000         # host only: every game restarts before this frame runs (one record = one restart; a guest's is ignored)
+SYS_STATE_SAVE = 0x0800      # host only: every game saves the match's state before this frame runs (the host's F8)
+SYS_STATE_LOAD = 0x8000      # host only: every game loads it back before this frame runs (the host's F9)
 SYS_GAME_MASK = SYS_PAUSE
 SYS_CONTROL_MASK = SYS_PASS | SYS_TO_MASK | SYS_SET_ALL | SYS_SET_TURNS
 
@@ -137,6 +139,21 @@ def merge(words, opposites=()) -> int:
         if word & first and word & second:
             word &= ~(first | second) & 0xffff
     return word
+
+
+def action(records) -> int:
+    """What every game does before this frame runs, from the host's record (a guest's bits are ignored): the restart, else the
+    load of the match's state, else its save, as the RUN flag (`session_pipe.RUN_RESET`, `RUN_STATE_LOAD`, `RUN_STATE_SAVE`),
+    or 0. A predicted record has no system bit, so none of them is ever guessed."""
+    from . import session_pipe as pipe
+    if not records:
+        return 0
+    host = records[HOST][1]
+    if host & SYS_RESTART:
+        return pipe.RUN_RESET
+    if host & SYS_STATE_LOAD:
+        return pipe.RUN_STATE_LOAD
+    return pipe.RUN_STATE_SAVE if host & SYS_STATE_SAVE else 0
 
 
 def restart(records) -> bool:

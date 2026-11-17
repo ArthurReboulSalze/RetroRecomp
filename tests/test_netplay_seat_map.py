@@ -180,10 +180,11 @@ class MapperRules(unittest.TestCase):
         driver._holding = False
         driver._ask(seat_map.request(SHARED_TURNS, 0, target=1))
         # a game that sets every system bit gets its pause through and nothing else; the worker's request is added once, and
-        # the host's restart bit (session ABI 2) becomes the restart request on its rising edge only
+        # the host's restart bit (session ABI 2) becomes the restart request on its rising edge only, and its state bits
+        # (ABI 4) the load of the match's state (a load wins over a save asked in the same LOCAL)
         driver._local(0, 5, 0xffff)
         driver._local(1, 5, 0xffff)
-        self.assertEqual(driver._records[0][2], (5, SYS_PAUSE | SYS_PASS | to(1) | seat_map.SYS_RESTART))
+        self.assertEqual(driver._records[0][2], (5, SYS_PAUSE | SYS_PASS | to(1) | seat_map.SYS_RESTART | seat_map.SYS_STATE_LOAD))
         self.assertEqual(driver._records[0][3], (5, SYS_PAUSE))
         self.assertEqual(driver.stats['requests_refused'], 0)                             # the host may name a seat
         host_guest = LockstepDriver(NoGame(), type('Link', (), {'open': lambda self, sink: None, 'send': lambda self, *a: None})(),

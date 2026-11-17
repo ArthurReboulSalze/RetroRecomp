@@ -48,6 +48,11 @@ static struct {
     bool restart_pending;           /* the host asked to restart: reported in the LOCALs of one frame */
     bool restarting;                /* a driven machine restarts for everyone: its shell closes and opens again, the session
                                      * stays (pipes, frame count, setup) */
+    uint8_t state_pending;          /* the host asked to save (1) or load (2) the match's state: in the LOCALs of one frame */
+    uint8_t *state;                 /* the match's state (the host's F8 / F9 for everyone): one slot of snap_bound bytes, in
+                                     * memory only, freed with the session; NULL on a machine without snapshots */
+    size_t state_size, state_len;
+    bool state_used;
     uint8_t options[RRHK_SESSION_MAX_PAYLOAD];      /* the host's run-changing options of SETUP, applied again then */
     uint16_t options_length;
     char paused_by[24];
@@ -78,6 +83,16 @@ bool rrhk_session_restart(void) {
     if (s.guest) { rrhk_notice(rr_tr("Only the host can restart"), 1800); return false; }
     s.restart_pending = true;
     return true;
+}
+/* F8 / F9 (or the pad's Quick save / Quick load) in a session: the host's request goes to every seat at the same frame. The
+ * match's state lives in memory for this match only; a player's own quick states are never read or written here. */
+bool rrhk_session_states(void) { return rrhk_session_on && s.state && !s.guest; }
+void rrhk_session_state(bool load) {
+    if (!rrhk_session_on) return;
+    if (!s.state) { rrhk_notice(rr_tr("Quick states are off in multiplayer"), 1800); return; }
+    if (s.guest) { rrhk_notice(rr_tr("Only the host saves and loads"), 1800); return; }
+    if (load && !s.state_used && s.state_pending != 1) { rrhk_notice(rr_tr("No state saved in this match"), 1800); return; }
+    s.state_pending = load ? 2 : 1;
 }
 Uint64 rrhk_session_period(Uint64 period) {
     return s.ppm ? (Uint64)((double)period * (1.0 + (double)s.ppm / 1e6)) : period;
@@ -266,6 +281,7 @@ bool rrhk_session_open(RrhkRun *run) {
     memset(s.ports, 0, sizeof s.ports);
     memset(s.slot_used, 0, sizeof s.slot_used);
     s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.restart_pending = false; s.ppm = 0; s.ending_until = 0; s.system_sent = 0; s.exit_reason = 0;
+    s.state_pending = 0; s.state_used = false; s.state_len = 0;
     s.setup = false; s.setup_until = SDL_GetTicks64() + 15000;
     rrhk_session_on = true;           /* from here the frames wait for SETUP inside the loop (events and pictures go on) */
     /* The worker started this game from a window in the background: without the focus, the keyboard reaches nothing and the
@@ -296,6 +312,12 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         if (!s.ring) { refuse(RRHK_REFUSED_SNAPSHOT, "memory"); return false; }
         s.slot_size = bound; s.depth = depth;
     } else if (depth) { refuse(RRHK_REFUSED_SNAPSHOT, "none"); return false; }
+    /* The match's state (the host's F8 / F9 for everyone), on any tier, for a machine whose snapshot is a whole state. */
+    if (bound && !m->driven && !s.state) {
+        s.state = (uint8_t *)malloc(bound);
+        if (!s.state) { refuse(RRHK_REFUSED_SNAPSHOT, "memory"); return false; }
+        s.state_size = bound;
+    }
     if (s.guest && m->side_effects) m->side_effects(false);
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
@@ -341,6 +363,20 @@ static void chat_turn(int turn, const char *name);
 static void chat_slow(void);
 static void chat_reset(void);
 
+/* RUN_STATE_SAVE / RUN_STATE_LOAD, before the frame runs (live, or again in a silent frame after a correction). */
+static bool match_state(const RrhkMachine *m, uint8_t flags, bool live) {
+    if (flags & RRHK_RUN_STATE_SAVE) {
+        const size_t n = s.state ? m->snap_save(s.state, s.state_size) : 0;
+        if (!n) return false;
+        s.state_len = n; s.state_used = true;
+        if (live) rrhk_notice(rr_tr("State saved by the host"), 1800);
+    } else if (flags & RRHK_RUN_STATE_LOAD) {
+        if (!s.state || !s.state_used || !m->snap_load(s.state, s.state_len)) return false;
+        if (live) rrhk_notice(rr_tr("State loaded by the host"), 1800);
+    }
+    return true;
+}
+
 static int ending(const char *message, uint16_t reason) {
     if (!s.ending_until) {
         s.exit_reason = reason;
@@ -379,7 +415,8 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     /* The system bits are read every iteration: a menu opened asks everyone to pause, and closing it (while the session is
      * paused, so no RUN comes) is reported again for the same frame, with the same word; the worker takes the latest. */
     const uint16_t system = (uint16_t)((rrhk.menu || rrhk.paused ? RRHK_SYS_PAUSE : 0) |
-                                       (s.restart_pending ? RRHK_SYS_RESTART : 0));
+                                       (s.restart_pending ? RRHK_SYS_RESTART : 0) |
+                                       (s.state_pending == 1 ? RRHK_SYS_STATE_SAVE : s.state_pending == 2 ? RRHK_SYS_STATE_LOAD : 0));
     if (!s.local_sent || system != s.system_sent) {
         /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
          * sends the neutral word. */
@@ -416,13 +453,19 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         case RRHK_MSG_RUN: {
             if (length < 6 || !set_ports(m, payload, length)) return lost(run, "a RUN broke the rules");
             const uint32_t frame = u32(payload);
-            if (payload[4] & ~(RRHK_RUN_SILENT | RRHK_RUN_RESET)) return lost(run, "a RUN with unknown flags");
+            if (payload[4] & ~(RRHK_RUN_SILENT | RRHK_RUN_RESET | RRHK_RUN_STATE_SAVE | RRHK_RUN_STATE_LOAD))
+                return lost(run, "a RUN with unknown flags");
             if (payload[4] & RRHK_RUN_SILENT) {
                 /* Re-simulation after a LOAD: frames in order, up to the one before the live frame. */
                 if (m->driven || !s.ring) { refuse(RRHK_REFUSED_COMMAND, "silent"); return lost(run, "a silent frame without snapshots"); }
                 if (frame != s.live) return lost(run, "a silent RUN out of order");
                 s.silent = true; effects(m, false);
                 if (payload[4] & RRHK_RUN_RESET) m->reset();       /* the host's restart, run again after a correction */
+                if (!match_state(m, payload[4], false)) {           /* the host's F8 / F9, run again after a correction */
+                    s.silent = false; effects(m, true);
+                    refuse(RRHK_REFUSED_SNAPSHOT, "state");
+                    return lost(run, "the match's state could not be saved or loaded");
+                }
                 const bool ok = m->run_frame(s.ports[0], s.ports[1]);
                 rrhk_audio_discard(run);
                 s.silent = false; effects(m, true);
@@ -439,6 +482,11 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
                 rrhk_notice(rr_tr("Restarted by the host"), 1800);
                 if (m->driven) s.restarting = true;    /* its shell closes after this frame and opens again: not the end */
             }
+            if (!match_state(m, payload[4], true)) {
+                refuse(RRHK_REFUSED_SNAPSHOT, "state");
+                return lost(run, "the match's state could not be saved or loaded");
+            }
+            if (payload[4] & RRHK_RUN_STATE_LOAD) rrhk_audio_pause_output(run);
             s.last_run = frame;
             return 1;
         }
@@ -519,6 +567,7 @@ void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks) {
     send_message(RRHK_MSG_DONE, done, sizeof done);
     ++s.live;
     if (s.system_sent & RRHK_SYS_RESTART) s.restart_pending = false;     /* the worker saw it in this frame's LOCAL */
+    if (s.system_sent & (RRHK_SYS_STATE_SAVE | RRHK_SYS_STATE_LOAD)) s.state_pending = 0;
     s.local_sent = false;
 }
 
@@ -537,6 +586,7 @@ void rrhk_session_close(RrhkRun *run, int reason) {
 #endif
     s.in = s.out = RRHK_NO_PIPE;
     free(s.ring); s.ring = NULL; s.depth = 0;
+    free(s.state); s.state = NULL; s.state_size = s.state_len = 0; s.state_used = false;     /* the match's state ends here */
     chat_reset();
     rrhk_session_on = false;
 }

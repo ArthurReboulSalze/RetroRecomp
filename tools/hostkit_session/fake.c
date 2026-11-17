@@ -40,6 +40,10 @@ static unsigned menu_at, menu_countdown;
 /* SESSION_FAKE_RESTART_AT=n: the player presses Shift+F1 during frame n - 1 (alone: the game restarts before frame n; in a
  * session: the host's request goes to the worker, a guest is told only the host can). */
 static unsigned restart_at;
+/* SESSION_FAKE_LOAD_AT=n: the player presses F9 once, during frame n - 1 (F8 is pressed during frame 9 in every run). In a
+ * session the host's F8 / F9 are requests for everyone (session ABI 4); a guest is told only the host can. */
+static unsigned load_at;
+static bool load_pressed;
 /* SESSION_FAKE_CHAT_AT=n: during frame n - 1 the player opens the chat (Y: its own text event is not typed) and types "Hello
  * there"; Enter sends it twenty iterations later, while the frames go on (the chat asks no pause). */
 static unsigned chat_at, chat_countdown;
@@ -93,9 +97,14 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
     if (rrhk_session_silent()) ++silent_runs; else ++live_runs;
     if (!effects_allowed) ++effects_off_runs;
     picture[state.frames % 256] = (uint32_t)state.acc;
-    /* frame 10 of the run: the player presses F8, which a session must refuse with a notice */
+    /* frame 10 of the run: the player presses F8 (alone: the quick-state file; in a session: the host's request for everyone,
+     * refused for a guest) */
     if (menu_at && state.frames == menu_at && !rrhk_session_silent()) { key(SDL_SCANCODE_F1, SDLK_F1); menu_countdown = 30; }
     if (restart_at && state.frames == restart_at && !rrhk_session_silent()) key_with(SDL_SCANCODE_F1, SDLK_F1, KMOD_LSHIFT);
+    if (load_at && !load_pressed && state.frames == load_at && !rrhk_session_silent()) {
+        load_pressed = true;
+        key(SDL_SCANCODE_F9, SDLK_F9);
+    }
     if (chat_at && state.frames == chat_at && !rrhk_session_silent()) {
         key(SDL_SCANCODE_Y, SDLK_y); text("y"); text("Hello there");
         chat_countdown = 20;
@@ -153,6 +162,8 @@ int main(int argc, char **argv) {
     if (slow_ms > 40) slow_ms = 40;
     const char *restart = getenv("SESSION_FAKE_RESTART_AT");
     restart_at = restart ? (unsigned)atoi(restart) : 0;
+    const char *load = getenv("SESSION_FAKE_LOAD_AT");
+    load_at = load ? (unsigned)atoi(load) : 0;
     const char *chat = getenv("SESSION_FAKE_CHAT_AT");
     chat_at = chat ? (unsigned)atoi(chat) : 0;
     /* SESSION_FAKE_BOOT_SALT=n: this copy starts from another state (a stand-in for another battery, an option the seal

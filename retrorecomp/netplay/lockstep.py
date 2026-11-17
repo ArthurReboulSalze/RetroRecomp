@@ -74,6 +74,9 @@ HELLO_WITHIN = 15.0
 GATE_WITHIN = 20.0           # from SETUP to the start: boot digests, measures, the host's word
 CLOSE_WITHIN = 12.0          # a stopped game shows its message about 3.5 s, then closes
 RESTART_FOLD = 0x9e3779b97f4a7c15      # what a restart adds to the history digest's fold
+STATE_SAVE_FOLD = 0xc2b2ae3d27d4eb4f   # and a save of the match's state (the host's F8)
+STATE_LOAD_FOLD = 0x165667b19e3779f9   # and a load of it (the host's F9)
+ACTION_FOLDS = {pipe.RUN_RESET: RESTART_FOLD, pipe.RUN_STATE_SAVE: STATE_SAVE_FOLD, pipe.RUN_STATE_LOAD: STATE_LOAD_FOLD}
 def link_estimate(samples) -> tuple[float, float]:
     """(one way, jitter) in ms of a link from its round trips: half the median, and half the spread from the median to the
     90th percentile. A lone spike (a Wi-Fi hiccup, a busy PC during the probe) moves neither: on 17 Nov 2026 the worst of a
@@ -230,6 +233,10 @@ class LockstepDriver:
         self._game_system = 0
         self._game_restart = False              # the game's restart bit in its latest LOCAL (a request on its rising edge)
         self.restarts: list[int] = []           # the frames this game was told to restart before (verified ones on rollback)
+        self._game_state = 0                    # the game's state bits in its latest LOCAL (a request on a rising edge)
+        self._state_wanted = 0                  # the host's save or load waiting for a record (seat_map.SYS_STATE_*)
+        self._state_record: int | None = None   # the record that carried the last one
+        self.states: list = []                  # (frame, 'save' | 'load'): what this game was told to do with the match's state
         self._host_saw_pause = False
         self._resumed: set[int] = set()
         self._my_resume = wire.NONE
@@ -320,7 +327,7 @@ class LockstepDriver:
             'pauses': [list(item) for item in self.pauses], 'desync': list(self.desync) if self.desync else None,
             'measured': list(self.measured) if self.measured else None, 'boot_digest': self.boot_digest,
             'exit_code': self.exit_code, 'exit_reason': self.exit_reason, 'history_frames': self.history_frames,
-            'restarts': list(self.restarts[-64:]),
+            'restarts': list(self.restarts[-64:]), 'states': [list(item) for item in self.states[-64:]],
             'history_digest': f'{self.history_digest:016x}',
             'pace': {'ppm': self._pace.ppm, 'median': round(self._pace.median, 3), 'changes': self._pace.changes},
             'hello': None if hello is None else {'name': hello.name, 'players': hello.players, 'caps': hello.caps,
@@ -566,6 +573,16 @@ class LockstepDriver:
         if asked and not self._game_restart and self.seat == HOST:
             self._request |= seat_map.SYS_RESTART
         self._game_restart = asked
+        # The host's F8 / F9 (the match's state, for everyone): the same, on the rising edge of the game's bit; a load wins over
+        # a save asked in the same LOCAL. It waits for a record at least `_state_spacing` after the last one (below).
+        state = system & (pipe.SYS_STATE_SAVE | pipe.SYS_STATE_LOAD)
+        if self.seat == HOST:
+            rising = state & ~self._game_state
+            if rising & pipe.SYS_STATE_LOAD:
+                self._state_wanted = seat_map.SYS_STATE_LOAD
+            elif rising & pipe.SYS_STATE_SAVE:
+                self._state_wanted = seat_map.SYS_STATE_SAVE
+        self._game_state = state
         if self.settings.local_source is not None:
             word, system = self.settings.local_source(frame, word, system)
             word, system = word & 0xffff, system & 0xffff
@@ -583,6 +600,10 @@ class LockstepDriver:
                 self._my_resume = self.paused[0]
         mine = self._records[self.seat]
         if frame + self.delay == len(mine):     # first write wins: a repeated LOCAL of a frame never changes its record
+            record = len(mine)
+            if self._state_wanted and (self._state_record is None or record - self._state_record >= self._state_spacing()):
+                self._request |= self._state_wanted
+                self._state_wanted, self._state_record = 0, record
             mine.append((word, system | self._request))
             self._request = 0                   # a request rides one record: the mapper acts on its rising edge
             self._send_inputs(time.monotonic())
@@ -768,7 +789,7 @@ class LockstepDriver:
                     self._tell(pipe.pause(True, self.names[pausers[0]]))
                     continue
             records = [self._records[seat][frame] for seat in range(self.seats)]
-            reset = seat_map.restart(records)
+            action = seat_map.action(records)
             words, self._seat_state = seat_map.step(self._seat_state, records, self.settings.opposites)
             self._tell_turn()
             if self.settings.words_filter is not None:
@@ -779,8 +800,8 @@ class LockstepDriver:
                 self._tell(pipe.notice(pipe.NOTICE_RESUMED))
                 self._waiting_noticed = False
             self._blocked_since = None
-            self._tell(pipe.run(frame, words, reset=reset))
-            self._remember(frame, words, reset)
+            self._tell(pipe.run(frame, words, action=action))
+            self._remember(frame, words, action)
             self.stats['runs'] += 1
             self.next_run = frame + 1
             if self.next_run % self.settings.digest_every == 0 or self.next_run == self.settings.last_frame:
@@ -800,15 +821,24 @@ class LockstepDriver:
                 self._local(*local)
         return True
 
-    def _remember(self, frame: int, words: tuple, reset: bool = False):
-        """What this game was told to run: kept whole only for tests (`keep_history`); always as a running fold (a restart
-        before the frame folds in too)."""
+    def _state_spacing(self) -> int:
+        """Records between two saves or loads of the match's state: any on the delay tier, where no frame is run again (the
+        rollback driver keeps them a snapshot ring apart, so a correction never runs a load after the save that follows it)."""
+        return 1
+
+    def _remember(self, frame: int, words: tuple, action: int = 0):
+        """What this game was told to run: kept whole only for tests (`keep_history`); always as a running fold (what was done
+        before the frame, a restart or the match's state saved or loaded, folds in too)."""
         value = frame
         for port, word in enumerate(words):
             value ^= word << (16 * port + 7)
-        if reset:
-            value ^= RESTART_FOLD
-            self.restarts.append(frame)
+        action = pipe.RUN_RESET if action is True else int(action or 0)
+        if action:
+            value ^= ACTION_FOLDS[action]
+            if action == pipe.RUN_RESET:
+                self.restarts.append(frame)
+            else:
+                self.states.append((frame, 'save' if action == pipe.RUN_STATE_SAVE else 'load'))
         self.history_digest = ((self.history_digest * 0x100000001b3) ^ value) & 0xffffffffffffffff
         self.history_frames += 1
         if self.settings.keep_history:

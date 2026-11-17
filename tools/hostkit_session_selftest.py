@@ -6,9 +6,10 @@ The kit's shell is compiled as an export compiles it, around the fake machine of
 the four ports' words of every frame), and driven through two anonymous pipes by a scripted worker written here, which folds the
 same words in Python and compares digests. Scenarios: alone (no session: the game plays as before, F8 still saves); delay
 (four ports, players 3 and 4 included); rollback (snapshots, loads, silent frames, then the live frame); a guest (no side
-effects); pause for everyone; an option the machine cannot honour; the pipe lost; F8 refused in a session; the restart
-(alone at once as before; in a session the host's Shift+F1 is a request in its LOCAL and the machine restarts only on the
-worker's RUN, live or silent; a guest's is refused). Runs under SDL's
+effects); pause for everyone; an option the machine cannot honour; the pipe lost; the restart (alone at once as before; in a
+session the host's Shift+F1 is a request in its LOCAL and the machine restarts only on the worker's RUN, live or silent; a
+guest's is refused); the match's state (the host's F8 / F9: requests in its LOCALs, saved and loaded only on the worker's
+RUN, again after a correction; a guest's refused; a load with nothing saved ends the session). Runs under SDL's
 dummy video and audio drivers (no window, no sound device). Needs the C toolchain and the pinned static SDL2 of `.deps`;
 nothing is written outside DIR (default .build/hostkit-session-selftest). A few seconds.
 """
@@ -101,13 +102,19 @@ def clean(word: int) -> int:
 RESTART = 0x5245534554       # what the fake's restart mixes into its accumulator (fake.c reset)
 
 
-def digest_of(history: list[tuple[int, int, int, int]], restarts=()) -> int:
-    """The fake's digest after `history`; `restarts`: the frames the machine restarted before (the frame count goes on)."""
+def digest_of(history: list[tuple[int, int, int, int]], restarts=(), states=None) -> int:
+    """The fake's digest after `history`; `restarts`: the frames the machine restarted before (the frame count goes on);
+    `states`: {frame: 'save' | 'load'}, the match's state saved or loaded before that frame (its whole state: the fake's own
+    frame count comes back with a load)."""
     acc, frames = 0x9e3779b97f4a7c15, 0
-    restarts = set(restarts)
-    for p1, p2, p3, p4 in history:
-        if frames in restarts:
+    restarts, states, slot = set(restarts), states or {}, None
+    for index, (p1, p2, p3, p4) in enumerate(history):
+        if index in restarts:
             acc = mix(acc ^ RESTART)
+        if states.get(index) == 'save':
+            slot = (acc, frames)
+        elif states.get(index) == 'load':
+            acc, frames = slot
         p1, p2, p3, p4 = clean(p1), clean(p2), clean(p3), clean(p4)
         words = p1 | p2 << 16 | p3 << 32 | p4 << 48
         acc = mix(acc ^ words ^ ((frames << 7) & M))
@@ -121,7 +128,7 @@ class Game:
     """The fake game started in a session (or alone): its pipes, a reader thread, its exit."""
 
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
-                 restart_at: int = 0, chat_at: int = 0):
+                 restart_at: int = 0, chat_at: int = 0, load_at: int = 0):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -133,6 +140,9 @@ class Game:
         env.pop('SESSION_FAKE_MENU_AT', None)
         env.pop('SESSION_FAKE_RESTART_AT', None)
         env.pop('SESSION_FAKE_CHAT_AT', None)
+        env.pop('SESSION_FAKE_LOAD_AT', None)
+        if load_at:
+            env['SESSION_FAKE_LOAD_AT'] = str(load_at)
         if chat_at:
             env['SESSION_FAKE_CHAT_AT'] = str(chat_at)
         if menu_at:
@@ -252,7 +262,7 @@ def remote(frame: int, salt: int = 0) -> tuple[int, int, int]:
     return ((frame * 7 + salt) & 0xff, (frame * 13 + salt) & 0xff, (frame * 29 + salt) & 0xff)
 
 
-def live_frame(game: Game, frame: int, words, history: list, *, save: bool = False, reset: bool = False) -> int:
+def live_frame(game: Game, frame: int, words, history: list, *, save: bool = False, reset: bool = False, flags: int = 0) -> int:
     """Runs `frame` live; returns the system bits of its LOCAL."""
     local = game.expect('RRHK_MSG_LOCAL')
     got_frame, word, system = struct.unpack('<IHH', local)
@@ -260,18 +270,18 @@ def live_frame(game: Game, frame: int, words, history: list, *, save: bool = Fal
     assert word == 0, word                    # no key, no pad in a test run
     if save:
         game.send('RRHK_MSG_SAVE', struct.pack('<I', frame))
-    game.send('RRHK_MSG_RUN', run_payload(frame, words, reset=reset))
+    game.send('RRHK_MSG_RUN', run_payload(frame, words, reset=reset, flags=flags))
     done = game.expect('RRHK_MSG_DONE')
     assert struct.unpack_from('<I', done)[0] == frame
     history.append(tuple(words))
     return system
 
 
-def check_digest(game: Game, history: list, restarts=()) -> None:
+def check_digest(game: Game, history: list, restarts=(), states=None) -> None:
     game.send('RRHK_MSG_DIGEST')
     frame, low, high = struct.unpack('<III', game.expect('RRHK_MSG_DIGEST_OF'))
     assert frame == len(history) - 1, (frame, len(history))
-    assert (low | high << 32) == digest_of(history, restarts), 'digest differs from the fold'
+    assert (low | high << 32) == digest_of(history, restarts, states), 'digest differs from the fold'
 
 
 def stop(game: Game) -> None:
@@ -303,10 +313,10 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     code, result, text = game.finish()
     assert code == 0, text
     assert int(result['frames']) == 300 and int(result['live']) == 300 and int(result['silent']) == 0, result
-    assert int(result['quick']) == 0, result               # F8 at frame 10 refused
+    assert int(result['quick']) == 0, result               # F8 at frame 10: never the player's own quick-state file
     assert int(result['options']) == 1, result
     assert int(result['digest'], 16) == digest_of(history), result
-    passed.append('delay: 300 frames, 4 ports, digests equal, F8 refused')
+    passed.append('delay: 300 frames, 4 ports, digests equal, F8 never the player\'s own quick state')
 
     # 3. Rollback: a snapshot before every frame; every 25 frames, back 6 frames, 6 silent frames with other words, live.
     game = Game(executable, out)
@@ -426,6 +436,7 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     passed.append('test run: no session, plays alone (50 frames)')
     passed.extend(restart_scenarios(executable, out))
     passed.extend(chat_scenarios(executable, out))
+    passed.extend(state_scenarios(executable, out))
     return passed
 
 
@@ -504,6 +515,78 @@ def restart_scenarios(executable: Path, out: Path) -> list[str]:
     code, result, text = game.finish(timeout=10)
     assert code == 0 and int(result['frames']) == 5 and 'unknown flags' in text, (code, result, text)
     passed.append('a RUN with an unknown flag: the session ends, nothing run')
+    return passed
+
+
+def state_scenarios(executable: Path, out: Path) -> list[str]:
+    """The match's state (session ABI 4): the host's F8 / F9 are requests in its LOCALs; every seat saves or loads its own
+    in-memory slot only when the worker's RUN says so (live, or silent after a correction); a guest's are refused; a load with
+    nothing saved ends the session; the player's own quick-state file is never touched."""
+    passed = []
+    save_bit, load_bit = CONSTANTS['RRHK_SYS_STATE_SAVE'], CONSTANTS['RRHK_SYS_STATE_LOAD']
+    save_flag, load_flag = CONSTANTS['RRHK_RUN_STATE_SAVE'], CONSTANTS['RRHK_RUN_STATE_LOAD']
+
+    # 16. The host: F8 during frame 9 and F9 during frame 19 are asked in the LOCALs of frames 10 and 20 only; the worker's RUN
+    # saves before frame 13 and loads before frame 25 (live), then a correction from frame 24 loads again (silent); digests
+    # follow the fold (the load brings back the whole state).
+    game = Game(executable, out, load_at=20)
+    setup(game, depth=16)
+    history, states, asked = [], {13: 'save', 25: 'load'}, {}
+    for frame in range(40):
+        flags = save_flag if frame == 13 else load_flag if frame == 25 else 0
+        system = live_frame(game, frame, (0, *remote(frame)), history, save=True, flags=flags)
+        if system & (save_bit | load_bit):
+            asked[frame] = system & (save_bit | load_bit)
+    assert asked == {10: save_bit, 20: load_bit}, asked
+    check_digest(game, history, (), states)
+    assert struct.unpack('<IHH', game.expect('RRHK_MSG_LOCAL'))[0] == 40
+    game.send('RRHK_MSG_LOAD', struct.pack('<I', 24))
+    del history[24:]
+    for again in range(24, 40):
+        words = (0, *remote(again, salt=0x21))
+        game.send('RRHK_MSG_SAVE', struct.pack('<I', again))
+        game.send('RRHK_MSG_RUN', run_payload(again, words, silent=True, flags=load_flag if again == 25 else 0))
+        history.append(words)
+    game.send('RRHK_MSG_RUN', run_payload(40, (0, *remote(40))))
+    assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == 40
+    history.append((0, *remote(40)))
+    check_digest(game, history, (), states)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0, text
+    assert int(result['quick']) == 0, result                # the player's own quick-state file is never touched
+    assert int(result['digest'], 16) == digest_of(history, (), states), result
+    passed.append('match state, host: F8 / F9 asked in the LOCALs of frames 10 and 20 only, saved before frame 13 and loaded '
+                  'before frame 25 on the RUN (live, then again silent after a correction), digests equal, own quick state '
+                  'untouched')
+
+    # 17. A guest: its F8 and F9 are refused (nothing in its LOCALs); the host's RUN saves and loads it all the same.
+    game = Game(executable, out, load_at=20)
+    setup(game, seat=1, guest=True)
+    history, states = [], {12: 'save', 22: 'load'}
+    for frame in range(30):
+        flags = save_flag if frame == 12 else load_flag if frame == 22 else 0
+        system = live_frame(game, frame, (*remote(frame)[:1], 0, 0, 0), history, flags=flags)
+        assert not system & (save_bit | load_bit), (frame, system)
+    check_digest(game, history, (), states)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0 and int(result['quick']) == 0, result
+    assert int(result['digest'], 16) == digest_of(history, (), states), result
+    passed.append('match state, guest: F8 / F9 refused, nothing asked; the host\'s RUN saves before frame 12 and loads before 22')
+
+    # 18. A load with nothing saved in this match ends the session (never a guess, never the player's own file).
+    game = Game(executable, out)
+    setup(game)
+    history = []
+    for frame in range(5):
+        live_frame(game, frame, (0, 0, 0, 0), history)
+    game.expect('RRHK_MSG_LOCAL')
+    game.send('RRHK_MSG_RUN', run_payload(5, (0, 0, 0, 0), flags=load_flag))
+    code, result, text = game.finish(timeout=10)
+    assert code == 0 and int(result['frames']) == 5 and int(result['quick']) == 0, (code, result, text)
+    assert "match's state could not be saved or loaded" in text, text
+    passed.append('match state: a load with nothing saved ends the session, nothing run')
     return passed
 
 

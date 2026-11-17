@@ -335,15 +335,15 @@ void rrhk_poll_events(RrhkRun *run) {
          * row the host sets, a key of a machine page that changes the run (DIP switches). Menus, bindings, filters, sound,
          * language and Quit stay this player's own. */
         if (rrhk_session_on) {
-            const bool states = key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9;
-            const bool refused = states ||
+            /* F8 / F9 go on to the request below: in a session the host's are for everyone (rrhk_session_state). */
+            const bool refused =
                 (key == SDL_SCANCODE_GRAVE && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) ||
                 (media_pressed(&event, key) && !rrhk_options_component(key, -1)) || rrhk_option_key_run(key) ||
                 (rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
                  key != SDL_SCANCODE_F2 && key != SDL_SCANCODE_F1 && key != SDL_SCANCODE_UP && key != SDL_SCANCODE_DOWN &&
                  key != SDL_SCANCODE_PAGEUP && key != SDL_SCANCODE_PAGEDOWN);
             if (refused) {
-                rrhk_notice(rr_tr(states ? "Quick states are off in multiplayer" : "Set by the host in multiplayer"), 1800);
+                rrhk_notice(rr_tr("Set by the host in multiplayer"), 1800);
                 continue;
             }
         }

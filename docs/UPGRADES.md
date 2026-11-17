@@ -94,10 +94,12 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 In preparation on the multiplayer branch; this section is completed when it merges. What moves: the game stamp of the 21
 profiles (the simulation identity that lets two players check they run the same game, and the recipe mode: modules of every
 game stamp), so **every export is converted again once**; the host stamp of every machine with the host kit (the session code
-of the shell: `hostkit_session.h` at session ABI 3, `rrhk_session.inc`, the chat `rrhk_chat.inc`, new catalogue strings in the
+of the shell: `hostkit_session.h` at session ABI 4, `rrhk_session.inc`, the chat `rrhk_chat.inc`, new catalogue strings in the
 eight locales). Alone, a game runs as before: the session code is reached only when the converter starts the game with its
-pipes (`RETRORECOMP_NETPLAY_PIPE`), and the solo restart, controls and pacing are unchanged (tests of the kit's session
-self-test, "restart alone" and "alone"). Quick states, cartridge saves and preferences are untouched. **Proof so far** (17
+pipes (`RETRORECOMP_NETPLAY_PIPE`), and the solo restart, controls, quick states and pacing are unchanged (tests of the kit's
+session self-test, "restart alone" and "alone"). In a session the host's F8 / F9 save and load the match's state for everyone at
+the same frame, in memory only and for that match only: the players' own quick-state files are never read or written, and the
+format of a quick state does not change. Cartridge saves and preferences are untouched. **Proof so far** (17
 November 2026, two Windows PCs on a home network, Contra NES): two-player matches with no desync, the host's restart for
 everyone, 150 ms of simulated round trip on the rollback tier with no wait, the in-game chat on keyboard and gamepad.
 Physical latency is not measured.

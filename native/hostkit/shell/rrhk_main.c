@@ -444,10 +444,12 @@ static bool begin_frame(RrhkRun *r) {
     const bool quick_save = rrhk_options_quick_save(rrhk.menu), quick_load = rrhk_options_quick_load(rrhk.menu);
     if (!rrhk.menu && !r->pending_state && (quick_save || quick_load)) r->pending_state = quick_load ? 2 : 1;
     if (!r->running) return false;
-    /* Multiplayer: no quick state for anyone (F8, F9 and their combinations say so), no fast loading, no speed key. */
+    /* Multiplayer: F8, F9 and their pad combinations are the host's, for every seat at the same frame, on the match's own
+     * state in memory (rrhk_session_state; a guest is told only the host can); no fast loading, no speed key. */
     if (rrhk_session_on && r->pending_state) {
+        const bool load = r->pending_state == 2;
         r->pending_state = 0;
-        rrhk_notice(rr_tr("Quick states are off in multiplayer"), 1800);
+        rrhk_session_state(load);
     }
     /* A computer's fast loading key: no pacing, no sound, a picture every eighth frame. */
     bool fast = !rrhk_session_on && m->fast_forward && m->fast_forward();

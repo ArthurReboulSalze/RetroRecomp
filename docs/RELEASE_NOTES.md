@@ -2,7 +2,8 @@
 
 - **Multiplayer (in preparation).** Play a converted game with friends on your local network: one PC hosts, the others
   join with an invitation code, and each player has their own controller (or everyone shares the controls on the
-  handhelds). The host can restart the game for everyone; a chat is built into the game (Y on the keyboard, R3 + Select on
+  handhelds). The host can restart the game for everyone, and save and load it for everyone with F8 and F9 (kept for that
+  match only, your own saves are not touched); a chat is built into the game (Y on the keyboard, R3 + Select on
   the gamepad, with ready-made phrases). On a local network the input delay added is one or two frames; a slower
   connection is smoothed by rollback. Every export is converted again once for this release. Physical latency is not
   measured.
