@@ -48,6 +48,7 @@ from .lan_transport import RoomError, RoomGuest, RoomHost
 from .launch import Refusal, launch_settings
 from .lobby import game_from_dict
 from .lockstep import LockstepDriver, Settings
+from .rollback import driver_for
 from .room_log import RoomLog
 from .session_game import SessionGame
 from .worker import result_message
@@ -193,7 +194,7 @@ class RoomWorker:
         session = SessionGame(Path(game['exe']), cwd=Path(game['cwd']) if game.get('cwd') else None, env=game.get('env'),
                               stdout=Path(game['stdout']) if game.get('stdout') else None,
                               stderr=Path(game['stderr']) if game.get('stderr') else None)
-        driver = LockstepDriver(session, link, settings)
+        driver = driver_for(session, link, settings)
         match = _Match(match_id, driver, session, host)
         with self.lock:
             self.match = match

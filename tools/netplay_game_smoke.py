@@ -2,7 +2,7 @@
 joined through the host (a star) by the in-memory link, which this process carries the workers' packets through.
 
     python -B tools/netplay_game_smoke.py GAME.exe [--seats 2] [--frames 3000] [--latency MS] [--jitter MS]
-                                          [--loss RATE] [--delay FRAMES] [--output DIR]
+                                          [--loss RATE] [--delay FRAMES] [--rollback CAP] [--hold FRAMES] [--output DIR]
 
 Not part of the test suite: it needs a game the player converted (never in the repository). Each seat gets its own
 copy of the executable in its own folder under DIR (default .build/netplay-game-smoke), so the copies share no file.
@@ -15,6 +15,12 @@ title screen and diverge at once if one input differs. The check: the boot diges
 are equal, every seat was told to run the same port words for every frame, and the digests the games gave every
 `--digest-every` frames are equal on all seats. It prints counts (frames, digests, late frames, waits), never a
 duration or a speed.
+
+`--rollback CAP` asks for the rollback tier (`retrorecomp/netplay/rollback.py`) with at most CAP frames run on a prediction;
+a game that keeps no snapshot stays on the delay tier and the line of its seat says so. The history compared is then the
+confirmed one, the digests are of confirmed frames, and the corrections are counted (how many, how many frames run again,
+the deepest, by depth). `--hold` is how many frames the scripted pads keep a word (default 12; smaller: inputs that change
+more often, so more wrong guesses).
 """
 from __future__ import annotations
 
@@ -44,10 +50,14 @@ def main() -> int:
     parser.add_argument('--jitter', type=float, default=0.0)
     parser.add_argument('--loss', type=float, default=0.0)
     parser.add_argument('--delay', type=int, help='input delay in frames (default: measured and chosen by the host)')
+    parser.add_argument('--rollback', type=int, default=0, help='prediction cap of the rollback tier (default 0: the delay tier)')
+    parser.add_argument('--hold', type=int, default=12, help='frames a scripted pad keeps its word')
     parser.add_argument('--digest-every', type=int, default=60)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--limit', type=float, default=0.0, help='seconds before the games are ended (default: from --frames)')
     parser.add_argument('--output', type=Path, default=ROOT / '.build/netplay-game-smoke')
+    parser.add_argument('--save-digests', type=Path, help='write the delay, digests and history fold of the first seat to this JSON file '
+                        '(two runs with the same pads and delay, one on each tier, must give the same)')
     args = parser.parse_args()
     game = args.game.resolve()
     if not game.is_file():
@@ -63,7 +73,8 @@ def main() -> int:
         copy = folder / game.name
         shutil.copy2(game, copy)
         settings = dict(seat=seat, seats=args.seats, names=list(NAMES[:args.seats]), digest_every=args.digest_every,
-                        last_frame=args.frames, local_source={'kind': 'random', 'seat': seat}, keep_history=True)
+                        last_frame=args.frames, local_source={'kind': 'random', 'seat': seat, 'hold': args.hold}, keep_history=True,
+                        rollback=args.rollback)
         if seat == 0 and args.delay:
             settings['delay'] = args.delay
         config = dict(game=dict(exe=str(copy), cwd=str(folder), env=HIDDEN, stdout=str(folder / 'stdout.txt'),
@@ -98,6 +109,14 @@ def main() -> int:
               f'{len(worker.history)} frames, {len(worker.digests)} digests ({len(set(worker.digests.values()))} different '
               f'values); late frames {worker.stats["late_frames"]}, waits {worker.stats["waits"]}, pace changes '
               f'{worker.stats["pace_changes"]}; game exit code {worker.exit_code}, worker exit code {worker.exit_code_of_process}')
+        if args.rollback:
+            stats = worker.stats
+            print(f'    tier {worker.tier}, prediction cap {args.rollback}: rollbacks {stats["rollbacks"]}, frames run again '
+                  f'{stats["rollback_frames"]}, deepest {stats["rollback_depth_max"]}, by depth {list(worker.rollback_depths)}; '
+                  f'frames run on a prediction {stats["predicted_frames"]}, waits at the cap {stats["cap_waits"]}, snapshots '
+                  f'saved {stats["saves"]}, loaded {stats["loads"]}, digests skipped {stats["digests_skipped"]}')
+            if worker.tier == 'rollback' and (stats['rollback_depth_max'] > args.rollback or stats['digests_skipped']):
+                problems.append(f'{label}: a correction deeper than the cap, or a digest that could not be asked')
         if worker.outcome != 'ended':
             problems.append(f'{label}: {worker.outcome} {worker.detail}')
         if worker.boot_digest is None or worker.boot_digest != first.boot_digest:
@@ -119,6 +138,11 @@ def main() -> int:
     if len(set(first.digests.values())) < 2:
         problems.append('the digest never changed: the game did not run, or its digest sees nothing')
     print(f'link: {link.counts}')
+    if args.save_digests:
+        import json
+        args.save_digests.write_text(json.dumps({'delay': first.delay, 'frames': len(first.history), 'tier': first.tier,
+                                                 'history_digest': first.history_digest, 'boot_digest': first.boot_digest,
+                                                 'digests': first.digests}, indent=1, sort_keys=True), encoding='utf-8')
     for problem in problems:
         print('PROBLEM:', problem)
     print('PASS' if not problems else 'FAIL', f'({args.seats} seats, {args.frames} frames, digest every {args.digest_every})')

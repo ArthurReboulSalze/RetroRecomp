@@ -186,6 +186,16 @@ def run(frame_number: int, words, silent: bool = False) -> bytes:
     return frame(MSG_RUN, struct.pack(f'<IBB{len(words)}H', frame_number, RUN_SILENT if silent else 0, len(words), *words))
 
 
+def save(frame_number: int) -> bytes:
+    """A snapshot of the state before `frame_number` runs, into the game's own ring (rollback tier)."""
+    return frame(MSG_SAVE, struct.pack('<I', frame_number))
+
+
+def load(frame_number: int) -> bytes:
+    """Back to the snapshot taken before `frame_number`; the frames from it on are then run again."""
+    return frame(MSG_LOAD, struct.pack('<I', frame_number))
+
+
 def digest() -> bytes:
     return frame(MSG_DIGEST)
 

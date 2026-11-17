@@ -41,6 +41,10 @@ a record is taken only inside a window ahead of the match (`RECORD_WINDOW`), the
 rate are bounded (`_net_in`), a seat that talks but gives no record is dropped as a silent one (`_stalled`), a PONG is
 taken only for a PING of ours and a measure is checked against the host's own, a guest's BYE_DESYNC is a claim the host
 checks with its own digests (`_claim_desync`), and records, history and digests are trimmed behind the match.
+
+The rollback tier (`rollback.RollbackDriver`, for games that keep snapshots, when `Settings.rollback` asks for it) is a
+subclass: it replaces how frames are given (`_step`) and which frame a digest is of, through the few hooks marked
+"rollback tier" below. Everything else, the comparison of digests and what a desync does included, is this class's.
 """
 from __future__ import annotations
 
@@ -79,6 +83,7 @@ FRAME_WINDOW = 2 * wire.MAX_DELAY + 60      # a peer's frame further than this f
 RECORD_WINDOW = 2 * wire.MAX_RECORDS        # records are taken up to next_run + delay + this: an honest seat is never further
 DIGEST_WINDOW = 64           # a digest is taken for a frame up to next_run + delay + this
 TRIM_BEHIND = 64             # frames kept behind the one every seat holds, for repeats and for the pause rule
+MAX_PREDICTION = 30          # the rollback tier: the most frames a game may be ahead of the confirmed ones (`Settings.rollback`)
 ACK_LAG_MAX = 1024           # a peer that acknowledges nothing for this many frames does not hold records back any longer
 DIGESTS_KEPT = 64            # without `keep_history`: the digests of this driver's last frames
 MAX_RTT_MS = 2000.0          # a round trip above this is not a measure of a link (the PONG is refused)
@@ -98,6 +103,8 @@ class Settings:
     redundancy: int = 3                 # records repeated in every packet, acknowledged or not
     options: str = ''                   # the host's run-changing options, "key=value" lines
     sharing: int = seat_map.PER_PLAYER  # seat_map: one controller per player, or the seats share port 0 (everyone / turns)
+    rollback: int = 0                   # 0: the delay tier. k (1 to MAX_PREDICTION): the rollback tier with at most k frames run on a
+                                        # prediction, for a game that keeps snapshots; any other game stays on the delay tier (`rollback.py`)
     opposites: tuple = ()               # tests: (mask, mask) pairs of opposite directions the mapper cancels itself (the kit always does)
     waiting_after: float = 1.0          # seconds a game waits for a record before "Waiting for <name>"
     drop_after: float = 10.0            # seconds of silence after which a seat is gone
@@ -291,7 +298,7 @@ class LockstepDriver:
             'seat': self.seat, 'phase': self._phase, 'done': self._phase == 'done', 'outcome': self.outcome,
             'detail': self.detail, 'delay': self.delay, 'next_run': self.next_run, 'game_frame': self.game_frame,
             'paused': list(self.paused) if self.paused else None, 'stats': dict(self.stats),
-            'sharing': seat_map.NAMES[self._seat_state.sharing], 'token': self._seat_state.token,
+            'sharing': seat_map.NAMES[self._seat_state.sharing], 'token': self._seat_state.token, 'tier': 'delay',
             'pauses': [list(item) for item in self.pauses], 'desync': list(self.desync) if self.desync else None,
             'measured': list(self.measured) if self.measured else None, 'boot_digest': self.boot_digest,
             'exit_code': self.exit_code, 'exit_reason': self.exit_reason, 'history_frames': self.history_frames,
@@ -419,6 +426,9 @@ class LockstepDriver:
             if self._phase == 'gate' and self.boot_digest is None:
                 self.boot_digest = value        # the answer to the DIGEST asked right after SETUP: no frame ran yet
                 return
+            frame = self._digest_frame(frame)
+            if frame is None:
+                return
             self.digests[frame] = value
             self._latest_digest = (frame, value)
             self._compare(frame)
@@ -441,13 +451,30 @@ class LockstepDriver:
             self._end('refused', None, *self._self_leaving())
             self.game.close_pipe()              # the game sees its pipe close and ends by itself
             return
-        self._tell(pipe.setup(self.seat, seat_map.ports(self.settings.sharing, self.seats), 0, guest=self.seat != HOST,
-                              options=self.settings.options))
+        self._tell(pipe.setup(self.seat, seat_map.ports(self.settings.sharing, self.seats), self._ring_depth(hello),
+                              guest=self.seat != HOST, options=self.settings.options))
         if self.settings.clock_ppm:
             self._tell(pipe.pace(self.settings.clock_ppm))
         self._tell(pipe.digest())               # the boot digest: the state after SETUP, before any frame
         self._phase = 'gate'
         self._deadline = time.monotonic() + GATE_WITHIN
+
+    def _ring_depth(self, hello: pipe.Hello) -> int:
+        """The snapshots the game is asked to keep (rollback tier); the delay tier asks for none."""
+        return 0
+
+    def _digest_frame(self, frame: int) -> int | None:
+        """The frame a DIGEST_OF is the digest of: the last one the game ran (the rollback tier asks for older ones)."""
+        return frame
+
+    def _delay_for(self, one_way_ms: float, jitter_ms: float) -> int:
+        """The host's choice of the input delay from the measured worst path (the rollback tier has its own rule)."""
+        return wire.choose_delay(one_way_ms, jitter_ms, self.hello.frame_seconds * 1000.0)
+
+    def _preset_hold(self) -> int | None:
+        """With a delay given, the host starts at once: the records it waits for align the seats (the rollback tier, which
+        does not wait, measures its links first and holds its start as a measured delay does; None: not measured yet)."""
+        return 0
 
     def _set_delay(self, delay: int, start_at: float):
         self.delay = max(1, min(wire.MAX_DELAY, delay))
@@ -638,16 +665,8 @@ class LockstepDriver:
     # ---- frames ----
 
     def _step(self, now: float):
-        if self._phase != 'play':
+        if self._phase != 'play' or not self._started(now):
             return
-        if self._holding:
-            if now < self._start_at:
-                return                              # no frame before the start the host set
-            self._holding = False
-            self._pace.forget()
-            pending, self._pending_locals = self._pending_locals, []
-            for local in pending:
-                self._local(*local)
         while self._phase == 'play':
             self._check_resume()
             frame = self.next_run
@@ -690,6 +709,18 @@ class LockstepDriver:
                 self._tell(pipe.digest())           # answered after this frame ran, before the next one
             if self.next_run % 32 == 0:
                 self._trim()
+
+    def _started(self, now: float) -> bool:
+        """False before the start the host set; at the start, the LOCALs kept until then become records."""
+        if self._holding:
+            if now < self._start_at:
+                return False
+            self._holding = False
+            self._pace.forget()
+            pending, self._pending_locals = self._pending_locals, []
+            for local in pending:
+                self._local(*local)
+        return True
 
     def _remember(self, frame: int, words: tuple):
         """What this game was told to run: kept whole only for tests (`keep_history`); always as a running fold."""
@@ -925,15 +956,18 @@ class LockstepDriver:
             self._refuse_launch(differs[0])
             return
         if self._preset is not None:
-            self._hold_ms = 0
-            self._set_delay(self._preset, now)
+            hold = self._preset_hold()
+            if hold is None:
+                return
+            self._hold_ms = hold
+            self._set_delay(self._preset, now + self._hold_ms / 1000.0)
         else:
             if measured is None or not all(seat in self._measures for seat in self.guests):
                 return
             self._hold_ms = min(wire.MAX_HOLD_MS, int(max(self._one_way_ms.values())))
             one_way, jitter = self._worst_path()
-            self._set_delay(wire.choose_delay(one_way, jitter, self.hello.frame_seconds * 1000.0),
-                            now + self._hold_ms / 1000.0)      # the host starts once its word reached the farthest guest
+            # the host starts once its word reached the farthest guest
+            self._set_delay(self._delay_for(one_way, jitter), now + self._hold_ms / 1000.0)
         self._send_inputs(now)
 
     def _refuse_launch(self, seat: int):

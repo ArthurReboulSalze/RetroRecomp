@@ -6,7 +6,7 @@ The converter's window (Tk) is never in the loop: the worker is a process of its
 its queue, so a cover being drawn or a file dialog cannot make a frame late. The worker reads its stdin and writes
 its stdout: the local channel of `worker_channel` (two anonymous pipes, no socket, no port). It first reads CONFIG
 (the game to start, this seat's `Settings`, test sources), starts the game with its own two inherited pipes
-(`SessionGame`) and the `LockstepDriver`, and then
+(`SessionGame`) and the driver (`LockstepDriver`, or `RollbackDriver` when the settings ask for rollback), and then
 
 * hands the packets the driver sends to the converter side (NET), and the packets the converter side delivers to the
   driver (the `ChannelLink` below is the driver's `SeatLink`);
@@ -27,7 +27,8 @@ import threading
 
 from . import scripted_inputs
 from . import worker_channel as channel
-from .lockstep import LockstepDriver, Settings
+from .lockstep import Settings
+from .rollback import driver_for
 from .session_game import SessionGame
 
 STATUS_EVERY = 0.1           # seconds between two looks at the driver for a change to report
@@ -116,7 +117,7 @@ def run_worker(fd_in: int, fd_out: int) -> int:
                               stderr=Path(game['stderr']) if game.get('stderr') else None)
         link = ChannelLink(config['settings']['seat'], writer)
         tests = config.get('tests') is True
-        driver = LockstepDriver(session, link, settings_from(config['settings'], tests))
+        driver = driver_for(session, link, settings_from(config['settings'], tests))
     except Exception as error:      # the converter side is told, and the worker ends: nothing is hidden
         writer.send(channel.RESULT, json.dumps({'done': True, 'outcome': 'error',
                                                  'detail': f'the worker could not start: {type(error).__name__}: {error}',

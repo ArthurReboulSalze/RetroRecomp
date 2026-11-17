@@ -127,6 +127,10 @@ int main(int argc, char **argv) {
     if (salt) state.acc ^= strtoull(salt, NULL, 0);
     /* SESSION_FAKE_HZ=n: the machine's frame rate (500 by default, so the checks are short; 60 for the checks of a slow link,
      * where the input delay is counted in frames of a real machine). */
+    /* SESSION_FAKE_NO_SNAPSHOT=1: a machine that keeps no snapshot (as the Mega Drive and the Master System today): its HELLO
+     * reports none, and a worker asked for rollback must keep it on the delay tier. */
+    const char *plain = getenv("SESSION_FAKE_NO_SNAPSHOT");
+    if (plain && *plain == '1') machine.snap_bound = NULL;
     const char *hz = getenv("SESSION_FAKE_HZ");
     if (hz && atoi(hz) >= 20 && atoi(hz) <= 1000) machine.frame_seconds = 1.0 / atoi(hz);
     const int status = rrhk_main(&machine, "Session fake", 1);

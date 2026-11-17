@@ -80,6 +80,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'netplay', 'session_pipe', 'session_game', 'input_records', 'session_transport',
                                'link_simulator', 'lockstep', 'time_sync', 'worker_channel', 'worker', 'worker_client',
                                'scripted_inputs', 'launch',
+                               # The rollback tier of the driver (a subclass of `lockstep`): it only commands a game through the same pipe.
+                               'rollback',
                                # Stage 2, the local-network room (lan_transport is the only module of the package that imports
                                # socket): the invitation, the keys and handshake, the control and datagram codecs, the limits,
                                # the host's log, the room's worker and the command line of the two-PC test.

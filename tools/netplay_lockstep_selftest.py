@@ -39,7 +39,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from retrorecomp.netplay import LinkSimulator, LockstepDriver, SessionGame, Settings, WorkerProcess   # noqa: E402
+from retrorecomp.netplay import LinkSimulator, SessionGame, Settings, WorkerProcess, driver_for      # noqa: E402
 from retrorecomp.netplay import input_records as wire                                                # noqa: E402
 from retrorecomp.netplay import scripted_inputs, session_pipe as pipe                               # noqa: E402
 from retrorecomp.netplay.worker import settings_from                                                 # noqa: E402
@@ -139,7 +139,7 @@ class Match:
                 session = SessionGame(executable, cwd=folder, env=environment, stdout=folder / 'stdout.txt',
                                       stderr=folder / 'stderr.txt')
                 self.games.append(session)
-                self.drivers.append(LockstepDriver(session, self.link.endpoint(seat), settings_from(values, tests=True)))
+                self.drivers.append(driver_for(session, self.link.endpoint(seat), settings_from(values, tests=True)))
             else:
                 worker = WorkerProcess(dict(game=game, settings=values, tests=True), carry=self._carry(seat), log=folder / 'worker.txt')
                 self.drivers.append(worker)

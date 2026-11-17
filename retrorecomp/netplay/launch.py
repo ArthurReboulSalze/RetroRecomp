@@ -1,6 +1,6 @@
 """The one door through which settings that came from another PC become a `Settings`.
 
-A guest receives its launch (seat, seats, delay, digest period, redundancy, the host's options, the names) from the
+A guest receives its launch (seat, seats, delay, digest period, redundancy, the host's options, the names, the prediction cap of the rollback tier) from the
 host. Those values are a stranger's: they are checked here, field by field, and a bad one gives a `Refusal` with a
 sentence for the lobby, never an exception and never a half-built `Settings`. Everything the host cannot say
 (the test sources, a clock offset, a last frame, the mesh topology, the timers) is refused when present, and the
@@ -16,7 +16,7 @@ import re
 from . import input_records as wire
 from . import seat_map
 from . import session_pipe as pipe
-from .lockstep import Settings
+from .lockstep import MAX_PREDICTION, Settings
 
 MIN_SEATS, MAX_SEATS = 2, wire.MAX_SEATS
 MIN_DIGEST_EVERY, MAX_DIGEST_EVERY = 10, 600
@@ -24,7 +24,7 @@ MAX_REDUNDANCY = 8
 MAX_OPTION_LINES = 32
 MAX_NAME_INPUT = 64                 # characters read of a name before it is cleaned (the game draws 16)
 _OPTION_LINE = re.compile(r'[a-z0-9_]{1,32}=[A-Za-z0-9_.-]{0,32}')
-FIELDS = ('seat', 'seats', 'names', 'delay', 'digest_every', 'redundancy', 'options', 'sharing')
+FIELDS = ('seat', 'seats', 'names', 'delay', 'digest_every', 'redundancy', 'options', 'sharing', 'rollback')
 
 
 @dataclass(frozen=True)
@@ -91,6 +91,9 @@ def launch_settings(message, *, guest: bool = True, machine: str | None = None) 
     redundancy = message.get('redundancy', Settings.redundancy)
     if not _integer(redundancy) or not 1 <= redundancy <= MAX_REDUNDANCY:
         return Refusal(f'a redundancy of 1 to {MAX_REDUNDANCY}')
+    rollback = message.get('rollback', 0)
+    if not _integer(rollback) or not 0 <= rollback <= MAX_PREDICTION:
+        return Refusal(f'a prediction cap of 0 to {MAX_PREDICTION} frames')
     names = clean_names(message.get('names', [f'Player {index + 1}' for index in range(seats)]), seats)
     if isinstance(names, Refusal):
         return names
@@ -98,4 +101,4 @@ def launch_settings(message, *, guest: bool = True, machine: str | None = None) 
     if isinstance(options, Refusal):
         return options
     return Settings(seat=seat, seats=seats, names=names, delay=delay, digest_every=digest_every, redundancy=redundancy,
-                    options=options, sharing=sharing)
+                    options=options, sharing=sharing, rollback=rollback)

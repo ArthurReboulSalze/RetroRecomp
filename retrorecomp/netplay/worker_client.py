@@ -15,7 +15,7 @@ which game a host's launch names on this PC (a guest's `launch_request`): it ans
 
 The attributes of a finished (or running) worker read like a `LockstepDriver`'s: `outcome`, `detail`, `delay`,
 `next_run`, `game_frame`, `paused`, `stats`, `pauses`, `desync`, `measured`, `boot_digest`, `exit_code`,
-`exit_reason`, `pace`, `hello`, `sharing`, `token` from its latest STATUS, and `history`, `digests`, `pace_trace` from its RESULT.
+`exit_reason`, `pace`, `hello`, `sharing`, `token`, `tier`, `rollback_depths` from its latest STATUS, and `history`, `digests`, `pace_trace` from its RESULT.
 """
 from __future__ import annotations
 
@@ -38,7 +38,8 @@ DEFAULTS = {
     'next_run': lambda: 0, 'game_frame': lambda: -1, 'paused': lambda: None, 'stats': dict, 'pauses': list,
     'desync': lambda: None, 'measured': lambda: None, 'boot_digest': lambda: None, 'exit_code': lambda: None,
     'exit_reason': lambda: None, 'pace': dict, 'hello': lambda: None, 'history': list, 'digests': dict,
-    'pace_trace': list, 'sharing': lambda: 'per_player', 'token': lambda: 0,
+    'pace_trace': list, 'sharing': lambda: 'per_player', 'token': lambda: 0, 'tier': lambda: 'delay',
+    'rollback_depths': list, 'history_frames': lambda: 0, 'history_digest': lambda: '',
 }
 
 

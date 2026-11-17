@@ -5,8 +5,9 @@ the pad the game reports. The scripts are pure functions of the frame, so every 
 frame run on a guessed input would show in the history. They are for tests and smoke runs only; a real match never
 sets them.
 
-    {"kind": "pad", "seat": n [, "pause_from": frame] [, "system": "game"] [, "system_at": {"frame": bits, ...}]}
-                                                         a word that differs per seat and per frame; from `pause_from`
+    {"kind": "pad", "seat": n [, "pause_from": frame] [, "system": "game"] [, "system_at": {"frame": bits, ...}] [, "hold": frames]}
+                                                         a word that differs per seat and per frame (with `hold`: kept
+                                                         that many frames, as a player holds a button); from `pause_from`
                                                          on, the seat also asks for a pause (its menu is open). The
                                                          system bits are the script's alone (a stray gamepad or key on
                                                          the PC running the test cannot pause the match) unless
@@ -38,13 +39,14 @@ def local_source(spec: dict | None):
     if kind == 'pad':
         seat, pause_from, from_game = int(spec['seat']), spec.get('pause_from'), spec.get('system') == 'game'
         at = {int(frame): int(bits) for frame, bits in (spec.get('system_at') or {}).items()}
+        hold = max(1, int(spec.get('hold', 1)))
 
         def source(frame, _word, system):
             if not from_game:
                 system = 0
             if pause_from is not None and frame >= pause_from:
                 system |= pipe.SYS_PAUSE
-            return pad(seat, frame), system | at.get(frame, 0)
+            return pad(seat, frame // hold), system | at.get(frame, 0)
         return source
     if kind == 'random':
         seat, hold = int(spec['seat']), int(spec.get('hold', 12))

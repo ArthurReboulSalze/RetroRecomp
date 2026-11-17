@@ -13,6 +13,8 @@ nothing. This package is the other end of its two pipes, in the converter:
   reordering, duplicates, a seat gone silent; the fate of every packet is fixed by a seed);
 * `time_sync`: a steady estimate of how far ahead a game is, and the pace that follows it;
 * `lockstep`: the delay-lockstep driver, one per player (a star: guests talk to the host, which forwards);
+* `rollback`: the rollback tier, a subclass of that driver for games that keep snapshots (a small fixed delay, missing records
+  predicted, corrections as one batch of commands, a prediction cap); `driver_for` chooses, the delay tier is the default;
 * `launch`: the one door through which settings that came from another PC become a `Settings` (every field checked);
 * `worker_channel`, `worker`, `worker_client`, `scripted_inputs`: the driver in a process of its own (the converter
   starts `RetroRecomp.py _netplay-worker`; they talk over its two pipes), and the scripted controls tests give it.
@@ -53,10 +55,11 @@ they drive finished games and change nothing a game is or does.
 from .input_records import choose_delay, pace_for
 from .link_simulator import LinkSimulator
 from .lockstep import LockstepDriver, Settings
+from .rollback import RollbackDriver, driver_for
 from .session_game import SessionGame
 from .session_pipe import ABI, Refused
 from .time_sync import PaceController
 from .worker_client import WorkerProcess, worker_command
 
-__all__ = ['ABI', 'LinkSimulator', 'LockstepDriver', 'PaceController', 'Refused', 'SessionGame', 'Settings', 'WorkerProcess',
-           'choose_delay', 'pace_for', 'worker_command']
+__all__ = ['ABI', 'LinkSimulator', 'LockstepDriver', 'PaceController', 'Refused', 'RollbackDriver', 'SessionGame', 'Settings',
+           'WorkerProcess', 'choose_delay', 'driver_for', 'pace_for', 'worker_command']
