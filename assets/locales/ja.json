@@ -883,6 +883,8 @@
     "mp_game": "ゲーム",
     "mp_games_loading": "ゲームを探しています…",
     "mp_games_none": "2人で遊べる変換済みゲームがありません",
+    "mp_host_game": "マルチプレイのルームを作る…",
+    "mp_not_offered": "このゲーム機ではまだ使えません",
     "mp_name": "名前",
     "mp_no_address": "このPCにローカルネットワークのアドレスが見つかりません。",
     "mp_open_room": "ルームを開く",

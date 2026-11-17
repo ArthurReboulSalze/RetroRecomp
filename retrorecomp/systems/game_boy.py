@@ -10,6 +10,8 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, Library
 
 class GameBoyProfile(SystemProfile):
     id = "gb"
+    netplay_seats = 1
+    netplay_shared_only = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # game_main.c pins the model; its two lines that name the save folder carry the title.
     simulation_sources = (SimulationSource('game.c'),

@@ -10,6 +10,8 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, Library
 
 class NesProfile(SystemProfile):
     id = "nes"
+    netplay_session = True
+    netplay_portable = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # The standard, the Zapper and the mapper are compile definitions of the project's CMake file, whose other
     # lines hold paths and the version.

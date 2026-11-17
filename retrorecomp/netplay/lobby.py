@@ -13,7 +13,7 @@ The host's rules, each held by a test:
   guests among the others; the game takes `seats_max` players (up to four in input sharing, whose seats all drive the same
   controls), the guests beyond them stay in the lobby;
 * the input mode (`seat_map`: one controller per player, "everyone" or "turns") is the host's choice, made when the room is
-  created and changeable in the lobby only; a handheld game (`seat_map.HANDHELDS`) is played in input sharing whatever was
+  created and changeable in the lobby only; a handheld game (profile `netplay_shared_only`) is played in input sharing whatever was
   chosen, and the roster and the launch carry the mode that is in force;
 * the chat: a line is strict UTF-8 (the wire checks it), NFC, control, format, surrogate, private-use and unassigned
   characters removed, white space made one space, at most 80 characters; at most 5 lines in any 5 seconds from one sender, the

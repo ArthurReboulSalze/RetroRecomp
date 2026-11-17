@@ -514,14 +514,17 @@ def host_pick(machine='nes', **changes) -> control.Game:
 
 class CheckTests(unittest.TestCase):
     def test_the_data_in_one_place(self):
-        ids = {profile.id for profile in ALL_PROFILES}
-        self.assertEqual(lobby_check.PORTABLE_MACHINES, frozenset(('nes', 'md', 'sms')))
-        self.assertLessEqual(lobby_check.PORTABLE_MACHINES, ids)
-        self.assertEqual(set(lobby_check.MACHINE_SEATS), ids)                     # a new machine says its seats here (and only here)
-        self.assertTrue(all(1 <= seats <= control.MAX_SEATS for seats in lobby_check.MACHINE_SEATS.values()))
+        # The per-machine facts are the profiles' (`SystemProfile.netplay_*`, 17 Nov 2026), read through lobby_check.
+        portable = {profile.id for profile in ALL_PROFILES if lobby_check.portable(profile.id)}
+        self.assertEqual(portable, {'nes', 'md', 'sms'})                       # the machines whose mixed-build gate passed
+        self.assertEqual({profile.id for profile in ALL_PROFILES if lobby_check.session_capable(profile.id)},
+                         {'nes', 'md', 'sms', 'gg'})                         # the exports whose kit adapter gives a digest
+        self.assertTrue(all(1 <= lobby_check.machine_seats(profile.id) <= control.MAX_SEATS for profile in ALL_PROFILES))
+        self.assertEqual(lobby_check.machine_seats('no such machine'), 1)
+        self.assertFalse(lobby_check.portable(None) or lobby_check.session_capable('no such machine'))
         source = (ROOT / 'retrorecomp/netplay/lobby_check.py').read_text(encoding='utf-8')
         self.assertIn('MIXED_BUILD_GATE.md', source)
-        self.assertNotIn('PORTABLE_MACHINES', (ROOT / 'retrorecomp/systems/specs.py').read_text(encoding='utf-8'))    # not in the profiles
+        self.assertNotRegex(source, r"frozenset\(\('nes'")                       # no copy of the profiles' data here
         self.assertEqual(lobby_check.mode_for('nes'), control.MODE_PORTABLE)
         self.assertEqual(lobby_check.mode_for('gg'), control.MODE_FULL)                # the Game Gear was not run in the gate
 
@@ -633,13 +636,15 @@ class CheckTests(unittest.TestCase):
     def test_the_host_can_pick_what_has_an_identity_and_a_second_player_or_a_handheld(self):
         mine = Scratch(self)
         nes = mine.add(report(), title='Battletoads')
-        gb = mine.add(report(machine='gb'), machine='gb')                                # a handheld: one player, input sharing
+        gg = mine.add(report(machine='gg'), machine='gg')                                # a handheld: one player, input sharing
+        mine.add(report(machine='gb'), machine='gb')                                     # a handheld whose exports give no digest yet
         mine.add(report(machine='scummvm'), machine='scummvm')                           # one player and not a pad game: not offered
         mine.add(report(identity=False, machine='snes', sources=None), machine='snes')    # no identity of its sources
+        mine.add(report(machine='pce'), machine='pce')                                   # two players, but no session in its kit yet
         listed = mine.library().hostable()
         self.assertEqual(sorted((entry.system, picked.title, picked.seats_max) for entry, picked in listed),
-                         [('gb', 'Battletoads', 1), ('nes', 'Battletoads', 2)])
-        self.assertIn(gb, [entry for entry, _picked in listed])
+                         [('gg', 'Battletoads', 1), ('nes', 'Battletoads', 2)])
+        self.assertIn(gg, [entry for entry, _picked in listed])
         self.assertEqual(mine.library().game_of(nes, 'speed=2').game.game_options, 'speed=2')
         Path(nes.executable).unlink()
         self.assertIn('cannot be read', mine.library().game_of(nes).reason)
@@ -798,6 +803,16 @@ class WindowApiTests(unittest.TestCase):
         self.assertEqual((model.room, model.room_code), ('host_gone', 'closed'))
         model.apply({'event': 'launch_refused', 'detail': 'x'})
         self.assertEqual(model.errors[-1]['code'], 'launch_refused')
+
+    def test_the_compiled_games_right_click_hosts_only_where_a_session_is_possible(self):
+        from retrorecomp import i18n
+        from retrorecomp.netplay.lobby_check import session_capable
+        source = (ROOT / 'retrorecomp/compiled_games_view.py').read_text(encoding='utf-8')
+        self.assertIn("self.owner.show_multiplayer(pick=game)", source)
+        self.assertIn("session_capable(single.system)", source)
+        self.assertTrue(session_capable('nes') and session_capable('gg') and not session_capable('snes'))
+        for key in ('mp_host_game', 'mp_not_offered'):
+            self.assertIn(key, i18n.UI if hasattr(i18n, 'UI') else (ROOT / 'retrorecomp/i18n.py').read_text(encoding='utf-8'))
 
     def test_close_is_safe_twice_and_from_any_thread(self):
         import threading

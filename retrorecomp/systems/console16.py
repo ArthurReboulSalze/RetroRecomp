@@ -7,6 +7,8 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, Library
 
 class MegaDriveProfile(SystemProfile):
     id = 'md'
+    netplay_session = True
+    netplay_portable = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # The layout file's first line holds its own absolute path.
     simulation_sources = (SimulationSource('steps/*.c'),

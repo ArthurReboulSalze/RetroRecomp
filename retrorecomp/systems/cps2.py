@@ -11,6 +11,8 @@ from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, R
 
 class Cps2Profile(SystemProfile):
     id = 'cps2'
+    netplay_seats = 4
+    netplay_seats_ceiling = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # The CPS-1's list (one converter; systems/cps1.py is not an input of this machine's stamp).
     simulation_sources = (SimulationSource('native/steps/cps1_step_*.c'),

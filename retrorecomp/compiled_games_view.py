@@ -18,6 +18,7 @@ from .path_profiles import STABLE_SHARED
 from .paths import APP_NAME
 from .platforms import open_local, target_id
 from .systems import available_profiles, get_profile
+from .netplay.lobby_check import session_capable
 PROFILES = available_profiles()
 import subprocess
 
@@ -354,6 +355,15 @@ class CompiledGamesView(ttk.Frame):
         menu = tk.Menu(self,tearoff=False,bg=COLORS['button'],fg=COLORS['text'],
                        activebackground=COLORS['selected'],activeforeground=COLORS['gold_hover'])
         menu.add_command(label=self.tr('play'),command=self.play)
+        # Multiplayer (STUDY 15): host a room with this game chosen; greyed, with the reason, on a console whose exports
+        # cannot play a session yet (the profile's netplay_session), or with several games selected.
+        picked = self.chosen()
+        single = picked[0] if len(picked)==1 else None
+        offered = single is not None and session_capable(single.system)
+        label = self.tr('mp_host_game')
+        if single is not None and not offered:label = f"{label} ({self.tr('mp_not_offered')})"
+        menu.add_command(label=label,command=lambda game=single:self.owner.show_multiplayer(pick=game),
+                         state='normal' if offered else 'disabled')
         menu.add_command(label=self.tr('favorite_remove' if all(g.favorite for g in self.chosen()) else 'favorite_add'),command=self.toggle_favorites)
         menu.add_command(label=self.tr('card_fetch_info'),command=lambda:self.card.search_games(self.chosen()),
                          state='disabled' if self.card.pending else 'normal')

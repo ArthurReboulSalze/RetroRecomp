@@ -67,7 +67,7 @@ def launch_settings(message, *, guest: bool = True, machine: str | None = None,
                     rollback_max: int = MAX_PREDICTION) -> Settings | Refusal:
     """The `Settings` of a launch `message` (a dict of the fields in `FIELDS`), or the `Refusal` that says why not.
     `guest`: the receiver is a guest, so seat 0 (the host's) is not one it can be given. `machine`: when the caller knows it,
-    a handheld is refused in any mode but input sharing (the rule of `seat_map.HANDHELDS`, held on both ends of a launch).
+    a handheld is refused in any mode but input sharing (the profiles' `netplay_shared_only`, held on both ends of a launch).
     `rollback_max`: the largest prediction cap this caller accepts (a LAN launch: `control.MAX_ROLLBACK`; 0 is the delay tier)."""
     if not isinstance(message, dict):
         return Refusal('the launch is not a set of settings')

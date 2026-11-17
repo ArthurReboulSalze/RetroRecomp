@@ -32,6 +32,8 @@ STRINGS = {
     'mp_game': ('Game', 'Jeu'),
     'mp_games_loading': ('Looking for your games…', 'Recherche de tes jeux…'),
     'mp_games_none': ('No converted game can be played by two', 'Aucun jeu converti ne se joue à deux'),
+    'mp_host_game': ('Host a multiplayer game…', 'Héberger une partie multijoueur…'),
+    'mp_not_offered': ('not yet for this console', 'pas encore pour cette console'),
     'mp_name': ('Your name', 'Ton nom'),
     'mp_no_address': ('No local network address was found on this PC.', "Aucune adresse de réseau local n'a été trouvée sur ce PC."),
     'mp_open_room': ('Open the room', 'Ouvrir le salon'),

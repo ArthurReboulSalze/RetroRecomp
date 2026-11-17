@@ -54,8 +54,14 @@ SYS_CONTROL_MASK = SYS_PASS | SYS_TO_MASK | SYS_SET_ALL | SYS_SET_TURNS
 MAX_SEATS = 4
 HOST = 0
 # The handhelds have one set of controls and no second pad: they play in input sharing only (the owner's rule, 17 November 2026).
-# Data of the netplay package, from the machine id (not a field of the profiles: that would move their stamps).
-HANDHELDS = frozenset(('gb', 'gba', 'gg'))
+# It is their profile's `netplay_shared_only`.
+
+
+def _profile(machine):
+    if not isinstance(machine, str):
+        return None
+    from ..systems import find_profile
+    return find_profile(machine)
 
 
 class SeatState(NamedTuple):
@@ -74,8 +80,9 @@ def shared(sharing: int) -> bool:
 
 
 def forced(machine: str | None) -> bool:
-    """A machine that plays in input sharing only."""
-    return machine in HANDHELDS
+    """A machine that plays in input sharing only (its profile's `netplay_shared_only`)."""
+    profile = _profile(machine)
+    return bool(profile is not None and profile.netplay_shared_only)
 
 
 def effective(machine: str | None, chosen: int) -> int:

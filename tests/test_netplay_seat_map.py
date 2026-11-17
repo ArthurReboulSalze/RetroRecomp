@@ -209,7 +209,10 @@ class HandheldsAndSeats(unittest.TestCase):
         self.assertFalse(seat_map.allowed('nes', 3) or seat_map.allowed('nes', True) or seat_map.allowed('nes', '1'))
 
     def test_the_handhelds_are_the_machines_with_one_player_and_a_pad(self):
-        self.assertEqual(seat_map.HANDHELDS, {machine for machine, seats in lobby_check.MACHINE_SEATS.items() if seats == 1} - {'scummvm'})
+        from retrorecomp.systems.registry import ALL_PROFILES
+        handhelds = {profile.id for profile in ALL_PROFILES if seat_map.forced(profile.id)}
+        self.assertEqual(handhelds, {'gb', 'gba', 'gg'})
+        self.assertEqual(handhelds, {profile.id for profile in ALL_PROFILES if lobby_check.machine_seats(profile.id) == 1} - {'scummvm'})
 
     def test_input_sharing_seats_up_to_four_whatever_the_machine_has_and_one_controller_per_player_only_the_players(self):
         for players in (1, 2, 3, 4):
@@ -218,8 +221,9 @@ class HandheldsAndSeats(unittest.TestCase):
             self.assertEqual(seat_map.seat_limit(players, SHARED_TURNS), 4)
 
     def test_the_cps_boards_say_four_as_a_ceiling_and_their_report_or_hello_says_their_own_number(self):
-        self.assertEqual(lobby_check.MACHINE_SEATS['cps1'], 4)
-        self.assertEqual(lobby_check.MACHINE_SEATS['cps2'], 4)
+        self.assertEqual(lobby_check.machine_seats('cps1'), 4)
+        self.assertEqual(lobby_check.machine_seats('cps2'), 4)
+        self.assertTrue(lobby_check.seats_ceiling('cps1') and lobby_check.seats_ceiling('cps2') and not lobby_check.seats_ceiling('nes'))
         report = {'system': {'id': 'cps1'}, 'qualification_scope': {'controls': 'players 1 to 3: joystick, up to six buttons, Start, coin; '
                                                                                'validation routes drive players 1 and 2'}}
         self.assertEqual(lobby_check.players_in_report(report), 3)
@@ -388,7 +392,7 @@ class LobbyChoice(unittest.TestCase):
         self.assertEqual(model.last_launch['sharing'], 'everyone')
 
     def test_every_machine_a_room_can_pick_has_a_rule_and_the_handhelds_are_hostable(self):
-        self.assertTrue(set(seat_map.HANDHELDS) <= set(lobby_check.MACHINE_SEATS))
+        self.assertTrue(all(lobby_check.machine_seats(machine) == 1 for machine in ('gb', 'gba', 'gg')))
 
 
 class HostPick:

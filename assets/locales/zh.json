@@ -883,6 +883,8 @@
     "mp_game": "游戏",
     "mp_games_loading": "正在查找你的游戏…",
     "mp_games_none": "没有可双人游玩的已转换游戏",
+    "mp_host_game": "创建多人游戏会话…",
+    "mp_not_offered": "此主机暂不支持",
     "mp_name": "你的名字",
     "mp_no_address": "这台电脑上没有找到本地网络地址。",
     "mp_open_room": "创建会话",

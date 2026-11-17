@@ -12,6 +12,10 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, InputLayout, LibraryLayout, Pa
 
 class GameGearProfile(SystemProfile):
     id = "gg"
+    netplay_session = True
+    netplay_portable = False
+    netplay_seats = 1
+    netplay_shared_only = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # As the Master System (one engine).
     simulation_sources = (SimulationSource('generated/*.c'),

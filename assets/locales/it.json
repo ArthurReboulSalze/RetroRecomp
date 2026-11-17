@@ -883,6 +883,8 @@
     "mp_game": "Gioco",
     "mp_games_loading": "Ricerca dei tuoi giochi…",
     "mp_games_none": "Nessun gioco convertito si gioca in due",
+    "mp_host_game": "Ospita una partita multigiocatore…",
+    "mp_not_offered": "non ancora per questa console",
     "mp_name": "Il tuo nome",
     "mp_no_address": "Nessun indirizzo di rete locale trovato su questo PC.",
     "mp_open_room": "Apri la stanza",

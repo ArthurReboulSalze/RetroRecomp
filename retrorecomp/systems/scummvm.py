@@ -15,6 +15,7 @@ from .specs import Catalogues, Identify, ReportShape
 
 class ScummvmProfile(SystemProfile):
     id = 'scummvm'
+    netplay_seats = 1
     # Every notice of its executables (retrorecomp/notices.py): the runtime is its own program, not the player shell.
     notice_files = ('licenses/scummvm.md', 'native/scummvm/LICENSE', 'licenses/freetype.md', 'licenses/SDL2.md', 'licenses/llvm-mingw.md')
     shell_notices = False

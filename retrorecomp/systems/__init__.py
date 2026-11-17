@@ -235,6 +235,18 @@ class SystemProfile(ABC):
     optional_notice_files: tuple[str, ...] = ()
     # False for a program that is not built on the common player shell: it then names every notice itself.
     shell_notices: bool = True
+    # Multiplayer (retrorecomp/netplay, the multiplayer branch). `netplay_session`: the export answers a session (its host-kit
+    # adapter gives a digest, so two copies can be compared): the converter offers it in the Multiplayer window and the
+    # Compiled Games right-click. `netplay_portable`: its mixed-build gate passed (two exports of one dump differing only by
+    # their learned paths compute the same frames), so the lobby compares them without the learned paths and nobody
+    # recompiles; raise it only with a passed gate (.build/multiplayer/MIXED_BUILD_GATE.md). `netplay_seats`: the players a
+    # room seats in one controller per player (`netplay_seats_ceiling`: the most a board has; its report and HELLO say the
+    # game's own). `netplay_shared_only`: one set of controls (the handhelds): input sharing only.
+    netplay_session: bool = False
+    netplay_portable: bool = False
+    netplay_seats: int = 2
+    netplay_seats_ceiling: bool = False
+    netplay_shared_only: bool = False
 
     @property
     def declared_notice_files(self) -> tuple[str, ...]:

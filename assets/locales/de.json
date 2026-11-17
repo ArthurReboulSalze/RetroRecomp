@@ -883,6 +883,8 @@
     "mp_game": "Spiel",
     "mp_games_loading": "Suche deine Spiele…",
     "mp_games_none": "Kein konvertiertes Spiel ist zu zweit spielbar",
+    "mp_host_game": "Mehrspieler-Partie hosten…",
+    "mp_not_offered": "noch nicht für diese Konsole",
     "mp_name": "Dein Name",
     "mp_no_address": "Auf diesem PC wurde keine lokale Netzwerkadresse gefunden.",
     "mp_open_room": "Raum öffnen",

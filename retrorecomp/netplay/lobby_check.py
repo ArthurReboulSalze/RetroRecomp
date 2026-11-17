@@ -14,7 +14,7 @@ What is compared (`control.Game`):
   simulation identity's schema number;
 * the generated sources (which hold what the player's own learned paths made the converter write) only in MODE_FULL. A machine
   is MODE_PORTABLE when its mixed-build gate passed: two exports of one dump with different learned paths computed the same
-  frames from power-on and across a quick state (`PORTABLE_MACHINES`). Anywhere else the full simulation identity is compared
+  frames from power-on and across a quick state (profile `netplay_portable`). Anywhere else the full simulation identity is compared
   and the reconversion with the host's paths (`netplay_recipe`) is the fallback, which stays dormant: the check only says
   "reconvert" and which part differs.
 
@@ -36,25 +36,45 @@ import re
 from . import control, seat_map
 from .control import CHECK_FAILED, CHECK_MISSING, CHECK_OTHER, CHECK_SAME, MODE_FULL, MODE_PORTABLE
 
-# The machines whose MIXED-BUILD GATE passed: two exports of one dump that differ only by their learned paths compute the same
-# frames from power-on (and, for the first two, after a quick-state round trip), so the lobby compares them without the learned
-# paths and nobody recompiles. Evidence: .build/multiplayer/MIXED_BUILD_GATE.md (NES: Battletoads-Double Dragon; Mega Drive:
-# Sonic The Hedgehog 2; Master System: Gauntlet, from power-on, its quick-state part not run). The Game Gear shares the Master
-# System's engine but was not run: it is compared in full. This is data of the netplay package and not of the machine
-# profiles on purpose: a profile field would move the game stamp of every game of the machine. Raise it only with a passed gate.
-PORTABLE_MACHINES = frozenset(('nes', 'md', 'sms'))
+# The per-machine facts live in the machine profiles (`SystemProfile.netplay_*`, moved there on 17 Nov 2026; the multiplayer
+# release moves every game stamp anyway):
+# * `netplay_portable`: the MIXED-BUILD GATE passed: two exports of one dump that differ only by their learned paths compute the
+#   same frames, so the lobby compares them without the learned paths and nobody recompiles. Evidence:
+#   .build/multiplayer/MIXED_BUILD_GATE.md (NES: Battletoads-Double Dragon; Mega Drive: Sonic The Hedgehog 2; Master System:
+#   Gauntlet, from power-on). The Game Gear shares the Master System's engine but was not run: it is compared in full.
+# * `netplay_seats`: the players a room seats in one controller per player; a machine with 1 is refused there, and the handhelds
+#   (`netplay_shared_only`) play in input sharing, whose seats all drive the same controls (up to four). The CPS boards say 4,
+#   the most a board has (`netplay_seats_ceiling`): the number of THIS game is what its HELLO reports and, when the conversion
+#   report says it (`players_in_report`), what the report says. `scummvm` has 1 and is not a handheld.
+# * `netplay_session`: the export answers a session (its kit adapter gives a digest): only those games are offered.
 
-# The players one machine offers in a room (STUDY.md section 3, the adapters' players); the host's window may name fewer, never more
-# than four. A machine with 1 has no second player: the lobby refuses to pick it in "one controller per player", and the
-# handhelds (`seat_map.HANDHELDS`) play in input sharing, whose seats all drive the same controls (up to four). The CPS boards say
-# 4 here, the most a board has: the number of THIS game is what its own HELLO reports (`session_pipe.check_hello` refuses more
-# seats than the game has players) and, when the conversion report says it (`players_in_report`), what the report says.
-# `scummvm` has 1 and is not a handheld: a point-and-click game is not a pad game.
-MACHINE_SEATS = {'sms': 2, 'gg': 1, 'gb': 1, 'nes': 2, 'md': 2, 'snes': 2, 'ng': 2, 'x68': 2, 'cps1': 4, 'cps2': 4, 'pce': 2,
-                 'gba': 1, 'amiga': 2, 'a1200': 2, 'atarist': 2, 'n64': 4, 'scummvm': 1, 'psx': 2, 'msx': 2, 'msx2': 2,
-                 'msx2plus': 2}
 
-CEILING_MACHINES = frozenset(('cps1', 'cps2'))     # MACHINE_SEATS is the most a board has; the report and the HELLO say the game's
+def _profile(machine):
+    from ..systems import find_profile
+    return find_profile(machine) if isinstance(machine, str) else None
+
+
+def portable(machine) -> bool:
+    """Its mixed-build gate passed (profile `netplay_portable`)."""
+    profile = _profile(machine)
+    return bool(profile is not None and profile.netplay_portable)
+
+
+def machine_seats(machine) -> int:
+    """The players a room seats for that machine (profile `netplay_seats`; 1 for an unknown machine)."""
+    profile = _profile(machine)
+    return max(1, min(control.MAX_SEATS, profile.netplay_seats)) if profile is not None else 1
+
+
+def session_capable(machine) -> bool:
+    """Its exports answer a session (profile `netplay_session`: the host kit's adapter gives a digest)."""
+    profile = _profile(machine)
+    return bool(profile is not None and profile.netplay_session)
+
+
+def seats_ceiling(machine) -> bool:
+    profile = _profile(machine)
+    return bool(profile is not None and profile.netplay_seats_ceiling)
 
 R_CONVERTER, R_ENGINE, R_OPTIONS, R_SOURCES, R_FIRMWARE, R_SCHEMA, R_NO_IDENTITY = 1, 2, 4, 8, 16, 32, 64
 REASONS = {R_CONVERTER: 'converter version', R_ENGINE: 'engine', R_OPTIONS: 'options', R_SOURCES: 'learned paths',
@@ -73,11 +93,11 @@ _PLAYERS_OF_BOARD = re.compile(r'players 1 to ([1-4])(?!\d)')
 def players_in_report(raw: dict) -> int | None:
     """The players a CPS board's game offers controls for, as its conversion report says (`qualification_scope.controls`, "players
     1 to N", written from the catalogue's input table), or None when the report does not say. Only for the machines whose table
-    value is a ceiling and not a number (`CEILING_MACHINES`); the game's own HELLO has the last word."""
+    value is a ceiling and not a number (profile `netplay_seats_ceiling`); the game's own HELLO has the last word."""
     system = raw.get('system') if isinstance(raw, dict) else None
     scope = raw.get('qualification_scope') if isinstance(raw, dict) else None
     controls = scope.get('controls') if isinstance(scope, dict) else None
-    if not isinstance(system, dict) or system.get('id') not in CEILING_MACHINES or not isinstance(controls, str):
+    if not isinstance(system, dict) or not seats_ceiling(system.get('id')) or not isinstance(controls, str):
         return None
     found = _PLAYERS_OF_BOARD.search(controls)
     return max(2, int(found.group(1))) if found else None
@@ -94,7 +114,7 @@ def parse_version(text) -> tuple | None:
 
 
 def mode_for(machine: str) -> int:
-    return MODE_PORTABLE if machine in PORTABLE_MACHINES else MODE_FULL
+    return MODE_PORTABLE if portable(machine) else MODE_FULL
 
 
 def _digest(value) -> bytes | None:
@@ -166,7 +186,7 @@ def game_from_report(raw, title: str = '', *, seats_max: int | None = None, game
     mode = mode_for(machine)
     if mode == MODE_FULL and (sources is None or not isinstance(record.get('identity'), str)):
         return Candidate(None, record.get('reason') or 'the export has no identity of its generated sources', version)
-    seats = min(control.MAX_SEATS, (players_in_report(raw) or MACHINE_SEATS.get(machine, 1)) if seats_max is None else seats_max)
+    seats = min(control.MAX_SEATS, (players_in_report(raw) or machine_seats(machine)) if seats_max is None else seats_max)
     return Candidate(control.Game(mode, simulation_identity.SCHEMA, seats, machine, version, rom, engine, options, sources or ZERO,
                                   firmware_digest(raw), clean_title(title or raw.get('title'), machine), game_options), '', version)
 
@@ -247,7 +267,8 @@ class LocalLibrary:
         for entry in self.inventory.snapshot():
             raw = self._read(entry)
             candidate = game_from_report(raw, entry.title) if raw is not None else None
-            if candidate is not None and candidate.game is not None and (candidate.game.seats_max >= 2 or seat_map.forced(candidate.game.machine)):
+            if (candidate is not None and candidate.game is not None and session_capable(candidate.game.machine)
+                    and (candidate.game.seats_max >= 2 or seat_map.forced(candidate.game.machine))):
                 games.append((entry, candidate.game))
         return games
 

@@ -39,6 +39,8 @@ def refine_by_header(profile: SystemProfile, path: Path, data: bytes | None) -> 
 
 class MasterSystemProfile(SystemProfile):
     id = "sms"
+    netplay_session = True
+    netplay_portable = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # The translated Z80 code, the clocks of the video standard, the glue patched for it, the recompiler's
     # settings; of the file that embeds the ROM (known by its SHA-256) and the title, only the Light Phaser values.

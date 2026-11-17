@@ -23,6 +23,8 @@ _EWRAM = (0x02000000, 0x02040000)
 
 class GameBoyAdvanceProfile(SystemProfile):
     id = 'gba'
+    netplay_seats = 1
+    netplay_shared_only = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     simulation_sources = (SimulationSource('generated/recompiled_*.cpp'),
                           SimulationSource('generated/dispatch_table.cpp'),
