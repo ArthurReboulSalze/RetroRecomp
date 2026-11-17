@@ -518,7 +518,7 @@ class CheckTests(unittest.TestCase):
         portable = {profile.id for profile in ALL_PROFILES if lobby_check.portable(profile.id)}
         self.assertEqual(portable, {'nes', 'md', 'sms'})                       # the machines whose mixed-build gate passed
         self.assertEqual({profile.id for profile in ALL_PROFILES if lobby_check.session_capable(profile.id)},
-                         {'nes', 'md', 'sms', 'gg', 'snes'})                 # the exports whose kit adapter gives a digest
+                         {'nes', 'md', 'sms', 'gg', 'snes', 'cps1', 'cps2'})   # the exports whose kit adapter gives a digest
         self.assertTrue(all(1 <= lobby_check.machine_seats(profile.id) <= control.MAX_SEATS for profile in ALL_PROFILES))
         self.assertEqual(lobby_check.machine_seats('no such machine'), 1)
         self.assertFalse(lobby_check.portable(None) or lobby_check.session_capable('no such machine'))
@@ -810,7 +810,7 @@ class WindowApiTests(unittest.TestCase):
         source = (ROOT / 'retrorecomp/compiled_games_view.py').read_text(encoding='utf-8')
         self.assertIn("self.owner.show_multiplayer(pick=game)", source)
         self.assertIn("session_capable(single.system)", source)
-        self.assertTrue(session_capable('nes') and session_capable('gg') and not session_capable('cps1'))
+        self.assertTrue(session_capable('nes') and session_capable('gg') and not session_capable('n64'))
         for key in ('mp_host_game', 'mp_not_offered'):
             self.assertIn(key, i18n.UI if hasattr(i18n, 'UI') else (ROOT / 'retrorecomp/i18n.py').read_text(encoding='utf-8'))
 
