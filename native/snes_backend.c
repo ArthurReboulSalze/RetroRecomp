@@ -124,6 +124,9 @@ static void start_audio_timeline(void) {
     apu->portTimeValid = true;
     rr_snes_reset_audio_delivery();
 }
+/* Multiplayer (hostkit_session.h): off for a silent frame and, for a guest, for the whole session: the cartridge save is the host's. */
+static bool battery_writes = true;
+void rr16_snes_side_effects(bool allowed) { battery_writes = allowed; }
 bool rr16_init(bool headless) {
     headless_mode = headless;
     ram_variant_count=0;ram_observation_overflows=0;
@@ -205,7 +208,7 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
         for(unsigned x=0;x<visible_width;x++)
             pixels[y*RR16_WIDTH+x]=raster[y*RR16_WIDTH+(visible_width==512?x:x*2+1)];
     visible_frames += field_visible;
-    if (!headless_mode) rr_snes_battery_flush(g_snes->cart,SDL_GetTicks64(),false);
+    if (!headless_mode && battery_writes) rr_snes_battery_flush(g_snes->cart,SDL_GetTicks64(),false);
     /* Probes consume the same one-frame audio block as the interactive host,
      * without opening a sound device. This exercises the live SPC/DSP clock. */
     if (headless_mode) { int16_t pcm[4096]; rr16_audio(pcm, sizeof pcm / sizeof *pcm); }
@@ -286,10 +289,12 @@ static void digest_state(SaveLoadInfo *stream, void *data, size_t size) {
 enum { DIGEST_APU_REGS = offsetof(Apu, pad) + 6 - offsetof(Apu, ram),
        DIGEST_DSP_REGION = sizeof(Dsp) - offsetof(Dsp, ram),
        DIGEST_DSP_SIM = offsetof(Dsp, sampleBuffer) - offsetof(Dsp, ram) };
+/* The partitions of the last digest (cpu, wram, apu, ppu, ppu ports, dma, cartridge): a fork is named by the first that differs. */
+uint64_t rr16_snes_digest_parts[7];
 uint64_t rr16_snes_digest(void) {
     Snes *snes = g_snes;
     Cart *cart = snes->cart;
-    uint64_t parts[6];
+    uint64_t *parts = rr16_snes_digest_parts;
     /* The audio thread reads the same chips under this lock; the version names the layout the chip serializers write. */
     RtlApuLock();
     const uint32_t layout = snes_saveload_get_version();
@@ -321,21 +326,22 @@ uint64_t rr16_snes_digest(void) {
       parts[2] = s.hash; }
     { DigestStream s = DIGEST_STREAM();
       ppu_saveload(snes->ppu, &s.stream);
-      PpuRollbackResidue ports;
-      ppu_rb_residue_get(snes->ppu, &ports);
-      s.hash = digest_bytes(s.hash, &ports, sizeof ports);
       parts[3] = s.hash; }
+    { PpuRollbackResidue ports;
+      ppu_rb_residue_get(snes->ppu, &ports);
+      /* Up to the widescreen sprite classifier, which is presentation (the engine leaves it out of its own digest too). */
+      parts[4] = digest_bytes(14695981039346656037ull, &ports, offsetof(PpuRollbackResidue, wsOamMotionLastLine)); }
     { DigestStream s = DIGEST_STREAM();
       dma_saveload(snes->dma, &s.stream);
       uint8_t pending = dma_hdma_pending_init_get(snes->dma);
       s.hash = digest_bytes(s.hash, &pending, 1);
-      parts[4] = s.hash; }
+      parts[5] = s.hash; }
     { DigestStream s = DIGEST_STREAM();
       cart_saveload(cart, &s.stream);
-      parts[5] = s.hash; }
+      parts[6] = s.hash; }
     snes_saveload_set_version(layout);
     RtlApuUnlock();
-    return digest_bytes(14695981039346656037ull, parts, sizeof parts);
+    return digest_bytes(14695981039346656037ull, parts, 7 * sizeof *parts);
 }
 void rr16_report_details(FILE *file) {
     Cart *cart=g_snes->cart;
@@ -473,7 +479,7 @@ bool rr16_cartridge_save(const wchar_t *path) {
 }
 void rr16_shutdown(void) {
     if (!g_snes) return;
-    if (!rr_snes_battery_flush(g_snes->cart,SDL_GetTicks64(),true))
+    if (battery_writes && !rr_snes_battery_flush(g_snes->cart,SDL_GetTicks64(),true))
         fputs("Cartridge save could not be written.\n",stderr);
     rr_snes_native_set_enabled(false);
     snes_free(g_snes);g_snes=NULL;
@@ -502,7 +508,9 @@ static void save_state_extra(SaveLoadInfo *sli) {
                        retained_hires[0],retained_hires[1]};
     sli->func(sli,video,sizeof video);
     sli->func(sli,&g_ppu->vramPointer,RR_SN_PPU_PORT_BYTES);
-    sli->func(sli,raster,sizeof raster);
+    /* The retained picture is presentation: a rollback snapshot leaves it out (the replayed frames draw it again). */
+    uint8_t picture=!RtlIsRollbackSave(); sli->func(sli,&picture,1);
+    if(picture) sli->func(sli,raster,sizeof raster);
     uint8_t gun[256]; size_t n=rr16_gun_state_save(NULL,0);
     if (n<=sizeof gun) { rr16_gun_state_save(gun,n); sli->func(sli,gun,n); }
 }
@@ -521,7 +529,9 @@ static void load_state_extra(SaveLoadInfo *sli, uint32_t version) {
     }
     visible_width=video[0];raster_height=video[1];row_density=video[2];
     sli->func(sli,loaded_ppu_ports,sizeof loaded_ppu_ports);
-    sli->func(sli,raster,sizeof raster);
+    uint8_t picture=2; sli->func(sli,&picture,1);
+    if(picture>1) { loaded_execution_ok=false; return; }
+    if(picture) sli->func(sli,raster,sizeof raster);
     size_t n=rr16_gun_state_save(NULL,0);
     if (n>sizeof loaded_gun) { loaded_execution_ok=false; return; }
     sli->func(sli,loaded_gun,n);
@@ -546,4 +556,30 @@ uint8_t *rr16_state_capture(size_t *size) {
 bool rr16_state_restore(const uint8_t *data, size_t size) {
     loaded_execution_ok=false;
     return RtlLoadSnapshotFromMemory(data,size) && loaded_execution_ok;
+}
+/* Multiplayer snapshot (hostkit.h): the engine's rollback snapshot (guest state of every chip, the execution residue) in a buffer the
+ * kit owns, the S-DSP output ring blanked so equal states write equal bytes. The bound is measured once, by one save. */
+size_t rr16_snes_snap_bound(void) {
+    static size_t bound;
+    if (!g_snes) return 0;
+    /* Proven so far: the boards without an enhancement chip (LoROM, HiROM, ExHiROM, with or without battery RAM). A board with a
+     * chip plays on the delay tier (no snapshot) until its own proof is given. */
+    const Cart *board = g_snes->cart;
+    if (board->superfx || board->sa1 || board->sdd1 || board->dsp1 || board->cx4) return 0;
+    if (!bound) {
+        const size_t capacity = RtlRollbackSnapshotBound();
+        uint8_t *scratch = malloc(capacity);
+        const size_t used = scratch ? RtlNetplaySnapshotToMemory(scratch, capacity) : 0;
+        free(scratch);
+        bound = used ? used + 16384 : 0;
+    }
+    return bound;
+}
+size_t rr16_snes_snap_save(void *buffer, size_t capacity) {
+    return g_snes && buffer ? RtlNetplaySnapshotToMemory(buffer, capacity) : 0;
+}
+bool rr16_snes_snap_load(const void *buffer, size_t size) {
+    if (!g_snes || !buffer || size > rr16_snes_snap_bound()) return false;
+    loaded_execution_ok = false;
+    return RtlRollbackLoadFromMemory(buffer, size) && loaded_execution_ok;
 }

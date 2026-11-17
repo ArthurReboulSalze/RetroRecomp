@@ -88,7 +88,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | --- | --- | --- | --- |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
-| [Super Nintendo: multiplayer, the digest (delay tier)](#super-nintendo-multiplayer-the-digest-delay-tier-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
+| [Super Nintendo: multiplayer, digest and rollback on the boards without a chip](#super-nintendo-multiplayer-digest-and-rollback-on-the-boards-without-a-chip-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 
@@ -123,19 +123,32 @@ November 2026, two Windows PCs on a home network, Contra NES): two-player matche
 everyone, 150 ms of simulated round trip on the rollback tier with no wait, the in-game chat on keyboard and gamepad.
 Physical latency is not measured.
 
-## Super Nintendo: multiplayer, the digest (delay tier) (next release)
+## Super Nintendo: multiplayer, digest and rollback on the boards without a chip (next release)
 
-On the multiplayer branch (`spec/snes-rollback`, first delivery). The Super Nintendo now answers a session: `SnesProfile` sets
-`netplay_session`, and the adapter (`rrhk_snes.c`) gives the host kit a **digest** (`rr16_snes_digest`, `snes_backend.c`). It walks
-the engine's own serializers in a fixed order (65816 and its registers and cycle counters, WRAM and the beam, interrupt and joypad
-state with the multitap, SPC700 and APU RAM with the S-DSP **without its output ring** (the audio thread moves its read cursor),
-PPU registers, memories and ports, DMA/HDMA, cartridge RAM and every enhancement chip), each field named, none a pointer or a
-raw struct of the Snes. No snapshot yet: the machine plays on the **delay tier** and no board is proven for rollback. **Stamps:**
-the Super Nintendo game stamp moves (the profile) and its host stamp moves (`snes_backend.c`, `rrhk_snes.c`): its exports are
-rebuilt and converted again once; no other machine's stamp moves. **Quick states:** the Super Nintendo key hashes `snes_backend.c`
-and so moves; an older quick state is refused cleanly (accepted by the multiplayer specialist, 17 November 2026). **Proof so far** (17 November 2026, one PC,
-two copies of Super Mario World, LoROM, delay 4, 30 ms with 10 ms of jitter simulated): 1,500 frames, boot digests equal and 25
-confirmed-frame digests equal on both seats. Chip boards, rollback and physical latency are not measured.
+On the multiplayer branch (`spec/snes-rollback`). The Super Nintendo answers a session: `SnesProfile` sets `netplay_session`, and the
+adapter (`rrhk_snes.c`) gives the host kit a **digest**, a **snapshot** and **side effects**. The digest (`rr16_snes_digest`,
+`snes_backend.c`) walks the engine's own serializers in a fixed order (65816 and its registers and cycle counters, WRAM and the beam,
+interrupt and joypad state with the multitap, SPC700 and APU RAM with the S-DSP **without its output ring** (the audio thread moves its
+read cursor), PPU registers, memories and ports (not the widescreen sprite classifier, which is presentation), DMA/HDMA, cartridge
+RAM and every enhancement chip), each field named, none a pointer. The snapshot is the engine's rollback snapshot
+(`RtlNetplaySnapshotToMemory` / `RtlRollbackLoadFromMemory`: the guest state, the execution residue, the output ring blanked on save
+and kept live on load) in a buffer the kit owns, about 335 to 345 KiB, the bound measured once; the retained picture of the field
+(presentation) is left out of a rollback snapshot, so a quick state file keeps one more byte (the flag that says it is there).
+`side_effects(false)` stops the cartridge save write, for a silent frame and, for a guest, for the whole session (the periodic write
+and the one at exit). **Boards proven for rollback: the ones without an enhancement chip.** A board with a chip (Super FX, SA-1, S-DD1,
+DSP-1, CX4) answers no snapshot and plays on the **delay tier** until its own proof is given. **Stamps:** the Super Nintendo game stamp
+moves (the profile) and its host stamp moves (`snes_backend.c`, `rrhk_snes.c`, the new `snes_machine_checks.c`): its exports are rebuilt and
+converted again once; no other machine's stamp moves. **Quick states:** the Super Nintendo key hashes `snes_backend.c` and so moves; an
+older quick state is refused cleanly (accepted by the multiplayer specialist, 17 November 2026). **Proof so far** (17 November 2026, one
+PC, no ROM in the repository): `tools/snes_machine_selftest.py` (ROM-free: four authored cartridges, NTSC and PAL, with and without a
+raster interrupt, 6,708 checks: a save over other bytes is the same bytes, load then save is the same bytes, a replay of 40 frames from
+three save points equals the first run in digest, picture and sound, a wrong size and a too small capacity are refused); the same
+checks over Super Mario World, Secret of Mana and Chrono Trigger (digests equal at every frame of every replay; the picture differs in at
+most 3 of the first replayed, silent frames and the sound block differs because the live output ring is kept, both presentation);
+`netplay_game_smoke.py --frames 3000 --rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500` on the same three
+games: PASS, tier rollback on both seats (Super Mario World: 499 and 279 corrections, deepest 4), the save and the load at the same
+frames, digests equal; with `--save-digests`, equal up to frame 1499 and different from frame 1559 when the load acts. The
+digest is not yet compared between Windows and Linux. Physical latency and the cost of a save or a load are not measured.
 
 ## Master System and Game Gear: rollback snapshot and the frame handed over at an instruction boundary (next release)
 

@@ -429,6 +429,7 @@ native/snes_ppu_bus_checks.c tools/snes_ppu_bus_selftest.py
 native/snes_bus_checks.c tools/snes_bus_selftest.py tests/test_snes_bus.py
 retrorecomp/snes_chips.py retrorecomp/snes_gsu.py tools/snes_gsu_survey.py tests/test_snes_gsu.py
 native/snes_dma_checks.c tools/snes_dma_selftest.py tests/test_snes_chips.py
+native/snes_machine_checks.c tools/snes_machine_selftest.py
 native/snes_chip_checks.c tools/snes_chip_selftest.py
 native/snes_superfx_checks.c tools/snes_superfx_selftest.py tools/snes_superfx_model.py
 tools/snes_superfx_case.py tools/snes_superfx_library.py tools/snes_superfx_programs.py
