@@ -109,7 +109,9 @@ static void audio_output_clear(void);
 #define RR_HOST_AUDIO_FILTER rrhk_options_audio
 #define RR_HOST_AUDIO_RESET rrhk_options_audio_reset
 #define RR_HOST_AUDIO_DEVICE rrhk_audio_device
-#define RR_HOST_AUDIO_HELD rrhk_audio_held
+/* The sound of a frame the session runs again (after a correction) is dropped, with the speed keys' hold. */
+static bool audio_held(void) { return rrhk_audio_held() || rrhk_session_silent(); }
+#define RR_HOST_AUDIO_HELD audio_held
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
 #include "audio_output.inc"
@@ -153,7 +155,14 @@ static uint64_t no_count(void) { return 0; }
 /* Multiplayer (hostkit_session.h): delay tier; the session's words answer host_refresh_input's re-reads, so every read
  * of a frame sees the same word. */
 uint64_t smsrecomp_digest(void);
+/* Rollback (the banked engine; the functions engine and the reference interpreter have no snapshot, size 0, and stay on the delay
+ * tier): gamestate.inc. The frame is handed to the kit at the end of the instruction that follows the frame end (frame_edge), where
+ * the whole state is complete. */
+static size_t snap_bound(void) { return smsrecomp_snap_bound(); }
+static size_t snap_save(void *buffer, size_t capacity) { return smsrecomp_snap_save(buffer, capacity); }
+static bool snap_load(const void *buffer, size_t size) { return smsrecomp_snap_load(buffer, size); }
 static bool state_ready(void) { return true; }
+static bool frame_edge(void);
 /* The guest services the request after a completed banked CPU instruction and reports through state_completed. */
 static bool state_file(const wchar_t *path, bool load) {
     (void)path;
@@ -224,6 +233,11 @@ static bool session_option(const char *key, const char *value) {
     reduce_sprites = value[0] == '1';
     smsrecomp_video_set_sprite_flicker_reduction(reduce_sprites);
     return true;
+}
+
+static size_t session_options(char *out, size_t capacity) {
+    const int n = snprintf(out, capacity, "extra_sprites=%d", reduce_sprites ? 1 : 0);
+    return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
 }
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
@@ -344,7 +358,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = no_audio, .interpreted = interpreted, .audio_interpreted = no_count,
             .state_ready = state_ready, .state_file = state_file, .input_frame = input_frame,
             .pointer_input = pointer_input,
-            .digest = smsrecomp_digest, .session_option = session_option,
+            .snap_bound = snap_bound, .snap_save = snap_save, .snap_load = snap_load,
+            .digest = smsrecomp_digest, .session_option = session_option, .session_options = session_options,
             .page = sms_light_phaser ? &page : NULL,
             .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
             .audio_ratio = host_audio_ratio,     /* 1.7.7 (HOST_KIT D30): Sync to display */
@@ -367,6 +382,7 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h, int 
     if (!rrhk_open(rrhk_adapter(), sms_game_title, scale)) return false;
     rrhk_autofire_reset();
     smsrecomp_set_state_callback(state_completed);
+    smsrecomp_set_frame_edge_callback(frame_edge);
 #ifdef RETRO_GAME_GEAR
     rrhk_notice(rrhk_tr("F1: help | Enter: pause", "F1 : aide | Entree : pause"), 2400);
 #else
@@ -392,7 +408,17 @@ bool host_present(const uint32_t *fb, int width, int height) {
     if (full_crop.x == 0 && full_crop.w == SMS_SCREEN_W && smsrecomp_frame_left_border() == 8) { crop.x += 8; crop.w -= 8; }
     for (int row = 0; row < crop.h; ++row)
         memcpy(view + row * SMS_SCREEN_W, fb + (crop.y + row) * width + crop.x, (size_t)crop.w * sizeof *view);
+    /* In a session on the banked engine the frame is handed to the kit at the end of the instruction that follows (frame_edge). */
+    if (rrhk_session_active() && smsrecomp_defer_frame()) return true;
     return rrhk_frame_done();
+}
+
+/* The deferred end of the frame: the kit runs its iteration (the worker's commands, the snapshots, the next RUN), then the pads of
+ * the frame that follows are the guest's, as sdl_frame_cb gives them after a frame handed over at once. */
+static bool frame_edge(void) {
+    const bool keep = rrhk_frame_done();
+    glue_set_pad1(pads[0]); glue_set_pad2(pads[1]);
+    return keep;
 }
 
 uint8_t host_get_pad1(void) { return pads[0]; }
@@ -417,6 +443,7 @@ void host_shutdown(void) {
     if (sms_light_phaser) { lightphaser_pointer(-1, -1, false); SDL_ShowCursor(SDL_ENABLE); }
     smsrecomp_set_input_refresh(NULL);
     smsrecomp_set_state_callback(NULL);
+    smsrecomp_set_frame_edge_callback(NULL);
     input_sample_counter = 0;
     rrhk_close();
     SDL_Quit();

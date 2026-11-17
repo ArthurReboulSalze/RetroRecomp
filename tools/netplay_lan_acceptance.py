@@ -1,0 +1,209 @@
+"""The multiplayer acceptance of a converted game between two real PCs, with no window and no player: the check Arthur's
+two-PC tests of 17 November 2026 made by hand on the NES (the reference), run for any machine.
+
+    python -B tools/netplay_lan_acceptance.py run --game GAME.exe --remote USER@HOST --remote-root DIR
+        --remote-game GAME.exe --remote-address IP [--remote-python PYTHON] [--frames 3000] [--tier auto|delay|rollback]
+        [--machine ID] [--lag-ms MS] [--jitter-ms MS] [--save-at F --load-at G] [--restart-at F] [--report FILE]
+
+`run` starts the host side on the remote PC over SSH (its converter folder, its own copy of the same export), reads the
+invitation it prints, joins it from this PC, and compares what the two sides ran: both matches ended, the same number of frames,
+the same boot digest, the same digests every `--digest-every` frames, the same history fold, the same frames for the host's
+restart and its save and load of the match's state, the tier both sides played on. Both games run hidden (SDL's dummy video
+and audio drivers) with scripted pads (pseudo-random, held a few frames, fixed by the seat), so they leave their title screen
+and diverge at once if one input differs. Nothing here measures a duration or a latency; `--lag-ms` holds what this PC sends
+(a far player), as the room command's option does.
+
+The two sides are also commands of their own (`side host`, `side guest`), which `run` starts; they use the room command's
+code (`retrorecomp.netplay.room_cli`) under its `tests` switch, which this tool alone sets: scripted pads, a hidden game and
+the worker's whole result. The remote PC needs the same converter version (its tools folder included) and the inbound rule
+for its Python on the room's port, which the player adds by hand (never this tool). No ROM is copied by this tool: each
+side names its own export of the same dump.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import threading
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from retrorecomp.netplay import room_cli, seat_map  # noqa: E402
+
+HIDDEN = {'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy', 'SDL_RENDER_VSYNC': '0'}
+RESULT_TAG = 'acceptance-json: '
+KEPT = ('outcome', 'detail', 'tier', 'delay', 'history_frames', 'history_digest', 'boot_digest', 'digests', 'restarts', 'states',
+        'desync', 'prediction_cap', 'hello')
+
+
+def script(seat: int, args) -> dict:
+    """The scripted pad of a seat, with the host's restart and its save and load of the match's state as record bits."""
+    spec = {'kind': 'random', 'seat': seat, 'hold': args.hold}
+    if seat == 0:
+        at = {}
+        if args.restart_at:
+            at[str(args.restart_at)] = seat_map.SYS_RESTART
+        if args.save_at:
+            at[str(args.save_at)] = seat_map.SYS_STATE_SAVE
+        if args.load_at:
+            at[str(args.load_at)] = seat_map.SYS_STATE_LOAD
+        if at:
+            spec['system_at'] = at
+    return spec
+
+
+def side(args) -> int:
+    out = Path(args.out or tempfile.mkdtemp(prefix='rr-acceptance-'))
+    out.mkdir(parents=True, exist_ok=True)
+    common = ['--game', str(args.game), '--machine', args.machine, '--log-dir', str(out), '--name', args.role.title()]
+    if args.lag_ms:
+        common += ['--lag-ms', str(args.lag_ms), '--jitter-ms', str(args.jitter_ms)]
+    if args.role == 'host':
+        argv = ['host', '--address', args.address, '--tier', args.tier, '--digest-every', str(args.digest_every),
+                '--join-timeout', '120', *common]
+    else:
+        text = args.invitation or sys.stdin.readline().strip()
+        argv = ['guest', text, *common]
+    parsed = room_cli._parser().parse_args(argv)
+    settings = {'local_source': script(0 if args.role == 'host' else 1, args), 'last_frame': args.frames}
+    results: list = []
+    run = room_cli.run_host if args.role == 'host' else room_cli.run_guest
+    code = run(parsed, True, settings, HIDDEN, results)
+    result = results[0] if results else {}
+    room_cli.say(RESULT_TAG + json.dumps({name: result.get(name) for name in KEPT}))
+    return code
+
+
+def compare(host: dict, guest: dict, args) -> list[str]:
+    problems = []
+    for label, result in (('host', host), ('guest', guest)):
+        if result.get('outcome') != 'ended':
+            problems.append(f'{label}: outcome {result.get("outcome")} {result.get("detail") or ""}'.rstrip())
+        if result.get('history_frames') != args.frames:
+            problems.append(f'{label}: {result.get("history_frames")} frames of {args.frames}')
+    for name in ('boot_digest', 'history_digest', 'digests', 'restarts', 'states', 'tier'):
+        if host.get(name) != guest.get(name):
+            problems.append(f'{name} differs: host {host.get(name)!r:.80} guest {guest.get(name)!r:.80}')
+    if not host.get('digests'):
+        problems.append('no digest was compared')
+    wanted_states = (1 if args.save_at else 0) + (1 if args.load_at else 0)
+    if len(host.get('states') or []) != wanted_states:
+        problems.append(f'the match\'s state: {host.get("states")} (wanted {wanted_states})')
+    if len(host.get('restarts') or []) != (1 if args.restart_at else 0):
+        problems.append(f'restarts: {host.get("restarts")}')
+    if args.tier == 'rollback' and host.get('tier') != 'rollback':
+        problems.append(f'tier {host.get("tier")}, rollback asked')
+    return problems
+
+
+def run(args) -> int:
+    """The host on the remote PC, the guest here; the verdict and both results in the report."""
+    flags = ['--frames', str(args.frames), '--machine', args.machine, '--hold', str(args.hold),
+             '--digest-every', str(args.digest_every), '--tier', args.tier]
+    for name in ('save_at', 'load_at', 'restart_at'):
+        if getattr(args, name):
+            flags += ['--' + name.replace('_', '-'), str(getattr(args, name))]
+    remote = (f'cd /d "{args.remote_root}" && "{args.remote_python}" -B tools\\netplay_lan_acceptance.py side host '
+              f'--game "{args.remote_game}" --address {args.remote_address} ' + ' '.join(flags))
+    print('remote host:', args.remote)
+    host_lines: list[str] = []
+    invitation = threading.Event()
+    found = {}
+    process = subprocess.Popen(['ssh', args.remote, remote], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+
+    def read():
+        for line in process.stdout:
+            line = line.rstrip('\n')
+            host_lines.append(line)
+            if line.startswith('invitation: '):
+                found['invitation'] = line[len('invitation: '):].strip()
+                invitation.set()
+            elif not line.startswith(RESULT_TAG):
+                print('  [host]', line)
+        invitation.set()
+
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
+    if not invitation.wait(120) or 'invitation' not in found:
+        process.kill()
+        print('FAIL: the remote host printed no invitation')
+        return 1
+    guest_args = argparse.Namespace(role='guest', game=args.game, machine=args.machine, out=args.out, lag_ms=args.lag_ms,
+                                    jitter_ms=args.jitter_ms, invitation=found['invitation'], frames=args.frames,
+                                    hold=args.hold, save_at=0, load_at=0, restart_at=0, address=None, tier=args.tier,
+                                    digest_every=args.digest_every)
+    lines: list[str] = []
+    original = room_cli.say
+
+    def keep(text: str) -> None:
+        lines.append(text)
+        if not text.startswith(RESULT_TAG):
+            original('  [guest] ' + text)
+    room_cli.say = keep
+    try:
+        side(guest_args)
+    finally:
+        room_cli.say = original
+    process.wait(timeout=180)
+    reader.join(10)
+
+    def result_of(collected):
+        for line in collected:
+            if line.startswith(RESULT_TAG):
+                return json.loads(line[len(RESULT_TAG):])
+        return {}
+    host, guest = result_of(host_lines), result_of(lines)
+    problems = compare(host, guest, args)
+    verdict = 'PASS' if not problems else 'FAIL'
+    summary = (f'{verdict}: {args.frames} frames, tier {host.get("tier")}, delay {host.get("delay")}, '
+               f'{len(host.get("digests") or {})} digests compared, restarts {host.get("restarts")}, '
+               f'match state {host.get("states")}')
+    print(summary)
+    for problem in problems:
+        print('  -', problem)
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps({'verdict': verdict, 'problems': problems, 'host': host, 'guest': guest},
+                                          indent=1) + '\n', encoding='utf-8')
+    return 0 if not problems else 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    sub = parser.add_subparsers(dest='command', required=True)
+    for name in ('run', 'side'):
+        p = sub.add_parser(name)
+        p.add_argument('--game', type=Path, required=True)
+        p.add_argument('--frames', type=int, default=3000)
+        p.add_argument('--machine', default=room_cli.DEFAULT_MACHINE)
+        p.add_argument('--hold', type=int, default=4)
+        p.add_argument('--digest-every', type=int, default=60)
+        p.add_argument('--tier', choices=('auto', 'delay', 'rollback'), default='auto')
+        p.add_argument('--save-at', type=int, default=0)
+        p.add_argument('--load-at', type=int, default=0)
+        p.add_argument('--restart-at', type=int, default=0)
+        p.add_argument('--lag-ms', type=float, default=0.0)
+        p.add_argument('--jitter-ms', type=float, default=0.0)
+        p.add_argument('--out', type=Path)
+    run_parser = sub.choices['run']
+    run_parser.add_argument('--remote', required=True, help='USER@HOST of the PC that hosts (SSH, its key already trusted)')
+    run_parser.add_argument('--remote-root', required=True, help='its converter folder')
+    run_parser.add_argument('--remote-game', required=True, help='its copy of the same export')
+    run_parser.add_argument('--remote-address', required=True, help='its address on the local network')
+    run_parser.add_argument('--remote-python', default='python')
+    run_parser.add_argument('--report', type=Path)
+    side_parser = sub.choices['side']
+    side_parser.add_argument('role', choices=('host', 'guest'))
+    side_parser.add_argument('--address', help='host: its own address on the local network')
+    side_parser.add_argument('--invitation', help='guest: the invitation (else one line on the standard input)')
+    args = parser.parse_args()
+    return run(args) if args.command == 'run' else side(args)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

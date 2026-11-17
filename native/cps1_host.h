@@ -35,6 +35,13 @@ void rr_cps1_dip_values(uint16_t values[3]);
  * values stay applied across Shift+F1 and F9. */
 void rr_cps1_set_dip_values(const uint16_t values[3]);
 void rr_cps1_dip_cycle(int index, int step);
+/* Multiplayer (hostkit_session.h): the in-process snapshot (the machine's state without the picture, and the frame index), its digest, and the
+ * switch of what a frame does outside the machine (the EEPROM file). */
+size_t rr_cps1_snap_bound(void);
+size_t rr_cps1_snap_save(void *buffer, size_t capacity);
+bool rr_cps1_snap_load(const void *buffer, size_t size);
+uint64_t rr_cps1_digest(void);
+void rr_cps1_side_effects(bool allowed);
 uint32_t rr_cps1_frame_index(void);
 void rr_cps1_restore_frame(uint32_t frame);
 void rr_cps1_reset_machine(void);

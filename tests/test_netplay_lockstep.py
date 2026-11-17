@@ -57,11 +57,11 @@ class PipeCodecTests(unittest.TestCase):
             return pipe.parse_hello(struct.pack('<HBBIIB', abi, players, caps, 0, rate, 3) + b'NES')
         pipe.check_hello(hello(), 2)
         pipe.check_hello(hello(caps=pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT | pipe.CAP_DRIVEN), 1)
+        pipe.check_hello(hello(caps=pipe.CAP_DIGEST | pipe.CAP_AXES), 2)          # the sticks travel since session ABI 7
         self.assertEqual(hello().name, 'NES')
         self.assertAlmostEqual(hello().frame_seconds, 1 / 60)
         for wrong, word in ((dict(abi=pipe.ABI + 1), 'ABI'), (dict(caps=0), 'digest'),
                             (dict(caps=pipe.CAP_DIGEST | pipe.CAP_POINTER), 'pointer'),
-                            (dict(caps=pipe.CAP_DIGEST | pipe.CAP_AXES), 'sticks'),
                             (dict(caps=pipe.CAP_DIGEST | pipe.CAP_KEYBOARD), 'keyboard'), (dict(rate=0), 'frame rate')):
             with self.assertRaisesRegex(pipe.Refused, word):
                 pipe.check_hello(hello(**wrong), 2)

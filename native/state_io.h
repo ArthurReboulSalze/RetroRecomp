@@ -35,4 +35,11 @@ static void rr_state_bytes(RetroStateIO *io, void *data, size_t size) {
 void smsrecomp_video_state(RetroStateIO *io);
 void smsrecomp_psg_state(RetroStateIO *io);
 void lightphaser_state(RetroStateIO *io);
+/* Raw in-memory snapshots of the units that keep their own statics (smsrecomp_snap_* in gamestate.inc). */
+size_t smsrecomp_video_snap_size(void);
+void smsrecomp_video_snap_save(uint8_t *out);
+bool smsrecomp_video_snap_load(const uint8_t *in);
+size_t smsrecomp_psg_snap_size(void);
+void smsrecomp_psg_snap_save(uint8_t *out);
+bool smsrecomp_psg_snap_load(const uint8_t *in);
 #endif

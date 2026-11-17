@@ -282,6 +282,8 @@ bool rrhk_session_guest(void);              /* in a session as a guest (the host
 void rrhk_session_close(RrhkRun *run, int reason);
 /* input.c: the pad word of this PC's player as today's solo game reads it (player `player`'s bindings, autofire applied). */
 uint16_t rrhk_local_pad_word(int player, uint64_t frame);
+bool rrhk_local_pad_axes(int player, uint64_t frame, int16_t axes[RRHK_AXES]);   /* this PC's sticks, never the session's */
+void rrhk_session_axes(int port, int16_t axes[RRHK_AXES]);                         /* a port's sticks of the frame being run */
 /* chat.inc (in session.inc): the in-game chat of a session. rrhk_chat_event comes before every other handler; rrhk_chat_draw
  * after the menus and notices; the notices' line moves above the chat while it is open. */
 bool rrhk_chat_open(void);

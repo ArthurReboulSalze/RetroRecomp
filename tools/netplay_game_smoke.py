@@ -2,7 +2,7 @@
 joined through the host (a star) by the in-memory link, which this process carries the workers' packets through.
 
     python -B tools/netplay_game_smoke.py GAME.exe [--seats 2] [--frames 3000] [--latency MS] [--jitter MS]
-                                          [--loss RATE] [--delay FRAMES] [--rollback CAP] [--shared] [--hold FRAMES] [--restart-at FRAME]
+                                          [--loss RATE] [--delay FRAMES] [--rollback CAP] [--hold FRAMES] [--restart-at FRAME]
                                           [--save-at FRAME --load-at FRAME]
                                           [--output DIR]
 
@@ -59,9 +59,13 @@ def main() -> int:
     parser.add_argument('--hold', type=int, default=12, help='frames a scripted pad keeps its word')
     parser.add_argument('--restart-at', type=int, default=0, help='the host asks a restart for everyone in its LOCAL of this frame')
     parser.add_argument('--save-at', type=int, default=0, help="the host saves the match's state for everyone in its LOCAL of this frame")
+    parser.add_argument('--machine', default=None, help='the profile id (gb, gg, gba: a handheld is played in input sharing)')
+    parser.add_argument('--sharing', choices=('per_player', 'everyone', 'turns'), default=None,
+                        help='the input mode (a handheld plays in input sharing only: everyone by default)')
+    parser.add_argument('--options', default='', help='the run-changing options every seat gets in SETUP ("key=value" lines '
+                        'separated by ;), as a room pushes the host game\'s')
     parser.add_argument('--load-at', type=int, default=0, help='and loads it back in its LOCAL of this frame')
     parser.add_argument('--digest-every', type=int, default=60)
-    parser.add_argument('--shared', action='store_true', help='input sharing, every seat OR-merged on the one port (a handheld: netplay_shared_only)')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--limit', type=float, default=0.0, help='seconds before the games are ended (default: from --frames)')
     parser.add_argument('--output', type=Path, default=ROOT / '.build/netplay-game-smoke')
@@ -91,9 +95,9 @@ def main() -> int:
             if args.load_at:
                 script['system_at'][str(args.load_at)] = seat_map.SYS_STATE_LOAD
         settings = dict(seat=seat, seats=args.seats, names=list(NAMES[:args.seats]), digest_every=args.digest_every,
+                        options='\n'.join(part for part in args.options.split(';') if part),
+                        sharing=seat_map.effective(args.machine, seat_map.BY_NAME[args.sharing or 'per_player']),
                         last_frame=args.frames, local_source=script, keep_history=True, rollback=args.rollback)
-        if args.shared:
-            settings['sharing'] = seat_map.SHARED_ALL
         if seat == 0 and args.delay:
             settings['delay'] = args.delay
         config = dict(game=dict(exe=str(copy), cwd=str(folder), env=HIDDEN, stdout=str(folder / 'stdout.txt'),
