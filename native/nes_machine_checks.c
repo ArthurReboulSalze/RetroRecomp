@@ -236,6 +236,48 @@ static void pending_state_checks(void) {
         CHECK(audio_hash()==pcm); free(saved);
     }
 }
+/* The host's save in a session (session ABI 8): one image of the cartridge's nonvolatile memory that another machine plays on,
+ * a wrong image refused, and a guest's save file never written. A battery cartridge of its own (MMC1), loaded after the others. */
+static void session_save_checks(void) {
+    const size_t prg=65536, size=16+prg+8192;
+    uint8_t *rom=calloc(1,size); CHECK(rom); memcpy(rom,"NES\032",4);
+    rom[4]=(uint8_t)(prg/16384); rom[5]=1; rom[6]=(uint8_t)(1<<4|2);
+    for(size_t pos=16;pos<16+prg;pos+=4096) {
+        rom[pos]=0xE6;rom[pos+1]=0;rom[pos+2]=0x4C;rom[pos+3]=0;rom[pos+4]=0x80;
+        rom[pos+4090]=rom[pos+4092]=rom[pos+4094]=0; rom[pos+4091]=rom[pos+4093]=rom[pos+4095]=0x80;
+    }
+    CHECK(cyc_load_ines(rom,size)); free(rom); cyc_run_native=false;
+    boot(); const size_t nv=cyc_nvram_size(0); CHECK(nv>0 && cyc_nvram_size(1)==0);
+    for(size_t i=0;i<nv;i++) hw_cart.wram[i]=(uint8_t)(i*7+3);
+    const size_t image_size=rr_nes_session_save(NULL,0); CHECK(image_size==12+nv);
+    uint8_t *image=malloc(image_size), *again=malloc(image_size); CHECK(image && again);
+    CHECK(rr_nes_session_save(image,image_size)==image_size); CHECK(rr_nes_session_save(image,image_size-1)==0);
+    memset(again,0xA5,image_size); CHECK(rr_nes_session_save(again,image_size)==image_size); CHECK(!memcmp(image,again,image_size));
+    /* Another PC: a blank save, then the host's image: the same bytes, the same digest of the machine. */
+    boot(); for(size_t i=0;i<nv;i++) hw_cart.wram[i]=0xFF;
+    uint64_t blank=rr_nes_digest();
+    CHECK(rr_nes_session_save_put(image,image_size));
+    for(size_t i=0;i<nv;i++) CHECK(hw_cart.wram[i]==(uint8_t)(i*7+3));
+    CHECK(rr_nes_digest()!=blank);
+    CHECK(rr_nes_session_save(again,image_size)==image_size && !memcmp(image,again,image_size));
+    /* The host loaded its save file before the power-on; a guest takes the image after it. Both must be the same machine. */
+    cyc_power_on(0); CHECK(cyc_nvram_import(0,image+12,nv)); cyc_power_on(0); cyc_run_power_on();
+    uint64_t host_boot=rr_nes_digest(), host_hw=cyc_hw_state_hash(), host_mem=cyc_mem_state_hash();
+    boot(); for(size_t i=0;i<nv;i++) hw_cart.wram[i]=0xFF;
+    CHECK(rr_nes_session_save_put(image,image_size));
+    /* The machine is the same: the CPU, the hardware and the memories (the digest also names the sound mixer's leftovers of this
+     * process's earlier boots, which two fresh processes do not have). */
+    CHECK(cyc_hw_state_hash()==host_hw && cyc_mem_state_hash()==host_mem);
+    (void)host_boot;
+    /* A wrong image changes nothing. */
+    memcpy(again,image,image_size); again[0]^=1; CHECK(!rr_nes_session_save_put(again,image_size));
+    memcpy(again,image,image_size); again[4]^=1; CHECK(!rr_nes_session_save_put(again,image_size));
+    CHECK(!rr_nes_session_save_put(image,image_size-1)); CHECK(!rr_nes_session_save_put(NULL,image_size));
+    CHECK(rr_nes_session_save(again,image_size)==image_size && !memcmp(image,again,image_size));
+    /* The guest's ban on writing its own save file. */
+    CHECK(!rr_nes_saves_blocked()); rr_nes_saves_allowed(false); CHECK(rr_nes_saves_blocked()); rr_nes_saves_allowed(true); CHECK(!rr_nes_saves_blocked());
+    free(image); free(again);
+}
 int main(int argc,char **argv) {
     int mapper=argc>1 ? atoi(argv[1]) : 0;
     size_t prg=mapper==0 ? 32768 : mapper==153 ? 524288 : 65536, size=16+prg;
@@ -248,7 +290,7 @@ int main(int argc,char **argv) {
         rom[pos+4091]=rom[pos+4093]=rom[pos+4095]=0x80;
     }
     CHECK(cyc_load_ines(rom,size)); free(rom); cyc_run_native=false;
-    frame_clock(); if(RR_NES_ZAPPER) gun_checks(); four_score_checks(); state_checks(); pending_state_checks();
+    frame_clock(); if(RR_NES_ZAPPER) gun_checks(); four_score_checks(); state_checks(); pending_state_checks(); session_save_checks();
     printf("{\"mapper\":%d,\"pal\":%d,\"four_score\":%d,\"checks\":%u,\"state_bytes\":%zu}\n",mapper,RR_NES_PAL,RR_NES_FOUR_SCORE,checks,rr_nes_state_size());
     return 0;
 }

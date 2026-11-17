@@ -92,6 +92,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
+| [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-next-release) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-next-release) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
@@ -283,6 +284,23 @@ four pads and the signatures, a new strobe, a read cut in the middle then saved 
 seeing the pads of players 3 and 4; the build without the Four Score is unchanged (749 and 751 checks as before, plus its own). Not
 proven: a Four Score game played on four seats (see the multiplayer notes of the same branch), the Famicom's own four-player adapter
 (different wiring, not supported), and the catalogue's titles were not all checked against a dump.
+
+## NES: the host's save travels in a session (next release)
+
+On the multiplayer branch (`spec/nes-session-save`, session ABI 8). `rrhk_nes.c` gives the kit `session_save` / `session_save_put`
+over `rr_nes_session_save` (`nes_machine_state.inc`): one image of the cartridge's nonvolatile memory (region 0: battery RAM,
+EEPROM) and the Datach's EEPROM (region 1), magic `RNS1`, the two lengths little endian, the two regions. A guest imports the
+host's image before the boot digest, so every seat starts from the host's save; a wrong magic, length or size is refused and
+changes nothing. A guest also writes **no save file**: `side_effects(false)` makes the program's end-of-game write return at once
+(`rr_nes_saves_blocked`, the patched `cyc_save.inc`), where before a guest overwrote its own save file with the match's. Alone, a game
+loads and saves as before. **Proof so far:** the ROM-free fixture (`tools/nes_machine_selftest.py`: a battery MMC1 cartridge, the size
+query, a save over other bytes identical, a blank machine then the host's image gives the host's bytes and the same CPU, hardware and
+memories as a machine that loaded that save before its power-on, wrong images refused, the ban on writing). With The Legend of Zelda
+(MMC1, 32 KB of battery memory) on two seats, 300 frames, no seed anywhere: both boot digests equal and only the host's folder holds a
+save file at the end (the guest writes none, though the same run changed the memory on both). **Not proven:** that a guest plays on the
+host's save in a real match: `tools/netplay_game_smoke.py` does not carry the host's save to the other seats (only the room worker does),
+so a run with a save on the host alone is refused there by the boot digest, as it would be without the feature; the same save on both
+seats passes. The Datach's region 1 is checked by the layout only.
 
 ## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (next release)
 

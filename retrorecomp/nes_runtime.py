@@ -142,6 +142,8 @@ int main(int argc, char **argv) {
     (project / 'cyc_host.c').write_text(host, encoding='utf-8')
     saves = (engine / 'runner/cyc/cyc_save.inc').read_text(encoding='utf-8')
     saves = replace_once(saves, '    bool ok=cyc_nvram_export(region,buffer,n);\n    int fd=-1;',
+        # A guest of a multiplayer session plays on the host's save and writes none of its own.
+        '    if (rr_nes_saves_blocked()) { free(buffer); free(temporary); return true; }\n'
         '    bool ok=cyc_nvram_export(region,buffer,n);\n'
         '    if (ok && retro_auto_save && region == 0 && retro_initial_save &&\n'
         '        n == retro_initial_size && memcmp(buffer,retro_initial_save,n) == 0) {\n'
