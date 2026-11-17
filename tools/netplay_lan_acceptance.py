@@ -28,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -107,13 +108,15 @@ def run(args) -> int:
     for name in ('save_at', 'load_at', 'restart_at'):
         if getattr(args, name):
             flags += ['--' + name.replace('_', '-'), str(getattr(args, name))]
+    # The host's logs go beside its converter, where they can be read after a run.
+    remote_out = args.remote_out or (args.remote_root.rstrip('\\') + '\\..\\acceptance-logs\\host')
     remote = (f'cd /d "{args.remote_root}" && "{args.remote_python}" -B tools\\netplay_lan_acceptance.py side host '
-              f'--game "{args.remote_game}" --address {args.remote_address} ' + ' '.join(flags))
+              f'--game "{args.remote_game}" --address {args.remote_address} --out "{remote_out}" ' + ' '.join(flags))
     print('remote host:', args.remote)
     host_lines: list[str] = []
     invitation = threading.Event()
     found = {}
-    process = subprocess.Popen(['ssh', args.remote, remote], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+    process = subprocess.Popen(['ssh', '-T', args.remote, remote], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
 
     def read():
@@ -133,22 +136,25 @@ def run(args) -> int:
         process.kill()
         print('FAIL: the remote host printed no invitation')
         return 1
-    guest_args = argparse.Namespace(role='guest', game=args.game, machine=args.machine, out=args.out, lag_ms=args.lag_ms,
-                                    jitter_ms=args.jitter_ms, invitation=found['invitation'], frames=args.frames,
-                                    hold=args.hold, save_at=0, load_at=0, restart_at=0, address=None, tier=args.tier, sticks=args.sticks,
-                                    digest_every=args.digest_every)
+    # The guest is a process of its own, as a player's converter is.
+    guest_command = [sys.executable, '-B', str(Path(__file__).resolve()), 'side', 'guest', '--game', str(args.game),
+                     '--invitation', found['invitation'], '--frames', str(args.frames), '--machine', args.machine,
+                     '--hold', str(args.hold), '--digest-every', str(args.digest_every), '--tier', args.tier]
+    if args.out:
+        guest_command += ['--out', str(args.out)]
+    if args.lag_ms:
+        guest_command += ['--lag-ms', str(args.lag_ms), '--jitter-ms', str(args.jitter_ms)]
+    if args.sticks:
+        guest_command += ['--sticks']
     lines: list[str] = []
-    original = room_cli.say
-
-    def keep(text: str) -> None:
-        lines.append(text)
-        if not text.startswith(RESULT_TAG):
-            original('  [guest] ' + text)
-    room_cli.say = keep
-    try:
-        side(guest_args)
-    finally:
-        room_cli.say = original
+    guest = subprocess.run(guest_command, stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding='utf-8',
+                           errors='replace', timeout=max(300, args.frames / 20 + 240))
+    for line in guest.stdout.splitlines():
+        lines.append(line)
+        if not line.startswith(RESULT_TAG):
+            print('  [guest]', line)
+    if guest.returncode and guest.stderr:
+        print('  [guest stderr]', guest.stderr[-2000:])
     process.wait(timeout=180)
     reader.join(10)
 
@@ -174,6 +180,10 @@ def run(args) -> int:
 
 
 def main() -> int:
+    # A remote PC's messages may hold characters this console cannot show (a French Windows error): never a reader that dies.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(errors='replace')
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('run', 'side'):
@@ -198,6 +208,7 @@ def main() -> int:
     run_parser.add_argument('--remote-address', required=True, help='its address on the local network')
     run_parser.add_argument('--remote-python', default='python')
     run_parser.add_argument('--report', type=Path)
+    run_parser.add_argument('--remote-out', help='the host side log folder on the remote PC (default: beside its converter)')
     side_parser = sub.choices['side']
     side_parser.add_argument('role', choices=('host', 'guest'))
     side_parser.add_argument('--address', help='host: its own address on the local network')

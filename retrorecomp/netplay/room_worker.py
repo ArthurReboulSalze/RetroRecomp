@@ -394,7 +394,10 @@ class RoomWorker:
         bad = check_tier(mode, cap)
         if bad is not None:                 # refused before any game is started
             raise RoomError(bad.reason)
-        session = self._open_game(game)
+        try:
+            session = self._open_game(game)
+        except OSError as error:            # a missing or unreadable executable: said, never a silent end of the room
+            raise RoomError(f'the game could not be started ({error.strerror or type(error).__name__})') from None
         try:
             session.hold()
             hello = session.wait_hello(HELLO_WAIT)
