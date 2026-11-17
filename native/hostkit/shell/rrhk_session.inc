@@ -282,11 +282,26 @@ static void effects(const RrhkMachine *m, bool allowed) {
     if (m->side_effects) m->side_effects(allowed && !s.guest);
 }
 
-static bool set_ports(const uint8_t *payload, uint16_t length) {
+/* A word from the network is cleaned as the local path cleans its own (rrhk_local_pad_word): only the machine's action bits
+ * are kept, and opposite directions held together cancel. A peer can then never hand the machine a word no pad could make
+ * (security review K1). */
+static uint16_t clean_word(const RrhkMachine *m, uint16_t word) {
+    uint16_t valid = 0;
+    for (int a = 0; a < m->action_count; ++a) valid |= m->actions[a].bit;
+    word &= valid;
+    const uint16_t left = m->actions[m->left].bit, right = m->actions[m->right].bit;
+    const uint16_t up = m->actions[m->up].bit, down = m->actions[m->down].bit;
+    if ((word & (left | right)) == (left | right)) word &= (uint16_t)~(left | right);
+    if ((word & (up | down)) == (up | down)) word &= (uint16_t)~(up | down);
+    return word;
+}
+
+static bool set_ports(const RrhkMachine *m, const uint8_t *payload, uint16_t length) {
     const unsigned count = payload[5];
     if (count > RRHK_MAX_PLAYERS || length != 6u + 2u * count) return false;
     memset(s.ports, 0, sizeof s.ports);
-    for (unsigned p = 0; p < count; ++p) s.ports[p] = (uint16_t)(payload[6 + 2 * p] | payload[7 + 2 * p] << 8);
+    for (unsigned p = 0; p < count; ++p)
+        s.ports[p] = clean_word(m, (uint16_t)(payload[6 + 2 * p] | payload[7 + 2 * p] << 8));
     return true;
 }
 
@@ -365,7 +380,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         }
         switch (type) {
         case RRHK_MSG_RUN: {
-            if (length < 6 || !set_ports(payload, length)) return lost(run, "a RUN broke the rules");
+            if (length < 6 || !set_ports(m, payload, length)) return lost(run, "a RUN broke the rules");
             const uint32_t frame = u32(payload);
             if (payload[4] & RRHK_RUN_SILENT) {
                 /* Re-simulation after a LOAD: frames in order, up to the one before the live frame. */

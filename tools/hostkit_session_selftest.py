@@ -85,9 +85,21 @@ def mix(x: int) -> int:
     return x ^ (x >> 31)
 
 
+def clean(word: int) -> int:
+    """The word as the game's session keeps it (rrhk_session.inc clean_word): the fake's eight action bits only, and
+    opposite directions held together cancel (Up 8 / Down 4, Left 2 / Right 1)."""
+    word &= 0xFF
+    if word & 3 == 3:
+        word &= ~3
+    if word & 12 == 12:
+        word &= ~12
+    return word
+
+
 def digest_of(history: list[tuple[int, int, int, int]]) -> int:
     acc, frames = 0x9e3779b97f4a7c15, 0
     for p1, p2, p3, p4 in history:
+        p1, p2, p3, p4 = clean(p1), clean(p2), clean(p3), clean(p4)
         words = p1 | p2 << 16 | p3 << 32 | p4 << 48
         acc = mix(acc ^ words ^ ((frames << 7) & M))
         frames += 1
