@@ -61,6 +61,8 @@ def main() -> int:
     parser.add_argument('--save-at', type=int, default=0, help="the host saves the match's state for everyone in its LOCAL of this frame")
     parser.add_argument('--host-save', type=Path, help="the host's save image: copied into the host seat's folder (--save-name) "
                         'and given to every guest through SAVE_IN, as a room carries it (guests get no file of their own)')
+    parser.add_argument('--save-image', type=Path, help='what the guests are handed instead of --host-save, when the machine session '
+                        'session image (RrhkMachine.session_save) is not the save file itself')
     parser.add_argument('--save-name', default='', help='the file, relative to a seat folder, that the game reads its save from')
     parser.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too (a game with sticks)')
     parser.add_argument('--machine', default=None, help='the profile id (gb, gg, gba: a handheld is played in input sharing)')
@@ -107,7 +109,7 @@ def main() -> int:
                         sharing=seat_map.effective(args.machine, seat_map.BY_NAME[args.sharing or 'per_player']),
                         last_frame=args.frames, local_source=script, keep_history=True, rollback=args.rollback)
         if args.host_save and seat > 0:        # a guest is handed the host's save before its SETUP (session ABI 8)
-            settings['save'] = args.host_save.read_bytes().hex()
+            settings['save'] = (args.save_image or args.host_save).read_bytes().hex()
         if seat == 0 and args.delay:
             settings['delay'] = args.delay
         config = dict(game=dict(exe=str(copy), cwd=str(folder), env=HIDDEN, stdout=str(folder / 'stdout.txt'),
