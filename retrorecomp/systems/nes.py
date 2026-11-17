@@ -12,11 +12,14 @@ class NesProfile(SystemProfile):
     id = "nes"
     netplay_session = True
     netplay_portable = True
+    # Two seats unless the conversion report says more: a game that reads the NES Four Score (players 3 and 4) reports
+    # `input_players` 4 (lobby_check.players_in_report); an export without that field is never offered more than two.
+    netplay_seats_ceiling = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
-    # The standard, the Zapper and the mapper are compile definitions of the project's CMake file, whose other
+    # The standard, the Zapper, the Four Score and the mapper are compile definitions of the project's CMake file, whose other
     # lines hold paths and the version.
     simulation_sources = (SimulationSource('cycle/native/generated/game_cyc*.c'),
-                          SimulationSource('CMakeLists.txt', keep='RR_NES_(?:PAL|ZAPPER|STATIC_MAPPER)=\\d+'),)
+                          SimulationSource('CMakeLists.txt', keep='RR_NES_(?:PAL|ZAPPER|FOUR_SCORE|STATIC_MAPPER)=\\d+'),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/nesrecomp.md', 'licenses/emu2413.md')
     name = "Nintendo NES"

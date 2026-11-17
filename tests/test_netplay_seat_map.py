@@ -224,7 +224,7 @@ class HandheldsAndSeats(unittest.TestCase):
     def test_the_cps_boards_say_four_as_a_ceiling_and_their_report_or_hello_says_their_own_number(self):
         self.assertEqual(lobby_check.machine_seats('cps1'), 4)
         self.assertEqual(lobby_check.machine_seats('cps2'), 4)
-        self.assertTrue(lobby_check.seats_ceiling('cps1') and lobby_check.seats_ceiling('cps2') and not lobby_check.seats_ceiling('nes'))
+        self.assertTrue(lobby_check.seats_ceiling('cps1') and lobby_check.seats_ceiling('cps2') and lobby_check.seats_ceiling('nes'))
         report = {'system': {'id': 'cps1'}, 'qualification_scope': {'controls': 'players 1 to 3: joystick, up to six buttons, Start, coin; '
                                                                                'validation routes drive players 1 and 2'}}
         self.assertEqual(lobby_check.players_in_report(report), 3)
@@ -234,7 +234,15 @@ class HandheldsAndSeats(unittest.TestCase):
         self.assertEqual(lobby_check.players_in_report(report), 4)
         for broken in ({}, {'system': {'id': 'cps1'}}, {'system': {'id': 'cps1'}, 'qualification_scope': {'controls': 'a stick'}},
                        {'system': {'id': 'cps1'}, 'qualification_scope': {'controls': 'players 1 to 9'}},
-                       {'system': {'id': 'nes'}, 'qualification_scope': {'controls': 'players 1 to 4'}}, None, 'text'):
+                       {'system': {'id': 'md'}, 'qualification_scope': {'controls': 'players 1 to 4'}}, None, 'text'):
+            self.assertIsNone(lobby_check.players_in_report(broken))
+
+    def test_the_nes_seats_two_and_its_report_says_four_for_a_four_score_game(self):
+        self.assertEqual(lobby_check.machine_seats('nes'), 2)          # without a number in the report: two, never more
+        for players in (2, 4):
+            self.assertEqual(lobby_check.players_in_report({'system': {'id': 'nes'}, 'input_players': players}), players)
+        for broken in ({'system': {'id': 'nes'}}, {'system': {'id': 'nes'}, 'input_players': 9}, {'system': {'id': 'nes'}, 'input_players': True},
+                       {'system': {'id': 'nes'}, 'input_players': '4'}, {'system': {'id': 'md'}, 'input_players': 4}):
             self.assertIsNone(lobby_check.players_in_report(broken))
 
     def test_the_hello_is_checked_against_the_game_s_players_unless_the_match_shares(self):

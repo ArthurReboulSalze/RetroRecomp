@@ -89,6 +89,53 @@ static void gun_checks(void) {
     CHECK((rr_nes_zapper_read(1)&8)==0);
     ppu.palette[0]=0x0F; ticks(3500); CHECK((rr_nes_zapper_read(1)&8)!=0);
 }
+/* The Four Score: $4016 gives players 1 and 3 and then the signature 00010000, $4017 players 2 and 4 and 00100000, most
+ * significant bit first, 24 reads after a strobe. Without it (RR_NES_FOUR_SCORE 0) the extra pads are not wired: eight bits,
+ * then ones, as before. */
+static uint32_t port_bits(int port, unsigned count) {
+    uint32_t value=0;
+    for(unsigned i=0;i<count;i++) { value=value<<1|(cpu_read((uint16_t)(0x4016+port),0)&1u); ticks(8); }
+    return value;
+}
+static void strobe(void) { cpu_write(0x4016,1,0); ticks(6); cpu_write(0x4016,0,0); ticks(6); }
+static void four_score_checks(void) {
+    boot();
+    cyc_set_controller(0,0xA5); cyc_set_controller(1,0x3C); cyc_set_controller(2,0x81); cyc_set_controller(3,0xC3);
+    strobe();
+    if(RR_NES_FOUR_SCORE) {
+        CHECK(port_bits(0,24)==0xA58110u); CHECK(port_bits(1,24)==0x3CC320u);
+        CHECK(port_bits(0,8)==0xFF); CHECK(port_bits(1,8)==0xFF);
+    } else {
+        CHECK(port_bits(0,24)==0xA5FFFFu); CHECK(port_bits(1,24)==0x3CFFFFu);
+    }
+    /* A strobe starts the register again, and the pads read are the ones set before it. */
+    cyc_set_controller(0,0x5A); cyc_set_controller(2,0x18); strobe();
+    CHECK(port_bits(0,16)==(RR_NES_FOUR_SCORE ? 0x5A18u : 0x5AFFu));
+    /* A read cut in the middle, then the machine saved: the rest of the register comes out the same after a load of the quick
+     * state and of the in-process snapshot, the third and fourth pads and the signature included. */
+    cyc_set_controller(0,0xC9); cyc_set_controller(1,0x6E); cyc_set_controller(2,0x27); cyc_set_controller(3,0xB1); strobe();
+    CHECK(port_bits(0,11)==(RR_NES_FOUR_SCORE ? 0x649u : 0x64Fu));
+    size_t size=rr_nes_state_size(), raw_size=rr_nes_snap_bound();
+    uint8_t *file=malloc(size), *raw=malloc(raw_size); CHECK(file && raw);
+    CHECK(rr_nes_state_save(file,size)); CHECK(rr_nes_snap_save(raw,raw_size)==raw_size);
+    uint64_t digest=rr_nes_digest();
+    CHECK(port_bits(0,13)==(RR_NES_FOUR_SCORE ? 0x710u : 0x1FFFu)); CHECK(port_bits(1,24)==(RR_NES_FOUR_SCORE ? 0x6EB120u : 0x6EFFFFu));
+    CHECK(rr_nes_state_load(file,size)); CHECK(rr_nes_digest()==digest);
+    CHECK(port_bits(0,13)==(RR_NES_FOUR_SCORE ? 0x710u : 0x1FFFu)); CHECK(port_bits(1,24)==(RR_NES_FOUR_SCORE ? 0x6EB120u : 0x6EFFFFu));
+    CHECK(rr_nes_snap_load(raw,raw_size)); CHECK(rr_nes_digest()==digest);
+    CHECK(port_bits(0,13)==(RR_NES_FOUR_SCORE ? 0x710u : 0x1FFFu)); CHECK(port_bits(1,24)==(RR_NES_FOUR_SCORE ? 0x6EB120u : 0x6EFFFFu));
+    free(file); free(raw);
+    if(RR_NES_FOUR_SCORE) {
+        /* Another word for player 3 or 4 is another machine: the digest sees it. */
+        boot(); cyc_set_controller(2,0x01); strobe(); uint64_t one=rr_nes_digest();
+        boot(); cyc_set_controller(3,0x01); strobe(); uint64_t other=rr_nes_digest();
+        CHECK(one!=other);
+    }
+}
+static void frame_pads(int f) {
+    cyc_set_controller(0,(uint8_t)(f*37)); cyc_set_controller(1,(uint8_t)(f*11));
+    if(RR_NES_FOUR_SCORE) { cyc_set_controller(2,(uint8_t)(f*5+1)); cyc_set_controller(3,(uint8_t)(f*13+2)); }
+}
 static void state_checks(void) {
     boot(); cyc_audio_enable(48000);
     cpu_write(0x4015,1,0); cpu_write(0x4000,0xBF,0);
@@ -138,7 +185,7 @@ static void state_checks(void) {
     CHECK(rr_nes_snap_save(raw,raw_size)==raw_size); CHECK(rr_nes_snap_save(raw,raw_size-1)==0);
     uint64_t start_hw=cyc_hw_state_hash(), start_mem=cyc_mem_state_hash(), digests[8];
     for(int f=0;f<8;f++) {
-        cyc_set_controller(0,(uint8_t)(f*37)); cyc_set_controller(1,(uint8_t)(f*11));
+        frame_pads(f);
         cyc_run_frame(); digests[f]=rr_nes_digest(); CHECK(digests[f]!=0);
     }
     uint64_t end_hw=cyc_hw_state_hash(), end_mem=cyc_mem_state_hash(), end_pcm=audio_hash();
@@ -146,12 +193,12 @@ static void state_checks(void) {
     CHECK(rr_nes_snap_load(raw,raw_size)); CHECK(!rr_nes_snap_load(raw,raw_size-1));
     CHECK(cyc_hw_state_hash()==start_hw && cyc_mem_state_hash()==start_mem);
     for(int f=0;f<8;f++) {
-        cyc_set_controller(0,(uint8_t)(f*37)); cyc_set_controller(1,(uint8_t)(f*11));
+        frame_pads(f);
         cyc_run_frame(); CHECK(rr_nes_digest()==digests[f]);
     }
     CHECK(cyc_hw_state_hash()==end_hw && cyc_mem_state_hash()==end_mem && audio_hash()==end_pcm);
     CHECK(rr_nes_snap_load(raw,raw_size));
-    for(int f=0;f<8;f++) { cyc_set_controller(0,(uint8_t)(f*37)); cyc_set_controller(1,(uint8_t)(f*11)); cyc_run_frame(); }
+    for(int f=0;f<8;f++) { frame_pads(f); cyc_run_frame(); }
     CHECK(cyc_hw_state_hash()==end_hw && cyc_mem_state_hash()==end_mem && rr_nes_digest()==digests[7]);
     free(raw);
 }
@@ -201,7 +248,7 @@ int main(int argc,char **argv) {
         rom[pos+4091]=rom[pos+4093]=rom[pos+4095]=0x80;
     }
     CHECK(cyc_load_ines(rom,size)); free(rom); cyc_run_native=false;
-    frame_clock(); gun_checks(); state_checks(); pending_state_checks();
-    printf("{\"mapper\":%d,\"pal\":%d,\"checks\":%u,\"state_bytes\":%zu}\n",mapper,RR_NES_PAL,checks,rr_nes_state_size());
+    frame_clock(); if(RR_NES_ZAPPER) gun_checks(); four_score_checks(); state_checks(); pending_state_checks();
+    printf("{\"mapper\":%d,\"pal\":%d,\"four_score\":%d,\"checks\":%u,\"state_bytes\":%zu}\n",mapper,RR_NES_PAL,RR_NES_FOUR_SCORE,checks,rr_nes_state_size());
     return 0;
 }

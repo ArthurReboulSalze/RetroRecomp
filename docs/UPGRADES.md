@@ -91,6 +91,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Super Nintendo: multiplayer, digest and rollback on the boards without a chip](#super-nintendo-multiplayer-digest-and-rollback-on-the-boards-without-a-chip-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
+| [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
 
@@ -257,6 +258,30 @@ and its profile says `netplay_session`, with up to four seats through the multit
 converted again once, as every export is for the multiplayer release. **Quick states:** unchanged, and a session never reads or writes them. **Hot path:** none added to a solo game: the snapshot is reached only through the adapter's
 pointers when the converter starts the game with its pipes; the only change a solo frame sees is one call that tells whether the player's record is on (it was a direct pointer). **Proof:** the probe of the snapshot on an authored card and the Street Fighter II
 board, and Bomberman '93 in two copies on the rollback tier with a save and a load for everyone; nothing is timed.
+
+## NES: the Four Score, players 3 and 4 (multiplayer) (next release)
+
+On the multiplayer branch (`spec/nes-fourscore`, cut from `spec/multiplayer`). A NES game that reads the **Four Score** (the
+adapter that gives two ports four controllers) now gets players 3 and 4, alone and in a session. **Machine:** each port's serial
+register is 24 bits long instead of 8 (`nes_machine.py` `_four_score`, patching the engine's `hw_apu.c` in the staged copy only):
+$4016 returns player 1's eight buttons, then player 3's, then the signature `00010000`; $4017 players 2 and 4 and `00100000`
+(nesdev wiki, "Four Score"). A game built without it (`RR_NES_FOUR_SCORE 0`, every game but those in the catalogue) loads ones
+behind the first byte, which is what the engine shifted in before: its reads are unchanged. The extra pads reach the machine as
+controller ports 2 and 3 of `cyc_set_controller`, and the register is part of the saved APU (`RrFourScore`), so a quick state,
+the in-process snapshot of the rollback tier and the digest carry it. **Adapter:** `rrhk_nes.c` reads players 3 and 4 inside
+`run_frame`, not in `before_frame`, so a frame run again after a correction (silent, no `before_frame`) has the corrected words;
+`players()` says 4 and the binding table has four rows only for those games. **Converter:** `nes_catalog.four_score_game` (NES 2.0
+header, default expansion device 2, or the exact title of a game written for the adapter; never a Zapper game) sets
+`RR_NES_FOUR_SCORE` in the project's CMake file; the report says `input_players` 4 and `four_score`; the NES profile has
+`netplay_seats` 4 as a ceiling (`netplay_seats_ceiling`) and `lobby_check.players_in_report` reads the report's number, so the
+lobby seats 4 for these games and 2 for every other. **Stamps:** the NES game stamp and host stamp move (every NES export is
+converted again once, as for any NES engine change); **the NES quick-state key moves** (it hashes the staged `hw_apu.c`); an older
+quick state is refused cleanly. No other machine moves. **Proof so far:** the ROM-free fixture `tools/nes_machine_selftest.py`
+(authored cartridges, mappers 0 and 4, NTSC and PAL, 3 more checks than the two-player build): the 24 bits of both ports with the
+four pads and the signatures, a new strobe, a read cut in the middle then saved and loaded (quick state and snapshot), the digest
+seeing the pads of players 3 and 4; the build without the Four Score is unchanged (749 and 751 checks as before, plus its own). Not
+proven: a Four Score game played on four seats (see the multiplayer notes of the same branch), the Famicom's own four-player adapter
+(different wiring, not supported), and the catalogue's titles were not all checked against a dump.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

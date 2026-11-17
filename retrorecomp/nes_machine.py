@@ -240,6 +240,36 @@ void rr_nes_ppu_aux_load(const uint8_t *b) { sm_rest = b[0] != 0; dot_kind = b[1
     return source
 
 
+def _four_score(source: str) -> str:
+    """The NES Four Score (players 3 and 4), a serial register 24 bits long per port instead of 8 (nesdev wiki, "Four Score").
+
+    $4016 returns player 1's eight buttons, then player 3's, then the signature 00010000; $4017 the same for players 2 and 4
+    with the signature 00100000. The engine's register keeps its first byte; the other sixteen bits shift in behind it. A game
+    built without the Four Score (RR_NES_FOUR_SCORE 0) loads ones there, which is what the single byte shifted in before: its
+    reads are unchanged. The two extra pads travel as controller ports 2 and 3 of cyc_set_controller."""
+    source = replace_once(source, 'static HwApu apu;', '''static HwApu apu;
+
+/* Four Score: the extra pads and the other sixteen bits of each port's register (a named type: its serialiser is generated). */
+typedef struct {
+    uint8_t  pad[2];
+    uint16_t shift[2];
+} RrFourScore;
+static RrFourScore four;''')
+    source = replace_once(source, 'apu.shift[port] = (uint8_t)(apu.shift[port] << 1 | 1);',
+        '{\n                uint8_t next = (uint8_t)(four.shift[port] >> 15);\n'
+        '                four.shift[port] = (uint16_t)(four.shift[port] << 1 | 1);\n'
+        '                apu.shift[port] = (uint8_t)(apu.shift[port] << 1 | next);\n            }')
+    source = replace_once(source, 'apu.shift[1] = apu.buttons[1];',
+        'apu.shift[1] = apu.buttons[1];\n'
+        '                four.shift[0] = RR_NES_FOUR_SCORE ? (uint16_t)(four.pad[0] << 8 | 0x10) : 0xFFFF;\n'
+        '                four.shift[1] = RR_NES_FOUR_SCORE ? (uint16_t)(four.pad[1] << 8 | 0x20) : 0xFFFF;')
+    source = replace_once(source, '    apu.buttons[port & 1] = buttons;',
+        '    if (port & 2) four.pad[port & 1] = buttons;\n    else apu.buttons[port & 1] = buttons;')
+    source = replace_once(source, '    apu.dmc_timer = 1022;',
+        '    apu.dmc_timer = 1022;\n    memset(&four, 0, sizeof(four));\n    four.shift[0] = four.shift[1] = 0xFFFF;')
+    return source
+
+
 def _apu(source: str, *, fast_audio: bool = True) -> str:
     source = replace_once(source, '#include "hw_internal.h"',
                           '#include "hw_internal.h"\n#include "retro_nes.h"')
@@ -260,17 +290,18 @@ def _apu(source: str, *, fast_audio: bool = True) -> str:
     source = replace_once(source, '    hw_bus_read(hw.cpu_addr);',
         '    if (!RR_NES_PAL || hw.cpu_addr < 0x4016 || hw.cpu_addr > 0x4017 || apu.oam_dma)\n'
         '        hw_bus_read(hw.cpu_addr);')
+    source = _four_score(source)
     # The audio state becomes a named type so that its serialiser can be written from its definition.
     source = replace_once(source, 'static struct {\n    bool     on;', 'typedef struct {\n    bool     on;')
     source = replace_once(source, '} audio;', '} RrAudio;\nstatic RrAudio audio;')
     source += '''
 #include "nes_state_apu.inc"
-size_t rr_nes_apu_size(void) { return rr_size_HwApu() + rr_size_RrAudio(); }
+size_t rr_nes_apu_size(void) { return rr_size_HwApu() + rr_size_RrAudio() + rr_size_RrFourScore(); }
 void rr_nes_apu_save(uint8_t *b) {
-    b = rr_ser_HwApu(b, &apu); rr_ser_RrAudio(b, &audio);
+    b = rr_ser_HwApu(b, &apu); b = rr_ser_RrAudio(b, &audio); rr_ser_RrFourScore(b, &four);
 }
 void rr_nes_apu_load(const uint8_t *b) {
-    b = rr_de_HwApu(b, &apu); rr_de_RrAudio(b, &audio);
+    b = rr_de_HwApu(b, &apu); b = rr_de_RrAudio(b, &audio); rr_de_RrFourScore(b, &four);
     /* Queued host audio belongs to the discarded timeline. */
     audio.head = audio.tail = 0;
 }
@@ -388,7 +419,7 @@ def _mmc1_a12(source: str) -> str:
 _MACHINE_STRUCTS = {'Cpu6502', 'HwMachine', 'HwCart', 'HwPpu', 'HwVrc6Audio', 'HwNamco', 'HwRambo', 'HwJaleco',
                     'HwFme7', 'Hw5B', 'NesCartInfo', 'NesEeprom', 'NesBarcode', 'Mmc5State', 'Mmc5Pulse',
                     'RrZapper', 'RrStateHeader', 'RrMachineState'}
-_APU_STRUCTS = {'LengthCounter', 'Envelope', 'Pulse', 'HwApu', 'RrAudio'}
+_APU_STRUCTS = {'LengthCounter', 'Envelope', 'Pulse', 'HwApu', 'RrAudio', 'RrFourScore'}
 _VRC7_STRUCTS = {'OPLL_PATCH', 'OPLL_SLOT', 'OPLL'}
 
 
@@ -403,7 +434,7 @@ def _state_sets(text) -> dict[str, tuple[dict, list[str]]]:
     apu.update(nes_state_layout.parse(text('runner/cyc/hw_apu.c'), _APU_STRUCTS))
     vrc7.update(nes_state_layout.parse(text('runner/cyc/vendor/emu2413/emu2413.h'), _VRC7_STRUCTS))
     return {'runner/cyc/nes_state_main.inc': (machine, ['RrStateHeader', 'RrMachineState']),
-            'runner/cyc/nes_state_apu.inc': (apu, ['HwApu', 'RrAudio']),
+            'runner/cyc/nes_state_apu.inc': (apu, ['HwApu', 'RrAudio', 'RrFourScore']),
             'runner/cyc/nes_state_vrc7.inc': (vrc7, ['OPLL'])}
 
 

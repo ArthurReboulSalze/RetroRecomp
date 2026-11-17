@@ -41,3 +41,26 @@ def zapper_game(data: bytes, filename: str) -> bool:
         return True
     name = _title(filename)
     return any(name == _title(title) for title in ZAPPER_TITLES)
+
+
+FOUR_SCORE_TITLES = (
+    # Games written for the NES Four Score / NES Satellite (two extra controllers on the two ports), by their own titles.
+    # Facts only, as for the Zapper above; a revision, hack or translation whose file name is not one of these titles and whose
+    # header does not name the adapter runs with two controllers, as before. The list is the one the adapter's games are known
+    # by; a title is only a request for the Four Score (the game reads the signature or it does not, and then plays as ever):
+    # docs/UPGRADES.md says which titles were run on a dump.
+    "Bomberman II", "Danny Sullivan's Indy Heat", "Gauntlet II", "Greg Norman's Golf Power", "Harlem Globetrotters",
+    "Kings of the Beach", "M.U.L.E.", "Monster Truck Rally", "NES Play Action Football", "Nintendo World Cup",
+    "R.C. Pro-Am II", "Rampart", "Roundball: 2-on-2 Challenge", "Smash T.V.", "Super Off Road", "Ivan 'Ironman' Stewart's Super Off Road",
+    "A Nightmare on Elm Street", "Nightmare on Elm Street, A", "Top Players' Tennis", "Championship Bowling", "Arch Rivals",
+)
+
+def four_score_game(data: bytes, filename: str) -> bool:
+    """The game reads the Four Score: its NES 2.0 header names the adapter (default expansion device 2), or its file name is
+    the exact title of a game known to use it. A Zapper game never is one (port 2 holds the gun)."""
+    if len(data) < 16 or data[:4] != b"NES" or zapper_game(data, filename):
+        return False
+    if data[7] & 12 == 8 and data[15] & 63 == 2:
+        return True
+    name = _title(filename)
+    return any(name == _title(title) for title in FOUR_SCORE_TITLES)
