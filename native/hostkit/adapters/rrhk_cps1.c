@@ -7,6 +7,7 @@
 #include <SDL.h>
 #include "retro_console16.h"
 #include "cps1_host.h"
+#include "cps1_machine.h"
 #include "console16_state.h"
 #include "retro_menu.h"
 #include "platform_io.h"
@@ -152,7 +153,7 @@ const RrhkMachine *rrhk_adapter(void) {
     static RrhkMachine machine;
     if (!machine.actions) {
         machine = (RrhkMachine){
-            .ini_section = RR16_SECTION, .console_name = RR16_CONSOLE,
+            .ini_section = RR16_SECTION, .console_name = cps1_is_cps2() ? "CPS-2" : RR16_CONSOLE,
             .table_players = 4, .players = players,
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,

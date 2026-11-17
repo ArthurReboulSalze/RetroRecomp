@@ -1230,6 +1230,8 @@ size_t cps1_state_save(uint8_t *buffer, size_t capacity)
 
 /* Rollback and the host's F8 / F9 for everyone (hostkit_session.h): the same state without the picture, into the caller's memory. The
  * bound is the exact size (it never changes for a board), so a load refuses any other size. */
+int cps1_is_cps2(void) { return M.board.cps2 ? 1 : 0; }
+
 size_t cps1_snap_bound(void)
 {
     static size_t bound;
