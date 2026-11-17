@@ -431,8 +431,9 @@ seconds, the same date on every seat whatever its time zone; the core sets up it
 put back after it. **ParaLLEl-RDP records on the emulation thread** in a session even if asked otherwise (its own worker is not
 deterministic). **The keyboard's Stick actions** read this PC's keys, so in a session every port's stick is the session's: the kit
 folds them into the sticks this PC sends (`stick_actions`). The profile sets `netplay_session`, so the converter offers its games. The
-host's restart is not honoured in a session (the Nintendo 64's restart starts the program again, which would end the match;
-every seat alike). The graphics rows stay per seat: they change the picture only. The blank controller paks needed nothing: the
+host's restart is refused in a session (the Nintendo 64's restart starts the program again, which would end the match): Shift+F1
+shows « Not during a multiplayer game » and asks nothing of the other seats; a restart that comes another way is not honoured, on
+every seat alike. The graphics rows stay per seat: they change the picture only. The blank controller paks needed nothing: the
 core formats them before it seeds their serial generator, so their serials are zero on every run.
 
 **The fix that comes with it, alone too:** a change of internal resolution (or supersampling) in play started ParaLLEl-RDP
@@ -446,8 +447,9 @@ frame 1,800 leaves RDRAM, sound, CPU registers and PC equal to the run without i
 fresh process gives the unbroken run's digests from its first frame on (the digest taken right after the load, before any frame,
 differs: the delay tier never takes one there). **Two copies in a session on one PC** (`tools/netplay_game_smoke.py`, 30 ms
 latency, 10 ms jitter, delay tier): Super Mario 64 and Mario Kart 64 with two seats over 1,800 frames, Mario Kart 64 with four seats
-over 1,200 frames, every digest equal on every seat (`PASS`). The smoke's scripted pads send words, not sticks: the sticks'
-journey in a session is not yet proven on a game. Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
+over 1,200 frames, every digest equal on every seat (`PASS`). **The sticks** (`--sticks`, Mario Kart 64, two seats, 1,800
+frames): `PASS`, and against the same run without sticks (the same pad words: the same history) all 30 digests differ from frame
+59 on: the sticks reach the machine, the same on both seats. Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
 `n64_session.cpp`, `n64_player.c`) and host stamp (`rrhk_n64.inc`); Nintendo 64 quick states of 1.8.0 are refused cleanly (the
 state key hashes the session sources).
 
