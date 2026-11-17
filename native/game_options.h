@@ -21,6 +21,10 @@ typedef struct { int controls, gun; } RrPages;
  * console, L3+R3 one second to quit. Both can be changed or cleared. */
 #define RR_OPTIONS_RESTART_PAD ((1u << SDL_CONTROLLER_BUTTON_START) | (1u << SDL_CONTROLLER_BUTTON_BACK))
 #define RR_OPTIONS_QUIT_PAD ((1u << SDL_CONTROLLER_BUTTON_LEFTSTICK) | (1u << SDL_CONTROLLER_BUTTON_RIGHTSTICK))
+/* 1.8.1: the pad's Options action, the Guide button by default: it opens and closes the F2 menu of tiles, as F2 does. */
+#define RR_OPTIONS_MENU_PAD (1u << SDL_CONTROLLER_BUTTON_GUIDE)
+/* R3 + Select (Back): the multiplayer chat's own chord (a session only), which no Options combination may overlap. */
+#define RR_CHAT_PAD ((1u << SDL_CONTROLLER_BUTTON_RIGHTSTICK) | (1u << SDL_CONTROLLER_BUTTON_BACK))
 /* The host's combinations, one table (1.7.5): Quit and Restart (keys or buttons), Quick save and Quick load (buttons only, F8 and
  * F9 stay their keys; unassigned by default, so that no game saves or loads by accident). Each fires after its hold: Quit while
  * it is held, the others once per hold. The quick ones' holds are the owner's choice (14 November 2026): a stray save destroys
@@ -37,8 +41,10 @@ static inline bool rr_trigger_step(bool down, int value) {return down ? value >=
 /* 1.7.6: Fast forward (held) and Max speed (a press toggles it) join the table, on the triggers by default as the speed
  * controls of decision D12 always were (R2 and L2), Tab and ` fixed on the keyboard; the player may move or clear them, so that
  * L2 and R2 are free for the game. */
-#define RR_COMBO_ROWS 6
-enum { RR_COMBO_QUIT, RR_COMBO_RESTART, RR_COMBO_SAVE, RR_COMBO_LOAD, RR_COMBO_FAST, RR_COMBO_MAX };
+/* 1.8.1: Options, last (the stored entries and the capture ids of the others do not move): a press of its buttons opens the F2
+ * tiles, F2 itself on the keyboard. It replaces the Guide button's fixed opening of the options page. */
+#define RR_COMBO_ROWS 7
+enum { RR_COMBO_QUIT, RR_COMBO_RESTART, RR_COMBO_SAVE, RR_COMBO_LOAD, RR_COMBO_FAST, RR_COMBO_MAX, RR_COMBO_OPTIONS };
 #define RR_COMBO_SAVE_MS 500
 #define RR_COMBO_LOAD_MS 1000
 typedef struct { int key[3], pad, held, fired; Uint64 hold; } RrCombo;
@@ -61,7 +67,9 @@ static const struct {
     {{NULL, NULL, NULL}, L"fast_forward_pad", RR_PAD_R2, SDL_SCANCODE_TAB, 0, "Fast forward", "Hold: fast forward",
      "Tab and `: fixed keys"},
     {{NULL, NULL, NULL}, L"max_speed_pad", RR_PAD_L2, SDL_SCANCODE_GRAVE, 0, "Max speed", "Press: maximum speed on/off",
-     "Tab and `: fixed keys"}};
+     "Tab and `: fixed keys"},
+    {{NULL, NULL, NULL}, L"options_pad", RR_OPTIONS_MENU_PAD, SDL_SCANCODE_F2, 0, "Options", "Press: open the menu",
+     "F2: fixed key"}};
 static struct {
     wchar_t file[32768], dir[32768], section[64];
     SDL_atomic_t audio_mode;
@@ -87,6 +95,8 @@ static struct {
     char machine[16];
     char status[100];
     int notice;      /* 1.7.5: the status says why a binding was not taken; the host shows it (the control pages draw no status) */
+    int menu_request;   /* 1.8.1: the Options combination was pressed: the host opens or closes its F2 tiles */
+    Uint32 menu_hold;   /* 1.8.1: its buttons, hidden from the game until every one of them is released */
     SDL_Renderer *renderer;
 } rr_options;
 static RrAudioFilter rr_options_dsp;
@@ -319,10 +329,19 @@ static void rr_options_observe(const SDL_Event *e) {
 
 /* Capture ids: 2 * index + 1 with the keyboard, + 1 more with a gamepad (quit 1/2, restart 3/4, quick save 5/6, quick load 7/8).
  * A capture that equals another combination of the same kind is refused and says which: one hold must never do two things. */
+static bool rr_pad_nested(Uint32 a, Uint32 b) { return a && b && ((a & b) == a || (a & b) == b); }
+/* 1.8.1: Options fires on a press, the others on a hold: an Options combination equal to another one, inside it or around it
+ * would do both, so it is refused both ways; R3 + Select stays the multiplayer chat's (RR_COMBO_ROWS: "the chat"). */
 static int rr_combo_used_by(int index, bool gamepad, const int *keys, Uint32 pad) {
+    if (gamepad && index == RR_COMBO_OPTIONS && rr_pad_nested(pad, RR_CHAT_PAD)) return RR_COMBO_ROWS;
     for (int c = 0; c < RR_COMBO_ROWS; ++c) {
         if (c == index) continue;
-        if (gamepad) { if (rr_options.combo[c].pad && (Uint32)rr_options.combo[c].pad == pad) return c; continue; }
+        if (gamepad) {
+            const Uint32 theirs = (Uint32)rr_options.combo[c].pad;
+            if (theirs && theirs == pad) return c;
+            if ((index == RR_COMBO_OPTIONS || c == RR_COMBO_OPTIONS) && rr_pad_nested(theirs, pad)) return c;
+            continue;
+        }
         if (!rr_combo_info[c].keys[0] || !rr_options.combo[c].key[0]) continue;
         int same = 0, mine = 0, theirs = 0;
         for (int i = 0; i < 3; ++i) {
@@ -340,7 +359,8 @@ static void rr_options_capture_done(void) {
     RrCombo *combo = &rr_options.combo[index];
     const int used = rr_combo_used_by(index, gamepad, rr_options.pending_key, rr_options.pending_pad);
     if ((gamepad ? rr_options.pending_pad != 0 : rr_options.count != 0) && used >= 0) {
-        snprintf(rr_options.status, sizeof rr_options.status, rr_tr("Already used by %s"), rr_tr(rr_combo_info[used].label));
+        if (used == RR_COMBO_ROWS) snprintf(rr_options.status, sizeof rr_options.status, "%s", rr_tr("Kept for the chat (R3 + Select)"));
+        else snprintf(rr_options.status, sizeof rr_options.status, rr_tr("Already used by %s"), rr_tr(rr_combo_info[used].label));
         rr_options.notice = 1;
     } else if (!gamepad && rr_options.count) {
         for (int i = 0; i < 3; ++i)
@@ -558,9 +578,16 @@ static void rr_option_page_draw(SDL_Renderer *r, const RrOptionRows *d, int page
     rr_menu_end(r);
 }
 
+/* The pad `from` holds every button of `mask` now (the event being observed included). */
+static bool rr_options_pad_holds(SDL_JoystickID from, Uint32 mask) {
+    for (int i = 0; i < 4; ++i)
+        if (rr_options.pads[i].id == from) return mask && (rr_options.pads[i].mask & mask) == mask;
+    return false;
+}
+
 /* Returns true when the host must not process the event again. A quit or
  * restart capture takes every event; an existing binding capture has
- * priority. Guide opens F2 on its options page and closes F2. */
+ * priority. The Options combination (Guide by default, 1.8.1) asks the host to open or close its F2 tiles (menu_request). */
 static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture) {
     rr_options.trigger_press = 0;
     rr_options_observe(e);
@@ -589,8 +616,15 @@ static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture
         if ((rr_options.count || rr_options.pending_pad) && !rr_options_any_down()) rr_options_capture_done();
         return true;
     }
-    if (!binding_capture && !rr_options_component(key,button) && button == SDL_CONTROLLER_BUTTON_GUIDE) {
-        *menu = rr_pages_open(*menu) ? 0 : RR_OPTIONS_MENU;
+    /* The press (a button, or a trigger pulled past its threshold) that completes the Options combination on one pad. */
+    const Uint32 pressed = button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX ? 1u << button :
+        e->type == SDL_CONTROLLERAXISMOTION ? rr_options.trigger_press : 0;
+    const Uint32 menu_mask = (Uint32)rr_options.combo[RR_COMBO_OPTIONS].pad;
+    if (!binding_capture && pressed && (menu_mask & pressed) && !rr_options_component(key, button) &&
+        rr_options_pad_holds(e->type == SDL_CONTROLLERAXISMOTION ? e->caxis.which : e->cbutton.which, menu_mask)) {
+        (void)menu;
+        rr_options.menu_request = 1;
+        rr_options.menu_hold = menu_mask;   /* the press that opened or closed the menu never reaches the game */
         rr_options.row = 0; rr_options.status[0] = 0; rr_options.suppressed = 1;
         return true;
     }

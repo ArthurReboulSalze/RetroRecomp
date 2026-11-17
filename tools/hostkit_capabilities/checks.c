@@ -875,43 +875,40 @@ static void pad_row_script(void) {
     }
 }
 
-/* 1.7.6: "Quit the game", the options page's last row: the same "Quit? No / Yes" as Esc; No and Esc come back to the page. */
+/* 1.8.1: the F2 menu's last tile, Quit: the same "Quit? No / Yes" as Esc (No selected); No and Esc come back to the tiles, a
+ * second Esc to the game. (1.7.6 to 1.8.0 had it as the options page's last row.) */
 static void quit_row_script(void) {
     RrhkUi *ui = rrhk_ui();
     switch (step++) {
-    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;    /* the options tile: the last */
-    case 1:
-        CHECK(ui->menu == RRHK_MENU_OPTIONS && rrhk_option_selected() == 0);
-        key(SDL_SCANCODE_UP);                           /* from the first row, Up: the last one, Quit the game */
-        break;
-    case 2: key(SDL_SCANCODE_RETURN); break;
-    case 3:
-        CHECK(ui->menu == RRHK_MENU_QUIT);
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); break;      /* from the first tile, Left: the last one, Quit */
+    case 1: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_RETURN); break;
+    case 2:
+        CHECK(ui->menu == RRHK_MENU_QUIT && ui->parent_menu == RRHK_MENU_HUB);
         frames_mark = frames;
         key(SDL_SCANCODE_RETURN);                       /* No is selected */
         break;
-    case 4:
-        CHECK(ui->menu == RRHK_MENU_OPTIONS && frames == frames_mark);   /* back on the page; the game did not run */
-        key(SDL_SCANCODE_RETURN);                       /* the Quit row is still selected */
+    case 3:
+        CHECK(ui->menu == RRHK_MENU_HUB && frames == frames_mark);   /* back on the tiles; the game did not run */
+        key(SDL_SCANCODE_RETURN);                       /* the Quit tile is still selected */
         break;
-    case 5: CHECK(ui->menu == RRHK_MENU_QUIT); key(SDL_SCANCODE_ESCAPE); break;
-    case 6: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_ESCAPE); break;
-    case 7: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_ESCAPE); break;      /* the page was opened from the tiles */
-    case 8:     /* Quit, Yes: the loop ends */
-        CHECK(ui->menu == 0);
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RETURN);
+    case 4: CHECK(ui->menu == RRHK_MENU_QUIT); key(SDL_SCANCODE_ESCAPE); break;
+    case 5: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_ESCAPE); break;
+    case 6: CHECK(ui->menu == 0); key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;
+    case 7:     /* Quit, Yes: the loop ends */
+        CHECK(ui->menu == RRHK_MENU_QUIT);
         key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         break;
+    case 8: break;
     default: break;
     }
 }
 
-/* 1.7.6: on a machine with a graphics page, the last F2 tile opens it (and comes back to the tiles), and the options page's
+/* 1.7.6: on a machine with a graphics page, the F2 tile before Quit (1.8.1) opens it (and comes back to the tiles), and the options page's
  * F3 row, "F3 Graphics", opens it too (and comes back to the options). */
 static void graphics_entry_script(void) {
     RrhkUi *ui = rrhk_ui();
     switch (step++) {
-    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Left from the first: the last */
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Quit is last (1.8.1) */
     case 1: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
     case 2: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Options: before it */
     case 3: CHECK(ui->menu == RRHK_MENU_OPTIONS && rrhk_option_selected() == 0); key(SDL_SCANCODE_RETURN); break;
@@ -1042,7 +1039,7 @@ static void widescreen_script(void) {
         SDL_GetRendererOutputSize(SDL_GetRenderer(rrhk_window()), &w, &h);
         const SDL_Rect dst = rrhk_game_rect(SDL_GetRenderer(rrhk_window()));
         CHECK(dst.w * 3 == dst.h * 4 || dst.w * 3 == dst.h * 4 + 1 || dst.w * 3 + 1 == dst.h * 4);   /* the machine's 4:3 */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN);      /* the options tile: the last */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN);   /* the options tile: before Quit */
         break;
     }
     case 1: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN); break;
@@ -1436,11 +1433,11 @@ int main(int argc, char **argv) {
     begin(pad_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 10);
-    /* 9. 1.7.6: the options page's Quit row. */
+    /* 9. 1.8.1: the F2 menu's Quit tile (1.7.6: the options page's Quit row). */
     plain.pad_rows = NULL; plain.pad_row_count = 0;
     begin(quit_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
-    CHECK(step >= 9);
+    CHECK(step >= 8);
 
     /* 11. 1.7.6: a stick direction bound to a game row. */
     begin(stick_script);

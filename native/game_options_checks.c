@@ -27,9 +27,12 @@ static void trigger(int id, int axis, int value) {
     e.type=SDL_CONTROLLERAXISMOTION; e.caxis.which=id; e.caxis.axis=(Uint8)axis; e.caxis.value=(Sint16)value;
     rr_options_event(&e,&menu,false);
 }
-/* F10 is free: Guide opens the options page of F2 from the game. */
+/* F10 is free. 1.8.1: Guide (the Options combination's default) asks the host for its F2 tiles; here the host opens the options
+ * page, the page these checks drive. */
 static void open_options(void) {
-    button(7,SDL_CONTROLLER_BUTTON_GUIDE,1);button(7,SDL_CONTROLLER_BUTTON_GUIDE,0);assert(menu==RR_OPTIONS_MENU);
+    button(7,SDL_CONTROLLER_BUTTON_GUIDE,1);button(7,SDL_CONTROLLER_BUTTON_GUIDE,0);
+    assert(rr_options.menu_request && menu!=RR_OPTIONS_MENU);
+    rr_options.menu_request=0;menu=RR_OPTIONS_MENU;
 }
 static double energy(int mode,double frequency,int rate) {
     int16_t pcm[4096];RrAudioFilter s={0};
@@ -121,7 +124,31 @@ static void chords(void) {
     SDL_Event e;memset(&e,0,sizeof e);e.type=SDL_KEYDOWN;e.key.keysym.scancode=SDL_SCANCODE_F10;
     assert(!rr_options_event(&e,&menu,true));key(SDL_SCANCODE_F10,0);
     button(8,SDL_CONTROLLER_BUTTON_GUIDE,1);button(8,SDL_CONTROLLER_BUTTON_GUIDE,0);
-    assert(menu==RR_OPTIONS_MENU);
+    assert(rr_options.menu_request);rr_options.menu_request=0;menu=RR_OPTIONS_MENU;
+    /* 1.8.1: Options is a combination like the others: Guide by default; LB + A taken; R3 + Select (the chat's) and Select +
+     * Start (Restart's) refused; while LB + A is held after it fired, A is hidden (menu_hold) until both are released. */
+    assert(rr_options.combo[RR_COMBO_OPTIONS].pad==(int)RR_OPTIONS_MENU_PAD);
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_OPTIONS,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    button(8,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,1);button(8,SDL_CONTROLLER_BUTTON_A,1);
+    button(8,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,0);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    const int lb_a=(1<<SDL_CONTROLLER_BUTTON_LEFTSHOULDER)|(1<<SDL_CONTROLLER_BUTTON_A);
+    assert(rr_options.combo[RR_COMBO_OPTIONS].pad==lb_a);
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_OPTIONS,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    button(8,SDL_CONTROLLER_BUTTON_RIGHTSTICK,1);button(8,SDL_CONTROLLER_BUTTON_BACK,1);
+    button(8,SDL_CONTROLLER_BUTTON_RIGHTSTICK,0);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    assert(rr_options.combo[RR_COMBO_OPTIONS].pad==lb_a && strstr(rr_options.status,"R3 + Select"));
+    button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_OPTIONS,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    button(8,SDL_CONTROLLER_BUTTON_START,1);button(8,SDL_CONTROLLER_BUTTON_BACK,1);
+    button(8,SDL_CONTROLLER_BUTTON_START,0);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    assert(rr_options.combo[RR_COMBO_OPTIONS].pad==lb_a && strstr(rr_options.status,"Restart"));
+    rr_options.status[0]=0;rr_options.suppressed=0;
+    button(8,SDL_CONTROLLER_BUTTON_GUIDE,1);button(8,SDL_CONTROLLER_BUTTON_GUIDE,0);assert(!rr_options.menu_request);
+    button(8,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,1);button(8,SDL_CONTROLLER_BUTTON_A,1);
+    assert(rr_options.menu_request && rr_options.menu_hold==(Uint32)lb_a);
+    rr_options.menu_request=0;
+    button(8,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,0);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    rr_combo_clear(RR_COMBO_OPTIONS,true);assert(!rr_options.combo[RR_COMBO_OPTIONS].pad);
+    rr_options.suppressed=0;
     /* Quit with a controller: the gamepad page starts the capture on A (Back+Y: Start+Back is Restart's, refused). */
     button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(0,true);button(8,SDL_CONTROLLER_BUTTON_A,0);
     button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_Y,1);
