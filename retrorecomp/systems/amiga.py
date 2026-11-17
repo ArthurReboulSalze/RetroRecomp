@@ -71,6 +71,9 @@ class AmigaProfile(SystemProfile):
     # Shares its paths as the experimental tier of the shared base, like the X68000: schema 3 only, withdrawable (docs/COMPILATION_LIBRARY.md). The quick
     # check from shared paths is declined: code a game unpacks is not in the install's files and does not travel, so a first conversion runs its own routes.
     shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='amiga_knowledge')
+    # Multiplayer (the next release): the kit adapter gives the digest and the in-process snapshot (rollback, the host's F8 / F9 for everyone);
+    # two joysticks, the keyboard and the mouse not carried yet; proof on Lotus 2 (docs/AMIGA.md, section 8).
+    netplay_session = True
     report_shape = ReportShape('amiga_conversion', 'whdload')
     catalogues = Catalogues(libretro='libretro-thumbnails/Commodore_-_Amiga')
     library_layout = LibraryLayout(folder='amiga', summary_glob='*/compilation.json')

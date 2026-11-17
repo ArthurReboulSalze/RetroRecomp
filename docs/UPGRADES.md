@@ -90,6 +90,33 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
 | [Super Nintendo: multiplayer, the digest (delay tier)](#super-nintendo-multiplayer-the-digest-delay-tier-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
+| [Commodore Amiga 500 and 1200: multiplayer on the rollback tier](#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, `retrorecomp.amiga_vamiga`, `systems/amiga.py`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h` and the adapted vAmiga): an older quick state is refused cleanly; the file's layout is unchanged |
+
+## Commodore Amiga 500 and 1200: multiplayer on the rollback tier (next release)
+
+Both Amigas answer a session (`netplay_session`) at the NES's level: rollback and the host's F8 / F9 for everyone. The game gives an
+in-process snapshot (`rr_amiga_snap_*` in `native/amiga_machine/amiga_session.cpp`: vAmiga's state through its own serialiser without
+the per-component checksums, the sound path, the resload state, the inputs held, the keyboard's held keys, and the session's saves) and
+a digest (named session fields, then vAmiga's serialised state, then the saves). Two changes to the adapted vAmiga
+(`retrorecomp/amiga_vamiga.py`): `CoreComponent::rrSave` / `rrLoad`, walking the components by reference (no allocation per call), and the
+keyboard's held keys (`Keyboard::keyDown`), which no vAmiga snapshot keeps: a load left those of the timeline left, and a Start (the
+guest's Return) pressed again after a rollback could be lost on one seat (the first smoke desynchronised at frame 1199 for that). A
+quick state also sets them again now, from the keys it holds. In a session every seat starts from the install's own files (the player's
+saves are not read) and what the game saves stays in memory, inside the snapshot, never written to disk; port 1 holds the joystick;
+the CPU speed (x1, x2, x4) is a run-changing option: this PC's value goes in the host's HELLO (`session_options`, `cpu=N`), the host's
+reaches every seat (`session_option`), and the F2 row is refused during the match. The host's restart takes every seat back to the
+state the session started with (a snapshot), never the process restart a game alone does. Joystick games; the keyboard and the mouse
+are not carried. Alone, nothing changes: the session code is reached only with the converter's pipes. Proofs: `tools/amiga_rollback_selftest.py`
+(an authored slave: copper, a bitplane, blits, audio DMA, five interrupt sources, the keyboard with its handshake, a resload save and two
+loads) passes on both models (a snapshot after every frame changes nothing, a load at any frame replays the same frames and digests, a
+load is complete at once, wrong sizes refused, the session's saves taken back, no allocation); without the held-keys fix it fails. A
+headless `--rollback-check 7` of the converted Lotus 2 (a 5-frame rollback every 7 frames for 3,000 frames on the native game, the
+two-player route): every replayed frame identical. `tools/netplay_game_smoke.py --rollback 5 --latency 30 --jitter 10 --hold 4
+--save-at 600 --load-at 1500` passes on Lotus 2 (521 corrections, up to 5 frames deep), the digests equal before the load and different
+after; `--restart-at 900` passes. Snapshots: about 2.7 MB (Amiga 500) and 4.3 MB (Amiga 1200); their time is not measured yet (a quiet
+PC, with the owner's agreement).
+
+**Stamps** (against `spec/multiplayer` `87b3fe97`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
 
