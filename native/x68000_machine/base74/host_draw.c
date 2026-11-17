@@ -82,3 +82,17 @@ int Keyboard_IsSwKeyboard(void)
 {
    return 0;
 }
+
+/* The size last presented decides CHANGEAV at the next frame: a multiplayer session snapshot keeps it (state/snapshot.c,
+ * session only; the portable quick state is unchanged). */
+#include "rr_state.h"
+void rr_state_presented(RRState *s)
+{
+   uint32_t x = (uint32_t)presented_x, y = (uint32_t)presented_y;
+   rr_state_u32(s, &x);
+   rr_state_u32(s, &y);
+   if (s->loading && !s->error) {
+      presented_x = (DWORD)x;
+      presented_y = (DWORD)y;
+   }
+}

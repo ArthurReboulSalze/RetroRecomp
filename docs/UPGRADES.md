@@ -87,8 +87,31 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
+| [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
 | [Super Nintendo: multiplayer, the digest (delay tier)](#super-nintendo-multiplayer-the-digest-delay-tier-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
+
+## Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session (next release)
+
+[X68000.md](X68000.md). **The computers (`rrhk_computer.inc`, commit ca357e84):** while a session runs, only the two pad words
+reach the guest on the X68000, Atari ST, Amiga and MSX family: no key or mouse of the PC (`player_poll` gives none), the guest
+keyboard stays off (Ctrl+Alt+K and the F2 row say it is not shared), no function key, no local menu, focus or gamepad Start,
+no disk or fast-loading key of one seat; Start stays the guest's Return of the first player, from the pad word. Alone, nothing
+changes. **The X68000:** a session snapshot in memory (`state/snapshot.c`: `rr_x68k_snap_bound/save/load`, `rr_x68k_digest`) built
+from the quick state's own visitors (`rr_state.h`: a fixed buffer, arrays copied as they are in memory, the 10 MB of RAM the bus
+can write, the last presented picture size), without allocation; the disks are journals (the 1 KiB blocks that differ from the
+original, per disk of the set and per drive), bounded by 512 KiB. In a session every seat plays the export's own disks from
+memory with a fresh SRAM and its peripheral clock at zero (the RTC reads 1 January 2000), and nothing reaches the host's files
+(`base74/fileio.c`: the set's images are served from memory, any other write is swallowed; the disk choices are not saved at
+the end). Silent frames show no picture and queue no sound; the seat's own disk keys and fast loading do nothing. The portable
+quick-state format (RRX68MS1) does not change. **Proof (ROM-free in the kit's sense, on a real game):** `--rollback-probe`
+(save, 600 frames, load, the same 600 frames: every digest equal; a second save over other bytes identical; a load one byte short
+refused with no change; the digest of the loaded state equal) passes at 25 save points of Bubble Bobble (Dempa), from the boot and
+its disk loading to two-player play. **Stamps** (compared with spec/multiplayer 65cf35f3): the X68000 game stamp and host
+stamp; the host stamp of the Amiga, Amiga 1200, Atari ST, MSX, MSX2 and MSX2+ (`rrhk_computer.inc`). The X68000 quick-state
+key moves (`reference_host.c`, `rr_state.c`, `snapshot.c` are hashed): quick states of earlier X68000 exports are refused
+cleanly. **Limits:** joystick games only (keyboard and mouse are not carried); both players need the same IPL and font ROM (they
+are inside the executable); a session that writes more than 512 KiB of disk blocks ends with the reason.
 
 ## Every machine: multiplayer, two to four players over the local network (next release)
 

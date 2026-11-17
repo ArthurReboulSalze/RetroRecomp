@@ -633,3 +633,190 @@ size_t retro_get_memory_size(unsigned id)
 }
 
 /* retro_serialize_size/serialize/unserialize: state/snapshot.c (RRX68MS1). */
+
+/* ---- Multiplayer session (Retro-Recomp, MIT) ----
+ * In a session every seat plays the export's original disks from memory (base74/fileio.c), with a fresh SRAM and the
+ * session's clock, and nothing reaches the host's files. The drives are kept in the session snapshot as journals: the
+ * blocks where a drive differs from the image it loaded (its "shadow", read again through the unused fourth drive). */
+#include "state/rr_state.h"
+unsigned char *rr_dim_image(int drive);
+size_t rr_dim_capacity(void);
+int rr_dim_shadow(const char *path, unsigned char *out);
+unsigned char *rr_xdf_image(int drive);
+size_t rr_xdf_capacity(void);
+int rr_xdf_shadow(const char *path, unsigned char *out);
+int rr_x68k_session_media_add(unsigned index, const char *path, const uint8_t *original, size_t size);
+int rr_x68k_session_media_on(void);
+unsigned rr_x68k_session_opens(void);
+void rr_x68k_session_restoring(int on);
+void rr_x68k_session_images(RRState *s, size_t *bytes);
+
+#define SESSION_DRIVES 2
+#define SESSION_BLOCK 1024u
+#define SESSION_BITMAP 256u                  /* 2048 blocks: covers the DIM and XDF capacities */
+static unsigned char *session_shadow[SESSION_DRIVES];
+static int session_shadow_index[SESSION_DRIVES] = {-1, -1};
+static unsigned session_shadow_opens[SESSION_DRIVES];
+
+/* The file name of a disk of the set (the payload keeps the originals under media/<name>); NULL past the last one. */
+const char *rr_x68k_disk_name(unsigned index)
+{
+   const char *slash, *back;
+   if (index >= disk.total_images)
+      return NULL;
+   slash = strrchr(disk.path[index], '/');
+   back = strrchr(disk.path[index], '\\');
+   if (back && (!slash || back > slash)) slash = back;
+   return slash ? slash + 1 : disk.path[index];
+}
+
+int rr_x68k_session_disk(unsigned index, const uint8_t *original, size_t size)
+{
+   return index < disk.total_images && rr_x68k_session_media_add(index, disk.path[index], original, size);
+}
+
+static int drive_index(int drive)
+{
+   unsigned i;
+   if (!disk.inserted[drive] || !Config.FDDImage[drive][0])
+      return -1;
+   for (i = 0; i < disk.total_images; i++)
+      if (!strcmp(Config.FDDImage[drive], disk.path[i]))
+         return (int)i;
+   return -2;                                   /* a file outside the set: not allowed in a session */
+}
+
+static unsigned char *drive_image(int drive, size_t *capacity)
+{
+   unsigned char *image = rr_dim_image(drive);
+   if (image) { *capacity = rr_dim_capacity(); return image; }
+   image = rr_xdf_image(drive);
+   *capacity = image ? rr_xdf_capacity() : 0;
+   return image;
+}
+
+/* The image the drive loaded, read again from the session's media; kept until a file opens again. */
+static int drive_shadow(int drive, int index, int force)
+{
+   int ok;
+   if (!force && session_shadow_index[drive] == index && session_shadow_opens[drive] == rr_x68k_session_opens())
+      return 1;
+   if (!session_shadow[drive] && !(session_shadow[drive] = (unsigned char *)malloc(SESSION_BITMAP * 8u * SESSION_BLOCK)))
+      return 0;
+   session_shadow_index[drive] = -1;
+   rr_x68k_session_restoring(1);
+   ok = rr_dim_image(drive) ? rr_dim_shadow(disk.path[index], session_shadow[drive])
+                            : rr_xdf_shadow(disk.path[index], session_shadow[drive]);
+   rr_x68k_session_restoring(0);
+   if (!ok)
+      return 0;
+   session_shadow_index[drive] = index;
+   session_shadow_opens[drive] = rr_x68k_session_opens();
+   return 1;
+}
+
+static void insert_drive(int drive, int index)
+{
+   rr_x68k_session_restoring(1);                /* the drive's bytes come from the snapshot, not from a write-back */
+   FDD_EjectFD(drive);
+   rr_x68k_session_restoring(0);
+   Config.FDDImage[drive][0] = 0;
+   disk.inserted[drive] = false;
+   if (index >= 0) {
+      snprintf(Config.FDDImage[drive], MAX_PATH, "%s", disk.path[index]);
+      FDD_SetFD(drive, Config.FDDImage[drive], 0);
+      disk.inserted[drive] = true;
+   }
+}
+
+/* The session snapshot's disks (first section): the set's journals, the disk control, then each drive's image index
+ * and journal. The layout is fixed apart from the journal blocks (*bytes counts them), so the bound can be measured
+ * before the session starts, when only the measure (no buffer) is allowed. */
+void rr_x68k_session_disks(RRState *s, size_t *bytes)
+{
+   const int measuring = !s->loading && !s->data;
+   uint32_t index = disk.index;
+   int drive;
+   if (!rr_x68k_session_media_on() && !measuring) { rr_state_fail(s, "not a session"); return; }
+   if (!measuring && drive_index(0) >= 0 && drive_index(0) == drive_index(1)) {
+      rr_state_fail(s, "the same disk in both drives");   /* an eject of one would change the other's image */
+      return;
+   }
+   rr_x68k_session_images(s, bytes);
+   rr_state_u32(s, &index);
+   if (s->loading && !s->error) {
+      if (index > disk.total_images) { rr_state_fail(s, "disk index outside the set"); return; }
+      disk.index = index;
+   }
+   for (drive = 0; drive < SESSION_DRIVES && !s->error; drive++) {
+      uint8_t dirty[SESSION_BITMAP];
+      int32_t target = drive_index(drive);
+      size_t capacity = 0, block, count = 0;
+      unsigned char *image = NULL;
+      if (target == -2 && !measuring) { rr_state_fail(s, "a drive holds a disk outside the set"); return; }
+      rr_state_i32(s, &target);
+      if (s->error) return;
+      if (s->loading) {
+         if (target < -1 || target >= (int32_t)disk.total_images) { rr_state_fail(s, "drive image outside the set"); return; }
+         if (target != drive_index(drive)) insert_drive(drive, target);
+      }
+      memset(dirty, 0, sizeof dirty);
+      if (target >= 0 && !measuring) {
+         image = drive_image(drive, &capacity);
+         if (!image || !drive_shadow(drive, target, s->loading)) { rr_state_fail(s, "a session drive could not be read"); return; }
+         count = (capacity + SESSION_BLOCK - 1) / SESSION_BLOCK;
+         if (!s->loading)
+            for (block = 0; block < count; block++) {
+               size_t at = block * SESSION_BLOCK, n = capacity - at < SESSION_BLOCK ? capacity - at : SESSION_BLOCK;
+               if (memcmp(image + at, session_shadow[drive] + at, n)) dirty[block >> 3] |= (uint8_t)(1u << (block & 7));
+            }
+      }
+      rr_state_bytes(s, dirty, sizeof dirty);
+      if (s->error || !image) continue;
+      if (s->loading) memcpy(image, session_shadow[drive], capacity);
+      for (block = 0; block < count && !s->error; block++)
+         if ((dirty[block >> 3] >> (block & 7)) & 1) {
+            size_t at = block * SESSION_BLOCK, n = capacity - at < SESSION_BLOCK ? capacity - at : SESSION_BLOCK;
+            rr_state_bytes(s, image + at, n);
+            if (bytes) *bytes += n;
+         }
+   }
+}
+
+/* The machine boots on its first retro_run; a session needs it booted before its first frame (to measure and take the
+ * snapshot), so the kit's first snap_bound boots it here. */
+void rr_x68k_boot(void)
+{
+   if (!rr_glue_firstcall)
+      return;
+   if (has_content)
+      rr_glue_boot(boot_argc, boot_argv);
+   rr_glue_firstcall = 0;
+   update_variables(0);
+}
+
+/* The session starts (RrhkMachine.session_begin): the machine boots on the session's media if it has not booted yet,
+ * or its drives are filled again from them; SRAM starts empty (the IPL formats it as on a first boot) and the
+ * peripheral clock, which sets the RTC from 1 January 2000, starts at zero. */
+int rr_x68k_session_start(void)
+{
+   uint64_t zero[8] = {0};
+   int drive;
+   if (!rr_x68k_session_media_on())
+      return 0;
+   if (rr_glue_firstcall) {
+      rr_x68k_boot();
+   } else {
+      for (drive = 0; drive < SESSION_DRIVES; drive++) {
+         int index = drive_index(drive);
+         if (index == -2) return 0;
+         if (index >= 0) insert_drive(drive, index);
+      }
+      WinX68k_Reset();
+   }
+   for (drive = 0; drive < SESSION_DRIVES; drive++)
+      if (drive_index(drive) == -2) return 0;
+   memset(SRAM, 0, sizeof SRAM);
+   rr_x68k_hardware_restore(zero);
+   return 1;
+}

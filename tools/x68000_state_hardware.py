@@ -265,9 +265,34 @@ void rr_state_{lower}(RRState *s)
    }}
    rr_state_ints(s, {prefix}Cur, 4);
    rr_state_ints(s, {prefix}Trk, 4);
-   for (drive = 0; drive < 4; drive++)
+   /* A session snapshot keeps the drives as journals (libretro_api.c, rr_x68k_session_disks). */
+   for (drive = 0; drive < 4 && !s->session; drive++)
       if ({prefix}Img[drive])
          rr_state_bytes(s, {prefix}Img[drive], {capacity});
+}}
+
+/* Multiplayer session: the drive's image in memory, its size, and the image a file loads into (read through the
+ * unused fourth drive, which is left empty again: no write-back, no state of the drive changes). */
+unsigned char *rr_{lower}_image(int drive)
+{{
+   return drive >= 0 && drive < 4 ? {prefix}Img[drive] : 0;
+}}
+size_t rr_{lower}_capacity(void)
+{{
+   return {capacity};
+}}
+int rr_{lower}_shadow(const char *path, unsigned char *out)
+{{
+   int ok;
+   if ({prefix}Img[3] || !path || !out)
+      return 0;
+   ok = {prefix}_SetFD(3, (char *)path) && {prefix}Img[3];
+   if (ok)
+      memcpy(out, {prefix}Img[3], {capacity});
+   free({prefix}Img[3]);
+   {prefix}Img[3] = 0;
+   memset({prefix}File[3], 0, sizeof {prefix}File[3]);
+   return ok;
 }}
 '''
 
