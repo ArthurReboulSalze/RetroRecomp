@@ -343,6 +343,10 @@ typedef struct RrhkMachine {
     void (*side_effects)(bool allowed);
     /* A run-changing option the host pushes before frame 0, from the machine's declared list. false: cannot honour it. */
     bool (*session_option)(const char *key, const char *value);
+    /* The session starts (after SETUP and its options, before the boot digest and frame 0): a machine with a real-time clock
+     * sets it from `clock` (seconds since 1970, the same on every seat) instead of this PC's time, here and at every restart
+     * of the session. NULL: nothing to do. */
+    void (*session_begin)(uint64_t clock);
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */

@@ -236,6 +236,7 @@ bool rrhk_session_open(RrhkRun *run) {
         const RrhkMachine *m = run->machine;
         if (s.setup && !apply_options(m, s.options, s.options_length)) return false;
         if (s.guest && m->side_effects) m->side_effects(false);
+        if (s.setup && m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
         return true;
     }
     const char *value = getenv(RRHK_SESSION_ENV);
@@ -320,6 +321,7 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         s.state_size = bound;
     }
     if (s.guest && m->side_effects) m->side_effects(false);
+    if (m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
             seat + 1, ports, depth, s.guest ? "guest" : "host");
