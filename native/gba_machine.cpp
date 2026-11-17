@@ -45,6 +45,12 @@ int32_t g_sum = 0;
 uint32_t g_sum_count = 0;
 uint64_t g_since_flush = 0;
 wchar_t g_save_path[2048];
+bool g_save_writes = true;           // off for a guest in a session: its cartridge save is never written
+// A multiplayer session (hostkit_session.h), below: the session flag, the digest test switch, the clock the engine started on and the running hash of the mixed samples.
+bool g_session = false;
+uint64_t g_clock_at_start = 0;      // the session's clock the engine was started with (it reads its guest epoch once, at its start)
+unsigned g_digest_every = 0;       // test switch RETRORECOMP_GBA_DIGEST=<n>: print the digest every n frames (never read in play); the sound is hashed as in a session
+uint64_t g_audio_running = 1469598103934665603ull;     // the hash of every mixed sample so far, taken only in a session: the digest holds it
 
 // Test switches, like the kit's RETRORECOMP_HOST_TEST_*: RETRORECOMP_GBA_INPUT names a script in the engine's own format
 // (`frame,0xKEYS`, active low) that replaces the player's keys; RETRORECOMP_GBA_DUMP names a P6 file that receives the last
@@ -316,11 +322,6 @@ RetroStateEnvelope gba_state_envelope() {
 // A multiplayer session (hostkit_session.h): every seat runs the same simulation from the same start. The cartridge's clock runs on the guest's cycles from the session's one fixed
 // time (the wall clock would differ between two PCs), the cartridge save is read as a game alone reads it (the boot digest holds it: two seats with another save are refused) and a
 // guest never writes it (`side_effects`).
-bool g_session = false;
-bool g_save_writes = true;
-uint64_t g_clock_at_start = 0;      // the session's clock the engine was started with (it reads its guest epoch once, at its start)
-unsigned g_digest_every = 0;       // test switch RETRORECOMP_GBA_DIGEST=<n>: print the digest every n frames (never read in play); the sound is hashed as in a session
-uint64_t g_audio_running = 1469598103934665603ull;     // the hash of every mixed sample so far, taken only in a session: the digest holds it
 
 uint64_t fnv_bytes(uint64_t hash, const uint8_t* bytes, size_t size) {
     for (size_t i = 0; i < size; ++i) hash = (hash ^ bytes[i]) * 1099511628211ull;
@@ -333,7 +334,7 @@ uint32_t le32(const uint8_t* at) { return at[0] | at[1] << 8 | at[2] << 16 | sta
 // Kept: the CPU registers (the first 180 bytes: 16 + 1 + 3 x 6 + 2 x 5 words; what follows is the generated code's call stack, an artefact of how it runs), the memories and
 // the bus, the registers, the cartridge save and the picture processing unit. Left out: the sound section (it holds the host's output ring and the cursors that follow the
 // host's pace; the mixed samples are in `g_audio_running` instead), the counters and the timing of this process, and the mods. The same bytes on every PC for the same inputs.
-uint64_t state_digest() {
+uint64_t state_digest(uint64_t* parts = nullptr) {
     std::vector<uint8_t> blob;
     std::string error;
     if (!g_api || !g_api->save_state(blob, error)) return 0;
@@ -349,8 +350,21 @@ uint64_t state_digest() {
         const bool kept = cpu || tag == 0x30535542u || tag == 0x305F4F49u || tag == 0x30564153u || tag == 0x30555050u;   // BUS0, IO_0, SAV0, PPU0
         if (kept) {
             hash = fnv_bytes(hash, &blob[at - 8], 4);
-            const size_t size = cpu ? std::min<size_t>(length, kCpuWords * 4) : length;
-            hash = fnv_bytes(hash, &blob[at], size);
+            size_t head = cpu ? std::min<size_t>(length, kCpuWords * 4) : length, tail = 0;
+            if (tag == 0x30535542u) {
+                // The bus: the five memories (EWRAM, IWRAM, palette, VRAM, OAM), the last fetched word, the BIOS flag and the count of unmapped reads, then the cartridge clock chip
+                // and the matrix, which are left out (the clock writes the host's own time even when no clock is fitted), and the three wait-state words at the end.
+                constexpr size_t kMemories = 262144 + 32768 + 1024 + 98304 + 1024, kAfter = 4 + 1 + 8, kWaits = 12;
+                if (length < kMemories + kAfter + kWaits) return 0;
+                head = kMemories + kAfter;
+                tail = kWaits;
+            }
+            hash = fnv_bytes(hash, &blob[at], head);
+            if (tail) hash = fnv_bytes(hash, &blob[at + length - tail], tail);
+            if (parts) {                                      // the test switch prints each section's own hash: which one differs between two runs
+                const int slot = cpu ? 0 : tag == 0x30535542u ? 1 : tag == 0x305F4F49u ? 2 : tag == 0x30564153u ? 3 : 4;
+                parts[slot] = fnv_bytes(fnv_bytes(1469598103934665603ull, &blob[at], head), &blob[at + length - tail], tail);
+            }
         }
         at += length;
     }
@@ -391,9 +405,11 @@ bool rrgba_frame(uint16_t pressed) {
         fprintf(g_rows, "%llu,%016llx,%016llx,%d\n", static_cast<unsigned long long>(g_frame_index), static_cast<unsigned long long>(picture_hash()),
                 static_cast<unsigned long long>(g_frame_sound), g_frame_audible ? 1 : 0);
     if (g_digest_every && g_frame_index % g_digest_every == 0) {
-        const uint64_t first = state_digest(), second = state_digest();       // reading the digest must not change the machine: twice in a row is the same
-        fprintf(stderr, "[digest] frame %llu %016llx%s
-", static_cast<unsigned long long>(g_frame_index), static_cast<unsigned long long>(first), first == second && first ? "" : " UNSTABLE");
+        uint64_t parts[5] = {0, 0, 0, 0, 0};
+        const uint64_t first = state_digest(parts), second = state_digest();       // reading the digest must not change the machine: twice in a row is the same
+        fprintf(stderr, "[digest] frame %llu %016llx cpu %016llx bus %016llx io %016llx save %016llx ppu %016llx sound %016llx%s\n", static_cast<unsigned long long>(g_frame_index),
+                static_cast<unsigned long long>(first), static_cast<unsigned long long>(parts[0]), static_cast<unsigned long long>(parts[1]), static_cast<unsigned long long>(parts[2]),
+                static_cast<unsigned long long>(parts[3]), static_cast<unsigned long long>(parts[4]), static_cast<unsigned long long>(g_audio_running), first == second && first ? "" : " UNSTABLE");
     }
     if (g_selftest) run_selftest();
     if (!g_state_steps.empty()) run_state_switch();
@@ -423,8 +439,7 @@ void rrgba_side_effects(bool allowed) { g_save_writes = allowed; }
 // The session's clock (RRHK_SESSION_CLOCK, the same on every seat) is already the engine's guest epoch: the engine reads it once when it starts, which is before the kit's setup.
 void rrgba_session_begin(uint64_t clock) {
     if (g_clock_at_start && clock != g_clock_at_start)
-        fprintf(stderr, "[host] the session's clock (%llu) is not the one this machine started with (%llu): a cartridge clock would differ
-",
+        fprintf(stderr, "[host] the session's clock (%llu) is not the one this machine started with (%llu): a cartridge clock would differ\n",
                 static_cast<unsigned long long>(clock), static_cast<unsigned long long>(g_clock_at_start));
 }
 uint64_t rrgba_interpreted(void) { return g_api ? g_api->interpreted_instructions() : 0; }

@@ -2,7 +2,7 @@
 joined through the host (a star) by the in-memory link, which this process carries the workers' packets through.
 
     python -B tools/netplay_game_smoke.py GAME.exe [--seats 2] [--frames 3000] [--latency MS] [--jitter MS]
-                                          [--loss RATE] [--delay FRAMES] [--rollback CAP] [--hold FRAMES] [--restart-at FRAME]
+                                          [--loss RATE] [--delay FRAMES] [--rollback CAP] [--shared] [--hold FRAMES] [--restart-at FRAME]
                                           [--save-at FRAME --load-at FRAME]
                                           [--output DIR]
 
@@ -61,6 +61,7 @@ def main() -> int:
     parser.add_argument('--save-at', type=int, default=0, help="the host saves the match's state for everyone in its LOCAL of this frame")
     parser.add_argument('--load-at', type=int, default=0, help='and loads it back in its LOCAL of this frame')
     parser.add_argument('--digest-every', type=int, default=60)
+    parser.add_argument('--shared', action='store_true', help='input sharing, every seat OR-merged on the one port (a handheld: netplay_shared_only)')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--limit', type=float, default=0.0, help='seconds before the games are ended (default: from --frames)')
     parser.add_argument('--output', type=Path, default=ROOT / '.build/netplay-game-smoke')
@@ -91,6 +92,8 @@ def main() -> int:
                 script['system_at'][str(args.load_at)] = seat_map.SYS_STATE_LOAD
         settings = dict(seat=seat, seats=args.seats, names=list(NAMES[:args.seats]), digest_every=args.digest_every,
                         last_frame=args.frames, local_source=script, keep_history=True, rollback=args.rollback)
+        if args.shared:
+            settings['sharing'] = seat_map.SHARED_ALL
         if seat == 0 and args.delay:
             settings['delay'] = args.delay
         config = dict(game=dict(exe=str(copy), cwd=str(folder), env=HIDDEN, stdout=str(folder / 'stdout.txt'),
