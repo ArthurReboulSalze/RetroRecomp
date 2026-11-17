@@ -6,7 +6,8 @@
 #include "scanline_sdl.h"
 #include "xbr_sdl.h"
 
-#define RRHK_COMBO_ROWS 6     /* Quit, Restart, Quick save, Quick load (1.7.5), Fast forward, Max speed (1.7.6) */
+bool rrhk_options_hidden(int button);  /* options.c: a button of the Options combination still held from the menu's press */
+#define RRHK_COMBO_ROWS 7     /* Quit, Restart, Quick save, Quick load (1.7.5), Fast forward, Max speed (1.7.6), Options (1.8.1) */
 #define RRHK_COMBO_FAST 4
 #define RRHK_COMBO_MAX 5
 
@@ -99,7 +100,6 @@ void rrhk_sync_notice(void);              /* the outcome, named by a notice */
  * SDL_NUM_SCANCODES + 1), so that no keyboard sends them. */
 #define RRHK_KEY_RUMBLE (SDL_NUM_SCANCODES + 16)
 #define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
-#define RRHK_KEY_QUIT (SDL_NUM_SCANCODES + 18)         /* the "Quit the game" row, last of the page (1.7.6) */
 #define RRHK_KEY_WIDESCREEN (SDL_NUM_SCANCODES + 19)   /* the "Screen format: 4:3 / 16:9" row (1.7.6) */
 #define RRHK_KEY_SYNC (SDL_NUM_SCANCODES + 20)         /* the "Sync to display" row (1.7.7, D30) */
 

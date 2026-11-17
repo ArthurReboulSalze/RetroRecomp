@@ -3,8 +3,11 @@ project(RetroPlayerGamepad C)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 find_package(SDL2 CONFIG REQUIRED)
 add_library(retro_gamepad SHARED ../../native/player_gamepad.c)
-# One name with every compiler (mingw would otherwise call it libretro_gamepad.dll).
-set_target_properties(retro_gamepad PROPERTIES PREFIX "")
+# Windows: one name with every compiler (mingw would otherwise call it libretro_gamepad.dll). Linux keeps the usual
+# lib prefix, the name the converter loads (libretro_gamepad.so; the 1.8.0 Linux build stopped without it).
+if(WIN32)
+  set_target_properties(retro_gamepad PROPERTIES PREFIX "")
+endif()
 target_link_libraries(retro_gamepad PRIVATE SDL2::SDL2-static)
 if(NOT MSVC)
   target_compile_options(retro_gamepad PRIVATE -O2 -fvisibility=hidden)

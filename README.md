@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.7.9-d4a737" alt="Release version 1.7.9">
+  <img src="https://img.shields.io/badge/release-1.8.0-d4a737" alt="Release version 1.8.0">
   <img src="https://img.shields.io/badge/console_profiles-19-626262" alt="Nineteen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -117,7 +117,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.7.9.** On the Amiga 500 and the Amiga 1200, the code your game reaches while you play now travels with the paths you share, so other players get it native even when their own conversion never reaches it; the Amiga 1200 shares its paths too. The converter tells you how long a conversion usually takes on each console, greets you in its log panel and shows a short message from the developer when there is one. Players' reports are fixed: European NES 2.0 dumps convert again, and the Mega Drive's shadow and highlight follow the chip. Exports of 1.7.8 on the Amiga, the Amiga 1200, the Mega Drive and the NES are converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.8.0.** The **Front-end**: your compiled games as a wall of box art, one console at a time, played from the sofa with a gamepad (favourites, title search with an on-screen keyboard, covers per row on L2 / R2, full screen or window), and an option to start Retro-Recomp straight in it. A conversion left half built no longer blocks the next one, and the converter no longer closes silently during a batch. No game is converted again: exports of 1.7.9 are only rebuilt. Details in the [release notes](docs/RELEASE_NOTES.md) and [Compiled games](docs/COMPILED_GAMES.md#front-end-180).
 
 ## Learn more
 

@@ -280,6 +280,10 @@ static const uint64_t icon_graphics[18] = {
 static const uint64_t icon_chat[18] = {
     0x0ull, 0x0ull, 0x55555555555550ull, 0x1aaaaaaaaaaaaa4ull, 0x1aaaaaaaaaaaaa4ull, 0x1aaaaffeffbffa4ull, 0x1aaaaaaaaaaaaa4ull, 0x1aabffbfffeffa4ull, 0x1aaaaaaaaaaaaa4ull,
     0x1aaaaaaffbfffa4ull, 0x1aaaaaaaaaaaaa4ull, 0x55555555a95550ull, 0x690000ull, 0x1a4000ull, 0x69000ull, 0x15000ull, 0x0ull, 0x0ull};
+/* 1.8.1: the F2 tile that quits the game (the same "Quit? No / Yes" as Esc), a door and an arrow out of it. */
+static const uint64_t icon_exit[18] = {
+    0x0ull, 0x0ull, 0x55555500ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x300006aaaa900ull, 0xf00006aaaa900ull, 0xfffff06aaaa900ull, 0x3fffff06baaa900ull,
+    0xfffff06baaa900ull, 0xf00006aaaa900ull, 0x300006aaaa900ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x55555500ull, 0x0ull, 0x0ull};
 /* <row icons> */
 /* Row icons (1.7.5): 9 x 9, at the left of the rows of the control, options and graphics pages. Drawn by hand (the drawing
  * and its packing script are kept with the interface notes); a face button is the ring with its letters drawn inside. */
@@ -337,7 +341,7 @@ static const uint16_t row_letters[] = {0x5bea, 0x3aeb, 0x624e, 0x5aad, 0x24ad, 0
 static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_COUNT] = {
     {icon_keyboard, 30, 18}, {icon_gamepad, 30, 18}, {icon_options, 30, 18}, {icon_pointer, 30, 18}, {icon_switches, 30, 18},
     {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9},
-    {icon_graphics, 30, 18}, {icon_chat, 30, 18},
+    {icon_graphics, 30, 18}, {icon_chat, 30, 18}, {icon_exit, 30, 18},
     /* <row table> */
     {icon_row_up, 9, 9}, {icon_row_down, 9, 9}, {icon_row_left, 9, 9}, {icon_row_right, 9, 9}, {icon_row_button, 9, 9},
     {icon_row_start, 9, 9}, {icon_row_select, 9, 9}, {icon_row_coin, 9, 9}, {icon_row_pause, 9, 9}, {icon_row_quit, 9, 9},

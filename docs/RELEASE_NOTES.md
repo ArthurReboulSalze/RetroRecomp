@@ -1,5 +1,16 @@
 # RetroRecomp, next release (in preparation)
 
+- **The converter: the Front-end opens in the window.** The **Front-end** button no longer switches to full screen by itself:
+  a **Full screen** button appears left of it while the front-end is open (X on the gamepad and F11 still switch too).
+  **Options › Common** can still start Retro-Recomp straight in the front-end in full screen.
+- **Every machine: the gamepad opens the F2 menu.** A new **Options** control, the Guide button by default (any button or
+  combination can be chosen on player 1's gamepad page), opens and closes the F2 tiles; Back returns from a page to the tiles,
+  then to the game. **Quit the game** is now the last tile (it asks Quit? No / Yes, as Esc does) instead of a row of the options
+  page, and the tiles scroll when four players need more than two lines. Exports are rebuilt once, not converted again; quick
+  states keep working.
+
+# RetroRecomp v1.8.0 — The Front-end: your games as a wall of box art, played with the gamepad
+
 - **Every machine: a build left half done no longer blocks the next conversion.** A packaged converter unpacks itself into a new
   temporary folder at each launch. A machine build it left unfinished (the window closed during a conversion) still named the old
   folder, and CMake refused it at every later launch (« does not match the source … used to generate cache »: seen on the
@@ -24,6 +35,17 @@
   **Options › Common** can start Retro-Recomp straight in the front-end, and then in full screen. The front-end is another
   view of Compiled Games: the same games, covers and launch, nothing converted again.
   The converter's controller bridge now also reads the L2 and R2 triggers.
+
+**Speed.** Not measured again for 1.8.0, on the owner's word: nothing the games run while they play changed (the window, the choice of the build tools and the converter's controller bridge only); the frame cost of 1.7.9 stands.
+
+**Your exports and quick states.** No game stamp moves in 1.8.0, so no game is converted again. The build and host parts move for
+every machine (the build tools' choice and the controller bridge), so each export of 1.7.9 is rebuilt once and checked again on
+its quick routes, from its learned paths. Quick states keep working on every machine except where a machine's state key hashes
+all its inputs (the Amiga, the Amiga 1200, the Atari ST and the Nintendo 64), where they are refused cleanly; cartridge saves and
+memory cards are kept.
+
+None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used.
 
 ---
 

@@ -380,8 +380,6 @@ void rrhk_poll_events(RrhkRun *run) {
             rrhk_widescreen_toggle();
         } else if (key == RRHK_KEY_SYNC && from_row) {
             rrhk_sync_next();         /* 1.7.7 (D30): the outcome is named once the refresh is measured */
-        } else if (key == RRHK_KEY_QUIT && from_row) {
-            if (run->test_frames) run->running = false; else rrhk_quit_ask();     /* the one question; No comes back here */
         } else if (key == RRHK_KEY_START_HELP && from_row) {
             rrhk_toggle_start_help();
         } else if (key == SDL_SCANCODE_F4) {

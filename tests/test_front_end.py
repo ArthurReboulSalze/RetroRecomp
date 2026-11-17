@@ -475,9 +475,19 @@ class Window(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def test_the_button_opens_in_full_screen_and_leaving_restores_the_window(self):
+    def test_the_button_opens_in_the_window_and_full_screen_has_its_own_button(self):
         owner = self.owner
+        self.assertEqual(owner.front_end_screen_button.winfo_manager(), '')     # hidden outside the front-end
         owner.front_end_button.invoke()
+        # Arthur, 17 Nov 2026: the Front-end button stays in the window; Full screen appears left of it.
+        self.assertTrue(owner.front_end_visible)
+        self.assertFalse(owner.front_end_fullscreen)
+        self.assertEqual(self.fullscreen, [])
+        self.assertEqual(owner.front_end_screen_button.winfo_manager(), 'pack')
+        order = owner.toolbar.pack_slaves()
+        self.assertEqual(order.index(owner.front_end_screen_button), order.index(owner.front_end_button) + 1)
+        self.assertEqual((owner.header.winfo_manager(), owner.toolbar.winfo_manager()), ('pack', 'grid'))
+        owner.front_end_screen_button.invoke()
         self.assertTrue(owner.front_end_visible and owner.front_end_fullscreen)
         self.assertEqual(self.fullscreen[-1], ('-fullscreen', True))
         self.assertEqual(owner.header.winfo_manager(), '')
@@ -498,6 +508,7 @@ class Window(unittest.TestCase):
         self.assertEqual((owner.header.winfo_manager(), owner.toolbar.winfo_manager()), ('pack', 'grid'))
         self.assertTrue(all(w.winfo_manager() == 'grid' for w in owner.compiler_widgets))
         self.assertEqual(owner.queue_actions.winfo_manager(), 'pack')
+        self.assertEqual(owner.front_end_screen_button.winfo_manager(), '')
         self.assertIn('close_controller', owner.front_end_view.calls)
         owner.toggle_compiled_games.assert_not_called()
 

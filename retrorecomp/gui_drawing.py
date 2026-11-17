@@ -439,6 +439,9 @@ ICON_PATHS.setdefault('network', _shared_network())
 # Front-end: a wall of four boxes.
 ICON_PATHS.setdefault('front_end', ((1, 1, 7, 1, 7, 7, 1, 7, 1, 1), (9, 1, 15, 1, 15, 7, 9, 7, 9, 1),
                                     (1, 9, 7, 9, 7, 15, 1, 15, 1, 9), (9, 9, 15, 9, 15, 15, 9, 15, 9, 9)))
+# Full screen: the four corners of a screen.
+ICON_PATHS.setdefault('fullscreen', ((1, 5, 1, 1, 5, 1), (11, 1, 15, 1, 15, 5), (15, 11, 15, 15, 11, 15),
+                                     (5, 15, 1, 15, 1, 11)))
 
 
 def _toolbar_styles(style):
