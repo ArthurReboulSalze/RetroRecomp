@@ -131,6 +131,7 @@ times in 3,000 frames: replaying 5 frames of that machine fits less easily in a 
 PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `a08bdd4e`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.
+| [Windows packing: the call filter's last candidate](#windows-packing-the-call-filters-last-candidate-next-release) | none | **the build stamp of every profile** (`retrorecomp/packing.py` is a build input) | unchanged |
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
 
@@ -522,6 +523,31 @@ Shut Up and Jam! and `--seats 3` on Secret of Mana: PASS, rollback tier on every
 PASS and its boot digest differs from the room of three (the tap is plugged from three seats only); `snes_machine_selftest.py --rom`
 on Secret of Mana checks the save image out, back in and a wrong size refused (8 KiB). Not proven: the games' own use of four pads, a
 host save that differs from a guest's.
+## Windows packing: the call filter's last candidate (next release)
+
+**What was wrong.** A Windows game whose code leaves UPX no spare cto byte is packed with a shorter SizeOfCode (the call filter of 1.6.7,
+`packing.call_filter_length`). The length it chose, `first - 1`, is always the end of the candidate that opens the interval where the cto value
+is taken: that candidate (an E8 or E9, or the 8x of a 0F 8x) stands at length - 5. UPX's scan (`ctok.h`, `ic < size - 5`) stops at length - 6, so
+it never saw the candidate and the value looked spare; the run-time stub (`arch/amd64/bxx.S`, which reads a candidate at p while p + 1 < length - 3,
+so up to length - 5) does see it, finds the cto as its first operand byte and rewrites an operand the packer never filtered: the CALL or jump goes
+elsewhere. `upx -t` and `upx -d` use the packer's bound, and a replay of a route that does not run that instruction cannot see it. Seen on Neo Geo
+KOF 2003 (a crash in the multiplayer session's setup, 17 November 2026); checked on the four real exports of the maintainer that carry a
+`call_filter` record, from three machines: KOF 2003 (cto 0x60), Sonic The Hedgehog 2 (Mega Drive, 0xb1), 2020 Super Baseball (Neo Geo, 0xbe)
+and Dimahoo (CPS-2, 0x95): in all four the cto is the first operand byte of the candidate at length - 5. So it is not rare: **every export packed with a
+shortened call filter carries one such site** (harmless while the instruction is never executed; a game that does run it crashes or misbehaves).
+
+**What changes.** The model reads the stub's bound: a length is usable only if no value the packer may take as cto equals the first operand byte of the
+candidate at length - 5. The search goes down from the top of every spare stretch (the limit, or the length before an interval) and moves to the next
+stretch when the lengths of one fall into an interval of the same value. A packed file's real cto (`upx --fileinfo`, "filter 0x49/0x60") is checked
+against the same window and the build is packed again one byte shorter if it hits (three times at most, then the game is published unpacked as built,
+with the reason in the report). On the four real builds the length moves by one byte (for instance 1,398,064 to 1,398,063 bytes of KOF 2003), the file
+size does not change and `upx -t` passes. Proof on the new code: KOF 2003 converted with a shortened filter (2,005,559 bytes) and the two-copy
+rollback session smoke passes; Sonic 2 (Mega Drive), 2020 Super Baseball (Neo Geo) and Dimahoo (CPS-2) converted, their packed replay gate passes (those
+builds needed no shortened filter this time). Linux is not touched (its ELF is packed without this filter).
+
+**What moves:** the build stamp of every profile (`packing.py` is a build input: 21 profiles, no game and no host stamp, as
+`tests/test_legacy_compat.py` checks for any packing change). Quick states unchanged. **Exports already delivered** with a `call_filter` record carry one
+possibly corrupted call or jump; the multiplayer release converts every export again anyway.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 
