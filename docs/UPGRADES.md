@@ -157,14 +157,16 @@ keyboard stays off (Ctrl+Alt+K and the F2 row say it is not shared), no function
 no disk or fast-loading key of one seat; Start stays the guest's Return of the first player, from the pad word. Alone, nothing
 changes. **The X68000:** a session snapshot in memory (`state/snapshot.c`: `rr_x68k_snap_bound/save/load`, `rr_x68k_digest`) built
 from the quick state's own visitors (`rr_state.h`: a fixed buffer, arrays copied as they are in memory, the 10 MB of RAM the bus
-can write, the last presented picture size), without allocation; the disks are journals (the 1 KiB blocks that differ from the
+can write, the last presented picture size), without allocation. The presented picture is not in it: a load marks every line to
+be drawn again, and the redraw marks and the line work buffers are stored empty, so seats that loaded at different frames keep
+equal digests; the disks are journals (the 1 KiB blocks that differ from the
 original, per disk of the set and per drive), bounded by 512 KiB. In a session every seat plays the export's own disks from
 memory with a fresh SRAM and its peripheral clock at zero (the RTC reads 1 January 2000), and nothing reaches the host's files
 (`base74/fileio.c`: the set's images are served from memory, any other write is swallowed; the disk choices are not saved at
 the end). Silent frames show no picture and queue no sound; the seat's own disk keys and fast loading do nothing. The portable
 quick-state format (RRX68MS1) does not change. **Proof (ROM-free in the kit's sense, on a real game):** `--rollback-probe`
 (save, 600 frames, load, the same 600 frames: every digest equal; a second save over other bytes identical; a load one byte short
-refused with no change; the digest of the loaded state equal) passes at 25 save points of Bubble Bobble (Dempa), from the boot and
+refused with no change; the digest of the loaded state equal; the presented picture of every replayed frame equal) passes at 25 save points of Bubble Bobble (Dempa), from the boot and
 its disk loading to two-player play. **Stamps** (compared with spec/multiplayer 65cf35f3): the X68000 game stamp and host
 stamp; the host stamp of the Amiga, Amiga 1200, Atari ST, MSX, MSX2 and MSX2+ (`rrhk_computer.inc`). The X68000 quick-state
 key moves (`reference_host.c`, `rr_state.c`, `snapshot.c` are hashed): quick states of earlier X68000 exports are refused

@@ -24,6 +24,7 @@ class X68000Profile(SystemProfile):
     media_kinds = ('disk',)
     firmware = ('ipl', 'cgrom')
     quick_state_family = 'x68k'
+    netplay_session = True       # the host kit's adapter gives a digest and an in-process snapshot (multiplayer rollback, joystick games)
     capabilities = Capabilities(mouse=True, keyboard=True, disks=True)
     feedback_kinds = frozenset({13})
     default_frames = 4000
