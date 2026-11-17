@@ -12,6 +12,8 @@
 #include "snes/ppu.h"
 #include "snes/interp_bridge.h"
 #include "snes/snes.h"
+#include "snes/joypad.h"
+#include "snes/dma.h"
 #include "desktop/config.h"
 #include "snes_native_steps.h"
 #include "snes_spc_native.h"
@@ -248,6 +250,92 @@ static void hash_state(SaveLoadInfo *stream, void *data, size_t size) {
     HashStream *out = (HashStream *)stream;
     const uint8_t *bytes = data;
     for (size_t i = 0; i < size; ++i) { out->hash ^= bytes[i]; out->hash *= 1099511628211ull; }
+}
+/* Multiplayer digest: the simulation state of the machine, hashed in a fixed order, the same bytes on every build.
+ * It walks the engine's own *_saveload serializers (the snapshot domain), so a field the engine restores is a field the digest
+ * sees. Never in it: the S-DSP output ring (its read cursor belongs to the audio thread), pointers, the host caches and the
+ * diagnostic counters (dbg*). The Snes struct is not hashed as one block: each field is named below. */
+typedef struct { SaveLoadInfo stream; uint64_t hash; size_t position, skip_begin, skip_end; } DigestStream;
+static uint64_t digest_bytes(uint64_t hash, const void *data, size_t size) {
+    const uint8_t *bytes = data;
+    size_t whole = size & ~(size_t)7;
+    for (size_t i = 0; i < whole; i += 8) {
+        uint64_t word;
+        memcpy(&word, bytes + i, 8);
+        hash = (hash ^ word) * 0x9E3779B97F4A7C15ull;
+        hash ^= hash >> 32;
+    }
+    for (size_t i = whole; i < size; ++i) { hash ^= bytes[i]; hash *= 1099511628211ull; }
+    hash ^= size; hash *= 0x9E3779B97F4A7C15ull;
+    return hash ^ (hash >> 29);
+}
+static void digest_state(SaveLoadInfo *stream, void *data, size_t size) {
+    DigestStream *out = (DigestStream *)stream;
+    size_t begin = out->position, end = begin + size;
+    out->position = end;
+    if (!data || !size) return;
+    if (out->skip_end > out->skip_begin && begin < out->skip_end && end > out->skip_begin) {
+        if (begin < out->skip_begin) out->hash = digest_bytes(out->hash, data, out->skip_begin - begin);
+        if (end > out->skip_end) out->hash = digest_bytes(out->hash, (const uint8_t *)data + (out->skip_end - begin), end - out->skip_end);
+        return;
+    }
+    out->hash = digest_bytes(out->hash, data, size);
+}
+#define DIGEST_STREAM() {{digest_state, NULL}, 14695981039346656037ull, 0, 0, 0}
+/* apu_saveload writes [Apu.ram .. Apu.pad+6), the DSP region, then the SPC: the output ring is the tail of the DSP region. */
+enum { DIGEST_APU_REGS = offsetof(Apu, pad) + 6 - offsetof(Apu, ram),
+       DIGEST_DSP_REGION = sizeof(Dsp) - offsetof(Dsp, ram),
+       DIGEST_DSP_SIM = offsetof(Dsp, sampleBuffer) - offsetof(Dsp, ram) };
+uint64_t rr16_snes_digest(void) {
+    Snes *snes = g_snes;
+    Cart *cart = snes->cart;
+    uint64_t parts[6];
+    /* The audio thread reads the same chips under this lock; the version names the layout the chip serializers write. */
+    RtlApuLock();
+    const uint32_t layout = snes_saveload_get_version();
+    snes_saveload_set_version(10);
+    { DigestStream s = DIGEST_STREAM();
+      cpu_saveload(snes->cpu, &s.stream);
+      uint32_t registers[] = {g_cpu.A, g_cpu.X, g_cpu.Y, g_cpu.S, g_cpu.D, g_cpu.DB, g_cpu.PB, g_cpu.P, g_cpu.m_flag, g_cpu.x_flag,
+          g_cpu.emulation, g_cpu._flag_N, g_cpu._flag_V, g_cpu._flag_Z, g_cpu._flag_C, g_cpu._flag_I, g_cpu._flag_D, g_cpu.open_bus};
+      uint64_t counters[] = {g_cpu.cycles, g_cpu.master_cycles};
+      s.hash = digest_bytes(s.hash, registers, sizeof registers);
+      s.hash = digest_bytes(s.hash, counters, sizeof counters);
+      parts[0] = s.hash; }
+    { DigestStream s = DIGEST_STREAM();
+      uint64_t beam[] = {snes->hPos, snes->vPos, snes->hIrqEnabled, snes->vIrqEnabled, snes->nmiEnabled, snes->hTimer, snes->vTimer,
+          snes->inNmi, snes->inIrq, snes->inVblank, snes->autoJoyRead, snes->autoJoyTimer, snes->ppuLatch, snes->multiplyA,
+          snes->multiplyResult, snes->divideA, snes->divideResult, snes->rdnmiPending, snes->ramAdr, snes->joypadStrobe,
+          snes->joypad1Index, snes->joypad2Index, snes->joypad1Latched, snes->joypad2Latched};
+      double catchup = snes->apuCatchupCycles;
+      s.hash = digest_bytes(s.hash, beam, sizeof beam);
+      s.hash = digest_bytes(s.hash, &catchup, sizeof catchup);
+      s.hash = digest_bytes(s.hash, snes->ram, 0x20000);
+      size_t blob_size = 0;
+      const void *blob = joypad_state_blob(&blob_size);
+      if (blob && blob_size) s.hash = digest_bytes(s.hash, blob, blob_size);
+      parts[1] = s.hash; }
+    { DigestStream s = DIGEST_STREAM();
+      s.skip_begin = DIGEST_APU_REGS + DIGEST_DSP_SIM; s.skip_end = DIGEST_APU_REGS + DIGEST_DSP_REGION;
+      apu_saveload(snes->apu, &s.stream);
+      parts[2] = s.hash; }
+    { DigestStream s = DIGEST_STREAM();
+      ppu_saveload(snes->ppu, &s.stream);
+      PpuRollbackResidue ports;
+      ppu_rb_residue_get(snes->ppu, &ports);
+      s.hash = digest_bytes(s.hash, &ports, sizeof ports);
+      parts[3] = s.hash; }
+    { DigestStream s = DIGEST_STREAM();
+      dma_saveload(snes->dma, &s.stream);
+      uint8_t pending = dma_hdma_pending_init_get(snes->dma);
+      s.hash = digest_bytes(s.hash, &pending, 1);
+      parts[4] = s.hash; }
+    { DigestStream s = DIGEST_STREAM();
+      cart_saveload(cart, &s.stream);
+      parts[5] = s.hash; }
+    snes_saveload_set_version(layout);
+    RtlApuUnlock();
+    return digest_bytes(14695981039346656037ull, parts, sizeof parts);
 }
 void rr16_report_details(FILE *file) {
     Cart *cart=g_snes->cart;
