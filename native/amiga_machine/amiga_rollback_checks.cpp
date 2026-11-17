@@ -96,6 +96,26 @@ int main(int argc, char **argv) {
         rr_amiga_keys(s, held);
         if (rr_amiga_frame(s) != 0) { fprintf(stderr, "frame %ld: %s\n", at, rr_amiga_error(s)); exit(2); }
     };
+    // The host's saves, as a guest receives them before frame 0: "score" of other bytes than the install's (the program's first load,
+    // at its VBL 40, reads it). Malformed images are refused and change nothing; the image given back is the one put.
+    {
+        std::vector<uint8_t> host = {'R', 'R', 'S', 'V', 5, 0, 's', 'c', 'o', 'r', 'e', 0, 64, 0, 0, 0};
+        for (int k = 0; k < 64; k++) host.push_back((uint8_t)(0xC0 ^ k));
+        std::vector<uint8_t> bad = host;
+        bad[0] = 'X';
+        std::vector<uint8_t> cut(host.begin(), host.end() - 1);
+        std::vector<uint8_t> outside = {'R', 'R', 'S', 'V', 5, 0, '.', '.', '/', 'x', 'y', 0, 0, 0, 0, 0};
+        const size_t own = rr_amiga_session_save(s, nullptr, 0);
+        if (own != 4) fail_check("own_saves", (long)own);
+        if (rr_amiga_session_save_put(s, bad.data(), bad.size()) || rr_amiga_session_save_put(s, cut.data(), cut.size()) ||
+            rr_amiga_session_save_put(s, outside.data(), outside.size()))
+            fail_check("saves_refused", 0);
+        if (rr_amiga_session_save(s, nullptr, 0) != 4) fail_check("saves_untouched", 0);
+        if (!rr_amiga_session_save_put(s, host.data(), host.size())) fail_check("saves_put", 0);
+        std::vector<uint8_t> back(host.size() + 8, 0);
+        if (rr_amiga_session_save(s, back.data(), back.size()) != host.size() || memcmp(back.data(), host.data(), host.size()))
+            fail_check("saves_back", 0);
+    }
     for (int n = 0; n < warm; n++) frame(n);
 
     const size_t bound = rr_amiga_snap_bound(s);
