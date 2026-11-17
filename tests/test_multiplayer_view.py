@@ -44,6 +44,15 @@ class Controller:
         self.calls.append(('launch', need_ready))
         return ''
 
+    def link(self):
+        with self.model.lock:
+            line = dict(self.model.link) if self.model.link else None
+        if line is not None:
+            line['delay'] = self.delay
+        return line
+
+    delay = None
+
 
 class Library:
     def __init__(self, entries):
@@ -75,7 +84,8 @@ class MultiplayerWindowTest(unittest.TestCase):
 
     def window(self, games=('Contra', 'Bomberman II'), language='fr'):
         from retrorecomp.multiplayer_view import MultiplayerWindow
-        app = SimpleNamespace(tr=lambda key, **values: tr(key, language, **values), ui_font='Segoe UI', app=self.root)
+        app = SimpleNamespace(tr=lambda key, **values: tr(key, language, **values), ui_font='Segoe UI', app=self.root,
+                              language=language)
 
         def host_config(address, port, name, sharing, log_dir):
             return {'room': {'role': 'host', 'address': address, 'port': port, 'name': name, 'sharing': sharing}}, INVITE
@@ -180,11 +190,53 @@ class MultiplayerWindowTest(unittest.TestCase):
         view.ready.set(True)
         view.ready_box.invoke()
         self.assertIn(('ready', False), view.controller.calls)       # invoke toggles: the call follows the box
-        self.feed(view, {'event': 'host_gone', 'detail': 'the host closed the room'})
+        self.feed(view, {'event': 'host_gone', 'detail': 'the host closed the room', 'code': 'closed'})
         self.assertEqual(view.current, 'join')
         self.assertEqual(view.join_status.cget('text'), tr('mp_host_closed_room', 'fr'))
         self.assertEqual(len(self.closed), 1)
         self.assertIsNone(view.role)
+
+    def test_a_host_gone_silent_and_a_join_with_no_answer_are_said_in_the_language(self):
+        view = self.window()
+        view.show('join')
+        view.invite.set(INVITE)
+        view.join_room()
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        self.feed(view, {'event': 'joined_room', 'guest': 1}, self.roster([host], me=1))
+        self.feed(view, {'event': 'host_gone', 'detail': 'host silent for ten seconds', 'code': 'timeout'})
+        self.assertEqual(view.join_status.cget('text'), tr('mp_room_lost', 'fr', detail=tr('mp_error_timeout', 'fr')))
+        self.assertFalse(view.firewall_row.winfo_manager())          # it was in the room: not a firewall question
+        view.join_room()
+        self.feed(view, {'event': 'room_error', 'detail': 'no answer', 'code': 'unreachable'})
+        self.assertEqual(view.join_status.cget('text'), tr('mp_join_failed', 'fr', detail=tr('mp_error_unreachable', 'fr')))
+        self.assertTrue(view.firewall_row.winfo_manager())
+
+    def test_the_invitation_shown_is_the_rooms_and_the_link_line_follows_the_match(self):
+        view = self.window()
+        view.show('host')
+        view.open_room()
+        bound = invitation.format_invitation('192.168.1.20', 24612, SECRET)
+        view.controller.model.secret = SECRET
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24612})
+        self.assertEqual(view.invite_shown.get(), bound)          # the port the room really bound
+        self.assertEqual(view.link_line.cget('text'), tr('mp_link_unknown', 'fr'))
+        self.feed(view, {'event': 'launching', 'match_id': 1, 'tier': 'delay', 'prediction': 0})
+        self.assertEqual(view.link_line.cget('text'), tr('mp_link_unknown', 'fr'))
+        view.controller.delay = 3                                  # the driver chose it: no event, the poll reads it
+        view.poll()
+        self.assertEqual(view.link_line.cget('text'), tr('mp_link_delay', 'fr', frames=3))
+        self.feed(view, {'event': 'slow_link', 'delay': 9})
+        self.assertEqual(view.link_line.cget('text'), tr('mp_link_slow', 'fr', frames=9))
+        self.feed(view, {'event': 'launch_failed', 'detail': 'seat 2 did not start'})
+        self.assertIn(tr('mp_errnote_launch_failed', 'fr'), view.chat_text.get('1.0', 'end'))
+
+    def test_a_phrase_is_shown_in_the_windows_language(self):
+        view = self.window(language='fr')
+        view.show('host')
+        view.open_room()
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611},
+                  {'event': 'lobby_chat', 'sender': 1, 'name': 'Karl', 'text': 'Again?', 'phrase': 3})
+        self.assertIn('Karl : On rejoue ?', view.chat_text.get('1.0', 'end'))
 
     def test_a_bad_invitation_is_said_and_nothing_starts(self):
         view = self.window()

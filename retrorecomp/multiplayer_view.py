@@ -7,10 +7,10 @@ firewall or any system setting (at most a button that opens Windows' own firewal
 reader thread and are folded into `controller.model`; the window reads that model on Tk's thread, every POLL_MS, when its
 version changed.
 
-What the netplay package gives, the window takes as it is: `invitation.parse` / `DEFAULT_PORT` for the join fields,
-`local_addresses` for the host's interfaces, `LocalLibrary.hostable` for the games a host can pick. The room's configuration
-(`room_configs`) and the start and close of the worker are stand-ins with the signatures asked of the multiplayer
-specialist (17 November 2026); they go when `lobby_client` has them.
+What the netplay package gives, the window takes as it is: `lobby_client.host_config` / `guest_config` and the controller's
+`start` / `close` / `link` for the room, `invitation.parse` / `DEFAULT_PORT` for the join fields, `local_addresses` for the
+host's interfaces, `LocalLibrary.hostable` for the games a host can pick. Every reason the room gives comes as a code
+(`room_code`, the errors' `code`) and is said in the interface language; the English detail is only for the logs.
 """
 from __future__ import annotations
 
@@ -36,51 +36,16 @@ NOTICES = ('chat_too_fast', 'bad_text', 'busy', 'bad_pick')
 REASONS = {'converter version': 'mp_reason_converter', 'engine': 'mp_reason_engine', 'options': 'mp_reason_options',
            'learned paths': 'mp_reason_paths', 'firmware': 'mp_reason_firmware', 'identity rules': 'mp_reason_rules',
            'no simulation identity': 'mp_reason_old'}
+ERRORS = ('launch_error', 'launch_failed', 'launch_refused', 'lobby_error')
+PHRASES = ('GG', 'Ready?', 'Again?', 'Pause please', 'One moment', 'Thanks!')   # RRHK_PHRASE_GG..THANKS (hostkit_session.h)
 JOIN_WAIT_S = 20                 # a guest's room that has not answered by then: the firewall line
 
 
-# ---- stand-ins until lobby_client has them (same signatures as asked of the multiplayer specialist) ----
-
 def room_configs():
-    """(host_config, guest_config, start, close) from lobby_client when it has them, else the stand-ins below."""
+    """(host_config, guest_config, start, close): lobby_client's (a gallery or a test passes its own)."""
     from .netplay import lobby_client
-    return (getattr(lobby_client, 'host_config', _host_config), getattr(lobby_client, 'guest_config', _guest_config),
-            getattr(lobby_client.LobbyController, 'start', _start), getattr(lobby_client.LobbyController, 'close', _close))
-
-
-def _host_config(address, port, name, sharing, log_dir):
-    from .netplay import invitation
-    secret = invitation.new_secret()
-    config = {'room': {'role': 'host', 'address': address, 'port': port, 'secret': secret.hex(), 'capacity': 4, 'name': name,
-                       'log': str(Path(log_dir) / 'room.log'), 'sharing': sharing}, 'tests': False}
-    return config, invitation.format_invitation(address, port, secret)
-
-
-def _guest_config(text, name, log_dir):
-    from . import __version__
-    from .netplay import invitation
-    from .netplay.room_cli import version_numbers
-    invitation.parse(text)
-    return {'room': {'role': 'guest', 'invitation': text.strip(), 'name': name,
-                     'version': list(version_numbers(__version__))}, 'tests': False}
-
-
-def _start(controller, config, log=None):
-    from .netplay.worker_client import WorkerProcess
-    worker = WorkerProcess(config, log=log, resolve=controller.resolve, on_event=controller.on_event)
-    controller.attach(worker)
-    return worker.start()
-
-
-def _close(controller):
-    worker = getattr(controller, 'worker', None)
-    if worker is None:
-        return
-    try:
-        worker.call('close_room')
-        worker.join(15.0)
-    finally:
-        worker.cleanup()
+    return (lobby_client.host_config, lobby_client.guest_config, lobby_client.LobbyController.start,
+            lobby_client.LobbyController.close)
 
 
 def open_firewall_settings():
@@ -112,6 +77,7 @@ class MultiplayerWindow:
         self.joined_at = None
         self.seats_max = 0
         self.notices_seen = 0
+        self.errors_seen = 0
         self.current = 'entry'
         self.closing = False
         self.first_pick = pick              # an inventory entry chosen before the window opened (Compiled Games, right-click)
@@ -310,9 +276,8 @@ class MultiplayerWindow:
             self.log_dir.mkdir(parents=True, exist_ok=True)
             config, self.invitation_text = host_config(self.address.get(), port, self.player_name(), self.sharing.get(),
                                                        self.log_dir)
-        except (OSError, ValueError) as error:
-            self.host_status.configure(text=self.tr('mp_room_failed', detail=getattr(error, 'reason', str(error))),
-                                       fg=COLORS['error'])
+        except (OSError, ValueError):               # host_config refuses an address off the local network
+            self.host_status.configure(text=self.tr('mp_room_failed', detail=self.tr('mp_error_not_local')), fg=COLORS['error'])
             return
         self.role, self.pending_pick = 'host', entry
         self.host_status.configure(text=self.tr('mp_opening'), fg=COLORS['muted'])
@@ -402,13 +367,13 @@ class MultiplayerWindow:
 
     def start_room(self, config):
         self.controller = self.controller_class(self.library)
-        self.version, self.chat_seen, self.notices_seen = -1, 0, 0
+        self.version, self.chat_seen, self.notices_seen, self.errors_seen = -1, 0, 0, 0
         self.chat_text.configure(state='normal')
         self.chat_text.delete('1.0', 'end')
         self.chat_text.configure(state='disabled')
         _host, _guest, start, _close_room = self.configs
         try:
-            start(self.controller, config, self.log_dir / 'worker.txt')
+            start(self.controller, config, log=self.log_dir / 'worker.txt')
         except OSError as error:
             self.room_failed(str(error))
 
@@ -423,20 +388,22 @@ class MultiplayerWindow:
             self.join_button.state(['!disabled'])
             self.update_open_button()
 
-    def room_failed(self, detail, code=None):
+    def room_failed(self, detail, code=None, gone=False):
         """The room did not open, could not be joined, or the host closed it: back to the page it came from, with why.
         A reason the window knows (`code`) is said in the interface language; else the room's own words."""
         from .i18n import STRINGS
         page = 'host' if self.role == 'host' else 'join'
+        was_in = self.current == 'lobby'
         self.leave_room()
-        if code in ('host_gone', 'closed'):
+        reason = self.tr('mp_error_' + code) if code and 'mp_error_' + code in STRINGS else detail or self.tr('mp_error_other')
+        if gone and code == 'closed':
             text = self.tr('mp_host_closed_room')
+        elif gone or was_in:
+            text = self.tr('mp_room_lost', detail=reason)
         else:
-            known = code and 'mp_error_' + code in STRINGS
-            text = self.tr('mp_room_failed' if page == 'host' else 'mp_join_failed',
-                           detail=self.tr('mp_error_' + code) if known else detail)
+            text = self.tr('mp_room_failed' if page == 'host' else 'mp_join_failed', detail=reason)
         (self.host_status if page == 'host' else self.join_status).configure(text=text, fg=COLORS['error'])
-        if page == 'join' and code not in ('host_gone', 'closed'):
+        if page == 'join' and not was_in and code in ('unreachable', 'timeout'):
             self.firewall_row.pack(fill='x', pady=(8, 0))
         self.show(page)
 
@@ -453,6 +420,8 @@ class MultiplayerWindow:
                 if model.version != self.version:
                     self.version = model.version
                     self.model_changed(model)
+                elif self.current == 'lobby' and model.link:
+                    self.draw_link()            # the delay comes from the worker's status, not from an event
                 elif self.role == 'guest' and model.room == 'connecting' and self.joined_at is not None:
                     if self.window.tk.call('clock', 'seconds') - self.joined_at > JOIN_WAIT_S:
                         self.room_failed('', 'unreachable')
@@ -461,7 +430,7 @@ class MultiplayerWindow:
 
     def model_changed(self, model):
         with model.lock:
-            room, code, detail = model.room, getattr(model, 'room_code', None), model.room_detail
+            room, code, detail = model.room, model.room_code, model.room_detail
         if room == 'error':
             self.room_failed(detail, code)
             return
@@ -471,7 +440,7 @@ class MultiplayerWindow:
                 self.pick(self.pending_pick)
                 self.pending_pick = None
         if room in ('host_gone', 'closed') and self.role == 'guest':
-            self.room_failed(detail, 'host_gone' if room == 'host_gone' else 'closed')
+            self.room_failed(detail, code if room == 'host_gone' else 'closed', gone=True)
             return
         if self.current == 'lobby':
             self.draw_lobby(model)
@@ -561,7 +530,7 @@ class MultiplayerWindow:
 
     def copy_invitation(self):
         self.window.clipboard_clear()
-        self.window.clipboard_append(self.invitation_text)
+        self.window.clipboard_append(self.invite_shown.get())
 
     def pick(self, entry):
         if entry is None or self.controller is None:
@@ -602,6 +571,13 @@ class MultiplayerWindow:
         self.chat_text.configure(state='disabled')
         self.chat_text.see('end')
 
+    def phrase(self, number):
+        """A ready-made chat phrase (the games' six, RRHK_PHRASE_*) in the window's language, from the games' catalogue."""
+        from .i18n import catalog
+        english = PHRASES[number - 1]
+        language = getattr(self.app, 'language', 'en')
+        return english if language == 'en' else catalog(language).get('runtime', {}).get(english, english)
+
     def check_text(self, check, detail=None):
         """One player's check, worded from the fields (status, reason bits), never from the English log line."""
         if check == 'other':
@@ -618,14 +594,15 @@ class MultiplayerWindow:
             chat = list(model.chat)
             notices = list(model.notices)
             address, back = model.address, model.last_back
-            link = dict(getattr(model, 'link', None) or {})
+            invite = model.invitation or self.invitation_text
+            errors = list(model.errors)
         host = self.role == 'host'
         self.seats_max = seats_max
         # the room line and the invitation
         if host:
             where = f'{address[0]}:{address[1]}' if address else ''
             self.room_line.configure(text=self.tr('mp_room_open', where=where))
-            self.invite_shown.set(self.invitation_text)
+            self.invite_shown.set(invite)
             self.invite_row.pack(fill='x', pady=(6, 0))
             self.invite_note.pack(anchor='w', pady=(4, 0))
         else:
@@ -676,20 +653,20 @@ class MultiplayerWindow:
             mine = next((p for p in players if p.get('guest') == me), {})
             self.ready.set(bool(mine.get('ready')))
             self.ready_box.state(['!disabled'] if phase == 'lobby' and mine.get('check') == 'same' else ['disabled'])
-        # the link
-        if link.get('slow'):
-            self.link_line.configure(text=self.tr('mp_link_slow', frames=link['slow']))
-        elif link.get('tier') == 'rollback':
-            self.link_line.configure(text=self.tr('mp_link_rollback', frames=link.get('prediction') or 0))
-        elif link.get('tier'):
-            self.link_line.configure(text=self.tr('mp_link_delay', frames=link.get('delay') or 0))
-        else:
-            self.link_line.configure(text=self.tr('mp_link_unknown'))
+        self.draw_link()
+        # the room's refusals (a launch that failed, a call refused): one line each in the chat
+        self.chat_text.configure(state='normal')
+        for error in errors[self.errors_seen:]:
+            code = error.get('code')
+            self.chat_text.insert('end', self.tr('mp_errnote_' + code if code in ERRORS else 'mp_launch_refused') + '\n', 'note')
+        self.errors_seen = len(errors)
+        self.chat_text.configure(state='disabled')
         # the chat: the lines not shown yet, and the notices
         self.chat_text.configure(state='normal')
         for line in chat[self.chat_seen:] if len(chat) >= self.chat_seen else chat:
             self.chat_text.insert('end', (line.get('name') or '') + ' : ', 'name')
-            self.chat_text.insert('end', (line.get('text') or '') + '\n')
+            phrase = line.get('phrase') or 0
+            self.chat_text.insert('end', (self.phrase(phrase) if 1 <= phrase <= len(PHRASES) else line.get('text') or '') + '\n')
         self.chat_seen = len(chat)
         for notice in notices[self.notices_seen:]:
             code = notice.get('code')
@@ -722,6 +699,21 @@ class MultiplayerWindow:
         else:
             self.launch_button.pack_forget()
             self.launch_hint.configure(text=self.tr('mp_wait_host') if phase == 'lobby' else '')
+
+    def draw_link(self):
+        """« Link: … » from the controller: the tier and cap of the launch, the delay the match applies (None until the
+        driver chose it), and a slow link the host applied."""
+        link = (self.controller.link() if self.controller is not None else None) or {}
+        if link.get('slow'):
+            text = self.tr('mp_link_slow', frames=link['slow'])
+        elif link.get('tier') == 'rollback':
+            text = self.tr('mp_link_rollback', frames=link.get('prediction') or 0)
+        elif link.get('tier') and link.get('delay') is not None:
+            text = self.tr('mp_link_delay', frames=link['delay'])
+        else:
+            text = self.tr('mp_link_unknown')
+        if self.link_line.cget('text') != text:
+            self.link_line.configure(text=text)
 
     # ---- leaving and closing ----
 
