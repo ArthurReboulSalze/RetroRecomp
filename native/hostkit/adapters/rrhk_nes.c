@@ -63,6 +63,10 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
     return true;
 }
 static void pause_machine(bool paused) { (void)paused; }
+/* Multiplayer: a guest writes no save file (the program's write at the end is stopped), and plays on the host's save. */
+static void side_effects(bool allowed) { rr_nes_saves_allowed(allowed); }
+static size_t session_save(void *out, size_t capacity) { return rr_nes_session_save(out, capacity); }
+static bool session_save_put(const void *in, size_t size) { return rr_nes_session_save_put(in, size); }
 static size_t audio(int16_t *pcm, size_t capacity) { return cyc_audio_read(pcm, capacity); }
 static bool audio_enable(unsigned rate) { return cyc_audio_enable((int)rate); }
 static uint64_t interpreted(void) { return cyc_run_interp_rom_cycles + cyc_run_interp_ram_cycles + cyc_run_interp_other_cycles; }
@@ -154,7 +158,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
             .help_controls = help_controls, .key_event = key_event, .before_frame = before_frame,
             .snap_bound = rr_nes_snap_bound, .snap_save = rr_nes_snap_save, .snap_load = rr_nes_snap_load,
-            .digest = rr_nes_digest, .session_option = session_option, .session_options = session_options,
+            .digest = rr_nes_digest, .session_option = session_option,
+            .side_effects = side_effects, .session_save = session_save, .session_save_put = session_save_put, .session_options = session_options,
         };
     }
     return &machine;

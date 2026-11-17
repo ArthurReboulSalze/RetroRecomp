@@ -201,3 +201,29 @@ uint64_t rr_nes_digest(void) {
     for (size_t i = head; i < size; ++i) { hash ^= payload[i]; hash *= 1099511628211ull; }
     return hash;
 }
+
+/* Multiplayer, the host's save (hostkit_session.h, session ABI 8): the cartridge's nonvolatile memory (region 0) and the Datach's
+ * EEPROM (region 1) as one image, magic "RNS1" then the two lengths (little endian) then the two regions, so the guest plays the
+ * match on the host's bytes. A guest never writes its own save file: rr_nes_saves_blocked() stops the host program's write. */
+static bool rr_saves_allowed = true;
+void rr_nes_saves_allowed(bool allowed) { rr_saves_allowed = allowed; }
+bool rr_nes_saves_blocked(void) { return !rr_saves_allowed; }
+static void rr_put32(uint8_t *at, uint32_t value) { for (int i = 0; i < 4; i++) at[i] = (uint8_t)(value >> (8 * i)); }
+static uint32_t rr_get32(const uint8_t *at) { return (uint32_t)at[0] | (uint32_t)at[1] << 8 | (uint32_t)at[2] << 16 | (uint32_t)at[3] << 24; }
+size_t rr_nes_session_save(void *out, size_t capacity) {
+    const size_t a = cyc_nvram_size(0), b = cyc_nvram_size(1), total = 12 + a + b;
+    if (!a && !b) return 0;
+    if (total > 2u * 1024u * 1024u) return 0;
+    if (!out) return total;
+    if (capacity < total) return 0;
+    uint8_t *bytes = (uint8_t *)out;
+    memcpy(bytes, "RNS1", 4); rr_put32(bytes + 4, (uint32_t)a); rr_put32(bytes + 8, (uint32_t)b);
+    if ((a && !cyc_nvram_export(0, bytes + 12, a)) || (b && !cyc_nvram_export(1, bytes + 12 + a, b))) return 0;
+    return total;
+}
+bool rr_nes_session_save_put(const void *in, size_t size) {
+    const size_t a = cyc_nvram_size(0), b = cyc_nvram_size(1);
+    const uint8_t *bytes = (const uint8_t *)in;
+    if (!in || size != 12 + a + b || memcmp(bytes, "RNS1", 4) || rr_get32(bytes + 4) != a || rr_get32(bytes + 8) != b) return false;
+    return (!a || cyc_nvram_import(0, bytes + 12, a)) && (!b || cyc_nvram_import(1, bytes + 12 + a, b));
+}

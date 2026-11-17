@@ -34,6 +34,13 @@ bool rr_nes_state_file(const wchar_t *path, bool load);
 const char *rr_nes_state_error(void);
 void rr_nes_state_path(wchar_t *path, size_t capacity);
 
+/* Multiplayer, the host's save (session ABI 8): one image of the cartridge's and the Datach's nonvolatile memory, and the guest's
+ * ban on writing its own save file. */
+size_t rr_nes_session_save(void *out, size_t capacity);
+bool rr_nes_session_save_put(const void *in, size_t size);
+void rr_nes_saves_allowed(bool allowed);
+bool rr_nes_saves_blocked(void);
+
 /* Private chip snapshots, accessible only to the machine adapter. */
 size_t rr_nes_apu_size(void);
 void rr_nes_apu_save(uint8_t *buffer);
