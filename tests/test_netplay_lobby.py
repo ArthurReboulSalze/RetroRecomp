@@ -638,13 +638,13 @@ class CheckTests(unittest.TestCase):
         nes = mine.add(report(), title='Battletoads')
         gg = mine.add(report(machine='gg'), machine='gg')                                # a handheld: one player, input sharing
         mine.add(report(machine='gb'), machine='gb')                                     # a handheld: one player, input sharing (since its rollback)
-        mine.add(report(machine='gba'), machine='gba')                                   # a handheld whose exports give no digest yet
+        mine.add(report(machine='gba'), machine='gba')                                   # a handheld: one player, input sharing (the delay tier: its digest, no snapshot)
         mine.add(report(machine='scummvm'), machine='scummvm')                           # one player and not a pad game: not offered
         mine.add(report(identity=False, machine='snes', sources=None), machine='snes')    # no identity of its sources
         mine.add(report(machine='pce'), machine='pce')                                   # two players, but no session in its kit yet
         listed = mine.library().hostable()
         self.assertEqual(sorted((entry.system, picked.title, picked.seats_max) for entry, picked in listed),
-                         [('gb', 'Battletoads', 1), ('gg', 'Battletoads', 1), ('nes', 'Battletoads', 2)])
+                         [('gb', 'Battletoads', 1), ('gba', 'Battletoads', 1), ('gg', 'Battletoads', 1), ('nes', 'Battletoads', 2)])
         self.assertIn(gg, [entry for entry, _picked in listed])
         self.assertEqual(mine.library().game_of(nes, 'speed=2').game.game_options, 'speed=2')
         Path(nes.executable).unlink()
