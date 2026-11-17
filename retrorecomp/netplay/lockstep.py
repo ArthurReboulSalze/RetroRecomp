@@ -32,10 +32,18 @@ What one driver does, in one thread that sleeps on a queue (the game's messages,
 
 Seat N plays port N (one controller per player); the seat mapper for shared controls is a later stage.
 Nothing here measures speed: `stats` counts events (late frames, waits, packets), never durations.
+
+What a seat that is not honest can do (`.build/multiplayer/SECURITY_REVIEW.md`, "Security fixes before the transport"):
+the seat of a packet is decided in one place (`_proven_seat`: the transport must give the *proven* seat as `source`);
+a record is taken only inside a window ahead of the match (`RECORD_WINDOW`), the event queue and every seat's packet
+rate are bounded (`_net_in`), a seat that talks but gives no record is dropped as a silent one (`_stalled`), a PONG is
+taken only for a PING of ours and a measure is checked against the host's own, a guest's BYE_DESYNC is a claim the host
+checks with its own digests (`_claim_desync`), and records, history and digests are trimmed behind the match.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+import collections
 import queue
 import statistics
 import threading
@@ -60,6 +68,20 @@ CLOSE_WITHIN = 12.0          # a stopped game shows its message about 3.5 s, the
 LINGER = 3.0                 # after the last frame: time left to the others to get the last records and digest
 CLOSING_MIN = 0.5            # a seat that ended well goes on sending this long: its last digest may have been lost
 BYE_COPIES = 3
+EVENT_QUEUE_MAX = 2048       # packets waiting for the loop; the newest beyond this are dropped and counted
+EVENT_QUEUE_HEADROOM = 256   # room above it for the game's messages and the caller's calls, which are never dropped
+PACKET_RATE_MIN = 240.0      # packets a second one seat may send before its excess is dropped (see `_packet_rate`)
+FRAME_WINDOW = 2 * wire.MAX_DELAY + 60      # a peer's frame further than this from ours is not believed (time sync)
+RECORD_WINDOW = 2 * wire.MAX_RECORDS        # records are taken up to next_run + delay + this: an honest seat is never further
+DIGEST_WINDOW = 64           # a digest is taken for a frame up to next_run + delay + this
+TRIM_BEHIND = 64             # frames kept behind the one every seat holds, for repeats and for the pause rule
+ACK_LAG_MAX = 1024           # a peer that acknowledges nothing for this many frames does not hold records back any longer
+DIGESTS_KEPT = 64            # without `keep_history`: the digests of this driver's last frames
+MAX_RTT_MS = 2000.0          # a round trip above this is not a measure of a link (the PONG is refused)
+MEASURE_SLACK_MS = 10.0      # a guest's measure of its link may exceed the host's own by half as much again (twice for the jitter), plus this
+MAX_MEASURE_MS = 1000.0      # no measure counts above this
+PING_MEMORY = 64             # the PING values sent to a peer that a PONG may still answer
+STALL_GRACE = 3.0            # a guest waits this much longer for a seat it hears of only through the host (the host decides first)
 
 
 @dataclass
@@ -77,12 +99,63 @@ class Settings:
     last_frame: int | None = None       # the match ends for every seat once this many frames ran
     topology: str = 'star'              # 'star': guests talk to the host only; 'mesh': every seat to every seat
     pace: bool = True                   # time sync on (a test turns it off to see what it prevents)
+    keep_history: bool = False          # tests: keep every frame's words and every digest (else a rolling digest and the last few)
+    packet_rate: float | None = None    # packets a second one seat may send (None: derived from the game's frame rate)
+    desync_confirm: float = 2.0         # seconds the host waits for its own digests to confirm a guest's "out of step"
     clock_ppm: int = 0                  # tests: this game's clock is that many ppm off (negative: runs fast)
     # Test input sources. `local_source(frame, word, system)` gives the (word, system bits) recorded in place of
     # what the game reported (a hidden game has no player); `words_filter(frame, words)` changes what this seat's
     # game is told to run, which is how a test forces two games out of step.
     local_source: Callable | None = None
     words_filter: Callable | None = None
+
+
+class RecordLog:
+    """One seat's records by frame. `len` and `[frame]` speak in frames of the match; the frames far behind the one every
+    seat holds are dropped (`trim`), so a long match does not grow."""
+    __slots__ = ('_items', 'base')
+
+    def __init__(self, items=()):
+        self._items = list(items)
+        self.base = 0
+
+    def __len__(self) -> int:
+        return self.base + len(self._items)
+
+    def __getitem__(self, frame: int):
+        index = frame - self.base
+        if index < 0 or index >= len(self._items):
+            raise IndexError(frame)
+        return self._items[index]
+
+    def append(self, record) -> None:
+        self._items.append(record)
+
+    def span(self, first: int, count: int) -> list:
+        """The records from frame `first` (or the oldest kept, when that was trimmed), at most `count`."""
+        start = max(first, self.base) - self.base
+        return self._items[start:start + count]
+
+    def trim(self, before: int) -> None:
+        drop = min(before, len(self)) - self.base
+        if drop >= TRIM_BEHIND:                 # in chunks: a list is cut rarely
+            del self._items[:drop]
+            self.base += drop
+
+
+class TokenBucket:
+    """A packet rate limit: `rate` a second, `burst` at once; the clock is the caller's."""
+
+    def __init__(self, rate: float, burst: float, now: float):
+        self.rate, self.burst, self.tokens, self.at = rate, burst, float(burst), now
+
+    def take(self, now: float) -> bool:
+        self.tokens = min(self.burst, self.tokens + max(0.0, now - self.at) * self.rate)
+        self.at = now
+        if self.tokens >= 1.0:
+            self.tokens -= 1.0
+            return True
+        return False
 
 
 class LockstepDriver:
@@ -96,7 +169,10 @@ class LockstepDriver:
             self.peers = [seat for seat in range(self.seats) if seat != self.seat]
         self.guests = [seat for seat in range(self.seats) if seat != HOST]
         self._relays = self.star and self.seat == HOST      # the host forwards every seat's records
-        self.names = tuple(settings.names) or tuple(f'Player {seat + 1}' for seat in range(self.seats))
+        given = list(settings.names)
+        given += [f'Player {seat + 1}' for seat in range(len(given), self.seats)]
+        # names are cleaned once, where they enter: what the notices, the details and the game get is printable ASCII, 16 characters
+        self.names = tuple(pipe.clean_name(str(name)[:64]).decode('ascii') for name in given[:self.seats])
         self._preset = settings.delay if self.seat == HOST else None     # a guest takes the host's word
         self.delay: int | None = None
         self.hello: pipe.Hello | None = None
@@ -104,7 +180,9 @@ class LockstepDriver:
         self.detail = ''
         self.exit_reason: int | None = None     # the game's EXIT (RRHK_EXIT_*)
         self.exit_code: int | None = None
-        self.history: list[tuple] = []          # the port words of every frame this game was told to run
+        self.history: list[tuple] = []          # the port words of every frame this game was told to run (`keep_history`)
+        self.history_frames = 0                 # how many frames it was told to run
+        self.history_digest = 0                 # a running fold of all their words: two seats that ran the same have the same
         self.digests: dict[int, int] = {}       # frame -> this game's digest after it
         self.boot_digest: int | None = None     # this game's digest after SETUP, before frame 0
         self.desync: tuple | None = None        # (frame, seat, mine, theirs)
@@ -113,15 +191,20 @@ class LockstepDriver:
         self.pace_trace: list[tuple] = []       # (next frame, median advantage, pace ppm), every time-sync round
         self.stats = {'runs': 0, 'late_frames': 0, 'waits': 0, 'packets_sent': 0, 'packets_received': 0,
                       'packets_ignored': 0, 'records_repeated': 0, 'records_forwarded': 0, 'pace_changes': 0,
-                      'pace_ppm_max': 0, 'resumes_refused': 0, 'final_compared': False}
+                      'pace_ppm_max': 0, 'resumes_refused': 0, 'final_compared': False, 'packets_dropped_rate': 0,
+                      'packets_dropped_queue': 0, 'records_beyond_window': 0, 'sections_refused': 0, 'pongs_refused': 0,
+                      'measures_clamped': 0, 'desync_claims': 0, 'stalls': 0}
         self.next_run = 0
         self.game_frame = -1                    # the frame of the game's latest LOCAL
         self.paused: tuple | None = None        # (frame, [seats that paused])
-        self._events: queue.Queue = queue.Queue()
+        self._events: queue.Queue = queue.Queue(maxsize=EVENT_QUEUE_MAX + EVENT_QUEUE_HEADROOM)
+        self._admit = threading.Lock()          # the link's thread(s) against the counters and buckets of `_net_in`
+        self._buckets: dict[int, TokenBucket] = {}
+        self._desync_claims: dict[int, float] = {}      # the host: guest -> when it said the games were out of step
         self._progress = threading.Condition()
         self._thread: threading.Thread | None = None
         self._phase = 'hello'                   # hello, gate, play, linger, closing, done
-        self._records: list[list] = [[] for _ in range(self.seats)]
+        self._records: list[RecordLog] = [RecordLog() for _ in range(self.seats)]
         self._pending_locals: list = []
         self._start_at = 0.0
         self._holding = True                    # until the start: LOCALs are kept, no frame is given
@@ -138,6 +221,7 @@ class LockstepDriver:
         self._boots: dict[int, int] = {}        # the host: seat -> that seat's boot digest
         self._latest_digest: tuple | None = None
         self._rtt = {seat: [] for seat in self.peers}
+        self._pings_sent = {seat: collections.deque(maxlen=PING_MEMORY) for seat in self.peers}
         self._one_way_ms = {seat: 0.0 for seat in self.peers}
         self._measures: dict[int, tuple] = {}
         self._last_heard: dict[int, float] = {}
@@ -199,7 +283,8 @@ class LockstepDriver:
             'paused': list(self.paused) if self.paused else None, 'stats': dict(self.stats),
             'pauses': [list(item) for item in self.pauses], 'desync': list(self.desync) if self.desync else None,
             'measured': list(self.measured) if self.measured else None, 'boot_digest': self.boot_digest,
-            'exit_code': self.exit_code, 'exit_reason': self.exit_reason,
+            'exit_code': self.exit_code, 'exit_reason': self.exit_reason, 'history_frames': self.history_frames,
+            'history_digest': f'{self.history_digest:016x}',
             'pace': {'ppm': self._pace.ppm, 'median': round(self._pace.median, 3), 'changes': self._pace.changes},
             'hello': None if hello is None else {'name': hello.name, 'players': hello.players, 'caps': hello.caps,
                                                  'millihertz': hello.frame_rate_millihertz},
@@ -217,7 +302,7 @@ class LockstepDriver:
         started = time.monotonic()
         self._last_heard = {seat: started for seat in self.peers}
         self._deadline = started + HELLO_WITHIN
-        self.link.open(lambda source, data: self._events.put(('net', source, data)))
+        self.link.open(self._net_in)
         self.game.attach(lambda message: self._events.put(('game', message)))
         try:
             while self._phase != 'done':
@@ -247,6 +332,39 @@ class LockstepDriver:
         finally:
             with self._progress:
                 self._progress.notify_all()
+
+    def _packet_rate(self) -> float:
+        """Packets a second one seat may send: what an honest seat sends is about one per frame for every seat it speaks
+        for, plus the keep-alive and the pings; the floor is the review's 240."""
+        if self.settings.packet_rate is not None:
+            return self.settings.packet_rate
+        hello = self.hello
+        frames = 1.0 / hello.frame_seconds if hello is not None else 60.0
+        return max(PACKET_RATE_MIN, (self.seats + 1) * frames)
+
+    def _net_in(self, source: int, data: bytes) -> None:
+        """The link's sink (any thread): one seat's packet rate and the queue's size are bounded here, before anything is
+        queued. The excess is dropped and counted; this never blocks and never raises."""
+        now = time.monotonic()
+        with self._admit:
+            if source not in self.peers:
+                self.stats['packets_ignored'] += 1
+                return
+            rate = self._packet_rate()
+            bucket = self._buckets.get(source)
+            if bucket is None:
+                bucket = self._buckets[source] = TokenBucket(rate, max(60.0, rate / 4), now)
+            bucket.rate = rate
+            if not bucket.take(now):
+                self.stats['packets_dropped_rate'] += 1
+                return
+            if self._events.qsize() >= EVENT_QUEUE_MAX:
+                self.stats['packets_dropped_queue'] += 1
+                return
+        try:
+            self._events.put_nowait(('net', source, data))
+        except queue.Full:
+            self.stats['packets_dropped_queue'] += 1
 
     def _dispatch(self, event):
         if event[0] == 'game':
@@ -322,7 +440,7 @@ class LockstepDriver:
     def _set_delay(self, delay: int, start_at: float):
         self.delay = max(1, min(wire.MAX_DELAY, delay))
         for seat in range(self.seats):          # nobody's controls exist before frame D: neutral for every seat
-            self._records[seat] = [(0, 0)] * self.delay
+            self._records[seat] = RecordLog([(0, 0)] * self.delay)
         self._holds = {peer: [self.delay - 1] * self.seats for peer in self.peers}
         self._start_at = start_at
         self._holding = True
@@ -353,35 +471,61 @@ class LockstepDriver:
 
     # ---- the link's packets ----
 
-    def _from_link(self, source: int, data: bytes):
+    def _proven_seat(self, source: int, data: bytes):
+        """THE place a packet's seat is decided: (seat, packet), or None. In stage 1 `source` is what the link says; the
+        transport of stage 2 hands over a seat its keys proved, and nothing else here changes. The header's seat byte
+        must agree with it and is never believed on its own."""
         packet = wire.decode(data, self.seats)
         if packet is None or packet.seat != source or source == self.seat or source not in self.peers:
+            return None
+        return source, packet
+
+    def _from_link(self, source: int, data: bytes):
+        proven = self._proven_seat(source, data)
+        if proven is None:
             self.stats['packets_ignored'] += 1
             return
+        source, packet = proven
         self.stats['packets_received'] += 1
         now = time.monotonic()
         self._last_heard[source] = now
         if packet.kind == wire.PING:
             self._send(source, wire.encode_pong(self.seat, packet.time))
         elif packet.kind == wire.PONG:
-            rtt = ((int(now * 1e6) - packet.time) & 0xffffffff) / 1000.0
-            if rtt < 60000.0:
-                self._rtt[source].append(rtt)
-                del self._rtt[source][:-64]
-                # The middle of the last 64 round trips, halved: a late answer or two does not move it (the time
-                # sync reads it once per packet and the delay rule once; a jittery link must not make it jump).
-                self._one_way_ms[source] = statistics.median(self._rtt[source]) / 2
+            self._pong(source, packet, now)
         elif packet.kind == wire.MEASURE:
-            self._measures[source] = (packet.one_way_ms, packet.jitter_ms)
+            if self.seat == HOST and self._phase == 'gate' and source in self.guests:     # only the host reads them, only before the start
+                self._measures[source] = (packet.one_way_ms, packet.jitter_ms)
         elif packet.kind == wire.BOOT:
             if self.seat == HOST:
-                self._boots[source] = packet.digest
-                if self.outcome == 'boot_mismatch':     # the verdict may have been lost on the way: say it again
+                if self._phase in ('hello', 'gate'):
+                    self._boots[source] = packet.digest
+                elif self.outcome == 'boot_mismatch':   # the verdict may have been lost on the way: say it again
                     self._send(source, wire.encode_bye(self.seat, wire.BYE_BOOT, 0, self._boot_culprit))
         elif packet.kind == wire.BYE:
             self._peer_left(source, packet.reason, packet.who)
         elif packet.kind == wire.INPUT:
             self._input(source, packet, now)
+
+    def _pong(self, source: int, packet: wire.Packet, now: float):
+        """A round trip, only for a PING this driver sent to that seat (answered once) and not above MAX_RTT_MS: a seat
+        cannot make the links look slow by sending PONGs nobody asked for."""
+        sent = self._pings_sent[source]
+        rtt = ((int(now * 1e6) - packet.time) & 0xffffffff) / 1000.0
+        if packet.time not in sent or rtt > MAX_RTT_MS:
+            self.stats['pongs_refused'] += 1
+            return
+        sent.remove(packet.time)
+        self._rtt[source].append(rtt)
+        del self._rtt[source][:-64]
+        # The middle of the last 64 round trips, halved: a late answer or two does not move it (the time
+        # sync reads it once per packet and the delay rule once; a jittery link must not make it jump).
+        self._one_way_ms[source] = statistics.median(self._rtt[source]) / 2
+
+    def _send_ping(self, seat: int, now: float):
+        value = int(now * 1e6) & 0xffffffff
+        self._pings_sent[seat].append(value)
+        self._send(seat, wire.encode_ping(self.seat, value))
 
     def _input(self, source: int, packet: wire.Packet, now: float):
         if self.delay is None:
@@ -389,9 +533,12 @@ class LockstepDriver:
             # it started when it sent this, so a guest nearer than the farthest one waits the difference.
             if self.seat == HOST or source != HOST or not packet.delay or self._phase != 'gate' or self.boot_digest is None:
                 return
-            self._set_delay(packet.delay, now + max(0.0, packet.hold_ms - self._one_way_ms[HOST]) / 1000.0)
-        self._peer_frame[source] = (packet.sender_frame, now)
-        if (self.settings.pace and self._phase == 'play' and not self._holding and self.paused is None
+            hold = min(packet.hold_ms, wire.MAX_HOLD_MS)
+            self._set_delay(packet.delay, now + max(0.0, hold - self._one_way_ms[HOST]) / 1000.0)
+        near = abs(packet.sender_frame - self.next_run) <= FRAME_WINDOW     # a frame far from ours is not believed
+        if near:
+            self._peer_frame[source] = (packet.sender_frame, now)
+        if (near and self.settings.pace and self._phase == 'play' and not self._holding and self.paused is None
                 and self.next_run >= 2 and self.game_frame >= 0 and self.hello is not None):
             # Where this game is: the frame its latest LOCAL reported, plus the part of it that has passed (a frame at most;
             # a game that waits for records stays at the end of its frame). The peer reported its frame when it began it,
@@ -406,12 +553,19 @@ class LockstepDriver:
                 self._holds[source][owner] = max(self._holds[source][owner], min(held, len(self._records[owner]) - 1))
         self._peer_resume[source] = packet.resume_frame
         fresh = False
+        # An honest seat is never further ahead than its game's frame plus the delay: a record beyond the window is
+        # dropped and counted, so it is neither kept nor forwarded (the host forwards only what it took).
+        window = self.next_run + self.delay + RECORD_WINDOW
         for section in packet.sections:
             if not self._accepts(source, section.seat):
+                self.stats['sections_refused'] += 1
                 continue
             known = self._records[section.seat]
             for offset, record in enumerate(section.records):
                 frame = section.first_frame + offset
+                if frame > window:
+                    self.stats['records_beyond_window'] += len(section.records) - offset
+                    break
                 if frame == len(known):
                     known.append(record)
                     fresh = True
@@ -421,7 +575,7 @@ class LockstepDriver:
             # The host forwards at once what a guest said to the others (and says nothing new to that guest).
             self.stats['records_forwarded'] += 1
             self._send_inputs(now, only=[peer for peer in self.peers if peer != source])
-        if packet.digest_frame != wire.NONE:
+        if packet.digest_frame != wire.NONE and packet.digest_frame <= window - RECORD_WINDOW + DIGEST_WINDOW:
             digests = self._peer_digests[source]
             if packet.digest_frame not in digests:
                 digests[packet.digest_frame] = packet.digest
@@ -456,8 +610,8 @@ class LockstepDriver:
             for owner in self._owners_for(peer):
                 held = self._records[owner]
                 # from the first record the peer did not acknowledge, and at least the last `redundancy` ones
-                first = max(0, min(self._holds[peer][owner] + 1, len(held) - self.settings.redundancy))
-                records = held[first:first + wire.MAX_RECORDS]
+                first = max(held.base, min(self._holds[peer][owner] + 1, len(held) - self.settings.redundancy))
+                records = held.span(first, wire.MAX_RECORDS)
                 if records:
                     sections.append((owner, first, records))
             self._send(peer, wire.encode_input(
@@ -513,11 +667,38 @@ class LockstepDriver:
                 self._waiting_noticed = False
             self._blocked_since = None
             self._tell(pipe.run(frame, words))
-            self.history.append(words)
+            self._remember(frame, words)
             self.stats['runs'] += 1
             self.next_run = frame + 1
             if self.next_run % self.settings.digest_every == 0 or self.next_run == self.settings.last_frame:
                 self._tell(pipe.digest())           # answered after this frame ran, before the next one
+            if self.next_run % 32 == 0:
+                self._trim()
+
+    def _remember(self, frame: int, words: tuple):
+        """What this game was told to run: kept whole only for tests (`keep_history`); always as a running fold."""
+        value = frame
+        for port, word in enumerate(words):
+            value ^= word << (16 * port + 7)
+        self.history_digest = ((self.history_digest * 0x100000001b3) ^ value) & 0xffffffffffffffff
+        self.history_frames += 1
+        if self.settings.keep_history:
+            self.history.append(words)
+
+    def _trim(self):
+        """Memory stays bounded over a long match: the records every peer holds (or, for a peer that acknowledges
+        nothing, the ones older than ACK_LAG_MAX frames) and a margin behind the frame being run are dropped, and so are
+        the oldest digests and pauses."""
+        for owner in range(self.seats):
+            floor = self.next_run
+            for peer in self.peers:
+                if peer not in self._peer_gone and owner in self._owners_for(peer):
+                    floor = min(floor, self._holds[peer][owner] + 1)
+            self._records[owner].trim(max(floor, self.next_run - ACK_LAG_MAX) - TRIM_BEHIND)
+        if not self.settings.keep_history and len(self.digests) > DIGESTS_KEPT:
+            for frame in sorted(self.digests)[:-DIGESTS_KEPT]:
+                del self.digests[frame]
+        del self.pauses[:-256]
 
     def _check_resume(self):
         if self.paused is None:
@@ -567,9 +748,17 @@ class LockstepDriver:
         self._end('desync', pipe.STOP_DESYNC, wire.BYE_DESYNC)
 
     def _desync_reported(self, seat: int):
-        """Another seat found the games out of step (the same decision point as `_desync`)."""
+        """The seat this one believes found the games out of step (the same decision point as `_desync`): in a star a
+        guest believes the host, which compared the digests of every seat itself."""
         self.detail = self.detail or f'seat {seat + 1} reported the games out of step'
-        self._end('desync', pipe.STOP_DESYNC, wire.BYE_DESYNC if self._relays else None)
+        self._end('desync', pipe.STOP_DESYNC, None)
+
+    def _claim_desync(self, seat: int, now: float):
+        """A guest says the games are out of step. The host does not take its word: the digests are in the host's own
+        hands, and it says "out of step" only when its own comparison finds it (`_desync`). Without that, within
+        `desync_confirm` seconds, the claim is a departure (`_timers`)."""
+        self.stats['desync_claims'] += 1
+        self._desync_claims.setdefault(seat, now)
 
     # ---- the end ----
 
@@ -584,11 +773,18 @@ class LockstepDriver:
         if self.outcome is not None or self._phase in ('linger', 'closing'):
             return
         if reason == wire.BYE_DESYNC:
-            self._desync_reported(seat)
+            if self._relays:
+                self._claim_desync(seat, time.monotonic())
+            else:
+                self._desync_reported(seat)
         elif reason == wire.BYE_BOOT and seat == HOST:
-            culprit = self.names[who] if who < self.seats else 'a seat'
-            self.detail = f'the host refused the launch: the game of {culprit} does not start from the host\'s state'
-            self._end('boot_mismatch', pipe.STOP_BOOT_MISMATCH, None)
+            if who == self.seat:        # the culprit is told so, in its game; the others get a neutral reason
+                self.detail = 'your game does not start from the same state as the host\'s (another save, an option, a damaged export)'
+                self._end('boot_mismatch', pipe.STOP_BOOT_MISMATCH, None)
+            else:
+                culprit = self.names[who] if who < self.seats else 'a seat'
+                self.detail = f'the launch was refused: the game of {culprit} differs from the host\'s'
+                self._end('boot_mismatch', pipe.STOP_ENDED, None)
         elif seat == HOST and reason == wire.BYE_ENDED:
             self._end('ended', pipe.STOP_ENDED, None)
         elif seat == HOST and reason == wire.BYE_SEAT_GONE:
@@ -644,6 +840,8 @@ class LockstepDriver:
             self._ping(now)
             self._waiting(now)
             self._silence(now)
+            self._stalled(now)
+            self._claims(now)
             self._pace_round(now)
         elif self._phase == 'linger':
             final = self.settings.last_frame - 1
@@ -666,7 +864,7 @@ class LockstepDriver:
         if now - self._last_ping >= PING_EVERY:
             self._last_ping = now
             for seat in self.peers:
-                self._send(seat, wire.encode_ping(self.seat, int(now * 1e6)))
+                self._send_ping(seat, now)
 
     def _own_measure(self):
         """(one way, jitter) of this seat's worst link in ms, once every link has been probed long enough."""
@@ -694,7 +892,7 @@ class LockstepDriver:
             return
         self._last_probe = now
         for seat in self.peers:
-            self._send(seat, wire.encode_ping(self.seat, int(now * 1e6)))
+            self._send_ping(seat, now)
         if self.boot_digest is None:
             return
         needs_measure = self.seat != HOST or self._preset is None
@@ -716,7 +914,7 @@ class LockstepDriver:
         else:
             if measured is None or not all(seat in self._measures for seat in self.guests):
                 return
-            self._hold_ms = int(max(self._one_way_ms.values()))
+            self._hold_ms = min(wire.MAX_HOLD_MS, int(max(self._one_way_ms.values())))
             one_way, jitter = self._worst_path()
             self._set_delay(wire.choose_delay(one_way, jitter, self.hello.frame_seconds * 1000.0),
                             now + self._hold_ms / 1000.0)      # the host starts once its word reached the farthest guest
@@ -726,7 +924,7 @@ class LockstepDriver:
         self._boot_culprit = seat
         self.detail = (f'the game of {self.names[seat]} does not start from the same state as the host\'s: boot digest '
                        f'{self._boots[seat]:016x} against {self.boot_digest:016x} (another save, an option, a damaged export)')
-        self._end('boot_mismatch', pipe.STOP_BOOT_MISMATCH, wire.BYE_BOOT, seat)
+        self._end('boot_mismatch', pipe.STOP_ENDED, wire.BYE_BOOT, seat)     # the host's own game is not the culprit
 
 
     def _worst_path(self) -> tuple[float, float]:
@@ -739,7 +937,13 @@ class LockstepDriver:
         for guest in self.guests:
             samples = self._rtt[guest]
             mine = (sum(samples) / len(samples) / 2, (max(samples) - min(samples)) / 2)
-            theirs = self._measures[guest]
+            # The guest measured the same link the host did: what it says above the host's own measure (by more than
+            # half again, and a little) is not believed, and no measure counts above MAX_MEASURE_MS.
+            claimed = self._measures[guest]
+            theirs = (min(claimed[0], 1.5 * mine[0] + MEASURE_SLACK_MS, MAX_MEASURE_MS),
+                      min(claimed[1], 2 * mine[1] + MEASURE_SLACK_MS, MAX_MEASURE_MS))
+            if theirs != claimed:
+                self.stats['measures_clamped'] += 1
             legs.append((max(mine[0], theirs[0]), max(mine[1], theirs[1])))
         pairs = [(a[0] + b[0], a[1] + b[1]) for index, a in enumerate(legs) for b in legs[index + 1:]]
         return max(pairs, key=lambda pair: pair[0] + pair[1])
@@ -757,6 +961,32 @@ class LockstepDriver:
                 self.detail = f'nothing from seat {seat + 1} for {self.settings.drop_after:g} s'
                 self._tell(pipe.notice(pipe.NOTICE_LEFT, self.names[seat]))
                 self._end('seat_silent', pipe.STOP_ENDED, *self._other_leaving(seat))
+                return
+
+    def _stalled(self, now: float):
+        """A seat that talks but gives no record is a silent seat: `_silence` looks at packets, which pings keep coming.
+        The game has waited for that seat's record for `drop_after` seconds (and is not paused): it is gone."""
+        if self.outcome is not None or self._blocked_since is None or self.paused is not None or self._holding:
+            return
+        seat = self._blocked_on
+        grace = STALL_GRACE if self.seat != HOST and seat != HOST else 0.0     # a guest lets the host decide about a guest
+        if now - self._blocked_since < self.settings.drop_after + grace:
+            return
+        self.stats['stalls'] += 1
+        self.detail = f'seat {seat + 1} gave no input for {self.settings.drop_after:g} s'
+        self._tell(pipe.notice(pipe.NOTICE_LEFT, self.names[seat]))
+        self._end('seat_silent', pipe.STOP_ENDED, *self._other_leaving(seat))
+
+    def _claims(self, now: float):
+        """The guests' "out of step" the host's own digests did not confirm in time: that guest left."""
+        if self.outcome is not None:
+            return
+        for seat, since in list(self._desync_claims.items()):
+            if now - since >= self.settings.desync_confirm:
+                name = self.names[seat]
+                self.detail = f'{name} left, reporting the games out of step'
+                self._tell(pipe.notice(pipe.NOTICE_LEFT, name))
+                self._end('seat_left', pipe.STOP_ENDED, *self._other_leaving(seat))
                 return
 
     def _pace_round(self, now: float):

@@ -99,6 +99,12 @@ class MessageReader:
         return messages
 
 
+def printable(raw: bytes) -> str:
+    """Bytes 32 to 126 only: a text that came through the game (a name, an option line it refused) never carries a
+    control character into the converter's window or log."""
+    return bytes(b for b in raw if 32 <= b < 127).decode('ascii')
+
+
 # ---- game -> worker ----
 
 def parse_hello(payload: bytes) -> Hello:
@@ -107,7 +113,7 @@ def parse_hello(payload: bytes) -> Hello:
     abi, players, caps, bound, rate, length = struct.unpack_from('<HBBIIB', payload)
     if len(payload) != 13 + length:
         raise Broken('a HELLO of the wrong length')
-    return Hello(abi, players, caps, bound, rate, payload[13:].decode('ascii', 'replace'))
+    return Hello(abi, players, caps, bound, rate, printable(payload[13:]))
 
 
 def check_hello(hello: Hello, seats: int) -> None:
@@ -149,7 +155,7 @@ def parse_digest_of(payload: bytes) -> tuple[int, int]:
 def parse_refused(payload: bytes) -> tuple[int, str]:
     if len(payload) < 3 or len(payload) != 3 + payload[2]:
         raise Broken('a REFUSED of the wrong length')
-    return struct.unpack_from('<H', payload)[0], payload[3:].decode('ascii', 'replace')
+    return struct.unpack_from('<H', payload)[0], printable(payload[3:])
 
 
 def parse_exit(payload: bytes) -> int:

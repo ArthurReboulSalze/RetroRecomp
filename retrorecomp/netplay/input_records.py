@@ -10,7 +10,7 @@ Every packet, little-endian, at most MAX_PACKET bytes:
     INPUT    sender_frame u32   the frame the sender's game is about to run (time sync)
              acks 4 x u32       "I hold seat s's records up to this frame" (NONE: none yet), one per seat
              delay u8           the match's input delay, said by the host (0: not said)
-             hold_ms u16        the host's worst one-way time: a nearer guest starts that much later
+             hold_ms u16        the host's worst one-way time: a nearer guest starts that much later (at most MAX_HOLD_MS)
              resume_frame u32   "resume the pause that began at this frame" (NONE: no request)
              digest_frame u32, digest u64      the sender's latest digest (digest_frame NONE: none yet)
              sections u8 (<= 4), each: seat u8, first_frame u32, count u8 (<= 32), count x (word u16, system u16)
@@ -39,6 +39,7 @@ MAX_RECORDS = 32
 MAX_SECTIONS = 4
 MAX_SEATS = 4
 MAX_DELAY = 15
+MAX_HOLD_MS = 500            # the longest start hold a packet may ask for (a forged value must not hold every game)
 NONE = 0xffffffff
 NO_SEAT = 0xff
 INPUT, PING, PONG, MEASURE, BYE, BOOT = 1, 2, 3, 4, 5, 6
@@ -86,7 +87,7 @@ def encode_input(seat: int, sender_frame: int, acks, sections, *, delay: int = 0
     """`acks`: per seat, the last frame of that seat's records this sender holds (NONE or missing: none).
     `sections`: (seat, first_frame, [(word, system), ...]) each. Too many records is the caller's error."""
     held = (list(acks) + [NONE] * MAX_SEATS)[:MAX_SEATS]
-    parts = [_head(INPUT, seat), _INPUT.pack(sender_frame, *held, delay, min(hold_ms, 0xffff), resume_frame,
+    parts = [_head(INPUT, seat), _INPUT.pack(sender_frame, *held, delay, min(hold_ms, MAX_HOLD_MS), resume_frame,
                                              digest_frame, digest, len(sections))]
     for owner, first, records in sections:
         if len(records) > MAX_RECORDS:
@@ -123,8 +124,8 @@ def decode(data: bytes, seats: int = MAX_SEATS) -> Packet | None:
     """The packet, or None when anything in it is out of the rules (it is then ignored whole)."""
     if not _HEAD.size <= len(data) <= MAX_PACKET:
         return None
-    magic, proto, kind, seat, _flags = _HEAD.unpack_from(data)
-    if magic != MAGIC or proto != PROTO or seat >= seats:
+    magic, proto, kind, seat, flags = _HEAD.unpack_from(data)
+    if magic != MAGIC or proto != PROTO or seat >= seats or flags:      # flags are 0: a later meaning cannot be pre-sent
         return None
     body = data[_HEAD.size:]
     if kind in (PING, PONG):
@@ -147,7 +148,7 @@ def decode(data: bytes, seats: int = MAX_SEATS) -> Packet | None:
         return None
     sender_frame, *rest = _INPUT.unpack_from(body)
     acks, (delay, hold, resume, digest_frame, digest, count) = tuple(rest[:MAX_SEATS]), rest[MAX_SEATS:]
-    if delay > MAX_DELAY or count > MAX_SECTIONS:
+    if delay > MAX_DELAY or hold > MAX_HOLD_MS or count > MAX_SECTIONS:
         return None
     offset = _INPUT.size
     sections = []

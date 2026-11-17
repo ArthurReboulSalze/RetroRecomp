@@ -13,6 +13,7 @@ nothing. This package is the other end of its two pipes, in the converter:
   reordering, duplicates, a seat gone silent; the fate of every packet is fixed by a seed);
 * `time_sync`: a steady estimate of how far ahead a game is, and the pace that follows it;
 * `lockstep`: the delay-lockstep driver, one per player (a star: guests talk to the host, which forwards);
+* `launch`: the one door through which settings that came from another PC become a `Settings` (every field checked);
 * `worker_channel`, `worker`, `worker_client`, `scripted_inputs`: the driver in a process of its own (the converter
   starts `RetroRecomp.py _netplay-worker`; they talk over its two pipes), and the scripted controls tests give it.
 

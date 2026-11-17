@@ -224,7 +224,7 @@ class StarTests(unittest.TestCase):
         simulator = LinkSimulator(seats, seed=2, **(link or {}))
         games = [FakeGame(salt=(salts or {}).get(seat, 0)) for seat in range(seats)]
         drivers = [LockstepDriver(games[seat], simulator.endpoint(seat), Settings(
-            seat=seat, seats=seats, delay=2, digest_every=25, local_source=scripted_inputs.local_source(
+            seat=seat, seats=seats, delay=2, digest_every=25, keep_history=True, local_source=scripted_inputs.local_source(
                 {'kind': 'pad', 'seat': seat}), **settings)) for seat in range(seats)]
         for driver in drivers:
             driver.start()

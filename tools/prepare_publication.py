@@ -249,6 +249,7 @@ retrorecomp/netplay/input_records.py retrorecomp/netplay/session_transport.py re
 retrorecomp/netplay/lockstep.py tests/test_netplay_lockstep.py tools/netplay_lockstep_selftest.py tools/netplay_game_smoke.py
 retrorecomp/netplay/time_sync.py retrorecomp/netplay/worker_channel.py retrorecomp/netplay/worker.py
 retrorecomp/netplay/worker_client.py retrorecomp/netplay/scripted_inputs.py tests/test_netplay_worker.py
+retrorecomp/netplay/launch.py tests/test_netplay_security.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
 retrorecomp/dropfiles.py tests/test_dropfiles.py tests/test_popup_menu.py
 native/snes_dsp1_projection.inc

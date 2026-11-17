@@ -63,11 +63,11 @@ def main() -> int:
         copy = folder / game.name
         shutil.copy2(game, copy)
         settings = dict(seat=seat, seats=args.seats, names=list(NAMES[:args.seats]), digest_every=args.digest_every,
-                        last_frame=args.frames, local_source={'kind': 'random', 'seat': seat})
+                        last_frame=args.frames, local_source={'kind': 'random', 'seat': seat}, keep_history=True)
         if seat == 0 and args.delay:
             settings['delay'] = args.delay
         config = dict(game=dict(exe=str(copy), cwd=str(folder), env=HIDDEN, stdout=str(folder / 'stdout.txt'),
-                                stderr=str(folder / 'stderr.txt')), settings=settings)
+                                stderr=str(folder / 'stderr.txt')), settings=settings, tests=True)
         worker = WorkerProcess(config, carry=lambda to, data, seat=seat: link.endpoint(seat).send(to, data),
                                log=folder / 'worker.txt')
         link.endpoint(seat).open(lambda source, data, worker=worker: worker.deliver(source, data))

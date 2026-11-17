@@ -96,7 +96,7 @@ class Match:
             if hz:
                 environment['SESSION_FAKE_HZ'] = str(hz)
             environment.update((env or {}).get(seat, {}))
-            values = dict(seat=seat, seats=seats, names=list(NAMES[:seats]), options='speed=1', local_source=script(seat))
+            values = dict(seat=seat, seats=seats, names=list(NAMES[:seats]), options='speed=1', local_source=script(seat), keep_history=True)
             values.update(settings)
             values.update((per_seat or {}).get(seat, {}))
             game = dict(exe=str(executable), cwd=str(folder), env=environment, stdout=str(folder / 'stdout.txt'),
@@ -106,9 +106,9 @@ class Match:
                 session = SessionGame(executable, cwd=folder, env=environment, stdout=folder / 'stdout.txt',
                                       stderr=folder / 'stderr.txt')
                 self.games.append(session)
-                self.drivers.append(LockstepDriver(session, self.link.endpoint(seat), settings_from(values)))
+                self.drivers.append(LockstepDriver(session, self.link.endpoint(seat), settings_from(values, tests=True)))
             else:
-                worker = WorkerProcess(dict(game=game, settings=values), carry=self._carry(seat), log=folder / 'worker.txt')
+                worker = WorkerProcess(dict(game=game, settings=values, tests=True), carry=self._carry(seat), log=folder / 'worker.txt')
                 self.drivers.append(worker)
                 self.link.endpoint(seat).open(lambda source, data, worker=worker: worker.deliver(source, data))
 
@@ -237,9 +237,10 @@ def boot_mismatch(executable, out):
         assert driver.exit_code == 0 and driver.exit_reason == pipe.EXIT_STOPPED, (driver.exit_code, driver.exit_reason)
         result = match.result(driver.seat)
         assert int(result['frames']) == 0 and int(result['live']) == 0, result          # no frame ever ran
-        assert 'stopped by Retro-Recomp (4)' in match.stderr(driver.seat)    # RRHK_STOP_BOOT_MISMATCH: « Your game differs from the host's »
-    assert 'Hélène' in match.drivers[0].detail and 'boot digest' in match.drivers[0].detail, match.drivers[0].detail
-    assert 'Hélène' in match.drivers[1].detail, match.drivers[1].detail
+        # RRHK_STOP_BOOT_MISMATCH (4) « Your game differs from the host's » only for the seat whose game differs; the others are ended (3)
+        assert f'stopped by Retro-Recomp ({4 if driver.seat == 2 else 3})' in match.stderr(driver.seat), match.stderr(driver.seat)
+    assert 'Helene' in match.drivers[0].detail and 'boot digest' in match.drivers[0].detail, match.drivers[0].detail
+    assert 'Helene' in match.drivers[1].detail, match.drivers[1].detail
     return f'seat 3 starts from another state: the launch was refused before frame 0 on all three seats ({match.drivers[0].detail})'
 
 
