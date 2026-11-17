@@ -104,9 +104,77 @@ struct RrAmigaSession {
     // The Kickstart's instructions run on the interpreter while observing: the address and the words as they stand (a slave patches
     // some). Written beside the observations, in the conversion's private work folder only; the library keeps the addresses alone.
     std::set<std::pair<uint32_t, std::string>> kick_observed;
+    // A multiplayer session (RrAmigaGame.session): every seat starts from the install's own files, and what the game saves stays in
+    // memory (`overlay`, entries appended, the last one of a name wins), part of the in-process snapshot, never written to disk. The
+    // recorder notes nothing while side effects are off (a silent frame, a guest).
+    bool session = false, effects = true;
+    std::vector<uint8_t> overlay;    // OVERLAY_CAP bytes, sized once at the start; `overlay_used` of them hold entries
+    size_t overlay_used = 0;
 };
 
 static RrAmigaSession *S;   // the hooks of Moira and of the resload layer reach the one session of the process
+
+// The saves of a session (RrAmigaSession.overlay): each entry is the name's length (2 bytes, little-endian), the name (lower case), 1
+// when the file was removed, the size (4 bytes) and the bytes. 2 MiB hold a WHDLoad install's high-score files and a saved disk image
+// (880 KiB) twice; a save that still does not fit once the older entries of each name are dropped is told the disk is full, the same
+// on every seat.
+static constexpr size_t OVERLAY_CAP = 2u << 20;
+
+static uint32_t le32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
+
+// Each entry in order: its name, removed, size, bytes.
+template <class F> static void overlay_walk(const uint8_t *p, size_t used, F &&f) {
+    size_t at = 0;
+    while (at + 7 <= used) {
+        const size_t length = (size_t)p[at] | (size_t)p[at + 1] << 8;
+        const uint8_t *name = p + at + 2;
+        const bool removed = p[at + 2 + length] != 0;
+        const uint32_t size = le32(p + at + 3 + length);
+        f(std::string((const char *)name, length), removed, p + at + 7 + length, size);
+        at += 7 + length + size;
+    }
+}
+
+// The last entry of `key`: -1 none, 0 removed, 1 there (its bytes in `data`, `size`).
+static int overlay_find(const std::string &key, const uint8_t **data, uint32_t *size) {
+    int found = -1;
+    overlay_walk(S->overlay.data(), S->overlay_used, [&](const std::string &name, bool removed, const uint8_t *bytes, uint32_t n) {
+        if (name != key) return;
+        found = removed ? 0 : 1; *data = bytes; *size = n;
+    });
+    return found;
+}
+
+// Appends an entry; when it does not fit, the older entries of each name go first. false: the disk is full.
+static bool overlay_put(const std::string &key, const uint8_t *data, uint32_t size, bool removed) {
+    const size_t need = 7 + key.size() + size;
+    if (key.size() > 0xFFFF) return false;
+    if (S->overlay_used + need > S->overlay.size()) {
+        std::map<std::string, std::vector<uint8_t>> last;
+        overlay_walk(S->overlay.data(), S->overlay_used, [&](const std::string &name, bool gone, const uint8_t *bytes, uint32_t n) {
+            std::vector<uint8_t> entry;
+            entry.push_back((uint8_t)name.size()); entry.push_back((uint8_t)(name.size() >> 8));
+            entry.insert(entry.end(), name.begin(), name.end());
+            entry.push_back(gone ? 1 : 0);
+            for (int b = 0; b < 4; b++) entry.push_back((uint8_t)(n >> (8 * b)));
+            entry.insert(entry.end(), bytes, bytes + n);
+            last[name] = std::move(entry);
+        });
+        last.erase(key);
+        size_t at = 0;
+        for (auto &e : last) { memcpy(S->overlay.data() + at, e.second.data(), e.second.size()); at += e.second.size(); }
+        S->overlay_used = at;
+        if (at + need > S->overlay.size()) return false;
+    }
+    uint8_t *p = S->overlay.data() + S->overlay_used;
+    p[0] = (uint8_t)key.size(); p[1] = (uint8_t)(key.size() >> 8);
+    memcpy(p + 2, key.data(), key.size());
+    p[2 + key.size()] = removed ? 1 : 0;
+    for (int b = 0; b < 4; b++) p[3 + key.size() + b] = (uint8_t)(size >> (8 * b));
+    if (size) memcpy(p + 7 + key.size(), data, size);
+    S->overlay_used += need;
+    return true;
+}
 
 // UTF-8 text to a path (std::filesystem::u8path is deprecated in C++20).
 static fs::path upath(const std::string &s) { return fs::path(std::u8string(s.begin(), s.end())); }
@@ -173,7 +241,12 @@ static void note_viewport(RrAmigaSession *s, const ViewportMsg &v) {
 }
 
 static int file_cb(void *, const char *name, const uint8_t **data, uint32_t *size) {
-    auto it = S->files.find(key_of(name));
+    const std::string key = key_of(name);
+    if (S->session) {
+        const int saved = overlay_find(key, data, size);
+        if (saved >= 0) return saved;
+    }
+    auto it = S->files.find(key);
     if (it == S->files.end()) return 0;
     *data = it->second.data();
     *size = (uint32_t)it->second.size();
@@ -185,9 +258,21 @@ static int file_cb(void *, const char *name, const uint8_t **data, uint32_t *siz
 static int list_cb(void *, uint32_t index, const char **name, uint32_t *size) {
     if (index == 0) {
         S->listing.clear();
-        for (auto &f : S->files) {
+        // A session's saves: the last entry of each name, over the install's files (in name order, as the map gives them).
+        std::map<std::string, std::pair<bool, uint32_t>> saved;
+        if (S->session)
+            overlay_walk(S->overlay.data(), S->overlay_used, [&](const std::string &key, bool removed, const uint8_t *, uint32_t n) {
+                saved[key] = {removed, n};
+            });
+        std::map<std::string, uint32_t> all;
+        for (auto &f : S->files) all[f.first] = (uint32_t)f.second.size();
+        for (auto &f : saved) {
+            if (f.second.first) all.erase(f.first);
+            else all[f.first] = f.second.second;
+        }
+        for (auto &f : all) {
             auto shown = S->display.find(f.first);
-            S->listing.push_back({to_latin1(shown != S->display.end() ? shown->second : f.first), (uint32_t)f.second.size()});
+            S->listing.push_back({to_latin1(shown != S->display.end() ? shown->second : f.first), f.second});
         }
     }
     if (index >= S->listing.size()) return 0;
@@ -269,15 +354,17 @@ static bool in_kickstart(uint32_t pc) {
 // slave (disk full) and leaves both the file and what the game reads back as they were.
 static int save_cb(void *, const char *name, uint32_t offset, const uint8_t *data, uint32_t size, int whole) {
     const std::string key = key_of(name);
-    if (S->saves && !rr_amiga_savefile::inside_folder(key)) return RR_DOS_WRITE_PROTECTED;
+    if ((S->saves || S->session) && !rr_amiga_savefile::inside_folder(key)) return RR_DOS_WRITE_PROTECTED;
     std::vector<uint8_t> next;
     if (whole) next.assign(data, data + size);
     else {
-        auto it = S->files.find(key);
-        if (it != S->files.end()) next = it->second;
+        const uint8_t *was = nullptr;
+        uint32_t was_size = 0;
+        if (file_cb(nullptr, name, &was, &was_size)) next.assign(was, was + was_size);
         if (next.size() < (size_t)offset + size) next.resize((size_t)offset + size, 0);
         std::copy(data, data + size, next.begin() + offset);
     }
+    if (S->session) return overlay_put(key, next.data(), (uint32_t)next.size(), false) ? 0 : RR_DOS_DISK_FULL;
     if (S->saves && !rr_amiga_savefile::replace_file(S->save_dir / upath(key), next)) return RR_DOS_DISK_FULL;
     S->files[key] = std::move(next);
     return 0;
@@ -285,6 +372,7 @@ static int save_cb(void *, const char *name, uint32_t offset, const uint8_t *dat
 
 static int remove_cb(void *, const char *name) {
     const std::string key = key_of(name);
+    if (S->session) { overlay_put(key, nullptr, 0, true); return 0; }
     S->files.erase(key);
     if (S->saves && rr_amiga_savefile::inside_folder(key)) { std::error_code ec; fs::remove(S->save_dir / upath(key), ec); }
     return 0;
@@ -326,7 +414,7 @@ static bool instruction_hook(vamiga::moira::Moira &m, u32 pc, u16 op) {
         }
         return false;
     }
-    if (S->recorder && in_ram(pc)) record_window(pc);
+    if (S->recorder && S->effects && in_ram(pc)) record_window(pc);
     if (S->observing && in_ram(pc)) {
         // 12 bytes hold any 68000 instruction (10 at most). On the A1200, 16 (the bound of every machine's observations) hold every
         // 68EC020 instruction but a MOVE between two full-extension modes (up to 22 bytes), which stays interpreted and counted.
@@ -426,7 +514,8 @@ static bool enter_slave(const RrAmigaGame *game, char *error, size_t error_size)
     for (size_t i = 0; i < n; i++) poke(nullptr, slave_area + (uint32_t)i, slave[i]);
     for (uint32_t k = 0; k < RR_RESLOAD_ENTRIES; k++) poke32(S->resload_table + 4 * k, 0x4E754E71);
 
-    S->host = RrResloadHost{nullptr, peek, poke, file_cb, game->save_dir ? save_cb : nullptr, game->save_dir ? remove_cb : nullptr, nullptr};
+    const bool writable = game->save_dir || S->session;     // a session's saves stay in memory (RrAmigaSession.overlay)
+    S->host = RrResloadHost{nullptr, peek, poke, file_cb, writable ? save_cb : nullptr, writable ? remove_cb : nullptr, nullptr};
     S->host.list = list_cb;
     S->host.kickstart = kick_cb;
     if (S->model == RR_AMIGA_MODEL_A1200) {
@@ -494,7 +583,9 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->display[lower(game->files[i].name)] = game->files[i].name;
     }
     if (game->kickstart && game->kickstart_size) S->kick.assign(game->kickstart, game->kickstart + game->kickstart_size);
-    if (game->save_dir && *game->save_dir) {
+    S->session = game->session != 0;
+    if (S->session) S->overlay.assign(OVERLAY_CAP, 0);     // the player's own saves are not read: every seat starts the same
+    else if (game->save_dir && *game->save_dir) {
         S->saves = true;
         S->save_dir = upath(game->save_dir);
         std::error_code ec;
@@ -577,6 +668,13 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
     S->lines = S->ntsc ? RR_AMIGA_PICTURE_LINES_NTSC : RR_AMIGA_PICTURE_LINES_PAL;
     S->rows = S->lines;
     S->picture.assign((size_t)RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_ROWS, 0xFF000000u);
+    // A session's machine starts as a snapshot's load leaves it (vAmiga's empty hard drives describe themselves again after a load,
+    // which changes the bytes of their state): the same state whether a seat has rolled back yet or not.
+    if (S->session) {
+        std::vector<uint8_t> once(rr_amiga_snap_bound(S));
+        const size_t n = rr_amiga_snap_save(S, once.data(), once.size());
+        if (!n || !rr_amiga_snap_load(S, once.data(), n)) { fail(error, error_size, "The Amiga machine could not start a session."); return nullptr; }
+    }
     return S;
 }
 
@@ -961,6 +1059,63 @@ extern "C" int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *p
 struct StateHead { char magic[16]; char abi[72]; char identity[72]; uint64_t frame; uint32_t joy, mouse_left, mouse_right, snapshot_size, audio_size, port1; uint64_t checksum; };
 static_assert(sizeof(StateHead) == 200, "the Amiga state header is 200 bytes (retrorecomp/amiga_conversion.py, damaged_states)");
 
+// vAmiga's state and the sound path's, from a quick state (`in_process` false: a Snapshot, checked by vAmiga) or a session's
+// snapshot (CoreComponent::rrLoad, every component's size checked before a byte is read). false: refused.
+static bool machine_load(RrAmigaSession *s, const uint8_t *data, size_t size, bool in_process, const uint8_t *audio, size_t audio_size) {
+    kick_window(false);
+    try {
+        if (in_process) {
+            if (s->amiga->rrLoad(data, (isize)size) != (isize)size) { kick_window(true); return false; }
+        } else {
+            s->amiga->loadSnapshot(Snapshot(data, (isize)size));
+        }
+        s->amiga->agnus.rrAfterLoad();   // stage 7's derived state of the timeline left goes
+    } catch (std::exception &) {
+        kick_window(true);
+        return false;
+    }
+    if (!s->amiga->audioPort.rrLoadAudio(audio, audio_size)) { kick_window(true); return false; }
+    s->amiga->audioPort.stream.clear(SamplePair{0, 0});   // the load may have padded the stream; the frames after it hold only what they make
+    return true;
+}
+
+// The session's own state after machine_load: the resload state (this process's host callbacks kept), the Kickstart's window, the
+// frame, the inputs held, port 1's device, the keys, the CPU's speed (the player's own, or the session's), the traps and the hook.
+static void after_load(RrAmigaSession *s, RrResload rl, uint64_t frame, unsigned joy, unsigned joy2, int mouse_left, int mouse_right,
+                       int port1_joystick, const uint8_t keys[128]) {
+    rl.host = s->rl.host;
+    s->rl = rl;
+    // The Kickstart the saved timeline had loaded, wherever it came from (a header loads it before the slave, but
+    // resload_LoadKick only when the slave calls it): its copy is in the restored ExpMem, so only the window is set again. A timeline
+    // saved before its resload_LoadKick (a session rolled back past it) has none yet: vAmiga's own mapping, as before the call.
+    if (s->rl.kick_loaded && s->rl.exp_mem && (s->rl.kick_size == 0x40000 || s->rl.kick_size == 0x80000) && s->kick.size() == s->rl.kick_size) {
+        s->kick_base = s->rl.exp_mem;
+        s->kick_size = s->rl.kick_size;
+    } else {
+        s->kick_base = s->kick_size = 0;
+    }
+    native_kick_window();
+    kick_window(true);
+    s->frame = frame;
+    // The inputs held when the state was saved: what the machine's ports hold now.
+    s->joy = joy; s->joy2 = joy2; s->mouse_left = mouse_left; s->mouse_right = mouse_right;
+    // vAmiga's joysticks and mouse buttons come back from a snapshot neutral (a fire button held at the save was lost: a state saved in a
+    // Lotus 2 race, fire held, continued with the fire released, 14 Nov 2026), and the next frame's inputs, unchanged, would not press them
+    // again: what was held is pressed again here, from neutral, as the frame's inputs would. Port 1 is then plugged as it was saved.
+    joystick_actions(s->amiga->controlPort2.joystick, 0, s->joy);
+    joystick_actions(s->amiga->controlPort1.joystick, 0, s->joy2);
+    if (s->mouse_left) s->amiga->controlPort1.mouse.trigger(GamePadAction::PRESS_LEFT);
+    if (s->mouse_right) s->amiga->controlPort1.mouse.trigger(GamePadAction::PRESS_RIGHT);
+    s->port1_joystick = port1_joystick;
+    s->amiga->controlPort1.setDevice(s->port1_joystick ? ControlPortDevice::JOYSTICK : ControlPortDevice::MOUSE);
+    memcpy(s->keys, keys, sizeof s->keys);
+    s->amiga->keyboard.rrSetKeysDown(keys);   // the keyboard's own held keys (no snapshot keeps them): those held at the save
+    // The snapshot restored the CPU speed it was saved with; the player's own choice holds.
+    apply_cpu_factor(s);
+    set_traps();
+    update_hook();
+}
+
 extern "C" int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi, const char *identity) {
     try {
         // vAmiga saves an ordinary machine: the WOM over ExpMem is lifted around the snapshot (its reader reallocates
@@ -1057,27 +1212,8 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
         ok = fnv(sum, prior.data(), prior.size() * sizeof(uint32_t)) == expected;
     }
     if (!ok) return 3;
-    kick_window(false);
-    try {
-        s->amiga->loadSnapshot(Snapshot(data.data(), (isize)data.size()));
-        s->amiga->agnus.rrAfterLoad();   // stage 7's derived state of the timeline left goes
-    } catch (std::exception &) {
-        kick_window(true);
-        return 3;
-    }
-    if (!s->amiga->audioPort.rrLoadAudio(audio.data(), audio.size())) { kick_window(true); return 3; }
-    s->amiga->audioPort.stream.clear(SamplePair{0, 0});   // the load may have padded the stream; the frames after it hold only what they make
-    rl.host = s->rl.host;
-    s->rl = rl;
-    // The Kickstart the saved timeline had loaded, wherever it came from (a header loads it before the slave, but
-    // resload_LoadKick only when the slave calls it): its copy is in the restored ExpMem, so only the window is set again.
-    if (s->rl.kick_loaded && s->rl.exp_mem && (s->rl.kick_size == 0x40000 || s->rl.kick_size == 0x80000) && s->kick.size() == s->rl.kick_size) {
-        s->kick_base = s->rl.exp_mem;
-        s->kick_size = s->rl.kick_size;
-        native_kick_window();
-    }
-    kick_window(true);
-    s->frame = head.frame;
+    if (!machine_load(s, data.data(), data.size(), false, audio.data(), audio.size())) return 3;
+    after_load(s, rl, head.frame, head.joy, head.port1 >> 8 & 0xFFu, (int)head.mouse_left, (int)head.mouse_right, (int)(head.port1 & 1u), keys);
     // The field the saved frame ended with, for the next frame's weave (none held: the next interlaced frame starts alone).
     s->held = std::move(held);
     s->held_lof = held_info ? (int)(held_info >> 1 & 1u) : -1;
@@ -1085,22 +1221,112 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
     s->prior = std::move(prior);
     s->prior_lof = prior_info ? (int)(prior_info >> 1 & 1u) : -1;
     s->prior_frame = head.frame - 1;
-    // The inputs held when the state was saved: what the machine's ports hold now.
-    s->joy = head.joy; s->mouse_left = (int)head.mouse_left; s->mouse_right = (int)head.mouse_right;
-    s->joy2 = head.port1 >> 8 & 0xFFu;
-    // vAmiga's joysticks and mouse buttons come back from a snapshot neutral (a fire button held at the save was lost: a state saved in a
-    // Lotus 2 race, fire held, continued with the fire released, 14 Nov 2026), and the next frame's inputs, unchanged, would not press them
-    // again: what was held is pressed again here, from neutral, as the frame's inputs would. Port 1 is then plugged as it was saved.
-    joystick_actions(s->amiga->controlPort2.joystick, 0, s->joy);
-    joystick_actions(s->amiga->controlPort1.joystick, 0, s->joy2);
-    if (s->mouse_left) s->amiga->controlPort1.mouse.trigger(GamePadAction::PRESS_LEFT);
-    if (s->mouse_right) s->amiga->controlPort1.mouse.trigger(GamePadAction::PRESS_RIGHT);
-    s->port1_joystick = (int)(head.port1 & 1u);
-    s->amiga->controlPort1.setDevice(s->port1_joystick ? ControlPortDevice::JOYSTICK : ControlPortDevice::MOUSE);
-    memcpy(s->keys, keys, sizeof keys);
-    // The snapshot restored the CPU speed it was saved with; the player's own choice holds.
-    apply_cpu_factor(s);
-    set_traps();
-    update_hook();
     return 0;
 }
+
+// ---- the in-process snapshot of a multiplayer session (rollback) ----------------------------------------------------------
+// The head (named fields), the resload state as this process holds it (its host callbacks are this process's: never sent), vAmiga's
+// state (CoreComponent::rrSave: the same bytes as a quick state's snapshot, without its checksums), the sound path, a session's saves.
+struct SnapHead { uint32_t magic, vamiga, audio, overlay; uint64_t frame; uint32_t joy, joy2, mouse_left, mouse_right, port1_joystick; uint8_t keys[128], keys_down[128]; };
+static constexpr uint32_t SNAP_MAGIC = 0x52524153u;   // "RRAS"
+
+extern "C" size_t rr_amiga_snap_bound(RrAmigaSession *s) {
+    kick_window(false);
+    const size_t machine = (size_t)s->amiga->size();
+    kick_window(true);
+    return sizeof(SnapHead) + sizeof(RrResload) + machine + s->amiga->audioPort.rrAudioBound() + s->overlay.size();
+}
+
+extern "C" size_t rr_amiga_snap_save(RrAmigaSession *s, void *buffer, size_t capacity) {
+    uint8_t *out = (uint8_t *)buffer;
+    SnapHead head{};
+    size_t at = sizeof head + sizeof s->rl;
+    if (capacity < at) return 0;
+    try {
+        s->amiga->agnus.rrBeforeSave();     // as a quick state: no disk event or batched line is left held back
+        kick_window(false);
+        isize n = 0;
+        try { n = s->amiga->rrSave(out + at, (isize)(capacity - at)); } catch (...) { kick_window(true); throw; }
+        kick_window(true);
+        if (n <= 0) return 0;
+        head.vamiga = (uint32_t)n;
+        at += (size_t)n;
+    } catch (std::exception &) {
+        return 0;
+    }
+    const size_t audio = s->amiga->audioPort.rrSaveAudioTo(out + at, capacity - at);
+    if (!audio) return 0;
+    head.audio = (uint32_t)audio;
+    at += audio;
+    if (s->overlay_used > capacity - at) return 0;
+    memcpy(out + at, s->overlay.data(), s->overlay_used);
+    head.overlay = (uint32_t)s->overlay_used;
+    at += s->overlay_used;
+    head.magic = SNAP_MAGIC;
+    head.frame = s->frame; head.joy = s->joy; head.joy2 = s->joy2;
+    head.mouse_left = (uint32_t)s->mouse_left; head.mouse_right = (uint32_t)s->mouse_right; head.port1_joystick = (uint32_t)s->port1_joystick;
+    memcpy(head.keys, s->keys, sizeof head.keys);
+    s->amiga->keyboard.rrKeysDown(head.keys_down);
+    memcpy(out, &head, sizeof head);
+    memcpy(out + sizeof head, &s->rl, sizeof s->rl);
+    return at;
+}
+
+extern "C" int rr_amiga_snap_load(RrAmigaSession *s, const void *buffer, size_t size) {
+    const uint8_t *in = (const uint8_t *)buffer;
+    SnapHead head;
+    RrResload rl;
+    if (!buffer || size < sizeof head + sizeof rl) return 0;
+    memcpy(&head, in, sizeof head);
+    memcpy(&rl, in + sizeof head, sizeof rl);
+    if (head.magic != SNAP_MAGIC || head.overlay > s->overlay.size() ||
+        sizeof head + sizeof rl + (size_t)head.vamiga + head.audio + head.overlay != size) return 0;
+    const uint8_t *machine = in + sizeof head + sizeof rl;
+    if (!machine_load(s, machine, head.vamiga, true, machine + head.vamiga, head.audio)) return 0;
+    memcpy(s->overlay.data(), machine + head.vamiga + head.audio, head.overlay);
+    s->overlay_used = head.overlay;
+    after_load(s, rl, head.frame, head.joy, head.joy2, (int)head.mouse_left, (int)head.mouse_right, (int)head.port1_joystick, head.keys);
+    s->amiga->keyboard.rrSetKeysDown(head.keys_down);   // exactly the keyboard's (a full queue may not have taken a held key)
+    // The picture's held fields belong to the timeline left (no allocation: the buffers keep their room).
+    s->held.clear(); s->held_lof = -1;
+    s->prior.clear(); s->prior_lof = -1;
+    s->pcm.clear();
+    return 1;
+}
+
+static void put_le(uint64_t &h, uint64_t value, int bytes) {
+    for (int b = 0; b < bytes; b++) { const uint8_t v = (uint8_t)(value >> (8 * b)); h = fnv(h, &v, 1); }
+}
+
+extern "C" uint64_t rr_amiga_digest(RrAmigaSession *s) {
+    // vAmiga's state through the snapshot's own walk, into a buffer kept for the digests (the first one sizes it).
+    static std::vector<uint8_t> scratch;
+    uint64_t h = 14695981039346656037ull;
+    put_le(h, s->frame, 8);
+    put_le(h, s->joy, 4); put_le(h, s->joy2, 4); put_le(h, (uint32_t)s->mouse_left, 4); put_le(h, (uint32_t)s->mouse_right, 4);
+    put_le(h, (uint32_t)s->port1_joystick, 4);
+    put_le(h, s->kick_base, 4); put_le(h, s->kick_size, 4);
+    put_le(h, s->rl.io_error, 4); put_le(h, s->rl.kick_loaded, 1);
+    h = fnv(h, s->keys, sizeof s->keys);
+    {
+        uint8_t down[128];
+        s->amiga->keyboard.rrKeysDown(down);
+        h = fnv(h, down, sizeof down);
+    }
+    try {
+        kick_window(false);
+        const size_t need = (size_t)s->amiga->size();
+        if (scratch.size() < need) scratch.resize(need);
+        isize n = 0;
+        try { s->amiga->agnus.rrBeforeSave(); n = s->amiga->rrSave(scratch.data(), (isize)scratch.size()); } catch (...) { kick_window(true); throw; }
+        kick_window(true);
+        put_le(h, (uint64_t)n, 8);
+        h = fnv(h, scratch.data(), (size_t)std::max<isize>(n, 0));
+    } catch (std::exception &) {
+        put_le(h, 0, 8);
+    }
+    put_le(h, s->overlay_used, 8);
+    return fnv(h, s->overlay.data(), s->overlay_used);
+}
+
+extern "C" void rr_amiga_side_effects(RrAmigaSession *s, int allowed) { s->effects = allowed != 0; }

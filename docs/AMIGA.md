@@ -360,3 +360,26 @@ they stay `P`; no gate was relaxed for the exit.
 Not converted: ADF disk images, the CD32. Known: AGA super-hires at half its detail. Code past the routes runs interpreted, counted and
 shown; the hardware is vAmiga's (Alice, Lisa, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is
 claimed. The slow RAM at `$C00000` is kept as it is, on the owner's decision of 16 November 2026 (« Ok, on garde comme ça, note-le »).
+
+## 8. Multiplayer (next release)
+
+Both Amigas play in a multiplayer session at the NES's level: the rollback tier and the host's F8 / F9 for everyone (Arthur, 17 November
+2026: « pour les consoles à sprite, j'aimerais quand même atteindre ce qu'on arrive à faire avec la NES… Y compris pour de l'Amiga »).
+
+- **What the session carries.** The two joysticks (port 2, and port 1, which holds the joystick for the whole match) and Start, the
+  guest's Return key. The keyboard and the mouse are not carried yet, so a mouse game is not for a session.
+- **The snapshot** (`rr_amiga_snap_*`, in memory only, one per frame on the rollback tier) is the whole machine: vAmiga's state through
+  its own serialiser without its per-component checksums, the sound path, the resload state, the inputs and the keyboard's held keys,
+  and the session's saves. No allocation per call. About 2.7 MB on the Amiga 500 and 4.3 MB on the Amiga 1200; its time is not
+  measured yet.
+- **Saves.** Every seat starts from the install's own files; what the game saves stays in memory for the match (inside the snapshot,
+  so a rollback takes it back) and is never written to disk. Arthur's final rule, the host's saves sent to every seat, comes with the
+  shared save transfer.
+- **The CPU speed** (x1, x2, x4) changes the run: the host's value is played by every seat, and the F2 row is refused during the match
+  (Arthur, 17 November 2026: « Cette partie-là devra être synchro par l'hôte »).
+- **Restart.** The host's restart takes every seat back to the state the session started with; alone, a restart still starts the process
+  again.
+- **Proof.** `tools/amiga_rollback_selftest.py` on an authored slave (both models), a headless `--rollback-check` of Lotus 2 (native
+  code), and two copies of Lotus 2 on the rollback tier with the host's save, load and restart (`tools/netplay_game_smoke.py`); the
+  same on All New World of Lemmings for the Amiga 1200; details
+  in [UPGRADES.md](UPGRADES.md#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release). Physical latency is not measured.

@@ -90,7 +90,7 @@ LIVENESS_FIELDS = {'frames': 'frames', 'distinct_pictures': 'distinct_pictures',
 def sdk_stamp(part: str | None = None) -> str:
     """The identity of the Amiga's build inputs (its stamped files and the vAmiga adaptation); part='game' leaves the shell out."""
     from .compilation_inputs import engine_stamp, role_stamps
-    from .amiga_vamiga_display import adaptation_digest
+    from .amiga_vamiga_session import adaptation_digest
     value = hashlib.sha256(b'amiga-sdk-v1\0')
     value.update((role_stamps('amiga')['game'] if part == 'game' else engine_stamp('amiga')).encode())
     value.update(b'\0' + adaptation_digest().encode())
@@ -258,9 +258,9 @@ def write_events(path: Path, events) -> Path:
 
 # --------------------------------------------------------------------------------------------------------- building
 def machine_core(base: Path, emit) -> Path:
-    from . import amiga_vamiga, amiga_vamiga_display
+    from . import amiga_vamiga, amiga_vamiga_session
     with entry_lock(base / 'vamiga-lock', timeout=1800):
-        return amiga_vamiga_display.adapt(amiga_vamiga.source(emit), base / 'vamiga')
+        return amiga_vamiga_session.adapt(amiga_vamiga.source(emit), base / 'vamiga')
 
 
 def cmake_build(build: Path, core: Path, *, emit, generated: Path | None = None, payload: Path | None = None, tools: bool = False,

@@ -274,6 +274,8 @@ NOT_INPUTS = (
     'native/amiga_machine/amiga_blit_checks.cpp',
     # tools/amiga_display_selftest.py (Agnus and Denise recorded instruction by instruction and frame by frame, for the fast paths to come): the same, a check, never in a game.
     'native/amiga_machine/amiga_display_checks.cpp',
+    # tools/amiga_rollback_selftest.py (a multiplayer session's in-process snapshot on an authored slave): the same, a check, never in a game.
+    'native/amiga_machine/amiga_rollback_checks.cpp',
     # Stage 7's bus model in shadow (after 1.7.3): compiled into the display self-test and, on request (RR_AMIGA_SHADOW, off by default),
     # into a private reference player; never into a game while it controls nothing. It joins the Amiga's game files when it takes control.
     'native/amiga_machine/amiga_bus.h', 'native/amiga_machine/amiga_bus.cpp',
@@ -729,6 +731,7 @@ INPUTS = _resolve({
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_vamiga_display',
+        'retrorecomp.amiga_vamiga_session',
         'retrorecomp.amiga_whdload',
         'retrorecomp.m68020_lengths',
     ),
