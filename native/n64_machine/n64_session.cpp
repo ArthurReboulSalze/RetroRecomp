@@ -290,14 +290,25 @@ int rr_n64_frame(RrN64Session *s)
     s->frame_new = false;
     retro_run();
     s->frame++;
+    rr_n64_cpu_session_clock_keep();
     if (s->renderer_reset) {
         // The internal resolution is read when the renderer starts: a new renderer, between two frames, on the same Vulkan device
         // (the libretro context calls would drop the device, which only a frontend that recreates it may do).
+        // The renderer's own memory (hidden RDRAM, TMEM, the dither noise's primitive count, the last commands that set its
+        // registers) goes over to the new one, as a quick state carries it: without it GoldenEye 007's RDRAM differed from the
+        // frame after a change of resolution in play (1,158 of 1,800 frames), and a multiplayer seat changing its picture
+        // would have left the others.
         s->renderer_reset = false;
+        std::vector<uint8_t> kept(parallel_rdp_memory_size());
+        const bool have_kept = !kept.empty() && parallel_rdp_memory_save(kept.data(), kept.size());
         rr_vk_host_wait_idle(&s->vulkan);
         s->vulkan.have_image = 0;
         if (!parallel_init()) {
             s->error = "The renderer could not start again with these graphics options.";
+            return -1;
+        }
+        if (have_kept && !parallel_rdp_memory_load(kept.data(), kept.size())) {
+            s->error = "The renderer could not keep its memory across the change of graphics options.";
             return -1;
         }
     }
@@ -394,6 +405,18 @@ uint8_t *rr_n64_save_memory(RrN64Session *, size_t *size)
 {
     *size = retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
     return static_cast<uint8_t *>(retro_get_memory_data(RETRO_MEMORY_SAVE_RAM));
+}
+
+uint64_t rr_n64_digest(RrN64Session *s)
+{
+    size_t size = 0;
+    const uint8_t *saves = rr_n64_save_memory(s, &size);
+    return rr_n64_cpu_digest(saves, saves ? size : 0);
+}
+
+void rr_n64_session_clock(RrN64Session *s, uint64_t clock)
+{
+    if (s) rr_n64_cpu_session_clock(clock, &s->frame, s->fps);
 }
 
 uint64_t rr_n64_interpreted_count(const RrN64Session *) { return ::rr_n64_interpreted; }

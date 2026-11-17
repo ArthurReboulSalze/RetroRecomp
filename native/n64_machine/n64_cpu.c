@@ -17,7 +17,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
+#include "backends/api/clock_backend.h"
 #include "device/r4300/r4300_core.h"
 #include "device/r4300/cp0.h"
 #include "device/device.h"
@@ -308,6 +310,96 @@ uint64_t rr_n64_cpu_state_hash(void)
     FOLD(r4300_cp0_regs(&cpu->cp0), 32 * 4);
 #undef FOLD
     return h;
+}
+
+/* ---- multiplayer (hostkit RrhkMachine.digest and session_begin) ----
+ * The digest folds named fields as integer values, in this fixed order, never a struct's bytes nor a pointer: the same on Windows
+ * and Linux. The quick state cannot serve: about a kilobyte of the core's own block holds heap and code addresses that differ
+ * from one run to the next. */
+static uint64_t mix(uint64_t h, uint64_t v) { h ^= v; h *= 1099511628211ull; return h ^ (h >> 29); }
+/* A memory the core has not set up yet (before the first frame, when a session takes its start digest) counts as absent. */
+static uint64_t mix_words(uint64_t h, const uint32_t *w, size_t count)
+{
+    size_t i;
+    if (!w) return mix(h, 0x6E6F6E65ull);
+    for (i = 0; i < count; i++) h = mix(h, w[i]);
+    return h;
+}
+
+uint64_t rr_n64_cpu_digest(const uint8_t *saves, size_t saves_size)
+{
+    struct r4300_core *r = &g_dev.r4300;
+    const int64_t *gpr = r4300_regs(r);
+    const uint32_t *cp0 = r4300_cp0_regs(&r->cp0);
+    const cp1_reg *fpr = r4300_cp1_regs(&r->cp1);
+    uint64_t h = 1469598103934665603ull;
+    size_t i;
+    for (i = 0; i < 32; i++) h = mix(h, (uint64_t)gpr[i]);                       /* VR4300: GPRs, HI, LO, PC */
+    h = mix(h, (uint64_t)*r4300_mult_hi(r));
+    h = mix(h, (uint64_t)*r4300_mult_lo(r));
+    h = mix(h, rr_n64_cpu_pc());   /* 0 before the machine has started */
+    h = mix_words(h, cp0, 32);                                                     /* COP0 (Count, Compare, Status, Cause...) */
+    for (i = 0; i < 32; i++) h = mix(h, (uint64_t)fpr[i].dword);                  /* COP1 registers, FCR0, FCR31 */
+    h = mix(h, *r4300_cp1_fcr0(&r->cp1));
+    h = mix(h, *r4300_cp1_fcr31(&r->cp1));
+    h = mix_words(h, g_dev.sp.mem, SP_MEM_SIZE / 4);                               /* RSP: DMEM and IMEM, its registers */
+    h = mix_words(h, g_dev.sp.regs, SP_REGS_COUNT);
+    h = mix_words(h, g_dev.sp.regs2, SP_REGS2_COUNT);
+    h = mix_words(h, g_dev.dp.dpc_regs, DPC_REGS_COUNT);                           /* RDP command and span registers */
+    h = mix_words(h, g_dev.dp.dps_regs, DPS_REGS_COUNT);
+    h = mix_words(h, g_dev.mi.regs, MI_REGS_COUNT);                                /* MI, VI, AI, PI, RI, SI */
+    h = mix_words(h, g_dev.vi.regs, VI_REGS_COUNT);
+    h = mix_words(h, g_dev.ai.regs, AI_REGS_COUNT);
+    h = mix_words(h, g_dev.pi.regs, PI_REGS_COUNT);
+    h = mix_words(h, g_dev.ri.regs, RI_REGS_COUNT);
+    h = mix_words(h, g_dev.si.regs, SI_REGS_COUNT);
+    if (g_dev.pif.ram) for (i = 0; i < PIF_RAM_SIZE; i++) h = mix(h, g_dev.pif.ram[i]);   /* PIF RAM */
+    else h = mix(h, 0x6E6F6E65ull);
+    h = mix(h, (uint64_t)g_dev.rdram.dram_size);                                   /* RDRAM, whole */
+    h = mix_words(h, g_dev.rdram.dram, g_dev.rdram.dram_size / 4);
+    h = mix(h, (uint64_t)saves_size);                                              /* cartridge saves and the four paks */
+    for (i = 0; i + 4 <= saves_size; i += 4)
+        h = mix(h, (uint32_t)saves[i] | (uint32_t)saves[i + 1] << 8 | (uint32_t)saves[i + 2] << 16 | (uint32_t)saves[i + 3] << 24);
+    for (; i < saves_size; i++) h = mix(h, saves[i]);
+    return h;
+}
+
+/* The real-time clock of the cartridges that have one (Animal Forest's): in a session it reads the session's clock plus the
+ * emulated seconds, not this PC's time, so every seat sees the same date. The core turns the time into a date with localtime(),
+ * so the base is shifted by this PC's zone: every seat shows the session's UTC date, whatever its zone. */
+static int64_t session_base;
+static const uint64_t *session_frames;
+static double session_fps = 60.0;
+static time_t session_time(void *clock)
+{
+    (void)clock;
+    return (time_t)(session_base + (int64_t)((double)*session_frames / session_fps));
+}
+static const struct clock_backend_interface session_clock = {session_time};
+static int session_clock_on;
+
+void rr_n64_cpu_session_clock(uint64_t clock, const uint64_t *frames, double fps)
+{
+    time_t utc = (time_t)clock;
+    struct tm fields = *gmtime(&utc);
+    fields.tm_isdst = -1;
+    session_base = (int64_t)mktime(&fields);   /* the local time whose date is the session's UTC date */
+    session_frames = frames;
+    session_fps = fps > 0 ? fps : 60.0;
+    session_clock_on = 1;
+    g_dev.cart.af_rtc.iclock = NULL;           /* set (again) by rr_n64_cpu_session_clock_keep */
+    rr_n64_cpu_session_clock_keep();
+}
+
+/* The core sets up its devices during the first frame (its run loop starts there), which points the cartridge clock at this PC's
+ * time again: the session's clock is put back after each frame until it holds, as at power on (the next read takes it). */
+void rr_n64_cpu_session_clock_keep(void)
+{
+    if (!session_clock_on || g_dev.cart.af_rtc.iclock == &session_clock) return;
+    g_dev.cart.af_rtc.clock = NULL;
+    g_dev.cart.af_rtc.iclock = &session_clock;
+    g_dev.cart.af_rtc.now = 0;
+    g_dev.cart.af_rtc.last_update_rtc = 0;
 }
 
 /* The PC; 0 before the machine has started (the core sets its PC pointer when its CPU loop begins). */

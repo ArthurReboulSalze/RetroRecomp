@@ -98,6 +98,10 @@ const uint8_t *rr_n64_rdram(const RrN64Session *s, size_t *size);
 /* The cartridge's saves and the controller paks as one block (EEPROM, SRAM, Flash, four memory paks), as the core keeps them;
  * the caller loads it before the first frame and writes it when it changed. */
 uint8_t *rr_n64_save_memory(RrN64Session *s, size_t *size);
+/* Multiplayer (n64_cpu.h): the digest of the machine after the last frame, save memory included; the cartridge clock on the
+ * session's (seconds since 1970, then the emulated seconds of this session's frames). */
+uint64_t rr_n64_digest(RrN64Session *s);
+void rr_n64_session_clock(RrN64Session *s, uint64_t clock);
 
 /* VR4300 instructions run by the interpreters (the counted fallback) and by native blocks; block entries and guard misses. */
 uint64_t rr_n64_interpreted_count(const RrN64Session *s);
