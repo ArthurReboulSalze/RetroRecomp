@@ -247,7 +247,9 @@ most 3 of the first replayed, silent frames and the sound block differs because 
 `netplay_game_smoke.py --frames 3000 --rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500` on the same three
 games, and on the five chip games above: PASS, tier rollback on both seats (Super Mario World: 499 and 279 corrections, deepest 4), the save and the load at the same
 frames, digests equal; with `--save-digests`, equal up to frame 1499 and different from frame 1559 when the load acts. The
-digest is not yet compared between Windows and Linux. Physical latency and the cost of a save or a load are not measured.
+digest of every frame of a scripted two-pad route of 3,000 frames (`tools/snes_digest_cross_os.py`: the digest and its seven partitions) is **identical between
+Windows (clang, llvm-mingw) and Linux (GCC 14, Debian 13)** on Super Mario World, Star Fox (Super FX) and Kirby Super Star (SA-1), 17 November
+2026. Physical latency and the cost of a save or a load are not measured.
 
 ## Master System and Game Gear: rollback snapshot and the frame handed over at an instruction boundary (next release)
 
@@ -517,7 +519,7 @@ moves again with `snes_backend.c` (already moving in the section above). Games t
 Shut Up and Jam! and `--seats 3` on Secret of Mana: PASS, rollback tier on every seat, digests equal; Secret of Mana in a room of two:
 PASS and its boot digest differs from the room of three (the tap is plugged from three seats only); `snes_machine_selftest.py --rom`
 on Secret of Mana checks the save image out, back in and a wrong size refused (8 KiB). Not proven: the games' own use of four pads, a
-host save that differs from a guest's, Windows against Linux.
+host save that differs from a guest's.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 
