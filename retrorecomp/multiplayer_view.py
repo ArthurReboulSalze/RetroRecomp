@@ -23,8 +23,12 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from .branding import COLORS
+from .branding import COLORS, ICON_PATHS, make_icon
 from .dialogs import center_dialog
+
+# A thick tick for the guest's Ready button: three parallel strokes, so it stays bold at the button's size.
+ICON_PATHS.setdefault('ready', tuple((2, 8 + d, 6, 12 + d, 14, 3 + d) for d in (-0.6, 0, 0.6)))
+READY_GREEN, READY_GREEN_HOVER = '#45c565', '#5fd47c'
 
 POLL_MS = 150
 CHAT_MAX = 80                    # the lobby's own limit (LOBBY.md section 2); the entry stops there
@@ -95,6 +99,18 @@ class MultiplayerWindow:
                         indicatorbackground=COLORS['field'], indicatorforeground=COLORS['gold'], focuscolor=COLORS['gold'])
         style.map('Multiplayer.TRadiobutton', background=[('active', COLORS['background']), ('disabled', COLORS['background'])],
                   foreground=[('disabled', COLORS['disabled'])], indicatorbackground=[('selected', COLORS['gold'])])
+        # the guest's Ready button: big, gold while not ready, green once ready (Arthur, 17 Nov 2026, after the two-PC test:
+        # « il faut un gros bouton avec un icône… que le joueur ne loupe pas »)
+        for style_name, colour, hover in (('MultiplayerReady.TButton', COLORS['gold'], COLORS['gold_hover']),
+                                    ('MultiplayerReadyOn.TButton', READY_GREEN, READY_GREEN_HOVER)):
+            style.configure(style_name, background=colour, foreground=COLORS['gold_text'], bordercolor=colour,
+                            lightcolor=colour, darkcolor=colour, focuscolor=COLORS['gold_text'],
+                            font=(self.font, 14, 'bold'), padding=(22, 10))
+            style.map(style_name, background=[('disabled', COLORS['panel']), ('active', hover)],
+                      foreground=[('disabled', COLORS['disabled'])],
+                      bordercolor=[('disabled', COLORS['subtle_border'])],
+                      lightcolor=[('disabled', COLORS['panel'])], darkcolor=[('disabled', COLORS['panel'])])
+        self.ready_images = (make_icon(window, 'ready', COLORS['gold_text'], 30), make_icon(window, 'ready', COLORS['disabled'], 30))
         self.body = tk.Frame(window, bg=COLORS['background'], padx=18, pady=16)
         self.body.pack(fill='both', expand=True)
         self.name = tk.StringVar(value=name)
@@ -492,9 +508,16 @@ class MultiplayerWindow:
         self.move_up.pack()
         self.move_down.pack(pady=(4, 0))
         self.moves = moves
+        # a guest's Ready: one big toggle button with its tick, and why it is greyed when it is
         self.ready = tk.BooleanVar()
-        self.ready_box = ttk.Checkbutton(page, text=self.tr('mp_ready'), variable=self.ready,
-                                         command=lambda: self.controller and self.controller.ready(self.ready.get()))
+        self.ready_row = tk.Frame(page, bg=COLORS['background'])
+        normal, disabled = self.ready_images
+        self.ready_button = ttk.Button(self.ready_row, text=self.tr('mp_ready_go'), image=(normal, 'disabled', disabled),
+                                       compound='left', style='MultiplayerReady.TButton', command=self.toggle_ready,
+                                       cursor='hand2')
+        self.ready_button.pack(side='left')
+        self.ready_hint = self.label(self.ready_row, text='', muted=True, size=9, wrap=380)
+        self.ready_hint.pack(side='left', padx=(14, 0))
         self.link_line = self.label(page, text='', muted=True, size=9)
         self.link_line.pack(anchor='w', pady=(6, 0))
         # the chat
@@ -522,6 +545,19 @@ class MultiplayerWindow:
         ttk.Button(row, text=self.tr('mp_leave'), command=self.ask_leave).pack(side='right')
         self.launch_hint = self.label(row, text='', muted=True, size=9)
         self.launch_hint.pack(side='left')
+
+    def toggle_ready(self):
+        """The Ready button: the other state at once (the roster confirms it), the same controller.ready(bool) call."""
+        if self.controller is None or self.ready_button.instate(['disabled']):
+            return
+        self.ready.set(not self.ready.get())
+        self.show_ready()
+        self.controller.ready(self.ready.get())
+
+    def show_ready(self):
+        on = self.ready.get()
+        self.ready_button.configure(text=self.tr('mp_ready_on' if on else 'mp_ready_go'),
+                                    style='MultiplayerReadyOn.TButton' if on else 'MultiplayerReady.TButton')
 
     def bound_chat(self):
         text = self.chat_entry.get()
@@ -646,13 +682,17 @@ class MultiplayerWindow:
             self.seat_table.selection_set(chosen[0])
         if host:
             self.moves.pack(side='left', fill='y', padx=(8, 0))
-            self.ready_box.pack_forget()
+            self.ready_row.pack_forget()
         else:
             self.moves.pack_forget()
-            self.ready_box.pack(anchor='w', pady=(6, 0), before=self.link_line)
+            self.ready_row.pack(fill='x', pady=(10, 2), before=self.link_line)
             mine = next((p for p in players if p.get('guest') == me), {})
             self.ready.set(bool(mine.get('ready')))
-            self.ready_box.state(['!disabled'] if phase == 'lobby' and mine.get('check') == 'same' else ['disabled'])
+            self.show_ready()
+            usable = phase == 'lobby' and mine.get('check') == 'same'
+            self.ready_button.state(['!disabled'] if usable else ['disabled'])
+            self.ready_hint.configure(text='' if phase != 'lobby' else self.tr(
+                'mp_ready_blocked' if not usable else 'mp_ready_cancel_note' if self.ready.get() else 'mp_ready_note'))
         self.draw_link()
         # the room's refusals (a launch that failed, a call refused): one line each in the chat
         self.chat_text.configure(state='normal')
