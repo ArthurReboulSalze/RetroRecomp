@@ -31,7 +31,13 @@ static struct {
  * keeps its keys, the pad keys bound on the keyboard stop, and only a real gamepad plays the joystick). */
 #define RRC_ROW_KEYBOARD RRHK_ROW_KEYBOARD      /* the shell's key for this row, which chooses its icon */
 
-static int player_blocked(void) { const RrhkUi *ui = rrhk_ui(); return ca.windowed && (ui->menu || ui->paused); }
+/* A multiplayer session (rrhk_session_active) carries only the two pad words, the network's, the same on every seat: the
+ * guest keyboard stays off, no key, mouse or local gamepad of this PC reaches the guest, a local menu or focus changes
+ * nothing the guest reads, and the seat's own disk, keyboard and fast-loading keys do nothing (they would change one seat
+ * only). Start stays the guest's Return key of the first player, from the pad word. Written once for every computer. */
+static bool rrc_session(void) { return rrhk_session_active(); }
+
+static int player_blocked(void) { const RrhkUi *ui = rrhk_ui(); return ca.windowed && !rrc_session() && (ui->menu || ui->paused); }
 static int player_escape_held(void) { return ca.windowed && ca.escape_held; }
 
 static void player_notice(const char *message) { if (ca.windowed) rrhk_notice(rr_tr(message), 3500); }
@@ -41,6 +47,7 @@ static void player_notice(const char *message) { if (ca.windowed) rrhk_notice(rr
  * with Retro-Recomp, so the help stays at Ctrl+F1 and Ctrl+Alt+H. */
 static int player_host_fkey(int key, SDL_Keymod mod) {
    if (key < SDL_SCANCODE_F1 || key > SDL_SCANCODE_F12) return 0;
+   if (rrc_session()) return 1;                    /* no function key reaches the guest in a session */
    if ((ca.windowed && rrhk_ui()->menu) || ((mod & KMOD_CTRL) && !(mod & KMOD_ALT))) return 1;
    if (guest_keyboard && key <= RRC_GUEST_FKEY_LAST) return 0;
    return rrhk_options_host_fkey(key, mod, false);
@@ -49,11 +56,11 @@ static int player_host_fkey(int key, SDL_Keymod mod) {
 /* The Return key of the guest: Start of the first player (any binding), or -1 without the kit. */
 static int player_start(void) {
    if (!ca.windowed) return -1;
-   if (player_blocked() || !input_focus) return 0;
+   if (!rrc_session() && (player_blocked() || !input_focus)) return 0;
    return (ca.pad[0] & RRC_BIT(RRC_START)) != 0;
 }
 static int player_pad_start(void) {
-   SDL_GameController *pad = ca.windowed ? rrhk_ui()->pads[0] : NULL;
+   SDL_GameController *pad = ca.windowed && !rrc_session() ? rrhk_ui()->pads[0] : NULL;
    return pad && SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START);
 }
 
@@ -62,6 +69,7 @@ static int player_pad_start(void) {
 static int player_face_alias(unsigned scan) {
    unsigned action;
    if (!ca.windowed || guest_keyboard || !scan) return -1;
+   if (rrc_session()) return 0;
    for (action = RRC_BUTTON_A; action <= RRC_BUTTON_B; action++)
       if ((unsigned)rrhk_ui()->keys[0][action] == scan) return !player_blocked() && input_focus && (ca.pad[0] & RRC_BIT(action)) != 0;
    return -1;
@@ -70,6 +78,7 @@ static int player_face_alias(unsigned scan) {
 /* The mouse of a mouse game: the buttons are Button A and Button B (with their autofire), the directions of the first
  * player and the stick move the pointer. */
 static int player_mouse(unsigned id, int value) {
+   if (rrc_session()) return 0;                     /* the mouse is not carried in a session yet */
    if (!mouse_game || !ca.windowed || !input_focus || player_blocked()) return value;
    if (id == RETRO_DEVICE_ID_MOUSE_LEFT) return (ca.pad[0] & RRC_BIT(RRC_BUTTON_A)) != 0;
    if (id == RETRO_DEVICE_ID_MOUSE_RIGHT) return (ca.pad[0] & RRC_BIT(RRC_BUTTON_B)) != 0;
@@ -88,9 +97,11 @@ static int player_mouse(unsigned id, int value) {
 
 /* Keyboard and mouse of this frame. */
 static void player_poll(void) {
+   static const Uint8 no_keys[SDL_NUM_SCANCODES];
    keys = SDL_GetKeyboardState(NULL);
    mouse_buttons = SDL_GetRelativeMouseState(&mouse_dx, &mouse_dy);
-   if (!mouse_grab || !input_focus) { mouse_dx = mouse_dy = 0; mouse_buttons = 0; }
+   if (!mouse_grab || !input_focus || rrc_session()) { mouse_dx = mouse_dy = 0; mouse_buttons = 0; }
+   if (rrc_session()) { keys = no_keys; guest_keyboard = false; }
    if (ca.capture_click) {
       if (mouse_buttons & SDL_BUTTON_LMASK) mouse_buttons &= ~SDL_BUTTON_LMASK;
       else ca.capture_click = false;
@@ -117,7 +128,7 @@ static bool x_game_rect(int rw, int rh, int mode, SDL_Rect *rect) {
 /* ---- the machine ---- */
 static bool x_fast_forward(void) {
    const Uint8 *state = SDL_GetKeyboardState(NULL);
-   return input_focus && !player_blocked() && state && state[SDL_SCANCODE_F5] && player_host_fkey(SDL_SCANCODE_F5, SDL_GetModState());
+   return !rrc_session() && input_focus && !player_blocked() && state && state[SDL_SCANCODE_F5] && player_host_fkey(SDL_SCANCODE_F5, SDL_GetModState());
 }
 
 static bool x_keyboard_pad(void) {
@@ -166,6 +177,10 @@ static void x_settings_loaded(RrhkUi *ui) {
 /* Its texts are English and French through rrhk_tr, like the other computer notices: the five-language catalogue
  * (native/runtime_catalog.inc) is left untouched in 1.6.9 because the Mega Drive and Super Nintendo quick-state keys hash it. */
 static void x_toggle_keyboard(void) {
+   if (rrc_session()) {
+      player_notice(rrhk_tr("Computer keyboard: not shared in multiplayer", "Clavier de l'ordinateur : non partage en multijoueur"));
+      return;
+   }
    guest_keyboard = !guest_keyboard;
    if (guest_keyboard && !rrhk_ui()->pads[0])
       player_notice(rrhk_tr("Computer keyboard: no gamepad connected", "Clavier de l'ordinateur : aucune manette connectee"));
@@ -256,6 +271,7 @@ static bool x_event(const SDL_Event *e, bool *running) {
       else if (sym == SDLK_k) x_toggle_keyboard();
       else if (sym == SDLK_f) rrhk_toggle_autofire();
       else if (sym == SDLK_m) { mouse_grab = !mouse_grab; player_notice(mouse_grab ? RRC_MOUSE_CAPTURED : rrhk_tr("Mouse released", "Souris liberee")); }
+      else if ((sym == SDLK_PAGEUP || sym == SDLK_PAGEDOWN || sym == SDLK_BACKSPACE) && rrc_session()) { /* one seat's disk keys */ }
       else if (sym == SDLK_PAGEUP || sym == SDLK_PAGEDOWN) { want_swap = true; swap_drive = (mod & KMOD_SHIFT) ? 1 : 0; swap_direction = sym == SDLK_PAGEUP ? -1 : 1; }
       else if (sym == SDLK_BACKSPACE) { want_eject = true; swap_drive = (mod & KMOD_SHIFT) ? 1 : 0; }
       return true;
