@@ -280,6 +280,8 @@ NOT_INPUTS = (
     'native/atarist_machine/atarist_vector_checks.c',
     # tools/atarist_hardware_check.py (authored 68000 programs measured against the hardware's documentation): built for a check only.
     'native/atarist_machine/atarist_hardware_checks.c',
+    # tools/atarist_snapshot_check.py (the in-process snapshot of the multiplayer rollback, proved with the same authored programs): built for a check only.
+    'native/atarist_machine/atarist_snapshot_checks.c',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
     # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the
@@ -730,6 +732,7 @@ INPUTS = _resolve({
         'native/atarist_machine/atarist_player.c',
         'native/atarist_machine/atarist_session.c',
         'native/atarist_machine/atarist_session.h',
+        'native/atarist_machine/atarist_snapshot.h',
         'native/atarist_machine/libretro/libretro.h',
         'native/hostkit/adapters/rrhk_atarist.inc',
         'retrorecomp.atarist',
@@ -738,6 +741,7 @@ INPUTS = _resolve({
         'retrorecomp.atarist_disk',
         'retrorecomp.atarist_emutos',
         'retrorecomp.atarist_hatari',
+        'retrorecomp.atarist_hatari_rollback',
         'retrorecomp.atarist_knowledge',
         'retrorecomp.atarist_notes',
         'retrorecomp.atarist_tos',
