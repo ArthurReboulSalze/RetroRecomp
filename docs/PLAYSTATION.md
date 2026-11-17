@@ -335,6 +335,10 @@ DualShock's own 8-bit precision), and the profile answers a session (`netplay_se
 - Two copies through the session (`tools/netplay_game_smoke.py`, delay 2, 3,000 frames, scripted pads, the host's values on
   both seats): PASS with PGXP On and the card, PGXP On and the CPU, and PGXP Off; boot digests and the 50 digests equal on both
   seats every time, and the three runs' digests differ from one another (the host's values reach the run).
+- The sticks (session ABI 8, `--sticks`: the scripted pads move four int8 values): PASS over 3,000 and 7,200 frames with PGXP On
+  and the card. A temporary probe of the adapter (not kept) showed the same sticks and pad words reaching the machine on both
+  seats. Ape Escape's run over those frames did not depend on them (its digests equal the run without sticks), while the
+  scripted buttons did change it (32 of 50 digests differ from a run with no input): the pad was in digital mode there.
 - 0 interpreted instructions in every match run.
-Not shown yet: two PCs, sticks moved by the scripted pads (the tool presses buttons only), and a Linux graphics card with PGXP On
-(WSL has none the game accepts).
+Not shown yet: two PCs, a stretch of play whose run depends on the sticks, and a Linux graphics card with PGXP On (WSL has none
+the game accepts).
