@@ -112,8 +112,10 @@ loads) passes on both models (a snapshot after every frame changes nothing, a lo
 load is complete at once, wrong sizes refused, the session's saves taken back, no allocation); without the held-keys fix it fails. A
 headless `--rollback-check 7` of the converted Lotus 2 (a 5-frame rollback every 7 frames for 3,000 frames on the native game, the
 two-player route): every replayed frame identical. `tools/netplay_game_smoke.py --rollback 5 --latency 30 --jitter 10 --hold 4
---save-at 600 --load-at 1500` passes on Lotus 2 (521 corrections, up to 5 frames deep), the digests equal before the load and different
-after; `--restart-at 900` passes. Snapshots: about 2.7 MB (Amiga 500) and 4.3 MB (Amiga 1200); their time is not measured yet (a quiet
+--save-at 600 --load-at 1500` passes on Lotus 2 (Amiga 500: 521 corrections, up to 5 frames deep), the digests equal before the load
+and different after, and `--restart-at 900` passes; the same `--rollback-check` and smoke pass on All New World of Lemmings (Amiga 1200,
+its Kickstart 3.1: about 300 corrections per seat, up to 5 frames deep). On the Amiga 1200 the host waited at the prediction cap 51
+times in 3,000 frames: replaying 5 frames of that machine fits less easily in a frame (its cost is not measured). Snapshots: about 2.7 MB (Amiga 500) and 4.3 MB (Amiga 1200); their time is not measured yet (a quiet
 PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `87b3fe97`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.

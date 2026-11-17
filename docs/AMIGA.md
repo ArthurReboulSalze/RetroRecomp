@@ -380,5 +380,6 @@ Both Amigas play in a multiplayer session at the NES's level: the rollback tier 
 - **Restart.** The host's restart takes every seat back to the state the session started with; alone, a restart still starts the process
   again.
 - **Proof.** `tools/amiga_rollback_selftest.py` on an authored slave (both models), a headless `--rollback-check` of Lotus 2 (native
-  code), and two copies of Lotus 2 on the rollback tier with the host's save, load and restart (`tools/netplay_game_smoke.py`); details
+  code), and two copies of Lotus 2 on the rollback tier with the host's save, load and restart (`tools/netplay_game_smoke.py`); the
+  same on All New World of Lemmings for the Amiga 1200; details
   in [UPGRADES.md](UPGRADES.md#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release). Physical latency is not measured.
