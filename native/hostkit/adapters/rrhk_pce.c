@@ -20,6 +20,12 @@ int rr_pce_host_frame(const uint16_t pads[4]);
 size_t rr_pce_take_audio(int16_t *out, size_t capacity);
 unsigned rr_pce_frame_index(void);
 int rr_pce_reset(void);
+/* Multiplayer (hostkit_session.h): the snapshot of pce_snapshot.cpp behind the host's frame counter, and what a frame may do outside the guest. */
+size_t rr_pce_snap_bound(void);
+size_t rr_pce_snap_save(void *buffer, size_t capacity);
+bool rr_pce_snap_load(const void *buffer, size_t size);
+uint64_t rr_pce_digest(void);
+void rr_pce_side_effects(bool allowed);
 
 /* Bits are the engine's pad masks: I, II, Select, Run, Up, Right, Down, Left, then III to VI on six-button pads. */
 #define PADS(button) {button, button, button, button}
@@ -99,6 +105,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = audio, .interpreted = interpreted, .audio_interpreted = audio_interpreted,
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
             .input_frame = input_frame, .before_frame = before_frame, .help_controls = help_controls,
+            .snap_bound = rr_pce_snap_bound, .snap_save = rr_pce_snap_save, .snap_load = rr_pce_snap_load, .digest = rr_pce_digest,
+            .side_effects = rr_pce_side_effects,
         };
     }
     return &machine;

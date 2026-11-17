@@ -470,6 +470,41 @@ The 219 interpreted instructions left are work-RAM code, which does not travel. 
 
 **What this does not say.** One card, on Windows. The long route was replayed on B's game after its conversion: it qualifies that window, not the rows it did not run, and nothing beyond. No path is qualified in the base yet: that takes a conversion that received it from another player, through the shared base.
 
+### Multiplayer: rollback and the host's F8 / F9 for everyone (17 November 2026)
+
+The machine gives the host kit what the rollback tier asks of an adapter (`native/hostkit/hostkit.h`, "Multiplayer"): `snap_bound` / `snap_save` / `snap_load`, `digest` and
+`side_effects`, so a session runs on the rollback tier (a prediction, then a correction when the other seat's input differs) and the host's F8 / F9 save and load the match's
+state for everyone. Two seats; the profile says `netplay_session`. The machine owns no loop (`run_frame(p1, p2)` per frame), so a silent frame after a load is an ordinary frame.
+
+**Why not the engine's checkpoint.** `pce::encode_checkpoint` is a developer file format: it writes the whole 2 MiB backing array (the ROM with it), allocates for each save, and a restore
+builds a second machine and compares every ROM byte through a function call. Rollback saves a state every frame and loads one for each correction. `native/pce_snapshot.cpp` instead copies
+only what changes, into the kit's buffer, and reads it back in place: the HuC6280; the card's RAM banks (the work RAM and the Backup RAM bank); the VDC with its VRAM, sprite table, raster and video
+latches and both picture buffers; the VCE; the timer and interrupts; the pads; the SF2 bank latch (the window is copied back when it changes); the engine's audio side, written by the engine's own
+`write_audio` / `read_audio`; the step and generation counters; and the bridge's and host's frame counters (the inputs are keyed by the host's). Not the ROM, no pointer, nothing of the host. The format
+is fieldwise little-endian, a local quick state, never a file, never sent. A snapshot is about 589 KB at 256 x 240 (two 184 KB picture buffers, the 106 KB audio block, 64 KB of VRAM, 40 KB of RAM banks); the
+bound the kit allocates for each ring slot is 1.4 MB. A picture buffer wider or taller than the bridge's picture limit (640 x 264) keeps its size and its pixels up to the limit: it is output, never state.
+
+**The digest** hashes the same fields, as named fields in a fixed little-endian order, and leaves out what is not the guest: the pictures, the audio samples, the native / interpreted step counters and the
+generation counters, so two builds that differ only in their native code agree. The host's frame counter is folded in.
+
+**Side effects.** `side_effects(false)` stops what a frame does outside the guest: the Backup RAM file and the player's record (kind 20). A guest never writes its Backup RAM file during a match, and the
+frames run again after a correction note nothing.
+
+**Proof** (17 November 2026, Windows, llvm-mingw).
+- *The probe* (`tools/pce_snapshot_selftest.py`, ROM-free; `native/pce_snapshot_checks.cpp`): an authored 128 KiB HuCard (`tools/pce_snapshot_rom.py`: VDC with background and sprites, a SATB and a VRAM DMA, the vertical-blank,
+  raster and timer interrupts, the PSG with six channels and a changing waveform, the banks with TAM and TMA, the five block transfers, speed switches, a pad read folded into RAM) and a Street Fighter II board image that cycles
+  its bank latch. For each, every one of 150 frames of a first pass is a save point: loaded back, **the engine's own full checkpoint equals the one taken at the save** (every field of every device, the ROM, the picture buffers,
+  the audio side), and the up to 24 frames that follow repeat the digest and the checkpoint of the first pass (3,300 frames replayed per board). A save over other bytes is identical; a snapshot one byte short, one byte long,
+  empty, or with any flipped byte (the magic, the header, the payload) is refused and leaves the machine untouched. It fails if the engine adds a field at a new pin that the snapshot does not list: four fields left out on
+  purpose (the palette, the timer deadline, the sprite rows, the second picture buffer) were each caught.
+- *Two copies of a converted game* (Bomberman '93, converted from this branch, `tools/netplay_game_smoke.py`, two seats on one PC): `--rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500` PASS on 3,000 frames,
+  rollback tier on both seats, equal digests, 523 and 334 corrections (the deepest 2 and 3 frames), the save and the load at the same frames on both; with `--save-digests` the digests equal those of the run without the load up to frame 1,559
+  and differ after it (the load acts). A harder run (`--frames 6000 --rollback 8 --latency 60 --jitter 25 --loss 0.02 --hold 2`, a save and a load) PASS with 1,279 and 1,950 corrections, the deepest 8 frames.
+
+**What this does not say.** Nothing here is timed: the cost of a save, a load and a digest in a real game is not measured (a save writes about 590 KB; the engine's audio writer appends the 8,192-frame PCM ring element by element and is the
+likely largest part), and no physical latency is measured. A load recreates the engine's small audio presentation state (a few KB), so a load is not allocation-free. The Street Fighter II board is proved by the probe and not yet in a
+converted game; the multitap's third to fifth seats are not offered (seats stay two, and the extra pads of the silent frames are not read from the session). The mixed-build gate is not run (`netplay_portable` stays false).
+
 ## 8. The five measures
 
 They stay separate everywhere ([STANDARDS.md](STANDARDS.md)).

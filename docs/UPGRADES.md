@@ -107,6 +107,7 @@ R Good Enough (MSX2+), the digests equal before the load and different after. Sn
 MB for a disk game; their time is not measured yet (a quiet PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `ea1ac0ba`): the MSX, MSX2 and MSX2+ game and host stamps; nothing else.
+| [PC Engine: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the PC Engine game stamp** (`native/pce_machine.cpp`, `pce_machine.h`, `pce_machine_internal.hpp`, `pce_snapshot.cpp`, `pce_snapshot.h`, `pce_main.c`, `retrorecomp/pce_build.py`, `systems/pc_engine.py`) | **the PC Engine host stamp** (the adapter `adapters/rrhk_pce.c`) | unchanged (the snapshot is a session's, not a quick state's) |
 
 ## Every machine: multiplayer, two to four players over the local network (next release)
 
@@ -248,6 +249,14 @@ quiet PC (about 336 KB copied per frame), physical latency, a Linux run, a game 
 **Stamps** (compared with `spec/multiplayer`, all 21 machines): only the Game Boy moves, its **game** stamp (the runtime part, the two
 patches and the persistence patch; the multiplayer branch already moves every game stamp, so this adds no further reconversion) and its **host**
 stamp (the adapter). Quick states: no key moves. The profile gets `netplay_session = True`.
+## PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone (next release)
+
+The PC Engine joins the multiplayer rollback tier at the level of the NES: its adapter gives the host kit an in-process snapshot, a digest and the side-effects switch ([PC_ENGINE.md](PC_ENGINE.md#multiplayer-rollback-and-the-hosts-f8--f9-for-everyone-17-november-2026)),
+and its profile says `netplay_session` (two seats). **What moves:** the PC Engine game stamp (`native/pce_machine.cpp` and `.h`, the new `pce_machine_internal.hpp`, `pce_snapshot.cpp` and `.h`, `pce_main.c`,
+`retrorecomp/pce_build.py` with its new files, `systems/pc_engine.py`) and the PC Engine host stamp (`adapters/rrhk_pce.c`); no other machine moves. A PC Engine export of the previous release is
+converted again once, as every export is for the multiplayer release. **Quick states:** unchanged, and a session never reads or writes them. **Hot path:** none added to a solo game: the snapshot is reached only through the adapter's
+pointers when the converter starts the game with its pipes; the only change a solo frame sees is one call that tells whether the player's record is on (it was a direct pointer). **Proof:** the probe of the snapshot on an authored card and the Street Fighter II
+board, and Bomberman '93 in two copies on the rollback tier with a save and a load for everyone; nothing is timed.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

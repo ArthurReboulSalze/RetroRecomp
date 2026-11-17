@@ -988,7 +988,7 @@ class GameCmakeTests(TempFiles):
         text = pce_build.game_cmake(None, '1.0')
         statement = text[text.index('add_executable(game'):]
         statement = statement[:statement.index(')\n') + 1]
-        for name in ('pce_main.c', 'pce_machine.cpp', 'pce_backup.c', 'console16_state.c', *hostkit.sources('pce'),
+        for name in ('pce_main.c', 'pce_machine.cpp', 'pce_snapshot.cpp', 'pce_backup.c', 'console16_state.c', *hostkit.sources('pce'),
                      '$<TARGET_OBJECTS:pce_module>'):
             self.assertIn(name, statement)
 
@@ -1010,7 +1010,8 @@ class ProfileWiringTests(unittest.TestCase):
 
     def test_the_compilation_inputs_of_the_machine(self):
         names = compilation_inputs.manifest_names('pce')
-        for name in ('native/pce_main.c', 'native/pce_machine.cpp', 'native/pce_machine.h', 'native/pce_backup.c',
+        for name in ('native/pce_main.c', 'native/pce_machine.cpp', 'native/pce_machine.h', 'native/pce_snapshot.cpp', 'native/pce_snapshot.h',
+                     'native/pce_machine_internal.hpp', 'native/pce_backup.c',
                      'native/pce_backup.h', 'retrorecomp.pce_build',
                      'retrorecomp.pce_conversion', 'retrorecomp.pce_rom'):
             with self.subTest(name):
