@@ -4,7 +4,7 @@
 
 Authors a WHDLoad slave of its own (no game, no ROM, no Kickstart): its 68000 program shows one bitplane through a copper list, blits
 in a loop whose size follows the frame count, plays a sample on audio channel 0, takes the VBL, copper, blitter, CIA-A timer and audio
-interrupts, reads a file of the install through resload_LoadFile, saves a file with resload_SaveFile at its VBL 120 and reads it back
+interrupts (the keyboard's bytes taken with their handshake), reads a file of the install through resload_LoadFile, saves a file with resload_SaveFile at its VBL 120 and reads it back
 at 160. Then builds native/amiga_machine/amiga_rollback_checks.cpp on the session (interpreted CPU) and runs it on the Amiga 500 and
 the Amiga 1200: a snapshot after every frame changes nothing, a load at any frame replays the same frames and digests, a load is
 complete at once, wrong sizes are refused, the session's saves are taken back by a load, and a snapshot call allocates nothing
@@ -28,6 +28,7 @@ PROGRAM = 0x8000          # where the game loader copies the program (chip RAM, 
 COPPER, PLANE, BLIT_TO, SAMPLE, WORK = 0x20000, 0x30000, 0x34000, 0x40000, 0x50000
 COUNTERS = 0x60000        # +0 VBLs, +4 CIA-A timer A, +8 audio, +12 saved, +16 loaded twice, +20 loaded once
 NAME, SAVED, LOADED = 0x60100, 0x60200, 0x60400
+KEY = 0x60018           # the last byte the keyboard sent
 SAVE_AT, LOAD_AT, FIRST_LOAD_AT = 120, 160, 40
 RESLOAD_LOADFILE, RESLOAD_SAVEFILE = 8, 12
 CUSTOM = 0xDFF000
@@ -86,11 +87,20 @@ def program() -> bytes:
     code.addq_l_abs(COUNTERS)
     code.move_w_d_abs(0, CUSTOM + 0x09C)                    # move.w d0,INTREQ
     code.w(0x4CDF, 0x0101, 0x4E73)                          # movem.l (sp)+,d0/a0 ; rte
-    # Level 2: CIA-A's timer A.
+    # Level 2: CIA-A's timer A, and the keyboard: its byte kept at KEY, then the handshake (SP low about 140 us) that lets it send the next.
     level2 = code.here
     code.w(0x2F00)                                          # move.l d0,-(sp)
     code.w(0x1039)
     code.l(0xBFED01)                                        # move.b ICR,d0 (read: acknowledged)
+    code.w(0x0800, 0x0003, 0x6720)                          # btst #3,d0 ; beq.s past the handshake (32 bytes)
+    code.w(0x13F9)
+    code.l(0xBFEC01)
+    code.l(KEY)                                             # move.b SDR,KEY
+    code.w(0x08F9, 0x0006)
+    code.l(0xBFEE01)                                        # bset #6,CRA (SP output, low)
+    code.w(0x7000 | 100, 0x51C8, 0xFFFE)                    # moveq #100,d0 ; dbra d0,*
+    code.w(0x08B9, 0x0006)
+    code.l(0xBFEE01)                                        # bclr #6,CRA
     code.addq_l_abs(COUNTERS + 4)
     code.move_w_imm_abs(0x0008, CUSTOM + 0x09C)
     code.w(0x201F, 0x4E73)                                  # move.l (sp)+,d0 ; rte
@@ -123,7 +133,7 @@ def program() -> bytes:
     code.move_l_imm_abs(SAMPLE, CUSTOM + 0x0A0)
     for register, value in ((0x0A4, 32), (0x0A6, 400), (0x0A8, 64)):
         code.move_w_imm_abs(value, CUSTOM + register)
-    for address, value in ((0xBFED01, 0x7F), (0xBFED01, 0x81), (0xBFE401, 0x00), (0xBFE501, 0x20), (0xBFEE01, 0x11)):
+    for address, value in ((0xBFED01, 0x7F), (0xBFED01, 0x89), (0xBFE401, 0x00), (0xBFE501, 0x20), (0xBFEE01, 0x11)):
         code.move_b_imm_abs(value, address)
     for address in range(COUNTERS, COUNTERS + 24, 4):
         code.move_l_imm_abs(0, address)
