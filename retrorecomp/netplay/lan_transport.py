@@ -179,6 +179,7 @@ class LaunchInfo:
     seats: int
     names: tuple
     sharing: int = 0
+    rollback: int = 0               # the tier byte the guests were sent (0 the delay tier, else the prediction cap)
 
 
 class _HostMatch:
@@ -537,9 +538,11 @@ class RoomHost:
     # ---- launching and ending a match ----
 
     def launch(self, *, machine: str, stamp: bytes, rom_sha: bytes, delay: int = 0, digest_every: int = 60,
-               redundancy: int = 3, options: str = '', guests=None, sharing: int = seat_map.PER_PLAYER) -> LaunchInfo:
+               redundancy: int = 3, options: str = '', guests=None, sharing: int = seat_map.PER_PLAYER,
+               rollback: int = 0) -> LaunchInfo:
         """Starts a match: seats are given in the order of `guests` (guest ids, the lobby's seat order) or, without it, in
-        the order the guests joined; keys are derived for this match and this seat, and each of them gets its LAUNCH. A guest
+        the order the guests joined; `rollback` is the tier byte (0 the delay tier, 1 to `control.MAX_ROLLBACK` the rollback tier with that
+        prediction cap), the host's decision (`rollback.choose_tier`); keys are derived for this match and this seat, and each of them gets its LAUNCH. A guest
         not named stays in the room and is not part of the match. Raises `RoomError` when that cannot be done."""
         with self._lock:
             if self._thread is None or self._stop.is_set():
@@ -560,6 +563,8 @@ class RoomHost:
                 raise RoomError('the game is not identified')
             if not seat_map.allowed(machine, sharing):
                 raise RoomError('this machine plays in input sharing only' if seat_map.valid(sharing) else 'an input mode that does not exist')
+            if not control.valid_tier_byte(rollback):
+                raise RoomError(f'a prediction cap of 1 to {control.MAX_ROLLBACK} frames, or the delay tier')
             self._match_counter += 1
             match_id, now = self._match_counter, self._clock()
             names = (self.name,) + tuple(peer.name for peer in ready)
@@ -576,10 +581,10 @@ class RoomHost:
             for seat, peer in seats.items():
                 match.senders[seat] = datagram.Sender(keys[seat][1], match_id, 0)
                 peer.send(control.Launch(match_id, seat, len(names), delay, digest_every, redundancy, machine, stamp,
-                                         rom_sha, names, options, sharing))
+                                         rom_sha, names, options, sharing, rollback))
         self.log.launch(match_id, machine, stamp, len(names), delay)
         self._flush()
-        return LaunchInfo(match_id, len(names), names, sharing)
+        return LaunchInfo(match_id, len(names), names, sharing, rollback)
 
     def link(self) -> _HostLink:
         """The `SeatLink` of the host's seat for the running match."""
@@ -672,8 +677,14 @@ class RoomHost:
             self._act(self.lobby.say(0, text, self._clock()))
         self._flush()
 
+    def lobby_can_launch(self, need_ready: bool = False) -> Refusal | None:
+        """Why a lobby launch would be refused now, or None (nothing changes: the host asks before it starts its own game)."""
+        with self._lock:
+            plan = self.lobby.plan_launch(need_ready)
+        return plan if isinstance(plan, Refusal) else None
+
     def lobby_launch(self, *, need_ready: bool = False, delay: int = 0, digest_every: int = 60,
-                     redundancy: int = 3) -> LaunchInfo | Refusal:
+                     redundancy: int = 3, rollback: int = 0) -> LaunchInfo | Refusal:
         """Starts the match of the host's pick with the guests who have the game (and are ready, if `need_ready`)."""
         try:
             with self._lock:
@@ -683,7 +694,7 @@ class RoomHost:
                 try:
                     return self.launch(machine=plan.game.machine, stamp=plan.stamp, rom_sha=plan.rom, delay=delay,
                                        digest_every=digest_every, redundancy=redundancy, options=plan.options, guests=plan.guests,
-                                       sharing=plan.sharing)
+                                       sharing=plan.sharing, rollback=rollback)
                 except RoomError as error:
                     return Refusal(error.reason)
         finally:

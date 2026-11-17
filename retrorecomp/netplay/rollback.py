@@ -32,6 +32,10 @@ The algorithm (the study's section 2; `research/netcode-network-security.md` 1.3
 * **Digests** (every `digest_every` frames, and the boot digest) are of verified frames only. When the digest's frame is
   the one just before the live frame the game is asked at once; otherwise the batch goes back to the snapshot taken after
   it, asks, and returns to the present (`SAVE N; LOAD F+1; DIGEST; LOAD N`), with no frame run again. The parent compares.
+* **The room's tier** (`choose_tier`): in a LAN room the host decides the tier and the LAUNCH carries it as one byte (0 the delay
+  tier, 1 to 8 the rollback tier with that prediction cap). Automatic: rollback when the games' HELLOs report a snapshot, else
+  the delay tier; `delay` and `rollback` are the host's overrides (`_netplay-room host --tier`). A guest whose own game reports
+  no snapshot while the launch says rollback refuses the match with a reason (`Settings.rollback_required`, `_tier_refusal`).
 * **The end** (`last_frame`, tests): the last frames are corrected and the last digest asked once every record is known.
 
 Counts only (`stats`: rollbacks, frames run again, the deepest correction, frames run on a prediction, waits at the cap;
@@ -44,6 +48,8 @@ import collections
 from . import input_records as wire
 from . import seat_map
 from . import session_pipe as pipe
+from . import control
+from .launch import Refusal
 from .lockstep import LINGER, MAX_PREDICTION, LockstepDriver, Settings
 from .session_game import SessionGame
 from .session_transport import SeatLink
@@ -62,6 +68,38 @@ def rollback_delay(one_way_ms: float, jitter_ms: float, frame_ms: float) -> int:
 def can_roll_back(hello: pipe.Hello) -> bool:
     """Whether this game keeps snapshots the driver may command (a driven guest runs its own frames: never silent)."""
     return bool(hello.caps & pipe.CAP_SNAPSHOT) and hello.snap_bound > 0 and not hello.caps & pipe.CAP_DRIVEN
+
+
+TIER_AUTO, TIER_DELAY, TIER_ROLLBACK = 'auto', 'delay', 'rollback'
+TIER_MODES = (TIER_AUTO, TIER_DELAY, TIER_ROLLBACK)
+
+
+def check_tier(mode, cap) -> Refusal | None:
+    """The host's own tier settings (`mode`, the prediction cap), refused with a sentence when out of bounds."""
+    if mode not in TIER_MODES:
+        return Refusal('a tier of auto, delay or rollback')
+    if not isinstance(cap, int) or isinstance(cap, bool) or not 1 <= cap <= control.MAX_ROLLBACK:
+        return Refusal(f'a prediction cap of 1 to {control.MAX_ROLLBACK} frames')
+    return None
+
+
+def choose_tier(mode, hellos, cap: int = DEFAULT_PREDICTION) -> int | Refusal:
+    """The host's decision for a launch: the tier byte of the LAUNCH (0 the delay tier, else the prediction cap, 1 to
+    `control.MAX_ROLLBACK`), or the `Refusal` that says why this launch cannot be made. `hellos` is what the games of this
+    launch reported (`pipe.Hello`, None for one that did not): the match is on the rollback tier only when **every** one of them
+    keeps a snapshot the driver may command (`can_roll_back`). `mode`: `auto` (that rule), `delay` (never rollback) or `rollback`
+    (a test or a check between two PCs: refused, with the reason, when a game cannot)."""
+    bad = check_tier(mode, cap)
+    if bad is not None:
+        return bad
+    if mode == TIER_DELAY:
+        return 0
+    able = bool(hellos) and all(hello is not None and can_roll_back(hello) for hello in hellos)
+    if able:
+        return cap
+    if mode == TIER_ROLLBACK:
+        return Refusal('the rollback tier needs a game that keeps snapshots, and this one does not')
+    return 0
 
 
 def predicted(log) -> tuple:
@@ -89,6 +127,11 @@ class RollbackDriver(LockstepDriver):
         self._digest_asked: collections.deque = collections.deque()    # the frames of the DIGESTs sent, in order
 
     # ---- the parent's hooks ----
+
+    def _tier_refusal(self, hello: pipe.Hello) -> str | None:
+        if self.settings.rollback_required and not can_roll_back(hello):
+            return 'this game keeps no snapshot, but the host chose the rollback tier for the match'
+        return None
 
     def _ring_depth(self, hello: pipe.Hello) -> int:
         self.rolling = self.cap > 0 and can_roll_back(hello)

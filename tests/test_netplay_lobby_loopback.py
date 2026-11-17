@@ -287,24 +287,27 @@ class FakeLibrary:
         self.scratch = Scratch(test)
         self.executable = executable
         self.entries = {}
+        self.envs = {}                  # the entry's executable -> the environment its copy of the fake game is started with
 
-    def add(self, number: int, **changes):
+    def add(self, number: int, env: dict | None = None, **changes):
         rom, title = IDENT[number]
         entry = self.scratch.add(report(rom=rom, title=title, **changes), rom=rom, title=title, version=changes.get('version', '1.7.9'))
         shutil.copyfile(self.executable, entry.executable)            # the fake game stands in for every game
         self.entries[number] = entry
+        self.envs[str(entry.executable)] = env or {}      # e.g. SESSION_FAKE_NO_SNAPSHOT=1: a machine that keeps no snapshot
         return entry
 
     def game_for(self, entry) -> dict:
         folder = Path(entry.executable).parent
-        return {'exe': entry.executable, 'cwd': str(folder), 'env': dict(selftest.HIDDEN, SESSION_FAKE_HZ='60'),
+        return {'exe': entry.executable, 'cwd': str(folder), 'env': dict(selftest.HIDDEN, SESSION_FAKE_HZ='60', **self.envs.get(str(entry.executable), {})),
                 'stdout': str(folder / 'stdout.txt'), 'stderr': str(folder / 'stderr.txt')}
 
 
 class Player:
     """One worker process with its controller and its library: what the Multiplayer window will be made of."""
 
-    def __init__(self, name: str, library: FakeLibrary, config: dict, out: Path, test: unittest.TestCase, frames: dict):
+    def __init__(self, name: str, library: FakeLibrary, config: dict, out: Path, test: unittest.TestCase, frames: dict,
+                 guest_test: dict | None = None):
         self.name, self.library, self.cond, self.stopped = name, library, threading.Condition(), False
         self.controller = lobby_client.LobbyController(library.scratch.library(), game_for=library.game_for)
         self.frames = frames
@@ -313,7 +316,7 @@ class Player:
             reply = self.controller.resolve(event)
             if reply['call'] == 'launch':
                 reply['test_settings'] = {'local_source': selftest.script(event['seat']), 'keep_history': True,
-                                          'last_frame': self.frames['last']}
+                                          'last_frame': self.frames['last'], **(guest_test or {})}
             return reply
 
         def on_event(event):
@@ -454,6 +457,120 @@ class LobbyMatchTests(unittest.TestCase):
         for player in everyone:
             player.stop()
             self.assertEqual(player.worker.exit_code_of_process, 0, player.worker.summary())
+        shutil.rmtree(out, ignore_errors=True)         # kept only when something above failed
+
+
+class LobbyTierTests(unittest.TestCase):
+    """The tier of a LAN match (127.0.0.1 only, two real worker processes, fake games, no ROM): the host decides it from its own
+    game's HELLO and the LAUNCH carries it; each launch decides again, so a switch of game does too."""
+
+    def test_the_host_chooses_the_tier_for_each_game_and_the_guest_applies_it_or_refuses(self):
+        reason = selftest.fake.ready() or loopback_refused()
+        if reason:
+            self.skipTest(reason)
+        executable = selftest.fake.build(ROOT / '.build/hostkit-session-selftest')
+        out = Path(tempfile.mkdtemp(prefix='tier-', dir=ROOT / '.build'))
+        secret = invitation.new_secret()
+        frames = {'last': FRAMES}
+        no_snapshot = {'SESSION_FAKE_NO_SNAPSHOT': '1'}
+        host_library, nadia_library = FakeLibrary(self, executable), FakeLibrary(self, executable)
+        for number in range(3):                       # game 0: snapshots on both; game 1: none on the host's; game 2: none on Nadia's
+            host_library.add(number, env=no_snapshot if number == 1 else None)
+            nadia_library.add(number, env=no_snapshot if number == 2 else None)
+
+        host = Player('host', host_library, {'room': {'role': 'host', 'address': '127.0.0.1', 'port': 0, 'secret': secret.hex(), 'capacity': 2,
+                                                       'name': 'Arthur', 'log': str(out / 'room.log')}, 'tests': True}, out, self, frames)
+        opened = host.worker.wait_event('room_open', 30)
+        if opened is None and any(bind_refused_now(event.get('detail', '')) for event in host.worker.events):
+            self.skipTest('the system refuses to bind a loopback port right now')
+        self.assertIsNotNone(opened, host.worker.events)
+        text = invitation.format_invitation('127.0.0.1', opened['port'], secret, tests=True)
+        # Nadia's game runs 10 % fast with no time sync, so she gets ahead of the host's records and guesses (rollbacks are then certain)
+        nadia = Player('nadia', nadia_library, {'room': {'role': 'guest', 'invitation': text, 'name': 'Nadia'}, 'tests': True}, out, self, frames,
+                       guest_test={'clock_ppm': -100000, 'pace': False})
+        self.assertTrue(host.until(lambda m: [p['name'] for p in m.players] == ['Arthur', 'Nadia']), host.controller.model.players)
+        settings = {'delay': 1, 'digest_every': 50, 'redundancy': 3, 'local_source': selftest.script(0), 'keep_history': True,
+                    'last_frame': FRAMES}
+
+        def pick(number: int) -> None:
+            before = host.controller.model.selection
+            self.assertEqual(host.controller.pick(host_library.entries[number]), '')
+            self.assertTrue(host.until(lambda m: m.selection > before and m.checks.get(1, {}).get('status') == 'same'),
+                            (host.controller.model.selection, host.controller.model.checks))
+
+        def tiers(worker, name: str, match_id: int) -> list:
+            return [(event['tier'], event['prediction']) for event in worker.events if event['event'] == name and event['match_id'] == match_id]
+
+        # 1. both games keep snapshots: the host chooses the rollback tier (the cap of 8 by default), the guest applies it
+        pick(0)
+        self.assertEqual(host.controller.launch(settings), '')
+        for player in (host, nadia):
+            self.assertTrue(player.until(lambda m: m.last_back is not None and m.last_back['match_id'] == 1), player.name)
+        for worker in (host.worker, nadia.worker):
+            self.assertTrue(worker.wait_for(lambda w: len(w.results) == 1, 60), worker.summary())
+        self.assertEqual(tiers(host.worker, 'launching', 1), [('rollback', 8)])
+        self.assertEqual(tiers(nadia.worker, 'launch_request', 1), [('rollback', 8)])
+        wanted = [tuple(words) for words in selftest.expected(2, 1, FRAMES)]
+        results = [host.worker.results[0], nadia.worker.results[0]]
+        for result in results:
+            self.assertEqual((result['outcome'], result['tier'], result['prediction_cap'], result['delay']), ('ended', 'rollback', 8, 1),
+                             result['detail'])
+            self.assertEqual(result['history'], wanted)                       # the confirmed history is the scripts shifted by the delay
+            stats = result['stats']
+            self.assertGreaterEqual(stats['rollback_frames'], stats['rollbacks'])
+            self.assertLessEqual(stats['rollback_depth_max'], 8)
+            self.assertEqual(stats['digests_skipped'], 0)
+            self.assertTrue(result['digests'])
+        self.assertEqual(results[0]['digests'], results[1]['digests'])        # equal across the two seats
+        rollbacks = [result['stats']['rollbacks'] for result in results]
+        self.assertGreater(sum(rollbacks), 0, results[1]['stats'])            # the fast guest guessed, was corrected, and ended in step
+        counts = {name: [result['stats'][name] for result in results] for name in ('rollbacks', 'rollback_frames', 'predicted_frames')}
+
+        # 2. the switch: the host's second game keeps no snapshot: the host chooses the delay tier again, for both
+        pick(1)
+        self.assertEqual(host.controller.launch({**settings, 'delay': DELAY}), '')
+        for player in (host, nadia):
+            self.assertTrue(player.until(lambda m: m.last_back['match_id'] == 2), player.name)
+        for worker in (host.worker, nadia.worker):
+            self.assertTrue(worker.wait_for(lambda w: len(w.results) == 2, 60), worker.summary())
+        self.assertEqual(tiers(host.worker, 'launching', 2), [('delay', 0)])
+        self.assertEqual(tiers(nadia.worker, 'launch_request', 2), [('delay', 0)])
+        wanted = [tuple(words) for words in selftest.expected(2, DELAY, FRAMES)]
+        for worker in (host.worker, nadia.worker):
+            result = worker.results[1]
+            self.assertEqual((result['outcome'], result['tier'], result['history']), ('ended', 'delay', wanted), result['detail'])
+            self.assertNotIn('rollbacks', result['stats'])
+        self.assertEqual(host.worker.results[1]['digests'], nadia.worker.results[1]['digests'])
+
+        # 3. the host forces the rollback tier on a game that keeps no snapshot, then a cap out of bounds: refused with the reason
+        mark = host.worker.event_count
+        self.assertEqual(host.controller.launch({**settings, 'tier': 'rollback'}), '')
+        error = host.worker.wait_event('launch_error', 60, after=mark)
+        self.assertIsNotNone(error, host.worker.events)
+        self.assertIn('snapshots', error['detail'])
+        mark = host.worker.event_count
+        self.assertEqual(host.controller.launch({**settings, 'tier': 'auto', 'rollback': 9}), '')
+        error = host.worker.wait_event('launch_error', 60, after=mark)
+        self.assertIsNotNone(error, host.worker.events)
+        self.assertIn('prediction cap', error['detail'])
+
+        # 4. the host's game keeps snapshots and Nadia's does not (it should not happen: the host decided from its own HELLO): she
+        # refuses the rollback launch with the reason, and the match ends for both
+        pick(2)
+        self.assertEqual(host.controller.launch(settings), '')
+        for player in (host, nadia):
+            self.assertTrue(player.until(lambda m: m.last_back['match_id'] == 3), player.name)
+        for worker in (host.worker, nadia.worker):
+            self.assertTrue(worker.wait_for(lambda w: len(w.results) == 3, 60), worker.summary())
+        refused = nadia.worker.results[2]
+        self.assertEqual(refused['outcome'], 'refused')
+        self.assertIn('keeps no snapshot', refused['detail'])
+        self.assertNotEqual(host.worker.results[2]['outcome'], 'ended')
+
+        for player in (host, nadia):
+            player.stop()
+            self.assertEqual(player.worker.exit_code_of_process, 0, player.worker.summary())
+        print('tier loopback counts per seat (rollbacks, frames run again, frames on a guess):', counts)
         shutil.rmtree(out, ignore_errors=True)         # kept only when something above failed
 
 

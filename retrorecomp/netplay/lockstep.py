@@ -105,6 +105,8 @@ class Settings:
     sharing: int = seat_map.PER_PLAYER  # seat_map: one controller per player, or the seats share port 0 (everyone / turns)
     rollback: int = 0                   # 0: the delay tier. k (1 to MAX_PREDICTION): the rollback tier with at most k frames run on a
                                         # prediction, for a game that keeps snapshots; any other game stays on the delay tier (`rollback.py`)
+    rollback_required: bool = False     # a room's launch said rollback: a game that reports no snapshot refuses the match (it is never
+                                        # quietly kept on the delay tier, since the host decided from its own game's HELLO)
     opposites: tuple = ()               # tests: (mask, mask) pairs of opposite directions the mapper cancels itself (the kit always does)
     waiting_after: float = 1.0          # seconds a game waits for a record before "Waiting for <name>"
     drop_after: float = 10.0            # seconds of silence after which a seat is gone
@@ -446,6 +448,9 @@ class LockstepDriver:
         self.hello = hello
         try:
             pipe.check_hello(hello, self.seats, shared=seat_map.shared(self.settings.sharing))
+            reason = self._tier_refusal(hello)
+            if reason:
+                raise pipe.Refused(reason)
         except pipe.Refused as error:
             self.detail = str(error)
             self._end('refused', None, *self._self_leaving())
@@ -458,6 +463,10 @@ class LockstepDriver:
         self._tell(pipe.digest())               # the boot digest: the state after SETUP, before any frame
         self._phase = 'gate'
         self._deadline = time.monotonic() + GATE_WITHIN
+
+    def _tier_refusal(self, hello: pipe.Hello) -> str | None:
+        """A sentence when this game cannot play the tier the launch named (the rollback tier overrides it); None otherwise."""
+        return None
 
     def _ring_depth(self, hello: pipe.Hello) -> int:
         """The snapshots the game is asked to keep (rollback tier); the delay tier asks for none."""

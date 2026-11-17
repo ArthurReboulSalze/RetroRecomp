@@ -14,7 +14,7 @@ import threading
 import unittest
 
 from retrorecomp.netplay import LockstepDriver, RollbackDriver, Settings, driver_for, input_records as wire
-from retrorecomp.netplay import lockstep, rollback, scripted_inputs, session_pipe as pipe
+from retrorecomp.netplay import control, lockstep, rollback, scripted_inputs, session_pipe as pipe
 from retrorecomp.netplay.launch import Refusal, launch_settings
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -384,6 +384,96 @@ class BatchTests(unittest.TestCase):
             host.peer(5, (0x01, 0))
             self.assertEqual(host.ask(6), [('LOAD', 5), ('SILENT', 5, (0x01,)), ('SAVE', 6), ('RUN', 6, (0x01,))])
             self.assertEqual(host.game.errors, [])
+
+
+def hello_of(caps, bound=1000):
+    return pipe.Hello(pipe.ABI, 2, caps, bound, 60000, 'x')
+
+
+SNAP = hello_of(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT)
+PLAIN = hello_of(pipe.CAP_DIGEST, 0)
+
+
+class LaunchTierTests(unittest.TestCase):
+    """The tier byte of the LAN room's LAUNCH: its encoding, its bounds and the host's decision (all pure)."""
+
+    def launch(self, **changes):
+        fields = dict(match_id=7, seat=1, seats=2, delay=0, digest_every=60, redundancy=3, machine='nes', stamp=bytes(32),
+                      rom_sha=bytes(32), names=('Arthur', 'Nadia'), options='speed=1')
+        fields.update(changes)
+        return control.Launch(**fields)
+
+    def test_the_tier_byte_round_trips_within_one_to_eight_and_zero_is_the_delay_tier(self):
+        self.assertEqual(self.launch().rollback, 0)
+        for cap in (0, 1, 5, control.MAX_ROLLBACK):
+            kind, payload = control.encode(self.launch(rollback=cap))
+            decoded = control.decode(kind, payload)
+            self.assertEqual(decoded.rollback, cap)
+            self.assertEqual(control.encode(decoded), (kind, payload))                     # the canonical form
+        self.assertEqual(control.MAX_ROLLBACK, 8)
+        self.assertEqual(control.encode(self.launch(rollback=3))[1][11], 3)               # one byte, after the input mode
+
+    def test_a_tier_byte_out_of_bounds_is_refused_by_the_encoder_and_the_decoder_never_with_an_exception_but_a_frame_error(self):
+        for bad in (-1, control.MAX_ROLLBACK + 1, 255, True, '3', 2.0, None):
+            with self.assertRaises(ValueError, msg=bad):
+                control.encode(self.launch(rollback=bad))
+        kind, payload = control.encode(self.launch(rollback=2))
+        for byte in (control.MAX_ROLLBACK + 1, 30, 255):
+            changed = bytearray(payload)
+            changed[11] = byte
+            with self.assertRaises(control.FrameError):
+                control.decode(kind, bytes(changed))
+        with self.assertRaises(control.FrameError):                                        # the old layout, one byte short
+            control.decode(kind, payload[:11] + payload[12:])
+
+    def test_a_guest_takes_the_cap_through_launch_settings_within_the_wire_bound(self):
+        message = {'seat': 1, 'seats': 2}
+        self.assertEqual(launch_settings({**message, 'rollback': 8}, rollback_max=control.MAX_ROLLBACK).rollback, 8)
+        self.assertEqual(launch_settings(message, rollback_max=control.MAX_ROLLBACK).rollback, 0)
+        for bad in (9, 30, -1, True, '8', None):
+            refusal = launch_settings({**message, 'rollback': bad}, rollback_max=control.MAX_ROLLBACK)
+            self.assertIsInstance(refusal, Refusal, bad)
+            self.assertTrue(refusal.reason.isascii())
+
+    def test_the_host_chooses_rollback_only_when_every_game_reported_a_snapshot(self):
+        self.assertEqual(rollback.choose_tier('auto', [SNAP]), rollback.DEFAULT_PREDICTION)
+        self.assertEqual(rollback.choose_tier('auto', [SNAP, SNAP, SNAP], 3), 3)
+        self.assertEqual(rollback.choose_tier('auto', [SNAP, PLAIN]), 0)                    # one without: the delay tier for all
+        self.assertEqual(rollback.choose_tier('auto', [PLAIN, SNAP]), 0)
+        self.assertEqual(rollback.choose_tier('auto', [SNAP, None]), 0)                     # a game that never said HELLO
+        self.assertEqual(rollback.choose_tier('auto', []), 0)
+        self.assertEqual(rollback.choose_tier('auto', [hello_of(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT | pipe.CAP_DRIVEN)]), 0)
+
+    def test_the_host_can_override_the_decision_and_a_forced_rollback_is_refused_with_a_reason_when_a_game_cannot(self):
+        self.assertEqual(rollback.choose_tier('delay', [SNAP, SNAP]), 0)
+        self.assertEqual(rollback.choose_tier('rollback', [SNAP, SNAP], 6), 6)
+        for hellos in ([SNAP, PLAIN], [None], []):
+            refusal = rollback.choose_tier('rollback', hellos)
+            self.assertIsInstance(refusal, Refusal)
+            self.assertIn('snapshots', refusal.reason)
+        for mode, cap in (('maybe', 4), ('auto', 0), ('auto', 9), ('delay', 9), ('rollback', True), ('auto', '4')):
+            self.assertIsInstance(rollback.choose_tier(mode, [SNAP], cap), Refusal, (mode, cap))
+            self.assertIsInstance(rollback.check_tier(mode, cap), Refusal)
+        self.assertIsNone(rollback.check_tier('auto', 8))
+
+    def test_a_game_without_snapshots_refuses_a_launch_that_says_rollback_and_says_why(self):
+        game = SteppedGame(caps=pipe.CAP_DIGEST, bound=0)
+        driver = driver_for(game, PongLink(), Settings(seat=1, seats=2, rollback=4, rollback_required=True, packet_rate=1e9))
+        driver.start()
+        try:
+            self.assertTrue(driver.wait_for(lambda seen: seen.outcome is not None, 10), driver.snapshot())
+            self.assertEqual(driver.outcome, 'refused')
+            self.assertIn('keeps no snapshot', driver.detail)
+            self.assertEqual(game.commands, [])                                              # no SETUP: the game was never started on it
+        finally:
+            driver.stop()
+            driver.join(30)
+
+    def test_a_game_with_snapshots_is_not_refused_and_without_the_requirement_the_delay_tier_stays_quiet(self):
+        with Host(self, cap=4, rollback_required=True) as host:
+            self.assertEqual(host.driver.snapshot()['tier'], 'rollback')
+        with Host(self, cap=4, game=SteppedGame(caps=pipe.CAP_DIGEST, bound=0)) as host:    # not required: the old behaviour
+            self.assertEqual(host.driver.snapshot()['tier'], 'delay')
 
 
 class RollbackThroughRealPipesTests(unittest.TestCase):

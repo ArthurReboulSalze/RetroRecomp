@@ -63,10 +63,12 @@ def clean_options(options) -> str | Refusal:
     return '\n'.join(lines)
 
 
-def launch_settings(message, *, guest: bool = True, machine: str | None = None) -> Settings | Refusal:
+def launch_settings(message, *, guest: bool = True, machine: str | None = None,
+                    rollback_max: int = MAX_PREDICTION) -> Settings | Refusal:
     """The `Settings` of a launch `message` (a dict of the fields in `FIELDS`), or the `Refusal` that says why not.
     `guest`: the receiver is a guest, so seat 0 (the host's) is not one it can be given. `machine`: when the caller knows it,
-    a handheld is refused in any mode but input sharing (the rule of `seat_map.HANDHELDS`, held on both ends of a launch)."""
+    a handheld is refused in any mode but input sharing (the rule of `seat_map.HANDHELDS`, held on both ends of a launch).
+    `rollback_max`: the largest prediction cap this caller accepts (a LAN launch: `control.MAX_ROLLBACK`; 0 is the delay tier)."""
     if not isinstance(message, dict):
         return Refusal('the launch is not a set of settings')
     unknown = sorted(str(key) for key in message if key not in FIELDS)
@@ -92,8 +94,8 @@ def launch_settings(message, *, guest: bool = True, machine: str | None = None) 
     if not _integer(redundancy) or not 1 <= redundancy <= MAX_REDUNDANCY:
         return Refusal(f'a redundancy of 1 to {MAX_REDUNDANCY}')
     rollback = message.get('rollback', 0)
-    if not _integer(rollback) or not 0 <= rollback <= MAX_PREDICTION:
-        return Refusal(f'a prediction cap of 0 to {MAX_PREDICTION} frames')
+    if not _integer(rollback) or not 0 <= rollback <= min(rollback_max, MAX_PREDICTION):
+        return Refusal(f'a prediction cap of 0 to {min(rollback_max, MAX_PREDICTION)} frames')
     names = clean_names(message.get('names', [f'Player {index + 1}' for index in range(seats)]), seats)
     if isinstance(names, Refusal):
         return names

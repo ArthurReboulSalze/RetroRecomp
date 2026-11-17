@@ -4,6 +4,9 @@ The game inherits exactly two handles (Windows) or file descriptors (POSIX) and 
 RETRORECOMP_NETPLAY_PIPE="<in>,<out>" (`native/hostkit/hostkit_session.h`). Nothing has a name another program
 could open, and nothing is a socket. The reader thread blocks in a read of the pipe and hands whole messages to
 the driver's sink; None is handed once, when the game closed its end or broke the rules.
+
+A game may be started before its driver exists (`hold`): its messages are kept, in order, until `attach` hands them all over, so
+a host can read its game's HELLO (`wait_hello`) before it says which tier the match is on. The game itself waits for its SETUP.
 """
 from __future__ import annotations
 
@@ -32,6 +35,10 @@ class SessionGame:
         self.broken: str | None = None
         self._lock = threading.Lock()
         self._sink: Callable | None = None
+        self._held: list | None = None              # `hold`: the messages that came before a sink was attached
+        self._first = threading.Event()             # the HELLO (or the end) is among the held messages
+        self._reading = False
+        self._deliver_lock = threading.Lock()
         game_in, self._write = os.pipe()
         self._read, game_out = os.pipe()
         files = []
@@ -70,8 +77,46 @@ class SessionGame:
 
     def attach(self, sink: Callable[[tuple[int, bytes] | None], None]) -> None:
         """Messages go to `sink` from now on, in order, from a thread of this game; None once, at the end."""
-        self._sink = sink
+        with self._deliver_lock:
+            held, self._held = self._held, None
+            self._sink = sink
+            for message in held or ():              # in order, before anything that comes next (the reader waits for this lock)
+                sink(message)
+            reading, self._reading = self._reading, True
+        if not reading:
+            threading.Thread(target=self._reader, name='netplay-game-pipe', daemon=True).start()
+
+    def hold(self) -> None:
+        """Starts reading the game's messages and keeps them for `attach` (once, before `attach`)."""
+        with self._deliver_lock:
+            if self._reading or self._sink is not None:
+                raise RuntimeError('the game is already being read')
+            self._held, self._reading = [], True
         threading.Thread(target=self._reader, name='netplay-game-pipe', daemon=True).start()
+
+    def wait_hello(self, timeout: float) -> pipe.Hello | None:
+        """The game's HELLO once it came (the game was started with `hold`), or None: too late, the game ended, or a HELLO that
+        is not one. The message stays held for the driver, which judges it again."""
+        if not self._first.wait(timeout):
+            return None
+        with self._deliver_lock:
+            for message in self._held or ():
+                if message is not None and message[0] == pipe.MSG_HELLO:
+                    try:
+                        return pipe.parse_hello(message[1])
+                    except pipe.Broken:
+                        return None
+        return None
+
+    def _give(self, message) -> None:
+        with self._deliver_lock:
+            if self._held is not None:
+                self._held.append(message)
+                if message is None or message[0] == pipe.MSG_HELLO:
+                    self._first.set()
+                return
+            sink = self._sink
+        sink(message)
 
     def _reader(self):
         reader = pipe.MessageReader()
@@ -88,8 +133,8 @@ class SessionGame:
                 self.broken = str(error)
                 break
             for message in messages:
-                self._sink(message)
-        self._sink(None)
+                self._give(message)
+        self._give(None)
 
     def send(self, data: bytes) -> bool:
         """False when the game is gone (its end of the pipe is closed)."""

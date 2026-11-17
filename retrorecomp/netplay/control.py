@@ -29,7 +29,7 @@ MAX_PAYLOAD = 1024
 READ_BUFFER = 2048
 WELCOME, REJECT, HELLO, LAUNCH, LAUNCHED, END, PING, PONG, BYE = range(1, 10)
 ROSTER, CHAT, SELECT, NOTICE, BACK, SAY, READY, ANSWER = range(10, 18)
-LOBBY_VERSION = 1
+LOBBY_VERSION = 2                           # 2: the LAUNCH carries the tier byte (the rollback cap)
 PHASE_LOBBY, PHASE_LAUNCHING, PHASE_PLAYING = 0, 1, 2
 LOBBY_PHASES = range(3)
 CHECK_NONE, CHECK_ASKING, CHECK_SAME, CHECK_OTHER, CHECK_MISSING, CHECK_FAILED = range(6)
@@ -50,6 +50,7 @@ MAX_NAME_BYTES = 48
 MAX_NAME_CHARS = 16
 MAX_SEATS = 4
 MAX_OPTIONS = 512
+MAX_ROLLBACK = 8                            # the tier byte of a LAUNCH: 0 the delay tier, 1 to 8 the rollback tier with that prediction cap
 MAX_MACHINE = 16
 _MACHINE = re.compile(r'[A-Za-z0-9_.+-]{1,16}')
 _FROM_GUEST = frozenset((HELLO, LAUNCHED, END, PING, PONG, BYE, SAY, READY, ANSWER))
@@ -94,6 +95,7 @@ class Launch:
     names: tuple
     options: str
     sharing: int = 0                # the input mode of the match (`seat_map`): one controller per player, everyone, turns
+    rollback: int = 0               # the tier byte: 0 the delay tier, 1 to MAX_ROLLBACK the rollback tier with that prediction cap
 
 
 @dataclass(frozen=True)
@@ -270,6 +272,10 @@ def _encode_lobby(message) -> tuple[int, bytes]:
     return ANSWER, struct.pack('<HBB3H', message.selection, message.status, message.reasons, *message.version)
 
 
+def valid_tier_byte(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= MAX_ROLLBACK
+
+
 def encode(message) -> tuple[int, bytes]:
     """(type, payload) of a message."""
     if isinstance(message, (Roster, Chat, Select, Notice, Back, Say, Ready, Answer)):
@@ -285,15 +291,15 @@ def encode(message) -> tuple[int, bytes]:
         return HELLO, struct.pack('<3HB', *message.version, len(name)) + name
     if isinstance(message, Launch):
         if (not _MACHINE.fullmatch(message.machine) or len(message.names) > MAX_SEATS or len(message.options) > MAX_OPTIONS
-                or message.sharing not in SHARINGS
+                or message.sharing not in SHARINGS or not valid_tier_byte(message.rollback)
                 or len(message.stamp) != 32 or len(message.rom_sha) != 32 or not message.options.isascii()
                 or any(not 0 < len(name.encode('utf-8')) <= MAX_NAME_BYTES for name in message.names)):
             raise ValueError('a launch outside the rules')
         machine = message.machine.encode('ascii')
         names = b''.join(struct.pack('<B', len(raw)) + raw for raw in (name.encode('utf-8') for name in message.names))
         options = message.options.encode('ascii')
-        return LAUNCH, b''.join((struct.pack('<IBBBHBB', message.match_id, message.seat, message.seats, message.delay,
-                                             message.digest_every, message.redundancy, message.sharing),
+        return LAUNCH, b''.join((struct.pack('<IBBBHBBB', message.match_id, message.seat, message.seats, message.delay,
+                                             message.digest_every, message.redundancy, message.sharing, message.rollback),
                                  struct.pack('<B', len(machine)), machine, message.stamp, message.rom_sha,
                                  struct.pack('<B', len(message.names)), names, struct.pack('<H', len(options)), options))
     if isinstance(message, Launched):
@@ -477,10 +483,12 @@ def _decode_lobby(kind: int, payload: bytes):
 
 
 def _decode_launch(payload: bytes) -> Launch:
-    match_id, seat, seats, delay, digest_every, redundancy, sharing = struct.unpack_from('<IBBBHBB', payload)
-    offset = 11
+    match_id, seat, seats, delay, digest_every, redundancy, sharing, rollback = struct.unpack_from('<IBBBHBBB', payload)
+    offset = 12
     if sharing not in SHARINGS:
         raise FrameError('a launch with an input mode that does not exist')
+    if rollback > MAX_ROLLBACK:
+        raise FrameError('a launch with a prediction cap beyond the bound')
     length = payload[offset]
     offset += 1
     machine_raw = payload[offset:offset + length]
@@ -517,7 +525,7 @@ def _decode_launch(payload: bytes) -> Launch:
         options = options_raw.decode('ascii')
     except UnicodeDecodeError:
         raise FrameError('a launch with options that are not ASCII') from None
-    return Launch(match_id, seat, seats, delay, digest_every, redundancy, machine, stamp, rom_sha, tuple(names), options, sharing)
+    return Launch(match_id, seat, seats, delay, digest_every, redundancy, machine, stamp, rom_sha, tuple(names), options, sharing, rollback)
 
 
 # ---- frames ----

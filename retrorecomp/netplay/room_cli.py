@@ -1,7 +1,7 @@
 """A command line for the first test between two PCs, with no window and no change to the machine.
 
     python -B RetroRecomp.py _netplay-room addresses
-    python -B RetroRecomp.py _netplay-room host  --address 192.168.1.20 --game "C:\\path\\to\\game.exe" [--guests 1]
+    python -B RetroRecomp.py _netplay-room host  --address 192.168.1.20 --game "C:\\path\\to\\game.exe" [--guests 1] [--tier delay|rollback]
     python -B RetroRecomp.py _netplay-room guest "rr1:lan:192.168.1.20:24611:...." --game "C:\\path\\to\\game.exe"
     python -B RetroRecomp.py _netplay-room guest - --game ...        (the invitation is read from the keyboard)
     python -B RetroRecomp.py _netplay-room guest --invitation-file FILE --game ...
@@ -29,6 +29,7 @@ import sys
 import tempfile
 
 from . import control, invitation, seat_map
+from .rollback import DEFAULT_PREDICTION, TIER_MODES
 from .worker_client import WorkerProcess
 
 DEFAULT_MACHINE = 'cli'
@@ -69,6 +70,11 @@ def _parser() -> argparse.ArgumentParser:
     host.add_argument('--sharing', choices=('per_player', 'everyone', 'turns'), default='per_player',
                       help='the input mode of the match: one controller per player (default), or every player on the same controls '
                            '("everyone" OR-merged, "turns" one at a time); a handheld is always shared')
+    host.add_argument('--tier', choices=TIER_MODES, default='auto',
+                      help='the tier of the match: automatic (the default: rollback when the game keeps snapshots, else delay), '
+                           'or delay / rollback to force one (a check between two PCs)')
+    host.add_argument('--prediction', type=int, default=DEFAULT_PREDICTION,
+                      help="the rollback tier's cap: the most frames that run on a guess (1 to %d)" % control.MAX_ROLLBACK)
     host.add_argument('--option', action='append', default=[], metavar='KEY=VALUE', help='a run-changing option of the game')
     host.add_argument('--join-timeout', type=float, default=600.0, help='seconds to wait for the guests')
     host.add_argument('--frames', type=int, default=0, help='stop the match for everyone after about this many frames (a timed check)')
@@ -89,9 +95,9 @@ def _describe(event: dict) -> str | None:
     if name == 'left':
         return f'{event["name"]} left: {event.get("detail", "")}'
     if name == 'launching':
-        return f'match {event["match_id"]}: launching with {", ".join(event["names"])}'
+        return f'match {event["match_id"]}: launching with {", ".join(event["names"])} on the {event.get("tier", "delay")} tier'
     if name == 'launch_request':
-        return f'match {event["match_id"]}: the host launches seat {event["seat"] + 1} of {event["seats"]}'
+        return f'match {event["match_id"]}: the host launches seat {event["seat"] + 1} of {event["seats"]} on the {event.get("tier", "delay")} tier'
     if name == 'slow_link':
         return event['detail']
     if name == 'match_over':
@@ -108,7 +114,7 @@ def _game_config(path: Path, folder: Path, prefix: str) -> dict:
 
 def _summary(worker: WorkerProcess) -> str:
     result = worker.result or {}
-    return (f'outcome {result.get("outcome")}, {result.get("history_frames", 0)} frames, delay {result.get("delay")}, '
+    return (f'outcome {result.get("outcome")}, tier {result.get("tier")}, {result.get("history_frames", 0)} frames, delay {result.get("delay")}, '
             f'history digest {result.get("history_digest")}, boot digest {result.get("boot_digest")}, '
             f'desync {result.get("desync")}, waits {result.get("stats", {}).get("waits")}, late frames {result.get("stats", {}).get("late_frames")}'
             + (f', {result["detail"]}' if result.get('detail') else ''))
@@ -173,7 +179,8 @@ def run_host(args, tests: bool = False) -> int:
             return 1
         mark = worker.event_count
         settings = {'delay': args.delay, 'digest_every': args.digest_every, 'redundancy': 3, 'options': '\n'.join(args.option),
-                    'sharing': seat_map.effective(args.machine, seat_map.BY_NAME[args.sharing])}
+                    'sharing': seat_map.effective(args.machine, seat_map.BY_NAME[args.sharing]), 'tier': args.tier,
+                    'rollback': args.prediction}
         worker.call('launch', game=_game_config(args.game, args.log_dir, 'host'),
                     identity={'machine': args.machine, 'stamp': args.stamp, 'rom': args.rom_sha256}, settings=settings)
         _wait_until_over(worker, mark, args.frames)
