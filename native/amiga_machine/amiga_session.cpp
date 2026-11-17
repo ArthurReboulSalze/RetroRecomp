@@ -584,8 +584,23 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
     }
     if (game->kickstart && game->kickstart_size) S->kick.assign(game->kickstart, game->kickstart + game->kickstart_size);
     S->session = game->session != 0;
-    if (S->session) S->overlay.assign(OVERLAY_CAP, 0);     // the player's own saves are not read: every seat starts the same
-    else if (game->save_dir && *game->save_dir) {
+    if (S->session) {
+        // A session: this player's own saves go into the session's memory (the overlay, in name order), never back to the folder. The
+        // host plays on them, and a guest's are replaced by the host's before the match (rr_amiga_session_save_put); one that does not
+        // fit is left out, and the boot digest tells two different saves apart.
+        S->overlay.assign(OVERLAY_CAP, 0);
+        std::map<std::string, std::vector<uint8_t>> own;
+        std::error_code ec;
+        const fs::path folder = game->save_dir && *game->save_dir ? upath(game->save_dir) : fs::path();
+        if (!folder.empty() && fs::is_directory(folder, ec))
+            for (auto &e : fs::recursive_directory_iterator(folder, ec)) {
+                if (!e.is_regular_file() || e.path().extension() == ".tmp") continue;
+                std::ifstream in(e.path(), std::ios::binary);
+                own[lower(utf8(fs::relative(e.path(), folder)))] = std::vector<uint8_t>((std::istreambuf_iterator<char>(in)), {});
+            }
+        for (auto &f : own)
+            if (rr_amiga_savefile::inside_folder(f.first)) overlay_put(f.first, f.second.data(), (uint32_t)f.second.size(), false);
+    } else if (game->save_dir && *game->save_dir) {
         S->saves = true;
         S->save_dir = upath(game->save_dir);
         std::error_code ec;
@@ -638,6 +653,9 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
         S->emu->set(Opt::MON_PALETTE, (i64)Palette::RGB);   // plain 4-bit to 8-bit colours, no monitor model
         S->emu->set(Opt::MEM_RAM_INIT_PATTERN, (i64)RamInitPattern::ALL_ZEROES);
         S->emu->set(Opt::AUD_ASR, 0);                       // a fixed sample rate: the sound does not follow the host's clock
+        // A session's snapshot leaves the ROM out (512 KiB of our boot ROM, the same on every seat and never written; the player's
+        // Kickstart lives in ExpMem, in slow RAM, which the snapshot keeps): one snapshot a frame on the rollback tier copies less.
+        if (S->session) S->emu->set(Opt::MEM_SAVE_ROMS, false);
         // The texture in the host's own order (0xAARRGGBB): the palette is packed once in that order, and the picture's copy moves
         // texels without swapping red and blue in each pixel. Setting it repacks the palette (Host::setOption, updateRGBA).
         S->emu->set(Opt::HOST_TEX_FORMAT, (i64)TexFormat::ARGB);
@@ -1330,3 +1348,39 @@ extern "C" uint64_t rr_amiga_digest(RrAmigaSession *s) {
 }
 
 extern "C" void rr_amiga_side_effects(RrAmigaSession *s, int allowed) { s->effects = allowed != 0; }
+
+// The session's saves as one image: "RRSV", then the overlay's entries (amiga_session.cpp, overlay_walk). Never empty, so a host
+// without saves still sends one, and a guest then plays without its own.
+static constexpr uint8_t SAVES_MAGIC[4] = {'R', 'R', 'S', 'V'};
+
+extern "C" size_t rr_amiga_session_save(RrAmigaSession *s, void *out, size_t capacity) {
+    const size_t need = sizeof SAVES_MAGIC + s->overlay_used;
+    if (!s->session) return 0;
+    if (!out) return need;
+    if (capacity < need) return 0;
+    memcpy(out, SAVES_MAGIC, sizeof SAVES_MAGIC);
+    memcpy((uint8_t *)out + sizeof SAVES_MAGIC, s->overlay.data(), s->overlay_used);
+    return need;
+}
+
+extern "C" int rr_amiga_session_save_put(RrAmigaSession *s, const void *in, size_t size) {
+    const uint8_t *p = (const uint8_t *)in;
+    if (!s->session || !in || size < sizeof SAVES_MAGIC || memcmp(p, SAVES_MAGIC, sizeof SAVES_MAGIC)) return 0;
+    p += sizeof SAVES_MAGIC;
+    size -= sizeof SAVES_MAGIC;
+    if (size > s->overlay.size()) return 0;
+    // Whole entries only, each a name the save folder could hold.
+    size_t at = 0;
+    while (at < size) {
+        if (size - at < 7) return 0;
+        const size_t length = (size_t)p[at] | (size_t)p[at + 1] << 8;
+        if (size - at < 7 + length || p[at + 2 + length] > 1) return 0;
+        const uint32_t n = le32(p + at + 3 + length);
+        if (size - at - 7 - length < n) return 0;
+        if (!rr_amiga_savefile::inside_folder(std::string((const char *)p + at + 2, length))) return 0;
+        at += 7 + length + n;
+    }
+    memcpy(s->overlay.data(), p, size);
+    s->overlay_used = size;
+    return 1;
+}

@@ -44,8 +44,9 @@ typedef struct RrAmigaGame {
     /* The machine: RR_AMIGA_MODEL_A500 (68000, ECS, 0 the default) or RR_AMIGA_MODEL_A1200 (68EC020 with its instruction
      * cache, AGA, 2 MiB of chip RAM on a 32-bit bus: vAmiga's own A1200 scheme with the A1200 bank map). */
     int model;
-    /* 1: a multiplayer session (native/hostkit/hostkit_session.h: every seat runs the same machine). The install's own files on every seat (save_dir is
-     * neither read nor written), what the game saves kept in memory and carried by the in-process snapshot (rr_amiga_snap_*). */
+    /* 1: a multiplayer session (native/hostkit/hostkit_session.h: every seat runs the same machine). The install's files on every seat, with this player's
+     * saves (save_dir, read once, never written) in the session's memory until the host's replace them (rr_amiga_session_save_put);
+     * what the game saves stays in that memory, carried by the in-process snapshot (rr_amiga_snap_*). */
     int session;
 } RrAmigaGame;
 
@@ -150,6 +151,11 @@ int rr_amiga_snap_load(RrAmigaSession *s, const void *buffer, size_t size);
 uint64_t rr_amiga_digest(RrAmigaSession *s);
 /* Side effects off (a silent frame, a guest): the player's record (rr_amiga_set_recorder) notes nothing. */
 void rr_amiga_side_effects(RrAmigaSession *s, int allowed);
+/* A session's saves (RrhkMachine.session_save / session_save_put): this player's own save files, read at the start into the session's
+ * memory, as one image (out NULL: its size; 0: no session or no room); and the host's image, which a guest plays on instead (0:
+ * refused, nothing changed). Never written to a disk. */
+size_t rr_amiga_session_save(RrAmigaSession *s, void *out, size_t capacity);
+int rr_amiga_session_save_put(RrAmigaSession *s, const void *in, size_t size);
 
 #ifdef __cplusplus
 }
