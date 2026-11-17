@@ -11,6 +11,7 @@
 #include "retro_menu.h"
 #include "runtime_i18n.h"
 #include "display_settings.h"
+#include "../../atarist_machine/atarist_snapshot.h"
 #include <math.h>
 
 /* The actions, in menu order; the bit of an action is 1 << its index. Fire is the joystick's button (and the mouse's left
@@ -88,6 +89,9 @@ static struct {
    size_t audio_count, audio_taken;
    uint8_t held[RETROK_LAST];       /* the keys the guest holds, to send changes only */
    unsigned settle;                 /* frames to wait after a state load: its restore released the keys the guest held, the keys still held are pressed again after it */
+   bool effects_off;                /* a silent frame, or a guest in a match: the disk-writes file is not written (side_effects) */
+   uint8_t *boot, *scratch;         /* in a match: the machine after its first frame (a restart goes back to it) and room to compose the restart */
+   size_t boot_size, capacity;
 } sa;
 
 static unsigned s_joystick_bits(uint16_t pad) {
@@ -128,6 +132,8 @@ static void s_inputs(void) {
       }
       if (!guest_keyboard && player_start() > 0) held[RETROK_RETURN] = 1;
    }
+   /* In a match the guest gets the match's port words only (the two joysticks): the host's mouse and keyboard are not carried yet, so they are cut (joystick games first). */
+   if (rrhk_session_active()) { memset(held, 0, sizeof held); left = right = dx = dy = 0; }
    rr_st_joystick(session, 1, bits1);
    rr_st_joystick(session, 0, bits0);
    rr_st_mouse(session, dx, dy, left, right);
@@ -142,6 +148,7 @@ static void s_inputs(void) {
 static void s_disks(void) {
    unsigned count = rr_st_disk_count(session), index;
    char text[96];
+   if (rrhk_session_active()) { want_eject = want_swap = false; return; }      /* a snapshot does not swap disks: no change in a match */
    if (want_eject) { want_eject = false; player_notice("Eject is not available on the Atari ST"); }
    if (!want_swap) return;
    want_swap = false;
@@ -181,18 +188,27 @@ static bool s_run_frame(uint16_t p1, uint16_t p2) {
    s_disks();
    if (rr_st_frame(session) != 0) { fail(rr_st_error(session)); return false; }
    frame_number++;
-   writes_tick(false);
+   if (sa.boot && !sa.boot_size && rrhk_session_active()) sa.boot_size = rr_st_snapshot_save(session, sa.boot, sa.capacity);      /* the first frame of a match: what a restart goes back to */
+   if (!sa.effects_off) writes_tick(false);
    rr_st_picture(session, &w, &h, &stride);
    if (w > 0 && h > 0) { width = (unsigned)w; height = (unsigned)h; }
    if (sa.audio_taken) { memmove(sa.audio, sa.audio + sa.audio_taken, (sa.audio_count - sa.audio_taken) * sizeof(int16_t)); sa.audio_count -= sa.audio_taken; sa.audio_taken = 0; }
    got = rr_st_audio(session, sa.audio + sa.audio_count, (sizeof sa.audio / sizeof sa.audio[0] - sa.audio_count) / 2);
    sa.audio_count += got * 2;
+   if (rrhk_session_silent()) sa.audio_count = sa.audio_taken = 0;      /* frames run again after a load make no sound */
    return !quit_requested && (!frame_limit || frame_number < frame_limit);
 }
 static void s_pause(bool paused) { (void)paused; }
 static int s_players(void) { return 2; }
-/* A reset boots the machine again: the process restarts itself (the session is one per process). */
-static void s_reset(void) { restart_requested = true; quit_requested = true; }
+/* A reset boots the machine again (alone: the process restarts itself, the session is one per process). */
+static void s_reset(void) {
+   /* In a match the machine restarts in place, from the state after its first frame (the process stays: the session is its own); alone it boots again as a new process. */
+   if (rrhk_session_active() && sa.boot_size && rr_st_snapshot_restart(session, sa.boot, sa.boot_size, sa.scratch, sa.capacity)) {
+      memset(sa.held, 0, sizeof sa.held);
+      return;
+   }
+   restart_requested = true; quit_requested = true;
+}
 static uint64_t s_zero(void) { return 0; }
 static uint64_t s_interpreted(void) { return rr_st_interpreted_count(session); }
 static uint64_t s_input_frame(void) { return frame_number; }
@@ -207,6 +223,21 @@ static bool s_state_file(const wchar_t *path, bool load) {
       return true;
    }
    return state_save(utf8, false) == 0;
+}
+
+/* Multiplayer (hostkit_session.h): the in-process snapshot of atarist_snapshot.h, its digest, and what a frame may do outside the guest. */
+static size_t s_snap_bound(void) { return rr_st_snapshot_bound(); }
+static size_t s_snap_save(void *buffer, size_t capacity) { return rr_st_snapshot_save(session, buffer, capacity); }
+static bool s_snap_load(const void *buffer, size_t size) { return rr_st_snapshot_load(session, buffer, size) != 0; }
+static uint64_t s_digest(void) { return rr_st_snapshot_digest(session); }
+/* A silent frame and a guest's match write no file; the host's own saves will travel through a shared hook of the kit. */
+static void s_side_effects(bool allowed) { sa.effects_off = !allowed; }
+/* The generator of Hatari, the IKBD's clock and the machine's boot are deterministic from the first frame: nothing of the session's clock is needed. */
+static void s_session_begin(uint64_t clock) {
+   writes_path[0] = 0;              /* a match neither reads this PC's saved writes nor writes them: every seat starts from the export's own disks, the writes stay in memory */
+   rr_st_session_begin(session, clock);
+   if (!sa.boot && (sa.capacity = rr_st_snapshot_bound()) != 0) { sa.boot = (uint8_t *)malloc(sa.capacity); sa.scratch = (uint8_t *)malloc(sa.capacity); }
+   sa.boot_size = 0;
 }
 
 const RrhkMachine *rrhk_adapter(void) {
@@ -234,6 +265,8 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.frame_start = x_frame_start; machine.finished = x_finished;
       machine.event = x_event; machine.keyboard_pad = x_keyboard_pad; machine.fast_forward = x_fast_forward; machine.game_rect = x_game_rect;
       machine.help_page = x_help_page; machine.action_held = x_action_held;
+      machine.snap_bound = s_snap_bound; machine.snap_save = s_snap_save; machine.snap_load = s_snap_load;
+      machine.digest = s_digest; machine.side_effects = s_side_effects; machine.session_begin = s_session_begin;
    }
    return &machine;
 }

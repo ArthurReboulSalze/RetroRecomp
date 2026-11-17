@@ -20,6 +20,7 @@ import json
 import shutil
 from pathlib import Path
 
+from .atarist_hatari_rollback import ROLLBACK_REPLACEMENTS
 from .paths import ROOT
 
 HATARI_REPOSITORY = 'https://github.com/hatari/hatari.git'
@@ -359,6 +360,8 @@ REPLACEMENTS = [
      '# Retro-Recomp modification (GPL-2.0, like this file): the core is linked into the player.\n'
      'add_library(retro-hatari STATIC\n'),
 ]
+# The lean in-memory snapshot for multiplayer rollback (a state's memory image, the digest, a generator of our own): its own module.
+REPLACEMENTS += ROLLBACK_REPLACEMENTS
 
 # What the configure step is given: the libretro frontend only, every optional library left out (found or not on the host).
 DISABLED_PACKAGES = ('SDL3', 'SDL2', 'CapsImage', 'ZLIB', 'PNG', 'Readline', 'Capstone', 'PortMidi', 'X11', 'LibArchive',
