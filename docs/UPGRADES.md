@@ -257,8 +257,9 @@ CPU and GTE, RAM, scratchpad, sound RAM and the memory card in a fixed little-en
 records no runtime hint), `session_begin` (every seat starts on the core's empty memory card; the player's card file is neither
 read again nor written) and `session_option` with four keys the host sets for everyone: `pgxp`, `pgxp_texture`, `cpu_resolution`
 and, with PGXP On, `renderer`; their F3 rows are refused during a match. `rr_psx_session_values` (`session_options`, session ABI 6) gives the host's own values.
-Alone, nothing changes: every new path is reached only in a match (or by the headless `--match` and `--digests` of the evidence).
-What moves: the PlayStation's game stamp (its runtime and Beetle's adaptation: `rr_psx_spu_ram`), so a PlayStation export is
+The profile answers a session (`netplay_session`); the sticks travel with the pads (session ABI 7). Alone, nothing changes: every
+new path is reached only in a match (or by the headless `--match` and `--digests` of the evidence). What moves: the
+PlayStation's game stamp (the profile, its runtime and Beetle's adaptation: `rr_psx_spu_ram`), so a PlayStation export is
 converted again; the PlayStation's host stamp; one new catalogue string (« Not during a multiplayer game ») moves the host stamp
 of every machine with the host kit, as the multiplayer line above already does. Quick states: unchanged. **Proof**:
 [PLAYSTATION.md section 10](PLAYSTATION.md#10-multiplayer-the-digest-and-the-hosts-settings-next-release-delay-tier) (Ape

@@ -303,8 +303,8 @@ On the multiplayer branch (`spec/psx-mp-digest`). The PlayStation gives the host
 `psx_session.c`): FNV-1a 64 over, in this order, the R3000A's state and the GTE's 64 registers (each word little-endian), the 2 MiB
 of RAM, the 1 KiB scratchpad, the 512 KiB of sound RAM (halfwords little-endian; read through one anchored line of Beetle's
 `spu.c`) and the memory card of slot 1. No VRAM: the CPU renderer's copy grows with its internal resolution. It plays on the
-**delay tier** (no in-process snapshot); the sticks travel with the pads once the session carries them (the multiplayer
-specialist's next shared piece: until then the kit refuses a machine with sticks).
+**delay tier** (no in-process snapshot); the sticks travel with the pads (session ABI 7: four values per player, the
+DualShock's own 8-bit precision), and the profile answers a session (`netplay_session`).
 
 **What a match makes the same on every seat.**
 - **The memory card.** Every seat starts on the core's empty card, the one a game without a card file gets; the player's own card
