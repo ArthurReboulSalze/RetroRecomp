@@ -1,5 +1,11 @@
 # RetroRecomp, next release (in preparation)
 
+- **Multiplayer (in preparation).** Play a converted game with friends on your local network: one PC hosts, the others
+  join with an invitation code, and each player has their own controller (or everyone shares the controls on the
+  handhelds). The host can restart the game for everyone; a chat is built into the game (Y on the keyboard, R3 + Select on
+  the gamepad, with ready-made phrases). On a local network the input delay added is one or two frames; a slower
+  connection is smoothed by rollback. Every export is converted again once for this release. Physical latency is not
+  measured.
 - **The converter: the Front-end opens in the window.** The **Front-end** button no longer switches to full screen by itself:
   a **Full screen** button appears left of it while the front-end is open (X on the gamepad and F11 still switch too).
   **Options › Common** can still start Retro-Recomp straight in the front-end in full screen.
