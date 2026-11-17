@@ -705,6 +705,12 @@ UPGRADES, the release notes and `tests/test_machine_registry.py`. The shared pat
 on 93.96 % of the interpreter's, the rest being coprocessor, unpredictable and modelling classes, none explained away) and G11 stays `P` (authored hardware tests only, no external emulator): nothing here claims a
 fidelity to the hardware.
 
+## Multiplayer (17 November 2026, delay tier)
+
+A handheld plays a session in input sharing only (profile `netplay_shared_only`: one pad, the seats' buttons merged). The machine answers a session since the multiplayer branch: its host-kit adapter gives a digest (`rrgba_digest`: the engine's
+state container read section by section, without the sound section and the cartridge clock chip's block, plus a running hash of the mixed samples), a guest never writes the cartridge save and the cartridge's clock starts from the session's clock. There is **no
+snapshot**: the engine's state container allocates per call, so the machine plays on the delay tier, not on rollback, and the host's F8 / F9 for everyone is not offered. What was shown and what was not: [UPGRADES.md](UPGRADES.md#game-boy-advance-multiplayer-on-the-delay-tier-next-release).
+
 ## What exists today
 
 | Piece | File |
