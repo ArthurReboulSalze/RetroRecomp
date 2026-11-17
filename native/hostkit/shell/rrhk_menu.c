@@ -130,8 +130,18 @@ static bool from_hub;
 static bool quit_yes;
 
 /* 1.7.6: a machine with a graphics page (D14) has one tile more, the last: it opens that page, which comes back to the tiles. */
-static int hub_tiles(void) { return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0); }
+static int hub_tiles(void) {
+    return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0) + (rrhk_chat_offered() ? 1 : 0);
+}
+/* Multiplayer: the Chat tile, the last one, closes the menu (the pause it asked for ends) and opens the chat's entry, with the
+ * on-screen keyboard when player 1 has a gamepad. */
+static bool hub_chat_tile(int tile) { return rrhk_chat_offered() && tile == hub_tiles() - 1; }
 static void hub_open(int tile) {
+    if (hub_chat_tile(tile)) {
+        rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false;
+        rrhk_chat_begin(rrhk.pads[0] != NULL);
+        return;
+    }
     if (tile >= rrhk_pages_count()) { rrhk_open_graphics(); return; }
     int control;
     rrhk.menu = rrhk_pages_goto(tile, &control);
@@ -150,8 +160,9 @@ void rrhk_hub_key(SDL_Scancode key) {
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) hub_open(hub_tile);
 }
 /* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), the graphics page
- * (-3, 1.7.6). */
+ * (-3, 1.7.6), the multiplayer chat (-4). */
 static int hub_kind(int tile) {
+    if (hub_chat_tile(tile)) return -4;
     const int controls = 2 * rrhk.machine->players();
     return tile < controls ? tile : tile >= rrhk_pages_count() ? -3 : tile == rrhk_pages_count() - 1 ? -2 : -1;
 }
@@ -177,7 +188,7 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
             rr_menu_box(ren, ox, oy, unit, x, y, TILE_W, TILE_H, RR_MENU_SHADE, 255);
             rr_menu_box(ren, ox, oy, unit, x + 1, y + 1, TILE_W - 2, TILE_H - 2, 26, 24, 20, 255);
         }
-        const int icon = kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
+        const int icon = kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
             kind % 2 ? RR_ICON_GAMEPAD : RR_ICON_KEYBOARD;
         rr_menu_icon(ren, ox, oy, unit, x + (TILE_W - rr_menu_icon_width(icon)) / 2, y + (kind >= 0 ? 4 : 11), icon, !selected);
         if (kind >= 0) {
@@ -194,7 +205,7 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     if (kind >= 0) snprintf(title, sizeof title, rr_tr(kind % 2 ? "Player %d - Gamepad" : "Player %d - Keyboard"), kind / 2 + 1);
     else {
         /* A page's title names the converter ("Retro-Recomp - Gun"): under the tiles the page alone is named. */
-        const char *name = rr_tr(kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
+        const char *name = rr_tr(kind == -4 ? "Chat" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
         if (!strncmp(name, "Retro-Recomp - ", 15)) name += 15;
         snprintf(title, sizeof title, "%s", name);
     }
@@ -381,7 +392,8 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         snprintf(states, sizeof states, "%s | %s", rr_tr("F8  Save game state"), rr_tr("F9  Load game state"));
         if (!rrhk_session_on) lines[count++] = states;
         if (m->help_lines) m->help_lines(1, lines, &count);
-        lines[count++] = rr_tr(rrhk_session_on ? "M  Mute" : "Tab  Fast-forward | `  Max speed | M  Mute");   /* D12 */
+        lines[count++] = rr_tr(rrhk_session_on ? "M  Mute | Y  Chat" : "Tab  Fast-forward | `  Max speed | M  Mute");   /* D12 */
+        if (rrhk_session_on && !m->keyboard_pad) lines[count++] = rr_tr("R3+Select  Chat on the gamepad");
         lines[count++] = rr_feedback_label();
         lines[count++] = rrhk_tr("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)");
         int y = 36;

@@ -40,6 +40,15 @@ static unsigned menu_at, menu_countdown;
 /* SESSION_FAKE_RESTART_AT=n: the player presses Shift+F1 during frame n - 1 (alone: the game restarts before frame n; in a
  * session: the host's request goes to the worker, a guest is told only the host can). */
 static unsigned restart_at;
+/* SESSION_FAKE_CHAT_AT=n: during frame n - 1 the player opens the chat (Y: its own text event is not typed) and types "Hello
+ * there"; Enter sends it twenty iterations later, while the frames go on (the chat asks no pause). */
+static unsigned chat_at, chat_countdown;
+static void text(const char *t) {
+    SDL_Event event; SDL_zero(event);
+    event.type = SDL_TEXTINPUT;
+    SDL_strlcpy(event.text.text, t, sizeof event.text.text);
+    SDL_PushEvent(&event);
+}
 static void key_with(SDL_Scancode code, SDL_Keycode sym, Uint16 mod) {
     SDL_Event event; SDL_zero(event);
     event.type = SDL_KEYDOWN; event.key.keysym.scancode = code; event.key.keysym.sym = sym; event.key.keysym.mod = mod;
@@ -50,6 +59,7 @@ static void key(SDL_Scancode code, SDL_Keycode sym) { key_with(code, sym, KMOD_N
 static void frame_start(void *window, void *renderer) {
     (void)window; (void)renderer;
     if (menu_countdown && !--menu_countdown) key(SDL_SCANCODE_ESCAPE, SDLK_ESCAPE);
+    if (chat_countdown && !--chat_countdown) key(SDL_SCANCODE_RETURN, SDLK_RETURN);
 }
 
 /* The fold the worker repeats: splitmix64 of the accumulator mixed with the four words and the frame. */
@@ -82,6 +92,10 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
     /* frame 10 of the run: the player presses F8, which a session must refuse with a notice */
     if (menu_at && state.frames == menu_at && !rrhk_session_silent()) { key(SDL_SCANCODE_F1, SDLK_F1); menu_countdown = 30; }
     if (restart_at && state.frames == restart_at && !rrhk_session_silent()) key_with(SDL_SCANCODE_F1, SDLK_F1, KMOD_LSHIFT);
+    if (chat_at && state.frames == chat_at && !rrhk_session_silent()) {
+        key(SDL_SCANCODE_Y, SDLK_y); text("y"); text("Hello there");
+        chat_countdown = 20;
+    }
     if (state.frames == 10 && !rrhk_session_silent()) {
         SDL_Event event; SDL_zero(event);
         event.type = SDL_KEYDOWN; event.key.keysym.scancode = SDL_SCANCODE_F8; event.key.keysym.sym = SDLK_F8;
@@ -132,6 +146,8 @@ int main(int argc, char **argv) {
     menu_at = menu ? (unsigned)atoi(menu) : 0;
     const char *restart = getenv("SESSION_FAKE_RESTART_AT");
     restart_at = restart ? (unsigned)atoi(restart) : 0;
+    const char *chat = getenv("SESSION_FAKE_CHAT_AT");
+    chat_at = chat ? (unsigned)atoi(chat) : 0;
     /* SESSION_FAKE_BOOT_SALT=n: this copy starts from another state (a stand-in for another battery, an option the seal
      * missed, a damaged export): its digest before frame 0 differs, which the boot-digest check of the worker must refuse. */
     const char *salt = getenv("SESSION_FAKE_BOOT_SALT");

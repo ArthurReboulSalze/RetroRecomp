@@ -381,7 +381,7 @@ static void draw_notices(RrhkRun *r) {
     const Uint64 now = SDL_GetTicks64();
     if (now >= start_until) start_until = 0;
     if (!start_until && !(rrhk.status[0] && now < rrhk.status_until)) return;
-    int ox, oy, unit, y = 172;
+    int ox, oy, unit, y = rrhk_chat_notice_line();
     rr_menu_layout(r->ren, &ox, &oy, &unit);
     if (start_until && !rrhk.paused) {
         char line[200], quit[48], restart[48];
@@ -648,6 +648,7 @@ static void end_frame(RrhkRun *r) {
         r->title_state = current_title_state;
     }
     rrhk_menu_draw(r->ren);
+    rrhk_chat_draw(r->ren);          /* multiplayer: the chat's lines and entry; the notices stay readable over them */
     if (rrhk.menu) start_until = 0;
     else draw_notices(r);
     if (m->before_present) m->before_present(r->ren);

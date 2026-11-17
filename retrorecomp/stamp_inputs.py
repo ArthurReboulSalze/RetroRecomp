@@ -188,7 +188,8 @@ HOST_NATIVE = frozenset((
     'hostkit/hostkit.h', 'hostkit/hostkit_internal.h', 'hostkit/hostkit_session.h',
     'hostkit/shell/rrhk_audio.c', 'hostkit/shell/rrhk_events.c', 'hostkit/shell/rrhk_input.c',
     'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
-    'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_session.inc', 'hostkit/shell/rrhk_timing.c',
+    'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_session.inc', 'hostkit/shell/rrhk_chat.inc',
+    'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
@@ -370,6 +371,7 @@ INPUTS = _resolve({
         'native/hostkit/shell/rrhk_pointer.c',
         'native/hostkit/shell/rrhk_ring.c',
         'native/hostkit/shell/rrhk_session.inc',
+        'native/hostkit/shell/rrhk_chat.inc',
         'native/hostkit/shell/rrhk_timing.c',
         'native/hostkit/shell/rrhk_video.c',
         'native/audio_checks.c',

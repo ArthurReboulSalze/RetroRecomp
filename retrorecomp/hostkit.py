@@ -19,7 +19,7 @@ SHELL = tuple(f'shell/rrhk_{name}.c' for name in
               ('audio', 'events', 'input', 'main', 'menu', 'options', 'pointer', 'ring', 'timing', 'video'))
 # Shell files rrhk_main.c includes (staged beside it, never compiled by themselves): multiplayer stays out of every machine's
 # build list, so the machines that compile the kit from their own CMake file need no change.
-SHELL_INCLUDED = ('shell/rrhk_session.inc',)
+SHELL_INCLUDED = ('shell/rrhk_session.inc', 'shell/rrhk_chat.inc')   # rrhk_session.inc includes the chat
 # The adapter file of each machine on the kit, below native/hostkit: the profile's `host_adapter` (the Master
 # System and the Game Gear share one; an adapter an engine's own platform file includes, `.inc`, is staged but
 # not compiled by itself). A new machine adds no line here.

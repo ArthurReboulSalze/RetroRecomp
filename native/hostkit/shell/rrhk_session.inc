@@ -335,6 +335,12 @@ static bool set_ports(const RrhkMachine *m, const uint8_t *payload, uint16_t len
 /* The session is over (lost, refused, stopped): the reason stays on screen about 3.5 s (events polled, pictures presented, no
  * frame run), then the game closes. Never a window that simply vanishes. */
 #define RRHK_SESSION_ENDING_MS 3500
+/* The in-game chat (rrhk_chat.inc, included at the end of this file). */
+static bool chat_show(const uint8_t *payload, uint16_t length);
+static void chat_turn(int turn, const char *name);
+static void chat_slow(void);
+static void chat_reset(void);
+
 static int ending(const char *message, uint16_t reason) {
     if (!s.ending_until) {
         s.exit_reason = reason;
@@ -377,7 +383,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     if (!s.local_sent || system != s.system_sent) {
         /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
          * sends the neutral word. */
-        if (!s.local_sent) s.word_sent = rrhk.menu || rrhk.capturing ? 0 : rrhk_local_pad_word(0, input_frame);
+        if (!s.local_sent) s.word_sent = rrhk.menu || rrhk.capturing || rrhk_chat_open() ? 0 : rrhk_local_pad_word(0, input_frame);
         uint8_t local[8];
         put32(local, s.live);
         put16(local + 4, s.word_sent);
@@ -475,12 +481,17 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             copy_name(name, sizeof name, payload + 3, payload[2]);
             const uint16_t code = (uint16_t)(payload[0] | payload[1] << 8);
             /* The code chooses a catalogue string; only the name comes from the pipe. */
+            if (code == RRHK_NOTICE_TURN || code == RRHK_NOTICE_YOUR_TURN) { chat_turn(code == RRHK_NOTICE_YOUR_TURN ? 2 : 1, name); break; }
+            if (code == RRHK_NOTICE_CHAT_SLOW) { chat_slow(); break; }
             if (code == RRHK_NOTICE_WAITING) snprintf(text, sizeof text, rr_tr("Waiting for %s"), name);
             else if (code == RRHK_NOTICE_LEFT) snprintf(text, sizeof text, rr_tr("%s left the game"), name);
             else snprintf(text, sizeof text, "%s", rr_tr("Resumed"));
             rrhk_notice(text, 1800);
             break;
         }
+        case RRHK_MSG_CHAT_SHOW:
+            if (!chat_show(payload, length)) return lost(run, "a CHAT_SHOW broke the rules");
+            break;
         case RRHK_MSG_PACE: {
             if (length != 4) return lost(run, "a PACE broke the rules");
             const int32_t ppm = (int32_t)u32(payload);
@@ -526,5 +537,8 @@ void rrhk_session_close(RrhkRun *run, int reason) {
 #endif
     s.in = s.out = RRHK_NO_PIPE;
     free(s.ring); s.ring = NULL; s.depth = 0;
+    chat_reset();
     rrhk_session_on = false;
 }
+
+#include "rrhk_chat.inc"
