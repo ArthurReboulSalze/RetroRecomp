@@ -256,6 +256,9 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.audio_reopen = host_audio_reopen; machine.audio_device_id = host_audio_device_id;
       machine.audio_ratio = host_audio_ratio;   /* 1.7.7 (HOST_KIT D30): Sync to display */
       machine.state_ready = m_state_ready; machine.state_file = m_state_file; machine.state_path = m_state_path;
+      /* Multiplayer: the game's in-process snapshots (rollback, the host's F8 / F9 for everyone), its digest, its outside effects. */
+      machine.snap_bound = msx_snap_bound; machine.snap_save = msx_snap_save; machine.snap_load = msx_snap_load;
+      machine.digest = msx_snap_digest; machine.side_effects = msx_side_effects;
       machine.input_frame = m_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = m_help_controls;
       machine.option_rows = x_option_rows; machine.key_event = x_key_event;
