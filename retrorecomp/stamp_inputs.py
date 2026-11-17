@@ -771,6 +771,7 @@ INPUTS = _resolve({
         'native/media_request.h',
         'native/msx_machine/msx_state.c',
         'native/msx_machine/msx_state_file.inc',
+        'native/msx_machine/msx_snapshot.inc',
         'native/msx_machine/msx_tiles.inc',
         'native/msx_machine/msx_v9938.c',
         'native/msx_machine/msx_v9938_cmd.c',

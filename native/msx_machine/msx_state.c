@@ -70,6 +70,11 @@ static void scc_state(RetroStateIO *io, MsxScc *s)
     signed16(io, s->out, 5);
 }
 
+/* Whether a state holds the picture and the borders of the frame last drawn (1, the quick-state files). The multiplayer
+ * snapshots (msx_snapshot.inc) set it to 0 around theirs: they are taken at a frame's end, and the next frame draws the whole
+ * picture again before it is shown, so storing it would only cost time (about 430 KB a frame on a V9938). */
+int msx_state_picture = 1;
+
 /* The disk interface: the controller's registers and the transfer in progress, and the disk in drive A as it is now (what the
  * game wrote included). The disk in the drive must be the same size in the saving and the loading process. */
 static void fdc_state(RetroStateIO *io, MsxFdc *f)
@@ -132,8 +137,10 @@ static void v9938_state(MsxMachine *m, RetroStateIO *io)
     B(v->blink_on); B(v->blink_count);
     B(v->lines_latched);
     S(v->adjust_h, 1); S(v->adjust_v, 1);
-    words16(io, &v->frame[0][0], (size_t)MSX2_LINES * MSX2_WIDTH, 0xFFFF);
-    words16(io, &v->border[0][0], (size_t)MSX2_LINES * 2, 0xFFFF);
+    if (msx_state_picture) {                     /* the picture: the next frame draws it again (msx_state_picture) */
+        words16(io, &v->frame[0][0], (size_t)MSX2_LINES * MSX2_WIDTH, 0xFFFF);
+        words16(io, &v->border[0][0], (size_t)MSX2_LINES * 2, 0xFFFF);
+    }
     rr_state_bytes(io, v->line_mode, sizeof v->line_mode);
     for (int i = 0; i < MSX2_LINES; ++i)
         S(v->line_adjust[i], 1);
@@ -290,11 +297,13 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
     W(t->address, 2, 0x3FFF);
     B(t->latch); B(t->first); B(t->readahead);
     /* The picture and the borders are colour indexes: read byte by byte, so the check sees the decoded values. */
-    for (int y = 0; y < MSX_HEIGHT; ++y)
-        for (int x = 0; x < MSX_WIDTH; ++x)
-            W(t->frame[y][x], 1, 15);
-    for (int y = 0; y < MSX_HEIGHT; ++y)
-        W(t->border[y], 1, 15);
+    if (msx_state_picture) {
+        for (int y = 0; y < MSX_HEIGHT; ++y)
+            for (int x = 0; x < MSX_WIDTH; ++x)
+                W(t->frame[y][x], 1, 15);
+        for (int y = 0; y < MSX_HEIGHT; ++y)
+            W(t->border[y], 1, 15);
+    }
     /* 7. V9938 */
     if (m->video == MSX_VIDEO_V9938)
         v9938_state(m, io);

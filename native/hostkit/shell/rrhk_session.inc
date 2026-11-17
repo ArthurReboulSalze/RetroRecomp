@@ -256,15 +256,21 @@ bool rrhk_session_open(RrhkRun *run) {
 #endif
     s.broken = false; s.rx_len = 0;
     /* HELLO: what this game can do in a session; the worker decides the tier (delay, rollback) or refuses the machine. */
-    uint8_t hello[16 + 64];
+    uint8_t hello[16 + 64 + 2 + RRHK_SESSION_MAX_OPTIONS];
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
     const uint8_t caps = (uint8_t)((bound ? RRHK_CAP_SNAPSHOT : 0) | (m->digest ? RRHK_CAP_DIGEST : 0) |
                                    (m->pointer ? RRHK_CAP_POINTER : 0) | (m->analog_sticks ? RRHK_CAP_AXES : 0) |
                                    (m->driven ? RRHK_CAP_DRIVEN : 0));
     char name[64];
     size_t name_length = 0;
-    for (const wchar_t *w = m->ini_section; w && *w && name_length < sizeof name - 1; ++w)
-        name[name_length++] = *w < 128 ? (char)*w : '?';
+    /* The machine's name as players read it (a CPS-2 board says CPS-2; ini_section stays the preferences' key). */
+    if (m->console_name) {
+        for (const char *c = m->console_name; *c && name_length < sizeof name - 1; ++c)
+            name[name_length++] = (unsigned char)*c >= 32 && (unsigned char)*c < 127 ? *c : '?';
+    } else {
+        for (const wchar_t *w = m->ini_section; w && *w && name_length < sizeof name - 1; ++w)
+            name[name_length++] = *w >= 32 && *w < 127 ? (char)*w : '?';
+    }
     put16(hello, RRHK_SESSION_ABI);
     hello[2] = (uint8_t)m->players();
     hello[3] = caps;
@@ -272,7 +278,15 @@ bool rrhk_session_open(RrhkRun *run) {
     put32(hello + 8, m->frame_seconds > 0.0 ? (uint32_t)(1000.0 / m->frame_seconds + 0.5) : 0);
     hello[12] = (uint8_t)name_length;
     memcpy(hello + 13, name, name_length);
-    if (!send_message(RRHK_MSG_HELLO, hello, 13 + name_length)) { fprintf(stderr, "[session] the pipe is closed\n"); return false; }
+    /* This PC's run-changing options: the host's are what every seat plays with (they come back in SETUP). */
+    size_t options = m->session_options ? m->session_options((char *)hello + 15 + name_length, RRHK_SESSION_MAX_OPTIONS) : 0;
+    if (options > RRHK_SESSION_MAX_OPTIONS) options = 0;
+    for (size_t i = 0; i < options; ++i) {
+        const uint8_t c = hello[15 + name_length + i];
+        if (c != '\n' && (c < 32 || c > 126)) { options = 0; break; }      /* never a byte the worker would refuse */
+    }
+    put16(hello + 13 + name_length, (uint16_t)options);
+    if (!send_message(RRHK_MSG_HELLO, hello, 15 + name_length + options)) { fprintf(stderr, "[session] the pipe is closed\n"); return false; }
     /* A gun or pointer (the local mouse) and sticks live outside the pad words: such a game is not offered until LOCAL carries
      * them. A computer's keyboard bindings (keyboard_pad) feed the pad words like any other: in a session the computer adapter
      * gives its guest no key of this PC (rrhk_computer.inc), so only the joysticks reach the machine (RRHK_CAP_KEYBOARD stays

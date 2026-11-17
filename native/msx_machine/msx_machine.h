@@ -312,6 +312,8 @@ void msx_set_music(MsxMachine *m, const uint8_t *rom, uint8_t bank_base, MsxFm *
  * player's own. Ports D8h/DAh set address bits 5-10 and D9h/DBh bits 11-16, a read of D9h/DBh returns the byte and steps the
  * low five bits (the 32 bytes of a 16 x 16 glyph), as openMSX's kanji device does. */
 void msx_set_kanji(MsxMachine *m, const uint8_t *rom, uint32_t size);
+/* 1: a state holds the picture last drawn (the quick-state files); the multiplayer snapshots set 0 around theirs (msx_state.c). */
+extern int msx_state_picture;
 /* The MSX2+ board: the MSX2's, with the V9958 and the port F4h. */
 void msx_setup_msx2plus(MsxMachine *m, const uint8_t *bios, uint8_t *mapper_ram, uint32_t segments, MsxV9938 *v9938);
 

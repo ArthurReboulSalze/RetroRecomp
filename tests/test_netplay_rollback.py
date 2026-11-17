@@ -489,7 +489,7 @@ class MatchStateTests(unittest.TestCase):
     def test_the_pipe_and_the_mapper_speak_it_as_the_header_says(self):
         header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
         for name in ('RRHK_RUN_STATE_SAVE = 4', 'RRHK_RUN_STATE_LOAD = 8', 'RRHK_SYS_STATE_SAVE = 4', 'RRHK_SYS_STATE_LOAD = 8',
-                     'RRHK_SESSION_ABI 5'):
+                     'RRHK_SESSION_ABI 6'):
             self.assertIn(name, header)
         self.assertEqual(pipe.run(5, (1, 2), silent=True, action=pipe.RUN_STATE_LOAD)[8], pipe.RUN_SILENT | pipe.RUN_STATE_LOAD)
         with self.assertRaises(ValueError):

@@ -52,7 +52,7 @@ from . import control, invitation, scripted_inputs, seat_map
 from . import session_pipe as pipe
 from . import worker_channel as channel
 from .lan_transport import RoomError, RoomGuest, RoomHost
-from .launch import Refusal, launch_settings
+from .launch import Refusal, launch_settings, merge_options
 from .lobby import game_from_dict
 from .lockstep import LockstepDriver, Settings
 from .lag_link import LagLink
@@ -350,7 +350,11 @@ class RoomWorker:
             return
         session = None
         try:
-            session, rollback = self._decide_tier(game, tier)
+            session, rollback, host_options = self._decide_tier(game, tier)
+            options = merge_options(net.get('options', ''), host_options)
+            if isinstance(options, Refusal):
+                raise RoomError(f'the host game\'s options: {options.reason}')
+            net['options'] = options
             with self.lock:         # held until `pending` is set: a guest that answers at once finds it there
                 if self.match is not None or self.pending is not None:
                     raise RoomError('a match is already running')
@@ -378,26 +382,29 @@ class RoomWorker:
     def _tier_settings(rollback: int) -> dict:
         return {'rollback': rollback, 'rollback_required': bool(rollback)}
 
-    def _decide_tier(self, game: dict, asked: dict) -> tuple[SessionGame | None, int]:
-        """The host's tier for this launch: (its game, started and held, or None for the delay tier; the tier byte). Unless the
-        host asked for the delay tier, its own game is started now to read its HELLO (`rollback.choose_tier` decides from it);
-        the driver takes the game over at the start of the match. A `RoomError` says why the launch cannot be made."""
+    def _decide_tier(self, game: dict, asked: dict) -> tuple[SessionGame, int, str]:
+        """The host's tier for this launch: (its game, started and held; the tier byte; its run-changing options). The host's own
+        game is started now to read its HELLO: `rollback.choose_tier` decides from it (unless the host asked for the delay
+        tier), and its options are what every seat plays with (the LAUNCH carries them). The driver takes the game over at the
+        start of the match. A `RoomError` says why the launch cannot be made."""
         mode, cap = asked.get('tier', TIER_AUTO), asked.get('rollback', DEFAULT_PREDICTION)
         bad = check_tier(mode, cap)
         if bad is not None:                 # refused before any game is started
             raise RoomError(bad.reason)
-        if mode == TIER_DELAY:
-            return None, 0
         session = self._open_game(game)
         try:
             session.hold()
-            verdict = choose_tier(mode, [session.wait_hello(HELLO_WAIT)], cap)
-            if isinstance(verdict, Refusal):
-                raise RoomError(verdict.reason)
+            hello = session.wait_hello(HELLO_WAIT)
+            if mode == TIER_DELAY:
+                verdict = 0
+            else:
+                verdict = choose_tier(mode, [hello], cap)
+                if isinstance(verdict, Refusal):
+                    raise RoomError(verdict.reason)
         except BaseException:
             self._drop_game(session)
             raise
-        return session, verdict
+        return session, verdict, hello.options if hello is not None else ''
 
     def _drop_game(self, session: SessionGame | None) -> None:
         """A game started for a launch that did not happen: its pipe is closed and it is ended."""
@@ -461,16 +468,20 @@ class RoomWorker:
             return
         session = None
         try:
-            session, rollback = self._decide_tier(game, tier)
+            session, rollback, host_options = self._decide_tier(game, tier)
             with self.lock:             # held until `pending` is set: a guest that answers at once finds it there
                 if self.match is not None or self.pending is not None:
                     self._drop_game(session)
                     self.emit({'event': 'launch_error', 'detail': 'a match is already running'})
                     return
-                options = self.room.lobby.game.game_options if self.room.lobby.game is not None else ''
+                options = merge_options(self.room.lobby.game.game_options if self.room.lobby.game is not None else '',
+                                        host_options)
+                if isinstance(options, Refusal):
+                    raise RoomError(f'the host game\'s options: {options.reason}')
                 info = self.room.lobby_launch(need_ready=need_ready, delay=net.get('delay') or 0,
                                               digest_every=net.get('digest_every', Settings.digest_every),
-                                              redundancy=net.get('redundancy', Settings.redundancy), rollback=rollback)
+                                              redundancy=net.get('redundancy', Settings.redundancy), rollback=rollback,
+                                              options=options)
                 if isinstance(info, Refusal):
                     self._drop_game(session)
                     self.emit({'event': 'launch_error', 'detail': info.reason})

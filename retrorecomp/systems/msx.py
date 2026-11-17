@@ -62,6 +62,9 @@ class MsxProfile(SystemProfile):
     option_keys = (OptionKey('msx_bios', signature=False, kind='path', label='msx_bios_label'),)
     capabilities = Capabilities(keyboard=True)
     quick_state_family = 'msx'
+    # Multiplayer (rollback tier): the adapter gives a digest and in-process snapshots (msx_snapshot.inc), the MSX2 and the
+    # MSX2+ inherit it. Joystick games: the keyboard is not carried in a session yet.
+    netplay_session = True
     host_adapter = 'adapters/rrhk_msx.inc'
     linux = 'witnessed'   # Nemesis (MSX1) and Metal Gear (MSX2) converted headless on a Debian 13 PC, 12 November 2026: same report fields as Windows, quick states pass; not played in a window there
     # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: nothing is recorded for path sharing, which the MSX declines (docs/MSX.md, section 7).

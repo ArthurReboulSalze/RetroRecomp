@@ -19,12 +19,14 @@
 #include <stdint.h>
 
 /* Raised whenever a message, a field or the meaning of one changes. The lobby also compares the host stamp. */
-#define RRHK_SESSION_ABI 5           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
+#define RRHK_SESSION_ABI 6           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
                                      * the turn notices, NOTICE_CHAT_SLOW); 4: the host's quick save and load for everyone
                                      * (RRHK_SYS_STATE_*, RRHK_RUN_STATE_*); 5: a driven machine with snapshots takes silent
-                                     * RUNs (its guest runs the frame; rollback for every machine) */
+                                     * RUNs (its guest runs the frame; rollback for every machine); 6: HELLO carries the game's
+                                     * run-changing options (RrhkMachine.session_options), the host's go to every seat */
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
+#define RRHK_SESSION_MAX_OPTIONS 1024
 #define RRHK_SESSION_ENV "RETRORECOMP_NETPLAY_PIPE"
 /* The clock every seat's machine runs on in a session (RrhkMachine.session_begin): 1 January 2000, 00:00 UTC, so that two PCs
  * whose clocks differ start alike. A clock the host gives would be a change of SETUP (a new ABI). */
@@ -33,7 +35,9 @@
 enum {
     /* game -> worker */
     RRHK_MSG_HELLO = 1,      /* u16 abi, u8 players, u8 caps (RRHK_CAP_*), u32 snap_bound, u32 frame_rate_millihertz,
-                              * u8 name length, ini section name (ASCII) */
+                              * u8 name length, the machine's name (console_name, else ini_section; ASCII), u16 options
+                              * length, this PC's run-changing options ("key=value" lines, ASCII, at most
+                              * RRHK_SESSION_MAX_OPTIONS bytes) */
     RRHK_MSG_LOCAL = 2,      /* u32 frame about to run, u16 word (player 1's controls of this PC), u16 system bits */
     RRHK_MSG_DONE = 3,       /* u32 frame just run live, u32 cost in microseconds */
     RRHK_MSG_DIGEST_OF = 4,  /* u32 last frame run, u64 digest */

@@ -89,9 +89,17 @@ void cps1_opm_generate(cps1_opm *chip, int32_t *left, int32_t *right)
     *right = output.data[1];
 }
 
+/* One vector kept between calls: its capacity stays, so a save or a load allocates nothing once the first has run (the rollback tier). */
+static std::vector<uint8_t> &scratch()
+{
+    static std::vector<uint8_t> data;
+    return data;
+}
+
 size_t cps1_opm_save(cps1_opm *chip, uint8_t *buffer, size_t capacity)
 {
-    std::vector<uint8_t> data;
+    std::vector<uint8_t> &data = scratch();
+    data.clear();
     ymfm::ymfm_saved_state state(data, true);
     chip->chip.save_restore(state);
     size_t extra = sizeof chip->intf.timer + sizeof chip->intf.busy_end;
@@ -107,7 +115,8 @@ int cps1_opm_load(cps1_opm *chip, const uint8_t *buffer, size_t size)
 {
     size_t extra = sizeof chip->intf.timer + sizeof chip->intf.busy_end;
     if (size < extra) return 0;
-    std::vector<uint8_t> data(buffer, buffer + size - extra);
+    std::vector<uint8_t> &data = scratch();
+    data.assign(buffer, buffer + size - extra);
     ymfm::ymfm_saved_state state(data, false);
     chip->chip.save_restore(state);
     std::memcpy(chip->intf.timer, buffer + data.size(), sizeof chip->intf.timer);

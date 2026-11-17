@@ -10,11 +10,13 @@ from dataclasses import dataclass
 import struct
 import unicodedata
 
-ABI = 5                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
+ABI = 6                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
                              # 4: the host's quick save and load for everyone (SYS_STATE_*, RUN_STATE_*); 5: a driven machine with
-                             # snapshots takes silent RUNs (rollback for every machine)
+                             # snapshots takes silent RUNs (rollback for every machine); 6: HELLO carries the game's run-changing
+                             # options (the host's go to every seat)
 MAX_PAYLOAD = 4096
 MAX_RING = 64
+MAX_OPTIONS = 1024           # RRHK_SESSION_MAX_OPTIONS: the run-changing options a HELLO may carry
 ENV = 'RETRORECOMP_NETPLAY_PIPE'
 MAX_PLAYERS = 4              # RRHK_MAX_PLAYERS: the port words a RUN may carry
 
@@ -84,6 +86,7 @@ class Hello:
     snap_bound: int
     frame_rate_millihertz: int
     name: str
+    options: str = ''           # this PC's run-changing options, "key=value" lines (the host's go to every seat)
 
     @property
     def frame_seconds(self) -> float:
@@ -128,9 +131,18 @@ def parse_hello(payload: bytes) -> Hello:
     if len(payload) < 13:
         raise Broken('a short HELLO')
     abi, players, caps, bound, rate, length = struct.unpack_from('<HBBIIB', payload)
-    if len(payload) != 13 + length:
+    if len(payload) < 13 + length:
         raise Broken('a HELLO of the wrong length')
-    return Hello(abi, players, caps, bound, rate, printable(payload[13:]))
+    name, rest = printable(payload[13:13 + length]), payload[13 + length:]
+    options = ''
+    if rest:                     # session ABI 6: u16 length, the options (absent: none)
+        if len(rest) < 2 or len(rest) != 2 + struct.unpack_from('<H', rest)[0] or len(rest) - 2 > MAX_OPTIONS:
+            raise Broken('a HELLO of the wrong length')
+        raw = rest[2:]
+        if any(not (32 <= byte < 127 or byte == 10) for byte in raw):
+            raise Broken('HELLO options that are not plain text')
+        options = raw.decode('ascii')
+    return Hello(abi, players, caps, bound, rate, name, options)
 
 
 def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:

@@ -343,6 +343,10 @@ typedef struct RrhkMachine {
     void (*side_effects)(bool allowed);
     /* A run-changing option the host pushes before frame 0, from the machine's declared list. false: cannot honour it. */
     bool (*session_option)(const char *key, const char *value);
+    /* This PC's values of those options as "key=value" lines separated by '\n' (plain ASCII, what session_option takes),
+     * written into `out` (at most `capacity` bytes), returning the length: the host's are sent to every seat and locked for the
+     * match (Arthur, 17 Nov 2026: the options that change the run are the host's, never forced off). NULL: none. */
+    size_t (*session_options)(char *out, size_t capacity);
     /* The session starts (after SETUP and its options, before the boot digest and frame 0): a machine with a real-time clock
      * sets it from `clock` (seconds since 1970, the same on every seat) instead of this PC's time, here and at every restart
      * of the session. NULL: nothing to do. */
