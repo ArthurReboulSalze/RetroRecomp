@@ -4,6 +4,7 @@
  * written for another set) which is left alone and never written over. The file is written beside this program (datas/saves). Built by
  * tools/cps1_persistence_selftest.py. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #ifndef _WIN32
 #include <time.h>
@@ -42,6 +43,14 @@ static int file_appears_within(unsigned ms)
         sleep_ms(50);
     }
     return 0;
+}
+static void set_session(int on)
+{
+#ifdef _WIN32
+    _putenv(on ? "RETRORECOMP_NETPLAY_PIPE=checks" : "RETRORECOMP_NETPLAY_PIPE=");
+#else
+    if (on) setenv("RETRORECOMP_NETPLAY_PIPE", "checks", 1); else unsetenv("RETRORECOMP_NETPLAY_PIPE");
+#endif
 }
 static void blank(void) { cps1_eeprom_reset(&chip, 12); }
 static void edit_file(long offset, int value)
@@ -102,6 +111,37 @@ int main(void)
     edit_file(30, 'X');                           /* the set identity inside the header */
     blank();
     expect("a file written for another set is refused", !rr_cps1_save_begin() && chip.data[1] == 0xff);
+    /* side effects off (a silent frame, a guest): the change flag is taken, no file is asked for, and the change is not asked later either */
+    remove_file();
+    blank();
+    rr_cps1_save_begin();
+    rr_cps1_save_side_effects(0);
+    chip.data[2] = 0x33; chip.changed = 1;
+    rr_cps1_save_frame();
+    expect("a frame without side effects takes the change flag", chip.changed == 0);
+    expect("and asks for no file", !file_appears_within(1700));
+    rr_cps1_save_side_effects(1);
+    rr_cps1_save_frame();
+    expect("a later frame with nothing changed asks for none either", !file_appears_within(1500));
+    chip.data[2] = 0x34; chip.changed = 1;
+    rr_cps1_save_frame();
+    expect("a change with side effects on is written", file_appears_within(4000));
+    expect("closing after it is fine", rr_cps1_save_close());
+
+    /* a multiplayer session: a blank EEPROM whatever the player's file holds, nothing read and nothing written */
+    blank();
+    expect("the player's file exists", rr_cps1_save_begin() && chip.data[2] == 0x34);
+    rr_cps1_save_close();
+    set_session(1);
+    blank();
+    expect("a session starts from a blank EEPROM", rr_cps1_save_begin() && chip.data[2] == 0xff);
+    remove_file();
+    chip.data[2] = 0x11; chip.changed = 1;
+    rr_cps1_save_frame();
+    expect("a session writes no file", !file_appears_within(1500));
+    expect("and closing it writes none", rr_cps1_save_close() && !file_appears_within(200));
+    set_session(0);
+
     remove_file();
     printf("{\"passed\":%u,\"failed\":%u}\n", passed, failed);
     return failed ? 1 : 0;

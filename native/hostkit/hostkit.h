@@ -296,6 +296,10 @@ typedef struct RrhkMachine {
     /* A machine that replays a script inside the window gives its recorded axes here; true: rrhk_pad_axes returns them as they
      * are (no dead zone). NULL or false: the gamepad's. */
     bool (*script_axes)(int player, uint64_t frame, int16_t axes[RRHK_AXES]);
+    /* Actions that push the left stick to an edge from keys or buttons (a host-side action, bit 0): LX left, LX right, LY up,
+     * LY down, -1 for none. In a multiplayer session the kit folds them into the sticks this PC sends, so a keyboard player's
+     * stick reaches the other seats; alone the machine applies them as before. NULL: none. */
+    const int *stick_actions;
     /* The triggers are buttons of the machine's own pad (a PlayStation's L2 and R2), which its default bindings use. Since 1.7.5
      * every machine accepts a trigger binding (RRHK_PAD_LEFT_TRIGGER, RRHK_PAD_RIGHT_TRIGGER: F2 captures a trigger pulled on
      * the selected player's pad, the one trigger reading holds it), so the field only says so; a trigger that player 1 has
@@ -343,6 +347,10 @@ typedef struct RrhkMachine {
     void (*side_effects)(bool allowed);
     /* A run-changing option the host pushes before frame 0, from the machine's declared list. false: cannot honour it. */
     bool (*session_option)(const char *key, const char *value);
+    /* This PC's values of those options as "key=value" lines separated by '\n' (plain ASCII, what session_option takes),
+     * written into `out` (at most `capacity` bytes), returning the length: the host's are sent to every seat and locked for the
+     * match (Arthur, 17 Nov 2026: the options that change the run are the host's, never forced off). NULL: none. */
+    size_t (*session_options)(char *out, size_t capacity);
     /* The session starts (after SETUP and its options, before the boot digest and frame 0): a machine with a real-time clock
      * sets it from `clock` (seconds since 1970, the same on every seat) instead of this PC's time, here and at every restart
      * of the session. NULL: nothing to do. */

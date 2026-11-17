@@ -107,7 +107,7 @@ retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py ret
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/msx_machine/msx_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c
 native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c native/msx_machine/msx2_checks_sprites.c native/msx_machine/msx2_checks_board.c
-native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c
+native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c
@@ -304,6 +304,7 @@ tools/pce_mame_compare.py tests/test_pce_mame_compare.py tools/pce_route_capture
 native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py tests/test_pce_huc6280_native_vectors.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
+native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
 tests/test_gameboy_helper_counts.py
 tools/gameboy_campaign.py tools/gameboy_cross_os.py tests/test_gameboy_cross_os.py
 tools/gameboy_testroms.py tests/test_gameboy_testroms.py tests/test_gameboy_unused_io.py tests/test_gameboy_boot_apu.py
@@ -356,7 +357,7 @@ retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py lic
 native/cps1_machine.c native/cps1_cps2_board.inc native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h native/cps1_eeprom.c native/cps1_eeprom.h native/cps1_persistence.c native/cps1_persistence.h
 native/cps1_qsound.c native/cps1_qsound.h retrorecomp/cps1_qsound.py tests/test_cps1_qsound.py
 tools/cps1_qsound_selftest.py native/cps1_qsound_checks.c tests/test_cps1_qsound_model.py
-tools/cps1_persistence_selftest.py native/cps1_persistence_checks.c tests/test_cps1_persistence.py
+tools/cps1_persistence_selftest.py native/cps1_persistence_checks.c tests/test_cps1_persistence.py tools/cps1_snap_check.py
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
@@ -428,6 +429,7 @@ native/snes_ppu_bus_checks.c tools/snes_ppu_bus_selftest.py
 native/snes_bus_checks.c tools/snes_bus_selftest.py tests/test_snes_bus.py
 retrorecomp/snes_chips.py retrorecomp/snes_gsu.py tools/snes_gsu_survey.py tests/test_snes_gsu.py
 native/snes_dma_checks.c tools/snes_dma_selftest.py tests/test_snes_chips.py
+native/snes_machine_checks.c tools/snes_machine_selftest.py
 native/snes_chip_checks.c tools/snes_chip_selftest.py
 native/snes_superfx_checks.c tools/snes_superfx_selftest.py tools/snes_superfx_model.py
 tools/snes_superfx_case.py tools/snes_superfx_library.py tools/snes_superfx_programs.py

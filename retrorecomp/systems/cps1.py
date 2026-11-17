@@ -6,6 +6,7 @@ from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, R
 
 class Cps1Profile(SystemProfile):
     id = 'cps1'
+    netplay_session = True
     netplay_seats = 4
     netplay_seats_ceiling = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.

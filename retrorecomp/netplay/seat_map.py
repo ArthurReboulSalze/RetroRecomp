@@ -141,6 +141,19 @@ def merge(words, opposites=()) -> int:
     return word
 
 
+def sticks(state: SeatState, records) -> tuple:
+    """The sticks of this frame's ports (session ABI 7), with the state as it was before the frame, as `step` maps the words:
+    one controller per player, each port its seat's; in turns the holder's; with everyone on the shared controls the first seat
+    whose sticks are off centre (sticks cannot be merged as buttons are). A record without sticks counts as centred."""
+    centred = (0, 0, 0, 0)
+    of = [record[2] if len(record) > 2 else centred for record in records]
+    if not shared(state.sharing):
+        return tuple(of)
+    if state.sharing == SHARED_TURNS:
+        return (of[state.token if state.token < len(of) else HOST],)
+    return (next((axes for axes in of if any(axes)), centred),)
+
+
 def action(records) -> int:
     """What every game does before this frame runs, from the host's record (a guest's bits are ignored): the restart, else the
     load of the match's state, else its save, as the RUN flag (`session_pipe.RUN_RESET`, `RUN_STATE_LOAD`, `RUN_STATE_SAVE`),
@@ -167,13 +180,13 @@ def step(state: SeatState, records, opposites=()) -> tuple[tuple, SeatState]:
     frame, in seat order. The words use the state as it was before this frame."""
     seats = len(records)
     if not shared(state.sharing):
-        return tuple(word for word, _system in records), state
+        return tuple(record[0] for record in records), state
     token = state.token if state.token < seats else HOST
     if state.sharing == SHARED_TURNS:
         words = (records[token][0],)
     else:
-        words = (merge((word for word, _system in records), opposites),)
-    controls = tuple(system & SYS_CONTROL_MASK for _word, system in records)
+        words = (merge((record[0] for record in records), opposites),)
+    controls = tuple(record[1] & SYS_CONTROL_MASK for record in records)
     previous = state.previous if len(state.previous) == seats else (0,) * seats
     rising = tuple(now & ~before for now, before in zip(controls, previous))
     sharing, after = state.sharing, token

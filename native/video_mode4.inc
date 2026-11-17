@@ -347,3 +347,42 @@ void smsrecomp_video_state(RetroStateIO *io) {
         raster_all_masked = masked; raster_complete_masked = complete_masked; frame_left_border = border;
     }
 }
+
+/* Multiplayer rollback (native/gamestate.inc, smsrecomp_snap_*): the raster state as it stands in memory, copied as it is, in the
+ * order of this struct. The two picture buffers, the raster latches and the sprite-flicker history all stay: a replay after a
+ * load must draw the same pixels as the first run (the digest hashes them). Memory only, never a file. */
+typedef struct {
+    int work, complete, hscroll, vscroll, all_masked, complete_masked, left_border;
+    int previous_count, orientation, reverse_streak, reverse_age, stable_reverse, tracking_mode, tracking_sat;
+    Mode4SpriteIdentity previous[64];
+    uint8_t attributes[192];
+} RrVideoSnap;
+size_t smsrecomp_video_snap_size(void) { return sizeof(RrVideoSnap) + sizeof raster_buffers; }
+void smsrecomp_video_snap_save(uint8_t *out) {
+    RrVideoSnap s;
+    memset(&s, 0, sizeof s);
+    s.work = raster_work; s.complete = raster_complete; s.hscroll = raster_hscroll; s.vscroll = raster_vscroll;
+    s.all_masked = raster_all_masked; s.complete_masked = raster_complete_masked; s.left_border = frame_left_border;
+    s.previous_count = sprite_previous_count; s.orientation = sprite_orientation; s.reverse_streak = sprite_reverse_streak;
+    s.reverse_age = sprite_reverse_age; s.stable_reverse = sprite_stable_reverse; s.tracking_mode = sprite_tracking_mode;
+    s.tracking_sat = sprite_tracking_sat;
+    memcpy(s.previous, sprite_previous, sizeof s.previous);
+    memcpy(s.attributes, sprite_tracking_attributes, sizeof s.attributes);
+    memcpy(out, &s, sizeof s);
+    memcpy(out + sizeof s, raster_buffers, sizeof raster_buffers);
+}
+bool smsrecomp_video_snap_load(const uint8_t *in) {
+    RrVideoSnap s;
+    memcpy(&s, in, sizeof s);
+    if ((s.work != 0 && s.work != 1) || s.complete == s.work || (s.complete != 0 && s.complete != 1) ||
+        (s.left_border != 0 && s.left_border != 8) || s.previous_count < 0 || s.previous_count > 64) return false;
+    raster_work = s.work; raster_complete = s.complete; raster_hscroll = s.hscroll; raster_vscroll = s.vscroll;
+    raster_all_masked = s.all_masked; raster_complete_masked = s.complete_masked; frame_left_border = s.left_border;
+    sprite_previous_count = s.previous_count; sprite_orientation = s.orientation; sprite_reverse_streak = s.reverse_streak;
+    sprite_reverse_age = s.reverse_age; sprite_stable_reverse = s.stable_reverse; sprite_tracking_mode = s.tracking_mode;
+    sprite_tracking_sat = s.tracking_sat;
+    memcpy(sprite_previous, s.previous, sizeof s.previous);
+    memcpy(sprite_tracking_attributes, s.attributes, sizeof s.attributes);
+    memcpy(raster_buffers, in + sizeof s, sizeof raster_buffers);
+    return true;
+}

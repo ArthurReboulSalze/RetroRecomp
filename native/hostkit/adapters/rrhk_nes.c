@@ -91,6 +91,11 @@ static bool session_option(const char *key, const char *value) {
     return true;
 }
 
+static size_t session_options(char *out, size_t capacity) {
+    const int n = snprintf(out, capacity, "extra_sprites=%d", extra_sprites ? 1 : 0);
+    return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
+}
+
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)running;
     if (key == SDL_SCANCODE_F5) {
@@ -149,7 +154,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
             .help_controls = help_controls, .key_event = key_event, .before_frame = before_frame,
             .snap_bound = rr_nes_snap_bound, .snap_save = rr_nes_snap_save, .snap_load = rr_nes_snap_load,
-            .digest = rr_nes_digest, .session_option = session_option,
+            .digest = rr_nes_digest, .session_option = session_option, .session_options = session_options,
         };
     }
     return &machine;

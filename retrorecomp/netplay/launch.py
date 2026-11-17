@@ -63,6 +63,21 @@ def clean_options(options) -> str | Refusal:
     return '\n'.join(lines)
 
 
+def merge_options(base: str, host: str) -> str | Refusal:
+    """The options a launch carries: `base` (the pick's, the command line's) with the host game's own values (its HELLO) over
+    them, key by key; cleaned as a guest will clean them."""
+    merged: dict[str, str] = {}
+    for text in (base, host):
+        cleaned = clean_options(text or '')
+        if isinstance(cleaned, Refusal):
+            return cleaned
+        for line in cleaned.split('\n'):
+            if line:
+                key, value = line.split('=', 1)
+                merged[key] = value
+    return clean_options('\n'.join(f'{key}={value}' for key, value in merged.items()))
+
+
 def launch_settings(message, *, guest: bool = True, machine: str | None = None,
                     rollback_max: int = MAX_PREDICTION) -> Settings | Refusal:
     """The `Settings` of a launch `message` (a dict of the fields in `FIELDS`), or the `Refusal` that says why not.
