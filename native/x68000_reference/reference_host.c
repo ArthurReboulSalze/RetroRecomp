@@ -512,10 +512,13 @@ static void *linked_symbol(const char *name){
  * --rollback-at it saves, runs --rollback-frames frames recording the digest after each, loads, checks the digest of
  * the loaded state, runs the same frames again and compares every digest. It also saves a second time over a buffer of
  * other bytes (identical bytes expected) and loads a snapshot one byte short (refused, nothing changed). */
-static const char *probe_path;
+static const char *probe_path,*probe_dump;
 static unsigned probe_at=600,probe_frames=120,probe_phase,probe_step,probe_mismatches,probe_first_bad=UINT32_MAX;
 static uint8_t *probe_snap,*probe_other;static size_t probe_bound,probe_len;
-static uint64_t *probe_digests,probe_saved_digest;
+static uint64_t *probe_digests,*probe_pictures,probe_saved_digest;static unsigned probe_picture_mismatches,probe_first_picture=UINT32_MAX;
+/* The presented picture of the frame (the session snapshot does not keep it: a load redraws it whole). */
+static uint64_t probe_picture(void){const uint8_t *p=(const uint8_t*)core.framebuffer();size_t bpp=pixel_format==RETRO_PIXEL_FORMAT_RGB565?2:4;uint64_t h=FNV_START;unsigned y;
+   if(!p)return 0;for(y=0;y<height&&y<600;y++)h=hash_bytes(h,p+(size_t)y*800*bpp,(size_t)(width<800?width:800)*bpp);return h;}
 static bool probe_same_bytes,probe_short_refused,probe_loaded_digest;
 static double probe_save_ms,probe_load_ms;
 static void probe_frame(void){
@@ -525,8 +528,8 @@ static void probe_frame(void){
       if(input_frame!=probe_at)return;
       probe_bound=x_snap_bound();
       probe_snap=(uint8_t*)malloc(probe_bound);probe_other=(uint8_t*)malloc(probe_bound);
-      probe_digests=(uint64_t*)calloc(probe_frames,sizeof(uint64_t));
-      if(!probe_bound||!probe_snap||!probe_other||!probe_digests){fail("Rollback probe allocation failed");probe_phase=3;return;}
+      probe_digests=(uint64_t*)calloc(probe_frames,sizeof(uint64_t));probe_pictures=(uint64_t*)calloc(probe_frames,sizeof(uint64_t));
+      if(!probe_bound||!probe_snap||!probe_other||!probe_digests||!probe_pictures){fail("Rollback probe allocation failed");probe_phase=3;return;}
       memset(probe_snap,0x00,probe_bound);memset(probe_other,0xa5,probe_bound);
       t0=(double)SDL_GetPerformanceCounter();
       probe_len=x_snap_save(probe_snap,probe_bound);
@@ -538,8 +541,11 @@ static void probe_frame(void){
       probe_phase=1;probe_step=0;return;
    }
    digest=x_digest();
+   /* --rollback-dump PREFIX: the snapshot after the first frame of each timeline, PREFIX-1.bin and PREFIX-2.bin (diagnosis). */
+   if(probe_dump&&probe_step==0){char name[1024];FILE *f;uint8_t *b=(uint8_t*)malloc(probe_bound);size_t n=b?x_snap_save(b,probe_bound):0;
+      snprintf(name,sizeof name,"%s-%u.bin",probe_dump,probe_phase);f=n?fopen(name,"wb"):NULL;if(f){fwrite(b,1,n,f);fclose(f);}free(b);}
    if(probe_phase==1){
-      probe_digests[probe_step++]=digest;
+      probe_pictures[probe_step]=probe_picture();probe_digests[probe_step++]=digest;
       if(probe_step<probe_frames)return;
       t0=(double)SDL_GetPerformanceCounter();
       if(!x_snap_load(probe_snap,probe_len)){fail("Rollback probe: the snapshot could not be loaded");probe_phase=3;return;}
@@ -548,12 +554,13 @@ static void probe_frame(void){
       probe_phase=2;probe_step=0;return;
    }
    if(digest!=probe_digests[probe_step]){probe_mismatches++;if(probe_first_bad==UINT32_MAX)probe_first_bad=probe_step;}
+   if(probe_picture()!=probe_pictures[probe_step]){probe_picture_mismatches++;if(probe_first_picture==UINT32_MAX)probe_first_picture=probe_step;}
    if(++probe_step<probe_frames)return;
    probe_phase=3;
-   {FILE *f=fopen(probe_path,"wb");bool passed=!probe_mismatches&&probe_same_bytes&&probe_short_refused&&probe_loaded_digest;
-    if(f){fprintf(f,"{\"passed\":%s,\"at\":%u,\"frames\":%u,\"mismatches\":%u,\"first_mismatch\":%d,\"same_bytes\":%s,"
+   {FILE *f=fopen(probe_path,"wb");bool passed=!probe_mismatches&&!probe_picture_mismatches&&probe_same_bytes&&probe_short_refused&&probe_loaded_digest;
+    if(f){fprintf(f,"{\"passed\":%s,\"at\":%u,\"frames\":%u,\"mismatches\":%u,\"first_mismatch\":%d,\"picture_mismatches\":%u,\"first_picture_mismatch\":%d,\"same_bytes\":%s,"
        "\"short_refused\":%s,\"loaded_digest\":%s,\"bound\":%zu,\"size\":%zu,\"save_ms\":%.3f,\"load_ms\":%.3f}\n",
-       passed?"true":"false",probe_at,probe_frames,probe_mismatches,probe_first_bad==UINT32_MAX?-1:(int)probe_first_bad,
+       passed?"true":"false",probe_at,probe_frames,probe_mismatches,probe_first_bad==UINT32_MAX?-1:(int)probe_first_bad,probe_picture_mismatches,probe_first_picture==UINT32_MAX?-1:(int)probe_first_picture,
        probe_same_bytes?"true":"false",probe_short_refused?"true":"false",probe_loaded_digest?"true":"false",
        probe_bound,probe_len,probe_save_ms,probe_load_ms);fclose(f);}
     if(!passed)fail("Rollback probe failed");}
@@ -719,6 +726,7 @@ static int player_main(int argc,char **argv) {
          else if(!strcmp(arg,"--disk-checks")) disk_checks_path=argv[i];
 #ifdef RR_X68000_LINKED
          else if(!strcmp(arg,"--rollback-probe")) probe_path=argv[i];
+         else if(!strcmp(arg,"--rollback-dump")) probe_dump=argv[i];
          else if(!strcmp(arg,"--rollback-at")||!strcmp(arg,"--rollback-frames")) {
             unsigned long n=strtoul(argv[i],&end,10);if(!*argv[i]||*end||n==0||n>=MAX_FRAMES){fail("Invalid rollback probe frame");goto cleanup;}
             if(!strcmp(arg,"--rollback-at"))probe_at=(unsigned)n;else probe_frames=(unsigned)n;

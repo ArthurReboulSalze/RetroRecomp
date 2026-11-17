@@ -57,6 +57,7 @@ void rr_state_dswin(RRState *s);
 void rr_state_mouse(RRState *s);
 void rr_state_opm(RRState *s);
 void rr_state_presented(RRState *s);
+void TVRAM_SetAllDirty(void);
 
 extern uint16_t *videoBuffer;
 /* Musashi slice counters (m68kcpu.c; not declared by every m68kcpu.h). */
@@ -125,9 +126,13 @@ static void host(RRState *s)
       rr_state_fail(s, "machine is not booted");
       return;
    }
-   /* Only dirty lines are redrawn: the presented picture is machine state (the digest leaves it out). */
-   if (!s->no_picture)
+   /* Only dirty lines are redrawn: the presented picture is machine state in a quick state. A session snapshot leaves it
+    * out and marks every text line dirty on load, so the next frame draws the whole picture again (proven by the rollback
+    * probe, which compares the presented picture of every replayed frame). */
+   if (!s->session && !s->no_picture)
       rr_state_u16s(s, videoBuffer, 800 * 600);
+   if (s->session && s->loading && !s->error)
+      TVRAM_SetAllDirty();
    if (s->loading && !s->error)
       rr_x68k_hardware_restore(counters);
 }
@@ -152,6 +157,43 @@ static const Section sections[] = {
 
 void rr_x68k_session_disks(RRState *s, size_t *bytes);
 static size_t journal_bytes;   /* journal blocks of the last session visit */
+extern uint8_t TextDirtyLine[1024];
+static uint8_t dirty_lines[1024];
+/* The work buffers of the line being drawn: written before they are read for every line drawn (the rollback probe compares
+ * the picture of every replayed frame), so a session snapshot and the digest store them empty. */
+extern uint8_t Text_TrFlag[1024];
+extern uint16_t BG_LineBuf[1600], BG_PriBuf[1600];
+extern uint16_t Grp_LineBuf[1024], Grp_LineBufSP[1024], Grp_LineBufSP2[1024];
+extern uint32_t VLINEBG;          /* set by WinDraw_DrawLine before each line's BG */
+static struct {
+   uint8_t tr[1024];
+   uint16_t bg[1600], pri[1600], grp[3][1024];
+   uint32_t vlinebg;
+} line_work;
+
+static void line_buffers(int keep)
+{
+   uint16_t *grp[3] = {Grp_LineBuf, Grp_LineBufSP, Grp_LineBufSP2};
+   unsigned i;
+   if (keep) {
+      memcpy(line_work.tr, Text_TrFlag, sizeof line_work.tr);
+      memcpy(line_work.bg, BG_LineBuf, sizeof line_work.bg);
+      memcpy(line_work.pri, BG_PriBuf, sizeof line_work.pri);
+      for (i = 0; i < 3; i++) memcpy(line_work.grp[i], grp[i], sizeof line_work.grp[i]);
+      line_work.vlinebg = VLINEBG;
+      VLINEBG = 0;
+      memset(Text_TrFlag, 0, sizeof line_work.tr);
+      memset(BG_LineBuf, 0, sizeof line_work.bg);
+      memset(BG_PriBuf, 0, sizeof line_work.pri);
+      for (i = 0; i < 3; i++) memset(grp[i], 0, sizeof line_work.grp[i]);
+   } else {
+      memcpy(Text_TrFlag, line_work.tr, sizeof line_work.tr);
+      memcpy(BG_LineBuf, line_work.bg, sizeof line_work.bg);
+      memcpy(BG_PriBuf, line_work.pri, sizeof line_work.pri);
+      for (i = 0; i < 3; i++) memcpy(grp[i], line_work.grp[i], sizeof line_work.grp[i]);
+      VLINEBG = line_work.vlinebg;
+   }
+}
 
 static int visit(RRState *s)
 {
@@ -182,10 +224,21 @@ static int visit(RRState *s)
       rr_x68k_session_disks(s, &journal_bytes);
       rr_state_end(s, mark);
    }
+   /* The text lines' redraw marks only say which lines the next frame draws again. A session snapshot and the digest store
+    * them all set (a load redraws the whole picture), so two seats that loaded at different frames keep equal digests. */
+   if (s->session && !s->loading) {
+      memcpy(dirty_lines, TextDirtyLine, sizeof dirty_lines);
+      memset(TextDirtyLine, 1, sizeof dirty_lines);
+      line_buffers(1);
+   }
    for (i = 0; i < count && !s->error; i++) {
       size_t mark = rr_state_begin(s, sections[i].tag, 1);
       sections[i].visit(s);
       rr_state_end(s, mark);
+   }
+   if (s->session && !s->loading) {
+      memcpy(TextDirtyLine, dirty_lines, sizeof dirty_lines);
+      line_buffers(0);
    }
    if (s->loading && !s->error && s->pos != s->size)
       rr_state_fail(s, "trailing bytes after the last snapshot section");
