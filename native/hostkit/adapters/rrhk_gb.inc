@@ -37,6 +37,7 @@ static RrhkMachine rr_gb_machine;
 static uint32_t g_rr_view[GB_SCREEN_WIDTH * GB_SCREEN_HEIGHT];   /* the picture of the last frame, at the origin of the kit's texture */
 static bool g_rr_stop;                  /* the kit asked to stop (quit): the next poll of events says so */
 static uint64_t g_rr_sample_time;       /* last mid-frame sample of the pads */
+static bool g_rr_effects = true;        /* false: nothing is written outside the machine (a guest's session, a silent frame): the cartridge RAM and the clock stay in memory */
 static std::vector<int16_t> g_rr_pcm;   /* interleaved stereo produced since the kit last took the sound */
 enum { RR_GB_PCM_LIMIT_FRAMES = 16384 };
 
@@ -181,6 +182,76 @@ static bool rr_gb_state_file(const wchar_t *path, bool load) {
     return done;
 }
 
+/* ---- multiplayer (hostkit_session.h): the machine's snapshot and digest ----
+ * The runtime part (native/gb_machine_state.h, in gbrt.c) holds the context, the memory blocks and the video and sound units. What lives in
+ * the platform layer and decides the next frames is added here: the pad registers the cartridge reads through JOYP (the manual and the
+ * effective ones, and the scripted ones, which stay released in a session). The runtime's last_joypad is in its own part. Host-only things
+ * (the window, the sound ring, the filters, the palette, the timers of the shell) are not in it. */
+typedef struct RrGbPadState {
+    uint8_t manual_dpad, manual_buttons, script_dpad, script_buttons, dpad, buttons;
+    uint8_t reserved[10];
+} RrGbPadState;
+
+static size_t rr_gb_snap_bound_adapter(void) {
+    const size_t machine = rr_gb_snap_bound(g_registered_ctx);
+    return machine ? machine + sizeof(RrGbPadState) : 0;
+}
+
+static size_t rr_gb_snap_save_adapter(void *buffer, size_t capacity) {
+    const size_t bound = rr_gb_snap_bound_adapter();
+    if (!bound || !buffer || capacity < bound) return 0;
+    const size_t machine = rr_gb_snap_save(g_registered_ctx, buffer, bound - sizeof(RrGbPadState));
+    if (!machine || machine + sizeof(RrGbPadState) != bound) return 0;
+    RrGbPadState pads;
+    memset(&pads, 0, sizeof pads);
+    pads.manual_dpad = g_manual_joypad_dpad; pads.manual_buttons = g_manual_joypad_buttons;
+    pads.script_dpad = g_script_joypad_dpad; pads.script_buttons = g_script_joypad_buttons;
+    pads.dpad = g_joypad_dpad; pads.buttons = g_joypad_buttons;
+    memcpy((uint8_t *)buffer + machine, &pads, sizeof pads);
+    return bound;
+}
+
+static bool rr_gb_snap_load_adapter(const void *buffer, size_t size) {
+    const size_t bound = rr_gb_snap_bound_adapter();
+    if (!bound || !buffer || size != bound) return false;
+    if (!rr_gb_snap_load(g_registered_ctx, buffer, bound - sizeof(RrGbPadState))) return false;
+    RrGbPadState pads;
+    memcpy(&pads, (const uint8_t *)buffer + (bound - sizeof(RrGbPadState)), sizeof pads);
+    g_manual_joypad_dpad = pads.manual_dpad; g_manual_joypad_buttons = pads.manual_buttons;
+    g_script_joypad_dpad = pads.script_dpad; g_script_joypad_buttons = pads.script_buttons;
+    g_joypad_dpad = pads.dpad; g_joypad_buttons = pads.buttons;
+    g_rr_pcm.clear();            /* the sound of the frames that are run again is discarded */
+    return true;
+}
+
+/* A session starts (and again at every restart of it): the cartridge's clock runs on the session's clock, the same on every seat, never on this PC's.
+ * The registers become the date of `clock` (seconds since 1970; days counted in the nine bits of the cartridge's counter), the second's
+ * cycle counter restarts, and the runtime's own source of time is the same value (the clock file's time stamp is never read in a session). */
+static void rr_gb_session_begin(uint64_t clock) {
+    GBContext *ctx = g_registered_ctx;
+    if (!ctx) return;
+    ctx->config.rtc_unix_time_override_enabled = true;
+    ctx->config.rtc_unix_time_override = clock;
+    const uint64_t days = clock / 86400u;
+    ctx->rtc.s = (uint8_t)(clock % 60u); ctx->rtc.m = (uint8_t)((clock / 60u) % 60u); ctx->rtc.h = (uint8_t)((clock / 3600u) % 24u);
+    ctx->rtc.dl = (uint8_t)(days & 0xFFu); ctx->rtc.dh = (uint8_t)((days >> 8) & 0x01u);
+    ctx->rtc.latched_s = ctx->rtc.s; ctx->rtc.latched_m = ctx->rtc.m; ctx->rtc.latched_h = ctx->rtc.h;
+    ctx->rtc.latched_dl = ctx->rtc.dl; ctx->rtc.latched_dh = ctx->rtc.dh;
+    ctx->rtc.latch_state = 0; ctx->rtc.last_time = 0; ctx->rtc.active = true;
+}
+
+/* What a frame may do outside the machine: off for the silent frames of a session and for a guest's whole session. The cartridge RAM and
+ * the clock files are the only writes of a Game Boy game (write_persistence_transaction, patched in gameboy_host.py, honours this). */
+static void rr_gb_side_effects(bool allowed) { g_rr_effects = allowed; }
+
+/* The machine's digest, then the pad registers one by one (a byte each, in this order). */
+static uint64_t rr_gb_digest_adapter(void) {
+    uint64_t hash = rr_gb_digest(g_registered_ctx);
+    const uint8_t pads[] = {g_manual_joypad_dpad, g_manual_joypad_buttons, g_script_joypad_dpad, g_script_joypad_buttons, g_joypad_dpad, g_joypad_buttons};
+    for (size_t i = 0; i < sizeof pads; ++i) hash = (hash ^ pads[i]) * 0x100000001b3ull;
+    return hash;
+}
+
 /* ---- the palette (F5): the Game Boy's own option ---- */
 static bool rr_gb_color_game(void) { return g_registered_ctx && g_registered_ctx->config.model == GB_MODEL_CGB; }
 
@@ -255,6 +326,9 @@ static const RrhkMachine *rr_gb_adapter(void) {
         rr_gb_machine.interpreted = rr_gb_interpreted; rr_gb_machine.audio_interpreted = rr_gb_no_count;
         rr_gb_machine.state_ready = rr_gb_state_ready; rr_gb_machine.state_file = rr_gb_state_file;
         rr_gb_machine.input_frame = rr_gb_input_frame;
+        rr_gb_machine.snap_bound = rr_gb_snap_bound_adapter; rr_gb_machine.snap_save = rr_gb_snap_save_adapter;
+        rr_gb_machine.snap_load = rr_gb_snap_load_adapter; rr_gb_machine.digest = rr_gb_digest_adapter;
+        rr_gb_machine.side_effects = rr_gb_side_effects; rr_gb_machine.session_begin = rr_gb_session_begin;
         rr_gb_machine.settings_loaded = rr_gb_settings_loaded;
         rr_gb_machine.option_rows = rr_gb_option_rows; rr_gb_machine.help_lines = rr_gb_help_lines;
         rr_gb_machine.help_controls = rr_gb_help_controls; rr_gb_machine.key_event = rr_gb_key_event;
@@ -267,7 +341,7 @@ const RrhkMachine *rrhk_adapter(void) { return rr_gb_adapter(); }
 /* The sound the APU produces goes to the kit while a window is open (never in the headless runs). */
 static void on_audio_sample(GBContext *ctx, int16_t left, int16_t right) {
     (void)ctx;
-    if (g_benchmark_mode || !rrhk_window() || g_rr_pcm.size() >= (size_t)RR_GB_PCM_LIMIT_FRAMES * 2) return;
+    if (g_benchmark_mode || !rrhk_window() || rrhk_session_silent() || g_rr_pcm.size() >= (size_t)RR_GB_PCM_LIMIT_FRAMES * 2) return;
     g_rr_pcm.push_back(left);
     g_rr_pcm.push_back(right);
 }
@@ -295,8 +369,8 @@ static void render_frame_internal(const uint32_t* framebuffer, bool count_guest_
         save_ppm(filename.c_str(), framebuffer, GB_SCREEN_WIDTH, GB_SCREEN_HEIGHT, g_frame_count);
     }
     g_last_timing.upload_ms = g_last_timing.compose_ms = g_last_timing.present_ms = g_last_timing.total_render_ms = 0.0;
-    /* The kit presents the picture, with its filter, at the end of the frame (gb_platform_vsync). */
-    if (g_benchmark_mode || !rrhk_window()) return;
+    /* The kit presents the picture, with its filter, at the end of the frame (gb_platform_vsync). A silent frame of a session has none. */
+    if (g_benchmark_mode || !rrhk_window() || rrhk_session_silent()) return;
     copy_display_frame(g_rr_view, GB_SCREEN_WIDTH * (int)sizeof(uint32_t), framebuffer, g_palette_idx, g_registered_ctx);
 }
 
@@ -447,7 +521,8 @@ void gb_platform_vsync(uint32_t frame_cycles) {
     if (!rrhk_frame_done()) g_rr_stop = true;
 }
 
-bool gb_platform_get_smooth_lcd_transitions(void) { return g_smooth_lcd_transitions; }
+/* In a session a frame is one whole machine frame, ended by exactly one rrhk_frame_done: the generated loop presents no slice of it. */
+bool gb_platform_get_smooth_lcd_transitions(void) { return g_smooth_lcd_transitions && !rrhk_session_active(); }
 void gb_platform_set_smooth_lcd_transitions(bool enabled) { g_smooth_lcd_transitions = enabled; }
 
 void gb_platform_set_title(const char* title) {

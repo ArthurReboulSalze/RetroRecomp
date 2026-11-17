@@ -482,6 +482,9 @@ INPUTS = _resolve({
     ('gb',): (
         'native/gb_audio_checks.c',
         'native/gb_boundary_checks.c',
+        'native/gb_digest.h',
+        'native/gb_machine_checks.c',
+        'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
         'native/gb_ram_helpers.h',

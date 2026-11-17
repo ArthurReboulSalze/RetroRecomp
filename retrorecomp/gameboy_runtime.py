@@ -232,6 +232,8 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
         ('gb_tick_fast.h', project / 'runtime/include/gb_tick_fast.h'),
         ('gb_frame_trace.h', project / 'runtime/include/gb_frame_trace.h'),
+        ('gb_digest.h', project / 'runtime/include/gb_digest.h'),
+        ('gb_machine_state.h', project / 'runtime/include/gb_machine_state.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
 
@@ -259,7 +261,12 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = replace_once(source, 'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);',
         'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);\n'
         'void rr_gb_frame_trace_open(const char* path); /**< Start the per-frame trace of a headless run (host-only) */\n'
-        'void rr_gb_frame_trace(GBContext* ctx, uint64_t frame); /**< One line for the frame just completed (host-only) */')
+        'void rr_gb_frame_trace(GBContext* ctx, uint64_t frame); /**< One line for the frame just completed (host-only) */\n'
+        '/* The machine state for multiplayer rollback (native/gb_machine_state.h): a whole in-memory snapshot and a digest of the named fields. */\n'
+        'size_t rr_gb_snap_bound(const GBContext* ctx); /**< The most bytes a snapshot takes; 0: the context is not ready */\n'
+        'size_t rr_gb_snap_save(GBContext* ctx, void* out, size_t capacity); /**< The bytes written, 0 on a failure */\n'
+        'bool rr_gb_snap_load(GBContext* ctx, const void* data, size_t size); /**< false (context untouched) for anything but a snapshot of this game */\n'
+        'uint64_t rr_gb_digest(const GBContext* ctx); /**< The digest of the state after the last frame */')
     header.write_text(source, encoding="utf-8")
 
     runtime_cpu = project / "runtime/src/gbrt.c"
@@ -352,6 +359,8 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = adapt_serial_phase(source)
     if halt_mode3_bound:
         source = adapt_halt_mode3(source)
+    # The machine snapshot and digest (native/gb_machine_state.h) come last: they use the static core-state capture and restore above.
+    source += '\n#include "gb_machine_state.h"\n'
     runtime_cpu.write_text(source, encoding="utf-8")
 
     # Capture only true interpreter instructions, after native RAM helpers have

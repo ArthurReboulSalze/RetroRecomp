@@ -89,6 +89,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
 | [Super Nintendo: multiplayer, the digest (delay tier)](#super-nintendo-multiplayer-the-digest-delay-tier-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
+| [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 
 ## Every machine: multiplayer, two to four players over the local network (next release)
 
@@ -166,6 +167,53 @@ paths of both boards changes with the machine's sources, as for any change of th
   `--save-digests`: the rollback tier and the delay tier give the same digests and history; with and without the save and load the
   digests are equal up to frame 1499 and differ from the first one after the load. Not measured: the cost of a save or a load, physical
   latency, hardware fidelity.
+
+## Game Boy: rollback and the host's F8 / F9 for everyone (next release)
+
+Branch `spec/gb-rollback` (from `spec/multiplayer`). The Game Boy joins a session on the **rollback tier**, in input sharing (a handheld
+plays "everyone" or "turns": `netplay_shared_only`), with the host's F8 / F9 for everyone, like the NES. Alone nothing changes: the session
+code is reached only with the pipes, and the quick-state file of the runtime is not touched.
+
+**What it adds.** `native/gb_machine_state.h` (appended to the runtime's `gbrt.c`, where the static core-state capture is): an in-memory
+snapshot of the context (the quick-state file's core state: CPU, mapper registers, the MBC3 clock in cycles, DMA, HDMA, serial, LCD-off
+bookkeeping), the five memory blocks, the cartridge RAM, the video unit's and the sound unit's own structs, and the five fields of the sound
+unit's lazy scheduling. **A snapshot never synchronises the sound unit** (the quick-state file does), so taking one changes nothing of the
+future. **One size for every game**: 343,696 bytes (the cartridge RAM counts at its largest, 128 KiB, a smaller one is padded), so that the
+host kit can ask it when the session opens, before the guest registers its context. `rr_gb_snap_bound`, `rr_gb_snap_save` (0 on failure, no
+allocation), `rr_gb_snap_load` (complete at once; refuses a wrong size, a damaged header, another ROM; the context is untouched).
+`rr_gb_digest`: FNV-1a over named fields in a fixed byte order (CPU, mapper, clock, time, the sound unit's scheduling, DMA, HDMA, serial, the
+memory blocks, the video unit by field, the sound unit by field in `audio.c`: `gameboy_hardware.adapt_audio_digest`), never a raw struct,
+nothing of the pictures, the interpreter and performance counters or the host. The adapter (`rrhk_gb.inc`) adds the pad registers of the
+platform layer and wires `snap_bound`, `snap_save`, `snap_load`, `digest`, `side_effects`, `session_begin`.
+
+**In a session.** The kit's shared way for the machines whose guest owns the loop (session ABI 5) needs no hook of the Game Boy: a silent
+frame is a frame the generated loop runs and ends at its next `rrhk_frame_done`. The adapter does the rest: a session's frame is one whole
+machine frame (the smooth LCD slices of the loop are off in a session: `gb_platform_get_smooth_lcd_transitions`), the pads are the session's
+words (fixed for the frame), nothing goes to the sound output and no picture is copied during a silent frame, and the cartridge RAM and
+clock files are not written when `side_effects(false)` (a guest's whole session, silent frames: `write_persistence_transaction` is patched in
+`gameboy_host.py`). The MBC3 clock runs on the session's clock (`session_begin`: 1 January 2000 UTC on every seat, the registers set from it,
+no time stamp of the clock file or of this PC). Saves load as a game alone loads them and the boot digest refuses two seats whose cartridge
+RAM differs, until the kit's transfer of the host's saves arrives.
+
+**Proof.** `tools/gameboy_machine_selftest.py` + `native/gb_machine_checks.c`: three authored cartridges (MBC1 with RAM, MBC3 with a clock,
+MBC5 on the colour hardware) in 420 random slices with random host writes between them (DMA, HDMA, sound, timer, serial, LCD, scroll,
+mapper, memory), compared with an independent whole-state hash of the raw context: a run replayed from a snapshot gives the same digest,
+the same whole-state hash and the same snapshot bytes after every step (2,055 steps replayed from two load points, on the same context and
+on one allocated apart); a snapshot every step changes nothing of the run; the same bytes over any buffer; refusals leave the context as it
+was; the digest moves with every group of fields and not with the pictures or the counters; snapshots were taken in the middle of an OAM DMA
+(115), the DMA start-up (40), an HDMA (217), a timer reload (13), a serial transfer (253), a halted CPU, a switched-off screen and at a
+finished frame (EI-pending: its own case). The same checks pass on four real cartridges read from the player's library, never copied
+(Tetris, Super Mario Land 2, Link's Awakening, Pokemon Yellow: 4,420 snapshots compared each), through the interpreter.
+**Two copies of a real game on one PC** (`tools/netplay_game_smoke.py`, input sharing "everyone", `--rollback 5 --latency 30 --jitter 10
+--hold 4 --save-at 600 --load-at 1500`, 3000 frames, 17 November 2026): Tetris and Pokemon Yellow (MBC5 with battery RAM) PASS on the rollback
+tier on both seats (Tetris: 260 and 426 corrections, deepest 5, 3,035 and 3,230 snapshots, equal boot digest and 50 equal digests, the save
+and the load at the same frames); a delay-tier run and a rollback-tier run with the same pads and delay give the same digests; the same run
+with `--save-at` / `--load-at` is equal to it before the load and different after (the load acts). Not measured: the cost of a snapshot on a
+quiet PC (about 336 KB copied per frame), physical latency, a Linux run, a game with a clock.
+
+**Stamps** (compared with `spec/multiplayer`, all 21 machines): only the Game Boy moves, its **game** stamp (the runtime part, the two
+patches and the persistence patch; the multiplayer branch already moves every game stamp, so this adds no further reconversion) and its **host**
+stamp (the adapter). Quick states: no key moves. The profile gets `netplay_session = True`.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 
