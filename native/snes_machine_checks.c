@@ -11,12 +11,15 @@
 #include "cpu_state.h"
 #include "snes/ppu.h"
 #include "snes/snes.h"
+#include "snes/cart.h"
 extern Snes *g_snes;
 uint64_t rr16_snes_digest(void);
 size_t rr16_snes_snap_bound(void);
 size_t rr16_snes_snap_save(void *buffer, size_t capacity);
 bool rr16_snes_snap_load(const void *buffer, size_t size);
 void rr16_snes_side_effects(bool allowed);
+size_t rr16_snes_session_save(void *out, size_t capacity);
+bool rr16_snes_session_save_put(const void *in, size_t size);
 uint64_t rr16_audio_frame_fingerprint(void);
 extern uint64_t rr16_snes_digest_parts[7];
 static unsigned checks;
@@ -73,7 +76,7 @@ int main(int argc, char **argv) {
     CHECK(first && other && one && two && burn);
     Seen warmup[1];
     for (unsigned n = 0; n < warm; ++n) run(1, warmup);
-    size_t snapshot_bytes = 0;
+    size_t snapshot_bytes = 0, saved_ram = 0;
     /* Three save points: right after the warm-up, then after 1 and 7 more frames, so the snapshot meets different phases of
      * the machine (the pending interrupt, the DMA and HDMA set up, the sound chip mid-sample). */
     static const unsigned gaps[3] = {0, 1, 7};
@@ -121,9 +124,27 @@ int main(int argc, char **argv) {
         rr16_snes_side_effects(true);
         same(one, two, length);
     }
+    /* The cartridge save of a session: the battery RAM out, the same bytes back in, a wrong size refused; none on a board without one. */
+    {
+        const size_t size = rr16_snes_session_save(NULL, 0);
+        if (size) {
+            uint8_t *image = malloc(size);
+            CHECK(image && g_snes->cart->ram && g_snes->cart->ramSize == size);
+            CHECK(rr16_snes_session_save(image, size) == size);
+            CHECK(!memcmp(image, g_snes->cart->ram, size));
+            CHECK(rr16_snes_session_save(image, size - 1) == 0);
+            memset(g_snes->cart->ram, 0x5a, size);
+            CHECK(rr16_snes_session_save_put(image, size));
+            CHECK(!memcmp(image, g_snes->cart->ram, size));
+            CHECK(!rr16_snes_session_save_put(image, size - 1));
+            CHECK(!rr16_snes_session_save_put(NULL, size));
+            free(image);
+        }
+        saved_ram = size;
+    }
     printf("{\"checks\":%u,\"passed\":true,\"snapshot_bytes\":%zu,\"bound\":%zu,\"frames_per_run\":%u,"
-           "\"picture_differences\":%u,\"first_picture_difference\":%d,\"sound_differences\":%u,\"first_sound_difference\":%d}\n",
-           checks, snapshot_bytes, bound, length, picture_differences, (int)first_picture, sound_differences, (int)first_sound);
+           "\"picture_differences\":%u,\"first_picture_difference\":%d,\"sound_differences\":%u,\"first_sound_difference\":%d,\"session_save_bytes\":%zu}\n",
+           checks, snapshot_bytes, bound, length, picture_differences, (int)first_picture, sound_differences, (int)first_sound, saved_ram);
     rr16_shutdown();
     return 0;
 }

@@ -647,6 +647,7 @@ INPUTS = _resolve({
         'retrorecomp.snes_bus',
         'retrorecomp.snes_cart',
         'retrorecomp.snes_chips',
+        'retrorecomp.snes_multitap',
         'retrorecomp.snes_codegen',
         'retrorecomp.snes_dma',
         'retrorecomp.snes_evidence',

@@ -90,6 +90,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
 | [Super Nintendo: multiplayer, digest and rollback on the boards without a chip](#super-nintendo-multiplayer-digest-and-rollback-on-the-boards-without-a-chip-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
+| [Super Nintendo: four players (Super Multitap) and the host's save in a session](#super-nintendo-four-players-super-multitap-and-the-hosts-cartridge-save-in-a-session-next-release) | **the Super Nintendo game stamp** (the multitap list and the report) | **the Super Nintendo host stamp** (`snes_backend.c`, `rrhk_snes.c`) | the Super Nintendo key moves (as above) |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
@@ -383,6 +384,28 @@ of every machine with the host kit, as the multiplayer line above already does. 
 Escape: digests equal on the same run with PGXP Off and On, and between Windows and Linux; the settings that change the run
 measured and pushed; two copies through the session on the delay tier PASS with the host's values). Physical latency is not
 measured.
+
+## Super Nintendo: four players (Super Multitap) and the host's cartridge save in a session (next release)
+
+On the multiplayer branch, after the rollback of the section above. **Four players:** a game on the reviewed list of Super Multitap
+games (`retrorecomp/snes_multitap.py`: the dump's SHA-256, the title, the pads the game uses, 3 or 4, and where the claim comes from;
+Barkley Shut Up and Jam!, Capcom's Soccer Shootout and Secret of Mana so far) gets a tap in console port 2 in a session of **three or
+four seats** (`session_begin`, `rrhk_session_ports() >= 3`): seat 0 is port 1's pad and seats 1 to 4 are the tap's, the ones the game
+does not use left unplugged; the adapter reads the pads 3 and 4 in `run_frame` (`rrhk_pad_word(2)` and `(3)`), never in
+`before_frame`. The engine's tap is not transparent (every game reads its pads another way with it: a game of two pads ends in
+another state), so a game that is not listed, and a listed game alone or in a room of two, plays as before. The profile says
+`netplay_seats = 4` as a ceiling, the report of a game says `players 1 to N` (`qualification_scope.controls`, N from the list) and its
+HELLO says the same. **The list is third-party data: the engine itself says no multitap title has been run, and no game was played
+with that many pads here; it is a reviewed list, not a gameplay validation.** **The host's save:** `session_save` and
+`session_save_put` give the board's battery RAM (the save RAM, the SA-1's BW-RAM, the Super FX's game pak RAM), so the host's cartridge
+save travels to every seat for the match, in memory only. **Stamps:** the Super Nintendo game stamp (the list, the report, the header
+define of a listed game) and host stamp (`snes_backend.c`, `rrhk_snes.c`, `snes_machine_checks.c`); the Super Nintendo quick-state key
+moves again with `snes_backend.c` (already moving in the section above). Games that are not listed keep the same generated sources.
+**Proof so far** (17 November 2026, one PC): `netplay_game_smoke.py --rollback 5 --seats 4 --save-at 600 --load-at 1500` on Barkley
+Shut Up and Jam! and `--seats 3` on Secret of Mana: PASS, rollback tier on every seat, digests equal; Secret of Mana in a room of two:
+PASS and its boot digest differs from the room of three (the tap is plugged from three seats only); `snes_machine_selftest.py --rom`
+on Secret of Mana checks the save image out, back in and a wrong size refused (8 KiB). Not proven: the games' own use of four pads, a
+host save that differs from a guest's, Windows against Linux.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

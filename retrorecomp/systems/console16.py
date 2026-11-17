@@ -79,6 +79,9 @@ class MegaDriveProfile(SystemProfile):
 class SnesProfile(SystemProfile):
     id = 'snes'
     netplay_session = True
+    # Two pads, four for a game on the reviewed Super Multitap list (retrorecomp/snes_multitap.py): its report and HELLO say the game's own.
+    netplay_seats = 4
+    netplay_seats_ceiling = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     simulation_sources = (SimulationSource('generated/*.c'),
                           SimulationSource('snes_native_ops.inc'),

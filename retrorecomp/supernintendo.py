@@ -208,6 +208,7 @@ def validate_device_liveness(checks):
 
 def write_profile(project: Path, rom, title: str) -> None:
     """Identity for a per-instruction program; no foreign game's function tree."""
+    from .snes_multitap import multitap_pads
     profile = profile_for(rom)
     from .snes_cart import layout
     memory = layout(rom)
@@ -222,6 +223,10 @@ def write_profile(project: Path, rom, title: str) -> None:
         file.write(f'#define RR_SN_SA1 {int(memory.get("chip") == "sa1")}\n'
                    f'#define RR_SN_RAM_BYTES {memory["bytes"]}u\n'
                    f'#define RR_SN_BATTERY {int(memory["battery"])}\n')
+        # Only a game on the reviewed multitap list (retrorecomp/snes_multitap.py) says so; the others keep the machine as it was.
+        pads = multitap_pads(rom.sha256)
+        if pads:
+            file.write(f'#define RR_SN_MULTITAP {pads}\n')
     if profile['legacy_functions']:
         return
     generated = project / 'generated'

@@ -127,6 +127,28 @@ static void start_audio_timeline(void) {
 /* Multiplayer (hostkit_session.h): off for a silent frame and, for a guest, for the whole session: the cartridge save is the host's. */
 static bool battery_writes = true;
 void rr16_snes_side_effects(bool allowed) { battery_writes = allowed; }
+/* A game on the converter's list of Super Multitap games (retro_snes_game.h: RR_SN_MULTITAP, the pads it uses, 0 for the others) gets a tap
+ * in console port 2 in a multiplayer session of three or four seats: seat 0 is port 1's pad, seats 1 to 4 are the tap's, the ones the
+ * game does not use left unplugged. The engine's tap is not transparent (a game of two pads reads its pads another way with it), so
+ * alone, and in a room of two, the game plays as before. */
+#ifndef RR_SN_MULTITAP
+#define RR_SN_MULTITAP 0
+#endif
+static bool tap_plugged;
+void rr16_snes_plug_multitap(bool plug) {
+    plug = plug && RR_SN_MULTITAP;
+    RtlSetMultitap(1, plug);
+    if (plug) for (int seat = RR_SN_MULTITAP; seat < 5; ++seat) RtlSetPadConnected(seat, 0);   /* configuring the ports plugs every seat in */
+    tap_plugged = plug;
+}
+int rr16_snes_players(void) { return RR_SN_MULTITAP ? RR_SN_MULTITAP : 2; }
+bool rr16_snes_multitap(void) { return tap_plugged; }
+void rr16_snes_extra_pads(uint16_t third, uint16_t fourth) {
+    if (!tap_plugged) return;
+    RtlSetPadState(2, third);
+    RtlSetPadState(3, fourth);
+}
+uint64_t rr16_snes_frame(void) { return run_frames; }
 bool rr16_init(bool headless) {
     headless_mode = headless;
     ram_variant_count=0;ram_observation_overflows=0;
@@ -556,6 +578,21 @@ uint8_t *rr16_state_capture(size_t *size) {
 bool rr16_state_restore(const uint8_t *data, size_t size) {
     loaded_execution_ok=false;
     return RtlLoadSnapshotFromMemory(data,size) && loaded_execution_ok;
+}
+/* The cartridge save of a session (hostkit.h session_save): the battery RAM of the board (the save RAM, the SA-1's BW-RAM, the Super FX's
+ * game pak RAM), exactly what the game reads back at power-on; 0 for a board without a battery. */
+size_t rr16_snes_session_save(void *out, size_t capacity) {
+    if (!g_snes || !RR_SN_BATTERY || !g_snes->cart->ram || !g_snes->cart->ramSize) return 0;
+    const size_t size = g_snes->cart->ramSize;
+    if (!out) return size;
+    if (capacity < size) return 0;
+    memcpy(out, g_snes->cart->ram, size);
+    return size;
+}
+bool rr16_snes_session_save_put(const void *in, size_t size) {
+    if (!g_snes || !in || !RR_SN_BATTERY || size != g_snes->cart->ramSize || !g_snes->cart->ram) return false;
+    memcpy(g_snes->cart->ram, in, size);
+    return true;
 }
 /* Multiplayer snapshot (hostkit.h): the engine's rollback snapshot (guest state of every chip, the execution residue) in a buffer the
  * kit owns, the S-DSP output ring blanked so equal states write equal bytes. The bound is measured once, by one save. */
