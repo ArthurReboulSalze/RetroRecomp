@@ -87,6 +87,9 @@ uint16_t rrhk_session_port(int port) { return port >= 0 && port < RRHK_MAX_PLAYE
 bool rrhk_session_guest(void) { return rrhk_session_on && s.guest; }
 bool rrhk_session_restart(void) {
     if (!rrhk_session_on) return false;
+    /* A machine whose restart cannot happen inside a session (the N64 relaunches its process) says so, on every path (Shift+F1,
+     * the pad's Restart combination): nothing is asked of the other seats. */
+    if (rrhk.machine && rrhk.machine->session_no_restart) { rrhk_notice(rr_tr("Not during a multiplayer game"), 1800); return false; }
     if (s.guest) { rrhk_notice(rr_tr("Only the host can restart"), 1800); return false; }
     s.restart_pending = true;
     return true;

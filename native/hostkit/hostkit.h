@@ -362,6 +362,8 @@ typedef struct RrhkMachine {
      * sets it from `clock` (seconds since 1970, the same on every seat) instead of this PC's time, here and at every restart
      * of the session. NULL: nothing to do. */
     void (*session_begin)(uint64_t clock);
+    bool session_no_restart;          /* the machine cannot restart inside a session (its restart relaunches the process): the kit
+                                       * refuses Shift+F1 and the pad's Restart there with a notice, and asks nothing of the others */
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
