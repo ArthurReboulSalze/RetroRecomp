@@ -107,6 +107,32 @@ MB for a disk game; their time is not measured yet (a quiet PC, with the owner's
 
 **Stamps** (against `spec/multiplayer` `ea1ac0ba`): the MSX, MSX2 and MSX2+ game and host stamps; nothing else.
 
+## Atari ST: multiplayer on the rollback tier (next release)
+
+The Atari ST answers a session (`netplay_session`), with the rollback tier and the host's F8 / F9 for everyone. The adapted Hatari gets a
+lean in-memory snapshot of its own (`retrorecomp/atarist_hatari_rollback.py`, GPL-2.0 like Hatari; `native/atarist_machine/atarist_snapshot.h`,
+outside the engine's native inputs, so the Atari ST's qualified paths stay valid: the engine identity is unchanged): it keeps what a game
+changes (the 68000 with its prefetch, the RAM and the I/O area, the MFP, the YM2149, the keyboard controller, the WD1772 and the position in
+an IPF track, the cycle and video counters, the generator) and leaves out what it does not (the TOS, the configuration, the images, the
+flux), restores in place at once (a digest or a save right after a load is complete), and keeps the table of sectors a game wrote (up to 64
+KB, a bigger table refuses the save). A game on STX, SCP or Kryoflux images has no snapshot and stays on the delay tier. The digest is named
+fields in a fixed order (the same on Windows and Linux). In a match every seat starts from the export's own disks (this PC's saved writes are
+neither read nor written; the writes stay in memory), reads the session's clock (the board's real-time clock, when a model has one, runs on
+UTC 1 January 2000), and a restart goes back in place to the machine after its first frame. The keyboard and the mouse are cut (joystick games
+first); the disk change is off. Alone, a game runs as before.
+
+**Proofs:** `tools/atarist_snapshot_check.py` (no ROM: authored 68000 programs on the timers, the picture, the PSG, the keyboard controller
+with joysticks and the floppy controller, 19 runs: save, run, load, run again, every digest equal; a save right after a load byte for byte
+the first; a damaged or wrong-size snapshot refused with the machine untouched; the table of writes restored; two restarts from different
+moments give the same machine). `tools/netplay_game_smoke.py` on Bomb Jack converted by this branch: `--frames 3000 --rollback 5 --latency 30
+--jitter 10 --hold 4 --save-at 600 --load-at 1500` PASS (tier rollback on both seats, 3,000 frames, 50 digests equal, the save and load at
+the same frames); with `--save-digests`, with and without `--save-at 600 --load-at 1200`, the 20 digests before the load are equal and the
+10 after it differ; `--restart-at 700` PASS (both seats restart before frame 702). A snapshot takes 1.44 MB (bound 1.51 MB with the table of
+writes); its time is not measured yet (a quiet PC, with the owner's agreement). Not a claim of fidelity or of gameplay validation.
+
+**Stamps:** the Atari ST's game stamp (the adaptation of Hatari: `atarist_hatari_rollback.py`, `atarist_snapshot.h`) and host stamp (the
+adapter `rrhk_atarist.inc`); nothing else. The Hatari adaptation digest moves: the machine core is built again once.
+
 ## Every machine: multiplayer, two to four players over the local network (next release)
 
 In preparation on the multiplayer branch; this section is completed when it merges. What moves: the game stamp of the 21
