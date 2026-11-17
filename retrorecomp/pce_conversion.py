@@ -596,7 +596,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             emit(f'PC Engine: building the game (pass {attempt + 1}, '
                  f'{"everything interpreted" if module is None else "with the guarded native module"}).')
             with stages.phase('code_generation'):
-                prepared = pce_build.prepare_game(project, card, title=title, module=module, presentation=presentation)
+                prepared = pce_build.prepare_game(project, card, title=title, module=module, presentation=presentation, players=pce_build.players_of(card))
             with stages.phase('compile'):
                 executable = pce_build.build_game(project, emit)
             timings[f'translate_and_build_{attempt + 1}'] = round(time.perf_counter() - phase, 3)

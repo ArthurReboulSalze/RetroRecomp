@@ -518,7 +518,7 @@ class CheckTests(unittest.TestCase):
         portable = {profile.id for profile in ALL_PROFILES if lobby_check.portable(profile.id)}
         self.assertEqual(portable, {'nes', 'md', 'sms'})                       # the machines whose mixed-build gate passed
         self.assertEqual({profile.id for profile in ALL_PROFILES if lobby_check.session_capable(profile.id)},
-                         {'nes', 'md', 'sms', 'gg', 'gb', 'snes', 'cps1', 'cps2', 'msx', 'msx2', 'msx2plus'})
+                         {'nes', 'md', 'sms', 'gg', 'gb', 'snes', 'cps1', 'cps2', 'msx', 'msx2', 'msx2plus', 'pce'})
         self.assertTrue(all(1 <= lobby_check.machine_seats(profile.id) <= control.MAX_SEATS for profile in ALL_PROFILES))
         self.assertEqual(lobby_check.machine_seats('no such machine'), 1)
         self.assertFalse(lobby_check.portable(None) or lobby_check.session_capable('no such machine'))
@@ -641,7 +641,7 @@ class CheckTests(unittest.TestCase):
         mine.add(report(machine='gba'), machine='gba')                                   # a handheld whose exports give no digest yet
         mine.add(report(machine='scummvm'), machine='scummvm')                           # one player and not a pad game: not offered
         mine.add(report(identity=False, machine='snes', sources=None), machine='snes')    # no identity of its sources
-        mine.add(report(machine='pce'), machine='pce')                                   # two players, but no session in its kit yet
+        mine.add(report(machine='ng'), machine='ng')                                     # two players, but no session in its kit yet
         listed = mine.library().hostable()
         self.assertEqual(sorted((entry.system, picked.title, picked.seats_max) for entry, picked in listed),
                          [('gb', 'Battletoads', 1), ('gg', 'Battletoads', 1), ('nes', 'Battletoads', 2)])

@@ -19,6 +19,7 @@
 #include "retro16_state_config.h"
 #include "pce_game.h"
 #include "pce_machine.h"
+#include "pce_snapshot.h"
 #include "pce_backup.h"
 #include "runtime_i18n.h"
 #include "runtime_feedback.h"
@@ -31,6 +32,7 @@ void rrhk_notice(const char *text, Uint64 milliseconds);
 
 static unsigned frame;
 static int headless, frames, scripted, diagnostics, reference, native_only;
+static bool effects_allowed = true;    /* what a frame may do outside the guest: the Backup RAM file, the player's record (rr_pce_side_effects) */
 static const char *report_path, *trace_path, *save_path, *load_path, *pcm_path, *code_capture_path, *capture_dir, *backup_path;
 static unsigned save_at, capture_every = 600, capture_limit;
 static uint64_t backup_start_hash;
@@ -143,7 +145,7 @@ int rr_pce_host_frame(const uint16_t pads[4])
             if (state == 1) rrhk_notice(rr_tr("Save unreadable: set aside"), 6000);
             else if (state == 2) rrhk_notice(rr_tr("Save unreadable: saving is off"), 6000);
         }
-        rr_pce_backup_flush(SDL_GetTicks64(), false);
+        if (effects_allowed) rr_pce_backup_flush(SDL_GetTicks64(), false);
     }
     frame_audio_count = pce_machine_audio(frame_audio, sizeof frame_audio / sizeof *frame_audio);
     audio_read = 0;
@@ -211,6 +213,36 @@ int rr_pce_reset(void)
 enum { STATE_HEADER = 16 };
 static void put32(uint8_t *p, uint32_t v) { for (unsigned n = 0; n < 4; n++) p[n] = (uint8_t)(v >> (8 * n)); }
 static uint32_t get32(const uint8_t *p) { uint32_t v = 0; for (unsigned n = 0; n < 4; n++) v |= (uint32_t)p[n] << (8 * n); return v; }
+
+/* ------------------------------------------------------------ multiplayer (native/hostkit/hostkit.h, "Multiplayer") */
+
+/* The in-process snapshot of a session: the machine's (native/pce_snapshot.cpp) behind the host's frame counter, which the inputs are keyed by. */
+size_t rr_pce_snap_bound(void) { size_t machine = pce_snapshot_bound(); return machine ? 8 + machine : 0; }
+size_t rr_pce_snap_save(void *buffer, size_t capacity)
+{
+    uint8_t *bytes = buffer;
+    if (!bytes || capacity < 8) return 0;
+    size_t machine = pce_snapshot_save(bytes + 8, capacity - 8);
+    if (!machine) return 0;
+    put32(bytes, frame);
+    put32(bytes + 4, 0);
+    return 8 + machine;
+}
+bool rr_pce_snap_load(const void *buffer, size_t size)
+{
+    const uint8_t *bytes = buffer;
+    if (!bytes || size <= 8 || get32(bytes + 4) != 0 || !pce_snapshot_load(bytes + 8, size - 8)) return false;
+    frame = get32(bytes);
+    frame_audio_count = audio_read = 0;
+    return true;
+}
+/* The machine's digest with the frame counter folded in (0: no machine). */
+uint64_t rr_pce_digest(void)
+{
+    uint64_t digest = pce_snapshot_digest();
+    return digest ? (digest ^ ((uint64_t)frame + 1)) * FNV_PRIME : 0;
+}
+void rr_pce_side_effects(bool allowed) { effects_allowed = allowed; }
 
 /* Frames end on a published picture, with the CPU between instructions. */
 bool rr16_state_ready(void) { return true; }
@@ -284,6 +316,9 @@ static int report(void)
     return fclose(f) == 0 && okay;
 }
 
+/* The record is on only where a frame may have effects: not in the frames of a session that are run again, nor for a guest. */
+static int record_enabled(void) { return effects_allowed && rr_feedback_enabled(); }
+
 /* What the interpreter ran, as the host's recorder keeps it (kind 20). */
 static void record_instruction(uint32_t pc, const uint8_t *bytes, unsigned size)
 {
@@ -328,7 +363,7 @@ static int execute(int argc, char **argv)
      * the Street Fighter II board never records, so its F12 line stays off and the report says so. */
     if (RR_PCE_BOARD != PCE_BOARD_SF2) {
         rr_feedback_start(!headless);
-        if (!reference && !native_only) pce_machine_set_recorder(record_instruction, rr_feedback_enabled);
+        if (!reference && !native_only) pce_machine_set_recorder(record_instruction, record_enabled);
     }
     /* The player's save: beside the game in a window. A headless run touches no file unless --backup names one. */
     static wchar_t backup_file[32768];
@@ -362,7 +397,7 @@ static int execute(int argc, char **argv)
         ran = !fault[0];
     }
     if (save_path && !save_at && !state_file(save_path, 0)) save_failed = 1;
-    rr_pce_backup_flush(SDL_GetTicks64(), true);
+    if (effects_allowed) rr_pce_backup_flush(SDL_GetTicks64(), true);
     if (code_capture_path) pce_machine_capture_status(&capture_identities, &capture_dropped, &capture_first_drop_frame);
     if (code_capture_path && !pce_machine_capture_finish(fault, sizeof fault)) ran = 0;
     if (!ran) fprintf(stderr, "%s\n", fault);

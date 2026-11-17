@@ -115,7 +115,7 @@ def compose(captures: list[Path], out: Path) -> Path:
 
 # Files of native/ a PC Engine game is built from beside the host kit (hostkit.stage) and the feedback recorder
 # (feedback.stage): the bridge to the engine, the game's entry, the quick-state file of the 16-bit family, the menu.
-GAME_FILES = ('pce_main.c', 'pce_machine.cpp', 'pce_machine.h', 'pce_backup.c', 'pce_backup.h', 'cart_save.c', 'cart_save.h', 'console16_state.c', 'console16_state.h',
+GAME_FILES = ('pce_main.c', 'pce_machine.cpp', 'pce_machine.h', 'pce_machine_internal.hpp', 'pce_snapshot.cpp', 'pce_snapshot.h', 'pce_backup.c', 'pce_backup.h', 'cart_save.c', 'cart_save.h', 'console16_state.c', 'console16_state.h',
               'console16_video.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c',
               'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
               'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
@@ -177,7 +177,7 @@ def game_cmake(module: Path | None, version: str) -> str:
         'set_target_properties(pce_module PROPERTIES CXX_EXTENSIONS OFF)',
         'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
         'find_package(SDL2 CONFIG REQUIRED)',
-        f'add_executable(game pce_main.c pce_machine.cpp pce_backup.c cart_save.c {kit} console16_state.c retro_menu.c',
+        f'add_executable(game pce_main.c pce_machine.cpp pce_snapshot.cpp pce_backup.c cart_save.c {kit} console16_state.c retro_menu.c',
         '  $<TARGET_OBJECTS:pce_module>)',
         'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")',
         'if(WIN32)', '  target_sources(game PRIVATE content.rc)',
@@ -191,6 +191,18 @@ def game_cmake(module: Path | None, version: str) -> str:
         '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',
     ]
     return '\n'.join(lines) + '\n'
+
+
+# The games that take more than two players through the multitap, keyed by the dump (a reviewed table, never a condition on a game in code): the players of
+# the dump, at most four (a room seats four; the console takes five). A game that is not listed takes two. Bomberman '93 reads the multitap for up to five.
+MULTITAP_PLAYERS = {
+    '678a097de779f3b24fc535e1de55448b754be6abe203a060e8f43c5c78899c8e': 4,    # Bomberman '93 (USA)
+}
+
+
+def players_of(card) -> int:
+    """The players a converted game is built for: its entry of MULTITAP_PLAYERS, else two."""
+    return MULTITAP_PLAYERS.get(card.sha256, 2)
 
 
 def prepare_game(project: Path, card, *, title: str, module: Path | None = None, players: int = 2,

@@ -30,7 +30,8 @@ native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
-retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_backup.c native/pce_backup.h
+retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_machine_internal.hpp native/pce_snapshot.cpp native/pce_snapshot.h
+native/pce_backup.c native/pce_backup.h
 native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py native/save_set_aside.c native/save_set_aside.h
 native/hostkit/adapters/rrhk_pce.c
 retrorecomp/systems/scummvm.py retrorecomp/scummvm_build.py retrorecomp/scummvm_export.py docs/SCUMMVM.md
@@ -302,6 +303,7 @@ tools/fetch_sm83_vectors.py native/gb_sm83_vector_checks.c tools/gameboy_sm83_ve
 tools/fetch_huc6280_vectors.py native/pce_huc6280_vector_checks.cpp tools/pce_huc6280_vector_selftest.py tests/test_pce_huc6280_vectors.py
 tools/pce_mame_compare.py tests/test_pce_mame_compare.py tools/pce_route_captures.py tests/test_pce_route_captures.py tests/test_pce_knowledge.py tests/test_pce_player_record.py
 native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py tests/test_pce_huc6280_native_vectors.py
+native/pce_snapshot_checks.cpp tools/pce_snapshot_selftest.py tools/pce_snapshot_rom.py tests/test_pce_snapshot.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
 native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py

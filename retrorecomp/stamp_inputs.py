@@ -250,7 +250,7 @@ NOT_INPUTS = (
     'native/neogeo_z80_vector_checks.c', 'native/cps1_kabuki_checks.c',
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
-    'native/pce_huc6280_native_checks.cpp',
+    'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
@@ -984,7 +984,10 @@ INPUTS = _resolve({
         'native/pce_backup.h',
         'native/pce_machine.cpp',
         'native/pce_machine.h',
+        'native/pce_machine_internal.hpp',
         'native/pce_main.c',
+        'native/pce_snapshot.cpp',
+        'native/pce_snapshot.h',
         'retrorecomp.pce_build',
         'retrorecomp.pce_conversion',
         'retrorecomp.pce_knowledge',
