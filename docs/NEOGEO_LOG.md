@@ -13,6 +13,27 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Rollback and the host's F8 / F9 for everyone in a match — 17 November 2026
+
+On the multiplayer branch (`spec/ng-rollback`, from `spec/multiplayer`), for the multiplayer specialist's contract
+(`ROLLBACK_CONTRACT.md`).
+
+- **What was built.** `rr_ng_snap_bound / save / load` over the fields of the F8 state without the picture and without any allocation
+  (225,417 bytes on NAM-1975, 233,609 on KOF 2003); `rr_ng_digest` from the three hashes the traces already carry plus the frame;
+  `session_begin` sets the board's RTC from the match's clock; `side_effects` stops a guest's memory-save write and the fallback
+  records; the clock mode and MVS / AES are run-changing rows, and a match reads neither preference.
+- **Why not the F8 functions.** They allocate, carry the picture, validate and call the audio and autofire discontinuities. A rollback
+  loads one snapshot per correction (hundreds in a 3,000-frame match): resetting the fix-layer mask latch each time would blink the edge
+  band of the games that have one, and clearing the resampler would cut the sound.
+- **Proofs** (real conversions on the branch, standard clocks for the probe): the probe `--snapshot-probe` passes at four save points on
+  NAM-1975 and KOF 2003 (the digest of a process equals the digest of another process at the same frame); two copies, rollback 5,
+  30 ms latency, 10 ms jitter, hold 4, F8 at 600 and F9 at 1,500: PASS on both, rollbacks 307 / 498 (NAM-1975) and 340 / 425
+  (KOF 2003), snapshots loaded 327 to 518 per seat.
+- **Not measured, on purpose.** The cost of one snapshot per frame (serializing 225 KB plus a copy) and of five frames run again at
+  the enhanced clock (24 MHz, 381 sprites, the export's default that a match uses): timing needs a quiet PC and Arthur's word.
+- **Open.** The host's saves do not travel to the guests yet (the kit's coming hook): until then a guest loads its own save and writes
+  nothing, and seats whose saves differ are refused by the boot digest.
+
 ## Counters on the reference runs' silent caps — 12 November 2026
 
 For 1.7.3, from the silent-drop list of the lessons study (Neo Geo lines 3 and 4).

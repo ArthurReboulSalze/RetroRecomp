@@ -518,7 +518,7 @@ class CheckTests(unittest.TestCase):
         portable = {profile.id for profile in ALL_PROFILES if lobby_check.portable(profile.id)}
         self.assertEqual(portable, {'nes', 'md', 'sms'})                       # the machines whose mixed-build gate passed
         self.assertEqual({profile.id for profile in ALL_PROFILES if lobby_check.session_capable(profile.id)},
-                         {'nes', 'md', 'sms', 'gg', 'snes', 'cps1', 'cps2', 'msx', 'msx2', 'msx2plus'})
+                         {'nes', 'md', 'sms', 'gg', 'snes', 'cps1', 'cps2', 'msx', 'msx2', 'msx2plus', 'ng'})
         self.assertTrue(all(1 <= lobby_check.machine_seats(profile.id) <= control.MAX_SEATS for profile in ALL_PROFILES))
         self.assertEqual(lobby_check.machine_seats('no such machine'), 1)
         self.assertFalse(lobby_check.portable(None) or lobby_check.session_capable('no such machine'))

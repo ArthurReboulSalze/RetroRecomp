@@ -6,6 +6,8 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
+#include <stdlib.h>
+#include <string.h>
 #include "retro_console16.h"
 #include "console16_state.h"
 #include "retro_menu.h"
@@ -30,16 +32,38 @@ static const RrhkAction actions[ACTIONS] = {
 /* Autofire counts guest frames; a reset or a load forgets held buttons. */
 void rr16_host_discontinuity(void) { rrhk_autofire_reset(); }
 
+/* Multiplayer (native/hostkit/hostkit_session.h): the snapshot of the whole machine (native/neogeo_state.c), its digest, what a frame
+ * may do outside the guest, and the clock of the match. */
+size_t rr_ng_snap_bound(void);
+size_t rr_ng_snap_save(void *buffer, size_t capacity);
+bool rr_ng_snap_load(const void *buffer, size_t size);
+uint64_t rr_ng_digest(void);
+void rr_ng_side_effects(bool allowed);
+void rr_ng_session_clock(uint64_t clock);
+
+/* A match runs the export's defaults on every seat: the player's clock-mode preference is not read (neogeo_main.c does the same for
+ * MVS / AES) until the host pushes its values (session_option). RRHK_SESSION_ENV is set only for a game the converter started. */
 static void settings_loaded(RrhkUi *ui) {
+    if (getenv("RETRORECOMP_NETPLAY_PIPE")) return;
     rr_ng_set_enhanced(rr_ini_int(L"NeoGeo.Runtime", L"enhanced", rr_ng_enhanced() ? 1 : 0, ui->ini_file) == 1);
+}
+/* The host's run-changing values, pushed before frame 0: the clock mode (an enhanced game runs 24 MHz and 381 sprites) and the
+ * machine (MVS or AES: a change of machine restarts the game, so only the one running is honoured). */
+static bool session_option(const char *key, const char *value) {
+    if (!strcmp(key, "enhanced") && (!strcmp(value, "0") || !strcmp(value, "1"))) {
+        rr_ng_set_enhanced(value[0] == '1');
+        return true;
+    }
+    if (!strcmp(key, "machine") && (!strcmp(value, "mvs") || !strcmp(value, "aes"))) return (value[0] == 'a') == (rr_ng_aes() != 0);
+    return false;
 }
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
     if (slot == 0)
-        rrhk_option_row_icon(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "%s",
+        rrhk_option_row_run(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "%s",
                              rr_tr(rr_ng_enhanced() ? "F5 Enhanced Neo Geo: ON" : "F5 Enhanced Neo Geo: OFF"));
     else
-        rrhk_option_row_icon(rows, SDL_SCANCODE_F11, RR_ICON_ROW_COIN, "%s", rr_ng_arcade_only() ? "F11 Arcade Only" : !rr_ng_aes_available() ?
+        rrhk_option_row_run(rows, SDL_SCANCODE_F11, RR_ICON_ROW_COIN, "%s", rr_ng_arcade_only() ? "F11 Arcade Only" : !rr_ng_aes_available() ?
             rr_tr("F11 AES: BIOS neo-epo.bin required") : rr_ng_aes() ? "F11 Console AES -> Arcade MVS (restart)" :
             "F11 Arcade MVS -> Console AES (restart)");
 }
@@ -137,6 +161,9 @@ const RrhkMachine *rrhk_adapter(void) {
             .input_frame = rr16_input_frame,
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
             .help_controls = help_controls, .key_event = key_event,
+            .snap_bound = rr_ng_snap_bound, .snap_save = rr_ng_snap_save, .snap_load = rr_ng_snap_load,
+            .digest = rr_ng_digest, .side_effects = rr_ng_side_effects, .session_begin = rr_ng_session_clock,
+            .session_option = session_option,
             .frame_limit = rr16_host_frame_limit, .frame_start = rr16_host_test_tick,
             .before_frame = before_frame, .cost_enabled = rr_ng_performance_enabled, .cost = rr_ng_host_cost,
             .before_present = before_present, .finished = rr_ng_host_timing,

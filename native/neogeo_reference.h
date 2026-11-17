@@ -19,6 +19,8 @@ extern unsigned rr_ng_z80_variant_count;
 #endif
 /* Notes whose variant did not fit the variants kept (a variant met again counts again): code the generator never sees. */
 extern uint64_t rr_ng_z80_variants_dropped;
+/* Multiplayer: 1 while a guest or a silent frame must record nothing for the fallback learning (RrhkMachine.side_effects). */
+extern int rr_ng_feedback_off;
 void rr_ng_z80_note_fallback(uint16_t);
 uint64_t rr_ng_z80_state_hash(void);
 extern uint64_t rr_ng_bios_instructions, rr_ng_cart_instructions, rr_ng_ram_instructions;

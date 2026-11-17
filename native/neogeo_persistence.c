@@ -18,7 +18,7 @@
 #include "neogeo_persistence.h"
 enum { HEADER=128, NVRAM_BYTES=65536, CARD_BYTES=2048, PAYLOAD=NVRAM_BYTES+CARD_BYTES };
 static uint8_t baseline[PAYLOAD];
-static bool enabled,armed,loaded,saved,blocked,has_file;
+static bool enabled,armed,loaded,saved,blocked,has_file,writes_off;
 static uint64_t disk_hash;
 static uint64_t initial_nvram_hash,initial_card_hash;
 static wchar_t save_path[32768];
@@ -120,8 +120,9 @@ static bool write_atomic(const uint8_t *data) {
     if(okay)okay=rr_replace(temporary,save_path);
     if(!okay)rr_remove(temporary);return okay;
 }
+void rr_ng_persist_writes(bool allowed) {writes_off=!allowed;}
 bool rr_ng_persist_close(void) {
-    if(!enabled)return true;
+    if(!enabled || writes_off)return true;
     if(blocked)return false;
     if(!armed || (!memcmp(baseline,ngsys.nvram,NVRAM_BYTES) &&
                   !memcmp(baseline+NVRAM_BYTES,ngsys.memcard,CARD_BYTES)))return true;
