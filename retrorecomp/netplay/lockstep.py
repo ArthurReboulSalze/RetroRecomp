@@ -74,6 +74,16 @@ HELLO_WITHIN = 15.0
 GATE_WITHIN = 20.0           # from SETUP to the start: boot digests, measures, the host's word
 CLOSE_WITHIN = 12.0          # a stopped game shows its message about 3.5 s, then closes
 RESTART_FOLD = 0x9e3779b97f4a7c15      # what a restart adds to the history digest's fold
+def link_estimate(samples) -> tuple[float, float]:
+    """(one way, jitter) in ms of a link from its round trips: half the median, and half the spread from the median to the
+    90th percentile. A lone spike (a Wi-Fi hiccup, a busy PC during the probe) moves neither: on 17 Nov 2026 the worst of a
+    few samples made a LAN room with 150 ms of simulated round trip choose a delay of 10 frames instead of 2."""
+    ordered = sorted(samples)
+    middle = statistics.median(ordered)
+    high = ordered[min(len(ordered) - 1, int(0.9 * (len(ordered) - 1)))]
+    return middle / 2, max(0.0, high - middle) / 2
+
+
 LINGER = 3.0                 # after the last frame: time left to the others to get the last records and digest
 CLOSING_MIN = 0.5            # a seat that ended well goes on sending this long: its last digest may have been lost
 BYE_COPIES = 3
@@ -417,14 +427,19 @@ class LockstepDriver:
             self._tell(pipe.notice(pipe.NOTICE_TURN, self.names[state.token]))
 
     def chat_show(self, phrase: int, name: str, text: str) -> None:
-        """A line of the room for this game (any thread: the pipe's writes are whole messages under its lock)."""
-        if not self._game_gone:
-            self.game.send(pipe.chat_show(phrase, name, text))
+        """A line of the room for this game (from any thread: it goes through the driver's own loop, after the SETUP)."""
+        data = pipe.chat_show(phrase, name, text)
+        self._events.put(('call', lambda: self._chat_tell(data)))
 
     def chat_slow(self) -> None:
         """This player's line was refused: too many lines."""
-        if not self._game_gone:
-            self.game.send(pipe.notice(pipe.NOTICE_CHAT_SLOW))
+        self._events.put(('call', lambda: self._chat_tell(pipe.notice(pipe.NOTICE_CHAT_SLOW))))
+
+    def _chat_tell(self, data: bytes) -> None:
+        # A game hears nothing before its SETUP (the kit ends the session on any other message then): a line said in the
+        # lobby while the match starts is shown in the window only. After the match nothing is sent either.
+        if self._phase in ('gate', 'play', 'linger'):
+            self._tell(data)
 
     def _tell(self, data: bytes) -> None:
         if not self._game_gone:
@@ -980,9 +995,8 @@ class LockstepDriver:
             enough = all(len(self._rtt[seat]) >= 5 for seat in self.peers)
             first = min((len(samples) for samples in self._rtt.values()), default=0)
             if enough and first * PROBE_EVERY >= self.settings.probe_seconds:
-                one_way = max(sum(samples) / len(samples) / 2 for samples in self._rtt.values())
-                jitter = max((max(samples) - min(samples)) / 2 for samples in self._rtt.values())
-                self.measured = (one_way, jitter)
+                estimates = [link_estimate(samples) for samples in self._rtt.values()]
+                self.measured = (max(one_way for one_way, _jitter in estimates), max(jitter for _one_way, jitter in estimates))
         return self.measured
 
     def _gate(self, now: float):
@@ -1046,8 +1060,7 @@ class LockstepDriver:
             return max(item[0] for item in worst), max(item[1] for item in worst)
         legs = [(0.0, 0.0)]
         for guest in self.guests:
-            samples = self._rtt[guest]
-            mine = (sum(samples) / len(samples) / 2, (max(samples) - min(samples)) / 2)
+            mine = link_estimate(self._rtt[guest])
             # The guest measured the same link the host did: what it says above the host's own measure (by more than
             # half again, and a little) is not believed, and no measure counts above MAX_MEASURE_MS.
             claimed = self._measures[guest]

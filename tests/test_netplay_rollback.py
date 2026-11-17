@@ -509,6 +509,19 @@ class ChatTests(unittest.TestCase):
                 host.ask(frame)
             self.assertEqual(host.game.notices, [])
 
+    def test_no_line_reaches_a_game_before_its_setup(self):
+        # (found by the three-player lobby test: a line said while the match started reached a game before its SETUP, and
+        # the kit ends the session on any other message then)
+        sent = []
+        game = type('Game', (), {'attach': lambda self, sink: None, 'send': lambda self, data: sent.append(data) or True})()
+        link = type('Link', (), {'open': lambda self, sink: None, 'send': lambda self, *a: None})()
+        driver = LockstepDriver(game, link, Settings(seat=1, seats=2, delay=2))
+        for phase, told in (('hello', False), ('gate', True), ('play', True), ('done', False)):
+            sent.clear()
+            driver._phase = phase
+            driver._chat_tell(pipe.chat_show(0, 'Nadia', 'hi'))
+            self.assertEqual(bool(sent), told, phase)
+
     def test_the_room_worker_forwards_the_rooms_chat_to_the_game_during_a_match_only(self):
         from retrorecomp.netplay import room_worker
         shown, slow = [], []
