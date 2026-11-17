@@ -297,3 +297,44 @@ GPU programs drawing what a console drew, and shared paths.
   the last one until the next frame (the owner's report of 15 November 2026: « dès que je switch de moteur […] le jeu se ferme
   tout de suite »).
 
+## 10. Multiplayer: the digest and the host's settings (next release, delay tier)
+
+On the multiplayer branch (`spec/psx-mp-digest`). The PlayStation gives the host kit a **digest** (`rr_psx_digest`,
+`psx_session.c`): FNV-1a 64 over, in this order, the R3000A's state and the GTE's 64 registers (each word little-endian), the 2 MiB
+of RAM, the 1 KiB scratchpad, the 512 KiB of sound RAM (halfwords little-endian; read through one anchored line of Beetle's
+`spu.c`) and the memory card of slot 1. No VRAM: the CPU renderer's copy grows with its internal resolution. It plays on the
+**delay tier** (no in-process snapshot); the sticks travel with the pads (session ABI 7: four values per player, the
+DualShock's own 8-bit precision), and the profile answers a session (`netplay_session`).
+
+**What a match makes the same on every seat.**
+- **The memory card.** Every seat starts on the core's empty card, the one a game without a card file gets; the player's own card
+  file is neither read again nor written by a game played together (until the host's card travels to the guests).
+- **The host's settings that change the run**, sent before frame 0 and refused in F3 during the match (« Set by the host in
+  multiplayer »): `pgxp` and `pgxp_texture` (the owner, 17 November 2026: PGXP is not turned off, the host sets it for everyone);
+  `cpu_resolution` (1, 2 or 4: the CPU renderer's internal resolution changes the emulated drawing time; the host sends 1 when its
+  card draws, and a seat whose card draws switches to the CPU when the host's is more); `renderer` (card or CPU), sent only when
+  the host's PGXP is On. A host that sends nothing: the export's defaults on every seat (PGXP and its textures On, the CPU at 1x).
+- **Not during a match**: switching the renderer or the multisampling (both open the core again through a quick state) and the
+  Analog button (it is not in the pad words a session carries).
+- **Each seat's own**: the card's resolution, anti-aliasing and texture filtering, dithering, aspect and crop.
+
+**What it rests on** (17 November 2026, Ape Escape, 3,300 frames headless, a digest every 60 frames as the session takes them,
+`--match` playing as a match does):
+- The same run twice: 56 of 56 digests equal, PGXP Off and PGXP On.
+- With PGXP Off, a card seat at 4x with MSAA 4x and a CPU seat at 1x: equal. Dithering Off and the native dithering on the CPU:
+  equal.
+- Measured as changing the run, and therefore set by the host: PGXP (9 of 56 digests differ, from frame 2,520), the CPU at 2x
+  (53 of 56, from frame 180), and with PGXP On the renderer (card against CPU, 9 of 56, from frame 2,460; card seats at 1x, 4x and
+  4x with MSAA 4x equal among themselves).
+- Each setting pushed reaches the run of the seat it would otherwise differ from: a card seat sent the CPU at 2x, a CPU seat sent
+  `renderer=card` and a card seat sent `renderer=cpu` with PGXP On, each 56 of 56 digests equal.
+- A card file of other bytes on one seat: equal to a seat without one in a match, and its file unchanged; played alone, its
+  digests differ (the card is in the digest).
+- Windows against Linux: Ape Escape converted in WSL Debian with GCC and played as a match on the CPU renderer gives the same 56
+  digests as the Windows build (llvm-mingw), with PGXP On and with PGXP Off (PGXP's floating-point arithmetic included).
+- Two copies through the session (`tools/netplay_game_smoke.py`, delay 2, 3,000 frames, scripted pads, the host's values on
+  both seats): PASS with PGXP On and the card, PGXP On and the CPU, and PGXP Off; boot digests and the 50 digests equal on both
+  seats every time, and the three runs' digests differ from one another (the host's values reach the run).
+- 0 interpreted instructions in every match run.
+Not shown yet: two PCs, sticks moved by the scripted pads (the tool presses buttons only), and a Linux graphics card with PGXP On
+(WSL has none the game accepts).

@@ -1391,6 +1391,7 @@
     "Anti-aliasing (GPU)": "Kantenglättung (GPU)",
     "Texture filtering (GPU)": "Texturfilterung (GPU)",
     "Needs geometry precision (PGXP) On": "Erfordert Geometriegenauigkeit (PGXP) an",
+    "Not during a multiplayer game": "Nicht während eines Mehrspielerspiels",
     "Supersampling: nothing larger than 8x to draw": "Supersampling: nichts Größeres als 8x zu zeichnen",
     "Quick states are off in multiplayer": "Schnellstände im Mehrspieler aus",
     "Only the host can restart": "Nur der Host kann neu starten",

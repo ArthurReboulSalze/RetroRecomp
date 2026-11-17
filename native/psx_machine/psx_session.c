@@ -20,6 +20,7 @@
 
 #include <libretro.h>
 #include "mednafen/psx/gpu.h"
+#include "mednafen/psx/psx_mem.h"
 #include "libretro_vulkan_host.h"
 #include <encodings/deflate.h>
 #include <stdarg.h>
@@ -871,6 +872,37 @@ void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info) {
     for (int y = 0; s->picture && y < s->height && !info->nonblack; ++y)
         for (int x = 0; x < s->width; ++x) if (s->picture[(size_t)y * s->pitch + x] & 0x00ffffffu) { info->nonblack = 1; break; }
     for (size_t i = 0; i < s->audio_frames * 2; ++i) if (s->audio[i] > 64 || s->audio[i] < -64) { info->audible = 1; break; }
+}
+
+/* Multiplayer (hostkit_session.h, the delay tier): the state a game's next frames depend on, the same on every seat and on
+ * Windows and Linux. FNV-1a 64 over, in this order: the CPU state of the trace (the R3000A's 41 words, then the GTE's 64
+ * registers, each written little-endian), the 2 MiB of RAM and the 1 KiB scratchpad (the console's byte order, as the core keeps
+ * them), the 512 KiB of sound RAM (its 256 Ki halfwords written little-endian) and the memory card of slot 1 (128 KiB). No VRAM:
+ * the software renderer's copy grows with its internal resolution; nothing of the picture or the sound sent to the PC. */
+const uint16_t *rr_psx_spu_ram(void);   /* our anchored change of spu.c (retrorecomp/psx_beetle.py) */
+uint64_t rr_psx_digest(const RrPsxSession *s) {
+    (void)s;
+    uint64_t h = 0xcbf29ce484222325ull;
+    uint32_t cpu[41 + 64];
+    rr_psx_cpu_registers(cpu);
+    for (unsigned n = 0; n < 32; ++n) { cpu[41 + n] = GTE_ReadDR(n); cpu[73 + n] = GTE_ReadCR(n); }
+    uint8_t bytes[sizeof cpu];
+    for (size_t n = 0; n < sizeof cpu / sizeof cpu[0]; ++n)
+        for (unsigned b = 0; b < 4; ++b) bytes[n * 4 + b] = (uint8_t)(cpu[n] >> (8 * b));
+    h = fnv(bytes, sizeof bytes, h);
+    const void *ram = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+    if (ram) h = fnv(ram, RR_PSX_RAM_BYTES, h);
+    if (ScratchRAM && ScratchRAM->data8) h = fnv(ScratchRAM->data8, 1024, h);
+    const uint16_t *spu = rr_psx_spu_ram();
+    uint8_t chunk[4096];
+    for (size_t at = 0; at < 524288 / 2; at += sizeof chunk / 2) {
+        for (size_t n = 0; n < sizeof chunk / 2; ++n) { chunk[2 * n] = (uint8_t)spu[at + n]; chunk[2 * n + 1] = (uint8_t)(spu[at + n] >> 8); }
+        h = fnv(chunk, sizeof chunk, h);
+    }
+    const void *card = retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+    const size_t card_size = retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+    if (card && card_size) h = fnv(card, card_size, h);
+    return h;
 }
 
 uint8_t *rr_psx_card(RrPsxSession *s, size_t *size) {

@@ -31,6 +31,7 @@
  * counts: the next conversion makes them native steps after the same checks as the code its routes ran. Called by the core's
  * step hook (our anchored change of cpu.c). */
 enum { HINT_SLOTS = 1 << 16 };
+static int effects_allowed = 1;   /* multiplayer: a guest, or a frame run again, records nothing (RrhkMachine.side_effects) */
 typedef struct { uint32_t block, words[4], count; uint8_t mask; } Hint;
 static Hint *hints;
 static unsigned hint_count;
@@ -72,7 +73,7 @@ void rr_psx_fallback(uint32_t pc, uint32_t instr) {
     const uint32_t physical = pc & 0x1FFFFFFFu;
     if (interpreted_path) ran_note(physical, instr);
     if (!(physical < 0x200000u || physical - 0x1FC00000u < 0x80000u) || (physical & 3)) return;
-    if (!rr_feedback_enabled()) return;
+    if (!rr_feedback_enabled() || !effects_allowed) return;
     if (!hints && !(hints = (Hint *)calloc(HINT_SLOTS, sizeof *hints))) return;
     const uint32_t block = physical & ~15u;
     const unsigned word = (physical >> 2) & 3;
@@ -129,6 +130,15 @@ static RrPsxSession *session;
 static unsigned frame;
 static int headless, frames, scripted, diagnostics;
 static const char *report_path, *trace_path, *save_path, *load_path, *capture_dir, *pack_override;
+/* Evidence of the multiplayer digest (headless): --match plays as a multiplayer game does (the adapter's session_begin), --digests
+ * writes "frame,digest" before the first frame, every 60 frames (the session's cadence) and after the last. */
+static const char *digests_path;
+static FILE *digests_file;
+static int match_option;
+static const char *match_values[8];   /* --session-option key=value: the host's values a session would push */
+static int match_value_count;
+void rr_psx_match_begin(void);   /* rrhk_psx.c: the session's start, without a session */
+bool rr_psx_match_option(const char *key, const char *value);
 #ifdef RR_PSX_OBSERVE
 static const char *observe_path;
 int rr_psx_observe_write(FILE *f);    /* psx_observe.c: the conversion's observing build only */
@@ -148,6 +158,8 @@ static FILE *pcm_file;   /* --pcm: the sound of every frame as the host receives
 static size_t frame_audio_count, audio_read;
 static wchar_t card_path[4096];
 static uint64_t card_hash;
+static uint8_t *empty_card;  /* the core's own card before the player's file is read: a multiplayer game starts every seat on it */
+static size_t empty_card_size;
 static int card_option;     /* --card: a headless run reads and writes this card file as the window does its own (evidence) */
 static unsigned card_notice; /* 0 nothing to say; 1 an unusable card file was set aside; 2 it could not be, saving is off */
 unsigned rr_psx_card_notice(void) { return card_notice; }
@@ -321,6 +333,19 @@ size_t rr_psx_take_audio(int16_t *out, size_t capacity) {
 }
 unsigned rr_psx_frame_index(void) { return frame; }
 
+/* Multiplayer (hostkit_session.h; the adapter's session_begin, side_effects and digest). A game played together starts every
+ * seat on the core's empty memory card, the one a game without a card file gets, and the player's own card file is never read
+ * again nor written by this process (the multiplayer specialist, 17 November 2026: a blank card until the host's card travels
+ * to the guests). Called before frame 0; a reset of the game keeps it (no file to read). */
+void rr_psx_host_match(void) {
+    card_path[0] = 0;
+    size_t size = 0;
+    uint8_t *card = rr_psx_card(session, &size);
+    if (card && empty_card && size == empty_card_size) memcpy(card, empty_card, size);
+}
+void rr_psx_host_effects(int allowed) { effects_allowed = allowed != 0; }
+uint64_t rr_psx_host_digest(void) { return session ? rr_psx_digest(session) : 0; }
+
 static int open_session(void);
 /* The renderer asked for (1.7.7): 1 the graphics card (Vulkan), 0 the CPU. A window starts with the card (the saved choice of F3 then
  * switches it at once); a headless run, a check of the conversion, draws with the CPU unless --gfx renderer=0 asks for the card. */
@@ -434,6 +459,11 @@ static int open_session(void) {
     session = rr_psx_open(&game, fault, sizeof fault);
     carried_count = 0;
     if (!session) return 0;
+    if (!empty_card) {
+        size_t size = 0;
+        const uint8_t *card = rr_psx_card(session, &size);
+        if (card && size && (empty_card = (uint8_t *)malloc(size)) != NULL) { memcpy(empty_card, card, size); empty_card_size = size; }
+    }
     if (!headless || card_option) card_sync(1);
     return 1;
 }
@@ -506,6 +536,9 @@ static int execute(int argc, char **argv) {
         else if (i + 1 < argc && !strcmp(argv[i], "--save-at")) save_at = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--load-state")) load_path = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--trace")) trace_path = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--digests")) digests_path = argv[++i];
+        else if (!strcmp(argv[i], "--match")) match_option = 1;
+        else if (i + 1 < argc && !strcmp(argv[i], "--session-option") && match_value_count < 8) match_values[match_value_count++] = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture")) capture_dir = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture-every")) capture_every = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--pack")) pack_override = argv[++i];
@@ -546,6 +579,19 @@ static int execute(int argc, char **argv) {
     if (headless) rr_psx_gfx_defaults();
     for (int n = 0; n < gfx_count; ++n)
         if (!rr_psx_gfx_assign(gfx[n], !headless)) { fprintf(stderr, "unknown graphics option %s\n", gfx[n]); return 2; }
+    for (int n = 0; n < match_value_count; ++n) {
+        char key[64];
+        const char *equals = strchr(match_values[n], '=');
+        if (!equals || (size_t)(equals - match_values[n]) >= sizeof key) return 2;
+        memcpy(key, match_values[n], (size_t)(equals - match_values[n]));
+        key[equals - match_values[n]] = 0;
+        if (!rr_psx_match_option(key, equals + 1)) { fprintf(stderr, "session option %s refused\n", match_values[n]); return 2; }
+    }
+    if (headless && match_option) rr_psx_match_begin();
+    if (digests_path) {
+        if (!(digests_file = file_open(digests_path, L"wb"))) return 3;
+        fprintf(digests_file, "frame,digest\n%u,%016llx\n", frame, (unsigned long long)rr_psx_digest(session));
+    }
     if (trace_path) {
         if (!(trace_file = file_open(trace_path, L"wb"))) return 3;
         fprintf(trace_file, "frame,ram,image,pcm,samples,audible,size,cpu,vram\n");   /* format 2 (retrorecomp/psx_conversion.py) */
@@ -565,6 +611,8 @@ static int execute(int argc, char **argv) {
                     ran = 0;
                 }
             if (ran) ran = rr_psx_host_frame(released, NULL);
+            if (ran && digests_file && (frame % 60 == 0 || n + 1 == frames))
+                fprintf(digests_file, "%u,%016llx\n", frame, (unsigned long long)rr_psx_digest(session));
         }
         if (card_option) card_sync(0);
     } else {
@@ -583,6 +631,7 @@ static int execute(int argc, char **argv) {
     }
 #endif
     if (trace_file && fclose(trace_file)) okay = 0;
+    if (digests_file && fclose(digests_file)) okay = 0;
     if (interpreted_path && !ran_write()) okay = 0;
     if (pcm_file && fclose(pcm_file)) okay = 0;
     hints_finish();
