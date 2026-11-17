@@ -57,11 +57,12 @@ from .gui_covers import MissingCoversMixin
 from .gui_estimates import EstimatesMixin
 from .gui_welcome import WelcomeMixin
 from .gui_front_end import FrontEndMixin
+from .gui_multiplayer import MultiplayerMixin
 
 
 class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, UpdatesMixin, OptionsMixin,
                  SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin, MissingCoversMixin,
-                 EstimatesMixin, WelcomeMixin, FrontEndMixin):
+                 EstimatesMixin, WelcomeMixin, FrontEndMixin, MultiplayerMixin):
     """The window. Its methods live in the mixins above, one responsibility each; no name is
     defined twice, so the order of the bases decides nothing."""
     def __init__(self, app: tk.Tk):
@@ -390,6 +391,8 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.knowledge_button.pack(side='right', padx=(0, 8))
         # The front-end: the compiled games as a wall of box art (gui_front_end), left of Knowledge.
         self.front_end_button_create(toolbar).pack(side='right', padx=(0, 8))
+        # Multiplayer: host or join a room on the local network (gui_multiplayer), left of the front-end.
+        self.multiplayer_button_create(toolbar).pack(side='right', padx=(0, 8))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=EDGE)
@@ -541,6 +544,8 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
             if not self.closing_after_recompile and not self.cancel.is_set() and not self.stop():
                 return
             self.close_when_idle = True
+            return
+        if not self.multiplayer_may_close():         # a room open asks first (leaving ends a match for this player)
             return
         if not self.closing_checked and self.offer_closing_card():
             return

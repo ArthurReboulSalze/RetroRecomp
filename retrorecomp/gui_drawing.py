@@ -442,6 +442,9 @@ ICON_PATHS.setdefault('front_end', ((1, 1, 7, 1, 7, 7, 1, 7, 1, 1), (9, 1, 15, 1
 # Full screen: the four corners of a screen.
 ICON_PATHS.setdefault('fullscreen', ((1, 5, 1, 1, 5, 1), (11, 1, 15, 1, 15, 5), (15, 11, 15, 15, 11, 15),
                                      (5, 15, 1, 15, 1, 11)))
+# Multiplayer: two players side by side (heads and shoulders).
+ICON_PATHS.setdefault('players', ((3, 2, 6, 2, 6, 5, 3, 5, 3, 2), (1, 13, 1, 9, 2, 7, 7, 7, 8, 9, 8, 13),
+                                  (10, 2, 13, 2, 13, 5, 10, 5, 10, 2), (8, 7, 14, 7, 15, 9, 15, 13, 10, 13)))
 
 
 def _toolbar_styles(style):
