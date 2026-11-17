@@ -40,7 +40,7 @@ base = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(base)
 fake, Match = base.fake, base.Match
 
-CAP = 8                 # the study's default prediction cap
+CAP = 8                 # deeper than the default 5 (rollback.DEFAULT_PREDICTION), so deep corrections are exercised
 
 
 def held(seat: int, hold: int) -> dict:

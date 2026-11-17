@@ -54,15 +54,20 @@ from .lockstep import LINGER, MAX_PREDICTION, LockstepDriver, Settings
 from .session_game import SessionGame
 from .session_transport import SeatLink
 
-DEFAULT_PREDICTION = 8       # the study's default cap k
+# The cap k: at most 5 frames run on a guess. Measured on a quiet PC (17 Nov 2026, .build/multiplayer/bench/K_MEASURE_20261117.txt):
+# a frame run again silently costs a NES export what a live frame costs (2.5 ms median), so a correction of k frames plus the
+# live one must fit in one frame: 5 x 2.5 + 2.5 = 15 ms of 16.6; 8 took 20 ms and showed as a late frame.
+DEFAULT_PREDICTION = 5
 DELAY_LAN, DELAY_ELSE = 1, 2
 RING_MARGIN = 2              # snapshots kept beyond the cap: the live frame's, and one to spare
 
 
-def rollback_delay(one_way_ms: float, jitter_ms: float, frame_ms: float) -> int:
+def rollback_delay(one_way_ms: float, jitter_ms: float, frame_ms: float, cap: int = DEFAULT_PREDICTION) -> int:
     """The small fixed delay d: 1 when the worst path (one way plus jitter) fits in half a frame, as on a local network,
-    2 otherwise. What it does not cover is predicted and corrected, up to the cap."""
-    return DELAY_LAN if one_way_ms + jitter_ms <= frame_ms / 2 else DELAY_ELSE
+    2 otherwise. What it does not cover is predicted and corrected, up to the cap; a link that would need deeper guesses
+    gets a larger d instead, so the expected depth (the delay that would cover the link, less d) stays within the cap."""
+    small = DELAY_LAN if one_way_ms + jitter_ms <= frame_ms / 2 else DELAY_ELSE
+    return max(small, wire.choose_delay(one_way_ms, jitter_ms, frame_ms) - max(1, cap))
 
 
 def can_roll_back(hello: pipe.Hello) -> bool:
@@ -146,7 +151,7 @@ class RollbackDriver(LockstepDriver):
     def _delay_for(self, one_way_ms: float, jitter_ms: float) -> int:
         if not self.rolling:
             return super()._delay_for(one_way_ms, jitter_ms)
-        return rollback_delay(one_way_ms, jitter_ms, self.hello.frame_seconds * 1000.0)
+        return rollback_delay(one_way_ms, jitter_ms, self.hello.frame_seconds * 1000.0, self.cap)
 
     def _preset_hold(self) -> int | None:
         """A game that does not wait for records is not aligned by them: even with a delay given the host measures its

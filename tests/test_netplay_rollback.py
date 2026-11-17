@@ -249,8 +249,14 @@ class TierTests(unittest.TestCase):
         self.assertEqual(rollback.rollback_delay(0.3, 0.2, frame), 1)
         self.assertEqual(rollback.rollback_delay(8.0, 0.3, frame), 1)
         self.assertEqual(rollback.rollback_delay(8.0, 0.5, frame), 2)
-        self.assertEqual(rollback.rollback_delay(120.0, 20.0, frame), 2)
-        self.assertEqual((rollback.DEFAULT_PREDICTION, rollback.RING_MARGIN), (8, 2))
+        # a far link gets a larger d rather than deeper guesses: 140 ms needs 10 frames to be covered, 5 are guessed
+        self.assertEqual(rollback.rollback_delay(120.0, 20.0, frame), 5)
+        self.assertEqual(rollback.rollback_delay(120.0, 20.0, frame, cap=8), 2)
+        self.assertEqual(rollback.rollback_delay(40.0, 5.0, frame), 2)
+        for one_way in range(0, 400, 7):
+            d = rollback.rollback_delay(float(one_way), 10.0, frame)
+            self.assertLessEqual(wire.choose_delay(float(one_way), 10.0, frame) - d, rollback.DEFAULT_PREDICTION)
+        self.assertEqual((rollback.DEFAULT_PREDICTION, rollback.RING_MARGIN), (5, 2))   # the quiet-PC measure of 17 Nov 2026
         self.assertLessEqual(lockstep.MAX_PREDICTION + rollback.RING_MARGIN, pipe.MAX_RING)
         # the records an honest seat on this tier may be ahead by fit in the window the driver takes them in
         self.assertLessEqual(lockstep.MAX_PREDICTION + 2 * rollback.DELAY_ELSE, lockstep.RECORD_WINDOW)
