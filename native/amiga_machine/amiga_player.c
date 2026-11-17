@@ -466,6 +466,10 @@ int main(int argc, char **argv) {
    snprintf(port1_config, sizeof port1_config, "%s/port1.cfg", game_dir);
    snprintf(cpu_config, sizeof cpu_config, "%s/cpu.cfg", game_dir);
    game.save_dir = saves;
+   {  /* A multiplayer session (the converter's pipes, hostkit_session.h): every seat the same machine, saves in memory. */
+      const char *pipes = getenv(RRHK_SESSION_ENV);
+      game.session = !headless && pipes && *pipes;
+   }
    ntsc_run = game.ntsc;
    a_view_init(game.ntsc, RR_AMIGA_VIEW_X, RR_AMIGA_VIEW_Y, RR_AMIGA_VIEW_W, RR_AMIGA_VIEW_H);
    session = rr_amiga_open(&game, error, sizeof error);
