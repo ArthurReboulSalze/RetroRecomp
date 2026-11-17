@@ -261,6 +261,7 @@ static const char *const rr_translations[][5] = {
     {"No state saved in this match","Aucune sauvegarde dans cette partie","Nessuno stato salvato in questa partita","No hay estado guardado en esta partida","Kein Stand in dieser Partie gespeichert"},
     {"No usable graphics card: the CPU draws the picture","Pas de carte graphique utilisable : le CPU dessine l'image","Nessuna scheda grafica utilizzabile: l'immagine e disegnata dalla CPU","Ninguna tarjeta grafica utilizable: la CPU dibuja la imagen","Keine nutzbare Grafikkarte: die CPU zeichnet das Bild"},
     {"None","Aucune","Nessuno","Ninguno","Keiner"},
+    {"Not during a multiplayer game","Pas pendant une partie multijoueur","Non durante una partita multigiocatore","No durante una partida multijugador","Nicht waehrend eines Mehrspielerspiels"},
     {"Num Enter","Num Entree","Invio tast. num.","Intro numerico","Num Eingabe"},
     {"O / Guide: options | Esc: close","O / Guide : options | Echap : fermer","O / Guide: opzioni | Esc: chiudi","O / Guide: opciones | Esc: cerrar","O / Guide: Optionen | Esc: schliessen"},
     {"O: options | F1 / Esc: close","O : options | F1 / Echap : fermer","O: opzioni | F1 / Esc: chiudi","O: opciones | F1 / Esc: cerrar","O: Optionen | F1 / Esc: schliessen"},

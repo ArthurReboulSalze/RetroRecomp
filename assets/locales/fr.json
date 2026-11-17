@@ -374,6 +374,7 @@
     "Anti-aliasing (GPU)": "Anticrénelage (GPU)",
     "Texture filtering (GPU)": "Filtrage des textures (GPU)",
     "Needs geometry precision (PGXP) On": "Demande la précision géométrique (PGXP) activée",
+    "Not during a multiplayer game": "Pas pendant une partie multijoueur",
     "Supersampling: nothing larger than 8x to draw": "Suréchantillonnage : rien de plus grand que 8x à dessiner",
     "Quick states are off in multiplayer": "Sauvegardes rapides coupées en multijoueur",
     "Only the host can restart": "Seul l'hôte peut redémarrer",

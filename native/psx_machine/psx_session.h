@@ -110,6 +110,9 @@ typedef struct RrPsxFrameInfo {
                                         * whichever renderer shows it (1.7.7) */
 } RrPsxFrameInfo;
 void rr_psx_frame_info(const RrPsxSession *s, RrPsxFrameInfo *info);
+/* Multiplayer: the deterministic state after the last frame (CPU and GTE, RAM, scratchpad, sound RAM, memory card), in a fixed
+ * byte order, the same on every seat and system. */
+uint64_t rr_psx_digest(const RrPsxSession *s);
 
 /* The memory card of slot 1 (128 KiB), as the core keeps it; NULL when the core has none. */
 uint8_t *rr_psx_card(RrPsxSession *s, size_t *size);

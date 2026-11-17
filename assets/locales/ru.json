@@ -1391,6 +1391,7 @@
     "Anti-aliasing (GPU)": "Сглаживание (GPU)",
     "Texture filtering (GPU)": "Фильтрация текстур (GPU)",
     "Needs geometry precision (PGXP) On": "Нужна точность геометрии (PGXP)",
+    "Not during a multiplayer game": "Недоступно в сетевой игре",
     "Supersampling: nothing larger than 8x to draw": "Суперсэмплинг: больше 8x рисовать нечего",
     "Quick states are off in multiplayer": "Быстрые сохранения отключены в сетевой игре",
     "Only the host can restart": "Перезапуск доступен только хосту",

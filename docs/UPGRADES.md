@@ -91,6 +91,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Super Nintendo: multiplayer, digest and rollback on the boards without a chip](#super-nintendo-multiplayer-digest-and-rollback-on-the-boards-without-a-chip-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
+| [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-next-release) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
 
@@ -248,6 +249,21 @@ quiet PC (about 336 KB copied per frame), physical latency, a Linux run, a game 
 **Stamps** (compared with `spec/multiplayer`, all 21 machines): only the Game Boy moves, its **game** stamp (the runtime part, the two
 patches and the persistence patch; the multiplayer branch already moves every game stamp, so this adds no further reconversion) and its **host**
 stamp (the adapter). Quick states: no key moves. The profile gets `netplay_session = True`.
+
+## Sony PlayStation: multiplayer, the digest and the host's settings (delay tier) (next release)
+
+On the multiplayer branch (`spec/psx-mp-digest`). The PlayStation's adapter gives the host kit a **digest** (`rr_psx_digest`:
+CPU and GTE, RAM, scratchpad, sound RAM and the memory card in a fixed little-endian order, no VRAM), `side_effects` (a guest
+records no runtime hint), `session_begin` (every seat starts on the core's empty memory card; the player's card file is neither
+read again nor written) and `session_option` with four keys the host sets for everyone: `pgxp`, `pgxp_texture`, `cpu_resolution`
+and, with PGXP On, `renderer`; their F3 rows are refused during a match. `rr_psx_session_values` (`session_options`, session ABI 6) gives the host's own values.
+Alone, nothing changes: every new path is reached only in a match (or by the headless `--match` and `--digests` of the evidence).
+What moves: the PlayStation's game stamp (its runtime and Beetle's adaptation: `rr_psx_spu_ram`), so a PlayStation export is
+converted again; the PlayStation's host stamp; one new catalogue string (« Not during a multiplayer game ») moves the host stamp
+of every machine with the host kit, as the multiplayer line above already does. Quick states: unchanged. **Proof**:
+[PLAYSTATION.md section 10](PLAYSTATION.md#10-multiplayer-the-digest-and-the-hosts-settings-next-release-delay-tier) (Ape
+Escape: digests equal on the same run with PGXP Off and On; the settings that change the run measured and pushed). Physical
+latency is not measured.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

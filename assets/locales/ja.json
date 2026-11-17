@@ -1391,6 +1391,7 @@
     "Anti-aliasing (GPU)": "アンチエイリアス (GPU)",
     "Texture filtering (GPU)": "テクスチャフィルタリング (GPU)",
     "Needs geometry precision (PGXP) On": "ジオメトリ精度 (PGXP) のオンが必要",
+    "Not during a multiplayer game": "マルチプレイ中は使えません",
     "Supersampling: nothing larger than 8x to draw": "スーパーサンプリング: 8xより大きく描けません",
     "Quick states are off in multiplayer": "マルチプレイではクイック状態は使えません",
     "Only the host can restart": "再スタートできるのはホストだけです",
