@@ -193,6 +193,18 @@ def game_cmake(module: Path | None, version: str) -> str:
     return '\n'.join(lines) + '\n'
 
 
+# The games that take more than two players through the multitap, keyed by the dump (a reviewed table, never a condition on a game in code): the players of
+# the dump, at most four (a room seats four; the console takes five). A game that is not listed takes two. Bomberman '93 reads the multitap for up to five.
+MULTITAP_PLAYERS = {
+    '678a097de779f3b24fc535e1de55448b754be6abe203a060e8f43c5c78899c8e': 4,    # Bomberman '93 (USA)
+}
+
+
+def players_of(card) -> int:
+    """The players a converted game is built for: its entry of MULTITAP_PLAYERS, else two."""
+    return MULTITAP_PLAYERS.get(card.sha256, 2)
+
+
 def prepare_game(project: Path, card, *, title: str, module: Path | None = None, players: int = 2,
                  presentation: dict | None = None) -> dict:
     """A playable game project: the bridge, the kit, the emitted `module` (or none: everything interpreted) and the

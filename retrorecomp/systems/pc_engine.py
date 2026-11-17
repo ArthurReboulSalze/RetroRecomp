@@ -45,8 +45,11 @@ class PcEngineProfile(SystemProfile):
     host_adapter = 'adapters/rrhk_pce.c'
     feedback_kinds = frozenset({20})
     fallback_display = 'opcodes'
-    # Multiplayer: the host kit's adapter gives the snapshot, the digest and the side-effects switch (native/pce_snapshot.cpp); two seats for now.
+    # Multiplayer: the host kit's adapter gives the snapshot, the digest and the side-effects switch (native/pce_snapshot.cpp). A session plugs the multitap
+    # (the console has one pad port): the room seats up to four, the game's own count is what its report and its HELLO say (the console takes five).
     netplay_session = True
+    netplay_seats = 4
+    netplay_seats_ceiling = True
     linux = 'witnessed'   # on a Debian 13 PC; the cards and the figure are in QUALIFICATION.md, gate G13
     # Paths: an instruction is its logical pc, its eight MPRs and its bytes, so a row is `insn` [context << 16 | pc, ROM offset, length] and the
     # contexts are `opcode_ptr` rows [context * 8 + register, value] (pce_knowledge.py). The window bounds context << 16 | pc and the table's rows.

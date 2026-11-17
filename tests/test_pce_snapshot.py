@@ -74,12 +74,60 @@ class WiringTests(unittest.TestCase):
         for name in ('native/pce_snapshot.cpp', 'native/pce_snapshot.h', 'native/pce_machine_internal.hpp'):
             self.assertIn(name, names)
 
-    def test_the_machine_is_offered_in_multiplayer_with_two_seats(self):
+    def test_the_machine_is_offered_in_multiplayer_and_seats_four_through_the_multitap(self):
         profile = get_profile('pce')
         self.assertTrue(profile.netplay_session)
-        self.assertEqual(profile.netplay_seats, 2)
+        self.assertEqual(profile.netplay_seats, 4)
+        self.assertTrue(profile.netplay_seats_ceiling)         # the game's own count is what its report and HELLO say
         self.assertFalse(profile.netplay_portable)           # the mixed-build gate has not been run for this machine
         self.assertEqual('adapters/rrhk_pce.c', hostkit.ADAPTERS['pce'])
+
+
+class MultitapTests(unittest.TestCase):
+    """The console has one pad port: the second player is the multitap's. A session plugs it for every seat; the converter plugs it for the games it knows take more
+    than two players (a reviewed table keyed by the dump)."""
+
+    def setUp(self):
+        self.adapter = (ROOT / 'native/hostkit/adapters/rrhk_pce.c').read_text(encoding='utf-8')
+
+    def test_the_session_plugs_the_multitap_from_two_ports(self):
+        begin = self.adapter.split('static void session_begin(uint64_t clock) {')[1].split('}')[0]
+        self.assertIn('rrhk_session_ports() >= 2', begin)
+        self.assertIn('pce_machine_plug_multitap(1)', begin)
+        self.assertIn('.session_begin = session_begin', self.adapter)
+
+    def test_players_3_and_4_are_read_inside_run_frame_so_a_silent_frame_sees_them(self):
+        run = self.adapter.split('static bool run_frame(uint16_t p1, uint16_t p2) {')[1].split('\n}\n')[0]
+        self.assertIn('rrhk_pad_word(2, at)', run)
+        self.assertIn('rrhk_pad_word(3, at)', run)
+        self.assertIn('rrhk_session_active() ? rrhk_session_ports() : players()', run)
+        # nothing that decides the run is set in before_frame (silent frames never call it)
+        self.assertNotIn('before_frame', re.sub(r'/\*.*?\*/', '', self.adapter, flags=re.S))
+
+    def test_the_hosts_backup_ram_travels_in_memory_only(self):
+        self.assertIn('.session_save = session_save', self.adapter)
+        self.assertIn('.session_save_put = session_save_put', self.adapter)
+        self.assertIn('size != PCE_BACKUP_BYTES', self.adapter)
+        self.assertIn('pce_machine_set_backup(in)', self.adapter)
+
+    def test_the_bridge_plugs_the_multitap_now_and_after_a_reset(self):
+        bridge = (ROOT / 'native/pce_machine.cpp').read_text(encoding='utf-8')
+        plug = bridge.split('void pce_machine_plug_multitap(int plugged) {')[1].split('\n}\n')[0]
+        self.assertIn('recipe.multitap = plugged != 0;', plug)                   # the recipe is what a reset builds from
+        self.assertIn('machine->bus.joypad.set_multitap(recipe.multitap)', plug)
+
+    def test_the_games_that_take_more_than_two_players_are_a_table_keyed_by_the_dump(self):
+        from types import SimpleNamespace
+        from retrorecomp import pce_build
+        bomberman = '678a097de779f3b24fc535e1de55448b754be6abe203a060e8f43c5c78899c8e'
+        self.assertEqual(pce_build.players_of(SimpleNamespace(sha256=bomberman)), 4)
+        self.assertEqual(pce_build.players_of(SimpleNamespace(sha256='00' * 32)), 2)
+        for sha, players in pce_build.MULTITAP_PLAYERS.items():
+            self.assertRegex(sha, r'^[0-9a-f]{64}$')
+            self.assertIn(players, (3, 4))                                       # a room seats four at most; the console takes five
+        # a four-player game is built with the multitap plugged and four players in its header
+        self.assertIn('RR_PCE_MULTITAP {int(seats > 2)}', (ROOT / 'retrorecomp/pce_build.py').read_text(encoding='utf-8'))
+        self.assertIn('players=pce_build.players_of(card)', (ROOT / 'retrorecomp/pce_conversion.py').read_text(encoding='utf-8'))
 
 
 @unittest.skipUnless(os.environ.get('RR_SNAPSHOT_PROBE'), 'the probe builds the engine and takes minutes: RR_SNAPSHOT_PROBE=1 runs it')

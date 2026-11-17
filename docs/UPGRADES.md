@@ -252,7 +252,7 @@ stamp (the adapter). Quick states: no key moves. The profile gets `netplay_sessi
 ## PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone (next release)
 
 The PC Engine joins the multiplayer rollback tier at the level of the NES: its adapter gives the host kit an in-process snapshot, a digest and the side-effects switch ([PC_ENGINE.md](PC_ENGINE.md#multiplayer-rollback-and-the-hosts-f8--f9-for-everyone-17-november-2026)),
-and its profile says `netplay_session` (two seats). **What moves:** the PC Engine game stamp (`native/pce_machine.cpp` and `.h`, the new `pce_machine_internal.hpp`, `pce_snapshot.cpp` and `.h`, `pce_main.c`,
+and its profile says `netplay_session`, with up to four seats through the multitap, which a session plugs in for every seat and whose players 3 and 4 are read inside `run_frame`; the host's Backup RAM travels to every seat. **What moves:** the PC Engine game stamp (`native/pce_machine.cpp` and `.h`, the new `pce_machine_internal.hpp`, `pce_snapshot.cpp` and `.h`, `pce_main.c`,
 `retrorecomp/pce_build.py` with its new files, `systems/pc_engine.py`) and the PC Engine host stamp (`adapters/rrhk_pce.c`); no other machine moves. A PC Engine export of the previous release is
 converted again once, as every export is for the multiplayer release. **Quick states:** unchanged, and a session never reads or writes them. **Hot path:** none added to a solo game: the snapshot is reached only through the adapter's
 pointers when the converter starts the game with its pipes; the only change a solo frame sees is one call that tells whether the player's record is on (it was a direct pointer). **Proof:** the probe of the snapshot on an authored card and the Street Fighter II

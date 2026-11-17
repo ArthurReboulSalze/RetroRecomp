@@ -222,6 +222,11 @@ void pce_machine_set_recorder(void (*note)(uint32_t pc, const uint8_t *bytes, un
     recorded.clear();
 }
 
+void pce_machine_plug_multitap(int plugged) {
+    recipe.multitap = plugged != 0;
+    if (machine) machine->bus.joypad.set_multitap(recipe.multitap);
+}
+
 void pce_machine_policy(int value) {
     policy = value == PCE_POLICY_REFERENCE ? pce::ExecutionPolicy::interpreter_only
            : value == PCE_POLICY_NATIVE_ONLY ? pce::ExecutionPolicy::native_only : pce::ExecutionPolicy::hybrid;

@@ -474,7 +474,7 @@ The 219 interpreted instructions left are work-RAM code, which does not travel. 
 
 The machine gives the host kit what the rollback tier asks of an adapter (`native/hostkit/hostkit.h`, "Multiplayer"): `snap_bound` / `snap_save` / `snap_load`, `digest` and
 `side_effects`, so a session runs on the rollback tier (a prediction, then a correction when the other seat's input differs) and the host's F8 / F9 save and load the match's
-state for everyone. Two seats; the profile says `netplay_session`. The machine owns no loop (`run_frame(p1, p2)` per frame), so a silent frame after a load is an ordinary frame.
+state for everyone. Up to four seats through the multitap (below); the profile says `netplay_session`. The machine owns no loop (`run_frame(p1, p2)` per frame), so a silent frame after a load is an ordinary frame.
 
 **Why not the engine's checkpoint.** `pce::encode_checkpoint` is a developer file format: it writes the whole 2 MiB backing array (the ROM with it), allocates for each save, and a restore
 builds a second machine and compares every ROM byte through a function call. Rollback saves a state every frame and loads one for each correction. `native/pce_snapshot.cpp` instead copies
@@ -483,6 +483,13 @@ latches and both picture buffers; the VCE; the timer and interrupts; the pads; t
 `write_audio` / `read_audio`; the step and generation counters; and the bridge's and host's frame counters (the inputs are keyed by the host's). Not the ROM, no pointer, nothing of the host. The format
 is fieldwise little-endian, a local quick state, never a file, never sent. A snapshot is about 589 KB at 256 x 240 (two 184 KB picture buffers, the 106 KB audio block, 64 KB of VRAM, 40 KB of RAM banks); the
 bound the kit allocates for each ring slot is 1.4 MB. A picture buffer wider or taller than the bridge's picture limit (640 x 264) keeps its size and its pixels up to the limit: it is output, never state.
+
+**The multitap.** The console has one pad port, so a second player is the multitap's (the TurboTap), and the engine reads only pad 1 while it is unplugged (measured on Bomberman '93: pad 2 changes nothing
+without it, and each of pads 2, 3 and 4 changes the game's RAM with it). A session plugs it for every seat from its start (`session_begin`, when the match has two ports or more, and again at each restart, which rebuilds the machine
+from the same recipe), whatever the game; players 3 and 4 are read inside `run_frame`, so a frame run again after a correction sees them (a silent frame never calls `before_frame`). The room seats up to four (profile `netplay_seats` 4, a ceiling):
+the game's own count is what its conversion report says (`players 1 to N`) and what its HELLO gives, and the converter knows it from a reviewed table keyed by the dump (`pce_build.MULTITAP_PLAYERS`: Bomberman '93, built for four although
+the console takes five; every other game is built for two). **The host's Backup RAM** travels to every seat for the match (`session_save` / `session_save_put`, 2 KiB, in memory only), so two seats with different saves do not start apart.
+**Not in this change:** a converted game played alone has the multitap unplugged unless it is in that table, so pad II of a two-player game does not work in a solo game (it works in a session); changing that moves the solo behaviour of every PC Engine game.
 
 **The digest** hashes the same fields, as named fields in a fixed little-endian order, and leaves out what is not the guest: the pictures, the audio samples, the native / interpreted step counters and the
 generation counters, so two builds that differ only in their native code agree. The host's frame counter is folded in.
@@ -503,7 +510,7 @@ frames run again after a correction note nothing.
 
 **What this does not say.** Nothing here is timed: the cost of a save, a load and a digest in a real game is not measured (a save writes about 590 KB; the engine's audio writer appends the 8,192-frame PCM ring element by element and is the
 likely largest part), and no physical latency is measured. A load recreates the engine's small audio presentation state (a few KB), so a load is not allocation-free. The Street Fighter II board is proved by the probe and not yet in a
-converted game; the multitap's third to fifth seats are not offered (seats stay two, and the extra pads of the silent frames are not read from the session). The mixed-build gate is not run (`netplay_portable` stays false).
+converted game; the fifth multitap seat is not offered (a room seats four). The mixed-build gate is not run (`netplay_portable` stays false).
 
 ## 8. The five measures
 

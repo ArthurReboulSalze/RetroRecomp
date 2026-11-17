@@ -27,6 +27,9 @@ int pce_machine_init(const uint8_t *file, size_t size, int copier_header, int bi
                      int pad_buttons, int multitap, char *error, size_t error_size);
 int pce_machine_reset(char *error, size_t error_size);
 void pce_machine_policy(int policy);
+/* The console has one pad port: a second player needs the multitap (TurboTap), which a session plugs in for every seat whatever the game (the converter plugs
+ * it for the games it knows to take more than two players). Takes effect at once and survives a reset. */
+void pce_machine_plug_multitap(int plugged);
 /* The player's own record (docs/PC_ENGINE.md, "The player's own record"): `note` gets, for an instruction of the card that the interpreter ran, its
  * logical address and the eight bank registers followed by the instruction's bytes (9 to 15 bytes); `active` says whether recording is on. Standard boards
  * only, hybrid policy only. Both may be NULL (no recording). */
