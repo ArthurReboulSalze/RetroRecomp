@@ -20,6 +20,7 @@ size_t rrgba_audio(int16_t *pcm, size_t capacity);   /* the machine's mono sound
 void rrgba_reset(void);                              /* a power cycle: the loop ends and the machine is built again */
 uint64_t rrgba_interpreted(void);                    /* guest instructions the engine's interpreter ran: never hidden */
 uint64_t rrgba_frames(void);
+uint64_t rrgba_digest(void);                          /* a session's digest: the deterministic state as fixed fields (native/gba_machine.cpp) */
 bool rrgba_state_path(wchar_t *path, size_t capacity);
 bool rrgba_state_file(const wchar_t *path, bool load);
 

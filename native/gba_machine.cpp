@@ -23,6 +23,7 @@
 #include "gba_game.h"
 #include "gba_machine.h"
 #include "hostkit/hostkit.h"
+#include "hostkit/hostkit_session.h"
 #include "platform_io.h"
 #include "rr_driver.h"
 #include "runtime.h"
@@ -191,6 +192,7 @@ void take_sound() {
                 g_frame_sound = (g_frame_sound ^ static_cast<uint16_t>(block[i])) * 1099511628211ull;
                 if (block[i]) g_frame_audible = true;
             }
+            if (g_session || g_digest_every) g_audio_running = (g_audio_running ^ static_cast<uint16_t>(block[i])) * 1099511628211ull;
             g_sum += block[i];
             if (++g_sum_count >= ratio) {
                 push_sample(static_cast<int16_t>(g_sum / static_cast<int32_t>(g_sum_count)));
@@ -257,7 +259,7 @@ void set_aside_unusable_save() {
 }
 
 void flush_battery() {
-    if (!g_api->save_dirty()) return;
+    if (g_session || !g_api->save_dirty()) return;     // a session never writes the cartridge save
     make_parent_folders(g_save_path);
     if (!g_api->flush_save()) fprintf(stderr, "[host] the cartridge save could not be written\n");
 }
@@ -311,6 +313,49 @@ RetroStateEnvelope gba_state_envelope() {
     return RetroStateEnvelope{"RRGBAST" "\0", 1, 0, RR_GBA_ROM_SHA256, gba_state_body};
 }
 
+// A multiplayer session (hostkit_session.h): every seat runs the same simulation from the same start, so a seat starts with an empty cartridge save and never writes one (its own
+// save is not the match's), and the cartridge's clock runs on the guest's cycles from one fixed time (the wall clock would differ between two PCs).
+bool g_session = false;
+unsigned g_digest_every = 0;       // test switch RETRORECOMP_GBA_DIGEST=<n>: print the digest every n frames (never read in play); the sound is hashed as in a session
+uint64_t g_audio_running = 1469598103934665603ull;     // the hash of every mixed sample so far, taken only in a session: the digest holds it
+
+uint64_t fnv_bytes(uint64_t hash, const uint8_t* bytes, size_t size) {
+    for (size_t i = 0; i < size; ++i) hash = (hash ^ bytes[i]) * 1099511628211ull;
+    return hash;
+}
+
+uint32_t le32(const uint8_t* at) { return at[0] | at[1] << 8 | at[2] << 16 | static_cast<uint32_t>(at[3]) << 24; }
+
+// The session's digest: the engine's state container (header, then sections tag | length | payload, little-endian, written field by field) read section by section.
+// Kept: the CPU registers (the first 180 bytes: 16 + 1 + 3 x 6 + 2 x 5 words; what follows is the generated code's call stack, an artefact of how it runs), the memories and
+// the bus, the registers, the cartridge save and the picture processing unit. Left out: the sound section (it holds the host's output ring and the cursors that follow the
+// host's pace; the mixed samples are in `g_audio_running` instead), the counters and the timing of this process, and the mods. The same bytes on every PC for the same inputs.
+uint64_t state_digest() {
+    std::vector<uint8_t> blob;
+    std::string error;
+    if (!g_api || !g_api->save_state(blob, error)) return 0;
+    constexpr size_t kHeader = 4 + 4 + 40 + 4, kCpuWords = 16 + 1 + 3 * 6 + 2 * 5;
+    if (blob.size() < kHeader || memcmp(blob.data(), "GBAS", 4) != 0) return 0;
+    uint64_t hash = 1469598103934665603ull;
+    size_t at = kHeader;
+    while (at + 8 <= blob.size()) {
+        const uint32_t tag = le32(&blob[at]), length = le32(&blob[at + 4]);
+        at += 8;
+        if (length > blob.size() - at) return 0;
+        const bool cpu = tag == 0x30555043u;            // "CPU0"
+        const bool kept = cpu || tag == 0x30535542u || tag == 0x305F4F49u || tag == 0x30564153u || tag == 0x30555050u;   // BUS0, IO_0, SAV0, PPU0
+        if (kept) {
+            hash = fnv_bytes(hash, &blob[at - 8], 4);
+            const size_t size = cpu ? std::min<size_t>(length, kCpuWords * 4) : length;
+            hash = fnv_bytes(hash, &blob[at], size);
+        }
+        at += length;
+    }
+    uint8_t sound[8];
+    for (int i = 0; i < 8; ++i) sound[i] = static_cast<uint8_t>(g_audio_running >> (8 * i));
+    return fnv_bytes(hash, sound, 8);
+}
+
 uint64_t picture_hash() {
     uint64_t hash = 1469598103934665603ull;
     for (uint32_t pixel : g_pixels) hash = (hash ^ pixel) * 1099511628211ull;
@@ -342,6 +387,11 @@ bool rrgba_frame(uint16_t pressed) {
     if (g_rows)
         fprintf(g_rows, "%llu,%016llx,%016llx,%d\n", static_cast<unsigned long long>(g_frame_index), static_cast<unsigned long long>(picture_hash()),
                 static_cast<unsigned long long>(g_frame_sound), g_frame_audible ? 1 : 0);
+    if (g_digest_every && g_frame_index % g_digest_every == 0) {
+        const uint64_t first = state_digest(), second = state_digest();       // reading the digest must not change the machine: twice in a row is the same
+        fprintf(stderr, "[digest] frame %llu %016llx%s
+", static_cast<unsigned long long>(g_frame_index), static_cast<unsigned long long>(first), first == second && first ? "" : " UNSTABLE");
+    }
     if (g_selftest) run_selftest();
     if (!g_state_steps.empty()) run_state_switch();
     if (++g_since_flush >= kFlushFrames) {
@@ -365,6 +415,7 @@ size_t rrgba_audio(int16_t* pcm, size_t capacity) {
 }
 
 void rrgba_reset(void) { g_restart = true; }
+uint64_t rrgba_digest(void) { return state_digest(); }
 uint64_t rrgba_interpreted(void) { return g_api ? g_api->interpreted_instructions() : 0; }
 uint64_t rrgba_frames(void) { return g_api ? g_api->frames() : 0; }
 
@@ -469,7 +520,9 @@ int main(int argc, char** argv) {
     g_selftest = getenv("RETRORECOMP_GBA_SELFTEST") != nullptr;
     // Every check (a scripted run, the self-test, the kit's frame limit) starts the cartridge's clock from a fixed time and moves it
     // with the guest's cycles, so two runs of the same script see the same seconds; a person playing keeps the host's clock.
-    if ((g_scripted || g_selftest || getenv("RETRORECOMP_HOST_TEST_FRAMES")) && !getenv("GBARECOMP_RTC_GUEST_EPOCH"))
+    if (const char* every = getenv("RETRORECOMP_GBA_DIGEST")) g_digest_every = static_cast<unsigned>(std::max(0, atoi(every)));
+    g_session = getenv(RRHK_SESSION_ENV) && *getenv(RRHK_SESSION_ENV) && !getenv("RETRORECOMP_HOST_TEST_FRAMES");
+    if ((g_scripted || g_selftest || g_session || getenv("RETRORECOMP_HOST_TEST_FRAMES")) && !getenv("GBARECOMP_RTC_GUEST_EPOCH"))
         set_environment("GBARECOMP_RTC_GUEST_EPOCH", "1767225600");
     // The player compiles nothing at run time (the engine's self-heal recompiler stays off) and keeps what the engine says about
     // its own coverage, with the addresses the interpreter ran, in `datas/learning`, not beside the executable.
@@ -486,12 +539,13 @@ int main(int argc, char** argv) {
         set_environment("GBARECOMP_COVERAGE_JSON", learning_utf8);
     wchar_t save[2048];
     char save_utf8[4096] = "";
-    if (state_location(save, 2048, "saves", ".sav") && rr_to_utf8(save, save_utf8, sizeof save_utf8))
+    if (!g_session && state_location(save, 2048, "saves", ".sav") && rr_to_utf8(save, save_utf8, sizeof save_utf8))
         wcsncpy(g_save_path, save, 2047);
     set_aside_unusable_save();
     int status = 0;
     do {
         g_restart = false;
+        g_audio_running = 1469598103934665603ull;
         if (g_selftest) fprintf(stderr, "[selftest] machine built, frame %llu\n", static_cast<unsigned long long>(g_frame_index));
         std::string rom_sha1 = RR_GBA_ROM_SHA1, no_window = "--no-window", quiet = "--quiet", rom_flag = "--rom-sha1",
                     save_flag = "--save", save_value = save_utf8;
