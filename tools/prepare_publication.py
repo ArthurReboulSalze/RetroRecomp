@@ -248,6 +248,7 @@ retrorecomp/netplay_recipe.py tests/test_netplay_recipe.py tools/netplay_recipe_
 retrorecomp/netplay/__init__.py retrorecomp/netplay/session_pipe.py retrorecomp/netplay/session_game.py
 retrorecomp/netplay/input_records.py retrorecomp/netplay/session_transport.py retrorecomp/netplay/link_simulator.py
 retrorecomp/netplay/lockstep.py tests/test_netplay_lockstep.py tools/netplay_lockstep_selftest.py tools/netplay_game_smoke.py
+tools/netplay_lan_acceptance.py
 retrorecomp/netplay/time_sync.py retrorecomp/netplay/worker_channel.py retrorecomp/netplay/worker.py
 retrorecomp/netplay/worker_client.py retrorecomp/netplay/scripted_inputs.py tests/test_netplay_worker.py
 retrorecomp/netplay/launch.py tests/test_netplay_security.py

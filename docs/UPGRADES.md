@@ -88,6 +88,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | --- | --- | --- | --- |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
+| [Super Nintendo: multiplayer, the digest (delay tier)](#super-nintendo-multiplayer-the-digest-delay-tier-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 
 ## Every machine: multiplayer, two to four players over the local network (next release)
 
@@ -103,6 +104,20 @@ format of a quick state does not change. Cartridge saves and preferences are unt
 November 2026, two Windows PCs on a home network, Contra NES): two-player matches with no desync, the host's restart for
 everyone, 150 ms of simulated round trip on the rollback tier with no wait, the in-game chat on keyboard and gamepad.
 Physical latency is not measured.
+
+## Super Nintendo: multiplayer, the digest (delay tier) (next release)
+
+On the multiplayer branch (`spec/snes-rollback`, first delivery). The Super Nintendo now answers a session: `SnesProfile` sets
+`netplay_session`, and the adapter (`rrhk_snes.c`) gives the host kit a **digest** (`rr16_snes_digest`, `snes_backend.c`). It walks
+the engine's own serializers in a fixed order (65816 and its registers and cycle counters, WRAM and the beam, interrupt and joypad
+state with the multitap, SPC700 and APU RAM with the S-DSP **without its output ring** (the audio thread moves its read cursor),
+PPU registers, memories and ports, DMA/HDMA, cartridge RAM and every enhancement chip), each field named, none a pointer or a
+raw struct of the Snes. No snapshot yet: the machine plays on the **delay tier** and no board is proven for rollback. **Stamps:**
+the Super Nintendo game stamp moves (the profile) and its host stamp moves (`snes_backend.c`, `rrhk_snes.c`): its exports are
+rebuilt and converted again once; no other machine's stamp moves. **Quick states:** the Super Nintendo key hashes `snes_backend.c`
+and so moves; an older quick state is refused cleanly (accepted by the multiplayer specialist, 17 November 2026). **Proof so far** (17 November 2026, one PC,
+two copies of Super Mario World, LoROM, delay 4, 30 ms with 10 ms of jitter simulated): 1,500 frames, boot digests equal and 25
+confirmed-frame digests equal on both seats. Chip boards, rollback and physical latency are not measured.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

@@ -26,6 +26,9 @@
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
 #define RRHK_SESSION_ENV "RETRORECOMP_NETPLAY_PIPE"
+/* The clock every seat's machine runs on in a session (RrhkMachine.session_begin): 1 January 2000, 00:00 UTC, so that two PCs
+ * whose clocks differ start alike. A clock the host gives would be a change of SETUP (a new ABI). */
+#define RRHK_SESSION_CLOCK 946684800ull
 
 enum {
     /* game -> worker */

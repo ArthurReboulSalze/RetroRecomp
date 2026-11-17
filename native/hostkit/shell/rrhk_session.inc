@@ -236,6 +236,7 @@ bool rrhk_session_open(RrhkRun *run) {
         const RrhkMachine *m = run->machine;
         if (s.setup && !apply_options(m, s.options, s.options_length)) return false;
         if (s.guest && m->side_effects) m->side_effects(false);
+        if (s.setup && m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
         return true;
     }
     const char *value = getenv(RRHK_SESSION_ENV);
@@ -259,7 +260,7 @@ bool rrhk_session_open(RrhkRun *run) {
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
     const uint8_t caps = (uint8_t)((bound ? RRHK_CAP_SNAPSHOT : 0) | (m->digest ? RRHK_CAP_DIGEST : 0) |
                                    (m->pointer ? RRHK_CAP_POINTER : 0) | (m->analog_sticks ? RRHK_CAP_AXES : 0) |
-                                   (m->keyboard_pad ? RRHK_CAP_KEYBOARD : 0) | (m->driven ? RRHK_CAP_DRIVEN : 0));
+                                   (m->driven ? RRHK_CAP_DRIVEN : 0));
     char name[64];
     size_t name_length = 0;
     for (const wchar_t *w = m->ini_section; w && *w && name_length < sizeof name - 1; ++w)
@@ -272,10 +273,12 @@ bool rrhk_session_open(RrhkRun *run) {
     hello[12] = (uint8_t)name_length;
     memcpy(hello + 13, name, name_length);
     if (!send_message(RRHK_MSG_HELLO, hello, 13 + name_length)) { fprintf(stderr, "[session] the pipe is closed\n"); return false; }
-    /* A gun or pointer (the local mouse), sticks or a computer's keyboard live outside the pad words: such a game is not
-     * offered until LOCAL carries them. */
-    if (m->pointer || m->analog_sticks || m->keyboard_pad) {
-        refuse(RRHK_REFUSED_COMMAND, m->pointer ? "pointer" : m->analog_sticks ? "axes" : "keyboard");
+    /* A gun or pointer (the local mouse) and sticks live outside the pad words: such a game is not offered until LOCAL carries
+     * them. A computer's keyboard bindings (keyboard_pad) feed the pad words like any other: in a session the computer adapter
+     * gives its guest no key of this PC (rrhk_computer.inc), so only the joysticks reach the machine (RRHK_CAP_KEYBOARD stays
+     * for a game that will read the guest keyboard once LOCAL carries it). */
+    if (m->pointer || m->analog_sticks) {
+        refuse(RRHK_REFUSED_COMMAND, m->pointer ? "pointer" : "axes");
         fprintf(stderr, "[session] this game's controls cannot be shared yet\n");
         return false;
     }
@@ -320,6 +323,7 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         s.state_size = bound;
     }
     if (s.guest && m->side_effects) m->side_effects(false);
+    if (m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
             seat + 1, ports, depth, s.guest ? "guest" : "host");

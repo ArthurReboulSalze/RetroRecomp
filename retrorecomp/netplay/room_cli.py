@@ -119,9 +119,12 @@ def _describe(event: dict) -> str | None:
     return None
 
 
-def _game_config(path: Path, folder: Path, prefix: str) -> dict:
-    return {'exe': str(path.resolve()), 'cwd': str(path.resolve().parent), 'stdout': str(folder / f'{prefix}-stdout.txt'),
-            'stderr': str(folder / f'{prefix}-stderr.txt')}
+def _game_config(path: Path, folder: Path, prefix: str, env: dict | None = None) -> dict:
+    config = {'exe': str(path.resolve()), 'cwd': str(path.resolve().parent), 'stdout': str(folder / f'{prefix}-stdout.txt'),
+              'stderr': str(folder / f'{prefix}-stderr.txt')}
+    if env:
+        config['env'] = dict(env)
+    return config
 
 
 def _summary(worker: WorkerProcess) -> str:
@@ -162,7 +165,10 @@ def _show(event: dict) -> None:
         say(line)
 
 
-def run_host(args, tests: bool = False) -> int:
+def run_host(args, tests: bool = False, test_settings: dict | None = None, game_env: dict | None = None,
+             results: list | None = None) -> int:
+    """`test_settings`, `game_env` and `results` are for the acceptance tool (tools/netplay_lan_acceptance.py), with `tests`:
+    a scripted pad, a hidden game, the worker's whole result handed back. The command line never sets them."""
     args.log_dir.mkdir(parents=True, exist_ok=True)
     secret = invitation.new_secret()
     try:
@@ -193,11 +199,15 @@ def run_host(args, tests: bool = False) -> int:
         settings = {'delay': args.delay, 'digest_every': args.digest_every, 'redundancy': 3, 'options': '\n'.join(args.option),
                     'sharing': seat_map.effective(args.machine, seat_map.BY_NAME[args.sharing]), 'tier': args.tier,
                     'rollback': args.prediction}
-        worker.call('launch', game=_game_config(args.game, args.log_dir, 'host'),
+        if tests and test_settings:
+            settings.update(test_settings)
+        worker.call('launch', game=_game_config(args.game, args.log_dir, 'host', game_env if tests else None),
                     identity={'machine': args.machine, 'stamp': args.stamp, 'rom': args.rom_sha256}, settings=settings)
         _wait_until_over(worker, mark, args.frames)
         worker.wait_for(lambda w: w.result is not None, 10.0)
         say('result: ' + _summary(worker))
+        if results is not None:
+            results.append(worker.result or {})
         return 0 if (worker.result or {}).get('outcome') in ('ended', 'host_closed') else 1
     finally:
         worker.call('close_room')
@@ -205,7 +215,8 @@ def run_host(args, tests: bool = False) -> int:
         worker.cleanup()
 
 
-def run_guest(args, tests: bool = False) -> int:
+def run_guest(args, tests: bool = False, test_settings: dict | None = None, game_env: dict | None = None,
+              results: list | None = None) -> int:
     args.log_dir.mkdir(parents=True, exist_ok=True)
     text = args.invitation
     if args.invitation_file is not None:
@@ -223,7 +234,11 @@ def run_guest(args, tests: bool = False) -> int:
             return {'call': 'launch_refused', 'match_id': event['match_id'], 'status': control.LAUNCHED_NOT_OWNED}
         if event['stamp'] != args.stamp or event['rom'] != args.rom_sha256:
             return {'call': 'launch_refused', 'match_id': event['match_id'], 'status': control.LAUNCHED_OTHER_STAMP}
-        return {'call': 'launch', 'match_id': event['match_id'], 'game': _game_config(args.game, args.log_dir, 'guest')}
+        answer = {'call': 'launch', 'match_id': event['match_id'],
+                  'game': _game_config(args.game, args.log_dir, 'guest', game_env if tests else None)}
+        if tests and test_settings:
+            answer['test_settings'] = dict(test_settings)
+        return answer
 
     from .. import __version__
     version = version_numbers(__version__)
@@ -252,6 +267,8 @@ def run_guest(args, tests: bool = False) -> int:
             worker.wait_event('match_over', 60.0)
         worker.wait_for(lambda w: w.result is not None, 10.0)
         say('result: ' + _summary(worker))
+        if results is not None:
+            results.append(worker.result or {})
         return 0 if (worker.result or {}).get('outcome') in ('ended', 'host_closed') else 1
     finally:
         worker.call('close_room')
