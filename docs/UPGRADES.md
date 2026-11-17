@@ -309,6 +309,7 @@ and its profile says `netplay_session`, with up to four seats through the multit
 converted again once, as every export is for the multiplayer release. **Quick states:** unchanged, and a session never reads or writes them. **Hot path:** none added to a solo game: the snapshot is reached only through the adapter's
 pointers when the converter starts the game with its pipes; the only change a solo frame sees is one call that tells whether the player's record is on (it was a direct pointer). **Proof:** the probe of the snapshot on an authored card and the Street Fighter II
 board, and Bomberman '93 in two copies on the rollback tier with a save and a load for everyone; nothing is timed.
+**Alone, the multitap is plugged too:** solo pictures are unchanged on the panel (14 of 15 cards show the same pictures over 1,500 frames of the play walk; the fifteenth, Street Fighter II' CE, had its second fighter copy the first player), and two-player local play now works (pad II was a copy of pad I).
 
 ## NES: the Four Score, players 3 and 4 (multiplayer) (next release)
 
