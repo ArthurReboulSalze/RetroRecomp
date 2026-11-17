@@ -57,6 +57,8 @@ bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu) { return rr_opti
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture) {
     const bool used = rr_options_event(event, menu, binding_capture);
     rrhk_options_notice();
+    /* 1.8.1: the Options combination (Guide by default) opens and closes the F2 tiles, as F2 does. */
+    if (rr_options.menu_request) { rr_options.menu_request = 0; rrhk_toggle_settings(); }
     return used;
 }
 /* 1.7.5: a combination refused (another one has it) or a fixed key: game_options.h says why, the kit shows it. */
@@ -66,6 +68,17 @@ void rrhk_options_notice(void) {
     rrhk_notice(rr_options.status, 2200);
 }
 bool rrhk_options_component(int key, int button) { return rr_options_component(key, button); }
+/* 1.8.1: a pad button (or trigger) of the Options combination that opened or closed the menu: hidden from the game until every
+ * button of that combination is released, on every pad. */
+bool rrhk_options_hidden(int button) {
+    if (!rr_options.menu_hold) return false;
+    Uint32 held = 0;
+    for (int i = 0; i < 4; ++i) held |= rr_options.pads[i].mask;
+    if (!(held & rr_options.menu_hold)) { rr_options.menu_hold = 0; return false; }
+    const Uint32 bit = button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX ? 1u << button :
+        button == RRHK_PAD_LEFT_TRIGGER ? RR_PAD_L2 : button == RRHK_PAD_RIGHT_TRIGGER ? RR_PAD_R2 : 0;
+    return (bit & rr_options.menu_hold) != 0;
+}
 /* The gamepad Quit and Restart combinations are held on player 1's pad only, as the F2 capture takes the selected player's:
  * on an arcade board Start+Coin is any player's normal play, and another player's hold must not restart or quit the game for
  * everyone (docs/HOST_KIT.md, D13). Player 1 without a pad: no gamepad combination (the keyboard ones, Shift+F1 and Esc remain).
@@ -132,7 +145,6 @@ int rrhk_option_icon(int key) {
     case RRHK_KEY_RUMBLE: return RR_ICON_ROW_RUMBLE;
     case RRHK_KEY_SYNC: return RR_ICON_ROW_SYNC;
     case RRHK_KEY_START_HELP: return RR_ICON_ROW_REMINDER;
-    case RRHK_KEY_QUIT: return RR_ICON_ROW_EXIT;
     case RR_ROW_AUDIO: return RR_ICON_ROW_WAVE;
     case RR_ROW_FKEYS: return RR_ICON_ROW_FKEY;
     case RR_ROW_VOLUME: return RR_ICON_ROW_VOLUME;
@@ -170,10 +182,7 @@ static RrhkOptionRows option_rows(void) {
     /* 1.7.4: the plates of the first seconds (F1, F2, Esc, the gamepad's combinations, a computer's keyboard) may be turned off. */
     rrhk_option_row(&d, RRHK_KEY_START_HELP, "Start-up reminders: %s", rr_tr(rrhk_start_help() ? "ON" : "OFF"));
     rrhk_option_row(&d, SDL_SCANCODE_GRAVE, "` Max speed: %s", rr_tr(rrhk.max_speed ? "ON" : "OFF"));
-    /* 1.7.6: the last row quits, through the one "Quit? No / Yes" (a player who knows neither Esc nor the pad's combination, or
-     * whose keyboard belongs to the computer). The fullest pages (the computers, the Neo Geo) reach fourteen rows with it: no
-     * scrolling on any machine. */
-    rrhk_option_row(&d, RRHK_KEY_QUIT, "%s", rr_tr("Quit the game"));
+    /* 1.8.1: quitting is the F2 menu's last tile (the one "Quit? No / Yes"), no longer a row of this page (1.7.6 to 1.8.0). */
     return d;
 }
 

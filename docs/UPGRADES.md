@@ -79,6 +79,36 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.8.0 in the next release
+
+The release after 1.8.0 is the multiplayer release (in preparation; main is frozen after this change and the work goes on in the
+multiplayer branch, which adds its own lines here). One line per change, with the stamps it moves.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
+
+## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
+
+[HOST_KIT.md](HOST_KIT.md#d31), D31. `game_options.h`: a seventh combination, **Options** (`RR_COMBO_OPTIONS`, last, so the stored
+entries and capture ids of the six others do not move), the Guide button by default (`options_pad`; a preferences file of 1.8.0 has
+no such entry and gets Guide), one button or a combination, F2 fixed on the keyboard page; the press that completes it on any pad
+sets `menu_request`, and the kit opens or closes the F2 tiles (`rrhk_toggle_settings`), where the Guide button used to open the
+options page itself. Its buttons are hidden from the game from that press until all are released (`menu_hold`,
+`rrhk_options_hidden` in the kit's pad reading). A capture for Options equal to, inside or around another combination is refused
+(and the other way round), as is one overlapping R3 + Select (`RR_CHAT_PAD`, the multiplayer chat's chord). The F2 menu
+(`rrhk_menu.c`) gains a last tile, **Quit the game** (`RR_ICON_EXIT`, a new tile icon in `retro_menu.c`), which asks "Quit? No /
+Yes" with No selected and comes back to the tiles on No or Esc; the options page loses its last row, Quit the game (D23, 1.7.6),
+and `RRHK_KEY_QUIT` goes with it. Past two lines the tiles scroll, two lines at a time. **Texts:** three new entries in the eight
+locales ("Press: open the menu", "F2: fixed key", "Kept for the chat (R3 + Select)"); "Options" and "Quit the game" were already
+there. **Proof:** offscreen
+captures of a fake console on the real shell (two players with a DIP page; one player at 160 x 144, the Game Boy's picture, at the
+default scale and at 1x; four players: three lines of tiles), the kit's capabilities self-test (the Quit tile in place of the Quit
+row; the graphics and options tiles before it), the players' self-test and the options self-test (Guide by default, a chord taken,
+the chat's and Restart's refused, the held buttons hidden). **Stamps:** no game stamp moves; the host stamp of the 21
+profiles moves (compared with `main` 36abf44b): every export is upgraded once (rebuilt), none converted again. **Existing
+exports:** unchanged until that upgrade; an older preferences file keeps every binding and gets Guide for Options.
+
 ## Exports of 1.7.9 in 1.8.0
 
 1.8.0 is the release after 1.7.9. One line per change, with the stamps it moves.

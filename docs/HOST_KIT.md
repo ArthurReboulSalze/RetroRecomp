@@ -384,8 +384,8 @@ X68000 too, without asking again**.
   tiles goes back to where F2 was pressed (the game, or the Pause menu); F2 closes everything at once. Under the tiles the kit
   names the selected one and, for a gamepad, the controller that player has. The pages themselves are unchanged in what they
   do (rows, bindings, combinations, the Gamepad row); Left/Right, Tab and the shoulder buttons still turn them. A page opened
-  another way (the Guide button opens the options, a computer's Ctrl+Alt+O) closes as before. Five tiles a line: a machine
-  with three or four players gets two lines.
+  another way (a computer's Ctrl+Alt+O) closes as before; since D31 the pad's Options button (Guide) opens the tiles. Five tiles
+  a line: a machine with three or four players gets two lines, and past two lines the tiles scroll (D31).
 * <a id="d16"></a>**D16 — "Quit?" before the game closes** (owner's decision of 13 November 2026, 1.7.4), on every machine.
   **Esc in play** and the **Quit combination** (L3+R3 held one second by default, or the player's own) no longer close the game
   at once: the kit asks **Quit? No / Yes** in its own menu, drawn like every menu (never a window of the system), with **No**
@@ -462,7 +462,8 @@ X68000 too, without asking again**.
   whose icon is a DB9 port seen face-on with the device plugged in now (`RR_ICON_ROW_PORT_MOUSE`, `RR_ICON_ROW_PORT_JOYSTICK`);
   the Atari ST can reuse it for its own port. Nothing changes on a machine that declares no row.
 
-* <a id="d23"></a>**D23 — "Quit the game", the last row of the options page** (owner's request of 14 November 2026, 1.7.6), on
+* <a id="d23"></a>**D23 — "Quit the game", the last row of the options page** (owner's request of 14 November 2026, 1.7.6; replaced by
+  the Quit tile of F2, D31), on
   every machine on the kit. The options page (the one the pad's Start or Options button opens) ends with a row that asks the same
   "Quit? No / Yes" as Esc and the Quit combination (`rrhk_quit_ask`, No selected), for a player who knows neither, or whose
   keyboard belongs to the computer; No and Esc come back to the options page. The fullest pages (the computers: their keyboard
@@ -571,6 +572,22 @@ X68000 too, without asking again**.
     timing report (`RETRORECOMP_TIMING_REPORT`) and stderr give the mode, the measured refresh, the decision and the cadence of
     the locked frames (how many refreshes each was held), never a latency. A 2:1 lock for 120 Hz screens, frame delay and
     run-ahead are not part of 1.7.7 (`vsync-study-177`, sections 5 to 7).
+
+* <a id="d31"></a>**D31 — The pad's Options button opens the F2 tiles; Quit is their last tile** (owner's words of 17 November
+  2026, « Oui, lance »; on the Exit tile: « comme on l'avait déjà fait une fois […] c'était la bonne manière »), on every machine
+  on the kit. **Options** joins the combinations of player 1's gamepad page (D21, D25) as a seventh row: the **Guide** button by
+  default (`options_pad`, missing in an older preferences file: Guide), movable and clearable like the others, one button or a
+  combination of buttons (owner: « faut pouvoir aussi accepter une combinaison de touches »), F2 shown fixed on the keyboard
+  page. The press that completes it, on any pad, opens the F2 tiles (D15) and closes them, as F2 does; it replaces the Guide
+  button's fixed opening of the options page (1.6.x to 1.8.0). Its buttons never reach the game from that press until all are
+  released (`menu_hold`). An Options combination equal to another combination, inside it or around it is refused both ways
+  ("Already used by …"), and so is one that overlaps R3 + Select, the multiplayer chat's chord ("Kept for the chat"). A page opened from the tiles comes back to them with Esc (or
+  B), Left/Right still turning the pages, and a second Esc goes back to the game, or to the Pause menu F2 was opened from. The
+  last tile, **Quit the game** (a door and an arrow, `RR_ICON_EXIT`), asks the same "Quit? No / Yes" as Esc in play (D16), No
+  selected; No and Esc come back to the tiles. It replaces the options page's last row (D23, 1.7.6 to 1.8.0): one way in. Past
+  two lines of tiles (four players, a machine page, a graphics page and Quit make three) the tiles scroll, two lines around the
+  selected one, ^ and v at the right edge. The menu canvas (256 x 192) fits every machine's window at the kit's default scale
+  (a Game Boy or Game Gear opens at 480 x 432); a window made smaller than the canvas cuts every menu, as before.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

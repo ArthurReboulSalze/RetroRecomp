@@ -3,6 +3,11 @@
 - **The converter: the Front-end opens in the window.** The **Front-end** button no longer switches to full screen by itself:
   a **Full screen** button appears left of it while the front-end is open (X on the gamepad and F11 still switch too).
   **Options › Common** can still start Retro-Recomp straight in the front-end in full screen.
+- **Every machine: the gamepad opens the F2 menu.** A new **Options** control, the Guide button by default (any button or
+  combination can be chosen on player 1's gamepad page), opens and closes the F2 tiles; Back returns from a page to the tiles,
+  then to the game. **Quit the game** is now the last tile (it asks Quit? No / Yes, as Esc does) instead of a row of the options
+  page, and the tiles scroll when four players need more than two lines. Exports are rebuilt once, not converted again; quick
+  states keep working.
 
 # RetroRecomp v1.8.0 — The Front-end: your games as a wall of box art, played with the gamepad
 
