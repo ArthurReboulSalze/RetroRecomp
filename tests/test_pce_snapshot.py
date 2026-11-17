@@ -126,7 +126,7 @@ class MultitapTests(unittest.TestCase):
             self.assertRegex(sha, r'^[0-9a-f]{64}$')
             self.assertIn(players, (3, 4))                                       # a room seats four at most; the console takes five
         # a four-player game is built with the multitap plugged and four players in its header
-        self.assertIn('RR_PCE_MULTITAP {int(seats > 2)}', (ROOT / 'retrorecomp/pce_build.py').read_text(encoding='utf-8'))
+        self.assertIn('RR_PCE_MULTITAP {int(seats > 1)}', (ROOT / 'retrorecomp/pce_build.py').read_text(encoding='utf-8'))   # alone as well: pad II needs the tap
         self.assertIn('players=pce_build.players_of(card)', (ROOT / 'retrorecomp/pce_conversion.py').read_text(encoding='utf-8'))
 
 
