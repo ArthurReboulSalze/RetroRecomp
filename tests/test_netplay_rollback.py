@@ -498,7 +498,7 @@ class MatchStateTests(unittest.TestCase):
     def test_the_pipe_and_the_mapper_speak_it_as_the_header_says(self):
         header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
         for name in ('RRHK_RUN_STATE_SAVE = 4', 'RRHK_RUN_STATE_LOAD = 8', 'RRHK_SYS_STATE_SAVE = 4', 'RRHK_SYS_STATE_LOAD = 8',
-                     'RRHK_SESSION_ABI 7'):
+                     f'RRHK_SESSION_ABI {pipe.ABI}'):
             self.assertIn(name, header)
         self.assertEqual(pipe.run(5, (1, 2), silent=True, action=pipe.RUN_STATE_LOAD)[8], pipe.RUN_SILENT | pipe.RUN_STATE_LOAD)
         with self.assertRaises(ValueError):
@@ -588,7 +588,7 @@ class SticksTests(unittest.TestCase):
     def test_the_pipe_and_the_wire_carry_them_as_the_header_says(self):
         header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
         self.assertIn('RRHK_RUN_AXES = 16', header)
-        self.assertIn('RRHK_SESSION_ABI 7', header)
+        self.assertIn(f'RRHK_SESSION_ABI {pipe.ABI}', header)
         self.assertEqual(pipe.parse_local(struct.pack('<IHH4b', 5, 1, 0, -128, 127, 0, -3)), (5, 1, 0, (-127, 127, 0, -3)))
         self.assertEqual(pipe.parse_local(struct.pack('<IHH', 5, 1, 0)), (5, 1, 0, None))
         with self.assertRaises(pipe.Broken):

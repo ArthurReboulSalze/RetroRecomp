@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import subprocess
 import threading
+import time
 from typing import Callable
 
 from . import session_pipe as pipe
@@ -121,6 +122,32 @@ class SessionGame:
                     except pipe.Broken:
                         return None
         return None
+
+    def wait_save(self, size: int, timeout: float) -> bytes | None:
+        """The game's save image (its SAVE_OUT messages after its HELLO, `size` bytes in all), or None: too late, broken, or
+        another size. The messages stay held for the driver, which ignores them."""
+        if size <= 0:
+            return b''
+        deadline = time.monotonic() + timeout
+        while True:
+            with self._deliver_lock:
+                data, ended = bytearray(), False
+                for message in self._held or ():
+                    if message is None:
+                        ended = True
+                    elif message[0] == pipe.MSG_SAVE_OUT:
+                        try:
+                            offset, chunk = pipe.parse_save_out(message[1])
+                        except pipe.Broken:
+                            return None
+                        if offset != len(data) or len(data) + len(chunk) > size:
+                            return None
+                        data += chunk
+            if len(data) == size:
+                return bytes(data)
+            if ended or time.monotonic() >= deadline:
+                return None
+            time.sleep(0.01)
 
     def _give(self, message) -> None:
         with self._deliver_lock:

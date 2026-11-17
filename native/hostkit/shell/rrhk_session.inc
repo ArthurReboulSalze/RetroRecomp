@@ -43,6 +43,7 @@ static struct {
     bool broken;                    /* the pipe closed, or a message broke the rules */
     uint16_t ports[RRHK_MAX_PLAYERS];
     bool silent;                    /* a re-simulated frame is running */
+    int setup_ports;                /* the ports SETUP gave (rrhk_session_ports) */
     bool driven_silent;             /* a driven machine's guest runs a silent frame: done when it calls rrhk_frame_done */
     bool guest;
     bool paused;
@@ -54,6 +55,8 @@ static struct {
                                      * memory only, freed with the session; NULL on a machine without snapshots */
     size_t state_size, state_len;
     bool state_used;
+    uint8_t *save_in;               /* the host's save image handed before SETUP (SAVE_IN), kept for a restart's put */
+    size_t save_total, save_got;
     uint8_t options[RRHK_SESSION_MAX_PAYLOAD];      /* the host's run-changing options of SETUP, applied again then */
     uint16_t options_length;
     char paused_by[24];
@@ -78,6 +81,7 @@ static struct {
 
 bool rrhk_session_active(void) { return rrhk_session_on; }
 bool rrhk_session_silent(void) { return s.silent; }
+int rrhk_session_ports(void) { return rrhk_session_on && s.setup_ports ? s.setup_ports : 0; }
 bool rrhk_session_paused(void) { return rrhk_session_on && s.paused; }
 uint16_t rrhk_session_port(int port) { return port >= 0 && port < RRHK_MAX_PLAYERS ? s.ports[port] : 0; }
 bool rrhk_session_guest(void) { return rrhk_session_on && s.guest; }
@@ -238,6 +242,7 @@ bool rrhk_session_open(RrhkRun *run) {
         const RrhkMachine *m = run->machine;
         if (s.setup && !apply_options(m, s.options, s.options_length)) return false;
         if (s.guest && m->side_effects) m->side_effects(false);
+        if (s.setup && s.save_in && m->session_save_put) m->session_save_put(s.save_in, s.save_total);
         if (s.setup && m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
         return true;
     }
@@ -258,7 +263,7 @@ bool rrhk_session_open(RrhkRun *run) {
 #endif
     s.broken = false; s.rx_len = 0;
     /* HELLO: what this game can do in a session; the worker decides the tier (delay, rollback) or refuses the machine. */
-    uint8_t hello[16 + 64 + 2 + RRHK_SESSION_MAX_OPTIONS];
+    uint8_t hello[16 + 64 + 2 + RRHK_SESSION_MAX_OPTIONS + 4];
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
     const uint8_t caps = (uint8_t)((bound ? RRHK_CAP_SNAPSHOT : 0) | (m->digest ? RRHK_CAP_DIGEST : 0) |
                                    (m->pointer ? RRHK_CAP_POINTER : 0) | (m->analog_sticks ? RRHK_CAP_AXES : 0) |
@@ -288,7 +293,20 @@ bool rrhk_session_open(RrhkRun *run) {
         if (c != '\n' && (c < 32 || c > 126)) { options = 0; break; }      /* never a byte the worker would refuse */
     }
     put16(hello + 13 + name_length, (uint16_t)options);
-    if (!send_message(RRHK_MSG_HELLO, hello, 15 + name_length + options)) { fprintf(stderr, "[session] the pipe is closed\n"); return false; }
+    /* This game's save image (session ABI 8): its size in HELLO, then the bytes in SAVE_OUT (the host's travel to every seat). */
+    size_t save_size = m->session_save ? m->session_save(NULL, 0) : 0;
+    uint8_t *save = save_size && save_size <= RRHK_SESSION_MAX_SAVE ? (uint8_t *)malloc(save_size) : NULL;
+    if (!save || m->session_save(save, save_size) != save_size) { free(save); save = NULL; save_size = 0; }
+    put32(hello + 15 + name_length + options, (uint32_t)save_size);
+    if (!send_message(RRHK_MSG_HELLO, hello, 19 + name_length + options)) { free(save); fprintf(stderr, "[session] the pipe is closed\n"); return false; }
+    for (size_t at = 0; at < save_size; at += RRHK_SESSION_SAVE_CHUNK) {
+        uint8_t chunk[4 + RRHK_SESSION_SAVE_CHUNK];
+        const size_t n = save_size - at < RRHK_SESSION_SAVE_CHUNK ? save_size - at : RRHK_SESSION_SAVE_CHUNK;
+        put32(chunk, (uint32_t)at);
+        memcpy(chunk + 4, save + at, n);
+        if (!send_message(RRHK_MSG_SAVE_OUT, chunk, 4 + n)) { free(save); return false; }
+    }
+    free(save);
     /* A gun or pointer (the local mouse) lives outside the pad words: such a game is not offered until LOCAL carries it. The
      * sticks travel since session ABI 7. A computer's keyboard bindings (keyboard_pad) feed the pad words like any other: in a
      * session the computer adapter gives its guest no key of this PC (rrhk_computer.inc), so only the joysticks reach the
@@ -325,6 +343,7 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         return false;
     }
     s.guest = (payload[3] & RRHK_SETUP_GUEST) != 0;
+    s.setup_ports = (int)ports;
     if (!apply_options(m, payload + 6, options)) return false;
     memcpy(s.options, payload + 6, options); s.options_length = options;
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
@@ -340,6 +359,12 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         s.state_size = bound;
     }
     if (s.guest && m->side_effects) m->side_effects(false);
+    /* The host's save, in memory for this match (it came before SETUP, whole). */
+    if (s.save_got != s.save_total) { refuse(RRHK_REFUSED_COMMAND, "save"); return false; }
+    if (s.save_in && (!m->session_save_put || !m->session_save_put(s.save_in, s.save_total))) {
+        refuse(RRHK_REFUSED_COMMAND, "save");
+        return false;
+    }
     if (m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
@@ -460,6 +485,22 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             if (setup(m, payload, length)) return 0;
             fprintf(stderr, "[session] the setup was refused\n");
             return ending(rr_tr("Connection to Retro-Recomp lost"), RRHK_EXIT_FAILED);
+        }
+        if (type == RRHK_MSG_SAVE_IN) {
+            /* The host's save image, in order, before SETUP (a guest). */
+            if (length < 8) return lost(run, "a SAVE_IN broke the rules");
+            const uint32_t total = u32(payload), offset = u32(payload + 4), n = length - 8u;
+            if (total > RRHK_SESSION_MAX_SAVE || n > RRHK_SESSION_SAVE_CHUNK || offset != s.save_got || offset + n > total ||
+                (s.save_in && total != s.save_total) || (!total && n))
+                return lost(run, "a SAVE_IN broke the rules");
+            if (!s.save_in && total) {
+                s.save_in = (uint8_t *)malloc(total);
+                if (!s.save_in) return lost(run, "no memory for the host's save");
+                s.save_total = total;
+            }
+            if (n) memcpy(s.save_in + offset, payload + 8, n);
+            s.save_got += n;
+            return 0;
         }
         if (type) return lost(run, "a message before the setup");
         if (SDL_GetTicks64() >= s.setup_until) return lost(run, "no setup from Retro-Recomp");
@@ -670,6 +711,7 @@ void rrhk_session_close(RrhkRun *run, int reason) {
     s.in = s.out = RRHK_NO_PIPE;
     free(s.ring); s.ring = NULL; s.depth = 0;
     free(s.state); s.state = NULL; s.state_size = s.state_len = 0; s.state_used = false;     /* the match's state ends here */
+    free(s.save_in); s.save_in = NULL; s.save_total = s.save_got = 0;                          /* and the host's save */
     chat_reset();
     rrhk_session_on = false;
 }

@@ -351,6 +351,13 @@ typedef struct RrhkMachine {
      * written into `out` (at most `capacity` bytes), returning the length: the host's are sent to every seat and locked for the
      * match (Arthur, 17 Nov 2026: the options that change the run are the host's, never forced off). NULL: none. */
     size_t (*session_options)(char *out, size_t capacity);
+    /* The game's own saves in a session (cartridge battery, memory card, EEPROM, a disk's save files): the host's travel to every
+     * seat for the match (Arthur, 17 Nov 2026). session_save writes this PC's save image into `out` and returns its size
+     * (`out` NULL: only the size; 0: none; at most RRHK_SESSION_MAX_SAVE). session_save_put makes the machine play on the
+     * host's bytes, in memory only (a guest never writes its own save), before the boot digest and after a restart. NULL:
+     * none (each seat keeps its own, and two different saves are refused by the boot digest). */
+    size_t (*session_save)(void *out, size_t capacity);
+    bool (*session_save_put)(const void *in, size_t size);
     /* The session starts (after SETUP and its options, before the boot digest and frame 0): a machine with a real-time clock
      * sets it from `clock` (seconds since 1970, the same on every seat) instead of this PC's time, here and at every restart
      * of the session. NULL: nothing to do. */
@@ -426,6 +433,11 @@ extern const RrhkPage rrhk_pointer_page;
  * re-simulated (an adapter that delivers its own sound drops that frame's). */
 bool rrhk_session_active(void);
 bool rrhk_session_silent(void);
+/* The ports of the session's frames (SETUP: one per seat, or one in input sharing), 0 outside a session. A machine whose
+ * extra-player adapter changes how the game reads its pads plugs it in from session_begin only when the session needs more
+ * pads than the machine has without it (a SNES multitap from 3, a PC Engine one from 2), so a match plays as the game alone
+ * does with that many players. */
+int rrhk_session_ports(void);
 
 /* Each adapter returns its machine; the link has exactly one. */
 const RrhkMachine *rrhk_adapter(void);

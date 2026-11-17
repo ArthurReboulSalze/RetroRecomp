@@ -19,15 +19,18 @@
 #include <stdint.h>
 
 /* Raised whenever a message, a field or the meaning of one changes. The lobby also compares the host stamp. */
-#define RRHK_SESSION_ABI 7           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
+#define RRHK_SESSION_ABI 8           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
                                      * the turn notices, NOTICE_CHAT_SLOW); 4: the host's quick save and load for everyone
                                      * (RRHK_SYS_STATE_*, RRHK_RUN_STATE_*); 5: a driven machine with snapshots takes silent
                                      * RUNs (its guest runs the frame; rollback for every machine); 6: HELLO carries the game's
                                      * run-changing options (RrhkMachine.session_options), the host's go to every seat;
-                                     * 7: the sticks travel (LOCAL and RUN carry RRHK_AXES int8 values per player) */
+                                     * 7: the sticks travel (LOCAL and RUN carry RRHK_AXES int8 values per player);
+                                     * 8: the host's save travels (HELLO's save size, SAVE_OUT, SAVE_IN) */
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
 #define RRHK_SESSION_MAX_OPTIONS 1024
+#define RRHK_SESSION_MAX_SAVE (2u * 1024u * 1024u)   /* the largest save image a game gives or takes */
+#define RRHK_SESSION_SAVE_CHUNK 4000                 /* the data of one SAVE_OUT / SAVE_IN */
 #define RRHK_SESSION_ENV "RETRORECOMP_NETPLAY_PIPE"
 /* The clock every seat's machine runs on in a session (RrhkMachine.session_begin): 1 January 2000, 00:00 UTC, so that two PCs
  * whose clocks differ start alike. A clock the host gives would be a change of SETUP (a new ABI). */
@@ -38,7 +41,7 @@ enum {
     RRHK_MSG_HELLO = 1,      /* u16 abi, u8 players, u8 caps (RRHK_CAP_*), u32 snap_bound, u32 frame_rate_millihertz,
                               * u8 name length, the machine's name (console_name, else ini_section; ASCII), u16 options
                               * length, this PC's run-changing options ("key=value" lines, ASCII, at most
-                              * RRHK_SESSION_MAX_OPTIONS bytes) */
+                              * RRHK_SESSION_MAX_OPTIONS bytes), u32 the size of this game's save image (0: none) */
     RRHK_MSG_LOCAL = 2,      /* u32 frame about to run, u16 word (player 1's controls of this PC), u16 system bits, then for a
                               * machine with sticks (RRHK_CAP_AXES) RRHK_AXES x i8 (LX, LY, RX, RY: -127..127, the original
                               * pads' precision) */
@@ -48,6 +51,8 @@ enum {
     RRHK_MSG_EXIT = 6,       /* u16 reason (RRHK_EXIT_*) */
     RRHK_MSG_CHAT_OUT = 7,   /* u8 phrase (RRHK_PHRASE_*, 0: free text), u8 length, text: printable ASCII, 1 to
                               * RRHK_CHAT_MAX_TEXT bytes for free text, none with a phrase. The host stamps the name. */
+    RRHK_MSG_SAVE_OUT = 8,   /* u32 offset, data (at most RRHK_SESSION_SAVE_CHUNK): the game's save image right after HELLO, in
+                              * order, as much as HELLO said; the host's is what every seat plays on */
     /* worker -> game */
     RRHK_MSG_SETUP = 32,     /* u8 local seat, u8 ports, u8 ring depth, u8 flags (RRHK_SETUP_*), u16 length, options
                               * "key=value" lines separated by '\n' (ASCII) */
@@ -63,6 +68,9 @@ enum {
     RRHK_MSG_CHAT_SHOW = 41, /* u8 phrase (0: free text), u8 name length, name (printable ASCII, at most RRHK_CHAT_MAX_NAME),
                               * u8 text length, text (printable ASCII, 1 to RRHK_CHAT_MAX_TEXT for free text, none with a
                               * phrase). Every line of the room, this player's own included, in the host's order. */
+    RRHK_MSG_SAVE_IN = 42,   /* before SETUP, a guest: u32 total, u32 offset, data (at most RRHK_SESSION_SAVE_CHUNK): the host's
+                              * save image, which the game plays on in memory for this match (RrhkMachine.session_save_put)
+                              * and never writes; total 0: no save */
 };
 
 enum { RRHK_CAP_SNAPSHOT = 1, RRHK_CAP_DIGEST = 2, RRHK_CAP_POINTER = 4, RRHK_CAP_AXES = 8, RRHK_CAP_KEYBOARD = 16,

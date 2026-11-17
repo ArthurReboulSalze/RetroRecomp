@@ -257,6 +257,29 @@ class RoomLobbyTests(unittest.TestCase):
             RoomGuest(invitation.parse(self.text, tests=True), 'Late', tests=True).connect(timeout=5.0)
         self.assertIn('full', full.exception.reason)
 
+    def test_the_hosts_save_goes_whole_before_the_launch_and_a_guest_plays_on_it(self):
+        """The host's save (lobby version 4): announced, sent in chunks before the LAUNCH, checked whole by the guest, handed
+        with the launch; a save of 300 KB is not cut off by the control frame rate."""
+        nadia, nadia_events = self.join('Nadia')
+        self.everyone_sees(['Arthur', 'Nadia'])
+        pick = game(title='Fake Save')
+        self.host.lobby_select(pick)
+        self.assertTrue(nadia_events.wait(lambda c: bool(c.named('lobby_check_request'))))
+        nadia.lobby_answer(nadia_events.named('lobby_check_request')[-1]['selection'], control.CHECK_SAME, 0, (1, 7, 9))
+        self.assertTrue(self.host_events.wait(lambda c: bool(c.named('lobby_check'))))
+        save = bytes((index * 37 + 11) & 0xff for index in range(300_000))
+        info = self.host.lobby_launch(delay=2, save=save)
+        self.assertEqual(info.seats, 2)
+        self.assertTrue(nadia_events.wait(lambda c: bool(c.launches)), nadia_events.events)
+        match_id = nadia_events.launches[0].match_id
+        self.assertEqual(nadia.take_save(match_id), save)
+        self.assertIsNone(nadia.take_save(match_id))                                  # given once
+        self.assertEqual(nadia_events.named('host_gone'), [])
+        nadia.launched(match_id, control.LAUNCHED_READY)
+        self.assertTrue(self.host_events.wait(lambda c: bool(c.named('all_launched'))))
+        self.host.end_match('ended')
+        self.assertTrue(nadia_events.wait(lambda c: bool(c.named('lobby_back'))))
+
     def test_a_guest_that_was_not_asked_is_refused_a_launch_of_another_game(self):
         """A host that launches a game other than the pick it made gets a refusal from the guest, not a match."""
         nadia, nadia_events = self.join('Nadia')

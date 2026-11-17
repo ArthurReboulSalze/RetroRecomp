@@ -52,6 +52,33 @@ class PipeCodecTests(unittest.TestCase):
             pipe.parse_local(b'\0' * 7)
         self.assertEqual(pipe.pace(10 ** 9)[4:], struct.pack('<i', 20000))
 
+    def test_the_hosts_save_in_hello_save_out_save_in_and_the_room(self):
+        """Session ABI 8 and lobby version 4: HELLO says the save's size, SAVE_OUT gives it, SAVE_IN hands it to a guest, and the
+        room carries it in SAVE_HEAD / SAVE_DATA, all bounded."""
+        import hashlib
+        from retrorecomp.netplay import control
+        head = struct.pack('<HBBIIB', pipe.ABI, 2, pipe.CAP_DIGEST, 0, 60000, 3) + b'NES' + struct.pack('<H', 0)
+        self.assertEqual(pipe.parse_hello(head + struct.pack('<I', 64)).save_size, 64)
+        self.assertEqual(pipe.parse_hello(head).save_size, 0)
+        with self.assertRaises(pipe.Broken):
+            pipe.parse_hello(head + struct.pack('<I', pipe.MAX_SAVE + 1))
+        self.assertEqual(pipe.parse_save_out(struct.pack('<I', 8) + b'ab'), (8, b'ab'))
+        with self.assertRaises(pipe.Broken):
+            pipe.parse_save_out(struct.pack('<I', 8))
+        frames = pipe.save_in(bytes(range(256)) * 40)
+        self.assertEqual(len(frames), 3)
+        self.assertEqual(struct.unpack_from('<HHII', frames[1]), (pipe.MSG_SAVE_IN, 8 + 4000, 10240, 4000))
+        self.assertEqual(pipe.save_in(b''), [pipe.frame(pipe.MSG_SAVE_IN, struct.pack('<II', 0, 0))])
+        for message in (control.SaveHead(0, hashlib.sha256(b'').digest()), control.SaveHead(300000, bytes(32)),
+                        control.SaveData(5, b'x' * control.SAVE_CHUNK)):
+            self.assertEqual(control.decode(*control.encode(message)), message)
+        for kind, payload in ((control.SAVE_HEAD, struct.pack('<I', control.MAX_SAVE + 1) + bytes(32)),
+                              (control.SAVE_DATA, struct.pack('<I', 0)), (control.SAVE_DATA, struct.pack('<I', 0) + bytes(1001))):
+            with self.assertRaises(control.FrameError):
+                control.decode(kind, payload)
+        self.assertIn(control.SAVE_HEAD, control.FROM_HOST)
+        self.assertNotIn(control.SAVE_DATA, control.FROM_GUEST)
+
     def test_a_hello_is_refused_for_what_stage_1_cannot_do(self):
         def hello(abi=pipe.ABI, players=2, caps=pipe.CAP_DIGEST, rate=60000):
             return pipe.parse_hello(struct.pack('<HBBIIB', abi, players, caps, 0, rate, 3) + b'NES')

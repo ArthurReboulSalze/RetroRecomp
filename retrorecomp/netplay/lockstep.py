@@ -138,6 +138,8 @@ class Settings:
     # game is told to run, which is how a test forces two games out of step.
     local_source: Callable | None = None
     words_filter: Callable | None = None
+    save: bytes | None = None           # a guest: the host's save image, handed to its game before SETUP (session ABI 8);
+                                        # None: the game keeps its own (the host, or a game with no save)
 
 
 class RecordLog:
@@ -496,6 +498,8 @@ class LockstepDriver:
             self._end('refused', None, *self._self_leaving())
         elif kind == pipe.MSG_EXIT:
             self.exit_reason = pipe.parse_exit(payload)
+        elif kind == pipe.MSG_SAVE_OUT:
+            pass                                # the game's save image: the room worker read it before the LAUNCH
         elif kind == pipe.MSG_CHAT_OUT:
             # The in-game chat: the line goes to the room's lobby (cleaned, limited, stamped by the host there) and comes back
             # to every game, this one included, as CHAT_SHOW in the host's order. The match itself never waits for it.
@@ -526,6 +530,9 @@ class LockstepDriver:
             self._end('refused', None, *self._self_leaving())
             self.game.close_pipe()              # the game sees its pipe close and ends by itself
             return
+        if self.settings.save is not None:     # the host's save, for this match only: before SETUP, so the boot digest sees it
+            for message in pipe.save_in(self.settings.save):
+                self._tell(message)
         self._tell(pipe.setup(self.seat, seat_map.ports(self.settings.sharing, self.seats), self._ring_depth(hello),
                               guest=self.seat != HOST, options=self.settings.options))
         if self.settings.clock_ppm:
