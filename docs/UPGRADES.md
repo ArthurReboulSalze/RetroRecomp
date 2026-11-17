@@ -104,6 +104,25 @@ November 2026, two Windows PCs on a home network, Contra NES): two-player matche
 everyone, 150 ms of simulated round trip on the rollback tier with no wait, the in-game chat on keyboard and gamepad.
 Physical latency is not measured.
 
+## Master System and Game Gear: rollback snapshot and the frame handed over at an instruction boundary (next release)
+
+The multiplayer branch asks every machine for an in-process snapshot (`snap_bound`, `snap_save`, `snap_load`) so that a session can
+leave the delay tier. The banked engine now has one: `smsrecomp_snap_*` in `native/gamestate.inc`, with the raster state in
+`video_mode4.inc` and the sound chip in `psg_state.inc`. It is the same content as the quick state (CPU, banks, RAM, VDP, raster
+buffers and sprite history, PSG and its undrained samples, Light Phaser latches, the cycle and frame counters of the timeline), copied
+as it stands in memory, about 460 KB, never a file and never sent. The cartridge has no RAM in this runtime. The functions engine
+and the reference interpreter have none (size 0: they stay on the delay tier, as before). The frame also changes hands later: the
+runner ends a frame inside the video step, which an `IN` or `OUT` on the VDP or the PSG runs in the middle of the instruction, so a
+snapshot taken or loaded there would cut an instruction in two. In a session the adapter marks the frame and the banked loop gives
+it to the kit at the end of the instruction that follows, on the request word it already tests after every instruction: a game
+without a session runs the same code as before and pays nothing. What moves: `gamestate.inc`, `gamestate.h`, `state_io.h` and `psg_state.inc` are inputs of every console (the group `*`, as `core.py`), so the game stamp of
+all nine consoles moves with this change (the generated game is the same for every console but the Master System and the Game Gear, whose runtime gains the
+functions above); `video_mode4.inc` is the pair's own. The host stamp of the Master System and the Game Gear moves with their adapter. The quick state format
+and its keys are unchanged. The digest values change by at most one instruction of timing, the same on every seat of a build. **Proof**: `tools/gamestate_selftest.py` mode 3 (save at a frame, run twenty frames, load, run them
+again: every digest identical, from the frame edge the kit uses; a wrong size, a foreign buffer and a short buffer refused; the
+odd latches restored after the machine was wiped), on the main loop and on an EI + HALT loop; the real-game proof and the timing
+come with the kit change.
+
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 
 [HOST_KIT.md](HOST_KIT.md#d31), D31. `game_options.h`: a seventh combination, **Options** (`RR_COMBO_OPTIONS`, last, so the stored

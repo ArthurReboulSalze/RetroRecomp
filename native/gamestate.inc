@@ -77,6 +77,101 @@ uint64_t smsrecomp_digest(void) {
     return hash;
 }
 
+/* Multiplayer rollback (native/gamestate.h): the whole deterministic state as it stands in memory, copied as it is. The same
+ * content as the quick state (CPU, banks, RAM, VDP, raster, PSG, Light Phaser latches, counters of the timeline); what is
+ * cumulative telemetry stays out, as it does there. Valid at the end of a completed instruction, which is where the frame
+ * edge below is delivered. The cartridge has no RAM in this runtime, so there is none to save. */
+#define RR_SNAP_MAGIC 0x31504E53u    /* "SNP1" */
+typedef struct {
+    uint32_t magic, model;
+    Z80State z80;
+    int bank[3];
+    uint64_t next_line, frame, psg_cyc;
+    uint8_t phaser[16];
+} RrSnapHead;
+#define RR_SNAP_PHASER_BYTES 10      /* lightphaser_state: control, h_latch, previous_cycles */
+static size_t smsrecomp_snap_size(void) {
+    return sizeof(RrSnapHead) + sizeof g_ram + sizeof g_vdp + smsrecomp_video_snap_size() + smsrecomp_psg_snap_size();
+}
+size_t smsrecomp_snap_bound(void) {
+#ifdef SMSRECOMP_BANKED_AOT
+    return getenv("SMSRECOMP_REFERENCE") ? 0 : smsrecomp_snap_size();
+#else
+    return 0;
+#endif
+}
+size_t smsrecomp_snap_save(void *buffer, size_t capacity) {
+    const size_t size = smsrecomp_snap_bound();
+    if (!size || !buffer || capacity < size) return 0;
+    psg_catch_up();     /* the saved PSG matches the eager timeline, as in the digest */
+    uint8_t *out = (uint8_t *)buffer;
+    RrSnapHead head;
+    memset(&head, 0, sizeof head);
+    head.magic = RR_SNAP_MAGIC;
+    head.model = (g_is_gg ? 1u : 0u) | (g_mapper_cm ? 2u : 0u) | (sms_light_phaser ? 4u : 0u) | (SMS_LINES_PER_FRAME == 313 ? 8u : 0u);
+    head.z80 = g_z80;
+    for (int i = 0; i < 3; ++i) head.bank[i] = g_bank[i];
+    head.next_line = g_next_line_cyc; head.frame = g_frame; head.psg_cyc = g_psg_cyc;
+    RetroStateIO io = {head.phaser, sizeof head.phaser, 0, RR_STATE_WRITE, true};
+    lightphaser_state(&io);
+    if (!io.ok || io.pos != RR_SNAP_PHASER_BYTES) return 0;
+    memcpy(out, &head, sizeof head); out += sizeof head;
+    memcpy(out, g_ram, sizeof g_ram); out += sizeof g_ram;
+    memcpy(out, &g_vdp, sizeof g_vdp); out += sizeof g_vdp;
+    smsrecomp_video_snap_save(out); out += smsrecomp_video_snap_size();
+    smsrecomp_psg_snap_save(out);
+    return size;
+}
+bool smsrecomp_snap_load(const void *buffer, size_t size) {
+    if (!buffer || !size || size != smsrecomp_snap_bound()) return false;
+    const uint8_t *in = (const uint8_t *)buffer;
+    RrSnapHead head;
+    memcpy(&head, in, sizeof head); in += sizeof head;
+    const unsigned model = (g_is_gg ? 1u : 0u) | (g_mapper_cm ? 2u : 0u) | (sms_light_phaser ? 4u : 0u) | (SMS_LINES_PER_FRAME == 313 ? 8u : 0u);
+    if (head.magic != RR_SNAP_MAGIC || head.model != model) return false;
+    const uint8_t *ram = in; in += sizeof g_ram;
+    SmsVdp vdp;
+    memcpy(&vdp, in, sizeof vdp); in += sizeof vdp;
+    if (vdp.is_gg != g_is_gg || vdp.line < 0 || vdp.line >= SMS_LINES_PER_FRAME ||
+        head.next_line != head.frame * SMS_CYC_PER_FRAME + (uint64_t)(vdp.line + 1) * SMS_CYC_PER_LINE ||
+        head.z80.cyc >= head.next_line || head.z80.cyc < head.next_line - SMS_CYC_PER_LINE || head.psg_cyc > head.z80.cyc ||
+        head.z80.im > 2) return false;
+    RetroStateIO io = {head.phaser, sizeof head.phaser, 0, RR_STATE_CHECK, true};
+    lightphaser_state(&io);
+    if (!io.ok || io.pos != RR_SNAP_PHASER_BYTES) return false;
+    const uint8_t *video = in; in += smsrecomp_video_snap_size();
+    /* The two chips check their own bytes before they apply them; a buffer that is the kit's own never fails here. */
+    if (!smsrecomp_psg_snap_load(in)) return false;
+    if (!smsrecomp_video_snap_load(video)) return false;
+    io.pos = 0; io.mode = RR_STATE_APPLY;
+    lightphaser_state(&io);
+    g_z80 = head.z80;
+    for (int i = 0; i < 3; ++i) g_bank[i] = head.bank[i];
+    memcpy(g_ram, ram, sizeof g_ram);
+    g_vdp = vdp;
+    g_next_line_cyc = g_sync_deadline = head.next_line; g_frame = head.frame; g_psg_cyc = head.psg_cyc;
+    smsrecomp_measured_guest_cycles = head.z80.cyc;
+    g_hz_init = false; smsrecomp_interp_depth = 0; reference_cycle_base = 0;
+    smsrecomp_in_io = smsrecomp_stop_pending = false;
+    return true;
+}
+
+/* The frame edge of a session (native/gamestate.h): rides on the request word the banked loop already tests after every
+ * completed instruction, so a game without a session pays nothing. */
+static bool (*smsrecomp_frame_edge)(void);
+void smsrecomp_set_frame_edge_callback(bool (*callback)(void)) { smsrecomp_frame_edge = callback; }
+bool smsrecomp_defer_frame(void) {
+#ifdef SMSRECOMP_BANKED_AOT
+    /* One edge at a time: a second frame end before the first was delivered (an endless stream of redundant prefixes, which
+     * completes no instruction) is run by the host in place. */
+    if (!smsrecomp_frame_edge || smsrecomp_state_pending || getenv("SMSRECOMP_REFERENCE")) return false;
+    smsrecomp_state_pending = RR_FRAME_EDGE;
+    return true;
+#else
+    return false;
+#endif
+}
+
 /* The envelope is shared (state_envelope.h): the Master System's magic, schema, model and cartridge identity. */
 static uint32_t smsrecomp_state_crc(const uint8_t *bytes, size_t size) { return rr_state_crc(bytes, size); }
 static RetroStateEnvelope smsrecomp_state_envelope(void) {
@@ -117,6 +212,10 @@ static void smsrecomp_state_service(void) {
     int operation = smsrecomp_state_pending;
     if (!operation) return;
     smsrecomp_state_pending = 0;
+    if (operation == RR_FRAME_EDGE) {
+        if (smsrecomp_frame_edge && !smsrecomp_frame_edge()) smsrecomp_stop_pending = true;
+        return;
+    }
     int result = operation == RR_QUICKSAVE ? smsrecomp_state_save() : smsrecomp_state_load();
     fprintf(stderr, "[gamestate] %s result=%d guest_frame=%llu guest_pc=%04X\n",
         operation == RR_QUICKSAVE ? "save" : "load", result, (unsigned long long)g_frame, g_z80.pc);

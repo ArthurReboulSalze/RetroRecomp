@@ -89,8 +89,94 @@ static void special_fields(void) {
     restore.pos = 0; restore.mode = RR_STATE_APPLY; smsrecomp_machine_state(&restore); assert(restore.ok);
     unchanged(original, original_size); free(special); free(original);
 }
+/* ---- Mode 3: the rollback snapshot (native/gamestate.h). Save at a frame edge, run, load, run the same frames again: every digest
+ * identical, from inside the callback the kit uses, with the frames ending in the middle of an IN/OUT as well as between
+ * instructions. No file is written. ---- */
+enum { SNAP_AT = 10, SNAP_RUN = 20, SNAP_LIMIT = 40 };
+static int snap_phase;
+static unsigned edges_in_io, edges_halted, edges_irq_pending;
+static uint64_t snap_digest[SNAP_RUN + 1];
+static uint8_t *snap_slot;
+static size_t snap_size;
+static int snap_frame(const uint32_t *pixels, int w, int h) {
+    (void)pixels; (void)w; (void)h;
+    if (smsrecomp_in_io) edges_in_io++;
+    assert(smsrecomp_defer_frame());
+    assert(!smsrecomp_defer_frame());       /* one edge at a time: a second frame end is run by the host in place */
+    return 0;
+}
+static void snap_scramble(void) {
+    /* What a frame edge can leave half-way: a pending control byte, EI's delay, the P/Q flag latches, HALT, odd PSG and phaser latches. */
+    g_z80.pc = 0xC200; g_z80.sp = 0xC3FF; g_z80.q = 0xD7; g_z80.p = 1; g_z80.ei_block = 1; g_z80.halted = 1;
+    g_z80.iff1 = false; g_z80.iff2 = true; g_z80.im = 2; g_z80.i = 0x9C; g_z80.r = 0xA5; g_z80.wz = 0xCEFA;
+    g_z80.ix = 0x98EF; g_z80.iy = 0xABDF; g_ram[0x200] = 0x5A;
+    g_vdp.frame_irq = g_vdp.line_irq = true; g_vdp.status |= 0x80;    /* interrupts pending */
+    vdp_control_write(0x34);
+    psg_write(0xE7); psg_write(0xF2); psg_advance(123);
+    lightphaser_control(0x55, g_z80.cyc, 0x8A);
+}
+static void snap_trash(void) {
+    memset(g_ram, 0xAB, sizeof g_ram); memset(&g_z80, 0, sizeof g_z80); vdp_reset(g_is_gg); psg_init(); smsrecomp_video_reset();
+    lightphaser_reset(false, sms_light_phaser_hcounter_offset); g_frame = 3; g_bank[0] = g_bank[1] = g_bank[2] = 0;
+}
+static bool snap_edge(void) {
+    const uint64_t frame = g_frame;
+    if (g_z80.halted) edges_halted++;
+    if (vdp_irq_asserted()) edges_irq_pending++;
+    if (snap_phase == 0) {
+        if (frame != SNAP_AT) return true;
+        snap_size = smsrecomp_snap_bound(); assert(snap_size > 0 && snap_size < 1024u * 1024u);
+        snap_slot = (uint8_t *)malloc(snap_size); assert(snap_slot);
+        assert(smsrecomp_snap_save(snap_slot, snap_size) == snap_size);
+        /* A save over a buffer of other bytes writes the same bytes; a buffer too small writes nothing. */
+        uint8_t *other = (uint8_t *)malloc(snap_size); assert(other); memset(other, 0xA5, snap_size);
+        assert(smsrecomp_snap_save(other, snap_size) == snap_size && !memcmp(other, snap_slot, snap_size));
+        assert(smsrecomp_snap_save(other, snap_size - 1) == 0 && !smsrecomp_snap_save(NULL, snap_size));
+        free(other);
+        snap_digest[0] = smsrecomp_digest(); assert(snap_digest[0]);
+        /* A wrong size or a foreign buffer is refused and the machine is untouched. */
+        assert(!smsrecomp_snap_load(snap_slot, snap_size - 1) && !smsrecomp_snap_load(snap_slot, snap_size + 1) && !smsrecomp_snap_load(NULL, snap_size));
+        uint8_t *foreign = (uint8_t *)calloc(snap_size, 1); assert(foreign);
+        assert(!smsrecomp_snap_load(foreign, snap_size)); free(foreign);
+        assert(smsrecomp_digest() == snap_digest[0]);
+        snap_phase = 1; return true;
+    }
+    if (snap_phase == 1) {
+        snap_digest[frame - SNAP_AT] = smsrecomp_digest();
+        if (frame < SNAP_AT + SNAP_RUN) return true;
+        /* Back to the saved frame, then the same frames again. */
+        assert(smsrecomp_snap_load(snap_slot, snap_size));
+        assert(g_frame == SNAP_AT && smsrecomp_digest() == snap_digest[0]);
+        snap_phase = 2; return true;
+    }
+    if (snap_phase == 2) {
+        assert(smsrecomp_digest() == snap_digest[frame - SNAP_AT]);
+        if (frame < SNAP_AT + SNAP_RUN) return true;
+        /* The same again, from a state with every odd latch set, restored after the machine was wiped. */
+        snap_scramble();
+        const uint64_t before = smsrecomp_digest(); assert(before);
+        assert(smsrecomp_snap_save(snap_slot, snap_size) == snap_size);
+        snap_trash(); assert(smsrecomp_digest() != before);
+        assert(smsrecomp_snap_load(snap_slot, snap_size));
+        assert(smsrecomp_digest() == before);
+        snap_phase = 3; return false;       /* the scrambled machine is not run on */
+    }
+    return false;
+}
+static int snapshot_probe(void) {
+    glue_init(false, SNAP_LIMIT); glue_set_frame_callback(snap_frame); glue_set_audio_sink(audio);
+    smsrecomp_set_frame_edge_callback(snap_edge); glue_run();
+    assert(snap_phase == 3 && banked_fallback_steps == 0 && g_hybrid_cyc == 0);
+    /* The proof must have met the cases it claims: frames that end inside an IN/OUT, and not only between instructions. */
+    printf("Snapshot: %zu bytes; save at frame %d, replay of %d frames identical; frame ends inside IN/OUT: %u, in HALT: %u, with /INT asserted: %u; wrong size, foreign buffer and short buffer refused; native fallback=0.\n",
+           snap_size, SNAP_AT, SNAP_RUN, edges_in_io, edges_halted, edges_irq_pending);
+    assert(edges_in_io + edges_halted > 0);    /* the main loop meets the first, the EI + HALT loop the second */
+    free(snap_slot);
+    return 0;
+}
 int main(int argc, char **argv) {
     assert(argc == 2 && glue_load_rom("authored")); mode = atoi(argv[1]);
+    if (mode == 3) return snapshot_probe();
     glue_init(false, 12); glue_set_frame_callback(frame); glue_set_audio_sink(audio);
     smsrecomp_set_state_callback(completed); glue_run();
     assert(g_frame == 12 && callbacks == 1 && banked_fallback_steps == 0 && g_hybrid_cyc == 0);
