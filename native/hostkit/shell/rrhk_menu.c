@@ -276,20 +276,28 @@ bool rrhk_quit_key(SDL_Scancode key) {
     return false;
 }
 static void quit_draw(SDL_Renderer *ren, int ox, int oy, int unit) {
-    enum { X = 58, Y = 62, W = 140, H = 62 };
-    char title[48];
+    /* In a network match (1.8.1) the question says what Yes does: the host ends the match, a guest leaves it, and either way
+     * it ends for everyone (a guest's leave is BYE_LEFT, which stops the match for all). The box is wider and taller there. */
+    const bool session = rrhk_session_active();
+    const int X = session ? 33 : 58, Y = session ? 58 : 62, W = session ? 190 : 140, H = session ? 70 : 62;
+    const char *word = rr_tr(!session ? "Quit" : rrhk_session_guest() ? "Leave the match" : "End the match");
+    char title[64];
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 150); SDL_RenderFillRect(ren, NULL);
     rr_menu_box(ren, ox, oy, unit, X - 1, Y - 1, W + 2, H + 2, RR_MENU_SHADE, 255);
     rr_menu_box(ren, ox, oy, unit, X, Y, W, H, RR_MENU_PANEL_RGB, 255);
     rr_menu_box(ren, ox, oy, unit, X - 1, Y - 1, W + 2, 2, RR_MENU_GOLD, 255);
     rr_menu_icon(ren, ox, oy, unit, X + 8, Y + 9, RR_ICON_LOGO, false);
-    snprintf(title, sizeof title, "%s ?", rr_tr("Quit"));
-    if (rr_menu_block_width(title, 2) > W - 50) snprintf(title, sizeof title, "%s", rr_tr("Quit"));
+    snprintf(title, sizeof title, "%s ?", word);
+    if (rr_menu_block_width(title, 2) > W - 50 && rr_menu_block_width(title, 1) > W - 50) snprintf(title, sizeof title, "%s", word);
     rr_menu_block(ren, ox, oy, unit, X + 42, Y + 14, rr_menu_block_width(title, 2) > W - 50 ? 1 : 2, title, RR_MENU_GOLD);
+    if (session) {
+        const char *line = rr_tr("It ends for everyone.");
+        rr_menu_block(ren, ox, oy, unit, X + (W - rr_menu_block_width(line, 1)) / 2, Y + 32, 1, line, RR_MENU_HINT);
+    }
     for (int i = 0; i < 2; ++i) {
         const bool selected = (i == 1) == quit_yes;
-        const int x = X + 16 + i * 58, y = Y + 38;
+        const int x = X + (W - 108) / 2 + i * 58, y = Y + (session ? 46 : 38);
         const char *label = rr_tr(i ? "Yes" : "No");
         const int width = rr_menu_block_width(label, 1);
         if (selected) {
