@@ -21,6 +21,9 @@ def timing_source(source, component):
     }
     for old, new in changes[component]:
         source = replace(source, old, new)
+    if component == 'fm':
+        from .megadrive_rollback import fm
+        source = fm(source)
     return source
 
 

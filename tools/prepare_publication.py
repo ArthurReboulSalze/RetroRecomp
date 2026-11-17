@@ -468,6 +468,7 @@ native/md_bus_checks.c tools/megadrive_bus_selftest.py
 native/md_boundary_checks.c tools/megadrive_boundary_selftest.py
 native/md_vdp_batch_checks.c tools/megadrive_vdp_batch_selftest.py
 native/md_shadow_checks.c tools/megadrive_shadow_selftest.py
+native/md_rollback_checks.c tools/megadrive_rollback_selftest.py retrorecomp/megadrive_rollback.py
 native/md_vdp_pixels.inc retrorecomp/megadrive_video.py
 native/md_read_checks.c tools/megadrive_read_selftest.py tests/test_megadrive_read.py
 native/md_dma_checks.c tools/megadrive_dma_selftest.py tests/test_megadrive_dma.py

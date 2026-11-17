@@ -268,6 +268,8 @@ NOT_INPUTS = (
     # tools/megadrive_moira_vectors.py (Moira, built from the adapted vAmiga, against the Mega Drive's native 68000 steps on forms no fixture
     # holds): the maker is built against vAmiga for a check and the decimal check against the generated steps, never into a game.
     'native/amiga_machine/moira_vector_maker.cpp', 'native/md_bcd_checks.c', 'native/md_audio_locked_checks.c', 'native/md_shadow_checks.c',
+    # tools/megadrive_rollback_selftest.py (the Mega Drive's multiplayer rollback snapshot, linked with a game build's objects): a check.
+    'native/md_rollback_checks.c',
     # tools/amiga_blitter_selftest.py (the Blitter's specialised routines against vAmiga's microprogram): the same, a check, never in a game.
     'native/amiga_machine/amiga_blit_checks.cpp',
     # tools/amiga_display_selftest.py (Agnus and Denise recorded instruction by instruction and frame by frame, for the fast paths to come): the same, a check, never in a game.
@@ -602,6 +604,7 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_hardware',
         'retrorecomp.megadrive_memory',
         'retrorecomp.megadrive_read',
+        'retrorecomp.megadrive_rollback',
         'retrorecomp.megadrive_runtime',
         'retrorecomp.megadrive_sram',
         'retrorecomp.megadrive_static',
