@@ -184,6 +184,9 @@ class LockstepDriver:
         if not seat_map.valid(settings.sharing):
             raise ValueError('a sharing mode that does not exist')
         self._seat_state = seat_map.start(settings.sharing, self.seats)
+        self._turn_told: int | None = None      # the seat this game was last told holds the shared controls (turns)
+        self.on_chat: Callable[[int, str], None] | None = None     # a line the player typed in the game: (phrase, text)
+        self.chat_lines = 0                     # lines this game sent (counts only)
         self._request = 0                       # the control bits (a pass of the turn, a change of mode) the next record carries
         self.history: list[tuple] = []          # the port words of every frame this game was told to run (`keep_history`)
         self.history_frames = 0                 # how many frames it was told to run
@@ -398,6 +401,31 @@ class LockstepDriver:
         else:
             event[1]()
 
+    def _tell_turn(self) -> None:
+        """Shared controls taken in turns: when the token moved (on real records only), this game is told who has them now
+        ("Your turn" for its own seat); nothing in the other modes."""
+        state = self._seat_state
+        if state.sharing != seat_map.SHARED_TURNS:
+            self._turn_told = None
+            return
+        if state.token == self._turn_told:
+            return
+        self._turn_told = state.token
+        if state.token == self.seat:
+            self._tell(pipe.notice(pipe.NOTICE_YOUR_TURN))
+        elif state.token < len(self.names):
+            self._tell(pipe.notice(pipe.NOTICE_TURN, self.names[state.token]))
+
+    def chat_show(self, phrase: int, name: str, text: str) -> None:
+        """A line of the room for this game (any thread: the pipe's writes are whole messages under its lock)."""
+        if not self._game_gone:
+            self.game.send(pipe.chat_show(phrase, name, text))
+
+    def chat_slow(self) -> None:
+        """This player's line was refused: too many lines."""
+        if not self._game_gone:
+            self.game.send(pipe.notice(pipe.NOTICE_CHAT_SLOW))
+
     def _tell(self, data: bytes) -> None:
         if not self._game_gone:
             self.game.send(data)
@@ -444,6 +472,13 @@ class LockstepDriver:
             self._end('refused', None, *self._self_leaving())
         elif kind == pipe.MSG_EXIT:
             self.exit_reason = pipe.parse_exit(payload)
+        elif kind == pipe.MSG_CHAT_OUT:
+            # The in-game chat: the line goes to the room's lobby (cleaned, limited, stamped by the host there) and comes back
+            # to every game, this one included, as CHAT_SHOW in the host's order. The match itself never waits for it.
+            phrase, text = pipe.parse_chat_out(payload)
+            self.chat_lines += 1
+            if self.on_chat is not None:
+                self.on_chat(phrase, text)
         # DONE: the frame ran; its cost is not read here (nothing in this stage measures speed)
 
     def _hello(self, hello: pipe.Hello):
@@ -714,6 +749,7 @@ class LockstepDriver:
             records = [self._records[seat][frame] for seat in range(self.seats)]
             reset = seat_map.restart(records)
             words, self._seat_state = seat_map.step(self._seat_state, records, self.settings.opposites)
+            self._tell_turn()
             if self.settings.words_filter is not None:
                 words = tuple(self.settings.words_filter(frame, words))
             if frame and self.game_frame >= frame:

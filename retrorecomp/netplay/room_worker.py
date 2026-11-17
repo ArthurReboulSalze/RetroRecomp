@@ -49,6 +49,7 @@ import queue
 import threading
 
 from . import control, invitation, scripted_inputs, seat_map
+from . import session_pipe as pipe
 from . import worker_channel as channel
 from .lan_transport import RoomError, RoomGuest, RoomHost
 from .launch import Refusal, launch_settings
@@ -166,9 +167,33 @@ class RoomWorker:
             except Exception as error:      # said, never hidden; the room goes on
                 self.emit({'event': 'room_error', 'detail': f'{type(error).__name__} while handling the room'})
 
+    def _chat_from_game(self, phrase: int, text: str) -> None:
+        """A line the player typed in the game (the driver's thread): into the room's lobby, as one typed in the window."""
+        room = self.room
+        if room is not None:
+            room.lobby_say(text, phrase)
+
+    def _chat_to_game(self, event: dict) -> None:
+        """The room's chat during a match reaches the game too: every line (this player's own included, in the host's order),
+        and "too many lines" when this player's was refused."""
+        with self.lock:
+            match = self.match
+        if match is None:
+            return
+        name = event.get('event')
+        if name == 'lobby_chat':
+            phrase = event.get('phrase') or 0
+            if not isinstance(phrase, int) or not 0 <= phrase <= pipe.PHRASE_COUNT:
+                phrase = 0                      # (the lobby never makes one: its text is then shown as it is)
+            match.driver.chat_show(phrase, str(event.get('name', '?')), '' if phrase else str(event.get('ascii', '')))
+        elif name == 'lobby_notice' and event.get('code') == 'chat_too_fast':
+            match.driver.chat_slow()
+
     def _on_event(self, event: dict) -> None:
         self.emit(event)
         name = event.get('event')
+        if name in ('lobby_chat', 'lobby_notice'):
+            self._chat_to_game(event)
         if name == 'all_launched' and self.role == 'host':
             self._start_host_match()
         elif name in ('launch_failed',) and self.role == 'host':
@@ -220,6 +245,7 @@ class RoomWorker:
                    session: SessionGame | None = None) -> _Match:
         session = session or self._open_game(game)
         driver = driver_for(session, link, settings)
+        driver.on_chat = self._chat_from_game
         match = _Match(match_id, driver, session, host)
         with self.lock:
             self.match = match

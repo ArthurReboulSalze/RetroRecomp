@@ -52,6 +52,7 @@ class SteppedGame:
         self.state, self.live, self.asked = 1, 0, False
         self.ring, self.depth = {}, 0
         self.commands, self.errors = [], []
+        self.notices, self.chat = [], []
         self.live_runs, self.silent_runs = 0, 0
         self._sink = None
         self._reader = pipe.MessageReader()
@@ -126,6 +127,15 @@ class SteppedGame:
             self.commands.append(('SILENT' if silent else 'RUN', frame, words))
         elif kind == pipe.MSG_PAUSE:
             self.commands.append(('PAUSE', payload[0]))
+        elif kind == pipe.MSG_NOTICE:
+            code, size = struct.unpack_from('<HB', payload)
+            self.notices.append((code, payload[3:3 + size].decode('ascii')))
+        elif kind == pipe.MSG_CHAT_SHOW:
+            phrase, size = payload[0], payload[1]
+            name, rest = payload[2:2 + size].decode('ascii'), payload[2 + size:]
+            if len(rest) != 1 + rest[0] or (phrase and rest[0]) or (not phrase and not rest[0]):
+                return self._fail('a CHAT_SHOW the kit would refuse')
+            self.chat.append((phrase, name, rest[1:].decode('ascii')))
         elif kind == pipe.MSG_STOP:
             self.commands.append(('STOP',))
             self._sink((pipe.MSG_EXIT, struct.pack('<H', pipe.EXIT_STOPPED)))
@@ -453,6 +463,68 @@ class RestartTests(unittest.TestCase):
         guest._holding = False
         guest._local(0, 0, pipe.SYS_RESTART)
         self.assertEqual(guest._records[1][2], (0, 0))
+
+
+class ChatTests(unittest.TestCase):
+    """The worker's side of the in-game chat (session ABI 3): a line the game sends goes to the room; the room's lines and
+    the turn notices come to the game."""
+
+    def test_a_line_from_the_game_goes_to_the_room_and_a_broken_one_ends_the_match(self):
+        with Host(self, cap=4) as host:
+            said = []
+            host.driver.on_chat = lambda phrase, text: said.append((phrase, text))
+            host.ask(0)
+            host.game._sink((pipe.MSG_CHAT_OUT, bytes([0, 5]) + b'hello'))
+            host.game._sink((pipe.MSG_CHAT_OUT, bytes([pipe.PHRASE_GG, 0])))
+            settle(host.driver)
+            self.assertEqual(said, [(0, 'hello'), (pipe.PHRASE_GG, '')])
+            self.assertEqual(host.driver.chat_lines, 2)
+        for bad in (bytes([0, 0]), bytes([7, 0]), bytes([1, 2]) + b'hi', bytes([0, 2]) + b'h\x01', bytes([0, 81]) + b'x' * 81):
+            with self.assertRaises(pipe.Broken):
+                pipe.parse_chat_out(bad)
+
+    def test_the_rooms_lines_reach_the_game_as_the_kit_reads_them(self):
+        with Host(self, cap=4) as host:
+            host.driver.chat_show(0, 'Nadïa', 'salut ca va ?')
+            host.driver.chat_show(pipe.PHRASE_READY, 'Arthur', 'ignored with a phrase')
+            host.driver.chat_slow()
+            settle(host.driver)
+            self.assertEqual(host.game.chat, [(0, 'Nadia', 'salut ca va ?'), (pipe.PHRASE_READY, 'Arthur', '')])
+            self.assertIn((pipe.NOTICE_CHAT_SLOW, ''), host.game.notices)
+            self.assertEqual(host.game.errors, [])
+        self.assertEqual(len(pipe.chat_show(0, 'x' * 40, 'y' * 200)), 4 + 2 + 16 + 1 + 80)     # bounded
+
+    def test_in_turns_each_game_is_told_who_has_the_controls_once_per_change(self):
+        with Host(self, cap=4, sharing=seat_map.SHARED_TURNS, names=('Arthur', 'Nadia')) as host:
+            host.ask(0)
+            self.assertEqual(host.game.notices, [(pipe.NOTICE_YOUR_TURN, '')])        # the host starts with the token
+            host.driver.pass_token(1)
+            settle(host.driver)
+            host.peer(1, *[(0, 0)] * 6)
+            for frame in range(1, 6):
+                host.ask(frame)
+            self.assertEqual(host.game.notices, [(pipe.NOTICE_YOUR_TURN, ''), (pipe.NOTICE_TURN, 'Nadia')])
+        with Host(self, cap=4) as host:                                                # one pad each: never a turn notice
+            for frame in range(3):
+                host.ask(frame)
+            self.assertEqual(host.game.notices, [])
+
+    def test_the_room_worker_forwards_the_rooms_chat_to_the_game_during_a_match_only(self):
+        from retrorecomp.netplay import room_worker
+        shown, slow = [], []
+        driver = type('Driver', (), {'chat_show': lambda self, *a: shown.append(a), 'chat_slow': lambda self: slow.append(1)})()
+        worker = room_worker.RoomWorker.__new__(room_worker.RoomWorker)
+        worker.lock, worker.match = threading.RLock(), None
+        worker._chat_to_game({'event': 'lobby_chat', 'name': 'Nadia', 'ascii': 'hi', 'phrase': 0})
+        self.assertEqual(shown, [])                                                    # no match: the window shows it
+        worker.match = type('Match', (), {'driver': driver})()
+        worker._chat_to_game({'event': 'lobby_chat', 'name': 'Nadïa', 'text': 'héhé', 'ascii': 'hehe', 'phrase': 0})
+        worker._chat_to_game({'event': 'lobby_chat', 'name': 'Arthur', 'text': 'GG', 'ascii': 'GG', 'phrase': 1})
+        worker._chat_to_game({'event': 'lobby_chat', 'name': 'X', 'ascii': 'x', 'phrase': 99})
+        worker._chat_to_game({'event': 'lobby_notice', 'code': 'chat_too_fast', 'detail': ''})
+        worker._chat_to_game({'event': 'lobby_notice', 'code': 'busy', 'detail': ''})
+        self.assertEqual(shown, [(0, 'Nadïa', 'hehe'), (1, 'Arthur', ''), (0, 'X', 'x')])
+        self.assertEqual(slow, [1])
 
 
 class LaunchTierTests(unittest.TestCase):

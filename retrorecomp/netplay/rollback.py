@@ -215,6 +215,7 @@ class RollbackDriver(LockstepDriver):
             (words, reset), state = mapped[self._verified - base]
             self._remember(self._verified, words, reset)
             self._verified_state = self._seat_state = state
+            self._tell_turn()
             del self._ran[self._verified]
             self._verified += 1
 
