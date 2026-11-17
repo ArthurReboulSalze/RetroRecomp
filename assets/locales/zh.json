@@ -916,6 +916,8 @@
     "mp_ready_note": "准备好后点击这里。",
     "mp_ready_cancel_note": "再次点击可取消准备。",
     "mp_ready_blocked": "你的游戏需要先与主机的一致：请看“游戏”一栏。",
+    "mp_refused_system": "请使用与主机相同的系统（游戏中按F11）。",
+    "mp_refused_setting": "你的游戏无法使用主机的设置“{setting}”。",
     "mp_send": "发送",
     "mp_launch": "开始",
     "mp_leave": "离开会话",

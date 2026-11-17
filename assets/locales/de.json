@@ -916,6 +916,8 @@
     "mp_ready_note": "Klicke, wenn du spielbereit bist.",
     "mp_ready_cancel_note": "Klicke erneut, wenn du nicht mehr bereit bist.",
     "mp_ready_blocked": "Dein Spiel muss zuerst dem des Hosts entsprechen: siehe Spalte „Spiel“.",
+    "mp_refused_system": "Stelle dasselbe System wie der Host ein (F11 im Spiel).",
+    "mp_refused_setting": "Dein Spiel kann die Einstellung „{setting}“ des Hosts nicht übernehmen.",
     "mp_send": "Senden",
     "mp_launch": "Starten",
     "mp_leave": "Raum verlassen",

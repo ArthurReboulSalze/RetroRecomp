@@ -15,6 +15,7 @@ host's interfaces, `LocalLibrary.hostable` for the games a host can pick. Every 
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -37,6 +38,9 @@ CHECKS = ('none', 'asking', 'same', 'other', 'missing', 'failed')
 BACKS = ('ended', 'game_closed', 'pipe_lost', 'left', 'seat_left', 'seat_silent', 'host_closed', 'desync', 'boot_mismatch',
          'error', 'launch_failed')
 NOTICES = ('chat_too_fast', 'bad_text', 'busy', 'bad_pick')
+# A game that refused one of the host's options (RRHK_REFUSED_OPTION, its text the option key), as the match driver says it
+# (lockstep.py: « the game refused (1): <key> »), in a match_over or a launch event's detail.
+REFUSED_OPTION = re.compile(r'the game refused \(1\): (\S+)')
 REASONS = {'converter version': 'mp_reason_converter', 'engine': 'mp_reason_engine', 'options': 'mp_reason_options',
            'learned paths': 'mp_reason_paths', 'firmware': 'mp_reason_firmware', 'identity rules': 'mp_reason_rules',
            'no simulation identity': 'mp_reason_old'}
@@ -56,6 +60,12 @@ def open_firewall_settings():
     """Windows' own firewall page; the converter changes nothing there (the lead's rule). Nothing elsewhere."""
     if sys.platform == 'win32':
         subprocess.Popen(['control.exe', 'firewall.cpl'], creationflags=subprocess.CREATE_NO_WINDOW)
+
+
+def refused_setting(detail):
+    """The host's option key a game refused, or None."""
+    found = REFUSED_OPTION.search(detail or '')
+    return found.group(1) if found else None
 
 
 class MultiplayerWindow:
@@ -82,6 +92,7 @@ class MultiplayerWindow:
         self.seats_max = 0
         self.notices_seen = 0
         self.errors_seen = 0
+        self.refusals_seen = set()      # the matches whose refused option is already in the chat
         self.current = 'entry'
         self.closing = False
         self.first_pick = pick              # an inventory entry chosen before the window opened (Compiled Games, right-click)
@@ -384,6 +395,7 @@ class MultiplayerWindow:
     def start_room(self, config):
         self.controller = self.controller_class(self.library)
         self.version, self.chat_seen, self.notices_seen, self.errors_seen = -1, 0, 0, 0
+        self.refusals_seen = set()
         self.chat_text.configure(state='normal')
         self.chat_text.delete('1.0', 'end')
         self.chat_text.configure(state='disabled')
@@ -523,7 +535,7 @@ class MultiplayerWindow:
         # the chat
         chat = tk.Frame(page, bg=COLORS['background'])
         chat.pack(fill='both', expand=True, pady=(8, 0))
-        self.chat_text = tk.Text(chat, height=7, wrap='word', bg=COLORS['field'], fg=COLORS['text'], relief='flat',
+        self.chat_text = tk.Text(chat, height=4, wrap='word', bg=COLORS['field'], fg=COLORS['text'], relief='flat',
                                  padx=8, pady=6, font=(self.font, 10), state='disabled', highlightthickness=1,
                                  highlightbackground=COLORS['subtle_border'])
         self.chat_text.tag_configure('name', foreground=COLORS['gold_hover'], font=(self.font, 10, 'bold'))
@@ -632,6 +644,7 @@ class MultiplayerWindow:
             address, back = model.address, model.last_back
             invite = model.invitation or self.invitation_text
             errors = list(model.errors)
+            matches = [dict(match) for match in model.matches]
         host = self.role == 'host'
         self.seats_max = seats_max
         # the room line and the invitation
@@ -697,9 +710,18 @@ class MultiplayerWindow:
         # the room's refusals (a launch that failed, a call refused): one line each in the chat
         self.chat_text.configure(state='normal')
         for error in errors[self.errors_seen:]:
-            code = error.get('code')
-            self.chat_text.insert('end', self.tr('mp_errnote_' + code if code in ERRORS else 'mp_launch_refused') + '\n', 'note')
+            code, key = error.get('code'), refused_setting(error.get('detail'))
+            self.chat_text.insert('end', (self.refusal_text(key) if key else self.tr(
+                'mp_errnote_' + code if code in ERRORS else 'mp_launch_refused')) + '\n', 'note')
         self.errors_seen = len(errors)
+        # a match a game ended because it refused one of the host's settings: what to change, once per match
+        for match in matches:
+            key = refused_setting(match.get('detail')) if match.get('outcome') == 'refused' else None
+            if key and match.get('match_id') not in self.refusals_seen:
+                self.refusals_seen.add(match.get('match_id'))
+                self.chat_text.insert('end', self.refusal_text(key) + '\n', 'note')
+        last = matches[-1] if matches else {}
+        refusal = refused_setting(last.get('detail')) if last.get('outcome') == 'refused' else None
         self.chat_text.configure(state='disabled')
         # the chat: the lines not shown yet, and the notices
         self.chat_text.configure(state='normal')
@@ -718,6 +740,9 @@ class MultiplayerWindow:
         # the match: in progress, or how the last one ended
         if phase in ('launching', 'playing'):
             self.banner.configure(text=self.tr('mp_match_running'), bg=COLORS['selected'])
+            self.banner.pack(fill='x', pady=(8, 0), before=self.launch_button.master)
+        elif refusal:
+            self.banner.configure(text=self.refusal_text(refusal), bg=COLORS['panel'])
             self.banner.pack(fill='x', pady=(8, 0), before=self.launch_button.master)
         elif back:
             reason = back.get('reason')
@@ -739,6 +764,10 @@ class MultiplayerWindow:
         else:
             self.launch_button.pack_forget()
             self.launch_hint.configure(text=self.tr('mp_wait_host') if phase == 'lobby' else '')
+
+    def refusal_text(self, key):
+        """What to change when a game refused the host's option `key`: the Neo Geo's AES / MVS system has its own line."""
+        return self.tr('mp_refused_system') if key == 'system' else self.tr('mp_refused_setting', setting=key)
 
     def draw_link(self):
         """« Link: … » from the controller: the tier and cap of the launch, the delay the match applies (None until the

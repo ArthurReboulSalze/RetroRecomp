@@ -916,6 +916,8 @@
     "mp_ready_note": "Clicca quando sei pronto a giocare.",
     "mp_ready_cancel_note": "Clicca di nuovo se non sei più pronto.",
     "mp_ready_blocked": "Prima il tuo gioco deve essere uguale a quello dell'host: vedi la colonna Gioco.",
+    "mp_refused_system": "Usa lo stesso sistema dell'host (F11 nel gioco).",
+    "mp_refused_setting": "Il tuo gioco non può usare l'impostazione «{setting}» dell'host.",
     "mp_send": "Invia",
     "mp_launch": "Avvia",
     "mp_leave": "Esci dalla stanza",

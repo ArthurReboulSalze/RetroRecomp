@@ -916,6 +916,8 @@
     "mp_ready_note": "Haz clic cuando estés listo para jugar.",
     "mp_ready_cancel_note": "Vuelve a hacer clic si ya no estás listo.",
     "mp_ready_blocked": "Primero tu juego debe ser igual al del anfitrión: mira la columna Juego.",
+    "mp_refused_system": "Usa el mismo sistema que el anfitrión (F11 en el juego).",
+    "mp_refused_setting": "Tu juego no puede usar el ajuste «{setting}» del anfitrión.",
     "mp_send": "Enviar",
     "mp_launch": "Lanzar",
     "mp_leave": "Salir de la sala",
