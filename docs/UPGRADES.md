@@ -188,8 +188,9 @@ RAM and every enhancement chip), each field named, none a pointer. The snapshot 
 and kept live on load) in a buffer the kit owns, about 335 to 345 KiB, the bound measured once; the retained picture of the field
 (presentation) is left out of a rollback snapshot, so a quick state file keeps one more byte (the flag that says it is there).
 `side_effects(false)` stops the cartridge save write, for a silent frame and, for a guest, for the whole session (the periodic write
-and the one at exit). **Boards proven for rollback: the ones without an enhancement chip.** A board with a chip (Super FX, SA-1, S-DD1,
-DSP-1, CX4) answers no snapshot and plays on the **delay tier** until its own proof is given. **Stamps:** the Super Nintendo game stamp
+and the one at exit). **Boards proven for rollback: the ones without an enhancement chip, and one real game of each chip** (Super FX: Star Fox; SA-1: Kirby
+Super Star; CX4: Mega Man X3; S-DD1: Street Fighter Alpha 2; DSP-1: Super Mario Kart), the chips' state being the engine's own
+(`cart_saveload`); the other games of those chips run the same code and are not a proof of their own. **Stamps:** the Super Nintendo game stamp
 moves (the profile) and its host stamp moves (`snes_backend.c`, `rrhk_snes.c`, the new `snes_machine_checks.c`): its exports are rebuilt and
 converted again once; no other machine's stamp moves. **Quick states:** the Super Nintendo key hashes `snes_backend.c` and so moves; an
 older quick state is refused cleanly (accepted by the multiplayer specialist, 17 November 2026). **Proof so far** (17 November 2026, one
@@ -199,7 +200,7 @@ three save points equals the first run in digest, picture and sound, a wrong siz
 checks over Super Mario World, Secret of Mana and Chrono Trigger (digests equal at every frame of every replay; the picture differs in at
 most 3 of the first replayed, silent frames and the sound block differs because the live output ring is kept, both presentation);
 `netplay_game_smoke.py --frames 3000 --rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500` on the same three
-games: PASS, tier rollback on both seats (Super Mario World: 499 and 279 corrections, deepest 4), the save and the load at the same
+games, and on the five chip games above: PASS, tier rollback on both seats (Super Mario World: 499 and 279 corrections, deepest 4), the save and the load at the same
 frames, digests equal; with `--save-digests`, equal up to frame 1499 and different from frame 1559 when the load acts. The
 digest is not yet compared between Windows and Linux. Physical latency and the cost of a save or a load are not measured.
 

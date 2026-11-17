@@ -562,10 +562,6 @@ bool rr16_state_restore(const uint8_t *data, size_t size) {
 size_t rr16_snes_snap_bound(void) {
     static size_t bound;
     if (!g_snes) return 0;
-    /* Proven so far: the boards without an enhancement chip (LoROM, HiROM, ExHiROM, with or without battery RAM). A board with a
-     * chip plays on the delay tier (no snapshot) until its own proof is given. */
-    const Cart *board = g_snes->cart;
-    if (board->superfx || board->sa1 || board->sdd1 || board->dsp1 || board->cx4) return 0;
     if (!bound) {
         const size_t capacity = RtlRollbackSnapshotBound();
         uint8_t *scratch = malloc(capacity);

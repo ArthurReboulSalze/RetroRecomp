@@ -65,8 +65,9 @@ static int players(void) { return 2; }
 static int display_width(void) { return 256; }
 /* Multiplayer (hostkit_session.h): the digest and the snapshot of snes_backend.c, over the engine's own serializers (the audio
  * output ring left out). Boards proven for rollback (17 November 2026): the ones without an enhancement chip, on LoROM and HiROM
- * with battery RAM (Super Mario World, Secret of Mana, Chrono Trigger); a board with a chip answers no snapshot and plays on the
- * delay tier. */
+ * with battery RAM (Super Mario World, Secret of Mana, Chrono Trigger), and one real game of each chip: Super FX (Star Fox), SA-1
+ * (Kirby Super Star), CX4 (Mega Man X3), S-DD1 (Street Fighter Alpha 2) and DSP-1 (Super Mario Kart). Other boards of those chips
+ * are the same code, not a proof of their own. */
 uint64_t rr16_snes_digest(void);
 size_t rr16_snes_snap_bound(void);
 size_t rr16_snes_snap_save(void *buffer, size_t capacity);
