@@ -4,7 +4,10 @@
  * Opening: the key labelled Y (Ctrl+Alt+Y on a computer), R3 + Select on player 1's gamepad, or the Chat tile of F2, when no
  * menu is open (another player's pause included). A key or a button this player bound to a control stays the game's. While the
  * entry is open this PC sends the neutral word and asks no pause: the others play on. The keyboard types through SDL's text
- * input (any layout), cut to the ASCII a game draws; the gamepad has six phrases, then an on-screen keyboard. Lines received
+ * input (any layout), cut to the ASCII a game draws; the gamepad has six phrases, then an on-screen keyboard. When the entry
+ * closes, the word stays neutral until every key and button is released: Enter (a console's Start on the keyboard), Esc, A,
+ * B or Start still held from closing it never reach the game (Contra paused on the Enter that sent a line, two-PC test of
+ * 17 Nov 2026). Lines received
  * (this player's own included, as the host stamped them) are plates at the top left; the turn plate (shared controls taken in
  * turns) is on the top line. While a menu covers the screen the plates wait, and their time does not run.
  *
@@ -35,6 +38,7 @@ static struct {
     bool open, grid;                /* the entry is open; the on-screen keyboard is shown */
     bool swallow_text;              /* the text event of the key that opened the entry is not typed */
     bool started_text;              /* this entry turned SDL's text input on (and turns it off) */
+    bool release;                   /* closed, but a key or button held then may still be down: the word stays neutral */
     char draft[RRHK_CHAT_MAX_TEXT + 1];
     int len, caret, scroll;
     char last_sent[RRHK_CHAT_MAX_TEXT + 1];   /* given back to the draft if the line was refused (too many) */
@@ -48,10 +52,34 @@ static struct {
 } chat;
 
 bool rrhk_chat_open(void) { return chat.open; }
+
+/* Any key of the keyboard, or any button or trigger of player 1's pad, is down. */
+static bool chat_anything_held(void) {
+    int count = 0;
+    const Uint8 *keys = SDL_GetKeyboardState(&count);
+    for (int k = 0; k < count; ++k) if (keys[k]) return true;
+    SDL_GameController *pad = rrhk.pads[0];
+    if (pad) {
+        for (int b = 0; b < SDL_CONTROLLER_BUTTON_MAX; ++b) if (SDL_GameControllerGetButton(pad, (SDL_GameControllerButton)b)) return true;
+        /* a trigger counts as released under half of the press threshold, as game_options.h reads it (rr_trigger_step) */
+        if (SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >= 8000 ||
+            SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) >= 8000) return true;
+    }
+    return false;
+}
+/* This PC's word must be neutral: the entry is open, or it closed and what was held then is not all released yet. */
+bool rrhk_chat_holds_word(void) {
+    if (chat.open) return true;
+    if (!chat.release) return false;
+    if (chat_anything_held()) return true;
+    chat.release = false;
+    return false;
+}
 static bool chat_ready(void) { return rrhk_session_on && s.setup && !s.ending_until; }
 bool rrhk_chat_offered(void) { return chat_ready(); }
 
 static void chat_close(void) {
+    if (chat.open) chat.release = true;
     chat.open = false; chat.swallow_text = false;
     if (chat.started_text) { SDL_StopTextInput(); chat.started_text = false; }
 }

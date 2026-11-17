@@ -383,7 +383,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     if (!s.local_sent || system != s.system_sent) {
         /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
          * sends the neutral word. */
-        if (!s.local_sent) s.word_sent = rrhk.menu || rrhk.capturing || rrhk_chat_open() ? 0 : rrhk_local_pad_word(0, input_frame);
+        if (!s.local_sent) s.word_sent = rrhk.menu || rrhk.capturing || rrhk_chat_holds_word() ? 0 : rrhk_local_pad_word(0, input_frame);
         uint8_t local[8];
         put32(local, s.live);
         put16(local + 4, s.word_sent);

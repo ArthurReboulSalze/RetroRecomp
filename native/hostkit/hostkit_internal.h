@@ -282,6 +282,7 @@ uint16_t rrhk_local_pad_word(int player, uint64_t frame);
 /* chat.inc (in session.inc): the in-game chat of a session. rrhk_chat_event comes before every other handler; rrhk_chat_draw
  * after the menus and notices; the notices' line moves above the chat while it is open. */
 bool rrhk_chat_open(void);
+bool rrhk_chat_holds_word(void);               /* open, or closed with a key or button still held from then: neutral word */
 bool rrhk_chat_offered(void);                  /* a session is running: the F2 Chat tile and the keys are there */
 void rrhk_chat_begin(bool grid);               /* open the entry (grid: with the on-screen keyboard) */
 bool rrhk_chat_event(const SDL_Event *event);
