@@ -10,8 +10,9 @@ from dataclasses import dataclass
 import struct
 import unicodedata
 
-ABI = 4                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
-                             # 4: the host's quick save and load for everyone (SYS_STATE_*, RUN_STATE_*)
+ABI = 5                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
+                             # 4: the host's quick save and load for everyone (SYS_STATE_*, RUN_STATE_*); 5: a driven machine with
+                             # snapshots takes silent RUNs (rollback for every machine)
 MAX_PAYLOAD = 4096
 MAX_RING = 64
 ENV = 'RETRORECOMP_NETPLAY_PIPE'

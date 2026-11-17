@@ -254,12 +254,14 @@ class TierTests(unittest.TestCase):
             self.assertEqual(host.game.commands[-1], ('RUN', 1, (own(1), 0x21)))
             self.assertEqual((host.game.silent_runs, host.driver.stats['predicted_frames'], host.game.errors), (0, 0, []))
 
-    def test_a_driven_guest_or_a_game_without_a_bound_does_not_roll_back(self):
+    def test_a_game_without_snapshots_or_a_bound_does_not_roll_back_and_a_driven_one_with_them_does(self):
         hello = lambda caps, bound: pipe.Hello(pipe.ABI, 2, caps, bound, 60000, 'x')    # noqa: E731
         self.assertTrue(rollback.can_roll_back(hello(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT, 1000)))
         self.assertFalse(rollback.can_roll_back(hello(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT, 0)))
         self.assertFalse(rollback.can_roll_back(hello(pipe.CAP_DIGEST, 1000)))
-        self.assertFalse(rollback.can_roll_back(hello(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT | pipe.CAP_DRIVEN, 1000)))
+        # a driven machine with snapshots rolls back too (session ABI 5: its guest runs the silent frames)
+        self.assertTrue(rollback.can_roll_back(hello(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT | pipe.CAP_DRIVEN, 1000)))
+        self.assertFalse(rollback.can_roll_back(hello(pipe.CAP_DIGEST | pipe.CAP_DRIVEN, 1000)))
 
     def test_rollback_not_asked_is_the_delay_driver_itself(self):
         settings = Settings(seat=0, seats=2)
@@ -487,7 +489,7 @@ class MatchStateTests(unittest.TestCase):
     def test_the_pipe_and_the_mapper_speak_it_as_the_header_says(self):
         header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
         for name in ('RRHK_RUN_STATE_SAVE = 4', 'RRHK_RUN_STATE_LOAD = 8', 'RRHK_SYS_STATE_SAVE = 4', 'RRHK_SYS_STATE_LOAD = 8',
-                     'RRHK_SESSION_ABI 4'):
+                     'RRHK_SESSION_ABI 5'):
             self.assertIn(name, header)
         self.assertEqual(pipe.run(5, (1, 2), silent=True, action=pipe.RUN_STATE_LOAD)[8], pipe.RUN_SILENT | pipe.RUN_STATE_LOAD)
         with self.assertRaises(ValueError):
@@ -728,7 +730,9 @@ class LaunchTierTests(unittest.TestCase):
         self.assertEqual(rollback.choose_tier('auto', [PLAIN, SNAP]), 0)
         self.assertEqual(rollback.choose_tier('auto', [SNAP, None]), 0)                     # a game that never said HELLO
         self.assertEqual(rollback.choose_tier('auto', []), 0)
-        self.assertEqual(rollback.choose_tier('auto', [hello_of(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT | pipe.CAP_DRIVEN)]), 0)
+        # a driven machine with snapshots rolls back since session ABI 5
+        self.assertEqual(rollback.choose_tier('auto', [hello_of(pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT | pipe.CAP_DRIVEN)]),
+                         rollback.DEFAULT_PREDICTION)
 
     def test_the_host_can_override_the_decision_and_a_forced_rollback_is_refused_with_a_reason_when_a_game_cannot(self):
         self.assertEqual(rollback.choose_tier('delay', [SNAP, SNAP]), 0)

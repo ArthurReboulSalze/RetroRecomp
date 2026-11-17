@@ -491,13 +491,15 @@ static bool begin_frame(RrhkRun *r) {
      * running, and receive the pad, behind the menu; the request stays pending until the menu is closed and a boundary comes. */
     bool idle = (rrhk.menu != 0 || rrhk.paused) && (!r->pending_state || r->driven);
     /* Multiplayer: the worker says when the live frame runs (a menu or the Pause key asks everyone to pause instead of
-     * stopping this PC alone); silent frames run inside rrhk_session_frame. */
+     * stopping this PC alone); silent frames run inside rrhk_session_frame, a driven machine's in its guest (2: the guest runs
+     * one silent frame, then calls rrhk_frame_done, which ends it without a picture). */
     int session = 0;
     if (rrhk_session_on) {
         session = rrhk_session_frame(r, m->input_frame ? m->input_frame() : r->frame);
         if (session < 0) { r->running = false; return false; }
         idle = session == 0;
     }
+    const bool silent = session == 2;
     m->pause(idle || speed != 100);
     /* Explicit performance reports only; include CPU, audio preparation,
      * drawing and Present, but exclude intentional pacing/menu waits. */
@@ -508,16 +510,18 @@ static bool begin_frame(RrhkRun *r) {
     r->ran = !idle;
     if (r->ran) {
         if (r->timing_enabled) r->ticks[1] = now_ticks();
-        if (m->before_frame) {
+        if (m->before_frame && !silent) {
             RrhkAudioProbe probe = {r->audio_playing, rrhk_audio_queued(r),
                                     (unsigned)r->have.freq, r->have.samples};
             m->before_frame(&probe, input_frame);
         }
         const Uint64 session_started = session ? now_ticks() : 0;
         if (!m->run_frame(pad1, m->pointer && !m->pointer_keeps_player2 ? 0 : rrhk_pad_word(1, input_frame))) { r->running = false; return false; }
-        if (session) rrhk_session_frame_done(r, now_ticks() - session_started);
-        ++r->frame;
-        r->ran_frame = true;
+        if (session == 1) rrhk_session_frame_done(r, now_ticks() - session_started);
+        if (!silent) {
+            ++r->frame;
+            r->ran_frame = true;
+        }
     }
     return true;
 }
@@ -751,7 +755,8 @@ bool rrhk_open(const RrhkMachine *m, const char *title, int scale) { return open
 bool rrhk_frame_done(void) {
     RrhkRun *r = &run;
     if (!r->win) return false;
-    end_frame(r);
+    /* A silent frame of a session (its guest ran it again after a correction) is neither shown nor paced. */
+    if (!(rrhk_session_on && rrhk_session_silent_done(r))) end_frame(r);
     while (r->running) {
         if (!begin_frame(r)) return false;
         if (r->ran) return true;
