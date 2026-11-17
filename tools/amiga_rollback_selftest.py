@@ -254,10 +254,10 @@ def main() -> int:
     parser.add_argument('--warm', type=int, default=100)
     parser.add_argument('--frames', type=int, default=200)
     args = parser.parse_args()
-    from retrorecomp import amiga_vamiga
+    from retrorecomp import amiga_vamiga, amiga_vamiga_session
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
-    core = amiga_vamiga.adapt(args.vamiga or amiga_vamiga.source(), work / 'vamiga')
+    core = amiga_vamiga_session.adapt(args.vamiga or amiga_vamiga.source(), work / 'vamiga')
     checks = build(work, core)
     (work / 'rollback.slave').write_bytes(slave(program()))
     (work / 'score').write_bytes(bytes(range(64)))

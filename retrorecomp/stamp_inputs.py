@@ -721,6 +721,7 @@ INPUTS = _resolve({
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_vamiga_display',
+        'retrorecomp.amiga_vamiga_session',
         'retrorecomp.amiga_whdload',
         'retrorecomp.m68020_lengths',
     ),

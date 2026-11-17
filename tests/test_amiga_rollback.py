@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from retrorecomp import amiga_whdload as W
-from retrorecomp import amiga_vamiga
+from retrorecomp import amiga_knowledge, amiga_vamiga, amiga_vamiga_session
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -43,9 +43,16 @@ class AdapterTests(unittest.TestCase):
         # The CPU's speed changes the run: its row is the kit's run-changing row, refused in a session.
         self.assertIn('rrhk_option_row_run(rows, A_ROW_CPU', text)
 
-    def test_vamiga_gains_a_checksum_free_save_and_load(self):
-        changed = {rel for rel, _, new in amiga_vamiga.REPLACEMENTS if 'rrSave(u8 *' in new or 'rrSaveAudioTo(' in new}
-        self.assertEqual(changed, {'Infrastructure/CoreComponent.h', 'Infrastructure/CoreComponent.cpp', 'Ports/AudioPort.h'})
+    # The line between the session's changes and a generator source: `amiga_vamiga_session` is not pinned (nothing it adds runs unless a
+    # snapshot is saved or loaded, so a path cannot notice it), and it only adds to the files of SESSION_FILES.
+    def test_the_session_changes_stay_outside_the_generator_pins(self):
+        self.assertNotIn('retrorecomp/amiga_vamiga_session.py', amiga_knowledge.GENERATOR_SOURCES)
+        self.assertEqual({rel for rel, _, _ in amiga_vamiga_session.REPLACEMENTS}, set(amiga_vamiga_session.SESSION_FILES))
+        joined = ''.join(new for _, _, new in amiga_vamiga_session.REPLACEMENTS)
+        for name in ('CoreComponent::rrSave(', 'CoreComponent::rrLoad(', 'rrSaveAudioTo(', 'rrKeysDown(', 'rrSetKeysDown('):
+            self.assertIn(name, joined)
+        # amiga_vamiga holds none of it (its text is pinned with the generator's).
+        self.assertFalse(any('rrSave(u8' in new or 'rrKeysDown' in new for _, _, new in amiga_vamiga.REPLACEMENTS))
 
 
 if __name__ == '__main__':

@@ -32,64 +32,6 @@ REPLACEMENTS = [
      '    // Retro-Recomp modification (MPL-2.0, like this file): a host that drives the main instance frame by frame\n'
      '    // itself, without the emulator thread, reaches it here.\n'
      '    class Amiga &rrMain() { return main; }\n'),
-    # A multiplayer session's in-process snapshot (rollback, one per frame): the walk and the bytes of save() and load(), without the
-    # per-component checksums (a hash of every RAM byte, at each save and each load: the buffer never leaves the process), into a
-    # buffer the session holds (`capacity` bytes, 0: it does not fit). rrLoad checks every component's size against the machine's
-    # before it reads a byte, so a buffer that does not fit is refused with the machine untouched.
-    ('Infrastructure/CoreComponent.h',
-     '    // Saves the internal state to a memory buffer\n    isize save(u8 *buf);\n    virtual void _didSave() { }\n',
-     '    // Saves the internal state to a memory buffer\n    isize save(u8 *buf);\n    virtual void _didSave() { }\n\n'
-     '    // Retro-Recomp modification (MPL-2.0, like this file): the in-process snapshot, without checksums (CoreComponent.cpp).\n'
-     '    isize rrSave(u8 *buf, isize capacity);\n'
-     '    isize rrLoad(const u8 *buf, isize size);\n'
-     '    void rrPostorder(const std::function<void(CoreComponent *)> &func);\n'),
-    # postorderWalk takes its function by value at every level (a copy, and an allocation when the function does not fit
-    # std::function's own room): the snapshot walks by reference, with functions that hold one pointer.
-    ('Infrastructure/CoreComponent.cpp',
-     '    postorderWalk([](CoreComponent *c) { c->_didSave(); });\n\n    return result;\n}\n',
-     '    postorderWalk([](CoreComponent *c) { c->_didSave(); });\n\n    return result;\n}\n\n'
-     '// Retro-Recomp modification (MPL-2.0, like this file): save() and load() for a buffer that never leaves the process (a\n'
-     '// multiplayer session\'s rollback): the same bytes, the checksum fields left at zero and not verified; no allocation.\n'
-     'void\nCoreComponent::rrPostorder(const std::function<void(CoreComponent *)> &func)\n{\n'
-     '    for (auto &c : subComponents) c->rrPostorder(func);\n'
-     '    func(this);\n}\n\n'
-     'namespace { struct RrWalk { u8 *out; const u8 *in; isize limit, at; bool fits; }; }\n\n'
-     'isize\nCoreComponent::rrSave(u8 *buffer, isize capacity)\n{\n'
-     '    RrWalk w { buffer, nullptr, capacity, 0, true };\n'
-     '    RrWalk *p = &w;\n'
-     '    rrPostorder([p](CoreComponent *c) {\n'
-     '        if (!p->fits) return;\n'
-     '        const isize expected = c->size(false);\n'
-     '        if (p->at + expected > p->limit) { p->fits = false; return; }\n'
-     '        u8 *ptr = p->out + p->at;\n'
-     '        write64(ptr, u64(expected));\n'
-     '        write64(ptr, 0);\n'
-     '        SerWriter writer(ptr); *c << writer;\n'
-     '        if (isize(writer.ptr - (p->out + p->at)) != expected) { p->fits = false; return; }\n'
-     '        p->at += expected;\n'
-     '    });\n'
-     '    if (!w.fits) return 0;\n'
-     '    rrPostorder([](CoreComponent *c) { c->_didSave(); });\n'
-     '    return w.at;\n}\n\n'
-     'isize\nCoreComponent::rrLoad(const u8 *buffer, isize size)\n{\n'
-     '    RrWalk w { nullptr, buffer, size, 0, true };\n'
-     '    RrWalk *p = &w;\n'
-     '    rrPostorder([p](CoreComponent *c) {\n'
-     '        if (!p->fits) return;\n'
-     '        const isize expected = c->size(false);\n'
-     '        const u8 *ptr = p->in + p->at;\n'
-     '        if (p->at + 16 > p->limit || isize(read64(ptr)) != expected || p->at + expected > p->limit) { p->fits = false; return; }\n'
-     '        p->at += expected;\n'
-     '    });\n'
-     '    if (!w.fits || w.at != size) return 0;\n'
-     '    w.at = 0;\n'
-     '    rrPostorder([p](CoreComponent *c) {\n'
-     '        const u8 *ptr = p->in + p->at + 16;\n'
-     '        SerReader reader(ptr); *c << reader;\n'
-     '        p->at = isize(reader.ptr - p->in);\n'
-     '    });\n'
-     '    rrPostorder([](CoreComponent *c) { c->_didLoad(); });\n'
-     '    return w.at;\n}\n'),
     # Upstream bug (vAmiga f51a6bf, Texture.cpp): the cycle offset is added to the row pointer AND used as the column
     # index, so clearing the last cycle of a short PAL line (row 312, cycle 226) writes 3.6 KB past the texture. Unnoticed
     # with glibc/macOS allocators, a crash with MinGW's. Fix: the row pointer only.
@@ -153,28 +95,13 @@ REPLACEMENTS = [
      '    const RunLoopFlags *rrRunFlags() const { return &flags; }   // Retro-Recomp modification (MPL-2.0, like this file)\n'),
     # The sound path keeps state a snapshot leaves out (the four samplers' pending samples, the three filters' memory, the
     # sub-sample fraction, the master volume ramps): two public methods save and restore exactly that, so a quick state
-    # continues the sound sample for sample. The session appends the bytes to its own state file. A multiplayer session's in-process
-    # snapshot (rollback) writes the same bytes into a buffer it holds already (rrSaveAudioTo, never more than rrAudioBound): no allocation.
+    # continues the sound sample for sample. The session appends the bytes to its own state file.
     ('Ports/AudioPort.h',
      '    // Resets the output buffer and the two audio filters\n    void clear();\n',
      r"""    // Retro-Recomp modification (MPL-2.0, like this file): the state of the sound path that a snapshot does not hold.
-    size_t rrAudioBound() const
-    {
-        size_t n = 16 + 6 * 8 + 2 * 5 * 8 + 6 * 8 + sizeof filter.ledFilter.tmpL + sizeof filter.ledFilter.tmpR + 1;
-        for (const auto &s : sampler) n += 8 + (size_t)s.cap() * (sizeof(i16) + 8);
-        return n;
-    }
     void rrSaveAudio(std::vector<u8> &o) const
     {
-        o.resize(rrAudioBound());
-        o.resize(rrSaveAudioTo(o.data(), o.size()));
-    }
-    // The bytes written into `o` (`capacity` bytes), 0 when they do not fit.
-    size_t rrSaveAudioTo(u8 *o, size_t capacity) const
-    {
-        size_t at = 0;
-        bool fits = true;
-        auto put = [&](const void *p, size_t n) { if (at + n > capacity) { fits = false; return; } memcpy(o + at, p, n); at += n; };
+        auto put = [&](const void *p, size_t n) { o.insert(o.end(), (const u8 *)p, (const u8 *)p + n); };
         for (const auto &s : sampler) {
             i64 n = (i64)s.count(); put(&n, 8);
             for (isize i = 0, k = s.r; i < (isize)n; i++, k = s.next(k)) { put(&s.elements[k], sizeof(i16)); put(&s.keys[k], 8); }
@@ -187,7 +114,6 @@ REPLACEMENTS = [
         double c[6] = { t.cutoff, t.qFactor, t.a1, t.a2, t.b1, t.b2 }; put(c, sizeof c);
         put(t.tmpL, sizeof t.tmpL); put(t.tmpR, sizeof t.tmpR);
         u8 m = wasMuted ? 1 : 0; put(&m, 1);
-        return fits ? at : 0;
     }
     bool rrLoadAudio(const u8 *p, size_t size)
     {
@@ -227,11 +153,7 @@ REPLACEMENTS = [
      'class Keyboard final : public SubComponent {\n\n'
      'public:\n\n'
      '    // Retro-Recomp modification (MPL-2.0, like this file): the keyboard has long been up and is waiting for a key.\n'
-     '    void rrHandshakeOver();\n'
-     '    // The keys it holds down, which a snapshot does not keep (a load would leave those of the timeline left, and a press of a\n'
-     '    // key it takes for held would be lost): read and set around the in-process snapshot and a quick state.\n'
-     '    void rrKeysDown(u8 out[128]) const { for (int k = 0; k < 128; k++) out[k] = keyDown[k] ? 1 : 0; }\n'
-     '    void rrSetKeysDown(const u8 in[128]) { for (int k = 0; k < 128; k++) keyDown[k] = in[k] != 0; }\n\n'
+     '    void rrHandshakeOver();\n\n'
      'private:\n'),
     ('Peripherals/Keyboard/Keyboard.cpp',
      'void\nKeyboard::wakeUp()\n',
