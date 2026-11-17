@@ -133,7 +133,8 @@ static bool n64_run_frame(uint16_t p1, uint16_t p2) {
         rrhk_pad_axes(p, frame, axes);
         axes[RRHK_AXIS_RX] = axes[RRHK_AXIS_RY] = 0;   /* the right stick is the C buttons' bindings, not the core's */
         /* The keyboard's Stick actions: the stick at its edge, as a pad's stick pushed all the way. They read this PC's keys, so
-         * not in a multiplayer session, where every port's stick is the session's (rrhk_pad_axes) on every seat. */
+         * not in a multiplayer session, where every port's stick is the session's (rrhk_pad_axes) on every seat: the kit folds
+         * them into what this PC sends (RrhkMachine.stick_actions). */
         if (!rrhk_session_active()) {
             if (rrhk_action_held(p, N_SLEFT)) axes[RRHK_AXIS_LX] = -32767;
             if (rrhk_action_held(p, N_SRIGHT)) axes[RRHK_AXIS_LX] = 32767;
@@ -169,6 +170,8 @@ static void n64_reset(void) {
 static uint64_t n64_digest(void) { return rr_n64_digest(session); }
 static void n64_side_effects(bool allowed) { saves_allowed = allowed; }
 static void n64_session_begin(uint64_t clock) { rr_n64_session_clock(session, clock); }
+/* The keyboard's Stick actions, which the kit folds into the sticks this PC sends in a session (LX left, LX right, LY up, LY down). */
+static const int n64_stick_actions[4] = {N_SLEFT, N_SRIGHT, N_SUP, N_SDOWN};
 
 /* The picture: rows packed at its width, which grows with the internal resolution. */
 static const uint32_t *n64_pixels(void) { return rr_n64_picture(session, NULL, NULL); }
@@ -227,6 +230,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .widescreen = true,   /* GoldenEye 007, Perfect Dark, Banjo-Tooie... squeeze a 16:9 picture with their own option */
             .gfx_options = n64_gfx_options, .gfx_option_count = G_COUNT, .gfx_apply = n64_gfx_apply,
             .digest = n64_digest, .side_effects = n64_side_effects, .session_begin = n64_session_begin,
+            .stick_actions = n64_stick_actions,
         };
     }
     return &machine;
