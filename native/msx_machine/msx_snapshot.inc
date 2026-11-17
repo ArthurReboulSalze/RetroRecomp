@@ -79,7 +79,9 @@ static size_t msx_snap_save(void *buffer, size_t capacity)
     MsxSnapHead head;
     RetroStateIO io = {(uint8_t *)buffer, capacity, 0, RR_STATE_WRITE, true};
     msx_snap_head(&io, &head);
+    msx_state_picture = 0;                       /* the next frame draws the picture again: not stored */
     msx_state_body(&io);
+    msx_state_picture = 1;
     return io.ok ? io.pos : 0;
 }
 
@@ -99,7 +101,9 @@ static bool msx_snap_load(const void *buffer, size_t size)
         msx_fdc_insert(&fdc, 0, disk_data[disk_index], disk_sizes[disk_index], 0);
     }
 #endif
+    msx_state_picture = 0;
     msx_state_body(&check);
+    msx_state_picture = 1;
     if (!check.ok || check.pos != size) {
 #if RR_MSX_DISKS
         if (before != disk_index) {
@@ -115,7 +119,9 @@ static bool msx_snap_load(const void *buffer, size_t size)
     for (unsigned n = 0; n < RR_MSX_DISKS; ++n)
         disk_ever[n] = (uint8_t)(head.ever >> n & 1);
 #endif
+    msx_state_picture = 0;
     msx_state_body(&apply);
+    msx_state_picture = 1;
     if (!apply.ok)
         return false;                                /* not reached: the same bytes passed the check */
     handed_this_frame = machine.line >= machine.vblank_line;
@@ -161,6 +167,8 @@ static void msx_side_effects(bool allowed) { msx_effects_allowed = allowed; }
 static unsigned long snap_probe_at, snap_probe_n;
 static int snap_probe_phase;
 static uint64_t *snap_probe_digests;
+static uint32_t *snap_probe_pictures;
+static unsigned long snap_probe_picture_mismatches;
 static uint8_t *snap_probe_a, *snap_probe_b;
 static size_t snap_probe_size, snap_probe_bound;
 static int snap_probe_same, snap_probe_refused;
@@ -174,9 +182,10 @@ static int snap_probe_option(const char *v)
     if (sscanf(v, "%lu:%lu", &snap_probe_at, &snap_probe_n) != 2 || !snap_probe_n || snap_probe_n > 100000)
         return -1;
     snap_probe_digests = (uint64_t *)calloc(snap_probe_n + 1, sizeof *snap_probe_digests);
+    snap_probe_pictures = (uint32_t *)calloc(snap_probe_n + 1, sizeof *snap_probe_pictures);
     snap_probe_a = (uint8_t *)malloc(MSX_STATE_CAPACITY);
     snap_probe_b = (uint8_t *)malloc(MSX_STATE_CAPACITY);
-    if (!snap_probe_digests || !snap_probe_a || !snap_probe_b)
+    if (!snap_probe_digests || !snap_probe_pictures || !snap_probe_a || !snap_probe_b)
         return -1;
     snap_probe_phase = 1;
     return 1;
@@ -214,6 +223,7 @@ static void snap_probe_service(void)
         snap_probe_phase = 2;
     } else if (snap_probe_phase == 2) {
         snap_probe_digests[k] = msx_snap_digest();
+        snap_probe_pictures[k] = msx_frame_hash(&machine);
         if (k >= snap_probe_n) {
             if (!msx_snap_load(snap_probe_a, snap_probe_size)) snap_probe_mismatches = ~0ul;
             snap_probe_route(0);
@@ -225,12 +235,14 @@ static void snap_probe_service(void)
             ++snap_probe_mismatches;
             if (snap_probe_bad == ~0ul) snap_probe_bad = k;
         }
+        if (k >= 1 && msx_frame_hash(&machine) != snap_probe_pictures[k])
+            ++snap_probe_picture_mismatches;      /* from the first frame drawn again after the load */
         if (k >= snap_probe_n) {
-            const int pass = snap_probe_same && snap_probe_refused && !snap_probe_mismatches;
+            const int pass = snap_probe_same && snap_probe_refused && !snap_probe_mismatches && !snap_probe_picture_mismatches;
             fprintf(stderr, "snap-probe: %s at %lu, %lu frames, %zu bytes (bound %zu), same over other bytes %d, wrong size refused %d, "
-                    "mismatches %lu, first at +%ld\n", pass ? "PASS" : "FAIL", snap_probe_at, snap_probe_n, snap_probe_size,
-                    snap_probe_bound, snap_probe_same, snap_probe_refused, snap_probe_mismatches,
-                    snap_probe_bad == ~0ul ? -1L : (long)snap_probe_bad);
+                    "mismatches %lu, first at +%ld, pictures differing %lu\n", pass ? "PASS" : "FAIL", snap_probe_at, snap_probe_n,
+                    snap_probe_size, snap_probe_bound, snap_probe_same, snap_probe_refused, snap_probe_mismatches,
+                    snap_probe_bad == ~0ul ? -1L : (long)snap_probe_bad, snap_probe_picture_mismatches);
             exit(pass ? 0 : 5);
         }
     }
