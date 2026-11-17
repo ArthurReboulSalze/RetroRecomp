@@ -13,6 +13,10 @@ the host's ROSTER: a host of another lobby version is a stream that breaks the r
 ROSTER (the seats in order, the host first), CHAT (already stamped with the sender's name), SELECT (the game the host chose,
 with what a guest compares), NOTICE (one short code, to one guest), BACK (the match is over, everybody is in the lobby again).
 Guest to host: SAY (a line of chat), READY, ANSWER (what the guest's own library says about the host's pick).
+
+The host's save (lobby version 4; Arthur, 17 November 2026: the host's saves are what everyone plays on, for that match only):
+every LAUNCH is preceded by SAVE_HEAD (the size of the host game's save image, 0 for none, and its SHA-256), then SAVE_DATA
+chunks in order, at most MAX_SAVE bytes in all. The guest's game plays on those bytes in memory and never writes them.
 """
 from __future__ import annotations
 
@@ -29,7 +33,11 @@ MAX_PAYLOAD = 1024
 READ_BUFFER = 2048
 WELCOME, REJECT, HELLO, LAUNCH, LAUNCHED, END, PING, PONG, BYE = range(1, 10)
 ROSTER, CHAT, SELECT, NOTICE, BACK, SAY, READY, ANSWER = range(10, 18)
-LOBBY_VERSION = 3                           # 2: the LAUNCH carries the tier byte (the rollback cap); 3: a chat line may be a phrase
+SAVE_HEAD, SAVE_DATA = 18, 19
+LOBBY_VERSION = 4                           # 2: the LAUNCH carries the tier byte (the rollback cap); 3: a chat line may be a phrase;
+                                            # 4: the host's save precedes every LAUNCH (SAVE_HEAD, SAVE_DATA)
+MAX_SAVE = 2 * 1024 * 1024                  # the largest save image a host sends (session_pipe.MAX_SAVE)
+SAVE_CHUNK = 1000                          # the bytes of one SAVE_DATA
 MAX_PHRASE = 6                              # the in-game chat's ready-made phrases (session_pipe.PHRASES), sent by number
 PHASE_LOBBY, PHASE_LAUNCHING, PHASE_PLAYING = 0, 1, 2
 LOBBY_PHASES = range(3)
@@ -55,7 +63,7 @@ MAX_ROLLBACK = 8                            # the tier byte of a LAUNCH: 0 the d
 MAX_MACHINE = 16
 _MACHINE = re.compile(r'[A-Za-z0-9_.+-]{1,16}')
 _FROM_GUEST = frozenset((HELLO, LAUNCHED, END, PING, PONG, BYE, SAY, READY, ANSWER))
-_FROM_HOST = frozenset((WELCOME, REJECT, LAUNCH, END, PING, PONG, BYE, ROSTER, CHAT, SELECT, NOTICE, BACK))
+_FROM_HOST = frozenset((WELCOME, REJECT, LAUNCH, END, PING, PONG, BYE, ROSTER, CHAT, SELECT, NOTICE, BACK, SAVE_HEAD, SAVE_DATA))
 FROM_GUEST, FROM_HOST = _FROM_GUEST, _FROM_HOST
 
 
@@ -97,6 +105,18 @@ class Launch:
     options: str
     sharing: int = 0                # the input mode of the match (`seat_map`): one controller per player, everyone, turns
     rollback: int = 0               # the tier byte: 0 the delay tier, 1 to MAX_ROLLBACK the rollback tier with that prediction cap
+
+
+@dataclass(frozen=True)
+class SaveHead:
+    size: int                       # 0: the host's game has no save; at most MAX_SAVE
+    sha256: bytes
+
+
+@dataclass(frozen=True)
+class SaveData:
+    offset: int
+    data: bytes
 
 
 @dataclass(frozen=True)
@@ -323,6 +343,14 @@ def encode(message) -> tuple[int, bytes]:
                                  struct.pack('<B', len(message.names)), names, struct.pack('<H', len(options)), options))
     if isinstance(message, Launched):
         return LAUNCHED, struct.pack('<IB', message.match_id, message.status)
+    if isinstance(message, SaveHead):
+        if not 0 <= message.size <= MAX_SAVE or len(message.sha256) != 32:
+            raise ValueError('a save head outside the rules')
+        return SAVE_HEAD, struct.pack('<I', message.size) + message.sha256
+    if isinstance(message, SaveData):
+        if not 0 < len(message.data) <= SAVE_CHUNK or not 0 <= message.offset < MAX_SAVE:
+            raise ValueError('a save chunk outside the rules')
+        return SAVE_DATA, struct.pack('<I', message.offset) + message.data
     if isinstance(message, End):
         return END, struct.pack('<IBB', message.match_id, message.reason, message.who)
     if isinstance(message, Ping):
@@ -366,6 +394,14 @@ def _decode(kind: int, payload: bytes):
             return Hello((major, minor, patch), _decode_name(payload[7:]))
     elif kind == LAUNCH:
         return _decode_launch(payload)
+    elif kind == SAVE_HEAD and size == 36:
+        total = struct.unpack_from('<I', payload)[0]
+        if total <= MAX_SAVE:
+            return SaveHead(total, payload[4:])
+    elif kind == SAVE_DATA and 4 < size <= 4 + SAVE_CHUNK:
+        offset = struct.unpack_from('<I', payload)[0]
+        if offset < MAX_SAVE:
+            return SaveData(offset, payload[4:])
     elif kind == LAUNCHED and size == 5:
         match_id, status = struct.unpack('<IB', payload)
         if status <= LAUNCHED_FAILED:

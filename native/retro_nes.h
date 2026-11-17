@@ -9,6 +9,9 @@
 #ifndef RR_NES_ZAPPER
 #define RR_NES_ZAPPER 0
 #endif
+#ifndef RR_NES_FOUR_SCORE
+#define RR_NES_FOUR_SCORE 0   /* the game reads the Four Score: players 3 and 4 */
+#endif
 #define RR_CPU_DIV (RR_NES_PAL ? 16 : 12)
 #define RR_PPU_DIV (RR_NES_PAL ? 5 : 4)
 #define RR_PRERENDER (RR_NES_PAL ? 311 : 261)

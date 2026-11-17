@@ -31,7 +31,7 @@ from .knowledge import record_for
 from .metadata import write_game_metadata
 from .nes_codegen import prepare_compiler
 from .nes_runtime import prepare_host
-from .nes_catalog import zapper_game
+from .nes_catalog import four_score_game, zapper_game
 from .nes_ram import read_sites as ram_sites, shared_sites, trace_text
 from .nes_checks import check_states, route_liveness
 from .delivery_evidence import deliver_packed, replay_packed, require_moving_picture
@@ -451,6 +451,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         raise ConversionError('Choose NTSC or PAL for NES; Dendy timing is not supported.')
     standard = standard_override or ('ntsc' if rom.video_standard == 'multi' else rom.video_standard)
     gun = zapper_game(rom.data, rom.path.name)
+    four = four_score_game(rom.data, rom.path.name)
     title = title or re.sub(r'\s*\([^)]*\)', '', rom.path.stem).strip()
     project = ROOT / '.build' / f'nes_{slug(title)}_{rom.sha256[:12]}_{ENGINE_REV[:8]}_{standard}'
     project.mkdir(parents=True, exist_ok=True)
@@ -463,6 +464,8 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     emit(f'NES video timing: {standard.upper()} ({"manual" if standard_override else rom.timing_source}).')
     if gun:
         emit('NES Zapper enabled: mouse aim and trigger on controller port 2.')
+    if four:
+        emit('NES Four Score enabled: four controllers (players 3 and 4 on the adapter).')
     artwork = prepare_game_icon(project, rom.path, title,
         boxart_dir or ROOT / 'BoxArt/Nintendo NES', explicit=cover,
         online=online_cover, enabled=use_cover, cache_directory=boxart_cache_directory('nes'),
@@ -470,7 +473,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     engine, compiler, sdl, cmake, generator = _dependencies(emit)
     write_if_changed(project / 'rom.nes', rom.data)
     with preserve_inputs(project):
-        prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun, mapper=rom.mapper)
+        prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun, mapper=rom.mapper, four_score=four)
         metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False,
             icon=artwork['embedded'], standard=standard, system_id='nes', zapper=gun)
         from .notices import notice_text
@@ -664,7 +667,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'video_model': {'standard': standard, 'timing_source': 'manual' if standard_override else rom.timing_source,
                         'visible_pixels': [256, 240],
                         'hardware_accuracy_validated': False},
-        'input_players': 2, 'zapper': gun,
+        'input_players': 4 if four else 2, 'zapper': gun, 'four_score': four,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
                         'compatibility': 'same ROM, region and runtime ABI', 'schema': 'RRNESST2',
                         'machine': 'nes', 'rom_identity': True, 'fresh_process_verified': True, 'validation': states},

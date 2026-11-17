@@ -97,10 +97,14 @@ def players_in_report(raw: dict) -> int | None:
     system = raw.get('system') if isinstance(raw, dict) else None
     scope = raw.get('qualification_scope') if isinstance(raw, dict) else None
     controls = scope.get('controls') if isinstance(scope, dict) else None
-    if not isinstance(system, dict) or not seats_ceiling(system.get('id')) or not isinstance(controls, str):
+    if not isinstance(system, dict) or not seats_ceiling(system.get('id')):
         return None
-    found = _PLAYERS_OF_BOARD.search(controls)
-    return max(2, int(found.group(1))) if found else None
+    found = _PLAYERS_OF_BOARD.search(controls) if isinstance(controls, str) else None
+    if found:
+        return max(2, int(found.group(1)))
+    # The NES says its number as the report's `input_players` (2, or 4 for a game that reads the Four Score).
+    players = raw.get('input_players')
+    return players if system.get('id') == 'nes' and type(players) is int and 2 <= players <= 4 else None
 
 
 def reason_names(bits: int) -> list[str]:

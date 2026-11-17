@@ -171,3 +171,9 @@ void rr_x68k_payload_release(void) {
     if(game_lock>=0)close(game_lock);game_lock=-1;
 #endif
 }
+/* The original bytes of an embedded file (the disks of a multiplayer session), by its payload path. */
+const unsigned char *rr_x68k_payload_original(const char *path,size_t *size) {
+    for(unsigned i=0;i<RR_X68K_FILE_COUNT;i++)
+        if(!strcmp(rr_x68k_files[i].path,path))return rr_resource(rr_x68k_files[i].resource,size);
+    *size=0;return NULL;
+}

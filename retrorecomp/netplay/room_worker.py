@@ -212,6 +212,9 @@ class RoomWorker:
             self.room.launched(launch.match_id, control.LAUNCHED_FAILED)
             self.emit({'event': 'launch_refused', 'match_id': launch.match_id, 'detail': settings.reason})
             return
+        save = self.room.take_save(launch.match_id)      # the host's save (None: its game has none): this match plays on it
+        if save is not None:
+            settings = dataclasses.replace(settings, save=save)
         if settings.rollback:       # the host decided from its game's HELLO: this game must keep snapshots too, or it refuses
             settings = dataclasses.replace(settings, rollback_required=True)
         with self.lock:
@@ -350,7 +353,7 @@ class RoomWorker:
             return
         session = None
         try:
-            session, rollback, host_options = self._decide_tier(game, tier)
+            session, rollback, host_options, save = self._decide_tier(game, tier)
             options = merge_options(net.get('options', ''), host_options)
             if isinstance(options, Refusal):
                 raise RoomError(f'the host game\'s options: {options.reason}')
@@ -362,7 +365,7 @@ class RoomWorker:
                                         rom_sha=bytes.fromhex(identity['rom']), delay=net.get('delay') or 0,
                                         digest_every=net.get('digest_every', Settings.digest_every),
                                         redundancy=net.get('redundancy', Settings.redundancy), options=net.get('options', ''),
-                                        sharing=net.get('sharing', seat_map.PER_PLAYER), rollback=rollback)
+                                        sharing=net.get('sharing', seat_map.PER_PLAYER), rollback=rollback, save=save)
                 self.pending = {'info': info, 'game': game, 'values': values, 'session': session,
                                 'net': {**net, **self._tier_settings(rollback)}}
         except RoomError as error:
@@ -382,7 +385,7 @@ class RoomWorker:
     def _tier_settings(rollback: int) -> dict:
         return {'rollback': rollback, 'rollback_required': bool(rollback)}
 
-    def _decide_tier(self, game: dict, asked: dict) -> tuple[SessionGame, int, str]:
+    def _decide_tier(self, game: dict, asked: dict) -> tuple[SessionGame, int, str, bytes | None]:
         """The host's tier for this launch: (its game, started and held; the tier byte; its run-changing options). The host's own
         game is started now to read its HELLO: `rollback.choose_tier` decides from it (unless the host asked for the delay
         tier), and its options are what every seat plays with (the LAUNCH carries them). The driver takes the game over at the
@@ -395,6 +398,11 @@ class RoomWorker:
         try:
             session.hold()
             hello = session.wait_hello(HELLO_WAIT)
+            save = None
+            if hello is not None and hello.save_size:      # the host's save, what every seat plays on (session ABI 8)
+                save = session.wait_save(hello.save_size, HELLO_WAIT)
+                if save is None:
+                    raise RoomError('the host game did not give its save')
             if mode == TIER_DELAY:
                 verdict = 0
             else:
@@ -404,7 +412,7 @@ class RoomWorker:
         except BaseException:
             self._drop_game(session)
             raise
-        return session, verdict, hello.options if hello is not None else ''
+        return session, verdict, hello.options if hello is not None else '', save
 
     def _drop_game(self, session: SessionGame | None) -> None:
         """A game started for a launch that did not happen: its pipe is closed and it is ended."""
@@ -468,7 +476,7 @@ class RoomWorker:
             return
         session = None
         try:
-            session, rollback, host_options = self._decide_tier(game, tier)
+            session, rollback, host_options, save = self._decide_tier(game, tier)
             with self.lock:             # held until `pending` is set: a guest that answers at once finds it there
                 if self.match is not None or self.pending is not None:
                     self._drop_game(session)
@@ -481,7 +489,7 @@ class RoomWorker:
                 info = self.room.lobby_launch(need_ready=need_ready, delay=net.get('delay') or 0,
                                               digest_every=net.get('digest_every', Settings.digest_every),
                                               redundancy=net.get('redundancy', Settings.redundancy), rollback=rollback,
-                                              options=options)
+                                              options=options, save=save)
                 if isinstance(info, Refusal):
                     self._drop_game(session)
                     self.emit({'event': 'launch_error', 'detail': info.reason})

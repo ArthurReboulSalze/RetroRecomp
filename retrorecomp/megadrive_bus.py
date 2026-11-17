@@ -25,7 +25,8 @@ def fiber(source):
     } else {
         fiber_fatal("fiber switch must resume a suspended child or yield to its caller");
     }'''+source[end:]
-    return source
+    from .megadrive_rollback import fiber as rollback_fiber
+    return rollback_fiber(source)
 
 
 def nested_glue(source):
@@ -203,7 +204,8 @@ unsigned rr_md_cpu_retire_cycles(unsigned cycles) {
         '            s_cycle_budget -= (int32_t)(now - s_budget_cyc_seen);',
         '        if (RR_MD_STEP_AOT || now > s_budget_cyc_seen)\n'
         '            s_cycle_budget -= (int32_t)(now - s_budget_cyc_seen);')
-    return nested_glue(source)
+    from .megadrive_rollback import glue as rollback_glue
+    return rollback_glue(nested_glue(source))
 
 
 def bus(source):
@@ -376,4 +378,5 @@ def machine(source):
     # These globals must precede machine_init, whereas the tail is below it.
     source = source.replace('static unsigned rr_main_fraction,rr_main_debt;\n', '', 1)
     source = 'static unsigned rr_main_fraction,rr_main_debt;\n' + source
-    return source
+    from .megadrive_rollback import machine as rollback_machine
+    return rollback_machine(source)

@@ -102,11 +102,25 @@ def clean(word: int) -> int:
 RESTART = 0x5245534554       # what the fake's restart mixes into its accumulator (fake.c reset)
 
 
-def digest_of(history: list[tuple[int, int, int, int]], restarts=(), states=None) -> int:
+def battery(seed: int) -> bytes:
+    """The fake's 64-byte battery of SESSION_FAKE_SAVE=seed."""
+    return bytes((seed * 31 + i * 7) & 0xff for i in range(64))
+
+
+def battery_start(data: bytes) -> int:
+    """The fake's accumulator at power-on with that battery (its 8-byte words folded in)."""
+    acc = 0x9e3779b97f4a7c15
+    for i in range(0, len(data), 8):
+        acc = mix(acc ^ int.from_bytes(data[i:i + 8], 'little'))
+    return acc
+
+
+def digest_of(history: list[tuple[int, int, int, int]], restarts=(), states=None, sticks=None, start=None) -> int:
     """The fake's digest after `history`; `restarts`: the frames the machine restarted before (the frame count goes on);
     `states`: {frame: 'save' | 'load'}, the match's state saved or loaded before that frame (its whole state: the fake's own
-    frame count comes back with a load)."""
-    acc, frames = 0x9e3779b97f4a7c15, 0
+    frame count comes back with a load); `sticks`: per frame, every port's four int8 sticks (a machine with sticks: each
+    port's values times 258 fold in after the words, as the fake reads them)."""
+    acc, frames = (0x9e3779b97f4a7c15 if start is None else start), 0
     restarts, states, slot = set(restarts), states or {}, None
     for index, (p1, p2, p3, p4) in enumerate(history):
         if index in restarts:
@@ -118,6 +132,10 @@ def digest_of(history: list[tuple[int, int, int, int]], restarts=(), states=None
         p1, p2, p3, p4 = clean(p1), clean(p2), clean(p3), clean(p4)
         words = p1 | p2 << 16 | p3 << 32 | p4 << 48
         acc = mix(acc ^ words ^ ((frames << 7) & M))
+        if sticks is not None:
+            for port in sticks[index]:
+                values = [(value * 258) & 0xffff for value in port]
+                acc = mix(acc ^ (values[0] | values[1] << 16 | values[2] << 32 | values[3] << 48))
         frames += 1
     return acc ^ frames
 
@@ -128,7 +146,8 @@ class Game:
     """The fake game started in a session (or alone): its pipes, a reader thread, its exit."""
 
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
-                 restart_at: int = 0, chat_at: int = 0, load_at: int = 0, driven: bool = False):
+                 restart_at: int = 0, chat_at: int = 0, load_at: int = 0, driven: bool = False, sticks: bool = False,
+                 save: int | None = None):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -142,6 +161,12 @@ class Game:
         env.pop('SESSION_FAKE_CHAT_AT', None)
         env.pop('SESSION_FAKE_LOAD_AT', None)
         env.pop('SESSION_FAKE_DRIVEN', None)
+        env.pop('SESSION_FAKE_STICKS', None)
+        env.pop('SESSION_FAKE_SAVE', None)
+        if save is not None:
+            env['SESSION_FAKE_SAVE'] = str(save)
+        if sticks:
+            env['SESSION_FAKE_STICKS'] = '1'
         if driven:
             env['SESSION_FAKE_DRIVEN'] = '1'
         if load_at:
@@ -255,10 +280,14 @@ def setup(game: Game, *, seat: int = 0, ports: int = 4, depth: int = 0, guest: b
                                             len(text)) + text)
 
 
-def run_payload(frame: int, words, silent: bool = False, reset: bool = False, flags: int = 0) -> bytes:
+def run_payload(frame: int, words, silent: bool = False, reset: bool = False, flags: int = 0, sticks=None) -> bytes:
     flags |= (CONSTANTS['RRHK_RUN_SILENT'] if silent else 0) | (CONSTANTS['RRHK_RUN_RESET'] if reset else 0)
-    return struct.pack('<IBB', frame, flags, len(words)) + \
-        struct.pack(f'<{len(words)}H', *words)
+    if sticks is not None:
+        flags |= CONSTANTS['RRHK_RUN_AXES']
+    payload = struct.pack('<IBB', frame, flags, len(words)) + struct.pack(f'<{len(words)}H', *words)
+    if sticks is not None:
+        payload += struct.pack(f'<{4 * len(words)}b', *(value for port in sticks for value in port))
+    return payload
 
 
 def remote(frame: int, salt: int = 0) -> tuple[int, int, int]:
@@ -441,6 +470,8 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     passed.extend(chat_scenarios(executable, out))
     passed.extend(state_scenarios(executable, out))
     passed.extend(driven_scenarios(executable, out))
+    passed.extend(stick_scenarios(executable, out))
+    passed.extend(save_scenarios(executable, out))
     return passed
 
 
@@ -591,6 +622,112 @@ def state_scenarios(executable: Path, out: Path) -> list[str]:
     assert code == 0 and int(result['frames']) == 5 and int(result['quick']) == 0, (code, result, text)
     assert "match's state could not be saved or loaded" in text, text
     passed.append('match state: a load with nothing saved ends the session, nothing run')
+    return passed
+
+
+def save_scenarios(executable: Path, out: Path) -> list[str]:
+    """The host's save travels (session ABI 8): a game with a save says its size in HELLO and gives its bytes (SAVE_OUT); a
+    guest is handed the host's (SAVE_IN) before SETUP and plays on them in memory; a host keeps its own."""
+    passed = []
+
+    def opened(game: Game) -> tuple[bytes, bytes]:
+        hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+        name_length = hello[12]
+        options_length = struct.unpack_from('<H', hello, 13 + name_length)[0]
+        size = struct.unpack_from('<I', hello, 15 + name_length + options_length)[0]
+        data = b''
+        while len(data) < size:
+            chunk = game.expect('RRHK_MSG_SAVE_OUT')
+            assert struct.unpack_from('<I', chunk)[0] == len(data)
+            data += chunk[4:]
+        return hello, data
+
+    # 22. A guest whose own battery differs plays on the host's: its HELLO says 64 bytes and gives its own; SAVE_IN hands it the
+    # host's before SETUP; the boot digest and every frame follow the host's battery.
+    game = Game(executable, out, save=2)
+    hello, own = opened(game)
+    assert own == battery(2), own
+    host = battery(1)
+    for offset in range(0, len(host), 40):           # in two parts, as a larger save would come
+        game.send('RRHK_MSG_SAVE_IN', struct.pack('<II', len(host), offset) + host[offset:offset + 40])
+    game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
+    setup(game, seat=1, guest=True)
+    game.send('RRHK_MSG_DIGEST')
+    _frame, low, high = struct.unpack('<III', game.expect('RRHK_MSG_DIGEST_OF'))
+    assert (low | high << 32) == digest_of([], start=battery_start(host)), 'the boot digest is not the host battery\'s'
+    history = []
+    for frame in range(20):
+        live_frame(game, frame, (*remote(frame)[:1], 0, 0, 0), history)
+    check_digest_start = digest_of(history, start=battery_start(host))
+    game.send('RRHK_MSG_DIGEST')
+    _frame, low, high = struct.unpack('<III', game.expect('RRHK_MSG_DIGEST_OF'))
+    assert (low | high << 32) == check_digest_start, 'the frames do not follow the host battery'
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0 and int(result['digest'], 16) == check_digest_start, (code, result, text)
+    passed.append('save, guest: its own battery said in HELLO and SAVE_OUT, the host\'s handed in SAVE_IN before SETUP, boot '
+                  'digest and 20 frames on the host\'s battery')
+
+    # 23. A SAVE_IN out of order ends the session (never a guess at the host's bytes).
+    game = Game(executable, out, save=2)
+    hello, _own = opened(game)
+    game.send('RRHK_MSG_SAVE_IN', struct.pack('<II', 64, 8) + bytes(8))
+    code, result, text = game.finish(timeout=15)
+    assert code == 0 and int(result['frames']) == 0 and 'SAVE_IN' in text, (code, result, text)
+    passed.append('save: a SAVE_IN out of order ends the session, nothing run')
+    return passed
+
+
+def stick_scenarios(executable: Path, out: Path) -> list[str]:
+    """The sticks travel (session ABI 7): a game with sticks says CAP_AXES, its LOCAL carries this PC's four int8 sticks, and a
+    RUN with RRHK_RUN_AXES gives every port's sticks to the machine (rrhk_pad_axes), live and again after a correction."""
+    passed = []
+
+    def sticks_of(frame: int, salt: int = 0) -> tuple:
+        return tuple(tuple(((frame * (port + 3) + axis * 17 + salt) % 255) - 127 for axis in range(4)) for port in range(4))
+
+    # 21. A machine with sticks: LOCALs of 12 bytes (centred: no pad here), RUNs with the sticks, a correction from frame 30.
+    game = Game(executable, out, sticks=True)
+    hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+    assert struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_AXES'], 'no CAP_AXES in the HELLO'
+    game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
+    setup(game, depth=16)
+    history, sticks = [], []
+    for frame in range(40):
+        local = game.expect('RRHK_MSG_LOCAL')
+        assert len(local) == 12, len(local)
+        got, word, system, *axes = struct.unpack('<IHH4b', local)
+        assert got == frame and axes == [0, 0, 0, 0], (got, axes)
+        game.send('RRHK_MSG_SAVE', struct.pack('<I', frame))
+        words = (0, *remote(frame))
+        game.send('RRHK_MSG_RUN', run_payload(frame, words, sticks=sticks_of(frame)))
+        assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == frame
+        history.append(words)
+        sticks.append(sticks_of(frame))
+    game.send('RRHK_MSG_DIGEST')
+    last, low, high = struct.unpack('<III', game.expect('RRHK_MSG_DIGEST_OF'))
+    assert last == 39 and (low | high << 32) == digest_of(history, sticks=sticks), 'digest differs from the fold (sticks)'
+    assert struct.unpack('<IHH4b', game.expect('RRHK_MSG_LOCAL'))[0] == 40
+    game.send('RRHK_MSG_LOAD', struct.pack('<I', 30))
+    del history[30:], sticks[30:]
+    for again in range(30, 40):
+        words = (0, *remote(again, salt=0x44))
+        game.send('RRHK_MSG_SAVE', struct.pack('<I', again))
+        game.send('RRHK_MSG_RUN', run_payload(again, words, silent=True, sticks=sticks_of(again, salt=9)))
+        history.append(words)
+        sticks.append(sticks_of(again, salt=9))
+    game.send('RRHK_MSG_RUN', run_payload(40, (0, *remote(40)), sticks=sticks_of(40)))
+    assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == 40
+    history.append((0, *remote(40)))
+    sticks.append(sticks_of(40))
+    game.send('RRHK_MSG_DIGEST')
+    last, low, high = struct.unpack('<III', game.expect('RRHK_MSG_DIGEST_OF'))
+    assert last == 40 and (low | high << 32) == digest_of(history, sticks=sticks), 'digest differs after the correction (sticks)'
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0 and int(result['digest'], 16) == digest_of(history, sticks=sticks), (code, result, text)
+    passed.append('sticks: CAP_AXES, LOCALs of 12 bytes, every port\'s sticks in the RUN read by the machine, again after a '
+                  'correction, digests equal')
     return passed
 
 

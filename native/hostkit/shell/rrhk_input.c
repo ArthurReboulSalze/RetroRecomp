@@ -614,7 +614,16 @@ static void dead_zone(int16_t *x, int16_t *y, int percent) {
  * x*x + y*y overflows an int when both axes are -32768 (the stick read as centred). */
 static int16_t symmetric(int16_t value) { return value < -32767 ? -32767 : value; }
 
+/* In a multiplayer session every port's sticks come from the session (session ABI 7), as its words do. */
 bool rrhk_pad_axes(int p, uint64_t frame, int16_t axes[RRHK_AXES]) {
+    if (rrhk_session_on) {
+        rrhk_session_axes(p, axes);
+        return true;
+    }
+    return rrhk_local_pad_axes(p, frame, axes);
+}
+
+bool rrhk_local_pad_axes(int p, uint64_t frame, int16_t axes[RRHK_AXES]) {
     const RrhkMachine *m = rrhk.machine;
     static const SDL_GameControllerAxis source[RRHK_AXES] = {SDL_CONTROLLER_AXIS_LEFTX, SDL_CONTROLLER_AXIS_LEFTY,
                                                              SDL_CONTROLLER_AXIS_RIGHTX, SDL_CONTROLLER_AXIS_RIGHTY};

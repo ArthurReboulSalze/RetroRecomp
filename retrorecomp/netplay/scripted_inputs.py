@@ -14,7 +14,7 @@ sets them.
                                                          "system" is "game": then the game's own are passed on.
                                                          `system_at` adds control bits on the LOCAL of a frame, as the worker's
                                                          request would (`seat_map.request`: a pass of the turn, a mode change)
-    {"kind": "random", "seat": n [, "hold": frames] [, "system_at": {...}]}
+    {"kind": "random", "seat": n [, "hold": frames] [, "system_at": {...}] [, "sticks": true]}
                                                          pseudo-random words held `hold` frames (default 12), the
                                                          script of the real-game smoke: it leaves a title screen;
                                                          `system_at` as above (the smoke's host restart)
@@ -54,8 +54,14 @@ def local_source(spec: dict | None):
         seat, hold = int(spec['seat']), int(spec.get('hold', 12))
         at = {int(frame): int(bits) for frame, bits in (spec.get('system_at') or {}).items()}
 
+        sticks = bool(spec.get('sticks'))
+
         def source(frame, _word, system):
-            return random.Random(seat * 100003 + frame // hold).getrandbits(8), system | at.get(frame, 0)
+            chooser = random.Random(seat * 100003 + frame // hold)
+            word = chooser.getrandbits(8)
+            if sticks:                  # a game with sticks: four int8 values held as the buttons are (session ABI 7)
+                return word, system | at.get(frame, 0), tuple(chooser.randint(-127, 127) for _ in range(4))
+            return word, system | at.get(frame, 0)
         return source
     raise ValueError(f'an unknown local source: {kind!r}')
 

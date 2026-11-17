@@ -29,6 +29,9 @@ int rr_psx_host_reset(void);
 int rr_psx_host_set_renderer(int vulkan);
 int rr_psx_host_reopen(void);
 unsigned rr_psx_card_notice(void);   /* psx_main.c: 1 a memory card file set aside, 2 saving off */
+void rr_psx_host_match(void);
+void rr_psx_host_effects(int allowed);
+uint64_t rr_psx_host_digest(void);
 RrPsxSession *rr_psx_host_session(void);
 
 /* The bits are the session's (libretro's order of the pad). The Analog button and Change disc are host-side actions (bit 0):
@@ -134,6 +137,32 @@ static const char *const gfx_core_keys[GFX_COUNT] = {NULL, "internal_resolution"
                                                      "dither_mode", "aspect_ratio", "crop_overscan"};
 static int scale = 1;   /* the internal resolution in force (1, 2, 4, 8) */
 static int chosen[GFX_COUNT];   /* each row's value, given again to a session opened again */
+/* A multiplayer game (session_begin; the owner, 17 November 2026: « il faut que ça soit l'hôte qui les synchronise », « le moins
+ * de choses possible »). What changes the emulated run is the host's on every seat, pushed before frame 0 (session_option) and
+ * refused in F3 during the match:
+ *   "pgxp", "pgxp_texture" (0 or 1): PGXP and its textures change the run (Ape Escape's RAM on about 450 of 3,300 frames);
+ *   "cpu_resolution" (1, 2 or 4): the internal resolution the CPU's renderer draws at changes the emulated drawing time, so the
+ *   run (Ape Escape at 2x: RAM and CPU from frame 96 on); the graphics card's does not (the machine is the CPU renderer's at 1x
+ *   under it). The host sends its CPU's resolution, 1 when its card draws; a seat whose card draws takes 1 as it is, and draws
+ *   with the CPU at the host's resolution when it is more.
+ *   "renderer" (card or cpu), sent only when the host's PGXP is On: with PGXP the renderer changes the run (Ape Escape, 3,300
+ *   frames: the card's run differs from the CPU's from frame 2,429 on, the card's own resolution and multisampling do not); with
+ *   PGXP Off it does not (the eight discs' gate of 16 November 2026). A seat takes the host's renderer before frame 0; a seat
+ *   that cannot draw with a card refuses "renderer=card", so the match is refused with that reason.
+ * Not pushed (a host that sends nothing): the export's defaults on every seat (PGXP and its textures On, the CPU at 1x). The
+ * renderer and multisampling are not changed in play (both open the core again through a quick state). The player's choices
+ * stay saved, unused until the game is played alone. The card's own rows (its resolution, anti-aliasing, filtering), dithering,
+ * aspect and crop stay each seat's: they change only the picture. */
+static bool in_match;
+static int host_value[GFX_COUNT] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};   /* -1: not pushed */
+static int host_cpu_resolution = 0;   /* the row index (0 1x, 1 2x, 2 4x) the host's CPU draws at */
+static int host_renderer = -1;        /* -1 not pushed, 0 the CPU, 1 the card */
+static bool run_row(int option) { return option == GFX_PGXP || option == GFX_PGXP_TEXTURE; }
+/* The value a row has in force: the host's for a row that changes the run during a match, the player's otherwise. */
+static int row_value(int option) {
+    if (in_match && run_row(option)) return host_value[option] >= 0 ? host_value[option] : gfx_options[option].def;
+    return chosen[option];
+}
 
 /* The value a check runs with (headless, no `--gfx`): each row's default, except PGXP and its textures, which a check keeps off. */
 static int check_default(int option) {
@@ -145,6 +174,7 @@ static int check_default(int option) {
 static void apply_drawing(RrPsxSession *s, bool tell) {
     const int card = rr_psx_renderer(s);
     int resolution = chosen[GFX_RESOLUTION];
+    if (in_match && !card) resolution = host_cpu_resolution;
     if (resolution == 3 && !card) {
         resolution = 2;
         if (tell) rrhk_notice(rrhk_tr("8x needs the graphics card: 4x on the CPU", "8x demande la carte graphique : 4x sur le CPU"), 4000);
@@ -158,7 +188,8 @@ static void apply_drawing(RrPsxSession *s, bool tell) {
 
 static void core_option(int option, int value) {
     RrPsxSession *s = rr_psx_host_session();
-    if (option == GFX_PGXP_TEXTURE && !chosen[GFX_PGXP]) value = 0;   /* held off without PGXP */
+    if (in_match && run_row(option)) value = row_value(option);
+    if (option == GFX_PGXP_TEXTURE && !row_value(GFX_PGXP)) value = 0;   /* held off without PGXP */
     if (option == GFX_RESOLUTION) { apply_drawing(s, true); return; }
     rr_psx_option(s, gfx_core_keys[option], gfx_core_values[option][value]);
     if (option == GFX_ANTIALIASING) apply_drawing(s, false);
@@ -168,6 +199,18 @@ static void core_option(int option, int value) {
 static void gfx_apply(int option, int value) {
     if (option < 0 || option >= GFX_COUNT || value < 0 || value >= gfx_options[option].count) return;
     const int before = chosen[option];
+    if (in_match && rr_psx_frame_index() > 0 &&
+        (option == GFX_RENDERER || (option == GFX_ANTIALIASING && strcmp(msaa_values[before], msaa_values[value]) &&
+                                    rr_psx_renderer(rr_psx_host_session())))) {
+        chosen[option] = value;   /* kept for the next game alone */
+        rrhk_notice(rr_tr("Not during a multiplayer game"), 4000);
+        return;
+    }
+    if (in_match && (run_row(option) || (option == GFX_RESOLUTION && !rr_psx_renderer(rr_psx_host_session())))) {
+        chosen[option] = value;   /* kept for the next game alone */
+        rrhk_notice(rr_tr("Set by the host in multiplayer"), 4000);
+        return;
+    }
     chosen[option] = value;
     /* Multisampling changed while the card draws: Beetle's in-place rebuild keeps the programs of the old sample count (the picture
      * then broke at the game's next display mode change: half of it black or stale, the owner's report of 15 November 2026), so
@@ -292,7 +335,7 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
     int16_t axes[2][4];
     const uint64_t frame = rr_psx_frame_index();
     for (int p = 0; p < 2; ++p) {
-        rrhk_pad_axes(p, frame, axes[p]);
+        rrhk_pad_axes(p, frame, axes[p]);   /* in a multiplayer game, the session's sticks (the same on every seat) */
         pads[p] = stick_directions(p, pads[p], axes[p]);
     }
     const bool ran = rr_psx_host_frame(pads, axes) != 0;
@@ -317,9 +360,57 @@ static void pause_machine(bool paused) {
 static bool event(const SDL_Event *e, bool *running) {
     (void)running;
     const unsigned players = rrhk_action_pressed(e, ANALOG);
+    /* The Analog button is not in the pad words a multiplayer game carries: on one seat it would change that seat's console only. */
+    if (players && in_match) { rrhk_notice(rr_tr("Not during a multiplayer game"), 4000); return false; }
     for (int p = 0; p < 2; ++p) if (players & (1u << p)) rr_psx_host_analog(p);
     return false;
 }
+
+/* Multiplayer (hostkit_session.h): the delay tier (no in-process snapshot). The host's values arrive before session_begin. */
+static bool session_option(const char *key, const char *value) {
+    const bool bit = !strcmp(value, "0") || !strcmp(value, "1");
+    if (!strcmp(key, "pgxp") && bit) { host_value[GFX_PGXP] = value[0] - '0'; return true; }
+    if (!strcmp(key, "pgxp_texture") && bit) { host_value[GFX_PGXP_TEXTURE] = value[0] - '0'; return true; }
+    if (!strcmp(key, "renderer") && (!strcmp(value, "card") || !strcmp(value, "cpu"))) {
+        host_renderer = value[1] == 'a';
+        /* Before frame 0: the session opens again on the host's renderer (nothing to carry yet). */
+        if (rr_psx_renderer(rr_psx_host_session()) != host_renderer) rr_psx_host_set_renderer(host_renderer);
+        return rr_psx_renderer(rr_psx_host_session()) == host_renderer;   /* no usable card here: refused */
+    }
+    if (!strcmp(key, "cpu_resolution")) {
+        if (!strcmp(value, "1")) host_cpu_resolution = 0;
+        else if (!strcmp(value, "2")) host_cpu_resolution = 1;
+        else if (!strcmp(value, "4")) host_cpu_resolution = 2;
+        else return false;
+        return true;
+    }
+    return false;
+}
+/* What this game, as the host, sends every seat (RrhkMachine.session_options, in its HELLO): its own values of the keys above,
+ * one "key=value" a line. */
+size_t rr_psx_session_values(char *out, size_t capacity) {
+    const int card = rr_psx_renderer(rr_psx_host_session());
+    const int cpu = card ? 1 : 1 << (chosen[GFX_RESOLUTION] > 2 ? 2 : chosen[GFX_RESOLUTION]);
+    const int written = snprintf(out, capacity, "pgxp=%d\npgxp_texture=%d\ncpu_resolution=%d\n%s", chosen[GFX_PGXP] ? 1 : 0,
+                                 chosen[GFX_PGXP] && chosen[GFX_PGXP_TEXTURE] ? 1 : 0, cpu,
+                                 !chosen[GFX_PGXP] ? "" : card ? "renderer=card\n" : "renderer=cpu\n");
+    return written > 0 && (size_t)written < capacity ? (size_t)written : 0;
+}
+/* Called at SETUP, before the boot digest and frame 0. */
+static void session_begin(uint64_t clock) {
+    (void)clock;   /* the console has no real-time clock */
+    in_match = true;
+    /* The host's CPU draws above 1x: so does this seat, whose card would draw the run of 1x. */
+    if (host_cpu_resolution && rr_psx_renderer(rr_psx_host_session())) {
+        if (rr_psx_host_set_renderer(0)) rrhk_notice(rr_tr("Set by the host in multiplayer"), 4000);
+    }
+    rr_psx_host_match();
+    for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);
+}
+void rr_psx_match_begin(void) { session_begin(0); }   /* psx_main.c --match: the evidence of a headless run */
+bool rr_psx_match_option(const char *key, const char *value) { return session_option(key, value); }
+static void side_effects(bool allowed) { rr_psx_host_effects(allowed); }
+static uint64_t digest(void) { return rr_psx_host_digest(); }
 
 /* The picture: the core's own frame surface, rows pixel_pitch apart, uploaded without a copy of ours. */
 static const uint32_t *pixels(void) { return rr_psx_picture(rr_psx_host_session(), NULL, NULL, NULL); }
@@ -377,6 +468,8 @@ const RrhkMachine *rrhk_adapter(void) {
              * Aspect ratio row says; the machine and its picture are untouched. */
             .widescreen = true,
             .host_media = 1 + DISC, .media_count = media_count, .media_current = media_current, .media_select = media_select,
+            .digest = digest, .side_effects = side_effects, .session_begin = session_begin, .session_option = session_option,
+            .session_options = rr_psx_session_values,
         };
     }
     return &machine;

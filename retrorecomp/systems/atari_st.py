@@ -20,6 +20,7 @@ APERTURES = ((0, 0x400000, 0x400000), (0xFA0000, 0xFC0000, 0xFC0000), (0xFC0000,
 
 class AtariStProfile(SystemProfile):
     id = 'atarist'
+    netplay_session = True       # the host kit's adapter gives a digest, an in-process snapshot and a restart in place (multiplayer rollback)
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # The payload header carries the timer D choice and the program started from the desktop.
     simulation_sources = (SimulationSource('native/steps/*.c'),

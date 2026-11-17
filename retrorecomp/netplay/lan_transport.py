@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import collections
+import hashlib
 import itertools
 import secrets
 import selectors
@@ -558,7 +559,7 @@ class RoomHost:
 
     def launch(self, *, machine: str, stamp: bytes, rom_sha: bytes, delay: int = 0, digest_every: int = 60,
                redundancy: int = 3, options: str = '', guests=None, sharing: int = seat_map.PER_PLAYER,
-               rollback: int = 0) -> LaunchInfo:
+               rollback: int = 0, save: bytes | None = None) -> LaunchInfo:
         """Starts a match: seats are given in the order of `guests` (guest ids, the lobby's seat order) or, without it, in
         the order the guests joined; `rollback` is the tier byte (0 the delay tier, 1 to `control.MAX_ROLLBACK` the rollback tier with that
         prediction cap), the host's decision (`rollback.choose_tier`); keys are derived for this match and this seat, and each of them gets its LAUNCH. A guest
@@ -584,6 +585,8 @@ class RoomHost:
                 raise RoomError('this machine plays in input sharing only' if seat_map.valid(sharing) else 'an input mode that does not exist')
             if not control.valid_tier_byte(rollback):
                 raise RoomError(f'a prediction cap of 1 to {control.MAX_ROLLBACK} frames, or the delay tier')
+            if save is not None and len(save) > control.MAX_SAVE:
+                raise RoomError('the host game\'s save is larger than a room carries')
             self._match_counter += 1
             match_id, now = self._match_counter, self._clock()
             names = (self.name,) + tuple(peer.name for peer in ready)
@@ -599,6 +602,11 @@ class RoomHost:
             self._act(self.lobby.begin([peer.guest_id for peer in ready], match_id))
             for seat, peer in seats.items():
                 match.senders[seat] = datagram.Sender(keys[seat][1], match_id, 0)
+                # The host's save first (lobby version 4): every seat plays on it, in memory, for this match.
+                data = save or b''
+                peer.send(control.SaveHead(len(data), hashlib.sha256(data).digest()))
+                for offset in range(0, len(data), control.SAVE_CHUNK):
+                    peer.send(control.SaveData(offset, data[offset:offset + control.SAVE_CHUNK]))
                 peer.send(control.Launch(match_id, seat, len(names), delay, digest_every, redundancy, machine, stamp,
                                          rom_sha, names, options, sharing, rollback))
         self.log.launch(match_id, machine, stamp, len(names), delay)
@@ -703,7 +711,8 @@ class RoomHost:
         return plan if isinstance(plan, Refusal) else None
 
     def lobby_launch(self, *, need_ready: bool = False, delay: int = 0, digest_every: int = 60,
-                     redundancy: int = 3, rollback: int = 0, options: str | None = None) -> LaunchInfo | Refusal:
+                     redundancy: int = 3, rollback: int = 0, options: str | None = None,
+                     save: bytes | None = None) -> LaunchInfo | Refusal:
         """Starts the match of the host's pick with the guests who have the game (and are ready, if `need_ready`). `options`:
         the run-changing options every seat plays with (the pick's merged with the host game's own); None: the pick's."""
         try:
@@ -714,7 +723,7 @@ class RoomHost:
                 try:
                     return self.launch(machine=plan.game.machine, stamp=plan.stamp, rom_sha=plan.rom, delay=delay,
                                        digest_every=digest_every, redundancy=redundancy,
-                                       options=plan.options if options is None else options, guests=plan.guests,
+                                       options=plan.options if options is None else options, guests=plan.guests, save=save,
                                        sharing=plan.sharing, rollback=rollback)
                 except RoomError as error:
                     return Refusal(error.reason)
@@ -935,6 +944,8 @@ class RoomGuest:
         self._session: handshake.Session | None = None
         self._match: _GuestMatch | None = None
         self._last_match = 0
+        self._save: dict | None = None          # the host's save being received (SAVE_HEAD, then SAVE_DATA in order)
+        self._saves: dict[int, bytes | None] = {}   # match id -> the host's save of that launch (None: its game has none)
         self.guest_id: int | None = None
         self.capacity = 0
         self.stats: collections.Counter = collections.Counter()
@@ -1076,7 +1087,11 @@ class RoomGuest:
             self._host_gone(_frame_error_text(error))
             return
         for message in messages:
-            if not stream.bucket.take(now):
+            # A chunk of the save the host announced, within its announced size, is not counted against the frame rate (a
+            # save of a few hundred KB is hundreds of frames); anything else is.
+            announced = (isinstance(message, control.SaveData) and self._save is not None
+                         and message.offset == len(self._save['data']) and message.offset + len(message.data) <= self._save['size'])
+            if not announced and not stream.bucket.take(now):
                 self._host_gone('too many control frames')
                 return
             stream.last_heard = now
@@ -1088,6 +1103,14 @@ class RoomGuest:
         stream = self._stream
         if isinstance(message, control.Ping):
             stream.send(control.Pong(message.time_ms))
+        elif isinstance(message, control.SaveHead):
+            self._save = {'size': message.size, 'sha256': message.sha256, 'data': bytearray()}
+        elif isinstance(message, control.SaveData):
+            save = self._save
+            if save is None or message.offset != len(save['data']) or message.offset + len(message.data) > save['size']:
+                self._host_gone('the host\'s save broke the rules')
+                return
+            save['data'] += message.data
         elif isinstance(message, control.Launch):
             self._launch(message, now)
         elif isinstance(message, (control.Roster, control.Chat, control.Select, control.Notice, control.Back)):
@@ -1120,6 +1143,13 @@ class RoomGuest:
             self._emit({'event': 'launch_refused', 'match_id': launch.match_id,
                         'detail': 'this PC does not hold the game the host picked, in the same version'})
             return
+        # The host's save of this launch: complete and the bytes it announced, or the launch fails (never a guess).
+        save, self._save = self._save, None
+        if save is None or len(save['data']) != save['size'] or hashlib.sha256(bytes(save['data'])).digest() != save['sha256']:
+            stream.send(control.Launched(launch.match_id, control.LAUNCHED_FAILED))
+            self._counters.count('launch_without_save')
+            return
+        self._saves = {launch.match_id: bytes(save['data']) if save['size'] else None}
         to_host, to_guest = handshake.udp_keys(self._session.key, launch.match_id, launch.seat)
         receiver = datagram.GuestReceiver(self._counters, self._host, launch.match_id, launch.seat, to_guest, launch.seats, now)
         self._match = _GuestMatch(launch, receiver, datagram.Sender(to_host, launch.match_id, launch.seat))
@@ -1150,6 +1180,11 @@ class RoomGuest:
         with self._lock:
             self._act(self.lobby.answer(selection, status, reasons, version))
         self._flush()
+
+    def take_save(self, match_id: int) -> bytes | None:
+        """The host's save of that launch (None: the host's game has none); given once."""
+        with self._lock:
+            return self._saves.pop(match_id, None)
 
     def launched(self, match_id: int, status: int) -> None:
         """The caller's answer to a LAUNCH (ready, or why not). Anything but ready drops that match's datagram state."""

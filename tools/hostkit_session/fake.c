@@ -38,6 +38,12 @@ static bool effects_allowed = true;
  * it calls rrhk_open, runs its own frame each time rrhk_frame_done returns true (run_frame only hands the words over), and
  * restarts by unwinding (rrhk_stop, then the shell closes and opens again). */
 static bool driven, reopen;
+/* SESSION_FAKE_STICKS=1: a machine with sticks (RrhkMachine.analog_sticks): every port's sticks fold into the state too. */
+static bool sticks;
+/* SESSION_FAKE_SAVE=n: a 64-byte battery whose bytes come from n (each copy its own save); it folds into the state at
+* power-on, and the host's bytes replace it in a session (session ABI 8). */
+static uint8_t battery[64];
+static bool has_battery;
 static uint16_t held1, held2;
 /* SESSION_FAKE_MENU_AT=n: the player opens Help (F1) during frame n - 1 and closes it (Esc) thirty iterations later, while
  * the session may be paused and no frame runs: the menu's pause request and its end must both reach the worker. */
@@ -101,6 +107,12 @@ static bool step(uint16_t p1, uint16_t p2) {
     const uint16_t p3 = rrhk_pad_word(2, state.frames), p4 = rrhk_pad_word(3, state.frames);
     const uint64_t words = (uint64_t)p1 | (uint64_t)p2 << 16 | (uint64_t)p3 << 32 | (uint64_t)p4 << 48;
     state.acc = mix(state.acc ^ words ^ ((uint64_t)state.frames << 7));
+    if (sticks) for (int p = 0; p < 4; ++p) {
+        int16_t axes[RRHK_AXES];
+        rrhk_pad_axes(p, state.frames, axes);
+        state.acc = mix(state.acc ^ ((uint64_t)(uint16_t)axes[0] | (uint64_t)(uint16_t)axes[1] << 16 |
+                                     (uint64_t)(uint16_t)axes[2] << 32 | (uint64_t)(uint16_t)axes[3] << 48));
+    }
     ++state.frames;
     if (rrhk_session_silent()) ++silent_runs; else ++live_runs;
     if (!effects_allowed) ++effects_off_runs;
@@ -135,6 +147,26 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
 static bool quick_path(wchar_t *path, size_t capacity) { swprintf(path, capacity, L"session-fake.state"); return true; }
 static bool quick_ready(void) { return true; }
 static bool quick_file(const wchar_t *path, bool load) { (void)path; (void)load; ++quick_calls; return true; }
+
+static void battery_fold(void) {
+    for (size_t i = 0; i < sizeof battery; i += 8) {
+        uint64_t word = 0;
+        for (int b = 0; b < 8; ++b) word |= (uint64_t)battery[i + b] << (8 * b);
+        state.acc = mix(state.acc ^ word);
+    }
+}
+static size_t session_save(void *out, size_t capacity) {
+    if (!has_battery) return 0;
+    if (out && capacity >= sizeof battery) memcpy(out, battery, sizeof battery);
+    return sizeof battery;
+}
+static bool session_save_put(const void *in, size_t size) {
+    if (!has_battery || size != sizeof battery) return false;
+    memcpy(battery, in, sizeof battery);
+    state.acc = 0x9e3779b97f4a7c15ull; state.frames = 0;      /* power-on again with the host's battery */
+    battery_fold();
+    return true;
+}
 
 static size_t snap_bound(void) { return sizeof state; }
 static size_t snap_save(void *buffer, size_t capacity) {
@@ -198,6 +230,17 @@ int main(int argc, char **argv) {
     if (plain && *plain == '1') machine.snap_bound = NULL;
     const char *hz = getenv("SESSION_FAKE_HZ");
     if (hz && atoi(hz) >= 20 && atoi(hz) <= 1000) machine.frame_seconds = 1.0 / atoi(hz);
+    const char *seed = getenv("SESSION_FAKE_SAVE");
+    if (seed) {
+        has_battery = true;
+        for (size_t i = 0; i < sizeof battery; ++i) battery[i] = (uint8_t)(atoi(seed) * 31 + i * 7);
+        battery_fold();
+        machine.session_save = session_save;
+        machine.session_save_put = session_save_put;
+    }
+    const char *stick = getenv("SESSION_FAKE_STICKS");
+    sticks = stick && *stick == '1';
+    if (sticks) machine.analog_sticks = 2;
     const char *own_loop = getenv("SESSION_FAKE_DRIVEN");
     driven = own_loop && *own_loop == '1';
     int status = 0;

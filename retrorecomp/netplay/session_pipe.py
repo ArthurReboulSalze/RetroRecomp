@@ -10,10 +10,11 @@ from dataclasses import dataclass
 import struct
 import unicodedata
 
-ABI = 6                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
+ABI = 8                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
                              # 4: the host's quick save and load for everyone (SYS_STATE_*, RUN_STATE_*); 5: a driven machine with
                              # snapshots takes silent RUNs (rollback for every machine); 6: HELLO carries the game's run-changing
-                             # options (the host's go to every seat)
+                             # options (the host's go to every seat); 7: the sticks travel (LOCAL and RUN carry AXES int8 values);
+                             # 8: the host's save travels (HELLO says its size, SAVE_OUT gives it, SAVE_IN hands it to a guest)
 MAX_PAYLOAD = 4096
 MAX_RING = 64
 MAX_OPTIONS = 1024           # RRHK_SESSION_MAX_OPTIONS: the run-changing options a HELLO may carry
@@ -21,13 +22,17 @@ ENV = 'RETRORECOMP_NETPLAY_PIPE'
 MAX_PLAYERS = 4              # RRHK_MAX_PLAYERS: the port words a RUN may carry
 
 # game -> worker
-MSG_HELLO, MSG_LOCAL, MSG_DONE, MSG_DIGEST_OF, MSG_REFUSED, MSG_EXIT, MSG_CHAT_OUT = 1, 2, 3, 4, 5, 6, 7
+MSG_HELLO, MSG_LOCAL, MSG_DONE, MSG_DIGEST_OF, MSG_REFUSED, MSG_EXIT, MSG_CHAT_OUT, MSG_SAVE_OUT = 1, 2, 3, 4, 5, 6, 7, 8
 # worker -> game
-MSG_SETUP, MSG_RUN, MSG_SAVE, MSG_LOAD, MSG_DIGEST, MSG_PAUSE, MSG_NOTICE, MSG_PACE, MSG_STOP, MSG_CHAT_SHOW = range(32, 42)
+MSG_SETUP, MSG_RUN, MSG_SAVE, MSG_LOAD, MSG_DIGEST, MSG_PAUSE, MSG_NOTICE, MSG_PACE, MSG_STOP, MSG_CHAT_SHOW, MSG_SAVE_IN = range(32, 43)
+MAX_SAVE = 2 * 1024 * 1024   # RRHK_SESSION_MAX_SAVE: the largest save image a game gives or takes
+SAVE_CHUNK = 4000            # the data of one SAVE_OUT / SAVE_IN
 
 CAP_SNAPSHOT, CAP_DIGEST, CAP_POINTER, CAP_AXES, CAP_KEYBOARD, CAP_DRIVEN = 1, 2, 4, 8, 16, 32
 SETUP_GUEST = 1
-RUN_SILENT, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD = 1, 2, 4, 8
+RUN_SILENT, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD, RUN_AXES = 1, 2, 4, 8, 16
+AXES = 4                     # RRHK_AXES: LX, LY, RX, RY per player, int8 (-127..127) in LOCAL and RUN
+NO_AXES = (0,) * AXES
 RUN_ACTIONS = (0, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD)       # at most one of them before a frame
 SYS_PAUSE, SYS_RESTART, SYS_STATE_SAVE, SYS_STATE_LOAD = 1, 2, 4, 8
 REFUSED_OPTION, REFUSED_SNAPSHOT, REFUSED_COMMAND = 1, 2, 3
@@ -46,14 +51,15 @@ PACE_LIMIT = 20000           # parts per million, either way
 HEADER_NAMES = {
     'RRHK_MSG_HELLO': MSG_HELLO, 'RRHK_MSG_LOCAL': MSG_LOCAL, 'RRHK_MSG_DONE': MSG_DONE,
     'RRHK_MSG_DIGEST_OF': MSG_DIGEST_OF, 'RRHK_MSG_REFUSED': MSG_REFUSED, 'RRHK_MSG_EXIT': MSG_EXIT,
-    'RRHK_MSG_CHAT_OUT': MSG_CHAT_OUT, 'RRHK_MSG_CHAT_SHOW': MSG_CHAT_SHOW,
+    'RRHK_MSG_CHAT_OUT': MSG_CHAT_OUT, 'RRHK_MSG_CHAT_SHOW': MSG_CHAT_SHOW, 'RRHK_MSG_SAVE_OUT': MSG_SAVE_OUT,
+    'RRHK_MSG_SAVE_IN': MSG_SAVE_IN,
     'RRHK_MSG_SETUP': MSG_SETUP, 'RRHK_MSG_RUN': MSG_RUN, 'RRHK_MSG_SAVE': MSG_SAVE, 'RRHK_MSG_LOAD': MSG_LOAD,
     'RRHK_MSG_DIGEST': MSG_DIGEST, 'RRHK_MSG_PAUSE': MSG_PAUSE, 'RRHK_MSG_NOTICE': MSG_NOTICE,
     'RRHK_MSG_PACE': MSG_PACE, 'RRHK_MSG_STOP': MSG_STOP,
     'RRHK_CAP_SNAPSHOT': CAP_SNAPSHOT, 'RRHK_CAP_DIGEST': CAP_DIGEST, 'RRHK_CAP_POINTER': CAP_POINTER,
     'RRHK_CAP_AXES': CAP_AXES, 'RRHK_CAP_KEYBOARD': CAP_KEYBOARD, 'RRHK_CAP_DRIVEN': CAP_DRIVEN,
     'RRHK_SETUP_GUEST': SETUP_GUEST, 'RRHK_RUN_SILENT': RUN_SILENT, 'RRHK_RUN_RESET': RUN_RESET,
-    'RRHK_RUN_STATE_SAVE': RUN_STATE_SAVE, 'RRHK_RUN_STATE_LOAD': RUN_STATE_LOAD,
+    'RRHK_RUN_STATE_SAVE': RUN_STATE_SAVE, 'RRHK_RUN_STATE_LOAD': RUN_STATE_LOAD, 'RRHK_RUN_AXES': RUN_AXES,
     'RRHK_SYS_PAUSE': SYS_PAUSE, 'RRHK_SYS_RESTART': SYS_RESTART,
     'RRHK_SYS_STATE_SAVE': SYS_STATE_SAVE, 'RRHK_SYS_STATE_LOAD': SYS_STATE_LOAD,
     'RRHK_REFUSED_OPTION': REFUSED_OPTION, 'RRHK_REFUSED_SNAPSHOT': REFUSED_SNAPSHOT,
@@ -87,6 +93,7 @@ class Hello:
     frame_rate_millihertz: int
     name: str
     options: str = ''           # this PC's run-changing options, "key=value" lines (the host's go to every seat)
+    save_size: int = 0          # the size of the game's save image it gives next (SAVE_OUT), 0: none (session ABI 8)
 
     @property
     def frame_seconds(self) -> float:
@@ -134,15 +141,41 @@ def parse_hello(payload: bytes) -> Hello:
     if len(payload) < 13 + length:
         raise Broken('a HELLO of the wrong length')
     name, rest = printable(payload[13:13 + length]), payload[13 + length:]
-    options = ''
-    if rest:                     # session ABI 6: u16 length, the options (absent: none)
-        if len(rest) < 2 or len(rest) != 2 + struct.unpack_from('<H', rest)[0] or len(rest) - 2 > MAX_OPTIONS:
+    options, save_size = '', 0
+    if rest:                     # session ABI 6: u16 length, the options; ABI 8: then u32 the save's size (absent: none)
+        if len(rest) < 2:
             raise Broken('a HELLO of the wrong length')
-        raw = rest[2:]
+        length = struct.unpack_from('<H', rest)[0]
+        tail = rest[2 + length:]
+        if length > MAX_OPTIONS or len(rest) < 2 + length or len(tail) not in (0, 4):
+            raise Broken('a HELLO of the wrong length')
+        raw = rest[2:2 + length]
+        if tail:
+            save_size = struct.unpack('<I', tail)[0]
+            if save_size > MAX_SAVE:
+                raise Broken('a save larger than a session carries')
         if any(not (32 <= byte < 127 or byte == 10) for byte in raw):
             raise Broken('HELLO options that are not plain text')
         options = raw.decode('ascii')
-    return Hello(abi, players, caps, bound, rate, name, options)
+    return Hello(abi, players, caps, bound, rate, name, options, save_size)
+
+
+def parse_save_out(payload: bytes) -> tuple[int, bytes]:
+    """(offset, data) of one SAVE_OUT: a part of the game's save image, in order."""
+    if not 4 < len(payload) <= 4 + SAVE_CHUNK:
+        raise Broken('a SAVE_OUT of the wrong length')
+    return struct.unpack_from('<I', payload)[0], payload[4:]
+
+
+def save_in(data: bytes) -> list[bytes]:
+    """The SAVE_IN messages that hand `data` (the host's save image) to a guest's game before its SETUP: u32 total, u32
+    offset, the data; an empty image is one message with no data (the game then plays with no save)."""
+    if len(data) > MAX_SAVE:
+        raise ValueError('a save larger than a session carries')
+    if not data:
+        return [frame(MSG_SAVE_IN, struct.pack('<II', 0, 0))]
+    return [frame(MSG_SAVE_IN, struct.pack('<II', len(data), offset) + data[offset:offset + SAVE_CHUNK])
+            for offset in range(0, len(data), SAVE_CHUNK)]
 
 
 def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:
@@ -152,8 +185,7 @@ def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:
         raise Refused(f'the game speaks session ABI {hello.abi}, this Retro-Recomp speaks {ABI}')
     if not hello.caps & CAP_DIGEST:
         raise Refused('the game gives no digest: two copies could not be compared')
-    for bit, what in ((CAP_POINTER, 'a pointer or light gun'), (CAP_AXES, 'analogue sticks'),
-                      (CAP_KEYBOARD, "a computer's keyboard")):
+    for bit, what in ((CAP_POINTER, 'a pointer or light gun'), (CAP_KEYBOARD, "a computer's keyboard")):
         if hello.caps & bit:
             raise Refused(f'the game reads {what}, which the pad words do not carry yet')
     if shared:
@@ -165,11 +197,15 @@ def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:
         raise Refused('the game gives no frame rate')
 
 
-def parse_local(payload: bytes) -> tuple[int, int, int]:
-    """(frame about to run, word, system bits)"""
-    if len(payload) != 8:
-        raise Broken('a LOCAL of the wrong length')
-    return struct.unpack('<IHH', payload)
+def parse_local(payload: bytes) -> tuple[int, int, int, tuple | None]:
+    """(frame about to run, word, system bits, sticks): the sticks are this PC's AXES int8 values for a game with sticks
+    (CAP_AXES), None otherwise."""
+    if len(payload) == 8:
+        return (*struct.unpack('<IHH', payload), None)
+    if len(payload) == 8 + AXES:
+        frame_number, word, system, *axes = struct.unpack(f'<IHH{AXES}b', payload)
+        return frame_number, word, system, tuple(max(-127, value) for value in axes)
+    raise Broken('a LOCAL of the wrong length')
 
 
 def parse_done(payload: bytes) -> tuple[int, int]:
@@ -224,13 +260,19 @@ def setup(seat: int, ports: int, ring_depth: int = 0, guest: bool = False, optio
     return frame(MSG_SETUP, struct.pack('<BBBBH', seat, ports, ring_depth, SETUP_GUEST if guest else 0, len(text)) + text)
 
 
-def run(frame_number: int, words, silent: bool = False, reset: bool = False, action: int = 0) -> bytes:
+def run(frame_number: int, words, silent: bool = False, reset: bool = False, action: int = 0, axes=None) -> bytes:
     """`reset`: the machine restarts before this frame runs (the host's restart, on every seat at this frame). `action`: one of
     `RUN_ACTIONS`, done before the frame runs (the host's restart, or its save or load of the match's state)."""
     if action not in RUN_ACTIONS or (reset and action not in (0, RUN_RESET)):
         raise ValueError('one action at most before a frame')
     flags = (RUN_SILENT if silent else 0) | (RUN_RESET if reset else 0) | action
-    return frame(MSG_RUN, struct.pack(f'<IBB{len(words)}H', frame_number, flags, len(words), *words))
+    payload = struct.pack(f'<IBB{len(words)}H', frame_number, flags, len(words), *words)
+    if axes is not None:         # `axes`: one AXES-tuple per port, after the words (session ABI 7)
+        if len(axes) != len(words) or any(len(port) != AXES for port in axes):
+            raise ValueError('one set of sticks per port')
+        payload = payload[:4] + bytes([flags | RUN_AXES]) + payload[5:] + struct.pack(
+            f'<{AXES * len(words)}b', *(max(-127, min(127, value)) for port in axes for value in port))
+    return frame(MSG_RUN, payload)
 
 
 def save(frame_number: int) -> bytes:

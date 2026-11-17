@@ -43,6 +43,7 @@ static struct {
     bool broken;                    /* the pipe closed, or a message broke the rules */
     uint16_t ports[RRHK_MAX_PLAYERS];
     bool silent;                    /* a re-simulated frame is running */
+    int setup_ports;                /* the ports SETUP gave (rrhk_session_ports) */
     bool driven_silent;             /* a driven machine's guest runs a silent frame: done when it calls rrhk_frame_done */
     bool guest;
     bool paused;
@@ -54,6 +55,8 @@ static struct {
                                      * memory only, freed with the session; NULL on a machine without snapshots */
     size_t state_size, state_len;
     bool state_used;
+    uint8_t *save_in;               /* the host's save image handed before SETUP (SAVE_IN), kept for a restart's put */
+    size_t save_total, save_got;
     uint8_t options[RRHK_SESSION_MAX_PAYLOAD];      /* the host's run-changing options of SETUP, applied again then */
     uint16_t options_length;
     char paused_by[24];
@@ -63,6 +66,8 @@ static struct {
     uint32_t last_run;              /* the last frame run, live or silent */
     bool local_sent;                /* LOCAL already reported for `live` */
     uint16_t word_sent, system_sent;   /* what that LOCAL said: a change of the system bits before the RUN is reported again */
+    int8_t axes_sent[RRHK_AXES];    /* and this PC's sticks (a machine with sticks) */
+    int8_t axes[RRHK_MAX_PLAYERS][RRHK_AXES];   /* every port's sticks of the frame being run (RRHK_RUN_AXES) */
     Uint64 ending_until;            /* the session ended: the message stays on screen until then, then the game closes */
     uint16_t exit_reason;           /* what EXIT says then (RRHK_EXIT_*): stopped by Retro-Recomp, lost, refused */
     int32_t ppm;                    /* time sync: added to the frame period */
@@ -76,6 +81,7 @@ static struct {
 
 bool rrhk_session_active(void) { return rrhk_session_on; }
 bool rrhk_session_silent(void) { return s.silent; }
+int rrhk_session_ports(void) { return rrhk_session_on && s.setup_ports ? s.setup_ports : 0; }
 bool rrhk_session_paused(void) { return rrhk_session_on && s.paused; }
 uint16_t rrhk_session_port(int port) { return port >= 0 && port < RRHK_MAX_PLAYERS ? s.ports[port] : 0; }
 bool rrhk_session_guest(void) { return rrhk_session_on && s.guest; }
@@ -236,6 +242,7 @@ bool rrhk_session_open(RrhkRun *run) {
         const RrhkMachine *m = run->machine;
         if (s.setup && !apply_options(m, s.options, s.options_length)) return false;
         if (s.guest && m->side_effects) m->side_effects(false);
+        if (s.setup && s.save_in && m->session_save_put) m->session_save_put(s.save_in, s.save_total);
         if (s.setup && m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
         return true;
     }
@@ -256,7 +263,7 @@ bool rrhk_session_open(RrhkRun *run) {
 #endif
     s.broken = false; s.rx_len = 0;
     /* HELLO: what this game can do in a session; the worker decides the tier (delay, rollback) or refuses the machine. */
-    uint8_t hello[16 + 64 + 2 + RRHK_SESSION_MAX_OPTIONS];
+    uint8_t hello[16 + 64 + 2 + RRHK_SESSION_MAX_OPTIONS + 4];
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
     const uint8_t caps = (uint8_t)((bound ? RRHK_CAP_SNAPSHOT : 0) | (m->digest ? RRHK_CAP_DIGEST : 0) |
                                    (m->pointer ? RRHK_CAP_POINTER : 0) | (m->analog_sticks ? RRHK_CAP_AXES : 0) |
@@ -286,17 +293,31 @@ bool rrhk_session_open(RrhkRun *run) {
         if (c != '\n' && (c < 32 || c > 126)) { options = 0; break; }      /* never a byte the worker would refuse */
     }
     put16(hello + 13 + name_length, (uint16_t)options);
-    if (!send_message(RRHK_MSG_HELLO, hello, 15 + name_length + options)) { fprintf(stderr, "[session] the pipe is closed\n"); return false; }
-    /* A gun or pointer (the local mouse) and sticks live outside the pad words: such a game is not offered until LOCAL carries
-     * them. A computer's keyboard bindings (keyboard_pad) feed the pad words like any other: in a session the computer adapter
-     * gives its guest no key of this PC (rrhk_computer.inc), so only the joysticks reach the machine (RRHK_CAP_KEYBOARD stays
-     * for a game that will read the guest keyboard once LOCAL carries it). */
-    if (m->pointer || m->analog_sticks) {
-        refuse(RRHK_REFUSED_COMMAND, m->pointer ? "pointer" : "axes");
+    /* This game's save image (session ABI 8): its size in HELLO, then the bytes in SAVE_OUT (the host's travel to every seat). */
+    size_t save_size = m->session_save ? m->session_save(NULL, 0) : 0;
+    uint8_t *save = save_size && save_size <= RRHK_SESSION_MAX_SAVE ? (uint8_t *)malloc(save_size) : NULL;
+    if (!save || m->session_save(save, save_size) != save_size) { free(save); save = NULL; save_size = 0; }
+    put32(hello + 15 + name_length + options, (uint32_t)save_size);
+    if (!send_message(RRHK_MSG_HELLO, hello, 19 + name_length + options)) { free(save); fprintf(stderr, "[session] the pipe is closed\n"); return false; }
+    for (size_t at = 0; at < save_size; at += RRHK_SESSION_SAVE_CHUNK) {
+        uint8_t chunk[4 + RRHK_SESSION_SAVE_CHUNK];
+        const size_t n = save_size - at < RRHK_SESSION_SAVE_CHUNK ? save_size - at : RRHK_SESSION_SAVE_CHUNK;
+        put32(chunk, (uint32_t)at);
+        memcpy(chunk + 4, save + at, n);
+        if (!send_message(RRHK_MSG_SAVE_OUT, chunk, 4 + n)) { free(save); return false; }
+    }
+    free(save);
+    /* A gun or pointer (the local mouse) lives outside the pad words: such a game is not offered until LOCAL carries it. The
+     * sticks travel since session ABI 7. A computer's keyboard bindings (keyboard_pad) feed the pad words like any other: in a
+     * session the computer adapter gives its guest no key of this PC (rrhk_computer.inc), so only the joysticks reach the
+     * machine (RRHK_CAP_KEYBOARD stays for a game that will read the guest keyboard once LOCAL carries it). */
+    if (m->pointer) {
+        refuse(RRHK_REFUSED_COMMAND, "pointer");
         fprintf(stderr, "[session] this game's controls cannot be shared yet\n");
         return false;
     }
     memset(s.ports, 0, sizeof s.ports);
+    memset(s.axes, 0, sizeof s.axes);
     memset(s.slot_used, 0, sizeof s.slot_used);
     s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.restart_pending = false; s.ppm = 0; s.ending_until = 0; s.system_sent = 0; s.exit_reason = 0;
     s.state_pending = 0; s.state_used = false; s.state_len = 0;
@@ -322,6 +343,7 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         return false;
     }
     s.guest = (payload[3] & RRHK_SETUP_GUEST) != 0;
+    s.setup_ports = (int)ports;
     if (!apply_options(m, payload + 6, options)) return false;
     memcpy(s.options, payload + 6, options); s.options_length = options;
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
@@ -337,6 +359,12 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         s.state_size = bound;
     }
     if (s.guest && m->side_effects) m->side_effects(false);
+    /* The host's save, in memory for this match (it came before SETUP, whole). */
+    if (s.save_got != s.save_total) { refuse(RRHK_REFUSED_COMMAND, "save"); return false; }
+    if (s.save_in && (!m->session_save_put || !m->session_save_put(s.save_in, s.save_total))) {
+        refuse(RRHK_REFUSED_COMMAND, "save");
+        return false;
+    }
     if (m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
@@ -366,11 +394,43 @@ static uint16_t clean_word(const RrhkMachine *m, uint16_t word) {
 
 static bool set_ports(const RrhkMachine *m, const uint8_t *payload, uint16_t length) {
     const unsigned count = payload[5];
-    if (count > RRHK_MAX_PLAYERS || length != 6u + 2u * count) return false;
+    const bool sticks = (payload[4] & RRHK_RUN_AXES) != 0;
+    if (count > RRHK_MAX_PLAYERS || length != 6u + 2u * count + (sticks ? RRHK_AXES * count : 0u)) return false;
     memset(s.ports, 0, sizeof s.ports);
+    memset(s.axes, 0, sizeof s.axes);
     for (unsigned p = 0; p < count; ++p)
         s.ports[p] = clean_word(m, (uint16_t)(payload[6 + 2 * p] | payload[7 + 2 * p] << 8));
+    if (sticks && m->analog_sticks)      /* a machine without sticks ignores them (its words are all it reads) */
+        for (unsigned p = 0; p < count; ++p)
+            for (int a = 0; a < RRHK_AXES; ++a) {
+                const int8_t value = (int8_t)payload[6 + 2 * count + RRHK_AXES * p + a];
+                s.axes[p][a] = value < -127 ? -127 : value;     /* symmetric, as the kit's own sticks */
+            }
     return true;
+}
+
+/* A port's sticks as the machine reads them (-32766..32766: 258 per step of the int8 the session carries). */
+void rrhk_session_axes(int port, int16_t axes[RRHK_AXES]) {
+    for (int a = 0; a < RRHK_AXES; ++a)
+        axes[a] = port >= 0 && port < RRHK_MAX_PLAYERS ? (int16_t)(s.axes[port][a] * 258) : 0;
+}
+
+/* This PC's sticks for LOCAL: the gamepad's (after its dead zone), with the machine's stick-from-key actions folded in, as
+ * int8 (the original pads' precision: a DualShock and an N64 stick are 8-bit). */
+static void local_axes(const RrhkMachine *m, uint64_t input_frame, int8_t out[RRHK_AXES]) {
+    int16_t axes[RRHK_AXES];
+    rrhk_local_pad_axes(0, input_frame, axes);
+    if (m->stick_actions) {
+        static const int axis[4] = {RRHK_AXIS_LX, RRHK_AXIS_LX, RRHK_AXIS_LY, RRHK_AXIS_LY};
+        static const int16_t edge[4] = {-32767, 32767, -32767, 32767};
+        for (int i = 0; i < 4; ++i)
+            if (m->stick_actions[i] >= 0 && m->stick_actions[i] < m->action_count && rrhk_action_held(0, m->stick_actions[i]))
+                axes[axis[i]] = edge[i];
+    }
+    for (int a = 0; a < RRHK_AXES; ++a) {
+        const int value = axes[a] >= 0 ? (axes[a] + 129) / 258 : -((-axes[a] + 129) / 258);
+        out[a] = (int8_t)(value > 127 ? 127 : value < -127 ? -127 : value);
+    }
 }
 
 /* The session is over (lost, refused, stopped): the reason stays on screen about 3.5 s (events polled, pictures presented, no
@@ -426,6 +486,22 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             fprintf(stderr, "[session] the setup was refused\n");
             return ending(rr_tr("Connection to Retro-Recomp lost"), RRHK_EXIT_FAILED);
         }
+        if (type == RRHK_MSG_SAVE_IN) {
+            /* The host's save image, in order, before SETUP (a guest). */
+            if (length < 8) return lost(run, "a SAVE_IN broke the rules");
+            const uint32_t total = u32(payload), offset = u32(payload + 4), n = length - 8u;
+            if (total > RRHK_SESSION_MAX_SAVE || n > RRHK_SESSION_SAVE_CHUNK || offset != s.save_got || offset + n > total ||
+                (s.save_in && total != s.save_total) || (!total && n))
+                return lost(run, "a SAVE_IN broke the rules");
+            if (!s.save_in && total) {
+                s.save_in = (uint8_t *)malloc(total);
+                if (!s.save_in) return lost(run, "no memory for the host's save");
+                s.save_total = total;
+            }
+            if (n) memcpy(s.save_in + offset, payload + 8, n);
+            s.save_got += n;
+            return 0;
+        }
         if (type) return lost(run, "a message before the setup");
         if (SDL_GetTicks64() >= s.setup_until) return lost(run, "no setup from Retro-Recomp");
         wait_input(4);
@@ -439,12 +515,18 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     if (!s.local_sent || system != s.system_sent) {
         /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
          * sends the neutral word. */
-        if (!s.local_sent) s.word_sent = rrhk.menu || rrhk.capturing || rrhk_chat_holds_word() ? 0 : rrhk_local_pad_word(0, input_frame);
-        uint8_t local[8];
+        if (!s.local_sent) {
+            const bool neutral = rrhk.menu || rrhk.capturing || rrhk_chat_holds_word();
+            s.word_sent = neutral ? 0 : rrhk_local_pad_word(0, input_frame);
+            memset(s.axes_sent, 0, sizeof s.axes_sent);
+            if (m->analog_sticks && !neutral) local_axes(m, input_frame, s.axes_sent);
+        }
+        uint8_t local[8 + RRHK_AXES];
         put32(local, s.live);
         put16(local + 4, s.word_sent);
         put16(local + 6, system);
-        if (!send_message(RRHK_MSG_LOCAL, local, sizeof local)) return lost(run, "the pipe is closed");
+        memcpy(local + 8, s.axes_sent, RRHK_AXES);
+        if (!send_message(RRHK_MSG_LOCAL, local, m->analog_sticks ? sizeof local : 8u)) return lost(run, "the pipe is closed");
         s.local_sent = true; s.system_sent = system;
     }
     /* Wait for the live frame at most three quarters of a frame, then show the last picture and come back. */
@@ -472,7 +554,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         case RRHK_MSG_RUN: {
             if (length < 6 || !set_ports(m, payload, length)) return lost(run, "a RUN broke the rules");
             const uint32_t frame = u32(payload);
-            if (payload[4] & ~(RRHK_RUN_SILENT | RRHK_RUN_RESET | RRHK_RUN_STATE_SAVE | RRHK_RUN_STATE_LOAD))
+            if (payload[4] & ~(RRHK_RUN_SILENT | RRHK_RUN_RESET | RRHK_RUN_STATE_SAVE | RRHK_RUN_STATE_LOAD | RRHK_RUN_AXES))
                 return lost(run, "a RUN with unknown flags");
             if (payload[4] & RRHK_RUN_SILENT) {
                 /* Re-simulation after a LOAD: frames in order, up to the one before the live frame. */
@@ -629,6 +711,7 @@ void rrhk_session_close(RrhkRun *run, int reason) {
     s.in = s.out = RRHK_NO_PIPE;
     free(s.ring); s.ring = NULL; s.depth = 0;
     free(s.state); s.state = NULL; s.state_size = s.state_len = 0; s.state_used = false;     /* the match's state ends here */
+    free(s.save_in); s.save_in = NULL; s.save_total = s.save_got = 0;                          /* and the host's save */
     chat_reset();
     rrhk_session_on = false;
 }

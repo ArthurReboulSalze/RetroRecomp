@@ -69,13 +69,14 @@ static struct {
 
 
 
-/* The libretro joypad of a port from the kit's pad word (keyboard, controller, stick, autofire, opposite directions). */
+/* The libretro joypad of a port from the kit's pad word (keyboard, controller, stick, autofire, opposite directions).
+ * In a multiplayer session the words are the network's: no local menu or focus changes them. */
 static int player_joy(unsigned port) {
    static const struct { unsigned action, id; } map[] = { {X_UP, RETRO_DEVICE_ID_JOYPAD_UP}, {X_DOWN, RETRO_DEVICE_ID_JOYPAD_DOWN},
       {X_LEFT, RETRO_DEVICE_ID_JOYPAD_LEFT}, {X_RIGHT, RETRO_DEVICE_ID_JOYPAD_RIGHT}, {X_A, RETRO_DEVICE_ID_JOYPAD_B}, {X_B, RETRO_DEVICE_ID_JOYPAD_A} };
    unsigned mask = 0, n;
    if (!ca.windowed || port > 1) return -1;
-   if (player_blocked() || !input_focus) return 0;
+   if (!rrhk_session_active() && (player_blocked() || !input_focus)) return 0;
    for (n = 0; n < sizeof map / sizeof map[0]; n++) if (ca.pad[port] & X_BIT(map[n].action)) mask |= 1u << map[n].id;
    return (int)mask;
 }
@@ -133,6 +134,97 @@ static bool x_run_frame(uint16_t p1, uint16_t p2) {
    return !frame_limit || frame_number < frame_limit;
 }
 static void x_pause(bool paused) { (void)paused; }
+
+/* ---- Multiplayer (hostkit_session.h) ----
+ * Only the exported game (the linked machine) plays in a session. Every seat plays the export's original disks from
+ * memory with a fresh SRAM and nothing reaches the host's files (base74/fileio.c); the snapshot is the machine's session
+ * snapshot (state/snapshot.c: RAM, video, devices, disk journals) plus the host's part below. Joystick games only: the
+ * keyboard and the mouse are not carried yet (reference_host.c, input_state). */
+static bool x_session_started;
+#ifdef RR_X68000_LINKED
+size_t rr_x68k_snap_bound(void);
+size_t rr_x68k_snap_save(void *buffer, size_t capacity);
+int rr_x68k_snap_load(const void *buffer, size_t size);
+uint64_t rr_x68k_digest(void);
+int rr_x68k_session_disk(unsigned index, const uint8_t *original, size_t size);
+int rr_x68k_session_start(void);
+const char *rr_x68k_disk_name(unsigned index);
+
+/* What decides the next frames outside the machine: the frame counters, the clock of the frame callback and the
+ * automatic disk changes. In process only (never sent, never a file). */
+typedef struct {
+   uint64_t total;                /* the snapshot's whole size: a load of another size is refused before any change */
+   uint64_t input_frame;
+   double elapsed_usec;
+   int selected[2];
+   unsigned empty_frames[2], interest_seen[2];
+   RRMediaRequest request[2];
+   unsigned width, height;
+} XSessionHost;
+
+static size_t x_snap_bound(void) {
+   const size_t core_bound = rr_x68k_snap_bound();
+   return core_bound ? sizeof(XSessionHost) + core_bound : 0;
+}
+static size_t x_snap_save(void *buffer, size_t capacity) {
+   XSessionHost h;
+   size_t n;
+   if (!buffer || capacity < sizeof h || !media_opened) return 0;
+   memset(&h, 0, sizeof h);
+   h.input_frame = input_frame; h.elapsed_usec = elapsed_usec;
+   memcpy(h.selected, media.selected, sizeof h.selected);
+   memcpy(h.empty_frames, media.empty_frames, sizeof h.empty_frames);
+   memcpy(h.interest_seen, media.interest_seen, sizeof h.interest_seen);
+   memcpy(h.request, media.request, sizeof h.request);
+   h.width = width; h.height = height;
+   n = rr_x68k_snap_save((uint8_t *)buffer + sizeof h, capacity - sizeof h);
+   if (!n) return 0;
+   h.total = sizeof h + n;
+   memcpy(buffer, &h, sizeof h);
+   return sizeof h + n;
+}
+static bool x_snap_load(const void *buffer, size_t size) {
+   XSessionHost h;
+   if (!buffer || size <= sizeof h || !media_opened) return false;
+   memcpy(&h, buffer, sizeof h);
+   if (h.total != size) return false;
+   if (!rr_x68k_snap_load((const uint8_t *)buffer + sizeof h, size - sizeof h)) return false;
+   input_frame = h.input_frame; elapsed_usec = h.elapsed_usec;
+   memcpy(media.selected, h.selected, sizeof h.selected);
+   memcpy(media.empty_frames, h.empty_frames, sizeof h.empty_frames);
+   memcpy(media.interest_seen, h.interest_seen, sizeof h.interest_seen);
+   memcpy(media.request, h.request, sizeof h.request);
+   width = h.width; height = h.height;
+   automatic_loading = false; memset(&loading_detector, 0, sizeof(loading_detector));
+   return true;
+}
+static uint64_t x_digest(void) { return rr_x68k_digest(); }
+
+/* The session starts (after SETUP, before the boot digest and frame 0): the set's original disks come from the
+ * executable, the machine boots (or restarts) on them with a fresh SRAM and its peripheral clock at zero (the RTC then
+ * reads 1 January 2000, RRHK_SESSION_CLOCK), and the disk session opens as after a first frame. */
+static void x_session_begin(uint64_t clock) {
+   unsigned i;
+   (void)clock;
+   x_session_started = true;
+   for (i = 0; rr_x68k_disk_name(i); i++) {
+      char path[64];
+      size_t size = 0;
+      const unsigned char *bytes;
+      snprintf(path, sizeof path, "media/%s", rr_x68k_disk_name(i));
+      bytes = rr_x68k_payload_original(path, &size);
+      if (!bytes || !rr_x68k_session_disk(i, bytes, size)) { fail("A disk of the set is missing from this executable"); return; }
+   }
+   if (!rr_x68k_session_start()) { fail("The session's disks could not be inserted"); return; }
+   input_frame = 0; elapsed_usec = 0.0;
+   automatic_loading = false; memset(&loading_detector, 0, sizeof(loading_detector));
+   if (!media_opened) {
+      media_opened = rr_media_open(&media, content, media_config, &disk_callbacks, select_drive, core.media_ready) != 0;
+      if (!media_opened) { fail(rr_media_error(&media)); return; }
+      rr_media_set_interest(&media, core.media_interest);
+   }
+}
+#endif
 static int x_players(void) { return 2; }
 static void x_reset(void) {
    core.reset();
@@ -178,6 +270,10 @@ const RrhkMachine *rrhk_adapter(void) {
          .frame_start = x_frame_start, .finished = x_finished,
          .event = x_event, .keyboard_pad = x_keyboard_pad, .fast_forward = x_fast_forward, .game_rect = x_game_rect,
          .help_page = x_help_page, .action_held = x_action_held,
+#ifdef RR_X68000_LINKED
+         .snap_bound = x_snap_bound, .snap_save = x_snap_save, .snap_load = x_snap_load,
+         .digest = x_digest, .session_begin = x_session_begin,
+#endif
       };
    }
    return &machine;

@@ -250,7 +250,7 @@ NOT_INPUTS = (
     'native/neogeo_z80_vector_checks.c', 'native/cps1_kabuki_checks.c',
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
-    'native/pce_huc6280_native_checks.cpp',
+    'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
@@ -268,6 +268,8 @@ NOT_INPUTS = (
     # tools/megadrive_moira_vectors.py (Moira, built from the adapted vAmiga, against the Mega Drive's native 68000 steps on forms no fixture
     # holds): the maker is built against vAmiga for a check and the decimal check against the generated steps, never into a game.
     'native/amiga_machine/moira_vector_maker.cpp', 'native/md_bcd_checks.c', 'native/md_audio_locked_checks.c', 'native/md_shadow_checks.c',
+    # tools/megadrive_rollback_selftest.py (the Mega Drive's multiplayer rollback snapshot, linked with a game build's objects): a check.
+    'native/md_rollback_checks.c',
     # tools/amiga_blitter_selftest.py (the Blitter's specialised routines against vAmiga's microprogram): the same, a check, never in a game.
     'native/amiga_machine/amiga_blit_checks.cpp',
     # tools/amiga_display_selftest.py (Agnus and Denise recorded instruction by instruction and frame by frame, for the fast paths to come): the same, a check, never in a game.
@@ -282,6 +284,8 @@ NOT_INPUTS = (
     'native/atarist_machine/atarist_vector_checks.c',
     # tools/atarist_hardware_check.py (authored 68000 programs measured against the hardware's documentation): built for a check only.
     'native/atarist_machine/atarist_hardware_checks.c',
+    # tools/atarist_snapshot_check.py (the in-process snapshot of the multiplayer rollback, proved with the same authored programs): built for a check only.
+    'native/atarist_machine/atarist_snapshot_checks.c',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
     # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the
@@ -484,6 +488,9 @@ INPUTS = _resolve({
     ('gb',): (
         'native/gb_audio_checks.c',
         'native/gb_boundary_checks.c',
+        'native/gb_digest.h',
+        'native/gb_machine_checks.c',
+        'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
         'native/gb_ram_helpers.h',
@@ -601,6 +608,7 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_hardware',
         'retrorecomp.megadrive_memory',
         'retrorecomp.megadrive_read',
+        'retrorecomp.megadrive_rollback',
         'retrorecomp.megadrive_runtime',
         'retrorecomp.megadrive_sram',
         'retrorecomp.megadrive_static',
@@ -624,6 +632,7 @@ INPUTS = _resolve({
         'native/snes_dsp1_projection.inc',
         'native/snes_dsp1_vectors.h',
         'native/snes_hdma.inc',
+        'native/snes_machine_checks.c',
         'native/snes_native_checks.c',
         'native/snes_native_steps.h',
         'native/snes_ppu_bus.inc',
@@ -733,6 +742,7 @@ INPUTS = _resolve({
         'native/atarist_machine/atarist_player.c',
         'native/atarist_machine/atarist_session.c',
         'native/atarist_machine/atarist_session.h',
+        'native/atarist_machine/atarist_snapshot.h',
         'native/atarist_machine/libretro/libretro.h',
         'native/hostkit/adapters/rrhk_atarist.inc',
         'retrorecomp.atarist',
@@ -741,6 +751,7 @@ INPUTS = _resolve({
         'retrorecomp.atarist_disk',
         'retrorecomp.atarist_emutos',
         'retrorecomp.atarist_hatari',
+        'retrorecomp.atarist_hatari_rollback',
         'retrorecomp.atarist_knowledge',
         'retrorecomp.atarist_notes',
         'retrorecomp.atarist_tos',
@@ -983,7 +994,10 @@ INPUTS = _resolve({
         'native/pce_backup.h',
         'native/pce_machine.cpp',
         'native/pce_machine.h',
+        'native/pce_machine_internal.hpp',
         'native/pce_main.c',
+        'native/pce_snapshot.cpp',
+        'native/pce_snapshot.h',
         'retrorecomp.pce_build',
         'retrorecomp.pce_conversion',
         'retrorecomp.pce_knowledge',

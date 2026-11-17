@@ -87,9 +87,14 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
+| [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
-| [Super Nintendo: multiplayer, the digest (delay tier)](#super-nintendo-multiplayer-the-digest-delay-tier-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
+| [Super Nintendo: multiplayer, digest and rollback on the boards without a chip](#super-nintendo-multiplayer-digest-and-rollback-on-the-boards-without-a-chip-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
+| [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
+| [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
+| [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-next-release) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
+| [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-next-release) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Commodore Amiga 500 and 1200: multiplayer on the rollback tier](#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, the new `retrorecomp.amiga_vamiga_session`, `retrorecomp.amiga_conversion`, `systems/amiga.py`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h` and the adapted vAmiga): an older quick state is refused cleanly; the file's layout is unchanged |
 
 ## Commodore Amiga 500 and 1200: multiplayer on the rollback tier (next release)
@@ -120,7 +125,7 @@ its Kickstart 3.1: about 300 corrections per seat, up to 5 frames deep). On the 
 times in 3,000 frames: replaying 5 frames of that machine fits less easily in a frame (its cost is not measured). Snapshots: about 2.7 MB (Amiga 500) and 4.3 MB (Amiga 1200); their time is not measured yet (a quiet
 PC, with the owner's agreement).
 
-**Stamps** (against `spec/multiplayer` `87b3fe97`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.
+**Stamps** (against `spec/multiplayer` `a08bdd4e`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
 
@@ -137,13 +142,62 @@ R Good Enough (MSX2+), the digests equal before the load and different after. Sn
 MB for a disk game; their time is not measured yet (a quiet PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `ea1ac0ba`): the MSX, MSX2 and MSX2+ game and host stamps; nothing else.
+| [PC Engine: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the PC Engine game stamp** (`native/pce_machine.cpp`, `pce_machine.h`, `pce_machine_internal.hpp`, `pce_snapshot.cpp`, `pce_snapshot.h`, `pce_main.c`, `retrorecomp/pce_build.py`, `systems/pc_engine.py`) | **the PC Engine host stamp** (the adapter `adapters/rrhk_pce.c`) | unchanged (the snapshot is a session's, not a quick state's) |
+
+## Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session (next release)
+
+[X68000.md](X68000.md). **The computers (`rrhk_computer.inc`, commit ca357e84):** while a session runs, only the two pad words
+reach the guest on the X68000, Atari ST, Amiga and MSX family: no key or mouse of the PC (`player_poll` gives none), the guest
+keyboard stays off (Ctrl+Alt+K and the F2 row say it is not shared), no function key, no local menu, focus or gamepad Start,
+no disk or fast-loading key of one seat; Start stays the guest's Return of the first player, from the pad word. Alone, nothing
+changes. **The X68000:** a session snapshot in memory (`state/snapshot.c`: `rr_x68k_snap_bound/save/load`, `rr_x68k_digest`) built
+from the quick state's own visitors (`rr_state.h`: a fixed buffer, arrays copied as they are in memory, the 10 MB of RAM the bus
+can write, the last presented picture size), without allocation; the disks are journals (the 1 KiB blocks that differ from the
+original, per disk of the set and per drive), bounded by 512 KiB. In a session every seat plays the export's own disks from
+memory with a fresh SRAM and its peripheral clock at zero (the RTC reads 1 January 2000), and nothing reaches the host's files
+(`base74/fileio.c`: the set's images are served from memory, any other write is swallowed; the disk choices are not saved at
+the end). Silent frames show no picture and queue no sound; the seat's own disk keys and fast loading do nothing. The portable
+quick-state format (RRX68MS1) does not change. **Proof (ROM-free in the kit's sense, on a real game):** `--rollback-probe`
+(save, 600 frames, load, the same 600 frames: every digest equal; a second save over other bytes identical; a load one byte short
+refused with no change; the digest of the loaded state equal) passes at 25 save points of Bubble Bobble (Dempa), from the boot and
+its disk loading to two-player play. **Stamps** (compared with spec/multiplayer 65cf35f3): the X68000 game stamp and host
+stamp; the host stamp of the Amiga, Amiga 1200, Atari ST, MSX, MSX2 and MSX2+ (`rrhk_computer.inc`). The X68000 quick-state
+key moves (`reference_host.c`, `rr_state.c`, `snapshot.c` are hashed): quick states of earlier X68000 exports are refused
+cleanly. **Limits:** joystick games only (keyboard and mouse are not carried); both players need the same IPL and font ROM (they
+are inside the executable); a session that writes more than 512 KiB of disk blocks ends with the reason.
+
+## Atari ST: multiplayer on the rollback tier (next release)
+
+The Atari ST answers a session (`netplay_session`), with the rollback tier and the host's F8 / F9 for everyone. The adapted Hatari gets a
+lean in-memory snapshot of its own (`retrorecomp/atarist_hatari_rollback.py`, GPL-2.0 like Hatari; `native/atarist_machine/atarist_snapshot.h`,
+outside the engine's native inputs, so the Atari ST's qualified paths stay valid: the engine identity is unchanged): it keeps what a game
+changes (the 68000 with its prefetch, the RAM and the I/O area, the MFP, the YM2149, the keyboard controller, the WD1772 and the position in
+an IPF track, the cycle and video counters, the generator) and leaves out what it does not (the TOS, the configuration, the images, the
+flux), restores in place at once (a digest or a save right after a load is complete), and keeps the table of sectors a game wrote (up to 64
+KB, a bigger table refuses the save). A game on STX, SCP or Kryoflux images has no snapshot and stays on the delay tier. The digest is named
+fields in a fixed order (the same on Windows and Linux). In a match every seat starts from the export's own disks (this PC's saved writes are
+neither read nor written; the writes stay in memory), reads the session's clock (the board's real-time clock, when a model has one, runs on
+UTC 1 January 2000), and a restart goes back in place to the machine after its first frame. The keyboard and the mouse are cut (joystick games
+first); the disk change is off. Alone, a game runs as before.
+
+**Proofs:** `tools/atarist_snapshot_check.py` (no ROM: authored 68000 programs on the timers, the picture, the PSG, the keyboard controller
+with joysticks and the floppy controller, 19 runs: save, run, load, run again, every digest equal; a save right after a load byte for byte
+the first; a damaged or wrong-size snapshot refused with the machine untouched; the table of writes restored; two restarts from different
+moments give the same machine). `tools/netplay_game_smoke.py` on Bomb Jack converted by this branch: `--frames 3000 --rollback 5 --latency 30
+--jitter 10 --hold 4 --save-at 600 --load-at 1500` PASS (tier rollback on both seats, 3,000 frames, 50 digests equal, the save and load at
+the same frames); with `--save-digests`, with and without `--save-at 600 --load-at 1200`, the 20 digests before the load are equal and the
+10 after it differ; `--restart-at 700` PASS (both seats restart before frame 702). A snapshot takes 1.44 MB (bound 1.51 MB with the table of
+writes); its time is not measured yet (a quiet PC, with the owner's agreement). Not a claim of fidelity or of gameplay validation.
+
+**Stamps:** the Atari ST's game stamp (the adaptation of Hatari: `atarist_hatari_rollback.py`, `atarist_snapshot.h`) and host stamp (the
+adapter `rrhk_atarist.inc`); nothing else. The Hatari adaptation digest moves: the machine core is built again once.
 
 ## Every machine: multiplayer, two to four players over the local network (next release)
 
 In preparation on the multiplayer branch; this section is completed when it merges. What moves: the game stamp of the 21
 profiles (the simulation identity that lets two players check they run the same game, and the recipe mode: modules of every
 game stamp), so **every export is converted again once**; the host stamp of every machine with the host kit (the session code
-of the shell: `hostkit_session.h` at session ABI 4, `rrhk_session.inc`, the chat `rrhk_chat.inc`, new catalogue strings in the
+of the shell: `hostkit_session.h` at session ABI 7 (the sticks travel since 7), `rrhk_session.inc`, the chat `rrhk_chat.inc`, new catalogue strings in the
 eight locales). Alone, a game runs as before: the session code is reached only when the converter starts the game with its
 pipes (`RETRORECOMP_NETPLAY_PIPE`), and the solo restart, controls, quick states and pacing are unchanged (tests of the kit's
 session self-test, "restart alone" and "alone"). In a session the host's F8 / F9 save and load the match's state for everyone at
@@ -153,19 +207,32 @@ November 2026, two Windows PCs on a home network, Contra NES): two-player matche
 everyone, 150 ms of simulated round trip on the rollback tier with no wait, the in-game chat on keyboard and gamepad.
 Physical latency is not measured.
 
-## Super Nintendo: multiplayer, the digest (delay tier) (next release)
+## Super Nintendo: multiplayer, digest and rollback on the boards without a chip (next release)
 
-On the multiplayer branch (`spec/snes-rollback`, first delivery). The Super Nintendo now answers a session: `SnesProfile` sets
-`netplay_session`, and the adapter (`rrhk_snes.c`) gives the host kit a **digest** (`rr16_snes_digest`, `snes_backend.c`). It walks
-the engine's own serializers in a fixed order (65816 and its registers and cycle counters, WRAM and the beam, interrupt and joypad
-state with the multitap, SPC700 and APU RAM with the S-DSP **without its output ring** (the audio thread moves its read cursor),
-PPU registers, memories and ports, DMA/HDMA, cartridge RAM and every enhancement chip), each field named, none a pointer or a
-raw struct of the Snes. No snapshot yet: the machine plays on the **delay tier** and no board is proven for rollback. **Stamps:**
-the Super Nintendo game stamp moves (the profile) and its host stamp moves (`snes_backend.c`, `rrhk_snes.c`): its exports are
-rebuilt and converted again once; no other machine's stamp moves. **Quick states:** the Super Nintendo key hashes `snes_backend.c`
-and so moves; an older quick state is refused cleanly (accepted by the multiplayer specialist, 17 November 2026). **Proof so far** (17 November 2026, one PC,
-two copies of Super Mario World, LoROM, delay 4, 30 ms with 10 ms of jitter simulated): 1,500 frames, boot digests equal and 25
-confirmed-frame digests equal on both seats. Chip boards, rollback and physical latency are not measured.
+On the multiplayer branch (`spec/snes-rollback`). The Super Nintendo answers a session: `SnesProfile` sets `netplay_session`, and the
+adapter (`rrhk_snes.c`) gives the host kit a **digest**, a **snapshot** and **side effects**. The digest (`rr16_snes_digest`,
+`snes_backend.c`) walks the engine's own serializers in a fixed order (65816 and its registers and cycle counters, WRAM and the beam,
+interrupt and joypad state with the multitap, SPC700 and APU RAM with the S-DSP **without its output ring** (the audio thread moves its
+read cursor), PPU registers, memories and ports (not the widescreen sprite classifier, which is presentation), DMA/HDMA, cartridge
+RAM and every enhancement chip), each field named, none a pointer. The snapshot is the engine's rollback snapshot
+(`RtlNetplaySnapshotToMemory` / `RtlRollbackLoadFromMemory`: the guest state, the execution residue, the output ring blanked on save
+and kept live on load) in a buffer the kit owns, about 335 to 345 KiB, the bound measured once; the retained picture of the field
+(presentation) is left out of a rollback snapshot, so a quick state file keeps one more byte (the flag that says it is there).
+`side_effects(false)` stops the cartridge save write, for a silent frame and, for a guest, for the whole session (the periodic write
+and the one at exit). **Boards proven for rollback: the ones without an enhancement chip.** A board with a chip (Super FX, SA-1, S-DD1,
+DSP-1, CX4) answers no snapshot and plays on the **delay tier** until its own proof is given. **Stamps:** the Super Nintendo game stamp
+moves (the profile) and its host stamp moves (`snes_backend.c`, `rrhk_snes.c`, the new `snes_machine_checks.c`): its exports are rebuilt and
+converted again once; no other machine's stamp moves. **Quick states:** the Super Nintendo key hashes `snes_backend.c` and so moves; an
+older quick state is refused cleanly (accepted by the multiplayer specialist, 17 November 2026). **Proof so far** (17 November 2026, one
+PC, no ROM in the repository): `tools/snes_machine_selftest.py` (ROM-free: four authored cartridges, NTSC and PAL, with and without a
+raster interrupt, 6,708 checks: a save over other bytes is the same bytes, load then save is the same bytes, a replay of 40 frames from
+three save points equals the first run in digest, picture and sound, a wrong size and a too small capacity are refused); the same
+checks over Super Mario World, Secret of Mana and Chrono Trigger (digests equal at every frame of every replay; the picture differs in at
+most 3 of the first replayed, silent frames and the sound block differs because the live output ring is kept, both presentation);
+`netplay_game_smoke.py --frames 3000 --rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500` on the same three
+games: PASS, tier rollback on both seats (Super Mario World: 499 and 279 corrections, deepest 4), the save and the load at the same
+frames, digests equal; with `--save-digests`, equal up to frame 1499 and different from frame 1559 when the load acts. The
+digest is not yet compared between Windows and Linux. Physical latency and the cost of a save or a load are not measured.
 
 ## Master System and Game Gear: rollback snapshot and the frame handed over at an instruction boundary (next release)
 
@@ -201,6 +268,10 @@ paths of both boards changes with the machine's sources, as for any change of th
 - **The EEPROM in a session.** Every seat starts from a blank EEPROM (a settings file that one player has and another has not would
   make the matches diverge): in a session the file is neither read nor written, and a frame with `side_effects` off takes the change
   flag and asks for no file. Alone, the saves are as before.
+- **The DIP switches are run-changing options** (session ABI 6): the adapter reports the host's three DIP words in its HELLO
+  (`dips=00ff,00fc,009f`) and applies the host's to every seat from SETUP, in memory only (a guest's own settings file is never written and
+  comes back when it plays alone). The DIP page was already run-changing, so its keys are refused in a session. Proof: 1941 with a guest whose
+  settings file holds other DIP values: boot mismatch without the host's options, PASS (1200 frames, rollback tier) with them.
 - **Players 3 and 4** are read in `run_frame` and no longer in `before_frame`: a frame run again after a correction (hostkit session,
   "silent") calls `run_frame` with the session's words but never `before_frame`, so pads set there were those of the last live frame and
   four-seat matches diverged at the first correction (found by the four-seat smoke run). Alone, the word is the same.
@@ -214,6 +285,134 @@ paths of both boards changes with the machine's sources, as for any change of th
   `--save-digests`: the rollback tier and the delay tier give the same digests and history; with and without the save and load the
   digests are equal up to frame 1499 and differ from the first one after the load. Not measured: the cost of a save or a load, physical
   latency, hardware fidelity.
+
+## Game Boy: rollback and the host's F8 / F9 for everyone (next release)
+
+Branch `spec/gb-rollback` (from `spec/multiplayer`). The Game Boy joins a session on the **rollback tier**, in input sharing (a handheld
+plays "everyone" or "turns": `netplay_shared_only`), with the host's F8 / F9 for everyone, like the NES. Alone nothing changes: the session
+code is reached only with the pipes, and the quick-state file of the runtime is not touched.
+
+**What it adds.** `native/gb_machine_state.h` (appended to the runtime's `gbrt.c`, where the static core-state capture is): an in-memory
+snapshot of the context (the quick-state file's core state: CPU, mapper registers, the MBC3 clock in cycles, DMA, HDMA, serial, LCD-off
+bookkeeping), the five memory blocks, the cartridge RAM, the video unit's and the sound unit's own structs, and the five fields of the sound
+unit's lazy scheduling. **A snapshot never synchronises the sound unit** (the quick-state file does), so taking one changes nothing of the
+future. **One size for every game**: 343,696 bytes (the cartridge RAM counts at its largest, 128 KiB, a smaller one is padded), so that the
+host kit can ask it when the session opens, before the guest registers its context. `rr_gb_snap_bound`, `rr_gb_snap_save` (0 on failure, no
+allocation), `rr_gb_snap_load` (complete at once; refuses a wrong size, a damaged header, another ROM; the context is untouched).
+`rr_gb_digest`: FNV-1a over named fields in a fixed byte order (CPU, mapper, clock, time, the sound unit's scheduling, DMA, HDMA, serial, the
+memory blocks, the video unit by field, the sound unit by field in `audio.c`: `gameboy_hardware.adapt_audio_digest`), never a raw struct,
+nothing of the pictures, the interpreter and performance counters or the host. The adapter (`rrhk_gb.inc`) adds the pad registers of the
+platform layer and wires `snap_bound`, `snap_save`, `snap_load`, `digest`, `side_effects`, `session_begin`.
+
+**In a session.** The kit's shared way for the machines whose guest owns the loop (session ABI 5) needs no hook of the Game Boy: a silent
+frame is a frame the generated loop runs and ends at its next `rrhk_frame_done`. The adapter does the rest: a session's frame is one whole
+machine frame (the smooth LCD slices of the loop are off in a session: `gb_platform_get_smooth_lcd_transitions`), the pads are the session's
+words (fixed for the frame), nothing goes to the sound output and no picture is copied during a silent frame, and the cartridge RAM and
+clock files are not written when `side_effects(false)` (a guest's whole session, silent frames: `write_persistence_transaction` is patched in
+`gameboy_host.py`). The MBC3 clock runs on the session's clock (`session_begin`: 1 January 2000 UTC on every seat, the registers set from it,
+no time stamp of the clock file or of this PC). Saves load as a game alone loads them and the boot digest refuses two seats whose cartridge
+RAM differs, until the kit's transfer of the host's saves arrives.
+
+**Proof.** `tools/gameboy_machine_selftest.py` + `native/gb_machine_checks.c`: three authored cartridges (MBC1 with RAM, MBC3 with a clock,
+MBC5 on the colour hardware) in 420 random slices with random host writes between them (DMA, HDMA, sound, timer, serial, LCD, scroll,
+mapper, memory), compared with an independent whole-state hash of the raw context: a run replayed from a snapshot gives the same digest,
+the same whole-state hash and the same snapshot bytes after every step (2,055 steps replayed from two load points, on the same context and
+on one allocated apart); a snapshot every step changes nothing of the run; the same bytes over any buffer; refusals leave the context as it
+was; the digest moves with every group of fields and not with the pictures or the counters; snapshots were taken in the middle of an OAM DMA
+(115), the DMA start-up (40), an HDMA (217), a timer reload (13), a serial transfer (253), a halted CPU, a switched-off screen and at a
+finished frame (EI-pending: its own case). The same checks pass on four real cartridges read from the player's library, never copied
+(Tetris, Super Mario Land 2, Link's Awakening, Pokemon Yellow: 4,420 snapshots compared each), through the interpreter.
+**Two copies of a real game on one PC** (`tools/netplay_game_smoke.py`, input sharing "everyone", `--rollback 5 --latency 30 --jitter 10
+--hold 4 --save-at 600 --load-at 1500`, 3000 frames, 17 November 2026): Tetris and Pokemon Yellow (MBC5 with battery RAM) PASS on the rollback
+tier on both seats (Tetris: 260 and 426 corrections, deepest 5, 3,035 and 3,230 snapshots, equal boot digest and 50 equal digests, the save
+and the load at the same frames); a delay-tier run and a rollback-tier run with the same pads and delay give the same digests; the same run
+with `--save-at` / `--load-at` is equal to it before the load and different after (the load acts). Not measured: the cost of a snapshot on a
+quiet PC (about 336 KB copied per frame), physical latency, a Linux run, a game with a clock.
+
+**Stamps** (compared with `spec/multiplayer`, all 21 machines): only the Game Boy moves, its **game** stamp (the runtime part, the two
+patches and the persistence patch; the multiplayer branch already moves every game stamp, so this adds no further reconversion) and its **host**
+stamp (the adapter). Quick states: no key moves. The profile gets `netplay_session = True`.
+## PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone (next release)
+
+The PC Engine joins the multiplayer rollback tier at the level of the NES: its adapter gives the host kit an in-process snapshot, a digest and the side-effects switch ([PC_ENGINE.md](PC_ENGINE.md#multiplayer-rollback-and-the-hosts-f8--f9-for-everyone-17-november-2026)),
+and its profile says `netplay_session`, with up to four seats through the multitap, which a session plugs in for every seat and whose players 3 and 4 are read inside `run_frame`; the host's Backup RAM travels to every seat. **What moves:** the PC Engine game stamp (`native/pce_machine.cpp` and `.h`, the new `pce_machine_internal.hpp`, `pce_snapshot.cpp` and `.h`, `pce_main.c`,
+`retrorecomp/pce_build.py` with its new files, `systems/pc_engine.py`) and the PC Engine host stamp (`adapters/rrhk_pce.c`); no other machine moves. A PC Engine export of the previous release is
+converted again once, as every export is for the multiplayer release. **Quick states:** unchanged, and a session never reads or writes them. **Hot path:** none added to a solo game: the snapshot is reached only through the adapter's
+pointers when the converter starts the game with its pipes; the only change a solo frame sees is one call that tells whether the player's record is on (it was a direct pointer). **Proof:** the probe of the snapshot on an authored card and the Street Fighter II
+board, and Bomberman '93 in two copies on the rollback tier with a save and a load for everyone; nothing is timed.
+
+## NES: the Four Score, players 3 and 4 (multiplayer) (next release)
+
+On the multiplayer branch (`spec/nes-fourscore`, cut from `spec/multiplayer`). A NES game that reads the **Four Score** (the
+adapter that gives two ports four controllers) now gets players 3 and 4, alone and in a session. **Machine:** each port's serial
+register is 24 bits long instead of 8 (`nes_machine.py` `_four_score`, patching the engine's `hw_apu.c` in the staged copy only):
+$4016 returns player 1's eight buttons, then player 3's, then the signature `00010000`; $4017 players 2 and 4 and `00100000`
+(nesdev wiki, "Four Score"). A game built without it (`RR_NES_FOUR_SCORE 0`, every game but those in the catalogue) loads ones
+behind the first byte, which is what the engine shifted in before: its reads are unchanged. The extra pads reach the machine as
+controller ports 2 and 3 of `cyc_set_controller`, and the register is part of the saved APU (`RrFourScore`), so a quick state,
+the in-process snapshot of the rollback tier and the digest carry it. **Adapter:** `rrhk_nes.c` reads players 3 and 4 inside
+`run_frame`, not in `before_frame`, so a frame run again after a correction (silent, no `before_frame`) has the corrected words;
+`players()` says 4 and the binding table has four rows only for those games. **Converter:** `nes_catalog.four_score_game` (NES 2.0
+header, default expansion device 2, or the exact title of a game written for the adapter; never a Zapper game) sets
+`RR_NES_FOUR_SCORE` in the project's CMake file; the report says `input_players` 4 and `four_score`; the NES profile has
+`netplay_seats` 4 as a ceiling (`netplay_seats_ceiling`) and `lobby_check.players_in_report` reads the report's number, so the
+lobby seats 4 for these games and 2 for every other. **Stamps:** the NES game stamp and host stamp move (every NES export is
+converted again once, as for any NES engine change); **the NES quick-state key moves** (it hashes the staged `hw_apu.c`); an older
+quick state is refused cleanly. No other machine moves. **Proof so far:** the ROM-free fixture `tools/nes_machine_selftest.py`
+(authored cartridges, mappers 0 and 4, NTSC and PAL, 3 more checks than the two-player build): the 24 bits of both ports with the
+four pads and the signatures, a new strobe, a read cut in the middle then saved and loaded (quick state and snapshot), the digest
+seeing the pads of players 3 and 4; the build without the Four Score is unchanged (749 and 751 checks as before, plus its own). Not
+proven: a Four Score game played on four seats (see the multiplayer notes of the same branch), the Famicom's own four-player adapter
+(different wiring, not supported), and the catalogue's titles were not all checked against a dump.
+
+## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (next release)
+
+The Mega Drive leaves the delay tier: its adapter gives the in-process snapshot of `hostkit.h` (`snap_bound`, `snap_save`,
+`snap_load`), so a session plays it on the rollback tier and the host's F8 / F9 save and load the match's state for everyone.
+The snapshot is the whole state that decides later frames: the 68000, work RAM, the machine (VDP, bus, cartridge RAM, sound
+CPU), the YM2612 and PSG with their undrained samples and timers, the queued sound events, the scheduler, the pads, the
+cartridge chips and the gun. A frame can end with the 68000 suspended inside an instruction (a 68000-to-VRAM DMA, a bus wait),
+with the sound CPU suspended in a read of the 68000's bus, or with a bus request not yet granted. A quick state refuses those
+frame ends; the snapshot keeps them. It holds the two live continuations (the fibers' stacks, raw) and the statics those
+instructions read when they resume, kept raw because nothing they point to moves in a process: fibers are now kept for the
+whole run (a destroyed one is parked and reset in place when one of the same size is needed). Memory only, never written to a
+file or sent; no allocation per call once the YM2612's two buffers exist. A silent frame (a rollback running frames already
+heard again) gives the sound device nothing. All of it is added to the private runtime copies by
+`retrorecomp/megadrive_rollback.py`; the files of the Mega Drive quick-state key are not touched, and a quick state keeps its
+portable form. A build without step code (none of the current conversions) gives no snapshot and stays on the delay tier.
+**Size:** `snap_bound` is 427,430 bytes; the largest save seen was 211,454 bytes (game fiber stack at most 1,844 bytes, sound
+CPU's 1,288). Save and load times are not measured. **Proof** (17 November 2026, Streets of Rage 2, llvm build):
+`tools/megadrive_rollback_selftest.py` (`native/md_rollback_checks.c`, linked with a game build's objects). First, an authored
+program in work RAM with no game code: 224 rollbacks, each a save, eight frames with changing pads, a load and the same eight
+frames, every frame's digest and sound identical and the snapshot after them the same. Of those, 153 at frame ends with the
+68000 inside an instruction under DMA, 186 with the sound CPU suspended on the bus and 10 with a bus request pending. Seven
+negative controls (a part from the later state: the game fiber, the bus scheduler, the glue, the interpreter, the sound CPU's
+phase, the 68000, the RAM) are each noticed. A save over other bytes gives the same bytes; short buffers, wrong sizes and a
+wrong header are refused. Second, the game itself: 1,800 frames from power-on, 434 rollbacks, all exact (128 with the 68000
+inside an instruction, 242 with the sound CPU suspended). Two copies on one PC (`tools/netplay_game_smoke.py --frames 3000
+--rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500`): PASS, both seats on the rollback tier (192 and
+528 rollbacks, deepest 5), the save at frame 602 and the load at 1502 on both. With `--save-digests`, with and without the
+save and load: 25 of 25 digests equal before the load, 0 of 25 after (the load acts). **Stamps:** the Mega Drive game, engine
+and host stamps move (compared with `spec/multiplayer` 1f5b2340); no other machine's. **Existing exports:** a Mega Drive
+game converted before stays on the delay tier until it is converted again (the multiplayer release converts every export
+again anyway).
+
+## Sony PlayStation: multiplayer, the digest and the host's settings (delay tier) (next release)
+
+On the multiplayer branch (`spec/psx-mp-digest`). The PlayStation's adapter gives the host kit a **digest** (`rr_psx_digest`:
+CPU and GTE, RAM, scratchpad, sound RAM and the memory card in a fixed little-endian order, no VRAM), `side_effects` (a guest
+records no runtime hint), `session_begin` (every seat starts on the core's empty memory card; the player's card file is neither
+read again nor written) and `session_option` with four keys the host sets for everyone: `pgxp`, `pgxp_texture`, `cpu_resolution`
+and, with PGXP On, `renderer`; their F3 rows are refused during a match. `rr_psx_session_values` (`session_options`, session ABI 6) gives the host's own values.
+The profile answers a session (`netplay_session`); the sticks travel with the pads (session ABI 7). Alone, nothing changes: every
+new path is reached only in a match (or by the headless `--match` and `--digests` of the evidence). What moves: the
+PlayStation's game stamp (the profile, its runtime and Beetle's adaptation: `rr_psx_spu_ram`), so a PlayStation export is
+converted again; the PlayStation's host stamp; one new catalogue string (« Not during a multiplayer game ») moves the host stamp
+of every machine with the host kit, as the multiplayer line above already does. Quick states: unchanged. **Proof**:
+[PLAYSTATION.md section 10](PLAYSTATION.md#10-multiplayer-the-digest-and-the-hosts-settings-next-release-delay-tier) (Ape
+Escape: digests equal on the same run with PGXP Off and On, and between Windows and Linux; the settings that change the run
+measured and pushed; two copies through the session on the delay tier PASS with the host's values). Physical latency is not
+measured.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

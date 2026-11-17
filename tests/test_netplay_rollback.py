@@ -65,9 +65,12 @@ class SteppedGame:
         name = b'STEPPED'
         sink((pipe.MSG_HELLO, struct.pack('<HBBIIB', pipe.ABI, 4, self.caps, self.bound, 60000, len(name)) + name))
 
-    def local(self, frame, word=0, system=0):
+    def local(self, frame, word=0, system=0, axes=None):
         self.asked = True
-        self._sink((pipe.MSG_LOCAL, struct.pack('<IHH', frame, word, system)))
+        payload = struct.pack('<IHH', frame, word, system)
+        if axes is not None:
+            payload += struct.pack('<4b', *axes)
+        self._sink((pipe.MSG_LOCAL, payload))
 
     def close_pipe(self):
         pass
@@ -107,6 +110,10 @@ class SteppedGame:
         elif kind == pipe.MSG_RUN:
             frame, flags, count = struct.unpack_from('<IBB', payload)
             words = struct.unpack_from(f'<{count}H', payload, 6)
+            sticks = None
+            if flags & pipe.RUN_AXES:
+                values = struct.unpack_from(f'<{4 * count}b', payload, 6 + 2 * count)
+                sticks = tuple(tuple(values[4 * port:4 * port + 4]) for port in range(count))
             silent = bool(flags & pipe.RUN_SILENT)
             if frame != self.live:
                 return self._fail(f'RUN {frame} when the game is at {self.live}')
@@ -114,9 +121,9 @@ class SteppedGame:
                 return self._fail('a silent frame without snapshots')
             if not silent and not self.asked and self.depth:     # (the delay tier may answer before the game asks: the pipe keeps it)
                 return self._fail(f'a live RUN {frame} the game did not ask for')
-            if flags & ~(pipe.RUN_SILENT | pipe.RUN_RESET | pipe.RUN_STATE_SAVE | pipe.RUN_STATE_LOAD):
+            if flags & ~(pipe.RUN_SILENT | pipe.RUN_RESET | pipe.RUN_STATE_SAVE | pipe.RUN_STATE_LOAD | pipe.RUN_AXES):
                 return self._fail(f'RUN {frame} with unknown flags {flags}')
-            if bin(flags & ~pipe.RUN_SILENT).count('1') > 1:
+            if bin(flags & ~(pipe.RUN_SILENT | pipe.RUN_AXES)).count('1') > 1:
                 return self._fail(f'RUN {frame} with two actions {flags}')
             if flags & pipe.RUN_RESET:
                 self.state = fold(self.state ^ RESTART, frame, ())      # the machine restarts before the frame
@@ -130,6 +137,8 @@ class SteppedGame:
                 self.state = self.slot
                 self.commands.append(('STATE_LOAD', frame))
             self.state = fold(self.state, frame, words)
+            if sticks is not None:      # the sticks fold in after the words, as a machine with sticks reads them
+                self.state = fold(self.state, frame, tuple((value & 0xff) for port in sticks for value in port))
             self.live = frame + 1
             if silent:
                 self.silent_runs += 1
@@ -138,7 +147,7 @@ class SteppedGame:
                 self.asked = False
                 if self.cost_us:
                     self._sink((pipe.MSG_DONE, struct.pack('<II', frame, self.cost_us)))
-            self.commands.append(('SILENT' if silent else 'RUN', frame, words))
+            self.commands.append(('SILENT' if silent else 'RUN', frame, words) + ((sticks,) if sticks is not None else ()))
         elif kind == pipe.MSG_PAUSE:
             self.commands.append(('PAUSE', payload[0]))
         elif kind == pipe.MSG_NOTICE:
@@ -489,7 +498,7 @@ class MatchStateTests(unittest.TestCase):
     def test_the_pipe_and_the_mapper_speak_it_as_the_header_says(self):
         header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
         for name in ('RRHK_RUN_STATE_SAVE = 4', 'RRHK_RUN_STATE_LOAD = 8', 'RRHK_SYS_STATE_SAVE = 4', 'RRHK_SYS_STATE_LOAD = 8',
-                     'RRHK_SESSION_ABI 6'):
+                     f'RRHK_SESSION_ABI {pipe.ABI}'):
             self.assertIn(name, header)
         self.assertEqual(pipe.run(5, (1, 2), silent=True, action=pipe.RUN_STATE_LOAD)[8], pipe.RUN_SILENT | pipe.RUN_STATE_LOAD)
         with self.assertRaises(ValueError):
@@ -569,6 +578,74 @@ class MatchStateTests(unittest.TestCase):
         guest._holding = False
         guest._local(0, 0, pipe.SYS_STATE_SAVE | pipe.SYS_STATE_LOAD)
         self.assertEqual(guest._records[1][2], (0, 0))
+
+
+class SticksTests(unittest.TestCase):
+    """The sticks travel (session ABI 7): a game with sticks says CAP_AXES, its LOCAL carries four int8 values, every record of the
+    match carries them (on the wire too, FLAG_AXES), a missing seat's sticks are guessed as its last ones, a wrong guess is
+    corrected like a wrong word, and the RUN gives every port's sticks to the game."""
+
+    def test_the_pipe_and_the_wire_carry_them_as_the_header_says(self):
+        header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
+        self.assertIn('RRHK_RUN_AXES = 16', header)
+        self.assertIn(f'RRHK_SESSION_ABI {pipe.ABI}', header)
+        self.assertEqual(pipe.parse_local(struct.pack('<IHH4b', 5, 1, 0, -128, 127, 0, -3)), (5, 1, 0, (-127, 127, 0, -3)))
+        self.assertEqual(pipe.parse_local(struct.pack('<IHH', 5, 1, 0)), (5, 1, 0, None))
+        with self.assertRaises(pipe.Broken):
+            pipe.parse_local(b'\0' * 10)
+        payload = pipe.run(7, (1, 2), axes=((1, -2, 3, -4), (0, 0, 127, -127)))[4:]
+        self.assertEqual(payload[4], pipe.RUN_AXES)
+        self.assertEqual(struct.unpack_from('<8b', payload, 6 + 4), (1, -2, 3, -4, 0, 0, 127, -127))
+        with self.assertRaises(ValueError):
+            pipe.run(7, (1, 2), axes=((1, 2, 3, 4),))
+        records = [(5, 0, (10, -10, 0, 0)), (6, 1, (-127, 127, 1, -1))]
+        packet = wire.decode(wire.encode_input(1, 9, wire._NO_ACKS, [(1, 3, records)]), 2)
+        self.assertEqual(packet.sections[0].records, tuple(records))
+        plain = wire.decode(wire.encode_input(1, 9, wire._NO_ACKS, [(1, 3, [(5, 0)])]), 2)
+        self.assertEqual(plain.sections[0].records, ((5, 0),))
+        data = bytearray(wire.encode_input(1, 9, wire._NO_ACKS, [(1, 3, [(5, 0)])]))
+        data[7] = 2                                     # a flag that has no meaning yet: the packet is dropped
+        self.assertIsNone(wire.decode(bytes(data), 2))
+        self.assertEqual(wire.records_that_fit(1, False), wire.MAX_RECORDS)
+        for sections in (1, 2, 3, 4):                   # whatever the sections, a full packet fits
+            fit = wire.records_that_fit(sections, True)
+            full = [(seat, 0, [(1, 0, (1, 1, 1, 1))] * fit) for seat in range(sections)]
+            self.assertLessEqual(len(wire.encode_input(0, 0, wire._NO_ACKS, full)), wire.MAX_PACKET)
+
+    def test_the_mapper_gives_each_port_its_seats_sticks_and_the_shared_controls_one(self):
+        a, b = (1, 2, 3, 4), (-5, 0, 0, 0)
+        state = seat_map.SeatState(seat_map.PER_PLAYER, 0, ())
+        self.assertEqual(seat_map.sticks(state, [(0, 0, a), (0, 0, b)]), (a, b))
+        self.assertEqual(seat_map.sticks(state, [(0, 0, a), (0, 0)]), (a, (0, 0, 0, 0)))
+        turns = seat_map.SeatState(seat_map.SHARED_TURNS, 1, ())
+        self.assertEqual(seat_map.sticks(turns, [(0, 0, a), (0, 0, b)]), (b,))
+        everyone = seat_map.SeatState(seat_map.SHARED_ALL, 0, ())
+        self.assertEqual(seat_map.sticks(everyone, [(0, 0, (0, 0, 0, 0)), (0, 0, b)]), (b,))
+        self.assertEqual(rollback.predicted([(5, seat_map.SYS_RESTART, a)]), (5, 0, a))
+
+    def test_a_wrong_guess_of_a_seats_sticks_is_corrected_and_the_game_runs_the_true_ones(self):
+        game = SteppedGame(caps=pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT | pipe.CAP_AXES)
+        with Host(self, cap=4, game=game) as host:
+            mine = (20, -20, 0, 0)
+            ran = []
+            for frame in range(3):
+                mark = len(game.commands)
+                game.local(frame, axes=mine)
+                settle(host.driver)
+                ran += game.since(mark)
+            self.assertEqual(ran[1], ('RUN', 0, (0, 0), ((0, 0, 0, 0), (0, 0, 0, 0))))     # frame 0: nobody's record before
+            self.assertEqual(ran[-1], ('RUN', 2, (own(2), 0), (mine, (0, 0, 0, 0))))        # the guest's guessed centred
+            theirs = (-100, 50, 0, 7)
+            host.link.sink(1, wire.encode_input(1, 0, NO_ACKS, [(1, 1, [(0, 0, theirs), (0, 0, theirs)])]))
+            settle(host.driver)
+            mark = len(game.commands)
+            game.local(3, axes=mine)
+            settle(host.driver)
+            fixed = game.since(mark)
+            self.assertEqual(fixed[0], ('LOAD', 1))
+            self.assertIn(('SILENT', 1, (own(1), 0), (mine, theirs)), fixed)
+            self.assertEqual(fixed[-1], ('RUN', 3, (own(3), 0), (mine, theirs)))           # frame 3 on the guest's last sticks
+            self.assertEqual(game.errors, [])
 
 
 class SafetyFloorTests(unittest.TestCase):
