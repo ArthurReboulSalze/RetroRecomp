@@ -34,6 +34,12 @@ static char state_file_utf8[1100] = "quick.rrstate";
 /* Quick states for the host kit's F8/F9 (defined below, after the frame hand-over they reset). */
 static bool msx_game_state_file(const wchar_t *path, bool load);
 static bool msx_game_state_path(wchar_t *path, size_t capacity);
+/* Multiplayer: in-process snapshots, the digest, the frame's outside effects (msx_snapshot.inc, below). */
+static size_t msx_snap_bound(void);
+static size_t msx_snap_save(void *buffer, size_t capacity);
+static bool msx_snap_load(const void *buffer, size_t size);
+static uint64_t msx_snap_digest(void);
+static void msx_side_effects(bool allowed);
 
 #include "hostkit/adapters/rrhk_msx.inc"
 
@@ -46,6 +52,10 @@ static bool msx_game_state_path(wchar_t *path, size_t capacity);
 static const uint32_t disk_sizes[RR_MSX_DISKS] = RR_MSX_DISK_SIZES;
 static uint8_t disk_data[RR_MSX_DISKS][2u * MSX_FDC_TRACKS * MSX_FDC_SPT * MSX_FDC_SECTOR];
 static uint8_t disk_dirty[RR_MSX_DISKS];
+/* A disk the game has written in this run: machine state, not a host matter (its bytes travel with every snapshot from then on,
+ * msx_snapshot.inc, and a snapshot's load puts the flags back). */
+static uint8_t disk_ever[RR_MSX_DISKS];
+static void disk_take_written(void);
 static unsigned disk_index;
 static MsxFdc fdc;
 static char disk_folder[1024];
@@ -76,7 +86,7 @@ static void disks_load_copies(void)
 static void disks_save(void)
 {
     if (!disk_copies) return;
-    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_take_written();
     for (unsigned n = 0; n < RR_MSX_DISKS; ++n) {
         if (!disk_dirty[n]) continue;
         wchar_t path[1100], staged[1100];
@@ -92,6 +102,16 @@ static void disks_save(void)
 
 static void disks_at_exit(void) { disks_save(); }
 
+/* What the game wrote on the disk in drive A: that disk's copy is due (disks_save) and its bytes travel with every snapshot from
+ * now on (msx_snapshot.inc). */
+static void disk_take_written(void)
+{
+    if (!fdc.disk[0].written) return;
+    disk_dirty[disk_index] = 1;
+    disk_ever[disk_index] = 1;
+    fdc.disk[0].written = 0;
+}
+
 static int disk_dirty_any(void)
 {
     for (unsigned n = 0; n < RR_MSX_DISKS; ++n) if (disk_dirty[n]) return 1;
@@ -104,7 +124,7 @@ static void disks_swap(void)
     if (!want_swap) return;
     want_swap = false;
     if (RR_MSX_DISKS < 2 || swap_drive) { player_notice(RR_MSX_DISKS < 2 ? "This game has one disk" : "Drive B is not used"); return; }
-    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_take_written();
     disk_index = (disk_index + RR_MSX_DISKS + (swap_direction < 0 ? RR_MSX_DISKS - 1u : 1u)) % RR_MSX_DISKS;
     msx_fdc_insert(&fdc, 0, disk_data[disk_index], disk_sizes[disk_index], 0);
     char text[96];
@@ -117,7 +137,7 @@ static void disks_swap(void)
 static void msx_route_disk(unsigned index)
 {
     if (index >= RR_MSX_DISKS) return;
-    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_take_written();
     disk_index = index;
     msx_fdc_insert(&fdc, 0, disk_data[index], disk_sizes[index], 0);
 }
@@ -181,7 +201,7 @@ static void play_disk_request(void)
     }
     if (!msx_media_due(&play_media, &fdc, &play_media_commands, &play_media_boot))
         return;
-    if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; }
+    disk_take_written();
     disk_index = (disk_index + 1u) % RR_MSX_DISKS;
     msx_fdc_insert(&fdc, 0, disk_data[disk_index], disk_sizes[disk_index], 0);
     char text[96];
@@ -217,6 +237,8 @@ static bool msx_game_state_file(const wchar_t *path, bool load)
     handed_this_frame = machine.line >= machine.vblank_line;
     return true;
 }
+
+#include "msx_snapshot.inc"
 
 static void power_on(void)
 {
@@ -265,6 +287,7 @@ static int headless_state_option(const char *a, const char *v)
     else if (!strcmp(a, "--save-at")) state_save_at = strtoul(v, NULL, 10);
     else if (!strcmp(a, "--load-state")) { if (!headless_path(v, state_load_file)) return -1; state_load_due = 1; }
     else if (!strcmp(a, "--sram")) { if (!headless_path(v, sram_file)) return -1; sram_given = 1; }
+    else if (!strcmp(a, "--snap-probe")) return snap_probe_option(v);
 #if RR_MSX_DISKS
     else if (!strcmp(a, "--disk-copies")) {
         if (strlen(v) >= sizeof disk_folder) return -1;
@@ -289,6 +312,7 @@ static void msx_main_service(void)
             msx_route_events();
             return;
         }
+        snap_probe_service();                  /* --snap-probe: snapshot, frames, load, the same frames */
         headless_service();                    /* the row, the frame limit (it ends the process there) */
         if (state_save_due && machine.frames >= state_save_at) {
             state_save_due = 0;
@@ -306,14 +330,15 @@ static void msx_main_service(void)
             if (state == 1) rrhk_notice(rr_tr("Save unreadable: set aside"), 6000);
             else if (state == 2) rrhk_notice(rr_tr("Save unreadable: saving is off"), 6000);
         }
-        msx_sram_flush(SDL_GetTicks64(), false);
+        if (msx_effects_allowed)
+            msx_sram_flush(SDL_GetTicks64(), false);
     }
 #if RR_MSX_DISKS
     disks_swap();
     {   /* what the game wrote goes to its copy once the disk has been quiet for about three seconds */
         static unsigned quiet;
-        if (fdc.disk[0].written) { disk_dirty[disk_index] = 1; fdc.disk[0].written = 0; quiet = 0; }
-        else if (++quiet == 180) disks_save();
+        if (fdc.disk[0].written) { disk_take_written(); quiet = 0; }
+        else if (++quiet == 180) { if (msx_effects_allowed) disks_save(); else quiet = 179; }
     }
 #endif
     switch (msx_host_frame(&machine)) {

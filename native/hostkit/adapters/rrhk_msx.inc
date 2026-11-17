@@ -194,6 +194,7 @@ static void m_sound(MsxMachine *m) {
    static int16_t mono[MSX_AUDIO_BUFFER], stereo[2 * MSX_AUDIO_BUFFER];
    unsigned n = msx_audio_take(m, mono, MSX_AUDIO_BUFFER);
    if (fast_forward) return;                     /* frames faster than the sound: the samples are dropped, not queued */
+   if (rrhk_session_silent()) return;           /* a frame run again after a multiplayer correction: no sound */
    for (unsigned i = 0; i < n; i++) stereo[2 * i] = stereo[2 * i + 1] = mono[i];
    host_audio_submit(stereo, n);
 }
@@ -256,6 +257,9 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.audio_reopen = host_audio_reopen; machine.audio_device_id = host_audio_device_id;
       machine.audio_ratio = host_audio_ratio;   /* 1.7.7 (HOST_KIT D30): Sync to display */
       machine.state_ready = m_state_ready; machine.state_file = m_state_file; machine.state_path = m_state_path;
+      /* Multiplayer: the game's in-process snapshots (rollback, the host's F8 / F9 for everyone), its digest, its outside effects. */
+      machine.snap_bound = msx_snap_bound; machine.snap_save = msx_snap_save; machine.snap_load = msx_snap_load;
+      machine.digest = msx_snap_digest; machine.side_effects = msx_side_effects;
       machine.input_frame = m_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = m_help_controls;
       machine.option_rows = x_option_rows; machine.key_event = x_key_event;
@@ -292,7 +296,7 @@ static int msx_host_frame(MsxMachine *m) {
    /* The pace follows the machine's lines: an MSX2's software switches 50/60 Hz with R#9 (taken at each frame start). The
     * kit reads frame_seconds at every frame (rrhk_main.c), so nothing else is needed. */
    ((RrhkMachine *)rrhk_adapter())->frame_seconds = (double)MSX_CYCLES_PER_LINE * m->lines_per_frame / MSX_CPU_CLOCK;
-   m_picture(m);
+   if (!rrhk_session_silent()) m_picture(m);    /* a frame run again after a correction is never shown */
    m_sound(m);
    const bool running = rrhk_frame_done();
    mh.frame++;

@@ -89,6 +89,23 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
 | [Super Nintendo: multiplayer, the digest (delay tier)](#super-nintendo-multiplayer-the-digest-delay-tier-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
+| [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
+
+## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
+
+The MSX family answers a session (`netplay_session`) at the NES's level: rollback and the host's F8 / F9 for everyone, on the shared
+shape of the driven machines (session ABI 5). The game gives an in-process snapshot (`native/msx_machine/msx_snapshot.inc`: the disk
+in drive A, the other disks written so far, the drive's counters and the disk-request rule, the keyboard matrix and the joysticks, then
+the quick state's body without the last picture, which the next frame draws again) and its digest (FNV-1a 64 over the same bytes); a
+silent frame draws and plays nothing, and the SRAM file and the disk copies wait while side effects are off. Joystick games; the
+keyboard is not carried in a session. Proofs: a headless `--snap-probe AT:N` (snapshot, N frames, load, the same N frames: every digest
+and every picture equal; a save over other bytes identical; a wrong size refused) passes on an authored FM cartridge, an authored disk
+that writes inside the window, Salamander, Metal Gear, Dragon Slayer II - Xanadu (SRAM) and Xak III across two requested disk changes;
+`tools/netplay_game_smoke.py --rollback 5 --save-at 600 --load-at 1500` passes on Salamander (MSX), Metal Gear (MSX2) and The Goonies
+R Good Enough (MSX2+), the digests equal before the load and different after. Snapshots: 85 KB to 417 KB for a cartridge, about 1.15
+MB for a disk game; their time is not measured yet (a quiet PC, with the owner's agreement).
+
+**Stamps** (against `spec/multiplayer` `ea1ac0ba`): the MSX, MSX2 and MSX2+ game and host stamps; nothing else.
 
 ## Every machine: multiplayer, two to four players over the local network (next release)
 
