@@ -41,20 +41,27 @@ uint64_t rr_ng_digest(void);
 void rr_ng_side_effects(bool allowed);
 void rr_ng_session_clock(uint64_t clock);
 
-/* A match runs the export's defaults on every seat: the player's clock-mode preference is not read (neogeo_main.c does the same for
- * MVS / AES) until the host pushes its values (session_option). RRHK_SESSION_ENV is set only for a game the converter started. */
 static void settings_loaded(RrhkUi *ui) {
-    if (getenv("RETRORECOMP_NETPLAY_PIPE")) return;
     rr_ng_set_enhanced(rr_ini_int(L"NeoGeo.Runtime", L"enhanced", rr_ng_enhanced() ? 1 : 0, ui->ini_file) == 1);
 }
-/* The host's run-changing values, pushed before frame 0: the clock mode (an enhanced game runs 24 MHz and 381 sprites) and the
- * machine (MVS or AES: a change of machine restarts the game, so only the one running is honoured). */
+/* The run-changing values of this PC (session ABI 6), which the host sends to every seat and locks for the match: the clock mode
+ * ("clock=enhanced": the boost, 24 MHz and 381 sprites, or "clock=standard") and the machine ("system=mvs" or "system=aes"). */
+static size_t session_options(char *out, size_t capacity) {
+    char text[48];
+    const int n = snprintf(text, sizeof text, "clock=%s\nsystem=%s", rr_ng_enhanced() ? "enhanced" : "standard", rr_ng_aes() ? "aes" : "mvs");
+    if (n <= 0 || (size_t)n > capacity) return 0;
+    memcpy(out, text, (size_t)n);
+    return (size_t)n;
+}
+/* The host's values at SETUP, before frame 0. The clock mode is applied here. A machine is not: MVS and AES boot different
+ * firmware, and a game that started in the other one cannot change in the middle of a session, so the seat refuses the match naming
+ * "system" (the player switches with F11 outside the match, which restarts the game). */
 static bool session_option(const char *key, const char *value) {
-    if (!strcmp(key, "enhanced") && (!strcmp(value, "0") || !strcmp(value, "1"))) {
-        rr_ng_set_enhanced(value[0] == '1');
+    if (!strcmp(key, "clock") && (!strcmp(value, "enhanced") || !strcmp(value, "standard"))) {
+        rr_ng_set_enhanced(value[0] == 'e');
         return true;
     }
-    if (!strcmp(key, "machine") && (!strcmp(value, "mvs") || !strcmp(value, "aes"))) return (value[0] == 'a') == (rr_ng_aes() != 0);
+    if (!strcmp(key, "system") && (!strcmp(value, "mvs") || !strcmp(value, "aes"))) return (value[0] == 'a') == (rr_ng_aes() != 0);
     return false;
 }
 
@@ -163,7 +170,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .help_controls = help_controls, .key_event = key_event,
             .snap_bound = rr_ng_snap_bound, .snap_save = rr_ng_snap_save, .snap_load = rr_ng_snap_load,
             .digest = rr_ng_digest, .side_effects = rr_ng_side_effects, .session_begin = rr_ng_session_clock,
-            .session_option = session_option,
+            .session_option = session_option, .session_options = session_options,
             .frame_limit = rr16_host_frame_limit, .frame_start = rr16_host_test_tick,
             .before_frame = before_frame, .cost_enabled = rr_ng_performance_enabled, .cost = rr_ng_host_cost,
             .before_present = before_present, .finished = rr_ng_host_timing,

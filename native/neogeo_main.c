@@ -449,10 +449,8 @@ static int execute(int argc,char **argv) {
     /* Normal play keeps honest native/fallback counters but does no coverage
      * discovery or per-pixel/per-sample diagnostic hashing. Qualification
      * reports/traces retain every previous check. */
-    /* In a multiplayer match every seat runs the export's defaults (MVS, enhanced clocks): the player's own MVS / AES and clock-mode
-     * preferences are not read (RRHK_SESSION_ENV of native/hostkit/hostkit_session.h). */
     if(mode_requested>=0)aes_mode=mode_requested;
-    else if(!headless && !getenv("RETRORECOMP_NETPLAY_PIPE")) {
+    else if(!headless) {
         wchar_t path[32768];
         if(rr_executable_directory(path,32768) && !rr_wide_append(path,32768,RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini"))
             aes_mode=rr_ini_int(L"NeoGeo.Runtime",L"aes",0,path)==1 && RR_NG_AES_AVAILABLE;

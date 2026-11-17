@@ -199,9 +199,11 @@ reached only when the converter starts the game with its pipes (`RETRORECOMP_NET
 - **The clock of the match** (`session_begin`): the board's RTC starts from 1 January 2000 UTC on every seat, not from the PC's time.
 - **Saves, for now:** each seat loads its own NVRAM and memory card as a game alone does, the guest writes nothing
   (`side_effects(false)`, also for the fallback records) and the boot digest refuses seats whose saves differ.
-- **A match runs the export's defaults on every seat:** MVS and the enhanced clock mode (24 MHz, 381 sprites). The player's own
-  preferences for MVS / AES and the clock mode are not read in a match, F5 and F11 are refused (run-changing rows), and the keys
-  `enhanced` and `machine` are declared in `session_option` for the host's values when they are pushed.
+- **The host's values for everyone** (session ABI 6): the clock mode (the F5 boost: 24 MHz and 381 sprites, or standard) and the
+  machine (MVS or AES) of the host's PC ride the room into every seat's SETUP as `clock=enhanced|standard` and `system=mvs|aes`
+  (`session_options`, `session_option`), and F5 and F11 are refused (run-changing rows) for the match. The clock mode is applied
+  in the game; a machine cannot be: MVS and AES boot different firmware, so a seat whose game runs the other one refuses the match
+  naming `system` (the player switches with F11, which restarts the game, before the match).
 - **The determinism probe:** `--snapshot-probe WARM RUN` on the game and `tools/neogeo_snapshot_probe.py` (save, run, load, run: every
   digest and the last snapshot byte for byte equal; a refused load changes nothing).
 

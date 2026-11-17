@@ -21,7 +21,7 @@ def read(name):
 class AdapterTests(unittest.TestCase):
     def test_the_adapter_answers_a_session(self):
         adapter = read('hostkit/adapters/rrhk_ng.c')
-        for field in ('.snap_bound', '.snap_save', '.snap_load', '.digest', '.side_effects', '.session_begin', '.session_option'):
+        for field in ('.snap_bound', '.snap_save', '.snap_load', '.digest', '.side_effects', '.session_begin', '.session_option', '.session_options'):
             self.assertIn(field, adapter)
         self.assertTrue(get_profile('ng').netplay_session)
         self.assertFalse(get_profile('ng').netplay_portable)
@@ -30,11 +30,13 @@ class AdapterTests(unittest.TestCase):
         adapter = read('hostkit/adapters/rrhk_ng.c')
         self.assertIn('rrhk_option_row_run(rows, SDL_SCANCODE_F5', adapter)
         self.assertIn('rrhk_option_row_run(rows, SDL_SCANCODE_F11', adapter)
-        # A match runs the export's defaults: the player's preferences for the clock mode and the machine are not read.
-        self.assertRegex(adapter, r'static void settings_loaded[^}]*RETRORECOMP_NETPLAY_PIPE')
-        self.assertRegex(read('neogeo_main.c'), r'!headless && !getenv\("RETRORECOMP_NETPLAY_PIPE"\)')
-        self.assertIn('"enhanced"', adapter)
-        self.assertIn('"machine"', adapter)
+        # The host's values (session ABI 6): this PC's are written as key=value lines, the host's are applied at SETUP.
+        self.assertIn(r'"clock=%s\nsystem=%s"', adapter)
+        for key in ('"clock"', '"system"', '"enhanced"', '"standard"', '"mvs"', '"aes"'):
+            self.assertIn(key, adapter)
+        # A machine cannot change in the middle of a session: only the one running is honoured.
+        self.assertIn('(value[0] == \'a\') == (rr_ng_aes() != 0)', adapter)
+        self.assertNotIn('RETRORECOMP_NETPLAY_PIPE', adapter + read('neogeo_main.c'))
 
     def test_the_session_pipe_name_is_the_kits(self):
         session = (NATIVE / 'hostkit/hostkit_session.h').read_text(encoding='utf-8')
