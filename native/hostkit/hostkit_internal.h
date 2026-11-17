@@ -279,6 +279,14 @@ bool rrhk_session_guest(void);              /* in a session as a guest (the host
 void rrhk_session_close(RrhkRun *run, int reason);
 /* input.c: the pad word of this PC's player as today's solo game reads it (player `player`'s bindings, autofire applied). */
 uint16_t rrhk_local_pad_word(int player, uint64_t frame);
+/* chat.inc (in session.inc): the in-game chat of a session. rrhk_chat_event comes before every other handler; rrhk_chat_draw
+ * after the menus and notices; the notices' line moves above the chat while it is open. */
+bool rrhk_chat_open(void);
+bool rrhk_chat_offered(void);                  /* a session is running: the F2 Chat tile and the keys are there */
+void rrhk_chat_begin(bool grid);               /* open the entry (grid: with the on-screen keyboard) */
+bool rrhk_chat_event(const SDL_Event *event);
+void rrhk_chat_draw(SDL_Renderer *renderer);
+int rrhk_chat_notice_line(void);
 /* audio.c: take the machine's sound of the frame just run and drop it (a silent frame). */
 void rrhk_audio_discard(RrhkRun *run);
 #endif

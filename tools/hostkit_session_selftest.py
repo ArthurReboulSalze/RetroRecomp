@@ -121,7 +121,7 @@ class Game:
     """The fake game started in a session (or alone): its pipes, a reader thread, its exit."""
 
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
-                 restart_at: int = 0):
+                 restart_at: int = 0, chat_at: int = 0):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -132,6 +132,9 @@ class Game:
             env['RETRORECOMP_HOST_TEST_FRAMES'] = str(frames)
         env.pop('SESSION_FAKE_MENU_AT', None)
         env.pop('SESSION_FAKE_RESTART_AT', None)
+        env.pop('SESSION_FAKE_CHAT_AT', None)
+        if chat_at:
+            env['SESSION_FAKE_CHAT_AT'] = str(chat_at)
         if menu_at:
             env['SESSION_FAKE_MENU_AT'] = str(menu_at)
         if restart_at:
@@ -422,6 +425,7 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     assert code == 0 and int(result['frames']) == 50 and int(result['quick']) == 1, (code, result, text)
     passed.append('test run: no session, plays alone (50 frames)')
     passed.extend(restart_scenarios(executable, out))
+    passed.extend(chat_scenarios(executable, out))
     return passed
 
 
@@ -500,6 +504,67 @@ def restart_scenarios(executable: Path, out: Path) -> list[str]:
     code, result, text = game.finish(timeout=10)
     assert code == 0 and int(result['frames']) == 5 and 'unknown flags' in text, (code, result, text)
     passed.append('a RUN with an unknown flag: the session ends, nothing run')
+    return passed
+
+
+def chat_scenarios(executable: Path, out: Path) -> list[str]:
+    passed = []
+
+    def frames(game: Game, count: int, history: list, chats: list, systems: list, first: int = 0) -> None:
+        """Runs frames live as a guest's worker would, keeping the CHAT_OUT lines that come between them."""
+        for frame in range(first, first + count):
+            while True:
+                name, payload = game.receive()
+                if name != 'RRHK_MSG_CHAT_OUT':
+                    break
+                chats.append(payload)
+            assert name == 'RRHK_MSG_LOCAL', name
+            got, word, system = struct.unpack('<IHH', payload)
+            assert (got, word) == (frame, 0), (got, word, frame)
+            systems.append(system)
+            words = (*remote(frame)[:1], 0, 0, 0)
+            game.send('RRHK_MSG_RUN', run_payload(frame, words))
+            while True:
+                name, payload = game.receive()
+                if name != 'RRHK_MSG_CHAT_OUT':
+                    break
+                chats.append(payload)
+            assert name == 'RRHK_MSG_DONE' and struct.unpack_from('<I', payload)[0] == frame, name
+            history.append(words)
+
+    # 13. A guest opens the chat with Y during frame 19 and sends a line twenty iterations later: the frames go on meanwhile
+    # (no pause asked), Y's own text is not typed, the line is one CHAT_OUT; lines, phrases and the turn notices from the
+    # worker are shown and the session goes on, digests equal.
+    game = Game(executable, out, chat_at=20)
+    setup(game, seat=1, guest=True)
+    history, chats, systems = [], [], []
+    frames(game, 60, history, chats, systems)
+    assert systems == [0] * 60, systems
+    assert chats == [bytes([0, 11]) + b'Hello there'], chats
+    name = b'Alessandra Rossi'
+    game.send('RRHK_MSG_CHAT_SHOW', bytes([0, len(name)]) + name + bytes([11]) + b'Hello there')
+    game.send('RRHK_MSG_CHAT_SHOW', bytes([CONSTANTS['RRHK_PHRASE_AGAIN'], len(name)]) + name + bytes([0]))
+    game.send('RRHK_MSG_NOTICE', struct.pack('<HB', CONSTANTS['RRHK_NOTICE_TURN'], len(name)) + name)
+    game.send('RRHK_MSG_NOTICE', struct.pack('<HB', CONSTANTS['RRHK_NOTICE_YOUR_TURN'], 0))
+    game.send('RRHK_MSG_NOTICE', struct.pack('<HB', CONSTANTS['RRHK_NOTICE_CHAT_SLOW'], 0))
+    frames(game, 10, history, chats, systems, first=60)
+    check_digest(game, history)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0 and int(result['frames']) == 70, (code, result, text)
+    passed.append('chat: Y opens the entry of a guest, the frames go on with no pause asked, one CHAT_OUT "Hello there"; '
+                  'lines, a phrase and the turn notices shown, the session goes on, digests equal')
+
+    # 14. A CHAT_SHOW that breaks its rules (a phrase that also carries text) ends the session, as any message would.
+    game = Game(executable, out)
+    setup(game)
+    history = []
+    for frame in range(5):
+        live_frame(game, frame, (0, 0, 0, 0), history)
+    game.send('RRHK_MSG_CHAT_SHOW', bytes([CONSTANTS['RRHK_PHRASE_GG'], 1]) + b'A' + bytes([1]) + b'x')
+    code, result, text = game.finish(timeout=10)
+    assert code == 0 and 'CHAT_SHOW broke the rules' in text, (code, result, text)
+    passed.append('chat: a CHAT_SHOW that breaks its rules ends the session')
     return passed
 
 

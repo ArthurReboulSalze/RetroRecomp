@@ -217,6 +217,8 @@ void rrhk_poll_events(RrhkRun *run) {
         /* The output device the sound plays on went away: the loop opens the one asked for again (or the default). */
         if (event.type == SDL_AUDIODEVICEREMOVED && !event.adevice.iscapture && event.adevice.which &&
             event.adevice.which == rrhk_audio_device_id(run)) run->device_lost = true;
+        /* Multiplayer: the chat's entry, while open, takes every key and button; closed, the keys that open it. */
+        if (rrhk_chat_event(&event)) continue;
         /* A computer's own shortcuts and the guest keyboard come first (X68000). */
         if (m->event && m->event(&event, &run->running)) continue;
         if (rrhk_options_event(&event, &rrhk.menu, rrhk.capturing != 0)) continue;

@@ -21,7 +21,7 @@ class SessionThroughTheLoopTests(unittest.TestCase):
             self.skipTest(reason)
         code, output, seconds = selftest.run_checks(ROOT / '.build/hostkit-session-selftest')
         self.assertEqual(code, 0, output)
-        self.assertIn('PASS: 13 scenarios', output)       # restart alone, host, guest, unknown flag (ABI 2)
+        self.assertIn('PASS: 15 scenarios', output)       # restart alone, host, guest, unknown flag (ABI 2); chat x2 (ABI 3)
         self.assertLess(seconds, 120, output)     # a hang, not a speed
 
 

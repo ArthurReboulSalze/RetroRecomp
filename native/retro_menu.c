@@ -76,6 +76,15 @@ static char ascii_code(uint32_t c) {
     if(c>=0xc0 && c<=0xff) return latin1[c-0xc0];
     return '?';
 }
+/* Text as a game draws it: UTF-8 in, one ASCII character a code point out (accents dropped, anything else '?'), at most cap - 1
+ * of them; returns how many. The multiplayer chat keeps what the player typed this way, so what is sent is what was seen. */
+size_t rr_menu_ascii_text(const char *text, char *out, size_t cap) {
+    size_t n=0;
+    if(!out || !cap) return 0;
+    while(text && *text && n+1<cap) out[n++]=ascii_code(next_code(&text));
+    out[n]=0;
+    return n;
+}
 int rr_menu_text_width(const char *text) {
     int width=0;
     if(!text)return 0;
@@ -267,6 +276,10 @@ static const uint64_t icon_options_small[9] = {
 static const uint64_t icon_graphics[18] = {
     0x15555555555540ull, 0x1aaaaaaaaaaa40ull, 0x1aaaaaaaaaaa40ull, 0x1aaaaa7eaaaa40ull, 0x1aaaa97faaaa40ull, 0x1aaaa57feaaa40ull, 0x1aaa957ffaaa40ull, 0x1aaa557ffeaa40ull, 0x1aa9557fffaa40ull,
     0x1aa5557fffea40ull, 0x1a95557ffffa40ull, 0x1a55557ffffe40ull, 0x1aaaaaaaaaaa40ull, 0x15555555555540ull, 0x555000000ull, 0x55555550000ull, 0x0ull, 0x0ull};
+/* The F2 tile of the multiplayer chat (shown in a session only), a speech bubble with lines of text. */
+static const uint64_t icon_chat[18] = {
+    0x0ull, 0x0ull, 0x55555555555550ull, 0x1aaaaaaaaaaaaa4ull, 0x1aaaaaaaaaaaaa4ull, 0x1aaaaffeffbffa4ull, 0x1aaaaaaaaaaaaa4ull, 0x1aabffbfffeffa4ull, 0x1aaaaaaaaaaaaa4ull,
+    0x1aaaaaaffbfffa4ull, 0x1aaaaaaaaaaaaa4ull, 0x55555555a95550ull, 0x690000ull, 0x1a4000ull, 0x69000ull, 0x15000ull, 0x0ull, 0x0ull};
 /* <row icons> */
 /* Row icons (1.7.5): 9 x 9, at the left of the rows of the control, options and graphics pages. Drawn by hand (the drawing
  * and its packing script are kept with the interface notes); a face button is the ring with its letters drawn inside. */
@@ -324,7 +337,7 @@ static const uint16_t row_letters[] = {0x5bea, 0x3aeb, 0x624e, 0x5aad, 0x24ad, 0
 static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_COUNT] = {
     {icon_keyboard, 30, 18}, {icon_gamepad, 30, 18}, {icon_options, 30, 18}, {icon_pointer, 30, 18}, {icon_switches, 30, 18},
     {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9},
-    {icon_graphics, 30, 18},
+    {icon_graphics, 30, 18}, {icon_chat, 30, 18},
     /* <row table> */
     {icon_row_up, 9, 9}, {icon_row_down, 9, 9}, {icon_row_left, 9, 9}, {icon_row_right, 9, 9}, {icon_row_button, 9, 9},
     {icon_row_start, 9, 9}, {icon_row_select, 9, 9}, {icon_row_coin, 9, 9}, {icon_row_pause, 9, 9}, {icon_row_quit, 9, 9},
