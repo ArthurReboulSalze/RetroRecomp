@@ -25,6 +25,10 @@ static uint8_t *room(RRState *s, size_t count)
          return NULL;
       }
    } else if (s->data && s->pos + count > s->capacity) {
+      if (s->fixed) {
+         rr_state_fail(s, "snapshot larger than its buffer");
+         return NULL;
+      }
       size_t capacity = s->capacity ? s->capacity : 65536;
       uint8_t *grown;
       while (capacity < s->pos + count)
@@ -160,19 +164,24 @@ void rr_state_bytes(RRState *s, void *v, size_t count)
    advance(s, count);
 }
 
-#define ARRAY(name, type, single)                               \
+/* A raw snapshot copies fixed-width arrays as they are in memory; int arrays keep the range-checked path. */
+#define ARRAY(name, type, single, rawable)                      \
    void rr_state_##name(RRState *s, type *v, size_t count)      \
    {                                                            \
       size_t i;                                                 \
+      if (rawable && s->raw) {                                  \
+         rr_state_bytes(s, v, count * sizeof(type));            \
+         return;                                                \
+      }                                                         \
       for (i = 0; i < count && !s->error; i++)                  \
          single(s, &v[i]);                                      \
    }
 
-ARRAY(u16s, uint16_t, rr_state_u16)
-ARRAY(i16s, int16_t, rr_state_i16)
-ARRAY(u32s, uint32_t, rr_state_u32)
-ARRAY(i32s, int32_t, rr_state_i32)
-ARRAY(ints, int, rr_state_int)
+ARRAY(u16s, uint16_t, rr_state_u16, 1)
+ARRAY(i16s, int16_t, rr_state_i16, 1)
+ARRAY(u32s, uint32_t, rr_state_u32, 1)
+ARRAY(i32s, int32_t, rr_state_i32, 1)
+ARRAY(ints, int, rr_state_int, 0)
 
 void rr_state_bus_words(RRState *s, uint8_t *v, size_t bytes)
 {
@@ -180,6 +189,10 @@ void rr_state_bus_words(RRState *s, uint8_t *v, size_t bytes)
    size_t i;
    if (bytes & 1) {
       rr_state_fail(s, "odd bus memory size");
+      return;
+   }
+   if (s->raw) {
+      rr_state_bytes(s, v, bytes);   /* host word-swapped order, as in memory */
       return;
    }
    p = room(s, bytes);

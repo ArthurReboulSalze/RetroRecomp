@@ -299,7 +299,7 @@ static void video(const void *data, unsigned w, unsigned h, size_t pitch) {
       if(!lit) for(x=0;x<w*bpp;x++) if (row[x]) { lit=true; break; }
    }
    width=w; height=h; video_frames++; nonblack_frames+=lit;
-   if(!fast_forward||!(input_frame&7))player_picture(data,w,h,pitch);
+   if((!fast_forward||!(input_frame&7))&&!rrhk_session_silent())player_picture(data,w,h,pitch);
 }
 static size_t audio_batch(const int16_t *samples, size_t count) {
    size_t i;
@@ -310,7 +310,7 @@ static size_t audio_batch(const int16_t *samples, size_t count) {
       if(samples[i]) nonzero_samples++;
    }
    total_samples+=count; frame_samples+=(unsigned)count;
-   if(audio_output && !fast_forward && !player_queue_audio(samples,count))fail("Audio buffer allocation failed");
+   if(audio_output && !fast_forward && !rrhk_session_silent() && !player_queue_audio(samples,count))fail("Audio buffer allocation failed");
    return count;
 }
 static void audio_sample(int16_t left,int16_t right) { int16_t v[2]={left,right}; audio_batch(v,1); }
@@ -344,7 +344,12 @@ static int16_t input_state(unsigned port,unsigned device,unsigned index,unsigned
    unsigned i; int value=0;
    (void)index;
    if(port>1) return 0;
-   if(player_blocked())return 0;
+   /* A multiplayer session carries only the two pad words (the network's, the same on every seat): no local keyboard,
+    * mouse, focus or menu reaches the guest; Start stays the Return key of player 1, as in a game alone. */
+   if(rrhk_session_active()){
+      if(device==RETRO_DEVICE_KEYBOARD)return (int16_t)(!port&&id==RETROK_RETURN&&player_start()>0);
+      if(device!=RETRO_DEVICE_JOYPAD)return 0;
+   } else if(player_blocked())return 0;
    if(device==RETRO_DEVICE_KEYBOARD) {
       /* Function keys reach the X68000 only when handed to it (options or
        * full typing) and never with Ctrl; the X68000 has no F12. */
@@ -501,6 +506,59 @@ static void *linked_symbol(const char *name){
 #else
 #define LOAD(member,name) do { *(void **)(&core.member)=SDL_LoadFunction(module,name); if(!core.member) { fail(name); goto cleanup; } } while(0)
 #endif
+#ifdef RR_X68000_LINKED
+/* ---- Rollback probe (--rollback-probe FILE, headless): the multiplayer snapshot's determinism, ROM-free in the kit's
+ * sense (it runs the converted game, never a file the session would touch). The session starts as in a match; at frame
+ * --rollback-at it saves, runs --rollback-frames frames recording the digest after each, loads, checks the digest of
+ * the loaded state, runs the same frames again and compares every digest. It also saves a second time over a buffer of
+ * other bytes (identical bytes expected) and loads a snapshot one byte short (refused, nothing changed). */
+static const char *probe_path;
+static unsigned probe_at=600,probe_frames=120,probe_phase,probe_step,probe_mismatches,probe_first_bad=UINT32_MAX;
+static uint8_t *probe_snap,*probe_other;static size_t probe_bound,probe_len;
+static uint64_t *probe_digests,probe_saved_digest;
+static bool probe_same_bytes,probe_short_refused,probe_loaded_digest;
+static double probe_save_ms,probe_load_ms;
+static void probe_frame(void){
+   double t0;uint64_t digest;
+   if(!probe_path||probe_phase==3)return;
+   if(probe_phase==0){
+      if(input_frame!=probe_at)return;
+      probe_bound=x_snap_bound();
+      probe_snap=(uint8_t*)malloc(probe_bound);probe_other=(uint8_t*)malloc(probe_bound);
+      probe_digests=(uint64_t*)calloc(probe_frames,sizeof(uint64_t));
+      if(!probe_bound||!probe_snap||!probe_other||!probe_digests){fail("Rollback probe allocation failed");probe_phase=3;return;}
+      memset(probe_snap,0x00,probe_bound);memset(probe_other,0xa5,probe_bound);
+      t0=(double)SDL_GetPerformanceCounter();
+      probe_len=x_snap_save(probe_snap,probe_bound);
+      probe_save_ms=((double)SDL_GetPerformanceCounter()-t0)*1000.0/(double)SDL_GetPerformanceFrequency();
+      probe_same_bytes=probe_len&&x_snap_save(probe_other,probe_bound)==probe_len&&!memcmp(probe_snap,probe_other,probe_len);
+      probe_saved_digest=x_digest();
+      probe_short_refused=probe_len>1&&!x_snap_load(probe_snap,probe_len-1)&&x_digest()==probe_saved_digest;
+      if(!probe_len){fail("Rollback probe: the snapshot could not be taken");probe_phase=3;return;}
+      probe_phase=1;probe_step=0;return;
+   }
+   digest=x_digest();
+   if(probe_phase==1){
+      probe_digests[probe_step++]=digest;
+      if(probe_step<probe_frames)return;
+      t0=(double)SDL_GetPerformanceCounter();
+      if(!x_snap_load(probe_snap,probe_len)){fail("Rollback probe: the snapshot could not be loaded");probe_phase=3;return;}
+      probe_load_ms=((double)SDL_GetPerformanceCounter()-t0)*1000.0/(double)SDL_GetPerformanceFrequency();
+      probe_loaded_digest=x_digest()==probe_saved_digest;
+      probe_phase=2;probe_step=0;return;
+   }
+   if(digest!=probe_digests[probe_step]){probe_mismatches++;if(probe_first_bad==UINT32_MAX)probe_first_bad=probe_step;}
+   if(++probe_step<probe_frames)return;
+   probe_phase=3;
+   {FILE *f=fopen(probe_path,"wb");bool passed=!probe_mismatches&&probe_same_bytes&&probe_short_refused&&probe_loaded_digest;
+    if(f){fprintf(f,"{\"passed\":%s,\"at\":%u,\"frames\":%u,\"mismatches\":%u,\"first_mismatch\":%d,\"same_bytes\":%s,"
+       "\"short_refused\":%s,\"loaded_digest\":%s,\"bound\":%zu,\"size\":%zu,\"save_ms\":%.3f,\"load_ms\":%.3f}\n",
+       passed?"true":"false",probe_at,probe_frames,probe_mismatches,probe_first_bad==UINT32_MAX?-1:(int)probe_first_bad,
+       probe_same_bytes?"true":"false",probe_short_refused?"true":"false",probe_loaded_digest?"true":"false",
+       probe_bound,probe_len,probe_save_ms,probe_load_ms);fclose(f);}
+    if(!passed)fail("Rollback probe failed");}
+}
+#endif
 /* One guest frame and what the host does around it (media, states, disk events, reports). false: stop. */
 static bool host_frame(void) {
    bool restored_start=false;
@@ -544,6 +602,7 @@ static bool host_frame(void) {
 #endif
          if(load_start){if(snapshot(true)!=RR_STATE_OK&&headless){fail("Requested startup state rejected");return false;}load_start=false;restored_start=true;}
       }
+      if(rrhk_session_active())want_swap=want_eject=false;   /* a seat's own disk keys would change its machine only */
       if(want_swap||want_eject){
          int ok=want_eject?rr_media_swap(&media,swap_drive,-1):rr_media_cycle(&media,swap_drive,swap_direction);
          if(ok){char message[128];swapped_count++;snprintf(message,sizeof(message),"FDD%u: %s",swap_drive,media.selected[swap_drive]<0?"empty":media.names[media.selected[swap_drive]]);notify(message);}
@@ -565,6 +624,9 @@ static bool host_frame(void) {
       if(want_save||frame_number==save_at){want_save=false;if(snapshot(false)!=RR_STATE_OK&&headless){fail("Requested save failed");return false;}}
       if(want_load||frame_number==load_at){want_load=false;if(snapshot(true)!=RR_STATE_OK&&headless){fail("Requested load failed");return false;}}
    media_log_scan(true);
+#ifdef RR_X68000_LINKED
+   probe_frame();
+#endif
    frame_number++;
    return true;
 }
@@ -655,6 +717,13 @@ static int player_main(int argc,char **argv) {
          else if(!strcmp(arg,"--timing-checks")) timing_checks_path=argv[i];
          else if(!strcmp(arg,"--session-checks")) session_checks_path=argv[i];
          else if(!strcmp(arg,"--disk-checks")) disk_checks_path=argv[i];
+#ifdef RR_X68000_LINKED
+         else if(!strcmp(arg,"--rollback-probe")) probe_path=argv[i];
+         else if(!strcmp(arg,"--rollback-at")||!strcmp(arg,"--rollback-frames")) {
+            unsigned long n=strtoul(argv[i],&end,10);if(!*argv[i]||*end||n==0||n>=MAX_FRAMES){fail("Invalid rollback probe frame");goto cleanup;}
+            if(!strcmp(arg,"--rollback-at"))probe_at=(unsigned)n;else probe_frames=(unsigned)n;
+         }
+#endif
          else if(!strcmp(arg,"--state-save-at")||!strcmp(arg,"--state-load-at")) {
             unsigned long n=strtoul(argv[i],&end,10);if(!*argv[i]||*end||n>=MAX_FRAMES){fail("Invalid state action frame");goto cleanup;}
             if(!strcmp(arg,"--state-save-at"))save_at=(unsigned)n;else load_at=(unsigned)n;
@@ -747,6 +816,12 @@ static int player_main(int argc,char **argv) {
    if(trace_path[0]) { records=(FrameRecord *)calloc(frame_limit?frame_limit:MAX_FRAMES,sizeof(*records)); if(!records) { fail("Trace allocation failed"); goto cleanup; } }
    frequency=(double)SDL_GetPerformanceFrequency(); wall_start=(double)SDL_GetPerformanceCounter()/frequency;
    frame_number=0;
+#ifdef RR_X68000_LINKED
+   if(probe_path){
+      if(!headless){fail("The rollback probe runs headless");goto cleanup;}
+      x_session_begin(946684800ull);if(core_error)goto cleanup;   /* RRHK_SESSION_CLOCK */
+   }
+#endif
    if(headless){
       while(!quit_requested && (!frame_limit || frame_number<frame_limit)) {
          input_poll();if(quit_requested)break;
@@ -813,7 +888,7 @@ static int player_main(int argc,char **argv) {
    if(disk_checks_path && core.disk_checks(disk_checks_path)!=511) fail("Disk hardware checks failed");
    result=core_error || !video_frames?1:0;
 cleanup:
-   if(media_opened&&!rr_media_save_session(&media)){fprintf(stderr,"X68000 media: %s\n",rr_media_error(&media));result=1;}
+   if(media_opened&&!x_session_started&&!rr_media_save_session(&media)){fprintf(stderr,"X68000 media: %s\n",rr_media_error(&media));result=1;}
    player_store_exit();
 #ifdef RR_X68000_LINKED
    if(headless)rr_feedback_close_screen(NULL);

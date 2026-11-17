@@ -30,6 +30,12 @@ typedef struct RRState {
    int loading;
    int error;          /* Sticky: any failure makes the whole operation fail. */
    const char *reason; /* First failure, for diagnostics. */
+   /* Multiplayer snapshot (in-process only, never written to a file): `fixed` saves into the caller's buffer of
+    * `capacity` bytes and fails instead of growing; `raw` copies arrays and bus memory as they are in memory (the same
+    * bytes on every little-endian host); `session` stores the session's disk journals instead of whole images and only the
+    * 10 MB of RAM the bus can write; `no_picture` leaves the presented picture out (the digest). Zero: the portable
+    * RRX68MS1 quick state, unchanged. */
+   int fixed, raw, session, no_picture;
 } RRState;
 
 void rr_state_fail(RRState *s, const char *reason);
