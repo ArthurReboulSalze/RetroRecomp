@@ -259,7 +259,8 @@ kilobyte of the core's own block holds heap and code addresses that differ from 
 `side_effects`). **The cartridge clock** (Animal Forest's) runs on the session's from `session_begin`, plus the emulated
 seconds, the same date on every seat whatever its time zone; the core sets up its devices during the first frame, so the clock is
 put back after it. **ParaLLEl-RDP records on the emulation thread** in a session even if asked otherwise (its own worker is not
-deterministic). **The keyboard's Stick actions** read this PC's keys, so in a session every port's stick is the session's. The
+deterministic). **The keyboard's Stick actions** read this PC's keys, so in a session every port's stick is the session's: the kit
+folds them into the sticks this PC sends (`stick_actions`). The profile sets `netplay_session`, so the converter offers its games. The
 host's restart is not honoured in a session (the Nintendo 64's restart starts the program again, which would end the match;
 every seat alike). The graphics rows stay per seat: they change the picture only. The blank controller paks needed nothing: the
 core formats them before it seeds their serial generator, so their serials are zero on every run.
@@ -273,8 +274,10 @@ GoldenEye 007, 3,600 frames of the main route, headless): two runs give the same
 give the same digests before and different ones after; another save memory changes the start digest; the resolution changed at
 frame 1,800 leaves RDRAM, sound, CPU registers and PC equal to the run without it on every frame; a quick state resumed in a
 fresh process gives the unbroken run's digests from its first frame on (the digest taken right after the load, before any frame,
-differs: the delay tier never takes one there). The two-seat smoke waits for the kit to carry the sticks (it refuses the
-Nintendo 64 with "axes" until then). Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
+differs: the delay tier never takes one there). **Two copies in a session on one PC** (`tools/netplay_game_smoke.py`, 30 ms
+latency, 10 ms jitter, delay tier): Super Mario 64 and Mario Kart 64 with two seats over 1,800 frames, Mario Kart 64 with four seats
+over 1,200 frames, every digest equal on every seat (`PASS`). The smoke's scripted pads send words, not sticks: the sticks'
+journey in a session is not yet proven on a game. Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
 `n64_session.cpp`, `n64_player.c`) and host stamp (`rrhk_n64.inc`); Nintendo 64 quick states of 1.8.0 are refused cleanly (the
 state key hashes the session sources).
 
