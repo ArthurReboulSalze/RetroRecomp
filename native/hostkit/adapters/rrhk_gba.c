@@ -72,7 +72,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = audio, .interpreted = interpreted, .audio_interpreted = no_count,
             .state_path = rrgba_state_path, .state_ready = state_ready, .state_file = rrgba_state_file,
             .input_frame = input_frame,
-            .digest = rrgba_digest,
+            .digest = rrgba_digest, .side_effects = rrgba_side_effects, .session_begin = rrgba_session_begin,
             .help_controls = help_controls,
         };
     }

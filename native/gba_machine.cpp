@@ -259,7 +259,7 @@ void set_aside_unusable_save() {
 }
 
 void flush_battery() {
-    if (g_session || !g_api->save_dirty()) return;     // a session never writes the cartridge save
+    if (!g_save_writes || !g_api->save_dirty()) return;     // a guest's cartridge save is never written (side_effects)
     make_parent_folders(g_save_path);
     if (!g_api->flush_save()) fprintf(stderr, "[host] the cartridge save could not be written\n");
 }
@@ -313,9 +313,12 @@ RetroStateEnvelope gba_state_envelope() {
     return RetroStateEnvelope{"RRGBAST" "\0", 1, 0, RR_GBA_ROM_SHA256, gba_state_body};
 }
 
-// A multiplayer session (hostkit_session.h): every seat runs the same simulation from the same start, so a seat starts with an empty cartridge save and never writes one (its own
-// save is not the match's), and the cartridge's clock runs on the guest's cycles from one fixed time (the wall clock would differ between two PCs).
+// A multiplayer session (hostkit_session.h): every seat runs the same simulation from the same start. The cartridge's clock runs on the guest's cycles from the session's one fixed
+// time (the wall clock would differ between two PCs), the cartridge save is read as a game alone reads it (the boot digest holds it: two seats with another save are refused) and a
+// guest never writes it (`side_effects`).
 bool g_session = false;
+bool g_save_writes = true;
+uint64_t g_clock_at_start = 0;      // the session's clock the engine was started with (it reads its guest epoch once, at its start)
 unsigned g_digest_every = 0;       // test switch RETRORECOMP_GBA_DIGEST=<n>: print the digest every n frames (never read in play); the sound is hashed as in a session
 uint64_t g_audio_running = 1469598103934665603ull;     // the hash of every mixed sample so far, taken only in a session: the digest holds it
 
@@ -416,6 +419,14 @@ size_t rrgba_audio(int16_t* pcm, size_t capacity) {
 
 void rrgba_reset(void) { g_restart = true; }
 uint64_t rrgba_digest(void) { return state_digest(); }
+void rrgba_side_effects(bool allowed) { g_save_writes = allowed; }
+// The session's clock (RRHK_SESSION_CLOCK, the same on every seat) is already the engine's guest epoch: the engine reads it once when it starts, which is before the kit's setup.
+void rrgba_session_begin(uint64_t clock) {
+    if (g_clock_at_start && clock != g_clock_at_start)
+        fprintf(stderr, "[host] the session's clock (%llu) is not the one this machine started with (%llu): a cartridge clock would differ
+",
+                static_cast<unsigned long long>(clock), static_cast<unsigned long long>(g_clock_at_start));
+}
 uint64_t rrgba_interpreted(void) { return g_api ? g_api->interpreted_instructions() : 0; }
 uint64_t rrgba_frames(void) { return g_api ? g_api->frames() : 0; }
 
@@ -522,7 +533,10 @@ int main(int argc, char** argv) {
     // with the guest's cycles, so two runs of the same script see the same seconds; a person playing keeps the host's clock.
     if (const char* every = getenv("RETRORECOMP_GBA_DIGEST")) g_digest_every = static_cast<unsigned>(std::max(0, atoi(every)));
     g_session = getenv(RRHK_SESSION_ENV) && *getenv(RRHK_SESSION_ENV) && !getenv("RETRORECOMP_HOST_TEST_FRAMES");
-    if ((g_scripted || g_selftest || g_session || getenv("RETRORECOMP_HOST_TEST_FRAMES")) && !getenv("GBARECOMP_RTC_GUEST_EPOCH"))
+    if (g_session && !getenv("GBARECOMP_RTC_GUEST_EPOCH")) {
+        g_clock_at_start = RRHK_SESSION_CLOCK;
+        set_environment("GBARECOMP_RTC_GUEST_EPOCH", std::to_string(g_clock_at_start).c_str());
+    } else if ((g_scripted || g_selftest || getenv("RETRORECOMP_HOST_TEST_FRAMES")) && !getenv("GBARECOMP_RTC_GUEST_EPOCH"))
         set_environment("GBARECOMP_RTC_GUEST_EPOCH", "1767225600");
     // The player compiles nothing at run time (the engine's self-heal recompiler stays off) and keeps what the engine says about
     // its own coverage, with the addresses the interpreter ran, in `datas/learning`, not beside the executable.
@@ -539,7 +553,7 @@ int main(int argc, char** argv) {
         set_environment("GBARECOMP_COVERAGE_JSON", learning_utf8);
     wchar_t save[2048];
     char save_utf8[4096] = "";
-    if (!g_session && state_location(save, 2048, "saves", ".sav") && rr_to_utf8(save, save_utf8, sizeof save_utf8))
+    if (state_location(save, 2048, "saves", ".sav") && rr_to_utf8(save, save_utf8, sizeof save_utf8))
         wcsncpy(g_save_path, save, 2047);
     set_aside_unusable_save();
     int status = 0;
