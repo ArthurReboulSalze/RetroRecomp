@@ -47,6 +47,8 @@ NO_ANSWER = 'no answer: check the invitation, or the host\'s firewall'
 REJECTIONS = {control.REJECT_FULL: 'the room is full', control.REJECT_VERSION: 'update Retro-Recomp on both PCs',
               control.REJECT_BUSY: 'a match is running in that room', control.REJECT_KICKED: 'the host removed you'}
 BYE_LEFT, BYE_CLOSED, BYE_KICKED = 1, 2, 3          # the control stream's BYE reasons
+PENDING_LIMIT = 64 * 1024           # bytes waiting on one control connection: past this the peer does not read, it is closed (N4)
+CLOSING_SECONDS = 2.0               # a peer being turned away keeps its place this long, whatever waits to be sent (N4)
 
 
 class RoomError(Exception):
@@ -96,8 +98,10 @@ class _Stream:
         self.sock, self.ip, self.port = sock, ip, port
         self.lock = threading.Lock()
         self.pending = bytearray()
-        self.closing = False                     # close once everything is sent
+        self.closing = False                     # close once everything is sent (or after `CLOSING_SECONDS`)
+        self.closing_since = now
         self.closed = False
+        self.overflow = False                    # closed because too many bytes waited: the peer did not read
         self.writer: control.FrameWriter | None = None
         self.reader: control.FrameReader | None = None
         self.bucket = TokenBucket(FRAME_RATE, FRAME_BURST, now)
@@ -119,6 +123,10 @@ class _Stream:
                     return False
                 data = data[sent:]
             self.pending += data
+            if len(self.pending) > PENDING_LIMIT:
+                self.pending.clear()
+                self.closed = self.overflow = True
+                return False
             return True
 
     def flush(self) -> bool:
@@ -226,6 +234,7 @@ class RoomHost:
         self._receiver = datagram.HostReceiver(self._counters, clock())
         self._peers: list[_Peer] = []
         self._outbox: list = []
+        self._counts_due: tuple | None = None
         self._match: _HostMatch | None = None
         self._match_counter = 0
         self._idle_since = clock()
@@ -291,23 +300,28 @@ class RoomHost:
             while not self._stop.is_set():
                 waiting = any(peer.waiting() for peer in self._peers)
                 events = self._selector.select(BUSY_TICK if waiting else IDLE_TICK)
-                now = self._clock()
-                with self._lock:
-                    for key, _mask in events:
-                        if key.data == 'accept':
-                            self._accept(now)
-                        elif key.data == 'datagram':
-                            self._receive_datagrams(now)
-                        else:
-                            self._readable(key.data, now)
-                    self._timers(now)
-                self._flush()
+                self._tick(events, self._clock())
         except Exception as error:      # a fault of the transport ends the room visibly, it is not hidden
             self.log.note(f'the room stopped: {type(error).__name__}')
             self._emit({'event': 'room_error', 'detail': f'the room stopped: {type(error).__name__}'})
             self._flush()
         finally:
             self._shutdown()
+
+    def _tick(self, events: list, now: float) -> None:
+        """One turn of the loop: what the selector reported, then the timers, under the lock; then, outside it, the log's
+        counts and what is handed to the caller."""
+        with self._lock:
+            for key, _mask in events:
+                if key.data == 'accept':
+                    self._accept(now)
+                elif key.data == 'datagram':
+                    self._receive_datagrams(now)
+                else:
+                    self._readable(key.data, now)
+            self._timers(now)
+        self._write_counts()
+        self._flush()
 
     def _shutdown(self) -> None:
         with self._lock:
@@ -347,15 +361,23 @@ class RoomHost:
                 self._counters.count('admission', ip)
                 sock.close()
                 continue
-            sock.setblocking(False)
-            try:
-                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            except OSError:
-                pass
-            peer = _Peer(sock, ip, port, now, handshake.HostHandshake(self._secret, now, self._nonces, self._rng))
+            try:         # nothing the network does to one new socket may end the room for the others (N5)
+                sock.setblocking(False)
+                try:
+                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                except OSError:
+                    pass
+                peer = _Peer(sock, ip, port, now, handshake.HostHandshake(self._secret, now, self._nonces, self._rng))
+                self._selector.register(sock, selectors.EVENT_READ, peer)
+            except (OSError, ValueError, KeyError):
+                self._counters.count('accept_error', ip)
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+                continue
             self._admission.opened(ip)
             self._peers.append(peer)
-            self._selector.register(sock, selectors.EVENT_READ, peer)
 
     def _readable(self, peer: _Peer, now: float) -> None:
         if peer.closed:
@@ -365,15 +387,23 @@ class RoomHost:
         except (BlockingIOError, InterruptedError):
             return
         except OSError:
-            self._close(peer, 'the connection broke')
+            self._ended(peer, 'the connection broke', now)
             return
         if not data:
-            self._close(peer, 'the connection closed')
+            self._ended(peer, 'the connection closed', now)
             return
         if peer.shake is not None:
             self._shaking(peer, data, now)
         else:
             self._frames(peer, data, now)
+
+    def _ended(self, peer: _Peer, reason: str, now: float) -> None:
+        """The peer ended its connection. Before the handshake was done that is a failure like any other: a stranger who
+        connects, sends part of message 1 and closes must not be free to do it again at once (N1)."""
+        if peer.shake is not None:
+            self._failed(peer, 'closed', now)
+        else:
+            self._close(peer, reason)
 
     def _shaking(self, peer: _Peer, data: bytes, now: float) -> None:
         step = peer.shake.feed(data, now)
@@ -396,6 +426,11 @@ class RoomHost:
         self._admission.closed(peer.ip)
         session = peer.shake.session
         peer.shake, peer.session = None, session
+        if not self._admission.joined(peer.ip, now):       # a guest that joins and leaves in a loop (N2): nothing sent, no event
+            self._counters.count('join_rate', peer.ip)
+            self.log.note(f'address {peer.ip} refused for five minutes: it joined the room too often')
+            self._close(peer, 'joined too often', quiet=True)
+            return
         to_host, to_guest = handshake.tcp_keys(session.key)
         peer.writer = control.FrameWriter(to_guest)
         peer.reader = control.FrameReader(to_host, control.FROM_GUEST)
@@ -416,7 +451,7 @@ class RoomHost:
 
     def _reject(self, peer: _Peer, reason: int) -> None:
         peer.send(control.Reject(reason))
-        peer.closing = True
+        peer.closing, peer.closing_since = True, self._clock()
         self.log.note(f'{peer.ip} was turned away: {REJECTIONS[reason]}')
 
     # ---- the control stream ----
@@ -564,7 +599,7 @@ class RoomHost:
             for peer in self._peers:
                 if peer.guest_id == guest_id and not peer.closed:
                     peer.send(control.Reject(control.REJECT_KICKED))
-                    peer.closing = True
+                    peer.closing, peer.closing_since = True, self._clock()
                     return True
         return False
 
@@ -625,13 +660,15 @@ class RoomHost:
     def _timers(self, now: float) -> None:
         for peer in list(self._peers):
             if peer.closed:
+                if not peer.dead:        # a write that failed or overflowed marked it closed: its socket and place go now
+                    self._close(peer, 'the peer did not read what was sent' if peer.overflow else 'the connection broke')
                 continue
             if peer.shake is not None:
                 if peer.shake.expired(now):
                     self._failed(peer, 'deadline', now)
                 continue
             if peer.closing:
-                if not peer.waiting():
+                if not peer.waiting() or now - peer.closing_since >= CLOSING_SECONDS:
                     self._close(peer, 'turned away', quiet=True)
                 continue
             if now - peer.last_heard >= SILENCE:
@@ -641,7 +678,7 @@ class RoomHost:
             elif now - peer.last_ping >= PING_EVERY:
                 peer.last_ping = now
                 peer.send(control.Ping(int(now * 1000) & 0xffffffff))
-        for peer in self._peers:
+        for peer in list(self._peers):
             if peer.waiting() and not peer.closed and not peer.flush():
                 self._close(peer, 'the connection broke')
         match = self._match
@@ -661,8 +698,15 @@ class RoomHost:
             self._idle_asked = True      # the window asks; the sockets close when the converter says `close_room`
             self.log.note('the room has been empty for thirty minutes')
             self._emit({'event': 'room_idle', 'detail': 'nobody has been in the room for thirty minutes'})
-        if self.log.due(now):
-            self.log.counts(self._counters.take_window(), now)
+        if self._counts_due is None and self.log.due(now):
+            self._counts_due = (self._counters.take_window(), now)      # written after the lock is released (N3)
+
+    def _write_counts(self) -> None:
+        """The ten-second lines of counts, outside the room's lock: the file is the slow part, and the driver needs the
+        lock to send (N3). Only the I/O thread calls this."""
+        due, self._counts_due = self._counts_due, None
+        if due is not None:
+            self.log.counts(due[0], due[1])
 
     def _close(self, peer: _Peer, reason: str, quiet: bool = False) -> None:
         if peer.dead:
@@ -759,6 +803,9 @@ class RoomGuest:
         if not invitation.is_lan_address(invited.address, tests):
             raise RoomError('this invitation is not for a room on a local network')
         self.invited, self.tests, self.version = invited, tests, tuple(version)
+        if len(self.version) != 3 or not all(isinstance(part, int) and not isinstance(part, bool) and 0 <= part <= 0xffff
+                                             for part in self.version):
+            raise ValueError('a version of three numbers')       # the HELLO carries three 16-bit numbers (L7)
         self.name = control.display_name(name, 'Guest')
         self._on_event, self._on_launch, self._clock, self._rng = on_event, on_launch, clock, rng
         self._lock = threading.RLock()
@@ -1015,8 +1062,8 @@ class RoomGuest:
 
     def _timers(self, now: float) -> None:
         stream = self._stream
-        if stream.waiting() and not stream.flush():
-            self._host_gone('the connection to the host broke')
+        if stream.closed or (stream.waiting() and not stream.flush()):
+            self._host_gone('the host did not read what was sent' if stream.overflow else 'the connection to the host broke')
             return
         if now - stream.last_heard >= SILENCE:
             self._host_gone('the host was silent for ten seconds')

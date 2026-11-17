@@ -14,7 +14,7 @@ when the caller says `tests=True`; the product never does.
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import ipaddress
 import secrets
 
@@ -41,7 +41,7 @@ class InvitationError(ValueError):
 class Invitation:
     address: str
     port: int
-    secret: bytes
+    secret: bytes = field(repr=False)          # never printed, not even by an f-string of the object
     kind: str = 'lan'
 
 

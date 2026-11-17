@@ -111,6 +111,12 @@ def _summary(worker: WorkerProcess) -> str:
             + (f', {result["detail"]}' if result.get('detail') else ''))
 
 
+def version_numbers(text: str) -> tuple:
+    """The version the HELLO carries: always three numbers, whatever the text ('1.8.0rc1' gives 1, 8, 0)."""
+    numbers = [int(part) for part in text.split('.')[:3] if part.isascii() and part.isdigit() and int(part) <= 0xffff]
+    return tuple((numbers + [0, 0, 0])[:3])
+
+
 def _wait_until_over(worker: WorkerProcess, match_events_from: int, frames: int = 0) -> bool:
     stopped = False
     try:
@@ -154,15 +160,14 @@ def run_host(args, tests: bool = False) -> int:
         say('invitation: ' + invitation.format_invitation(opened['address'], opened['port'], secret, tests))
         say(f'share it with your friend only; waiting for {args.guests} guest(s) (Ctrl+C to give up)')
         def count(worker):
-            return sum(1 for event in worker.events if event.get('event') == 'joined') - \
-                sum(1 for event in worker.events if event.get('event') == 'left') >= args.guests
+            return worker.event_totals['joined'] - worker.event_totals['left'] >= args.guests
         try:
             if not worker.wait_for(count, args.join_timeout) or worker.done:
                 say('not enough guests joined: closing the room')
                 return 1
         except KeyboardInterrupt:
             return 1
-        mark = len(worker.events)
+        mark = worker.event_count
         settings = {'delay': args.delay, 'digest_every': args.digest_every, 'redundancy': 3, 'options': '\n'.join(args.option)}
         worker.call('launch', game=_game_config(args.game, args.log_dir, 'host'),
                     identity={'machine': args.machine, 'stamp': args.stamp, 'rom': args.rom_sha256}, settings=settings)
@@ -197,7 +202,7 @@ def run_guest(args, tests: bool = False) -> int:
         return {'call': 'launch', 'match_id': event['match_id'], 'game': _game_config(args.game, args.log_dir, 'guest')}
 
     from .. import __version__
-    version = tuple(int(part) for part in (__version__.split('.') + ['0', '0'])[:3] if part.isdigit()) or (0, 0, 0)
+    version = version_numbers(__version__)
     config = {'room': {'role': 'guest', 'invitation': text.strip(), 'name': args.name, 'version': list(version)}, 'tests': tests}
     worker = WorkerProcess(config, log=args.log_dir / 'worker.txt', on_event=_show, resolve=resolve).start()
     try:

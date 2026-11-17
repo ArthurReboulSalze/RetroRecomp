@@ -31,6 +31,7 @@ from . import worker_channel as channel
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMAND = '_netplay-worker'
+EVENT_LIMIT = 1000                              # a room's events kept in `events`: the last ones (a hostile guest cannot grow it)
 # What a worker that has not said a thing yet shows (a status says all of it once the driver has started).
 DEFAULTS = {
     'phase': lambda: 'hello', 'outcome': lambda: None, 'detail': lambda: '', 'delay': lambda: None,
@@ -57,7 +58,9 @@ class WorkerProcess:
         self.log = log                          # the worker's stderr (its own text; nothing is read from it)
         self.seat = config.get('settings', {}).get('seat', 0 if config.get('room', {}).get('role') == 'host' else None)
         self.resolve, self.on_event = resolve, on_event
-        self.events: list[dict] = []            # a room's events, in order
+        self.events: list[dict] = []            # a room's events, in order: the last `EVENT_LIMIT` only
+        self.event_count = 0                    # every event ever reported (the number `wait_event(after=...)` counts in)
+        self.event_totals: collections.Counter = collections.Counter()      # ... and how many of each name
         self.process: subprocess.Popen | None = None
         self.status: dict = {}
         self.result: dict | None = None
@@ -135,6 +138,9 @@ class WorkerProcess:
     def _event(self, event: dict) -> None:
         with self._changed:
             self.events.append(event)
+            self.event_count += 1
+            self.event_totals[event.get('event')] += 1
+            del self.events[:-EVENT_LIMIT]
             self._changed.notify_all()
         if self.on_event is not None:
             self.on_event(event)
@@ -145,11 +151,13 @@ class WorkerProcess:
                 self.call(fields.pop('call'), **fields)
 
     def wait_event(self, name: str, timeout: float, after: int = 0) -> dict | None:
-        """Sleeps until an event of that name has been reported (from index `after`); the event, or None."""
+        """Sleeps until an event of that name has been reported (from the `after`-th event ever, as `event_count` counted
+        it); the event, or None."""
         found = []
 
         def seen(worker):
-            found[:] = [event for event in worker.events[after:] if event.get('event') == name][:1]
+            first = max(0, after - (worker.event_count - len(worker.events)))
+            found[:] = [event for event in worker.events[first:] if event.get('event') == name][:1]
             return bool(found)
         with self._changed:
             self._changed.wait_for(lambda: seen(self) or self.exit_code_of_process is not None, timeout)

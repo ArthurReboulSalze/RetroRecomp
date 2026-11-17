@@ -16,6 +16,7 @@ import time
 
 LIMIT = 1024 * 1024
 EVERY = 10.0                  # seconds between two lines of counts
+COUNT_LINES = 16              # lines of counts per window; the rest is one line "and N other sources" (transport review N3)
 
 
 def _plain(value) -> str:
@@ -31,16 +32,21 @@ class RoomLog:
             self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def _write(self, text: str) -> None:
-        line = f'{time.strftime("%Y-%m-%d %H:%M:%S")} {text}'
-        self.lines.append(line)
+        self._write_all([text])
+
+    def _write_all(self, texts: list[str]) -> None:
+        """Several lines, one look at the file and one open."""
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        lines = [f'{stamp} {text}' for text in texts]
+        self.lines.extend(lines)
         del self.lines[:-200]
-        if self.path is None:
+        if self.path is None or not lines:
             return
         try:
             if self.path.exists() and self.path.stat().st_size > LIMIT:
                 self.path.replace(self.path.with_suffix(self.path.suffix + '.1'))
             with open(self.path, 'a', encoding='utf-8', newline='\n') as stream:
-                stream.write(line + '\n')
+                stream.write(''.join(line + '\n' for line in lines))
         except OSError:
             pass                            # a log that cannot be written never stops a room
 
@@ -64,13 +70,20 @@ class RoomLog:
         self._write(_plain(text))
 
     def counts(self, window: dict, now: float | None = None, force: bool = False) -> bool:
-        """The drops and refusals of the last ten seconds, one line per (reason, address)."""
+        """The drops and refusals of the last ten seconds, one line per (reason, address) for the `COUNT_LINES` largest
+        and one line for all the others, written in one go (a flood from many addresses is one short write)."""
         now = self._clock() if now is None else now
         if not force and now < self._next_counts:
             return False
         self._next_counts = now + EVERY
-        for (reason, address), count in sorted(window.items()):
-            self._write(f'refused {_plain(reason)} x{int(count)} from {_plain(address)} in the last {EVERY:g} s')
+        ranked = sorted(window.items(), key=lambda item: (-item[1], item[0]))
+        lines = [f'refused {_plain(reason)} x{int(count)} from {_plain(address)} in the last {EVERY:g} s'
+                 for (reason, address), count in sorted(ranked[:COUNT_LINES])]
+        rest = ranked[COUNT_LINES:]
+        if rest:
+            lines.append(f'refused x{sum(int(count) for _key, count in rest)} more from {len(rest)} other (reason, address) '
+                         f'pairs in the last {EVERY:g} s')
+        self._write_all(lines)
         return True
 
     def due(self, now: float | None = None) -> bool:

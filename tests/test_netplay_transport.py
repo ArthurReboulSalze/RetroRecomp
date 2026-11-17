@@ -17,7 +17,7 @@ import types
 from unittest import mock
 import unittest
 
-from retrorecomp.netplay import control, datagram, handshake, invitation, limits, room_log, session_pipe as pipe
+from retrorecomp.netplay import WorkerProcess, control, datagram, handshake, invitation, limits, room_log, session_pipe as pipe
 from retrorecomp.netplay import input_records as wire, worker_channel as channel
 from retrorecomp.netplay import lan_transport, room_worker
 from retrorecomp.netplay.launch import Refusal, launch_settings
@@ -521,25 +521,42 @@ class LimitTests(unittest.TestCase):
     def test_the_address_bucket_is_before_the_tag_and_counts_what_it_drops(self):
         calls = []
         real = datagram._tag
-        garbage = [self.damaged(index + 1) for index in range(1000)]     # the right head, a wrong tag
+        garbage = [self.damaged(index + 1) for index in range(3000)]     # the right head, a wrong tag
         with mock.patch.object(datagram, '_tag', lambda key, data: (calls.append(1), real(key, data))[1]):
-            for data in garbage:                              # 200 reach the tag check, the rest are dropped before it
+            for data in garbage:                              # 2,000 reach the tag check, the rest are dropped before it
                 self.receiver.receive(('192.168.1.5', 5000), data, 0.0)
-        self.assertEqual(len(calls), 200)                     # the burst of the address bucket
-        self.assertEqual(self.counters.total['address_rate'], 800)
-        self.assertEqual(self.counters.total['tag'], 200)
+        self.assertEqual(len(calls), 2000)                    # the burst of the address bucket (a CPU guard, review L1)
+        self.assertEqual(self.counters.total['address_rate'], 1000)
+        self.assertEqual(self.counters.total['tag'], 2000)
 
-    def test_the_whole_room_bucket_holds_4000_a_second_across_addresses(self):
+    def test_a_spoofer_with_the_seats_address_cannot_starve_the_real_seat_review_l1(self):
+        """The head of a datagram is public (magic, match, seat): copied with the seat's source address and a wrong tag, it
+        used to take a token of the address bucket (1,000 a second): at 5,000 a second the real seat (150) was starved."""
+        garbage = self.damaged(1)
+        accepted = refused = 0
+        for step in range(5000 * 2):                          # two seconds: 5,000 forged datagrams a second
+            now = step / 5000
+            self.receiver.receive(('192.168.1.5', 5000), garbage, now)
+            if step % 33 == 0:                                # about 150 real datagrams a second, from the same address
+                if self.send(now) is not None:
+                    accepted += 1
+                else:
+                    refused += 1
+        self.assertGreater(accepted + refused, 250)
+        self.assertEqual(refused, 0)
+
+    def test_the_whole_room_bucket_holds_40000_a_second_across_addresses(self):
         receiver = datagram.HostReceiver(limits.Counters(), 0.0)
         seats = {seat: (f'10.0.0.{seat}', self.up) for seat in range(1, 5)}
         receiver.begin_match(1, seats, 0.0, seat_count=5)
         for index in range(2000):
-            for seat in range(1, 5):
+            for seat in range(1, 5):               # 8,000 forged datagrams from four addresses, all at once
                 data = bytearray(datagram.seal(self.up, wire.PING, seat, 1, index + 1, bytes(4)))
                 data[-1] ^= 1
                 receiver.receive((f'10.0.0.{seat}', 5000), bytes(data), 0.0)
         self.assertEqual(receiver.counters.total['address_rate'] + receiver.counters.total['tag'], 8000)
-        self.assertEqual(receiver.counters.total['tag'], 800)      # the all-sources burst: 800 before the tag check
+        self.assertEqual(receiver.counters.total['tag'], limits.TOTAL_BURST)      # the all-sources burst reaches the tag check
+        self.assertEqual((limits.ADDRESS_RATE, limits.TOTAL_RATE), (20000.0, 40000.0))
 
     def test_unauthenticated_connections_handshake_failures_and_the_five_minute_refusal(self):
         admission = limits.Admission()
@@ -929,6 +946,338 @@ class FuzzTests(unittest.TestCase):
                       'delay': rng.choice((None, 0, 1, 15, 16, -1)), 'digest_every': rng.choice((0, 9, 10, 600, 601, 60)),
                       'redundancy': rng.choice((0, 1, 8, 9)), 'options': rng.choice(('', 'a=b', 'x' * 5000, 'a=b\nc', 'é', 'A=b'))}
             self.assertTrue(isinstance(launch_settings(fields), (Settings, Refusal)))
+
+
+
+# ---- 10. the fixes after the transport review (TRANSPORT_REVIEW.md, N1 to N5, L1, L3, L4, L7): no socket, no thread ----
+
+class FakeSock:
+    """A socket that is not one: queued `recv` results (bytes, or an exception to raise), a `send` that takes everything or
+    blocks, and flags for what the test wants to see."""
+
+    def __init__(self, chunks=(), blocked=False, setblocking_error=None):
+        self.chunks, self.blocked, self.setblocking_error = list(chunks), blocked, setblocking_error
+        self.sent, self.closed = bytearray(), False
+
+    def recv(self, size):
+        if not self.chunks:
+            raise BlockingIOError()
+        item = self.chunks.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    def send(self, data):
+        if self.blocked:
+            raise BlockingIOError()
+        self.sent += data
+        return len(data)
+
+    def setblocking(self, flag):
+        if self.setblocking_error:
+            raise self.setblocking_error
+
+    def setsockopt(self, *args):
+        pass
+
+    def fileno(self):
+        return 77
+
+    def close(self):
+        self.closed = True
+
+
+class FakeSelector:
+    def __init__(self, register_error=None):
+        self.register_error, self.registered = register_error, []
+
+    def register(self, sock, events, data):
+        if self.register_error:
+            raise self.register_error
+        self.registered.append(sock)
+
+    def unregister(self, sock):
+        if sock not in self.registered:
+            raise KeyError(sock)
+        self.registered.remove(sock)
+
+    def close(self):
+        pass
+
+
+class FakeListener:
+    def __init__(self, *socks):
+        self.queue = list(socks)
+
+    def accept(self):
+        if not self.queue:
+            raise BlockingIOError()
+        return self.queue.pop(0), ('192.168.1.9', 5000)
+
+
+class Clock:
+    now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+def fake_host(clock=None, **keywords):
+    """A `RoomHost` that was never opened: no socket, no thread; the tests call its methods the way its thread would."""
+    host = lan_transport.RoomHost('127.0.0.1', 40000, SECRET, 4, tests=True, clock=clock or Clock(), **keywords)
+    host._selector = FakeSelector()
+    return host
+
+
+def stranger(host, ip, chunks, now=0.0, blocked=False):
+    """A connection that was accepted and is still shaking hands (what `_accept` leaves)."""
+    sock = FakeSock(chunks, blocked)
+    peer = lan_transport._Peer(sock, ip, 5000, now, handshake.HostHandshake(SECRET, now, host._nonces, counting_rng(NONCE_H)))
+    host._admission.opened(ip)
+    host._peers.append(peer)
+    host._selector.registered.append(sock)
+    return peer
+
+
+GUEST_NUMBER = [0]
+
+
+def joined_guest(host, ip, now=0.0, blocked=False):
+    """A guest that holds the secret and does the whole handshake through the host's own `_readable`."""
+    GUEST_NUMBER[0] += 1
+    guest = handshake.GuestHandshake(SECRET, now, counting_rng(bytes([GUEST_NUMBER[0] % 250 + 1]) * 16))
+    peer = stranger(host, ip, [guest.first()], now)
+    host._readable(peer, now)
+    step = guest.feed(bytes(peer.sock.sent), now)
+    peer.sock.chunks.append(step.send)
+    peer.sock.blocked = blocked
+    host._readable(peer, now)
+    return peer
+
+
+class ReviewFixTests(unittest.TestCase):
+    # -- N1 --
+    def test_n1_a_stranger_who_closes_by_himself_counts_as_a_failure_and_ends_in_a_refusal(self):
+        host = fake_host()
+        for attempt, ending in enumerate((b'', ConnectionResetError(10054), b'')):    # three connections, three ways to leave
+            self.assertTrue(host._admission.may_accept('192.168.1.9', 1.0 + attempt))
+            peer = stranger(host, '192.168.1.9', [b'RRN', ending], now=1.0 + attempt)      # a piece of message 1, then gone
+            host._readable(peer, 1.0 + attempt)
+            host._readable(peer, 1.0 + attempt)
+            self.assertTrue(peer.dead)
+            self.assertEqual(peer.sock.sent, b'')                                  # nothing was ever sent to him
+        self.assertEqual(host._counters.total['handshake_closed'], 3)
+        self.assertFalse(host._admission.may_accept('192.168.1.9', 4.0))           # refused for five minutes
+        self.assertTrue(host._admission.may_accept('192.168.1.10', 4.0))           # and only that address
+        self.assertEqual(sum(host._admission._open.values()), 0)                   # no slot is held
+
+    def test_n1_four_addresses_cannot_hold_the_rooms_eight_slots_for_ever(self):
+        host = fake_host()
+        for address in range(4):
+            for attempt in range(3):
+                ip = f'192.168.1.{20 + address}'
+                if host._admission.may_accept(ip, float(attempt)):
+                    peer = stranger(host, ip, [b'x', b''], now=float(attempt))
+                    host._readable(peer, float(attempt))
+                    host._readable(peer, float(attempt))
+        self.assertTrue(all(not host._admission.may_accept(f'192.168.1.{20 + address}', 5.0) for address in range(4)))
+        self.assertEqual(len(host._peers), 0)
+        self.assertTrue(host._admission.may_accept('192.168.1.99', 5.0))           # a real guest from another address is let in
+
+    def test_n1_a_guest_that_is_through_its_handshake_is_not_a_failure_when_it_leaves(self):
+        host = fake_host()
+        peer = joined_guest(host, '192.168.1.30')
+        self.assertIsNotNone(peer.guest_id)
+        peer.sock.chunks.append(b'')
+        host._readable(peer, 1.0)
+        self.assertTrue(peer.dead)
+        self.assertEqual(host._counters.total['handshake_closed'], 0)
+
+    # -- N2 --
+    def test_n2_joins_per_address_are_six_a_minute_then_five_minutes_of_refusal(self):
+        admission = limits.Admission()
+        self.assertEqual([admission.joined('10.0.0.1', moment / 10) for moment in range(7)], [True] * 6 + [False])
+        self.assertTrue(admission.refused('10.0.0.1', 200.0))
+        self.assertFalse(admission.may_accept('10.0.0.1', 200.0))
+        self.assertTrue(admission.may_accept('10.0.0.1', 301.0))
+        self.assertTrue(admission.joined('10.0.0.2', 0.5))                         # another address is not concerned
+        spread = limits.Admission()
+        self.assertTrue(all(spread.joined('10.0.0.3', moment * 11.0) for moment in range(30)))   # a join every 11 s: never six in a minute
+        many = limits.Admission()
+        for number in range(limits.TABLE_LIMIT * 3):                               # the table never grows without bound
+            many.joined(f'10.{number // 256}.{number % 256}.1', 0.0)
+        self.assertLessEqual(len(many._joins), limits.TABLE_LIMIT)
+
+    def test_n2_the_seventh_join_in_a_minute_is_closed_with_no_event_and_the_address_is_refused(self):
+        host = fake_host()
+        events = []
+        host._on_event = events.append
+        peers = [joined_guest(host, '192.168.1.40', now=float(number)) for number in range(7)]
+        self.assertIsNotNone(peers[0].guest_id)
+        self.assertTrue(peers[6].dead)
+        self.assertIsNone(peers[6].guest_id)
+        self.assertEqual(len(peers[6].sock.sent), handshake.SECOND_SIZE)            # message 2 of the handshake, then not even a WELCOME or a REJECT
+        self.assertEqual(host._counters.total['join_rate'], 1)
+        self.assertTrue(host._admission.refused('192.168.1.40', 7.0))
+        self.assertFalse(host._admission.may_accept('192.168.1.40', 7.0))
+        self.assertEqual(sum(host._admission._open.values()), 0)                    # the slot count is right (no double release)
+
+    def test_n2_a_worker_process_keeps_the_last_thousand_events_and_counts_every_one(self):
+        worker = WorkerProcess({'room': {'role': 'host'}}, command=['never started'])
+        for number in range(2500):
+            worker._event({'event': 'joined' if number % 2 else 'left', 'n': number})
+        self.assertEqual(len(worker.events), 1000)
+        self.assertEqual(worker.events[-1]['n'], 2499)
+        self.assertEqual(worker.event_count, 2500)
+        self.assertEqual((worker.event_totals['joined'], worker.event_totals['left']), (1250, 1250))
+        worker._event({'event': 'match_over', 'n': 2500})
+        self.assertEqual(worker.wait_event('match_over', 0.0, after=2500)['n'], 2500)    # `after` counts in events ever reported
+        self.assertIsNone(worker.wait_event('match_over', 0.0, after=2501))
+        self.assertIsNone(worker.wait_event('joined', 0.0, after=2501))
+
+    # -- N3 --
+    def test_n3_a_window_of_many_sources_is_sixteen_lines_and_one_more_in_one_open(self):
+        import tempfile
+        from pathlib import Path
+        opens = []
+        real_open = open
+
+        def counting_open(*args, **keywords):
+            opens.append(args)
+            return real_open(*args, **keywords)
+        with tempfile.TemporaryDirectory() as folder:
+            log = room_log.RoomLog(Path(folder) / 'room.log', clock=lambda: 0.0)
+            window = {('tag', f'10.0.{number // 256}.{number % 256}'): number + 1 for number in range(256)}
+            with mock.patch.object(room_log, 'open', counting_open, create=True):
+                self.assertTrue(log.counts(window, now=10.0))
+            text = (Path(folder) / 'room.log').read_text(encoding='utf-8')
+        self.assertEqual(len(opens), 1)
+        lines = text.splitlines()
+        self.assertEqual(len(lines), room_log.COUNT_LINES + 1)
+        self.assertIn('x256 from 10.0.0.255', text)                                   # the largest sources are the ones named
+        self.assertIn(f'refused x{sum(range(1, 241))} more from 240 other', lines[-1])
+        self.assertEqual(len(log.lines), 17)
+
+    def test_n3_the_counts_are_written_after_the_rooms_lock_is_released(self):
+        host = fake_host()
+        seen = []
+
+        class Probe(room_log.RoomLog):
+            def due(self, now=None):
+                return True
+
+            def counts(self, window, now=None, force=False):
+                answer = []
+
+                def other_thread():                 # what the driver's send does: it needs the room's lock
+                    answer.append(host._lock.acquire(blocking=False))
+                    if answer[0]:
+                        host._lock.release()
+                thread = threading.Thread(target=other_thread)
+                thread.start()
+                thread.join(5)
+                seen.append(answer[0])
+                return True
+        host.log = Probe(None)
+        host._counters.count('tag', '192.168.1.77')
+        host._tick([], 20.0)
+        self.assertEqual(seen, [True])                                            # called once, and the lock was free
+
+    # -- N4 --
+    def test_n4_a_peer_that_never_reads_is_closed_at_64_kib_of_waiting_bytes(self):
+        stream = lan_transport._Stream(FakeSock(blocked=True), '192.168.1.5', 5000, 0.0)
+        writes = 0
+        while stream.write(b'p' * 512):
+            writes += 1
+            self.assertLessEqual(writes, 200)                                      # bounded, whatever the peer does
+        self.assertTrue(stream.closed and stream.overflow)
+        self.assertLessEqual(len(stream.pending), lan_transport.PENDING_LIMIT)
+        self.assertEqual(writes, lan_transport.PENDING_LIMIT // 512)               # the write that passed the limit is the one refused
+        self.assertFalse(stream.write(b'more'))
+
+    def test_n4_the_host_closes_such_a_peer_and_frees_its_place(self):
+        host = fake_host()
+        peer = joined_guest(host, '192.168.1.50', blocked=True)
+        self.assertIn(peer, host._peers)
+        for _ in range(300):                                                        # bounded, whatever the code does
+            if not peer.write(b'pong' * 128):
+                break
+        host._timers(1.0)
+        self.assertTrue(peer.dead and peer.sock.closed)
+        self.assertNotIn(peer, host._peers)
+        self.assertEqual(len([other for other in host._peers if other.guest_id is not None]), 0)
+
+    def test_n4_a_peer_being_turned_away_is_closed_after_two_seconds_whatever_waits(self):
+        clock = Clock()
+        host = fake_host(clock)
+        peer = joined_guest(host, '192.168.1.51', blocked=True)
+        self.assertTrue(host.kick(peer.guest_id))                                   # its REJECT cannot leave
+        self.assertTrue(peer.closing and peer.waiting())
+        host._timers(1.9)
+        self.assertIn(peer, host._peers)
+        host._timers(lan_transport.CLOSING_SECONDS)
+        self.assertNotIn(peer, host._peers)
+        self.assertTrue(peer.sock.closed)
+
+    def test_n4_a_guest_whose_host_never_reads_ends_the_connection(self):
+        guest = lan_transport.RoomGuest(invitation.Invitation('192.168.1.5', 24611, SECRET), 'Nadia', tests=True)
+        guest._stream = lan_transport._Stream(FakeSock(blocked=True), '192.168.1.5', 24611, 0.0)
+        for _ in range(300):
+            if not guest._stream.write(b'ping' * 128):
+                break
+        guest._timers(1.0)
+        self.assertTrue(guest._gone)
+        self.assertEqual([item[1]['event'] for item in guest._outbox if item[0] == 'event'], ['host_gone'])
+
+    # -- N5 --
+    def test_n5_an_error_on_a_new_socket_closes_that_socket_and_nothing_else(self):
+        for broken in (FakeSock(setblocking_error=OSError(10038, 'not a socket')), FakeSock()):
+            host = fake_host()
+            host._tcp = FakeListener(broken)
+            if broken.setblocking_error is None:
+                host._selector = FakeSelector(register_error=OSError(24, 'too many open files'))
+            host._accept(0.0)                                                      # raises nothing
+            self.assertTrue(broken.closed)
+            self.assertEqual(host._counters.total['accept_error'], 1)
+            self.assertEqual(sum(host._admission._open.values()) + len(host._peers), 0)    # no half-made peer is left behind
+        host = fake_host()                                                          # the room goes on: the next one is accepted
+        host._tcp = FakeListener(FakeSock(setblocking_error=OSError(1, 'x')), FakeSock())
+        host._accept(0.0)
+        self.assertEqual(len(host._peers), 1)
+        self.assertEqual(sum(host._admission._open.values()), 1)
+
+    # -- L1 (the tests are with the others: the address bucket, the whole-room bucket and the spoofer) --
+
+    # -- L3, L4, L7 --
+    def test_l3_the_refusal_table_is_bounded_too(self):
+        admission = limits.Admission()
+        for number in range(limits.TABLE_LIMIT * 3):
+            for _ in range(limits.FAILURES_PER_MINUTE):
+                admission.failed(f'10.{number // 256}.{number % 256}.1', 0.0)
+        self.assertLessEqual(len(admission._refused_until), limits.TABLE_LIMIT)
+        self.assertFalse(admission.may_accept(f'10.{(limits.TABLE_LIMIT * 3 - 1) // 256}.{(limits.TABLE_LIMIT * 3 - 1) % 256}.1', 1.0))
+
+    def test_l4_the_secret_and_the_session_key_are_not_in_a_repr(self):
+        invited = invitation.Invitation('192.168.1.5', 24611, SECRET)
+        session = handshake.Session(b'\x77' * 32, 3)
+        for text in (repr(invited), f'{invited}', repr(session), f'{session}'):
+            self.assertNotIn(SECRET.hex(), text.lower())
+            self.assertNotIn(repr(SECRET), text)
+            self.assertNotIn('77' * 8, text)
+            self.assertNotIn('\\x77', text)
+        self.assertIn('192.168.1.5', repr(invited))
+
+    def test_l7_a_version_is_always_three_numbers(self):
+        from retrorecomp.netplay.room_cli import version_numbers
+        self.assertEqual(version_numbers('1.7.9'), (1, 7, 9))
+        self.assertEqual(version_numbers('1.8.0rc1'), (1, 8, 0))
+        self.assertEqual(version_numbers('2'), (2, 0, 0))
+        self.assertEqual(version_numbers('x.y'), (0, 0, 0))
+        self.assertEqual(version_numbers('1.2.3.4'), (1, 2, 3))
+        self.assertEqual(version_numbers('1.70000.3'), (1, 3, 0))
+        for bad in ((1, 8), (1, 8, 0, 0), (1, 8, 70000), (1, 8, -1), (1, 8, 'x')):
+            with self.assertRaises(ValueError):
+                lan_transport.RoomGuest(invitation.Invitation('192.168.1.5', 24611, SECRET), 'Nadia', tests=True, version=bad)
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ Every comparison is constant-time (`hmac.compare_digest`).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import hmac
 import secrets
@@ -78,7 +78,7 @@ def _proof_guest(key: bytes, proto: int, nonce_g: bytes, nonce_h: bytes) -> byte
 @dataclass(frozen=True)
 class Session:
     """What a finished handshake leaves: the key of this connection and the protocol number the guest spoke."""
-    key: bytes
+    key: bytes = field(repr=False)             # never printed, not even by an f-string of the object
     proto: int
 
 

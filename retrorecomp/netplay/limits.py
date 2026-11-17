@@ -16,9 +16,14 @@ FAILURES_PER_MINUTE = 3
 REFUSED_SECONDS = 300.0
 FAILURE_WINDOW = 60.0
 TABLE_LIMIT = 256                  # addresses remembered at once (a flood from many sources cannot grow the table)
-# datagrams, before and after the tag check
-ADDRESS_RATE, ADDRESS_BURST = 1000.0, 200.0
-TOTAL_RATE, TOTAL_BURST = 4000.0, 800.0
+JOINS_PER_MINUTE = 6               # authenticated joins from one address (a guest that joins and leaves in a loop is refused)
+JOIN_WINDOW = 60.0
+# datagrams, before and after the tag check. The two buckets BEFORE the tag are CPU guards only: they are set well above
+# what honest seats send (about 170 a second each) so that a spoofer, who can copy a seat's address and the public
+# fields of the head, cannot empty them with a trickle and starve a real seat (transport review L1); a flood above them
+# costs the host what the `recvfrom` cost already. The seat's own bucket, after the tag, is the real limit.
+ADDRESS_RATE, ADDRESS_BURST = 20000.0, 2000.0
+TOTAL_RATE, TOTAL_BURST = 40000.0, 4000.0
 SEAT_RATE, SEAT_BURST = 240.0, 60.0
 SEAT_OVER_SECONDS = 5.0            # above the seat's limit for this long, running: the seat is dropped
 SEAT_QUIET_SECONDS = 1.0           # a gap this long without an excess ends the streak
@@ -70,6 +75,7 @@ class Admission:
     def __init__(self):
         self._open: dict[str, int] = {}
         self._failures: dict[str, list] = {}        # address -> failure times within the window
+        self._joins: dict[str, list] = {}           # address -> times of its authenticated joins within the window
         self._refused_until: dict[str, float] = {}
 
     def refused(self, address: str, now: float) -> bool:
@@ -104,18 +110,40 @@ class Admission:
             self._forget(now)
         self._failures[address] = times
         if len(times) >= FAILURES_PER_MINUTE:
-            self._refused_until[address] = now + REFUSED_SECONDS
+            self._refuse(address, now)
             del self._failures[address]
             return True
         return False
 
+    def joined(self, address: str, now: float) -> bool:
+        """One authenticated join (the guest proved the secret); False when that address joins too often: it is then
+        refused for five minutes, as after failed handshakes (a guest with the invitation cannot make a join and a leave a
+        hundred times a second: transport review N2)."""
+        times = [moment for moment in self._joins.get(address, []) if now - moment < JOIN_WINDOW]
+        if len(times) >= JOINS_PER_MINUTE:
+            self._joins.pop(address, None)
+            self._refuse(address, now)
+            return False
+        times.append(now)
+        if address not in self._joins and len(self._joins) >= TABLE_LIMIT:
+            self._forget(now)
+        self._joins[address] = times
+        return True
+
+    def _refuse(self, address: str, now: float) -> None:
+        if address not in self._refused_until and len(self._refused_until) >= TABLE_LIMIT:
+            self._forget(now)
+        self._refused_until[address] = now + REFUSED_SECONDS
+
     def _forget(self, now: float) -> None:
-        for address in [name for name, times in self._failures.items() if all(now - moment >= FAILURE_WINDOW for moment in times)]:
-            del self._failures[address]
+        for table in (self._failures, self._joins):
+            for address in [name for name, times in table.items() if all(now - moment >= FAILURE_WINDOW for moment in times)]:
+                del table[address]
         for address in [name for name, until in self._refused_until.items() if now >= until]:
             del self._refused_until[address]
-        while len(self._failures) >= TABLE_LIMIT:       # a flood of sources: the oldest are forgotten, the room stays bounded
-            del self._failures[next(iter(self._failures))]
+        for table in (self._failures, self._joins, self._refused_until):
+            while len(table) >= TABLE_LIMIT:            # a flood of sources: the oldest are forgotten, the room stays bounded
+                del table[next(iter(table))]
 
 
 class NonceMemory:
