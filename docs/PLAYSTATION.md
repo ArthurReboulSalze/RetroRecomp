@@ -330,5 +330,11 @@ DualShock's own 8-bit precision), and the profile answers a session (`netplay_se
   `renderer=card` and a card seat sent `renderer=cpu` with PGXP On, each 56 of 56 digests equal.
 - A card file of other bytes on one seat: equal to a seat without one in a match, and its file unchanged; played alone, its
   digests differ (the card is in the digest).
+- Windows against Linux: Ape Escape converted in WSL Debian with GCC and played as a match on the CPU renderer gives the same 56
+  digests as the Windows build (llvm-mingw), with PGXP On and with PGXP Off (PGXP's floating-point arithmetic included).
+- Two copies through the session (`tools/netplay_game_smoke.py`, delay 2, 3,000 frames, scripted pads, the host's values on
+  both seats): PASS with PGXP On and the card, PGXP On and the CPU, and PGXP Off; boot digests and the 50 digests equal on both
+  seats every time, and the three runs' digests differ from one another (the host's values reach the run).
 - 0 interpreted instructions in every match run.
-Not shown yet: two copies through the session with the delay tier, two PCs, and Windows against Linux with PGXP On.
+Not shown yet: two PCs, sticks moved by the scripted pads (the tool presses buttons only), and a Linux graphics card with PGXP On
+(WSL has none the game accepts).

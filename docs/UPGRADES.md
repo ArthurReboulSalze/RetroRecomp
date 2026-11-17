@@ -263,8 +263,9 @@ PlayStation's game stamp (the profile, its runtime and Beetle's adaptation: `rr_
 converted again; the PlayStation's host stamp; one new catalogue string (« Not during a multiplayer game ») moves the host stamp
 of every machine with the host kit, as the multiplayer line above already does. Quick states: unchanged. **Proof**:
 [PLAYSTATION.md section 10](PLAYSTATION.md#10-multiplayer-the-digest-and-the-hosts-settings-next-release-delay-tier) (Ape
-Escape: digests equal on the same run with PGXP Off and On; the settings that change the run measured and pushed). Physical
-latency is not measured.
+Escape: digests equal on the same run with PGXP Off and On, and between Windows and Linux; the settings that change the run
+measured and pushed; two copies through the session on the delay tier PASS with the host's values). Physical latency is not
+measured.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 
