@@ -1273,6 +1273,7 @@
     "The match is over": "対戦終了",
     "Free: network play sets the pace": "自由: ネット対戦がテンポを決めます",
     "F1  Help": "F1  ヘルプ",
-    "M  Mute": "M  ミュート"
+    "M  Mute": "M  ミュート",
+    "Your game differs from the host's": "あなたのゲームはホストのものと異なります"
   }
 }

@@ -1273,6 +1273,7 @@
     "The match is over": "La partida ha terminado",
     "Free: network play sets the pace": "Libre: el juego en red marca el ritmo",
     "F1  Help": "F1  Ayuda",
-    "M  Mute": "M  Silencio"
+    "M  Mute": "M  Silencio",
+    "Your game differs from the host's": "Tu juego no es igual al del anfitrión"
   }
 }

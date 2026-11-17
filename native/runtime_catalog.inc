@@ -382,6 +382,7 @@ static const char *const rr_translations[][5] = {
     {"White","Blanc","Bianco","Blanco","Weiss"},
     {"Windowed","Mode fenetre","In finestra","En ventana","Fenstermodus"},
     {"Yes","Oui","Si","Si","Ja"},
+    {"Your game differs from the host's","Ton jeu differe de celui de l'hote","Il tuo gioco e diverso da quello dell'host","Tu juego no es igual al del anfitrion","Dein Spiel weicht von dem des Hosts ab"},
     {"Zapper | Tab: controls","Zapper | Tab : commandes","Zapper | Tab: comandi","Zapper | Tab: controles","Zapper | Tab: Steuerung"},
     {"` Max speed: %s","` Vitesse max : %s","` Velocita max: %s","` Velocidad max.: %s","` Hoechsttempo: %s"},
     {"for the next recompilation...","pour la prochaine recompilation...","per la prossima ricompilazione...","para la proxima recompilacion...","fuer die naechste Neukompilierung..."},

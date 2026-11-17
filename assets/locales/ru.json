@@ -1273,6 +1273,7 @@
     "The match is over": "Матч окончен",
     "Free: network play sets the pace": "Свободно: темп задаёт сетевая игра",
     "F1  Help": "F1  Справка",
-    "M  Mute": "M  Без звука"
+    "M  Mute": "M  Без звука",
+    "Your game differs from the host's": "Ваша игра отличается от игры хоста"
   }
 }

@@ -237,7 +237,7 @@ def boot_mismatch(executable, out):
         assert driver.exit_code == 0 and driver.exit_reason == pipe.EXIT_STOPPED, (driver.exit_code, driver.exit_reason)
         result = match.result(driver.seat)
         assert int(result['frames']) == 0 and int(result['live']) == 0, result          # no frame ever ran
-        assert 'stopped by Retro-Recomp (3)' in match.stderr(driver.seat)
+        assert 'stopped by Retro-Recomp (4)' in match.stderr(driver.seat)    # RRHK_STOP_BOOT_MISMATCH: « Your game differs from the host's »
     assert 'Hélène' in match.drivers[0].detail and 'boot digest' in match.drivers[0].detail, match.drivers[0].detail
     assert 'Hélène' in match.drivers[1].detail, match.drivers[1].detail
     return f'seat 3 starts from another state: the launch was refused before frame 0 on all three seats ({match.drivers[0].detail})'

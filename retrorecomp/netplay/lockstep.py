@@ -588,7 +588,7 @@ class LockstepDriver:
         elif reason == wire.BYE_BOOT and seat == HOST:
             culprit = self.names[who] if who < self.seats else 'a seat'
             self.detail = f'the host refused the launch: the game of {culprit} does not start from the host\'s state'
-            self._end('boot_mismatch', pipe.STOP_ENDED, None)
+            self._end('boot_mismatch', pipe.STOP_BOOT_MISMATCH, None)
         elif seat == HOST and reason == wire.BYE_ENDED:
             self._end('ended', pipe.STOP_ENDED, None)
         elif seat == HOST and reason == wire.BYE_SEAT_GONE:
@@ -726,7 +726,7 @@ class LockstepDriver:
         self._boot_culprit = seat
         self.detail = (f'the game of {self.names[seat]} does not start from the same state as the host\'s: boot digest '
                        f'{self._boots[seat]:016x} against {self.boot_digest:016x} (another save, an option, a damaged export)')
-        self._end('boot_mismatch', pipe.STOP_ENDED, wire.BYE_BOOT, seat)
+        self._end('boot_mismatch', pipe.STOP_BOOT_MISMATCH, wire.BYE_BOOT, seat)
 
 
     def _worst_path(self) -> tuple[float, float]:

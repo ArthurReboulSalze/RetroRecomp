@@ -54,6 +54,7 @@ enum { RRHK_SYS_PAUSE = 1 };            /* the player asked for a pause (the Pau
 enum { RRHK_REFUSED_OPTION = 1, RRHK_REFUSED_SNAPSHOT = 2, RRHK_REFUSED_COMMAND = 3 };
 enum { RRHK_EXIT_CLOSED = 1, RRHK_EXIT_LOST = 2, RRHK_EXIT_STOPPED = 3, RRHK_EXIT_FAILED = 4 };
 enum { RRHK_NOTICE_WAITING = 1, RRHK_NOTICE_RESUMED = 2, RRHK_NOTICE_LEFT = 3 };
-enum { RRHK_STOP_HOST_CLOSED = 1, RRHK_STOP_DESYNC = 2, RRHK_STOP_ENDED = 3 };
+enum { RRHK_STOP_HOST_CLOSED = 1, RRHK_STOP_DESYNC = 2, RRHK_STOP_ENDED = 3,
+       RRHK_STOP_BOOT_MISMATCH = 4 };   /* this game does not start from the host's state: the launch is refused */
 
 #endif

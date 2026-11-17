@@ -439,6 +439,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             const uint16_t reason = length >= 2 ? (uint16_t)(payload[0] | payload[1] << 8) : 0;
             fprintf(stderr, "[session] stopped by Retro-Recomp (%u)\n", (unsigned)reason);
             return ending(reason == RRHK_STOP_DESYNC ? rr_tr("The games went out of step: the match stops") :
+                          reason == RRHK_STOP_BOOT_MISMATCH ? rr_tr("Your game differs from the host's") :
                           rr_tr("The match is over"), RRHK_EXIT_STOPPED);
         }
         default:
