@@ -111,7 +111,8 @@ void rr_md_audio_delivery_timing(uint64_t *wait,uint64_t *pull,uint64_t *calls,u
     if(s_dev)SDL_UnlockAudioDevice(s_dev);
 }
 '''
-    return '#include "md_audio_mix.h"\n#include "audio_cushion.h"\n' + source
+    from .megadrive_rollback import audio as rollback_audio
+    return '#include "md_audio_mix.h"\n#include "audio_cushion.h"\n' + rollback_audio(source)
 
 
 def bridge(source: str) -> str:

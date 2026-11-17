@@ -92,6 +92,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
+| [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-next-release) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
 
@@ -282,6 +283,38 @@ four pads and the signatures, a new strobe, a read cut in the middle then saved 
 seeing the pads of players 3 and 4; the build without the Four Score is unchanged (749 and 751 checks as before, plus its own). Not
 proven: a Four Score game played on four seats (see the multiplayer notes of the same branch), the Famicom's own four-player adapter
 (different wiring, not supported), and the catalogue's titles were not all checked against a dump.
+
+## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (next release)
+
+The Mega Drive leaves the delay tier: its adapter gives the in-process snapshot of `hostkit.h` (`snap_bound`, `snap_save`,
+`snap_load`), so a session plays it on the rollback tier and the host's F8 / F9 save and load the match's state for everyone.
+The snapshot is the whole state that decides later frames: the 68000, work RAM, the machine (VDP, bus, cartridge RAM, sound
+CPU), the YM2612 and PSG with their undrained samples and timers, the queued sound events, the scheduler, the pads, the
+cartridge chips and the gun. A frame can end with the 68000 suspended inside an instruction (a 68000-to-VRAM DMA, a bus wait),
+with the sound CPU suspended in a read of the 68000's bus, or with a bus request not yet granted. A quick state refuses those
+frame ends; the snapshot keeps them. It holds the two live continuations (the fibers' stacks, raw) and the statics those
+instructions read when they resume, kept raw because nothing they point to moves in a process: fibers are now kept for the
+whole run (a destroyed one is parked and reset in place when one of the same size is needed). Memory only, never written to a
+file or sent; no allocation per call once the YM2612's two buffers exist. A silent frame (a rollback running frames already
+heard again) gives the sound device nothing. All of it is added to the private runtime copies by
+`retrorecomp/megadrive_rollback.py`; the files of the Mega Drive quick-state key are not touched, and a quick state keeps its
+portable form. A build without step code (none of the current conversions) gives no snapshot and stays on the delay tier.
+**Size:** `snap_bound` is 427,430 bytes; the largest save seen was 211,454 bytes (game fiber stack at most 1,844 bytes, sound
+CPU's 1,288). Save and load times are not measured. **Proof** (17 November 2026, Streets of Rage 2, llvm build):
+`tools/megadrive_rollback_selftest.py` (`native/md_rollback_checks.c`, linked with a game build's objects). First, an authored
+program in work RAM with no game code: 224 rollbacks, each a save, eight frames with changing pads, a load and the same eight
+frames, every frame's digest and sound identical and the snapshot after them the same. Of those, 153 at frame ends with the
+68000 inside an instruction under DMA, 186 with the sound CPU suspended on the bus and 10 with a bus request pending. Seven
+negative controls (a part from the later state: the game fiber, the bus scheduler, the glue, the interpreter, the sound CPU's
+phase, the 68000, the RAM) are each noticed. A save over other bytes gives the same bytes; short buffers, wrong sizes and a
+wrong header are refused. Second, the game itself: 1,800 frames from power-on, 434 rollbacks, all exact (128 with the 68000
+inside an instruction, 242 with the sound CPU suspended). Two copies on one PC (`tools/netplay_game_smoke.py --frames 3000
+--rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500`): PASS, both seats on the rollback tier (192 and
+528 rollbacks, deepest 5), the save at frame 602 and the load at 1502 on both. With `--save-digests`, with and without the
+save and load: 25 of 25 digests equal before the load, 0 of 25 after (the load acts). **Stamps:** the Mega Drive game, engine
+and host stamps move (compared with `spec/multiplayer` 1f5b2340); no other machine's. **Existing exports:** a Mega Drive
+game converted before stays on the delay tier until it is converted again (the multiplayer release converts every export
+again anyway).
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

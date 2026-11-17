@@ -95,10 +95,13 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
 }
 
 static int players(void) { return 2; }
-/* Multiplayer (hostkit_session.h): the Mega Drive plays on the delay tier; md_backend.c gives the digest and holds the guest's
- * cartridge save. */
+/* Multiplayer (hostkit_session.h): md_backend.c gives the digest, holds the guest's cartridge save and gives the in-process
+ * snapshot of the rollback tier and of the host's F8 / F9 for everyone (none in a build without step code: delay tier). */
 uint64_t rr16_md_digest(void);
 void rr16_md_side_effects(bool allowed);
+size_t rr16_md_snap_bound(void);
+size_t rr16_md_snap_save(void *buffer, size_t capacity);
+bool rr16_md_snap_load(const void *buffer, size_t size);
 static void pointer_input(RrhkPointer p) {
     rr16_gun_input((Rr16GunInput){.x = p.x, .y = p.y, .fire = p.fire, .aux = p.aux, .secondary = p.secondary,
                                   .start = p.start, .turbo = p.turbo, .pause = p.pause, .offscreen = p.offscreen});
@@ -127,6 +130,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
             .pointer_input = pointer_input,
             .digest = rr16_md_digest, .side_effects = rr16_md_side_effects,
+            .snap_bound = rr16_md_snap_bound, .snap_save = rr16_md_snap_save,
+            .snap_load = rr16_md_snap_load,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .timing_report = timing_report,
             .sound_ready = sound_ready, .audio_reopen = audio_reopen, .audio_device_id = audio_device_id,
