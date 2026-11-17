@@ -221,5 +221,39 @@ class DriversThroughRealPipesTests(unittest.TestCase):
         self.assertLess(seconds, 900, output)     # a hang, not a speed
 
 
+class LagLinkTests(unittest.TestCase):
+    """The room command's --lag-ms: what this PC sends is held that long, in order, and nothing leaves after close."""
+
+    def test_packets_leave_after_the_lag_in_order_and_none_after_close(self):
+        import time as _time
+        from retrorecomp.netplay.lag_link import LagLink
+
+        class Wire:
+            def __init__(self):
+                self.got, self.seat = [], 0
+            def open(self, sink):
+                pass
+            def send(self, to_seat, data):
+                self.got.append((to_seat, data, _time.monotonic()))
+            def close(self):
+                pass
+        wire_link = Wire()
+        lagged = LagLink(wire_link, 60.0)
+        started = _time.monotonic()
+        for n in range(5):
+            lagged.send(1, bytes([n]))
+        deadline = started + 5.0
+        while len(wire_link.got) < 5 and _time.monotonic() < deadline:
+            _time.sleep(0.01)
+        self.assertEqual([data for _seat, data, _at in wire_link.got], [bytes([n]) for n in range(5)])
+        self.assertGreaterEqual(min(at for _s, _d, at in wire_link.got) - started, 0.059)
+        lagged.close()
+        lagged.send(1, b'late')
+        _time.sleep(0.1)
+        self.assertEqual(len(wire_link.got), 5)
+        with self.assertRaises(ValueError):
+            LagLink(Wire(), 600.0)
+
+
 if __name__ == '__main__':
     unittest.main()

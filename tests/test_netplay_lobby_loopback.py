@@ -508,17 +508,17 @@ class LobbyTierTests(unittest.TestCase):
             self.assertTrue(player.until(lambda m: m.last_back is not None and m.last_back['match_id'] == 1), player.name)
         for worker in (host.worker, nadia.worker):
             self.assertTrue(worker.wait_for(lambda w: len(w.results) == 1, 60), worker.summary())
-        self.assertEqual(tiers(host.worker, 'launching', 1), [('rollback', 8)])
-        self.assertEqual(tiers(nadia.worker, 'launch_request', 1), [('rollback', 8)])
+        self.assertEqual(tiers(host.worker, 'launching', 1), [('rollback', 5)])
+        self.assertEqual(tiers(nadia.worker, 'launch_request', 1), [('rollback', 5)])
         wanted = [tuple(words) for words in selftest.expected(2, 1, FRAMES)]
         results = [host.worker.results[0], nadia.worker.results[0]]
         for result in results:
-            self.assertEqual((result['outcome'], result['tier'], result['prediction_cap'], result['delay']), ('ended', 'rollback', 8, 1),
+            self.assertEqual((result['outcome'], result['tier'], result['prediction_cap'], result['delay']), ('ended', 'rollback', 5, 1),
                              result['detail'])
             self.assertEqual(result['history'], wanted)                       # the confirmed history is the scripts shifted by the delay
             stats = result['stats']
             self.assertGreaterEqual(stats['rollback_frames'], stats['rollbacks'])
-            self.assertLessEqual(stats['rollback_depth_max'], 8)
+            self.assertLessEqual(stats['rollback_depth_max'], 5)
             self.assertEqual(stats['digests_skipped'], 0)
             self.assertTrue(result['digests'])
         self.assertEqual(results[0]['digests'], results[1]['digests'])        # equal across the two seats

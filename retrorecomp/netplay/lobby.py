@@ -45,6 +45,7 @@ from . import seat_map
 from .control import (CHECK_ASKING, CHECK_FAILED, CHECK_NONE, CHECK_SAME, MODE_FULL, PHASE_LAUNCHING, PHASE_LOBBY, PHASE_PLAYING,
                       MAX_CHAT_CHARS)
 from .launch import Refusal, clean_options
+from .session_pipe import PHRASES
 
 CHAT_LINES, CHAT_SECONDS = 5, 5.0          # at most this many lines from one sender in any window of this many seconds
 READY_CHANGES, READY_SECONDS = 4, 2.0
@@ -356,7 +357,7 @@ class HostLobby:
         if member is None:
             return []
         if isinstance(message, control.Say):
-            return self.say(guest, message.text, now)
+            return self.say(guest, message.text, now, message.phrase)
         if isinstance(message, control.Ready):
             return self._ready(guest, member, message.ready, now)
         if isinstance(message, control.Answer):
@@ -364,18 +365,23 @@ class HostLobby:
         self._ignored += 1
         return []
 
-    def say(self, sender: int, raw, now: float) -> list:
-        """A line of chat from a guest, or from the host (sender 0). Cleaned, limited, stamped with the sender's name."""
+    def say(self, sender: int, raw, now: float, phrase: int = 0) -> list:
+        """A line of chat from a guest, or from the host (sender 0): free text, or a ready-made phrase by its number (from a
+        game's chat). Cleaned, limited (a phrase counts as a line), stamped with the sender's name."""
         member = self._host if sender == 0 else self._members.get(sender)
         if member is None:
             return []
-        text = clean_chat(raw)
-        if not text:
+        if not isinstance(phrase, int) or not 0 <= phrase <= control.MAX_PHRASE:
+            phrase = -1
+        text = '' if phrase > 0 else clean_chat(raw) if phrase == 0 else ''
+        if not text and phrase <= 0:
             return self._notice(sender, control.NOTICE_BAD_TEXT, now) if sender else [self._own_notice('bad_text')]
         if not member.chat.take(now):
             return self._notice(sender, control.NOTICE_CHAT_FAST, now) if sender else [self._own_notice('chat_too_fast')]
-        return [Send(None, control.Chat(sender, member.name, text)),
-                Event({'event': 'lobby_chat', 'sender': sender, 'name': member.name, 'text': text, 'ascii': ascii_chat(text)})]
+        shown = PHRASES.get(phrase, text)
+        return [Send(None, control.Chat(sender, member.name, text, phrase)),
+                Event({'event': 'lobby_chat', 'sender': sender, 'name': member.name, 'text': shown, 'ascii': ascii_chat(shown),
+                       'phrase': phrase})]
 
     @staticmethod
     def _own_notice(name: str) -> Event:
@@ -526,11 +532,11 @@ class GuestLobby:
             players = tuple(replace(player, name=control.display_name(player.name, '?')) for player in message.players)
             return [Event(roster_dict(replace(message, players=players), self.me))]
         if isinstance(message, control.Chat):
-            text = clean_chat(message.text)
+            text = PHRASES.get(message.phrase) or clean_chat(message.text)
             if not text:
                 return []
             return [Event({'event': 'lobby_chat', 'sender': message.sender, 'name': control.display_name(message.name, '?'),
-                           'text': text, 'ascii': ascii_chat(text)})]
+                           'text': text, 'ascii': ascii_chat(text), 'phrase': message.phrase})]
         if isinstance(message, control.Select):
             game = message.game
             self.ident, self.game, self.rejected = message.ident, game, False
@@ -555,13 +561,15 @@ class GuestLobby:
             return [Event({'event': 'lobby_back', 'match_id': message.match_id, 'reason': BACK_NAMES[message.reason]})]
         return []
 
-    def say(self, raw, now: float) -> list:
-        text = clean_chat(raw)
-        if not text:
+    def say(self, raw, now: float, phrase: int = 0) -> list:
+        if not isinstance(phrase, int) or not 0 <= phrase <= control.MAX_PHRASE:
+            return [Event({'event': 'lobby_notice', 'code': 'bad_text', 'detail': ''})]
+        text = '' if phrase else clean_chat(raw)
+        if not text and not phrase:
             return [Event({'event': 'lobby_notice', 'code': 'bad_text', 'detail': ''})]
         if not self._chat.take(now):
             return [Event({'event': 'lobby_notice', 'code': 'chat_too_fast', 'detail': ''})]
-        return [Send(None, control.Say(text))]
+        return [Send(None, control.Say(text, phrase))]
 
     def ready(self, ready: bool, now: float) -> list:
         if not self._changes.take(now):

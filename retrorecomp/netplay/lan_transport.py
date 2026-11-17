@@ -671,10 +671,10 @@ class RoomHost:
         self._flush()
         return refusal
 
-    def lobby_say(self, text: str) -> None:
-        """A line of chat from the host."""
+    def lobby_say(self, text: str, phrase: int = 0) -> None:
+        """A line of chat from the host (free text, or a phrase by number)."""
         with self._lock:
-            self._act(self.lobby.say(0, text, self._clock()))
+            self._act(self.lobby.say(0, text, self._clock(), phrase))
         self._flush()
 
     def lobby_can_launch(self, need_ready: bool = False) -> Refusal | None:
@@ -1113,10 +1113,10 @@ class RoomGuest:
             elif self._stream is not None and not self._stream.closed:
                 self._stream.send(action.message)
 
-    def lobby_say(self, text: str) -> None:
+    def lobby_say(self, text: str, phrase: int = 0) -> None:
         """A line of chat from this guest (cleaned and limited here as the host will, so that the host has nothing to refuse)."""
         with self._lock:
-            self._act(self.lobby.say(text, self._clock()))
+            self._act(self.lobby.say(text, self._clock(), phrase))
         self._flush()
 
     def lobby_ready(self, ready: bool) -> None:

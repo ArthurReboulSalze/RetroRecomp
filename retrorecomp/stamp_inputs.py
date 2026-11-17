@@ -86,7 +86,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # socket): the invitation, the keys and handshake, the control and datagram codecs, the limits,
                                # the host's log, the room's worker and the command line of the two-PC test.
                                'invitation', 'handshake', 'control', 'datagram', 'limits', 'room_log', 'lan_transport',
-                               'room_worker', 'room_cli',
+                               'room_worker', 'room_cli', 'lag_link',
                                # The lobby: its rules (a pure state machine for the host and one for each guest), the check of
                                # the host's game against the player's own compiled games, and the converter's side of it (the model
                                # the window draws and the controller that answers from the library). They read the inventory

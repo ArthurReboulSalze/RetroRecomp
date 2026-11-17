@@ -66,6 +66,9 @@ def _parser() -> argparse.ArgumentParser:
         sub.add_argument('--game', required=True, type=Path, help='the game executable (an export built with the session pipe)')
         sub.add_argument('--name', default='Host' if name == 'host' else 'Guest')
         sub.add_argument('--machine', default=DEFAULT_MACHINE)
+        sub.add_argument('--lag-ms', type=float, default=0.0,
+                         help='a test of a far player: what this PC sends to the match is held this long (both PCs 75: 150 ms round trip)')
+        sub.add_argument('--jitter-ms', type=float, default=0.0, help='with --lag-ms: up to this much more, at random')
         sub.add_argument('--stamp', type=_hex32, default=ZERO)
         sub.add_argument('--rom-sha256', type=_hex32, default=ZERO)
         sub.add_argument('--log-dir', type=Path, default=Path(tempfile.gettempdir()) / 'retro-recomp-netplay',
@@ -169,7 +172,7 @@ def run_host(args, tests: bool = False) -> int:
         return 1
     config = {'room': {'role': 'host', 'address': args.address, 'port': args.port, 'secret': secret.hex(),
                        'capacity': args.guests + 1, 'name': args.name, 'log': str(args.log_dir / 'room.log'),
-                       'sharing': args.sharing}, 'tests': tests}
+                       'sharing': args.sharing, 'lag_ms': args.lag_ms, 'jitter_ms': args.jitter_ms}, 'tests': tests}
     worker = WorkerProcess(config, log=args.log_dir / 'worker.txt', on_event=_show).start()
     try:
         opened = worker.wait_event('room_open', 20.0)
@@ -224,7 +227,8 @@ def run_guest(args, tests: bool = False) -> int:
 
     from .. import __version__
     version = version_numbers(__version__)
-    config = {'room': {'role': 'guest', 'invitation': text.strip(), 'name': args.name, 'version': list(version)}, 'tests': tests}
+    config = {'room': {'role': 'guest', 'invitation': text.strip(), 'name': args.name, 'version': list(version),
+                       'lag_ms': args.lag_ms, 'jitter_ms': args.jitter_ms}, 'tests': tests}
     worker = WorkerProcess(config, log=args.log_dir / 'worker.txt', on_event=_show, resolve=resolve).start()
     try:
         say('joining the room...')

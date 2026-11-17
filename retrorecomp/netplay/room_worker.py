@@ -54,6 +54,7 @@ from .lan_transport import RoomError, RoomGuest, RoomHost
 from .launch import Refusal, launch_settings
 from .lobby import game_from_dict
 from .lockstep import LockstepDriver, Settings
+from .lag_link import LagLink
 from .rollback import DEFAULT_PREDICTION, TIER_AUTO, TIER_DELAY, check_tier, choose_tier, driver_for
 from .room_log import RoomLog
 from .session_game import SessionGame
@@ -209,6 +210,12 @@ class RoomWorker:
                            stdout=Path(game['stdout']) if game.get('stdout') else None,
                            stderr=Path(game['stderr']) if game.get('stderr') else None)
 
+    def _link(self):
+        """The match's link; with the room command's `--lag-ms` (a test of a far player), what this PC sends is held that long."""
+        link = self.room.link()
+        lag, jitter = float(self.room_config.get('lag_ms') or 0), float(self.room_config.get('jitter_ms') or 0)
+        return LagLink(link, lag, jitter) if lag or jitter else link
+
     def _run_match(self, match_id: int, game: dict, settings: Settings, link, host: bool,
                    session: SessionGame | None = None) -> _Match:
         session = session or self._open_game(game)
@@ -258,7 +265,7 @@ class RoomWorker:
         try:
             settings = test_settings(Settings(seat=0, seats=info.seats, names=tuple(info.names), **pending['net']),
                                      pending['values'], self.tests)
-            self._run_match(info.match_id, pending['game'], settings, self.room.link(), True, pending.get('session'))
+            self._run_match(info.match_id, pending['game'], settings, self._link(), True, pending.get('session'))
         except Exception as error:
             self._drop_game(pending.get('session'))
             self.room.abort('the host could not start its game')
@@ -462,7 +469,7 @@ class RoomWorker:
         try:
             game = self._game_config(message)
             settings = test_settings(pending['settings'], {**self.test_values, **(message.get('test_settings') or {})}, self.tests)
-            self._run_match(pending['match_id'], game, settings, self.room.link(), False)
+            self._run_match(pending['match_id'], game, settings, self._link(), False)
         except Exception as error:
             self.room.launched(pending['match_id'], control.LAUNCHED_FAILED)
             self.emit({'event': 'launch_error', 'match_id': pending['match_id'],

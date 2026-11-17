@@ -29,7 +29,8 @@ MAX_PAYLOAD = 1024
 READ_BUFFER = 2048
 WELCOME, REJECT, HELLO, LAUNCH, LAUNCHED, END, PING, PONG, BYE = range(1, 10)
 ROSTER, CHAT, SELECT, NOTICE, BACK, SAY, READY, ANSWER = range(10, 18)
-LOBBY_VERSION = 2                           # 2: the LAUNCH carries the tier byte (the rollback cap)
+LOBBY_VERSION = 3                           # 2: the LAUNCH carries the tier byte (the rollback cap); 3: a chat line may be a phrase
+MAX_PHRASE = 6                              # the in-game chat's ready-made phrases (session_pipe.PHRASES), sent by number
 PHASE_LOBBY, PHASE_LAUNCHING, PHASE_PLAYING = 0, 1, 2
 LOBBY_PHASES = range(3)
 CHECK_NONE, CHECK_ASKING, CHECK_SAME, CHECK_OTHER, CHECK_MISSING, CHECK_FAILED = range(6)
@@ -150,7 +151,8 @@ class Roster:
 class Chat:
     sender: int                     # 0 the host, 1.. a guest
     name: str                       # stamped by the host
-    text: str
+    text: str                       # '' for a phrase
+    phrase: int = 0                 # 1..MAX_PHRASE: a ready-made phrase, each player reads it in their language
 
 
 @dataclass(frozen=True)
@@ -203,7 +205,8 @@ class Back:
 
 @dataclass(frozen=True)
 class Say:
-    text: str
+    text: str                       # '' for a phrase
+    phrase: int = 0
 
 
 @dataclass(frozen=True)
@@ -226,6 +229,23 @@ def _text_field(text: str, limit: int, what: str) -> bytes:
     return raw
 
 
+def _line(text: str, phrase: int) -> bytes:
+    """A chat line on the wire: u8 phrase, then the text (u16 size, UTF-8) only when the phrase is 0."""
+    if not 0 <= phrase <= MAX_PHRASE or (phrase and text):
+        raise ValueError('a chat line outside the rules')
+    if phrase:
+        return struct.pack('<B', phrase)
+    raw = _text_field(text, MAX_CHAT_BYTES, 'a line')
+    return struct.pack('<BH', 0, len(raw)) + raw
+
+
+def _read_line(cursor) -> tuple[str, int]:
+    phrase = cursor.unpack('<B')
+    if phrase > MAX_PHRASE:
+        raise FrameError('a phrase the rules do not allow')
+    return ('' if phrase else cursor.text('<H', MAX_CHAT_BYTES)), phrase
+
+
 def _encode_lobby(message) -> tuple[int, bytes]:
     if isinstance(message, Roster):
         if not (message.phase in LOBBY_PHASES and 0 <= message.seats_max <= MAX_SEATS and 0 <= message.selection <= 0xffff
@@ -238,8 +258,8 @@ def _encode_lobby(message) -> tuple[int, bytes]:
         return ROSTER, struct.pack('<BHBBBHB', LOBBY_VERSION, message.revision, message.phase, message.seats_max, message.sharing,
                                    message.selection, len(message.players)) + body
     if isinstance(message, Chat):
-        name, text = _text_field(message.name, MAX_NAME_BYTES, 'a name'), _text_field(message.text, MAX_CHAT_BYTES, 'a line')
-        return CHAT, struct.pack('<BB', message.sender, len(name)) + name + struct.pack('<H', len(text)) + text
+        name = _text_field(message.name, MAX_NAME_BYTES, 'a name')
+        return CHAT, struct.pack('<BB', message.sender, len(name)) + name + _line(message.text, message.phrase)
     if isinstance(message, Select):
         game = message.game
         if not 0 < message.ident <= 0xffff:
@@ -262,8 +282,7 @@ def _encode_lobby(message) -> tuple[int, bytes]:
     if isinstance(message, Back):
         return BACK, struct.pack('<IB', message.match_id, message.reason)
     if isinstance(message, Say):
-        text = _text_field(message.text, MAX_CHAT_BYTES, 'a line')
-        return SAY, struct.pack('<H', len(text)) + text
+        return SAY, _line(message.text, message.phrase)
     if isinstance(message, Ready):
         return READY, struct.pack('<B', int(bool(message.ready)))
     if not (0 <= message.reasons <= MAX_REASONS and len(message.version) == 3 and all(0 <= number <= 0xffff for number in message.version)
@@ -425,9 +444,9 @@ def _decode_lobby(kind: int, payload: bytes):
         if sender >= MAX_SEATS or not 0 < name_size <= MAX_NAME_BYTES:
             raise FrameError('a chat line the rules do not allow')
         name = _decode_name(cursor.take(name_size))
-        text = cursor.text('<H', MAX_CHAT_BYTES)
+        text, phrase = _read_line(cursor)
         cursor.done()
-        return Chat(sender, name, text)
+        return Chat(sender, name, text, phrase)
     if kind == SELECT:
         ident, present = cursor.unpack('<HB')
         if ident == 0 or present > 1:
@@ -467,9 +486,9 @@ def _decode_lobby(kind: int, payload: bytes):
         if reason in BACK_REASONS:
             return Back(match_id, reason)
     elif kind == SAY:
-        text = cursor.text('<H', MAX_CHAT_BYTES)
+        text, phrase = _read_line(cursor)
         cursor.done()
-        return Say(text)
+        return Say(text, phrase)
     elif kind == READY:
         ready = _flag(cursor.unpack('<B'))
         cursor.done()

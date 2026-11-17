@@ -238,7 +238,8 @@ class HostLobbyTests(unittest.TestCase):
         actions = room.on_message(2, control.Say('  hi   all '), 1.0)
         self.assertEqual(sends(actions)[0].message, control.Chat(2, 'Guest2', 'hi all'))
         self.assertIsNone(sends(actions)[0].to)
-        self.assertEqual(events(actions)[0], {'event': 'lobby_chat', 'sender': 2, 'name': 'Guest2', 'text': 'hi all', 'ascii': 'hi all'})
+        self.assertEqual(events(actions)[0], {'event': 'lobby_chat', 'sender': 2, 'name': 'Guest2', 'text': 'hi all', 'ascii': 'hi all',
+                                             'phrase': 0})
         self.assertEqual(sends(room.say(0, 'Hélène ?', 1.0))[0].message, control.Chat(0, 'Arthur', 'Hélène ?'))
         self.assertEqual(events(room.say(0, 'Hélène ?', 1.1))[0]['ascii'], 'Helene ?')
         self.assertFalse(hasattr(control.Say, 'name'))                      # the wire has no field for a name to be claimed in

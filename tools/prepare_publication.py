@@ -253,7 +253,7 @@ retrorecomp/netplay/launch.py tests/test_netplay_security.py
 retrorecomp/netplay/rollback.py tests/test_netplay_rollback.py tools/netplay_rollback_selftest.py
 retrorecomp/netplay/invitation.py retrorecomp/netplay/handshake.py retrorecomp/netplay/control.py
 retrorecomp/netplay/datagram.py retrorecomp/netplay/limits.py retrorecomp/netplay/room_log.py
-retrorecomp/netplay/lan_transport.py retrorecomp/netplay/room_worker.py retrorecomp/netplay/room_cli.py
+retrorecomp/netplay/lan_transport.py retrorecomp/netplay/room_worker.py retrorecomp/netplay/room_cli.py retrorecomp/netplay/lag_link.py
 tests/test_netplay_transport.py tests/test_netplay_loopback.py
 retrorecomp/netplay/lobby.py retrorecomp/netplay/lobby_check.py retrorecomp/netplay/lobby_client.py
 tests/test_netplay_lobby.py tests/test_netplay_lobby_loopback.py
