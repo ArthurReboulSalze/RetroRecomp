@@ -267,6 +267,7 @@ bool rrhk_session_open(RrhkRun *run);          /* at open; false: the session co
  * frame now with the session's port words, 0: nothing to run this iteration (waiting or paused), -1: the session ended. */
 int rrhk_session_frame(RrhkRun *run, uint64_t input_frame);
 void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks);   /* after the live frame ran */
+bool rrhk_session_silent_done(RrhkRun *run);   /* a driven machine's silent frame just ended: not presented, not paced */
 uint16_t rrhk_session_port(int port);         /* the word of a port for the frame being run */
 Uint64 rrhk_session_period(Uint64 period);    /* the frame period with the worker's time sync applied */
 double rrhk_session_audio_base(void);         /* the sound's factor under that time sync (rrhk_audio_set_base) */

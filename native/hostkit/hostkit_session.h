@@ -19,12 +19,16 @@
 #include <stdint.h>
 
 /* Raised whenever a message, a field or the meaning of one changes. The lobby also compares the host stamp. */
-#define RRHK_SESSION_ABI 4           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
+#define RRHK_SESSION_ABI 5           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
                                      * the turn notices, NOTICE_CHAT_SLOW); 4: the host's quick save and load for everyone
-                                     * (RRHK_SYS_STATE_*, RRHK_RUN_STATE_*) */
+                                     * (RRHK_SYS_STATE_*, RRHK_RUN_STATE_*); 5: a driven machine with snapshots takes silent
+                                     * RUNs (its guest runs the frame; rollback for every machine) */
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
 #define RRHK_SESSION_ENV "RETRORECOMP_NETPLAY_PIPE"
+/* The clock every seat's machine runs on in a session (RrhkMachine.session_begin): 1 January 2000, 00:00 UTC, so that two PCs
+ * whose clocks differ start alike. A clock the host gives would be a change of SETUP (a new ABI). */
+#define RRHK_SESSION_CLOCK 946684800ull
 
 enum {
     /* game -> worker */
@@ -56,7 +60,8 @@ enum {
 enum { RRHK_CAP_SNAPSHOT = 1, RRHK_CAP_DIGEST = 2, RRHK_CAP_POINTER = 4, RRHK_CAP_AXES = 8, RRHK_CAP_KEYBOARD = 16,
        RRHK_CAP_DRIVEN = 32 };
 enum { RRHK_SETUP_GUEST = 1 };          /* a guest never writes its cartridge save */
-enum { RRHK_RUN_SILENT = 1,            /* re-simulation: no picture, no sound, no side effects */
+enum { RRHK_RUN_SILENT = 1,            /* re-simulation: no picture, no sound, no side effects (a driven machine's guest runs it
+                                      * and ends it at its next rrhk_frame_done) */
        RRHK_RUN_RESET = 2,             /* the machine restarts before this frame runs (live or silent): the host asked it */
        RRHK_RUN_STATE_SAVE = 4,        /* the match's state is saved before this frame runs (the host's F8, on every seat) */
        RRHK_RUN_STATE_LOAD = 8 };      /* the match's state is loaded back before this frame runs (the host's F9). The

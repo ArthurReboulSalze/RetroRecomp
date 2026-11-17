@@ -43,6 +43,7 @@ static struct {
     bool broken;                    /* the pipe closed, or a message broke the rules */
     uint16_t ports[RRHK_MAX_PLAYERS];
     bool silent;                    /* a re-simulated frame is running */
+    bool driven_silent;             /* a driven machine's guest runs a silent frame: done when it calls rrhk_frame_done */
     bool guest;
     bool paused;
     bool restart_pending;           /* the host asked to restart: reported in the LOCALs of one frame */
@@ -235,6 +236,7 @@ bool rrhk_session_open(RrhkRun *run) {
         const RrhkMachine *m = run->machine;
         if (s.setup && !apply_options(m, s.options, s.options_length)) return false;
         if (s.guest && m->side_effects) m->side_effects(false);
+        if (s.setup && m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
         return true;
     }
     const char *value = getenv(RRHK_SESSION_ENV);
@@ -313,12 +315,13 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         s.slot_size = bound; s.depth = depth;
     } else if (depth) { refuse(RRHK_REFUSED_SNAPSHOT, "none"); return false; }
     /* The match's state (the host's F8 / F9 for everyone), on any tier, for a machine whose snapshot is a whole state. */
-    if (bound && !m->driven && !s.state) {
+    if (bound && !s.state) {
         s.state = (uint8_t *)malloc(bound);
         if (!s.state) { refuse(RRHK_REFUSED_SNAPSHOT, "memory"); return false; }
         s.state_size = bound;
     }
     if (s.guest && m->side_effects) m->side_effects(false);
+    if (m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
             seat + 1, ports, depth, s.guest ? "guest" : "host");
@@ -457,14 +460,26 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
                 return lost(run, "a RUN with unknown flags");
             if (payload[4] & RRHK_RUN_SILENT) {
                 /* Re-simulation after a LOAD: frames in order, up to the one before the live frame. */
-                if (m->driven || !s.ring) { refuse(RRHK_REFUSED_COMMAND, "silent"); return lost(run, "a silent frame without snapshots"); }
+                if (!s.ring) { refuse(RRHK_REFUSED_COMMAND, "silent"); return lost(run, "a silent frame without snapshots"); }
                 if (frame != s.live) return lost(run, "a silent RUN out of order");
                 s.silent = true; effects(m, false);
-                if (payload[4] & RRHK_RUN_RESET) m->reset();       /* the host's restart, run again after a correction */
+                if (payload[4] & RRHK_RUN_RESET) {                 /* the host's restart, run again after a correction */
+                    m->reset();
+                    if (m->driven) s.restarting = true;    /* its shell closes after this frame and opens again: not the end */
+                }
                 if (!match_state(m, payload[4], false)) {           /* the host's F8 / F9, run again after a correction */
                     s.silent = false; effects(m, true);
                     refuse(RRHK_REFUSED_SNAPSHOT, "state");
                     return lost(run, "the match's state could not be saved or loaded");
+                }
+                if (m->driven) {
+                    /* A driven machine: its guest runs the frame when rrhk_frame_done returns, and calls it again at the
+                     * frame's end, where rrhk_session_silent_done ends it (no picture, no pacing, its sound dropped:
+                     * own_audio machines push nothing while rrhk_session_silent() is true). */
+                    s.driven_silent = true;
+                    s.last_run = frame;
+                    s.live = frame + 1;
+                    return 2;
                 }
                 const bool ok = m->run_frame(s.ports[0], s.ports[1]);
                 rrhk_audio_discard(run);
@@ -558,6 +573,17 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             return lost(run, "an unknown message");
         }
     }
+}
+
+/* The end of a driven machine's silent frame (its guest called rrhk_frame_done): true when one had run, and the kit then
+ * neither presents nor paces it. */
+bool rrhk_session_silent_done(RrhkRun *run) {
+    if (!s.driven_silent) return false;
+    s.driven_silent = false;
+    s.silent = false;
+    effects(run->machine, true);
+    rrhk_audio_discard(run);
+    return true;
 }
 
 void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks) {
