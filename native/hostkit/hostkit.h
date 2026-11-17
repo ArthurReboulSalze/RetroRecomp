@@ -296,6 +296,10 @@ typedef struct RrhkMachine {
     /* A machine that replays a script inside the window gives its recorded axes here; true: rrhk_pad_axes returns them as they
      * are (no dead zone). NULL or false: the gamepad's. */
     bool (*script_axes)(int player, uint64_t frame, int16_t axes[RRHK_AXES]);
+    /* Actions that push the left stick to an edge from keys or buttons (a host-side action, bit 0): LX left, LX right, LY up,
+     * LY down, -1 for none. In a multiplayer session the kit folds them into the sticks this PC sends, so a keyboard player's
+     * stick reaches the other seats; alone the machine applies them as before. NULL: none. */
+    const int *stick_actions;
     /* The triggers are buttons of the machine's own pad (a PlayStation's L2 and R2), which its default bindings use. Since 1.7.5
      * every machine accepts a trigger binding (RRHK_PAD_LEFT_TRIGGER, RRHK_PAD_RIGHT_TRIGGER: F2 captures a trigger pulled on
      * the selected player's pad, the one trigger reading holds it), so the field only says so; a trigger that player 1 has

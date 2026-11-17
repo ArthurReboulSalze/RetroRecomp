@@ -13,7 +13,8 @@ Every packet, little-endian, at most MAX_PACKET bytes:
              hold_ms u16        the host's worst one-way time: a nearer guest starts that much later (at most MAX_HOLD_MS)
              resume_frame u32   "resume the pause that began at this frame" (NONE: no request)
              digest_frame u32, digest u64      the sender's latest digest (digest_frame NONE: none yet)
-             sections u8 (<= 4), each: seat u8, first_frame u32, count u8 (<= 32), count x (word u16, system u16)
+             sections u8 (<= 4), each: seat u8, first_frame u32, count u8 (<= 32), count x (word u16, system u16), and
+             with the header's FLAG_AXES each record also carries 4 x i8 sticks (LX, LY, RX, RY) after its system bits
     PING     time u32           the sender's clock, microseconds, wrapped
     PONG     time u32           the PING's value, sent back
     MEASURE  one_way_ms u16, jitter_ms u16     a guest's worst link, for the host's choice of the delay
@@ -43,6 +44,8 @@ MAX_HOLD_MS = 500            # the longest start hold a packet may ask for (a fo
 NONE = 0xffffffff
 NO_SEAT = 0xff
 INPUT, PING, PONG, MEASURE, BYE, BOOT = 1, 2, 3, 4, 5, 6
+FLAG_AXES = 1                # an INPUT whose records carry the sticks (a game with sticks: session ABI 7)
+AXES = 4
 BYE_HOST_CLOSED, BYE_DESYNC, BYE_ENDED, BYE_LEFT, BYE_SEAT_GONE, BYE_BOOT = 1, 2, 3, 4, 5, 6
 
 _HEAD = struct.Struct('<4sBBBB')
@@ -55,7 +58,7 @@ _NO_ACKS = (NONE,) * MAX_SEATS
 class Section:
     seat: int
     first_frame: int
-    records: tuple          # of (word, system)
+    records: tuple          # of (word, system), or (word, system, sticks) with FLAG_AXES
 
 
 @dataclass(frozen=True)
@@ -78,22 +81,37 @@ class Packet:
     who: int = NO_SEAT
 
 
-def _head(kind: int, seat: int) -> bytes:
-    return _HEAD.pack(MAGIC, PROTO, kind, seat, 0)
+def _head(kind: int, seat: int, flags: int = 0) -> bytes:
+    return _HEAD.pack(MAGIC, PROTO, kind, seat, flags)
+
+
+def records_that_fit(sections: int, sticks: bool) -> int:
+    """How many records each of `sections` sections may carry so that the packet stays within MAX_PACKET."""
+    if sections <= 0:
+        return MAX_RECORDS
+    room = MAX_PACKET - _HEAD.size - _INPUT.size - sections * _SECTION.size
+    return max(1, min(MAX_RECORDS, room // (sections * (4 + (AXES if sticks else 0)))))
 
 
 def encode_input(seat: int, sender_frame: int, acks, sections, *, delay: int = 0, hold_ms: int = 0,
                  resume_frame: int = NONE, digest_frame: int = NONE, digest: int = 0) -> bytes:
     """`acks`: per seat, the last frame of that seat's records this sender holds (NONE or missing: none).
-    `sections`: (seat, first_frame, [(word, system), ...]) each. Too many records is the caller's error."""
+    `sections`: (seat, first_frame, [(word, system), ...]) each, or (word, system, sticks) records for a game with sticks
+    (every record then has them). Too many records is the caller's error (`records_that_fit`)."""
     held = (list(acks) + [NONE] * MAX_SEATS)[:MAX_SEATS]
-    parts = [_head(INPUT, seat), _INPUT.pack(sender_frame, *held, delay, min(hold_ms, MAX_HOLD_MS), resume_frame,
-                                             digest_frame, digest, len(sections))]
+    sticks = any(len(record) > 2 for _owner, _first, records in sections for record in records)
+    parts = [_head(INPUT, seat, FLAG_AXES if sticks else 0),
+             _INPUT.pack(sender_frame, *held, delay, min(hold_ms, MAX_HOLD_MS), resume_frame, digest_frame, digest,
+                         len(sections))]
     for owner, first, records in sections:
         if len(records) > MAX_RECORDS:
             raise ValueError('more than MAX_RECORDS records in a section')
         parts.append(_SECTION.pack(owner, first, len(records)))
-        parts.extend(struct.pack('<HH', word, system) for word, system in records)
+        for record in records:
+            parts.append(struct.pack('<HH', record[0], record[1]))
+            if sticks:
+                axes = record[2] if len(record) > 2 else (0,) * AXES
+                parts.append(struct.pack(f'<{AXES}b', *(max(-127, min(127, value)) for value in axes)))
     data = b''.join(parts)
     if len(data) > MAX_PACKET or len(sections) > MAX_SECTIONS:
         raise ValueError('an input packet above the limits')
@@ -125,8 +143,9 @@ def decode(data: bytes, seats: int = MAX_SEATS) -> Packet | None:
     if not _HEAD.size <= len(data) <= MAX_PACKET:
         return None
     magic, proto, kind, seat, flags = _HEAD.unpack_from(data)
-    if magic != MAGIC or proto != PROTO or seat >= seats or flags:      # flags are 0: a later meaning cannot be pre-sent
-        return None
+    if magic != MAGIC or proto != PROTO or seat >= seats or flags & ~FLAG_AXES or (flags and kind != INPUT):
+        return None                     # an unknown flag: a later meaning cannot be pre-sent
+    size = 4 + (AXES if flags & FLAG_AXES else 0)
     body = data[_HEAD.size:]
     if kind in (PING, PONG):
         return Packet(kind, seat, time=struct.unpack('<I', body)[0]) if len(body) == 4 else None
@@ -157,11 +176,18 @@ def decode(data: bytes, seats: int = MAX_SEATS) -> Packet | None:
             return None
         owner, first, records = _SECTION.unpack_from(body, offset)
         offset += _SECTION.size
-        if owner >= seats or records > MAX_RECORDS or len(body) < offset + 4 * records:
+        if owner >= seats or records > MAX_RECORDS or len(body) < offset + size * records:
             return None
-        values = struct.unpack_from(f'<{2 * records}H', body, offset)
-        offset += 4 * records
-        sections.append(Section(owner, first, tuple(zip(values[0::2], values[1::2]))))
+        items = []
+        for _ in range(records):
+            word, system = struct.unpack_from('<HH', body, offset)
+            if size > 4:
+                axes = tuple(max(-127, value) for value in struct.unpack_from(f'<{AXES}b', body, offset + 4))
+                items.append((word, system, axes))
+            else:
+                items.append((word, system))
+            offset += size
+        sections.append(Section(owner, first, tuple(items)))
     if offset != len(body):
         return None
     return Packet(kind, seat, sender_frame=sender_frame, acks=acks, delay=delay, hold_ms=hold, resume_frame=resume,

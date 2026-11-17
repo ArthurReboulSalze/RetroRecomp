@@ -38,6 +38,8 @@ static bool effects_allowed = true;
  * it calls rrhk_open, runs its own frame each time rrhk_frame_done returns true (run_frame only hands the words over), and
  * restarts by unwinding (rrhk_stop, then the shell closes and opens again). */
 static bool driven, reopen;
+/* SESSION_FAKE_STICKS=1: a machine with sticks (RrhkMachine.analog_sticks): every port's sticks fold into the state too. */
+static bool sticks;
 static uint16_t held1, held2;
 /* SESSION_FAKE_MENU_AT=n: the player opens Help (F1) during frame n - 1 and closes it (Esc) thirty iterations later, while
  * the session may be paused and no frame runs: the menu's pause request and its end must both reach the worker. */
@@ -101,6 +103,12 @@ static bool step(uint16_t p1, uint16_t p2) {
     const uint16_t p3 = rrhk_pad_word(2, state.frames), p4 = rrhk_pad_word(3, state.frames);
     const uint64_t words = (uint64_t)p1 | (uint64_t)p2 << 16 | (uint64_t)p3 << 32 | (uint64_t)p4 << 48;
     state.acc = mix(state.acc ^ words ^ ((uint64_t)state.frames << 7));
+    if (sticks) for (int p = 0; p < 4; ++p) {
+        int16_t axes[RRHK_AXES];
+        rrhk_pad_axes(p, state.frames, axes);
+        state.acc = mix(state.acc ^ ((uint64_t)(uint16_t)axes[0] | (uint64_t)(uint16_t)axes[1] << 16 |
+                                     (uint64_t)(uint16_t)axes[2] << 32 | (uint64_t)(uint16_t)axes[3] << 48));
+    }
     ++state.frames;
     if (rrhk_session_silent()) ++silent_runs; else ++live_runs;
     if (!effects_allowed) ++effects_off_runs;
@@ -198,6 +206,9 @@ int main(int argc, char **argv) {
     if (plain && *plain == '1') machine.snap_bound = NULL;
     const char *hz = getenv("SESSION_FAKE_HZ");
     if (hz && atoi(hz) >= 20 && atoi(hz) <= 1000) machine.frame_seconds = 1.0 / atoi(hz);
+    const char *stick = getenv("SESSION_FAKE_STICKS");
+    sticks = stick && *stick == '1';
+    if (sticks) machine.analog_sticks = 2;
     const char *own_loop = getenv("SESSION_FAKE_DRIVEN");
     driven = own_loop && *own_loop == '1';
     int status = 0;

@@ -113,7 +113,7 @@ MB for a disk game; their time is not measured yet (a quiet PC, with the owner's
 In preparation on the multiplayer branch; this section is completed when it merges. What moves: the game stamp of the 21
 profiles (the simulation identity that lets two players check they run the same game, and the recipe mode: modules of every
 game stamp), so **every export is converted again once**; the host stamp of every machine with the host kit (the session code
-of the shell: `hostkit_session.h` at session ABI 4, `rrhk_session.inc`, the chat `rrhk_chat.inc`, new catalogue strings in the
+of the shell: `hostkit_session.h` at session ABI 7 (the sticks travel since 7), `rrhk_session.inc`, the chat `rrhk_chat.inc`, new catalogue strings in the
 eight locales). Alone, a game runs as before: the session code is reached only when the converter starts the game with its
 pipes (`RETRORECOMP_NETPLAY_PIPE`), and the solo restart, controls, quick states and pacing are unchanged (tests of the kit's
 session self-test, "restart alone" and "alone"). In a session the host's F8 / F9 save and load the match's state for everyone at
