@@ -38,7 +38,7 @@ class AuthoredSlaveTests(unittest.TestCase):
 class AdapterTests(unittest.TestCase):
     def test_the_adapter_gives_the_session_hooks(self):
         text = (ROOT / 'native' / 'hostkit' / 'adapters' / 'rrhk_amiga.inc').read_text(encoding='utf-8')
-        for hook in ('snap_bound', 'snap_save', 'snap_load', 'digest', 'side_effects', 'session_option', 'session_begin'):
+        for hook in ('snap_bound', 'snap_save', 'snap_load', 'digest', 'side_effects', 'session_option', 'session_options', 'session_begin'):
             self.assertIn(f'machine.{hook} = a_', text)
         # The CPU's speed changes the run: its row is the kit's run-changing row, refused in a session.
         self.assertIn('rrhk_option_row_run(rows, A_ROW_CPU', text)

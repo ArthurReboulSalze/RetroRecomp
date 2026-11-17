@@ -370,8 +370,8 @@ static int a_players(void) { return 2; }
 /* ---- multiplayer (hostkit_session.h) ----------------------------------------------------------------------------------------
  * A session (RETRORECOMP_NETPLAY_PIPE at the start: amiga_player.c then opens the machine with
  * RrAmigaGame.session: the install's own files, saves kept in memory) plays from the pad words alone (a_inputs), port 1 holding the
- * joystick, the CPU at the export's speed unless the host pushes "cpu" (1, 2 or 4; a game listed as needing the normal speed takes 1
- * only). The guest keyboard and the mouse are not carried yet (the computers' shared rule, rrhk_computer.inc). */
+ * joystick, the CPU at the host's speed ("cpu": 1, 2 or 4, pushed to every seat; a game listed as needing the normal speed takes 1
+ * only; the export's own speed when none is pushed). The guest keyboard and the mouse are not carried yet (the computers' shared rule, rrhk_computer.inc). */
 static int a_session_cpu;            /* the host's "cpu" (a_session_option), 0: the export's own speed */
 static uint8_t *a_boot;              /* the machine as the session found it (a_session_begin): the session's restart */
 static size_t a_boot_size, a_boot_used;
@@ -387,6 +387,13 @@ static bool a_session_option(const char *key, const char *value) {
    if (cpu_stock_only && value[0] != '1') return false;
    a_session_cpu = value[0] - '0';
    return true;
+}
+
+/* This PC's run-changing options for the host's HELLO: the player's own CPU speed (a game listed as needing the normal speed: 1). The
+ * host's value comes back to every seat through a_session_option before the session begins. */
+static size_t a_session_options(char *out, size_t capacity) {
+   int n = snprintf(out, capacity, "cpu=%d", cpu_stock_only ? 1 : a_cpu_choice);
+   return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
 }
 
 /* No real-time clock to set: the machine has none fitted, and resload's TIME_GET answers a fixed date. */
@@ -451,7 +458,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.pad_rows = a_pad_rows; machine.pad_row_count = 1;      /* "Mouse port" on player 2's gamepad page */
       machine.snap_bound = a_snap_bound; machine.snap_save = a_snap_save; machine.snap_load = a_snap_load;
       machine.digest = a_digest; machine.side_effects = a_side_effects;
-      machine.session_option = a_session_option; machine.session_begin = a_session_begin;
+      machine.session_option = a_session_option; machine.session_options = a_session_options; machine.session_begin = a_session_begin;
    }
    return &machine;
 }
