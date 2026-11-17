@@ -30,3 +30,31 @@ void smsrecomp_psg_state(RetroStateIO *io) {
         s_scratch_read = read; s_scratch_write = write;
     }
 }
+
+/* Multiplayer rollback (native/gamestate.inc, smsrecomp_snap_*): the chip, its time remainder and the samples not yet drained,
+ * as they stand in memory. Memory only, never a file. */
+size_t smsrecomp_psg_snap_size(void) {
+    return sizeof s_sn + sizeof s_leftover_z80_cycles + 2 * sizeof(uint32_t) + sizeof s_scratch;
+}
+void smsrecomp_psg_snap_save(uint8_t *out) {
+    if (!s_inited) psg_init();
+    const uint32_t read = (uint32_t)s_scratch_read, write = (uint32_t)s_scratch_write;
+    memcpy(out, &s_sn, sizeof s_sn); out += sizeof s_sn;
+    memcpy(out, &s_leftover_z80_cycles, sizeof s_leftover_z80_cycles); out += sizeof s_leftover_z80_cycles;
+    memcpy(out, &read, sizeof read); out += sizeof read;
+    memcpy(out, &write, sizeof write); out += sizeof write;
+    memcpy(out, s_scratch, sizeof s_scratch);
+}
+bool smsrecomp_psg_snap_load(const uint8_t *in) {
+    SN76489 chip;
+    uint32_t leftover, read, write;
+    memcpy(&chip, in, sizeof chip); in += sizeof chip;
+    memcpy(&leftover, in, sizeof leftover); in += sizeof leftover;
+    memcpy(&read, in, sizeof read); in += sizeof read;
+    memcpy(&write, in, sizeof write); in += sizeof write;
+    if (leftover > 15 || read > write || write > PSG_SCRATCH_FRAMES) return false;
+    s_sn = chip; s_inited = 1; s_leftover_z80_cycles = leftover;
+    s_scratch_read = read; s_scratch_write = write;
+    memcpy(s_scratch, in, sizeof s_scratch);
+    return true;
+}

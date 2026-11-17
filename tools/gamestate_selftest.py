@@ -17,8 +17,9 @@ from retrorecomp.platforms import cmake_target_args, build_executable, build_job
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pal', action='store_true', help='Check the 313-line PAL machine state.')
+    parser.add_argument('--halt', action='store_true', help='Author the main loop as EI + HALT (frame ends met in HALT).')
     args = parser.parse_args()
-    directory = ROOT / ('.build/gamestate-selftest-pal' if args.pal else '.build/gamestate-selftest')
+    directory = ROOT / ('.build/gamestate-selftest-pal' if args.pal else '.build/gamestate-selftest-halt' if args.halt else '.build/gamestate-selftest')
     directory.mkdir(parents=True, exist_ok=True)
     os.environ['SMSRECOMP_LIBRARY_DIR'] = str(directory / 'learning')
     data = bytearray(32768)
@@ -30,6 +31,8 @@ def main():
     loop = bytes.fromhex('21 00 C0 34 7E D3 7F D3 BF 3E 88 D3 BF 7E E6 01 32 FF FF 7E D3 BE DD FD 00')
     start = 0x100 + len(init)
     data[0x100:start] = init
+    if args.halt:    # ei; halt; ld hl,$C000; inc (hl); ld a,(hl); out ($7F),a; out ($BF),a; jr start
+        loop = bytes.fromhex('FB 76 21 00 C0 34 7E D3 7F D3 BF')
     data[start:start+len(loop)] = loop
     data[start+len(loop):start+len(loop)+3] = bytes([0xC3, start & 255, start >> 8])
     rom_path = directory / 'authored.sms'; rom_path.write_bytes(data)
@@ -49,7 +52,7 @@ def main():
          '-DSMSRECOMP_BANKED_AOT=ON', '-DSMSRECOMP_STATE_CHECKS=ON'], log=log)
     run([cmake, '--build', build, '--config', 'Release', '--target', 'smsrecomp_state_checks', '--parallel', build_jobs()], log=log)
     outputs = []
-    for mode in (1, 2):
+    for mode in (1, 2, 3):
         result = run_captured([build_executable(build, 'smsrecomp_state_checks'), mode], cwd=directory)
         outputs.append(result.stdout + result.stderr)
         (directory / 'checks.log').write_text('\n'.join(outputs), encoding='utf-8')
