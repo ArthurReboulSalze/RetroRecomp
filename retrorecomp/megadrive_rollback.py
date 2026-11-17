@@ -54,6 +54,9 @@ extern size_t rr16_gun_state_save(void *data, size_t capacity);
 extern bool rr16_gun_state_load(const void *data, size_t size);
 extern void rr16_md_instruction(bool active);
 extern bool rr16_md_instruction_busy(void);
+extern size_t rr_md_tap_live_size(void);
+extern void rr_md_tap_live_save(void *data);
+extern void rr_md_tap_live_load(const void *data);
 /* The game fiber's live stack (its header and registers included), the PSG's undrained samples and the queued sound
  * events are bounded: a frame ends far below these (the probe reports the largest seen), and a frame that does not fails
  * its save, which the session reports, instead of writing past its slot. */
@@ -62,7 +65,7 @@ extern bool rr16_md_instruction_busy(void);
 #define RR_MD_SNAP_EVENTS 4096u
 enum { RR_MD_SNAP_EXEC, RR_MD_SNAP_CPU, RR_MD_SNAP_SCHED, RR_MD_SNAP_RAM, RR_MD_SNAP_BUS, RR_MD_SNAP_VDP,
        RR_MD_SNAP_FM, RR_MD_SNAP_PSG_PART, RR_MD_SNAP_EVQ, RR_MD_SNAP_INPUT, RR_MD_SNAP_GLUE, RR_MD_SNAP_INTERP,
-       RR_MD_SNAP_Z80, RR_MD_SNAP_YM, RR_MD_SNAP_GUN, RR_MD_SNAP_CART, RR_MD_SNAP_PARTS };
+       RR_MD_SNAP_Z80, RR_MD_SNAP_YM, RR_MD_SNAP_GUN, RR_MD_SNAP_CART, RR_MD_SNAP_TAP, RR_MD_SNAP_PARTS };
 typedef struct { M68KState cpu; uint32_t stopped; RrMdPrefetch prefetch; } RrMdSnapCpu;
 typedef struct { uint32_t pending_stall; int32_t unlimited_sprites; } RrMdSnapVdp;
 typedef struct { GenesisSimInput in; uint32_t ticks; } RrMdSnapInput;
@@ -86,6 +89,7 @@ static size_t rr_md_snap_part_bound(unsigned part) {
     case RR_MD_SNAP_YM: return sizeof(RrMdYmTimers);
     case RR_MD_SNAP_GUN: return rr16_gun_state_save(NULL, 0) + 1u;
     case RR_MD_SNAP_CART: return sizeof(RrMdCartState);
+    case RR_MD_SNAP_TAP: return rr_md_tap_live_size();
     }
     return 0;
 }
@@ -151,6 +155,7 @@ static size_t rr_md_snap_part_save(unsigned part, uint8_t *o, size_t cap) {
         return n + 1;
     }
     case RR_MD_SNAP_CART: memcpy(o, rr_md_cart_state(), sizeof(RrMdCartState)); return sizeof(RrMdCartState);
+    case RR_MD_SNAP_TAP: rr_md_tap_live_save(o); return rr_md_tap_live_size();   /* the multitaps (megadrive_multitap.py) */
     }
     return 0;
 }
@@ -183,7 +188,8 @@ bool rr16_md_snap_load(const void *buffer, size_t size) {
     if (p != size) return false;
     /* The fixed parts must have their size, and the cartridge chips a valid state, before anything changes. */
     static const unsigned fixed[] = {RR_MD_SNAP_CPU, RR_MD_SNAP_RAM, RR_MD_SNAP_VDP, RR_MD_SNAP_INPUT, RR_MD_SNAP_GLUE,
-                                     RR_MD_SNAP_INTERP, RR_MD_SNAP_Z80, RR_MD_SNAP_YM, RR_MD_SNAP_GUN, RR_MD_SNAP_CART};
+                                     RR_MD_SNAP_INTERP, RR_MD_SNAP_Z80, RR_MD_SNAP_YM, RR_MD_SNAP_GUN, RR_MD_SNAP_CART,
+                                     RR_MD_SNAP_TAP};
     for (size_t i = 0; i < sizeof fixed / sizeof *fixed; ++i)
         if (length[fixed[i]] != rr_md_snap_part_bound(fixed[i])) return false;
     RrMdCartState cart; memcpy(&cart, at[RR_MD_SNAP_CART], sizeof cart);
@@ -212,6 +218,7 @@ bool rr16_md_snap_load(const void *buffer, size_t size) {
     size_t gun = length[RR_MD_SNAP_GUN] - 1;
     if (!rr16_gun_state_load(at[RR_MD_SNAP_GUN], gun)) return false;
     rr16_md_instruction(at[RR_MD_SNAP_GUN][gun] != 0);
+    rr_md_tap_live_load(at[RR_MD_SNAP_TAP]);
     return rr_md_cart_restore(&cart) != 0;
 }
 #else

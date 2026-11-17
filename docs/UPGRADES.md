@@ -97,6 +97,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-next-release) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-next-release) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
+| [Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart](#mega-drive-four-players-with-the-team-player-the-4-way-play-or-the-j-cart-next-release) | **the Mega Drive game and engine stamps** (`retrorecomp/megadrive_multitap.py`, new, and its hooks); **the game stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation** (`console16.py`, the report's player count; their games do not change) | **the Mega Drive host stamp** (`rrhk_md.c`) | unchanged |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-next-release) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-next-release) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) || [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-next-release) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
@@ -568,6 +569,45 @@ builds needed no shortened filter this time). Linux is not touched (its ELF is p
 **What moves:** the build stamp of every profile (`packing.py` is a build input: 21 profiles, no game and no host stamp, as
 `tests/test_legacy_compat.py` checks for any packing change). Quick states unchanged. **Exports already delivered** with a `call_filter` record carry one
 possibly corrupted call or jump; the multiplayer release converts every export again anyway.
+
+## Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart (next release)
+
+A Mega Drive game made for three or four players gets players 3 and 4 through the adapter it was made for; the player plugs
+nothing and chooses nothing (Arthur, 17 November 2026). `retrorecomp/megadrive_multitap.py` picks it per game and adds it to the
+game's private bus copy:
+- **The control ports** (the Team Player and the EA 4 Way Play, one adapter answering both protocols, as later Team Player units
+  did, so a game that probes one then the other finds the one it wants). Chosen when the game declares the Team Player (a `4`
+  in the header's I/O support at `$190`), when its code holds its own 4 Way Play probe (the instruction writing `$7C` to
+  `$A10005`), or from the reviewed table `TEAM_PLAYER_DUMPS` for a Team Player game that declares nothing (Gauntlet IV).
+- **The J-Cart** (Codemasters: two pad ports on the cartridge, at `$38FFFE` and `$3FFFFE`), from the reviewed table
+  `JCART_DUMPS` of exact dumps (Pete Sampras Tennis, Sampras Tennis 96, Micro Machines 2, Military and Turbo Tournament 96,
+  Super Skidmarks), since no header declares it.
+
+Over a library of 997 Mega Drive dumps, 92 get an adapter (86 on the ports, 6 J-Cart); every other game keeps its two
+ordinary pads, unchanged. Such a game has four players everywhere: its report says "players 1 to 4" (`input_players`,
+`multitap`), the lobby seats four (`netplay_seats` 4, a ceiling the report and the game's HELLO set per game), alone the host
+kit gives players 3 and 4 their own bindings, and in a session they are the session's port words 3 and 4, set inside
+`run_frame` so a frame run again after a correction reads the same ones. The adapters' state is part of the rollback
+snapshot; a quick state does not keep it (after a quick-state load the adapters start from idle and the game sets them again
+on its next read).
+
+**Proof** (17 November 2026, llvm builds, no ROM in the repository): `tools/megadrive_rollback_selftest.py`, mode
+`multitap`, drives the three protocols through the bus as a game does (the Team Player identified with TH alone, `3` then
+`F`, then its handshake, the four pad types and every data nibble; the 4 Way Play's signature `$7C` and each pad selected
+with both TH levels; the J-Cart's two pads at both addresses with both TH levels; an adapter's selection undone by a rollback
+load). MAME 0.289 (no multitap attached) showed how the games probe: Columns III, Gauntlet IV and Mega Bomberman toggle TH
+alone on both ports; Mega Bomberman first writes the 4 Way Play sequence `$43`, `$7C`, `$7F` to port B. Five games converted
+(the internal reference comparison passes on each) and played by four copies on one PC, `tools/netplay_game_smoke.py
+--seats 4 --frames 3000 --rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500`: PASS on the rollback
+tier for all four seats, the match's save and load at the same frames on every seat, and each game's log says it reads
+players 3 and 4 through its adapter: Team Player, Columns III (declared) and Gauntlet IV (from the table); 4 Way Play, General
+Chaos and Mega Bomberman; J-Cart, Pete Sampras Tennis. Not proven: a game played to its four-player mode by hand, a Team
+Player game expecting the adapter on port B, a fifth Team Player pad.
+
+**Stamps:** the Mega Drive game, engine and host stamps move (`megadrive_multitap.py`, new; its hooks in `megadrive.py`,
+`megadrive_cart.py`, `megadrive_rollback.py`; the adapter `rrhk_md.c`); `console16.py` (the report's player count) moves the game
+stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation too, with no change to their games (the
+multiplayer release converts every export again anyway). Quick-state keys: unchanged.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

@@ -9,34 +9,40 @@
 #include "console16_state.h"
 #include "retro_menu.h"
 #include "hostkit/hostkit.h"
+#ifndef RR_MD_PLAYERS
+#define RR_MD_PLAYERS 2
+#endif
+
+/* One gamepad button for every player's table (players 3 and 4 play through a multitap game's adapter). */
+#define PADS(button) {button, button, button, button}
 
 /* Three-button pad; the six-button pad (a property of the game) adds X, Y, Z
  * and Mode. Bits follow the engine's pad word. */
 #define DIRECTIONS \
-    {"Up", L"Up", 1, RRHK_DIR, 0, {SDL_SCANCODE_UP, SDL_SCANCODE_KP_5}, {SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_UP}}, \
-    {"Down", L"Down", 2, RRHK_DIR, 0, {SDL_SCANCODE_DOWN, SDL_SCANCODE_KP_2}, {SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_DOWN}}, \
-    {"Left", L"Left", 4, RRHK_DIR, 0, {SDL_SCANCODE_LEFT, SDL_SCANCODE_KP_1}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_LEFT}}, \
-    {"Right", L"Right", 8, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_KP_3}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT}}
+    {"Up", L"Up", 1, RRHK_DIR, 0, {SDL_SCANCODE_UP, SDL_SCANCODE_KP_5}, PADS(SDL_CONTROLLER_BUTTON_DPAD_UP)}, \
+    {"Down", L"Down", 2, RRHK_DIR, 0, {SDL_SCANCODE_DOWN, SDL_SCANCODE_KP_2}, PADS(SDL_CONTROLLER_BUTTON_DPAD_DOWN)}, \
+    {"Left", L"Left", 4, RRHK_DIR, 0, {SDL_SCANCODE_LEFT, SDL_SCANCODE_KP_1}, PADS(SDL_CONTROLLER_BUTTON_DPAD_LEFT)}, \
+    {"Right", L"Right", 8, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_KP_3}, PADS(SDL_CONTROLLER_BUTTON_DPAD_RIGHT)}
 
 #if RR_MD_SIX_BUTTONS
 enum { A, B, C, X, Y, Z, MODE, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
-    {"A", L"A", 64, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_w},
-    {"B", L"B", 16, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_x},
-    {"C", L"C", 32, RRHK_FACE, 0, {SDL_SCANCODE_F, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_X}, NULL, SDLK_c},
-    {"X", L"X", 256, RRHK_FACE, 0, {SDL_SCANCODE_E, SDL_SCANCODE_KP_0}, {SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_Y}, NULL, SDLK_a},
-    {"Y", L"Y", 512, RRHK_FACE, 0, {SDL_SCANCODE_R, SDL_SCANCODE_KP_PERIOD}, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_CONTROLLER_BUTTON_LEFTSHOULDER}, NULL, SDLK_s},
-    {"Z", L"Z", 1024, RRHK_FACE, 0, {SDL_SCANCODE_T, SDL_SCANCODE_KP_ENTER}, {SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER}, NULL, SDLK_d},
-    {"Mode", L"Mode", 2048, RRHK_SYSTEM, 0, {SDL_SCANCODE_RSHIFT, SDL_SCANCODE_KP_4}, {SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_BACK}},
-    {"Start", L"Start", 128, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
+    {"A", L"A", 64, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, PADS(SDL_CONTROLLER_BUTTON_A), NULL, SDLK_w},
+    {"B", L"B", 16, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, PADS(SDL_CONTROLLER_BUTTON_B), NULL, SDLK_x},
+    {"C", L"C", 32, RRHK_FACE, 0, {SDL_SCANCODE_F, SDL_SCANCODE_KP_6}, PADS(SDL_CONTROLLER_BUTTON_X), NULL, SDLK_c},
+    {"X", L"X", 256, RRHK_FACE, 0, {SDL_SCANCODE_E, SDL_SCANCODE_KP_0}, PADS(SDL_CONTROLLER_BUTTON_Y), NULL, SDLK_a},
+    {"Y", L"Y", 512, RRHK_FACE, 0, {SDL_SCANCODE_R, SDL_SCANCODE_KP_PERIOD}, PADS(SDL_CONTROLLER_BUTTON_LEFTSHOULDER), NULL, SDLK_s},
+    {"Z", L"Z", 1024, RRHK_FACE, 0, {SDL_SCANCODE_T, SDL_SCANCODE_KP_ENTER}, PADS(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER), NULL, SDLK_d},
+    {"Mode", L"Mode", 2048, RRHK_SYSTEM, 0, {SDL_SCANCODE_RSHIFT, SDL_SCANCODE_KP_4}, PADS(SDL_CONTROLLER_BUTTON_BACK)},
+    {"Start", L"Start", 128, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, PADS(SDL_CONTROLLER_BUTTON_START)},
     DIRECTIONS};
 #else
 enum { A, B, C, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
-    {"A", L"A", 64, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_w},
-    {"B", L"B", 16, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_x},
-    {"C", L"C", 32, RRHK_FACE, 0, {SDL_SCANCODE_F, SDL_SCANCODE_KP_6}, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_X}, NULL, SDLK_c},
-    {"Start", L"Start", 128, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
+    {"A", L"A", 64, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, PADS(SDL_CONTROLLER_BUTTON_A), NULL, SDLK_w},
+    {"B", L"B", 16, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, PADS(SDL_CONTROLLER_BUTTON_B), NULL, SDLK_x},
+    {"C", L"C", 32, RRHK_FACE, 0, {SDL_SCANCODE_F, SDL_SCANCODE_KP_6}, PADS(SDL_CONTROLLER_BUTTON_X), NULL, SDLK_c},
+    {"Start", L"Start", 128, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, PADS(SDL_CONTROLLER_BUTTON_START)},
     DIRECTIONS};
 #endif
 
@@ -94,7 +100,20 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     rrhk_help_sound_line(ctx, y + 2 * RR_MENU_LINE);
 }
 
-static int players(void) { return 2; }
+/* Two pads, or four in a game made for the Team Player, the 4 Way Play or the J-Cart (retrorecomp/megadrive_multitap.py). */
+static int players(void) { return RR_MD_PLAYERS; }
+void rr16_md_extra_pads(uint16_t p3, uint16_t p4);
+/* Players 3 and 4 are set here, in the frame itself, never in before_frame: a frame run again after a correction in a
+ * multiplayer session (a "silent" frame) calls run_frame with the session's words but not before_frame. Alone, the pads
+ * of the frame about to run are the same either way. */
+static uint64_t extra_frame;
+static bool run_frame(uint16_t p1, uint16_t p2) {
+    if (RR_MD_PLAYERS > 2) {
+        rr16_md_extra_pads(rrhk_pad_word(2, extra_frame), rrhk_pad_word(3, extra_frame));
+        ++extra_frame;
+    }
+    return rr16_frame(p1, p2);
+}
 /* Multiplayer (hostkit_session.h): md_backend.c gives the digest, holds the guest's cartridge save and gives the in-process
  * snapshot of the rollback tier and of the host's F8 / F9 for everyone (none in a build without step code: delay tier). */
 uint64_t rr16_md_digest(void);
@@ -115,7 +134,7 @@ const RrhkMachine *rrhk_adapter(void) {
     if (!machine.actions) {
         machine = (RrhkMachine){
             .ini_section = RR16_SECTION, .console_name = RR16_CONSOLE,
-            .table_players = 2, .players = players,
+            .table_players = RR_MD_PLAYERS, .players = players,
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,
             .max_width = RR16_WIDTH, .max_height = RR16_HEIGHT, .frame_seconds = RR16_FRAME_SECONDS,
@@ -123,7 +142,7 @@ const RrhkMachine *rrhk_adapter(void) {
              * NTSC (224) and PAL (240) pictures. */
             .open_width = 320, .open_height = 240,
             .pointer = RR16_GUN, .own_audio = true,
-            .reset = rr16_reset, .run_frame = rr16_frame, .pause = rr16_pause,
+            .reset = rr16_reset, .run_frame = run_frame, .pause = rr16_pause,
             .pixels = rr16_pixels, .visible_width = rr16_visible_width, .visible_height = rr16_visible_height,
             .raster_height = rr16_raster_height, .display_width = rr16_visible_width,
             .audio = rr16_audio, .interpreted = rr16_interpreted, .audio_interpreted = rr16_audio_interpreted,

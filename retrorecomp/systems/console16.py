@@ -9,6 +9,10 @@ class MegaDriveProfile(SystemProfile):
     id = 'md'
     netplay_session = True
     netplay_portable = True
+    # Four for a game made for the Team Player, the 4 Way Play or the J-Cart (retrorecomp/megadrive_multitap.py), two for the
+    # others: the report ("players 1 to N") and the game's HELLO say which.
+    netplay_seats = 4
+    netplay_seats_ceiling = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # The layout file's first line holds its own absolute path.
     simulation_sources = (SimulationSource('steps/*.c'),

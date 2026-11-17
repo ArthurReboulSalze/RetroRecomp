@@ -559,8 +559,14 @@ class Console16Tests(unittest.TestCase):
                     'independent_cpu_oracle', 'cpu_fidelity_validated', 'universal_zero_fallback_claim'):
             self.assertIs(document['honesty'][key], False, key)
         self.assertIs(document['validation']['cpu_fidelity']['agreement'], True)
-        self.assertEqual(set(report['qualification_scope']), {'routes', 'cartridge_hardware', 'universal_zero_fallback_claim'})
+        self.assertEqual(set(report['qualification_scope']),
+                         {'routes', 'cartridge_hardware', 'controls', 'universal_zero_fallback_claim'})
         self.assertIn('not a full playthrough', report['qualification_scope']['routes'])
+        # The players the game offers, as the multiplayer lobby reads them (netplay/lobby_check.players_in_report).
+        from retrorecomp.netplay.lobby_check import players_in_report
+        self.assertTrue(report['qualification_scope']['controls'].startswith('players 1 to 2'))
+        self.assertEqual((report['input_players'], report['multitap']), (2, None))
+        self.assertEqual(players_in_report({**report, 'system': {'id': 'md'}}), 2)
         self.assertIs(report['qualification_scope']['universal_zero_fallback_claim'], False)
         self.assertNotIn('exact', json.dumps(report['qualification_scope']).lower())
         # The refusal of the oracle and the agreement are in the writer's own keys too (the website and old readers read those).
