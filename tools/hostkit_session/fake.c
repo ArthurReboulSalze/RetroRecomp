@@ -81,7 +81,11 @@ static size_t audio(int16_t *pcm, size_t capacity) { (void)pcm; (void)capacity; 
 static uint64_t zero(void) { return 0; }
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) { (void)ui; (void)ctx; (void)y; }   /* F1 draws it */
 
+/* SESSION_FAKE_SLOW_MS=n: every frame (live or silent) costs n ms more, a stand-in for a heavy machine on a slow PC (the
+ * rollback tier's safety floor). A sleep, never a busy loop. */
+static unsigned slow_ms;
 static bool run_frame(uint16_t p1, uint16_t p2) {
+    if (slow_ms) SDL_Delay(slow_ms);
     const uint16_t p3 = rrhk_pad_word(2, state.frames), p4 = rrhk_pad_word(3, state.frames);
     const uint64_t words = (uint64_t)p1 | (uint64_t)p2 << 16 | (uint64_t)p3 << 32 | (uint64_t)p4 << 48;
     state.acc = mix(state.acc ^ words ^ ((uint64_t)state.frames << 7));
@@ -144,6 +148,9 @@ int main(int argc, char **argv) {
     SDL_SetMainReady();
     const char *menu = getenv("SESSION_FAKE_MENU_AT");
     menu_at = menu ? (unsigned)atoi(menu) : 0;
+    const char *slow = getenv("SESSION_FAKE_SLOW_MS");
+    slow_ms = slow ? (unsigned)atoi(slow) : 0;
+    if (slow_ms > 40) slow_ms = 40;
     const char *restart = getenv("SESSION_FAKE_RESTART_AT");
     restart_at = restart ? (unsigned)atoi(restart) : 0;
     const char *chat = getenv("SESSION_FAKE_CHAT_AT");

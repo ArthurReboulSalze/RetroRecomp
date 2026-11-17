@@ -44,6 +44,7 @@ Counts only (`stats`: rollbacks, frames run again, the deepest correction, frame
 from __future__ import annotations
 
 import collections
+import statistics
 
 from . import input_records as wire
 from . import seat_map
@@ -58,6 +59,21 @@ from .session_transport import SeatLink
 # a frame run again silently costs a NES export what a live frame costs (2.5 ms median), so a correction of k frames plus the
 # live one must fit in one frame: 5 x 2.5 + 2.5 = 15 ms of 16.6; 8 took 20 ms and showed as a late frame.
 DEFAULT_PREDICTION = 5
+# The per-seat safety floor (lead, 17 Nov 2026): a seat whose own frames are so slow that one correction would take more than two
+# frames caps its own guesses at max(1, floor(2T / cost) - 1), T the frame period, cost the median of its game's live frames
+# (DONE, run_frame alone, any machine). Measured after a warm-up, then every FLOOR_EVERY frames; it only ever lowers the cap
+# during a match. Each seat caps only its own guesses, so nothing goes on the wire and the games stay deterministic. The
+# measures of 17 Nov (NES 2.5 ms here, 3.6 ms on the ThinkPad) leave it at 5: it is for the heavier machines.
+FLOOR_WARMUP = 120
+FLOOR_EVERY = 60
+FLOOR_SAMPLES = 120
+
+
+def safety_floor(frame_ms: float, cost_ms: float, cap: int) -> int:
+    """The cap a seat keeps for its own guesses: `cap`, or less when one correction (cost x depth) would exceed two frames."""
+    if cost_ms <= 0.0 or frame_ms <= 0.0:
+        return cap
+    return max(1, min(cap, int(2.0 * frame_ms / cost_ms) - 1))
 DELAY_LAN, DELAY_ELSE = 1, 2
 RING_MARGIN = 2              # snapshots kept beyond the cap: the live frame's, and one to spare
 
@@ -119,11 +135,14 @@ class RollbackDriver(LockstepDriver):
         if not isinstance(cap, int) or isinstance(cap, bool) or not 0 <= cap <= MAX_PREDICTION:
             raise ValueError(f'a prediction cap of 0 to {MAX_PREDICTION} frames')
         self.cap = cap
+        self.cap_now = cap                      # the cap in force: lowered by the safety floor, never raised
+        self._costs: collections.deque = collections.deque(maxlen=FLOOR_SAMPLES)    # ms, the latest live frames
+        self._live_done = 0
         self.rolling = False                    # decided by the game's HELLO
         self.ring = 0
         self.rollback_depths = [0] * (cap + 1)  # [n]: corrections that ran n frames again
         self.stats.update({'rollbacks': 0, 'rollback_frames': 0, 'rollback_depth_max': 0, 'predicted_frames': 0,
-                           'cap_waits': 0, 'saves': 0, 'loads': 0, 'digests_skipped': 0})
+                           'cap_waits': 0, 'saves': 0, 'loads': 0, 'digests_skipped': 0, 'cap_lowered': 0})
         self._ran: dict[int, tuple] = {}        # frame -> the words the game ran it with, for the frames not verified yet
         self._verified = 0                      # the frames below were run with their confirmed words
         self._verified_state = self._seat_state # the mapper before frame `_verified`
@@ -165,9 +184,23 @@ class RollbackDriver(LockstepDriver):
     def snapshot(self) -> dict:
         state = super().snapshot()
         if self.rolling:
-            state.update(tier='rollback', prediction_cap=self.cap, ring=self.ring, verified=self._verified,
+            state.update(tier='rollback', prediction_cap=self.cap, cap_now=self.cap_now, ring=self.ring, verified=self._verified,
                          rollback_depths=list(self.rollback_depths))
         return state
+
+    def _frame_cost(self, frame: int, cost_us: int) -> None:
+        if not self.rolling or self.hello is None:
+            return
+        self._live_done += 1
+        if self._live_done <= FLOOR_WARMUP // 4:      # the very first frames (loading, caches) say nothing of the match
+            return
+        self._costs.append(cost_us / 1000.0)
+        if self._live_done < FLOOR_WARMUP or self._live_done % FLOOR_EVERY:
+            return
+        floor = safety_floor(self.hello.frame_seconds * 1000.0, statistics.median(self._costs), self.cap)
+        if floor < self.cap_now:
+            self.cap_now = floor
+            self.stats['cap_lowered'] += 1
 
     # ---- frames ----
 
@@ -282,7 +315,7 @@ class RollbackDriver(LockstepDriver):
             confirmed = self._confirmed()
             if self._pause_confirmed(min(confirmed - 1, frame)):
                 continue
-            if frame - confirmed >= self.cap:       # the cap: no more frames on a guess; the game waits, as on the delay tier
+            if frame - confirmed >= self.cap_now:   # the cap: no more frames on a guess; the game waits, as on the delay tier
                 if self._blocked_since is None:
                     self._blocked_since = now
                     self._blocked_on = min(range(self.seats), key=lambda seat: len(self._records[seat]))

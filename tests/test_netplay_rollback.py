@@ -46,7 +46,8 @@ class SteppedGame:
     """The game's end of the pipe, stepped by the test: `local(frame)` is the game asking for a frame; the commands the
     driver sends are executed as the kit would and kept in `commands` (name, frame, ...)."""
 
-    def __init__(self, caps=pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT, bound=16):
+    def __init__(self, caps=pipe.CAP_DIGEST | pipe.CAP_SNAPSHOT, bound=16, cost_us=0):
+        self.cost_us = cost_us        # with it, every live frame answers DONE with that cost (the kit measures run_frame)
         self.broken = None
         self.caps, self.bound = caps, bound
         self.state, self.live, self.asked = 1, 0, False
@@ -124,6 +125,8 @@ class SteppedGame:
             else:
                 self.live_runs += 1
                 self.asked = False
+                if self.cost_us:
+                    self._sink((pipe.MSG_DONE, struct.pack('<II', frame, self.cost_us)))
             self.commands.append(('SILENT' if silent else 'RUN', frame, words))
         elif kind == pipe.MSG_PAUSE:
             self.commands.append(('PAUSE', payload[0]))
@@ -465,6 +468,42 @@ class RestartTests(unittest.TestCase):
         self.assertEqual(guest._records[1][2], (0, 0))
 
 
+class SafetyFloorTests(unittest.TestCase):
+    """The per-seat safety floor (lead, 17 Nov 2026): k = 5 unless this seat's own frames are so slow that a correction would take
+    more than two frames; it is measured after a warm-up, only ever lowers the cap, and changes nothing on the wire."""
+
+    def test_the_rule_on_the_measured_costs(self):
+        frame = 1000.0 / 60
+        self.assertEqual([rollback.safety_floor(frame, cost, 5) for cost in (2.53, 3.64, 5.5, 6.0, 8.0, 12.0, 20.0)],
+                         [5, 5, 5, 4, 3, 1, 1])       # NES here, NES on the ThinkPad (17 Nov), then heavier machines
+        self.assertEqual(rollback.safety_floor(frame, 0.0, 5), 5)
+
+    def test_a_slow_seat_lowers_its_own_cap_after_the_warm_up_and_waits_are_counted(self):
+        with Host(self, cap=5, game=SteppedGame(cost_us=20000)) as host:      # 20 ms a frame at 60 Hz: the floor is 1
+            host.peer(1, *[(0, 0)] * 32)
+            for frame in range(rollback.FLOOR_WARMUP + 1):
+                if frame and frame % 30 == 0:
+                    host.peer(frame + 2, *[(0, 0)] * 32)
+                host.ask(frame)
+            self.assertEqual((host.driver.cap_now, host.driver.stats['cap_lowered']), (1, 1))
+            self.assertEqual(host.driver.snapshot()['cap_now'], 1)
+            waits = host.driver.stats['cap_waits']
+            for _ in range(60):                             # no more records from seat 2: past them, one frame on a guess, then a wait
+                if host.driver.stats['cap_waits'] > waits:
+                    break
+                host.ask(host.driver.next_run)
+            self.assertLessEqual(host.driver.next_run - host.driver._confirmed(), 1)
+            self.assertGreater(host.driver.stats['cap_waits'], waits)
+            self.assertEqual(host.game.errors, [])
+        with Host(self, cap=5, game=SteppedGame(cost_us=2500)) as host:       # NES-like: the floor never moves it
+            host.peer(1, *[(0, 0)] * 32)
+            for frame in range(rollback.FLOOR_WARMUP + 1):
+                if frame and frame % 30 == 0:
+                    host.peer(frame + 2, *[(0, 0)] * 32)
+                host.ask(frame)
+            self.assertEqual((host.driver.cap_now, host.driver.stats['cap_lowered']), (5, 0))
+
+
 class ChatTests(unittest.TestCase):
     """The worker's side of the in-game chat (session ABI 3): a line the game sends goes to the room; the room's lines and
     the turn notices come to the game."""
@@ -630,7 +669,7 @@ class RollbackThroughRealPipesTests(unittest.TestCase):
         code, output, seconds = selftest.run_checks(ROOT / '.build/netplay-rollback-selftest')
         self.assertEqual(code, 0, output)
         self.assertIn(f'PASS: {len(selftest.SCENARIOS)} scenarios', output)
-        self.assertEqual(len(selftest.SCENARIOS), 14)
+        self.assertEqual(len(selftest.SCENARIOS), 15)
         self.assertLess(seconds, 900, output)     # a hang, not a speed
 
 

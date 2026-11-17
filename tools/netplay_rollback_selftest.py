@@ -185,6 +185,22 @@ def restart_over_lag(executable, out):
             f'(silent ones included); ' + rolled(match, frames, expected(2, 2, frames, 6), CAP, 2, restarts))
 
 
+def slow_seat(executable, out):
+    # Seat 2's game costs 12 ms more a frame (SESSION_FAKE_SLOW_MS) at 60 Hz: after the warm-up its safety floor lowers its own
+    # cap to 1 (one correction would take more than two frames otherwise); seat 1 keeps 5. Over 60 +- 10 ms that seat waits at
+    # its cap now and then, which is counted; the games end in the state of the confirmed history, digests equal.
+    frames = 600
+    match = Match(executable, out, 'rollback-slow-seat', 2, hz=60, delay=2, rollback=5, last_frame=frames, digest_every=60,
+                  link={'latency_ms': 60.0, 'jitter_ms': 10.0}, env={1: {'SESSION_FAKE_SLOW_MS': '12'}},
+                  per_seat={seat: {'local_source': held(seat, 6)} for seat in range(2)}).start()
+    match.finish(120)
+    fast, slow = (base.state_of(driver) for driver in match.drivers)
+    assert fast['cap_now'] == 5 and fast['stats']['cap_lowered'] == 0, fast
+    assert slow['cap_now'] == 1 and slow['stats']['cap_lowered'] >= 1, slow
+    return (f'seat 2 at 12 ms more a frame lowered its own cap to {slow["cap_now"]} (seat 1 kept {fast["cap_now"]}), waits at '
+            f'the cap {counts(match, "cap_waits")}; ' + rolled(match, frames, expected(2, 2, frames, 6), 5, 2))
+
+
 def pause_host_resumes(executable, out):
     # Seat 2 holds a pause from its frame 60 on (its record of frame 62). Each seat pauses once that frame is confirmed,
     # which may be a few frames after it ran; no frame runs while paused; the host resumes; the games end in step.
@@ -254,6 +270,7 @@ SCENARIOS = [
     auto_delay('rollback-delay-chosen-far', 40.0, 5.0, 2),
     ('rollback-shared-turns', 90, shared_turns),
     ('rollback-pause', 60, pause_host_resumes),
+    ('rollback-slow-seat', 120, slow_seat),
     ('rollback-restart', 90, restart_over_lag),
     ('rollback-desync', 60, forced_desync),
     ('rollback-asked-no-snapshot', 60, without_snapshots),

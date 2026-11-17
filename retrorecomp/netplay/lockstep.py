@@ -494,7 +494,13 @@ class LockstepDriver:
             self.chat_lines += 1
             if self.on_chat is not None:
                 self.on_chat(phrase, text)
-        # DONE: the frame ran; its cost is not read here (nothing in this stage measures speed)
+        elif kind == pipe.MSG_DONE:
+            frame, cost_us = pipe.parse_done(payload)
+            self._frame_cost(frame, cost_us)
+
+    def _frame_cost(self, frame: int, cost_us: int) -> None:
+        """What the game's live frame cost it (its run_frame alone, in microseconds). The delay tier does not use it; the
+        rollback tier keeps it for its safety floor. Never a speed or latency figure for the player."""
 
     def _hello(self, hello: pipe.Hello):
         if self.hello is not None:
