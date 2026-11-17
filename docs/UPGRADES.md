@@ -88,6 +88,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | --- | --- | --- | --- |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
+| [Nintendo 64: multiplayer on the delay tier, and a change of resolution in play keeps the renderer's memory](#nintendo-64-multiplayer-on-the-delay-tier-and-a-change-of-resolution-in-play-keeps-the-renderers-memory-next-release) | the Nintendo 64 (`n64_cpu.c`, `n64_session.cpp`, `n64_player.c`) | the Nintendo 64's host stamp (`rrhk_n64.inc`) | Nintendo 64 states of 1.8.0 refused (the state key hashes the session sources) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
 | [Super Nintendo: multiplayer, digest and rollback on the boards without a chip](#super-nintendo-multiplayer-digest-and-rollback-on-the-boards-without-a-chip-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
@@ -418,6 +419,37 @@ of every machine with the host kit, as the multiplayer line above already does. 
 Escape: digests equal on the same run with PGXP Off and On, and between Windows and Linux; the settings that change the run
 measured and pushed; two copies through the session on the delay tier PASS with the host's values). Physical latency is not
 measured.
+
+## Nintendo 64: multiplayer on the delay tier, and a change of resolution in play keeps the renderer's memory (next release)
+
+The Nintendo 64 gives the session what the delay tier needs. **Digest:** the machine's state as named fields folded as values in a
+fixed order (`rr_n64_cpu_digest`: the VR4300's registers, PC and COP0 / COP1, the RSP's memory and registers, the RDP, MI / VI / AI
+/ PI / RI / SI, PIF RAM, the whole RDRAM, then the save memory with the four paks), never the quick state's bytes (about a
+kilobyte of the core's own block holds heap and code addresses that differ from run to run). **A guest writes no save** (the kit's
+`side_effects`). **The cartridge clock** (Animal Forest's) runs on the session's from `session_begin`, plus the emulated
+seconds, the same date on every seat whatever its time zone; the core sets up its devices during the first frame, so the clock is
+put back after it. **ParaLLEl-RDP records on the emulation thread** in a session even if asked otherwise (its own worker is not
+deterministic). **The keyboard's Stick actions** read this PC's keys, so in a session every port's stick is the session's: the kit
+folds them into the sticks this PC sends (`stick_actions`). The profile sets `netplay_session`, so the converter offers its games. The
+host's restart is not honoured in a session (the Nintendo 64's restart starts the program again, which would end the match;
+every seat alike). The graphics rows stay per seat: they change the picture only. The blank controller paks needed nothing: the
+core formats them before it seeds their serial generator, so their serials are zero on every run.
+
+**The fix that comes with it, alone too:** a change of internal resolution (or supersampling) in play started ParaLLEl-RDP
+again from scratch, so its hidden RDRAM, its TMEM, the count that seeds its dither noise and the last commands that set its
+registers were lost: GoldenEye 007's RDRAM differed from the frame after the change (1,158 of 1,800 frames, 15 November gate
+traces), and a seat changing its picture mid-match would have left the others. The renderer's memory now goes over to the new
+renderer, as a quick state carries it. **Proof** (17 November 2026, Windows, RTX 3090, Quick conversions of Super Mario 64 and
+GoldenEye 007, 3,600 frames of the main route, headless): two runs give the same 61 digests; inputs that differ from frame 1,500
+give the same digests before and different ones after; another save memory changes the start digest; the resolution changed at
+frame 1,800 leaves RDRAM, sound, CPU registers and PC equal to the run without it on every frame; a quick state resumed in a
+fresh process gives the unbroken run's digests from its first frame on (the digest taken right after the load, before any frame,
+differs: the delay tier never takes one there). **Two copies in a session on one PC** (`tools/netplay_game_smoke.py`, 30 ms
+latency, 10 ms jitter, delay tier): Super Mario 64 and Mario Kart 64 with two seats over 1,800 frames, Mario Kart 64 with four seats
+over 1,200 frames, every digest equal on every seat (`PASS`). The smoke's scripted pads send words, not sticks: the sticks'
+journey in a session is not yet proven on a game. Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
+`n64_session.cpp`, `n64_player.c`) and host stamp (`rrhk_n64.inc`); Nintendo 64 quick states of 1.8.0 are refused cleanly (the
+state key hashes the session sources).
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

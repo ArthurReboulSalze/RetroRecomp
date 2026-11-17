@@ -21,6 +21,8 @@ APERTURES = ((0x80000000, 0x80800000),)
 
 class Nintendo64Profile(SystemProfile):
     id = 'n64'
+    # Multiplayer on the delay tier: the adapter gives a digest (rr_n64_cpu_digest), no in-process snapshot.
+    netplay_session = True
     netplay_seats = 4
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     simulation_sources = (SimulationSource('native/blocks/*.c'),

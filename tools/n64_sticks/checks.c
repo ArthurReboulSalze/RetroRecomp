@@ -46,6 +46,7 @@ static void scripted_inputs(uint64_t frame) { (void)frame; }
 static void gfx_changes_due(uint64_t frame) { (void)frame; }
 static int state_save(const char *slot) { (void)slot; return 1; }
 static int state_load(const char *slot) { (void)slot; return 1; }
+static bool saves_allowed = true;
 
 /* ---- the stub session: what the adapter calls ---- */
 static uint32_t pixels[320 * 240];
@@ -65,6 +66,8 @@ int rr_n64_rumble(const RrN64Session *s, int player, uint16_t *strong, uint16_t 
 }
 int rr_n64_option(RrN64Session *s, const char *key, const char *value) { (void)s; (void)key; (void)value; return 1; }
 uint64_t rr_n64_interpreted_count(const RrN64Session *s) { (void)s; return 0; }
+uint64_t rr_n64_digest(RrN64Session *s) { (void)s; return 0; }
+void rr_n64_session_clock(RrN64Session *s, uint64_t clock) { (void)s; (void)clock; }
 /* The fallback recording of an export is not part of the kit. */
 int rr_feedback_toggle(void) { return 0; }
 const char *rr_feedback_label(void) { return "F12 Record fallback hints: OFF"; }

@@ -519,7 +519,7 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(portable, {'nes', 'md', 'sms'})                       # the machines whose mixed-build gate passed
         self.assertEqual({profile.id for profile in ALL_PROFILES if lobby_check.session_capable(profile.id)},
                          {'nes', 'md', 'sms', 'gg', 'gb', 'snes', 'cps1', 'cps2', 'msx', 'msx2', 'msx2plus', 'pce', 'atarist', 'psx',
-                          'ng'})
+                          'ng', 'n64'})
         self.assertTrue(all(1 <= lobby_check.machine_seats(profile.id) <= control.MAX_SEATS for profile in ALL_PROFILES))
         self.assertEqual(lobby_check.machine_seats('no such machine'), 1)
         self.assertFalse(lobby_check.portable(None) or lobby_check.session_capable('no such machine'))
@@ -642,7 +642,7 @@ class CheckTests(unittest.TestCase):
         mine.add(report(machine='gba'), machine='gba')                                   # a handheld whose exports give no digest yet
         mine.add(report(machine='scummvm'), machine='scummvm')                           # one player and not a pad game: not offered
         mine.add(report(identity=False, machine='snes', sources=None), machine='snes')    # no identity of its sources
-        mine.add(report(machine='n64'), machine='n64')                                   # four players, but no session in its kit yet
+        mine.add(report(machine='a1200'), machine='a1200')                               # two players, but no session in its kit yet
         listed = mine.library().hostable()
         self.assertEqual(sorted((entry.system, picked.title, picked.seats_max) for entry, picked in listed),
                          [('gb', 'Battletoads', 1), ('gg', 'Battletoads', 1), ('nes', 'Battletoads', 2)])
@@ -812,7 +812,7 @@ class WindowApiTests(unittest.TestCase):
         source = (ROOT / 'retrorecomp/compiled_games_view.py').read_text(encoding='utf-8')
         self.assertIn("self.owner.show_multiplayer(pick=game)", source)
         self.assertIn("session_capable(single.system)", source)
-        self.assertTrue(session_capable('nes') and session_capable('gg') and not session_capable('n64'))
+        self.assertTrue(session_capable('nes') and session_capable('gg') and not session_capable('scummvm'))
         for key in ('mp_host_game', 'mp_not_offered'):
             self.assertIn(key, i18n.UI if hasattr(i18n, 'UI') else (ROOT / 'retrorecomp/i18n.py').read_text(encoding='utf-8'))
 

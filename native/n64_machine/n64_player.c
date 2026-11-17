@@ -42,6 +42,10 @@ static const char *dump_rdram;
 static unsigned reload_at;
 /* --saves-at-state PATH: the cartridge save memory written when --state-save-at saves the state */
 static const char *saves_snapshot;
+/* --digests TSV and --session-clock SECONDS: the multiplayer digest, and the cartridge clock a session sets (test runs only) */
+static const char *digests_path;
+static uint64_t session_clock;
+static bool session_clock_set;
 static char state_slot[PATH_CAP], save_path[PATH_CAP];
 static uint64_t save_hash;
 static int16_t frame_audio[2 * 8192];
@@ -147,6 +151,8 @@ static void saves_load(void) {
     save_hash = fnv(memory, size);
 }
 
+/* A guest of a multiplayer session writes no save (the kit's side_effects(false), for the whole session). */
+static bool saves_allowed = true;
 static void saves_store(void) {
     size_t size = 0;
     uint8_t *memory = rr_n64_save_memory(session, &size);
@@ -155,7 +161,7 @@ static void saves_store(void) {
     uint64_t h;
     FILE *f;
     int ok;
-    if (!memory || !size || !save_path[0] || (h = fnv(memory, size)) == save_hash) return;
+    if (!saves_allowed || !memory || !size || !save_path[0] || (h = fnv(memory, size)) == save_hash) return;
     snprintf(temporary, sizeof temporary, "%s.tmp", save_path);
     if (!(f = open_utf8(temporary, L"wb"))) return;
     ok = fwrite(memory, 1, size, f) == size;
@@ -293,6 +299,11 @@ static int run_headless(const char *trace_path, const char *report_path, const c
     if (trace) fputs("frame\tvideo\tpcm\tram\tcpu\tPC\tsamples\tsize\n", trace);
     /* A refused state (damaged, another build, missing) ends the run with exit status 4, the file left as it was. */
     if (load_start && state_load(state_slot)) { fail("The quick state could not be loaded"); if (trace) fclose(trace); return 4; }
+    /* --digests TSV: the multiplayer digest as a session takes it (at the start, every 60 frames, at the end). */
+    FILE *digests = digests_path ? open_utf8(digests_path, L"wb") : NULL;
+    if (digests_path && !digests) { fail("Cannot write the digests"); return 1; }
+    if (session_clock_set) rr_n64_session_clock(session, session_clock);
+    if (digests) fprintf(digests, "%llu\t%016llx\n", (unsigned long long)rr_n64_frame_index(session), (unsigned long long)rr_n64_digest(session));
     for (n = 0; n < frame_limit; n++) {
         RrN64FrameInfo info;
         int16_t pcm[2 * 4096];
@@ -313,6 +324,8 @@ static int run_headless(const char *trace_path, const char *report_path, const c
                     (unsigned long long)info.video, (unsigned long long)info.pcm, (unsigned long long)info.ram,
                     (unsigned long long)info.cpu, info.pc, info.samples, info.width, info.height);
         while (rr_n64_audio(session, pcm, 4096)) {}
+        if (digests && (info.frame % 60 == 0 || n + 1 == frame_limit))
+            fprintf(digests, "%llu\t%016llx\n", (unsigned long long)info.frame, (unsigned long long)rr_n64_digest(session));
         if (captures_dir && capture_every && info.frame % capture_every == 0) {
             char path[PATH_CAP];
             snprintf(path, sizeof path, "%s/%06llu.ppm", captures_dir, (unsigned long long)info.frame);
@@ -340,6 +353,7 @@ static int run_headless(const char *trace_path, const char *report_path, const c
         }
     }
     if (trace && fclose(trace)) { fail("Cannot write the trace"); return 1; }
+    if (digests && fclose(digests)) { fail("Cannot write the digests"); return 1; }
     if (times && fclose(times)) { fail("Cannot write the frame times"); return 1; }
     if (capture_path && !write_capture(capture_path)) { fail("Cannot write the capture"); return 1; }
     if (observe_path) {
@@ -440,6 +454,7 @@ int main(int argc, char **argv) {
             puts("Retro-Recomp Nintendo 64 player\n--headless --frames N --input-events FILE --trace TSV --report JSON --capture PPM\n"
                  "--observations FILE --frame-times TSV --cpu cached|pure|observe|native --gpu NAME --gfx KEY=INDEX --threaded-rdp\n"
                  "--gfx-at FRAME:KEY=INDEX --pak memory|rumble|none --saves FILE --state-slot FILE --state-save-at FRAME --state-load-start --verbose\n"
+                 "--digests TSV --session-clock SECONDS\n"
                  "a build without an embedded game: --rom FILE");
             return 0;
         } else if (i + 1 < argc) {
@@ -453,6 +468,8 @@ int main(int argc, char **argv) {
             else if (!strcmp(a, "--dump-rdram")) dump_rdram = v;
             else if (!strcmp(a, "--state-reload-at")) reload_at = (unsigned)strtoul(v, NULL, 10);
             else if (!strcmp(a, "--saves-at-state")) saves_snapshot = v;
+            else if (!strcmp(a, "--digests")) digests_path = v;
+            else if (!strcmp(a, "--session-clock")) { session_clock = strtoull(v, NULL, 10); session_clock_set = true; }
             else if (!strcmp(a, "--capture-every")) capture_every = (unsigned)strtoul(v, NULL, 10);
             else if (!strcmp(a, "--observations")) observe_path = v;
             else if (!strcmp(a, "--frame-times")) times_path = v;
@@ -509,6 +526,12 @@ int main(int argc, char **argv) {
     game.rom_size = rom_size;
     game.evidence = headless;
     if (verbose) game.log = log_line;
+#ifdef RR_N64_WINDOWED
+    {   /* A multiplayer session needs the same frames on every seat: ParaLLEl-RDP records on the emulation thread. */
+        const char *pipe = getenv(RRHK_SESSION_ENV);
+        if (pipe && *pipe) game.threaded_rdp = 0;
+    }
+#endif
     session = rr_n64_open(&game, error, sizeof error);
     free(rom);
     if (!session) { fail(error); return 1; }
