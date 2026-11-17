@@ -155,8 +155,8 @@ static void n64_cost(double busy_ms, double present_ms) {
 static void n64_pause(bool paused) {
     if (paused) for (int p = 0; p < 4; ++p) if (n64_rumbling[p][0] || n64_rumbling[p][1]) { rrhk_rumble(p, 0, 0, 0); n64_rumbling[p][0] = n64_rumbling[p][1] = 0; }
 }
-/* The session is one per process: a restart starts the program again. In a multiplayer session that would end the match, so the
- * host's restart is not honoured there (on every seat alike, the machines stay together) until an in-process restart exists. */
+/* The session is one per process: a restart starts the program again. In a multiplayer session that would end the match: the kit
+ * refuses the restart there (session_no_restart); should one still arrive, every seat ignores it alike. */
 static void n64_reset(void) {
     if (rrhk_session_active()) return;
     restart_requested = true;
@@ -170,16 +170,6 @@ static void n64_reset(void) {
 static uint64_t n64_digest(void) { return rr_n64_digest(session); }
 static void n64_side_effects(bool allowed) { saves_allowed = allowed; }
 static void n64_session_begin(uint64_t clock) { rr_n64_session_clock(session, clock); }
-/* Shift+F1 in a multiplayer session: refused at the key with a notice, so nothing is asked of the other seats (the Nintendo 64's
- * restart starts the program again, which would end the match). */
-static bool n64_event(const SDL_Event *e, bool *running) {
-    (void)running;
-    if (!rrhk_session_active() || e->type != SDL_KEYDOWN || e->key.keysym.scancode != SDL_SCANCODE_F1 ||
-        !(e->key.keysym.mod & KMOD_SHIFT))
-        return false;
-    rrhk_notice(rr_tr("Not during a multiplayer game"), 4000);
-    return true;
-}
 /* The keyboard's Stick actions, which the kit folds into the sticks this PC sends in a session (LX left, LX right, LY up, LY down). */
 static const int n64_stick_actions[4] = {N_SLEFT, N_SRIGHT, N_SUP, N_SDOWN};
 
@@ -240,7 +230,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .widescreen = true,   /* GoldenEye 007, Perfect Dark, Banjo-Tooie... squeeze a 16:9 picture with their own option */
             .gfx_options = n64_gfx_options, .gfx_option_count = G_COUNT, .gfx_apply = n64_gfx_apply,
             .digest = n64_digest, .side_effects = n64_side_effects, .session_begin = n64_session_begin,
-            .stick_actions = n64_stick_actions, .event = n64_event,
+            .stick_actions = n64_stick_actions,
+            .session_no_restart = true,   /* the restart starts the program again: the kit refuses it in a session, every path */
         };
     }
     return &machine;

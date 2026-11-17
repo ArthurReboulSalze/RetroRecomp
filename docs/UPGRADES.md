@@ -476,9 +476,9 @@ seconds, the same date on every seat whatever its time zone; the core sets up it
 put back after it. **ParaLLEl-RDP records on the emulation thread** in a session even if asked otherwise (its own worker is not
 deterministic). **The keyboard's Stick actions** read this PC's keys, so in a session every port's stick is the session's: the kit
 folds them into the sticks this PC sends (`stick_actions`). The profile sets `netplay_session`, so the converter offers its games. The
-host's restart is refused in a session (the Nintendo 64's restart starts the program again, which would end the match): Shift+F1
-shows « Not during a multiplayer game » and asks nothing of the other seats; a restart that comes another way is not honoured, on
-every seat alike. The graphics rows stay per seat: they change the picture only. The blank controller paks needed nothing: the
+host's restart is refused in a session (the Nintendo 64's restart starts the program again, which would end the match): the kit's
+`session_no_restart` answers Shift+F1 and the pad's Restart combination with « Not during a multiplayer game » and asks nothing
+of the other seats. The graphics rows stay per seat: they change the picture only. The blank controller paks needed nothing: the
 core formats them before it seeds their serial generator, so their serials are zero on every run.
 
 **The fix that comes with it, alone too:** a change of internal resolution (or supersampling) in play started ParaLLEl-RDP
