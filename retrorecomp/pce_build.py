@@ -195,6 +195,8 @@ def game_cmake(module: Path | None, version: str) -> str:
 
 # The games that take more than two players through the multitap, keyed by the dump (a reviewed table, never a condition on a game in code): the players of
 # the dump, at most four (a room seats four; the console takes five). A game that is not listed takes two. Bomberman '93 reads the multitap for up to five.
+# The console has one pad port, so every game built for two players or more is built with the multitap plugged: without it the engine reads pad 1 for
+# every port and pad II of a two-player game copies pad I (docs/PC_ENGINE.md, "Multiplayer").
 MULTITAP_PLAYERS = {
     '678a097de779f3b24fc535e1de55448b754be6abe203a060e8f43c5c78899c8e': 4,    # Bomberman '93 (USA)
 }
@@ -254,13 +256,13 @@ def prepare_game(project: Path, card, *, title: str, module: Path | None = None,
            f'#define RR_PCE_BOARD {"PCE_BOARD_SF2" if six else "PCE_BOARD_BASE"}\n'
            f'#define RR_PCE_COPIER_HEADER {int(card.header == "copier512")}\n'
            f'#define RR_PCE_BIT_REVERSED {int(card.encoding == "bit-reversed")}\n'
-           f'#define RR_PCE_PAD_BUTTONS {6 if six else 2}\n#define RR_PCE_MULTITAP {int(seats > 2)}\n'
+           f'#define RR_PCE_PAD_BUTTONS {6 if six else 2}\n#define RR_PCE_MULTITAP {int(seats > 1)}\n'
            f'#define RR_PCE_PLAYERS {seats}\n')
     _write(project / 'retro16_state_config.h', state_config(card, title))
     _write(project / 'CMakeLists.txt', game_cmake(module, __version__))
     stage(project, 'pce', card.sha256)
     return {'artwork': artwork, 'windows_metadata': metadata, 'pad_buttons': 6 if six else 2,
-            'multitap': seats > 2, 'players': seats}
+            'multitap': seats > 1, 'players': seats}
 
 
 def build_game(project: Path, emit: Callable[[str], None] = print) -> Path:

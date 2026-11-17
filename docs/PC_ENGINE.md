@@ -489,7 +489,11 @@ without it, and each of pads 2, 3 and 4 changes the game's RAM with it). A sessi
 from the same recipe), whatever the game; players 3 and 4 are read inside `run_frame`, so a frame run again after a correction sees them (a silent frame never calls `before_frame`). The room seats up to four (profile `netplay_seats` 4, a ceiling):
 the game's own count is what its conversion report says (`players 1 to N`) and what its HELLO gives, and the converter knows it from a reviewed table keyed by the dump (`pce_build.MULTITAP_PLAYERS`: Bomberman '93, built for four although
 the console takes five; every other game is built for two). **The host's Backup RAM** travels to every seat for the match (`session_save` / `session_save_put`, 2 KiB, in memory only), so two seats with different saves do not start apart.
-**Not in this change:** a converted game played alone has the multitap unplugged unless it is in that table, so pad II of a two-player game does not work in a solo game (it works in a session); changing that moves the solo behaviour of every PC Engine game.
+**Alone too (a commit of its own).** Every game built for two players or more is built with the multitap plugged, as a session plugs it. Before, a converted game played alone had it unplugged, and the engine then answers every
+port with pad 1: pad II of a two-player game was a copy of pad I (the second fighter of Street Fighter II' CE followed the first player's keys). Checked on the 15 cards of the panel, 1,500 frames of the converter's play walk
+(player 1 only, on the interpreter, `.build` scripts, not in the repository): with the tap plugged, **14 cards show the same pictures** frame by frame and every card starts and runs without a fault; only Street Fighter II' CE differs, as it should
+(its second player stopped copying the first); the CPU and RAM state of 13 cards differ, because the game now reads its second pad as released instead of as a copy of the first; two cards (Boxyboy, Soldier Blade) never read pad II.
+Not played by a person; no solo game was checked beyond the walk.
 
 **The digest** hashes the same fields, as named fields in a fixed little-endian order, and leaves out what is not the guest: the pictures, the audio samples, the native / interpreted step counters and the
 generation counters, so two builds that differ only in their native code agree. The host's frame counter is folded in.
