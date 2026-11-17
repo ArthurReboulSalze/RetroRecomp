@@ -860,6 +860,7 @@
     "front_end_tv_leave": "回到窗口（F11）",
     "front_end_windowed": "窗口",
     "front_end_fullscreen": "全屏",
+    "tip_front_end_fullscreen": "前端全屏显示。手柄的 X 或 F11 也可切换，再按一次回到窗口。",
     "front_end_leave_question": "退出前端？",
     "front_end_favorites": "收藏",
     "front_end_search": "搜索",

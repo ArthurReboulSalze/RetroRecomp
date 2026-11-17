@@ -1,3 +1,9 @@
+# RetroRecomp, next release (in preparation)
+
+- **The converter: the Front-end opens in the window.** The **Front-end** button no longer switches to full screen by itself:
+  a **Full screen** button appears left of it while the front-end is open (X on the gamepad and F11 still switch too).
+  **Options › Common** can still start Retro-Recomp straight in the front-end in full screen.
+
 # RetroRecomp v1.8.0 — The Front-end: your games as a wall of box art, played with the gamepad
 
 - **Every machine: a build left half done no longer blocks the next conversion.** A packaged converter unpacks itself into a new

@@ -860,6 +860,7 @@
     "front_end_tv_leave": "Zurück zum Fenster (F11)",
     "front_end_windowed": "Fenster",
     "front_end_fullscreen": "Vollbild",
+    "tip_front_end_fullscreen": "Das Front-end im Vollbild, ohne die Leisten des Fensters. X am Gamepad oder F11 tun dasselbe und holen das Fenster zurück.",
     "front_end_leave_question": "Front-end verlassen?",
     "front_end_favorites": "Favoriten",
     "front_end_search": "Suche",

@@ -860,6 +860,7 @@
     "front_end_tv_leave": "Torna alla finestra (F11)",
     "front_end_windowed": "Finestra",
     "front_end_fullscreen": "Schermo intero",
+    "tip_front_end_fullscreen": "Il front-end a schermo intero, senza le barre della finestra. X sul controller o F11 fanno lo stesso e riportano la finestra.",
     "front_end_leave_question": "Uscire dal front-end?",
     "front_end_favorites": "Preferiti",
     "front_end_search": "Ricerca",

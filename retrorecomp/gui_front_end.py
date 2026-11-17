@@ -15,12 +15,20 @@ class FrontEndMixin:
         self.decorate_button(button, 'front_end')
         self.hint(button, 'tip_front_end')
         self.front_end_button = button
+        # Full screen: shown left of Front-end while the front-end is open (Arthur, 17 Nov 2026: the Front-end button
+        # opens it in the window, this button goes full screen).
+        screen = ttk.Button(toolbar, text=self.tr('front_end_fullscreen'), style='Toolbar.TButton',
+                            command=lambda: self.set_front_end_fullscreen(not self.front_end_fullscreen))
+        self.decorate_button(screen, 'fullscreen')
+        self.hint(screen, 'tip_front_end_fullscreen')
+        self.front_end_screen_button = screen
         return button
 
     def front_end_localize(self):
         """A new interface language: the button, and the front-end's fonts (Chinese and Japanese have their own) and
         texts when it exists."""
         self.front_end_button.configure(text=self.tr('front_end'))
+        self.front_end_screen_button.configure(text=self.tr('front_end_fullscreen'))
         view = getattr(self, 'front_end_view', None)
         if view is not None:
             view.relocalize()
@@ -66,7 +74,7 @@ class FrontEndMixin:
         else:
             self.enter_front_end()
 
-    def enter_front_end(self, fullscreen=True):
+    def enter_front_end(self, fullscreen=False):
         if self.options_panel is not None and self.options_panel.winfo_exists():
             self.close_options()
             if self.options_panel is not None:
@@ -87,9 +95,11 @@ class FrontEndMixin:
         self.front_end_view.grid(row=1, column=0, rowspan=7, sticky='nsew')
         self.front_end_visible = True
         self.front_end_button.state(['pressed'])
+        self.front_end_screen_button.pack(side='right', padx=(0, 8), after=self.front_end_button)
         self.front_end_view.show()
         self.app.after(60, self.front_end_view.take_focus)
-        # The front-end opens in full screen (Arthur, 16 Nov 2026); X / F11 / the corner button bring the window back.
+        # The Front-end button opens it in the window; the Full screen button, X or F11 go full screen, and the start-up
+        # option can open it there directly (Arthur, 17 Nov 2026).
         if fullscreen:
             self.set_front_end_fullscreen(True)
         self.queue_background(self.body)
@@ -104,6 +114,7 @@ class FrontEndMixin:
         self.front_end_view.close_controller()
         self.front_end_visible = False
         self.front_end_button.state(['!pressed'])
+        self.front_end_screen_button.pack_forget()
         self.body.rowconfigure(1, weight=4, minsize=100)
         self.body.rowconfigure(7, weight=2, minsize=52)
         for widget in self.compiler_widgets:

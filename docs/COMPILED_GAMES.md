@@ -37,7 +37,7 @@ game's name under its cover, made to be used from the sofa with a gamepad (keybo
 | D-pad, stick | Arrows, Page Up / Down, Home / End | Move in the wall |
 | A | Enter | Play the game |
 | Y | Space or the Menu key | Actions: choose or search the box art, favourite, sort, open the folder, reconvert |
-| X | F11 | Full screen / window |
+| X | F11 | Full screen / window (the **Full screen** button left of Front-end does the same) |
 | L2 / R2 | − / + (or Ctrl + wheel) | Fewer / more covers per row (4 to 12, kept per console) |
 | B | Esc or Backspace | Back; leaving the front-end asks first |
 | | Ctrl+F or F3 | Search a title |

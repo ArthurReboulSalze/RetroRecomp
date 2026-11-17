@@ -860,6 +860,7 @@
     "front_end_tv_leave": "ウィンドウに戻る（F11）",
     "front_end_windowed": "ウィンドウ",
     "front_end_fullscreen": "全画面",
+    "tip_front_end_fullscreen": "フロントエンドを全画面で表示します。ゲームパッドの X または F11 でも切り替え、ウィンドウに戻ります。",
     "front_end_leave_question": "フロントエンドを終了しますか？",
     "front_end_favorites": "お気に入り",
     "front_end_search": "検索",

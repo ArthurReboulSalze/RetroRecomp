@@ -860,6 +860,7 @@
     "front_end_tv_leave": "Volver a la ventana (F11)",
     "front_end_windowed": "Ventana",
     "front_end_fullscreen": "Pantalla completa",
+    "tip_front_end_fullscreen": "El front-end a pantalla completa, sin las barras de la ventana. X en el mando o F11 hacen lo mismo y devuelven la ventana.",
     "front_end_leave_question": "¿Salir del front-end?",
     "front_end_favorites": "Favoritos",
     "front_end_search": "Búsqueda",
