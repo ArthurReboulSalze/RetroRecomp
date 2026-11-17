@@ -65,6 +65,8 @@ STRINGS = {
     'mp_ready_note': ('Click when you are ready to play.', 'Clique quand tu es prêt à jouer.'),
     'mp_ready_cancel_note': ('Click again if you are no longer ready.', "Clique encore si tu n'es plus prêt."),
     'mp_ready_blocked': ("Your game must first match the host's: see the Game column.", "Ton jeu doit d'abord être le même que celui de l'hôte : vois la colonne Jeu."),
+    'mp_refused_system': ('Use the same system as the host (F11 in the game).', "Mets le même système que l'hôte (F11 dans le jeu)."),
+    'mp_refused_setting': ('Your game cannot take the host\'s setting "{setting}".', "Ton jeu ne peut pas prendre le réglage « {setting} » de l'hôte."),
     'mp_send': ('Send', 'Envoyer'),
     'mp_launch': ('Launch', 'Lancer'),
     'mp_leave': ('Leave the room', 'Quitter le salon'),

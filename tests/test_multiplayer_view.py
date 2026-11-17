@@ -247,6 +247,28 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.feed(view, {'event': 'launch_failed', 'detail': 'seat 2 did not start'})
         self.assertIn(tr('mp_errnote_launch_failed', 'fr'), view.chat_text.get('1.0', 'end'))
 
+    def test_a_game_that_refused_a_host_setting_says_what_to_change(self):
+        view = self.window()
+        view.show('join')
+        view.invite.set(INVITE)
+        view.join_room()
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        me = {'seat': 1, 'guest': 2, 'name': 'Karl', 'ready': True, 'in_match': False, 'check': 'same'}
+        self.feed(view, {'event': 'joined_room', 'guest': 2}, self.roster([host, me], me=2),
+                  {'event': 'match_over', 'match_id': 1, 'outcome': 'refused', 'detail': 'the game refused (1): system'},
+                  {'event': 'lobby_back', 'match_id': 1, 'reason': 'error'})
+        self.assertEqual(view.banner.cget('text'), tr('mp_refused_system', 'fr'))         # the Neo Geo's AES / MVS: F11
+        self.assertEqual(view.chat_text.get('1.0', 'end').count(tr('mp_refused_system', 'fr')), 1)
+        self.feed(view, self.roster([host, me], me=2))                                    # once per match, not per redraw
+        self.assertEqual(view.chat_text.get('1.0', 'end').count(tr('mp_refused_system', 'fr')), 1)
+        self.feed(view, {'event': 'launch_error', 'detail': 'the game refused (1): region'})
+        self.assertIn(tr('mp_refused_setting', 'fr', setting='region'), view.chat_text.get('1.0', 'end'))
+        self.assertIn('« region »', tr('mp_refused_setting', 'fr', setting='region'))
+        # a later match that ended otherwise: the banner says that one
+        self.feed(view, {'event': 'match_over', 'match_id': 2, 'outcome': 'ended', 'detail': ''},
+                  {'event': 'lobby_back', 'match_id': 2, 'reason': 'ended'})
+        self.assertEqual(view.banner.cget('text'), tr('mp_back_ended', 'fr'))
+
     def test_a_phrase_is_shown_in_the_windows_language(self):
         view = self.window(language='fr')
         view.show('host')

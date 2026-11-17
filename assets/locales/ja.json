@@ -916,6 +916,8 @@
     "mp_ready_note": "準備ができたらクリックしてください。",
     "mp_ready_cancel_note": "準備をやめるにはもう一度クリックします。",
     "mp_ready_blocked": "まずゲームをルーム作成者と同じものにしてください（「ゲーム」の列を参照）。",
+    "mp_refused_system": "ルーム作成者と同じシステムにしてください（ゲーム内でF11）。",
+    "mp_refused_setting": "あなたのゲームはルーム作成者の設定「{setting}」を使えません。",
     "mp_send": "送信",
     "mp_launch": "開始",
     "mp_leave": "ルームを出る",
