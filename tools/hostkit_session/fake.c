@@ -34,6 +34,11 @@ static State state = {0x9e3779b97f4a7c15ull, 0};
 static uint32_t picture[16 * 16];
 static unsigned live_runs, silent_runs, quick_calls, effects_off_runs, option_calls, resets;
 static bool effects_allowed = true;
+/* SESSION_FAKE_DRIVEN=1: the fake is a driven machine (RrhkMachine.driven, as the Master System, the Game Boy and the MSX):
+ * it calls rrhk_open, runs its own frame each time rrhk_frame_done returns true (run_frame only hands the words over), and
+ * restarts by unwinding (rrhk_stop, then the shell closes and opens again). */
+static bool driven, reopen;
+static uint16_t held1, held2;
 /* SESSION_FAKE_MENU_AT=n: the player opens Help (F1) during frame n - 1 and closes it (Esc) thirty iterations later, while
  * the session may be paused and no frame runs: the menu's pause request and its end must both reach the worker. */
 static unsigned menu_at, menu_countdown;
@@ -79,7 +84,10 @@ static int size16(void) { return 16; }
 static const uint32_t *pixels(void) { return picture; }
 /* The fold's restart: "RESET" mixed into the accumulator, the frame count kept (tools/hostkit_session_selftest.py digest_of). */
 static uint64_t mix(uint64_t x);
-static void reset(void) { state.acc = mix(state.acc ^ 0x5245534554ull); ++resets; }
+static void reset(void) {
+    state.acc = mix(state.acc ^ 0x5245534554ull); ++resets;
+    if (driven) { reopen = true; rrhk_stop(); }      /* the guest unwinds after this frame, as Shift+F1 on a driven machine */
+}
 static void pause_machine(bool paused) { (void)paused; }
 static size_t audio(int16_t *pcm, size_t capacity) { (void)pcm; (void)capacity; return 0; }
 static uint64_t zero(void) { return 0; }
@@ -88,7 +96,7 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) { (void)ui;
 /* SESSION_FAKE_SLOW_MS=n: every frame (live or silent) costs n ms more, a stand-in for a heavy machine on a slow PC (the
  * rollback tier's safety floor). A sleep, never a busy loop. */
 static unsigned slow_ms;
-static bool run_frame(uint16_t p1, uint16_t p2) {
+static bool step(uint16_t p1, uint16_t p2) {
     if (slow_ms) SDL_Delay(slow_ms);
     const uint16_t p3 = rrhk_pad_word(2, state.frames), p4 = rrhk_pad_word(3, state.frames);
     const uint64_t words = (uint64_t)p1 | (uint64_t)p2 << 16 | (uint64_t)p3 << 32 | (uint64_t)p4 << 48;
@@ -115,6 +123,12 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
         SDL_PushEvent(&event);
         event.type = SDL_KEYUP; SDL_PushEvent(&event);
     }
+    return true;
+}
+
+static bool run_frame(uint16_t p1, uint16_t p2) {
+    if (!driven) return step(p1, p2);
+    held1 = p1; held2 = p2;                  /* the guest runs the frame after rrhk_frame_done returns */
     return true;
 }
 
@@ -178,7 +192,18 @@ int main(int argc, char **argv) {
     if (plain && *plain == '1') machine.snap_bound = NULL;
     const char *hz = getenv("SESSION_FAKE_HZ");
     if (hz && atoi(hz) >= 20 && atoi(hz) <= 1000) machine.frame_seconds = 1.0 / atoi(hz);
-    const int status = rrhk_main(&machine, "Session fake", 1);
+    const char *own_loop = getenv("SESSION_FAKE_DRIVEN");
+    driven = own_loop && *own_loop == '1';
+    int status = 0;
+    if (driven) {
+        machine.driven = true;
+        do {
+            reopen = false;
+            if (!rrhk_open(&machine, "Session fake", 1)) { status = 1; break; }
+            while (rrhk_frame_done()) step(held1, held2);
+            rrhk_close();
+        } while (reopen);
+    } else status = rrhk_main(&machine, "Session fake", 1);
     printf("RESULT frames=%u live=%u silent=%u quick=%u effects_off=%u options=%u resets=%u digest=%016llx\n",
            state.frames, live_runs, silent_runs, quick_calls, effects_off_runs, option_calls, resets,
            (unsigned long long)digest());

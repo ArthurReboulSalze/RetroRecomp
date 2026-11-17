@@ -87,8 +87,9 @@ def rollback_delay(one_way_ms: float, jitter_ms: float, frame_ms: float, cap: in
 
 
 def can_roll_back(hello: pipe.Hello) -> bool:
-    """Whether this game keeps snapshots the driver may command (a driven guest runs its own frames: never silent)."""
-    return bool(hello.caps & pipe.CAP_SNAPSHOT) and hello.snap_bound > 0 and not hello.caps & pipe.CAP_DRIVEN
+    """Whether this game keeps snapshots the driver may command. A driven machine (its guest owns the loop) rolls back too
+    since session ABI 5: the kit lets its guest run a silent frame and ends it at the guest's next frame end."""
+    return bool(hello.caps & pipe.CAP_SNAPSHOT) and hello.snap_bound > 0
 
 
 TIER_AUTO, TIER_DELAY, TIER_ROLLBACK = 'auto', 'delay', 'rollback'

@@ -128,7 +128,7 @@ class Game:
     """The fake game started in a session (or alone): its pipes, a reader thread, its exit."""
 
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
-                 restart_at: int = 0, chat_at: int = 0, load_at: int = 0):
+                 restart_at: int = 0, chat_at: int = 0, load_at: int = 0, driven: bool = False):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -141,6 +141,9 @@ class Game:
         env.pop('SESSION_FAKE_RESTART_AT', None)
         env.pop('SESSION_FAKE_CHAT_AT', None)
         env.pop('SESSION_FAKE_LOAD_AT', None)
+        env.pop('SESSION_FAKE_DRIVEN', None)
+        if driven:
+            env['SESSION_FAKE_DRIVEN'] = '1'
         if load_at:
             env['SESSION_FAKE_LOAD_AT'] = str(load_at)
         if chat_at:
@@ -437,6 +440,7 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     passed.extend(restart_scenarios(executable, out))
     passed.extend(chat_scenarios(executable, out))
     passed.extend(state_scenarios(executable, out))
+    passed.extend(driven_scenarios(executable, out))
     return passed
 
 
@@ -587,6 +591,75 @@ def state_scenarios(executable: Path, out: Path) -> list[str]:
     assert code == 0 and int(result['frames']) == 5 and int(result['quick']) == 0, (code, result, text)
     assert "match's state could not be saved or loaded" in text, text
     passed.append('match state: a load with nothing saved ends the session, nothing run')
+    return passed
+
+
+def driven_scenarios(executable: Path, out: Path) -> list[str]:
+    """A driven machine (its guest owns the loop: Master System, Game Boy, MSX) rolls back too (session ABI 5): its guest runs
+    the silent frames, which the kit neither shows nor paces; the match's state and the restart (an unwinding and a new shell,
+    the session kept) are run again after a correction as on a machine the kit drives."""
+    passed = []
+    load_flag, save_flag = CONSTANTS['RRHK_RUN_STATE_LOAD'], CONSTANTS['RRHK_RUN_STATE_SAVE']
+
+    # 19. Rollback: a snapshot before every frame; every 25 frames back 6, 6 silent frames run by the guest, then live.
+    game = Game(executable, out, driven=True)
+    setup(game, depth=16)
+    history = []
+    for frame in range(200):
+        if frame >= 12 and frame % 25 == 0:
+            assert struct.unpack('<IHH', game.expect('RRHK_MSG_LOCAL'))[0] == frame
+            back = frame - 6
+            game.send('RRHK_MSG_LOAD', struct.pack('<I', back))
+            del history[back:]
+            for again in range(back, frame):
+                words = (0, *remote(again, salt=0x55))
+                game.send('RRHK_MSG_SAVE', struct.pack('<I', again))
+                game.send('RRHK_MSG_RUN', run_payload(again, words, silent=True))
+                history.append(words)
+            game.send('RRHK_MSG_SAVE', struct.pack('<I', frame))
+            game.send('RRHK_MSG_RUN', run_payload(frame, (0, *remote(frame))))
+            assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == frame
+            history.append((0, *remote(frame)))
+            check_digest(game, history)
+            continue
+        live_frame(game, frame, (0, *remote(frame)), history, save=True)
+    check_digest(game, history)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0, text
+    assert int(result['silent']) == 7 * 6 and int(result['live']) == 200, result
+    assert int(result['digest'], 16) == digest_of(history), result
+    passed.append('driven: rollback, 7 corrections of 6 frames run silently by the guest, digests equal')
+
+    # 20. The match's state and the restart, run again by the guest after a correction: save before 13, load before 25,
+    # restart before 31 (the shell closes and opens again, the session goes on), then back to 24 and all of it again.
+    game = Game(executable, out, driven=True, load_at=20, restart_at=28)
+    setup(game, depth=16)
+    history, states, restarts = [], {13: 'save', 25: 'load'}, [31]
+    for frame in range(40):
+        flags = save_flag if frame == 13 else load_flag if frame == 25 else 0
+        live_frame(game, frame, (0, *remote(frame)), history, save=True, flags=flags, reset=frame == 31)
+    check_digest(game, history, restarts, states)
+    assert struct.unpack('<IHH', game.expect('RRHK_MSG_LOCAL'))[0] == 40
+    game.send('RRHK_MSG_LOAD', struct.pack('<I', 24))
+    del history[24:]
+    for again in range(24, 40):
+        words = (0, *remote(again, salt=0x21))
+        game.send('RRHK_MSG_SAVE', struct.pack('<I', again))
+        game.send('RRHK_MSG_RUN', run_payload(again, words, silent=True, reset=again == 31,
+                                              flags=load_flag if again == 25 else 0))
+        history.append(words)
+    game.send('RRHK_MSG_RUN', run_payload(40, (0, *remote(40))))
+    assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == 40
+    history.append((0, *remote(40)))
+    check_digest(game, history, restarts, states)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0, text
+    assert int(result['resets']) == 2 and int(result['silent']) == 16, result
+    assert int(result['digest'], 16) == digest_of(history, restarts, states), result
+    passed.append('driven: the match\'s state and a restart (a new shell, the session kept) run again by the guest after a '
+                  'correction, digests equal')
     return passed
 
 
