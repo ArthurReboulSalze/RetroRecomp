@@ -78,6 +78,7 @@ class MegaDriveProfile(SystemProfile):
 
 class SnesProfile(SystemProfile):
     id = 'snes'
+    netplay_session = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     simulation_sources = (SimulationSource('generated/*.c'),
                           SimulationSource('snes_native_ops.inc'),

@@ -63,6 +63,9 @@ static void before_frame(const RrhkAudioProbe *audio, uint64_t input_frame) {
 
 static int players(void) { return 2; }
 static int display_width(void) { return 256; }
+/* Multiplayer (hostkit_session.h): the digest of snes_backend.c, over the engine's own serializers (the audio output ring left
+ * out). The Super Nintendo plays on the delay tier: no snapshot yet, so no board is proven for rollback. */
+uint64_t rr16_snes_digest(void);
 static void pointer_input(RrhkPointer p) {
     rr16_gun_input((Rr16GunInput){.x = p.x, .y = p.y, .fire = p.fire, .aux = p.aux, .secondary = p.secondary,
                                   .start = p.start, .turbo = p.turbo, .pause = p.pause, .offscreen = p.offscreen});
@@ -87,7 +90,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = rr16_audio, .interpreted = rr16_interpreted, .audio_interpreted = rr16_audio_interpreted,
             .device_interpreted = rr16_device_interpreted,
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
-            .pointer_input = pointer_input,
+            .pointer_input = pointer_input, .digest = rr16_snes_digest,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .help_lines = help_lines, .before_frame = before_frame,
         };
