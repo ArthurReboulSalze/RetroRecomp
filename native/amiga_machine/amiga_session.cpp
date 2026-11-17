@@ -1109,6 +1109,7 @@ static void after_load(RrAmigaSession *s, RrResload rl, uint64_t frame, unsigned
     s->port1_joystick = port1_joystick;
     s->amiga->controlPort1.setDevice(s->port1_joystick ? ControlPortDevice::JOYSTICK : ControlPortDevice::MOUSE);
     memcpy(s->keys, keys, sizeof s->keys);
+    s->amiga->keyboard.rrSetKeysDown(keys);   // the keyboard's own held keys (no snapshot keeps them): those held at the save
     // The snapshot restored the CPU speed it was saved with; the player's own choice holds.
     apply_cpu_factor(s);
     set_traps();
@@ -1226,7 +1227,7 @@ extern "C" int rr_amiga_state_load(RrAmigaSession *s, const char *path, const ch
 // ---- the in-process snapshot of a multiplayer session (rollback) ----------------------------------------------------------
 // The head (named fields), the resload state as this process holds it (its host callbacks are this process's: never sent), vAmiga's
 // state (CoreComponent::rrSave: the same bytes as a quick state's snapshot, without its checksums), the sound path, a session's saves.
-struct SnapHead { uint32_t magic, vamiga, audio, overlay; uint64_t frame; uint32_t joy, joy2, mouse_left, mouse_right, port1_joystick; uint8_t keys[128]; };
+struct SnapHead { uint32_t magic, vamiga, audio, overlay; uint64_t frame; uint32_t joy, joy2, mouse_left, mouse_right, port1_joystick; uint8_t keys[128], keys_down[128]; };
 static constexpr uint32_t SNAP_MAGIC = 0x52524153u;   // "RRAS"
 
 extern "C" size_t rr_amiga_snap_bound(RrAmigaSession *s) {
@@ -1265,6 +1266,7 @@ extern "C" size_t rr_amiga_snap_save(RrAmigaSession *s, void *buffer, size_t cap
     head.frame = s->frame; head.joy = s->joy; head.joy2 = s->joy2;
     head.mouse_left = (uint32_t)s->mouse_left; head.mouse_right = (uint32_t)s->mouse_right; head.port1_joystick = (uint32_t)s->port1_joystick;
     memcpy(head.keys, s->keys, sizeof head.keys);
+    s->amiga->keyboard.rrKeysDown(head.keys_down);
     memcpy(out, &head, sizeof head);
     memcpy(out + sizeof head, &s->rl, sizeof s->rl);
     return at;
@@ -1284,6 +1286,7 @@ extern "C" int rr_amiga_snap_load(RrAmigaSession *s, const void *buffer, size_t 
     memcpy(s->overlay.data(), machine + head.vamiga + head.audio, head.overlay);
     s->overlay_used = head.overlay;
     after_load(s, rl, head.frame, head.joy, head.joy2, (int)head.mouse_left, (int)head.mouse_right, (int)head.port1_joystick, head.keys);
+    s->amiga->keyboard.rrSetKeysDown(head.keys_down);   // exactly the keyboard's (a full queue may not have taken a held key)
     // The picture's held fields belong to the timeline left (no allocation: the buffers keep their room).
     s->held.clear(); s->held_lof = -1;
     s->prior.clear(); s->prior_lof = -1;
@@ -1305,6 +1308,11 @@ extern "C" uint64_t rr_amiga_digest(RrAmigaSession *s) {
     put_le(h, s->kick_base, 4); put_le(h, s->kick_size, 4);
     put_le(h, s->rl.io_error, 4); put_le(h, s->rl.kick_loaded, 1);
     h = fnv(h, s->keys, sizeof s->keys);
+    {
+        uint8_t down[128];
+        s->amiga->keyboard.rrKeysDown(down);
+        h = fnv(h, down, sizeof down);
+    }
     try {
         kick_window(false);
         const size_t need = (size_t)s->amiga->size();

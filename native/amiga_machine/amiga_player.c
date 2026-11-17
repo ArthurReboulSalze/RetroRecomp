@@ -294,6 +294,50 @@ static FILE *open_utf8(const char *path, const wchar_t *mode) {
 static const char *memory_path;   /* --memory-image: where a headless run leaves its memory, for the conversion's sweep */
 static unsigned capture_every;    /* --capture-every N: a picture every N frames, at the --capture path plus .<frame>.ppm (tools/amiga_route_captures.py) */
 
+/* --rollback-check N (a developer check of the multiplayer session's in-process snapshot on this game, never run by a conversion): a
+ * snapshot after every frame into a ring of ROLLBACK_DEPTH + 1, and every N frames the state of ROLLBACK_DEPTH frames back is loaded
+ * and those frames run again with their inputs, as the rollback tier does: each must give what it gave the first time (registers,
+ * RAM, picture, sound). The first difference stops the run with its frame. */
+#define ROLLBACK_DEPTH 5
+static unsigned rollback_every;
+static uint8_t *rollback_ring[ROLLBACK_DEPTH + 1];
+static size_t rollback_size[ROLLBACK_DEPTH + 1], rollback_bound;
+static RrAmigaFrameInfo rollback_info[ROLLBACK_DEPTH + 1];
+
+static bool same_frame(const RrAmigaFrameInfo *a, const RrAmigaFrameInfo *b) {
+   return a->frame == b->frame && a->video == b->video && a->pcm == b->pcm && a->ram == b->ram && a->pc == b->pc && a->sr == b->sr &&
+          !memcmp(a->d, b->d, sizeof a->d) && !memcmp(a->a, b->a, sizeof a->a);
+}
+
+/* After frame `n` ran (`info` its evidence): keep its snapshot, and every rollback_every frames run the last ROLLBACK_DEPTH again.
+ * Returns 0, or the frame that differed (its number + 1), or -1 when a snapshot failed. */
+static long rollback_step(unsigned n, const RrAmigaFrameInfo *info) {
+   const unsigned slot = n % (ROLLBACK_DEPTH + 1);
+   unsigned m;
+   int k;
+   if (!rollback_bound) {
+      rollback_bound = rr_amiga_snap_bound(session);
+      for (k = 0; k <= ROLLBACK_DEPTH; k++) if (!(rollback_ring[k] = (uint8_t *)malloc(rollback_bound))) return -1;
+   }
+   if (!(rollback_size[slot] = rr_amiga_snap_save(session, rollback_ring[slot], rollback_bound))) return -1;
+   rollback_info[slot] = *info;
+   if (n < ROLLBACK_DEPTH || n % rollback_every) return 0;
+   k = (int)((n - ROLLBACK_DEPTH) % (ROLLBACK_DEPTH + 1));
+   if (!rr_amiga_snap_load(session, rollback_ring[k], rollback_size[k])) return -1;
+   for (m = n - ROLLBACK_DEPTH + 1; m <= n; m++) {
+      RrAmigaFrameInfo before, again;
+      int16_t pcm[2 * 4096];
+      rr_amiga_frame_info(session, &before);
+      scripted_inputs(before.frame);
+      if (rr_amiga_frame(session)) return (long)m + 1;
+      rr_amiga_frame_info(session, &again);
+      while (rr_amiga_audio(session, pcm, 4096)) {}
+      if (!same_frame(&again, &rollback_info[m % (ROLLBACK_DEPTH + 1)])) return (long)m + 1;
+      if (!(rollback_size[m % (ROLLBACK_DEPTH + 1)] = rr_amiga_snap_save(session, rollback_ring[m % (ROLLBACK_DEPTH + 1)], rollback_bound))) return -1;
+   }
+   return 0;
+}
+
 static int run_headless(const char *trace_path, const char *report_path, const char *observe_path, const char *capture_path,
                         const char *resload_path, unsigned save_at, bool load_start) {
    FILE *trace = trace_path ? open_utf8(trace_path, L"wb") : NULL;
@@ -326,6 +370,15 @@ static int run_headless(const char *trace_path, const char *report_path, const c
       audible += info.audible != 0;
       if (trace) write_trace_line(trace);
       while (rr_amiga_audio(session, pcm, 4096)) {}
+      if (rollback_every) {
+         static char why[96];
+         const long bad = rollback_step(n, &info);
+         if (bad) {
+            if (bad < 0) snprintf(why, sizeof why, "rollback check: a snapshot failed at frame %u", n + 1);
+            else snprintf(why, sizeof why, "rollback check: frame %ld ran differently the second time", bad);
+            fail(why); stopped = true; error = why; break;
+         }
+      }
       if (capture_every && capture_path && (n + 1) % capture_every == 0) {
          char numbered[PATH_CAP];
          snprintf(numbered, sizeof numbered, "%s.%06u.ppm", capture_path, n + 1);
@@ -411,7 +464,7 @@ int main(int argc, char **argv) {
       else if (!strcmp(a, "--state-load-start")) load_start = true;
       else if (!strcmp(a, "--help")) {
          puts("Retro-Recomp Amiga player\n--headless --frames N --input-events FILE --trace TSV --report JSON --observations FILE --memory-image FILE\n"
-              "--capture PPM --capture-every N --resload-log FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start\n"
+              "--capture PPM --capture-every N --rollback-check N --resload-log FILE --reference-cpu --state-slot FILE --state-save-at FRAME --state-load-start\n"
               "--install DIR (a build without an embedded game) --saves DIR --port1 follow|mouse|joystick --cpu-factor 1|2|4");
          return 0;
       } else if (i + 1 < argc) {
@@ -423,6 +476,7 @@ int main(int argc, char **argv) {
          else if (!strcmp(a, "--observations")) observe_path = v;
          else if (!strcmp(a, "--memory-image")) memory_path = v;
          else if (!strcmp(a, "--capture")) capture_path = v;
+         else if (!strcmp(a, "--rollback-check")) { char *end; unsigned long n = strtoul(v, &end, 10); if (*end || !n || n > MAX_FRAMES) { fail("Invalid rollback period"); return 1; } rollback_every = (unsigned)n; }
          else if (!strcmp(a, "--capture-every")) { char *end; unsigned long n = strtoul(v, &end, 10); if (*end || !n || n > MAX_FRAMES) { fail("Invalid capture period"); return 1; } capture_every = (unsigned)n; }
          else if (!strcmp(a, "--resload-log")) resload_path = v;
          else if (!strcmp(a, "--state-slot")) slot = v;

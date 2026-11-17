@@ -87,7 +87,15 @@ int main(int argc, char **argv) {
     char error[512] = {0};
     RrAmigaSession *s = rr_amiga_open(&game, error, sizeof error);
     if (!s) { fprintf(stderr, "open: %s\n", error); return 2; }
-    auto frame = [&](long at) { if (rr_amiga_frame(s) != 0) { fprintf(stderr, "frame %ld: %s\n", at, rr_amiga_error(s)); exit(2); } };
+    // Each frame's inputs follow its number (the same on every timeline): the two joysticks and the Return key, held for a few frames.
+    auto frame = [&](long at) {
+        uint8_t held[128] = {0};
+        held[0x44] = (at / 7) % 2;
+        rr_amiga_joystick(s, (unsigned)((at / 5) * 0x9E37u >> 4) & 0x3Fu);
+        rr_amiga_joystick2(s, (unsigned)((at / 3) * 0x7F4Bu >> 5) & 0x3Fu);
+        rr_amiga_keys(s, held);
+        if (rr_amiga_frame(s) != 0) { fprintf(stderr, "frame %ld: %s\n", at, rr_amiga_error(s)); exit(2); }
+    };
     for (int n = 0; n < warm; n++) frame(n);
 
     const size_t bound = rr_amiga_snap_bound(s);

@@ -227,7 +227,11 @@ REPLACEMENTS = [
      'class Keyboard final : public SubComponent {\n\n'
      'public:\n\n'
      '    // Retro-Recomp modification (MPL-2.0, like this file): the keyboard has long been up and is waiting for a key.\n'
-     '    void rrHandshakeOver();\n\n'
+     '    void rrHandshakeOver();\n'
+     '    // The keys it holds down, which a snapshot does not keep (a load would leave those of the timeline left, and a press of a\n'
+     '    // key it takes for held would be lost): read and set around the in-process snapshot and a quick state.\n'
+     '    void rrKeysDown(u8 out[128]) const { for (int k = 0; k < 128; k++) out[k] = keyDown[k] ? 1 : 0; }\n'
+     '    void rrSetKeysDown(const u8 in[128]) { for (int k = 0; k < 128; k++) keyDown[k] = in[k] != 0; }\n\n'
      'private:\n'),
     ('Peripherals/Keyboard/Keyboard.cpp',
      'void\nKeyboard::wakeUp()\n',
