@@ -668,6 +668,13 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
     S->lines = S->ntsc ? RR_AMIGA_PICTURE_LINES_NTSC : RR_AMIGA_PICTURE_LINES_PAL;
     S->rows = S->lines;
     S->picture.assign((size_t)RR_AMIGA_PICTURE_WIDTH * RR_AMIGA_PICTURE_MAX_ROWS, 0xFF000000u);
+    // A session's machine starts as a snapshot's load leaves it (vAmiga's empty hard drives describe themselves again after a load,
+    // which changes the bytes of their state): the same state whether a seat has rolled back yet or not.
+    if (S->session) {
+        std::vector<uint8_t> once(rr_amiga_snap_bound(S));
+        const size_t n = rr_amiga_snap_save(S, once.data(), once.size());
+        if (!n || !rr_amiga_snap_load(S, once.data(), n)) { fail(error, error_size, "The Amiga machine could not start a session."); return nullptr; }
+    }
     return S;
 }
 

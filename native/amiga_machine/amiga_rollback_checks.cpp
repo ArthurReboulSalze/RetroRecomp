@@ -15,6 +15,7 @@
 //   no_alloc   no allocation inside snap_save or snap_load.
 #include "amiga_session.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -95,6 +96,7 @@ int main(int argc, char **argv) {
     const size_t size = rr_amiga_snap_save(s, a.data(), a.size());
     const size_t size_b = rr_amiga_snap_save(s, b.data(), b.size());
     unsigned long long snap_allocations = allocations - before_save;
+    const unsigned long long snap_allocations_first = snap_allocations;
     if (!size || size != size_b || memcmp(a.data(), b.data(), size)) fail_check("same_bytes", 0);
     const uint64_t digest_a = rr_amiga_digest(s);
 
@@ -107,8 +109,44 @@ int main(int argc, char **argv) {
     unsigned long long before_load = allocations;
     if (!rr_amiga_snap_load(s, a.data(), size)) fail_check("load", 0);
     snap_allocations += allocations - before_load;
-    if (rr_amiga_digest(s) != digest_a) fail_check("at_once", 0);
-    const int marks[3] = {7, frames / 3, frames - 19};
+    const unsigned long long load_allocations = allocations - before_load;
+    if (rr_amiga_digest(s) != digest_a) {
+        fail_check("at_once", 0);
+        // Where a save right after the load differs from the save it loaded: the component (vAmiga's walk order) and the offset in it.
+        const size_t again = rr_amiga_snap_save(s, scratch.data(), scratch.size());
+        uint32_t parts[4];
+        memcpy(parts, a.data(), sizeof parts);
+        const size_t machine = size - parts[1] - parts[2] - parts[3];
+        {   // the components' sizes, before and after, where they differ
+            uint32_t later[4];
+            memcpy(later, scratch.data(), sizeof later);
+            size_t p = machine, q = again - later[1] - later[2] - later[3];
+            for (int index = 0; p < machine + parts[1] && index < 400; index++) {
+                uint64_t n = 0, m = 0;
+                for (int k = 0; k < 8; k++) { n = n << 8 | a[p + k]; m = m << 8 | scratch[q + k]; }
+                if (n != m) fprintf(stderr, "component %d: %llu -> %llu bytes\n", index, (unsigned long long)n, (unsigned long long)m);
+                if (!n || !m) break;
+                p += (size_t)n; q += (size_t)m;
+            }
+        }
+        for (size_t at = 0; at < std::min(again, size); at++) {
+            if (a[at] == scratch[at]) continue;
+            long component = -1, inside = (long)at;
+            if (at >= machine && at < machine + parts[1]) {
+                size_t walk = machine;
+                component = 0;
+                while (walk < machine + parts[1]) {
+                    uint64_t n = 0;
+                    for (int k = 0; k < 8; k++) n = n << 8 | a[walk + k];
+                    if (at < walk + n) { inside = (long)(at - walk); break; }
+                    walk += (size_t)n; component++;
+                }
+            }
+            fprintf(stderr, "first difference at %zu (machine from %zu): component %ld, byte %ld, %02x -> %02x\n", at, machine, component, inside, a[at], scratch[at]);
+            break;
+        }
+    }
+    const int marks[3] = {7, 40, frames - 19};
     std::vector<std::vector<uint8_t>> kept(3, std::vector<uint8_t>(bound, 0xC3));
     std::vector<size_t> kept_size(3, 0);
     std::vector<uint64_t> digests;
@@ -155,8 +193,8 @@ int main(int argc, char **argv) {
     // first mark is before the save and the others after it. The replay from the first mark saved again: its same digests (which hold
     // the session's saves) show the load took the first save back, and the same RAM after 160 that the saved bytes were read.
     if (!(warm + marks[0] < 120 && warm + marks[1] > 125 && warm + marks[1] < 160 && warm + frames > 170)) fail_check("saves_window", warm);
-    printf("{\"model\": %d, \"bound\": %zu, \"size\": %zu, \"frames\": %d, \"snap_allocations\": %llu, \"failures\": [%s], \"passed\": %s}\n",
-           model, bound, size, frames, snap_allocations, failures.c_str(), failures.empty() && snap_allocations == 0 ? "true" : "false");
+    printf("{\"model\": %d, \"bound\": %zu, \"size\": %zu, \"frames\": %d, \"save_allocations\": %llu, \"load_allocations\": %llu, \"snap_allocations\": %llu, \"failures\": [%s], \"passed\": %s}\n",
+           model, bound, size, frames, snap_allocations_first, load_allocations, snap_allocations, failures.c_str(), failures.empty() && snap_allocations == 0 ? "true" : "false");
     fflush(stdout);
     _Exit(failures.empty() && snap_allocations == 0 ? 0 : 1);
 }

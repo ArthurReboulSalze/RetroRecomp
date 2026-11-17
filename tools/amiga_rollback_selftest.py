@@ -259,6 +259,8 @@ def main() -> int:
         line = next((line for line in done.stdout.splitlines() if line.startswith('{')), None)
         result = json.loads(line) if line else {'model': model, 'passed': False, 'error': done.stderr[-1500:]}
         result['exit'] = done.returncode
+        if line and done.stderr.strip():
+            result['notes'] = done.stderr.strip()[-1500:]
         results.append(result)
     passed = all(r.get('passed') and r['exit'] == 0 for r in results)
     print(json.dumps({'passed': passed, 'models': results}, indent=1))
