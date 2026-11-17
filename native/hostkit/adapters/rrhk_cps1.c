@@ -6,6 +6,7 @@
 #endif
 #include <SDL.h>
 #include "retro_console16.h"
+#include "cps1_host.h"
 #include "console16_state.h"
 #include "retro_menu.h"
 #include "platform_io.h"
@@ -137,10 +138,14 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
 
 /* CPS-1 three- and four-player boards also read the third and fourth controllers. */
 static int players(void) { return RR_CPS1_PLAYERS; }
-static void before_frame(const RrhkAudioProbe *audio, uint64_t input_frame) {
-    (void)audio;
+/* Players 3 and 4 are read here, in the frame itself, and not in before_frame: a frame run again after a correction in a multiplayer
+ * session (hostkit_session.h, a "silent" frame) calls run_frame with the session's words but never before_frame, so pads set there would be
+ * those of the last live frame and the seats would diverge. Alone, the pad word of the frame about to run is the same either way. */
+static bool run_frame(uint16_t p1, uint16_t p2) {
+    const uint64_t input_frame = rr16_input_frame();
     rr_cps1_set_extra_pads(players() > 2 ? rrhk_pad_word(2, input_frame) : 0,
                            players() > 3 ? rrhk_pad_word(3, input_frame) : 0);
+    return rr16_frame(p1, p2);
 }
 
 const RrhkMachine *rrhk_adapter(void) {
@@ -152,14 +157,15 @@ const RrhkMachine *rrhk_adapter(void) {
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,
             .max_width = RR16_WIDTH, .max_height = RR16_HEIGHT, .frame_seconds = RR16_FRAME_SECONDS,
-            .reset = rr16_reset, .run_frame = rr16_frame, .pause = rr16_pause,
+            .reset = rr16_reset, .run_frame = run_frame, .pause = rr16_pause,
             .pixels = rr16_pixels, .visible_width = rr16_visible_width, .visible_height = rr16_visible_height,
             .raster_height = rr16_raster_height, .display_width = rr_cps1_display_width,
             .audio = rr16_audio, .interpreted = rr16_interpreted, .audio_interpreted = rr16_audio_interpreted,
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
             .input_frame = rr16_input_frame,
             .page = &dip_page, .settings_loaded = settings_loaded, .help_controls = help_controls,
-            .before_frame = before_frame,
+            .snap_bound = rr_cps1_snap_bound, .snap_save = rr_cps1_snap_save, .snap_load = rr_cps1_snap_load,
+            .digest = rr_cps1_digest, .side_effects = rr_cps1_side_effects,
         };
     }
     return &machine;

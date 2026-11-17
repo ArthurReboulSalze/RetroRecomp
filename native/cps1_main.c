@@ -36,7 +36,7 @@ static int audio_taken = 1;
 static uint64_t pcm_hash = 14695981039346656037ull, image_hash = 14695981039346656037ull;
 static uint64_t samples, nonzero, pcm_energy;
 static unsigned peak, nonuniform_frames;
-static int headless, frames, scripted, diagnostics, performance_only;
+static int headless, frames, scripted, diagnostics, performance_only, snapshot_check;
 static const char *report_path, *trace_path, *save_path, *load_path, *capture_dir, *pcm_path;
 static unsigned save_at, capture_every = 600, measure_from;
 static struct { unsigned frame; const char *path; } checkpoints[8];
@@ -186,6 +186,100 @@ const int16_t *rr_cps1_take_audio(size_t *count)
 }
 void rr16_host_discontinuity(void);
 
+/* ------------------------------------------------------- snapshot self-check (multiplayer) */
+
+/* `--snapshot-check`: the determinism probe of the rollback tier (hostkit_session.h) on this very game, headless. It saves a snapshot, runs
+ * frames and records the digests and pictures, loads the snapshot, runs the same frames again and compares: the digests, the first pictures
+ * (the picture is not in a snapshot: the first live frame after a load must redraw it all), the exact size (a wrong one is refused and the
+ * machine stays as it was), a save over other bytes, and that the digest sees a changed byte. The pads are pseudo-random and held a few
+ * frames, so the game leaves its title screen; coins and Start included. Prints one JSON line; the exit status is 0 when nothing failed. */
+static unsigned check_passed, check_failed;
+static void check_expect(const char *what, int ok)
+{
+    if (ok) { check_passed++; return; }
+    check_failed++;
+    fprintf(stderr, "FAIL: %s\n", what);
+}
+static uint16_t check_pad(unsigned at, unsigned seat)
+{
+    uint32_t x = (at / 4u + 1u) * 2654435761u ^ (seat + 1u) * 40503u;
+    x ^= x >> 15; x *= 2246822519u; x ^= x >> 13;
+    return (x & 3u) ? 0 : (uint16_t)((x >> 4) & 0xfffu);
+}
+static void check_frame(void)
+{
+    const unsigned at = rr_cps1_frame_index();
+    rr_cps1_set_extra_pads(check_pad(at, 2), check_pad(at, 3));
+    rr_cps1_host_frame(check_pad(at, 0), check_pad(at, 1));
+}
+static uint64_t check_picture(void)
+{
+    const uint32_t *pixels = cps1_framebuffer();
+    uint64_t hash = 14695981039346656037ull;
+    for (unsigned n = 0; n < CPS1_SCREEN_W * CPS1_SCREEN_H; n++) hash = (hash ^ pixels[n]) * 1099511628211ull;
+    return hash;
+}
+enum { CHECK_FRAMES = 120, CHECK_PICTURES = 3 };
+static int snapshot_self_check(void)
+{
+    const size_t bound = rr_cps1_snap_bound();
+    check_expect("the board offers a snapshot", bound > 0);
+    uint8_t *first = malloc(bound + 8), *second = malloc(bound + 8), *changed = malloc(bound + 8);
+    if (!bound || !first || !second || !changed) return 2;
+    for (unsigned n = 0; n < 240; n++) check_frame();
+    const unsigned phases[] = {0, 1, 57, 333};
+    unsigned frames_run = 240;
+    for (unsigned t = 0; t < sizeof phases / sizeof *phases; t++) {
+        for (unsigned n = 0; n < phases[t]; n++) check_frame();
+        frames_run += phases[t];
+        const size_t first_size = rr_cps1_snap_save(first, bound);
+        check_expect("a snapshot has the size of the bound", first_size == bound);
+        memset(second, 0xa5, bound + 8);
+        check_expect("a save over other bytes holds the same bytes", rr_cps1_snap_save(second, bound) == bound && !memcmp(first, second, bound));
+        check_expect("a buffer smaller than the bound is refused", rr_cps1_snap_save(second, bound - 1) == 0);
+        const uint64_t saved_digest = rr_cps1_digest();
+        const unsigned saved_frame = rr_cps1_frame_index();
+        uint64_t digests[CHECK_FRAMES], pictures[CHECK_PICTURES], last_picture;
+        for (unsigned n = 0; n < CHECK_FRAMES; n++) {
+            check_frame();
+            digests[n] = rr_cps1_digest();
+            if (n < CHECK_PICTURES) pictures[n] = check_picture();
+        }
+        last_picture = check_picture();
+        const uint64_t end_digest = rr_cps1_digest();
+        check_expect("two digests of the same state agree", rr_cps1_digest() == end_digest);
+        check_expect("a snapshot of another size is refused", !rr_cps1_snap_load(first, bound - 1) && !rr_cps1_snap_load(first, bound + 1) &&
+                                                               !rr_cps1_snap_load(NULL, bound));
+        check_expect("a refused load leaves the machine as it was", rr_cps1_digest() == end_digest);
+        check_expect("the snapshot loads", rr_cps1_snap_load(first, bound));
+        check_expect("the digest after a load is the digest saved", rr_cps1_digest() == saved_digest);
+        check_expect("the frame index is restored", rr_cps1_frame_index() == saved_frame);
+        int same_digests = 1, same_pictures = 1;
+        for (unsigned n = 0; n < CHECK_FRAMES; n++) {
+            check_frame();
+            if (rr_cps1_digest() != digests[n]) same_digests = 0;
+            if (n < CHECK_PICTURES && check_picture() != pictures[n]) same_pictures = 0;
+        }
+        check_expect("the frames run again give the same digests", same_digests);
+        check_expect("the first pictures after a load equal the reference's (the whole picture is redrawn)", same_pictures);
+        check_expect("the last picture equals the reference's", check_picture() == last_picture);
+        /* the digest sees a changed byte: one byte of work RAM, after the frame index and the 8-byte magic */
+        memcpy(changed, first, bound);
+        changed[4 + 8 + 100] ^= 0x5a;
+        check_expect("a changed snapshot loads", rr_cps1_snap_load(changed, bound));
+        check_expect("the digest sees the changed byte", rr_cps1_digest() != saved_digest);
+        check_expect("the original loads again", rr_cps1_snap_load(first, bound) && rr_cps1_digest() == saved_digest);
+        for (unsigned n = 0; n < CHECK_FRAMES; n++) check_frame();        /* on, from the restored state */
+        frames_run += CHECK_FRAMES;
+    }
+    printf("{\"stage\":\"cps1_snapshot_check\",\"passed\":%u,\"failed\":%u,\"snapshot_bytes\":%zu,\"frames\":%u,\"native_68000\":%llu,"
+           "\"interpreted_68000\":%llu,\"interpreted_z80\":%llu}\n", check_passed, check_failed, bound, frames_run,
+           (unsigned long long)rr_cps1_native_instructions, (unsigned long long)rr_cps1_interpreted_68k,
+           (unsigned long long)rr_cps1_interpreted_z80);
+    free(first); free(second); free(changed);
+    return check_failed ? 1 : 0;
+}
+
 static int report(const char *set)
 {
     if (!report_path) return 1;
@@ -251,6 +345,7 @@ static int execute(int argc, char **argv)
 {
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--headless")) headless = 1;
+        else if (!strcmp(argv[i], "--snapshot-check")) { snapshot_check = headless = 1; frames = 1; }
         else if (i + 1 < argc && !strcmp(argv[i], "--frames")) frames = atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--report")) report_path = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--performance-report")) { report_path = argv[++i]; performance_only = 1; }
@@ -318,6 +413,13 @@ static int execute(int argc, char **argv)
         state_loaded = state_file(load_path, 1);
         load_rejected = !state_loaded;
         if (!state_loaded && !ignore_load_error) return 4;
+    }
+    if (snapshot_check) {
+        const int result = snapshot_self_check();
+        cps1_shutdown();
+        free(content);
+        SDL_Quit();
+        return result ? 3 : 0;
     }
     uint64_t begun = SDL_GetPerformanceCounter();
     int host_result = 0;

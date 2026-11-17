@@ -101,6 +101,11 @@ uint64_t cps1_cpu_hash(void);                   /* 68000 context and Z80 registe
  * returns the size needed. */
 size_t cps1_state_save(uint8_t *buffer, size_t capacity);
 int cps1_state_load(const uint8_t *buffer, size_t size);
+/* Multiplayer (hostkit_session.h): the state without the picture, into caller memory and allocation-free, and its digest. */
+size_t cps1_snap_bound(void);
+size_t cps1_snap_save(void *buffer, size_t capacity);
+int cps1_snap_load(const void *buffer, size_t size);
+uint64_t cps1_digest(void);
 const uint8_t *cps1_work_ram(void);             /* 0xff0000-0xffffff, big-endian */
 
 /* VPA/E-clock wait on interrupt acknowledge (on by default). */

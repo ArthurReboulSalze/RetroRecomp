@@ -1054,10 +1054,12 @@ uint64_t cps1_cpu_hash(void)
 unsigned cps1_m68k_state_bytes(void);
 void cps1_m68k_state_get(void *dst);
 void cps1_m68k_state_set(const void *src);
-typedef struct { uint8_t *data; size_t size, used; int overflow; } writer_t;
+/* `hashing`: the bytes are folded into `hash` (FNV-1a, as cps1_cpu_hash) instead of being copied: the digest of the snapshot's fields. */
+typedef struct { uint8_t *data; size_t size, used; int overflow; int hashing; uint64_t hash; } writer_t;
 static void put(writer_t *w, const void *data, size_t size)
 {
-    if (w->data && w->used + size <= w->size) memcpy(w->data + w->used, data, size);
+    if (w->hashing) w->hash = fnv(w->hash, data, size);
+    else if (w->data && w->used + size <= w->size) memcpy(w->data + w->used, data, size);
     else if (w->data) w->overflow = 1;
     w->used += size;
 }
@@ -1158,57 +1160,103 @@ static void oki_voices_get(reader_t *r, cps1_oki_voice *voice)
 /* Plain integers and integer arrays in a fixed order (structures and pointers
  * go through the helpers above or stay out); host pointers (ROM, callbacks,
  * audio buffer) are never written and are kept from the running machine on load. */
+#define STATE_FIELDS_BEFORE_PICTURE(X) \
+    X(M.ram) X(M.gfxram) X(M.cps_a) X(M.cps_b) X(M.buffered_obj) X(M.palette) X(M.ports)
 #define STATE_FIELDS_BEFORE_QUEUE(X) \
-    X(M.ram) X(M.gfxram) X(M.cps_a) X(M.cps_b) X(M.buffered_obj) X(M.palette) X(M.ports) \
-    X(M.frame) X(M.line) X(M.frame_number) X(M.lines_run) X(M.m68k_cycles) X(M.m68k_target) \
+    X(M.line) X(M.frame_number) X(M.lines_run) X(M.m68k_cycles) X(M.m68k_target) \
     X(M.z80_ram) X(M.latch) X(M.sound_bank)
 #define STATE_FIELDS_BEFORE_VOICES(X) \
     X(M.latch_count) X(M.z80_clock) X(M.opm_samples) X(M.oki.command) X(M.oki.pin7)
 #define STATE_FIELDS_AFTER_VOICES(X) \
     X(M.oki_base_clock) X(M.oki_base_samples) X(M.oki_samples) X(M.oki_level) X(M.oki_previous) X(M.irq2)
 
-size_t cps1_state_save(uint8_t *buffer, size_t capacity)
+/* Scratch for the pieces the chips write through their own functions: static, so that a save allocates nothing (the rollback tier saves one
+ * snapshot a frame). The sizes are those of the 68000 context, one OPM and one QSound chip, checked on every use. */
+enum { SCRATCH_M68K = 4096, SCRATCH_OPM = 8192, SCRATCH_QSOUND = 16384 };
+static uint8_t scratch_m68k[SCRATCH_M68K], scratch_opm[SCRATCH_OPM], scratch_qsound[SCRATCH_QSOUND];
+
+/* The machine's state, field by field in a fixed order. `picture`: the quick states also hold the 384 x 224 picture; a snapshot does not
+ * (the next frame draws it again: tools/cps1_snap_selftest.py). A snapshot and the digest hold the EEPROM's `changed` flag as 0: it says
+ * whether the host's file is behind, which is the host's business, not the machine's. */
+static int state_put(writer_t *w, int picture, int snapshot)
 {
-    writer_t w = {buffer, capacity, 0, 0};
-    put(&w, state_magic(), 8);
-#define SAVE(field) put(&w, &field, sizeof field);
+    put(w, state_magic(), 8);
+#define SAVE(field) put(w, &field, sizeof field);
+    STATE_FIELDS_BEFORE_PICTURE(SAVE)
+    if (picture) put(w, M.frame, sizeof M.frame);
     STATE_FIELDS_BEFORE_QUEUE(SAVE)
-    latch_queue_put(&w, M.latch_queue);
+    latch_queue_put(w, M.latch_queue);
     STATE_FIELDS_BEFORE_VOICES(SAVE)
-    oki_voices_put(&w, M.oki.voice);
+    oki_voices_put(w, M.oki.voice);
     STATE_FIELDS_AFTER_VOICES(SAVE)
 #undef SAVE
-    z80_state_put(&w, &M.cpu);
+    z80_state_put(w, &M.cpu);
     uint32_t context_size = cps1_m68k_state_bytes();
-    put(&w, &context_size, sizeof context_size);
-    uint8_t *context = malloc(context_size);
-    if (!context) return 0;
-    cps1_m68k_state_get(context);
-    put(&w, context, context_size);
-    free(context);
+    if (context_size > sizeof scratch_m68k) return 0;
+    put(w, &context_size, sizeof context_size);
+    cps1_m68k_state_get(scratch_m68k);
+    put(w, scratch_m68k, context_size);
     uint32_t opm_size = (uint32_t)cps1_opm_save(M.opm, NULL, 0);
-    put(&w, &opm_size, sizeof opm_size);
-    uint8_t *opm = malloc(opm_size ? opm_size : 1);
-    if (!opm || cps1_opm_save(M.opm, opm, opm_size) != opm_size) { free(opm); return 0; }
-    put(&w, opm, opm_size);
-    free(opm);
+    if (opm_size > sizeof scratch_opm) return 0;
+    put(w, &opm_size, sizeof opm_size);
+    if (cps1_opm_save(M.opm, scratch_opm, opm_size) != opm_size) return 0;
+    put(w, scratch_opm, opm_size);
     if (M.board.qsound) {
         uint8_t eeprom[CPS1_EEPROM_STATE_BYTES];
-        put(&w, M.qram, sizeof M.qram);
-        cps1_eeprom_state_put(&M.eeprom, eeprom);
-        put(&w, eeprom, sizeof eeprom);
-        put_le(&w, M.qsound_irq_clock, 8); put_le(&w, M.qsound_done, 8);
-        uint8_t *chip = malloc(cps1_qsound_state_bytes());
-        if (!chip) return 0;
-        put(&w, chip, cps1_qsound_state_put(&M.qchip, chip));
-        free(chip);
+        put(w, M.qram, sizeof M.qram);
+        if (snapshot) {
+            cps1_eeprom steady = M.eeprom;
+            steady.changed = 0;
+            cps1_eeprom_state_put(&steady, eeprom);
+        } else {
+            cps1_eeprom_state_put(&M.eeprom, eeprom);
+        }
+        put(w, eeprom, sizeof eeprom);
+        put_le(w, M.qsound_irq_clock, 8); put_le(w, M.qsound_done, 8);
+        if (cps1_qsound_state_bytes() > sizeof scratch_qsound) return 0;
+        put(w, scratch_qsound, cps1_qsound_state_put(&M.qchip, scratch_qsound));
     }
-    if (M.board.cps2) cps2_state_put(&w);
+    if (M.board.cps2) cps2_state_put(w);
+    return 1;
+}
+
+size_t cps1_state_save(uint8_t *buffer, size_t capacity)
+{
+    writer_t w = {buffer, capacity, 0, 0, 0, 0};
+    if (!state_put(&w, 1, 0)) return 0;
     if (!buffer) return w.used;
     return w.overflow ? 0 : w.used;
 }
 
-int cps1_state_load(const uint8_t *buffer, size_t size)
+/* Rollback and the host's F8 / F9 for everyone (hostkit_session.h): the same state without the picture, into the caller's memory. The
+ * bound is the exact size (it never changes for a board), so a load refuses any other size. */
+size_t cps1_snap_bound(void)
+{
+    static size_t bound;
+    if (!bound) {
+        writer_t w = {NULL, 0, 0, 0, 0, 0};
+        if (state_put(&w, 0, 1)) bound = w.used;
+    }
+    return bound;
+}
+
+size_t cps1_snap_save(void *buffer, size_t capacity)
+{
+    if (!buffer || capacity < cps1_snap_bound()) return 0;
+    writer_t w = {(uint8_t *)buffer, capacity, 0, 0, 0, 0};
+    if (!state_put(&w, 0, 1) || w.overflow) return 0;
+    return w.used;
+}
+
+/* The digest of the deterministic state after the last frame: FNV-1a over the snapshot's own bytes, in their fixed order. */
+uint64_t cps1_digest(void)
+{
+    writer_t w = {NULL, 0, 0, 0, 1, 0xcbf29ce484222325ull};
+    return state_put(&w, 0, 1) ? w.hash : 0;
+}
+
+/* `picture`: whether the buffer holds the picture (quick states) or not (a snapshot). */
+static int state_apply(const uint8_t *buffer, size_t size, int picture)
 {
     reader_t r = {buffer, size, 0, 0};
     char magic[8];
@@ -1228,7 +1276,8 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     int32_t oki_level, oki_previous;
     get(&r, ram, sizeof ram); get(&r, gfxram, sizeof gfxram); get(&r, cps_a, sizeof cps_a);
     get(&r, cps_b, sizeof cps_b); get(&r, obj, sizeof obj); get(&r, palette, sizeof palette);
-    get(&r, ports, sizeof ports); get(&r, frame, sizeof frame); get(&r, &line, sizeof line);
+    get(&r, ports, sizeof ports); if (picture) get(&r, frame, sizeof frame);
+    get(&r, &line, sizeof line);
     get(&r, &frame_number, sizeof frame_number); get(&r, &lines_run, sizeof lines_run);
     get(&r, &m68k_cycles, sizeof m68k_cycles); get(&r, &m68k_target, sizeof m68k_target);
     get(&r, z80_ram, sizeof z80_ram); get(&r, latch, sizeof latch); get(&r, &sound_bank, sizeof sound_bank);
@@ -1275,7 +1324,7 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     memcpy(M.ram, ram, sizeof ram); memcpy(M.gfxram, gfxram, sizeof gfxram);
     memcpy(M.cps_a, cps_a, sizeof cps_a); memcpy(M.cps_b, cps_b, sizeof cps_b);
     memcpy(M.buffered_obj, obj, sizeof obj); memcpy(M.palette, palette, sizeof palette);
-    memcpy(M.ports, ports, sizeof ports); memcpy(M.frame, frame, sizeof frame);
+    memcpy(M.ports, ports, sizeof ports); if (picture) memcpy(M.frame, frame, sizeof frame);
     M.line = line; M.frame_number = frame_number; M.lines_run = lines_run;
     M.m68k_cycles = m68k_cycles; M.m68k_target = m68k_target;
     memcpy(M.z80_ram, z80_ram, sizeof z80_ram); memcpy(M.latch, latch, sizeof latch);
@@ -1295,6 +1344,15 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
 #endif
     M.audio_count = 0;
     return 1;
+}
+
+int cps1_state_load(const uint8_t *buffer, size_t size) { return state_apply(buffer, size, 1); }
+
+/* A snapshot of cps1_snap_save: only the exact size is taken, and the machine is untouched when a field is out of its range. */
+int cps1_snap_load(const void *buffer, size_t size)
+{
+    if (!buffer || size != cps1_snap_bound()) return 0;
+    return state_apply((const uint8_t *)buffer, size, 0);
 }
 
 #include "cps1_cps2_board.inc"

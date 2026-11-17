@@ -51,6 +51,7 @@ static uint8_t snapshot[PAYLOAD_MAX];
 static size_t snapshot_size;
 static unsigned generation, written;           /* both under the lock; generation 0 is "nothing changed yet" */
 static bool worker_started;
+static bool effects_allowed = true;     /* hostkit.h side_effects: a silent frame and a guest ask for no file */
 #ifdef _WIN32
 static HANDLE worker;
 #else
@@ -186,6 +187,10 @@ bool rr_cps1_save_begin(void)
     generation = written = 0;
     const size_t size = cps1_eeprom_size();
     if (!size || size > PAYLOAD_MAX) return true;           /* a board without an EEPROM keeps nothing */
+    {   /* a multiplayer session: every seat starts from a blank EEPROM and none is read or written (rrhk_session.inc, RRHK_SESSION_ENV) */
+        const char *session = getenv("RETRORECOMP_NETPLAY_PIPE");
+        if (session && *session) return true;
+    }
     if (!rr_cps1_save_path(save_path, 32768)) { flag_store(&blocked, true); return false; }
     uint8_t data[PAYLOAD_MAX];
     const int result = read_saved(data, size);
@@ -196,9 +201,13 @@ bool rr_cps1_save_begin(void)
     return !flag_load(&blocked);
 }
 
+void rr_cps1_save_side_effects(bool allowed) { effects_allowed = allowed; }
+
 void rr_cps1_save_frame(void)
 {
-    if (!active || flag_load(&blocked) || !cps1_eeprom_changed()) return;
+    if (!active) return;
+    const bool changed = cps1_eeprom_changed() != 0;        /* the flag is taken on every frame, whatever the frame may do */
+    if (!changed || !effects_allowed || flag_load(&blocked)) return;
     acquire();
     memcpy(snapshot, cps1_eeprom_data(), snapshot_size);
     ++generation;

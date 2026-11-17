@@ -104,6 +104,35 @@ November 2026, two Windows PCs on a home network, Contra NES): two-player matche
 everyone, 150 ms of simulated round trip on the rollback tier with no wait, the in-game chat on keyboard and gamepad.
 Physical latency is not measured.
 
+## Capcom CPS-1, CPS-1.5 and CPS-2: the rollback tier and the host's F8 / F9 for everyone (next release)
+
+The three boards give the multiplayer session what the NES gives it: the digest, an in-process snapshot (`snap_bound`, `snap_save`,
+`snap_load`), a frame that can be run again silently, and `side_effects` (profiles `cps1` and `cps2`: `netplay_session = True`, four
+seats). What moves: **the game stamp and the host stamp of the CPS-1 and of the CPS-2** (`cps1_machine.c`, `cps1_opm.cpp`, `cps1_main.c`
+and the host files `cps1_host.c`, `cps1_persistence.c` and the adapter `rrhk_cps1.c`); no other machine, and the identity of the shared
+paths of both boards changes with the machine's sources, as for any change of them.
+- **One field list.** The quick states and the snapshot are written by the same routine (`state_put`); the quick-state format, key and
+  magic do not change, so the quick states of earlier exports still load. The snapshot is the same bytes without the 344 KB picture (the
+  next frame draws it again: checked by comparing the first pictures after a load with the reference's) and with the EEPROM's "file is
+  behind" flag at 0. It is 347 to 401 KB, allocates nothing (the three chip buffers of a save are static, and the YM2151 state vector
+  keeps its capacity), and the digest is the FNV-1a of the same fields in the same order.
+- **The EEPROM in a session.** Every seat starts from a blank EEPROM (a settings file that one player has and another has not would
+  make the matches diverge): in a session the file is neither read nor written, and a frame with `side_effects` off takes the change
+  flag and asks for no file. Alone, the saves are as before.
+- **Players 3 and 4** are read in `run_frame` and no longer in `before_frame`: a frame run again after a correction (hostkit session,
+  "silent") calls `run_frame` with the session's words but never `before_frame`, so pads set there were those of the last live frame and
+  four-seat matches diverged at the first correction (found by the four-seat smoke run). Alone, the word is the same.
+- **Proof** (17 November 2026, tree of `spec/cps-rollback`, converted with the portable llvm toolchain): the determinism probe in the
+  game itself (`tools/cps1_snap_check.py`, the game's `--snapshot-check`: four save phases, 61 checks each: save over other bytes equal,
+  wrong size refused with the machine left as it was, digests and pictures equal after a load and a replay of 120 frames, the digest
+  sees a changed byte) passes on Super Street Fighter II (CPS-2), Warriors of Fate (CPS-1.5 with EEPROM), 1941 and Captain Commando
+  (CPS-1); a game built with the work RAM left out of the load fails it on 14 checks (the probe sees an incomplete snapshot). Two copies
+  on one PC, rollback tier, 3000 frames, 30 ms one way with 10 ms of jitter, the host's save at frame 600 and load at 1500 for
+  everyone: PASS on Super Street Fighter II and Warriors of Fate; four seats PASS on Captain Commando. Super Street Fighter II with
+  `--save-digests`: the rollback tier and the delay tier give the same digests and history; with and without the save and load the
+  digests are equal up to frame 1499 and differ from the first one after the load. Not measured: the cost of a save or a load, physical
+  latency, hardware fidelity.
+
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 
 [HOST_KIT.md](HOST_KIT.md#d31), D31. `game_options.h`: a seventh combination, **Options** (`RR_COMBO_OPTIONS`, last, so the stored
