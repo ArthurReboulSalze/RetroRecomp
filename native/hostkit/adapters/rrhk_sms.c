@@ -226,6 +226,11 @@ static bool session_option(const char *key, const char *value) {
     return true;
 }
 
+static size_t session_options(char *out, size_t capacity) {
+    const int n = snprintf(out, capacity, "extra_sprites=%d", reduce_sprites ? 1 : 0);
+    return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
+}
+
 static void option_rows(int slot, RrhkOptionRows *rows) {
     if (slot == 0) rrhk_option_row_run(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
                                         rr_tr(reduce_sprites ? "ON" : "OFF"));
@@ -344,7 +349,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = no_audio, .interpreted = interpreted, .audio_interpreted = no_count,
             .state_ready = state_ready, .state_file = state_file, .input_frame = input_frame,
             .pointer_input = pointer_input,
-            .digest = smsrecomp_digest, .session_option = session_option,
+            .digest = smsrecomp_digest, .session_option = session_option, .session_options = session_options,
             .page = sms_light_phaser ? &page : NULL,
             .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
             .audio_ratio = host_audio_ratio,     /* 1.7.7 (HOST_KIT D30): Sync to display */

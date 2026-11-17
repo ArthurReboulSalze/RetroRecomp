@@ -245,7 +245,7 @@ class Game:
 
 
 def setup(game: Game, *, seat: int = 0, ports: int = 4, depth: int = 0, guest: bool = False, options: str = 'speed=1'):
-    hello = game.expect('RRHK_MSG_HELLO')
+    hello = game.expect('RRHK_MSG_HELLO', timeout=30)     # a game starting on a busy PC (other builds running) may be slow
     abi, players, caps = struct.unpack_from('<HBB', hello)
     assert abi == ABI, abi
     assert players == 4, players

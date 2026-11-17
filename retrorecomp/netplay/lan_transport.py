@@ -703,8 +703,9 @@ class RoomHost:
         return plan if isinstance(plan, Refusal) else None
 
     def lobby_launch(self, *, need_ready: bool = False, delay: int = 0, digest_every: int = 60,
-                     redundancy: int = 3, rollback: int = 0) -> LaunchInfo | Refusal:
-        """Starts the match of the host's pick with the guests who have the game (and are ready, if `need_ready`)."""
+                     redundancy: int = 3, rollback: int = 0, options: str | None = None) -> LaunchInfo | Refusal:
+        """Starts the match of the host's pick with the guests who have the game (and are ready, if `need_ready`). `options`:
+        the run-changing options every seat plays with (the pick's merged with the host game's own); None: the pick's."""
         try:
             with self._lock:
                 plan = self.lobby.plan_launch(need_ready)
@@ -712,7 +713,8 @@ class RoomHost:
                     return plan
                 try:
                     return self.launch(machine=plan.game.machine, stamp=plan.stamp, rom_sha=plan.rom, delay=delay,
-                                       digest_every=digest_every, redundancy=redundancy, options=plan.options, guests=plan.guests,
+                                       digest_every=digest_every, redundancy=redundancy,
+                                       options=plan.options if options is None else options, guests=plan.guests,
                                        sharing=plan.sharing, rollback=rollback)
                 except RoomError as error:
                     return Refusal(error.reason)

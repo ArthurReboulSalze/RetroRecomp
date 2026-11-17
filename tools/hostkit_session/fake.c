@@ -154,6 +154,12 @@ static bool session_option(const char *key, const char *value) {
     return !strcmp(key, "speed") && !strcmp(value, "1");
 }
 
+/* The fake's run-changing option, as a machine says its own in HELLO (session ABI 6). */
+static size_t session_options(char *out, size_t capacity) {
+    const int n = snprintf(out, capacity, "speed=1");
+    return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
+}
+
 static RrhkMachine machine = {
     .ini_section = L"SessionFake", .console_name = "Session fake", .table_players = 4, .players = players,
     .actions = actions, .action_count = ACTIONS, .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,
@@ -163,7 +169,7 @@ static RrhkMachine machine = {
     .audio = audio, .interpreted = zero, .audio_interpreted = zero, .help_controls = help_controls,
     .state_path = quick_path, .state_ready = quick_ready, .state_file = quick_file,
     .snap_bound = snap_bound, .snap_save = snap_save, .snap_load = snap_load, .digest = digest,
-    .side_effects = side_effects, .session_option = session_option, .frame_start = frame_start};
+    .side_effects = side_effects, .session_option = session_option, .session_options = session_options, .frame_start = frame_start};
 const RrhkMachine *rrhk_adapter(void) { return &machine; }
 
 int main(int argc, char **argv) {
