@@ -31,8 +31,9 @@ import threading
 import time
 from typing import Callable
 
-from . import control, datagram, handshake, invitation
+from . import control, datagram, handshake, invitation, lobby as lobbies
 from . import input_records as wire
+from .launch import Refusal
 from .limits import FRAME_BURST, FRAME_RATE, Admission, Counters, NonceMemory, TokenBucket
 from .room_log import RoomLog
 
@@ -224,6 +225,7 @@ class RoomHost:
             raise ValueError('a secret of 16 bytes')
         self.port, self.capacity, self.tests = port, capacity, tests
         self.name = control.display_name(name, 'Host')
+        self.lobby = lobbies.HostLobby(self.name, capacity)         # the room's lobby: pure rules, carried by this transport
         self.log = log or RoomLog(None)
         self._on_event, self._clock, self._rng = on_event, clock, rng
         self._seat_rate = seat_rate
@@ -284,7 +286,9 @@ class RoomHost:
             self._selector.register(udp, selectors.EVENT_READ, 'datagram')
             self._thread = threading.Thread(target=self._run, name='netplay-room-host', daemon=True)
             self._thread.start()
+            self._act([self.lobby.roster_event()])
         self.log.room('opened', self.address, self.port)
+        self._flush()
         return self.port
 
     def close(self) -> None:
@@ -487,6 +491,9 @@ class RoomHost:
             self.log.joined(peer.name, peer.ip)
             self._emit({'event': 'joined', 'guest': peer.guest_id, 'name': peer.name, 'address': peer.ip,
                         'version': list(peer.version)})
+            self._act(self.lobby.joined(peer.guest_id, peer.name, now))
+        elif isinstance(message, (control.Say, control.Ready, control.Answer)):
+            self._act(self.lobby.on_message(peer.guest_id, message, now))
         elif isinstance(message, control.Launched):
             self._launched(peer, message)
         elif isinstance(message, control.End):
@@ -510,6 +517,7 @@ class RoomHost:
             self._fail_launch(match, f'{peer.name} {texts.get(message.status, "could not start the game")}')
         elif all(seat_peer.status == control.LAUNCHED_READY for seat_peer in match.seats.values()):
             match.ready = True
+            self.lobby.playing()
             self.log.match(match.match_id, 'every guest has its game ready')
             self._emit({'event': 'all_launched', 'match_id': match.match_id})
 
@@ -522,21 +530,28 @@ class RoomHost:
             if not peer.closed:
                 peer.send(control.End(match.match_id, wire.BYE_HOST_CLOSED, wire.NO_SEAT))
         self._emit({'event': 'launch_failed', 'match_id': match.match_id, 'detail': reason})
-        self._end_match(match)
+        self._end_match(match, 'launch_failed')
 
     # ---- launching and ending a match ----
 
     def launch(self, *, machine: str, stamp: bytes, rom_sha: bytes, delay: int = 0, digest_every: int = 60,
-               redundancy: int = 3, options: str = '') -> LaunchInfo:
-        """Starts a match with the guests that have joined: seats are given in the order they joined, keys are derived
-        for this match and this seat, and each guest gets its LAUNCH. Raises `RoomError` when that cannot be done."""
+               redundancy: int = 3, options: str = '', guests=None) -> LaunchInfo:
+        """Starts a match: seats are given in the order of `guests` (guest ids, the lobby's seat order) or, without it, in
+        the order the guests joined; keys are derived for this match and this seat, and each of them gets its LAUNCH. A guest
+        not named stays in the room and is not part of the match. Raises `RoomError` when that cannot be done."""
         with self._lock:
             if self._thread is None or self._stop.is_set():
                 raise RoomError('the room is not open')
             if self._match is not None:
                 raise RoomError('a match is already running')
-            ready = sorted((peer for peer in self._peers if peer.name is not None and not peer.closed
-                            and peer.guest_id is not None), key=lambda peer: peer.guest_id)
+            named = [peer for peer in self._peers if peer.name is not None and not peer.closed and peer.guest_id is not None]
+            if guests is None:
+                ready = sorted(named, key=lambda peer: peer.guest_id)
+            else:
+                by_id = {peer.guest_id: peer for peer in named}
+                if len(set(guests)) != len(guests) or any(guest not in by_id for guest in guests):
+                    raise RoomError('a seated guest is not in the room')
+                ready = [by_id[guest] for guest in guests]
             if not ready:
                 raise RoomError('nobody has joined the room')
             if not (isinstance(stamp, bytes) and len(stamp) == 32 and isinstance(rom_sha, bytes) and len(rom_sha) == 32):
@@ -553,6 +568,7 @@ class RoomHost:
             self._receiver.begin_match(match_id, {seat: (seats[seat].ip, keys[seat][0]) for seat in seats}, now,
                                        seat_count=len(names), **kwargs)
             match = self._match = _HostMatch(match_id, seats, names, now)
+            self._act(self.lobby.begin([peer.guest_id for peer in ready], match_id))
             for seat, peer in seats.items():
                 match.senders[seat] = datagram.Sender(keys[seat][1], match_id, 0)
                 peer.send(control.Launch(match_id, seat, len(names), delay, digest_every, redundancy, machine, stamp,
@@ -575,24 +591,27 @@ class RoomHost:
                 self._fail_launch(self._match, reason)
         self._flush()
 
-    def end_match(self) -> None:
-        """The match is over for this room (its driver finished): the datagram state of it is dropped."""
+    def end_match(self, reason: str = 'ended') -> None:
+        """The match is over for this room (its driver finished, for `reason`: a driver outcome): the datagram state of it is
+        dropped and every guest is brought back to the lobby."""
         with self._lock:
             if self._match is not None:
-                self._end_match(self._match)
+                self._end_match(self._match, reason)
+        self._flush()
 
     def _link_closed(self, match: _HostMatch) -> None:
         with self._lock:
             if self._match is match:
                 self._end_match(match)
 
-    def _end_match(self, match: _HostMatch) -> None:
+    def _end_match(self, match: _HostMatch, reason: str = 'ended') -> None:
         if self._match is not match:
             return
         self._match = None
         self._receiver.end_match()
         for peer in match.seats.values():
             peer.seat = None
+        self._act(self.lobby.finished(match.match_id, reason))
 
     def kick(self, guest_id: int) -> bool:
         with self._lock:
@@ -608,6 +627,55 @@ class RoomHost:
             return [{'guest': peer.guest_id, 'name': peer.name, 'address': peer.ip, 'version': list(peer.version)}
                     for peer in sorted((item for item in self._peers if item.name and not item.closed),
                                        key=lambda item: item.guest_id)]
+
+    # ---- the lobby ----
+
+    def _act(self, actions: list) -> None:
+        """What the lobby asked for: control messages to the guests (named, still here) and events for the caller."""
+        for action in actions:
+            if isinstance(action, lobbies.Event):
+                self._emit(action.data)
+                continue
+            for peer in self._peers:
+                if (peer.guest_id is not None and peer.name is not None and not peer.closed and not peer.closing
+                        and (action.to is None or action.to == peer.guest_id)):
+                    peer.send(action.message)
+
+    def lobby_select(self, game: control.Game | None) -> Refusal | None:
+        """The host picks a game (None: none): everyone is asked again. A `Refusal` says why not."""
+        with self._lock:
+            actions, refusal = self.lobby.select(game, self._clock())
+            self._act(actions)
+        self._flush()
+        return refusal
+
+    def lobby_move(self, guest: int, seat: int) -> Refusal | None:
+        with self._lock:
+            refusal = self.lobby.move(guest, seat)
+        self._flush()
+        return refusal
+
+    def lobby_say(self, text: str) -> None:
+        """A line of chat from the host."""
+        with self._lock:
+            self._act(self.lobby.say(0, text, self._clock()))
+        self._flush()
+
+    def lobby_launch(self, *, need_ready: bool = False, delay: int = 0, digest_every: int = 60,
+                     redundancy: int = 3) -> LaunchInfo | Refusal:
+        """Starts the match of the host's pick with the guests who have the game (and are ready, if `need_ready`)."""
+        try:
+            with self._lock:
+                plan = self.lobby.plan_launch(need_ready)
+                if isinstance(plan, Refusal):
+                    return plan
+                try:
+                    return self.launch(machine=plan.game.machine, stamp=plan.stamp, rom_sha=plan.rom, delay=delay,
+                                       digest_every=digest_every, redundancy=redundancy, options=plan.options, guests=plan.guests)
+                except RoomError as error:
+                    return Refusal(error.reason)
+        finally:
+            self._flush()
 
     # ---- datagrams ----
 
@@ -700,6 +768,7 @@ class RoomHost:
             self._emit({'event': 'room_idle', 'detail': 'nobody has been in the room for thirty minutes'})
         if self._counts_due is None and self.log.due(now):
             self._counts_due = (self._counters.take_window(), now)      # written after the lock is released (N3)
+        self._act(self.lobby.tick(now))
 
     def _write_counts(self) -> None:
         """The ten-second lines of counts, outside the room's lock: the file is the slow part, and the driver needs the
@@ -726,6 +795,8 @@ class RoomHost:
             self._admission.closed(peer.ip)
         if peer in self._peers:
             self._peers.remove(peer)
+        if peer.name is not None and peer.guest_id is not None:
+            self.lobby.left(peer.guest_id)
         if peer.name is not None and not quiet:
             self.log.left(peer.name, peer.ip, reason)
             self._emit({'event': 'left', 'guest': peer.guest_id, 'name': peer.name, 'detail': reason})
@@ -807,6 +878,7 @@ class RoomGuest:
                                              for part in self.version):
             raise ValueError('a version of three numbers')       # the HELLO carries three 16-bit numbers (L7)
         self.name = control.display_name(name, 'Guest')
+        self.lobby = lobbies.GuestLobby(self.name)
         self._on_event, self._on_launch, self._clock, self._rng = on_event, on_launch, clock, rng
         self._lock = threading.RLock()
         self._counters = Counters()
@@ -886,6 +958,7 @@ class RoomGuest:
         stream.writer, stream.reader = control.FrameWriter(to_host), reader
         self._stream, self._udp, self._session = stream, udp, shake.session
         self.guest_id, self.capacity = first.guest_id, first.capacity
+        self.lobby.me = first.guest_id
         stream.send(control.Hello(self.version, self.name))
         self._selector = selectors.DefaultSelector()
         self._selector.register(sock, selectors.EVENT_READ, 'tcp')
@@ -973,6 +1046,8 @@ class RoomGuest:
             stream.send(control.Pong(message.time_ms))
         elif isinstance(message, control.Launch):
             self._launch(message, now)
+        elif isinstance(message, (control.Roster, control.Chat, control.Select, control.Notice, control.Back)):
+            self._act(self.lobby.on_message(message, now))
         elif isinstance(message, control.End):
             match = self._match
             if match is not None and match.launch.match_id == message.match_id:
@@ -991,11 +1066,43 @@ class RoomGuest:
         if not (control.MAX_SEATS >= launch.seats >= 2 and 1 <= launch.seat < launch.seats):
             stream.send(control.Launched(launch.match_id, control.LAUNCHED_FAILED))
             return
+        status = self.lobby.launch_status(launch)       # the game this PC said "same" to, or the host's launch is refused
+        if status != control.LAUNCHED_READY:
+            stream.send(control.Launched(launch.match_id, status))
+            self._counters.count('launch_not_the_pick')
+            self._emit({'event': 'launch_refused', 'match_id': launch.match_id,
+                        'detail': 'this PC does not hold the game the host picked, in the same version'})
+            return
         to_host, to_guest = handshake.udp_keys(self._session.key, launch.match_id, launch.seat)
         receiver = datagram.GuestReceiver(self._counters, self._host, launch.match_id, launch.seat, to_guest, launch.seats, now)
         self._match = _GuestMatch(launch, receiver, datagram.Sender(to_host, launch.match_id, launch.seat))
         if self._on_launch is not None:
             self._outbox.append(('launch', launch))
+
+    def _act(self, actions: list) -> None:
+        """What the lobby asked for: control messages for the host and events for the caller."""
+        for action in actions:
+            if isinstance(action, lobbies.Event):
+                self._emit(action.data)
+            elif self._stream is not None and not self._stream.closed:
+                self._stream.send(action.message)
+
+    def lobby_say(self, text: str) -> None:
+        """A line of chat from this guest (cleaned and limited here as the host will, so that the host has nothing to refuse)."""
+        with self._lock:
+            self._act(self.lobby.say(text, self._clock()))
+        self._flush()
+
+    def lobby_ready(self, ready: bool) -> None:
+        with self._lock:
+            self._act(self.lobby.ready(ready, self._clock()))
+        self._flush()
+
+    def lobby_answer(self, selection: int, status: int, reasons: int = 0, version=(0, 0, 0)) -> None:
+        """This PC's answer to the host's pick number `selection` (the caller looked in its own library)."""
+        with self._lock:
+            self._act(self.lobby.answer(selection, status, reasons, version))
+        self._flush()
 
     def launched(self, match_id: int, status: int) -> None:
         """The caller's answer to a LAUNCH (ready, or why not). Anything but ready drops that match's datagram state."""

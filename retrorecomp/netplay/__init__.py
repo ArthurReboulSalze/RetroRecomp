@@ -31,6 +31,16 @@ socket):
 * `room_worker`, `room_cli`: the worker whose life is a room's (the game arrives in a `launch` call), and the command line
   of the two-PC test (`RetroRecomp.py _netplay-room`).
 
+The lobby (`lobby.py` holds the rules; the wire is `control.py` types 10 to 17):
+
+* `lobby`: the host's state machine (seats, ready flags, the host's pick, each guest's answer, chat limits and cleaning, the
+  launch plan, the way back to the lobby after a match) and each guest's, as pure functions of a message and a clock, returning
+  `Send` and `Event`; `RoomHost` and `RoomGuest` carry them, the room's worker turns the events into the converter's;
+* `lobby_check`: the host's game as a `control.Game` (the identity without the learned paths on the machines whose mixed-build gate
+  passed, the full simulation identity elsewhere) and a guest's look in its own compiled games (`LocalLibrary`);
+* `lobby_client`: the converter's side, with no window: `LobbyModel` (events folded into what a window draws) and `LobbyController`
+  (answers the host's pick from the library, resolves the launch to the executable it found, gives the host's window its calls).
+
 Outside `lan_transport` nothing here opens a socket, a port or a file outside the game's own folder (and the room's log).
 Nothing touches a firewall or any system setting. These modules are hashed by no stamp (`stamp_inputs.INTERFACE_MODULES`):
 they drive finished games and change nothing a game is or does.

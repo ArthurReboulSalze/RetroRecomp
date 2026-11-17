@@ -7,10 +7,17 @@ A wrong tag, a length above the limit, an unknown or unexpected type, a payload 
 bytes left over: `FrameError`, and the transport closes the connection with no detail to the peer. The reader keeps
 at most 2,048 bytes. Every message is of a fixed size or has each variable field length-prefixed and bounded, and
 `decode` accepts only the canonical form: a message that decodes encodes back to the same bytes (the fuzz test holds it).
+
+The lobby (types 10 to 17; `lobby.py` holds its rules) rides the same stream and has its own version, `LOBBY_VERSION`, in
+the host's ROSTER: a host of another lobby version is a stream that breaks the rules and the guest leaves. Host to guests:
+ROSTER (the seats in order, the host first), CHAT (already stamped with the sender's name), SELECT (the game the host chose,
+with what a guest compares), NOTICE (one short code, to one guest), BACK (the match is over, everybody is in the lobby again).
+Guest to host: SAY (a line of chat), READY, ANSWER (what the guest's own library says about the host's pick).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import hmac
 import re
 import struct
@@ -21,6 +28,20 @@ from .handshake import mac
 MAX_PAYLOAD = 1024
 READ_BUFFER = 2048
 WELCOME, REJECT, HELLO, LAUNCH, LAUNCHED, END, PING, PONG, BYE = range(1, 10)
+ROSTER, CHAT, SELECT, NOTICE, BACK, SAY, READY, ANSWER = range(10, 18)
+LOBBY_VERSION = 1
+PHASE_LOBBY, PHASE_LAUNCHING, PHASE_PLAYING = 0, 1, 2
+LOBBY_PHASES = range(3)
+CHECK_NONE, CHECK_ASKING, CHECK_SAME, CHECK_OTHER, CHECK_MISSING, CHECK_FAILED = range(6)
+ANSWER_STATUSES = (CHECK_SAME, CHECK_OTHER, CHECK_MISSING, CHECK_FAILED)
+MODE_PORTABLE, MODE_FULL = 0, 1             # what a guest compares: the identity without the learned paths, or the full one
+NOTICE_CHAT_FAST, NOTICE_BAD_TEXT, NOTICE_BUSY = 1, 2, 3
+NOTICES = range(1, 4)
+BACK_REASONS = range(1, 12)                 # lobby.BACK_CODES: why a match ended, as the host saw it
+MAX_CHAT_CHARS = 80
+MAX_CHAT_BYTES = 320
+MAX_TITLE_BYTES = 96
+MAX_REASONS = 0x7f                          # the check's reason bits (lobby_check)
 REJECT_FULL, REJECT_VERSION, REJECT_BUSY, REJECT_KICKED = 1, 2, 3, 4
 LAUNCHED_READY, LAUNCHED_NOT_OWNED, LAUNCHED_OTHER_STAMP, LAUNCHED_FAILED = 0, 1, 2, 3
 BYE_REASONS = range(1, 5)       # the control BYE: 1 left, 2 room closed, 3 kicked, 4 error
@@ -30,8 +51,8 @@ MAX_SEATS = 4
 MAX_OPTIONS = 512
 MAX_MACHINE = 16
 _MACHINE = re.compile(r'[A-Za-z0-9_.+-]{1,16}')
-_FROM_GUEST = frozenset((HELLO, LAUNCHED, END, PING, PONG, BYE))
-_FROM_HOST = frozenset((WELCOME, REJECT, LAUNCH, END, PING, PONG, BYE))
+_FROM_GUEST = frozenset((HELLO, LAUNCHED, END, PING, PONG, BYE, SAY, READY, ANSWER))
+_FROM_HOST = frozenset((WELCOME, REJECT, LAUNCH, END, PING, PONG, BYE, ROSTER, CHAT, SELECT, NOTICE, BACK))
 FROM_GUEST, FROM_HOST = _FROM_GUEST, _FROM_HOST
 
 
@@ -101,8 +122,155 @@ class Bye:
     reason: int
 
 
+@dataclass(frozen=True)
+class Player:
+    """One seat of the roster, in seat order (the index is the seat; the host is seat 0, guest 0)."""
+    guest: int
+    name: str
+    ready: bool = False
+    in_match: bool = False
+    check: int = CHECK_NONE
+
+
+@dataclass(frozen=True)
+class Roster:
+    revision: int                   # counts the changes the host made (16 bits, wraps)
+    phase: int
+    seats_max: int                  # the players the chosen game takes (0 when no game is chosen)
+    selection: int                  # the number of the host's current pick (0: none)
+    players: tuple
+
+
+@dataclass(frozen=True)
+class Chat:
+    sender: int                     # 0 the host, 1.. a guest
+    name: str                       # stamped by the host
+    text: str
+
+
+@dataclass(frozen=True)
+class Game:
+    """The host's pick as a guest compares it with its own library (`lobby_check`). Digests are 32 bytes, 32 zero bytes
+    meaning "none". `mode` says what is compared: the identity without the learned paths (PORTABLE, for a machine whose
+    mixed-build gate passed) or the full simulation identity (FULL: `sources` is compared as well)."""
+    mode: int
+    schema: int
+    seats_max: int
+    machine: str
+    converter: tuple
+    rom: bytes
+    engine: bytes
+    options: bytes
+    sources: bytes
+    firmware: bytes
+    title: str
+    game_options: str = ''
+
+    def digest(self) -> bytes:
+        """The identity the LAUNCH carries as its stamp: what is compared in this mode, never the title or the options the
+        host pushes (they have their own field)."""
+        parts = [str(self.mode).encode(), str(self.schema).encode(), self.machine.encode('ascii'),
+                 '.'.join(str(number) for number in self.converter).encode(), self.rom, self.engine, self.options, self.firmware]
+        if self.mode == MODE_FULL:
+            parts.append(self.sources)
+        value = hashlib.sha256(b'retro-recomp-lobby-game\0')
+        for part in parts:
+            value.update(len(part).to_bytes(2, 'little') + part)
+        return value.digest()
+
+
+@dataclass(frozen=True)
+class Select:
+    ident: int                      # the number of this pick (16 bits, from 1): an answer names it, an old answer is ignored
+    game: Game | None               # None: the host chose nothing (any more)
+
+
+@dataclass(frozen=True)
+class Notice:
+    code: int
+
+
+@dataclass(frozen=True)
+class Back:
+    match_id: int
+    reason: int
+
+
+@dataclass(frozen=True)
+class Say:
+    text: str
+
+
+@dataclass(frozen=True)
+class Ready:
+    ready: bool
+
+
+@dataclass(frozen=True)
+class Answer:
+    selection: int
+    status: int
+    reasons: int
+    version: tuple                  # the converter version of the guest's own export (0.0.0 when it has none)
+
+
+def _text_field(text: str, limit: int, what: str) -> bytes:
+    raw = text.encode('utf-8')
+    if not 0 < len(raw) <= limit:
+        raise ValueError(f'{what} outside the rules')
+    return raw
+
+
+def _encode_lobby(message) -> tuple[int, bytes]:
+    if isinstance(message, Roster):
+        if not (message.phase in LOBBY_PHASES and 0 <= message.seats_max <= MAX_SEATS and 0 <= message.selection <= 0xffff
+                and 0 <= message.revision <= 0xffff and 1 <= len(message.players) <= MAX_SEATS):
+            raise ValueError('a roster outside the rules')
+        body = b''
+        for player in message.players:
+            raw = _text_field(player.name, MAX_NAME_BYTES, 'a name')
+            body += struct.pack('<BBBBB', player.guest, int(player.ready), int(player.in_match), player.check, len(raw)) + raw
+        return ROSTER, struct.pack('<BHBBHB', LOBBY_VERSION, message.revision, message.phase, message.seats_max,
+                                   message.selection, len(message.players)) + body
+    if isinstance(message, Chat):
+        name, text = _text_field(message.name, MAX_NAME_BYTES, 'a name'), _text_field(message.text, MAX_CHAT_BYTES, 'a line')
+        return CHAT, struct.pack('<BB', message.sender, len(name)) + name + struct.pack('<H', len(text)) + text
+    if isinstance(message, Select):
+        game = message.game
+        if not 0 < message.ident <= 0xffff:
+            raise ValueError('a selection number outside the rules')
+        if game is None:
+            return SELECT, struct.pack('<HB', message.ident, 0)
+        if (not _MACHINE.fullmatch(game.machine) or game.mode not in (MODE_PORTABLE, MODE_FULL) or not 0 <= game.seats_max <= MAX_SEATS
+                or not 0 <= game.schema <= 255 or len(game.converter) != 3 or not all(0 <= number <= 0xffff for number in game.converter)
+                or any(len(digest) != 32 for digest in (game.rom, game.engine, game.options, game.sources, game.firmware))
+                or len(game.game_options) > MAX_OPTIONS or not game.game_options.isascii()):
+            raise ValueError('a game outside the rules')
+        title, machine = _text_field(game.title, MAX_TITLE_BYTES, 'a title'), game.machine.encode('ascii')
+        options = game.game_options.encode('ascii')
+        return SELECT, b''.join((struct.pack('<HBBBB', message.ident, 1, game.mode, game.schema, game.seats_max),
+                                 struct.pack('<B', len(machine)), machine, struct.pack('<3H', *game.converter),
+                                 game.rom, game.engine, game.options, game.sources, game.firmware,
+                                 struct.pack('<B', len(title)), title, struct.pack('<H', len(options)), options))
+    if isinstance(message, Notice):
+        return NOTICE, struct.pack('<B', message.code)
+    if isinstance(message, Back):
+        return BACK, struct.pack('<IB', message.match_id, message.reason)
+    if isinstance(message, Say):
+        text = _text_field(message.text, MAX_CHAT_BYTES, 'a line')
+        return SAY, struct.pack('<H', len(text)) + text
+    if isinstance(message, Ready):
+        return READY, struct.pack('<B', int(bool(message.ready)))
+    if not (0 <= message.reasons <= MAX_REASONS and len(message.version) == 3 and all(0 <= number <= 0xffff for number in message.version)
+            and 0 < message.selection <= 0xffff):
+        raise ValueError('an answer outside the rules')
+    return ANSWER, struct.pack('<HBB3H', message.selection, message.status, message.reasons, *message.version)
+
+
 def encode(message) -> tuple[int, bytes]:
     """(type, payload) of a message."""
+    if isinstance(message, (Roster, Chat, Select, Notice, Back, Say, Ready, Answer)):
+        return _encode_lobby(message)
     if isinstance(message, Welcome):
         return WELCOME, struct.pack('<BB', message.guest_id, message.capacity)
     if isinstance(message, Reject):
@@ -182,10 +350,125 @@ def _decode(kind: int, payload: bytes):
     elif kind == BYE and size == 1:
         if payload[0] in BYE_REASONS:
             return Bye(payload[0])
+    elif ROSTER <= kind <= ANSWER:
+        return _decode_lobby(kind, payload)
     raise FrameError('a message the rules do not allow')
 
 
 BYE_REASONS_WIRE = range(1, 7)       # the datagram BYE reasons (input_records.BYE_*): an END carries one of them
+
+
+def _flag(value: int) -> bool:
+    if value > 1:
+        raise FrameError('a flag that is neither 0 nor 1')
+    return bool(value)
+
+
+class _Cursor:
+    """Bounded reading of a payload: a field that goes past the end is a `FrameError`, and `done` demands that nothing is left."""
+
+    def __init__(self, payload: bytes):
+        self.payload, self.offset = payload, 0
+
+    def take(self, size: int) -> bytes:
+        raw = self.payload[self.offset:self.offset + size]
+        if len(raw) != size:
+            raise FrameError('a message cut short')
+        self.offset += size
+        return raw
+
+    def unpack(self, form: str):
+        values = struct.unpack(form, self.take(struct.calcsize(form)))
+        return values if len(values) > 1 else values[0]
+
+    def text(self, size_form: str, limit: int) -> str:
+        size = self.unpack(size_form)
+        if not 0 < size <= limit:
+            raise FrameError('a text field of the wrong size')
+        try:
+            return self.take(size).decode('utf-8')
+        except UnicodeDecodeError:
+            raise FrameError('a text field that is not UTF-8') from None
+
+    def done(self) -> None:
+        if self.offset != len(self.payload):
+            raise FrameError('bytes left over')
+
+
+def _decode_lobby(kind: int, payload: bytes):
+    cursor = _Cursor(payload)
+    if kind == ROSTER:
+        version, revision, phase, seats_max, selection, count = cursor.unpack('<BHBBHB')
+        if version != LOBBY_VERSION or phase not in LOBBY_PHASES or seats_max > MAX_SEATS or not 1 <= count <= MAX_SEATS:
+            raise FrameError('a roster the rules do not allow')
+        players = []
+        for _ in range(count):
+            guest, ready, in_match, check = cursor.unpack('<BBBB')
+            if guest >= MAX_SEATS or check > CHECK_FAILED:
+                raise FrameError('a seat the rules do not allow')
+            players.append(Player(guest, cursor.text('<B', MAX_NAME_BYTES), _flag(ready), _flag(in_match), check))
+        cursor.done()
+        return Roster(revision, phase, seats_max, selection, tuple(players))
+    if kind == CHAT:
+        sender, name_size = cursor.unpack('<BB')
+        if sender >= MAX_SEATS or not 0 < name_size <= MAX_NAME_BYTES:
+            raise FrameError('a chat line the rules do not allow')
+        name = _decode_name(cursor.take(name_size))
+        text = cursor.text('<H', MAX_CHAT_BYTES)
+        cursor.done()
+        return Chat(sender, name, text)
+    if kind == SELECT:
+        ident, present = cursor.unpack('<HB')
+        if ident == 0 or present > 1:
+            raise FrameError('a selection the rules do not allow')
+        if not present:
+            cursor.done()
+            return Select(ident, None)
+        mode, schema, seats_max, length = cursor.unpack('<BBBB')
+        if mode not in (MODE_PORTABLE, MODE_FULL) or seats_max > MAX_SEATS or not 0 < length <= MAX_MACHINE:
+            raise FrameError('a game the rules do not allow')
+        try:
+            machine = cursor.take(length).decode('ascii')
+        except UnicodeDecodeError:
+            raise FrameError('a machine id that is not ASCII') from None
+        if not _MACHINE.fullmatch(machine):
+            raise FrameError('a machine id that is not plain')
+        converter = tuple(cursor.unpack('<3H'))
+        digests = [cursor.take(32) for _ in range(5)]
+        title = cursor.text('<B', MAX_TITLE_BYTES)
+        options_size = cursor.unpack('<H')
+        if options_size > MAX_OPTIONS:
+            raise FrameError('options of the wrong size')
+        try:
+            options = cursor.take(options_size).decode('ascii')
+        except UnicodeDecodeError:
+            raise FrameError('options that are not ASCII') from None
+        cursor.done()
+        return Select(ident, Game(mode, schema, seats_max, machine, converter, *digests, title, options))
+    if kind == NOTICE:
+        code = cursor.unpack('<B')
+        cursor.done()
+        if code in NOTICES:
+            return Notice(code)
+    elif kind == BACK:
+        match_id, reason = cursor.unpack('<IB')
+        cursor.done()
+        if reason in BACK_REASONS:
+            return Back(match_id, reason)
+    elif kind == SAY:
+        text = cursor.text('<H', MAX_CHAT_BYTES)
+        cursor.done()
+        return Say(text)
+    elif kind == READY:
+        ready = _flag(cursor.unpack('<B'))
+        cursor.done()
+        return Ready(ready)
+    elif kind == ANSWER:
+        selection, status, reasons, *version = cursor.unpack('<HBB3H')
+        cursor.done()
+        if status in ANSWER_STATUSES and reasons <= MAX_REASONS and selection > 0:
+            return Answer(selection, status, reasons, tuple(version))
+    raise FrameError('a message the rules do not allow')
 
 
 def _decode_launch(payload: bytes) -> Launch:

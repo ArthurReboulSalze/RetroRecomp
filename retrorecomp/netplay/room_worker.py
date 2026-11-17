@@ -14,8 +14,17 @@ and gets a `launch` call back. No path, no file name and no command line ever cr
             {"call": "launch", "match_id": n, "game": {...} [, "test_settings": {...}]}                 guest
             {"call": "launch_refused", "match_id": n, "status": 1 | 2 | 3}                              guest
             {"call": "kick", "guest": n}   {"call": "close_room"}   stop, resume, close_game_pipe (tests)
+    CALL    the lobby (`lobby.py`, `lobby_check.py`; the fields are in LOBBY.md):
+            {"call": "lobby_chat", "text": s}                                                 host, guest
+            {"call": "lobby_select", "game": {lobby.game_dict fields} | null}                 host: the pick
+            {"call": "lobby_move", "guest": n, "seat": n}                                     host
+            {"call": "lobby_launch", "game": {exe, cwd, ...}, "settings": {...}, "need_ready": bool}   host
+            {"call": "lobby_ready", "ready": bool}                                            guest
+            {"call": "lobby_answer", "selection": n, "status": n, "reasons": n, "version": [a, b, c]}  guest: its library's word
     EVENT   room_open, joined_room, joined, left, launching, launch_request, launch_failed, launch_error,
-            launch_refused, slow_link, seat_dropped, host_gone, match_over, room_error, room_closed
+            launch_refused, slow_link, seat_dropped, host_gone, match_over, room_error, room_closed, and the lobby's
+            (`lobby.EVENTS`): lobby_roster, lobby_selection, lobby_check_request, lobby_check, lobby_chat, lobby_notice,
+            lobby_launch, lobby_back, lobby_error
 
 The converter's EVENT stream is data for its window: the names in it were cleaned by the host (`control.display_name`),
 the machine id is a short plain word, the digests are hex. Nothing in it is ever run, opened or used as a path.
@@ -35,6 +44,7 @@ from . import control, invitation, scripted_inputs
 from . import worker_channel as channel
 from .lan_transport import RoomError, RoomGuest, RoomHost
 from .launch import Refusal, launch_settings
+from .lobby import game_from_dict
 from .lockstep import LockstepDriver, Settings
 from .room_log import RoomLog
 from .session_game import SessionGame
@@ -212,7 +222,7 @@ class RoomWorker:
             if self.match is match:
                 self.match = None
         if self.role == 'host' and self.room is not None:
-            self.room.end_match()
+            self.room.end_match(match.driver.outcome or 'ended')       # and every guest is back in the lobby
         self.emit({'event': 'match_over', 'match_id': match.match_id, 'outcome': match.driver.outcome,
                    'detail': match.driver.detail, 'counters': self.room.counters if self.room is not None else {}})
 
@@ -244,6 +254,8 @@ class RoomWorker:
             match.driver.close_game_pipe()
         elif name == 'launch':
             (self._host_launch if self.role == 'host' else self._guest_launch)(message)
+        elif isinstance(name, str) and name.startswith('lobby_'):
+            self._lobby_call(name, message)
         elif name == 'launch_refused' and self.role == 'guest':
             with self.lock:
                 pending, self.pending = self.pending, None
@@ -281,6 +293,60 @@ class RoomWorker:
         except (KeyError, ValueError, TypeError) as error:
             self.emit({'event': 'launch_error', 'detail': f'the launch is not what it should be ({type(error).__name__})'})
             return
+        self.emit({'event': 'launching', 'match_id': info.match_id, 'seats': info.seats, 'names': list(info.names)})
+
+    # ---- the lobby's calls ----
+
+    def _lobby_call(self, name: str, message: dict) -> None:
+        """The window's calls on the lobby. A call that is not what it should be is said (`lobby_error`) and changes nothing."""
+        try:
+            if name == 'lobby_chat':
+                self.room.lobby_say(str(message.get('text', '')))
+            elif self.role == 'host' and name == 'lobby_select':
+                refusal = self.room.lobby_select(None if message.get('game') is None else game_from_dict(message['game']))
+                if refusal is not None:
+                    self.emit({'event': 'lobby_error', 'call': name, 'detail': refusal.reason})
+            elif self.role == 'host' and name == 'lobby_move':
+                refusal = self.room.lobby_move(int(message['guest']), int(message['seat']))
+                if refusal is not None:
+                    self.emit({'event': 'lobby_error', 'call': name, 'detail': refusal.reason})
+            elif self.role == 'host' and name == 'lobby_launch':
+                self._lobby_launch(message)
+            elif self.role == 'guest' and name == 'lobby_ready':
+                self.room.lobby_ready(bool(message.get('ready')))
+            elif self.role == 'guest' and name == 'lobby_answer':
+                self.room.lobby_answer(int(message['selection']), int(message['status']), int(message.get('reasons', 0)),
+                                       tuple(int(number) for number in message.get('version', (0, 0, 0))))
+            else:
+                self.emit({'event': 'lobby_error', 'call': name, 'detail': 'a lobby call this seat does not take'})
+        except (KeyError, ValueError, TypeError) as error:
+            self.emit({'event': 'lobby_error', 'call': name, 'detail': f'the call is not what it should be ({type(error).__name__})'})
+
+    def _lobby_launch(self, message: dict) -> None:
+        """The host starts the match of its pick with the guests who have the game: the lobby says who and what the launch's
+        options are (the host's pick pushes them; `settings` cannot)."""
+        game = self._game_config(message)
+        values = dict(message.get('settings') or {})
+        if 'options' in values:
+            raise ValueError('the options of a lobby launch are the pick\'s')
+        net = {name: values.pop(name) for name in ('delay', 'digest_every', 'redundancy') if name in values}
+        check = launch_settings({'seat': 1, 'seats': 2, 'names': ['a', 'b'], 'delay': net.get('delay'),
+                                 'digest_every': net.get('digest_every', Settings.digest_every),
+                                 'redundancy': net.get('redundancy', Settings.redundancy), 'options': ''}, guest=True)
+        if isinstance(check, Refusal):
+            raise ValueError(check.reason)
+        with self.lock:             # held until `pending` is set: a guest that answers at once finds it there
+            if self.match is not None or self.pending is not None:
+                self.emit({'event': 'launch_error', 'detail': 'a match is already running'})
+                return
+            options = self.room.lobby.game.game_options if self.room.lobby.game is not None else ''
+            info = self.room.lobby_launch(need_ready=bool(message.get('need_ready')), delay=net.get('delay') or 0,
+                                          digest_every=net.get('digest_every', Settings.digest_every),
+                                          redundancy=net.get('redundancy', Settings.redundancy))
+            if isinstance(info, Refusal):
+                self.emit({'event': 'launch_error', 'detail': info.reason})
+                return
+            self.pending = {'info': info, 'game': game, 'values': values, 'net': {**net, 'options': options}}
         self.emit({'event': 'launching', 'match_id': info.match_id, 'seats': info.seats, 'names': list(info.names)})
 
     def _guest_launch(self, message: dict) -> None:
