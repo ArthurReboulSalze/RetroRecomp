@@ -95,6 +95,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-next-release) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-next-release) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
+| [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-next-release) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
 
@@ -254,6 +255,41 @@ paths of both boards changes with the machine's sources, as for any change of th
   `--save-digests`: the rollback tier and the delay tier give the same digests and history; with and without the save and load the
   digests are equal up to frame 1499 and differ from the first one after the load. Not measured: the cost of a save or a load, physical
   latency, hardware fidelity.
+## Neo Geo: rollback and the host's F8 / F9 for everyone in a match (next release)
+
+**What changes.** A Neo Geo export answers a multiplayer session like the NES: the delay tier, the rollback tier (the console's frames
+are run again on a corrected guess, five at most) and the host's F8 / F9 for everyone. Alone, nothing changes: the session code is
+reached only when the converter starts the game with its pipes (`RETRORECOMP_NETPLAY_PIPE`).
+- **The snapshot** (`rr_ng_snap_*`, `native/neogeo_state.c`): the same fields as the F8 state (both CPUs, work RAM, NVRAM and memory
+  card, protection RAM, LSPC with its video RAM and palettes, YM2610, timers, RTC, pending interrupts, the 68000 slice, the YM and
+  board latches, the LSPC pipeline, the frame index) in memory only, 225,417 bytes on NAM-1975 and 233,609 on KOF 2003 (PVC board),
+  with no allocation and without the picture. A load keeps the fix-layer mask latch and the audio chain as they are, so a correction
+  does not blink the edge band or cut the sound.
+- **The digest** (`rr_ng_digest`): the three hashes the route traces already carry (68000 registers, the serialized hardware state with
+  its latches, the Z80) and the frame index.
+- **The clock of the match** (`session_begin`): the board's RTC starts from 1 January 2000 UTC on every seat, not from the PC's time.
+- **Saves, for now:** each seat loads its own NVRAM and memory card as a game alone does, the guest writes nothing
+  (`side_effects(false)`, also for the fallback records) and the boot digest refuses seats whose saves differ.
+- **The host's values for everyone** (session ABI 6): the clock mode (the F5 boost: 24 MHz and 381 sprites, or standard) and the
+  machine (MVS or AES) of the host's PC ride the room into every seat's SETUP as `clock=enhanced|standard` and `system=mvs|aes`
+  (`session_options`, `session_option`), and F5 and F11 are refused (run-changing rows) for the match. The clock mode is applied
+  in the game; a machine cannot be: MVS and AES boot different firmware, so a seat whose game runs the other one refuses the match
+  naming `system` (the player switches with F11, which restarts the game, before the match).
+- **The determinism probe:** `--snapshot-probe WARM RUN` on the game and `tools/neogeo_snapshot_probe.py` (save, run, load, run: every
+  digest and the last snapshot byte for byte equal; a refused load changes nothing).
+
+**What it does not change.** The code generated for the game, the F8 / F9 state of a game alone (`neogeo_state.c` keeps
+`rr16_state_capture` and `rr16_state_restore` as they were), the 68000 and the Z80, the interpreter fallback counting.
+
+**Hot path:** no. A frame does the same work when no session runs; the two records the fallback makes check one flag
+(`rr_ng_feedback_off`) on the path that already runs the interpreter. The cost of a snapshot per frame has not been measured (timing
+only with Arthur's word on a quiet PC).
+
+**What moves:** the Neo Geo game stamp and the Neo Geo host stamp, besides what the multiplayer release moves for every machine; no
+other console (nothing shared is edited). **Quick states:** unchanged. Evidence: the probe passes at four save points (300, 2,500,
+3,001 and 4,700 frames) on NAM-1975 and KOF 2003; two copies on one PC, rollback tier 5, 30 ms latency and 10 ms jitter, the host's
+save at frame 600 and load at 1,500: PASS on both games (NAM-1975: 307 and 498 rollbacks, KOF 2003: 340 and 425), digests equal on both
+seats and, with `--save-digests` (NAM-1975), equal to a run without the save and load up to frame 1,499 and different after it.
 
 ## Game Boy: rollback and the host's F8 / F9 for everyone (next release)
 

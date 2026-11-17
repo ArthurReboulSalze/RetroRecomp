@@ -60,6 +60,8 @@ class NeoGeoProfile(SystemProfile):
     input_layout = InputLayout(('a', 'b', 'c', 'd'), (), None, 2400, script_format='neogeo',
                                script_suffix='.inputs')
     shared_knowledge = SharedKnowledge('stable')
+    # Multiplayer: the export answers a session (digest, in-memory snapshot, rollback). Not portable: no mixed-build gate has passed.
+    netplay_session = True
     host_adapter = 'adapters/rrhk_ng.c'
     stamp_groups = ('conversion_gates', 'neogeo_codegen', 'neogeo_build', 'neogeo_native', 'musashi_fixes', 'm68000_state_rules')
     # A .neo container, or a ZIP whose members are named like a cartridge set (program, sprites, sound).

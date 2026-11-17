@@ -56,6 +56,13 @@ void rr_ng_ui_test_present(void *renderer);
 void rr_ng_ui_snapshot(FILE *file,const char *label,void *window);
 void rr_ng_test_json(FILE *file,const char *text);
 bool rr_ng_core_state_valid(const uint8_t *data,size_t size);
+/* Multiplayer: the in-memory snapshot (neogeo_state.c), the digest and the session hooks (neogeo_main.c). */
+size_t rr_ng_snap_bound(void);
+size_t rr_ng_snap_save(void *buffer,size_t capacity);
+bool rr_ng_snap_load(const void *buffer,size_t size);
+uint64_t rr_ng_digest(void);
+void rr_ng_side_effects(bool allowed);
+void rr_ng_session_clock(uint64_t clock);
 size_t rr_ng_cpu_extra_save(uint8_t *data,size_t capacity);
 bool rr_ng_cpu_extra_restore(const uint8_t *data,size_t size);
 size_t rr_ng_ym_extra_save(uint8_t *data,size_t capacity);

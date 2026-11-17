@@ -6,6 +6,8 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
+#include <stdlib.h>
+#include <string.h>
 #include "retro_console16.h"
 #include "console16_state.h"
 #include "retro_menu.h"
@@ -30,16 +32,45 @@ static const RrhkAction actions[ACTIONS] = {
 /* Autofire counts guest frames; a reset or a load forgets held buttons. */
 void rr16_host_discontinuity(void) { rrhk_autofire_reset(); }
 
+/* Multiplayer (native/hostkit/hostkit_session.h): the snapshot of the whole machine (native/neogeo_state.c), its digest, what a frame
+ * may do outside the guest, and the clock of the match. */
+size_t rr_ng_snap_bound(void);
+size_t rr_ng_snap_save(void *buffer, size_t capacity);
+bool rr_ng_snap_load(const void *buffer, size_t size);
+uint64_t rr_ng_digest(void);
+void rr_ng_side_effects(bool allowed);
+void rr_ng_session_clock(uint64_t clock);
+
 static void settings_loaded(RrhkUi *ui) {
     rr_ng_set_enhanced(rr_ini_int(L"NeoGeo.Runtime", L"enhanced", rr_ng_enhanced() ? 1 : 0, ui->ini_file) == 1);
+}
+/* The run-changing values of this PC (session ABI 6), which the host sends to every seat and locks for the match: the clock mode
+ * ("clock=enhanced": the boost, 24 MHz and 381 sprites, or "clock=standard") and the machine ("system=mvs" or "system=aes"). */
+static size_t session_options(char *out, size_t capacity) {
+    char text[48];
+    const int n = snprintf(text, sizeof text, "clock=%s\nsystem=%s", rr_ng_enhanced() ? "enhanced" : "standard", rr_ng_aes() ? "aes" : "mvs");
+    if (n <= 0 || (size_t)n > capacity) return 0;
+    memcpy(out, text, (size_t)n);
+    return (size_t)n;
+}
+/* The host's values at SETUP, before frame 0. The clock mode is applied here. A machine is not: MVS and AES boot different
+ * firmware, and a game that started in the other one cannot change in the middle of a session, so the seat refuses the match naming
+ * "system" (the player switches with F11 outside the match, which restarts the game). */
+static bool session_option(const char *key, const char *value) {
+    if (!strcmp(key, "clock") && (!strcmp(value, "enhanced") || !strcmp(value, "standard"))) {
+        rr_ng_set_enhanced(value[0] == 'e');
+        return true;
+    }
+    if (!strcmp(key, "system") && (!strcmp(value, "mvs") || !strcmp(value, "aes"))) return (value[0] == 'a') == (rr_ng_aes() != 0);
+    return false;
 }
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
     if (slot == 0)
-        rrhk_option_row_icon(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "%s",
+        rrhk_option_row_run(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "%s",
                              rr_tr(rr_ng_enhanced() ? "F5 Enhanced Neo Geo: ON" : "F5 Enhanced Neo Geo: OFF"));
     else
-        rrhk_option_row_icon(rows, SDL_SCANCODE_F11, RR_ICON_ROW_COIN, "%s", rr_ng_arcade_only() ? "F11 Arcade Only" : !rr_ng_aes_available() ?
+        rrhk_option_row_run(rows, SDL_SCANCODE_F11, RR_ICON_ROW_COIN, "%s", rr_ng_arcade_only() ? "F11 Arcade Only" : !rr_ng_aes_available() ?
             rr_tr("F11 AES: BIOS neo-epo.bin required") : rr_ng_aes() ? "F11 Console AES -> Arcade MVS (restart)" :
             "F11 Arcade MVS -> Console AES (restart)");
 }
@@ -137,6 +168,9 @@ const RrhkMachine *rrhk_adapter(void) {
             .input_frame = rr16_input_frame,
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
             .help_controls = help_controls, .key_event = key_event,
+            .snap_bound = rr_ng_snap_bound, .snap_save = rr_ng_snap_save, .snap_load = rr_ng_snap_load,
+            .digest = rr_ng_digest, .side_effects = rr_ng_side_effects, .session_begin = rr_ng_session_clock,
+            .session_option = session_option, .session_options = session_options,
             .frame_limit = rr16_host_frame_limit, .frame_start = rr16_host_test_tick,
             .before_frame = before_frame, .cost_enabled = rr_ng_performance_enabled, .cost = rr_ng_host_cost,
             .before_present = before_present, .finished = rr_ng_host_timing,
