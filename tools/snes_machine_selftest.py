@@ -47,7 +47,7 @@ def cartridge(pal: bool, irq: bool) -> bytearray:
 def check(path: Path, label: str, work: Path, frames: int, warm: int) -> dict:
     exe = prepare16(path, 'snes', emit=lambda _: None)
     project = next(parent for parent in exe.parents if (parent / 'CMakeLists.txt').is_file())
-    (project / 'console16_main.c').write_text((ROOT / 'native/snes_machine_checks.c').read_text(), encoding='utf-8')
+    (project / 'console16_main.c').write_text((ROOT / 'native/snes_cpu/machine_checks.c').read_text(), encoding='utf-8')
     cmake, _ = toolchain()
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=work / (label + '-build.log'))
     result = json.loads(run([exe, str(frames), str(warm)], cwd=work).strip().splitlines()[-1])

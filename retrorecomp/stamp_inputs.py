@@ -630,7 +630,7 @@ INPUTS = _resolve({
         'native/snes_dsp1_projection.inc',
         'native/snes_dsp1_vectors.h',
         'native/snes_hdma.inc',
-        'native/snes_machine_checks.c',
+        'native/snes_cpu/machine_checks.c',
         'native/snes_native_checks.c',
         'native/snes_native_steps.h',
         'native/snes_ppu_bus.inc',

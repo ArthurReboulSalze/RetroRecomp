@@ -192,7 +192,7 @@ and kept live on load) in a buffer the kit owns, about 335 to 345 KiB, the bound
 and the one at exit). **Boards proven for rollback: the ones without an enhancement chip, and one real game of each chip** (Super FX: Star Fox; SA-1: Kirby
 Super Star; CX4: Mega Man X3; S-DD1: Street Fighter Alpha 2; DSP-1: Super Mario Kart), the chips' state being the engine's own
 (`cart_saveload`); the other games of those chips run the same code and are not a proof of their own. **Stamps:** the Super Nintendo game stamp
-moves (the profile) and its host stamp moves (`snes_backend.c`, `rrhk_snes.c`, the new `snes_machine_checks.c`): its exports are rebuilt and
+moves (the profile) and its host stamp moves (`snes_backend.c`, `rrhk_snes.c`, the new `snes_cpu/machine_checks.c`): its exports are rebuilt and
 converted again once; no other machine's stamp moves. **Quick states:** the Super Nintendo key hashes `snes_backend.c` and so moves; an
 older quick state is refused cleanly (accepted by the multiplayer specialist, 17 November 2026). **Proof so far** (17 November 2026, one
 PC, no ROM in the repository): `tools/snes_machine_selftest.py` (ROM-free: four authored cartridges, NTSC and PAL, with and without a
@@ -401,7 +401,7 @@ HELLO says the same. **The list is third-party data: the engine itself says no m
 with that many pads here; it is a reviewed list, not a gameplay validation.** **The host's save:** `session_save` and
 `session_save_put` give the board's battery RAM (the save RAM, the SA-1's BW-RAM, the Super FX's game pak RAM), so the host's cartridge
 save travels to every seat for the match, in memory only. **Stamps:** the Super Nintendo game stamp (the list, the report, the header
-define of a listed game) and host stamp (`snes_backend.c`, `rrhk_snes.c`, `snes_machine_checks.c`); the Super Nintendo quick-state key
+define of a listed game) and host stamp (`snes_backend.c`, `rrhk_snes.c`, `snes_cpu/machine_checks.c`); the Super Nintendo quick-state key
 moves again with `snes_backend.c` (already moving in the section above). Games that are not listed keep the same generated sources.
 **Proof so far** (17 November 2026, one PC): `netplay_game_smoke.py --rollback 5 --seats 4 --save-at 600 --load-at 1500` on Barkley
 Shut Up and Jam! and `--seats 3` on Secret of Mana: PASS, rollback tier on every seat, digests equal; Secret of Mana in a room of two:

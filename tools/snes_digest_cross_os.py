@@ -4,7 +4,7 @@
     python -B tools/snes_digest_cross_os.py compare A.txt B.txt
 
 `trace` converts the ROM with this source tree, builds the checks of the adapter in place of the game's main
-(native/snes_machine_checks.c, mode `trace`) and keeps what it prints: for every frame of a scripted two-pad route, the digest
+(native/snes_cpu/machine_checks.c, mode `trace`) and keeps what it prints: for every frame of a scripted two-pad route, the digest
 (rr16_snes_digest) and its seven partitions (cpu, wram, apu, ppu, ppu ports, dma, cartridge). Only hashes: no ROM byte and no
 picture. Run it once on each system from the same commit, each with its own scratch library; `compare` says whether the two are
 identical and, if not, the first frame and the partitions that differ.
@@ -27,7 +27,7 @@ def trace(rom: Path, frames: int, out: Path) -> None:
     work.mkdir(parents=True, exist_ok=True)
     exe = prepare16(rom, 'snes', emit=lambda _: None)
     project = next(parent for parent in exe.parents if (parent / 'CMakeLists.txt').is_file())
-    (project / 'console16_main.c').write_text((ROOT / 'native/snes_machine_checks.c').read_text(), encoding='utf-8')
+    (project / 'console16_main.c').write_text((ROOT / 'native/snes_cpu/machine_checks.c').read_text(), encoding='utf-8')
     cmake, _ = toolchain()
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=work / (rom.stem + '-build.log'))
     text = run([exe, 'trace', str(frames)], cwd=work)

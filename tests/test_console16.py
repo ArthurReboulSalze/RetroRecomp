@@ -748,7 +748,7 @@ class Console16Tests(unittest.TestCase):
         for key in ('main_cpu', 'native_coverage', 'input_players', 'ordinary_saves', 'sdl_revision'):
             self.assertNotIn(key, report)
         self.assertEqual(set(report['game_states']), {'supported', 'save_key', 'load_key', 'slots', 'compatibility'})
-        self.assertEqual(set(report['qualification_scope']), {'routes', 'coprocessors', 'universal_zero_fallback_claim'})
+        self.assertEqual(set(report['qualification_scope']), {'routes', 'coprocessors', 'controls', 'universal_zero_fallback_claim'})
         self.assertIsNone(report['peripheral'])
         self.assertNotIn('cpu_agreement', report['native_validation'])
         self.assertIs(report['native_validation']['independent_cpu_oracle'], False)
