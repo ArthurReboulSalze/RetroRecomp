@@ -59,6 +59,7 @@ def main() -> int:
     parser.add_argument('--hold', type=int, default=12, help='frames a scripted pad keeps its word')
     parser.add_argument('--restart-at', type=int, default=0, help='the host asks a restart for everyone in its LOCAL of this frame')
     parser.add_argument('--save-at', type=int, default=0, help="the host saves the match's state for everyone in its LOCAL of this frame")
+    parser.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too (a game with sticks)')
     parser.add_argument('--machine', default=None, help='the profile id (gb, gg, gba: a handheld is played in input sharing)')
     parser.add_argument('--sharing', choices=('per_player', 'everyone', 'turns'), default=None,
                         help='the input mode (a handheld plays in input sharing only: everyone by default)')
@@ -85,7 +86,7 @@ def main() -> int:
         folder.mkdir(parents=True)
         copy = folder / game.name
         shutil.copy2(game, copy)
-        script = {'kind': 'random', 'seat': seat, 'hold': args.hold}
+        script = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': args.sticks}
         if seat == 0 and args.restart_at:
             script['system_at'] = {str(args.restart_at): seat_map.SYS_RESTART}     # rides its record of F + delay
         if seat == 0 and (args.save_at or args.load_at):

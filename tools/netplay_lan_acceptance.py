@@ -42,7 +42,7 @@ KEPT = ('outcome', 'detail', 'tier', 'delay', 'history_frames', 'history_digest'
 
 def script(seat: int, args) -> dict:
     """The scripted pad of a seat, with the host's restart and its save and load of the match's state as record bits."""
-    spec = {'kind': 'random', 'seat': seat, 'hold': args.hold}
+    spec = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': getattr(args, 'sticks', False)}
     if seat == 0:
         at = {}
         if args.restart_at:
@@ -103,7 +103,7 @@ def compare(host: dict, guest: dict, args) -> list[str]:
 def run(args) -> int:
     """The host on the remote PC, the guest here; the verdict and both results in the report."""
     flags = ['--frames', str(args.frames), '--machine', args.machine, '--hold', str(args.hold),
-             '--digest-every', str(args.digest_every), '--tier', args.tier]
+             '--digest-every', str(args.digest_every), '--tier', args.tier] + (['--sticks'] if args.sticks else [])
     for name in ('save_at', 'load_at', 'restart_at'):
         if getattr(args, name):
             flags += ['--' + name.replace('_', '-'), str(getattr(args, name))]
@@ -135,7 +135,7 @@ def run(args) -> int:
         return 1
     guest_args = argparse.Namespace(role='guest', game=args.game, machine=args.machine, out=args.out, lag_ms=args.lag_ms,
                                     jitter_ms=args.jitter_ms, invitation=found['invitation'], frames=args.frames,
-                                    hold=args.hold, save_at=0, load_at=0, restart_at=0, address=None, tier=args.tier,
+                                    hold=args.hold, save_at=0, load_at=0, restart_at=0, address=None, tier=args.tier, sticks=args.sticks,
                                     digest_every=args.digest_every)
     lines: list[str] = []
     original = room_cli.say
@@ -190,6 +190,7 @@ def main() -> int:
         p.add_argument('--lag-ms', type=float, default=0.0)
         p.add_argument('--jitter-ms', type=float, default=0.0)
         p.add_argument('--out', type=Path)
+        p.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too')
     run_parser = sub.choices['run']
     run_parser.add_argument('--remote', required=True, help='USER@HOST of the PC that hosts (SSH, its key already trusted)')
     run_parser.add_argument('--remote-root', required=True, help='its converter folder')
