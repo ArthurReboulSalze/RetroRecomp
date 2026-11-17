@@ -153,6 +153,10 @@ paths of both boards changes with the machine's sources, as for any change of th
 - **The EEPROM in a session.** Every seat starts from a blank EEPROM (a settings file that one player has and another has not would
   make the matches diverge): in a session the file is neither read nor written, and a frame with `side_effects` off takes the change
   flag and asks for no file. Alone, the saves are as before.
+- **The DIP switches are run-changing options** (session ABI 6): the adapter reports the host's three DIP words in its HELLO
+  (`dips=00ff,00fc,009f`) and applies the host's to every seat from SETUP, in memory only (a guest's own settings file is never written and
+  comes back when it plays alone). The DIP page was already run-changing, so its keys are refused in a session. Proof: 1941 with a guest whose
+  settings file holds other DIP values: boot mismatch without the host's options, PASS (1200 frames, rollback tier) with them.
 - **Players 3 and 4** are read in `run_frame` and no longer in `before_frame`: a frame run again after a correction (hostkit session,
   "silent") calls `run_frame` with the session's words but never `before_frame`, so pads set there were those of the last live frame and
   four-seat matches diverged at the first correction (found by the four-seat smoke run). Alone, the word is the same.

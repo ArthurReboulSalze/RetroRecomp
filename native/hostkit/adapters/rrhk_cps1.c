@@ -89,6 +89,25 @@ static void dip_option(RrhkUi *ui, int step) {
     /* Most boards read their switches at power-on. */
     rrhk_notice(rr_tr("Shift+F1: restart"), 2500);
 }
+/* Multiplayer: the DIP switches change the run, so the host's three words go to every seat (hostkit.h session_options) and the page is
+ * run-changing (the kit refuses its keys in a session). They are applied in memory only: a guest's own file is never written, and its
+ * settings come back when it plays alone again. */
+static size_t session_options(char *out, size_t capacity) {
+    if (!rr_cps1_dip_count()) return 0;
+    uint16_t values[3];
+    rr_cps1_dip_values(values);
+    const int n = snprintf(out, capacity, "dips=%04x,%04x,%04x", values[0], values[1], values[2]);
+    return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
+}
+static bool session_option(const char *key, const char *value) {
+    if (strcmp(key, "dips")) return false;
+    unsigned a, b, c;
+    char tail;
+    if (sscanf(value, "%x,%x,%x%c", &a, &b, &c, &tail) != 3 || a > 0xffffu || b > 0xffffu || c > 0xffffu) return false;
+    const uint16_t values[3] = {(uint16_t)a, (uint16_t)b, (uint16_t)c};
+    rr_cps1_set_dip_values(values);
+    return true;
+}
 static bool dip_available(void) { return rr_cps1_dip_count() > 0; }
 static void dip_key(RrhkUi *ui, SDL_Scancode key) {
     /* Left/Right turn pages: Enter / + choose the next value, - the previous. */
@@ -167,6 +186,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .page = &dip_page, .settings_loaded = settings_loaded, .help_controls = help_controls,
             .snap_bound = rr_cps1_snap_bound, .snap_save = rr_cps1_snap_save, .snap_load = rr_cps1_snap_load,
             .digest = rr_cps1_digest, .side_effects = rr_cps1_side_effects,
+            .session_option = session_option, .session_options = session_options,
         };
     }
     return &machine;
