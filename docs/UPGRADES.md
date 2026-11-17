@@ -589,7 +589,11 @@ ordinary pads, unchanged. Such a game has four players everywhere: its report sa
 kit gives players 3 and 4 their own bindings, and in a session they are the session's port words 3 and 4, set inside
 `run_frame` so a frame run again after a correction reads the same ones. The adapters' state is part of the rollback
 snapshot; a quick state does not keep it (after a quick-state load the adapters start from idle and the game sets them again
-on its next read).
+on its next read). In a session (`session_begin`) the adapter on the control ports stays plugged only when the session has three
+or four ports (`rrhk_session_ports`): two players play on two plain pads, as on a console without the adapter; the J-Cart is
+the cartridge and stays. **The host's save** (session ABI 8): `session_save` / `session_save_put` give the cartridge's battery
+SRAM or EEPROM, the bytes the game reads back (kept in the bus's save bytes for both), so every seat plays on the host's save,
+in memory only; a guest writes none.
 
 **Proof** (17 November 2026, llvm builds, no ROM in the repository): `tools/megadrive_rollback_selftest.py`, mode
 `multitap`, drives the three protocols through the bus as a game does (the Team Player identified with TH alone, `3` then
@@ -601,7 +605,11 @@ alone on both ports; Mega Bomberman first writes the 4 Way Play sequence `$43`, 
 --seats 4 --frames 3000 --rollback 5 --latency 30 --jitter 10 --hold 4 --save-at 600 --load-at 1500`: PASS on the rollback
 tier for all four seats, the match's save and load at the same frames on every seat, and each game's log says it reads
 players 3 and 4 through its adapter: Team Player, Columns III (declared) and Gauntlet IV (from the table); 4 Way Play, General
-Chaos and Mega Bomberman; J-Cart, Pete Sampras Tennis. Not proven: a game played to its four-player mode by hand, a Team
+Chaos and Mega Bomberman; J-Cart, Pete Sampras Tennis. With two seats Columns III passes too and its log shows no adapter
+(unplugged below three ports); with four it identifies the Team Player. The host's save: NBA Jam (Team Player, a 256-byte
+EEPROM), the host seat on a save file of known bytes and the guests on none (`--host-save`, `--save-image` its raw bytes):
+PASS with four and with two seats, every seat starting from the same boot digest, which differs from the boot digest of the
+same game without a save (the host's bytes reached every seat). Not proven: a game played to its four-player mode by hand, a Team
 Player game expecting the adapter on port B, a fifth Team Player pad.
 
 **Stamps:** the Mega Drive game, engine and host stamps move (`megadrive_multitap.py`, new; its hooks in `megadrive.py`,

@@ -12,6 +12,9 @@
 #ifndef RR_MD_PLAYERS
 #define RR_MD_PLAYERS 2
 #endif
+#ifndef RR_MD_MULTITAP
+#define RR_MD_MULTITAP 0
+#endif
 
 /* One gamepad button for every player's table (players 3 and 4 play through a multitap game's adapter). */
 #define PADS(button) {button, button, button, button}
@@ -114,6 +117,17 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
     }
     return rr16_frame(p1, p2);
 }
+/* Multiplayer (hostkit_session.h): a Team Player / 4 Way Play game plays as alone with that many players: the adapter on
+ * the control ports stays plugged only when the session has three or four ports (two players play on two plain pads,
+ * as on a console without the adapter). The J-Cart is the cartridge itself and stays. The host's cartridge save (battery
+ * SRAM or EEPROM) is what every seat plays on. */
+extern int rr_md_tap_mode;
+size_t rr16_md_session_save(void *out, size_t capacity);
+bool rr16_md_session_save_put(const void *in, size_t size);
+static void session_begin(uint64_t clock) {
+    (void)clock;
+    if (RR_MD_MULTITAP == 1) rr_md_tap_mode = rrhk_session_ports() >= 3 ? 1 : 0;
+}
 /* Multiplayer (hostkit_session.h): md_backend.c gives the digest, holds the guest's cartridge save and gives the in-process
  * snapshot of the rollback tier and of the host's F8 / F9 for everyone (none in a build without step code: delay tier). */
 uint64_t rr16_md_digest(void);
@@ -151,6 +165,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .digest = rr16_md_digest, .side_effects = rr16_md_side_effects,
             .snap_bound = rr16_md_snap_bound, .snap_save = rr16_md_snap_save,
             .snap_load = rr16_md_snap_load,
+            .session_save = rr16_md_session_save, .session_save_put = rr16_md_session_save_put,
+            .session_begin = session_begin,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .timing_report = timing_report,
             .sound_ready = sound_ready, .audio_reopen = audio_reopen, .audio_device_id = audio_device_id,

@@ -458,11 +458,33 @@ AUDIO_SILENT = (
         return;''')
 
 
+# The host's save in a session (hostkit.h session_save / session_save_put, session ABI 8): the cartridge's battery SRAM or
+# serial EEPROM, both kept in the bus's save bytes (md_battery.c loads the file there at power-on; md_cart.inc keeps the
+# EEPROM's bytes there). A guest plays on the host's bytes in memory only; its side effects are off, so nothing is written.
+SESSION_SAVE = r'''
+/* Multiplayer, the host's save (retrorecomp/megadrive_rollback.py): the bytes the game reads back, in every build. */
+size_t rr16_md_session_save(void *out, size_t capacity) {
+    const GenesisBus *b = &g_machine.bus;
+    if (!b->sram_present || !b->sram_battery || !b->sram_size || b->sram_size > sizeof b->sram) return 0;
+    if (!out) return b->sram_size;
+    if (capacity < b->sram_size) return 0;
+    memcpy(out, b->sram, b->sram_size);
+    return b->sram_size;
+}
+bool rr16_md_session_save_put(const void *in, size_t size) {
+    GenesisBus *b = &g_machine.bus;
+    if (!in || !b->sram_present || !b->sram_battery || !b->sram_size || size != b->sram_size) return false;
+    memcpy(b->sram, in, size);
+    return true;
+}
+'''
+
+
 def glue(source: str) -> str:
     source = _replace(source, 'size_t glue_rb_exec_save(void *dst, size_t cap)\n{',
                       'fiber_t glue_rb_game_fiber(void) { return s_game_fiber; }\n'
                       'size_t glue_rb_exec_save(void *dst, size_t cap)\n{', 'Mega Drive glue exec section')
-    return source + GLUE_LIVE
+    return source + GLUE_LIVE + SESSION_SAVE
 
 
 def machine(source: str) -> str:
