@@ -113,8 +113,10 @@ unless a snapshot is saved or loaded, so no path can notice it): `amiga_vamiga.p
 paths of the base keep their engine. They are `CoreComponent::rrSave` / `rrLoad`, walking the components by reference (no allocation per
 call), the sound path's state into a buffer the session holds, and the keyboard's held keys (`Keyboard::keyDown`), which no vAmiga snapshot keeps: a load left those of the timeline left, and a Start (the
 guest's Return) pressed again after a rollback could be lost on one seat (the first smoke desynchronised at frame 1199 for that). A
-quick state also sets them again now, from the keys it holds. In a session every seat starts from the install's own files (the player's
-saves are not read) and what the game saves stays in memory, inside the snapshot, never written to disk; port 1 holds the joystick;
+quick state also sets them again now, from the keys it holds. In a session the host's saves travel (session ABI 8: `session_save`,
+`session_save_put`): every seat reads its own save files once into the session's memory, the host plays on its own, and a guest plays
+on the host's image instead (an image is never empty, so a host without saves leaves a guest without its own too); what the game saves
+then stays in that memory, inside the snapshot, never written to disk; port 1 holds the joystick;
 the CPU speed (x1, x2, x4) is a run-changing option: this PC's value goes in the host's HELLO (`session_options`, `cpu=N`), the host's
 reaches every seat (`session_option`), and the F2 row is refused during the match. The host's restart takes every seat back to the
 state the session started with (a snapshot), never the process restart a game alone does. Joystick games; the keyboard and the mouse
@@ -127,7 +129,7 @@ two-player route): every replayed frame identical. `tools/netplay_game_smoke.py 
 --save-at 600 --load-at 1500` passes on Lotus 2 (Amiga 500: 521 corrections, up to 5 frames deep), the digests equal before the load
 and different after, and `--restart-at 900` passes; the same `--rollback-check` and smoke pass on All New World of Lemmings (Amiga 1200,
 its Kickstart 3.1: about 300 corrections per seat, up to 5 frames deep). On the Amiga 1200 the host waited at the prediction cap 51
-times in 3,000 frames: replaying 5 frames of that machine fits less easily in a frame (its cost is not measured). Snapshots: about 2.7 MB (Amiga 500) and 4.3 MB (Amiga 1200); their time is not measured yet (a quiet
+times in 3,000 frames: replaying 5 frames of that machine fits less easily in a frame (its cost is not measured). Snapshots: about 2.2 MB (Amiga 500) and 3.7 MB (Amiga 1200), the constant boot ROM left out in a session (`MEM_SAVE_ROMS` off); their time is not measured yet (a quiet
 PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `a08bdd4e`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.

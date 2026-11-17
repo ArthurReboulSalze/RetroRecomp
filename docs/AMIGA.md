@@ -370,11 +370,11 @@ Both Amigas play in a multiplayer session at the NES's level: the rollback tier 
   guest's Return key. The keyboard and the mouse are not carried yet, so a mouse game is not for a session.
 - **The snapshot** (`rr_amiga_snap_*`, in memory only, one per frame on the rollback tier) is the whole machine: vAmiga's state through
   its own serialiser without its per-component checksums, the sound path, the resload state, the inputs and the keyboard's held keys,
-  and the session's saves. No allocation per call. About 2.7 MB on the Amiga 500 and 4.3 MB on the Amiga 1200; its time is not
-  measured yet.
-- **Saves.** Every seat starts from the install's own files; what the game saves stays in memory for the match (inside the snapshot,
-  so a rollback takes it back) and is never written to disk. Arthur's final rule, the host's saves sent to every seat, comes with the
-  shared save transfer.
+  and the session's saves. No allocation per call. About 2.2 MB on the Amiga 500 and 3.7 MB on the Amiga 1200 (the boot ROM, the same on every
+  seat and never written, is left out); its time is not measured yet.
+- **Saves.** The host's saves travel to every seat for the match (Arthur's rule of 17 November 2026): a guest plays on the host's
+  save files instead of its own, in memory only. What the game saves during the match stays in memory (inside the snapshot, so a
+  rollback takes it back) and is never written to disk, on any seat.
 - **The CPU speed** (x1, x2, x4) changes the run: the host's value is played by every seat, and the F2 row is refused during the match
   (Arthur, 17 November 2026: « Cette partie-là devra être synchro par l'hôte »).
 - **Restart.** The host's restart takes every seat back to the state the session started with; alone, a restart still starts the process
