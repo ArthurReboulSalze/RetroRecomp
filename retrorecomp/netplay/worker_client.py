@@ -29,7 +29,7 @@ from typing import Callable
 
 from . import worker_channel as channel
 
-ROOT = Path(__file__).resolve().parents[2]
+from ..paths import ROOT     # the roots come from paths.py, never from a module's own file (the packaged exe)
 COMMAND = '_netplay-worker'
 EVENT_LIMIT = 1000                              # a room's events kept in `events`: the last ones (a hostile guest cannot grow it)
 # What a worker that has not said a thing yet shows (a status says all of it once the driver has started).
