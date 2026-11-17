@@ -53,6 +53,7 @@ from typing import Callable
 from . import input_records as wire
 from . import session_pipe as pipe
 from .session_game import SessionGame
+from .limits import TokenBucket
 from .session_transport import SeatLink
 from .time_sync import PaceController
 
@@ -141,21 +142,6 @@ class RecordLog:
         if drop >= TRIM_BEHIND:                 # in chunks: a list is cut rarely
             del self._items[:drop]
             self.base += drop
-
-
-class TokenBucket:
-    """A packet rate limit: `rate` a second, `burst` at once; the clock is the caller's."""
-
-    def __init__(self, rate: float, burst: float, now: float):
-        self.rate, self.burst, self.tokens, self.at = rate, burst, float(burst), now
-
-    def take(self, now: float) -> bool:
-        self.tokens = min(self.burst, self.tokens + max(0.0, now - self.at) * self.rate)
-        self.at = now
-        if self.tokens >= 1.0:
-            self.tokens -= 1.0
-            return True
-        return False
 
 
 class LockstepDriver:

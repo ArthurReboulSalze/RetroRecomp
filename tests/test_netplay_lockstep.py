@@ -4,7 +4,7 @@ Without a compiler: the pipe codec against the C header, the input packets (roun
 and time-sync rules, what a HELLO is refused for, the link simulator (the same seed gives every packet the same
 fate). With a C compiler and the pinned SDL2 build: tools/netplay_lockstep_selftest.py, two to four fake games each
 driven by its own worker process, the workers joined through the link simulator (clean, slow and lossy links, a star
-through the host, a boot-digest mismatch, pause, stop, forced desync, lost pipe, silent seat, time sync). No ROM, no visible window, no sound device, and no socket: the package opens none."""
+through the host, a boot-digest mismatch, pause, stop, forced desync, lost pipe, silent seat, time sync). No ROM, no visible window, no sound device, and no socket here: only lan_transport.py imports one, and its test is tests/test_netplay_loopback.py."""
 import importlib.util
 from pathlib import Path
 import random
@@ -191,12 +191,17 @@ class LinkSimulatorTests(unittest.TestCase):
 
 
 class NothingOpenedTests(unittest.TestCase):
-    def test_the_package_opens_no_socket(self):
+    def test_only_the_transport_imports_socket(self):
+        """Stage 2: `lan_transport.py` is the one module that imports `socket` (and `selectors`); every other module of the
+        package, the worker and the driver included, opens nothing and names no socket call."""
         for path in sorted(PACKAGE.glob('*.py')):
             text = path.read_text(encoding='utf-8')
-            self.assertNotRegex(text, r'^\s*(import|from)\s+(socket|socketserver|asyncio|http|urllib|ssl|selectors)\b',
+            if path.name == 'lan_transport.py':
+                self.assertRegex(text, r'(?m)^import socket$')
+                continue
+            self.assertNotRegex(text, r'(?m)^\s*(import|from)\s+(socket|socketserver|asyncio|http|urllib|ssl|selectors)\b',
                                 path.name)
-            self.assertNotRegex(text, r'\b(socket|bind|listen|connect|sendto|recvfrom)\s*\(', path.name)
+            self.assertNotRegex(text, r'\b(socket|bind|listen|sendto|recvfrom|create_connection)\s*\(', path.name)
 
     def test_a_desync_is_decided_in_one_place(self):
         text = (PACKAGE / 'lockstep.py').read_text(encoding='utf-8')

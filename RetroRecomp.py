@@ -11,6 +11,10 @@ if sys.argv[1:] == ['_netplay-worker']:
     # one game's pipes and its lockstep driver. Handled before the converter's heavy imports: no window, no Tk.
     from retrorecomp.netplay.worker import main as _netplay_worker
     sys.exit(_netplay_worker())
+if sys.argv[1:2] == ['_netplay-room']:
+    # The command line of the two-PC test (retrorecomp/netplay/room_cli.py): hosts or joins a room with no window.
+    from retrorecomp.netplay.room_cli import main as _netplay_room
+    sys.exit(_netplay_room(sys.argv[2:]))
 from retrorecomp.core import ConversionError, convert, dependencies, read_rom
 from retrorecomp.library import GameMemory, list_games, library_root
 from retrorecomp.paths import ROOT, save_game_language, games_root, load_preferences, console_options

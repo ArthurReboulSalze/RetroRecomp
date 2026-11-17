@@ -6,9 +6,12 @@
     worker.wait_for(lambda w: w.next_run >= 100, timeout)
     worker.stop(); worker.join(timeout)   # then worker.outcome, worker.history, worker.digests, ...
 
-`config` is what `worker.py` reads: {"game": {"exe", "cwd", "env", "stdout", "stderr"}, "settings": {...}}. The process
+`config` is what `worker.py` reads: {"game": {"exe", "cwd", "env", "stdout", "stderr"}, "settings": {...}}, or, for a
+room (stage 2, `room_worker.py`), {"room": {...}, "tests": ...} with the game given later by `launch`. The process
 is the converter's own entry (`worker_command`): the packaged converter with `_netplay-worker`, or Python on
-RetroRecomp.py. Its window is hidden. The channel is its stdin and stdout; no socket is opened here either.
+RetroRecomp.py. Its window is hidden. The channel is its stdin and stdout; no socket is opened here either (a room's
+sockets belong to the worker). A room's worker reports `events` (what happened in the room) and asks `resolve(event)`
+which game a host's launch names on this PC (a guest's `launch_request`): it answers with the `launch` call, or None.
 
 The attributes of a finished (or running) worker read like a `LockstepDriver`'s: `outcome`, `detail`, `delay`,
 `next_run`, `game_frame`, `paused`, `stats`, `pauses`, `desync`, `measured`, `boot_digest`, `exit_code`,
@@ -46,15 +49,19 @@ def worker_command() -> list[str]:
 
 
 class WorkerProcess:
-    def __init__(self, config: dict, carry: Callable[[int, bytes], None], command: list[str] | None = None,
-                 log: Path | None = None):
+    def __init__(self, config: dict, carry: Callable[[int, bytes], None] | None = None, command: list[str] | None = None,
+                 log: Path | None = None, resolve: Callable[[dict], dict | None] | None = None,
+                 on_event: Callable[[dict], None] | None = None):
         self.config, self.carry = config, carry
         self.command = command or worker_command()
         self.log = log                          # the worker's stderr (its own text; nothing is read from it)
-        self.seat = config['settings']['seat']
+        self.seat = config.get('settings', {}).get('seat', 0 if config.get('room', {}).get('role') == 'host' else None)
+        self.resolve, self.on_event = resolve, on_event
+        self.events: list[dict] = []            # a room's events, in order
         self.process: subprocess.Popen | None = None
         self.status: dict = {}
         self.result: dict | None = None
+        self.results: list[dict] = []           # a room's results, one per match
         self.exit_code_of_process: int | None = None
         self._changed = threading.Condition()
         self._write_lock = threading.Lock()
@@ -89,8 +96,8 @@ class WorkerProcess:
     def deliver(self, from_seat: int, data: bytes) -> None:
         self._send(channel.NET_IN, bytes([from_seat]) + data)
 
-    def call(self, name: str) -> None:
-        self._send(channel.CALL, json.dumps({'call': name}).encode('utf-8'))
+    def call(self, name: str, **fields) -> None:
+        self._send(channel.CALL, json.dumps({'call': name, **fields}).encode('utf-8'))
 
     def stop(self) -> None:
         self.call('stop')
@@ -110,7 +117,10 @@ class WorkerProcess:
                     break
                 for kind, payload in reader.feed(chunk):
                     if kind == channel.NET_OUT and len(payload) > 1:
-                        self.carry(payload[0], payload[1:])
+                        if self.carry is not None:
+                            self.carry(payload[0], payload[1:])
+                    elif kind == channel.EVENT:
+                        self._event(json.loads(payload.decode('utf-8')))
                     elif kind == channel.STATUS:
                         self._take(json.loads(payload.decode('utf-8')), final=False)
                     elif kind == channel.RESULT:
@@ -122,12 +132,36 @@ class WorkerProcess:
                 self.exit_code_of_process = self.process.wait()
                 self._changed.notify_all()
 
+    def _event(self, event: dict) -> None:
+        with self._changed:
+            self.events.append(event)
+            self._changed.notify_all()
+        if self.on_event is not None:
+            self.on_event(event)
+        if event.get('event') == 'launch_request' and self.resolve is not None:
+            reply = self.resolve(event)
+            if reply and 'call' in reply:
+                fields = dict(reply)
+                self.call(fields.pop('call'), **fields)
+
+    def wait_event(self, name: str, timeout: float, after: int = 0) -> dict | None:
+        """Sleeps until an event of that name has been reported (from index `after`); the event, or None."""
+        found = []
+
+        def seen(worker):
+            found[:] = [event for event in worker.events[after:] if event.get('event') == name][:1]
+            return bool(found)
+        with self._changed:
+            self._changed.wait_for(lambda: seen(self) or self.exit_code_of_process is not None, timeout)
+        return found[0] if found else None
+
     def _take(self, values: dict, final: bool) -> None:
         with self._changed:
             if final:
                 values['history'] = [tuple(words) for words in values.get('history', [])]
                 values['digests'] = {int(frame): digest for frame, digest in values.get('digests', {}).items()}
                 self.result = values
+                self.results.append(values)
             self.status = {**self.status, **values}
             self._changed.notify_all()
 
@@ -195,6 +229,7 @@ class WorkerProcess:
     def summary(self) -> str:
         """One line for a failure message: where the worker stood."""
         status = self.status
-        return (f'seat {self.seat + 1}: {status.get("phase")}, delay {status.get("delay")}, next frame {status.get("next_run")}, '
+        seat = status.get('seat', self.seat)
+        return (f'seat {"?" if seat is None else seat + 1}: {status.get("phase")}, delay {status.get("delay")}, next frame {status.get("next_run")}, '
                 f'game at {status.get("game_frame")}, paused {status.get("paused")}, {status.get("outcome")} '
                 f'{status.get("detail", "")}, process exit {self.exit_code_of_process}')

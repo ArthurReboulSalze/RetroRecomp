@@ -89,16 +89,21 @@ def _read_config(fd: int, reader: channel.Reader) -> dict:
         chunk = os.read(fd, 65536)
         if not chunk:
             raise channel.Broken('the converter closed the channel before the config')
-        for kind, payload in reader.feed(chunk):
-            if kind != channel.CONFIG:
+        messages = reader.feed(chunk)
+        if messages:
+            if messages[0][0] != channel.CONFIG:
                 raise channel.Broken('the first message is not the config')
-            return json.loads(payload.decode('utf-8'))
+            reader.leftover = messages[1:]      # whatever came in the same chunk is acted on by the worker, not lost
+            return json.loads(messages[0][1].decode('utf-8'))
 
 
 def run_worker(fd_in: int, fd_out: int) -> int:
     reader, writer = channel.Reader(), channel.Writer(fd_out)
     try:
         config = _read_config(fd_in, reader)
+        if 'room' in config:            # stage 2: the worker's life is a room's, the game comes later in a `launch` call
+            from .room_worker import run_room
+            return run_room(config, reader, writer, fd_in)
         game = config['game']
         session = SessionGame(Path(game['exe']), cwd=Path(game['cwd']) if game.get('cwd') else None, env=game.get('env'),
                               stdout=Path(game['stdout']) if game.get('stdout') else None,
@@ -122,16 +127,20 @@ def run_worker(fd_in: int, fd_out: int) -> int:
             driver.close_game_pipe()
 
     def from_converter():
+        def act(kind, payload):
+            if kind == channel.NET_IN and len(payload) > 1:
+                link.deliver(payload[0], payload[1:])
+            elif kind == channel.CALL:
+                call(json.loads(payload.decode('utf-8')).get('call'))
         try:
+            for kind, payload in reader.leftover:
+                act(kind, payload)
             while True:
                 chunk = os.read(fd_in, 65536)
                 if not chunk:
                     break
                 for kind, payload in reader.feed(chunk):
-                    if kind == channel.NET_IN and len(payload) > 1:
-                        link.deliver(payload[0], payload[1:])
-                    elif kind == channel.CALL:
-                        call(json.loads(payload.decode('utf-8')).get('call'))
+                    act(kind, payload)
         except Exception:       # a closed channel, a broken one, a message that is not what it should be: the converter is gone
             pass
         if not finished.is_set():       # the converter is gone: this seat leaves, the game stops by itself

@@ -1,19 +1,27 @@
 """The local channel between the converter and its netplay worker process: two anonymous pipes (the worker's stdin
-and stdout), nothing else. No socket, no port, not even on loopback.
+and stdout), nothing else. No socket, no port, not even on loopback (the room's sockets, in stage 2, belong to the
+worker and to `lan_transport`; none is this channel).
 
 Every message, both ways: `u8 kind, u32 length, payload` (little-endian, at most MAX_PAYLOAD bytes). A length above
 the limit or an unknown kind breaks the channel: the reader raises `Broken`.
 
     converter -> worker   CONFIG  json: the game, this seat's settings, test sources (once, first)
                           NET     u8 from_seat, packet bytes: a packet another seat sent, as the link delivered it
-                          CALL    json {"call": "stop" | "resume" | "close_game_pipe"}
+                          CALL    json {"call": "stop" | "resume" | "close_game_pipe" | "launch" | "launch_refused" |
+                                  "kick" | "close_room", ...fields}
     worker -> converter   STATUS  json: what the driver shows now (phase, frame, outcome, counts), when it changes
                           NET     u8 to_seat, packet bytes: a packet for another seat; the converter side carries it
-                          RESULT  json: the final state with the history and the digests (once, last)
+                          RESULT  json: the final state with the history and the digests (once, last; in a room, one
+                                  per match, with its `match_id`)
+                          EVENT   json {"event": ...}: what happened in the room (opened, joined, left, launch asked,
+                                  slow link, match over); data for the converter's window, never anything it acts on
 
-In stage 1 the converter side stands for the network: it carries the NET messages of the workers to each other
-(through `link_simulator` in the tests). In stage 2 the worker opens the room's one endpoint itself and this
-channel keeps CONFIG, CALL, STATUS and RESULT: the NET messages disappear, nothing else changes.
+Two shapes of CONFIG. Without a `room`: stage 1, the converter side stands for the network (it carries the NET
+messages of the workers to each other, through `link_simulator` in the tests) and CONFIG names the game. With a
+`room` (stage 2): the worker opens the room's endpoint itself (`lan_transport`), the NET messages disappear, the game
+is no longer in CONFIG but arrives in a `launch` call whose executable the converter resolved from its own library,
+and the worker lives as long as the room does. The room's secret is in CONFIG and nowhere else: never in STATUS,
+RESULT, EVENT, a detail, an exception text or a command line. See `room_worker`.
 """
 from __future__ import annotations
 
@@ -23,8 +31,8 @@ import threading
 
 MAX_PAYLOAD = 16 * 1024 * 1024       # a RESULT carries every frame's port words; a packet is at most 508 bytes
 CONFIG, NET_IN, CALL = 1, 2, 3
-STATUS, NET_OUT, RESULT = 16, 17, 18
-KINDS = {CONFIG, NET_IN, CALL, STATUS, NET_OUT, RESULT}
+STATUS, NET_OUT, RESULT, EVENT = 16, 17, 18, 19
+KINDS = {CONFIG, NET_IN, CALL, STATUS, NET_OUT, RESULT, EVENT}
 _HEAD = struct.Struct('<BI')
 
 
@@ -43,6 +51,7 @@ class Reader:
 
     def __init__(self):
         self.buffer = bytearray()
+        self.leftover: list[tuple[int, bytes]] = []       # messages read in the same chunk as the config, for the worker to act on
 
     def feed(self, chunk: bytes) -> list[tuple[int, bytes]]:
         self.buffer += chunk

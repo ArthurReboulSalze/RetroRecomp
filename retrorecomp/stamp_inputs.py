@@ -80,6 +80,11 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'netplay', 'session_pipe', 'session_game', 'input_records', 'session_transport',
                                'link_simulator', 'lockstep', 'time_sync', 'worker_channel', 'worker', 'worker_client',
                                'scripted_inputs', 'launch',
+                               # Stage 2, the local-network room (lan_transport is the only module of the package that imports
+                               # socket): the invitation, the keys and handshake, the control and datagram codecs, the limits,
+                               # the host's log, the room's worker and the command line of the two-PC test.
+                               'invitation', 'handshake', 'control', 'datagram', 'limits', 'room_log', 'lan_transport',
+                               'room_worker', 'room_cli',
                                # Declares the pinned upstreams per machine (docs/UPSTREAMS.md); a conversion never reads it.
                                'upstreams',
                                # Measures the time of each phase of a conversion; changes nothing a game is or does.

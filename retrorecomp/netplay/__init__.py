@@ -17,9 +17,23 @@ nothing. This package is the other end of its two pipes, in the converter:
 * `worker_channel`, `worker`, `worker_client`, `scripted_inputs`: the driver in a process of its own (the converter
   starts `RetroRecomp.py _netplay-worker`; they talk over its two pipes), and the scripted controls tests give it.
 
-Nothing here opens a socket, a port or a file outside the game's own folder: the real network is a later stage.
-These modules are hashed by no stamp (`stamp_inputs.INTERFACE_MODULES`): they drive finished games and change
-nothing a game is or does.
+Stage 2, the local-network room (`SECURITY_REVIEW.md` section 2 is its specification; the pure parts are tested without a
+socket):
+
+* `invitation`: the text a host shares (`rr1:lan:<address>:<port>:<secret>`), the address ranges a local room may use;
+* `handshake`: the keys and the guest-proves-first handshake, as two state machines of bytes;
+* `control`: the TCP control stream (framed, tagged messages) and the display names;
+* `datagram`: the match datagrams (UDP) with their tag and replay window, and what a receiver does with one;
+* `limits`: the numbers of the review's 2.7 as pure objects on a clock the caller gives;
+* `room_log`: what the host of a room writes down (never a secret);
+* `lan_transport`: the **only** module that imports `socket`: `RoomHost` and `RoomGuest`, whose `link()` is the `SeatLink`
+  the driver already knows (the driver is handed the seat the key proved);
+* `room_worker`, `room_cli`: the worker whose life is a room's (the game arrives in a `launch` call), and the command line
+  of the two-PC test (`RetroRecomp.py _netplay-room`).
+
+Outside `lan_transport` nothing here opens a socket, a port or a file outside the game's own folder (and the room's log).
+Nothing touches a firewall or any system setting. These modules are hashed by no stamp (`stamp_inputs.INTERFACE_MODULES`):
+they drive finished games and change nothing a game is or does.
 """
 from .input_records import choose_delay, pace_for
 from .link_simulator import LinkSimulator
