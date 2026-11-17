@@ -76,6 +76,8 @@ def settings_from(values: dict, tests: bool = False) -> Settings:
     local = scripted_inputs.local_source(fields.pop('local_source', None))
     words = scripted_inputs.words_filter(fields.pop('words_filter', None))
     fields['names'] = tuple(fields.get('names', ()))
+    if isinstance(fields.get('save'), str):      # the host's save image as hex (a JSON config): bytes for SAVE_IN
+        fields['save'] = bytes.fromhex(fields['save'])
     if 'opposites' in fields:
         fields['opposites'] = tuple(tuple(pair) for pair in fields['opposites'])
     return Settings(**fields, local_source=local, words_filter=words)

@@ -59,6 +59,9 @@ def main() -> int:
     parser.add_argument('--hold', type=int, default=12, help='frames a scripted pad keeps its word')
     parser.add_argument('--restart-at', type=int, default=0, help='the host asks a restart for everyone in its LOCAL of this frame')
     parser.add_argument('--save-at', type=int, default=0, help="the host saves the match's state for everyone in its LOCAL of this frame")
+    parser.add_argument('--host-save', type=Path, help="the host's save image: copied into the host seat's folder (--save-name) "
+                        'and given to every guest through SAVE_IN, as a room carries it (guests get no file of their own)')
+    parser.add_argument('--save-name', default='', help='the file, relative to a seat folder, that the game reads its save from')
     parser.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too (a game with sticks)')
     parser.add_argument('--machine', default=None, help='the profile id (gb, gg, gba: a handheld is played in input sharing)')
     parser.add_argument('--sharing', choices=('per_player', 'everyone', 'turns'), default=None,
@@ -86,6 +89,10 @@ def main() -> int:
         folder.mkdir(parents=True)
         copy = folder / game.name
         shutil.copy2(game, copy)
+        if args.host_save and seat == 0:       # the host plays on its own save file, as a host does
+            target = folder / args.save_name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(args.host_save, target)
         script = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': args.sticks}
         if seat == 0 and args.restart_at:
             script['system_at'] = {str(args.restart_at): seat_map.SYS_RESTART}     # rides its record of F + delay
@@ -99,6 +106,8 @@ def main() -> int:
                         options='\n'.join(part for part in args.options.split(';') if part),
                         sharing=seat_map.effective(args.machine, seat_map.BY_NAME[args.sharing or 'per_player']),
                         last_frame=args.frames, local_source=script, keep_history=True, rollback=args.rollback)
+        if args.host_save and seat > 0:        # a guest is handed the host's save before its SETUP (session ABI 8)
+            settings['save'] = args.host_save.read_bytes().hex()
         if seat == 0 and args.delay:
             settings['delay'] = args.delay
         config = dict(game=dict(exe=str(copy), cwd=str(folder), env=HIDDEN, stdout=str(folder / 'stdout.txt'),
