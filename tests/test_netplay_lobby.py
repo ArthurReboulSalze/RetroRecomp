@@ -40,8 +40,10 @@ def keys():
 MESSAGES = (control.Roster(65535, control.PHASE_PLAYING, 4, 9, (control.Player(0, 'Arthur', True, True, control.CHECK_SAME),
                                                                 control.Player(1, 'Hélène', False, True, control.CHECK_OTHER),
                                                                 control.Player(2, 'Karl', True, False, control.CHECK_MISSING),
-                                                                control.Player(3, 'N' * 48, False, False, control.CHECK_FAILED))),
+                                                                control.Player(3, 'N' * 48, False, False, control.CHECK_FAILED)),
+                           2),
             control.Roster(0, control.PHASE_LOBBY, 0, 0, (control.Player(0, 'a'),)),
+            control.Roster(3, control.PHASE_LOBBY, 4, 2, (control.Player(0, 'a'), control.Player(1, 'b')), 1),
             control.Chat(2, 'Hélène', 'Salut à tous ' + chr(0x1f600)), control.Chat(0, 'a', 'x'),
             control.Select(9, game()), control.Select(65535, game(mode=control.MODE_FULL, title='T' * 96, game_options='')),
             control.Select(1, None), control.Notice(control.NOTICE_CHAT_FAST), control.Back(77, 8),
@@ -84,7 +86,7 @@ class WireTests(unittest.TestCase):
     def test_a_message_out_of_the_rules_is_refused_by_the_decoder(self):
         good = {kind: control.encode(message)[1] for message in MESSAGES for kind in (control.encode(message)[0],)}
         roster = bytearray(control.encode(MESSAGES[0])[1])
-        for index, value in ((0, 2), (3, 3), (4, 5), (7, 0), (7, 5)):          # another lobby version, a phase, seats, a count
+        for index, value in ((0, 2), (3, 3), (4, 5), (5, 3), (8, 0), (8, 5)):  # another lobby version, a phase, seats, a mode, a count
             damaged = bytearray(roster)
             damaged[index] = value
             with self.assertRaises(control.FrameError, msg=(index, value)):
@@ -358,7 +360,8 @@ class HostLobbyTests(unittest.TestCase):
         room.on_message(1, control.Ready(True), 1.2)
         started = room.begin([1], 5)
         self.assertEqual(events(started)[0], {'event': 'lobby_launch', 'match_id': 5, 'seats': 2, 'names': ['Arthur', 'Guest1'],
-                                               'left_out': [{'guest': 2, 'name': 'Guest2', 'reason': 'not seated'}]})
+                                               'left_out': [{'guest': 2, 'name': 'Guest2', 'reason': 'not seated'}],
+                                           'sharing': 'per_player'})
         self.assertEqual((room.phase, room.roster().players[1].in_match, room.roster().players[2].in_match), (control.PHASE_LAUNCHING, True, False))
         room.playing()
         self.assertEqual(room.phase, control.PHASE_PLAYING)
@@ -626,13 +629,16 @@ class CheckTests(unittest.TestCase):
         Path(broken.report).write_bytes(b'[]')
         self.assertEqual(len(mine.library().hostable()), 0)
 
-    def test_the_host_can_pick_what_has_an_identity_and_a_second_player(self):
+    def test_the_host_can_pick_what_has_an_identity_and_a_second_player_or_a_handheld(self):
         mine = Scratch(self)
         nes = mine.add(report(), title='Battletoads')
-        mine.add(report(machine='gb'), machine='gb')                                     # a handheld: no second player yet
+        gb = mine.add(report(machine='gb'), machine='gb')                                # a handheld: one player, input sharing
+        mine.add(report(machine='scummvm'), machine='scummvm')                           # one player and not a pad game: not offered
         mine.add(report(identity=False, machine='snes', sources=None), machine='snes')    # no identity of its sources
         listed = mine.library().hostable()
-        self.assertEqual([(entry, picked.title, picked.seats_max) for entry, picked in listed], [(nes, 'Battletoads', 2)])
+        self.assertEqual(sorted((entry.system, picked.title, picked.seats_max) for entry, picked in listed),
+                         [('gb', 'Battletoads', 1), ('nes', 'Battletoads', 2)])
+        self.assertIn(gb, [entry for entry, _picked in listed])
         self.assertEqual(mine.library().game_of(nes, 'speed=2').game.game_options, 'speed=2')
         Path(nes.executable).unlink()
         self.assertIn('cannot be read', mine.library().game_of(nes).reason)
@@ -694,7 +700,7 @@ class ControllerTests(unittest.TestCase):
         found = mine.add(report(sources='33' * 32))
         controller = lobby_client.LobbyController(mine.library())
         worker = FakeWorker()
-        controller.bind(worker)
+        controller.attach(worker)
         pick = host_pick()
         controller._check({'selection': 4, 'game': lobby.game_dict(pick)})
         self.assertEqual(worker.calls, [('lobby_answer', {'selection': 4, 'status': control.CHECK_SAME, 'reasons': 0, 'version': [1, 7, 9]})])
@@ -713,7 +719,7 @@ class ControllerTests(unittest.TestCase):
     def test_what_this_pc_cannot_check_is_answered_as_not_checked_and_never_raises(self):
         controller = lobby_client.LobbyController(Scratch(self).library())
         worker = FakeWorker()
-        controller.bind(worker)
+        controller.attach(worker)
         controller._check({'selection': 1, 'game': {'machine': 'nes'}})
         self.assertEqual(worker.calls[0][1]['status'], control.CHECK_FAILED)
         self.assertIn('could not check', controller.answers[0]['text'])
@@ -724,7 +730,7 @@ class ControllerTests(unittest.TestCase):
         entry = mine.add(report(), title='Battletoads')
         controller = lobby_client.LobbyController(mine.library())
         worker = FakeWorker()
-        controller.bind(worker)
+        controller.attach(worker)
         self.assertEqual(controller.launch(), 'no game is picked')
         self.assertEqual(controller.pick(entry, 'speed=1'), '')
         name, fields = worker.calls[-1]

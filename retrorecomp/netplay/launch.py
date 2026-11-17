@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import re
 
 from . import input_records as wire
+from . import seat_map
 from . import session_pipe as pipe
 from .lockstep import Settings
 
@@ -23,7 +24,7 @@ MAX_REDUNDANCY = 8
 MAX_OPTION_LINES = 32
 MAX_NAME_INPUT = 64                 # characters read of a name before it is cleaned (the game draws 16)
 _OPTION_LINE = re.compile(r'[a-z0-9_]{1,32}=[A-Za-z0-9_.-]{0,32}')
-FIELDS = ('seat', 'seats', 'names', 'delay', 'digest_every', 'redundancy', 'options')
+FIELDS = ('seat', 'seats', 'names', 'delay', 'digest_every', 'redundancy', 'options', 'sharing')
 
 
 @dataclass(frozen=True)
@@ -62,9 +63,10 @@ def clean_options(options) -> str | Refusal:
     return '\n'.join(lines)
 
 
-def launch_settings(message, *, guest: bool = True) -> Settings | Refusal:
+def launch_settings(message, *, guest: bool = True, machine: str | None = None) -> Settings | Refusal:
     """The `Settings` of a launch `message` (a dict of the fields in `FIELDS`), or the `Refusal` that says why not.
-    `guest`: the receiver is a guest, so seat 0 (the host's) is not one it can be given."""
+    `guest`: the receiver is a guest, so seat 0 (the host's) is not one it can be given. `machine`: when the caller knows it,
+    a handheld is refused in any mode but input sharing (the rule of `seat_map.HANDHELDS`, held on both ends of a launch)."""
     if not isinstance(message, dict):
         return Refusal('the launch is not a set of settings')
     unknown = sorted(str(key) for key in message if key not in FIELDS)
@@ -75,6 +77,11 @@ def launch_settings(message, *, guest: bool = True) -> Settings | Refusal:
         return Refusal(f'a match of {MIN_SEATS} to {MAX_SEATS} seats')
     if not _integer(seat) or not (1 if guest else 0) <= seat < seats:
         return Refusal('a seat the match does not have')
+    sharing = message.get('sharing', seat_map.PER_PLAYER)
+    if not seat_map.valid(sharing):
+        return Refusal('an input mode this version does not have')
+    if not seat_map.allowed(machine, sharing):
+        return Refusal('this machine plays in input sharing only: one controller per player is not offered')
     delay = message.get('delay')
     if delay is not None and not (_integer(delay) and 1 <= delay <= wire.MAX_DELAY):
         return Refusal(f'an input delay of 1 to {wire.MAX_DELAY} frames, or none')
@@ -91,4 +98,4 @@ def launch_settings(message, *, guest: bool = True) -> Settings | Refusal:
     if isinstance(options, Refusal):
         return options
     return Settings(seat=seat, seats=seats, names=names, delay=delay, digest_every=digest_every, redundancy=redundancy,
-                    options=options)
+                    options=options, sharing=sharing)

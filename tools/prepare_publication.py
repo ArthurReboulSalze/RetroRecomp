@@ -256,6 +256,7 @@ retrorecomp/netplay/lan_transport.py retrorecomp/netplay/room_worker.py retrorec
 tests/test_netplay_transport.py tests/test_netplay_loopback.py
 retrorecomp/netplay/lobby.py retrorecomp/netplay/lobby_check.py retrorecomp/netplay/lobby_client.py
 tests/test_netplay_lobby.py tests/test_netplay_lobby_loopback.py
+retrorecomp/netplay/seat_map.py tests/test_netplay_seat_map.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
 retrorecomp/dropfiles.py tests/test_dropfiles.py tests/test_popup_menu.py
 native/snes_dsp1_projection.inc

@@ -17,6 +17,7 @@ import shutil
 import socket
 import tempfile
 import threading
+import time
 import unittest
 
 from retrorecomp.netplay import WorkerProcess, control, invitation, lobby_check, lobby_client
@@ -42,6 +43,32 @@ def loopback_refused() -> str | None:
     except OSError as error:
         return f'loopback sockets are refused here ({error})'
     return None
+
+
+OPEN_TRIES, OPEN_PAUSE = 6, 2.0
+
+
+def bind_refused_now(reason: str) -> bool:
+    """Whether a room could not open for the one reason that is the system's and not the room's: the system refusing every
+    exclusive bind of a loopback port for a moment (WSAEACCES, which was seen for about ten seconds on a PC where every test
+    process in the middle of opening a room failed together, and where a plain bind and a later run were fine)."""
+    return 'could not open a port' in reason
+
+
+def open_room(test: unittest.TestCase, host: RoomHost) -> None:
+    """Opens `host`, again a few times when the system refuses the bind (see `bind_refused_now`), and skips, with the reason, if it
+    still does: a test of the lobby is not a test of what the system lets a program bind."""
+    for attempt in range(OPEN_TRIES):
+        try:
+            host.open()
+            return
+        except RoomError as error:
+            if not bind_refused_now(error.reason):
+                raise
+            if attempt + 1 < OPEN_TRIES:
+                threading.Event().wait(OPEN_PAUSE)
+            else:
+                test.skipTest(f'the system refuses to bind a loopback port: {error.reason}')
 
 
 class Collector:
@@ -88,8 +115,8 @@ class RoomLobbyTests(unittest.TestCase):
             self.skipTest(reason)
         self.host_events = Collector()
         self.host = RoomHost('127.0.0.1', 0, capacity=4, name='Arthur', tests=True, on_event=self.host_events.on_event)
-        self.host.open()
         self.addCleanup(self.host.close)
+        open_room(self, self.host)
         self.text = self.host.invitation()
         self.guests: dict[str, tuple] = {}
 
@@ -115,6 +142,7 @@ class RoomLobbyTests(unittest.TestCase):
         self.assertEqual((karl_events.last_roster()['me'], self.host_events.last_roster()['phase']), (2, 'lobby'))
 
         # chat: cleaned, stamped with the sender's name by the host, delivered to everybody, the sender included
+        first_line_at = time.monotonic()
         nadia.lobby_say('  hello ​  all ')
         self.host.lobby_say('Bonjour Hélène')
         for collector in (self.host_events, nadia_events, karl_events):
@@ -129,8 +157,13 @@ class RoomLobbyTests(unittest.TestCase):
             for number in range(8):
                 nadia._stream.send(control.Say(f'spam {number}'))
         self.assertTrue(nadia_events.wait(lambda c: any(event['code'] == 'chat_too_fast' for event in c.named('lobby_notice'))), nadia_events.events)
+        # (the host's rule is five lines in any five seconds: Nadia's first line counts unless five seconds went by before the burst, which
+        # a loaded PC may take; the burst itself is sent in one go, so it is never more than five either way)
+        burst_at = time.monotonic()
         for collector in (self.host_events, karl_events):
-            self.assertTrue(collector.wait(lambda c: len([e for e in c.named('lobby_chat') if e['name'] == 'Nadia']) == 5), collector.events)
+            self.assertTrue(collector.wait(lambda c: len([e for e in c.named('lobby_chat') if e['name'] == 'Nadia']) >= 5), collector.events)
+            delivered = len([e for e in collector.named('lobby_chat') if e['name'] == 'Nadia'])
+            self.assertTrue(delivered == 5 or (delivered == 6 and burst_at - first_line_at > 4.0), (delivered, burst_at - first_line_at))
 
         # the pick: each guest is asked, the test plays the converter and answers
         first = game(title='Fake One')
@@ -156,6 +189,10 @@ class RoomLobbyTests(unittest.TestCase):
         self.assertTrue(karl_events.wait(lambda c: len(c.named('lobby_roster')) > before))
         self.assertLessEqual(len(karl_events.named('lobby_roster')) - before, 6)
         self.assertEqual(names_of(self.host_events.last_roster()), ['Arthur', 'Nadia', 'Karl'])
+        # The first roster may leave the host before it has read the whole flood. Nadia's own answer, sent after it on the same stream,
+        # is handled after it: when the host reports it (a third check), every flag change of the flood has been taken or ignored.
+        nadia.lobby_answer(number, control.CHECK_SAME, 0, (1, 7, 9))
+        self.assertTrue(self.host_events.wait(lambda c: len(c.named('lobby_check')) == 3), self.host_events.events)
         self.assertGreaterEqual(self.host.lobby.ignored, 2)
 
         # another pick: everyone is asked again and the flags are clear
@@ -284,7 +321,7 @@ class Player:
             with self.cond:
                 self.cond.notify_all()
         self.worker = WorkerProcess(config, log=out / f'{name}-worker.txt', resolve=resolve, on_event=on_event)
-        self.controller.bind(self.worker)
+        self.controller.attach(self.worker)
         self.worker.start()
         test.addCleanup(self.stop)
 
@@ -320,9 +357,14 @@ class LobbyMatchTests(unittest.TestCase):
         host = Player('host', host_library, {'room': {'role': 'host', 'address': '127.0.0.1', 'port': 0, 'secret': secret.hex(), 'capacity': 3,
                                                        'name': 'Arthur', 'log': str(out / 'room.log')}, 'tests': True}, out, self, frames)
         opened = host.worker.wait_event('room_open', 30)
+        if opened is None and any(bind_refused_now(event.get('detail', '')) for event in host.worker.events):
+            self.skipTest('the system refuses to bind a loopback port right now')
         self.assertIsNotNone(opened, host.worker.events)
         text = invitation.format_invitation('127.0.0.1', opened['port'], secret, tests=True)
         nadia = Player('nadia', nadia_library, {'room': {'role': 'guest', 'invitation': text, 'name': 'Nadia'}, 'tests': True}, out, self, frames)
+        # Seats follow the order of arrival, and two worker processes started together arrive in whatever order their start-up takes
+        # (under load Karl was first, twice in twelve runs): Karl is started once the host has seated Nadia, so the order is the test's.
+        self.assertTrue(host.until(lambda m: [p['name'] for p in m.players] == ['Arthur', 'Nadia']), host.controller.model.players)
         karl = Player('karl', karl_library, {'room': {'role': 'guest', 'invitation': text, 'name': 'Karl'}, 'tests': True}, out, self, frames)
         everyone = (host, nadia, karl)
         for player in everyone:

@@ -31,7 +31,7 @@ import threading
 import time
 from typing import Callable
 
-from . import control, datagram, handshake, invitation, lobby as lobbies
+from . import control, datagram, handshake, invitation, lobby as lobbies, seat_map
 from . import input_records as wire
 from .launch import Refusal
 from .limits import FRAME_BURST, FRAME_RATE, Admission, Counters, NonceMemory, TokenBucket
@@ -178,6 +178,7 @@ class LaunchInfo:
     match_id: int
     seats: int
     names: tuple
+    sharing: int = 0
 
 
 class _HostMatch:
@@ -213,7 +214,8 @@ class RoomHost:
     def __init__(self, address: str, port: int = invitation.DEFAULT_PORT, secret: bytes | None = None, capacity: int = 4, *,
                  name: str = 'Host', tests: bool = False, log: RoomLog | None = None,
                  on_event: Callable[[dict], None] | None = None, clock: Callable[[], float] = time.monotonic,
-                 rng: Callable[[int], bytes] = secrets.token_bytes, seat_rate: float | None = None):
+                 rng: Callable[[int], bytes] = secrets.token_bytes, seat_rate: float | None = None,
+                 sharing: int = seat_map.PER_PLAYER):
         self.address = invitation.check_bind_address(address, tests)      # before any socket: nothing else is ever bound
         if not CAPACITY_MIN <= capacity <= CAPACITY_MAX:
             raise ValueError('a room of 2 to 4 seats')
@@ -225,7 +227,7 @@ class RoomHost:
             raise ValueError('a secret of 16 bytes')
         self.port, self.capacity, self.tests = port, capacity, tests
         self.name = control.display_name(name, 'Host')
-        self.lobby = lobbies.HostLobby(self.name, capacity)         # the room's lobby: pure rules, carried by this transport
+        self.lobby = lobbies.HostLobby(self.name, capacity, sharing)         # the room's lobby (pure rules, carried by this transport); `sharing`: the host's input mode
         self.log = log or RoomLog(None)
         self._on_event, self._clock, self._rng = on_event, clock, rng
         self._seat_rate = seat_rate
@@ -535,7 +537,7 @@ class RoomHost:
     # ---- launching and ending a match ----
 
     def launch(self, *, machine: str, stamp: bytes, rom_sha: bytes, delay: int = 0, digest_every: int = 60,
-               redundancy: int = 3, options: str = '', guests=None) -> LaunchInfo:
+               redundancy: int = 3, options: str = '', guests=None, sharing: int = seat_map.PER_PLAYER) -> LaunchInfo:
         """Starts a match: seats are given in the order of `guests` (guest ids, the lobby's seat order) or, without it, in
         the order the guests joined; keys are derived for this match and this seat, and each of them gets its LAUNCH. A guest
         not named stays in the room and is not part of the match. Raises `RoomError` when that cannot be done."""
@@ -556,6 +558,8 @@ class RoomHost:
                 raise RoomError('nobody has joined the room')
             if not (isinstance(stamp, bytes) and len(stamp) == 32 and isinstance(rom_sha, bytes) and len(rom_sha) == 32):
                 raise RoomError('the game is not identified')
+            if not seat_map.allowed(machine, sharing):
+                raise RoomError('this machine plays in input sharing only' if seat_map.valid(sharing) else 'an input mode that does not exist')
             self._match_counter += 1
             match_id, now = self._match_counter, self._clock()
             names = (self.name,) + tuple(peer.name for peer in ready)
@@ -572,10 +576,10 @@ class RoomHost:
             for seat, peer in seats.items():
                 match.senders[seat] = datagram.Sender(keys[seat][1], match_id, 0)
                 peer.send(control.Launch(match_id, seat, len(names), delay, digest_every, redundancy, machine, stamp,
-                                         rom_sha, names, options))
+                                         rom_sha, names, options, sharing))
         self.log.launch(match_id, machine, stamp, len(names), delay)
         self._flush()
-        return LaunchInfo(match_id, len(names), names)
+        return LaunchInfo(match_id, len(names), names, sharing)
 
     def link(self) -> _HostLink:
         """The `SeatLink` of the host's seat for the running match."""
@@ -649,6 +653,13 @@ class RoomHost:
         self._flush()
         return refusal
 
+    def lobby_sharing(self, sharing: int) -> Refusal | None:
+        """The host's input mode (`seat_map`): one controller per player, or input sharing "everyone" / "turns". In the lobby only."""
+        with self._lock:
+            refusal = self.lobby.set_sharing(sharing)
+        self._flush()
+        return refusal
+
     def lobby_move(self, guest: int, seat: int) -> Refusal | None:
         with self._lock:
             refusal = self.lobby.move(guest, seat)
@@ -671,7 +682,8 @@ class RoomHost:
                     return plan
                 try:
                     return self.launch(machine=plan.game.machine, stamp=plan.stamp, rom_sha=plan.rom, delay=delay,
-                                       digest_every=digest_every, redundancy=redundancy, options=plan.options, guests=plan.guests)
+                                       digest_every=digest_every, redundancy=redundancy, options=plan.options, guests=plan.guests,
+                                       sharing=plan.sharing)
                 except RoomError as error:
                     return Refusal(error.reason)
         finally:
@@ -1064,6 +1076,9 @@ class RoomGuest:
             return
         self._last_match = launch.match_id
         if not (control.MAX_SEATS >= launch.seats >= 2 and 1 <= launch.seat < launch.seats):
+            stream.send(control.Launched(launch.match_id, control.LAUNCHED_FAILED))
+            return
+        if not seat_map.allowed(launch.machine, launch.sharing):      # a handheld is played in input sharing only, on both ends
             stream.send(control.Launched(launch.match_id, control.LAUNCHED_FAILED))
             return
         status = self.lobby.launch_status(launch)       # the game this PC said "same" to, or the host's launch is refused

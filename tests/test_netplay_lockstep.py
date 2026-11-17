@@ -217,7 +217,7 @@ class DriversThroughRealPipesTests(unittest.TestCase):
         code, output, seconds = selftest.run_checks(ROOT / '.build/netplay-lockstep-selftest')
         self.assertEqual(code, 0, output)
         self.assertIn(f'PASS: {len(selftest.SCENARIOS)} scenarios', output)
-        self.assertEqual(len(selftest.SCENARIOS), 23)
+        self.assertEqual(len(selftest.SCENARIOS), 25)
         self.assertLess(seconds, 900, output)     # a hang, not a speed
 
 

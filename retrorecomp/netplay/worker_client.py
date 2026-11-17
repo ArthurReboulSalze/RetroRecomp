@@ -15,7 +15,7 @@ which game a host's launch names on this PC (a guest's `launch_request`): it ans
 
 The attributes of a finished (or running) worker read like a `LockstepDriver`'s: `outcome`, `detail`, `delay`,
 `next_run`, `game_frame`, `paused`, `stats`, `pauses`, `desync`, `measured`, `boot_digest`, `exit_code`,
-`exit_reason`, `pace`, `hello` from its latest STATUS, and `history`, `digests`, `pace_trace` from its RESULT.
+`exit_reason`, `pace`, `hello`, `sharing`, `token` from its latest STATUS, and `history`, `digests`, `pace_trace` from its RESULT.
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ DEFAULTS = {
     'next_run': lambda: 0, 'game_frame': lambda: -1, 'paused': lambda: None, 'stats': dict, 'pauses': list,
     'desync': lambda: None, 'measured': lambda: None, 'boot_digest': lambda: None, 'exit_code': lambda: None,
     'exit_reason': lambda: None, 'pace': dict, 'hello': lambda: None, 'history': list, 'digests': dict,
-    'pace_trace': list,
+    'pace_trace': list, 'sharing': lambda: 'per_player', 'token': lambda: 0,
 }
 
 
@@ -107,6 +107,14 @@ class WorkerProcess:
 
     def resume(self) -> None:
         self.call('resume')
+
+    def pass_token(self, to: int | None = None) -> None:
+        """Input sharing, "turns": pass the token to the next seat (the holder), or to seat `to` (the host)."""
+        self.call('pass_token') if to is None else self.call('pass_token', to=to)
+
+    def share_mode(self, mode: int) -> None:
+        """Input sharing, the host: the shared match goes to "everyone" or "turns" (`seat_map.SHARED_ALL`, `SHARED_TURNS`)."""
+        self.call('share_mode', mode=mode)
 
     def close_game_pipe(self) -> None:
         self.call('close_game_pipe')

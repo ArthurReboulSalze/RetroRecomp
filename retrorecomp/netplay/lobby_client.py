@@ -11,7 +11,7 @@
 
     controller = LobbyController(LocalLibrary(inventory))
     worker = WorkerProcess(config, resolve=controller.resolve, on_event=controller.on_event)
-    controller.bind(worker)
+    controller.attach(worker)
     worker.start()
     ...
     controller.model            # what to draw; `controller.model.version` changes with every event it took
@@ -40,6 +40,7 @@ class LobbyModel:
         self.phase = 'lobby'
         self.revision: int | None = None
         self.seats_max = 0
+        self.sharing = 'per_player'         # the input mode in force: per_player, everyone or turns (`seat_map.NAMES`)
         self.me: int | None = None
         self.players: list[dict] = []
         self.selection = 0
@@ -64,6 +65,7 @@ class LobbyModel:
 
     def _on_lobby_roster(self, event: dict) -> None:
         self.revision, self.phase, self.seats_max = event.get('revision'), event.get('phase', 'lobby'), event.get('seats_max', 0)
+        self.sharing = event.get('sharing', 'per_player')
         self.selection, self.players, self.me = event.get('selection', 0), list(event.get('players', [])), event.get('me', self.me)
 
     def _on_lobby_selection(self, event: dict) -> None:
@@ -81,7 +83,7 @@ class LobbyModel:
         self.notices.append({'code': event.get('code'), 'detail': event.get('detail', '')})
 
     def _on_lobby_launch(self, event: dict) -> None:
-        self.last_launch = {key: event.get(key) for key in ('match_id', 'seats', 'names', 'left_out')}
+        self.last_launch = {key: event.get(key) for key in ('match_id', 'seats', 'names', 'left_out', 'sharing')}
 
     def _on_lobby_back(self, event: dict) -> None:
         self.last_back = {'match_id': event.get('match_id'), 'reason': event.get('reason')}
@@ -137,7 +139,7 @@ class LobbyController:
         self._entry = None                          # the host: the entry it picked
         self.answers: list[dict] = []               # this PC's answers, in order (tests, the window's own check line)
 
-    def bind(self, worker) -> None:
+    def attach(self, worker) -> None:
         self.worker = worker
 
     # ---- the worker's events ----
@@ -210,6 +212,19 @@ class LobbyController:
 
     def move(self, guest: int, seat: int) -> None:
         self.worker.call('lobby_move', guest=guest, seat=seat)
+
+    def set_sharing(self, mode: str) -> None:
+        """The host's input mode: 'per_player', 'everyone' or 'turns' (a handheld's game is played in input sharing whatever is
+        chosen; the roster says the mode in force)."""
+        self.worker.call('lobby_sharing', mode=mode)
+
+    def pass_token(self, to: int | None = None) -> None:
+        """In a match shared in "turns": pass the turn to the next seat (the holder), or to seat `to` (the host)."""
+        self.worker.pass_token(to)
+
+    def set_share_mode(self, mode: int) -> None:
+        """In a shared match, the host: `seat_map.SHARED_ALL` ("everyone") or `seat_map.SHARED_TURNS`."""
+        self.worker.share_mode(mode)
 
     def launch(self, settings: dict | None = None, need_ready: bool = False) -> str:
         """The host starts the match of its pick with the guests who have it. '' when asked, else why not."""

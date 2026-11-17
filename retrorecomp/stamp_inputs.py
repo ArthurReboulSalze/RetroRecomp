@@ -90,6 +90,10 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # the window draws and the controller that answers from the library). They read the inventory
                                # and the conversion reports; no conversion reads them and no game is changed by them.
                                'lobby', 'lobby_check', 'lobby_client',
+                               # The seat mapper (one controller per player, or input sharing: everyone OR-merged or turns with a
+                               # token): a pure function of the confirmed frame's records that the lockstep driver applies before
+                               # it tells its game what to run. It changes no game: a game only ever receives port words.
+                               'seat_map',
                                # Declares the pinned upstreams per machine (docs/UPSTREAMS.md); a conversion never reads it.
                                'upstreams',
                                # Measures the time of each phase of a conversion; changes nothing a game is or does.

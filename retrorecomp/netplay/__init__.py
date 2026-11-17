@@ -41,6 +41,11 @@ The lobby (`lobby.py` holds the rules; the wire is `control.py` types 10 to 17):
 * `lobby_client`: the converter's side, with no window: `LobbyModel` (events folded into what a window draws) and `LobbyController`
   (answers the host's pick from the library, resolves the launch to the executable it found, gives the host's window its calls).
 
+Input sharing (`seat_map`): the pure function that turns the seats' records of a confirmed frame into the machine's port words, applied by every
+driver before it tells its game what to run: one controller per player (seat i drives port i), or every seat on the controls of port 0,
+OR-merged ("everyone") or one at a time with a token the records pass ("turns"). The host chooses the mode (room creation, then the
+lobby); the handhelds are shared whatever is chosen.
+
 Outside `lan_transport` nothing here opens a socket, a port or a file outside the game's own folder (and the room's log).
 Nothing touches a firewall or any system setting. These modules are hashed by no stamp (`stamp_inputs.INTERFACE_MODULES`):
 they drive finished games and change nothing a game is or does.

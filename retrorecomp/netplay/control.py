@@ -34,6 +34,7 @@ PHASE_LOBBY, PHASE_LAUNCHING, PHASE_PLAYING = 0, 1, 2
 LOBBY_PHASES = range(3)
 CHECK_NONE, CHECK_ASKING, CHECK_SAME, CHECK_OTHER, CHECK_MISSING, CHECK_FAILED = range(6)
 ANSWER_STATUSES = (CHECK_SAME, CHECK_OTHER, CHECK_MISSING, CHECK_FAILED)
+SHARINGS = (0, 1, 2)                        # seat_map.SHARINGS: one controller per player, input sharing "everyone", "turns"
 MODE_PORTABLE, MODE_FULL = 0, 1             # what a guest compares: the identity without the learned paths, or the full one
 NOTICE_CHAT_FAST, NOTICE_BAD_TEXT, NOTICE_BUSY = 1, 2, 3
 NOTICES = range(1, 4)
@@ -92,6 +93,7 @@ class Launch:
     rom_sha: bytes
     names: tuple
     options: str
+    sharing: int = 0                # the input mode of the match (`seat_map`): one controller per player, everyone, turns
 
 
 @dataclass(frozen=True)
@@ -139,6 +141,7 @@ class Roster:
     seats_max: int                  # the players the chosen game takes (0 when no game is chosen)
     selection: int                  # the number of the host's current pick (0: none)
     players: tuple
+    sharing: int = 0                # the input mode the room is set to (`seat_map`), as the host's pick makes it effective
 
 
 @dataclass(frozen=True)
@@ -224,13 +227,13 @@ def _text_field(text: str, limit: int, what: str) -> bytes:
 def _encode_lobby(message) -> tuple[int, bytes]:
     if isinstance(message, Roster):
         if not (message.phase in LOBBY_PHASES and 0 <= message.seats_max <= MAX_SEATS and 0 <= message.selection <= 0xffff
-                and 0 <= message.revision <= 0xffff and 1 <= len(message.players) <= MAX_SEATS):
+                and 0 <= message.revision <= 0xffff and 1 <= len(message.players) <= MAX_SEATS and message.sharing in SHARINGS):
             raise ValueError('a roster outside the rules')
         body = b''
         for player in message.players:
             raw = _text_field(player.name, MAX_NAME_BYTES, 'a name')
             body += struct.pack('<BBBBB', player.guest, int(player.ready), int(player.in_match), player.check, len(raw)) + raw
-        return ROSTER, struct.pack('<BHBBHB', LOBBY_VERSION, message.revision, message.phase, message.seats_max,
+        return ROSTER, struct.pack('<BHBBBHB', LOBBY_VERSION, message.revision, message.phase, message.seats_max, message.sharing,
                                    message.selection, len(message.players)) + body
     if isinstance(message, Chat):
         name, text = _text_field(message.name, MAX_NAME_BYTES, 'a name'), _text_field(message.text, MAX_CHAT_BYTES, 'a line')
@@ -282,14 +285,15 @@ def encode(message) -> tuple[int, bytes]:
         return HELLO, struct.pack('<3HB', *message.version, len(name)) + name
     if isinstance(message, Launch):
         if (not _MACHINE.fullmatch(message.machine) or len(message.names) > MAX_SEATS or len(message.options) > MAX_OPTIONS
+                or message.sharing not in SHARINGS
                 or len(message.stamp) != 32 or len(message.rom_sha) != 32 or not message.options.isascii()
                 or any(not 0 < len(name.encode('utf-8')) <= MAX_NAME_BYTES for name in message.names)):
             raise ValueError('a launch outside the rules')
         machine = message.machine.encode('ascii')
         names = b''.join(struct.pack('<B', len(raw)) + raw for raw in (name.encode('utf-8') for name in message.names))
         options = message.options.encode('ascii')
-        return LAUNCH, b''.join((struct.pack('<IBBBHB', message.match_id, message.seat, message.seats, message.delay,
-                                             message.digest_every, message.redundancy),
+        return LAUNCH, b''.join((struct.pack('<IBBBHBB', message.match_id, message.seat, message.seats, message.delay,
+                                             message.digest_every, message.redundancy, message.sharing),
                                  struct.pack('<B', len(machine)), machine, message.stamp, message.rom_sha,
                                  struct.pack('<B', len(message.names)), names, struct.pack('<H', len(options)), options))
     if isinstance(message, Launched):
@@ -398,8 +402,9 @@ class _Cursor:
 def _decode_lobby(kind: int, payload: bytes):
     cursor = _Cursor(payload)
     if kind == ROSTER:
-        version, revision, phase, seats_max, selection, count = cursor.unpack('<BHBBHB')
-        if version != LOBBY_VERSION or phase not in LOBBY_PHASES or seats_max > MAX_SEATS or not 1 <= count <= MAX_SEATS:
+        version, revision, phase, seats_max, sharing, selection, count = cursor.unpack('<BHBBBHB')
+        if (version != LOBBY_VERSION or phase not in LOBBY_PHASES or seats_max > MAX_SEATS or sharing not in SHARINGS
+                or not 1 <= count <= MAX_SEATS):
             raise FrameError('a roster the rules do not allow')
         players = []
         for _ in range(count):
@@ -408,7 +413,7 @@ def _decode_lobby(kind: int, payload: bytes):
                 raise FrameError('a seat the rules do not allow')
             players.append(Player(guest, cursor.text('<B', MAX_NAME_BYTES), _flag(ready), _flag(in_match), check))
         cursor.done()
-        return Roster(revision, phase, seats_max, selection, tuple(players))
+        return Roster(revision, phase, seats_max, selection, tuple(players), sharing)
     if kind == CHAT:
         sender, name_size = cursor.unpack('<BB')
         if sender >= MAX_SEATS or not 0 < name_size <= MAX_NAME_BYTES:
@@ -472,8 +477,10 @@ def _decode_lobby(kind: int, payload: bytes):
 
 
 def _decode_launch(payload: bytes) -> Launch:
-    match_id, seat, seats, delay, digest_every, redundancy = struct.unpack_from('<IBBBHB', payload)
-    offset = 10
+    match_id, seat, seats, delay, digest_every, redundancy, sharing = struct.unpack_from('<IBBBHBB', payload)
+    offset = 11
+    if sharing not in SHARINGS:
+        raise FrameError('a launch with an input mode that does not exist')
     length = payload[offset]
     offset += 1
     machine_raw = payload[offset:offset + length]
@@ -510,7 +517,7 @@ def _decode_launch(payload: bytes) -> Launch:
         options = options_raw.decode('ascii')
     except UnicodeDecodeError:
         raise FrameError('a launch with options that are not ASCII') from None
-    return Launch(match_id, seat, seats, delay, digest_every, redundancy, machine, stamp, rom_sha, tuple(names), options)
+    return Launch(match_id, seat, seats, delay, digest_every, redundancy, machine, stamp, rom_sha, tuple(names), options, sharing)
 
 
 # ---- frames ----

@@ -33,7 +33,7 @@ import json
 from pathlib import Path
 import re
 
-from . import control
+from . import control, seat_map
 from .control import CHECK_FAILED, CHECK_MISSING, CHECK_OTHER, CHECK_SAME, MODE_FULL, MODE_PORTABLE
 
 # The machines whose MIXED-BUILD GATE passed: two exports of one dump that differ only by their learned paths compute the same
@@ -45,11 +45,16 @@ from .control import CHECK_FAILED, CHECK_MISSING, CHECK_OTHER, CHECK_SAME, MODE_
 PORTABLE_MACHINES = frozenset(('nes', 'md', 'sms'))
 
 # The players one machine offers in a room (STUDY.md section 3, the adapters' players); the host's window may name fewer, never more
-# than four. A machine with 1 has no second player: the lobby refuses to pick it (input sharing, for the handhelds, comes later),
-# and the game's own hello refuses a seat count it cannot take.
-MACHINE_SEATS = {'sms': 2, 'gg': 1, 'gb': 1, 'nes': 2, 'md': 2, 'snes': 2, 'ng': 2, 'x68': 2, 'cps1': 2, 'cps2': 2, 'pce': 2,
+# than four. A machine with 1 has no second player: the lobby refuses to pick it in "one controller per player", and the
+# handhelds (`seat_map.HANDHELDS`) play in input sharing, whose seats all drive the same controls (up to four). The CPS boards say
+# 4 here, the most a board has: the number of THIS game is what its own HELLO reports (`session_pipe.check_hello` refuses more
+# seats than the game has players) and, when the conversion report says it (`players_in_report`), what the report says.
+# `scummvm` has 1 and is not a handheld: a point-and-click game is not a pad game.
+MACHINE_SEATS = {'sms': 2, 'gg': 1, 'gb': 1, 'nes': 2, 'md': 2, 'snes': 2, 'ng': 2, 'x68': 2, 'cps1': 4, 'cps2': 4, 'pce': 2,
                  'gba': 1, 'amiga': 2, 'a1200': 2, 'atarist': 2, 'n64': 4, 'scummvm': 1, 'psx': 2, 'msx': 2, 'msx2': 2,
                  'msx2plus': 2}
+
+CEILING_MACHINES = frozenset(('cps1', 'cps2'))     # MACHINE_SEATS is the most a board has; the report and the HELLO say the game's
 
 R_CONVERTER, R_ENGINE, R_OPTIONS, R_SOURCES, R_FIRMWARE, R_SCHEMA, R_NO_IDENTITY = 1, 2, 4, 8, 16, 32, 64
 REASONS = {R_CONVERTER: 'converter version', R_ENGINE: 'engine', R_OPTIONS: 'options', R_SOURCES: 'learned paths',
@@ -60,6 +65,22 @@ FIRMWARE_KEYS = ('bios', 'firmware', 'bios_source', 'kickstart', 'tos')
 ZERO = bytes(32)
 _HEX = re.compile(r'[0-9a-f]{64}')
 _VERSION = re.compile(r'(\d{1,5})\.(\d{1,5})\.(\d{1,5})')
+
+
+_PLAYERS_OF_BOARD = re.compile(r'players 1 to ([1-4])(?!\d)')
+
+
+def players_in_report(raw: dict) -> int | None:
+    """The players a CPS board's game offers controls for, as its conversion report says (`qualification_scope.controls`, "players
+    1 to N", written from the catalogue's input table), or None when the report does not say. Only for the machines whose table
+    value is a ceiling and not a number (`CEILING_MACHINES`); the game's own HELLO has the last word."""
+    system = raw.get('system') if isinstance(raw, dict) else None
+    scope = raw.get('qualification_scope') if isinstance(raw, dict) else None
+    controls = scope.get('controls') if isinstance(scope, dict) else None
+    if not isinstance(system, dict) or system.get('id') not in CEILING_MACHINES or not isinstance(controls, str):
+        return None
+    found = _PLAYERS_OF_BOARD.search(controls)
+    return max(2, int(found.group(1))) if found else None
 
 
 def reason_names(bits: int) -> list[str]:
@@ -145,7 +166,7 @@ def game_from_report(raw, title: str = '', *, seats_max: int | None = None, game
     mode = mode_for(machine)
     if mode == MODE_FULL and (sources is None or not isinstance(record.get('identity'), str)):
         return Candidate(None, record.get('reason') or 'the export has no identity of its generated sources', version)
-    seats = min(control.MAX_SEATS, MACHINE_SEATS.get(machine, 1) if seats_max is None else seats_max)
+    seats = min(control.MAX_SEATS, (players_in_report(raw) or MACHINE_SEATS.get(machine, 1)) if seats_max is None else seats_max)
     return Candidate(control.Game(mode, simulation_identity.SCHEMA, seats, machine, version, rom, engine, options, sources or ZERO,
                                   firmware_digest(raw), clean_title(title or raw.get('title'), machine), game_options), '', version)
 
@@ -226,7 +247,7 @@ class LocalLibrary:
         for entry in self.inventory.snapshot():
             raw = self._read(entry)
             candidate = game_from_report(raw, entry.title) if raw is not None else None
-            if candidate is not None and candidate.game is not None and candidate.game.seats_max >= 2:
+            if candidate is not None and candidate.game is not None and (candidate.game.seats_max >= 2 or seat_map.forced(candidate.game.machine)):
                 games.append((entry, candidate.game))
         return games
 

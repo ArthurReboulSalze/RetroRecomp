@@ -59,8 +59,10 @@ def pad(seat: int, frame: int) -> int:
     return scripted_inputs.pad(seat, frame)
 
 
-def script(seat: int, pause_from: int | None = None, menu: bool = False) -> dict:
+def script(seat: int, pause_from: int | None = None, menu: bool = False, system_at: dict | None = None) -> dict:
     spec = {'kind': 'pad', 'seat': seat}
+    if system_at:
+        spec['system_at'] = system_at       # control bits on the LOCAL of a frame: what the worker's request would add
     if pause_from is not None:
         spec['pause_from'] = pause_from
     if menu:
@@ -74,6 +76,37 @@ def expected(seats: int, delay: int, frames: int) -> list[tuple]:
 
 def fold(history) -> int:
     return fake.digest_of([tuple(words) + (0,) * (4 - len(words)) for words in history])
+
+
+# The fake machine's pad bits (tools/hostkit_session/fake.c): Right 1, Left 2, Down 4, Up 8, and four buttons. The kit cancels
+# opposite directions held together in every word it is given (rrhk_session.inc `clean_word`), so a game folds the cleaned word.
+def kit_clean(word: int) -> int:
+    word &= 0xff
+    if word & 3 == 3:
+        word &= ~3
+    if word & 12 == 12:
+        word &= ~12
+    return word
+
+
+def shared_expected(seats: int, delay: int, frames: int, events=(), mode: int = 1) -> list[tuple]:
+    """The one word of port 0 on every frame of a shared match, written from the rules and not from `seat_map`: seat s's record of
+    frame F is its script's pad of frame F - delay (neutral before); in "everyone" (mode 1) the port gets the OR of them, in "turns"
+    (mode 2) the token holder's. `events`: (frame, 'token', seat) or (frame, 'mode', mode), each in force from that frame on."""
+    token, words, pending = 0, [], sorted(events)
+    for frame in range(frames):
+        while pending and pending[0][0] <= frame:
+            _at, what, value = pending.pop(0)
+            if what == 'token':
+                token = value
+            else:
+                mode = value
+        record = [pad(seat, frame - delay) if frame >= delay else 0 for seat in range(seats)]
+        merged = 0
+        for word in record:
+            merged |= word
+        words.append((merged if mode == 1 else record[token],))
+    return words
 
 
 def describe(driver) -> str:
@@ -168,8 +201,10 @@ class Match:
         return sum(len(self.link.fates[(0, seat)]) + len(self.link.fates[(seat, 0)]) for seat in range(1, self.seats))
 
 
-def in_step(match: Match, frames: int, delay: int | None = None) -> str:
-    """Every seat ran the same `frames` frames with the same words, and the games agree with the drivers."""
+def in_step(match: Match, frames: int, delay: int | None = None, wanted: list | None = None, seen: list | None = None) -> str:
+    """Every seat ran the same `frames` frames with the same words, and the games agree with the drivers. `wanted`: the port
+    words the drivers must have told their games (else one controller per player: the scripts, shifted by the delay); `seen`:
+    the words the games folded (else the same: a game cleans what it is given)."""
     drivers = match.drivers
     for driver in drivers:
         assert driver.outcome == 'ended', (match.name, driver.seat, driver.outcome, driver.detail)
@@ -178,20 +213,21 @@ def in_step(match: Match, frames: int, delay: int | None = None) -> str:
     assert len(delays) == 1, delays
     used = delays.pop()
     assert delay is None or used == delay, (used, delay)
-    wanted = expected(match.seats, used, frames)
+    wanted = expected(match.seats, used, frames) if wanted is None else wanted
+    seen = wanted if seen is None else seen
     boots = {driver.boot_digest for driver in drivers}
     assert len(boots) == 1 and None not in boots, f'{match.name}: the boot digests are not one: {boots}'
     for driver in drivers:
         assert driver.history == wanted, f'{match.name}: seat {driver.seat + 1} ran other words than the scripts'
         result = match.result(driver.seat)
         assert int(result['frames']) == frames and int(result['live']) == frames and int(result['silent']) == 0, result
-        assert int(result['digest'], 16) == fold(wanted), f'{match.name}: seat {driver.seat + 1}: the game ran other words'
+        assert int(result['digest'], 16) == fold(seen), f'{match.name}: seat {driver.seat + 1}: the game ran other words'
         assert int(result['effects_off']) == (frames if driver.seat else 0), result      # a guest writes no save
         assert driver.digests == drivers[0].digests, 'the digests differ between seats'
         assert driver.desync is None and driver.stats['final_compared'], (driver.desync, driver.stats)
     every = drivers[0].settings.digest_every if INPROC else drivers[0].config['settings']['digest_every']
     assert len(drivers[0].digests) == frames // every + (1 if frames % every else 0), drivers[0].digests.keys()
-    assert drivers[0].digests[frames - 1] == fold(wanted)
+    assert drivers[0].digests[frames - 1] == fold(seen)
     topology = ''
     if match.seats > 2 and not mesh_run(match):
         through = match.only_through_the_host()
@@ -222,6 +258,56 @@ def plain(name, seats, frames, limit, delay, **link):
             line += f'; packets lost {lost["lost"]}, repeated {lost["duplicated"]}, held back {lost["reordered"]} of {lost["sent"]}'
         return line
     return name, limit, scenario
+
+
+def state_of(driver) -> dict:
+    return driver.snapshot() if hasattr(driver, 'snapshot') else driver.status
+
+
+def shared_everyone(executable, out):
+    # Three seats on the controls of port 0: every game is told the OR of the three pads, the same on all three PCs; the kit
+    # cancels the opposite directions the merge makes (seat words that differ on every frame make plenty). A lossy link.
+    delay, frames = 2, 400
+    match = Match(executable, out, 'shared-everyone', 3, delay=delay, last_frame=frames, digest_every=50, sharing=1,
+                  link={'latency_ms': 5.0, 'jitter_ms': 2.0, 'loss': 0.02}).start()
+    match.finish(60)
+    wanted = shared_expected(3, delay, frames)
+    seen = [(kit_clean(word),) for (word,) in wanted]
+    cleaned = sum(1 for (a,), (b,) in zip(wanted, seen) if a != b)
+    assert cleaned >= 20, f'the scripts made opposite directions on only {cleaned} frames: the cleaning is not tested'
+    assert len({word for (word,) in wanted}) >= 20, 'the merged pads took too few different values'
+    for driver in match.drivers:
+        assert state_of(driver)['sharing'] == 'everyone', state_of(driver)
+        assert all(len(words) == 1 for words in driver.history), 'a shared match runs one port word a frame'
+    line = in_step(match, frames, delay, wanted, seen)
+    return f'three seats share port 0 (OR of the pads, {cleaned} frames with opposite directions cleaned by the kit); {line}'
+
+
+def shared_turns(executable, out):
+    # Turns: the token starts at the host and moves by records only. Scripted requests (a LOCAL's control bits, as the worker's
+    # pass_token / share_mode would add them), with their LOCAL frame; a record of frame f + delay, in force from f + delay + 1:
+    #   40 the host passes (token 1)            60 seat 3 passes: not the holder, nothing     80 seat 2 passes (token 2)
+    #  120 seat 3 passes: wraps to the host     160 the host gives the token to seat 3        200 the host: everyone
+    #  220 seat 2 asks for turns: not the host  260 the host: turns again (token still seat 3)  280 seat 2 passes: not the holder
+    delay, frames = 2, 320
+    sys_pass, to_seat3, set_all, set_turns = 0x2, 0x2 | 3 << 8, 0x1000, 0x2000
+    scripts = {0: {40: sys_pass, 160: to_seat3, 200: set_all, 260: set_turns}, 1: {80: sys_pass, 220: set_turns, 280: sys_pass},
+               2: {60: sys_pass, 120: sys_pass}}
+    match = Match(executable, out, 'shared-turns', 3, delay=delay, last_frame=frames, digest_every=50, sharing=2,
+                  link={'latency_ms': 5.0, 'jitter_ms': 2.0, 'loss': 0.02},
+                  per_seat={seat: {'local_source': script(seat, system_at=at)} for seat, at in scripts.items()}).start()
+    match.finish(60)
+    after = delay + 1
+    events = [(40 + after, 'token', 1), (80 + after, 'token', 2), (120 + after, 'token', 0), (160 + after, 'token', 2),
+              (200 + after, 'mode', 1), (260 + after, 'mode', 2)]
+    wanted = shared_expected(3, delay, frames, events, mode=2)
+    assert len({word for (word,) in wanted}) > 50, 'the scripts gave the games too few different words'
+    for driver in match.drivers:
+        state = state_of(driver)
+        assert (state['sharing'], state['token']) == ('turns', 2), state          # where the last requests left the mapper
+    line = in_step(match, frames, delay, wanted, [(kit_clean(word),) for (word,) in wanted])
+    return (f'turns on three seats: the token went host, seat 2, seat 3, host, seat 3 and the mode everyone and back, only on the '
+            f'records of the right seat (a pass from a seat that did not hold the token and a mode asked by a guest changed nothing); {line}')
 
 
 def boot_mismatch(executable, out):
@@ -475,6 +561,8 @@ SCENARIOS = [
     plain('four-seats-loss-jitter', 4, 500, 60, 6, latency_ms=10.0, jitter_ms=5.0, loss=0.02, reorder=0.02, duplicate=0.02),
     plain('four-seats-0ms', 4, 500, 40, 1),
     plain('three-seats-mesh', 3, 400, 40, 3, latency_ms=5.0, loss=0.02, extra={'topology': 'mesh'}),
+    ('shared-everyone', 60, shared_everyone),
+    ('shared-turns', 60, shared_turns),
     ('boot-mismatch', 40, boot_mismatch),
     ('pause-menu', 40, pause_by_menu),
     ('pause-host', 40, pause_host_resumes),

@@ -18,6 +18,8 @@ and gets a `launch` call back. No path, no file name and no command line ever cr
             {"call": "lobby_chat", "text": s}                                                 host, guest
             {"call": "lobby_select", "game": {lobby.game_dict fields} | null}                 host: the pick
             {"call": "lobby_move", "guest": n, "seat": n}                                     host
+            {"call": "lobby_sharing", "mode": "per_player" | "everyone" | "turns"}            host: the input mode (room CONFIG may say it too)
+            {"call": "pass_token", "to": n | absent}     {"call": "share_mode", "mode": 1 | 2}      a match: the turn, the mode
             {"call": "lobby_launch", "game": {exe, cwd, ...}, "settings": {...}, "need_ready": bool}   host
             {"call": "lobby_ready", "ready": bool}                                            guest
             {"call": "lobby_answer", "selection": n, "status": n, "reasons": n, "version": [a, b, c]}  guest: its library's word
@@ -40,7 +42,7 @@ from pathlib import Path
 import queue
 import threading
 
-from . import control, invitation, scripted_inputs
+from . import control, invitation, scripted_inputs, seat_map
 from . import worker_channel as channel
 from .lan_transport import RoomError, RoomGuest, RoomHost
 from .launch import Refusal, launch_settings
@@ -118,7 +120,8 @@ class RoomWorker:
                 log = RoomLog(Path(room['log']) if room.get('log') else None)
                 host = RoomHost(room['address'], room.get('port', invitation.DEFAULT_PORT), bytes.fromhex(room['secret']),
                                 room.get('capacity', 4), name=room.get('name', 'Host'), tests=self.tests, log=log,
-                                on_event=self._room_event, seat_rate=room.get('seat_rate') if self.tests else None)
+                                on_event=self._room_event, seat_rate=room.get('seat_rate') if self.tests else None,
+                                sharing=seat_map.BY_NAME.get(room.get('sharing', 'per_player'), -1))
                 port = host.open()
                 self.room = host
                 self.emit({'event': 'room_open', 'role': 'host', 'address': host.address, 'port': port, 'capacity': host.capacity})
@@ -162,8 +165,9 @@ class RoomWorker:
     def _on_launch(self, launch: control.Launch) -> None:
         """A guest: the host's LAUNCH, checked; then the converter is asked which game that is on this PC."""
         message = {'seat': launch.seat, 'seats': launch.seats, 'names': list(launch.names), 'delay': launch.delay or None,
-                   'digest_every': launch.digest_every, 'redundancy': launch.redundancy, 'options': launch.options}
-        settings = launch_settings(message, guest=True)
+                   'digest_every': launch.digest_every, 'redundancy': launch.redundancy, 'options': launch.options,
+                   'sharing': launch.sharing}
+        settings = launch_settings(message, guest=True, machine=launch.machine)
         if isinstance(settings, Refusal):
             self.room.launched(launch.match_id, control.LAUNCHED_FAILED)
             self.emit({'event': 'launch_refused', 'match_id': launch.match_id, 'detail': settings.reason})
@@ -250,6 +254,12 @@ class RoomWorker:
             match.driver.stop()
         elif name == 'resume' and match is not None:
             match.driver.resume()
+        elif name == 'pass_token' and match is not None:
+            to = message.get('to')
+            match.driver.pass_token(to if isinstance(to, int) and not isinstance(to, bool) else None)
+        elif name == 'share_mode' and match is not None:
+            mode = message.get('mode')
+            match.driver.set_sharing(mode if isinstance(mode, int) and not isinstance(mode, bool) else -1)
         elif name == 'close_game_pipe' and self.tests and match is not None:
             match.driver.close_game_pipe()
         elif name == 'launch':
@@ -272,11 +282,12 @@ class RoomWorker:
             game = self._game_config(message)
             identity = message['identity']
             values = dict(message.get('settings') or {})
-            net = {name: values.pop(name) for name in ('delay', 'digest_every', 'redundancy', 'options') if name in values}
+            net = {name: values.pop(name) for name in ('delay', 'digest_every', 'redundancy', 'options', 'sharing') if name in values}
             check = launch_settings({'seat': 1, 'seats': 2, 'names': ['a', 'b'], 'delay': net.get('delay'),
                                      'digest_every': net.get('digest_every', Settings.digest_every),
                                      'redundancy': net.get('redundancy', Settings.redundancy),
-                                     'options': net.get('options', '')}, guest=True)
+                                     'options': net.get('options', ''), 'sharing': net.get('sharing', seat_map.PER_PLAYER)},
+                                    guest=True, machine=identity['machine'])
             if isinstance(check, Refusal):
                 raise ValueError(check.reason)
             with self.lock:         # held until `pending` is set: a guest that answers at once finds it there
@@ -285,7 +296,8 @@ class RoomWorker:
                 info = self.room.launch(machine=identity['machine'], stamp=bytes.fromhex(identity['stamp']),
                                         rom_sha=bytes.fromhex(identity['rom']), delay=net.get('delay') or 0,
                                         digest_every=net.get('digest_every', Settings.digest_every),
-                                        redundancy=net.get('redundancy', Settings.redundancy), options=net.get('options', ''))
+                                        redundancy=net.get('redundancy', Settings.redundancy), options=net.get('options', ''),
+                                        sharing=net.get('sharing', seat_map.PER_PLAYER))
                 self.pending = {'info': info, 'game': game, 'values': values, 'net': net}
         except RoomError as error:
             self.emit({'event': 'launch_error', 'detail': error.reason})
@@ -304,6 +316,10 @@ class RoomWorker:
                 self.room.lobby_say(str(message.get('text', '')))
             elif self.role == 'host' and name == 'lobby_select':
                 refusal = self.room.lobby_select(None if message.get('game') is None else game_from_dict(message['game']))
+                if refusal is not None:
+                    self.emit({'event': 'lobby_error', 'call': name, 'detail': refusal.reason})
+            elif self.role == 'host' and name == 'lobby_sharing':
+                refusal = self.room.lobby_sharing(seat_map.BY_NAME.get(message.get('mode'), -1))
                 if refusal is not None:
                     self.emit({'event': 'lobby_error', 'call': name, 'detail': refusal.reason})
             elif self.role == 'host' and name == 'lobby_move':
@@ -327,7 +343,7 @@ class RoomWorker:
         options are (the host's pick pushes them; `settings` cannot)."""
         game = self._game_config(message)
         values = dict(message.get('settings') or {})
-        if 'options' in values:
+        if 'options' in values or 'sharing' in values:
             raise ValueError('the options of a lobby launch are the pick\'s')
         net = {name: values.pop(name) for name in ('delay', 'digest_every', 'redundancy') if name in values}
         check = launch_settings({'seat': 1, 'seats': 2, 'names': ['a', 'b'], 'delay': net.get('delay'),
@@ -346,7 +362,7 @@ class RoomWorker:
             if isinstance(info, Refusal):
                 self.emit({'event': 'launch_error', 'detail': info.reason})
                 return
-            self.pending = {'info': info, 'game': game, 'values': values, 'net': {**net, 'options': options}}
+            self.pending = {'info': info, 'game': game, 'values': values, 'net': {**net, 'options': options, 'sharing': info.sharing}}
         self.emit({'event': 'launching', 'match_id': info.match_id, 'seats': info.seats, 'names': list(info.names)})
 
     def _guest_launch(self, message: dict) -> None:

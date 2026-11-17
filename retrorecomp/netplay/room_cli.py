@@ -28,7 +28,7 @@ from pathlib import Path
 import sys
 import tempfile
 
-from . import control, invitation
+from . import control, invitation, seat_map
 from .worker_client import WorkerProcess
 
 DEFAULT_MACHINE = 'cli'
@@ -66,6 +66,9 @@ def _parser() -> argparse.ArgumentParser:
     host.add_argument('--guests', type=int, default=1, choices=(1, 2, 3), help='launch when this many guests have joined')
     host.add_argument('--delay', type=int, default=None, help='input delay in frames (default: measured, chosen by the host)')
     host.add_argument('--digest-every', type=int, default=60)
+    host.add_argument('--sharing', choices=('per_player', 'everyone', 'turns'), default='per_player',
+                      help='the input mode of the match: one controller per player (default), or every player on the same controls '
+                           '("everyone" OR-merged, "turns" one at a time); a handheld is always shared')
     host.add_argument('--option', action='append', default=[], metavar='KEY=VALUE', help='a run-changing option of the game')
     host.add_argument('--join-timeout', type=float, default=600.0, help='seconds to wait for the guests')
     host.add_argument('--frames', type=int, default=0, help='stop the match for everyone after about this many frames (a timed check)')
@@ -150,7 +153,8 @@ def run_host(args, tests: bool = False) -> int:
         say(f'--address: {error}')
         return 1
     config = {'room': {'role': 'host', 'address': args.address, 'port': args.port, 'secret': secret.hex(),
-                       'capacity': args.guests + 1, 'name': args.name, 'log': str(args.log_dir / 'room.log')}, 'tests': tests}
+                       'capacity': args.guests + 1, 'name': args.name, 'log': str(args.log_dir / 'room.log'),
+                       'sharing': args.sharing}, 'tests': tests}
     worker = WorkerProcess(config, log=args.log_dir / 'worker.txt', on_event=_show).start()
     try:
         opened = worker.wait_event('room_open', 20.0)
@@ -168,7 +172,8 @@ def run_host(args, tests: bool = False) -> int:
         except KeyboardInterrupt:
             return 1
         mark = worker.event_count
-        settings = {'delay': args.delay, 'digest_every': args.digest_every, 'redundancy': 3, 'options': '\n'.join(args.option)}
+        settings = {'delay': args.delay, 'digest_every': args.digest_every, 'redundancy': 3, 'options': '\n'.join(args.option),
+                    'sharing': seat_map.effective(args.machine, seat_map.BY_NAME[args.sharing])}
         worker.call('launch', game=_game_config(args.game, args.log_dir, 'host'),
                     identity={'machine': args.machine, 'stamp': args.stamp, 'rom': args.rom_sha256}, settings=settings)
         _wait_until_over(worker, mark, args.frames)

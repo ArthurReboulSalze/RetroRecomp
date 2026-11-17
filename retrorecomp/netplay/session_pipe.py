@@ -116,8 +116,9 @@ def parse_hello(payload: bytes) -> Hello:
     return Hello(abi, players, caps, bound, rate, printable(payload[13:]))
 
 
-def check_hello(hello: Hello, seats: int) -> None:
-    """Refuses what the delay tier of stage 1 cannot do; the reason is a sentence for the lobby."""
+def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:
+    """Refuses what the delay tier of stage 1 cannot do; the reason is a sentence for the lobby. In input sharing the seats
+    all drive the same controls, so the game's own players only have to be one: the seats are bounded by the room, not by it."""
     if hello.abi != ABI:
         raise Refused(f'the game speaks session ABI {hello.abi}, this Retro-Recomp speaks {ABI}')
     if not hello.caps & CAP_DIGEST:
@@ -126,7 +127,10 @@ def check_hello(hello: Hello, seats: int) -> None:
                       (CAP_KEYBOARD, "a computer's keyboard")):
         if hello.caps & bit:
             raise Refused(f'the game reads {what}, which the pad words do not carry yet')
-    if not 1 <= seats <= min(hello.players, MAX_PLAYERS):
+    if shared:
+        if not (1 <= seats <= MAX_PLAYERS and hello.players >= 1):
+            raise Refused(f'{seats} seats asked, a room seats 1 to {MAX_PLAYERS}')
+    elif not 1 <= seats <= min(hello.players, MAX_PLAYERS):
         raise Refused(f'{seats} seats asked, the game has {hello.players} players')
     if not hello.frame_rate_millihertz:
         raise Refused('the game gives no frame rate')

@@ -30,7 +30,9 @@ What one driver does, in one thread that sleeps on a queue (the game's messages,
   stage 1 has no "continue without him"; in a star the host tells the others who went), a seat stays silent past
   `drop_after`, or `last_frame` is reached.
 
-Seat N plays port N (one controller per player); the seat mapper for shared controls is a later stage.
+The seat mapper (`seat_map`) turns the records of every confirmed frame into the port words the game is told to run: seat N plays
+port N ("one controller per player", the default) or the seats share the controls of port 0 ("everyone" OR-merged, or "turns" with
+a token that records pass: `Settings.sharing`). Every PC maps the same records, so every game gets the same words.
 Nothing here measures speed: `stats` counts events (late frames, waits, packets), never durations.
 
 What a seat that is not honest can do (`.build/multiplayer/SECURITY_REVIEW.md`, "Security fixes before the transport"):
@@ -51,6 +53,7 @@ import time
 from typing import Callable
 
 from . import input_records as wire
+from . import seat_map
 from . import session_pipe as pipe
 from .session_game import SessionGame
 from .limits import TokenBucket
@@ -94,6 +97,8 @@ class Settings:
     digest_every: int = 60
     redundancy: int = 3                 # records repeated in every packet, acknowledged or not
     options: str = ''                   # the host's run-changing options, "key=value" lines
+    sharing: int = seat_map.PER_PLAYER  # seat_map: one controller per player, or the seats share port 0 (everyone / turns)
+    opposites: tuple = ()               # tests: (mask, mask) pairs of opposite directions the mapper cancels itself (the kit always does)
     waiting_after: float = 1.0          # seconds a game waits for a record before "Waiting for <name>"
     drop_after: float = 10.0            # seconds of silence after which a seat is gone
     probe_seconds: float = 0.5
@@ -166,6 +171,10 @@ class LockstepDriver:
         self.detail = ''
         self.exit_reason: int | None = None     # the game's EXIT (RRHK_EXIT_*)
         self.exit_code: int | None = None
+        if not seat_map.valid(settings.sharing):
+            raise ValueError('a sharing mode that does not exist')
+        self._seat_state = seat_map.start(settings.sharing, self.seats)
+        self._request = 0                       # the control bits (a pass of the turn, a change of mode) the next record carries
         self.history: list[tuple] = []          # the port words of every frame this game was told to run (`keep_history`)
         self.history_frames = 0                 # how many frames it was told to run
         self.history_digest = 0                 # a running fold of all their words: two seats that ran the same have the same
@@ -179,7 +188,7 @@ class LockstepDriver:
                       'packets_ignored': 0, 'records_repeated': 0, 'records_forwarded': 0, 'pace_changes': 0,
                       'pace_ppm_max': 0, 'resumes_refused': 0, 'final_compared': False, 'packets_dropped_rate': 0,
                       'packets_dropped_queue': 0, 'records_beyond_window': 0, 'sections_refused': 0, 'pongs_refused': 0,
-                      'measures_clamped': 0, 'desync_claims': 0, 'stalls': 0}
+                      'measures_clamped': 0, 'desync_claims': 0, 'stalls': 0, 'requests_refused': 0}
         self.next_run = 0
         self.game_frame = -1                    # the frame of the game's latest LOCAL
         self.paused: tuple | None = None        # (frame, [seats that paused])
@@ -244,6 +253,21 @@ class LockstepDriver:
         """Asks to resume a pause; honoured for the seat that paused and for the host (`stats['resumes_refused']`)."""
         self._events.put(('call', self._resume_asked))
 
+    def pass_token(self, to: int | None = None) -> None:
+        """Asks to pass the turn (input sharing): the token holder passes it to the next seat, the host may name any seat with
+        `to`. The request travels in this seat's next record, so it takes effect on the same frame on every PC (`seat_map`)."""
+        self._events.put(('call', lambda: self._ask(seat_map.request(self.settings.sharing, self.seat, target=to))))
+
+    def set_sharing(self, mode: int) -> None:
+        """The host only: a shared match goes to SHARED_ALL ("everyone") or SHARED_TURNS ("turns") on a confirmed frame."""
+        self._events.put(('call', lambda: self._ask(seat_map.request(self.settings.sharing, self.seat, mode=mode))))
+
+    def _ask(self, bits: int) -> None:
+        if bits:
+            self._request |= bits
+        else:
+            self.stats['requests_refused'] += 1
+
     def close_game_pipe(self) -> None:
         """Tests: this seat's worker loses its game (its end of the pipe closes)."""
         self.game.close_pipe()
@@ -267,6 +291,7 @@ class LockstepDriver:
             'seat': self.seat, 'phase': self._phase, 'done': self._phase == 'done', 'outcome': self.outcome,
             'detail': self.detail, 'delay': self.delay, 'next_run': self.next_run, 'game_frame': self.game_frame,
             'paused': list(self.paused) if self.paused else None, 'stats': dict(self.stats),
+            'sharing': seat_map.NAMES[self._seat_state.sharing], 'token': self._seat_state.token,
             'pauses': [list(item) for item in self.pauses], 'desync': list(self.desync) if self.desync else None,
             'measured': list(self.measured) if self.measured else None, 'boot_digest': self.boot_digest,
             'exit_code': self.exit_code, 'exit_reason': self.exit_reason, 'history_frames': self.history_frames,
@@ -410,13 +435,14 @@ class LockstepDriver:
             return
         self.hello = hello
         try:
-            pipe.check_hello(hello, self.seats)
+            pipe.check_hello(hello, self.seats, shared=seat_map.shared(self.settings.sharing))
         except pipe.Refused as error:
             self.detail = str(error)
             self._end('refused', None, *self._self_leaving())
             self.game.close_pipe()              # the game sees its pipe close and ends by itself
             return
-        self._tell(pipe.setup(self.seat, self.seats, 0, guest=self.seat != HOST, options=self.settings.options))
+        self._tell(pipe.setup(self.seat, seat_map.ports(self.settings.sharing, self.seats), 0, guest=self.seat != HOST,
+                              options=self.settings.options))
         if self.settings.clock_ppm:
             self._tell(pipe.pace(self.settings.clock_ppm))
         self._tell(pipe.digest())               # the boot digest: the state after SETUP, before any frame
@@ -440,6 +466,8 @@ class LockstepDriver:
         if self.settings.local_source is not None:
             word, system = self.settings.local_source(frame, word, system)
             word, system = word & 0xffff, system & 0xffff
+        else:
+            system &= seat_map.SYS_GAME_MASK     # a game can only ask for a pause; the other control bits come from the worker's requests
         if frame > self.game_frame:
             self._local_at = time.monotonic()
         self.game_frame = max(self.game_frame, frame)
@@ -452,7 +480,8 @@ class LockstepDriver:
                 self._my_resume = self.paused[0]
         mine = self._records[self.seat]
         if frame + self.delay == len(mine):     # first write wins: a repeated LOCAL of a frame never changes its record
-            mine.append((word, system))
+            mine.append((word, system | self._request))
+            self._request = 0                   # a request rides one record: the mapper acts on its rising edge
             self._send_inputs(time.monotonic())
 
     # ---- the link's packets ----
@@ -643,7 +672,8 @@ class LockstepDriver:
                     self.pauses.append((frame, pausers[0], None))
                     self._tell(pipe.pause(True, self.names[pausers[0]]))
                     continue
-            words = tuple(self._records[seat][frame][0] for seat in range(self.seats))
+            words, self._seat_state = seat_map.step(self._seat_state, [self._records[seat][frame] for seat in range(self.seats)],
+                                                    self.settings.opposites)
             if self.settings.words_filter is not None:
                 words = tuple(self.settings.words_filter(frame, words))
             if frame and self.game_frame >= frame:

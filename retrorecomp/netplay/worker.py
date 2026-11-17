@@ -32,7 +32,7 @@ from .session_game import SessionGame
 
 STATUS_EVERY = 0.1           # seconds between two looks at the driver for a change to report
 RESULT_LIMIT = channel.MAX_PAYLOAD - 65536      # a RESULT above this is sent without its history (it would not fit)
-TEST_FIELDS = {'local_source': None, 'words_filter': None, 'clock_ppm': 0, 'topology': 'star'}   # settings only a test may change
+TEST_FIELDS = {'local_source': None, 'words_filter': None, 'clock_ppm': 0, 'topology': 'star', 'opposites': ()}   # settings only a test may change
 END_WAIT = 20.0              # after the converter went away: seconds the driver has to end the match
 
 
@@ -59,6 +59,10 @@ class ChannelLink:
             sink(from_seat, data)
 
 
+def _seat_of(value):
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def settings_from(values: dict, tests: bool = False) -> Settings:
     """The config's settings, with the test sources named in it. The test hooks (a scripted pad, a tampered word, a
     clock offset, the mesh) are taken only when the config says `"tests": true`: a worker that is not under test
@@ -71,6 +75,8 @@ def settings_from(values: dict, tests: bool = False) -> Settings:
     local = scripted_inputs.local_source(fields.pop('local_source', None))
     words = scripted_inputs.words_filter(fields.pop('words_filter', None))
     fields['names'] = tuple(fields.get('names', ()))
+    if 'opposites' in fields:
+        fields['opposites'] = tuple(tuple(pair) for pair in fields['opposites'])
     return Settings(**fields, local_source=local, words_filter=words)
 
 
@@ -118,11 +124,16 @@ def run_worker(fd_in: int, fd_out: int) -> int:
         return 2
     finished = threading.Event()
 
-    def call(name):
+    def call(message):
+        name = message.get('call')
         if name == 'stop':
             driver.stop()
         elif name == 'resume':
             driver.resume()
+        elif name == 'pass_token':
+            driver.pass_token(_seat_of(message.get('to')))
+        elif name == 'share_mode':
+            driver.set_sharing(int(message.get('mode', 0)))
         elif name == 'close_game_pipe' and tests:       # tests: the worker loses its game
             driver.close_game_pipe()
 
@@ -131,7 +142,7 @@ def run_worker(fd_in: int, fd_out: int) -> int:
             if kind == channel.NET_IN and len(payload) > 1:
                 link.deliver(payload[0], payload[1:])
             elif kind == channel.CALL:
-                call(json.loads(payload.decode('utf-8')).get('call'))
+                call(json.loads(payload.decode('utf-8')))
         try:
             for kind, payload in reader.leftover:
                 act(kind, payload)

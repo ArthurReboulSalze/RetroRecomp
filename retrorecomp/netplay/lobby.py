@@ -10,7 +10,11 @@ from the host; to the host from a guest) and `Event` (a dict for the converter's
 The host's rules, each held by a test:
 
 * the seats are an order: the host is seat 0 and stays there (the driver's seat 0 is the host's game); the host moves the
-  guests among the others; the game takes `seats_max` players, the guests beyond them stay in the lobby;
+  guests among the others; the game takes `seats_max` players (up to four in input sharing, whose seats all drive the same
+  controls), the guests beyond them stay in the lobby;
+* the input mode (`seat_map`: one controller per player, "everyone" or "turns") is the host's choice, made when the room is
+  created and changeable in the lobby only; a handheld game (`seat_map.HANDHELDS`) is played in input sharing whatever was
+  chosen, and the roster and the launch carry the mode that is in force;
 * the chat: a line is strict UTF-8 (the wire checks it), NFC, control, format, surrogate, private-use and unassigned
   characters removed, white space made one space, at most 80 characters; at most 5 lines in any 5 seconds from one sender, the
   host's own lines included; the host stamps the sender's name, a guest never says it; `ascii_chat` is the copy a game can
@@ -37,6 +41,7 @@ from dataclasses import dataclass, replace
 import unicodedata
 
 from . import control
+from . import seat_map
 from .control import (CHECK_ASKING, CHECK_FAILED, CHECK_NONE, CHECK_SAME, MODE_FULL, PHASE_LAUNCHING, PHASE_LOBBY, PHASE_PLAYING,
                       MAX_CHAT_CHARS)
 from .launch import Refusal, clean_options
@@ -122,13 +127,13 @@ class Event:
 
 
 EVENTS = {
-    'lobby_roster': 'revision, phase, seats_max, selection, players [seat, guest, name, ready, in_match, check], me (a guest: its own guest id)',
+    'lobby_roster': 'revision, phase, seats_max, sharing (per_player / everyone / turns), selection, players [seat, guest, name, ready, in_match, check], me (a guest: its own guest id)',
     'lobby_selection': 'selection (the number), game (see game_dict) or None',
     'lobby_check_request': 'a guest: selection, game: this PC must look in its own library and answer (call lobby_answer)',
     'lobby_check': 'the host: guest, name, selection, status, reasons, version, text (the English line for a log)',
     'lobby_chat': 'sender, name, text, ascii',
     'lobby_notice': 'code (a name of NOTICE_NAMES), detail',
-    'lobby_launch': 'the host: match_id, seats, names, left_out [guest, name, reason]',
+    'lobby_launch': 'the host: match_id, seats, names, left_out [guest, name, reason], sharing',
     'lobby_back': 'match_id, reason (a name of BACK_NAMES)',
 }
 
@@ -182,6 +187,7 @@ class LaunchPlan:
     stamp: bytes
     rom: bytes
     options: str
+    sharing: int = seat_map.PER_PLAYER      # the input mode in force when the plan was made
 
 
 class _Member:
@@ -214,8 +220,11 @@ def check_text(game: control.Game | None, status: int, reasons: int = 0, version
 class HostLobby:
     """The host's lobby. `name` is the host's own display name; guests are named by the transport (cleaned, unique)."""
 
-    def __init__(self, name: str, capacity: int = 4):
+    def __init__(self, name: str, capacity: int = 4, sharing: int = seat_map.PER_PLAYER):
+        if not seat_map.valid(sharing):
+            raise ValueError('an input mode that does not exist')
         self.name, self.capacity = name, capacity
+        self.chosen = sharing              # the host's own choice of input mode; `sharing` is the one in force for the pick
         self.phase = PHASE_LOBBY
         self.game: control.Game | None = None
         self.ident = 0                     # the number of the current pick (0: none yet)
@@ -231,6 +240,28 @@ class HostLobby:
 
     # ---- the picture of the lobby ----
 
+    @property
+    def sharing(self) -> int:
+        """The input mode in force: the host's choice, or input sharing when the picked game is a handheld's."""
+        return seat_map.effective(self.game.machine if self.game is not None else None, self.chosen)
+
+    def seat_limit(self) -> int:
+        """The seats the picked game takes in the mode in force (0 when nothing is picked)."""
+        return seat_map.seat_limit(self.game.seats_max, self.sharing) if self.game is not None else 0
+
+    def set_sharing(self, sharing: int) -> Refusal | None:
+        """The host's choice of input mode. Only in the lobby; nobody has to answer again (the mode is not part of the game)."""
+        if self.phase != PHASE_LOBBY:
+            return Refusal('the input mode cannot change while a match is starting or running')
+        if not seat_map.valid(sharing):
+            return Refusal('an input mode that does not exist')
+        if not seat_map.allowed(self.game.machine if self.game is not None else None, sharing):
+            return Refusal('this game plays in input sharing only')
+        if sharing != self.chosen:
+            self.chosen = sharing
+            self._touch()
+        return None
+
     def guests(self) -> list[int]:
         return list(self._order)
 
@@ -242,8 +273,7 @@ class HostLobby:
         players = [control.Player(0, self.name, True, playing, CHECK_SAME if self.game is not None else CHECK_NONE)]
         players += [control.Player(guest, member.name, member.ready, member.in_match, member.check)
                     for guest, member in ((guest, self._members[guest]) for guest in self._order)]
-        return control.Roster(self.revision, self.phase, self.game.seats_max if self.game is not None else 0, self.ident,
-                              tuple(players))
+        return control.Roster(self.revision, self.phase, self.seat_limit(), self.ident, tuple(players), self.sharing)
 
     def select_message(self) -> control.Select | None:
         return control.Select(self.ident, self.game) if self.ident else None
@@ -304,7 +334,7 @@ class HostLobby:
         if self.phase != PHASE_LOBBY:
             return [], Refusal('the game cannot change while a match is starting or running')
         if game is not None:
-            if game.seats_max < MIN_PLAYERS:
+            if game.seats_max < MIN_PLAYERS and not seat_map.forced(game.machine):
                 return [], Refusal('this game has no second player')
             options = clean_options(game.game_options)
             if isinstance(options, Refusal) or options != game.game_options:
@@ -404,14 +434,14 @@ class HostLobby:
             reason = ('has not answered yet' if member.check == CHECK_ASKING else
                       'does not have the game' if member.check != CHECK_SAME else
                       'is not ready' if need_ready and not member.ready else
-                      'the game has no more seats' if len(chosen) + 1 >= game.seats_max else None)
+                      'the game has no more seats' if len(chosen) + 1 >= self.seat_limit() else None)
             if reason is None:
                 chosen.append(guest)
             else:
                 left_out.append((guest, member.name, reason))
         if not chosen:
             return Refusal('nobody who has the game is ready' if need_ready else 'nobody has the game')
-        return LaunchPlan(tuple(chosen), tuple(left_out), game, game.digest(), game.rom, game.game_options)
+        return LaunchPlan(tuple(chosen), tuple(left_out), game, game.digest(), game.rom, game.game_options, self.sharing)
 
     def begin(self, guests, match_id: int) -> list:
         """A launch started (`guests`: the seated guests in order; the host's own game follows): they are in the match."""
@@ -422,7 +452,8 @@ class HostLobby:
         names = [self.name] + [self._members[guest].name for guest in guests]
         left_out = [{'guest': guest, 'name': member.name, 'reason': self._why_left_out(member)}
                     for guest, member in self._members.items() if guest not in guests]
-        return [Event({'event': 'lobby_launch', 'match_id': match_id, 'seats': len(names), 'names': names, 'left_out': left_out})]
+        return [Event({'event': 'lobby_launch', 'match_id': match_id, 'seats': len(names), 'names': names, 'left_out': left_out,
+                       'sharing': seat_map.NAMES[self.sharing]})]
 
     def _why_left_out(self, member: _Member) -> str:
         return CHECK_NAMES[member.check] if member.check != CHECK_SAME else 'not seated'
@@ -461,7 +492,7 @@ class HostLobby:
 def roster_dict(roster: control.Roster, me: int | None = None) -> dict:
     """A roster as an event shows it."""
     data = {'event': 'lobby_roster', 'revision': roster.revision, 'phase': PHASE_NAMES[roster.phase], 'seats_max': roster.seats_max,
-            'selection': roster.selection,
+            'sharing': seat_map.NAMES[roster.sharing], 'selection': roster.selection,
             'players': [{'seat': seat, 'guest': player.guest, 'name': player.name, 'ready': player.ready, 'in_match': player.in_match,
                          'check': CHECK_NAMES[player.check]} for seat, player in enumerate(roster.players)]}
     if me is not None:
