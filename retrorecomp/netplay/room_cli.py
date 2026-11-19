@@ -29,7 +29,7 @@ import sys
 import tempfile
 import threading
 
-from . import control, invitation, seat_map
+from . import control, internet_key, invitation, seat_map
 from .rollback import DEFAULT_PREDICTION, TIER_MODES
 from .worker_client import WorkerProcess
 
@@ -88,6 +88,9 @@ def _parser() -> argparse.ArgumentParser:
     host.add_argument('--prediction', type=int, default=DEFAULT_PREDICTION,
                       help="the rollback tier's cap: the most frames that run on a guess (1 to %d)" % control.MAX_ROLLBACK)
     host.add_argument('--option', action='append', default=[], metavar='KEY=VALUE', help='a run-changing option of the game')
+    host.add_argument('--internet-address', default=None,
+                      help='an Internet room whose key carries this address, given by hand (no box is asked): the key, the '
+                           'encryption and the admission of an Internet room, on any network')
     host.add_argument('--join-timeout', type=float, default=600.0, help='seconds to wait for the guests')
     host.add_argument('--frames', type=int, default=0, help='stop the match for everyone after about this many frames (a timed check)')
     guest = commands.choices['guest']
@@ -178,14 +181,18 @@ def run_host(args, tests: bool = False, test_settings: dict | None = None, game_
         return 1
     config = {'room': {'role': 'host', 'address': args.address, 'port': args.port, 'secret': secret.hex(),
                        'capacity': args.guests + 1, 'name': args.name, 'log': str(args.log_dir / 'room.log'),
-                       'sharing': args.sharing, 'lag_ms': args.lag_ms, 'jitter_ms': args.jitter_ms}, 'tests': tests}
+                       'sharing': args.sharing, 'lag_ms': args.lag_ms, 'jitter_ms': args.jitter_ms,
+                       'internet': args.internet_address is not None}, 'tests': tests}
     worker = WorkerProcess(config, log=args.log_dir / 'worker.txt', on_event=_show).start()
     try:
         opened = worker.wait_event('room_open', 20.0)
         if opened is None:
             say('the room did not open (see the lines above, and ' + str(args.log_dir / 'worker.txt') + ')')
             return 1
-        say('invitation: ' + invitation.format_invitation(opened['address'], opened['port'], secret, tests))
+        if args.internet_address is not None:
+            say('invitation: ' + internet_key.format_key(opened['port'], secret, ipv4=args.internet_address, tests=tests))
+        else:
+            say('invitation: ' + invitation.format_invitation(opened['address'], opened['port'], secret, tests))
         say(f'share it with your friend only; waiting for {args.guests} guest(s) (Ctrl+C to give up)')
         def count(worker):
             return worker.event_totals['joined'] - worker.event_totals['left'] >= args.guests
@@ -224,7 +231,7 @@ def run_guest(args, tests: bool = False, test_settings: dict | None = None, game
     elif text == '-' or text is None:
         text = input('invitation: ')
     try:
-        invitation.parse(text, tests)
+        internet_key.parse_any(text, tests)              # a local invitation or an Internet room's key
     except invitation.InvitationError as error:
         say(error.reason)
         return 1

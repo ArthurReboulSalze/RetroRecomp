@@ -70,6 +70,8 @@ def side(args) -> int:
     if args.role == 'host':
         argv = ['host', '--address', args.address, '--tier', args.tier, '--digest-every', str(args.digest_every),
                 '--join-timeout', '120', '--guests', str(args.seats - 1), *common]
+        if args.internet:                # an Internet room: its key carries the host's own address, typed (no box asked)
+            argv += ['--internet-address', args.address]
     else:
         text = args.invitation or sys.stdin.readline().strip()
         argv = ['guest', text, *common]
@@ -110,6 +112,7 @@ def compare(host: dict, guests: list[dict], args) -> list[str]:
 def run(args) -> int:
     """The host on the remote PC, the guest here; the verdict and both results in the report."""
     flags = ['--frames', str(args.frames), '--machine', args.machine, '--hold', str(args.hold), '--seats', str(args.seats),
+             *(['--internet'] if args.internet else []),
              '--digest-every', str(args.digest_every), '--tier', args.tier] + (['--sticks'] if args.sticks else [])
     for name in ('save_at', 'load_at', 'restart_at'):
         if getattr(args, name):
@@ -233,6 +236,8 @@ def main() -> int:
         p.add_argument('--out', type=Path)
         p.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too')
         p.add_argument('--seats', type=int, choices=(2, 3, 4), default=2, help='players in the match: the host and its guests')
+        p.add_argument('--internet', action='store_true',
+                       help='an Internet room (RR2 key, its admission and deadline), the host\'s address typed: no box is asked')
     run_parser = sub.choices['run']
     run_parser.add_argument('--remote', required=True, help='USER@HOST of the PC that hosts (SSH, its key already trusted)')
     run_parser.add_argument('--remote-root', required=True, help='its converter folder')
