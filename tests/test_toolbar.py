@@ -108,6 +108,13 @@ class PicturesOnly(ToolbarWindow):
         self.assertGreater(app.front_end_button.winfo_rootx(), left + 20)
         self.assertLess(app.multiplayer_button.winfo_rootx() + app.multiplayer_button.winfo_width(), right - 20)
         self.assertLess(app.front_end_button.winfo_rootx(), app.multiplayer_button.winfo_rootx())   # Front-end first
+        # Front-end's picture is Arthur's « F3 » (four covers, one lit, a small pad), drawn at FEATURE_SIZE
+        from retrorecomp.gui_drawing import FEATURE_SIZE
+        from retrorecomp.gui_icons import FEATURE_DRAWERS
+        self.assertIn('front_end', FEATURE_DRAWERS)
+        picture = app.button_images[('front_end', 'feature')][0]
+        self.assertEqual((picture.width(), picture.height()), (FEATURE_SIZE, FEATURE_SIZE))
+        self.assertEqual(app.front_end_button.cget('image')[0], str(picture))
         # a bit larger than the small buttons, smaller than the hero Convert (Arthur, 20 Nov 2026)
         small, hero = app.options_button, app.start_button
         for button in (app.front_end_button, app.multiplayer_button):
