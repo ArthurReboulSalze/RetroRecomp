@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from retrorecomp import rounded_skin
 from retrorecomp.branding import COLORS, apply_theme
+from retrorecomp.rounded_skin import apply_rounded_theme
 from retrorecomp.rounded_ui import Look
 from retrorecomp.rounded_skin import CENTER, RADIUS, Skin, skin_of
 
@@ -48,7 +49,7 @@ class SkinCase(unittest.TestCase):
     def setUp(self):
         self.root = tk_root()
         self.addCleanup(self.root.destroy)
-        apply_theme(self.root, 'Segoe UI')
+        apply_rounded_theme(self.root, 'Segoe UI')
         self.style = ttk.Style(self.root)
         self.skin = skin_of(self.root)
 
@@ -57,7 +58,7 @@ class SkinCase(unittest.TestCase):
 
 
 class AppliedByTheTheme(SkinCase):
-    def test_apply_theme_installs_the_skin_at_8_px(self):
+    def test_the_converter_theme_installs_the_skin_at_8_px(self):
         self.assertIsInstance(self.skin, Skin)
         self.assertEqual(RADIUS, 8)
         self.assertEqual(self.skin.radius, 8)
@@ -195,7 +196,7 @@ class CornersAndSurfaces(SkinCase):
         root = tk_root()
         self.addCleanup(root.destroy)
         with patch('retrorecomp.rounded_skin.install'):
-            apply_theme(root, 'Segoe UI')
+            apply_rounded_theme(root, 'Segoe UI')
         self.assertIsNone(skin_of(root))
         button = ttk.Button(root, style='Primary.TButton')
         skin = rounded_skin.install(root)
@@ -241,12 +242,11 @@ class LayoutDoesNotMove(unittest.TestCase):
     def test_no_widget_asks_for_another_size_than_before(self):
         plain = tk_root()
         self.addCleanup(plain.destroy)
-        with patch('retrorecomp.rounded_skin.install'):
-            apply_theme(plain, 'Segoe UI')
+        apply_theme(plain, 'Segoe UI')                     # branding alone: square
         square = requested(plain)
         rounded = tk_root()
         self.addCleanup(rounded.destroy)
-        apply_theme(rounded, 'Segoe UI')
+        apply_rounded_theme(rounded, 'Segoe UI')
         self.assertEqual(requested(rounded), square)
 
 
@@ -258,7 +258,7 @@ class HiDpi(unittest.TestCase):
         self.addCleanup(root.destroy)
         restore_scaling(self, root)
         root.tk.call('tk', 'scaling', factor * 96 / 72)
-        apply_theme(root, 'Segoe UI')
+        apply_rounded_theme(root, 'Segoe UI')
         skin = skin_of(root)
         ttk.Button(root, style='TButton')
         ttk.Button(root, style='Primary.TButton')
@@ -299,12 +299,12 @@ class HiDpi(unittest.TestCase):
         root = tk_root()
         self.addCleanup(root.destroy)
         restore_scaling(self, root)
-        apply_theme(root, 'Segoe UI')
+        apply_rounded_theme(root, 'Segoe UI')
         skin = skin_of(root)
         ttk.Button(root, style='TButton')
         first = skin.tag
         root.tk.call('tk', 'scaling', 2.0 * 96 / 72)
-        apply_theme(root, 'Segoe UI')
+        apply_rounded_theme(root, 'Segoe UI')
         self.assertIs(skin_of(root), skin)
         self.assertNotEqual(skin.tag, first)
         self.assertAlmostEqual(skin.scale, 2.0, places=2)

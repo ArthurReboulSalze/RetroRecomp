@@ -16,6 +16,7 @@ from .ui_fonts import family
 from .systems import get_profile
 from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
+from .rounded_skin import apply_rounded_theme
 from .rounded_skin import skin_of
 from .dialogs import center_dialog
 from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
@@ -250,7 +251,7 @@ class WindowMixin:
         previous_font = self.ui_font
         self.ui_font = family(self.language)
         if self.ui_font != previous_font:
-            self.style = apply_theme(self.app, self.ui_font)
+            self.style = apply_rounded_theme(self.app, self.ui_font)
             _toolbar_styles(self.style)
         self.language_name.set(language_name(self.language))
         self.system_field.configure(values=self.system_choices())

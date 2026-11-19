@@ -516,6 +516,16 @@ def skin_of(widget):
     return getattr(root, '_rounded_skin', None)
 
 
+def apply_rounded_theme(app, font_family='Segoe UI'):
+    """The converter window's theme: branding.apply_theme, then this skin over it (it reads the styles apply_theme set, so it
+    goes last; calling this again rebuilds it). The skin stays out of branding.py, a host module of every profile, so it
+    moves no stamp: the games never draw these ttk widgets."""
+    from .branding import apply_theme
+    style = apply_theme(app, font_family)
+    install(app)
+    return style
+
+
 def install(root, radius=RADIUS):
     """Skin `root`'s ttk styles from now on (and, with `refresh`, the widgets already built). Safe to call again: a second call rebuilds."""
     skin = getattr(root, '_rounded_skin', None)
