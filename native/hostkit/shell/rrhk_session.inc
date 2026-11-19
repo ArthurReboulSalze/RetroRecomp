@@ -55,8 +55,11 @@ static struct {
                                      * memory only, freed with the session; NULL on a machine without snapshots */
     size_t state_size, state_len;
     bool state_used;
-    uint8_t *save_in;               /* the host's save image handed before SETUP (SAVE_IN), kept for a restart's put */
+    uint8_t *save_in;               /* the host's save image handed before SETUP (SAVE_IN), kept for a restart's put; on
+                                     * the host itself, the image it sent in HELLO (a restart puts it back on every seat) */
     size_t save_total, save_got;
+    uint8_t *hello_save;            /* the image this game sent in HELLO, until SETUP says whether it is the host's */
+    size_t hello_size;
     uint8_t options[RRHK_SESSION_MAX_PAYLOAD];      /* the host's run-changing options of SETUP, applied again then */
     uint16_t options_length;
     char paused_by[24];
@@ -309,7 +312,8 @@ bool rrhk_session_open(RrhkRun *run) {
         memcpy(chunk + 4, save + at, n);
         if (!send_message(RRHK_MSG_SAVE_OUT, chunk, 4 + n)) { free(save); return false; }
     }
-    free(save);
+    free(s.hello_save);
+    s.hello_save = save; s.hello_size = save_size;          /* kept: on the host it is the match's save (SETUP) */
     /* A gun or pointer (the local mouse) lives outside the pad words: such a game is not offered until LOCAL carries it. The
      * sticks travel since session ABI 7. A computer's keyboard bindings (keyboard_pad) feed the pad words like any other: in a
      * session the computer adapter gives its guest no key of this PC (rrhk_computer.inc), so only the joysticks reach the
@@ -368,6 +372,14 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         refuse(RRHK_REFUSED_COMMAND, "save");
         return false;
     }
+    /* The host plays on its own file, as alone; the image it sent is the match's save. A machine that restarts by opening
+     * its shell again (driven) reads its file again, which the host may have written meanwhile: every seat, the host too,
+     * then puts this same image back (rrhk_session_open), so the restart starts every seat from equal saves. */
+    if (!s.guest && !s.save_in && s.hello_save) {
+        s.save_in = s.hello_save; s.save_total = s.save_got = s.hello_size;
+        s.hello_save = NULL; s.hello_size = 0;
+    }
+    free(s.hello_save); s.hello_save = NULL; s.hello_size = 0;
     if (m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
@@ -715,6 +727,7 @@ void rrhk_session_close(RrhkRun *run, int reason) {
     free(s.ring); s.ring = NULL; s.depth = 0;
     free(s.state); s.state = NULL; s.state_size = s.state_len = 0; s.state_used = false;     /* the match's state ends here */
     free(s.save_in); s.save_in = NULL; s.save_total = s.save_got = 0;                          /* and the host's save */
+    free(s.hello_save); s.hello_save = NULL; s.hello_size = 0;
     chat_reset();
     rrhk_session_on = false;
 }
