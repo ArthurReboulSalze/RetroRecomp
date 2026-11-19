@@ -412,6 +412,18 @@ bool rrgba_frame(uint16_t pressed) {
         std::string error;
         if (!g_api->save_state(g_boot_state, error)) g_boot_state.clear();
     }
+    if (g_frame_index == 0) {                                 // test switch: write the session's save image (what the host hands to the guests) to a file
+        const char* image = getenv("RETRORECOMP_GBA_SAVE_IMAGE");
+        const size_t size = image ? rrgba_session_save(nullptr, 0) : 0;
+        if (size) {
+            std::vector<uint8_t> bytes(size);
+            rrgba_session_save(bytes.data(), size);
+            if (FILE* out = fopen(image, "wb")) {
+                fwrite(bytes.data(), 1, size, out);
+                fclose(out);
+            }
+        }
+    }
     if (g_scripted) pressed = scripted_pressed();
     g_api->set_keyinput(static_cast<uint16_t>(~pressed & 0x3FF));
     ++g_frame_index;
@@ -499,6 +511,31 @@ size_t rrgba_session_save(void* out, size_t capacity) {
         memcpy(out, &blob[at], length);
     }
     return length;
+}
+
+// The host, when a match ends cleanly: the save as it is now in memory goes to this PC's own save file, atomically (the engine writes a temporary file and renames it), the previous
+// file kept beside it as ".bak" (itself written atomically). Nothing was written during the match (side_effects(false) on every seat). Nothing changed in memory: nothing to write.
+bool rrgba_session_save_commit(void) {
+    if (!g_api || !g_save_path[0]) return false;
+    if (!g_api->save_dirty()) return true;
+    FILE* file = rr_fopen(g_save_path, L"rb");
+    if (file) {
+        std::vector<uint8_t> previous;
+        uint8_t buffer[65536];
+        for (size_t got; (got = fread(buffer, 1, sizeof buffer, file)) > 0;) previous.insert(previous.end(), buffer, buffer + got);
+        fclose(file);
+        const std::wstring backup = std::wstring(g_save_path) + L".bak";
+        if (!write_atomically(backup.c_str(), previous)) {
+            fprintf(stderr, "[host] the previous cartridge save could not be kept as a backup: the save is not rewritten\n");
+            return false;
+        }
+    }
+    make_parent_folders(g_save_path);
+    if (!g_api->flush_save()) {
+        fprintf(stderr, "[host] the cartridge save could not be written\n");
+        return false;
+    }
+    return true;
 }
 
 bool rrgba_session_save_put(const void* in, size_t size) {

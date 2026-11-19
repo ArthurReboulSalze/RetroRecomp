@@ -22,6 +22,7 @@ uint64_t rrgba_interpreted(void);                    /* guest instructions the e
 uint64_t rrgba_frames(void);
 void rrgba_side_effects(bool allowed);                  /* off for a guest in a session: the cartridge save is never written */
 size_t rrgba_session_save(void *out, size_t capacity);  /* the cartridge save image of this PC (the host's travels to every seat); out NULL: its size */
+bool rrgba_session_save_commit(void);                   /* the host, at a clean end of a match: its save in memory goes to its own file, the previous one kept as .bak */
 bool rrgba_session_save_put(const void *in, size_t size); /* play on the host's save image, in memory only (a guest never writes its own) */
 void rrgba_session_begin(uint64_t clock);             /* the session's clock: the engine already started on it (native/gba_machine.cpp) */
 uint64_t rrgba_digest(void);                          /* a session's digest: the deterministic state as fixed fields (native/gba_machine.cpp) */
