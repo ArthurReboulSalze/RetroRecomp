@@ -147,7 +147,7 @@ class Game:
 
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
                  restart_at: int = 0, chat_at: int = 0, load_at: int = 0, driven: bool = False, sticks: bool = False,
-                 save: int | None = None, option_at: int = 0, keys: bool = False, pass_at: int = 0):
+                 save: int | None = None, option_at: int = 0, keys: bool = False, pass_at: int = 0, pass_tile: bool = False):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -166,6 +166,9 @@ class Game:
         env.pop('SESSION_FAKE_OPTION_AT', None)
         env.pop('SESSION_FAKE_KEYS', None)
         env.pop('SESSION_FAKE_PASS_AT', None)
+        env.pop('SESSION_FAKE_PASS_TILE', None)
+        if pass_tile:
+            env['SESSION_FAKE_PASS_TILE'] = '1'
         if pass_at:
             env['SESSION_FAKE_PASS_AT'] = str(pass_at)
         if option_at:
@@ -821,6 +824,21 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
         stop(game)
         code, result, text = game.finish()
         assert code == 0 and int(result['holder']) == holder, (code, result, text)
+    # The same pass through F2's tile, with the keys (F2, Left, Left, Enter on a guest holder's row: Chat, Pass, Quit): one
+    # frame's LOCALs carry SYS_PASS, a few frames after the press (the menu takes the keys one per iteration).
+    game = Game(executable, out, pass_at=6, pass_tile=True)
+    setup(game, seat=1, guest=True, ports=1)
+    game.send('RRHK_MSG_TURNS', turns_payload(1))
+    passes = []
+    for frame in range(30):
+        local = game.expect('RRHK_MSG_LOCAL')
+        passes.append(bool(struct.unpack_from('<IHH', local)[2] & CONSTANTS['RRHK_SYS_PASS']))
+        game.send('RRHK_MSG_RUN', run_payload(frame, (0,)))
+        assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == frame
+    assert sum(passes) == 1 and passes.index(True) >= 6, passes
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0, (code, result, text)
     game = Game(executable, out)
     setup(game, seat=1, guest=True, ports=1)
     game.send('RRHK_MSG_TURNS', bytes([CONSTANTS['RRHK_SHARING_TURNS'], 3, 2, 1]) + b'A' + bytes([1]) + b'B')   # holder 3 of 2
@@ -828,8 +846,8 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
         pass
     code, result, text = game.finish(timeout=15)
     assert code == 0 and 'TURNS broke the rules' in text, (code, result, text)
-    passed.append('turns: TURNS read (mode, holder, names), the holder\'s pass in one frame\'s LOCALs, a guest not holding asks '
-                  'nothing, a broken TURNS ends the session')
+    passed.append('turns: TURNS read (mode, holder, names), the holder\'s pass in one frame\'s LOCALs (by the call and by F2\'s '
+                  'Pass tile), a guest not holding asks nothing, a broken TURNS ends the session')
     return passed
 
 

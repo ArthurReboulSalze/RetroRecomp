@@ -59,6 +59,10 @@ static bool load_pressed;
 /* SESSION_FAKE_CHAT_AT=n: during frame n - 1 the player opens the chat (Y: its own text event is not typed) and types "Hello
  * there"; Enter sends it twenty iterations later, while the frames go on (the chat asks no pause). */
 static unsigned chat_at, chat_countdown;
+/* SESSION_FAKE_PASS_TILE=1: the pass goes through F2's tile with the keys (F2, Left, Left, Enter: a guest holder's row ends
+ * with Chat, Pass, Quit), one key per iteration, instead of the call. */
+static bool pass_tile;
+static unsigned tile_step;
 static void text(const char *t) {
     SDL_Event event; SDL_zero(event);
     event.type = SDL_TEXTINPUT;
@@ -76,6 +80,12 @@ static void frame_start(void *window, void *renderer) {
     (void)window; (void)renderer;
     if (menu_countdown && !--menu_countdown) key(SDL_SCANCODE_ESCAPE, SDLK_ESCAPE);
     if (chat_countdown && !--chat_countdown) key(SDL_SCANCODE_RETURN, SDLK_RETURN);
+    if (tile_step) {
+        static const SDL_Scancode steps[4] = {SDL_SCANCODE_F2, SDL_SCANCODE_LEFT, SDL_SCANCODE_LEFT, SDL_SCANCODE_RETURN};
+        static const SDL_Keycode syms[4] = {SDLK_F2, SDLK_LEFT, SDLK_LEFT, SDLK_RETURN};
+        key(steps[tile_step - 1], syms[tile_step - 1]);
+        tile_step = tile_step < 4 ? tile_step + 1 : 0;
+    }
 }
 
 /* The fold the worker repeats: splitmix64 of the accumulator mixed with the four words and the frame. */
@@ -142,7 +152,10 @@ static bool step(uint16_t p1, uint16_t p2) {
         state.acc = mix(state.acc ^ high);
     }
     if (option_at && state.frames + 1 == option_at && !rrhk_session_silent()) speed = 2;
-    if (pass_at && state.frames + 1 == pass_at && !rrhk_session_silent()) rrhk_session_pass(-1);
+    if (pass_at && state.frames + 1 == pass_at && !rrhk_session_silent()) {
+        if (pass_tile) tile_step = 1;
+        else rrhk_session_pass(-1);
+    }
     ++state.frames;
     if (rrhk_session_silent()) ++silent_runs; else ++live_runs;
     if (!effects_allowed) ++effects_off_runs;
@@ -284,6 +297,8 @@ int main(int argc, char **argv) {
     option_at = option ? (unsigned)atoi(option) : 0;
     const char *pass = getenv("SESSION_FAKE_PASS_AT");
     pass_at = pass ? (unsigned)atoi(pass) : 0;
+    const char *tile = getenv("SESSION_FAKE_PASS_TILE");
+    pass_tile = tile && *tile == '1';
     const char *typing = getenv("SESSION_FAKE_KEYS");
     typing_keys = typing && *typing == '1';
     if (typing_keys) machine.session_keys = session_keys;
