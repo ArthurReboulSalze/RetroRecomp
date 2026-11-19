@@ -55,6 +55,21 @@ class WireTests(unittest.TestCase):
         full = [(0, 0, None, KEYS)] * wire.records_that_fit(2, False, True)
         wire.encode_input(0, 0, [], [(0, 0, full), (1, 0, full)])          # stays within the packet's limit
 
+    def test_every_full_input_packet_fits_a_sealed_datagram_and_carries_its_flags(self):
+        # The first real 2-seat run found both: the datagram refused FLAG_KEYS, and a full packet of records with keys was larger
+        # than a sealed datagram's body (every packet was then dropped as « bad_outgoing »).
+        from retrorecomp.netplay import datagram
+        for sections in (1, 2, 3, 4):
+            for sticks in (False, True):
+                for typed in (False, True):
+                    record = (1, 0, (1, 1, 1, 1) if sticks else None, KEYS) if typed else \
+                        ((1, 0, (1, 1, 1, 1)) if sticks else (1, 0))
+                    count = wire.records_that_fit(sections, sticks, typed)
+                    packet = wire.encode_input(0, 0, [], [(seat, 0, [record] * count) for seat in range(sections)])
+                    self.assertLessEqual(len(packet) - 8, datagram.MAX_BODY, (sections, sticks, typed))
+                    kind, body, flags = datagram.split_inner(packet, 0)
+                    self.assertEqual(datagram.join_inner(kind, 0, body, flags), packet)
+
     def test_a_relaunch_bye_is_known_on_both_links(self):
         bye = wire.decode(wire.encode_bye(0, wire.BYE_RELAUNCH, 5), 2)
         self.assertEqual(bye.reason, wire.BYE_RELAUNCH)

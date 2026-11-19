@@ -43,8 +43,9 @@ KINDS = frozenset((wire.INPUT, wire.PING, wire.PONG, wire.MEASURE, wire.BYE, wir
 
 
 def _flags_allowed(kind: int, flags: int) -> bool:
-    """The only flag a datagram carries: the sticks of an INPUT (`input_records.FLAG_AXES`)."""
-    return flags == 0 or (flags == wire.FLAG_AXES and kind == wire.INPUT)
+    """The only flags a datagram carries: an INPUT's records with the sticks (`input_records.FLAG_AXES`) and with the keys
+    typed (`FLAG_KEYS`, session ABI 9)."""
+    return flags == 0 or (kind == wire.INPUT and not flags & ~(wire.FLAG_AXES | wire.FLAG_KEYS))
 
 WINDOW = 64
 _HEAD = struct.Struct('<4sBBBBIQ')

@@ -37,6 +37,9 @@ import struct
 MAGIC = b'RRNG'
 PROTO = 3                    # 3: FLAG_KEYS and BYE_RELAUNCH (session ABI 9)
 MAX_PACKET = 508             # no IP fragmentation later, on IPv4 or IPv6
+# What a driver's packet may weigh so that the sealed datagram carrying it stays within MAX_PACKET: the datagram adds its head
+# (20) and its tag (16) and drops the packet's own head (8) (`datagram.MAX_BODY`).
+MAX_SENT = MAX_PACKET - 20 - 16 + 8
 MAX_RECORDS = 32
 MAX_SECTIONS = 4
 MAX_SEATS = 4
@@ -93,7 +96,7 @@ def records_that_fit(sections: int, sticks: bool, keys: bool = False) -> int:
     """How many records each of `sections` sections may carry so that the packet stays within MAX_PACKET."""
     if sections <= 0:
         return MAX_RECORDS
-    room = MAX_PACKET - _HEAD.size - _INPUT.size - sections * _SECTION.size
+    room = MAX_SENT - _HEAD.size - _INPUT.size - sections * _SECTION.size
     return max(1, min(MAX_RECORDS, room // (sections * (4 + (AXES if sticks else 0) + (KEY_BYTES if keys else 0)))))
 
 
