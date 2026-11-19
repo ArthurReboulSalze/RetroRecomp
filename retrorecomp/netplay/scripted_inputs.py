@@ -50,6 +50,21 @@ def local_source(spec: dict | None):
                 system |= pipe.SYS_PAUSE
             return pad(seat, frame // hold), system | at.get(frame, 0)
         return source
+    if kind == 'route':
+        # A recorded route ("frame p1 p2" lines, the pads' hex words held from that frame, as the conversions' routes): the
+        # seat plays its own column (the host p1, the first guest p2), so a game reaches a screen a test needs (a save).
+        seat = int(spec['seat'])
+        at = {int(frame): int(bits) for frame, bits in (spec.get('system_at') or {}).items()}
+        events = sorted((int(row[0]), int(row[1 + seat]) if 1 + seat < len(row) else 0) for row in spec['events'])
+
+        def source(frame, _word, system):
+            word = 0
+            for start, value in events:
+                if start > frame:
+                    break
+                word = value
+            return word & 0xffff, system | at.get(frame, 0)
+        return source
     if kind == 'random':
         seat, hold = int(spec['seat']), int(spec.get('hold', 12))
         at = {int(frame): int(bits) for frame, bits in (spec.get('system_at') or {}).items()}

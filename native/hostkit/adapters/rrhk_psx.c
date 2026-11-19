@@ -30,6 +30,9 @@ int rr_psx_host_set_renderer(int vulkan);
 int rr_psx_host_reopen(void);
 unsigned rr_psx_card_notice(void);   /* psx_main.c: 1 a memory card file set aside, 2 saving off */
 void rr_psx_host_match(void);
+size_t rr_psx_host_card_image(void *out, size_t capacity);
+int rr_psx_host_card_put(const void *in, size_t size);
+int rr_psx_host_card_commit(void);
 void rr_psx_host_effects(int allowed);
 uint64_t rr_psx_host_digest(void);
 RrPsxSession *rr_psx_host_session(void);
@@ -410,6 +413,11 @@ static void session_begin(uint64_t clock) {
 void rr_psx_match_begin(void) { session_begin(0); }   /* psx_main.c --match: the evidence of a headless run */
 bool rr_psx_match_option(const char *key, const char *value) { return session_option(key, value); }
 static void side_effects(bool allowed) { rr_psx_host_effects(allowed); }
+/* The host's memory card for the match (session ABI 8): sent by the host, put on every seat before the boot digest. */
+static size_t session_save(void *out, size_t capacity) { return rr_psx_host_card_image(out, capacity); }
+static bool session_save_put(const void *in, size_t size) { return rr_psx_host_card_put(in, size) != 0; }
+/* The host only, when the match ends cleanly: the card with the match's progress into the host's card file (kept: <card>.bak). */
+static bool session_save_commit(void) { return rr_psx_host_card_commit() != 0; }
 static uint64_t digest(void) { return rr_psx_host_digest(); }
 
 /* The picture: the core's own frame surface, rows pixel_pitch apart, uploaded without a copy of ours. */
@@ -469,7 +477,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .widescreen = true,
             .host_media = 1 + DISC, .media_count = media_count, .media_current = media_current, .media_select = media_select,
             .digest = digest, .side_effects = side_effects, .session_begin = session_begin, .session_option = session_option,
-            .session_options = rr_psx_session_values,
+            .session_options = rr_psx_session_values, .session_save = session_save, .session_save_put = session_save_put,
+            .session_save_commit = session_save_commit,
         };
     }
     return &machine;

@@ -196,8 +196,18 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertEqual(order, sorted(order))
         self.assertNotIn('vram', body.lower().replace('no vram', ''))
         main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
-        match = main[main.index('void rr_psx_host_match(void) {'):]
-        self.assertIn('card_path[0] = 0;', match[:match.index('\n}\n')])   # the player's card is never read again nor written
+        # The host's card travels (session ABI 8): put before the boot digest, the match's card after a reset, a guest never writes.
+        self.assertIn('.session_save = session_save, .session_save_put = session_save_put,', ADAPTER)
+        self.assertIn('void rr_psx_host_match(void) { matched = 1; match_card(); }', main)
+        self.assertIn('    if (matched) match_card();\n    else if (!headless || card_option) card_sync(1);', main)
+        self.assertIn('if (matched && !effects_allowed) return;', main)
+        # The host's card written back once at a clean end (the owner, 19 Nov 2026), atomically, the old file kept as .bak.
+        self.assertIn('.session_save_commit = session_save_commit,', ADAPTER)
+        commit = main[main.index('int rr_psx_host_card_commit(void) {'):]
+        commit = commit[:commit.index('\n}\n')]
+        self.assertIn('L"%ls.bak"', commit)
+        self.assertLess(commit.index('file_replace(backup'), commit.index('card_write(card, size)'))
+        self.assertIn('if (!card || !in || size != have) return 0;', main)
         self.assertIn('if (!rr_feedback_enabled() || !effects_allowed) return;', main)
         beetle = (ROOT / 'retrorecomp/psx_beetle.py').read_text(encoding='utf-8')
         self.assertIn("'const uint16_t *rr_psx_spu_ram(void) { return SPURAM; }\\n'", beetle)
