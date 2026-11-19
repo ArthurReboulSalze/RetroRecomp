@@ -481,6 +481,11 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # the selected rows, gold for the main one.
         self.start_button = self.icon_button(actions, 'start', 'tip_start', self.start, HERO_CONVERT, managed=False,
                                              hero=True)
+        self.start_button.configure(style='Mill.Hero.Toolbar.Primary.TButton')   # the bevelled Convert, « H1 »
+        from .rounded_skin import skin_of
+        skin = skin_of(self.start_button)
+        if skin is not None:
+            skin.restyle(self.start_button)       # the skin draws the new style's edge (it skinned the hero's at creation)
         self.start_button.pack(side='left')
         self.selected_button = self.icon_button(actions, 'start_selected', 'tip_start_selected',
                                                 lambda: self.start(selected=True), 'convert_selected', managed=False)

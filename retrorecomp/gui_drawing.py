@@ -500,6 +500,9 @@ def _toolbar_styles(style):
     # picture, drawn by decorate_button), brighter under the pointer. There is one dark theme, so there is one set.
     style.configure('Feature.Toolbar.TButton', bordercolor=c['gold'], lightcolor=c['button'], darkcolor=c['button'])
     style.configure('Centre.Feature.Toolbar.TButton', padding=(5, 4))
+    # Convert: the hero's gold, a bevelled edge (rounded_skin draws `rrbevel`) and its wide picture of the whole conversion,
+    # « H1 » (Arthur, 20 Nov 2026); Play keeps the hero's own look.
+    style.configure('Mill.Hero.Toolbar.Primary.TButton', rrbevel=1)
     style.map('Feature.Toolbar.TButton',
               bordercolor=[('disabled', c['border']), ('pressed', c['gold_hover']), ('active', c['gold_hover']),
                            ('!disabled', c['gold'])],

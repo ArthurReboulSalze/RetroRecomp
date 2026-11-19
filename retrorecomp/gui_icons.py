@@ -361,13 +361,61 @@ def draw_picture(name, colour, size=HERO_GRID, highlight=None):
     return image.reduce(SUPERSAMPLE)                    # an exact average of 4 x 4 samples: no ringing
 
 
+# ---- Convert, « H1 » (Arthur, 20 Nov 2026): the conversion from left to right, on a 80 x 30 grid (80 x 30 px at 100 %) ----
+MILL_GRID = (80, 30)
+_BITS = {'0': ('111', '101', '101', '101', '111'), '1': ('010', '110', '010', '010', '111')}
+
+
+def _mill_gear(pen, cx, cy, r, fill, hole, phase):
+    pen.disc(cx, cy, r * 0.72, fill)
+    for i in range(8):
+        a = phase + i * math.pi / 4
+        ux, uy, vx, vy = math.cos(a), math.sin(a), -math.sin(a), math.cos(a)
+        pen.poly([(cx + ux * r * 0.6 + vx * r * 0.24, cy + uy * r * 0.6 + vy * r * 0.24),
+                  (cx + ux * r + vx * r * 0.17, cy + uy * r + vy * r * 0.17),
+                  (cx + ux * r - vx * r * 0.17, cy + uy * r - vy * r * 0.17),
+                  (cx + ux * r * 0.6 - vx * r * 0.24, cy + uy * r * 0.6 - vy * r * 0.24)], fill)
+    pen.disc(cx, cy, r * 0.26, hole)
+
+
+def draw_mill(colour, scale=1.0, face='#d4a737'):
+    """Convert's picture: a cartridge lying on its side going in between two meshing gears (one above the other), the game
+    coming out as 1s and 0s that spread out, then a play mark; in `colour` on the button's `face` (the gear's hole and the
+    cartridge's label are cut in the face colour)."""
+    from PIL import Image, ImageDraw
+    k = scale * SUPERSAMPLE
+    width, height = (round(side * k) for side in MILL_GRID)
+    clear = tuple(int(colour[index:index + 2], 16) for index in (1, 3, 5)) + (0,)
+    image = Image.new('RGBA', (width, height), clear)
+    pen = _Pen(ImageDraw.Draw(image), k)
+    x, y = 0, 10                                       # the cartridge, its connector pointing into the mill
+    pen.poly([(x, y + 2), (x + 2, y), (x + 12, y), (x + 12, y + 10), (x, y + 10)], colour)
+    pen.box(x + 1.6, y + 1.6, x + 6, y + 8.4, 0.4, fill=face)
+    for i in range(3):
+        pen.box(x + 10.2, y + 1.4 + i * 2.8, x + 11.7, y + 2.6 + i * 2.8, 0, fill=face)
+    _mill_gear(pen, 21, 15 - 6.5, 7.0, colour, face, math.pi / 8)
+    _mill_gear(pen, 21, 15 + 6.5, 7.0, colour, face, 0.0)
+    for bx, by, char in ((33, 11.5, '1'), (40, 6.5, '0'), (40, 16.5, '1'), (47, 2.0, '1'), (47, 11.5, '0'), (47, 21.0, '1'),
+                         (54, 6.5, '0'), (54, 16.5, '1')):
+        for row, bits in enumerate(_BITS[char]):
+            for col, bit in enumerate(bits):
+                if bit == '1':
+                    pen.box(bx + col * 1.4, by + row * 1.4, bx + (col + 1) * 1.4, by + (row + 1) * 1.4, 0, fill=colour)
+    pen.poly([(65, 5), (79, 15), (65, 25)], colour)
+    return image.resize((round(width / SUPERSAMPLE), round(height / SUPERSAMPLE)), Image.Resampling.LANCZOS)
+
+
 def hero_picture(master, symbol, colour, highlight=None):
     """The picture of `symbol` for a hero button, as a Tk image: drawn with Pillow when it has a drawing here, else its
     polylines drawn larger and thicker (gui_drawing.hero_icon). Sized for the screen's scaling (96 dpi: HERO_SIZE, 30 px)."""
+    from PIL import ImageTk
+    from .ui_fonts import toolbar_scale
+    if symbol == HERO_CONVERT:                      # Convert's wide picture, « H1 »
+        from .branding import COLORS
+        face = COLORS['panel'] if colour == COLORS['disabled'] else COLORS['gold']   # greyed: the button's own face
+        return ImageTk.PhotoImage(draw_mill(colour, toolbar_scale(master), face), master=master)
     if symbol not in DRAWERS:
         from .gui_drawing import hero_icon
         return hero_icon(master, symbol, colour)
-    from PIL import ImageTk
-    from .ui_fonts import toolbar_scale
     from .gui_drawing import HERO_SIZE
     return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_SIZE * toolbar_scale(master)), highlight), master=master)
