@@ -420,6 +420,18 @@ class SessionSaveTests(unittest.TestCase):
         self.assertIn('msx_session_hold(out, size);', self.snapshot)
         self.assertIn('msx_session_hold(in, size);', self.snapshot)
 
+    def test_the_host_writes_its_save_back_once_with_a_backup(self):
+        # nobody writes during a match (the kit holds the side effects off); the host's files take the save at a clean end
+        self.assertIn('machine.session_save_commit = msx_session_save_commit;', self.adapter)
+        self.assertIn('if (!sram_size && !RR_MSX_DISKS)\n        ((RrhkMachine *)rrhk_adapter())->session_save_commit = NULL;',
+                      self.player)
+        commit = self.snapshot.split('static bool msx_session_save_commit(void)\n{')[1].split('\n}\n')[0]
+        self.assertIn('msx_keep_backup(path) && msx_sram_flush(SDL_GetTicks64(), true)', commit)   # the backup comes first
+        self.assertLess(commit.index('!msx_keep_backup(path)'), commit.index('disks_save();'))
+        backup = self.snapshot.split('static bool msx_keep_backup(const wchar_t *path)\n{')[1].split('\n}\n')[0]
+        self.assertIn('L"%ls.bak"', backup)
+        self.assertLess(backup.index('rr_copy_new(path, staged)'), backup.index('rr_replace(staged, backup)'))
+
     def test_the_image_magic_reads_rmsxsav1(self):
         import re
         value = int(re.search(r'#define MSX_SAVE_MAGIC (0x[0-9A-F]+)ull', self.snapshot).group(1), 16)

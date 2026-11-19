@@ -95,6 +95,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [MSX: a MegaROM with no direct mapper store is probed, not refused](#msx-a-megarom-with-no-direct-mapper-store-is-probed-not-refused-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`retrorecomp/msx_conversion.py`) | none | unchanged |
 | [MSX, MSX2, MSX2+: the host's save travels in a session](#msx-msx2-msx2-the-hosts-save-travels-in-a-session-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout) |
+| [MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end](#msx-msx2-msx2-the-hosts-save-travels-in-a-session-and-is-written-back-at-its-end-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-next-release) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
@@ -178,6 +179,7 @@ PC, with the owner's agreement).
 | [Windows packing: the call filter's last candidate](#windows-packing-the-call-filters-last-candidate-next-release) | none | **the build stamp of every profile** (`retrorecomp/packing.py` is a build input) | unchanged |
 
 ## MSX, MSX2, MSX2+: the host's save travels in a session (next release)
+## MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end (next release)
 
 The MSX family gives the kit `session_save` / `session_save_put` (session ABI 8, `native/msx_machine/msx_snapshot.inc`), so a
 guest plays the match on the host's save instead of its own. The image, little-endian: `RMSXSAV1`, the cartridge's battery SRAM
@@ -192,6 +194,14 @@ first frame still starts from the host's everywhere. The SRAM and the disk in dr
 for the match like every seat, keeps its copies untouched and is told. A guest writes **no save file**, its end included: the
 SRAM file and the disk copies written at the process's end now wait for the side effects too, where before a guest's last
 write would have put the host's bytes in its own file. The MSX2 clock keeps no file (it starts on the same date everywhere); a
+for the match like every seat, keeps its copies untouched and is told. **Nobody writes a save file during a match, the host
+included** (the kit holds every seat's side effects off from SETUP to the end, 8b8477d4): the SRAM file and the disk copies
+written at the process's end now wait for the side effects too, where before a guest's last write would have put the host's
+bytes in its own file. **At a clean end the host writes its save back once** (`session_save_commit`): the SRAM file when the
+SRAM differs from what the host sent (msx_sram.c's atomic write), and the copy of each disk the game wrote (a staged file, then a
+rename), each previous file kept first as `.bak` (a staged copy, then a rename); a file that could not be backed up is not
+rewritten, and an SRAM file that was unreadable at the start stays as it is ("Save not updated"). A game with no save has no
+hook. The MSX2 clock keeps no file (it starts on the same date everywhere); a
 restart for everyone keeps the match's SRAM and disks, as the machine's reset does. Alone, a game reads and writes its saves as
 before.
 
@@ -201,11 +211,18 @@ before.
 BIOS) on the copy the game itself wrote alone (one sector, a 527-byte image): every seat boots on the same digest, the save,
 load and restart fall on the same frames, every digest is equal, and only seat 1 holds the save file at the end; the boot
 digests are those of the power-on state with the save (each differs from the end of the seat's own first frame). The image each
+digests are those of the power-on state with the save (each differs from the end of the seat's own first frame). The
+write-back (a clean end by STOP ended): the authored disk started from a blank copy, the game wrote its sector during the match,
+and at the end the host's copy equals the in-memory disk (the hash its game printed), its `.bak` equals the blank copy; on the
+copy the game had written alone the same sector was written again, so the file is the same and the `.bak` is the previous file;
+on Deep Dungeon and Xanadu the scripted pads did not change the SRAM, so nothing was rewritten and no `.bak` was made. The
+guests' folders hold no save file in every run. After a refused boot the host's file is untouched and no `.bak` is made. The image each
 host game sent (its real SAVE_OUT, read through `session_game.py`) is byte for byte the one the guests were handed. Negative
 controls: a guest handed the same image with a blank SRAM, or with no sector, is refused at boot ("does not start from the same
 state as the host's").
 
 **Stamps** (against `spec/multiplayer` `2d3cc8c1`): the MSX, MSX2 and MSX2+ game and host stamps; nothing else.
+**Stamps** (against `spec/multiplayer` `8b8477d4`): the MSX, MSX2 and MSX2+ game and host stamps; nothing else.
 
 ## MSX: a MegaROM with no direct mapper store is probed, not refused (next release)
 

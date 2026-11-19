@@ -44,6 +44,7 @@ static void msx_side_effects(bool allowed);
 static size_t msx_session_save(void *out, size_t capacity);
 static bool msx_session_save_put(const void *in, size_t size);
 static void msx_session_begin(uint64_t clock);
+static bool msx_session_save_commit(void);
 /* What a frame does outside the machine (the cartridge's SRAM file, the copies of written disks): off for silent frames and for a
  * guest during a whole session, the process's end included (a guest never writes its own save). */
 static bool msx_effects_allowed = true;
@@ -493,6 +494,8 @@ static int run(void)
         static wchar_t path[32768];
         if (msx_sram_path(path, sizeof path / sizeof *path)) sram_open(path);
     }
+    if (!sram_size && !RR_MSX_DISKS)
+        ((RrhkMachine *)rrhk_adapter())->session_save_commit = NULL;   /* no save to write back after a match */
     if (!msx_host_open(RR_MSX_TITLE, RR_MSX_MODEL >= 2 ? 2 : 3, &machine)) return 4;
     power_on();
     if (rrhk_session_active()) msx_session_keep_start();   /* SETUP puts every seat back here (msx_session_begin) */

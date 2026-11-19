@@ -262,6 +262,8 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.digest = msx_snap_digest; machine.side_effects = msx_side_effects;
       /* The game's saves (battery SRAM, the disks' written sectors): the host's travel to every seat for the match. */
       machine.session_save = msx_session_save; machine.session_save_put = msx_session_save_put;
+      /* The host, at a clean end of the match: its files take the match's save once, each previous one kept as .bak. */
+      machine.session_save_commit = msx_session_save_commit;
       /* SETUP: every seat back at power-on (its guest ran a first frame on its own saves), then the match's image. */
       machine.session_begin = msx_session_begin;
       machine.input_frame = m_input_frame;
