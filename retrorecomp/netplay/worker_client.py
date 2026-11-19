@@ -90,9 +90,12 @@ class WorkerProcess:
     def _send(self, kind: int, payload: bytes = b'') -> bool:
         data = channel.frame(kind, payload)
         with self._write_lock:
+            process = self.process
+            if process is None:                 # not started yet (a link thread may deliver to a seat started later)
+                return False
             try:
-                self.process.stdin.write(data)
-                self.process.stdin.flush()
+                process.stdin.write(data)
+                process.stdin.flush()
                 return True
             except (OSError, ValueError):       # the worker is gone
                 return False
@@ -214,7 +217,8 @@ class WorkerProcess:
         """Closes the worker's stdin: the converter going away, as the worker sees it (it ends the match as a seat
         leaving, and its game stops by itself)."""
         try:
-            self.process.stdin.close()
+            if self.process is not None:
+                self.process.stdin.close()
         except OSError:
             pass
 
