@@ -128,18 +128,40 @@ static void a_port1_load(void) {
    a_set_port1_mode(mode, false);
 }
 
-/* The plate when port 1 changes device, in the five languages of the games, without accents (as the games write their texts). */
+/* The adapter's own texts are in the five languages of the games, without accents (as the games write their texts): en, fr, de, es,
+ * it, the index of the game's language now (English for any other). */
+static int a_language(void) {
+   static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
+   const char *code = rr_language_code(rr_language_get());
+   int n;
+   for (n = 0; n < 5; n++) if (code && !strcmp(code, codes[n])) return n;
+   return 0;
+}
+
+/* The plate when port 1 changes device. */
 static void a_port1_notice(void) {
    static const char *const text[2][5] = {
       {"Mouse port: mouse", "Port souris : souris", "Mausport: Maus", "Puerto del raton: raton", "Porta del mouse: mouse"},
       {"Mouse port: pad 2", "Port souris : manette 2", "Mausport: Pad 2", "Puerto del raton: mando 2", "Porta del mouse: pad 2"}};
-   static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
-   const char *code = rr_language_code(rr_language_get());
-   int device = a_port1_device(), language = 0, n;
+   int device = a_port1_device();
    if (device == a_port1_shown) return;
    a_port1_shown = device;
-   for (n = 0; n < 5; n++) if (code && !strcmp(code, codes[n])) language = n;
-   if (ca.windowed) rrhk_notice(text[device][language], 3500);
+   if (ca.windowed) rrhk_notice(text[device][a_language()], 3500);
+}
+
+/* The F1 help's two lines under the keys: the computers' Tab line (rrhk_computer.inc), then how two players play, in place of the
+ * computers' Ctrl+Alt+K line (the panel holds two lines there: a third ran past its edge in the capture; Ctrl+Alt+K stays on the
+ * second page, Tab, as "full guest keyboard"). An Amiga game chooses one or two players in its own menu, and its player 2 holds the
+ * joystick of port 1, where the mouse usually is: player 2's pad plays there (a_port1_*; in a session port 1 is the joystick on every
+ * seat). Arthur did not find Alien Breed 2's two-player mode (19 Nov 2026): it is its title screen's "Number Of Players", 1 by default. */
+static void a_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
+   static const char *const two_players[5] = {
+      "2 players: game menu | pad 2: mouse port", "2 joueurs : menu du jeu | manette 2 : port souris",
+      "2 Spieler: Spielmenue | Pad 2: Mausport", "2 jugadores: menu del juego | mando 2: puerto raton",
+      "2 giocatori: menu del gioco | pad 2: porta mouse"};
+   (void)ui;
+   rrhk_menu_line(ctx, y, rr_tr("Tab: game / computer shortcuts"));
+   rr_menu_text_plain(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, 14, y + RR_MENU_LINE, 242 - 14, two_players[a_language()], RR_MENU_GOLD);
 }
 
 /* The row "Mouse port" at the top of player 2's gamepad page (the shell's RrhkPadRow): its value is the player's choice, kept per game; its
@@ -156,14 +178,6 @@ static const RrhkPadRow a_pad_rows[1] = {{2, "Mouse port", 3, a_port1_values, a_
  * the conversion's routes and checks run at Normal. Texts in the five languages of the games, without accents. */
 #define A_ROW_CPU (SDL_NUM_SCANCODES + 2)   /* the row's key: past the computers' keyboard row (+1), before the kit's own rows (+16) */
 static int a_cpu_choice = 1;
-
-static int a_language(void) {
-   static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
-   const char *code = rr_language_code(rr_language_get());
-   int n;
-   for (n = 0; n < 5; n++) if (code && !strcmp(code, codes[n])) return n;
-   return 0;
-}
 
 /* `save`: kept for the next start (a choice made in the window), or this run only (--cpu-factor). */
 static void a_set_cpu(int factor, bool save) {
@@ -454,7 +468,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.audio = a_audio; machine.interpreted = a_interpreted; machine.audio_interpreted = a_zero;
       machine.native_caption = RRHK_CORE_CAPTION;
       machine.state_path = a_state_path; machine.state_ready = a_state_ready; machine.state_file = a_state_file; machine.input_frame = a_input_frame;
-      machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = x_help_controls;
+      machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = a_help_controls;
       /* The F2 row "Keyboard (Ctrl+Alt+K): game controls / computer only" of rrhk_computer.inc, kept per game in player.cfg. */
       machine.option_rows = a_option_rows; machine.key_event = a_key_event;   /* the computers' keyboard row, then the CPU's speed */
       machine.frame_start = x_frame_start; machine.finished = x_finished;
