@@ -43,7 +43,7 @@ CHAT_MAX = 80                    # the lobby's own limit (LOBBY.md section 2); t
 SHARINGS = ('per_player', 'everyone', 'turns')
 CHECKS = ('none', 'asking', 'same', 'other', 'missing', 'failed')
 BACKS = ('ended', 'game_closed', 'pipe_lost', 'left', 'seat_left', 'seat_silent', 'host_closed', 'desync', 'boot_mismatch',
-         'error', 'launch_failed')
+         'error', 'launch_failed', 'relaunch')     # relaunch: the host changed an option, the match starts again (ABI 9)
 NOTICES = ('chat_too_fast', 'bad_text', 'busy', 'bad_pick', 'wrong_key_attempts', 'firewall_blocked')
 # A game that refused one of the host's options (RRHK_REFUSED_OPTION, its text the option key), as the match driver says it
 # (lockstep.py: « the game refused (1): <key> »), in a match_over or a launch event's detail.

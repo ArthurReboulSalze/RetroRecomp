@@ -549,6 +549,17 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.feed(view, {'event': 'lobby_chat', 'sender': 0, 'name': 'Arthur', 'text': 'Salut'})
         self.assertEqual(view.controller.calls.count(('sharing', 'everyone')), 1)
 
+    def test_a_relaunch_says_the_host_changed_an_option(self):
+        view = self.window()
+        view.show('host')
+        view.open_room()
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611},
+                  {'event': 'lobby_back', 'match_id': 1, 'reason': 'relaunch'}, self.roster([host]))
+        self.assertEqual(view.banner.cget('text'), tr('mp_back_relaunch', 'fr'))
+        self.feed(view, self.roster([dict(host, in_match=True)], phase='launching'))
+        self.assertEqual(view.banner.cget('text'), tr('mp_match_running', 'fr'))   # it starts again at once
+
     def test_a_firewall_that_blocks_guests_is_said_to_the_host_while_it_lasts(self):
         view = self.window()
         view.show('host')
