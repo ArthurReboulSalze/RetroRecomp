@@ -1450,6 +1450,8 @@
     "Quick states are off in multiplayer": "多人游戏中快速存档已关闭",
     "Only the host can restart": "只有主机可以重新开始",
     "Restarted by the host": "主机已重新开始",
+    "Save updated": "存档已更新",
+    "Save not updated": "存档未能更新",
     "Only the host saves and loads": "只有主机可以保存和读取",
     "No state saved in this match": "本局没有保存的进度",
     "State saved by the host": "主机已保存",

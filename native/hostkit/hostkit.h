@@ -358,6 +358,13 @@ typedef struct RrhkMachine {
      * none (each seat keeps its own, and two different saves are refused by the boot digest). */
     size_t (*session_save)(void *out, size_t capacity);
     bool (*session_save_put)(const void *in, size_t size);
+    /* The host, when a match ends cleanly (it ended, or the host closed the room or quit its game; never after a desync, a
+     * refused boot or a lost connection): write the machine's save as it is now in memory to this PC's own save file, the one
+     * the game reads alone, atomically (a temporary file, then a rename) and keeping the previous file as a one-step backup.
+     * Nobody writes a save file during a match: the kit holds every seat's side effects off from SETUP to the end (Arthur,
+     * 19 Nov 2026: « Oui, réécris la carte de l'hôte à la fin »). true: written (the host is told). NULL: the machine has no
+     * save to write back. */
+    bool (*session_save_commit)(void);
     /* The session starts (after SETUP and its options, before the boot digest and frame 0): a machine with a real-time clock
      * sets it from `clock` (seconds since 1970, the same on every seat) instead of this PC's time, here and at every restart
      * of the session. NULL: nothing to do. */

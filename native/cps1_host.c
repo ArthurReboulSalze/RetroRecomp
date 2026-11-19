@@ -177,6 +177,19 @@ bool rr_cps1_snap_load(const void *buffer, size_t size)
 }
 uint64_t rr_cps1_digest(void) { return cps1_digest(); }
 void rr_cps1_side_effects(bool allowed) { rr_cps1_save_side_effects(allowed); }
+size_t rr_cps1_session_save(void *out, size_t capacity)
+{
+    const size_t size = cps1_eeprom_size();
+    if (!size) return 0;
+    if (!out) return size;
+    if (capacity < size) return 0;
+    memcpy(out, cps1_eeprom_data(), size);
+    return size;
+}
+bool rr_cps1_session_save_put(const void *in, size_t size)
+{
+    return in && size == cps1_eeprom_size() && cps1_eeprom_load((const uint8_t *)in, size);
+}
 
 /* ------------------------------------------------------------ quick states */
 

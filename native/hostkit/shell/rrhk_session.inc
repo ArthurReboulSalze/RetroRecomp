@@ -55,8 +55,12 @@ static struct {
                                      * memory only, freed with the session; NULL on a machine without snapshots */
     size_t state_size, state_len;
     bool state_used;
-    uint8_t *save_in;               /* the host's save image handed before SETUP (SAVE_IN), kept for a restart's put */
+    uint8_t *save_in;               /* the host's save image handed before SETUP (SAVE_IN), kept for a restart's put; on
+                                     * the host itself, the image it sent in HELLO (a restart puts it back on every seat) */
     size_t save_total, save_got;
+    uint8_t *hello_save;            /* the image this game sent in HELLO, until SETUP says whether it is the host's */
+    size_t hello_size;
+    bool committed;                 /* the host wrote its save back at the match's end (once) */
     uint8_t options[RRHK_SESSION_MAX_PAYLOAD];      /* the host's run-changing options of SETUP, applied again then */
     uint16_t options_length;
     char paused_by[24];
@@ -244,7 +248,7 @@ bool rrhk_session_open(RrhkRun *run) {
          * options and a guest's side effects set again on the new run. */
         const RrhkMachine *m = run->machine;
         if (s.setup && !apply_options(m, s.options, s.options_length)) return false;
-        if (s.guest && m->side_effects) m->side_effects(false);
+        if (m->side_effects) m->side_effects(false);          /* nobody writes a save during a match, the host included */
         if (s.setup && s.save_in && m->session_save_put) m->session_save_put(s.save_in, s.save_total);
         if (s.setup && m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
         return true;
@@ -309,7 +313,8 @@ bool rrhk_session_open(RrhkRun *run) {
         memcpy(chunk + 4, save + at, n);
         if (!send_message(RRHK_MSG_SAVE_OUT, chunk, 4 + n)) { free(save); return false; }
     }
-    free(save);
+    free(s.hello_save);
+    s.hello_save = save; s.hello_size = save_size;          /* kept: on the host it is the match's save (SETUP) */
     /* A gun or pointer (the local mouse) lives outside the pad words: such a game is not offered until LOCAL carries it. The
      * sticks travel since session ABI 7. A computer's keyboard bindings (keyboard_pad) feed the pad words like any other: in a
      * session the computer adapter gives its guest no key of this PC (rrhk_computer.inc), so only the joysticks reach the
@@ -361,13 +366,24 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         if (!s.state) { refuse(RRHK_REFUSED_SNAPSHOT, "memory"); return false; }
         s.state_size = bound;
     }
-    if (s.guest && m->side_effects) m->side_effects(false);
+    /* Nobody writes a save file during the match, the host included: the host writes its own back once, when the match
+     * ends cleanly (commit_save). A guest never writes. */
+    if (m->side_effects) m->side_effects(false);
+    s.committed = false;
     /* The host's save, in memory for this match (it came before SETUP, whole). */
     if (s.save_got != s.save_total) { refuse(RRHK_REFUSED_COMMAND, "save"); return false; }
     if (s.save_in && (!m->session_save_put || !m->session_save_put(s.save_in, s.save_total))) {
         refuse(RRHK_REFUSED_COMMAND, "save");
         return false;
     }
+    /* The host plays on its own file, as alone; the image it sent is the match's save. A machine that restarts by opening
+     * its shell again (driven) reads its file again, which the host may have written meanwhile: every seat, the host too,
+     * then puts this same image back (rrhk_session_open), so the restart starts every seat from equal saves. */
+    if (!s.guest && !s.save_in && s.hello_save) {
+        s.save_in = s.hello_save; s.save_total = s.save_got = s.hello_size;
+        s.hello_save = NULL; s.hello_size = 0;
+    }
+    free(s.hello_save); s.hello_save = NULL; s.hello_size = 0;
     if (m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
@@ -378,7 +394,25 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
 /* ---- one iteration ---- */
 
 static void effects(const RrhkMachine *m, bool allowed) {
-    if (m->side_effects) m->side_effects(allowed && !s.guest);
+    (void)allowed;                    /* in a session, never: the host writes its save back at the end (commit_save) */
+    if (m->side_effects) m->side_effects(false);
+}
+
+/* The host's save, written back once when the match ends cleanly: the machine's in-memory save to its own file (the adapter
+ * writes atomically and keeps a backup). Never on a guest, never after a desync, a refused boot or a lost connection. */
+static void commit_save(const RrhkMachine *m) {
+    if (!s.setup || s.guest || s.committed || !m) return;
+    if (!m->session_save_commit) {
+        /* An adapter without the hook yet: the host's side effects come back on, so the machine writes its save at its exit
+         * as it does alone (its own way, not the atomic write with a backup the hook promises). */
+        if (m->side_effects) m->side_effects(true);
+        s.committed = true;
+        return;
+    }
+    s.committed = true;
+    const bool ok = m->session_save_commit();
+    fprintf(stderr, "[session] the host's save %s\n", ok ? "was written back" : "could not be written back");
+    rrhk_notice(ok ? rr_tr("Save updated") : rr_tr("Save not updated"), 2500);
 }
 
 /* A word from the network is cleaned as the local path cleans its own (rrhk_local_pad_word): only the machine's action bits
@@ -665,6 +699,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         case RRHK_MSG_STOP: {
             const uint16_t reason = length >= 2 ? (uint16_t)(payload[0] | payload[1] << 8) : 0;
             fprintf(stderr, "[session] stopped by Retro-Recomp (%u)\n", (unsigned)reason);
+            if (reason == RRHK_STOP_ENDED || reason == RRHK_STOP_HOST_CLOSED) commit_save(m);
             return ending(reason == RRHK_STOP_DESYNC ? rr_tr("The games went out of step: the match stops") :
                           reason == RRHK_STOP_BOOT_MISMATCH ? rr_tr("Your game differs from the host's") :
                           rr_tr("The match is over"), RRHK_EXIT_STOPPED);
@@ -699,9 +734,9 @@ void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks) {
 }
 
 void rrhk_session_close(RrhkRun *run, int reason) {
-    (void)run;
     if (!rrhk_session_on) return;
     if (s.restarting && !s.ending_until) { s.restarting = false; return; }      /* the shell opens again at once */
+    if (!s.exit_reason && reason == RRHK_EXIT_CLOSED) commit_save(run ? run->machine : NULL);   /* the host quit its game */
     uint8_t out[2];
     /* The reason the session recorded when it ended (stopped, lost, refused) wins over the window's own (closed, failed). */
     put16(out, s.exit_reason ? s.exit_reason : (uint16_t)reason);
@@ -715,6 +750,7 @@ void rrhk_session_close(RrhkRun *run, int reason) {
     free(s.ring); s.ring = NULL; s.depth = 0;
     free(s.state); s.state = NULL; s.state_size = s.state_len = 0; s.state_used = false;     /* the match's state ends here */
     free(s.save_in); s.save_in = NULL; s.save_total = s.save_got = 0;                          /* and the host's save */
+    free(s.hello_save); s.hello_save = NULL; s.hello_size = 0;
     chat_reset();
     rrhk_session_on = false;
 }

@@ -186,6 +186,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .page = &dip_page, .settings_loaded = settings_loaded, .help_controls = help_controls,
             .snap_bound = rr_cps1_snap_bound, .snap_save = rr_cps1_snap_save, .snap_load = rr_cps1_snap_load,
             .digest = rr_cps1_digest, .side_effects = rr_cps1_side_effects,
+            .session_save = rr_cps1_session_save, .session_save_put = rr_cps1_session_save_put,
             .session_option = session_option, .session_options = session_options,
         };
     }
