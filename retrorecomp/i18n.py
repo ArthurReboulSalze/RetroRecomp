@@ -1054,6 +1054,7 @@ STRINGS = {
     'front_end_tv_leave': ('Back to the window (F11)', 'Revenir en fenêtre (F11)'),
     'front_end_windowed': ('Window', 'Fenêtre'),
     'front_end_fullscreen': ('Full screen', 'Plein écran'),
+    'front_end_window': ('Back to the window', 'Retour à la fenêtre'),
     'tip_front_end_fullscreen': ('The front-end in full screen, without the window’s bars. X on the gamepad or F11 do the same and bring the window back.', 'Le front-end en plein écran, sans les barres de la fenêtre. X à la manette ou F11 font de même et ramènent la fenêtre.'),
     'front_end_leave_question': ('Leave the front-end?', 'Quitter le front-end ?'),
     'front_end_favorites': ('Favorites', 'Favoris'),

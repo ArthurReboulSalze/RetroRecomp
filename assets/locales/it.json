@@ -1020,7 +1020,8 @@
     "tip_report_problem": "Descrivi un problema con parole tue. Il manutentore legge ogni segnalazione e vedi tutto prima dell’invio.",
     "new_paths_question": "Giocando sono stati trovati nuovi percorsi in questi giochi. Deseleziona quelli da lasciare per dopo.",
     "options_firmware": "BIOS e firmware",
-    "firmware_search_explain": "Scegli una cartella: il convertitore trova il firmware di tutte le macchine che conosce e ti mostra un riepilogo prima di compilare i percorsi. Nulla viene copiato o inviato."
+    "firmware_search_explain": "Scegli una cartella: il convertitore trova il firmware di tutte le macchine che conosce e ti mostra un riepilogo prima di compilare i percorsi. Nulla viene copiato o inviato.",
+    "front_end_window": "Torna alla finestra"
   },
   "runtime": {
     "Internal resolution": "Risoluzione interna",

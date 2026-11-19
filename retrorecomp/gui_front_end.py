@@ -10,30 +10,40 @@ from tkinter import ttk
 class FrontEndMixin:
     """The Front-end switch, its view and the shared launch of a compiled game."""
 
-    def front_end_button_create(self, toolbar):
-        """The Front-end button and the Full screen one, both pictures only (their hints carry the names) and in the
-        accent style of the bar's middle. `toolbar` is the frame that holds them."""
-        button = ttk.Button(toolbar, text=self.tr('front_end'), command=self.toggle_front_end,
+    def front_end_button_create(self, centre, toolbar=None):
+        """The Front-end button, in `centre` (the middle of the bar), and the Full screen one, made in `toolbar` and
+        placed by enter_front_end left of Knowledge. Both show only their picture (their hints carry the names) in the
+        accent style."""
+        button = ttk.Button(centre, text=self.tr('front_end'), command=self.toggle_front_end,
                             style='Feature.Toolbar.TButton')
         self.decorate_button(button, 'front_end', accent=True)
         button.configure(compound='image')
         self.hint(button, 'tip_front_end', 'front_end')
         self.front_end_button = button
-        # Full screen: shown left of Front-end while the front-end is open (Arthur, 17 Nov 2026: the Front-end button
-        # opens it in the window, this button goes full screen).
-        screen = ttk.Button(toolbar, text=self.tr('front_end_fullscreen'), style='Feature.Toolbar.TButton',
+        # Full screen: shown while the front-end is open (Arthur, 17 Nov 2026: the Front-end button opens it in the
+        # window, this button goes full screen), left of Knowledge (19 Nov). Its picture is arrows out to the corners,
+        # and arrows in while the front-end already fills the screen.
+        screen = ttk.Button(toolbar if toolbar is not None else centre, text=self.tr('front_end_fullscreen'),
+                            style='Feature.Toolbar.TButton',
                             command=lambda: self.set_front_end_fullscreen(not self.front_end_fullscreen))
-        self.decorate_button(screen, 'fullscreen', accent=True)
-        screen.configure(compound='image')
-        self.hint(screen, 'tip_front_end_fullscreen', 'front_end_fullscreen')
         self.front_end_screen_button = screen
+        self.front_end_screen_picture()
+        self.hint(screen, 'tip_front_end_fullscreen',
+                  lambda: 'front_end_window' if self.front_end_fullscreen else 'front_end_fullscreen')
         return button
+
+    def front_end_screen_picture(self):
+        """The Full screen button's picture, text and (through its hint) name for the state it is in."""
+        screen = self.front_end_screen_button
+        out = not getattr(self, 'front_end_fullscreen', False)
+        self.decorate_button(screen, 'fullscreen_enter' if out else 'fullscreen_exit', accent=True)
+        screen.configure(compound='image', text=self.tr('front_end_fullscreen' if out else 'front_end_window'))
 
     def front_end_localize(self):
         """A new interface language: the button, and the front-end's fonts (Chinese and Japanese have their own) and
         texts when it exists."""
         self.front_end_button.configure(text=self.tr('front_end'))
-        self.front_end_screen_button.configure(text=self.tr('front_end_fullscreen'))
+        self.front_end_screen_picture()
         view = getattr(self, 'front_end_view', None)
         if view is not None:
             view.relocalize()
@@ -100,7 +110,7 @@ class FrontEndMixin:
         self.front_end_view.grid(row=1, column=0, rowspan=7, sticky='nsew')
         self.front_end_visible = True
         self.front_end_button.state(['pressed'])
-        self.front_end_screen_button.pack(side='right', padx=(0, 8), after=self.front_end_button)
+        self.front_end_screen_button.pack(side='right', padx=(0, 8), after=self.knowledge_button)
         self.front_end_view.show()
         self.app.after(60, self.front_end_view.take_focus)
         # The Front-end button opens it in the window; the Full screen button, X or F11 go full screen, and the start-up
@@ -134,6 +144,7 @@ class FrontEndMixin:
         """Full screen: the whole screen for the wall, without the window's header, toolbar and status line (X, F11
         or the strip's corner button go back to the window; leaving the front-end leaves it too)."""
         self.front_end_fullscreen = bool(on)
+        self.front_end_screen_picture()
         footer = self.status_dot.master
         if on:
             self.header.pack_forget()

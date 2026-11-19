@@ -59,6 +59,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_covers',
                                # Front-end: the compiled games as a wall of box art (another view of Compiled Games).
                                'gui_front_end', 'front_end', 'front_end_view',
+                               # The toolbar's and the queue's own pictures (polylines registered in ICON_PATHS).
+                               'gui_icons',
                                # Multiplayer: host or join a room on the local network (the lobby of retrorecomp/netplay).
                                'gui_multiplayer', 'multiplayer_view',
                                # Conversion time estimates in the window (assets/conversion-times.json); a conversion never reads them.

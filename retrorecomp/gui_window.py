@@ -216,11 +216,13 @@ class WindowMixin:
 
     def hint(self, widget, key, name=None):
         """The hover hint `key` of `widget`; with a `name` (a key too) the hint starts with it, for buttons that show
-        only their picture."""
-        if name is None:
-            self.tooltips.append(Tooltip(widget, lambda: self.tr(key)))
-        else:
-            self.tooltips.append(Tooltip(widget, lambda: self.tr(name).rstrip('…') + '\n' + self.tr(key)))
+        only their picture. Either may be a function returning the key, for a button whose meaning changes."""
+        def text():
+            shown = self.tr(key() if callable(key) else key)
+            if name is None:
+                return shown
+            return self.tr(name() if callable(name) else name).rstrip('…') + '\n' + shown
+        self.tooltips.append(Tooltip(widget, text))
 
     def set_status(self, key, **values):
         self.status_key, self.status_values = key, values

@@ -118,6 +118,21 @@ class PicturesOnly(ToolbarWindow):
         self.assertEqual(self.app.compiled_button.cget('text'), self.app.tr('conversion_queue'))
         self.assertEqual(self.app.compiled_button.cget('image')[0], str(self.app.button_images[('switch_view', True)][0]))
 
+    def test_the_full_screen_button_is_a_picture_whose_hint_follows_its_state(self):
+        app = self.app
+        button = app.front_end_screen_button
+        self.assertEqual(button.master, app.toolbar)                        # not in the middle pair
+        self.assertEqual(button.winfo_manager(), '')                        # only while the front-end is open
+        self.assertEqual(str(button.cget('compound')), 'image')
+        hint = next(h for h in app.tooltips if h.widget is button)
+        self.assertEqual(hint.text(), app.tr('front_end_fullscreen') + '\n' + app.tr('tip_front_end_fullscreen'))
+        enter = str(button.cget('image')[0])
+        app.front_end_fullscreen = True
+        app.front_end_screen_picture()
+        self.assertEqual(hint.text(), app.tr('front_end_window') + '\n' + app.tr('tip_front_end_fullscreen'))
+        self.assertNotEqual(str(button.cget('image')[0]), enter)
+        self.assertEqual(button.cget('text'), app.tr('front_end_window'))
+
     def test_the_welcome_message_types_at_140_characters_a_second(self):
         self.assertEqual(gui_welcome.MESSAGE_RATE, 140)
 

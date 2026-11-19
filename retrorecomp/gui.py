@@ -398,8 +398,9 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # between the buttons of the view (left) and the rarely used ones (right), so they stand apart and centred.
         self.toolbar_centre = ttk.Frame(toolbar)
         self.toolbar_centre.pack(side='left', expand=True)
-        # The front-end: the compiled games as a wall of box art (gui_front_end), on the right of this pair.
-        self.front_end_button_create(self.toolbar_centre).pack(side='right')
+        # The front-end: the compiled games as a wall of box art (gui_front_end), on the right of this pair
+        # (its Full screen button appears left of Knowledge while it is open).
+        self.front_end_button_create(self.toolbar_centre, toolbar).pack(side='right')
         # Multiplayer: host or join a room on the local network (gui_multiplayer), left of the front-end.
         self.multiplayer_button_create(self.toolbar_centre).pack(side='right', padx=(0, 8))
 
