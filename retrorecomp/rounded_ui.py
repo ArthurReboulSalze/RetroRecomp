@@ -15,9 +15,11 @@ from tkinter import ttk
 
 from PIL import Image, ImageDraw, ImageFilter, ImageTk
 
-from .rounded_skin import install
+from .rounded_skin import CENTER, install
 
 S = 4                    # supersampling
+CARD_CENTER = 64         # a card's 9-slice middle: ttk TILES it over the card, so a 2 px one meant ~100,000 draws per repaint of an
+                         # 800 x 500 card (seconds per redraw of the Multiplayer window, Arthur 19 Nov 2026); 64 px: about a hundred
 
 
 def rgb(colour):
@@ -60,7 +62,7 @@ class Look:
 
     def card(self, name, fill, bg, radius=14, outline=None):
         """A rounded frame style 'name.TFrame' (9-slice: any size)."""
-        size = radius * 2 + 4
+        size = radius * 2 + 2 + CARD_CENTER
         element = self._element(name, self.photo(rounded_box(size, size, radius, fill, bg, outline)), border=radius + 1)
         self.style.layout(f'{name}.TFrame', [(element, {'sticky': 'nsew'})])
         self.skin.styled_surfaces[f'{name}.TFrame'] = fill      # what stands on the card paints its corners with the card's colour
@@ -92,7 +94,7 @@ class Look:
 
     def segment(self, name, track, chosen, hover, radius=13, size=10):
         """A segmented toggle: Radiobuttons whose chosen one is a gold pill on a dark track (put them in a `track` card)."""
-        edge = radius * 2 + 4
+        edge = radius * 2 + 2 + CENTER          # the middle is tiled: wide, so few draws (see CARD_CENTER)
         off = self.photo(rounded_box(edge, edge, radius, track, track))
         on = self.photo(rounded_box(edge, edge, radius, chosen, track))
         over = self.photo(rounded_box(edge, edge, radius, hover, track))

@@ -30,6 +30,8 @@ STRINGS = {
     'mp_sharing_everyone': ('Shared controls: everyone at once', 'Commandes partagées : tout le monde'),
     'mp_sharing_turns': ('Shared controls: in turns', 'Commandes partagées : à tour de rôle'),
     'mp_game': ('Game', 'Jeu'),
+    'mp_console': ('Console', 'Console'),
+    'mp_pick_game': ('Choose a game', 'Choisis un jeu'),
     'mp_games_loading': ('Looking for your games…', 'Recherche de tes jeux…'),
     'mp_games_none': ('No converted game can be played by two', 'Aucun jeu converti ne se joue à deux'),
     'mp_host_game': ('Host a multiplayer game…', 'Héberger une partie multijoueur…'),

@@ -105,7 +105,7 @@ class MultiplayerWindowTest(unittest.TestCase):
 
         configs = (host_config, guest_config, lambda controller, config, log=None: self.started.append(config),
                    lambda controller: self.closed.append(controller))
-        view = MultiplayerWindow(app, Library([entry(title) for title in games]), name='Arthur', configs=configs,
+        view = MultiplayerWindow(app, Library([entry(*title) if isinstance(title, tuple) else entry(title) for title in games]), name='Arthur', configs=configs,
                                  controller_class=Controller, addresses=lambda: ['192.168.1.20'], hidden=True,
                                  internet=internet, guest_manual=guest_manual)
         self.addCleanup(lambda: view.close())
@@ -395,9 +395,41 @@ class MultiplayerWindowTest(unittest.TestCase):
             self.assertTrue(view.ask_close())
         self.assertEqual(len(self.closed), 1)
 
+    def test_the_console_first_then_its_games_in_the_form_and_in_the_lobby(self):
+        # Arthur, 19 Nov 2026: « on est censé pouvoir choisir la console. Ça évitera de lister tous les jeux »
+        view = self.window(games=(('Tetris', 'gb'), ('Contra', 'nes'), ('Tetris', 'nes'), ('Sonic 2', 'md')))
+        names = list(view.console_box.cget('values'))
+        self.assertEqual(names, sorted(names, key=str.casefold))
+        self.assertEqual(len(names), 3)                                     # one line per console that has a game
+        nes = view.console_name('nes')
+        view.console_choice.set(nes)
+        view.console_box.event_generate('<<ComboboxSelected>>')
+        self.assertEqual(list(view.game_box.cget('values')), ['Contra', 'Tetris'])
+        self.assertEqual(view.game_choice.get(), 'Contra')                  # a console chosen shows its first game
+        view.game_choice.set('Tetris')
+        self.assertEqual((view.chosen_entry(view.game_choice).title, view.chosen_entry(view.game_choice).system),
+                         ('Tetris', 'nes'))                                 # the Tetris of the console chosen
+        view.open_room()
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611})
+        self.assertEqual(view.controller.calls[-1], ('pick', 'Tetris'))
+        self.feed(view, {'event': 'lobby_selection', 'selection': 1, 'game': {'title': 'Tetris', 'machine': 'nes'}})
+        self.assertEqual((view.lobby_console.get(), view.lobby_game.get()), (nes, 'Tetris'))
+        # the lobby: another console lists its games and leaves the room's game; a chat line does not undo the choice
+        view.lobby_console.set(view.console_name('md'))
+        view.lobby_console_box.event_generate('<<ComboboxSelected>>')
+        self.assertEqual(list(view.lobby_game_box.cget('values')), ['Sonic 2'])
+        self.assertEqual(view.lobby_game.get(), tr('mp_pick_game', 'fr'))
+        self.assertEqual(view.controller.calls[-1], ('pick', 'Tetris'))
+        self.feed(view, {'event': 'lobby_chat', 'sender': 0, 'name': 'Arthur', 'text': 'Salut'})
+        self.assertEqual(view.lobby_console.get(), view.console_name('md'))
+        view.lobby_game.set('Sonic 2')
+        view.lobby_game_box.event_generate('<<ComboboxSelected>>')
+        self.assertEqual(view.controller.calls[-1], ('pick', 'Sonic 2'))
+
     def test_no_game_to_host(self):
         view = self.window(games=())
-        self.assertEqual(view.game_choice.get(), tr('mp_games_none', 'fr'))
+        self.assertEqual(view.console_choice.get(), tr('mp_games_none', 'fr'))
+        self.assertEqual(view.game_choice.get(), '')
         self.assertTrue(view.open_button.instate(['disabled']))
 
     def test_every_language_builds_the_pages(self):

@@ -885,6 +885,8 @@
     "mp_sharing_everyone": "Controles compartidos: todos a la vez",
     "mp_sharing_turns": "Controles compartidos: por turnos",
     "mp_game": "Juego",
+    "mp_console": "Consola",
+    "mp_pick_game": "Elige un juego",
     "mp_games_loading": "Buscando tus juegos…",
     "mp_games_none": "Ningún juego convertido se juega a dos",
     "mp_host_game": "Crear una partida multijugador…",

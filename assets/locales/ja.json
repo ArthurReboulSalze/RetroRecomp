@@ -885,6 +885,8 @@
     "mp_sharing_everyone": "操作を共有：全プレイヤー同時",
     "mp_sharing_turns": "操作を共有：交代で",
     "mp_game": "ゲーム",
+    "mp_console": "ゲーム機",
+    "mp_pick_game": "ゲームを選んでね",
     "mp_games_loading": "ゲームを探しています…",
     "mp_games_none": "2人で遊べる変換済みゲームがありません",
     "mp_host_game": "マルチプレイのルームを作る…",
