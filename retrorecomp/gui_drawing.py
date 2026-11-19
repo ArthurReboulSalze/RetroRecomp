@@ -417,7 +417,11 @@ _FOLDER_PLUS = ((1, 4, 6, 4, 8, 6, 15, 6, 15, 15, 1, 15, 1, 4), (11, 0, 11, 4), 
 ICON_PATHS.setdefault('add_rom_folder', _FOLDER_PLUS + ((5, 8, 11, 8, 11, 13, 5, 13, 5, 8), (6, 10, 10, 10),
                                                         (7, 13, 7, 14), (9, 13, 9, 14)))
 ICON_PATHS.setdefault('add_exe_folder', _FOLDER_PLUS + ((6, 8, 11, 11, 6, 14, 6, 8),))
-ICON_PATHS.setdefault('new_paths', ((1, 14, 5, 9, 9, 11, 14, 4), (10, 4, 14, 4, 14, 8)))
+# New paths found for your games: a route that forks (a trunk, a branch turning up and one going right, both with their
+# arrowhead) and a plus for what is new. The top right corner stays free for the red dot.
+ICON_PATHS.setdefault('new_paths', ((6, 15, 6, 9.5), (6, 9.5, 2.5, 6.5, 2.5, 2.5), (0.7, 4.3, 2.5, 2.3, 4.3, 4.3),
+                                    (6, 9.5, 9.3, 7), (9.3, 5, 9.3, 7, 11.3, 7),
+                                    (12.5, 10.5, 12.5, 15.5), (9.8, 13, 15.2, 13)))
 # Report a problem: a speech bubble with an exclamation mark.
 ICON_PATHS.setdefault('report', ((2, 2, 14, 2, 14, 11, 9, 11, 5, 14.5, 5, 11, 2, 11, 2, 2), (8, 4.5, 8, 7), (8, 9, 8, 9)))
 def _brain():
