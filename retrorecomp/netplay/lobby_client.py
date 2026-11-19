@@ -23,26 +23,48 @@ from pathlib import Path
 import threading
 from typing import Callable
 
-from . import control, invitation
+from . import control, internet_key, invitation
 from .lobby import game_dict, game_from_dict
 from .lobby_check import LocalLibrary, game_config
 from .worker_client import WorkerProcess
 
+# The Internet room (INTERNET_PLAN.md): False until a room really works over the Internet (the box's port, the window's
+# warnings, the security review); the window greys its Internet choice with « bientôt » while it is False.
+INTERNET = False
 CHAT_KEPT = 200
 NOTICES_KEPT = 50
 ROOM_CAPACITY = 4                  # the host and up to three guests
 
 
-def host_config(address: str, port: int, name: str, sharing: str, log_dir, tests: bool = False) -> tuple[dict, str]:
+def host_config(address: str, port: int, name: str, sharing: str, log_dir, tests: bool = False, internet: bool = False,
+                public_address: str | None = None) -> tuple[dict, str]:
     """A host's worker config and the invitation for the port asked (the room may bind another one if it is taken: the
     model's `invitation`, made when the room opened, is the one to show). Raises ValueError for an address that is not
-    on a local network. The secret is new for every room and lives only in this config and the invitation."""
+    on a local network. The secret is new for every room and lives only in this config and the invitation.
+
+    `internet`: an Internet room, still bound to this local address (the box's port leads to it). Its invitation is the RR2
+    key, made with `public_address` (what the host typed, or what was found); '' until an address is known."""
     invitation.check_bind_address(address, tests)
     secret = invitation.new_secret()
     log = Path(log_dir)
     config = {'room': {'role': 'host', 'address': address, 'port': int(port), 'secret': secret.hex(), 'capacity': ROOM_CAPACITY,
-                       'name': name, 'log': str(log / 'room.log'), 'sharing': sharing}, 'tests': tests}
+                       'name': name, 'log': str(log / 'room.log'), 'sharing': sharing, 'internet': bool(internet)},
+              'tests': tests}
+    if internet:
+        return config, (_key(public_address, int(port), secret, tests) if public_address else '')
     return config, invitation.format_invitation(address, int(port), secret, tests)
+
+
+def _key(public: str | None, port: int, secret: bytes, tests: bool) -> str:
+    """The RR2 key of a public address (IPv4 or IPv6), or '' when it is not one a player can join."""
+    if not public:
+        return ''
+    try:
+        if ':' in public:
+            return internet_key.format_key(port, secret, ipv6=public.strip(), tests=tests)
+        return internet_key.format_key(port, secret, ipv4=public.strip(), tests=tests)
+    except ValueError:
+        return ''
 
 
 def guest_config(invitation_text: str, name: str, log_dir, tests: bool = False) -> dict:
@@ -51,10 +73,19 @@ def guest_config(invitation_text: str, name: str, log_dir, tests: bool = False) 
     del log_dir
     from .. import __version__
     from .room_cli import version_numbers
-    text = invitation_text.strip()
-    invitation.parse(text, tests)
+    text = invitation_text.strip() if isinstance(invitation_text, str) else invitation_text
+    internet_key.parse_any(text, tests)          # a local invitation or an Internet key; InvitationError with its code
     return {'room': {'role': 'guest', 'invitation': text, 'name': name, 'version': list(version_numbers(__version__))},
             'tests': tests}
+
+
+def guest_config_manual(address: str, port, code: str, name: str, log_dir, tests: bool = False) -> dict:
+    """The typed form of an Internet room (address, port, code): the same worker config as its key."""
+    room = internet_key.parse_manual(address, port, code, tests)
+    ip = room.address
+    text = internet_key.format_key(room.port, room.secret, ipv6=ip, tests=tests) if ':' in ip else \
+        internet_key.format_key(room.port, room.secret, ipv4=ip, tests=tests)
+    return guest_config(text, name, log_dir, tests)
 
 
 class LobbyModel:
@@ -67,7 +98,14 @@ class LobbyModel:
         self.secret: bytes | None = None    # a host's: the invitation is made with the port the room really bound
         self.tests = False
         self.invitation: str = ''
-        self.link: dict | None = None       # {tier, prediction, delay, slow} of the match being launched or played
+        # An Internet room's host (the window's contract of 19 November 2026): the key and the typed code, the public address
+        # in them, and how it was found (`reach`: probing, upnp, ipv6, site, typed, forward_needed, cgnat, waiting).
+        self.internet = False
+        self.key: str = ''
+        self.code: str = ''
+        self.public: str | None = None
+        self.reach: str | None = None
+        self.link: dict | None = None       # {tier, prediction, delay, slow, path} of the match being launched or played
         self.address: tuple | None = None   # a host's address and port, for its invitation text
         self.phase = 'lobby'
         self.revision: int | None = None
@@ -131,8 +169,19 @@ class LobbyModel:
 
     def _on_room_open(self, event: dict) -> None:
         self.room, self.address = 'open', (event.get('address'), event.get('port'))
-        if self.secret is not None:
+        if self.secret is not None and self.internet:
+            self.code = internet_key.format_code(self.secret)
+            self.key = self.invitation = _key(self.public, event.get('port'), self.secret, self.tests)
+        elif self.secret is not None:
             self.invitation = invitation.format_invitation(event.get('address'), event.get('port'), self.secret, self.tests)
+
+    def set_public(self, address: str | None, reach: str) -> None:
+        """The public address of an Internet room's host (found, or typed: `reach` says which); the key follows it."""
+        with self.lock:
+            self.version += 1
+            self.public, self.reach = (address.strip() if isinstance(address, str) and address.strip() else None), reach
+            if self.secret is not None and self.address is not None:
+                self.key = self.invitation = _key(self.public, self.address[1], self.secret, self.tests)
 
     def _on_joined_room(self, event: dict) -> None:
         self.room, self.me = 'joined', event.get('guest')
@@ -154,14 +203,16 @@ class LobbyModel:
     # The link line: the tier and cap the launch says, the delay the match applies (from the worker's status, `controller
     # .link()`), and `slow` when the host applied a delay above the slow-link threshold (the owner's decision: applied, said).
     def _on_launching(self, event: dict) -> None:
-        self.link = {'tier': event.get('tier', 'delay'), 'prediction': event.get('prediction'), 'delay': None, 'slow': None}
+        self.link = {'tier': event.get('tier', 'delay'), 'prediction': event.get('prediction'), 'delay': None, 'slow': None,
+                     'path': 'ipv4' if self.internet else 'lan'}
 
     def _on_launch_request(self, event: dict) -> None:
-        self.link = {'tier': event.get('tier', 'delay'), 'prediction': event.get('prediction'), 'delay': None, 'slow': None}
+        self.link = {'tier': event.get('tier', 'delay'), 'prediction': event.get('prediction'), 'delay': None, 'slow': None,
+                     'path': 'ipv4' if self.internet else 'lan'}
 
     def _on_slow_link(self, event: dict) -> None:
         if self.link is None:
-            self.link = {'tier': None, 'prediction': None, 'delay': None, 'slow': None}
+            self.link = {'tier': None, 'prediction': None, 'delay': None, 'slow': None, 'path': 'ipv4' if self.internet else 'lan'}
         self.link['slow'] = event.get('delay')
 
     # Launch errors: `code` is the event's name (launch_error: this PC could not start it; launch_failed: a seat did not start;
@@ -195,12 +246,20 @@ class LobbyController:
     def attach(self, worker) -> None:
         self.worker = worker
 
+    def set_public_address(self, text: str) -> None:
+        """The public address the host typed for its Internet room (always taken over a found one): the key follows it."""
+        self.model.set_public(text, 'typed')
+
     def start(self, config: dict, log=None) -> WorkerProcess:
         """Starts the room's worker for `config` (`host_config` / `guest_config`), wired to this controller."""
         room = config.get('room', {})
         with self.model.lock:
             self.model.secret = bytes.fromhex(room['secret']) if room.get('role') == 'host' else None
             self.model.tests = config.get('tests') is True
+            text = room.get('invitation', '')
+            self.model.internet = room.get('internet') is True or (isinstance(text, str) and text.strip()[:3].upper() == 'RR2')
+            if self.model.internet and room.get('role') == 'host' and self.model.reach is None:
+                self.model.reach = 'probing'
         worker = WorkerProcess(config, log=Path(log) if log else None, on_event=self.on_event, resolve=self.resolve)
         self.attach(worker)
         self._closed = False

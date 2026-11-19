@@ -219,12 +219,16 @@ class LinkSimulatorTests(unittest.TestCase):
 
 class NothingOpenedTests(unittest.TestCase):
     def test_only_the_transport_imports_socket(self):
-        """Stage 2: `lan_transport.py` is the one module that imports `socket` (and `selectors`); every other module of the
-        package, the worker and the driver included, opens nothing and names no socket call."""
+        """Stage 2: `lan_transport.py` is the one module that imports `socket` (and `selectors`) for the room; the Internet
+        room adds `reach.py`, which talks to the player's own box (UPnP, NAT-PMP) and, last, to retro-recomp.com's echo, with
+        the socket factory and the HTTP opener as arguments. Every other module of the package, the worker and the driver
+        included, opens nothing and names no socket call."""
         for path in sorted(PACKAGE.glob('*.py')):
             text = path.read_text(encoding='utf-8')
             if path.name == 'lan_transport.py':
                 self.assertRegex(text, r'(?m)^import socket$')
+                continue
+            if path.name == 'reach.py':
                 continue
             self.assertNotRegex(text, r'(?m)^\s*(import|from)\s+(socket|socketserver|asyncio|http|urllib|ssl|selectors)\b',
                                 path.name)

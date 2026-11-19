@@ -254,6 +254,21 @@ format of a quick state does not change. Cartridge saves and preferences are unt
 November 2026, two Windows PCs on a home network, Contra NES): two-player matches with no desync, the host's restart for
 everyone, 150 ms of simulated round trip on the rollback tier with no wait, the in-game chat on keyboard and gamepad.
 Physical latency is not measured.
+**19 November 2026:**
+- Two-PC acceptance (`tools/netplay_lan_acceptance.py`, 3,000 frames: the host's save, load and restart for everyone, 50
+  digests compared) PASS on every machine the second PC can run, with 4 seats across the two PCs on the Mega Drive (Gauntlet
+  IV, Team Player). The N64 needs a Vulkan device that PC lacks; its 4-seat proof is on one PC.
+- Three fixes the runs found:
+  - a game with sticks (PlayStation, N64) now plays over the network: the datagram carries the records' FLAG_AXES;
+  - a CPS-1 board's DIP switches pass the launch;
+  - the two-PC tool spaces its guests (the room holds two handshakes per address at a time).
+- **Protocol 4 of the room** (both rooms, the converter only, no stamp moves):
+  - an X25519 exchange in the handshake, tied to the invitation's secret;
+  - ChaCha20-Poly1305 on every control frame and match datagram, with the same sizes as the tags of protocol 3;
+  - from `cryptography` 50.0.2, pinned in `requirements.txt` and now frozen into the Windows converter too (about +3.7 MB;
+    notice `licenses/cryptography.md`).
+  - This closes the stated limit of the local room (a guest who captured another's handshake could compute its keys), and is
+    the base of the Internet room. A converter of protocol 3 and one of protocol 4 do not join each other.
 
 ## Super Nintendo: multiplayer, digest and rollback on the boards without a chip (next release)
 
@@ -523,8 +538,9 @@ measured.
 The Nintendo 64 gives the session what the delay tier needs. **Digest:** the machine's state as named fields folded as values in a
 fixed order (`rr_n64_cpu_digest`: the VR4300's registers, PC and COP0 / COP1, the RSP's memory and registers, the RDP, MI / VI / AI
 / PI / RI / SI, PIF RAM, the whole RDRAM, then the save memory with the four paks), never the quick state's bytes (about a
-kilobyte of the core's own block holds heap and code addresses that differ from run to run). **A guest writes no save** (the kit's
-`side_effects`). **The cartridge clock** (Animal Forest's) runs on the session's from `session_begin`, plus the emulated
+kilobyte of the core's own block holds heap and code addresses that differ from run to run). **The host's saves travel to every
+seat** (`session_save` / `session_save_put`, session ABI 8): the whole save memory, cartridge EEPROM, SRAM or flash and the four
+controller paks (296,960 bytes), put in memory before the boot digest; **a guest writes no save** (the kit's `side_effects`). **The cartridge clock** (Animal Forest's) runs on the session's from `session_begin`, plus the emulated
 seconds, the same date on every seat whatever its time zone; the core sets up its devices during the first frame, so the clock is
 put back after it. **ParaLLEl-RDP records on the emulation thread** in a session even if asked otherwise (its own worker is not
 deterministic). **The keyboard's Stick actions** read this PC's keys, so in a session every port's stick is the session's: the kit
@@ -547,7 +563,10 @@ differs: the delay tier never takes one there). **Two copies in a session on one
 latency, 10 ms jitter, delay tier): Super Mario 64 and Mario Kart 64 with two seats over 1,800 frames, Mario Kart 64 with four seats
 over 1,200 frames, every digest equal on every seat (`PASS`). **The sticks** (`--sticks`, Mario Kart 64, two seats, 1,800
 frames): `PASS`, and against the same run without sticks (the same pad words: the same history) all 30 digests differ from frame
-59 on: the sticks reach the machine, the same on both seats. Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
+59 on: the sticks reach the machine, the same on both seats. **The host's save** (Mario Kart 64, four seats, 1,800 frames, the
+host's real save from an earlier match, the guests' folders without one): `PASS`, every seat's boot digest the save's, no guest
+writes a save file; without the transfer the same case was refused at boot (a Debian host's save against Windows guests, 19 November).
+Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
 `n64_session.cpp`, `n64_player.c`) and host stamp (`rrhk_n64.inc`); Nintendo 64 quick states of 1.8.0 are refused cleanly (the
 state key hashes the session sources).
 ## Super Nintendo: four players (Super Multitap) and the host's cartridge save in a session (next release)

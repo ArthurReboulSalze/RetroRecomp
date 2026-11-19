@@ -115,9 +115,14 @@ def run(args) -> int:
         if getattr(args, name):
             flags += ['--' + name.replace('_', '-'), str(getattr(args, name))]
     # The host's logs go beside its converter, where they can be read after a run.
-    remote_out = args.remote_out or (args.remote_root.rstrip('\\') + '\\..\\acceptance-logs\\host')
-    remote = (f'cd /d "{args.remote_root}" && "{args.remote_python}" -B tools\\netplay_lan_acceptance.py side host '
-              f'--game "{args.remote_game}" --address {args.remote_address} --out "{remote_out}" ' + ' '.join(flags))
+    if args.remote_posix:          # a Linux PC: its shell, its separators, and SDL's dummy drivers in its environment
+        remote_out = args.remote_out or (args.remote_root.rstrip('/') + '/../acceptance-logs/host')
+        remote = (f'cd "{args.remote_root}" && "{args.remote_python}" -B tools/netplay_lan_acceptance.py side host '
+                  f'--game "{args.remote_game}" --address {args.remote_address} --out "{remote_out}" ' + ' '.join(flags))
+    else:
+        remote_out = args.remote_out or (args.remote_root.rstrip('\\') + '\\..\\acceptance-logs\\host')
+        remote = (f'cd /d "{args.remote_root}" && "{args.remote_python}" -B tools\\netplay_lan_acceptance.py side host '
+                  f'--game "{args.remote_game}" --address {args.remote_address} --out "{remote_out}" ' + ' '.join(flags))
     print('remote host:', args.remote)
     host_lines: list[str] = []
     invitation = threading.Event()
@@ -236,6 +241,7 @@ def main() -> int:
     run_parser.add_argument('--remote-python', default='python')
     run_parser.add_argument('--report', type=Path)
     run_parser.add_argument('--remote-out', help='the host side log folder on the remote PC (default: beside its converter)')
+    run_parser.add_argument('--remote-posix', action='store_true', help='the remote PC is Linux (a POSIX shell): Windows and Linux in one match')
     side_parser = sub.choices['side']
     side_parser.add_argument('role', choices=('host', 'guest'))
     side_parser.add_argument('--address', help='host: its own address on the local network')

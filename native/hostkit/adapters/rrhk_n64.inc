@@ -170,6 +170,25 @@ static void n64_reset(void) {
 static uint64_t n64_digest(void) { return rr_n64_digest(session); }
 static void n64_side_effects(bool allowed) { saves_allowed = allowed; }
 static void n64_session_begin(uint64_t clock) { rr_n64_session_clock(session, clock); }
+/* The host's saves travel to every seat for the match (session ABI 8): the whole save memory, cartridge EEPROM / SRAM / flash
+ * and the four controller paks (296,960 bytes), put in memory before the boot digest; a guest never writes its own file
+ * (side_effects). */
+static size_t n64_session_save(void *out, size_t capacity) {
+    size_t size = 0;
+    const uint8_t *memory = rr_n64_save_memory(session, &size);
+    if (!memory || !size) return 0;
+    if (!out) return size;
+    if (capacity < size) return 0;
+    memcpy(out, memory, size);
+    return size;
+}
+static bool n64_session_save_put(const void *in, size_t size) {
+    size_t have = 0;
+    uint8_t *memory = rr_n64_save_memory(session, &have);
+    if (!memory || !in || size != have) return false;
+    memcpy(memory, in, size);
+    return true;
+}
 /* The keyboard's Stick actions, which the kit folds into the sticks this PC sends in a session (LX left, LX right, LY up, LY down). */
 static const int n64_stick_actions[4] = {N_SLEFT, N_SRIGHT, N_SUP, N_SDOWN};
 
@@ -231,6 +250,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .gfx_options = n64_gfx_options, .gfx_option_count = G_COUNT, .gfx_apply = n64_gfx_apply,
             .digest = n64_digest, .side_effects = n64_side_effects, .session_begin = n64_session_begin,
             .stick_actions = n64_stick_actions,
+            .session_save = n64_session_save, .session_save_put = n64_session_save_put,
             .session_no_restart = true,   /* the restart starts the program again: the kit refuses it in a session, every path */
         };
     }

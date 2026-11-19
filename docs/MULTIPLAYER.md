@@ -64,10 +64,35 @@ Nintendo 64, restarting is not available during a match.
 A room is meant for a **local network**. Its invitation names an address of the local network (10.x, 172.16-31.x,
 192.168.x, 169.254.x) or of a **VPN between friends** such as Tailscale or ZeroTier (100.64.0.0/10). To play across the
 Internet today, put the PCs on such a VPN: each player installs it and joins the same network, and the host uses its VPN
-address in the room. The VPN crosses home routers and mobile networks on its own. Port forwarding, UPnP, IPv6 and a relay
-of our own are not offered yet.
+address in the room. The VPN crosses home routers and mobile networks on its own. Opening the host's port, UPnP and IPv6
+are coming in the next section; a relay of our own is not offered.
+
+## Playing over the Internet (coming)
+
+Not available yet: the window offers the local network and a VPN only. This is what the Internet room will do.
+
+- **The key.** The host's room shows a key that starts with `RR2-`. A guest pastes it, as with a local invitation. The
+  host can also give the three parts by hand: the address, the port (24611 by default) and the code.
+- **Local stays the default**, every time you host or join. Choosing **Internet** shows three warnings, and you confirm
+  them before it is on: your public address is in the key you share; your box opens a port while the room is open and
+  closes it after; share the key only with people you trust.
+- **How the host's address is found**, in this order: your box (UPnP, then NAT-PMP), then your PC's own IPv6 address, then,
+  only when both fail and the window says so, retro-recomp.com, which answers with the address it saw. You can always type
+  the address yourself.
+- **The port.** The host must be reachable on port 24611, TCP and UDP. The box opens it when it agrees. When it refuses,
+  you open it by hand in the box ("port forwarding", "NAT/PAT") towards your PC's local address; the window's help gives
+  the steps for the usual French boxes, and you remove the rule after playing.
+- **When the host cannot be reached** (an address shared with other subscribers, a second router, a phone hotspot), the
+  window says so and suggests three ways out: let another player host, open the port in the box, or put the friends on a
+  VPN such as Tailscale or ZeroTier. A guest is never affected.
+- **Encryption** is the one described in [What is checked](#what-is-checked); the Internet room adds no other.
 
 ## What is checked
+
+Everything a room sends is encrypted: each connection agrees a fresh key with an X25519 exchange tied to the invitation's
+secret, and every message and every match packet is sealed with ChaCha20-Poly1305 (the `cryptography` package). Someone on
+the same network or on the path sees that two PCs talk, not the names, the chat or the buttons, and cannot join without
+the invitation.
 
 Every seat folds the inputs it was given into a running digest, and compares a digest of its machine's state with the
 host's every second. Before the first frame, the state after setup is compared too: a different save, option or firmware

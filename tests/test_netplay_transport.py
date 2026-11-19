@@ -19,12 +19,17 @@ import unittest
 
 from retrorecomp.netplay import WorkerProcess, control, datagram, handshake, invitation, limits, room_log, session_pipe as pipe
 from retrorecomp.netplay import input_records as wire, worker_channel as channel
-from retrorecomp.netplay import lan_transport, room_worker
+from retrorecomp.netplay import lan_transport, room_worker, sealing
 from retrorecomp.netplay.launch import Refusal, launch_settings
 from retrorecomp.netplay.lockstep import Settings
 
 SECRET = bytes(range(16))
 NONCE_G, NONCE_H = bytes(range(100, 116)), bytes(range(200, 216))
+# Protocol 4: each side's "nonce" is an ephemeral X25519 public key drawn from 32 bytes of its generator.
+SEED_G, SEED_H = bytes(range(100, 132)), bytes(range(200, 232))
+PRIVATE_G, PUB_G = sealing.keypair(SEED_G)
+PRIVATE_H, PUB_H = sealing.keypair(SEED_H)
+SHARED = sealing.shared(PRIVATE_G, PUB_H)
 
 
 def counting_rng(*values):
@@ -60,6 +65,12 @@ class KeyTests(unittest.TestCase):
         self.assertEqual(handshake._first(auth, 3, NONCE_G).hex(), 'ebeadc61998180a5e2c10f437ec88026')
         self.assertEqual(handshake._proof_host(auth, 3, NONCE_G, NONCE_H).hex(), '653e49c3c2a71af882b3aff9c317d680')
         self.assertEqual(handshake._proof_guest(auth, 3, NONCE_G, NONCE_H).hex(), '95ddf32339e0daee51e2c3b7eb625c84')
+        # Protocol 4: the X25519 exchange (RFC 7748) both ways, and the session key over its secret too.
+        self.assertEqual(SHARED, sealing.shared(PRIVATE_H, PUB_G))
+        self.assertNotEqual(handshake.session_key(SECRET, 4, PUB_G, PUB_H, SHARED), handshake.session_key(SECRET, 4, PUB_G, PUB_H))
+        self.assertEqual(len(handshake.session_key(SECRET, 4, PUB_G, PUB_H, SHARED)), 32)
+        self.assertIsNone(sealing.shared(PRIVATE_G, bytes(32)))          # a low-order point: refused, never an all-zero secret
+        self.assertIsNone(sealing.shared(PRIVATE_G, bytes(31)))
 
     def test_two_directions_two_matches_two_seats_and_two_connections_give_different_keys(self):
         session = handshake.session_key(SECRET, 3, NONCE_G, NONCE_H)
@@ -132,8 +143,8 @@ class InvitationTests(unittest.TestCase):
 
 def shake(secret_host=SECRET, secret_guest=SECRET, proto=handshake.PROTO, nonces=None, now=0.0):
     nonces = nonces or limits.NonceMemory()
-    host = handshake.HostHandshake(secret_host, now, nonces, counting_rng(NONCE_H))
-    guest = handshake.GuestHandshake(secret_guest, now, counting_rng(NONCE_G), proto)
+    host = handshake.HostHandshake(secret_host, now, nonces, counting_rng(SEED_H))
+    guest = handshake.GuestHandshake(secret_guest, now, counting_rng(SEED_G), proto)
     return host, guest
 
 
@@ -156,10 +167,11 @@ class HandshakeTests(unittest.TestCase):
         self.assertTrue(step2.done and len(step2.send) == handshake.THIRD_SIZE)
         self.assertTrue(step3.done and step3.leftover == b'')
         self.assertEqual(host.session.key, guest.session.key)
-        self.assertEqual(host.session.key, handshake.session_key(SECRET, 3, NONCE_G, NONCE_H))
+        self.assertEqual(host.session.key, handshake.session_key(SECRET, 4, PUB_G, PUB_H, SHARED))
         for wire_bytes in (first, step1.send, step2.send):
             self.assertNotIn(SECRET, wire_bytes)
             self.assertNotIn(host.session.key, wire_bytes)
+            self.assertNotIn(SHARED, wire_bytes)
         self.assertEqual(first[:4], b'RRNP')
 
     def test_a_wrong_secret_gets_silence_from_the_host_and_none_is_sent_back_by_the_guest(self):
@@ -175,10 +187,10 @@ class HandshakeTests(unittest.TestCase):
     def test_message_two_from_a_peer_without_the_secret_is_refused_by_the_guest(self):
         _host, guest = shake()
         guest.first()
-        forged = guest.feed(bytes(16) + bytes(16), 0.0)
+        forged = guest.feed(PUB_H + bytes(16), 0.0)
         self.assertTrue(forged.closed and forged.send == b'' and not forged.done)
         _host, guest = shake()
-        for blob in (b'', b'\x00' * 31):
+        for blob in (b'', b'\x00' * 47):
             self.assertEqual(guest.feed(blob, 0.0), handshake.Step())      # not enough yet: no answer either
 
     def test_message_one_replayed_is_refused_and_so_is_an_old_proof_at_step_three(self):
@@ -186,24 +198,24 @@ class HandshakeTests(unittest.TestCase):
         host, guest = shake(nonces=nonces)
         first = guest.first()
         self.run_handshake(host, guest)
-        replayed = handshake.HostHandshake(SECRET, 1.0, nonces, counting_rng(NONCE_H))
+        replayed = handshake.HostHandshake(SECRET, 1.0, nonces, counting_rng(SEED_H))
         step = replayed.feed(first, 1.0)
         self.assertTrue(step.closed and step.send == b'' and step.reason == 'replay')
-        # message 1 replayed against a host with no memory: it answers message 2, and then the old proof fails over the new nonce
-        fresh = handshake.HostHandshake(SECRET, 2.0, limits.NonceMemory(), counting_rng(bytes(range(50, 66))))
+        # message 1 replayed against a host with no memory: it answers message 2, and then the old proof fails over the new key
+        fresh = handshake.HostHandshake(SECRET, 2.0, limits.NonceMemory(), counting_rng(bytes(range(50, 82))))
         reply = fresh.feed(first, 2.0)
-        self.assertEqual(len(reply.send), 32)
+        self.assertEqual(len(reply.send), handshake.SECOND_SIZE)
         _h, old_guest = shake()
         old_guest.first()
-        old_step = old_guest.feed(NONCE_H + handshake._proof_host(handshake.auth_key(SECRET), 3, NONCE_G, NONCE_H), 0.0)
+        old_step = old_guest.feed(PUB_H + handshake._proof_host(handshake.auth_key(SECRET), 4, PUB_G, PUB_H, SHARED), 0.0)
         late = fresh.feed(old_step.send, 2.0)
         self.assertTrue(late.closed and late.send == b'' and late.reason == 'proof')
 
     def test_another_protocol_number_still_reaches_a_tagged_session_for_the_reject(self):
-        host, guest = shake(proto=4)
+        host, guest = shake(proto=5)
         _s1, _s2, step3 = self.run_handshake(host, guest)
         self.assertTrue(step3.done)
-        self.assertEqual(host.session.proto, 4)
+        self.assertEqual(host.session.proto, 5)
         self.assertEqual(host.session.key, guest.session.key)       # both ends can seal and read the REJECT(version)
         to_host, to_guest = handshake.tcp_keys(host.session.key)
         frame = control.FrameWriter(to_guest).seal(control.Reject(control.REJECT_VERSION))
@@ -215,7 +227,7 @@ class HandshakeTests(unittest.TestCase):
         for index in range(len(first) - 1):
             self.assertEqual(host.feed(first[index:index + 1], 0.0), handshake.Step())
         step1 = host.feed(first[-1:], 0.0)
-        self.assertEqual(len(step1.send), 32)
+        self.assertEqual(len(step1.send), handshake.SECOND_SIZE)
         got = handshake.Step()
         for index in range(len(step1.send)):
             got = guest.feed(step1.send[index:index + 1], 0.0)
@@ -244,7 +256,7 @@ class HandshakeTests(unittest.TestCase):
         host, _guest = shake()
         step = host.feed(b'GET /', 0.0)
         self.assertTrue(step.closed and step.send == b'' and step.reason == 'magic')
-        guest_deadline = handshake.GuestHandshake(SECRET, 0.0, counting_rng(NONCE_G))
+        guest_deadline = handshake.GuestHandshake(SECRET, 0.0, counting_rng(SEED_G))
         self.assertTrue(guest_deadline.expired(5.0))
 
 
@@ -430,19 +442,19 @@ class DatagramTests(unittest.TestCase):
         other_match = datagram.seal(up, wire.PING, 1, 2, 1, struct.pack('<I', 9))
         other_seat = datagram.seal(up, wire.PING, 3, 1, 1, struct.pack('<I', 9))
         calls = []
-        real = datagram._tag
+        real = datagram.sealing.open_
 
-        def counting(key, data):
+        def counting(key, counter, sealed, associated):
             calls.append(1)
-            return real(key, data)
-        with mock.patch.object(datagram, '_tag', counting):
+            return real(key, counter, sealed, associated)
+        with mock.patch.object(datagram.sealing, 'open_', counting):
             for source, data in [(('10.0.0.9', 5000), good),                                           # an address nobody authenticated
                                  (('192.168.1.5', 5000), good[:39]), (('192.168.1.5', 5000), good + bytes(500)),     # sizes
                                  (('192.168.1.5', 5000), b'x' * 100),                                         # not a datagram
                                  (('192.168.1.5', 5000), other_match),                                        # another match
                                  (('192.168.1.5', 5000), other_seat)]:                                        # not a seat of that address
                 self.assertIsNone(receiver.receive(source, data, 0.0))
-            self.assertEqual(calls, [], 'a datagram that fails steps 1 to 3 must not be hashed')
+            self.assertEqual(calls, [], 'a datagram that fails steps 1 to 3 must not be decrypted')
             accepted = receiver.receive(('192.168.1.5', 5000), good, 0.0)
             self.assertEqual(len(calls), 1)
             self.assertEqual((accepted.seat, accepted.address), (1, ('192.168.1.5', 5000)))
@@ -520,9 +532,9 @@ class LimitTests(unittest.TestCase):
 
     def test_the_address_bucket_is_before_the_tag_and_counts_what_it_drops(self):
         calls = []
-        real = datagram._tag
+        real = datagram.sealing.open_
         garbage = [self.damaged(index + 1) for index in range(3000)]     # the right head, a wrong tag
-        with mock.patch.object(datagram, '_tag', lambda key, data: (calls.append(1), real(key, data))[1]):
+        with mock.patch.object(datagram.sealing, 'open_', lambda *args: (calls.append(1), real(*args))[1]):
             for data in garbage:                              # 2,000 reach the tag check, the rest are dropped before it
                 self.receiver.receive(('192.168.1.5', 5000), data, 0.0)
         self.assertEqual(len(calls), 2000)                    # the burst of the address bucket (a CPU guard, review L1)
@@ -918,11 +930,11 @@ class FuzzTests(unittest.TestCase):
         self.run_target('input-records', valid, lambda data: wire.decode(data, 4))
 
     def test_the_two_handshake_machines(self):
-        host_valid = [handshake.GuestHandshake(SECRET, 0.0, counting_rng(NONCE_G)).first()]
-        guest_valid = [NONCE_H + handshake._proof_host(handshake.auth_key(SECRET), 3, NONCE_G, NONCE_H)]
+        host_valid = [handshake.GuestHandshake(SECRET, 0.0, counting_rng(SEED_G)).first()]
+        guest_valid = [PUB_H + handshake._proof_host(handshake.auth_key(SECRET), 4, PUB_G, PUB_H, SHARED)]
 
         def host(data):
-            machine = handshake.HostHandshake(SECRET, 0.0, limits.NonceMemory(), counting_rng(NONCE_H))
+            machine = handshake.HostHandshake(SECRET, 0.0, limits.NonceMemory(), counting_rng(SEED_H))
             step = machine.feed(data, 0.0)
             if not step.done:
                 self.assertTrue(step.send == b'' or len(step.send) == handshake.SECOND_SIZE)      # never more than message 2
@@ -931,7 +943,7 @@ class FuzzTests(unittest.TestCase):
             return step if step.send else None
 
         def guest(data):
-            machine = handshake.GuestHandshake(SECRET, 0.0, counting_rng(NONCE_G))
+            machine = handshake.GuestHandshake(SECRET, 0.0, counting_rng(SEED_G))
             step = machine.feed(data, 0.0)
             if step.closed:
                 self.assertEqual(step.send, b'')
@@ -1045,7 +1057,7 @@ def fake_host(clock=None, **keywords):
 def stranger(host, ip, chunks, now=0.0, blocked=False):
     """A connection that was accepted and is still shaking hands (what `_accept` leaves)."""
     sock = FakeSock(chunks, blocked)
-    peer = lan_transport._Peer(sock, ip, 5000, now, handshake.HostHandshake(SECRET, now, host._nonces, counting_rng(NONCE_H)))
+    peer = lan_transport._Peer(sock, ip, 5000, now, handshake.HostHandshake(SECRET, now, host._nonces, counting_rng(SEED_H)))
     host._admission.opened(ip)
     host._peers.append(peer)
     host._selector.registered.append(sock)
@@ -1058,7 +1070,7 @@ GUEST_NUMBER = [0]
 def joined_guest(host, ip, now=0.0, blocked=False):
     """A guest that holds the secret and does the whole handshake through the host's own `_readable`."""
     GUEST_NUMBER[0] += 1
-    guest = handshake.GuestHandshake(SECRET, now, counting_rng(bytes([GUEST_NUMBER[0] % 250 + 1]) * 16))
+    guest = handshake.GuestHandshake(SECRET, now, counting_rng(bytes([GUEST_NUMBER[0] % 250 + 1]) * 32))
     peer = stranger(host, ip, [guest.first()], now)
     host._readable(peer, now)
     step = guest.feed(bytes(peer.sock.sent), now)
@@ -1295,3 +1307,59 @@ class ReviewFixTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# ---- 9. the Internet room (INTERNET_PLAN.md, Arthur's go of 19 November 2026) ----
+
+class PublicListener(FakeListener):
+    def accept(self):
+        if not self.queue:
+            raise BlockingIOError()
+        return self.queue.pop(0), ('82.65.10.20', 5000)
+
+
+class InternetRoomTests(unittest.TestCase):
+    def test_a_local_room_closes_a_public_source_and_an_internet_room_takes_it_with_a_longer_deadline(self):
+        local = fake_host()
+        local._tcp = PublicListener(FakeSock())
+        local._accept(0.0)
+        self.assertEqual((len(local._peers), local._counters.total['source_refused']), (0, 1))
+        internet = fake_host(internet=True)
+        internet._tcp = PublicListener(FakeSock())
+        internet._accept(0.0)
+        self.assertEqual(len(internet._peers), 1)
+        self.assertEqual(internet._peers[0].shake.deadline, limits.INTERNET_HANDSHAKE_SECONDS)
+        self.assertEqual((limits.HANDSHAKE_SECONDS, limits.INTERNET_HANDSHAKE_SECONDS), (5.0, 10.0))
+
+    def test_the_whole_room_slows_new_handshakes_after_thirty_failures_and_says_so_once(self):
+        admission = limits.Admission()
+        for number in range(limits.ROOM_FAILURES):
+            admission.failed(f'203.0.{number}.1', number * 10.0)
+        self.assertFalse(admission.room_slowed(300.0))
+        self.assertTrue(admission.may_accept('198.51.100.1', 300.0) and admission.may_accept('198.51.100.1', 300.5))
+        admission.failed('203.0.99.1', 301.0)                                   # the thirty-first in ten minutes
+        self.assertTrue(admission.room_slowed(301.0))
+        self.assertTrue(admission.may_accept('198.51.100.2', 302.0))            # one new handshake ...
+        self.assertFalse(admission.may_accept('198.51.100.3', 305.0))           # ... then nothing for ten seconds
+        self.assertTrue(admission.may_accept('198.51.100.3', 312.1))
+        self.assertFalse(admission.room_slowed(901.0))                          # ten quiet minutes: back to normal
+        events = []
+        host = fake_host(internet=True, on_event=events.append)
+        for number in range(limits.ROOM_FAILURES + 5):
+            peer = stranger(host, f'203.0.113.{number}', [b'RRNP' + bytes(50)], now=float(number))
+            host._readable(peer, float(number))
+        host._flush()
+        self.assertEqual([event for event in events if event.get('code') == 'wrong_key_attempts'],
+                         [{'event': 'lobby_notice', 'code': 'wrong_key_attempts', 'detail': ''}])     # said once, not each time
+
+    def test_a_guest_joins_a_key_by_its_ipv4_address_and_waits_longer(self):
+        from retrorecomp.netplay import internet_key
+        room = internet_key.parse_key(internet_key.format_key(24611, SECRET, '82.65.10.20', '2a01:e0a::5'))
+        guest = lan_transport.RoomGuest(room, 'Nadia')
+        self.assertTrue(guest.internet)
+        self.assertEqual(guest._host, ('82.65.10.20', 24611))
+        only_v6 = internet_key.parse_key(internet_key.format_key(24611, SECRET, ipv6='2a01:e0a::5'))
+        with self.assertRaises(lan_transport.RoomError):
+            lan_transport.RoomGuest(only_v6, 'Nadia')
+        with self.assertRaises(lan_transport.RoomError):                        # a local invitation stays local
+            lan_transport.RoomGuest(invitation.Invitation('82.65.10.20', 24611, SECRET), 'Nadia')

@@ -12,6 +12,14 @@ import collections
 UNAUTHENTICATED_PER_ADDRESS = 2
 UNAUTHENTICATED_IN_ROOM = 8
 HANDSHAKE_SECONDS = 5.0
+INTERNET_HANDSHAKE_SECONDS = 10.0  # an Internet room: round trips of a far player (INTERNET_PLAN.md 3)
+# The whole room (INTERNET_PLAN.md 3, Arthur's go of 19 November 2026): past this many failed handshakes in the window, from
+# any addresses, a new handshake starts at most every ROOM_SLOW_SECONDS until the window is quiet again. Joined guests are never
+# touched, so a stranger who sprays wrong keys cannot lock the players out; with 128-bit secrets this guards the host's CPU and
+# the room's calm, not the secret.
+ROOM_FAILURES = 30
+ROOM_FAILURE_WINDOW = 600.0
+ROOM_SLOW_SECONDS = 10.0
 FAILURES_PER_MINUTE = 3
 REFUSED_SECONDS = 300.0
 FAILURE_WINDOW = 60.0
@@ -77,6 +85,8 @@ class Admission:
         self._failures: dict[str, list] = {}        # address -> failure times within the window
         self._joins: dict[str, list] = {}           # address -> times of its authenticated joins within the window
         self._refused_until: dict[str, float] = {}
+        self._room_failures: collections.deque = collections.deque(maxlen=ROOM_FAILURES + 1)
+        self._last_slow_accept = -ROOM_SLOW_SECONDS
 
     def refused(self, address: str, now: float) -> bool:
         until = self._refused_until.get(address)
@@ -87,9 +97,21 @@ class Admission:
             return False
         return True
 
+    def room_slowed(self, now: float) -> bool:
+        """Whether the room takes new handshakes slowly: more than ROOM_FAILURES failed in the last ROOM_FAILURE_WINDOW."""
+        while self._room_failures and now - self._room_failures[0] >= ROOM_FAILURE_WINDOW:
+            self._room_failures.popleft()
+        return len(self._room_failures) > ROOM_FAILURES
+
     def may_accept(self, address: str, now: float) -> bool:
-        return (not self.refused(address, now) and self._open.get(address, 0) < UNAUTHENTICATED_PER_ADDRESS
-                and sum(self._open.values()) < UNAUTHENTICATED_IN_ROOM)
+        if not (not self.refused(address, now) and self._open.get(address, 0) < UNAUTHENTICATED_PER_ADDRESS
+                and sum(self._open.values()) < UNAUTHENTICATED_IN_ROOM):
+            return False
+        if self.room_slowed(now):
+            if now - self._last_slow_accept < ROOM_SLOW_SECONDS:
+                return False
+            self._last_slow_accept = now
+        return True
 
     def opened(self, address: str) -> None:
         self._open[address] = self._open.get(address, 0) + 1
@@ -104,6 +126,7 @@ class Admission:
 
     def failed(self, address: str, now: float) -> bool:
         """One failed handshake; True when that address is now refused."""
+        self._room_failures.append(now)
         times = [moment for moment in self._failures.get(address, []) if now - moment < FAILURE_WINDOW]
         times.append(now)
         if address not in self._failures and len(self._failures) >= TABLE_LIMIT:

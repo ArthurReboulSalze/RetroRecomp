@@ -133,6 +133,7 @@ Free BIOS replacements are research candidates only, not bundled dependencies.
 | PyInstaller hooks | 2026.7; component terms in the hook package | [Full text](licenses/PyInstaller-hooks.md) |
 | UPX executable packer | 5.3.0; GPL with special exception for packed executables | [Full text and exception](licenses/UPX.md), [corresponding source](licenses/upx-5.3.0-src.tar.xz) |
 | OpenSSL | 3.0.20; Apache 2.0 | [Full text](licenses/OpenSSL.md) |
+| cryptography (multiplayer encryption), with its OpenSSL, cffi and pycparser | 50.0.2 (OpenSSL 4.0.3, cffi 2.1.1, pycparser 3.12); Apache 2.0 OR BSD-3-Clause, OpenSSL Apache 2.0, cffi MIT-0, pycparser BSD-3-Clause | [Full text](licenses/cryptography.md) |
 | zlib / zlib-ng | zlib terms; CPython uses zlib-ng 2.2.4 | [zlib](licenses/zlib.md), [zlib-ng](licenses/zlib-ng.md) |
 
 PyInstaller's exception permits distribution of frozen applications under
