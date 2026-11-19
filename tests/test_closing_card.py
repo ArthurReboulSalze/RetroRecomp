@@ -266,10 +266,12 @@ class Animation(CardWindow):
 class RoundedFocus(CardWindow):
     def test_a_ring_replaces_the_dotted_focus_line_in_the_pill_button_layout(self):
         styles = view.styles_for(self.app)
-        layout = str(styles.look.style.layout('CcGoldCard.TButton'))
-        self.assertNotIn('Button.focus', layout)
         plain = styles.look.pill_button('CcPlainTest', '#d4a737', '#efc64f', '#191919', '#232323')
-        self.assertIn('Button.focus', str(styles.look.style.layout(plain)))
+        for name in ('CcGoldCard.TButton', plain):
+            self.assertNotIn('Button.focus', str(styles.look.style.layout(name)), name)   # the global skin draws the ring in the picture
+        looks = styles.look.skin.looks
+        self.assertEqual(looks['CcGoldCard.TButton'](['focus'])[2], view.TEXT)             # the card's own ring colour
+        self.assertEqual(looks[plain](['focus'])[2], '#f5f5f4')                            # a gold button's default: light
 
 
 if __name__ == '__main__':

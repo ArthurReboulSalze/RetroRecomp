@@ -67,6 +67,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Multiplayer: host or join a room, local or Internet (the lobby of retrorecomp/netplay); its
                                # rounded cards and round button (rounded_ui, Pillow pictures, proposal A of 19 Nov 2026).
                                'gui_multiplayer', 'multiplayer_view', 'rounded_ui',
+                               # The converter's rounded look (8 px): one skin for every ttk button, field, check box, frame and
+                               # scroll thumb, built with Pillow; rounded_ui's pill buttons ask it (Arthur's pick of 19 Nov 2026).
+                               'rounded_skin',
                                # Conversion time estimates in the window (assets/conversion-times.json); a conversion never reads them.
                                'gui_estimates', 'time_estimates',
                                # The log panel's welcome and the developer's message to the players, read from the site at start.

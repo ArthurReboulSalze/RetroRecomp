@@ -109,6 +109,10 @@ def apply_theme(app, font_family='Segoe UI'):
     style.configure('Icon.TButton', padding=(5, 4))
     style.configure('TLabelframe', bordercolor=c['subtle_border'])
     style.configure('TLabelframe.Label', foreground=c['gold_hover'])
+    # Rounded buttons, fields, check boxes, group frames and scroll thumbs (8 px, Arthur's pick of 19 Nov 2026): the skin reads the styles
+    # above (and every window's own, when its first widget is built), so it goes last. Calling apply_theme again rebuilds it.
+    from .rounded_skin import install
+    install(app)
     return style
 
 

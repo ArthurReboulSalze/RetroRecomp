@@ -1,7 +1,8 @@
 """Rounded shapes for the converter's windows (the Multiplayer window first, Arthur's proposal A of 19 Nov 2026).
 
 Tk has no rounded corners. Here they are pictures drawn with Pillow at four times the size and reduced, so edges are smooth:
-- `Look` makes rounded ttk styles (a card, a pill button, a segmented toggle) as 9-slice `image` elements. The widgets stay ttk
+- `Look` makes rounded ttk styles (a card, a segmented toggle) as 9-slice `image` elements, and gives the global skin
+  (rounded_skin.py, the one mechanism for buttons) the explicit colours of a pill button. The widgets stay ttk
   widgets: focus, Tab and the gamepad's focus moves, any text length and every interface language work as for any button.
 - `RoundButton` is the big round action button (an emergency-stop look): a Canvas with a Pillow face and its label in Tk
   text. It takes the focus; Return, space and a click press it; a dotted gold ring shows the focus.
@@ -13,6 +14,8 @@ import tkinter as tk
 from tkinter import ttk
 
 from PIL import Image, ImageDraw, ImageFilter, ImageTk
+
+from .rounded_skin import install
 
 S = 4                    # supersampling
 
@@ -60,36 +63,32 @@ class Look:
         size = radius * 2 + 4
         element = self._element(name, self.photo(rounded_box(size, size, radius, fill, bg, outline)), border=radius + 1)
         self.style.layout(f'{name}.TFrame', [(element, {'sticky': 'nsew'})])
+        self.skin.styled_surfaces[f'{name}.TFrame'] = fill      # what stands on the card paints its corners with the card's colour
         return f'{name}.TFrame'
+
+    @property
+    def skin(self):
+        """The window's rounded skin (retrorecomp/rounded_skin.py): the one mechanism that draws every rounded button."""
+        root = self.master._root()
+        return getattr(root, '_rounded_skin', None) or install(root)
 
     def pill_button(self, name, fill, hover, text, bg, radius=12, *, disabled=None, outline=None, size=10, bold=False,
                     padding=(12, 5), ring=None):
-        """A rounded button style 'name.TButton'; disabled is greyed. With `ring` (a colour) the keyboard's and the
-        gamepad's focus is a 2 px rounded ring of that colour in the button's own edge, in place of the dotted focus line."""
-        edge = radius * 2 + 4
-        normal = self.photo(rounded_box(edge, edge, radius, fill, bg, outline))
-        active = self.photo(rounded_box(edge, edge, radius, hover, bg, outline))
-        greyed = self.photo(rounded_box(edge, edge, radius, disabled or self.c['panel'], bg))
-        specs = [normal, ('disabled', greyed), ('pressed', active), ('active', active)]
-        if ring:
-            ring_normal = self.photo(rounded_box(edge, edge, radius, fill, bg, ring, 2))
-            ring_active = self.photo(rounded_box(edge, edge, radius, hover, bg, ring, 2))
-            specs = [normal, ('disabled', greyed), ('focus', 'active', ring_active), ('focus', ring_normal),
-                     ('pressed', active), ('active', active)]
-        element = self._element(name, *specs, border=radius + 1, padding=2)
-        if ring:
-            layout = [(element, {'sticky': 'nsew', 'children': [
-                ('Button.padding', {'sticky': 'nsew', 'children': [('Button.label', {'sticky': 'nsew'})]})]})]
-        else:
-            # Button.focus draws the dotted focus ring (focuscolor) around the label: the keyboard's and the gamepad's place
-            layout = [(element, {'sticky': 'nsew', 'children': [
-                ('Button.padding', {'sticky': 'nsew', 'children': [('Button.focus', {'sticky': 'nsew', 'children': [
-                    ('Button.label', {'sticky': 'nsew'})]})]})]})]
-        self.style.layout(f'{name}.TButton', layout)
-        self.style.configure(f'{name}.TButton', foreground=text, padding=padding, anchor='center',
-                             font=(self.font, size, 'bold' if bold else 'normal'), focuscolor=self.c['gold'])
-        self.style.map(f'{name}.TButton', foreground=[('disabled', self.c['disabled'])])
-        return f'{name}.TButton'
+        """A rounded button style 'name.TButton' with explicit colours: it only configures the ttk style (fill, hover, outline,
+        greyed look, label) and asks the global skin to round it, with `bg` as the colour of its corners and `radius` as its own
+        radius. With `ring` (a colour) the keyboard's and the gamepad's focus is a 2 px ring of that colour in the button's own
+        edge; without it the skin's (gold, or light on a gold button)."""
+        style_name = f'{name}.TButton'
+        grey = disabled or self.c['panel']
+        edge = outline or hover
+        self.style.configure(style_name, background=fill, bordercolor=outline or fill, foreground=text, padding=padding,
+                             anchor='center', font=(self.font, size, 'bold' if bold else 'normal'), focuscolor=self.c['gold'])
+        self.style.map(style_name, background=[('disabled', grey), ('pressed', hover), ('active', hover)],
+                       foreground=[('disabled', self.c['disabled'])],
+                       bordercolor=[('disabled', grey), ('pressed', edge), ('active', edge)])
+        self.skin.skin(style_name, 'button', surface=bg, radius=radius, ring=ring)
+        self.made.add(name)
+        return style_name
 
     def segment(self, name, track, chosen, hover, radius=13, size=10):
         """A segmented toggle: Radiobuttons whose chosen one is a gold pill on a dark track (put them in a `track` card)."""

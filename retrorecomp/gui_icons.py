@@ -186,8 +186,5 @@ def hero_picture(master, symbol, colour, highlight=None):
         from .gui_drawing import hero_icon
         return hero_icon(master, symbol, colour)
     from PIL import ImageTk
-    try:
-        factor = max(1.0, float(master.tk.call('tk', 'scaling')) / (96 / 72))
-    except Exception:
-        factor = 1.0
-    return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_GRID * factor), highlight), master=master)
+    from .ui_fonts import ui_scale
+    return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_GRID * ui_scale(master)), highlight), master=master)
