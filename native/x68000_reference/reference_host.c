@@ -513,7 +513,7 @@ static void *linked_symbol(const char *name){
  * the loaded state, runs the same frames again and compares every digest. It also saves a second time over a buffer of
  * other bytes (identical bytes expected) and loads a snapshot one byte short (refused, nothing changed). */
 static const char *probe_path,*probe_dump;
-static unsigned probe_at=600,probe_frames=120,probe_phase,probe_step,probe_mismatches,probe_first_bad=UINT32_MAX;
+static unsigned probe_reset_at=UINT32_MAX,probe_at=600,probe_frames=120,probe_phase,probe_step,probe_mismatches,probe_first_bad=UINT32_MAX;
 static uint8_t *probe_snap,*probe_other;static size_t probe_bound,probe_len;
 static uint64_t *probe_digests,*probe_pictures,probe_saved_digest;static unsigned probe_picture_mismatches,probe_first_picture=UINT32_MAX;
 /* The presented picture of the frame (the session snapshot does not keep it: a load redraws it whole). */
@@ -524,6 +524,8 @@ static double probe_save_ms,probe_load_ms;
 static void probe_frame(void){
    double t0;uint64_t digest;
    if(!probe_path||probe_phase==3)return;
+   /* --rollback-reset-at R: a restart before the frame after R, in both timelines (as the kit's restart for everyone). */
+   if(input_frame==probe_reset_at)x_reset();
    if(probe_phase==0){
       if(input_frame!=probe_at)return;
       probe_bound=x_snap_bound();
@@ -727,6 +729,7 @@ static int player_main(int argc,char **argv) {
 #ifdef RR_X68000_LINKED
          else if(!strcmp(arg,"--rollback-probe")) probe_path=argv[i];
          else if(!strcmp(arg,"--rollback-dump")) probe_dump=argv[i];
+         else if(!strcmp(arg,"--rollback-reset-at")) {unsigned long n=strtoul(argv[i],&end,10);if(!*argv[i]||*end||n>=MAX_FRAMES){fail("Invalid rollback reset frame");goto cleanup;}probe_reset_at=(unsigned)n;}
          else if(!strcmp(arg,"--rollback-at")||!strcmp(arg,"--rollback-frames")) {
             unsigned long n=strtoul(argv[i],&end,10);if(!*argv[i]||*end||n==0||n>=MAX_FRAMES){fail("Invalid rollback probe frame");goto cleanup;}
             if(!strcmp(arg,"--rollback-at"))probe_at=(unsigned)n;else probe_frames=(unsigned)n;

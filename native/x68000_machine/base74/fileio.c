@@ -38,8 +38,9 @@ static char current_directory[4096];
 #define SESSION_BITMAP (SESSION_IMAGE_MAX / SESSION_BLOCK / 8u)
 typedef struct {
    char path[4096];
-   const uint8_t *original;
+   const uint8_t *original;          /* the session's starting image: the export's disk, or the host's save of it */
    size_t size;
+   uint64_t base_hash;               /* FNV-1a of `original`: the snapshot and the digest cover the starting disks */
    uint8_t *bytes;                   /* the image as written in this session; NULL while it equals the original */
    uint8_t dirty[SESSION_BITMAP];    /* blocks that differ from the original */
 } SessionImage;
@@ -95,11 +96,30 @@ int rr_x68k_session_media_add(unsigned index, const char *path, const uint8_t *o
    snprintf(image->path, sizeof image->path, "%s", path);
    image->original = original;
    image->size = size;
+   image->base_hash = 14695981039346656037ull;
+   for (size_t at = 0; at < size; at++)
+      image->base_hash = (image->base_hash ^ original[at]) * 1099511628211ull;
    session_media = 1;
    return 1;
 }
 
 int rr_x68k_session_media_on(void) { return session_media; }
+
+/* The session's image of disk `index` as it is now (its starting bytes plus what was written back to it), NULL: none. */
+const uint8_t *rr_x68k_session_image(unsigned index, size_t *size)
+{
+   SessionImage *image = index < SESSION_IMAGES ? &session_images[index] : NULL;
+   if (!image || !image->original) { *size = 0; return NULL; }
+   *size = image->size;
+   return image->bytes ? image->bytes : image->original;
+}
+
+static void joined(char *out, size_t size, const char *name);
+/* The SRAM file the machine reads alone (sram.c: sram.dat in the current directory). */
+void rr_x68k_sram_path(char *out, size_t size)
+{
+   joined(out, size, "sram.dat");
+}
 
 /* While a session snapshot is loaded, an eject must not write the drive back over the restored journal. */
 void rr_x68k_session_restoring(int on) { session_restoring = on; }
@@ -119,9 +139,11 @@ void rr_x68k_session_images(RRState *s, size_t *bytes)
       SessionImage *image = &session_images[i];
       uint8_t dirty[SESSION_BITMAP];
       uint32_t size = (uint32_t)image->size;
+      uint64_t base = image->base_hash;
       size_t block, count = (image->size + SESSION_BLOCK - 1) / SESSION_BLOCK, any;
       rr_state_u32(s, &size);
-      if (s->loading && !s->error && size != (uint32_t)image->size) {
+      rr_state_u64(s, &base);
+      if (s->loading && !s->error && (size != (uint32_t)image->size || base != image->base_hash)) {
          rr_state_fail(s, "session disk set differs from the snapshot");
          return;
       }

@@ -8,6 +8,7 @@
  * Everything else (window, picture, F1/F2/F3/F4/F6/F7/F8/F9/F12, pads, pad slots, quit and restart combinations,
  * sound output) is the kit's. Guest state is never filtered. */
 #include "hostkit/hostkit.h"
+#include "hostkit/hostkit_session.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
 #include "display_settings.h"
@@ -147,7 +148,7 @@ size_t rr_x68k_snap_save(void *buffer, size_t capacity);
 int rr_x68k_snap_load(const void *buffer, size_t size);
 uint64_t rr_x68k_digest(void);
 int rr_x68k_session_disk(unsigned index, const uint8_t *original, size_t size);
-int rr_x68k_session_start(void);
+int rr_x68k_session_start(const uint8_t *sram);
 const char *rr_x68k_disk_name(unsigned index);
 
 /* What decides the next frames outside the machine: the frame counters, the clock of the frame callback and the
@@ -155,7 +156,7 @@ const char *rr_x68k_disk_name(unsigned index);
 typedef struct {
    uint64_t total;                /* the snapshot's whole size: a load of another size is refused before any change */
    uint64_t input_frame;
-   double elapsed_usec;
+   double elapsed_usec, fps;      /* the frame callback's clock and step: the rate follows the screen mode (a restart) */
    int selected[2];
    unsigned empty_frames[2], interest_seen[2];
    RRMediaRequest request[2];
@@ -171,7 +172,7 @@ static size_t x_snap_save(void *buffer, size_t capacity) {
    size_t n;
    if (!buffer || capacity < sizeof h || !media_opened) return 0;
    memset(&h, 0, sizeof h);
-   h.input_frame = input_frame; h.elapsed_usec = elapsed_usec;
+   h.input_frame = input_frame; h.elapsed_usec = elapsed_usec; h.fps = fps;
    memcpy(h.selected, media.selected, sizeof h.selected);
    memcpy(h.empty_frames, media.empty_frames, sizeof h.empty_frames);
    memcpy(h.interest_seen, media.interest_seen, sizeof h.interest_seen);
@@ -189,33 +190,220 @@ static bool x_snap_load(const void *buffer, size_t size) {
    memcpy(&h, buffer, sizeof h);
    if (h.total != size) return false;
    if (!rr_x68k_snap_load((const uint8_t *)buffer + sizeof h, size - sizeof h)) return false;
-   input_frame = h.input_frame; elapsed_usec = h.elapsed_usec;
+   input_frame = h.input_frame; elapsed_usec = h.elapsed_usec; fps = h.fps;
    memcpy(media.selected, h.selected, sizeof h.selected);
    memcpy(media.empty_frames, h.empty_frames, sizeof h.empty_frames);
-   memcpy(media.interest_seen, h.interest_seen, sizeof h.interest_seen);
    memcpy(media.request, h.request, sizeof h.request);
+   /* The drives' interest counter is not machine state (only its change between two frames counts): the automatic disk
+    * changes read it at the end of every frame, so the saved value was the counter then; take today's counter instead. */
+   if (media.interest) { unsigned d; for (d = 0; d < 2; d++) media.interest_seen[d] = media.interest(d); }
+   else memcpy(media.interest_seen, h.interest_seen, sizeof h.interest_seen);
    width = h.width; height = h.height;
    automatic_loading = false; memset(&loading_detector, 0, sizeof(loading_detector));
    return true;
 }
 static uint64_t x_digest(void) { return rr_x68k_digest(); }
 
-/* The session starts (after SETUP, before the boot digest and frame 0): the set's original disks come from the
- * executable, the machine boots (or restarts) on them with a fresh SRAM and its peripheral clock at zero (the RTC then
- * reads 1 January 2000, RRHK_SESSION_CLOCK), and the disk session opens as after a first frame. */
+/* ---- The host's save for the match (session ABI 8) ----
+ * An X68000 game saves on its own disks and in SRAM. The image carries, for each disk of the set, the 1 KiB blocks where this
+ * PC's copy (datas/games/x68-<identity>/media) differs from the export's original, then the 16 KiB of SRAM:
+ *   "RRX68SV1", u32 disks, then per disk u32 size, u32 blocks, blocks x (u32 index, the block's bytes); then SRAM.
+ * Every seat (the host too) starts the match from the export's disks with those blocks and that SRAM, in memory only; nothing
+ * is written back (base74/fileio.c). A save larger than the kit's limit is not offered: every seat then starts from the
+ * export's own disks and a fresh SRAM. Little-endian words: the same on every seat. */
+#define X_SAVE_MAGIC "RRX68SV1"
+#define X_SAVE_BLOCK 1024u
+#define X_SAVE_SRAM 16384u
+const char *rr_x68k_disk_path(unsigned index);
+void rr_x68k_sram_copy(uint8_t *out);
+static uint8_t *x_save;               /* the host's image for this match (session_save_put), NULL: none */
+static size_t x_save_size;
+static uint8_t *x_base[RR_MEDIA_MAX]; /* each disk's starting image when the host's save changes it */
+
+static void x_put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
+static uint32_t x_get32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
+
+/* The original of disk i (embedded in the executable). */
+static const unsigned char *x_original(unsigned i, size_t *size) {
+   char path[64];
+   snprintf(path, sizeof path, "media/%s", rr_x68k_disk_name(i));
+   return rr_x68k_payload_original(path, size);
+}
+
+/* This PC's save image (out NULL: its size), 0 when it cannot be made or is larger than the kit takes. */
+static size_t x_session_save(void *out, size_t capacity) {
+   uint8_t *o = (uint8_t *)out, *block = (uint8_t *)malloc(X_SAVE_BLOCK);
+   size_t at = 12, disks = 0, result = 0;
+   unsigned i;
+   if (!block) return 0;
+   for (i = 0; rr_x68k_disk_name(i); i++) disks++;
+   if (o && capacity < 12) goto done;
+   if (o) { memcpy(o, X_SAVE_MAGIC, 8); x_put32(o + 8, (uint32_t)disks); }
+   for (i = 0; i < disks; i++) {
+      size_t size = 0, n, b, count_at = at + 4;
+      uint32_t blocks = 0;
+      const unsigned char *original = x_original(i, &size);
+      FILE *f;
+      if (!original || (o && capacity < at + 8)) goto done;
+      if (o) x_put32(o + at, (uint32_t)size);
+      at += 8;
+      f = rr_x68k_disk_path(i) ? fopen(rr_x68k_disk_path(i), "rb") : NULL;
+      for (b = 0; f && b * X_SAVE_BLOCK < size; b++) {
+         size_t from = b * X_SAVE_BLOCK;
+         n = size - from < X_SAVE_BLOCK ? size - from : X_SAVE_BLOCK;
+         if (fread(block, 1, n, f) != n) break;           /* a short copy: the rest stays the original */
+         if (!memcmp(block, original + from, n)) continue;
+         if (at + 4 + n > RRHK_SESSION_MAX_SAVE || (o && capacity < at + 4 + n)) { fclose(f); goto done; }
+         if (o) { x_put32(o + at, (uint32_t)b); memcpy(o + at + 4, block, n); }
+         at += 4 + n;
+         blocks++;
+      }
+      if (f) fclose(f);
+      if (o) x_put32(o + count_at, blocks);
+   }
+   if (at + X_SAVE_SRAM > RRHK_SESSION_MAX_SAVE || (o && capacity < at + X_SAVE_SRAM)) goto done;
+   if (o) rr_x68k_sram_copy(o + at);
+   result = at + X_SAVE_SRAM;
+done:
+   free(block);
+   return result;
+}
+
+/* The host's image, checked against this executable's disks and kept for the session's start. */
+static bool x_session_save_put(const void *in, size_t size) {
+   const uint8_t *p = (const uint8_t *)in;
+   size_t at = 12, disks = 0;
+   unsigned i;
+   for (i = 0; rr_x68k_disk_name(i); i++) disks++;
+   if (!p || size < 12 + X_SAVE_SRAM || memcmp(p, X_SAVE_MAGIC, 8) || x_get32(p + 8) != disks) return false;
+   for (i = 0; i < disks; i++) {
+      size_t original_size = 0, b;
+      uint32_t blocks;
+      if (!x_original(i, &original_size) || at + 8 > size || x_get32(p + at) != original_size) return false;
+      blocks = x_get32(p + at + 4);
+      at += 8;
+      for (b = 0; b < blocks; b++) {
+         size_t from, n;
+         if (at + 4 > size) return false;
+         from = (size_t)x_get32(p + at) * X_SAVE_BLOCK;
+         if (from >= original_size) return false;
+         n = original_size - from < X_SAVE_BLOCK ? original_size - from : X_SAVE_BLOCK;
+         if (at + 4 + n > size) return false;
+         at += 4 + n;
+      }
+   }
+   if (at + X_SAVE_SRAM != size) return false;
+   free(x_save);
+   x_save = (uint8_t *)malloc(size);
+   if (!x_save) { x_save_size = 0; return false; }
+   memcpy(x_save, in, size);
+   x_save_size = size;
+   return true;
+}
+
+/* ---- The host writes its save back at a clean end of the match (session_save_commit, Arthur 19 Nov 2026) ----
+ * Nobody writes during a match (base74/fileio.c swallows every write of a session). At a clean end the kit asks the host
+ * only: each disk of the set whose final bytes (a drive's image as its eject writes it back, otherwise the session's image)
+ * differ from this PC's file, then the SRAM if it differs from sram.dat, is written atomically: the previous file is copied
+ * to <name>.bak (one step), the new bytes go to <name>.new, then replace the file. */
+size_t rr_x68k_disk_final(unsigned index, unsigned char *out, size_t capacity);
+void rr_x68k_sram_file_bytes(uint8_t *out);
+void rr_x68k_sram_path(char *out, size_t size);
+
+/* 1: the file already holds these bytes; 0: it does not (or cannot be read). */
+static int x_file_equals(const wchar_t *path, const uint8_t *bytes, size_t size) {
+   FILE *f = rr_fopen(path, L"rb");
+   uint8_t chunk[65536];
+   size_t at = 0, n;
+   int same = f != NULL;
+   while (same && (n = fread(chunk, 1, sizeof chunk, f)) > 0) {
+      if (at + n > size || memcmp(chunk, bytes + at, n)) same = 0;
+      at += n;
+   }
+   if (f) fclose(f);
+   return same && at == size;
+}
+
+/* The bytes go to `path` atomically, the previous file kept as path.bak. 1: written or already equal. */
+static int x_write_back(const char *utf8, const uint8_t *bytes, size_t size) {
+   wchar_t path[4096], temporary[4100], backup[4100];
+   FILE *f;
+   int ok;
+   uint64_t hash = 14695981039346656037ull;
+   size_t i;
+   for (i = 0; i < size; i++) hash = (hash ^ bytes[i]) * 1099511628211ull;
+   if (!rr_from_utf8(utf8, path, 4096) || wcslen(path) > 4090) return 0;
+   if (x_file_equals(path, bytes, size)) {
+      fprintf(stderr, "[x68000] save at the end of the match: %s unchanged (fnv %016llx)\n", utf8, (unsigned long long)hash);
+      return 1;
+   }
+   wcscpy(temporary, path); wcscat(temporary, L".new");
+   wcscpy(backup, path); wcscat(backup, L".bak");
+   f = rr_fopen(temporary, L"wb");
+   if (!f) return 0;
+   ok = fwrite(bytes, 1, size, f) == size && rr_flush_file(f);
+   if (fclose(f)) ok = 0;
+   if (ok && rr_exists(path)) { rr_remove(backup); ok = rr_copy_new(path, backup); }
+   if (ok) ok = rr_replace(temporary, path);
+   if (!ok) rr_remove(temporary);
+   fprintf(stderr, "[x68000] save at the end of the match: %s %s (fnv %016llx)\n", utf8, ok ? "written" : "NOT written",
+           (unsigned long long)hash);
+   return ok;
+}
+
+static bool x_session_save_commit(void) {
+   uint8_t *buffer = (uint8_t *)malloc(RRHK_SESSION_MAX_SAVE);
+   char sram_path[4096];
+   unsigned i;
+   int ok = buffer != NULL;
+   for (i = 0; ok && rr_x68k_disk_name(i); i++) {
+      size_t n = rr_x68k_disk_final(i, buffer, RRHK_SESSION_MAX_SAVE);
+      ok = n && rr_x68k_disk_path(i) && x_write_back(rr_x68k_disk_path(i), buffer, n);
+   }
+   if (ok) {
+      rr_x68k_sram_file_bytes(buffer);
+      rr_x68k_sram_path(sram_path, sizeof sram_path);
+      ok = x_write_back(sram_path, buffer, X_SAVE_SRAM);
+   }
+   free(buffer);
+   return ok != 0;
+}
+
+/* The session starts (after SETUP and the host's save, before the boot digest and frame 0): every seat plays the export's
+ * disks with the host's written blocks and SRAM (the host itself: its own, the image it sent; the export's disks and a fresh
+ * SRAM when no image can be made), from
+ * memory; the machine boots (or restarts) on them with its peripheral clock at zero (the RTC then reads 1 January 2000,
+ * RRHK_SESSION_CLOCK), and the disk session opens as after a first frame. */
 static void x_session_begin(uint64_t clock) {
+   size_t at = 12;
    unsigned i;
    (void)clock;
    x_session_started = true;
-   for (i = 0; rr_x68k_disk_name(i); i++) {
-      char path[64];
-      size_t size = 0;
-      const unsigned char *bytes;
-      snprintf(path, sizeof path, "media/%s", rr_x68k_disk_name(i));
-      bytes = rr_x68k_payload_original(path, &size);
-      if (!bytes || !rr_x68k_session_disk(i, bytes, size)) { fail("A disk of the set is missing from this executable"); return; }
+   /* The host is handed no image: it plays on its own save, the very image it sent to the guests. */
+   if (!x_save && (x_save_size = x_session_save(NULL, 0)) != 0) {
+      x_save = (uint8_t *)malloc(x_save_size);
+      if (!x_save || x_session_save(x_save, x_save_size) != x_save_size) { free(x_save); x_save = NULL; x_save_size = 0; }
    }
-   if (!rr_x68k_session_start()) { fail("The session's disks could not be inserted"); return; }
+   for (i = 0; rr_x68k_disk_name(i); i++) {
+      size_t size = 0;
+      const unsigned char *bytes = x_original(i, &size);
+      uint32_t blocks = 0, b;
+      if (!bytes) { fail("A disk of the set is missing from this executable"); return; }
+      if (x_save) { blocks = x_get32(x_save + at + 4); at += 8; }
+      free(x_base[i]); x_base[i] = NULL;
+      if (blocks) {
+         if (!(x_base[i] = (uint8_t *)malloc(size))) { fail("Not enough memory for the host's save"); return; }
+         memcpy(x_base[i], bytes, size);
+         for (b = 0; b < blocks; b++) {
+            size_t from = (size_t)x_get32(x_save + at) * X_SAVE_BLOCK, n = size - from < X_SAVE_BLOCK ? size - from : X_SAVE_BLOCK;
+            memcpy(x_base[i] + from, x_save + at + 4, n);
+            at += 4 + n;
+         }
+         bytes = x_base[i];
+      }
+      if (!rr_x68k_session_disk(i, bytes, size)) { fail("A disk of the set could not be prepared"); return; }
+   }
+   if (!rr_x68k_session_start(x_save ? x_save + at : NULL)) { fail("The session's disks could not be inserted"); return; }
    input_frame = 0; elapsed_usec = 0.0;
    automatic_loading = false; memset(&loading_detector, 0, sizeof(loading_detector));
    if (!media_opened) {
@@ -273,6 +461,7 @@ const RrhkMachine *rrhk_adapter(void) {
 #ifdef RR_X68000_LINKED
          .snap_bound = x_snap_bound, .snap_save = x_snap_save, .snap_load = x_snap_load,
          .digest = x_digest, .session_begin = x_session_begin,
+         .session_save = x_session_save, .session_save_put = x_session_save_put, .session_save_commit = x_session_save_commit,
 #endif
       };
    }
