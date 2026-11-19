@@ -240,9 +240,21 @@ static bool s_state_file(const wchar_t *path, bool load) {
 }
 
 /* Multiplayer (hostkit_session.h): the in-process snapshot of atarist_snapshot.h, its digest, and what a frame may do outside the guest. */
-static size_t s_snap_bound(void) { return rr_st_snapshot_bound(); }
-static size_t s_snap_save(void *buffer, size_t capacity) { return rr_st_snapshot_save(session, buffer, capacity); }
-static bool s_snap_load(const void *buffer, size_t size) { return rr_st_snapshot_load(session, buffer, size) != 0; }
+/* A key is an edge the guest's keyboard controller queues (the queue is in the snapshot), so which keys this adapter holds down goes
+ * with it: one byte per key after the snapshot (Start's Return and the keys the host types in a match). A load without it would press or
+ * release them again. */
+static size_t s_snap_bound(void) { return rr_st_snapshot_bound() + sizeof sa.held; }
+static size_t s_snap_save(void *buffer, size_t capacity) {
+   size_t size = capacity > sizeof sa.held ? rr_st_snapshot_save(session, buffer, capacity - sizeof sa.held) : 0;
+   if (!size) return 0;
+   memcpy((uint8_t *)buffer + size, sa.held, sizeof sa.held);
+   return size + sizeof sa.held;
+}
+static bool s_snap_load(const void *buffer, size_t size) {
+   if (size <= sizeof sa.held || !rr_st_snapshot_load(session, buffer, size - sizeof sa.held)) return false;
+   memcpy(sa.held, (const uint8_t *)buffer + size - sizeof sa.held, sizeof sa.held);
+   return true;
+}
 static uint64_t s_digest(void) { return rr_st_snapshot_digest(session); }
 /* A silent frame and a guest's match write no file. */
 static void s_side_effects(bool allowed) { sa.effects_off = !allowed; }
