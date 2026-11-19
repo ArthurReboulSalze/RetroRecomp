@@ -254,6 +254,21 @@ format of a quick state does not change. Cartridge saves and preferences are unt
 November 2026, two Windows PCs on a home network, Contra NES): two-player matches with no desync, the host's restart for
 everyone, 150 ms of simulated round trip on the rollback tier with no wait, the in-game chat on keyboard and gamepad.
 Physical latency is not measured.
+**19 November 2026:**
+- Two-PC acceptance (`tools/netplay_lan_acceptance.py`, 3,000 frames: the host's save, load and restart for everyone, 50
+  digests compared) PASS on every machine the second PC can run, with 4 seats across the two PCs on the Mega Drive (Gauntlet
+  IV, Team Player). The N64 needs a Vulkan device that PC lacks; its 4-seat proof is on one PC.
+- Three fixes the runs found:
+  - a game with sticks (PlayStation, N64) now plays over the network: the datagram carries the records' FLAG_AXES;
+  - a CPS-1 board's DIP switches pass the launch;
+  - the two-PC tool spaces its guests (the room holds two handshakes per address at a time).
+- **Protocol 4 of the room** (both rooms, the converter only, no stamp moves):
+  - an X25519 exchange in the handshake, tied to the invitation's secret;
+  - ChaCha20-Poly1305 on every control frame and match datagram, with the same sizes as the tags of protocol 3;
+  - from `cryptography` 50.0.2, pinned in `requirements.txt` and now frozen into the Windows converter too (about +3.7 MB;
+    notice `licenses/cryptography.md`).
+  - This closes the stated limit of the local room (a guest who captured another's handshake could compute its keys), and is
+    the base of the Internet room. A converter of protocol 3 and one of protocol 4 do not join each other.
 
 ## Super Nintendo: multiplayer, digest and rollback on the boards without a chip (next release)
 

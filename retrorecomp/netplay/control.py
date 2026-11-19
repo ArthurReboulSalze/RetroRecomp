@@ -1,7 +1,8 @@
 """The room's control stream (TCP, after the handshake): framed, tagged messages, and the display names. Pure.
 
-    length u16 (payload only, <= 1024) | type u8 | payload | tag 16
-    tag = mac(K_tcp_dir, seq u64, length u16, type u8, payload)      seq counts from 0 per direction and is never sent
+    length u16 (payload only, <= 1024) | type u8 | sealed payload | tag 16
+    ChaCha20-Poly1305 under K_tcp_dir (protocol 4, `sealing`): the nonce is seq (counts from 0 per direction, never sent),
+    length and type are the associated data, in clear and covered by the tag
 
 A wrong tag, a length above the limit, an unknown or unexpected type, a payload of the wrong size for its type or
 bytes left over: `FrameError`, and the transport closes the connection with no detail to the peer. The reader keeps
@@ -27,7 +28,7 @@ import re
 import struct
 import unicodedata
 
-from .handshake import mac
+from . import sealing
 
 MAX_PAYLOAD = 1024
 READ_BUFFER = 2048
@@ -585,10 +586,6 @@ def _decode_launch(payload: bytes) -> Launch:
 
 # ---- frames ----
 
-def _tag(key: bytes, seq: int, length: int, kind: int, payload: bytes) -> bytes:
-    return mac(key, struct.pack('<Q', seq), struct.pack('<H', length), bytes((kind,)), payload)
-
-
 class FrameWriter:
     """Seals messages in order: the sequence number is the count of frames sent, never put on the wire."""
 
@@ -599,9 +596,10 @@ class FrameWriter:
         kind, payload = encode(message)
         if len(payload) > MAX_PAYLOAD:
             raise ValueError('a control message above the limit')
-        tag = _tag(self._key, self._seq, len(payload), kind, payload)
+        head = struct.pack('<HB', len(payload), kind)
+        sealed = sealing.seal(self._key, self._seq, payload, head)
         self._seq += 1
-        return struct.pack('<HB', len(payload), kind) + payload + tag
+        return head + sealed
 
 
 class FrameReader:
@@ -622,8 +620,8 @@ class FrameReader:
             total = 3 + length + 16
             if len(self._buffer) < total:
                 break
-            payload, tag = bytes(self._buffer[3:3 + length]), bytes(self._buffer[3 + length:total])
-            if not hmac.compare_digest(tag, _tag(self._key, self._seq, length, kind, payload)):
+            payload = sealing.open_(self._key, self._seq, bytes(self._buffer[3:total]), bytes(self._buffer[:3]))
+            if payload is None:
                 raise FrameError('a frame that does not verify')
             self._seq += 1
             del self._buffer[:total]

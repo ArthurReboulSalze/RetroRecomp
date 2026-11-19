@@ -87,7 +87,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Stage 2, the local-network room (lan_transport is the only module of the package that imports
                                # socket): the invitation, the keys and handshake, the control and datagram codecs, the limits,
                                # the host's log, the room's worker and the command line of the two-PC test.
-                               'invitation', 'handshake', 'control', 'datagram', 'limits', 'room_log', 'lan_transport',
+                               'invitation', 'handshake', 'sealing', 'control', 'datagram', 'limits', 'room_log', 'lan_transport',
                                'room_worker', 'room_cli', 'lag_link',
                                # The lobby: its rules (a pure state machine for the host and one for each guest), the check of
                                # the host's game against the player's own compiled games, and the converter's side of it (the model
@@ -236,6 +236,7 @@ NOT_INPUTS = (
     # development test vectors: no game embeds them, so they move no game's stamp. A notice a game embeds is declared on
     # its machine's profile instead (`notice_files`), and is then a host input of that machine only.
     'licenses/Linux-desktop.md', 'licenses/Noto.md', 'licenses/OpenSSL.md', 'licenses/Pillow.md', 'licenses/PyInstaller-hooks.md',
+    'licenses/cryptography.md',
     'licenses/PyInstaller.md', 'licenses/Python.md', 'licenses/Tcl-Tk.md', 'licenses/zlib-ng.md', 'licenses/zlib.md',
     'licenses/SingleStepTests-z80.md', 'licenses/SingleStepTests-m68000.md',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
