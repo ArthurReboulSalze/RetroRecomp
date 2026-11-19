@@ -13,6 +13,7 @@
 #include "retro_keyboard.h"
 #include "runtime_feedback.h"
 #include "hostkit/hostkit_internal.h"
+#include "hostkit/hostkit_session.h"
 
 void rrhk_menu_line(const RrhkMenuCtx *ctx, int y, const char *text) {
     rr_menu_text(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, 14, y, text, RR_MENU_GOLD);
@@ -143,28 +144,60 @@ static bool hub_restart_offered(void) {
 }
 static bool restart_asked;
 bool rrhk_hub_take_restart(void) { const bool asked = restart_asked; restart_asked = false; return asked; }
-static int hub_tiles(void) {
-    return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0) + (rrhk_chat_offered() ? 1 : 0) +
-           (hub_restart_offered() ? 1 : 0) + 1;
+/* The tiles after the pages, in their order: Graphics, Chat, then (multiplayer in turns, session ABI 9) Pass the controller for
+ * the player who holds it, Give the controller (the host, to any seat) and Everyone at once / Take turns (the host, in a match
+ * with shared controls), then Restart and Quit, last everywhere (Arthur, 20 Nov 2026). The calls are the kit's
+ * (rrhk_session_pass, rrhk_session_set_sharing); what they change comes back from the worker on every seat. */
+enum { HUB_GRAPHICS = -3, HUB_CHAT = -4, HUB_QUIT = -5, HUB_RESTART = -6, HUB_PASS = -7, HUB_GIVE = -8, HUB_SHARING = -9,
+       HUB_EXTRAS = 8 };
+static int hub_extras(int kinds[HUB_EXTRAS]) {
+    int n = 0;
+    const int sharing = rrhk_session_sharing(), holder = rrhk_session_holder();
+    const bool host = rrhk_session_active() && !rrhk_session_guest();
+    if (rrhk.machine->gfx_option_count > 0) kinds[n++] = HUB_GRAPHICS;
+    if (rrhk_chat_offered()) kinds[n++] = HUB_CHAT;
+    if (holder >= 0 && holder == rrhk_session_seat()) kinds[n++] = HUB_PASS;
+    if (host && holder >= 0 && rrhk_session_seats() > 1) kinds[n++] = HUB_GIVE;
+    if (host && (sharing == RRHK_SHARING_EVERYONE || sharing == RRHK_SHARING_TURNS)) kinds[n++] = HUB_SHARING;
+    if (hub_restart_offered()) kinds[n++] = HUB_RESTART;
+    kinds[n++] = HUB_QUIT;
+    return n;
 }
-static bool hub_exit_tile(int tile) { return tile == hub_tiles() - 1; }
-static bool hub_restart_tile(int tile) { return hub_restart_offered() && tile == hub_tiles() - 2; }
-/* Multiplayer: the Chat tile closes the menu (the pause it asked for ends) and opens the chat's entry, with the on-screen
- * keyboard when player 1 has a gamepad. */
-static bool hub_chat_tile(int tile) { return rrhk_chat_offered() && tile == hub_tiles() - 2 - (hub_restart_offered() ? 1 : 0); }
+static int hub_tiles(void) { int kinds[HUB_EXTRAS]; return rrhk_pages_count() + hub_extras(kinds); }
+/* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), or one of the
+ * tiles after the pages (HUB_*). */
+static int hub_kind(int tile) {
+    const int pages = rrhk_pages_count();
+    if (tile >= pages) {
+        int kinds[HUB_EXTRAS];
+        const int count = hub_extras(kinds);
+        return tile - pages < count ? kinds[tile - pages] : HUB_QUIT;
+    }
+    const int controls = 2 * rrhk.machine->players();
+    return tile < controls ? tile : tile == pages - 1 ? -2 : -1;
+}
+static void hub_leave(void) { rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false; }
+static int give_row;
 static void hub_open(int tile) {
-    if (hub_exit_tile(tile)) { rrhk_quit_ask(); return; }
-    if (hub_restart_tile(tile)) {        /* back to the game, which restarts at the loop's next frame */
-        rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false;
-        restart_asked = true;
+    const int kind = hub_kind(tile);
+    if (kind == HUB_QUIT) { rrhk_quit_ask(); return; }
+    if (kind == HUB_RESTART) { hub_leave(); restart_asked = true; return; }   /* the loop restarts at its next frame */
+    /* Multiplayer: the Chat tile closes the menu (the pause it asked for ends) and opens the chat's entry, with the on-screen
+     * keyboard when player 1 has a gamepad. */
+    if (kind == HUB_CHAT) { hub_leave(); rrhk_chat_begin(rrhk.pads[0] != NULL); return; }
+    if (kind == HUB_PASS) { hub_leave(); rrhk_session_pass(-1); return; }
+    if (kind == HUB_SHARING) {
+        hub_leave();
+        rrhk_session_set_sharing(rrhk_session_sharing() == RRHK_SHARING_TURNS ? RRHK_SHARING_EVERYONE : RRHK_SHARING_TURNS);
         return;
     }
-    if (hub_chat_tile(tile)) {
-        rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false;
-        rrhk_chat_begin(rrhk.pads[0] != NULL);
+    if (kind == HUB_GIVE) {             /* the chooser: the next seat after the holder is selected */
+        const int seats = rrhk_session_seats();
+        give_row = seats > 0 ? (rrhk_session_holder() + 1) % seats : 0;
+        rrhk.menu = RRHK_MENU_GIVE; rrhk.parent_menu = 0;
         return;
     }
-    if (tile >= rrhk_pages_count()) { rrhk_open_graphics(); return; }
+    if (kind == HUB_GRAPHICS) { rrhk_open_graphics(); return; }
     int control;
     rrhk.menu = rrhk_pages_goto(tile, &control);
     rrhk.player = control / 2; rrhk.gamepad_page = control % 2;
@@ -180,15 +213,6 @@ void rrhk_hub_key(SDL_Scancode key) {
     else if (key == SDL_SCANCODE_DOWN && hub_tile + HUB_COLUMNS < tiles) hub_tile += HUB_COLUMNS;
     else if (key == SDL_SCANCODE_DOWN && hub_tile / HUB_COLUMNS < (tiles - 1) / HUB_COLUMNS) hub_tile = tiles - 1;   /* a shorter last line */
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) hub_open(hub_tile);
-}
-/* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), the graphics page
- * (-3, 1.7.6), the multiplayer chat (-4), Quit (-5, 1.8.1), Restart (-6, 1.8.1). */
-static int hub_kind(int tile) {
-    if (hub_exit_tile(tile)) return -5;
-    if (hub_restart_tile(tile)) return -6;
-    if (hub_chat_tile(tile)) return -4;
-    const int controls = 2 * rrhk.machine->players();
-    return tile < controls ? tile : tile >= rrhk_pages_count() ? -3 : tile == rrhk_pages_count() - 1 ? -2 : -1;
 }
 static void hub_draw(const RrhkMenuCtx *ctx) {
     const RrhkMachine *m = rrhk.machine;
@@ -222,7 +246,8 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
             rr_menu_box(ren, ox, oy, unit, x, y, TILE_W, TILE_H, RR_MENU_SHADE, 255);
             rr_menu_box(ren, ox, oy, unit, x + 1, y + 1, TILE_W - 2, TILE_H - 2, 26, 24, 20, 255);
         }
-        const int icon = kind == -6 ? RR_ICON_RESTART : kind == -5 ? RR_ICON_EXIT : kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
+        const int icon = kind == HUB_PASS ? RR_ICON_PASS : kind == HUB_GIVE ? RR_ICON_GIVE : kind == HUB_SHARING ? RR_ICON_SHARING :
+            kind == -6 ? RR_ICON_RESTART : kind == -5 ? RR_ICON_EXIT : kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
             kind % 2 ? RR_ICON_GAMEPAD : RR_ICON_KEYBOARD;
         rr_menu_icon(ren, ox, oy, unit, x + (TILE_W - rr_menu_icon_width(icon)) / 2, y + (kind >= 0 ? 4 : 11), icon, !selected);
         if (kind >= 0) {
@@ -239,7 +264,9 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     if (kind >= 0) snprintf(title, sizeof title, rr_tr(kind % 2 ? "Player %d - Gamepad" : "Player %d - Keyboard"), kind / 2 + 1);
     else {
         /* A page's title names the converter ("Retro-Recomp - Gun"): under the tiles the page alone is named. */
-        const char *name = rr_tr(kind == -6 ? "Restart the game" : kind == -5 ? "Quit the game" : kind == -4 ? "Chat" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
+        const char *name = rr_tr(kind == HUB_PASS ? "Pass the controller" : kind == HUB_GIVE ? "Give the controller" :
+                                 kind == HUB_SHARING ? (rrhk_session_sharing() == RRHK_SHARING_TURNS ? "Everyone at once" : "Take turns") :
+                                 kind == -6 ? "Restart the game" : kind == -5 ? "Quit the game" : kind == -4 ? "Chat" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
         if (!strncmp(name, "Retro-Recomp - ", 15)) name += 15;
         snprintf(title, sizeof title, "%s", name);
     }
@@ -270,11 +297,47 @@ void rrhk_toggle_settings(void) {
 
 /* Esc, B: back to the menu this one was opened from (the tiles for one of their pages), or to the game. */
 void rrhk_close_menu(void) {
+    if (rrhk.menu == RRHK_MENU_GIVE) { rrhk.menu = RRHK_MENU_HUB; rrhk.parent_menu = 0; return; }
     if (rrhk.menu == RRHK_MENU_QUIT && asking_relaunch) { relaunch_back(false); return; }
     if (rrhk.menu == RRHK_MENU_HUB) { rrhk.menu = hub_parent; hub_parent = 0; rrhk.parent_menu = 0; from_hub = false; return; }
     if (from_hub && rrhk_pages_open(rrhk.menu)) { rrhk.menu = RRHK_MENU_HUB; rrhk.parent_menu = 0; return; }
     rrhk.menu = rrhk.parent_menu;
     rrhk.parent_menu = 0;
+}
+
+/* ---- Give the controller (1.8.1, turns): the host chooses the seat; Enter gives, Esc and B come back to the tiles ---- */
+void rrhk_give_key(SDL_Scancode key) {
+    const int seats = rrhk_session_seats();
+    if (seats <= 0) { rrhk_close_menu(); return; }
+    if (key == SDL_SCANCODE_UP || key == SDL_SCANCODE_LEFT) give_row = (give_row + seats - 1) % seats;
+    else if (key == SDL_SCANCODE_DOWN || key == SDL_SCANCODE_RIGHT) give_row = (give_row + 1) % seats;
+    else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) {
+        hub_leave();
+        rrhk_session_pass(give_row);
+    }
+}
+static void give_draw(SDL_Renderer *ren, int ox, int oy, int unit) {
+    const int seats = rrhk_session_seats(), holder = rrhk_session_holder();
+    const int X = 48, W = 160, H = 30 + 14 * (seats > 0 ? seats : 1), Y = (192 - H) / 2;
+    SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(ren, 0, 0, 0, 150); SDL_RenderFillRect(ren, NULL);
+    rr_menu_box(ren, ox, oy, unit, X - 1, Y - 1, W + 2, H + 2, RR_MENU_SHADE, 255);
+    rr_menu_box(ren, ox, oy, unit, X, Y, W, H, RR_MENU_PANEL_RGB, 255);
+    rr_menu_box(ren, ox, oy, unit, X - 1, Y - 1, W + 2, 2, RR_MENU_GOLD, 255);
+    rr_menu_icon(ren, ox, oy, unit, X + 6, Y + 6, RR_ICON_GIVE, false);
+    const char *title = rr_tr("Give the controller");
+    rr_menu_text_fit(ren, ox, oy, unit, X + 42, Y + 10, W - 48, title, RR_MENU_GOLD);
+    char row[80];
+    for (int i = 0; i < seats; ++i) {
+        const int y = Y + 28 + i * 14;
+        snprintf(row, sizeof row, "P%d  %s", i + 1, rrhk_session_seat_name(i));
+        if (i == give_row) {
+            rr_menu_box(ren, ox, oy, unit, X + 8, y - 2, W - 16, 13, RR_MENU_ACCENT, 255);
+            rr_menu_box(ren, ox, oy, unit, X + 9, y - 1, W - 18, 11, RR_MENU_SELECT, 255);
+        }
+        rr_menu_text_fit(ren, ox, oy, unit, X + 14, y, W - 40, row, i == give_row ? RR_MENU_ACCENT : RR_MENU_HINT);
+        if (i == holder) rr_menu_text_plain(ren, ox, oy, unit, X + W - 22, y, 12, "*", RR_MENU_GOLD);   /* has it now */
+    }
 }
 
 /* ---- Quit? (1.7.4): Esc in play and the Quit combination ask before the game closes ----
@@ -404,7 +467,7 @@ static void help_line(const RrhkMenuCtx *ctx, int y, const char *text) {
 void rrhk_menu_draw(SDL_Renderer *ren) {
     const RrhkMachine *m = rrhk.machine;
     /* A menu left another way (a quick state loaded, a restart, the help opened over a page) forgets the tiles. */
-    if (rrhk.menu != RRHK_MENU_HUB && rrhk.menu != RRHK_MENU_GRAPHICS && !rrhk_pages_open(rrhk.menu) &&
+    if (rrhk.menu != RRHK_MENU_HUB && rrhk.menu != RRHK_MENU_GRAPHICS && rrhk.menu != RRHK_MENU_GIVE && !rrhk_pages_open(rrhk.menu) &&
         !(rrhk.menu == RRHK_MENU_QUIT && (rrhk.parent_menu == RRHK_MENU_HUB || asking_relaunch))) { from_hub = false; hub_parent = 0; }
     if (rrhk.menu != RRHK_MENU_PAGE && !(rrhk.menu == RRHK_MENU_QUIT && asking_relaunch)) relaunch_page_ok = false;
     if (!rrhk.menu) {
@@ -427,6 +490,10 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
     RrhkMenuCtx ctx = {ren, 0, 0, 0};
     rr_menu_layout(ren, &ctx.ox, &ctx.oy, &ctx.unit);
     const int ox = ctx.ox, oy = ctx.oy, unit = ctx.unit;
+    if (rrhk.menu == RRHK_MENU_GIVE) {
+        give_draw(ren, ox, oy, unit);
+        return;
+    }
     if (rrhk.menu == RRHK_MENU_QUIT) {      /* over the game picture, or over the Pause menu it was asked from */
         quit_draw(ren, ox, oy, unit);
         return;

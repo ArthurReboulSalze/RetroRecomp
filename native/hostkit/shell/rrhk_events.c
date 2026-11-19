@@ -41,7 +41,8 @@ static bool host_action_pressed(const SDL_Event *event, SDL_Scancode key, int ho
     }
     if (key == SDL_SCANCODE_UNKNOWN) return false;
     /* Enter binds rows on an F2 page and changes a row of the graphics page: it does not act there. */
-    if ((rrhk_pages_open(rrhk.menu) || rrhk.menu == RRHK_MENU_GRAPHICS || rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT) &&
+    if ((rrhk_pages_open(rrhk.menu) || rrhk.menu == RRHK_MENU_GRAPHICS || rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT ||
+         rrhk.menu == RRHK_MENU_GIVE) &&
         (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER))
         return false;
     for (int p = 0; p < m->players(); ++p) if (rrhk.keys[p][action] == key) return true;
@@ -289,7 +290,8 @@ void rrhk_poll_events(RrhkRun *run) {
             }
         }
         /* The F2 tiles and "Quit?" with a gamepad: the D-pad chooses, A opens or answers, B goes back. */
-        if ((rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT) && event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
+        if ((rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT || rrhk.menu == RRHK_MENU_GIVE) &&
+            event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
             int b = event.cbutton.button;
             if (b == SDL_CONTROLLER_BUTTON_B) { rrhk_close_menu(); continue; }
             key = b == SDL_CONTROLLER_BUTTON_DPAD_UP ? SDL_SCANCODE_UP : b == SDL_CONTROLLER_BUTTON_DPAD_DOWN ? SDL_SCANCODE_DOWN :
@@ -297,6 +299,7 @@ void rrhk_poll_events(RrhkRun *run) {
                 b == SDL_CONTROLLER_BUTTON_A ? SDL_SCANCODE_RETURN : SDL_SCANCODE_UNKNOWN;
             if (key == SDL_SCANCODE_UNKNOWN) continue;
             if (rrhk.menu == RRHK_MENU_HUB) rrhk_hub_key(key);
+            else if (rrhk.menu == RRHK_MENU_GIVE) rrhk_give_key(key);
             else if (rrhk_quit_key(key)) run->running = false;
             continue;
         }
@@ -390,6 +393,8 @@ void rrhk_poll_events(RrhkRun *run) {
             rrhk_widescreen_toggle();
         } else if (key == RRHK_KEY_SYNC && from_row) {
             rrhk_sync_next();         /* 1.7.7 (D30): the outcome is named once the refresh is measured */
+        } else if (key == RRHK_KEY_TURN_BADGE && from_row) {
+            rrhk_toggle_turn_badge();
         } else if (key == RRHK_KEY_START_HELP && from_row) {
             rrhk_toggle_start_help();
         } else if (key == SDL_SCANCODE_F4) {
@@ -412,6 +417,8 @@ void rrhk_poll_events(RrhkRun *run) {
             graphics_key(run, key);
         } else if (rrhk.menu == RRHK_MENU_HUB) {
             rrhk_hub_key(key);
+        } else if (rrhk.menu == RRHK_MENU_GIVE) {
+            rrhk_give_key(key);
         } else if (rrhk.menu == RRHK_MENU_QUIT) {
             if (rrhk_quit_key(key)) run->running = false;
         } else if (rrhk.menu == RRHK_MENU_PAGE) {

@@ -102,6 +102,7 @@ void rrhk_sync_notice(void);              /* the outcome, named by a notice */
 #define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
 #define RRHK_KEY_WIDESCREEN (SDL_NUM_SCANCODES + 19)   /* the "Screen format: 4:3 / 16:9" row (1.7.6) */
 #define RRHK_KEY_SYNC (SDL_NUM_SCANCODES + 20)         /* the "Sync to display" row (1.7.7, D30) */
+#define RRHK_KEY_TURN_BADGE (SDL_NUM_SCANCODES + 21)   /* the "Turn badge" row (1.8.1, in a session) */
 
 /* menu.c: the row icons (1.7.5) */
 int rrhk_action_icon(const char *name, char letters[4]);   /* the icon of a control by its English name; a face button's letters */
@@ -287,6 +288,9 @@ void rrhk_session_axes(int port, int16_t axes[RRHK_AXES]);                      
  * after the menus and notices; the notices' line moves above the chat while it is open. */
 bool rrhk_chat_open(void);
 bool rrhk_chat_holds_word(void);               /* open, or closed with a key or button still held from then: neutral word */
+void rrhk_give_key(SDL_Scancode key);         /* a key on « Give the controller » (the host, in turns) */
+bool rrhk_turn_badge(void);                    /* the turn badge shown ([Interface] turn_badge, the options row) */
+void rrhk_toggle_turn_badge(void);
 bool rrhk_relaunch_ask(SDL_Scancode key);     /* the host's « Change this option? » (session): true while asked, the key held */
 bool rrhk_relaunch_asking(void);
 bool rrhk_hub_take_restart(void);              /* the F2 Restart tile was chosen (once): the loop restarts as the combination does */

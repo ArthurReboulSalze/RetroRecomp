@@ -157,6 +157,7 @@ int rrhk_option_icon(int key) {
     case RRHK_KEY_RUMBLE: return RR_ICON_ROW_RUMBLE;
     case RRHK_KEY_SYNC: return RR_ICON_ROW_SYNC;
     case RRHK_KEY_START_HELP: return RR_ICON_ROW_REMINDER;
+    case RRHK_KEY_TURN_BADGE: return RR_ICON_ROW_GAMEPAD;
     case RR_ROW_AUDIO: return RR_ICON_ROW_WAVE;
     case RR_ROW_FKEYS: return RR_ICON_ROW_FKEY;
     case RR_ROW_VOLUME: return RR_ICON_ROW_VOLUME;
@@ -193,6 +194,8 @@ static RrhkOptionRows option_rows(void) {
     for (int i = 0; i < shared.count; ++i) add_row(&d, shared.keys[i], shared.text[i]);
     /* 1.7.4: the plates of the first seconds (F1, F2, Esc, the gamepad's combinations, a computer's keyboard) may be turned off. */
     rrhk_option_row(&d, RRHK_KEY_START_HELP, "Start-up reminders: %s", rr_tr(rrhk_start_help() ? "ON" : "OFF"));
+    /* 1.8.1: in a session, the plate that names who holds the controls in turns may be hidden ([Interface] turn_badge). */
+    if (rrhk_session_active()) rrhk_option_row(&d, RRHK_KEY_TURN_BADGE, "Turn badge: %s", rr_tr(rrhk_turn_badge() ? "ON" : "OFF"));
     rrhk_option_row(&d, SDL_SCANCODE_GRAVE, "` Max speed: %s", rr_tr(rrhk.max_speed ? "ON" : "OFF"));
     if (d.count && d.keys[d.count - 1] == SDL_SCANCODE_GRAVE) d.run[d.count - 1] = true;   /* the pace is the session's */
     /* 1.8.1: quitting is the F2 menu's last tile (the one "Quit? No / Yes"), no longer a row of this page (1.7.6 to 1.8.0). */

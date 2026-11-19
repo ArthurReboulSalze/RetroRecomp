@@ -369,11 +369,9 @@ class WindowMixin:
             if feature:
                 # Front-end and Multiplayer, in the middle of the bar (Arthur, 20 Nov 2026: « un peu plus grands »): their
                 # gold picture at FEATURE_SIZE, two pixels thick, up to 125 % on a HiDPI screen.
-                from .gui_drawing import FEATURE_SIZE, hero_icon
-                from .ui_fonts import toolbar_scale
-                size = round(FEATURE_SIZE * toolbar_scale(self.app))
-                self.button_images[key] = (hero_icon(self.app, symbol, COLORS['gold'], size=size),
-                                           hero_icon(self.app, symbol, COLORS['disabled'], size=size))
+                from .gui_icons import feature_picture
+                self.button_images[key] = (feature_picture(self.app, symbol, COLORS['gold']),
+                                           feature_picture(self.app, symbol, COLORS['disabled']))
             elif hero:
                 # Drawn with Pillow when the picture has a drawing (gui_icons.hero_picture): dark on the gold, with a
                 # lighter gold for its bevelled edge; grey, with a lighter grey, when greyed.
@@ -450,9 +448,8 @@ class WindowMixin:
         button.configure(compound=compound)
 
     def place_count_label(self):
-        """The ROM count at the toolbar's far right edge, after the right-hand buttons."""
-        self.count_label.pack(side='right', before=self.report_button if self.report_button.winfo_manager()
-                              else self.credits_button)
+        """The ROM count in the middle of the status line: the room its left and right texts leave, centred."""
+        self.count_label.pack(side='left', expand=True)
 
     def show_credits(self):
         if self.credits_panel is not None and self.credits_panel.winfo_exists():

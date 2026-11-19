@@ -248,6 +248,48 @@ def draw_switch(variant, scale=1.0, lit='#d4a737', frame='#f2d27a', dim=SWITCH_D
     return image.resize((round(width / SUPERSAMPLE), round(height / SUPERSAMPLE)), Image.Resampling.LANCZOS)
 
 
+# ---- The two buttons in the middle of the bar (FEATURE_SIZE, 24 px at 100 %): richer pictures (Arthur, 20 Nov 2026) ----
+
+def _feature_front_end(pen, colour):
+    """Front-end, Arthur's pick « F3 »: a frame of four covers, the chosen one lit with its play mark, a small pad under it
+    (the front-end played from the sofa)."""
+    pen.box(1, 0.8, 23, 16.8, 2.0, outline=colour, width=1.5)
+    for row in range(2):
+        for col in range(2):
+            x, y = 4.0 + col * 8.4, 3.6 + row * 6.4
+            if (row, col) == (0, 1):
+                pen.box(x - 0.3, y - 0.3, x + 7.5, y + 5.5, 0.9, fill=colour)
+                cx, cy, size = x + 3.7, y + 2.6, 3.4
+                pen.poly([(cx - size * 0.45, cy - size * 0.6), (cx + size * 0.6, cy), (cx - size * 0.45, cy + size * 0.6)],
+                         SWITCH_DARK)
+            else:
+                pen.box(x, y, x + 7.2, y + 5.2, 0.8, outline=colour, width=1.1)
+    pen.box(6.5, 18.6, 17.5, 23.4, 2.4, fill=colour)
+    pen.box(8.3, 20.6, 11.1, 21.4, 0, fill=SWITCH_DARK)
+    pen.box(9.3, 19.6, 10.1, 22.4, 0, fill=SWITCH_DARK)
+    pen.disc(14.6, 20.3, 0.75, SWITCH_DARK)
+    pen.disc(15.9, 21.8, 0.75, SWITCH_DARK)
+
+
+FEATURE_DRAWERS = {'front_end': _feature_front_end}
+
+
+def feature_picture(master, symbol, colour):
+    """The picture of a button in the middle of the bar as a Tk image, at FEATURE_SIZE times the toolbar's scale: drawn with
+    Pillow when it has a drawing here, else its polylines two pixels thick (gui_drawing.hero_icon)."""
+    from .gui_drawing import FEATURE_SIZE, hero_icon
+    from .ui_fonts import toolbar_scale
+    size = round(FEATURE_SIZE * toolbar_scale(master))
+    if symbol not in FEATURE_DRAWERS:
+        return hero_icon(master, symbol, colour, size=size)
+    from PIL import Image, ImageDraw, ImageTk
+    k = size / FEATURE_SIZE * SUPERSAMPLE
+    clear = tuple(int(colour[index:index + 2], 16) for index in (1, 3, 5)) + (0,)
+    image = Image.new('RGBA', (size * SUPERSAMPLE, size * SUPERSAMPLE), clear)
+    FEATURE_DRAWERS[symbol](_Pen(ImageDraw.Draw(image), k), colour)
+    return ImageTk.PhotoImage(image.resize((size, size), Image.Resampling.LANCZOS), master=master)
+
+
 def switch_picture(master, variant, greyed=False):
     """The switch's picture as a Tk image, sized for the screen's scaling up to 125 % (96 dpi: 65 x 30 px)."""
     from PIL import ImageTk
