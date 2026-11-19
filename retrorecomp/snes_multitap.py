@@ -23,6 +23,18 @@ MULTITAP_GAMES: dict[str, dict] = {
     # Secret of Mana (USA): three players on a multitap
     '4c15013131351e694e05f22e38bb1b3e4031dedac77ec75abecebe8520d82d5f': {
         'title': 'Secret of Mana', 'pads': 3, 'source': 'the game\'s manual and its published descriptions (three players with a multitap)'},
+    # The Super Bomberman series: the original takes four players with a tap, the later ones up to five (the host kit seats four, so
+    # the tap's fifth pad stays unplugged). Super Bomberman 4 is the dump of the English translation (a patched ROM, its own SHA-256).
+    # Source: the Wikipedia pages of the games ("Super Bomberman", "Super Bomberman 4", "Super Bomberman 5") and the one of the Super
+    # Multitap, which names Super Bomberman as the game released with it; the MiSTer thread above lists Super Bomberman 2 and 3.
+    '4efab3f49cbe91ec77b6cba747ddfedfdc0b080c755a8b6ba51234f0676c000f': {
+        'title': 'Super Bomberman', 'pads': 4, 'source': 'Wikipedia (the game and the Super Multitap pages)'},
+    '0a4b4a783a7faf6ada3e1326ecf85de77e8c2a171659b42a78a1fae43f806ca6': {
+        'title': 'Super Bomberman 2', 'pads': 4, 'source': 'a community list of Super Multitap games (MiSTer forum thread) and Wikipedia'},
+    '4bc9ae0ba1313bb35e4c5b71cc7962774f599b3e09efdaf2fa1d574ba8d5e153': {
+        'title': 'Super Bomberman 4 (English translation of the Japanese game)', 'pads': 4, 'source': 'Wikipedia (the game page: up to five players)'},
+    'b8ea7591bd957c67cc27955e00609f1d659db9ac91a9bd321750de2ab4d1d676': {
+        'title': 'Super Bomberman 5 (Japan)', 'pads': 4, 'source': 'Wikipedia (the game page: up to five players)'},
 }
 
 

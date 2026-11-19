@@ -527,7 +527,8 @@ state key hashes the session sources).
 
 On the multiplayer branch, after the rollback of the section above. **Four players:** a game on the reviewed list of Super Multitap
 games (`retrorecomp/snes_multitap.py`: the dump's SHA-256, the title, the pads the game uses, 3 or 4, and where the claim comes from;
-Barkley Shut Up and Jam!, Capcom's Soccer Shootout and Secret of Mana so far) gets a tap in console port 2 in a session of **three or
+Barkley Shut Up and Jam!, Capcom's Soccer Shootout, Secret of Mana, and the Super Bomberman series: Super Bomberman, 2, 4 in its English
+translation and 5; Panic Bomber W and B-Daman are games of two players and stay off the list) gets a tap in console port 2 in a session of **three or
 four seats** (`session_begin`, `rrhk_session_ports() >= 3`): seat 0 is port 1's pad and seats 1 to 4 are the tap's, the ones the game
 does not use left unplugged; the adapter reads the pads 3 and 4 in `run_frame` (`rrhk_pad_word(2)` and `(3)`), never in
 `before_frame`. The engine's tap is not transparent (every game reads its pads another way with it: a game of two pads ends in
@@ -542,7 +543,8 @@ moves again with `snes_backend.c` (already moving in the section above). Games t
 **Proof so far** (17 November 2026, one PC): `netplay_game_smoke.py --rollback 5 --seats 4 --save-at 600 --load-at 1500` on Barkley
 Shut Up and Jam! and `--seats 3` on Secret of Mana: PASS, rollback tier on every seat, digests equal; Secret of Mana in a room of two:
 PASS and its boot digest differs from the room of three (the tap is plugged from three seats only); `snes_machine_selftest.py --rom`
-on Secret of Mana checks the save image out, back in and a wrong size refused (8 KiB). Not proven: the games' own use of four pads, a
+on Secret of Mana checks the save image out, back in and a wrong size refused (8 KiB). Super Bomberman 2 and Super Bomberman (USA), 4 seats, rollback with a save at 600, a load at 1500 and
+a restart for everyone at 2200: PASS, the report says `players 1 to 4`. Not proven: the games' own use of four pads, a
 host save that differs from a guest's.
 ## Windows packing: the call filter's last candidate (next release)
 
