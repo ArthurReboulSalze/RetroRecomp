@@ -1021,7 +1021,8 @@
     "new_paths_question": "在这些游戏中游玩时发现了新路径。以后再处理的游戏，请取消选中。",
     "options_firmware": "BIOS 和固件",
     "firmware_search_explain": "选择一个文件夹：转换器会找出它所支持的所有机型的固件，并在填入路径之前显示确认页面。不会复制或发送任何内容。",
-    "front_end_window": "回到窗口"
+    "front_end_window": "回到窗口",
+    "tip_conversion_queue": "转换队列：等待转换的 ROM。添加它们，选择封面，然后转换。"
   },
   "runtime": {
     "Internal resolution": "内部分辨率",

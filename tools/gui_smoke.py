@@ -752,17 +752,28 @@ def smoke(window):
         assert application.start_front_end.get() is False and second.instate(['disabled']), language
         # Every text button keeps its hover hint in every language (keys given, not looked up by text).
         hints = {id(hint.widget): hint.text() for hint in application.tooltips}
-        for widget, key in ((application.add_roms_button, 'tip_add_roms'), (application.credits_button, 'tip_credits'),
-                            (application.update_button, 'tip_check_updates'),
-                            (application.cover_button, 'tip_choose_cover'), (application.auto_cover_button, 'tip_auto_cover')):
+        for widget, key in ((application.credits_button, 'tip_credits'), (application.update_button, 'tip_check_updates')):
             assert hints.get(id(widget)) and hints[id(widget)] == application.tr(key), (language, key)
         # The buttons that show only their picture start their hint with their name.
         for widget, name, key in ((application.options_button, 'options', 'tip_options'),
                                   (application.knowledge_button, 'knowledge', 'tip_knowledge'),
                                   (application.front_end_button, 'front_end', 'tip_front_end'),
                                   (application.multiplayer_button, 'mp_title', 'tip_multiplayer'),
-                                  (application.report_button, 'report_title', 'tip_report_problem')):
+                                  (application.report_button, 'report_title', 'tip_report_problem'),
+                                  (application.add_roms_button, 'add_roms', 'tip_add_roms'),
+                                  (application.cover_button, 'choose_cover', 'tip_choose_cover'),
+                                  (application.auto_cover_button, 'auto_cover', 'tip_auto_cover'),
+                                  (application.play_button, 'play', 'tip_play'),
+                                  (application.memory_button, 'memory', 'tip_memory'),
+                                  (application.start_button, 'start', 'tip_start'),
+                                  (application.selected_button, 'start_selected', 'tip_start_selected'),
+                                  (application.stop_button, 'stop', 'tip_stop'),
+                                  (application.retry_button, 'retry', 'tip_retry'),
+                                  (application.video_label, 'video_timing', 'tip_video_timing'),
+                                  (application.compiled_button, 'compiled_games', 'tip_compiled_games')):
             assert hints.get(id(widget)) == application.tr(name).rstrip('…') + '\n' + application.tr(key), (language, key)
+            assert widget.cget('text').removesuffix(' ▾') == application.tr(name), (language, name, widget.cget('text'))     # the accessible name follows the language
+            assert str(widget.cget('compound')) == 'image', (language, name)
         new_paths = application.new_paths_buttons[0]
         assert hints[id(new_paths)] == application.tr('recompile_new_paths', count=application.new_paths_count) + '\n' \
             + application.tr('tip_recompile_new_paths'), language

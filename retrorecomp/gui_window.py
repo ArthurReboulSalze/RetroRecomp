@@ -17,6 +17,7 @@ from .systems import get_profile
 from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
 from .dialogs import center_dialog
+from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
 from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
@@ -289,6 +290,13 @@ class WindowMixin:
                     widget.current(index)
             for child in widget.winfo_children(): update(child)
         update(self.app)
+        # The buttons that show only a picture: their text (their name for the screen reader) follows the language by
+        # its key, not through the reverse map above (a text another key shares, such as « Stop », could be taken for it).
+        for widget, key in list(getattr(self, 'icon_names', {}).items()):
+            try:
+                widget.configure(text=self.tr(key))
+            except tk.TclError:
+                pass
         # After the fonts followed the language: the fields keep room for their longest entry.
         self.size_header_fields()
         self.layout_header()
@@ -381,19 +389,28 @@ class WindowMixin:
         else:
             self.empty_state.place(relx=0.5, rely=0.5, y=18, anchor='center')
 
-    def icon_button(self, parent, name, tip, command, symbol, *, managed=True, accent=False):
+    def icon_button(self, parent, name, tip, command, symbol, *, managed=True, accent=False, primary=False):
         """A toolbar button showing only its picture; its hint starts with
         its name (the text stays set on the widget). Managed buttons follow
         set_controls like the others; an accent button has a gold picture
-        and border."""
+        and border, a primary one is gold with a dark picture."""
         button = ttk.Button(parent, text=self.tr(name), command=command,
-                            style='Feature.Toolbar.TButton' if accent else 'Toolbar.TButton')
-        self.decorate_button(button, symbol, accent=accent)
+                            style='Feature.Toolbar.TButton' if accent else
+                            'Toolbar.Primary.TButton' if primary else 'Toolbar.TButton')
+        self.decorate_button(button, symbol, primary=primary, accent=accent)
         button.configure(compound='image')
+        self.name_picture(button, name)
         if managed:
             self.controls.append(button)
         self.hint(button, tip, name)
         return button
+
+    def name_picture(self, widget, name):
+        """Remember that `widget` shows only a picture and that its text is the string `name`, which refresh_language
+        keeps in the interface language."""
+        if not hasattr(self, 'icon_names'):
+            self.icon_names = {}
+        self.icon_names[widget] = name
 
     def badge_button(self, button, symbol, badge):
         """`button`'s picture of `symbol`, with the red dot at its corner while `badge` (the update button's and the

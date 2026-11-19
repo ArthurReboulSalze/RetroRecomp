@@ -383,6 +383,7 @@ STRINGS = {
     'class_platinum': ('Platinum', 'Platine'),
     'class_diamond': ('Diamond', 'Diamant'),
     'tip_leaderboard': ("Leaderboard: the players who found the most native paths, all time or this month, with their gems, titles and badges.", "Classement : les joueurs qui ont trouvé le plus de chemins natifs, depuis le début ou ce mois-ci, avec leurs gemmes, titres et badges."),
+    'tip_conversion_queue': ('Conversion queue: the ROMs waiting to be converted. Add them, choose their box art and convert them.', 'File de conversion : les ROMs en attente de conversion. Ajoute-les, choisis leurs jaquettes et convertis-les.'),
     'tip_compiled_games': ("Compiled games: your converted games with their box art, details and level stars; play them, convert them again or go further.", "Jeux compilés : tes jeux convertis avec leur jaquette, leurs détails et leurs étoiles de niveau ; joue, reconvertis ou va plus loin."),
     'tip_start_selected': ("Convert selected: only the games selected in the list.", "Convertir la sélection : seulement les jeux sélectionnés dans la liste."),
     'tip_help': ('Help: how Retro-Recomp works, in five steps.', 'Aide : comment marche Retro-Recomp, en cinq étapes.'),

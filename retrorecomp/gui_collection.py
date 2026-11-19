@@ -211,16 +211,13 @@ class CollectionMixin:
         self.queue_background(self.body)
 
     def update_compiled_button(self):
-        """One width for both captions, so the switch never changes size."""
-        captions = (self.tr('compiled_games'), self.tr('conversion_queue'))
-        # Width counts average characters ('0'); measure the real text so
-        # wide scripts such as Cyrillic are not cut.
-        from tkinter import font as tkfont
-        measure = tkfont.Font(root=self.app, font=(self.ui_font, 9))
-        zero = measure.measure('0') or 7
-        widest = max(measure.measure(caption) for caption in captions)
-        self.compiled_button.configure(text=captions[1] if self.collection_visible else captions[0],
-                                       width=-(-widest // zero) + 1)
+        """The switch shows only a picture of the view it leads to (Compiled Games from the queue, the queue from
+        Compiled Games), with its arrow badge, so it never changes size; the caption stays set on the button (the
+        screen reader reads it) and starts its hint."""
+        self.decorate_button(self.compiled_button, 'switch_queue' if self.collection_visible else 'switch_compiled',
+                             primary=True)
+        self.compiled_button.configure(compound='image',
+                                       text=self.tr('conversion_queue' if self.collection_visible else 'compiled_games'))
 
     def go_deeper(self, games, level):
         """Compiled Games' "Go further": convert again with a discovery at the

@@ -1021,7 +1021,8 @@
     "new_paths_question": "Al jugar se encontraron nuevas rutas en estos juegos. Desmarca los que quieras dejar para más tarde.",
     "options_firmware": "BIOS y firmware",
     "firmware_search_explain": "Elige una carpeta: el conversor encuentra el firmware de todas las máquinas que conoce y te muestra un resumen antes de rellenar las rutas. No se copia ni se envía nada.",
-    "front_end_window": "Volver a la ventana"
+    "front_end_window": "Volver a la ventana",
+    "tip_conversion_queue": "Cola de conversión: las ROM que esperan ser convertidas. Añádelas, elige sus carátulas y conviértelas."
   },
   "runtime": {
     "Internal resolution": "Resolución interna",

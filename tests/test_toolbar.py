@@ -109,14 +109,70 @@ class PicturesOnly(ToolbarWindow):
         self.assertLess(app.front_end_button.winfo_rootx() + app.front_end_button.winfo_width(), right - 20)
         self.assertLess(app.multiplayer_button.winfo_rootx(), app.front_end_button.winfo_rootx())
 
-    def test_the_switch_icon_has_its_arrow_in_both_views(self):
+    def test_the_switch_shows_a_picture_of_the_view_it_leads_to_in_both_views(self):
         from retrorecomp.branding import ICON_PATHS
-        self.assertIn('switch_view', ICON_PATHS)
-        self.assertIn(('switch_view', True), self.app.button_images)
+        app = self.app
+        for name in ('switch_compiled', 'switch_queue'):
+            self.assertIn(name, ICON_PATHS)
+        button = app.compiled_button
+        hint = next(h for h in app.tooltips if h.widget is button)
+        self.assertEqual(str(button.cget('compound')), 'image')
+        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch_compiled', True)][0]))
+        self.assertEqual(button.cget('text'), app.tr('compiled_games'))          # the name stays on the widget
+        self.assertEqual(hint.text(), app.tr('compiled_games') + '\n' + app.tr('tip_compiled_games'))
         with patch('retrorecomp.compiled_games_view.CompiledGamesView.scan'):
-            self.app.toggle_compiled_games()
-        self.assertEqual(self.app.compiled_button.cget('text'), self.app.tr('conversion_queue'))
-        self.assertEqual(self.app.compiled_button.cget('image')[0], str(self.app.button_images[('switch_view', True)][0]))
+            app.toggle_compiled_games()
+        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch_queue', True)][0]))
+        self.assertEqual(button.cget('text'), app.tr('conversion_queue'))
+        self.assertEqual(hint.text(), app.tr('conversion_queue') + '\n' + app.tr('tip_conversion_queue'))
+        self.assertEqual(str(button.cget('style')), 'Compiled.Toolbar.TButton')   # the gold emphasis stays
+
+    def test_the_queue_buttons_show_only_their_picture_and_keep_name_hint_and_a_readable_disabled_state(self):
+        app = self.app
+        hints = {id(hint.widget): hint.text() for hint in app.tooltips}
+        pictures = {}
+        for button, name, tip, symbol in (
+                (app.add_roms_button, 'add_roms', 'tip_add_roms', 'add_roms'),
+                (app.cover_button, 'choose_cover', 'tip_choose_cover', 'cover_choose'),
+                (app.auto_cover_button, 'auto_cover', 'tip_auto_cover', 'cover_auto'),
+                (app.play_button, 'play', 'tip_play', 'play_game'),
+                (app.memory_button, 'memory', 'tip_memory', 'memory_chip'),
+                (app.start_button, 'start', 'tip_start', 'convert_all'),
+                (app.selected_button, 'start_selected', 'tip_start_selected', 'convert_selected'),
+                (app.stop_button, 'stop', 'tip_stop', 'stop'),
+                (app.retry_button, 'retry', 'tip_retry', 'retry_failed')):
+            self.assertEqual(str(button.cget('compound')), 'image', name)
+            self.assertEqual(button.cget('text'), app.tr(name))
+            self.assertEqual(hints[id(button)], app.tr(name).rstrip('…') + '\n' + app.tr(tip))
+            normal, disabled = (str(image) for image in next(v for k, v in app.button_images.items()
+                                                             if k[0] == symbol and k[1] in (False, True)))
+            image = button.cget('image')
+            self.assertEqual((str(image[0]), str(image[1]), str(image[2])), (normal, 'disabled', disabled), name)  # greyed, never hidden
+            pictures[name] = normal
+        # Every item of the queue against the selected rows: two different pictures.
+        self.assertNotEqual(pictures['start'], pictures['start_selected'])
+        self.assertEqual(str(app.start_button.cget('style')), 'Toolbar.Primary.TButton')   # gold
+        self.assertEqual(str(app.add_roms_button.cget('style')), 'Toolbar.Primary.TButton')
+        self.assertEqual(str(app.play_button.cget('state')), 'disabled')
+
+    def test_the_video_word_is_a_small_screen_with_its_hint(self):
+        app = self.app
+        label = app.video_label
+        self.assertEqual(str(label.cget('compound')), 'image')
+        self.assertEqual(label.cget('text'), app.tr('video_timing'))
+        hint = next(h for h in app.tooltips if h.widget is label)
+        self.assertEqual(hint.text(), app.tr('video_timing') + '\n' + app.tr('tip_video_timing'))
+        self.assertTrue(app.video_icon.width() > 0)                              # held, so Tk keeps it
+
+    def test_the_names_follow_the_language_even_when_another_string_shares_the_text(self):
+        # « Stop » is also the text of another string in some language: the reverse map of refresh_language could take it.
+        app = self.app
+        for code in ('ru', 'fr', 'de', 'en'):
+            app.language = code
+            app.refresh_language()
+            self.assertEqual(app.stop_button.cget('text'), app.tr('stop'), code)
+            self.assertEqual(app.start_button.cget('text'), app.tr('start'), code)
+            self.assertEqual(app.video_label.cget('text'), app.tr('video_timing'), code)
 
     def test_the_full_screen_button_is_a_picture_whose_hint_follows_its_state(self):
         app = self.app

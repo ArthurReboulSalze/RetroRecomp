@@ -27,7 +27,7 @@ from .ui_fonts import load_fonts, family
 from .windows import set_converter_identity
 from .artwork import ICON_SIZES
 from .systems import discover_roms
-from .branding import COLORS, apply_theme, ICON_PATHS
+from .branding import COLORS, apply_theme, make_icon, ICON_PATHS
 # The helpers and constants of gui_common and gui_drawing, re-exported under their old names.
 from .gui_common import (
     PROFILES, LOCAL_PLATFORM, PLATFORMS, HELP_URL, UPX_SOURCE_URL, update_error_text, UPSTREAM_CREDITS,
@@ -345,15 +345,17 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # buttons of the visible view follow it in their own frame.
         self.compiled_button = ttk.Button(toolbar, text=self.tr('compiled_games'),
             command=self.toggle_compiled_games, style='Compiled.Toolbar.TButton')
-        self.decorate_button(self.compiled_button, 'switch_view', primary=True)
-        self.hint(self.compiled_button, 'tip_compiled_games')
+        # A picture of the view it leads to (update_compiled_button), its hint starts with that view's name.
+        self.hint(self.compiled_button,
+                  lambda: 'tip_conversion_queue' if self.collection_visible else 'tip_compiled_games',
+                  lambda: 'conversion_queue' if self.collection_visible else 'compiled_games')
         self.compiled_button.pack(side='left')
         self.update_compiled_button()
         self.queue_actions = ttk.Frame(toolbar)
         self.queue_actions.pack(side='left', padx=(12, 0))
         self.collection_actions = ttk.Frame(toolbar)
-        self.add_roms_button = self.button(self.queue_actions, self.tr('add_roms'), self.choose_roms, 'tip_add_roms',
-                                           primary=True)
+        self.add_roms_button = self.icon_button(self.queue_actions, 'add_roms', 'tip_add_roms', self.choose_roms,
+                                                'add_roms', primary=True)
         self.add_roms_button.pack(side='left')
         # Pictures only, named by their hints, to leave room for New paths.
         self.icon_button(self.queue_actions, 'add_folder', 'tip_add_folder', self.choose_directory,
@@ -441,15 +443,22 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
 
         selection = ttk.Frame(body)
         selection.grid(row=2, column=0, sticky='ew', padx=EDGE, pady=(8, 12))
-        self.cover_button = self.button(selection, self.tr('choose_cover'), self.choose_cover, 'tip_choose_cover')
+        # Pictures only, with their hints (the text stays set on each button).
+        self.cover_button = self.icon_button(selection, 'choose_cover', 'tip_choose_cover', self.choose_cover,
+                                             'cover_choose')
         self.cover_button.pack(side='left')
-        self.auto_cover_button = self.button(selection, self.tr('auto_cover'), self.automatic_cover, 'tip_auto_cover')
+        self.auto_cover_button = self.icon_button(selection, 'auto_cover', 'tip_auto_cover', self.automatic_cover,
+                                                  'cover_auto')
         self.auto_cover_button.pack(side='left', padx=8)
-        self.play_button = ttk.Button(selection, text=self.tr('play'), command=self.play, state='disabled')
-        self.decorate_button(self.play_button, 'play')
+        self.play_button = self.icon_button(selection, 'play', 'tip_play', self.play, 'play_game', managed=False)
+        self.play_button.configure(state='disabled')
         self.play_button.pack(side='left')
-        self.hint(self.play_button, 'tip_play')
-        ttk.Label(selection, text=self.tr('video_timing')).pack(side='left', padx=(18, 6))
+        # The video timing: a small screen in front of its list, carrying the hint the word used to.
+        self.video_icon = make_icon(app, 'screen', COLORS['muted'])      # kept: Tk drops a picture nobody holds
+        self.video_label = ttk.Label(selection, text=self.tr('video_timing'), compound='image', image=self.video_icon)
+        self.name_picture(self.video_label, 'video_timing')
+        self.video_label.pack(side='left', padx=(18, 6))
+        self.hint(self.video_label, 'tip_video_timing', 'video_timing')
         self.video_name = tk.StringVar(value=self.tr('auto'))
         self.video_field = ttk.Combobox(selection, textvariable=self.video_name,
                                         values=(self.tr('auto'), 'PAL', 'NTSC'), width=8, state='disabled')
@@ -457,35 +466,33 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.video_field.bind('<<ComboboxSelected>>', self.change_video)
         self.controls.append(self.video_field)
         self.hint(self.video_field, 'tip_video_timing')
-        self.memory_button = ttk.Button(selection, text=self.tr('memory'), command=self.show_library)
-        self.decorate_button(self.memory_button, 'gamepad')
+        self.memory_button = self.icon_button(selection, 'memory', 'tip_memory', self.show_library, 'memory_chip',
+                                              managed=False)
         self.memory_button.pack(side='right')
-        self.hint(self.memory_button, 'tip_memory')
         ttk.Label(body, textvariable=self.detail, style='Muted.TLabel', wraplength=850).grid(row=3, column=0, sticky='ew', padx=EDGE, pady=(0, 12))
 
         actions = ttk.Frame(body)
         actions.grid(row=4, column=0, sticky='ew', padx=EDGE, pady=(0, 8))
-        self.start_button = ttk.Button(actions, text=self.tr('start'), command=self.start, style='Primary.TButton')
-        self.decorate_button(self.start_button, 'refresh', primary=True)
+        # Pictures only (the text stays set on each button, its hint starts with it): every row of the queue against
+        # the selected rows, gold for the main one.
+        self.start_button = self.icon_button(actions, 'start', 'tip_start', self.start, 'convert_all', managed=False,
+                                             primary=True)
         self.start_button.pack(side='left')
-        self.hint(self.start_button, 'tip_start')
-        self.selected_button = ttk.Button(actions, text=self.tr('start_selected'),
-                                          command=lambda: self.start(selected=True), state='disabled')
+        self.selected_button = self.icon_button(actions, 'start_selected', 'tip_start_selected',
+                                                lambda: self.start(selected=True), 'convert_selected', managed=False)
+        self.selected_button.configure(state='disabled')
         self.selected_button.pack(side='left', padx=(8, 0))
-        self.hint(self.selected_button, 'tip_start_selected')
-        self.stop_button = ttk.Button(actions, text=self.tr('stop'), command=self.stop, state='disabled')
-        self.decorate_button(self.stop_button, 'stop')
+        self.stop_button = self.icon_button(actions, 'stop', 'tip_stop', self.stop, 'stop', managed=False)
+        self.stop_button.configure(state='disabled')
         self.stop_button.pack(side='left', padx=8)
-        self.hint(self.stop_button, 'tip_stop')
         # Retry: the rows that failed or were stopped, as one more batch.
-        self.retry_button = ttk.Button(actions, text=self.tr('retry'), command=self.retry_failed, state='disabled')
-        self.decorate_button(self.retry_button, 'refresh')
+        self.retry_button = self.icon_button(actions, 'retry', 'tip_retry', self.retry_failed, 'retry_failed',
+                                             managed=False)
+        self.retry_button.configure(state='disabled')
         self.retry_button.pack(side='left')
-        self.hint(self.retry_button, 'tip_retry')
-        open_button = ttk.Button(actions, text=self.tr('open_folder'), command=self.open_output)
-        self.decorate_button(open_button, 'folder')
+        open_button = self.icon_button(actions, 'open_folder', 'tip_open_folder', self.open_output, 'folder',
+                                       managed=False)
         open_button.pack(side='right')
-        self.hint(open_button, 'tip_open_folder')
         self.progress = ttk.Progressbar(body, mode='determinate')
         self.progress.grid(row=5, column=0, sticky='ew', padx=EDGE, pady=(0, 8))
         ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=6, column=0, sticky='ew', padx=EDGE, pady=(0, 8))

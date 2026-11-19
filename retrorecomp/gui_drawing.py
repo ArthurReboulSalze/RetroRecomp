@@ -420,15 +420,6 @@ ICON_PATHS.setdefault('add_exe_folder', _FOLDER_PLUS + ((6, 8, 11, 11, 6, 14, 6,
 ICON_PATHS.setdefault('new_paths', ((1, 14, 5, 9, 9, 11, 14, 4), (10, 4, 14, 4, 14, 8)))
 # Report a problem: a speech bubble with an exclamation mark.
 ICON_PATHS.setdefault('report', ((2, 2, 14, 2, 14, 11, 9, 11, 5, 14.5, 5, 11, 2, 11, 2, 2), (8, 4.5, 8, 7), (8, 9, 8, 9)))
-# The queue / Compiled Games switch: a small game pad (the 'gamepad' outline without its buttons, at 0.8) and an arrow
-# badge at the bottom right, "go to the other view".
-_SMALL_PAD = tuple(tuple(round(value * 0.8 - (1.2 if index % 2 else 0), 2) for index, value in enumerate(path))
-                   for path in ((4, 4, 12, 4, 14, 6, 15, 12, 13, 14, 10, 11, 6, 11, 3, 14, 1, 12, 2, 6, 4, 4),
-                                (4.5, 6.5, 4.5, 9.5), (3, 8, 6, 8)))
-ICON_PATHS.setdefault('switch_view', _SMALL_PAD + (
-    (9, 13.5, 15.5, 13.5), (12.5, 11, 15.5, 13.5, 12.5, 16), (13, 12, 13, 15), (14, 12.8, 14, 14.2)))
-
-
 def _brain():
     """Knowledge: a brain seen from above, two hemispheres either side of the fissure, each with a few folds. The left
     half is drawn, the right one is its mirror."""
