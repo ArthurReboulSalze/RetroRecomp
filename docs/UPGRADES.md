@@ -329,7 +329,10 @@ file during the match (the writes stay in memory); when a match ends cleanly the
 (`session_save_commit`: a temporary file, then a rename, the file it replaces kept as `.bak`; nothing is written when the match played on the
 untouched disks because the saved table was too big), reads the session's clock (the board's real-time clock, when a model has one, runs on
 UTC 1 January 2000), and a restart goes back in place to the machine after its first frame. The keyboard and the mouse are cut (joystick games
-first); the disk change is off. Alone, a game runs as before.
+first), except Start's Return (the pad word of player 1) and the keys the host types (session ABI 9); in a match the two joysticks and those keys come from the
+frame's words whatever this window's focus or menus (a seat whose window lost the focus ran neutral joysticks while the others ran the network's), and the adapter's
+state of the held keys travels as one byte per key after each snapshot (a key is an edge, so a load without it would press or release them again: a first
+version with Start's Return only desynchronised at frame 59); the disk change is off. Alone, a game runs as before.
 
 **Proofs:** `tools/atarist_snapshot_check.py` (no ROM: authored 68000 programs on the timers, the picture, the PSG, the keyboard controller
 with joysticks and the floppy controller, 19 runs: save, run, load, run again, every digest equal; a save right after a load byte for byte
