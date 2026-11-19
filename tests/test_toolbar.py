@@ -189,6 +189,26 @@ class PicturesOnly(ToolbarWindow):
         self.assertNotEqual(str(button.cget('image')[0]), enter)
         self.assertEqual(button.cget('text'), app.tr('front_end_window'))
 
+    def test_play_game_in_compiled_games_is_the_same_gold_picture_with_its_hint_and_name(self):
+        app = self.app
+        with patch('retrorecomp.compiled_games_view.CompiledGamesView.scan'):
+            app.toggle_compiled_games()
+        button = app.compiled_view.play_button
+        self.assertIs(button.master, app.collection_actions)
+        self.assertEqual(str(button.cget('compound')), 'image')
+        self.assertEqual(str(button.cget('style')), 'Toolbar.Primary.TButton')       # the gold emphasis stays
+        self.assertEqual(button.cget('text'), app.tr('play'))                          # the accessible name
+        hint = next(h for h in app.tooltips if h.widget is button)
+        self.assertEqual(hint.text(), app.tr('play') + '\n' + app.tr('tip_play'))
+        normal, disabled = app.button_images[('play_game', True)]
+        self.assertEqual(tuple(str(part) for part in button.cget('image')[:3:2]), (str(normal), str(disabled)))
+        # The queue's Play game uses the same drawing (dark on gold there, light on dark here).
+        self.assertEqual(app.play_button.cget('compound'), button.cget('compound'))
+        app.language = 'fr'
+        app.refresh_language()
+        app.compiled_view.localize()
+        self.assertEqual(button.cget('text'), 'Lancer le jeu')
+
     def test_the_welcome_message_types_at_140_characters_a_second(self):
         self.assertEqual(gui_welcome.MESSAGE_RATE, 140)
 
