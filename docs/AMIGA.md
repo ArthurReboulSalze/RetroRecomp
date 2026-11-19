@@ -374,7 +374,10 @@ Both Amigas play in a multiplayer session at the NES's level: the rollback tier 
   seat and never written, is left out); its time is not measured yet.
 - **Saves.** The host's saves travel to every seat for the match (Arthur's rule of 17 November 2026): a guest plays on the host's
   save files instead of its own, in memory only. What the game saves during the match stays in memory (inside the snapshot, so a
-  rollback takes it back) and is never written to disk, on any seat.
+  rollback takes it back) and no seat writes it during the match. When the match ends cleanly (it ended, or the host closed the room or
+  quit its game), the host writes it back to its own save folder once (Arthur, 19 November 2026: « Oui, réécris la carte de l'hôte à
+  la fin »): only the files that changed, each one's previous bytes kept first in `saves.bak/` beside the folder. A guest never writes,
+  and nothing is written after a desync, a refused boot or a lost connection.
 - **The CPU speed** (x1, x2, x4) changes the run: the host's value is played by every seat, and the F2 row is refused during the match
   (Arthur, 17 November 2026: « Cette partie-là devra être synchro par l'hôte »).
 - **Restart.** The host's restart takes every seat back to the state the session started with; alone, a restart still starts the process

@@ -585,13 +585,15 @@ extern "C" RrAmigaSession *rr_amiga_open(const RrAmigaGame *game, char *error, s
     if (game->kickstart && game->kickstart_size) S->kick.assign(game->kickstart, game->kickstart + game->kickstart_size);
     S->session = game->session != 0;
     if (S->session) {
-        // A session: this player's own saves go into the session's memory (the overlay, in name order), never back to the folder. The
-        // host plays on them, and a guest's are replaced by the host's before the match (rr_amiga_session_save_put); one that does not
-        // fit is left out, and the boot digest tells two different saves apart.
+        // A session: this player's own saves go into the session's memory (the overlay, in name order), never back to the folder during
+        // the match. The host plays on them, and a guest's are replaced by the host's before the match (rr_amiga_session_save_put); one
+        // that does not fit is left out, and the boot digest tells two different saves apart. The folder is kept for the host's write
+        // back at the match's clean end (rr_amiga_session_save_commit); `saves` stays false, so nothing else writes there.
         S->overlay.assign(OVERLAY_CAP, 0);
         std::map<std::string, std::vector<uint8_t>> own;
         std::error_code ec;
         const fs::path folder = game->save_dir && *game->save_dir ? upath(game->save_dir) : fs::path();
+        S->save_dir = folder;
         if (!folder.empty() && fs::is_directory(folder, ec))
             for (auto &e : fs::recursive_directory_iterator(folder, ec)) {
                 if (!e.is_regular_file() || e.path().extension() == ".tmp") continue;
@@ -1361,6 +1363,20 @@ extern "C" size_t rr_amiga_session_save(RrAmigaSession *s, void *out, size_t cap
     memcpy(out, SAVES_MAGIC, sizeof SAVES_MAGIC);
     memcpy((uint8_t *)out + sizeof SAVES_MAGIC, s->overlay.data(), s->overlay_used);
     return need;
+}
+
+// The host's saves written back at the match's clean end: the overlay's last entry of every name, to the save folder, the previous
+// files kept in "<save folder>.bak" (amiga_savefile.h, commit_folder). The overlay stays as it is.
+extern "C" int rr_amiga_session_save_commit(RrAmigaSession *s) {
+    if (!s->session || s->save_dir.empty()) return 0;
+    std::map<std::string, std::optional<std::vector<uint8_t>>> last;
+    overlay_walk(s->overlay.data(), s->overlay_used, [&](const std::string &name, bool removed, const uint8_t *bytes, uint32_t n) {
+        if (removed) last[name] = std::nullopt;
+        else last[name] = std::vector<uint8_t>(bytes, bytes + n);
+    });
+    fs::path backup = s->save_dir;
+    backup += ".bak";
+    return rr_amiga_savefile::commit_folder(s->save_dir, backup, last) ? 1 : 0;
 }
 
 extern "C" int rr_amiga_session_save_put(RrAmigaSession *s, const void *in, size_t size) {

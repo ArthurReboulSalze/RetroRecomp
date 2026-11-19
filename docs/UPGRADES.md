@@ -104,7 +104,29 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) || [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-next-release) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-next-release) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Commodore Amiga 500 and 1200: multiplayer on the rollback tier](#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, the new `retrorecomp.amiga_vamiga_session`, `retrorecomp.amiga_conversion`, `systems/amiga.py`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h` and the adapted vAmiga): an older quick state is refused cleanly; the file's layout is unchanged |
+| [Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end](#commodore-amiga-500-and-1200-the-host-writes-its-saves-back-at-a-matchs-clean-end-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_savefile.h`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h`): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: an Imploder block whose checksum differs](#commodore-amiga-500-and-1200-an-imploder-block-whose-checksum-differs-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`native/amiga_whdload/rr_decrunch.c`) | none | unchanged (the quick-state key does not hash the unpacker) |
+
+## Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end (next release)
+
+The host kit's rule of 19 November 2026 (Arthur: « Oui, réécris la carte de l'hôte à la fin »): nobody writes a save file during a
+match, the host included, and the host writes its saves back once when the match ends cleanly (it ended, the host closed the room or
+quit its game; never after a desync, a refused boot or a lost connection). Both Amigas now give the kit's `session_save_commit`
+(`rrhk_amiga.inc`, `rr_amiga_session_save_commit` in `amiga_session.cpp`): the session's saves as they are in memory at that moment (the
+last entry of every name) go to the host's own save folder, `datas/games/amiga-<identity>/saves/`, the one the game reads alone. Only a
+file that changed is written: its previous bytes are first kept at the same name in the folder beside it, `saves.bak/` (a one-step
+backup: the backup of an earlier match goes), then the new bytes replace it through a temporary file and a rename
+(`amiga_savefile.h`, `commit_folder`); a file the game removed during the match is kept in `saves.bak/` and then removed. A backup that
+cannot be written leaves its file as it was, and the host is told « Sauvegarde non mise à jour ». The backups sit beside the save folder,
+not in it, so the game never reads or lists them. A guest never writes. Before this, an Amiga host kept what the game saved during the
+match in memory only. Proof (no ROM): `tools/amiga_rollback_selftest.py` now also runs, on both models, a host seat (its folder holds
+the final saves of the session's memory after the commit, `saves.bak/score` holds the previous file, an unchanged file has no backup,
+no temporary is left, a second commit moves nothing) and a guest seat (its folder byte for byte as before); the harness of
+`tests/test_amiga_resload.py` checks `commit_folder` alone (changed, unchanged, new and removed files, a refused backup, a name outside).
+
+**Stamps** (against `spec/multiplayer` `8b8477d4`): the Amiga 500 and Amiga 1200 game stamps (`amiga_session.cpp`, `amiga_session.h`,
+`amiga_savefile.h`) and host stamps (`rrhk_amiga.inc`); the Amiga quick-state key moves (it hashes `amiga_session.cpp` and
+`amiga_session.h`): an older quick state is refused cleanly, the file's layout is unchanged.
 
 ## Commodore Amiga 500 and 1200: an Imploder block whose checksum differs (next release)
 
@@ -134,7 +156,8 @@ guest's Return) pressed again after a rollback could be lost on one seat (the fi
 quick state also sets them again now, from the keys it holds. In a session the host's saves travel (session ABI 8: `session_save`,
 `session_save_put`): every seat reads its own save files once into the session's memory, the host plays on its own, and a guest plays
 on the host's image instead (an image is never empty, so a host without saves leaves a guest without its own too); what the game saves
-then stays in that memory, inside the snapshot, never written to disk; port 1 holds the joystick;
+then stays in that memory, inside the snapshot, never written to disk during the match (the host writes it back at a clean end: see
+the section on `session_save_commit`); port 1 holds the joystick;
 the CPU speed (x1, x2, x4) is a run-changing option: this PC's value goes in the host's HELLO (`session_options`, `cpu=N`), the host's
 reaches every seat (`session_option`), and the F2 row is refused during the match. The host's restart takes every seat back to the
 state the session started with (a snapshot), never the process restart a game alone does. Joystick games; the keyboard and the mouse

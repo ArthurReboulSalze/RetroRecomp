@@ -45,7 +45,8 @@ typedef struct RrAmigaGame {
      * cache, AGA, 2 MiB of chip RAM on a 32-bit bus: vAmiga's own A1200 scheme with the A1200 bank map). */
     int model;
     /* 1: a multiplayer session (native/hostkit/hostkit_session.h: every seat runs the same machine). The install's files on every seat, with this player's
-     * saves (save_dir, read once, never written) in the session's memory until the host's replace them (rr_amiga_session_save_put);
+     * saves (save_dir, read once, not written during the match) in the session's memory until the host's replace them
+     * (rr_amiga_session_save_put); the host writes them back at the match's clean end (rr_amiga_session_save_commit);
      * what the game saves stays in that memory, carried by the in-process snapshot (rr_amiga_snap_*). */
     int session;
 } RrAmigaGame;
@@ -156,6 +157,10 @@ void rr_amiga_side_effects(RrAmigaSession *s, int allowed);
  * refused, nothing changed). Never written to a disk. */
 size_t rr_amiga_session_save(RrAmigaSession *s, void *out, size_t capacity);
 int rr_amiga_session_save_put(RrAmigaSession *s, const void *in, size_t size);
+/* The host, at a match's clean end (RrhkMachine.session_save_commit): the session's saves as they are now in memory written back to
+ * this player's save folder, once, only the files that changed, each atomically (amiga_savefile.h) after its previous bytes were kept
+ * at the same name in "<save folder>.bak". 1: every change reached the disk; 0: not a session, no save folder, or a write refused. */
+int rr_amiga_session_save_commit(RrAmigaSession *s);
 
 #ifdef __cplusplus
 }
