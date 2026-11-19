@@ -301,6 +301,30 @@ class DashedToggle(SkinCase):
         self.assertEqual(dashes, {True, False})
 
 
+class BevelledConvert(SkinCase):
+    """Convert's bevelled edge (Arthur's « H1 », 20 Nov 2026): lighter on the top and the left, darker on the bottom and the right."""
+
+    def test_the_bevel_is_light_top_left_and_dark_bottom_right_along_the_whole_edge(self):
+        from retrorecomp.rounded_skin import bevel_box, rgb
+        r, side = 8, 2 * 8 + 2 + CENTER
+        picture = bevel_box(side, r, 2, '#d4a737', '#232323')
+        face = rgb('#d4a737')
+        top, bottom = picture.getpixel((side // 2, 0)), picture.getpixel((side // 2, side - 1))
+        left, right = picture.getpixel((0, side // 2)), picture.getpixel((side - 1, side // 2))
+        self.assertGreater(sum(top), sum(face))
+        self.assertGreater(sum(left), sum(face))
+        self.assertLess(sum(bottom), sum(face))
+        self.assertLess(sum(right), sum(face))
+        self.assertEqual(picture.getpixel((side // 2, side // 2)), face)
+        middle = [picture.getpixel((x, 0)) for x in range(r + 1, r + 1 + CENTER)]
+        self.assertEqual(len(set(middle)), 1)                       # uniform along the tiled middle: no seam
+
+    def test_a_style_asking_for_a_bevel_gets_it(self):
+        self.style.configure('Bevel.TButton', background='#d4a737', rrbevel=1)
+        ttk.Button(self.root, text='x', style='Bevel.TButton').pack()
+        self.assertIn(True, {key[8] for key in self.skin.cache if key[0] == 'btn'})
+
+
 class LayoutDoesNotMove(unittest.TestCase):
     def test_no_widget_asks_for_another_size_than_before(self):
         # At 96 dpi (Windows always): a Linux display at about 100 dpi rounds the combobox chevron's 15 px up to 16.

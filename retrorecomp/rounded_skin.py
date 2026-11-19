@@ -92,6 +92,29 @@ def dashed_box(side, r, line, border, fill, surface=None, dash=5, gap=3):
     return edged
 
 
+def bevel_box(side, r, line, fill, surface=None):
+    """A 9-slice button picture with a bevelled edge: a lighter rim on the top and the left, a darker one on the bottom and
+    the right, `line` px wide, the face `fill` (Convert, Arthur's pick of 20 Nov 2026). The rims are uniform along each edge,
+    so the tiled middle has no seam."""
+    def shade(amount, toward):
+        a, b = rgb(fill), rgb(toward)
+        return '#%02x%02x%02x' % tuple(round(x + (y - x) * amount) for x, y in zip(a, b))
+    dark, light = shade(0.30, '#000000'), shade(0.45, '#ffffff')
+    big = Image.new('RGBA', (side * SS, side * SS), rgb(fill) + (0,))
+    draw = ImageDraw.Draw(big)
+    edge = side * SS - 1
+    draw.rounded_rectangle((0, 0, edge, edge), radius=r * SS, fill=rgb(dark) + (255,))
+    draw.rounded_rectangle((0, 0, edge - line * SS, edge - line * SS), radius=r * SS, fill=rgb(light) + (255,))
+    draw.rounded_rectangle((line * SS, line * SS, edge - line * SS, edge - line * SS), radius=max(0, r - line) * SS,
+                           fill=rgb(fill) + (255,))
+    picture = big.resize((side, side), Image.BOX)
+    if surface:
+        flat = Image.new('RGBA', (side, side), rgb(surface) + (255,))
+        flat.alpha_composite(picture)
+        return flat.convert('RGB')
+    return picture
+
+
 def chevron_image(w, h, colour, direction='down', width=1.6):
     big = Image.new('RGBA', (w * SS, h * SS), rgb(colour) + (0,))
     draw = ImageDraw.Draw(big)
@@ -373,16 +396,19 @@ class Skin:
             return fill, border, ring_colour
 
         dashed = c(name, 'rrdash') not in ('', '0')    # a toggle's dashed border (the converter's view switch)
+        bevelled = c(name, 'rrbevel') not in ('', '0')  # a bevelled edge (the converter's Convert)
 
         def picture(states):
             fill, border, ring_colour = look(states)
-            key = ('btn', r, ow, ring_w, fill, border, ring_colour, dashed)
+            key = ('btn', r, ow, ring_w, fill, border, ring_colour, dashed, bevelled)
 
             def make():
                 if ring_colour:
                     return box_image(side, side, [(0, r, ring_colour), (ring_w, r - ring_w, fill)], surface)
                 if dashed:
                     return dashed_box(side, r, ring_w, border, fill, surface)
+                if bevelled:
+                    return bevel_box(side, r, ring_w, fill, surface)
                 return box_image(side, side, [(0, r, border), (ow, r - ow, fill)], surface)
             return self.photo(key, make, surface)
 
