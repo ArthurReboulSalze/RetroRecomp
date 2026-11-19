@@ -4,6 +4,7 @@
 // on it, once per model. A check, never part of a game.
 //
 //   amiga_rollback_checks SLAVE SCORE MODEL WARM FRAMES     (MODEL 0: the Amiga 500, 1: the Amiga 1200)
+//   amiga_rollback_checks SLAVE SCORE MODEL commit FOLDER host|guest     (the saves at a match's clean end: commit_check)
 //
 // Prints one JSON line; exit status 0 only when every check holds:
 //   neutral    a snapshot taken after every frame changes nothing the machine does (registers, RAM, picture, sound of every frame);
@@ -72,7 +73,83 @@ static void fail_check(const char *what, long at) {
     failures += "\"" + std::string(what) + "@" + std::to_string(at) + "\"";
 }
 
+static bool exists(const std::string &path) {
+    FILE *f = fopen(path.c_str(), "rb");
+    if (f) fclose(f);
+    return f != nullptr;
+}
+
+// The saves at a match's clean end (RrhkMachine.session_save_commit), one seat per run (the process holds one session). FOLDER/saves
+// is the seat's save folder, prepared by the tool: "score" (64 bytes of 0x11), "keep" ("keep"), and an older backup
+// FOLDER/saves.bak/score ("older"). The program reads "score" at its VBL 40 and saves it at 120 (tools/amiga_rollback_selftest.py).
+//   host   plays on its own saves; after 170 frames the commit writes "score" as the session's memory holds it, the previous bytes
+//          (0x11) kept in saves.bak/score, "keep" left alone (unchanged: no backup), no temporary left; a second commit moves nothing;
+//   guest  plays on the host's image (session_save_put), never commits (the kit calls the hook on the host only): its folder after
+//          the match is byte for byte what it was.
+static int commit_check(const std::vector<uint8_t> &slave, const std::vector<uint8_t> &score, int model, const std::string &folder, bool host) {
+    RrAmigaFile file = {"score", score.data(), (uint32_t)score.size()};
+    const std::string saves = folder + "/saves", backup = folder + "/saves.bak";
+    RrAmigaGame game;
+    memset(&game, 0, sizeof game);
+    game.slave = slave.data(); game.slave_size = (uint32_t)slave.size();
+    game.files = &file; game.file_count = 1;
+    game.model = model;
+    game.session = 1;
+    game.save_dir = saves.c_str();
+    const std::vector<uint8_t> before_score = read_file((saves + "/score").c_str()), before_keep = read_file((saves + "/keep").c_str()),
+                               before_backup = read_file((backup + "/score").c_str());
+    if (before_score != std::vector<uint8_t>(64, 0x11) || before_keep.size() != 4 || before_backup.size() != 5) fail_check("commit_folder_prepared", 0);
+    char error[512] = {0};
+    RrAmigaSession *s = rr_amiga_open(&game, error, sizeof error);
+    if (!s) { fprintf(stderr, "open: %s\n", error); return 2; }
+    if (!host) {
+        std::vector<uint8_t> image = {'R', 'R', 'S', 'V', 5, 0, 's', 'c', 'o', 'r', 'e', 0, 64, 0, 0, 0};
+        for (int k = 0; k < 64; k++) image.push_back((uint8_t)(0xC0 ^ k));
+        if (!rr_amiga_session_save_put(s, image.data(), image.size())) fail_check("commit_guest_put", 0);
+    }
+    for (long at = 0; at < 170; at++) {
+        rr_amiga_side_effects(s, 0);            // as the kit holds every seat from SETUP to the end
+        if (rr_amiga_frame(s) != 0) { fprintf(stderr, "frame %ld: %s\n", at, rr_amiga_error(s)); return 2; }
+    }
+    // Nothing reached a disk during the match, on either seat.
+    if (read_file((saves + "/score").c_str()) != before_score || read_file((backup + "/score").c_str()) != before_backup)
+        fail_check("commit_quiet_match", 0);
+    // The session's memory: the last entry of each name.
+    std::vector<uint8_t> image(rr_amiga_session_save(s, nullptr, 0));
+    if (image.size() < 4 || rr_amiga_session_save(s, image.data(), image.size()) != image.size()) fail_check("commit_image", 0);
+    std::vector<std::pair<std::string, std::vector<uint8_t>>> last;
+    for (size_t at = 4; at + 7 <= image.size();) {
+        const size_t length = image[at] | image[at + 1] << 8;
+        const uint32_t n = image[at + 3 + length] | image[at + 4 + length] << 8 | image[at + 5 + length] << 16 | (uint32_t)image[at + 6 + length] << 24;
+        const std::string name((const char *)image.data() + at + 2, length);
+        last.erase(std::remove_if(last.begin(), last.end(), [&](auto &e) { return e.first == name; }), last.end());
+        if (!image[at + 2 + length]) last.emplace_back(name, std::vector<uint8_t>(image.begin() + at + 7 + length, image.begin() + at + 7 + length + n));
+        at += 7 + length + n;
+    }
+    const auto final_score = std::find_if(last.begin(), last.end(), [](auto &e) { return e.first == "score"; });
+    if (final_score == last.end() || final_score->second.size() != 64 || final_score->second == before_score) fail_check("commit_game_saved", 0);
+    if (host) {
+        if (!rr_amiga_session_save_commit(s)) fail_check("commit_written", 0);
+        for (auto &e : last)
+            if (read_file((saves + "/" + e.first).c_str()) != e.second) fail_check(("commit_file_" + e.first).c_str(), 0);
+        if (read_file((backup + "/score").c_str()) != before_score) fail_check("commit_backup", 0);
+        if (read_file((saves + "/keep").c_str()) != before_keep || exists(backup + "/keep")) fail_check("commit_unchanged_left", 0);
+        if (exists(saves + "/score.tmp") || exists(backup + "/score.tmp")) fail_check("commit_temporary", 0);
+        if (!rr_amiga_session_save_commit(s) || read_file((backup + "/score").c_str()) != before_score) fail_check("commit_again", 0);
+    } else {
+        if (read_file((saves + "/score").c_str()) != before_score || read_file((saves + "/keep").c_str()) != before_keep ||
+            read_file((backup + "/score").c_str()) != before_backup || exists(saves + "/score.tmp"))
+            fail_check("commit_guest_untouched", 0);
+    }
+    printf("{\"model\": %d, \"role\": \"%s\", \"files\": %zu, \"failures\": [%s], \"passed\": %s}\n", model, host ? "host" : "guest",
+           last.size(), failures.c_str(), failures.empty() ? "true" : "false");
+    fflush(stdout);
+    _Exit(failures.empty() ? 0 : 1);
+}
+
 int main(int argc, char **argv) {
+    if (argc == 7 && !strcmp(argv[4], "commit"))
+        return commit_check(read_file(argv[1]), read_file(argv[2]), atoi(argv[3]), argv[5], !strcmp(argv[6], "host"));
     if (argc != 6) { fprintf(stderr, "usage: amiga_rollback_checks SLAVE SCORE MODEL WARM FRAMES\n"); return 2; }
     const std::vector<uint8_t> slave = read_file(argv[1]), score = read_file(argv[2]);
     const int model = atoi(argv[3]), warm = atoi(argv[4]), frames = atoi(argv[5]);

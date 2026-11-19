@@ -384,6 +384,8 @@ static void a_side_effects(bool allowed) { rr_amiga_side_effects(session, allowe
 /* The saves of the match: this player's, for the host's HELLO; the host's, which a guest plays on (in memory, never written). */
 static size_t a_session_save(void *out, size_t capacity) { return rr_amiga_session_save(session, out, capacity); }
 static bool a_session_save_put(const void *in, size_t size) { return rr_amiga_session_save_put(session, in, size) != 0; }
+/* The host at the match's clean end: the match's saves back to its own save folder, the previous files kept in "saves.bak". */
+static bool a_session_save_commit(void) { return rr_amiga_session_save_commit(session) != 0; }
 
 static bool a_session_option(const char *key, const char *value) {
    if (strcmp(key, "cpu") || (strcmp(value, "1") && strcmp(value, "2") && strcmp(value, "4"))) return false;
@@ -462,6 +464,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.snap_bound = a_snap_bound; machine.snap_save = a_snap_save; machine.snap_load = a_snap_load;
       machine.digest = a_digest; machine.side_effects = a_side_effects;
       machine.session_save = a_session_save; machine.session_save_put = a_session_save_put;
+      machine.session_save_commit = a_session_save_commit;
       machine.session_option = a_session_option; machine.session_options = a_session_options; machine.session_begin = a_session_begin;
    }
    return &machine;

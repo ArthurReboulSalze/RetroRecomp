@@ -325,6 +325,8 @@ SAVEFILE_HARNESS = r'''// Authored harness for native/amiga_machine/amiga_savefi
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <optional>
 #include <string>
 #include "amiga_savefile.h"
 namespace fs = std::filesystem;
@@ -362,6 +364,28 @@ int main(int, char **argv) {
     { std::ofstream(root / "saves/old.tmp", std::ios::binary) << "junk"; }
     CHECK(replace_file(root / "saves/old", bytes("fresh")));
     CHECK(read(root / "saves/old") == "fresh" && !fs::exists(root / "saves/old.tmp"));
+    // A match's clean end (commit_folder): only what changed is written, each previous file kept in the backup folder first.
+    const fs::path saves = root / "match/saves", backup = root / "match/saves.bak";
+    CHECK(replace_file(saves / "a", bytes("old a")) && replace_file(saves / "b", bytes("same")) &&
+          replace_file(saves / "dir/c", bytes("to remove")) && replace_file(backup / "a", bytes("older a")));
+    std::map<std::string, std::optional<std::vector<uint8_t>>> last = {
+        {"a", bytes("new a")}, {"b", bytes("same")}, {"dir/c", std::nullopt}, {"e", bytes("new file")}, {"f", std::nullopt}};
+    CHECK(commit_folder(saves, backup, last));
+    CHECK(read(saves / "a") == "new a" && read(backup / "a") == "old a");                  // one step: the older backup goes
+    CHECK(read(saves / "b") == "same" && !fs::exists(backup / "b"));                       // unchanged: neither written nor kept
+    CHECK(!fs::exists(saves / "dir/c") && read(backup / "dir/c") == "to remove");          // removed by the game: kept, then gone
+    CHECK(read(saves / "e") == "new file" && !fs::exists(backup / "e"));                   // new: nothing to keep
+    CHECK(!fs::exists(saves / "f") && !fs::exists(backup / "f"));
+    CHECK(!fs::exists(saves / "a.tmp") && !fs::exists(backup / "a.tmp"));
+    CHECK(commit_folder(saves, backup, last));                                             // the same again: nothing moves
+    CHECK(read(saves / "a") == "new a" && read(backup / "a") == "old a");
+    // A backup that cannot be written leaves its file as it was; a name outside the folder is refused.
+    fs::create_directories(backup / "g", ec);
+    CHECK(replace_file(saves / "g", bytes("keep")));
+    CHECK(!commit_folder(saves, backup, {{"g", bytes("lost")}}));
+    CHECK(read(saves / "g") == "keep");
+    CHECK(!commit_folder(saves, backup, {{"../out", bytes("x")}}));
+    CHECK(!fs::exists(root / "match/out"));
     std::printf(failures ? "FAILED (%d failures)\n" : "OK (%d failures)\n", failures);
     return failures ? 1 : 0;
 }

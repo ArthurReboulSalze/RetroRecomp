@@ -8,10 +8,13 @@ interrupts (the keyboard's bytes taken with their handshake), reads a file of th
 at 160. Then builds native/amiga_machine/amiga_rollback_checks.cpp on the session (interpreted CPU) and runs it on the Amiga 500 and
 the Amiga 1200: a snapshot after every frame changes nothing, a load at any frame replays the same frames and digests, a load is
 complete at once, wrong sizes are refused, the session's saves are taken back by a load, and a snapshot call allocates nothing
-(amiga_rollback_checks.cpp says each check). Exit status 0 only when both models pass. A developer check, never part of a conversion.
+(amiga_rollback_checks.cpp says each check). Then, per model, the saves at a match's clean end, one seat per run: the host's commit
+writes the session's saves to its folder with the previous file in saves.bak, and a guest's folder stays as it was
+(amiga_rollback_checks.cpp, commit_check). Exit status 0 only when both models pass. A developer check, never part of a conversion.
 """
 import argparse
 import json
+import shutil
 import struct
 import subprocess
 import sys
@@ -272,6 +275,20 @@ def main() -> int:
         if line and done.stderr.strip():
             result['notes'] = done.stderr.strip()[-1500:]
         results.append(result)
+        for role in ('host', 'guest'):
+            folder = work / f'commit-{model}-{role}'
+            shutil.rmtree(folder, ignore_errors=True)
+            (folder / 'saves').mkdir(parents=True)
+            (folder / 'saves.bak').mkdir()
+            (folder / 'saves' / 'score').write_bytes(bytes([0x11]) * 64)
+            (folder / 'saves' / 'keep').write_bytes(b'keep')
+            (folder / 'saves.bak' / 'score').write_bytes(b'older')
+            done = subprocess.run([str(checks), str(work / 'rollback.slave'), str(work / 'score'), str(model), 'commit', str(folder), role],
+                                  capture_output=True, text=True, timeout=1800, creationflags=flags)
+            line = next((line for line in done.stdout.splitlines() if line.startswith('{')), None)
+            result = json.loads(line) if line else {'model': model, 'role': role, 'passed': False, 'error': done.stderr[-1500:]}
+            result['exit'] = done.returncode
+            results.append(result)
     passed = all(r.get('passed') and r['exit'] == 0 for r in results)
     print(json.dumps({'passed': passed, 'models': results}, indent=1))
     return 0 if passed else 1
