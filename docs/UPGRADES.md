@@ -93,6 +93,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Super Nintendo: multiplayer, digest and rollback on the boards without a chip](#super-nintendo-multiplayer-digest-and-rollback-on-the-boards-without-a-chip-next-release) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 | [Super Nintendo: four players (Super Multitap) and the host's save in a session](#super-nintendo-four-players-super-multitap-and-the-hosts-cartridge-save-in-a-session-next-release) | **the Super Nintendo game stamp** (the multitap list and the report) | **the Super Nintendo host stamp** (`snes_backend.c`, `rrhk_snes.c`) | the Super Nintendo key moves (as above) |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
+| [MSX: a MegaROM with no direct mapper store is probed, not refused](#msx-a-megarom-with-no-direct-mapper-store-is-probed-not-refused-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`retrorecomp/msx_conversion.py`) | none | unchanged |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-next-release) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
@@ -136,6 +137,16 @@ PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `a08bdd4e`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.
 | [Windows packing: the call filter's last candidate](#windows-packing-the-call-filters-last-candidate-next-release) | none | **the build stamp of every profile** (`retrorecomp/packing.py` is a build input) | unchanged |
+
+## MSX: a MegaROM with no direct mapper store is probed, not refused (next release)
+
+A cartridge larger than the plain sizes whose bytes hold no `LD (nn),A` store to a mapper register (it reaches its registers through
+computed addresses) was refused at conversion ("its mapper could not be recognised"). It now goes to the mapper probe, the short
+reference runs under each mapper that already settle Aleste and the battery boards, and is refused only when no run is credible.
+Bubble Bobble (MSX2, 128 KiB) converts as ASCII 8, with C-BIOS and with the player's own MSX2 BIOS: 0 interpreted, equal to the
+reference, its title screen drawn. A cartridge the static guess already recognised takes the same path as before.
+
+**Stamps:** the MSX, MSX2 and MSX2+ game stamps (`retrorecomp/msx_conversion.py`).
 
 ## MSX, MSX2, MSX2+: multiplayer on the rollback tier (next release)
 
