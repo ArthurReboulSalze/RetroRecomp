@@ -87,7 +87,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Stage 2, the local-network room (lan_transport is the only module of the package that imports
                                # socket): the invitation, the keys and handshake, the control and datagram codecs, the limits,
                                # the host's log, the room's worker and the command line of the two-PC test.
-                               'invitation', 'internet_key', 'handshake', 'sealing', 'control', 'datagram', 'limits', 'room_log', 'lan_transport',
+                               'invitation', 'internet_key', 'reach', 'handshake', 'sealing', 'control', 'datagram', 'limits', 'room_log', 'lan_transport',
                                'room_worker', 'room_cli', 'lag_link',
                                # The lobby: its rules (a pure state machine for the host and one for each guest), the check of
                                # the host's game against the player's own compiled games, and the converter's side of it (the model
