@@ -637,7 +637,10 @@ static void end_frame(RrhkRun *r) {
         if (r->timing_enabled) r->ticks[2] = now_ticks();
         rrhk_audio_frame(r);
         if (r->test_frames && r->frame >= r->test_frames) r->running = false;
-    } else rrhk_audio_idle(r);
+    } else if (!rrhk_session_on || rrhk_session_paused()) rrhk_audio_idle(r);
+    /* Multiplayer: an iteration whose frame has not come yet (the network) keeps the sound waiting, which plays on over the wait.
+     * Before 1.8.1 it was thrown away and started again after a reserve of silence at every such wait: the crackle of a game
+     * played together (Arthur, Tekken 3, 19 November 2026). */
     if (r->timing_enabled) r->ticks[3] = now_ticks();
     const bool shown = !r->fast || (r->frame & 7) == 0;
     const bool paced = sync_frame(r);      /* 1.7.7 (D30) */
