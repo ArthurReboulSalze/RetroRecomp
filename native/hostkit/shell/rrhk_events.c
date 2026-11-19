@@ -347,6 +347,15 @@ void rrhk_poll_events(RrhkRun *run) {
                 rrhk_notice(rr_tr("Set by the host in multiplayer"), 1800);
                 continue;
             }
+            /* The host: a key that changes the run relaunches the match for everyone (ABI 9), so it asks first (No drops the
+             * key, Yes gives it back once); a machine page that changes the run asks once while it is open. The pace (` Max
+             * speed) stays refused above. */
+            const bool relaunches =
+                (rrhk_option_key_run(key) && key != SDL_SCANCODE_GRAVE) ||
+                (rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
+                 key != SDL_SCANCODE_F2 && key != SDL_SCANCODE_F1 && key != SDL_SCANCODE_UP && key != SDL_SCANCODE_DOWN &&
+                 key != SDL_SCANCODE_PAGEUP && key != SDL_SCANCODE_PAGEDOWN);
+            if (relaunches && !rrhk_session_guest() && rrhk_relaunch_ask(key)) continue;
         }
         if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
             /* Shift+F1 restarts at once, without a confirmation; in multiplayer the host restarts everyone at the same frame. */

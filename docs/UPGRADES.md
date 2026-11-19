@@ -87,6 +87,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
+| [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-next-release) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Nintendo 64: multiplayer on the delay tier, and a change of resolution in play keeps the renderer's memory](#nintendo-64-multiplayer-on-the-delay-tier-and-a-change-of-resolution-in-play-keeps-the-renderers-memory-next-release) | the Nintendo 64 (`n64_cpu.c`, `n64_session.cpp`, `n64_player.c`) | the Nintendo 64's host stamp (`rrhk_n64.inc`) | Nintendo 64 states of 1.8.0 refused (the state key hashes the session sources) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
@@ -889,6 +890,18 @@ guest's folder holds no save. Four seats with no save pass too; four seats with 
 same boot digest, then an exception in the smoke tool's link thread; reported to the multiplayer specialist). Not run: the two-PC run
 with a real save.
 guest's folder holds no save. The same with four seats on that file: PASS, the host's file equals the final memory of the four seats, its `.bak` equals the planted file, the guests write nothing. (Two earlier four-seat runs did not start, in the smoke tool's link thread; eight runs since, NBA Jam and Madden NFL 95, three and four seats, on the kit commits before and after the save rule and on this change, all pass.) Not run: the two-PC run with a real save.
+
+## Every machine: a Restart the game tile in F2 (next release)
+
+[HOST_KIT.md](HOST_KIT.md#d32), D32. The F2 menu (`rrhk_menu.c`) gains a tile before Quit, **Restart the game** (`RR_ICON_RESTART`,
+a new tile icon in `retro_menu.c`): it goes back to the game and asks the loop (`rrhk_hub_take_restart`, `rrhk_main.c`) for the
+restart the pad's Restart combination does: the machine's `reset` alone, the host's restart of every seat in a multiplayer
+session (`rrhk_session_restart`; the session pipe and its ABI do not change). A guest, and the Nintendo 64 in a session, have no
+such tile. **Texts:** "Restart the game" in the eight locales, catalogue regenerated. **Proof:** the kit's capabilities
+self-test (558 checks: the tile restarts once and goes back to the game; the graphics and options tiles are one step further
+left; the host's « Change this option? » before a relaunch, ABI 9: No and Esc drop the key, Yes gives it back once). Two more
+texts in the eight locales for that question. **Stamps:** no game stamp moves; the host stamp of the 21 profiles moves: every export is upgraded once (rebuilt), none
+converted again. **Existing exports:** unchanged until that upgrade.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

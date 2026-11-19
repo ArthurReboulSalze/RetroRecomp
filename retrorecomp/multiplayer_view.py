@@ -43,8 +43,8 @@ CHAT_MAX = 80                    # the lobby's own limit (LOBBY.md section 2); t
 SHARINGS = ('per_player', 'everyone', 'turns')
 CHECKS = ('none', 'asking', 'same', 'other', 'missing', 'failed')
 BACKS = ('ended', 'game_closed', 'pipe_lost', 'left', 'seat_left', 'seat_silent', 'host_closed', 'desync', 'boot_mismatch',
-         'error', 'launch_failed')
-NOTICES = ('chat_too_fast', 'bad_text', 'busy', 'bad_pick', 'wrong_key_attempts')
+         'error', 'launch_failed', 'relaunch')     # relaunch: the host changed an option, the match starts again (ABI 9)
+NOTICES = ('chat_too_fast', 'bad_text', 'busy', 'bad_pick', 'wrong_key_attempts', 'firewall_blocked')
 # A game that refused one of the host's options (RRHK_REFUSED_OPTION, its text the option key), as the match driver says it
 # (lockstep.py: « the game refused (1): <key> »), in a match_over or a launch event's detail.
 REFUSED_OPTION = re.compile(r'the game refused \(1\): (\S+)')
@@ -89,6 +89,15 @@ def open_firewall_settings():
         subprocess.Popen(['control.exe', 'firewall.cpl'], creationflags=subprocess.CREATE_NO_WINDOW)
 
 
+def shared_only(machine):
+    """A handheld (GB, GG, GBA): one set of controls, played in input sharing only (its profile's netplay_shared_only)."""
+    from .netplay import seat_map
+    try:
+        return seat_map.forced(machine)
+    except Exception:
+        return False
+
+
 def refused_setting(detail):
     """The host's option key a game refused, or None."""
     found = REFUSED_OPTION.search(detail or '')
@@ -119,6 +128,7 @@ class MultiplayerWindow:
         self.console_list = []              # (system, console name) of the consoles that have one, by name
         self.drawn_game = None              # the room's game the lobby's two boxes last showed (title, machine)
         self.seats_drawn = None             # what the player rows last showed (redrawn only when it changes)
+        self.sharing_moved = None           # the handheld game whose « per player » the lobby moved to « Everyone »
         self.loaded = False                 # the games and the addresses were read
         self.lan_addresses = []
         self.chat_seen = 0
@@ -132,9 +142,7 @@ class MultiplayerWindow:
         self.internet_confirmed = False     # the three warnings, confirmed in this window (Local again at every opening)
         self.code_shown = False
         self.details_open = False
-        self.more_open = False
         self.help_open = False
-        self.last_players = []
         self.pictures = {}
         self.action_role = None
         self.first_pick = pick              # an inventory entry chosen before the window opened (Compiled Games, right-click)
@@ -190,6 +198,10 @@ class MultiplayerWindow:
                         indicatorforeground=c['gold'], focuscolor=c['gold'])
         style.map('MpCard.TRadiobutton', background=[('active', CARD), ('disabled', CARD)],
                   foreground=[('disabled', c['disabled'])], indicatorbackground=[('selected', c['gold'])])
+        style.configure('MpCard.TCheckbutton', background=CARD, foreground=c['text'], indicatorbackground=DEEP,
+                        indicatorforeground=c['gold_text'], focuscolor=c['gold'])
+        style.map('MpCard.TCheckbutton', background=[('active', CARD), ('disabled', CARD)],
+                  foreground=[('disabled', c['disabled'])], indicatorbackground=[('selected', c['gold'])])
 
     def picture(self, kind, *args):
         """A small picture, made once (dots, avatars, bars, icons)."""
@@ -233,15 +245,34 @@ class MultiplayerWindow:
     def fold_state(self, row, opened):
         row.arrow.configure(image=self.picture('icon', 'fold_open' if opened else 'fold_closed', COLORS['muted'], row.bg, 12))
 
-    def deep_entry(self, parent, variable, *, show='', width=0, bg=CARD, mono=False):
-        """An entry on a dark rounded field."""
+    def deep_entry(self, parent, variable, *, show='', width=0, bg=CARD, mono=False, hint=''):
+        """An entry on a dark rounded field. `hint`: an example written in grey while the field is empty (Arthur, 19 Nov
+        2026: empty fields looked like blank cells); `set_hint` changes it."""
         frame = ttk.Frame(parent, style='MpDeep.TFrame' if bg == CARD else 'MpChip.TFrame', padding=(10, 5))
+        font = ('Consolas', 11) if mono else (self.font, 10)
         entry = tk.Entry(frame, textvariable=variable, bg=DEEP, fg=COLORS['text'], insertbackground=COLORS['text'],
-                         relief='flat', highlightthickness=0, font=('Consolas', 11) if mono else (self.font, 10), show=show,
+                         relief='flat', highlightthickness=0, font=font, show=show,
                          width=width or 20, disabledbackground=DEEP, readonlybackground=DEEP)
         entry.pack(fill='x', expand=True)
         frame.entry = entry
+        ghost = frame.hint = tk.Label(frame, text=hint, bg=DEEP, fg=COLORS['disabled'], font=font, anchor='w', bd=0, padx=0,
+                                      pady=0, cursor='xterm')
+        ghost.bind('<Button-1>', lambda event: entry.focus_set())
+
+        def sync(*unused):
+            if variable.get() or not ghost.cget('text'):
+                ghost.place_forget()
+            else:
+                ghost.place(in_=entry, x=1, rely=0.5, anchor='w')
+        frame.sync_hint = sync
+        variable.trace_add('write', sync)
+        sync()
         return frame
+
+    @staticmethod
+    def set_hint(field, text):
+        field.hint.configure(text=text)
+        field.sync_hint()
 
     def page(self, name):
         frame = tk.Frame(self.body, bg=BG)
@@ -263,14 +294,33 @@ class MultiplayerWindow:
         title = tk.Label(row, text=self.tr(key) if text is None else text, bg=BG, fg=COLORS['text'],
                          font=(self.font, 16, 'bold'), anchor='w')
         title.pack(side='left')
-        chip = ttk.Frame(row, style='MpChip.TFrame', padding=(10, 4))
+        # the mode chip goes back to the Local-or-Internet choice (Arthur, 19 Nov 2026); with a room open it asks first
+        chip = ttk.Frame(row, style='MpChip.TFrame', padding=(10, 4), cursor='hand2')
         chip.pack(side='right')
-        chip.icon = tk.Label(chip, bg=DEEP)
+        chip.icon = tk.Label(chip, bg=DEEP, cursor='hand2')
         chip.icon.pack(side='left')
-        chip.text = tk.Label(chip, bg=DEEP, fg=COLORS['gold_hover'], font=(self.font, 9, 'bold'))
+        chip.text = tk.Label(chip, bg=DEEP, fg=COLORS['gold_hover'], font=(self.font, 9, 'bold'), cursor='hand2')
         chip.text.pack(side='left', padx=(5, 0))
+        chip.arrow = tk.Label(chip, image=self.picture('icon', 'fold_open', COLORS['gold_hover'], DEEP, 12), bg=DEEP,
+                              cursor='hand2')
+        chip.arrow.pack(side='left', padx=(4, 0))
+        for widget in (chip, chip.icon, chip.text, chip.arrow):
+            widget.bind('<Button-1>', lambda event: self.change_mode())
+            widget.bind('<Enter>', lambda event, c=chip: c.text.configure(font=(self.font, 9, 'bold', 'underline')))
+            widget.bind('<Leave>', lambda event, c=chip: c.text.configure(font=(self.font, 9, 'bold')))
         self.chips.append(chip)
         return row, title
+
+    def change_mode(self):
+        """The mode chip: back to the first page, where Local or Internet is chosen. A room open is left first, asked as
+        Leave asks (a host closes it for everyone)."""
+        if self.role is not None:
+            if not messagebox.askyesno(self.tr('mp_title'), self.tr('mp_ask_leave_host' if self.role == 'host' else
+                                                                     'mp_ask_leave'), parent=self.window):
+                return False
+            self.leave_room()
+        self.show('entry')
+        return True
 
     def draw_chips(self):
         mode = self.room_mode if self.role is not None else self.mode.get()
@@ -395,34 +445,41 @@ class MultiplayerWindow:
         _label, self.console_box = row(0, 'mp_console', ttk.Combobox(form, textvariable=self.console_choice, state='readonly'))
         self.game_choice = tk.StringVar(value='')
         _label, self.game_box = row(1, 'mp_game', ttk.Combobox(form, textvariable=self.game_choice, state='readonly'))
-        self.console_box.bind('<<ComboboxSelected>>', lambda event: self.fill_games(
-            self.game_box, self.game_choice, self.system_of(self.console_choice)))
+        self.console_box.bind('<<ComboboxSelected>>', lambda event: (self.fill_games(
+            self.game_box, self.game_choice, self.system_of(self.console_choice)), self.draw_host_sharing()))
         self.sharing = tk.StringVar(value='per_player')
         modes = tk.Frame(form, bg=CARD)
-        for mode in SHARINGS:
-            ttk.Radiobutton(modes, text=self.tr('mp_sharing_' + mode), value=mode, variable=self.sharing,
-                            style='MpCard.TRadiobutton').pack(anchor='w')
+        self.sharing_buttons, self.sharing_note = self.sharing_choice(modes, self.sharing)
         row(2, 'mp_sharing', modes)
-        row(3, 'mp_name', self.deep_entry(form, self.name, width=24), sticky='w')
+        row(3, 'mp_name', self.deep_entry(form, self.name, width=24, hint=self.tr('mp_default_host')), sticky='w')
         self.address = tk.StringVar()
         self.address_row = row(4, 'mp_address', ttk.Combobox(form, textvariable=self.address, state='readonly'))
         self.address_box = self.address_row[1]
         self.port = tk.StringVar(value='')
-        row(5, 'mp_port', self.deep_entry(form, self.port, width=8, mono=True), sticky='w')
+        from .netplay import invitation
+        row(5, 'mp_port', self.deep_entry(form, self.port, width=8, mono=True, hint=str(invitation.DEFAULT_PORT)), sticky='w')
+        # an Internet room's public address: found by itself when the room opens; typing it is a fallback, folded (Arthur,
+        # 19 Nov 2026: nobody understood whether the field was needed)
         self.typed_public = tk.StringVar()
-        self.public_row = row(6, 'mp_type_address', self.deep_entry(form, self.typed_public, width=24, mono=True), sticky='w')
+        public = tk.Frame(form, bg=CARD)
+        self.label(public, 'mp_public_auto', bg=CARD, wrap=560).pack(anchor='w')
+        self.public_fold = self.fold(public, 'mp_public_type', self.toggle_public)
+        self.public_fold.pack(anchor='w', pady=(4, 0))
+        self.public_field = self.deep_entry(public, self.typed_public, width=24, mono=True, hint='203.0.113.7')
+        self.public_open = False
+        self.public_row = row(6, 'mp_public_address', public, sticky='w')
         self.host_status = self.label(page, text='', muted=True, wrap=840)
         self.host_status.pack(anchor='w', pady=(12, 0))
         bar = self.bottom(page)
         ttk.Button(bar, text=self.tr('mp_back'), style='MpGhostBg.TButton', command=lambda: self.show('entry')).pack(side='left')
         self.open_button = ttk.Button(bar, text=self.tr('mp_open_room'), style='MpGoldBg.TButton', command=self.open_room)
         self.open_button.pack(side='right')
-        from .netplay import invitation
         self.port.set(str(invitation.DEFAULT_PORT))
         self.draw_host_form()
 
     def draw_host_form(self):
-        """The Internet room's own field: an address typed by hand (the box, IPv6 or the site find it otherwise)."""
+        """The Internet room's own row: its public address is found when the room opens; an address typed by hand (in the
+        fold) is taken instead."""
         label, widget = self.public_row
         if self.mode.get() == 'internet':
             label.grid()
@@ -430,6 +487,43 @@ class MultiplayerWindow:
         else:
             label.grid_remove()
             widget.grid_remove()
+
+    def sharing_choice(self, parent, variable, command=None):
+        """The three control modes as radio buttons, and the note a handheld shows under them (greyed « One controller per
+        player »: Arthur, 19 Nov 2026)."""
+        buttons = {}
+        for mode in SHARINGS:
+            buttons[mode] = ttk.Radiobutton(parent, text=self.tr('mp_sharing_' + mode), value=mode, variable=variable,
+                                            style='MpCard.TRadiobutton', command=command)
+            buttons[mode].pack(anchor='w')
+        note = self.label(parent, 'mp_sharing_handheld', muted=True, size=9, bg=CARD, wrap=430)
+        return buttons, note
+
+    def draw_sharing_choice(self, buttons, note, variable, machine, usable=True):
+        """A handheld greys « One controller per player » and says why; a choice of it moves to « Everyone ». Returns True
+        when that move happened."""
+        handheld = shared_only(machine)
+        for mode, button in buttons.items():
+            button.state(['disabled'] if not usable or (handheld and mode == 'per_player') else ['!disabled'])
+        if handheld:
+            note.pack(anchor='w', padx=(22, 0), after=buttons['per_player'])
+        else:
+            note.pack_forget()
+        if handheld and variable.get() == 'per_player':
+            variable.set('everyone')
+            return True
+        return False
+
+    def draw_host_sharing(self):
+        self.draw_sharing_choice(self.sharing_buttons, self.sharing_note, self.sharing, self.system_of(self.console_choice))
+
+    def toggle_public(self):
+        self.public_open = not self.public_open
+        self.fold_state(self.public_fold, self.public_open)
+        if self.public_open:
+            self.public_field.pack(anchor='w', pady=(6, 0))
+        else:
+            self.public_field.pack_forget()
 
     def load_games(self):
         """The host's games and this PC's addresses, read on a thread (reports, a host name lookup); `poll` shows them."""
@@ -484,6 +578,7 @@ class MultiplayerWindow:
         else:
             self.console_choice.set(self.console_name(chosen.system))
             self.fill_games(self.game_box, self.game_choice, chosen.system, chosen)
+        self.draw_host_sharing()
         self.lan_addresses = list(found)
         self.address_box.configure(values=found)
         if found:
@@ -533,7 +628,7 @@ class MultiplayerWindow:
             self.log_dir.mkdir(parents=True, exist_ok=True)
             arguments = (self.address.get(), port, self.player_name(), self.sharing.get(), self.log_dir)
             if internet:
-                typed = self.typed_public.get().strip() or None
+                typed = (self.typed_public.get().strip() if self.public_open else '') or None
                 config, self.invitation_text = host_config(*arguments, internet=True, public_address=typed)
             else:
                 config, self.invitation_text = host_config(*arguments)
@@ -566,29 +661,44 @@ class MultiplayerWindow:
                                      command=self.draw_join_form)
             button.pack(side='left')
             self.join_by_buttons[value] = button
-        self.key_panel = tk.Frame(card, bg=CARD)
-        self.label(self.key_panel, 'mp_paste_key', muted=True, bg=CARD).pack(anchor='w', pady=(12, 6))
+        # one grid for every field, the key's and the address's, and the name: their labels in one column (Arthur, 19 Nov
+        # 2026: « le nom est décalé »); each empty field shows an example
+        self.key_note = self.label(card, 'mp_paste_key', muted=True, bg=CARD)
+        grid = self.join_grid = tk.Frame(card, bg=CARD)
+        grid.pack(fill='x', pady=(8, 0))
+        grid.columnconfigure(1, weight=1)
+        self.join_rows = {}
+
+        def row(number, key, widget, sticky='w'):
+            label = self.label(grid, key, muted=True, bg=CARD)
+            label.grid(row=number, column=0, sticky='w', padx=(0, 14), pady=5)
+            widget.grid(row=number, column=1, sticky=sticky, pady=5)
+            self.join_rows[number] = (label, widget)
+            return label, widget
+
         self.invite = tk.StringVar()
         self.invite.trace_add('write', lambda *unused: self.invite_changed())
-        self.deep_entry(self.key_panel, self.invite, mono=True).pack(fill='x')
-        self.manual_panel = tk.Frame(card, bg=CARD)
-        self.manual_panel.columnconfigure(1, weight=1)
+        key_line = tk.Frame(grid, bg=CARD)
+        self.key_field = self.deep_entry(key_line, self.invite, mono=True)
+        self.key_field.pack(side='left', fill='x', expand=True)
+        self.paste_button = ttk.Button(key_line, text=self.tr('mp_paste'), style='MpGold.TButton', compound='left',
+                                       command=self.paste_key,
+                                       image=self.picture('icon', 'copy', COLORS['gold_text'], COLORS['gold'], 14))
+        self.paste_button.pack(side='left', padx=(8, 0))
+        self.key_label = row(0, 'mp_by_key', key_line, sticky='ew')[0]
         self.join_address, self.join_port, self.join_code = tk.StringVar(), tk.StringVar(), tk.StringVar()
-        for number, key, variable, width, show in ((0, 'mp_host_address', self.join_address, 26, ''),
-                                                   (1, 'mp_port', self.join_port, 8, ''),
-                                                   (2, 'mp_code', self.join_code, 34, '•')):
-            self.label(self.manual_panel, key, muted=True, bg=CARD).grid(row=number, column=0, sticky='w', padx=(0, 14), pady=5)
-            field = self.deep_entry(self.manual_panel, variable, width=width, mono=True, show=show)
-            field.grid(row=number, column=1, sticky='w', pady=5)
-            if number == 2:
-                self.join_code_entry = field.entry
-        self.join_code_toggle = ttk.Button(self.manual_panel, text=self.tr('mp_show'), style='MpSoft.TButton',
+        self.join_address_field = row(1, 'mp_host_address', self.deep_entry(grid, self.join_address, width=26, mono=True))[1]
+        from .netplay import invitation
+        row(2, 'mp_port', self.deep_entry(grid, self.join_port, width=8, mono=True, hint=str(invitation.DEFAULT_PORT)))
+        code_line = tk.Frame(grid, bg=CARD)
+        self.join_code_field = self.deep_entry(code_line, self.join_code, width=34, mono=True, show='•')
+        self.join_code_field.pack(side='left')
+        self.join_code_entry = self.join_code_field.entry
+        self.join_code_toggle = ttk.Button(code_line, text=self.tr('mp_show'), style='MpSoft.TButton',
                                            command=self.toggle_join_code)
-        self.join_code_toggle.grid(row=2, column=2, padx=(8, 0))
-        name_row = tk.Frame(card, bg=CARD)
-        name_row.pack(fill='x', side='bottom', pady=(12, 0))
-        self.label(name_row, 'mp_name', muted=True, bg=CARD).pack(side='left', padx=(0, 14))
-        self.deep_entry(name_row, self.name, width=24).pack(side='left')
+        self.join_code_toggle.pack(side='left', padx=(8, 0))
+        row(3, 'mp_code', code_line)
+        row(4, 'mp_name', self.deep_entry(grid, self.name, width=24, hint=self.tr('mp_default_guest')))
         self.join_status = self.label(page, text='', muted=True, wrap=840)
         self.join_status.pack(anchor='w', pady=(12, 0))
         self.privacy_line = self.label(page, 'mp_privacy', muted=True, size=9)
@@ -605,17 +715,43 @@ class MultiplayerWindow:
 
     def draw_join_form(self):
         by_key = self.join_by.get() == 'key'
-        self.join_by_buttons['key'].configure(text=self.tr('mp_by_key' if self.mode.get() == 'internet' else 'mp_invitation'))
+        internet = self.mode.get() == 'internet'
+        word = self.tr('mp_by_key' if internet else 'mp_invitation')
+        self.join_by_buttons['key'].configure(text=word)
+        self.key_label.configure(text=word)
+        # the examples: a key or an invitation in the shape this mode gives, an address of that kind, a code
+        from .netplay import invitation
+        example = invitation.format_invitation('192.168.1.20', invitation.DEFAULT_PORT, bytes(range(16)))
+        self.set_hint(self.key_field, 'RR2-7H3QK-M9XPA-2ZD4R-…' if internet else example[:24] + '…')
+        self.set_hint(self.join_address_field, '203.0.113.7' if internet else '192.168.1.20')
+        self.set_hint(self.join_code_field, '7H3QK-M9XPA-2ZD4R-…' if internet else invitation.encode_secret(bytes(range(16)))[:16] + '…')
+        # the labels' column as wide as its widest label, shown or not: the fields stay put between Key and Address
+        self.join_grid.columnconfigure(0, minsize=max(label.winfo_reqwidth() for label, _w in self.join_rows.values()) + 14)
+        for number, (label, widget) in self.join_rows.items():
+            shown = number == 4 or (number == 0) == by_key
+            label.grid() if shown else label.grid_remove()
+            widget.grid() if shown else widget.grid_remove()
         if by_key:
-            self.manual_panel.pack_forget()
-            self.key_panel.pack(fill='x')
+            self.key_note.pack(anchor='w', pady=(12, 0), before=self.join_grid)
         else:
-            self.key_panel.pack_forget()
-            self.manual_panel.pack(fill='x', pady=(12, 0))
+            self.key_note.pack_forget()
         if self.mode.get() == 'internet':
             self.privacy_line.pack(anchor='w', pady=(6, 0), after=self.join_status)
         else:
             self.privacy_line.pack_forget()
+
+    def paste_key(self):
+        """Paste: the clipboard's text in the key field (an invitation fills the address fields as typing it does)."""
+        try:
+            text = self.window.clipboard_get()
+        except tk.TclError:                     # an empty clipboard, or a picture
+            text = ''
+        text = ' '.join(text.split())
+        if not text:
+            self.join_status.configure(text=self.tr('mp_clipboard_empty'), fg=COLORS['error'])
+            return
+        self.invite.set(text)
+        self.key_field.entry.icursor('end')
 
     def toggle_join_code(self):
         shown = self.join_code_entry.cget('show') == ''
@@ -695,7 +831,7 @@ class MultiplayerWindow:
         self.version, self.chat_seen, self.notices_seen, self.errors_seen = -1, 0, 0, 0
         self.refusals_seen = set()
         self.code_shown = False
-        self.drawn_game = self.seats_drawn = None
+        self.drawn_game = self.seats_drawn = self.auto_readied = self.sharing_moved = None
         self.lobby_console.set(self.console_choice.get())
         self.fill_games(self.lobby_game_box, self.lobby_game, self.system_of(self.console_choice),
                         self.chosen_entry(self.game_choice))
@@ -818,17 +954,19 @@ class MultiplayerWindow:
         self.lobby_game_text = self.label(row, text='', size=13, bold=True, bg=CARD)
         self.game_machine = self.label(row, text='', muted=True, size=9, bg=CARD)
         self.game_row = row
+        # the controls: a guest reads them; the host's box is always there (Arthur, 19 Nov 2026: no fold for one setting)
         line = tk.Frame(card, bg=CARD)
         line.pack(fill='x', pady=(6, 0))
         self.lobby_mode_text = self.label(line, text='', muted=True, size=9, bg=CARD)
         self.lobby_mode_text.pack(side='left')
-        self.more_link = self.fold(line, 'mp_more', self.toggle_more)
-        self.more_frame = tk.Frame(card, bg=CARD)
-        self.label(self.more_frame, 'mp_sharing', muted=True, bg=CARD).pack(side='left', padx=(0, 10))
-        self.lobby_mode_box = ttk.Combobox(self.more_frame, state='readonly', width=38,
-                                           values=[self.tr('mp_sharing_' + m) for m in SHARINGS])
-        self.lobby_mode_box.bind('<<ComboboxSelected>>', lambda event: self.set_sharing(self.lobby_mode_box.current()))
-        self.lobby_mode_box.pack(side='left')
+        self.mode_frame = tk.Frame(card, bg=CARD)
+        self.label(self.mode_frame, 'mp_sharing', muted=True, bg=CARD).pack(side='left', anchor='n', padx=(0, 10))
+        choices = tk.Frame(self.mode_frame, bg=CARD)
+        choices.pack(side='left', fill='x')
+        self.lobby_sharing = tk.StringVar(value='per_player')
+        self.lobby_sharing_buttons, self.lobby_sharing_note = self.sharing_choice(
+            choices, self.lobby_sharing, command=lambda: self.set_sharing(SHARINGS.index(self.lobby_sharing.get())))
+        self.mode_line = line
 
     def build_players_card(self, parent):
         card = self.card(parent)
@@ -866,6 +1004,12 @@ class MultiplayerWindow:
         self.action = RoundButton(card, diameter=scaled(card, 150), bg=CARD, font=self.font, caption_width=scaled(card, 270),
                                   command=self.press_action)
         self.action.pack()
+        # a guest's « Ready automatically »: ready as soon as the host picks a game this PC has (Arthur, 19 Nov 2026),
+        # remembered in the converter's preferences
+        self.auto_ready = tk.BooleanVar(value=bool(getattr(self.app, 'multiplayer_auto_ready', False)))
+        self.auto_readied = None            # the pick (selection, last match) this window already said ready for
+        self.auto_ready_box = ttk.Checkbutton(card, text=self.tr('mp_auto_ready'), variable=self.auto_ready,
+                                              style='MpCard.TCheckbutton', command=self.auto_ready_changed)
         row = tk.Frame(card, bg=CARD)
         row.pack(anchor='w', fill='x', pady=(2, 0))
         self.link_bars = tk.Label(row, bg=CARD)
@@ -894,8 +1038,20 @@ class MultiplayerWindow:
         self.reach_row = tk.Frame(host, bg=CARD)
         self.reach_dot = tk.Label(self.reach_row, bg=CARD)
         self.reach_dot.pack(side='left', anchor='n', pady=(3, 0))
-        self.reach_line = self.label(self.reach_row, text='', size=9, bg=CARD, wrap=240)
-        self.reach_line.pack(side='left', padx=(6, 0))
+        lines = tk.Frame(self.reach_row, bg=CARD)
+        lines.pack(side='left', padx=(6, 0), fill='x')
+        self.public_line = self.label(lines, text='', size=9, bold=True, bg=CARD, wrap=240)   # the address found, or not
+        self.public_line.pack(anchor='w')
+        self.reach_line = self.label(lines, text='', size=9, bg=CARD, wrap=240)
+        self.reach_line.pack(anchor='w')
+        # Windows' firewall blocks guests (lobby_client's firewall_check, read once the room is open): said while it lasts,
+        # with the button to Windows' own firewall page (the converter changes nothing there)
+        self.firewall_host = tk.Frame(host, bg=CARD)
+        self.label(self.firewall_host, 'mp_notice_firewall_blocked', size=9, bg=CARD, wrap=240,
+                   colour=COLORS['error']).pack(anchor='w')
+        if sys.platform == 'win32':
+            ttk.Button(self.firewall_host, text=self.tr('mp_firewall_open'), style='MpSoft.TButton',
+                       command=open_firewall_settings).pack(anchor='w', pady=(6, 0))
         self.build_details(host)
         # a guest: the room's mode and where it is, what happens next
         guest = self.invite_guest = tk.Frame(card, bg=CARD)
@@ -920,10 +1076,14 @@ class MultiplayerWindow:
         self.heading(card, 'mp_by_address', icon='shield').pack(anchor='w')
         self.detail_address = self.label(card, text='', bg=CARD)
         self.detail_address.pack(anchor='w', pady=(10, 0))
-        self.manual_label = self.label(card, 'mp_type_address', muted=True, size=9, bg=CARD)
+        # typing the address is a fallback: open at once when none was found, else behind a fold
+        self.manual_fold = self.fold(card, 'mp_public_other', self.toggle_manual)
+        self.manual_open = False
+        self.manual_label = self.label(card, 'mp_public_fallback', muted=True, size=9, bg=CARD, wrap=440)
         self.manual_row = tk.Frame(card, bg=CARD)
         self.typed_live = tk.StringVar()
-        self.deep_entry(self.manual_row, self.typed_live, width=22, mono=True).pack(side='left', fill='x', expand=True)
+        self.deep_entry(self.manual_row, self.typed_live, width=22, mono=True, hint='203.0.113.7').pack(
+            side='left', fill='x', expand=True)
         ttk.Button(self.manual_row, text=self.tr('mp_use'), style='MpSoft.TButton', command=self.use_typed_address).pack(
             side='left', padx=(8, 0))
         code = tk.Frame(card, bg=CARD)
@@ -960,15 +1120,14 @@ class MultiplayerWindow:
         self.draw_guest_action(phase='lobby', usable=True, check='same')
         self.controller.ready(self.ready.get())
 
-    def toggle_more(self):
-        self.more_open = not self.more_open
-        self.fold_state(self.more_link, self.more_open)
-        if self.more_open:
-            self.more_frame.pack(fill='x', pady=(8, 0))
-            self.lobby_mode_text.configure(text='')
-        else:
-            self.more_frame.pack_forget()
-        self.draw_seats(self.last_players, *self.last_seat_args) if self.last_players else None
+    def auto_ready_changed(self):
+        """Remembered at once; ticked in a lobby with a pick this PC has, the guest is ready now."""
+        remember = getattr(self.app, 'remember_multiplayer', None)
+        if remember is not None:
+            remember(auto_ready=self.auto_ready.get())
+        if self.auto_ready.get():
+            self.auto_readied = None
+            self.version = -1                   # the next poll draws the lobby again, and says ready if it can
 
     def toggle_details(self):
         self.details_open = not self.details_open
@@ -1080,7 +1239,7 @@ class MultiplayerWindow:
     def draw_lobby(self, model):
         with model.lock:
             players, me, seats_max = [dict(p) for p in model.players], model.me, model.seats_max
-            game, sharing, phase = model.game, model.sharing, model.phase
+            game, sharing, phase, selection = model.game, model.sharing, model.phase, model.selection
             checks = {guest: dict(value) for guest, value in model.checks.items()}
             chat = list(model.chat)
             notices = list(model.notices)
@@ -1088,6 +1247,7 @@ class MultiplayerWindow:
             invite = getattr(model, 'key', None) or model.invitation or self.invitation_text
             errors = list(model.errors)
             matches = [dict(match) for match in model.matches]
+            firewall = getattr(model, 'firewall', None)
             self.room_fields = {'address': address, 'public': getattr(model, 'public', None),
                                 'code': getattr(model, 'code', None), 'reach': getattr(model, 'reach', None),
                                 'invitation': model.invitation or self.invitation_text}
@@ -1096,9 +1256,11 @@ class MultiplayerWindow:
         host_name = next((p.get('name', '') for p in players if p.get('seat', -1) == 0), '')
         self.room_line.configure(text=self.tr('mp_your_room') if host else self.tr('mp_room_joined', host=host_name))
         self.draw_game(game, sharing, phase, seats_max, host)
-        self.last_seat_args = (me, seats_max, checks, host, phase)
-        self.last_players = players
         self.draw_seats(players, me, seats_max, checks, host, phase)
+        if host:
+            self.auto_ready_box.pack_forget()
+        elif not self.auto_ready_box.winfo_manager():
+            self.auto_ready_box.pack(after=self.action, pady=(4, 0))
         # the invitation card: the host's key and details, or a guest's room
         if host:
             self.invite_guest.pack_forget()
@@ -1106,6 +1268,10 @@ class MultiplayerWindow:
             self.invite_heading.text.configure(text=self.tr('mp_key' if self.room_mode == 'internet' else 'mp_invitation').upper())
             self.invite_shown.set(invite)
             self.draw_details()
+            if firewall == 'blocked':
+                self.firewall_host.pack(fill='x', pady=(8, 0))
+            else:
+                self.firewall_host.pack_forget()
         else:
             self.invite_host.pack_forget()
             self.invite_guest.pack(fill='x')
@@ -1158,6 +1324,16 @@ class MultiplayerWindow:
             mine = next((p for p in players if p.get('guest') == me), {})
             self.ready.set(bool(mine.get('ready')))
             check = mine.get('check')
+            # ready automatically: once per pick (and again after each match), never against a « not ready » the player
+            # clicked for this pick
+            moment = (selection, (back or {}).get('match_id'))
+            if mine.get('ready'):
+                self.auto_readied = moment
+            elif (self.auto_ready.get() and game and phase == 'lobby' and check == 'same' and self.auto_readied != moment
+                  and self.controller is not None):
+                self.auto_readied = moment
+                self.ready.set(True)
+                self.controller.ready(True)
             self.draw_guest_action(phase=phase, usable=phase == 'lobby' and check == 'same', check=check,
                                    detail=checks.get(me))
             self.launch_hint.configure(text=self.tr('mp_wait_host') if phase == 'lobby' else '')
@@ -1187,24 +1363,30 @@ class MultiplayerWindow:
             self.drawn_game = shown
             for box in (self.lobby_console_box, self.lobby_game_box):
                 box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
-            self.lobby_mode_box.current(SHARINGS.index(sharing) if sharing in SHARINGS else 0)
-            self.lobby_mode_box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
-            self.more_link.pack(side='right')
+            self.lobby_sharing.set(sharing if sharing in SHARINGS else 'per_player')
+            moved = self.draw_sharing_choice(self.lobby_sharing_buttons, self.lobby_sharing_note, self.lobby_sharing, machine,
+                                             usable=phase == 'lobby')
+            if moved and phase == 'lobby' and self.sharing_moved != (game or {}).get('title'):
+                self.sharing_moved = (game or {}).get('title')      # once per game: the room plays it shared anyway
+                self.set_sharing(SHARINGS.index('everyone'))
+            self.mode_line.pack_forget()
+            self.mode_frame.pack(fill='x', pady=(8, 0))
         else:
             self.lobby_console_box.pack_forget()
             self.lobby_game_box.pack_forget()
             self.lobby_game_text.configure(text=title)
             self.lobby_game_text.pack(side='left')
-            self.more_link.pack_forget()
-            self.more_frame.pack_forget()
+            self.mode_frame.pack_forget()
+            self.mode_line.pack(fill='x', pady=(6, 0))
+            shown = 'everyone' if sharing == 'per_player' and shared_only(machine) else sharing
+            self.lobby_mode_text.configure(text=self.tr('mp_sharing') + ' : ' + self.tr('mp_sharing_' + shown)
+                                           if shown in SHARINGS else '')
         self.game_machine.pack(side='left', padx=(10, 0), pady=(3, 0))
-        self.lobby_mode_text.configure(text='' if host and self.more_open else self.tr('mp_sharing') + ' : ' +
-                                       self.tr('mp_sharing_' + sharing) if sharing in SHARINGS else '')
 
     def draw_seats(self, players, me, seats_max, checks, host, phase):
         """One rounded row per player: a coloured disc, P1.., the name, the check, the state; the host's moves in the fold.
         Built again only when what they show changed (a chat line redrew them all before)."""
-        drawn = repr((players, me, seats_max, checks, host, phase, self.more_open))
+        drawn = repr((players, me, seats_max, checks, host, phase))
         if drawn == self.seats_drawn:
             return
         self.seats_drawn = drawn
@@ -1252,7 +1434,7 @@ class MultiplayerWindow:
             tk.Label(chip, image=self.picture('dot', STATE_DOTS[kind], CARD2, 12), bg=CARD2).pack(side='left')
             tk.Label(chip, text=state, bg=CARD2, fg=COLORS['muted'] if kind == 'waiting' else COLORS['text'],
                      font=(self.font, 9, 'bold')).pack(side='left', padx=(5, 0))
-            if host and self.more_open and seat and phase == 'lobby':
+            if host and seat and phase == 'lobby' and len(guests) > 1:     # the host's moves, once two guests can swap
                 moves = tk.Frame(row, bg=CARD2)
                 moves.pack(side='right', padx=(0, 10))
                 for icon, step in (('up', -1), ('down', 1)):
@@ -1311,25 +1493,42 @@ class MultiplayerWindow:
         internet = self.room_mode == 'internet'
         address = fields.get('address')
         port = address[1] if address else ''
-        where = fields.get('public') if internet else (address[0] if address else '')
+        reach = fields.get('reach')
+        where = (fields.get('public') or self.public_state(reach)) if internet else (address[0] if address else '-')
         label = self.tr('mp_public_address' if internet else 'mp_address')
-        self.detail_address.configure(text=f'{label} : {where or "-"}   ·   {self.tr("mp_port")} : {port}')
+        self.detail_address.configure(text=f'{label} : {where}   ·   {self.tr("mp_port")} : {port}')
         code = self.room_code_text()
         self.detail_code.configure(text=self.tr('mp_code') + ' : ' + (code if self.code_shown else '•' * min(len(code), 27)))
-        reach = fields.get('reach')
         if internet:
-            self.manual_label.pack(anchor='w', pady=(12, 4), after=self.detail_address)
-            self.manual_row.pack(fill='x', after=self.manual_label)
+            # the field is offered when no address was found (or one was typed); a found one keeps it behind the fold
+            missing = not fields.get('public') and reach not in (None, 'probing')
+            opened = missing or reach == 'typed' or self.manual_open
+            if missing or reach == 'typed':
+                self.manual_fold.pack_forget()
+            else:
+                self.fold_state(self.manual_fold, self.manual_open)
+                self.manual_fold.pack(anchor='w', pady=(10, 0), after=self.detail_address)
+            if opened:
+                self.manual_label.pack(anchor='w', pady=(10, 4), after=self.manual_fold if self.manual_fold.winfo_manager()
+                                       else self.detail_address)
+                self.manual_row.pack(fill='x', after=self.manual_label)
+            else:
+                self.manual_label.pack_forget()
+                self.manual_row.pack_forget()
             self.help_link.pack(anchor='w', pady=(8, 0))
             lan = self.lan_addresses[0] if self.lan_addresses else (address[0] if address else '')
             self.help_text.configure(text=self.tr('mp_port_help_text', address=lan, port=port))
+            self.public_line.configure(text=f'{label} : {where}')
         else:
+            self.manual_fold.pack_forget()
             self.manual_label.pack_forget()
             self.manual_row.pack_forget()
             self.help_link.pack_forget()
             self.help_text.pack_forget()
-        if internet and reach in REACH:
-            key, colour = REACH[reach]
+        if internet:
+            # nothing found at all ('waiting' with no address): what to do, not « waiting for players »
+            key, colour = (('mp_reach_none', 'gold') if reach == 'waiting' and not fields.get('public') else
+                           REACH.get(reach, ('mp_reach_probing', 'muted')))
             self.reach_dot.configure(image=self.picture('dot', COLORS[colour] if colour != 'muted' else COLORS['muted'], CARD, 10))
             self.reach_line.configure(text=self.tr(key, port=port), fg=COLORS['error'] if colour == 'error' else
                                       COLORS['success'] if colour == 'green' else COLORS['gold_hover'] if colour == 'gold'
@@ -1337,6 +1536,15 @@ class MultiplayerWindow:
             self.reach_row.pack(fill='x', pady=(8, 0), after=self.invite_actions)
         else:
             self.reach_row.pack_forget()
+
+    def public_state(self, reach):
+        """An Internet room's public address not known: still searched, or not found."""
+        return self.tr('mp_public_searching' if reach in (None, 'probing') else 'mp_public_not_found')
+
+    def toggle_manual(self):
+        self.manual_open = not self.manual_open
+        self.draw_details()
+        self.fit_details()
 
     def refusal_text(self, key):
         """What to change when a game refused the host's option `key`: the Neo Geo's AES / MVS system has its own line."""

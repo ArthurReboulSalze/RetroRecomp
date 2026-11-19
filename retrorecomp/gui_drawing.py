@@ -389,8 +389,13 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
 BADGE_COLOR = '#e5484d'
 
 # The two main buttons of a row (Convert / regenerate, and Play game of Compiled Games) are larger than their neighbours:
-# a bigger picture, drawn two pixels thick, in a taller button (about 1.5 times the others) with a brighter border.
-HERO_SIZE = 26
+# a bigger picture, drawn two pixels thick, in a taller button (about 1.3 times the others) with a brighter border. The
+# picture fills its button as the neighbours' do (Arthur, 19 Nov 2026: « Play est trop grand et son picto trop petit »):
+# 30 px in a 46 x 44 button, was 26 px in 52 x 46.
+HERO_SIZE = 30
+# Front-end and Multiplayer, the two buttons in the middle of the bar: a bit larger than their neighbours, not as large as
+# the hero (Arthur, 20 Nov 2026): a 24 px picture in a 40 x 38 button (Centre.Feature.Toolbar.TButton).
+FEATURE_SIZE = 24
 
 
 def hero_icon(master, symbol, color, size=HERO_SIZE, weight=2):
@@ -482,7 +487,7 @@ def _toolbar_styles(style):
     style.configure('Header.TCombobox', padding=(4, 1))
     # The main button of a row, larger than its neighbours: taller padding and a brighter, thicker border on the gold
     # (the colours of Primary.TButton, which it inherits, for the normal, hover and greyed looks).
-    style.configure('Hero.Toolbar.Primary.TButton', padding=(10, 7), borderwidth=2, bordercolor=c['gold_hover'],
+    style.configure('Hero.Toolbar.Primary.TButton', padding=(5, 4), borderwidth=2, bordercolor=c['gold_hover'],
                     lightcolor=c['gold_hover'], darkcolor=c['gold_hover'])
     style.map('Hero.Toolbar.Primary.TButton',
               bordercolor=[('disabled', c['border']), ('!disabled', c['gold_hover'])],
@@ -494,19 +499,21 @@ def _toolbar_styles(style):
     # The two buttons that stand in the middle of the bar, Multiplayer and Front-end: a gold border (and a gold
     # picture, drawn by decorate_button), brighter under the pointer. There is one dark theme, so there is one set.
     style.configure('Feature.Toolbar.TButton', bordercolor=c['gold'], lightcolor=c['button'], darkcolor=c['button'])
+    style.configure('Centre.Feature.Toolbar.TButton', padding=(5, 4))
     style.map('Feature.Toolbar.TButton',
               bordercolor=[('disabled', c['border']), ('pressed', c['gold_hover']), ('active', c['gold_hover']),
                            ('!disabled', c['gold'])],
               lightcolor=[('pressed', c['selected']), ('active', c['hover'])],
               darkcolor=[('pressed', c['selected']), ('active', c['hover'])])
-    style.configure('Compiled.Toolbar.TButton', background=c['gold'], foreground=c['gold_text'],
-                    bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
-                    focuscolor=c['gold_text'], relief='raised')
+    # The switch between the queue and Compiled Games is a toggle, not an action (Arthur, 19 Nov 2026): a dark button with
+    # a gold dashed border (rounded_skin draws `rrdash`) and a gold picture, unlike the gold action buttons beside it.
+    style.configure('Compiled.Toolbar.TButton', background=c['button'], foreground=c['gold'],
+                    bordercolor=c['gold'], lightcolor=c['button'], darkcolor=c['button'],
+                    focuscolor=c['gold'], relief='flat', rrdash=1, padding=(5, 3))
     style.map('Compiled.Toolbar.TButton',
-              background=[('disabled', c['panel']), ('selected', c['gold_hover']),
-                          ('pressed', c['gold_hover']), ('active', c['gold_hover'])],
-              foreground=[('disabled', c['disabled']), ('!disabled', c['gold_text'])],
-              bordercolor=[('disabled', c['border']), ('!disabled', c['gold_hover'])],
-              lightcolor=[('disabled', c['panel']), ('selected', c['gold_hover']), ('active', c['gold_hover'])],
-              darkcolor=[('disabled', c['panel']), ('selected', c['gold_hover']), ('active', c['gold_hover'])],
-              relief=[('selected', 'sunken'), ('pressed', 'sunken')])
+              background=[('disabled', c['panel']), ('pressed', c['selected']), ('active', c['hover'])],
+              foreground=[('disabled', c['disabled']), ('!disabled', c['gold'])],
+              bordercolor=[('disabled', c['border']), ('pressed', c['gold_hover']), ('active', c['gold_hover']),
+                           ('!disabled', c['gold'])],
+              lightcolor=[('pressed', c['selected']), ('active', c['hover'])],
+              darkcolor=[('pressed', c['selected']), ('active', c['hover'])])

@@ -7,10 +7,25 @@ class MultiplayerMixin:
     """The toolbar button, the window's one instance, and the converter's closing."""
 
     multiplayer_window = None
+    multiplayer_auto_ready = False      # a guest's « Ready automatically » (Retro-Recomp.json, multiplayer_auto_ready)
+
+    def remember_multiplayer(self, auto_ready):
+        """The window's « Ready automatically », saved at once with the other preferences."""
+        self.multiplayer_auto_ready = bool(auto_ready)
+        import tkinter as tk
+        from .paths import save_preferences
+        try:
+            save_preferences(self.preferences())
+        except (OSError, ValueError, tk.TclError):
+            pass
 
     def multiplayer_button_create(self, toolbar):
         button = self.icon_button(toolbar, 'mp_title', 'tip_multiplayer', self.show_multiplayer, 'players', managed=False,
                                   accent=True)
+        # a bit larger, in the middle of the bar beside Front-end (Arthur, 20 Nov 2026)
+        button.configure(style='Centre.Feature.Toolbar.TButton')
+        self.decorate_button(button, 'players', accent=True, feature=True)
+        button.configure(compound='image')
         self.multiplayer_button = button
         return button
 

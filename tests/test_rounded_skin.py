@@ -274,6 +274,33 @@ class OneMechanismForPills(SkinCase):
         self.assertEqual(len(look.images), before)
 
 
+class DashedToggle(SkinCase):
+    """The converter's view switch is a toggle: its border is dashed (Arthur, 19 Nov 2026), drawn in the skin's picture."""
+
+    def test_the_dashes_cut_the_straight_middles_only_and_tile_without_a_seam(self):
+        from retrorecomp.rounded_skin import box_image, dashed_box, rgb
+        r, side = 8, 2 * 8 + 2 + CENTER
+        picture = dashed_box(side, r, 2, '#d4a737', '#343434', '#232323')
+        top = [picture.getpixel((x, 0)) for x in range(r + 1, r + 1 + CENTER)]
+        gold, fill = rgb('#d4a737'), rgb('#343434')
+        self.assertIn(gold, top)
+        self.assertIn(fill, top)                                    # gaps show the button, not a hole
+        self.assertEqual(top[:8], top[8:16])                        # the period divides the tiled middle
+        left = [picture.getpixel((0, y)) for y in range(r + 1, r + 1 + CENTER)]
+        self.assertEqual(left, top)
+        solid = box_image(side, side, [(0, r, '#d4a737'), (2, r - 2, '#343434')], '#232323')
+        for x in range(r + 1):                                      # the corners are whole
+            self.assertEqual(picture.getpixel((x, 1)), solid.getpixel((x, 1)))
+
+    def test_a_style_asking_for_dashes_gets_them(self):
+        self.style.configure('Dash.TButton', background='#343434', bordercolor='#d4a737', rrdash=1)
+        ttk.Button(self.root, text='x', style='Dash.TButton').pack()
+        ttk.Button(self.root, text='x').pack()
+        self.assertIn(('Dash.TButton', 'button'), self.skin.done)
+        dashes = {key[7] for key in self.skin.cache if key[0] == 'btn'}
+        self.assertEqual(dashes, {True, False})
+
+
 class LayoutDoesNotMove(unittest.TestCase):
     def test_no_widget_asks_for_another_size_than_before(self):
         # At 96 dpi (Windows always): a Linux display at about 100 dpi rounds the combobox chevron's 15 px up to 16.

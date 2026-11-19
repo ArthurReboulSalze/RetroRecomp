@@ -578,8 +578,8 @@ def smoke(window):
     assert application.toolbar_centre in toolbar_slaves()
     assert application.front_end_button.master is application.multiplayer_button.master is application.toolbar_centre
     window.update_idletasks()
-    left, middle, right = (button.winfo_rootx() for button in (application.multiplayer_button,
-                                                               application.front_end_button, application.knowledge_button))
+    left, middle, right = (button.winfo_rootx() for button in (application.front_end_button,       # Front-end first (20 Nov)
+                                                               application.multiplayer_button, application.knowledge_button))
     assert left < middle < right
     assert application.collection_actions.winfo_rootx() < left
     # The buttons that became pictures keep their text for the screen reader, and their hints.

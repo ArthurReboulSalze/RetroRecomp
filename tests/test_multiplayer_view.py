@@ -1,6 +1,7 @@
 """The Multiplayer window (retrorecomp/multiplayer_view.py) driven in a withdrawn Tk window: no socket, no worker process, a
 stand-in controller that records the calls and a real `LobbyModel` fed with the room's events."""
 import tkinter as tk
+from tkinter import ttk
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -310,6 +311,9 @@ class MultiplayerWindowTest(unittest.TestCase):
         view.confirm_internet()
         view.show('host')
         view.typed_public.set('86.214.33.17')
+        self.assertFalse(view.public_field.winfo_manager())               # a fallback, folded: found by itself
+        view.toggle_public()
+        self.assertTrue(view.public_field.winfo_manager())
         view.open_room()
         room = self.started[0]['room']
         self.assertEqual((room['internet'], room['public_address']), (True, '86.214.33.17'))
@@ -322,6 +326,7 @@ class MultiplayerWindowTest(unittest.TestCase):
         view.toggle_code()
         self.assertIn(CODE, view.detail_code.cget('text'))
         self.assertIn('86.214.33.17', view.detail_address.cget('text'))
+        self.assertIn('86.214.33.17', view.public_line.cget('text'))
         model.reach = 'forward_needed'
         self.feed(view, {'event': 'lobby_notice', 'code': 'wrong_key_attempts'})
         self.assertEqual(view.reach_line.cget('text'), tr('mp_reach_forward', 'fr', port=24611))
@@ -425,6 +430,177 @@ class MultiplayerWindowTest(unittest.TestCase):
         view.lobby_game.set('Sonic 2')
         view.lobby_game_box.event_generate('<<ComboboxSelected>>')
         self.assertEqual(view.controller.calls[-1], ('pick', 'Sonic 2'))
+
+    def test_paste_the_key_and_one_grid_with_examples_on_the_join_page(self):
+        # Arthur, 19 Nov 2026: a Paste button; « le nom est décalé »; empty fields looked like blank cells
+        view = self.window(internet=True)
+        view.show('join')
+        self.root.update()
+        self.assertTrue(view.key_field.hint.winfo_manager() == 'place')                 # an example while it is empty
+        self.root.clipboard_clear()
+        self.root.clipboard_append('  ' + INVITE + '\n')
+        view.paste_key()
+        self.assertEqual(view.invite.get(), INVITE)
+        self.assertEqual(view.join_address.get(), '192.168.1.20')          # an invitation fills the fields, as typed
+        self.root.update()
+        self.assertFalse(view.key_field.hint.winfo_manager() == 'place')
+        self.root.clipboard_clear()
+        view.paste_key()
+        self.assertEqual(view.join_status.cget('text'), tr('mp_clipboard_empty', 'fr'))
+        self.assertEqual(view.invite.get(), INVITE)
+        view.join_by.set('address')
+        view.draw_join_form()
+        view.join_address.set('')
+        self.root.update()
+        labels = [label for number, (label, _widget) in sorted(view.join_rows.items()) if label.winfo_manager()]
+        self.assertEqual([label.cget('text') for label in labels],
+                         [tr(key, 'fr') for key in ('mp_host_address', 'mp_port', 'mp_code', 'mp_name')])
+        self.assertEqual({int(label.grid_info()['column']) for label in labels}, {0})      # one column of labels
+        self.assertEqual({int(view.join_rows[n][1].grid_info()['column']) for n in (1, 2, 3, 4)}, {1})  # and of fields
+        self.assertEqual(view.join_address_field.hint.cget('text'), '192.168.1.20')
+        self.assertTrue(view.join_address_field.hint.winfo_manager() == 'place')
+        view.mode.set('internet')
+        view.confirm_internet()
+        self.assertEqual(view.join_address_field.hint.cget('text'), '203.0.113.7')
+
+    def test_the_mode_chip_goes_back_to_the_choice_and_asks_with_a_room_open(self):
+        view = self.window()
+        view.show('host')
+        self.assertTrue(view.change_mode())
+        self.assertEqual(view.current, 'entry')
+        view.show('host')
+        view.open_room()
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611})
+        self.assertEqual(view.current, 'lobby')
+        with patch('retrorecomp.multiplayer_view.messagebox.askyesno', return_value=False) as asked:
+            self.assertFalse(view.change_mode())
+        asked.assert_called_once()
+        self.assertEqual((view.current, self.closed), ('lobby', []))
+        with patch('retrorecomp.multiplayer_view.messagebox.askyesno', return_value=True):
+            self.assertTrue(view.change_mode())
+        self.assertEqual((view.current, len(self.closed), view.role), ('entry', 1, None))
+
+    def test_the_internet_lobby_says_the_address_found_or_not_and_offers_typing_only_then(self):
+        view = self.window(internet=True)
+        view.mode.set('internet')
+        view.confirm_internet()
+        view.show('host')
+        view.open_room()
+        model = view.controller.model
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611})
+        model.set_public(None, 'probing')
+        self.feed(view)
+        self.assertIn(tr('mp_public_searching', 'fr'), view.public_line.cget('text'))
+        self.assertFalse(view.manual_row.winfo_manager())
+        model.set_public('86.214.33.17', 'upnp')
+        self.feed(view)
+        self.assertIn('86.214.33.17', view.public_line.cget('text'))
+        self.assertFalse(view.manual_row.winfo_manager())                 # found: typing stays behind the fold
+        self.assertTrue(view.manual_fold.winfo_manager())
+        view.toggle_manual()
+        self.assertTrue(view.manual_row.winfo_manager())
+        view.toggle_manual()
+        model.set_public(None, 'waiting')
+        self.feed(view)
+        self.assertIn(tr('mp_public_not_found', 'fr'), view.public_line.cget('text'))
+        self.assertEqual(view.reach_line.cget('text'), tr('mp_reach_none', 'fr'))
+        self.assertTrue(view.manual_row.winfo_manager())                  # not found: offered at once
+
+    def test_the_hosts_control_choice_is_always_shown(self):
+        view = self.window()
+        view.show('host')
+        view.open_room()
+        guests = [{'seat': 1, 'guest': 1, 'name': 'Karl', 'ready': False, 'in_match': False, 'check': 'same'},
+                  {'seat': 2, 'guest': 2, 'name': 'Léa', 'ready': False, 'in_match': False, 'check': 'same'}]
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611},
+                  dict(self.roster([host] + guests), seats_max=4))
+        self.assertTrue(view.mode_frame.winfo_manager())
+        self.assertFalse(hasattr(view, 'more_link'))
+        view.lobby_sharing_buttons['everyone'].invoke()
+        self.assertEqual(view.controller.calls[-1], ('sharing', 'everyone'))
+        moves = [w for row in view.seat_rows for w in row.winfo_children() for b in w.winfo_children()
+                 if isinstance(b, ttk.Button)]
+        self.assertEqual(len(moves), 4)                                   # two guests: up and down on each row
+
+    def test_a_handheld_greys_one_controller_per_player_with_why(self):
+        # Arthur, 19 Nov 2026: visible, greyed, « arrive avec le câble link, dans la prochaine version »
+        view = self.window(games=(('Tetris', 'gb'), ('Contra', 'nes')))
+        view.show('host')
+        view.console_choice.set(view.console_name('gb'))
+        view.console_box.event_generate('<<ComboboxSelected>>')
+        self.assertTrue(view.sharing_buttons['per_player'].instate(['disabled']))
+        self.assertTrue(view.sharing_note.winfo_manager())
+        self.assertEqual(view.sharing.get(), 'everyone')
+        self.assertEqual(view.sharing_note.cget('text'), tr('mp_sharing_handheld', 'fr'))
+        view.console_choice.set(view.console_name('nes'))
+        view.console_box.event_generate('<<ComboboxSelected>>')
+        self.assertFalse(view.sharing_buttons['per_player'].instate(['disabled']))
+        self.assertFalse(view.sharing_note.winfo_manager())
+        # the lobby: a handheld picked with « per player » in the room moves it to « Everyone » once, greyed with why
+        view.open_room()
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611},
+                  {'event': 'lobby_selection', 'selection': 1, 'game': {'title': 'Tetris', 'machine': 'gb'}},
+                  self.roster([host]))
+        self.assertTrue(view.lobby_sharing_buttons['per_player'].instate(['disabled']))
+        self.assertTrue(view.lobby_sharing_note.winfo_manager())
+        self.assertEqual(view.controller.calls.count(('sharing', 'everyone')), 1)
+        self.feed(view, {'event': 'lobby_chat', 'sender': 0, 'name': 'Arthur', 'text': 'Salut'})
+        self.assertEqual(view.controller.calls.count(('sharing', 'everyone')), 1)
+
+    def test_a_relaunch_says_the_host_changed_an_option(self):
+        view = self.window()
+        view.show('host')
+        view.open_room()
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611},
+                  {'event': 'lobby_back', 'match_id': 1, 'reason': 'relaunch'}, self.roster([host]))
+        self.assertEqual(view.banner.cget('text'), tr('mp_back_relaunch', 'fr'))
+        self.feed(view, self.roster([dict(host, in_match=True)], phase='launching'))
+        self.assertEqual(view.banner.cget('text'), tr('mp_match_running', 'fr'))   # it starts again at once
+
+    def test_a_firewall_that_blocks_guests_is_said_to_the_host_while_it_lasts(self):
+        view = self.window()
+        view.show('host')
+        view.open_room()
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611})
+        self.assertFalse(view.firewall_host.winfo_manager())
+        view.controller.model.set_firewall('blocked', 'no inbound rule')
+        self.feed(view)
+        self.assertTrue(view.firewall_host.winfo_manager())
+        self.assertIn(tr('mp_notice_firewall_blocked', 'fr'), view.chat_text.get('1.0', 'end'))
+        view.controller.model.set_firewall('open')
+        self.feed(view)
+        self.assertFalse(view.firewall_host.winfo_manager())
+
+    def test_a_guest_ready_automatically_once_per_pick(self):
+        remembered = []
+        view = self.window()
+        view.app.remember_multiplayer = lambda **values: remembered.append(values)
+        view.show('join')
+        view.invite.set(INVITE)
+        view.join_room()
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        me = {'seat': 1, 'guest': 2, 'name': 'Karl', 'ready': False, 'in_match': False, 'check': 'same'}
+        self.feed(view, {'event': 'joined_room', 'guest': 2}, self.roster([host, me], me=2),
+                  {'event': 'lobby_selection', 'selection': 1, 'game': {'title': 'Contra', 'machine': 'nes'}})
+        self.assertTrue(view.auto_ready_box.winfo_manager())
+        self.assertNotIn(('ready', True), view.controller.calls)
+        view.auto_ready.set(True)
+        view.auto_ready_changed()
+        self.assertEqual(remembered, [{'auto_ready': True}])
+        self.feed(view)
+        self.assertEqual(view.controller.calls.count(('ready', True)), 1)  # ticked with a pick this PC has: ready now
+        self.feed(view, self.roster([host, dict(me, ready=True)], me=2))
+        view.action.press()                                                # the player takes it back for this pick
+        self.feed(view, self.roster([host, me], me=2))
+        self.assertEqual(view.controller.calls.count(('ready', True)), 1)
+        self.feed(view, {'event': 'lobby_selection', 'selection': 2, 'game': {'title': 'Contra', 'machine': 'nes'}},
+                  dict(self.roster([host, dict(me, check='asking')], me=2), selection=2))
+        self.assertEqual(view.controller.calls.count(('ready', True)), 1)  # not before this PC found the game
+        self.feed(view, dict(self.roster([host, me], me=2), selection=2))
+        self.assertEqual(view.controller.calls.count(('ready', True)), 2)  # a new pick: ready again by itself
 
     def test_no_game_to_host(self):
         view = self.window(games=())

@@ -128,19 +128,37 @@ enum { HUB_COLUMNS = 5, HUB_LINES = 2, TILE_W = 44, TILE_H = 40, TILE_GAP = 2 };
 static int hub_tile, hub_parent, hub_first_line;
 static bool from_hub;
 static bool quit_yes;
+static bool asking_relaunch;          /* the question asks « Change this option? » (rrhk_relaunch_ask, below) */
+static void relaunch_back(bool yes);
 
 /* 1.7.6: a machine with a graphics page (D14) has one tile more: it opens that page, which comes back to the tiles. Multiplayer:
  * the Chat tile (in a session only). 1.8.1: the last tile quits, through the one "Quit? No / Yes" (No selected); No and Esc
- * come back to the tiles. The order: ..., Graphics, Chat, Quit (Quit stays last everywhere). */
+ * come back to the tiles; the one before it restarts the game (Arthur, 19 Nov 2026). The order: ..., Graphics, Chat, Restart,
+ * Quit (Quit stays last everywhere). */
+/* Restart: what Shift+F1 and the pad's Restart combination do, through the same path (rrhk_hub_take_restart, read by the loop).
+ * In multiplayer only the host has the tile (it restarts every seat at the same frame); a guest, and a machine that cannot
+ * restart inside a session (the N64), have none. */
+static bool hub_restart_offered(void) {
+    return !rrhk_session_active() || (!rrhk_session_guest() && !rrhk.machine->session_no_restart);
+}
+static bool restart_asked;
+bool rrhk_hub_take_restart(void) { const bool asked = restart_asked; restart_asked = false; return asked; }
 static int hub_tiles(void) {
-    return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0) + (rrhk_chat_offered() ? 1 : 0) + 1;
+    return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0) + (rrhk_chat_offered() ? 1 : 0) +
+           (hub_restart_offered() ? 1 : 0) + 1;
 }
 static bool hub_exit_tile(int tile) { return tile == hub_tiles() - 1; }
+static bool hub_restart_tile(int tile) { return hub_restart_offered() && tile == hub_tiles() - 2; }
 /* Multiplayer: the Chat tile closes the menu (the pause it asked for ends) and opens the chat's entry, with the on-screen
  * keyboard when player 1 has a gamepad. */
-static bool hub_chat_tile(int tile) { return rrhk_chat_offered() && tile == hub_tiles() - 2; }
+static bool hub_chat_tile(int tile) { return rrhk_chat_offered() && tile == hub_tiles() - 2 - (hub_restart_offered() ? 1 : 0); }
 static void hub_open(int tile) {
     if (hub_exit_tile(tile)) { rrhk_quit_ask(); return; }
+    if (hub_restart_tile(tile)) {        /* back to the game, which restarts at the loop's next frame */
+        rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false;
+        restart_asked = true;
+        return;
+    }
     if (hub_chat_tile(tile)) {
         rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false;
         rrhk_chat_begin(rrhk.pads[0] != NULL);
@@ -164,9 +182,10 @@ void rrhk_hub_key(SDL_Scancode key) {
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) hub_open(hub_tile);
 }
 /* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), the graphics page
- * (-3, 1.7.6), the multiplayer chat (-4), Quit (-5, 1.8.1). */
+ * (-3, 1.7.6), the multiplayer chat (-4), Quit (-5, 1.8.1), Restart (-6, 1.8.1). */
 static int hub_kind(int tile) {
     if (hub_exit_tile(tile)) return -5;
+    if (hub_restart_tile(tile)) return -6;
     if (hub_chat_tile(tile)) return -4;
     const int controls = 2 * rrhk.machine->players();
     return tile < controls ? tile : tile >= rrhk_pages_count() ? -3 : tile == rrhk_pages_count() - 1 ? -2 : -1;
@@ -203,7 +222,7 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
             rr_menu_box(ren, ox, oy, unit, x, y, TILE_W, TILE_H, RR_MENU_SHADE, 255);
             rr_menu_box(ren, ox, oy, unit, x + 1, y + 1, TILE_W - 2, TILE_H - 2, 26, 24, 20, 255);
         }
-        const int icon = kind == -5 ? RR_ICON_EXIT : kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
+        const int icon = kind == -6 ? RR_ICON_RESTART : kind == -5 ? RR_ICON_EXIT : kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
             kind % 2 ? RR_ICON_GAMEPAD : RR_ICON_KEYBOARD;
         rr_menu_icon(ren, ox, oy, unit, x + (TILE_W - rr_menu_icon_width(icon)) / 2, y + (kind >= 0 ? 4 : 11), icon, !selected);
         if (kind >= 0) {
@@ -220,7 +239,7 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     if (kind >= 0) snprintf(title, sizeof title, rr_tr(kind % 2 ? "Player %d - Gamepad" : "Player %d - Keyboard"), kind / 2 + 1);
     else {
         /* A page's title names the converter ("Retro-Recomp - Gun"): under the tiles the page alone is named. */
-        const char *name = rr_tr(kind == -5 ? "Quit the game" : kind == -4 ? "Chat" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
+        const char *name = rr_tr(kind == -6 ? "Restart the game" : kind == -5 ? "Quit the game" : kind == -4 ? "Chat" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
         if (!strncmp(name, "Retro-Recomp - ", 15)) name += 15;
         snprintf(title, sizeof title, "%s", name);
     }
@@ -251,6 +270,7 @@ void rrhk_toggle_settings(void) {
 
 /* Esc, B: back to the menu this one was opened from (the tiles for one of their pages), or to the game. */
 void rrhk_close_menu(void) {
+    if (rrhk.menu == RRHK_MENU_QUIT && asking_relaunch) { relaunch_back(false); return; }
     if (rrhk.menu == RRHK_MENU_HUB) { rrhk.menu = hub_parent; hub_parent = 0; rrhk.parent_menu = 0; from_hub = false; return; }
     if (from_hub && rrhk_pages_open(rrhk.menu)) { rrhk.menu = RRHK_MENU_HUB; rrhk.parent_menu = 0; return; }
     rrhk.menu = rrhk.parent_menu;
@@ -259,8 +279,38 @@ void rrhk_close_menu(void) {
 
 /* ---- Quit? (1.7.4): Esc in play and the Quit combination ask before the game closes ----
  * Drawn by the kit like every menu, never a window of the system. "No" is selected when it opens. */
+/* The question has two kinds: Quit (above) and, in a multiplayer session (ABI 9), the host's « Change this option? » before a
+ * key that changes the run relaunches the match for everyone (Arthur, 20 Nov 2026). Its No (or Esc, B) drops the key; its Yes
+ * gives the same key back to the loop once (SDL_PushEvent), which then goes on to the machine exactly as before: the session
+ * sees the options change and relaunches. A machine page that changes the run (DIP switches) asks once while it is open. */
+static bool relaunch_pass, relaunch_page_ok;
+static SDL_Scancode relaunch_key;
+static int relaunch_menu, relaunch_parent;
+bool rrhk_relaunch_ask(SDL_Scancode key) {
+    if (relaunch_pass && key == relaunch_key) { relaunch_pass = false; return false; }
+    if (rrhk.menu == RRHK_MENU_PAGE && relaunch_page_ok) return false;
+    if (rrhk.menu == RRHK_MENU_QUIT) return true;
+    relaunch_key = key; relaunch_menu = rrhk.menu; relaunch_parent = rrhk.parent_menu;
+    asking_relaunch = true; quit_yes = false;
+    rrhk.menu = RRHK_MENU_QUIT; rrhk.capturing = 0;
+    return true;
+}
+/* No, Esc or B on the relaunch question: back where the key was pressed, nothing changed. */
+static void relaunch_back(bool yes) {
+    rrhk.menu = relaunch_menu; rrhk.parent_menu = relaunch_parent; asking_relaunch = false;
+    if (!yes) return;
+    if (relaunch_menu == RRHK_MENU_PAGE) relaunch_page_ok = true;
+    relaunch_pass = true;
+    SDL_Event again;
+    SDL_zero(again);
+    again.type = SDL_KEYDOWN; again.key.state = SDL_PRESSED; again.key.keysym.scancode = relaunch_key;
+    SDL_PushEvent(&again);
+}
+bool rrhk_relaunch_asking(void) { return asking_relaunch; }
+
 void rrhk_quit_ask(void) {
     if (rrhk.menu == RRHK_MENU_QUIT) return;
+    asking_relaunch = false;
     /* No and Esc come back to the Pause menu or (1.8.1) to the F2 tiles it was asked from, else to the game */
     rrhk.parent_menu = rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_HUB ? rrhk.menu : 0;
     rrhk.menu = RRHK_MENU_QUIT; rrhk.capturing = 0;
@@ -270,6 +320,7 @@ void rrhk_quit_ask(void) {
 bool rrhk_quit_key(SDL_Scancode key) {
     if (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_UP || key == SDL_SCANCODE_DOWN) quit_yes = !quit_yes;
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) {
+        if (asking_relaunch) { relaunch_back(quit_yes); return false; }
         if (quit_yes) return true;
         rrhk_close_menu();
     }
@@ -278,9 +329,10 @@ bool rrhk_quit_key(SDL_Scancode key) {
 static void quit_draw(SDL_Renderer *ren, int ox, int oy, int unit) {
     /* In a network match (1.8.1) the question says what Yes does: the host ends the match, a guest leaves it, and either way
      * it ends for everyone (a guest's leave is BYE_LEFT, which stops the match for all). The box is wider and taller there. */
-    const bool session = rrhk_session_active();
+    const bool session = rrhk_session_active() || asking_relaunch;
     const int X = session ? 33 : 58, Y = session ? 58 : 62, W = session ? 190 : 140, H = session ? 70 : 62;
-    const char *word = rr_tr(!session ? "Quit" : rrhk_session_guest() ? "Leave the match" : "End the match");
+    const char *word = rr_tr(asking_relaunch ? "Change this option" : !session ? "Quit" :
+                             rrhk_session_guest() ? "Leave the match" : "End the match");
     char title[64];
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 150); SDL_RenderFillRect(ren, NULL);
@@ -292,7 +344,7 @@ static void quit_draw(SDL_Renderer *ren, int ox, int oy, int unit) {
     if (rr_menu_block_width(title, 2) > W - 50 && rr_menu_block_width(title, 1) > W - 50) snprintf(title, sizeof title, "%s", word);
     rr_menu_block(ren, ox, oy, unit, X + 42, Y + 14, rr_menu_block_width(title, 2) > W - 50 ? 1 : 2, title, RR_MENU_GOLD);
     if (session) {
-        const char *line = rr_tr("It ends for everyone.");
+        const char *line = rr_tr(asking_relaunch ? "The game restarts for everyone." : "It ends for everyone.");
         rr_menu_block(ren, ox, oy, unit, X + (W - rr_menu_block_width(line, 1)) / 2, Y + 32, 1, line, RR_MENU_HINT);
     }
     for (int i = 0; i < 2; ++i) {
@@ -353,7 +405,8 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
     const RrhkMachine *m = rrhk.machine;
     /* A menu left another way (a quick state loaded, a restart, the help opened over a page) forgets the tiles. */
     if (rrhk.menu != RRHK_MENU_HUB && rrhk.menu != RRHK_MENU_GRAPHICS && !rrhk_pages_open(rrhk.menu) &&
-        !(rrhk.menu == RRHK_MENU_QUIT && rrhk.parent_menu == RRHK_MENU_HUB)) { from_hub = false; hub_parent = 0; }
+        !(rrhk.menu == RRHK_MENU_QUIT && (rrhk.parent_menu == RRHK_MENU_HUB || asking_relaunch))) { from_hub = false; hub_parent = 0; }
+    if (rrhk.menu != RRHK_MENU_PAGE && !(rrhk.menu == RRHK_MENU_QUIT && asking_relaunch)) relaunch_page_ok = false;
     if (!rrhk.menu) {
         if (rrhk.paused) {      /* F11 (X68000): the picture stays under the word */
             int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);

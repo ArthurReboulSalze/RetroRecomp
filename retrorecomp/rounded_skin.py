@@ -69,6 +69,29 @@ def box_image(w, h, layers, surface=None):
     return picture
 
 
+def dashed_box(side, r, line, border, fill, surface=None, dash=5, gap=3):
+    """A 9-slice button picture with a dashed border: the rounded box of `fill` with a `line` px `border`, the border cut
+    into `dash` px strokes and `gap` px gaps along the four straight middles (the corners stay whole). The middle is CENTER
+    px long and Tk tiles it, so the period divides CENTER: the dashes run on without a seam whatever the button's size."""
+    assert CENTER % (dash + gap) == 0
+    edged = box_image(side, side, [(0, r, border), (line, r - line, fill)])
+    plain = box_image(side, side, [(0, r, fill)])
+    mask = Image.new('L', (side, side), 0)
+    start, band = r + 1, line + 1
+    pixels = mask.load()
+    for along in range(start, start + CENTER):
+        if (along - start) % (dash + gap) < dash:
+            continue
+        for across in [*range(band), *range(side - band, side)]:
+            pixels[along, across] = pixels[across, along] = 255
+    edged.paste(plain, (0, 0), mask)
+    if surface:
+        flat = Image.new('RGBA', (side, side), rgb(surface) + (255,))
+        flat.alpha_composite(edged)
+        return flat.convert('RGB')
+    return edged
+
+
 def chevron_image(w, h, colour, direction='down', width=1.6):
     big = Image.new('RGBA', (w * SS, h * SS), rgb(colour) + (0,))
     draw = ImageDraw.Draw(big)
@@ -349,13 +372,17 @@ class Skin:
                 ring_colour = ring or ('#f5f5f4' if is_gold(fill) else c(name, 'focuscolor', [], '#d4a737'))
             return fill, border, ring_colour
 
+        dashed = c(name, 'rrdash') not in ('', '0')    # a toggle's dashed border (the converter's view switch)
+
         def picture(states):
             fill, border, ring_colour = look(states)
-            key = ('btn', r, ow, ring_w, fill, border, ring_colour)
+            key = ('btn', r, ow, ring_w, fill, border, ring_colour, dashed)
 
             def make():
                 if ring_colour:
                     return box_image(side, side, [(0, r, ring_colour), (ring_w, r - ring_w, fill)], surface)
+                if dashed:
+                    return dashed_box(side, r, ring_w, border, fill, surface)
                 return box_image(side, side, [(0, r, border), (ow, r - ow, fill)], surface)
             return self.photo(key, make, surface)
 

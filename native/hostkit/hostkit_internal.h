@@ -287,6 +287,9 @@ void rrhk_session_axes(int port, int16_t axes[RRHK_AXES]);                      
  * after the menus and notices; the notices' line moves above the chat while it is open. */
 bool rrhk_chat_open(void);
 bool rrhk_chat_holds_word(void);               /* open, or closed with a key or button still held from then: neutral word */
+bool rrhk_relaunch_ask(SDL_Scancode key);     /* the host's « Change this option? » (session): true while asked, the key held */
+bool rrhk_relaunch_asking(void);
+bool rrhk_hub_take_restart(void);              /* the F2 Restart tile was chosen (once): the loop restarts as the combination does */
 bool rrhk_chat_offered(void);                  /* a session is running: the F2 Chat tile and the keys are there */
 void rrhk_chat_begin(bool grid);               /* open the entry (grid: with the on-screen keyboard) */
 bool rrhk_chat_event(const SDL_Event *event);
