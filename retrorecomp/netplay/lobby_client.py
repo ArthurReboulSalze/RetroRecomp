@@ -219,6 +219,10 @@ class LobbyModel:
                      'path': 'ipv4' if self.internet else 'lan'}
 
     def _on_launch_request(self, event: dict) -> None:
+        # A guest's launch (the host's lobby_launch never reaches a guest): the seats and their names, for the window's
+        # « À la manette » line in turns.
+        self.last_launch = {'match_id': event.get('match_id'), 'seats': event.get('seats'), 'names': event.get('names'),
+                            'left_out': [], 'sharing': None}
         self.link = {'tier': event.get('tier', 'delay'), 'prediction': event.get('prediction'), 'delay': None, 'slow': None,
                      'path': 'ipv4' if self.internet else 'lan'}
 

@@ -93,5 +93,15 @@ class MapperTests(unittest.TestCase):
                          (5, seat_map.SYS_KEYBOARD, None, KEYS))
 
 
+
+class GuestModelTests(unittest.TestCase):
+    def test_a_guests_model_knows_the_seats_names_from_its_launch_request(self):
+        from retrorecomp.netplay.lobby_client import LobbyModel
+        model = LobbyModel()
+        model.apply({'event': 'launch_request', 'match_id': 3, 'seats': 2, 'names': ['Arthur', 'Nadia'], 'tier': 'rollback',
+                     'prediction': 5})
+        self.assertEqual(model.last_launch['names'], ['Arthur', 'Nadia'])
+        self.assertEqual(model.last_launch['match_id'], 3)
+
 if __name__ == '__main__':
     unittest.main()

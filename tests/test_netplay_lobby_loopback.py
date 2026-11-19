@@ -639,6 +639,7 @@ class RelaunchTests(unittest.TestCase):
             self.assertLess(first['history_frames'], FRAMES)          # the first match stopped at the change, not at its end
         self.assertEqual(host.worker.results[1]['digests'], nadia.worker.results[1]['digests'])
         for worker in (host.worker, nadia.worker):        # the guests' lobby is told why: the host's link carries its outcome
+            self.assertTrue(worker.wait_for(lambda w: sum(e['event'] == 'lobby_back' for e in w.events) >= 2, 60), worker.events)
             backs = [event['reason'] for event in worker.events if event['event'] == 'lobby_back']
             self.assertEqual(backs[:2], ['relaunch', 'ended'], worker.events)
         launches = [event for event in host.worker.events if event['event'] == 'launching']
