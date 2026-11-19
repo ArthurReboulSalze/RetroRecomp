@@ -481,6 +481,48 @@ void rrgba_reset(void) {
 }
 uint64_t rrgba_digest(void) { return state_digest(); }
 void rrgba_side_effects(bool allowed) { g_save_writes = allowed; }
+
+// The cartridge save in a session (session ABI 8): the host's image travels to every seat. The image is the "SAV0" section of the engine's state container: the chip's memory
+// (SRAM, Flash or EEPROM, whichever the game has) as the machine reads it from power-on, the same fields on every PC. It is read before the first frame (the engine has loaded the
+// save file by then) and a guest puts it back in the same section, in memory only: the file is never touched (side_effects(false)).
+size_t rrgba_session_save(void* out, size_t capacity) {
+    std::vector<uint8_t> blob;
+    std::string error;
+    size_t at = 0, length = 0;
+    if (!g_api || !g_api->save_state(blob, error) || !find_section(blob, kSaveTag, &at, &length) || length == 0) return 0;
+    if (length > RRHK_SESSION_MAX_SAVE) {
+        fprintf(stderr, "[host] the cartridge save (%zu bytes) is larger than a session carries: every seat keeps its own\n", length);
+        return 0;
+    }
+    if (out) {
+        if (capacity < length) return 0;
+        memcpy(out, &blob[at], length);
+    }
+    return length;
+}
+
+bool rrgba_session_save_put(const void* in, size_t size) {
+    if (!g_api || !in || size == 0) return false;
+    std::vector<uint8_t> now;
+    std::string error;
+    size_t at = 0, length = 0;
+    if (!g_api->save_state(now, error) || !find_section(now, kSaveTag, &at, &length) || length != size) {
+        fprintf(stderr, "[host] the host's cartridge save (%zu bytes) does not fit this game's chip: this seat keeps its own\n", size);
+        return false;
+    }
+    memcpy(&now[at], in, size);
+    if (!g_api->load_state(now, error)) {
+        fprintf(stderr, "[host] the host's cartridge save could not be put in: %s\n", error.c_str());
+        g_failed = true;
+        return false;
+    }
+    g_audio_running = 1469598103934665603ull;
+    if (!g_boot_state.empty()) {                                  // a restart goes back to the state of the start, with the host's save in it
+        size_t boot_at = 0, boot_length = 0;
+        if (find_section(g_boot_state, kSaveTag, &boot_at, &boot_length) && boot_length == size) memcpy(&g_boot_state[boot_at], in, size);
+    }
+    return true;
+}
 // The session's clock (RRHK_SESSION_CLOCK, the same on every seat) is already the engine's guest epoch: the engine reads it once when it starts, which is before the kit's setup.
 void rrgba_session_begin(uint64_t clock) {
     if (g_clock_at_start && clock != g_clock_at_start)
