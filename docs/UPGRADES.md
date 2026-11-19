@@ -87,6 +87,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
+| [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-next-release) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
 | [Every machine: the sound no longer crackles in multiplayer](#every-machine-the-sound-no-longer-crackles-in-multiplayer-next-release) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `rrhk_audio.c`, `rrhk_ring.c`, `hostkit_internal.h`) | unchanged (host files are outside every state key) |
 | [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Nintendo 64: multiplayer on the delay tier, and a change of resolution in play keeps the renderer's memory](#nintendo-64-multiplayer-on-the-delay-tier-and-a-change-of-resolution-in-play-keeps-the-renderers-memory-next-release) | the Nintendo 64 (`n64_cpu.c`, `n64_session.cpp`, `n64_player.c`) | the Nintendo 64's host stamp (`rrhk_n64.inc`) | Nintendo 64 states of 1.8.0 refused (the state key hashes the session sources) |
@@ -112,6 +113,24 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end](#commodore-amiga-500-and-1200-the-host-writes-its-saves-back-at-a-matchs-clean-end-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_savefile.h`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h`): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: an Imploder block whose checksum differs](#commodore-amiga-500-and-1200-an-imploder-block-whose-checksum-differs-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`native/amiga_whdload/rr_decrunch.c`) | none | unchanged (the quick-state key does not hash the unpacker) |
 
+## NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated (next release)
+
+Arthur's yes of 19 November 2026 (HOST_KIT [D32](HOST_KIT.md#d32)): the six machines on the kit's sound ring no longer play the
+machine's PCM byte for byte when the game is not locked to the display. The ring resamples every block by D30's base and a correction
+of at most 0.5 % from its fill, so it no longer drifts with the two clocks to a trim or a gap; it has 80 ms more room before a trim and
+a trim no longer raises its reserve. For a player: no more crackle from the drift or from a burst after a hitch; the pitch moves by at
+most 0.5 % (usually about 0.01 %); no latency added on average; the highest frequencies slightly softer (linear interpolation).
+Physical latency unmeasured. In a multiplayer game the ring was already regulated by the change above; this one extends it to a game
+alone. The queue model's machines are unchanged.
+
+Measured (counters of the ring's closing line, the real sound device with the game muted, never by ear): Tekken 3 alone, 3,600
+frames (60 s), on this PC (busy: one run, counts not a timing): before 1 gap, 2 trims; after 0 gaps, 0 trims. The ThinkPad and a
+quiet-PC run are recorded below when made.
+
+**Stamps** (against `spec/psx-audio` `b3fb20ba`): the host stamp of all 21 profiles (`rrhk_ring.c`, `rrhk_audio.c`,
+`hostkit_internal.h`, `audio_cushion.h`, a comment); no game stamp; quick states unchanged (host files are outside every state key).
+An export's own sound changes only on the six ring machines.
+
 ## Every machine: the sound no longer crackles in multiplayer (next release)
 
 Arthur, 19 November 2026, Tekken 3 together over his local network: the game stays fluid, the music crackles a lot (a little alone on
@@ -122,13 +141,13 @@ through `rrhk_audio_idle`, which **threw away the sound waiting** (the ring mode
 
 - an iteration that waits for its frame keeps the sound (only a session's pause clears it, as before);
 - a multiplayer game's ring (the ring model: NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation) is always
-  regulated, with the resampling of D30 at the session's base (1.0 included), so its fill comes back to its target instead of drifting
+  regulated (since the next change, a game alone too), with the resampling of D30 at the session's base (1.0 included), so its fill comes back to its target instead of drifting
   to a trim or a gap; its resampler is no longer restarted by a change of pace; its trim bound is 80 ms higher (a burst of frames
   after a wait no longer throws sound away) and a trim no longer raises its reserve;
 - the ring's closing line counts what a player hears as a crackle: `cleared=` samples and `(gaps N, trims N, clears N)`, and the
   device period.
 
-A game alone is unchanged (its ring is regulated only while the game is locked to the display, D30).
+A game alone was unchanged by this one (see the change above for its ring).
 
 Measured with counters, never by ear (`tools/netplay_game_smoke.py --real-audio PlayStation`: the system's own sound output, each seat
 muted in its game options, so the device pulls the sound at its own pace; SDL's dummy driver sleeps whole milliseconds and its counts

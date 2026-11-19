@@ -95,42 +95,31 @@ static void SDLCALL rrhk_ring_callback(void *unused, Uint8 *stream, int bytes) {
     } else rr_cushion_clean(&rrhk_ring.cushion, take, rrhk_ring.rate);
 }
 
-/* 1.7.7 (HOST_KIT D30): while the game is locked to the display, the factor on the sound's length (machine_hz / refresh_hz),
- * exactly 1.0 otherwise. The ring's target is its start reserve plus half a frame (8 ms). */
+/* The ring is always regulated (1.8.1, Arthur's yes of 19 November 2026): every block goes through the resampler of D30 at
+ * `ring_base` (machine_hz / refresh_hz while the game is locked to the display, 1 + ppm in a multiplayer session, else 1.0) and a
+ * correction of at most 0.5 % from its fill against the target (its start reserve plus half a frame, 8 ms), so the fill comes
+ * back to the target instead of drifting, with the clocks of the PC and of the sound card, to a trim or a gap. Before 1.8.1 a
+ * ring at 1.0 was not resampled (byte for byte the machine's PCM), and the drift and the bursts after a late frame were heard as
+ * crackles (Tekken 3 on a laptop). The resampler is never restarted by a change of base (a restart repeats a sample), only by a
+ * clear. The trim bound has RRHK_RING_ROOM_MS more room (a burst of two or three frames no longer throws sound away) and a trim
+ * no longer raises the reserve (it says the ring was too full, not too short). */
+#define RRHK_RING_ROOM_MS 80u
 static double ring_base = 1.0;
 static RrDrcResampler ring_drc;
-/* 1.8.1: a multiplayer game. Its frames come as the network brings them: a frame that waited, then the next ones run at once to
- * catch up, so the ring sees bursts of two or three frames where a game alone sees one. It is then always regulated (the same
- * resampling as D30 at the session's base, 1.0 included, so its fill comes back to the target instead of drifting to a trim or a
- * gap), its resampler is never restarted by a change of pace (a restart repeats a sample), and its trim bound is
- * RRHK_RING_SESSION_ROOM_MS higher (a burst no longer throws sound away; a trim no longer raises the reserve). */
-#define RRHK_RING_SESSION_ROOM_MS 80u
-static bool ring_session;
-void rrhk_ring_set_base(double base) {
-    if (base == ring_base) return;
-    ring_base = base;
-    if (!ring_session) memset(&ring_drc, 0, sizeof ring_drc);
-}
-void rrhk_ring_set_session(bool on) {
-    if (on == ring_session) return;
-    ring_session = on;
-    memset(&ring_drc, 0, sizeof ring_drc);
-}
+void rrhk_ring_set_base(double base) { ring_base = base; }
 
 /* `count` frames of the machine's PCM: that many samples when it is mono, twice as many int16 values when it is stereo. */
 void rrhk_ring_submit(const int16_t *pcm, uint32_t count) {
     static int16_t stretched[(4096 + 4096 / 20 + 8) * 2];
     if (!rrhk_ring.id || !count) return;
     SDL_LockAudioDevice(rrhk_ring.id);
-    if (ring_base != 1.0 || ring_session) {
-        const double target = (double)rrhk_ring.spec.samples +
-            (double)rrhk_ring.rate * (rrhk_ring.margin + (uint32_t)rr_cushion_ms(&rrhk_ring.cushion) + 8u) / 1000.0;
-        const size_t room = sizeof stretched / sizeof stretched[0] / rrhk_ring.source;
-        count = (uint32_t)rr_drc_resample(&ring_drc, pcm, SDL_min(count, 4096u), (int)rrhk_ring.source,
-                                          rr_drc_ratio(ring_base, (double)rrhk_ring.fill, target), stretched, room);
-        pcm = stretched;
-        if (!count) { SDL_UnlockAudioDevice(rrhk_ring.id); return; }
-    }
+    const double target = (double)rrhk_ring.spec.samples +
+        (double)rrhk_ring.rate * (rrhk_ring.margin + (uint32_t)rr_cushion_ms(&rrhk_ring.cushion) + 8u) / 1000.0;
+    count = (uint32_t)rr_drc_resample(&ring_drc, pcm, SDL_min(count, 4096u), (int)rrhk_ring.source,
+                                      rr_drc_ratio(ring_base, (double)rrhk_ring.fill, target), stretched,
+                                      sizeof stretched / sizeof stretched[0] / rrhk_ring.source);
+    pcm = stretched;
+    if (!count) { SDL_UnlockAudioDevice(rrhk_ring.id); return; }
     rr_cushion_pushed(&rrhk_ring.cushion);
     uint32_t extra = rr_cushion_frames(&rrhk_ring.cushion, rrhk_ring.rate);
     if (!rrhk_ring.started && !rrhk_ring.fill) {
@@ -143,7 +132,7 @@ void rrhk_ring_submit(const int16_t *pcm, uint32_t count) {
     /* Normal PAL/NTSC bursts must never discard a whole guest frame. Only
      * trim exceptional catch-up backlogs, retaining the newest timeline. */
     uint32_t keep = SDL_min(RRHK_RING_FRAMES / 2u, rrhk_ring.keep + extra);
-    const uint32_t room = ring_session ? rrhk_ring.rate * RRHK_RING_SESSION_ROOM_MS / 1000u : 0u;
+    const uint32_t room = rrhk_ring.rate * RRHK_RING_ROOM_MS / 1000u;
     if ((uint64_t)rrhk_ring.fill + count > SDL_min(RRHK_RING_FRAMES, rrhk_ring.limit + extra + room)) {
         uint32_t discard = rrhk_ring.fill + count - keep;
         uint32_t old = SDL_min(discard, rrhk_ring.fill);
@@ -153,8 +142,6 @@ void rrhk_ring_submit(const int16_t *pcm, uint32_t count) {
         pcm += discard * rrhk_ring.source; count -= discard;
         rrhk_ring.dropped += old + discard;
         ++rrhk_ring.trims;
-        /* A device that stalled while playing: same jitter evidence as a gap. */
-        if (rrhk_ring.started && !ring_session) rr_cushion_gap(&rrhk_ring.cushion);
     }
     uint32_t first = SDL_min(count, RRHK_RING_FRAMES - rrhk_ring.write);
     memcpy(rrhk_ring.pcm + rrhk_ring.write * rrhk_ring.source, pcm, first * rrhk_ring.source * sizeof(*pcm));
@@ -172,6 +159,7 @@ void rrhk_ring_clear(void) {
     if (rrhk_ring.fill) { ++rrhk_ring.clears; rrhk_ring.cleared += rrhk_ring.fill; }
     rrhk_ring.read = rrhk_ring.write = rrhk_ring.fill = 0;
     rrhk_ring.started = false; rrhk_ring.deadline = 0;
+    memset(&ring_drc, 0, sizeof ring_drc);
     SDL_UnlockAudioDevice(rrhk_ring.id);
 }
 
@@ -233,6 +221,7 @@ bool rrhk_ring_reopen(void) {
     rrhk_ring.id = 0;
     rrhk_ring.read = rrhk_ring.write = rrhk_ring.fill = 0;
     rrhk_ring.started = false; rrhk_ring.deadline = 0;
+    memset(&ring_drc, 0, sizeof ring_drc);
     if (!open_ring_device()) return false;
     SDL_PauseAudioDevice(rrhk_ring.id, 0);
     return true;

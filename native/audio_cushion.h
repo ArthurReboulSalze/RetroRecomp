@@ -71,7 +71,8 @@ static inline bool rr_cushion_clean(RrAudioCushion *c, Uint32 frames, Uint32 rat
 /* 1.7.7 (HOST_KIT D30): the sound of a game locked to the display. Locked, the game runs at the screen's refresh instead of its
  * own rate (60.00 Hz instead of 59.92: +0.13 %), so each output path shrinks or stretches the sound it made by
  * base = machine_hz / refresh_hz, with a small correction from its own buffer fill so that the buffer neither grows nor runs
- * dry (dynamic rate control). base == 1.0 exactly means not locked: callers bypass all of this, byte for byte as before.
+ * dry (dynamic rate control). base == 1.0 exactly means not locked: the queue model and the machines with their own device bypass all of this, byte for
+ * byte as before; the host kit's ring is always regulated since 1.8.1 (rrhk_ring.c).
  * rr_drc_ratio: the factor on the output length, base within RR_DRC_BASE_LIMIT, the fill's correction within
  * RR_DRC_CORRECTION (below the target a little more sound, above it a little less). */
 #define RR_DRC_BASE_LIMIT 0.03

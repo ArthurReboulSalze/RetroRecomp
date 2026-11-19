@@ -14,7 +14,10 @@ static Uint64 counter(void) { return synthetic ? clock_us : SDL_GetPerformanceCo
 static Uint64 check_frequency(void) { return synthetic ? 1000000 : SDL_GetPerformanceFrequency(); }
 #define RRHK_RING_COUNTER counter
 #define RRHK_RING_FREQUENCY check_frequency
-/* The callback-ring output of the host kit (the NES host's sound output), against authored timelines. */
+/* The callback-ring output of the host kit (the sound output of the NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64 and
+ * PlayStation), against authored timelines. Since 1.8.1 the ring is always regulated (rrhk_ring.c): the sound is resampled by at
+ * most 0.5 % from its fill, so these checks pin what that keeps (the order of the samples, no jump, the channels apart, no gap
+ * and no trim on clocks that drift by 1,000 ppm) instead of the machine's PCM byte for byte. */
 #include "hostkit/shell/rrhk_ring.c"
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate) {
     (void)pcm; (void)frames; (void)channels; (void)floating; (void)rate;
@@ -22,12 +25,14 @@ void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, 
 void rrhk_options_audio_reset(void) {}
 const char *rrhk_audio_device(void) { return NULL; }
 
-static int16_t sample(uint64_t index) { return (int16_t)(index * 173u + 19u); }
+/* A slow ramp: interpolation keeps it non-decreasing, and a sample lost or inserted in a run shows as a step back or a jump. */
+static int16_t sample(uint64_t index) { return (int16_t)((int64_t)(index / 64u) - 16000); }
 static void reset(unsigned period, SDL_AudioFormat format) {
     rrhk_ring_clear();
     rrhk_ring.spec.samples = (Uint16)period;
     rrhk_ring.spec.format = format;
     rrhk_ring.produced = rrhk_ring.played = rrhk_ring.dropped = rrhk_ring.missing = 0;
+    rrhk_ring.gaps = rrhk_ring.trims = rrhk_ring.clears = rrhk_ring.cleared = 0;
     rrhk_ring.startup_silence = rrhk_ring.peak = 0;
     memset(&rrhk_ring.cushion, 0, sizeof(rrhk_ring.cushion));
     rrhk_ring.keep = (21u + RRHK_RING_MARGIN_MS) * 48u + period;
@@ -36,20 +41,24 @@ static void reset(unsigned period, SDL_AudioFormat format) {
 
 static void schedules(void) {
     unsigned periods[] = {256, 441, 480, 512, 1024};
+    const double drifts[] = {0.0, 1000.0, -1000.0};   /* the sound card's clock against the PC's, ppm */
     unsigned cases = 0; uint64_t legacy_missing = 0, legacy_dropped = 0;
+    double fill_low = 1e9, fill_high = 0, ratio_low = 1e9, ratio_high = 0;
     for (unsigned region = 0; region < 2; ++region) {
         /* Independent rates from the two television master clocks. */
         const double seconds = region ? 531960.0 / 26601712.0 : 357366.0 / 21477272.0;
         for (unsigned p = 0; p < 5; ++p) for (unsigned phase = 0; phase < 16; ++phase) {
             unsigned period = periods[p];
+            const double drift = drifts[phase % 3];
             SDL_AudioFormat format = phase & 1 ? AUDIO_F32SYS : AUDIO_S16SYS;
             reset(period, format); clock_us = 1000000;
             uint64_t origin = clock_us, produced = 0, consumed = 0;
             unsigned frame = 0, callback = 0; uint32_t legacy_fill = 0;
+            int previous = sample(0);
             Uint64 first = origin + (uint64_t)phase * period * 1000000 / (16u * 48000u);
             while (frame < 2000) {
                 Uint64 push_time = origin + (Uint64)(frame * seconds * 1000000) + (frame % 7) * 2000u;
-                Uint64 pull_time = first + (uint64_t)callback * period * 1000000 / 48000u;
+                Uint64 pull_time = first + (Uint64)((double)callback * period * 1000000.0 / 48000.0 * (1.0 + drift / 1e6));
                 if (push_time <= pull_time) {
                     clock_us = push_time;
                     uint64_t end = (uint64_t)((frame + 1) * seconds * 48000);
@@ -67,58 +76,86 @@ static void schedules(void) {
                     unsigned silence = (unsigned)(rrhk_ring.startup_silence - silence_before);
                     unsigned took = (unsigned)(rrhk_ring.played - before);
                     if (took && !consumed) {
-                        double start = (clock_us - origin) / 1000.0 + silence / 48.0;
+                        /* the silence is counted in the card's samples: a drifting card stretches it by its ppm */
+                        double start = (clock_us - origin) / 1000.0 + silence / 48.0 * (1.0 + drift / 1e6);
                         double expected = period / 48.0 + RRHK_RING_MARGIN_MS;
-                        assert(start >= expected - .002 && start <= expected + .022);
+                        const double slack = (clock_us - origin) / 1000.0 * SDL_fabs(drift) / 1e6;
+                        assert(start >= expected - .002 - slack && start <= expected + .022 + slack);
                     }
-                    for (unsigned i = 0; i < took; ++i) for (unsigned ch = 0; ch < 2; ++ch) {
-                        unsigned at = (silence + i) * 2 + ch;
-                        if (format == AUDIO_F32SYS) assert(output[at] == sample(consumed + i) / 32768.0f);
-                        else assert(((int16_t *)output)[at] == sample(consumed + i));
+                    for (unsigned i = 0; i < took; ++i) {
+                        unsigned at = (silence + i) * 2;
+                        const int left = format == AUDIO_F32SYS ? (int)(output[at] * 32768.0f) : ((int16_t *)output)[at];
+                        const int right = format == AUDIO_F32SYS ? (int)(output[at + 1] * 32768.0f) : ((int16_t *)output)[at + 1];
+                        assert(left == right);                              /* a mono source on both channels */
+                        assert(left >= previous && left <= previous + 1);   /* in order, nothing lost, nothing inserted */
+                        previous = left;
                     }
                     consumed += took; callback++;
                     unsigned take = SDL_min(legacy_fill, period);
                     if (frame > 2) legacy_missing += period - take;
                     legacy_fill -= take;
-                    assert(!rrhk_ring.missing && !rrhk_ring.dropped);
+                    assert(!rrhk_ring.missing && !rrhk_ring.dropped && !rrhk_ring.gaps && !rrhk_ring.trims);
+                    if (frame > 1000) {   /* settled: the fill held near the target whatever the drift */
+                        fill_low = SDL_min(fill_low, (double)rrhk_ring.fill);
+                        fill_high = SDL_max(fill_high, (double)rrhk_ring.fill);
+                    }
                 }
             }
-            assert(rrhk_ring.produced == produced && rrhk_ring.played == consumed);
+            assert(rrhk_ring.played == consumed && rrhk_ring.produced == consumed + rrhk_ring.fill);
+            const double ratio = (double)rrhk_ring.produced / (double)produced;
+            ratio_low = SDL_min(ratio_low, ratio); ratio_high = SDL_max(ratio_high, ratio);
+            assert(ratio > 1.0 - RR_DRC_CORRECTION && ratio < 1.0 + RR_DRC_CORRECTION);
             ++cases;
         }
     }
-    printf("PASS: %u NTSC/PAL timelines, 2000 frames, 16 phases, five periods, 12 ms jitter; exact mono/stereo S16/F32, no missing/discarded PCM.\n", cases);
+    printf("PASS: %u NTSC/PAL timelines, 2000 frames, 16 phases, five periods, 12 ms jitter, sound card clock 0 / +1000 / -1000 ppm: "
+           "regulated, in order, no gap, no trim; settled fill %.0f to %.0f frames, length %.4f to %.4f of the machine's.\n",
+           cases, fill_low, fill_high, ratio_low, ratio_high);
     printf("Legacy queue on the same schedules: missing=%llu discarded=%llu samples (software model, not physical audio).\n",
         (unsigned long long)legacy_missing, (unsigned long long)legacy_dropped);
     assert(legacy_missing > 0);
 }
 
+/* A ramp of one step a frame, resampled by up to 0.5 %: two neighbours may differ by 2 (a step of 1.005 rounded). */
 static void resets(void) {
     reset(480, AUDIO_S16SYS); clock_us = 1000000;
-    int16_t input[4096]; for (unsigned i = 0; i < 4096; ++i) input[i] = sample(i);
+    int16_t input[4096]; for (unsigned i = 0; i < 4096; ++i) input[i] = (int16_t)i;
     rrhk_ring_submit(input, 960);
     assert(rrhk_ring.deadline == 1040000);
-    rrhk_ring_clear(); assert(!rrhk_ring.fill && !rrhk_ring.deadline && !rrhk_ring.started);
+    rrhk_ring_clear(); assert(!rrhk_ring.fill && !rrhk_ring.deadline && !rrhk_ring.started && rrhk_ring.clears == 1);
     int16_t output[2048]; rrhk_ring_callback(NULL, (Uint8 *)output, sizeof output);
     for (unsigned i = 0; i < 2048; ++i) assert(output[i] == 0);
-    assert(!rrhk_ring.missing);
+    assert(!rrhk_ring.missing && !rrhk_ring.played);
     rrhk_ring_submit(input, 100); clock_us += 40000;
+    const uint64_t short_block = rrhk_ring.fill;     /* 100 frames, lengthened by at most 0.5 % below the target */
+    assert(short_block >= 100 && short_block <= 101);
     rrhk_ring_callback(NULL, (Uint8 *)output, 480 * 4);
-    assert(rrhk_ring.missing == 380 && !rrhk_ring.started);
+    assert(rrhk_ring.missing == 480 - short_block && rrhk_ring.gaps == 1 && !rrhk_ring.started);
     /* The guest was still producing: that gap adds one restart step. */
     assert(rr_cushion_ms(&rrhk_ring.cushion) == RR_CUSHION_STEP_MS);
     rrhk_ring_submit(input, 960); assert(rrhk_ring.deadline == clock_us + 40000 + RR_CUSHION_STEP_MS * 1000u);
     rrhk_ring_clear();
+    /* Exceptional catch-up beyond the bound (its limit, the reserve and 80 ms of room): keep the newest PCM, including the
+     * reserve; a trim does not raise the reserve. */
+    const uint64_t produced = rrhk_ring.produced;
     rrhk_ring_submit(input, 4096); rrhk_ring_submit(input, 4096);
-    /* Exceptional catch-up: keep the newest PCM, including the reserve. */
     uint32_t keep = rrhk_ring.keep + RR_CUSHION_STEP_MS * 48u;
-    assert(rrhk_ring.fill == keep && rrhk_ring.dropped == 8192 - keep);
-    assert(rrhk_ring.pcm[rrhk_ring.read] == input[4096 - keep]);
-    puts("PASS: pause/reset/load flush, silence while empty, underrun recovery, bounded catch-up keeps newest samples.");
+    assert(rrhk_ring.fill == keep && rrhk_ring.dropped == rrhk_ring.produced - produced - keep && rrhk_ring.trims == 1);
+    assert(rr_cushion_ms(&rrhk_ring.cushion) == RR_CUSHION_STEP_MS);
+    /* The kept frames are the newest, in order: the end of the second block. */
+    int16_t previous = rrhk_ring.pcm[rrhk_ring.read];
+    assert(previous >= 4096 - (int)keep - 30);
+    for (uint32_t i = 1; i < rrhk_ring.fill; ++i) {
+        const int16_t value = rrhk_ring.pcm[(rrhk_ring.read + i) % RRHK_RING_FRAMES];
+        assert(value >= previous && value <= previous + 2);
+        previous = value;
+    }
+    assert(previous >= 4094);
+    puts("PASS: pause/reset/load flush (counted), silence while empty, underrun recovery, bounded catch-up keeps newest samples in order.");
 }
 
-/* The Game Boy's source: interleaved 44.1 kHz stereo and a 10 ms start margin. Left and right keep their order and their own
- * samples (S16 and F32), the period starts at the margin, and a backlog trims the same way as for a mono source. */
+/* The Game Boy's source: interleaved 44.1 kHz stereo and a 10 ms start margin. Left and right keep their order and stay apart
+ * (S16 and F32), the period starts at the margin, and a backlog trims the same way as for a mono source. */
 static void stereo(void) {
     assert(rrhk_ring_open(44100u, 2, 10)); /* Remains paused during virtual-clock tests. */
     assert(rrhk_ring.source == 2 && rrhk_ring.margin == 10);
@@ -127,28 +164,35 @@ static void stereo(void) {
         rrhk_ring.rate = 44100u; rrhk_ring.keep = (21u + 10u) * 44u + 256u; rrhk_ring.limit = rrhk_ring.keep + 926u;
         clock_us = 1000000;
         int16_t input[2 * 1500];
-        for (unsigned i = 0; i < 1500; ++i) { input[2 * i] = sample(i); input[2 * i + 1] = (int16_t)~sample(i); }
+        for (unsigned i = 0; i < 1500; ++i) { input[2 * i] = (int16_t)i; input[2 * i + 1] = (int16_t)-(int)i; }
         rrhk_ring_submit(input, 1000);
         /* 256 frames at 44.1 kHz and the margin: 5805 us and 10 ms, rounded up. */
         assert(rrhk_ring.deadline == 1000000 + 5805 + 10000);
         float out[2 * 256]; int16_t *wide = (int16_t *)out;
         clock_us = rrhk_ring.deadline;
         rrhk_ring_callback(NULL, (Uint8 *)out, (int)sizeof(out) / (format ? 1 : 2));
+        int previous = -1;
         for (unsigned i = 0; i < 256; ++i) {
-            if (format) { assert(out[2 * i] == sample(i) / 32768.0f && out[2 * i + 1] == (int16_t)~sample(i) / 32768.0f); }
-            else assert(wide[2 * i] == sample(i) && wide[2 * i + 1] == (int16_t)~sample(i));
+            const int left = format ? (int)(out[2 * i] * 32768.0f) : wide[2 * i];
+            const int right = format ? (int)(out[2 * i + 1] * 32768.0f) : wide[2 * i + 1];
+            assert(right == -left && left >= previous && left <= previous + 2);
+            previous = left;
         }
-        assert(rrhk_ring.played == 256 && rrhk_ring.fill == 744 && !rrhk_ring.missing);
-        /* A backlog beyond the limit keeps the newest frames, whole pairs. */
+        assert(rrhk_ring.played == 256 && rrhk_ring.fill == rrhk_ring.produced - 256 && !rrhk_ring.missing);
+        /* A backlog beyond the bound keeps the newest frames, whole pairs. */
         rrhk_ring_clear();
-        rrhk_ring_submit(input, 1500); rrhk_ring_submit(input, 1500); rrhk_ring_submit(input, 1500);
-        assert(rrhk_ring.fill == SDL_min(rrhk_ring.keep, 4500u) && rrhk_ring.dropped == 4500u - rrhk_ring.fill);
-        /* The newest pairs: the tail of the second block, then the whole third one (every block is the same 1500 frames). */
-        const unsigned first = 1500 - (rrhk_ring.fill - 1500);
-        assert(rrhk_ring.pcm[rrhk_ring.read * 2] == input[2 * first] && rrhk_ring.pcm[rrhk_ring.read * 2 + 1] == input[2 * first + 1]);
+        const uint64_t produced = rrhk_ring.produced;
+        for (unsigned block = 0; block < 5; ++block) rrhk_ring_submit(input, 1500);
+        assert(rrhk_ring.trims == 1 && rrhk_ring.fill == SDL_min(rrhk_ring.keep, RRHK_RING_FRAMES / 2u));
+        assert(rrhk_ring.dropped == rrhk_ring.produced - produced - rrhk_ring.fill);
+        for (uint32_t i = 0; i < rrhk_ring.fill; ++i) {
+            const uint32_t at = (rrhk_ring.read + i) % RRHK_RING_FRAMES;
+            assert(rrhk_ring.pcm[at * 2 + 1] == -rrhk_ring.pcm[at * 2]);
+        }
+        assert(rrhk_ring.pcm[((rrhk_ring.read + rrhk_ring.fill - 1) % RRHK_RING_FRAMES) * 2] >= 1498);
     }
     rrhk_ring_close();
-    puts("PASS: stereo source (Game Boy): order and channels exact in S16 and F32, 10 ms start margin, backlog keeps the newest pairs.");
+    puts("PASS: stereo source (Game Boy): in order, channels apart in S16 and F32, 10 ms start margin, backlog keeps the newest pairs.");
 }
 
 int main(void) {

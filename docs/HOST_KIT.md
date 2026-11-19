@@ -598,6 +598,7 @@ X68000 too, without asking again**.
     timing report (`RETRORECOMP_TIMING_REPORT`) and stderr give the mode, the measured refresh, the decision and the cadence of
     the locked frames (how many refreshes each was held), never a latency. A 2:1 lock for 120 Hz screens, frame delay and
     run-ahead are not part of 1.7.7 (`vsync-study-177`, sections 5 to 7).
+  * 1.8.1: the kit's ring no longer bypasses at a base of 1.0; it is always regulated ([D32](#d32)).
 
 * <a id="d31"></a>**D31 — The pad's Options button opens the F2 tiles; Quit is their last tile** (owner's words of 17 November
   2026, « Oui, lance »; on the Exit tile: « comme on l'avait déjà fait une fois […] c'était la bonne manière »), on every machine
@@ -614,6 +615,25 @@ X68000 too, without asking again**.
   two lines of tiles (four players, a machine page, a graphics page and Quit make three) the tiles scroll, two lines around the
   selected one, ^ and v at the right edge. The menu canvas (256 x 192) fits every machine's window at the kit's default scale
   (a Game Boy or Game Gear opens at 480 x 432); a window made smaller than the canvas cuts every menu, as before.
+
+* <a id="d32"></a>**D32 — The kit's sound ring is always regulated** (owner's yes of 19 November 2026, through the lead, after
+  Tekken 3 crackled a little alone on his PC, more on the ThinkPad, and a lot together), for the six machines on the ring model
+  (D5): **NES, Game Boy / Game Boy Color, PC Engine, Game Boy Advance, Nintendo 64, PlayStation**. Until then, D30's base of
+  exactly 1.0 (a game not locked to the display, so nearly always) left the ring's PCM byte for byte the machine's: the PC's clock
+  paces the frames and the sound card's clock pulls the sound, the two differ by tens of ppm, and a frame late by a hitch came
+  back as a burst of two; the ring's fill drifted or jumped to a trim (sound thrown away, 21 ms of room above its reserve) or a
+  gap (silence while the reserve fills again), both heard as a crackle. Now every block goes through `rr_drc_resample` at D30's
+  base (1.0, machine_hz / refresh_hz when locked, 1 + ppm in a multiplayer session) with `rr_drc_ratio`'s correction from the
+  ring's fill against its target (the start reserve plus 8 ms), at most 0.5 %; the resampler is restarted only by a clear,
+  never by a change of base; the trim bound has 80 ms more room and a trim no longer raises the reserve.
+  * For a player: the sound's speed (and pitch) moves by at most 0.5 % (about 9 cents), usually about 0.01 % (the two clocks'
+    difference), in place of the clicks; no latency is added on average (the fill is held at the target; the 80 ms are a ceiling
+    before a trim, not a delay); the linear interpolation softens the highest frequencies slightly. Physical latency stays
+    unmeasured. The queue model (D5's other machines) and the machines with their own device keep D30 as it was.
+  * Proof: `tools/nes_audio_selftest.py` now pins the regulated ring (160 authored timelines with the sound card's clock at 0,
+    +1,000 and -1,000 ppm: in order, nothing lost or inserted, no gap, no trim, the length within 0.5 % of the machine's; the
+    resets and the stereo case with the channels apart); the counts of the ring's closing line (gaps, trims, clears) on Tekken 3
+    are in UPGRADES.md.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

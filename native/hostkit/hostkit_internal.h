@@ -245,7 +245,6 @@ void rrhk_ring_clear(void);
 void rrhk_ring_close(void);
 SDL_AudioDeviceID rrhk_ring_device(void);
 void rrhk_ring_set_base(double base);   /* 1.7.7 (D30) */
-void rrhk_ring_set_session(bool on);    /* 1.8.1: a multiplayer game: always regulated, more room before a trim */
 
 /* events.c */
 void rrhk_poll_events(RrhkRun *run);
