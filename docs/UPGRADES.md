@@ -87,6 +87,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
+| [Every machine: the sound no longer crackles in multiplayer](#every-machine-the-sound-no-longer-crackles-in-multiplayer-next-release) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `rrhk_audio.c`, `rrhk_ring.c`, `hostkit_internal.h`) | unchanged (host files are outside every state key) |
 | [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Nintendo 64: multiplayer on the delay tier, and a change of resolution in play keeps the renderer's memory](#nintendo-64-multiplayer-on-the-delay-tier-and-a-change-of-resolution-in-play-keeps-the-renderers-memory-next-release) | the Nintendo 64 (`n64_cpu.c`, `n64_session.cpp`, `n64_player.c`) | the Nintendo 64's host stamp (`rrhk_n64.inc`) | Nintendo 64 states of 1.8.0 refused (the state key hashes the session sources) |
 | [Every machine: multiplayer, two to four players over the local network](#every-machine-multiplayer-two-to-four-players-over-the-local-network-next-release) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
@@ -110,6 +111,46 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Commodore Amiga 500 and 1200: multiplayer on the rollback tier](#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, the new `retrorecomp.amiga_vamiga_session`, `retrorecomp.amiga_conversion`, `systems/amiga.py`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h` and the adapted vAmiga): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end](#commodore-amiga-500-and-1200-the-host-writes-its-saves-back-at-a-matchs-clean-end-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_savefile.h`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h`): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: an Imploder block whose checksum differs](#commodore-amiga-500-and-1200-an-imploder-block-whose-checksum-differs-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`native/amiga_whdload/rr_decrunch.c`) | none | unchanged (the quick-state key does not hash the unpacker) |
+
+## Every machine: the sound no longer crackles in multiplayer (next release)
+
+Arthur, 19 November 2026, Tekken 3 together over his local network: the game stays fluid, the music crackles a lot (a little alone on
+his PC, more on the ThinkPad). Cause, in the host kit's loop (`rrhk_main.c`, `end_frame`), for every machine: an iteration whose
+frame had not come yet (the session waits for it up to three quarters of a frame, then shows the last picture and asks again) went
+through `rrhk_audio_idle`, which **threw away the sound waiting** (the ring model: `rrhk_ring_clear`; the queue model: pause and
+`SDL_ClearQueuedAudio`) and started it again after a reserve of silence. Now:
+
+- an iteration that waits for its frame keeps the sound (only a session's pause clears it, as before);
+- a multiplayer game's ring (the ring model: NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation) is always
+  regulated, with the resampling of D30 at the session's base (1.0 included), so its fill comes back to its target instead of drifting
+  to a trim or a gap; its resampler is no longer restarted by a change of pace; its trim bound is 80 ms higher (a burst of frames
+  after a wait no longer throws sound away) and a trim no longer raises its reserve;
+- the ring's closing line counts what a player hears as a crackle: `cleared=` samples and `(gaps N, trims N, clears N)`, and the
+  device period.
+
+A game alone is unchanged (its ring is regulated only while the game is locked to the display, D30).
+
+Measured with counters, never by ear (`tools/netplay_game_smoke.py --real-audio PlayStation`: the system's own sound output, each seat
+muted in its game options, so the device pulls the sound at its own pace; SDL's dummy driver sleeps whole milliseconds and its counts
+mean nothing). Tekken 3, two seats on one PC, 3,600 frames (60 s), real device (period 441):
+
+| Link | Kit | Seat 1: gaps / trims / clears | Seat 2: gaps / trims / clears |
+| --- | --- | --- | --- |
+| 5 ms, jitter 15 ms, delay 2 | before | 1 / 4 / 7 | 4 / 8 / 17 |
+| 5 ms, jitter 15 ms, delay 2 | after | 1 / 0 / 0 | 1 / 0 / 0 |
+| 20 ms, jitter 40 ms, delay 3 | before | 0 / 1 / 39 | 1 / 2 / 42 |
+| 20 ms, jitter 40 ms, delay 3 | after | 11 / 0 / 0 | 11 / 0 / 0 |
+
+The same game alone, same 60 s: 1 gap, 2 trims. What is left on the rough link: a waiting iteration still advances the schedule by a
+whole period, never made up, so the sound waiting runs one frame short per wait. Keeping the schedule there (the frame runs when it
+comes and the next ones catch up) brought that link to 1 gap and 1 trim per seat, but it changes what the time sync sees (the faster
+seat of `tools/netplay_lockstep_selftest.py`'s drift check then waits on 359 of 900 frames, its bound is 225): it is left to the
+multiplayer work, not in this change. The digests of every run stay equal (PASS). One run
+each on a busy PC: counts, not a timing; physical latency unmeasured. The queue model (the other machines) gets the first change only;
+its own regulation in a session is not measured here.
+
+**Stamps** (against `spec/multiplayer` `ba3ff615`): the host stamp of all 21 profiles (`rrhk_main.c`, `rrhk_audio.c`, `rrhk_ring.c`,
+`hostkit_internal.h`); no game stamp; quick states unchanged.
 
 ## Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end (next release)
 

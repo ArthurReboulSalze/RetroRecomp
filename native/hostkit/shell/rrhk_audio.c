@@ -133,6 +133,7 @@ void rrhk_audio_frame(RrhkRun *run) {
         return;
     }
     if (m->audio_model == RRHK_AUDIO_RING) {
+        rrhk_ring_set_session(rrhk_session_on);   /* 1.8.1: a multiplayer game's ring is always regulated (rrhk_ring.c) */
         while ((n = m->audio(pcm, 4096)) > 0)
             if (run->audio) rrhk_ring_submit(pcm, (uint32_t)n);
         return;

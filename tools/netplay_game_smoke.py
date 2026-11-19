@@ -84,6 +84,10 @@ def main() -> int:
     parser.add_argument('--digest-every', type=int, default=60)
     parser.add_argument('--route', type=Path, help='a recorded route ("frame p1 p2" lines of hex pad words, # comments): the host '
                         'plays p1, the first guest p2, instead of random words (a game brought to a screen, a save)')
+    parser.add_argument('--real-audio', metavar='SECTION', default='',
+                        help="the system's own sound output instead of SDL's dummy driver, every seat muted in its game options "
+                             "([SECTION.Options] audio_muted=1: nothing is heard, the device still pulls the sound at its own pace), "
+                             "so the kit's closing line counts real gaps and trims (missing=, trimmed=)")
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--limit', type=float, default=0.0, help='seconds before the games are ended (default: from --frames)')
     parser.add_argument('--output', type=Path, default=ROOT / '.build/netplay-game-smoke')
@@ -103,6 +107,11 @@ def main() -> int:
         folder.mkdir(parents=True)
         copy = folder / game.name
         shutil.copy2(game, copy)
+        env = dict(HIDDEN)
+        if args.real_audio:      # the real device pulls the sound (its own clock and period); the game is muted, nothing heard
+            del env['SDL_AUDIODRIVER']
+            (folder / 'datas').mkdir(exist_ok=True)
+            (folder / 'datas' / 'Retro-Recomp.ini').write_text(f'[{args.real_audio}.Options]\naudio_muted=1\n', encoding='ascii')
         if args.host_save and seat == 0:       # the host plays on its own save file, as a host does
             target = folder / args.save_name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -126,7 +135,7 @@ def main() -> int:
             settings['save'] = (args.save_image or args.host_save).read_bytes().hex()
         if seat == 0 and args.delay:
             settings['delay'] = args.delay
-        config = dict(game=dict(exe=str(copy), cwd=str(folder), env=HIDDEN, stdout=str(folder / 'stdout.txt'),
+        config = dict(game=dict(exe=str(copy), cwd=str(folder), env=env, stdout=str(folder / 'stdout.txt'),
                                 stderr=str(folder / 'stderr.txt')), settings=settings, tests=True)
         worker = WorkerProcess(config, carry=lambda to, data, seat=seat: link.endpoint(seat).send(to, data),
                                log=folder / 'worker.txt')
