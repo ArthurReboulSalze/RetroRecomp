@@ -260,6 +260,10 @@ const RrhkMachine *rrhk_adapter(void) {
       /* Multiplayer: the game's in-process snapshots (rollback, the host's F8 / F9 for everyone), its digest, its outside effects. */
       machine.snap_bound = msx_snap_bound; machine.snap_save = msx_snap_save; machine.snap_load = msx_snap_load;
       machine.digest = msx_snap_digest; machine.side_effects = msx_side_effects;
+      /* The game's saves (battery SRAM, the disks' written sectors): the host's travel to every seat for the match. */
+      machine.session_save = msx_session_save; machine.session_save_put = msx_session_save_put;
+      /* SETUP: every seat back at power-on (its guest ran a first frame on its own saves), then the match's image. */
+      machine.session_begin = msx_session_begin;
       machine.input_frame = m_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = m_help_controls;
       machine.option_rows = x_option_rows; machine.key_event = x_key_event;

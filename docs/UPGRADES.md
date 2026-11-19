@@ -94,6 +94,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Super Nintendo: four players (Super Multitap) and the host's save in a session](#super-nintendo-four-players-super-multitap-and-the-hosts-cartridge-save-in-a-session-next-release) | **the Super Nintendo game stamp** (the multitap list and the report) | **the Super Nintendo host stamp** (`snes_backend.c`, `rrhk_snes.c`) | the Super Nintendo key moves (as above) |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [MSX: a MegaROM with no direct mapper store is probed, not refused](#msx-a-megarom-with-no-direct-mapper-store-is-probed-not-refused-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`retrorecomp/msx_conversion.py`) | none | unchanged |
+| [MSX, MSX2, MSX2+: the host's save travels in a session](#msx-msx2-msx2-the-hosts-save-travels-in-a-session-next-release) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-next-release) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-next-release) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
@@ -152,6 +153,36 @@ PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `a08bdd4e`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.
 | [Windows packing: the call filter's last candidate](#windows-packing-the-call-filters-last-candidate-next-release) | none | **the build stamp of every profile** (`retrorecomp/packing.py` is a build input) | unchanged |
+
+## MSX, MSX2, MSX2+: the host's save travels in a session (next release)
+
+The MSX family gives the kit `session_save` / `session_save_put` (session ABI 8, `native/msx_machine/msx_snapshot.inc`), so a
+guest plays the match on the host's save instead of its own. The image, little-endian: `RMSXSAV1`, the cartridge's battery SRAM
+(its size, then its bytes), then for a disk game each disk as the sectors that differ from the embedded disk (their number, then
+each sector's index and its 512 bytes): a disk game's saves travel as a few sectors, not as its 720 KB disks, which would pass the
+kit's 2 MB bound. A guest checks the whole image before it changes anything (magic, SRAM size, disk count, every sector index and
+the exact length), then puts every disk back as embedded (its own copies never count) and the host's sectors over them. The guest's
+loop runs its first frame before SETUP comes, on the seat's own saves (as the Game Boy found): in a session the game keeps the
+machine at power-on (an in-process snapshot taken before the first instruction), and `session_begin` (SETUP) loads it on every
+seat, then lays the match's image (the host's own bytes, or those handed to the guest), so a game that read its save in that
+first frame still starts from the host's everywhere. The SRAM and the disk in drive A are in the digest. A host whose rewritten sectors would still pass the bound plays the embedded disks
+for the match like every seat, keeps its copies untouched and is told. A guest writes **no save file**, its end included: the
+SRAM file and the disk copies written at the process's end now wait for the side effects too, where before a guest's last
+write would have put the host's bytes in its own file. The MSX2 clock keeps no file (it starts on the same date everywhere); a
+restart for everyone keeps the match's SRAM and disks, as the machine's reset does. Alone, a game reads and writes its saves as
+before.
+
+**Proofs** (`tools/netplay_game_smoke.py --seats 2 --rollback 5 --host-save ... --save-at 600 --load-at 1500 --restart-at 2200`,
+3,000 frames, 30 ms with 10 ms of jitter, a scratch library, no window): Deep Dungeon (MSX) and Dragon Slayer II - Xanadu
+(MSX2+) on the owner's own SRAM saves, and the authored disk that writes (`tools/msx_write_disk.py`, MSX2+, the owner's FS-A1WSX
+BIOS) on the copy the game itself wrote alone (one sector, a 527-byte image): every seat boots on the same digest, the save,
+load and restart fall on the same frames, every digest is equal, and only seat 1 holds the save file at the end; the boot
+digests are those of the power-on state with the save (each differs from the end of the seat's own first frame). The image each
+host game sent (its real SAVE_OUT, read through `session_game.py`) is byte for byte the one the guests were handed. Negative
+controls: a guest handed the same image with a blank SRAM, or with no sector, is refused at boot ("does not start from the same
+state as the host's").
+
+**Stamps** (against `spec/multiplayer` `2d3cc8c1`): the MSX, MSX2 and MSX2+ game and host stamps; nothing else.
 
 ## MSX: a MegaROM with no direct mapper store is probed, not refused (next release)
 

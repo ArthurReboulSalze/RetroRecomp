@@ -382,5 +382,49 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(route_warnings(rows), ['play: the picture stopped changing at frame 100 of 3600'])
 
 
+class SessionSaveTests(unittest.TestCase):
+    """The host's save in a multiplayer session (session ABI 8): the image the MSX gives and takes, what a guest never writes. The
+    run itself is `tools/netplay_game_smoke.py --host-save` on a converted game."""
+
+    def setUp(self):
+        self.player = (ROOT / 'native/msx_machine/msx_player.c').read_text(encoding='utf-8')
+        self.snapshot = (ROOT / 'native/msx_machine/msx_snapshot.inc').read_text(encoding='utf-8')
+        self.adapter = (ROOT / 'native/hostkit/adapters/rrhk_msx.inc').read_text(encoding='utf-8')
+
+    def test_the_adapter_gives_and_takes_the_save(self):
+        self.assertIn('machine.session_save = msx_session_save; machine.session_save_put = msx_session_save_put;', self.adapter)
+
+    def test_a_guest_writes_no_save_not_even_at_the_end(self):
+        self.assertIn('static void disks_at_exit(void) { if (msx_effects_allowed) disks_save(); }', self.player)
+        self.assertIn('static void sram_at_exit(void) { if (msx_effects_allowed) msx_sram_flush(', self.player)
+        self.assertIn('if (msx_effects_allowed)\n            msx_sram_flush(SDL_GetTicks64(), false);', self.player)
+        self.assertIn('if (msx_effects_allowed) disks_save(); else quiet = 179;', self.player)
+
+    def test_the_image_is_checked_whole_before_anything_is_put(self):
+        put = self.snapshot.split('static bool msx_session_save_put(const void *in, size_t size)\n{')[1].split('\n}\n')[0]
+        self.assertLess(put.index('size, 0)'), put.index('size, 1)'))
+        self.assertIn('return false;', put.split('size, 1)')[0])
+        take = self.snapshot.split('static bool msx_session_image_take(')[1].split('\n}\n')[0]
+        for check in ('value != sram_size', 'value != RR_MSX_DISKS', 'count > sectors', 'k >= sectors', 'return at == size;'):
+            self.assertIn(check, take)
+        # a seat's own disk copy never counts: every disk is the embedded one before the host's sectors go in
+        self.assertIn('memcpy(disk_data[n], embedded + base, disk_sizes[n]);', take)
+
+    def test_setup_starts_every_seat_from_power_on_then_the_matchs_image(self):
+        # the guest's first frame runs before SETUP, on the seat's own saves: SETUP puts the machine back at power-on first
+        self.assertIn('machine.session_begin = msx_session_begin;', self.adapter)
+        self.assertIn('power_on();\n    if (rrhk_session_active()) msx_session_keep_start();', self.player)
+        begin = self.snapshot.split('static void msx_session_begin(uint64_t clock)\n{')[1].split('\n}\n')[0]
+        self.assertLess(begin.index('msx_snap_load(msx_session_start'), begin.index('msx_session_image_take(msx_session_held'))
+        # the host holds the bytes it sends, a guest the ones it was handed
+        self.assertIn('msx_session_hold(out, size);', self.snapshot)
+        self.assertIn('msx_session_hold(in, size);', self.snapshot)
+
+    def test_the_image_magic_reads_rmsxsav1(self):
+        import re
+        value = int(re.search(r'#define MSX_SAVE_MAGIC (0x[0-9A-F]+)ull', self.snapshot).group(1), 16)
+        self.assertEqual(value.to_bytes(8, 'little'), b'RMSXSAV1')
+
+
 if __name__ == '__main__':
     unittest.main()
