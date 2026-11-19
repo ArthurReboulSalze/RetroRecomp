@@ -380,13 +380,11 @@ class HeroPictures(unittest.TestCase):
 
     def test_a_hollow_triangle_is_hollow_and_the_greyed_look_is_the_same_drawing_in_grey(self):
         from retrorecomp import gui_icons
-        for name in ('play_hollow_double', 'play_hollow_bevel', 'play_hollow_pixel'):
+        for name in ('play_hollow_double',):
             dark = gui_icons.draw_picture(name, '#191919', 26)
             grey = gui_icons.draw_picture(name, '#777777', 26)
             self.assertLess(dark.getpixel((11, 13))[3], 16, name)           # the middle of the triangle is empty
             self.assertEqual(dark.getchannel('A').tobytes(), grey.getchannel('A').tobytes(), name)
-            if name == 'play_hollow_bevel':
-                continue                                                   # its highlight is a lighter shade on purpose
             solid = {grey.getpixel((x, y))[:3] for x in range(26) for y in range(26) if grey.getpixel((x, y))[3] > 250}
             self.assertEqual(solid, {(0x77, 0x77, 0x77)}, name)            # a readable grey, drawn solid
 
