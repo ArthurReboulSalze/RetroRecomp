@@ -456,9 +456,25 @@ uint64_t rr16_audio_fingerprint(void) {
 uint64_t rr16_audio_frame_fingerprint(void) { return frame_audio_hash; }
 size_t rr16_audio(int16_t *pcm, size_t capacity) { return 0; }
 void rr16_pause(bool paused) { if (audible) audio_set_playback_enabled(!paused); }
+/* Multiplayer: the size and FNV-1a 64 of the cartridge save in memory, said on stderr (a match's log shows the host's file and
+ * every seat's memory agree). */
+static void save_line(const char *what) {
+    const GenesisBus *b=&g_machine.bus;
+    if (!b->sram_present || !b->sram_battery || !b->sram_size || b->sram_size>sizeof b->sram) return;
+    fprintf(stderr,"[save] %s: %u bytes, %016llx\n",what,(unsigned)b->sram_size,
+            (unsigned long long)bytes_hash(b->sram,b->sram_size));
+}
+/* Multiplayer (hostkit.h session_save_commit): the host's save as it is in memory, written at a match's clean end. */
+bool rr16_md_session_save_commit(void) {
+    if (headless_mode || !rr_md_battery_commit(&g_machine.bus)) return false;
+    save_line("written back to the host's file");
+    return true;
+}
 void rr16_shutdown(void) {
+    if (!battery_writes) save_line("the match's save in memory at the end");
     rr_md_z80_bus_reset();
-    if (!headless_mode && !rr_md_battery_flush(&g_machine.bus,SDL_GetTicks64(),true))
+    /* Not in a multiplayer match whose side effects are off: a guest never writes, the host only through the commit below. */
+    if (!headless_mode && battery_writes && !rr_md_battery_flush(&g_machine.bus,SDL_GetTicks64(),true))
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING,"RetroRecomp",
             "The cartridge save could not be written. Check the folder permissions "
             "and available disk space.",NULL);

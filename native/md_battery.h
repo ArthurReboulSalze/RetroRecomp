@@ -8,3 +8,5 @@ bool rr_md_battery_path(wchar_t *path, size_t capacity);
 /* NULL path disables host persistence, including all conversion probes. */
 bool rr_md_battery_open(GenesisBus *bus, const wchar_t *path);
 bool rr_md_battery_flush(const GenesisBus *bus, uint64_t now_ms, bool force);
+/* Multiplayer: the host's save written back at a match's clean end, with a one-step backup (cart_save.h). */
+bool rr_md_battery_commit(const GenesisBus *bus);
