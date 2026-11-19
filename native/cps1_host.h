@@ -42,6 +42,10 @@ size_t rr_cps1_snap_save(void *buffer, size_t capacity);
 bool rr_cps1_snap_load(const void *buffer, size_t size);
 uint64_t rr_cps1_digest(void);
 void rr_cps1_side_effects(bool allowed);
+/* The game's own save in a session (hostkit.h session_save / session_save_put, session ABI 8): the 128 bytes of the board's EEPROM. The host's go
+ * to every seat before the boot digest and after a restart; a guest plays on them in memory only. A board without an EEPROM has none (0). */
+size_t rr_cps1_session_save(void *out, size_t capacity);
+bool rr_cps1_session_save_put(const void *in, size_t size);
 uint32_t rr_cps1_frame_index(void);
 void rr_cps1_restore_frame(uint32_t frame);
 void rr_cps1_reset_machine(void);

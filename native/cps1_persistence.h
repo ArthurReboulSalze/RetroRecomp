@@ -10,8 +10,9 @@
  * and cannot be used (it is left alone and nothing is written over it). A board without an EEPROM does nothing. */
 bool rr_cps1_save_begin(void);
 /* After every frame: asks for the EEPROM to be written when the game changed it (a worker writes it once it has been stable for a
- * second). In a multiplayer session (RETRORECOMP_NETPLAY_PIPE set) nothing is read or written: every seat starts from a blank EEPROM, as
- * the match's state must be equal everywhere, and a session never touches the player's file. */
+ * second). In a multiplayer session the host plays on its own file as alone and writes it (hostkit.h side_effects: not in a silent frame);
+ * a guest's frames ask for no file at all, and the host's EEPROM image is put in its memory before the match's boot digest
+ * (cps1_host.h rr_cps1_session_save_put). */
 void rr_cps1_save_frame(void);
 /* What a frame may do outside the machine (hostkit.h side_effects): off, the change flag is still taken but no file is asked for. */
 void rr_cps1_save_side_effects(bool allowed);

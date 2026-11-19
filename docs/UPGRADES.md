@@ -331,9 +331,14 @@ paths of both boards changes with the machine's sources, as for any change of th
   next frame draws it again: checked by comparing the first pictures after a load with the reference's) and with the EEPROM's "file is
   behind" flag at 0. It is 347 to 401 KB, allocates nothing (the three chip buffers of a save are static, and the YM2151 state vector
   keeps its capacity), and the digest is the FNV-1a of the same fields in the same order.
-- **The EEPROM in a session.** Every seat starts from a blank EEPROM (a settings file that one player has and another has not would
-  make the matches diverge): in a session the file is neither read nor written, and a frame with `side_effects` off takes the change
-  flag and asks for no file. Alone, the saves are as before.
+- **The EEPROM in a session** (session ABI 8, 19 November 2026): the host's EEPROM image (128 bytes) travels to every seat before the boot digest
+  and after a restart (`session_save`, `session_save_put` in `rrhk_cps1.c`, the code in `cps1_host.c`), and a guest plays on it in memory only:
+  its frames ask for no file (`side_effects` off for the whole session) and its own file is as it was. The host plays on its own file and writes it
+  as alone, except in a silent frame. This replaces the first rule of the rollback work (a blank EEPROM on every seat, nothing read or
+  written). The digest covers the EEPROM, so a seat on another image is refused at boot. Proof: `netplay_game_smoke.py --seats 2 --host-save`
+  with the real EEPROM of Super Street Fighter II, the raw 128 bytes as `--save-image`, `--save-at 600 --load-at 1500 --restart-at 2200`, rollback
+  tier, 3000 frames: PASS, every seat boots on the same digest (not the blank one), only seat 1 holds the file; control: guests handed a blank
+  image are refused at boot (`boot_mismatch`).
 - **The DIP switches are run-changing options** (session ABI 6): the adapter reports the host's three DIP words in its HELLO
   (`dips=00ff,00fc,009f`) and applies the host's to every seat from SETUP, in memory only (a guest's own settings file is never written and
   comes back when it plays alone). The DIP page was already run-changing, so its keys are refused in a session. Proof: 1941 with a guest whose

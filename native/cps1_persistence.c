@@ -187,10 +187,6 @@ bool rr_cps1_save_begin(void)
     generation = written = 0;
     const size_t size = cps1_eeprom_size();
     if (!size || size > PAYLOAD_MAX) return true;           /* a board without an EEPROM keeps nothing */
-    {   /* a multiplayer session: every seat starts from a blank EEPROM and none is read or written (rrhk_session.inc, RRHK_SESSION_ENV) */
-        const char *session = getenv("RETRORECOMP_NETPLAY_PIPE");
-        if (session && *session) return true;
-    }
     if (!rr_cps1_save_path(save_path, 32768)) { flag_store(&blocked, true); return false; }
     uint8_t data[PAYLOAD_MAX];
     const int result = read_saved(data, size);
