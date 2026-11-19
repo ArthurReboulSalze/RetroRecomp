@@ -99,5 +99,31 @@ class SessionAdapterTextTests(unittest.TestCase):
         self.assertTrue(profile.netplay_shared_only)
 
 
+class SessionSaveTextTests(unittest.TestCase):
+    """The host's cartridge RAM travels to every seat (session ABI 8): rrhk_gb.inc."""
+    ADAPTER = (ASSETS / 'native/hostkit/adapters/rrhk_gb.inc').read_text(encoding='utf-8')
+
+    def test_the_machine_announces_the_save_pair(self):
+        self.assertIn('session_save = rr_gb_session_save', self.ADAPTER)
+        self.assertIn('session_save_put = rr_gb_session_save_put', self.ADAPTER)
+
+    def test_the_host_save_is_read_from_its_file_because_the_kit_asks_before_the_game_has_loaded(self):
+        body = self.ADAPTER[self.ADAPTER.index('static size_t rr_gb_session_save('):self.ADAPTER.index('static bool rr_gb_session_save_put(')]
+        self.assertIn('g_persistence_dir', body)
+        self.assertIn('".sav"', body)
+        self.assertNotIn('g_registered_ctx', body)         # the context has no cartridge RAM yet at that moment
+        for size in ('512', '2048', '8192', '32768', '65536', '131072'):
+            self.assertIn(size, self.ADAPTER[self.ADAPTER.index('static bool rr_gb_save_size_valid('):self.ADAPTER.index('static size_t rr_gb_session_save(')])
+
+    def test_every_seat_starts_again_from_the_state_the_game_began_in(self):
+        begin = self.ADAPTER[self.ADAPTER.index('static void rr_gb_session_begin('):self.ADAPTER.index('static void rr_gb_side_effects(')]
+        self.assertLess(begin.index('g_rr_pristine'), begin.index('g_rr_session_image'))        # the power-on first, then the match's save
+        self.assertLess(begin.index('g_rr_session_image'), begin.index('rtc_unix_time_override_enabled'))   # then the clock
+        self.assertIn('memset(ctx->eram, 0, ctx->eram_size)', begin)                               # no save: every seat blank
+        wait = self.ADAPTER[self.ADAPTER.index('bool gb_platform_wait_while_menu('):]
+        self.assertIn('rrhk_session_active()', wait)
+        self.assertIn('rr_gb_snap_save_adapter(g_rr_pristine.data()', wait)
+
+
 if __name__ == '__main__':
     unittest.main()

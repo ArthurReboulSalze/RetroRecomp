@@ -37,6 +37,9 @@ static RrhkMachine rr_gb_machine;
 static uint32_t g_rr_view[GB_SCREEN_WIDTH * GB_SCREEN_HEIGHT];   /* the picture of the last frame, at the origin of the kit's texture */
 static bool g_rr_stop;                  /* the kit asked to stop (quit): the next poll of events says so */
 static uint64_t g_rr_sample_time;       /* last mid-frame sample of the pads */
+static std::vector<uint8_t> g_rr_pristine;       /* the state at the first slice of the game, taken in a session only: a session starts every seat from it */
+static bool g_rr_pristine_tried;
+static std::vector<uint8_t> g_rr_session_image;  /* the match's cartridge RAM: the host's own (session_save), or the host's given to a guest (session_save_put) */
 static bool g_rr_effects = true;        /* false: nothing is written outside the machine (a guest's session, a silent frame): the cartridge RAM and the clock stay in memory */
 static std::vector<int16_t> g_rr_pcm;   /* interleaved stereo produced since the kit last took the sound */
 enum { RR_GB_PCM_LIMIT_FRAMES = 16384 };
@@ -230,6 +233,13 @@ static bool rr_gb_snap_load_adapter(const void *buffer, size_t size) {
 static void rr_gb_session_begin(uint64_t clock) {
     GBContext *ctx = g_registered_ctx;
     if (!ctx) return;
+    /* The game ran one frame before the session's SETUP (the guest's loop runs first, the kit's frame function is called at its end),
+     * on this seat's own save, clock and boot: every seat starts again from the state the game began in, then takes the match's save. */
+    if (!g_rr_pristine.empty()) rr_gb_snap_load_adapter(g_rr_pristine.data(), g_rr_pristine.size());
+    if (ctx->eram && ctx->eram_size) {
+        if (g_rr_session_image.size() == ctx->eram_size) memcpy(ctx->eram, g_rr_session_image.data(), ctx->eram_size);
+        else memset(ctx->eram, 0, ctx->eram_size);        /* no save of the host's (or one this cartridge does not read): every seat starts blank */
+    }
     ctx->config.rtc_unix_time_override_enabled = true;
     ctx->config.rtc_unix_time_override = clock;
     const uint64_t days = clock / 86400u;
@@ -238,6 +248,36 @@ static void rr_gb_session_begin(uint64_t clock) {
     ctx->rtc.latched_s = ctx->rtc.s; ctx->rtc.latched_m = ctx->rtc.m; ctx->rtc.latched_h = ctx->rtc.h;
     ctx->rtc.latched_dl = ctx->rtc.dl; ctx->rtc.latched_dh = ctx->rtc.dh;
     ctx->rtc.latch_state = 0; ctx->rtc.last_time = 0; ctx->rtc.active = true;
+}
+
+/* The match's cartridge RAM (session ABI 8): what the game would read at power-on. The host's is its save file, read here because the kit asks
+ * before the game has loaded anything (the cartridge RAM has no size yet): the sizes a cartridge has, and a file of another size is what the
+ * game itself rejects, so then the match has no save and every seat starts blank. A guest never reads or writes its own file in a session. */
+static bool rr_gb_save_size_valid(size_t size) {
+    return size == 512 || size == 2048 || size == 8192 || size == 32768 || size == 65536 || size == 131072;
+}
+
+static size_t rr_gb_session_save(void *out, size_t capacity) {
+    if (g_persistence_dir.empty()) return 0;
+    const fs::path directory(g_persistence_dir);
+    FILE *file = fopen((directory / (directory.filename().string() + ".sav")).string().c_str(), "rb");
+    if (!file) return 0;
+    std::vector<uint8_t> bytes(131073);
+    const size_t size = fread(bytes.data(), 1, bytes.size(), file);
+    fclose(file);
+    if (!rr_gb_save_size_valid(size)) return 0;
+    bytes.resize(size);
+    g_rr_session_image = bytes;               /* held, so that a restart gives the host its own save back */
+    if (!out) return size;
+    if (capacity < size) return 0;
+    memcpy(out, bytes.data(), size);
+    return size;
+}
+
+static bool rr_gb_session_save_put(const void *in, size_t size) {
+    if (!in || !rr_gb_save_size_valid(size)) return false;
+    g_rr_session_image.assign((const uint8_t *)in, (const uint8_t *)in + size);
+    return true;
 }
 
 /* What a frame may do outside the machine: off for the silent frames of a session and for a guest's whole session. The cartridge RAM and
@@ -329,6 +369,7 @@ static const RrhkMachine *rr_gb_adapter(void) {
         rr_gb_machine.snap_bound = rr_gb_snap_bound_adapter; rr_gb_machine.snap_save = rr_gb_snap_save_adapter;
         rr_gb_machine.snap_load = rr_gb_snap_load_adapter; rr_gb_machine.digest = rr_gb_digest_adapter;
         rr_gb_machine.side_effects = rr_gb_side_effects; rr_gb_machine.session_begin = rr_gb_session_begin;
+        rr_gb_machine.session_save = rr_gb_session_save; rr_gb_machine.session_save_put = rr_gb_session_save_put;
         rr_gb_machine.settings_loaded = rr_gb_settings_loaded;
         rr_gb_machine.option_rows = rr_gb_option_rows; rr_gb_machine.help_lines = rr_gb_help_lines;
         rr_gb_machine.help_controls = rr_gb_help_controls; rr_gb_machine.key_event = rr_gb_key_event;
@@ -468,7 +509,12 @@ bool gb_platform_poll_events(GBContext* ctx) {
 
 /* Called before every slice of the generated loop: the kit already decided at the last frame whether the game goes on. */
 bool gb_platform_wait_while_menu(GBContext* ctx) {
-    (void)ctx;
+    /* In a session, the state the game begins in (before its first cycle) is kept: SETUP, which comes after the first frame, starts every seat from it. */
+    if (ctx && !g_rr_pristine_tried && rrhk_session_active()) {
+        g_rr_pristine_tried = true;
+        g_rr_pristine.resize(rr_gb_snap_bound_adapter());
+        if (g_rr_pristine.empty() || rr_gb_snap_save_adapter(g_rr_pristine.data(), g_rr_pristine.size()) != g_rr_pristine.size()) g_rr_pristine.clear();
+    }
     return !g_rr_stop;
 }
 

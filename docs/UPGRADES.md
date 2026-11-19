@@ -419,6 +419,13 @@ clock files are not written when `side_effects(false)` (a guest's whole session,
 no time stamp of the clock file or of this PC). Saves load as a game alone loads them and the boot digest refuses two seats whose cartridge
 RAM differs, until the kit's transfer of the host's saves arrives.
 
+**The host's save travels (session ABI 8).** `session_save` gives the host's cartridge RAM (its `.sav` file, read from the persistence folder
+because the kit asks at HELLO, before the game has loaded anything; only the sizes a cartridge has), `session_save_put` takes it on a guest. The
+guest's loop runs one frame before the session's SETUP, on its own save, so SETUP (`session_begin`, which is also called at every restart)
+puts every seat back in **the state the game began in** (kept at the first slice, in a session only: the snapshot of the machine), then the
+match's cartridge RAM (blank on every seat when the host has none), then the session's clock. A guest never reads or writes its own save
+or clock file. The RTC counters are the session clock's, never the file's.
+
 **Proof.** `tools/gameboy_machine_selftest.py` + `native/gb_machine_checks.c`: three authored cartridges (MBC1 with RAM, MBC3 with a clock,
 MBC5 on the colour hardware) in 420 random slices with random host writes between them (DMA, HDMA, sound, timer, serial, LCD, scroll,
 mapper, memory), compared with an independent whole-state hash of the raw context: a run replayed from a snapshot gives the same digest,
