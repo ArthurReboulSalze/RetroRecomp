@@ -35,3 +35,9 @@ bool rr_md_battery_flush(const GenesisBus *bus, uint64_t now_ms, bool force) {
     uint32_t words[3]; identity(bus,words);
     return rr_cart_save_flush(&save,bus->sram,bus->sram_size,words,now_ms,force);
 }
+bool rr_md_battery_commit(const GenesisBus *bus) {
+    if (!rr_cart_save_active(&save) || !bus->sram_present || !bus->sram_battery || !bus->sram_size ||
+        bus->sram_size>sizeof saved) return false;
+    uint32_t words[3]; identity(bus,words);
+    return rr_cart_save_commit(&save,bus->sram,bus->sram_size,words);
+}

@@ -100,6 +100,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-next-release) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-next-release) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 | [Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart](#mega-drive-four-players-with-the-team-player-the-4-way-play-or-the-j-cart-next-release) | **the Mega Drive game and engine stamps** (`retrorecomp/megadrive_multitap.py`, new, and its hooks); **the game stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation** (`console16.py`, the report's player count; their games do not change) | **the Mega Drive host stamp** (`rrhk_md.c`) | unchanged |
+| [Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end](#mega-drive-super-nintendo-pc-engine-the-hosts-save-written-back-at-a-matchs-clean-end-next-release) | **the game stamps of the Mega Drive, Super Nintendo, PC Engine, MSX, MSX2 and MSX2+** (`native/cart_save.c` and `.h`, which they share; `md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the quick-state keys of those six profiles move** (they hash `cart_save.c`; the Mega Drive's also `md_backend.c` and `md_battery.c`): older quick states are refused cleanly; the state and save formats do not change |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-next-release) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-next-release) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) || [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-next-release) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
@@ -796,6 +797,29 @@ Player game expecting the adapter on port B, a fifth Team Player pad.
 `megadrive_cart.py`, `megadrive_rollback.py`; the adapter `rrhk_md.c`); `console16.py` (the report's player count) moves the game
 stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation too, with no change to their games (the
 multiplayer release converts every export again anyway). Quick-state keys: unchanged.
+
+## Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end (next release)
+
+The kit's rule of 19 November 2026 (Arthur: « Oui, réécris la carte de l'hôte à la fin »): nobody writes a save file during a match,
+the host included, and when a match ends cleanly the host writes its save back once (`session_save_commit`). The cartridge save file
+the three machines share (`native/cart_save.c`) gets that writer, `rr_cart_save_commit`: the memory as it is, at once (no quiet-time
+pacing), atomically (a temporary file, then a rename), the file there before kept as `<file>.bak` and put back if the last rename
+fails. The ordinary write is unchanged (the Super Nintendo's and the PC Engine's logs of `tools/cart_save_selftest.py` are equal to
+those of the revision before, byte for byte). The Mega Drive uses it now (`rr_md_battery_commit`, `rrhk_md.c`); the Super Nintendo
+and the PC Engine can call it from their adapters. The Mega Drive also no longer writes its save at exit while its side effects
+are off (before, the exit's forced write ignored them: a guest that had its own file would have had the match written into it).
+
+**Proof** (19 November 2026, Windows, llvm build, no ROM in the repository): `tools/cart_save_selftest.py` passes for the three
+machines, with a new Mega Drive scenario (a commit with nothing open is refused and writes nothing; without a file before it writes
+one and no backup; after the match changed the memory, the file is the memory at once and the backup is the previous file); the Super
+Nintendo's and the PC Engine's logs equal those of `spec/multiplayer` 8b8477d4. Madden NFL 95 (4 Way Play, 8 KiB battery SRAM) on
+`tools/netplay_game_smoke.py`: two seats with no save anywhere, PASS, the host writes a file back at the end whose bytes equal the
+memory every seat reports at the end (`[save]` lines), the guest writes nothing; then two seats on that file as the host's save
+(`--host-save`, `--save-image`, `--save-at 600 --load-at 1500`): PASS, every seat on the same boot digest, the save changes during the
+match, and at the end the host's file equals the final memory of both seats, its `.bak` equals the file planted before, and the
+guest's folder holds no save. Four seats with no save pass too; four seats with the host's save did not start (every seat on the
+same boot digest, then an exception in the smoke tool's link thread; reported to the multiplayer specialist). Not run: the two-PC run
+with a real save.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 
