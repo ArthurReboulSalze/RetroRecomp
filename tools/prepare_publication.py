@@ -231,7 +231,7 @@ retrorecomp/gui_estimates.py retrorecomp/time_estimates.py assets/conversion-tim
 retrorecomp/gui_firmware.py retrorecomp/firmware_search.py tests/test_firmware_search.py
 retrorecomp/gui_covers.py tests/test_gui_covers.py
 retrorecomp/gui_front_end.py retrorecomp/front_end.py retrorecomp/front_end_view.py tests/test_front_end.py
-retrorecomp/gui_multiplayer.py retrorecomp/multiplayer_view.py tests/test_multiplayer_view.py
+retrorecomp/gui_multiplayer.py retrorecomp/multiplayer_view.py tests/test_multiplayer_view.py retrorecomp/rounded_ui.py
 retrorecomp/gui_welcome.py retrorecomp/announcement.py tests/test_announcement.py retrorecomp/tk_threads.py
 retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
