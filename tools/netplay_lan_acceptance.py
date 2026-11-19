@@ -46,7 +46,8 @@ KEPT = ('outcome', 'detail', 'tier', 'delay', 'history_frames', 'history_digest'
 
 def script(seat: int, args) -> dict:
     """The scripted pad of a seat, with the host's restart and its save and load of the match's state as record bits."""
-    spec = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': getattr(args, 'sticks', False)}
+    spec = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': getattr(args, 'sticks', False),
+            'keys': getattr(args, 'keys', False)}
     if seat == 0:
         at = {}
         if args.restart_at:
@@ -113,7 +114,8 @@ def run(args) -> int:
     """The host on the remote PC, the guest here; the verdict and both results in the report."""
     flags = ['--frames', str(args.frames), '--machine', args.machine, '--hold', str(args.hold), '--seats', str(args.seats),
              *(['--internet'] if args.internet else []),
-             '--digest-every', str(args.digest_every), '--tier', args.tier] + (['--sticks'] if args.sticks else [])
+             '--digest-every', str(args.digest_every), '--tier', args.tier] + (['--sticks'] if args.sticks else []) + \
+        (['--keys'] if args.keys else [])
     for name in ('save_at', 'load_at', 'restart_at'):
         if getattr(args, name):
             flags += ['--' + name.replace('_', '-'), str(getattr(args, name))]
@@ -167,6 +169,8 @@ def run(args) -> int:
             guest_command += ['--lag-ms', str(args.lag_ms), '--jitter-ms', str(args.jitter_ms)]
         if args.sticks:
             guest_command += ['--sticks']
+        if args.keys:
+            guest_command += ['--keys']
         guests.append(subprocess.Popen(guest_command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace'))
     guest_lines: list[list[str]] = []
@@ -235,6 +239,8 @@ def main() -> int:
         p.add_argument('--jitter-ms', type=float, default=0.0)
         p.add_argument('--out', type=Path)
         p.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too')
+        p.add_argument('--keys', action='store_true',
+                       help="every seat types letters too (a computer, session ABI 9): only the host's may reach the games")
         p.add_argument('--seats', type=int, choices=(2, 3, 4), default=2, help='players in the match: the host and its guests')
         p.add_argument('--internet', action='store_true',
                        help='an Internet room (RR2 key, its admission and deadline), the host\'s address typed: no box is asked')

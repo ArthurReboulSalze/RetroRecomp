@@ -14,10 +14,12 @@ sets them.
                                                          "system" is "game": then the game's own are passed on.
                                                          `system_at` adds control bits on the LOCAL of a frame, as the worker's
                                                          request would (`seat_map.request`: a pass of the turn, a mode change)
-    {"kind": "random", "seat": n [, "hold": frames] [, "system_at": {...}] [, "sticks": true]}
+    {"kind": "random", "seat": n [, "hold": frames] [, "system_at": {...}] [, "sticks": true] [, "keys": true]}
                                                          pseudo-random words held `hold` frames (default 12), the
                                                          script of the real-game smoke: it leaves a title screen;
-                                                         `system_at` as above (the smoke's host restart)
+                                                         `system_at` as above (the smoke's host restart); `keys`: the
+                                                         seat types too, a letter or none held as the buttons are (a
+                                                         computer, session ABI 9: only the host's keys are ever typed)
     {"kind": "xor", "frame": f, "port": p, "mask": m}    (a words filter) tells this seat's game another word for
                                                          port p at frame f: two games forced out of step
 """
@@ -69,13 +71,20 @@ def local_source(spec: dict | None):
         seat, hold = int(spec['seat']), int(spec.get('hold', 12))
         at = {int(frame): int(bits) for frame, bits in (spec.get('system_at') or {}).items()}
 
-        sticks = bool(spec.get('sticks'))
+        sticks, typing = bool(spec.get('sticks')), bool(spec.get('keys'))
 
         def source(frame, _word, system):
             chooser = random.Random(seat * 100003 + frame // hold)
             word = chooser.getrandbits(8)
+            axes = tuple(chooser.randint(-127, 127) for _ in range(4)) if sticks else None
+            if typing:                  # a letter key (scancodes 4-29: bits 0-25) on two holds of three, none on the third
+                keys = bytearray(pipe.KEY_BYTES)
+                letter = chooser.randrange(39)
+                if letter < 26:
+                    keys[letter >> 3] |= 1 << (letter & 7)
+                return word, system | at.get(frame, 0), axes, bytes(keys)
             if sticks:                  # a game with sticks: four int8 values held as the buttons are (session ABI 7)
-                return word, system | at.get(frame, 0), tuple(chooser.randint(-127, 127) for _ in range(4))
+                return word, system | at.get(frame, 0), axes
             return word, system | at.get(frame, 0)
         return source
     raise ValueError(f'an unknown local source: {kind!r}')

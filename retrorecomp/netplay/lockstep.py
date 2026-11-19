@@ -610,7 +610,10 @@ class LockstepDriver:
             scripted = self.settings.local_source(frame, word, system)
             word, system = scripted[0] & 0xffff, scripted[1] & 0xffff
             if len(scripted) > 2:
-                axes = tuple(scripted[2])
+                axes = tuple(scripted[2]) if scripted[2] is not None else None
+            if len(scripted) > 3:       # a scripted seat that types (a computer): its keys, the host's alone counted
+                keys = bytes(scripted[3])
+                typing = self.seat == HOST and self.keyboard
         else:
             system &= seat_map.SYS_GAME_MASK     # a game can only ask for a pause; the other control bits come from the worker's requests
         if typing:
