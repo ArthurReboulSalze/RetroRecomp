@@ -542,6 +542,16 @@ host's save in a real match: `tools/netplay_game_smoke.py` does not carry the ho
 so a run with a save on the host alone is refused there by the boot digest, as it would be without the feature; the same save on both
 seats passes. The Datach's region 1 is checked by the layout only.
 
+**Written back at a clean end (19 November 2026, `spec/nes-save-commit`, session hook `session_save_commit`).** The kit holds every
+seat's side effects off during the match, the host's included; when the match ends cleanly it calls the hook on the host only, and
+the program's host file (`cyc_host.c`, `nes_runtime.py`) writes the memory's save back atomically (the program's `save_write`: a
+temporary file, then a rename), keeping the previous file as `<file>.bak`; a file already equal to the memory, or a blank memory with
+no file yet, is left alone as at the end of a game played alone. A game with no cartridge save installs no hook. **Proof:** The
+Legend of Zelda, two seats, `--host-save` with a raw 32 KB seed: PASS, equal boot digests and 25 equal digests, "the host's save was
+written back", the host's `.sav` changed (8,154 bytes differ from the seed), its `.bak` is byte for byte the seed, and the guest's
+folder holds no save file. Not compared: the written file against the machine's final memory by an independent reader (it is
+`cyc_nvram_export` written by the existing `save_write`), the Datach's own file, a desync or a lost connection (no write by the kit's rule).
+
 ## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (next release)
 
 The Mega Drive leaves the delay tier: its adapter gives the in-process snapshot of `hostkit.h` (`snap_bound`, `snap_save`,

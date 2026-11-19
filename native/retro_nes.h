@@ -39,6 +39,8 @@ void rr_nes_state_path(wchar_t *path, size_t capacity);
 size_t rr_nes_session_save(void *out, size_t capacity);
 bool rr_nes_session_save_put(const void *in, size_t size);
 void rr_nes_saves_allowed(bool allowed);
+/* Defined by the program's host (cyc_host.c, nes_runtime.py): the host's save files written back when a match ends cleanly. */
+bool rr_nes_session_save_commit(void);
 bool rr_nes_saves_blocked(void);
 
 /* Private chip snapshots, accessible only to the machine adapter. */
