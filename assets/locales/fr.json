@@ -379,6 +379,8 @@
     "Quick states are off in multiplayer": "Sauvegardes rapides coupées en multijoueur",
     "Only the host can restart": "Seul l'hôte peut redémarrer",
     "Restarted by the host": "Redémarré par l'hôte",
+    "Save updated": "Sauvegarde mise à jour",
+    "Save not updated": "Sauvegarde non mise à jour",
     "Only the host saves and loads": "Seul l'hôte sauvegarde et charge",
     "No state saved in this match": "Aucune sauvegarde dans cette partie",
     "State saved by the host": "Sauvegardé par l'hôte",

@@ -34,6 +34,7 @@ static State state = {0x9e3779b97f4a7c15ull, 0};
 static uint32_t picture[16 * 16];
 static unsigned live_runs, silent_runs, quick_calls, effects_off_runs, option_calls, resets;
 static bool effects_allowed = true;
+static unsigned effects_on_in_session = 0;     /* frames run with side effects on (never, in a session) */
 /* SESSION_FAKE_DRIVEN=1: the fake is a driven machine (RrhkMachine.driven, as the Master System, the Game Boy and the MSX):
  * it calls rrhk_open, runs its own frame each time rrhk_frame_done returns true (run_frame only hands the words over), and
  * restarts by unwinding (rrhk_stop, then the shell closes and opens again). */
@@ -116,6 +117,7 @@ static bool step(uint16_t p1, uint16_t p2) {
     ++state.frames;
     if (rrhk_session_silent()) ++silent_runs; else ++live_runs;
     if (!effects_allowed) ++effects_off_runs;
+    else ++effects_on_in_session;                 /* every frame of these scenarios is a session frame */
     picture[state.frames % 256] = (uint32_t)state.acc;
     /* frame 10 of the run: the player presses F8 (alone: the quick-state file; in a session: the host's request for everyone,
      * refused for a guest) */
@@ -159,6 +161,14 @@ static size_t session_save(void *out, size_t capacity) {
     if (!has_battery) return 0;
     if (out && capacity >= sizeof battery) memcpy(out, battery, sizeof battery);
     return sizeof battery;
+}
+/* The host's save written back at a clean end of the match: the fake says it, with its battery's first word and whether a
+ * frame of the match ever had its side effects on (never, in a session). */
+static bool session_save_commit(void) {
+    uint64_t word = 0;
+    for (int b = 0; b < 8; ++b) word |= (uint64_t)battery[b] << (8 * b);
+    fprintf(stderr, "[fake] commit %016llx effects-on-frames %u\n", (unsigned long long)word, effects_on_in_session);
+    return true;
 }
 static bool session_save_put(const void *in, size_t size) {
     if (!has_battery || size != sizeof battery) return false;
@@ -237,6 +247,7 @@ int main(int argc, char **argv) {
         battery_fold();
         machine.session_save = session_save;
         machine.session_save_put = session_save_put;
+        machine.session_save_commit = session_save_commit;
     }
     const char *stick = getenv("SESSION_FAKE_STICKS");
     sticks = stick && *stick == '1';
