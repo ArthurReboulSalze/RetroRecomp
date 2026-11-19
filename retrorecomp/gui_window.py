@@ -21,7 +21,7 @@ from . import gui_icons   # registers the toolbar's and the queue's pictures in 
 from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
-    badged_icon, header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
+    badged_icon, hero_icon, header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
 )
 
 
@@ -355,14 +355,14 @@ class WindowMixin:
         except (OSError, ValueError, tk.TclError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
 
-    def decorate_button(self, button, symbol, primary=False, accent=False):
+    def decorate_button(self, button, symbol, primary=False, accent=False, hero=False):
         """The picture of `symbol` on `button`: dark on the gold primary buttons, gold on the accent ones (the toolbar's
-        Multiplayer and Front-end), light on the others."""
-        key = (symbol, 'accent') if accent else (symbol, primary)
+        Multiplayer and Front-end), light on the others; a hero button (the main one of a row) has a larger, thicker one."""
+        key = (symbol, 'hero') if hero else (symbol, 'accent') if accent else (symbol, primary)
         if key not in self.button_images:
-            colour = COLORS['gold_text'] if primary else COLORS['gold'] if accent else COLORS['text']
-            self.button_images[key] = (make_icon(self.app, symbol, colour),
-                                       make_icon(self.app, symbol, COLORS['disabled']))
+            colour = COLORS['gold_text'] if primary or hero else COLORS['gold'] if accent else COLORS['text']
+            draw = hero_icon if hero else make_icon
+            self.button_images[key] = (draw(self.app, symbol, colour), draw(self.app, symbol, COLORS['disabled']))
         normal, disabled = self.button_images[key]
         button.configure(image=(normal, 'disabled', disabled), compound='left')
 
@@ -389,15 +389,18 @@ class WindowMixin:
         else:
             self.empty_state.place(relx=0.5, rely=0.5, y=18, anchor='center')
 
-    def icon_button(self, parent, name, tip, command, symbol, *, managed=True, accent=False, primary=False):
+    def icon_button(self, parent, name, tip, command, symbol, *, managed=True, accent=False, primary=False,
+                    hero=False):
         """A toolbar button showing only its picture; its hint starts with
         its name (the text stays set on the widget). Managed buttons follow
         set_controls like the others; an accent button has a gold picture
-        and border, a primary one is gold with a dark picture."""
+        and border, a primary one is gold with a dark picture, a hero one (the main button of a row: Convert /
+        regenerate, Play game of Compiled Games) is gold too and larger than the others, with a larger picture."""
         button = ttk.Button(parent, text=self.tr(name), command=command,
-                            style='Feature.Toolbar.TButton' if accent else
+                            style='Hero.Toolbar.Primary.TButton' if hero else
+                            'Feature.Toolbar.TButton' if accent else
                             'Toolbar.Primary.TButton' if primary else 'Toolbar.TButton')
-        self.decorate_button(button, symbol, primary=primary, accent=accent)
+        self.decorate_button(button, symbol, primary=primary, accent=accent, hero=hero)
         button.configure(compound='image')
         self.name_picture(button, name)
         if managed:

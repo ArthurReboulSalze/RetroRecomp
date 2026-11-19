@@ -145,15 +145,32 @@ class PicturesOnly(ToolbarWindow):
             self.assertEqual(button.cget('text'), app.tr(name))
             self.assertEqual(hints[id(button)], app.tr(name).rstrip('…') + '\n' + app.tr(tip))
             normal, disabled = (str(image) for image in next(v for k, v in app.button_images.items()
-                                                             if k[0] == symbol and k[1] in (False, True)))
+                                                             if k[0] == symbol and k[1] in (False, True, 'hero')))
             image = button.cget('image')
             self.assertEqual((str(image[0]), str(image[1]), str(image[2])), (normal, 'disabled', disabled), name)  # greyed, never hidden
             pictures[name] = normal
         # Every item of the queue against the selected rows: two different pictures.
         self.assertNotEqual(pictures['start'], pictures['start_selected'])
-        self.assertEqual(str(app.start_button.cget('style')), 'Toolbar.Primary.TButton')   # gold
+        self.assertEqual(str(app.start_button.cget('style')), 'Hero.Toolbar.Primary.TButton')   # gold, and larger
         self.assertEqual(str(app.add_roms_button.cget('style')), 'Toolbar.Primary.TButton')
         self.assertEqual(str(app.play_button.cget('state')), 'disabled')
+
+    def test_the_main_buttons_of_a_row_are_larger_than_their_neighbours_through_one_shared_style(self):
+        app = self.app
+        with patch('retrorecomp.compiled_games_view.CompiledGamesView.scan'):
+            app.toggle_compiled_games()
+        self.root.update_idletasks()
+        play = app.compiled_view.play_button
+        for hero, neighbours in ((app.start_button, (app.selected_button, app.stop_button, app.retry_button)),
+                                 (play, (app.compiled_view.scan_button, app.compiled_view.add_button))):
+            self.assertEqual(str(hero.cget('style')), 'Hero.Toolbar.Primary.TButton')       # one style, both rows
+            for neighbour in neighbours:
+                self.assertGreaterEqual(hero.winfo_reqheight(), 1.3 * neighbour.winfo_reqheight())
+                self.assertGreaterEqual(hero.winfo_reqwidth(), 1.3 * neighbour.winfo_reqwidth())
+        normal, disabled = app.button_images[('convert_all', 'hero')]
+        small = app.button_images[('stop', False)][0]
+        self.assertGreater(normal.width(), small.width())                                      # a bigger picture
+        self.assertEqual((normal.width(), disabled.width()), (disabled.width(), normal.width()))
 
     def test_the_video_word_is_a_small_screen_with_its_hint(self):
         app = self.app
@@ -196,13 +213,13 @@ class PicturesOnly(ToolbarWindow):
         button = app.compiled_view.play_button
         self.assertIs(button.master, app.collection_actions)
         self.assertEqual(str(button.cget('compound')), 'image')
-        self.assertEqual(str(button.cget('style')), 'Toolbar.Primary.TButton')       # the gold emphasis stays
+        self.assertEqual(str(button.cget('style')), 'Hero.Toolbar.Primary.TButton')   # gold, and more imposing
         self.assertEqual(button.cget('text'), app.tr('play'))                          # the accessible name
         hint = next(h for h in app.tooltips if h.widget is button)
         self.assertEqual(hint.text(), app.tr('play') + '\n' + app.tr('tip_play'))
-        normal, disabled = app.button_images[('play_game', True)]
+        normal, disabled = app.button_images[('play_game', 'hero')]
         self.assertEqual(tuple(str(part) for part in button.cget('image')[:3:2]), (str(normal), str(disabled)))
-        # The queue's Play game uses the same drawing (dark on gold there, light on dark here).
+        # The queue's Play game uses the same drawing (small and light on dark there, large and dark on gold here).
         self.assertEqual(app.play_button.cget('compound'), button.cget('compound'))
         app.language = 'fr'
         app.refresh_language()

@@ -571,7 +571,7 @@ def smoke(window):
     # Play game of the collection: a picture only, gold, its name kept as text, like the queue's.
     play = application.compiled_view.play_button
     assert str(play.cget('compound')) == 'image' and play.cget('text') == application.tr('play')
-    assert str(play.cget('style')) == 'Toolbar.Primary.TButton' and str(application.compiled_button.cget('compound')) == 'image'
+    assert str(play.cget('style')) == 'Hero.Toolbar.Primary.TButton' and str(application.compiled_button.cget('compound')) == 'image'
     assert application.collection_actions.winfo_manager() and not application.queue_actions.winfo_manager()
     assert application.knowledge_button in toolbar_slaves()
     # Front-end and Multiplayer stand apart in the middle of the bar, in their own frame, left of the rarely used ones.

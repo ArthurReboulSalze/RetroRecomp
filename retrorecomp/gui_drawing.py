@@ -6,7 +6,7 @@ import time
 import tkinter as tk
 
 from . import online
-from .branding import COLORS, make_icon, ICON_PATHS
+from .branding import COLORS, make_icon, icon_paths, ICON_PATHS
 
 
 HATCH_SPACING = 4
@@ -388,6 +388,28 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
 
 BADGE_COLOR = '#e5484d'
 
+# The two main buttons of a row (Convert / regenerate, and Play game of Compiled Games) are larger than their neighbours:
+# a bigger picture, drawn two pixels thick, in a taller button (about 1.5 times the others) with a brighter border.
+HERO_SIZE = 26
+
+
+def hero_icon(master, symbol, color, size=HERO_SIZE, weight=2):
+    """The picture of `symbol` at `size` px with strokes `weight` pixels thick (make_icon draws one pixel wide at 18 px,
+    thin on a larger button)."""
+    image = tk.PhotoImage(master=master, width=size, height=size)
+    scale = (size - 2 - weight) / 16
+    limit = size - weight
+    for path in icon_paths(symbol):
+        for at in range(0, len(path) - 2, 2):
+            x1, y1, x2, y2 = ((path[at] + 1) * scale, (path[at + 1] + 1) * scale,
+                              (path[at + 2] + 1) * scale, (path[at + 3] + 1) * scale)
+            steps = max(1, round(max(abs(x2 - x1), abs(y2 - y1)) * 2))
+            for step in range(steps + 1):
+                x = min(round(x1 + (x2 - x1) * step / steps), limit)
+                y = min(round(y1 + (y2 - y1) * step / steps), limit)
+                image.put(color, to=(x, y, x + weight, y + weight))
+    return image
+
 
 def badged_icon(master, symbol, color, size=18):
     """The picture of `symbol` with a small dot at its top right corner: the
@@ -458,6 +480,14 @@ def _toolbar_styles(style):
     style.configure('Help.Toolbar.TButton', width=-1, padding=(11, 5), foreground=c['gold'],
                     font=('TkDefaultFont', 10, 'bold'))
     style.configure('Header.TCombobox', padding=(4, 1))
+    # The main button of a row, larger than its neighbours: taller padding and a brighter, thicker border on the gold
+    # (the colours of Primary.TButton, which it inherits, for the normal, hover and greyed looks).
+    style.configure('Hero.Toolbar.Primary.TButton', padding=(10, 7), borderwidth=2, bordercolor=c['gold_hover'],
+                    lightcolor=c['gold_hover'], darkcolor=c['gold_hover'])
+    style.map('Hero.Toolbar.Primary.TButton',
+              bordercolor=[('disabled', c['border']), ('!disabled', c['gold_hover'])],
+              lightcolor=[('disabled', c['panel']), ('!disabled', c['gold_hover'])],
+              darkcolor=[('disabled', c['panel']), ('!disabled', c['gold_hover'])])
     # The tick boxes of the New paths list, on the list's own dark field.
     style.configure('NewPaths.TCheckbutton', background=c['field'])
     style.map('NewPaths.TCheckbutton', background=[('active', c['field'])])
