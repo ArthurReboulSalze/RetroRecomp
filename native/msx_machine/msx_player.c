@@ -40,6 +40,13 @@ static size_t msx_snap_save(void *buffer, size_t capacity);
 static bool msx_snap_load(const void *buffer, size_t size);
 static uint64_t msx_snap_digest(void);
 static void msx_side_effects(bool allowed);
+/* The game's saves in a session: the host's travel to every seat (msx_snapshot.inc, below). */
+static size_t msx_session_save(void *out, size_t capacity);
+static bool msx_session_save_put(const void *in, size_t size);
+static void msx_session_begin(uint64_t clock);
+/* What a frame does outside the machine (the cartridge's SRAM file, the copies of written disks): off for silent frames and for a
+ * guest during a whole session, the process's end included (a guest never writes its own save). */
+static bool msx_effects_allowed = true;
 
 #include "hostkit/adapters/rrhk_msx.inc"
 
@@ -100,7 +107,7 @@ static void disks_save(void)
     }
 }
 
-static void disks_at_exit(void) { disks_save(); }
+static void disks_at_exit(void) { if (msx_effects_allowed) disks_save(); }
 
 /* What the game wrote on the disk in drive A: that disk's copy is due (disks_save) and its bytes travel with every snapshot from
  * now on (msx_snapshot.inc). */
@@ -382,7 +389,7 @@ static bool msx_game_state_path(wchar_t *path, size_t capacity)
 
 /* The machine from the game's own resources: the cartridge (103) and the BIOS source (104), as msx_game.h describes them. */
 /* The SRAM is written at once when the process ends, whatever way it ends (the window closed, the headless frame limit). */
-static void sram_at_exit(void) { msx_sram_flush(SDL_GetTicks64(), true); }
+static void sram_at_exit(void) { if (msx_effects_allowed) msx_sram_flush(SDL_GetTicks64(), true); }
 
 static void sram_open(const wchar_t *path)
 {
@@ -488,7 +495,8 @@ static int run(void)
     }
     if (!msx_host_open(RR_MSX_TITLE, RR_MSX_MODEL >= 2 ? 2 : 3, &machine)) return 4;
     power_on();
-    smsrecomp_banked_run();                       /* returns through exit() when the player quits */
+    if (rrhk_session_active()) msx_session_keep_start();   /* SETUP puts every seat back here (msx_session_begin) */
+    smsrecomp_banked_run();                      /* returns through exit() when the player quits */
     return 0;
 }
 
