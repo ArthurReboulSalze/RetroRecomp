@@ -15,7 +15,6 @@ from .i18n import STRINGS, log_text
 from .branding import COLORS
 from .dialogs import center_dialog
 from .gui_common import UPDATE_CHECK_EVERY, base_is_newer, update_error_text
-from .gui_drawing import badged_icon
 
 
 def shared_pieces_unreachable(error: str) -> bool:
@@ -118,13 +117,7 @@ class UpdatesMixin:
         """A dot on the update button while the software or the base has something new."""
         badge = bool(self.update_news.get('software') or self.update_news.get('base'))
         try:
-            if badge:
-                if ('download', 'badge') not in self.button_images:
-                    self.button_images[('download', 'badge')] = (
-                        badged_icon(self.app, 'download', COLORS['text']),
-                        badged_icon(self.app, 'download', COLORS['disabled']))
-            normal, disabled = self.button_images[('download', 'badge' if badge else False)]
-            self.update_button.configure(image=(normal, 'disabled', disabled))
+            self.badge_button(self.update_button, 'download', badge)
         except (KeyError, tk.TclError):
             pass
 

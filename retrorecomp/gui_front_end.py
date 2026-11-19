@@ -11,16 +11,21 @@ class FrontEndMixin:
     """The Front-end switch, its view and the shared launch of a compiled game."""
 
     def front_end_button_create(self, toolbar):
-        button = ttk.Button(toolbar, text=self.tr('front_end'), command=self.toggle_front_end, style='Toolbar.TButton')
-        self.decorate_button(button, 'front_end')
-        self.hint(button, 'tip_front_end')
+        """The Front-end button and the Full screen one, both pictures only (their hints carry the names) and in the
+        accent style of the bar's middle. `toolbar` is the frame that holds them."""
+        button = ttk.Button(toolbar, text=self.tr('front_end'), command=self.toggle_front_end,
+                            style='Feature.Toolbar.TButton')
+        self.decorate_button(button, 'front_end', accent=True)
+        button.configure(compound='image')
+        self.hint(button, 'tip_front_end', 'front_end')
         self.front_end_button = button
         # Full screen: shown left of Front-end while the front-end is open (Arthur, 17 Nov 2026: the Front-end button
         # opens it in the window, this button goes full screen).
-        screen = ttk.Button(toolbar, text=self.tr('front_end_fullscreen'), style='Toolbar.TButton',
+        screen = ttk.Button(toolbar, text=self.tr('front_end_fullscreen'), style='Feature.Toolbar.TButton',
                             command=lambda: self.set_front_end_fullscreen(not self.front_end_fullscreen))
-        self.decorate_button(screen, 'fullscreen')
-        self.hint(screen, 'tip_front_end_fullscreen')
+        self.decorate_button(screen, 'fullscreen', accent=True)
+        screen.configure(compound='image')
+        self.hint(screen, 'tip_front_end_fullscreen', 'front_end_fullscreen')
         self.front_end_screen_button = screen
         return button
 
@@ -120,7 +125,7 @@ class FrontEndMixin:
         for widget in self.compiler_widgets:
             widget.grid()
         self.queue_actions.pack(side='left', padx=(12, 0), after=self.compiled_button)
-        self.count_label.pack(side='right', before=self.credits_button)
+        self.place_count_label()
         if (then or self.front_end_after) == 'collection':
             self.toggle_compiled_games()
         self.queue_background(self.body)

@@ -1016,7 +1016,9 @@
     "tip_start_front_end": "Al iniciar, muestra tus juegos compilados como un muro de carátulas en lugar de la cola de conversión.",
     "tip_start_front_end_fullscreen": "El front-end abierto al iniciar ocupa toda la pantalla. X en el mando o F11 vuelven a la ventana.",
     "front_end_find_missing": "Buscar las carátulas que faltan ({count})",
-    "front_end_only_note": "Solo para el front-end: los juegos no cambian."
+    "front_end_only_note": "Solo para el front-end: los juegos no cambian.",
+    "tip_report_problem": "Describe un problema con tus palabras. El mantenedor lee cada informe y ves todo antes de enviarlo.",
+    "new_paths_question": "Al jugar se encontraron nuevas rutas en estos juegos. Desmarca los que quieras dejar para más tarde."
   },
   "runtime": {
     "Internal resolution": "Resolución interna",

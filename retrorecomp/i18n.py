@@ -296,6 +296,8 @@ STRINGS = {
     'tip_closing_send': ('Coming soon: sending will arrive with the connection to the Retro-Recomp web server and its shared database.', 'Bientôt : l’envoi arrivera avec la connexion au serveur web de Retro-Recomp et à sa base de données commune.'),
     'recompile_new_paths': ('New paths ({count})', 'Nouveaux chemins ({count})'),
     'tip_recompile_new_paths': ('Reconverts only the games where playing found new paths since their last conversion (gameplay hints saved on exit), as when closing Retro-Recomp. Games whose ROM cannot be found are left for later.', 'Reconvertit uniquement les jeux où tes parties ont trouvé de nouveaux chemins depuis leur dernière conversion (indices enregistrés à la fermeture du jeu), comme à la fermeture de Retro-Recomp. Les jeux dont la ROM est introuvable attendent une prochaine fois.'),
+    'tip_report_problem': ('Describe a problem in your own words. The maintainer reads every report, and you see everything before it is sent.', 'Décris un problème avec tes mots. Le mainteneur lit chaque signalement, et tu vois tout avant l’envoi.'),
+    'new_paths_question': ('Playing found new paths in these games. Untick the ones to leave for later.', 'Tes parties ont trouvé de nouveaux chemins dans ces jeux. Décoche ceux à laisser pour plus tard.'),
     'knowledge_export_web': ('Send to the shared Retro-Recomp base (coming soon)', 'Envoyer à la base commune Retro-Recomp (bientôt)'),
     'knowledge_sync': ('Sync with the shared base…', 'Synchroniser avec la base commune…'),
     'knowledge_sync_signin': ('Sign in (Knowledge menu) to also send your discoveries.', 'Connecte-toi (menu Connaissances) pour envoyer aussi tes découvertes.'),

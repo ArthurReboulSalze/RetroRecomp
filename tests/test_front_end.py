@@ -454,7 +454,13 @@ class Window(unittest.TestCase):
         owner.credits_button.pack(side='right')
         owner.count_label = ttk.Label(owner.toolbar)
         owner.count_label.pack(side='right')
-        owner.front_end_button_create(owner.toolbar).pack(side='right')
+        owner.report_button = ttk.Button(owner.toolbar)
+        owner.report_button.pack(side='right')
+        owner.place_count_label = lambda: owner.count_label.pack(side='right', before=owner.report_button)
+        # The pair of buttons stands in its own frame, in the middle of the bar.
+        owner.toolbar_centre = tk.Frame(owner.toolbar)
+        owner.toolbar_centre.pack(side='left', expand=True)
+        owner.front_end_button_create(owner.toolbar_centre).pack(side='right')
         owner.compiler_widgets = [tk.Frame(owner.body) for _ in range(2)]
         for row, widget in enumerate(owner.compiler_widgets, 1):
             widget.grid(row=row, column=0)
@@ -484,7 +490,7 @@ class Window(unittest.TestCase):
         self.assertFalse(owner.front_end_fullscreen)
         self.assertEqual(self.fullscreen, [])
         self.assertEqual(owner.front_end_screen_button.winfo_manager(), 'pack')
-        order = owner.toolbar.pack_slaves()
+        order = owner.toolbar_centre.pack_slaves()
         self.assertEqual(order.index(owner.front_end_screen_button), order.index(owner.front_end_button) + 1)
         self.assertEqual((owner.header.winfo_manager(), owner.toolbar.winfo_manager()), ('pack', 'grid'))
         owner.front_end_screen_button.invoke()

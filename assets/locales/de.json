@@ -1016,7 +1016,9 @@
     "tip_start_front_end": "Beim Start deine kompilierten Spiele als Cover-Wand statt der Konvertierungsliste zeigen.",
     "tip_start_front_end_fullscreen": "Das beim Start geöffnete Front-end füllt den Bildschirm. X auf dem Gamepad oder F11 holen das Fenster zurück.",
     "front_end_find_missing": "Fehlende Cover suchen ({count})",
-    "front_end_only_note": "Nur für das Front-end: die Spiele bleiben unverändert."
+    "front_end_only_note": "Nur für das Front-end: die Spiele bleiben unverändert.",
+    "tip_report_problem": "Beschreibe ein Problem mit deinen eigenen Worten. Der Maintainer liest jede Meldung, und du siehst alles, bevor es gesendet wird.",
+    "new_paths_question": "Beim Spielen wurden in diesen Spielen neue Pfade gefunden. Entferne das Häkchen bei denen, die später drankommen sollen."
   },
   "runtime": {
     "Internal resolution": "Interne Auflösung",

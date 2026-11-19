@@ -20,7 +20,7 @@ from .dialogs import center_dialog
 from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
-    header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
+    badged_icon, header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
 )
 
 
@@ -214,8 +214,13 @@ class WindowMixin:
             canvas.create_line(0, height - 1, width, height - 1, fill=_tint(bottom, accent, 0.6), tags=tags)
         canvas.tag_lower('background_motif')
 
-    def hint(self, widget, key):
-        self.tooltips.append(Tooltip(widget, lambda: self.tr(key)))
+    def hint(self, widget, key, name=None):
+        """The hover hint `key` of `widget`; with a `name` (a key too) the hint starts with it, for buttons that show
+        only their picture."""
+        if name is None:
+            self.tooltips.append(Tooltip(widget, lambda: self.tr(key)))
+        else:
+            self.tooltips.append(Tooltip(widget, lambda: self.tr(name).rstrip('…') + '\n' + self.tr(key)))
 
     def set_status(self, key, **values):
         self.status_key, self.status_values = key, values
@@ -340,12 +345,14 @@ class WindowMixin:
         except (OSError, ValueError, tk.TclError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
 
-    def decorate_button(self, button, symbol, primary=False):
-        key = (symbol, primary)
+    def decorate_button(self, button, symbol, primary=False, accent=False):
+        """The picture of `symbol` on `button`: dark on the gold primary buttons, gold on the accent ones (the toolbar's
+        Multiplayer and Front-end), light on the others."""
+        key = (symbol, 'accent') if accent else (symbol, primary)
         if key not in self.button_images:
-            self.button_images[key] = (
-                make_icon(self.app, symbol, COLORS['gold_text'] if primary else COLORS['text']),
-                make_icon(self.app, symbol, COLORS['disabled']))
+            colour = COLORS['gold_text'] if primary else COLORS['gold'] if accent else COLORS['text']
+            self.button_images[key] = (make_icon(self.app, symbol, colour),
+                                       make_icon(self.app, symbol, COLORS['disabled']))
         normal, disabled = self.button_images[key]
         button.configure(image=(normal, 'disabled', disabled), compound='left')
 
@@ -372,16 +379,39 @@ class WindowMixin:
         else:
             self.empty_state.place(relx=0.5, rely=0.5, y=18, anchor='center')
 
-    def icon_button(self, parent, name, tip, command, symbol, *, managed=True):
+    def icon_button(self, parent, name, tip, command, symbol, *, managed=True, accent=False):
         """A toolbar button showing only its picture; its hint starts with
-        its name. Managed buttons follow set_controls like the others."""
-        button = ttk.Button(parent, text=self.tr(name), command=command, style='Toolbar.TButton')
-        self.decorate_button(button, symbol)
+        its name (the text stays set on the widget). Managed buttons follow
+        set_controls like the others; an accent button has a gold picture
+        and border."""
+        button = ttk.Button(parent, text=self.tr(name), command=command,
+                            style='Feature.Toolbar.TButton' if accent else 'Toolbar.TButton')
+        self.decorate_button(button, symbol, accent=accent)
         button.configure(compound='image')
         if managed:
             self.controls.append(button)
-        self.tooltips.append(Tooltip(button, lambda: self.tr(name).rstrip('…') + '\n' + self.tr(tip)))
+        self.hint(button, tip, name)
         return button
+
+    def badge_button(self, button, symbol, badge):
+        """`button`'s picture of `symbol`, with the red dot at its corner while `badge` (the update button's and the
+        new paths button's way of saying that something is new)."""
+        compound = str(button.cget('compound'))
+        if not badge:
+            self.decorate_button(button, symbol)
+        else:
+            key = (symbol, 'badge')
+            if key not in self.button_images:
+                self.button_images[key] = (badged_icon(self.app, symbol, COLORS['text']),
+                                           badged_icon(self.app, symbol, COLORS['disabled']))
+            normal, disabled = self.button_images[key]
+            button.configure(image=(normal, 'disabled', disabled))
+        button.configure(compound=compound)
+
+    def place_count_label(self):
+        """The ROM count at the toolbar's far right edge, after the right-hand buttons."""
+        self.count_label.pack(side='right', before=self.report_button if self.report_button.winfo_manager()
+                              else self.credits_button)
 
     def show_credits(self):
         if self.credits_panel is not None and self.credits_panel.winfo_exists():

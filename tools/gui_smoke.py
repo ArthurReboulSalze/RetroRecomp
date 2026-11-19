@@ -564,10 +564,18 @@ def smoke(window):
     assert application.compiled_button.cget('width') == switch_width
     assert application.collection_actions.winfo_manager() and not application.queue_actions.winfo_manager()
     assert application.knowledge_button in toolbar_slaves()
-    slaves = toolbar_slaves()
-    assert application.front_end_button in slaves
+    # Front-end and Multiplayer stand apart in the middle of the bar, in their own frame, left of the rarely used ones.
+    assert application.toolbar_centre in toolbar_slaves()
+    assert application.front_end_button.master is application.multiplayer_button.master is application.toolbar_centre
     window.update_idletasks()
-    assert application.front_end_button.winfo_x() < application.knowledge_button.winfo_x()
+    left, middle, right = (button.winfo_rootx() for button in (application.multiplayer_button,
+                                                               application.front_end_button, application.knowledge_button))
+    assert left < middle < right
+    assert application.collection_actions.winfo_rootx() < left
+    # The buttons that became pictures keep their text for the screen reader, and their hints.
+    for button in (application.options_button, application.knowledge_button, application.front_end_button,
+                   application.report_button, application.multiplayer_button, *application.new_paths_buttons):
+        assert str(button.cget('compound')) == 'image', button
     application.compiled_view.show_log('first line\nsecond line\nthird line ' + 'x' * 200)
     assert application.compiled_view.log_text.get().splitlines()[0] == 'second line'
     assert len(application.compiled_view.log_text.get().splitlines()[1]) == 150
@@ -738,10 +746,19 @@ def smoke(window):
         # Every text button keeps its hover hint in every language (keys given, not looked up by text).
         hints = {id(hint.widget): hint.text() for hint in application.tooltips}
         for widget, key in ((application.add_roms_button, 'tip_add_roms'), (application.credits_button, 'tip_credits'),
-                            (application.update_button, 'tip_check_updates'), (application.options_button, 'tip_options'),
-                            (application.cover_button, 'tip_choose_cover'), (application.auto_cover_button, 'tip_auto_cover'),
-                            (application.knowledge_button, 'tip_knowledge')):
+                            (application.update_button, 'tip_check_updates'),
+                            (application.cover_button, 'tip_choose_cover'), (application.auto_cover_button, 'tip_auto_cover')):
             assert hints.get(id(widget)) and hints[id(widget)] == application.tr(key), (language, key)
+        # The buttons that show only their picture start their hint with their name.
+        for widget, name, key in ((application.options_button, 'options', 'tip_options'),
+                                  (application.knowledge_button, 'knowledge', 'tip_knowledge'),
+                                  (application.front_end_button, 'front_end', 'tip_front_end'),
+                                  (application.multiplayer_button, 'mp_title', 'tip_multiplayer'),
+                                  (application.report_button, 'report_title', 'tip_report_problem')):
+            assert hints.get(id(widget)) == application.tr(name).rstrip('…') + '\n' + application.tr(key), (language, key)
+        new_paths = application.new_paths_buttons[0]
+        assert hints[id(new_paths)] == application.tr('recompile_new_paths', count=application.new_paths_count) + '\n' \
+            + application.tr('tip_recompile_new_paths'), language
         window.update_idletasks()
         assert (application.frames.get(), application.passes.get()) == initial_tuning
     application.close_options()

@@ -378,6 +378,9 @@ class ButtonHints(unittest.TestCase):
     BUTTONS = ('tip_add_roms', 'tip_credits', 'tip_check_updates', 'tip_options', 'tip_choose_cover',
                'tip_auto_cover', 'tip_knowledge')
 
+    # Options and Knowledge became pictures (icon_button: the hint starts with the button's name).
+    PICTURES = ('tip_options', 'tip_knowledge')
+
     def test_each_text_button_names_its_hint(self):
         source = gui_source()
         calls = [node for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Call)
@@ -388,7 +391,7 @@ class ButtonHints(unittest.TestCase):
             self.assertGreaterEqual(len(call.args), 4, ast.unparse(call))
             self.assertIsInstance(call.args[3], ast.Constant, ast.unparse(call))
             tips.append(call.args[3].value)
-        self.assertEqual(sorted(tips), sorted(self.BUTTONS))
+        self.assertEqual(sorted(tips), sorted(set(self.BUTTONS) - set(self.PICTURES)))
 
     def test_the_hints_exist_in_the_eight_languages(self):
         self.assertEqual(len(LANGUAGES), 8)

@@ -1016,7 +1016,9 @@
     "tip_start_front_end": "启动时以封面墙显示已编译游戏，而不是转换队列。",
     "tip_start_front_end_fullscreen": "启动时打开的前端使用整个屏幕。按手柄 X 或 F11 回到窗口。",
     "front_end_find_missing": "搜索缺少的封面（{count}）",
-    "front_end_only_note": "仅用于前端：游戏本身不会改变。"
+    "front_end_only_note": "仅用于前端：游戏本身不会改变。",
+    "tip_report_problem": "用自己的话描述问题。维护者会阅读每一份报告，发送前你可以查看全部内容。",
+    "new_paths_question": "在这些游戏中游玩时发现了新路径。以后再处理的游戏，请取消选中。"
   },
   "runtime": {
     "Internal resolution": "内部分辨率",

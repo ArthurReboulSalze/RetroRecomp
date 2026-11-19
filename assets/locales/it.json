@@ -1016,7 +1016,9 @@
     "tip_start_front_end": "All’avvio, mostra i tuoi giochi compilati come un muro di copertine invece della coda di conversione.",
     "tip_start_front_end_fullscreen": "Il front-end aperto all’avvio occupa tutto lo schermo. X sul controller o F11 riportano la finestra.",
     "front_end_find_missing": "Cerca le copertine mancanti ({count})",
-    "front_end_only_note": "Solo per il front-end: i giochi non cambiano."
+    "front_end_only_note": "Solo per il front-end: i giochi non cambiano.",
+    "tip_report_problem": "Descrivi un problema con parole tue. Il manutentore legge ogni segnalazione e vedi tutto prima dell’invio.",
+    "new_paths_question": "Giocando sono stati trovati nuovi percorsi in questi giochi. Deseleziona quelli da lasciare per dopo."
   },
   "runtime": {
     "Internal resolution": "Risoluzione interna",

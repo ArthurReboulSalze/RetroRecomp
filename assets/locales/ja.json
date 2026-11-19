@@ -1016,7 +1016,9 @@
     "tip_start_front_end": "起動時に、変換キューの代わりにコンパイル済みゲームをパッケージの一覧で表示します。",
     "tip_start_front_end_fullscreen": "起動時に開くフロントエンドを全画面で表示します。ゲームパッドの X または F11 でウィンドウに戻ります。",
     "front_end_find_missing": "足りないパッケージを検索（{count}）",
-    "front_end_only_note": "フロントエンド専用です。ゲーム本体は変わりません。"
+    "front_end_only_note": "フロントエンド専用です。ゲーム本体は変わりません。",
+    "tip_report_problem": "不具合の内容を書いて送れます。開発者がすべての報告を読み、送信前に内容をすべて確認できます。",
+    "new_paths_question": "これらのゲームでプレイ中に新しい経路が見つかりました。後回しにするものはチェックを外してください。"
   },
   "runtime": {
     "Internal resolution": "内部解像度",

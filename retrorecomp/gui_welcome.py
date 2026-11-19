@@ -46,8 +46,8 @@ PAUSE_MS = 120
 BLINK_MS = (90, 90, 90, 110)    # off, on, off, on
 FADE_STEPS = 5              # the subtitle line fades in
 FADE_MS = 45
-MESSAGE_STEP_MS = 25        # the message: MESSAGE_RATE characters a second (a full 200 in about three seconds)
-MESSAGE_RATE = 70
+MESSAGE_STEP_MS = 25        # the message: MESSAGE_RATE characters a second (a full 200 in about 1.5 seconds)
+MESSAGE_RATE = 140
 CURSOR_MS = 530
 CURSOR_BLINKS = 120         # about a minute of blinking each time the panel is shown, then the cursor stays lit
 

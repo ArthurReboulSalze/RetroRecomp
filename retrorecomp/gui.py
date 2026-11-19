@@ -345,7 +345,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # buttons of the visible view follow it in their own frame.
         self.compiled_button = ttk.Button(toolbar, text=self.tr('compiled_games'),
             command=self.toggle_compiled_games, style='Compiled.Toolbar.TButton')
-        self.decorate_button(self.compiled_button, 'gamepad', primary=True)
+        self.decorate_button(self.compiled_button, 'switch_view', primary=True)
         self.hint(self.compiled_button, 'tip_compiled_games')
         self.compiled_button.pack(side='left')
         self.update_compiled_button()
@@ -367,7 +367,13 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.new_paths_button(toolbar).pack(side='left', padx=(12, 0))
         self.count_label = ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel')
         self.count_label.pack(side='right')
-        # Rarely used: icons with their hover hints, so the bar fits every language.
+        # Pictures only, with their hover hints, so the bar fits every language; the right-hand end, from the edge:
+        # the ROM count, a problem report (an account needed, like the one of the Help window), then the rarely used
+        # buttons.
+        self.report_button = self.icon_button(toolbar, 'report_title', 'tip_report_problem',
+                                              lambda: self.report_problem('manual'), 'report', managed=False)
+        if SENDING_AVAILABLE:
+            self.report_button.pack(side='right', padx=(0, 12))
         self.credits_button = self.button(toolbar, self.tr('credits'), self.show_credits, 'tip_credits')
         self.credits_button.configure(compound='image')
         self.credits_button.pack(side='right', padx=(0, 12))
@@ -383,16 +389,19 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
             if hint.widget is self.update_button:
                 hint.text = self.update_tip
                 break
-        self.options_button = self.button(toolbar, self.tr('options'), self.show_options, 'tip_options')
+        self.options_button = self.icon_button(toolbar, 'options', 'tip_options', self.show_options, 'options')
         self.options_button.pack(side='right', padx=(0, 8))
-        # Shared discoveries: visible beside the queue and the collection.
-        self.knowledge_button = self.button(toolbar, self.tr('knowledge') + ' \u25be', self.knowledge_menu,
-                                            'tip_knowledge')
+        # Shared discoveries: visible beside the queue and the collection (a brain; the menu opens under it).
+        self.knowledge_button = self.icon_button(toolbar, 'knowledge', 'tip_knowledge', self.knowledge_menu, 'network')
         self.knowledge_button.pack(side='right', padx=(0, 8))
-        # The front-end: the compiled games as a wall of box art (gui_front_end), left of Knowledge.
-        self.front_end_button_create(toolbar).pack(side='right', padx=(0, 8))
+        # The middle of the bar: the two buttons that bring the games together, in their own frame in the room left
+        # between the buttons of the view (left) and the rarely used ones (right), so they stand apart and centred.
+        self.toolbar_centre = ttk.Frame(toolbar)
+        self.toolbar_centre.pack(side='left', expand=True)
+        # The front-end: the compiled games as a wall of box art (gui_front_end), on the right of this pair.
+        self.front_end_button_create(self.toolbar_centre).pack(side='right')
         # Multiplayer: host or join a room on the local network (gui_multiplayer), left of the front-end.
-        self.multiplayer_button_create(toolbar).pack(side='right', padx=(0, 8))
+        self.multiplayer_button_create(self.toolbar_centre).pack(side='right', padx=(0, 8))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=EDGE)
