@@ -43,9 +43,10 @@ def _allow_foreground() -> None:
 
 class SessionGame:
     def __init__(self, executable: Path, cwd: Path | None = None, env: dict | None = None,
-                 stdout: Path | None = None, stderr: Path | None = None):
+                 stdout: Path | None = None, stderr: Path | None = None, arguments: tuple = ()):
         """Starts the game. `env` is added to this process's environment; `stdout` and `stderr` are files the
-        game's own lines go to (nowhere when None: the pipes of the session are the only link that matters)."""
+        game's own lines go to (nowhere when None: the pipes of the session are the only link that matters); `arguments`
+        its command line (`launch.game_arguments`: a guest started in the host's machine)."""
         environment = dict(os.environ)
         environment.update(env or {})
         for name in NEVER_IN_A_SESSION:
@@ -83,7 +84,7 @@ class SessionGame:
                 environment[pipe.ENV] = f'{game_in},{game_out}'
                 kwargs.update(pass_fds=(game_in, game_out))
             _allow_foreground()
-            self.process = subprocess.Popen([str(self.executable)], **kwargs)
+            self.process = subprocess.Popen([str(self.executable), *map(str, arguments)], **kwargs)
         except BaseException:
             for descriptor in (self._write, self._read):
                 os.close(descriptor)

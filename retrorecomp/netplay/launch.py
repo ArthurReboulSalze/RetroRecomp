@@ -63,6 +63,26 @@ def clean_options(options) -> str | Refusal:
     return '\n'.join(lines)
 
 
+# A host option a game reads before any session exists, so a guest's game must be STARTED in it (its command line), not told at
+# SETUP: the Neo Geo's machine (MVS and AES boot different firmware, and a game cannot switch in the middle of a run). The guest's
+# own setting is left as it is (the argument is read for this run only); the seat still checks `system=` at SETUP.
+GAME_ARGUMENTS = {'ng': {'system': {'aes': '--aes', 'mvs': '--mvs'}}}
+
+
+def game_arguments(machine: str, options: str) -> tuple[str, ...]:
+    """The command line a guest's game starts with for the host's `options` (cleaned `key=value` lines)."""
+    table = GAME_ARGUMENTS.get(machine)
+    if not table or not isinstance(options, str):
+        return ()
+    found = []
+    for line in options.split('\n'):
+        key, _, value = line.partition('=')
+        argument = table.get(key, {}).get(value)
+        if argument:
+            found.append(argument)
+    return tuple(found)
+
+
 def merge_options(base: str, host: str) -> str | Refusal:
     """The options a launch carries: `base` (the pick's, the command line's) with the host game's own values (its HELLO) over
     them, key by key; cleaned as a guest will clean them."""

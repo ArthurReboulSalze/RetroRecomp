@@ -250,6 +250,16 @@ class SessionEnvironmentTests(unittest.TestCase):
             self.assertIn(name, session_game.NEVER_IN_A_SESSION)
 
 
+class GameArgumentsTests(unittest.TestCase):
+    def test_a_neo_geo_guest_starts_in_the_hosts_machine_and_nothing_else_gets_arguments(self):
+        from retrorecomp.netplay.launch import game_arguments
+        self.assertEqual(game_arguments('ng', 'clock=enhanced\nsystem=aes'), ('--aes',))
+        self.assertEqual(game_arguments('ng', 'system=mvs'), ('--mvs',))
+        self.assertEqual(game_arguments('ng', 'system=other\nclock=standard'), ())
+        self.assertEqual(game_arguments('cps1', 'system=aes'), ())
+        self.assertEqual(game_arguments('ng', None), ())
+
+
 class LaunchSettingsTests(unittest.TestCase):
     GOOD = dict(seat=1, seats=3, names=['Arthur', 'Nadia', 'Karl'], delay=None, digest_every=60, redundancy=3,
                 options='speed=1\nregion=eu')

@@ -52,7 +52,7 @@ from . import control, internet_key, invitation, scripted_inputs, seat_map
 from . import session_pipe as pipe
 from . import worker_channel as channel
 from .lan_transport import RoomError, RoomGuest, RoomHost
-from .launch import Refusal, launch_settings, merge_options
+from .launch import Refusal, game_arguments, launch_settings, merge_options
 from .lobby import game_from_dict
 from .lockstep import LockstepDriver, Settings
 from .lag_link import LagLink
@@ -222,7 +222,7 @@ class RoomWorker:
             if self.match is not None or self.pending is not None:
                 self.room.launched(launch.match_id, control.LAUNCHED_FAILED)
                 return
-            self.pending = {'match_id': launch.match_id, 'settings': settings}
+            self.pending = {'match_id': launch.match_id, 'settings': settings, 'machine': launch.machine}
         self.emit({'event': 'launch_request', 'match_id': launch.match_id, 'machine': launch.machine,
                    'stamp': launch.stamp.hex(), 'rom': launch.rom_sha.hex(), 'seat': launch.seat, 'seats': launch.seats,
                    'names': list(settings.names), 'tier': _tier_name(settings.rollback), 'prediction': settings.rollback})
@@ -235,10 +235,10 @@ class RoomWorker:
             raise ValueError('the launch names no game')
         return game
 
-    def _open_game(self, game: dict) -> SessionGame:
+    def _open_game(self, game: dict, arguments: tuple = ()) -> SessionGame:
         return SessionGame(Path(game['exe']), cwd=Path(game['cwd']) if game.get('cwd') else None, env=game.get('env'),
                            stdout=Path(game['stdout']) if game.get('stdout') else None,
-                           stderr=Path(game['stderr']) if game.get('stderr') else None)
+                           stderr=Path(game['stderr']) if game.get('stderr') else None, arguments=arguments)
 
     def _link(self):
         """The match's link; with the room command's `--lag-ms` (a test of a far player), what this PC sends is held that long."""
@@ -247,8 +247,8 @@ class RoomWorker:
         return LagLink(link, lag, jitter) if lag or jitter else link
 
     def _run_match(self, match_id: int, game: dict, settings: Settings, link, host: bool,
-                   session: SessionGame | None = None) -> _Match:
-        session = session or self._open_game(game)
+                   session: SessionGame | None = None, arguments: tuple = ()) -> _Match:
+        session = session or self._open_game(game, arguments)
         driver = driver_for(session, link, settings)
         driver.on_chat = self._chat_from_game
         match = _Match(match_id, driver, session, host)
@@ -519,7 +519,8 @@ class RoomWorker:
         try:
             game = self._game_config(message)
             settings = test_settings(pending['settings'], {**self.test_values, **(message.get('test_settings') or {})}, self.tests)
-            self._run_match(pending['match_id'], game, settings, self._link(), False)
+            arguments = game_arguments(pending.get('machine', ''), settings.options or '')    # the host's machine (Neo Geo)
+            self._run_match(pending['match_id'], game, settings, self._link(), False, arguments=arguments)
         except Exception as error:
             self.room.launched(pending['match_id'], control.LAUNCHED_FAILED)
             self.emit({'event': 'launch_error', 'match_id': pending['match_id'],
