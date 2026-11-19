@@ -69,6 +69,19 @@ bool rrhk_action_held(int player, int action) {
     return rrhk.pads[player] && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX && SDL_GameControllerGetButton(rrhk.pads[player], button);
 }
 
+/* The Pause that waits for the restart combination (1.8.2): resolved at the end of each poll, so that a tap is not late. */
+#define PAUSE_COMBO_WAIT_MS 200
+typedef struct { bool waiting; SDL_JoystickID pad; int button; Uint64 since; } PauseWait;
+static PauseWait pause_wait;
+static void toggle_pause(void) {
+    rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
+}
+static void pause_wait_poll(void) {
+    if (!pause_wait.waiting) return;
+    const unsigned state = rrhk_restart_combo_state(pause_wait.pad, pause_wait.button);
+    if (!state || (state & 2u)) { pause_wait.waiting = false; return; }      /* the combination took the press, or went away */
+    if (!(state & 4u) || SDL_GetTicks64() - pause_wait.since >= PAUSE_COMBO_WAIT_MS) { pause_wait.waiting = false; toggle_pause(); }
+}
 static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) { return host_action_pressed(event, key, rrhk.machine->host_pause); }
 
 /* The Change disc action, in play only: the next disc (after the last, the first), and a notice "Disc 2/3". The machine does the
@@ -318,7 +331,13 @@ void rrhk_poll_events(RrhkRun *run) {
         /* A gamepad button bound to Pause/Menu opens or closes the Pause menu (a key does after the binding capture below). */
         if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN &&
             pause_pressed(&event, key) && !rrhk_options_component(0, event.cbutton.button)) {
-            rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
+            /* 1.8.2: a Pause on a button of the restart combination (Start on the Master System: Start+Select) waits for the
+             * combination, on player 1's pad, which owns it. The other button already down: the press belongs to the combination. */
+            const unsigned state = event_player(event.cbutton.which) == 0 ?
+                rrhk_restart_combo_state(event.cbutton.which, event.cbutton.button) : 0;
+            if (state & 2u) continue;
+            if (state) { pause_wait = (PauseWait){true, event.cbutton.which, event.cbutton.button, SDL_GetTicks64()}; continue; }
+            toggle_pause();
             continue;
         }
         if (key == SDL_SCANCODE_UNKNOWN) continue;
@@ -433,4 +452,5 @@ void rrhk_poll_events(RrhkRun *run) {
             else if (enter) rrhk.capturing = 1;
         }
     }
+    pause_wait_poll();
 }

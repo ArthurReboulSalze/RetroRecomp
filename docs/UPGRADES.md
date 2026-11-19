@@ -86,6 +86,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [Every machine: a Pause on a button of the restart combination waits for the combination (Master System: Start+Select)](#every-machine-a-pause-on-a-button-of-the-restart-combination-waits-for-the-combination-master-system-startselect-next-release) | none | **the host stamp of all 21 profiles** (the shell: `rrhk_events.c`, `rrhk_options.c`, `hostkit_internal.h`) | unchanged (host files are outside every state key) |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Nintendo 64: multiplayer on the delay tier, and a change of resolution in play keeps the renderer's memory](#nintendo-64-multiplayer-on-the-delay-tier-and-a-change-of-resolution-in-play-keeps-the-renderers-memory-next-release) | the Nintendo 64 (`n64_cpu.c`, `n64_session.cpp`, `n64_player.c`) | the Nintendo 64's host stamp (`rrhk_n64.inc`) | Nintendo 64 states of 1.8.0 refused (the state key hashes the session sources) |
@@ -873,6 +874,19 @@ guest's folder holds no save. Four seats with no save pass too; four seats with 
 same boot digest, then an exception in the smoke tool's link thread; reported to the multiplayer specialist). Not run: the two-PC run
 with a real save.
 guest's folder holds no save. The same with four seats on that file: PASS, the host's file equals the final memory of the four seats, its `.bak` equals the planted file, the guests write nothing. (Two earlier four-seat runs did not start, in the smoke tool's link thread; eight runs since, NBA Jam and Madden NFL 95, three and four seats, on the kit commits before and after the save rule and on this change, all pass.) Not run: the two-PC run with a real save.
+
+## Every machine: a Pause on a button of the restart combination waits for the combination (Master System: Start+Select) (next release)
+
+The Master System has no Start button, so its Pause is on the pad's Start; the restart combination is Start+Select (Back) held one
+second. Pressing Start first opened the Pause menu before the combination was recognised. `rrhk_events.c`: a pad press of the host
+Pause action that is a member of the restart combination, on player 1's pad (the one that owns the combination), now waits: it opens
+or closes the Pause menu when the button is released or after 200 ms held, and is dropped if another button of the combination is
+down by then, or already down at the press (`rrhk_restart_combo_state`, `rrhk_options.c`). A tap of Start still pauses at once, on
+the release; Start+Select, in either order or together, never pauses and restarts after the second of holding, as on every machine.
+The Game Gear (Pause on Select, the cartridge Start on Start) is the same. The other pads, the keyboard and the machines whose Pause is
+not on a button of the combination (Game Boy: Guide) are unchanged. `tools/hostkit_capabilities/checks.c` drives it with a virtual
+pad (tap, held, Start then Select, Select then Start, both together, released before the second) and fails on the former shell.
+Host stamp of every profile with the host kit; no game stamp, quick states unchanged.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

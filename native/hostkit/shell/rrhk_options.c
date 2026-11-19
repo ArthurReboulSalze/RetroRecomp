@@ -80,6 +80,14 @@ void rrhk_options_notice(void) {
     rrhk_notice(rr_options.status, 2200);
 }
 bool rrhk_options_component(int key, int button) { return rr_options_component(key, button); }
+unsigned rrhk_restart_combo_state(SDL_JoystickID pad, int button) {
+    if (button < 0 || button >= SDL_CONTROLLER_BUTTON_MAX) return 0;
+    const Uint32 bit = 1u << button, mask = (Uint32)rr_options.combo[RR_COMBO_RESTART].pad;
+    if (!(mask & bit) || !(mask & ~bit)) return 0;
+    Uint32 held = 0;
+    for (int i = 0; i < 4; ++i) if (rr_options.pads[i].id == pad) held = rr_options.pads[i].mask;
+    return 1u | ((held & mask & ~bit) ? 2u : 0u) | ((held & bit) ? 4u : 0u);
+}
 /* 1.8.1: a pad button (or trigger) of the Options combination that opened or closed the menu: hidden from the game until every
  * button of that combination is released, on every pad. */
 bool rrhk_options_hidden(int button) {
