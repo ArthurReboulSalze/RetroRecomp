@@ -332,7 +332,7 @@ class ConversionMixin:
             buttons.append(button)
         window.bind('<Escape>', lambda event: window.destroy())
         window.update_idletasks()
-        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight(), measured=True)
         window.deiconify()
         window.grab_set()
         buttons[1].focus_set()

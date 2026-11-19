@@ -14,6 +14,7 @@ from .paths import APP_NAME, save_preferences
 from .i18n import STRINGS, log_text
 from .branding import COLORS
 from .dialogs import center_dialog
+from .ui_fonts import scaled
 from .gui_common import UPDATE_CHECK_EVERY, base_is_newer, update_error_text
 
 
@@ -184,7 +185,7 @@ class UpdatesMixin:
             primary = primary or button
         window.bind('<Escape>', lambda event: window.destroy())
         window.update_idletasks()
-        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight(), measured=True)
         window.deiconify()
         window.grab_set()
         if primary is not None:
@@ -304,8 +305,8 @@ class UpdatesMixin:
         window.bind('<Escape>', lambda event: window.destroy())
         window.bind('<Return>', lambda event: go.invoke())
         window.update_idletasks()
-        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
-        window.minsize(520, 360)
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight(), measured=True)
+        window.minsize(scaled(window, 520), scaled(window, 360))
         window.deiconify()
         window.grab_set()
         go.focus_set()
@@ -405,7 +406,7 @@ class UpdatesMixin:
             tk.Label(body, text=note, bg=background, fg=COLORS['muted'], font=(self.ui_font, 8),
                      wraplength=440, justify='left').pack(anchor='w', pady=(10, 0))
         window.update_idletasks()
-        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight(), measured=True)
         window.deiconify()
         state = {'label': '', 'done': 0, 'total': 0, 'step': '', 'result': None}
         self.updating = True

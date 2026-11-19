@@ -12,13 +12,13 @@ from .paths import ASSETS, APP_NAME, save_preferences, save_game_language
 from .i18n import STRINGS, tr
 from .languages import LANGUAGES, LANGUAGE_NAMES, language_name
 from .tooltips import Tooltip
-from .ui_fonts import family
+from .ui_fonts import family, scaled
 from .systems import get_profile
 from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
 from .rounded_skin import apply_rounded_theme
 from .rounded_skin import skin_of
-from .dialogs import center_dialog
+from .dialogs import center_dialog, fit_screen
 from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
 from .gui_icons import hero_picture
 from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
@@ -33,7 +33,9 @@ class WindowMixin:
 
     def fit_minimum_width(self):
         # French labels and a large ROM count must keep every action visible.
-        self.app.minsize(max(1060, self.toolbar.winfo_reqwidth() + 72), 640)
+        app = self.app
+        width = max(fit_screen(app, 1060, app.winfo_screenwidth() - 40), self.toolbar.winfo_reqwidth() + 72)
+        app.minsize(width, fit_screen(app, 640, app.winfo_screenheight() - 90))
 
     def layout_empty_state(self, event):
         # Keep the empty-list hint below the heading even on small screens.
@@ -464,7 +466,7 @@ class WindowMixin:
         panel.title(APP_NAME + ' - ' + self.tr('credits_notices'))
         panel.configure(bg=COLORS['background'])
         center_dialog(panel, parent, 880, 630)
-        panel.minsize(min(650, panel.winfo_screenwidth() - 40), min(420, panel.winfo_screenheight() - 90))
+        panel.minsize(min(scaled(panel, 650), panel.winfo_screenwidth() - 40), min(scaled(panel, 420), panel.winfo_screenheight() - 90))
         panel.transient(parent)
         body = tk.Frame(panel, bg=COLORS['background'], padx=16, pady=16)
         body.pack(fill='both', expand=True)
@@ -650,7 +652,7 @@ class WindowMixin:
             bar.pack(side='right', fill='y')
             width += bar.winfo_reqwidth()
         scroller.configure(width=body.winfo_reqwidth(), height=min(height, room_height))
-        center_dialog(window, self.app, width, height)
-        window.minsize(min(width, 420), min(height, 320))
+        center_dialog(window, self.app, width, height, measured=True)
+        window.minsize(min(width, scaled(window, 420)), min(height, scaled(window, 320)))
         window.deiconify()
         reveal()
