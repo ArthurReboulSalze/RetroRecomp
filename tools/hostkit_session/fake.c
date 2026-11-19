@@ -109,6 +109,9 @@ static unsigned option_at, speed = 1;
 /* SESSION_FAKE_KEYS=1: a computer whose keyboard the host types on (session ABI 9): its LOCAL carries this PC's keys (the
  * letter key of frame % 26 while it types), and the keys of every RUN fold into the state. */
 static bool typing_keys;
+/* SESSION_FAKE_PASS_AT=n: at frame n the player passes the shared controls (rrhk_session_pass(-1): F2's tile or the pad's
+ * combination; session ABI 9); the RESULT says who holds them at the end, as the worker's TURNS said. */
+static unsigned pass_at;
 static bool session_keys(uint8_t *bits) {
     uint8_t state_keys[SDL_NUM_SCANCODES];
     memset(state_keys, 0, sizeof state_keys);
@@ -116,7 +119,9 @@ static bool session_keys(uint8_t *bits) {
     rrhk_keys_pack(state_keys, bits);
     return true;
 }
+static int last_holder = -9;
 static bool step(uint16_t p1, uint16_t p2) {
+    last_holder = rrhk_session_holder();
     if (slow_ms) SDL_Delay(slow_ms);
     const uint16_t p3 = rrhk_pad_word(2, state.frames), p4 = rrhk_pad_word(3, state.frames);
     const uint64_t words = (uint64_t)p1 | (uint64_t)p2 << 16 | (uint64_t)p3 << 32 | (uint64_t)p4 << 48;
@@ -137,6 +142,7 @@ static bool step(uint16_t p1, uint16_t p2) {
         state.acc = mix(state.acc ^ high);
     }
     if (option_at && state.frames + 1 == option_at && !rrhk_session_silent()) speed = 2;
+    if (pass_at && state.frames + 1 == pass_at && !rrhk_session_silent()) rrhk_session_pass(-1);
     ++state.frames;
     if (rrhk_session_silent()) ++silent_runs; else ++live_runs;
     if (!effects_allowed) ++effects_off_runs;
@@ -276,6 +282,8 @@ int main(int argc, char **argv) {
     }
     const char *option = getenv("SESSION_FAKE_OPTION_AT");
     option_at = option ? (unsigned)atoi(option) : 0;
+    const char *pass = getenv("SESSION_FAKE_PASS_AT");
+    pass_at = pass ? (unsigned)atoi(pass) : 0;
     const char *typing = getenv("SESSION_FAKE_KEYS");
     typing_keys = typing && *typing == '1';
     if (typing_keys) machine.session_keys = session_keys;
@@ -294,9 +302,9 @@ int main(int argc, char **argv) {
             rrhk_close();
         } while (reopen);
     } else status = rrhk_main(&machine, "Session fake", 1);
-    printf("RESULT frames=%u live=%u silent=%u quick=%u effects_off=%u options=%u resets=%u digest=%016llx\n",
+    printf("RESULT frames=%u live=%u silent=%u quick=%u effects_off=%u options=%u resets=%u digest=%016llx holder=%d\n",
            state.frames, live_runs, silent_runs, quick_calls, effects_off_runs, option_calls, resets,
-           (unsigned long long)digest());
+           (unsigned long long)digest(), last_holder);
     fflush(stdout);
     SDL_Quit();
     return status;

@@ -16,7 +16,8 @@ ABI = 9                      # 2: restart for everyone (SYS_RESTART in LOCAL, RU
                              # options (the host's go to every seat); 7: the sticks travel (LOCAL and RUN carry AXES int8 values);
                              # 8: the host's save travels (HELLO says its size, SAVE_OUT gives it, SAVE_IN hands it to a guest);
                              # 9: the host changes an option in a match (RELAUNCH, STOP_RELAUNCH) and types on a computer (LOCAL
-                             # and RUN carry its keys: CAP_KEYBOARD, SYS_KEYBOARD, RUN_KEYS)
+                             # and RUN carry its keys: CAP_KEYBOARD, SYS_KEYBOARD, RUN_KEYS); the shared controls from the game
+                             # (SYS_PASS, SYS_SHARE_*: pass them, give them, switch the mode) and who holds them (TURNS)
 MAX_PAYLOAD = 4096
 MAX_RING = 64
 MAX_OPTIONS = 1024           # RRHK_SESSION_MAX_OPTIONS: the run-changing options a HELLO may carry
@@ -28,6 +29,7 @@ MSG_HELLO, MSG_LOCAL, MSG_DONE, MSG_DIGEST_OF, MSG_REFUSED, MSG_EXIT, MSG_CHAT_O
 MSG_RELAUNCH = 9
 # worker -> game
 MSG_SETUP, MSG_RUN, MSG_SAVE, MSG_LOAD, MSG_DIGEST, MSG_PAUSE, MSG_NOTICE, MSG_PACE, MSG_STOP, MSG_CHAT_SHOW, MSG_SAVE_IN = range(32, 43)
+MSG_TURNS = 43
 MAX_SAVE = 2 * 1024 * 1024   # RRHK_SESSION_MAX_SAVE: the largest save image a game gives or takes
 SAVE_CHUNK = 4000            # the data of one SAVE_OUT / SAVE_IN
 
@@ -40,6 +42,9 @@ AXES = 4                     # RRHK_AXES: LX, LY, RX, RY per player, int8 (-127.
 NO_AXES = (0,) * AXES
 RUN_ACTIONS = (0, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD)       # at most one of them before a frame
 SYS_PAUSE, SYS_RESTART, SYS_STATE_SAVE, SYS_STATE_LOAD, SYS_KEYBOARD = 1, 2, 4, 8, 16
+SYS_PASS, SYS_SHARE_ALL, SYS_SHARE_TURNS = 32, 64, 128     # the shared controls: pass (to a seat), the host's mode switch
+SYS_PASS_TO_SHIFT, SYS_PASS_TO_MASK = 8, 0x0700            # with SYS_PASS, the host's target seat + 1 (0: the next seat)
+SHARING_PER_PLAYER, SHARING_EVERYONE, SHARING_TURNS = 0, 1, 2      # TURNS: the mode in force
 REFUSED_OPTION, REFUSED_SNAPSHOT, REFUSED_COMMAND = 1, 2, 3
 EXIT_CLOSED, EXIT_LOST, EXIT_STOPPED, EXIT_FAILED = 1, 2, 3, 4
 NOTICE_WAITING, NOTICE_RESUMED, NOTICE_LEFT, NOTICE_TURN, NOTICE_YOUR_TURN, NOTICE_CHAT_SLOW = 1, 2, 3, 4, 5, 6
@@ -57,7 +62,10 @@ HEADER_NAMES = {
     'RRHK_MSG_HELLO': MSG_HELLO, 'RRHK_MSG_LOCAL': MSG_LOCAL, 'RRHK_MSG_DONE': MSG_DONE,
     'RRHK_MSG_DIGEST_OF': MSG_DIGEST_OF, 'RRHK_MSG_REFUSED': MSG_REFUSED, 'RRHK_MSG_EXIT': MSG_EXIT,
     'RRHK_MSG_CHAT_OUT': MSG_CHAT_OUT, 'RRHK_MSG_CHAT_SHOW': MSG_CHAT_SHOW, 'RRHK_MSG_SAVE_OUT': MSG_SAVE_OUT,
-    'RRHK_MSG_SAVE_IN': MSG_SAVE_IN, 'RRHK_MSG_RELAUNCH': MSG_RELAUNCH,
+    'RRHK_MSG_SAVE_IN': MSG_SAVE_IN, 'RRHK_MSG_RELAUNCH': MSG_RELAUNCH, 'RRHK_MSG_TURNS': MSG_TURNS,
+    'RRHK_SYS_PASS': SYS_PASS, 'RRHK_SYS_SHARE_ALL': SYS_SHARE_ALL, 'RRHK_SYS_SHARE_TURNS': SYS_SHARE_TURNS,
+    'RRHK_SHARING_PER_PLAYER': SHARING_PER_PLAYER, 'RRHK_SHARING_EVERYONE': SHARING_EVERYONE,
+    'RRHK_SHARING_TURNS': SHARING_TURNS,
     'RRHK_MSG_SETUP': MSG_SETUP, 'RRHK_MSG_RUN': MSG_RUN, 'RRHK_MSG_SAVE': MSG_SAVE, 'RRHK_MSG_LOAD': MSG_LOAD,
     'RRHK_MSG_DIGEST': MSG_DIGEST, 'RRHK_MSG_PAUSE': MSG_PAUSE, 'RRHK_MSG_NOTICE': MSG_NOTICE,
     'RRHK_MSG_PACE': MSG_PACE, 'RRHK_MSG_STOP': MSG_STOP,
@@ -332,6 +340,18 @@ def chat_show(phrase: int, name: str, text: str = '') -> bytes:
     name_bytes = clean_name(name)[:CHAT_MAX_NAME]
     body = b'' if phrase else (bytes(b for b in text.encode('ascii', 'replace') if 32 <= b < 127)[:CHAT_MAX_TEXT] or b'?')
     return frame(MSG_CHAT_SHOW, bytes([phrase, len(name_bytes)]) + name_bytes + bytes([len(body)]) + body)
+
+
+def turns(sharing: int, holder: int | None, names) -> bytes:
+    """Who plays the shared controls (session ABI 9), at the match's start and whenever it changes: the mode in force
+    (SHARING_*), the seat holding the controls in turns (none otherwise), and every seat's name, for the game's badge and its
+    "give the controls to" list."""
+    names = list(names)[:MAX_PLAYERS]
+    body = bytes([sharing & 0xff, 0xff if holder is None else holder & 0xff, len(names)])
+    for name in names:
+        text = clean_name(name)[:CHAT_MAX_NAME]
+        body += bytes([len(text)]) + text
+    return frame(MSG_TURNS, body)
 
 
 def pace(ppm: int) -> bytes:

@@ -236,6 +236,8 @@ class LockstepDriver:
         self._hold_ms = 0
         self._game_system = 0
         self._game_restart = False              # the game's restart bit in its latest LOCAL (a request on its rising edge)
+        self._game_turns = 0                    # its shared-controls requests in that LOCAL (pass, mode: rising edges)
+        self._turns_told: tuple | None = None   # (mode, holder) this game was last told (TURNS)
         self.restarts: list[int] = []           # the frames this game was told to restart before (verified ones on rollback)
         self.sticks = False                     # the game reads sticks (its HELLO's CAP_AXES): the records carry them
         self.keyboard = False                   # a computer the host may type on (CAP_KEYBOARD): the records carry keys
@@ -429,6 +431,10 @@ class LockstepDriver:
         """Shared controls taken in turns: when the token moved (on real records only), this game is told who has them now
         ("Your turn" for its own seat); nothing in the other modes."""
         state = self._seat_state
+        holder = state.token if state.sharing == seat_map.SHARED_TURNS else None
+        if (state.sharing, holder) != self._turns_told:      # the game's badge and its "give to" list (session ABI 9)
+            self._turns_told = (state.sharing, holder)
+            self._tell(pipe.turns(state.sharing, holder, self.names))
         if state.sharing != seat_map.SHARED_TURNS:
             self._turn_told = None
             return
@@ -596,6 +602,19 @@ class LockstepDriver:
         if asked and not self._game_restart and self.seat == HOST:
             self._request |= seat_map.SYS_RESTART
         self._game_restart = asked
+        # The shared controls (session ABI 9): the game's pass (the holder: to the next seat; the host: to the seat it names) and
+        # the host's switch between everyone and turns, each on its rising edge, become this seat's request (`seat_map.request`
+        # says what each seat may ask; anything else is counted as refused).
+        turns = system & (pipe.SYS_PASS | pipe.SYS_SHARE_ALL | pipe.SYS_SHARE_TURNS)
+        rising = turns & ~self._game_turns
+        if rising & pipe.SYS_PASS:
+            target = (system & pipe.SYS_PASS_TO_MASK) >> pipe.SYS_PASS_TO_SHIFT
+            self._ask(seat_map.request(self.settings.sharing, self.seat, target=target - 1 if target else None))
+        if rising & pipe.SYS_SHARE_ALL:
+            self._ask(seat_map.request(self.settings.sharing, self.seat, mode=seat_map.SHARED_ALL))
+        elif rising & pipe.SYS_SHARE_TURNS:
+            self._ask(seat_map.request(self.settings.sharing, self.seat, mode=seat_map.SHARED_TURNS))
+        self._game_turns = turns
         # The host's F8 / F9 (the match's state, for everyone): the same, on the rising edge of the game's bit; a load wins over
         # a save asked in the same LOCAL. It waits for a record at least `_state_spacing` after the last one (below).
         state = system & (pipe.SYS_STATE_SAVE | pipe.SYS_STATE_LOAD)

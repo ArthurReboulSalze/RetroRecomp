@@ -70,6 +70,9 @@ static struct {
     uint8_t keys_sent[RRHK_KEY_BYTES];          /* the keys this PC typed in that LOCAL (a computer whose keyboard mode is on) */
     bool keys_on;                   /* the RUN being run carries the host's keys (RRHK_RUN_KEYS) */
     uint8_t keys[RRHK_KEY_BYTES];
+    uint16_t turns_pending;         /* a pass or a mode switch asked (RRHK_SYS_PASS ...): in the LOCALs of one frame */
+    int sharing, holder, seat, seats;               /* TURNS: the shared controls (-1: not said) */
+    char seat_names[RRHK_MAX_PLAYERS][RRHK_CHAT_MAX_NAME + 1];
     char paused_by[24];
     bool setup;                     /* SETUP received and applied: frames may run */
     Uint64 setup_until;             /* SETUP must come before this (SDL ticks) */
@@ -117,6 +120,29 @@ void rrhk_keys_unpack(const uint8_t *bits, uint8_t *state) {
         const int bit = key_bit(code);
         if (bit >= 0 && bits[bit >> 3] & (1u << (bit & 7))) state[code] = 1;
     }
+}
+int rrhk_session_sharing(void) { return rrhk_session_on ? s.sharing : -1; }
+int rrhk_session_holder(void) { return rrhk_session_on && s.sharing == RRHK_SHARING_TURNS ? s.holder : -1; }
+int rrhk_session_seat(void) { return rrhk_session_on ? s.seat : -1; }
+int rrhk_session_seats(void) { return rrhk_session_on ? s.seats : 0; }
+const char *rrhk_session_seat_name(int seat) {
+    return rrhk_session_on && seat >= 0 && seat < s.seats ? s.seat_names[seat] : "";
+}
+bool rrhk_session_pass(int to) {
+    if (!rrhk_session_on || !s.setup) return false;
+    if (s.sharing != RRHK_SHARING_TURNS) { rrhk_notice(rr_tr("Not in turns"), 1800); return false; }
+    if (s.guest && to >= 0) { rrhk_notice(rr_tr("Only the host gives the controls"), 1800); return false; }
+    if (s.guest && s.holder != s.seat) { rrhk_notice(rr_tr("It is not your turn"), 1800); return false; }
+    if (to >= s.seats) return false;
+    s.turns_pending = (uint16_t)(RRHK_SYS_PASS | (to >= 0 ? (to + 1) << RRHK_SYS_PASS_TO_SHIFT : 0));
+    return true;
+}
+bool rrhk_session_set_sharing(int mode) {
+    if (!rrhk_session_on || !s.setup || (s.sharing != RRHK_SHARING_EVERYONE && s.sharing != RRHK_SHARING_TURNS)) return false;
+    if (s.guest) { rrhk_notice(rr_tr("Only the host gives the controls"), 1800); return false; }
+    if (mode != RRHK_SHARING_EVERYONE && mode != RRHK_SHARING_TURNS) return false;
+    s.turns_pending = mode == RRHK_SHARING_EVERYONE ? RRHK_SYS_SHARE_ALL : RRHK_SYS_SHARE_TURNS;
+    return true;
 }
 bool rrhk_session_keys(uint8_t *state) {
     rrhk_keys_unpack(s.keys, state);
@@ -364,6 +390,7 @@ bool rrhk_session_open(RrhkRun *run) {
     s.state_pending = 0; s.state_used = false; s.state_len = 0;
     s.options_known = false; s.relaunching = false; s.match_options_length = 0;
     s.keys_on = false; memset(s.keys, 0, sizeof s.keys); memset(s.keys_sent, 0, sizeof s.keys_sent);
+    s.turns_pending = 0; s.sharing = s.holder = s.seat = -1; s.seats = 0; memset(s.seat_names, 0, sizeof s.seat_names);
     s.setup = false; s.setup_until = SDL_GetTicks64() + 15000;
     rrhk_session_on = true;           /* from here the frames wait for SETUP inside the loop (events and pictures go on) */
     /* The worker started this game from a window in the background: without the focus, the keyboard reaches nothing and the
@@ -386,6 +413,7 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
         return false;
     }
     s.guest = (payload[3] & RRHK_SETUP_GUEST) != 0;
+    s.seat = (int)seat;
     s.setup_ports = (int)ports;
     if (!apply_options(m, payload + 6, options)) return false;
     memcpy(s.options, payload + 6, options); s.options_length = options;
@@ -631,7 +659,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
     const uint16_t system = (uint16_t)((rrhk.menu || rrhk.paused ? RRHK_SYS_PAUSE : 0) |
                                        (s.restart_pending ? RRHK_SYS_RESTART : 0) |
                                        (s.state_pending == 1 ? RRHK_SYS_STATE_SAVE : s.state_pending == 2 ? RRHK_SYS_STATE_LOAD : 0) |
-                                       (typing ? RRHK_SYS_KEYBOARD : 0));
+                                       (typing ? RRHK_SYS_KEYBOARD : 0) | s.turns_pending);
     if (!s.local_sent || system != s.system_sent) {
         /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
          * sends the neutral word. */
@@ -778,6 +806,26 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             rrhk_notice(text, 1800);
             break;
         }
+        case RRHK_MSG_TURNS: {
+            /* Who plays the shared controls (session ABI 9): kept for the badge and the F2 tiles; the notices of a change
+             * come as NOTICE_TURN / NOTICE_YOUR_TURN. */
+            if (length < 3 || payload[0] > RRHK_SHARING_TURNS || payload[2] > RRHK_MAX_PLAYERS ||
+                (payload[1] != 0xff && payload[1] >= payload[2]))
+                return lost(run, "a TURNS broke the rules");
+            size_t at = 3;
+            char names[RRHK_MAX_PLAYERS][RRHK_CHAT_MAX_NAME + 1];
+            memset(names, 0, sizeof names);
+            for (unsigned i = 0; i < payload[2]; ++i) {
+                if (at >= length || payload[at] > RRHK_CHAT_MAX_NAME || at + 1u + payload[at] > length)
+                    return lost(run, "a TURNS broke the rules");
+                copy_name(names[i], sizeof names[i], payload + at + 1, payload[at]);
+                at += 1u + payload[at];
+            }
+            if (at != length) return lost(run, "a TURNS broke the rules");
+            s.sharing = payload[0]; s.holder = payload[1] == 0xff ? -1 : payload[1]; s.seats = payload[2];
+            memcpy(s.seat_names, names, sizeof names);
+            break;
+        }
         case RRHK_MSG_CHAT_SHOW:
             if (!chat_show(payload, length)) return lost(run, "a CHAT_SHOW broke the rules");
             break;
@@ -821,6 +869,7 @@ void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks) {
     send_message(RRHK_MSG_DONE, done, sizeof done);
     ++s.live;
     if (s.system_sent & RRHK_SYS_RESTART) s.restart_pending = false;     /* the worker saw it in this frame's LOCAL */
+    if (s.system_sent & (RRHK_SYS_PASS | RRHK_SYS_SHARE_ALL | RRHK_SYS_SHARE_TURNS)) s.turns_pending = 0;
     if (s.system_sent & (RRHK_SYS_STATE_SAVE | RRHK_SYS_STATE_LOAD)) s.state_pending = 0;
     s.local_sent = false;
 }

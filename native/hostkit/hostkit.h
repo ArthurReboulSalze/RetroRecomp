@@ -452,6 +452,18 @@ bool rrhk_session_guest(void);
 /* Session ABI 9, a computer's keyboard: the host's keys of the frame being run, unpacked into `state` (SDL_NUM_SCANCODES bytes,
  * 1 for a key held); false (and `state` all zero) when the host does not type this frame. */
 bool rrhk_session_keys(uint8_t *state);
+/* The shared controls of a session (session ABI 9), for the F2 tiles, a pad combination and the badge: the mode in force
+ * (RRHK_SHARING_*, -1 outside a session or before the worker said it), the seat holding them in turns (-1: none), this
+ * PC's seat, the seats and their names. rrhk_session_pass: the holder passes to the next seat (to = -1), the host gives them
+ * to seat `to` (or passes too); rrhk_session_set_sharing: the host switches everyone / turns. false: not asked (a notice
+ * says why); the change itself comes back from the worker at the same frame on every PC. */
+int rrhk_session_sharing(void);
+int rrhk_session_holder(void);
+int rrhk_session_seat(void);
+int rrhk_session_seats(void);
+const char *rrhk_session_seat_name(int seat);
+bool rrhk_session_pass(int to);
+bool rrhk_session_set_sharing(int mode);
 #define RRHK_SESSION_KEY_BYTES 16     /* hostkit_session.h RRHK_KEY_BYTES */
 /* The typing keys of `state` (SDL_GetKeyboardState's array) as RRHK_SESSION_KEY_BYTES bits, and back. */
 void rrhk_keys_pack(const uint8_t *state, uint8_t *bits);

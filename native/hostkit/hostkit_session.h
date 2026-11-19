@@ -28,7 +28,8 @@
                                      * 8: the host's save travels (HELLO's save size, SAVE_OUT, SAVE_IN);
                                      * 9: the host changes a run-changing option in a match (RELAUNCH, STOP_RELAUNCH: the
                                      * match starts again for everyone with it) and the host types on a computer (LOCAL and
-                                     * RUN carry its keys, RRHK_CAP_KEYBOARD, RRHK_SYS_KEYBOARD, RRHK_RUN_KEYS) */
+                                     * RUN carry its keys, RRHK_CAP_KEYBOARD, RRHK_SYS_KEYBOARD, RRHK_RUN_KEYS); the shared
+                                     * controls from the game (RRHK_SYS_PASS, RRHK_SYS_SHARE_*) and who holds them (TURNS) */
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
 #define RRHK_SESSION_MAX_OPTIONS 1024
@@ -79,6 +80,9 @@ enum {
     RRHK_MSG_SAVE_IN = 42,   /* before SETUP, a guest: u32 total, u32 offset, data (at most RRHK_SESSION_SAVE_CHUNK): the host's
                               * save image, which the game plays on in memory for this match (RrhkMachine.session_save_put)
                               * and never writes; total 0: no save */
+    RRHK_MSG_TURNS = 43,     /* who plays the shared controls, at the match's start and at every change: u8 sharing
+                              * (RRHK_SHARING_*), u8 holder seat (0xff: none, not in turns), u8 seats, then per seat u8 length
+                              * and its name (printable ASCII, at most RRHK_CHAT_MAX_NAME) */
 };
 
 enum { RRHK_CAP_SNAPSHOT = 1, RRHK_CAP_DIGEST = 2, RRHK_CAP_POINTER = 4, RRHK_CAP_AXES = 8, RRHK_CAP_KEYBOARD = 16,
@@ -98,7 +102,13 @@ enum { RRHK_SYS_PAUSE = 1,             /* the player asked for a pause (the Paus
        RRHK_SYS_RESTART = 2,           /* the host asked to restart (Shift+F1, the pad combination): in one frame's LOCALs */
        RRHK_SYS_STATE_SAVE = 4,        /* the host asked to save the match's state (F8, the pad's Quick save) */
        RRHK_SYS_STATE_LOAD = 8,        /* the host asked to load it back (F9, the pad's Quick load) */
-       RRHK_SYS_KEYBOARD = 16 };       /* this PC types (Ctrl+Alt+K on a computer): its LOCAL's keys count (the host's only) */
+       RRHK_SYS_KEYBOARD = 16,         /* this PC types (Ctrl+Alt+K on a computer): its LOCAL's keys count (the host's only) */
+       RRHK_SYS_PASS = 32,             /* pass the shared controls: the holder to the next seat, the host to the seat in bits
+                                      * 8-10 (its number + 1; 0: the next) */
+       RRHK_SYS_SHARE_ALL = 64,        /* the host: the shared controls go to everyone at once */
+       RRHK_SYS_SHARE_TURNS = 128 };   /* the host: the shared controls are taken in turns */
+#define RRHK_SYS_PASS_TO_SHIFT 8
+enum { RRHK_SHARING_PER_PLAYER = 0, RRHK_SHARING_EVERYONE = 1, RRHK_SHARING_TURNS = 2 };
 /* The keys a computer's keyboard can be typed with in a session: one bit each, SDL scancodes 4 (A) to 100 (the key left of Z
  * on ISO keyboards) as bits 0..96, then the eight modifiers 224..231 as bits 97..104. Nothing else is ever typed. */
 #define RRHK_KEY_BYTES 16

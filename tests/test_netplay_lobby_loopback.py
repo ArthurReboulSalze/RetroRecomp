@@ -648,5 +648,52 @@ class RelaunchTests(unittest.TestCase):
             self.assertEqual(player.worker.exit_code_of_process, 0, player.worker.summary())
         shutil.rmtree(out, ignore_errors=True)         # kept only when something above failed
 
+
+class TurnsTests(unittest.TestCase):
+    """Session ABI 9 (Arthur, 20 Nov 2026): turns mode is usable from the game. The host's game passes the shared controls
+    (rrhk_session_pass, F2's tile) at frame 30: the request rides its records, both seats map it at the same frame, the token goes
+    to Nadia on both, and both games are told who holds them (TURNS, then the notices)."""
+
+    def test_the_holders_pass_from_its_game_moves_the_token_on_every_seat(self):
+        reason = selftest.fake.ready() or loopback_refused()
+        if reason:
+            self.skipTest(reason)
+        executable = selftest.fake.build(ROOT / '.build/hostkit-session-selftest')
+        out = Path(tempfile.mkdtemp(prefix='turns-', dir=ROOT / '.build'))
+        secret = invitation.new_secret()
+        frames = {'last': FRAMES}
+        host_library, nadia_library = FakeLibrary(self, executable), FakeLibrary(self, executable)
+        host_library.add(0, env={'SESSION_FAKE_PASS_AT': '30'})
+        nadia_library.add(0)
+        host = Player('host', host_library, {'room': {'role': 'host', 'address': '127.0.0.1', 'port': 0, 'secret': secret.hex(),
+                                                       'capacity': 2, 'name': 'Arthur', 'log': str(out / 'room.log'),
+                                                       'sharing': 'turns'}, 'tests': True},
+                      out, self, frames)
+        opened = host.worker.wait_event('room_open', 30)
+        if opened is None and any(bind_refused_now(event.get('detail', '')) for event in host.worker.events):
+            self.skipTest('the system refuses to bind a loopback port right now')
+        self.assertIsNotNone(opened, host.worker.events)
+        text = invitation.format_invitation('127.0.0.1', opened['port'], secret, tests=True)
+        nadia = Player('nadia', nadia_library, {'room': {'role': 'guest', 'invitation': text, 'name': 'Nadia'}, 'tests': True},
+                       out, self, frames)
+        self.assertTrue(host.until(lambda m: [p['name'] for p in m.players] == ['Arthur', 'Nadia']), host.controller.model.players)
+        self.assertEqual(host.controller.pick(host_library.entries[0]), '')
+        self.assertTrue(host.until(lambda m: m.checks.get(1, {}).get('status') == 'same'), host.controller.model.checks)
+        self.assertTrue(host.until(lambda m: m.sharing == 'turns'), host.controller.model.sharing)
+        settings = {'delay': 2, 'digest_every': 50, 'redundancy': 3, 'local_source': {'kind': 'pad', 'seat': 0, 'system': 'game'},
+                    'keep_history': True, 'last_frame': FRAMES}
+        self.assertEqual(host.controller.launch(settings), '')
+        for worker in (host.worker, nadia.worker):
+            self.assertTrue(worker.wait_for(lambda w: len(w.results) == 1, 120), worker.summary())
+        for worker in (host.worker, nadia.worker):
+            result = worker.results[0]
+            self.assertEqual(result['outcome'], 'ended', result['detail'])
+            self.assertEqual((result['sharing'], result['token']), ('turns', 1), result)       # the pass reached both seats
+        self.assertEqual(host.worker.results[0]['digests'], nadia.worker.results[0]['digests'])
+        for player in (host, nadia):
+            player.stop()
+            self.assertEqual(player.worker.exit_code_of_process, 0, player.worker.summary())
+        shutil.rmtree(out, ignore_errors=True)         # kept only when something above failed
+
 if __name__ == '__main__':
     unittest.main()

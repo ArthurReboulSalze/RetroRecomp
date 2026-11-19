@@ -147,7 +147,7 @@ class Game:
 
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
                  restart_at: int = 0, chat_at: int = 0, load_at: int = 0, driven: bool = False, sticks: bool = False,
-                 save: int | None = None, option_at: int = 0, keys: bool = False):
+                 save: int | None = None, option_at: int = 0, keys: bool = False, pass_at: int = 0):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -165,6 +165,9 @@ class Game:
         env.pop('SESSION_FAKE_SAVE', None)
         env.pop('SESSION_FAKE_OPTION_AT', None)
         env.pop('SESSION_FAKE_KEYS', None)
+        env.pop('SESSION_FAKE_PASS_AT', None)
+        if pass_at:
+            env['SESSION_FAKE_PASS_AT'] = str(pass_at)
         if option_at:
             env['SESSION_FAKE_OPTION_AT'] = str(option_at)
         if keys:
@@ -796,6 +799,37 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
     assert digests[0] == digests[1], 'the host and a guest fed the same RUNs differ'
     passed.append('keyboard: CAP_KEYBOARD, the host\'s LOCALs carry its keys (SYS_KEYBOARD), a guest\'s none, RUN_KEYS read by '
                   'the machine, host and guest equal')
+
+    # 28. Turns: TURNS says the mode, the holder and the names; the holder's pass (rrhk_session_pass) rides one frame's LOCALs
+    # as SYS_PASS; a guest who does not hold the controls asks nothing; a TURNS that breaks its rules ends the session.
+    def turns_payload(holder: int) -> bytes:
+        names = [b'Arthur', b'Nadia']
+        return bytes([CONSTANTS['RRHK_SHARING_TURNS'], holder, len(names)]) + b''.join(bytes([len(n)]) + n for n in names)
+    for holder, asks in ((1, True), (0, False)):
+        game = Game(executable, out, pass_at=6)
+        setup(game, seat=1, guest=True, ports=1)
+        game.send('RRHK_MSG_TURNS', turns_payload(holder))
+        history, passes = [], []
+        for frame in range(10):
+            local = game.expect('RRHK_MSG_LOCAL')
+            got, _word, system = struct.unpack_from('<IHH', local)
+            assert got == frame, (got, frame)
+            passes.append(bool(system & CONSTANTS['RRHK_SYS_PASS']))
+            game.send('RRHK_MSG_RUN', run_payload(frame, (0,)))
+            assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == frame
+        assert passes == [False] * 6 + [asks] + [False] * 3, passes
+        stop(game)
+        code, result, text = game.finish()
+        assert code == 0 and int(result['holder']) == holder, (code, result, text)
+    game = Game(executable, out)
+    setup(game, seat=1, guest=True, ports=1)
+    game.send('RRHK_MSG_TURNS', bytes([CONSTANTS['RRHK_SHARING_TURNS'], 3, 2, 1]) + b'A' + bytes([1]) + b'B')   # holder 3 of 2
+    while game.receive(timeout=15) is not None:      # the game ends the session itself (its pipe closes)
+        pass
+    code, result, text = game.finish(timeout=15)
+    assert code == 0 and 'TURNS broke the rules' in text, (code, result, text)
+    passed.append('turns: TURNS read (mode, holder, names), the holder\'s pass in one frame\'s LOCALs, a guest not holding asks '
+                  'nothing, a broken TURNS ends the session')
     return passed
 
 
