@@ -250,7 +250,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .gfx_options = n64_gfx_options, .gfx_option_count = G_COUNT, .gfx_apply = n64_gfx_apply,
             .digest = n64_digest, .side_effects = n64_side_effects, .session_begin = n64_session_begin,
             .stick_actions = n64_stick_actions,
-            .session_save = n64_session_save, .session_save_put = n64_session_save_put,
+            .session_save = n64_session_save, .session_save_put = n64_session_save_put, .session_save_commit = saves_commit,
             .session_no_restart = true,   /* the restart starts the program again: the kit refuses it in a session, every path */
         };
     }

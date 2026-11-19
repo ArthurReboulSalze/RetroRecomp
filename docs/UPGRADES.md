@@ -545,7 +545,9 @@ fixed order (`rr_n64_cpu_digest`: the VR4300's registers, PC and COP0 / COP1, th
 / PI / RI / SI, PIF RAM, the whole RDRAM, then the save memory with the four paks), never the quick state's bytes (about a
 kilobyte of the core's own block holds heap and code addresses that differ from run to run). **The host's saves travel to every
 seat** (`session_save` / `session_save_put`, session ABI 8): the whole save memory, cartridge EEPROM, SRAM or flash and the four
-controller paks (296,960 bytes), put in memory before the boot digest; **a guest writes no save** (the kit's `side_effects`). **The cartridge clock** (Animal Forest's) runs on the session's from `session_begin`, plus the emulated
+controller paks (296,960 bytes), put in memory before the boot digest; **nobody writes a save during the match**, the host included (the kit's
+`side_effects`), and **at a clean end the host writes its save back once** (`session_save_commit`: its saves.bin written
+atomically, the previous file kept as saves.bin.bak). **The cartridge clock** (Animal Forest's) runs on the session's from `session_begin`, plus the emulated
 seconds, the same date on every seat whatever its time zone; the core sets up its devices during the first frame, so the clock is
 put back after it. **ParaLLEl-RDP records on the emulation thread** in a session even if asked otherwise (its own worker is not
 deterministic). **The keyboard's Stick actions** read this PC's keys, so in a session every port's stick is the session's: the kit
@@ -571,6 +573,9 @@ frames): `PASS`, and against the same run without sticks (the same pad words: th
 59 on: the sticks reach the machine, the same on both seats. **The host's save** (Mario Kart 64, four seats, 1,800 frames, the
 host's real save from an earlier match, the guests' folders without one): `PASS`, every seat's boot digest the save's, no guest
 writes a save file; without the transfer the same case was refused at boot (a Debian host's save against Windows guests, 19 November).
+**The write-back:** after that match the host's saves.bin equals the final in-memory image (the checksum its game printed) and
+saves.bin.bak the file it started from, the guests' folders hold no file; a host with no save (two seats, 3,000 frames) ends with
+the save the game wrote during the match, and no backup.
 Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
 `n64_session.cpp`, `n64_player.c`) and host stamp (`rrhk_n64.inc`); Nintendo 64 quick states of 1.8.0 are refused cleanly (the
 state key hashes the session sources).
