@@ -375,6 +375,22 @@ Physical latency is not measured.
   - This closes the stated limit of the local room (a guest who captured another's handshake could compute its keys), and is
     the base of the Internet room. A converter of protocol 3 and one of protocol 4 do not join each other.
 
+**Session ABI 9 (19 November 2026, after Arthur's first two-PC test):** the host stamp of every machine with the host kit moves
+again (`hostkit_session.h`, `hostkit.h`, `rrhk_session.inc`, `rrhk_options.c`, `rrhk_events.c`, the catalogue), and so does the
+host stamp of the Neo Geo (`rrhk_ng.c`), the Amiga 500 and 1200, the Atari ST, the MSX family and the X68000 (`rrhk_computer.inc`
+and their adapters, `reference_host.c`). Alone, nothing changes for a player.
+- **The host changes the options of the match.** In a session the host's run-changing rows (the sprite limits, the Neo Geo
+  boost and its MVS / AES machine, the Amiga CPU speed, the CPS DIP switches; the PlayStation's PGXP rows follow) are no longer faded:
+  the host changes one, its game sends `RELAUNCH`, the match ends for everyone (`STOP_RELAUNCH`, lobby reason `relaunch`; no
+  save written back) and the room starts it again at once with the new options (a power-on, as a restart). A guest's rows stay
+  faded and show the host's values. A Neo Geo guest is started in the host's machine (`--aes` / `--mvs`), its own setting kept.
+- **The host types on a computer.** Ctrl+Alt+K in a session is the host's: its held keys (a 16-byte bitmap of the typing keys,
+  never a function key nor a Ctrl+Alt chord) travel in its input records (`input_records` protocol 3 of the datagrams) and
+  every seat's Amiga, Atari ST, X68000 or MSX types them at the same frame; a guest stays on its pad. A seat's session input no
+  longer depends on its window's focus (the Atari ST and MSX ran their joysticks neutral on an unfocused seat).
+- Proof: the kit's session self-test (27 scenarios: the host's relaunch, a guest's change asking nothing, the host's keys) and an
+  end-to-end relaunch between two worker processes; real games: see the multiplayer notes.
+
 ## Super Nintendo: multiplayer, digest and rollback on the boards without a chip (next release)
 
 On the multiplayer branch (`spec/snes-rollback`). The Super Nintendo answers a session: `SnesProfile` sets `netplay_session`, and the
