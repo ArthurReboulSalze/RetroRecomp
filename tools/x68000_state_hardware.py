@@ -281,6 +281,19 @@ size_t rr_{lower}_capacity(void)
 {{
    return {capacity};
 }}
+/* The bytes an eject would write back to the drive's file (the host's save at the end of a match), as the base's eject
+ * writes them: DIM, the header then the tracks its flags mark; XDF, the whole image. 0: no image or too small a buffer. */
+#ifndef RR_FLUSH_XDF
+#define RR_FLUSH_XDF if (capacity < 1261568) return 0; memcpy(out, image, 1261568); return 1261568;
+#define RR_FLUSH_DIM {{ DIM_HEADER *dh = (DIM_HEADER *)image; size_t len = (size_t)SctLength[dh->type], at = sizeof(DIM_HEADER); unsigned char *p = image + sizeof(DIM_HEADER); int t; if (capacity < at) return 0; memcpy(out, image, at); for (t = 0; t < 170; t++, p += len) if (dh->trkflag[t]) {{ if (at + len > capacity) return 0; memcpy(out + at, p, len); at += len; }} return at; }}
+#endif
+size_t rr_{lower}_flush(int drive, unsigned char *out, size_t capacity)
+{{
+   unsigned char *image = drive >= 0 && drive < 4 ? {prefix}Img[drive] : 0;
+   if (!image || !out)
+      return 0;
+   RR_FLUSH_{prefix}
+}}
 int rr_{lower}_shadow(const char *path, unsigned char *out)
 {{
    int ok;

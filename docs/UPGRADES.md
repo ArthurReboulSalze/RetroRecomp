@@ -216,6 +216,15 @@ without the save; the guest's copy stays the original. A restart alone on the ro
 rate was kept). The probe gains `--rollback-reset-at` (a restart in both timelines): snapshots 5 frames before to 50 after a
 restart replay equal. **Stamps:** the X68000 game and host stamps.
 
+**At a clean end of the match, the host writes its save back (session_save_commit, Arthur 19 Nov 2026).** Nobody writes during
+the match (every write of a session stays in memory). When the match ends cleanly, the kit asks the host only: each disk of the
+set whose final bytes (a drive's image as its eject writes it back, otherwise the session's image) differ from the host's file,
+then `sram.dat` if the SRAM differs, is written atomically (`<name>.new`, then a replace) with the previous file kept as
+`<name>.bak`; an unchanged file is left alone. **Proof:** `netplay_game_smoke --rollback 5 --host-save sram.dat` (a real SRAM
+whose RAM-size field says 1 MiB; the machine writes its 2 MiB there every frame) `--save-at 600 --load-at 1500 --restart-at 2200`:
+PASS; the host's `sram.dat` is the image the hook reports (same FNV), its `.bak` is the planted file, its disk is unchanged and
+not rewritten; the guest holds no `sram.dat`, no backup, and its disk is the original. **Stamps:** the X68000 game and host stamps.
+
 ## Atari ST: multiplayer on the rollback tier (next release)
 
 The Atari ST answers a session (`netplay_session`), with the rollback tier and the host's F8 / F9 for everyone. The adapted Hatari gets a

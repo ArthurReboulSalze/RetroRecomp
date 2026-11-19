@@ -301,6 +301,74 @@ static bool x_session_save_put(const void *in, size_t size) {
    return true;
 }
 
+/* ---- The host writes its save back at a clean end of the match (session_save_commit, Arthur 19 Nov 2026) ----
+ * Nobody writes during a match (base74/fileio.c swallows every write of a session). At a clean end the kit asks the host
+ * only: each disk of the set whose final bytes (a drive's image as its eject writes it back, otherwise the session's image)
+ * differ from this PC's file, then the SRAM if it differs from sram.dat, is written atomically: the previous file is copied
+ * to <name>.bak (one step), the new bytes go to <name>.new, then replace the file. */
+size_t rr_x68k_disk_final(unsigned index, unsigned char *out, size_t capacity);
+void rr_x68k_sram_file_bytes(uint8_t *out);
+void rr_x68k_sram_path(char *out, size_t size);
+
+/* 1: the file already holds these bytes; 0: it does not (or cannot be read). */
+static int x_file_equals(const wchar_t *path, const uint8_t *bytes, size_t size) {
+   FILE *f = rr_fopen(path, L"rb");
+   uint8_t chunk[65536];
+   size_t at = 0, n;
+   int same = f != NULL;
+   while (same && (n = fread(chunk, 1, sizeof chunk, f)) > 0) {
+      if (at + n > size || memcmp(chunk, bytes + at, n)) same = 0;
+      at += n;
+   }
+   if (f) fclose(f);
+   return same && at == size;
+}
+
+/* The bytes go to `path` atomically, the previous file kept as path.bak. 1: written or already equal. */
+static int x_write_back(const char *utf8, const uint8_t *bytes, size_t size) {
+   wchar_t path[4096], temporary[4100], backup[4100];
+   FILE *f;
+   int ok;
+   uint64_t hash = 14695981039346656037ull;
+   size_t i;
+   for (i = 0; i < size; i++) hash = (hash ^ bytes[i]) * 1099511628211ull;
+   if (!rr_from_utf8(utf8, path, 4096) || wcslen(path) > 4090) return 0;
+   if (x_file_equals(path, bytes, size)) {
+      fprintf(stderr, "[x68000] save at the end of the match: %s unchanged (fnv %016llx)\n", utf8, (unsigned long long)hash);
+      return 1;
+   }
+   wcscpy(temporary, path); wcscat(temporary, L".new");
+   wcscpy(backup, path); wcscat(backup, L".bak");
+   f = rr_fopen(temporary, L"wb");
+   if (!f) return 0;
+   ok = fwrite(bytes, 1, size, f) == size && rr_flush_file(f);
+   if (fclose(f)) ok = 0;
+   if (ok && rr_exists(path)) { rr_remove(backup); ok = rr_copy_new(path, backup); }
+   if (ok) ok = rr_replace(temporary, path);
+   if (!ok) rr_remove(temporary);
+   fprintf(stderr, "[x68000] save at the end of the match: %s %s (fnv %016llx)\n", utf8, ok ? "written" : "NOT written",
+           (unsigned long long)hash);
+   return ok;
+}
+
+static bool x_session_save_commit(void) {
+   uint8_t *buffer = (uint8_t *)malloc(RRHK_SESSION_MAX_SAVE);
+   char sram_path[4096];
+   unsigned i;
+   int ok = buffer != NULL;
+   for (i = 0; ok && rr_x68k_disk_name(i); i++) {
+      size_t n = rr_x68k_disk_final(i, buffer, RRHK_SESSION_MAX_SAVE);
+      ok = n && rr_x68k_disk_path(i) && x_write_back(rr_x68k_disk_path(i), buffer, n);
+   }
+   if (ok) {
+      rr_x68k_sram_file_bytes(buffer);
+      rr_x68k_sram_path(sram_path, sizeof sram_path);
+      ok = x_write_back(sram_path, buffer, X_SAVE_SRAM);
+   }
+   free(buffer);
+   return ok != 0;
+}
+
 /* The session starts (after SETUP and the host's save, before the boot digest and frame 0): every seat plays the export's
  * disks with the host's written blocks and SRAM (the host itself: its own, the image it sent; the export's disks and a fresh
  * SRAM when no image can be made), from
@@ -393,7 +461,7 @@ const RrhkMachine *rrhk_adapter(void) {
 #ifdef RR_X68000_LINKED
          .snap_bound = x_snap_bound, .snap_save = x_snap_save, .snap_load = x_snap_load,
          .digest = x_digest, .session_begin = x_session_begin,
-         .session_save = x_session_save, .session_save_put = x_session_save_put,
+         .session_save = x_session_save, .session_save_put = x_session_save_put, .session_save_commit = x_session_save_commit,
 #endif
       };
    }

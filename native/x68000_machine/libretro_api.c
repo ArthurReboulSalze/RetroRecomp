@@ -673,6 +673,35 @@ void rr_x68k_sram_copy(uint8_t *out)
    memcpy(out, SRAM, sizeof SRAM);
 }
 
+size_t rr_dim_flush(int drive, unsigned char *out, size_t capacity);
+size_t rr_xdf_flush(int drive, unsigned char *out, size_t capacity);
+const uint8_t *rr_x68k_session_image(unsigned index, size_t *size);
+static int drive_index(int drive);
+
+/* Disk `index` as the player's file would hold it now: a drive's image as its eject writes it back, otherwise the session's
+ * image of it. 0: not a session disk, or too small a buffer. */
+size_t rr_x68k_disk_final(unsigned index, unsigned char *out, size_t capacity)
+{
+   const uint8_t *bytes;
+   size_t size;
+   int drive;
+   for (drive = 0; drive < 2; drive++)
+      if (drive_index(drive) == (int)index)
+         return rr_dim_image(drive) ? rr_dim_flush(drive, out, capacity) : rr_xdf_flush(drive, out, capacity);
+   bytes = rr_x68k_session_image(index, &size);
+   if (!bytes || size > capacity)
+      return 0;
+   memcpy(out, bytes, size);
+   return size;
+}
+
+/* The SRAM in its file's order (sram.c swaps each pair of bytes when it writes sram.dat). */
+void rr_x68k_sram_file_bytes(uint8_t *out)
+{
+   size_t i;
+   for (i = 0; i < sizeof SRAM; i += 2) { out[i] = SRAM[i + 1]; out[i + 1] = SRAM[i]; }
+}
+
 /* The file name of a disk of the set (the payload keeps the originals under media/<name>); NULL past the last one. */
 const char *rr_x68k_disk_name(unsigned index)
 {

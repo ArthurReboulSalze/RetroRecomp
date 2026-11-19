@@ -105,6 +105,22 @@ int rr_x68k_session_media_add(unsigned index, const char *path, const uint8_t *o
 
 int rr_x68k_session_media_on(void) { return session_media; }
 
+/* The session's image of disk `index` as it is now (its starting bytes plus what was written back to it), NULL: none. */
+const uint8_t *rr_x68k_session_image(unsigned index, size_t *size)
+{
+   SessionImage *image = index < SESSION_IMAGES ? &session_images[index] : NULL;
+   if (!image || !image->original) { *size = 0; return NULL; }
+   *size = image->size;
+   return image->bytes ? image->bytes : image->original;
+}
+
+static void joined(char *out, size_t size, const char *name);
+/* The SRAM file the machine reads alone (sram.c: sram.dat in the current directory). */
+void rr_x68k_sram_path(char *out, size_t size)
+{
+   joined(out, size, "sram.dat");
+}
+
 /* While a session snapshot is loaded, an eject must not write the drive back over the restored journal. */
 void rr_x68k_session_restoring(int on) { session_restoring = on; }
 
