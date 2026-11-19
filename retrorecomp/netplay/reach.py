@@ -32,7 +32,7 @@ WAN_SERVICES = ('urn:schemas-upnp-org:service:WANIPConnection:2', 'urn:schemas-u
 NATPMP_PORT = 5351
 LEASE_SECONDS = 7200
 DESCRIPTION = 'Retro-Recomp room'
-ECHO_URL = 'https://retro-recomp.com/api/v1/ip'
+ECHO_URL = 'https://retro-recomp.com/api/v1/netplay/ip'
 MAX_ANSWER = 64 * 1024                 # a description or a SOAP answer longer than this is not read
 SHARED = ipaddress.IPv4Network('100.64.0.0/10')
 
