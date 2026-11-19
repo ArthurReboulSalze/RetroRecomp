@@ -121,6 +121,22 @@ static bool write_atomic(const uint8_t *data) {
     if(!okay)rr_remove(temporary);return okay;
 }
 void rr_ng_persist_writes(bool allowed) {writes_off=!allowed;}
+/* Multiplayer (session ABI 8): the save image of this PC, which the host's travels to every seat for the match. "RNG1", the sizes of
+ * the MVS NVRAM and of the memory card (u32 each, little endian), then both: the same bytes the .rrsave file holds, in memory only. */
+enum { SESSION_HEADER=12,SESSION_SAVE=SESSION_HEADER+PAYLOAD };
+size_t rr_ng_session_save(void *out,size_t capacity) {
+    if(!out)return SESSION_SAVE;
+    if(capacity<SESSION_SAVE)return 0;
+    uint8_t *data=out;memcpy(data,"RNG1",4);put32(data+4,NVRAM_BYTES);put32(data+8,CARD_BYTES);
+    capture(data+SESSION_HEADER);return SESSION_SAVE;
+}
+/* The host's bytes replace this machine's NVRAM and card, before the boot digest and after a restart. A guest never writes them to a file
+ * (`rr_ng_persist_writes(false)`); a size or a header that is not this board's is refused and changes nothing. */
+bool rr_ng_session_save_put(const void *in,size_t size) {
+    const uint8_t *data=in;
+    if(!data || size!=SESSION_SAVE || memcmp(data,"RNG1",4) || get32(data+4)!=NVRAM_BYTES || get32(data+8)!=CARD_BYTES)return false;
+    memcpy(ngsys.nvram,data+SESSION_HEADER,NVRAM_BYTES);memcpy(ngsys.memcard,data+SESSION_HEADER+NVRAM_BYTES,CARD_BYTES);return true;
+}
 bool rr_ng_persist_close(void) {
     if(!enabled || writes_off)return true;
     if(blocked)return false;

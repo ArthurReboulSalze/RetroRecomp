@@ -91,6 +91,37 @@ class SnapshotSourceTests(unittest.TestCase):
         self.assertEqual(len(re.findall(r'rr_ng_feedback_off', reference)), 3)    # its definition and the two records it gates
 
 
+class SessionSaveTests(unittest.TestCase):
+    """Session ABI 8: the host's NVRAM and memory card travel to every seat before the boot digest."""
+
+    def test_the_adapter_carries_the_save(self):
+        adapter = read('hostkit/adapters/rrhk_ng.c')
+        self.assertIn('.session_save = rr_ng_session_save, .session_save_put = rr_ng_session_save_put', adapter)
+
+    def test_the_image_is_a_header_and_the_two_memories_of_the_save_file(self):
+        persistence = read('neogeo_persistence.c')
+        body = persistence[persistence.index('enum { SESSION_HEADER'):]
+        self.assertIn('SESSION_HEADER=12,SESSION_SAVE=SESSION_HEADER+PAYLOAD', body)
+        self.assertIn('"RNG1"', body)
+        # No size query writes anything, a small buffer gives nothing.
+        self.assertIn('if(!out)return SESSION_SAVE;', body)
+        self.assertIn('if(capacity<SESSION_SAVE)return 0;', body)
+
+    def test_a_put_checks_the_size_and_the_header_before_it_changes_the_machine(self):
+        persistence = read('neogeo_persistence.c')
+        put = persistence[persistence.index('bool rr_ng_session_save_put'):]
+        put = put[:put.index('\n}\n')]
+        self.assertLess(put.index('memcmp(data,"RNG1",4)'), put.index('memcpy(ngsys.nvram'))
+        self.assertLess(put.index('size!=SESSION_SAVE'), put.index('memcpy(ngsys.nvram'))
+        # It never writes a file: the guest's flush stays stopped (rr_ng_persist_writes) and nothing is saved here.
+        self.assertNotIn('write_atomic', put)
+
+    def test_the_image_fits_the_kits_limit(self):
+        session = (NATIVE / 'hostkit/hostkit_session.h').read_text(encoding='utf-8')
+        self.assertIn('#define RRHK_SESSION_MAX_SAVE (2u * 1024u * 1024u)', session)
+        self.assertLess(12 + 65536 + 2048, 2 * 1024 * 1024)
+
+
 @unittest.skipUnless(os.environ.get('RR_NG_PROBE_EXE'), 'set RR_NG_PROBE_EXE to a converted Neo Geo game to run the determinism probe')
 class ProbeTests(unittest.TestCase):
     def test_save_run_load_run_is_the_same_on_a_converted_game(self):
