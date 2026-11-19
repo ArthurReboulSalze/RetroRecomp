@@ -224,7 +224,7 @@ def in_step(match: Match, frames: int, delay: int | None = None, wanted: list | 
         assert int(result['frames']) == frames and int(result['live']) == frames and int(result['silent']) == 0, result
         assert list(driver.restarts) == list(restarts), f'{match.name}: seat {driver.seat + 1} restarted before {driver.restarts}'
         assert int(result['digest'], 16) == fold(seen, restarts), f'{match.name}: seat {driver.seat + 1}: the game ran other words'
-        assert int(result['effects_off']) == (frames if driver.seat else 0), result      # a guest writes no save
+        assert int(result['effects_off']) == frames, result      # nobody writes a save during a match, the host included (8b8477d4)
         assert driver.digests == drivers[0].digests, 'the digests differ between seats'
         assert driver.desync is None and driver.stats['final_compared'], (driver.desync, driver.stats)
     every = drivers[0].settings.digest_every if INPROC else drivers[0].config['settings']['digest_every']

@@ -591,6 +591,10 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         case RRHK_MSG_RUN: {
             if (length < 6 || !set_ports(m, payload, length)) return lost(run, "a RUN broke the rules");
             const uint32_t frame = u32(payload);
+            /* A restart is over once the next frame comes: a driven machine that closed and opened its shell is back, and one
+             * that restarts in place (the MSX) never closed it. Left set, a later close would be taken for a restart's (no
+             * EXIT, no save written back: the msx specialist's finding). */
+            s.restarting = false;
             if (payload[4] & ~(RRHK_RUN_SILENT | RRHK_RUN_RESET | RRHK_RUN_STATE_SAVE | RRHK_RUN_STATE_LOAD | RRHK_RUN_AXES))
                 return lost(run, "a RUN with unknown flags");
             if (payload[4] & RRHK_RUN_SILENT) {

@@ -89,7 +89,7 @@ def rolled(match: Match, frames: int, wanted: list, cap: int = CAP, delay: int |
         assert silent == again, f'{label}: the game ran {silent} silent frames, the driver counts {again}'
         assert int(result['digest'], 16) == final, f'{label}: the game does not end in the state of the confirmed history'
         # side effects: off on silent frames for the host, on every frame for a guest (it writes no save)
-        assert int(result['effects_off']) == silent + (frames if driver.seat else 0), (label, result)
+        assert int(result['effects_off']) == silent + frames, (label, result)      # every frame of the match, the host's too
         assert driver.digests == drivers[0].digests, f'{label}: the digests of confirmed frames differ between seats'
         assert driver.desync is None and driver.stats['final_compared'], (label, driver.desync, dict(driver.stats))
         assert stat(driver, 'rollback_depth_max') <= cap, (label, dict(driver.stats))
