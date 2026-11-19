@@ -1508,6 +1508,8 @@
     "End the match": "対戦を終了",
     "Leave the match": "対戦から退出",
     "It ends for everyone.": "全員の対戦が終了します。",
+    "Change this option": "このオプションを変更",
+    "The game restarts for everyone.": "全員のゲームが再起動します。",
     "Connection to Retro-Recomp lost": "Retro-Recomp との接続が切れました",
     "The games went out of step: the match stops": "ゲームの同期がずれたため対戦を終了します",
     "The match is over": "対戦終了",

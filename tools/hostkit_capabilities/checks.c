@@ -919,6 +919,38 @@ static void restart_tile_script(void) {
     }
 }
 
+/* 1.8.1 (session ABI 9): the host's « Change this option? » before a key that relaunches the match. Asked here directly (the
+ * loop asks it in a session only): Esc and No drop the key, Yes gives it back once to the machine; the question sits where the
+ * kit's « Quit? » does and leaves the menu it was asked from as it was. */
+static void relaunch_confirm_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    const SDL_Scancode row = (SDL_Scancode)EXTRA_KEY;
+    switch (step++) {
+    case 0:
+        machine_key = 0;
+        CHECK(rrhk_relaunch_ask(row) && ui->menu == RRHK_MENU_QUIT && rrhk_relaunch_asking());
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 1:
+        CHECK(ui->menu == 0 && !rrhk_relaunch_asking() && machine_key == 0);       /* Esc: dropped */
+        CHECK(rrhk_relaunch_ask(row));
+        key(SDL_SCANCODE_RETURN);                                                   /* No is selected */
+        break;
+    case 2:
+        CHECK(ui->menu == 0 && !rrhk_relaunch_asking() && machine_key == 0);       /* No: dropped */
+        CHECK(rrhk_relaunch_ask(row));
+        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);                          /* Yes */
+        break;
+    case 3: break;
+    case 4:
+        CHECK(ui->menu == 0 && !rrhk_relaunch_asking() && machine_key == (int)row);  /* Yes: the key went on, once */
+        machine_key = 0;
+        stop = true;
+        break;
+    default: break;
+    }
+}
+
 /* 1.7.6: on a machine with a graphics page, the F2 tile before Restart and Quit (1.8.1) opens it (and comes back to the tiles), and the options page's
  * F3 row, "F3 Graphics", opens it too (and comes back to the options). */
 static void graphics_entry_script(void) {
@@ -1454,6 +1486,10 @@ int main(int argc, char **argv) {
     begin(quit_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 8);
+    /* 9c. 1.8.1: the host's « Change this option? » (session ABI 9). */
+    begin(relaunch_confirm_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 5);
     /* 9b. 1.8.1: the F2 menu's Restart tile, before Quit. */
     begin(restart_tile_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);

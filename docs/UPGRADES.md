@@ -882,8 +882,9 @@ a new tile icon in `retro_menu.c`): it goes back to the game and asks the loop (
 restart the pad's Restart combination does: the machine's `reset` alone, the host's restart of every seat in a multiplayer
 session (`rrhk_session_restart`; the session pipe and its ABI do not change). A guest, and the Nintendo 64 in a session, have no
 such tile. **Texts:** "Restart the game" in the eight locales, catalogue regenerated. **Proof:** the kit's capabilities
-self-test (550 checks: the tile restarts once and goes back to the game; the graphics and options tiles are one step further
-left). **Stamps:** no game stamp moves; the host stamp of the 21 profiles moves: every export is upgraded once (rebuilt), none
+self-test (558 checks: the tile restarts once and goes back to the game; the graphics and options tiles are one step further
+left; the host's « Change this option? » before a relaunch, ABI 9: No and Esc drop the key, Yes gives it back once). Two more
+texts in the eight locales for that question. **Stamps:** no game stamp moves; the host stamp of the 21 profiles moves: every export is upgraded once (rebuilt), none
 converted again. **Existing exports:** unchanged until that upgrade.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)

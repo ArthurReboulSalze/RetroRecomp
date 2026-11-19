@@ -621,6 +621,10 @@ X68000 too, without asking again**.
   the loop): alone, the machine's `reset`, without a confirmation, like Shift+F1; in a multiplayer session, the host's restart of
   every seat at the same frame (`rrhk_session_restart`, the session's existing restart). A guest has no such tile (only the host
   restarts), nor does a machine that cannot restart inside a session (`session_no_restart`, the Nintendo 64) while a session runs.
+  In a session the host also confirms an option that relaunches the match (session ABI 9): a key or an options row that changes
+  the run asks **Change this option? The game restarts for everyone.** in the same question box as Quit, No selected; No, Esc
+  or B drop the key, Yes gives it back once (`rrhk_relaunch_ask`), and a machine page that changes the run (DIP switches) asks
+  once while it is open. The pace (` Max speed) stays refused in a session; a guest's run keys stay refused.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
