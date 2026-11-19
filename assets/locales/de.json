@@ -885,6 +885,8 @@
     "mp_sharing_everyone": "Geteilte Steuerung: alle zugleich",
     "mp_sharing_turns": "Geteilte Steuerung: abwechselnd",
     "mp_game": "Spiel",
+    "mp_console": "Konsole",
+    "mp_pick_game": "Wähle ein Spiel",
     "mp_games_loading": "Suche deine Spiele…",
     "mp_games_none": "Kein konvertiertes Spiel ist zu zweit spielbar",
     "mp_host_game": "Mehrspieler-Partie hosten…",

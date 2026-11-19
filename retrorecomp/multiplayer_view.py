@@ -116,6 +116,9 @@ class MultiplayerWindow:
         self.invitation_text = ''
         self.version = -1
         self.games = []                     # (inventory entry, control.Game) a host can pick
+        self.console_list = []              # (system, console name) of the consoles that have one, by name
+        self.drawn_game = None              # the room's game the lobby's two boxes last showed (title, machine)
+        self.seats_drawn = None             # what the player rows last showed (redrawn only when it changes)
         self.loaded = False                 # the games and the addresses were read
         self.lan_addresses = []
         self.chat_seen = 0
@@ -387,22 +390,27 @@ class MultiplayerWindow:
             widget.grid(row=number, column=1, sticky=sticky, pady=5)
             return label, widget
 
-        self.game_choice = tk.StringVar(value=self.tr('mp_games_loading'))
-        _label, self.game_box = row(0, 'mp_game', ttk.Combobox(form, textvariable=self.game_choice, state='readonly'))
+        # the console first, then its games (Arthur, 19 Nov 2026: « on est censé pouvoir choisir la console »)
+        self.console_choice = tk.StringVar(value=self.tr('mp_games_loading'))
+        _label, self.console_box = row(0, 'mp_console', ttk.Combobox(form, textvariable=self.console_choice, state='readonly'))
+        self.game_choice = tk.StringVar(value='')
+        _label, self.game_box = row(1, 'mp_game', ttk.Combobox(form, textvariable=self.game_choice, state='readonly'))
+        self.console_box.bind('<<ComboboxSelected>>', lambda event: self.fill_games(
+            self.game_box, self.game_choice, self.system_of(self.console_choice)))
         self.sharing = tk.StringVar(value='per_player')
         modes = tk.Frame(form, bg=CARD)
         for mode in SHARINGS:
             ttk.Radiobutton(modes, text=self.tr('mp_sharing_' + mode), value=mode, variable=self.sharing,
                             style='MpCard.TRadiobutton').pack(anchor='w')
-        row(1, 'mp_sharing', modes)
-        row(2, 'mp_name', self.deep_entry(form, self.name, width=24), sticky='w')
+        row(2, 'mp_sharing', modes)
+        row(3, 'mp_name', self.deep_entry(form, self.name, width=24), sticky='w')
         self.address = tk.StringVar()
-        self.address_row = row(3, 'mp_address', ttk.Combobox(form, textvariable=self.address, state='readonly'))
+        self.address_row = row(4, 'mp_address', ttk.Combobox(form, textvariable=self.address, state='readonly'))
         self.address_box = self.address_row[1]
         self.port = tk.StringVar(value='')
-        row(4, 'mp_port', self.deep_entry(form, self.port, width=8, mono=True), sticky='w')
+        row(5, 'mp_port', self.deep_entry(form, self.port, width=8, mono=True), sticky='w')
         self.typed_public = tk.StringVar()
-        self.public_row = row(5, 'mp_type_address', self.deep_entry(form, self.typed_public, width=24, mono=True), sticky='w')
+        self.public_row = row(6, 'mp_type_address', self.deep_entry(form, self.typed_public, width=24, mono=True), sticky='w')
         self.host_status = self.label(page, text='', muted=True, wrap=840)
         self.host_status.pack(anchor='w', pady=(12, 0))
         bar = self.bottom(page)
@@ -443,7 +451,8 @@ class MultiplayerWindow:
         threading.Thread(target=work, name='multiplayer-games', daemon=True).start()
 
     def game_label(self, entry, game=None):
-        return f'{entry.title}  ({self.console_name(entry.system)})'
+        """A game in its console's list: its title (the console is chosen in the box before)."""
+        return entry.title
 
     @staticmethod
     def console_name(system):
@@ -458,15 +467,23 @@ class MultiplayerWindow:
             return
         self.loaded = True
         self.games = sorted(games, key=lambda item: item[0].title.casefold())
-        labels = [self.game_label(entry) for entry, _game in self.games]
-        self.game_box.configure(values=labels)
-        self.lobby_game_box.configure(values=labels)
-        chosen = 0
+        self.console_list = sorted({(entry.system, self.console_name(entry.system)) for entry, _game in self.games},
+                                   key=lambda item: item[1].casefold())
+        names = [name for _system, name in self.console_list]
+        self.console_box.configure(values=names)
+        self.lobby_console_box.configure(values=names)
+        chosen = None
         if self.first_pick is not None:
-            for index, (entry, _game) in enumerate(self.games):
-                if entry.executable == self.first_pick.executable:
-                    chosen = index
-        self.game_choice.set(labels[chosen] if labels else self.tr('mp_games_none'))
+            chosen = next((entry for entry, _game in self.games if entry.executable == self.first_pick.executable), None)
+        if chosen is None and self.console_list:
+            chosen = next(entry for entry, _game in self.games if entry.system == self.console_list[0][0])
+        if chosen is None:
+            self.console_choice.set(self.tr('mp_games_none'))
+            self.game_box.configure(values=[])
+            self.game_choice.set('')
+        else:
+            self.console_choice.set(self.console_name(chosen.system))
+            self.fill_games(self.game_box, self.game_choice, chosen.system, chosen)
         self.lan_addresses = list(found)
         self.address_box.configure(values=found)
         if found:
@@ -478,12 +495,26 @@ class MultiplayerWindow:
         ready = bool(self.games) and bool(self.address.get()) and self.role is None
         self.open_button.state(['!disabled'] if ready else ['disabled'])
 
-    def chosen_entry(self, variable):
-        labels = [self.game_label(entry) for entry, _game in self.games]
-        try:
-            return self.games[labels.index(variable.get())][0]
-        except ValueError:
-            return None
+    def system_of(self, console_variable):
+        name = console_variable.get()
+        return next((system for system, console in self.console_list if console == name), None)
+
+    def games_of(self, system):
+        return [(entry, game) for entry, game in self.games if entry.system == system]
+
+    def fill_games(self, box, variable, system, chosen=None, placeholder=None):
+        """`box` lists the games of `system`; it shows `chosen` (an entry), else `placeholder`, else the console's first game."""
+        labels = [self.game_label(entry) for entry, _game in self.games_of(system)]
+        box.configure(values=labels)
+        if chosen is not None and chosen.system == system:
+            variable.set(self.game_label(chosen))
+        else:
+            variable.set(placeholder if placeholder is not None else labels[0] if labels else '')
+
+    def chosen_entry(self, variable, console_variable=None):
+        """The entry `variable` names among the games of the console `console_variable` names (a title may be on two consoles)."""
+        system = self.system_of(self.console_choice if console_variable is None else console_variable)
+        return next((entry for entry, _game in self.games_of(system) if self.game_label(entry) == variable.get()), None)
 
     def open_room(self):
         try:
@@ -664,6 +695,10 @@ class MultiplayerWindow:
         self.version, self.chat_seen, self.notices_seen, self.errors_seen = -1, 0, 0, 0
         self.refusals_seen = set()
         self.code_shown = False
+        self.drawn_game = self.seats_drawn = None
+        self.lobby_console.set(self.console_choice.get())
+        self.fill_games(self.lobby_game_box, self.lobby_game, self.system_of(self.console_choice),
+                        self.chosen_entry(self.game_choice))
         self.chat_text.configure(state='normal')
         self.chat_text.delete('1.0', 'end')
         self.chat_text.configure(state='disabled')
@@ -771,9 +806,15 @@ class MultiplayerWindow:
         self.heading(card, 'mp_game').pack(anchor='w')
         row = tk.Frame(card, bg=CARD)
         row.pack(fill='x', pady=(6, 0))
+        # the host's: the console, then one of its games (choosing a console alone leaves the room's game as it is)
+        self.lobby_console = tk.StringVar()
+        self.lobby_console_box = ttk.Combobox(row, textvariable=self.lobby_console, state='readonly', width=18)
+        self.lobby_console_box.bind('<<ComboboxSelected>>', lambda event: self.fill_games(
+            self.lobby_game_box, self.lobby_game, self.system_of(self.lobby_console), placeholder=self.tr('mp_pick_game')))
         self.lobby_game = tk.StringVar()
-        self.lobby_game_box = ttk.Combobox(row, textvariable=self.lobby_game, state='readonly', width=34)
-        self.lobby_game_box.bind('<<ComboboxSelected>>', lambda event: self.pick(self.chosen_entry(self.lobby_game)))
+        self.lobby_game_box = ttk.Combobox(row, textvariable=self.lobby_game, state='readonly', width=26)
+        self.lobby_game_box.bind('<<ComboboxSelected>>', lambda event: self.pick(
+            self.chosen_entry(self.lobby_game, self.lobby_console)))
         self.lobby_game_text = self.label(row, text='', size=13, bold=True, bg=CARD)
         self.game_machine = self.label(row, text='', muted=True, size=9, bg=CARD)
         self.game_row = row
@@ -990,6 +1031,7 @@ class MultiplayerWindow:
         refusal = self.controller.pick(entry)
         if refusal:
             self.note_line(self.tr('mp_pick_refused'))
+            self.drawn_game, self.version = None, -1        # the next poll shows the room's game again
 
     def set_sharing(self, index):
         if self.controller is not None and 0 <= index < len(SHARINGS):
@@ -1131,16 +1173,25 @@ class MultiplayerWindow:
                                     if machine and seats_max and not host else '')
         if host:
             self.lobby_game_text.pack_forget()
+            self.lobby_console_box.pack(side='left', padx=(0, 8))
             self.lobby_game_box.pack(side='left')
-            if game:
+            # the boxes follow the room's game when it changes, not at every model change: a console chosen in the box
+            # stays while the host looks for a game in it
+            shown = (game.get('title'), game.get('machine')) if game else None
+            if game and shown != self.drawn_game:
                 for entry, picked in self.games:
                     if picked.title == game.get('title') and picked.machine == game.get('machine'):
-                        self.lobby_game.set(self.game_label(entry))
-            self.lobby_game_box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
+                        self.lobby_console.set(self.console_name(entry.system))
+                        self.fill_games(self.lobby_game_box, self.lobby_game, entry.system, entry)
+                        break
+            self.drawn_game = shown
+            for box in (self.lobby_console_box, self.lobby_game_box):
+                box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
             self.lobby_mode_box.current(SHARINGS.index(sharing) if sharing in SHARINGS else 0)
             self.lobby_mode_box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
             self.more_link.pack(side='right')
         else:
+            self.lobby_console_box.pack_forget()
             self.lobby_game_box.pack_forget()
             self.lobby_game_text.configure(text=title)
             self.lobby_game_text.pack(side='left')
@@ -1151,7 +1202,12 @@ class MultiplayerWindow:
                                        self.tr('mp_sharing_' + sharing) if sharing in SHARINGS else '')
 
     def draw_seats(self, players, me, seats_max, checks, host, phase):
-        """One rounded row per player: a coloured disc, P1.., the name, the check, the state; the host's moves in the fold."""
+        """One rounded row per player: a coloured disc, P1.., the name, the check, the state; the host's moves in the fold.
+        Built again only when what they show changed (a chat line redrew them all before)."""
+        drawn = repr((players, me, seats_max, checks, host, phase, self.more_open))
+        if drawn == self.seats_drawn:
+            return
+        self.seats_drawn = drawn
         for row in self.seat_rows:
             row.destroy()
         self.seat_rows = []
@@ -1305,7 +1361,9 @@ class MultiplayerWindow:
             text += ' · ' + self.tr('mp_path_' + path)
         if self.link_line.cget('text') != text:
             self.link_line.configure(text=text)
-        self.link_bars.configure(image=self.picture('bars', level, COLORS['green'], COLORS['subtle_border'], CARD, 14))
+        bars = self.picture('bars', level, COLORS['green'], COLORS['subtle_border'], CARD, 14)
+        if self.link_bars.cget('image') != str(bars):
+            self.link_bars.configure(image=bars)
 
     # ---- leaving and closing ----
 

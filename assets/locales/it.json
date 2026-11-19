@@ -885,6 +885,8 @@
     "mp_sharing_everyone": "Comandi condivisi: tutti insieme",
     "mp_sharing_turns": "Comandi condivisi: a turno",
     "mp_game": "Gioco",
+    "mp_console": "Console",
+    "mp_pick_game": "Scegli un gioco",
     "mp_games_loading": "Ricerca dei tuoi giochi…",
     "mp_games_none": "Nessun gioco convertito si gioca in due",
     "mp_host_game": "Ospita una partita multigiocatore…",

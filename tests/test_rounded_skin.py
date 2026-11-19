@@ -152,6 +152,20 @@ class TheCostsStayDown(SkinCase):
         kept = Skin.prune(a, specs)
         self.assertEqual([spec[:-1] for spec in kept], [('pressed',), ('active',)])
 
+    def test_the_window_cards_and_segments_have_a_wide_middle_too(self):
+        # rounded_ui's cards had a 2 px middle: ttk tiled it ~100,000 times per redraw of an 800 x 500 card, so the Multiplayer
+        # window took 2 to 4 s per redraw and froze at every activation change (opening its game list; Arthur, 19 Nov 2026)
+        from retrorecomp.rounded_ui import CARD_CENTER
+        look = Look(self.root, COLORS, 'Segoe UI')
+        for make, radius, middle in ((lambda: look.card('WideT1', '#222222', '#111111', 16), 16, CARD_CENTER),
+                                     (lambda: look.segment('WideT2', '#111111', '#d4a737', '#333333'), 13, CENTER)):
+            before = len(look.images)
+            make()
+            self.assertGreater(len(look.images), before)
+            for picture in look.images[before:]:
+                self.assertEqual(picture.width() - 2 * (radius + 1), middle)
+        self.assertGreaterEqual(CARD_CENTER, 64)
+
     def test_one_picture_serves_every_style_that_looks_the_same(self):
         self.build_all()
         before = self.skin.pictures
