@@ -63,18 +63,29 @@ class Look:
         return f'{name}.TFrame'
 
     def pill_button(self, name, fill, hover, text, bg, radius=12, *, disabled=None, outline=None, size=10, bold=False,
-                    padding=(12, 5)):
-        """A rounded button style 'name.TButton'; disabled is greyed."""
+                    padding=(12, 5), ring=None):
+        """A rounded button style 'name.TButton'; disabled is greyed. With `ring` (a colour) the keyboard's and the
+        gamepad's focus is a 2 px rounded ring of that colour in the button's own edge, in place of the dotted focus line."""
         edge = radius * 2 + 4
         normal = self.photo(rounded_box(edge, edge, radius, fill, bg, outline))
         active = self.photo(rounded_box(edge, edge, radius, hover, bg, outline))
         greyed = self.photo(rounded_box(edge, edge, radius, disabled or self.c['panel'], bg))
-        element = self._element(name, normal, ('disabled', greyed), ('active', active), ('pressed', active),
-                                border=radius + 1, padding=2)
-        # Button.focus draws the dotted focus ring (focuscolor) around the label: the keyboard's and the gamepad's place shows
-        self.style.layout(f'{name}.TButton', [(element, {'sticky': 'nsew', 'children': [
-            ('Button.padding', {'sticky': 'nsew', 'children': [('Button.focus', {'sticky': 'nsew', 'children': [
-                ('Button.label', {'sticky': 'nsew'})]})]})]})])
+        specs = [normal, ('disabled', greyed), ('pressed', active), ('active', active)]
+        if ring:
+            ring_normal = self.photo(rounded_box(edge, edge, radius, fill, bg, ring, 2))
+            ring_active = self.photo(rounded_box(edge, edge, radius, hover, bg, ring, 2))
+            specs = [normal, ('disabled', greyed), ('focus', 'active', ring_active), ('focus', ring_normal),
+                     ('pressed', active), ('active', active)]
+        element = self._element(name, *specs, border=radius + 1, padding=2)
+        if ring:
+            layout = [(element, {'sticky': 'nsew', 'children': [
+                ('Button.padding', {'sticky': 'nsew', 'children': [('Button.label', {'sticky': 'nsew'})]})]})]
+        else:
+            # Button.focus draws the dotted focus ring (focuscolor) around the label: the keyboard's and the gamepad's place
+            layout = [(element, {'sticky': 'nsew', 'children': [
+                ('Button.padding', {'sticky': 'nsew', 'children': [('Button.focus', {'sticky': 'nsew', 'children': [
+                    ('Button.label', {'sticky': 'nsew'})]})]})]})]
+        self.style.layout(f'{name}.TButton', layout)
         self.style.configure(f'{name}.TButton', foreground=text, padding=padding, anchor='center',
                              font=(self.font, size, 'bold' if bold else 'normal'), focuscolor=self.c['gold'])
         self.style.map(f'{name}.TButton', foreground=[('disabled', self.c['disabled'])])

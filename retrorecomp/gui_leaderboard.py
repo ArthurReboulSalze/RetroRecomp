@@ -8,12 +8,11 @@ from tkinter import ttk
 
 from . import online
 from .paths import ASSETS, APP_NAME
-from .tooltips import Tooltip
 from .branding import COLORS
 from .dialogs import center_dialog
 from .gui_common import SENDING_AVAILABLE
 from .gui_drawing import (
-    CARTRIDGE, CLOUD, PIN_SIZE, TROPHY, badges_width, compact_number, draw_badges, draw_pin, draw_styled_text, elide,
+    PIN_SIZE, TROPHY, badges_width, compact_number, draw_badges, draw_pin, draw_styled_text, elide,
     name_colours, _font, _scaled_photo, _tint,
 )
 
@@ -436,111 +435,15 @@ class LeaderboardMixin:
         self.app.wait_window(window)
         return chosen.get()
 
-    def closing_card(self, games, count):
-        """Before closing: discoveries wait to be sent. Returns 'recompile',
-        'send', 'skip' or None (cancel); see offer_closing_card."""
-        import math
-        background = COLORS['panel']
-        window = tk.Toplevel(self.app)
-        window.withdraw()
-        window.title(APP_NAME)
-        window.configure(bg=background)
-        window.resizable(False, False)
-        window.transient(self.app)
-        choice = tk.StringVar(value='')
-        body = tk.Frame(window, bg=background, padx=22, pady=18)
-        body.pack(fill='both', expand=True)
-        art = tk.Canvas(body, width=320, height=82, bg=background, highlightthickness=0)
-        art.grid(row=0, column=0, columnspan=2, pady=(0, 10))   # centred above the text
-        def sprite(rows, left, top, cell, light):
-            items = []
-            for y, row in enumerate(rows):
-                for x, mark in enumerate(row):
-                    if mark != '.':
-                        items.append((art.create_rectangle(left + cell*x, top + cell*y, left + cell*(x+1),
-                            top + cell*(y+1), outline='', fill=light if mark == 'o' else COLORS['gold']), mark))
-            return items
-        sprite(CARTRIDGE, 8, 18, 6, COLORS['gold_hover'])
-        cloud = sprite(CLOUD, 228, 16, 7, COLORS['header'])
-        # A faint dotted arc; the discoveries travel along it.
-        start, end, rise = (60, 40), (232, 38), 26
-        point = lambda t: (start[0] + (end[0]-start[0])*t, start[1] + (end[1]-start[1])*t - math.sin(math.pi*t)*rise)
-        for step in range(1, 24):
-            x, y = point(step / 24)
-            art.create_rectangle(x, y, x+2, y+2, outline='', fill=COLORS['border'])
-        bits = [art.create_rectangle(0, 0, 8, 8, outline='', fill=COLORS['gold_hover'], state='hidden')
-                for _ in range(4)]
-        # On arrival each bit shrinks into the base and bursts into four sparks.
-        sparks = [[art.create_rectangle(0, 0, 3, 3, outline='', fill=COLORS['gold_hover'], state='hidden')
-                   for _ in range(4)] for _ in bits]
-        tk.Label(body, text=self.tr('closing_title').upper(), bg=background, fg=COLORS['gold'],
-                 font=(self.ui_font, 9, 'bold')).grid(row=1, column=0, columnspan=2, sticky='w')
-        line = tk.Frame(body, bg=background)
-        line.grid(row=2, column=0, columnspan=2, sticky='w')
-        number = tk.Label(line, text='0', bg=background, fg=COLORS['gold_hover'], font=(self.ui_font, 26, 'bold'))
-        number.pack(side='left')
-        tk.Label(line, text=self.tr('closing_count_one' if count == 1 else 'closing_count'), bg=background,
-                 fg=COLORS['text'], font=(self.ui_font, 11)).pack(side='left', padx=(8, 0), pady=(12, 0))
-        soon = '' if SENDING_AVAILABLE else '_soon'
-        for row, text in enumerate((self.tr('closing_body' + soon, games=games),
-                                    self.tr('closing_recompile_note' + soon)), start=3):
-            tk.Label(body, text=text, bg=background, fg=COLORS['muted'], font=(self.ui_font, 9),
-                     wraplength=420, justify='left').grid(row=row, column=0, columnspan=2, sticky='w', pady=(10, 0))
-        buttons = tk.Frame(body, bg=background)
-        buttons.grid(row=5, column=0, columnspan=2, sticky='ew', pady=(16, 0))
-        def pick(value):
-            choice.set(value)
-            window.destroy()
-        go = ttk.Button(buttons, text=self.tr('closing_recompile', games=games), style='Primary.TButton',
-                        command=lambda:pick('recompile'))
-        go.pack(fill='x')
-        others = tk.Frame(buttons, bg=background)
-        others.pack(pady=(8, 0))   # centred under the main action
-        send = ttk.Button(others, text=self.tr('closing_send'), command=lambda:pick('send'))
-        send.pack(side='left')
-        if not SENDING_AVAILABLE:
-            send.state(['disabled'])
-            self.tooltips.append(Tooltip(send, lambda: self.tr('tip_closing_send')))
-        ttk.Button(others, text=self.tr('closing_skip'), command=lambda:pick('skip')).pack(side='left', padx=8)
-        ttk.Button(others, text=self.tr('knowledge_cancel'), command=window.destroy).pack(side='left')
-        started = time.monotonic()
-        def animate(frame=0):
-            # Bits leave the cartridge one after another and land in the base,
-            # which glows briefly; the count rolls up meanwhile.
-            if not window.winfo_exists():return
-            elapsed = time.monotonic() - started
-            number.configure(text=str(round(count * (1 - (1 - min(1.0, elapsed / 1.2)) ** 3))))
-            landed = False
-            for index, item in enumerate(bits):
-                t = (elapsed / 1.6 - index * 0.25) % 1.0 if elapsed >= index * 0.4 else None
-                if t is None:
-                    continue
-                x, y = point(min(t, 0.86))
-                burst = max(0.0, (t - 0.86) / 0.14)
-                half = 4 * (1 - burst)
-                art.coords(item, x - half, y - half, x + half, y + half)
-                art.itemconfigure(item, state='normal' if half >= 1 else 'hidden')
-                for (dx, dy), spark in zip(((-1, -1), (1, -1), (-1, 1), (1, 1)), sparks[index]):
-                    reach = 3 + 11 * burst
-                    art.coords(spark, x + dx*reach - 1, y + dy*reach - 1, x + dx*reach + 2, y + dy*reach + 2)
-                    art.itemconfigure(spark, state='normal' if 0 < burst < 1 else 'hidden',
-                                      fill=COLORS['gold_hover'] if burst < 0.5 else COLORS['gold'])
-                landed |= 0 < burst < 0.5   # a short glow per arrival
-            for item, mark in cloud:
-                if mark == 'o':
-                    art.itemconfigure(item, fill=COLORS['gold'] if landed else COLORS['header'])
-            window.after(40, animate, frame + 1)
-        window.bind('<Escape>', lambda event:window.destroy())
-        window.update_idletasks()
-        x = self.app.winfo_rootx() + (self.app.winfo_width() - window.winfo_reqwidth()) // 2
-        y = self.app.winfo_rooty() + (self.app.winfo_height() - window.winfo_reqheight()) // 3
-        window.geometry(f'+{max(0, x)}+{max(0, y)}')
-        window.deiconify()
-        animate()
-        window.grab_set()
-        go.focus_set()
-        self.app.wait_window(window)
-        return choice.get() or None
+    def closing_card(self, games):
+        """Before closing: the discoveries of `games` wait to be sent. Returns 'recompile', 'send', 'skip' or None
+        (cancel); see offer_closing_card. The card is retrorecomp/closing_card_view.py; when it returns 'recompile',
+        `closing_selection` holds the games ticked in the shared « New paths » list."""
+        from .closing_card_view import ClosingCard
+        card = ClosingCard(self, games, sending=SENDING_AVAILABLE)
+        choice = card.run()
+        self.closing_selection = card.selected if choice == 'recompile' else None
+        return choice
 
     def offer_closing_card(self):
         """Before closing: games whose new paths are not recompiled yet, on the
@@ -551,7 +454,8 @@ class LeaderboardMixin:
         except Exception:pass
         games = self.games_with_new_paths(shared_only=True)
         if not games:return False
-        choice = self.closing_card(len(games), sum(game.hints for game in games))
+        self.closing_selection = None
+        choice = self.closing_card(games)
         if choice is None:
             self.closing_checked = False
             return True
@@ -560,5 +464,5 @@ class LeaderboardMixin:
             return True
         if choice != 'recompile':return False
         self.closing_after_recompile = self.close_when_idle = True
-        self.recompile_new_paths(games)
+        self.recompile_new_paths(self.closing_selection or games)   # the games ticked in the list
         return True
