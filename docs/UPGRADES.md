@@ -216,7 +216,9 @@ KB, a bigger table refuses the save). A game on STX, SCP or Kryoflux images has 
 fields in a fixed order (the same on Windows and Linux). In a match the host's written disk travels to every seat (session ABI 8: `session_save` gives the table of sectors its game wrote, the bytes of
 its `disk-writes.bin`; a guest plays on it in memory through `session_save_put`; a guest with none from the host starts from the export's own
 disks, and so does a host whose table is more than a snapshot carries, 64 KB, with a notice); no seat reads its own saved writes or writes the
-file during the match (the writes stay in memory), reads the session's clock (the board's real-time clock, when a model has one, runs on
+file during the match (the writes stay in memory); when a match ends cleanly the host's table is written back once to its own `disk-writes.bin`
+(`session_save_commit`: a temporary file, then a rename, the file it replaces kept as `.bak`; nothing is written when the match played on the
+untouched disks because the saved table was too big), reads the session's clock (the board's real-time clock, when a model has one, runs on
 UTC 1 January 2000), and a restart goes back in place to the machine after its first frame. The keyboard and the mouse are cut (joystick games
 first); the disk change is off. Alone, a game runs as before.
 
@@ -232,7 +234,8 @@ writes); its time is not measured yet (a quiet PC, with the owner's agreement). 
 **Host's written disk:** `tools/netplay_game_smoke.py --seats 2 --frames 3000 --rollback 5 --latency 30 --jitter 10 --hold 4 --host-save <authored disk-writes file
 of 3 sectors> --save-name datas/games/<game>/disk-writes.bin --save-at 600 --load-at 1500 --restart-at 2200` PASS on Bomb Jack (every seat boots on the same digest,
 which differs from the untouched disk's; only seat 1 holds the file; 50 digests equal; the restart before frame 2202); a host table of 200 sectors (more than 64 KB)
-with guests handed none: PASS on the untouched disk's digest. The probe also checks the image given, a buffer too small refused, forgotten, put back and a damaged image refused.
+with guests handed none: PASS on the untouched disk's digest. After a match (`--host-save` with the authored file, 1,500 frames): the host's `disk-writes.bin` equals the final table, its `.bak` equals the previous file, the
+guest's folder holds no file; with the 200-sector table the file is left as it was and no `.bak` appears. The probe also checks the image given, a buffer too small refused, forgotten, put back and a damaged image refused.
 
 **Stamps:** the Atari ST's game stamp (the adaptation of Hatari: `atarist_hatari_rollback.py`, `atarist_snapshot.h`) and host stamp (the
 adapter `rrhk_atarist.inc`); nothing else. The Hatari adaptation digest moves: the machine core is built again once.
