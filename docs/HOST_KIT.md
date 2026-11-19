@@ -615,6 +615,13 @@ X68000 too, without asking again**.
   selected one, ^ and v at the right edge. The menu canvas (256 x 192) fits every machine's window at the kit's default scale
   (a Game Boy or Game Gear opens at 480 x 432); a window made smaller than the canvas cuts every menu, as before.
 
+* <a id="d32"></a>**D32 — A Restart the game tile in F2** (owner's request of 19 November 2026, after the first multiplayer test), on
+  every machine on the kit. The tile before Quit (D31), **Restart the game** (a circle closed by its arrow, `RR_ICON_RESTART`),
+  goes back to the game and restarts it through the same path as the pad's Restart combination (`rrhk_hub_take_restart`, read by
+  the loop): alone, the machine's `reset`, without a confirmation, like Shift+F1; in a multiplayer session, the host's restart of
+  every seat at the same frame (`rrhk_session_restart`, the session's existing restart). A guest has no such tile (only the host
+  restarts), nor does a machine that cannot restart inside a session (`session_no_restart`, the Nintendo 64) while a session runs.
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in

@@ -108,6 +108,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.first_use_state, self.batch_started, self.batch_estimate, self.job_started = None, None, None, {}
         preferences = load_preferences()
         self.language = language_code(preferences.get('language'))
+        self.multiplayer_auto_ready = preferences.get('multiplayer_auto_ready') is True
         app.title(APP_NAME)
         # Sizes are written for 96 dpi and follow the screen's scaling (1.0 on Windows), never beyond the screen.
         app.geometry(f'{fit_screen(app, 1120, app.winfo_screenwidth() - 40)}x'

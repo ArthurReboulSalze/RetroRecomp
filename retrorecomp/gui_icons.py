@@ -181,10 +181,11 @@ def draw_picture(name, colour, size=HERO_GRID, highlight=None):
 
 def hero_picture(master, symbol, colour, highlight=None):
     """The picture of `symbol` for a hero button, as a Tk image: drawn with Pillow when it has a drawing here, else its
-    polylines drawn larger and thicker (gui_drawing.hero_icon). Sized for the screen's scaling (96 dpi: 26 px)."""
+    polylines drawn larger and thicker (gui_drawing.hero_icon). Sized for the screen's scaling (96 dpi: HERO_SIZE, 30 px)."""
     if symbol not in DRAWERS:
         from .gui_drawing import hero_icon
         return hero_icon(master, symbol, colour)
     from PIL import ImageTk
     from .ui_fonts import ui_scale
-    return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_GRID * ui_scale(master)), highlight), master=master)
+    from .gui_drawing import HERO_SIZE
+    return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_SIZE * ui_scale(master)), highlight), master=master)

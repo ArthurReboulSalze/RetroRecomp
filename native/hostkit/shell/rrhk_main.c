@@ -432,8 +432,9 @@ static bool begin_frame(RrhkRun *r) {
         if (r->test_frames) r->running = false; else rrhk_quit_ask();
     } else if (!quit_held) {
         quit_asked = false;
-        if (rrhk_options_restart(rrhk.menu)) {
-            /* In multiplayer the host's restart goes to everyone at the same frame (a guest is told only the host can). */
+        if (rrhk_options_restart(rrhk.menu) || rrhk_hub_take_restart()) {
+            /* In multiplayer the host's restart goes to everyone at the same frame (a guest is told only the host can). The
+             * F2 Restart tile (1.8.1) comes this way too. */
             if (!rrhk_session_on) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
             else if (rrhk_session_restart()) rrhk.menu = 0;
         }

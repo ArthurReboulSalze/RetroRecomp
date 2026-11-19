@@ -323,6 +323,7 @@ static const char *const rr_translations[][5] = {
     {"Reserved key or config unavailable","Touche reservee ou config inaccessible","Tasto riservato o config inaccessibile","Tecla reservada o ajustes inaccesibles","Taste reserviert oder Config gesperrt"},
     {"Reset","Reset","Reset","Reset","Reset"},
     {"Restart","Redemarrer","Riavvia","Reiniciar","Neustart"},
+    {"Restart the game","Redemarrer le jeu","Riavvia il gioco","Reiniciar el juego","Spiel neu starten"},
     {"Restart: gamepad","Redemarrer : manette","Riavvio: controller","Reiniciar: mando","Neustart: Controller"},
     {"Restart: keyboard","Redemarrer : clavier","Riavvio: tastiera","Reiniciar: teclado","Neustart: Tastatur"},
     {"Restarted by the host","Redemarre par l'hote","Riavviato dall'host","Reiniciado por el anfitrion","Vom Host neu gestartet"},

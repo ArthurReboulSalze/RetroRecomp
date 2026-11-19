@@ -117,15 +117,16 @@ class PicturesOnly(ToolbarWindow):
         button = app.compiled_button
         hint = next(h for h in app.tooltips if h.widget is button)
         self.assertEqual(str(button.cget('compound')), 'image')
-        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch_compiled', True)][0]))
+        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch_compiled', 'accent')][0]))
         self.assertEqual(button.cget('text'), app.tr('compiled_games'))          # the name stays on the widget
         self.assertEqual(hint.text(), app.tr('compiled_games') + '\n' + app.tr('tip_compiled_games'))
         with patch('retrorecomp.compiled_games_view.CompiledGamesView.scan'):
             app.toggle_compiled_games()
-        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch_queue', True)][0]))
+        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch_queue', 'accent')][0]))
         self.assertEqual(button.cget('text'), app.tr('conversion_queue'))
         self.assertEqual(hint.text(), app.tr('conversion_queue') + '\n' + app.tr('tip_conversion_queue'))
-        self.assertEqual(str(button.cget('style')), 'Compiled.Toolbar.TButton')   # the gold emphasis stays
+        self.assertEqual(str(button.cget('style')), 'Compiled.Toolbar.TButton')   # a toggle: dark, gold dashed border
+        self.assertEqual(str(app.style.lookup('Compiled.Toolbar.TButton', 'rrdash')), '1')
 
     def test_the_queue_buttons_show_only_their_picture_and_keep_name_hint_and_a_readable_disabled_state(self):
         app = self.app
@@ -165,8 +166,10 @@ class PicturesOnly(ToolbarWindow):
                                  (play, (app.compiled_view.scan_button, app.compiled_view.add_button))):
             self.assertEqual(str(hero.cget('style')), 'Hero.Toolbar.Primary.TButton')       # one style, both rows
             for neighbour in neighbours:
-                self.assertGreaterEqual(hero.winfo_reqheight(), 1.3 * neighbour.winfo_reqheight())
-                self.assertGreaterEqual(hero.winfo_reqwidth(), 1.3 * neighbour.winfo_reqwidth())
+                # larger, not oversized: its picture fills it as the neighbours' do (Arthur, 19 Nov 2026)
+                self.assertGreaterEqual(hero.winfo_reqheight(), 1.25 * neighbour.winfo_reqheight())
+                self.assertGreaterEqual(hero.winfo_reqwidth(), 1.25 * neighbour.winfo_reqwidth())
+                self.assertLessEqual(hero.winfo_reqwidth(), 1.4 * neighbour.winfo_reqwidth())
         normal, disabled = app.button_images[('convert_all', 'hero')]
         small = app.button_images[('stop', False)][0]
         self.assertGreater(normal.width(), small.width())                                      # a bigger picture

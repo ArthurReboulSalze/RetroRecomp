@@ -213,9 +213,9 @@ class CollectionMixin:
     def update_compiled_button(self):
         """The switch shows only a picture of the view it leads to (Compiled Games from the queue, the queue from
         Compiled Games), with its arrow badge, so it never changes size; the caption stays set on the button (the
-        screen reader reads it) and starts its hint."""
+        screen reader reads it) and starts its hint. Gold on its dark dashed toggle (gui_drawing: Compiled.Toolbar)."""
         self.decorate_button(self.compiled_button, 'switch_queue' if self.collection_visible else 'switch_compiled',
-                             primary=True)
+                             accent=True)
         self.compiled_button.configure(compound='image',
                                        text=self.tr('conversion_queue' if self.collection_visible else 'compiled_games'))
 

@@ -131,16 +131,32 @@ static bool quit_yes;
 
 /* 1.7.6: a machine with a graphics page (D14) has one tile more: it opens that page, which comes back to the tiles. Multiplayer:
  * the Chat tile (in a session only). 1.8.1: the last tile quits, through the one "Quit? No / Yes" (No selected); No and Esc
- * come back to the tiles. The order: ..., Graphics, Chat, Quit (Quit stays last everywhere). */
+ * come back to the tiles; the one before it restarts the game (Arthur, 19 Nov 2026). The order: ..., Graphics, Chat, Restart,
+ * Quit (Quit stays last everywhere). */
+/* Restart: what Shift+F1 and the pad's Restart combination do, through the same path (rrhk_hub_take_restart, read by the loop).
+ * In multiplayer only the host has the tile (it restarts every seat at the same frame); a guest, and a machine that cannot
+ * restart inside a session (the N64), have none. */
+static bool hub_restart_offered(void) {
+    return !rrhk_session_active() || (!rrhk_session_guest() && !rrhk.machine->session_no_restart);
+}
+static bool restart_asked;
+bool rrhk_hub_take_restart(void) { const bool asked = restart_asked; restart_asked = false; return asked; }
 static int hub_tiles(void) {
-    return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0) + (rrhk_chat_offered() ? 1 : 0) + 1;
+    return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0) + (rrhk_chat_offered() ? 1 : 0) +
+           (hub_restart_offered() ? 1 : 0) + 1;
 }
 static bool hub_exit_tile(int tile) { return tile == hub_tiles() - 1; }
+static bool hub_restart_tile(int tile) { return hub_restart_offered() && tile == hub_tiles() - 2; }
 /* Multiplayer: the Chat tile closes the menu (the pause it asked for ends) and opens the chat's entry, with the on-screen
  * keyboard when player 1 has a gamepad. */
-static bool hub_chat_tile(int tile) { return rrhk_chat_offered() && tile == hub_tiles() - 2; }
+static bool hub_chat_tile(int tile) { return rrhk_chat_offered() && tile == hub_tiles() - 2 - (hub_restart_offered() ? 1 : 0); }
 static void hub_open(int tile) {
     if (hub_exit_tile(tile)) { rrhk_quit_ask(); return; }
+    if (hub_restart_tile(tile)) {        /* back to the game, which restarts at the loop's next frame */
+        rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false;
+        restart_asked = true;
+        return;
+    }
     if (hub_chat_tile(tile)) {
         rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false;
         rrhk_chat_begin(rrhk.pads[0] != NULL);
@@ -164,9 +180,10 @@ void rrhk_hub_key(SDL_Scancode key) {
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) hub_open(hub_tile);
 }
 /* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), the graphics page
- * (-3, 1.7.6), the multiplayer chat (-4), Quit (-5, 1.8.1). */
+ * (-3, 1.7.6), the multiplayer chat (-4), Quit (-5, 1.8.1), Restart (-6, 1.8.1). */
 static int hub_kind(int tile) {
     if (hub_exit_tile(tile)) return -5;
+    if (hub_restart_tile(tile)) return -6;
     if (hub_chat_tile(tile)) return -4;
     const int controls = 2 * rrhk.machine->players();
     return tile < controls ? tile : tile >= rrhk_pages_count() ? -3 : tile == rrhk_pages_count() - 1 ? -2 : -1;
@@ -203,7 +220,7 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
             rr_menu_box(ren, ox, oy, unit, x, y, TILE_W, TILE_H, RR_MENU_SHADE, 255);
             rr_menu_box(ren, ox, oy, unit, x + 1, y + 1, TILE_W - 2, TILE_H - 2, 26, 24, 20, 255);
         }
-        const int icon = kind == -5 ? RR_ICON_EXIT : kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
+        const int icon = kind == -6 ? RR_ICON_RESTART : kind == -5 ? RR_ICON_EXIT : kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
             kind % 2 ? RR_ICON_GAMEPAD : RR_ICON_KEYBOARD;
         rr_menu_icon(ren, ox, oy, unit, x + (TILE_W - rr_menu_icon_width(icon)) / 2, y + (kind >= 0 ? 4 : 11), icon, !selected);
         if (kind >= 0) {
@@ -220,7 +237,7 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     if (kind >= 0) snprintf(title, sizeof title, rr_tr(kind % 2 ? "Player %d - Gamepad" : "Player %d - Keyboard"), kind / 2 + 1);
     else {
         /* A page's title names the converter ("Retro-Recomp - Gun"): under the tiles the page alone is named. */
-        const char *name = rr_tr(kind == -5 ? "Quit the game" : kind == -4 ? "Chat" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
+        const char *name = rr_tr(kind == -6 ? "Restart the game" : kind == -5 ? "Quit the game" : kind == -4 ? "Chat" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
         if (!strncmp(name, "Retro-Recomp - ", 15)) name += 15;
         snprintf(title, sizeof title, "%s", name);
     }
