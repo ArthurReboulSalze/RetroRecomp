@@ -43,3 +43,14 @@ def family(language):
     if os.name == 'nt' and language not in ('zh', 'ja'):
         return 'Segoe UI'
     return 'RetroRecomp UI SC' if language == 'zh' else 'RetroRecomp UI JP'
+
+
+def ui_scale(master):
+    """The screen's Tk scaling relative to 96 dpi, clamped to 1.0..3.0: 1.0 on Windows today (the converter is DPI unaware, Tk is told 96
+    dpi at every Windows scale), the real factor on Linux (1.5 at 144 dpi). The ONE definition of it: the hero pictures (gui_icons) and the
+    rounded skin (rounded_skin) size their pictures with it, once at start."""
+    try:
+        factor = float(master.tk.call('tk', 'scaling')) / (96 / 72)
+    except Exception:
+        return 1.0
+    return min(3.0, max(1.0, factor))

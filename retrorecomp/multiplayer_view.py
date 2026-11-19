@@ -933,9 +933,18 @@ class MultiplayerWindow:
         if not self.details_open:
             self.details.withdraw()
         elif not self.hidden:                   # tests build it and read it, never show it
-            center_dialog(self.details, self.window, 500, 400)
+            self.details.update_idletasks()
+            center_dialog(self.details, self.window, max(500, self.details.winfo_reqwidth()), self.details.winfo_reqheight())
             self.details.deiconify()
             self.details.lift()
+
+    def fit_details(self):
+        """The window of « Address and code » is as tall as its content (the port-forward help, or a longer language, opens it
+        up): a fixed 400 px cut the Close button off. Same place, new size."""
+        if not self.details_open or self.hidden:
+            return
+        self.details.update_idletasks()
+        self.details.geometry(f'{max(500, self.details.winfo_reqwidth())}x{self.details.winfo_reqheight()}')
 
     def toggle_help(self):
         self.help_open = not self.help_open
@@ -944,11 +953,13 @@ class MultiplayerWindow:
             self.help_text.pack(anchor='w', pady=(4, 0))
         else:
             self.help_text.pack_forget()
+        self.fit_details()
 
     def toggle_code(self):
         self.code_shown = not self.code_shown
         self.code_toggle.configure(text=self.tr('mp_hide' if self.code_shown else 'mp_show'))
         self.draw_details()
+        self.fit_details()
 
     def use_typed_address(self):
         text = self.typed_live.get().strip()

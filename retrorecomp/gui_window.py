@@ -16,6 +16,8 @@ from .ui_fonts import family
 from .systems import get_profile
 from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
+from .rounded_skin import apply_rounded_theme
+from .rounded_skin import skin_of
 from .dialogs import center_dialog
 from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
 from .gui_icons import hero_picture
@@ -249,7 +251,7 @@ class WindowMixin:
         previous_font = self.ui_font
         self.ui_font = family(self.language)
         if self.ui_font != previous_font:
-            self.style = apply_theme(self.app, self.ui_font)
+            self.style = apply_rounded_theme(self.app, self.ui_font)
             _toolbar_styles(self.style)
         self.language_name.set(language_name(self.language))
         self.system_field.configure(values=self.system_choices())
@@ -473,6 +475,7 @@ class WindowMixin:
         listing = tk.Listbox(row, width=29, exportselection=False, bg=COLORS['panel'],
                              fg=COLORS['text'], selectbackground=COLORS['border'],
                              selectforeground='#ffffff', relief='flat',
+                             highlightthickness=1, highlightbackground=COLORS['panel'], highlightcolor=COLORS['gold'],
                              font=(self.ui_font, 10))
         listing.pack(side='left', fill='y', padx=(0, 10))
         for path in resources:
@@ -573,6 +576,8 @@ class WindowMixin:
         style.configure('Help.Vertical.TScrollbar', background='#2b2b2b', troughcolor=background,
                         bordercolor=background, arrowcolor=COLORS['gold'])
         bar.configure(style='Help.Vertical.TScrollbar')
+        if skin_of(bar):
+            skin_of(bar).restyle(bar)     # a style set after the widget was built is skinned here
         icons = ('add_rom_folder', 'refresh', 'play', 'new_paths', None)
         rows = []
         for index, icon in enumerate(icons, 1):

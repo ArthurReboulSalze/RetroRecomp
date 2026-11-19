@@ -28,6 +28,7 @@ from .windows import set_converter_identity
 from .artwork import ICON_SIZES
 from .systems import discover_roms
 from .branding import COLORS, apply_theme, make_icon, ICON_PATHS
+from .rounded_skin import apply_rounded_theme
 # The helpers and constants of gui_common and gui_drawing, re-exported under their old names.
 from .gui_common import (
     PROFILES, LOCAL_PLATFORM, PLATFORMS, HELP_URL, UPX_SOURCE_URL, update_error_text, UPSTREAM_CREDITS,
@@ -111,7 +112,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         app.minsize(1060, 640)
         load_fonts()
         self.ui_font = family(self.language)
-        self.style = apply_theme(app, self.ui_font)
+        self.style = apply_rounded_theme(app, self.ui_font)
         _toolbar_styles(self.style)
         self.button_images = {}
         self.status = tk.StringVar(value=self.tr('ready'))
