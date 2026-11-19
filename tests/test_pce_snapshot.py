@@ -110,6 +110,20 @@ class MultitapTests(unittest.TestCase):
         self.assertIn('size != PCE_BACKUP_BYTES', self.adapter)
         self.assertIn('pce_machine_set_backup(in)', self.adapter)
 
+    def test_the_host_writes_its_save_back_once_at_a_clean_end_keeping_the_previous_file(self):
+        self.assertIn('.session_save_commit = session_save_commit', self.adapter)
+        self.assertIn('static bool session_save_commit(void) { return rr_pce_backup_commit(); }', self.adapter)
+        backup = (ROOT / 'native/pce_backup.c').read_text(encoding='utf-8')
+        commit = backup.split('bool rr_pce_backup_commit(void)')[1].split('\n}\n')[0]
+        self.assertIn('rr_cart_save_active(&save)', commit)               # no open file: nothing is written
+        self.assertIn('rr_cart_save_commit(&save, pce_machine_backup(), PCE_BACKUP_BYTES, NULL)', commit)
+        shared = (ROOT / 'native/cart_save.c').read_text(encoding='utf-8')
+        self.assertEqual(shared.count('bool rr_cart_save_commit('), 1)     # one shared function (the Super Nintendo's, which the PC Engine calls)
+        keep = shared.split('static bool keep_previous(const wchar_t *path)')[1].split('\n}\n')[0]
+        self.assertIn('L"%ls.bak"', keep)
+        self.assertIn('rr_replace(staged, backup)', keep)                 # atomic: a staged file, then a replace
+        self.assertIn('scenario_commit', (ROOT / 'native/cart_save_checks.c').read_text(encoding='utf-8'))
+
     def test_the_bridge_plugs_the_multitap_now_and_after_a_reset(self):
         bridge = (ROOT / 'native/pce_machine.cpp').read_text(encoding='utf-8')
         plug = bridge.split('void pce_machine_plug_multitap(int plugged) {')[1].split('\n}\n')[0]

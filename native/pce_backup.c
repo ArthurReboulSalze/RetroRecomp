@@ -17,6 +17,12 @@ static RrCartSave save = {&format, saved, observed};
 
 unsigned rr_pce_backup_notice(void) { return save.notice; }
 
+bool rr_pce_backup_commit(void)
+{
+    if (!rr_cart_save_active(&save) || !pce_machine_backup()) return false;
+    return rr_cart_save_commit(&save, pce_machine_backup(), PCE_BACKUP_BYTES, NULL);
+}
+
 bool rr_pce_backup_path(wchar_t *path, size_t capacity) { return rr_cart_save_path(path, capacity); }
 
 static const uint8_t *install(void *context, const uint8_t *payload)
