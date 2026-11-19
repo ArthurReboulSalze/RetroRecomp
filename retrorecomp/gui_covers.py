@@ -28,6 +28,7 @@ from tkinter import filedialog, ttk
 
 from .branding import COLORS
 from .dialogs import center_dialog
+from .ui_fonts import scaled
 from .paths import ROOT, save_preferences
 from .systems import get_profile
 
@@ -358,7 +359,7 @@ class MissingCoversMixin:
         window.update_idletasks()
         self.cover_canvas.configure(height=min(len(self.cover_rows), 4) * (THUMBNAIL + 18))
         window.update_idletasks()
-        center_dialog(window, self.app, max(680, window.winfo_reqwidth()), window.winfo_reqheight())
+        center_dialog(window, self.app, max(scaled(window, 680), window.winfo_reqwidth()), window.winfo_reqheight(), measured=True)
 
     def cover_row(self, request):
         """The row of one game: its drop zone (its picture once known), its title and status, Choose… (and Skip for a

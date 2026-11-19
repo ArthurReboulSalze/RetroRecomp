@@ -23,7 +23,8 @@ from .paths import (
 from .i18n import tr, extended_default, game_boy_validation_default
 from .languages import LANGUAGE_NAMES, language_code, language_name
 from .tooltips import Tooltip
-from .ui_fonts import load_fonts, family
+from .ui_fonts import load_fonts, family, scaled
+from .dialogs import fit_screen
 from .windows import set_converter_identity
 from .artwork import ICON_SIZES
 from .systems import discover_roms
@@ -108,8 +109,10 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         preferences = load_preferences()
         self.language = language_code(preferences.get('language'))
         app.title(APP_NAME)
-        app.geometry(f'1120x{max(640, min(940, app.winfo_screenheight() - 80))}')
-        app.minsize(1060, 640)
+        # Sizes are written for 96 dpi and follow the screen's scaling (1.0 on Windows), never beyond the screen.
+        app.geometry(f'{fit_screen(app, 1120, app.winfo_screenwidth() - 40)}x'
+                     f'{max(fit_screen(app, 640, app.winfo_screenheight() - 90), min(scaled(app, 940), app.winfo_screenheight() - 80))}')
+        app.minsize(fit_screen(app, 1060, app.winfo_screenwidth() - 40), fit_screen(app, 640, app.winfo_screenheight() - 90))
         load_fonts()
         self.ui_font = family(self.language)
         self.style = apply_rounded_theme(app, self.ui_font)

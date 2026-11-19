@@ -35,6 +35,7 @@ from tkinter import messagebox, ttk
 
 from .branding import COLORS
 from .dialogs import center_dialog
+from .ui_fonts import scaled
 from .rounded_ui import Look, RoundButton
 
 POLL_MS = 150
@@ -142,7 +143,7 @@ class MultiplayerWindow:
         window.title(self.tr('mp_title'))
         window.configure(bg=BG)
         center_dialog(window, app.app, WIDTH, HEIGHT)
-        window.minsize(min(820, window.winfo_screenwidth() - 40), min(600, window.winfo_screenheight() - 90))
+        window.minsize(min(scaled(window, 820), window.winfo_screenwidth() - 40), min(scaled(window, 600), window.winfo_screenheight() - 90))
         window.protocol('WM_DELETE_WINDOW', self.ask_close)
         self.make_styles()
         self.mode = tk.StringVar(value='local')
@@ -934,7 +935,7 @@ class MultiplayerWindow:
             self.details.withdraw()
         elif not self.hidden:                   # tests build it and read it, never show it
             self.details.update_idletasks()
-            center_dialog(self.details, self.window, max(500, self.details.winfo_reqwidth()), self.details.winfo_reqheight())
+            center_dialog(self.details, self.window, max(scaled(self.details, 500), self.details.winfo_reqwidth()), self.details.winfo_reqheight(), measured=True)
             self.details.deiconify()
             self.details.lift()
 
@@ -944,7 +945,7 @@ class MultiplayerWindow:
         if not self.details_open or self.hidden:
             return
         self.details.update_idletasks()
-        self.details.geometry(f'{max(500, self.details.winfo_reqwidth())}x{self.details.winfo_reqheight()}')
+        self.details.geometry(f'{max(scaled(self.details, 500), self.details.winfo_reqwidth())}x{self.details.winfo_reqheight()}')
 
     def toggle_help(self):
         self.help_open = not self.help_open

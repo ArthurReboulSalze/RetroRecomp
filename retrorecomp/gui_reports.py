@@ -198,7 +198,7 @@ class ReportsMixin:
             else:
                 view.pack_forget()
             window.update_idletasks()
-            center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+            center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight(), measured=True)
         toggle.configure(text=self.tr('report_show'), command=flip)
         if preview:
             toggle.pack(anchor='w', pady=(8, 0))
@@ -229,7 +229,7 @@ class ReportsMixin:
         sync()
         window.bind('<Escape>', lambda event: window.destroy())
         window.update_idletasks()
-        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight(), measured=True)
         window.deiconify()
         window.grab_set()
         entry.focus_set()

@@ -54,3 +54,10 @@ def ui_scale(master):
     except Exception:
         return 1.0
     return min(3.0, max(1.0, factor))
+
+
+def scaled(master, pixels):
+    """A window size written for 96 dpi, in the pixels of this screen: `pixels` times `ui_scale(master)`, so 1120 stays 1120 on Windows and
+    becomes 1680 at 144 dpi on Linux, where the fonts and the skin already follow Tk scaling. For window sizes only: a size measured with
+    winfo_reqwidth() is already in screen pixels. Callers keep their own screen clamp."""
+    return round(pixels * ui_scale(master))

@@ -16,6 +16,7 @@ from . import __version__
 from .branding import COLORS, wordmark_rectangles
 from .credits_music import MusicSession
 from .dialogs import center_dialog
+from .ui_fonts import scaled
 from .paths import ASSETS, APP_NAME
 
 BG = '#141414'
@@ -385,7 +386,7 @@ class CreditsDemo:
         # Compact since 1.5.4 (was 890x780): fits small screens, the list scrolls.
         center_dialog(panel, owner.app, 760, 620)
         # Small laptops: the scrolling list absorbs what the screen lacks.
-        panel.minsize(min(640, panel.winfo_screenwidth() - 40), min(500, panel.winfo_screenheight() - 90))
+        panel.minsize(min(scaled(panel, 640), panel.winfo_screenwidth() - 40), min(scaled(panel, 500), panel.winfo_screenheight() - 90))
 
         self.header = tk.Canvas(panel, height=HEADER_HEIGHT, bg=BG, highlightthickness=0)
         self.header.pack(fill='x')
