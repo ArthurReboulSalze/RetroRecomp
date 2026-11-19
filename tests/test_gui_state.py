@@ -378,8 +378,8 @@ class ButtonHints(unittest.TestCase):
     BUTTONS = ('tip_add_roms', 'tip_credits', 'tip_check_updates', 'tip_options', 'tip_choose_cover',
                'tip_auto_cover', 'tip_knowledge')
 
-    # Options and Knowledge became pictures (icon_button: the hint starts with the button's name).
-    PICTURES = ('tip_options', 'tip_knowledge')
+    # These became pictures (icon_button: the hint starts with the button's name).
+    PICTURES = ('tip_options', 'tip_knowledge', 'tip_add_roms', 'tip_choose_cover', 'tip_auto_cover')
 
     def test_each_text_button_names_its_hint(self):
         source = gui_source()
