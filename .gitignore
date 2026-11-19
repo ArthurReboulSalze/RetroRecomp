@@ -84,6 +84,7 @@ docs/*
 !docs/BOXART.md
 !docs/AUDIO.md
 !docs/CONTROLS.md
+!docs/MULTIPLAYER.md
 !docs/LIGHT_PHASER.md
 !docs/VIDEO.md
 !docs/GAME_STATES.md

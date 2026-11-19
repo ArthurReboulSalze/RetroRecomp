@@ -157,6 +157,14 @@ B are the triggers. **Ctrl+Alt+K** hands the whole keyboard to the MSX (the same
 at Ctrl+F1). The F2 pages, autofire (F6) and the speed and sound controls are the common ones. F8 saves a quick state and F9 loads it, refused when the cartridge, the BIOS, the options or the build differ. See
 [MSX.md](MSX.md#4-controls).
 
+## In a multiplayer match
+
+The keys change meaning in a match ([MULTIPLAYER.md](MULTIPLAYER.md)): **F8** and **F9** save and load the match for
+everyone, and **Shift+F1** restarts it for everyone, from the host only (a guest is told so). The pause and the F1 / F2
+menus pause everyone. **Y**, or **R3 + Select** on the gamepad, opens the chat. The speed keys (Tab, the Max speed key),
+fast loading, changing a disc and the settings the host sets are refused with a short line. A computer's keyboard and
+mouse do not reach the game.
+
 ## Speed and sound
 
 Since 1.6.3 every console has the speed and sound controls that only the Game Boy player had before 1.6.3 (the keys are

@@ -245,6 +245,32 @@ picture at 1x, 2x and 4x with and without Scale2x read back from the renderer, r
 key and button, then the same machine with every new field left out (F3 cycles the filters, the left stick is the
 directions, no dead zone row, no rumble, no disc).
 
+### 2.5 Multiplayer sessions (session ABI 8)
+
+A game is in a session only when the converter's worker starts it with its two pipes (`RETRORECOMP_NETPLAY_PIPE`,
+`hostkit_session.h`); alone, none of this runs and the only cost is one flag test a frame. In a session the game decides
+nothing: once a frame it reports its local pad (LOCAL) and runs what the worker says (RUN, live or silent), saves and loads
+snapshots of its own ring, gives digests, pauses and shows notices. The rules a machine's adapter follows, with the fields
+of `RrhkMachine` that carry them:
+
+| Field or call | What the machine gives |
+|---|---|
+| `digest` | its deterministic state as named fields in a fixed byte order, the same on Windows and Linux. Without it the machine is not offered. |
+| `snap_bound`, `snap_save`, `snap_load` | the whole state that decides future frames, in memory, no allocation per call, valid after any frame and complete at once on load (the kit may ask a digest or a save right after a load). With them the match plays on the rollback tier and the host's F8 / F9 work for everyone; without them, the delay tier. |
+| `run_frame` | every input of the frame, players 3 and 4 included (`rrhk_pad_word(2/3)`), is read here: a silent frame calls `run_frame` only, never `before_frame`. |
+| `driven` | a machine whose guest owns its loop takes silent frames too: `rrhk_frame_done` returns as for a live frame, the guest runs one frame, and its next `rrhk_frame_done` ends it without a picture. It must call `rrhk_frame_done` on a complete state. |
+| `side_effects` | cartridge-save writes, recordings and rumble only when allowed: never in a silent frame, never on a guest. |
+| `session_options`, `session_option` | the run-changing options as `key=value` lines: the host's go to every seat at SETUP and are locked for the match (F-keys and rows of those options are refused). |
+| `session_save`, `session_save_put` | the game's own save image (battery, EEPROM, memory card, save files): the host's is handed to every guest before SETUP and played in memory only. |
+| `session_begin` | the session's clock (1 January 2000 UTC on every seat) for a machine with a real-time clock, at SETUP and after a restart. |
+| `stick_actions` | the actions that push the left stick from keys: the kit folds them into the sticks this PC sends (sticks travel as int8, the original pads' precision). |
+| `session_no_restart` | a machine whose restart relaunches its process: the kit refuses the restart in a session with a notice. |
+| `rrhk_session_ports()` | the ports of the session, for an extra-player adapter plugged only when the session needs it (a multitap). |
+
+The kit refuses a session for a game that reads a pointer or a light gun (not carried yet). A computer's keyboard bindings
+feed the pad words like a pad's; the computer adapter gives its guest no key of this PC in a session. The public page is
+[MULTIPLAYER.md](MULTIPLAYER.md).
+
 ## 3. Behaviour: one rule per divergence
 
 Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour. A
