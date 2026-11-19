@@ -44,6 +44,19 @@ static int file_appears_within(unsigned ms)
     }
     return 0;
 }
+static size_t read_all(const wchar_t *path, uint8_t *out, size_t capacity)
+{
+    FILE *file = rr_fopen(path, L"rb");
+    if (!file) return 0;
+    const size_t count = fread(out, 1, capacity, file);
+    fclose(file);
+    return count;
+}
+static void backup_path(wchar_t *path)
+{
+    rr_cps1_save_path(path, 32768);
+    rr_wide_append(path, 32768, L".bak");
+}
 static void blank(void) { cps1_eeprom_reset(&chip, 12); }
 static void edit_file(long offset, int value)
 {
@@ -137,6 +150,46 @@ int main(void)
     blank();
     expect("its own file is as it was", rr_cps1_save_begin() && chip.data[2] == 0x34 && chip.data[9] == 0xff);
     rr_cps1_save_close();
+
+    /* the host's save written back at a clean end of a match (side effects off all the match): the memory over the file, atomically, the
+     * previous file kept whole as .bak, and a file that could not be used is never written over */
+    remove_file();
+    blank();
+    rr_cps1_save_begin();
+    rr_cps1_save_side_effects(0);
+    chip.data[1] = 0x21; chip.changed = 1;
+    rr_cps1_save_frame();
+    sleep_ms(1700);
+    {
+        wchar_t file_path[32768], bak_path[32768];
+        rr_cps1_save_path(file_path, 32768);
+        backup_path(bak_path);
+        uint8_t before[512], after[512], kept[512];
+        expect("no file is written during a match", !rr_exists(file_path));
+        expect("the first commit writes the file", rr_cps1_save_commit());
+        expect("with no previous file there is no backup", !rr_exists(bak_path));
+        const size_t first = read_all(file_path, before, sizeof before);
+        chip.data[1] = 0x22;
+        expect("the second commit writes the memory over it", rr_cps1_save_commit());
+        const size_t second = read_all(file_path, after, sizeof after);
+        const size_t backed = read_all(bak_path, kept, sizeof kept);
+        expect("the file changed", first > 0 && second == first && memcmp(before, after, first) != 0);
+        expect("the backup is the previous file, byte for byte", backed == first && memcmp(kept, before, first) == 0);
+        rr_cps1_save_side_effects(1);
+        rr_cps1_save_close();
+        blank();
+        expect("the next run reads the memory that was written back", rr_cps1_save_begin() && chip.data[1] == 0x22);
+        rr_cps1_save_close();
+        /* a file that cannot be used is refused at the start and a commit never writes over it or backs it up */
+        edit_file(200, 0x55);
+        const size_t damaged_before = read_all(file_path, before, sizeof before);
+        blank();
+        expect("a damaged file is refused", !rr_cps1_save_begin());
+        expect("and is not written over by a commit", !rr_cps1_save_commit());
+        expect("it is still the damaged one", read_all(file_path, after, sizeof after) == damaged_before &&
+                                                 memcmp(before, after, damaged_before) == 0);
+        rr_cps1_save_close();
+    }
 
     remove_file();
     printf("{\"passed\":%u,\"failed\":%u}\n", passed, failed);

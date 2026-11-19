@@ -211,6 +211,44 @@ void rr_cps1_save_frame(void)
     if (!worker_started) worker_started = start_worker();
 }
 
+/* The previous file is kept whole as `<file>.bak` (temporary file, flush, rename: a failure leaves the old backup and the file as they were). */
+static bool backup_previous(void)
+{
+    FILE *file = rr_fopen(save_path, L"rb");
+    if (!file) return true;                                     /* no previous file: nothing to keep */
+    uint8_t old[HEADER + PAYLOAD_MAX + 16];
+    const size_t count = fread(old, 1, sizeof old, file);
+    const bool whole = fgetc(file) == EOF && !ferror(file) && count > 0;
+    fclose(file);
+    if (!whole) return false;
+    wchar_t backup[32768], temporary[32768];
+    rr_wide_copy(backup, 32768, save_path);
+    if (rr_wide_append(backup, 32768, L".bak")) return false;
+    swprintf(temporary, 32768, L"%ls.%lu.tmp", backup, rr_process_id());
+    FILE *out = rr_fopen(temporary, L"wb");
+    if (!out) return false;
+    bool okay = fwrite(old, 1, count, out) == count;
+    if (okay) okay = rr_flush_file(out);
+    if (fclose(out)) okay = false;
+    if (okay) okay = rr_replace(temporary, backup);
+    if (!okay) rr_remove(temporary);
+    return okay;
+}
+
+/* The host's save, written back once when a match ends cleanly (hostkit.h session_save_commit): the EEPROM as it is in memory, over the
+ * file the game reads alone, atomically, the previous file kept as `.bak`. A file that could not be used at the start (damaged, another
+ * set) is never written over. */
+bool rr_cps1_save_commit(void)
+{
+    if (!active || flag_load(&blocked)) return false;
+    const size_t size = cps1_eeprom_size();
+    if (!size || size > PAYLOAD_MAX || !backup_previous()) return false;
+    if (!write_atomic(cps1_eeprom_data(), size)) return false;
+    fprintf(stderr, "[cps1] the host's save written back: %u bytes, digest %016llx\n", (unsigned)size,
+            (unsigned long long)hash(cps1_eeprom_data(), size));
+    return true;
+}
+
 bool rr_cps1_save_close(void)
 {
     if (!active) return true;
