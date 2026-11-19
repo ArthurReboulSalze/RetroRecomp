@@ -92,7 +92,32 @@ bool rr_cart_save_open(RrCartSave *save, const wchar_t *path, size_t size, const
     return true;
 }
 
-static bool write_atomic(const RrCartSave *save, const uint8_t *memory, size_t size, const uint32_t *words)
+/* The file at `path`, if there is one, copied to "<path>.bak" (a staged copy, then a replace), so the previous save survives the
+ * write that follows. True: kept, or there was nothing to keep. */
+static bool keep_previous(const wchar_t *path)
+{
+    FILE *in = rr_fopen(path, L"rb");
+    if (!in) return errno == ENOENT;
+    wchar_t backup[32768 + 16], staged[32768 + 32];
+    swprintf(backup, 32768 + 16, L"%ls.bak", path);
+    swprintf(staged, 32768 + 32, L"%ls.bak.%lu.tmp", path, rr_process_id());
+    FILE *out = rr_fopen(staged, L"wb");
+    bool ok = out != NULL;
+    uint8_t chunk[4096];
+    while (ok) {
+        const size_t got = fread(chunk, 1, sizeof chunk, in);
+        if (got && fwrite(chunk, 1, got, out) != got) ok = false;
+        if (got < sizeof chunk) { if (ferror(in)) ok = false; break; }
+    }
+    if (out && ok) ok = rr_flush_file(out);
+    if (out && fclose(out) != 0) ok = false;
+    if (fclose(in) != 0) ok = false;
+    if (ok) ok = rr_replace(staged, backup);
+    if (!ok) rr_remove(staged);
+    return ok;
+}
+
+static bool write_atomic(const RrCartSave *save, const uint8_t *memory, size_t size, const uint32_t *words, bool backup)
 {
     const RrCartSaveFormat *format = save->format;
     uint8_t header[HEADER_BYTES] = {0};
@@ -119,6 +144,7 @@ static bool write_atomic(const RrCartSave *save, const uint8_t *memory, size_t s
     bool ok = fwrite(header, 1, sizeof header, file) == sizeof header && fwrite(memory, 1, size, file) == size;
     if (ok) ok = rr_flush_file(file);
     if (fclose(file) != 0) ok = false;
+    if (ok && backup) ok = keep_previous(save->path);
     if (ok) ok = rr_replace(staged, save->path);
     if (!ok) rr_remove(staged);
     return ok;
@@ -131,8 +157,17 @@ bool rr_cart_save_flush(RrCartSave *save, const uint8_t *memory, size_t size, co
     if (!memory) return true;
     if (memcmp(save->observed, memory, size)) { memcpy(save->observed, memory, size); save->last_changed = now_ms; }
     if (!memcmp(save->saved, memory, size) || (!force && now_ms - save->last_changed < QUIET_MS)) return true;
-    if (!write_atomic(save, memory, size, words)) { save->retry_at = now_ms + RETRY_MS; return false; }
+    if (!write_atomic(save, memory, size, words, false)) { save->retry_at = now_ms + RETRY_MS; return false; }
     memcpy(save->saved, memory, size);
+    save->retry_at = 0;
+    return true;
+}
+
+bool rr_cart_save_commit(RrCartSave *save, const uint8_t *memory, size_t size, const uint32_t *words)
+{
+    if (!save->active || !memory || !size || size > save->format->capacity) return false;
+    if (!write_atomic(save, memory, size, words, true)) return false;
+    memcpy(save->saved, memory, size); memcpy(save->observed, memory, size);
     save->retry_at = 0;
     return true;
 }

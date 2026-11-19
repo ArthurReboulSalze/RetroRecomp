@@ -589,6 +589,13 @@ size_t rr16_snes_session_save(void *out, size_t capacity) {
     memcpy(out, g_snes->cart->ram, size);
     return size;
 }
+/* The host's save written back once at a clean end of the match (hostkit.h session_save_commit): the battery RAM as it is now in memory
+ * to the host's own file, atomically, the file it replaces kept as "<file>.bak". The periodic and exit flushes stay off in a match. */
+bool rr16_snes_battery_board(void) { return RR_SN_BATTERY != 0; }
+bool rr16_snes_session_save_commit(void) {
+    if (!g_snes || !RR_SN_BATTERY) return false;
+    return rr_snes_battery_commit(g_snes->cart);
+}
 bool rr16_snes_session_save_put(const void *in, size_t size) {
     if (!g_snes || !in || !RR_SN_BATTERY || size != g_snes->cart->ramSize || !g_snes->cart->ram) return false;
     memcpy(g_snes->cart->ram, in, size);

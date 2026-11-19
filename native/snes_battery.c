@@ -39,3 +39,9 @@ bool rr_snes_battery_flush(const Cart *bus, uint64_t now_ms, bool force) {
     uint32_t words[3]; identity(bus,words);
     return rr_cart_save_flush(&save,bus->ram,bus->ramSize,words,now_ms,force);
 }
+bool rr_snes_battery_commit(const Cart *bus) {
+    if (!bus || !rr_cart_save_active(&save)) return false;
+    if (bus->type!=mapping || !(bus->ram && bus->ramSize) || !battery_enabled || bus->ramSize>sizeof saved) return false;
+    uint32_t words[3]; identity(bus,words);
+    return rr_cart_save_commit(&save,bus->ram,bus->ramSize,words);
+}

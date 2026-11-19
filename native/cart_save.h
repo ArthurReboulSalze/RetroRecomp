@@ -51,4 +51,9 @@ bool rr_cart_save_active(const RrCartSave *save);
 /* Writes the memory when it has been quiet for two seconds, or at once with force. False: this write failed (retried later).
  * Call only when active. `memory` NULL: only the pacing is applied. */
 bool rr_cart_save_flush(RrCartSave *save, const uint8_t *memory, size_t size, const uint32_t *words, uint64_t now_ms, bool force);
+/* A multiplayer match ended cleanly: the host writes the memory as it is now to its own file once, atomically, and keeps the file it
+ * replaces as "<file>.bak" (the previous save, one step back). False when no file is open, or the previous file could not be kept
+ * or the new one written: then the file that was there is untouched. Call only from the host's session hook (hostkit.h
+ * session_save_commit); during a match nobody flushes. */
+bool rr_cart_save_commit(RrCartSave *save, const uint8_t *memory, size_t size, const uint32_t *words);
 #endif
