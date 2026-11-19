@@ -71,8 +71,10 @@ class Look:
         greyed = self.photo(rounded_box(edge, edge, radius, disabled or self.c['panel'], bg))
         element = self._element(name, normal, ('disabled', greyed), ('active', active), ('pressed', active),
                                 border=radius + 1, padding=2)
+        # Button.focus draws the dotted focus ring (focuscolor) around the label: the keyboard's and the gamepad's place shows
         self.style.layout(f'{name}.TButton', [(element, {'sticky': 'nsew', 'children': [
-            ('Button.padding', {'sticky': 'nsew', 'children': [('Button.label', {'sticky': 'nsew'})]})]})])
+            ('Button.padding', {'sticky': 'nsew', 'children': [('Button.focus', {'sticky': 'nsew', 'children': [
+                ('Button.label', {'sticky': 'nsew'})]})]})]})])
         self.style.configure(f'{name}.TButton', foreground=text, padding=padding, anchor='center',
                              font=(self.font, size, 'bold' if bold else 'normal'), focuscolor=self.c['gold'])
         self.style.map(f'{name}.TButton', foreground=[('disabled', self.c['disabled'])])
@@ -86,7 +88,8 @@ class Look:
         over = self.photo(rounded_box(edge, edge, radius, hover, track))
         element = self._element(name, off, ('selected', on), ('active', over), border=radius + 1, padding=2)
         self.style.layout(f'{name}.TRadiobutton', [(element, {'sticky': 'nsew', 'children': [
-            ('Radiobutton.padding', {'sticky': 'nsew', 'children': [('Radiobutton.label', {'sticky': 'nsew'})]})]})])
+            ('Radiobutton.padding', {'sticky': 'nsew', 'children': [('Radiobutton.focus', {'sticky': 'nsew', 'children': [
+                ('Radiobutton.label', {'sticky': 'nsew'})]})]})]})])
         self.style.configure(f'{name}.TRadiobutton', foreground=self.c['muted'], padding=(16, 5), anchor='center',
                              font=(self.font, size, 'bold'), focuscolor=self.c['gold'])
         self.style.map(f'{name}.TRadiobutton', foreground=[('disabled', self.c['disabled']),
