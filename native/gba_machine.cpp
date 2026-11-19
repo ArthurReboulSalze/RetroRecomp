@@ -330,6 +330,26 @@ uint64_t fnv_bytes(uint64_t hash, const uint8_t* bytes, size_t size) {
 
 uint32_t le32(const uint8_t* at) { return at[0] | at[1] << 8 | at[2] << 16 | static_cast<uint32_t>(at[3]) << 24; }
 
+constexpr uint32_t kSaveTag = 0x30564153u;     // "SAV0": the cartridge save's section of the engine's state container
+std::vector<uint8_t> g_boot_state;             // a session only: the machine's state before its first frame, kept for the host's restart
+
+// The payload of the section `tag` of the engine's state container (the 52-byte header, then sections: tag | length | payload).
+bool find_section(const std::vector<uint8_t>& blob, uint32_t tag, size_t* offset, size_t* length) {
+    size_t at = 4 + 4 + 40 + 4;
+    while (at + 8 <= blob.size()) {
+        const uint32_t found = le32(&blob[at]), size = le32(&blob[at + 4]);
+        at += 8;
+        if (size > blob.size() - at) return false;
+        if (found == tag) {
+            *offset = at;
+            *length = size;
+            return true;
+        }
+        at += size;
+    }
+    return false;
+}
+
 // The session's digest: the engine's state container (header, then sections tag | length | payload, little-endian, written field by field) read section by section.
 // Kept: the CPU registers (the first 180 bytes: 16 + 1 + 3 x 6 + 2 x 5 words; what follows is the generated code's call stack, an artefact of how it runs), the memories and
 // the bus, the registers, the cartridge save and the picture processing unit. Left out: the sound section (it holds the host's output ring and the cursors that follow the
@@ -388,6 +408,10 @@ static void run_state_switch(void);
 
 bool rrgba_frame(uint16_t pressed) {
     if (!g_api || g_restart) return false;
+    if (g_session && g_boot_state.empty()) {                  // the state before the first frame: what a restart in a session goes back to
+        std::string error;
+        if (!g_api->save_state(g_boot_state, error)) g_boot_state.clear();
+    }
     if (g_scripted) pressed = scripted_pressed();
     g_api->set_keyinput(static_cast<uint16_t>(~pressed & 0x3FF));
     ++g_frame_index;
@@ -433,7 +457,28 @@ size_t rrgba_audio(int16_t* pcm, size_t capacity) {
     return count;
 }
 
-void rrgba_reset(void) { g_restart = true; }
+// A restart. Alone, the loop ends and the machine is built again (the engine's own start-up). In a session that cannot be: the engine's start-up opens the kit's loop again and
+// the session's pipes are closed with the first one. The machine goes back to the state it had before its first frame (kept in memory at that moment) instead, as a power cycle
+// does, except for the cartridge save, which a power cycle keeps: the section of the save of the present state replaces the one of the boot state before it is loaded.
+void rrgba_reset(void) {
+    if (!g_session || !g_api || g_boot_state.empty()) {
+        g_restart = true;
+        return;
+    }
+    std::vector<uint8_t> now, state = g_boot_state;
+    std::string error;
+    size_t now_at = 0, now_length = 0, boot_at = 0, boot_length = 0;
+    if (g_api->save_state(now, error) && find_section(now, kSaveTag, &now_at, &now_length) && find_section(state, kSaveTag, &boot_at, &boot_length)) {
+        if (now_length == boot_length) memcpy(&state[boot_at], &now[now_at], now_length);
+        else fprintf(stderr, "[host] the cartridge save changed its size: the restart keeps the one of the start\n");
+    }
+    if (!g_api->load_state(state, error)) {
+        fprintf(stderr, "[host] the restart could not load the state of the start: %s\n", error.c_str());
+        g_failed = true;
+        return;
+    }
+    g_audio_running = 1469598103934665603ull;
+}
 uint64_t rrgba_digest(void) { return state_digest(); }
 void rrgba_side_effects(bool allowed) { g_save_writes = allowed; }
 // The session's clock (RRHK_SESSION_CLOCK, the same on every seat) is already the engine's guest epoch: the engine reads it once when it starts, which is before the kit's setup.
