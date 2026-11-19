@@ -23,7 +23,7 @@ from pathlib import Path
 import threading
 from typing import Callable
 
-from . import control, internet_key, invitation
+from . import control, internet_key, invitation, reach
 from .lobby import game_dict, game_from_dict
 from .lobby_check import LocalLibrary, game_config
 from .worker_client import WorkerProcess
@@ -242,6 +242,10 @@ class LobbyController:
         self._found = None                          # the inventory entry this PC would launch for it
         self._entry = None                          # the host: the entry it picked
         self.answers: list[dict] = []               # this PC's answers, in order (tests, the window's own check line)
+        # An Internet room's host: how its public address is searched and its box's port released (`reach`; a test gives
+        # its own), and what the search found (released when the room closes).
+        self.search, self.unmap = reach.search, reach.unmap
+        self._reach_found: 'reach.Reach | None' = None
 
     def attach(self, worker) -> None:
         self.worker = worker
@@ -270,6 +274,12 @@ class LobbyController:
         with self._lock:
             worker, closed = self.worker, getattr(self, '_closed', False)
             self._closed = True
+            found, self._reach_found = self._reach_found, None
+        if found is not None and found.mapped:
+            try:                                   # the box's port goes when the room goes (a lease ends it anyway)
+                self.unmap(found)
+            except Exception:
+                pass
         if worker is None or closed:
             return
         try:
@@ -291,8 +301,30 @@ class LobbyController:
 
     def on_event(self, event: dict) -> None:
         self.model.apply(event)
+        if (event.get('event') == 'room_open' and self.model.internet and self.model.secret is not None
+                and self.model.reach != 'typed'):
+            threading.Thread(target=self._search, args=(event.get('address'), event.get('port')), name='room-reach',
+                             daemon=True).start()
         if event.get('event') == 'lobby_check_request':
             threading.Thread(target=self._check, args=(event,), name='lobby-check', daemon=True).start()
+
+    def _search(self, address: str, port: int) -> None:
+        """An Internet room's host: ask the box (then the site, said in the window) for the public address and the port.
+        An address the host typed meanwhile is kept; the mapping is kept to release it when the room closes."""
+        try:
+            found = self.search(address, port)
+        except Exception:                            # a search never ends the room: the host can still type the address
+            found = reach.Reach(reach.WAITING)
+        with self._lock:
+            closed = getattr(self, '_closed', False)
+            if not closed:
+                self._reach_found = found
+        if closed:
+            if found.mapped:
+                self.unmap(found)
+            return
+        if self.model.reach != 'typed':
+            self.model.set_public(found.ipv4 or found.ipv6, found.state)
 
     def _check(self, event: dict) -> None:
         """A guest: look for the host's pick in this PC's library and answer it. Never raises: a pick this PC cannot read is

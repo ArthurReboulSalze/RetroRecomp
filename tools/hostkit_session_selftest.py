@@ -379,9 +379,11 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     code, result, text = game.finish()
     assert code == 0, text
     assert int(result['live']) == 300 and int(result['silent']) == 6 * corrections, (result, corrections)
-    assert int(result['effects_off']) == 6 * corrections, result      # side effects off for silent frames only
+    # Side effects off on every frame of the match, the host's live ones too: nobody writes a save during a match, the host
+    # writes its own back at the end (session_save_commit; Arthur, 19 Nov 2026).
+    assert int(result['effects_off']) == 300 + 6 * corrections, result
     assert int(result['digest'], 16) == digest_of(history), result
-    passed.append(f'rollback: {corrections} corrections of 6 frames, silent frames without side effects, digests equal')
+    passed.append(f'rollback: {corrections} corrections of 6 frames, no frame of the match with side effects, digests equal')
 
     # 4. A guest: no side effects at all (its cartridge save is never written).
     game = Game(executable, out)
@@ -675,6 +677,32 @@ def save_scenarios(executable: Path, out: Path) -> list[str]:
     code, result, text = game.finish(timeout=15)
     assert code == 0 and int(result['frames']) == 0 and 'SAVE_IN' in text, (code, result, text)
     passed.append('save: a SAVE_IN out of order ends the session, nothing run')
+
+    # 24. The host writes its save back once when the match ends cleanly, and no frame of the match had its side effects on
+    # (Arthur, 19 Nov 2026: « réécris la carte de l'hôte à la fin »); after a desync it writes nothing; a guest never.
+    def ended(reason: str, seat: int, guest: bool) -> str:
+        game = Game(executable, out, save=1)
+        hello, _own = opened(game)
+        if guest:
+            host = battery(1)
+            game.send('RRHK_MSG_SAVE_IN', struct.pack('<II', len(host), 0) + host)
+        game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
+        setup(game, seat=seat, guest=guest)
+        history = []
+        for frame in range(10):
+            live_frame(game, frame, (*remote(frame)[:1], 0, 0, 0), history)
+        game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS[reason]))
+        game.expect('RRHK_MSG_EXIT', timeout=10)
+        _code, _result, text = game.finish()
+        return text
+    text = ended('RRHK_STOP_ENDED', 0, False)
+    assert text.count('[fake] commit ') == 1 and 'effects-on-frames 0' in text and 'written back' in text, text[-600:]
+    text = ended('RRHK_STOP_DESYNC', 0, False)
+    assert '[fake] commit' not in text, text[-600:]
+    text = ended('RRHK_STOP_ENDED', 1, True)
+    assert '[fake] commit' not in text, text[-600:]
+    passed.append('save, end: the host writes its save back once at a clean end (no frame wrote during the match), nothing after '
+                  'a desync, a guest never')
     return passed
 
 
