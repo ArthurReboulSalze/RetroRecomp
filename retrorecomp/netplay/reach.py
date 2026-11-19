@@ -261,6 +261,23 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def udp_socket():
+    """The socket factory of a real search: one IPv4 UDP socket (SSDP, NAT-PMP)."""
+    return socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+
+def search(local_address: str, port: int) -> Reach:
+    """`find_public` with the real sockets and opener (what an Internet room's host runs, in a worker thread). The PC's
+    IPv6 is not offered yet: the room listens on its IPv4 address only, so a key must carry an IPv4 address."""
+    return find_public(local_address, port, socket_factory=udp_socket, opener=make_opener(), ipv6_reader=lambda: None,
+                       allow_site=True)
+
+
+def unmap(found: Reach) -> bool:
+    """`release` with the real sockets and opener (when the room closes)."""
+    return release(found, socket_factory=udp_socket, opener=make_opener())
+
+
 def make_opener():
     """The HTTP opener for the functions below: no proxy, no redirect, nothing but plain `open(request, timeout=...)`."""
     return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())

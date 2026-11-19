@@ -64,6 +64,61 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(lan_transport.room_code(lan_transport.PORT_CLOSED), 'port_closed')
 
 
+class SearchTests(unittest.TestCase):
+    """The host's search for its public address when the room opens, and the box's port released when it closes (a fake
+    search: nothing reaches a router)."""
+
+    def controller(self, found):
+        from retrorecomp.netplay import reach
+        model = lobby_client.LobbyModel()
+        model.secret, model.internet, model.reach = SECRET, True, 'probing'
+        controller = lobby_client.LobbyController(library=None, model=model)
+        calls = {'search': [], 'unmap': []}
+        controller.search = lambda address, port: (calls['search'].append((address, port)), found)[1]
+        controller.unmap = lambda result: (calls['unmap'].append(result), True)[1]
+        return controller, model, calls, reach
+
+    def wait(self, condition):
+        for _ in range(200):
+            if condition():
+                return True
+            threading.Event().wait(0.01)
+        return False
+
+    def test_the_box_maps_the_port_the_key_follows_and_the_port_goes_with_the_room(self):
+        from retrorecomp.netplay import reach
+        found = reach.Reach(reach.UPNP, ipv4='82.65.10.20', mapped=True, via='upnp', port=24700)
+        controller, model, calls, _ = self.controller(found)
+        controller.on_event({'event': 'room_open', 'address': '192.168.1.58', 'port': 24700})
+        self.assertTrue(self.wait(lambda: model.reach == 'upnp'))
+        self.assertEqual(calls['search'], [('192.168.1.58', 24700)])            # the port the room really bound
+        self.assertEqual(internet_key.parse_key(model.key).address, '82.65.10.20')
+        controller.close()
+        self.assertEqual(calls['unmap'], [found])
+
+    def test_a_typed_address_is_kept_and_nothing_is_searched_for_a_local_room(self):
+        from retrorecomp.netplay import reach
+        controller, model, calls, _ = self.controller(reach.Reach(reach.FORWARD_NEEDED, ipv4='82.65.10.21'))
+        controller.set_public_address('82.65.10.99')
+        controller.on_event({'event': 'room_open', 'address': '192.168.1.58', 'port': 24611})
+        threading.Event().wait(0.1)
+        self.assertEqual((calls['search'], model.reach, model.public), ([], 'typed', '82.65.10.99'))
+        local, local_model, local_calls, _ = self.controller(None)
+        local_model.internet = False
+        local.on_event({'event': 'room_open', 'address': '192.168.1.58', 'port': 24611})
+        threading.Event().wait(0.1)
+        self.assertEqual(local_calls['search'], [])
+
+    def test_a_search_that_fails_leaves_the_host_able_to_type(self):
+        controller, model, calls, reach = self.controller(None)
+        controller.search = lambda address, port: (_ for _ in ()).throw(OSError('no network'))
+        controller.on_event({'event': 'room_open', 'address': '192.168.1.58', 'port': 24611})
+        self.assertTrue(self.wait(lambda: model.reach == 'waiting'))
+        self.assertEqual(model.key, '')
+        controller.set_public_address('82.65.10.20')
+        self.assertTrue(internet_key.parse_key(model.key).address == '82.65.10.20')
+
+
 def loopback_refused():
     try:
         probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
