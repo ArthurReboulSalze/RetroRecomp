@@ -147,7 +147,7 @@ class Game:
 
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
                  restart_at: int = 0, chat_at: int = 0, load_at: int = 0, driven: bool = False, sticks: bool = False,
-                 save: int | None = None):
+                 save: int | None = None, option_at: int = 0, keys: bool = False):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -163,6 +163,12 @@ class Game:
         env.pop('SESSION_FAKE_DRIVEN', None)
         env.pop('SESSION_FAKE_STICKS', None)
         env.pop('SESSION_FAKE_SAVE', None)
+        env.pop('SESSION_FAKE_OPTION_AT', None)
+        env.pop('SESSION_FAKE_KEYS', None)
+        if option_at:
+            env['SESSION_FAKE_OPTION_AT'] = str(option_at)
+        if keys:
+            env['SESSION_FAKE_KEYS'] = '1'
         if save is not None:
             env['SESSION_FAKE_SAVE'] = str(save)
         if sticks:
@@ -474,6 +480,7 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     passed.extend(driven_scenarios(executable, out))
     passed.extend(stick_scenarios(executable, out))
     passed.extend(save_scenarios(executable, out))
+    passed.extend(abi9_scenarios(executable, out))
     return passed
 
 
@@ -712,6 +719,83 @@ def save_scenarios(executable: Path, out: Path) -> list[str]:
     assert '[fake] commit' not in text, text[-600:]
     passed.append('save, end: the host writes its save back once at a clean end (no frame wrote during the match), nothing after '
                   'a desync or before frame 0, a guest never')
+    return passed
+
+
+def abi9_scenarios(executable: Path, out: Path) -> list[str]:
+    """Session ABI 9: the host changes a run-changing option in a match (RELAUNCH, then the worker's STOP_RELAUNCH: no frame
+    with the new value, no save written back), a guest's change is never asked; the host types on a computer (its LOCAL carries
+    its keys with SYS_KEYBOARD, a guest's carries none, a RUN with RUN_KEYS gives the host's keys to the machine)."""
+    passed = []
+    key_bytes = 16
+
+    # 25. The host's option changes at frame 12: a RELAUNCH with the new options, no LOCAL nor frame after it; STOP_RELAUNCH
+    # ends the game (EXIT stopped), and its save is not written back.
+    game = Game(executable, out, option_at=12, save=3)
+    hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+    game.expect('RRHK_MSG_SAVE_OUT')                 # its 64-byte battery, one chunk
+    game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
+    setup(game)
+    history = []
+    for frame in range(12):
+        live_frame(game, frame, (0, *remote(frame)), history)
+    payload = game.expect('RRHK_MSG_RELAUNCH', timeout=10)
+    length = struct.unpack_from('<H', payload)[0]
+    assert payload[2:2 + length] == b'speed=2', payload
+    game.send('RRHK_MSG_RUN', run_payload(12, (0, *remote(12))))      # a RUN already on its way is never run
+    assert game.quiet(0.5), 'the host ran on after its RELAUNCH'
+    game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS['RRHK_STOP_RELAUNCH']))
+    exit_payload = game.expect('RRHK_MSG_EXIT', timeout=10)
+    assert struct.unpack('<H', exit_payload)[0] == CONSTANTS['RRHK_EXIT_STOPPED']
+    code, result, text = game.finish()
+    assert code == 0 and int(result['frames']) == 12 and '[fake] commit' not in text, (code, result, text)
+    passed.append('relaunch, host: its option changed at frame 12, RELAUNCH "speed=2", the RUN on its way not run, '
+                  'STOP_RELAUNCH ends it, no save written back')
+
+    # 26. A guest whose option changes asks nothing (the host's options are the match's): it plays on.
+    game = Game(executable, out, option_at=5)
+    setup(game, seat=1, guest=True)
+    history = []
+    for frame in range(12):
+        live_frame(game, frame, (0, *remote(frame)), history)
+    check_digest(game, history)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0 and 'RELAUNCH' not in text, (code, result, text)
+    passed.append('relaunch, guest: its own option change asks nothing, the match goes on')
+
+    # 27. A computer: the host types (CAP_KEYBOARD, LOCALs of 24 bytes with SYS_KEYBOARD and its keys), a guest's LOCAL carries
+    # none; a RUN with RUN_KEYS gives the host's keys to the machine (two copies fed the same RUNs agree).
+    digests = []
+    for guest in (False, True):
+        game = Game(executable, out, keys=True)
+        hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+        assert struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_KEYBOARD'], 'no CAP_KEYBOARD in the HELLO'
+        game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
+        setup(game, seat=1 if guest else 0, guest=guest)
+        for frame in range(20):
+            local = game.expect('RRHK_MSG_LOCAL')
+            assert len(local) == 8 + key_bytes, len(local)
+            got, _word, system = struct.unpack_from('<IHH', local)
+            typed = local[8:]
+            assert got == frame, (got, frame)
+            if guest:
+                assert not system & CONSTANTS['RRHK_SYS_KEYBOARD'] and typed == bytes(key_bytes), (system, typed)
+            else:
+                assert system & CONSTANTS['RRHK_SYS_KEYBOARD'] and typed != bytes(key_bytes), (system, typed)
+            host_keys = bytes([1 << (frame % 8)]) + bytes(key_bytes - 1)
+            payload = run_payload(frame, (0, *remote(frame)), flags=CONSTANTS['RRHK_RUN_KEYS']) + host_keys
+            game.send('RRHK_MSG_RUN', payload)
+            assert struct.unpack_from('<I', game.expect('RRHK_MSG_DONE'))[0] == frame
+        game.send('RRHK_MSG_DIGEST')
+        _last, low, high = struct.unpack('<III', game.expect('RRHK_MSG_DIGEST_OF'))
+        digests.append(low | high << 32)
+        stop(game)
+        code, result, text = game.finish()
+        assert code == 0, (code, result, text)
+    assert digests[0] == digests[1], 'the host and a guest fed the same RUNs differ'
+    passed.append('keyboard: CAP_KEYBOARD, the host\'s LOCALs carry its keys (SYS_KEYBOARD), a guest\'s none, RUN_KEYS read by '
+                  'the machine, host and guest equal')
     return passed
 
 

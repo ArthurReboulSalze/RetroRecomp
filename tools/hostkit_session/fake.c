@@ -103,6 +103,19 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) { (void)ui;
 /* SESSION_FAKE_SLOW_MS=n: every frame (live or silent) costs n ms more, a stand-in for a heavy machine on a slow PC (the
  * rollback tier's safety floor). A sleep, never a busy loop. */
 static unsigned slow_ms;
+/* SESSION_FAKE_OPTION_AT=n: at frame n the fake's run-changing option changes from speed=1 to speed=2, as the host's F5 on a
+ * sprite or clock option does (session ABI 9: the host's game sends RELAUNCH and runs no more frame). */
+static unsigned option_at, speed = 1;
+/* SESSION_FAKE_KEYS=1: a computer whose keyboard the host types on (session ABI 9): its LOCAL carries this PC's keys (the
+ * letter key of frame % 26 while it types), and the keys of every RUN fold into the state. */
+static bool typing_keys;
+static bool session_keys(uint8_t *bits) {
+    uint8_t state_keys[SDL_NUM_SCANCODES];
+    memset(state_keys, 0, sizeof state_keys);
+    state_keys[SDL_SCANCODE_A + state.frames % 26] = 1;
+    rrhk_keys_pack(state_keys, bits);
+    return true;
+}
 static bool step(uint16_t p1, uint16_t p2) {
     if (slow_ms) SDL_Delay(slow_ms);
     const uint16_t p3 = rrhk_pad_word(2, state.frames), p4 = rrhk_pad_word(3, state.frames);
@@ -114,6 +127,16 @@ static bool step(uint16_t p1, uint16_t p2) {
         state.acc = mix(state.acc ^ ((uint64_t)(uint16_t)axes[0] | (uint64_t)(uint16_t)axes[1] << 16 |
                                      (uint64_t)(uint16_t)axes[2] << 32 | (uint64_t)(uint16_t)axes[3] << 48));
     }
+    if (typing_keys) {
+        uint8_t typed[SDL_NUM_SCANCODES], bits[RRHK_SESSION_KEY_BYTES];
+        const bool on = rrhk_session_keys(typed);
+        rrhk_keys_pack(typed, bits);
+        uint64_t low = 0, high = 0;
+        for (int b = 0; b < 8; ++b) { low |= (uint64_t)bits[b] << (8 * b); high |= (uint64_t)bits[8 + b] << (8 * b); }
+        state.acc = mix(state.acc ^ low ^ (on ? 1u : 0u));
+        state.acc = mix(state.acc ^ high);
+    }
+    if (option_at && state.frames + 1 == option_at && !rrhk_session_silent()) speed = 2;
     ++state.frames;
     if (rrhk_session_silent()) ++silent_runs; else ++live_runs;
     if (!effects_allowed) ++effects_off_runs;
@@ -193,12 +216,14 @@ static uint64_t digest(void) { return state.acc ^ state.frames; }
 static void side_effects(bool allowed) { effects_allowed = allowed; }
 static bool session_option(const char *key, const char *value) {
     ++option_calls;
-    return !strcmp(key, "speed") && !strcmp(value, "1");
+    if (strcmp(key, "speed") || (strcmp(value, "1") && strcmp(value, "2"))) return false;
+    speed = (unsigned)(value[0] - '0');
+    return true;
 }
 
 /* The fake's run-changing option, as a machine says its own in HELLO (session ABI 6). */
 static size_t session_options(char *out, size_t capacity) {
-    const int n = snprintf(out, capacity, "speed=1");
+    const int n = snprintf(out, capacity, "speed=%u", speed);
     return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
 }
 
@@ -249,6 +274,11 @@ int main(int argc, char **argv) {
         machine.session_save_put = session_save_put;
         machine.session_save_commit = session_save_commit;
     }
+    const char *option = getenv("SESSION_FAKE_OPTION_AT");
+    option_at = option ? (unsigned)atoi(option) : 0;
+    const char *typing = getenv("SESSION_FAKE_KEYS");
+    typing_keys = typing && *typing == '1';
+    if (typing_keys) machine.session_keys = session_keys;
     const char *stick = getenv("SESSION_FAKE_STICKS");
     sticks = stick && *stick == '1';
     if (sticks) machine.analog_sticks = 2;
