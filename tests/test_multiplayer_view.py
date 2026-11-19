@@ -517,12 +517,51 @@ class MultiplayerWindowTest(unittest.TestCase):
                   dict(self.roster([host] + guests), seats_max=4))
         self.assertTrue(view.mode_frame.winfo_manager())
         self.assertFalse(hasattr(view, 'more_link'))
-        view.lobby_mode_box.current(1)
-        view.lobby_mode_box.event_generate('<<ComboboxSelected>>')
+        view.lobby_sharing_buttons['everyone'].invoke()
         self.assertEqual(view.controller.calls[-1], ('sharing', 'everyone'))
         moves = [w for row in view.seat_rows for w in row.winfo_children() for b in w.winfo_children()
                  if isinstance(b, ttk.Button)]
         self.assertEqual(len(moves), 4)                                   # two guests: up and down on each row
+
+    def test_a_handheld_greys_one_controller_per_player_with_why(self):
+        # Arthur, 19 Nov 2026: visible, greyed, « arrive avec le câble link, dans la prochaine version »
+        view = self.window(games=(('Tetris', 'gb'), ('Contra', 'nes')))
+        view.show('host')
+        view.console_choice.set(view.console_name('gb'))
+        view.console_box.event_generate('<<ComboboxSelected>>')
+        self.assertTrue(view.sharing_buttons['per_player'].instate(['disabled']))
+        self.assertTrue(view.sharing_note.winfo_manager())
+        self.assertEqual(view.sharing.get(), 'everyone')
+        self.assertEqual(view.sharing_note.cget('text'), tr('mp_sharing_handheld', 'fr'))
+        view.console_choice.set(view.console_name('nes'))
+        view.console_box.event_generate('<<ComboboxSelected>>')
+        self.assertFalse(view.sharing_buttons['per_player'].instate(['disabled']))
+        self.assertFalse(view.sharing_note.winfo_manager())
+        # the lobby: a handheld picked with « per player » in the room moves it to « Everyone » once, greyed with why
+        view.open_room()
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611},
+                  {'event': 'lobby_selection', 'selection': 1, 'game': {'title': 'Tetris', 'machine': 'gb'}},
+                  self.roster([host]))
+        self.assertTrue(view.lobby_sharing_buttons['per_player'].instate(['disabled']))
+        self.assertTrue(view.lobby_sharing_note.winfo_manager())
+        self.assertEqual(view.controller.calls.count(('sharing', 'everyone')), 1)
+        self.feed(view, {'event': 'lobby_chat', 'sender': 0, 'name': 'Arthur', 'text': 'Salut'})
+        self.assertEqual(view.controller.calls.count(('sharing', 'everyone')), 1)
+
+    def test_a_firewall_that_blocks_guests_is_said_to_the_host_while_it_lasts(self):
+        view = self.window()
+        view.show('host')
+        view.open_room()
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611})
+        self.assertFalse(view.firewall_host.winfo_manager())
+        view.controller.model.set_firewall('blocked', 'no inbound rule')
+        self.feed(view)
+        self.assertTrue(view.firewall_host.winfo_manager())
+        self.assertIn(tr('mp_notice_firewall_blocked', 'fr'), view.chat_text.get('1.0', 'end'))
+        view.controller.model.set_firewall('open')
+        self.feed(view)
+        self.assertFalse(view.firewall_host.winfo_manager())
 
     def test_a_guest_ready_automatically_once_per_pick(self):
         remembered = []

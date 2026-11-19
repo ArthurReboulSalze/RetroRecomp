@@ -44,7 +44,7 @@ SHARINGS = ('per_player', 'everyone', 'turns')
 CHECKS = ('none', 'asking', 'same', 'other', 'missing', 'failed')
 BACKS = ('ended', 'game_closed', 'pipe_lost', 'left', 'seat_left', 'seat_silent', 'host_closed', 'desync', 'boot_mismatch',
          'error', 'launch_failed')
-NOTICES = ('chat_too_fast', 'bad_text', 'busy', 'bad_pick', 'wrong_key_attempts')
+NOTICES = ('chat_too_fast', 'bad_text', 'busy', 'bad_pick', 'wrong_key_attempts', 'firewall_blocked')
 # A game that refused one of the host's options (RRHK_REFUSED_OPTION, its text the option key), as the match driver says it
 # (lockstep.py: « the game refused (1): <key> »), in a match_over or a launch event's detail.
 REFUSED_OPTION = re.compile(r'the game refused \(1\): (\S+)')
@@ -89,6 +89,15 @@ def open_firewall_settings():
         subprocess.Popen(['control.exe', 'firewall.cpl'], creationflags=subprocess.CREATE_NO_WINDOW)
 
 
+def shared_only(machine):
+    """A handheld (GB, GG, GBA): one set of controls, played in input sharing only (its profile's netplay_shared_only)."""
+    from .netplay import seat_map
+    try:
+        return seat_map.forced(machine)
+    except Exception:
+        return False
+
+
 def refused_setting(detail):
     """The host's option key a game refused, or None."""
     found = REFUSED_OPTION.search(detail or '')
@@ -119,6 +128,7 @@ class MultiplayerWindow:
         self.console_list = []              # (system, console name) of the consoles that have one, by name
         self.drawn_game = None              # the room's game the lobby's two boxes last showed (title, machine)
         self.seats_drawn = None             # what the player rows last showed (redrawn only when it changes)
+        self.sharing_moved = None           # the handheld game whose « per player » the lobby moved to « Everyone »
         self.loaded = False                 # the games and the addresses were read
         self.lan_addresses = []
         self.chat_seen = 0
@@ -435,13 +445,11 @@ class MultiplayerWindow:
         _label, self.console_box = row(0, 'mp_console', ttk.Combobox(form, textvariable=self.console_choice, state='readonly'))
         self.game_choice = tk.StringVar(value='')
         _label, self.game_box = row(1, 'mp_game', ttk.Combobox(form, textvariable=self.game_choice, state='readonly'))
-        self.console_box.bind('<<ComboboxSelected>>', lambda event: self.fill_games(
-            self.game_box, self.game_choice, self.system_of(self.console_choice)))
+        self.console_box.bind('<<ComboboxSelected>>', lambda event: (self.fill_games(
+            self.game_box, self.game_choice, self.system_of(self.console_choice)), self.draw_host_sharing()))
         self.sharing = tk.StringVar(value='per_player')
         modes = tk.Frame(form, bg=CARD)
-        for mode in SHARINGS:
-            ttk.Radiobutton(modes, text=self.tr('mp_sharing_' + mode), value=mode, variable=self.sharing,
-                            style='MpCard.TRadiobutton').pack(anchor='w')
+        self.sharing_buttons, self.sharing_note = self.sharing_choice(modes, self.sharing)
         row(2, 'mp_sharing', modes)
         row(3, 'mp_name', self.deep_entry(form, self.name, width=24, hint=self.tr('mp_default_host')), sticky='w')
         self.address = tk.StringVar()
@@ -479,6 +487,35 @@ class MultiplayerWindow:
         else:
             label.grid_remove()
             widget.grid_remove()
+
+    def sharing_choice(self, parent, variable, command=None):
+        """The three control modes as radio buttons, and the note a handheld shows under them (greyed « One controller per
+        player »: Arthur, 19 Nov 2026)."""
+        buttons = {}
+        for mode in SHARINGS:
+            buttons[mode] = ttk.Radiobutton(parent, text=self.tr('mp_sharing_' + mode), value=mode, variable=variable,
+                                            style='MpCard.TRadiobutton', command=command)
+            buttons[mode].pack(anchor='w')
+        note = self.label(parent, 'mp_sharing_handheld', muted=True, size=9, bg=CARD, wrap=430)
+        return buttons, note
+
+    def draw_sharing_choice(self, buttons, note, variable, machine, usable=True):
+        """A handheld greys « One controller per player » and says why; a choice of it moves to « Everyone ». Returns True
+        when that move happened."""
+        handheld = shared_only(machine)
+        for mode, button in buttons.items():
+            button.state(['disabled'] if not usable or (handheld and mode == 'per_player') else ['!disabled'])
+        if handheld:
+            note.pack(anchor='w', padx=(22, 0), after=buttons['per_player'])
+        else:
+            note.pack_forget()
+        if handheld and variable.get() == 'per_player':
+            variable.set('everyone')
+            return True
+        return False
+
+    def draw_host_sharing(self):
+        self.draw_sharing_choice(self.sharing_buttons, self.sharing_note, self.sharing, self.system_of(self.console_choice))
 
     def toggle_public(self):
         self.public_open = not self.public_open
@@ -541,6 +578,7 @@ class MultiplayerWindow:
         else:
             self.console_choice.set(self.console_name(chosen.system))
             self.fill_games(self.game_box, self.game_choice, chosen.system, chosen)
+        self.draw_host_sharing()
         self.lan_addresses = list(found)
         self.address_box.configure(values=found)
         if found:
@@ -793,7 +831,7 @@ class MultiplayerWindow:
         self.version, self.chat_seen, self.notices_seen, self.errors_seen = -1, 0, 0, 0
         self.refusals_seen = set()
         self.code_shown = False
-        self.drawn_game = self.seats_drawn = self.auto_readied = None
+        self.drawn_game = self.seats_drawn = self.auto_readied = self.sharing_moved = None
         self.lobby_console.set(self.console_choice.get())
         self.fill_games(self.lobby_game_box, self.lobby_game, self.system_of(self.console_choice),
                         self.chosen_entry(self.game_choice))
@@ -922,11 +960,12 @@ class MultiplayerWindow:
         self.lobby_mode_text = self.label(line, text='', muted=True, size=9, bg=CARD)
         self.lobby_mode_text.pack(side='left')
         self.mode_frame = tk.Frame(card, bg=CARD)
-        self.label(self.mode_frame, 'mp_sharing', muted=True, bg=CARD).pack(side='left', padx=(0, 10))
-        self.lobby_mode_box = ttk.Combobox(self.mode_frame, state='readonly', width=38,
-                                           values=[self.tr('mp_sharing_' + m) for m in SHARINGS])
-        self.lobby_mode_box.bind('<<ComboboxSelected>>', lambda event: self.set_sharing(self.lobby_mode_box.current()))
-        self.lobby_mode_box.pack(side='left')
+        self.label(self.mode_frame, 'mp_sharing', muted=True, bg=CARD).pack(side='left', anchor='n', padx=(0, 10))
+        choices = tk.Frame(self.mode_frame, bg=CARD)
+        choices.pack(side='left', fill='x')
+        self.lobby_sharing = tk.StringVar(value='per_player')
+        self.lobby_sharing_buttons, self.lobby_sharing_note = self.sharing_choice(
+            choices, self.lobby_sharing, command=lambda: self.set_sharing(SHARINGS.index(self.lobby_sharing.get())))
         self.mode_line = line
 
     def build_players_card(self, parent):
@@ -1005,6 +1044,14 @@ class MultiplayerWindow:
         self.public_line.pack(anchor='w')
         self.reach_line = self.label(lines, text='', size=9, bg=CARD, wrap=240)
         self.reach_line.pack(anchor='w')
+        # Windows' firewall blocks guests (lobby_client's firewall_check, read once the room is open): said while it lasts,
+        # with the button to Windows' own firewall page (the converter changes nothing there)
+        self.firewall_host = tk.Frame(host, bg=CARD)
+        self.label(self.firewall_host, 'mp_notice_firewall_blocked', size=9, bg=CARD, wrap=240,
+                   colour=COLORS['error']).pack(anchor='w')
+        if sys.platform == 'win32':
+            ttk.Button(self.firewall_host, text=self.tr('mp_firewall_open'), style='MpSoft.TButton',
+                       command=open_firewall_settings).pack(anchor='w', pady=(6, 0))
         self.build_details(host)
         # a guest: the room's mode and where it is, what happens next
         guest = self.invite_guest = tk.Frame(card, bg=CARD)
@@ -1200,6 +1247,7 @@ class MultiplayerWindow:
             invite = getattr(model, 'key', None) or model.invitation or self.invitation_text
             errors = list(model.errors)
             matches = [dict(match) for match in model.matches]
+            firewall = getattr(model, 'firewall', None)
             self.room_fields = {'address': address, 'public': getattr(model, 'public', None),
                                 'code': getattr(model, 'code', None), 'reach': getattr(model, 'reach', None),
                                 'invitation': model.invitation or self.invitation_text}
@@ -1220,6 +1268,10 @@ class MultiplayerWindow:
             self.invite_heading.text.configure(text=self.tr('mp_key' if self.room_mode == 'internet' else 'mp_invitation').upper())
             self.invite_shown.set(invite)
             self.draw_details()
+            if firewall == 'blocked':
+                self.firewall_host.pack(fill='x', pady=(8, 0))
+            else:
+                self.firewall_host.pack_forget()
         else:
             self.invite_host.pack_forget()
             self.invite_guest.pack(fill='x')
@@ -1311,9 +1363,12 @@ class MultiplayerWindow:
             self.drawn_game = shown
             for box in (self.lobby_console_box, self.lobby_game_box):
                 box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
-            if self.lobby_mode_box.current() != (SHARINGS.index(sharing) if sharing in SHARINGS else 0):
-                self.lobby_mode_box.current(SHARINGS.index(sharing) if sharing in SHARINGS else 0)
-            self.lobby_mode_box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
+            self.lobby_sharing.set(sharing if sharing in SHARINGS else 'per_player')
+            moved = self.draw_sharing_choice(self.lobby_sharing_buttons, self.lobby_sharing_note, self.lobby_sharing, machine,
+                                             usable=phase == 'lobby')
+            if moved and phase == 'lobby' and self.sharing_moved != (game or {}).get('title'):
+                self.sharing_moved = (game or {}).get('title')      # once per game: the room plays it shared anyway
+                self.set_sharing(SHARINGS.index('everyone'))
             self.mode_line.pack_forget()
             self.mode_frame.pack(fill='x', pady=(8, 0))
         else:
@@ -1323,8 +1378,9 @@ class MultiplayerWindow:
             self.lobby_game_text.pack(side='left')
             self.mode_frame.pack_forget()
             self.mode_line.pack(fill='x', pady=(6, 0))
-            self.lobby_mode_text.configure(text=self.tr('mp_sharing') + ' : ' + self.tr('mp_sharing_' + sharing)
-                                           if sharing in SHARINGS else '')
+            shown = 'everyone' if sharing == 'per_player' and shared_only(machine) else sharing
+            self.lobby_mode_text.configure(text=self.tr('mp_sharing') + ' : ' + self.tr('mp_sharing_' + shown)
+                                           if shown in SHARINGS else '')
         self.game_machine.pack(side='left', padx=(10, 0), pady=(3, 0))
 
     def draw_seats(self, players, me, seats_max, checks, host, phase):

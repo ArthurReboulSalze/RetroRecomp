@@ -505,7 +505,7 @@ def _toolbar_styles(style):
     # a gold dashed border (rounded_skin draws `rrdash`) and a gold picture, unlike the gold action buttons beside it.
     style.configure('Compiled.Toolbar.TButton', background=c['button'], foreground=c['gold'],
                     bordercolor=c['gold'], lightcolor=c['button'], darkcolor=c['button'],
-                    focuscolor=c['gold'], relief='flat', rrdash=1)
+                    focuscolor=c['gold'], relief='flat', rrdash=1, padding=(5, 3))
     style.map('Compiled.Toolbar.TButton',
               background=[('disabled', c['panel']), ('pressed', c['selected']), ('active', c['hover'])],
               foreground=[('disabled', c['disabled']), ('!disabled', c['gold'])],

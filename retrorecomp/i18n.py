@@ -29,6 +29,7 @@ STRINGS = {
     'mp_sharing_per_player': ('One controller per player', 'Une manette par joueur'),
     'mp_sharing_everyone': ('Shared controls: everyone at once', 'Commandes partagées : tout le monde'),
     'mp_sharing_turns': ('Shared controls: in turns', 'Commandes partagées : à tour de rôle'),
+    'mp_sharing_handheld': ('Each player with their own console: coming with the link cable, in the next version.', 'Chaque joueur avec sa propre console : arrive avec le câble link, dans la prochaine version.'),
     'mp_game': ('Game', 'Jeu'),
     'mp_paste': ('Paste', 'Coller'),
     'mp_clipboard_empty': ('The clipboard holds no text.', 'Le presse-papiers ne contient pas de texte.'),

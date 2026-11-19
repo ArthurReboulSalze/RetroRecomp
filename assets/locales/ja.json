@@ -884,6 +884,7 @@
     "mp_sharing_per_player": "1人1コントローラー",
     "mp_sharing_everyone": "操作を共有：全プレイヤー同時",
     "mp_sharing_turns": "操作を共有：交代で",
+    "mp_sharing_handheld": "各プレイヤーが自分のゲーム機で遊ぶモードは、次のバージョンで通信ケーブルとともに登場します。",
     "mp_game": "ゲーム",
     "mp_paste": "ペースト",
     "mp_clipboard_empty": "クリップボードに文字がありません。",

@@ -167,6 +167,95 @@ def _play_double(draw, scale, colour, highlight, clear):
 DRAWERS = {HERO_CONVERT: _convert, 'play_hollow_double': _play_double}
 
 
+# ---- The switch between the queue and Compiled Games: « la chaîne » (Arthur's pick of 19 Nov 2026, proposal A) ----
+# A wide picture that tells the whole way: a cartridge, an arrow into the converter's gear, an arrow out to a game ready to
+# play. The end the button leads to is lit and framed: the game in the queue (variant 'games'), the cartridge in Compiled
+# Games (variant 'queue'); the other end is dim. A 52 x 24 grid drawn at 65 x 30 px at 100 % (SWITCH_GROW), on the dark
+# button with its gold dashed border (gui_drawing: Compiled.Toolbar.TButton).
+SWITCH_GRID = (52, 24)
+SWITCH_GROW = 1.25
+SWITCH_DIM, SWITCH_DARK = '#7d7d7d', '#191919'
+
+
+class _Pen:
+    """Shapes on the switch's grid, in pixels of the supersampled image (`k` pixels a grid unit)."""
+
+    def __init__(self, draw, k):
+        self.draw, self.k = draw, k
+
+    def p(self, points):
+        return [(x * self.k, y * self.k) for x, y in points]
+
+    def poly(self, points, colour):
+        self.draw.polygon(self.p(points), fill=colour)
+
+    def line(self, points, colour, width):
+        self.draw.line(self.p(points), fill=colour, width=max(1, round(width * self.k)))
+
+    def box(self, x1, y1, x2, y2, radius, fill=None, outline=None, width=1.0):
+        self.draw.rounded_rectangle(self.p([(x1, y1), (x2, y2)]), radius=radius * self.k, fill=fill, outline=outline,
+                                    width=round(width * self.k) if outline else 0)
+
+    def disc(self, cx, cy, r, colour):
+        self.draw.ellipse(self.p([(cx - r, cy - r), (cx + r, cy + r)]), fill=colour)
+
+
+def _switch_cartridge(pen, x, y, colour, w=7, h=9):
+    pen.poly([(x, y), (x + w - 2, y), (x + w, y + 2), (x + w, y + h), (x, y + h)], colour)
+    pen.box(x + 1.3, y + 1.6, x + w - 1.6, y + h * 0.55, 0.4, fill=SWITCH_DARK)
+    for index in range(3):
+        pen.box(x + 1.2 + index * 1.8, y + h - 1.6, x + 2.2 + index * 1.8, y + h - 0.2, 0, fill=SWITCH_DARK)
+
+
+def _switch_gear(pen, cx, cy, colour, r=5.0, teeth=8):
+    pen.disc(cx, cy, r * 0.72, colour)
+    for index in range(teeth):
+        angle = index * 2 * math.pi / teeth
+        ux, uy = math.cos(angle), math.sin(angle)
+        vx, vy = -uy, ux
+        pen.poly([(cx + ux * r * 0.6 + vx * 1.1, cy + uy * r * 0.6 + vy * 1.1), (cx + ux * r + vx * 0.8, cy + uy * r + vy * 0.8),
+                  (cx + ux * r - vx * 0.8, cy + uy * r - vy * 0.8), (cx + ux * r * 0.6 - vx * 1.1, cy + uy * r * 0.6 - vy * 1.1)],
+                 colour)
+    pen.disc(cx, cy, r * 0.3, SWITCH_DARK)
+
+
+def _switch_arrow(pen, x1, x2, y, colour, width=1.3, head=2.4):
+    pen.line([(x1, y), (x2 - head * 0.6, y)], colour, width)
+    pen.poly([(x2 - head, y - head * 0.8), (x2, y), (x2 - head, y + head * 0.8)], colour)
+
+
+def draw_switch(variant, scale=1.0, lit='#d4a737', frame='#f2d27a', dim=SWITCH_DIM):
+    """The switch's picture for `variant` ('games': it leads to Compiled Games; 'queue': back to the queue) as a Pillow RGBA
+    image, `scale` times its 100 % size. A greyed button passes `lit` and `frame` grey."""
+    from PIL import Image, ImageDraw
+    k = scale * SWITCH_GROW * SUPERSAMPLE
+    width, height = (round(side * k) for side in SWITCH_GRID)
+    clear = tuple(int(lit[index:index + 2], 16) for index in (1, 3, 5)) + (0,)
+    image = Image.new('RGBA', (width, height), clear)
+    pen = _Pen(ImageDraw.Draw(image), k)
+    games = variant == 'games'
+    near, far = (dim, lit) if games else (lit, dim)
+    _switch_cartridge(pen, 1, 7.5, near)
+    _switch_arrow(pen, 9.2, 15.5, 12, near)
+    _switch_gear(pen, 21, 12, lit)
+    _switch_arrow(pen, 27.5, 34.5, 12, far)
+    pen.box(36.5, 6.5, 47.5, 17.5, 1.6, fill=far)
+    pen.poly([(42 - 1.8, 12 - 2.6), (42 + 2.6, 12), (42 - 1.8, 12 + 2.6)], SWITCH_DARK)
+    if games:
+        pen.box(35.5, 5.5, 48.5, 18.5, 2.2, outline=frame, width=0.8)
+    else:
+        pen.box(0, 6.5, 9, 17.5, 1.6, outline=frame, width=0.8)
+    return image.resize((round(width / SUPERSAMPLE), round(height / SUPERSAMPLE)), Image.Resampling.LANCZOS)
+
+
+def switch_picture(master, variant, greyed=False):
+    """The switch's picture as a Tk image, sized for the screen's scaling (96 dpi: 65 x 30 px)."""
+    from PIL import ImageTk
+    from .ui_fonts import ui_scale
+    colours = {'lit': '#6a6a6a', 'frame': '#7a7a7a', 'dim': '#4a4a4a'} if greyed else {}
+    return ImageTk.PhotoImage(draw_switch(variant, ui_scale(master), **colours), master=master)
+
+
 def draw_picture(name, colour, size=HERO_GRID, highlight=None):
     """The hero picture `name` as a Pillow RGBA image of `size` px: `colour` for the drawing, `highlight` for the lighter
     edge of the bevelled take (a lighter shade of `colour` when not given)."""

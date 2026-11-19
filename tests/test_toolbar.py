@@ -117,12 +117,15 @@ class PicturesOnly(ToolbarWindow):
         button = app.compiled_button
         hint = next(h for h in app.tooltips if h.widget is button)
         self.assertEqual(str(button.cget('compound')), 'image')
-        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch_compiled', 'accent')][0]))
+        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch', 'games')][0]))   # « la chaîne »
         self.assertEqual(button.cget('text'), app.tr('compiled_games'))          # the name stays on the widget
         self.assertEqual(hint.text(), app.tr('compiled_games') + '\n' + app.tr('tip_compiled_games'))
         with patch('retrorecomp.compiled_games_view.CompiledGamesView.scan'):
             app.toggle_compiled_games()
-        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch_queue', 'accent')][0]))
+        self.assertEqual(button.cget('image')[0], str(app.button_images[('switch', 'queue')][0]))
+        normal = app.button_images[('switch', 'queue')][0]
+        self.assertGreater(normal.width(), 2 * normal.height())          # wide: the whole way, cartridge to game
+        self.assertGreater(button.winfo_reqwidth(), 1.5 * app.compiled_view.scan_button.winfo_reqwidth())
         self.assertEqual(button.cget('text'), app.tr('conversion_queue'))
         self.assertEqual(hint.text(), app.tr('conversion_queue') + '\n' + app.tr('tip_conversion_queue'))
         self.assertEqual(str(button.cget('style')), 'Compiled.Toolbar.TButton')   # a toggle: dark, gold dashed border

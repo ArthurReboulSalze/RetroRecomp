@@ -213,10 +213,15 @@ class CollectionMixin:
     def update_compiled_button(self):
         """The switch shows only a picture of the view it leads to (Compiled Games from the queue, the queue from
         Compiled Games), with its arrow badge, so it never changes size; the caption stays set on the button (the
-        screen reader reads it) and starts its hint. Gold on its dark dashed toggle (gui_drawing: Compiled.Toolbar)."""
-        self.decorate_button(self.compiled_button, 'switch_queue' if self.collection_visible else 'switch_compiled',
-                             accent=True)
-        self.compiled_button.configure(compound='image',
+        screen reader reads it) and starts its hint. A wide picture of the whole way, « la chaîne » (Arthur's pick of 19 Nov
+        2026: cartridge -> gear -> game, the end it leads to lit), on its dark dashed toggle (gui_drawing: Compiled.Toolbar)."""
+        variant = 'queue' if self.collection_visible else 'games'
+        key = ('switch', variant)
+        if key not in self.button_images:
+            from .gui_icons import switch_picture
+            self.button_images[key] = (switch_picture(self.app, variant), switch_picture(self.app, variant, greyed=True))
+        normal, disabled = self.button_images[key]
+        self.compiled_button.configure(image=(normal, 'disabled', disabled), compound='image',
                                        text=self.tr('conversion_queue' if self.collection_visible else 'compiled_games'))
 
     def go_deeper(self, games, level):

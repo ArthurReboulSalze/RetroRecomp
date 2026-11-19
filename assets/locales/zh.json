@@ -884,6 +884,7 @@
     "mp_sharing_per_player": "每人一个手柄",
     "mp_sharing_everyone": "共享操控：所有人同时",
     "mp_sharing_turns": "共享操控：轮流",
+    "mp_sharing_handheld": "每位玩家使用自己的主机：将在下一版本随连接线推出。",
     "mp_game": "游戏",
     "mp_paste": "导入",
     "mp_clipboard_empty": "复制的内容中没有文字。",

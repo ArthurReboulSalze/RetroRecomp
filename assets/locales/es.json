@@ -884,6 +884,7 @@
     "mp_sharing_per_player": "Un mando por jugador",
     "mp_sharing_everyone": "Controles compartidos: todos a la vez",
     "mp_sharing_turns": "Controles compartidos: por turnos",
+    "mp_sharing_handheld": "Cada jugador con su propia consola: llega con el cable link, en la próxima versión.",
     "mp_game": "Juego",
     "mp_paste": "Pegar",
     "mp_clipboard_empty": "El portapapeles no contiene texto.",

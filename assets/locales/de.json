@@ -884,6 +884,7 @@
     "mp_sharing_per_player": "Ein Controller pro Spieler",
     "mp_sharing_everyone": "Geteilte Steuerung: alle zugleich",
     "mp_sharing_turns": "Geteilte Steuerung: abwechselnd",
+    "mp_sharing_handheld": "Jeder Spieler mit seiner eigenen Konsole: kommt mit dem Link-Kabel, in der nächsten Version.",
     "mp_game": "Spiel",
     "mp_paste": "Einfügen",
     "mp_clipboard_empty": "Die Zwischenablage enthält keinen Text.",
