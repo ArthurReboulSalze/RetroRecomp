@@ -1450,6 +1450,8 @@
     "Quick states are off in multiplayer": "マルチプレイではクイック状態は使えません",
     "Only the host can restart": "再スタートできるのはホストだけです",
     "Restarted by the host": "ホストが再スタートしました",
+    "Save updated": "セーブを更新しました",
+    "Save not updated": "セーブを更新できませんでした",
     "Only the host saves and loads": "セーブとロードはホストだけです",
     "No state saved in this match": "このマッチにはセーブがありません",
     "State saved by the host": "ホストがセーブしました",
