@@ -115,6 +115,10 @@ class PicturesOnly(ToolbarWindow):
         picture = app.button_images[('front_end', 'feature')][0]
         self.assertEqual((picture.width(), picture.height()), (FEATURE_SIZE, FEATURE_SIZE))
         self.assertEqual(app.front_end_button.cget('image')[0], str(picture))
+        # Multiplayer's: two players, the one in front on the left (Arthur's « P2, inversé »)
+        self.assertIn('players', FEATURE_DRAWERS)
+        players = app.button_images[('players', 'feature')][0]
+        self.assertEqual(app.multiplayer_button.cget('image')[0], str(players))
         # a bit larger than the small buttons, smaller than the hero Convert (Arthur, 20 Nov 2026)
         small, hero = app.options_button, app.start_button
         for button in (app.front_end_button, app.multiplayer_button):

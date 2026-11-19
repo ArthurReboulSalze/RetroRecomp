@@ -271,7 +271,55 @@ def _feature_front_end(pen, colour):
     pen.disc(15.9, 21.8, 0.75, SWITCH_DARK)
 
 
-FEATURE_DRAWERS = {'front_end': _feature_front_end}
+def _feature_player(draw, k, cx, top, size, colour, outline=None):
+    """A player: a round head over rounded shoulders (the top half of an ellipse), solid or in outline."""
+    head = 3.9 * size
+    hy = top + head
+    sy = hy + head + 1.0 * size
+    sw, sh = 7.6 * size, 14.0 * size
+    width = round(outline * k) if outline else 0
+    body = [(cx - sw) * k, sy * k, (cx + sw) * k, (sy + sh) * k]
+    disc = [(cx - head) * k, (hy - head) * k, (cx + head) * k, (hy + head) * k]
+    if outline:
+        draw.chord(body, 180, 360, outline=colour, width=width)
+        draw.ellipse(disc, outline=colour, width=width)
+    else:
+        draw.chord(body, 180, 360, fill=colour)
+        draw.ellipse(disc, fill=colour)
+    return head, hy, sy, sw, sh
+
+
+def _feature_players(image, k, colour):
+    """Multiplayer, Arthur's pick of 20 Nov 2026 (« P2, inversé »): two players, the one in front on the left and solid, the
+    one behind on the right in outline. A clear gap around the one in front (transparent: right on the button's grey, its
+    hover and its greyed look), a lighter rim on it from the top left."""
+    from PIL import Image, ImageChops, ImageDraw
+    behind = Image.new('RGBA', image.size, (0, 0, 0, 0))
+    _feature_player(ImageDraw.Draw(behind), k, 16.0, 1.2, 0.86, colour, outline=1.3)
+    gap = Image.new('L', image.size, 0)
+    gap_draw = ImageDraw.Draw(gap)
+    cx, top, size = 9.0, 5.2, 0.92
+    head = 3.9 * size
+    hy = top + head
+    sy = hy + head + 1.0 * size
+    sw, sh = 7.6 * size, 14.0 * size
+    gap_draw.ellipse([(cx - head - 1.4) * k, (hy - head - 1.4) * k, (cx + head + 1.4) * k, (hy + head + 1.4) * k], fill=255)
+    gap_draw.chord([(cx - sw - 1.4) * k, (sy - 1.4) * k, (cx + sw + 1.4) * k, (sy + sh + 1.4) * k], 180, 360, fill=255)
+    alpha = ImageChops.subtract(behind.getchannel('A'), gap)
+    behind.putalpha(alpha)
+    image.alpha_composite(behind)
+    draw = ImageDraw.Draw(image)
+    _feature_player(draw, k, cx, top, size, colour)
+    rim = _mix(colour, '#ffffff', 0.45)
+    draw.arc([(cx - head + 0.7) * k, (hy - head + 0.7) * k, (cx + head - 0.7) * k, (hy + head - 0.7) * k], 195, 285, fill=rim,
+             width=round(0.9 * k))
+    draw.arc([(cx - sw + 0.8) * k, (sy + 0.8) * k, (cx + sw - 0.8) * k, (sy + sh - 0.8) * k], 190, 245, fill=rim,
+             width=round(0.9 * k))
+
+
+# A drawer takes a _Pen and the colour, or (an `image` drawer, listed in FEATURE_IMAGE) the image itself, `k` and the colour.
+FEATURE_DRAWERS = {'front_end': _feature_front_end, 'players': _feature_players}
+FEATURE_IMAGE = {'players'}
 
 
 def feature_picture(master, symbol, colour):
@@ -286,7 +334,10 @@ def feature_picture(master, symbol, colour):
     k = size / FEATURE_SIZE * SUPERSAMPLE
     clear = tuple(int(colour[index:index + 2], 16) for index in (1, 3, 5)) + (0,)
     image = Image.new('RGBA', (size * SUPERSAMPLE, size * SUPERSAMPLE), clear)
-    FEATURE_DRAWERS[symbol](_Pen(ImageDraw.Draw(image), k), colour)
+    if symbol in FEATURE_IMAGE:
+        FEATURE_DRAWERS[symbol](image, k, colour)
+    else:
+        FEATURE_DRAWERS[symbol](_Pen(ImageDraw.Draw(image), k), colour)
     return ImageTk.PhotoImage(image.resize((size, size), Image.Resampling.LANCZOS), master=master)
 
 
