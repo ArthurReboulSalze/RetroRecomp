@@ -30,11 +30,13 @@ LOOPBACK = ipaddress.IPv4Address('127.0.0.1')
 
 
 class InvitationError(ValueError):
-    """The text is not an invitation this version can use. `reason` is a fixed sentence, never the text."""
+    """The text is not an invitation this version can use. `reason` is a fixed sentence, never the text; `code` the same in a
+    word for the window: 'bad', 'typo' or 'other_version' (an Internet key, `internet_key`)."""
 
-    def __init__(self, reason: str):
+    def __init__(self, reason: str, code: str = 'bad'):
         super().__init__(reason)
         self.reason = reason
+        self.code = code
 
 
 @dataclass(frozen=True)

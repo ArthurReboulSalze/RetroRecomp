@@ -1307,3 +1307,59 @@ class ReviewFixTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# ---- 9. the Internet room (INTERNET_PLAN.md, Arthur's go of 19 November 2026) ----
+
+class PublicListener(FakeListener):
+    def accept(self):
+        if not self.queue:
+            raise BlockingIOError()
+        return self.queue.pop(0), ('82.65.10.20', 5000)
+
+
+class InternetRoomTests(unittest.TestCase):
+    def test_a_local_room_closes_a_public_source_and_an_internet_room_takes_it_with_a_longer_deadline(self):
+        local = fake_host()
+        local._tcp = PublicListener(FakeSock())
+        local._accept(0.0)
+        self.assertEqual((len(local._peers), local._counters.total['source_refused']), (0, 1))
+        internet = fake_host(internet=True)
+        internet._tcp = PublicListener(FakeSock())
+        internet._accept(0.0)
+        self.assertEqual(len(internet._peers), 1)
+        self.assertEqual(internet._peers[0].shake.deadline, limits.INTERNET_HANDSHAKE_SECONDS)
+        self.assertEqual((limits.HANDSHAKE_SECONDS, limits.INTERNET_HANDSHAKE_SECONDS), (5.0, 10.0))
+
+    def test_the_whole_room_slows_new_handshakes_after_thirty_failures_and_says_so_once(self):
+        admission = limits.Admission()
+        for number in range(limits.ROOM_FAILURES):
+            admission.failed(f'203.0.{number}.1', number * 10.0)
+        self.assertFalse(admission.room_slowed(300.0))
+        self.assertTrue(admission.may_accept('198.51.100.1', 300.0) and admission.may_accept('198.51.100.1', 300.5))
+        admission.failed('203.0.99.1', 301.0)                                   # the thirty-first in ten minutes
+        self.assertTrue(admission.room_slowed(301.0))
+        self.assertTrue(admission.may_accept('198.51.100.2', 302.0))            # one new handshake ...
+        self.assertFalse(admission.may_accept('198.51.100.3', 305.0))           # ... then nothing for ten seconds
+        self.assertTrue(admission.may_accept('198.51.100.3', 312.1))
+        self.assertFalse(admission.room_slowed(901.0))                          # ten quiet minutes: back to normal
+        events = []
+        host = fake_host(internet=True, on_event=events.append)
+        for number in range(limits.ROOM_FAILURES + 5):
+            peer = stranger(host, f'203.0.113.{number}', [b'RRNP' + bytes(50)], now=float(number))
+            host._readable(peer, float(number))
+        host._flush()
+        self.assertEqual([event for event in events if event.get('code') == 'wrong_key_attempts'],
+                         [{'event': 'lobby_notice', 'code': 'wrong_key_attempts', 'detail': ''}])     # said once, not each time
+
+    def test_a_guest_joins_a_key_by_its_ipv4_address_and_waits_longer(self):
+        from retrorecomp.netplay import internet_key
+        room = internet_key.parse_key(internet_key.format_key(24611, SECRET, '82.65.10.20', '2a01:e0a::5'))
+        guest = lan_transport.RoomGuest(room, 'Nadia')
+        self.assertTrue(guest.internet)
+        self.assertEqual(guest._host, ('82.65.10.20', 24611))
+        only_v6 = internet_key.parse_key(internet_key.format_key(24611, SECRET, ipv6='2a01:e0a::5'))
+        with self.assertRaises(lan_transport.RoomError):
+            lan_transport.RoomGuest(only_v6, 'Nadia')
+        with self.assertRaises(lan_transport.RoomError):                        # a local invitation stays local
+            lan_transport.RoomGuest(invitation.Invitation('82.65.10.20', 24611, SECRET), 'Nadia')

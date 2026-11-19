@@ -32,7 +32,7 @@ import threading
 import time
 from typing import Callable
 
-from . import control, datagram, handshake, invitation, lobby as lobbies, seat_map
+from . import control, datagram, handshake, invitation, limits, lobby as lobbies, seat_map
 from . import input_records as wire
 from .launch import Refusal
 from .limits import FRAME_BURST, FRAME_RATE, Admission, Counters, NonceMemory, TokenBucket
@@ -46,6 +46,7 @@ IDLE_ASK = 1800.0                   # no guest and no match for this long: the h
 BUSY_TICK, IDLE_TICK = 0.02, 0.1    # the selector's timeout: short only while some bytes wait to be sent
 CAPACITY_MIN, CAPACITY_MAX = 2, 4
 NO_ANSWER = 'no answer: check the invitation, or the host\'s firewall'
+PORT_CLOSED = 'no answer: the host\'s port is closed (its box or its firewall)'      # an Internet room's guest
 REJECTIONS = {control.REJECT_FULL: 'the room is full', control.REJECT_VERSION: 'update Retro-Recomp on both PCs',
               control.REJECT_BUSY: 'a match is running in that room', control.REJECT_KICKED: 'the host removed you'}
 BYE_LEFT, BYE_CLOSED, BYE_KICKED = 1, 2, 3          # the control stream's BYE reasons
@@ -59,7 +60,7 @@ def room_code(reason: str) -> str:
     lost, other."""
     if reason.startswith('the room could not open a port') or reason == 'this PC could not open a datagram port':
         return 'port'
-    known = {NO_ANSWER: 'unreachable', REJECTIONS[control.REJECT_FULL]: 'full',
+    known = {NO_ANSWER: 'unreachable', PORT_CLOSED: 'port_closed', REJECTIONS[control.REJECT_FULL]: 'full',
              REJECTIONS[control.REJECT_VERSION]: 'other_version', REJECTIONS[control.REJECT_BUSY]: 'match_running',
              REJECTIONS[control.REJECT_KICKED]: 'kicked', 'this invitation is not for a room on a local network': 'bad_invitation',
              'this PC reaches that room through an address that is not on a local network': 'not_local',
@@ -236,8 +237,13 @@ class RoomHost:
                  name: str = 'Host', tests: bool = False, log: RoomLog | None = None,
                  on_event: Callable[[dict], None] | None = None, clock: Callable[[], float] = time.monotonic,
                  rng: Callable[[int], bytes] = secrets.token_bytes, seat_rate: float | None = None,
-                 sharing: int = seat_map.PER_PLAYER):
+                 sharing: int = seat_map.PER_PLAYER, internet: bool = False):
         self.address = invitation.check_bind_address(address, tests)      # before any socket: nothing else is ever bound
+        # An Internet room (INTERNET_PLAN.md): the same LAN address, reached from outside through the box's port (UPnP or a
+        # forward); sources outside the local ranges are taken, the handshake and the rate limits are the gate.
+        self.internet = bool(internet)
+        self._handshake_seconds = limits.INTERNET_HANDSHAKE_SECONDS if self.internet else limits.HANDSHAKE_SECONDS
+        self._wrong_key_notice = -limits.ROOM_FAILURE_WINDOW
         if not CAPACITY_MIN <= capacity <= CAPACITY_MAX:
             raise ValueError('a room of 2 to 4 seats')
         if not isinstance(port, int) or isinstance(port, bool) or not (0 <= port <= 65535) or (port and port < 1024) \
@@ -380,7 +386,7 @@ class RoomHost:
             except OSError:
                 self._counters.count('accept_error')
                 return
-            if not invitation.is_lan_address(ip, self.tests):       # a source outside the ranges: closed before any work
+            if not self.internet and not invitation.is_lan_address(ip, self.tests):   # outside the ranges: closed before any work
                 self._counters.count('source_refused', ip)
                 sock.close()
                 continue
@@ -394,7 +400,8 @@ class RoomHost:
                     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 except OSError:
                     pass
-                peer = _Peer(sock, ip, port, now, handshake.HostHandshake(self._secret, now, self._nonces, self._rng))
+                peer = _Peer(sock, ip, port, now, handshake.HostHandshake(self._secret, now, self._nonces, self._rng,
+                                                                          self._handshake_seconds))
                 self._selector.register(sock, selectors.EVENT_READ, peer)
             except (OSError, ValueError, KeyError):
                 self._counters.count('accept_error', ip)
@@ -447,6 +454,10 @@ class RoomHost:
         self._counters.count(f'handshake_{reason}', peer.ip)
         if self._admission.failed(peer.ip, now):
             self.log.note(f'address {peer.ip} refused for five minutes after three failed handshakes')
+        if self._admission.room_slowed(now) and now - self._wrong_key_notice >= limits.ROOM_FAILURE_WINDOW:
+            self._wrong_key_notice = now          # once per window: the host's window says someone tries a wrong key
+            self.log.note('more than thirty failed handshakes in ten minutes: new handshakes slowed')
+            self._emit({'event': 'lobby_notice', 'code': 'wrong_key_attempts', 'detail': ''})
         self._close(peer, f'handshake {reason}', quiet=True)
 
     def _joined(self, peer: _Peer, step: handshake.Step, now: float) -> None:
@@ -924,7 +935,13 @@ class RoomGuest:
     def __init__(self, invited: invitation.Invitation, name: str, *, tests: bool = False, version: tuple = (0, 0, 0),
                  on_event: Callable[[dict], None] | None = None, on_launch: Callable[[control.Launch], None] | None = None,
                  clock: Callable[[], float] = time.monotonic, rng: Callable[[int], bytes] = secrets.token_bytes):
-        if not invitation.is_lan_address(invited.address, tests):
+        # An Internet room's key (`internet_key.NetInvitation`, kind 'net') may name any public IPv4 address; the guest then
+        # connects out as on a local network, with a longer deadline. Only IPv4 for now: the host binds one IPv4 address.
+        self.internet = getattr(invited, 'kind', 'lan') == 'net'
+        address = next((item for item in getattr(invited, 'addresses', (invited.address,)) if ':' not in item), None)
+        if address is None:
+            raise RoomError('this version joins an Internet room by its IPv4 address only')
+        if not self.internet and not invitation.is_lan_address(address, tests):
             raise RoomError('this invitation is not for a room on a local network')
         self.invited, self.tests, self.version = invited, tests, tuple(version)
         if len(self.version) != 3 or not all(isinstance(part, int) and not isinstance(part, bool) and 0 <= part <= 0xffff
@@ -949,23 +966,25 @@ class RoomGuest:
         self.guest_id: int | None = None
         self.capacity = 0
         self.stats: collections.Counter = collections.Counter()
-        self._host = (invited.address, invited.port)
+        self._host = (address, invited.port)
         self._gone = False
 
-    def connect(self, timeout: float = handshake.HANDSHAKE_SECONDS) -> None:
+    def connect(self, timeout: float | None = None) -> None:
+        if timeout is None:
+            timeout = limits.INTERNET_HANDSHAKE_SECONDS if self.internet else limits.HANDSHAKE_SECONDS
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             sock.settimeout(timeout)
             try:
                 sock.connect(self._host)
             except OSError:
-                raise RoomError(NO_ANSWER) from None
+                raise RoomError(PORT_CLOSED if self.internet else NO_ANSWER) from None
             try:
                 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             except OSError:
                 pass
             now = self._clock()
-            shake = handshake.GuestHandshake(self.invited.secret, now, self._rng)
+            shake = handshake.GuestHandshake(self.invited.secret, now, self._rng, seconds=timeout)
             try:
                 sock.sendall(shake.first())
                 step = handshake.Step()
@@ -995,7 +1014,7 @@ class RoomGuest:
             if not isinstance(first, control.Welcome):
                 raise RoomError(NO_ANSWER)
             local_ip = sock.getsockname()[0]
-            if not invitation.is_lan_address(local_ip, self.tests):
+            if not self.internet and not invitation.is_lan_address(local_ip, self.tests):
                 raise RoomError('this PC reaches that room through an address that is not on a local network')
             udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
@@ -1009,7 +1028,7 @@ class RoomGuest:
             sock.close()
             raise
         sock.setblocking(False)
-        stream = _Stream(sock, self.invited.address, self.invited.port, self._clock())
+        stream = _Stream(sock, self._host[0], self._host[1], self._clock())
         stream.writer, stream.reader = control.FrameWriter(to_host), reader
         self._stream, self._udp, self._session = stream, udp, shake.session
         self.guest_id, self.capacity = first.guest_id, first.capacity

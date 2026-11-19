@@ -103,11 +103,12 @@ class Step:
 class HostHandshake:
     """The host's end. A stranger gets no byte: every failure is `closed` with nothing to send."""
 
-    def __init__(self, secret: bytes, now: float, nonces: NonceMemory, rng: Callable[[int], bytes] = secrets.token_bytes):
+    def __init__(self, secret: bytes, now: float, nonces: NonceMemory, rng: Callable[[int], bytes] = secrets.token_bytes,
+                 seconds: float = HANDSHAKE_SECONDS):
         self._key = auth_key(secret)
         self._secret = secret
         self._nonces, self._rng = nonces, rng
-        self.deadline = now + HANDSHAKE_SECONDS
+        self.deadline = now + seconds
         self._buffer = bytearray()
         self._stage = 1
         self._proto = 0
@@ -159,11 +160,12 @@ class HostHandshake:
 class GuestHandshake:
     """The guest's end: `first()` is what it sends on connecting; `feed` takes what the host answers."""
 
-    def __init__(self, secret: bytes, now: float, rng: Callable[[int], bytes] = secrets.token_bytes, proto: int = PROTO):
+    def __init__(self, secret: bytes, now: float, rng: Callable[[int], bytes] = secrets.token_bytes, proto: int = PROTO,
+                 seconds: float = HANDSHAKE_SECONDS):
         self._key = auth_key(secret)
         self._secret, self._proto = secret, proto
         self._private, self._nonce_g = sealing.keypair(rng(sealing.KEY_SIZE))
-        self.deadline = now + HANDSHAKE_SECONDS
+        self.deadline = now + seconds
         self._buffer = bytearray()
         self.session: Session | None = None
 

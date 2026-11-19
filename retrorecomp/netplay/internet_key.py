@@ -51,9 +51,7 @@ class NetInvitation:
 def _error(code: str) -> InvitationError:
     sentence = {'typo': 'this key or code has a typing error', 'other_version': 'this key is from another version of Retro-Recomp',
                 'bad': 'this is not a key'}[code]
-    error = InvitationError(sentence)
-    error.code = code
-    return error
+    return InvitationError(sentence, code)
 
 
 def _base32(data: bytes) -> str:
@@ -151,6 +149,15 @@ def parse_key(text, tests: bool = False) -> NetInvitation:
     if not MIN_PORT <= port <= MAX_PORT or any(_address(str(ip), tests) is None for ip in addresses):
         raise _error('bad')
     return NetInvitation(tuple(str(ip) for ip in addresses), port, secret)
+
+
+def parse_any(text, tests: bool = False):
+    """A pasted text: an Internet room's key (RR2-...) or a local room's invitation (rr1:lan:...), or InvitationError."""
+    head = text.strip()[:3].upper() if isinstance(text, str) else ''
+    if head[:2] == 'RR' and head[2:3].isdigit() and head != 'RR1':      # RR2 now; a later RRn says "another version"
+        return parse_key(text, tests)
+    from .invitation import parse
+    return parse(text, tests)
 
 
 def format_code(secret: bytes) -> str:

@@ -48,7 +48,7 @@ from pathlib import Path
 import queue
 import threading
 
-from . import control, invitation, scripted_inputs, seat_map
+from . import control, internet_key, invitation, scripted_inputs, seat_map
 from . import session_pipe as pipe
 from . import worker_channel as channel
 from .lan_transport import RoomError, RoomGuest, RoomHost
@@ -135,12 +135,13 @@ class RoomWorker:
                 host = RoomHost(room['address'], room.get('port', invitation.DEFAULT_PORT), bytes.fromhex(room['secret']),
                                 room.get('capacity', 4), name=room.get('name', 'Host'), tests=self.tests, log=log,
                                 on_event=self._room_event, seat_rate=room.get('seat_rate') if self.tests else None,
-                                sharing=seat_map.BY_NAME.get(room.get('sharing', 'per_player'), -1))
+                                sharing=seat_map.BY_NAME.get(room.get('sharing', 'per_player'), -1),
+                                internet=room.get('internet') is True)
                 port = host.open()
                 self.room = host
                 self.emit({'event': 'room_open', 'role': 'host', 'address': host.address, 'port': port, 'capacity': host.capacity})
             else:
-                invited = invitation.parse(room['invitation'], self.tests)
+                invited = internet_key.parse_any(room['invitation'], self.tests)
                 guest = RoomGuest(invited, room.get('name', 'Guest'), tests=self.tests, version=tuple(room.get('version', (0, 0, 0))),
                                   on_event=self._room_event, on_launch=self._room_launch)
                 guest.connect()

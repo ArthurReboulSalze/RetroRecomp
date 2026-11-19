@@ -797,7 +797,7 @@ class WindowApiTests(unittest.TestCase):
         self.assertEqual(invitation.parse(model.invitation).port, 24700)        # the port the room bound, not the one asked
         model.apply({'event': 'launching', 'tier': 'rollback', 'prediction': 5})
         model.apply({'event': 'slow_link', 'delay': 10})
-        self.assertEqual(model.link, {'tier': 'rollback', 'prediction': 5, 'delay': None, 'slow': 10})
+        self.assertEqual(model.link, {'tier': 'rollback', 'prediction': 5, 'delay': None, 'slow': 10, 'path': 'lan'})
         model.apply({'event': 'lobby_back', 'match_id': 1, 'reason': 'ended'})
         self.assertIsNone(model.link)
         model.apply({'event': 'host_gone', 'detail': 'the host closed the room', 'code': 'closed'})
