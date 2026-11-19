@@ -204,6 +204,18 @@ key moves (`reference_host.c`, `rr_state.c`, `snapshot.c` are hashed): quick sta
 cleanly. **Limits:** joystick games only (keyboard and mouse are not carried); both players need the same IPL and font ROM (they
 are inside the executable); a session that writes more than 512 KiB of disk blocks ends with the reason.
 
+**The host's save travels to every seat (session ABI 8).** An X68000 game saves on its own disks and in SRAM, so the host's save
+image (`session_save`, `rrhk_x68k.inc`) is the 1 KiB blocks where the host's copies of the set's disks differ from the export's
+originals, then its 16 KiB of SRAM (at most the kit's 2 MiB). Every seat, the host too, starts the match from the export's disks
+with those blocks and that SRAM, in memory only; a guest's own files are never read or written. The snapshot and the digest
+carry a hash of each disk the match started from, so a different start is refused at the boot digest. The host part of the
+snapshot also keeps the frame rate (it follows the screen mode, which a restart changes) and takes the drives' poll counter
+afresh after a load. **Proof:** `netplay_game_smoke --rollback 5 --host-save` (a written copy of Bubble Bobble's disk, only in
+seat 1's folder) `--save-at 600 --load-at 1500 --restart-at 2200`: PASS, the same boot digest on both seats and a different one
+without the save; the guest's copy stays the original. A restart alone on the rollback tier: PASS (it failed before the frame
+rate was kept). The probe gains `--rollback-reset-at` (a restart in both timelines): snapshots 5 frames before to 50 after a
+restart replay equal. **Stamps:** the X68000 game and host stamps.
+
 ## Atari ST: multiplayer on the rollback tier (next release)
 
 The Atari ST answers a session (`netplay_session`), with the rollback tier and the host's F8 / F9 for everyone. The adapted Hatari gets a

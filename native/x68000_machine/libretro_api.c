@@ -658,6 +658,21 @@ static unsigned char *session_shadow[SESSION_DRIVES];
 static int session_shadow_index[SESSION_DRIVES] = {-1, -1};
 static unsigned session_shadow_opens[SESSION_DRIVES];
 
+void rr_x68k_boot(void);
+
+/* The player's own copy of a disk of the set (the host's save image is made from these); NULL past the last one. */
+const char *rr_x68k_disk_path(unsigned index)
+{
+   return index < disk.total_images ? disk.path[index] : NULL;
+}
+
+/* The SRAM as the machine holds it (16 KiB, in memory order): the host's save image carries it to every seat. */
+void rr_x68k_sram_copy(uint8_t *out)
+{
+   rr_x68k_boot();
+   memcpy(out, SRAM, sizeof SRAM);
+}
+
 /* The file name of a disk of the set (the payload keeps the originals under media/<name>); NULL past the last one. */
 const char *rr_x68k_disk_name(unsigned index)
 {
@@ -796,9 +811,10 @@ void rr_x68k_boot(void)
 }
 
 /* The session starts (RrhkMachine.session_begin): the machine boots on the session's media if it has not booted yet,
- * or its drives are filled again from them; SRAM starts empty (the IPL formats it as on a first boot) and the
+ * or its drives are filled again from them; SRAM is the host's (its save image) or empty (the IPL formats it as on a
+ * first boot), and the
  * peripheral clock, which sets the RTC from 1 January 2000, starts at zero. */
-int rr_x68k_session_start(void)
+int rr_x68k_session_start(const uint8_t *sram)
 {
    uint64_t zero[8] = {0};
    int drive;
@@ -816,7 +832,8 @@ int rr_x68k_session_start(void)
    }
    for (drive = 0; drive < SESSION_DRIVES; drive++)
       if (drive_index(drive) == -2) return 0;
-   memset(SRAM, 0, sizeof SRAM);
+   if (sram) memcpy(SRAM, sram, sizeof SRAM);       /* the host's SRAM */
+   else memset(SRAM, 0, sizeof SRAM);               /* no save: a fresh SRAM */
    rr_x68k_hardware_restore(zero);
    return 1;
 }
