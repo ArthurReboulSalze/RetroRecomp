@@ -291,8 +291,8 @@ class WindowMixin:
         self.size_header_fields()
         self.layout_header()
         # Section titles whose English text another key shares ("Box art").
-        for name, key in (('account_frame', 'options_account'), ('covers_frame', 'options_boxart'),
-                          ('disk_frame', 'options_disk_space')):
+        for name, key in (('firmware_frame', 'options_firmware'), ('account_frame', 'options_account'),
+                          ('covers_frame', 'options_boxart'), ('disk_frame', 'options_disk_space')):
             frame = getattr(self, name, None)
             try:
                 if frame is not None and frame.winfo_exists():

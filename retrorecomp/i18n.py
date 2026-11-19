@@ -155,6 +155,8 @@ STRINGS = {
     'amiga_kickstart_check': ('Check Kickstart', 'Vérifier le Kickstart'),
     'a1200_kickstart_check': ('Check Kickstart', 'Vérifier le Kickstart'),
     'browse_folder': ('Folder…', 'Dossier…'),
+    'options_firmware': ('BIOS and firmware', 'BIOS et firmware'),
+    'firmware_search_explain': ('Pick a folder: the converter finds the firmware of every machine it knows and shows you a review before it fills in the paths. Nothing is copied or sent.', 'Choisis un dossier : le convertisseur y trouve le firmware de toutes les machines qu’il connaît et te montre un récapitulatif avant de remplir les chemins. Rien n’est copié ni envoyé.'),
     'firmware_search': ('Find firmware in a folder…', 'Trouver les firmwares dans un dossier…'),
     'tip_firmware_search': ('Looks through a folder and its subfolders (a Batocera bios folder, or BIOS files in bulk) for the firmware of every machine, recognised by content, not by name. Nothing changes before you confirm, and your files are only read.', 'Parcourt un dossier et ses sous-dossiers (un dossier bios de Batocera, ou des BIOS en vrac) à la recherche du firmware de chaque machine, reconnu par son contenu, pas par son nom. Rien ne change avant ta confirmation, et tes fichiers sont seulement lus.'),
     'firmware_search_choose': ('Choose the folder to search', 'Choisir le dossier à parcourir'),

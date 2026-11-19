@@ -1018,7 +1018,9 @@
     "front_end_find_missing": "搜索缺少的封面（{count}）",
     "front_end_only_note": "仅用于前端：游戏本身不会改变。",
     "tip_report_problem": "用自己的话描述问题。维护者会阅读每一份报告，发送前你可以查看全部内容。",
-    "new_paths_question": "在这些游戏中游玩时发现了新路径。以后再处理的游戏，请取消选中。"
+    "new_paths_question": "在这些游戏中游玩时发现了新路径。以后再处理的游戏，请取消选中。",
+    "options_firmware": "BIOS 和固件",
+    "firmware_search_explain": "选择一个文件夹：转换器会找出它所支持的所有机型的固件，并在填入路径之前显示确认页面。不会复制或发送任何内容。"
   },
   "runtime": {
     "Internal resolution": "内部分辨率",

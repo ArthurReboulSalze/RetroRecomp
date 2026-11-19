@@ -1018,7 +1018,9 @@
     "front_end_find_missing": "Fehlende Cover suchen ({count})",
     "front_end_only_note": "Nur für das Front-end: die Spiele bleiben unverändert.",
     "tip_report_problem": "Beschreibe ein Problem mit deinen eigenen Worten. Der Maintainer liest jede Meldung, und du siehst alles, bevor es gesendet wird.",
-    "new_paths_question": "Beim Spielen wurden in diesen Spielen neue Pfade gefunden. Entferne das Häkchen bei denen, die später drankommen sollen."
+    "new_paths_question": "Beim Spielen wurden in diesen Spielen neue Pfade gefunden. Entferne das Häkchen bei denen, die später drankommen sollen.",
+    "options_firmware": "BIOS und Firmware",
+    "firmware_search_explain": "Wähle einen Ordner: Der Konverter findet die Firmware aller Maschinen, die er kennt, und zeigt dir eine Übersicht, bevor er die Pfade einträgt. Nichts wird kopiert oder gesendet."
   },
   "runtime": {
     "Internal resolution": "Interne Auflösung",

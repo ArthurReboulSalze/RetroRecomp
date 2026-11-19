@@ -1018,7 +1018,9 @@
     "front_end_find_missing": "Buscar las carátulas que faltan ({count})",
     "front_end_only_note": "Solo para el front-end: los juegos no cambian.",
     "tip_report_problem": "Describe un problema con tus palabras. El mantenedor lee cada informe y ves todo antes de enviarlo.",
-    "new_paths_question": "Al jugar se encontraron nuevas rutas en estos juegos. Desmarca los que quieras dejar para más tarde."
+    "new_paths_question": "Al jugar se encontraron nuevas rutas en estos juegos. Desmarca los que quieras dejar para más tarde.",
+    "options_firmware": "BIOS y firmware",
+    "firmware_search_explain": "Elige una carpeta: el conversor encuentra el firmware de todas las máquinas que conoce y te muestra un resumen antes de rellenar las rutas. No se copia ni se envía nada."
   },
   "runtime": {
     "Internal resolution": "Resolución interna",

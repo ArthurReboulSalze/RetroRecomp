@@ -406,9 +406,15 @@ def smoke(window):
     assert picker.get() == application.tr('options_ng')
     assert [frame.winfo_manager() for _, _, frame in application.options_console_pages].count('pack') == 1
     assert application.options_console_pages[neo_geo][2].winfo_manager() == 'pack'
-    # Beside the machine list, the search that fills every machine's firmware paths from one folder (its dialog is not opened here).
+    # The search that fills every machine's firmware paths from one folder lives in Common, in its own section (its dialog
+    # is not opened here), and no longer beside the machine list.
     assert application.firmware_search_button.cget('text') == application.tr('firmware_search')
     assert application.firmware_search_button.winfo_manager() == 'pack'
+    assert application.firmware_search_button.master is application.firmware_frame
+    assert application.firmware_frame.cget('text') == application.tr('options_firmware')
+    assert application.firmware_explain.cget('text') == application.tr('firmware_search_explain')
+    assert sum(1 for w in descendants(application.options_panel) if w.winfo_class() == 'TButton'
+               and w.cget('text') == application.tr('firmware_search')) == 1
     assert application.account_status.get() == application.tr('account_coming')
     assert not application.account_sync.winfo_manager() and not application.account_rewards.winfo_manager()
     # Signed in: the balance, the title, the site's titles and the two shared-base options.
@@ -730,8 +736,9 @@ def smoke(window):
             assert timing.get() == application.level_estimate_text(console) and reference in timing.get(), (language, console)
         common_page = open_notebook.nametowidget(open_notebook.tabs()[0])
         frames = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TLabelframe'}
-        assert {application.tr('options_account'), application.tr('options_boxart'),
+        assert {application.tr('options_firmware'), application.tr('options_account'), application.tr('options_boxart'),
                 application.tr('options_disk_space')} <= frames, frames
+        assert application.firmware_explain.cget('text') == application.tr('firmware_search_explain'), language
         # « Box art not found »: on by default, its checkbox in the Box art section, in every language.
         boxes = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TCheckbutton'}
         assert application.ask_missing_cover.get() is True and application.tr('cover_ask_option') in boxes, language

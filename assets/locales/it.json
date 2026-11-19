@@ -1018,7 +1018,9 @@
     "front_end_find_missing": "Cerca le copertine mancanti ({count})",
     "front_end_only_note": "Solo per il front-end: i giochi non cambiano.",
     "tip_report_problem": "Descrivi un problema con parole tue. Il manutentore legge ogni segnalazione e vedi tutto prima dell’invio.",
-    "new_paths_question": "Giocando sono stati trovati nuovi percorsi in questi giochi. Deseleziona quelli da lasciare per dopo."
+    "new_paths_question": "Giocando sono stati trovati nuovi percorsi in questi giochi. Deseleziona quelli da lasciare per dopo.",
+    "options_firmware": "BIOS e firmware",
+    "firmware_search_explain": "Scegli una cartella: il convertitore trova il firmware di tutte le macchine che conosce e ti mostra un riepilogo prima di compilare i percorsi. Nulla viene copiato o inviato."
   },
   "runtime": {
     "Internal resolution": "Risoluzione interna",

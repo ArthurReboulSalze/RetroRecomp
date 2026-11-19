@@ -217,16 +217,24 @@ class OptionsMixin:
             self.option_controls.append((control, 'readonly' if kind == 'combo' else 'normal'))
             self.hint(control, hint)
 
+        # BIOS and firmware: one search that fills the firmware paths of every machine from a folder (gui_firmware.py),
+        # after a review; the machines' pages keep only their own path fields.
+        firmware = self.firmware_frame = ttk.LabelFrame(common, text=self.tr('options_firmware'), padding=(12, 8))
+        firmware.grid(row=5, column=0, sticky='ew', pady=(18, 0))
+        self.build_firmware_search_button(firmware).pack(anchor='w')
+        self.firmware_explain = ttk.Label(firmware, text=self.tr('firmware_search_explain'), style='Muted.TLabel',
+                                          wraplength=760, justify='left')
+        self.firmware_explain.pack(anchor='w', pady=(8, 0))
         # The Retro-Recomp account, then box art, below the shared settings.
         account = self.account_frame = ttk.LabelFrame(common, text=self.tr('options_account'), padding=(12, 8))
-        account.grid(row=5, column=0, sticky='ew', pady=(18, 0))
+        account.grid(row=6, column=0, sticky='ew', pady=(14, 0))
         self.build_account_options(account)
         covers = self.covers_frame = ttk.LabelFrame(common, text=self.tr('options_boxart'), padding=(12, 8))
-        covers.grid(row=6, column=0, sticky='ew', pady=(14, 0))
+        covers.grid(row=7, column=0, sticky='ew', pady=(14, 0))
         self.build_cover_options(covers, checkbox)
         # Disk space: the build folders that earlier conversions left.
         disk = self.disk_frame = ttk.LabelFrame(common, text=self.tr('options_disk_space'), padding=(12, 8))
-        disk.grid(row=7, column=0, sticky='ew', pady=(14, 0))
+        disk.grid(row=8, column=0, sticky='ew', pady=(14, 0))
         self.build_disk_options(disk)
 
         # One page per machine, built from its profile (build_console_tab), all in a second tab: a list at the top picks
@@ -275,8 +283,6 @@ class OptionsMixin:
         picker = ttk.Combobox(top, state='readonly', width=36, values=[self.tr(key) for _, key, _ in pages])
         picker._retro_value_keys = [key for _, key, _ in pages]   # retranslated by refresh_language
         picker.pack(side='left')
-        # Fills the firmware paths of every machine from one folder (gui_firmware.py), after a review.
-        self.build_firmware_search_button(top)
         self.options_console_picker = picker
         self.options_console_pages = pages
 
