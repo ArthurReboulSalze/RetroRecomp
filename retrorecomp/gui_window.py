@@ -475,6 +475,7 @@ class WindowMixin:
         listing = tk.Listbox(row, width=29, exportselection=False, bg=COLORS['panel'],
                              fg=COLORS['text'], selectbackground=COLORS['border'],
                              selectforeground='#ffffff', relief='flat',
+                             highlightthickness=1, highlightbackground=COLORS['panel'], highlightcolor=COLORS['gold'],
                              font=(self.ui_font, 10))
         listing.pack(side='left', fill='y', padx=(0, 10))
         for path in resources:

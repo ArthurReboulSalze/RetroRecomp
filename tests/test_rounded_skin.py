@@ -172,6 +172,26 @@ class CornersAndSurfaces(SkinCase):
         again = ttk.Button(panel, text='again')
         self.assertEqual(str(again.cget('style')), 'Rs2b2b2b.TButton')                       # made once
 
+    def test_a_check_box_or_radio_button_on_a_panel_draws_the_panel_behind_its_label(self):
+        panel = tk.Frame(self.root, bg='#292929')
+        box = ttk.Checkbutton(panel, text='Tick')
+        radio = ttk.Radiobutton(panel, text='Choose', value='a')
+        self.assertEqual(str(box.cget('style')), 'Rs292929.TCheckbutton')
+        self.assertEqual(str(radio.cget('style')), 'Rs292929.TRadiobutton')
+        for name in ('Rs292929.TCheckbutton', 'Rs292929.TRadiobutton'):
+            self.assertEqual(self.style.lookup(name, 'background'), '#292929')
+            self.assertEqual(self.style.lookup(name, 'background', ['active']), '#292929')
+        self.assertEqual(self.style.lookup('Rs292929.TCheckbutton', 'foreground'), COLORS['text'])     # the rest is inherited
+        self.assertNotEqual(self.layout('Rs292929.TCheckbutton'), self.layout('TCheckbutton'))          # its tick is skinned too
+        tag = 'rs%d.check.' % self.skin.generation
+        self.assertEqual(self.skin.entries[tag + 'Rs292929.TCheckbutton'], self.skin.entries[tag + 'TCheckbutton'])   # as pruned as the plain one
+        # The window's own surface, a style with a background of its own and a custom radio style are left alone.
+        self.assertEqual(str(ttk.Checkbutton(self.root).cget('style')), 'TCheckbutton')
+        self.assertEqual(str(ttk.Radiobutton(self.root).cget('style')), 'TRadiobutton')
+        self.style.configure('Own.TCheckbutton', background='#101010')
+        self.assertEqual(str(ttk.Checkbutton(panel, style='Own.TCheckbutton').cget('style')), 'Own.TCheckbutton')
+        self.assertEqual(str(ttk.Radiobutton(panel, style='MpSeg.TRadiobutton').cget('style')), 'MpSeg.TRadiobutton')
+
     def test_the_window_background_keeps_the_plain_names(self):
         button = ttk.Button(self.root, style='Primary.TButton')
         self.assertEqual(str(button.cget('style')), 'Primary.TButton')
@@ -240,12 +260,16 @@ class OneMechanismForPills(SkinCase):
 
 class LayoutDoesNotMove(unittest.TestCase):
     def test_no_widget_asks_for_another_size_than_before(self):
+        # At 96 dpi (Windows always): a Linux display at about 100 dpi rounds the combobox chevron's 15 px up to 16.
         plain = tk_root()
         self.addCleanup(plain.destroy)
+        restore_scaling(self, plain)
+        plain.tk.call('tk', 'scaling', 96 / 72)
         apply_theme(plain, 'Segoe UI')                     # branding alone: square
         square = requested(plain)
         rounded = tk_root()
         self.addCleanup(rounded.destroy)
+        rounded.tk.call('tk', 'scaling', 96 / 72)
         apply_rounded_theme(rounded, 'Segoe UI')
         self.assertEqual(requested(rounded), square)
 

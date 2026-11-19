@@ -15,6 +15,8 @@ The widgets stay ttk widgets: focus, Tab, the gamepad's focus moves, any text le
 - Two costs are guarded by tests (tests/test_rounded_skin.py): Tk TILES the stretched middle of a 9-slice picture, so the middle is
   `CENTER` pixels wide (a 2 px middle made a 130 px field cost 65 draws per edge); and Tk makes one image instance per state entry and per
   widget, so the entries that change no picture are pruned (`Skin.prune`).
+- A check box or radio button is not a picture on its corners but draws its own background behind its label: on a panel or a card
+  that is a dark patch, so one that just inherits the window's colour gets a derived name too (`follow_surface`).
 - Pictures are pixel sizes: every size is multiplied by `Skin.scale`, the Tk scaling relative to 96 dpi.
 - Not rounded (square, on purpose): tables and their headings, notebook tabs, tk.Text, progress bars, menus, the scrollbars' arrow buttons.
 
@@ -282,8 +284,9 @@ class Skin:
         """The style a new widget of style `name` should use: `name` itself, or a derived name when `master` is another surface than
         the one `name` was skinned for."""
         if kind not in self.OPAQUE:
-            self.skin(name, kind, master)
-            return name
+            if kind != 'radiobutton':
+                self.skin(name, kind, master)
+            return self.follow_surface(name, kind, master)
         if (name, kind) not in self.done:
             self.skin(name, kind)                  # its own surface is the window's; another one gets a derived name below
         if name in self.explicit:
@@ -295,6 +298,29 @@ class Skin:
         self.skin(derived, kind, surface=surface)
         self.explicit.discard(derived)
         self.derived_from[derived] = name
+        return derived
+
+    def follow_surface(self, name, kind, master):
+        """A check box or radio button draws its own background behind its label (the window's colour unless its style sets another):
+        on a dialog's panel or a card that is a visible dark patch. A style that just inherits the window's colour gets a derived name
+        (`Rs<colour>.<style>`) whose background is the surface it stands on. A style with a background of its own (the cards', the
+        new-paths list's) and every custom radio style (the Multiplayer toggle) are left as they are."""
+        if kind not in ('checkbutton', 'radiobutton') or (kind == 'radiobutton' and name != 'TRadiobutton'):
+            return name
+        window = self.hex(self.lookup('.', 'background', default=DEFAULT_SURFACE))
+        if self.lookup(name, 'background') != window:
+            return name
+        surface = self.surface_of(master)
+        if surface == window:
+            return name
+        derived = f'Rs{surface.lstrip("#")}.{name}'
+        if derived not in self.derived_from:
+            if kind == 'checkbutton':
+                self.skin(derived, kind, surface=surface)
+                self.explicit.discard(derived)
+            self.style.configure(derived, background=surface)
+            self.style.map(derived, background=[('active', surface), ('disabled', surface)])
+            self.derived_from[derived] = name
         return derived
 
     def skin_button(self, name, surface, radius, ring):
@@ -471,9 +497,9 @@ class Skin:
             self.skin(name, kind, surface=surface, radius=radius, ring=ring)
 
     KINDS = (('combobox', ttk.Combobox), ('spinbox', ttk.Spinbox), ('entry', ttk.Entry), ('button', ttk.Button),
-             ('checkbutton', ttk.Checkbutton), ('labelframe', ttk.LabelFrame), ('scrollbar', ttk.Scrollbar))
+             ('checkbutton', ttk.Checkbutton), ('radiobutton', ttk.Radiobutton), ('labelframe', ttk.LabelFrame), ('scrollbar', ttk.Scrollbar))
     DEFAULTS = {'combobox': 'TCombobox', 'spinbox': 'TSpinbox', 'entry': 'TEntry', 'button': 'TButton',
-                'checkbutton': 'TCheckbutton', 'labelframe': 'TLabelframe'}
+                'checkbutton': 'TCheckbutton', 'radiobutton': 'TRadiobutton', 'labelframe': 'TLabelframe'}
 
     @classmethod
     def kind_of(cls, widget, orient='vertical'):
