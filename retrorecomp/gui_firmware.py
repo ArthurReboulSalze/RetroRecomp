@@ -23,11 +23,11 @@ def _shorten(text: str, limit: int = ROLE_CHARACTERS) -> str:
 
 
 class FirmwareSearchMixin:
-    """The « Find firmware in a folder… » button of Options and its dialog."""
+    """The « Find firmware in a folder… » button of Options (Common page) and its dialog."""
 
     def build_firmware_search_button(self, parent):
+        """The button, made in `parent` and not placed (Options › Common puts it in its BIOS and firmware section)."""
         button = ttk.Button(parent, text=self.tr('firmware_search'), command=self.find_firmware)
-        button.pack(side='left', padx=(12, 0))
         self.option_controls.append((button, 'normal'))
         self.hint(button, 'tip_firmware_search')
         self.firmware_search_button = button

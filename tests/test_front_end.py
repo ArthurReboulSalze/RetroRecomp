@@ -454,7 +454,15 @@ class Window(unittest.TestCase):
         owner.credits_button.pack(side='right')
         owner.count_label = ttk.Label(owner.toolbar)
         owner.count_label.pack(side='right')
-        owner.front_end_button_create(owner.toolbar).pack(side='right')
+        owner.report_button = ttk.Button(owner.toolbar)
+        owner.report_button.pack(side='right')
+        owner.knowledge_button = ttk.Button(owner.toolbar)
+        owner.knowledge_button.pack(side='right')
+        owner.place_count_label = lambda: owner.count_label.pack(side='right', before=owner.report_button)
+        # The pair of buttons stands in its own frame, in the middle of the bar.
+        owner.toolbar_centre = tk.Frame(owner.toolbar)
+        owner.toolbar_centre.pack(side='left', expand=True)
+        owner.front_end_button_create(owner.toolbar_centre, owner.toolbar).pack(side='right')
         owner.compiler_widgets = [tk.Frame(owner.body) for _ in range(2)]
         for row, widget in enumerate(owner.compiler_widgets, 1):
             widget.grid(row=row, column=0)
@@ -484,12 +492,19 @@ class Window(unittest.TestCase):
         self.assertFalse(owner.front_end_fullscreen)
         self.assertEqual(self.fullscreen, [])
         self.assertEqual(owner.front_end_screen_button.winfo_manager(), 'pack')
+        # Left of Knowledge in the toolbar (packed right after it), no longer beside the Front-end button.
         order = owner.toolbar.pack_slaves()
-        self.assertEqual(order.index(owner.front_end_screen_button), order.index(owner.front_end_button) + 1)
+        self.assertEqual(order.index(owner.front_end_screen_button), order.index(owner.knowledge_button) + 1)
+        self.assertNotIn(owner.front_end_screen_button, owner.toolbar_centre.pack_slaves())
+        self.assertEqual(owner.front_end_button.master, owner.toolbar_centre)
+        # Arrows out to the corners; arrows in once the front-end fills the screen.
+        self.assertEqual(owner.decorate_button.call_args_list[-1].args[1:], ('fullscreen_enter',))
         self.assertEqual((owner.header.winfo_manager(), owner.toolbar.winfo_manager()), ('pack', 'grid'))
         owner.front_end_screen_button.invoke()
         self.assertTrue(owner.front_end_visible and owner.front_end_fullscreen)
         self.assertEqual(self.fullscreen[-1], ('-fullscreen', True))
+        self.assertEqual(owner.decorate_button.call_args_list[-1].args[1:], ('fullscreen_exit',))
+        self.assertEqual(owner.front_end_screen_button.cget('text'), 'front_end_window')
         self.assertEqual(owner.header.winfo_manager(), '')
         self.assertEqual(owner.toolbar.winfo_manager(), '')
         self.assertEqual(owner.status_dot.master.winfo_manager(), '')
@@ -497,6 +512,7 @@ class Window(unittest.TestCase):
         self.assertIn('show', owner.front_end_view.calls)
         # X / F11: back to the window, still in the front-end.
         owner.set_front_end_fullscreen(False)
+        self.assertEqual(owner.decorate_button.call_args_list[-1].args[1:], ('fullscreen_enter',))
         self.assertEqual(self.fullscreen[-1], ('-fullscreen', False))
         self.assertTrue(owner.front_end_visible)
         self.assertEqual((owner.header.winfo_manager(), owner.toolbar.winfo_manager()), ('pack', 'grid'))

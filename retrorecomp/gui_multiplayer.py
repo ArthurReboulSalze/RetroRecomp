@@ -9,7 +9,8 @@ class MultiplayerMixin:
     multiplayer_window = None
 
     def multiplayer_button_create(self, toolbar):
-        button = self.icon_button(toolbar, 'mp_title', 'tip_multiplayer', self.show_multiplayer, 'players', managed=False)
+        button = self.icon_button(toolbar, 'mp_title', 'tip_multiplayer', self.show_multiplayer, 'players', managed=False,
+                                  accent=True)
         self.multiplayer_button = button
         return button
 

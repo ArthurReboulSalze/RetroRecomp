@@ -1068,7 +1068,13 @@
     "tip_start_front_end": "起動時に、変換キューの代わりにコンパイル済みゲームをパッケージの一覧で表示します。",
     "tip_start_front_end_fullscreen": "起動時に開くフロントエンドを全画面で表示します。ゲームパッドの X または F11 でウィンドウに戻ります。",
     "front_end_find_missing": "足りないパッケージを検索（{count}）",
-    "front_end_only_note": "フロントエンド専用です。ゲーム本体は変わりません。"
+    "front_end_only_note": "フロントエンド専用です。ゲーム本体は変わりません。",
+    "tip_report_problem": "不具合の内容を書いて送れます。開発者がすべての報告を読み、送信前に内容をすべて確認できます。",
+    "new_paths_question": "これらのゲームでプレイ中に新しい経路が見つかりました。後回しにするものはチェックを外してください。",
+    "options_firmware": "BIOS とファームウェア",
+    "firmware_search_explain": "フォルダーを選ぶと、変換ツールが対応するすべての機種のファームウェアを探し、パスを入力する前に確認画面を表示します。コピーも送信もされません。",
+    "front_end_window": "ウィンドウに戻る",
+    "tip_conversion_queue": "変換キュー：変換待ちの ROM です。追加して、カバーを選び、変換します。"
   },
   "runtime": {
     "Internal resolution": "内部解像度",

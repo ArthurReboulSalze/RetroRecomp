@@ -1,13 +1,12 @@
 """Drawing helpers of the interface: portraits, styled names, pins, badges, header themes and icons."""
 from __future__ import annotations
 
-import math
 import os
 import time
 import tkinter as tk
 
 from . import online
-from .branding import COLORS, make_icon, ICON_PATHS
+from .branding import COLORS, make_icon, icon_paths, ICON_PATHS
 
 
 HATCH_SPACING = 4
@@ -389,6 +388,28 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
 
 BADGE_COLOR = '#e5484d'
 
+# The two main buttons of a row (Convert / regenerate, and Play game of Compiled Games) are larger than their neighbours:
+# a bigger picture, drawn two pixels thick, in a taller button (about 1.5 times the others) with a brighter border.
+HERO_SIZE = 26
+
+
+def hero_icon(master, symbol, color, size=HERO_SIZE, weight=2):
+    """The picture of `symbol` at `size` px with strokes `weight` pixels thick (make_icon draws one pixel wide at 18 px,
+    thin on a larger button)."""
+    image = tk.PhotoImage(master=master, width=size, height=size)
+    scale = (size - 2 - weight) / 16
+    limit = size - weight
+    for path in icon_paths(symbol):
+        for at in range(0, len(path) - 2, 2):
+            x1, y1, x2, y2 = ((path[at] + 1) * scale, (path[at + 1] + 1) * scale,
+                              (path[at + 2] + 1) * scale, (path[at + 3] + 1) * scale)
+            steps = max(1, round(max(abs(x2 - x1), abs(y2 - y1)) * 2))
+            for step in range(steps + 1):
+                x = min(round(x1 + (x2 - x1) * step / steps), limit)
+                y = min(round(y1 + (y2 - y1) * step / steps), limit)
+                image.put(color, to=(x, y, x + weight, y + weight))
+    return image
+
 
 def badged_icon(master, symbol, color, size=18):
     """The picture of `symbol` with a small dot at its top right corner: the
@@ -418,24 +439,24 @@ _FOLDER_PLUS = ((1, 4, 6, 4, 8, 6, 15, 6, 15, 15, 1, 15, 1, 4), (11, 0, 11, 4), 
 ICON_PATHS.setdefault('add_rom_folder', _FOLDER_PLUS + ((5, 8, 11, 8, 11, 13, 5, 13, 5, 8), (6, 10, 10, 10),
                                                         (7, 13, 7, 14), (9, 13, 9, 14)))
 ICON_PATHS.setdefault('add_exe_folder', _FOLDER_PLUS + ((6, 8, 11, 11, 6, 14, 6, 8),))
-ICON_PATHS.setdefault('new_paths', ((1, 14, 5, 9, 9, 11, 14, 4), (10, 4, 14, 4, 14, 8)))
+# New paths found for your games: a route that forks (a trunk, a branch turning up and one going right, both with their
+# arrowhead) and a plus for what is new. The top right corner stays free for the red dot.
+ICON_PATHS.setdefault('new_paths', ((6, 15, 6, 9.5), (6, 9.5, 2.5, 6.5, 2.5, 2.5), (0.7, 4.3, 2.5, 2.3, 4.3, 4.3),
+                                    (6, 9.5, 9.3, 7), (9.3, 5, 9.3, 7, 11.3, 7),
+                                    (12.5, 10.5, 12.5, 15.5), (9.8, 13, 15.2, 13)))
+# Report a problem: a speech bubble with an exclamation mark.
+ICON_PATHS.setdefault('report', ((2, 2, 14, 2, 14, 11, 9, 11, 5, 14.5, 5, 11, 2, 11, 2, 2), (8, 4.5, 8, 7), (8, 9, 8, 9)))
+def _brain():
+    """Knowledge: a brain seen from above, two hemispheres either side of the fissure, each with a few folds. The left
+    half is drawn, the right one is its mirror."""
+    left = ((8, 2.5, 6.5, 1, 4.5, 1.3, 3.5, 2.8, 2, 3.2, 1, 5, 1.2, 7, 1, 8.5, 1.8, 10.5, 2.5, 12.5, 4.5, 14,
+             6.5, 14.8, 8, 14.2),
+            (8, 6, 6, 5.8, 5, 4), (8, 9.5, 5.5, 9.2, 4, 7.5), (4.5, 11.5, 6.5, 12))
+    right = tuple(tuple(16 - value if index % 2 == 0 else value for index, value in enumerate(path)) for path in left)
+    return left + right + ((8, 2.5, 8, 14.2),)
 
 
-def _shared_network(radius=3, nodes=((8, 3), (3, 12.5), (13, 12.5))):
-    """Knowledge: a shared network, three small circles (top, bottom-left, bottom-right) joined top to left, top to
-    right and left to right, each link stopping at the circles' edges."""
-    rings = tuple(tuple(value for step in range(13) for value in
-                        (x + radius * math.cos(step * math.pi / 6), y + radius * math.sin(step * math.pi / 6)))
-                  for x, y in nodes)
-    links = []
-    for (x1, y1), (x2, y2) in ((nodes[0], nodes[1]), (nodes[0], nodes[2]), (nodes[1], nodes[2])):
-        length = math.hypot(x2 - x1, y2 - y1)
-        ux, uy = (x2 - x1) / length, (y2 - y1) / length
-        links.append((x1 + ux * radius, y1 + uy * radius, x2 - ux * radius, y2 - uy * radius))
-    return rings + tuple(links)
-
-
-ICON_PATHS.setdefault('network', _shared_network())
+ICON_PATHS.setdefault('network', _brain())
 # Front-end: a wall of four boxes.
 ICON_PATHS.setdefault('front_end', ((1, 1, 7, 1, 7, 7, 1, 7, 1, 1), (9, 1, 15, 1, 15, 7, 9, 7, 9, 1),
                                     (1, 9, 7, 9, 7, 15, 1, 15, 1, 9), (9, 9, 15, 9, 15, 15, 9, 15, 9, 9)))
@@ -459,6 +480,25 @@ def _toolbar_styles(style):
     style.configure('Help.Toolbar.TButton', width=-1, padding=(11, 5), foreground=c['gold'],
                     font=('TkDefaultFont', 10, 'bold'))
     style.configure('Header.TCombobox', padding=(4, 1))
+    # The main button of a row, larger than its neighbours: taller padding and a brighter, thicker border on the gold
+    # (the colours of Primary.TButton, which it inherits, for the normal, hover and greyed looks).
+    style.configure('Hero.Toolbar.Primary.TButton', padding=(10, 7), borderwidth=2, bordercolor=c['gold_hover'],
+                    lightcolor=c['gold_hover'], darkcolor=c['gold_hover'])
+    style.map('Hero.Toolbar.Primary.TButton',
+              bordercolor=[('disabled', c['border']), ('!disabled', c['gold_hover'])],
+              lightcolor=[('disabled', c['panel']), ('!disabled', c['gold_hover'])],
+              darkcolor=[('disabled', c['panel']), ('!disabled', c['gold_hover'])])
+    # The tick boxes of the New paths list, on the list's own dark field.
+    style.configure('NewPaths.TCheckbutton', background=c['field'])
+    style.map('NewPaths.TCheckbutton', background=[('active', c['field'])])
+    # The two buttons that stand in the middle of the bar, Multiplayer and Front-end: a gold border (and a gold
+    # picture, drawn by decorate_button), brighter under the pointer. There is one dark theme, so there is one set.
+    style.configure('Feature.Toolbar.TButton', bordercolor=c['gold'], lightcolor=c['button'], darkcolor=c['button'])
+    style.map('Feature.Toolbar.TButton',
+              bordercolor=[('disabled', c['border']), ('pressed', c['gold_hover']), ('active', c['gold_hover']),
+                           ('!disabled', c['gold'])],
+              lightcolor=[('pressed', c['selected']), ('active', c['hover'])],
+              darkcolor=[('pressed', c['selected']), ('active', c['hover'])])
     style.configure('Compiled.Toolbar.TButton', background=c['gold'], foreground=c['gold_text'],
                     bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
                     focuscolor=c['gold_text'], relief='raised')

@@ -11,7 +11,10 @@ from .batch import identify
 from .packing import set_compression
 from .paths import APP_NAME, save_preferences
 from .systems import get_profile
+from .branding import COLORS
+from .dialogs import center_dialog
 from .gui_common import INTERFACE_PREFERENCES
+from .tooltips import Tooltip
 
 
 class CollectionMixin:
@@ -42,9 +45,13 @@ class CollectionMixin:
                                    default='no', parent=self.app)
 
     def new_paths_button(self, parent):
-        button = ttk.Button(parent, command=self.recompile_new_paths, style='Toolbar.TButton')
+        """The New paths button: a picture only, with a red dot while some games have new paths; its hint carries the
+        count. It opens the list of those games (new_paths_dialog) rather than reconverting them at once."""
+        button = ttk.Button(parent, command=self.choose_new_paths, style='Toolbar.TButton')
         self.decorate_button(button, 'new_paths')
-        self.hint(button, 'tip_recompile_new_paths')
+        button.configure(compound='image')
+        self.tooltips.append(Tooltip(button, lambda: self.tr('recompile_new_paths', count=self.new_paths_count)
+                                     + '\n' + self.tr('tip_recompile_new_paths')))
         self.new_paths_buttons.append(button)
         self.update_new_paths()
         return button
@@ -58,11 +65,14 @@ class CollectionMixin:
                 and (not shared_only or game.system in SHARED)]
 
     def update_new_paths(self):
-        count = len(self.games_with_new_paths())
+        count = self.new_paths_count = len(self.games_with_new_paths())
         for button in getattr(self, 'new_paths_buttons', []):
             if button.winfo_exists():
+                # The text stays set on the widget (it names the button for the screen reader); the count is in the
+                # hint, and a red dot says that there is something.
                 button.configure(text=self.tr('recompile_new_paths', count=count),
                                  state='normal' if count and not self.busy and not self.updating else 'disabled')
+                self.badge_button(button, 'new_paths', count > 0)
 
     def quiet_refresh_collection(self, games=None, every=0):
         """Re-read only collection rows whose files changed, in the background;
@@ -78,6 +88,79 @@ class CollectionMixin:
             except Exception:changed = 0
             self.messages.put(('collection_quiet', changed))
         threading.Thread(target=worker, daemon=True).start()
+
+    def choose_new_paths(self):
+        """The New paths button: the games concerned are listed, all ticked, and only the ticked ones are reconverted
+        (recompile_new_paths). The closing card and the leaderboard call recompile_new_paths with the games they chose
+        themselves and do not come through here."""
+        if self.busy or self.updating:return
+        games = self.games_with_new_paths()
+        if not games:return
+        chosen = self.new_paths_dialog(games)
+        if chosen:self.recompile_new_paths(chosen)
+
+    def new_paths_dialog(self, games):
+        """A modal list of `games`, one tick box each (all ticked); Reconvert returns the ticked games, Cancel (or
+        closing the window, or Escape) returns none. The list scrolls when there are many games."""
+        background = COLORS['background']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(APP_NAME + ' - ' + self.tr('recompile_new_paths', count=len(games)))
+        window.configure(bg=background)
+        window.transient(self.app)
+        chosen = []
+        checks = [(game, tk.BooleanVar(master=window, value=True)) for game in games]
+        body = tk.Frame(window, bg=background, padx=18, pady=14, highlightthickness=1,
+                        highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        tk.Label(body, text=self.tr('new_paths_question'), bg=background, fg=COLORS['text'], font=(self.ui_font, 10),
+                 wraplength=460, justify='left').pack(anchor='w')
+        frame = tk.Frame(body, bg=COLORS['field'], highlightthickness=1, highlightbackground=COLORS['subtle_border'])
+        frame.pack(fill='both', expand=True, pady=(12, 0))
+        canvas = tk.Canvas(frame, bg=COLORS['field'], highlightthickness=0, borderwidth=0, width=460)
+        rows = tk.Frame(canvas, bg=COLORS['field'])
+        canvas.create_window(0, 0, window=rows, anchor='nw', tags='rows')
+        for game, ticked in checks:
+            row = tk.Frame(rows, bg=COLORS['field'])
+            row.pack(fill='x', padx=(8, 12), pady=1)
+            ttk.Checkbutton(row, text=game.title, variable=ticked, style='NewPaths.TCheckbutton').pack(side='left')
+            tk.Label(row, text=get_profile(game.system).name if game.system else '', bg=COLORS['field'],
+                     fg=COLORS['muted'], font=(self.ui_font, 9)).pack(side='right', padx=(18, 0))
+        window.update_idletasks()
+        # Up to eight rows show at once; more scroll, with the wheel or the bar.
+        full = rows.winfo_reqheight()
+        shown = min(full, 8 * (full // len(checks)))
+        canvas.configure(height=shown, scrollregion=(0, 0, rows.winfo_reqwidth(), full))
+        canvas.pack(side='left', fill='both', expand=True)
+        if full > shown:
+            bar = ttk.Scrollbar(frame, orient='vertical', command=canvas.yview)
+            canvas.configure(yscrollcommand=bar.set)
+            bar.pack(side='right', fill='y')
+            def wheel(event):
+                canvas.yview_scroll(-1 if event.delta > 0 else 1, 'units')
+            for widget in (canvas, rows, *rows.winfo_children()):
+                widget.bind('<MouseWheel>', wheel)
+        canvas.bind('<Configure>', lambda event: canvas.itemconfigure('rows', width=event.width))
+        buttons = tk.Frame(body, bg=background)
+        buttons.pack(fill='x', pady=(16, 0))
+        def reconvert():
+            chosen.extend(game for game, ticked in checks if ticked.get())
+            window.destroy()
+        ttk.Button(buttons, text=self.tr('knowledge_cancel'), command=window.destroy).pack(side='right')
+        go = ttk.Button(buttons, text=self.tr('reconvert'), command=reconvert, style='Primary.TButton')
+        go.pack(side='right', padx=(0, 8))
+        def ticks_changed(*_):
+            go.configure(state='normal' if any(ticked.get() for _, ticked in checks) else 'disabled')
+        for _, ticked in checks:
+            ticked.trace_add('write', ticks_changed)
+        window.bind('<Escape>', lambda event: window.destroy())
+        window.update_idletasks()
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        window.deiconify()
+        window.grab_set()
+        go.focus_set()
+        self.app.wait_window(window)
+        return chosen
 
     def recompile_new_paths(self, games=None):
         """Reconvert only the games with new paths (upgrading when nothing else
@@ -123,21 +206,18 @@ class CollectionMixin:
             for widget in self.compiler_widgets:widget.grid()
             self.collection_actions.pack_forget()
             self.queue_actions.pack(side='left', padx=(12, 0), after=self.compiled_button)
-            self.count_label.pack(side='right', before=self.credits_button)
+            self.place_count_label()
         self.update_compiled_button()
         self.queue_background(self.body)
 
     def update_compiled_button(self):
-        """One width for both captions, so the switch never changes size."""
-        captions = (self.tr('compiled_games'), self.tr('conversion_queue'))
-        # Width counts average characters ('0'); measure the real text so
-        # wide scripts such as Cyrillic are not cut.
-        from tkinter import font as tkfont
-        measure = tkfont.Font(root=self.app, font=(self.ui_font, 9))
-        zero = measure.measure('0') or 7
-        widest = max(measure.measure(caption) for caption in captions)
-        self.compiled_button.configure(text=captions[1] if self.collection_visible else captions[0],
-                                       width=-(-widest // zero) + 1)
+        """The switch shows only a picture of the view it leads to (Compiled Games from the queue, the queue from
+        Compiled Games), with its arrow badge, so it never changes size; the caption stays set on the button (the
+        screen reader reads it) and starts its hint."""
+        self.decorate_button(self.compiled_button, 'switch_queue' if self.collection_visible else 'switch_compiled',
+                             primary=True)
+        self.compiled_button.configure(compound='image',
+                                       text=self.tr('conversion_queue' if self.collection_visible else 'compiled_games'))
 
     def go_deeper(self, games, level):
         """Compiled Games' "Go further": convert again with a discovery at the

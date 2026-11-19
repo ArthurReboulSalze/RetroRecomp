@@ -57,9 +57,10 @@ scan. When the collection is shown or the window regains focus, only rows
 whose files changed are read again (about 0.2 s for 1,068 unchanged games).
 **Scan games** still walks every folder, for new folders and moved games.
 
-**New paths (N)**, one toolbar button shared by both views, reconverts only
-the games whose play found new paths since their last conversion, upgrading them without rediscovery when nothing else
-changed. Games whose ROM cannot be found are left for later. When
+**New paths (N)**, one toolbar picture shared by both views (a red dot on it while some games have new paths, the
+count in its hover hint), opens the list of the games whose play found new paths since their last conversion, all
+ticked: **Reconvert** reconverts only the ticked ones, upgrading them without rediscovery when nothing else
+changed, and **Cancel** does nothing. Games whose ROM cannot be found are left for later. When
 Retro-Recomp closes with such games on Master System, Game Gear, Game Boy,
 NES, Mega Drive or Super Nintendo, a card offers the same recompilation
 before closing. Its **Send and close** button, like **Sync with the shared
@@ -78,8 +79,8 @@ it: **Add ROMs…**, then pictures for Add games ROM folder (a folder with a
 cartridge), Remove and Clear list in the queue; **Play game**, then pictures
 for Scan games, Add games exe folder (a folder with a play sign) and Stop in
 the collection. A picture's hover hint names it first. **New paths (N)**
-comes next in both views. The **Knowledge** menu, Options, updates and
-credits stay on the right. Every language fits at the default window
+comes next in both views. **Multiplayer** and **Front-end**, in gold, stand apart in the middle of the bar. The
+**Knowledge** menu (a brain), Options, updates, credits and **Report a problem** stay on the right. Every language fits at the default window
 width. While games are being reconverted, the last two converter lines appear
 quietly under the progress bar.
 

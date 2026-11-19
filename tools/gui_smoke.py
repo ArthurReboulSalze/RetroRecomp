@@ -406,9 +406,15 @@ def smoke(window):
     assert picker.get() == application.tr('options_ng')
     assert [frame.winfo_manager() for _, _, frame in application.options_console_pages].count('pack') == 1
     assert application.options_console_pages[neo_geo][2].winfo_manager() == 'pack'
-    # Beside the machine list, the search that fills every machine's firmware paths from one folder (its dialog is not opened here).
+    # The search that fills every machine's firmware paths from one folder lives in Common, in its own section (its dialog
+    # is not opened here), and no longer beside the machine list.
     assert application.firmware_search_button.cget('text') == application.tr('firmware_search')
     assert application.firmware_search_button.winfo_manager() == 'pack'
+    assert application.firmware_search_button.master is application.firmware_frame
+    assert application.firmware_frame.cget('text') == application.tr('options_firmware')
+    assert application.firmware_explain.cget('text') == application.tr('firmware_search_explain')
+    assert sum(1 for w in descendants(application.options_panel) if w.winfo_class() == 'TButton'
+               and w.cget('text') == application.tr('firmware_search')) == 1
     assert application.account_status.get() == application.tr('account_coming')
     assert not application.account_sync.winfo_manager() and not application.account_rewards.winfo_manager()
     # Signed in: the balance, the title, the site's titles and the two shared-base options.
@@ -562,12 +568,24 @@ def smoke(window):
     assert toolbar_slaves()[0] is application.compiled_button
     assert application.compiled_button.cget('text') == application.tr('conversion_queue')
     assert application.compiled_button.cget('width') == switch_width
+    # Play game of the collection: a picture only, gold, its name kept as text, like the queue's.
+    play = application.compiled_view.play_button
+    assert str(play.cget('compound')) == 'image' and play.cget('text') == application.tr('play')
+    assert str(play.cget('style')) == 'Hero.Toolbar.Primary.TButton' and str(application.compiled_button.cget('compound')) == 'image'
     assert application.collection_actions.winfo_manager() and not application.queue_actions.winfo_manager()
     assert application.knowledge_button in toolbar_slaves()
-    slaves = toolbar_slaves()
-    assert application.front_end_button in slaves
+    # Front-end and Multiplayer stand apart in the middle of the bar, in their own frame, left of the rarely used ones.
+    assert application.toolbar_centre in toolbar_slaves()
+    assert application.front_end_button.master is application.multiplayer_button.master is application.toolbar_centre
     window.update_idletasks()
-    assert application.front_end_button.winfo_x() < application.knowledge_button.winfo_x()
+    left, middle, right = (button.winfo_rootx() for button in (application.multiplayer_button,
+                                                               application.front_end_button, application.knowledge_button))
+    assert left < middle < right
+    assert application.collection_actions.winfo_rootx() < left
+    # The buttons that became pictures keep their text for the screen reader, and their hints.
+    for button in (application.options_button, application.knowledge_button, application.front_end_button,
+                   application.report_button, application.multiplayer_button, *application.new_paths_buttons):
+        assert str(button.cget('compound')) == 'image', button
     application.compiled_view.show_log('first line\nsecond line\nthird line ' + 'x' * 200)
     assert application.compiled_view.log_text.get().splitlines()[0] == 'second line'
     assert len(application.compiled_view.log_text.get().splitlines()[1]) == 150
@@ -722,8 +740,9 @@ def smoke(window):
             assert timing.get() == application.level_estimate_text(console) and reference in timing.get(), (language, console)
         common_page = open_notebook.nametowidget(open_notebook.tabs()[0])
         frames = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TLabelframe'}
-        assert {application.tr('options_account'), application.tr('options_boxart'),
+        assert {application.tr('options_firmware'), application.tr('options_account'), application.tr('options_boxart'),
                 application.tr('options_disk_space')} <= frames, frames
+        assert application.firmware_explain.cget('text') == application.tr('firmware_search_explain'), language
         # « Box art not found »: on by default, its checkbox in the Box art section, in every language.
         boxes = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TCheckbutton'}
         assert application.ask_missing_cover.get() is True and application.tr('cover_ask_option') in boxes, language
@@ -737,11 +756,31 @@ def smoke(window):
         assert application.start_front_end.get() is False and second.instate(['disabled']), language
         # Every text button keeps its hover hint in every language (keys given, not looked up by text).
         hints = {id(hint.widget): hint.text() for hint in application.tooltips}
-        for widget, key in ((application.add_roms_button, 'tip_add_roms'), (application.credits_button, 'tip_credits'),
-                            (application.update_button, 'tip_check_updates'), (application.options_button, 'tip_options'),
-                            (application.cover_button, 'tip_choose_cover'), (application.auto_cover_button, 'tip_auto_cover'),
-                            (application.knowledge_button, 'tip_knowledge')):
+        for widget, key in ((application.credits_button, 'tip_credits'), (application.update_button, 'tip_check_updates')):
             assert hints.get(id(widget)) and hints[id(widget)] == application.tr(key), (language, key)
+        # The buttons that show only their picture start their hint with their name.
+        for widget, name, key in ((application.options_button, 'options', 'tip_options'),
+                                  (application.knowledge_button, 'knowledge', 'tip_knowledge'),
+                                  (application.front_end_button, 'front_end', 'tip_front_end'),
+                                  (application.multiplayer_button, 'mp_title', 'tip_multiplayer'),
+                                  (application.report_button, 'report_title', 'tip_report_problem'),
+                                  (application.add_roms_button, 'add_roms', 'tip_add_roms'),
+                                  (application.cover_button, 'choose_cover', 'tip_choose_cover'),
+                                  (application.auto_cover_button, 'auto_cover', 'tip_auto_cover'),
+                                  (application.play_button, 'play', 'tip_play'),
+                                  (application.memory_button, 'memory', 'tip_memory'),
+                                  (application.start_button, 'start', 'tip_start'),
+                                  (application.selected_button, 'start_selected', 'tip_start_selected'),
+                                  (application.stop_button, 'stop', 'tip_stop'),
+                                  (application.retry_button, 'retry', 'tip_retry'),
+                                  (application.video_label, 'video_timing', 'tip_video_timing'),
+                                  (application.compiled_button, 'compiled_games', 'tip_compiled_games')):
+            assert hints.get(id(widget)) == application.tr(name).rstrip('…') + '\n' + application.tr(key), (language, key)
+            assert widget.cget('text').removesuffix(' ▾') == application.tr(name), (language, name, widget.cget('text'))     # the accessible name follows the language
+            assert str(widget.cget('compound')) == 'image', (language, name)
+        new_paths = application.new_paths_buttons[0]
+        assert hints[id(new_paths)] == application.tr('recompile_new_paths', count=application.new_paths_count) + '\n' \
+            + application.tr('tip_recompile_new_paths'), language
         window.update_idletasks()
         assert (application.frames.get(), application.passes.get()) == initial_tuning
     application.close_options()

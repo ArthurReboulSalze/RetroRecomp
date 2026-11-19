@@ -59,6 +59,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_covers',
                                # Front-end: the compiled games as a wall of box art (another view of Compiled Games).
                                'gui_front_end', 'front_end', 'front_end_view',
+                               # The toolbar's and the queue's own pictures (polylines registered in ICON_PATHS).
+                               'gui_icons',
                                # Multiplayer: host or join a room, local or Internet (the lobby of retrorecomp/netplay); its
                                # rounded cards and round button (rounded_ui, Pillow pictures, proposal A of 19 Nov 2026).
                                'gui_multiplayer', 'multiplayer_view', 'rounded_ui',

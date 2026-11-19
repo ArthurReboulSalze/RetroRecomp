@@ -80,8 +80,10 @@ class CompiledGamesView(ttk.Frame):
         # The collection's actions share the main toolbar, right after the
         # queue/collection switch, instead of a second row of buttons.
         bar = owner.collection_actions
-        self.play_button = ttk.Button(bar,text=self.tr('play'),command=self.play,style='Toolbar.Primary.TButton')
-        owner.decorate_button(self.play_button,'play',True)
+        # A picture only (a big hollow play triangle, gui_icons.HERO_PLAY, dark on gold), named by its hint; the text
+        # stays on the button.
+        from .gui_icons import HERO_PLAY
+        self.play_button = owner.icon_button(bar,'play','tip_play',self.play,HERO_PLAY,managed=False,hero=True)
         self.play_button.pack(side='left')
         # Pictures only, named by their hints; the view enables them itself.
         self.scan_button = owner.icon_button(bar,'scan_games','tip_scan_games',self.scan,'refresh',managed=False)
