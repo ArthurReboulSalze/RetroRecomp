@@ -526,8 +526,9 @@ again anyway).
 On the multiplayer branch (`spec/psx-mp-digest`). The PlayStation's adapter gives the host kit a **digest** (`rr_psx_digest`:
 CPU and GTE, RAM, scratchpad, sound RAM and the memory card in a fixed little-endian order, no VRAM), `side_effects` (a guest
 records no runtime hint), `session_save` and `session_save_put` (session ABI 8: the host's memory card travels to every seat
-before the boot digest; a guest never writes its own card file, the host goes on saving to its own; a restart carries the card as
-it is), `session_begin` and `session_option` with four keys the host sets for everyone: `pgxp`, `pgxp_texture`, `cpu_resolution`
+before the boot digest; no seat writes a card file during the match; at a clean end the host's card is written back to its own
+file through `session_save_commit`, atomically, the old file kept as `<card>.bak`; a restart carries the card as it is),
+`session_begin` and `session_option` with four keys the host sets for everyone: `pgxp`, `pgxp_texture`, `cpu_resolution`
 and, with PGXP On, `renderer`; their F3 rows are refused during a match. `rr_psx_session_values` (`session_options`, session ABI 6) gives the host's own values.
 The profile answers a session (`netplay_session`); the sticks travel with the pads (session ABI 7). Alone, nothing changes: every
 new path is reached only in a match (or by the headless `--match` and `--digests` of the evidence). What moves: the

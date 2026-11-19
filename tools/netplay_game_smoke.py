@@ -46,6 +46,16 @@ HIDDEN = {'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy', 'SDL_RENDER_VS
 NAMES = ('Arthur', 'Nadia', 'Helene', 'Karl')
 
 
+def route_events(path: Path) -> list:
+    """The rows of a route file ("frame p1 p2 ...", hex words held from that frame; # comments) as [frame, p1, p2, ...]."""
+    rows = []
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.split('#', 1)[0].split()
+        if line:
+            rows.append([int(line[0])] + [int(word, 16) for word in line[1:]])
+    return rows
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('game', type=Path)
@@ -72,6 +82,8 @@ def main() -> int:
                         'separated by ;), as a room pushes the host game\'s')
     parser.add_argument('--load-at', type=int, default=0, help='and loads it back in its LOCAL of this frame')
     parser.add_argument('--digest-every', type=int, default=60)
+    parser.add_argument('--route', type=Path, help='a recorded route ("frame p1 p2" lines of hex pad words, # comments): the host '
+                        'plays p1, the first guest p2, instead of random words (a game brought to a screen, a save)')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--limit', type=float, default=0.0, help='seconds before the games are ended (default: from --frames)')
     parser.add_argument('--output', type=Path, default=ROOT / '.build/netplay-game-smoke')
@@ -96,6 +108,8 @@ def main() -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(args.host_save, target)
         script = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': args.sticks}
+        if args.route:   # every seat plays its column of a recorded route instead of random words
+            script = {'kind': 'route', 'seat': seat, 'events': route_events(args.route)}
         if seat == 0 and args.restart_at:
             script['system_at'] = {str(args.restart_at): seat_map.SYS_RESTART}     # rides its record of F + delay
         if seat == 0 and (args.save_at or args.load_at):

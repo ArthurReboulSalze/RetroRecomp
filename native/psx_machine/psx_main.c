@@ -161,6 +161,7 @@ static uint64_t card_hash;
 static uint8_t *host_card;   /* the match's card (session ABI 8), in memory: the host's, then the card as a reset found it */
 static size_t host_card_size;
 static int matched;          /* a multiplayer game: its card is the match's, never this PC's file again */
+#define RR_PSX_CARD_LIMIT (128u * 1024u)   /* a card file's size; a backup keeps up to four times it, whatever the file holds */
 static int card_option;     /* --card: a headless run reads and writes this card file as the window does its own (evidence) */
 static unsigned card_notice; /* 0 nothing to say; 1 an unusable card file was set aside; 2 it could not be, saving is off */
 unsigned rr_psx_card_notice(void) { return card_notice; }
@@ -209,6 +210,7 @@ static uint64_t fnv(const void *data, size_t size, uint64_t h) {
  * is moved aside whole to "<card>.unusable-N" and the game starts with the core's empty card; when it cannot be moved, it stays
  * untouched and nothing is saved this session. A card of the right size with damaged contents is the console's own case: the
  * BIOS or the game says so and offers to format it. */
+static int card_write(const uint8_t *card, size_t size);
 static void card_sync(int load) {
     size_t size = 0;
     uint8_t *card = rr_psx_card(session, &size);
@@ -235,10 +237,26 @@ static void card_sync(int load) {
         card_hash = fnv(card, size, FNV_BASIS);
         return;
     }
-    if (matched && !effects_allowed) return;   /* a guest, or a frame run again: the card file is never written */
+    if (matched && !effects_allowed) return;   /* a match: no seat writes until the host's commit at its clean end */
     uint64_t h = fnv(card, size, FNV_BASIS);
     if (h == card_hash) return;
-    wchar_t temporary[4100], folder[4096];
+    if (card_write(card, size)) card_hash = h;
+}
+
+/* Bytes into a file whole: a temporary file beside it, then a rename over it (an interrupted write leaves the old file). */
+static int file_replace(const wchar_t *path, const uint8_t *data, size_t size) {
+    wchar_t temporary[4100];
+    swprintf(temporary, 4100, L"%ls.tmp", path);
+    FILE *f = rr_fopen(temporary, L"wb");
+    if (!f) return 0;
+    int ok = fwrite(data, 1, size, f) == size;
+    ok = (fclose(f) == 0) && ok;
+    return ok && rr_replace(temporary, path);
+}
+
+/* The card into its file (datas/ and datas/saves/ beside the game, created on the first write). */
+static int card_write(const uint8_t *card, size_t size) {
+    wchar_t folder[4096];
     /* datas/ and datas/saves/ beside the game, created on the first write. */
     wcsncpy(folder, card_path, 4095);
     folder[4095] = 0;
@@ -256,12 +274,7 @@ static void card_sync(int load) {
         if (back > slash) slash = back;
         if (slash) { *slash = 0; rr_mkdir(folder); }
     }
-    swprintf(temporary, 4100, L"%ls.tmp", card_path);
-    FILE *f = rr_fopen(temporary, L"wb");
-    if (!f) return;
-    int ok = fwrite(card, 1, size, f) == size;
-    ok = (fclose(f) == 0) && ok;
-    if (ok && rr_replace(temporary, card_path)) card_hash = h;
+    return file_replace(card_path, card, size);
 }
 
 /* One frame with the pads of the script or of the window; 0 when the machine stopped. */
@@ -377,6 +390,29 @@ static void keep_match_card(void) {
     if (matched && card && host_card && size == host_card_size) memcpy(host_card, card, size);
 }
 void rr_psx_host_match(void) { matched = 1; match_card(); }
+/* The host's card written back once when the match ends cleanly (RrhkMachine.session_save_commit; the owner, 19 November 2026:
+ * « Oui, réécris la carte de l'hôte à la fin »): the card in memory, with the progress made together, into the host's own card
+ * file, atomically; the file it replaces is kept as `<card>.bak` (one step). 1 written. */
+int rr_psx_host_card_commit(void) {
+    size_t size = 0;
+    const uint8_t *card = rr_psx_card(session, &size);
+    if (!card || !size || !card_path[0]) return 0;
+    wchar_t backup[4100];
+    swprintf(backup, 4100, L"%ls.bak", card_path);
+    FILE *old = rr_fopen(card_path, L"rb");
+    if (old) {
+        uint8_t *bytes = (uint8_t *)malloc(4u * RR_PSX_CARD_LIMIT);
+        const size_t got = bytes ? fread(bytes, 1, 4u * RR_PSX_CARD_LIMIT, old) : 0;
+        const int whole = bytes && !ferror(old) && feof(old);
+        fclose(old);
+        const int kept = whole && file_replace(backup, bytes, got);
+        free(bytes);
+        if (!kept) return 0;   /* no backup, no write: the old file stays as it is */
+    }
+    if (!card_write(card, size)) return 0;
+    card_hash = fnv(card, size, FNV_BASIS);
+    return 1;
+}
 void rr_psx_host_effects(int allowed) { effects_allowed = allowed != 0; }
 uint64_t rr_psx_host_digest(void) { return session ? rr_psx_digest(session) : 0; }
 

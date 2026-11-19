@@ -308,9 +308,12 @@ DualShock's own 8-bit precision), and the profile answers a session (`netplay_se
 
 **What a match makes the same on every seat.**
 - **The memory card: the host's.** The host's card travels to every seat before the boot digest (session ABI 8, `session_save` and
-  `session_save_put`): a guest plays on it in memory and never writes its own card file; the host goes on saving to its own file,
-  as alone. No seat reads its card file again during the match; the host's restart carries the card as it is at that frame, the
-  same on every seat, into the machine started again.
+  `session_save_put`): every seat plays on it in memory, and no seat writes a card file during the match, the host included. When
+  the match ends cleanly, the host's card, with what was saved together, is written back to the host's own card file
+  (`session_save_commit`; the owner, 19 November 2026: « Oui, réécris la carte de l'hôte à la fin »), atomically, the file it
+  replaces kept as `<card>.bak`; never after a desync, a refused boot or a lost connection, and never a guest's. No seat reads its
+  card file again during the match; the host's restart carries the card as it is at that frame, the same on every seat, into the
+  machine started again.
 - **The host's settings that change the run**, sent before frame 0 and refused in F3 during the match (« Set by the host in
   multiplayer »): `pgxp` and `pgxp_texture` (the owner, 17 November 2026: PGXP is not turned off, the host sets it for everyone);
   `cpu_resolution` (1, 2 or 4: the CPU renderer's internal resolution changes the emulated drawing time; the host sends 1 when its
@@ -334,6 +337,10 @@ DualShock's own 8-bit precision), and the profile answers a session (`netplay_se
 - The host's card through the session (19 November 2026, Gran Turismo 2 with the owner's own card, which holds his save; delay 2,
   3,000 frames, the host's restart at frame 600): PASS, both seats boot on the same digest, which differs from the boot without a
   card; only the host's folder holds a card file, and the owner's card is unchanged (its hash before and after).
+- The write-back (19 November 2026, WipEout 2097, the save route of gate G7 played by the host through the session: OPTIONS,
+  LOAD AND SAVE, SAVE; delay 2, 5,400 frames, the owner's empty formatted card as the host's): PASS, the host's card file after
+  the match equals the card a solo run of the same route writes, its `.bak` equals the card it started from, the guest's folder
+  holds no card file, and the owner's card is unchanged.
 - Windows against Linux: Ape Escape converted in WSL Debian with GCC and played as a match on the CPU renderer gives the same 56
   digests as the Windows build (llvm-mingw), with PGXP On and with PGXP Off (PGXP's floating-point arithmetic included).
 - Two copies through the session (`tools/netplay_game_smoke.py`, delay 2, 3,000 frames, scripted pads, the host's values on
