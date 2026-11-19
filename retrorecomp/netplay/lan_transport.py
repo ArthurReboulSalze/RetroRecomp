@@ -124,6 +124,10 @@ class _Stream:
         self.closing_since = now
         self.closed = False
         self.overflow = False                    # closed because too many bytes waited: the peer did not read
+        # What may wait unsent before the peer counts as not reading: PENDING_LIMIT, raised by the size of the host's own
+        # save while it is queued for this peer (a far peer drains a 128 KiB card or a 290 KiB N64 save in seconds, not
+        # at once: the security review of the Internet room, 19 Nov 2026), and back once nothing waits.
+        self.limit = PENDING_LIMIT
         self.writer: control.FrameWriter | None = None
         self.reader: control.FrameReader | None = None
         self.bucket = TokenBucket(FRAME_RATE, FRAME_BURST, now)
@@ -145,7 +149,7 @@ class _Stream:
                     return False
                 data = data[sent:]
             self.pending += data
-            if len(self.pending) > PENDING_LIMIT:
+            if len(self.pending) > self.limit:
                 self.pending.clear()
                 self.closed = self.overflow = True
                 return False
@@ -162,6 +166,8 @@ class _Stream:
                     self.closed = True
                     return False
                 del self.pending[:sent]
+            if not self.pending:
+                self.limit = PENDING_LIMIT
             return not self.closed
 
     def send(self, message) -> bool:
@@ -351,7 +357,13 @@ class RoomHost:
                 elif key.data == 'datagram':
                     self._receive_datagrams(now)
                 else:
-                    self._readable(key.data, now)
+                    # What one peer's bytes cause ends that peer, never the room (the security review of the Internet
+                    # room, 19 Nov 2026: a guest's message that broke a later step stopped the whole loop).
+                    try:
+                        self._readable(key.data, now)
+                    except Exception as error:
+                        self.log.note(f'{key.data.ip}: closed after {type(error).__name__}')
+                        self._close(key.data, f'an error: {type(error).__name__}')
             self._timers(now)
         self._write_counts()
         self._flush()
@@ -615,6 +627,8 @@ class RoomHost:
                 match.senders[seat] = datagram.Sender(keys[seat][1], match_id, 0)
                 # The host's save first (lobby version 4): every seat plays on it, in memory, for this match.
                 data = save or b''
+                with peer.lock:          # the save's frames (each one: 3 bytes of head, the tag, the offset) may wait whole
+                    peer.limit = PENDING_LIMIT + len(data) + (len(data) // control.SAVE_CHUNK + 2) * 64
                 peer.send(control.SaveHead(len(data), hashlib.sha256(data).digest()))
                 for offset in range(0, len(data), control.SAVE_CHUNK):
                     peer.send(control.SaveData(offset, data[offset:offset + control.SAVE_CHUNK]))
