@@ -109,8 +109,22 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) || [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-next-release) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-next-release) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Commodore Amiga 500 and 1200: multiplayer on the rollback tier](#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, the new `retrorecomp.amiga_vamiga_session`, `retrorecomp.amiga_conversion`, `systems/amiga.py`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h` and the adapted vAmiga): an older quick state is refused cleanly; the file's layout is unchanged |
+| [Commodore Amiga 500 and 1200: the F1 help says how two players play](#commodore-amiga-500-and-1200-the-f1-help-says-how-two-players-play-next-release) | none | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | unchanged |
 | [Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end](#commodore-amiga-500-and-1200-the-host-writes-its-saves-back-at-a-matchs-clean-end-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_savefile.h`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h`): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: an Imploder block whose checksum differs](#commodore-amiga-500-and-1200-an-imploder-block-whose-checksum-differs-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`native/amiga_whdload/rr_decrunch.c`) | none | unchanged (the quick-state key does not hash the unpacker) |
+
+## Commodore Amiga 500 and 1200: the F1 help says how two players play (next release)
+
+Arthur did not find Alien Breed 2 (AGA)'s two-player mode (19 November 2026). An Amiga game chooses one or two players in its own menu
+(Alien Breed 2: "Number Of Players" on its title screen, 1 by default), and its player 2 holds the joystick of port 1, where the mouse
+usually is, which player 2's pad drives (alone, the « Mouse port » row on player 2's pad page, Auto by default; in a session, port 1 is
+the joystick on every seat). The F1 help's second line under the keys now says so, in the five game languages (« 2 joueurs : menu du
+jeu | manette 2 : port souris »), in place of the computers' Ctrl+Alt+K line: the panel holds two lines there (a third ran past its
+edge in an offscreen capture), and Ctrl+Alt+K stays on the second page (Tab) as "full guest keyboard". `rrhk_amiga.inc` only
+(`a_help_controls`; its five-language texts share one `a_language`); the Atari ST keeps the computers' two lines. Checked by an
+offscreen capture of the help page of a converted game in the five languages: the line ends inside the panel.
+
+**Stamps** (against `spec/multiplayer` `e83119c8`): the Amiga 500 and Amiga 1200 host stamps; no game stamp, quick states unchanged.
 
 ## Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end (next release)
 
