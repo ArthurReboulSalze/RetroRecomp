@@ -396,15 +396,23 @@ static void chat_draw_lines(SDL_Renderer *ren, int ox, int oy, int unit, int top
     chat.count = kept;
 }
 
+/* The turn badge (1.8.1): in a match in turns, always there for every seat (the options row « Turn badge » hides it), from who
+ * holds the controls now (rrhk_session_holder); bright for two seconds after a change (the TURN notices), gold for this seat. */
+static int chat_turn_shown(void) {
+    const int holder = rrhk_session_holder();
+    if (holder < 0 || !rrhk_turn_badge()) return 0;
+    return holder == rrhk_session_seat() ? 2 : 1;
+}
 static void chat_draw_turn(SDL_Renderer *ren, int ox, int oy, int unit, Uint64 now) {
     char text[64];
-    if (chat.turn == 2) snprintf(text, sizeof text, "%s", rr_tr("Your turn"));
-    else snprintf(text, sizeof text, rr_tr("Turn: %s"), chat.turn_name);
+    const int turn = chat_turn_shown();
+    if (turn == 2) snprintf(text, sizeof text, "%s", rr_tr("Your turn"));
+    else snprintf(text, sizeof text, rr_tr("Turn: %s"), rrhk_session_seat_name(rrhk_session_holder()));
     const bool bright = now < chat.turn_bright_until;
     int width = rr_menu_text_width(text); if (width > 200) width = 200;
     const int x = 250 - width - 10;
     chat_plate_box(ren, ox, oy, unit, x, 3, width + 10, 15, bright ? 235 : 150, 1.0);
-    if (bright || chat.turn == 2) rr_menu_text_plain(ren, ox, oy, unit, x + 5, 6, width, text, RR_MENU_ACCENT);
+    if (bright || turn == 2) rr_menu_text_plain(ren, ox, oy, unit, x + 5, 6, width, text, RR_MENU_ACCENT);
     else rr_menu_text_plain(ren, ox, oy, unit, x + 5, 6, width, text, RR_MENU_HINT);
 }
 
@@ -466,14 +474,15 @@ void rrhk_chat_draw(SDL_Renderer *ren) {
     if (!rrhk_session_on) return;
     const Uint64 now = SDL_GetTicks64(), elapsed = chat.tick ? now - chat.tick : 0;
     chat.tick = now;
-    if (rrhk.menu || (!chat.count && !chat.turn && !chat.open)) return;   /* a menu covers the screen: the lines wait */
+    const int turn = chat_turn_shown();
+    if (rrhk.menu || (!chat.count && !turn && !chat.open)) return;   /* a menu covers the screen: the lines wait */
     int ox, oy, unit;
     rr_menu_layout(ren, &ox, &oy, &unit);
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
-    if (chat.turn) chat_draw_turn(ren, ox, oy, unit, now);
+    if (turn) chat_draw_turn(ren, ox, oy, unit, now);
     /* the lines end above the on-screen keyboard (77), the entry's key hints (155) or the shell's notices */
     const int bottom = !chat.open ? 160 : chat.grid ? 75 : 153;
-    if (chat.count) chat_draw_lines(ren, ox, oy, unit, chat.turn ? 21 : 3, bottom, elapsed);
+    if (chat.count) chat_draw_lines(ren, ox, oy, unit, turn ? 21 : 3, bottom, elapsed);
     if (chat.open) {
         if (chat.grid) chat_draw_grid(ren, ox, oy, unit);
         chat_draw_entry(ren, ox, oy, unit, now);

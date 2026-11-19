@@ -560,6 +560,35 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.feed(view, self.roster([dict(host, in_match=True)], phase='launching'))
         self.assertEqual(view.banner.cget('text'), tr('mp_match_running', 'fr'))   # it starts again at once
 
+    def test_turns_say_who_holds_the_controller_and_the_host_gives_it_or_switches(self):
+        # session ABI 9 (38f53024): the holder comes from the worker's status, the names from the launch
+        view = self.window()
+        view.show('host')
+        view.open_room()
+        controller = view.controller
+        given, modes = [], []
+        controller.pass_token = given.append
+        controller.set_share_mode = modes.append
+        controller.worker = SimpleNamespace(status={'sharing': 'turns', 'token': 1})
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': True, 'in_match': True, 'check': 'none'}
+        karl = {'seat': 1, 'guest': 1, 'name': 'Karl', 'ready': True, 'in_match': True, 'check': 'same'}
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611},
+                  {'event': 'lobby_launch', 'match_id': 1, 'seats': 2, 'names': ['Arthur', 'Karl'], 'sharing': 'turns'},
+                  self.roster([host, karl], phase='playing', sharing='turns'))
+        self.assertTrue(view.turn_row.winfo_manager())
+        self.assertEqual(view.turn_line.cget('text'), tr('mp_turn_holder', 'fr', name='Karl'))
+        buttons = [w for w in view.turn_actions.winfo_children() if isinstance(w, ttk.Button)]
+        self.assertEqual([b.cget('text') for b in buttons], ['P1 Arthur', tr('mp_turn_to_everyone', 'fr')])
+        buttons[0].invoke()
+        buttons[1].invoke()
+        from retrorecomp.netplay import seat_map
+        self.assertEqual((given, modes), ([0], [seat_map.SHARED_ALL]))
+        controller.worker.status = {'sharing': 'turns', 'token': 0}       # the pass came back: the host holds it
+        view.draw_turns()
+        self.assertEqual(view.turn_line.cget('text'), tr('mp_turn_you', 'fr'))
+        self.feed(view, self.roster([dict(host, in_match=False), dict(karl, in_match=False)]))   # back in the lobby
+        self.assertFalse(view.turn_row.winfo_manager())
+
     def test_a_firewall_that_blocks_guests_is_said_to_the_host_while_it_lasts(self):
         view = self.window()
         view.show('host')

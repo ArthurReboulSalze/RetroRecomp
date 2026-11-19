@@ -35,6 +35,7 @@ static SDL_Rect saved_window;
 static Uint64 start_until;
 static bool start_shown;
 static bool start_help = true;   /* [Interface] start_help: the player may turn the opening plates off (the options page) */
+static bool turn_badge = true;   /* [Interface] turn_badge: the plate naming who holds the controls in turns (multiplayer) */
 static bool quit_asked;          /* the Quit combination asked its question and is still held */
 
 static void remember_window(void) {
@@ -352,6 +353,7 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     if (m->gfx_option_count > 0) rrhk_gfx_start(r->test_frames != 0);
     quit_asked = false;
     start_help = rr_ini_int(L"Interface", L"start_help", 1, rrhk.read_file) != 0;
+    turn_badge = rr_ini_int(L"Interface", L"turn_badge", 1, rrhk.read_file) != 0;
     if (!r->test_frames && !start_shown) { start_shown = true; start_until = start_help ? SDL_GetTicks64() + 4500 : 0; }
     /* Multiplayer: only when the converter started this game in a session (hostkit_session.h); alone, nothing happens. */
     if (!rrhk_session_open(r)) { close_run(r); return false; }
@@ -368,6 +370,12 @@ static uint64_t now_ticks(void) { return SDL_GetPerformanceCounter(); }
  * Shown once per run of the program (a guest that restarts opens the shell again), never in a hidden-window test run, and
  * gone as soon as a menu opens. */
 
+bool rrhk_turn_badge(void) { return turn_badge; }
+void rrhk_toggle_turn_badge(void) {
+    turn_badge = !turn_badge;
+    if (!rrhk_write_ready() || !rr_ini_set(L"Interface", L"turn_badge", turn_badge ? L"1" : L"0", rrhk.ini_file))
+        snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
+}
 bool rrhk_start_help(void) { return start_help; }
 void rrhk_toggle_start_help(void) {
     start_help = !start_help;

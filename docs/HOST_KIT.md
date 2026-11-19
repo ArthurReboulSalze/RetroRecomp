@@ -626,6 +626,15 @@ X68000 too, without asking again**.
   the run asks **Change this option? The game restarts for everyone.** in the same question box as Quit, No selected; No, Esc
   or B drop the key, Yes gives it back once (`rrhk_relaunch_ask`), and a machine page that changes the run (DIP switches) asks
   once while it is open. The pace (` Max speed) stays refused in a session; a guest's run keys stay refused.
+
+* <a id="d33"></a>**D33 — Turns in the F2 tiles, and the turn badge** (owner's request of 20 November 2026, session ABI 9), in a
+  multiplayer match whose controls are shared. Before Restart and Quit the tiles add, when they apply: **Pass the controller**
+  (the seat that holds it, `rrhk_session_pass(-1)`), **Give the controller** (the host, in turns: a short list of the seats'
+  names, the holder marked, Enter gives, Esc comes back to the tiles; `RRHK_MENU_GIVE`) and **Everyone at once / Take turns**
+  (the host, the mode it switches to, `rrhk_session_set_sharing`); the change comes back from the worker on every seat. The
+  turn plate at the top right (« Turn: Nadia », gold « Your turn ») is there for every seat as long as the match is in turns,
+  from who holds the controls (`rrhk_session_holder`), bright for two seconds after a change; the options row **Turn badge**
+  (in a session, `[Interface] turn_badge`) hides it. No pad combination for the pass yet.
 * <a id="d33"></a>**D33 — The kit's sound ring is always regulated** (owner's yes of 19 November 2026, through the lead, after
   Tekken 3 crackled a little alone on his PC, more on the ThinkPad, and a lot together), for the six machines on the ring model
   (D5): **NES, Game Boy / Game Boy Color, PC Engine, Game Boy Advance, Nintendo 64, PlayStation**. Until then, D30's base of

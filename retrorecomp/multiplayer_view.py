@@ -496,6 +496,9 @@ class MultiplayerWindow:
             buttons[mode] = ttk.Radiobutton(parent, text=self.tr('mp_sharing_' + mode), value=mode, variable=variable,
                                             style='MpCard.TRadiobutton', command=command)
             buttons[mode].pack(anchor='w')
+            if mode != 'per_player':        # what Everyone and Turns mean, in one line each (Arthur, 20 Nov 2026)
+                self.label(parent, f'mp_sharing_{mode}_help', muted=True, size=8, bg=CARD, wrap=430).pack(
+                    anchor='w', padx=(22, 0))
         note = self.label(parent, 'mp_sharing_handheld', muted=True, size=9, bg=CARD, wrap=430)
         return buttons, note
 
@@ -831,7 +834,8 @@ class MultiplayerWindow:
         self.version, self.chat_seen, self.notices_seen, self.errors_seen = -1, 0, 0, 0
         self.refusals_seen = set()
         self.code_shown = False
-        self.drawn_game = self.seats_drawn = self.auto_readied = self.sharing_moved = None
+        self.drawn_game = self.seats_drawn = self.auto_readied = self.sharing_moved = self.turn_drawn = None
+        self.phase = 'lobby'
         self.lobby_console.set(self.console_choice.get())
         self.fill_games(self.lobby_game_box, self.lobby_game, self.system_of(self.console_choice),
                         self.chosen_entry(self.game_choice))
@@ -889,6 +893,7 @@ class MultiplayerWindow:
                     self.model_changed(model)
                 elif self.current == 'lobby' and model.link:
                     self.draw_link()            # the delay comes from the worker's status, not from an event
+                    self.draw_turns()           # so does who holds the controls in turns
                 elif self.role == 'guest' and model.room == 'connecting' and self.joined_at is not None:
                     if self.window.tk.call('clock', 'seconds') - self.joined_at > JOIN_WAIT_S:
                         self.room_failed('', 'unreachable')
@@ -967,6 +972,15 @@ class MultiplayerWindow:
         self.lobby_sharing_buttons, self.lobby_sharing_note = self.sharing_choice(
             choices, self.lobby_sharing, command=lambda: self.set_sharing(SHARINGS.index(self.lobby_sharing.get())))
         self.mode_line = line
+        # during a match with shared controls: who holds them (turns), the host's « Give to » and its Everyone / Turns switch
+        self.turn_slot = tk.Frame(card, bg=CARD)
+        self.turn_slot.pack(side='bottom', fill='x')
+        self.turn_row = tk.Frame(self.turn_slot, bg=CARD)
+        self.turn_line = self.label(self.turn_row, text='', size=10, bold=True, bg=CARD, colour=COLORS['gold_hover'])
+        self.turn_line.pack(anchor='w')
+        self.turn_actions = tk.Frame(self.turn_row, bg=CARD)
+        self.turn_actions.pack(anchor='w', fill='x', pady=(4, 0))
+        self.turn_drawn = None
 
     def build_players_card(self, parent):
         card = self.card(parent)
@@ -1252,6 +1266,7 @@ class MultiplayerWindow:
                                 'code': getattr(model, 'code', None), 'reach': getattr(model, 'reach', None),
                                 'invitation': model.invitation or self.invitation_text}
         host = self.role == 'host'
+        self.phase = phase
         self.seats_max = seats_max
         host_name = next((p.get('name', '') for p in players if p.get('seat', -1) == 0), '')
         self.room_line.configure(text=self.tr('mp_your_room') if host else self.tr('mp_room_joined', host=host_name))
@@ -1279,6 +1294,7 @@ class MultiplayerWindow:
             mode = self.tr('mp_mode_' + self.room_mode)
             self.guest_room.configure(text=f'{mode} · {where}' if where else mode)
         self.draw_link()
+        self.draw_turns()
         # the room's refusals (a launch that failed, a call refused): one line each in the chat
         self.chat_text.configure(state='normal')
         for error in errors[self.errors_seen:]:
@@ -1370,7 +1386,10 @@ class MultiplayerWindow:
                 self.sharing_moved = (game or {}).get('title')      # once per game: the room plays it shared anyway
                 self.set_sharing(SHARINGS.index('everyone'))
             self.mode_line.pack_forget()
-            self.mode_frame.pack(fill='x', pady=(8, 0))
+            if phase == 'lobby':
+                self.mode_frame.pack(fill='x', pady=(8, 0), before=self.turn_slot)
+            else:                   # in a match the turn row says it and switches it: the chat keeps its room
+                self.mode_frame.pack_forget()
         else:
             self.lobby_console_box.pack_forget()
             self.lobby_game_box.pack_forget()
@@ -1549,6 +1568,76 @@ class MultiplayerWindow:
     def refusal_text(self, key):
         """What to change when a game refused the host's option `key`: the Neo Geo's AES / MVS system has its own line."""
         return self.tr('mp_refused_system') if key == 'system' else self.tr('mp_refused_setting', setting=key)
+
+    def turn_state(self):
+        """(sharing, holder seat, names by seat) of the match in progress: the worker's status (who holds the controls changes
+        without a model change) and the names of the launch; None outside a match."""
+        controller = self.controller
+        if controller is None or getattr(self, 'phase', 'lobby') not in ('launching', 'playing'):
+            return None
+        status = getattr(getattr(controller, 'worker', None), 'status', None) or {}
+        with controller.model.lock:
+            launch = dict(getattr(controller.model, 'last_launch', None) or {})
+        names = [str(name) for name in (launch.get('names') or [])]
+        token = status.get('token')
+        return status.get('sharing') or launch.get('sharing'), token if isinstance(token, int) else None, names
+
+    def draw_turns(self):
+        """In a match with shared controls: « Holding the controller: Nadia » (or « Your turn ») in turns, and for the host one
+        button per other seat to give them, and the switch to Everyone at once / Take turns. Built again only when it changed."""
+        state = self.turn_state()
+        sharing, holder, names = state if state else (None, None, [])
+        host = self.role == 'host'
+        drawn = (sharing, holder, tuple(names), host)
+        if drawn == self.turn_drawn:
+            return
+        self.turn_drawn = drawn
+        for child in self.turn_actions.winfo_children():
+            child.destroy()
+        if sharing not in ('everyone', 'turns'):
+            self.turn_row.pack_forget()
+            return
+        self.turn_row.pack(fill='x', pady=(8, 0))
+        mine = self.my_seat()
+        if sharing == 'turns' and holder is not None and 0 <= holder < len(names):
+            self.turn_line.configure(text=self.tr('mp_turn_you') if holder == mine else
+                                     self.tr('mp_turn_holder', name=names[holder]))
+        else:
+            self.turn_line.configure(text=self.tr('mp_sharing_everyone'))
+        if not host:
+            return
+        if sharing == 'turns':
+            self.label(self.turn_actions, 'mp_turn_give', muted=True, size=9, bg=CARD).pack(side='left', padx=(0, 6))
+            for seat, name in enumerate(names):
+                if seat == holder:
+                    continue
+                ttk.Button(self.turn_actions, text=f'P{seat + 1} {name}', style='MpSoft.TButton',
+                           command=lambda to=seat: self.give_turn(to)).pack(side='left', padx=(0, 4))
+        switch = 'everyone' if sharing == 'turns' else 'turns'
+        ttk.Button(self.turn_actions, text=self.tr('mp_turn_to_' + switch), style='MpSoft.TButton',
+                   command=lambda: self.set_share(switch)).pack(side='right')
+
+    def my_seat(self):
+        """This PC's seat in the match: the host's 0, a guest's from the roster."""
+        if self.role == 'host':
+            return 0
+        controller = self.controller
+        if controller is None:
+            return None
+        with controller.model.lock:
+            me, players = controller.model.me, list(controller.model.players)
+        return next((p.get('seat') for p in players if p.get('guest') == me), None)
+
+    def give_turn(self, seat):
+        hook = getattr(self.controller, 'pass_token', None)
+        if hook is not None:
+            hook(seat)
+
+    def set_share(self, mode):
+        from .netplay import seat_map
+        hook = getattr(self.controller, 'set_share_mode', None)
+        if hook is not None:
+            hook(seat_map.SHARED_TURNS if mode == 'turns' else seat_map.SHARED_ALL)
 
     def draw_link(self):
         """« Link: … » from the controller: the tier and cap of the launch, the delay the match applies (None until the
