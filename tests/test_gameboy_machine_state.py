@@ -99,5 +99,42 @@ class SessionAdapterTextTests(unittest.TestCase):
         self.assertTrue(profile.netplay_shared_only)
 
 
+class SessionSaveTextTests(unittest.TestCase):
+    """The host's cartridge RAM travels to every seat (session ABI 8): rrhk_gb.inc."""
+    ADAPTER = (ASSETS / 'native/hostkit/adapters/rrhk_gb.inc').read_text(encoding='utf-8')
+
+    def test_the_machine_announces_the_save_pair(self):
+        self.assertIn('session_save = rr_gb_session_save', self.ADAPTER)
+        self.assertIn('session_save_put = rr_gb_session_save_put', self.ADAPTER)
+
+    def test_the_host_save_is_read_from_its_file_because_the_kit_asks_before_the_game_has_loaded(self):
+        body = self.ADAPTER[self.ADAPTER.index('static size_t rr_gb_session_save('):self.ADAPTER.index('static bool rr_gb_session_save_put(')]
+        self.assertIn('g_persistence_dir', body)
+        self.assertIn('".sav"', body)
+        self.assertNotIn('g_registered_ctx', body)         # the context has no cartridge RAM yet at that moment
+        for size in ('512', '2048', '8192', '32768', '65536', '131072'):
+            self.assertIn(size, self.ADAPTER[self.ADAPTER.index('static bool rr_gb_save_size_valid('):self.ADAPTER.index('static size_t rr_gb_session_save(')])
+
+    def test_every_seat_starts_again_from_the_state_the_game_began_in(self):
+        begin = self.ADAPTER[self.ADAPTER.index('static void rr_gb_session_begin('):self.ADAPTER.index('static void rr_gb_side_effects(')]
+        self.assertLess(begin.index('g_rr_pristine'), begin.index('g_rr_session_image'))        # the power-on first, then the match's save
+        self.assertLess(begin.index('g_rr_session_image'), begin.index('rtc_unix_time_override_enabled'))   # then the clock
+        self.assertIn('memset(ctx->eram, 0, ctx->eram_size)', begin)                               # no save: every seat blank
+        wait = self.ADAPTER[self.ADAPTER.index('bool gb_platform_wait_while_menu('):]
+        self.assertIn('rrhk_session_active()', wait)
+        self.assertIn('rr_gb_snap_save_adapter(g_rr_pristine.data()', wait)
+
+
+    def test_the_host_writes_its_save_back_once_at_a_clean_end_with_a_backup_and_an_atomic_transaction(self):
+        self.assertIn('session_save_commit = rr_gb_session_save_commit', self.ADAPTER)
+        body = self.ADAPTER[self.ADAPTER.index('static bool rr_gb_session_save_commit('):self.ADAPTER.index('/* What a frame may do outside the machine:')]
+        self.assertLess(body.index('".bak"'), body.index('write_persistence_transaction(file'))     # the previous file is kept first
+        self.assertIn('copy_options::overwrite_existing', body)
+        self.assertIn('return false; }', body[body.index('.bak'):])                              # no backup, no write
+        self.assertIn('g_rr_effects = true', body)                                                 # the one write the gate lets through
+        self.assertIn('g_rr_effects = before', body)
+        self.assertNotIn('rtc', body.lower())                                                      # the clock stays the session's
+
+
 if __name__ == '__main__':
     unittest.main()
