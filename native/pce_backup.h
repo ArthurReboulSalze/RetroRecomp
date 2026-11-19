@@ -13,6 +13,9 @@ bool rr_pce_backup_path(wchar_t *path, size_t capacity);
 void rr_pce_backup_open(const wchar_t *path);
 /* Writes the memory when it has been quiet for two seconds, or at once with force. False: this write failed (retried later). */
 bool rr_pce_backup_flush(uint64_t now_ms, bool force);
+/* The host of a multiplayer match, once, when it ends cleanly: the memory as it is now is written to the game's file atomically, the file that was there
+ * kept as "<file>.bak" (RrhkMachine.session_save_commit). False: no file is open, or a step failed. */
+bool rr_pce_backup_commit(void);
 /* 0 nothing to say; 1 an unusable file was set aside and the game started formatted; 2 it could not be, saving is off. */
 unsigned rr_pce_backup_notice(void);
 #endif

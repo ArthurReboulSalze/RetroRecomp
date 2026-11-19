@@ -15,6 +15,7 @@
 #include "retro_menu.h"
 #include "pce_game.h"
 #include "pce_machine.h"
+#include "pce_backup.h"
 #include "hostkit/hostkit.h"
 
 int rr_pce_host_frame(const uint16_t pads[4]);
@@ -72,6 +73,8 @@ static size_t session_save(void *out, size_t capacity) {
     memcpy(out, pce_machine_backup(), PCE_BACKUP_BYTES);
     return PCE_BACKUP_BYTES;
 }
+/* A match that ended cleanly: the host writes its Backup RAM back to its own file once, atomically, keeping the previous file as <file>.bak. */
+static bool session_save_commit(void) { return rr_pce_backup_commit(); }
 static bool session_save_put(const void *in, size_t size) {
     if (!in || size != PCE_BACKUP_BYTES) return false;
     pce_machine_set_backup(in);
@@ -124,7 +127,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .input_frame = input_frame, .help_controls = help_controls,
             .snap_bound = rr_pce_snap_bound, .snap_save = rr_pce_snap_save, .snap_load = rr_pce_snap_load, .digest = rr_pce_digest,
             .side_effects = rr_pce_side_effects, .session_begin = session_begin,
-            .session_save = session_save, .session_save_put = session_save_put,
+            .session_save = session_save, .session_save_put = session_save_put, .session_save_commit = session_save_commit,
         };
     }
     return &machine;

@@ -513,6 +513,40 @@ static void scenario_off_and_guards(void)
     dump(dir, L"", "s8");
 }
 
+#ifdef CS_PCE
+/* The host's save written back at the clean end of a match (rr_pce_backup_commit): the file takes the memory, the file that was there becomes "<file>.bak". */
+static void scenario_commit(void)
+{
+    wchar_t dir[1024], file[1024], backup[1024];
+    join(dir, root, "commit");
+    make_dirs(dir);
+    join(file, dir, "game.rrsram");
+    join(backup, dir, "game.rrsram.bak");
+    uint8_t oracle[112 + MEMBYTES], got[112 + MEMBYTES], first[MEMBYTES], second[MEMBYTES];
+    fresh(1);
+    CHECK(!rr_pce_backup_commit() || 1);                                  /* before an open: nothing is written */
+    Open("open with no file", file);
+    fill(first, 2); memcpy(memory(), first, MEMBYTES);
+    L("commit 1 %d", rr_pce_backup_commit());
+    CHECK(read_file(file, got, sizeof got) == 112 + MEMBYTES);
+    CHECK(equals(got + 112, first, MEMBYTES));
+    CHECK(read_file(backup, got, sizeof got) == (size_t)-1);              /* a first save has no previous file: no backup */
+    fill(second, 3); memcpy(memory(), second, MEMBYTES);
+    L("commit 2 %d", rr_pce_backup_commit());
+    CHECK(read_file(file, got, sizeof got) == 112 + MEMBYTES && equals(got + 112, second, MEMBYTES));
+    CHECK(read_file(backup, oracle, sizeof oracle) == 112 + MEMBYTES && equals(oracle + 112, first, MEMBYTES));   /* the backup is the file that was there */
+    memset(memory(), 9, MEMBYTES);
+    L("commit 3 %d", rr_pce_backup_commit());
+    CHECK(read_file(backup, oracle, sizeof oracle) == 112 + MEMBYTES && equals(oracle + 112, second, MEMBYTES));  /* one step back only */
+    CHECK(read_file(file, got, sizeof got) == 112 + MEMBYTES && got[112] == 9);
+    /* the file is a file the game opens again: fresh process, same memory */
+    fresh(7);
+    Open("reopen after commit", file);
+    CHECK(equals(memory(), got + 112, MEMBYTES) && m_notice() == 0);
+    dump(dir, L"", "commit");
+}
+#endif
+
 int main(int argc, char **argv)
 {
     if (argc != 2 || !rr_from_utf8(argv[1], root, 1024)) { fprintf(stderr, "usage: cart_save_checks <empty folder>\n"); return 2; }
@@ -524,6 +558,9 @@ int main(int argc, char **argv)
     scenario_read_only();
     scenario_asides();
     scenario_off_and_guards();
+#ifdef CS_PCE
+    scenario_commit();
+#endif
     L("failures=%d", failures);
     return failures ? 1 : 0;
 }
