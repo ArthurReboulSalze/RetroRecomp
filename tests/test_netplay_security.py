@@ -241,6 +241,15 @@ class SilentSeatTests(unittest.TestCase):
         self.assertGreater(driver.stats['packets_received'], 20)        # it was heard all along
 
 
+class SessionEnvironmentTests(unittest.TestCase):
+    def test_check_switches_that_change_a_run_never_reach_a_session_game(self):
+        # A player's environment holding one of the converter's own check switches would make that seat compute another game.
+        from retrorecomp.netplay import session_game
+        for name in ('RETRORECOMP_HOST_TEST_FRAMES', 'SMSRECOMP_REFERENCE', 'GENESIS_FORCE_INTERP', 'RR_SNES_FORCE_INTERP',
+                     'SNESRECOMP_LLE_BOUNCE', 'GBARECOMP_RTC_GUEST_EPOCH', 'GBARECOMP_SELFHEAL_RECOMPILE'):
+            self.assertIn(name, session_game.NEVER_IN_A_SESSION)
+
+
 class LaunchSettingsTests(unittest.TestCase):
     GOOD = dict(seat=1, seats=3, names=['Arthur', 'Nadia', 'Karl'], delay=None, digest_every=60, redundancy=3,
                 options='speed=1\nregion=eu')

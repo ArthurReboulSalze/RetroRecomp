@@ -19,8 +19,13 @@ from typing import Callable
 
 from . import session_pipe as pipe
 
-# A hidden-window test run (the conversion's checks) is never a session: the kit ignores the pipes there.
-NEVER_IN_A_SESSION = ('RETRORECOMP_HOST_TEST_FRAMES',)
+# A hidden-window test run (the conversion's checks) is never a session: the kit ignores the pipes there. The others are the
+# converter's own check switches that change what a game computes (the reference engine of the Master System, the interpreter of
+# the Mega Drive and the Super Nintendo, the Game Boy Advance's fixed clock and self-healing recompiler): one left in a player's
+# environment would make that seat differ from the others, so a match never passes them on (the GBA sets its clock from the
+# session's itself).
+NEVER_IN_A_SESSION = ('RETRORECOMP_HOST_TEST_FRAMES', 'SMSRECOMP_REFERENCE', 'GENESIS_FORCE_INTERP', 'SNESRECOMP_LLE_BOUNCE',
+                      'RR_SNES_FORCE_INTERP', 'GBARECOMP_RTC_GUEST_EPOCH', 'GBARECOMP_SELFHEAL_RECOMPILE')
 
 
 def _allow_foreground() -> None:
