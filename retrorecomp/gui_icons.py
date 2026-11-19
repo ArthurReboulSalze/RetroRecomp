@@ -71,10 +71,8 @@ ICONS = {
                    (13, 9, 13, 15), (10, 12, 16, 12), (10.8, 9.8, 15.2, 14.2), (15.2, 9.8, 10.8, 14.2)),
     # Play the game: a cartridge with a play mark.
     'play_game': (_cartridge(3, 1, 9, 14, 2), (5.5, 5, 5.5, 11, 9.5, 8, 5.5, 5)),
-    # The hollow play triangles of the hero Play button: these polylines are only the fallback, hero_picture draws them.
+    # The hollow play triangle of the hero Play button: this polyline is only the fallback, hero_picture draws it.
     'play_hollow_double': ((3, 1.5, 14.5, 8, 3, 14.5, 3, 1.5),),
-    'play_hollow_bevel': ((3, 1.5, 14.5, 8, 3, 14.5, 3, 1.5),),
-    'play_hollow_pixel': ((3, 1.5, 14.5, 8, 3, 14.5, 3, 1.5),),
     # Game memory: a memory chip.
     'memory_chip': (_rectangle(3.5, 3.5, 12.5, 12.5), _rectangle(6, 6, 10, 10),
                     (1, 5.5, 3.5, 5.5), (1, 8, 3.5, 8), (1, 10.5, 3.5, 10.5),
@@ -104,9 +102,8 @@ for _name, _paths in ICONS.items():
 # the button's gold or grey shows through). No image file: they are rebuilt at start, for the scaling of the screen.
 HERO_GRID = 26
 SUPERSAMPLE = 4
-# The picture of the hero Play button of Compiled Games: a big hollow play triangle, three crafted takes. Switching is
-# this one line: 'play_hollow_double' (an outer and a thin inner outline, rounded), 'play_hollow_bevel' (a lighter edge
-# inside the top and left sides and a small notch) or 'play_hollow_pixel' (stepped, pixel-art edges like the logo).
+# The picture of the hero Play button of Compiled Games: a big hollow play triangle, an outer and a thin inner outline
+# with rounded corners (Arthur's pick of 19 Nov 2026, « a, double trait »; the bevel and pixel takes were dropped).
 HERO_PLAY = 'play_hollow_double'
 # The hero Convert / regenerate button: a gear and a play triangle (convert_all keeps its polylines as the fallback).
 HERO_CONVERT = 'convert_all'
@@ -167,33 +164,7 @@ def _play_double(draw, scale, colour, highlight, clear):
     _stroke(draw, _scaled(outer, 0.56, (9.5, 13.0)), 1.1, colour, scale)
 
 
-def _play_bevel(draw, scale, colour, highlight, clear):
-    outer = _TRIANGLE
-    _stroke(draw, outer, 3.2, colour, scale)
-    inner = _scaled(outer, 0.8, (9.5, 13.0))
-    # A lighter edge inside the top and left sides, as light from the top left on a raised rim.
-    _stroke(draw, (inner[1], inner[0], inner[2]), 1.2, highlight, scale, closed=False)
-    # A small notch in the lower side.
-    (x1, y1), (x2, y2) = outer[1], outer[2]
-    cx, cy = (x1 * 0.45 + x2 * 0.55), (y1 * 0.45 + y2 * 0.55)
-    draw.ellipse([(cx - 1.3) * scale, (cy - 1.3) * scale, (cx + 1.3) * scale, (cy + 1.3) * scale], fill=clear)
-
-
-def _play_pixel(draw, scale, colour, highlight, clear):
-    """A hollow triangle in blocks two grid units wide: steps along the slanted sides, like the logo's lettering. The
-    outline is the blocks of the solid triangle that touch the outside, corners included, so the steps stay joined."""
-    rows = 11
-    middle = rows // 2
-    solid = {(column, row) for row in range(rows) for column in range(1, 12 - 2 * abs(row - middle))}
-    around = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if (dx, dy) != (0, 0)]
-    for column, row in sorted(solid):
-        if any((column + dx, row + dy) not in solid for dx, dy in around):
-            draw.rectangle([(column * 2 + 0.5) * scale, (row * 2 + 1.5) * scale, (column * 2 + 2.5) * scale - 1,
-                            (row * 2 + 3.5) * scale - 1], fill=colour)
-
-
-DRAWERS = {HERO_CONVERT: _convert, 'play_hollow_double': _play_double, 'play_hollow_bevel': _play_bevel,
-           'play_hollow_pixel': _play_pixel}
+DRAWERS = {HERO_CONVERT: _convert, 'play_hollow_double': _play_double}
 
 
 def draw_picture(name, colour, size=HERO_GRID, highlight=None):
