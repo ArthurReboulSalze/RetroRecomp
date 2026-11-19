@@ -230,7 +230,10 @@ class Welcome(unittest.TestCase):
         self.assertNotIn(tr('ready', 'fr'), lines[6])
         self.assertIn('Test version', lines[6])
         self.assertEqual(self.panel.log.tag_ranges('welcome_hidden'), ())
-        self.assertIsNotNone(self.panel.welcome['job'])               # the cursor blinks, one Tk step at a time
+        # once typed, no cursor: no step waits, and the cursor's cell has the log's own colour (Arthur, 20 Nov 2026)
+        self.assertIsNone(self.panel.welcome['job'])
+        from retrorecomp.branding import COLORS
+        self.assertEqual(self.panel.log.tag_cget('welcome_cursor', 'background'), COLORS['field'])   # the log's (gui.py)
 
     def test_a_message_arriving_late_is_typed_in_under_the_subtitle(self):
         self.visible = True
@@ -238,7 +241,9 @@ class Welcome(unittest.TestCase):
         self.run_for(4, self.still)
         self.panel.welcome_announcement((MESSAGE, 'Hello all!'))
         self.assertEqual(self.panel.welcome['state'], 'message')
+        self.assertTrue(self.panel.welcome['cursor_on'])            # lit while the message types
         self.run_for(4, self.still)
+        self.assertFalse(self.panel.welcome['cursor_on'])           # gone once it is out
         self.assertEqual(self.text().split('\n')[-1], 'Message from the developer: Hello all! ')
 
     def test_offline_one_calm_line_never_an_error(self):
@@ -269,8 +274,9 @@ class Welcome(unittest.TestCase):
         self.assertIsNone(self.panel.welcome['job'])        # nothing left waiting while hidden
         self.assertTrue(self.text().endswith('Message from the developer: Hello all! '))
         self.visible = True
-        self.panel.welcome_mapped()                          # shown again: only the cursor blinks
-        self.assertIsNotNone(self.panel.welcome['job'])
+        self.panel.welcome_mapped()                          # shown again: nothing moves, no cursor
+        self.assertIsNone(self.panel.welcome['job'])
+        self.assertFalse(self.panel.welcome['cursor_on'])
 
     def test_the_first_real_line_clears_it_for_good(self):
         self.visible = True
