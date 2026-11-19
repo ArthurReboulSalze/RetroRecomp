@@ -69,6 +69,11 @@ of our own are not offered yet.
 
 ## What is checked
 
+Everything a room sends is encrypted: each connection agrees a fresh key with an X25519 exchange tied to the invitation's
+secret, and every message and every match packet is sealed with ChaCha20-Poly1305 (the `cryptography` package). Someone on
+the same network or on the path sees that two PCs talk, not the names, the chat or the buttons, and cannot join without
+the invitation.
+
 Every seat folds the inputs it was given into a running digest, and compares a digest of its machine's state with the
 host's every second. Before the first frame, the state after setup is compared too: a different save, option or firmware
 is refused with its reason. Each machine's rewinding was proven on real games run as two copies with simulated latency

@@ -216,7 +216,7 @@ licenses/x68000-machine.md licenses/fmgen.md
 licenses/upx-5.3.0-src.tar.xz
 licenses/SingleStepTests-z80.md licenses/SingleStepTests-sm83.md licenses/SingleStepTests-huc6280.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
-licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
+licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md licenses/cryptography.md
 retrorecomp/__init__.py retrorecomp/artwork.py retrorecomp/batch.py
 retrorecomp/build_cleanup.py tests/test_build_cleanup.py
 retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
@@ -255,10 +255,10 @@ retrorecomp/netplay/time_sync.py retrorecomp/netplay/worker_channel.py retroreco
 retrorecomp/netplay/worker_client.py retrorecomp/netplay/scripted_inputs.py tests/test_netplay_worker.py
 retrorecomp/netplay/launch.py tests/test_netplay_security.py
 retrorecomp/netplay/rollback.py tests/test_netplay_rollback.py tools/netplay_rollback_selftest.py
-retrorecomp/netplay/invitation.py retrorecomp/netplay/handshake.py retrorecomp/netplay/control.py
+retrorecomp/netplay/invitation.py retrorecomp/netplay/internet_key.py retrorecomp/netplay/reach.py retrorecomp/netplay/handshake.py retrorecomp/netplay/sealing.py retrorecomp/netplay/control.py
 retrorecomp/netplay/datagram.py retrorecomp/netplay/limits.py retrorecomp/netplay/room_log.py
 retrorecomp/netplay/lan_transport.py retrorecomp/netplay/room_worker.py retrorecomp/netplay/room_cli.py retrorecomp/netplay/lag_link.py
-tests/test_netplay_transport.py tests/test_netplay_loopback.py
+tests/test_netplay_transport.py tests/test_netplay_loopback.py tests/test_netplay_internet_key.py tests/test_netplay_reach.py
 retrorecomp/netplay/lobby.py retrorecomp/netplay/lobby_check.py retrorecomp/netplay/lobby_client.py
 tests/test_netplay_lobby.py tests/test_netplay_lobby_loopback.py
 retrorecomp/netplay/seat_map.py tests/test_netplay_seat_map.py

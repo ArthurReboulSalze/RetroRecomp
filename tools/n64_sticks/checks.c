@@ -67,6 +67,8 @@ int rr_n64_rumble(const RrN64Session *s, int player, uint16_t *strong, uint16_t 
 int rr_n64_option(RrN64Session *s, const char *key, const char *value) { (void)s; (void)key; (void)value; return 1; }
 uint64_t rr_n64_interpreted_count(const RrN64Session *s) { (void)s; return 0; }
 uint64_t rr_n64_digest(RrN64Session *s) { (void)s; return 0; }
+static uint8_t save_memory[16];
+uint8_t *rr_n64_save_memory(RrN64Session *s, size_t *size) { (void)s; *size = sizeof save_memory; return save_memory; }
 void rr_n64_session_clock(RrN64Session *s, uint64_t clock) { (void)s; (void)clock; }
 /* The fallback recording of an export is not part of the kit. */
 int rr_feedback_toggle(void) { return 0; }
