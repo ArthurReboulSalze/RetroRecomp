@@ -42,12 +42,29 @@ static inline size_t rr_st_empty_writes(uint8_t *out) {
    return at;
 }
 
-/* A match begins (the host kit's session_begin): every seat reads the same clock (seconds since 1970, UTC; 0 returns to this PC's time) and starts from the export's own disks,
- * the sectors this PC's game wrote earlier left out. Nothing has run yet. */
-static inline void rr_st_session_begin(RrStSession *s, uint64_t clock) {
+/* The sectors a game wrote are forgotten: the disks are the export's own. */
+static inline void rr_st_writes_forget(RrStSession *s) {
    uint8_t empty[64];
-   rr_rtc_session_clock((int64_t)clock);
    if (rr_st_writes_count(s)) rr_st_writes_restore(s, empty, rr_st_empty_writes(empty));
+}
+
+/* A match begins (the host kit's session_begin): every seat reads the same clock (seconds since 1970, UTC; 0 returns to this PC's time). Nothing has run yet. */
+static inline void rr_st_session_begin(RrStSession *s, uint64_t clock) {
+   (void)s;
+   rr_rtc_session_clock((int64_t)clock);
+}
+
+/* The host's written disk, as the kit carries it (session ABI 8): the table of sectors the game wrote, in its serial form, the file the game keeps beside its quick state. 0: none, or
+ * more than a snapshot can hold (the match then starts from the export's own disks on every seat). `out` NULL: only the size. */
+static inline size_t rr_st_session_save(RrStSession *s, void *out, size_t capacity) {
+   uint8_t *data = NULL;
+   size_t size;
+   if (!rr_st_writes_count(s)) return 0;
+   size = rr_st_writes_serialize(s, &data);
+   if (!data || size > RR_ST_SNAPSHOT_WRITES || (out && capacity < size)) { free(data); return 0; }
+   if (out) memcpy(out, data, size);
+   free(data);
+   return size;
 }
 
 /* The most bytes a snapshot takes: 0 when this machine cannot be saved this way (a game on STX, SCP or Kryoflux images). */

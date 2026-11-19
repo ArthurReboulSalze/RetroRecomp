@@ -213,8 +213,10 @@ changes (the 68000 with its prefetch, the RAM and the I/O area, the MFP, the YM2
 an IPF track, the cycle and video counters, the generator) and leaves out what it does not (the TOS, the configuration, the images, the
 flux), restores in place at once (a digest or a save right after a load is complete), and keeps the table of sectors a game wrote (up to 64
 KB, a bigger table refuses the save). A game on STX, SCP or Kryoflux images has no snapshot and stays on the delay tier. The digest is named
-fields in a fixed order (the same on Windows and Linux). In a match every seat starts from the export's own disks (this PC's saved writes are
-neither read nor written; the writes stay in memory), reads the session's clock (the board's real-time clock, when a model has one, runs on
+fields in a fixed order (the same on Windows and Linux). In a match the host's written disk travels to every seat (session ABI 8: `session_save` gives the table of sectors its game wrote, the bytes of
+its `disk-writes.bin`; a guest plays on it in memory through `session_save_put`; a guest with none from the host starts from the export's own
+disks, and so does a host whose table is more than a snapshot carries, 64 KB, with a notice); no seat reads its own saved writes or writes the
+file during the match (the writes stay in memory), reads the session's clock (the board's real-time clock, when a model has one, runs on
 UTC 1 January 2000), and a restart goes back in place to the machine after its first frame. The keyboard and the mouse are cut (joystick games
 first); the disk change is off. Alone, a game runs as before.
 
@@ -226,6 +228,11 @@ moments give the same machine). `tools/netplay_game_smoke.py` on Bomb Jack conve
 the same frames); with `--save-digests`, with and without `--save-at 600 --load-at 1200`, the 20 digests before the load are equal and the
 10 after it differ; `--restart-at 700` PASS (both seats restart before frame 702). A snapshot takes 1.44 MB (bound 1.51 MB with the table of
 writes); its time is not measured yet (a quiet PC, with the owner's agreement). Not a claim of fidelity or of gameplay validation.
+
+**Host's written disk:** `tools/netplay_game_smoke.py --seats 2 --frames 3000 --rollback 5 --latency 30 --jitter 10 --hold 4 --host-save <authored disk-writes file
+of 3 sectors> --save-name datas/games/<game>/disk-writes.bin --save-at 600 --load-at 1500 --restart-at 2200` PASS on Bomb Jack (every seat boots on the same digest,
+which differs from the untouched disk's; only seat 1 holds the file; 50 digests equal; the restart before frame 2202); a host table of 200 sectors (more than 64 KB)
+with guests handed none: PASS on the untouched disk's digest. The probe also checks the image given, a buffer too small refused, forgotten, put back and a damaged image refused.
 
 **Stamps:** the Atari ST's game stamp (the adaptation of Hatari: `atarist_hatari_rollback.py`, `atarist_snapshot.h`) and host stamp (the
 adapter `rrhk_atarist.inc`); nothing else. The Hatari adaptation digest moves: the machine core is built again once.

@@ -90,6 +90,7 @@ static struct {
    uint8_t held[RETROK_LAST];       /* the keys the guest holds, to send changes only */
    unsigned settle;                 /* frames to wait after a state load: its restore released the keys the guest held, the keys still held are pressed again after it */
    bool effects_off;                /* a silent frame, or a guest in a match: the disk-writes file is not written (side_effects) */
+   bool save_put;                   /* the host's written disk was given to this guest (session_save_put) */
    uint8_t *boot, *scratch;         /* in a match: the machine after its first frame (a restart goes back to it) and room to compose the restart */
    size_t boot_size, capacity;
 } sa;
@@ -230,11 +231,26 @@ static size_t s_snap_bound(void) { return rr_st_snapshot_bound(); }
 static size_t s_snap_save(void *buffer, size_t capacity) { return rr_st_snapshot_save(session, buffer, capacity); }
 static bool s_snap_load(const void *buffer, size_t size) { return rr_st_snapshot_load(session, buffer, size) != 0; }
 static uint64_t s_digest(void) { return rr_st_snapshot_digest(session); }
-/* A silent frame and a guest's match write no file; the host's own saves will travel through a shared hook of the kit. */
+/* A silent frame and a guest's match write no file. */
 static void s_side_effects(bool allowed) { sa.effects_off = !allowed; }
-/* The generator of Hatari, the IKBD's clock and the machine's boot are deterministic from the first frame: nothing of the session's clock is needed. */
+/* The host's written disk (session ABI 8): the table of sectors its game wrote, the same bytes as its disk-writes file. A guest plays on it in memory. */
+static size_t s_session_save(void *out, size_t capacity) { return rr_st_session_save(session, out, capacity); }
+static bool s_session_save_put(const void *in, size_t size) {
+   if (!size || rr_st_writes_restore(session, (const uint8_t *)in, size)) return false;
+   sa.save_put = true;
+   return true;
+}
+/* The match's disks are the host's: a guest without the host's writes starts from the export's own disks (what it wrote before is not read), and so does the host when its writes are
+ * more than the match can carry. Neither writes its file during the match: the writes stay in memory. */
 static void s_session_begin(uint64_t clock) {
-   writes_path[0] = 0;              /* a match neither reads this PC's saved writes nor writes them: every seat starts from the export's own disks, the writes stay in memory */
+   writes_path[0] = 0;
+   if (sa.effects_off) {
+      if (!sa.save_put) rr_st_writes_forget(session);               /* a guest: the host had none */
+   } else if (rr_st_writes_count(session) && !rr_st_session_save(session, NULL, 0)) {
+      rr_st_writes_forget(session);
+      player_notice("The saved disk is too big for a match: the game starts from its own disks");
+   }
+   sa.save_put = false;
    rr_st_session_begin(session, clock);
    if (!sa.boot && (sa.capacity = rr_st_snapshot_bound()) != 0) { sa.boot = (uint8_t *)malloc(sa.capacity); sa.scratch = (uint8_t *)malloc(sa.capacity); }
    sa.boot_size = 0;
@@ -267,6 +283,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.help_page = x_help_page; machine.action_held = x_action_held;
       machine.snap_bound = s_snap_bound; machine.snap_save = s_snap_save; machine.snap_load = s_snap_load;
       machine.digest = s_digest; machine.side_effects = s_side_effects; machine.session_begin = s_session_begin;
+      machine.session_save = s_session_save; machine.session_save_put = s_session_save_put;
    }
    return &machine;
 }

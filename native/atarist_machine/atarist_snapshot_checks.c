@@ -231,6 +231,20 @@ int main(int argc, char **argv) {
         expect(rr_st_writes_count(session) == 3, "the replay did not write the third sector");
         expect(rr_st_snapshot_load(session, a, size_a) == 1 && rr_st_writes_count(session) == 2, "the load did not bring the table of writes back to its count");
         expect(rr_st_snapshot_digest(session) == d0, "the digest after the table's load differs");
+        /* the host's written disk as a match carries it: the size, the bytes, forgotten, put back */
+        {
+            size_t carried = rr_st_session_save(session, NULL, 0);
+            uint8_t *image = (uint8_t *)malloc(carried ? carried : 1);
+            expect(carried > 0 && image && rr_st_session_save(session, image, carried) == carried, "the host's written disk was not given");
+            expect(rr_st_session_save(session, image, carried - 1) == 0, "a buffer too small was filled");
+            rr_st_writes_forget(session);
+            expect(rr_st_writes_count(session) == 0 && rr_st_session_save(session, NULL, 0) == 0, "the writes were not forgotten");
+            expect(image && rr_st_writes_restore(session, image, carried) == 0 && rr_st_writes_count(session) == 2, "the host's written disk was not taken");
+            expect(rr_st_snapshot_digest(session) == d0, "a disk taken from the carried image is not the saved one");
+            if (image) image[carried / 2] ^= 1;
+            expect(image && rr_st_writes_restore(session, image, carried) != 0 && rr_st_writes_count(session) == 2, "a damaged carried disk was taken");
+            free(image);
+        }
     }
     /* a restart in a match: from two different moments the machine goes back to the same state and runs the same frames */
     {
