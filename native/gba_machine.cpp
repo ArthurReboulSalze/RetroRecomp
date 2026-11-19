@@ -270,12 +270,15 @@ void flush_battery() {
     if (!g_api->flush_save()) fprintf(stderr, "[host] the cartridge save could not be written\n");
 }
 
+void discard_unwritten_save();   // defined with the state helpers below
+
 int driver(const gbarecomp::RrDriverApi& api) {
     g_api = &api;
     int scale = 3;
     if (const char* env = getenv("RETRORECOMP_SCALE")) scale = std::max(1, atoi(env));
     const int status = rrhk_main(rrhk_adapter(), RR_GBA_TITLE, scale);
-    flush_battery();
+    if (g_save_writes) flush_battery();
+    else discard_unwritten_save();
     dump_picture();
     if (g_rows) {
         fclose(g_rows);
@@ -350,6 +353,17 @@ bool find_section(const std::vector<uint8_t>& blob, uint32_t tag, size_t* offset
     return false;
 }
 
+// The engine writes its cartridge save itself when run_game() returns, whatever the player decided. A seat that must not write one (a guest, or a host whose match did not end
+// cleanly: side_effects stays off) has the save marked unchanged first (the section's second field), so the engine finds nothing to write.
+void discard_unwritten_save() {
+    std::vector<uint8_t> state;
+    std::string error;
+    size_t at = 0, length = 0;
+    if (!g_api || !g_api->save_dirty() || !g_api->save_state(state, error) || !find_section(state, kSaveTag, &at, &length) || length < 2) return;
+    state[at + 1] = 0;
+    g_api->load_state(state, error);
+}
+
 // The session's digest: the engine's state container (header, then sections tag | length | payload, little-endian, written field by field) read section by section.
 // Kept: the CPU registers (the first 180 bytes: 16 + 1 + 3 x 6 + 2 x 5 words; what follows is the generated code's call stack, an artefact of how it runs), the memories and
 // the bus, the registers, the cartridge save and the picture processing unit. Left out: the sound section (it holds the host's output ring and the cursors that follow the
@@ -421,6 +435,18 @@ bool rrgba_frame(uint16_t pressed) {
             if (FILE* out = fopen(image, "wb")) {
                 fwrite(bytes.data(), 1, size, out);
                 fclose(out);
+            }
+        }
+    }
+    if (const char* touch = getenv("RETRORECOMP_GBA_SAVE_TOUCH")) {      // test switch: at this frame, mimic a game's write to its cartridge (the last byte of the chip flipped, the save marked changed)
+        if (g_frame_index + 1 == strtoull(touch, nullptr, 10)) {
+            std::vector<uint8_t> now;
+            std::string error;
+            size_t at = 0, length = 0;
+            if (g_api->save_state(now, error) && find_section(now, kSaveTag, &at, &length) && length > 16) {
+                now[at + 1] = 1;                                  // dirty_
+                now[at + length - 14] ^= 0xFF;                    // the last byte of a Flash chip (the 13 bytes after it: SRAM flag, size, length)
+                g_api->load_state(now, error);
             }
         }
     }
