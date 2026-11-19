@@ -5,6 +5,7 @@ combination, which Tk instantiates per widget), the focus ring that replaces the
 that must not move, and the picture sizes at Tk scaling 1.0, 1.5 and 2.0."""
 import tkinter as tk
 import unittest
+from tests.tk_cleanup import release_tk
 from tkinter import ttk
 from unittest.mock import patch
 
@@ -47,6 +48,7 @@ def requested(root):
 
 class SkinCase(unittest.TestCase):
     def setUp(self):
+        release_tk(self)                      # first: its cleanup runs after root.destroy (tests/tk_cleanup.py)
         self.root = tk_root()
         self.addCleanup(self.root.destroy)
         apply_rounded_theme(self.root, 'Segoe UI')

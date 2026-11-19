@@ -6,6 +6,7 @@ import queue
 import sys
 import tempfile
 import unittest
+from tests.tk_cleanup import release_tk
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -349,6 +350,7 @@ class ChooseBoxArt(unittest.TestCase):
 
 class HiddenWindow(unittest.TestCase):
     def test_one_window_for_the_batch_one_row_per_game_and_a_drop_on_the_only_waiting_game(self):
+        release_tk(self)                      # first: its cleanup runs after root.destroy (tests/tk_cleanup.py)
         import tkinter as tk
         try:
             root = tk.Tk()
