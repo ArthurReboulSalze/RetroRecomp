@@ -125,5 +125,16 @@ class SessionSaveTextTests(unittest.TestCase):
         self.assertIn('rr_gb_snap_save_adapter(g_rr_pristine.data()', wait)
 
 
+    def test_the_host_writes_its_save_back_once_at_a_clean_end_with_a_backup_and_an_atomic_transaction(self):
+        self.assertIn('session_save_commit = rr_gb_session_save_commit', self.ADAPTER)
+        body = self.ADAPTER[self.ADAPTER.index('static bool rr_gb_session_save_commit('):self.ADAPTER.index('/* What a frame may do outside the machine:')]
+        self.assertLess(body.index('".bak"'), body.index('write_persistence_transaction(file'))     # the previous file is kept first
+        self.assertIn('copy_options::overwrite_existing', body)
+        self.assertIn('return false; }', body[body.index('.bak'):])                              # no backup, no write
+        self.assertIn('g_rr_effects = true', body)                                                 # the one write the gate lets through
+        self.assertIn('g_rr_effects = before', body)
+        self.assertNotIn('rtc', body.lower())                                                      # the clock stays the session's
+
+
 if __name__ == '__main__':
     unittest.main()

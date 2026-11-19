@@ -426,6 +426,14 @@ puts every seat back in **the state the game began in** (kept at the first slice
 match's cartridge RAM (blank on every seat when the host has none), then the session's clock. A guest never reads or writes its own save
 or clock file. The RTC counters are the session clock's, never the file's.
 
+**The host's save is written back at a clean end.** Nobody writes a save file during a match (the kit holds the side effects off from SETUP to the end,
+the host included). When the match ends cleanly the kit calls `session_save_commit` on the host: the in-memory cartridge RAM goes to the host's own `.sav`
+through the runtime's atomic transaction (a staged file, then a replace), after the previous file was copied to `.bak` (no copy, no write). The clock
+stays the session's and is never written; a guest writes nothing. **Proof** (19 November 2026, two copies of Super Mario Land 2, `--host-save`,
+rollback tier, 3000 frames, save at 600, load at 1500, restart at 2200): the host's file after the match has the FNV-1a the game logged for the in-memory
+image it wrote, its `.bak` is the planted file byte for byte, the host's file differs from it (the game rewrote the planted bytes, which are not a real
+save), and the guests' folders hold no save, backup or temporary file.
+
 **Proof.** `tools/gameboy_machine_selftest.py` + `native/gb_machine_checks.c`: three authored cartridges (MBC1 with RAM, MBC3 with a clock,
 MBC5 on the colour hardware) in 420 random slices with random host writes between them (DMA, HDMA, sound, timer, serial, LCD, scroll,
 mapper, memory), compared with an independent whole-state hash of the raw context: a run replayed from a snapshot gives the same digest,

@@ -280,6 +280,34 @@ static bool rr_gb_session_save_put(const void *in, size_t size) {
     return true;
 }
 
+/* At a clean end of a match the host writes the match's cartridge RAM (the in-memory one) to its own save file, once: the previous file stays as
+ * `.bak` (a copy made first; no copy, no write), the new one goes through the runtime's atomic transaction (a staged file, then a replace). The
+ * kit holds the side effects off from SETUP to the end, so the gate of that transaction is opened for this one write. The clock is the session's
+ * and is not written. */
+static bool write_persistence_transaction(const char* filename, const void* data, size_t size, GBPersistenceTestTarget target);
+static bool rr_gb_session_save_commit(void) {
+    GBContext *ctx = g_registered_ctx;
+    if (!ctx || !ctx->eram || !rr_gb_save_size_valid(ctx->eram_size) || g_persistence_dir.empty()) return false;
+    const fs::path directory(g_persistence_dir);
+    const fs::path file = directory / (directory.filename().string() + ".sav");
+    std::error_code error;
+    if (fs::exists(file, error) && !error) {
+        fs::copy_file(file, fs::path(file.string() + ".bak"), fs::copy_options::overwrite_existing, error);
+        if (error) { fprintf(stderr, "[session] the previous save could not be kept as .bak: the save is not rewritten\n"); return false; }
+    }
+    if (!ensure_parent_directory(file)) return false;
+    const bool before = g_rr_effects;
+    g_rr_effects = true;
+    const bool written = write_persistence_transaction(file.string().c_str(), ctx->eram, ctx->eram_size, GB_PERSISTENCE_TEST_TARGET_BATTERY);
+    g_rr_effects = before;
+    if (written) ctx->eram_dirty = false;
+    uint64_t hash = 0xcbf29ce484222325ull;                          /* FNV-1a of the image written: the file can be checked against it */
+    for (size_t i = 0; i < ctx->eram_size; ++i) hash = (hash ^ ctx->eram[i]) * 0x100000001b3ull;
+    fprintf(stderr, "[session] the host's save %s (%zu bytes, fnv1a %016llx)\n", written ? "written" : "not written", ctx->eram_size,
+            (unsigned long long)hash);
+    return written;
+}
+
 /* What a frame may do outside the machine: off for the silent frames of a session and for a guest's whole session. The cartridge RAM and
  * the clock files are the only writes of a Game Boy game (write_persistence_transaction, patched in gameboy_host.py, honours this). */
 static void rr_gb_side_effects(bool allowed) { g_rr_effects = allowed; }
@@ -370,6 +398,7 @@ static const RrhkMachine *rr_gb_adapter(void) {
         rr_gb_machine.snap_load = rr_gb_snap_load_adapter; rr_gb_machine.digest = rr_gb_digest_adapter;
         rr_gb_machine.side_effects = rr_gb_side_effects; rr_gb_machine.session_begin = rr_gb_session_begin;
         rr_gb_machine.session_save = rr_gb_session_save; rr_gb_machine.session_save_put = rr_gb_session_save_put;
+        rr_gb_machine.session_save_commit = rr_gb_session_save_commit;
         rr_gb_machine.settings_loaded = rr_gb_settings_loaded;
         rr_gb_machine.option_rows = rr_gb_option_rows; rr_gb_machine.help_lines = rr_gb_help_lines;
         rr_gb_machine.help_controls = rr_gb_help_controls; rr_gb_machine.key_event = rr_gb_key_event;
