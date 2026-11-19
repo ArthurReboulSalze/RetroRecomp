@@ -373,11 +373,9 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # the same as recompiling at closing, for games with new paths only.
         self.new_paths_buttons = []
         self.new_paths_button(toolbar).pack(side='left', padx=(12, 0))
-        self.count_label = ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel')
-        self.count_label.pack(side='right')
         # Pictures only, with their hover hints, so the bar fits every language; the right-hand end, from the edge:
-        # the ROM count, a problem report (an account needed, like the one of the Help window), then the rarely used
-        # buttons.
+        # a problem report (an account needed, like the one of the Help window), then the rarely used buttons. (The
+        # ROM count moved to the middle of the status line, 20 Nov 2026.)
         self.report_button = self.icon_button(toolbar, 'report_title', 'tip_report_problem',
                                               lambda: self.report_problem('manual'), 'report', managed=False)
         if SENDING_AVAILABLE:
@@ -535,6 +533,10 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel',
                                  font=(self.ui_font, 8), padding=0)
         self.tagline.pack(side='right', padx=(12, 14))
+        # The queue's ROM count, in the middle of the status line between its two texts (Arthur, 20 Nov 2026: at the
+        # toolbar's end it was out of place); the queue only, as before (Compiled Games and the front-end hide it).
+        self.count_label = ttk.Label(footer, textvariable=self.count, style='Muted.TLabel', font=(self.ui_font, 8), padding=0)
+        self.place_count_label()
         app.protocol('WM_DELETE_WINDOW', self.close)
         # Games played or converted elsewhere: rows re-read only if changed.
         app.after(1500, self.quiet_refresh_collection)

@@ -433,14 +433,28 @@ class ReportButton(ToolbarWindow):
         self.assertEqual(str(app.report_button.cget('state')), 'normal')
         app.set_controls(True)
 
-    def test_the_count_comes_back_after_the_report_button(self):
-        with patch('retrorecomp.gui_window.SENDING_AVAILABLE', True):
-            app = self.app
-            app.report_button.pack(side='right', padx=(0, 12))
-            app.count_label.pack_forget()
-            app.place_count_label()
-            slaves = app.toolbar.pack_slaves()
-            self.assertLess(slaves.index(app.count_label), slaves.index(app.report_button))
+    def test_the_rom_count_sits_in_the_middle_of_the_status_line_in_the_queue_only(self):
+        # Arthur, 20 Nov 2026: out of the toolbar, between the status line's two texts, in its small type
+        app = self.app
+        self.root.deiconify()
+        self.root.geometry('1300x700+0+0')
+        self.root.update()
+        footer = app.status_dot.master
+        self.assertIs(app.count_label.master, footer)
+        self.assertNotIn(app.count_label, app.toolbar.pack_slaves())
+        self.assertEqual(app.count_label.cget('font'), app.version_label.cget('font'))
+        left = app.footer_label.winfo_x() + app.footer_label.winfo_width()
+        right = app.tagline.winfo_x() - 12                                     # the motto's own left margin
+        self.assertLess(left, app.count_label.winfo_x())
+        self.assertLess(app.count_label.winfo_x() + app.count_label.winfo_width(), right)
+        middle = app.count_label.winfo_x() + app.count_label.winfo_width() / 2
+        self.assertLess(abs(middle - (left + right) / 2), 4)                   # centred in the room left between them
+        with patch('retrorecomp.compiled_games_view.CompiledGamesView.scan'):
+            app.toggle_compiled_games()
+            self.assertFalse(app.count_label.winfo_manager())                  # the queue's count: not in Compiled Games
+            app.toggle_compiled_games()
+        self.assertTrue(app.count_label.winfo_manager())
+        self.root.withdraw()
 
 
 if __name__ == '__main__':

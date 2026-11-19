@@ -450,9 +450,8 @@ class WindowMixin:
         button.configure(compound=compound)
 
     def place_count_label(self):
-        """The ROM count at the toolbar's far right edge, after the right-hand buttons."""
-        self.count_label.pack(side='right', before=self.report_button if self.report_button.winfo_manager()
-                              else self.credits_button)
+        """The ROM count in the middle of the status line: the room its left and right texts leave, centred."""
+        self.count_label.pack(side='left', expand=True)
 
     def show_credits(self):
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
