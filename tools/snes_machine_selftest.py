@@ -27,7 +27,7 @@ HANDLER = bytes.fromhex(
 HDMA_TABLE = bytes.fromhex('10 11 10 22 10 33 10 44 10 55 00')
 
 
-def cartridge(pal: bool, irq: bool) -> bytearray:
+def cartridge(pal: bool, irq: bool, battery: bool = False) -> bytearray:
     rom = bytearray([0xea] * 0x8000)
     reset = RESET + bytes((0x10 if pal else 0,)) + bytes.fromhex('d0 fe a9 80 8d 00 21')
     reset += bytes.fromhex('a9 64 8d 09 42 a9 00 8d 0a 42 a9 a1 8d 00 42 58' if irq else 'a9 81 8d 00 42')
@@ -36,7 +36,7 @@ def cartridge(pal: bool, irq: bool) -> bytearray:
     rom[0x100:0x100 + len(HANDLER)] = HANDLER
     rom[0x200:0x200 + len(HDMA_TABLE)] = HDMA_TABLE
     rom[0x7fc0:0x7fd5] = b'RR SNAPSHOT CHECKS'.ljust(21, b' ')
-    rom[0x7fd5:0x7fdc] = bytes((0x20, 0, 5, 0, 2 if pal else 1, 0, 0))
+    rom[0x7fd5:0x7fdc] = bytes((0x20, 2 if battery else 0, 5, 1 if battery else 0, 2 if pal else 1, 0, 0))   # type 2: ROM, RAM and battery (2 KiB)
     rom[0x7fdc:0x7fe0] = bytes.fromhex('cb ed 34 12')
     rom[0x7fea:0x7fec] = bytes.fromhex('00 81')
     rom[0x7fee:0x7ff0] = bytes.fromhex('00 81')
@@ -67,15 +67,15 @@ def main() -> None:
         for rom in args.rom:
             cases.append(check(Path(rom), Path(rom).stem, work, args.frames, args.warm_up))
     else:
-        for pal in (False, True):
-            for irq in (False, True):
-                label = ('pal' if pal else 'ntsc') + ('-irq' if irq else '')
-                path = work / (label + '.sfc')
-                path.write_bytes(cartridge(pal, irq))
-                case = check(path, label, work, args.frames, args.warm_up)
-                # The authored cartridges make no sound; their pictures must repeat too.
-                assert case['picture_differences'] == 0 and case['sound_differences'] == 0, case
-                cases.append(case)
+        for pal, irq, battery in ((False, False, False), (False, True, False), (True, False, False), (True, True, False),
+                                  (False, True, True)):
+            label = ('pal' if pal else 'ntsc') + ('-irq' if irq else '') + ('-battery' if battery else '')
+            path = work / (label + '.sfc')
+            path.write_bytes(cartridge(pal, irq, battery))
+            case = check(path, label, work, args.frames, args.warm_up)
+            # The authored cartridges make no sound; their pictures must repeat too.
+            assert case['picture_differences'] == 0 and case['sound_differences'] == 0, case
+            cases.append(case)
     result = {'cases': cases, 'checks': sum(c['checks'] for c in cases), 'passed': all(c['passed'] for c in cases)}
     (work / 'results.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result))

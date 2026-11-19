@@ -702,6 +702,28 @@ PASS and its boot digest differs from the room of three (the tap is plugged from
 on Secret of Mana checks the save image out, back in and a wrong size refused (8 KiB). Super Bomberman 2 and Super Bomberman (USA), 4 seats, rollback with a save at 600, a load at 1500 and
 a restart for everyone at 2200: PASS, the report says `players 1 to 4`. Not proven: the games' own use of four pads, a
 host save that differs from a guest's.
+
+## Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match (next release)
+
+Arthur's rule of 19 November 2026 (« Oui, réécris la carte de l'hôte à la fin »): nobody writes a save file during a match, the host included
+(the host kit holds `side_effects(false)` on every seat from SETUP to the end), and at a **clean** end of the match (ended, the host closed the
+room or quit its game; never after a desync, a refused boot or a lost connection) the kit calls the new hook `session_save_commit` on the host
+only. **The Super Nintendo has it:** `rr_cart_save_commit` (new in `native/cart_save.c`, the file the three cartridge-save machines share)
+writes the battery RAM as it is in memory to the host's own `.rrsram` once, atomically (a staged file, then a replace), after keeping the file
+it replaces as `<file>.bak` (a staged copy, then a replace; the previous save, one step back); it answers false, and leaves the file that was
+there untouched, when no file is open, or the previous file cannot be kept or the new one cannot be written. A board without a battery
+leaves the hook empty (the kit lets the machine exit as alone). The Mega Drive and PC Engine adapters can call the same function with their
+own file's words. **Stamps:** the Super Nintendo, Mega Drive and PC Engine game stamps (`native/cart_save.c`, `native/cart_save.h`) and host
+stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c`, `snes_cpu/machine_checks.c` for the Super Nintendo); a quick-state key that hashes
+those files moves with them (no compatibility key is carried, as in every release since 1.6.5; battery saves are not concerned: the file format
+is unchanged and a file written without the hook still loads). **Proof:** `tools/snes_machine_selftest.py` gains a cartridge with a 2 KiB
+battery (type 2) and 27 checks: nothing is written with no file open; the first commit writes a file whose bytes are the memory and no `.bak`;
+the second writes the new image and leaves a `.bak` equal to the first file; the next start reads what was committed back; a flush after the
+commit writes nothing; a start with the file off commits nothing. A real game (Super Mario World, two seats, rollback tier, 1500 frames, 19 November 2026, one PC): without a file the host's folder
+holds one after the match (the kit logs « the host's save was written back ») and the guest's none; with that file planted on the host
+(and its bytes handed to the guest, as a room does) the match passes, the host's file is there after it and its `.bak` equals the file
+planted. Super Mario World does not change its save on a title screen, so the file equals the planted one: the case of a memory that differs
+from the file is the selftest's. Not proven: a match that really changes a save, two PCs, Linux.
 ## Windows packing: the call filter's last candidate (next release)
 
 **What was wrong.** A Windows game whose code leaves UPX no spare cto byte is packed with a shorter SizeOfCode (the call filter of 1.6.7,

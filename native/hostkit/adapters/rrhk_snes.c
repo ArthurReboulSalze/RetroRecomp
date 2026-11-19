@@ -97,6 +97,9 @@ void rr16_snes_side_effects(bool allowed);
 /* The host's cartridge save (battery RAM) travels to every seat for the match, in memory only: a guest never writes its own file. */
 size_t rr16_snes_session_save(void *out, size_t capacity);
 bool rr16_snes_session_save_put(const void *in, size_t size);
+/* At a clean end of the match the host writes that battery RAM back to its own file, atomically, keeping the previous file as .bak. */
+bool rr16_snes_session_save_commit(void);
+bool rr16_snes_battery_board(void);
 static void pointer_input(RrhkPointer p) {
     rr16_gun_input((Rr16GunInput){.x = p.x, .y = p.y, .fire = p.fire, .aux = p.aux, .secondary = p.secondary,
                                   .start = p.start, .turbo = p.turbo, .pause = p.pause, .offscreen = p.offscreen});
@@ -123,6 +126,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
             .pointer_input = pointer_input, .digest = rr16_snes_digest, .side_effects = rr16_snes_side_effects, .session_begin = session_begin,
             .session_save = rr16_snes_session_save, .session_save_put = rr16_snes_session_save_put,
+            .session_save_commit = rr16_snes_battery_board() ? rr16_snes_session_save_commit : NULL,   /* no battery: the kit lets the machine exit as alone */
             .snap_bound = rr16_snes_snap_bound, .snap_save = rr16_snes_snap_save, .snap_load = rr16_snes_snap_load,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .help_lines = help_lines, .before_frame = before_frame,

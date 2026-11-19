@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "platform_io.h"
 #include "retro_console16.h"
+#include "snes_battery.h"
 #include "cpu_state.h"
 #include "snes/ppu.h"
 #include "snes/snes.h"
@@ -22,6 +24,8 @@ bool rr16_snes_snap_load(const void *buffer, size_t size);
 void rr16_snes_side_effects(bool allowed);
 size_t rr16_snes_session_save(void *out, size_t capacity);
 bool rr16_snes_session_save_put(const void *in, size_t size);
+bool rr16_snes_session_save_commit(void);
+bool rr16_snes_battery_board(void);
 uint64_t rr16_audio_frame_fingerprint(void);
 extern uint64_t rr16_snes_digest_parts[7];
 static unsigned checks;
@@ -79,6 +83,48 @@ static int trace(unsigned frames) {
     }
     rr16_shutdown();
     return 0;
+}
+/* The host's save written back at a clean end (session_save_commit): the memory to the game's own file, atomically, the file it replaces
+ * kept as "<file>.bak"; nothing without an open file; the file read back by the next start is what was committed. */
+static size_t read_all(const wchar_t *path, uint8_t *data, size_t capacity) {
+    FILE *file = rr_fopen(path, L"rb");
+    if (!file) return (size_t)-1;
+    const size_t got = fread(data, 1, capacity, file);
+    fclose(file);
+    return got;
+}
+static void commit_checks(size_t size) {
+    static uint8_t first[4096], second[4096], backup[4096], now[4096];
+    wchar_t path[32768], bak[32768 + 8];
+    CHECK(size && size + 112 <= sizeof first);
+    CHECK(rr_snes_battery_path(path, 32768));
+    swprintf(bak, 32768 + 8, L"%ls.bak", path);
+    rr_remove(path); rr_remove(bak);
+    CHECK(!rr16_snes_session_save_commit());                    /* no file open (headless, a session without its file): nothing written */
+    CHECK(rr_snes_battery_path(path, 32768) && read_all(path, now, sizeof now) == (size_t)-1);
+    CHECK(rr_snes_battery_open(g_snes->cart, true, path));      /* what a start with its save file does */
+    for (size_t i = 0; i < size; ++i) g_snes->cart->ram[i] = (uint8_t)(i * 13 + 1);
+    rr16_snes_side_effects(false);                              /* a match: the periodic and exit flushes are off */
+    CHECK(rr16_snes_session_save_commit());
+    CHECK(read_all(bak, now, sizeof now) == (size_t)-1);        /* nothing to keep the first time */
+    const size_t first_bytes = read_all(path, first, sizeof first);
+    CHECK(first_bytes == size + 112 && !memcmp(first + 112, g_snes->cart->ram, size));
+    for (size_t i = 0; i < size; ++i) g_snes->cart->ram[i] = (uint8_t)(i * 7 + 3);
+    CHECK(rr16_snes_session_save_commit());
+    const size_t second_bytes = read_all(path, second, sizeof second), backup_bytes = read_all(bak, backup, sizeof backup);
+    CHECK(second_bytes == size + 112 && !memcmp(second + 112, g_snes->cart->ram, size));   /* the file is the final image */
+    CHECK(backup_bytes == first_bytes && !memcmp(backup, first, first_bytes));              /* its backup is the previous file */
+    CHECK(memcmp(first, second, first_bytes));
+    for (size_t i = 0; i < size; ++i) g_snes->cart->ram[i] = 0;
+    CHECK(rr_snes_battery_open(g_snes->cart, true, path));      /* the next start reads what was committed */
+    CHECK(!memcmp(g_snes->cart->ram, second + 112, size));
+    CHECK(rr_snes_battery_flush(g_snes->cart, 100000, true));   /* nothing changed since: no write over it */
+    CHECK(read_all(bak, now, sizeof now) == backup_bytes && !memcmp(now, backup, backup_bytes));
+    CHECK(rr_snes_battery_open(g_snes->cart, true, NULL));      /* off by design: inactive, nothing committed */
+    CHECK(!rr16_snes_session_save_commit());
+    CHECK(read_all(path, now, sizeof now) == second_bytes && !memcmp(now, second, second_bytes));
+    rr_remove(path); rr_remove(bak);
+    rr16_snes_side_effects(true);
 }
 int main(int argc, char **argv) {
     if (argc > 2 && !strcmp(argv[1], "trace")) return trace((unsigned)atoi(argv[2]));
@@ -159,6 +205,8 @@ int main(int argc, char **argv) {
             free(image);
         }
         saved_ram = size;
+        CHECK(rr16_snes_battery_board() == (size != 0));
+        if (size) commit_checks(size);
     }
     printf("{\"checks\":%u,\"passed\":true,\"snapshot_bytes\":%zu,\"bound\":%zu,\"frames_per_run\":%u,"
            "\"picture_differences\":%u,\"first_picture_difference\":%d,\"sound_differences\":%u,\"first_sound_difference\":%d,\"session_save_bytes\":%zu}\n",
