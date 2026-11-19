@@ -314,13 +314,16 @@ DualShock's own 8-bit precision), and the profile answers a session (`netplay_se
   replaces kept as `<card>.bak`; never after a desync, a refused boot or a lost connection, and never a guest's. No seat reads its
   card file again during the match; the host's restart carries the card as it is at that frame, the same on every seat, into the
   machine started again.
-- **The host's settings that change the run**, sent before frame 0 and refused in F3 during the match (« Set by the host in
-  multiplayer »): `pgxp` and `pgxp_texture` (the owner, 17 November 2026: PGXP is not turned off, the host sets it for everyone);
+- **The host's settings that change the run**, sent before frame 0; a guest's F3 refuses them during the match (« Set by the
+  host in multiplayer »), the host changes them (session ABI 9: its choice is kept as alone and not applied in this match; the kit
+  sees its options differ before the next frame and the match starts again for everyone with them, its renderer included, a
+  power-on as a restart): `pgxp` and `pgxp_texture` (the owner, 17 November 2026: PGXP is not turned off, the host sets it for everyone);
   `cpu_resolution` (1, 2 or 4: the CPU renderer's internal resolution changes the emulated drawing time; the host sends 1 when its
   card draws, and a seat whose card draws switches to the CPU when the host's is more); `renderer` (card or CPU), sent only when
   the host's PGXP is On. A host that sends nothing: the export's defaults on every seat (PGXP and its textures On, the CPU at 1x).
-- **Not during a match**: switching the renderer or the multisampling (both open the core again through a quick state) and the
-  Analog button (it is not in the pad words a session carries).
+- **Not during a match**: switching the renderer on a guest, or the multisampling on any seat (both open the core again through
+  a quick state; the host's renderer starts the match again instead, above), and the Analog button (it is not in the pad words a
+  session carries).
 - **Each seat's own**: the card's resolution, anti-aliasing and texture filtering, dithering, aspect and crop.
 
 **What it rests on** (17 November 2026, Ape Escape, 3,300 frames headless, a digest every 60 frames as the session takes them,

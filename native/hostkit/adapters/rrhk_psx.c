@@ -160,6 +160,12 @@ static bool in_match;
 static int host_value[GFX_COUNT] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};   /* -1: not pushed */
 static int host_cpu_resolution = 0;   /* the row index (0 1x, 1 2x, 2 4x) the host's CPU draws at */
 static int host_renderer = -1;        /* -1 not pushed, 0 the CPU, 1 the card */
+/* Session ABI 9: the host changes a run-changing row in a match. Its choice is kept (chosen[], saved as alone) and reported by
+ * rr_psx_session_values, never applied in this match: the kit sees the report differ before the next frame, stops the host's frames
+ * and asks the worker to start the match again, every seat with the new values in SETUP. A guest's rows stay the host's. */
+static int wanted_card = -1;          /* the host's renderer row changed in a match: 1 the card, 0 the CPU; -1 the renderer in force */
+static bool card_failed;              /* the card was asked and refused on this PC (no usable Vulkan device): the CPU draws */
+static bool match_host(void) { return in_match && !rrhk_session_guest(); }
 static bool run_row(int option) { return option == GFX_PGXP || option == GFX_PGXP_TEXTURE; }
 /* The value a row has in force: the host's for a row that changes the run during a match, the player's otherwise. */
 static int row_value(int option) {
@@ -206,12 +212,16 @@ static void gfx_apply(int option, int value) {
         (option == GFX_RENDERER || (option == GFX_ANTIALIASING && strcmp(msaa_values[before], msaa_values[value]) &&
                                     rr_psx_renderer(rr_psx_host_session())))) {
         chosen[option] = value;   /* kept for the next game alone */
+        if (option == GFX_RENDERER && match_host()) {   /* the host: the match starts again with it (session ABI 9) */
+            wanted_card = value == 0;
+            return;
+        }
         rrhk_notice(rr_tr("Not during a multiplayer game"), 4000);
         return;
     }
     if (in_match && (run_row(option) || (option == GFX_RESOLUTION && !rr_psx_renderer(rr_psx_host_session())))) {
-        chosen[option] = value;   /* kept for the next game alone */
-        rrhk_notice(rr_tr("Set by the host in multiplayer"), 4000);
+        chosen[option] = value;   /* kept for the next game alone; the host's: reported, the match starts again with it */
+        if (!match_host()) rrhk_notice(rr_tr("Set by the host in multiplayer"), 4000);
         return;
     }
     chosen[option] = value;
@@ -243,7 +253,8 @@ static void gfx_apply(int option, int value) {
     if (!rr_psx_host_set_renderer(value == 0)) return;
     RrPsxSession *s = rr_psx_host_session();
     for (int i = 0; i < GFX_COUNT; ++i) if (i != GFX_RENDERER) core_option(i, chosen[i]);
-    if (value == 0 && !rr_psx_renderer(s)) {
+    card_failed = value == 0 && !rr_psx_renderer(s);
+    if (card_failed) {
         fprintf(stderr, "[host] graphics card not used: %s\n", rr_psx_renderer_note(s) ? rr_psx_renderer_note(s) : "unknown");
         rrhk_notice(rrhk_tr("No usable graphics card: the CPU draws the picture",
                             "Pas de carte graphique utilisable : le CPU dessine l'image"), 6000);
@@ -392,7 +403,8 @@ static bool session_option(const char *key, const char *value) {
 /* What this game, as the host, sends every seat (RrhkMachine.session_options, in its HELLO): its own values of the keys above,
  * one "key=value" a line. */
 size_t rr_psx_session_values(char *out, size_t capacity) {
-    const int card = rr_psx_renderer(rr_psx_host_session());
+    /* the renderer in force, or the one the host chose in the match (the card only where it was not refused here) */
+    const int card = wanted_card >= 0 ? wanted_card && !card_failed : rr_psx_renderer(rr_psx_host_session());
     const int cpu = card ? 1 : 1 << (chosen[GFX_RESOLUTION] > 2 ? 2 : chosen[GFX_RESOLUTION]);
     const int written = snprintf(out, capacity, "pgxp=%d\npgxp_texture=%d\ncpu_resolution=%d\n%s", chosen[GFX_PGXP] ? 1 : 0,
                                  chosen[GFX_PGXP] && chosen[GFX_PGXP_TEXTURE] ? 1 : 0, cpu,

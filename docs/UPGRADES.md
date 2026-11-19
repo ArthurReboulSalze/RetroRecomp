@@ -90,6 +90,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | Every machine, multiplayer in turns: the F2 tiles Pass / Give the controller and Everyone / Turns, the turn badge and its options row ([HOST_KIT D33](HOST_KIT.md#d33)) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_main.c`, `rrhk_chat.inc`, `hostkit.h`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-next-release) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-next-release) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
+| [Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match](#sony-playstation-the-host-changes-pgxp-the-cpus-resolution-and-the-renderer-in-a-match-next-release) | none | the PlayStation's host stamp (`rrhk_psx.c`) | unchanged |
 | [Every machine: the sound no longer crackles in multiplayer](#every-machine-the-sound-no-longer-crackles-in-multiplayer-next-release) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `rrhk_audio.c`, `rrhk_ring.c`, `hostkit_internal.h`) | unchanged (host files are outside every state key) |
 | [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-next-release) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Nintendo 64: multiplayer on the delay tier, and a change of resolution in play keeps the renderer's memory](#nintendo-64-multiplayer-on-the-delay-tier-and-a-change-of-resolution-in-play-keeps-the-renderers-memory-next-release) | the Nintendo 64 (`n64_cpu.c`, `n64_session.cpp`, `n64_player.c`) | the Nintendo 64's host stamp (`rrhk_n64.inc`) | Nintendo 64 states of 1.8.0 refused (the state key hashes the session sources) |
@@ -129,6 +130,20 @@ offscreen capture of the help page of a converted game in the five languages: th
 
 **Stamps** (against `spec/multiplayer` `e83119c8`): the Amiga 500 and Amiga 1200 host stamps; no game stamp, quick states unchanged.
 
+## Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match (next release)
+
+Session ABI 9 for the PlayStation (Arthur wants the host to change the run-changing options in a match). The host's F3 rows that
+the match sends every seat (`pgxp`, `pgxp_texture`, the CPU renderer's resolution, the renderer when PGXP is On) are no longer refused
+on the host: its choice is kept (saved as alone) and reported by `session_options`, never applied in this match (a renderer switch
+in play opens the core again; the host's frames stop at once anyway). The kit sees the report differ once the menu is closed, sends
+`RELAUNCH`, and the match starts again for everyone with the new values. A renderer the host asks for that this PC cannot draw with
+(the card refused at start: no usable Vulkan device) is reported as the CPU, so it asks nothing. A guest's rows stay refused (« Set
+by the host in multiplayer »); its F3 still shows its own values, not the host's (the kit's graphics page has no hook for that yet).
+Multisampling stays refused on every seat in a match (picture only, it is not sent). Alone, nothing changes.
+
+**Stamps** (against `spec/multiplayer` `8041b8e2`): the PlayStation's host stamp (`native/hostkit/adapters/rrhk_psx.c`); no game
+stamp; quick states unchanged.
+
 ## NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated (next release)
 
 Arthur's yes of 19 November 2026 (HOST_KIT [D33](HOST_KIT.md#d33)): the six machines on the kit's sound ring no longer play the
@@ -140,8 +155,10 @@ Physical latency unmeasured. In a multiplayer game the ring was already regulate
 alone. The queue model's machines are unchanged.
 
 Measured (counters of the ring's closing line, the real sound device with the game muted, never by ear): Tekken 3 alone, 3,600
-frames (60 s), on this PC (busy: one run, counts not a timing): before 1 gap, 2 trims; after 0 gaps, 0 trims. The ThinkPad and a
-quiet-PC run are recorded below when made.
+frames (60 s), on this PC (busy: one run, counts not a timing): before 1 gap, 2 trims; after 0 gaps, 0 trims. On the second PC (a
+Windows 10 laptop on Wi-Fi), two runs each without a window (SDL's dummy video): before 0 / 0 and 0 / 1 trim, after 0 / 0 and 0 / 0;
+two runs each with a real window and renderer (Direct3D 11) on a hidden desktop: 0 / 0 everywhere, before and after. The attract
+mode of a run of 60 s does not show the laptop's crackle (Arthur heard it in play); a run on a quiet PC is recorded here when made.
 
 **Stamps** (against `spec/psx-audio` `b3fb20ba`): the host stamp of all 21 profiles (`rrhk_ring.c`, `rrhk_audio.c`,
 `hostkit_internal.h`, `audio_cushion.h`, a comment); no game stamp; quick states unchanged (host files are outside every state key).
@@ -459,7 +476,7 @@ again (`hostkit_session.h`, `hostkit.h`, `rrhk_session.inc`, `rrhk_options.c`, `
 host stamp of the Neo Geo (`rrhk_ng.c`), the Amiga 500 and 1200, the Atari ST, the MSX family and the X68000 (`rrhk_computer.inc`
 and their adapters, `reference_host.c`). Alone, nothing changes for a player.
 - **The host changes the options of the match.** In a session the host's run-changing rows (the sprite limits, the Neo Geo
-  boost and its MVS / AES machine, the Amiga CPU speed, the CPS DIP switches; the PlayStation's PGXP rows follow) are no longer faded:
+  boost and its MVS / AES machine, the Amiga CPU speed, the CPS DIP switches; the PlayStation's PGXP, CPU resolution and renderer rows, below) are no longer faded:
   the host changes one, its game sends `RELAUNCH`, the match ends for everyone (`STOP_RELAUNCH`, lobby reason `relaunch`; no
   save written back) and the room starts it again at once with the new options (a power-on, as a restart). A guest's rows stay
   faded and show the host's values. A Neo Geo guest is started in the host's machine (`--aes` / `--mvs`), its own setting kept.
