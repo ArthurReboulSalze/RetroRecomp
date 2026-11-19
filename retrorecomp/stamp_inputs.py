@@ -53,6 +53,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_common', 'gui_drawing', 'gui_window', 'gui_queue', 'gui_conversion',
                                'gui_collection', 'gui_updates', 'gui_options', 'gui_sharing', 'gui_reports',
                                'gui_account', 'gui_leaderboard', 'console_menu',
+                               # The closing card (a route from this PC to the shared base, two cards for the two ways of
+                               # sending; Pillow pictures from rounded_ui; Arthur's pick of 19 Nov 2026).
+                               'closing_card_view',
                                # Find firmware in a folder (Options): reads the player's files, writes only the Options fields.
                                'gui_firmware', 'firmware_search',
                                # Box art not found (Options): asks the player for a cover, applied by Reconvert.

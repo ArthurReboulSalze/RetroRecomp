@@ -621,8 +621,11 @@ def smoke(window):
         application.knowledge_done(('collect', dict(games=2, consoles={'md': 2}, discoveries=9, omitted=omitted)), None)
         assert card.call_args.args[0] == 9 and not save.called
     # The closing card opens, animates and cancels.
+    from retrorecomp.compiled_games import Game
+    shown = [Game(str(Path(fixtures.name) / f'Shown{n}.exe'), 'gb', f'{n:02x}' * 32, f'Shown {n}', status='new_hints', hints=14)
+             for n in range(3)]
     window.after(400, lambda: next(w for w in window.winfo_children() if isinstance(w, tk.Toplevel)).destroy())
-    assert application.closing_card(3, 42) is None
+    assert application.closing_card(shown) is None
     # Closing offers it when games have new paths; the button counts them.
     from retrorecomp.compiled_games import Game
     fresh = [Game(str(Path(fixtures.name) / 'New.exe'), 'gb', 'b' * 64, 'New paths', status='new_hints')]
