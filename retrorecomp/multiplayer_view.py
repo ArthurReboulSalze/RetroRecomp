@@ -200,7 +200,7 @@ class MultiplayerWindow:
     def label(self, parent, key='', *, text=None, size=10, bold=False, muted=False, gold=False, wrap=0, bg=BG, colour=None):
         return tk.Label(parent, text=self.tr(key) if text is None else text, bg=bg,
                         fg=colour or (COLORS['gold_hover'] if gold else COLORS['muted'] if muted else COLORS['text']),
-                        font=(self.font, size, 'bold' if bold else 'normal'), justify='left', anchor='w', wraplength=wrap)
+                        font=(self.font, size, 'bold' if bold else 'normal'), justify='left', anchor='w', wraplength=scaled(parent, wrap))
 
     def card(self, parent, style='MpCard', padding=14):
         return ttk.Frame(parent, style=f'{style}.TFrame', padding=padding)
@@ -748,11 +748,11 @@ class MultiplayerWindow:
         _row, self.room_line = self.head(page, text='')
         self.banner_card = ttk.Frame(page, style='MpBanner.TFrame', padding=(14, 8))
         self.banner = tk.Label(self.banner_card, text='', bg=COLORS['selected'], fg=COLORS['text'],
-                               font=(self.font, 10, 'bold'), anchor='w', justify='left', wraplength=820)
+                               font=(self.font, 10, 'bold'), anchor='w', justify='left', wraplength=scaled(page, 820))
         self.banner.pack(fill='x')
         columns = self.lobby_columns = tk.Frame(page, bg=BG)
         columns.pack(fill='both', expand=True, pady=(12, 0))
-        right = tk.Frame(columns, bg=BG, width=300)
+        right = tk.Frame(columns, bg=BG, width=scaled(columns, 300))
         right.pack(side='right', fill='y', padx=(14, 0))
         right.pack_propagate(False)
         left = tk.Frame(columns, bg=BG)
@@ -842,7 +842,7 @@ class MultiplayerWindow:
         box.pack(fill='x', pady=(8, 6))
         self.invite_shown = tk.StringVar()
         tk.Label(box, textvariable=self.invite_shown, bg=DEEP, fg=COLORS['gold_hover'], font=('Consolas', 10, 'bold'),
-                 wraplength=240, justify='left', anchor='w').pack(fill='x')
+                 wraplength=scaled(box, 240), justify='left', anchor='w').pack(fill='x')
         row = self.invite_actions = tk.Frame(host, bg=CARD)
         row.pack(fill='x')
         ttk.Button(row, text=self.tr('mp_copy'), style='MpGold.TButton', compound='left', command=self.copy_invitation,
@@ -1189,7 +1189,7 @@ class MultiplayerWindow:
             tk.Label(top, text=name, bg=CARD2, fg=COLORS['text'], font=(self.font, 10, 'bold')).pack(side='left', padx=(6, 0))
             if check:
                 tk.Label(text, text=check, bg=CARD2, fg=COLORS['error'] if kind == 'other' else COLORS['muted'],
-                         font=(self.font, 9), justify='left', anchor='w', wraplength=330).pack(anchor='w')
+                         font=(self.font, 9), justify='left', anchor='w', wraplength=scaled(row, 330)).pack(anchor='w')
             chip = tk.Frame(row, bg=CARD2)
             chip.pack(side='right')
             tk.Label(chip, image=self.picture('dot', STATE_DOTS[kind], CARD2, 12), bg=CARD2).pack(side='left')
