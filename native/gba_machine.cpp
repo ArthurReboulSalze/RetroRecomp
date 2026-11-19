@@ -270,12 +270,15 @@ void flush_battery() {
     if (!g_api->flush_save()) fprintf(stderr, "[host] the cartridge save could not be written\n");
 }
 
+void discard_unwritten_save();   // defined with the state helpers below
+
 int driver(const gbarecomp::RrDriverApi& api) {
     g_api = &api;
     int scale = 3;
     if (const char* env = getenv("RETRORECOMP_SCALE")) scale = std::max(1, atoi(env));
     const int status = rrhk_main(rrhk_adapter(), RR_GBA_TITLE, scale);
-    flush_battery();
+    if (g_save_writes) flush_battery();
+    else discard_unwritten_save();
     dump_picture();
     if (g_rows) {
         fclose(g_rows);
@@ -350,6 +353,17 @@ bool find_section(const std::vector<uint8_t>& blob, uint32_t tag, size_t* offset
     return false;
 }
 
+// The engine writes its cartridge save itself when run_game() returns, whatever the player decided. A seat that must not write one (a guest, or a host whose match did not end
+// cleanly: side_effects stays off) has the save marked unchanged first (the section's second field), so the engine finds nothing to write.
+void discard_unwritten_save() {
+    std::vector<uint8_t> state;
+    std::string error;
+    size_t at = 0, length = 0;
+    if (!g_api || !g_api->save_dirty() || !g_api->save_state(state, error) || !find_section(state, kSaveTag, &at, &length) || length < 2) return;
+    state[at + 1] = 0;
+    g_api->load_state(state, error);
+}
+
 // The session's digest: the engine's state container (header, then sections tag | length | payload, little-endian, written field by field) read section by section.
 // Kept: the CPU registers (the first 180 bytes: 16 + 1 + 3 x 6 + 2 x 5 words; what follows is the generated code's call stack, an artefact of how it runs), the memories and
 // the bus, the registers, the cartridge save and the picture processing unit. Left out: the sound section (it holds the host's output ring and the cursors that follow the
@@ -411,6 +425,30 @@ bool rrgba_frame(uint16_t pressed) {
     if (g_session && g_boot_state.empty()) {                  // the state before the first frame: what a restart in a session goes back to
         std::string error;
         if (!g_api->save_state(g_boot_state, error)) g_boot_state.clear();
+    }
+    if (g_frame_index == 0) {                                 // test switch: write the session's save image (what the host hands to the guests) to a file
+        const char* image = getenv("RETRORECOMP_GBA_SAVE_IMAGE");
+        const size_t size = image ? rrgba_session_save(nullptr, 0) : 0;
+        if (size) {
+            std::vector<uint8_t> bytes(size);
+            rrgba_session_save(bytes.data(), size);
+            if (FILE* out = fopen(image, "wb")) {
+                fwrite(bytes.data(), 1, size, out);
+                fclose(out);
+            }
+        }
+    }
+    if (const char* touch = getenv("RETRORECOMP_GBA_SAVE_TOUCH")) {      // test switch: at this frame, mimic a game's write to its cartridge (the last byte of the chip flipped, the save marked changed)
+        if (g_frame_index + 1 == strtoull(touch, nullptr, 10)) {
+            std::vector<uint8_t> now;
+            std::string error;
+            size_t at = 0, length = 0;
+            if (g_api->save_state(now, error) && find_section(now, kSaveTag, &at, &length) && length > 16) {
+                now[at + 1] = 1;                                  // dirty_
+                now[at + length - 14] ^= 0xFF;                    // the last byte of a Flash chip (the 13 bytes after it: SRAM flag, size, length)
+                g_api->load_state(now, error);
+            }
+        }
     }
     if (g_scripted) pressed = scripted_pressed();
     g_api->set_keyinput(static_cast<uint16_t>(~pressed & 0x3FF));
@@ -481,6 +519,73 @@ void rrgba_reset(void) {
 }
 uint64_t rrgba_digest(void) { return state_digest(); }
 void rrgba_side_effects(bool allowed) { g_save_writes = allowed; }
+
+// The cartridge save in a session (session ABI 8): the host's image travels to every seat. The image is the "SAV0" section of the engine's state container: the chip's memory
+// (SRAM, Flash or EEPROM, whichever the game has) as the machine reads it from power-on, the same fields on every PC. It is read before the first frame (the engine has loaded the
+// save file by then) and a guest puts it back in the same section, in memory only: the file is never touched (side_effects(false)).
+size_t rrgba_session_save(void* out, size_t capacity) {
+    std::vector<uint8_t> blob;
+    std::string error;
+    size_t at = 0, length = 0;
+    if (!g_api || !g_api->save_state(blob, error) || !find_section(blob, kSaveTag, &at, &length) || length == 0) return 0;
+    if (length > RRHK_SESSION_MAX_SAVE) {
+        fprintf(stderr, "[host] the cartridge save (%zu bytes) is larger than a session carries: every seat keeps its own\n", length);
+        return 0;
+    }
+    if (out) {
+        if (capacity < length) return 0;
+        memcpy(out, &blob[at], length);
+    }
+    return length;
+}
+
+// The host, when a match ends cleanly: the save as it is now in memory goes to this PC's own save file, atomically (the engine writes a temporary file and renames it), the previous
+// file kept beside it as ".bak" (itself written atomically). Nothing was written during the match (side_effects(false) on every seat). Nothing changed in memory: nothing to write.
+bool rrgba_session_save_commit(void) {
+    if (!g_api || !g_save_path[0]) return false;
+    if (!g_api->save_dirty()) return true;
+    FILE* file = rr_fopen(g_save_path, L"rb");
+    if (file) {
+        std::vector<uint8_t> previous;
+        uint8_t buffer[65536];
+        for (size_t got; (got = fread(buffer, 1, sizeof buffer, file)) > 0;) previous.insert(previous.end(), buffer, buffer + got);
+        fclose(file);
+        const std::wstring backup = std::wstring(g_save_path) + L".bak";
+        if (!write_atomically(backup.c_str(), previous)) {
+            fprintf(stderr, "[host] the previous cartridge save could not be kept as a backup: the save is not rewritten\n");
+            return false;
+        }
+    }
+    make_parent_folders(g_save_path);
+    if (!g_api->flush_save()) {
+        fprintf(stderr, "[host] the cartridge save could not be written\n");
+        return false;
+    }
+    return true;
+}
+
+bool rrgba_session_save_put(const void* in, size_t size) {
+    if (!g_api || !in || size == 0) return false;
+    std::vector<uint8_t> now;
+    std::string error;
+    size_t at = 0, length = 0;
+    if (!g_api->save_state(now, error) || !find_section(now, kSaveTag, &at, &length) || length != size) {
+        fprintf(stderr, "[host] the host's cartridge save (%zu bytes) does not fit this game's chip: this seat keeps its own\n", size);
+        return false;
+    }
+    memcpy(&now[at], in, size);
+    if (!g_api->load_state(now, error)) {
+        fprintf(stderr, "[host] the host's cartridge save could not be put in: %s\n", error.c_str());
+        g_failed = true;
+        return false;
+    }
+    g_audio_running = 1469598103934665603ull;
+    if (!g_boot_state.empty()) {                                  // a restart goes back to the state of the start, with the host's save in it
+        size_t boot_at = 0, boot_length = 0;
+        if (find_section(g_boot_state, kSaveTag, &boot_at, &boot_length) && boot_length == size) memcpy(&g_boot_state[boot_at], in, size);
+    }
+    return true;
+}
 // The session's clock (RRHK_SESSION_CLOCK, the same on every seat) is already the engine's guest epoch: the engine reads it once when it starts, which is before the kit's setup.
 void rrgba_session_begin(uint64_t clock) {
     if (g_clock_at_start && clock != g_clock_at_start)
