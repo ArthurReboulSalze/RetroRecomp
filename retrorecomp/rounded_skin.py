@@ -115,6 +115,13 @@ class Skin:
         self.fonts: dict = {}
         self.surface_cache = weakref.WeakKeyDictionary()
 
+    def release(self):
+        """Forget the root, its style and every picture (the root is going away): nothing here points at the interpreter any more."""
+        for name in ('images', 'cache', 'fonts'):
+            getattr(self, name).clear()
+        self.surface_cache = weakref.WeakKeyDictionary()
+        self.style = self.root = None
+
     # ---- helpers ----
     @property
     def tag(self):
@@ -557,10 +564,23 @@ def install(root, radius=RADIUS):
     skin = getattr(root, '_rounded_skin', None)
     if skin is None:
         skin = root._rounded_skin = Skin(root, radius)
+        root.bind('<Destroy>', lambda event, root=root: _release(root, event), add='+')
     else:
         skin.rebuild()
     _hook_constructors()
     return skin
+
+
+def _release(root, event):
+    """The root is being destroyed: drop its skin now, on Tk's thread. The skin and the root point at each other (root._rounded_skin,
+    skin.root, its ttk.Style, its PhotoImages), so without this the dead interpreter waits for Python's cycle collector, which may
+    run in any thread; a Tk interpreter freed outside its own thread aborts the process (« Tcl_AsyncDelete: async handler deleted
+    by the wrong thread », the full suite after 19 Nov 2026). A child's <Destroy> also reaches this binding: only the root's counts."""
+    if event.widget is not root:
+        return
+    skin = root.__dict__.pop('_rounded_skin', None)
+    if skin is not None:
+        skin.release()
 
 
 def _hook_constructors():

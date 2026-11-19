@@ -337,3 +337,23 @@ class HiDpi(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FreedOnItsOwnThread(unittest.TestCase):
+    def test_a_destroyed_root_is_freed_at_once_not_by_the_cycle_collector(self):
+        # The skin and its root point at each other; left to the cycle collector, the interpreter could be freed from
+        # another thread, which aborts the process (« Tcl_AsyncDelete: async handler deleted by the wrong thread »).
+        import gc
+        import weakref
+        gc.collect()
+        gc.disable()
+        self.addCleanup(gc.enable)
+        root = tk_root()
+        apply_rounded_theme(root, 'Segoe UI')
+        ttk.Button(root, text='x').pack()
+        ttk.Entry(root).pack()
+        root.update()
+        gone = weakref.ref(root)
+        root.destroy()
+        del root
+        self.assertIsNone(gone())
