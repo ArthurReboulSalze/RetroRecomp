@@ -822,7 +822,8 @@ class MultiplayerWindow:
         card = self.card(parent, padding=(10, 10))
         card.pack(fill='x')
         self.ready = tk.BooleanVar()
-        self.action = RoundButton(card, diameter=150, bg=CARD, font=self.font, caption_width=270, command=self.press_action)
+        self.action = RoundButton(card, diameter=scaled(card, 150), bg=CARD, font=self.font, caption_width=scaled(card, 270),
+                                  command=self.press_action)
         self.action.pack()
         row = tk.Frame(card, bg=CARD)
         row.pack(anchor='w', fill='x', pady=(2, 0))
