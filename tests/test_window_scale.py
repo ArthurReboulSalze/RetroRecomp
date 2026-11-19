@@ -208,13 +208,19 @@ class ScaledMultiplayerWindow(unittest.TestCase):
 
     def open_at(self, factor, screen):
         Requests.start(self)
-        self.original_scaling = float(self.root.tk.call('tk', 'scaling'))
+        if not hasattr(self, 'original_scaling'):
+            self.original_scaling = float(self.root.tk.call('tk', 'scaling'))
         self.root.tk.call('tk', 'scaling', factor * 96 / 72)
         patcher = patch.multiple(tk.Misc, winfo_screenwidth=lambda widget: screen[0], winfo_screenheight=lambda widget: screen[1])
         patcher.start()
         self.addCleanup(patcher.stop)
         view = self.window()
+        self.last_view = view
         return view.window
+
+    def open_at_view(self, factor, screen):
+        self.open_at(factor, screen)
+        return self.last_view
 
     def test_windows_keeps_900_by_660(self):
         window = self.open_at(1.0, BIG)
@@ -228,6 +234,17 @@ class ScaledMultiplayerWindow(unittest.TestCase):
                 self.assertEqual(geometry_of(window), (scaled(self.root, 900), scaled(self.root, 660)))
                 self.assertEqual(window.wm_minsize(), (scaled(self.root, 820), scaled(self.root, 600)))
                 window.destroy()
+
+    def test_lobby_right_column_and_wraps_follow_the_factor(self):
+        for factor in FACTORS:
+            with self.subTest(factor=factor):
+                view = self.open_at_view(factor, BIG)
+                right = view.lobby_columns.winfo_children()[0]
+                self.assertEqual(int(right.cget('width')), scaled(self.root, 300))
+                self.assertEqual(int(view.link_line.cget('wraplength')), scaled(self.root, 240))
+                if factor == 1.0:
+                    self.assertEqual((int(right.cget('width')), int(view.link_line.cget('wraplength'))), (300, 240))
+                view.close()
 
     def test_scaled_window_stays_on_a_small_screen(self):
         window = self.open_at(2.0, SMALL)
