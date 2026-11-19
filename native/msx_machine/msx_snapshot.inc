@@ -340,6 +340,61 @@ static bool msx_session_save_put(const void *in, size_t size)
     return true;                                     /* session_begin, which follows, lays it again over the power-on state */
 }
 
+/* The previous file kept as "<file>.bak" before the host's save is written back: a copy staged beside it, then a rename. No
+ * file yet: nothing to keep. */
+static bool msx_keep_backup(const wchar_t *path)
+{
+    if (!rr_exists(path))
+        return true;
+    static wchar_t staged[32800], backup[32800];
+    swprintf(backup, sizeof backup / sizeof *backup, L"%ls.bak", path);
+    swprintf(staged, sizeof staged / sizeof *staged, L"%ls.bak.tmp", path);
+    rr_remove(staged);
+    if (!rr_copy_new(path, staged))
+        return false;
+    if (rr_replace(staged, backup))
+        return true;
+    rr_remove(staged);
+    return false;
+}
+
+/* The host, when a match ends cleanly (hostkit.h session_save_commit): nobody wrote a save file during the match, so the host's
+ * own files take the match's save now, once: the SRAM file (written atomically by msx_sram.c) when the SRAM changed from what
+ * the host sent, and the copy of each disk the game wrote (disks_save, a staged file then a rename), each previous file kept as
+ * ".bak". A host whose disks were too large to share played the embedded disks: its copies are not touched. */
+static bool msx_session_save_commit(void)
+{
+    bool ok = true;
+    if (sram_size) {
+        const bool changed = !msx_session_held || msx_session_held_size < 10u + sram_size
+                             || memcmp(msx_session_held + 10, sram_bytes, sram_size) != 0;
+        static wchar_t path[32768];
+        if (changed && msx_sram_notice() == 2)
+            ok = false;                                  /* the file was unreadable at the start: saving is off, nothing is written */
+        else if (changed && msx_sram_path(path, sizeof path / sizeof *path))
+            ok = msx_keep_backup(path) && msx_sram_flush(SDL_GetTicks64(), true) && ok;
+    }
+#if RR_MSX_DISKS
+    disk_take_written();
+    if (disk_copies) {
+        for (unsigned n = 0; n < RR_MSX_DISKS; ++n) {
+            wchar_t path[1100];
+            if (disk_dirty[n] && disk_copy_path(n, path) && !msx_keep_backup(path)) {
+                ok = false;                              /* no backup: this disk's copy is not rewritten */
+                disk_dirty[n] = 0;
+            }
+        }
+        disks_save();
+        ok = !disk_dirty_any() && ok;
+    }
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n)
+        fprintf(stderr, "[msx] match end: disk %u %016llx\n", n + 1, (unsigned long long)msx_sram_hash(disk_data[n], disk_sizes[n]));
+#endif
+    if (sram_size)
+        fprintf(stderr, "[msx] match end: SRAM %016llx\n", (unsigned long long)msx_sram_hash(sram_bytes, sram_size));
+    return ok;
+}
+
 /* `--snap-probe AT:N` (headless, a development check): at the service of frame AT a snapshot is taken (and taken again over a
  * buffer of other bytes: the same bytes; a load of the wrong size is refused and changes nothing), the digest of each of the N
  * frames after it is kept, the snapshot is loaded back and the same N frames run again: every digest must be equal. The route's
