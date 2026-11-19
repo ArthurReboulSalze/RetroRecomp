@@ -248,13 +248,15 @@ int rrhk_option_page_event(const SDL_Event *event) {
     rr_options.row += first;
     return chosen;
 }
-/* Multiplayer: the rows the host sets are drawn faded (the panel's colour over them), the selected one included. */
+/* Multiplayer: the rows the host sets are drawn faded on a guest (the panel's colour over them, the selected one included):
+ * they show the host's value. The host changes them (session ABI 9: the match then starts again for everyone with the new
+ * value); only the pace (` Max speed) stays the session's, faded on every seat. */
 static void fade_run_rows(SDL_Renderer *renderer, const RrhkOptionRows *all, int first, int count) {
     if (!rrhk_session_on) return;
     int x, y, unit; rr_menu_layout(renderer, &x, &y, &unit);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     for (int i = 0; i < count; ++i)
-        if (all->run[first + i]) rr_menu_box(renderer, x, y, unit, 12, RR_MENU_FIRST_LINE + i * RR_MENU_LINE, 232, RR_MENU_LINE,
+        if (all->run[first + i] && (rrhk_session_guest() || all->keys[first + i] == SDL_SCANCODE_GRAVE)) rr_menu_box(renderer, x, y, unit, 12, RR_MENU_FIRST_LINE + i * RR_MENU_LINE, 232, RR_MENU_LINE,
                                              RR_MENU_PANEL_RGB, 160);
 }
 void rrhk_option_page_draw(SDL_Renderer *renderer) {

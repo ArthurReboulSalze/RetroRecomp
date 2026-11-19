@@ -77,6 +77,7 @@ RESTART_FOLD = 0x9e3779b97f4a7c15      # what a restart adds to the history dige
 STATE_SAVE_FOLD = 0xc2b2ae3d27d4eb4f   # and a save of the match's state (the host's F8)
 STATE_LOAD_FOLD = 0x165667b19e3779f9   # and a load of it (the host's F9)
 STICKS_FOLD = 0x27d4eb2f165667c5       # the sticks of a frame fold in with this multiplier (session ABI 7)
+KEYS_FOLD = 0x9e3779b97f4a7c15         # and the keys the host types (session ABI 9)
 ACTION_FOLDS = {pipe.RUN_RESET: RESTART_FOLD, pipe.RUN_STATE_SAVE: STATE_SAVE_FOLD, pipe.RUN_STATE_LOAD: STATE_LOAD_FOLD}
 def link_estimate(samples) -> tuple[float, float]:
     """(one way, jitter) in ms of a link from its round trips: half the median, and half the spread from the median to the
@@ -237,6 +238,8 @@ class LockstepDriver:
         self._game_restart = False              # the game's restart bit in its latest LOCAL (a request on its rising edge)
         self.restarts: list[int] = []           # the frames this game was told to restart before (verified ones on rollback)
         self.sticks = False                     # the game reads sticks (its HELLO's CAP_AXES): the records carry them
+        self.keyboard = False                   # a computer the host may type on (CAP_KEYBOARD): the records carry keys
+        self.relaunch_options: str | None = None    # the host changed an option: the match starts again with these
         self._game_state = 0                    # the game's state bits in its latest LOCAL (a request on a rising edge)
         self._state_wanted = 0                  # the host's save or load waiting for a record (seat_map.SYS_STATE_*)
         self._state_record: int | None = None   # the record that carried the last one
@@ -481,6 +484,14 @@ class LockstepDriver:
             self._hello(pipe.parse_hello(payload))
         elif kind == pipe.MSG_LOCAL:
             self._local(*pipe.parse_local(payload))
+        elif kind == pipe.MSG_RELAUNCH:
+            # The host changed a run-changing option in the match (session ABI 9): its game runs no more frame; the match ends
+            # for everyone now and the room starts it again with the new options. A guest's game never asks; ignored.
+            options = pipe.parse_relaunch(payload)
+            if self.seat == HOST and self.outcome is None:
+                self.relaunch_options = options
+                self.detail = 'the host changed an option: the match starts again'
+                self._end('relaunch', pipe.STOP_RELAUNCH, wire.BYE_RELAUNCH)
         elif kind == pipe.MSG_DIGEST_OF:
             frame, value = pipe.parse_digest_of(payload)
             if self._phase == 'gate' and self.boot_digest is None:
@@ -520,6 +531,7 @@ class LockstepDriver:
             return
         self.hello = hello
         self.sticks = bool(hello.caps & pipe.CAP_AXES)     # every record of this match carries the sticks
+        self.keyboard = bool(hello.caps & pipe.CAP_KEYBOARD)    # ... and the keys typed (only the host's count)
         try:
             pipe.check_hello(hello, self.seats, shared=seat_map.shared(self.settings.sharing))
             reason = self._tier_refusal(hello)
@@ -572,10 +584,11 @@ class LockstepDriver:
         self._phase = 'play'
         self._pace = PaceController()
 
-    def _local(self, frame: int, word: int, system: int, axes=None):
+    def _local(self, frame: int, word: int, system: int, axes=None, keys=None):
         if self._phase in ('hello', 'gate') or self._holding:
-            self._pending_locals.append((frame, word, system, axes))     # kept in order until the match starts
+            self._pending_locals.append((frame, word, system, axes, keys))     # kept in order until the match starts
             return
+        typing = bool(system & pipe.SYS_KEYBOARD) and self.seat == HOST and self.keyboard and keys is not None
         # The host's restart (Shift+F1, the pad combination): the rising edge of the game's bit is a request that rides the
         # next record of this seat, so every game restarts at that frame. A guest's game never asks (the kit refuses it);
         # ignored if it did. Read before a test's script replaces the system bits, so a scripted seat can restart too.
@@ -600,6 +613,8 @@ class LockstepDriver:
                 axes = tuple(scripted[2])
         else:
             system &= seat_map.SYS_GAME_MASK     # a game can only ask for a pause; the other control bits come from the worker's requests
+        if typing:
+            system |= seat_map.SYS_KEYBOARD     # the host types: its record's keys are every seat's this frame
         if frame > self.game_frame:
             self._local_at = time.monotonic()
         self.game_frame = max(self.game_frame, frame)
@@ -616,7 +631,10 @@ class LockstepDriver:
             if self._state_wanted and (self._state_record is None or record - self._state_record >= self._state_spacing()):
                 self._request |= self._state_wanted
                 self._state_wanted, self._state_record = 0, record
-            if self.sticks:             # a game with sticks: every record carries them (centred when the game said none)
+            if self.keyboard:           # a computer: every record carries keys (a guest's, and the host's when it does not type, zero)
+                mine.append((word, system | self._request, (tuple(axes) if axes else pipe.NO_AXES) if self.sticks else None,
+                             bytes(keys) if typing else pipe.NO_KEYS))
+            elif self.sticks:           # a game with sticks: every record carries them (centred when the game said none)
                 mine.append((word, system | self._request, tuple(axes) if axes else pipe.NO_AXES))
             else:
                 mine.append((word, system | self._request))
@@ -765,7 +783,7 @@ class LockstepDriver:
                 held = self._records[owner]
                 # from the first record the peer did not acknowledge, and at least the last `redundancy` ones
                 first = max(held.base, min(self._holds[peer][owner] + 1, len(held) - self.settings.redundancy))
-                records = held.span(first, wire.records_that_fit(len(self._owners_for(peer)), self.sticks))
+                records = held.span(first, wire.records_that_fit(len(self._owners_for(peer)), self.sticks, self.keyboard))
                 if records:
                     sections.append((owner, first, records))
             self._send(peer, wire.encode_input(
@@ -806,6 +824,7 @@ class LockstepDriver:
             records = [self._records[seat][frame] for seat in range(self.seats)]
             action = seat_map.action(records)
             axes = seat_map.sticks(self._seat_state, records) if self.sticks else None
+            typed = seat_map.keys(records) if self.keyboard else None
             words, self._seat_state = seat_map.step(self._seat_state, records, self.settings.opposites)
             self._tell_turn()
             if self.settings.words_filter is not None:
@@ -816,8 +835,8 @@ class LockstepDriver:
                 self._tell(pipe.notice(pipe.NOTICE_RESUMED))
                 self._waiting_noticed = False
             self._blocked_since = None
-            self._tell(pipe.run(frame, words, action=action, axes=axes))
-            self._remember(frame, words, action, axes)
+            self._tell(pipe.run(frame, words, action=action, axes=axes, keys=typed))
+            self._remember(frame, words, action, axes, typed)
             self.stats['runs'] += 1
             self.next_run = frame + 1
             if self.next_run % self.settings.digest_every == 0 or self.next_run == self.settings.last_frame:
@@ -842,7 +861,7 @@ class LockstepDriver:
         rollback driver keeps them a snapshot ring apart, so a correction never runs a load after the save that follows it)."""
         return 1
 
-    def _remember(self, frame: int, words: tuple, action: int = 0, axes=None):
+    def _remember(self, frame: int, words: tuple, action: int = 0, axes=None, keys=None):
         """What this game was told to run: kept whole only for tests (`keep_history`); always as a running fold (what was done
         before the frame, a restart or the match's state saved or loaded, folds in too)."""
         value = frame
@@ -852,6 +871,8 @@ class LockstepDriver:
             for port, sticks in enumerate(axes):
                 for index, stick in enumerate(sticks):
                     value ^= (((stick & 0xff) << (8 * ((port * pipe.AXES + index) % 8))) * STICKS_FOLD) & 0xffffffffffffffff
+        if keys is not None:
+            value ^= ((int.from_bytes(keys[:8], 'little') ^ int.from_bytes(keys[8:], 'little') ^ 1) * KEYS_FOLD) & 0xffffffffffffffff
         action = pipe.RUN_RESET if action is True else int(action or 0)
         if action:
             value ^= ACTION_FOLDS[action]
@@ -966,6 +987,9 @@ class LockstepDriver:
                 self._end('boot_mismatch', pipe.STOP_ENDED, None)
         elif seat == HOST and reason == wire.BYE_ENDED:
             self._end('ended', pipe.STOP_ENDED, None)
+        elif seat == HOST and reason == wire.BYE_RELAUNCH:
+            self.detail = 'the host changed an option: the match starts again'
+            self._end('relaunch', pipe.STOP_RELAUNCH, None)
         elif seat == HOST and reason == wire.BYE_SEAT_GONE:
             if who < self.seats:
                 self._tell(pipe.notice(pipe.NOTICE_LEFT, self.names[who]))

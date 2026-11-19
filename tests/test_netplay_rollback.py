@@ -589,8 +589,8 @@ class SticksTests(unittest.TestCase):
         header = (ROOT / 'native/hostkit/hostkit_session.h').read_text(encoding='utf-8')
         self.assertIn('RRHK_RUN_AXES = 16', header)
         self.assertIn(f'RRHK_SESSION_ABI {pipe.ABI}', header)
-        self.assertEqual(pipe.parse_local(struct.pack('<IHH4b', 5, 1, 0, -128, 127, 0, -3)), (5, 1, 0, (-127, 127, 0, -3)))
-        self.assertEqual(pipe.parse_local(struct.pack('<IHH', 5, 1, 0)), (5, 1, 0, None))
+        self.assertEqual(pipe.parse_local(struct.pack('<IHH4b', 5, 1, 0, -128, 127, 0, -3)), (5, 1, 0, (-127, 127, 0, -3), None))
+        self.assertEqual(pipe.parse_local(struct.pack('<IHH', 5, 1, 0)), (5, 1, 0, None, None))
         with self.assertRaises(pipe.Broken):
             pipe.parse_local(b'\0' * 10)
         payload = pipe.run(7, (1, 2), axes=((1, -2, 3, -4), (0, 0, 127, -127)))[4:]

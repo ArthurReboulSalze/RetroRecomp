@@ -59,7 +59,8 @@ CHECK_NAMES = {CHECK_NONE: 'none', CHECK_ASKING: 'asking', CHECK_SAME: 'same', c
 NOTICE_NAMES = {control.NOTICE_CHAT_FAST: 'chat_too_fast', control.NOTICE_BAD_TEXT: 'bad_text', control.NOTICE_BUSY: 'busy'}
 # Why a match ended, as the host saw it (the driver's outcomes, `lockstep.py`), as the number BACK carries.
 BACK_NAMES = {1: 'ended', 2: 'game_closed', 3: 'pipe_lost', 4: 'left', 5: 'seat_left', 6: 'seat_silent', 7: 'host_closed',
-              8: 'desync', 9: 'boot_mismatch', 10: 'error', 11: 'launch_failed'}
+              8: 'desync', 9: 'boot_mismatch', 10: 'error', 11: 'launch_failed',
+              12: 'relaunch'}         # the host changed an option in the match: it starts again at once (session ABI 9)
 BACK_CODES = {name: code for code, name in BACK_NAMES.items()} | {'refused': 10}
 
 _REMOVED = control._REMOVED

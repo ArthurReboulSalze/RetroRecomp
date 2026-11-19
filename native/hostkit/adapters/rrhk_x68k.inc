@@ -460,7 +460,7 @@ const RrhkMachine *rrhk_adapter(void) {
          .help_page = x_help_page, .action_held = x_action_held,
 #ifdef RR_X68000_LINKED
          .snap_bound = x_snap_bound, .snap_save = x_snap_save, .snap_load = x_snap_load,
-         .digest = x_digest, .session_begin = x_session_begin,
+         .digest = x_digest, .session_begin = x_session_begin, .session_keys = x_session_keys,
          .session_save = x_session_save, .session_save_put = x_session_save_put, .session_save_commit = x_session_save_commit,
 #endif
       };

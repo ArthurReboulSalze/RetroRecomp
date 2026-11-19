@@ -48,7 +48,7 @@ SHARINGS = (0, 1, 2)                        # seat_map.SHARINGS: one controller 
 MODE_PORTABLE, MODE_FULL = 0, 1             # what a guest compares: the identity without the learned paths, or the full one
 NOTICE_CHAT_FAST, NOTICE_BAD_TEXT, NOTICE_BUSY = 1, 2, 3
 NOTICES = range(1, 4)
-BACK_REASONS = range(1, 12)                 # lobby.BACK_CODES: why a match ended, as the host saw it
+BACK_REASONS = range(1, 13)                 # lobby.BACK_CODES: why a match ended, as the host saw it
 MAX_CHAT_CHARS = 80
 MAX_CHAT_BYTES = 320
 MAX_TITLE_BYTES = 96
@@ -421,7 +421,7 @@ def _decode(kind: int, payload: bytes):
     raise FrameError('a message the rules do not allow')
 
 
-BYE_REASONS_WIRE = range(1, 7)       # the datagram BYE reasons (input_records.BYE_*): an END carries one of them
+BYE_REASONS_WIRE = range(1, 8)       # the datagram BYE reasons (input_records.BYE_*): an END carries one of them
 
 
 def _flag(value: int) -> bool:

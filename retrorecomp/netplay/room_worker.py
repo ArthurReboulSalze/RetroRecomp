@@ -110,6 +110,7 @@ class RoomWorker:
         self.room: RoomHost | RoomGuest | None = None
         self.match: _Match | None = None
         self.pending: dict | None = None        # a host's launch waiting for every guest, or a guest's waiting for its converter
+        self._last_launch: tuple | None = None  # the host's last launch call ('lobby' or 'launch', message): a relaunch repeats it
         self.inbox: queue.Queue = queue.Queue()
         self.finished = threading.Event()       # the room is over: the converter said so, or went away
         self.exit_code = 0
@@ -286,6 +287,23 @@ class RoomWorker:
             self.room.end_match(match.driver.outcome or 'ended')       # and every guest is back in the lobby
         self.emit({'event': 'match_over', 'match_id': match.match_id, 'outcome': match.driver.outcome,
                    'detail': match.driver.detail, 'counters': self.room.counters if self.room is not None else {}})
+        if match.host and match.driver.outcome == 'relaunch' and match.driver.relaunch_options is not None:
+            self._relaunch(match.driver.relaunch_options)
+
+    def _relaunch(self, options: str) -> None:
+        """The host changed a run-changing option in the match (session ABI 9): the same launch again at once, for the same
+        guests, with the new options over the host game's own (no "ready" asked: they were playing)."""
+        last = self._last_launch
+        if last is None:
+            return
+        kind, message = last
+        try:
+            if kind == 'lobby':
+                self._lobby_launch({**message, 'need_ready': False}, override=options)
+            else:
+                self._host_launch(message, override=options)
+        except Exception as error:
+            self.emit({'event': 'launch_error', 'detail': f'the match could not start again: {type(error).__name__}'})
 
     def _start_host_match(self) -> None:
         with self.lock:
@@ -335,7 +353,8 @@ class RoomWorker:
         elif name == 'close_room':
             self.finished.set()
 
-    def _host_launch(self, message: dict) -> None:
+    def _host_launch(self, message: dict, override: str | None = None) -> None:
+        self._last_launch = ('launch', dict(message))
         try:
             game = self._game_config(message)
             identity = message['identity']
@@ -356,6 +375,8 @@ class RoomWorker:
         try:
             session, rollback, host_options, save = self._decide_tier(game, tier)
             options = merge_options(net.get('options', ''), host_options)
+            if override and not isinstance(options, Refusal):
+                options = merge_options(options, override)      # the host's change in the last match wins
             if isinstance(options, Refusal):
                 raise RoomError(f'the host game\'s options: {options.reason}')
             net['options'] = options
@@ -459,9 +480,10 @@ class RoomWorker:
         except (KeyError, ValueError, TypeError) as error:
             self.emit({'event': 'lobby_error', 'call': name, 'detail': f'the call is not what it should be ({type(error).__name__})'})
 
-    def _lobby_launch(self, message: dict) -> None:
+    def _lobby_launch(self, message: dict, override: str | None = None) -> None:
         """The host starts the match of its pick with the guests who have the game: the lobby says who and what the launch's
         options are (the host's pick pushes them; `settings` cannot)."""
+        self._last_launch = ('lobby', dict(message))
         game = self._game_config(message)
         values = dict(message.get('settings') or {})
         if 'options' in values or 'sharing' in values:
@@ -488,6 +510,8 @@ class RoomWorker:
                     return
                 options = merge_options(self.room.lobby.game.game_options if self.room.lobby.game is not None else '',
                                         host_options)
+                if override and not isinstance(options, Refusal):
+                    options = merge_options(options, override)      # the host's change in the last match wins
                 if isinstance(options, Refusal):
                     raise RoomError(f'the host game\'s options: {options.reason}')
                 info = self.room.lobby_launch(need_ready=need_ready, delay=net.get('delay') or 0,

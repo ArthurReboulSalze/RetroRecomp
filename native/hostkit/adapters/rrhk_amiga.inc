@@ -217,7 +217,9 @@ static void a_option_rows(int slot, RrhkOptionRows *rows) {
 static bool a_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
    char plate[96];
    if ((int)key != A_ROW_CPU) return x_key_event(ui, key, running);
-   if (rrhk_session_active()) return true;      /* the session's speed (a_session_begin); the kit says so */
+   /* In a session a guest plays the host's speed (the kit fades the row and says so); the host changes it, and the match then
+    * starts again for everyone at the new speed (session ABI 9: its session_options changed). */
+   if (rrhk_session_guest()) return true;
    if (!cpu_stock_only) a_set_cpu(a_cpu_choice == 1 ? 2 : a_cpu_choice == 2 ? 4 : 1, true);
    snprintf(plate, sizeof plate, a_cpu_label(), a_cpu_value());
    rrhk_notice(plate, 2500);
@@ -236,9 +238,9 @@ static unsigned a_joy_bits(uint16_t pad) {
    return bits;
 }
 
-/* The guest's inputs of this frame from the kit's pad words, the keyboard and the mouse. In a multiplayer session, from the pad words
- * alone, whatever this window's focus or menus (they are the frame's words on every seat): the two joysticks, Start as the guest's
- * Return; the keyboard and the mouse are not carried yet. */
+/* The guest's inputs of this frame from the kit's pad words, the keyboard and the mouse. In a multiplayer session, from the frame's
+ * words and the host's keys alone, whatever this window's focus or menus (they are the same on every seat): the two joysticks, the
+ * keys the host types (session ABI 9), else Start as the guest's Return; the mouse is not carried yet. */
 static void a_inputs(void) {
    uint8_t held[128];
    unsigned bits = 0, bits2 = 0;
@@ -248,7 +250,12 @@ static void a_inputs(void) {
    memset(held, 0, sizeof held);
    player_poll();
    if (rrhk_session_active()) {
-      held[0x44] = (pad & A_BIT(A_START)) != 0;
+      if (guest_keyboard) {
+         for (k = 0; k < SDL_NUM_SCANCODES; k++) {
+            const uint8_t raw = keys[k] ? a_raw_key((SDL_Scancode)k) : 0xFF;
+            if (raw < 128) held[raw] = 1;
+         }
+      } else held[0x44] = (pad & A_BIT(A_START)) != 0;
       rr_amiga_joystick(session, a_joy_bits(pad));
       rr_amiga_joystick2(session, a_joy_bits(pad2));
       rr_amiga_mouse(session, 0, 0, 0, 0);
@@ -466,6 +473,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.session_save = a_session_save; machine.session_save_put = a_session_save_put;
       machine.session_save_commit = a_session_save_commit;
       machine.session_option = a_session_option; machine.session_options = a_session_options; machine.session_begin = a_session_begin;
+      machine.session_keys = x_session_keys;
    }
    return &machine;
 }

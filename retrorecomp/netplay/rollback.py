@@ -125,8 +125,11 @@ def choose_tier(mode, hellos, cap: int = DEFAULT_PREDICTION) -> int | Refusal:
 
 
 def predicted(log) -> tuple:
-    """The record guessed for a seat whose record is not known yet: its last known word and sticks, no system bit."""
+    """The record guessed for a seat whose record is not known yet: its last known word, sticks and keys typed, no system bit
+    but the typing one (keys held stay held, as a word does)."""
     last = log[len(log) - 1]
+    if len(last) > 3:
+        return (last[0], last[1] & seat_map.SYS_KEYBOARD, last[2], last[3])
     return (last[0], 0) if len(last) < 3 else (last[0], 0, last[2])
 
 
@@ -223,10 +226,11 @@ class RollbackDriver(LockstepDriver):
         for frame in range(self._verified, upto + 1):
             records = [log[frame] if frame < len(log) else predicted(log) for log in self._records]
             axes = seat_map.sticks(state, records) if self.sticks else None
+            typed = seat_map.keys(records) if self.keyboard else None
             words, state = seat_map.step(state, records, self.settings.opposites)
             if self.settings.words_filter is not None:
                 words = tuple(self.settings.words_filter(frame, words))
-            out.append(((words, seat_map.action(records), axes), state))
+            out.append(((words, seat_map.action(records), axes, typed), state))
         return out
 
     def _correct(self, position: int, mapped: list, batch: list) -> None:
@@ -242,7 +246,7 @@ class RollbackDriver(LockstepDriver):
                 batch.append(pipe.save(frame))          # the snapshot before it was of the wrong game
                 self.stats['saves'] += 1
             run = mapped[frame - base][0]
-            batch.append(pipe.run(frame, run[0], silent=True, action=run[1], axes=run[2]))
+            batch.append(pipe.run(frame, run[0], silent=True, action=run[1], axes=run[2], keys=run[3]))
             self._ran[frame] = run
         depth = position - wrong
         self.stats['loads'] += 1
@@ -254,8 +258,8 @@ class RollbackDriver(LockstepDriver):
     def _verify(self, limit: int, mapped: list, base: int) -> None:
         """The frames below `limit` are confirmed and the game ran them with the confirmed words: they join the history."""
         while self._verified < limit:
-            (words, action, axes), state = mapped[self._verified - base]
-            self._remember(self._verified, words, action, axes)
+            (words, action, axes, typed), state = mapped[self._verified - base]
+            self._remember(self._verified, words, action, axes, typed)
             self._verified_state = self._seat_state = state
             self._tell_turn()
             del self._ran[self._verified]
@@ -338,7 +342,7 @@ class RollbackDriver(LockstepDriver):
             self.stats['saves'] += 1
             self._ask_digests(frame, batch, saved=True)
             run = mapped[frame - base][0]
-            batch.append(pipe.run(frame, run[0], action=run[1], axes=run[2]))
+            batch.append(pipe.run(frame, run[0], action=run[1], axes=run[2], keys=run[3]))
             self._ran[frame] = run
             if frame >= confirmed:
                 self.stats['predicted_frames'] += 1

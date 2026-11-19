@@ -327,7 +327,7 @@ class ControlTests(unittest.TestCase):
                               (control.HELLO, b'\x00' * 6), (control.HELLO, struct.pack('<3HB', 1, 2, 3, 2) + b'a'),
                               (control.HELLO, struct.pack('<3HB', 1, 2, 3, 0)), (control.HELLO, struct.pack('<3HB', 1, 2, 3, 1) + b'\xff'),
                               (control.HELLO, struct.pack('<3HB', 1, 2, 3, 49) + b'a' * 49),
-                              (control.LAUNCHED, struct.pack('<IB', 1, 4)), (control.END, struct.pack('<IBB', 1, 7, 0)),
+                              (control.LAUNCHED, struct.pack('<IB', 1, 4)), (control.END, struct.pack('<IBB', 1, 8, 0)),
                               (control.END, struct.pack('<IBB', 1, 3, 9)), (control.PING, b'abc'), (control.BYE, b'\x09'),
                               (control.LAUNCH, b''), (control.LAUNCH, control.encode(LAUNCH)[1] + b'x'),
                               (control.LAUNCH, control.encode(LAUNCH)[1][:-1])]:

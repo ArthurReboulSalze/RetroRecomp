@@ -10,11 +10,13 @@ from dataclasses import dataclass
 import struct
 import unicodedata
 
-ABI = 8                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
+ABI = 9                      # 2: restart for everyone (SYS_RESTART in LOCAL, RUN_RESET in RUN); 3: the chat and the turn notices;
                              # 4: the host's quick save and load for everyone (SYS_STATE_*, RUN_STATE_*); 5: a driven machine with
                              # snapshots takes silent RUNs (rollback for every machine); 6: HELLO carries the game's run-changing
                              # options (the host's go to every seat); 7: the sticks travel (LOCAL and RUN carry AXES int8 values);
-                             # 8: the host's save travels (HELLO says its size, SAVE_OUT gives it, SAVE_IN hands it to a guest)
+                             # 8: the host's save travels (HELLO says its size, SAVE_OUT gives it, SAVE_IN hands it to a guest);
+                             # 9: the host changes an option in a match (RELAUNCH, STOP_RELAUNCH) and types on a computer (LOCAL
+                             # and RUN carry its keys: CAP_KEYBOARD, SYS_KEYBOARD, RUN_KEYS)
 MAX_PAYLOAD = 4096
 MAX_RING = 64
 MAX_OPTIONS = 1024           # RRHK_SESSION_MAX_OPTIONS: the run-changing options a HELLO may carry
@@ -23,6 +25,7 @@ MAX_PLAYERS = 4              # RRHK_MAX_PLAYERS: the port words a RUN may carry
 
 # game -> worker
 MSG_HELLO, MSG_LOCAL, MSG_DONE, MSG_DIGEST_OF, MSG_REFUSED, MSG_EXIT, MSG_CHAT_OUT, MSG_SAVE_OUT = 1, 2, 3, 4, 5, 6, 7, 8
+MSG_RELAUNCH = 9
 # worker -> game
 MSG_SETUP, MSG_RUN, MSG_SAVE, MSG_LOAD, MSG_DIGEST, MSG_PAUSE, MSG_NOTICE, MSG_PACE, MSG_STOP, MSG_CHAT_SHOW, MSG_SAVE_IN = range(32, 43)
 MAX_SAVE = 2 * 1024 * 1024   # RRHK_SESSION_MAX_SAVE: the largest save image a game gives or takes
@@ -30,11 +33,13 @@ SAVE_CHUNK = 4000            # the data of one SAVE_OUT / SAVE_IN
 
 CAP_SNAPSHOT, CAP_DIGEST, CAP_POINTER, CAP_AXES, CAP_KEYBOARD, CAP_DRIVEN = 1, 2, 4, 8, 16, 32
 SETUP_GUEST = 1
-RUN_SILENT, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD, RUN_AXES = 1, 2, 4, 8, 16
+RUN_SILENT, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD, RUN_AXES, RUN_KEYS = 1, 2, 4, 8, 16, 32
+KEY_BYTES = 16               # RRHK_KEY_BYTES: the keys the host types on a computer, one bit per key (session ABI 9)
+NO_KEYS = bytes(KEY_BYTES)
 AXES = 4                     # RRHK_AXES: LX, LY, RX, RY per player, int8 (-127..127) in LOCAL and RUN
 NO_AXES = (0,) * AXES
 RUN_ACTIONS = (0, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD)       # at most one of them before a frame
-SYS_PAUSE, SYS_RESTART, SYS_STATE_SAVE, SYS_STATE_LOAD = 1, 2, 4, 8
+SYS_PAUSE, SYS_RESTART, SYS_STATE_SAVE, SYS_STATE_LOAD, SYS_KEYBOARD = 1, 2, 4, 8, 16
 REFUSED_OPTION, REFUSED_SNAPSHOT, REFUSED_COMMAND = 1, 2, 3
 EXIT_CLOSED, EXIT_LOST, EXIT_STOPPED, EXIT_FAILED = 1, 2, 3, 4
 NOTICE_WAITING, NOTICE_RESUMED, NOTICE_LEFT, NOTICE_TURN, NOTICE_YOUR_TURN, NOTICE_CHAT_SLOW = 1, 2, 3, 4, 5, 6
@@ -44,7 +49,7 @@ PHRASE_COUNT = 6
 # The phrases a player sends with one press, by number (every game shows them in its own language; the lobby too).
 PHRASES = {PHRASE_GG: 'GG', PHRASE_READY: 'Ready?', PHRASE_AGAIN: 'Again?', PHRASE_PAUSE: 'Pause please',
            PHRASE_MOMENT: 'One moment', PHRASE_THANKS: 'Thanks!'}
-STOP_HOST_CLOSED, STOP_DESYNC, STOP_ENDED, STOP_BOOT_MISMATCH = 1, 2, 3, 4
+STOP_HOST_CLOSED, STOP_DESYNC, STOP_ENDED, STOP_BOOT_MISMATCH, STOP_RELAUNCH = 1, 2, 3, 4, 5
 PACE_LIMIT = 20000           # parts per million, either way
 
 # The header's names, for the test that compares the two.
@@ -52,7 +57,7 @@ HEADER_NAMES = {
     'RRHK_MSG_HELLO': MSG_HELLO, 'RRHK_MSG_LOCAL': MSG_LOCAL, 'RRHK_MSG_DONE': MSG_DONE,
     'RRHK_MSG_DIGEST_OF': MSG_DIGEST_OF, 'RRHK_MSG_REFUSED': MSG_REFUSED, 'RRHK_MSG_EXIT': MSG_EXIT,
     'RRHK_MSG_CHAT_OUT': MSG_CHAT_OUT, 'RRHK_MSG_CHAT_SHOW': MSG_CHAT_SHOW, 'RRHK_MSG_SAVE_OUT': MSG_SAVE_OUT,
-    'RRHK_MSG_SAVE_IN': MSG_SAVE_IN,
+    'RRHK_MSG_SAVE_IN': MSG_SAVE_IN, 'RRHK_MSG_RELAUNCH': MSG_RELAUNCH,
     'RRHK_MSG_SETUP': MSG_SETUP, 'RRHK_MSG_RUN': MSG_RUN, 'RRHK_MSG_SAVE': MSG_SAVE, 'RRHK_MSG_LOAD': MSG_LOAD,
     'RRHK_MSG_DIGEST': MSG_DIGEST, 'RRHK_MSG_PAUSE': MSG_PAUSE, 'RRHK_MSG_NOTICE': MSG_NOTICE,
     'RRHK_MSG_PACE': MSG_PACE, 'RRHK_MSG_STOP': MSG_STOP,
@@ -60,6 +65,7 @@ HEADER_NAMES = {
     'RRHK_CAP_AXES': CAP_AXES, 'RRHK_CAP_KEYBOARD': CAP_KEYBOARD, 'RRHK_CAP_DRIVEN': CAP_DRIVEN,
     'RRHK_SETUP_GUEST': SETUP_GUEST, 'RRHK_RUN_SILENT': RUN_SILENT, 'RRHK_RUN_RESET': RUN_RESET,
     'RRHK_RUN_STATE_SAVE': RUN_STATE_SAVE, 'RRHK_RUN_STATE_LOAD': RUN_STATE_LOAD, 'RRHK_RUN_AXES': RUN_AXES,
+    'RRHK_RUN_KEYS': RUN_KEYS, 'RRHK_SYS_KEYBOARD': SYS_KEYBOARD,
     'RRHK_SYS_PAUSE': SYS_PAUSE, 'RRHK_SYS_RESTART': SYS_RESTART,
     'RRHK_SYS_STATE_SAVE': SYS_STATE_SAVE, 'RRHK_SYS_STATE_LOAD': SYS_STATE_LOAD,
     'RRHK_REFUSED_OPTION': REFUSED_OPTION, 'RRHK_REFUSED_SNAPSHOT': REFUSED_SNAPSHOT,
@@ -72,7 +78,7 @@ HEADER_NAMES = {
     'RRHK_PHRASE_PAUSE': PHRASE_PAUSE, 'RRHK_PHRASE_MOMENT': PHRASE_MOMENT, 'RRHK_PHRASE_THANKS': PHRASE_THANKS,
     'RRHK_PHRASE_COUNT': PHRASE_COUNT,
     'RRHK_STOP_HOST_CLOSED': STOP_HOST_CLOSED, 'RRHK_STOP_DESYNC': STOP_DESYNC, 'RRHK_STOP_ENDED': STOP_ENDED,
-    'RRHK_STOP_BOOT_MISMATCH': STOP_BOOT_MISMATCH,
+    'RRHK_STOP_BOOT_MISMATCH': STOP_BOOT_MISMATCH, 'RRHK_STOP_RELAUNCH': STOP_RELAUNCH,
 }
 
 
@@ -185,9 +191,8 @@ def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:
         raise Refused(f'the game speaks session ABI {hello.abi}, this Retro-Recomp speaks {ABI}')
     if not hello.caps & CAP_DIGEST:
         raise Refused('the game gives no digest: two copies could not be compared')
-    for bit, what in ((CAP_POINTER, 'a pointer or light gun'), (CAP_KEYBOARD, "a computer's keyboard")):
-        if hello.caps & bit:
-            raise Refused(f'the game reads {what}, which the pad words do not carry yet')
+    if hello.caps & CAP_POINTER:         # a computer's keyboard travels since session ABI 9 (the host's keys)
+        raise Refused('the game reads a pointer or light gun, which the pad words do not carry yet')
     if shared:
         if not (1 <= seats <= MAX_PLAYERS and hello.players >= 1):
             raise Refused(f'{seats} seats asked, a room seats 1 to {MAX_PLAYERS}')
@@ -197,15 +202,30 @@ def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:
         raise Refused('the game gives no frame rate')
 
 
-def parse_local(payload: bytes) -> tuple[int, int, int, tuple | None]:
-    """(frame about to run, word, system bits, sticks): the sticks are this PC's AXES int8 values for a game with sticks
-    (CAP_AXES), None otherwise."""
-    if len(payload) == 8:
-        return (*struct.unpack('<IHH', payload), None)
-    if len(payload) == 8 + AXES:
-        frame_number, word, system, *axes = struct.unpack(f'<IHH{AXES}b', payload)
-        return frame_number, word, system, tuple(max(-127, value) for value in axes)
-    raise Broken('a LOCAL of the wrong length')
+def parse_local(payload: bytes) -> tuple[int, int, int, tuple | None, bytes | None]:
+    """(frame about to run, word, system bits, sticks, keys): the sticks are this PC's AXES int8 values for a game with sticks
+    (CAP_AXES), None otherwise; the keys its KEY_BYTES for a computer (CAP_KEYBOARD, session ABI 9), None otherwise."""
+    size = len(payload)
+    if size not in (8, 8 + AXES, 8 + KEY_BYTES, 8 + AXES + KEY_BYTES):
+        raise Broken('a LOCAL of the wrong length')
+    frame_number, word, system = struct.unpack_from('<IHH', payload)
+    axes = keys = None
+    if size in (8 + AXES, 8 + AXES + KEY_BYTES):
+        axes = tuple(max(-127, value) for value in struct.unpack_from(f'<{AXES}b', payload, 8))
+    if size >= 8 + KEY_BYTES:
+        keys = bytes(payload[size - KEY_BYTES:])
+    return frame_number, word, system, axes, keys
+
+
+def parse_relaunch(payload: bytes) -> str:
+    """The host's run-changing options now (session ABI 9): it changed one in the match, which starts again with them."""
+    if len(payload) < 2:
+        raise Broken('a RELAUNCH of the wrong length')
+    length = struct.unpack_from('<H', payload)[0]
+    raw = payload[2:]
+    if length > MAX_OPTIONS or len(raw) != length or any(not (32 <= byte < 127 or byte == 10) for byte in raw):
+        raise Broken('a RELAUNCH that is not plain options')
+    return raw.decode('ascii')
 
 
 def parse_done(payload: bytes) -> tuple[int, int]:
@@ -260,7 +280,8 @@ def setup(seat: int, ports: int, ring_depth: int = 0, guest: bool = False, optio
     return frame(MSG_SETUP, struct.pack('<BBBBH', seat, ports, ring_depth, SETUP_GUEST if guest else 0, len(text)) + text)
 
 
-def run(frame_number: int, words, silent: bool = False, reset: bool = False, action: int = 0, axes=None) -> bytes:
+def run(frame_number: int, words, silent: bool = False, reset: bool = False, action: int = 0, axes=None,
+        keys: bytes | None = None) -> bytes:
     """`reset`: the machine restarts before this frame runs (the host's restart, on every seat at this frame). `action`: one of
     `RUN_ACTIONS`, done before the frame runs (the host's restart, or its save or load of the match's state)."""
     if action not in RUN_ACTIONS or (reset and action not in (0, RUN_RESET)):
@@ -270,8 +291,12 @@ def run(frame_number: int, words, silent: bool = False, reset: bool = False, act
     if axes is not None:         # `axes`: one AXES-tuple per port, after the words (session ABI 7)
         if len(axes) != len(words) or any(len(port) != AXES for port in axes):
             raise ValueError('one set of sticks per port')
-        payload = payload[:4] + bytes([flags | RUN_AXES]) + payload[5:] + struct.pack(
+        payload = payload[:4] + bytes([payload[4] | RUN_AXES]) + payload[5:] + struct.pack(
             f'<{AXES * len(words)}b', *(max(-127, min(127, value)) for port in axes for value in port))
+    if keys is not None:         # the host types (session ABI 9): its keys, for every seat's computer this frame
+        if len(keys) != KEY_BYTES:
+            raise ValueError('the keys are KEY_BYTES bytes')
+        payload = payload[:4] + bytes([payload[4] | RUN_KEYS]) + payload[5:] + bytes(keys)
     return frame(MSG_RUN, payload)
 
 

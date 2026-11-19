@@ -135,8 +135,19 @@ static void s_inputs(void) {
       }
       if (!guest_keyboard && player_start() > 0) held[RETROK_RETURN] = 1;
    }
-   /* In a match the guest gets the match's port words only (the two joysticks): the host's mouse and keyboard are not carried yet, so they are cut (joystick games first). */
-   if (rrhk_session_active()) { memset(held, 0, sizeof held); left = right = dx = dy = 0; }
+   /* In a match the guest gets the frame's words and the host's keys only, the same on every seat, whatever this window's focus
+    * or menus: the two joysticks, the keys the host types (session ABI 9), else Start as Return; the mouse is not carried yet. */
+   if (rrhk_session_active()) {
+      memset(held, 0, sizeof held); left = right = dx = dy = 0;
+      bits1 = bits0 = 0;
+      if (!mouse_game) { bits1 = s_joystick_bits(ca.pad[0]); bits0 = s_joystick_bits(ca.pad[1]); }
+      if (guest_keyboard) {
+         for (k = 0; k < SDL_NUM_SCANCODES; k++) {
+            unsigned code;
+            if (keys[k] && (code = s_retro_key((SDL_Scancode)k)) && code < RETROK_LAST) held[code] = 1;
+         }
+      } else if (player_start() > 0) held[RETROK_RETURN] = 1;
+   }
    rr_st_joystick(session, 1, bits1);
    rr_st_joystick(session, 0, bits0);
    rr_st_mouse(session, dx, dy, left, right);
@@ -316,6 +327,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.help_page = x_help_page; machine.action_held = x_action_held;
       machine.snap_bound = s_snap_bound; machine.snap_save = s_snap_save; machine.snap_load = s_snap_load;
       machine.digest = s_digest; machine.side_effects = s_side_effects; machine.session_begin = s_session_begin;
+      machine.session_keys = x_session_keys;
       machine.session_save = s_session_save; machine.session_save_put = s_session_save_put; machine.session_save_commit = s_session_save_commit;
    }
    return &machine;

@@ -338,8 +338,9 @@ void rrhk_poll_events(RrhkRun *run) {
             /* F8 / F9 go on to the request below: in a session the host's are for everyone (rrhk_session_state). */
             const bool refused =
                 (key == SDL_SCANCODE_GRAVE && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) ||
-                (media_pressed(&event, key) && !rrhk_options_component(key, -1)) || rrhk_option_key_run(key) ||
-                (rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
+                (media_pressed(&event, key) && !rrhk_options_component(key, -1)) ||
+                (rrhk_option_key_run(key) && (rrhk_session_guest() || key == SDL_SCANCODE_GRAVE)) ||
+                (rrhk_session_guest() && rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
                  key != SDL_SCANCODE_F2 && key != SDL_SCANCODE_F1 && key != SDL_SCANCODE_UP && key != SDL_SCANCODE_DOWN &&
                  key != SDL_SCANCODE_PAGEUP && key != SDL_SCANCODE_PAGEDOWN);
             if (refused) {

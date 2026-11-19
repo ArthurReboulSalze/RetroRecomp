@@ -98,7 +98,26 @@ static void m_inputs(MsxMachine *m) {
    memset(held, 0, sizeof held);
    uint8_t joy1 = 0x3F, joy2 = 0x3F;
    player_poll();
-   if (!player_blocked() && input_focus) {
+   if (rrc_session()) {
+      /* A match: the frame's words and the host's keys only, the same on every seat, whatever this window's focus or menus
+       * (session ABI 9): the two joysticks, the keys the host types, else the pad on the cursor keys as alone. */
+      joy1 = m_joystick(ca.pad[0]);
+      joy2 = m_joystick(ca.pad[1]);
+      if (guest_keyboard) {
+         for (int k = 0; k < SDL_NUM_SCANCODES; k++) {
+            int row, bit;
+            if (keys[k] && m_matrix((SDL_Scancode)k, &row, &bit)) held[row] |= (uint8_t)(1u << bit);
+         }
+      } else {
+         const uint16_t pad = ca.pad[0];
+         if (pad & M_BIT(M_UP)) held[8] |= 0x20;
+         if (pad & M_BIT(M_DOWN)) held[8] |= 0x40;
+         if (pad & M_BIT(M_LEFT)) held[8] |= 0x10;
+         if (pad & M_BIT(M_RIGHT)) held[8] |= 0x80;
+         if (pad & (M_BIT(M_A) | M_BIT(M_START))) held[8] |= 0x01;
+         if (pad & M_BIT(M_SELECT)) held[6] |= 0x20;
+      }
+   } else if (!player_blocked() && input_focus) {
       joy1 = m_joystick(ca.pad[0]);
       joy2 = m_joystick(ca.pad[1]);
       if (keys && !((mod & KMOD_CTRL) && (mod & KMOD_ALT))) {
@@ -266,6 +285,7 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.session_save_commit = msx_session_save_commit;
       /* SETUP: every seat back at power-on (its guest ran a first frame on its own saves), then the match's image. */
       machine.session_begin = msx_session_begin;
+      machine.session_keys = x_session_keys;
       machine.input_frame = m_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = m_help_controls;
       machine.option_rows = x_option_rows; machine.key_event = x_key_event;

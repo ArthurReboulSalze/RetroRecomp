@@ -278,7 +278,6 @@ bool rrhk_session_paused(void);
 bool rrhk_session_restart(void);
 void rrhk_session_state(bool load);          /* F8 / F9 in a session: the host's for everyone, this match only */
 bool rrhk_session_states(void);             /* this seat is the host and its machine keeps the match's state */
-bool rrhk_session_guest(void);              /* in a session as a guest (the host restarts, a guest cannot) */
 void rrhk_session_close(RrhkRun *run, int reason);
 /* input.c: the pad word of this PC's player as today's solo game reads it (player `player`'s bindings, autofire applied). */
 uint16_t rrhk_local_pad_word(int player, uint64_t frame);

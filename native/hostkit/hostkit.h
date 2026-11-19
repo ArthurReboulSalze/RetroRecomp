@@ -371,6 +371,11 @@ typedef struct RrhkMachine {
     void (*session_begin)(uint64_t clock);
     bool session_no_restart;          /* the machine cannot restart inside a session (its restart relaunches the process): the kit
                                        * refuses Shift+F1 and the pad's Restart there with a notice, and asks nothing of the others */
+    /* A computer whose keyboard the host may type on in a session (session ABI 9; Arthur, 19 Nov 2026: the host types, guests
+     * stay on their pads): the keys this PC types now, packed with rrhk_keys_pack into `bits` (RRHK_SESSION_KEY_BYTES), when its
+     * keyboard mode (Ctrl+Alt+K) is on; false when it is off. Called for the host's LOCAL only. Every seat, the host
+     * included, then types what rrhk_session_keys gives for the frame. NULL: a machine without a keyboard. */
+    bool (*session_keys)(uint8_t *bits);
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
@@ -442,6 +447,15 @@ extern const RrhkPage rrhk_pointer_page;
  * re-simulated (an adapter that delivers its own sound drops that frame's). */
 bool rrhk_session_active(void);
 bool rrhk_session_silent(void);
+/* In a session: this seat is a guest (the host sets the options of the match and types on a computer, a guest does not). */
+bool rrhk_session_guest(void);
+/* Session ABI 9, a computer's keyboard: the host's keys of the frame being run, unpacked into `state` (SDL_NUM_SCANCODES bytes,
+ * 1 for a key held); false (and `state` all zero) when the host does not type this frame. */
+bool rrhk_session_keys(uint8_t *state);
+#define RRHK_SESSION_KEY_BYTES 16     /* hostkit_session.h RRHK_KEY_BYTES */
+/* The typing keys of `state` (SDL_GetKeyboardState's array) as RRHK_SESSION_KEY_BYTES bits, and back. */
+void rrhk_keys_pack(const uint8_t *state, uint8_t *bits);
+void rrhk_keys_unpack(const uint8_t *bits, uint8_t *state);
 /* The ports of the session's frames (SETUP: one per seat, or one in input sharing), 0 outside a session. A machine whose
  * extra-player adapter changes how the game reads its pads plugs it in from session_begin only when the session needs more
  * pads than the machine has without it (a SNES multitap from 3, a PC Engine one from 2), so a match plays as the game alone

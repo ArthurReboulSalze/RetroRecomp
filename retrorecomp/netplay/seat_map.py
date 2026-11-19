@@ -50,6 +50,7 @@ SYS_SET_ALL, SYS_SET_TURNS = 0x1000, 0x2000
 SYS_RESTART = 0x4000         # host only: every game restarts before this frame runs (one record = one restart; a guest's is ignored)
 SYS_STATE_SAVE = 0x0800      # host only: every game saves the match's state before this frame runs (the host's F8)
 SYS_STATE_LOAD = 0x8000      # host only: every game loads it back before this frame runs (the host's F9)
+SYS_KEYBOARD = 0x0004       # host only: it types on a computer this frame (its record's keys count; a guest's are ignored)
 SYS_GAME_MASK = SYS_PAUSE
 SYS_CONTROL_MASK = SYS_PASS | SYS_TO_MASK | SYS_SET_ALL | SYS_SET_TURNS
 
@@ -146,12 +147,23 @@ def sticks(state: SeatState, records) -> tuple:
     one controller per player, each port its seat's; in turns the holder's; with everyone on the shared controls the first seat
     whose sticks are off centre (sticks cannot be merged as buttons are). A record without sticks counts as centred."""
     centred = (0, 0, 0, 0)
-    of = [record[2] if len(record) > 2 else centred for record in records]
+    of = [record[2] if len(record) > 2 and record[2] is not None else centred for record in records]
     if not shared(state.sharing):
         return tuple(of)
     if state.sharing == SHARED_TURNS:
         return (of[state.token if state.token < len(of) else HOST],)
     return (next((axes for axes in of if any(axes)), centred),)
+
+
+def keys(records) -> bytes | None:
+    """The keys every seat's computer types this frame (session ABI 9): the host's, when its record says it types; never a
+    guest's, whatever its record carries. None: nobody types."""
+    if not records:
+        return None
+    host = records[HOST]
+    if not host[1] & SYS_KEYBOARD or len(host) < 4 or host[3] is None:
+        return None
+    return bytes(host[3])
 
 
 def action(records) -> int:

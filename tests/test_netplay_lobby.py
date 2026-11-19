@@ -100,7 +100,7 @@ class WireTests(unittest.TestCase):
                               (control.SELECT, struct.pack('<HB', 1, 0) + b'x'), (control.SELECT, select[:-1]), (control.SELECT, select + b'x'),
                               (control.SELECT, select[:2] + b'\x02' + select[3:]),                          # a mode that is not one
                               (control.NOTICE, b'\x00'), (control.NOTICE, b'\x04'), (control.NOTICE, b''), (control.BACK, struct.pack('<IB', 1, 0)),
-                              (control.BACK, struct.pack('<IB', 1, 12)), (control.SAY, b'\x00\x00'), (control.SAY, struct.pack('<H', 2) + b'a'),
+                              (control.BACK, struct.pack('<IB', 1, 13)), (control.SAY, b'\x00\x00'), (control.SAY, struct.pack('<H', 2) + b'a'),
                               (control.READY, b'\x02'), (control.READY, b''), (control.ANSWER, struct.pack('<HBB3H', 1, 1, 0, 0, 0, 0)),
                               (control.ANSWER, struct.pack('<HBB3H', 1, 2, 0x80, 0, 0, 0)), (control.ANSWER, struct.pack('<HBB3H', 0, 2, 0, 0, 0, 0))]:
             with self.assertRaises(control.FrameError, msg=(kind, payload)):

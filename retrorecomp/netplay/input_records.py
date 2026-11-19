@@ -14,7 +14,8 @@ Every packet, little-endian, at most MAX_PACKET bytes:
              resume_frame u32   "resume the pause that began at this frame" (NONE: no request)
              digest_frame u32, digest u64      the sender's latest digest (digest_frame NONE: none yet)
              sections u8 (<= 4), each: seat u8, first_frame u32, count u8 (<= 32), count x (word u16, system u16), and
-             with the header's FLAG_AXES each record also carries 4 x i8 sticks (LX, LY, RX, RY) after its system bits
+             with the header's FLAG_AXES each record also carries 4 x i8 sticks (LX, LY, RX, RY) after its system bits,
+             with FLAG_KEYS 16 bytes of keys after them (a computer: only the host's are ever typed, PROTO 3)
     PING     time u32           the sender's clock, microseconds, wrapped
     PONG     time u32           the PING's value, sent back
     MEASURE  one_way_ms u16, jitter_ms u16     a guest's worst link, for the host's choice of the delay
@@ -34,7 +35,7 @@ import math
 import struct
 
 MAGIC = b'RRNG'
-PROTO = 2
+PROTO = 3                    # 3: FLAG_KEYS and BYE_RELAUNCH (session ABI 9)
 MAX_PACKET = 508             # no IP fragmentation later, on IPv4 or IPv6
 MAX_RECORDS = 32
 MAX_SECTIONS = 4
@@ -45,8 +46,10 @@ NONE = 0xffffffff
 NO_SEAT = 0xff
 INPUT, PING, PONG, MEASURE, BYE, BOOT = 1, 2, 3, 4, 5, 6
 FLAG_AXES = 1                # an INPUT whose records carry the sticks (a game with sticks: session ABI 7)
+FLAG_KEYS = 2                # an INPUT whose records carry the keys typed (a computer: session ABI 9)
 AXES = 4
-BYE_HOST_CLOSED, BYE_DESYNC, BYE_ENDED, BYE_LEFT, BYE_SEAT_GONE, BYE_BOOT = 1, 2, 3, 4, 5, 6
+KEY_BYTES = 16
+BYE_HOST_CLOSED, BYE_DESYNC, BYE_ENDED, BYE_LEFT, BYE_SEAT_GONE, BYE_BOOT, BYE_RELAUNCH = 1, 2, 3, 4, 5, 6, 7
 
 _HEAD = struct.Struct('<4sBBBB')
 _INPUT = struct.Struct('<I4IBHIIQB')
@@ -58,7 +61,8 @@ _NO_ACKS = (NONE,) * MAX_SEATS
 class Section:
     seat: int
     first_frame: int
-    records: tuple          # of (word, system), or (word, system, sticks) with FLAG_AXES
+    records: tuple          # of (word, system), (word, system, sticks) with FLAG_AXES, (word, system, sticks or None, keys)
+                            # with FLAG_KEYS
 
 
 @dataclass(frozen=True)
@@ -85,12 +89,12 @@ def _head(kind: int, seat: int, flags: int = 0) -> bytes:
     return _HEAD.pack(MAGIC, PROTO, kind, seat, flags)
 
 
-def records_that_fit(sections: int, sticks: bool) -> int:
+def records_that_fit(sections: int, sticks: bool, keys: bool = False) -> int:
     """How many records each of `sections` sections may carry so that the packet stays within MAX_PACKET."""
     if sections <= 0:
         return MAX_RECORDS
     room = MAX_PACKET - _HEAD.size - _INPUT.size - sections * _SECTION.size
-    return max(1, min(MAX_RECORDS, room // (sections * (4 + (AXES if sticks else 0)))))
+    return max(1, min(MAX_RECORDS, room // (sections * (4 + (AXES if sticks else 0) + (KEY_BYTES if keys else 0)))))
 
 
 def encode_input(seat: int, sender_frame: int, acks, sections, *, delay: int = 0, hold_ms: int = 0,
@@ -99,8 +103,9 @@ def encode_input(seat: int, sender_frame: int, acks, sections, *, delay: int = 0
     `sections`: (seat, first_frame, [(word, system), ...]) each, or (word, system, sticks) records for a game with sticks
     (every record then has them). Too many records is the caller's error (`records_that_fit`)."""
     held = (list(acks) + [NONE] * MAX_SEATS)[:MAX_SEATS]
-    sticks = any(len(record) > 2 for _owner, _first, records in sections for record in records)
-    parts = [_head(INPUT, seat, FLAG_AXES if sticks else 0),
+    sticks = any(len(record) > 2 and record[2] is not None for _owner, _first, records in sections for record in records)
+    keys = any(len(record) > 3 for _owner, _first, records in sections for record in records)
+    parts = [_head(INPUT, seat, (FLAG_AXES if sticks else 0) | (FLAG_KEYS if keys else 0)),
              _INPUT.pack(sender_frame, *held, delay, min(hold_ms, MAX_HOLD_MS), resume_frame, digest_frame, digest,
                          len(sections))]
     for owner, first, records in sections:
@@ -110,8 +115,13 @@ def encode_input(seat: int, sender_frame: int, acks, sections, *, delay: int = 0
         for record in records:
             parts.append(struct.pack('<HH', record[0], record[1]))
             if sticks:
-                axes = record[2] if len(record) > 2 else (0,) * AXES
+                axes = record[2] if len(record) > 2 and record[2] is not None else (0,) * AXES
                 parts.append(struct.pack(f'<{AXES}b', *(max(-127, min(127, value)) for value in axes)))
+            if keys:
+                typed = bytes(record[3]) if len(record) > 3 and record[3] is not None else bytes(KEY_BYTES)
+                if len(typed) != KEY_BYTES:
+                    raise ValueError('the keys of a record are KEY_BYTES bytes')
+                parts.append(typed)
     data = b''.join(parts)
     if len(data) > MAX_PACKET or len(sections) > MAX_SECTIONS:
         raise ValueError('an input packet above the limits')
@@ -143,9 +153,9 @@ def decode(data: bytes, seats: int = MAX_SEATS) -> Packet | None:
     if not _HEAD.size <= len(data) <= MAX_PACKET:
         return None
     magic, proto, kind, seat, flags = _HEAD.unpack_from(data)
-    if magic != MAGIC or proto != PROTO or seat >= seats or flags & ~FLAG_AXES or (flags and kind != INPUT):
+    if magic != MAGIC or proto != PROTO or seat >= seats or flags & ~(FLAG_AXES | FLAG_KEYS) or (flags and kind != INPUT):
         return None                     # an unknown flag: a later meaning cannot be pre-sent
-    size = 4 + (AXES if flags & FLAG_AXES else 0)
+    size = 4 + (AXES if flags & FLAG_AXES else 0) + (KEY_BYTES if flags & FLAG_KEYS else 0)
     body = data[_HEAD.size:]
     if kind in (PING, PONG):
         return Packet(kind, seat, time=struct.unpack('<I', body)[0]) if len(body) == 4 else None
@@ -160,7 +170,7 @@ def decode(data: bytes, seats: int = MAX_SEATS) -> Packet | None:
         if len(body) != 6:
             return None
         reason, frame, who = struct.unpack('<BIB', body)
-        if not BYE_HOST_CLOSED <= reason <= BYE_BOOT or not (who < seats or who == NO_SEAT):
+        if not BYE_HOST_CLOSED <= reason <= BYE_RELAUNCH or not (who < seats or who == NO_SEAT):
             return None
         return Packet(kind, seat, reason=reason, frame=frame, who=who)
     if kind != INPUT or len(body) < _INPUT.size:
@@ -181,8 +191,11 @@ def decode(data: bytes, seats: int = MAX_SEATS) -> Packet | None:
         items = []
         for _ in range(records):
             word, system = struct.unpack_from('<HH', body, offset)
-            if size > 4:
-                axes = tuple(max(-127, value) for value in struct.unpack_from(f'<{AXES}b', body, offset + 4))
+            axes = tuple(max(-127, value) for value in struct.unpack_from(f'<{AXES}b', body, offset + 4)) \
+                if flags & FLAG_AXES else None
+            if flags & FLAG_KEYS:
+                items.append((word, system, axes, bytes(body[offset + size - KEY_BYTES:offset + size])))
+            elif axes is not None:
                 items.append((word, system, axes))
             else:
                 items.append((word, system))

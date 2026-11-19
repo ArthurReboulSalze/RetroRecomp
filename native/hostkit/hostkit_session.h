@@ -19,13 +19,16 @@
 #include <stdint.h>
 
 /* Raised whenever a message, a field or the meaning of one changes. The lobby also compares the host stamp. */
-#define RRHK_SESSION_ABI 8           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
+#define RRHK_SESSION_ABI 9           /* 2: restart for everyone (RRHK_SYS_RESTART, RRHK_RUN_RESET); 3: the chat (CHAT_OUT, CHAT_SHOW,
                                      * the turn notices, NOTICE_CHAT_SLOW); 4: the host's quick save and load for everyone
                                      * (RRHK_SYS_STATE_*, RRHK_RUN_STATE_*); 5: a driven machine with snapshots takes silent
                                      * RUNs (its guest runs the frame; rollback for every machine); 6: HELLO carries the game's
                                      * run-changing options (RrhkMachine.session_options), the host's go to every seat;
                                      * 7: the sticks travel (LOCAL and RUN carry RRHK_AXES int8 values per player);
-                                     * 8: the host's save travels (HELLO's save size, SAVE_OUT, SAVE_IN) */
+                                     * 8: the host's save travels (HELLO's save size, SAVE_OUT, SAVE_IN);
+                                     * 9: the host changes a run-changing option in a match (RELAUNCH, STOP_RELAUNCH: the
+                                     * match starts again for everyone with it) and the host types on a computer (LOCAL and
+                                     * RUN carry its keys, RRHK_CAP_KEYBOARD, RRHK_SYS_KEYBOARD, RRHK_RUN_KEYS) */
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
 #define RRHK_SESSION_MAX_OPTIONS 1024
@@ -44,7 +47,8 @@ enum {
                               * RRHK_SESSION_MAX_OPTIONS bytes), u32 the size of this game's save image (0: none) */
     RRHK_MSG_LOCAL = 2,      /* u32 frame about to run, u16 word (player 1's controls of this PC), u16 system bits, then for a
                               * machine with sticks (RRHK_CAP_AXES) RRHK_AXES x i8 (LX, LY, RX, RY: -127..127, the original
-                              * pads' precision) */
+                              * pads' precision), then for a computer (RRHK_CAP_KEYBOARD) RRHK_KEY_BYTES: the keys this PC
+                              * types (rrhk_keys_pack), all zero unless RRHK_SYS_KEYBOARD; only the host's are ever used */
     RRHK_MSG_DONE = 3,       /* u32 frame just run live, u32 cost in microseconds */
     RRHK_MSG_DIGEST_OF = 4,  /* u32 last frame run, u64 digest */
     RRHK_MSG_REFUSED = 5,    /* u16 code (RRHK_REFUSED_*), u8 length, text (an option key) */
@@ -53,11 +57,15 @@ enum {
                               * RRHK_CHAT_MAX_TEXT bytes for free text, none with a phrase. The host stamps the name. */
     RRHK_MSG_SAVE_OUT = 8,   /* u32 offset, data (at most RRHK_SESSION_SAVE_CHUNK): the game's save image right after HELLO, in
                               * order, as much as HELLO said; the host's is what every seat plays on */
+    RRHK_MSG_RELAUNCH = 9,   /* the host only: u16 length, its run-changing options now ("key=value" lines, at most
+                              * RRHK_SESSION_MAX_OPTIONS bytes). The host changed one in the match: it runs no more frame and
+                              * the worker starts the match again for everyone with these options (STOP_RELAUNCH first). */
     /* worker -> game */
     RRHK_MSG_SETUP = 32,     /* u8 local seat, u8 ports, u8 ring depth, u8 flags (RRHK_SETUP_*), u16 length, options
                               * "key=value" lines separated by '\n' (ASCII) */
     RRHK_MSG_RUN = 33,       /* u32 frame, u8 flags (RRHK_RUN_*), u8 count, count x u16 port words, then with RRHK_RUN_AXES
-                              * count x RRHK_AXES x i8 sticks */
+                              * count x RRHK_AXES x i8 sticks, then with RRHK_RUN_KEYS RRHK_KEY_BYTES: the host's keys, which
+                              * every seat's computer types this frame */
     RRHK_MSG_SAVE = 34,      /* u32 frame: snapshot of the state before that frame runs, into the ring */
     RRHK_MSG_LOAD = 35,      /* u32 frame: back to the snapshot taken before that frame */
     RRHK_MSG_DIGEST = 36,    /* (empty): answer DIGEST_OF for the state now */
@@ -84,11 +92,16 @@ enum { RRHK_RUN_SILENT = 1,            /* re-simulation: no picture, no sound, n
                                       * match's state is one slot in memory: never a file, never sent, gone with the match;
                                       * the player's own quick states are not touched. At most one of RESET, STATE_SAVE,
                                       * STATE_LOAD in a RUN. */
-       RRHK_RUN_AXES = 16 };           /* the RUN carries every port's sticks after the words */
+       RRHK_RUN_AXES = 16,             /* the RUN carries every port's sticks after the words */
+       RRHK_RUN_KEYS = 32 };           /* the host types: its keys follow (the computer's keyboard mode, for every seat) */
 enum { RRHK_SYS_PAUSE = 1,             /* the player asked for a pause (the Pause key, a menu) */
        RRHK_SYS_RESTART = 2,           /* the host asked to restart (Shift+F1, the pad combination): in one frame's LOCALs */
        RRHK_SYS_STATE_SAVE = 4,        /* the host asked to save the match's state (F8, the pad's Quick save) */
-       RRHK_SYS_STATE_LOAD = 8 };      /* the host asked to load it back (F9, the pad's Quick load) */
+       RRHK_SYS_STATE_LOAD = 8,        /* the host asked to load it back (F9, the pad's Quick load) */
+       RRHK_SYS_KEYBOARD = 16 };       /* this PC types (Ctrl+Alt+K on a computer): its LOCAL's keys count (the host's only) */
+/* The keys a computer's keyboard can be typed with in a session: one bit each, SDL scancodes 4 (A) to 100 (the key left of Z
+ * on ISO keyboards) as bits 0..96, then the eight modifiers 224..231 as bits 97..104. Nothing else is ever typed. */
+#define RRHK_KEY_BYTES 16
 enum { RRHK_REFUSED_OPTION = 1, RRHK_REFUSED_SNAPSHOT = 2, RRHK_REFUSED_COMMAND = 3 };
 enum { RRHK_EXIT_CLOSED = 1, RRHK_EXIT_LOST = 2, RRHK_EXIT_STOPPED = 3, RRHK_EXIT_FAILED = 4 };
 enum { RRHK_NOTICE_WAITING = 1, RRHK_NOTICE_RESUMED = 2, RRHK_NOTICE_LEFT = 3,
@@ -102,6 +115,7 @@ enum { RRHK_NOTICE_WAITING = 1, RRHK_NOTICE_RESUMED = 2, RRHK_NOTICE_LEFT = 3,
 enum { RRHK_PHRASE_GG = 1, RRHK_PHRASE_READY = 2, RRHK_PHRASE_AGAIN = 3, RRHK_PHRASE_PAUSE = 4, RRHK_PHRASE_MOMENT = 5,
        RRHK_PHRASE_THANKS = 6, RRHK_PHRASE_COUNT = 6 };
 enum { RRHK_STOP_HOST_CLOSED = 1, RRHK_STOP_DESYNC = 2, RRHK_STOP_ENDED = 3,
-       RRHK_STOP_BOOT_MISMATCH = 4 };   /* this game does not start from the host's state: the launch is refused */
+       RRHK_STOP_BOOT_MISMATCH = 4,     /* this game does not start from the host's state: the launch is refused */
+       RRHK_STOP_RELAUNCH = 5 };        /* the host changed an option: the match starts again (no save written back) */
 
 #endif

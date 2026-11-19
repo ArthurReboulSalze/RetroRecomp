@@ -47,11 +47,16 @@ bool rr_ng_session_save_commit(void);
 static void settings_loaded(RrhkUi *ui) {
     rr_ng_set_enhanced(rr_ini_int(L"NeoGeo.Runtime", L"enhanced", rr_ng_enhanced() ? 1 : 0, ui->ini_file) == 1);
 }
+/* The host's F11 in a session (session ABI 9): the machine it chose, saved for its next start; the match starts again for everyone
+ * in it (a game cannot change machine in the middle of a run, nor relaunch its own process inside a match). -1: none. */
+static int session_system = -1;
+
 /* The run-changing values of this PC (session ABI 6), which the host sends to every seat and locks for the match: the clock mode
  * ("clock=enhanced": the boost, 24 MHz and 381 sprites, or "clock=standard") and the machine ("system=mvs" or "system=aes"). */
 static size_t session_options(char *out, size_t capacity) {
     char text[48];
-    const int n = snprintf(text, sizeof text, "clock=%s\nsystem=%s", rr_ng_enhanced() ? "enhanced" : "standard", rr_ng_aes() ? "aes" : "mvs");
+    const bool aes = session_system >= 0 ? session_system == 1 : rr_ng_aes() != 0;
+    const int n = snprintf(text, sizeof text, "clock=%s\nsystem=%s", rr_ng_enhanced() ? "enhanced" : "standard", aes ? "aes" : "mvs");
     if (n <= 0 || (size_t)n > capacity) return 0;
     memcpy(out, text, (size_t)n);
     return (size_t)n;
@@ -100,8 +105,12 @@ static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
         if (rr_ng_arcade_only()) {
             rrhk_notice("Arcade Only", 2500);
         } else if (rr_ng_aes_available()) {
-            if (rr_display_save(ui->ini_file, ui->data_dir, L"NeoGeo.Runtime", L"aes", rr_ng_aes() ? 0 : 1)) {
-                rr_ng_request_mode_restart(); *running = false;
+            const bool aes = session_system >= 0 ? session_system == 1 : rr_ng_aes() != 0;
+            if (rr_display_save(ui->ini_file, ui->data_dir, L"NeoGeo.Runtime", L"aes", aes ? 0 : 1)) {
+                /* The host in a match: the session starts the match again in the other machine (a guest never gets here: the
+                 * kit refuses the key). Alone: this game restarts itself in it. */
+                if (rrhk_session_active()) session_system = aes ? 0 : 1;
+                else { rr_ng_request_mode_restart(); *running = false; }
             } else rrhk_notice("Config unavailable", 2500);
         } else rrhk_notice("AES requires neo-epo.bin in your BIOS archive. Regenerate this game.", 5000);
         return true;

@@ -344,10 +344,15 @@ static int16_t input_state(unsigned port,unsigned device,unsigned index,unsigned
    unsigned i; int value=0;
    (void)index;
    if(port>1) return 0;
-   /* A multiplayer session carries only the two pad words (the network's, the same on every seat): no local keyboard,
-    * mouse, focus or menu reaches the guest; Start stays the Return key of player 1, as in a game alone. */
+   /* A multiplayer session carries the two pad words and the host's keys (the network's, the same on every seat): no local
+    * keyboard, mouse, focus or menu reaches the guest; the keys the host types (session ABI 9), else Start as the Return key
+    * of player 1, as in a game alone. */
    if(rrhk_session_active()){
-      if(device==RETRO_DEVICE_KEYBOARD)return (int16_t)(!port&&id==RETROK_RETURN&&player_start()>0);
+      if(device==RETRO_DEVICE_KEYBOARD){
+         if(port||id==RETROK_F12)return 0;
+         if(guest_keyboard){SDL_Scancode scan=key_scan(id);return (int16_t)(scan!=SDL_SCANCODE_UNKNOWN&&keys&&keys[scan]!=0);}
+         return (int16_t)(id==RETROK_RETURN&&player_start()>0);
+      }
       if(device!=RETRO_DEVICE_JOYPAD)return 0;
    } else if(player_blocked())return 0;
    if(device==RETRO_DEVICE_KEYBOARD) {

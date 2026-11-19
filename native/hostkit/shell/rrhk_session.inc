@@ -63,6 +63,13 @@ static struct {
     bool committed;                 /* the host wrote its save back at the match's end (once) */
     uint8_t options[RRHK_SESSION_MAX_PAYLOAD];      /* the host's run-changing options of SETUP, applied again then */
     uint16_t options_length;
+    char match_options[RRHK_SESSION_MAX_OPTIONS];   /* the host: its session_options() once SETUP applied them (session ABI 9) */
+    size_t match_options_length;
+    bool options_known;
+    bool relaunching;               /* the host changed one: no more frame, the match starts again (RELAUNCH sent) */
+    uint8_t keys_sent[RRHK_KEY_BYTES];          /* the keys this PC typed in that LOCAL (a computer whose keyboard mode is on) */
+    bool keys_on;                   /* the RUN being run carries the host's keys (RRHK_RUN_KEYS) */
+    uint8_t keys[RRHK_KEY_BYTES];
     char paused_by[24];
     bool setup;                     /* SETUP received and applied: frames may run */
     Uint64 setup_until;             /* SETUP must come before this (SDL ticks) */
@@ -89,6 +96,32 @@ int rrhk_session_ports(void) { return rrhk_session_on && s.setup_ports ? s.setup
 bool rrhk_session_paused(void) { return rrhk_session_on && s.paused; }
 uint16_t rrhk_session_port(int port) { return port >= 0 && port < RRHK_MAX_PLAYERS ? s.ports[port] : 0; }
 bool rrhk_session_guest(void) { return rrhk_session_on && s.guest; }
+
+/* A computer's keyboard in a session (session ABI 9): scancodes 4..100 are bits 0..96, the modifiers 224..231 bits 97..104. */
+static int key_bit(int scancode) {
+    if (scancode >= 4 && scancode <= 100) return scancode - 4;
+    if (scancode >= 224 && scancode <= 231) return 97 + scancode - 224;
+    return -1;
+}
+void rrhk_keys_pack(const uint8_t *state, uint8_t *bits) {
+    memset(bits, 0, RRHK_KEY_BYTES);
+    if (!state) return;
+    for (int code = 4; code <= 231; ++code) {
+        const int bit = key_bit(code);
+        if (bit >= 0 && state[code]) bits[bit >> 3] |= (uint8_t)(1u << (bit & 7));
+    }
+}
+void rrhk_keys_unpack(const uint8_t *bits, uint8_t *state) {
+    memset(state, 0, SDL_NUM_SCANCODES);
+    for (int code = 4; code <= 231; ++code) {
+        const int bit = key_bit(code);
+        if (bit >= 0 && bits[bit >> 3] & (1u << (bit & 7))) state[code] = 1;
+    }
+}
+bool rrhk_session_keys(uint8_t *state) {
+    rrhk_keys_unpack(s.keys, state);
+    return rrhk_session_on && s.keys_on;
+}
 bool rrhk_session_restart(void) {
     if (!rrhk_session_on) return false;
     /* A machine whose restart cannot happen inside a session (the N64 relaunches its process) says so, on every path (Shift+F1,
@@ -274,7 +307,7 @@ bool rrhk_session_open(RrhkRun *run) {
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
     const uint8_t caps = (uint8_t)((bound ? RRHK_CAP_SNAPSHOT : 0) | (m->digest ? RRHK_CAP_DIGEST : 0) |
                                    (m->pointer ? RRHK_CAP_POINTER : 0) | (m->analog_sticks ? RRHK_CAP_AXES : 0) |
-                                   (m->driven ? RRHK_CAP_DRIVEN : 0));
+                                   (m->driven ? RRHK_CAP_DRIVEN : 0) | (m->session_keys ? RRHK_CAP_KEYBOARD : 0));
     char name[64];
     size_t name_length = 0;
     /* The machine's name as players read it (a CPS-2 board says CPS-2; ini_section stays the preferences' key). */
@@ -317,8 +350,8 @@ bool rrhk_session_open(RrhkRun *run) {
     s.hello_save = save; s.hello_size = save_size;          /* kept: on the host it is the match's save (SETUP) */
     /* A gun or pointer (the local mouse) lives outside the pad words: such a game is not offered until LOCAL carries it. The
      * sticks travel since session ABI 7. A computer's keyboard bindings (keyboard_pad) feed the pad words like any other: in a
-     * session the computer adapter gives its guest no key of this PC (rrhk_computer.inc), so only the joysticks reach the
-     * machine (RRHK_CAP_KEYBOARD stays for a game that will read the guest keyboard once LOCAL carries it). */
+     * session the computer adapter gives its guest no key of this PC (rrhk_computer.inc): only the host's keys, which every
+     * seat receives in the RUN (RRHK_CAP_KEYBOARD, session ABI 9). */
     if (m->pointer) {
         refuse(RRHK_REFUSED_COMMAND, "pointer");
         fprintf(stderr, "[session] this game's controls cannot be shared yet\n");
@@ -329,6 +362,8 @@ bool rrhk_session_open(RrhkRun *run) {
     memset(s.slot_used, 0, sizeof s.slot_used);
     s.live = s.last_run = 0; s.local_sent = false; s.paused = false; s.restart_pending = false; s.ppm = 0; s.ending_until = 0; s.system_sent = 0; s.exit_reason = 0;
     s.state_pending = 0; s.state_used = false; s.state_len = 0;
+    s.options_known = false; s.relaunching = false; s.match_options_length = 0;
+    s.keys_on = false; memset(s.keys, 0, sizeof s.keys); memset(s.keys_sent, 0, sizeof s.keys_sent);
     s.setup = false; s.setup_until = SDL_GetTicks64() + 15000;
     rrhk_session_on = true;           /* from here the frames wait for SETUP inside the loop (events and pictures go on) */
     /* The worker started this game from a window in the background: without the focus, the keyboard reaches nothing and the
@@ -385,6 +420,11 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
     }
     free(s.hello_save); s.hello_save = NULL; s.hello_size = 0;
     if (m->session_begin) m->session_begin(RRHK_SESSION_CLOCK);
+    /* The host's options as the match plays them (SETUP's applied): a change of them later is the host's (relaunch). */
+    if (!s.guest && m->session_options) {
+        s.match_options_length = m->session_options(s.match_options, sizeof s.match_options);
+        s.options_known = s.match_options_length <= sizeof s.match_options;
+    }
     s.setup = true;
     fprintf(stderr, "[session] started: seat %u, %u ports, ring %u, %s; physical latency unmeasured\n",
             seat + 1, ports, depth, s.guest ? "guest" : "host");
@@ -433,8 +473,13 @@ static uint16_t clean_word(const RrhkMachine *m, uint16_t word) {
 
 static bool set_ports(const RrhkMachine *m, const uint8_t *payload, uint16_t length) {
     const unsigned count = payload[5];
-    const bool sticks = (payload[4] & RRHK_RUN_AXES) != 0;
-    if (count > RRHK_MAX_PLAYERS || length != 6u + 2u * count + (sticks ? RRHK_AXES * count : 0u)) return false;
+    const bool sticks = (payload[4] & RRHK_RUN_AXES) != 0, typed = (payload[4] & RRHK_RUN_KEYS) != 0;
+    const unsigned keys_at = 6u + 2u * count + (sticks ? RRHK_AXES * count : 0u);
+    if (count > RRHK_MAX_PLAYERS || length != keys_at + (typed ? RRHK_KEY_BYTES : 0u)) return false;
+    /* The host's keys (a computer whose keyboard mode the host turned on): typed on every seat this frame. A machine without a
+     * keyboard never gets them (its adapter has no session_keys). */
+    s.keys_on = typed && m->session_keys;
+    if (s.keys_on) memcpy(s.keys, payload + keys_at, RRHK_KEY_BYTES); else memset(s.keys, 0, sizeof s.keys);
     memset(s.ports, 0, sizeof s.ports);
     memset(s.axes, 0, sizeof s.axes);
     for (unsigned p = 0; p < count; ++p)
@@ -546,11 +591,47 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         wait_input(4);
         return 0;
     }
+    /* Session ABI 9: the host changed a run-changing option (a row, its key, a run-changing page) once its menu is closed. It
+     * runs no frame with it: it says it to the worker, which starts the match again for everyone with the new options. */
+    if (!s.guest && s.options_known && !s.relaunching && !rrhk.menu && m->session_options) {
+        char now[RRHK_SESSION_MAX_OPTIONS];
+        const size_t n = m->session_options(now, sizeof now);
+        if (n <= sizeof now && (n != s.match_options_length || memcmp(now, s.match_options, n))) {
+            uint8_t out[2 + RRHK_SESSION_MAX_OPTIONS];
+            put16(out, (uint16_t)n);
+            memcpy(out + 2, now, n);
+            if (!send_message(RRHK_MSG_RELAUNCH, out, 2 + n)) return lost(run, "the pipe is closed");
+            s.relaunching = true;
+            fprintf(stderr, "[session] the host changed an option: the match starts again\n");
+            rrhk_notice(rr_tr("The game restarts for everyone with the new option"), 4000);
+        }
+    }
+    if (s.relaunching) {
+        /* Until the worker's STOP: no frame runs (a RUN already on its way is not run), events and pictures go on. */
+        pump();
+        if (s.broken) return lost(run, "the pipe is closed");
+        for (;;) {
+            uint16_t length = 0;
+            const uint16_t type = take(payload, &length);
+            if (s.broken) return lost(run, "a message broke the rules");
+            if (!type) break;
+            if (type == RRHK_MSG_STOP)
+                return ending(rr_tr("The game restarts for everyone with the new option"), RRHK_EXIT_STOPPED);
+            if (type == RRHK_MSG_CHAT_SHOW && !chat_show(payload, length)) return lost(run, "a CHAT_SHOW broke the rules");
+        }
+        wait_input(4);
+        return 0;
+    }
     /* The system bits are read every iteration: a menu opened asks everyone to pause, and closing it (while the session is
      * paused, so no RUN comes) is reported again for the same frame, with the same word; the worker takes the latest. */
+    /* The host types (session ABI 9): its keyboard mode is on, no menu, capture or chat holds the keys. A guest never types. */
+    uint8_t typed[RRHK_KEY_BYTES];
+    const bool typing = m->session_keys && !s.guest && !(rrhk.menu || rrhk.capturing || rrhk_chat_holds_word()) &&
+                        m->session_keys(typed);
     const uint16_t system = (uint16_t)((rrhk.menu || rrhk.paused ? RRHK_SYS_PAUSE : 0) |
                                        (s.restart_pending ? RRHK_SYS_RESTART : 0) |
-                                       (s.state_pending == 1 ? RRHK_SYS_STATE_SAVE : s.state_pending == 2 ? RRHK_SYS_STATE_LOAD : 0));
+                                       (s.state_pending == 1 ? RRHK_SYS_STATE_SAVE : s.state_pending == 2 ? RRHK_SYS_STATE_LOAD : 0) |
+                                       (typing ? RRHK_SYS_KEYBOARD : 0));
     if (!s.local_sent || system != s.system_sent) {
         /* A menu's keys and buttons never reach the game: while one is open (or a binding is being captured), this PC
          * sends the neutral word. */
@@ -559,13 +640,16 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             s.word_sent = neutral ? 0 : rrhk_local_pad_word(0, input_frame);
             memset(s.axes_sent, 0, sizeof s.axes_sent);
             if (m->analog_sticks && !neutral) local_axes(m, input_frame, s.axes_sent);
+            if (typing) memcpy(s.keys_sent, typed, sizeof s.keys_sent); else memset(s.keys_sent, 0, sizeof s.keys_sent);
         }
-        uint8_t local[8 + RRHK_AXES];
+        uint8_t local[8 + RRHK_AXES + RRHK_KEY_BYTES];
+        size_t local_length = 8;
         put32(local, s.live);
         put16(local + 4, s.word_sent);
         put16(local + 6, system);
-        memcpy(local + 8, s.axes_sent, RRHK_AXES);
-        if (!send_message(RRHK_MSG_LOCAL, local, m->analog_sticks ? sizeof local : 8u)) return lost(run, "the pipe is closed");
+        if (m->analog_sticks) { memcpy(local + local_length, s.axes_sent, RRHK_AXES); local_length += RRHK_AXES; }
+        if (m->session_keys) { memcpy(local + local_length, s.keys_sent, RRHK_KEY_BYTES); local_length += RRHK_KEY_BYTES; }
+        if (!send_message(RRHK_MSG_LOCAL, local, local_length)) return lost(run, "the pipe is closed");
         s.local_sent = true; s.system_sent = system;
     }
     /* Wait for the live frame at most three quarters of a frame, then show the last picture and come back. */
@@ -597,7 +681,8 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
              * that restarts in place (the MSX) never closed it. Left set, a later close would be taken for a restart's (no
              * EXIT, no save written back: the msx specialist's finding). */
             s.restarting = false;
-            if (payload[4] & ~(RRHK_RUN_SILENT | RRHK_RUN_RESET | RRHK_RUN_STATE_SAVE | RRHK_RUN_STATE_LOAD | RRHK_RUN_AXES))
+            if (payload[4] & ~(RRHK_RUN_SILENT | RRHK_RUN_RESET | RRHK_RUN_STATE_SAVE | RRHK_RUN_STATE_LOAD | RRHK_RUN_AXES |
+                               RRHK_RUN_KEYS))
                 return lost(run, "a RUN with unknown flags");
             if (payload[4] & RRHK_RUN_SILENT) {
                 /* Re-simulation after a LOAD: frames in order, up to the one before the live frame. */
@@ -708,6 +793,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
             if (reason == RRHK_STOP_ENDED || reason == RRHK_STOP_HOST_CLOSED) commit_save(m);
             return ending(reason == RRHK_STOP_DESYNC ? rr_tr("The games went out of step: the match stops") :
                           reason == RRHK_STOP_BOOT_MISMATCH ? rr_tr("Your game differs from the host's") :
+                          reason == RRHK_STOP_RELAUNCH ? rr_tr("The host changed an option: the game restarts") :
                           rr_tr("The match is over"), RRHK_EXIT_STOPPED);
         }
         default:
