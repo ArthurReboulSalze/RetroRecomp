@@ -297,7 +297,7 @@ static uint32_t crm(const uint8_t *data, size_t size, uint8_t *out, size_t cap, 
  * unpacked size and the offset of the end of the stream; the stream is read backward from there, the output written backward from its
  * end. The first 12 bytes of the stream were moved by the packer into a trailer after it (the header took their place), with the first
  * literal run's length, a start marker, the bits left in the first byte, and the tables of match distances; a 32-bit checksum (the sum
- * of the 16-bit words before it, plus 7) closes the file. Literal runs and matches alternate: a match's length, the next run's length and
+ * of the 16-bit words before it, plus 7) closes the file; a block whose checksum differs is taken only if its stream lands exactly. Literal runs and matches alternate: a match's length, the next run's length and
  * the match's distance come from short prefix codes, each with a selector that picks the extra bits and bases from the trailer's tables.
  */
 typedef struct ImpIn { const uint8_t *data; uint32_t end, cur; uint32_t buf; int left; int bad; } ImpIn;
@@ -328,7 +328,10 @@ static uint32_t imp(const uint8_t *data, size_t size, uint8_t *out, size_t cap, 
     if (unpacked > cap) { *why = "Imploder output larger than the room given"; return 0; }
     uint32_t sum = 7;
     for (uint32_t i = 0; i < end + 0x2E; i += 2) sum += be16(data + i);
-    if (sum != be32(data + end + 0x2E)) { *why = "Imploder checksum differs"; return 0; }
+    /* A checksum that differs does not refuse the data alone: Body Blows (AGA)'s Disk.3 holds a block whose stored sum is not its words'
+     * (one of its 72), which the game decrunches through resload_Decrunch and which unpacks whole. Such a block must then land exactly:
+     * the last byte written is the stream's first, with nothing of the stream left over. */
+    const int sum_ok = sum == be32(data + end + 0x2E);
     ImpIn in = {data, end, end, 0, 0, 0};
     if (!(data[end + 16] & 0x80)) in.cur--;                 /* the marker: the stream starts one byte lower */
     const uint8_t first = data[end + 17];                   /* the bits left in the first byte, above its lowest set bit */
@@ -347,7 +350,10 @@ static uint32_t imp(const uint8_t *data, size_t size, uint8_t *out, size_t cap, 
             out[--o] = imp_byte(&in);
         }
         if (in.bad) { *why = "Imploder stream ends early"; return 0; }
-        if (!o) break;
+        if (!o) {
+            if (!sum_ok && in.cur) { *why = "Imploder checksum differs and the stream does not land"; return 0; }
+            break;
+        }
         uint32_t code = 0;                                 /* 0, 10, 110, 1110, 11110, 11111 */
         while (code < 5 && imp_bits(&in, 1)) code++;
         uint32_t selector = code < 4 ? code : 3, count = code + 2;

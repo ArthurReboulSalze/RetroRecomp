@@ -146,15 +146,16 @@ def imploder(plain: bytes) -> bytes:
             reads.append(plain[pos - 1 - k])
         pos -= run
     end = max(len(reads), 12)
-    end += end & 1
+    lower = end & 1                 # an odd stream leaves the top byte of its even length unused, as the packer does, and says so
+    end += lower
     data = bytearray(end + 0x32)
     data[0:12] = b'IMP!' + n.to_bytes(4, 'big') + end.to_bytes(4, 'big')
     for k, value in enumerate(reads):
-        i = end - 1 - k
+        i = end - 1 - lower - k
         at = i if i >= 12 else end + 8 + i if i < 4 else end + i if i < 8 else end + i - 8
         data[at] = value
     data[end + 12:end + 16] = first.to_bytes(4, 'big')
-    data[end + 16] = 0x80                                          # the stream starts at its end
+    data[end + 16] = 0x00 if lower else 0x80                       # the stream starts at its end, or one byte lower
     data[end + 17] = 0                                             # no bits left in a first byte
     for i, value in enumerate((16, 16, 16, 16, 272, 272, 272, 272)):
         data[end + 18 + 2 * i:end + 20 + 2 * i] = value.to_bytes(2, 'big')
