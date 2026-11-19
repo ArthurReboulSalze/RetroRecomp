@@ -307,8 +307,10 @@ of RAM, the 1 KiB scratchpad, the 512 KiB of sound RAM (halfwords little-endian;
 DualShock's own 8-bit precision), and the profile answers a session (`netplay_session`).
 
 **What a match makes the same on every seat.**
-- **The memory card.** Every seat starts on the core's empty card, the one a game without a card file gets; the player's own card
-  file is neither read again nor written by a game played together (until the host's card travels to the guests).
+- **The memory card: the host's.** The host's card travels to every seat before the boot digest (session ABI 8, `session_save` and
+  `session_save_put`): a guest plays on it in memory and never writes its own card file; the host goes on saving to its own file,
+  as alone. No seat reads its card file again during the match; the host's restart carries the card as it is at that frame, the
+  same on every seat, into the machine started again.
 - **The host's settings that change the run**, sent before frame 0 and refused in F3 during the match (« Set by the host in
   multiplayer »): `pgxp` and `pgxp_texture` (the owner, 17 November 2026: PGXP is not turned off, the host sets it for everyone);
   `cpu_resolution` (1, 2 or 4: the CPU renderer's internal resolution changes the emulated drawing time; the host sends 1 when its
@@ -328,8 +330,10 @@ DualShock's own 8-bit precision), and the profile answers a session (`netplay_se
   4x with MSAA 4x equal among themselves).
 - Each setting pushed reaches the run of the seat it would otherwise differ from: a card seat sent the CPU at 2x, a CPU seat sent
   `renderer=card` and a card seat sent `renderer=cpu` with PGXP On, each 56 of 56 digests equal.
-- A card file of other bytes on one seat: equal to a seat without one in a match, and its file unchanged; played alone, its
-  digests differ (the card is in the digest).
+- The card is in the digest: played alone, a card file of other bytes gives other digests from the first one.
+- The host's card through the session (19 November 2026, Gran Turismo 2 with the owner's own card, which holds his save; delay 2,
+  3,000 frames, the host's restart at frame 600): PASS, both seats boot on the same digest, which differs from the boot without a
+  card; only the host's folder holds a card file, and the owner's card is unchanged (its hash before and after).
 - Windows against Linux: Ape Escape converted in WSL Debian with GCC and played as a match on the CPU renderer gives the same 56
   digests as the Windows build (llvm-mingw), with PGXP On and with PGXP Off (PGXP's floating-point arithmetic included).
 - Two copies through the session (`tools/netplay_game_smoke.py`, delay 2, 3,000 frames, scripted pads, the host's values on
