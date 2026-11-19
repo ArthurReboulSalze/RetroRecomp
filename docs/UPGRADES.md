@@ -369,8 +369,15 @@ reached only when the converter starts the game with its pipes (`RETRORECOMP_NET
 - **The digest** (`rr_ng_digest`): the three hashes the route traces already carry (68000 registers, the serialized hardware state with
   its latches, the Z80) and the frame index.
 - **The clock of the match** (`session_begin`): the board's RTC starts from 1 January 2000 UTC on every seat, not from the PC's time.
-- **Saves, for now:** each seat loads its own NVRAM and memory card as a game alone does, the guest writes nothing
-  (`side_effects(false)`, also for the fallback records) and the boot digest refuses seats whose saves differ.
+- **The host's save for everyone** (session ABI 8, `session_save` and `session_save_put`): the image is "RNG1", the sizes of the MVS NVRAM and of the memory card, then both
+  (67,596 bytes, the payload of the `.rrsave` file in memory). The host's travels to every seat before the boot digest, so a host whose NVRAM (bookkeeping, high
+  scores) or memory card holds data and a blank guest start from the same machine; a guest writes nothing (`side_effects(false)`) and a size or header that is not
+  this board's is refused (`refused: save`). Nobody writes a save file during a match, the host included (the kit holds `side_effects(false)` from SETUP to the end); when the
+  match ends cleanly the kit calls `session_save_commit` on the host only: the in-memory NVRAM and card are written to the host's own `.rrsave`
+  atomically (a temporary file, then a rename), the file it replaces kept as `.rrsave.bak`, with the same checks as the write at exit (an unchanged
+  memory writes nothing; a file another copy changed is not overwritten). Proof: NAM-1975 with a real save (the card-save route's, 218 non-zero NVRAM
+  bytes), two copies, rollback 5, F8 at 600, F9 at 1,500, restart at 2,200: PASS, one boot digest on both seats (different from the blank save's), only seat 1 holds the file; after the match the host's file is the final image (its NVRAM and card hashes are the ones the game logged
+  from memory at the commit), `.bak` is byte for byte the previous file, no temporary file is left and the guests' folders hold nothing.
 - **The host's values for everyone** (session ABI 6): the clock mode (the F5 boost: 24 MHz and 381 sprites, or standard) and the
   machine (MVS or AES) of the host's PC ride the room into every seat's SETUP as `clock=enhanced|standard` and `system=mvs|aes`
   (`session_options`, `session_option`), and F5 and F11 are refused (run-changing rows) for the match. The clock mode is applied

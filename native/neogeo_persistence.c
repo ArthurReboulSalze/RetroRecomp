@@ -101,7 +101,24 @@ void rr_ng_persist_activity(bool active) {
     else if(!loaded)capture(baseline); /* Ignore first-boot initialization until actual game input. */
 }
 void rr_ng_persist_after_state(void) {if(enabled && !blocked)armed=true;}
-static bool write_atomic(const uint8_t *data) {
+/* The file about to be replaced, kept as `<file>.bak`: written to a temporary then renamed, so the backup is whole or the previous one.
+ * Nothing to keep (no file yet) is fine; a file larger than ours is not backed up and the write is refused. */
+static bool keep_backup(void) {
+    FILE *old=rr_fopen(save_path,L"rb");if(!old)return errno==ENOENT;
+    uint8_t *bytes=malloc(HEADER+PAYLOAD+1);
+    size_t size=bytes?fread(bytes,1,HEADER+PAYLOAD+1,old):0;
+    bool okay=bytes && !ferror(old) && size<=HEADER+PAYLOAD;
+    fclose(old);
+    wchar_t backup[32768],temporary[32768];
+    swprintf(backup,32768,L"%ls.bak",save_path);swprintf(temporary,32768,L"%ls.bak.%lu.tmp",save_path,rr_process_id());
+    FILE *file=okay?rr_fopen(temporary,L"wb"):NULL;
+    if(!file)okay=false;
+    else {okay=fwrite(bytes,1,size,file)==size;if(okay)okay=rr_flush_file(file);if(fclose(file))okay=false;}
+    if(okay)okay=rr_replace(temporary,backup);
+    if(!okay)rr_remove(temporary);
+    free(bytes);return okay;
+}
+static bool write_atomic(const uint8_t *data,bool backup) {
     uint8_t header[HEADER]={0};memcpy(header,magic,8);put32(header+8,1);put32(header+12,3);
     put32(header+16,PAYLOAD);uint64_t checksum=hash(data,PAYLOAD);
     put32(header+24,(uint32_t)checksum);put32(header+28,(uint32_t)(checksum>>32));
@@ -117,23 +134,57 @@ static bool write_atomic(const uint8_t *data) {
     bool okay=fwrite(header,1,HEADER,file)==HEADER && fwrite(data,1,PAYLOAD,file)==PAYLOAD;
     if(okay)okay=rr_flush_file(file);
     if(fclose(file))okay=false;
+    if(okay && backup)okay=keep_backup();
     if(okay)okay=rr_replace(temporary,save_path);
     if(!okay)rr_remove(temporary);return okay;
 }
+/* The write of the memory to its file: with the lock of the save, after a check that no other copy changed the file since this one read it
+ * (a second running copy must not silently overwrite another session's save). */
+static bool flush_save(bool backup) {
+    RRSaveLock mutex=lock_save();if(!mutex)return false;
+    uint8_t *current=malloc(PAYLOAD),*previous=malloc(PAYLOAD);uint64_t checksum=0;
+    int result=previous?read_saved(previous,&checksum):-1;
+    bool okay=current && ((has_file && result==1 && checksum==disk_hash) || (!has_file && result==0));
+    if(okay) {capture(current);okay=write_atomic(current,backup);}
+    if(okay) {saved=has_file=true;disk_hash=hash(current,PAYLOAD);memcpy(baseline,current,PAYLOAD);}
+    free(current);free(previous);unlock_save(mutex);return okay;
+}
 void rr_ng_persist_writes(bool allowed) {writes_off=!allowed;}
+/* Multiplayer (session ABI 8): the save image of this PC, which the host's travels to every seat for the match. "RNG1", the sizes of
+ * the MVS NVRAM and of the memory card (u32 each, little endian), then both: the same bytes the .rrsave file holds, in memory only. */
+enum { SESSION_HEADER=12,SESSION_SAVE=SESSION_HEADER+PAYLOAD };
+size_t rr_ng_session_save(void *out,size_t capacity) {
+    if(!out)return SESSION_SAVE;
+    if(capacity<SESSION_SAVE)return 0;
+    uint8_t *data=out;memcpy(data,"RNG1",4);put32(data+4,NVRAM_BYTES);put32(data+8,CARD_BYTES);
+    capture(data+SESSION_HEADER);return SESSION_SAVE;
+}
+/* The host's bytes replace this machine's NVRAM and card, before the boot digest and after a restart. A guest never writes them to a file
+ * (`rr_ng_persist_writes(false)`); a size or a header that is not this board's is refused and changes nothing. */
+bool rr_ng_session_save_put(const void *in,size_t size) {
+    const uint8_t *data=in;
+    if(!data || size!=SESSION_SAVE || memcmp(data,"RNG1",4) || get32(data+4)!=NVRAM_BYTES || get32(data+8)!=CARD_BYTES)return false;
+    memcpy(ngsys.nvram,data+SESSION_HEADER,NVRAM_BYTES);memcpy(ngsys.memcard,data+SESSION_HEADER+NVRAM_BYTES,CARD_BYTES);return true;
+}
 bool rr_ng_persist_close(void) {
     if(!enabled || writes_off)return true;
     if(blocked)return false;
     if(!armed || (!memcmp(baseline,ngsys.nvram,NVRAM_BYTES) &&
                   !memcmp(baseline+NVRAM_BYTES,ngsys.memcard,CARD_BYTES)))return true;
-    RRSaveLock mutex=lock_save();if(!mutex)return false;
-    uint8_t *current=malloc(PAYLOAD),*previous=malloc(PAYLOAD);uint64_t checksum=0;
-    int result=previous?read_saved(previous,&checksum):-1;
-    /* A second running copy must not silently overwrite another session's save. */
-    bool okay=current && ((has_file && result==1 && checksum==disk_hash) || (!has_file && result==0));
-    if(okay) {capture(current);okay=write_atomic(current);}
-    if(okay) {saved=has_file=true;disk_hash=hash(current,PAYLOAD);memcpy(baseline,current,PAYLOAD);}
-    free(current);free(previous);unlock_save(mutex);return okay;
+    return flush_save(false);
+}
+/* Multiplayer (session ABI 8, the host's save at a clean end): the in-memory NVRAM and card to the host's own file, atomically, the file
+ * it replaces kept as `<file>.bak`. The same checks as the write at exit (an unchanged memory writes nothing, another copy's newer file is
+ * not overwritten); `writes_off`, which stops every other write during a match, does not stop this one. */
+bool rr_ng_session_save_commit(void) {
+    if(!enabled)return false;
+    if(blocked)return false;
+    if(!armed || (!memcmp(baseline,ngsys.nvram,NVRAM_BYTES) &&
+                  !memcmp(baseline+NVRAM_BYTES,ngsys.memcard,CARD_BYTES)))return true;
+    bool okay=flush_save(true);
+    if(okay)fprintf(stderr,"[ng] host save written back: nvram %016llx card %016llx\n",
+        (unsigned long long)hash(ngsys.nvram,NVRAM_BYTES),(unsigned long long)hash(ngsys.memcard,CARD_BYTES));
+    return okay;
 }
 void rr_ng_persist_report(FILE *file) {
     fprintf(file,",\"persistent_memory\":{\"enabled\":%s,\"loaded\":%s,\"saved\":%s,\"blocked\":%s,"

@@ -40,6 +40,9 @@ bool rr_ng_snap_load(const void *buffer, size_t size);
 uint64_t rr_ng_digest(void);
 void rr_ng_side_effects(bool allowed);
 void rr_ng_session_clock(uint64_t clock);
+size_t rr_ng_session_save(void *out, size_t capacity);
+bool rr_ng_session_save_put(const void *in, size_t size);
+bool rr_ng_session_save_commit(void);
 
 static void settings_loaded(RrhkUi *ui) {
     rr_ng_set_enhanced(rr_ini_int(L"NeoGeo.Runtime", L"enhanced", rr_ng_enhanced() ? 1 : 0, ui->ini_file) == 1);
@@ -171,6 +174,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .snap_bound = rr_ng_snap_bound, .snap_save = rr_ng_snap_save, .snap_load = rr_ng_snap_load,
             .digest = rr_ng_digest, .side_effects = rr_ng_side_effects, .session_begin = rr_ng_session_clock,
             .session_option = session_option, .session_options = session_options,
+            .session_save = rr_ng_session_save, .session_save_put = rr_ng_session_save_put,
+            .session_save_commit = rr_ng_session_save_commit,
             .frame_limit = rr16_host_frame_limit, .frame_start = rr16_host_test_tick,
             .before_frame = before_frame, .cost_enabled = rr_ng_performance_enabled, .cost = rr_ng_host_cost,
             .before_present = before_present, .finished = rr_ng_host_timing,
