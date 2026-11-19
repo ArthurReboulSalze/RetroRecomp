@@ -47,6 +47,7 @@ static void gfx_changes_due(uint64_t frame) { (void)frame; }
 static int state_save(const char *slot) { (void)slot; return 1; }
 static int state_load(const char *slot) { (void)slot; return 1; }
 static bool saves_allowed = true;
+static bool saves_commit(void) { return false; }
 
 /* ---- the stub session: what the adapter calls ---- */
 static uint32_t pixels[320 * 240];

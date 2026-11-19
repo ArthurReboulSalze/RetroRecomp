@@ -151,23 +151,50 @@ static void saves_load(void) {
     save_hash = fnv(memory, size);
 }
 
-/* A guest of a multiplayer session writes no save (the kit's side_effects(false), for the whole session). */
+/* A whole file written atomically: a temporary file beside it, then a rename over it. */
+static bool write_whole(const char *path, const uint8_t *data, size_t size) {
+    char temporary[PATH_CAP + 16];
+    wchar_t from[PATH_CAP + 16], to[PATH_CAP + 8];
+    FILE *f;
+    int ok;
+    snprintf(temporary, sizeof temporary, "%s.tmp", path);
+    if (!(f = open_utf8(temporary, L"wb"))) return false;
+    ok = fwrite(data, 1, size, f) == size;
+    ok = fclose(f) == 0 && ok;
+    return ok && rr_from_utf8(temporary, from, PATH_CAP + 16) && rr_from_utf8(path, to, PATH_CAP + 8) && rr_replace(from, to);
+}
+
+/* No save is written during a multiplayer match, the host's included (the kit's side_effects(false) on every seat). */
 static bool saves_allowed = true;
 static void saves_store(void) {
     size_t size = 0;
     uint8_t *memory = rr_n64_save_memory(session, &size);
-    char temporary[PATH_CAP + 8];
-    wchar_t from[PATH_CAP + 8], to[PATH_CAP];
     uint64_t h;
-    FILE *f;
-    int ok;
     if (!saves_allowed || !memory || !size || !save_path[0] || (h = fnv(memory, size)) == save_hash) return;
-    snprintf(temporary, sizeof temporary, "%s.tmp", save_path);
-    if (!(f = open_utf8(temporary, L"wb"))) return;
-    ok = fwrite(memory, 1, size, f) == size;
-    ok = fclose(f) == 0 && ok;
-    if (ok && rr_from_utf8(temporary, from, PATH_CAP + 8) && rr_from_utf8(save_path, to, PATH_CAP) && rr_replace(from, to)) save_hash = h;
+    if (write_whole(save_path, memory, size)) save_hash = h;
 }
+
+#ifdef RR_N64_WINDOWED
+/* A match's clean end, on the host only (RrhkMachine.session_save_commit): the save memory written back to this game's
+ * saves.bin once, atomically, the previous file kept as saves.bin.bak. */
+static bool saves_commit(void) {
+    size_t size = 0, got = 0;
+    const uint8_t *memory = rr_n64_save_memory(session, &size);
+    char backup[PATH_CAP + 8];
+    uint8_t *previous;
+    bool ok;
+    if (!memory || !size || !save_path[0]) return false;
+    previous = read_file(save_path, &got, size);
+    snprintf(backup, sizeof backup, "%s.bak", save_path);
+    ok = !previous || !got || write_whole(backup, previous, got);
+    free(previous);
+    ok = ok && write_whole(save_path, memory, size);
+    if (ok) save_hash = fnv(memory, size);
+    fprintf(stderr, "[n64] the host's save written back: %u bytes, fnv %016llx, %s\n", (unsigned)size,
+            (unsigned long long)fnv(memory, size), ok ? "done" : "failed");
+    return ok;
+}
+#endif
 
 /* ---- what the adapter calls ---- */
 static void player_inputs(int player, uint16_t word, const int16_t axes[4]) { rr_n64_pad(session, player, word, axes); }
