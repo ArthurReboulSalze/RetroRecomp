@@ -44,14 +44,6 @@ static int file_appears_within(unsigned ms)
     }
     return 0;
 }
-static void set_session(int on)
-{
-#ifdef _WIN32
-    _putenv(on ? "RETRORECOMP_NETPLAY_PIPE=checks" : "RETRORECOMP_NETPLAY_PIPE=");
-#else
-    if (on) setenv("RETRORECOMP_NETPLAY_PIPE", "checks", 1); else unsetenv("RETRORECOMP_NETPLAY_PIPE");
-#endif
-}
 static void blank(void) { cps1_eeprom_reset(&chip, 12); }
 static void edit_file(long offset, int value)
 {
@@ -128,19 +120,23 @@ int main(void)
     expect("a change with side effects on is written", file_appears_within(4000));
     expect("closing after it is fine", rr_cps1_save_close());
 
-    /* a multiplayer session: a blank EEPROM whatever the player's file holds, nothing read and nothing written */
+    /* a multiplayer guest (hostkit.h side_effects off for the whole session): it starts on its own file, is handed the host's image in memory
+     * (what cps1_eeprom_load does), asks for no file whatever the game writes, and closing writes none: its own file is as it was */
     blank();
     expect("the player's file exists", rr_cps1_save_begin() && chip.data[2] == 0x34);
     rr_cps1_save_close();
-    set_session(1);
     blank();
-    expect("a session starts from a blank EEPROM", rr_cps1_save_begin() && chip.data[2] == 0xff);
-    remove_file();
-    chip.data[2] = 0x11; chip.changed = 1;
+    expect("a guest starts as alone", rr_cps1_save_begin() && chip.data[2] == 0x34);
+    rr_cps1_save_side_effects(0);
+    memset(chip.data, 0x5a, CPS1_EEPROM_BYTES); chip.changed = 0;     /* the host's image, put before the boot digest */
+    chip.data[9] = 0x11; chip.changed = 1;                              /* the game writes in the match */
     rr_cps1_save_frame();
-    expect("a session writes no file", !file_appears_within(1500));
-    expect("and closing it writes none", rr_cps1_save_close() && !file_appears_within(200));
-    set_session(0);
+    sleep_ms(1700);                                                     /* longer than the pause before a write */
+    expect("closing a guest is fine", rr_cps1_save_close());
+    rr_cps1_save_side_effects(1);
+    blank();
+    expect("its own file is as it was", rr_cps1_save_begin() && chip.data[2] == 0x34 && chip.data[9] == 0xff);
+    rr_cps1_save_close();
 
     remove_file();
     printf("{\"passed\":%u,\"failed\":%u}\n", passed, failed);
