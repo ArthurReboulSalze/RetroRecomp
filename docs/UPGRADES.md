@@ -104,6 +104,21 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-next-release) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) || [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-next-release) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-next-release) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Commodore Amiga 500 and 1200: multiplayer on the rollback tier](#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, the new `retrorecomp.amiga_vamiga_session`, `retrorecomp.amiga_conversion`, `systems/amiga.py`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h` and the adapted vAmiga): an older quick state is refused cleanly; the file's layout is unchanged |
+| [Commodore Amiga 500 and 1200: an Imploder block whose checksum differs](#commodore-amiga-500-and-1200-an-imploder-block-whose-checksum-differs-next-release) | **the Amiga 500 and Amiga 1200 game stamps** (`native/amiga_whdload/rr_decrunch.c`) | none | unchanged (the quick-state key does not hash the unpacker) |
+
+## Commodore Amiga 500 and 1200: an Imploder block whose checksum differs (next release)
+
+Body Blows (AGA) stopped at frame 459 of a two-player match on the Amiga 1200 ("Imploder checksum differs"), on every seat and
+alone too once the game reaches that data: one of the 72 Imploder blocks of its install (on its third disk image) carries a stored
+checksum that is not the sum of its words, and the game unpacks it through `resload_Decrunch`. The block unpacks whole: its stream
+ends exactly where its output begins, as all 72 do. `rr_decrunch.c` now refuses an Imploder block for its checksum only when its
+stream does not land exactly too (WHDLoad's autodoc: every unpacker checks that the decompression succeeded; this install runs under
+WHDLoad). The authored Imploder stream of `tests/test_amiga_resload.py` now leaves the top byte of an odd stream unused, as the packer
+does, so it lands exactly; the harness checks that a block with only its checksum changed unpacks to the same bytes and that one whose
+size is wrong is still refused. Proof: every Imploder block of the install unpacks; Body Blows (AGA) converted again passes
+`tools/netplay_game_smoke.py --rollback 5 --frames 3000 --hold 4 --latency 30 --jitter 10` (the run that stopped at frame 459: 3,000 frames, 521 corrections on the second seat, the digests equal).
+
+**Stamps** (against `spec/multiplayer` `5af44e9d`): the Amiga 500 and Amiga 1200 game stamps; nothing else.
 
 ## Commodore Amiga 500 and 1200: multiplayer on the rollback tier (next release)
 
