@@ -284,6 +284,8 @@ class LaunchSettingsTests(unittest.TestCase):
             self.refused(options=bad)
         self.assertEqual(launch_settings({**self.GOOD, 'options': '\nspeed=1\n\nregion=\n'}).options, 'speed=1\nregion=')
         self.assertIsInstance(launch_settings({**self.GOOD, 'options': '\n'.join(f'k{index}=1' for index in range(32))}), Settings)
+        # A CPS-1 board's DIP switches: three words, comma separated (rrhk_cps1.c session_options).
+        self.assertEqual(launch_settings({**self.GOOD, 'options': 'dips=ffff,00fb,0000'}).options, 'dips=ffff,00fb,0000')
 
     def test_names_are_cleaned_as_the_game_draws_them(self):
         result = launch_settings({**self.GOOD, 'names': ['Hélène\x07\n', 'x' * 500, '日本']})

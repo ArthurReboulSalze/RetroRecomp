@@ -23,7 +23,7 @@ MIN_DIGEST_EVERY, MAX_DIGEST_EVERY = 10, 600
 MAX_REDUNDANCY = 8
 MAX_OPTION_LINES = 32
 MAX_NAME_INPUT = 64                 # characters read of a name before it is cleaned (the game draws 16)
-_OPTION_LINE = re.compile(r'[a-z0-9_]{1,32}=[A-Za-z0-9_.-]{0,32}')
+_OPTION_LINE = re.compile(r'[a-z0-9_]{1,32}=[A-Za-z0-9_.,-]{0,32}')   # the comma: a CPS-1 board's three DIP words
 FIELDS = ('seat', 'seats', 'names', 'delay', 'digest_every', 'redundancy', 'options', 'sharing', 'rollback')
 
 

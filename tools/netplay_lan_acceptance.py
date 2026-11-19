@@ -176,7 +176,11 @@ def run(args) -> int:
                 print(f'  [{label}]', line)
         if guest.returncode and stderr:
             print(f'  [{label} stderr]', stderr[-2000:])
-    process.wait(timeout=180)
+    try:
+        process.wait(timeout=180)
+    except subprocess.TimeoutExpired:      # a host that never ended: its own result is missing, the verdict says so
+        process.kill()
+        process.wait()
     reader.join(10)
 
     def result_of(collected):
