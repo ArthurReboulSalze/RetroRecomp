@@ -139,8 +139,10 @@ Physical latency unmeasured. In a multiplayer game the ring was already regulate
 alone. The queue model's machines are unchanged.
 
 Measured (counters of the ring's closing line, the real sound device with the game muted, never by ear): Tekken 3 alone, 3,600
-frames (60 s), on this PC (busy: one run, counts not a timing): before 1 gap, 2 trims; after 0 gaps, 0 trims. The ThinkPad and a
-quiet-PC run are recorded below when made.
+frames (60 s), on this PC (busy: one run, counts not a timing): before 1 gap, 2 trims; after 0 gaps, 0 trims. On the second PC (a
+Windows 10 laptop on Wi-Fi), two runs each without a window (SDL's dummy video): before 0 / 0 and 0 / 1 trim, after 0 / 0 and 0 / 0;
+two runs each with a real window and renderer (Direct3D 11) on a hidden desktop: 0 / 0 everywhere, before and after. The attract
+mode of a run of 60 s does not show the laptop's crackle (Arthur heard it in play); a run on a quiet PC is recorded here when made.
 
 **Stamps** (against `spec/psx-audio` `b3fb20ba`): the host stamp of all 21 profiles (`rrhk_ring.c`, `rrhk_audio.c`,
 `hostkit_internal.h`, `audio_cushion.h`, a comment); no game stamp; quick states unchanged (host files are outside every state key).
