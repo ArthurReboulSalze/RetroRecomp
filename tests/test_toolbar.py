@@ -100,14 +100,30 @@ class PicturesOnly(ToolbarWindow):
         self.assertIs(app.front_end_button.master, centre)
         self.assertIs(app.multiplayer_button.master, centre)
         for button in (app.front_end_button, app.multiplayer_button):
-            self.assertEqual(str(button.cget('style')), 'Feature.Toolbar.TButton')
+            self.assertEqual(str(button.cget('style')), 'Centre.Feature.Toolbar.TButton')   # the accent, a bit larger
         self.assertEqual(str(app.options_button.cget('style')), 'Toolbar.TButton')
         # Left of the rarely used buttons, right of the view's, not stuck to either side.
         left = app.new_paths_buttons[0].winfo_rootx() + app.new_paths_buttons[0].winfo_width()
         right = app.knowledge_button.winfo_rootx()
-        self.assertGreater(app.multiplayer_button.winfo_rootx(), left + 20)
-        self.assertLess(app.front_end_button.winfo_rootx() + app.front_end_button.winfo_width(), right - 20)
-        self.assertLess(app.multiplayer_button.winfo_rootx(), app.front_end_button.winfo_rootx())
+        self.assertGreater(app.front_end_button.winfo_rootx(), left + 20)
+        self.assertLess(app.multiplayer_button.winfo_rootx() + app.multiplayer_button.winfo_width(), right - 20)
+        self.assertLess(app.front_end_button.winfo_rootx(), app.multiplayer_button.winfo_rootx())   # Front-end first
+        # a bit larger than the small buttons, smaller than the hero Convert (Arthur, 20 Nov 2026)
+        small, hero = app.options_button, app.start_button
+        for button in (app.front_end_button, app.multiplayer_button):
+            self.assertGreater(button.winfo_reqheight(), small.winfo_reqheight())
+            self.assertLess(button.winfo_reqheight(), hero.winfo_reqheight())
+
+    def test_the_toolbar_pictures_follow_the_screen_up_to_125_percent(self):
+        from retrorecomp.ui_fonts import toolbar_scale
+        root = self.root
+        before = float(root.tk.call('tk', 'scaling'))
+        try:
+            for factor, expected in ((1.0, 1.0), (1.2, 1.2), (1.5, 1.25), (2.0, 1.25)):
+                root.tk.call('tk', 'scaling', 96 / 72 * factor)
+                self.assertAlmostEqual(toolbar_scale(root), expected, places=2)
+        finally:
+            root.tk.call('tk', 'scaling', before)
 
     def test_the_switch_shows_a_picture_of_the_view_it_leads_to_in_both_views(self):
         from retrorecomp.branding import ICON_PATHS

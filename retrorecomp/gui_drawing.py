@@ -393,6 +393,9 @@ BADGE_COLOR = '#e5484d'
 # picture fills its button as the neighbours' do (Arthur, 19 Nov 2026: « Play est trop grand et son picto trop petit »):
 # 30 px in a 46 x 44 button, was 26 px in 52 x 46.
 HERO_SIZE = 30
+# Front-end and Multiplayer, the two buttons in the middle of the bar: a bit larger than their neighbours, not as large as
+# the hero (Arthur, 20 Nov 2026): a 24 px picture in a 40 x 38 button (Centre.Feature.Toolbar.TButton).
+FEATURE_SIZE = 24
 
 
 def hero_icon(master, symbol, color, size=HERO_SIZE, weight=2):
@@ -496,6 +499,7 @@ def _toolbar_styles(style):
     # The two buttons that stand in the middle of the bar, Multiplayer and Front-end: a gold border (and a gold
     # picture, drawn by decorate_button), brighter under the pointer. There is one dark theme, so there is one set.
     style.configure('Feature.Toolbar.TButton', bordercolor=c['gold'], lightcolor=c['button'], darkcolor=c['button'])
+    style.configure('Centre.Feature.Toolbar.TButton', padding=(5, 4))
     style.map('Feature.Toolbar.TButton',
               bordercolor=[('disabled', c['border']), ('pressed', c['gold_hover']), ('active', c['gold_hover']),
                            ('!disabled', c['gold'])],

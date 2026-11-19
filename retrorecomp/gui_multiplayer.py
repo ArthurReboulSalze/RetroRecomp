@@ -22,6 +22,10 @@ class MultiplayerMixin:
     def multiplayer_button_create(self, toolbar):
         button = self.icon_button(toolbar, 'mp_title', 'tip_multiplayer', self.show_multiplayer, 'players', managed=False,
                                   accent=True)
+        # a bit larger, in the middle of the bar beside Front-end (Arthur, 20 Nov 2026)
+        button.configure(style='Centre.Feature.Toolbar.TButton')
+        self.decorate_button(button, 'players', accent=True, feature=True)
+        button.configure(compound='image')
         self.multiplayer_button = button
         return button
 

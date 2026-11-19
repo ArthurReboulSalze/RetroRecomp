@@ -15,8 +15,8 @@ class FrontEndMixin:
         placed by enter_front_end left of Knowledge. Both show only their picture (their hints carry the names) in the
         accent style."""
         button = ttk.Button(centre, text=self.tr('front_end'), command=self.toggle_front_end,
-                            style='Feature.Toolbar.TButton')
-        self.decorate_button(button, 'front_end', accent=True)
+                            style='Centre.Feature.Toolbar.TButton')
+        self.decorate_button(button, 'front_end', accent=True, feature=True)
         button.configure(compound='image')
         self.hint(button, 'tip_front_end', 'front_end')
         self.front_end_button = button

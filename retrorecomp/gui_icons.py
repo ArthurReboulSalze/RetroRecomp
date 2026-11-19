@@ -249,11 +249,11 @@ def draw_switch(variant, scale=1.0, lit='#d4a737', frame='#f2d27a', dim=SWITCH_D
 
 
 def switch_picture(master, variant, greyed=False):
-    """The switch's picture as a Tk image, sized for the screen's scaling (96 dpi: 65 x 30 px)."""
+    """The switch's picture as a Tk image, sized for the screen's scaling up to 125 % (96 dpi: 65 x 30 px)."""
     from PIL import ImageTk
-    from .ui_fonts import ui_scale
+    from .ui_fonts import toolbar_scale
     colours = {'lit': '#6a6a6a', 'frame': '#7a7a7a', 'dim': '#4a4a4a'} if greyed else {}
-    return ImageTk.PhotoImage(draw_switch(variant, ui_scale(master), **colours), master=master)
+    return ImageTk.PhotoImage(draw_switch(variant, toolbar_scale(master), **colours), master=master)
 
 
 def draw_picture(name, colour, size=HERO_GRID, highlight=None):
@@ -275,6 +275,6 @@ def hero_picture(master, symbol, colour, highlight=None):
         from .gui_drawing import hero_icon
         return hero_icon(master, symbol, colour)
     from PIL import ImageTk
-    from .ui_fonts import ui_scale
+    from .ui_fonts import toolbar_scale
     from .gui_drawing import HERO_SIZE
-    return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_SIZE * ui_scale(master)), highlight), master=master)
+    return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_SIZE * toolbar_scale(master)), highlight), master=master)

@@ -360,13 +360,21 @@ class WindowMixin:
         except (OSError, ValueError, tk.TclError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
 
-    def decorate_button(self, button, symbol, primary=False, accent=False, hero=False):
+    def decorate_button(self, button, symbol, primary=False, accent=False, hero=False, feature=False):
         """The picture of `symbol` on `button`: dark on the gold primary buttons, gold on the accent ones (the toolbar's
         Multiplayer and Front-end), light on the others; a hero button (the main one of a row) has a larger, thicker one."""
-        key = (symbol, 'hero') if hero else (symbol, 'accent') if accent else (symbol, primary)
+        key = (symbol, 'hero') if hero else (symbol, 'feature') if feature else (symbol, 'accent') if accent else (symbol, primary)
         if key not in self.button_images:
             colour = COLORS['gold_text'] if primary or hero else COLORS['gold'] if accent else COLORS['text']
-            if hero:
+            if feature:
+                # Front-end and Multiplayer, in the middle of the bar (Arthur, 20 Nov 2026: « un peu plus grands »): their
+                # gold picture at FEATURE_SIZE, two pixels thick, up to 125 % on a HiDPI screen.
+                from .gui_drawing import FEATURE_SIZE, hero_icon
+                from .ui_fonts import toolbar_scale
+                size = round(FEATURE_SIZE * toolbar_scale(self.app))
+                self.button_images[key] = (hero_icon(self.app, symbol, COLORS['gold'], size=size),
+                                           hero_icon(self.app, symbol, COLORS['disabled'], size=size))
+            elif hero:
                 # Drawn with Pillow when the picture has a drawing (gui_icons.hero_picture): dark on the gold, with a
                 # lighter gold for its bevelled edge; grey, with a lighter grey, when greyed.
                 self.button_images[key] = (hero_picture(self.app, symbol, colour, '#f2dc93'),
