@@ -226,6 +226,7 @@ class _HostLink:
 
     def __init__(self, room: 'RoomHost', match: _HostMatch):
         self._room, self._match = room, match
+        self._outcome = 'ended'
 
     def open(self, sink) -> None:
         self._match.sink = sink
@@ -233,9 +234,13 @@ class _HostLink:
     def send(self, to_seat: int, data: bytes) -> None:
         self._room._send_datagram(self._match, to_seat, data)
 
+    def set_outcome(self, outcome: str | None) -> None:
+        """Why the host's driver ended the match: what the guests' lobby is told when this link closes (a relaunch, a desync)."""
+        self._outcome = outcome or 'ended'
+
     def close(self) -> None:
         self._match.sink = None
-        self._room._link_closed(self._match)
+        self._room._link_closed(self._match, self._outcome)
 
 
 class RoomHost:
@@ -660,10 +665,10 @@ class RoomHost:
                 self._end_match(self._match, reason)
         self._flush()
 
-    def _link_closed(self, match: _HostMatch) -> None:
+    def _link_closed(self, match: _HostMatch, reason: str = 'ended') -> None:
         with self._lock:
             if self._match is match:
-                self._end_match(match)
+                self._end_match(match, reason)
 
     def _end_match(self, match: _HostMatch, reason: str = 'ended') -> None:
         if self._match is not match:

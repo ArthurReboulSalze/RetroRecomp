@@ -44,6 +44,11 @@ class LagLink:
             heapq.heappush(self._queue, (due, next(self._order), to_seat, data))
             self._changed.notify()
 
+    def set_outcome(self, outcome: str | None) -> None:
+        setter = getattr(self.link, 'set_outcome', None)
+        if setter is not None:
+            setter(outcome)
+
     def close(self) -> None:
         with self._changed:
             self._closed = True

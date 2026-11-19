@@ -965,6 +965,7 @@
     "mp_error_port_closed": "无响应：主机的端口已关闭（路由器或防火墙）",
     "mp_error_too_many": "尝试次数过多：请等一分钟",
     "mp_notice_wrong_key_attempts": "有人正在尝试错误的密钥。",
+    "mp_back_relaunch": "主机更改了选项：游戏为所有人重新开始。",
     "mp_notice_firewall_blocked": "Windows 防火墙不允许访客连接：没有人能加入这个会话。请在防火墙中允许 Retro-Recomp 在此端口接收（或在 Windows 询问时允许）。",
     "mp_path_lan": "本地网络",
     "mp_path_ipv4": "Internet IPv4",

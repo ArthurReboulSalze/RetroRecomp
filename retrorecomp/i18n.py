@@ -110,6 +110,7 @@ STRINGS = {
     'mp_error_port_closed': ("no answer: the host's port is closed (box or firewall)", "pas de réponse : le port de l'hôte est fermé (box ou pare-feu)"),
     'mp_error_too_many': ('too many tries: wait a minute', "trop d'essais : attends une minute"),
     'mp_notice_wrong_key_attempts': ('Someone is trying a wrong key.', "Quelqu'un essaie une mauvaise clé."),
+    'mp_back_relaunch': ("The host changed an option: the game starts again for everyone.", "L'hôte a changé une option : la partie redémarre pour tout le monde."),
     'mp_notice_firewall_blocked': ("Windows' firewall blocks guests: nobody can join this room. Let Retro-Recomp receive on this port in the firewall (or allow it when Windows asks).", "Le pare-feu de Windows bloque les invités : personne ne peut rejoindre ce salon. Autorise Retro-Recomp à recevoir sur ce port dans le pare-feu (ou accepte quand Windows le demande)."),
     'mp_path_lan': ('local network', 'réseau local'),
     'mp_path_ipv4': ('Internet IPv4', 'Internet IPv4'),

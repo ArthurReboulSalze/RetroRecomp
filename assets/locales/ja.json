@@ -965,6 +965,7 @@
     "mp_error_port_closed": "反応なし：作成者のポートが閉じています（ルーターまたはファイアウォール）",
     "mp_error_too_many": "試行回数が多すぎます。1分待ってください",
     "mp_notice_wrong_key_attempts": "誰かが間違ったキーを試しています。",
+    "mp_back_relaunch": "ルーム作成者がオプションを変更しました。試合をもう一度始めます。",
     "mp_notice_firewall_blocked": "Windows のファイアウォールがゲストをブロックしています。誰もこのルームに参加できません。ファイアウォールで Retro-Recomp がこのポートで受信できるようにしてください（または Windows が尋ねたときに許可してください）。",
     "mp_path_lan": "ローカルネットワーク",
     "mp_path_ipv4": "インターネット IPv4",

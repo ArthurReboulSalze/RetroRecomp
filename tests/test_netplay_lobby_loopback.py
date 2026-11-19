@@ -597,5 +597,56 @@ class LobbyTierTests(unittest.TestCase):
         shutil.rmtree(out, ignore_errors=True)         # kept only when something above failed
 
 
+
+class RelaunchTests(unittest.TestCase):
+    """Session ABI 9 (Arthur, 19 Nov 2026): the host changes a run-changing option in a match. Its game sends RELAUNCH, the match
+    ends for both seats (outcome and lobby reason 'relaunch', no save written back) and the room launches it again at once with
+    the new options, which both games then play with; that match ends normally (127.0.0.1, two worker processes, fake games)."""
+
+    def test_the_hosts_option_change_starts_the_match_again_for_everyone_with_it(self):
+        reason = selftest.fake.ready() or loopback_refused()
+        if reason:
+            self.skipTest(reason)
+        executable = selftest.fake.build(ROOT / '.build/hostkit-session-selftest')
+        out = Path(tempfile.mkdtemp(prefix='relaunch-', dir=ROOT / '.build'))
+        secret = invitation.new_secret()
+        frames = {'last': FRAMES}
+        host_library, nadia_library = FakeLibrary(self, executable), FakeLibrary(self, executable)
+        host_library.add(0, env={'SESSION_FAKE_OPTION_AT': '40'})     # the host's option goes from speed=1 to speed=2 at frame 40
+        nadia_library.add(0)
+        host = Player('host', host_library, {'room': {'role': 'host', 'address': '127.0.0.1', 'port': 0, 'secret': secret.hex(),
+                                                       'capacity': 2, 'name': 'Arthur', 'log': str(out / 'room.log')}, 'tests': True},
+                      out, self, frames)
+        opened = host.worker.wait_event('room_open', 30)
+        if opened is None and any(bind_refused_now(event.get('detail', '')) for event in host.worker.events):
+            self.skipTest('the system refuses to bind a loopback port right now')
+        self.assertIsNotNone(opened, host.worker.events)
+        text = invitation.format_invitation('127.0.0.1', opened['port'], secret, tests=True)
+        nadia = Player('nadia', nadia_library, {'room': {'role': 'guest', 'invitation': text, 'name': 'Nadia'}, 'tests': True},
+                       out, self, frames)
+        self.assertTrue(host.until(lambda m: [p['name'] for p in m.players] == ['Arthur', 'Nadia']), host.controller.model.players)
+        self.assertEqual(host.controller.pick(host_library.entries[0]), '')
+        self.assertTrue(host.until(lambda m: m.checks.get(1, {}).get('status') == 'same'), host.controller.model.checks)
+        settings = {'delay': 2, 'digest_every': 50, 'redundancy': 3, 'local_source': selftest.script(0), 'keep_history': True,
+                    'last_frame': FRAMES}
+        self.assertEqual(host.controller.launch(settings), '')
+        for worker in (host.worker, nadia.worker):
+            self.assertTrue(worker.wait_for(lambda w: len(w.results) == 2, 120), worker.summary())
+        for worker in (host.worker, nadia.worker):
+            first, second = worker.results
+            self.assertEqual(first['outcome'], 'relaunch', first['detail'])
+            self.assertEqual(second['outcome'], 'ended', second['detail'])
+            self.assertLess(first['history_frames'], FRAMES)          # the first match stopped at the change, not at its end
+        self.assertEqual(host.worker.results[1]['digests'], nadia.worker.results[1]['digests'])
+        for worker in (host.worker, nadia.worker):        # the guests' lobby is told why: the host's link carries its outcome
+            backs = [event['reason'] for event in worker.events if event['event'] == 'lobby_back']
+            self.assertEqual(backs[:2], ['relaunch', 'ended'], worker.events)
+        launches = [event for event in host.worker.events if event['event'] == 'launching']
+        self.assertEqual(len(launches), 2)
+        for player in (host, nadia):
+            player.stop()
+            self.assertEqual(player.worker.exit_code_of_process, 0, player.worker.summary())
+        shutil.rmtree(out, ignore_errors=True)         # kept only when something above failed
+
 if __name__ == '__main__':
     unittest.main()

@@ -965,6 +965,7 @@
     "mp_error_port_closed": "nessuna risposta: la porta dell'host è chiusa (router o firewall)",
     "mp_error_too_many": "troppi tentativi: aspetta un minuto",
     "mp_notice_wrong_key_attempts": "Qualcuno sta provando una chiave sbagliata.",
+    "mp_back_relaunch": "L'host ha cambiato un'opzione: la partita riparte per tutti.",
     "mp_notice_firewall_blocked": "Il firewall di Windows blocca gli ospiti: nessuno può entrare in questa stanza. Consenti a Retro-Recomp di ricevere su questa porta nel firewall (o accetta quando Windows lo chiede).",
     "mp_path_lan": "rete locale",
     "mp_path_ipv4": "Internet IPv4",

@@ -965,6 +965,7 @@
     "mp_error_port_closed": "keine Antwort: der Port des Hosts ist geschlossen (Router oder Firewall)",
     "mp_error_too_many": "zu viele Versuche: warte eine Minute",
     "mp_notice_wrong_key_attempts": "Jemand probiert einen falschen Schlüssel aus.",
+    "mp_back_relaunch": "Der Host hat eine Option geändert: Das Spiel startet für alle neu.",
     "mp_notice_firewall_blocked": "Die Windows-Firewall blockiert die Gäste: Niemand kann diesem Raum beitreten. Erlaube Retro-Recomp in der Firewall, auf diesem Port zu empfangen (oder stimme zu, wenn Windows fragt).",
     "mp_path_lan": "lokales Netzwerk",
     "mp_path_ipv4": "Internet IPv4",

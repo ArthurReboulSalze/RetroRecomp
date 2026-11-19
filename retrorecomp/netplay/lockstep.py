@@ -1020,6 +1020,9 @@ class LockstepDriver:
 
     def _finalize(self):
         self.exit_code = self.game.finish(timeout=5.0)
+        setter = getattr(self.link, 'set_outcome', None)     # the host's link tells the guests' lobby why (a relaunch, a desync)
+        if setter is not None:
+            setter(self.outcome)
         self.link.close()
         self._phase = 'done'
 
