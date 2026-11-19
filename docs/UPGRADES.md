@@ -538,8 +538,9 @@ measured.
 The Nintendo 64 gives the session what the delay tier needs. **Digest:** the machine's state as named fields folded as values in a
 fixed order (`rr_n64_cpu_digest`: the VR4300's registers, PC and COP0 / COP1, the RSP's memory and registers, the RDP, MI / VI / AI
 / PI / RI / SI, PIF RAM, the whole RDRAM, then the save memory with the four paks), never the quick state's bytes (about a
-kilobyte of the core's own block holds heap and code addresses that differ from run to run). **A guest writes no save** (the kit's
-`side_effects`). **The cartridge clock** (Animal Forest's) runs on the session's from `session_begin`, plus the emulated
+kilobyte of the core's own block holds heap and code addresses that differ from run to run). **The host's saves travel to every
+seat** (`session_save` / `session_save_put`, session ABI 8): the whole save memory, cartridge EEPROM, SRAM or flash and the four
+controller paks (296,960 bytes), put in memory before the boot digest; **a guest writes no save** (the kit's `side_effects`). **The cartridge clock** (Animal Forest's) runs on the session's from `session_begin`, plus the emulated
 seconds, the same date on every seat whatever its time zone; the core sets up its devices during the first frame, so the clock is
 put back after it. **ParaLLEl-RDP records on the emulation thread** in a session even if asked otherwise (its own worker is not
 deterministic). **The keyboard's Stick actions** read this PC's keys, so in a session every port's stick is the session's: the kit
@@ -562,7 +563,10 @@ differs: the delay tier never takes one there). **Two copies in a session on one
 latency, 10 ms jitter, delay tier): Super Mario 64 and Mario Kart 64 with two seats over 1,800 frames, Mario Kart 64 with four seats
 over 1,200 frames, every digest equal on every seat (`PASS`). **The sticks** (`--sticks`, Mario Kart 64, two seats, 1,800
 frames): `PASS`, and against the same run without sticks (the same pad words: the same history) all 30 digests differ from frame
-59 on: the sticks reach the machine, the same on both seats. Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
+59 on: the sticks reach the machine, the same on both seats. **The host's save** (Mario Kart 64, four seats, 1,800 frames, the
+host's real save from an earlier match, the guests' folders without one): `PASS`, every seat's boot digest the save's, no guest
+writes a save file; without the transfer the same case was refused at boot (a Debian host's save against Windows guests, 19 November).
+Physical latency is not measured. **Stamps:** the Nintendo 64's game stamp (`n64_cpu.c`,
 `n64_session.cpp`, `n64_player.c`) and host stamp (`rrhk_n64.inc`); Nintendo 64 quick states of 1.8.0 are refused cleanly (the
 state key hashes the session sources).
 ## Super Nintendo: four players (Super Multitap) and the host's cartridge save in a session (next release)
