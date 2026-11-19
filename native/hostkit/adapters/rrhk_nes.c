@@ -67,6 +67,7 @@ static void pause_machine(bool paused) { (void)paused; }
 static void side_effects(bool allowed) { rr_nes_saves_allowed(allowed); }
 static size_t session_save(void *out, size_t capacity) { return rr_nes_session_save(out, capacity); }
 static bool session_save_put(const void *in, size_t size) { return rr_nes_session_save_put(in, size); }
+static bool session_save_commit(void) { return rr_nes_session_save_commit(); }
 static size_t audio(int16_t *pcm, size_t capacity) { return cyc_audio_read(pcm, capacity); }
 static bool audio_enable(unsigned rate) { return cyc_audio_enable((int)rate); }
 static uint64_t interpreted(void) { return cyc_run_interp_rom_cycles + cyc_run_interp_ram_cycles + cyc_run_interp_other_cycles; }
@@ -159,7 +160,9 @@ const RrhkMachine *rrhk_adapter(void) {
             .help_controls = help_controls, .key_event = key_event, .before_frame = before_frame,
             .snap_bound = rr_nes_snap_bound, .snap_save = rr_nes_snap_save, .snap_load = rr_nes_snap_load,
             .digest = rr_nes_digest, .session_option = session_option,
-            .side_effects = side_effects, .session_save = session_save, .session_save_put = session_save_put, .session_options = session_options,
+            .side_effects = side_effects, .session_save = session_save, .session_save_put = session_save_put,
+            /* a game with no cartridge save has nothing to write back (the host is then told nothing) */
+            .session_save_commit = cyc_nvram_size(0) || cyc_nvram_size(1) ? session_save_commit : NULL, .session_options = session_options,
         };
     }
     return &machine;
