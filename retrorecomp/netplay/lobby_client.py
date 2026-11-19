@@ -23,10 +23,10 @@ from pathlib import Path
 import threading
 from typing import Callable
 
-from . import control, internet_key, invitation, reach
+from . import control, firewall_check, internet_key, invitation, reach
 from .lobby import game_dict, game_from_dict
 from .lobby_check import LocalLibrary, game_config
-from .worker_client import WorkerProcess
+from .worker_client import WorkerProcess, worker_command
 
 # The Internet room (INTERNET_PLAN.md): False until a room really works over the Internet (the box's port, the window's
 # warnings, the security review); the window greys its Internet choice with « bientôt » while it is False.
@@ -106,6 +106,10 @@ class LobbyModel:
         self.public: str | None = None
         self.reach: str | None = None
         self.link: dict | None = None       # {tier, prediction, delay, slow, path} of the match being launched or played
+        # A host's room: whether Windows' firewall lets guests in (`firewall_check`: open, blocked, unknown; None before it
+        # was read), and why not in words for a log. A blocked room also leaves the notice `firewall_blocked`.
+        self.firewall: str | None = None
+        self.firewall_detail: str = ''
         self.address: tuple | None = None   # a host's address and port, for its invitation text
         self.phase = 'lobby'
         self.revision: int | None = None
@@ -183,6 +187,14 @@ class LobbyModel:
             if self.secret is not None and self.address is not None:
                 self.key = self.invitation = _key(self.public, self.address[1], self.secret, self.tests)
 
+    def set_firewall(self, state: str, detail: str = '') -> None:
+        """What `firewall_check` read for this host's room; a blocked one is said once in the notices."""
+        with self.lock:
+            self.version += 1
+            self.firewall, self.firewall_detail = state, detail
+            if state == firewall_check.BLOCKED:
+                self.notices.append({'code': 'firewall_blocked', 'detail': detail})
+
     def _on_joined_room(self, event: dict) -> None:
         self.room, self.me = 'joined', event.get('guest')
 
@@ -245,6 +257,8 @@ class LobbyController:
         # An Internet room's host: how its public address is searched and its box's port released (`reach`; a test gives
         # its own), and what the search found (released when the room closes).
         self.search, self.unmap = reach.search, reach.unmap
+        # A host's room: Windows' firewall is read once it is open (read-only; a test gives its own or none).
+        self.firewall = firewall_check.check
         self._reach_found: 'reach.Reach | None' = None
 
     def attach(self, worker) -> None:
@@ -305,6 +319,10 @@ class LobbyController:
                 and self.model.reach != 'typed'):
             threading.Thread(target=self._search, args=(event.get('address'), event.get('port')), name='room-reach',
                              daemon=True).start()
+        if (event.get('event') == 'room_open' and self.model.secret is not None and not self.model.tests
+                and self.firewall is not None):
+            threading.Thread(target=self._firewall, args=(event.get('address'), event.get('port')), name='room-firewall',
+                             daemon=True).start()
         if event.get('event') == 'lobby_check_request':
             threading.Thread(target=self._check, args=(event,), name='lobby-check', daemon=True).start()
 
@@ -325,6 +343,15 @@ class LobbyController:
             return
         if self.model.reach != 'typed':
             self.model.set_public(found.ipv4 or found.ipv6, found.state)
+
+    def _firewall(self, address: str, port: int) -> None:
+        """A host's room: can guests get through Windows' firewall to the worker that holds the port? Never raises."""
+        try:
+            state, detail = self.firewall(worker_command()[0], address or '', int(port or 0), self.model.internet)
+        except Exception as error:
+            state, detail = firewall_check.UNKNOWN, type(error).__name__
+        if not getattr(self, '_closed', False):
+            self.model.set_firewall(state, detail)
 
     def _check(self, event: dict) -> None:
         """A guest: look for the host's pick in this PC's library and answer it. Never raises: a pick this PC cannot read is

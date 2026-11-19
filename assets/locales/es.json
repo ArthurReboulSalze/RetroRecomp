@@ -965,6 +965,7 @@
     "mp_error_port_closed": "sin respuesta: el puerto del anfitrión está cerrado (router o cortafuegos)",
     "mp_error_too_many": "demasiados intentos: espera un minuto",
     "mp_notice_wrong_key_attempts": "Alguien está probando una clave incorrecta.",
+    "mp_notice_firewall_blocked": "El cortafuegos de Windows bloquea a los invitados: nadie puede unirse a esta sala. Permite que Retro-Recomp reciba en este puerto en el cortafuegos (o acepta cuando Windows lo pida).",
     "mp_path_lan": "red local",
     "mp_path_ipv4": "Internet IPv4",
     "mp_path_ipv6": "Internet IPv6",
