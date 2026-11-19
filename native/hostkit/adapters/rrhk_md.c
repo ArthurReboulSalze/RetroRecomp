@@ -124,6 +124,7 @@ static bool run_frame(uint16_t p1, uint16_t p2) {
 extern int rr_md_tap_mode;
 size_t rr16_md_session_save(void *out, size_t capacity);
 bool rr16_md_session_save_put(const void *in, size_t size);
+bool rr16_md_session_save_commit(void);
 static void session_begin(uint64_t clock) {
     (void)clock;
     if (RR_MD_MULTITAP == 1) rr_md_tap_mode = rrhk_session_ports() >= 3 ? 1 : 0;
@@ -166,6 +167,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .snap_bound = rr16_md_snap_bound, .snap_save = rr16_md_snap_save,
             .snap_load = rr16_md_snap_load,
             .session_save = rr16_md_session_save, .session_save_put = rr16_md_session_save_put,
+            .session_save_commit = rr16_md_session_save_commit,
             .session_begin = session_begin,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .timing_report = timing_report,
