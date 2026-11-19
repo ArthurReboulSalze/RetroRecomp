@@ -185,6 +185,12 @@ class PsxAdapterTest(unittest.TestCase):
                       ADAPTER)
         self.assertIn('if (in_match && !card) resolution = host_cpu_resolution;', ADAPTER)
         self.assertIn('rrhk_notice(rr_tr("Set by the host in multiplayer"), 4000);', ADAPTER)
+        # Session ABI 9: the host's change is kept and reported (the kit relaunches the match), never applied in it; a guest's is refused.
+        self.assertIn('static bool match_host(void) { return in_match && !rrhk_session_guest(); }', ADAPTER)
+        self.assertIn('if (!match_host()) rrhk_notice(rr_tr("Set by the host in multiplayer"), 4000);', ADAPTER)
+        self.assertIn('wanted_card = value == 0;', ADAPTER)
+        self.assertIn('const int card = wanted_card >= 0 ? wanted_card && !card_failed : rr_psx_renderer(rr_psx_host_session());',
+                      ADAPTER)
         self.assertNotIn('PGXP off in multiplayer', ADAPTER)
         self.assertNotIn('axes[p][i] = 0', ADAPTER)   # the session carries the sticks (rrhk_pad_axes answers them)
         self.assertIn('if (players && in_match) { rrhk_notice(rr_tr("Not during a multiplayer game"), 4000); return false; }', ADAPTER)
