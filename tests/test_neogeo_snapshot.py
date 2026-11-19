@@ -116,6 +116,31 @@ class SessionSaveTests(unittest.TestCase):
         # It never writes a file: the guest's flush stays stopped (rr_ng_persist_writes) and nothing is saved here.
         self.assertNotIn('write_atomic', put)
 
+    def test_the_host_writes_its_save_back_once_atomically_with_a_backup(self):
+        adapter = read('hostkit/adapters/rrhk_ng.c')
+        self.assertIn('.session_save_commit = rr_ng_session_save_commit', adapter)
+        persistence = read('neogeo_persistence.c')
+        commit = persistence[persistence.index('bool rr_ng_session_save_commit'):]
+        commit = commit[:commit.index('\n}\n')]
+        # `writes_off` stops every write of a match, this one excepted; an unchanged memory writes nothing and returns true.
+        self.assertNotIn('writes_off', commit)
+        self.assertIn('flush_save(true)', commit)
+        self.assertIn('if(!enabled)return false;', commit)
+        self.assertIn('if(blocked)return false;', commit)
+        # The write at exit and the commit share the lock, the check against another copy's file and the atomic write.
+        self.assertIn('return flush_save(false);', persistence)
+        flush = persistence[persistence.index('static bool flush_save'):]
+        flush = flush[:flush.index('\n}\n')]
+        for word in ('lock_save()', 'read_saved(previous,&checksum)', 'checksum==disk_hash', 'write_atomic(current,backup)'):
+            self.assertIn(word, flush)
+        # The previous file is copied to <file>.bak (temporary, then rename) before the new one replaces it.
+        atomic = persistence[persistence.index('static bool write_atomic'):]
+        atomic = atomic[:atomic.index('\n}\n')]
+        self.assertLess(atomic.index('keep_backup()'), atomic.index('rr_replace(temporary,save_path)'))
+        backup = persistence[persistence.index('static bool keep_backup'):persistence.index('static bool write_atomic')]
+        self.assertIn('L"%ls.bak"', backup)
+        self.assertIn('rr_replace(temporary,backup)', backup)
+
     def test_the_image_fits_the_kits_limit(self):
         session = (NATIVE / 'hostkit/hostkit_session.h').read_text(encoding='utf-8')
         self.assertIn('#define RRHK_SESSION_MAX_SAVE (2u * 1024u * 1024u)', session)

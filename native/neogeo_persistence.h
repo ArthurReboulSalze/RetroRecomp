@@ -14,6 +14,8 @@ void rr_ng_persist_writes(bool allowed);
 /* Multiplayer (session ABI 8): this PC's save image (NULL out: only its size), and the host's, put in memory only. */
 size_t rr_ng_session_save(void *out,size_t capacity);
 bool rr_ng_session_save_put(const void *in,size_t size);
+/* The host, at a clean end of a match: the in-memory save to its own file, atomically, the previous file kept as .bak. */
+bool rr_ng_session_save_commit(void);
 bool rr_ng_persist_path(wchar_t *path,size_t capacity);
 void rr_ng_persist_report(FILE *file);
 #endif
