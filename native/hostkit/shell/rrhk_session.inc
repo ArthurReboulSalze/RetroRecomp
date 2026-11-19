@@ -401,7 +401,9 @@ static void effects(const RrhkMachine *m, bool allowed) {
 /* The host's save, written back once when the match ends cleanly: the machine's in-memory save to its own file (the adapter
  * writes atomically and keeps a backup). Never on a guest, never after a desync, a refused boot or a lost connection. */
 static void commit_save(const RrhkMachine *m) {
-    if (!s.setup || s.guest || s.committed || !m) return;
+    /* Not before frame 0 ran: a refused boot, or a match stopped before its start (the worker's neutral "ended" for those),
+     * leaves the host's file as it was (the msx and md specialists' finding). */
+    if (!s.setup || s.guest || s.committed || !m || s.live == 0) return;
     if (!m->session_save_commit) {
         /* An adapter without the hook yet: the host's side effects come back on, so the machine writes its save at its exit
          * as it does alone (its own way, not the atomic write with a backup the hook promises). */

@@ -701,8 +701,17 @@ def save_scenarios(executable: Path, out: Path) -> list[str]:
     assert '[fake] commit' not in text, text[-600:]
     text = ended('RRHK_STOP_ENDED', 1, True)
     assert '[fake] commit' not in text, text[-600:]
+    # A match stopped before its frame 0 (a refused boot: the worker's neutral "ended"): the host's file stays as it was.
+    game = Game(executable, out, save=1)
+    hello, _own = opened(game)
+    game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
+    setup(game, seat=0, guest=False)
+    game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS['RRHK_STOP_ENDED']))
+    game.expect('RRHK_MSG_EXIT', timeout=10)
+    _code, _result, text = game.finish()
+    assert '[fake] commit' not in text, text[-600:]
     passed.append('save, end: the host writes its save back once at a clean end (no frame wrote during the match), nothing after '
-                  'a desync, a guest never')
+                  'a desync or before frame 0, a guest never')
     return passed
 
 

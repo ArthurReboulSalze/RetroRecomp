@@ -58,6 +58,8 @@ uint64_t rr_cps1_digest(void) { return 0; }
 void rr_cps1_side_effects(bool allowed) { (void)allowed; }
 size_t rr_cps1_session_save(void *out, size_t capacity) { (void)out; (void)capacity; return 0; }
 bool rr_cps1_session_save_put(const void *in, size_t size) { (void)in; (void)size; return false; }
+bool rr_cps1_session_save_commit(void) { return false; }
+size_t cps1_eeprom_size(void) { return 0; }
 void rr16_reset(void) { ++resets; }
 void rr16_pause(bool paused) { (void)paused; }
 const uint32_t *rr16_pixels(void) { return pixels; }
