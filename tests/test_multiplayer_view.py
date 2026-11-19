@@ -11,6 +11,8 @@ from retrorecomp.netplay.lobby_client import LobbyModel
 
 SECRET = bytes(range(16))
 INVITE = invitation.format_invitation('192.168.1.20', invitation.DEFAULT_PORT, SECRET)
+KEY = 'RR2-7H3QK-M9XPA-2ZD4R-V8N1C-QF6TW-K0BHS-E5MJY-4RXGT-9C'      # a stand-in Internet key (its format is the room's)
+CODE = '7H3QK-M9XPA-2ZD4R-V8N1C-QF6TWK-0'
 
 
 class Controller:
@@ -82,22 +84,30 @@ class MultiplayerWindowTest(unittest.TestCase):
         except tk.TclError:
             pass
 
-    def window(self, games=('Contra', 'Bomberman II'), language='fr'):
+    def window(self, games=('Contra', 'Bomberman II'), language='fr', internet=False, guest_manual=None):
         from retrorecomp.multiplayer_view import MultiplayerWindow
         app = SimpleNamespace(tr=lambda key, **values: tr(key, language, **values), ui_font='Segoe UI', app=self.root,
                               language=language)
 
-        def host_config(address, port, name, sharing, log_dir):
-            return {'room': {'role': 'host', 'address': address, 'port': port, 'name': name, 'sharing': sharing}}, INVITE
+        def host_config(address, port, name, sharing, log_dir, **internet_fields):
+            return {'room': {'role': 'host', 'address': address, 'port': port, 'name': name, 'sharing': sharing,
+                             **internet_fields}}, KEY if internet_fields.get('internet') else INVITE
 
         def guest_config(text, name, log_dir):
-            invitation.parse(text)
+            if text.startswith('RR2'):
+                if text != KEY:
+                    error = invitation.InvitationError('typo')
+                    error.code = 'typo'
+                    raise error
+            else:
+                invitation.parse(text)
             return {'room': {'role': 'guest', 'invitation': text, 'name': name}}
 
         configs = (host_config, guest_config, lambda controller, config, log=None: self.started.append(config),
                    lambda controller: self.closed.append(controller))
         view = MultiplayerWindow(app, Library([entry(title) for title in games]), name='Arthur', configs=configs,
-                                 controller_class=Controller, addresses=lambda: ['192.168.1.20'], hidden=True)
+                                 controller_class=Controller, addresses=lambda: ['192.168.1.20'], hidden=True,
+                                 internet=internet, guest_manual=guest_manual)
         self.addCleanup(lambda: view.close())
         self.settle(view)
         return view
@@ -140,14 +150,20 @@ class MultiplayerWindowTest(unittest.TestCase):
         host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
         guest = {'seat': 1, 'guest': 1, 'name': 'Karl', 'ready': False, 'in_match': False, 'check': 'same'}
         self.feed(view, {'event': 'lobby_selection', 'selection': 1, 'game': game}, self.roster([host, guest]))
-        rows = [view.seat_table.item(row, 'values') for row in view.seat_table.get_children()]
+        rows = view.seat_values()
         self.assertEqual([row[0] for row in rows], ['P1', 'P2'])
         self.assertEqual(rows[1][3], tr('mp_check_same', 'fr'))
-        self.assertTrue(view.launch_button.instate(['disabled']))
-        self.assertEqual(view.launch_hint.cget('text'), tr('mp_launch_wait_ready', 'fr'))
+        # the round button: grey while Karl is not ready (a press does nothing), gold Launch once he is
+        self.assertFalse(view.action.pressable)
+        self.assertEqual(view.action.texts()[1], tr('mp_wait_for', 'fr', names='Karl'))
+        view.action.press()
+        self.assertNotIn(('launch', True), view.controller.calls)
         self.feed(view, self.roster([host, dict(guest, ready=True)]))
-        self.assertFalse(view.launch_button.instate(['disabled']))
-        view.launch()
+        self.assertTrue(view.action.pressable)
+        self.assertEqual(view.action.texts(), (tr('mp_launch', 'fr').upper(), tr('mp_go_note', 'fr')))
+        view.action.event_generate('<Return>')          # the keyboard (and the gamepad's focus) press it too
+        view.action.focus_force()
+        view.action.press()
         self.assertIn(('launch', True), view.controller.calls)
         # the match: the banner, then how it ended
         self.feed(view, self.roster([dict(host, in_match=True), dict(guest, in_match=True)], phase='playing'))
@@ -166,9 +182,9 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611},
                   {'event': 'lobby_selection', 'selection': 1, 'game': {'title': 'Contra', 'machine': 'nes'}},
                   {'event': 'lobby_check', 'guest': 1, 'selection': 1, 'status': 1, 'reasons': bits}, self.roster([host, guest]))
-        row = view.seat_table.item(view.seat_table.get_children()[1], 'values')
+        row = view.seat_values()[1]
         self.assertEqual(row[3], tr('mp_check_other', 'fr', parts=tr('mp_reason_engine', 'fr')))
-        self.assertEqual(view.launch_hint.cget('text'), tr('mp_launch_wait_guest', 'fr'))
+        self.assertEqual(view.action.texts()[1], tr('mp_launch_wait_guest', 'fr'))
 
     def test_guest_pastes_an_invitation_joins_and_is_told_when_the_host_closes(self):
         view = self.window()
@@ -186,26 +202,24 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.assertEqual(view.current, 'lobby')
         self.assertEqual(view.room_line.cget('text'), tr('mp_room_joined', 'fr', host='Arthur'))
         self.assertEqual(view.lobby_game_text.cget('text'), 'Contra')
-        # the big Ready button: gold « I'm ready », then green « Ready! » at once; a second click takes it back
-        self.assertTrue(view.ready_row.winfo_manager())
-        self.assertFalse(view.ready_button.instate(['disabled']))
-        self.assertEqual(view.ready_button.cget('text'), tr('mp_ready_go', 'fr'))
-        self.assertEqual(view.ready_hint.cget('text'), tr('mp_ready_note', 'fr'))
-        view.ready_button.invoke()
+        # the round Ready button: gold « I'm ready », then green « Ready! » at once; a second press takes it back
+        self.assertEqual((view.action.state_['look'], view.action.texts()),
+                         ('gold', (tr('mp_ready_go', 'fr').upper(), tr('mp_ready_note', 'fr'))))
+        self.assertEqual(view.launch_hint.cget('text'), tr('mp_wait_host', 'fr'))
+        view.action.press()
         self.assertEqual(view.controller.calls[-1], ('ready', True))
-        self.assertEqual((view.ready_button.cget('text'), str(view.ready_button.cget('style'))),
-                         (tr('mp_ready_on', 'fr'), 'MultiplayerReadyOn.TButton'))
+        self.assertEqual((view.action.state_['look'], view.action.texts()[0]), ('green', tr('mp_ready_on', 'fr').upper()))
         self.feed(view, self.roster([host, dict(me, ready=True)], me=2))
-        self.assertEqual(view.ready_hint.cget('text'), tr('mp_ready_cancel_note', 'fr'))
-        view.ready_button.invoke()
+        self.assertEqual(view.action.texts()[1], tr('mp_ready_cancel_note', 'fr'))
+        view.action.press()
         self.assertEqual(view.controller.calls[-1], ('ready', False))
-        self.assertEqual(view.ready_button.cget('text'), tr('mp_ready_go', 'fr'))
-        # another version of the game: greyed, and the line says why
+        self.assertEqual(view.action.state_['look'], 'gold')
+        # another version of the game: blocked, and the caption says why; a press does nothing
         calls = len(view.controller.calls)
         self.feed(view, self.roster([host, dict(me, check='other')], me=2))
-        self.assertTrue(view.ready_button.instate(['disabled']))
-        self.assertEqual(view.ready_hint.cget('text'), tr('mp_ready_blocked', 'fr'))
-        view.ready_button.invoke()
+        self.assertEqual((view.action.state_['look'], view.action.texts()),
+                         ('refused', (tr('mp_blocked', 'fr'), tr('mp_ready_blocked', 'fr'))))
+        view.action.press()
         self.assertEqual(len(view.controller.calls), calls)
         self.feed(view, {'event': 'host_gone', 'detail': 'the host closed the room', 'code': 'closed'})
         self.assertEqual(view.current, 'join')
@@ -236,14 +250,14 @@ class MultiplayerWindowTest(unittest.TestCase):
         view.controller.model.secret = SECRET
         self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24612})
         self.assertEqual(view.invite_shown.get(), bound)          # the port the room really bound
-        self.assertEqual(view.link_line.cget('text'), tr('mp_link_unknown', 'fr'))
+        self.assertEqual(view.link_line.cget('text'), tr('mp_link_unknown', 'fr') + ' · ' + tr('mp_path_lan', 'fr'))
         self.feed(view, {'event': 'launching', 'match_id': 1, 'tier': 'delay', 'prediction': 0})
-        self.assertEqual(view.link_line.cget('text'), tr('mp_link_unknown', 'fr'))
+        self.assertEqual(view.link_line.cget('text'), tr('mp_link_unknown', 'fr') + ' · ' + tr('mp_path_lan', 'fr'))
         view.controller.delay = 3                                  # the driver chose it: no event, the poll reads it
         view.poll()
-        self.assertEqual(view.link_line.cget('text'), tr('mp_link_delay', 'fr', frames=3))
+        self.assertEqual(view.link_line.cget('text'), tr('mp_link_delay', 'fr', frames=3) + ' · ' + tr('mp_path_lan', 'fr'))
         self.feed(view, {'event': 'slow_link', 'delay': 9})
-        self.assertEqual(view.link_line.cget('text'), tr('mp_link_slow', 'fr', frames=9))
+        self.assertEqual(view.link_line.cget('text'), tr('mp_link_slow', 'fr', frames=9) + ' · ' + tr('mp_path_lan', 'fr'))
         self.feed(view, {'event': 'launch_failed', 'detail': 'seat 2 did not start'})
         self.assertIn(tr('mp_errnote_launch_failed', 'fr'), view.chat_text.get('1.0', 'end'))
 
@@ -268,6 +282,73 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.feed(view, {'event': 'match_over', 'match_id': 2, 'outcome': 'ended', 'detail': ''},
                   {'event': 'lobby_back', 'match_id': 2, 'reason': 'ended'})
         self.assertEqual(view.banner.cget('text'), tr('mp_back_ended', 'fr'))
+
+    def test_internet_needs_the_three_warnings_confirmed_and_is_local_again_at_every_opening(self):
+        view = self.window(internet=True)
+        self.assertEqual(view.mode.get(), 'local')
+        self.assertFalse(view.warn_card.winfo_manager())
+        view.mode.set('internet')
+        self.root.update()
+        self.assertTrue(view.warn_card.winfo_manager())
+        self.assertTrue(all(button.instate(['disabled']) for button in view.choice_buttons))
+        view.confirm_internet()
+        self.assertFalse(view.warn_card.winfo_manager())
+        self.assertFalse(any(button.instate(['disabled']) for button in view.choice_buttons))
+        view.close()
+        again = self.window(internet=True)
+        self.assertEqual((again.mode.get(), again.internet_confirmed), ('local', False))
+
+    def test_internet_is_offered_only_when_the_room_supports_it(self):
+        view = self.window(internet=False)
+        self.assertTrue(view.mode_buttons['internet'].instate(['disabled']))
+        view.mode.set('internet')
+        self.assertEqual(view.mode.get(), 'local')
+
+    def test_the_internet_host_shows_its_key_how_it_is_reached_and_hides_the_code(self):
+        view = self.window(internet=True)
+        view.mode.set('internet')
+        view.confirm_internet()
+        view.show('host')
+        view.typed_public.set('86.214.33.17')
+        view.open_room()
+        room = self.started[0]['room']
+        self.assertEqual((room['internet'], room['public_address']), (True, '86.214.33.17'))
+        model = view.controller.model
+        model.key, model.code, model.public, model.reach = KEY, CODE, '86.214.33.17', 'site'
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611})
+        self.assertEqual(view.invite_shown.get(), KEY)
+        self.assertEqual(view.reach_line.cget('text'), tr('mp_reach_site', 'fr'))
+        self.assertNotIn(CODE, view.detail_code.cget('text'))            # hidden like a password
+        view.toggle_code()
+        self.assertIn(CODE, view.detail_code.cget('text'))
+        self.assertIn('86.214.33.17', view.detail_address.cget('text'))
+        model.reach = 'forward_needed'
+        self.feed(view, {'event': 'lobby_notice', 'code': 'wrong_key_attempts'})
+        self.assertEqual(view.reach_line.cget('text'), tr('mp_reach_forward', 'fr', port=24611))
+        self.assertIn(tr('mp_notice_wrong_key_attempts', 'fr'), view.chat_text.get('1.0', 'end'))
+
+    def test_the_internet_guest_joins_by_key_or_by_address_and_code(self):
+        manual = []
+        view = self.window(internet=True, guest_manual=lambda *values: manual.append(values) or {'room': {'role': 'guest'}})
+        view.mode.set('internet')
+        view.confirm_internet()
+        view.show('join')
+        view.invite.set(KEY[:-1] + 'X')
+        view.join_room()
+        self.assertEqual(view.join_status.cget('text'), tr('mp_error_key_typo', 'fr'))
+        self.assertEqual(self.started, [])
+        view.invite.set(KEY)
+        view.join_room()
+        self.assertEqual(self.started[-1]['room']['invitation'], KEY)
+        view.leave_room()
+        view.join_by.set('address')
+        view.draw_join_form()
+        view.join_address.set('86.214.33.17')
+        view.join_port.set('24611')
+        view.join_code.set(CODE)
+        view.join_room()
+        self.assertEqual(manual[0][:3], ('86.214.33.17', 24611, CODE))
+        self.assertTrue(view.privacy_line.winfo_manager())
 
     def test_a_phrase_is_shown_in_the_windows_language(self):
         view = self.window(language='fr')

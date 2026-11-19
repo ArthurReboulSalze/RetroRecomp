@@ -59,8 +59,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_covers',
                                # Front-end: the compiled games as a wall of box art (another view of Compiled Games).
                                'gui_front_end', 'front_end', 'front_end_view',
-                               # Multiplayer: host or join a room on the local network (the lobby of retrorecomp/netplay).
-                               'gui_multiplayer', 'multiplayer_view',
+                               # Multiplayer: host or join a room, local or Internet (the lobby of retrorecomp/netplay); its
+                               # rounded cards and round button (rounded_ui, Pillow pictures, proposal A of 19 Nov 2026).
+                               'gui_multiplayer', 'multiplayer_view', 'rounded_ui',
                                # Conversion time estimates in the window (assets/conversion-times.json); a conversion never reads them.
                                'gui_estimates', 'time_estimates',
                                # The log panel's welcome and the developer's message to the players, read from the site at start.
