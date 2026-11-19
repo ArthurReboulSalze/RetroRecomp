@@ -71,6 +71,10 @@ ICONS = {
                    (13, 9, 13, 15), (10, 12, 16, 12), (10.8, 9.8, 15.2, 14.2), (15.2, 9.8, 10.8, 14.2)),
     # Play the game: a cartridge with a play mark.
     'play_game': (_cartridge(3, 1, 9, 14, 2), (5.5, 5, 5.5, 11, 9.5, 8, 5.5, 5)),
+    # The hollow play triangles of the hero Play button: these polylines are only the fallback, hero_picture draws them.
+    'play_hollow_double': ((3, 1.5, 14.5, 8, 3, 14.5, 3, 1.5),),
+    'play_hollow_bevel': ((3, 1.5, 14.5, 8, 3, 14.5, 3, 1.5),),
+    'play_hollow_pixel': ((3, 1.5, 14.5, 8, 3, 14.5, 3, 1.5),),
     # Game memory: a memory chip.
     'memory_chip': (_rectangle(3.5, 3.5, 12.5, 12.5), _rectangle(6, 6, 10, 10),
                     (1, 5.5, 3.5, 5.5), (1, 8, 3.5, 8), (1, 10.5, 3.5, 10.5),
@@ -92,3 +96,127 @@ ICONS = {
 
 for _name, _paths in ICONS.items():
     ICON_PATHS.setdefault(_name, _paths)
+
+
+# ---- The hero buttons' pictures: drawn with Pillow, at the size of the screen --------------------------------------
+# A polyline one pixel wide cannot carry a gear or a bevelled triangle at the size of the main buttons, so these are
+# drawn from our own shapes on a 26 x 26 grid, four times larger, then reduced (smooth edges, transparent background:
+# the button's gold or grey shows through). No image file: they are rebuilt at start, for the scaling of the screen.
+HERO_GRID = 26
+SUPERSAMPLE = 4
+# The picture of the hero Play button of Compiled Games: a big hollow play triangle, three crafted takes. Switching is
+# this one line: 'play_hollow_double' (an outer and a thin inner outline, rounded), 'play_hollow_bevel' (a lighter edge
+# inside the top and left sides and a small notch) or 'play_hollow_pixel' (stepped, pixel-art edges like the logo).
+HERO_PLAY = 'play_hollow_double'
+# The hero Convert / regenerate button: a gear and a play triangle (convert_all keeps its polylines as the fallback).
+HERO_CONVERT = 'convert_all'
+
+_TRIANGLE = ((5.0, 2.5), (23.0, 13.0), (5.0, 23.5))      # top left, tip, bottom left of the play triangle
+
+
+def _mix(colour, other, amount):
+    """`colour` moved `amount` of the way to `other` (both '#rrggbb')."""
+    a, b = (tuple(int(value[index:index + 2], 16) for index in (1, 3, 5)) for value in (colour, other))
+    return '#%02x%02x%02x' % tuple(round(x + (y - x) * amount) for x, y in zip(a, b))
+
+
+def _scaled(points, factor, about=None):
+    centre = about or (sum(x for x, _ in points) / len(points), sum(y for _, y in points) / len(points))
+    return tuple((centre[0] + (x - centre[0]) * factor, centre[1] + (y - centre[1]) * factor) for x, y in points)
+
+
+def _stroke(draw, points, width, colour, scale, closed=True):
+    """A polyline of `width` grid units with round corners (a disc at each vertex)."""
+    count = len(points)
+    for index in range(count if closed else count - 1):
+        a, b = points[index], points[(index + 1) % count]
+        draw.line([(a[0] * scale, a[1] * scale), (b[0] * scale, b[1] * scale)], fill=colour, width=round(width * scale))
+    radius = width * scale / 2
+    for x, y in points:
+        draw.ellipse([x * scale - radius, y * scale - radius, x * scale + radius, y * scale + radius], fill=colour)
+
+
+def _gear(draw, centre, scale, colour, clear, body=5.2, tip=7.6, teeth=8, hole=2.1):
+    import math
+    cx, cy = centre
+    draw.ellipse([(cx - body) * scale, (cy - body) * scale, (cx + body) * scale, (cy + body) * scale], fill=colour)
+    for index in range(teeth):
+        angle = index * 2 * math.pi / teeth
+        ux, uy = math.cos(angle), math.sin(angle)
+        vx, vy = -uy, ux
+        inner, outer = body - 0.6, tip
+        wide_in, wide_out = 1.8, 1.3
+        corners = [(cx + ux * inner + vx * wide_in, cy + uy * inner + vy * wide_in),
+                   (cx + ux * outer + vx * wide_out, cy + uy * outer + vy * wide_out),
+                   (cx + ux * outer - vx * wide_out, cy + uy * outer - vy * wide_out),
+                   (cx + ux * inner - vx * wide_in, cy + uy * inner - vy * wide_in)]
+        draw.polygon([(x * scale, y * scale) for x, y in corners], fill=colour)
+    draw.ellipse([(cx - hole) * scale, (cy - hole) * scale, (cx + hole) * scale, (cy + hole) * scale],
+                 fill=clear)
+
+
+def _convert(draw, scale, colour, highlight, clear):
+    _gear(draw, (8.6, 13.0), scale, colour, clear)
+    tip = [(18.0, 6.4), (25.4, 13.0), (18.0, 19.6)]
+    draw.polygon([(x * scale, y * scale) for x, y in tip], fill=colour)
+
+
+def _play_double(draw, scale, colour, highlight, clear):
+    outer = _TRIANGLE
+    _stroke(draw, outer, 2.5, colour, scale)
+    _stroke(draw, _scaled(outer, 0.56, (9.5, 13.0)), 1.1, colour, scale)
+
+
+def _play_bevel(draw, scale, colour, highlight, clear):
+    outer = _TRIANGLE
+    _stroke(draw, outer, 3.2, colour, scale)
+    inner = _scaled(outer, 0.8, (9.5, 13.0))
+    # A lighter edge inside the top and left sides, as light from the top left on a raised rim.
+    _stroke(draw, (inner[1], inner[0], inner[2]), 1.2, highlight, scale, closed=False)
+    # A small notch in the lower side.
+    (x1, y1), (x2, y2) = outer[1], outer[2]
+    cx, cy = (x1 * 0.45 + x2 * 0.55), (y1 * 0.45 + y2 * 0.55)
+    draw.ellipse([(cx - 1.3) * scale, (cy - 1.3) * scale, (cx + 1.3) * scale, (cy + 1.3) * scale], fill=clear)
+
+
+def _play_pixel(draw, scale, colour, highlight, clear):
+    """A hollow triangle in blocks two grid units wide: steps along the slanted sides, like the logo's lettering. The
+    outline is the blocks of the solid triangle that touch the outside, corners included, so the steps stay joined."""
+    rows = 11
+    middle = rows // 2
+    solid = {(column, row) for row in range(rows) for column in range(1, 12 - 2 * abs(row - middle))}
+    around = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if (dx, dy) != (0, 0)]
+    for column, row in sorted(solid):
+        if any((column + dx, row + dy) not in solid for dx, dy in around):
+            draw.rectangle([(column * 2 + 0.5) * scale, (row * 2 + 1.5) * scale, (column * 2 + 2.5) * scale - 1,
+                            (row * 2 + 3.5) * scale - 1], fill=colour)
+
+
+DRAWERS = {HERO_CONVERT: _convert, 'play_hollow_double': _play_double, 'play_hollow_bevel': _play_bevel,
+           'play_hollow_pixel': _play_pixel}
+
+
+def draw_picture(name, colour, size=HERO_GRID, highlight=None):
+    """The hero picture `name` as a Pillow RGBA image of `size` px: `colour` for the drawing, `highlight` for the lighter
+    edge of the bevelled take (a lighter shade of `colour` when not given)."""
+    from PIL import Image, ImageDraw
+    big = size * SUPERSAMPLE
+    # Transparent, but in the drawing's own colour: reducing the picture then leaves no dark fringe round it.
+    clear = tuple(int(colour[index:index + 2], 16) for index in (1, 3, 5)) + (0,)
+    image = Image.new('RGBA', (big, big), clear)
+    DRAWERS[name](ImageDraw.Draw(image), big / HERO_GRID, colour, highlight or _mix(colour, '#ffffff', 0.45), clear)
+    return image.reduce(SUPERSAMPLE)                    # an exact average of 4 x 4 samples: no ringing
+
+
+def hero_picture(master, symbol, colour, highlight=None):
+    """The picture of `symbol` for a hero button, as a Tk image: drawn with Pillow when it has a drawing here, else its
+    polylines drawn larger and thicker (gui_drawing.hero_icon). Sized for the screen's scaling (96 dpi: 26 px)."""
+    if symbol not in DRAWERS:
+        from .gui_drawing import hero_icon
+        return hero_icon(master, symbol, colour)
+    from PIL import ImageTk
+    try:
+        factor = max(1.0, float(master.tk.call('tk', 'scaling')) / (96 / 72))
+    except Exception:
+        factor = 1.0
+    return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_GRID * factor), highlight), master=master)

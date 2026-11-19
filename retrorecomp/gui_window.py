@@ -18,10 +18,11 @@ from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
 from .dialogs import center_dialog
 from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
+from .gui_icons import hero_picture
 from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
-    badged_icon, hero_icon, header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
+    badged_icon, header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
 )
 
 
@@ -361,8 +362,14 @@ class WindowMixin:
         key = (symbol, 'hero') if hero else (symbol, 'accent') if accent else (symbol, primary)
         if key not in self.button_images:
             colour = COLORS['gold_text'] if primary or hero else COLORS['gold'] if accent else COLORS['text']
-            draw = hero_icon if hero else make_icon
-            self.button_images[key] = (draw(self.app, symbol, colour), draw(self.app, symbol, COLORS['disabled']))
+            if hero:
+                # Drawn with Pillow when the picture has a drawing (gui_icons.hero_picture): dark on the gold, with a
+                # lighter gold for its bevelled edge; grey, with a lighter grey, when greyed.
+                self.button_images[key] = (hero_picture(self.app, symbol, colour, '#f2dc93'),
+                                           hero_picture(self.app, symbol, COLORS['disabled'], '#9a9a9a'))
+            else:
+                self.button_images[key] = (make_icon(self.app, symbol, colour),
+                                           make_icon(self.app, symbol, COLORS['disabled']))
         normal, disabled = self.button_images[key]
         button.configure(image=(normal, 'disabled', disabled), compound='left')
 
