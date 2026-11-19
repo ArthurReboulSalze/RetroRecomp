@@ -186,6 +186,7 @@ size_t rr_cps1_session_save(void *out, size_t capacity)
     memcpy(out, cps1_eeprom_data(), size);
     return size;
 }
+bool rr_cps1_session_save_commit(void) { return rr_cps1_save_commit(); }
 bool rr_cps1_session_save_put(const void *in, size_t size)
 {
     return in && size == cps1_eeprom_size() && cps1_eeprom_load((const uint8_t *)in, size);

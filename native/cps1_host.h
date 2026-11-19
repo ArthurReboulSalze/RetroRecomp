@@ -46,6 +46,7 @@ void rr_cps1_side_effects(bool allowed);
  * to every seat before the boot digest and after a restart; a guest plays on them in memory only. A board without an EEPROM has none (0). */
 size_t rr_cps1_session_save(void *out, size_t capacity);
 bool rr_cps1_session_save_put(const void *in, size_t size);
+bool rr_cps1_session_save_commit(void);
 uint32_t rr_cps1_frame_index(void);
 void rr_cps1_restore_frame(uint32_t frame);
 void rr_cps1_reset_machine(void);

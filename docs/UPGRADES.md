@@ -395,12 +395,16 @@ paths of both boards changes with the machine's sources, as for any change of th
   keeps its capacity), and the digest is the FNV-1a of the same fields in the same order.
 - **The EEPROM in a session** (session ABI 8, 19 November 2026): the host's EEPROM image (128 bytes) travels to every seat before the boot digest
   and after a restart (`session_save`, `session_save_put` in `rrhk_cps1.c`, the code in `cps1_host.c`), and a guest plays on it in memory only:
-  its frames ask for no file (`side_effects` off for the whole session) and its own file is as it was. The host plays on its own file and writes it
-  as alone, except in a silent frame. This replaces the first rule of the rollback work (a blank EEPROM on every seat, nothing read or
+  its frames ask for no file (`side_effects` off for the whole session) and its own file is as it was. Nobody writes the file during the match, the
+  host included (the kit's rule of 19 November 2026): when the match ends cleanly the host's EEPROM, as it is in memory, is written back once over
+  its own file (`session_save_commit`, `rr_cps1_save_commit`: a temporary file then a rename, the previous file kept whole as `.bak`; a file that
+  could not be used at the start is never written over; a board without an EEPROM has no hook). This replaces the first rule of the rollback work (a blank EEPROM on every seat, nothing read or
   written). The digest covers the EEPROM, so a seat on another image is refused at boot. Proof: `netplay_game_smoke.py --seats 2 --host-save`
   with the real EEPROM of Super Street Fighter II, the raw 128 bytes as `--save-image`, `--save-at 600 --load-at 1500 --restart-at 2200`, rollback
   tier, 3000 frames: PASS, every seat boots on the same digest (not the blank one), only seat 1 holds the file; control: guests handed a blank
-  image are refused at boot (`boot_mismatch`).
+  image are refused at boot (`boot_mismatch`). The write-back, on 1944 (`1944j`, whose EEPROM changes on a coin) with its real save: after the match
+  the host's file holds the memory of the game (its checksum equals the digest the game printed at the write), differs from the file before by the
+  one byte the match changed, `.bak` equals the file before, the guest's folder has no `saves` folder, Arthur's own file is untouched.
 - **The DIP switches are run-changing options** (session ABI 6): the adapter reports the host's three DIP words in its HELLO
   (`dips=00ff,00fc,009f`) and applies the host's to every seat from SETUP, in memory only (a guest's own settings file is never written and
   comes back when it plays alone). The DIP page was already run-changing, so its keys are refused in a session. Proof: 1941 with a guest whose

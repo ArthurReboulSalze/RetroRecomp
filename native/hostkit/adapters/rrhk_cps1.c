@@ -187,6 +187,8 @@ const RrhkMachine *rrhk_adapter(void) {
             .snap_bound = rr_cps1_snap_bound, .snap_save = rr_cps1_snap_save, .snap_load = rr_cps1_snap_load,
             .digest = rr_cps1_digest, .side_effects = rr_cps1_side_effects,
             .session_save = rr_cps1_session_save, .session_save_put = rr_cps1_session_save_put,
+            /* a board without an EEPROM has no save to write back: the kit then does what it does for a machine without the hook */
+            .session_save_commit = cps1_eeprom_size() ? rr_cps1_session_save_commit : NULL,
             .session_option = session_option, .session_options = session_options,
         };
     }

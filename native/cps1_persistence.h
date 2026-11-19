@@ -16,6 +16,8 @@ bool rr_cps1_save_begin(void);
 void rr_cps1_save_frame(void);
 /* What a frame may do outside the machine (hostkit.h side_effects): off, the change flag is still taken but no file is asked for. */
 void rr_cps1_save_side_effects(bool allowed);
+/* A multiplayer host's save, written back once at a clean end (hostkit.h session_save_commit): atomically, the previous file kept as `.bak`. */
+bool rr_cps1_save_commit(void);
 bool rr_cps1_save_close(void);
 bool rr_cps1_save_path(wchar_t *path, size_t capacity);
 #endif
