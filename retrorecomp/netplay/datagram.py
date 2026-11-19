@@ -1,19 +1,20 @@
 """The match datagrams (UDP) of a room, and what a receiver does with one, as pure code: no socket, no thread.
 
-    magic 'RRNG' 4 | proto u8 = 3 | type u8 | seat u8 | flags u8 = 0 | match_id u32 | counter u64 | body | tag 16
+    magic 'RRNG' 4 | proto u8 = 3 | type u8 | seat u8 | flags u8 | match_id u32 | counter u64 | body | tag 16
 
 40 to 508 bytes. `tag = blake2b(datagram without tag, key = K_udp_dir(match, seat), digest_size 16)`. The body is the
 body of a driver packet of `input_records` (INPUT, PING, PONG, MEASURE, BYE, BOOT) without its 8-byte head: the
 transport takes that head off on the way out and rebuilds it, with the seat the key proved, on the way in, so the
 driver does not change (`split_inner`, `join_inner`). `seat` is the sender's seat (the key to try); from the host it is
-0 and the key is the recipient's.
+0 and the key is the recipient's. `flags` is the driver head's own: 0, or `FLAG_AXES` on an INPUT whose records carry the
+sticks (a game with sticks, session ABI 7); it is under the tag like the rest of the head.
 
 What a receiver does with a datagram, in this order, each failure being a silent drop and one count
 (`SECURITY_REVIEW.md` 2.6):
 
 1. the source address is that of an authenticated TCP peer (host), or the host's exact address and port (guest);
 2. 40 <= size <= 508;
-3. magic, proto, flags 0, the running match, a seat of that peer;
+3. magic, proto, flags (0, or FLAG_AXES on an INPUT), the running match, a seat of that peer;
 4. the per-address bucket and the all-sources bucket;
 5. the tag, in constant time;
 6. the counter: not 0, not seen, not more than 63 behind the highest (a 64-packet window per seat and direction);
@@ -39,6 +40,12 @@ HEAD_SIZE, TAG_SIZE = 20, 16
 READ_SIZE = 1024                 # the transport reads this much: a longer datagram is seen as longer and dropped
 MAX_BODY = MAX_SIZE - HEAD_SIZE - TAG_SIZE
 KINDS = frozenset((wire.INPUT, wire.PING, wire.PONG, wire.MEASURE, wire.BYE, wire.BOOT))
+
+
+def _flags_allowed(kind: int, flags: int) -> bool:
+    """The only flag a datagram carries: the sticks of an INPUT (`input_records.FLAG_AXES`)."""
+    return flags == 0 or (flags == wire.FLAG_AXES and kind == wire.INPUT)
+
 WINDOW = 64
 _HEAD = struct.Struct('<4sBBBBIQ')
 _INNER = struct.Struct('<4sBBBB')
@@ -48,10 +55,10 @@ def _tag(key: bytes, data: bytes) -> bytes:
     return hashlib.blake2b(data, key=key, digest_size=TAG_SIZE).digest()
 
 
-def seal(key: bytes, kind: int, seat: int, match_id: int, counter: int, body: bytes) -> bytes:
-    if kind not in KINDS or len(body) > MAX_BODY or not 0 < counter < 1 << 64:
+def seal(key: bytes, kind: int, seat: int, match_id: int, counter: int, body: bytes, flags: int = 0) -> bytes:
+    if kind not in KINDS or len(body) > MAX_BODY or not 0 < counter < 1 << 64 or not _flags_allowed(kind, flags):
         raise ValueError('a datagram outside the rules')
-    data = _HEAD.pack(MAGIC, PROTO, kind, seat, 0, match_id, counter) + body
+    data = _HEAD.pack(MAGIC, PROTO, kind, seat, flags, match_id, counter) + body
     if len(data) + TAG_SIZE < MIN_SIZE:
         raise ValueError('a datagram below the smallest size')
     return data + _tag(key, data)
@@ -63,6 +70,7 @@ class Head:
     seat: int
     match_id: int
     counter: int
+    flags: int = 0
 
 
 def parse_head(datagram: bytes) -> Head | None:
@@ -70,9 +78,9 @@ def parse_head(datagram: bytes) -> Head | None:
     if not MIN_SIZE <= len(datagram) <= MAX_SIZE:
         return None
     magic, proto, kind, seat, flags, match_id, counter = _HEAD.unpack_from(datagram)
-    if magic != MAGIC or proto != PROTO or flags or kind not in KINDS:
+    if magic != MAGIC or proto != PROTO or kind not in KINDS or not _flags_allowed(kind, flags):
         return None
-    return Head(kind, seat, match_id, counter)
+    return Head(kind, seat, match_id, counter, flags)
 
 
 def verify(datagram: bytes, key: bytes) -> bool:
@@ -124,27 +132,28 @@ class Sender:
         self.key, self.match_id, self.seat_field = key, match_id, seat_field
         self.counter = 0
 
-    def pack(self, kind: int, body: bytes) -> bytes:
+    def pack(self, kind: int, body: bytes, flags: int = 0) -> bytes:
         self.counter += 1
-        return seal(self.key, kind, self.seat_field, self.match_id, self.counter, body)
+        return seal(self.key, kind, self.seat_field, self.match_id, self.counter, body, flags)
 
 
 # ---- the driver's packet and the datagram's body ----
 
-def split_inner(data: bytes, seat: int) -> tuple[int, bytes] | None:
-    """(kind, body) of a packet the driver gave the link, or None. The packet must be of this seat and of the driver's
-    own version; its 8-byte head is not sent (the datagram carries the type and the seat)."""
+def split_inner(data: bytes, seat: int) -> tuple[int, bytes, int] | None:
+    """(kind, body, flags) of a packet the driver gave the link, or None. The packet must be of this seat and of the
+    driver's own version; its 8-byte head is not sent (the datagram carries the type, the seat and the flags)."""
     if len(data) < _INNER.size or len(data) - _INNER.size > MAX_BODY:
         return None
     magic, proto, kind, source, flags = _INNER.unpack_from(data)
-    if magic != wire.MAGIC or proto != wire.PROTO or flags or source != seat or kind not in KINDS:
+    if (magic != wire.MAGIC or proto != wire.PROTO or source != seat or kind not in KINDS
+            or not _flags_allowed(kind, flags)):
         return None
-    return kind, bytes(data[_INNER.size:])
+    return kind, bytes(data[_INNER.size:]), flags
 
 
-def join_inner(kind: int, seat: int, body: bytes) -> bytes:
-    """The driver's packet again, with the seat the key proved in its head."""
-    return _INNER.pack(wire.MAGIC, wire.PROTO, kind, seat, 0) + body
+def join_inner(kind: int, seat: int, body: bytes, flags: int = 0) -> bytes:
+    """The driver's packet again, with the seat the key proved and the flags the datagram carried in its head."""
+    return _INNER.pack(wire.MAGIC, wire.PROTO, kind, seat, flags) + body
 
 
 # ---- receivers ----
@@ -236,7 +245,7 @@ class HostReceiver:
         if not channel.limit.take(now):                                     # 7
             self.counters.count('seat_rate', ip)
             return None
-        packet = join_inner(head.kind, head.seat, body_of(data))
+        packet = join_inner(head.kind, head.seat, body_of(data), head.flags)
         if wire.decode(packet, self.seats) is None:
             self.counters.count('body', ip)
             return None
@@ -276,7 +285,7 @@ class GuestReceiver:
         if not self.limit.take(now):
             self.counters.count('seat_rate', source[0])
             return None
-        packet = join_inner(head.kind, 0, body_of(data))
+        packet = join_inner(head.kind, 0, body_of(data), head.flags)
         if wire.decode(packet, self.seats) is None:
             self.counters.count('body', source[0])
             return None

@@ -694,14 +694,27 @@ class RoundTripTests(unittest.TestCase):
         guest_tx, host_tx = datagram.Sender(up, 4, 1), datagram.Sender(down, 4, 0)
         for index in range(100):
             ping = wire.encode_ping(1, index)
-            kind, body = datagram.split_inner(ping, 1)
-            got = host_rx.receive(('192.168.1.5', 5000), guest_tx.pack(kind, body), index * 0.01)
+            kind, body, flags = datagram.split_inner(ping, 1)
+            got = host_rx.receive(('192.168.1.5', 5000), guest_tx.pack(kind, body, flags), index * 0.01)
             self.assertEqual((got.seat, got.packet), (1, ping))
             pong = wire.encode_input(0, index, [index, 0, 0, 0], [(1, index, [(3, 0)])])
-            kind, body = datagram.split_inner(pong, 0)
-            got = guest_rx.receive(('192.168.1.2', 24611), host_tx.pack(kind, body), index * 0.01)
+            kind, body, flags = datagram.split_inner(pong, 0)
+            got = guest_rx.receive(('192.168.1.2', 24611), host_tx.pack(kind, body, flags), index * 0.01)
             self.assertEqual((got.seat, got.packet), (0, pong))
+            # A game with sticks (the PlayStation, the Nintendo 64): its records carry them, flagged in the head, both ways.
+            sticks = wire.encode_input(1, index, [index, 0, 0, 0], [(1, index, [(5, 0, (index % 100, -3, 0, 127))])])
+            kind, body, flags = datagram.split_inner(sticks, 1)
+            self.assertEqual(flags, wire.FLAG_AXES)
+            got = host_rx.receive(('192.168.1.5', 5000), guest_tx.pack(kind, body, flags), index * 0.01)
+            self.assertEqual((got.seat, got.packet), (1, sticks))
+            self.assertEqual(wire.decode(got.packet).sections[0].records[0][2], (index % 100, -3, 0, 127))
+            echoed = wire.encode_input(0, index, [index, index, 0, 0], [(1, index, [(5, 0, (1, 2, 3, 4))])])
+            kind, body, flags = datagram.split_inner(echoed, 0)
+            got = guest_rx.receive(('192.168.1.2', 24611), host_tx.pack(kind, body, flags), index * 0.01)
+            self.assertEqual((got.seat, got.packet), (0, echoed))
         self.assertEqual(sum(counters.total.values()), 0)
+        with self.assertRaises(ValueError):                                     # the flag belongs to an INPUT only
+            host_tx.pack(wire.PING, struct.pack('<I', 1), wire.FLAG_AXES)
         self.assertIsNone(datagram.split_inner(wire.encode_ping(2, 1), 1))              # a packet of another seat is not sent
         self.assertIsNone(datagram.split_inner(b'RRNG\x02\x02\x01\x01' + bytes(4), 1))   # flags set
         self.assertIsNone(datagram.split_inner(b'RRNG\x01\x02\x01\x00' + bytes(4), 1))   # another protocol of the driver

@@ -758,9 +758,9 @@ class RoomHost:
             if split is None:
                 self._counters.count('bad_outgoing')
                 return
-            kind, body = split
+            kind, body, flags = split
             try:
-                packet = sender.pack(kind, body)
+                packet = sender.pack(kind, body, flags)
                 self._udp.sendto(packet, (channel.ip, channel.port))
                 self.stats['datagrams_out'] += 1
             except (OSError, ValueError):
@@ -1234,9 +1234,9 @@ class RoomGuest:
             if split is None:
                 self._counters.count('bad_outgoing')
                 return
-            kind, body = split
+            kind, body, flags = split
             try:
-                self._udp.sendto(match.sender.pack(kind, body), self._host)
+                self._udp.sendto(match.sender.pack(kind, body, flags), self._host)
                 self.stats['datagrams_out'] += 1
             except (OSError, ValueError):
                 self._counters.count('send_error')
