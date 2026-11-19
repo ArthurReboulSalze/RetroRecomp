@@ -154,10 +154,191 @@ static uint64_t msx_snap_digest(void)
     return n ? h : 0;
 }
 
-/* What a frame does outside the machine (the cartridge's SRAM file, the copies of written disks): off for silent frames and for a
- * guest during a session. */
-static bool msx_effects_allowed = true;
+/* What a frame does outside the machine (msx_effects_allowed, msx_player.c): off for silent frames and for a guest during a session. */
 static void msx_side_effects(bool allowed) { msx_effects_allowed = allowed; }
+
+/* The game's own saves in a session (hostkit.h session_save, session ABI 8): the host's travel to every seat for the match, in
+ * memory only (a guest writes no file, msx_effects_allowed). The image, little-endian: "RMSXSAV1", the battery SRAM (u16 size,
+ * then its bytes), then the disks (u8 count; each as the sectors that differ from the embedded disk: u16 count, then u16 sector
+ * and its 512 bytes each), so a disk game's few saved sectors travel, not its whole disks. Every seat then plays the same
+ * bytes: the SRAM and the disk in drive A are in the digest (the quick state's body), the other disks are put the same
+ * everywhere. A host whose rewritten sectors would pass the session's bound plays the embedded disks for the match like every
+ * seat, keeps its copies untouched and is told. The MSX2 clock keeps no file (it starts at the same date on every machine). A
+ * restart for everyone keeps these bytes, as the machine's own reset does (power_on leaves the SRAM and the disks). */
+#include "hostkit/hostkit_session.h"
+#define MSX_SAVE_MAGIC 0x3156415358534D52ull       /* "RMSXSAV1" read little-endian */
+
+static void msx_save_word(uint8_t *out, size_t *at, size_t capacity, uint64_t value, unsigned bytes)
+{
+    for (unsigned i = 0; i < bytes; ++i, ++*at)
+        if (out && *at < capacity) out[*at] = (uint8_t)(value >> 8 * i);
+}
+
+static bool msx_save_take(const uint8_t *in, size_t size, size_t *at, unsigned bytes, uint32_t *value)
+{
+    if (*at + bytes > size) return false;
+    uint32_t v = 0;
+    for (unsigned i = 0; i < bytes; ++i) v |= (uint32_t)in[*at + i] << 8 * i;
+    *at += bytes;
+    *value = v;
+    return true;
+}
+
+/* The image's size, and its bytes when `out` has room; `disks` 0: the disks as embedded (no sector). */
+static size_t msx_session_image(uint8_t *out, size_t capacity, int disks)
+{
+    size_t at = 0;
+    msx_save_word(out, &at, capacity, MSX_SAVE_MAGIC, 8);
+    msx_save_word(out, &at, capacity, sram_size, 2);
+    if (out && at + sram_size <= capacity) memcpy(out + at, sram_bytes, sram_size);
+    at += sram_size;
+#if RR_MSX_DISKS
+    size_t total = 0, base = 0;
+    const uint8_t *embedded = rr_resource(106, &total);
+    msx_save_word(out, &at, capacity, RR_MSX_DISKS, 1);
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) {
+        const unsigned sectors = disk_sizes[n] / MSX_FDC_SECTOR;
+        unsigned changed = 0;
+        if (disks && embedded)
+            for (unsigned k = 0; k < sectors; ++k)
+                changed += memcmp(disk_data[n] + (size_t)k * MSX_FDC_SECTOR, embedded + base + (size_t)k * MSX_FDC_SECTOR,
+                                  MSX_FDC_SECTOR) != 0;
+        msx_save_word(out, &at, capacity, changed, 2);
+        for (unsigned k = 0; changed && k < sectors; ++k) {
+            const uint8_t *sector = disk_data[n] + (size_t)k * MSX_FDC_SECTOR;
+            if (!memcmp(sector, embedded + base + (size_t)k * MSX_FDC_SECTOR, MSX_FDC_SECTOR)) continue;
+            msx_save_word(out, &at, capacity, k, 2);
+            if (out && at + MSX_FDC_SECTOR <= capacity) memcpy(out + at, sector, MSX_FDC_SECTOR);
+            at += MSX_FDC_SECTOR;
+        }
+        base += disk_sizes[n];
+    }
+#else
+    (void)disks;
+#endif
+    return at;
+}
+
+/* Checks the whole image (`apply` 0), or puts it in memory (`apply` 1, only after a check passed). */
+static bool msx_session_image_take(const uint8_t *in, size_t size, int apply)
+{
+    size_t at = 0;
+    uint32_t low = 0, high = 0, value = 0;
+    if (!in || !msx_save_take(in, size, &at, 4, &low) || !msx_save_take(in, size, &at, 4, &high)
+        || ((uint64_t)high << 32 | low) != MSX_SAVE_MAGIC)
+        return false;
+    if (!msx_save_take(in, size, &at, 2, &value) || value != sram_size || at + sram_size > size)
+        return false;
+    if (apply) memcpy(sram_bytes, in + at, sram_size);
+    at += sram_size;
+#if RR_MSX_DISKS
+    size_t total = 0, base = 0;
+    const uint8_t *embedded = rr_resource(106, &total);
+    if (!embedded || !msx_save_take(in, size, &at, 1, &value) || value != RR_MSX_DISKS)
+        return false;
+    for (unsigned n = 0; n < RR_MSX_DISKS; ++n) {
+        const unsigned sectors = disk_sizes[n] / MSX_FDC_SECTOR;
+        uint32_t count = 0;
+        if (!msx_save_take(in, size, &at, 2, &count) || count > sectors)
+            return false;
+        if (apply) memcpy(disk_data[n], embedded + base, disk_sizes[n]);     /* this seat's own copy never counts */
+        for (uint32_t i = 0; i < count; ++i) {
+            uint32_t k = 0;
+            if (!msx_save_take(in, size, &at, 2, &k) || k >= sectors || at + MSX_FDC_SECTOR > size)
+                return false;
+            if (apply) memcpy(disk_data[n] + (size_t)k * MSX_FDC_SECTOR, in + at, MSX_FDC_SECTOR);
+            at += MSX_FDC_SECTOR;
+        }
+        base += disk_sizes[n];
+    }
+    if (apply)
+        for (unsigned n = 0; n < RR_MSX_DISKS; ++n) disk_dirty[n] = 0;     /* nothing of this seat's to write */
+#endif
+    return at == size;
+}
+
+/* The match's image (the host's own from msx_session_save, or the host's handed to a guest) and the machine at power-on, kept in a
+ * session only. The guest's loop runs its first frame before SETUP comes, on this seat's own saves: session_begin (SETUP) puts
+ * every seat back at power-on, then lays the match's image, so a game that reads its save in that first frame still starts from
+ * the host's on every seat. */
+static uint8_t *msx_session_held;
+static size_t msx_session_held_size;
+static uint8_t *msx_session_start;
+static size_t msx_session_start_size;
+
+static void msx_session_hold(const void *image, size_t size)
+{
+    uint8_t *copy = (uint8_t *)malloc(size);
+    if (!copy) return;
+    memcpy(copy, image, size);
+    free(msx_session_held);
+    msx_session_held = copy;
+    msx_session_held_size = size;
+}
+
+/* Called once after power_on, before the guest's first instruction, when this game is in a session. */
+static void msx_session_keep_start(void)
+{
+    const size_t bound = msx_snap_bound();
+    msx_session_start = bound ? (uint8_t *)malloc(bound) : NULL;
+    msx_session_start_size = msx_session_start ? msx_snap_save(msx_session_start, bound) : 0;
+    if (!msx_session_start_size) { free(msx_session_start); msx_session_start = NULL; }
+}
+
+static void msx_session_begin(uint64_t clock)
+{
+    (void)clock;                                     /* the MSX2 clock starts on the same date on every machine (msx_rtc_reset) */
+    if (msx_session_start) msx_snap_load(msx_session_start, msx_session_start_size);
+    if (msx_session_held) msx_session_image_take(msx_session_held, msx_session_held_size, 1);
+}
+
+static size_t msx_session_save(void *out, size_t capacity)
+{
+    if (!sram_size && !RR_MSX_DISKS)
+        return 0;                                    /* a game with no save */
+    int disks = 1;
+    size_t size = msx_session_image(NULL, 0, 1);
+#if RR_MSX_DISKS
+    if (size > RRHK_SESSION_MAX_SAVE) {
+        /* Too many rewritten sectors to send: this match plays the embedded disks on every seat, the host's included, and the
+         * host's copies stay as they are (nothing is written beside the game until it closes). */
+        disks = 0;
+        size = msx_session_image(NULL, 0, 0);
+        static int told;
+        if (out && !told) {
+            told = 1;
+            size_t total = 0, base = 0;
+            const uint8_t *embedded = rr_resource(106, &total);
+            for (unsigned n = 0; embedded && n < RR_MSX_DISKS; ++n) {
+                memcpy(disk_data[n], embedded + base, disk_sizes[n]);
+                disk_dirty[n] = 0;
+                base += disk_sizes[n];
+            }
+            disk_copies = 0;
+            fprintf(stderr, "[msx] the disks' saved sectors pass the session's bound: the match plays the original disks\n");
+            rrhk_notice(rrhk_tr("Your disk saves are too large to share: this match plays the original disks",
+                                "Sauvegardes disquette trop grandes a partager : la partie joue les disquettes d'origine"), 8000);
+        }
+    }
+#endif
+    if (!out)
+        return size;
+    if (capacity < size)
+        return 0;
+    if (msx_session_image((uint8_t *)out, capacity, disks) != size)
+        return 0;
+    msx_session_hold(out, size);                     /* the host plays the match on the bytes it sends */
+    return size;
+}
+
+static bool msx_session_save_put(const void *in, size_t size)
+{
+    if (!msx_session_image_take((const uint8_t *)in, size, 0))
+        return false;                                /* another game's image, or a broken one: nothing is changed */
+    msx_session_hold(in, size);
+    msx_session_image_take((const uint8_t *)in, size, 1);
+    return true;                                     /* session_begin, which follows, lays it again over the power-on state */
+}
 
 /* `--snap-probe AT:N` (headless, a development check): at the service of frame AT a snapshot is taken (and taken again over a
  * buffer of other bytes: the same bytes; a load of the wrong size is refused and changes nothing), the digest of each of the N
