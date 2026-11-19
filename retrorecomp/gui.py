@@ -476,7 +476,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # Pictures only (the text stays set on each button, its hint starts with it): every row of the queue against
         # the selected rows, gold for the main one.
         self.start_button = self.icon_button(actions, 'start', 'tip_start', self.start, 'convert_all', managed=False,
-                                             primary=True)
+                                             hero=True)
         self.start_button.pack(side='left')
         self.selected_button = self.icon_button(actions, 'start_selected', 'tip_start_selected',
                                                 lambda: self.start(selected=True), 'convert_selected', managed=False)
