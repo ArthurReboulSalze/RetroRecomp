@@ -217,9 +217,10 @@ class PicturesOnly(ToolbarWindow):
         self.assertEqual(button.cget('text'), app.tr('play'))                          # the accessible name
         hint = next(h for h in app.tooltips if h.widget is button)
         self.assertEqual(hint.text(), app.tr('play') + '\n' + app.tr('tip_play'))
-        normal, disabled = app.button_images[('play_game', 'hero')]
+        from retrorecomp.gui_icons import HERO_PLAY
+        normal, disabled = app.button_images[(HERO_PLAY, 'hero')]
         self.assertEqual(tuple(str(part) for part in button.cget('image')[:3:2]), (str(normal), str(disabled)))
-        # The queue's Play game uses the same drawing (small and light on dark there, large and dark on gold here).
+        # The queue's Play game keeps its own small cartridge picture.
         self.assertEqual(app.play_button.cget('compound'), button.cget('compound'))
         app.language = 'fr'
         app.refresh_language()
@@ -360,6 +361,39 @@ class NewPathsButton(ToolbarWindow):
             app.busy = True
             app.choose_new_paths()
         listing.assert_not_called()
+
+
+class HeroPictures(unittest.TestCase):
+    """The hero buttons' pictures, drawn with Pillow (retrorecomp/gui_icons.py): no window needed."""
+
+    def test_every_drawing_fills_its_size_keeps_a_transparent_background_and_differs_from_the_others(self):
+        from retrorecomp import gui_icons
+        seen = []
+        for name in gui_icons.DRAWERS:
+            for size in (26, 39):                                       # 96 dpi and a 150 % screen
+                picture = gui_icons.draw_picture(name, '#191919', size)
+                self.assertEqual((picture.mode, picture.size), ('RGBA', (size, size)), name)
+                self.assertEqual(picture.getpixel((0, 0))[3], 0, name)      # the button's gold shows through
+                self.assertGreater(sum(1 for alpha in picture.getchannel('A').tobytes() if alpha > 200), size, name)
+            seen.append(gui_icons.draw_picture(name, '#191919', 26).tobytes())
+        self.assertEqual(len(set(seen)), len(seen))
+
+    def test_a_hollow_triangle_is_hollow_and_the_greyed_look_is_the_same_drawing_in_grey(self):
+        from retrorecomp import gui_icons
+        for name in ('play_hollow_double', 'play_hollow_bevel', 'play_hollow_pixel'):
+            dark = gui_icons.draw_picture(name, '#191919', 26)
+            grey = gui_icons.draw_picture(name, '#777777', 26)
+            self.assertLess(dark.getpixel((11, 13))[3], 16, name)           # the middle of the triangle is empty
+            self.assertEqual(dark.getchannel('A').tobytes(), grey.getchannel('A').tobytes(), name)
+            if name == 'play_hollow_bevel':
+                continue                                                   # its highlight is a lighter shade on purpose
+            solid = {grey.getpixel((x, y))[:3] for x in range(26) for y in range(26) if grey.getpixel((x, y))[3] > 250}
+            self.assertEqual(solid, {(0x77, 0x77, 0x77)}, name)            # a readable grey, drawn solid
+
+    def test_the_default_play_picture_is_one_line_to_switch(self):
+        from retrorecomp import gui_icons
+        self.assertIn(gui_icons.HERO_PLAY, gui_icons.DRAWERS)
+        self.assertIn(gui_icons.HERO_PLAY, gui_icons.ICONS)                    # and a polyline fallback exists
 
 
 class ReportButton(ToolbarWindow):

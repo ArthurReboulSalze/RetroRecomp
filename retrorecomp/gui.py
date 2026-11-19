@@ -34,6 +34,7 @@ from .gui_common import (
     typed_pseudonym, SENDING_AVAILABLE, SEND_EVERY, UPDATE_CHECK_EVERY, base_is_newer, CLOSING_SEND, BUSY_SEND_RETRY,
     INTERFACE_PREFERENCES, EDGE, STATUS_MARK,
 )
+from .gui_icons import HERO_CONVERT
 from .gui_drawing import (
     HATCH_SPACING, HEADER_SCALE, HEADER_HEIGHT, PORTRAIT_SIZE, NUMBER_MARKS, compact_number, _scaled_photo,
     _portrait_photo, frame_side, _framed, _portrait_picture, _tint, _colour, NAME_GOLD, NAME_AMBER, NAME_LIGHT,
@@ -475,7 +476,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         actions.grid(row=4, column=0, sticky='ew', padx=EDGE, pady=(0, 8))
         # Pictures only (the text stays set on each button, its hint starts with it): every row of the queue against
         # the selected rows, gold for the main one.
-        self.start_button = self.icon_button(actions, 'start', 'tip_start', self.start, 'convert_all', managed=False,
+        self.start_button = self.icon_button(actions, 'start', 'tip_start', self.start, HERO_CONVERT, managed=False,
                                              hero=True)
         self.start_button.pack(side='left')
         self.selected_button = self.icon_button(actions, 'start_selected', 'tip_start_selected',
