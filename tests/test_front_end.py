@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from tests.tk_cleanup import release_tk
 from unittest.mock import Mock
 
 from retrorecomp import front_end as fe
@@ -241,6 +242,7 @@ class HiddenView(unittest.TestCase):
     """The view in a withdrawn window: never shown, no gamepad, covers from a stand-in."""
 
     def setUp(self):
+        release_tk(self)                      # first: its cleanup runs after root.destroy (tests/tk_cleanup.py)
         import tkinter as tk
         try:
             self.root = tk.Tk()
@@ -264,6 +266,7 @@ class HiddenView(unittest.TestCase):
         self.addCleanup(setattr, front_end_view.FrontEndView, 'start_controller', original)
         self.view = front_end_view.FrontEndView(self.owner, self.root, memory=fe.Memory(self.folder / 'fe.json'),
                                                 cards=cards)
+        self.addCleanup(self.view.loader.close)                      # its cover thread stops with the test
         self.view.pack(fill='both', expand=True)
         # A withdrawn window is never mapped, so it has no size of its own: give the wall the size of a window.
         self.view.wall.winfo_width = lambda: 1000
@@ -412,6 +415,7 @@ class Window(unittest.TestCase):
     """gui_front_end.FrontEndMixin on a stand-in window: entering and leaving, full screen, the start options."""
 
     def setUp(self):
+        release_tk(self)                      # first: its cleanup runs after root.destroy
         import tkinter as tk
         from tkinter import ttk
         from unittest.mock import patch

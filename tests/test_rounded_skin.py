@@ -5,6 +5,7 @@ combination, which Tk instantiates per widget), the focus ring that replaces the
 that must not move, and the picture sizes at Tk scaling 1.0, 1.5 and 2.0."""
 import tkinter as tk
 import unittest
+from tests.tk_cleanup import release_tk
 from tkinter import ttk
 from unittest.mock import patch
 
@@ -47,6 +48,7 @@ def requested(root):
 
 class SkinCase(unittest.TestCase):
     def setUp(self):
+        release_tk(self)                      # first: its cleanup runs after root.destroy (tests/tk_cleanup.py)
         self.root = tk_root()
         self.addCleanup(self.root.destroy)
         apply_rounded_theme(self.root, 'Segoe UI')
@@ -337,3 +339,59 @@ class HiDpi(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FreedOnItsOwnThread(unittest.TestCase):
+    def test_a_destroyed_root_is_freed_at_once_not_by_the_cycle_collector(self):
+        # The skin and its root point at each other; left to the cycle collector, the interpreter could be freed from
+        # another thread, which aborts the process (« Tcl_AsyncDelete: async handler deleted by the wrong thread »).
+        import gc
+        import weakref
+        gc.collect()
+        gc.disable()
+        self.addCleanup(gc.enable)
+        root = tk_root()
+        apply_rounded_theme(root, 'Segoe UI')
+        ttk.Button(root, text='x').pack()
+        ttk.Entry(root).pack()
+        root.update()
+        gone = weakref.ref(root)
+        root.destroy()
+        del root
+        self.assertIsNone(gone())
+
+
+GC_IN_A_WORKER = r'''
+import gc, sys, threading, tkinter as tk
+from tkinter import ttk
+sys.path.insert(0, sys.argv[1])
+from retrorecomp.rounded_skin import apply_rounded_theme
+gc.disable()
+for _ in range(3):
+    root = tk.Tk()
+    root.withdraw()
+    apply_rounded_theme(root, 'Segoe UI')
+    for kind in (ttk.Button, ttk.Entry, ttk.Checkbutton, ttk.Combobox):
+        kind(root).pack()
+    root.update()
+    root.destroy()
+    del root
+worker = threading.Thread(target=gc.collect)
+worker.start()
+worker.join()
+print('alive')
+'''
+
+
+class NoAbortWhenAWorkerCollects(unittest.TestCase):
+    def test_a_destroyed_skinned_root_then_a_collection_in_a_worker_thread_does_not_abort(self):
+        # A player's worker threads (the front-end's cover loader, the netplay workers) collect garbage while windows open
+        # and close. A Tk interpreter freed from one of them aborts the process (« Tcl_AsyncDelete: async handler deleted by
+        # the wrong thread »), so this runs in a child process: an abort there is a failed test, not a dead suite.
+        import subprocess
+        import sys
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run([sys.executable, '-B', '-c', GC_IN_A_WORKER, str(root)], capture_output=True, text=True,
+                                timeout=120, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, 'alive'), result.stderr[-2000:])
