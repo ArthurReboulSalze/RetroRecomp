@@ -52,6 +52,11 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+; Multiplayer over the Internet: an inbound Windows Firewall rule for the converter, offered and never ticked by default (the
+; owner, 19 November 2026: yes « en prévenant, en proposant de l'option oui non »). The room's worker is Retro-Recomp.exe itself
+; (`_netplay-worker`), so one program rule covers it, TCP and UDP, whatever port the room binds (24611, or a free one when that
+; is taken); private networks only. Without the rule the converter tells the host its room is blocked (firewall_blocked).
+Name: "firewall"; Description: "{cm:FirewallTask}"; GroupDescription: "{cm:FirewallGroup}"; Flags: unchecked
 
 [Files]
 ; ignoreversion: a reinstall of the same version (a rebuilt pre-release, a repair) must replace the converter too;
@@ -70,7 +75,13 @@ Name: "{group}\Uninstall Retro-Recomp"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Retro-Recomp"; Filename: "{app}\Retro-Recomp.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
+; The installation is per user: the rule needs one administrator approval (UAC), asked only when the task is ticked. An older
+; rule of the same name is removed first, so a reinstall or a new folder leaves exactly one.
+Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Retro-Recomp multiplayer"" >nul 2>&1 & netsh advfirewall firewall add rule name=""Retro-Recomp multiplayer"" dir=in action=allow program=""{app}\Retro-Recomp.exe"" protocol=any profile=private remoteip=any enable=yes"; Verb: runas; Flags: shellexec runhidden waituntilterminated; StatusMsg: "{cm:FirewallAdding}"; Tasks: firewall
 Filename: "{app}\Retro-Recomp.exe"; Description: "{cm:LaunchProgram,Retro-Recomp}"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Retro-Recomp multiplayer"""; Verb: runas; Flags: shellexec runhidden waituntilterminated; RunOnceId: "RemoveFirewallRule"; Tasks: firewall
 
 ; No [UninstallDelete]: Games, datas and all user-created files survive. The
 ; build tools and compiler caches installed beside the converter (datas/tools,
@@ -114,6 +125,24 @@ russian.PurgeToolsRemoving=Удаление инструментов сборк�
 russian.PurgeToolsMB=%1 МБ
 russian.PurgeToolsGB=%1,%2 ГБ
 russian.SecurityNotice=Игры, которые вы конвертируете, собираются на этом компьютере и потому не имеют подписи: в Windows 11 «Интеллектуальное управление приложениями» (Smart App Control) может их блокировать. Предупреждения антивируса о файлах Retro-Recomp — ложные срабатывания: пожалуйста, сообщите нам о них.
+english.FirewallGroup=Multiplayer over the Internet:
+english.FirewallTask=Let other players join the games I host (adds a Windows Firewall rule for Retro-Recomp on private networks; Windows asks for an administrator's approval)
+english.FirewallAdding=Adding the Windows Firewall rule for multiplayer...
+french.FirewallGroup=Multijoueur par Internet :
+french.FirewallTask=Laisser d'autres joueurs rejoindre les parties que j'héberge (ajoute une règle au pare-feu Windows pour Retro-Recomp sur les réseaux privés ; Windows demande l'accord d'un administrateur)
+french.FirewallAdding=Ajout de la règle du pare-feu Windows pour le multijoueur...
+german.FirewallGroup=Mehrspieler über das Internet:
+german.FirewallTask=Andere Spieler meinen gehosteten Partien beitreten lassen (fügt eine Windows-Firewall-Regel für Retro-Recomp in privaten Netzwerken hinzu; Windows fragt nach der Zustimmung eines Administrators)
+german.FirewallAdding=Windows-Firewall-Regel für den Mehrspielermodus wird hinzugefügt...
+italian.FirewallGroup=Multigiocatore via Internet:
+italian.FirewallTask=Consenti ad altri giocatori di entrare nelle partite che ospito (aggiunge una regola a Windows Firewall per Retro-Recomp sulle reti private; Windows chiede l'approvazione di un amministratore)
+italian.FirewallAdding=Aggiunta della regola di Windows Firewall per il multigiocatore...
+spanish.FirewallGroup=Multijugador por Internet:
+spanish.FirewallTask=Permitir que otros jugadores se unan a las partidas que alojo (añade una regla al Firewall de Windows para Retro-Recomp en redes privadas; Windows pide la aprobación de un administrador)
+spanish.FirewallAdding=Añadiendo la regla del Firewall de Windows para el multijugador...
+russian.FirewallGroup=Сетевая игра через Интернет:
+russian.FirewallTask=Разрешить другим игрокам подключаться к моим играм (добавляет правило брандмауэра Windows для Retro-Recomp в частных сетях; Windows запросит разрешение администратора)
+russian.FirewallAdding=Добавление правила брандмауэра Windows для сетевой игры...
 
 [Code]
 // Shown once on the finished page: SmartScreen has already had its say before
