@@ -36,6 +36,7 @@
 #include "gba_bios.h"
 #include "multiplayer_launch.h"
 #include "multiplayer_session.h"
+#include "multiplayer_view.h"
 #include "self_heal.h"
 
 // The engine's session fallback (our patch, docs/UPSTREAMS.md): an address with no generated function is run by the interpreter, one instruction at a time, counted.
@@ -72,6 +73,12 @@ std::unique_ptr<gbarecomp::GbaMultiplayerSession> g_link;
 unsigned g_link_seats = 0;                           // 0: no cable (the single machine); else the number of consoles on it
 unsigned g_link_local = 0;                           // the console this PC shows (its seat)
 const gbarecomp::GbaNetplayBoot* g_link_boot = nullptr;   // the engine's verified images and chip, alive while run_game() is in the link
+// Only the console this PC shows is drawn (RETRORECOMP_GBA_LINK_RASTER=1: every console draws its own picture, the way the first version did, for a comparison): the consoles run with
+// the rasterizer off, as the engine's own runner runs them (nothing the guest reads depends on it), and the local one is watched by the engine's presentation mirror (`GbaNetplayPresentation`),
+// which draws the same 240 x 160 picture from the scanlines the console sends. The canonical state of every console is then the same on every PC whichever seat it shows.
+std::unique_ptr<gbarecomp::GbaNetplayPresentation> g_link_view;
+int g_link_view_seat = -1;                           // the console the mirror watches now (-1: none yet)
+bool g_link_raster = false;
 std::vector<uint8_t> g_link_image;                   // the cartridge save image every console plays on (the host's): the chip's bytes, empty: none
 bool g_link_slices = true;                           // the engine's own product setting: native instruction batching between device events
 struct LinkRow {
@@ -228,6 +235,7 @@ const uint8_t* picture_any(int* width, int* height) {
     if (g_link) {
         *width = kWidth;
         *height = kHeight;
+        if (g_link_view) return g_link_view->width() == kWidth && g_link_view->height() == kHeight ? g_link_view->pixels() : nullptr;   // null until a whole frame was drawn: the picture before stays
         return link_ppu()->has_latched_framebuffer() ? link_ppu()->latched_framebuffer() : nullptr;
     }
     return g_api->picture(width, height);
@@ -542,10 +550,16 @@ bool link_build() {
             machine.bus.set_rom(boot.rom->data(), boot.rom->size());
             link_configure_save(machine.bus.save(), boot.save);
             machine.bus.rtc().set_emulated_clock(clock);
+            if (!g_link_raster) machine.ppu.set_rasterization_enabled(false);
             if (!link_load_chip(machine.bus.save(), g_link_image))
                 fprintf(stderr, "[host] the cartridge save (%zu bytes) does not fit this game's chip: console %u starts on a blank one\n", g_link_image.size(), id + 1);
         }
         g_link->discard_audio_output();
+        g_link_view_seat = -1;
+        if (!g_link_raster && !g_link_view) {
+            g_link_view = std::make_unique<GbaNetplayPresentation>(GbaNetplayViewPolicy{}, false, 1);
+            g_link_view->request_width(kWidth);
+        }
     } catch (const std::exception& error) {
         fprintf(stderr, "[host] the link cable could not be set up: %s\n", error.what());
         g_link.reset();
@@ -574,6 +588,11 @@ bool link_step(uint16_t first, uint16_t second) {
     }
     const int seat = rrhk_session_seat();
     if (seat >= 0 && static_cast<unsigned>(seat) < g_link_seats) g_link_local = static_cast<unsigned>(seat);
+    if (g_link_view && g_link_view_seat != static_cast<int>(g_link_local)) {      // the mirror watches the console of this PC's seat (known from SETUP, before the first frame)
+        if (g_link_view_seat >= 0) g_link->input_machine(static_cast<unsigned>(g_link_view_seat)).ppu.set_presentation_observer(nullptr);
+        g_link->input_machine(g_link_local).ppu.set_presentation_observer(g_link_view.get());
+        g_link_view_seat = static_cast<int>(g_link_local);
+    }
     try {
         g_link->run_frame(std::span<const uint16_t>(pads.data(), g_link_seats));
     } catch (const std::exception& error) {
@@ -601,6 +620,7 @@ void load_link_route() {
 int link_run(const gbarecomp::GbaNetplayLaunch&, const gbarecomp::GbaNetplayBoot& boot) {
     g_link_boot = &boot;
     if (const char* slices = getenv("RETRORECOMP_GBA_LINK_SLICES")) g_link_slices = atoi(slices) != 0;
+    if (const char* raster = getenv("RETRORECOMP_GBA_LINK_RASTER")) g_link_raster = atoi(raster) != 0;
     g_link_image = read_save_file(g_save_path);
     if (const char* seat = getenv("RETRORECOMP_GBA_LINK_SEAT")) g_link_local = std::min<unsigned>(g_link_seats - 1, static_cast<unsigned>(std::max(0, atoi(seat))));
     int status = 1;
@@ -618,6 +638,7 @@ int link_run(const gbarecomp::GbaNetplayLaunch&, const gbarecomp::GbaNetplayBoot
         g_rows = nullptr;
     }
     g_link.reset();
+    g_link_view.reset();
     g_link_boot = nullptr;
     return g_failed ? 1 : status;
 }
