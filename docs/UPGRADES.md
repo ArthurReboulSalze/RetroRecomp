@@ -659,6 +659,11 @@ same for all 65,536 point values, and the whole view is byte-identical on 3,000 
 included, random borders, every line adjust from -128 to 127, vertical adjusts from -16 to 15, 192 and 212 lines); two broken
 variants (a wrong table index, a picture moved by two columns) fail it. On converted games, a scratch per-frame digest of the whole view (the same patch on both sides), main against this branch, 1,501 frames of the player's path: identical on Space Manbow (MSX2, 177 different pictures) and Manbow 2 (MSX2+ cartridge, 9 different pictures).
 
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, the play loop over 480 frames three times,
+median ms per frame, spread in brackets; main `e4f40699` then this change `e5880cfe`, the same code as after the rebase): Space
+Manbow (MSX2) 0.8296 (12.7 %) to 0.6423 (4.3 %), −22.6 %, and Manbow 2 (MSX2+) 1.1567 (13.2 %) to 0.9314 (11.0 %), −19.5 %.
+An MSX1 game (TMS9918 picture) does not take this path.
+
 **Stamps:** the MSX, MSX2 and MSX2+ host stamps (one adapter for the family); no game stamp; quick states unchanged.
 
 ## MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end (1.9.0)
