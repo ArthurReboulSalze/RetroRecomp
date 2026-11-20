@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zlib
+
+from PIL import Image
 
 from . import __version__
 from .cover_settings import configured
@@ -45,9 +48,15 @@ IGDB_SLUGS = {profile.id: profile.catalogues.igdb for profile in ALL_PROFILES
 ARCADEITALIA = frozenset(profile.id for profile in ALL_PROFILES if profile.catalogues and profile.catalogues.arcadeitalia)
 SERVICE_SYSTEMS = {'screenscraper': SS_SYSTEMS, 'thegamesdb': TGDB_SYSTEMS, 'igdb': IGDB_SLUGS,
                    'arcadeitalia': ARCADEITALIA}
-# The order the automatic search asks them in: the keyed services, then ArcadeItalia (public libretro servers come after).
-ORDER = ('screenscraper', 'thegamesdb', 'igdb', 'arcadeitalia')
+# The order the automatic search asks the keyed services in; ArcadeItalia comes after the libretro boxes (artwork.py), so a
+# home box (the Neo Geo's AES boxes) is never replaced by a flyer.
+ORDER = ('screenscraper', 'thegamesdb', 'igdb')
 MAME_SET = re.compile(r'[a-z0-9_]{1,40}')
+# ArcadeItalia answers every image request: a set it has no flyer for gets MAME's logo (140 x 105), never a cover.
+ARCADEITALIA_PLACEHOLDER = '78569f903f1b8557b205ab9e0be17309a3cad900fbfe371b64c53f0f018ee399'
+ARCADEITALIA_MINIMUM_EDGE = 200
+# A larger file (a disc image) is looked up on ScreenScraper by its name and size, never read whole to hash it.
+SS_HASHED_BYTES = 64 * 1024 * 1024
 
 
 def available(provider: str, system: str) -> bool:
@@ -181,13 +190,19 @@ def _media_url(url: str, hosts: tuple[str, ...]) -> str:
 
 
 def _screenscraper(account, rom, title, system, prefer3d, normalize):
-    payload = rom.read_bytes()
-    crc = f'{zlib.crc32(payload) & 0xffffffff:08X}'
-    sha1 = hashlib.sha1(payload).hexdigest()
+    # Hashes identify a cartridge or a floppy; a disc image or a game folder is searched by its name and size only.
+    size = rom.stat().st_size if rom.is_file() else 0
     params = {'devid': account['devid'], 'devpassword': account['devpassword'],
               'softname': f'RetroRecomp {__version__}', 'output': 'json',
-              'systemeid': SS_SYSTEMS[system], 'romtype': 'rom', 'romnom': rom.name,
-              'romtaille': len(payload), 'crc': crc, 'sha1': sha1}
+              'systemeid': SS_SYSTEMS[system], 'romtype': 'rom', 'romnom': rom.name}
+    crc = sha1 = None
+    if 0 < size <= SS_HASHED_BYTES:
+        payload = rom.read_bytes()
+        crc = f'{zlib.crc32(payload) & 0xffffffff:08X}'
+        sha1 = hashlib.sha1(payload).hexdigest()
+        params.update(romtaille=len(payload), crc=crc, sha1=sha1)
+    elif size:
+        params['romtaille'] = size
     if account.get('ssid') and account.get('sspassword'):
         params.update(ssid=account['ssid'], sspassword=account['sspassword'])
     response = _json('screenscraper', 'https://api.screenscraper.fr/api2/jeuInfos.php?' + urllib.parse.urlencode(params))
@@ -199,8 +214,8 @@ def _screenscraper(account, rom, title, system, prefer3d, normalize):
     # clear title match; never accept the first search result from the service.
     if not isinstance(identity, dict):
         identity = {}
-    hashed = str(identity.get('romsha1', '')).casefold() == sha1
-    hashed |= str(identity.get('romcrc', '')).upper() == crc and _number(identity.get('romsize')) == len(payload)
+    hashed = sha1 is not None and (str(identity.get('romsha1', '')).casefold() == sha1 or (
+        str(identity.get('romcrc', '')).upper() == crc and _number(identity.get('romsize')) == size))
     names = game.get('noms', [])
     if isinstance(names, dict):
         names = [{'text': text} for text in names.values() if isinstance(text, str)]
@@ -312,20 +327,58 @@ def _igdb(account, rom, title, system, normalize):
     return RemoteCover('igdb', request(url, 8 * 1024 * 1024), page, 'front', url)
 
 
+def catalogue_sets(games, path: Path) -> tuple[str, ...]:
+    """The MAME sets under which an arcade service files a set's art: the set the file is named after, then its parent (a clone
+    shows its parent's flyer). A file that carries another name offers none, as for `cover_titles`."""
+    by_set = {str(game.get('set', '')).casefold(): game for game in games if isinstance(game, dict)}
+    game = by_set.get(Path(path).stem.casefold())
+    if game is None:
+        return ()
+    parent = str(game.get('parent') or '').casefold()
+    return tuple(dict.fromkeys(name for name in (str(game['set']).casefold(), parent) if name in by_set))
+
+
+def cover_sets(system: str, rom: Path) -> tuple[str, ...]:
+    """The machine's MAME sets for this file (an optional profile capability, `cover_sets(path)`); without one, the file's
+    own name when it has a set's shape; none on failure."""
+    from .systems import get_profile
+    if system not in ARCADEITALIA:
+        return ()
+    try:
+        hook = getattr(get_profile(system), 'cover_sets', None)
+        names = hook(rom) if hook else (Path(rom).stem.casefold(),)
+        return tuple(name for name in names if isinstance(name, str) and MAME_SET.fullmatch(name))
+    except Exception:  # noqa: BLE001 - a box is never worth a failed conversion
+        return ()
+
+
+def _flyer(data: bytes) -> bool:
+    """A real flyer: not ArcadeItalia's placeholder (MAME's logo), not a thumbnail."""
+    if hashlib.sha256(data).hexdigest() == ARCADEITALIA_PLACEHOLDER:
+        return False
+    try:
+        with Image.open(BytesIO(data)) as image:
+            return max(image.size) >= ARCADEITALIA_MINIMUM_EDGE
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return False
+
+
 def _arcadeitalia(rom, title, system):
-    """An arcade set's flyer from ArcadeItalia's public MAME database, asked by the set's own name."""
-    name = rom.stem.casefold()
-    if not MAME_SET.fullmatch(name):
-        return None
-    params = {'ajax': 'query_mame', 'game_name': name, 'use_parent': 1}
-    response = _json('arcadeitalia', 'https://adb.arcadeitalia.net/service_scraper.php?' + urllib.parse.urlencode(params))
-    rows = response.get('result', []) if isinstance(response, dict) else []
-    game = next((row for row in rows if isinstance(row, dict) and str(row.get('game_name', '')).casefold() == name), None)
-    if not game or not game.get('url_image_flyer'):
-        return None
-    url = _media_url(game['url_image_flyer'], ('adb.arcadeitalia.net',))
-    page = _media_url(game.get('url') or f'https://adb.arcadeitalia.net/?mame={name}', ('adb.arcadeitalia.net',))
-    return RemoteCover('arcadeitalia', request(url, 8 * 1024 * 1024), page, 'front', url)
+    """An arcade set's flyer from ArcadeItalia's public MAME database, asked by the set's own name, then its parent's."""
+    for name in cover_sets(system, rom):
+        params = {'ajax': 'query_mame', 'game_name': name, 'use_parent': 1}
+        response = _json('arcadeitalia', 'https://adb.arcadeitalia.net/service_scraper.php?' + urllib.parse.urlencode(params))
+        rows = response.get('result', []) if isinstance(response, dict) else []
+        game = next((row for row in rows if isinstance(row, dict) and str(row.get('game_name', '')).casefold() == name), None)
+        if not game or not game.get('url_image_flyer'):
+            continue
+        url = _media_url(game['url_image_flyer'], ('adb.arcadeitalia.net',))
+        data = request(url, 8 * 1024 * 1024)
+        if not _flyer(data):
+            continue
+        page = _media_url(game.get('url') or f'https://adb.arcadeitalia.net/?mame={name}', ('adb.arcadeitalia.net',))
+        return RemoteCover('arcadeitalia', data, page, 'front', url)
+    return None
 
 
 def fetch(provider, account, rom: Path, title: str, system: str, *, prefer3d=False, normalize):

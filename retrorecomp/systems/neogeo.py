@@ -86,6 +86,12 @@ class NeoGeoProfile(SystemProfile):
     def default_video_mode(self, path: Path) -> str:
         return 'mvs'
 
+    def cover_sets(self, path: Path) -> tuple[str, ...]:
+        # The MVS set (named after its MAME set, as in the catalogue) and its parent, for ArcadeItalia.
+        from ..neogeo_catalogue import catalogue
+        from ..cover_sources import catalogue_sets
+        return catalogue_sets(catalogue(), path)
+
     def convert(self, path: Path, **options) -> Path:
         from ..neogeo_conversion import convert
         return convert(path, **options)

@@ -66,6 +66,35 @@ class ArtworkTests(unittest.TestCase):
         self.assertFalse(report["embedded"])
         self.assertEqual(report["source"], "missing")
 
+    def test_arcadeitalia_comes_after_the_libretro_boxes_and_before_any_title_screen(self):
+        # A home box from libretro (the Neo Geo's AES boxes) is never replaced by a flyer; a flyer beats a title screen.
+        from retrorecomp.cover_sources import RemoteCover
+        flyer = RemoteCover('arcadeitalia', png(), 'https://adb.arcadeitalia.net/?mame=ffight', 'front',
+                            'https://adb.arcadeitalia.net/?mame=ffight&type=flyer&resize=0')
+        asked = []
+
+        def libretro(rom_name, title, directory, emit, system_id, category, *rest):
+            asked.append(category)
+            if category == 'Named_Boxarts' and system_id == 'ng':
+                path = directory / 'Downloaded' / 'front' / 'box.png'
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(png())
+                return path, 'https://raw.githubusercontent.com/libretro-thumbnails/SNK_-_Neo_Geo/master/Named_Boxarts/box.png'
+            raise ArtworkError('no box in this test')
+
+        def service(provider, account, rom, title, system, **options):
+            asked.append(provider)
+            return flyer if provider == 'arcadeitalia' else None
+
+        with patch('retrorecomp.artwork._download', side_effect=libretro), patch('retrorecomp.artwork.fetch', side_effect=service):
+            report = prepare_icon(self.game, self.root / 'ffight.zip', 'Final Fight', self.art, system_id='cps1',
+                                  settings=defaults(), emit=lambda text: None)
+            self.assertEqual((report['source'], asked), ('arcadeitalia', ['Named_Boxarts', 'arcadeitalia']))
+            asked.clear()
+            report = prepare_icon(self.game, self.root / 'mslug.zip', 'Metal Slug', self.root / 'ng-art', system_id='ng',
+                                  settings=defaults(), emit=lambda text: None)
+            self.assertEqual((report['source'], asked), ('libretro', ['Named_Boxarts']))
+
     def test_the_capcom_boards_find_their_covers_in_the_mame_thumbnails(self):
         # The libretro-thumbnails MAME repository names its images like MAME's descriptions (":" becomes "_", some regions are
         # spelled "Euro" or "US"); the catalogue title of a romset, as the converter passes it, names its image without a list.
