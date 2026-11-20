@@ -58,10 +58,13 @@ enum { RR_ICON_KEYBOARD, RR_ICON_GAMEPAD, RR_ICON_OPTIONS, RR_ICON_POINTER, RR_I
        RR_ICON_GRAPHICS,  /* 1.7.6: the F2 tile of the graphics page, a 3D shape on a screen */
        RR_ICON_CHAT,      /* the F2 tile of the multiplayer chat, a speech bubble */
        RR_ICON_EXIT,      /* 1.9.0: the F2 tile that quits the game, a door and an arrow */
-       RR_ICON_RESTART,   /* 1.9.0: the F2 tile that restarts the game, a circle with its arrow */
+       RR_ICON_RESTART,   /* 1.9.0: the F2 tile that restarts the game, two arcs of a ring with their arrows */
        RR_ICON_PASS,      /* 1.9.0: multiplayer, turns: pass the controller (a pad, an arrow on) */
        RR_ICON_GIVE,      /* 1.9.0: the host gives the controller (a pad, an arrow to a player) */
        RR_ICON_SHARING,   /* 1.9.0: the host switches everyone at once / turns (two players, arrows both ways) */
+       RR_ICON_CONTROLS,  /* 1.9.0: the F2 tile of the players' controls (a keyboard and a pad) */
+       RR_ICON_DISPLAY_WINDOW, RR_ICON_DISPLAY_PIXEL, RR_ICON_DISPLAY_FIT, RR_ICON_DISPLAY_STRETCH,   /* 1.9.0: the F2 display
+                          * mode tile, one a mode in display_mode's order (RR_ICON_DISPLAY_WINDOW + mode) */
        /* <row enum> */
        RR_ICON_ROW_UP, RR_ICON_ROW_DOWN, RR_ICON_ROW_LEFT, RR_ICON_ROW_RIGHT, RR_ICON_ROW_BUTTON, RR_ICON_ROW_START,
        RR_ICON_ROW_SELECT, RR_ICON_ROW_COIN, RR_ICON_ROW_PAUSE, RR_ICON_ROW_QUIT, RR_ICON_ROW_RESTART, RR_ICON_ROW_SAVE,

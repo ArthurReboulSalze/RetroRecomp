@@ -111,7 +111,10 @@ class TranslationTests(unittest.TestCase):
         self.assertEqual(key_of(rebuilt['z80_ram'][0]['bytes']), key_of('3e553131'))
         self.assertEqual(rebuilt['z80_ram'][0]['address'], 0xd010)
         # The record holds numbers, hashes of the images and the engine; neither the instruction nor its bytes.
-        text = json.dumps(record)
+        # (the hashes are left out of the search: a four-digit pattern turns up by chance in a 40-digit hash, and which one depends on the
+        # generator revision)
+        import re
+        text = re.sub(r'[0-9a-f]{40,}', '', json.dumps(record))
         for secret in (MOVE_D0.hex(), '3e55', 'dead'):
             self.assertNotIn(secret, text)
         self.assertEqual(counts['paths'], {'m68k_ram': 1, 'z80_ram': 1})

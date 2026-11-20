@@ -22,7 +22,7 @@ class FourPlayerTests(unittest.TestCase):
             with self.subTest(board=name):
                 self.assertEqual(code, 0, output)
                 self.assertIn('PASS', output)
-                self.assertLess(seconds, 20, output)
+                self.assertLess(seconds, selftest.HANG_SECONDS, output)     # a hang, not a speed (a busy PC)
 
 
 if __name__ == '__main__':

@@ -44,7 +44,7 @@ class NativeStepsTest(unittest.TestCase):
         with self.assertRaises(psx_native.NativeError):
             psx_native.handlers(bad)
 
-    def test_runs_cut_at_entered_addresses_and_gaps(self):
+    def test_runs_cut_at_gaps_only(self):
         table = psx_native.handlers(CPU)
         seen = psx_native.Observed
         pairs = {(0x1000, LUI): seen(5, True), (0x1004, ADDIU): seen(5), (0x1008, JR): seen(5), (0x100C, NOP): seen(5),
@@ -55,10 +55,13 @@ class NativeStepsTest(unittest.TestCase):
                  # outside RAM and the BIOS (scratchpad), never a step
                  (0x1F800000, ADDU): seen(9, True)}
         p = psx_native.plan(pairs, table)
+        # 0x1010 was entered other than from 0x100C (an interrupt's return, a branch): it stays inside the run (1.9.0), entered
+        # through the step's switch; the gap after 0x1014 cuts it
         self.assertEqual([(start, rank) for start, rank, _ in p.steps],
-                         [(0x1000, 0), (0x1010, 0), (0x1020, 0), (0x1004, 1), (0x1004, 2), (0x1004, 3)])
-        self.assertEqual(p.steps[0][2], [(0x1000, LUI), (0x1004, ADDIU), (0x1008, JR), (0x100C, NOP)])
-        self.assertEqual(p.steps[3][2], [(0x1004, ADDU)])
+                         [(0x1000, 0), (0x1020, 0), (0x1004, 1), (0x1004, 2), (0x1004, 3)])
+        self.assertEqual(p.steps[0][2], [(0x1000, LUI), (0x1004, ADDIU), (0x1008, JR), (0x100C, NOP), (0x1010, ADDU),
+                                         (0x1014, NOP)])
+        self.assertEqual(p.steps[2][2], [(0x1004, ADDU)])
         self.assertEqual(p.instructions, 10)
         self.assertEqual(p.addresses, 7)
         self.assertEqual(p.variants_left, 1)

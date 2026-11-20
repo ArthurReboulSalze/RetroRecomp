@@ -101,7 +101,11 @@ class EngineSetupTests(unittest.TestCase):
         from unittest.mock import patch
         from retrorecomp import core, pce_build
         depth = []
+        # The folder is empty and the fetch is mocked, so there is no engine to compare with our patched files: that check
+        # (verify_patched_base, tests/test_pc_engine.py EnginePatchTests) stays strict for real conversions and is out of this
+        # test, which only proves that the fetch itself runs under the shared gate.
         with tempfile.TemporaryDirectory(prefix='rr-pce-setup-') as temp, patch.object(core, 'ROOT', Path(temp)), \
+                patch.object(pce_build, 'verify_patched_base'), \
                 patch.object(core, 'follow_pin', side_effect=lambda *_, **__: depth.append(core._SHARED_SETUP_DEPTH)):
             pce_build.ensure_engine(lambda text: None)
         self.assertEqual(depth, [1])

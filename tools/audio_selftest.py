@@ -15,6 +15,9 @@ from retrorecomp.platforms import build_executable, cmake_target_args
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--device', action='store_true', help='Also exercise the real default audio device with silence.')
+    parser.add_argument('--allow-skipped-body', action='store_true',
+                        help='Pass on a CPU without AVX2: by default a converter body the CPU cannot run fails the check, so the '
+                             'release evidence always covers every body (portable C, SSE2, AVX2).')
     args = parser.parse_args()
     project = ROOT / '.build/sms-audio-selftest'
     project.mkdir(parents=True, exist_ok=True)
@@ -43,6 +46,9 @@ target_link_libraries(audio_checks PRIVATE SDL2::SDL2-static)
         print(result.stdout + result.stderr)
         if result.returncode:
             raise SystemExit(result.returncode)
+        if 'skipped' in result.stdout and not args.allow_skipped_body:
+            raise SystemExit('A converter body was skipped on this CPU (see the FIR A/B lines): run on a CPU with AVX2, '
+                             'or pass --allow-skipped-body.')
 
 
 if __name__ == '__main__':

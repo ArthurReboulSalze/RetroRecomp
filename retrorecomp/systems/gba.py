@@ -27,7 +27,7 @@ class GameBoyAdvanceProfile(SystemProfile):
     netplay_seats = 1
     netplay_rollback = False
     netplay_shared_only = True
-    netplay_link_seats = 2                 # the link cable: two consoles on one cable, proven 2 seats on one PC with Mario Kart: Super Circuit (docs/GAME_BOY_ADVANCE.md); only a cartridge with a reviewed row (gba_link.py) links, the others are refused at the launch
+    netplay_link_seats = 2                 # the link cable: two consoles on one cable, proven 2 seats on one PC with Mario Kart: Super Circuit (docs/GAME_BOY_ADVANCE.md); every cartridge may use it, its link-only code interpreted and counted unless it has a reviewed row (gba_link.py)
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     simulation_sources = (SimulationSource('generated/recompiled_*.cpp'),
                           SimulationSource('generated/dispatch_table.cpp'),

@@ -42,7 +42,9 @@ typedef struct { uint64_t time; uint8_t which, value; } latch_event;
 
 enum { GFX_SPRITES = 1, GFX_SCROLL1 = 2, GFX_SCROLL2 = 4, GFX_SCROLL3 = 8, GFX_STARS = 16 };
 
-static struct {
+/* Aligned on a page: the machine is one megabyte of arrays the frame sweeps (the picture, the pens, the priorities, the work RAM), and where it
+ * starts modulo a page moved with the size of the data linked before it (the host kit's), which moved a frame by a few per cent for nothing. */
+static _Alignas(4096) struct {
     cps1_board board;
     cps1_regions rom;
     uint8_t ram[0x10000];

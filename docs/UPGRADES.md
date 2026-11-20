@@ -108,6 +108,11 @@ state-layout keys move too, with the other keys the rows name.
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-190) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | Every machine, multiplayer in turns: the F2 tiles Pass / Give the controller and Everyone / Turns, the turn badge and its options row ([HOST_KIT D34](HOST_KIT.md#d34)) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_main.c`, `rrhk_chat.inc`, `hostkit.h`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged |
 | [Every machine: the timing report and the [host] lines keep their decimal point](#every-machine-the-timing-report-and-the-host-lines-keep-their-decimal-point-190) | none | **the host stamp of all 21 profiles** (`rrhk_timing.c`, `rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`) | unchanged |
+| [Every machine: the graphics card first, the software renderer said when it is used, the visible picture alone uploaded](#every-machine-the-graphics-card-first-the-software-renderer-said-when-it-is-used-the-visible-picture-alone-uploaded-190) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`, `runtime_catalog.inc`) | unchanged |
+| [Every machine: F2 groups the players behind one Controls tile and gains a Display mode tile](#every-machine-f2-groups-the-players-behind-one-controls-tile-and-gains-a-display-mode-tile-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
+| [Every machine: the Restart tile's icon redrawn, two arcs and their arrows](#every-machine-the-restart-tiles-icon-redrawn-two-arcs-and-their-arrows-190) | none | **the host stamp of all 21 profiles** (`retro_menu.c`, `retro_menu.h`) | unchanged (host files are outside every state key) |
+| [Every machine: the sound's converter computes its outputs side by side, bit for bit the same](#every-machine-the-sounds-converter-computes-its-outputs-side-by-side-bit-for-bit-the-same-190) | **the game stamp of all 21 profiles** (`native/stereo_fir.h`) | **the host stamp of all 21 profiles** (`native/audio_output.inc`) | unchanged |
+| [Windows: games are compressed with UPX's NRV method again, for a quicker start](#windows-games-are-compressed-with-upxs-nrv-method-again-for-a-quicker-start-190) | none | **the build stamp of every profile on Windows** (`retrorecomp/packing.py`, a build input) | unchanged |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-190) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
 | [Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match](#sony-playstation-the-host-changes-pgxp-the-cpus-resolution-and-the-renderer-in-a-match-190) | none | the PlayStation's host stamp (`rrhk_psx.c`) | unchanged |
@@ -115,37 +120,104 @@ state-layout keys move too, with the other keys the rows name.
 | [Sharp X68000: rollback and the host's F8 / F9 in multiplayer; the computers share only the pads in a session](#sharp-x68000-rollback-and-the-hosts-f8--f9-in-multiplayer-the-computers-share-only-the-pads-in-a-session-190) | **x68** | **the host stamp of x68, amiga, a1200, atarist, msx, msx2, msx2plus** (`rrhk_computer.inc`, `rrhk_x68k.inc`) | **X68000 only:** its key moves (the portable format does not) |
 | [Nintendo 64: multiplayer on the delay tier, and a change of resolution in play keeps the renderer's memory](#nintendo-64-multiplayer-on-the-delay-tier-and-a-change-of-resolution-in-play-keeps-the-renderers-memory-190) | the Nintendo 64 (`n64_cpu.c`, `n64_session.cpp`, `n64_player.c`) | the Nintendo 64's host stamp (`rrhk_n64.inc`) | Nintendo 64 states of 1.8.0 refused (the state key hashes the session sources) |
 | [Every machine: multiplayer, two to four players, Local or Internet](#every-machine-multiplayer-two-to-four-players-local-or-internet-190) | **the game stamp of all 21 profiles** (the simulation identity and the recipe mode in `retrorecomp.batch` and the profiles) | **the host stamp of every profile with the host kit** (the session code of the shell, `hostkit_session.h`, the chat, the catalogue and the locales) | unchanged on every machine (the session code is outside every state key) |
+| Every machine, multiplayer: three control modes everywhere (One controller per player, Everyone, Turns); on the Game Boy, Game Gear and Game Boy Advance one controller per player is the link cable, said under it, never a fourth mode (`seat_map.effective`, the Multiplayer window, Help, the locales; Arthur, 20 Nov 2026) | none | none (converter modules only) | unchanged |
+| Every machine: what a started game writes is kept in `datas/logs/games` (one file per launch, cut to 64 KB, 20 kept), and the room log, now in `datas/logs` for the host and the guest, says how each match ended with the game's exit code and its own reason line ([MULTIPLAYER.md](MULTIPLAYER.md#when-a-game-closes-by-itself); lead's GO, 20 Nov 2026) | none | none (converter modules only: `game_logs`, the room worker and log, the windows) | unchanged |
 | [Super Nintendo: multiplayer, digest and rollback on the boards without a chip](#super-nintendo-multiplayer-digest-and-rollback-on-the-boards-without-a-chip-190) | **the game stamp of the Super Nintendo** (`console16.py`: the profile answers a session) | **the host stamp of the Super Nintendo** (`snes_backend.c`, `rrhk_snes.c`) | **the Super Nintendo quick-state key moves** (it hashes `snes_backend.c`); an older quick state is refused cleanly |
 | [Super Nintendo: four players (Super Multitap) and the host's save in a session](#super-nintendo-four-players-super-multitap-and-the-hosts-cartridge-save-in-a-session-190) | **the Super Nintendo game stamp** (the multitap list and the report) | **the Super Nintendo host stamp** (`snes_backend.c`, `rrhk_snes.c`) | the Super Nintendo key moves (as above) |
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-190) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [MSX: a MegaROM with no direct mapper store is probed, not refused](#msx-a-megarom-with-no-direct-mapper-store-is-probed-not-refused-190) | **the MSX, MSX2 and MSX2+ game stamps** (`retrorecomp/msx_conversion.py`) | none | unchanged |
 | [MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end](#msx-msx2-msx2-the-hosts-save-travels-in-a-session-and-is-written-back-at-its-end-190) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout) |
+| [MSX2+: a silent MSX-MUSIC chip takes a short step](#msx2-a-silent-msx-music-chip-takes-a-short-step-190) | **the MSX2+ game stamp** (`msx_music.c`) | none | unchanged (the chip's image is the same; the new flags are not in it) |
+| [MSX2, MSX2+: the picture is converted with a colour table](#msx2-msx2-the-picture-is-converted-with-a-colour-table-190) | none | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`; the MSX1 picture is unchanged) | unchanged (the picture is outside the state) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-190) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-190) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
+| [NES: the APU's quiet cycles run together](#nes-the-apus-quiet-cycles-run-together-190) | **the NES game stamp** (`nes_machine.py`, new `native/nes_apu_batch.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_apu_batch.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
+| [NES: the background tile of the deferred PPU runs in registers](#nes-the-background-tile-of-the-deferred-ppu-runs-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_ppu_lazy.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
+| [NES: the sprite slots of the deferred PPU run in registers](#nes-the-sprite-slots-of-the-deferred-ppu-run-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`, with the tile above) | none (host files unchanged) | **the NES quick-state key moves** with the tile's (the same file) |
+| [NES: the usual CPU cycle takes a short path](#nes-the-usual-cpu-cycle-takes-a-short-path-190) | **the NES game stamp** (`nes_machine.py`) | none (host files unchanged) | **the NES quick-state key moves** (the staged `hw_machine.c` is one of the files the key hashes); the saved layout is unchanged, an older state is refused cleanly |
+| [NES: the sprite evaluation of a tile runs in registers](#nes-the-sprite-evaluation-of-a-tile-runs-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`, with the tile and the slots above) | none (host files unchanged) | **the NES quick-state key moves** with the tile's (the same file) |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 | [Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart](#mega-drive-four-players-with-the-team-player-the-4-way-play-or-the-j-cart-190) | **the Mega Drive game and engine stamps** (`retrorecomp/megadrive_multitap.py`, new, and its hooks); **the game stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation** (`console16.py`, the report's player count; their games do not change) | **the Mega Drive host stamp** (`rrhk_md.c`) | unchanged |
 | [Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end](#mega-drive-super-nintendo-pc-engine-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the game stamps of the Mega Drive, Super Nintendo, PC Engine, MSX, MSX2 and MSX2+** (`native/cart_save.c` and `.h`, which they share; `md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the quick-state keys of those six profiles move** (they hash `cart_save.c`; the Mega Drive's also `md_backend.c` and `md_battery.c`): older quick states are refused cleanly; the state and save formats do not change |
 | [Mega Drive: the host's save written back at a match's clean end](#mega-drive-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the Mega Drive game stamp** (`md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the Mega Drive quick-state key moves** (it hashes `md_backend.c` and `md_battery.c`): an older quick state is refused cleanly; the state and save formats do not change |
+| [Mega Drive: a lower frame cost, the same pictures and sound](#mega-drive-a-lower-frame-cost-the-same-pictures-and-sound-190) | **the Mega Drive game stamp** (`retrorecomp/megadrive_video.py`) | none | unchanged (no file of the Mega Drive key is touched) |
+| [Sony PlayStation: longer native steps, a lower frame cost](#sony-playstation-longer-native-steps-a-lower-frame-cost-190) | **the PlayStation game stamp** (`retrorecomp/psx_native.py`) | none | unchanged (no file of the PlayStation key is touched) |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-190) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-190) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
-| [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) || [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-190) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
+| [Neo Geo: the sprite scan resolved once per change of the sprite tables](#neo-geo-the-sprite-scan-resolved-once-per-change-of-the-sprite-tables-190) | **the Neo Geo game stamp** (`native/neogeo_sprite_scan.h`, new, and the patch step of `geo_lspc.c` in `neogeo_build.py`; the picture, the sound and the state are unchanged) | unchanged | Neo Geo's key **does not move** |
+| [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
+| [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-190) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Game Boy Advance: the link cable in a match](#game-boy-advance-the-link-cable-in-a-match-190) | the Game Boy Advance only (`c295d2020e01` to `afb7f45c9271`; the stamps are read against `spec/multiplayer` `070aae86`) | the Game Boy Advance host stamp only (`0764780cbbfb` to `165f06c7bb4c`); build unchanged | unchanged |
+| [Game Boy Advance: the link cable on every game](#game-boy-advance-the-link-cable-on-every-game-190) | the Game Boy Advance only (`edc281640275` to `1f50ac1c9f6a`; read against main at `894dcafd`) | none (the host stamp `712cff797f4c` and the build stamp `6c389c04d368` do not move); **every Game Boy Advance conversion builds its recompiler again once** (the staged engine gains four patches) | unchanged |
 | [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-190) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Commodore Amiga 500 and 1200: multiplayer on the rollback tier](#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-190) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, the new `retrorecomp.amiga_vamiga_session`, `retrorecomp.amiga_conversion`, `systems/amiga.py`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h` and the adapted vAmiga): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: the F1 help says how two players play](#commodore-amiga-500-and-1200-the-f1-help-says-how-two-players-play-190) | none | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | unchanged |
 | [Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end](#commodore-amiga-500-and-1200-the-host-writes-its-saves-back-at-a-matchs-clean-end-190) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_savefile.h`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h`): an older quick state is refused cleanly; the file's layout is unchanged |
+| [Commodore Amiga 500 and 1200: a headless run hashes each frame once, and only for a trace or the rollback check](#commodore-amiga-500-and-1200-a-headless-run-hashes-each-frame-once-and-only-for-a-trace-or-the-rollback-check-190) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_player.c`, `amiga_session.cpp`, `amiga_session.h`) | none | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp` and `amiga_session.h`): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: an Imploder block whose checksum differs](#commodore-amiga-500-and-1200-an-imploder-block-whose-checksum-differs-190) | **the Amiga 500 and Amiga 1200 game stamps** (`native/amiga_whdload/rr_decrunch.c`) | none | unchanged (the quick-state key does not hash the unpacker) |
 | [Windows packing: the call filter's last candidate](#windows-packing-the-call-filters-last-candidate-190) | none | **the build stamp of every profile** (`retrorecomp/packing.py` is a build input) | unchanged |
 | [Game Gear: the Gear-to-Gear cable, two consoles in one process](#game-gear-the-gear-to-gear-cable-two-consoles-in-one-process-190) | **the Game Gear game stamp** (`gg_ext.h`, `gg_link.inc`), and every console's through `retrorecomp/core.py` | the Master System and Game Gear host stamp (`rrhk_sms.c`) | unchanged (the layouts do not move; quick states are refused while linked) |
 | [Atari ST: multiplayer on the rollback tier](#atari-st-multiplayer-on-the-rollback-tier-190) | **the Atari ST game stamp** (`atarist_hatari_rollback.py`, `atarist_snapshot.h`) | the Atari ST host stamp (`rrhk_atarist.inc`) | the Atari ST key moves (it hashes every input) |
+| [Atari ST: the conversion's validation hashes the picture and the RAM by 64-bit words](#atari-st-the-conversions-validation-hashes-the-picture-and-the-ram-by-64-bit-words-190) | **the Atari ST game stamp and engine identity** (`atarist_session.c`: the engine identity hashes it, so every qualified Atari ST path waits again) | none | the Atari ST quick-state key moves (it hashes the engine); an older state is refused |
 | The Internet room is on in the converter (« Local » or « Internet » when you host; [MULTIPLAYER.md](MULTIPLAYER.md#playing-over-the-internet); no section of this page; commit `1414d571`) | none | none (`retrorecomp/netplay/` is the converter's, outside the stamps) | none |
 | The converter's window: the toolbar, the Convert button, the Multiplayer window, the front-end's covers no longer blurred (no section of this page; merges `23c1a0aa`, `4c405e31`, `02ba7d2a`, `206a41b4`) | none | none (interface modules, outside the stamps) | none |
 | [Master System and Game Gear: rollback snapshot and the frame handed over at an instruction boundary](#master-system-and-game-gear-rollback-snapshot-and-the-frame-handed-over-at-an-instruction-boundary-190) | **the game stamp of all nine consoles of the shared runtime** (`gamestate.inc`, `gamestate.h`, `state_io.h`, `psg_state.inc`; `video_mode4.inc` the pair's own) | the Master System and Game Gear host stamp | unchanged (format and keys) |
 | [Capcom CPS-1, CPS-1.5 and CPS-2: the rollback tier and the host's F8 / F9 for everyone](#capcom-cps-1-cps-15-and-cps-2-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_opm.cpp`, `cps1_main.c`) | the CPS-1 and CPS-2 host stamps (`cps1_host.c`, `cps1_persistence.c`, `rrhk_cps1.c`) | unchanged (format, key and magic) |
+| [Capcom CPS-1, CPS-1.5 and CPS-2: two small changes to the frame cost, and the checks that go with them](#capcom-cps-1-cps-15-and-cps-2-two-small-changes-to-the-frame-cost-and-the-checks-that-go-with-them-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_native.c`; the CPS-1 generator revision 15) | none | unchanged |
 | [PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, the new snapshot files, `pce_main.c`, `pce_build.py`, the profile) | the PC Engine host stamp (`rrhk_pce.c`) | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c` |
+| [PC Engine / TurboGrafx-16: a cheaper frame](#pc-engine--turbografx-16-a-cheaper-frame-190) | **the PC Engine game stamp** (`pce_machine.cpp`, `pce_machine_internal.hpp`, `pce_snapshot.cpp`, the new `native/pce_engine/` files, `pce_build.py`) | none | refused cleanly (the PC Engine key hashes the patched file) |
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
+| [Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring](#game-boy-a-line-with-sprites-is-drawn-in-runs-and-the-adapters-sound-is-a-ring-190) | **the Game Boy game stamp** (`native/gb_ppu_object_span.h`, `gameboy_hardware.py`, `gameboy_runtime.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`); build unchanged | unchanged (the bytes of a state are the same) |
+
+## Mega Drive: a lower frame cost, the same pictures and sound (1.9.0)
+
+The 1.9.0 optimisation wave for the Mega Drive. Every change is a rewrite with the same output: on Sonic The Hedgehog 2,
+Streets of Rage 2 and Gunstar Heroes (USA dumps), the picture, the audio, the CPU state and the counters of every frame
+over 3,600 frames of the play route, and the final report, are identical before and after. Only the host CPU time per
+frame changes; the five measures stay apart, and the time is measured by the performance pass, not here.
+
+- **The plane rows are fetched in fewer, cheaper spans** (`retrorecomp/megadrive_video.py`, `spans`). Without 2-cell
+  vertical scroll, a plane row is continuous across the 16-pixel columns, so one span runs to the screen edge or the
+  window boundary instead of stopping at every column. Each tile row is stored as one fixed 8-byte write instead of a
+  variable-length copy (the two row buffers gain an 8-byte margin). The VDP self-tests (scalar, batched and SSE2 rows
+  equal over 32,768 rows; shadow/highlight; raster; interlace) pass unchanged.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread of the
+first in brackets; main `e4f40699` then this change `c35bd496`): Sonic The Hedgehog 2, the engine alone 2.4330 (3.4 %)
+to 2.3740, −2.4 %, and the whole play loop 1.7698 (1.4 %) to 1.7110, −3.3 %. A small gain, about the size of the spread;
+no regression. These are costs of the host's code on one PC, not physical latency. A second item of the wave, the
+Z80's slice end served on the sound fiber (16 % fewer fiber switches), measured no gain on top (engine −2.1 %, loop
+−2.5 % with both) and was left out: it added machinery to the Z80 bus for no speed.
+
+Stamps: the Mega Drive game stamp moves (an export of 1.8.0 is converted again once, as every machine's in 1.9.0). The
+quick-state key and the state format do not change.
+
+## Sony PlayStation: longer native steps, a lower frame cost (1.9.0)
+
+The 1.9.0 optimisation wave for the PlayStation. **A run of native steps is no longer cut at an entered address**
+(`psx_native.plan`). An interrupt returns to any address of a hot loop, so almost every address of one was marked as entered:
+three quarters of the instructions ran in steps of one or two, each going back through Beetle's interpreter loop to find the
+next (on Ape Escape that dispatch was about a quarter of the frame). A run is now cut only where the code stops being
+consecutive; an entered address becomes a label inside its step. Every instruction keeps its own work, cycle count and order.
+
+**Identical output.** Ape Escape on a kept build, both conversion routes (3,600 and 3,900 frames): the per-frame trace (RAM,
+picture, sound, CPU state, VRAM) is byte-identical to main's game, with the same native instruction counts and nothing
+interpreted. Gran Turismo 2, Tekken 3 and WipEout 2097 (PAL) converted by main and by the branch: every route and reference
+trace identical, the F8/F9 check passed.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread of the first in
+brackets; main `e4f40699` then this change): Ape Escape, the engine alone 3.257 (3.3 %) to 2.888, −11.3 %. The whole loop
+on the graphics card was timed with the wave's five items together: 3.803 (4.8 %) to 3.413, −10.3 %, the engine's gain
+carried into the loop. These are costs of the host's code on one PC, not physical latency. Four more items of the wave
+measured no gain on top (engine −10.7 % to −11.7 % with them, the same as this one alone) and were left out, each a second
+path for no speed: a step doing the interpreter loop's work to go on to the next step itself, a 2.5 MB table by address in
+place of a short search, a copy of Beetle's instruction-cache hit in the loop head, and a word-at-a-time conversion of the
+card's picture with its own byte-order branch.
+
+Stamps: the PlayStation game stamp moves (an export of 1.8.0 is converted again once, as every machine's in 1.9.0). The
+quick-state key and the state format do not change.
 
 ## Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder (1.9.0)
 
@@ -176,6 +248,32 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
 
+## PC Engine / TurboGrafx-16: a cheaper frame (1.9.0)
+
+A sampling profile of Blazing Lazers (main `4aafb3fd`, 32,800 retired instructions and about 150 ns each per frame, the recompiled code itself only 9 % of
+it) showed where the engine's frame goes. Four changes, all with the output unchanged (the first wave, the owner's go of 20 November 2026):
+
+- **The frame loop calls the engine's generated and interpreter entries directly** (`step_untraced` in `native/pce_machine.cpp`): `pce::step` built a bus-trace
+  scope for every retired instruction, which does nothing unless a trace is attached and this host never attaches one (about 4 % of the frame).
+- **Our patch of the engine's audio clock** (`native/pce_engine/pcm.cpp`, [UPSTREAMS.md](UPSTREAMS.md)): the CD audio fields a HuCard never reads are no
+  longer brought up to date after every instruction but when a checkpoint is taken (about 25 to 30 % of the frame in the profile).
+- **Three more small patches of the engine's picture and raster code** (`scanline.cpp`, `video.cpp`, `raster.cpp` in the same folder): the palette word of a dot read
+  from a table, the background of a line fetched once per tile and not once per pixel, and the distance to the next dot without a division by a variable (about
+  11 %, 12 % and a few percent of the frame in the profile).
+
+**Checked, identical output**, on four cards (Blazing Lazers, Bomberman '93 with the multitap, Soldier Blade, R-Type; all USA), each built from one project with main's host files and
+the pinned engine (A) against the host files and the four patched engine files of this change (B; for Blazing Lazers the first two changes were also checked alone): 4,800 play frames and 3,600 attract frames,
+the per-frame picture / PCM / CPU / RAM hashes, the whole PCM stream (14 MB and 10 MB) and a quick state saved at frame 2,940 (2.6 MB, the engine's whole checkpoint,
+so the settled CD fields included) are equal byte for byte; each build loads each build's state and continues 600 frames equal. The conversions of the three
+cards, run with the patched engine, passed the converter's own checks (native code against the interpreter reference, 0 interpreted opcodes on the routes). The snapshot probe
+(`tools/pce_snapshot_selftest.py`: every frame a save point against the engine's own checkpoint, on the base board and the Street Fighter II board) passes on the
+patched engine. Without `settle_silent_cd_source` the engine refuses its own checkpoint (« CPU/CD source sample clock mismatch »), which is why the host calls it. Speed is measured
+by the performance specialist, not here.
+
+**Stamps**: the PC Engine game stamp (`native/pce_machine.cpp`, `native/pce_machine_internal.hpp`, `native/pce_snapshot.cpp`, the new
+`native/pce_engine/pcm.cpp`, `scanline.cpp`, `video.cpp`, `raster.cpp`, `retrorecomp/pce_build.py`; the simulation identity of the PC Engine moves with them); no host stamp. Quick states: the PC Engine key hashes
+`pce_machine.cpp`, `pce_main.c` and now the patched file, so a quick state of 1.8.0 is refused cleanly, as after any change of the bridge.
+
 ## Every machine: the timing report and the [host] lines keep their decimal point (1.9.0)
 
 The performance specialist found an Atari ST export's timing report (`RETRORECOMP_TIMING_REPORT`) written with decimal commas on a
@@ -189,6 +287,75 @@ and the locale is given back (758 checks pass; with the switch disabled, the two
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
+## Every machine: the graphics card first, the software renderer said when it is used, the visible picture alone uploaded (1.9.0)
+
+Arthur's rule (20 November 2026): what the graphics card can do goes through it. The game's window already asks for an accelerated
+renderer (Direct3D 11 on Windows, Direct3D 12 in Variable refresh, OpenGL on Linux) and scales the picture with the graphics card
+(one texture, `SDL_RenderCopy`): measured on a copy of a 1.8.0 Master System export, drawing 0.13 ms a frame on Direct3D 11 against
+0.59 ms when SDL's software renderer is forced. The software scaler that the performance figures showed comes from the diagnostics'
+`SDL_VIDEODRIVER=dummy`, whose only renderer is the software one.
+
+- When no graphics card can be used at all (SDL creates no accelerated renderer), the window now says so once, when no other notice
+  shows: « Software rendering: no graphics acceleration », in the five game languages, and the log adds a line. Never under the
+  diagnostics' dummy driver.
+- The plain path (no Scale2x, no xBR) uploads only the visible rectangle of the picture, the part the copy draws, not the whole store.
+  The presented frame is the same: the host kit's capabilities self-test shows a picture smaller than its store with blue past it,
+  checks its corners and that no blue reaches the window, and digests the whole frame; the digest is the same with the full upload
+  and with the visible rectangle (`65f55465`, 766 checks).
+
+Later, in an optimisation release: Scale2x and xBR on the graphics card (SDL2's renderer has no shaders), and telling a CPU
+rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
+
+**Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
+
+## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
+
+The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a
+machine's sound rate is not the device's (the Master System and Game Gear PSG at about 223.7 kHz, the MSX family at 44.1 kHz
+on a 48 kHz device), summed each output's 256 taps as one chain of dependent double additions. Arthur chose bit-identical
+sound only (20 November 2026): each output keeps exactly its sequence (tap 0 the newest sample, the float product of the
+sample and the coefficient, added to a double sum in tap order), and only independent outputs now run side by side. The
+input goes through in chunks into a linear window (the 255 samples before the chunk, then the chunk); the outputs of a
+chunk are computed together, four at a time in portable C or SSE2, eight at a time with AVX2 (chosen at start when the CPU
+and the system have it, `SDL_HasAVX2`); the steps, phases, outputs and the pushes to the ring are those of before.
+
+The two end taps are not skipped: the window's end weight is -1.39e-17 in double, so every phase's first and last
+coefficients are tiny but not zero (about 3e-20); leaving them out could change a rounding.
+
+**Proof** (`native/audio_checks.c`, `tools/audio_selftest.py`): 1.8.0's loop kept as the reference, replaying the steps the
+converter wrote in its own input record; the portable C, SSE2 and AVX2 bodies compared bit for bit over the SMS / Game Gear
+NTSC and PAL rates and the MSX 44.1 kHz, to 48 and 44.1 kHz, at odd call sizes, at locked rates, with tones, full-scale
+squares that clamp, full-range noise and impulses: 859 269 outputs, identical. A game's own sound can be checked the same
+way: an export run with `RETRORECOMP_AUDIO_INPUT_DUMP=<file>` records what it gives the converter (each call's count and
+step, then its samples), and `audio_checks --replay <file>` converts it with 1.8.0's loop and with every body of the CPU.
+The speed is the performance specialist's timed slot.
+
+**Stamps**: the game stamp (`stereo_fir.h`) and the host stamp (`audio_output.inc`) of all 21 profiles; quick states unchanged.
+
+## Windows: games are compressed with UPX's NRV method again, for a quicker start (1.9.0)
+
+From 1.6.7 to 1.8.x, Windows games were compressed with UPX's LZMA method (`--lzma`); Linux games kept UPX's default NRV
+method. 1.9.0 uses NRV on both systems (`packing.WINDOWS_METHOD`, Arthur, 20 November 2026). The game itself does not
+change: UPX restores the same program in memory, so its speed once started and everything it shows and plays are the same.
+
+Measured on the reference PC (Ryzen 9 3900X, quiet, 7 starts each from a fresh copy, start-up to the first frame, normal second
+launch), size and start-up:
+
+| Game | Not compressed | NRV (1.9.0) | LZMA (1.6.7 to 1.8.x) |
+| --- | --- | --- | --- |
+| Sonic the Hedgehog (Master System) | 6.19 MB, 22 ms | 1.87 MB, 59 ms | 1.45 MB, 119 ms |
+| Mega Man X2 (Super Nintendo) | 19.7 MB, 32 ms | 4.40 MB, 95 ms | 3.57 MB, 196 ms |
+| Pinball Illusions (Amiga 1200) | 40.0 MB, 117 ms | 11.6 MB, 212 ms | 9.61 MB, 474 ms |
+| Super Mario 64 (Nintendo 64) | 16.2 MB, 448 ms | 10.99 MB, 524 ms | 10.51 MB, 604 ms |
+
+A game is 4 % to 23 % larger than with LZMA and starts 60 to 260 ms sooner on this PC (more on a slower one). Packing takes a
+little longer during a conversion. The method is not an antivirus measure: nothing shows that it changes a detection; the
+option « Compress games » still delivers an uncompressed game. The PlayStation is not concerned (its games are never
+compressed). The report's `packing.method` says `nrv`.
+
+**Stamps:** `retrorecomp/packing.py` is a build input, so the build stamp of every profile moves on Windows; game and host stamps
+do not move, and quick states are unchanged.
+
 ## Commodore Amiga 500 and 1200: the F1 help says how two players play (1.9.0)
 
 Arthur did not find Alien Breed 2 (AGA)'s two-player mode (19 November 2026). An Amiga game chooses one or two players in its own menu
@@ -201,6 +368,46 @@ edge in an offscreen capture), and Ctrl+Alt+K stays on the second page (Tab) as 
 offscreen capture of the help page of a converted game in the five languages: the line ends inside the panel.
 
 **Stamps** (against `spec/multiplayer` `e83119c8`): the Amiga 500 and Amiga 1200 host stamps; no game stamp, quick states unchanged.
+
+## Commodore Amiga 500 and 1200: a headless run hashes each frame once, and only for a trace or the rollback check (1.9.0)
+
+A sampling profile of a headless Lotus 2 run (`--headless --frames 600`) put about 72 % of the main thread in `rr_amiga_frame_info`,
+which hashes the picture and the chip, slow and fast RAM byte by byte (FNV-1a). The profile ran on a PC that was not quiet, so it shows
+where the time goes, not a speed. `run_headless` (`amiga_player.c`) called that function:
+
+- before every frame, only for the frame's number;
+- after the frame, for the non-black and audible counts;
+- a third time for each trace line, which every conversion replay writes.
+
+Now:
+
+- the number comes from `rr_amiga_frame_count`;
+- the evidence after a frame comes from the new `rr_amiga_frame_seen`, which skips the hashes, unless a trace or the rollback check
+  needs them; then they are taken once;
+- the trace line takes the evidence already computed.
+
+The values and the trace's bytes do not change. A player's window never called the function, so a game in play does not change. The
+headless engine figure and every Amiga conversion's traced replays get cheaper.
+
+Checked by A/B conversions against main `e4f40699` (`tools/ab_conversion.py`, then every file of the conversions' replay folders
+compared byte for byte). On Lotus 2 (Amiga 500) and Pinball Illusions (Amiga 1200), each conversion's seven traced replays (22,200
+frames per game: reference, native, packed copy, restart) have identical traces, results, resload logs and frames. Only the executables
+differ, and the quick states, whose key moved. On both games, a 1200-frame headless run without a trace (the path that now skips the
+hashes) gives the same report and the same last frame.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame; main `e4f40699` then this
+branch `bb5a40f2`; headless engine 1,200 frames × 5, play loop × 3): Lotus 2, the engine alone 6.9350 to 1.4862, −78.6 %, and the
+play loop 1.1726 to 1.1716, −0.1 %; Pinball Illusions, engine 14.0215 to 2.5255, −82.0 %, and loop 2.1705 to 2.2460, +3.5 %, inside
+the 14.6 % spread of the branch's runs (one slow run). The headless path loses the per-frame hashing; the player's path is unchanged,
+as expected, since it never hashed. The Amiga's headless engine figure becomes comparable to the other machines'. These are costs of
+the host's code on one PC, not physical latency. Conversions get faster too (Pinball Illusions about 35 to 18 minutes on a busy PC: a
+hint, not a measure).
+
+**Stamps** (against main `e4f40699`): the Amiga 500 and Amiga 1200 game stamps (`amiga_player.c`, `amiga_session.cpp`,
+`amiga_session.h`), and with them the reports' `simulation_identity`, as for any change to the game's sources. The Amiga quick-state key
+moves (it hashes `amiga_session.cpp` and `amiga_session.h`): an older quick state is refused cleanly. The host stamps do not move. The
+engine identity (`amiga_knowledge.NATIVE_INPUTS`: `amiga_bus.cpp`, `amiga_bus.h`, `moira_map.cpp`) does not move, so no qualified path
+goes back to pending.
 
 ## Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match (1.9.0)
 
@@ -235,6 +442,39 @@ mode of a run of 60 s does not show the laptop's crackle (Arthur heard it in pla
 **Stamps** (against `spec/psx-audio` `b3fb20ba`): the host stamp of all 21 profiles (`rrhk_ring.c`, `rrhk_audio.c`,
 `hostkit_internal.h`, `audio_cushion.h`, a comment); no game stamp; quick states unchanged (host files are outside every state key).
 An export's own sound changes only on the six ring machines.
+
+## Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring (1.9.0)
+
+Branch `perf/190-gb-ppu` (Arthur's go of 20 November 2026 for the Game Boy frame-cost work; the figures come from the performance specialist's
+slot). Same pictures, same sound, same program: the change is how much work the host does per frame.
+
+- **A line with sprites in runs of dots** (`native/gb_ppu_object_span.h`, `retrorecomp/gameboy_hardware.py: adapt_ppu_object_spans`, DMG hardware
+  only). The pinned PPU draws a sprite-free run of dots in one go and falls back to one dot at a time on every line that has a sprite. A run on a
+  line with sprites is now drawn in one go too: the sprites of the line are read once, each pixel takes the one the dot path would give (DMG priority:
+  further left, then lower OAM index; behind-the-background kept; the same palettes). A run stops before the dot where a sprite fetch starts, so the
+  stalls and the mask of fetched sprites stay with the dot path. The colour hardware keeps the dot path.
+- **The adapter's sound is a ring** (`native/hostkit/adapters/rrhk_gb.inc`): a preallocated ring of 16,384 frames in place of a vector with a
+  push per sample and an erase per frame; same limit, same values in the same order. The picture copy is left as it was.
+
+**Proof** (fidelity; no timing is claimed from it). `tools/ab_conversion.py`, main `e4f40699` against this branch, on Super Mario Land, Tetris,
+Pokémon Red, Kirby's Dream Land, Link's Awakening and Metroid II: every evidence file (per-frame picture, sound, RAM and program counter, traces,
+hashes, audio, state) identical; a 6,000-frame `--frame-trace` of Super Mario Land with a varied pad script, identical. `tools/gameboy_ppu_span_selftest.py`
+(an authored program and a host writing the video memory, the sprite table and the video registers at random in the middle of lines; sprites at
+every x, 8x8 and 8x16, flipped, behind the background, the window at every WX, scrolled, objects on and off): the new and the pinned drawing give
+the same hash of every picture on five seeds (600 frames each), and a planted priority error is caught. The sound ring was checked against the vector
+it replaces on 200,000 random push and take rounds (same values, same order, the limit reached). `tests/test_gameboy_perf.py` checks the text of the
+patch without a ROM or a compiler. Counts, not times: the per-dot path is called 42 % less often and `ppu.c` runs 35 % fewer blocks on the sampled game.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread in brackets; main `e4f40699` then this
+branch `f2bdd4eb`): Super Mario Land, the engine alone 0.6067 (1.3 %) to 0.5829 (1.9 %), −3.9 %, and the whole play loop 0.2731 (4.4 %) to 0.2532
+(1.9 %), −7.3 %; Tetris, engine 0.6058 to 0.5983, −1.2 %, inside its 6-11 % spread, loop flat (0.6054 to 0.6057, few sprite lines). A gain
+where sprites are drawn, none where there are few; no regression. These are costs of the host's code on one PC, not physical latency. Not touched:
+the scheduling of the ticks (about half of the work) and the framebuffer copy.
+
+**Stamps** (computed on the tree against main `e4f40699`, all 21 profiles compared): **the Game Boy game stamp** (`e6827073` to `277fb0e6`: the new
+runtime header, the patch of `gameboy_hardware.py`, the copy list of `gameboy_runtime.py`) and **the Game Boy host stamp** (`c05b8312` to `24065247`:
+`rrhk_gb.inc`); the build stamp and every other machine unchanged. Existing Game Boy exports are converted again to get the faster drawing. Quick
+states unchanged (their layout and the bytes of a state are the same, no key moves), and so is a match: the digest of a frame is the same as before.
 
 ## Every machine: the sound no longer crackles in multiplayer (1.9.0)
 
@@ -373,6 +613,60 @@ times in 3,000 frames: replaying 5 frames of that machine fits less easily in a 
 PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `a08bdd4e`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.
+
+## MSX2+: a silent MSX-MUSIC chip takes a short step (1.9.0)
+
+Frame cost (the 1.9.0 optimisation wave, Arthur's go of 20 November 2026). Every MSX2+ has MSX-MUSIC, and a game that never
+writes it still paid emu2413's whole sample 49,716 times a second: about 10 % of Manbow 2's loop in a profile of the player's
+path (991 samples a frame); on our C-BIOS MSX2+ that cartridge makes no write to ports 7Ch-7Dh in three minutes of its attract
+mode, music included. `native/msx_machine/msx_music.c` now checks, after a reset, a write, a loaded state and every 4,096 full
+samples, whether the chip is silent and still (`music_quiet`): no rhythm mode, test bit or rate converter; every slot in RELEASE
+or SUSTAIN with F-number 0, and either silent (envelope at its mute level, outputs 0) or a modulator left sustained after its
+note whose envelope rate is 0 and whose output is the fixed point of emu2413's own modulator formula, its carrier silent. In
+that state a sample of emu2413 changes nothing in the slots or the channel outputs, so `music_calc_quiet` runs only what still
+moves, with emu2413's own functions: `update_ampm`, `update_short_noise`, the envelope counter, `update_noise` (14, 2 and 2 steps)
+and `mix_output`. The first write leaves the short step. emu2413 stays vendored unmodified (its file is included by
+`msx_music.c`, as before); the two flags are not in the chip's image, so quick states keep their layout.
+
+**Identical chip.** `native/msx_machine/msx_music_checks.c` (a fixture run by `tools/msx_reference.py`, and to be run after a
+bump of emu2413) drives two chips, one through `OPLL_calc` at every sample as before, one through the new code, and compares
+their whole images (the quick-state serialisation) and outputs after every sample: an untouched chip for 600,000 samples (599,999
+on the short step), random register programs with machine resets, states loaded on a quiet chip and releases that end, and one
+violin note keyed on then off, after which the chip comes back to the short step; it checks that the short step is taken, left
+and taken again. A longer scratch run of the same comparison: 20 million untouched samples (360 million steps of the noise register, more
+than its 2^23 states) and 300 programs, 123 million samples identical, 33 million of them on the short step, 136 writes made on it, 32 returns
+to it; three broken variants (one noise step missing, the LFO step missing, a modulator accepted without its fixed point) fail it.
+On converted games, main against this branch, headless runs of the machine's own command line: Manbow 2 (MSX2+ cartridge, MSX-MUSIC never written) over 9,000 frames and the authored FM cartridge (tools/msx_fm_cart.py, a scale on the YM2413) over 3,600 frames give the same final JSON (CPU, RAM, VRAM, picture and the sound digest of 7,885,193 and 2,649,411 samples); quick states saved at frames 3,000 and 1,000 are byte-identical (684,419 bytes); each side loads the other's state and runs on to the same machine state as the full run, the two loaded runs equal to each other, their sound digests included.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread in brackets; main
+`a74490e4` then this change `dfe0d1e2`, the same code as after the rebase): Manbow 2, the engine alone 0.8993 (8.5 %) to 0.7952
+(2.8 %), −11.6 %, and the whole play loop 1.0525 (5.4 %) to 0.9458 (2.0 %), −10.1 %. A game that writes MSX-MUSIC gains
+nothing while its music plays (the predicate is then checked once every 4,096 samples).
+
+**Stamps** (computed with `tools/release_stamps.py` against main `42f50356`): the MSX2+ game stamp only (`msx_music.c` is built
+into an MSX2+ game only; the new fixture is a check, outside the stamps); quick states unchanged.
+
+## MSX2, MSX2+: the picture is converted with a colour table (1.9.0)
+
+Frame cost (the 1.9.0 optimisation wave, Arthur's go of 20 November 2026). A profile of the player's path found the host's
+conversion of the V9938 / V9958 picture to the window's colours at about a third of the MSX2 loop: each of the 512 half-pixels of
+212 lines went through `m_rgb9` (three products by 255 / 7), and the 544 x 228 view was first filled with the border, then
+written again over the picture. `m_picture2` (`native/hostkit/adapters/rrhk_msx.inc`) now reads the 9-bit colours from a table of
+`m_rgb9`'s own results, filled at the first picture; a YJK point of the V9958 (`MSX_COLOUR15`) is still computed, and each view
+point is written once (the border around the picture, the picture's points inside). The MSX1's picture is unchanged.
+
+**Identical picture.** `m_rgb9` reads only the bits `0x777` of a point that is not a YJK one, so the table indexed by those bits
+gives the same value. Checked on a scratch harness that compiles main's conversion and this one side by side: the colour is the
+same for all 65,536 point values, and the whole view is byte-identical on 3,000 random frames (random points of every code, YJK
+included, random borders, every line adjust from -128 to 127, vertical adjusts from -16 to 15, 192 and 212 lines); two broken
+variants (a wrong table index, a picture moved by two columns) fail it. On converted games, a scratch per-frame digest of the whole view (the same patch on both sides), main against this branch, 1,501 frames of the player's path: identical on Space Manbow (MSX2, 177 different pictures) and Manbow 2 (MSX2+ cartridge, 9 different pictures).
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, the play loop over 480 frames three times,
+median ms per frame, spread in brackets; main `e4f40699` then this change `e5880cfe`, the same code as after the rebase): Space
+Manbow (MSX2) 0.8296 (12.7 %) to 0.6423 (4.3 %), −22.6 %, and Manbow 2 (MSX2+) 1.1567 (13.2 %) to 0.9314 (11.0 %), −19.5 %.
+An MSX1 game (TMS9918 picture) does not take this path.
+
+**Stamps:** the MSX, MSX2 and MSX2+ host stamps (one adapter for the family); no game stamp; quick states unchanged.
 
 ## MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end (1.9.0)
 
@@ -530,6 +824,36 @@ guest's folder holds no file; with the 200-sector table the file is left as it w
 **Stamps:** the Atari ST's game stamp (the adaptation of Hatari: `atarist_hatari_rollback.py`, `atarist_snapshot.h`) and host stamp (the
 adapter `rrhk_atarist.inc`); nothing else. The Hatari adaptation digest moves: the machine core is built again once.
 
+## Atari ST: the conversion's validation hashes the picture and the RAM by 64-bit words (1.9.0)
+
+Every frame of a validation run (the fresh reference, the native game, the packed copy, the quick-state continuation) takes digests of the
+picture (about 430 KB) and of the RAM (1 MiB) for its trace, byte by byte (FNV-1a). A sampling profile of a headless run put 74 % of its time
+there. `rr_st_frame_info` now hashes them with four lanes of 64-bit words (little-endian, the same value on every host); the sound's digest,
+which is small, stays byte by byte. The machine, the picture, the sound and the player's loop do not change: the hash lives only in the
+headless path (no host kit, no rollback; the multiplayer digest is `rr_st_snapshot_digest`).
+
+**Who compares these values:** only runs of one conversion, file against file (native against the fresh reference, the packed copy against
+it, a resumed state against its timeline). `trace_digests` writes the sha256 of the columns into the report's `final_checks` as a record that
+nothing reads back from another version; no test or tool pins a value; qualified paths and shared paths carry instruction words, not digests.
+
+**What it costs, said plainly:** `atarist_session.c` is in the Atari ST engine identity (`NATIVE_INPUTS` of `atarist_knowledge.engine()`), so
+the identity moves with this change (it had not moved since 1.8.0), and **every Atari ST path that was qualified goes back to pending until a
+conversion that received it reaches it again and validates it against the reference** (the maintainer's campaigns qualify theirs on their own
+conversions). Arthur accepted that move for 1.9.0 (20 November 2026: « Oui, dans la 1.9.0 »). The GENERATOR_REVISION is unchanged.
+
+**Proof (pictures and registers, not hash values):** Bomb Jack, 3,600 frames of the delivered executables of main and of this branch, headless,
+no input: the frame, sound digest, PC, SR, D0-D7 and A0-A7 of every one of the 3,600 rows are equal; the last picture (PPM) and the RAM dump
+are byte for byte equal; the `video` and `ram` hash values differ on all 3,600 rows, as they must, and each repeats on the same frames as before.
+The conversion itself then passed on the new hash: native against the fresh reference and the packed copy against it on both routes, and the
+quick state saved and resumed in a fresh process (its continuation equal).
+
+**Conversion time (Bomb Jack, one conversion each, the PC not quiet, so read the ratio, not the seconds):** the three validation phases went from
+54.8 s (native runs), 59.7 s (reference runs) and 55.7 s (packed replays), 170 s together, to 15.3 s, 26.0 s and 21.8 s, 63 s together. The whole
+conversion went from 307 s to 248 s although the engine rebuilt once on its new identity (compile 53 s to 101 s: paid once, not by the next conversion
+on this engine). Nothing here is a speed figure of the game, and the player's loop is not touched.
+
+**Stamps:** the Atari ST game stamp and engine identity; no host stamp; the Atari ST quick-state key moves.
+
 ## Game Boy Advance: multiplayer on the delay tier (1.9.0)
 
 The profile answers a session (`netplay_session`, input sharing only: one pad, every seat's buttons merged). What moves, against `spec/multiplayer` at `87b3fe97` (`compilation_inputs.role_stamps`, every other machine equal): the Game Boy Advance **game** stamp
@@ -545,9 +869,19 @@ The profile answers a session (`netplay_session`, input sharing only: one pad, e
 
 A match can run the **consoles of a cable** (one Game Boy Advance per seat on the engine's own link hub) instead of one console with every seat's buttons merged. Full account, with the limits: [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-link-cable-in-a-match-20-november-2026-delay-tier). What moves, against `spec/multiplayer` at `070aae86` (`compilation_inputs.role_stamps`, every other machine equal): the Game Boy Advance **game** stamp (`c295d2020e01` to `afb7f45c9271`: `native/gba_machine.cpp` and `gba_machine.h` with the cable session and the digest, the saves and the restart of its consoles, `retrorecomp/gba_link.py` with the reviewed link roots, `gba_player.py` and `gba_conversion.py` that carry them, the profile's `netplay_link_seats = 2`) and its **host** stamp (`0764780cbbfb` to `165f06c7bb4c`: `rrhk_gba.c` answers `players()` with the consoles of the cable, declares `link_consoles` and gives `run_frame` both pad words). The **build** stamp and the engine's patch set (55 patches) do not move: the engine is not patched (the session and the hub are used as they are, never its network layer), so the shared paths and the site's limits do not change either. **Existing exports** keep working as they are (single machine, input sharing); a Game Boy Advance game is converted again once to gain the cable (its cartridge needs a reviewed row: today Mario Kart: Super Circuit (USA) only).
 - **What works** (Mario Kart: Super Circuit, two consoles): the engine's probe on our generated code ends the engine author's 4,845-frame route on his own cycle count with no dispatch miss and no interpreted instruction; our player gives equal digests, pictures and sounds in two processes; two copies through the kit on the delay tier (`netplay_game_smoke.py --seats 2 --delay 2 --route`) agree on 17 digests, each seat showing its own kart in the same race; the host's restart for everyone, the host's save (carried to the guests, written back with `.bak` at a clean end, nothing written by a guest) and the refusal of a guest on another save are proven.
-- **The limits, stated:** the same cartridge on every console; the host's save for everyone (not per seat); two consoles run (three and four untested); delay tier only; cost not measured on a quiet PC or on the ThinkPad; cable only (no wireless adapter, no multiboot, no UART or JOY bus); **two PCs not run** (one PC, a real LAN room, done). The room side follows the multiplayer specialist's LINK_CONTRACT: the machine declares `link_consoles` (HELLO's `RRHK_CAP_LINK`), the profile `netplay_link_seats = 2` makes the lobby offer the cable for the machine, and the worker puts `RETRORECOMP_NETPLAY_LINK` in the game's environment. A game without a reviewed row declares 0 and is refused at the launch ("this export cannot play over the link cable"), its report says why (`coverage.link_cable`).
+- **The limits, stated:** the same cartridge on every console; the host's save for everyone (not per seat); two consoles run (three and four untested); delay tier only; cost not measured on a quiet PC or on the ThinkPad; cable only (no wireless adapter, no multiboot, no UART or JOY bus); **two PCs not run** (one PC, a real LAN room, done). The room side follows the multiplayer specialist's LINK_CONTRACT: the machine declares `link_consoles` (HELLO's `RRHK_CAP_LINK`), the profile `netplay_link_seats = 2` makes the lobby offer the cable for the machine, and the worker puts `RETRORECOMP_NETPLAY_LINK` in the game's environment. (From 1.9.0's second step, [the link cable on every game](#game-boy-advance-the-link-cable-on-every-game-190), a game without a reviewed row links too, through a counted interpreter fallback.)
 - **The five measures stay apart** in the report: native code counted on the route (zero misses), CPU fidelity the engine's own link model, hardware fidelity a cable model, gameplay validation a route that reaches a race, physical latency unmeasured.
 - **Alone,** nothing changes: the cable is reached only with `RETRORECOMP_NETPLAY_LINK` (the worker's, in a link match) or `RETRORECOMP_GBA_LINK` (a test) in the environment.
+
+## Game Boy Advance: the link cable on every game (1.9.0)
+
+Arthur's two-PC play test closed a Mario Kart link match a few seconds into a race. Cause: a race circuit no reviewed route had run reached code with no generated function, and inside a match the engine **stops** there. The fix (branch `spec/gba-link-fallback`, from main at `894dcafd`): the engine, in a match only, hands such an address to a hook and the reference interpreter runs it one instruction at a time, counted. Full account: [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md#the-link-cable-in-a-match-20-november-2026-delay-tier).
+
+- **What moves** (`compilation_inputs.role_stamps`): the Game Boy Advance **game** stamp (`edc281640275` to `1f50ac1c9f6a`: `native/gba_machine.cpp` with the fallback switch, the gate lifted and the counters, `retrorecomp/gba_link.py` with twenty-four more Mario Kart roots, `gba_patches.py` with four patches of the staged engine). Host and build stamps equal. Existing exports of a Game Boy Advance game keep working alone; a **match** needs the new export (the old one still stops in a race).
+- **What the player sees:** every Game Boy Advance game accepts the cable (two consoles); a game without reviewed link roots says so in its log, and a match ends with `link cable coverage: native entries missed N (D distinct), interpreted instructions M, reviewed roots K console(s)`. The report's `coverage.link_cable` says `ready` or `fallback`. The converter's note for the Game Boy Advance options (the old "no link cable" line) is changed in the eight languages.
+- **Our patch on the engine** (docs/UPSTREAMS.md, four anchors, off outside a match): a missing entry asks `g_runtime_session_miss_hook`; from a generated body it resumes from the session's loop as for a RAM callback, from the loop it runs one interpreter instruction. `RETRORECOMP_GBA_LINK_FALLBACK=0` is a maintainer's test switch that brings the stop back.
+- **What it shows:** the build of main reproduces Arthur's close headless (VS-mode routes to Shy Guy Beach, Riverside Park, Peach Circuit); with the fallback and every root removed the routes run to the end and their digests equal the native build's at four checkpoints; two worker processes through the kit agree on 17 to 19 digests, with and without roots; with the 32 reviewed roots four VS-mode tracks and the Mario GP race run 5,200 to 5,600 frames with 0 missed and 0 interpreted. A second cartridge with no reviewed data, Tetris Worlds (USA), plays a two-console VS match: 6,050 frames, exit 0, 35 thousand interpreted instructions, and two worker processes through the kit give 20 equal digests (PASS).
+- **The limits, stated:** the fallback's speed was measured only on Mario Kart (about 80 to 130 interpreted instructions a frame on these routes, no cost seen; a long interpreted wait loop could cost far more); the cable's timing differs from hardware by the length of an interpreted function (identical on every PC); two PCs not run for it; two consoles; delay tier; the host's save for everyone; **Single-Pak (multiboot) link modes are not supported yet** (Bomberman Tournament's Group mode, Mario Kart's one-cartridge race).
 
 ## Every machine: multiplayer, two to four players, Local or Internet (1.9.0)
 
@@ -692,6 +1026,45 @@ paths of both boards changes with the machine's sources, as for any change of th
   `--save-digests`: the rollback tier and the delay tier give the same digests and history; with and without the save and load the
   digests are equal up to frame 1499 and differ from the first one after the load. Not measured: the cost of a save or a load, physical
   latency, hardware fidelity.
+## Capcom CPS-1, CPS-1.5 and CPS-2: two small changes to the frame cost, and the checks that go with them (1.9.0)
+
+The performance wave of 20 November 2026 looked at what a CPS frame costs (about 16,000 native 68000 and 12,000 Z80 instructions a frame: the cost is
+the per-step dispatch, not the instructions). Three changes were tried, each proven identical in output and timed by the performance specialist; two
+stay, one was dropped. What moves: **the game stamp of the CPS-1 and of the CPS-2** (`cps1_machine.c`, `cps1_native.c`; the CPS-1 and CPS-2 stamps,
+`2b95d4e7e0f7` to `594de6cc2ce5`, and `680e09ed6be2` to `d2ccc99ee1f8`, computed on the tree against main `f889087e`); no host stamp, no other machine,
+none of the four 68000 files shared with the X68000. The CPS-1 generator revision goes from 14 to 15 only because the generated project now asks for C11
+for real (see below); no translated code changes.
+
+- **The native 68000 no longer compares a program-ROM step with the image it was decoded from** (`native/cps1_native.c`, `guarded_step`). The words of
+  a step were decoded from this very image (the decrypted one on a CPS-2) and the lookup is keyed by the offset, so the compare could not fail; the RAM and
+  graphics-RAM variants, whose bytes are live, are still compared. This is the change that carries the gain. A debug define, `RR_CPS1_VERIFY_GUARDS`
+  (never in a shipped build), makes the skipped compare anyway and stops the game with a message on a mismatch.
+- **The machine struct is aligned on a page** (`native/cps1_machine.c`). `M` is one megabyte of arrays that a frame sweeps; where it started modulo a
+  page followed the size of the data linked before it (the host kit's), so a frame moved by a few per cent from one build to the next for that reason
+  alone. It no longer depends on the link. The generated project now sets `CMAKE_C_STANDARD_REQUIRED` so the compiler is asked for C11 itself and never falls back to an
+  older standard (`retrorecomp/cps1_build.py`).
+- **Dropped: the native Z80 dispatch skipping its byte check.** Identical output, but no gain at all (Final Fight, with it and without: engine +0.2 %,
+  loop −0.5 % of 1.0437 ms, inside the spread), and it removed a check: it is not in 1.9.0.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms a frame, spread in brackets; main against the branch's
+changes added one after the other): Final Fight (CPS-1), engine 0.9229 (1.3 %), page alignment alone −0.3 %, with the dropped Z80 change −0.1 %, with the
+68000 change −3.4 % (0.8912, spread 2.3 %); whole play loop 1.0437 (1.6 %), −1.9 %, −2.4 %, −2.7 % (1.0160). 19XX (CPS-2): every step within the
+noise (engine +0.1 / −0.1 / −0.8 %, loop +0.2 / −1.2 / −0.7 %, spreads up to 6 %); nothing regresses. The last figure was timed with the dropped Z80
+change still in; it adds nothing on Final Fight, and the final tip is timed again. These are costs of the host's code on one PC, never physical latency.
+The CPS-2's +2.4 % to +3.6 % a frame between 1.8.0 and the multiplayer build is not explained by the machine's placement alone (a four-way timing recovers
+about half of it on the play loop and none on the engine) and is left to the performance specialist's later passes.
+
+**Checks added** (they hold for the code with or without the two changes): twelve authored vectors for the Z80 at a window edge
+(`tools/cps1_z80_vector_selftest.py`: instructions of 2, 3 and 4 bytes starting at 7ffc, 7ffd, bffc and bffd, where the next bytes depend on the bank,
+written from the Zilog manual and not from the corpus); with the 51,328 vectors of the corpus: 51,340, the native and the interpreted paths agree on
+every one, clocks included, and the 68 known differences of the pinned baseline are unchanged. The record's « no instruction bytes » test
+(`tests/test_cps1_knowledge.py`) looks past the 40-digit hashes, where a four-digit pattern turns up by chance.
+
+**Proof of identical output:** `tools/ab_conversion.py`, main `8fd0f1d0` against this branch, on Final Fight (CPS-1), Warriors of Fate (CPS-1.5, Kabuki Z80) and 19XX (CPS-2): every file of the kept build folders equal except the three changed sources (`CMakeLists.txt`, `cps1_machine.c`, `cps1_native.c`), and the report's record, core and engine hashes, which follow them; the evidence under `checks/` (per-frame images, sound, CPU and RAM hashes, traces, the play route, the saves) equal, the executable and the 64 identity bytes of a quick state's header aside (the state's whole body is equal; 19XX keeps no build folder, its `checks/` were compared the same way). `--headless --frames 600`: the image, sound, CPU and RAM hashes and the native counters equal on the three games, with 0 interpreted 68000 and Z80 instructions on all of them (the counts of a run: 8,636,802 native 68000 and 3,726,673 Z80 on Final Fight). The vectors (51,340, all agree), `cps1_kabuki_selftest` (5 and 6 checks) and the debug guard pass (`RR_CPS1_VERIFY_GUARDS`, 6,000 frames of attract and 4,000 of the play route of the three games, `--snapshot-check`, 0 mismatch over about 794 million native steps, run on the earlier branch of the same 68000 code) pass.
+
+**Stamps:** the CPS-1 and CPS-2 game stamps move (above); existing CPS exports are converted again to get the faster frame. Quick states unchanged (the
+layout and the bytes of a state are the same, no key moves).
+
 ## Neo Geo: rollback and the host's F8 / F9 for everyone in a match (1.9.0)
 
 **What changes.** A Neo Geo export answers a multiplayer session like the NES: the delay tier, the rollback tier (the console's frames
@@ -734,6 +1107,43 @@ other console (nothing shared is edited). **Quick states:** unchanged. Evidence:
 3,001 and 4,700 frames) on NAM-1975 and KOF 2003; two copies on one PC, rollback tier 5, 30 ms latency and 10 ms jitter, the host's
 save at frame 600 and load at 1,500: PASS on both games (NAM-1975: 307 and 498 rollbacks, KOF 2003: 340 and 425), digests equal on both
 seats and, with `--save-digests` (NAM-1975), equal to a run without the save and load up to frame 1,499 and different after it.
+
+## Neo Geo: the sprite scan resolved once per change of the sprite tables (1.9.0)
+
+**What changes.** The line renderer of the Neo Geo walked the 381 sprites for every scanline, reading three tables and following the chain
+bit, although a game rewrites those tables once a frame. The walk is now resolved once per change of the tables: the 381 decoded entries
+and, for each of the 242 lines, the list of sprites that touch it (`native/neogeo_sprite_scan.h`, patched into the pinned `geo_lspc.c` by
+`neogeo_build.py`, our patch). The tables are compared (3 KiB) at every line, so a write by any path (the data port, a state load, a rollback,
+a reset) is seen without a hook; where they change again within three lines (a raster effect) the original walk runs, so a game that rewrites
+them every line never pays more. The sprites reached, their order, their values and the 96 / 381 sprite limit are the same; the work per
+sprite (tile map, palette, auto-animation, pixels) is not touched.
+
+**Hot path:** yes, the per-line sprite pass (25 % of the headless engine in a sampling profile of Puzzle De Pon!).
+
+**What moves:** the Neo Geo game stamp only (the new `neogeo_sprite_scan.h` and the patch step in `neogeo_build.py`, so the engine
+identity of the conversion report changes: 90 files become 91); no other console, no host file. **Quick states:** unchanged, the key does not move
+(the cache holds nothing that is saved: it is rebuilt from the tables, which a state load or a rollback rewrites and the next line sees).
+
+**Identity proofs (CPU fidelity and picture, not hardware fidelity).**
+- The board self-test (`tools/neogeo_board_selftest.py`, `native/neogeo_lspc_checks.c`) compares the scan with the pinned unpatched scalar
+  renderer (`rr_ng_scalar_sprcalc`, generated from the untouched `geo_lspc.c`) over 96 random scenes of 14 consecutive lines each: chains, sizes
+  up to 63, wraps of Y, both sprite limits (96 and 381), one word of the third table and a whole table rewritten between two lines, a size-33
+  sprite, and a line past the list. Same sprites, same order, same values.
+- `tools/ab_conversion.py` on Puzzle De Pon!, Metal Slug, Garou: Mark of the Wolves and Goal! Goal! Goal! (A = main 971df620, B = this
+  change): the route image hashes of the conversion reports are identical on all four. The only differences listed are the engine identity
+  (the new file) and the packed size, which follows from the code.
+- A count on Metal Slug (a build with counters, 1,200 frames, not a timing): the tables change 6.5 times a frame, a list is built 0.5 times a
+  frame and 96.5 % of the lines are served from it.
+
+**Measured gain** (performance specialist, A/B interleaved, one core, host CPU time per frame, not latency; A = 971df620, B = 0a1e41d4):
+
+| Game | engine A → B | loop A → B |
+|---|---|---|
+| Puzzle De Pon! | 1.6094 → 1.4486 ms, **-10.0 %** | 3.6731 → 3.4514 ms, **-6.0 %** |
+| Metal Slug (attract) | 1.8099 → 1.7853 ms, -1.4 % | 3.3140 → 3.2679 ms, -1.4 % |
+
+The gain follows how much of a frame the scan is: clear where there are few sprites to draw, within the noise on Metal Slug, whose frame is
+dominated by drawing its sprites. No regression on either.
 
 ## Game Boy: rollback and the host's F8 / F9 for everyone (1.9.0)
 
@@ -867,6 +1277,127 @@ Legend of Zelda, two seats, `--host-save` with a raw 32 KB seed: PASS, equal boo
 written back", the host's `.sav` changed (8,154 bytes differ from the seed), its `.bak` is byte for byte the seed, and the guest's
 folder holds no save file. Not compared: the written file against the machine's final memory by an independent reader (it is
 `cyc_nvram_export` written by the existing `save_write`), the Datach's own file, a desync or a lost connection (no write by the kit's rule).
+
+## NES: the APU's quiet cycles run together (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-apu`, cut from main `971df620`; the profile that led to it is in the lead's notes).
+`apu_cycle()` ran once per CPU cycle, about 10 % (engine) to 13 % (with sound) of the samples of Metroid's frame, although on most
+cycles nothing the CPU can see changes. The machine now counts those cycles (`rr_apu_pend`, `hw_machine.c`) and runs them together
+(`native/nes_apu_batch.inc`, included in the staged `hw_apu.c`) up to the first cycle where something else can happen: a frame counter
+step, the DMC timer, a delay (a `$4017` reset, a `$4015` DMC start, the controller shift), a DMA, a controller strobe, or the step of a
+channel whose output is audible (length counter above 0). That cycle, and every one while such an event is pending, goes through
+`apu_cycle()` itself. A register access, a state hash, a save, a state load and the sound read run the pending cycles first, and the
+cycle after an access is a plain one, so the state at every access is the one the cycle-by-cycle machine has there. What is
+computed at once is only what the cycles would have done without an event: counters and timers stepped by the number of cycles, the
+steps of a silent pulse or triangle and the noise register, and the sound accumulator, whose floating-point additions keep the order of
+the single cycles (the samples are bit for bit the same). A board with expansion sound (MMC5, VRC6, VRC7, Namco 163, Sunsoft 5B) keeps
+the cycle by cycle path while its sound is on, as its level is read on every cycle.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py` runs the original machine and this one on the same authored activity and compares
+them: its existing checks (hidden CPU, PPU, frame, bus, memory and APU hashes and the sound, four alignments, mappers 0 to 153, NTSC
+and PAL) pass, and a new mode `apu` adds 28 scenarios of 14 runs each (1 to 40,000 cycles, channel and frame counter settings written
+at random, `$4015` / `$4016` / `$4017` reads, `$4014` and `$4016` writes, a state hash taken at random) on mappers 0, 1, 4, 5, 69 and 85,
+NTSC and PAL, Zapper on and off: the interrupt lines and the cycle count are hashed on **every** cycle (a DMA stall or an IRQ a cycle late
+shows at once), the APU state, the sound and the machine at the end of each run. A mutant with the frame counter's horizon one cycle
+too long is caught in the first scenario (positive control). On Metroid (USA), converted from this branch and from main: the per-frame
+lines (CPU, memory, hardware state, picture, sound) and the whole PCM (5,750,444 bytes) are identical over 3,600 frames of the boot
+and of the two input routes; a quick state saved at frame 1200 and loaded in a new process gives the same memory, CPU, cycle count,
+hardware state and picture for the next 600 frames. **Not compared:** the sound after a quick-state load of that run (the state
+carries the sound switch of the run that saved it: with the sound on, saving a state through this headless command line fails on main
+as well, so only the ROM-free check covers a save and a load with the sound on), Metroid is one game on one board (the ROM-free
+check covers the others), no timing here (the performance specialist measures).
+
+**Stamps:** the NES **game** stamp moves (`nes_machine.py`, the new `nes_apu_batch.inc`, declared for `nes` only) and **the NES quick-state
+key** (`nes_machine.prepare_machine` hashes the file; the saved layout is unchanged). The NES host stamp is unchanged.
+## NES: the background tile of the deferred PPU runs in registers (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-tile`, cut from main `f5e889d0`). The deferred PPU clock (`native/nes_ppu_lazy.inc`)
+runs a background tile of a visible line as eight pairs of dot and half dot (`rr_ppu_tile_pair`) on the global PPU; the compiler reloads
+the fields after every store through a byte pointer, so the tiles were the largest share of a frame (28 to 38 % of the samples of Metroid's
+frame in a sampling profile, not a speed figure). A tile with no sprite output now goes through `rr_ppu_tile_bg`: the fetch pipeline (the bus
+address, the latch, the pattern address register, the planes), the shift registers, the colour pipeline and the scroll address are kept in
+locals for the eight dots and written back once, and the values every pair sets and the next overwrites (the bus signals, the cleared
+latches) are written once. Everything a pair does is done in the same order: the fields of the sprite evaluation stay in the PPU
+(`eval_objects()` reads and writes them), the cartridge's A12 hook (MMC1) sees the address of every dot where it can react (a change of A12),
+and the frame index gets the same pixels from the same colour pipeline. The nametable and CHR read is one function now,
+`rr_ppu_fetch_at`, which the old path uses as well. The first tile of the odd frame's first line (the dropped dot), a tile while the PPU
+open bus is decaying (its deadline counts dots) and a board that watches the bus other than the MMC1 keep the pairs. Tiles with a sprite
+unit about to output are unchanged.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py` compares the original machine with this one on the same authored activity (hidden CPU,
+PPU, frame, bus, memory and APU hashes and the sound, four alignments, mappers 0 to 153, NTSC and PAL, Zapper on and off): all pass. The harness fills the pattern memory with data (it was zeros, so a tile and a sprite fetched nothing different from byte to byte); with that data
+it caught a first version of the tile that had dropped the status latches of `advance_dot()` (vblank set, the `$2002` clear, `overflow_late`): every
+step now calls `advance_dot()` as the pairs do. A mutant of the attribute shift in the new tile is caught (positive control: the new path is exercised).
+On Metroid (USA), converted from this branch and from main: the per-frame lines (CPU, memory, hardware state, picture, sound) and the whole PCM
+(5,750,444 bytes) are identical over 3,600 frames of the boot and the two input routes; a quick state saved at frame 1200 and loaded in a new
+process gives the same memory, CPU, cycle count, hardware state and picture for the next 600 frames. **Not compared:** the sound after a quick
+state load (see the APU section: the headless command line refuses to save a state with the sound on, and a loaded state takes the sound
+switch of the run that saved it), one game on one board (the ROM-free check covers the others), no timing here (the performance specialist measures).
+
+**Stamps:** the NES **game** stamp moves (`nes_ppu_lazy.inc`) and **the NES quick-state key** (`prepare_machine` hashes the file; the saved
+layout is unchanged). The NES host stamp is unchanged.
+
+## NES: the sprite slots of the deferred PPU run in registers (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-slots`, stacked on the tile: it uses the tile's `rr_ppu_fetch_at`; on `spec/nes-perf-190` it is the third commit). The eight sprite slots of a visible line (dots 257 to 320: the dummy nametable fetches and the pattern fetches of the eight
+objects) went through `rr_ppu_slot_pair` eight times each on the global PPU. They now go through `rr_ppu_slot_run`: the fetch pipeline (the
+bus address, the latch, the pattern address register) and the colour pipeline in locals for the eight dots, written back once; the fields of
+the sprite loading stay in the PPU (`par_context()` is called as it was, with the pattern address register put in the PPU for the call),
+`advance_dot()` runs in every step, the A12 hook of an MMC1 sees the address of every dot where it can react, and a decaying open bus or a
+board that watches the bus other than the MMC1 keep the pairs. `rr_ppu_slot_pair` stays as the reference for those cases.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py`, original machine against this one: all pass. Its random activity almost never had a
+sprite in range (2,665 of its 2,800 checkpoints show only the empty secondary OAM), so it now has a **sprites mode**: OAM full of objects of
+every kind (clusters of nine on a line, 8 x 8 and 8 x 16, both pattern tables, flips, priority, the left-column masks), the pattern memory
+filled with data, frames run with no register access, the hidden PPU, the picture and the machine hashed every 331 cycles, 4 alignments x 12
+settings x 420 checkpoints on mappers 0, 1, 2 and 4, NTSC and PAL, Zapper on and off. It is part of the public checks (`native/nes_ppu_checks.c`, run by `tools/nes_ppu_selftest.py`, both in the publication list). It passes for the tile and the slots together, and a
+mutant of the horizontal flip test in a slot is caught (before the mode existed the same mutant was not: the harness did not reach the code).
+On Metroid (USA), converted from this branch and from main: the per-frame lines (CPU, memory, hardware state, picture, sound) and the whole
+PCM are identical over 3,600 frames of the boot and the two input routes, and a quick state saved at frame 1200 and loaded in a new process
+gives the same memory, CPU, cycles, hardware state and picture for the next 600 frames. **Not compared:** the sound after a quick state load
+(see the APU section), one game on one board for real games (the ROM-free check covers the others), no timing here (the performance
+specialist measures).
+
+**Stamps:** the NES game stamp and the NES quick-state key move with `nes_ppu_lazy.inc` (already moved by the tile; one file, one move); the
+NES host stamp is unchanged.
+
+## NES: the usual CPU cycle takes a short path (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-cycle`, on top of `spec/nes-perf-190`). `hw_cycle_start()` runs once per CPU cycle and was a function of
+2,384 bytes (the ticks of four alignments, the PAL ticks, the DMA loop): every call paid its prologue (three registers saved) although the usual cycle
+does very little. The usual cycle of an NTSC board on the deferred PPU clock, when its edges stay below the room the PPU may wait (`rr_ppu_due + 6 <
+rr_ppu_room`, so that no flush can fall between them), now takes a short path: the three runs of edges of `run_ticks_1_to_11` become one count
+(`5 + odd` edges) between the same two samples (the NMI input, the IRQ line), then the DMA test. A cycle that needs a flush, a DMA, a PAL board and
+the eager clock take the whole loop, unchanged, which moved out of line (`hw_cycle_start_loop`, not inlined; entered after the ticks when the short
+path found a DMA). In the compiled game the function now starts with no saved register on the short path and tail-jumps to the loop for the rest.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py`, all modes (the hidden-state checks, the APU runs and the sprites runs) pass on this branch, which
+carries the three commits below it; a mutant of the edge count (4 for 5) is caught at once. On Metroid (USA), converted from this branch and from main:
+the per-frame lines and the whole PCM are identical over 3,600 frames of the boot and the two input routes; a quick state saved at frame 1200 and
+loaded in a new process gives the same memory, CPU, cycles, hardware state and picture for the next 600 frames. **Not compared:** the sound after a
+quick-state load (see the APU section), one game on one board for real games, no timing here (the performance specialist measures).
+
+**Stamps:** the NES **game** stamp moves (`nes_machine.py`, which stages the machine) and **the NES quick-state key** (the staged `hw_machine.c` is hashed); the saved layout and the NES host stamp are unchanged.
+## NES: the sprite evaluation of a tile runs in registers (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-eval`, stacked on the slots). The tile of the deferred PPU (`rr_ppu_tile_bg`) already keeps the
+background fetch and colour pipeline in locals; the sprite evaluation of the same eight dots (the secondary OAM clear of dots 1 to 64 and the
+object evaluation of dots 65 to 256, `eval_objects`) still read and wrote the global PPU, so the compiler reloaded its fields at every dot. They
+now sit in the tile's locals too: the OAM address, the secondary OAM address and its full flag and reset counter, the evaluation tick and its
+three flags, the OAM buffer and its input, and the object row. `rr_eval_even` is `eval_objects(false)` on an even dot, statement for
+statement, on those locals; the flags the rest of the PPU reads between dots (`overflow`, `next_has_s0`) are still written to the PPU at once,
+and everything is written back after the eighth dot. The tile takes the pairs, as before, when the first line of an odd frame, a decaying open
+bus, a board that watches the bus other than the MMC1, rendering that is not settled, or a corruption latch (`oamc_disabled_now`) is in play.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py`, original machine against this one (the random activity, the APU mode and the sprites
+mode, which has the objects of every kind in range): all pass. Two mutants of `rr_eval_even` are caught by it (the overflow bug stepping by 4
+instead of 5, and the sprite 0 flag tested at dot 68 instead of 66). On Metroid (USA), converted from this commit and from the one below it: the per-frame lines (CPU, memory, hardware state, picture, sound) and
+the whole PCM are identical over 3,600 frames of the boot and the two input routes, and a quick state saved at frame 1200 and loaded in a new
+process gives the same memory, CPU, cycles, hardware state and picture for the next 600 frames. **Not compared:** the sound after a quick state load (see the APU section), one game on one board for real games, no timing
+here (the performance specialist measures).
+
+**Stamps:** the NES game stamp and the NES quick-state key move with `nes_ppu_lazy.inc` (one file, one move with the tile and the slots); the
+NES host stamp is unchanged.
 
 ## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (1.9.0)
 
@@ -1111,6 +1642,40 @@ guest's folder holds no save. Four seats with no save pass too; four seats with 
 same boot digest, then an exception in the smoke tool's link thread; reported to the multiplayer specialist). Not run: the two-PC run
 with a real save.
 guest's folder holds no save. The same with four seats on that file: PASS, the host's file equals the final memory of the four seats, its `.bak` equals the planted file, the guests write nothing. (Two earlier four-seat runs did not start, in the smoke tool's link thread; eight runs since, NBA Jam and Madden NFL 95, three and four seats, on the kit commits before and after the save rule and on this change, all pass.) Not run: the two-PC run with a real save.
+
+## Every machine: F2 groups the players behind one Controls tile and gains a Display mode tile (1.9.0)
+
+Arthur, 20 November 2026. F2's main page (titled **MENU**, a new text in the game languages) no longer lines up a keyboard
+tile and a pad tile per player: it opens on one **Controls** tile (`RR_ICON_CONTROLS`, the menu's small keyboard behind its
+small pad), then the machine's own page when it has one, Options, **Display mode**, and the tiles that followed before
+(Graphics, Chat, the turns' tiles, Restart, Quit). `rrhk_menu.c`:
+
+- **Controls** opens a sub-page titled CONTROLS with the players' tiles in lines of four, a player's keyboard then pad, two
+  players a line (two players: one line; three: four and two, player 3 under player 1; four: two lines of four). Each tile
+  opens the same page as before, with the same rules in a match; a page opened from it comes back to it. Esc, or the pad's
+  B, comes back to the main page with Controls selected.
+- **Display mode** is F4 (`rrhk_cycle_display`): each Enter moves to the next mode (window, pixel perfect, fit, stretched)
+  at once and saves it as F4 and the options do; a failure to enter fullscreen leaves the mode as it was. The menu stays
+  open; the tile's picture shows the current mode (`RR_ICON_DISPLAY_*`: a window, a picture with margins, the full height,
+  the whole screen) and the line under the tiles reads « F4 Display: » and the mode. Each player's own in a match, as F4.
+  The short notice is not shown over F2, whose line under the tiles names the mode instead.
+
+**Proof:** the kit's capabilities self-test (a new script: the main page and its title, the sub-page and its title, a page
+of player 2 and back to the sub-page, Esc and the pad's B back to the main page with Controls selected, four Enters on
+Display mode through the four modes and back to the window, each saved; the existing scripts reach the players' pages
+through the Controls tile). **Stamps:** no game stamp moves; the host stamp of the 21 profiles moves (every export is upgraded
+once, rebuilt, none converted again). **Existing exports:** unchanged until that upgrade.
+
+## Every machine: the Restart tile's icon redrawn, two arcs and their arrows (1.9.0)
+
+The F2 tile **Restart the game** had a ring of one-cell steps that read as broken dashes, with a lumpy arrowhead (Arthur, 20
+November 2026). `RR_ICON_RESTART` (`retro_menu.c`) is redrawn from geometry on its 30 x 18 grid: two quarters of a ring three
+cells thick (from nine to twelve o'clock and from three to six, cut square), each ending in one arrowhead of the accent gold,
+7 x 4 cells, axis-aligned so it stays a clean pixel triangle at every scale; the same gold and the same two tones as the other
+tiles. Arthur chose this one among three variants (a single thick arc, the double arc, the arc with a play mark), each
+captured in the real F2 menu at 1x, 2x and 3x beside the Quit, Pass and Give tiles. Only the picture changes: the tile, its
+place, its text and what it does are those of before. **Stamps:** no game stamp moves; the host stamp of the 21 profiles moves
+(every export is upgraded once, rebuilt, none converted again). **Existing exports:** unchanged until that upgrade.
 
 ## Every machine: a Restart the game tile in F2 (1.9.0)
 

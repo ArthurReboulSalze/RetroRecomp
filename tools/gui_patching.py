@@ -73,6 +73,7 @@ def keep_window_data_in(test, folder: Path) -> None:
     Without this, closing Options writes Retro-Recomp.json and the collection's refresh thread writes
     compiled-games.json into the player's real Export/datas. Starts the patches and stops them at the test's cleanup."""
     for patcher in (patch_gui('save_preferences'), patch_gui('data_directory', return_value=folder),
-                    patch('retrorecomp.compiled_games.data_directory', return_value=folder)):
+                    patch('retrorecomp.compiled_games.data_directory', return_value=folder),
+                    patch('retrorecomp.game_logs.logs_folder', return_value=folder / 'logs')):
         patcher.start()
         test.addCleanup(patcher.stop)

@@ -79,7 +79,7 @@ class SessionAdapterTextTests(unittest.TestCase):
         self.assertNotIn('time(', body)           # never this PC's time
 
     def test_a_silent_frame_has_no_sound_and_no_picture_and_a_session_frame_is_one_whole_frame(self):
-        self.assertIn('rrhk_session_silent() || g_rr_pcm.size()', self.ADAPTER)
+        self.assertIn('rrhk_session_silent() || g_rr_pcm_count + 2 > RR_GB_PCM_CAPACITY', self.ADAPTER)
         self.assertIn('!rrhk_window() || rrhk_session_silent()) return;', self.ADAPTER)
         self.assertIn('g_smooth_lcd_transitions && !rrhk_session_active()', self.ADAPTER)
 

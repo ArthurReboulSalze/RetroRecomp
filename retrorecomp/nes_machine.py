@@ -38,7 +38,7 @@ def _pal_ticks() -> str:
             '}\n')
 
 
-def _machine(source: str, *, fast_ppu: bool = True) -> str:
+def _machine(source: str, *, fast_ppu: bool = True, fast_apu: bool = True) -> str:
     source = replace_once(source, '#include "hw_internal.h"',
                           '#include "hw_internal.h"\n#include "retro_nes.h"')
     source = replace_once(source, 'if (k == 4) sample_nmi();',
@@ -61,6 +61,11 @@ def _machine(source: str, *, fast_ppu: bool = True) -> str:
                           '        }' if fast_ppu else
                           'if (!RR_NES_PAL && hw.tick == 1) run_ticks_1_to_11();')
     source = replace_once(source, 'while (hw.tick < 12)', 'while (hw.tick < RR_CPU_DIV)')
+    if fast_apu:
+        # The APU's cycles are counted and run together (nes_apu_batch.inc); an access runs them first.
+        source = replace_once(source, 'static void clock_cpu_devices(void)\n{\n    apu_cycle();\n}',
+            'extern unsigned rr_apu_pend, rr_apu_room;\nvoid rr_apu_run(void);\n'
+            'static inline void clock_cpu_devices(void)\n{\n    if (++rr_apu_pend < rr_apu_room) return;\n    rr_apu_run();\n}')
     source = replace_once(source, '    apu_power_on();',
                           '    apu_power_on();\n    rr_nes_zapper_reset();')
     source = replace_once(source, '        !nes_cart_variant_supported(&info)) return false;',
@@ -113,6 +118,25 @@ def _machine(source: str, *, fast_ppu: bool = True) -> str:
                           'uint64_t cyc_mem_state_hash(void)\n{', 'void cyc_mem_state_dump(void *file)\n{',
                           'uint64_t cyc_hw_state_hash(void)\n{', 'void cyc_hw_state_dump(void *file)\n{'):
             source = replace_once(source, signature, signature + '\n    rr_ppu_sync();')
+        # The usual cycle of an NTSC board on the deferred clock takes a short path: its edges stay below the room the PPU may wait, so
+        # the three runs of edges and the two samples of run_ticks_1_to_11 (a flush is the only thing between them) become one count and
+        # the two samples; a DMA, a flush, a PAL board or the eager clock take the whole loop, unchanged, out of line.
+        source = replace_once(source,
+            'void hw_cycle_start(uint16_t addr, HwCycleKind kind)\n{\n    hw.cpu_addr = addr;\n    hw.cpu_reading = kind == HW_READ;\n'
+            '    hw_dma_stalls = 0;\n    for (;;) {\n        if (RR_NES_PAL ? (hw.tick == 1 && rr_ppu_lazy) : hw.tick == 1) {',
+            'static void hw_cycle_start_loop(uint16_t addr, HwCycleKind kind, bool ticks_done);\n'
+            'void hw_cycle_start(uint16_t addr, HwCycleKind kind)\n{\n'
+            '    if (!RR_NES_PAL && hw.tick == 1 && rr_ppu_lazy && rr_ppu_due + 6u < rr_ppu_room) {\n'
+            '        hw.cpu_addr = addr;\n        hw.cpu_reading = kind == HW_READ;\n        hw_dma_stalls = 0;\n'
+            '        rr_ppu_due += 5u + (hw.align & 1u);   /* (1 + odd) + (2 - odd) + (2 + odd) edges */\n'
+            '        sample_nmi();\n        apu_sample_irq();\n        hw.tick = 0;\n        hw.pal_bus_pending = 1;\n'
+            '        if (!dma_wants_cycle()) return;\n        hw_cycle_start_loop(addr, kind, true);\n        return;\n    }\n'
+            '    hw_cycle_start_loop(addr, kind, false);\n}\n\n'
+            '#if defined(__GNUC__) || defined(__clang__)\n__attribute__((noinline))\n#endif\n'
+            'static void hw_cycle_start_loop(uint16_t addr, HwCycleKind kind, bool ticks_done)\n{\n'
+            '    hw.cpu_addr = addr;\n    hw.cpu_reading = kind == HW_READ;\n    hw_dma_stalls = 0;\n    for (;;) {\n'
+            '        if (ticks_done) ticks_done = false;\n'
+            '        else if (RR_NES_PAL ? (hw.tick == 1 && rr_ppu_lazy) : hw.tick == 1) {')
     return source + '\n#include "nes_machine_state.inc"\n'
 
 
@@ -270,7 +294,42 @@ static RrFourScore four;''')
     return source
 
 
-def _apu(source: str, *, fast_audio: bool = True) -> str:
+def _apu_batch(source: str) -> str:
+    """Deferred APU cycles (nes_apu_batch.inc): the cycles where nothing can happen run together, up to the next event.
+
+    The machine counts apu_cycle() calls (hw_machine.c) and runs them in bulk before anything looks at or changes the APU,
+    so the state at every access is the one the cycle-by-cycle machine has there."""
+    source = replace_once(source, 'enum { CH_PULSE1, CH_PULSE2, CH_TRIANGLE, CH_NOISE };',
+        'enum { CH_PULSE1, CH_PULSE2, CH_TRIANGLE, CH_NOISE };\n\n'
+        '/* Deferred cycles (nes_apu_batch.inc). */\n'
+        'unsigned rr_apu_pend, rr_apu_room = 1;\n'
+        'void rr_apu_flush_sync(void);\nvoid rr_apu_run(void);\nvoid rr_apu_reset(void);\nvoid rr_apu_touch(void);')
+    source = replace_once(source, '/* The IRQ output is the frame interrupt OR the DMC interrupt, so acknowledging',
+        '#include "nes_apu_batch.inc"\n\n/* The IRQ output is the frame interrupt OR the DMC interrupt, so acknowledging')
+    # What looks at the APU, or changes it, from outside apu_cycle(): the pending cycles run first.
+    for signature in ('size_t apu_audio_read(int16_t *out, size_t max)', 'uint8_t apu_read_status(void)',
+                      'uint8_t apu_read_controller(int port)', 'void apu_debug_set_noise(uint16_t lfsr, uint16_t timer)',
+                      'void apu_debug_dmc(ApuDmcView *v)', 'uint64_t apu_state_hash(uint64_t h)',
+                      'void apu_state_dump(void *file)'):
+        source = replace_once(source, signature + '\n{', signature + '\n{\n    rr_apu_touch();')
+    for old, new in (('bool apu_irq_output(void) { return', 'bool apu_irq_output(void) { rr_apu_touch(); return'),
+                     ('uint16_t apu_noise_lfsr(void) { return', 'uint16_t apu_noise_lfsr(void) { rr_apu_touch(); return'),
+                     ('void apu_debug_set_dmc_timer(uint16_t cycles) { apu.dmc_timer', 'void apu_debug_set_dmc_timer(uint16_t cycles) { rr_apu_touch(); apu.dmc_timer')):
+        source = replace_once(source, old, new)
+    source = replace_once(source, 'void dma_cycle(void)\n{', 'void dma_cycle(void)\n{\n    rr_apu_touch();')
+    # The sound switch changes how the pending cycles run: they run first. A write may change what the next ones do.
+    for signature in ('void apu_audio_enable(bool on, int sample_rate)', 'void apu_write(uint16_t addr, uint8_t value)'):
+        source = replace_once(source, signature + '\n{\n    rr_mix_dirty = true;',
+                              signature + '\n{\n    rr_apu_touch();\n    rr_mix_dirty = true;')
+    source = replace_once(source, 'void apu_power_on(void)\n{\n    rr_mix_dirty = true;',
+                          'void apu_power_on(void)\n{\n    rr_apu_reset();\n    rr_mix_dirty = true;')
+    source = replace_once(source, 'void rr_nes_apu_save(uint8_t *b) {', 'void rr_nes_apu_save(uint8_t *b) {\n    rr_apu_touch();')
+    source = replace_once(source, 'void rr_nes_apu_load(const uint8_t *b) {\n    rr_mix_dirty = true;',
+                          'void rr_nes_apu_load(const uint8_t *b) {\n    rr_apu_reset();\n    rr_mix_dirty = true;')
+    return source
+
+
+def _apu(source: str, *, fast_audio: bool = True, fast_apu: bool = True) -> str:
     source = replace_once(source, '#include "hw_internal.h"',
                           '#include "hw_internal.h"\n#include "retro_nes.h"')
     source = replace_once(source, '21477272.0 / 12.0', 'RR_CPU_HZ')
@@ -352,6 +411,8 @@ void apu_audio_enable(bool on, int sample_rate)''')
         rr_mix_dirty = false;
     }
     double level = rr_mix_level;''')
+        if fast_apu:
+            source = _apu_batch(source)
     return source
 
 
@@ -450,7 +511,7 @@ def state_audit(text) -> list[dict]:
 
 
 def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
-                    fast_audio: bool = True, fast_mmc1: bool = True) -> Path:
+                    fast_audio: bool = True, fast_mmc1: bool = True, fast_apu: bool = True) -> Path:
     from .feedback import stage
     project.mkdir(parents=True, exist_ok=True)
     stage(project, 'nes', '0'*64, cmake=False)
@@ -466,7 +527,7 @@ def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
             if path.suffix in ('.c', '.h', '.inc', '.cmake'):
                 data = data.replace(b'\r\n', b'\n')
             if name == 'runner/cyc/hw_machine.c':
-                data = _machine(data.decode('utf-8'), fast_ppu=fast_ppu).encode('utf-8')
+                data = _machine(data.decode('utf-8'), fast_ppu=fast_ppu, fast_apu=fast_apu and fast_audio).encode('utf-8')
             elif name == 'runner/cyc/hw_ppu.c':
                 data = _ppu(data.decode('utf-8'), fast_ppu=fast_ppu).encode('utf-8')
             elif name == 'common/nes_cart.h':
@@ -493,7 +554,7 @@ static inline void rr_ppu_sync(void) { if (rr_ppu_due) rr_ppu_flush(); }
                 else:
                     data += b'\nstatic inline void rr_ppu_sync(void) {}\n'
             elif name == 'runner/cyc/hw_apu.c':
-                data = _apu(data.decode('utf-8'), fast_audio=fast_audio).encode('utf-8')
+                data = _apu(data.decode('utf-8'), fast_audio=fast_audio, fast_apu=fast_apu).encode('utf-8')
             elif name == 'runner/cyc/hw_palette.c':
                 text = data.decode('utf-8').replace('#include "hw_internal.h"', '#include "hw_internal.h"\n#include "retro_nes.h"')
                 text = replace_once(text, '        if (hue > 13) level = 1;',
@@ -562,7 +623,7 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
     identity = hashlib.sha256()
     for name, data in sorted(identity_inputs.items()):
         identity.update(name.encode('utf-8')); identity.update(data)
-    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_ppu_lazy.inc', 'nes_sprite_extra.inc', 'nes_sprite_shift.h'):
+    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_ppu_lazy.inc', 'nes_apu_batch.inc', 'nes_sprite_extra.inc', 'nes_sprite_shift.h'):
         # As with the engine's files above: the key names the text, not the line ends of the checkout it was read from.
         identity.update((ASSETS / 'native' / name).read_bytes().replace(b'\r\n', b'\n'))
     _write(root / 'runner/cyc/nes_state_abi.h',

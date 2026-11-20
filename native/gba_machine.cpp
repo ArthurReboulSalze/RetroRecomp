@@ -38,6 +38,10 @@
 #include "multiplayer_session.h"
 #include "self_heal.h"
 
+// The engine's session fallback (our patch, docs/UPSTREAMS.md): an address with no generated function is run by the interpreter, one instruction at a time, counted.
+extern "C" int g_runtime_session_interp_fallback;
+extern "C" unsigned long long g_runtime_session_fallback_entries, g_runtime_session_fallback_distinct;
+
 namespace {
 
 constexpr int kWidth = 240, kHeight = 160;
@@ -516,6 +520,10 @@ int64_t link_clock() {
 bool link_build() {
     using namespace gbarecomp;
     const GbaNetplayBoot& boot = *g_link_boot;
+    // An address no generated function covers (the code only a cable runs, which a single player's observation never reaches) is run by the interpreter, counted, instead of stopping the
+    // match; RETRORECOMP_GBA_LINK_FALLBACK=0 is the test switch that brings the engine's own stop back (a maintainer's probe of the reviewed roots).
+    const char* fallback = getenv("RETRORECOMP_GBA_LINK_FALLBACK");
+    g_runtime_session_interp_fallback = fallback && atoi(fallback) == 0 ? 0 : 1;
     try {
         GbaSessionConfig config;
         GbaLinkGroup cable{GbaLinkMedium::Cable, {}};
@@ -601,6 +609,9 @@ int link_run(const gbarecomp::GbaNetplayLaunch&, const gbarecomp::GbaNetplayBoot
         if (const char* env = getenv("RETRORECOMP_SCALE")) scale = std::max(1, atoi(env));
         status = rrhk_main(rrhk_adapter(), RR_GBA_TITLE, scale);
         dump_picture();
+        // The counters of the fallback, apart from every fidelity and validation figure: native code only reaches 100 % when both are 0.
+        fprintf(stderr, "[host] link cable coverage: native entries missed %llu (%llu distinct), interpreted instructions %llu, reviewed roots %u console(s)\n",
+                g_runtime_session_fallback_entries, g_runtime_session_fallback_distinct, static_cast<unsigned long long>(interpreted_any()), static_cast<unsigned>(RR_GBA_LINK_SEATS));
     }
     if (g_rows) {
         fclose(g_rows);
@@ -948,13 +959,17 @@ int main(int argc, char** argv) {
     const char* cable = getenv("RETRORECOMP_NETPLAY_LINK");
     if (!cable) cable = getenv("RETRORECOMP_GBA_LINK");
     if (cable) {
-        // Only a cartridge with a reviewed row (retrorecomp/gba_link.py: RR_GBA_LINK_SEATS, the consoles its route was run with) may have a cable; any other plays on one
-        // console and its report says why. RETRORECOMP_GBA_LINK_FORCE is the test switch of a maintainer's run on a cartridge that has no row yet.
+        // Every cartridge may have a cable (two consoles; more only as far as a reviewed row of retrorecomp/gba_link.py ran its route: RR_GBA_LINK_SEATS). A cartridge with no row has no
+        // reviewed link roots: the code only the cable runs is interpreted, counted and listed in the log (never a stop of the match). RETRORECOMP_GBA_LINK_FORCE lifts the cap of consoles.
         const int seats = atoi(cable);
-        const unsigned ready = getenv("RETRORECOMP_GBA_LINK_FORCE") ? 4u : static_cast<unsigned>(RR_GBA_LINK_SEATS);
-        if (seats >= 2 && seats <= 4 && static_cast<unsigned>(seats) <= ready) g_link_seats = static_cast<unsigned>(seats);
-        else if (seats >= 2)
-            fprintf(stderr, "[host] the link cable is refused: this game is ready for %u console(s) on a cable (coverage.link_cable of its report); it plays on one console\n", ready);
+        const unsigned reviewed = static_cast<unsigned>(RR_GBA_LINK_SEATS);
+        const unsigned ready = getenv("RETRORECOMP_GBA_LINK_FORCE") ? 4u : std::max(2u, reviewed);
+        if (seats >= 2 && seats <= 4 && static_cast<unsigned>(seats) <= ready) {
+            g_link_seats = static_cast<unsigned>(seats);
+            if (!reviewed)
+                fprintf(stderr, "[host] link cable: no reviewed link roots for this game: the code only the cable runs is interpreted (counted, listed below)\n");
+        } else if (seats >= 2)
+            fprintf(stderr, "[host] the link cable is refused: at most %u console(s) on a cable for this game (coverage.link_cable of its report); it plays on one console\n", ready);
     }
     open_rows();
     parse_shots();

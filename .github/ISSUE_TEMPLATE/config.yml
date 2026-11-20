@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions, help and talk (Discord)
+    url: https://discord.gg/VZeJYfNZgz
+    about: The RetroRecomp Discord server. For a bug, attach the game's conversion report; never a ROM or a converted game.

@@ -22,6 +22,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 BOARDS = {'players4': 4, 'players2': 2}
+# A hang, not a speed: each board runs paced at the machine's 60 Hz and holds real seconds (two holds measured on SDL's
+# clock), about four seconds a board on a quiet PC; with every core busy with conversions a paced run starves for CPU and
+# its wall time grows several times over (the capabilities self-test went from 22 s to 70 s, 20 Nov 2026). The same bound
+# as tools/hostkit_capabilities_selftest.py, so a full suite under load does not fail on time alone.
+HANG_SECONDS = 240
 
 
 def ready() -> str | None:
@@ -57,7 +62,7 @@ def cmake_text(out: Path) -> str:
     return '\n'.join(lines) + '\n'
 
 
-def run_checks(out: Path, timeout: int = 60) -> dict:
+def run_checks(out: Path, timeout: int = HANG_SECONDS) -> dict:
     """Build both boards in `out`, run them, return {board: (exit code, output, seconds)}."""
     from retrorecomp.core import run, toolchain
     from retrorecomp.platforms import build_executable, cmake_target_args, sdl_install

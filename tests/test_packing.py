@@ -311,7 +311,7 @@ class LinuxPackingTests(unittest.TestCase):
         self.assertEqual({options['timeout'] for _, options in calls}, {packing.LINUX_TIMEOUT})
 
     def test_the_linux_method_is_one_constant_and_changes_nothing_while_it_is_nrv(self):
-        self.assertEqual((packing.LINUX_METHOD, packing.WINDOWS_METHOD), ('nrv', 'lzma'))
+        self.assertEqual((packing.LINUX_METHOD, packing.WINDOWS_METHOD), ('nrv', 'nrv'))
         self.assertEqual(packing.METHOD_FLAGS, {'nrv': (), 'lzma': ('--lzma',)})
         with patch.object(packing, 'LINUX_METHOD', 'lzma'):
             calls = self.run_packer()
@@ -479,7 +479,7 @@ class WindowsPackingTests(unittest.TestCase):
     def setUp(self):
         self.addCleanup(packing._CALL_FILTER_USED.clear)
 
-    def test_windows_games_are_packed_with_lzma_and_the_same_other_flags(self):
+    def test_windows_games_are_packed_with_nrv_and_the_same_other_flags(self):
         with tempfile.TemporaryDirectory() as folder:
             game = Path(folder) / 'Game.exe'
             game.write_bytes(b'MZ')
@@ -487,7 +487,7 @@ class WindowsPackingTests(unittest.TestCase):
                        return_value=SimpleNamespace(returncode=0, stdout='', stderr='')) as run:
                 packing.compact_executable(game)
         self.assertEqual([call.args[0][1:] for call in run.call_args_list],
-                         [('-9', '--lzma', '--compress-resources=0', '--compress-icons=0', str(game)), ('-t', str(game))])
+                         [('-9', '--compress-resources=0', '--compress-icons=0', str(game)), ('-t', str(game))])
         self.assertEqual({Path(call.args[0][0]) for call in run.call_args_list}, {ASSETS / 'assets/tools/upx.exe'})
         for call in run.call_args_list:
             self.assertEqual((call.kwargs['timeout'], call.kwargs['creationflags']),
@@ -540,8 +540,8 @@ class WindowsPackingTests(unittest.TestCase):
                     patch('retrorecomp.packing.time.sleep') as sleep:
                 self.assertIsNone(packing.compact_executable(game, emit=lambda text: self.fail(text)))
             commands = [call[0] for call in started]
-            self.assertEqual(commands, [('-9', '--lzma', '--compress-resources=0', '--compress-icons=0', str(game)),
-                                        ('-9', '--lzma', '--compress-resources=0', '--compress-icons=0', str(game)),
+            self.assertEqual(commands, [('-9', '--compress-resources=0', '--compress-icons=0', str(game)),
+                                        ('-9', '--compress-resources=0', '--compress-icons=0', str(game)),
                                         ('-t', str(game))])
             self.assertEqual(started[1][1:], (len(bytes(64)), True))      # the validated build was put back first
             sleep.assert_called_once_with(packing.DEFENDER_RETRY_WAIT)
@@ -629,7 +629,7 @@ class WindowsPackingTests(unittest.TestCase):
             game = Path(folder) / 'Game.exe'
             game.write_bytes(b'MZ UPX! packed')
             identity = {'bytes': 100, 'sha256': '0' * 64}
-            self.assertEqual(packing.packing_record(identity, game)['method'], 'lzma')
+            self.assertEqual(packing.packing_record(identity, game)['method'], 'nrv')
             game.write_bytes(b'MZ as built')
             self.assertIsNone(packing.packing_record(identity, game)['method'])      # not packed: no method
 

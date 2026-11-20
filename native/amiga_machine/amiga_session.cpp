@@ -946,11 +946,23 @@ static uint64_t fnv(uint64_t h, const void *data, size_t n) {
     return h;
 }
 
+extern "C" uint64_t rr_amiga_frame_count(const RrAmigaSession *s) { return s->frame; }
+
+extern "C" void rr_amiga_frame_seen(const RrAmigaSession *s, RrAmigaFrameInfo *info) {
+    Amiga &amiga = *s->amiga;
+    memset(info, 0, sizeof *info);
+    info->frame = s->frame;
+    info->pc = amiga.cpu.getPC(); info->sr = amiga.cpu.getSR();
+    for (int i = 0; i < 8; i++) { info->d[i] = amiga.cpu.getD(i); info->a[i] = amiga.cpu.getA(i); }
+    info->samples = (uint32_t)(s->pcm.size() / 2);
+    for (size_t i = 0; i < s->pcm.size() && !info->audible; i++) info->audible = s->pcm[i] != 0;
+    for (size_t i = 0; i < (size_t)RR_AMIGA_PICTURE_WIDTH * s->rows && !info->nonblack; i++) info->nonblack = (s->picture[i] & 0xFFFFFFu) != 0;
+}
+
 extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *info) {
     Amiga &amiga = *s->amiga;
     const uint64_t basis = 1469598103934665603ull;
-    memset(info, 0, sizeof *info);
-    info->frame = s->frame;
+    rr_amiga_frame_seen(s, info);
     // The picture the player shows (every row of it is drawn each frame), not vAmiga's whole texture: the texture's
     // blanking lines are not redrawn every frame, so after a quick state is loaded they still hold what the new process
     // drew before (North And South showed it on the first frame after a load), which is no part of the game's picture.
@@ -960,11 +972,6 @@ extern "C" void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *i
     if (amiga.mem.slow) ram = fnv(ram, amiga.mem.slow, (size_t)amiga.mem.slowRamSize());
     if (amiga.mem.fast && amiga.mem.fastRamSize()) ram = fnv(ram, amiga.mem.fast, (size_t)amiga.mem.fastRamSize());
     info->ram = ram;
-    info->pc = amiga.cpu.getPC(); info->sr = amiga.cpu.getSR();
-    for (int i = 0; i < 8; i++) { info->d[i] = amiga.cpu.getD(i); info->a[i] = amiga.cpu.getA(i); }
-    info->samples = (uint32_t)(s->pcm.size() / 2);
-    for (size_t i = 0; i < s->pcm.size() && !info->audible; i++) info->audible = s->pcm[i] != 0;
-    for (size_t i = 0; i < (size_t)RR_AMIGA_PICTURE_WIDTH * s->rows && !info->nonblack; i++) info->nonblack = (s->picture[i] & 0xFFFFFFu) != 0;
 }
 
 extern "C" int rr_amiga_set_native(RrAmigaSession *s, int enabled) {

@@ -24,9 +24,9 @@ which is not the same measure.
 
 | | |
 |---|---|
-| **Controls** | Each player has their own controller on the machine's ports, up to four players. On the handhelds (Game Boy, Game Gear, Game Boy Advance) the players share the one set of controls (**Everyone** at once, or **Turns**: one player at a time), or play over the **link cable** (below). |
+| **Controls** | Three modes on every machine: **One controller per player**, **Everyone** (shared controls, all at once) and **Turns** (shared controls, one player at a time). One controller per player puts each player on the machine's ports, up to four players. On the handhelds (Game Boy, Game Gear, Game Boy Advance) it is their **link cable** (below), said under the choice; there is no separate « link » mode. |
 | **Turns** | The player who has the controller passes it with F2's **Pass the controller** tile; the host gives it to anyone (**Give the controller to…**) and switches between Everyone and Turns, in the game or in the Multiplayer window. A badge shows who has it (it can be hidden in F2's options). |
-| **Link cable** | On the Game Boy, the Game Gear and the Game Boy Advance, **Link cable (one console per player)**: each player plays their own console, linked as by a real cable. Every PC runs every console, so only the controllers travel, and each PC shows and plays the sound of its own player's console (F2 says « You are P2 »). Two consoles. Every console starts from the host's save, and only the host's console's save is written back at the end. On the Game Boy Advance, a game links only when its cable code has been reviewed (today: Mario Kart: Super Circuit); the others play shared. |
+| **Link cable** | On the Game Boy, the Game Gear and the Game Boy Advance, **One controller per player** plays over the link cable: each player plays their own console, linked as by a real cable. Every PC runs every console, so only the controllers travel, and each PC shows and plays the sound of its own player's console (F2 says « You are P2 »). Two consoles. Every console starts from the host's save, and only the host's console's save is written back at the end. On the Game Boy Advance every game links: the code only the cable runs is interpreted when the game's cable code has not been reviewed (counted and written in the game's log, never a stop of the match). Single-Pak (multiboot) link modes, where one cartridge sends its game to consoles that have none (Bomberman Tournament's Group mode, Mario Kart's one-cartridge race), are not supported yet. |
 | **Smooth mode (rollback)** | The game does not wait for the other players' buttons. It guesses them and corrects itself at once when the true ones arrive, so a far player does not slow the game down. Up to five frames are guessed; a slower link adds input delay instead. |
 | **Delay mode** | Every PC waits for every player's buttons, one or two frames on a local network. It is used for the PlayStation, the Nintendo 64 and the Game Boy Advance, and for any game that cannot rewind. |
 | **Pause** | The pause and the menus (F1, F2) pause the match for everyone. The player who paused, or the host, resumes it. |
@@ -55,7 +55,7 @@ match. On the PlayStation, a disc cannot be changed during a match.
 | CPS-1, CPS-1.5, CPS-2 | smooth | up to 4 | |
 | MSX, MSX2, MSX2+ | smooth | 2 | the host types on the keyboard |
 | Game Boy | smooth | shared, or 2 by link cable | |
-| Game Boy Advance | delay | shared, or 2 by link cable | the cable on reviewed games |
+| Game Boy Advance | delay | shared, or 2 by link cable | the cable on every game (not Single-Pak) |
 | Amiga 500 and 1200 | smooth | 2 | the host types on the keyboard |
 | Atari ST | smooth | 2 | the host types on the keyboard |
 | X68000 | smooth | 2 | the host types on the keyboard |
@@ -105,3 +105,15 @@ Every seat folds the inputs it was given into a running digest, and compares a d
 host's every second. Before the first frame, the state after setup is compared too: a different save, option or firmware
 is refused with its reason. Each machine's rewinding was proven on real games run as two copies with simulated latency
 and lost packets, and on two PCs on a home network. The results are in [UPGRADES.md](UPGRADES.md).
+
+## When a game closes by itself
+
+Each PC keeps what happened in the converter's `datas/logs` folder. Nothing in it is ever sent anywhere.
+
+- `room.log`: the room's events, the host's and the guest's, with one line per match saying how it ended: the outcome, the
+  game's exit code and the game's own reason line, for example
+  « match 5 over: broke (the machine stopped), exit 0 - [host] the link cable stopped: … ».
+- `games/`: what each game started by the converter wrote (multiplayer, Compiled Games, the Front-end), one file per
+  launch. Each file is cut to its last 64 KB and only the 20 most recent are kept.
+
+Attach the room log and the game's file to a problem report when a match ends on its own.

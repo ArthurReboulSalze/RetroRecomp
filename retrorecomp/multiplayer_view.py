@@ -28,13 +28,12 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import tempfile
 import threading
 import tkinter as tk
 from tkinter import font as tkfont, messagebox, ttk
 
 from .branding import COLORS
-from .dialogs import center_dialog
+from .dialogs import center_dialog, fit_size
 from .ui_fonts import scaled
 from .rounded_ui import Look, RoundButton
 
@@ -162,14 +161,16 @@ class MultiplayerWindow:
         self.action_role = None
         self.first_pick = pick              # an inventory entry chosen before the window opened (Compiled Games, right-click)
         self.hidden = hidden
-        self.log_dir = Path(tempfile.gettempdir()) / 'retro-recomp-netplay'
+        # datas/logs: the room log, the worker's own text and the games' lines (game_logs), where a player finds them
+        from .game_logs import logs_folder
+        self.log_dir = logs_folder()
         window = self.window = tk.Toplevel(app.app)
         if hidden:                          # tests: built and driven, never mapped
             window.withdraw()
         window.title(self.tr('mp_title'))
         window.configure(bg=BG)
         center_dialog(window, app.app, WIDTH, HEIGHT)
-        window.minsize(min(scaled(window, 820), window.winfo_screenwidth() - 40), min(scaled(window, 600), window.winfo_screenheight() - 90))
+        window.minsize(*fit_size(window, 820, 600))
         window.protocol('WM_DELETE_WINDOW', self.ask_close)
         self.make_styles()
         self.mode = tk.StringVar(value='local')
@@ -525,23 +526,18 @@ class MultiplayerWindow:
                 self.label(parent, f'mp_sharing_{mode}_help', muted=True, size=8, bg=CARD, wrap=430).pack(
                     anchor='w', padx=(22, 0))
         note = self.label(parent, 'mp_sharing_handheld', muted=True, size=9, bg=CARD, wrap=430)
-        # a handheld with its link proven: the first mode is the link cable, with its own line of help
+        # a handheld with a link cable: « One controller per player » plays through it, said in a line under it
         note.link_help = self.label(parent, 'mp_sharing_link_help', muted=True, size=8, bg=CARD, wrap=430)
         return buttons, note
 
     def draw_sharing_choice(self, buttons, note, variable, machine, usable=True):
-        """A handheld whose link is not proven greys « One controller per player » and says why (a choice of it moves to
-        « Everyone »: returns True then); one whose link is proven names that mode « Link cable: one console per player »,
-        with its line of help."""
+        """The same three modes on every machine (Arthur, 20 Nov 2026). On a handheld with a link cable (GB, GG, GBA)
+        « One controller per player » keeps its name and value and says under it that it plays through the link cable: the
+        room plays it as the cable (seat_map.effective). A handheld without a cable greys it and says why (a choice of it
+        moves to « Everyone »: returns True then)."""
         shared, link = handheld(machine)
         greyed = shared and not link
-        buttons['per_player'].configure(text=self.tr('mp_sharing_link' if link else 'mp_sharing_per_player'),
-                                        value=LINK if link else 'per_player')
-        # the room's value follows the console: « one console per player » is 'link' on a linked handheld, 'per_player'
-        # elsewhere (a 'per_player' on a handheld would be played as « everyone »)
-        if link and variable.get() == 'per_player':
-            variable.set(LINK)
-        elif not link and variable.get() == LINK:
+        if variable.get() == LINK:          # a room opened by a release that offered the cable as a fourth mode
             variable.set('per_player')
         for mode, button in buttons.items():
             button.state(['disabled'] if not usable or (greyed and mode == 'per_player') else ['!disabled'])
@@ -553,7 +549,7 @@ class MultiplayerWindow:
             note.link_help.pack(anchor='w', padx=(22, 0), after=buttons['per_player'])
         else:
             note.link_help.pack_forget()
-        if greyed and variable.get() in ('per_player', LINK):
+        if greyed and variable.get() == 'per_player':
             variable.set('everyone')
             return True
         return False
@@ -991,8 +987,10 @@ class MultiplayerWindow:
         # the host's: the console, then one of its games (choosing a console alone leaves the room's game as it is)
         self.lobby_console = tk.StringVar()
         self.lobby_console_box = ttk.Combobox(row, textvariable=self.lobby_console, state='readonly', width=18)
-        self.lobby_console_box.bind('<<ComboboxSelected>>', lambda event: self.fill_games(
-            self.lobby_game_box, self.lobby_game, self.system_of(self.lobby_console), placeholder=self.tr('mp_pick_game')))
+        self.lobby_console_box.bind('<<ComboboxSelected>>', lambda event: (self.fill_games(
+            self.lobby_game_box, self.lobby_game, self.system_of(self.lobby_console), placeholder=self.tr('mp_pick_game')),
+            self.draw_sharing_choice(self.lobby_sharing_buttons, self.lobby_sharing_note, self.lobby_sharing,
+                                     self.system_of(self.lobby_console))))
         self.lobby_game = tk.StringVar()
         self.lobby_game_box = ttk.Combobox(row, textvariable=self.lobby_game, state='readonly', width=26)
         self.lobby_game_box.bind('<<ComboboxSelected>>', lambda event: self.pick(
@@ -1248,7 +1246,7 @@ class MultiplayerWindow:
             self.drawn_game, self.version = None, -1        # the next poll shows the room's game again
 
     def set_sharing(self, mode):
-        """The host's control mode for the room: one of MODES ('link' only on a linked handheld)."""
+        """The host's control mode for the room: one of SHARINGS ('per_player' on a handheld with a cable is its link cable)."""
         if self.controller is not None and mode in MODES:
             self.controller.set_sharing(mode)
 
@@ -1421,8 +1419,12 @@ class MultiplayerWindow:
             self.drawn_game = shown
             for box in (self.lobby_console_box, self.lobby_game_box):
                 box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
-            self.lobby_sharing.set(sharing if sharing in MODES else 'per_player')
-            moved = self.draw_sharing_choice(self.lobby_sharing_buttons, self.lobby_sharing_note, self.lobby_sharing, machine,
+            # the room says 'link' for « one controller per player » on a handheld with a cable: the same radio button
+            self.lobby_sharing.set(sharing if sharing in SHARINGS else 'per_player')
+            # the console chosen in the box, while the host looks for one of its games (the PlayStation chosen after a GBA game
+            # no longer shows the GBA's cable note: Arthur, 20 Nov 2026)
+            chosen = (self.system_of(self.lobby_console) if phase == 'lobby' else None) or machine
+            moved = self.draw_sharing_choice(self.lobby_sharing_buttons, self.lobby_sharing_note, self.lobby_sharing, chosen,
                                              usable=phase == 'lobby')
             if moved and phase == 'lobby' and self.sharing_moved != (game or {}).get('title'):
                 self.sharing_moved = (game or {}).get('title')      # once per game: the room plays it shared anyway
@@ -1439,9 +1441,12 @@ class MultiplayerWindow:
             self.lobby_game_text.pack(side='left')
             self.mode_frame.pack_forget()
             self.mode_line.pack(fill='x', pady=(6, 0))
-            shown = 'everyone' if sharing in ('per_player', LINK) and shared_only(machine) else sharing
-            self.lobby_mode_text.configure(text=self.tr('mp_sharing') + ' : ' + self.tr('mp_sharing_' + shown)
-                                           if shown in MODES else '')
+            shown = 'per_player' if sharing == LINK else sharing
+            shown = 'everyone' if shown == 'per_player' and shared_only(machine) else shown
+            text = self.tr('mp_sharing') + ' : ' + self.tr('mp_sharing_' + shown) if shown in SHARINGS else ''
+            if text and shown == 'per_player' and handheld(machine)[1]:
+                text += ' · ' + self.tr('mp_sharing_link')        # « link cable »: how a handheld plays it
+            self.lobby_mode_text.configure(text=text)
         self.game_machine.pack(side='left', padx=(10, 0), pady=(3, 0))
 
     def draw_seats(self, players, me, seats_max, checks, host, phase):

@@ -11,6 +11,7 @@ from retrorecomp import gameboy_runtime as runtime
 from retrorecomp.core import ConversionError
 
 PINNED_AUDIO = Path(__file__).resolve().parents[1] / '.deps' / 'gb-recompiled' / 'runtime' / 'src' / 'audio.c'
+PINNED_PPU = PINNED_AUDIO.with_name('ppu.c')
 RESET = '    if (ctx->ppu) {\n        ppu_reset((GBPPU*)ctx->ppu, ctx);\n    }\n}'
 SERIAL = '                ctx->serial_transfer.cycles_remaining =\n                    ctx->serial_transfer.fast_clock ? 128u : 4096u;\n'
 
@@ -71,13 +72,14 @@ class AudioPatchMarkerTests(unittest.TestCase):
                         patch(moved)
 
 
-@unittest.skipUnless(PINNED_AUDIO.exists(), 'the engine checkout is not present')
+@unittest.skipUnless(PINNED_AUDIO.exists() and PINNED_PPU.exists(), 'the engine checkout is not present')
 class SoundUnitTests(unittest.TestCase):
     def patched(self) -> str:
         with tempfile.TemporaryDirectory() as folder:
             project = Path(folder)
             (project / 'runtime' / 'src').mkdir(parents=True)
             shutil.copyfile(PINNED_AUDIO, project / 'runtime' / 'src' / 'audio.c')
+            shutil.copyfile(PINNED_PPU, project / 'runtime' / 'src' / 'ppu.c')      # adapt_hardware patches the PPU too
             hardware.adapt_hardware(project)
             return (project / 'runtime' / 'src' / 'audio.c').read_text(encoding='utf-8')
 

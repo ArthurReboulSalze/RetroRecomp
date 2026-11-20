@@ -163,15 +163,15 @@ class Plan:
 
 def plan(pairs: dict[tuple[int, int], Observed], table: Handlers) -> Plan:
     """The words seen at each address, most run first (code loaded over other code: overlays, a later disc), up to
-    MAX_VARIANTS. The words of one rank form runs of consecutive addresses, cut where an address was entered other than from
-    the instruction before it (a branch target, a return, a vector) and every MAX_RUN instructions."""
+    MAX_VARIANTS. The words of one rank form runs of consecutive addresses, cut only where the next address was not seen and
+    every MAX_RUN instructions. An address entered other than from the instruction before it (a branch target, a return, a
+    vector) stays inside its run: a step is entered at any address of its run through its entry switch. Before 1.9.0 a run was
+    cut there too, and an interrupt returns to any address of a hot loop, so almost every address of one was marked entered:
+    three quarters of the instructions ran in steps of one or two, each leaving through the interpreter's loop head."""
     variants: dict[int, list] = {}
-    entered: set[int] = set()
     for (address, word), seen in pairs.items():
         if not executable(address) or address & 3:
             continue
-        if seen.entered:
-            entered.add(address)
         if table.name(word) != 'INTERRUPT':
             variants.setdefault(address, []).append((-seen.count, word, seen))
     for found in variants.values():
@@ -181,7 +181,7 @@ def plan(pairs: dict[tuple[int, int], Observed], table: Handlers) -> Plan:
         current = None
         for address in sorted(a for a, found in variants.items() if len(found) > rank):
             word = variants[address][rank][1]
-            if current is None or address in entered or address != current[2][-1][0] + 4 or len(current[2]) >= MAX_RUN:
+            if current is None or address != current[2][-1][0] + 4 or len(current[2]) >= MAX_RUN:
                 current = (address, rank, [])
                 steps.append(current)
             current[2].append((address, word))

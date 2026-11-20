@@ -67,6 +67,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Multiplayer: host or join a room, local or Internet (the lobby of retrorecomp/netplay); its
                                # rounded cards and round button (rounded_ui, Pillow pictures, proposal A of 19 Nov 2026).
                                'gui_multiplayer', 'multiplayer_view', 'rounded_ui',
+                               # What a game the converter starts says (datas/logs/games, cut to 64 KB, 20 kept): no game reads it.
+                               'game_logs',
                                # The converter's rounded look (8 px): one skin for every ttk button, field, check box, frame and
                                # scroll thumb, built with Pillow; rounded_ui's pill buttons ask it (Arthur's pick of 19 Nov 2026).
                                'rounded_skin',
@@ -313,7 +315,9 @@ NOT_INPUTS = (
     # The MSX2 fixtures (stage 6): the V9938's registers, modes and sprites and the MSX2 board, checked by hand-worked values.
     'native/msx_machine/msx2_checks_',
     # The MSX2+ fixtures: the V9958's registers, ID, scroll and YJK colours, checked by hand-worked values.
-    'native/msx_machine/msx2plus_checks.c')
+    'native/msx_machine/msx2plus_checks.c',
+    # MSX-MUSIC's quiet step against emu2413's own sample, sample by sample (a check only; run again after a bump of emu2413).
+    'native/msx_machine/msx_music_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
@@ -506,6 +510,8 @@ INPUTS = _resolve({
         'native/gb_link.h',
         'native/gb_link_checks.c',
         'native/gb_machine_checks.c',
+        'native/gb_ppu_object_span.h',
+        'native/gb_ppu_span_checks.c',
         'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
@@ -539,6 +545,7 @@ INPUTS = _resolve({
         'native/nes_ppu_checks.c',
         'native/nes_ppu_fast.inc',
         'native/nes_ppu_lazy.inc',
+        'native/nes_apu_batch.inc',
         'native/nes_ram.inc',
         'native/nes_ram_sweep_checks.c',
         'native/nes_sprite_extra.inc',
@@ -703,6 +710,7 @@ INPUTS = _resolve({
         'native/neogeo_reference.h',
         'native/neogeo_sound_checks.c',
         'native/neogeo_sprite_decode.h',
+        'native/neogeo_sprite_scan.h',
         'native/neogeo_state.c',
         'native/neogeo_state_validate.c',
         'native/neogeo_timer_checks.c',
@@ -1011,6 +1019,10 @@ INPUTS = _resolve({
     ('pce',): (
         'native/pce_backup.c',
         'native/pce_backup.h',
+        'native/pce_engine/pcm.cpp',
+        'native/pce_engine/raster.cpp',
+        'native/pce_engine/scanline.cpp',
+        'native/pce_engine/video.cpp',
         'native/pce_machine.cpp',
         'native/pce_machine.h',
         'native/pce_machine_internal.hpp',

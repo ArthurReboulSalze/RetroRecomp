@@ -51,6 +51,7 @@ def sf2_rom() -> bytes:
 
 def build(project: Path) -> Path:
     from retrorecomp import core
+    from retrorecomp import pce_build
     from retrorecomp.pce_build import checkout_path, ensure_engine
     from retrorecomp.platforms import build_executable
     ensure_engine(print)
@@ -68,6 +69,7 @@ def build(project: Path) -> Path:
         'set(PCE_BUILD_TESTS OFF CACHE BOOL "" FORCE)',
         'set(PCE_BUILD_DESKTOP OFF CACHE BOOL "" FORCE)',
         f'add_subdirectory("{engine}" engine EXCLUDE_FROM_ALL)',
+        *pce_build.engine_patch_lines(engine, f'{native}/pce_engine'),
         f'pce_add_native_module(PCE_MODULE MODULE "{engine}/runtime/src/no_module.cpp")',
         'get_target_property(PCE_MODULE_SOURCES ${PCE_MODULE} SOURCES)',
         'add_library(pce_module OBJECT ${PCE_MODULE_SOURCES})',
