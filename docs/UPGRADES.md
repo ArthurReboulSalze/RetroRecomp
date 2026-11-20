@@ -139,6 +139,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Windows packing: the call filter's last candidate](#windows-packing-the-call-filters-last-candidate-190) | none | **the build stamp of every profile** (`retrorecomp/packing.py` is a build input) | unchanged |
 | [Game Gear: the Gear-to-Gear cable, two consoles in one process](#game-gear-the-gear-to-gear-cable-two-consoles-in-one-process-190) | **the Game Gear game stamp** (`gg_ext.h`, `gg_link.inc`), and every console's through `retrorecomp/core.py` | the Master System and Game Gear host stamp (`rrhk_sms.c`) | unchanged (the layouts do not move; quick states are refused while linked) |
 | [Atari ST: multiplayer on the rollback tier](#atari-st-multiplayer-on-the-rollback-tier-190) | **the Atari ST game stamp** (`atarist_hatari_rollback.py`, `atarist_snapshot.h`) | the Atari ST host stamp (`rrhk_atarist.inc`) | the Atari ST key moves (it hashes every input) |
+| [Atari ST: the conversion's validation hashes the picture and the RAM by 64-bit words](#atari-st-the-conversions-validation-hashes-the-picture-and-the-ram-by-64-bit-words-190) | **the Atari ST game stamp and engine identity** (`atarist_session.c`: the engine identity hashes it, so every qualified Atari ST path waits again) | none | the Atari ST quick-state key moves (it hashes the engine); an older state is refused |
 | The Internet room is on in the converter (« Local » or « Internet » when you host; [MULTIPLAYER.md](MULTIPLAYER.md#playing-over-the-internet); no section of this page; commit `1414d571`) | none | none (`retrorecomp/netplay/` is the converter's, outside the stamps) | none |
 | The converter's window: the toolbar, the Convert button, the Multiplayer window, the front-end's covers no longer blurred (no section of this page; merges `23c1a0aa`, `4c405e31`, `02ba7d2a`, `206a41b4`) | none | none (interface modules, outside the stamps) | none |
 | [Master System and Game Gear: rollback snapshot and the frame handed over at an instruction boundary](#master-system-and-game-gear-rollback-snapshot-and-the-frame-handed-over-at-an-instruction-boundary-190) | **the game stamp of all nine consoles of the shared runtime** (`gamestate.inc`, `gamestate.h`, `state_io.h`, `psg_state.inc`; `video_mode4.inc` the pair's own) | the Master System and Game Gear host stamp | unchanged (format and keys) |
@@ -529,6 +530,36 @@ guest's folder holds no file; with the 200-sector table the file is left as it w
 
 **Stamps:** the Atari ST's game stamp (the adaptation of Hatari: `atarist_hatari_rollback.py`, `atarist_snapshot.h`) and host stamp (the
 adapter `rrhk_atarist.inc`); nothing else. The Hatari adaptation digest moves: the machine core is built again once.
+
+## Atari ST: the conversion's validation hashes the picture and the RAM by 64-bit words (1.9.0)
+
+Every frame of a validation run (the fresh reference, the native game, the packed copy, the quick-state continuation) takes digests of the
+picture (about 430 KB) and of the RAM (1 MiB) for its trace, byte by byte (FNV-1a). A sampling profile of a headless run put 74 % of its time
+there. `rr_st_frame_info` now hashes them with four lanes of 64-bit words (little-endian, the same value on every host); the sound's digest,
+which is small, stays byte by byte. The machine, the picture, the sound and the player's loop do not change: the hash lives only in the
+headless path (no host kit, no rollback; the multiplayer digest is `rr_st_snapshot_digest`).
+
+**Who compares these values:** only runs of one conversion, file against file (native against the fresh reference, the packed copy against
+it, a resumed state against its timeline). `trace_digests` writes the sha256 of the columns into the report's `final_checks` as a record that
+nothing reads back from another version; no test or tool pins a value; qualified paths and shared paths carry instruction words, not digests.
+
+**What it costs, said plainly:** `atarist_session.c` is in the Atari ST engine identity (`NATIVE_INPUTS` of `atarist_knowledge.engine()`), so
+the identity moves with this change (it had not moved since 1.8.0), and **every Atari ST path that was qualified goes back to pending until a
+conversion that received it reaches it again and validates it against the reference** (the maintainer's campaigns qualify theirs on their own
+conversions). Arthur accepted that move for 1.9.0 (20 November 2026: « Oui, dans la 1.9.0 »). The GENERATOR_REVISION is unchanged.
+
+**Proof (pictures and registers, not hash values):** Bomb Jack, 3,600 frames of the delivered executables of main and of this branch, headless,
+no input: the frame, sound digest, PC, SR, D0-D7 and A0-A7 of every one of the 3,600 rows are equal; the last picture (PPM) and the RAM dump
+are byte for byte equal; the `video` and `ram` hash values differ on all 3,600 rows, as they must, and each repeats on the same frames as before.
+The conversion itself then passed on the new hash: native against the fresh reference and the packed copy against it on both routes, and the
+quick state saved and resumed in a fresh process (its continuation equal).
+
+**Conversion time (Bomb Jack, one conversion each, the PC not quiet, so read the ratio, not the seconds):** the three validation phases went from
+54.8 s (native runs), 59.7 s (reference runs) and 55.7 s (packed replays), 170 s together, to 15.3 s, 26.0 s and 21.8 s, 63 s together. The whole
+conversion went from 307 s to 248 s although the engine rebuilt once on its new identity (compile 53 s to 101 s: paid once, not by the next conversion
+on this engine). Nothing here is a speed figure of the game, and the player's loop is not touched.
+
+**Stamps:** the Atari ST game stamp and engine identity; no host stamp; the Atari ST quick-state key moves.
 
 ## Game Boy Advance: multiplayer on the delay tier (1.9.0)
 
