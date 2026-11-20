@@ -27,9 +27,11 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
   multiplayer session), in a hidden-window test run of 240 frames: SDL's dummy video and sound drivers, so no window, no
   sound device and the software renderer. There is no scripted input: the boot and the attract mode.
 - **The figure.** The shell's own timing report gives the work of each frame: the machine's frame and its delivery, the
-  sound queue, the drawing and the present. Frame pacing and the wait for room in the sound queue are left out, since they
-  are waiting, not work. Each run gives the median of that work per frame; the table gives the median of three timed runs,
-  after one warm-up run that is dropped. With the software renderer, « present » is not what a graphics card's path costs.
+  sound queue and the drawing. Frame pacing and the wait for room in the sound queue are left out, since they are waiting,
+  not work. The figure also leaves out putting the picture on screen (the present): with a GPU renderer, which a player's
+  window uses (Direct3D on Windows, OpenGL on Linux), that costs little; on a PC that falls back to SDL's software renderer
+  it can add about 0.4-0.6 ms. Each run gives the work per frame; the table gives the median of three timed runs, after one
+  warm-up run that is dropped.
 - **Linux** figures are measured in **WSL2** on the same PC, with the same method. WSL2 is a light virtual machine: its CPU
   figures are close to a native Linux's on that processor, not identical, and they are not a measure of another Linux PC.
 - **The spread** is (max − min) / median of the runs, in percent: how much the runs disagree.
@@ -42,46 +44,46 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
 
 | Machine id | Machine | System | Game | Median ms per frame | Spread | Runs x frames | Version | Date |
 |---|---|---|---|---|---|---|---|---|
-| sms | Master System | Windows | Sonic The Hedgehog | 0.8583 | 1.4 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| sms | Master System | Windows | Sonic The Hedgehog | 0.8664 | 6.1 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
-| gg | Game Gear | Windows | Sonic The Hedgehog | 0.6927 | 2.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| gg | Game Gear | Windows | Sonic The Hedgehog | 0.6958 | 0.5 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
-| gb | Game Boy | Windows | Super Mario Land | 0.7606 | 2.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| gb | Game Boy | Windows | Super Mario Land | 0.7597 | 5.0 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
-| nes | NES | Windows | Metroid | 3.0594 | 4.6 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| nes | NES | Windows | Metroid | 3.0146 | 2.1 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
-| md | Mega Drive | Windows | Sonic The Hedgehog 2 | 1.9643 | 1.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| md | Mega Drive | Windows | Sonic The Hedgehog 2 | 1.9903 | 0.1 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
-| pce | PC Engine | Windows | Blazing Lazers | 5.7940 | 1.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| pce | PC Engine | Windows | Blazing Lazers | 5.8048 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| snes | Super Nintendo | Windows | Mega Man X2 | 4.7309 | 2.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| snes | Super Nintendo | Windows | Mega Man X2 | 4.6789 | 0.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| ng | Neo Geo | Windows | Puzzle De Pon! | 3.6552 | 0.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| ng | Neo Geo | Windows | Puzzle De Pon! | 3.7608 | 0.8 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| cps1 | CPS-1 | Windows | Final Fight | 1.5894 | 0.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| cps1 | CPS-1 | Windows | Final Fight | 1.5813 | 1.3 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| cps2 | CPS-2 | Windows | 19XX | 1.5419 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| cps2 | CPS-2 | Windows | 19XX | 1.5839 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| x68 | Sharp X68000 | Windows | R-Type | 1.3167 | 1.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| x68 | Sharp X68000 | Windows | R-Type | 1.3263 | 1.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| amiga | Amiga 500 | Windows | Lotus 2 | 1.6223 | 1.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| amiga | Amiga 500 | Windows | Lotus 2 | 1.6334 | 2.8 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.8553 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.8260 | 1.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| atarist | Atari ST | Windows | Bomb Jack | 1.7062 | 8.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| atarist | Atari ST | Windows | Bomb Jack | 1.5929 | 6.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| msx | MSX | Windows | Nemesis | 0.9473 | 2.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| msx | MSX | Windows | Nemesis | 0.9391 | 1.7 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| msx2 | MSX2 | Windows | Space Manbow | 0.9594 | 2.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| msx2 | MSX2 | Windows | Space Manbow | 0.9400 | 0.3 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| msx2plus | MSX2+ | Windows | Manbow 2 | 1.2317 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| msx2plus | MSX2+ | Windows | Manbow 2 | 1.2274 | 2.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| gba | Game Boy Advance | Windows | Advance Wars | 1.7099 | 5.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| gba | Game Boy Advance | Windows | Advance Wars | 1.7163 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| n64 | Nintendo 64 | Windows | Super Mario 64 | 4.8724 | 16.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| n64 | Nintendo 64 | Windows | Super Mario 64 | 4.8636 | 7.1 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| psx | PlayStation | Windows | Ape Escape | 4.1288 | 1.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| psx | PlayStation | Windows | Ape Escape | 4.2898 | 2.3 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| sms | Master System | Windows | Sonic The Hedgehog | 0.4363 | 2.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| sms | Master System | Windows | Sonic The Hedgehog | 0.4432 | 7.7 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
+| gg | Game Gear | Windows | Sonic The Hedgehog | 0.4934 | 3.7 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| gg | Game Gear | Windows | Sonic The Hedgehog | 0.5004 | 0.7 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
+| gb | Game Boy | Windows | Super Mario Land | 0.2569 | 6.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| gb | Game Boy | Windows | Super Mario Land | 0.2569 | 7.5 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
+| nes | NES | Windows | Metroid | 2.5531 | 4.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| nes | NES | Windows | Metroid | 2.5119 | 2.2 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
+| md | Mega Drive | Windows | Sonic The Hedgehog 2 | 1.7129 | 1.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| md | Mega Drive | Windows | Sonic The Hedgehog 2 | 1.7357 | 0.2 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
+| pce | PC Engine | Windows | Blazing Lazers | 5.2165 | 2.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| pce | PC Engine | Windows | Blazing Lazers | 5.2231 | 0.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| snes | Super Nintendo | Windows | Mega Man X2 | 4.2649 | 2.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| snes | Super Nintendo | Windows | Mega Man X2 | 4.2113 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| ng | Neo Geo | Windows | Puzzle De Pon! | 3.0899 | 0.6 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| ng | Neo Geo | Windows | Puzzle De Pon! | 3.1988 | 0.9 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| cps1 | CPS-1 | Windows | Final Fight | 1.0628 | 1.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| cps1 | CPS-1 | Windows | Final Fight | 1.0478 | 1.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| cps2 | CPS-2 | Windows | 19XX | 1.1482 | 1.6 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| cps2 | CPS-2 | Windows | 19XX | 1.1901 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| x68 | Sharp X68000 | Windows | R-Type | 1.0624 | 1.4 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| x68 | Sharp X68000 | Windows | R-Type | 1.0679 | 1.8 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| amiga | Amiga 500 | Windows | Lotus 2 | 1.1190 | 2.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| amiga | Amiga 500 | Windows | Lotus 2 | 1.1189 | 4.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.1407 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.1114 | 1.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| atarist | Atari ST | Windows | Bomb Jack | 1.5818 | 4.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| atarist | Atari ST | Windows | Bomb Jack | 1.4695 | 5.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| msx | MSX | Windows | Nemesis | 0.4063 | 2.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| msx | MSX | Windows | Nemesis | 0.4037 | 3.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| msx2 | MSX2 | Windows | Space Manbow | 0.6924 | 2.3 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| msx2 | MSX2 | Windows | Space Manbow | 0.6790 | 0.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| msx2plus | MSX2+ | Windows | Manbow 2 | 0.9668 | 1.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| msx2plus | MSX2+ | Windows | Manbow 2 | 0.9600 | 1.7 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| gba | Game Boy Advance | Windows | Advance Wars | 1.4141 | 5.2 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| gba | Game Boy Advance | Windows | Advance Wars | 1.4197 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| n64 | Nintendo 64 | Windows | Super Mario 64 | 4.6941 | 17.3 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| n64 | Nintendo 64 | Windows | Super Mario 64 | 4.6870 | 8.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| psx | PlayStation | Windows | Ape Escape | 3.6681 | 1.3 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| psx | PlayStation | Windows | Ape Escape | 3.8317 | 2.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
 
 1.8.0 is the published release (tag `v1.8.0`), 1.9.0 the release line before its tag (main `d8dba7b2` for the first five
 machines, main `4aafb3fd` for the others); both sides of a machine were converted from source with the same tools and timed
