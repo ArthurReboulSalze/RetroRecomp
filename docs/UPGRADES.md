@@ -1010,10 +1010,30 @@ sprite (tile map, palette, auto-animation, pixels) is not touched.
 
 **Hot path:** yes, the per-line sprite pass (25 % of the headless engine in a sampling profile of Puzzle De Pon!).
 
-**What moves:** the Neo Geo game stamp only; no other console, no host file. **Quick states:** unchanged (the cache holds nothing that is saved).
-Evidence: the board self-test compares the scan with the pinned unpatched scalar renderer over 96 random scenes (chains, sizes up to 63,
-wraps of Y, both limits, one word and a whole table rewritten between two lines, a line past the list); the conversion reports of Puzzle De
-Pon!, Metal Slug, Garou and Goal! Goal! Goal! (A = main, B = this change) have every route's image hash identical.
+**What moves:** the Neo Geo game stamp only (the new `neogeo_sprite_scan.h` and the patch step in `neogeo_build.py`, so the engine
+identity of the conversion report changes: 90 files become 91); no other console, no host file. **Quick states:** unchanged, the key does not move
+(the cache holds nothing that is saved: it is rebuilt from the tables, which a state load or a rollback rewrites and the next line sees).
+
+**Identity proofs (CPU fidelity and picture, not hardware fidelity).**
+- The board self-test (`tools/neogeo_board_selftest.py`, `native/neogeo_lspc_checks.c`) compares the scan with the pinned unpatched scalar
+  renderer (`rr_ng_scalar_sprcalc`, generated from the untouched `geo_lspc.c`) over 96 random scenes of 14 consecutive lines each: chains, sizes
+  up to 63, wraps of Y, both sprite limits (96 and 381), one word of the third table and a whole table rewritten between two lines, a size-33
+  sprite, and a line past the list. Same sprites, same order, same values.
+- `tools/ab_conversion.py` on Puzzle De Pon!, Metal Slug, Garou: Mark of the Wolves and Goal! Goal! Goal! (A = main 971df620, B = this
+  change): the route image hashes of the conversion reports are identical on all four. The only differences listed are the engine identity
+  (the new file) and the packed size, which follows from the code.
+- A count on Metal Slug (a build with counters, 1,200 frames, not a timing): the tables change 6.5 times a frame, a list is built 0.5 times a
+  frame and 96.5 % of the lines are served from it.
+
+**Measured gain** (performance specialist, A/B interleaved, one core, host CPU time per frame, not latency; A = 971df620, B = 0a1e41d4):
+
+| Game | engine A → B | loop A → B |
+|---|---|---|
+| Puzzle De Pon! | 1.6094 → 1.4486 ms, **-10.0 %** | 3.6731 → 3.4514 ms, **-6.0 %** |
+| Metal Slug (attract) | 1.8099 → 1.7853 ms, -1.4 % | 3.3140 → 3.2679 ms, -1.4 % |
+
+The gain follows how much of a frame the scan is: clear where there are few sprites to draw, within the noise on Metal Slug, whose frame is
+dominated by drawing its sprites. No regression on either.
 
 ## Game Boy: rollback and the host's F8 / F9 for everyone (1.9.0)
 
