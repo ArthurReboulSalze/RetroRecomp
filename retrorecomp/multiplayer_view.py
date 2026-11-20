@@ -28,7 +28,6 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import tempfile
 import threading
 import tkinter as tk
 from tkinter import font as tkfont, messagebox, ttk
@@ -162,7 +161,9 @@ class MultiplayerWindow:
         self.action_role = None
         self.first_pick = pick              # an inventory entry chosen before the window opened (Compiled Games, right-click)
         self.hidden = hidden
-        self.log_dir = Path(tempfile.gettempdir()) / 'retro-recomp-netplay'
+        # datas/logs: the room log, the worker's own text and the games' lines (game_logs), where a player finds them
+        from .game_logs import logs_folder
+        self.log_dir = logs_folder()
         window = self.window = tk.Toplevel(app.app)
         if hidden:                          # tests: built and driven, never mapped
             window.withdraw()

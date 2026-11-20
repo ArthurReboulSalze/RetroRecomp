@@ -69,13 +69,14 @@ def _key(public: str | None, port: int, secret: bytes, tests: bool) -> str:
 
 def guest_config(invitation_text: str, name: str, log_dir, tests: bool = False) -> dict:
     """A guest's worker config; raises `invitation.InvitationError` (a sentence) when the text is not an invitation. A guest
-    keeps no room log (`log_dir` is taken for the same call as the host's; the worker's own text goes to `start(log=...)`)."""
-    del log_dir
+    keeps a room log too, of its matches only (how each ended and its game's reason line), and its games' own lines beside
+    it (game_logs); the worker's own text goes to `start(log=...)`."""
     from .. import __version__
     from .room_cli import version_numbers
     text = invitation_text.strip() if isinstance(invitation_text, str) else invitation_text
     internet_key.parse_any(text, tests)          # a local invitation or an Internet key; InvitationError with its code
-    return {'room': {'role': 'guest', 'invitation': text, 'name': name, 'version': list(version_numbers(__version__))},
+    return {'room': {'role': 'guest', 'invitation': text, 'name': name, 'version': list(version_numbers(__version__)),
+                     'log': str(Path(log_dir) / 'room.log')},
             'tests': tests}
 
 

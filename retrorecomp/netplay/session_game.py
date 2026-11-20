@@ -53,6 +53,7 @@ class SessionGame:
         for name in NEVER_IN_A_SESSION:
             environment.pop(name, None)
         self.executable = Path(executable)
+        self.log_path = Path(stderr) if stderr is not None else None      # the game's own lines (game_logs), or none
         self.broken: str | None = None
         self._lock = threading.Lock()
         self._sink: Callable | None = None
@@ -68,6 +69,8 @@ class SessionGame:
             for key, path in (('stdout', stdout), ('stderr', stderr)):
                 if path is None:
                     outputs[key] = subprocess.DEVNULL
+                elif key == 'stderr' and stdout is not None and Path(path) == Path(stdout):
+                    outputs[key] = subprocess.STDOUT         # one file for both: opened once
                 else:
                     files.append(open(path, 'wb'))
                     outputs[key] = files[-1]

@@ -19,8 +19,8 @@ EVERY = 10.0                  # seconds between two lines of counts
 COUNT_LINES = 16              # lines of counts per window; the rest is one line "and N other sources" (transport review N3)
 
 
-def _plain(value) -> str:
-    return ''.join(char if 32 <= ord(char) < 127 else '?' for char in str(value))[:80]
+def _plain(value, limit: int = 80) -> str:
+    return ''.join(char if 32 <= ord(char) < 127 else '?' for char in str(value))[:limit]
 
 
 class RoomLog:
@@ -65,6 +65,11 @@ class RoomLog:
 
     def match(self, match_id: int, text: str) -> None:
         self._write(f'match {int(match_id)}: {_plain(text)}')
+
+    def over(self, match_id: int, text: str) -> None:
+        """How a match ended on this PC: the outcome, the game's exit code and its own reason line (game_logs.reason_line,
+        a line of the converted game's stderr, never the room's secrets), longer than the other lines."""
+        self._write(f'match {int(match_id)} over: {_plain(text, 400)}')
 
     def note(self, text: str) -> None:
         self._write(_plain(text))

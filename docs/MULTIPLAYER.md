@@ -105,3 +105,15 @@ Every seat folds the inputs it was given into a running digest, and compares a d
 host's every second. Before the first frame, the state after setup is compared too: a different save, option or firmware
 is refused with its reason. Each machine's rewinding was proven on real games run as two copies with simulated latency
 and lost packets, and on two PCs on a home network. The results are in [UPGRADES.md](UPGRADES.md).
+
+## When a game closes by itself
+
+Each PC keeps what happened in the converter's `datas/logs` folder. Nothing in it is ever sent anywhere.
+
+- `room.log`: the room's events, the host's and the guest's, with one line per match saying how it ended: the outcome, the
+  game's exit code and the game's own reason line, for example
+  « match 5 over: broke (the machine stopped), exit 0 - [host] the link cable stopped: … ».
+- `games/`: what each game started by the converter wrote (multiplayer, Compiled Games, the Front-end), one file per
+  launch. Each file is cut to its last 64 KB and only the 20 most recent are kept.
+
+Attach the room log and the game's file to a problem report when a match ends on its own.
