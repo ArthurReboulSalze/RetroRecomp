@@ -73,8 +73,8 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
 | amiga | Amiga 500 | Windows | Lotus 2 | 1.1189 | 4.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
 | a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.1407 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.1114 | 1.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
-| atarist | Atari ST | Windows | Bomb Jack | 1.5818 | 4.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
-| atarist | Atari ST | Windows | Bomb Jack | 1.4695 | 5.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| atarist | Atari ST | Windows | Bomb Jack | 1.1335 | 8.7 % | 9 x 600 | 1.8.0 | 2026-11-20 |
+| atarist | Atari ST | Windows | Bomb Jack | 1.0322 | 20.4 % | 9 x 600 | 1.9.0 (main 6d82f07b) | 2026-11-20 |
 | msx | MSX | Windows | Nemesis | 0.4063 | 2.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | msx | MSX | Windows | Nemesis | 0.4037 | 3.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
 | msx2 | MSX2 | Windows | Space Manbow | 0.6924 | 2.3 % | 3 x 240 | 1.8.0 | 2026-11-20 |
@@ -91,7 +91,8 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
 1.8.0 is the published release (tag `v1.8.0`), 1.9.0 the release line before its tag (main `d8dba7b2` for the first five
 machines, main `4aafb3fd` for the others); both sides of a machine were converted from source with the same tools and timed
 in one pass, interleaved, on an otherwise idle PC. Each row is one game in its attract scene (no input): a busy in-game scene
-costs more. The MSX2+ row is a cartridge game (Manbow 2). No Linux figure yet.
+costs more. The MSX2+ row is a cartridge game (Manbow 2). The Atari ST rows were timed again with nine runs of 600 frames (its
+loop is noisy: one slow run makes the 1.9.0 spread); four separate passes agreed on a 9 to 11 % gain. No Linux figure yet.
 
 ## Adding or updating a row
 
