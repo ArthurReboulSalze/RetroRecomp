@@ -279,9 +279,80 @@ HW_ALWAYS_INLINE void rr_ppu_tile_pair(unsigned step, bool sprites, bool prefetc
  * (eval_objects() reads and writes them), the A12 hook sees the address of every dot, and the frame index gets the same
  * pixels from the same colour pipeline. */
 typedef struct {
-    uint16_t v, vbus, par, bg_lo, bg_hi, attr_lo, attr_hi;
+    uint16_t v, vbus, par, bg_lo, bg_hi, attr_lo, attr_hi, sprite_row;
     uint8_t latch, fetch, attribute, lo_plane, hi_plane, attr_latch, color[4];
+    /* The sprite evaluation of the tile's eight dots: its fields in locals (a block runs with rendering on and settled, no
+     * pending $2001 or $2003-side latch, so nothing outside the tile can change them), written back after the eighth. */
+    uint8_t oam_addr, oam2_addr, oam2_full, oam2_reset, eval_tick, eval_wrapped, eval_nine, eval_odd_corrupt;
+    uint8_t oam_buffer, oam_buffer_in, oam_latch, scan8, height;
 } RrTile;
+
+HW_ALWAYS_INLINE void rr_eval_oam2_increment(RrTile *t)
+{
+    if (!t->oam2_full && ++t->oam2_addr == 0x20) {
+        t->oam2_full = 1;
+        t->oam2_addr = 0;
+    }
+}
+
+/* eval_objects(false) on an even dot of a visible line with rendering on and no corruption latch (oamc_disabled_now clear):
+ * the same statements on the locals. */
+HW_ALWAYS_INLINE void rr_eval_even(RrTile *t, unsigned dot)
+{
+    const bool step = !t->eval_odd_corrupt;
+    if (!t->eval_wrapped) {
+        const uint8_t before = t->oam_addr;
+        if (!t->oam2_full) ppu.oam2[t->oam2_addr] = t->oam_buffer;
+        const uint8_t oam2_value = ppu.oam2[t->oam2_addr];
+        if (t->eval_tick == 0) {
+            t->sprite_row = (uint16_t)(t->scan8 - t->oam_buffer);
+            if (!t->eval_nine && t->sprite_row < t->height) {
+                if (!t->oam2_full) {
+                    if (!t->eval_odd_corrupt) {
+                        t->oam_addr++;
+                        rr_eval_oam2_increment(t);
+                    }
+                    if (dot == 66) ppu.next_has_s0 = 1;
+                } else {
+                    t->eval_nine = 1;
+                    t->oam_addr++;
+                    ppu.overflow = 1;
+                }
+                t->eval_tick++;
+            } else {
+                if (dot == 66) ppu.next_has_s0 = 0;
+                if (step) {
+                    if (t->oam2_full && !t->eval_nine) {
+                        t->oam_addr += (t->oam_addr & 3) == 3 ? 1 : 5;
+                    } else {
+                        t->oam_addr = (uint8_t)((t->oam_addr + 4) & 0xFC);
+                    }
+                }
+            }
+        } else {
+            if (t->eval_tick == 3) {
+                int row = (int)t->scan8 - t->oam_buffer;
+                if (row >= 0 && row < (int)t->height) {
+                    if (step) t->oam_addr += t->oam2_full ? 4 : 1;
+                } else if (!t->oam2_full) {
+                    if (step) t->oam_addr = (uint8_t)((t->oam_addr + 1) & 0xFC);
+                } else {
+                    t->oam_addr = (uint8_t)((t->oam_addr + 1) & 0xFC);
+                }
+            } else if (step) {
+                t->oam_addr++;
+            }
+            t->eval_tick = (uint8_t)((t->eval_tick + 1) & 3);
+            if (!t->oam2_full) rr_eval_oam2_increment(t);
+        }
+        t->eval_odd_corrupt = 0;
+        if (t->oam_addr < before && t->oam_addr < 4) t->eval_wrapped = 1;
+        t->oam_buffer_in = oam2_value;
+    } else {
+        if (step) t->oam_addr = (uint8_t)((t->oam_addr + 4) & 0xFC);
+        t->oam_buffer_in = ppu.oam2[t->oam2_addr];
+    }
+}
 
 HW_ALWAYS_INLINE uint16_t rr_tile_increment_x(uint16_t v)
 {
@@ -295,31 +366,31 @@ HW_ALWAYS_INLINE void rr_tile_step(RrTile *t, unsigned step, unsigned d0, bool b
     advance_dot();                  /* the position, and the status latches of the first half of the dot */
     const unsigned dot = d0 + step + 1;
     const bool h0 = (step & 1) != 0;
-    ppu.oam_latch = ppu.oam_buffer;
-    if (ppu.oam2_reset > 0) ppu.oam2_reset--;
+    t->oam_latch = t->oam_buffer;
+    if (t->oam2_reset > 0) t->oam2_reset--;
     if (d0 >= 64) {                 /* dots 65-256: evaluation */
         if (h0) {
-            eval_objects(false);
+            rr_eval_even(t, dot);
         } else {
             if (step == 0 && d0 == 64) {
-                ppu.eval_nine = 0;
-                ppu.eval_odd_corrupt = 0;
-                ppu.eval_wrapped = 0;
+                t->eval_nine = 0;
+                t->eval_odd_corrupt = 0;
+                t->eval_wrapped = 0;
             }
-            if (ppu.instant_bg || ppu.instant_spr) ppu.oam_buffer_in = ppu.oam[ppu.oam_addr];
+            t->oam_buffer_in = ppu.oam[t->oam_addr];    /* rendering is on: instant_bg or instant_spr is set */
         }
     } else if (!h0) {               /* dots 1-64: secondary OAM clear */
-        ppu.oam_buffer_in = 0xFF;
+        t->oam_buffer_in = 0xFF;
         if (step == 0 && d0 == 0) {
-            ppu.oam2_addr = 0;
-            ppu.eval_tick = 0;
-            ppu.eval_wrapped = 0;
+            t->oam2_addr = 0;
+            t->eval_tick = 0;
+            t->eval_wrapped = 0;
         }
     } else {
-        ppu.oam2[ppu.oam2_addr] = ppu.oam_buffer;
-        oam2_increment();
+        ppu.oam2[t->oam2_addr] = t->oam_buffer;
+        rr_eval_oam2_increment(t);
     }
-    if (step == 6 && (d0 == 56 || d0 == 248)) ppu.oam2_reset = 3;
+    if (step == 6 && (d0 == 56 || d0 == 248)) t->oam2_reset = 3;
     t->color[3] = t->color[2];
     t->color[2] = t->color[1];
     t->color[1] = t->color[0];
@@ -380,9 +451,9 @@ HW_ALWAYS_INLINE void rr_tile_step(RrTile *t, unsigned step, unsigned d0, bool b
     t->bg_hi = (uint16_t)(t->bg_hi << 1 | 1);
     t->attr_lo = (uint16_t)(t->attr_lo << 1 | (t->attr_latch & 1));
     t->attr_hi = (uint16_t)(t->attr_hi << 1 | ((t->attr_latch >> 1) & 1));
-    if (ppu.oam2_reset > 0 && --ppu.oam2_reset == 0) {
-        ppu.oam2_addr = 0;
-        ppu.oam2_full = 0;
+    if (t->oam2_reset > 0 && --t->oam2_reset == 0) {
+        t->oam2_addr = 0;
+        t->oam2_full = 0;
     }
     switch (step) {
     case 1:
@@ -406,7 +477,7 @@ HW_ALWAYS_INLINE void rr_tile_step(RrTile *t, unsigned step, unsigned d0, bool b
         t->v = rr_tile_increment_x(t->v);
         break;
     }
-    ppu.oam_buffer = ppu.oam_buffer_in;
+    t->oam_buffer = t->oam_buffer_in;
     half_dot_status();
 }
 
@@ -416,7 +487,9 @@ static void rr_ppu_tile_bg(void)
     /* The first tile of the odd frame's first line drops a dot, and a decaying open bus counts its dots against a deadline:
      * the pairs take those. */
     if ((!RR_NES_PAL && d0 == 0 && ppu.scanline == 0 && ppu.odd_frame) ||
-        (ppu.io_bus && ppu.io_decay_clock + 8 >= ppu.io_decay_next)) {
+        (ppu.io_bus && ppu.io_decay_clock + 8 >= ppu.io_decay_next) ||
+        /* the evaluation of the tile runs on locals only with rendering on and no corruption latch (rr_ppu_block checks the latter) */
+        !(ppu.instant_bg || ppu.instant_spr) || ppu.oamc_disabled_now) {
         rr_ppu_tile_pair(0, false, false); rr_ppu_tile_pair(1, false, false); rr_ppu_tile_pair(2, false, false); rr_ppu_tile_pair(3, false, false);
         rr_ppu_tile_pair(4, false, false); rr_ppu_tile_pair(5, false, false); rr_ppu_tile_pair(6, false, false); rr_ppu_tile_pair(7, false, false);
         return;
@@ -427,6 +500,12 @@ static void rr_ppu_tile_bg(void)
     t.latch = ppu.octal_latch; t.fetch = ppu.fetch_data; t.attribute = ppu.attribute;
     t.lo_plane = ppu.lo_plane; t.hi_plane = ppu.hi_plane; t.attr_latch = ppu.attr_latch;
     for (unsigned i = 0; i < 4; i++) t.color[i] = ppu.color[i];
+    t.sprite_row = ppu.sprite_row;
+    t.oam_addr = ppu.oam_addr; t.oam2_addr = ppu.oam2_addr; t.oam2_full = ppu.oam2_full; t.oam2_reset = ppu.oam2_reset;
+    t.eval_tick = ppu.eval_tick; t.eval_wrapped = ppu.eval_wrapped; t.eval_nine = ppu.eval_nine;
+    t.eval_odd_corrupt = ppu.eval_odd_corrupt;
+    t.oam_buffer = ppu.oam_buffer; t.oam_buffer_in = ppu.oam_buffer_in; t.oam_latch = ppu.oam_latch;
+    t.scan8 = (uint8_t)ppu.scanline; t.height = ppu.sprite16 ? 16 : 8;
     const bool bg_on = ppu.show_bg && (d0 >= 8 || ppu.show_bg8);
     /* A board that watches the bus here is an MMC1: its hook only reacts to a change of A12. */
     const bool watch = hw_cart.watch_ppu_addr != 0;
@@ -445,6 +524,11 @@ static void rr_ppu_tile_bg(void)
     ppu.octal_latch = t.latch; ppu.fetch_data = t.fetch; ppu.attribute = t.attribute;
     ppu.lo_plane = t.lo_plane; ppu.hi_plane = t.hi_plane; ppu.attr_latch = t.attr_latch;
     for (unsigned i = 0; i < 4; i++) ppu.color[i] = t.color[i];
+    ppu.sprite_row = t.sprite_row;
+    ppu.oam_addr = t.oam_addr; ppu.oam2_addr = t.oam2_addr; ppu.oam2_full = t.oam2_full; ppu.oam2_reset = t.oam2_reset;
+    ppu.eval_tick = t.eval_tick; ppu.eval_wrapped = t.eval_wrapped; ppu.eval_nine = t.eval_nine;
+    ppu.eval_odd_corrupt = t.eval_odd_corrupt;
+    ppu.oam_buffer = t.oam_buffer; ppu.oam_buffer_in = t.oam_buffer_in; ppu.oam_latch = t.oam_latch;
     if (ppu.io_bus) ppu.io_decay_clock += 8;
     /* Set by every pair, and the same at the end of each. */
     ppu.blnk_latch = 0;
