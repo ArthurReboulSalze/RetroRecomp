@@ -275,7 +275,7 @@ static bool rr_gb_snap_load_adapter(const void *buffer, size_t size) {
 }
 
 /* ---- the link cable: this PC runs every console of the match ----
- * A match whose seats each have their own port (rrhk_session_ports() of 2 or more, which the lobby gives a Game Boy game on the link cable) is two
+ * A link match (the SETUP flag, rrhk_session_link(); one port per seat, rrhk_session_ports() consoles) is two
  * consoles on one cable, run here by the runtime's gb_link (native/gb_link.h): console i is driven by seat i's pad word, and this PC shows and plays its own
  * seat's console. A headless run can start a link on its own for the tests: RETRO_RECOMP_GB_LINK=2 (consoles), RETRO_RECOMP_GB_LINK_VIEW=n (the console shown),
  * RETRO_RECOMP_GB_LINK_SCRIPT=<input script of the second console, the format of --input-script>. Never read by a window that is open. */
@@ -283,6 +283,7 @@ static bool rr_gb_link_headless(void) { return g_benchmark_mode || !rrhk_window(
 
 static int rr_gb_link_consoles_wanted(void) {
     if (rrhk_session_active()) {
+        if (!rrhk_session_link()) return 0;         /* "everyone" and "turns" stay one console */
         const int ports = rrhk_session_ports();
         return ports >= 2 ? 2 : 0;                  /* two consoles at most: the four-player adapter is not modelled */
     }
@@ -544,6 +545,7 @@ static const RrhkMachine *rr_gb_adapter(void) {
         rr_gb_machine.audio_enable = rr_gb_audio_enable;
         rr_gb_machine.save_failed_en = "Unable to save quick state"; rr_gb_machine.save_failed_fr = "Impossible de sauvegarder";
         rr_gb_machine.driven = true;
+        rr_gb_machine.link_consoles = 2;            /* the most consoles it runs on a link cable: HELLO says RRHK_CAP_LINK */
         rr_gb_machine.host_pause = RR_GB_PAUSE + 1;
         rr_gb_machine.minimum_window = true;
         rr_gb_machine.even_scale2x = true;

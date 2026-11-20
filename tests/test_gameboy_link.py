@@ -91,10 +91,12 @@ class AdapterTextTests(unittest.TestCase):
         self.assertIn('if (!rr_gb_link_shown(ctx)) return;', ADAPTER)        # only the shown console is heard
         self.assertIn('gb_get_framebuffer(gb_link_context(g_rr_link_view))', ADAPTER)
 
-    def test_a_link_needs_a_port_per_seat_and_never_more_than_two_consoles(self):
+    def test_a_link_is_the_setup_flag_with_a_port_per_seat_and_never_more_than_two_consoles(self):
         body = ADAPTER[ADAPTER.index('static int rr_gb_link_consoles_wanted('):ADAPTER.index('static int rr_gb_link_consoles_planned(void) {')]
+        self.assertIn('rrhk_session_link()', body)                           # the SETUP flag, never the port count alone
         self.assertIn('rrhk_session_ports()', body)
         self.assertIn('ports >= 2 ? 2 : 0', body)
+        self.assertIn('rr_gb_machine.link_consoles = 2;', ADAPTER)                # HELLO says RRHK_CAP_LINK
 
     def test_the_test_hooks_of_a_headless_run_are_never_read_by_a_window(self):
         self.assertIn('static bool rr_gb_link_headless(void) { return g_benchmark_mode || !rrhk_window(); }', ADAPTER)
