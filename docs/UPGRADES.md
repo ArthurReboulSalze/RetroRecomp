@@ -662,6 +662,16 @@ rollback tier, 3000 frames, save at 600, load at 1500, restart at 2200): the hos
 image it wrote, its `.bak` is the planted file byte for byte, the host's file differs from it (the game rewrote the planted bytes, which are not a real
 save), and the guests' folders hold no save, backup or temporary file.
 
+**The link cable (branch `spec/gb-link`, from `spec/multiplayer`).** In a match whose seats each have a port (`rrhk_session_ports() >= 2`), the game runs
+two consoles on a link cable: `native/gb_link.h` (runtime, appended after the machine state), the serial patches of `gameboy_runtime.py`
+(`adapt_link_cable`: the end of a master transfer reads the other console's byte, `gb_run_cycles` runs the satellites in 256-cycle chunks; the
+original body is kept as `rr_gb_run_cycles_one`, a console with no link goes through it unchanged; the generated init is registered so that
+the satellite is made with it), and the adapter (one pad word per seat, this PC's seat shown and heard, snapshot and digest over both consoles).
+**Game Boy game stamp and host stamp move** (no other machine); existing Game Boy exports must be converted again to play on a cable. A match with
+one console, and the game alone, are not changed. Test hooks of a headless run only (never read by an open window): `RETRO_RECOMP_GB_LINK`,
+`RETRO_RECOMP_GB_LINK_VIEW`, `RETRO_RECOMP_GB_LINK_SCRIPT`, `RETRO_RECOMP_GB_LINK_LOG`. Proof: `tools/gameboy_link_selftest.py`,
+`tools/gameboy_link_play.py` ([GAME_BOY.md](GAME_BOY.md#link-cable-in-multiplayer-next-release)).
+
 **Proof.** `tools/gameboy_machine_selftest.py` + `native/gb_machine_checks.c`: three authored cartridges (MBC1 with RAM, MBC3 with a clock,
 MBC5 on the colour hardware) in 420 random slices with random host writes between them (DMA, HDMA, sound, timer, serial, LCD, scroll,
 mapper, memory), compared with an independent whole-state hash of the raw context: a run replayed from a snapshot gives the same digest,

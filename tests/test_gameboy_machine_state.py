@@ -38,7 +38,7 @@ class MachineStateTextTests(unittest.TestCase):
         source = (ASSETS / 'retrorecomp/gameboy_runtime.py').read_text(encoding='utf-8')
         self.assertIn("('gb_digest.h', project / 'runtime/include/gb_digest.h')", source)
         self.assertIn("('gb_machine_state.h', project / 'runtime/include/gb_machine_state.h')", source)
-        self.assertIn("source += '\\n#include \"gb_machine_state.h\"\\n'", source)
+        self.assertIn("source += '\\n#include \"gb_machine_state.h\"\\n#include \"gb_link.h\"\\n'", source)
         for prototype in ('size_t rr_gb_snap_bound(', 'size_t rr_gb_snap_save(', 'bool rr_gb_snap_load(', 'uint64_t rr_gb_digest('):
             self.assertIn(prototype, source)
 
@@ -73,7 +73,7 @@ class SessionAdapterTextTests(unittest.TestCase):
             self.assertIn(field, self.ADAPTER, field)
 
     def test_the_session_clock_replaces_the_hosts_time(self):
-        body = self.ADAPTER[self.ADAPTER.index('static void rr_gb_session_begin('):self.ADAPTER.index('static void rr_gb_side_effects(')]
+        body = self.ADAPTER[self.ADAPTER.index('static void rr_gb_session_begin_console('):self.ADAPTER.index('static void rr_gb_side_effects(')]
         self.assertIn('rtc_unix_time_override_enabled = true', body)
         self.assertIn('rtc_unix_time_override = clock', body)
         self.assertNotIn('time(', body)           # never this PC's time
@@ -116,13 +116,14 @@ class SessionSaveTextTests(unittest.TestCase):
             self.assertIn(size, self.ADAPTER[self.ADAPTER.index('static bool rr_gb_save_size_valid('):self.ADAPTER.index('static size_t rr_gb_session_save(')])
 
     def test_every_seat_starts_again_from_the_state_the_game_began_in(self):
-        begin = self.ADAPTER[self.ADAPTER.index('static void rr_gb_session_begin('):self.ADAPTER.index('static void rr_gb_side_effects(')]
-        self.assertLess(begin.index('g_rr_pristine'), begin.index('g_rr_session_image'))        # the power-on first, then the match's save
-        self.assertLess(begin.index('g_rr_session_image'), begin.index('rtc_unix_time_override_enabled'))   # then the clock
+        begin = self.ADAPTER[self.ADAPTER.index('static void rr_gb_session_begin_console('):self.ADAPTER.index('static void rr_gb_side_effects(')]
+        self.assertLess(begin.index('g_rr_session_image'), begin.index('rtc_unix_time_override_enabled'))   # the match's save, then the clock
+        self.assertLess(begin.index('rr_gb_one_load(i, g_rr_pristine'), begin.index('rr_gb_session_begin_console(rr_gb_console(i)'))   # the power-on first
+        begin = begin[begin.index('static void rr_gb_session_begin_console('):]
         self.assertIn('memset(ctx->eram, 0, ctx->eram_size)', begin)                               # no save: every seat blank
         wait = self.ADAPTER[self.ADAPTER.index('bool gb_platform_wait_while_menu('):]
         self.assertIn('rrhk_session_active()', wait)
-        self.assertIn('rr_gb_snap_save_adapter(g_rr_pristine.data()', wait)
+        self.assertIn('rr_gb_one_save(0, g_rr_pristine.data()', wait)
 
 
     def test_the_host_writes_its_save_back_once_at_a_clean_end_with_a_backup_and_an_atomic_transaction(self):
