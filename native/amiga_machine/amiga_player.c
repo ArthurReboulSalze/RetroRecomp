@@ -260,14 +260,13 @@ static void scripted_inputs(uint64_t frame) {
    rr_amiga_keys(session, held);
 }
 
-static void write_trace_line(FILE *trace) {
-   RrAmigaFrameInfo i;
+/* `i`: the frame's evidence, hashes included (rr_amiga_frame_info), taken once after the frame by run_headless. */
+static void write_trace_line(FILE *trace, const RrAmigaFrameInfo *i) {
    int r;
-   rr_amiga_frame_info(session, &i);
-   fprintf(trace, "%llu\t%016llx\t%016llx\t%016llx\t%06x\t%04x", (unsigned long long)i.frame, (unsigned long long)i.video,
-           (unsigned long long)i.pcm, (unsigned long long)i.ram, i.pc, i.sr);
-   for (r = 0; r < 8; r++) fprintf(trace, "\t%08x", i.d[r]);
-   for (r = 0; r < 8; r++) fprintf(trace, "\t%08x", i.a[r]);
+   fprintf(trace, "%llu\t%016llx\t%016llx\t%016llx\t%06x\t%04x", (unsigned long long)i->frame, (unsigned long long)i->video,
+           (unsigned long long)i->pcm, (unsigned long long)i->ram, i->pc, i->sr);
+   for (r = 0; r < 8; r++) fprintf(trace, "\t%08x", i->d[r]);
+   for (r = 0; r < 8; r++) fprintf(trace, "\t%08x", i->a[r]);
    fputc('\n', trace);
 }
 
@@ -325,10 +324,9 @@ static long rollback_step(unsigned n, const RrAmigaFrameInfo *info) {
    k = (int)((n - ROLLBACK_DEPTH) % (ROLLBACK_DEPTH + 1));
    if (!rr_amiga_snap_load(session, rollback_ring[k], rollback_size[k])) return -1;
    for (m = n - ROLLBACK_DEPTH + 1; m <= n; m++) {
-      RrAmigaFrameInfo before, again;
+      RrAmigaFrameInfo again;
       int16_t pcm[2 * 4096];
-      rr_amiga_frame_info(session, &before);
-      scripted_inputs(before.frame);
+      scripted_inputs(rr_amiga_frame_count(session));
       if (rr_amiga_frame(session)) return (long)m + 1;
       rr_amiga_frame_info(session, &again);
       while (rr_amiga_audio(session, pcm, 4096)) {}
@@ -361,14 +359,14 @@ static int run_headless(const char *trace_path, const char *report_path, const c
    for (n = 0; n < frame_limit; n++) {
       RrAmigaFrameInfo info;
       int16_t pcm[2 * 4096];
-      RrAmigaFrameInfo before;
-      rr_amiga_frame_info(session, &before);
-      scripted_inputs(before.frame);
+      scripted_inputs(rr_amiga_frame_count(session));
       if (rr_amiga_frame(session)) { stopped = true; error = rr_amiga_error(session); break; }
-      rr_amiga_frame_info(session, &info);
+      /* The hashes (a byte-by-byte pass over the picture and every RAM) only for the trace and the rollback check, once. */
+      if (trace || rollback_every) rr_amiga_frame_info(session, &info);
+      else rr_amiga_frame_seen(session, &info);
       nonblack += info.nonblack != 0;
       audible += info.audible != 0;
-      if (trace) write_trace_line(trace);
+      if (trace) write_trace_line(trace, &info);
       while (rr_amiga_audio(session, pcm, 4096)) {}
       if (rollback_every) {
          static char why[96];

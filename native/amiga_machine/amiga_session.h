@@ -105,6 +105,10 @@ typedef struct RrAmigaFrameInfo {
     int nonblack, audible;
 } RrAmigaFrameInfo;
 void rr_amiga_frame_info(const RrAmigaSession *s, RrAmigaFrameInfo *info);
+/* The same without the three hashes (video, pcm and ram left 0), which cost a byte-by-byte pass over the picture and every RAM:
+ * a headless run that writes no trace and runs no rollback check needs only the rest. rr_amiga_frame_count: the frame alone. */
+void rr_amiga_frame_seen(const RrAmigaSession *s, RrAmigaFrameInfo *info);
+uint64_t rr_amiga_frame_count(const RrAmigaSession *s);
 
 /* Native steps (only in a build with RR_AMIGA_NATIVE) and the observation of executed RAM instructions. */
 int rr_amiga_set_native(RrAmigaSession *s, int enabled);   /* 0: this build has no native steps */
