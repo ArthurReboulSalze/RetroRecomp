@@ -54,7 +54,13 @@ def cmake_text() -> str:
         'if(NOT MSVC)\n  target_link_libraries(capabilities PRIVATE m)\nendif()']) + '\n'
 
 
-def run_checks(out: Path, timeout: int = 60) -> tuple[int, str, float]:
+# A hang, not a speed: the runs are paced at the fake machine's 60 Hz and hold real seconds (the quick combinations, the
+# stick, widescreen and graphics runs), about 22 s on a quiet PC (766 checks, 568 frames, 20 Nov 2026) and 60 s with every core
+# busy with conversions (12.8 s of CPU): 240 s keeps a full suite under load from failing on time alone.
+HANG_SECONDS = 240
+
+
+def run_checks(out: Path, timeout: int = HANG_SECONDS) -> tuple[int, str, float]:
     """Build in `out`, run once, return (exit code, output, seconds)."""
     from retrorecomp.core import run, toolchain
     from retrorecomp.platforms import build_executable, cmake_target_args, sdl_install
