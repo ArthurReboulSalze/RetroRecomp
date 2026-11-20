@@ -343,7 +343,7 @@ tools/neogeo_prototype.py tools/neogeo_qualification.py tests/test_neogeo.py doc
 retrorecomp/neogeo_codegen.py retrorecomp/neogeo_z80.py retrorecomp/neogeo_validation.py retrorecomp/m68000_state_rules.py retrorecomp/musashi_fixes.py
 native/neogeo_native.c native/neogeo_native.h native/neogeo_z80_native.h native/neogeo_decode.c
 native/neogeo_code_view.inc native/neogeo_board_checks.c tools/neogeo_board_selftest.py
-native/neogeo_lspc_state.inc native/neogeo_sprite_decode.h
+native/neogeo_lspc_state.inc native/neogeo_sprite_decode.h native/neogeo_sprite_scan.h
 native/neogeo_lspc_checks.c
 native/neogeo_timer_checks.c native/neogeo_sound_checks.c native/neogeo_ym_checks.c
 tools/neogeo_campaign.py

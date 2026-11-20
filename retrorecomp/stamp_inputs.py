@@ -706,6 +706,7 @@ INPUTS = _resolve({
         'native/neogeo_reference.h',
         'native/neogeo_sound_checks.c',
         'native/neogeo_sprite_decode.h',
+        'native/neogeo_sprite_scan.h',
         'native/neogeo_state.c',
         'native/neogeo_state_validate.c',
         'native/neogeo_timer_checks.c',

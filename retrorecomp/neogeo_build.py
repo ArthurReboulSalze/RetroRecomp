@@ -224,6 +224,24 @@ void geo_exec(void) {''',count=1)
                     (p & 0x07) ^ fpix, y);''',
         '''                pentry = (packed_row[((p & 8) ^ ftile)>>3] >>
                     (((p & 7) ^ fpix)*4)) & 15u;''',count=1)
+    # The scan of the 381 sprites for every line: resolved once per change of the three sprite tables (native/neogeo_sprite_scan.h),
+    # the same sprites in the same order with the same values; everything per sprite stays as it was.
+    source=_replace(source,'#include "neogeo_sprite_decode.h"','#include "neogeo_sprite_decode.h"\n#include "neogeo_sprite_scan.h"',count=1)
+    source=_replace(source,'    for (unsigned i = 1; i < 382; ++i) {\n        if (lspc.vram[0x8200 + i] & 0x40) {',
+        '''    const int scanned = rr_ng_scan_ready(&lspc.vram[0x8000], line);
+    const unsigned scan_first = scanned ? rr_ng_scan.start[line] : 0u;
+    const unsigned scan_end = scanned ? rr_ng_scan.start[line + 1] : RR_NG_SCAN_SPRITES;
+    for (unsigned k = scan_first; k < scan_end; ++k) {
+        unsigned i = k + 1;
+        if (scanned) {
+            const RrNgScanSprite *scan_sprite = &rr_ng_scan.sprite[i = rr_ng_scan.index[k]];
+            xpos = scan_sprite->xpos; ypos = scan_sprite->ypos; sprsize = scan_sprite->sprsize;
+            vshrink = scan_sprite->vshrink; hshrink = scan_sprite->hshrink;
+        }
+        else {
+        if (lspc.vram[0x8200 + i] & 0x40) {''',count=1)
+    source=_replace(source,'        hshrink = (lspc.vram[0x8000 + i] >> 8) & 0x0f;\n',
+        '        hshrink = (lspc.vram[0x8000 + i] >> 8) & 0x0f;\n        }\n',count=1)
     # Display only: the three fix-layer routines note the tile they draw in the two edge columns (the BIOS overscan mask
     # some games leave coloured); the host paints a detected coloured band black in its own view (native/neogeo_fixmask.h).
     # Neither the picture nor any saved state changes.
@@ -373,7 +391,7 @@ static int rr_ng_z80_try(z80 *z,unsigned *cycles) {
                  'neogeo_input.h', 'console16_video.h', 'neogeo_host.c', 'neogeo_host.h',
                  'neogeo_state.c', 'neogeo_state_validate.c', 'neogeo_ui_test.c', 'neogeo_ym_state.inc', 'neogeo_lspc_state.inc',
                  'neogeo_persistence.c', 'neogeo_persistence.h',
-                 'neogeo_path_io.h', 'neogeo_sprite_decode.h', 'neogeo_fixmask.h',
+                 'neogeo_path_io.h', 'neogeo_sprite_decode.h', 'neogeo_sprite_scan.h', 'neogeo_fixmask.h',
                  'console16_state.c', 'console16_state.h',
                  'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
                  'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h',
