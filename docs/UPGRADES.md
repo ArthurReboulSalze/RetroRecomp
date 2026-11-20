@@ -112,6 +112,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Every machine: F2 groups the players behind one Controls tile and gains a Display mode tile](#every-machine-f2-groups-the-players-behind-one-controls-tile-and-gains-a-display-mode-tile-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Every machine: the Restart tile's icon redrawn, two arcs and their arrows](#every-machine-the-restart-tiles-icon-redrawn-two-arcs-and-their-arrows-190) | none | **the host stamp of all 21 profiles** (`retro_menu.c`, `retro_menu.h`) | unchanged (host files are outside every state key) |
 | [Every machine: the sound's converter computes its outputs side by side, bit for bit the same](#every-machine-the-sounds-converter-computes-its-outputs-side-by-side-bit-for-bit-the-same-190) | **the game stamp of all 21 profiles** (`native/stereo_fir.h`) | **the host stamp of all 21 profiles** (`native/audio_output.inc`) | unchanged |
+| [Windows: games are compressed with UPX's NRV method again, for a quicker start](#windows-games-are-compressed-with-upxs-nrv-method-again-for-a-quicker-start-190) | none | **the build stamp of every profile on Windows** (`retrorecomp/packing.py`, a build input) | unchanged |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-190) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
 | [Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match](#sony-playstation-the-host-changes-pgxp-the-cpus-resolution-and-the-renderer-in-a-match-190) | none | the PlayStation's host stamp (`rrhk_psx.c`) | unchanged |
@@ -240,6 +241,30 @@ step, then its samples), and `audio_checks --replay <file>` converts it with 1.8
 The speed is the performance specialist's timed slot.
 
 **Stamps**: the game stamp (`stereo_fir.h`) and the host stamp (`audio_output.inc`) of all 21 profiles; quick states unchanged.
+
+## Windows: games are compressed with UPX's NRV method again, for a quicker start (1.9.0)
+
+From 1.6.7 to 1.8.x, Windows games were compressed with UPX's LZMA method (`--lzma`); Linux games kept UPX's default NRV
+method. 1.9.0 uses NRV on both systems (`packing.WINDOWS_METHOD`, Arthur, 20 November 2026). The game itself does not
+change: UPX restores the same program in memory, so its speed once started and everything it shows and plays are the same.
+
+Measured on the reference PC (Ryzen 9 3900X, quiet, 7 starts each from a fresh copy, start-up to the first frame, normal second
+launch), size and start-up:
+
+| Game | Not compressed | NRV (1.9.0) | LZMA (1.6.7 to 1.8.x) |
+| --- | --- | --- | --- |
+| Sonic the Hedgehog (Master System) | 6.19 MB, 22 ms | 1.87 MB, 59 ms | 1.45 MB, 119 ms |
+| Mega Man X2 (Super Nintendo) | 19.7 MB, 32 ms | 4.40 MB, 95 ms | 3.57 MB, 196 ms |
+| Pinball Illusions (Amiga 1200) | 40.0 MB, 117 ms | 11.6 MB, 212 ms | 9.61 MB, 474 ms |
+| Super Mario 64 (Nintendo 64) | 16.2 MB, 448 ms | 10.99 MB, 524 ms | 10.51 MB, 604 ms |
+
+A game is 4 % to 23 % larger than with LZMA and starts 60 to 260 ms sooner on this PC (more on a slower one). Packing takes a
+little longer during a conversion. The method is not an antivirus measure: nothing shows that it changes a detection; the
+option « Compress games » still delivers an uncompressed game. The PlayStation is not concerned (its games are never
+compressed). The report's `packing.method` says `nrv`.
+
+**Stamps:** `retrorecomp/packing.py` is a build input, so the build stamp of every profile moves on Windows; game and host stamps
+do not move, and quick states are unchanged.
 
 ## Commodore Amiga 500 and 1200: the F1 help says how two players play (1.9.0)
 
