@@ -462,7 +462,7 @@
     "missing_games": "File mancanti",
     "search": "Cerca",
     "games_count": "{count} giochi",
-    "build_version": "Versione usata",
+    "build_version": "Versione",
     "version_compatible": "Convertito con {built} · compatibile {compatible}",
     "saved_hints": "Indizi salvati",
     "game_new_hints": "Nuovi fallback · riconversione consigliata",

@@ -462,7 +462,7 @@
     "missing_games": "ファイルが見つからない",
     "search": "検索",
     "games_count": "{count} ゲーム",
-    "build_version": "生成バージョン",
+    "build_version": "バージョン",
     "version_compatible": "{built} で変換 · {compatible} 互換",
     "saved_hints": "保存ヒント",
     "game_new_hints": "新しいフォールバック · 再変換を推奨",
