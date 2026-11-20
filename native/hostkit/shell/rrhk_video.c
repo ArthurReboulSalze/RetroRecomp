@@ -202,9 +202,12 @@ void rrhk_sync_value(char *out, size_t size) {
 void rrhk_sync_notice(void) {
     char text[160], game[16], screen[16], gap[16];
     rrhk_sync.announce = false;
+    RrhkNumeric numeric;
+    rrhk_numeric_begin(&numeric);       /* the same figures on every machine, whatever locale its engine set */
     snprintf(game, sizeof game, "%.2f", rrhk_sync.machine_hz);
     snprintf(screen, sizeof screen, "%.2f", rrhk_sync.refresh_hz);
     snprintf(gap, sizeof gap, "%+.2f %%", rrhk_sync.machine_hz > 0.0 ? 100.0 * (rrhk_sync.refresh_hz / rrhk_sync.machine_hz - 1.0) : 0.0);
+    rrhk_numeric_end(&numeric);
     if (rrhk_sync.mode == RRHK_SYNC_VARIABLE) {
 #ifdef _WIN32
         snprintf(text, sizeof text, "%s", rr_tr(rrhk_sync.vrr_renderer ? "Variable refresh: screen follows game" :
