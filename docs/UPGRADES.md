@@ -150,6 +150,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Commodore Amiga 500 and 1200: multiplayer on the rollback tier](#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-190) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_player.c`, the new `retrorecomp.amiga_vamiga_session`, `retrorecomp.amiga_conversion`, `systems/amiga.py`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h` and the adapted vAmiga): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: the F1 help says how two players play](#commodore-amiga-500-and-1200-the-f1-help-says-how-two-players-play-190) | none | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | unchanged |
 | [Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end](#commodore-amiga-500-and-1200-the-host-writes-its-saves-back-at-a-matchs-clean-end-190) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_session.cpp`, `amiga_session.h`, `amiga_savefile.h`) | **the Amiga 500 and Amiga 1200 host stamps** (`rrhk_amiga.inc`) | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp`, `amiga_session.h`): an older quick state is refused cleanly; the file's layout is unchanged |
+| [Commodore Amiga 500 and 1200: a headless run hashes each frame once, and only for a trace or the rollback check](#commodore-amiga-500-and-1200-a-headless-run-hashes-each-frame-once-and-only-for-a-trace-or-the-rollback-check-190) | **the Amiga 500 and Amiga 1200 game stamps** (`amiga_player.c`, `amiga_session.cpp`, `amiga_session.h`) | none | **the Amiga quick-state key moves** (it hashes `amiga_session.cpp` and `amiga_session.h`): an older quick state is refused cleanly; the file's layout is unchanged |
 | [Commodore Amiga 500 and 1200: an Imploder block whose checksum differs](#commodore-amiga-500-and-1200-an-imploder-block-whose-checksum-differs-190) | **the Amiga 500 and Amiga 1200 game stamps** (`native/amiga_whdload/rr_decrunch.c`) | none | unchanged (the quick-state key does not hash the unpacker) |
 | [Windows packing: the call filter's last candidate](#windows-packing-the-call-filters-last-candidate-190) | none | **the build stamp of every profile** (`retrorecomp/packing.py` is a build input) | unchanged |
 | [Game Gear: the Gear-to-Gear cable, two consoles in one process](#game-gear-the-gear-to-gear-cable-two-consoles-in-one-process-190) | **the Game Gear game stamp** (`gg_ext.h`, `gg_link.inc`), and every console's through `retrorecomp/core.py` | the Master System and Game Gear host stamp (`rrhk_sms.c`) | unchanged (the layouts do not move; quick states are refused while linked) |
@@ -363,6 +364,38 @@ edge in an offscreen capture), and Ctrl+Alt+K stays on the second page (Tab) as 
 offscreen capture of the help page of a converted game in the five languages: the line ends inside the panel.
 
 **Stamps** (against `spec/multiplayer` `e83119c8`): the Amiga 500 and Amiga 1200 host stamps; no game stamp, quick states unchanged.
+
+## Commodore Amiga 500 and 1200: a headless run hashes each frame once, and only for a trace or the rollback check (1.9.0)
+
+A sampling profile of a headless Lotus 2 run (`--headless --frames 600`) put about 72 % of the main thread in `rr_amiga_frame_info`,
+which hashes the picture and the chip, slow and fast RAM byte by byte (FNV-1a). The profile ran on a PC that was not quiet, so it shows
+where the time goes, not a speed. `run_headless` (`amiga_player.c`) called that function:
+
+- before every frame, only for the frame's number;
+- after the frame, for the non-black and audible counts;
+- a third time for each trace line, which every conversion replay writes.
+
+Now:
+
+- the number comes from `rr_amiga_frame_count`;
+- the evidence after a frame comes from the new `rr_amiga_frame_seen`, which skips the hashes, unless a trace or the rollback check
+  needs them; then they are taken once;
+- the trace line takes the evidence already computed.
+
+The values and the trace's bytes do not change. A player's window never called the function, so a game in play does not change. The
+headless engine figure and every Amiga conversion's traced replays get cheaper.
+
+Checked by A/B conversions against main `e4f40699` (`tools/ab_conversion.py`, then every file of the conversions' replay folders
+compared byte for byte). On Lotus 2 (Amiga 500) and Pinball Illusions (Amiga 1200), each conversion's seven traced replays (22,200
+frames per game: reference, native, packed copy, restart) have identical traces, results, resload logs and frames. Only the executables
+differ, and the quick states, whose key moved. On both games, a 1200-frame headless run without a trace (the path that now skips the
+hashes) gives the same report and the same last frame.
+
+**Stamps** (against main `e4f40699`): the Amiga 500 and Amiga 1200 game stamps (`amiga_player.c`, `amiga_session.cpp`,
+`amiga_session.h`), and with them the reports' `simulation_identity`, as for any change to the game's sources. The Amiga quick-state key
+moves (it hashes `amiga_session.cpp` and `amiga_session.h`): an older quick state is refused cleanly. The host stamps do not move. The
+engine identity (`amiga_knowledge.NATIVE_INPUTS`: `amiga_bus.cpp`, `amiga_bus.h`, `moira_map.cpp`) does not move, so no qualified path
+goes back to pending.
 
 ## Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match (1.9.0)
 
