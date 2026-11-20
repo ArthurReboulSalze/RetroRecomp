@@ -1011,6 +1011,7 @@ INPUTS = _resolve({
     ('pce',): (
         'native/pce_backup.c',
         'native/pce_backup.h',
+        'native/pce_engine/pcm.cpp',
         'native/pce_machine.cpp',
         'native/pce_machine.h',
         'native/pce_machine_internal.hpp',

@@ -1275,5 +1275,46 @@ class ConfirmStartTests(unittest.TestCase):
         self.assertEqual(pce_conversion.choose_start(variants, 3600), 1)
 
 
+class EnginePatchTests(unittest.TestCase):
+    """Our patch of the pinned engine (docs/UPSTREAMS.md): native/pce_engine/pcm.cpp is built in place of the engine's runtime/src/pcm.cpp."""
+
+    def ours(self, native):
+        return (Path(pce_build.__file__).resolve().parents[1] / 'native' / native).read_text(encoding='utf-8')
+
+    def test_every_patched_file_is_marked_and_ours(self):
+        for relative, (native, sha) in pce_build.PATCHED_ENGINE_FILES.items():
+            text = self.ours(native)
+            self.assertEqual(len(sha), 64)
+            self.assertGreaterEqual(text.count('Retro-Recomp patch'), 3)        # each edit says what it is
+            self.assertIn('settle_silent_cd_source', text)                      # the host's way to bring the skipped fields up to date
+
+    def test_the_pinned_original_is_the_one_the_patch_was_made_from(self):
+        checkout = pce_build.checkout_path()
+        if not (checkout / 'runtime' / 'src' / 'pcm.cpp').is_file():
+            self.skipTest('the pinned engine is not fetched')
+        pce_build.verify_patched_base(checkout)
+
+    def test_the_game_is_built_with_our_copy_in_place_of_the_original(self):
+        lines = '\n'.join(pce_build.engine_patch_lines('E:/engine'))
+        self.assertIn('set_property(SOURCE "E:/engine/runtime/src/pcm.cpp" TARGET_DIRECTORY pce-runtime PROPERTY HEADER_FILE_ONLY TRUE)', lines)
+        self.assertIn('engine_patch/pcm.cpp', lines)
+        self.assertIn('\n'.join(pce_build.engine_patch_lines(pce_build.checkout_path().as_posix())), pce_build.game_cmake(None, '1.9.0'))
+        with tempfile.TemporaryDirectory() as folder:
+            pce_build.stage_engine_patch(Path(folder))
+            staged = (Path(folder) / 'engine_patch' / 'pcm.cpp').read_text(encoding='utf-8')
+            self.assertEqual(staged, self.ours('pce_engine/pcm.cpp'))
+
+    def test_a_changed_original_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / 'runtime' / 'src'
+            source.mkdir(parents=True)
+            (source / 'pcm.cpp').write_text('not the engine', encoding='utf-8')
+            with self.assertRaises(pce_build.PceBuildError):
+                pce_build.verify_patched_base(Path(folder))
+
+    def test_the_stamps_know_the_patch(self):
+        self.assertIn('native/pce_engine/pcm.cpp', compilation_inputs.manifest_names('pce'))
+
+
 if __name__ == '__main__':
     unittest.main()

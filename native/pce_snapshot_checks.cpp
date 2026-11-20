@@ -57,6 +57,7 @@ struct Frame {
 };
 
 std::vector<uint8_t> engine_checkpoint() {
+    pce::settle_silent_cd_source(*pce_bridge::bus());
     return pce::encode_checkpoint(*pce_bridge::bus(), *pce_bridge::cpu());
 }
 

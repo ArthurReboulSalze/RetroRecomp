@@ -144,6 +144,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Master System and Game Gear: rollback snapshot and the frame handed over at an instruction boundary](#master-system-and-game-gear-rollback-snapshot-and-the-frame-handed-over-at-an-instruction-boundary-190) | **the game stamp of all nine consoles of the shared runtime** (`gamestate.inc`, `gamestate.h`, `state_io.h`, `psg_state.inc`; `video_mode4.inc` the pair's own) | the Master System and Game Gear host stamp | unchanged (format and keys) |
 | [Capcom CPS-1, CPS-1.5 and CPS-2: the rollback tier and the host's F8 / F9 for everyone](#capcom-cps-1-cps-15-and-cps-2-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_opm.cpp`, `cps1_main.c`) | the CPS-1 and CPS-2 host stamps (`cps1_host.c`, `cps1_persistence.c`, `rrhk_cps1.c`) | unchanged (format, key and magic) |
 | [PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, the new snapshot files, `pce_main.c`, `pce_build.py`, the profile) | the PC Engine host stamp (`rrhk_pce.c`) | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c` |
+| [PC Engine / TurboGrafx-16: a cheaper frame](#pc-engine--turbografx-16-a-cheaper-frame-190) | **the PC Engine game stamp** (`pce_machine.cpp`, `pce_machine_internal.hpp`, `pce_snapshot.cpp`, the new `native/pce_engine/pcm.cpp`, `pce_build.py`) | none | refused cleanly (the PC Engine key hashes the patched file) |
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
 
@@ -175,6 +176,27 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
+
+## PC Engine / TurboGrafx-16: a cheaper frame (1.9.0)
+
+A sampling profile of Blazing Lazers (main `4aafb3fd`, 32,800 retired instructions and about 150 ns each per frame, the recompiled code itself only 9 % of
+it) showed where the engine's frame goes. Two changes so far, both with the output unchanged (a first wave, the owner's go of 20 November 2026; the rest is
+in the note of the performance work):
+
+- **The frame loop calls the engine's generated and interpreter entries directly** (`step_untraced` in `native/pce_machine.cpp`): `pce::step` built a bus-trace
+  scope for every retired instruction, which does nothing unless a trace is attached and this host never attaches one (about 4 % of the frame).
+- **Our patch of the engine's audio clock** (`native/pce_engine/pcm.cpp`, [UPSTREAMS.md](UPSTREAMS.md)): the CD audio fields a HuCard never reads are no
+  longer brought up to date after every instruction but when a checkpoint is taken (about 25 to 30 % of the frame in the profile).
+
+**Checked, identical output**, Blazing Lazers (USA) built three ways from one project (main, the first change, both): 4,800 play frames and 3,600 attract
+frames, the per-frame picture / PCM / CPU / RAM hashes, the whole PCM stream (14 MB and 10 MB) and a quick state saved at frame 2,940 (2.6 MB, the engine's
+whole checkpoint, so the settled CD fields included) are equal byte for byte; each build loads each build's state and continues 600 frames equal. The
+snapshot probe (`tools/pce_snapshot_selftest.py`: every frame a save point against the engine's own checkpoint, on the base board and the Street Fighter II
+board) passes on the patched engine. Speed is measured by the performance specialist, not here.
+
+**Stamps**: the PC Engine game stamp (`native/pce_machine.cpp`, `native/pce_machine_internal.hpp`, `native/pce_snapshot.cpp`, the new
+`native/pce_engine/pcm.cpp`, `retrorecomp/pce_build.py`; the simulation identity of the PC Engine moves with them); no host stamp. Quick states: the PC Engine key hashes
+`pce_machine.cpp`, `pce_main.c` and now the patched file, so a quick state of 1.8.0 is refused cleanly, as after any change of the bridge.
 
 ## Every machine: the timing report and the [host] lines keep their decimal point (1.9.0)
 

@@ -6,6 +6,13 @@
 
 #include "pce/runtime.hpp"
 
+namespace pce {
+// Retro-Recomp's patch of the engine's pcm.cpp (native/pce_engine/pcm.cpp): the CD audio fields a HuCard never reads are brought up to date here, not
+// after every instruction. Call it before reading the engine's whole state (a checkpoint, the audio side of a snapshot): the state is then what it was
+// when every instruction updated them.
+void settle_silent_cd_source(Bus &bus);
+}  // namespace pce
+
 namespace pce_bridge {
 // Null before pce_machine_init and after pce_machine_shutdown.
 pce::Bus *bus();

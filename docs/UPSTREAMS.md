@@ -514,6 +514,22 @@ stage and by the machine; a line not found exactly once refuses the pinned tree)
 The engine's master already has this: its check refuses only timing 3 (read on 16 November 2026 on `common/nes_cart.h`; it came with its own PAL
 work after our pin). Nothing to propose upstream; the patch goes when the pin moves past that work.
 
+## PC Engine: a patch of the pinned engine's audio clock (1.9.0)
+
+Until 1.9.0 no engine source was patched. The pin stays (`6bb848e`, ABI 29); the game now compiles `native/pce_engine/pcm.cpp` in place of the engine's
+`runtime/src/pcm.cpp` (`pce_build.PATCHED_ENGINE_FILES`, `engine_patch_lines`, `stage_engine_patch`; the game's CMake marks the pinned file as header-only and
+adds ours to `pce-runtime`). The SHA-256 of the pinned original our copy was made from is recorded there and checked whenever the engine is fetched
+(`verify_patched_base`), so a bump of the pin that touches the file stops the build and asks for a review of the patch. The file is a game-role input
+of the PC Engine stamps and of the simulation identity (`native/pce_engine/pcm.cpp` in `stamp_inputs.py`). It is the owner's decision (20 November 2026)
+to carry it ourselves and not to offer it upstream first (« pour le PC Engine, on va juste le faire pour nous »).
+
+| Fix | Measure | Our file | Edits |
+|---|---|---|---|
+| `AudioOutput::advance_to` runs after every retired instruction (`Bus::sync`). With no CD and no sample due it still brought the CD audio source's phase fields (`silent_source_to`), its cursor and the sample clock up to date, and called the CD transport's `advance_to` (which returns at once): about 31 % of the engine's frame in a sampling profile of Blazing Lazers (main `4aafb3fd`, 20 November 2026). A HuCard has no CD, ADPCM or CD audio: those fields are read by nothing. | frame cost only; the output is unchanged (below) | `native/pce_engine/pcm.cpp` | patch 1 skips `cd.advance_to` while the transport is off; patch 2 returns before the CD source updates when the CD, its transport, CD audio and ADPCM are all off and the timing is not the legacy one; patch 3 adds `settle_silent_cd_source(Bus&)`, the same three calls in the same order at the last tick `advance_to` saw. The host calls it before it reads the engine's whole state (`pce_machine_state_save`, `pce_snapshot_save`, the snapshot probe), so a checkpoint is what it was when every instruction updated the fields. |
+
+Nothing to propose upstream before the first measure; if it is offered later, it is this one file against `6bb848e` (or the head then) with the digests
+below as its proof.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
