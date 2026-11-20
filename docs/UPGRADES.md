@@ -128,6 +128,7 @@ state-layout keys move too, with the other keys the rows name.
 | [NES: the APU's quiet cycles run together](#nes-the-apus-quiet-cycles-run-together-190) | **the NES game stamp** (`nes_machine.py`, new `native/nes_apu_batch.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_apu_batch.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
 | [NES: the background tile of the deferred PPU runs in registers](#nes-the-background-tile-of-the-deferred-ppu-runs-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_ppu_lazy.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
 | [NES: the sprite slots of the deferred PPU run in registers](#nes-the-sprite-slots-of-the-deferred-ppu-run-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`, with the tile above) | none (host files unchanged) | **the NES quick-state key moves** with the tile's (the same file) |
+| [NES: the sprite evaluation of a tile runs in registers](#nes-the-sprite-evaluation-of-a-tile-runs-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`, with the tile and the slots above) | none (host files unchanged) | **the NES quick-state key moves** with the tile's (the same file) |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 | [Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart](#mega-drive-four-players-with-the-team-player-the-4-way-play-or-the-j-cart-190) | **the Mega Drive game and engine stamps** (`retrorecomp/megadrive_multitap.py`, new, and its hooks); **the game stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation** (`console16.py`, the report's player count; their games do not change) | **the Mega Drive host stamp** (`rrhk_md.c`) | unchanged |
 | [Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end](#mega-drive-super-nintendo-pc-engine-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the game stamps of the Mega Drive, Super Nintendo, PC Engine, MSX, MSX2 and MSX2+** (`native/cart_save.c` and `.h`, which they share; `md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the quick-state keys of those six profiles move** (they hash `cart_save.c`; the Mega Drive's also `md_backend.c` and `md_battery.c`): older quick states are refused cleanly; the state and save formats do not change |
@@ -1006,6 +1007,27 @@ gives the same memory, CPU, cycles, hardware state and picture for the next 600 
 specialist measures).
 
 **Stamps:** the NES game stamp and the NES quick-state key move with `nes_ppu_lazy.inc` (already moved by the tile; one file, one move); the
+NES host stamp is unchanged.
+
+## NES: the sprite evaluation of a tile runs in registers (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-eval`, stacked on the slots). The tile of the deferred PPU (`rr_ppu_tile_bg`) already keeps the
+background fetch and colour pipeline in locals; the sprite evaluation of the same eight dots (the secondary OAM clear of dots 1 to 64 and the
+object evaluation of dots 65 to 256, `eval_objects`) still read and wrote the global PPU, so the compiler reloaded its fields at every dot. They
+now sit in the tile's locals too: the OAM address, the secondary OAM address and its full flag and reset counter, the evaluation tick and its
+three flags, the OAM buffer and its input, and the object row. `rr_eval_even` is `eval_objects(false)` on an even dot, statement for
+statement, on those locals; the flags the rest of the PPU reads between dots (`overflow`, `next_has_s0`) are still written to the PPU at once,
+and everything is written back after the eighth dot. The tile takes the pairs, as before, when the first line of an odd frame, a decaying open
+bus, a board that watches the bus other than the MMC1, rendering that is not settled, or a corruption latch (`oamc_disabled_now`) is in play.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py`, original machine against this one (the random activity, the APU mode and the sprites
+mode, which has the objects of every kind in range): all pass. Two mutants of `rr_eval_even` are caught by it (the overflow bug stepping by 4
+instead of 5, and the sprite 0 flag tested at dot 68 instead of 66). On Metroid (USA), converted from this commit and from the one below it: the per-frame lines (CPU, memory, hardware state, picture, sound) and
+the whole PCM are identical over 3,600 frames of the boot and the two input routes, and a quick state saved at frame 1200 and loaded in a new
+process gives the same memory, CPU, cycles, hardware state and picture for the next 600 frames. **Not compared:** the sound after a quick state load (see the APU section), one game on one board for real games, no timing
+here (the performance specialist measures).
+
+**Stamps:** the NES game stamp and the NES quick-state key move with `nes_ppu_lazy.inc` (one file, one move with the tile and the slots); the
 NES host stamp is unchanged.
 
 ## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (1.9.0)
