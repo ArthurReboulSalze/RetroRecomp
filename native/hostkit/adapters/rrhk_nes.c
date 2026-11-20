@@ -8,6 +8,7 @@
 #include <SDL.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <wchar.h>
 #include "platform_io.h"
 #include "cyc_core.h"
@@ -19,6 +20,11 @@
 #include "hostkit/hostkit.h"
 
 void rr_nes_extra_sprites(bool enabled);
+/* Multiplayer (hostkit_session.h): the raw in-process snapshot and the portable digest of nes_machine_state.inc. */
+size_t rr_nes_snap_bound(void);
+size_t rr_nes_snap_save(void *buffer, size_t capacity);
+bool rr_nes_snap_load(const void *buffer, size_t size);
+uint64_t rr_nes_digest(void);
 
 enum { A, B, SELECT, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const RrhkAction actions[ACTIONS] = {
@@ -34,18 +40,34 @@ static const RrhkAction actions[ACTIONS] = {
 /* Host-only extra sprites per scanline (F5); the Zapper options have their own F2 page. */
 static int extra_sprites;
 
-static int players(void) { return 2; }
+/* The Four Score (players 3 and 4) is wired for the games that read it (RR_NES_FOUR_SCORE, the converter's catalogue): four
+ * controllers, two per port, in the quick states and in a session's four port words. */
+static int players(void) { return RR_NES_FOUR_SCORE ? 4 : 2; }
 static int width(void) { return 256; }
 static int height(void) { return 240; }
 
 static void reset(void) { cyc_power_on(0); cyc_run_power_on(); }
+/* The frame number the kit gave before the frame (autofire counts it); a session's words do not depend on it. */
+static uint64_t input_frame_now;
+static void before_frame(const RrhkAudioProbe *audio, uint64_t input_frame) { (void)audio; input_frame_now = input_frame; }
+/* Players 3 and 4 are read here, not in before_frame: a frame run again after a rollback is silent and has no before_frame,
+ * and its pads must be the corrected words of that frame. */
 static bool run_frame(uint16_t p1, uint16_t p2) {
     cyc_set_controller(0, (uint8_t)p1);
     cyc_set_controller(1, (uint8_t)p2);
+    if (RR_NES_FOUR_SCORE) {
+        cyc_set_controller(2, (uint8_t)rrhk_pad_word(2, input_frame_now));
+        cyc_set_controller(3, (uint8_t)rrhk_pad_word(3, input_frame_now));
+    }
     cyc_run_frame();
     return true;
 }
 static void pause_machine(bool paused) { (void)paused; }
+/* Multiplayer: a guest writes no save file (the program's write at the end is stopped), and plays on the host's save. */
+static void side_effects(bool allowed) { rr_nes_saves_allowed(allowed); }
+static size_t session_save(void *out, size_t capacity) { return rr_nes_session_save(out, capacity); }
+static bool session_save_put(const void *in, size_t size) { return rr_nes_session_save_put(in, size); }
+static bool session_save_commit(void) { return rr_nes_session_save_commit(); }
 static size_t audio(int16_t *pcm, size_t capacity) { return cyc_audio_read(pcm, capacity); }
 static bool audio_enable(unsigned rate) { return cyc_audio_enable((int)rate); }
 static uint64_t interpreted(void) { return cyc_run_interp_rom_cycles + cyc_run_interp_ram_cycles + cyc_run_interp_other_cycles; }
@@ -66,6 +88,19 @@ static void settings_loaded(RrhkUi *ui) {
 }
 
 /* F5 sprite flicker reduction. F6 autofire is the shell's own key, with its notice (divergence 11). */
+/* Multiplayer: the extra sprites are sealed by the host for everyone (they may change what the game sees of sprite 0 and the
+ * overflow flag until a probe shows otherwise), and F5 does not change them during a match. */
+static bool session_option(const char *key, const char *value) {
+    if (strcmp(key, "extra_sprites") || (strcmp(value, "0") && strcmp(value, "1"))) return false;
+    extra_sprites = value[0] == '1'; rr_nes_extra_sprites(extra_sprites != 0);
+    return true;
+}
+
+static size_t session_options(char *out, size_t capacity) {
+    const int n = snprintf(out, capacity, "extra_sprites=%d", extra_sprites ? 1 : 0);
+    return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
+}
+
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)running;
     if (key == SDL_SCANCODE_F5) {
@@ -80,7 +115,7 @@ static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
 }
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
-    if (slot == 0) rrhk_option_row_icon(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
+    if (slot == 0) rrhk_option_row_run(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
                                         rr_tr(extra_sprites ? "ON" : "OFF"));
 }
 
@@ -96,7 +131,8 @@ static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
     rrhk_menu_line(ctx, y, rrhk_tr("NES: arrows + S/D; Enter Start", "NES : fleches + S/D; Entree Start"));
     rrhk_menu_line(ctx, y + RR_MENU_LINE, RR_NES_ZAPPER ? rrhk_tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran") :
-        rrhk_tr("Shift Select; two controllers", "Maj Select; deux manettes"));
+        RR_NES_FOUR_SCORE ? rrhk_tr("Shift Select; four controllers (Four Score)", "Maj Select; quatre manettes (Four Score)") :
+            rrhk_tr("Shift Select; two controllers", "Maj Select; deux manettes"));
 }
 
 const RrhkMachine *rrhk_adapter(void) {
@@ -104,7 +140,7 @@ const RrhkMachine *rrhk_adapter(void) {
     if (!machine.actions) {
         machine = (RrhkMachine){
             .ini_section = L"NES", .console_name = "NES",
-            .table_players = 2, .players = players,
+            .table_players = RR_NES_FOUR_SCORE ? 4 : 2, .players = players,
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,
             .max_width = 256, .max_height = 240, .frame_seconds = RR_FRAME_SECONDS,
@@ -121,7 +157,12 @@ const RrhkMachine *rrhk_adapter(void) {
             .pointer_input = pointer_input,
             .page = RR_NES_ZAPPER ? &rrhk_pointer_page : NULL,
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
-            .help_controls = help_controls, .key_event = key_event,
+            .help_controls = help_controls, .key_event = key_event, .before_frame = before_frame,
+            .snap_bound = rr_nes_snap_bound, .snap_save = rr_nes_snap_save, .snap_load = rr_nes_snap_load,
+            .digest = rr_nes_digest, .session_option = session_option,
+            .side_effects = side_effects, .session_save = session_save, .session_save_put = session_save_put,
+            /* a game with no cartridge save has nothing to write back (the host is then told nothing) */
+            .session_save_commit = cyc_nvram_size(0) || cyc_nvram_size(1) ? session_save_commit : NULL, .session_options = session_options,
         };
     }
     return &machine;

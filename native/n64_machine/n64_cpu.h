@@ -51,6 +51,13 @@ int rr_n64_has_delay(uint32_t op);
 uint64_t rr_n64_cpu_state_hash(void);
 uint32_t rr_n64_cpu_pc(void);
 
+/* Multiplayer: the machine's deterministic state as named fields (VR4300, RSP memory and registers, RDP, MI/VI/AI/PI/RI/SI, PIF
+ * RAM, the whole RDRAM, then the given save memory), folded as values in a fixed order; and the cartridge clock set to a
+ * session's (`clock` seconds since 1970, then `*frames` / `fps` emulated seconds), the same date on every seat. */
+uint64_t rr_n64_cpu_digest(const uint8_t *saves, size_t saves_size);
+void rr_n64_cpu_session_clock(uint64_t clock, const uint64_t *frames, double fps);
+void rr_n64_cpu_session_clock_keep(void);   /* after each frame: puts the session's clock back once the core has set up its devices */
+
 #ifdef __cplusplus
 }
 #endif

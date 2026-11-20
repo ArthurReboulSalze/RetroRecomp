@@ -12,15 +12,19 @@ from .paths import ASSETS, APP_NAME, save_preferences, save_game_language
 from .i18n import STRINGS, tr
 from .languages import LANGUAGES, LANGUAGE_NAMES, language_name
 from .tooltips import Tooltip
-from .ui_fonts import family
+from .ui_fonts import family, scaled
 from .systems import get_profile
 from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
-from .dialogs import center_dialog
+from .rounded_skin import apply_rounded_theme
+from .rounded_skin import skin_of
+from .dialogs import center_dialog, fit_screen
+from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
+from .gui_icons import hero_picture
 from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
-    header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
+    badged_icon, header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
 )
 
 
@@ -29,7 +33,9 @@ class WindowMixin:
 
     def fit_minimum_width(self):
         # French labels and a large ROM count must keep every action visible.
-        self.app.minsize(max(1060, self.toolbar.winfo_reqwidth() + 72), 640)
+        app = self.app
+        width = max(fit_screen(app, 1060, app.winfo_screenwidth() - 40), self.toolbar.winfo_reqwidth() + 72)
+        app.minsize(width, fit_screen(app, 640, app.winfo_screenheight() - 90))
 
     def layout_empty_state(self, event):
         # Keep the empty-list hint below the heading even on small screens.
@@ -214,8 +220,15 @@ class WindowMixin:
             canvas.create_line(0, height - 1, width, height - 1, fill=_tint(bottom, accent, 0.6), tags=tags)
         canvas.tag_lower('background_motif')
 
-    def hint(self, widget, key):
-        self.tooltips.append(Tooltip(widget, lambda: self.tr(key)))
+    def hint(self, widget, key, name=None):
+        """The hover hint `key` of `widget`; with a `name` (a key too) the hint starts with it, for buttons that show
+        only their picture. Either may be a function returning the key, for a button whose meaning changes."""
+        def text():
+            shown = self.tr(key() if callable(key) else key)
+            if name is None:
+                return shown
+            return self.tr(name() if callable(name) else name).rstrip('…') + '\n' + shown
+        self.tooltips.append(Tooltip(widget, text))
 
     def set_status(self, key, **values):
         self.status_key, self.status_values = key, values
@@ -240,7 +253,7 @@ class WindowMixin:
         previous_font = self.ui_font
         self.ui_font = family(self.language)
         if self.ui_font != previous_font:
-            self.style = apply_theme(self.app, self.ui_font)
+            self.style = apply_rounded_theme(self.app, self.ui_font)
             _toolbar_styles(self.style)
         self.language_name.set(language_name(self.language))
         self.system_field.configure(values=self.system_choices())
@@ -282,12 +295,19 @@ class WindowMixin:
                     widget.current(index)
             for child in widget.winfo_children(): update(child)
         update(self.app)
+        # The buttons that show only a picture: their text (their name for the screen reader) follows the language by
+        # its key, not through the reverse map above (a text another key shares, such as « Stop », could be taken for it).
+        for widget, key in list(getattr(self, 'icon_names', {}).items()):
+            try:
+                widget.configure(text=self.tr(key))
+            except tk.TclError:
+                pass
         # After the fonts followed the language: the fields keep room for their longest entry.
         self.size_header_fields()
         self.layout_header()
         # Section titles whose English text another key shares ("Box art").
-        for name, key in (('account_frame', 'options_account'), ('covers_frame', 'options_boxart'),
-                          ('disk_frame', 'options_disk_space')):
+        for name, key in (('firmware_frame', 'options_firmware'), ('account_frame', 'options_account'),
+                          ('covers_frame', 'options_boxart'), ('disk_frame', 'options_disk_space')):
             frame = getattr(self, name, None)
             try:
                 if frame is not None and frame.winfo_exists():
@@ -340,12 +360,26 @@ class WindowMixin:
         except (OSError, ValueError, tk.TclError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
 
-    def decorate_button(self, button, symbol, primary=False):
-        key = (symbol, primary)
+    def decorate_button(self, button, symbol, primary=False, accent=False, hero=False, feature=False):
+        """The picture of `symbol` on `button`: dark on the gold primary buttons, gold on the accent ones (the toolbar's
+        Multiplayer and Front-end), light on the others; a hero button (the main one of a row) has a larger, thicker one."""
+        key = (symbol, 'hero') if hero else (symbol, 'feature') if feature else (symbol, 'accent') if accent else (symbol, primary)
         if key not in self.button_images:
-            self.button_images[key] = (
-                make_icon(self.app, symbol, COLORS['gold_text'] if primary else COLORS['text']),
-                make_icon(self.app, symbol, COLORS['disabled']))
+            colour = COLORS['gold_text'] if primary or hero else COLORS['gold'] if accent else COLORS['text']
+            if feature:
+                # Front-end and Multiplayer, in the middle of the bar (Arthur, 20 Nov 2026: « un peu plus grands »): their
+                # gold picture at FEATURE_SIZE, two pixels thick, up to 125 % on a HiDPI screen.
+                from .gui_icons import feature_picture
+                self.button_images[key] = (feature_picture(self.app, symbol, COLORS['gold']),
+                                           feature_picture(self.app, symbol, COLORS['disabled']))
+            elif hero:
+                # Drawn with Pillow when the picture has a drawing (gui_icons.hero_picture): dark on the gold, with a
+                # lighter gold for its bevelled edge; grey, with a lighter grey, when greyed.
+                self.button_images[key] = (hero_picture(self.app, symbol, colour, '#f2dc93'),
+                                           hero_picture(self.app, symbol, COLORS['disabled'], '#9a9a9a'))
+            else:
+                self.button_images[key] = (make_icon(self.app, symbol, colour),
+                                           make_icon(self.app, symbol, COLORS['disabled']))
         normal, disabled = self.button_images[key]
         button.configure(image=(normal, 'disabled', disabled), compound='left')
 
@@ -372,16 +406,50 @@ class WindowMixin:
         else:
             self.empty_state.place(relx=0.5, rely=0.5, y=18, anchor='center')
 
-    def icon_button(self, parent, name, tip, command, symbol, *, managed=True):
+    def icon_button(self, parent, name, tip, command, symbol, *, managed=True, accent=False, primary=False,
+                    hero=False):
         """A toolbar button showing only its picture; its hint starts with
-        its name. Managed buttons follow set_controls like the others."""
-        button = ttk.Button(parent, text=self.tr(name), command=command, style='Toolbar.TButton')
-        self.decorate_button(button, symbol)
+        its name (the text stays set on the widget). Managed buttons follow
+        set_controls like the others; an accent button has a gold picture
+        and border, a primary one is gold with a dark picture, a hero one (the main button of a row: Convert /
+        regenerate, Play game of Compiled Games) is gold too and larger than the others, with a larger picture."""
+        button = ttk.Button(parent, text=self.tr(name), command=command,
+                            style='Hero.Toolbar.Primary.TButton' if hero else
+                            'Feature.Toolbar.TButton' if accent else
+                            'Toolbar.Primary.TButton' if primary else 'Toolbar.TButton')
+        self.decorate_button(button, symbol, primary=primary, accent=accent, hero=hero)
         button.configure(compound='image')
+        self.name_picture(button, name)
         if managed:
             self.controls.append(button)
-        self.tooltips.append(Tooltip(button, lambda: self.tr(name).rstrip('…') + '\n' + self.tr(tip)))
+        self.hint(button, tip, name)
         return button
+
+    def name_picture(self, widget, name):
+        """Remember that `widget` shows only a picture and that its text is the string `name`, which refresh_language
+        keeps in the interface language."""
+        if not hasattr(self, 'icon_names'):
+            self.icon_names = {}
+        self.icon_names[widget] = name
+
+    def badge_button(self, button, symbol, badge):
+        """`button`'s picture of `symbol`, with the red dot at its corner while `badge` (the update button's and the
+        new paths button's way of saying that something is new)."""
+        compound = str(button.cget('compound'))
+        if not badge:
+            self.decorate_button(button, symbol)
+        else:
+            key = (symbol, 'badge')
+            if key not in self.button_images:
+                self.button_images[key] = (badged_icon(self.app, symbol, COLORS['text']),
+                                           badged_icon(self.app, symbol, COLORS['disabled']))
+            normal, disabled = self.button_images[key]
+            button.configure(image=(normal, 'disabled', disabled))
+        button.configure(compound=compound)
+
+    def place_count_label(self):
+        """The ROM count in the middle of the status line: the room its left and right texts leave, centred."""
+        self.count_label.pack(side='left', expand=True)
 
     def show_credits(self):
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
@@ -403,7 +471,7 @@ class WindowMixin:
         panel.title(APP_NAME + ' - ' + self.tr('credits_notices'))
         panel.configure(bg=COLORS['background'])
         center_dialog(panel, parent, 880, 630)
-        panel.minsize(min(650, panel.winfo_screenwidth() - 40), min(420, panel.winfo_screenheight() - 90))
+        panel.minsize(min(scaled(panel, 650), panel.winfo_screenwidth() - 40), min(scaled(panel, 420), panel.winfo_screenheight() - 90))
         panel.transient(parent)
         body = tk.Frame(panel, bg=COLORS['background'], padx=16, pady=16)
         body.pack(fill='both', expand=True)
@@ -414,6 +482,7 @@ class WindowMixin:
         listing = tk.Listbox(row, width=29, exportselection=False, bg=COLORS['panel'],
                              fg=COLORS['text'], selectbackground=COLORS['border'],
                              selectforeground='#ffffff', relief='flat',
+                             highlightthickness=1, highlightbackground=COLORS['panel'], highlightcolor=COLORS['gold'],
                              font=(self.ui_font, 10))
         listing.pack(side='left', fill='y', padx=(0, 10))
         for path in resources:
@@ -514,6 +583,8 @@ class WindowMixin:
         style.configure('Help.Vertical.TScrollbar', background='#2b2b2b', troughcolor=background,
                         bordercolor=background, arrowcolor=COLORS['gold'])
         bar.configure(style='Help.Vertical.TScrollbar')
+        if skin_of(bar):
+            skin_of(bar).restyle(bar)     # a style set after the widget was built is skinned here
         icons = ('add_rom_folder', 'refresh', 'play', 'new_paths', None)
         rows = []
         for index, icon in enumerate(icons, 1):
@@ -586,7 +657,7 @@ class WindowMixin:
             bar.pack(side='right', fill='y')
             width += bar.winfo_reqwidth()
         scroller.configure(width=body.winfo_reqwidth(), height=min(height, room_height))
-        center_dialog(window, self.app, width, height)
-        window.minsize(min(width, 420), min(height, 320))
+        center_dialog(window, self.app, width, height, measured=True)
+        window.minsize(min(width, scaled(window, 420)), min(height, scaled(window, 320)))
         window.deiconify()
         reveal()

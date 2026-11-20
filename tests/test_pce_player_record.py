@@ -80,7 +80,7 @@ class GameRecordsTests(unittest.TestCase):
         main = (ROOT / 'native/pce_main.c').read_text(encoding='utf-8')
         self.assertIn('rr_feedback_start(!headless)', main)
         self.assertIn('rr_feedback_note(RR_FB_PCE', main)
-        self.assertIn('pce_machine_set_recorder(record_instruction, rr_feedback_enabled)', main)
+        self.assertIn('pce_machine_set_recorder(record_instruction, record_enabled)', main)
 
     def test_the_bridge_notes_what_the_interpreter_ran_on_a_card_bank_of_a_standard_board_only(self):
         bridge = (ROOT / 'native/pce_machine.cpp').read_text(encoding='utf-8')

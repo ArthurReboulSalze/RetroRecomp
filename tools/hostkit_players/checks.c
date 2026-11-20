@@ -6,7 +6,7 @@
  * (RR_CPS1_PLAYERS 4) and a two-player one (2). It checks that
  *   - four identical pads go to four distinct players (two on the two-player board, pads 3 and 4 to nobody);
  *   - one distinct button on each pad reaches its own player's pad word: players 1-2 through run_frame, 3-4 through
- *     before_frame (rr_cps1_set_extra_pads), and on the two-player board pads 3 and 4 change nothing;
+ *     rr_cps1_set_extra_pads (from run_frame since the multiplayer work), and on the two-player board pads 3 and 4 change nothing;
  *   - Start+Back held over a second on pad 3, and its triggers, neither restart nor change the speed; on pad 1 they do;
  *   - players 3 and 4 have keyboard keys of their own, no key drives two actions, CPS-1's explicit pad layout is kept;
  *   - a binding made in F2 swaps with the action that had the key or button, and a swap that leaves an action with no key
@@ -49,6 +49,17 @@ int rr_cps1_dip_setting(int index) { (void)index; return -1; }
 void rr_cps1_dip_values(uint16_t values[3]) { values[0] = values[1] = values[2] = 0xffff; }
 void rr_cps1_set_dip_values(const uint16_t values[3]) { (void)values; }
 void rr_cps1_dip_cycle(int index, int step) { (void)index; (void)step; }
+/* The CPS boards' multiplayer hooks (rollback, digest, side effects, the CPS-2 name): no session runs here. */
+int cps1_is_cps2(void) { return 0; }
+size_t rr_cps1_snap_bound(void) { return 0; }
+size_t rr_cps1_snap_save(void *buffer, size_t capacity) { (void)buffer; (void)capacity; return 0; }
+bool rr_cps1_snap_load(const void *buffer, size_t size) { (void)buffer; (void)size; return false; }
+uint64_t rr_cps1_digest(void) { return 0; }
+void rr_cps1_side_effects(bool allowed) { (void)allowed; }
+size_t rr_cps1_session_save(void *out, size_t capacity) { (void)out; (void)capacity; return 0; }
+bool rr_cps1_session_save_put(const void *in, size_t size) { (void)in; (void)size; return false; }
+bool rr_cps1_session_save_commit(void) { return false; }
+size_t cps1_eeprom_size(void) { return 0; }
 void rr16_reset(void) { ++resets; }
 void rr16_pause(bool paused) { (void)paused; }
 const uint32_t *rr16_pixels(void) { return pixels; }

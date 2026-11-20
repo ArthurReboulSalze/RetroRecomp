@@ -44,6 +44,11 @@ typedef struct RrAmigaGame {
     /* The machine: RR_AMIGA_MODEL_A500 (68000, ECS, 0 the default) or RR_AMIGA_MODEL_A1200 (68EC020 with its instruction
      * cache, AGA, 2 MiB of chip RAM on a 32-bit bus: vAmiga's own A1200 scheme with the A1200 bank map). */
     int model;
+    /* 1: a multiplayer session (native/hostkit/hostkit_session.h: every seat runs the same machine). The install's files on every seat, with this player's
+     * saves (save_dir, read once, not written during the match) in the session's memory until the host's replace them
+     * (rr_amiga_session_save_put); the host writes them back at the match's clean end (rr_amiga_session_save_commit);
+     * what the game saves stays in that memory, carried by the in-process snapshot (rr_amiga_snap_*). */
+    int session;
 } RrAmigaGame;
 
 enum { RR_AMIGA_MODEL_A500 = 0, RR_AMIGA_MODEL_A1200 = 1 };
@@ -132,6 +137,30 @@ int rr_amiga_write_resload_log(const RrAmigaSession *s, const char *path);
  * build or install; 3: invalid (cut, changed, longer); 4: input/output error. A refused load leaves the machine as it was. */
 int rr_amiga_state_save(RrAmigaSession *s, const char *path, const char *abi, const char *identity);
 int rr_amiga_state_load(RrAmigaSession *s, const char *path, const char *abi, const char *identity);
+
+/* Multiplayer (the host kit's RrhkMachine snap_*, digest, side_effects; native/hostkit/hostkit.h). The in-process snapshot: the
+ * whole machine (vAmiga's state without its checksums, the sound path), the resload state, the inputs held and a session's saves,
+ * between two frames, in memory only, never a file. snap_bound is the most it takes; snap_save writes into the caller's buffer (no
+ * allocation) and returns the bytes, 0 when they do not fit; snap_load takes only the exact bytes a save of this process wrote
+ * (another size: 0, the machine untouched) and is complete at once (a digest or a save may follow before any frame). The held
+ * interlaced field is the picture's, not the machine's: a load starts the next interlaced frame alone. */
+size_t rr_amiga_snap_bound(RrAmigaSession *s);
+size_t rr_amiga_snap_save(RrAmigaSession *s, void *buffer, size_t capacity);
+int rr_amiga_snap_load(RrAmigaSession *s, const void *buffer, size_t size);
+/* The machine's state as named fields in a fixed byte order: the frame, the inputs held, the device port 1 holds, the Kickstart's place,
+ * vAmiga's serialised state (its own fixed big-endian fields, every component) and a session's saves; the same on Windows and Linux. */
+uint64_t rr_amiga_digest(RrAmigaSession *s);
+/* Side effects off (a silent frame, a guest): the player's record (rr_amiga_set_recorder) notes nothing. */
+void rr_amiga_side_effects(RrAmigaSession *s, int allowed);
+/* A session's saves (RrhkMachine.session_save / session_save_put): this player's own save files, read at the start into the session's
+ * memory, as one image (out NULL: its size; 0: no session or no room); and the host's image, which a guest plays on instead (0:
+ * refused, nothing changed). Never written to a disk. */
+size_t rr_amiga_session_save(RrAmigaSession *s, void *out, size_t capacity);
+int rr_amiga_session_save_put(RrAmigaSession *s, const void *in, size_t size);
+/* The host, at a match's clean end (RrhkMachine.session_save_commit): the session's saves as they are now in memory written back to
+ * this player's save folder, once, only the files that changed, each atomically (amiga_savefile.h) after its previous bytes were kept
+ * at the same name in "<save folder>.bak". 1: every change reached the disk; 0: not a session, no save folder, or a write refused. */
+int rr_amiga_session_save_commit(RrAmigaSession *s);
 
 #ifdef __cplusplus
 }

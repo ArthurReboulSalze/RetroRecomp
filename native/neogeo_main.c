@@ -54,6 +54,7 @@ static int performance_only,frame_diagnostics;
 static bool enhanced_mode;
 static int enhanced_requested;
 static int aes_mode, mode_requested=-1, restart_requested;
+static int probe,probe_warm,probe_run,probe_result;
 static unsigned measure_from,measured_frames,over_budget_frames,frame_histogram[1001];
 static uint64_t performance_frequency;
 static double simulation_ms,simulation_max_ms;
@@ -238,6 +239,27 @@ void rr_ng_restore_frame(uint32_t value) {
      * is green or colorful. Reset rearms the cover for the next real boot. */
     memset(&boot_cover,0,sizeof boot_cover);boot_cover.released=value!=0;
 }
+/* Multiplayer (native/hostkit/hostkit_session.h). A snapshot loaded for a rollback restores the frame index and nothing of the
+ * display or the audio chain: the fix-layer mask latch and the resampler go on across a correction, as a live frame would. */
+void rr_ng_snap_restore_frame(uint32_t value) {frame=value;input_pos=0;audio_count=0;}
+/* The digest players compare: the three hashes the route traces already carry (68000 registers with the slice counters as an
+ * elapsed difference, the whole serialized hardware state with its latches, the Z80), packed little-endian, and the frame index. */
+uint64_t rr_ng_digest(void) {
+    const uint64_t parts[]={extended_cpu_hash(),extended_hardware_hash(),rr_ng_z80_state_hash()};
+    uint8_t packed[sizeof parts+4];
+    for(unsigned n=0;n<3;++n)for(unsigned s=0;s<8;++s)packed[n*8+s]=(uint8_t)(parts[n]>>(8*s));
+    for(unsigned s=0;s<4;++s)packed[24+s]=(uint8_t)(frame>>(8*s));
+    uint64_t h=14695981039346656037ull;
+    for(unsigned n=0;n<sizeof packed;++n)h=(h^packed[n])*1099511628211ull;
+    return h;
+}
+/* The session's clock replaces the PC's time for the RTC of the board: set before the first frame of a match, on every seat. */
+void rr_ng_session_clock(uint64_t clock) {
+    extern void geo_rtc_init(void);
+    rr_ng_test_clock=(int64_t)clock;rr_ng_test_clock_enabled=1;geo_rtc_init();
+}
+/* What a frame may do outside the guest: the memory saves and the fallback records. A guest never writes them. */
+void rr_ng_side_effects(bool allowed) {rr_ng_persist_writes(allowed);rr_ng_feedback_off=!allowed;}
 unsigned rr_ng_frame_limit(void) {return (unsigned)frames;}
 bool rr_ng_enhanced(void) {return enhanced_mode;}
 bool rr_ng_aes(void) {return aes_mode!=0;}
@@ -253,6 +275,48 @@ void rr_ng_set_enhanced(bool enabled) {
 void rr_ng_reset_machine(void) {geo_reset(1);rr_ng_restore_frame(0);memset(video,0,sizeof video);}
 /* Test hook is inert in ordinary exports. Its event harness lives separately. */
 void rr_ng_ui_test_tick(void *window,void *renderer);
+/* `--snapshot-probe WARM RUN`: the determinism probe of the multiplayer snapshot, on this machine and this game. Run WARM frames,
+ * save, run RUN frames noting every digest, save, load the first snapshot, run the same RUN frames: every digest and the final
+ * snapshot must be the same bytes. Also: a save over a buffer of other bytes is identical, a snapshot saved right after a load is
+ * identical to the one loaded (a load is complete at once), a save into a buffer that is too small writes nothing, a wrong size or a
+ * buffer of zeros is refused and changes nothing. */
+static int snapshot_probe(unsigned warm,unsigned run) {
+    size_t bound=rr_ng_snap_bound();int fail=0;
+    uint8_t *a=malloc(bound?bound:1),*b=malloc(bound?bound:1),*c=malloc(bound?bound:1);
+    uint64_t *first=calloc(run?run:1,sizeof *first),*again=calloc(run?run:1,sizeof *again);
+#define PROBE(condition,message) do{if(!(condition)){fprintf(stderr,"snapshot probe: %s\n",message);fail=1;}}while(0)
+    if(!bound||!a||!b||!c||!first||!again) {fprintf(stderr,"snapshot probe: no snapshot or no memory\n");return 1;}
+    for(unsigned n=0;n<warm;++n){update_input();step_frame();}
+    const uint64_t digest_start=rr_ng_digest();
+    PROBE(rr_ng_snap_save(a,bound)==bound,"save");
+    memset(c,0xa5,bound);
+    PROBE(rr_ng_snap_save(c,bound)==bound && !memcmp(a,c,bound),"a save over other bytes differs");
+    memset(c,0x5a,bound);
+    PROBE(rr_ng_snap_save(c,bound-1)==0 && c[0]==0x5a,"a buffer that is too small must write nothing");
+    PROBE(rr_ng_digest()==digest_start,"saving changed the machine");
+    for(unsigned n=0;n<run;++n){update_input();step_frame();first[n]=rr_ng_digest();}
+    PROBE(rr_ng_snap_save(b,bound)==bound,"save at the end");
+    const uint64_t digest_end=rr_ng_digest();
+    PROBE(!rr_ng_snap_load(a,bound-1) && !rr_ng_snap_load(a,bound+1) && !rr_ng_snap_load(NULL,bound),"a wrong size is accepted");
+    memset(c,0,bound);
+    PROBE(!rr_ng_snap_load(c,bound),"a buffer of zeros is accepted");
+    PROBE(rr_ng_digest()==digest_end,"a refused load changed the machine");
+    PROBE(rr_ng_snap_load(a,bound),"load");
+    PROBE(rr_ng_digest()==digest_start,"the digest after a load differs from the digest of the save");
+    PROBE(rr_ng_snap_save(c,bound)==bound && !memcmp(a,c,bound),"a save right after a load differs from the snapshot loaded");
+    for(unsigned n=0;n<run;++n){update_input();step_frame();again[n]=rr_ng_digest();}
+    unsigned different=0;
+    for(unsigned n=0;n<run;++n)different+=first[n]!=again[n];
+    PROBE(!different,"a digest differs after the replay");
+    PROBE(rr_ng_snap_save(c,bound)==bound && !memcmp(b,c,bound),"the snapshot after the replay differs byte for byte");
+    PROBE(rr_ng_digest()==digest_end,"the digest after the replay differs");
+    printf("{\"snapshot_probe\":{\"warm\":%u,\"run\":%u,\"bytes\":%llu,\"passed\":%s,\"different_digests\":%u,"
+        "\"digest_start\":\"%016llx\",\"digest_end\":\"%016llx\"}}\n",warm,run,(unsigned long long)bound,fail?"false":"true",
+        different,(unsigned long long)digest_start,(unsigned long long)digest_end);
+#undef PROBE
+    free(a);free(b);free(c);free(first);free(again);
+    return fail;
+}
 static int report(void) {
     if(!report_path)return 1;
     FILE *f=file_open(report_path,L"wb");if(!f)return 0;
@@ -343,6 +407,7 @@ static int execute(int argc,char **argv) {
         if(!strcmp(argv[i],"--headless"))headless=1;
         else if(!strcmp(argv[i],"--enhanced"))enhanced_requested=1;
         else if(!strcmp(argv[i],"--standard"))enhanced_requested=-1;
+        else if(i+2<argc && !strcmp(argv[i],"--snapshot-probe")) {probe_warm=atoi(argv[++i]);probe_run=atoi(argv[++i]);probe=1;}
         else if(!strcmp(argv[i],"--aes"))mode_requested=1;
         else if(!strcmp(argv[i],"--mvs"))mode_requested=0;
         else if(!strcmp(argv[i],"--persistent-memory"))persistent_memory=1;
@@ -438,7 +503,8 @@ static int execute(int argc,char **argv) {
     uint64_t frequency=SDL_GetPerformanceFrequency(),loop_begin=SDL_GetPerformanceCounter();
     int host_result=0;
     if(headless) {
-        for(unsigned n=0;n<(unsigned)frames;++n) {update_input();step_frame();}
+        if(probe)probe_result=snapshot_probe((unsigned)probe_warm,(unsigned)probe_run);
+        else for(unsigned n=0;n<(unsigned)frames;++n) {update_input();step_frame();}
     } else {
         host_result=rr16_sdl_main(RR_NG_TITLE,3);rr16_shutdown();
     }
@@ -449,7 +515,7 @@ static int execute(int argc,char **argv) {
             "Your scores and memory-card data could not be saved. Check access to the game folder or whether another copy of the game is running.",NULL);
         save_failed=1;
     }
-    int okay=report() && !save_failed && !host_result;
+    int okay=report() && !save_failed && !host_result && !probe_result;
     if(pcm && fclose(pcm))okay=0;
     if(trace_file && fclose(trace_file))okay=0;
     if(rr_ng_cpu_trace && fclose(rr_ng_cpu_trace))okay=0;

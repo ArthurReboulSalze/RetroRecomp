@@ -21,4 +21,9 @@ def runtime_source(source: str, kind: str) -> str:
         if source.count('RAM_BASE') != 6:
             raise ConversionError('Pinned Mega Drive RAM dispatch changed; adaptation refused.')
         source = source.replace('RAM_BASE', '0xE00000u')
+    if kind == 'interpreter':
+        # Not a RAM change: the one Mega Drive-only pass over the private interpreter, where the rollback reaches its
+        # instruction-local statics (megadrive_rollback.py).
+        from .megadrive_rollback import interpreter
+        source = interpreter(source)
     return source

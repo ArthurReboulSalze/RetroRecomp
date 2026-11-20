@@ -34,12 +34,13 @@ uint8_t rr_ng_z80_fallback_pc[65536];
 RrNgZ80Variant rr_ng_z80_variants[4096];
 unsigned rr_ng_z80_variant_count;
 uint64_t rr_ng_z80_variants_dropped;
+int rr_ng_feedback_off;
 void rr_ng_z80_note_fallback(uint16_t pc) {
     if(rr_ng_force_z80_reference)return;
     extern int rr_ng_z80_code_byte(uint16_t,uint8_t*);
     uint8_t bytes[4];rr_ng_z80_fallback_pc[pc]=1;
     for(unsigned n=0;n<4;++n)if(!rr_ng_z80_code_byte((uint16_t)(pc+n),&bytes[n]))return;
-    rr_feedback_note(RR_FB_NG_Z80,pc,0,bytes,4);
+    if(!rr_ng_feedback_off)rr_feedback_note(RR_FB_NG_Z80,pc,0,bytes,4);
     if(!rr_ng_observations)return;
     for(unsigned n=0;n<rr_ng_z80_variant_count;++n)
         if(rr_ng_z80_variants[n].pc==pc && !memcmp(rr_ng_z80_variants[n].bytes,bytes,4))return;
@@ -98,7 +99,7 @@ void rr_ng_note_instruction(uint32_t pc,int native) {
     extern int rr_ng_code_word(uint32_t,uint16_t*);
     if(!rr_ng_code_location(pc,&loc))loc.physical_offset=pc&0xffffffu;
     rr_ng_code_word(pc,&opcode);
-    if(rr_feedback_enabled() && loc.available_bytes>=2) {
+    if(rr_feedback_enabled() && !rr_ng_feedback_off && loc.available_bytes>=2) {
         uint8_t bytes[16];unsigned size=loc.available_bytes<16?loc.available_bytes:16;size&=~1u;
         for(unsigned n=0;n<size/2;++n) {
             uint16_t word;if(!rr_ng_code_word(pc+2*n,&word)) {size=n*2;break;}

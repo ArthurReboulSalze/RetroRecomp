@@ -9,6 +9,7 @@
  * "Left stick". The picture is the renderer's image read back after each frame, as large as the internal resolution makes it.
  * The sound is 44.1 kHz stereo through the kit's ring. Guest state is never filtered. */
 #include "hostkit/hostkit.h"
+#include "hostkit/hostkit_session.h"
 #include "retro_keyboard.h"
 #include "retro_menu.h"
 
@@ -131,11 +132,15 @@ static bool n64_run_frame(uint16_t p1, uint16_t p2) {
         const uint16_t word = p == 0 ? p1 : p == 1 ? p2 : rrhk_pad_word(p, frame);
         rrhk_pad_axes(p, frame, axes);
         axes[RRHK_AXIS_RX] = axes[RRHK_AXIS_RY] = 0;   /* the right stick is the C buttons' bindings, not the core's */
-        /* The keyboard's Stick actions: the stick at its edge, as a pad's stick pushed all the way. */
-        if (rrhk_action_held(p, N_SLEFT)) axes[RRHK_AXIS_LX] = -32767;
-        if (rrhk_action_held(p, N_SRIGHT)) axes[RRHK_AXIS_LX] = 32767;
-        if (rrhk_action_held(p, N_SUP)) axes[RRHK_AXIS_LY] = -32767;
-        if (rrhk_action_held(p, N_SDOWN)) axes[RRHK_AXIS_LY] = 32767;
+        /* The keyboard's Stick actions: the stick at its edge, as a pad's stick pushed all the way. They read this PC's keys, so
+         * not in a multiplayer session, where every port's stick is the session's (rrhk_pad_axes) on every seat: the kit folds
+         * them into what this PC sends (RrhkMachine.stick_actions). */
+        if (!rrhk_session_active()) {
+            if (rrhk_action_held(p, N_SLEFT)) axes[RRHK_AXIS_LX] = -32767;
+            if (rrhk_action_held(p, N_SRIGHT)) axes[RRHK_AXIS_LX] = 32767;
+            if (rrhk_action_held(p, N_SUP)) axes[RRHK_AXIS_LY] = -32767;
+            if (rrhk_action_held(p, N_SDOWN)) axes[RRHK_AXIS_LY] = 32767;
+        }
         player_inputs(p, word, axes);
     }
     if (!player_frame()) return false;
@@ -150,7 +155,42 @@ static void n64_cost(double busy_ms, double present_ms) {
 static void n64_pause(bool paused) {
     if (paused) for (int p = 0; p < 4; ++p) if (n64_rumbling[p][0] || n64_rumbling[p][1]) { rrhk_rumble(p, 0, 0, 0); n64_rumbling[p][0] = n64_rumbling[p][1] = 0; }
 }
-static void n64_reset(void) { restart_requested = true; quit_requested = true; }   /* the session is one per process */
+/* The session is one per process: a restart starts the program again. In a multiplayer session that would end the match: the kit
+ * refuses the restart there (session_no_restart); should one still arrive, every seat ignores it alike. */
+static void n64_reset(void) {
+    if (rrhk_session_active()) return;
+    restart_requested = true;
+    quit_requested = true;
+}
+
+/* Multiplayer (hostkit_session.h): the delay tier only (no in-process snapshot). The digest folds named fields (n64_cpu.c); a
+ * guest writes no save; the cartridge clock runs on the session's. The graphics rows stay per seat: they change the picture
+ * only (the internal resolution and supersampling were measured: RAM, sound and CPU equal to 1x). The rumble stays each seat's
+ * own, like its sound: the delay tier never runs a silent frame. */
+static uint64_t n64_digest(void) { return rr_n64_digest(session); }
+static void n64_side_effects(bool allowed) { saves_allowed = allowed; }
+static void n64_session_begin(uint64_t clock) { rr_n64_session_clock(session, clock); }
+/* The host's saves travel to every seat for the match (session ABI 8): the whole save memory, cartridge EEPROM / SRAM / flash
+ * and the four controller paks (296,960 bytes), put in memory before the boot digest; a guest never writes its own file
+ * (side_effects). */
+static size_t n64_session_save(void *out, size_t capacity) {
+    size_t size = 0;
+    const uint8_t *memory = rr_n64_save_memory(session, &size);
+    if (!memory || !size) return 0;
+    if (!out) return size;
+    if (capacity < size) return 0;
+    memcpy(out, memory, size);
+    return size;
+}
+static bool n64_session_save_put(const void *in, size_t size) {
+    size_t have = 0;
+    uint8_t *memory = rr_n64_save_memory(session, &have);
+    if (!memory || !in || size != have) return false;
+    memcpy(memory, in, size);
+    return true;
+}
+/* The keyboard's Stick actions, which the kit folds into the sticks this PC sends in a session (LX left, LX right, LY up, LY down). */
+static const int n64_stick_actions[4] = {N_SLEFT, N_SRIGHT, N_SUP, N_SDOWN};
 
 /* The picture: rows packed at its width, which grows with the internal resolution. */
 static const uint32_t *n64_pixels(void) { return rr_n64_picture(session, NULL, NULL); }
@@ -208,6 +248,10 @@ const RrhkMachine *rrhk_adapter(void) {
             .analog_sticks = 1, .trigger_buttons = true, .rumble = true, .native_caption = RRHK_CORE_CAPTION,
             .widescreen = true,   /* GoldenEye 007, Perfect Dark, Banjo-Tooie... squeeze a 16:9 picture with their own option */
             .gfx_options = n64_gfx_options, .gfx_option_count = G_COUNT, .gfx_apply = n64_gfx_apply,
+            .digest = n64_digest, .side_effects = n64_side_effects, .session_begin = n64_session_begin,
+            .stick_actions = n64_stick_actions,
+            .session_save = n64_session_save, .session_save_put = n64_session_save_put, .session_save_commit = saves_commit,
+            .session_no_restart = true,   /* the restart starts the program again: the kit refuses it in a session, every path */
         };
     }
     return &machine;

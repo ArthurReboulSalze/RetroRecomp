@@ -1,7 +1,7 @@
 """Checked fixes to the pinned GB hardware runtime; leave upstream untouched."""
 from pathlib import Path
 
-from .core import replace_once
+from .core import ConversionError, replace_once
 
 
 def adapt_hardware(project: Path) -> None:
@@ -26,6 +26,7 @@ def adapt_hardware(project: Path) -> None:
     source = adapt_power_off(source)
     source = adapt_length_clock(source)
     source = adapt_sweep_calculation(source)
+    source = adapt_audio_digest(source)
     path.write_text(source, encoding='utf-8')
 
 
@@ -116,3 +117,49 @@ def adapt_length_clock(source: str) -> str:
             f'                    if (apu->ch{channel}.length_enabled && !audio_next_step_clocks_length(apu)) apu->ch{channel}.length_counter--;\n'
             f'                }}')
     return source
+
+
+AUDIO_DIGEST = """#include "gb_digest.h"
+/* The digest of the sound unit for the machine's digest (native/gb_machine_state.h): every field of its private structs by name, in a
+ * fixed order. The unit advances lazily (the context keeps the cycles it still owes), so two units that ran the same cycles and were
+ * synchronised at the same moments agree field for field. */
+void rr_gb_audio_digest(const void* audio, RrGbDigest* d) {
+    const GBAudio* apu = (const GBAudio*)audio;
+    rr_gb_dg_u8(d, 0x20);
+    rr_gb_dg_u8(d, apu->ch1.nr10); rr_gb_dg_u8(d, apu->ch1.nr11); rr_gb_dg_u8(d, apu->ch1.nr12); rr_gb_dg_u8(d, apu->ch1.nr13);
+    rr_gb_dg_u8(d, apu->ch1.nr14); rr_gb_dg_u16(d, apu->ch1.freq); rr_gb_dg_i32(d, apu->ch1.length_counter);
+    rr_gb_dg_bool(d, apu->ch1.length_enabled); rr_gb_dg_i32(d, apu->ch1.volume); rr_gb_dg_i32(d, apu->ch1.env_timer);
+    rr_gb_dg_bool(d, apu->ch1.enabled); rr_gb_dg_i32(d, apu->ch1.sweep_timer); rr_gb_dg_u16(d, apu->ch1.shadow_freq);
+    rr_gb_dg_bool(d, apu->ch1.sweep_enabled); rr_gb_dg_u32(d, apu->ch1.timer); rr_gb_dg_i32(d, apu->ch1.wave_pos);
+    rr_gb_dg_u8(d, 0x21);
+    rr_gb_dg_u8(d, apu->ch2.nr21); rr_gb_dg_u8(d, apu->ch2.nr22); rr_gb_dg_u8(d, apu->ch2.nr23); rr_gb_dg_u8(d, apu->ch2.nr24);
+    rr_gb_dg_u16(d, apu->ch2.freq); rr_gb_dg_i32(d, apu->ch2.length_counter); rr_gb_dg_bool(d, apu->ch2.length_enabled);
+    rr_gb_dg_i32(d, apu->ch2.volume); rr_gb_dg_i32(d, apu->ch2.env_timer); rr_gb_dg_bool(d, apu->ch2.enabled);
+    rr_gb_dg_u32(d, apu->ch2.timer); rr_gb_dg_i32(d, apu->ch2.wave_pos);
+    rr_gb_dg_u8(d, 0x22);
+    rr_gb_dg_u8(d, apu->ch3.nr30); rr_gb_dg_u8(d, apu->ch3.nr31); rr_gb_dg_u8(d, apu->ch3.nr32); rr_gb_dg_u8(d, apu->ch3.nr33);
+    rr_gb_dg_u8(d, apu->ch3.nr34); rr_gb_dg_block(d, 0x23, apu->ch3.wave_ram, sizeof apu->ch3.wave_ram);
+    rr_gb_dg_u16(d, apu->ch3.freq); rr_gb_dg_i32(d, apu->ch3.length_counter); rr_gb_dg_bool(d, apu->ch3.length_enabled);
+    rr_gb_dg_bool(d, apu->ch3.enabled); rr_gb_dg_i32(d, apu->ch3.wave_pos); rr_gb_dg_u32(d, apu->ch3.timer);
+    rr_gb_dg_u8(d, 0x24);
+    rr_gb_dg_u8(d, apu->ch4.nr41); rr_gb_dg_u8(d, apu->ch4.nr42); rr_gb_dg_u8(d, apu->ch4.nr43); rr_gb_dg_u8(d, apu->ch4.nr44);
+    rr_gb_dg_i32(d, apu->ch4.length_counter); rr_gb_dg_bool(d, apu->ch4.length_enabled); rr_gb_dg_i32(d, apu->ch4.volume);
+    rr_gb_dg_i32(d, apu->ch4.env_timer); rr_gb_dg_u16(d, apu->ch4.lfsr); rr_gb_dg_bool(d, apu->ch4.enabled);
+    rr_gb_dg_u32(d, apu->ch4.accum);
+    rr_gb_dg_u8(d, 0x25);
+    rr_gb_dg_u8(d, apu->nr50); rr_gb_dg_u8(d, apu->nr51); rr_gb_dg_u8(d, apu->nr52);
+    rr_gb_dg_u32(d, apu->fs_timer); rr_gb_dg_i32(d, apu->fs_step); rr_gb_dg_u32(d, apu->sample_timer);
+    rr_gb_dg_u32(d, apu->sample_period); rr_gb_dg_u32(d, apu->sample_phase);
+    rr_gb_dg_i32(d, apu->hp_prev_in_l); rr_gb_dg_i32(d, apu->hp_prev_in_r);
+    rr_gb_dg_i32(d, apu->hp_prev_out_l); rr_gb_dg_i32(d, apu->hp_prev_out_r);
+    rr_gb_dg_u16(d, (uint16_t)apu->last_output_left); rr_gb_dg_u16(d, (uint16_t)apu->last_output_right);
+}
+
+size_t gb_audio_state_size(void) {"""
+
+
+def adapt_audio_digest(source: str) -> str:
+    """The sound unit's digest (rr_gb_audio_digest), beside its state functions, where the private structs are visible."""
+    if 'rr_gb_audio_digest' in source:
+        raise ConversionError('audio.c already has the sound unit digest.')
+    return replace_once(source, 'size_t gb_audio_state_size(void) {', AUDIO_DIGEST)

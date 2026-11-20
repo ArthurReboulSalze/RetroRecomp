@@ -22,7 +22,7 @@ retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
 retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
 retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
 tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
-retrorecomp/gba_knowledge.py tests/test_gba_knowledge.py tools/gba_bogus_rows_audit.py tests/test_gba_bogus_rows_audit.py
+retrorecomp/gba_knowledge.py retrorecomp/gba_link.py tests/test_gba_link.py tests/test_gba_knowledge.py tools/gba_bogus_rows_audit.py tests/test_gba_bogus_rows_audit.py
 tools/gba_hardware_selftest.py tests/test_gba_hardware_selftest.py
 tools/fetch_gba_vectors.py tools/gba_vector_selftest.py tests/test_gba_vector_selftest.py tools/gba_fresh_process.py tests/test_gba_fresh_process.py tools/gba_routes/advance_wars_field_training.keys tools/gba_routes/metroid_fusion_new_game.keys tools/gba_routes/sonic_advance_2_save_show.keys tools/gba_routes/sonic_advance_2_save_write.keys tools/gba_routes/wario_land_4_entry_passage.keys tools/gba_routes/pokemon_emerald_new_game_house.keys tools/gba_routes/minish_cap_new_file_home.keys tools/gba_routes/golden_sun_new_game_vale.keys tools/gba_routes/pokemon_emerald_save_write.keys tools/gba_routes/pokemon_emerald_save_show.keys tools/gba_routes/pokemon_ruby_new_game_house.keys tools/gba_routes/mario_and_luigi_superstar_saga_new_game_toad.keys tools/gba_routes/mario_kart_super_circuit_first_race.keys tools/gba_routes/mega_man_zero_3_new_game_first_stage.keys tools/gba_routes/crazy_taxi_catch_a_ride_driving.keys tools/gba_routes/minish_cap_save_show.keys tools/gba_routes/f_zero_maximum_velocity_save_write.keys tools/gba_routes/f_zero_maximum_velocity_save_show.keys tools/gba_routes/minish_cap_walk_in_the_house.keys tools/gba_routes/mario_kart_super_circuit_long_race.keys tools/gba_routes/crazy_taxi_catch_a_ride_long_drive.keys tools/gba_routes/golden_sun_vale_walk.keys tools/gba_route_captures.py tests/test_gba_route_captures.py
 tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_selftest.py native/psx_vector_checks/psx_vectors.c tools/psx_hardware_selftest.py native/psx_vector_checks/psx_hardware.c tests/test_psx_hardware_selftest.py tools/psx_spirv_reflect_selftest.py tests/test_psx_spirv_reflect.py tests/test_psx_beetle.py tests/test_psx_trace.py tools/psx_route_captures.py tools/psx_saves_check.py tools/psx_routes/wipeout2097_save.inputs tools/psx_routes/wipeout2097_load.inputs tools/psx_routes/gt2_load.inputs
@@ -30,7 +30,8 @@ native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
-retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_backup.c native/pce_backup.h
+retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_machine_internal.hpp native/pce_snapshot.cpp native/pce_snapshot.h
+native/pce_backup.c native/pce_backup.h
 native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py native/save_set_aside.c native/save_set_aside.h
 native/hostkit/adapters/rrhk_pce.c
 retrorecomp/systems/scummvm.py retrorecomp/scummvm_build.py retrorecomp/scummvm_export.py docs/SCUMMVM.md
@@ -85,20 +86,21 @@ tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardwa
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 retrorecomp/m68k_observed.py retrorecomp/m68k_media_knowledge.py retrorecomp/path_records.py retrorecomp/m68020_lengths.py tests/test_m68020_lengths.py retrorecomp/m68k_record_walk.py tests/test_m68k_observed.py tests/test_m68k_media_knowledge.py tests/test_m68k_record_walk.py retrorecomp/x68_knowledge.py tests/test_x68_knowledge.py tests/x68_generator_pins.json tests/test_schema3_modules.py
 retrorecomp/systems/amiga.py retrorecomp/amiga.py retrorecomp/amiga_lha.py retrorecomp/amiga_whdload.py
-retrorecomp/amiga_codegen.py retrorecomp/amiga_translate.py retrorecomp/amiga_conversion.py retrorecomp/amiga_kickstart.py retrorecomp/amiga_knowledge.py retrorecomp/a1200_knowledge.py retrorecomp/amiga_vamiga.py retrorecomp/amiga_vamiga_display.py docs/AMIGA.md tests/test_amiga_knowledge.py tests/amiga_generator_pins.json
+retrorecomp/amiga_codegen.py retrorecomp/amiga_translate.py retrorecomp/amiga_conversion.py retrorecomp/amiga_kickstart.py retrorecomp/amiga_knowledge.py retrorecomp/a1200_knowledge.py retrorecomp/amiga_vamiga.py retrorecomp/amiga_vamiga_display.py retrorecomp/amiga_vamiga_session.py docs/AMIGA.md tests/test_amiga_knowledge.py tests/amiga_generator_pins.json
 native/amiga_whdload/rr_resload.c native/amiga_whdload/rr_resload.h native/amiga_whdload/rr_decrunch.c native/amiga_whdload/rr_decrunch.h
 native/amiga_machine/CMakeLists.txt native/amiga_machine/amiga_session.h native/amiga_machine/amiga_session.cpp
 native/amiga_machine/amiga_player.c native/amiga_machine/moira_map.cpp native/hostkit/adapters/rrhk_amiga.inc licenses/vamiga.md
 tests/amiga_menu_harness.c tests/test_amiga_codegen.py tests/test_amiga_translate.py tests/test_amiga_vamiga_display.py tests/test_amiga_kickstart.py tests/test_amiga_lha.py tests/test_amiga_profile.py tests/test_amiga_resload.py tests/test_amiga_routes.py tests/test_amiga_whdload.py
 tests/amiga_resload_harness.c tests/test_observed_index_contract.py
-retrorecomp/systems/atari_st.py retrorecomp/atarist.py retrorecomp/atarist_tos.py retrorecomp/atarist_disk.py retrorecomp/atarist_emutos.py retrorecomp/atarist_hatari.py retrorecomp/atarist_codegen.py retrorecomp/atarist_conversion.py retrorecomp/atarist_notes.py retrorecomp/atarist_knowledge.py docs/ATARI_ST.md
-native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c native/atarist_machine/atarist_session.h
+retrorecomp/systems/atari_st.py retrorecomp/atarist.py retrorecomp/atarist_tos.py retrorecomp/atarist_disk.py retrorecomp/atarist_emutos.py retrorecomp/atarist_hatari.py retrorecomp/atarist_hatari_rollback.py retrorecomp/atarist_codegen.py retrorecomp/atarist_conversion.py retrorecomp/atarist_notes.py retrorecomp/atarist_knowledge.py docs/ATARI_ST.md
+native/atarist_machine/CMakeLists.txt native/atarist_machine/atarist_session.c native/atarist_machine/atarist_session.h native/atarist_machine/atarist_snapshot.h
 native/atarist_machine/atarist_player.c native/atarist_machine/libretro/libretro.h native/hostkit/adapters/rrhk_atarist.inc licenses/hatari.md licenses/emutos.md licenses/m68k-recomp-core-atari-st-permission.md
 tests/test_atarist_profile.py tests/test_atarist_codegen.py tests/test_atarist_disk.py tests/test_atarist_notes.py tests/test_atarist_knowledge.py tests/atarist_generator_pins.json tests/test_atarist_timer_d.py
 native/atarist_machine/atarist_vector_checks.c tools/atarist_vector_selftest.py tests/test_atarist_vectors.py
-native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py native/amiga_machine/m68020_vector_checks.cpp tools/amiga_m68020_vectors.py tests/test_amiga_vectors.py tools/amiga_saves_check.py native/amiga_machine/amiga_blit_checks.cpp tools/amiga_blitter_selftest.py tests/test_amiga_blitter.py native/amiga_machine/amiga_display_checks.cpp native/amiga_machine/amiga_bus.h native/amiga_machine/amiga_bus.cpp tools/amiga_display_selftest.py tests/test_amiga_display.py retrorecomp/computer_routes.py tests/test_computer_routes.py tools/amiga_route_captures.py
+native/amiga_machine/amiga_vector_checks.cpp tools/amiga_vector_selftest.py native/amiga_machine/m68020_vector_checks.cpp tools/amiga_m68020_vectors.py tests/test_amiga_vectors.py tools/amiga_saves_check.py native/amiga_machine/amiga_blit_checks.cpp tools/amiga_blitter_selftest.py tests/test_amiga_blitter.py native/amiga_machine/amiga_display_checks.cpp native/amiga_machine/amiga_rollback_checks.cpp tools/amiga_rollback_selftest.py tests/test_amiga_rollback.py native/amiga_machine/amiga_bus.h native/amiga_machine/amiga_bus.cpp tools/amiga_display_selftest.py tests/test_amiga_display.py retrorecomp/computer_routes.py tests/test_computer_routes.py tools/amiga_route_captures.py
 native/amiga_machine/amiga_savefile.h
 native/atarist_machine/atarist_hardware_checks.c tools/atarist_hardware_check.py tools/atarist_hardware_asm.py tests/test_atarist_hardware.py
+native/atarist_machine/atarist_snapshot_checks.c tools/atarist_snapshot_check.py tests/test_atarist_snapshot.py
 tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_keys_check.py tests/test_atarist_keys_check.py tools/atarist_prefetch_check.py tools/atarist_sweep_guard_check.py tools/atarist_saves_game.py
 native/msx_machine/msx_machine.h native/msx_machine/msx_machine.c native/msx_machine/msx_reference_main.c tools/msx_reference.py tests/test_msx_reference.py
 native/msx_machine/msx_video.c native/msx_machine/msx_psg.c native/msx_machine/msx_hardware_checks.c native/msx_machine/msx_cart.c retrorecomp/msx_rom.py retrorecomp/msx_disk.py retrorecomp/msx_knowledge.py retrorecomp/msx2plus_knowledge.py tests/test_msx_knowledge.py native/msx_machine/msx_music.c native/msx_machine/msx_music.h native/msx_machine/msx_opll_state.inc native/msx_machine/emu2413/LICENSE native/msx_machine/emu2413/emu2413.c native/msx_machine/emu2413/emu2413.h native/msx_machine/emu2413/revision.json tests/test_msx_music.py tests/test_msx_rom.py tools/msx_first_read.py
@@ -107,7 +109,7 @@ retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py ret
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/msx_machine/msx_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c
 native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c native/msx_machine/msx2_checks_sprites.c native/msx_machine/msx2_checks_board.c
-native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c
+native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c
@@ -183,7 +185,7 @@ tests/test_machine_registry.py docs/BUILDING.md docs/COMPATIBILITY.md docs/KNOWN
 docs/RUNTIME_FEEDBACK.md
 docs/INDEX.md tools/check_doc_links.py tools/status_lint.py tests/test_doc_links.py tests/test_status_lint.py
 docs/UPSTREAMS.md retrorecomp/upstreams.py tools/check_upstreams.py tests/test_upstreams.py
-docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
+docs/CONTROLS.md docs/MULTIPLAYER.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 docs/MASTER_SYSTEM.md docs/MEGADRIVE.md docs/CPU_68000.md docs/CPU_Z80.md docs/CPU_6502.md docs/CPU_SM83.md docs/CPU_65816_SPC700.md
 docs/NES_LOG.md docs/GAME_BOY_LOG.md docs/NEOGEO_LOG.md docs/SNES_LOG.md docs/MEGADRIVE_LOG.md docs/CPS1_LOG.md docs/SCREENSHOTS.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
@@ -214,7 +216,7 @@ licenses/x68000-machine.md licenses/fmgen.md
 licenses/upx-5.3.0-src.tar.xz
 licenses/SingleStepTests-z80.md licenses/SingleStepTests-sm83.md licenses/SingleStepTests-huc6280.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
-licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
+licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md licenses/cryptography.md
 retrorecomp/__init__.py retrorecomp/artwork.py retrorecomp/batch.py
 retrorecomp/build_cleanup.py tests/test_build_cleanup.py
 retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
@@ -228,7 +230,9 @@ retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py
 retrorecomp/gui_estimates.py retrorecomp/time_estimates.py assets/conversion-times.json tools/conversion_times.py tests/test_time_estimates.py
 retrorecomp/gui_firmware.py retrorecomp/firmware_search.py tests/test_firmware_search.py
 retrorecomp/gui_covers.py tests/test_gui_covers.py
-retrorecomp/gui_front_end.py retrorecomp/front_end.py retrorecomp/front_end_view.py tests/test_front_end.py
+retrorecomp/gui_front_end.py retrorecomp/front_end.py retrorecomp/front_end_view.py tests/test_front_end.py retrorecomp/gui_icons.py
+retrorecomp/gui_multiplayer.py retrorecomp/multiplayer_view.py tests/test_multiplayer_view.py tests/test_toolbar.py retrorecomp/rounded_ui.py retrorecomp/rounded_skin.py tests/test_rounded_skin.py tests/test_window_scale.py tests/tk_cleanup.py
+retrorecomp/closing_card_view.py tests/test_closing_card.py
 retrorecomp/gui_welcome.py retrorecomp/announcement.py tests/test_announcement.py retrorecomp/tk_threads.py
 retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
@@ -242,6 +246,23 @@ tests/test_problem_reports.py tests/test_gui_player.py tests/test_gui_state.py t
 retrorecomp/gameboy_host.py
 retrorecomp/report_schema.py tests/test_report_schema.py tests/test_report_writers.py
 retrorecomp/timings.py tests/test_timings.py
+retrorecomp/simulation_identity.py tests/test_simulation_identity.py tools/simulation_identity_selftest.py
+retrorecomp/netplay_recipe.py tests/test_netplay_recipe.py tools/netplay_recipe_selftest.py
+retrorecomp/netplay/__init__.py retrorecomp/netplay/session_pipe.py retrorecomp/netplay/session_game.py
+retrorecomp/netplay/input_records.py retrorecomp/netplay/session_transport.py retrorecomp/netplay/link_simulator.py
+retrorecomp/netplay/lockstep.py tests/test_netplay_lockstep.py tools/netplay_lockstep_selftest.py tools/netplay_game_smoke.py
+tools/netplay_lan_acceptance.py
+retrorecomp/netplay/time_sync.py retrorecomp/netplay/worker_channel.py retrorecomp/netplay/worker.py
+retrorecomp/netplay/worker_client.py retrorecomp/netplay/scripted_inputs.py tests/test_netplay_worker.py
+retrorecomp/netplay/launch.py tests/test_netplay_security.py
+retrorecomp/netplay/rollback.py tests/test_netplay_rollback.py tools/netplay_rollback_selftest.py
+retrorecomp/netplay/invitation.py retrorecomp/netplay/internet_key.py retrorecomp/netplay/reach.py retrorecomp/netplay/firewall_check.py retrorecomp/netplay/handshake.py retrorecomp/netplay/sealing.py retrorecomp/netplay/control.py
+retrorecomp/netplay/datagram.py retrorecomp/netplay/limits.py retrorecomp/netplay/room_log.py
+retrorecomp/netplay/lan_transport.py retrorecomp/netplay/room_worker.py retrorecomp/netplay/room_cli.py retrorecomp/netplay/lag_link.py
+tests/test_netplay_transport.py tests/test_netplay_loopback.py tests/test_netplay_internet_key.py tests/test_netplay_reach.py tests/test_netplay_firewall_check.py tests/test_netplay_keyboard_relaunch.py tests/test_netplay_link.py tests/test_netplay_internet_room.py
+retrorecomp/netplay/lobby.py retrorecomp/netplay/lobby_check.py retrorecomp/netplay/lobby_client.py
+tests/test_netplay_lobby.py tests/test_netplay_lobby_loopback.py
+retrorecomp/netplay/seat_map.py tests/test_netplay_seat_map.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
 retrorecomp/dropfiles.py tests/test_dropfiles.py tests/test_popup_menu.py
 native/snes_dsp1_projection.inc
@@ -284,8 +305,11 @@ tools/fetch_sm83_vectors.py native/gb_sm83_vector_checks.c tools/gameboy_sm83_ve
 tools/fetch_huc6280_vectors.py native/pce_huc6280_vector_checks.cpp tools/pce_huc6280_vector_selftest.py tests/test_pce_huc6280_vectors.py
 tools/pce_mame_compare.py tests/test_pce_mame_compare.py tools/pce_route_captures.py tests/test_pce_route_captures.py tests/test_pce_knowledge.py tests/test_pce_player_record.py
 native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py tests/test_pce_huc6280_native_vectors.py
+native/pce_snapshot_checks.cpp tools/pce_snapshot_selftest.py tools/pce_snapshot_rom.py tests/test_pce_snapshot.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
+native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
+native/gb_link.h native/gb_link_checks.c tools/gameboy_link_selftest.py tools/gameboy_link_play.py tests/test_gameboy_link.py
 tests/test_gameboy_helper_counts.py
 tools/gameboy_campaign.py tools/gameboy_cross_os.py tests/test_gameboy_cross_os.py
 tools/gameboy_testroms.py tests/test_gameboy_testroms.py tests/test_gameboy_unused_io.py tests/test_gameboy_boot_apu.py
@@ -338,11 +362,11 @@ retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py lic
 native/cps1_machine.c native/cps1_cps2_board.inc native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h native/cps1_eeprom.c native/cps1_eeprom.h native/cps1_persistence.c native/cps1_persistence.h
 native/cps1_qsound.c native/cps1_qsound.h retrorecomp/cps1_qsound.py tests/test_cps1_qsound.py
 tools/cps1_qsound_selftest.py native/cps1_qsound_checks.c tests/test_cps1_qsound_model.py
-tools/cps1_persistence_selftest.py native/cps1_persistence_checks.c tests/test_cps1_persistence.py
+tools/cps1_persistence_selftest.py native/cps1_persistence_checks.c tests/test_cps1_persistence.py tools/cps1_snap_check.py
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
-native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py tests/test_neogeo_discovery_limits.py tests/test_musashi_fixes.py
+native/neogeo_vector_checks.c tools/neogeo_vector_selftest.py tests/test_neogeo_vectors.py tests/test_neogeo_liveness.py tests/test_neogeo_discovery_limits.py tests/test_neogeo_snapshot.py tools/neogeo_snapshot_probe.py tests/test_musashi_fixes.py
 native/x68000_vector_checks.c tools/x68000_vector_selftest.py tests/test_x68000_vectors.py
 tests/fixtures/m68k-groups/deviations-musashi-machines.json tools/x68000_owner_trial.py tools/vector_deviations.py tests/test_x68000_owner_trial.py tests/test_vector_groups_deviations.py
 tests/test_x68000_hardware_check.py tests/test_x68000_session_check.py tests/test_x68000_media_session.py tests/x68000_media_session_harness.c
@@ -361,15 +385,18 @@ retrorecomp/systems/cps1.py retrorecomp/systems/cps2.py tests/test_cps1_integrat
 tools/cps1_release_check.py tools/release_check.py tests/test_release_check.py
 tools/campaign.py tools/campaign-risk-cases.json tests/test_campaign.py
 native/retro_console16.h native/console16_main.c native/scanlines.h
-native/hostkit/hostkit.h native/hostkit/hostkit_internal.h retrorecomp/hostkit.py
+native/hostkit/hostkit.h native/hostkit/hostkit_internal.h native/hostkit/hostkit_session.h retrorecomp/hostkit.py
 native/hostkit/shell/rrhk_audio.c native/hostkit/shell/rrhk_events.c native/hostkit/shell/rrhk_input.c
 native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit/shell/rrhk_options.c
-native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_timing.c
+native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_session.inc
+native/hostkit/shell/rrhk_chat.inc
+native/hostkit/shell/rrhk_timing.c
 native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
 native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_computer.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py tools/sega_states_selftest.py tests/test_sega_evidence.py tools/sega_bank_dispatch_check.py tools/sega_campaign.py tools/sega_cross_os.py tests/test_sega_cross_os.py
 tools/hostkit_players_selftest.py tools/hostkit_players/checks.c tests/test_hostkit_players.py
 tools/hostkit_capabilities_selftest.py tools/hostkit_capabilities/checks.c tests/test_hostkit_capabilities.py
+tools/hostkit_session_selftest.py tools/hostkit_session/fake.c tests/test_hostkit_session.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py
@@ -407,6 +434,8 @@ native/snes_ppu_bus_checks.c tools/snes_ppu_bus_selftest.py
 native/snes_bus_checks.c tools/snes_bus_selftest.py tests/test_snes_bus.py
 retrorecomp/snes_chips.py retrorecomp/snes_gsu.py tools/snes_gsu_survey.py tests/test_snes_gsu.py
 native/snes_dma_checks.c tools/snes_dma_selftest.py tests/test_snes_chips.py
+native/snes_cpu/machine_checks.c tools/snes_machine_selftest.py
+retrorecomp/snes_multitap.py tools/snes_multitap_probe.py tests/test_snes_multitap.py tools/snes_digest_cross_os.py
 native/snes_chip_checks.c tools/snes_chip_selftest.py
 native/snes_superfx_checks.c tools/snes_superfx_selftest.py tools/snes_superfx_model.py
 tools/snes_superfx_case.py tools/snes_superfx_library.py tools/snes_superfx_programs.py
@@ -445,6 +474,8 @@ native/md_bus_checks.c tools/megadrive_bus_selftest.py
 native/md_boundary_checks.c tools/megadrive_boundary_selftest.py
 native/md_vdp_batch_checks.c tools/megadrive_vdp_batch_selftest.py
 native/md_shadow_checks.c tools/megadrive_shadow_selftest.py
+native/md_rollback_checks.c tools/megadrive_rollback_selftest.py retrorecomp/megadrive_rollback.py
+retrorecomp/megadrive_multitap.py tests/test_megadrive_multitap.py
 native/md_vdp_pixels.inc retrorecomp/megadrive_video.py
 native/md_read_checks.c tools/megadrive_read_selftest.py tests/test_megadrive_read.py
 native/md_dma_checks.c tools/megadrive_dma_selftest.py tests/test_megadrive_dma.py
@@ -463,6 +494,7 @@ native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
 native/frame_stop_checks.c
 native/gamestate.h native/gamestate.inc native/state_envelope.h native/state_io.h native/psg_state.inc native/psg_runs.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
+native/gg_ext.h native/gg_ext_checks.c native/gg_link.inc tools/gg_ext_selftest.py tools/gg_link_selftest.py
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py
 native/audio_output.inc native/audio_checks.c tools/audio_selftest.py
@@ -470,6 +502,7 @@ tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
 tests/test_toolchain.py tests/test_tk_threads.py tests/test_build_config.py tests/test_build_tools_offer.py tests/test_tooltips.py tests/test_legacy_compat.py tests/test_zz_datas_guard.py tools/toolchain_compare.py tools/nes_state_cross.py
 tools/state16_cross.py tools/neogeo_state_cross.py tools/x68000_cross.py
+tools/mixed_build_gate.py tests/test_mixed_build_gate.py
 tools/selftest_build.py tests/test_selftest_build.py
 tests/test_validation.py tests/test_publication.py
 tests/test_peripherals.py

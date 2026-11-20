@@ -25,6 +25,7 @@ the Commodore Amiga 1200; Adventure (ScummVM) is a category of its own, supporte
   paths are shared between players ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)).
 - *Play:* one menu on every machine, quick states, languages, light guns
   ([CONTROLS.md](CONTROLS.md), [GAME_STATES.md](GAME_STATES.md), [LANGUAGES.md](LANGUAGES.md)).
+- *Play together:* a room on the local network, up to four players, rollback ([MULTIPLAYER.md](MULTIPLAYER.md)).
 
 The documentation follows how the project is built, along two crossing axes: the **processors** (recompilation, paths,
 fixes, test vectors) and the **machines** (processors plus video, sound, cartridges and options). Native code, CPU

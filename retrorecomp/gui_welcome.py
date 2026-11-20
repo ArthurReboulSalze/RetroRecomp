@@ -5,10 +5,11 @@ A small ASCII terminal, in English only whatever the interface language (the own
 logo is plain ASCII, so every font draws it. It is typed in column by column in the converter's gold, blinks once, then
 the version, the platform and the invite fade in under it, and the message is typed in below like on a typewriter
 (« Message from the developer: »); without a connection one calm line says so instead (« Not connected to the
-Internet. »), never an error. A small cursor then blinks for about a minute and stays lit. Every step is a Tk after()
+Internet. »), never an error. A small cursor runs ahead of the text while it types and is gone once the last character
+is out (Arthur, 20 Nov 2026: the blinking square at rest was unpleasant). Every step is a Tk after()
 call on the Tk thread (no thread, no busy loop); the picture takes about a second and a half before the message. It
 only moves while the log panel is on screen: hidden (window minimised or withdrawn, Compiled Games shown), it jumps to
-its last picture and stops, and the cursor blinks again once the panel is back.
+its last picture and stops.
 
 The first real log line (a conversion, an import, any message of the window) clears the welcome for good, and so does
 the start of a batch: the panel then works exactly as before. The welcome never reaches the session log that problem
@@ -46,10 +47,8 @@ PAUSE_MS = 120
 BLINK_MS = (90, 90, 90, 110)    # off, on, off, on
 FADE_STEPS = 5              # the subtitle line fades in
 FADE_MS = 45
-MESSAGE_STEP_MS = 25        # the message: MESSAGE_RATE characters a second (a full 200 in about three seconds)
-MESSAGE_RATE = 70
-CURSOR_MS = 530
-CURSOR_BLINKS = 120         # about a minute of blinking each time the panel is shown, then the cursor stays lit
+MESSAGE_STEP_MS = 25        # the message: MESSAGE_RATE characters a second (a full 200 in about 1.5 seconds)
+MESSAGE_RATE = 140
 
 
 def _mix(start: str, end: str, share: float) -> str:
@@ -182,8 +181,7 @@ class WelcomeMixin:
     # --- the steps ----------------------------------------------------------------------------------------------
 
     def welcome_mapped(self, event=None):
-        """Something of the window came on screen: play the welcome the first time the log panel shows, and let the
-        cursor blink again when the panel comes back."""
+        """Something of the window came on screen: play the welcome the first time the log panel shows."""
         welcome = getattr(self, 'welcome', None)
         if not welcome or welcome['state'] not in ('waiting', 'still') or welcome['job'] is not None:
             return
@@ -193,9 +191,6 @@ class WelcomeMixin:
             welcome.update(state='typing', column=0, started=time.monotonic())
             self._welcome_write(final=False)
             self._welcome_later(TYPE_STEP_MS, self._welcome_type)
-        else:
-            welcome['blinks'] = 0
-            self._welcome_later(CURSOR_MS, self._welcome_blink_cursor)
 
     def _welcome_step(self, step):
         """Run one step of the animation; hidden, the welcome jumps to its last picture instead."""
@@ -287,36 +282,18 @@ class WelcomeMixin:
             self._welcome_rest()
 
     def _welcome_rest(self):
-        """The last picture is up: the cursor blinks while the panel is on screen."""
-        self.welcome.update(state='still', blinks=0, pending=[])
-        if self._welcome_visible():
-            self._welcome_later(CURSOR_MS, self._welcome_blink_cursor)
-
-    def _welcome_blink_cursor(self):
-        welcome = self.welcome
-        welcome['job'] = None
+        """The last picture is up: the cursor goes (drawn in the log's own colour; its place stays the anchor where a
+        message arriving later is typed in, which lights it again while it types)."""
+        self.welcome.update(state='still', pending=[], cursor_on=False)
         try:
-            if welcome['state'] != 'still':
-                return
-            if not self._welcome_visible():
-                # Hidden: the cursor stays lit, and blinks again once the panel is back (welcome_mapped).
-                welcome['cursor_on'] = True
-                self.log.tag_configure('welcome_cursor', background=COLORS['gold'])
-                return
-            welcome['cursor_on'] = not welcome['cursor_on']
-            self.log.tag_configure('welcome_cursor',
-                                   background=COLORS['gold'] if welcome['cursor_on'] else COLORS['field'])
-            welcome['blinks'] += 1
-            if welcome['blinks'] < CURSOR_BLINKS or not welcome['cursor_on']:
-                self._welcome_later(CURSOR_MS, self._welcome_blink_cursor)
+            self.log.tag_configure('welcome_cursor', background=COLORS['field'])
         except tk.TclError:
             pass
 
     # --- what ends or changes it ------------------------------------------------------------------------------
 
     def welcome_finish(self):
-        """Jump to the last picture (hidden panel): no step is left waiting; the cursor blinks again while the panel
-        is on screen."""
+        """Jump to the last picture (hidden panel): no step is left waiting, no cursor."""
         welcome = getattr(self, 'welcome', None)
         if not welcome or welcome['state'] == 'gone':
             return

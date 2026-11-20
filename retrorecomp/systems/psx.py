@@ -10,7 +10,7 @@ core's interpreter. The game executable is GPL-2.0 as a whole and holds no nonco
 """
 from pathlib import Path
 
-from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile, UnsupportedConsoleError
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 # Physical addresses where R3000A code may run: main RAM (2 MiB), the scratchpad (1 KiB) and the BIOS ROM (512 KiB). The
@@ -25,6 +25,12 @@ RAW_EXTENSIONS = ('.bin',)
 
 class PlayStationProfile(SystemProfile):
     id = 'psx'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The BIOS is not in these files, but for the words of it the steps hold: the firmware identity is compared apart.
+    simulation_sources = (SimulationSource('g/rr_psx_steps_*.c'),
+                          SimulationSource('g/rr_psx_native_table.c'),
+                          SimulationSource('g/rr_psx_shard.h'),
+                          SimulationSource('g/psx_game.h', drop=('RR_PSX_TITLE', 'RR_PSX_VERSION')),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/beetle-psx.md',)
     name = 'Sony PlayStation'
@@ -39,6 +45,7 @@ class PlayStationProfile(SystemProfile):
     quick_state_family = 'rr16'          # the quick-state file of the 16-bit family (console16_state.c), machine number 6
     capabilities = Capabilities(battery=True)
     linux = 'witnessed'                  # Ape Escape on a Debian 13 PC, 8 November 2026: same hashes as Windows (QUALIFICATION.md)
+    netplay_session = True               # the delay tier: the digest and the host's settings (docs/PLAYSTATION.md, section 10)
     feedback_kinds = frozenset({23})
     default_frames = 3600
     quick_frames = 3600

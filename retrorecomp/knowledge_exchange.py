@@ -610,6 +610,24 @@ def write_knowledge(collected: dict, destination: Path, channel: str | None = 'f
             'schema3_only_left_out': collected.get('schema3_only_left_out', 0)}
 
 
+def game_document(system: str, identity: str, record: dict | None, observations=(), title: str = '') -> dict:
+    """The version 3 document of one game alone, in memory: what `write_knowledge` would write for it, nothing marked
+    as shared and no file. `record` is its schema 1 record (or the schema 3 document of a schema 3-only machine), None
+    when the game has rows only. Checked by `validate_exchange` before it is returned, so ValueError when a record or
+    a row would be refused on import. The multiplayer recipe carries its paths this way (`netplay_recipe`)."""
+    consoles = {system: {identity: record}} if record else {}
+    rows = sorted(list(row) for row in observations)
+    named = bool(title) and (bool(record) or bool(rows))
+    document = {'format': FORMAT, 'version': LATEST_VERSION, 'converter': __version__,
+                'created_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                'titles': {system: {identity: str(title)[:TITLE_LIMIT]}} if named else {},
+                'knowledge': paths_to_v3(validate_mixed_payload({'schema': 1, 'consoles': consoles})),
+                'observations': {system: {identity: rows}} if rows else {}}
+    # The answer is the document as written; the check works on a copy (it replaces the paths by their projection).
+    validate_exchange(json.loads(json.dumps(document)))
+    return document
+
+
 def export_knowledge(games, destination: Path, locate=None, context: str = '', version: int | None = None) -> dict:
     """Collect then write the discoveries of `games` to one file."""
     return write_knowledge(collect_knowledge(games, locate, context), destination, version=version)
@@ -683,7 +701,12 @@ def read_exchange(path: Path) -> dict:
         raw = stream.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
         raise ValueError('Knowledge file exceeds its size limit.')
-    document = json.loads(raw)
+    return validate_exchange(json.loads(raw))
+
+
+def validate_exchange(document) -> dict:
+    """`read_exchange` for a document already in memory (a shared file's content, or the paths a multiplayer recipe
+    carries: `netplay_recipe`): the same checks, the same answer."""
     if (not isinstance(document, dict) or document.get('format') != FORMAT
             or type(document.get('version')) is not int or document['version'] not in READ_VERSIONS
             or not set(document) <= {'format', 'version', 'converter', 'created_utc', 'titles',
@@ -799,6 +822,12 @@ def import_knowledge(path: Path) -> dict:
     observations join their own ROM-free bank.
     """
     return _import_document(read_exchange(Path(path)))
+
+
+def import_document(document) -> dict:
+    """`import_knowledge` for a document already in memory, checked first by `validate_exchange` (the paths of a
+    multiplayer recipe, imported into the recipe's own banks: `knowledge.recipe_directory`)."""
+    return _import_document(validate_exchange(document))
 
 
 def _valid_record(system: str, identity: str, record) -> dict | None:

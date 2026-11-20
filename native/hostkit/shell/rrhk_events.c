@@ -8,6 +8,7 @@
 #include <string.h>
 #include "platform_io.h"
 #include "retro_menu.h"
+#include "runtime_i18n.h"
 #include "display_settings.h"
 #include "runtime_feedback.h"
 #include "hostkit/hostkit_internal.h"
@@ -40,7 +41,8 @@ static bool host_action_pressed(const SDL_Event *event, SDL_Scancode key, int ho
     }
     if (key == SDL_SCANCODE_UNKNOWN) return false;
     /* Enter binds rows on an F2 page and changes a row of the graphics page: it does not act there. */
-    if ((rrhk_pages_open(rrhk.menu) || rrhk.menu == RRHK_MENU_GRAPHICS || rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT) &&
+    if ((rrhk_pages_open(rrhk.menu) || rrhk.menu == RRHK_MENU_GRAPHICS || rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT ||
+         rrhk.menu == RRHK_MENU_GIVE) &&
         (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER))
         return false;
     for (int p = 0; p < m->players(); ++p) if (rrhk.keys[p][action] == key) return true;
@@ -68,6 +70,19 @@ bool rrhk_action_held(int player, int action) {
     return rrhk.pads[player] && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX && SDL_GameControllerGetButton(rrhk.pads[player], button);
 }
 
+/* The Pause that waits for the restart combination (1.8.2): resolved at the end of each poll, so that a tap is not late. */
+#define PAUSE_COMBO_WAIT_MS 200
+typedef struct { bool waiting; SDL_JoystickID pad; int button; Uint64 since; } PauseWait;
+static PauseWait pause_wait;
+static void toggle_pause(void) {
+    rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
+}
+static void pause_wait_poll(void) {
+    if (!pause_wait.waiting) return;
+    const unsigned state = rrhk_restart_combo_state(pause_wait.pad, pause_wait.button);
+    if (!state || (state & 2u)) { pause_wait.waiting = false; return; }      /* the combination took the press, or went away */
+    if (!(state & 4u) || SDL_GetTicks64() - pause_wait.since >= PAUSE_COMBO_WAIT_MS) { pause_wait.waiting = false; toggle_pause(); }
+}
 static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) { return host_action_pressed(event, key, rrhk.machine->host_pause); }
 
 /* The Change disc action, in play only: the next disc (after the last, the first), and a notice "Disc 2/3". The machine does the
@@ -192,7 +207,7 @@ void rrhk_speed_combos(void) {
 static void speed_event(const SDL_Event *event) {
     if (event->type == SDL_KEYUP && event->key.keysym.scancode == SDL_SCANCODE_TAB) rrhk.fast_hold &= ~HOLD_KEY;
     else if (event->type == SDL_KEYDOWN && !event->key.repeat && event->key.keysym.scancode == SDL_SCANCODE_TAB &&
-             !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
+             !rrhk.menu && !rrhk_session_on && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
         rrhk.fast_hold |= HOLD_KEY;
     else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) rrhk.fast_hold = 0;
     /* 1.7.7 (D30): another display, another refresh: measured again, the decision said again */
@@ -216,6 +231,8 @@ void rrhk_poll_events(RrhkRun *run) {
         /* The output device the sound plays on went away: the loop opens the one asked for again (or the default). */
         if (event.type == SDL_AUDIODEVICEREMOVED && !event.adevice.iscapture && event.adevice.which &&
             event.adevice.which == rrhk_audio_device_id(run)) run->device_lost = true;
+        /* Multiplayer: the chat's entry, while open, takes every key and button; closed, the keys that open it. */
+        if (rrhk_chat_event(&event)) continue;
         /* A computer's own shortcuts and the guest keyboard come first (X68000). */
         if (m->event && m->event(&event, &run->running)) continue;
         if (rrhk_options_event(&event, &rrhk.menu, rrhk.capturing != 0)) continue;
@@ -286,7 +303,8 @@ void rrhk_poll_events(RrhkRun *run) {
             }
         }
         /* The F2 tiles and "Quit?" with a gamepad: the D-pad chooses, A opens or answers, B goes back. */
-        if ((rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT) && event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
+        if ((rrhk.menu == RRHK_MENU_HUB || rrhk.menu == RRHK_MENU_QUIT || rrhk.menu == RRHK_MENU_GIVE) &&
+            event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
             int b = event.cbutton.button;
             if (b == SDL_CONTROLLER_BUTTON_B) { rrhk_close_menu(); continue; }
             key = b == SDL_CONTROLLER_BUTTON_DPAD_UP ? SDL_SCANCODE_UP : b == SDL_CONTROLLER_BUTTON_DPAD_DOWN ? SDL_SCANCODE_DOWN :
@@ -294,6 +312,7 @@ void rrhk_poll_events(RrhkRun *run) {
                 b == SDL_CONTROLLER_BUTTON_A ? SDL_SCANCODE_RETURN : SDL_SCANCODE_UNKNOWN;
             if (key == SDL_SCANCODE_UNKNOWN) continue;
             if (rrhk.menu == RRHK_MENU_HUB) rrhk_hub_key(key);
+            else if (rrhk.menu == RRHK_MENU_GIVE) rrhk_give_key(key);
             else if (rrhk_quit_key(key)) run->running = false;
             continue;
         }
@@ -306,16 +325,22 @@ void rrhk_poll_events(RrhkRun *run) {
                 b == SDL_CONTROLLER_BUTTON_A ? SDL_SCANCODE_RETURN : SDL_SCANCODE_UNKNOWN;
             if (key != SDL_SCANCODE_UNKNOWN) { graphics_key(run, key); continue; }
         }
-        /* A gamepad button bound to Change disc, in play. */
+        /* A gamepad button bound to Change disc, in play (not in a multiplayer session: the disc is everyone's). */
         if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN &&
             media_pressed(&event, key) && !rrhk_options_component(0, event.cbutton.button)) {
-            change_disc();
+            if (rrhk_session_on) rrhk_notice(rr_tr("Set by the host in multiplayer"), 1800); else change_disc();
             continue;
         }
         /* A gamepad button bound to Pause/Menu opens or closes the Pause menu (a key does after the binding capture below). */
         if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN &&
             pause_pressed(&event, key) && !rrhk_options_component(0, event.cbutton.button)) {
-            rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
+            /* 1.8.2: a Pause on a button of the restart combination (Start on the Master System: Start+Select) waits for the
+             * combination, on player 1's pad, which owns it. The other button already down: the press belongs to the combination. */
+            const unsigned state = event_player(event.cbutton.which) == 0 ?
+                rrhk_restart_combo_state(event.cbutton.which, event.cbutton.button) : 0;
+            if (state & 2u) continue;
+            if (state) { pause_wait = (PauseWait){true, event.cbutton.which, event.cbutton.button, SDL_GetTicks64()}; continue; }
+            toggle_pause();
             continue;
         }
         if (key == SDL_SCANCODE_UNKNOWN) continue;
@@ -327,9 +352,37 @@ void rrhk_poll_events(RrhkRun *run) {
             }
             continue;
         }
+        /* Multiplayer: a key that would change the run on this PC alone is refused with one notice, before every other branch
+         * (the kit's and the machine's key_event): F8/F9, the Max speed key, Change disc, the shortcut of an option
+         * row the host sets, a key of a machine page that changes the run (DIP switches). Menus, bindings, filters, sound,
+         * language and Quit stay this player's own. */
+        if (rrhk_session_on) {
+            /* F8 / F9 go on to the request below: in a session the host's are for everyone (rrhk_session_state). */
+            const bool refused =
+                (key == SDL_SCANCODE_GRAVE && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) ||
+                (media_pressed(&event, key) && !rrhk_options_component(key, -1)) ||
+                (rrhk_option_key_run(key) && (rrhk_session_guest() || key == SDL_SCANCODE_GRAVE)) ||
+                (rrhk_session_guest() && rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
+                 key != SDL_SCANCODE_F2 && key != SDL_SCANCODE_F1 && key != SDL_SCANCODE_UP && key != SDL_SCANCODE_DOWN &&
+                 key != SDL_SCANCODE_PAGEUP && key != SDL_SCANCODE_PAGEDOWN);
+            if (refused) {
+                rrhk_notice(rr_tr("Set by the host in multiplayer"), 1800);
+                continue;
+            }
+            /* The host: a key that changes the run relaunches the match for everyone (ABI 9), so it asks first (No drops the
+             * key, Yes gives it back once); a machine page that changes the run asks once while it is open. The pace (` Max
+             * speed) stays refused above. */
+            const bool relaunches =
+                (rrhk_option_key_run(key) && key != SDL_SCANCODE_GRAVE) ||
+                (rrhk.menu == RRHK_MENU_PAGE && m->page && m->page->run_changing && key != SDL_SCANCODE_ESCAPE &&
+                 key != SDL_SCANCODE_F2 && key != SDL_SCANCODE_F1 && key != SDL_SCANCODE_UP && key != SDL_SCANCODE_DOWN &&
+                 key != SDL_SCANCODE_PAGEUP && key != SDL_SCANCODE_PAGEDOWN);
+            if (relaunches && !rrhk_session_guest() && rrhk_relaunch_ask(key)) continue;
+        }
         if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
-            /* Shift+F1 restarts at once, without a confirmation. */
-            m->reset(); rrhk_audio_pause_output(run);
+            /* Shift+F1 restarts at once, without a confirmation; in multiplayer the host restarts everyone at the same frame. */
+            if (rrhk_session_on) rrhk_session_restart();
+            else { m->reset(); rrhk_audio_pause_output(run); }
         } else if (pause_pressed(&event, key) && !rrhk_options_component(key, -1)) {
             rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
         } else if (media_pressed(&event, key) && !rrhk_options_component(key, -1)) {
@@ -359,6 +412,8 @@ void rrhk_poll_events(RrhkRun *run) {
             rrhk_widescreen_toggle();
         } else if (key == RRHK_KEY_SYNC && from_row) {
             rrhk_sync_next();         /* 1.7.7 (D30): the outcome is named once the refresh is measured */
+        } else if (key == RRHK_KEY_TURN_BADGE && from_row) {
+            rrhk_toggle_turn_badge();
         } else if (key == RRHK_KEY_START_HELP && from_row) {
             rrhk_toggle_start_help();
         } else if (key == SDL_SCANCODE_F4) {
@@ -381,6 +436,8 @@ void rrhk_poll_events(RrhkRun *run) {
             graphics_key(run, key);
         } else if (rrhk.menu == RRHK_MENU_HUB) {
             rrhk_hub_key(key);
+        } else if (rrhk.menu == RRHK_MENU_GIVE) {
+            rrhk_give_key(key);
         } else if (rrhk.menu == RRHK_MENU_QUIT) {
             if (rrhk_quit_key(key)) run->running = false;
         } else if (rrhk.menu == RRHK_MENU_PAGE) {
@@ -412,4 +469,5 @@ void rrhk_poll_events(RrhkRun *run) {
             else if (enter) rrhk.capturing = 1;
         }
     }
+    pause_wait_poll();
 }

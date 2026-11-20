@@ -25,7 +25,7 @@ that BIOS and code translated from it, as on the other machines that take your o
 ## 2. How the conversion works
 
 1. **Reading the input.** `retrorecomp/msx_rom.py` reads the cartridge (or the ZIP holding one) and takes its SHA-256 as the identity of the game. It
-   guesses the mapper from the cartridge's own bytes; for an MSX2 mapper cartridge, when that guess is not enough, short probe runs of the reference under each mapper settle it (the share of the program's cartridge writes that land on that mapper's registers, among runs that do not fall into empty memory; Aleste was guessed Konami SCC and is ASCII 16). `retrorecomp/msx_cbios.py` fetches C-BIOS 0.29a from its official release on first use and checks
+   guesses the mapper from the cartridge's own bytes; for an MSX2 mapper cartridge, when that guess is not enough, short probe runs of the reference under each mapper settle it (the share of the program's cartridge writes that land on that mapper's registers, among runs that do not fall into empty memory; Aleste was guessed Konami SCC and is ASCII 16; a MegaROM whose bytes show no store to a mapper register at all, as Bubble Bobble's, is not refused but probed the same way, and refused only when no mapper's run is credible). `retrorecomp/msx_cbios.py` fetches C-BIOS 0.29a from its official release on first use and checks
    its SHA-256 against the pin. A BIOS of your own (a 32 KiB main ROM) is checked by its content and its SHA-256 is the identity of the firmware, in the
    request, instead of the pin of C-BIOS.
 2. **Native code.** The cartridge and the BIOS are translated ahead of time to C by the shared banked Z80 chain, the one the Master System and the Game

@@ -6,6 +6,7 @@
  * rrhk_computer.inc, unchanged; what is the Amiga's stays here: the joystick of port 2, port 1 (the mouse, or the second player's
  * joystick: a_port1_*), the raw key codes, the picture and the sound of the session. Guest state is never filtered. */
 #include "hostkit/hostkit.h"
+#include "hostkit/hostkit_session.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
 #include "display_settings.h"
@@ -105,7 +106,7 @@ static void a_set_port1_mode(int mode, bool save) {
    wchar_t wide[PATH_CAP];
    if (mode < RR_AMIGA_PORT1_FOLLOW || mode > RR_AMIGA_PORT1_JOYSTICK) mode = RR_AMIGA_PORT1_FOLLOW;
    a_port1_choice = mode;
-   rr_amiga_port1_mode(session, mode);
+   if (!rrhk_session_active()) rr_amiga_port1_mode(session, mode);    /* a session keeps the joystick in port 1 (a_session_begin) */
    if (!save || !port1_config[0] || !rr_from_utf8(port1_config, wide, PATH_CAP) || !(f = rr_fopen(wide, L"wb"))) return;
    fprintf(f, "port1=%d\n", mode);
    fclose(f);
@@ -127,18 +128,40 @@ static void a_port1_load(void) {
    a_set_port1_mode(mode, false);
 }
 
-/* The plate when port 1 changes device, in the five languages of the games, without accents (as the games write their texts). */
+/* The adapter's own texts are in the five languages of the games, without accents (as the games write their texts): en, fr, de, es,
+ * it, the index of the game's language now (English for any other). */
+static int a_language(void) {
+   static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
+   const char *code = rr_language_code(rr_language_get());
+   int n;
+   for (n = 0; n < 5; n++) if (code && !strcmp(code, codes[n])) return n;
+   return 0;
+}
+
+/* The plate when port 1 changes device. */
 static void a_port1_notice(void) {
    static const char *const text[2][5] = {
       {"Mouse port: mouse", "Port souris : souris", "Mausport: Maus", "Puerto del raton: raton", "Porta del mouse: mouse"},
       {"Mouse port: pad 2", "Port souris : manette 2", "Mausport: Pad 2", "Puerto del raton: mando 2", "Porta del mouse: pad 2"}};
-   static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
-   const char *code = rr_language_code(rr_language_get());
-   int device = a_port1_device(), language = 0, n;
+   int device = a_port1_device();
    if (device == a_port1_shown) return;
    a_port1_shown = device;
-   for (n = 0; n < 5; n++) if (code && !strcmp(code, codes[n])) language = n;
-   if (ca.windowed) rrhk_notice(text[device][language], 3500);
+   if (ca.windowed) rrhk_notice(text[device][a_language()], 3500);
+}
+
+/* The F1 help's two lines under the keys: the computers' Tab line (rrhk_computer.inc), then how two players play, in place of the
+ * computers' Ctrl+Alt+K line (the panel holds two lines there: a third ran past its edge in the capture; Ctrl+Alt+K stays on the
+ * second page, Tab, as "full guest keyboard"). An Amiga game chooses one or two players in its own menu, and its player 2 holds the
+ * joystick of port 1, where the mouse usually is: player 2's pad plays there (a_port1_*; in a session port 1 is the joystick on every
+ * seat). Arthur did not find Alien Breed 2's two-player mode (19 Nov 2026): it is its title screen's "Number Of Players", 1 by default. */
+static void a_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
+   static const char *const two_players[5] = {
+      "2 players: game menu | pad 2: mouse port", "2 joueurs : menu du jeu | manette 2 : port souris",
+      "2 Spieler: Spielmenue | Pad 2: Mausport", "2 jugadores: menu del juego | mando 2: puerto raton",
+      "2 giocatori: menu del gioco | pad 2: porta mouse"};
+   (void)ui;
+   rrhk_menu_line(ctx, y, rr_tr("Tab: game / computer shortcuts"));
+   rr_menu_text_plain(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, 14, y + RR_MENU_LINE, 242 - 14, two_players[a_language()], RR_MENU_GOLD);
 }
 
 /* The row "Mouse port" at the top of player 2's gamepad page (the shell's RrhkPadRow): its value is the player's choice, kept per game; its
@@ -155,14 +178,6 @@ static const RrhkPadRow a_pad_rows[1] = {{2, "Mouse port", 3, a_port1_values, a_
  * the conversion's routes and checks run at Normal. Texts in the five languages of the games, without accents. */
 #define A_ROW_CPU (SDL_NUM_SCANCODES + 2)   /* the row's key: past the computers' keyboard row (+1), before the kit's own rows (+16) */
 static int a_cpu_choice = 1;
-
-static int a_language(void) {
-   static const char *const codes[5] = {"en", "fr", "de", "es", "it"};
-   const char *code = rr_language_code(rr_language_get());
-   int n;
-   for (n = 0; n < 5; n++) if (code && !strcmp(code, codes[n])) return n;
-   return 0;
-}
 
 /* `save`: kept for the next start (a choice made in the window), or this run only (--cpu-factor). */
 static void a_set_cpu(int factor, bool save) {
@@ -209,20 +224,37 @@ static const char *a_cpu_value(void) {
 
 static void a_option_rows(int slot, RrhkOptionRows *rows) {
    x_option_rows(slot, rows);
-   if (slot == 1) rrhk_option_row_icon(rows, A_ROW_CPU, RR_ICON_ROW_SPEED, a_cpu_label(), a_cpu_value());
+   if (slot == 1) rrhk_option_row_run(rows, A_ROW_CPU, RR_ICON_ROW_SPEED, a_cpu_label(), a_cpu_value());
 }
 
 /* The row cycles Normal, x2, x4; a plate says the new speed (or, for a game listed as needing it, that it stays at Normal). */
 static bool a_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
    char plate[96];
    if ((int)key != A_ROW_CPU) return x_key_event(ui, key, running);
+   /* In a session a guest plays the host's speed (the kit fades the row and says so); the host changes it, and the match then
+    * starts again for everyone at the new speed (session ABI 9: its session_options changed). */
+   if (rrhk_session_guest()) return true;
    if (!cpu_stock_only) a_set_cpu(a_cpu_choice == 1 ? 2 : a_cpu_choice == 2 ? 4 : 1, true);
    snprintf(plate, sizeof plate, a_cpu_label(), a_cpu_value());
    rrhk_notice(plate, 2500);
    return true;
 }
 
-/* The guest's inputs of this frame from the kit's pad words, the keyboard and the mouse. */
+/* A pad word's joystick bits. */
+static unsigned a_joy_bits(uint16_t pad) {
+   unsigned bits = 0;
+   if (pad & A_BIT(A_UP)) bits |= RR_AMIGA_JOY_UP;
+   if (pad & A_BIT(A_DOWN)) bits |= RR_AMIGA_JOY_DOWN;
+   if (pad & A_BIT(A_LEFT)) bits |= RR_AMIGA_JOY_LEFT;
+   if (pad & A_BIT(A_RIGHT)) bits |= RR_AMIGA_JOY_RIGHT;
+   if (pad & A_BIT(A_FIRE)) bits |= RR_AMIGA_JOY_FIRE;
+   if (pad & A_BIT(A_FIRE2)) bits |= RR_AMIGA_JOY_FIRE2;
+   return bits;
+}
+
+/* The guest's inputs of this frame from the kit's pad words, the keyboard and the mouse. In a multiplayer session, from the frame's
+ * words and the host's keys alone, whatever this window's focus or menus (they are the same on every seat): the two joysticks, the
+ * keys the host types (session ABI 9), else Start as the guest's Return; the mouse is not carried yet. */
 static void a_inputs(void) {
    uint8_t held[128];
    unsigned bits = 0, bits2 = 0;
@@ -231,22 +263,23 @@ static void a_inputs(void) {
    SDL_Keymod mod = SDL_GetModState();
    memset(held, 0, sizeof held);
    player_poll();
+   if (rrhk_session_active()) {
+      if (guest_keyboard) {
+         for (k = 0; k < SDL_NUM_SCANCODES; k++) {
+            const uint8_t raw = keys[k] ? a_raw_key((SDL_Scancode)k) : 0xFF;
+            if (raw < 128) held[raw] = 1;
+         }
+      } else held[0x44] = (pad & A_BIT(A_START)) != 0;
+      rr_amiga_joystick(session, a_joy_bits(pad));
+      rr_amiga_joystick2(session, a_joy_bits(pad2));
+      rr_amiga_mouse(session, 0, 0, 0, 0);
+      rr_amiga_keys(session, held);
+      return;
+   }
    if (!player_blocked() && input_focus) {
-      if (!mouse_game) {
-         if (pad & A_BIT(A_UP)) bits |= RR_AMIGA_JOY_UP;
-         if (pad & A_BIT(A_DOWN)) bits |= RR_AMIGA_JOY_DOWN;
-         if (pad & A_BIT(A_LEFT)) bits |= RR_AMIGA_JOY_LEFT;
-         if (pad & A_BIT(A_RIGHT)) bits |= RR_AMIGA_JOY_RIGHT;
-         if (pad & A_BIT(A_FIRE)) bits |= RR_AMIGA_JOY_FIRE;
-         if (pad & A_BIT(A_FIRE2)) bits |= RR_AMIGA_JOY_FIRE2;
-      }
+      if (!mouse_game) bits = a_joy_bits(pad);
       /* Player 2's pad: the joystick of port 1, which takes the port from the mouse when it is used (a_port1_*). */
-      if (pad2 & A_BIT(A_UP)) bits2 |= RR_AMIGA_JOY_UP;
-      if (pad2 & A_BIT(A_DOWN)) bits2 |= RR_AMIGA_JOY_DOWN;
-      if (pad2 & A_BIT(A_LEFT)) bits2 |= RR_AMIGA_JOY_LEFT;
-      if (pad2 & A_BIT(A_RIGHT)) bits2 |= RR_AMIGA_JOY_RIGHT;
-      if (pad2 & A_BIT(A_FIRE)) bits2 |= RR_AMIGA_JOY_FIRE;
-      if (pad2 & A_BIT(A_FIRE2)) bits2 |= RR_AMIGA_JOY_FIRE2;
+      bits2 = a_joy_bits(pad2);
       /* The mouse: captured motion and buttons, or (a mouse game) the pad standing for it. */
       left = player_mouse(RETRO_DEVICE_ID_MOUSE_LEFT, mouse_grab && (mouse_buttons & SDL_BUTTON_LMASK) != 0);
       right = player_mouse(RETRO_DEVICE_ID_MOUSE_RIGHT, mouse_grab && (mouse_buttons & SDL_BUTTON_RMASK) != 0);
@@ -355,8 +388,60 @@ static bool a_run_frame(uint16_t p1, uint16_t p2) {
 static void a_pause(bool paused) { (void)paused; }
 /* Two joysticks: port 2 (player 1) and port 1 (player 2's, when it takes the port from the mouse), so F2 offers two players' pages. */
 static int a_players(void) { return 2; }
-/* A reset starts the install again from ws_GameLoader: the process restarts itself (the session is one per process). */
-static void a_reset(void) { restart_requested = true; quit_requested = true; }
+/* ---- multiplayer (hostkit_session.h) ----------------------------------------------------------------------------------------
+ * A session (RETRORECOMP_NETPLAY_PIPE at the start: amiga_player.c then opens the machine with
+ * RrAmigaGame.session: the install's files and the match's saves, kept in memory) plays from the pad words alone (a_inputs), port 1 holding the
+ * joystick, the CPU at the host's speed ("cpu": 1, 2 or 4, pushed to every seat; a game listed as needing the normal speed takes 1
+ * only; the export's own speed when none is pushed). The guest keyboard and the mouse are not carried yet (the computers' shared rule, rrhk_computer.inc). */
+static int a_session_cpu;            /* the host's "cpu" (a_session_option), 0: the export's own speed */
+static uint8_t *a_boot;              /* the machine as the session found it (a_session_begin): the session's restart */
+static size_t a_boot_size, a_boot_used;
+
+static size_t a_snap_bound(void) { return rr_amiga_snap_bound(session); }
+static size_t a_snap_save(void *buffer, size_t capacity) { return rr_amiga_snap_save(session, buffer, capacity); }
+static bool a_snap_load(const void *buffer, size_t size) { return rr_amiga_snap_load(session, buffer, size) != 0; }
+static uint64_t a_digest(void) { return rr_amiga_digest(session); }
+static void a_side_effects(bool allowed) { rr_amiga_side_effects(session, allowed); }
+/* The saves of the match: this player's, for the host's HELLO; the host's, which a guest plays on (in memory, never written). */
+static size_t a_session_save(void *out, size_t capacity) { return rr_amiga_session_save(session, out, capacity); }
+static bool a_session_save_put(const void *in, size_t size) { return rr_amiga_session_save_put(session, in, size) != 0; }
+/* The host at the match's clean end: the match's saves back to its own save folder, the previous files kept in "saves.bak". */
+static bool a_session_save_commit(void) { return rr_amiga_session_save_commit(session) != 0; }
+
+static bool a_session_option(const char *key, const char *value) {
+   if (strcmp(key, "cpu") || (strcmp(value, "1") && strcmp(value, "2") && strcmp(value, "4"))) return false;
+   if (cpu_stock_only && value[0] != '1') return false;
+   a_session_cpu = value[0] - '0';
+   return true;
+}
+
+/* This PC's run-changing options for the host's HELLO: the player's own CPU speed (a game listed as needing the normal speed: 1). The
+ * host's value comes back to every seat through a_session_option before the session begins. */
+static size_t a_session_options(char *out, size_t capacity) {
+   int n = snprintf(out, capacity, "cpu=%d", cpu_stock_only ? 1 : a_cpu_choice);
+   return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
+}
+
+/* No real-time clock to set: the machine has none fitted, and resload's TIME_GET answers a fixed date. */
+static void a_session_begin(uint64_t clock) {
+   (void)clock;
+   rr_amiga_port1_mode(session, RR_AMIGA_PORT1_JOYSTICK);
+   a_set_cpu(a_session_cpu ? a_session_cpu : 1, false);
+   if (a_boot_used) return;
+   a_boot_size = rr_amiga_snap_bound(session);
+   a_boot = (uint8_t *)malloc(a_boot_size);
+   a_boot_used = a_boot ? rr_amiga_snap_save(session, a_boot, a_boot_size) : 0;
+}
+
+/* A reset starts the install again from ws_GameLoader: the process restarts itself (the session is one per process). In a
+ * multiplayer session, at the same frame on every seat, the machine goes back to the session's start instead. */
+static void a_reset(void) {
+   if (rrhk_session_active()) {
+      if (!a_boot_used || !rr_amiga_snap_load(session, a_boot, a_boot_used)) fail("The session's restart failed");
+      return;
+   }
+   restart_requested = true; quit_requested = true;
+}
 /* The reference CPU runs no hook, so nothing is counted: the run is the interpreter's all the same. */
 static uint64_t a_interpreted(void) { return interpreter_only ? 1 : rr_amiga_interpreted_count(session); }
 static uint64_t a_zero(void) { return 0; }
@@ -390,13 +475,19 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.audio = a_audio; machine.interpreted = a_interpreted; machine.audio_interpreted = a_zero;
       machine.native_caption = RRHK_CORE_CAPTION;
       machine.state_path = a_state_path; machine.state_ready = a_state_ready; machine.state_file = a_state_file; machine.input_frame = a_input_frame;
-      machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = x_help_controls;
+      machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = a_help_controls;
       /* The F2 row "Keyboard (Ctrl+Alt+K): game controls / computer only" of rrhk_computer.inc, kept per game in player.cfg. */
       machine.option_rows = a_option_rows; machine.key_event = a_key_event;   /* the computers' keyboard row, then the CPU's speed */
       machine.frame_start = x_frame_start; machine.finished = x_finished;
       machine.event = x_event; machine.keyboard_pad = x_keyboard_pad; machine.fast_forward = x_fast_forward; machine.game_rect = x_game_rect;
       machine.help_page = x_help_page; machine.action_held = x_action_held;
       machine.pad_rows = a_pad_rows; machine.pad_row_count = 1;      /* "Mouse port" on player 2's gamepad page */
+      machine.snap_bound = a_snap_bound; machine.snap_save = a_snap_save; machine.snap_load = a_snap_load;
+      machine.digest = a_digest; machine.side_effects = a_side_effects;
+      machine.session_save = a_session_save; machine.session_save_put = a_session_save_put;
+      machine.session_save_commit = a_session_save_commit;
+      machine.session_option = a_session_option; machine.session_options = a_session_options; machine.session_begin = a_session_begin;
+      machine.session_keys = x_session_keys;
    }
    return &machine;
 }

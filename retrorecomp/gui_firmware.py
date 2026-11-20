@@ -12,6 +12,7 @@ from tkinter import filedialog, ttk
 
 from .branding import COLORS
 from .dialogs import center_dialog
+from .ui_fonts import scaled
 from .gui_options import FIRMWARE_ROWS
 from .paths import APP_NAME
 
@@ -23,11 +24,11 @@ def _shorten(text: str, limit: int = ROLE_CHARACTERS) -> str:
 
 
 class FirmwareSearchMixin:
-    """The « Find firmware in a folder… » button of Options and its dialog."""
+    """The « Find firmware in a folder… » button of Options (Common page) and its dialog."""
 
     def build_firmware_search_button(self, parent):
+        """The button, made in `parent` and not placed (Options › Common puts it in its BIOS and firmware section)."""
         button = ttk.Button(parent, text=self.tr('firmware_search'), command=self.find_firmware)
-        button.pack(side='left', padx=(12, 0))
         self.option_controls.append((button, 'normal'))
         self.hint(button, 'tip_firmware_search')
         self.firmware_search_button = button
@@ -94,11 +95,11 @@ class FirmwareSearchMixin:
             lines, missing = firmware_search.review(state['result'], current)
             self.build_firmware_review(body, state['result'], lines, missing, close)
             window.update_idletasks()
-            center_dialog(window, self.app, max(window.winfo_reqwidth(), 760), min(window.winfo_reqheight(), 640))
+            center_dialog(window, self.app, max(window.winfo_reqwidth(), scaled(window, 760)), min(window.winfo_reqheight(), scaled(window, 640)), measured=True)
 
         threading.Thread(target=worker, daemon=True).start()
         window.update_idletasks()
-        center_dialog(window, self.app, 560, window.winfo_reqheight())
+        center_dialog(window, self.app, scaled(window, 560), window.winfo_reqheight(), measured=True)
         window.deiconify()
         window.grab_set()
         window.after(100, poll)

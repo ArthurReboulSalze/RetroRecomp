@@ -102,6 +102,7 @@ void rrhk_sync_notice(void);              /* the outcome, named by a notice */
 #define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
 #define RRHK_KEY_WIDESCREEN (SDL_NUM_SCANCODES + 19)   /* the "Screen format: 4:3 / 16:9" row (1.7.6) */
 #define RRHK_KEY_SYNC (SDL_NUM_SCANCODES + 20)         /* the "Sync to display" row (1.7.7, D30) */
+#define RRHK_KEY_TURN_BADGE (SDL_NUM_SCANCODES + 21)   /* the "Turn badge" row (1.8.1, in a session) */
 
 /* menu.c: the row icons (1.7.5) */
 int rrhk_action_icon(const char *name, char letters[4]);   /* the icon of a control by its English name; a face button's letters */
@@ -193,6 +194,10 @@ void rrhk_options_notice(void);           /* shows why a combination was not tak
 bool rrhk_options_quick_save(int menu);     /* 1.7.5: player 1's pad combination, once per hold */
 bool rrhk_options_quick_load(int menu);
 bool rrhk_options_component(int key, int button);   /* a key or button that belongs to a quit/restart combination being captured or held */
+/* 1.8.2: where a pad button stands in the restart combination (a bit set): 1 a member of it (a combination of two buttons or more),
+ * 2 another member is held on that pad now, 4 this very button is held. 0: not a member. rrhk_events.c defers the host Pause on
+ * such a button, so that Start+Select (Pause on Start) resets instead of pausing. */
+unsigned rrhk_restart_combo_state(SDL_JoystickID pad, int button);
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
 bool rrhk_sound_toggle_mute(void);   /* M: flip, keep in the preferences, true when muted */
@@ -258,4 +263,46 @@ int rrhk_launcher_text(const char *text, size_t len, const char *exe, char **hea
 #ifndef _WIN32
 int rrhk_heal_launcher(const char *exe);
 #endif
+
+/* session.c: multiplayer (hostkit_session.h). rrhk_session_on is false unless the converter started the game in a session:
+ * then and only then does any of the functions below do anything. */
+extern bool rrhk_session_on;
+bool rrhk_session_open(RrhkRun *run);          /* at open; false: the session could not start (the run stops, the reason said) */
+/* Before the machine's frame: report the local pad, execute the worker's commands (silent frames included); 1: run the live
+ * frame now with the session's port words, 0: nothing to run this iteration (waiting or paused), -1: the session ended. */
+int rrhk_session_frame(RrhkRun *run, uint64_t input_frame);
+void rrhk_session_frame_done(RrhkRun *run, Uint64 cost_ticks);   /* after the live frame ran */
+bool rrhk_session_silent_done(RrhkRun *run);   /* a driven machine's silent frame just ended: not presented, not paced */
+uint16_t rrhk_session_port(int port);         /* the word of a port for the frame being run */
+Uint64 rrhk_session_period(Uint64 period);    /* the frame period with the worker's time sync applied */
+double rrhk_session_audio_base(void);         /* the sound's factor under that time sync (rrhk_audio_set_base) */
+bool rrhk_option_key_run(int key);            /* options.c: this key is the shortcut of a row that changes the run */
+bool rrhk_session_paused(void);
+/* The player asked to restart in a session: the host's request goes to the worker, which restarts every game at the same
+ * frame (RRHK_RUN_RESET); a guest is told only the host can. true: the request was taken (the host). */
+bool rrhk_session_restart(void);
+void rrhk_session_state(bool load);          /* F8 / F9 in a session: the host's for everyone, this match only */
+bool rrhk_session_states(void);             /* this seat is the host and its machine keeps the match's state */
+void rrhk_session_close(RrhkRun *run, int reason);
+/* input.c: the pad word of this PC's player as today's solo game reads it (player `player`'s bindings, autofire applied). */
+uint16_t rrhk_local_pad_word(int player, uint64_t frame);
+bool rrhk_local_pad_axes(int player, uint64_t frame, int16_t axes[RRHK_AXES]);   /* this PC's sticks, never the session's */
+void rrhk_session_axes(int port, int16_t axes[RRHK_AXES]);                         /* a port's sticks of the frame being run */
+/* chat.inc (in session.inc): the in-game chat of a session. rrhk_chat_event comes before every other handler; rrhk_chat_draw
+ * after the menus and notices; the notices' line moves above the chat while it is open. */
+bool rrhk_chat_open(void);
+bool rrhk_chat_holds_word(void);               /* open, or closed with a key or button still held from then: neutral word */
+void rrhk_give_key(SDL_Scancode key);         /* a key on « Give the controller » (the host, in turns) */
+bool rrhk_turn_badge(void);                    /* the turn badge shown ([Interface] turn_badge, the options row) */
+void rrhk_toggle_turn_badge(void);
+bool rrhk_relaunch_ask(SDL_Scancode key);     /* the host's « Change this option? » (session): true while asked, the key held */
+bool rrhk_relaunch_asking(void);
+bool rrhk_hub_take_restart(void);              /* the F2 Restart tile was chosen (once): the loop restarts as the combination does */
+bool rrhk_chat_offered(void);                  /* a session is running: the F2 Chat tile and the keys are there */
+void rrhk_chat_begin(bool grid);               /* open the entry (grid: with the on-screen keyboard) */
+bool rrhk_chat_event(const SDL_Event *event);
+void rrhk_chat_draw(SDL_Renderer *renderer);
+int rrhk_chat_notice_line(void);
+/* audio.c: take the machine's sound of the frame just run and drop it (a silent frame). */
+void rrhk_audio_discard(RrhkRun *run);
 #endif

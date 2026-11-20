@@ -8,18 +8,26 @@
 #include <SDL.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <wchar.h>
 #include "platform_io.h"
 #include "console16_state.h"
 #include "retro_menu.h"
 #include "pce_game.h"
 #include "pce_machine.h"
+#include "pce_backup.h"
 #include "hostkit/hostkit.h"
 
 int rr_pce_host_frame(const uint16_t pads[4]);
 size_t rr_pce_take_audio(int16_t *out, size_t capacity);
 unsigned rr_pce_frame_index(void);
 int rr_pce_reset(void);
+/* Multiplayer (hostkit_session.h): the snapshot of pce_snapshot.cpp behind the host's frame counter, and what a frame may do outside the guest. */
+size_t rr_pce_snap_bound(void);
+size_t rr_pce_snap_save(void *buffer, size_t capacity);
+bool rr_pce_snap_load(const void *buffer, size_t size);
+uint64_t rr_pce_digest(void);
+void rr_pce_side_effects(bool allowed);
 
 /* Bits are the engine's pad masks: I, II, Select, Run, Up, Right, Down, Left, then III to VI on six-button pads. */
 #define PADS(button) {button, button, button, button}
@@ -38,21 +46,39 @@ static const RrhkAction actions[ACTIONS] = {
     {"Left", L"Left", 0x080, RRHK_DIR, 0, {SDL_SCANCODE_LEFT, SDL_SCANCODE_KP_1}, PADS(SDL_CONTROLLER_BUTTON_DPAD_LEFT)},
     {"Right", L"Right", 0x020, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_KP_3}, PADS(SDL_CONTROLLER_BUTTON_DPAD_RIGHT)}};
 
-static uint16_t extra_pads[2];
 static unsigned width, height;
 
 static int players(void) { return RR_PCE_PLAYERS; }
 static void reset(void) { rr_pce_reset(); rrhk_autofire_reset(); }
+/* Players 3 and 4 are read here and not in before_frame: a frame run again after a correction calls run_frame only, and what decides the run must be
+ * read inside it (the session's words answer rrhk_pad_word for any frame). In a session the ports are the match's, else the game's players. */
 static bool run_frame(uint16_t p1, uint16_t p2) {
-    const uint16_t pads[4] = {p1, p2, extra_pads[0], extra_pads[1]};
+    const uint64_t at = rr_pce_frame_index();
+    const int ports = rrhk_session_active() ? rrhk_session_ports() : players();
+    const uint16_t pads[4] = {p1, p2, ports > 2 ? rrhk_pad_word(2, at) : 0, ports > 3 ? rrhk_pad_word(3, at) : 0};
     if (!rr_pce_host_frame(pads)) return false;
     pce_machine_pixels(&width, &height);
     return true;
 }
-static void before_frame(const RrhkAudioProbe *audio, uint64_t input_frame) {
-    (void)audio;
-    extra_pads[0] = players() > 2 ? rrhk_pad_word(2, input_frame) : 0;
-    extra_pads[1] = players() > 3 ? rrhk_pad_word(3, input_frame) : 0;
+/* The console has one pad port: the second player is the multitap's. A session plugs it for every seat from its start (and at each restart of it, which
+ * rebuilds the machine from the same recipe), whatever the game. */
+static void session_begin(uint64_t clock) {
+    (void)clock;
+    if (rrhk_session_ports() >= 2) pce_machine_plug_multitap(1);
+}
+/* The host's Backup RAM travels to every seat for the match, in memory only (a guest never writes its own file). */
+static size_t session_save(void *out, size_t capacity) {
+    if (!out) return PCE_BACKUP_BYTES;
+    if (capacity < PCE_BACKUP_BYTES || !pce_machine_backup()) return 0;
+    memcpy(out, pce_machine_backup(), PCE_BACKUP_BYTES);
+    return PCE_BACKUP_BYTES;
+}
+/* A match that ended cleanly: the host writes its Backup RAM back to its own file once, atomically, keeping the previous file as <file>.bak. */
+static bool session_save_commit(void) { return rr_pce_backup_commit(); }
+static bool session_save_put(const void *in, size_t size) {
+    if (!in || size != PCE_BACKUP_BYTES) return false;
+    pce_machine_set_backup(in);
+    return true;
 }
 static void pause_machine(bool paused) { (void)paused; }
 static const uint32_t *pixels(void) { return pce_machine_pixels(&width, &height); }
@@ -98,7 +124,10 @@ const RrhkMachine *rrhk_adapter(void) {
             .raster_height = raster_height, .display_width = display_width,
             .audio = audio, .interpreted = interpreted, .audio_interpreted = audio_interpreted,
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,
-            .input_frame = input_frame, .before_frame = before_frame, .help_controls = help_controls,
+            .input_frame = input_frame, .help_controls = help_controls,
+            .snap_bound = rr_pce_snap_bound, .snap_save = rr_pce_snap_save, .snap_load = rr_pce_snap_load, .digest = rr_pce_digest,
+            .side_effects = rr_pce_side_effects, .session_begin = session_begin,
+            .session_save = session_save, .session_save_put = session_save_put, .session_save_commit = session_save_commit,
         };
     }
     return &machine;

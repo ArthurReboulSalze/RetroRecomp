@@ -153,9 +153,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     except (OSError, ValueError) as error:
         raise ConversionError(str(error)) from None
     guess = cart.guess
-    if guess.mapper is None:
-        raise ConversionError(f'{Path(path).name}: its mapper could not be recognised ({guess.reason}). '
-                              'The MSX profile reads plain, Konami, Konami SCC, ASCII 8 and ASCII 16 cartridges.')
+    # A MegaROM whose bytes show no store to a mapper register (it reaches them through computed addresses, as Bubble Bobble
+    # does) is not refused here: the probe runs below try every mapper, and only when none fits is the cartridge refused.
     standard = 'pal' if standard_override == 'pal' else 'ntsc'
     msx2, plus = model in ('msx2', 'msx2plus'), model == 'msx2plus'
     machine_name = 'MSX2+' if plus else 'MSX2' if msx2 else 'MSX'
@@ -242,10 +241,14 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 raise ConversionError(f'MSX: {error}') from None
             probe = {'chosen': found, 'static_guess': guess.mapper, 'runs': details, 'frames': msx_build.PROBE_FRAMES}
             if found is not None and found != guess.mapper:
-                emit(f'MSX: the probe runs say {found}, not {guess.mapper} (the static guess).')
+                emit(f'MSX: the probe runs say {found}, not {guess.mapper or "unknown"} (the static guess).')
                 from dataclasses import replace
                 guess = replace(guess, mapper=found, reason=f'{guess.reason}; probe runs: {found}')
                 msx_knowledge.forget(work)                              # learned under the other mapper
+            if guess.mapper is None:
+                raise ConversionError(f'{Path(path).name}: its mapper could not be recognised ({guess.reason}; no probe run '
+                                      'under a mapper was credible). The MSX profile reads plain, Konami, Konami SCC, ASCII 8 '
+                                      'and ASCII 16 cartridges.')
         cartridge = msx_build.padded(cart.data, guess.mapper)
         level = resolve_scan_level(scan_level)
         frames, passes = int(frames or FRAMES), int(passes or 3)

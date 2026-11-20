@@ -15,11 +15,19 @@ extern "C" {
 /* One frame, from VBlank to VBlank, with the buttons held (the hardware KEYINPUT bits, here high = pressed). The picture and
  * the sound of the frame are taken. false: the guest stopped, or a power cycle was asked. */
 bool rrgba_frame(uint16_t pressed);
+bool rrgba_frame_pads(uint16_t pressed, uint16_t other);   /* the same on a link cable (docs/GAME_BOY_ADVANCE.md): one pad word per console, seat 1 and seat 2 here */
+unsigned rrgba_link_seats(void);                      /* the consoles on the cable (2 to 4); 0: no cable, the single machine */
 const uint32_t *rrgba_pixels(void);                  /* 240 x 160, 0xAARRGGBB */
 size_t rrgba_audio(int16_t *pcm, size_t capacity);   /* the machine's mono sound at 32768 Hz; 0 when nothing is left */
 void rrgba_reset(void);                              /* a power cycle: the loop ends and the machine is built again */
 uint64_t rrgba_interpreted(void);                    /* guest instructions the engine's interpreter ran: never hidden */
 uint64_t rrgba_frames(void);
+void rrgba_side_effects(bool allowed);                  /* off for a guest in a session: the cartridge save is never written */
+size_t rrgba_session_save(void *out, size_t capacity);  /* the cartridge save image of this PC (the host's travels to every seat); out NULL: its size */
+bool rrgba_session_save_commit(void);                   /* the host, at a clean end of a match: its save in memory goes to its own file, the previous one kept as .bak */
+bool rrgba_session_save_put(const void *in, size_t size); /* play on the host's save image, in memory only (a guest never writes its own) */
+void rrgba_session_begin(uint64_t clock);             /* the session's clock: the engine already started on it (native/gba_machine.cpp) */
+uint64_t rrgba_digest(void);                          /* a session's digest: the deterministic state as fixed fields (native/gba_machine.cpp) */
 bool rrgba_state_path(wchar_t *path, size_t capacity);
 bool rrgba_state_file(const wchar_t *path, bool load);
 

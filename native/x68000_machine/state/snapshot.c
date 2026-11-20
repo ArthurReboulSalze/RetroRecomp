@@ -56,6 +56,8 @@ void rr_state_midi(RRState *s);
 void rr_state_dswin(RRState *s);
 void rr_state_mouse(RRState *s);
 void rr_state_opm(RRState *s);
+void rr_state_presented(RRState *s);
+void TVRAM_SetAllDirty(void);
 
 extern uint16_t *videoBuffer;
 /* Musashi slice counters (m68kcpu.c; not declared by every m68kcpu.h). */
@@ -104,7 +106,8 @@ static void keyboard(RRState *s)
 
 static void bus(RRState *s)
 {
-   rr_state_bus_words(s, MEM, 0xc00000);
+   /* A session snapshot stores the 10 MB the bus writes (mem_wrap: RAM below 0xa00000, bus error above). */
+   rr_state_bus_words(s, MEM, s->session ? 0xa00000 : 0xc00000);
    rr_state_u32(s, &BusErrFlag);
    rr_state_u8(s, &IOC_IntStat);
    rr_state_u8(s, &IOC_IntVect);
@@ -117,12 +120,19 @@ static void host(RRState *s)
    rr_x68k_hardware_snapshot(counters);
    for (i = 0; i < 8; i++)
       rr_state_u64(s, &counters[i]);
+   if (s->session)
+      rr_state_presented(s);
    if (!videoBuffer) {
       rr_state_fail(s, "machine is not booted");
       return;
    }
-   /* Only dirty lines are redrawn: the presented picture is machine state. */
-   rr_state_u16s(s, videoBuffer, 800 * 600);
+   /* Only dirty lines are redrawn: the presented picture is machine state in a quick state. A session snapshot leaves it
+    * out and marks every text line dirty on load, so the next frame draws the whole picture again (proven by the rollback
+    * probe, which compares the presented picture of every replayed frame). */
+   if (!s->session && !s->no_picture)
+      rr_state_u16s(s, videoBuffer, 800 * 600);
+   if (s->session && s->loading && !s->error)
+      TVRAM_SetAllDirty();
    if (s->loading && !s->error)
       rr_x68k_hardware_restore(counters);
 }
@@ -144,6 +154,46 @@ static const Section sections[] = {
    {"OPM ", rr_state_opm}, {"KEYB", keyboard}, {"MOUS", rr_state_mouse},
    {"INPT", rr_state_input}, {"HOST", host}
 };
+
+void rr_x68k_session_disks(RRState *s, size_t *bytes);
+static size_t journal_bytes;   /* journal blocks of the last session visit */
+extern uint8_t TextDirtyLine[1024];
+static uint8_t dirty_lines[1024];
+/* The work buffers of the line being drawn: written before they are read for every line drawn (the rollback probe compares
+ * the picture of every replayed frame), so a session snapshot and the digest store them empty. */
+extern uint8_t Text_TrFlag[1024];
+extern uint16_t BG_LineBuf[1600], BG_PriBuf[1600];
+extern uint16_t Grp_LineBuf[1024], Grp_LineBufSP[1024], Grp_LineBufSP2[1024];
+extern uint32_t VLINEBG;          /* set by WinDraw_DrawLine before each line's BG */
+static struct {
+   uint8_t tr[1024];
+   uint16_t bg[1600], pri[1600], grp[3][1024];
+   uint32_t vlinebg;
+} line_work;
+
+static void line_buffers(int keep)
+{
+   uint16_t *grp[3] = {Grp_LineBuf, Grp_LineBufSP, Grp_LineBufSP2};
+   unsigned i;
+   if (keep) {
+      memcpy(line_work.tr, Text_TrFlag, sizeof line_work.tr);
+      memcpy(line_work.bg, BG_LineBuf, sizeof line_work.bg);
+      memcpy(line_work.pri, BG_PriBuf, sizeof line_work.pri);
+      for (i = 0; i < 3; i++) memcpy(line_work.grp[i], grp[i], sizeof line_work.grp[i]);
+      line_work.vlinebg = VLINEBG;
+      VLINEBG = 0;
+      memset(Text_TrFlag, 0, sizeof line_work.tr);
+      memset(BG_LineBuf, 0, sizeof line_work.bg);
+      memset(BG_PriBuf, 0, sizeof line_work.pri);
+      for (i = 0; i < 3; i++) memset(grp[i], 0, sizeof line_work.grp[i]);
+   } else {
+      memcpy(Text_TrFlag, line_work.tr, sizeof line_work.tr);
+      memcpy(BG_LineBuf, line_work.bg, sizeof line_work.bg);
+      memcpy(BG_PriBuf, line_work.pri, sizeof line_work.pri);
+      for (i = 0; i < 3; i++) memcpy(grp[i], line_work.grp[i], sizeof line_work.grp[i]);
+      VLINEBG = line_work.vlinebg;
+   }
+}
 
 static int visit(RRState *s)
 {
@@ -168,10 +218,27 @@ static int visit(RRState *s)
    }
    /* The marks of the background patterns changed since the last line drawn are part of the saved picture state. */
    rr_bg_state_sync(s->loading);
+   /* A session snapshot starts with its disks: the drives must hold their images before the device sections load. */
+   if (s->session && !s->error) {
+      size_t mark = rr_state_begin(s, "JRNL", 1);
+      rr_x68k_session_disks(s, &journal_bytes);
+      rr_state_end(s, mark);
+   }
+   /* The text lines' redraw marks only say which lines the next frame draws again. A session snapshot and the digest store
+    * them all set (a load redraws the whole picture), so two seats that loaded at different frames keep equal digests. */
+   if (s->session && !s->loading) {
+      memcpy(dirty_lines, TextDirtyLine, sizeof dirty_lines);
+      memset(TextDirtyLine, 1, sizeof dirty_lines);
+      line_buffers(1);
+   }
    for (i = 0; i < count && !s->error; i++) {
       size_t mark = rr_state_begin(s, sections[i].tag, 1);
       sections[i].visit(s);
       rr_state_end(s, mark);
+   }
+   if (s->session && !s->loading) {
+      memcpy(TextDirtyLine, dirty_lines, sizeof dirty_lines);
+      line_buffers(0);
    }
    if (s->loading && !s->error && s->pos != s->size)
       rr_state_fail(s, "trailing bytes after the last snapshot section");
@@ -212,4 +279,86 @@ bool retro_unserialize(const void *data, size_t size)
    s.size = size;
    s.loading = 1;
    return visit(&s) != 0;
+}
+
+/* ---- Multiplayer snapshot (RrhkMachine snap_bound / snap_save / snap_load / digest) ----
+ * In process only: the caller's buffer, no allocation, arrays copied as they are in memory. The disks are journals,
+ * bounded by RR_X68K_SESSION_JOURNAL bytes of written blocks for the whole set and the drives: a session that writes
+ * more cannot be saved (the kit ends it with the reason). */
+#define RR_X68K_SESSION_JOURNAL (512u * 1024u)
+
+static void session_state(RRState *s, int loading)
+{
+   memset(s, 0, sizeof *s);
+   s->loading = loading;
+   s->fixed = s->raw = s->session = 1;
+}
+
+void rr_x68k_boot(void);
+
+/* The kit asks the bound before the first frame (at its HELLO and SETUP): the machine boots first. */
+size_t rr_x68k_snap_bound(void)
+{
+   RRState s;
+   rr_x68k_boot();
+   session_state(&s, 0);
+   journal_bytes = 0;
+   return visit(&s) ? s.size - journal_bytes + RR_X68K_SESSION_JOURNAL : 0;
+}
+
+size_t rr_x68k_snap_save(void *buffer, size_t capacity)
+{
+   RRState s;
+   if (!buffer)
+      return 0;
+   session_state(&s, 0);
+   s.data = (uint8_t *)buffer;
+   s.capacity = capacity;
+   journal_bytes = 0;
+   return visit(&s) ? s.size : 0;
+}
+
+int rr_x68k_snap_load(const void *buffer, size_t size)
+{
+   RRState s;
+   if (!buffer || !size)
+      return 0;
+   session_state(&s, 1);
+   s.data = (uint8_t *)buffer;
+   s.size = size;
+   return visit(&s);
+}
+
+/* The digest the seats compare: the session snapshot without the picture, 64-bit FNV-1a over its words. */
+uint64_t rr_x68k_digest(void)
+{
+   static uint8_t *buffer;
+   static size_t capacity;
+   const size_t bound = rr_x68k_snap_bound();
+   uint64_t hash = 14695981039346656037ull, word;
+   RRState s;
+   size_t i;
+   if (!bound)
+      return 0;
+   if (bound > capacity) {
+      free(buffer);
+      buffer = (uint8_t *)malloc(bound);
+      capacity = buffer ? bound : 0;
+      if (!buffer)
+         return 0;
+   }
+   session_state(&s, 0);
+   s.no_picture = 1;
+   s.data = buffer;
+   s.capacity = capacity;
+   journal_bytes = 0;
+   if (!visit(&s))
+      return 0;
+   for (i = 0; i + 8 <= s.size; i += 8) {
+      memcpy(&word, buffer + i, 8);
+      hash = (hash ^ word) * 1099511628211ull;
+   }
+   for (; i < s.size; i++)
+      hash = (hash ^ buffer[i]) * 1099511628211ull;
+   return hash;
 }

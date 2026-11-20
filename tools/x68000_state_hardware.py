@@ -265,9 +265,47 @@ void rr_state_{lower}(RRState *s)
    }}
    rr_state_ints(s, {prefix}Cur, 4);
    rr_state_ints(s, {prefix}Trk, 4);
-   for (drive = 0; drive < 4; drive++)
+   /* A session snapshot keeps the drives as journals (libretro_api.c, rr_x68k_session_disks). */
+   for (drive = 0; drive < 4 && !s->session; drive++)
       if ({prefix}Img[drive])
          rr_state_bytes(s, {prefix}Img[drive], {capacity});
+}}
+
+/* Multiplayer session: the drive's image in memory, its size, and the image a file loads into (read through the
+ * unused fourth drive, which is left empty again: no write-back, no state of the drive changes). */
+unsigned char *rr_{lower}_image(int drive)
+{{
+   return drive >= 0 && drive < 4 ? {prefix}Img[drive] : 0;
+}}
+size_t rr_{lower}_capacity(void)
+{{
+   return {capacity};
+}}
+/* The bytes an eject would write back to the drive's file (the host's save at the end of a match), as the base's eject
+ * writes them: DIM, the header then the tracks its flags mark; XDF, the whole image. 0: no image or too small a buffer. */
+#ifndef RR_FLUSH_XDF
+#define RR_FLUSH_XDF if (capacity < 1261568) return 0; memcpy(out, image, 1261568); return 1261568;
+#define RR_FLUSH_DIM {{ DIM_HEADER *dh = (DIM_HEADER *)image; size_t len = (size_t)SctLength[dh->type], at = sizeof(DIM_HEADER); unsigned char *p = image + sizeof(DIM_HEADER); int t; if (capacity < at) return 0; memcpy(out, image, at); for (t = 0; t < 170; t++, p += len) if (dh->trkflag[t]) {{ if (at + len > capacity) return 0; memcpy(out + at, p, len); at += len; }} return at; }}
+#endif
+size_t rr_{lower}_flush(int drive, unsigned char *out, size_t capacity)
+{{
+   unsigned char *image = drive >= 0 && drive < 4 ? {prefix}Img[drive] : 0;
+   if (!image || !out)
+      return 0;
+   RR_FLUSH_{prefix}
+}}
+int rr_{lower}_shadow(const char *path, unsigned char *out)
+{{
+   int ok;
+   if ({prefix}Img[3] || !path || !out)
+      return 0;
+   ok = {prefix}_SetFD(3, (char *)path) && {prefix}Img[3];
+   if (ok)
+      memcpy(out, {prefix}Img[3], {capacity});
+   free({prefix}Img[3]);
+   {prefix}Img[3] = 0;
+   memset({prefix}File[3], 0, sizeof {prefix}File[3]);
+   return ok;
 }}
 '''
 

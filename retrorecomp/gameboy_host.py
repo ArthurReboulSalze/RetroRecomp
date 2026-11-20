@@ -137,7 +137,8 @@ def kit_platform(source: str, title: str) -> str:
     /* A missing directory is allowed. It is created only on an actual save. */
     g_persistence_dir = resolved.string();''')
     source = replace_once(source, '''    FILE* file = fopen(staged.string().c_str(), "wb");''',
-        '''    if (!ensure_parent_directory(destination)) return false;
+        '''    if (!g_rr_effects) return true;   /* a guest's session and the silent frames write nothing (rrhk_gb.inc) */
+    if (!ensure_parent_directory(destination)) return false;
     FILE* file = fopen(staged.string().c_str(), "wb");''')
     source = replace_once(source, '''    const bool success = gb_context_save_state_file(ctx, filename);''',
         '''    const bool success = ensure_parent_directory(fs::path(filename)) &&

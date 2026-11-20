@@ -9,6 +9,9 @@
 #ifndef RR_NES_ZAPPER
 #define RR_NES_ZAPPER 0
 #endif
+#ifndef RR_NES_FOUR_SCORE
+#define RR_NES_FOUR_SCORE 0   /* the game reads the Four Score: players 3 and 4 */
+#endif
 #define RR_CPU_DIV (RR_NES_PAL ? 16 : 12)
 #define RR_PPU_DIV (RR_NES_PAL ? 5 : 4)
 #define RR_PRERENDER (RR_NES_PAL ? 311 : 261)
@@ -30,6 +33,15 @@ bool rr_nes_state_load(const void *buffer, size_t size);
 bool rr_nes_state_file(const wchar_t *path, bool load);
 const char *rr_nes_state_error(void);
 void rr_nes_state_path(wchar_t *path, size_t capacity);
+
+/* Multiplayer, the host's save (session ABI 8): one image of the cartridge's and the Datach's nonvolatile memory, and the guest's
+ * ban on writing its own save file. */
+size_t rr_nes_session_save(void *out, size_t capacity);
+bool rr_nes_session_save_put(const void *in, size_t size);
+void rr_nes_saves_allowed(bool allowed);
+/* Defined by the program's host (cyc_host.c, nes_runtime.py): the host's save files written back when a match ends cleanly. */
+bool rr_nes_session_save_commit(void);
+bool rr_nes_saves_blocked(void);
 
 /* Private chip snapshots, accessible only to the machine adapter. */
 size_t rr_nes_apu_size(void);

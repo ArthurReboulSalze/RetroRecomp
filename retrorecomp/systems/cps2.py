@@ -5,12 +5,24 @@ the profile reuses the CPS-1 pipeline (`cps1_conversion` with its `family='cps2'
 shapes. The key of a set is a file of the player's own romset; the QSound DSP ROM is the player's own dump, as for the CPS-1.5.
 """
 from pathlib import Path
-from . import Capabilities, Cpu, OptionKey, SystemProfile
+from . import Capabilities, Cpu, OptionKey, SimulationSource, SystemProfile
 from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 
 class Cps2Profile(SystemProfile):
     id = 'cps2'
+    netplay_session = True
+    netplay_seats = 4
+    netplay_seats_ceiling = True
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The CPS-1's list (one converter; systems/cps1.py is not an input of this machine's stamp).
+    simulation_sources = (SimulationSource('native/steps/cps1_step_*.c'),
+                          SimulationSource('native/cps1_arithmetic.c'),
+                          SimulationSource('native/cps1_step_semantics.h'),
+                          SimulationSource('native/cps1_z80_steps.inc'),
+                          SimulationSource('native/board/board.txt'),
+                          SimulationSource('native/cps1_game.h', drop=('RR_CPS1_TITLE', 'RR_CPS1_VERSION')),
+                          SimulationSource('native/retro_gun_game.h'),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/cps1-machine.md', 'licenses/cps1-ymfm.md', 'licenses/musashi.md', 'licenses/superzazu-z80.md', 'licenses/segagenesisrecomp.md')
     name = 'Capcom CPS-2'

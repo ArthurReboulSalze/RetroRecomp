@@ -43,6 +43,8 @@ void rr_menu_text_fit(SDL_Renderer *renderer, int ox, int oy, int unit, int x, i
 void rr_menu_text_plain(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y,
                         int available, const char *text, int red, int green, int blue);
 int rr_menu_text_width(const char *text);
+/* UTF-8 in, the ASCII a game draws out (accents dropped, other characters '?'), at most cap - 1 characters; returns how many. */
+size_t rr_menu_ascii_text(const char *text, char *out, size_t cap);
 void rr_menu_begin(SDL_Renderer *renderer, int ox, int oy, int unit);
 void rr_menu_end(SDL_Renderer *renderer);
 void rr_menu_page_header(SDL_Renderer *renderer, int ox, int oy, int unit,
@@ -54,7 +56,12 @@ void rr_menu_page_header(SDL_Renderer *renderer, int ox, int oy, int unit,
 enum { RR_ICON_KEYBOARD, RR_ICON_GAMEPAD, RR_ICON_OPTIONS, RR_ICON_POINTER, RR_ICON_SWITCHES, RR_ICON_LOGO,
        RR_ICON_KEYBOARD_SMALL, RR_ICON_GAMEPAD_SMALL, RR_ICON_OPTIONS_SMALL,
        RR_ICON_GRAPHICS,  /* 1.7.6: the F2 tile of the graphics page, a 3D shape on a screen */
+       RR_ICON_CHAT,      /* the F2 tile of the multiplayer chat, a speech bubble */
        RR_ICON_EXIT,      /* 1.8.1: the F2 tile that quits the game, a door and an arrow */
+       RR_ICON_RESTART,   /* 1.8.1: the F2 tile that restarts the game, a circle with its arrow */
+       RR_ICON_PASS,      /* 1.8.1: multiplayer, turns: pass the controller (a pad, an arrow on) */
+       RR_ICON_GIVE,      /* 1.8.1: the host gives the controller (a pad, an arrow to a player) */
+       RR_ICON_SHARING,   /* 1.8.1: the host switches everyone at once / turns (two players, arrows both ways) */
        /* <row enum> */
        RR_ICON_ROW_UP, RR_ICON_ROW_DOWN, RR_ICON_ROW_LEFT, RR_ICON_ROW_RIGHT, RR_ICON_ROW_BUTTON, RR_ICON_ROW_START,
        RR_ICON_ROW_SELECT, RR_ICON_ROW_COIN, RR_ICON_ROW_PAUSE, RR_ICON_ROW_QUIT, RR_ICON_ROW_RESTART, RR_ICON_ROW_SAVE,

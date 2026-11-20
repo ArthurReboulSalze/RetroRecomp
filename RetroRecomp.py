@@ -6,6 +6,15 @@ from pathlib import Path
 import sys
 from retrorecomp.platforms import restore_system_library_path
 restore_system_library_path()
+if sys.argv[1:] == ['_netplay-worker']:
+    # The multiplayer worker (retrorecomp/netplay/worker.py): a process of its own, started by the converter, that owns
+    # one game's pipes and its lockstep driver. Handled before the converter's heavy imports: no window, no Tk.
+    from retrorecomp.netplay.worker import main as _netplay_worker
+    sys.exit(_netplay_worker())
+if sys.argv[1:2] == ['_netplay-room']:
+    # The command line of the two-PC test (retrorecomp/netplay/room_cli.py): hosts or joins a room with no window.
+    from retrorecomp.netplay.room_cli import main as _netplay_room
+    sys.exit(_netplay_room(sys.argv[2:]))
 from retrorecomp.core import ConversionError, convert, dependencies, read_rom
 from retrorecomp.library import GameMemory, list_games, library_root
 from retrorecomp.paths import ROOT, save_game_language, games_root, load_preferences, console_options
@@ -174,6 +183,11 @@ def main() -> int:
                 print(str(exc), file=sys.stderr)
             return 1
         return 0
+    if len(sys.argv) == 3 and sys.argv[1] == '_recipe-convert':
+        # The conversion of a multiplayer recipe (retrorecomp/netplay_recipe.py), started by `apply_recipe` with
+        # recipe mode in its environment.
+        from retrorecomp.netplay_recipe import run_job
+        return run_job(Path(sys.argv[2]))
     if len(sys.argv) == 3 and sys.argv[1] == '_verify-update':
         from retrorecomp import __version__
 
@@ -266,6 +280,18 @@ def main() -> int:
              "--no-compress publishes them unpacked: 3 to 4 times larger, the same program; it exists because Windows Defender "
              "sometimes mistakes a freshly built compressed game for a threat (a false positive).")
     batch.add_argument("--keep-build", action="store_true", help="Keep each game's build folder under .build after publication (developer checks read it); also RETRO_RECOMP_KEEP_BUILD=1.")
+    recipe = sub.add_parser("recipe", help="Multiplayer: make the recipe of a compiled game, or convert your own dump as a recipe says.")
+    recipe_sub = recipe.add_subparsers(dest="recipe_command", required=True)
+    recipe_make = recipe_sub.add_parser("make", help="Write the ROM-free recipe of one compiled game of this PC.")
+    recipe_make.add_argument("report", type=Path, help="The game's conversion-report.json.")
+    recipe_make.add_argument("--rom", type=Path, help="The game's dump (default: the one the report names).")
+    recipe_make.add_argument("--output", type=Path, required=True, help="The recipe file to write.")
+    recipe_apply = recipe_sub.add_parser("apply", help="Convert your own dump exactly as the recipe's host did, into a folder of its own.")
+    recipe_apply.add_argument("recipe", type=Path)
+    recipe_apply.add_argument("rom", type=Path, help="Your own copy of the dump the recipe names.")
+    recipe_apply.add_argument("--output", type=Path, required=True, help="A folder of its own (never your games folder).")
+    recipe_apply.add_argument("--language", choices=("en", "fr", "it", "es", "de"), default="en")
+    recipe_apply.add_argument('--compress', action=argparse.BooleanOptionalAction, default=None)
     inspect = sub.add_parser("inspect", help="Identify a ROM without modifying it.")
     inspect.add_argument("rom", type=Path)
     sub.add_parser("setup", help="Prepare dependencies and compiler.")
@@ -278,6 +304,18 @@ def main() -> int:
         if args.command in (None, "gui"):
             from retrorecomp.gui import launch
             launch()
+        elif args.command == "recipe":
+            from retrorecomp import netplay_recipe
+            if args.recipe_command == "make":
+                made = netplay_recipe.make_recipe(args.report, args.rom)
+                netplay_recipe.write_recipe(made, args.output)
+                print(json.dumps({name: made[name] for name in ('system', 'rom_sha256', 'name', 'title', 'options', 'identity')}
+                                 | {'recipe': str(args.output)}, indent=2, ensure_ascii=False))
+            else:
+                answer = netplay_recipe.apply_recipe(args.recipe, args.rom, args.output, language=args.language,
+                                                     compress=args.compress, emit=lambda line: print(line, file=sys.stderr))
+                print(json.dumps(answer, indent=2, ensure_ascii=False))
+                return 0 if answer['same'] else 1
         elif args.command == "inspect":
             system = profile_for_path(args.rom)
             rom = system.read_rom(args.rom)

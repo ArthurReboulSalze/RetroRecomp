@@ -53,12 +53,23 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_common', 'gui_drawing', 'gui_window', 'gui_queue', 'gui_conversion',
                                'gui_collection', 'gui_updates', 'gui_options', 'gui_sharing', 'gui_reports',
                                'gui_account', 'gui_leaderboard', 'console_menu',
+                               # The closing card (a route from this PC to the shared base, two cards for the two ways of
+                               # sending; Pillow pictures from rounded_ui; Arthur's pick of 19 Nov 2026).
+                               'closing_card_view',
                                # Find firmware in a folder (Options): reads the player's files, writes only the Options fields.
                                'gui_firmware', 'firmware_search',
                                # Box art not found (Options): asks the player for a cover, applied by Reconvert.
                                'gui_covers',
                                # Front-end: the compiled games as a wall of box art (another view of Compiled Games).
                                'gui_front_end', 'front_end', 'front_end_view',
+                               # The toolbar's and the queue's own pictures (polylines registered in ICON_PATHS).
+                               'gui_icons',
+                               # Multiplayer: host or join a room, local or Internet (the lobby of retrorecomp/netplay); its
+                               # rounded cards and round button (rounded_ui, Pillow pictures, proposal A of 19 Nov 2026).
+                               'gui_multiplayer', 'multiplayer_view', 'rounded_ui',
+                               # The converter's rounded look (8 px): one skin for every ttk button, field, check box, frame and
+                               # scroll thumb, built with Pillow; rounded_ui's pill buttons ask it (Arthur's pick of 19 Nov 2026).
+                               'rounded_skin',
                                # Conversion time estimates in the window (assets/conversion-times.json); a conversion never reads them.
                                'gui_estimates', 'time_estimates',
                                # The log panel's welcome and the developer's message to the players, read from the site at start.
@@ -67,6 +78,35 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
                                'report_schema',
+                               # Do two exports compute the same frames (multiplayer): hashes generated sources after a
+                               # conversion, for its report; it changes nothing a game is or does, and its own schema
+                               # number is part of what it hashes.
+                               'simulation_identity',
+                               # The multiplayer recipe: makes and checks a ROM-free document and starts a conversion in
+                               # recipe mode (the mode itself is in knowledge, feedback, core and batch, which are hashed).
+                               'netplay_recipe',
+                               # The netplay worker on the delay tier (the package retrorecomp/netplay): it starts
+                               # finished games in a session and drives them through their pipes; no conversion
+                               # reads it and it changes nothing a game is or does.
+                               'netplay', 'session_pipe', 'session_game', 'input_records', 'session_transport',
+                               'link_simulator', 'lockstep', 'time_sync', 'worker_channel', 'worker', 'worker_client',
+                               'scripted_inputs', 'launch',
+                               # The rollback tier of the driver (a subclass of `lockstep`): it only commands a game through the same pipe.
+                               'rollback',
+                               # Stage 2, the local-network room (lan_transport is the only module of the package that imports
+                               # socket): the invitation, the keys and handshake, the control and datagram codecs, the limits,
+                               # the host's log, the room's worker and the command line of the two-PC test.
+                               'invitation', 'internet_key', 'reach', 'firewall_check', 'handshake', 'sealing', 'control', 'datagram', 'limits', 'room_log', 'lan_transport',
+                               'room_worker', 'room_cli', 'lag_link',
+                               # The lobby: its rules (a pure state machine for the host and one for each guest), the check of
+                               # the host's game against the player's own compiled games, and the converter's side of it (the model
+                               # the window draws and the controller that answers from the library). They read the inventory
+                               # and the conversion reports; no conversion reads them and no game is changed by them.
+                               'lobby', 'lobby_check', 'lobby_client',
+                               # The seat mapper (one controller per player, or input sharing: everyone OR-merged or turns with a
+                               # token): a pure function of the confirmed frame's records that the lockstep driver applies before
+                               # it tells its game what to run. It changes no game: a game only ever receives port words.
+                               'seat_map',
                                # Declares the pinned upstreams per machine (docs/UPSTREAMS.md); a conversion never reads it.
                                'upstreams',
                                # Measures the time of each phase of a conversion; changes nothing a game is or does.
@@ -156,10 +196,11 @@ HOST_NATIVE = frozenset((
     'neogeo_ui_test.c',
     # The host kit (docs/HOST_KIT.md): the shell shared by every console, and the adapter of each. Every file
     # below native/hostkit is host-side.
-    'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
+    'hostkit/hostkit.h', 'hostkit/hostkit_internal.h', 'hostkit/hostkit_session.h',
     'hostkit/shell/rrhk_audio.c', 'hostkit/shell/rrhk_events.c', 'hostkit/shell/rrhk_input.c',
     'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
-    'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
+    'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_session.inc', 'hostkit/shell/rrhk_chat.inc',
+    'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
@@ -204,6 +245,7 @@ NOT_INPUTS = (
     # development test vectors: no game embeds them, so they move no game's stamp. A notice a game embeds is declared on
     # its machine's profile instead (`notice_files`), and is then a host input of that machine only.
     'licenses/Linux-desktop.md', 'licenses/Noto.md', 'licenses/OpenSSL.md', 'licenses/Pillow.md', 'licenses/PyInstaller-hooks.md',
+    'licenses/cryptography.md',
     'licenses/PyInstaller.md', 'licenses/Python.md', 'licenses/Tcl-Tk.md', 'licenses/zlib-ng.md', 'licenses/zlib.md',
     'licenses/SingleStepTests-z80.md', 'licenses/SingleStepTests-m68000.md',
     # The SM83 vectors are fetched for development tests and never shipped: their licence and their line in the upstream table move no stamp.
@@ -218,7 +260,7 @@ NOT_INPUTS = (
     'native/neogeo_z80_vector_checks.c', 'native/cps1_kabuki_checks.c',
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
-    'native/pce_huc6280_native_checks.cpp',
+    'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
@@ -236,10 +278,14 @@ NOT_INPUTS = (
     # tools/megadrive_moira_vectors.py (Moira, built from the adapted vAmiga, against the Mega Drive's native 68000 steps on forms no fixture
     # holds): the maker is built against vAmiga for a check and the decimal check against the generated steps, never into a game.
     'native/amiga_machine/moira_vector_maker.cpp', 'native/md_bcd_checks.c', 'native/md_audio_locked_checks.c', 'native/md_shadow_checks.c',
+    # tools/megadrive_rollback_selftest.py (the Mega Drive's multiplayer rollback snapshot, linked with a game build's objects): a check.
+    'native/md_rollback_checks.c',
     # tools/amiga_blitter_selftest.py (the Blitter's specialised routines against vAmiga's microprogram): the same, a check, never in a game.
     'native/amiga_machine/amiga_blit_checks.cpp',
     # tools/amiga_display_selftest.py (Agnus and Denise recorded instruction by instruction and frame by frame, for the fast paths to come): the same, a check, never in a game.
     'native/amiga_machine/amiga_display_checks.cpp',
+    # tools/amiga_rollback_selftest.py (a multiplayer session's in-process snapshot on an authored slave): the same, a check, never in a game.
+    'native/amiga_machine/amiga_rollback_checks.cpp',
     # Stage 7's bus model in shadow (after 1.7.3): compiled into the display self-test and, on request (RR_AMIGA_SHADOW, off by default),
     # into a private reference player; never into a game while it controls nothing. It joins the Amiga's game files when it takes control.
     'native/amiga_machine/amiga_bus.h', 'native/amiga_machine/amiga_bus.cpp',
@@ -248,6 +294,8 @@ NOT_INPUTS = (
     'native/atarist_machine/atarist_vector_checks.c',
     # tools/atarist_hardware_check.py (authored 68000 programs measured against the hardware's documentation): built for a check only.
     'native/atarist_machine/atarist_hardware_checks.c',
+    # tools/atarist_snapshot_check.py (the in-process snapshot of the multiplayer rollback, proved with the same authored programs): built for a check only.
+    'native/atarist_machine/atarist_snapshot_checks.c',
     # tools/snes_cpu_vector_selftest.py (65816 and SPC700 against an independent corpus): never built into a game.
     'native/snes_cpu/cpu_vector_checks.c', 'native/snes_cpu/spc_vector_checks.c',
     # tools/gba_vector_selftest.py (the engine's ARM interpreter and generated code against an independent corpus): built against the
@@ -331,6 +379,7 @@ INPUTS = _resolve({
         'native/console16_video.h',
         'native/hostkit/hostkit.h',
         'native/hostkit/hostkit_internal.h',
+        'native/hostkit/hostkit_session.h',
         'native/hostkit/shell/rrhk_audio.c',
         'native/hostkit/shell/rrhk_events.c',
         'native/hostkit/shell/rrhk_input.c',
@@ -339,6 +388,8 @@ INPUTS = _resolve({
         'native/hostkit/shell/rrhk_options.c',
         'native/hostkit/shell/rrhk_pointer.c',
         'native/hostkit/shell/rrhk_ring.c',
+        'native/hostkit/shell/rrhk_session.inc',
+        'native/hostkit/shell/rrhk_chat.inc',
         'native/hostkit/shell/rrhk_timing.c',
         'native/hostkit/shell/rrhk_video.c',
         'native/audio_checks.c',
@@ -447,6 +498,11 @@ INPUTS = _resolve({
     ('gb',): (
         'native/gb_audio_checks.c',
         'native/gb_boundary_checks.c',
+        'native/gb_digest.h',
+        'native/gb_link.h',
+        'native/gb_link_checks.c',
+        'native/gb_machine_checks.c',
+        'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
         'native/gb_ram_helpers.h',
@@ -563,7 +619,9 @@ INPUTS = _resolve({
         'retrorecomp.megadrive_fifo',
         'retrorecomp.megadrive_hardware',
         'retrorecomp.megadrive_memory',
+        'retrorecomp.megadrive_multitap',
         'retrorecomp.megadrive_read',
+        'retrorecomp.megadrive_rollback',
         'retrorecomp.megadrive_runtime',
         'retrorecomp.megadrive_sram',
         'retrorecomp.megadrive_static',
@@ -587,6 +645,7 @@ INPUTS = _resolve({
         'native/snes_dsp1_projection.inc',
         'native/snes_dsp1_vectors.h',
         'native/snes_hdma.inc',
+        'native/snes_cpu/machine_checks.c',
         'native/snes_native_checks.c',
         'native/snes_native_steps.h',
         'native/snes_ppu_bus.inc',
@@ -603,6 +662,7 @@ INPUTS = _resolve({
         'retrorecomp.snes_bus',
         'retrorecomp.snes_cart',
         'retrorecomp.snes_chips',
+        'retrorecomp.snes_multitap',
         'retrorecomp.snes_codegen',
         'retrorecomp.snes_dma',
         'retrorecomp.snes_evidence',
@@ -684,6 +744,7 @@ INPUTS = _resolve({
         'retrorecomp.amiga_lha',
         'retrorecomp.amiga_vamiga',
         'retrorecomp.amiga_vamiga_display',
+        'retrorecomp.amiga_vamiga_session',
         'retrorecomp.amiga_whdload',
         'retrorecomp.m68020_lengths',
     ),
@@ -695,6 +756,7 @@ INPUTS = _resolve({
         'native/atarist_machine/atarist_player.c',
         'native/atarist_machine/atarist_session.c',
         'native/atarist_machine/atarist_session.h',
+        'native/atarist_machine/atarist_snapshot.h',
         'native/atarist_machine/libretro/libretro.h',
         'native/hostkit/adapters/rrhk_atarist.inc',
         'retrorecomp.atarist',
@@ -703,6 +765,7 @@ INPUTS = _resolve({
         'retrorecomp.atarist_disk',
         'retrorecomp.atarist_emutos',
         'retrorecomp.atarist_hatari',
+        'retrorecomp.atarist_hatari_rollback',
         'retrorecomp.atarist_knowledge',
         'retrorecomp.atarist_notes',
         'retrorecomp.atarist_tos',
@@ -734,6 +797,7 @@ INPUTS = _resolve({
         'native/media_request.h',
         'native/msx_machine/msx_state.c',
         'native/msx_machine/msx_state_file.inc',
+        'native/msx_machine/msx_snapshot.inc',
         'native/msx_machine/msx_tiles.inc',
         'native/msx_machine/msx_v9938.c',
         'native/msx_machine/msx_v9938_cmd.c',
@@ -870,6 +934,7 @@ INPUTS = _resolve({
         'retrorecomp.gba_conversion',
         'retrorecomp.gba_engine',
         'retrorecomp.gba_knowledge',
+        'retrorecomp.gba_link',
         'retrorecomp.gba_patches',
         'retrorecomp.gba_player',
     ),
@@ -944,7 +1009,10 @@ INPUTS = _resolve({
         'native/pce_backup.h',
         'native/pce_machine.cpp',
         'native/pce_machine.h',
+        'native/pce_machine_internal.hpp',
         'native/pce_main.c',
+        'native/pce_snapshot.cpp',
+        'native/pce_snapshot.h',
         'retrorecomp.pce_build',
         'retrorecomp.pce_conversion',
         'retrorecomp.pce_knowledge',
@@ -997,6 +1065,13 @@ INPUTS = _resolve({
     # profile, which would move its stamp; the three others take the module that applies it through `shares:m68000_state_rules`.
     ('cps1', 'md', 'ng', 'x68'): (
         'retrorecomp.megadrive_rules',
+    ),
+    # The Game Gear's Gear-to-Gear cable (docs/GAME_GEAR.md): the EXT port and its serial link, the checks of its model, and the
+    # scheduler that runs two consoles in one process. Game role; the Master System does not own them.
+    ('gg',): (
+        'native/gg_ext.h',
+        'native/gg_ext_checks.c',
+        'native/gg_link.inc',
     ),
     ('sms', 'gg'): (
         'native/video_checks.c',

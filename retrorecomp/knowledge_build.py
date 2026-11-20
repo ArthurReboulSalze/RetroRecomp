@@ -131,8 +131,10 @@ def qualified_reports(paths) -> dict:
     return qualified
 
 
-def build_record(rom, system: str, report: dict | None, engine: str, omitted: dict) -> dict | None:
-    """One identity's record, or None (counted in `omitted`) when unqualified."""
+def build_record(rom, system: str, report: dict | None, engine: str, omitted: dict, *, offered: bool = False) -> dict | None:
+    """One identity's record, or None (counted in `omitted`) when unqualified. `offered` keeps what only other
+    players offered this ROM (Master System, Game Gear): the whole of what the conversion used, for a multiplayer
+    recipe (`netplay_recipe`), never for a shared file."""
     from . import megadrive, megadrive_z80, nes, supernintendo, snes_spc, gameboy
     from .gameboy_coverage import read_entries
     record = {'engine': engine, 'rom_bytes': len(rom.data)}
@@ -152,7 +154,7 @@ def build_record(rom, system: str, report: dict | None, engine: str, omitted: di
                 and all(c.get('passed') for c in generations[-1].get('checks', []))
                 and journals_qualified(memory, report)):
             omitted['unqualified'] += 1; return None
-        offered_seeds, offered_patterns = _sega_offered(rom, system, memory)
+        offered_seeds, offered_patterns = (set(), set()) if offered else _sega_offered(rom, system, memory)
         record['rom_entries'] = [list(e) for e in sorted(memory.seeds() - offered_seeds)]
         # The conversion used both bundled and local byte-checked windows.
         # Keep that qualified union; reading only the private journal would

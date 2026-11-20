@@ -6,6 +6,8 @@
 #include "retro_console16.h"
 #include "console16_state.h"
 #include "cps1_machine.h"
+#include "cps1_host.h"
+#include "cps1_persistence.h"
 
 extern uint64_t rr_cps1_native_instructions, rr_cps1_interpreted_68k;
 extern uint64_t rr_cps1_native_z80, rr_cps1_interpreted_z80;
@@ -151,11 +153,47 @@ uint64_t rr16_input_frame(void) { return rr_cps1_frame_index(); }
 void rr16_report_details(FILE *file) { (void)file; }
 void rr16_trace_details(FILE *file) { (void)file; }
 
-/* ------------------------------------------------------------ quick states */
-
 enum { STATE_HEADER = 16 };
 static void put32(uint8_t *p, uint32_t v) { for (unsigned n = 0; n < 4; n++) p[n] = (uint8_t)(v >> (8 * n)); }
 static uint32_t get32(const uint8_t *p) { uint32_t v = 0; for (unsigned n = 0; n < 4; n++) v |= (uint32_t)p[n] << (8 * n); return v; }
+
+/* ------------------------------------------------------------ multiplayer */
+
+/* The snapshot is the machine's (cps1_snap_save) behind the frame index: the host's own counter, the one the kit calls input_frame. */
+size_t rr_cps1_snap_bound(void) { return cps1_snap_bound() ? 4 + cps1_snap_bound() : 0; }
+size_t rr_cps1_snap_save(void *buffer, size_t capacity)
+{
+    if (!buffer || capacity < rr_cps1_snap_bound()) return 0;
+    put32((uint8_t *)buffer, rr_cps1_frame_index());
+    const size_t machine = cps1_snap_save((uint8_t *)buffer + 4, capacity - 4);
+    return machine ? 4 + machine : 0;
+}
+bool rr_cps1_snap_load(const void *buffer, size_t size)
+{
+    if (!buffer || size != rr_cps1_snap_bound()) return false;
+    if (!cps1_snap_load((const uint8_t *)buffer + 4, size - 4)) return false;
+    rr_cps1_restore_frame(get32((const uint8_t *)buffer));
+    return true;
+}
+uint64_t rr_cps1_digest(void) { return cps1_digest(); }
+void rr_cps1_side_effects(bool allowed) { rr_cps1_save_side_effects(allowed); }
+size_t rr_cps1_session_save(void *out, size_t capacity)
+{
+    const size_t size = cps1_eeprom_size();
+    if (!size) return 0;
+    if (!out) return size;
+    if (capacity < size) return 0;
+    memcpy(out, cps1_eeprom_data(), size);
+    return size;
+}
+bool rr_cps1_session_save_commit(void) { return rr_cps1_save_commit(); }
+bool rr_cps1_session_save_put(const void *in, size_t size)
+{
+    return in && size == cps1_eeprom_size() && cps1_eeprom_load((const uint8_t *)in, size);
+}
+
+/* ------------------------------------------------------------ quick states */
+
 
 /* Frames end after a whole VBLANK, with both CPUs between instructions. */
 bool rr16_state_ready(void) { return true; }

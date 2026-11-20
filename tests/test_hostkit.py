@@ -26,10 +26,13 @@ class StagingTests(unittest.TestCase):
                 adapters = [name for name in listed if '/adapters/' in name]
                 self.assertEqual(adapters, [] if included else [f'hostkit/adapters/rrhk_{family}.c'])
                 staged = [*listed, *([included] if included else [])]
-                for name in (*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h'):
+                for name in (*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h', 'hostkit/hostkit_session.h',
+                             'hostkit/shell/rrhk_session.inc', 'hostkit/shell/rrhk_chat.inc'):
                     self.assertEqual((project / name).read_bytes(), (KIT / name.split('/', 1)[1]).read_bytes())
                 self.assertEqual(sorted(path.relative_to(project).as_posix() for path in (project / 'hostkit').rglob('*')
-                                        if path.is_file()), sorted([*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h']))
+                                        if path.is_file()), sorted([*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
+                                                                   'hostkit/hostkit_session.h', 'hostkit/shell/rrhk_session.inc',
+                                                                   'hostkit/shell/rrhk_chat.inc']))
 
     def test_an_unchanged_file_keeps_its_timestamp(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -216,8 +219,9 @@ class SoundAndSpeedTests(unittest.TestCase):
 
     def test_a_chord_of_the_quit_or_restart_combination_is_not_a_sound_key(self):
         events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
-        # Pause (two), Change disc (two, 1.7.0), the Tab hold, and M / backquote
-        self.assertEqual(events.count('rrhk_options_component('), 6)
+        # Pause (two), Change disc (two, 1.7.0), the Tab hold, and M / backquote; and the multiplayer session's refusal of the
+        # backquote and Change disc keys, which asks the same question
+        self.assertEqual(events.count('rrhk_options_component('), 8)
 
     def test_the_new_strings_are_in_every_locale(self):
         import json

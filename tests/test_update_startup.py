@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import ttk
 from types import SimpleNamespace
 import unittest
+from tests.tk_cleanup import release_tk
 from unittest.mock import Mock, patch
 
 from retrorecomp import online
@@ -335,6 +336,7 @@ class DrainTests(unittest.TestCase):
 class RealWindowTests(unittest.TestCase):
     """The real widgets, in a window that is never shown."""
     def open(self, preferences=None):
+        release_tk(self)                      # first: its cleanup runs after the window closes (tests/tk_cleanup.py)
         folder = Path(self.enterContext(tempfile.TemporaryDirectory())).resolve()
         for item in (patch_gui('load_preferences', return_value=preferences or {}),
                      patch_gui('preferred_games_root', return_value=(folder / 'exports', False)),

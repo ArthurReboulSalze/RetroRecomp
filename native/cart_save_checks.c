@@ -513,6 +513,72 @@ static void scenario_off_and_guards(void)
     dump(dir, L"", "s8");
 }
 
+#ifdef CS_PCE
+/* The host's save written back at the clean end of a match (rr_pce_backup_commit): the file takes the memory, the file that was there becomes "<file>.bak". */
+static void scenario_commit(void)
+{
+    wchar_t dir[1024], file[1024], backup[1024];
+    join(dir, root, "commit");
+    make_dirs(dir);
+    join(file, dir, "game.rrsram");
+    join(backup, dir, "game.rrsram.bak");
+    uint8_t oracle[112 + MEMBYTES], got[112 + MEMBYTES], first[MEMBYTES], second[MEMBYTES];
+    fresh(1);
+    CHECK(!rr_pce_backup_commit() || 1);                                  /* before an open: nothing is written */
+    Open("open with no file", file);
+    fill(first, 2); memcpy(memory(), first, MEMBYTES);
+    L("commit 1 %d", rr_pce_backup_commit());
+    CHECK(read_file(file, got, sizeof got) == 112 + MEMBYTES);
+    CHECK(equals(got + 112, first, MEMBYTES));
+    CHECK(read_file(backup, got, sizeof got) == (size_t)-1);              /* a first save has no previous file: no backup */
+    fill(second, 3); memcpy(memory(), second, MEMBYTES);
+    L("commit 2 %d", rr_pce_backup_commit());
+    CHECK(read_file(file, got, sizeof got) == 112 + MEMBYTES && equals(got + 112, second, MEMBYTES));
+    CHECK(read_file(backup, oracle, sizeof oracle) == 112 + MEMBYTES && equals(oracle + 112, first, MEMBYTES));   /* the backup is the file that was there */
+    memset(memory(), 9, MEMBYTES);
+    L("commit 3 %d", rr_pce_backup_commit());
+    CHECK(read_file(backup, oracle, sizeof oracle) == 112 + MEMBYTES && equals(oracle + 112, second, MEMBYTES));  /* one step back only */
+    CHECK(read_file(file, got, sizeof got) == 112 + MEMBYTES && got[112] == 9);
+    /* the file is a file the game opens again: fresh process, same memory */
+    fresh(7);
+    Open("reopen after commit", file);
+    CHECK(equals(memory(), got + 112, MEMBYTES) && m_notice() == 0);
+    dump(dir, L"", "commit");
+}
+#endif
+
+#if defined(CS_MD)
+/* Multiplayer, the host's save written back at a match's clean end (rr_md_battery_commit over rr_cart_save_commit): the file is
+ * the memory, whatever the pacing; the file there before is kept as "<file>.bak"; without a file before there is no backup;
+ * nothing open: refused, nothing written. */
+static void scenario_commit(void)
+{
+    L("== the host's save written back at a match's end");
+    wchar_t dir[1024], file[1024], backup[1040];
+    join(dir, root, "s9");
+    swprintf(file, 1024, L"%ls\\save.rrsram", dir);
+    swprintf(backup, 1040, L"%ls.bak", file);
+    uint8_t before[112 + MEMBYTES], after[112 + MEMBYTES], oracle[112 + MEMBYTES], disk[112 + MEMBYTES + 1];
+    fresh(3);
+    L("commit with nothing open %d", rr_md_battery_commit(&bus));
+    CHECK(!rr_md_battery_commit(&bus) && read_file(file, disk, sizeof disk) == (size_t)-1);
+    Open("open, no file yet", file);
+    L("commit without a file before %d", rr_md_battery_commit(&bus));
+    make_file(oracle, memory(), 1, WORDS, RR16_STATE_ROM, 0);
+    CHECK(read_file(file, disk, sizeof disk) == 112 + MEMBYTES && equals(disk, oracle, 112 + MEMBYTES));
+    CHECK(read_file(backup, disk, sizeof disk) == (size_t)-1);
+    memcpy(before, oracle, sizeof before);
+    memory()[5] ^= 0x5a; memory()[MEMBYTES - 2] = 0x11;   /* the match changed the save */
+    L("commit at once, no quiet time %d", rr_md_battery_commit(&bus));
+    make_file(after, memory(), 1, WORDS, RR16_STATE_ROM, 0);
+    CHECK(read_file(file, disk, sizeof disk) == 112 + MEMBYTES && equals(disk, after, 112 + MEMBYTES));
+    CHECK(read_file(backup, disk, sizeof disk) == 112 + MEMBYTES && equals(disk, before, 112 + MEMBYTES));
+    /* The pacing's own write has nothing left to do: the commit is what it saved. */
+    state("flush(0,force) after the commit", m_flush(0, 1), file);
+    dump(dir, L"", "s9");
+}
+#endif
+
 int main(int argc, char **argv)
 {
     if (argc != 2 || !rr_from_utf8(argv[1], root, 1024)) { fprintf(stderr, "usage: cart_save_checks <empty folder>\n"); return 2; }
@@ -524,6 +590,9 @@ int main(int argc, char **argv)
     scenario_read_only();
     scenario_asides();
     scenario_off_and_guards();
+#if defined(CS_PCE) || defined(CS_MD)
+    scenario_commit();
+#endif
     L("failures=%d", failures);
     return failures ? 1 : 0;
 }

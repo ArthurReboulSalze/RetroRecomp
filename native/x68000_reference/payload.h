@@ -4,4 +4,5 @@
 #include <stddef.h>
 int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity);
 void rr_x68k_payload_release(void);
+const unsigned char *rr_x68k_payload_original(const char *path,size_t *size);
 #endif

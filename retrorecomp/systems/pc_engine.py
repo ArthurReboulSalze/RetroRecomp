@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import Capabilities, Cpu, SystemProfile
+from . import Capabilities, Cpu, SimulationSource, SystemProfile
 from .specs import Catalogues, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 # Decoded HuCard sizes: 8 KiB to 1 MiB, or 2.5 MiB for the Street Fighter II board.
@@ -19,6 +19,9 @@ HUCARD_BOUNDS = (0x2000, 0x280000)
 
 class PcEngineProfile(SystemProfile):
     id = 'pce'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The translated module is added by simulation_files: its folder is only named in the project's CMake file.
+    simulation_sources = (SimulationSource('n/pce_game.h', drop=('RR_PCE_TITLE', 'RR_PCE_VERSION')),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/pcenginerecomp.md',)
     name = 'PC Engine / TurboGrafx-16'
@@ -42,6 +45,11 @@ class PcEngineProfile(SystemProfile):
     host_adapter = 'adapters/rrhk_pce.c'
     feedback_kinds = frozenset({20})
     fallback_display = 'opcodes'
+    # Multiplayer: the host kit's adapter gives the snapshot, the digest and the side-effects switch (native/pce_snapshot.cpp). A session plugs the multitap
+    # (the console has one pad port): the room seats up to four, the game's own count is what its report and its HELLO say (the console takes five).
+    netplay_session = True
+    netplay_seats = 4
+    netplay_seats_ceiling = True
     linux = 'witnessed'   # on a Debian 13 PC; the cards and the figure are in QUALIFICATION.md, gate G13
     # Paths: an instruction is its logical pc, its eight MPRs and its bytes, so a row is `insn` [context << 16 | pc, ROM offset, length] and the
     # contexts are `opcode_ptr` rows [context * 8 + register, value] (pce_knowledge.py). The window bounds context << 16 | pc and the table's rows.
@@ -55,6 +63,23 @@ class PcEngineProfile(SystemProfile):
     report_shape = ReportShape('pce_conversion', 'hucard_checks')
     catalogues = Catalogues(libretro='libretro-thumbnails/NEC_-_PC_Engine_-_TurboGrafx_16')
     library_layout = LibraryLayout(folder='pce')
+
+    def simulation_files(self, project: Path) -> tuple[SimulationSource, ...]:
+        """The game's header, and the module the build compiled: each pass emits a folder `module-<n>` and only the
+        project's CMake file says which one was kept (pce_build.game_cmake). No module is named when nothing was
+        translated (the engine's empty module): the header alone is then the game's part."""
+        import re
+        sources = self.simulation_sources
+        try:
+            cmake = (Path(project) / 'n' / 'CMakeLists.txt').read_text(encoding='utf-8')
+        except OSError:
+            # No build to read: nothing is listed, so no identity is given.
+            return ()
+        kept = re.search(r'pce_add_native_module\(PCE_MODULE MODULE "[^"]*/(module-\d+)/module\.cpp"', cmake)
+        if kept:
+            # The module's sources (the engine may split them); its manifest holds counts and is not compiled.
+            sources += tuple(SimulationSource(f'{kept[1]}/**/*{suffix}') for suffix in ('.cpp', '.h', '.inc'))
+        return sources
 
     def available(self) -> bool:
         from ..pce_rom import converter_available

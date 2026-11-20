@@ -2,7 +2,8 @@
  * drives one frame at a time (the engine's own window loop is not used). Original Retro-Recomp code: MIT; the linked engine
  * keeps its own terms (PolyForm Noncommercial) and so does the player's own BIOS, which the exported game carries privately.
  * This file is the machine's own: the ten buttons and their defaults, the picture (240 x 160), the sound (mono, 32768 Hz), the
- * quick state and the entry the engine's driver reaches (rrhk_main). One player. */
+ * quick state and the entry the engine's driver reaches (rrhk_main). One player, or in a link match (native/gba_machine.cpp, the engine's own cable session) one console per seat. A multiplayer session (hostkit_session.h) plays on the delay tier: the digest
+ * comes from native/gba_machine.cpp and there is no in-process snapshot (the engine's state container allocates per call), so no rollback. */
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
@@ -33,12 +34,12 @@ static const RrhkAction actions[ACTIONS] = {
 #define WIDTH 240
 #define HEIGHT 160
 
-static int players(void) { return 1; }
+static int players(void) { return rrgba_link_seats() ? (int)rrgba_link_seats() : 1; }
 static int width(void) { return WIDTH; }
 static int height(void) { return HEIGHT; }
 
 static void reset(void) { rrgba_reset(); }
-static bool run_frame(uint16_t p1, uint16_t p2) { (void)p2; return rrgba_frame(p1); }
+static bool run_frame(uint16_t p1, uint16_t p2) { return rrgba_frame_pads(p1, p2); }
 static void pause_machine(bool paused) { (void)paused; }
 static size_t audio(int16_t *pcm, size_t capacity) { return rrgba_audio(pcm, capacity); }
 static bool audio_enable(unsigned rate) { (void)rate; return true; }
@@ -71,6 +72,10 @@ const RrhkMachine *rrhk_adapter(void) {
             .audio = audio, .interpreted = interpreted, .audio_interpreted = no_count,
             .state_path = rrgba_state_path, .state_ready = state_ready, .state_file = rrgba_state_file,
             .input_frame = input_frame,
+            .digest = rrgba_digest, .side_effects = rrgba_side_effects,
+            .session_save = rrgba_session_save, .session_save_put = rrgba_session_save_put,
+            .session_save_commit = rrgba_session_save_commit, .session_begin = rrgba_session_begin,
+            .link_consoles = (int)rrgba_link_seats(),
             .help_controls = help_controls,
         };
     }

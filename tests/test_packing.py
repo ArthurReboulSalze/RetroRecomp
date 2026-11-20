@@ -90,6 +90,27 @@ def spare_values(code: bytes, length: int) -> list[int]:
     return [value for value in range(256) if value not in taken]
 
 
+def stub_hit(code: bytes, length: int, spare: list[int]) -> bool:
+    """Whether the run-time stub (arch/amd64/bxx.S) would unfilter a candidate the packer never filtered, for any value UPX may take.
+
+    The stub examines a candidate at p while p + 1 < length - 3, so up to length - 5; UPX's scan stops at length - 6."""
+    position = length - 5
+    if position < 0 or position + 1 >= len(code):
+        return False
+    candidate = code[position] in (0xE8, 0xE9) or (position and code[position - 1] == 0x0F and 0x80 <= code[position] <= 0x8F)
+    return bool(candidate) and code[position + 1] in spare
+
+
+def longest_valid(code: bytes) -> tuple[int, int | None]:
+    """(length, lowest spare value) of the longest length with a spare value over which the stub is safe, by brute force."""
+    best = (0, None)
+    for length in range(6, len(code) + 1):
+        spare = spare_values(code, length)
+        if spare and not stub_hit(code, length, spare):
+            best = (length, spare[0])
+    return best
+
+
 class CallFilterModelTests(unittest.TestCase):
     """packing.call_filter_length: the longest part of the code over which UPX's call-trick filter keeps a spare byte."""
 
@@ -97,9 +118,14 @@ class CallFilterModelTests(unittest.TestCase):
         code = saturated_code()
         self.assertEqual(spare_values(code, len(code)), [])
         length, value = packing.call_filter_length(make_pe(code))
-        self.assertEqual((length, value), (4096 + 5, 7))
+        # The E8 with the late value sits at 4096: with the length 4101 it would be the candidate at length - 5 that UPX's scan
+        # does not see (the value looks spare) and the stub still unfilters (KOF 2003, 17 November 2026): one byte less.
+        self.assertEqual((length, value), (4096 + 4, 7))
         self.assertEqual(spare_values(code, length), [7])
-        self.assertEqual(spare_values(code, length + 1), [])
+        self.assertEqual(spare_values(code, 4096 + 5), [7])
+        self.assertEqual(packing.stub_window_value(code, 4096 + 5), 7)
+        self.assertIsNone(packing.stub_window_value(code, 4096 + 4))
+        self.assertEqual(spare_values(code, 4096 + 6), [])
 
     def test_code_with_a_spare_value_is_left_whole(self):
         code = bytearray(saturated_code())
@@ -118,7 +144,7 @@ class CallFilterModelTests(unittest.TestCase):
         length, value = packing.call_filter_length(make_pe(bytes(code)))
         self.assertLess(length, 4096 + 5)
         self.assertIn(value, spare_values(bytes(code), length))
-        self.assertEqual(spare_values(bytes(code), length + 1), [])
+        self.assertEqual((length, value), longest_valid(bytes(code)))
 
     def test_the_model_matches_a_brute_force_scan_on_random_code(self):
         rng = random.Random(167)
@@ -126,11 +152,13 @@ class CallFilterModelTests(unittest.TestCase):
             size = rng.randrange(600, 2600)
             code = bytes(rng.choice((0xE8, 0xE9, 0x0F, 0x85, 0x00, 0xFF, rng.randrange(256))) if rng.random() < 0.6 else rng.randrange(256)
                          for _ in range(size))
-            expected = max((length for length in range(6, size + 1) if spare_values(code, length)), default=0)
+            expected = longest_valid(code)
             found = packing.call_filter_length(make_pe(code))
-            self.assertEqual(found[0] if found else 0, expected)
+            self.assertEqual(found[0] if found else 0, expected[0])
             if found:
+                self.assertEqual(found, expected)
                 self.assertIn(found[1], spare_values(code, found[0]))
+                self.assertFalse(stub_hit(code, found[0], spare_values(code, found[0])))
 
     def test_the_8x_byte_of_a_conditional_jump_takes_its_value_too(self):
         # 0F 85 rel32 (JNE) is a candidate of filter 0x49 like E8 and E9: its first operand byte is taken.
@@ -140,7 +168,61 @@ class CallFilterModelTests(unittest.TestCase):
         length, value = packing.call_filter_length(make_pe(bytes(code)))
         self.assertLess(length, len(code))
         self.assertIn(value, spare_values(bytes(code), length))
-        self.assertEqual(spare_values(bytes(code), length + 1), [])
+        self.assertEqual((length, value), longest_valid(bytes(code)))
+
+    def test_a_candidate_in_the_stub_window_that_opened_no_interval_still_shortens_the_length(self):
+        # No value is taken at the end of the code but 9: a call to a target inside the code (it takes nothing) with 9 as its first
+        # operand byte stands at length - 5, where only the stub reads. The longest length would unfilter it: one byte less.
+        code = bytearray(saturated_code(size=8192))
+        code[16 * 9:16 * 9 + 5] = bytes(5)
+        code[8192 - 5:8192] = bytes((0xE8, 9, 0xFF, 0xFF, 0xFF))        # target 8188 - 247: inside
+        code = bytes(code)
+        self.assertEqual(spare_values(code, len(code)), [9])
+        self.assertEqual(packing.stub_window_value(code, len(code)), 9)
+        length, value = packing.call_filter_length(make_pe(code))
+        self.assertEqual((length, value), (len(code) - 1, 9))
+        self.assertEqual((length, value), longest_valid(code))
+
+    def test_a_jump_prefixed_by_0f_in_the_stub_window_counts_like_a_call(self):
+        code = bytearray(saturated_code(size=8192))
+        code[16 * 9:16 * 9 + 5] = bytes(5)
+        code[8192 - 6:8192 - 2] = bytes((0x0F, 0x85, 9, 0xFF))          # the 8x byte stands at length - 5, 0F before it
+        code[8192 - 2:8192] = bytes((0xFF, 0xFF))
+        code = bytes(code)
+        self.assertEqual(packing.stub_window_value(code, len(code)), 9)
+        self.assertEqual(packing.call_filter_length(make_pe(code)), longest_valid(code))
+        self.assertLess(packing.call_filter_length(make_pe(code))[0], len(code))
+
+    def test_a_length_that_falls_into_an_interval_of_the_same_value_goes_down_to_the_next_stretch(self):
+        # 9 is the only spare value, at the end of the code (a call at 5000 with target 8082 takes it for 5006..8082) and below
+        # 5006. At the end an inside call with 9 stands at length - 5; the lengths just under it are in the interval (no spare
+        # value); under the interval the first length 5005 ends at the call at 5000 with the late 9 (the KOF case), so 5004.
+        code = bytearray(saturated_code(size=8083))
+        code[16 * 9:16 * 9 + 5] = bytes(5)
+        code[5000:5005] = bytes((0xE8, 9, 0x0C, 0x00, 0x00))          # target 5001 + 0x0C09 = 8082
+        code[8083 - 5:8083] = bytes((0xE8, 9, 0xFF, 0xFF, 0xFF))
+        code = bytes(code)
+        self.assertEqual(spare_values(code, 8083), [9])
+        self.assertEqual(spare_values(code, 8082), [])
+        self.assertEqual(spare_values(code, 5005), [9])
+        self.assertEqual(packing.call_filter_length(make_pe(code)), (5004, 9))
+        self.assertEqual(longest_valid(code), (5004, 9))
+
+    def test_the_search_gives_up_when_no_length_is_usable(self):
+        self.assertIsNone(packing.call_filter_length(make_pe(saturated_code(late_at=8000, size=8001))[:0x400 + 8001], below=4))
+
+    def test_the_stub_window_is_one_position_past_the_packer_scan(self):
+        # Pinned UPX behaviour, as far as it can be checked without running it: the packer's scan is `ic < size - 5` (ctok.h, the
+        # last candidate it sees is at size - 6) and the run-time stub examines a candidate at p while p + 1 < size - 3
+        # (bxx.S: rcx = buf + len - 3), so up to size - 5: exactly one position more, `STUB_ONLY_POSITION` from the end. The
+        # model counts a candidate for the lengths from position + 6, the first where the packer scan reaches it.
+        self.assertEqual(packing.STUB_ONLY_POSITION, 5)
+        far = bytearray(bytes(20)); far[0:5] = bytes((0xE8, 0x60, 0x7F, 0x7F, 0x7F))
+        self.assertNotIn(0x60, spare_values(bytes(far), 6))                  # ... and takes its first operand byte there
+        self.assertIn(0x60, spare_values(bytes(far), 5))
+        # The stub reads the candidate at 0 as soon as the length is 5.
+        self.assertEqual(packing.stub_window_value(bytes(far), 5), 0x60)
+        self.assertIsNone(packing.stub_window_value(bytes(far), 6))
 
     def test_the_header_gives_the_start_and_the_addvalue_of_the_code(self):
         located = packing._pe_code(make_pe(bytes(64)))
@@ -155,7 +237,7 @@ class CallFilterModelTests(unittest.TestCase):
         length, value = packing.call_filter_length(make_pe(code, virtual_size=6500))
         self.assertEqual((length, value), (len(code), 7))
         length, _ = packing.call_filter_length(make_pe(code))
-        self.assertEqual(length, 7000 + 5)
+        self.assertEqual(length, 7000 + 4)       # one byte less than the candidate's end: see the stub window
 
     def test_the_length_is_capped_by_addvalue_and_by_the_largest_buffer_of_the_filter(self):
         # Targets inside the filtered part must stay under 2**24 with addvalue (ctok.h), and UPX does not filter a
@@ -189,13 +271,13 @@ class CallFilterModelTests(unittest.TestCase):
             game = Path(folder) / 'Game.exe'
             built = make_pe(saturated_code())
             game.write_bytes(built)
-            self.assertEqual(packing._call_filter_prefix(game), 4101)
-            packing._set_size_of_code(game, 4101)
+            self.assertEqual(packing._call_filter_prefix(game), 4100)
+            packing._set_size_of_code(game, 4100)
             changed = game.read_bytes()
             self.assertEqual(len(changed), len(built))
             self.assertEqual([i for i in range(len(built)) if built[i] != changed[i]],
                              [SIZE_OF_CODE_FIELD, SIZE_OF_CODE_FIELD + 1])
-            self.assertEqual(struct.unpack_from('<I', changed, SIZE_OF_CODE_FIELD)[0], 4101)
+            self.assertEqual(struct.unpack_from('<I', changed, SIZE_OF_CODE_FIELD)[0], 4100)
 
 
 class LinuxPackingTests(unittest.TestCase):
@@ -503,7 +585,7 @@ class WindowsPackingTests(unittest.TestCase):
             with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
                     patch('retrorecomp.packing.time.sleep') as sleep:
                 outcome = packing.compact_executable(game, emit=lambda text: None)
-            self.assertEqual([call[1] for call in started], [4101, 4101])     # both with the prefix, no plain attempt
+            self.assertEqual([call[1] for call in started], [4100, 4100])     # both with the prefix, no plain attempt
             self.assertEqual(sleep.call_count, 1)
             self.assertIn('antivirus', outcome['notice'])
             self.assertEqual(game.read_bytes(), built)
@@ -516,7 +598,7 @@ class WindowsPackingTests(unittest.TestCase):
             with patch('retrorecomp.packing.subprocess.run', side_effect=run), patch('retrorecomp.packing.time.sleep'):
                 self.assertIsNone(packing.compact_executable(game, emit=lambda text: None))
             self.assertEqual([(call[0][0], call[1]) for call in started],
-                             [('-9', 4101), ('-9', 4101), ('-t', 4101), ('--fileinfo', 4101)])
+                             [('-9', 4100), ('-9', 4100), ('-t', 4100), ('--fileinfo', 4100)])
             self.assertIn(hashlib.sha256(make_pe(saturated_code())).hexdigest(), packing._CALL_FILTER_USED)
 
     def test_the_wait_and_the_retry_happen_once_per_packing_across_both_forms(self):
@@ -537,7 +619,7 @@ class WindowsPackingTests(unittest.TestCase):
             with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
                     patch('retrorecomp.packing.time.sleep') as sleep:
                 outcome = packing.compact_executable(game, emit=lambda text: None)
-            self.assertEqual(packs, [4101, 4101, 8192])      # no fourth pack
+            self.assertEqual(packs, [4100, 4100, 8192])      # no fourth pack
             self.assertEqual(sleep.call_count, 1)
             self.assertIn('antivirus', outcome['notice'])
             self.assertEqual(game.read_bytes(), built)
@@ -582,17 +664,44 @@ class WindowsPackingTests(unittest.TestCase):
             log = []
             with patch('retrorecomp.packing.subprocess.run', side_effect=run):
                 self.assertIsNone(packing.compact_executable(game, emit=log.append))
-            self.assertEqual(seen, [('-9', 4101), ('-t', 4101), ('--fileinfo', 4101)])
+            self.assertEqual(seen, [('-9', 4100), ('-t', 4100), ('--fileinfo', 4100)])
             self.assertEqual([path.name for path in Path(folder).iterdir()], ['Game.exe'])
             self.assertEqual(len(log), 1)
-            self.assertIn('call filter kept over 50 % of the code (4101 of 8192 bytes)', log[0])
+            self.assertIn('call filter kept over 50 % of the code (4100 of 8192 bytes)', log[0])
             # The report says it: only for a packed game, and only for the build that used it.
             build = make_pe(saturated_code())
             identity = {'bytes': len(build), 'sha256': hashlib.sha256(build).hexdigest()}
             game.write_bytes(b'MZ UPX! the packed game')      # what the fake UPX did not write
             record = packing.packing_record(identity, game)
-            self.assertEqual(record['call_filter'], {'filter': '0x49', 'code_bytes': 8192, 'filtered_bytes': 4101})
+            self.assertEqual(record['call_filter'], {'filter': '0x49', 'code_bytes': 8192, 'filtered_bytes': 4100})
             self.assertNotIn('call_filter', packing.packing_record({'bytes': 1, 'sha256': '0' * 64}, game))
+
+    def test_a_cto_that_hits_the_stub_window_is_packed_again_with_a_shorter_length(self):
+        # The model keeps every spare value away from the candidate at length - 5; this guards the model: UPX's cto (0x57 in the
+        # fake) is the first operand byte of the stub's candidate, so the build is packed again one byte shorter.
+        real = packing.stub_window_value
+        with tempfile.TemporaryDirectory() as folder:
+            game = self.staged(folder)
+            seen, run = self.play_upx(game, filters=('0x49', '0x49'))
+            log = []
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run),                     patch('retrorecomp.packing.stub_window_value', side_effect=lambda code, length: 0x57 if length == 4100 else real(code, length)):
+                self.assertIsNone(packing.compact_executable(game, emit=log.append))
+            self.assertEqual(seen, [('-9', 4100), ('-t', 4100), ('--fileinfo', 4100),
+                                    ('-9', 4099), ('-t', 4099), ('--fileinfo', 4099)])
+            self.assertIn('(4099 of 8192 bytes)', log[0])
+
+    def test_when_no_length_passes_the_stub_check_the_game_is_published_as_built(self):
+        built = make_pe(saturated_code())
+        with tempfile.TemporaryDirectory() as folder:
+            game = Path(folder) / 'Game.exe'
+            game.write_bytes(built)
+            seen, run = self.play_upx(game, filters=('0x49',) * 3)
+            with patch('retrorecomp.packing.subprocess.run', side_effect=run),                     patch('retrorecomp.packing.stub_window_value', return_value=0x57):
+                outcome = packing.compact_executable(game, emit=lambda text: None)
+            self.assertIn('published unpacked', outcome['notice'])
+            self.assertIn('run-time stub', outcome['notice'])
+            self.assertEqual(game.read_bytes(), built)
+            self.assertNotIn(hashlib.sha256(built).hexdigest(), packing._CALL_FILTER_USED)
 
     def test_a_packed_file_without_the_call_filter_is_replaced_by_the_plain_attempt(self):
         # Seen for real: UPX returned 0, `upx -t` passed and the file had filter 0x00 and was 7 % larger.
@@ -602,7 +711,7 @@ class WindowsPackingTests(unittest.TestCase):
             log = []
             with patch('retrorecomp.packing.subprocess.run', side_effect=run):
                 self.assertIsNone(packing.compact_executable(game, emit=log.append))
-            self.assertEqual(seen, [('-9', 4101), ('-t', 4101), ('--fileinfo', 4101), ('-9', 8192), ('-t', 8192)])
+            self.assertEqual(seen, [('-9', 4100), ('-t', 4100), ('--fileinfo', 4100), ('-9', 8192), ('-t', 8192)])
             self.assertEqual(log, [])
             self.assertNotIn(hashlib.sha256(make_pe(saturated_code())).hexdigest(), packing._CALL_FILTER_USED)
 
@@ -627,7 +736,7 @@ class WindowsPackingTests(unittest.TestCase):
             seen, run = self.play_upx(game, pack_fails=True)
             with patch('retrorecomp.packing.subprocess.run', side_effect=run):
                 self.assertIsNone(packing.compact_executable(game))
-            self.assertEqual(seen, [('-9', 4101), ('-9', 8192), ('-t', 8192)])
+            self.assertEqual(seen, [('-9', 4100), ('-9', 8192), ('-t', 8192)])
 
     def test_a_staged_copy_that_cannot_be_patched_is_packed_as_before(self):
         # The antivirus may remove or lock the staged copy: the conversion must not fail on the header write.

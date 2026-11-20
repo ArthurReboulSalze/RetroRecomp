@@ -126,7 +126,8 @@ static int base_width(void) { return BASE_W; }
 static int base_height(void) { return BASE_H; }
 static const uint32_t *pixels(void) { return no_picture ? NULL : picture; }
 static int players(void) { return 2; }
-static void reset(void) {}
+static int resets;
+static void reset(void) { ++resets; }
 static void pause_machine(bool paused) { (void)paused; }
 static size_t audio(int16_t *pcm, size_t capacity) { (void)pcm; (void)capacity; return 0; }
 static uint64_t zero(void) { return 0; }
@@ -797,6 +798,75 @@ static void quick_script(void) {
     }
 }
 
+/* 1.8.2: the Pause on the pad's Start (Master System) against the restart combination Start+Select: Start alone still pauses at
+ * once on release (or after 200 ms held), but a Start that is part of Start+Select, in whichever order, never opens the Pause menu,
+ * and the held combination restarts. The machine counts its resets. */
+static int pc_resets;
+static Uint64 pc_t0;
+#define PC_START SDL_CONTROLLER_BUTTON_START
+#define PC_BACK SDL_CONTROLLER_BUTTON_BACK
+static void pause_combo_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    const Uint64 now = SDL_GetTicks64();
+    switch (step++) {
+    case 0:     /* Start alone, held: the Pause menu opens after the window, not at the press */
+        ui->buttons[0][A_ANALOG] = PC_START;
+        CHECK(ui->menu == 0 && rrhk_combo_set(1, true));
+        button(PC_START, true); pc_t0 = now;
+        break;
+    case 1:
+        if (ui->menu != RRHK_MENU_PAUSE && now - pc_t0 < 2000) { --step; break; }
+        CHECK(ui->menu == RRHK_MENU_PAUSE && now - pc_t0 >= 150 && now - pc_t0 < 1000);
+        button(PC_START, false);
+        break;
+    case 2: button(PC_START, true); break;       /* a tap closes it, at once on release */
+    case 3: button(PC_START, false); break;
+    case 4: CHECK(ui->menu == 0); button(PC_START, true); break;
+    case 5: button(PC_START, false); break;      /* and a tap opens it at the release */
+    case 6: CHECK(ui->menu == RRHK_MENU_PAUSE); button(PC_START, true); break;
+    case 7: button(PC_START, false); break;
+    case 8:
+        CHECK(ui->menu == 0);
+        pc_resets = resets;
+        button(PC_START, true);                  /* Start first, Select a frame later: held, it restarts and never pauses */
+        break;
+    case 9: button(PC_BACK, true); pc_t0 = now; break;
+    case 10:
+        if (now - pc_t0 < 450) { CHECK(ui->menu == 0); --step; break; }
+        break;
+    case 11:
+        if (resets == pc_resets && now - pc_t0 < 4000) { CHECK(ui->menu == 0); --step; break; }
+        CHECK(resets == pc_resets + 1 && ui->menu == 0 && now - pc_t0 >= 900);
+        button(PC_START, false); button(PC_BACK, false); pc_t0 = now;
+        break;
+    case 12:
+        if (now - pc_t0 < 300) { CHECK(ui->menu == 0); --step; break; }
+        button(PC_BACK, true);                   /* Select first, then Start: the press of Start belongs to the combination */
+        break;
+    case 13: button(PC_START, true); pc_t0 = now; pc_resets = resets; break;
+    case 14:
+        if (now - pc_t0 < 450) { CHECK(ui->menu == 0); --step; break; }
+        button(PC_START, false); button(PC_BACK, false); pc_t0 = now;   /* released before the second: no restart, no pause */
+        break;
+    case 15:
+        if (now - pc_t0 < 300) { CHECK(ui->menu == 0 && resets == pc_resets); --step; break; }
+        button(PC_START, true); button(PC_BACK, true); pc_t0 = now;      /* both in the same frame */
+        break;
+    case 16:
+        if (now - pc_t0 < 450) { CHECK(ui->menu == 0); --step; break; }
+        button(PC_START, false); button(PC_BACK, false); pc_t0 = now;
+        break;
+    case 17:
+        if (now - pc_t0 < 300) { CHECK(ui->menu == 0 && resets == pc_resets); --step; break; }
+        button(PC_START, true);                  /* Select alone does nothing to the Pause; Start alone pauses again */
+        break;
+    case 18: button(PC_START, false); break;
+    case 19: CHECK(ui->menu == RRHK_MENU_PAUSE); key(SDL_SCANCODE_ESCAPE); break;
+    case 20: CHECK(ui->menu == 0); ui->buttons[0][A_ANALOG] = SDL_CONTROLLER_BUTTON_MISC1; stop = true; break;
+    default: break;
+    }
+}
+
 /* 1.7.5: on a console profile (no trigger_buttons), a game row bound to R2 by F2, then held in play: the row's bit, no speed. */
 static void r2_script(void) {
     RrhkUi *ui = rrhk_ui();
@@ -903,12 +973,59 @@ static void quit_row_script(void) {
     }
 }
 
-/* 1.7.6: on a machine with a graphics page, the F2 tile before Quit (1.8.1) opens it (and comes back to the tiles), and the options page's
+/* 1.8.1: the F2 tile before Quit restarts the game (Arthur, 19 Nov 2026): back to the game, and the machine's reset runs once, through
+ * the loop's restart path (the one of the pad's Restart combination; in a session, the host's restart for every seat). */
+static int resets_mark;
+static void restart_tile_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: resets_mark = resets; key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); break;
+    case 1: CHECK(ui->menu == RRHK_MENU_HUB && resets == resets_mark); key(SDL_SCANCODE_RETURN); break;
+    case 2: break;
+    case 3: CHECK(ui->menu == 0 && resets == resets_mark + 1); break;
+    case 4: CHECK(resets == resets_mark + 1); stop = true; break;      /* once, not at every frame */
+    default: break;
+    }
+}
+
+/* 1.8.1 (session ABI 9): the host's « Change this option? » before a key that relaunches the match. Asked here directly (the
+ * loop asks it in a session only): Esc and No drop the key, Yes gives it back once to the machine; the question sits where the
+ * kit's « Quit? » does and leaves the menu it was asked from as it was. */
+static void relaunch_confirm_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    const SDL_Scancode row = (SDL_Scancode)EXTRA_KEY;
+    switch (step++) {
+    case 0:
+        machine_key = 0;
+        CHECK(rrhk_relaunch_ask(row) && ui->menu == RRHK_MENU_QUIT && rrhk_relaunch_asking());
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 1:
+        CHECK(ui->menu == 0 && !rrhk_relaunch_asking() && machine_key == 0);       /* Esc: dropped */
+        CHECK(rrhk_relaunch_ask(row));
+        key(SDL_SCANCODE_RETURN);                                                   /* No is selected */
+        break;
+    case 2:
+        CHECK(ui->menu == 0 && !rrhk_relaunch_asking() && machine_key == 0);       /* No: dropped */
+        CHECK(rrhk_relaunch_ask(row));
+        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);                          /* Yes */
+        break;
+    case 3: break;
+    case 4:
+        CHECK(ui->menu == 0 && !rrhk_relaunch_asking() && machine_key == (int)row);  /* Yes: the key went on, once */
+        machine_key = 0;
+        stop = true;
+        break;
+    default: break;
+    }
+}
+
+/* 1.7.6: on a machine with a graphics page, the F2 tile before Restart and Quit (1.8.1) opens it (and comes back to the tiles), and the options page's
  * F3 row, "F3 Graphics", opens it too (and comes back to the options). */
 static void graphics_entry_script(void) {
     RrhkUi *ui = rrhk_ui();
     switch (step++) {
-    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Quit is last (1.8.1) */
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Quit is last, Restart before it (1.8.1) */
     case 1: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
     case 2: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Options: before it */
     case 3: CHECK(ui->menu == RRHK_MENU_OPTIONS && rrhk_option_selected() == 0); key(SDL_SCANCODE_RETURN); break;
@@ -1039,7 +1156,7 @@ static void widescreen_script(void) {
         SDL_GetRendererOutputSize(SDL_GetRenderer(rrhk_window()), &w, &h);
         const SDL_Rect dst = rrhk_game_rect(SDL_GetRenderer(rrhk_window()));
         CHECK(dst.w * 3 == dst.h * 4 || dst.w * 3 == dst.h * 4 + 1 || dst.w * 3 + 1 == dst.h * 4);   /* the machine's 4:3 */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN);   /* the options tile: before Quit */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN);   /* the options tile: before Restart and Quit */
         break;
     }
     case 1: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN); break;
@@ -1424,6 +1541,12 @@ int main(int argc, char **argv) {
     begin(quick_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 20);
+    /* 6b. 1.8.2: the Pause on Start against the restart combination Start+Select. */
+    plain.host_pause = 1 + A_ANALOG;
+    begin(pause_combo_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 20);
+    plain.host_pause = 0;
     /* 7. 1.7.5: a game row on R2 on a console profile. */
     begin(r2_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
@@ -1438,6 +1561,14 @@ int main(int argc, char **argv) {
     begin(quit_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 8);
+    /* 9c. 1.8.1: the host's « Change this option? » (session ABI 9). */
+    begin(relaunch_confirm_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 5);
+    /* 9b. 1.8.1: the F2 menu's Restart tile, before Quit. */
+    begin(restart_tile_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 5);
 
     /* 11. 1.7.6: a stick direction bound to a game row. */
     begin(stick_script);

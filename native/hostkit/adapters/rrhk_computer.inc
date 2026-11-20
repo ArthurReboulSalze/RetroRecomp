@@ -31,7 +31,17 @@ static struct {
  * keeps its keys, the pad keys bound on the keyboard stop, and only a real gamepad plays the joystick). */
 #define RRC_ROW_KEYBOARD RRHK_ROW_KEYBOARD      /* the shell's key for this row, which chooses its icon */
 
-static int player_blocked(void) { const RrhkUi *ui = rrhk_ui(); return ca.windowed && (ui->menu || ui->paused); }
+/* A multiplayer session (rrhk_session_active) carries the two pad words and, since session ABI 9, the host's keys, the
+ * network's, the same on every seat: no key, mouse or local gamepad of this PC reaches the guest, a local menu or focus
+ * changes nothing the guest reads, and the seat's own disk and fast-loading keys do nothing (they would change one seat
+ * only). The host types with Ctrl+Alt+K (Arthur, 19 Nov 2026: the host has the keyboard, guests stay on their pads): its
+ * keys travel (x_session_keys) and every seat's guest types what the frame's RUN says (player_poll), guest_keyboard
+ * included. Start stays the guest's Return key of the first player, from the pad word. Written once for every computer. */
+static bool rrc_session(void) { return rrhk_session_active(); }
+static bool session_typing;            /* the host's Ctrl+Alt+K in this session (never written to player.cfg) */
+static Uint8 session_key_state[SDL_NUM_SCANCODES];
+
+static int player_blocked(void) { const RrhkUi *ui = rrhk_ui(); return ca.windowed && !rrc_session() && (ui->menu || ui->paused); }
 static int player_escape_held(void) { return ca.windowed && ca.escape_held; }
 
 static void player_notice(const char *message) { if (ca.windowed) rrhk_notice(rr_tr(message), 3500); }
@@ -41,6 +51,7 @@ static void player_notice(const char *message) { if (ca.windowed) rrhk_notice(rr
  * with Retro-Recomp, so the help stays at Ctrl+F1 and Ctrl+Alt+H. */
 static int player_host_fkey(int key, SDL_Keymod mod) {
    if (key < SDL_SCANCODE_F1 || key > SDL_SCANCODE_F12) return 0;
+   if (rrc_session()) return 1;                    /* no function key reaches the guest in a session */
    if ((ca.windowed && rrhk_ui()->menu) || ((mod & KMOD_CTRL) && !(mod & KMOD_ALT))) return 1;
    if (guest_keyboard && key <= RRC_GUEST_FKEY_LAST) return 0;
    return rrhk_options_host_fkey(key, mod, false);
@@ -49,11 +60,11 @@ static int player_host_fkey(int key, SDL_Keymod mod) {
 /* The Return key of the guest: Start of the first player (any binding), or -1 without the kit. */
 static int player_start(void) {
    if (!ca.windowed) return -1;
-   if (player_blocked() || !input_focus) return 0;
+   if (!rrc_session() && (player_blocked() || !input_focus)) return 0;
    return (ca.pad[0] & RRC_BIT(RRC_START)) != 0;
 }
 static int player_pad_start(void) {
-   SDL_GameController *pad = ca.windowed ? rrhk_ui()->pads[0] : NULL;
+   SDL_GameController *pad = ca.windowed && !rrc_session() ? rrhk_ui()->pads[0] : NULL;
    return pad && SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START);
 }
 
@@ -62,6 +73,7 @@ static int player_pad_start(void) {
 static int player_face_alias(unsigned scan) {
    unsigned action;
    if (!ca.windowed || guest_keyboard || !scan) return -1;
+   if (rrc_session()) return 0;
    for (action = RRC_BUTTON_A; action <= RRC_BUTTON_B; action++)
       if ((unsigned)rrhk_ui()->keys[0][action] == scan) return !player_blocked() && input_focus && (ca.pad[0] & RRC_BIT(action)) != 0;
    return -1;
@@ -70,6 +82,7 @@ static int player_face_alias(unsigned scan) {
 /* The mouse of a mouse game: the buttons are Button A and Button B (with their autofire), the directions of the first
  * player and the stick move the pointer. */
 static int player_mouse(unsigned id, int value) {
+   if (rrc_session()) return 0;                     /* the mouse is not carried in a session yet */
    if (!mouse_game || !ca.windowed || !input_focus || player_blocked()) return value;
    if (id == RETRO_DEVICE_ID_MOUSE_LEFT) return (ca.pad[0] & RRC_BIT(RRC_BUTTON_A)) != 0;
    if (id == RETRO_DEVICE_ID_MOUSE_RIGHT) return (ca.pad[0] & RRC_BIT(RRC_BUTTON_B)) != 0;
@@ -88,9 +101,15 @@ static int player_mouse(unsigned id, int value) {
 
 /* Keyboard and mouse of this frame. */
 static void player_poll(void) {
+   static const Uint8 no_keys[SDL_NUM_SCANCODES];
    keys = SDL_GetKeyboardState(NULL);
    mouse_buttons = SDL_GetRelativeMouseState(&mouse_dx, &mouse_dy);
-   if (!mouse_grab || !input_focus) { mouse_dx = mouse_dy = 0; mouse_buttons = 0; }
+   if (!mouse_grab || !input_focus || rrc_session()) { mouse_dx = mouse_dy = 0; mouse_buttons = 0; }
+   /* In a session the keys are the host's of this frame, the same on every seat (none while it does not type). */
+   if (rrc_session()) {
+      guest_keyboard = rrhk_session_keys(session_key_state);
+      keys = guest_keyboard ? session_key_state : no_keys;
+   }
    if (ca.capture_click) {
       if (mouse_buttons & SDL_BUTTON_LMASK) mouse_buttons &= ~SDL_BUTTON_LMASK;
       else ca.capture_click = false;
@@ -117,12 +136,27 @@ static bool x_game_rect(int rw, int rh, int mode, SDL_Rect *rect) {
 /* ---- the machine ---- */
 static bool x_fast_forward(void) {
    const Uint8 *state = SDL_GetKeyboardState(NULL);
-   return input_focus && !player_blocked() && state && state[SDL_SCANCODE_F5] && player_host_fkey(SDL_SCANCODE_F5, SDL_GetModState());
+   return !rrc_session() && input_focus && !player_blocked() && state && state[SDL_SCANCODE_F5] && player_host_fkey(SDL_SCANCODE_F5, SDL_GetModState());
 }
 
 static bool x_keyboard_pad(void) {
    SDL_Keymod mod = SDL_GetModState();
-   return !guest_keyboard && !((mod & KMOD_CTRL) && (mod & KMOD_ALT));
+   /* The host typing in a session: its keys are the guest's, not the pad's (as alone with full typing). */
+   return !(rrc_session() ? session_typing : guest_keyboard) && !((mod & KMOD_CTRL) && (mod & KMOD_ALT));
+}
+
+/* The host's keys for its LOCAL (RrhkMachine.session_keys, session ABI 9): every key it holds while it types, never a
+ * Ctrl+Alt chord nor a function key (in a session they are all Retro-Recomp's: F8/F9 are the match's state), nothing while
+ * its window has not the focus. false: it does not type. */
+static bool x_session_keys(uint8_t *bits) {
+   const Uint8 *state = SDL_GetKeyboardState(NULL);
+   SDL_Keymod mod = SDL_GetModState();
+   int k;
+   if (!session_typing) return false;
+   if (!input_focus || !state || ((mod & KMOD_CTRL) && (mod & KMOD_ALT))) { rrhk_keys_pack(NULL, bits); return true; }
+   rrhk_keys_pack(state, bits);
+   for (k = SDL_SCANCODE_F1; k <= SDL_SCANCODE_F12; k++) bits[(k - 4) >> 3] &= (uint8_t)~(1u << ((k - 4) & 7));
+   return true;
 }
 
 /* The pointer's buttons are Button A and Button B of the first player while a mouse game holds the mouse. */
@@ -166,6 +200,13 @@ static void x_settings_loaded(RrhkUi *ui) {
 /* Its texts are English and French through rrhk_tr, like the other computer notices: the five-language catalogue
  * (native/runtime_catalog.inc) is left untouched in 1.6.9 because the Mega Drive and Super Nintendo quick-state keys hash it. */
 static void x_toggle_keyboard(void) {
+   if (rrc_session()) {
+      /* The host types for everyone (its keys travel); a guest stays on its pad. Never written to player.cfg. */
+      if (rrhk_session_guest()) { player_notice("Only the host types in multiplayer"); return; }
+      session_typing = !session_typing;
+      player_notice(session_typing ? "Computer keyboard (host): ON" : "Computer keyboard (host): OFF");
+      return;
+   }
    guest_keyboard = !guest_keyboard;
    if (guest_keyboard && !rrhk_ui()->pads[0])
       player_notice(rrhk_tr("Computer keyboard: no gamepad connected", "Clavier de l'ordinateur : aucune manette connectee"));
@@ -175,7 +216,7 @@ static void x_toggle_keyboard(void) {
 static void x_option_rows(int slot, RrhkOptionRows *rows) {
    if (slot == 1)
       rrhk_option_row(rows, RRC_ROW_KEYBOARD, rrhk_tr("Keyboard (Ctrl+Alt+K): %s", "Clavier (Ctrl+Alt+K) : %s"),
-                      guest_keyboard ? rrhk_tr("computer only", "ordinateur seul") : rrhk_tr("game controls", "commandes du jeu"));
+                      (rrc_session() ? session_typing : guest_keyboard) ? rrhk_tr("computer only", "ordinateur seul") : rrhk_tr("game controls", "commandes du jeu"));
 }
 static bool x_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
    (void)ui; (void)running;
@@ -241,8 +282,9 @@ static bool x_event(const SDL_Event *e, bool *running) {
       ca.capture_click = true;
       return true;
    }
-   /* Full computer typing reserves the ordinary keys for the guest. Guide and explicit Ctrl+Alt shortcuts remain. */
-   if (guest_keyboard && !ui->menu && (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP) &&
+   /* Full computer typing reserves the ordinary keys for the guest (in a session, the host's own typing: its keys travel).
+    * Guide and explicit Ctrl+Alt shortcuts remain. */
+   if ((rrc_session() ? session_typing : guest_keyboard) && !ui->menu && (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP) &&
        !(key && (mod & KMOD_CTRL) && (mod & KMOD_ALT)) && !(key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12)) {
       rrhk_options_observe(e); return true;
    }
@@ -256,6 +298,7 @@ static bool x_event(const SDL_Event *e, bool *running) {
       else if (sym == SDLK_k) x_toggle_keyboard();
       else if (sym == SDLK_f) rrhk_toggle_autofire();
       else if (sym == SDLK_m) { mouse_grab = !mouse_grab; player_notice(mouse_grab ? RRC_MOUSE_CAPTURED : rrhk_tr("Mouse released", "Souris liberee")); }
+      else if ((sym == SDLK_PAGEUP || sym == SDLK_PAGEDOWN || sym == SDLK_BACKSPACE) && rrc_session()) { /* one seat's disk keys */ }
       else if (sym == SDLK_PAGEUP || sym == SDLK_PAGEDOWN) { want_swap = true; swap_drive = (mod & KMOD_SHIFT) ? 1 : 0; swap_direction = sym == SDLK_PAGEUP ? -1 : 1; }
       else if (sym == SDLK_BACKSPACE) { want_eject = true; swap_drive = (mod & KMOD_SHIFT) ? 1 : 0; }
       return true;
@@ -263,7 +306,7 @@ static bool x_event(const SDL_Event *e, bool *running) {
    if (key == SDL_SCANCODE_F11) { ui->paused = !ui->paused; return true; }
    if (key == SDL_SCANCODE_TAB && ui->menu == RRHK_MENU_HELP) { ca.help_page ^= 1; return true; }
    /* The Pause binding of either player, when no menu is open and the guest does not have the keyboard. */
-   if (!ui->menu && !guest_keyboard && (key || button >= 0)) {
+   if (!ui->menu && !(rrc_session() ? session_typing : guest_keyboard) && (key || button >= 0)) {
       unsigned p;
       for (p = 0; p < 2; p++) {
          int match = key ? ui->keys[p][RRC_PAUSE] == key : ui->buttons[p][RRC_PAUSE] == button;

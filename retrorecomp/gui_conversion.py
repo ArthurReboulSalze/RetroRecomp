@@ -60,6 +60,7 @@ class ConversionMixin:
             startup_update_check=self.check_at_startup.get(), last_update_check=self.last_update_check,
             start_front_end=self.start_front_end.get(),
             start_front_end_fullscreen=self.start_front_end_fullscreen.get(),
+            multiplayer_auto_ready=bool(getattr(self, 'multiplayer_auto_ready', False)),
             discoveries_waiting=self.discoveries_waiting,
             overwrite=self.overwrite.get(), force=self.force.get(),
             **{key.name: getattr(self, key.name).get() for _, key in console_options('path', 'choice')},
@@ -332,7 +333,7 @@ class ConversionMixin:
             buttons.append(button)
         window.bind('<Escape>', lambda event: window.destroy())
         window.update_idletasks()
-        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight(), measured=True)
         window.deiconify()
         window.grab_set()
         buttons[1].focus_set()

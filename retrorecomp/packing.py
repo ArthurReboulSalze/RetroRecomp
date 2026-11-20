@@ -6,6 +6,7 @@ built, not what it does: a build input (compilation_inputs.BUILD_MODULES).
 """
 from __future__ import annotations
 
+import bisect
 import hashlib
 import os
 from pathlib import Path
@@ -267,26 +268,62 @@ def _pe_code(data: bytes) -> tuple[int, int, int, int, int] | None:
     return None
 
 
-def call_filter_length(data: bytes) -> tuple[int, int] | None:
-    """(length, cto) UPX's call-trick filter is predicted to accept at the longest, for the PE `data`.
+# The stub that unpacks a Windows game at run time reads one candidate more than the packer's scan did. UPX's scan (ctok.h)
+# stops at `ic < size - 5`, so the last candidate it sees is at size - 6; the stub (src/stub/src/arch/amd64/bxx.S) examines
+# a candidate at p while p + 1 < size - 3, that is up to size - 5. A candidate at size - 5 (an E8 or E9, or the 8x of a 0F 8x)
+# whose first operand byte is the cto the packer chose is therefore "unfiltered" at run time although the packer never
+# filtered it: its operand is rewritten, the call or jump goes elsewhere (seen on Neo Geo KOF 2003, 17 November 2026:
+# the CALL at SizeOfCode - 5 had the cto 0x60 as its first operand byte, and `malloc` was never reached). `upx -t` and
+# `upx -d` use the packer's bound and cannot see it; a replay of a route that does not run the instruction does not either.
+# A length is usable only when no value the packer may take as cto equals the first operand byte of the candidate at
+# length - 5 (the packer takes any spare value: the lowest, or one it prefers).
+STUB_ONLY_POSITION = 5
+# How far below a point where a value becomes spare the search goes for a length whose last candidate does not hit.
+_STEP_WINDOW = 4096
+
+
+def _is_candidate(code: bytes, position: int) -> bool:
+    """Whether the byte at `position` is an E8, an E9, or the 8x byte of a 0F 8x (a candidate of filter 0x49)."""
+    byte = code[position]
+    return byte in (0xE8, 0xE9) or (0x80 <= byte <= 0x8F and position > 0 and code[position - 1] == 0x0F)
+
+
+def stub_window_value(code: bytes, length: int) -> int | None:
+    """The first operand byte of the candidate the run-time stub reads past the packer's scan (at length - 5), else None.
+
+    A packed file whose cto equals this value has a corrupted CALL or jump after it starts."""
+    position = length - STUB_ONLY_POSITION
+    if position < 0 or position + 1 >= len(code) or not _is_candidate(code, position):
+        return None
+    return code[position + 1]
+
+
+def call_filter_length(data: bytes, below: int | None = None) -> tuple[int, int] | None:
+    """(length, cto) UPX's call-trick filter is predicted to accept at the longest, and the stub to unfilter safely, for the PE `data`.
 
     The scan is UPX's own (src/filter/ctok.h): a candidate is an E8 or E9 byte or the 8x of a 0F 8x jump, its target is
     `rel32 + position + 1`; a target inside the filtered length is a call, a target outside marks the candidate's first
-    operand byte as taken, and `cto` is any value left. For each value the lengths where it is taken are intervals (a
-    candidate counts from position + 6 up to its target), merged as the scan goes. UPX gives up when a target inside
-    the length reaches 2**24 with `addvalue`, and does not filter a buffer over CALL_FILTER_MAX_BUF bytes: the length
-    is capped there, so a code over 16 MiB is filtered over at most its first 16 MiB - 1 bytes at best. The code is
-    what UPX reads: the section's bytes up to its VirtualSize, zeros after. None when the data is not a 64-bit PE; the
-    SizeOfCode itself when a value is free over the whole code (and it is under the cap)."""
+    operand byte as taken, and `cto` is any value left. A candidate counts for the lengths from position + 6 (the scan stops
+    at size - 6) up to its target; the lengths where a value is taken are intervals, merged as the scan goes. UPX gives up
+    when a target inside the length reaches 2**24 with `addvalue`, and does not filter a buffer over CALL_FILTER_MAX_BUF
+    bytes: the length is capped there, so a code over 16 MiB is filtered over at most its first 16 MiB - 1 bytes at best. The
+    code is what UPX reads: the section's bytes up to its VirtualSize, zeros after. A value taken between two spare stretches
+    is spare again past its last interval, so the longest length is searched from the top of every stretch (the limit, or
+    the length before an interval), downwards, for a length that the run-time stub also unfilters safely (see
+    `stub_window_value`): the value returned is the lowest spare one at that length. `below` caps the length (a retry after a
+    packed file whose cto hit the stub's window). None when the data is not a 64-bit PE or no length is usable; the
+    SizeOfCode itself when a value is free over the whole code, the stub is safe there and it is under the cap."""
     located = _pe_code(data)
     if located is None:
         return None
     _, size_of_code, start, addvalue, readable = located
     limit = min(size_of_code, (1 << 24) - addvalue, CALL_FILTER_MAX_BUF)
+    if below is not None:
+        limit = min(limit, below)
     code = data[start:start + min(limit, readable)]
     code += bytes(limit - len(code))
-    first = [None] * 256        # start of the last merged interval where each value is taken
-    last = [0] * 256            # its end
+    starts: list[list[int]] = [[] for _ in range(256)]      # merged intervals where each value is taken: begin ...
+    ends: list[list[int]] = [[] for _ in range(256)]        # ... and end (both included)
     unpack = struct.Struct('<I').unpack_from
     for match in _CALL_CANDIDATE.finditer(code):
         position = match.start()
@@ -298,16 +335,33 @@ def call_filter_length(data: bytes) -> tuple[int, int] | None:
         end = min(target, limit)
         if end < begin:
             continue
-        if first[low] is None or begin > last[low] + 1:
-            first[low], last[low] = begin, end
-        elif end > last[low]:
-            last[low] = end
-    best = (0, 0)
+        if not starts[low] or begin > ends[low][-1] + 1:
+            starts[low].append(begin)
+            ends[low].append(end)
+        elif end > ends[low][-1]:
+            ends[low][-1] = end
+
+    def spare(length: int) -> list[int]:
+        found = []
+        for value in range(256):
+            index = bisect.bisect_right(starts[value], length) - 1
+            if index < 0 or ends[value][index] < length:
+                found.append(value)
+        return found
+
+    points = {limit}
     for value in range(256):
-        length = limit if first[value] is None or last[value] < limit else first[value] - 1
-        if length > best[0]:
-            best = (length, value)
-    return best if best[0] else None
+        points.update(begin - 1 for begin in starts[value] if begin > 1)
+    for point in sorted(points, reverse=True):
+        for length in range(point, max(point - _STEP_WINDOW, 0), -1):
+            values = spare(length)
+            if not values:
+                break
+            taken = stub_window_value(code, length)
+            if taken is not None and taken in values:
+                continue
+            return length, values[0]
+    return None
 
 
 def _call_filter_prefix(path: Path) -> int | None:
@@ -323,11 +377,15 @@ def _call_filter_prefix(path: Path) -> int | None:
     return _prefix_of(data)
 
 
-def _prefix_of(data: bytes) -> int | None:
-    """`_call_filter_prefix` for the bytes of the build."""
-    found = call_filter_length(data)
+def _prefix_of(data: bytes, below: int | None = None) -> int | None:
+    """`_call_filter_prefix` for the bytes of the build; with `below`, the longest usable length under it (a retry), however short."""
+    found = call_filter_length(data, below)
     located = _pe_code(data)
-    if found is None or located is None or found[0] >= located[1] or found[0] * CALL_FILTER_MIN_SHARE < located[1]:
+    if found is None or located is None:
+        return None
+    if below is not None:
+        return found[0]
+    if found[0] >= located[1] or found[0] * CALL_FILTER_MIN_SHARE < located[1]:
         return None
     return found[0]
 
@@ -403,28 +461,37 @@ def _put_back(original: Path, path: Path, failure: str) -> None:
                            f"executable could not be put back: {exc}") from exc
 
 
-def _packed_filter(tool: Path, path: Path) -> str | None:
-    """The filter id (`0x49`) UPX says the packed `path` carries, from `upx --fileinfo`; None when it says none or fails."""
+def _packed_filter_info(tool: Path, path: Path) -> tuple[str | None, int | None]:
+    """(the filter id, the cto) UPX says the packed `path` carries, from `upx --fileinfo` ("filter 0x49/0x60"); (None, None) when it fails."""
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     try:
         result = subprocess.run((str(tool), '--fileinfo', str(path)), capture_output=True, text=True,
                                 timeout=upx_timeout(path), creationflags=flags)
     except (subprocess.TimeoutExpired, OSError):
-        return None
-    found = re.search(r'filter (0x[0-9a-f]+)/', result.stdout or '') if result.returncode == 0 else None
-    return found.group(1) if found else None
+        return None, None
+    found = re.search(r'filter (0x[0-9a-f]+)/(0x[0-9a-f]+)', result.stdout or '') if result.returncode == 0 else None
+    return (found.group(1), int(found.group(2), 16)) if found else (None, None)
+
+
+def _packed_filter(tool: Path, path: Path) -> str | None:
+    """The filter id (`0x49`) UPX says the packed `path` carries, from `upx --fileinfo`; None when it says none or fails."""
+    return _packed_filter_info(tool, path)[0]
 
 
 def _pack_with_filter_prefix(tool: Path, path: Path, original: Path,
                              retried: list | None = None) -> tuple[bool, str | None]:
-    """Pack the build at `path` with the longest filterable SizeOfCode when UPX would lose its call filter.
+    """Pack the build at `path` with the longest SizeOfCode over which UPX keeps its call filter and the stub unfilters safely.
 
-    (True, None) when the file was packed, passed `upx -t` and UPX reports filter 0x49 for it (the build is noted for
-    `packing_record` and the conversion log, see `_compact_executable`). Otherwise the validated build is put back and
-    (False, None) is returned, so the caller packs it as before: nothing to do, a build that keeps its filter, a header
-    that cannot be written (the antivirus may have locked the staged copy), a pack or test that fails, or a packed file
-    that has no filter. (False, failure) when the antivirus removed UPX's output again after the identical retry: the
-    caller does not try another form of the same build."""
+    A build whose whole code would lose the filter (no spare value) or would be unfiltered wrongly by the run-time stub
+    (see `stub_window_value`) is packed with a shorter SizeOfCode. (True, None) when the file was packed, passed `upx -t`,
+    UPX reports filter 0x49 for it and the cto it chose is not the first operand byte of the candidate the stub reads past
+    the packer's scan (else the build is packed again with a shorter length, three times at most; the model predicts every
+    spare value as unsafe there, so this only guards the model). The build is noted for `packing_record` and the
+    conversion log (see `_compact_executable`). Otherwise the validated build is put back and (False, None) is returned, so
+    the caller packs it as before: nothing to do, a build that keeps its filter, a header that cannot be written (the
+    antivirus may have locked the staged copy), a pack or test that fails, or a packed file that has no filter. (False,
+    failure) when the antivirus removed UPX's output again after the identical retry, or when no length passed the stub check:
+    the caller does not try another form of the same build."""
     try:
         built = original.read_bytes()
     except OSError:
@@ -434,18 +501,39 @@ def _pack_with_filter_prefix(tool: Path, path: Path, original: Path,
     prefix = _prefix_of(built)
     if not prefix:
         return False, None
-    try:
-        _set_size_of_code(path, prefix)
-        failure = _windows_pack(tool, path, original, lambda: _set_size_of_code(path, prefix), retried)
-        if failure is None and _packed_filter(tool, path) == CALL_FILTER_ID:
-            _CALL_FILTER_USED[identity] = {'filter': CALL_FILTER_ID, 'code_bytes': _pe_code(built)[1],
-                                           'filtered_bytes': prefix}
+    failure = None
+    stub_failure = False
+    located = _pe_code(built)
+    for attempt in range(3):
+        try:
+            _set_size_of_code(path, prefix)
+            failure = _windows_pack(tool, path, original, lambda: _set_size_of_code(path, prefix), retried)
+            if failure is not None:
+                break
+            filter_id, cto = _packed_filter_info(tool, path)
+            if filter_id != CALL_FILTER_ID:
+                failure = f"no call filter in the packed file ({CALL_FILTER_ID} expected)"
+                break
+            code = built[located[2]:located[2] + min(prefix, located[4])]
+            if cto is not None and stub_window_value(code + bytes(max(0, prefix - len(code))), prefix) == cto:
+                # The model said the stub is safe at this length; UPX's cto says it is not. A shorter length, from the build again.
+                _put_back(original, path, 'the cto of the packed file is the first operand byte of the stub window')
+                shorter = _prefix_of(built, prefix - 1)
+                if not shorter:
+                    failure, stub_failure = 'no length of the code passes the call filter check of the run-time stub', True
+                    break
+                prefix = shorter
+                continue
+            _CALL_FILTER_USED[identity] = {'filter': CALL_FILTER_ID, 'code_bytes': located[1], 'filtered_bytes': prefix}
             return True, None
-        failure = failure or f"no call filter in the packed file ({CALL_FILTER_ID} expected)"
-    except OSError as exc:
-        failure = str(exc)
+        except OSError as exc:
+            failure = str(exc)
+            break
+    else:
+        failure, stub_failure = 'no length of the code passes the call filter check of the run-time stub', True
+    failure = failure or 'the call filter attempt failed'
     _put_back(original, path, failure)
-    return False, failure if _defender_failure(failure) else None
+    return False, failure if stub_failure or _defender_failure(failure) else None
 
 
 def compact_windows(path: Path) -> dict | None:

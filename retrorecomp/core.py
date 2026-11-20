@@ -1050,7 +1050,15 @@ void smsrecomp_set_input_refresh(void (*refresh)(void)) { g_host_input_refresh =
     /* Only live host input opts in. Other machine ports and deterministic
      * scripted/headless runs retain their existing timing and state. */
     if ((p >= 0xC0 || (g_is_gg && p == 0x00)) && g_host_input_refresh)
-        g_host_input_refresh();''')
+        g_host_input_refresh();''' + ('''
+    if (rrl_on && g_is_gg && p >= 0x01 && p <= 0x05) return rrl_port_in(p);   /* the Gear-to-Gear cable (native/gg_link.inc) */''' if rom.system_id == 'gg' else ''))
+    if rom.system_id == 'gg':
+        glue = replace_once(glue, '    g_io_out_count[p]++;', '''    g_io_out_count[p]++;
+    if (rrl_on && g_is_gg && p >= 0x01 && p <= 0x05) { rrl_port_out(p, v); return; }''')
+        glue = '''static _Bool rrl_on;
+static unsigned char rrl_port_in(unsigned char port);
+static void rrl_port_out(unsigned char port, unsigned char value);
+''' + glue
     glue = replace_once(glue, '            return vdp_hcounter(sub);', '''            if (lightphaser_enabled()) return lightphaser_hcounter(g_z80.cyc);
             return vdp_hcounter(sub);''')
     glue = replace_once(glue, '    /* $C0-$FF controller ports, active low (0 = pressed).', '''    if (lightphaser_enabled())
@@ -1180,7 +1188,20 @@ static void smsrecomp_state_service(void);
     # The debug harness references the function-form dispatcher; it is not
     # active in this backend, whose production loop always uses the guest PC.
     glue += "\n" + (ASSETS / "native/gamestate.inc").read_text(encoding="utf-8")
-    glue += "\n" + banked_runtime(find_profile(rom.system_id).z80_machine, ASSETS)
+    banked = banked_runtime(find_profile(rom.system_id).z80_machine, ASSETS)
+    if rom.system_id == 'gg':
+        # The Gear-to-Gear cable: two consoles in one process, swapped by slices inside the banked loop (native/gg_link.inc).
+        # Without a link request the hooks are tests of rrl_on, which is false.
+        glue += "\n" + (ASSETS / "native/gg_link.inc").read_text(encoding="utf-8")
+        banked = replace_once(banked, "    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n",
+            "    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n    rrl_start();\n")
+        banked = replace_once(banked, "        if (!prefix_pending) pending_irq = vdp_irq_asserted();",
+            "        if (!prefix_pending) pending_irq = vdp_irq_asserted() || (rrl_on && rrl_irq());")
+        banked = replace_once(banked, "        banked_after_step(pending_irq);\n        banked_advance_vdp(g_z80.cyc);",
+            "        if (rrl_on && rrl_nmi()) banked_accept_nmi(); else banked_after_step(pending_irq);\n        banked_advance_vdp(g_z80.cyc);")
+        banked = replace_once(banked, "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */",
+            "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */\n        if (rrl_on || rrl_pending) rrl_after_step();")
+    glue += "\n" + banked
     # A reset exits through the runtime's existing longjmp, discarding all
     # generated C continuations. Also reset every execution/callback state that
     # upstream initialized only once per process, before entering reset again.
@@ -1381,6 +1402,10 @@ def probe(executable: Path, directory: Path, frames: int, *, strict: bool = Fals
 
 def import_previous(rom: Rom, destination: Path, memory: GameMemory) -> int:
     """Migrate older outputs only when their report identifies the exact ROM."""
+    from .knowledge import recipe_directory
+    if recipe_directory() is not None:
+        # Recipe mode (multiplayer): the host's record only, nothing of this player's earlier exports.
+        return 0
     candidates = {destination}
     for previous_root in (ROOT / 'output', games_directory()):
         if previous_root.exists():

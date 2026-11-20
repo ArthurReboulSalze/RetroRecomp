@@ -43,3 +43,31 @@ def family(language):
     if os.name == 'nt' and language not in ('zh', 'ja'):
         return 'Segoe UI'
     return 'RetroRecomp UI SC' if language == 'zh' else 'RetroRecomp UI JP'
+
+
+def ui_scale(master):
+    """The screen's Tk scaling relative to 96 dpi, clamped to 1.0..3.0: 1.0 on Windows today (the converter is DPI unaware, Tk is told 96
+    dpi at every Windows scale), the real factor on Linux (1.5 at 144 dpi). The ONE definition of it: the hero pictures (gui_icons) and the
+    rounded skin (rounded_skin) size their pictures with it, once at start."""
+    try:
+        factor = float(master.tk.call('tk', 'scaling')) / (96 / 72)
+    except Exception:
+        return 1.0
+    return min(3.0, max(1.0, factor))
+
+
+TOOLBAR_SCALE_MAX = 1.25
+
+
+def toolbar_scale(master):
+    """The scale of the converter's toolbar pictures (the hero buttons, the view switch, Front-end and Multiplayer): the
+    screen's (ui_scale) up to 125 % (Arthur, 20 Nov 2026: on a Linux HiDPI screen the toolbar follows the screen's scaling but
+    stops at 125 %). 1.0 on Windows today."""
+    return min(ui_scale(master), TOOLBAR_SCALE_MAX)
+
+
+def scaled(master, pixels):
+    """A window size written for 96 dpi, in the pixels of this screen: `pixels` times `ui_scale(master)`, so 1120 stays 1120 on Windows and
+    becomes 1680 at 144 dpi on Linux, where the fonts and the skin already follow Tk scaling. For window sizes only: a size measured with
+    winfo_reqwidth() is already in screen pixels. Callers keep their own screen clamp."""
+    return round(pixels * ui_scale(master))

@@ -59,6 +59,7 @@ extern "C" {
 #define RRHK_MENU_GRAPHICS 6       /* decision D14: F3 on a machine that declares gfx_options */
 #define RRHK_MENU_HUB 7            /* 1.7.4: F2 opens tiles, one per page (controls of each player, the machine's page, options) */
 #define RRHK_MENU_QUIT 8           /* 1.7.4: "Quit?" Yes / No, asked by Esc in play and by the Quit combination */
+#define RRHK_MENU_GIVE 9           /* 1.8.1: multiplayer, turns: the host gives the controller to a seat (from the F2 tiles) */
 
 /* The sticks of a player (RrhkMachine.analog_sticks, rrhk_pad_axes): -32767..32767 since 1.7.6 (SDL's -32768 is given as -32767, a
  * recorded replay's axes as recorded), centre 0, SDL's axes (Y down positive). */
@@ -181,6 +182,8 @@ typedef struct {
     bool (*available)(void);                             /* NULL: always */
     void (*draw)(RrhkUi *ui, const RrhkMenuCtx *ctx);    /* the page body */
     void (*key)(RrhkUi *ui, SDL_Scancode key);           /* a key while the page is open */
+    bool run_changing;                                   /* its settings change the run (DIP switches): read-only in a
+                                                          * multiplayer session, the host sets them */
 } RrhkPage;
 
 typedef struct RrhkMachine {
@@ -294,6 +297,10 @@ typedef struct RrhkMachine {
     /* A machine that replays a script inside the window gives its recorded axes here; true: rrhk_pad_axes returns them as they
      * are (no dead zone). NULL or false: the gamepad's. */
     bool (*script_axes)(int player, uint64_t frame, int16_t axes[RRHK_AXES]);
+    /* Actions that push the left stick to an edge from keys or buttons (a host-side action, bit 0): LX left, LX right, LY up,
+     * LY down, -1 for none. In a multiplayer session the kit folds them into the sticks this PC sends, so a keyboard player's
+     * stick reaches the other seats; alone the machine applies them as before. NULL: none. */
+    const int *stick_actions;
     /* The triggers are buttons of the machine's own pad (a PlayStation's L2 and R2), which its default bindings use. Since 1.7.5
      * every machine accepts a trigger binding (RRHK_PAD_LEFT_TRIGGER, RRHK_PAD_RIGHT_TRIGGER: F2 captures a trigger pulled on
      * the selected player's pad, the one trigger reading holds it), so the field only says so; a trigger that player 1 has
@@ -327,6 +334,54 @@ typedef struct RrhkMachine {
     int (*media_count)(void);
     int (*media_current)(void);       /* 0-based */
     bool (*media_select)(int index);  /* false: refused (the notice then names the disc in place) */
+    /* Multiplayer (hostkit_session.h). Every field is NULL when left out, and none is called outside a session. */
+    /* An in-process snapshot for rollback: never a file, never sent, no envelope, no allocation per call, valid after any
+     * run_frame. NULL: the machine plays on the delay tier only. snap_save returns the bytes written, 0 on failure. */
+    size_t (*snap_bound)(void);
+    size_t (*snap_save)(void *buffer, size_t capacity);
+    bool (*snap_load)(const void *buffer, size_t size);
+    /* The guest's deterministic state after the last frame, as named fields in a fixed byte order (never a raw struct), the
+     * same on Windows and Linux. A machine without it is not offered in multiplayer. */
+    uint64_t (*digest)(void);
+    /* What a frame may do outside the guest (cartridge save writes, fallback recording): off for silent frames, and for a
+     * guest's cartridge save during the whole session. NULL: none. */
+    void (*side_effects)(bool allowed);
+    /* A run-changing option the host pushes before frame 0, from the machine's declared list. false: cannot honour it. */
+    bool (*session_option)(const char *key, const char *value);
+    /* This PC's values of those options as "key=value" lines separated by '\n' (plain ASCII, what session_option takes),
+     * written into `out` (at most `capacity` bytes), returning the length: the host's are sent to every seat and locked for the
+     * match (Arthur, 17 Nov 2026: the options that change the run are the host's, never forced off). NULL: none. */
+    size_t (*session_options)(char *out, size_t capacity);
+    /* The game's own saves in a session (cartridge battery, memory card, EEPROM, a disk's save files): the host's travel to every
+     * seat for the match (Arthur, 17 Nov 2026). session_save writes this PC's save image into `out` and returns its size
+     * (`out` NULL: only the size; 0: none; at most RRHK_SESSION_MAX_SAVE). session_save_put makes the machine play on the
+     * host's bytes, in memory only (a guest never writes its own save), before the boot digest and after a restart. NULL:
+     * none (each seat keeps its own, and two different saves are refused by the boot digest). */
+    size_t (*session_save)(void *out, size_t capacity);
+    bool (*session_save_put)(const void *in, size_t size);
+    /* The host, when a match ends cleanly (it ended, or the host closed the room or quit its game; never after a desync, a
+     * refused boot or a lost connection): write the machine's save as it is now in memory to this PC's own save file, the one
+     * the game reads alone, atomically (a temporary file, then a rename) and keeping the previous file as a one-step backup.
+     * Nobody writes a save file during a match: the kit holds every seat's side effects off from SETUP to the end (Arthur,
+     * 19 Nov 2026: « Oui, réécris la carte de l'hôte à la fin »). true: written (the host is told). NULL: the machine has no
+     * save to write back. */
+    bool (*session_save_commit)(void);
+    /* The session starts (after SETUP and its options, before the boot digest and frame 0): a machine with a real-time clock
+     * sets it from `clock` (seconds since 1970, the same on every seat) instead of this PC's time, here and at every restart
+     * of the session. NULL: nothing to do. */
+    void (*session_begin)(uint64_t clock);
+    bool session_no_restart;          /* the machine cannot restart inside a session (its restart relaunches the process): the kit
+                                       * refuses Shift+F1 and the pad's Restart there with a notice, and asks nothing of the others */
+    /* A computer whose keyboard the host may type on in a session (session ABI 9; Arthur, 19 Nov 2026: the host types, guests
+     * stay on their pads): the keys this PC types now, packed with rrhk_keys_pack into `bits` (RRHK_SESSION_KEY_BYTES), when its
+     * keyboard mode (Ctrl+Alt+K) is on; false when it is off. Called for the host's LOCAL only. Every seat, the host
+     * included, then types what rrhk_session_keys gives for the frame. NULL: a machine without a keyboard. */
+    bool (*session_keys)(uint8_t *bits);
+    /* A handheld whose link cable plays in a session (docs/MULTIPLAYER.md, the link contract of 20 Nov 2026): the most consoles
+     * it can run linked (2, or 4), 0 for none. The kit then says RRHK_CAP_LINK in HELLO; in a link session
+     * (rrhk_session_link()) the adapter runs rrhk_session_ports() consoles, console i reading port i's pad, all of them in its
+     * snapshots and digest in seat order, and shows and hears console rrhk_session_seat(). */
+    int link_consoles;
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
@@ -389,7 +444,43 @@ void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);
 /* 1.7.5: an options row with its own icon (RR_ICON_ROW_*); rrhk_option_row lets the kit choose by the row's key (D20). */
 void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);
+/* The same row for an option that changes the run (keep it in line with RrhkMachine.session_option): in a multiplayer
+ * session the host sets it, the row is faded and its key refused with a notice. */
+void rrhk_option_row_run(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);
 extern const RrhkPage rrhk_pointer_page;
+
+/* Multiplayer: true only while the game plays in a session the converter started (hostkit_session.h); silent while a frame is
+ * re-simulated (an adapter that delivers its own sound drops that frame's). */
+bool rrhk_session_active(void);
+bool rrhk_session_silent(void);
+/* In a session: this seat is a guest (the host sets the options of the match and types on a computer, a guest does not). */
+bool rrhk_session_guest(void);
+/* Session ABI 9, a computer's keyboard: the host's keys of the frame being run, unpacked into `state` (SDL_NUM_SCANCODES bytes,
+ * 1 for a key held); false (and `state` all zero) when the host does not type this frame. */
+bool rrhk_session_keys(uint8_t *state);
+/* A link session (SETUP said RRHK_SETUP_LINK, known before session_begin): one console per seat, rrhk_session_ports() of them. */
+bool rrhk_session_link(void);
+/* The shared controls of a session (session ABI 9), for the F2 tiles, a pad combination and the badge: the mode in force
+ * (RRHK_SHARING_*, -1 outside a session or before the worker said it), the seat holding them in turns (-1: none), this
+ * PC's seat, the seats and their names. rrhk_session_pass: the holder passes to the next seat (to = -1), the host gives them
+ * to seat `to` (or passes too); rrhk_session_set_sharing: the host switches everyone / turns. false: not asked (a notice
+ * says why); the change itself comes back from the worker at the same frame on every PC. */
+int rrhk_session_sharing(void);
+int rrhk_session_holder(void);
+int rrhk_session_seat(void);
+int rrhk_session_seats(void);
+const char *rrhk_session_seat_name(int seat);
+bool rrhk_session_pass(int to);
+bool rrhk_session_set_sharing(int mode);
+#define RRHK_SESSION_KEY_BYTES 16     /* hostkit_session.h RRHK_KEY_BYTES */
+/* The typing keys of `state` (SDL_GetKeyboardState's array) as RRHK_SESSION_KEY_BYTES bits, and back. */
+void rrhk_keys_pack(const uint8_t *state, uint8_t *bits);
+void rrhk_keys_unpack(const uint8_t *bits, uint8_t *state);
+/* The ports of the session's frames (SETUP: one per seat, or one in input sharing), 0 outside a session. A machine whose
+ * extra-player adapter changes how the game reads its pads plugs it in from session_begin only when the session needs more
+ * pads than the machine has without it (a SNES multitap from 3, a PC Engine one from 2), so a match plays as the game alone
+ * does with that many players. */
+int rrhk_session_ports(void);
 
 /* Each adapter returns its machine; the link has exactly one. */
 const RrhkMachine *rrhk_adapter(void);

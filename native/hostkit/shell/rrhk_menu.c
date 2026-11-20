@@ -13,6 +13,7 @@
 #include "retro_keyboard.h"
 #include "runtime_feedback.h"
 #include "hostkit/hostkit_internal.h"
+#include "hostkit/hostkit_session.h"
 
 void rrhk_menu_line(const RrhkMenuCtx *ctx, int y, const char *text) {
     rr_menu_text(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, 14, y, text, RR_MENU_GOLD);
@@ -128,14 +129,75 @@ enum { HUB_COLUMNS = 5, HUB_LINES = 2, TILE_W = 44, TILE_H = 40, TILE_GAP = 2 };
 static int hub_tile, hub_parent, hub_first_line;
 static bool from_hub;
 static bool quit_yes;
+static bool asking_relaunch;          /* the question asks « Change this option? » (rrhk_relaunch_ask, below) */
+static void relaunch_back(bool yes);
 
-/* 1.7.6: a machine with a graphics page (D14) has one tile more: it opens that page, which comes back to the tiles. 1.8.1: the
- * last tile quits, through the one "Quit? No / Yes" (No selected); No and Esc come back to the tiles. */
-static int hub_tiles(void) { return rrhk_pages_count() + (rrhk.machine->gfx_option_count > 0 ? 1 : 0) + 1; }
-static bool hub_exit_tile(int tile) { return tile == hub_tiles() - 1; }
+/* 1.7.6: a machine with a graphics page (D14) has one tile more: it opens that page, which comes back to the tiles. Multiplayer:
+ * the Chat tile (in a session only). 1.8.1: the last tile quits, through the one "Quit? No / Yes" (No selected); No and Esc
+ * come back to the tiles; the one before it restarts the game (Arthur, 19 Nov 2026). The order: ..., Graphics, Chat, Restart,
+ * Quit (Quit stays last everywhere). */
+/* Restart: what Shift+F1 and the pad's Restart combination do, through the same path (rrhk_hub_take_restart, read by the loop).
+ * In multiplayer only the host has the tile (it restarts every seat at the same frame); a guest, and a machine that cannot
+ * restart inside a session (the N64), have none. */
+static bool hub_restart_offered(void) {
+    return !rrhk_session_active() || (!rrhk_session_guest() && !rrhk.machine->session_no_restart);
+}
+static bool restart_asked;
+bool rrhk_hub_take_restart(void) { const bool asked = restart_asked; restart_asked = false; return asked; }
+/* The tiles after the pages, in their order: Graphics, Chat, then (multiplayer in turns, session ABI 9) Pass the controller for
+ * the player who holds it, Give the controller (the host, to any seat) and Everyone at once / Take turns (the host, in a match
+ * with shared controls), then Restart and Quit, last everywhere (Arthur, 20 Nov 2026). The calls are the kit's
+ * (rrhk_session_pass, rrhk_session_set_sharing); what they change comes back from the worker on every seat. */
+enum { HUB_GRAPHICS = -3, HUB_CHAT = -4, HUB_QUIT = -5, HUB_RESTART = -6, HUB_PASS = -7, HUB_GIVE = -8, HUB_SHARING = -9,
+       HUB_EXTRAS = 8 };
+static int hub_extras(int kinds[HUB_EXTRAS]) {
+    int n = 0;
+    const int sharing = rrhk_session_sharing(), holder = rrhk_session_holder();
+    const bool host = rrhk_session_active() && !rrhk_session_guest();
+    if (rrhk.machine->gfx_option_count > 0) kinds[n++] = HUB_GRAPHICS;
+    if (rrhk_chat_offered()) kinds[n++] = HUB_CHAT;
+    if (holder >= 0 && holder == rrhk_session_seat()) kinds[n++] = HUB_PASS;
+    if (host && holder >= 0 && rrhk_session_seats() > 1) kinds[n++] = HUB_GIVE;
+    if (host && (sharing == RRHK_SHARING_EVERYONE || sharing == RRHK_SHARING_TURNS)) kinds[n++] = HUB_SHARING;
+    if (hub_restart_offered()) kinds[n++] = HUB_RESTART;
+    kinds[n++] = HUB_QUIT;
+    return n;
+}
+static int hub_tiles(void) { int kinds[HUB_EXTRAS]; return rrhk_pages_count() + hub_extras(kinds); }
+/* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), or one of the
+ * tiles after the pages (HUB_*). */
+static int hub_kind(int tile) {
+    const int pages = rrhk_pages_count();
+    if (tile >= pages) {
+        int kinds[HUB_EXTRAS];
+        const int count = hub_extras(kinds);
+        return tile - pages < count ? kinds[tile - pages] : HUB_QUIT;
+    }
+    const int controls = 2 * rrhk.machine->players();
+    return tile < controls ? tile : tile == pages - 1 ? -2 : -1;
+}
+static void hub_leave(void) { rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false; }
+static int give_row;
 static void hub_open(int tile) {
-    if (hub_exit_tile(tile)) { rrhk_quit_ask(); return; }
-    if (tile >= rrhk_pages_count()) { rrhk_open_graphics(); return; }
+    const int kind = hub_kind(tile);
+    if (kind == HUB_QUIT) { rrhk_quit_ask(); return; }
+    if (kind == HUB_RESTART) { hub_leave(); restart_asked = true; return; }   /* the loop restarts at its next frame */
+    /* Multiplayer: the Chat tile closes the menu (the pause it asked for ends) and opens the chat's entry, with the on-screen
+     * keyboard when player 1 has a gamepad. */
+    if (kind == HUB_CHAT) { hub_leave(); rrhk_chat_begin(rrhk.pads[0] != NULL); return; }
+    if (kind == HUB_PASS) { hub_leave(); rrhk_session_pass(-1); return; }
+    if (kind == HUB_SHARING) {
+        hub_leave();
+        rrhk_session_set_sharing(rrhk_session_sharing() == RRHK_SHARING_TURNS ? RRHK_SHARING_EVERYONE : RRHK_SHARING_TURNS);
+        return;
+    }
+    if (kind == HUB_GIVE) {             /* the chooser: the next seat after the holder is selected */
+        const int seats = rrhk_session_seats();
+        give_row = seats > 0 ? (rrhk_session_holder() + 1) % seats : 0;
+        rrhk.menu = RRHK_MENU_GIVE; rrhk.parent_menu = 0;
+        return;
+    }
+    if (kind == HUB_GRAPHICS) { rrhk_open_graphics(); return; }
     int control;
     rrhk.menu = rrhk_pages_goto(tile, &control);
     rrhk.player = control / 2; rrhk.gamepad_page = control % 2;
@@ -152,20 +214,16 @@ void rrhk_hub_key(SDL_Scancode key) {
     else if (key == SDL_SCANCODE_DOWN && hub_tile / HUB_COLUMNS < (tiles - 1) / HUB_COLUMNS) hub_tile = tiles - 1;   /* a shorter last line */
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) hub_open(hub_tile);
 }
-/* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), the graphics page
- * (-3, 1.7.6), Quit (-5, 1.8.1). */
-static int hub_kind(int tile) {
-    if (hub_exit_tile(tile)) return -5;
-    const int controls = 2 * rrhk.machine->players();
-    return tile < controls ? tile : tile >= rrhk_pages_count() ? -3 : tile == rrhk_pages_count() - 1 ? -2 : -1;
-}
 static void hub_draw(const RrhkMenuCtx *ctx) {
     const RrhkMachine *m = rrhk.machine;
     SDL_Renderer *ren = ctx->renderer;
     const int ox = ctx->ox, oy = ctx->oy, unit = ctx->unit;
     const int tiles = hub_tiles(), lines = (tiles + HUB_COLUMNS - 1) / HUB_COLUMNS;
     if (hub_tile < 0 || hub_tile >= tiles) hub_tile = 0;
-    rr_menu_header(ren, ox, oy, unit, rr_tr("Controls"), NULL);
+    /* A link session (the handhelds' cable, 1.8.1): every PC runs every console; the subtitle says which one is this player's. */
+    char seat_line[40] = "";
+    if (rrhk_session_link() && rrhk_session_seat() >= 0) snprintf(seat_line, sizeof seat_line, rr_tr("You are P%d"), rrhk_session_seat() + 1);
+    rr_menu_header(ren, ox, oy, unit, rr_tr("Controls"), seat_line[0] ? seat_line : NULL);
     /* 1.8.1: two lines of tiles fit over the name of the selected one; past them (four players, a graphics page and Quit: three
      * lines) the tiles scroll, two lines around the selected one, ^ and v at the right edge when more lie above or below. */
     const int shown = lines < HUB_LINES ? lines : HUB_LINES;
@@ -191,7 +249,8 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
             rr_menu_box(ren, ox, oy, unit, x, y, TILE_W, TILE_H, RR_MENU_SHADE, 255);
             rr_menu_box(ren, ox, oy, unit, x + 1, y + 1, TILE_W - 2, TILE_H - 2, 26, 24, 20, 255);
         }
-        const int icon = kind == -5 ? RR_ICON_EXIT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
+        const int icon = kind == HUB_PASS ? RR_ICON_PASS : kind == HUB_GIVE ? RR_ICON_GIVE : kind == HUB_SHARING ? RR_ICON_SHARING :
+            kind == -6 ? RR_ICON_RESTART : kind == -5 ? RR_ICON_EXIT : kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
             kind % 2 ? RR_ICON_GAMEPAD : RR_ICON_KEYBOARD;
         rr_menu_icon(ren, ox, oy, unit, x + (TILE_W - rr_menu_icon_width(icon)) / 2, y + (kind >= 0 ? 4 : 11), icon, !selected);
         if (kind >= 0) {
@@ -208,7 +267,9 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     if (kind >= 0) snprintf(title, sizeof title, rr_tr(kind % 2 ? "Player %d - Gamepad" : "Player %d - Keyboard"), kind / 2 + 1);
     else {
         /* A page's title names the converter ("Retro-Recomp - Gun"): under the tiles the page alone is named. */
-        const char *name = rr_tr(kind == -5 ? "Quit the game" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
+        const char *name = rr_tr(kind == HUB_PASS ? "Pass the controller" : kind == HUB_GIVE ? "Give the controller" :
+                                 kind == HUB_SHARING ? (rrhk_session_sharing() == RRHK_SHARING_TURNS ? "Everyone at once" : "Take turns") :
+                                 kind == -6 ? "Restart the game" : kind == -5 ? "Quit the game" : kind == -4 ? "Chat" : kind == -3 ? "Retro-Recomp - Graphics" : kind == -2 ? "Options" : m->page->title);
         if (!strncmp(name, "Retro-Recomp - ", 15)) name += 15;
         snprintf(title, sizeof title, "%s", name);
     }
@@ -239,16 +300,83 @@ void rrhk_toggle_settings(void) {
 
 /* Esc, B: back to the menu this one was opened from (the tiles for one of their pages), or to the game. */
 void rrhk_close_menu(void) {
+    if (rrhk.menu == RRHK_MENU_GIVE) { rrhk.menu = RRHK_MENU_HUB; rrhk.parent_menu = 0; return; }
+    if (rrhk.menu == RRHK_MENU_QUIT && asking_relaunch) { relaunch_back(false); return; }
     if (rrhk.menu == RRHK_MENU_HUB) { rrhk.menu = hub_parent; hub_parent = 0; rrhk.parent_menu = 0; from_hub = false; return; }
     if (from_hub && rrhk_pages_open(rrhk.menu)) { rrhk.menu = RRHK_MENU_HUB; rrhk.parent_menu = 0; return; }
     rrhk.menu = rrhk.parent_menu;
     rrhk.parent_menu = 0;
 }
 
+/* ---- Give the controller (1.8.1, turns): the host chooses the seat; Enter gives, Esc and B come back to the tiles ---- */
+void rrhk_give_key(SDL_Scancode key) {
+    const int seats = rrhk_session_seats();
+    if (seats <= 0) { rrhk_close_menu(); return; }
+    if (key == SDL_SCANCODE_UP || key == SDL_SCANCODE_LEFT) give_row = (give_row + seats - 1) % seats;
+    else if (key == SDL_SCANCODE_DOWN || key == SDL_SCANCODE_RIGHT) give_row = (give_row + 1) % seats;
+    else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) {
+        hub_leave();
+        rrhk_session_pass(give_row);
+    }
+}
+static void give_draw(SDL_Renderer *ren, int ox, int oy, int unit) {
+    const int seats = rrhk_session_seats(), holder = rrhk_session_holder();
+    const int X = 48, W = 160, H = 30 + 14 * (seats > 0 ? seats : 1), Y = (192 - H) / 2;
+    SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(ren, 0, 0, 0, 150); SDL_RenderFillRect(ren, NULL);
+    rr_menu_box(ren, ox, oy, unit, X - 1, Y - 1, W + 2, H + 2, RR_MENU_SHADE, 255);
+    rr_menu_box(ren, ox, oy, unit, X, Y, W, H, RR_MENU_PANEL_RGB, 255);
+    rr_menu_box(ren, ox, oy, unit, X - 1, Y - 1, W + 2, 2, RR_MENU_GOLD, 255);
+    rr_menu_icon(ren, ox, oy, unit, X + 6, Y + 6, RR_ICON_GIVE, false);
+    const char *title = rr_tr("Give the controller");
+    rr_menu_text_fit(ren, ox, oy, unit, X + 42, Y + 10, W - 48, title, RR_MENU_GOLD);
+    char row[80];
+    for (int i = 0; i < seats; ++i) {
+        const int y = Y + 28 + i * 14;
+        snprintf(row, sizeof row, "P%d  %s", i + 1, rrhk_session_seat_name(i));
+        if (i == give_row) {
+            rr_menu_box(ren, ox, oy, unit, X + 8, y - 2, W - 16, 13, RR_MENU_ACCENT, 255);
+            rr_menu_box(ren, ox, oy, unit, X + 9, y - 1, W - 18, 11, RR_MENU_SELECT, 255);
+        }
+        rr_menu_text_fit(ren, ox, oy, unit, X + 14, y, W - 40, row, i == give_row ? RR_MENU_ACCENT : RR_MENU_HINT);
+        if (i == holder) rr_menu_text_plain(ren, ox, oy, unit, X + W - 22, y, 12, "*", RR_MENU_GOLD);   /* has it now */
+    }
+}
+
 /* ---- Quit? (1.7.4): Esc in play and the Quit combination ask before the game closes ----
  * Drawn by the kit like every menu, never a window of the system. "No" is selected when it opens. */
+/* The question has two kinds: Quit (above) and, in a multiplayer session (ABI 9), the host's « Change this option? » before a
+ * key that changes the run relaunches the match for everyone (Arthur, 20 Nov 2026). Its No (or Esc, B) drops the key; its Yes
+ * gives the same key back to the loop once (SDL_PushEvent), which then goes on to the machine exactly as before: the session
+ * sees the options change and relaunches. A machine page that changes the run (DIP switches) asks once while it is open. */
+static bool relaunch_pass, relaunch_page_ok;
+static SDL_Scancode relaunch_key;
+static int relaunch_menu, relaunch_parent;
+bool rrhk_relaunch_ask(SDL_Scancode key) {
+    if (relaunch_pass && key == relaunch_key) { relaunch_pass = false; return false; }
+    if (rrhk.menu == RRHK_MENU_PAGE && relaunch_page_ok) return false;
+    if (rrhk.menu == RRHK_MENU_QUIT) return true;
+    relaunch_key = key; relaunch_menu = rrhk.menu; relaunch_parent = rrhk.parent_menu;
+    asking_relaunch = true; quit_yes = false;
+    rrhk.menu = RRHK_MENU_QUIT; rrhk.capturing = 0;
+    return true;
+}
+/* No, Esc or B on the relaunch question: back where the key was pressed, nothing changed. */
+static void relaunch_back(bool yes) {
+    rrhk.menu = relaunch_menu; rrhk.parent_menu = relaunch_parent; asking_relaunch = false;
+    if (!yes) return;
+    if (relaunch_menu == RRHK_MENU_PAGE) relaunch_page_ok = true;
+    relaunch_pass = true;
+    SDL_Event again;
+    SDL_zero(again);
+    again.type = SDL_KEYDOWN; again.key.state = SDL_PRESSED; again.key.keysym.scancode = relaunch_key;
+    SDL_PushEvent(&again);
+}
+bool rrhk_relaunch_asking(void) { return asking_relaunch; }
+
 void rrhk_quit_ask(void) {
     if (rrhk.menu == RRHK_MENU_QUIT) return;
+    asking_relaunch = false;
     /* No and Esc come back to the Pause menu or (1.8.1) to the F2 tiles it was asked from, else to the game */
     rrhk.parent_menu = rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_HUB ? rrhk.menu : 0;
     rrhk.menu = RRHK_MENU_QUIT; rrhk.capturing = 0;
@@ -258,26 +386,36 @@ void rrhk_quit_ask(void) {
 bool rrhk_quit_key(SDL_Scancode key) {
     if (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_UP || key == SDL_SCANCODE_DOWN) quit_yes = !quit_yes;
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) {
+        if (asking_relaunch) { relaunch_back(quit_yes); return false; }
         if (quit_yes) return true;
         rrhk_close_menu();
     }
     return false;
 }
 static void quit_draw(SDL_Renderer *ren, int ox, int oy, int unit) {
-    enum { X = 58, Y = 62, W = 140, H = 62 };
-    char title[48];
+    /* In a network match (1.8.1) the question says what Yes does: the host ends the match, a guest leaves it, and either way
+     * it ends for everyone (a guest's leave is BYE_LEFT, which stops the match for all). The box is wider and taller there. */
+    const bool session = rrhk_session_active() || asking_relaunch;
+    const int X = session ? 33 : 58, Y = session ? 58 : 62, W = session ? 190 : 140, H = session ? 70 : 62;
+    const char *word = rr_tr(asking_relaunch ? "Change this option" : !session ? "Quit" :
+                             rrhk_session_guest() ? "Leave the match" : "End the match");
+    char title[64];
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 150); SDL_RenderFillRect(ren, NULL);
     rr_menu_box(ren, ox, oy, unit, X - 1, Y - 1, W + 2, H + 2, RR_MENU_SHADE, 255);
     rr_menu_box(ren, ox, oy, unit, X, Y, W, H, RR_MENU_PANEL_RGB, 255);
     rr_menu_box(ren, ox, oy, unit, X - 1, Y - 1, W + 2, 2, RR_MENU_GOLD, 255);
     rr_menu_icon(ren, ox, oy, unit, X + 8, Y + 9, RR_ICON_LOGO, false);
-    snprintf(title, sizeof title, "%s ?", rr_tr("Quit"));
-    if (rr_menu_block_width(title, 2) > W - 50) snprintf(title, sizeof title, "%s", rr_tr("Quit"));
+    snprintf(title, sizeof title, "%s ?", word);
+    if (rr_menu_block_width(title, 2) > W - 50 && rr_menu_block_width(title, 1) > W - 50) snprintf(title, sizeof title, "%s", word);
     rr_menu_block(ren, ox, oy, unit, X + 42, Y + 14, rr_menu_block_width(title, 2) > W - 50 ? 1 : 2, title, RR_MENU_GOLD);
+    if (session) {
+        const char *line = rr_tr(asking_relaunch ? "The game restarts for everyone." : "It ends for everyone.");
+        rr_menu_block(ren, ox, oy, unit, X + (W - rr_menu_block_width(line, 1)) / 2, Y + 32, 1, line, RR_MENU_HINT);
+    }
     for (int i = 0; i < 2; ++i) {
         const bool selected = (i == 1) == quit_yes;
-        const int x = X + 16 + i * 58, y = Y + 38;
+        const int x = X + (W - 108) / 2 + i * 58, y = Y + (session ? 46 : 38);
         const char *label = rr_tr(i ? "Yes" : "No");
         const int width = rr_menu_block_width(label, 1);
         if (selected) {
@@ -332,8 +470,9 @@ static void help_line(const RrhkMenuCtx *ctx, int y, const char *text) {
 void rrhk_menu_draw(SDL_Renderer *ren) {
     const RrhkMachine *m = rrhk.machine;
     /* A menu left another way (a quick state loaded, a restart, the help opened over a page) forgets the tiles. */
-    if (rrhk.menu != RRHK_MENU_HUB && rrhk.menu != RRHK_MENU_GRAPHICS && !rrhk_pages_open(rrhk.menu) &&
-        !(rrhk.menu == RRHK_MENU_QUIT && rrhk.parent_menu == RRHK_MENU_HUB)) { from_hub = false; hub_parent = 0; }
+    if (rrhk.menu != RRHK_MENU_HUB && rrhk.menu != RRHK_MENU_GRAPHICS && rrhk.menu != RRHK_MENU_GIVE && !rrhk_pages_open(rrhk.menu) &&
+        !(rrhk.menu == RRHK_MENU_QUIT && (rrhk.parent_menu == RRHK_MENU_HUB || asking_relaunch))) { from_hub = false; hub_parent = 0; }
+    if (rrhk.menu != RRHK_MENU_PAGE && !(rrhk.menu == RRHK_MENU_QUIT && asking_relaunch)) relaunch_page_ok = false;
     if (!rrhk.menu) {
         if (rrhk.paused) {      /* F11 (X68000): the picture stays under the word */
             int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
@@ -354,6 +493,10 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
     RrhkMenuCtx ctx = {ren, 0, 0, 0};
     rr_menu_layout(ren, &ctx.ox, &ctx.oy, &ctx.unit);
     const int ox = ctx.ox, oy = ctx.oy, unit = ctx.unit;
+    if (rrhk.menu == RRHK_MENU_GIVE) {
+        give_draw(ren, ox, oy, unit);
+        return;
+    }
     if (rrhk.menu == RRHK_MENU_QUIT) {      /* over the game picture, or over the Pause menu it was asked from */
         quit_draw(ren, ox, oy, unit);
         return;
@@ -380,7 +523,9 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         const char *lines[16]; int count = 0;
         char fire[64];
         snprintf(fire, sizeof(fire), rr_tr("F6  Autofire: %s"), rr_tr(rrhk.autofire ? "ON" : "OFF"));
-        lines[count++] = rr_tr("F1  Help | Shift+F1 Restart");
+        /* In a multiplayer session the keys refused there are left out (Tab, the Max speed key; F8/F9 and Shift+F1 for a
+         * guest: the host saves, loads and restarts for everyone). */
+        lines[count++] = rr_tr(rrhk_session_guest() ? "F1  Help" : "F1  Help | Shift+F1 Restart");
         lines[count++] = rr_tr("F2  Controls & options");
         lines[count++] = rr_tr(m->gfx_option_count > 0 ? "F3  Graphics options" : "F3  Next filter");
         lines[count++] = rr_tr("F4  Window / Pixel / Fit / Stretched");
@@ -391,9 +536,10 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
          * its own, then two of controls) still ends inside the panel. */
         char states[120];
         snprintf(states, sizeof states, "%s | %s", rr_tr("F8  Save game state"), rr_tr("F9  Load game state"));
-        lines[count++] = states;
+        if (!rrhk_session_on || rrhk_session_states()) lines[count++] = states;     /* in a session: the host's, for everyone */
         if (m->help_lines) m->help_lines(1, lines, &count);
-        lines[count++] = rr_tr("Tab  Fast-forward | `  Max speed | M  Mute");   /* decision D12: on every console */
+        lines[count++] = rr_tr(rrhk_session_on ? "M  Mute | Y  Chat" : "Tab  Fast-forward | `  Max speed | M  Mute");   /* D12 */
+        if (rrhk_session_on && !m->keyboard_pad) lines[count++] = rr_tr("R3+Select  Chat on the gamepad");
         lines[count++] = rr_feedback_label();
         lines[count++] = rrhk_tr("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)");
         int y = 36;

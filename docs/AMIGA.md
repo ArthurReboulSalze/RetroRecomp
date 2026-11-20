@@ -18,7 +18,7 @@ core's interpreter; it cannot be compared with the figures of a machine whose ga
 | --- | --- |
 | Amiga 500 (68000, OCS/ECS) games installed for WHDLoad: one `.lha` archive holding exactly one `.Slave` and the game's files or `Disk.N` images | Installs that need a 512 KiB Kickstart (3.x, 12 of the library's installs without a 68020/AGA flag); the installs that also need resload calls the layer lacks stop with the call's number |
 | Installs that need a Kickstart 1.3 (in the slave header or through `resload_LoadKick`), with the player's own image chosen in Options (section 2a). First milestone: about 230 of the library's installs ask for Kickstart 1.x and no resload service the layer lacked (1,280 ask for 1.3 in all); `resload_Examine`, `ExNext` and `ListFiles` are answered too: none of the Kickstart installs converted through the converter calls them (the five of section 3 and the 1.7.1 checks); tested on authored data only | Kickstart 1.2 installs (17; the same path, not run yet) |
-| The joystick (port 2, two buttons); port 1, the mouse (captured on a click) or, since 1.7.5, the second player's joystick (the device used last holds the port, as when a mouse is unplugged for a two-player game; « Mouse port » on player 2's pad page keeps it on one); the keyboard; quick states (F8/F9) and the files an install saves | ADF disk images, IPF, hard-disk images, Amiga 1200 (68020, AGA), CD32, CDTV |
+| The joystick (port 2, two buttons); port 1, the mouse (captured on a click) or, since 1.7.5, the second player's joystick (the device used last holds the port, as when a mouse is unplugged for a two-player game; « Mouse port » on player 2's pad page keeps it on one; the game itself chooses one or two players in its own menu, as the F1 help says); the keyboard; quick states (F8/F9) and the files an install saves | ADF disk images, IPF, hard-disk images, Amiga 1200 (68020, AGA), CD32, CDTV |
 | Windows; Linux (`linux = 'witnessed'`): two conversions checked on a Debian 13 PC with the system GCC (9 November 2026, routes of 3,000 frames; Rick Dangerous: 0 interpreted; Civilization, with the player's Kickstart: 19, all the Kickstart's; both validated on both routes, compressed copy and quick state included, every frame compared equal to the Windows run of the same inputs), not played there | A panel on Linux: two installs were run there, none played |
 | | Qualified shared paths: the Amiga shares its paths since 1.7.5, none is qualified in the base yet |
 
@@ -360,3 +360,29 @@ they stay `P`; no gate was relaxed for the exit.
 Not converted: ADF disk images, the CD32. Known: AGA super-hires at half its detail. Code past the routes runs interpreted, counted and
 shown; the hardware is vAmiga's (Alice, Lisa, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is
 claimed. The slow RAM at `$C00000` is kept as it is, on the owner's decision of 16 November 2026 (« Ok, on garde comme ça, note-le »).
+
+## 8. Multiplayer (next release)
+
+Both Amigas play in a multiplayer session at the NES's level: the rollback tier and the host's F8 / F9 for everyone (Arthur, 17 November
+2026: « pour les consoles à sprite, j'aimerais quand même atteindre ce qu'on arrive à faire avec la NES… Y compris pour de l'Amiga »).
+
+- **What the session carries.** The two joysticks (port 2, and port 1, which holds the joystick for the whole match) and Start, the
+  guest's Return key. The keyboard and the mouse are not carried yet, so a mouse game is not for a session.
+- **The snapshot** (`rr_amiga_snap_*`, in memory only, one per frame on the rollback tier) is the whole machine: vAmiga's state through
+  its own serialiser without its per-component checksums, the sound path, the resload state, the inputs and the keyboard's held keys,
+  and the session's saves. No allocation per call. About 2.2 MB on the Amiga 500 and 3.7 MB on the Amiga 1200 (the boot ROM, the same on every
+  seat and never written, is left out); its time is not measured yet.
+- **Saves.** The host's saves travel to every seat for the match (Arthur's rule of 17 November 2026): a guest plays on the host's
+  save files instead of its own, in memory only. What the game saves during the match stays in memory (inside the snapshot, so a
+  rollback takes it back) and no seat writes it during the match. When the match ends cleanly (it ended, or the host closed the room or
+  quit its game), the host writes it back to its own save folder once (Arthur, 19 November 2026: « Oui, réécris la carte de l'hôte à
+  la fin »): only the files that changed, each one's previous bytes kept first in `saves.bak/` beside the folder. A guest never writes,
+  and nothing is written after a desync, a refused boot or a lost connection.
+- **The CPU speed** (x1, x2, x4) changes the run: the host's value is played by every seat, and the F2 row is refused during the match
+  (Arthur, 17 November 2026: « Cette partie-là devra être synchro par l'hôte »).
+- **Restart.** The host's restart takes every seat back to the state the session started with; alone, a restart still starts the process
+  again.
+- **Proof.** `tools/amiga_rollback_selftest.py` on an authored slave (both models), a headless `--rollback-check` of Lotus 2 (native
+  code), and two copies of Lotus 2 on the rollback tier with the host's save, load and restart (`tools/netplay_game_smoke.py`); the
+  same on All New World of Lemmings for the Amiga 1200; details
+  in [UPGRADES.md](UPGRADES.md#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release). Physical latency is not measured.

@@ -18,6 +18,7 @@ from . import __version__, timings
 from .library import atomic_json
 from .report_schema import write_report
 from .console16_state import MD_PORTABLE_STATE_ABI
+from .snes_multitap import multitap_pads
 from .snes_chips import device_entry
 from . import hostkit, megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart, snes_cart
 
@@ -563,6 +564,18 @@ def _notice(engine: Path, system_id: str) -> str:
         extra += [('Color-science core ' + name, read(engine / 'third_party/psxrecomp_color_lut' / name))
                   for name in ('LICENSE-MIT.txt', 'LICENSE-APACHE-2.0.txt', 'LICENSE-POLYFORM-NONCOMMERCIAL-1.0.0.txt')]
     return notice_text(system_id, extra=extra)
+
+
+def md_multitap(rom) -> dict:
+    from .megadrive_multitap import detect
+    return detect(rom)
+
+
+def md_controls(rom) -> str:
+    found = md_multitap(rom)
+    adapter = {'team_player_and_4_way_play': ' (players 3 and 4 through the Team Player or the 4 Way Play the game asks for)',
+               'j_cart': " (players 3 and 4 through the cartridge's J-Cart ports)"}.get(found['multitap'], '')
+    return f"players 1 to {found['players']}{adapter}: three- or six-button pads as the cartridge declares"
 
 
 def _md_scan_script(directory: Path, frames: int, *, six_buttons=False, gun_menu=None) -> Path:
@@ -1155,15 +1168,23 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'qualification_scope': ({
             'routes': 'the pad routes of the scan level (pseudo-random and authored), not a full playthrough',
             'coprocessors': 'SA-1, Super FX and CX4 programs are interpreted and counted per device; DSP-1 and S-DD1 run as command models',
+            # The pads the game reads: two, or the number of its entry on the reviewed Super Multitap list (retrorecomp/snes_multitap.py),
+            # which is read in a multiplayer room of three or four seats. The list is third-party data: no game was played with four pads.
+            'controls': (f'players 1 to {multitap_pads(rom.sha256)}: pad, Start, Select; Super Multitap (reviewed list, not played with '
+                         'that many pads, in a room of three or four seats)' if multitap_pads(rom.sha256) else
+                         'players 1 to 2: pad, Start, Select'),
             'universal_zero_fallback_claim': False} if system_id == 'snes' else {
             'routes': 'the pad routes of the scan level (attract, play, varied input, pseudo-random and authored), '
                       'not a full playthrough',
             'cartridge_hardware': 'standard linear cartridges, the Sega 512 KiB mapper and three serial EEPROM families; '
                                   'other boards are refused or converted with a stated limit',
+            # "players 1 to N" is what the multiplayer lobby seats (netplay/lobby_check.players_in_report).
+            'controls': md_controls(rom),
             'universal_zero_fallback_claim': False}),
-        # The Mega Drive host takes two pads (native/hostkit/adapters/rrhk_md.c: table_players and players()); the pad is three or
+        # The Mega Drive host takes two pads, four in a game made for a multitap (megadrive_multitap.detect; rrhk_md.c:
+        # table_players and players() from RR_MD_PLAYERS); the pad is three or
         # six buttons as the cartridge profile says (`six_buttons` above); a gun is the catalogue's (guns16.gun_game).
-        **({'input_players': 2} if system_id == 'md' else {}),
+        **({'input_players': md_multitap(rom)['players'], 'multitap': md_multitap(rom)['multitap']} if system_id == 'md' else {}),
         'peripheral': (({'pad': 'six_button' if six_buttons else 'three_button', 'gun_device': gun.device if gun else None,
                          **({'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else {})})
                        if system_id == 'md' else ({'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None)),

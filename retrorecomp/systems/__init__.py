@@ -104,7 +104,12 @@ class OptionKey:
     'flag' (on or off), 'path' (a file the player supplies, saved relative to the export folder), 'choice' (one
     of ``choices``), 'count' (a number of workers, never shown) or 'plan' (a table the converter passes to
     itself, never shown). ``label`` is the interface string key of the control, or the text itself where no
-    key exists; ``hint`` the key of its tooltip; ``default`` the value used when nothing was chosen."""
+    key exists; ``hint`` the key of its tooltip; ``default`` the value used when nothing was chosen.
+
+    ``changes_run`` is True for an option that changes what the exported game computes frame by frame (a RAM
+    size, a timer mode), as opposed to how the conversion searches, checks or presents it: such an option is
+    part of the simulation identity (retrorecomp/simulation_identity.py). A 'path' option never is: a file is
+    known by its contents, never by where the player keeps it."""
     name: str
     signature: bool = True
     kind: str = 'flag'
@@ -112,6 +117,23 @@ class OptionKey:
     hint: str = ''
     choices: tuple = ()
     default: object = None
+    changes_run: bool = False
+
+
+@dataclass(frozen=True)
+class SimulationSource:
+    """Per-game generated files that decide what a game computes, as the simulation identity hashes them
+    (retrorecomp/simulation_identity.py): the translated code, the per-game tables and machine settings.
+
+    ``pattern`` is a glob below the game's build project (``build_cleanup.report_project``), with forward slashes.
+    ``drop`` names the lines left out of a file that also carries presentation (a line holding one of these words:
+    the title, the converter version). ``keep``, a regular expression, is for a file of which only some values
+    change the run: its matches alone are hashed, in the order found. Never listed: the embedded ROM or firmware
+    (known by its SHA-256), icons, covers, resources, notices, build trees, and the files every game of one engine
+    stamp shares."""
+    pattern: str
+    drop: tuple[str, ...] = ()
+    keep: str = ''
 
 
 @dataclass(frozen=True)
@@ -179,6 +201,9 @@ class SystemProfile(ABC):
     option_keys: tuple[OptionKey, ...] = ()
     # The option (one of option_keys) that carries the batch's worker count.
     parallel_games_option: str | None = None
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py). A machine that
+    # translates code and lists none gets no identity (None, with the reason), never a weaker one.
+    simulation_sources: tuple[SimulationSource, ...] = ()
     # The game's key in the paths banks is only known once a conversion has run (Neo Geo: a ZIP set
     # has no prepared cartridge before). The batch then computes the request parts again before it
     # writes the receipt, so that the receipt carries what the conversion used.
@@ -210,6 +235,21 @@ class SystemProfile(ABC):
     optional_notice_files: tuple[str, ...] = ()
     # False for a program that is not built on the common player shell: it then names every notice itself.
     shell_notices: bool = True
+    # Multiplayer (retrorecomp/netplay, the multiplayer branch). `netplay_session`: the export answers a session (its host-kit
+    # adapter gives a digest, so two copies can be compared): the converter offers it in the Multiplayer window and the
+    # Compiled Games right-click. `netplay_portable`: its mixed-build gate passed (two exports of one dump differing only by
+    # their learned paths compute the same frames), so the lobby compares them without the learned paths and nobody
+    # recompiles; raise it only with a passed gate (.build/multiplayer/MIXED_BUILD_GATE.md). `netplay_seats`: the players a
+    # room seats in one controller per player (`netplay_seats_ceiling`: the most a board has; its report and HELLO say the
+    # game's own). `netplay_shared_only`: one set of controls (the handhelds): input sharing only.
+    netplay_session: bool = False
+    netplay_portable: bool = False
+    netplay_seats: int = 2
+    netplay_seats_ceiling: bool = False
+    netplay_shared_only: bool = False
+    # `netplay_link_seats`: the link cable plays in a session with that many consoles (one per seat, every PC running all of
+    # them: the link contract of 20 Nov 2026); 0 until the machine's link is proven two seats on one PC.
+    netplay_link_seats: int = 0
 
     @property
     def declared_notice_files(self) -> tuple[str, ...]:
@@ -234,6 +274,11 @@ class SystemProfile(ABC):
     def request_identity(self, item, options: dict, settings: dict) -> None:
         """Add the console's own identity (firmware, machine) to the request
         settings that are about to be hashed. Most consoles have none."""
+
+    def simulation_files(self, project: Path) -> tuple[SimulationSource, ...]:
+        """The simulation sources of one finished conversion, given its build project: ``simulation_sources``, unless
+        the machine must read the project to know which generated folder was compiled (PC Engine)."""
+        return self.simulation_sources
 
     def available(self) -> bool:
         """True when this installation can convert the machine (True unless ``developer_only``)."""

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import Capabilities, Cpu, OptionKey, SystemProfile
+from . import Capabilities, Cpu, OptionKey, SimulationSource, SystemProfile
 from ..z80_chain import Z80Machine, Z80RegionMap
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
@@ -38,6 +38,13 @@ BIOS_BOUNDS = (0x8000, 0xC000)
 
 class MsxProfile(SystemProfile):
     id = 'msx'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The MSX2 and the MSX2+ inherit the list.
+    simulation_sources = (SimulationSource('generated/game_banked_index.c'),
+                          SimulationSource('generated/game_banked_ops_*.c'),
+                          SimulationSource('generated/game_banked.h'),
+                          SimulationSource('msx_banked_loop.inc'),
+                          SimulationSource('msx_game.h', drop=('RR_MSX_TITLE',)),)
     name = 'MSX'
     extensions = ('.mx1',)
     archived_rom_limits = (('.mx1', 0x200000),)
@@ -55,6 +62,9 @@ class MsxProfile(SystemProfile):
     option_keys = (OptionKey('msx_bios', signature=False, kind='path', label='msx_bios_label'),)
     capabilities = Capabilities(keyboard=True)
     quick_state_family = 'msx'
+    # Multiplayer (rollback tier): the adapter gives a digest and in-process snapshots (msx_snapshot.inc), the MSX2 and the
+    # MSX2+ inherit it. Joystick games: the keyboard is not carried in a session yet.
+    netplay_session = True
     host_adapter = 'adapters/rrhk_msx.inc'
     linux = 'witnessed'   # Nemesis (MSX1) and Metal Gear (MSX2) converted headless on a Debian 13 PC, 12 November 2026: same report fields as Windows, quick states pass; not played in a window there
     # Its kind in native/runtime_feedback.h (RR_FB_MSX), reserved: nothing is recorded for path sharing, which the MSX declines (docs/MSX.md, section 7).
@@ -123,7 +133,7 @@ class Msx2Profile(MsxProfile):
     firmware = ('bios', 'subrom')
     option_keys = (OptionKey('msx2_bios', signature=False, kind='path', label='msx2_bios_label'),
                    OptionKey('msx2_subrom', signature=False, kind='path', label='msx2_subrom_label'),
-                   OptionKey('msx2_ram', kind='choice', label='msx2_ram_label', choices=(128, 256, 512), default=256))
+                   OptionKey('msx2_ram', kind='choice', label='msx2_ram_label', choices=(128, 256, 512), default=256, changes_run=True))
     quick_state_family = 'msx2'
     feedback_kinds = frozenset({27})                     # RR_FB_MSX2, reserved as the MSX's
     path_spec = PathSpec(order=17, sections=(('z80', 'msx2'),),
@@ -221,7 +231,7 @@ class Msx2PlusProfile(Msx2Profile):
                   'and disk ROM')
     option_keys = (OptionKey('msx2plus_bios', signature=False, kind='path', label='msx2plus_bios_label'),
                    OptionKey('msx2plus_subrom', signature=False, kind='path', label='msx2plus_subrom_label'),
-                   OptionKey('msx2plus_ram', kind='choice', label='msx2plus_ram_label', choices=(128, 256, 512), default=256),
+                   OptionKey('msx2plus_ram', kind='choice', label='msx2plus_ram_label', choices=(128, 256, 512), default=256, changes_run=True),
                    OptionKey('msx2plus_diskrom', signature=False, kind='path', label='msx2plus_diskrom_label'),
                    OptionKey('msx2plus_fmbios', signature=False, kind='path', label='msx2plus_fmbios_label'),
                    OptionKey('msx2plus_kanji', signature=False, kind='path', label='msx2plus_kanji_label'))

@@ -1,5 +1,16 @@
 # RetroRecomp, next release (in preparation)
 
+- **Multiplayer.** Play a converted game with friends: one PC hosts a room, the others join with an invitation, and each
+  player has their own controller, up to four (the NES Four Score, the Mega Drive's Team Player, 4 Way Play and J-Cart, the
+  Super Nintendo and PC Engine multitaps, the CPS boards, the Nintendo 64), or everyone shares the controls on the
+  handhelds. Every machine plays: the 2D consoles, the arcade boards and the computers on the smooth (rollback) mode, the
+  PlayStation, the Nintendo 64 and the Game Boy Advance on the delay mode. The host restarts, saves and loads (F8, F9)
+  for everyone, for that match only; the host's game saves and the settings that change the run (PGXP, the Amiga's CPU
+  speed, the Neo Geo's boost, the CPS DIP switches…) are everyone's for the match; a chat is built into the game (Y, or
+  R3 + Select on the gamepad). Rooms are for the local network or a VPN between friends (Tailscale, ZeroTier). Every
+  export is converted again once for this release. Physical latency is not measured. See [MULTIPLAYER.md](MULTIPLAYER.md).
+- **PC Engine: the second pad works in a local two-player game** (the multitap is plugged for every game built for two
+  players or more).
 - **The converter: the Front-end opens in the window.** The **Front-end** button no longer switches to full screen by itself:
   a **Full screen** button appears left of it while the front-end is open (X on the gamepad and F11 still switch too).
   **Options › Common** can still start Retro-Recomp straight in the front-end in full screen.

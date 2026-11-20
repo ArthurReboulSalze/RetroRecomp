@@ -13,7 +13,7 @@ from . import __version__, hostkit
 
 
 def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str,
-                 *, standard: str = 'ntsc', zapper: bool = False, mapper: int | None = None) -> None:
+                 *, standard: str = 'ntsc', zapper: bool = False, mapper: int | None = None, four_score: bool = False) -> None:
     machine = prepare_machine(project, engine)
     native = stage_native(project, ASSETS / 'native')
     kit = ' '.join(hostkit.stage(project, 'nes'))   # the player shell, below the project (docs/HOST_KIT.md)
@@ -71,7 +71,53 @@ def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str,
         '    }')
     # Headless hooks exercise the same codec and file I/O as F8/F9, including
     # resume in a fresh process. They never run during normal GUI startup.
+    host = replace_once(host, '    if (!save_load(save_file,0) || !save_load(datach_save,1)) return 2;',
+        '    retro_commit_file = save_file; retro_commit_datach = datach_save;\n'
+        '    if (!save_load(save_file,0) || !save_load(datach_save,1)) return 2;')
     host = replace_once(host, 'int main(int argc, char **argv) {', '''
+/* Multiplayer (session ABI 8, session_save_commit): when a match ends cleanly the host's own save files are written back once
+ * from the machine's memory, atomically (save_write: a temporary file, then a rename), the previous file kept as <file>.bak. A
+ * file already equal to the memory, or a blank memory with no file yet, is left alone, as at the end of a game played alone. */
+static const char *retro_commit_file, *retro_commit_datach;
+static bool retro_file_equals(const char *path, const uint8_t *bytes, size_t n) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+    uint8_t *disk = (uint8_t *)malloc(n);
+    bool same = disk && fread(disk, 1, n, f) == n && fgetc(f) == EOF && !memcmp(disk, bytes, n);
+    free(disk); fclose(f);
+    return same;
+}
+static bool retro_backup(const char *path) {
+    FILE *in = fopen(path, "rb");
+    if (!in) return errno == ENOENT;
+    char backup[4200]; snprintf(backup, sizeof backup, "%s.bak", path);
+    FILE *out = fopen(backup, "wb"); bool ok = out != NULL; char chunk[4096]; size_t n;
+    while (ok && (n = fread(chunk, 1, sizeof chunk, in)) > 0) ok = fwrite(chunk, 1, n, out) == n;
+    ok = ok && !ferror(in); fclose(in);
+    if (out && fclose(out) != 0) ok = false;
+    return ok;
+}
+bool rr_nes_session_save_commit(void) {
+    rr_nes_saves_allowed(true);
+    bool ok = true;
+    for (unsigned region = 0; region < 2; ++region) {
+        const char *path = region ? retro_commit_datach : retro_commit_file;
+        const size_t n = cyc_nvram_size(region);
+        if (!path || !n) continue;
+        uint8_t *now = (uint8_t *)malloc(n);
+        if (!now || !cyc_nvram_export(region, now, n)) { free(now); ok = false; continue; }
+        FILE *probe = fopen(path, "rb");
+        const bool exists = probe != NULL;
+        if (probe) fclose(probe);
+        const bool blank_new = !exists && region == 0 && retro_auto_save && retro_initial_save &&
+                               n == retro_initial_size && !memcmp(now, retro_initial_save, n);
+        if (!blank_new && !(exists && retro_file_equals(path, now, n)))
+            ok = (!exists || retro_backup(path)) && save_write(path, region) && ok;
+        free(now);
+    }
+    rr_nes_saves_allowed(false);
+    return ok;
+}
 static bool retro_quick_file(const char *name, bool load) {
     wchar_t path[32768];
     if (!rr_from_utf8(name, path, 32768)) return false;
@@ -142,6 +188,8 @@ int main(int argc, char **argv) {
     (project / 'cyc_host.c').write_text(host, encoding='utf-8')
     saves = (engine / 'runner/cyc/cyc_save.inc').read_text(encoding='utf-8')
     saves = replace_once(saves, '    bool ok=cyc_nvram_export(region,buffer,n);\n    int fd=-1;',
+        # A guest of a multiplayer session plays on the host's save and writes none of its own.
+        '    if (rr_nes_saves_blocked()) { free(buffer); free(temporary); return true; }\n'
         '    bool ok=cyc_nvram_export(region,buffer,n);\n'
         '    if (ok && retro_auto_save && region == 0 && retro_initial_save &&\n'
         '        n == retro_initial_size && memcmp(buffer,retro_initial_save,n) == 0) {\n'
@@ -168,7 +216,7 @@ add_library(nes_hardware OBJECT ${{NESRECOMP_CYC_SOURCES}})
 target_include_directories(nes_hardware PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} ${{RETRO_NATIVE_DIR}} "${{CMAKE_CURRENT_SOURCE_DIR}}")
 target_compile_features(nes_hardware PRIVATE c_std_11)
 target_compile_definitions(nes_hardware PRIVATE _CRT_SECURE_NO_WARNINGS CYC_WITH_SDL
-    RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
+    RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)} RR_NES_FOUR_SCORE={int(four_score)})
 add_executable(game $<TARGET_OBJECTS:nes_hardware> ${{CYC_PROJECT_SOURCES}}
     cyc_host.c {kit}
     ${{RETRO_NATIVE_DIR}}/nes_state.c
@@ -185,7 +233,7 @@ target_link_libraries(game PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
 target_compile_features(game PRIVATE c_std_11)
 target_compile_definitions(game PRIVATE _CRT_SECURE_NO_WARNINGS CYC_WITH_SDL)
 target_compile_definitions(game PRIVATE [[RR_RECOMP_VERSION="{__version__}"]])
-target_compile_definitions(game PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
+target_compile_definitions(game PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)} RR_NES_FOUR_SCORE={int(four_score)})
 if(MSVC)
     target_compile_options(game PRIVATE /bigobj /utf-8)
     target_compile_options(nes_hardware PRIVATE /bigobj /utf-8)
@@ -218,7 +266,7 @@ if(UNIX AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_library(nes_training_code OBJECT EXCLUDE_FROM_ALL ${{CYC_PROJECT_SOURCES}})
     target_include_directories(nes_training_code PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} ${{RETRO_NATIVE_DIR}} "${{CMAKE_CURRENT_SOURCE_DIR}}")
     target_compile_features(nes_training_code PRIVATE c_std_11)
-    target_compile_definitions(nes_training_code PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
+    target_compile_definitions(nes_training_code PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)} RR_NES_FOUR_SCORE={int(four_score)})
     set_property(TARGET nes_training_code PROPERTY INTERPROCEDURAL_OPTIMIZATION FALSE)
     add_executable(nes_profile EXCLUDE_FROM_ALL $<TARGET_OBJECTS:nes_hardware> $<TARGET_OBJECTS:nes_training_code>
         "${{NESRECOMP_CYC_DIR}}/cyc_host.c"

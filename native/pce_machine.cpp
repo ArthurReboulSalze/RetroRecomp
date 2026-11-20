@@ -4,6 +4,7 @@
 // out the picture, the PCM, the counters and in-memory checkpoints. Nothing of the engine is patched.
 // Original RetroRecomp code: MIT. The engine keeps its own MIT terms (licenses/pcenginerecomp.md).
 #include "pce_machine.h"
+#include "pce_machine_internal.hpp"
 
 #include "pce/cartridge.hpp"
 #include "pce/checkpoint.hpp"
@@ -221,6 +222,11 @@ void pce_machine_set_recorder(void (*note)(uint32_t pc, const uint8_t *bytes, un
     recorded.clear();
 }
 
+void pce_machine_plug_multitap(int plugged) {
+    recipe.multitap = plugged != 0;
+    if (machine) machine->bus.joypad.set_multitap(recipe.multitap);
+}
+
 void pce_machine_policy(int value) {
     policy = value == PCE_POLICY_REFERENCE ? pce::ExecutionPolicy::interpreter_only
            : value == PCE_POLICY_NATIVE_ONLY ? pce::ExecutionPolicy::native_only : pce::ExecutionPolicy::hybrid;
@@ -391,3 +397,13 @@ void pce_machine_shutdown(void) {
 }
 
 }  // extern "C"
+
+// The snapshot's view of the machine (pce_machine_internal.hpp, native/pce_snapshot.cpp).
+namespace pce_bridge {
+pce::Bus *bus() { return machine ? &machine->bus : nullptr; }
+pce::Cpu *cpu() { return machine ? &machine->cpu : nullptr; }
+std::uint64_t &frame_count() { return frames; }
+std::uint64_t &cropped_count() { return cropped_frames; }
+void published_sequence_is(std::uint64_t value) { last_sequence = value; }
+void drop_audio() { audio.clear(); }
+}  // namespace pce_bridge

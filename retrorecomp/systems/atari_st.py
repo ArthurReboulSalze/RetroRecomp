@@ -11,7 +11,7 @@ the STE, the Mega STE, the TT and the Falcon, hard disks, the monochrome monitor
 """
 from pathlib import Path
 
-from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile, UnsupportedConsoleError
 from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape, SharedKnowledge
 
 # Where the 68000 of an ST runs code: the ST RAM (up to 4 MiB), the cartridge area and the TOS ROM of a 192 KiB TOS.
@@ -20,6 +20,12 @@ APERTURES = ((0, 0x400000, 0x400000), (0xFA0000, 0xFC0000, 0xFC0000), (0xFC0000,
 
 class AtariStProfile(SystemProfile):
     id = 'atarist'
+    netplay_session = True       # the host kit's adapter gives a digest, an in-process snapshot and a restart in place (multiplayer rollback)
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    # The payload header carries the timer D choice and the program started from the desktop.
+    simulation_sources = (SimulationSource('native/steps/*.c'),
+                          SimulationSource('native/step_semantics.h'),
+                          SimulationSource('payload/atarist_payload.h', drop=('RR_ST_GAME_TITLE', 'RR_ST_SOURCES_NAME')),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/hatari.md',)
     # Only a game that uses it embeds it.
@@ -41,7 +47,7 @@ class AtariStProfile(SystemProfile):
     # part of the request signature.
     option_keys = (OptionKey('atarist_tos', signature=False, kind='path', label='atarist_tos_label'),
                    OptionKey('atarist_timer_d', kind='choice', label='atarist_timer_d_label', hint='tip_atarist_timer_d',
-                             choices=('auto', 'patched', 'exact'), default='auto'))
+                             choices=('auto', 'patched', 'exact'), default='auto', changes_run=True))
     quick_state_family = 'atarist'
     capabilities = Capabilities(mouse=True, keyboard=True, disks=True)
     linux = 'witnessed'

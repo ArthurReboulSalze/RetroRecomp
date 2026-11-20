@@ -460,6 +460,12 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      '      DR[31] = LZCR;\n',
      '      DR[30] = _LZCS;\n'
      '      DR[31] = _LZCR;\n'),
+    # The sound RAM, read by the multiplayer digest (psx_session.c, rr_psx_digest): Beetle keeps it static in this file.
+    ('mednafen/psx/spu.c',
+     'static uint16_t SPURAM[524288 / sizeof(uint16_t)];\n',
+     'static uint16_t SPURAM[524288 / sizeof(uint16_t)];\n'
+     '/* Retro-Recomp modification (GPL-2.0, like this file): the sound RAM, read for the multiplayer digest. */\n'
+     'const uint16_t *rr_psx_spu_ram(void) { return SPURAM; }\n'),
 ]
 
 

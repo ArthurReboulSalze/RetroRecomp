@@ -297,3 +297,62 @@ GPU programs drawing what a console drew, and shared paths.
   the last one until the next frame (the owner's report of 15 November 2026: « dès que je switch de moteur […] le jeu se ferme
   tout de suite »).
 
+## 10. Multiplayer: the digest and the host's settings (next release, delay tier)
+
+On the multiplayer branch (`spec/psx-mp-digest`). The PlayStation gives the host kit a **digest** (`rr_psx_digest`,
+`psx_session.c`): FNV-1a 64 over, in this order, the R3000A's state and the GTE's 64 registers (each word little-endian), the 2 MiB
+of RAM, the 1 KiB scratchpad, the 512 KiB of sound RAM (halfwords little-endian; read through one anchored line of Beetle's
+`spu.c`) and the memory card of slot 1. No VRAM: the CPU renderer's copy grows with its internal resolution. It plays on the
+**delay tier** (no in-process snapshot); the sticks travel with the pads (session ABI 7: four values per player, the
+DualShock's own 8-bit precision), and the profile answers a session (`netplay_session`).
+
+**What a match makes the same on every seat.**
+- **The memory card: the host's.** The host's card travels to every seat before the boot digest (session ABI 8, `session_save` and
+  `session_save_put`): every seat plays on it in memory, and no seat writes a card file during the match, the host included. When
+  the match ends cleanly, the host's card, with what was saved together, is written back to the host's own card file
+  (`session_save_commit`; the owner, 19 November 2026: « Oui, réécris la carte de l'hôte à la fin »), atomically, the file it
+  replaces kept as `<card>.bak`; never after a desync, a refused boot or a lost connection, and never a guest's. No seat reads its
+  card file again during the match; the host's restart carries the card as it is at that frame, the same on every seat, into the
+  machine started again.
+- **The host's settings that change the run**, sent before frame 0; a guest's F3 refuses them during the match (« Set by the
+  host in multiplayer »), the host changes them (session ABI 9: its choice is kept as alone and not applied in this match; the kit
+  sees its options differ before the next frame and the match starts again for everyone with them, its renderer included, a
+  power-on as a restart): `pgxp` and `pgxp_texture` (the owner, 17 November 2026: PGXP is not turned off, the host sets it for everyone);
+  `cpu_resolution` (1, 2 or 4: the CPU renderer's internal resolution changes the emulated drawing time; the host sends 1 when its
+  card draws, and a seat whose card draws switches to the CPU when the host's is more); `renderer` (card or CPU), sent only when
+  the host's PGXP is On. A host that sends nothing: the export's defaults on every seat (PGXP and its textures On, the CPU at 1x).
+- **Not during a match**: switching the renderer on a guest, or the multisampling on any seat (both open the core again through
+  a quick state; the host's renderer starts the match again instead, above), and the Analog button (it is not in the pad words a
+  session carries).
+- **Each seat's own**: the card's resolution, anti-aliasing and texture filtering, dithering, aspect and crop.
+
+**What it rests on** (17 November 2026, Ape Escape, 3,300 frames headless, a digest every 60 frames as the session takes them,
+`--match` playing as a match does):
+- The same run twice: 56 of 56 digests equal, PGXP Off and PGXP On.
+- With PGXP Off, a card seat at 4x with MSAA 4x and a CPU seat at 1x: equal. Dithering Off and the native dithering on the CPU:
+  equal.
+- Measured as changing the run, and therefore set by the host: PGXP (9 of 56 digests differ, from frame 2,520), the CPU at 2x
+  (53 of 56, from frame 180), and with PGXP On the renderer (card against CPU, 9 of 56, from frame 2,460; card seats at 1x, 4x and
+  4x with MSAA 4x equal among themselves).
+- Each setting pushed reaches the run of the seat it would otherwise differ from: a card seat sent the CPU at 2x, a CPU seat sent
+  `renderer=card` and a card seat sent `renderer=cpu` with PGXP On, each 56 of 56 digests equal.
+- The card is in the digest: played alone, a card file of other bytes gives other digests from the first one.
+- The host's card through the session (19 November 2026, Gran Turismo 2 with the owner's own card, which holds his save; delay 2,
+  3,000 frames, the host's restart at frame 600): PASS, both seats boot on the same digest, which differs from the boot without a
+  card; only the host's folder holds a card file, and the owner's card is unchanged (its hash before and after).
+- The write-back (19 November 2026, WipEout 2097, the save route of gate G7 played by the host through the session: OPTIONS,
+  LOAD AND SAVE, SAVE; delay 2, 5,400 frames, the owner's empty formatted card as the host's): PASS, the host's card file after
+  the match equals the card a solo run of the same route writes, its `.bak` equals the card it started from, the guest's folder
+  holds no card file, and the owner's card is unchanged.
+- Windows against Linux: Ape Escape converted in WSL Debian with GCC and played as a match on the CPU renderer gives the same 56
+  digests as the Windows build (llvm-mingw), with PGXP On and with PGXP Off (PGXP's floating-point arithmetic included).
+- Two copies through the session (`tools/netplay_game_smoke.py`, delay 2, 3,000 frames, scripted pads, the host's values on
+  both seats): PASS with PGXP On and the card, PGXP On and the CPU, and PGXP Off; boot digests and the 50 digests equal on both
+  seats every time, and the three runs' digests differ from one another (the host's values reach the run).
+- The sticks (session ABI 8, `--sticks`: the scripted pads move four int8 values): PASS over 3,000 and 7,200 frames with PGXP On
+  and the card. A temporary probe of the adapter (not kept) showed the same sticks and pad words reaching the machine on both
+  seats. Ape Escape's run over those frames did not depend on them (its digests equal the run without sticks), while the
+  scripted buttons did change it (32 of 50 digests differ from a run with no input): the pad was in digital mode there.
+- 0 interpreted instructions in every match run.
+Not shown yet: two PCs, a stretch of play whose run depends on the sticks, and a Linux graphics card with PGXP On (WSL has none
+the game accepts).

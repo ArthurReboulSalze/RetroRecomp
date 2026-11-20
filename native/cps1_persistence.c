@@ -51,6 +51,7 @@ static uint8_t snapshot[PAYLOAD_MAX];
 static size_t snapshot_size;
 static unsigned generation, written;           /* both under the lock; generation 0 is "nothing changed yet" */
 static bool worker_started;
+static bool effects_allowed = true;     /* hostkit.h side_effects: a silent frame and a guest ask for no file */
 #ifdef _WIN32
 static HANDLE worker;
 #else
@@ -196,14 +197,56 @@ bool rr_cps1_save_begin(void)
     return !flag_load(&blocked);
 }
 
+void rr_cps1_save_side_effects(bool allowed) { effects_allowed = allowed; }
+
 void rr_cps1_save_frame(void)
 {
-    if (!active || flag_load(&blocked) || !cps1_eeprom_changed()) return;
+    if (!active) return;
+    const bool changed = cps1_eeprom_changed() != 0;        /* the flag is taken on every frame, whatever the frame may do */
+    if (!changed || !effects_allowed || flag_load(&blocked)) return;
     acquire();
     memcpy(snapshot, cps1_eeprom_data(), snapshot_size);
     ++generation;
     release();
     if (!worker_started) worker_started = start_worker();
+}
+
+/* The previous file is kept whole as `<file>.bak` (temporary file, flush, rename: a failure leaves the old backup and the file as they were). */
+static bool backup_previous(void)
+{
+    FILE *file = rr_fopen(save_path, L"rb");
+    if (!file) return true;                                     /* no previous file: nothing to keep */
+    uint8_t old[HEADER + PAYLOAD_MAX + 16];
+    const size_t count = fread(old, 1, sizeof old, file);
+    const bool whole = fgetc(file) == EOF && !ferror(file) && count > 0;
+    fclose(file);
+    if (!whole) return false;
+    wchar_t backup[32768], temporary[32768];
+    rr_wide_copy(backup, 32768, save_path);
+    if (rr_wide_append(backup, 32768, L".bak")) return false;
+    swprintf(temporary, 32768, L"%ls.%lu.tmp", backup, rr_process_id());
+    FILE *out = rr_fopen(temporary, L"wb");
+    if (!out) return false;
+    bool okay = fwrite(old, 1, count, out) == count;
+    if (okay) okay = rr_flush_file(out);
+    if (fclose(out)) okay = false;
+    if (okay) okay = rr_replace(temporary, backup);
+    if (!okay) rr_remove(temporary);
+    return okay;
+}
+
+/* The host's save, written back once when a match ends cleanly (hostkit.h session_save_commit): the EEPROM as it is in memory, over the
+ * file the game reads alone, atomically, the previous file kept as `.bak`. A file that could not be used at the start (damaged, another
+ * set) is never written over. */
+bool rr_cps1_save_commit(void)
+{
+    if (!active || flag_load(&blocked)) return false;
+    const size_t size = cps1_eeprom_size();
+    if (!size || size > PAYLOAD_MAX || !backup_previous()) return false;
+    if (!write_atomic(cps1_eeprom_data(), size)) return false;
+    fprintf(stderr, "[cps1] the host's save written back: %u bytes, digest %016llx\n", (unsigned)size,
+            (unsigned long long)hash(cps1_eeprom_data(), size));
+    return true;
 }
 
 bool rr_cps1_save_close(void)

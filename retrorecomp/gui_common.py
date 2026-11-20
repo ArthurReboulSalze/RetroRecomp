@@ -155,4 +155,6 @@ INTERFACE_PREFERENCES = ('coverage_default_revision', 'gb_validation_default_rev
                          # The « Box art not found » window (gui_covers): asked by the window, never by a converter.
                          'ask_missing_cover',
                          # Games converted at once per console: the window cuts the queue by it.
-                         'console_jobs')
+                         'console_jobs',
+                         # A guest's « Ready automatically » in the Multiplayer window, never read by a converter.
+                         'multiplayer_auto_ready')

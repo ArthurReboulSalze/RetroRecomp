@@ -245,6 +245,32 @@ picture at 1x, 2x and 4x with and without Scale2x read back from the renderer, r
 key and button, then the same machine with every new field left out (F3 cycles the filters, the left stick is the
 directions, no dead zone row, no rumble, no disc).
 
+### 2.5 Multiplayer sessions (session ABI 8)
+
+A game is in a session only when the converter's worker starts it with its two pipes (`RETRORECOMP_NETPLAY_PIPE`,
+`hostkit_session.h`); alone, none of this runs and the only cost is one flag test a frame. In a session the game decides
+nothing: once a frame it reports its local pad (LOCAL) and runs what the worker says (RUN, live or silent), saves and loads
+snapshots of its own ring, gives digests, pauses and shows notices. The rules a machine's adapter follows, with the fields
+of `RrhkMachine` that carry them:
+
+| Field or call | What the machine gives |
+|---|---|
+| `digest` | its deterministic state as named fields in a fixed byte order, the same on Windows and Linux. Without it the machine is not offered. |
+| `snap_bound`, `snap_save`, `snap_load` | the whole state that decides future frames, in memory, no allocation per call, valid after any frame and complete at once on load (the kit may ask a digest or a save right after a load). With them the match plays on the rollback tier and the host's F8 / F9 work for everyone; without them, the delay tier. |
+| `run_frame` | every input of the frame, players 3 and 4 included (`rrhk_pad_word(2/3)`), is read here: a silent frame calls `run_frame` only, never `before_frame`. |
+| `driven` | a machine whose guest owns its loop takes silent frames too: `rrhk_frame_done` returns as for a live frame, the guest runs one frame, and its next `rrhk_frame_done` ends it without a picture. It must call `rrhk_frame_done` on a complete state. |
+| `side_effects` | cartridge-save writes, recordings and rumble only when allowed: never in a silent frame, never on a guest. |
+| `session_options`, `session_option` | the run-changing options as `key=value` lines: the host's go to every seat at SETUP and are locked for the match (F-keys and rows of those options are refused). |
+| `session_save`, `session_save_put` | the game's own save image (battery, EEPROM, memory card, save files): the host's is handed to every guest before SETUP and played in memory only. |
+| `session_begin` | the session's clock (1 January 2000 UTC on every seat) for a machine with a real-time clock, at SETUP and after a restart. |
+| `stick_actions` | the actions that push the left stick from keys: the kit folds them into the sticks this PC sends (sticks travel as int8, the original pads' precision). |
+| `session_no_restart` | a machine whose restart relaunches its process: the kit refuses the restart in a session with a notice. |
+| `rrhk_session_ports()` | the ports of the session, for an extra-player adapter plugged only when the session needs it (a multitap). |
+
+The kit refuses a session for a game that reads a pointer or a light gun (not carried yet). A computer's keyboard bindings
+feed the pad words like a pad's; the computer adapter gives its guest no key of this PC in a session. The public page is
+[MULTIPLAYER.md](MULTIPLAYER.md).
+
 ## 3. Behaviour: one rule per divergence
 
 Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour. A
@@ -572,6 +598,7 @@ X68000 too, without asking again**.
     timing report (`RETRORECOMP_TIMING_REPORT`) and stderr give the mode, the measured refresh, the decision and the cadence of
     the locked frames (how many refreshes each was held), never a latency. A 2:1 lock for 120 Hz screens, frame delay and
     run-ahead are not part of 1.7.7 (`vsync-study-177`, sections 5 to 7).
+  * 1.8.1: the kit's ring no longer bypasses at a base of 1.0; it is always regulated ([D33](#d33)).
 
 * <a id="d31"></a>**D31 — The pad's Options button opens the F2 tiles; Quit is their last tile** (owner's words of 17 November
   2026, « Oui, lance »; on the Exit tile: « comme on l'avait déjà fait une fois […] c'était la bonne manière »), on every machine
@@ -588,6 +615,44 @@ X68000 too, without asking again**.
   two lines of tiles (four players, a machine page, a graphics page and Quit make three) the tiles scroll, two lines around the
   selected one, ^ and v at the right edge. The menu canvas (256 x 192) fits every machine's window at the kit's default scale
   (a Game Boy or Game Gear opens at 480 x 432); a window made smaller than the canvas cuts every menu, as before.
+
+* <a id="d32"></a>**D32 — A Restart the game tile in F2** (owner's request of 19 November 2026, after the first multiplayer test), on
+  every machine on the kit. The tile before Quit (D31), **Restart the game** (a circle closed by its arrow, `RR_ICON_RESTART`),
+  goes back to the game and restarts it through the same path as the pad's Restart combination (`rrhk_hub_take_restart`, read by
+  the loop): alone, the machine's `reset`, without a confirmation, like Shift+F1; in a multiplayer session, the host's restart of
+  every seat at the same frame (`rrhk_session_restart`, the session's existing restart). A guest has no such tile (only the host
+  restarts), nor does a machine that cannot restart inside a session (`session_no_restart`, the Nintendo 64) while a session runs.
+  In a session the host also confirms an option that relaunches the match (session ABI 9): a key or an options row that changes
+  the run asks **Change this option? The game restarts for everyone.** in the same question box as Quit, No selected; No, Esc
+  or B drop the key, Yes gives it back once (`rrhk_relaunch_ask`), and a machine page that changes the run (DIP switches) asks
+  once while it is open. The pace (` Max speed) stays refused in a session; a guest's run keys stay refused.
+
+* <a id="d33"></a>**D33 — Turns in the F2 tiles, and the turn badge** (owner's request of 20 November 2026, session ABI 9), in a
+  multiplayer match whose controls are shared. Before Restart and Quit the tiles add, when they apply: **Pass the controller**
+  (the seat that holds it, `rrhk_session_pass(-1)`), **Give the controller** (the host, in turns: a short list of the seats'
+  names, the holder marked, Enter gives, Esc comes back to the tiles; `RRHK_MENU_GIVE`) and **Everyone at once / Take turns**
+  (the host, the mode it switches to, `rrhk_session_set_sharing`); the change comes back from the worker on every seat. The
+  turn plate at the top right (« Turn: Nadia », gold « Your turn ») is there for every seat as long as the match is in turns,
+  from who holds the controls (`rrhk_session_holder`), bright for two seconds after a change; the options row **Turn badge**
+  (in a session, `[Interface] turn_badge`) hides it. No pad combination for the pass yet.
+* <a id="d33"></a>**D33 — The kit's sound ring is always regulated** (owner's yes of 19 November 2026, through the lead, after
+  Tekken 3 crackled a little alone on his PC, more on the ThinkPad, and a lot together), for the six machines on the ring model
+  (D5): **NES, Game Boy / Game Boy Color, PC Engine, Game Boy Advance, Nintendo 64, PlayStation**. Until then, D30's base of
+  exactly 1.0 (a game not locked to the display, so nearly always) left the ring's PCM byte for byte the machine's: the PC's clock
+  paces the frames and the sound card's clock pulls the sound, the two differ by tens of ppm, and a frame late by a hitch came
+  back as a burst of two; the ring's fill drifted or jumped to a trim (sound thrown away, 21 ms of room above its reserve) or a
+  gap (silence while the reserve fills again), both heard as a crackle. Now every block goes through `rr_drc_resample` at D30's
+  base (1.0, machine_hz / refresh_hz when locked, 1 + ppm in a multiplayer session) with `rr_drc_ratio`'s correction from the
+  ring's fill against its target (the start reserve plus 8 ms), at most 0.5 %; the resampler is restarted only by a clear,
+  never by a change of base; the trim bound has 80 ms more room and a trim no longer raises the reserve.
+  * For a player: the sound's speed (and pitch) moves by at most 0.5 % (about 9 cents), usually about 0.01 % (the two clocks'
+    difference), in place of the clicks; no latency is added on average (the fill is held at the target; the 80 ms are a ceiling
+    before a trim, not a delay); the linear interpolation softens the highest frequencies slightly. Physical latency stays
+    unmeasured. The queue model (D5's other machines) and the machines with their own device keep D30 as it was.
+  * Proof: `tools/nes_audio_selftest.py` now pins the regulated ring (160 authored timelines with the sound card's clock at 0,
+    +1,000 and -1,000 ppm: in order, nothing lost or inserted, no gap, no trim, the length within 0.5 % of the machine's; the
+    resets and the stereo case with the channels apart); the counts of the ring's closing line (gaps, trims, clears) on Tekken 3
+    are in UPGRADES.md.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

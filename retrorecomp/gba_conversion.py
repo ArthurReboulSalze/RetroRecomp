@@ -141,7 +141,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
              set_aside: str = '', _state: dict | None = None, **options) -> Path:
     """Convert one cartridge with the pinned engine. With `output` the player is built and returned (the report goes
     to `output`, the batch publishes the executable: compaction, the games folder); `player=False`, or no `output`, returns the headless probe host (the report goes to the project)."""
-    from . import gba_analysis as analysis, gba_build as build, gba_engine as engine, gba_knowledge, gba_patches, knowledge, path_profiles, timings
+    from . import gba_analysis as analysis, gba_build as build, gba_engine as engine, gba_knowledge, gba_link, gba_patches, knowledge, path_profiles, timings
     from .conversion_common import check_run_budget, resolve_scan_level, write_if_changed
     from .core import slug, toolchain
     from .delivery_evidence import report_fields
@@ -200,6 +200,8 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
              f"({received_info['qualified_by_the_base']} qualified by the base, {received_info['pending']} pending"
              + (f", {received_info['left_out_by_the_cap']['roots']} roots left out by the cap" if received_info['left_out_by_the_cap']['roots'] else '')
              + '); this conversion checks them and qualifies none.')
+    # The roots of the link cable (gba_link): reviewed data of this cartridge, built with the rest, never written to the player's own paths nor shared (they are not observed here).
+    link_roots = gba_link.roots(rom.sha256)
     scripts = project / 'scripts'
     scenarios = [('boot', min(frames, BOOT_FRAMES), 'boot'), ('generic', frames, 'generic')]
     paths = {}
@@ -215,7 +217,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
     for number in range(1, total + 1):
         timings.begin_pass(number)
         built_learned = analysis.Observations(set(learned_total.roots), set(learned_total.spans))
-        in_build = analysis.Observations(observations.roots | received.roots, observations.spans | received.spans)
+        in_build = analysis.Observations(observations.roots | received.roots | link_roots, observations.spans | received.spans)
         emit(f'Game Boy Advance pass {number}' + (f'/{passes}' if number <= passes else ' (settling)') + ': generating and compiling native ARM and Thumb code…')
         image, ram_entries, ram_ranges = analysis.generator_image(data, ram_code)
         generator_rom = rom_file
@@ -304,6 +306,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
                 'rom_roots': len(observations.roots), 'ram_routines': len(observations.spans),
                 'built_rom_roots': len(observations.roots | received.roots), 'built_ram_routines': len(observations.spans | received.spans),
                 'shared_paths': gba_knowledge.shared_paths_report(received_info, proof),
+                'link_cable': gba_link.report(rom.sha256),
                 'unresolved_misses': len(unresolved), 'unresolved_reasons': dict(sorted(reasons.items())), 'generated': generated,
                 'ram_code': {'addresses': len(ram_code.variants), 'versions': ram_code.size(), 'entries': len(ram_entries), 'parameter_words': len(ram_ranges),
                              'caps': {'versions_refused_by_the_converter': ram_code.refused, 'addresses_capped_in_the_probe': len(capped),

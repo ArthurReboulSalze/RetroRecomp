@@ -1,11 +1,16 @@
 """Sharp X68000 profile (supported since 1.6.9: see docs/X68000.md)."""
 from pathlib import Path
-from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile, UnsupportedConsoleError
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile, UnsupportedConsoleError
 from .specs import Catalogues, Identify, LibraryLayout, ObservedCode, PathSpec, ReportShape, SharedKnowledge
 
 
 class X68000Profile(SystemProfile):
     id = 'x68'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    simulation_sources = (SimulationSource('native/steps/*.c'),
+                          SimulationSource('native/step_semantics.h'),
+                          SimulationSource('native/arithmetic.c'),
+                          SimulationSource('payload/x68000_payload.h', drop=('RR_X68K_GAME_TITLE',)),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/x68000-machine.md', 'licenses/fmgen.md', 'licenses/musashi.md', 'licenses/segagenesisrecomp.md')
     name = 'Sharp X68000'
@@ -19,6 +24,7 @@ class X68000Profile(SystemProfile):
     media_kinds = ('disk',)
     firmware = ('ipl', 'cgrom')
     quick_state_family = 'x68k'
+    netplay_session = True       # the host kit's adapter gives a digest and an in-process snapshot (multiplayer rollback, joystick games)
     capabilities = Capabilities(mouse=True, keyboard=True, disks=True)
     feedback_kinds = frozenset({13})
     default_frames = 4000
@@ -28,7 +34,7 @@ class X68000Profile(SystemProfile):
     fallback_display = 'opcodes'
     option_keys = (OptionKey('x68_ipl', kind='path', label='x68_ipl'),
                    OptionKey('x68_cgrom', kind='path', label='x68_cgrom'),
-                   OptionKey('x68_ram', kind='choice', label='RAM (MiB)', choices=(2, 4), default=2))
+                   OptionKey('x68_ram', kind='choice', label='RAM (MiB)', choices=(2, 4), default=2, changes_run=True))
     developer_only = True
     stamp_groups = ('megadrive_codegen', 'md_prefetch', 'conversion_gates', 'neogeo_codegen', 'neogeo_native', 'musashi_fixes', 'm68000_state_rules', 'm68k_observed', 'hostkit_computer', 'm68k_media_knowledge', 'path_records')
     path_spec = PathSpec(order=8, sections=(('m68k', 'x68'),),

@@ -139,7 +139,7 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('{"Perspective-correct textures", L"pgxp_texture", pgxp_textures, 2, 1},', ADAPTER)
         self.assertIn('return option == GFX_PGXP || option == GFX_PGXP_TEXTURE ? 0 : gfx_options[option].def;', ADAPTER)
         self.assertIn('gfx_apply(i, check_default(i));', ADAPTER)
-        self.assertIn('if (option == GFX_PGXP_TEXTURE && !chosen[GFX_PGXP]) value = 0;', ADAPTER)
+        self.assertIn("if (option == GFX_PGXP_TEXTURE && !row_value(GFX_PGXP)) value = 0;", ADAPTER)
         self.assertIn('static const char *const pgxp_mode_values[] = {"disabled", "memory only"};', ADAPTER)
         self.assertNotIn('memory + CPU', ADAPTER.split('pgxp_mode_values[]')[1].split(';')[0])
         self.assertNotIn('pgxp_nclip', ADAPTER)
@@ -171,6 +171,52 @@ class PsxAdapterTest(unittest.TestCase):
         self.assertIn('(const char (*)[2][64])carried, carried_count};', main)
         session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
         self.assertIn('for (int i = 0; game->options && i < game->option_count; ++i)', session)
+
+    def test_multiplayer_delay_tier(self):
+        # 17 Nov 2026: a digest without VRAM, a blank card; what changes the run is the host's (the owner: « il faut que ça soit
+        # l'hôte qui les synchronise »): PGXP, its textures and the CPU's resolution; never forced off.
+        self.assertIn('.digest = digest, .side_effects = side_effects, .session_begin = session_begin, .session_option = session_option,',
+                      ADAPTER)
+        self.assertNotIn('.snap_save', ADAPTER)   # the delay tier: no in-process snapshot
+        self.assertIn('.session_options = rr_psx_session_values,', ADAPTER)   # session ABI 6: the host's values in HELLO
+        for key in ('"pgxp"', '"pgxp_texture"', '"cpu_resolution"', '"renderer"'):
+            self.assertIn(f'!strcmp(key, {key})', ADAPTER)
+        self.assertIn('if (in_match && run_row(option)) return host_value[option] >= 0 ? host_value[option] : gfx_options[option].def;',
+                      ADAPTER)
+        self.assertIn('if (in_match && !card) resolution = host_cpu_resolution;', ADAPTER)
+        self.assertIn('rrhk_notice(rr_tr("Set by the host in multiplayer"), 4000);', ADAPTER)
+        # Session ABI 9: the host's change is kept and reported (the kit relaunches the match), never applied in it; a guest's is refused.
+        self.assertIn('static bool match_host(void) { return in_match && !rrhk_session_guest(); }', ADAPTER)
+        self.assertIn('if (!match_host()) rrhk_notice(rr_tr("Set by the host in multiplayer"), 4000);', ADAPTER)
+        self.assertIn('wanted_card = value == 0;', ADAPTER)
+        self.assertIn('const int card = wanted_card >= 0 ? wanted_card && !card_failed : rr_psx_renderer(rr_psx_host_session());',
+                      ADAPTER)
+        self.assertNotIn('PGXP off in multiplayer', ADAPTER)
+        self.assertNotIn('axes[p][i] = 0', ADAPTER)   # the session carries the sticks (rrhk_pad_axes answers them)
+        self.assertIn('if (players && in_match) { rrhk_notice(rr_tr("Not during a multiplayer game"), 4000); return false; }', ADAPTER)
+        session = (ROOT / 'native/psx_machine/psx_session.c').read_text(encoding='utf-8')
+        body = session[session.index('uint64_t rr_psx_digest(const RrPsxSession *s) {'):]
+        body = body[:body.index('\n}\n')]
+        order = [body.index(part) for part in ('rr_psx_cpu_registers(cpu);', 'RETRO_MEMORY_SYSTEM_RAM', 'ScratchRAM->data8',
+                                               'rr_psx_spu_ram()', 'RETRO_MEMORY_SAVE_RAM')]
+        self.assertEqual(order, sorted(order))
+        self.assertNotIn('vram', body.lower().replace('no vram', ''))
+        main = (ROOT / 'native/psx_machine/psx_main.c').read_text(encoding='utf-8')
+        # The host's card travels (session ABI 8): put before the boot digest, the match's card after a reset, a guest never writes.
+        self.assertIn('.session_save = session_save, .session_save_put = session_save_put,', ADAPTER)
+        self.assertIn('void rr_psx_host_match(void) { matched = 1; match_card(); }', main)
+        self.assertIn('    if (matched) match_card();\n    else if (!headless || card_option) card_sync(1);', main)
+        self.assertIn('if (matched && !effects_allowed) return;', main)
+        # The host's card written back once at a clean end (the owner, 19 Nov 2026), atomically, the old file kept as .bak.
+        self.assertIn('.session_save_commit = session_save_commit,', ADAPTER)
+        commit = main[main.index('int rr_psx_host_card_commit(void) {'):]
+        commit = commit[:commit.index('\n}\n')]
+        self.assertIn('L"%ls.bak"', commit)
+        self.assertLess(commit.index('file_replace(backup'), commit.index('card_write(card, size)'))
+        self.assertIn('if (!card || !in || size != have) return 0;', main)
+        self.assertIn('if (!rr_feedback_enabled() || !effects_allowed) return;', main)
+        beetle = (ROOT / 'retrorecomp/psx_beetle.py').read_text(encoding='utf-8')
+        self.assertIn("'const uint16_t *rr_psx_spu_ram(void) { return SPURAM; }\\n'", beetle)
 
 
 if __name__ == '__main__':

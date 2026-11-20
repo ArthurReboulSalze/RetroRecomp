@@ -81,7 +81,37 @@ def load(path: Path) -> dict:
     return read(path)
 
 
+# --- Recipe mode (multiplayer: retrorecomp/netplay_recipe.py) ------------------------------------------------
+#
+# A guest converts its own dump exactly as the host did: the conversion runs with a library of its own
+# (RETRO_RECOMP_LIBRARY_DIR, which switches the player's qualified and imported banks off: `disabled`) and with
+# this variable naming a folder that holds the host's record, written there by the ordinary import of a version 3
+# document (`knowledge_exchange`). The imported banks are then read from that folder and from nowhere else, so the
+# conversion sees the host's record whole and nothing of this player's banks, library, earlier exports or gameplay
+# records (`feedback.ingest`, `core.import_previous`), and writes nothing into them.
+RECIPE_VARIABLE = 'RETRO_RECOMP_RECIPE_DIR'
+
+
+def recipe_directory() -> Path | None:
+    """The folder of the recipe's banks while a conversion runs in recipe mode, else None. Recipe mode without a
+    library of its own would read and write the player's: refused."""
+    value = os.environ.get(RECIPE_VARIABLE)
+    if not value:
+        return None
+    if not (os.environ.get('RETRO_RECOMP_LIBRARY_DIR') or os.environ.get('SMSRECOMP_LIBRARY_DIR')):
+        raise RuntimeError(f'{RECIPE_VARIABLE} needs a library of its own (RETRO_RECOMP_LIBRARY_DIR).')
+    return Path(value)
+
+
+def _imports_off() -> bool:
+    """No imported paths at all: the banks are switched off and no recipe stands in for them."""
+    return disabled() and recipe_directory() is None
+
+
 def imported_path() -> Path:
+    recipe = recipe_directory()
+    if recipe is not None:
+        return recipe / 'imported.json.gz'
     from .paths import data_directory
     return data_directory() / 'knowledge' / 'imported.json.gz'
 
@@ -151,6 +181,9 @@ def qualified_v3_path() -> Path:
 
 
 def imported_v3_path() -> Path:
+    recipe = recipe_directory()
+    if recipe is not None:
+        return recipe / 'imported-v3.json.gz'
     from .paths import data_directory
     return data_directory() / 'knowledge' / 'imported-v3.json.gz'
 
@@ -345,7 +378,7 @@ def _observation_bank(path: str, size: int, modified: int) -> dict:
 
 def imported_observations(system: str, identity: str) -> list:
     """Imported ROM-free rows of one cartridge (none while set aside)."""
-    if (system, identity) in _SET_ASIDE or disabled():
+    if (system, identity) in _SET_ASIDE or _imports_off():
         return []
     path = imported_observations_path()
     try:
@@ -437,7 +470,7 @@ def imported_record(system: str, identity: str) -> dict:
 
 def imported_game(system: str, identity: str) -> dict:
     """`qualified_game` for the imported side bank (and set aside like `imported_record`)."""
-    if (system, identity) in _SET_ASIDE or disabled():
+    if (system, identity) in _SET_ASIDE or _imports_off():
         return {}
     return _side_game(imported_v3_path(), system, identity)
 
@@ -478,8 +511,9 @@ def record_for(system: str, rom, engine: str) -> dict:
         # A cartridge hash alone is insufficient: its selected firmware and
         # prepared multi-region identity must be supplied by the Neo Geo API.
         return {}
-    if disabled():
+    if _imports_off():
         return {}
+    # In recipe mode the qualified bank stays off (`qualified_bank`): only the recipe's record is read.
     bundled = qualified_record(system, rom.sha256)
     # The qualified bank is qualified for its own compiler. Imported hints
     # count whatever compiler found them: they only guide discovery, and

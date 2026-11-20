@@ -538,7 +538,14 @@ bool rrhk_trigger_bound(int side) {
     return false;
 }
 
+/* In a multiplayer session every port's word comes from the session (hostkit_session.h), whichever adapter asks and however
+ * often in a frame; alone, the game reads its controls as it always did. */
 uint16_t rrhk_pad_word(int p, uint64_t frame) {
+    if (rrhk_session_on) return rrhk_session_port(p);
+    return rrhk_local_pad_word(p, frame);
+}
+
+uint16_t rrhk_local_pad_word(int p, uint64_t frame) {
     const RrhkMachine *m = rrhk.machine;
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     uint16_t value = 0;
@@ -607,7 +614,16 @@ static void dead_zone(int16_t *x, int16_t *y, int percent) {
  * x*x + y*y overflows an int when both axes are -32768 (the stick read as centred). */
 static int16_t symmetric(int16_t value) { return value < -32767 ? -32767 : value; }
 
+/* In a multiplayer session every port's sticks come from the session (session ABI 7), as its words do. */
 bool rrhk_pad_axes(int p, uint64_t frame, int16_t axes[RRHK_AXES]) {
+    if (rrhk_session_on) {
+        rrhk_session_axes(p, axes);
+        return true;
+    }
+    return rrhk_local_pad_axes(p, frame, axes);
+}
+
+bool rrhk_local_pad_axes(int p, uint64_t frame, int16_t axes[RRHK_AXES]) {
     const RrhkMachine *m = rrhk.machine;
     static const SDL_GameControllerAxis source[RRHK_AXES] = {SDL_CONTROLLER_AXIS_LEFTX, SDL_CONTROLLER_AXIS_LEFTY,
                                                              SDL_CONTROLLER_AXIS_RIGHTX, SDL_CONTROLLER_AXIS_RIGHTY};

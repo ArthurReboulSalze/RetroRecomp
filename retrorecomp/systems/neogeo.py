@@ -1,11 +1,18 @@
 """Neo Geo conversion profile with explicitly selected, verified firmware."""
 from pathlib import Path
-from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile
 from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 
 class NeoGeoProfile(SystemProfile):
     id = 'ng'
+    # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
+    simulation_sources = (SimulationSource('steps/ng_step_*.c'),
+                          SimulationSource('ng_arithmetic.c'),
+                          SimulationSource('ng_step_semantics.h'),
+                          SimulationSource('ng_z80_steps.inc'),
+                          SimulationSource('ng_game.h', drop=('RR_NG_TITLE', 'RR_NG_VERSION')),
+                          SimulationSource('retro_gun_game.h'),)
     # The third-party components compiled into its games (retrorecomp/notices.py); the player shell's are added.
     notice_files = ('licenses/geolith.md', 'licenses/lithogen.md', 'licenses/musashi.md')
     # Only a game that uses it embeds it.
@@ -53,6 +60,8 @@ class NeoGeoProfile(SystemProfile):
     input_layout = InputLayout(('a', 'b', 'c', 'd'), (), None, 2400, script_format='neogeo',
                                script_suffix='.inputs')
     shared_knowledge = SharedKnowledge('stable')
+    # Multiplayer: the export answers a session (digest, in-memory snapshot, rollback). Not portable: no mixed-build gate has passed.
+    netplay_session = True
     host_adapter = 'adapters/rrhk_ng.c'
     stamp_groups = ('conversion_gates', 'neogeo_codegen', 'neogeo_build', 'neogeo_native', 'musashi_fixes', 'm68000_state_rules')
     # A .neo container, or a ZIP whose members are named like a cartridge set (program, sprites, sound).

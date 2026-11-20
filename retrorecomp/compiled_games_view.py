@@ -18,6 +18,7 @@ from .path_profiles import STABLE_SHARED
 from .paths import APP_NAME
 from .platforms import open_local, target_id
 from .systems import available_profiles, get_profile
+from .netplay.lobby_check import session_capable
 PROFILES = available_profiles()
 import subprocess
 
@@ -79,8 +80,10 @@ class CompiledGamesView(ttk.Frame):
         # The collection's actions share the main toolbar, right after the
         # queue/collection switch, instead of a second row of buttons.
         bar = owner.collection_actions
-        self.play_button = ttk.Button(bar,text=self.tr('play'),command=self.play,style='Toolbar.Primary.TButton')
-        owner.decorate_button(self.play_button,'play',True)
+        # A picture only (a big hollow play triangle, gui_icons.HERO_PLAY, dark on gold), named by its hint; the text
+        # stays on the button.
+        from .gui_icons import HERO_PLAY
+        self.play_button = owner.icon_button(bar,'play','tip_play',self.play,HERO_PLAY,managed=False,hero=True)
         self.play_button.pack(side='left')
         # Pictures only, named by their hints; the view enables them itself.
         self.scan_button = owner.icon_button(bar,'scan_games','tip_scan_games',self.scan,'refresh',managed=False)
@@ -354,6 +357,15 @@ class CompiledGamesView(ttk.Frame):
         menu = tk.Menu(self,tearoff=False,bg=COLORS['button'],fg=COLORS['text'],
                        activebackground=COLORS['selected'],activeforeground=COLORS['gold_hover'])
         menu.add_command(label=self.tr('play'),command=self.play)
+        # Multiplayer (STUDY 15): host a room with this game chosen; greyed, with the reason, on a console whose exports
+        # cannot play a session yet (the profile's netplay_session), or with several games selected.
+        picked = self.chosen()
+        single = picked[0] if len(picked)==1 else None
+        offered = single is not None and session_capable(single.system)
+        label = self.tr('mp_host_game')
+        if single is not None and not offered:label = f"{label} ({self.tr('mp_not_offered')})"
+        menu.add_command(label=label,command=lambda game=single:self.owner.show_multiplayer(pick=game),
+                         state='normal' if offered else 'disabled')
         menu.add_command(label=self.tr('favorite_remove' if all(g.favorite for g in self.chosen()) else 'favorite_add'),command=self.toggle_favorites)
         menu.add_command(label=self.tr('card_fetch_info'),command=lambda:self.card.search_games(self.chosen()),
                          state='disabled' if self.card.pending else 'normal')

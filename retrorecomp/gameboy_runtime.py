@@ -168,6 +168,27 @@ def adapt_serial_phase(source: str) -> str:
         'ctx->serial_transfer.fast_clock ? 128u : 4096u - (uint32_t)(ctx->div_counter & 0x1FFu);')
 
 
+def adapt_link_cable(source: str) -> str:
+    """The link cable (native/gb_link.h, appended to the runtime): the end of a master transfer reads the other console's byte through
+    rr_gb_link_exchange (0xFF with no cable, as before), and gb_run_cycles of the guest console runs the satellites in fixed chunks.
+    A console with no link goes through the same code as before: the original body is kept as rr_gb_run_cycles_one."""
+    source = replace_once(source, 'static void gb_serial_tick(GBContext* ctx, uint32_t cpu_cycles) {',
+        'static uint8_t rr_gb_link_exchange(GBContext* ctx, uint8_t outgoing);\n'
+        'static void gb_serial_tick(GBContext* ctx, uint32_t cpu_cycles) {')
+    source = replace_once(source,
+        '        ctx->io[0x02] &= (uint8_t)~0x80;\n        ctx->io[0x01] = 0xFF;',
+        '        ctx->io[0x02] &= (uint8_t)~0x80;\n        ctx->io[0x01] = rr_gb_link_exchange(ctx, outgoing);   /* 0xFF with no cable */')
+    return replace_once(source, 'uint32_t gb_run_cycles(GBContext* ctx, uint32_t max_cycles) {\n    uint32_t start = ctx->cycles;',
+        'static uint32_t rr_gb_run_cycles_one(GBContext* ctx, uint32_t max_cycles);\n'
+        'static bool rr_gb_link_runs(GBContext* ctx);\n'
+        'static uint32_t rr_gb_link_run(GBContext* ctx, uint32_t max_cycles);\n'
+        'uint32_t gb_run_cycles(GBContext* ctx, uint32_t max_cycles) {\n'
+        '    if (rr_gb_link_runs(ctx)) return rr_gb_link_run(ctx, max_cycles);   /* the guest console of a link: the satellites run inside */\n'
+        '    return rr_gb_run_cycles_one(ctx, max_cycles);\n'
+        '}\n\n'
+        'static uint32_t rr_gb_run_cycles_one(GBContext* ctx, uint32_t max_cycles) {\n    uint32_t start = ctx->cycles;')
+
+
 def adapt_ei_delay_interpreter(code: str) -> str:
     return replace_once(code, 'case 0xFB: ctx->ime_pending = 1; break; /* EI */',
                         'case 0xFB: ' + EI_ARM_ONCE + ' break; /* EI */')
@@ -232,6 +253,9 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
         ('gb_tick_fast.h', project / 'runtime/include/gb_tick_fast.h'),
         ('gb_frame_trace.h', project / 'runtime/include/gb_frame_trace.h'),
+        ('gb_digest.h', project / 'runtime/include/gb_digest.h'),
+        ('gb_machine_state.h', project / 'runtime/include/gb_machine_state.h'),
+        ('gb_link.h', project / 'runtime/include/gb_link.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
 
@@ -259,7 +283,19 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = replace_once(source, 'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);',
         'uint16_t gb_resolve_rom_bank(const GBContext* ctx, uint16_t addr);\n'
         'void rr_gb_frame_trace_open(const char* path); /**< Start the per-frame trace of a headless run (host-only) */\n'
-        'void rr_gb_frame_trace(GBContext* ctx, uint64_t frame); /**< One line for the frame just completed (host-only) */')
+        'void rr_gb_frame_trace(GBContext* ctx, uint64_t frame); /**< One line for the frame just completed (host-only) */\n'
+        '/* The machine state for multiplayer rollback (native/gb_machine_state.h): a whole in-memory snapshot and a digest of the named fields. */\n'
+        'size_t rr_gb_snap_bound(const GBContext* ctx); /**< The most bytes a snapshot takes; 0: the context is not ready */\n'
+        'size_t rr_gb_snap_save(GBContext* ctx, void* out, size_t capacity); /**< The bytes written, 0 on a failure */\n'
+        'bool rr_gb_snap_load(GBContext* ctx, const void* data, size_t size); /**< false (context untouched) for anything but a snapshot of this game */\n'
+        'uint64_t rr_gb_digest(const GBContext* ctx); /**< The digest of the state after the last frame */\n'
+        '/* The link cable (native/gb_link.h): consoles of one process on one cable; the first is the guest console, the others run inside its gb_run_cycles. */\n'
+        'void gb_link_set_init(void (*init)(GBContext*)); /**< The generated init function, which makes a satellite console */\n'
+        'bool gb_link_start(GBContext* primary, int consoles); /**< 2 to 4 consoles around the guest context; false: no link */\n'
+        'void gb_link_stop(void); /**< Ends the link and destroys the satellites */\n'
+        'int gb_link_count(void); /**< Consoles on the cable (0: none) */\n'
+        'GBContext* gb_link_context(int index); /**< Console `index` (0 is the guest console), NULL when there is none */\n'
+        'uint64_t gb_link_transfers(void); /**< Byte exchanges completed since the link started (host-only) */')
     header.write_text(source, encoding="utf-8")
 
     runtime_cpu = project / "runtime/src/gbrt.c"
@@ -350,8 +386,12 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = adapt_unused_io_bits(source)
     source = adapt_boot_ppu_phase(source)
     source = adapt_serial_phase(source)
+    source = adapt_link_cable(source)
     if halt_mode3_bound:
         source = adapt_halt_mode3(source)
+    # The machine snapshot and digest (native/gb_machine_state.h) come last: they use the static core-state capture and restore above.
+    # The link cable (native/gb_link.h) follows: it runs the original gb_run_cycles body (rr_gb_run_cycles_one) and the serial tick.
+    source += '\n#include "gb_machine_state.h"\n#include "gb_link.h"\n'
     runtime_cpu.write_text(source, encoding="utf-8")
 
     # Capture only true interpreter instructions, after native RAM helpers have
@@ -431,6 +471,9 @@ static void rr_gb_feedback(GBContext *ctx) {
         '    rr_feedback_start(!headless_mode && !benchmark_mode);\n'
         '    GBContext* ctx = gb_context_create(&runtime_config);')
     source = diagnostic_limit_snapshot(source)
+    # The generated init function is what makes a console: the link cable's satellites are made with it (native/gb_link.h).
+    source = replace_once(source, '    game_init(ctx);\n    if (data_mod_file) {',
+                          '    game_init(ctx);\n    gb_link_set_init(game_init);\n    if (data_mod_file) {')
     source = adapt_frame_trace_main(source)
     # The counted one-by-one execution of writable code is printed with the interpreter summary, also when
     # no interpreter session happened (the probe reads this line in every case).
