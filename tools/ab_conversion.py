@@ -123,8 +123,10 @@ def unlink(target: Path) -> None:
         pass
 
 
-# What a tree builds or patches itself: never shared with the main checkout or with the other side.
-OWN_DEPS = ('recompiler-', 'shared-setup', 'setup.log')
+# What a tree builds or patches itself: never shared with the main checkout or with the other side. The setup lock
+# (`shared-setup`, core.serialized_setup) IS shared: the engines it guards are links to the one main .deps, so a lock of
+# its own let two trees run git submodule setup on the same engine at once (20 Nov 2026, a failed conversion).
+OWN_DEPS = ('recompiler-', 'setup.log')
 
 
 def link_deps(deps: Path, target: Path) -> None:
