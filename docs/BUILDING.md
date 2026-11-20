@@ -158,7 +158,7 @@ The packaged converter includes Python. Generated games include their runtime
 and SDL2 and do not need a development environment to play.
 The converter bundles UPX 5.3.0 and compacts each validated game executable
 before replacing the previous export, then has UPX test it. On Windows
-(`assets/tools/upx.exe`, `-9 --lzma --compress-resources=0 --compress-icons=0`, 1.6.7) every
+(`assets/tools/upx.exe`, `-9 --compress-resources=0 --compress-icons=0`; `--lzma` from 1.6.7 to 1.8.x) every
 console is packed; resources stay readable. On Linux x86-64
 (`assets/tools/upx-amd64_linux`, `-9`) every console is packed too, the X68000
 included. Both
@@ -191,10 +191,11 @@ output) and packs; the packed file must pass `upx -t` and `upx --fileinfo` must 
 cannot be patched) the build is put back and packed exactly as before. The report's `packing.call_filter` says when it was used. The packer and its flags are unchanged. Builds whose longest filterable part is under a
 quarter of the code (the NES, 10 MB or more of code) are packed as before.
 **LZMA, a reproducible link and a manifest on Windows (1.6.7).** Three standard choices, none of them an antivirus
-measure. (1) Windows games are packed with UPX's LZMA method (`--lzma`, `packing.WINDOWS_METHOD`; Linux keeps UPX's default
-NRV method, `packing.LINUX_METHOD`): about 14 % smaller than NRV on average and packed about twice as fast, for a start that
-decompresses a little longer (`python -B tools/startup_cost.py` measures both; it needs a quiet PC). The report's
-`packing.method` says `lzma` or `nrv`. (2) The portable linker writes 0 instead of the link time in the PE header
+measure. (1) Windows games were packed with UPX's LZMA method from 1.6.7 to 1.8.x (`--lzma`, `packing.WINDOWS_METHOD`):
+about 14 % smaller than NRV on average and packed about twice as fast, for a start that decompresses longer. Since 1.9.0
+both systems use UPX's default NRV method (`packing.WINDOWS_METHOD`, `packing.LINUX_METHOD`): on the reference PC LZMA saved
+4-23 % of the file but cost 60-260 ms more at every start (`python -B tools/startup_cost.py` measures both; it needs a quiet
+PC). The report's `packing.method` says `lzma` or `nrv`. (2) The portable linker writes 0 instead of the link time in the PE header
 (`-Wl,--no-insert-timestamp`, `toolchain.LLVM_LINKER_FLAGS`), so the same game built twice, in any folder, is byte for byte
 the same file; the static SDL2 is built with `-ffile-prefix-map` so that its source folder is written `SDL` in the library (three
 SDL files keep their name for assertions), and the install and the build folder are named after a key of the revision, the build flags and the toolchain
