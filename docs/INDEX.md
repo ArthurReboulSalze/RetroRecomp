@@ -77,6 +77,7 @@ sound processor in the project: its YM2151 and ADPCM are part of the reference m
 - [HOST_KIT.md](HOST_KIT.md) — the common host kit contract for exported games: machine-core interface, one behaviour per host divergence, preferences migration and the migration order.
 - [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md) — shared compilation knowledge: per-console and per-ROM observations, embedded snapshot.
 - [RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md) — gameplay fallback feedback written by the exported games.
+- [PERFORMANCE.md](PERFORMANCE.md) — CPU time per frame for each machine on one reference PC (the README's column; not a latency).
 - [RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md) — runtime performance work that does not change the output.
 - [STANDARDS.md](STANDARDS.md) — the rules every change follows, the target shape (profiles, CPU-keyed paths, reports, host kit) and the "supported" checklist.
 - [BUILDING.md](BUILDING.md) — build and run from source.

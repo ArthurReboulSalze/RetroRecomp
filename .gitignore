@@ -78,6 +78,7 @@ docs/*
 !docs/INSTALLING.md
 !docs/LINUX.md
 !docs/RUNTIME_PERFORMANCE.md
+!docs/PERFORMANCE.md
 !docs/LANGUAGES.md
 !docs/COMPATIBILITY.md
 !docs/KNOWN_FAILURES.md
