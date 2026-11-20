@@ -13,8 +13,9 @@ The project's own checks do not establish hardware fidelity, complete gameplay o
 5. [Controls and options](#controls-and-options)
 6. [States and saves](#states-and-saves)
 7. [Qualification](#qualification)
-8. [Known limits](#known-limits)
-9. [History](#history)
+8. [Gear-to-Gear cable](#gear-to-gear-cable-next-release-work-in-progress)
+9. [Known limits](#known-limits)
+10. [History](#history)
 
 ## At a glance
 
@@ -132,6 +133,40 @@ one says what the Game Gear's six cartridges of the 1.6.9 panel add to it. The p
 | G11, G12 | partial: no external comparison of the video chip or the PSG; the Game Gear panel is the twelve cartridges of 18 October and these six | |
 | G13 Cross-OS | the six Game Gear cartridges of the panel give equal traces, final RAM and final CPU on Windows and on a Debian 13 PC (18 of 18 routes) | the same limits as the Master System's |
 | G15 Honesty | the audit of 5 November 2026 (see the Master System table) corrected two sentences of this page: "faithful to the handheld's visible area" now says what is shown, and "exactly as" now says "in the same way" | |
+
+## Gear-to-Gear cable (next release, work in progress)
+
+The handheld's EXT port and its cable are modelled for two players, each on a Game Gear of their own. Every PC runs **both** consoles
+(`native/gg_link.inc`); only the two controllers travel in a match, as on the NES, so the rollback and the host's F8 / F9 work for the pair.
+This PC shows and plays the console of its seat; the other one runs, with its picture and its sound advanced and never shown. Seat *i*'s
+controller drives console *i*. Nothing changes for a game that does not run linked, and nothing changes on the Master System (its generated
+runtime is byte for byte the one of the previous build; checked).
+
+| Part | What it does |
+|---|---|
+| EXT port (`native/gg_ext.h`) | `$01` the seven EXT pins, `$02` their direction and the PC6 NMI enable, `$03` / `$04` the serial transmit and receive data, `$05` the serial control and status (busy, receive ready, error, receive NMI enable, transmitter and receiver on, 4800 / 2400 / 1200 / 300 baud). A byte takes 10 bit times on the wire and reaches the other console at the centre of its stop bit (7,087 cycles at 4800 baud) |
+| Interrupts | A received byte (with its enable set) and a falling edge of PC6 raise the Z80 **NMI**, not `/INT`: the NMI is taken after the instruction that follows the edge, like the processor's (return address pushed, `$0066`, IFF1 cleared, IFF2 kept) |
+| Cable | Serial: a null modem (transmit to receive). Parallel: the pins cross (0 and 2, 1 and 3, 4 and 5 swap, PC6 straight); outputs of the two consoles on one pin are wired-AND, an undriven pin reads high |
+| Two consoles | One set of globals, so the console that is not running is kept as a whole snapshot (the rollback snapshot) and the two are swapped every 24 video lines (5,472 cycles, less than the 7,087 a byte needs, so a byte sent in a slice is never due before the next slice of the other console). A frame goes to the host kit once both consoles have finished it, so every PC takes its digest and its snapshots at the same place of the two timelines. The digest and the snapshot hold both consoles in seat order and the cable |
+
+How it is checked, and what it does not say:
+
+- `tools/gg_ext_selftest.py`: the model alone, no ROM (55 checks: the timing of the busy flag, the receive flag and the NMI at four baud rates, a byte written while a frame is on the wire, a receiver that is off, the swapped parallel lines, the PC6 NMI, the state as named bytes).
+  A byte delay changed by one half bit makes it fail.
+- `tools/gg_link_selftest.py`: three authored programs (a serial exchange by polling, the same with the receive NMI and `RETN`, the parallel lines)
+  converted and run linked in one process: both consoles run 160 frames, every byte crosses, the two runs are identical, the rollback of the pair
+  (save, 40 frames, load, the same 40 frames) gives the same digests, no instruction is interpreted.
+- A real cartridge, Super Columns (the player's own dump, read in place), plays its VERSUS mode between the two consoles in one process: the pin
+  handshake, the version packets, the Versus settings screens (the master sets the matches and the level, the slave the difficulty) and a match
+  with the falling columns on both boards, about 2,700 bytes in each direction in 3,000 frames, none dropped, no interpreted instruction.
+  The digest is stable (two runs identical) and the rollback of the pair passes in the middle of the match (digest after the load equal to the saved one,
+  the same 40 frames give the same digest). Scripted pads only (the master presses VERSUS alone: two players pressing it in the same frame deadlock in the game's own
+  protocol, as on the handheld); no human played it, two seats over the network are not yet proven (that belongs to the session). Which Game Gear cartridges use the cable is known only from a decoded census of the
+  player's library (Super Columns, Sonic Drift 1 and 2, Streets of Rage 1 and 2, Bust-A-Move, OutRun, Mappy, Bubble Bobble and others show link code);
+  Columns and Super Monaco GP are not in that library.
+- Unverified on the handheld, kept as constants of the model and listed here: whether the transmit buffer is double (a write while a frame is on the wire is dropped here); what an unread byte becomes when another arrives (replaced here, no error flag);
+  the arming rule of the PC6 NMI; what `$01` reads for the serial pins; the reset values of `$01` and `$04`; the power-on phase between the two consoles (zero here). Hardware fidelity is not claimed; gameplay validation is per cartridge and not yet given for any; physical latency is unmeasured.
+- The host kit's quick states are refused while linked (the state of one console alone would break the pair); a match's rollback and the host's F8 / F9 take the pair.
 
 ## Known limits
 
