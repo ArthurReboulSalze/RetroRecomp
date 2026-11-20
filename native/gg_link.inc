@@ -36,9 +36,13 @@ static void rrl_selftest(void);
 #define RRL_SLICE_LINES 24               /* 5,472 Z80 cycles: below the 7,087 a byte takes to arrive at 4800 baud (9.5 bit times) */
 #define RRL_MAGIC 0x314B4E4Cu            /* "LNK1" */
 
-static bool rrl_pending;                 /* asked for after the run began (a session opens one frame in): begin at the next instruction boundary */
 static uint8_t *rrl_poweron;             /* the power-on state of the console, taken when the run begins */
-void smsrecomp_link_request(bool on) { rrl_request = on; if (on && !rrl_on && rrl_poweron) rrl_pending = true; }
+/* A session asks one frame after the guest started: the pair begins at the next instruction boundary, through the request word the banked loop
+ * tests after every instruction (smsrecomp_state_pending), so that a game that does not link pays nothing per instruction. */
+void smsrecomp_link_request(bool on) {
+    rrl_request = on;
+    if (on && !rrl_on && rrl_poweron) { rrl_pending = true; if (!smsrecomp_state_pending) smsrecomp_state_pending = RR_LINK_BEGIN; }
+}
 void smsrecomp_link_set_seat(int seat) { rrl_seat = seat ? 1 : 0; }
 void smsrecomp_link_set_host(void (*present)(const uint32_t *, int, int), bool (*frame_done)(void)) {
     rrl_host.present = present; rrl_host.frame_done = frame_done;
@@ -189,14 +193,21 @@ static void rrl_begin(void) {
 
 /* Start of a run (and of every reset): the power-on state is kept; the pair begins now when it was asked for (the environment), or at the
  * next instruction boundary once a session asks (smsrecomp_link_request). */
-static void rrl_start(void) {
+static bool rrl_start(void) {
     rrl_on = false; rrl_pending = false;
-    if (!rrl_capable()) return;
+    if (!rrl_capable()) return false;
     rrl_snap_size = smsrecomp_snap_bound();
-    if (!rrl_snap_size) return;
+    if (!rrl_snap_size) return false;
     if (!rrl_poweron) rrl_poweron = (uint8_t *)malloc(rrl_snap_size);
     if (!rrl_poweron || smsrecomp_snap_save(rrl_poweron, rrl_snap_size) != rrl_snap_size) rrl_fail("power-on snapshot");
-    if (smsrecomp_link_enabled()) rrl_begin();
+    if (smsrecomp_link_enabled()) { rrl_begin(); return rrl_on; }
+    return false;
+}
+
+/* Called by the state service when a session asked: the pair begins, and the loop that runs it is entered (it does not return). */
+static void rrl_enter_linked(void) {
+    if (rrl_poweron) rrl_begin();
+    if (rrl_on) smsrecomp_banked_run_linked();
 }
 
 /* The hooks of the banked loop. */
@@ -283,7 +294,6 @@ static void rrl_round_end(void) {
 
 /* After a completed instruction: the slice ends when the line crosses a multiple of 32 (or the frame wraps). */
 static void rrl_after_step(void) {
-    if (!rrl_on) { rrl_pending = false; if (rrl_poweron) rrl_begin(); return; }
     if ((g_vdp.line / RRL_SLICE_LINES) == rrl_chunk) return;
     if (!rrl_save_live()) rrl_fail("save");
     ++rrl_swaps;
