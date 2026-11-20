@@ -52,9 +52,10 @@ def script(seat: int, args) -> dict:
             line = line.split('#', 1)[0].split()
             if line:
                 rows.append([int(line[0])] + [int(word, 16) for word in line[1:]])
-        return {'kind': 'route', 'seat': seat, 'events': rows}
-    spec = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': getattr(args, 'sticks', False),
-            'keys': getattr(args, 'keys', False)}
+        spec = {'kind': 'route', 'seat': seat, 'events': rows}
+    else:
+        spec = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': getattr(args, 'sticks', False),
+                'keys': getattr(args, 'keys', False)}
     if seat == 0:
         at = {}
         if args.restart_at:
