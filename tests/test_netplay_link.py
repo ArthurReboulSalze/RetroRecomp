@@ -23,9 +23,10 @@ class LinkModeTests(unittest.TestCase):
         self.assertEqual(words, (0x11, 0x22))
 
     def test_a_handheld_links_only_once_its_profile_says_so(self):
-        self.assertEqual(seat_map.link_seats('gb'), 0)                  # until the proof
-        self.assertFalse(seat_map.allowed('gb', seat_map.LINK))
-        self.assertEqual(seat_map.effective('gb', seat_map.LINK), seat_map.SHARED_ALL)
+        self.assertEqual(seat_map.link_seats('gb'), 2)                  # the Game Boy's link is proven (20 Nov 2026): two consoles
+        with patch.object(seat_map, 'link_seats', lambda machine: 0):    # a handheld whose profile does not say so yet
+            self.assertFalse(seat_map.allowed('gb', seat_map.LINK))
+            self.assertEqual(seat_map.effective('gb', seat_map.LINK), seat_map.SHARED_ALL)
         self.assertEqual(seat_map.effective('nes', seat_map.LINK), seat_map.PER_PLAYER)
         with patch.object(seat_map, 'link_seats', lambda machine: 2 if machine == 'gb' else 0):
             self.assertTrue(seat_map.allowed('gb', seat_map.LINK))

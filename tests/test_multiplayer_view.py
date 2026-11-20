@@ -524,7 +524,11 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.assertEqual(len(moves), 4)                                   # two guests: up and down on each row
 
     def test_a_handheld_greys_one_controller_per_player_with_why(self):
-        # Arthur, 19 Nov 2026: visible, greyed, « arrive avec le câble link, dans la prochaine version »
+        # Arthur, 19 Nov 2026: visible, greyed, « arrive avec le câble link, dans la prochaine version » (a handheld whose link is not proven)
+        from retrorecomp import multiplayer_view
+        unproven = patch.object(multiplayer_view, 'handheld', lambda machine: (machine == 'gb', False))
+        unproven.start()
+        self.addCleanup(unproven.stop)
         view = self.window(games=(('Tetris', 'gb'), ('Contra', 'nes')))
         view.show('host')
         view.console_choice.set(view.console_name('gb'))
@@ -629,11 +633,12 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.assertEqual(view.sharing_buttons['per_player'].cget('text'), tr('mp_sharing_per_player', 'fr'))
         self.assertEqual(view.sharing.get(), 'per_player')                        # another console: one pad per player
         self.assertFalse(view.sharing_note.link_help.winfo_manager())
-        # without the flag (today): greyed with why, as before
-        view.console_choice.set(view.console_name('gb'))
-        view.console_box.event_generate('<<ComboboxSelected>>')
-        self.assertTrue(view.sharing_buttons['per_player'].instate(['disabled']))
-        self.assertTrue(view.sharing_note.winfo_manager())
+        # without the flag: greyed with why, as before
+        with patch.object(multiplayer_view, 'handheld', lambda machine: (machine == 'gb', False)):
+            view.console_choice.set(view.console_name('gb'))
+            view.console_box.event_generate('<<ComboboxSelected>>')
+            self.assertTrue(view.sharing_buttons['per_player'].instate(['disabled']))
+            self.assertTrue(view.sharing_note.winfo_manager())
 
     def test_the_link_is_offered_from_the_profiles_link_seats(self):
         from retrorecomp import multiplayer_view
