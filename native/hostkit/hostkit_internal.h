@@ -186,6 +186,9 @@ void rrhk_graphics_draw(SDL_Renderer *renderer);
 void rrhk_turn_page(int step);
 void rrhk_toggle_settings(void);
 void rrhk_hub_key(SDL_Scancode key);  /* the F2 tiles: arrows choose, Enter opens the page */
+bool rrhk_hub_in_controls(void);       /* 1.9.0: the F2 Controls sub-page (the players' tiles) is open */
+int rrhk_hub_selected(void);           /* the selected F2 tile, on the page shown */
+const char *rrhk_hub_title(void);      /* the F2 header: "Menu", "Controls" on the sub-page (translated) */
 void rrhk_quit_ask(void);            /* open "Quit?" (No selected) */
 bool rrhk_quit_key(SDL_Scancode key);   /* a key on "Quit?"; true: Yes was chosen */
 void rrhk_toggle_menu(int kind);     /* Help or Pause: open it, or return to the menu it was opened from */

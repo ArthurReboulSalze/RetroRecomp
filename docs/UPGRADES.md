@@ -109,6 +109,7 @@ state-layout keys move too, with the other keys the rows name.
 | Every machine, multiplayer in turns: the F2 tiles Pass / Give the controller and Everyone / Turns, the turn badge and its options row ([HOST_KIT D34](HOST_KIT.md#d34)) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_main.c`, `rrhk_chat.inc`, `hostkit.h`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged |
 | [Every machine: the timing report and the [host] lines keep their decimal point](#every-machine-the-timing-report-and-the-host-lines-keep-their-decimal-point-190) | none | **the host stamp of all 21 profiles** (`rrhk_timing.c`, `rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`) | unchanged |
 | [Every machine: the graphics card first, the software renderer said when it is used, the visible picture alone uploaded](#every-machine-the-graphics-card-first-the-software-renderer-said-when-it-is-used-the-visible-picture-alone-uploaded-190) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`, `runtime_catalog.inc`) | unchanged |
+| [Every machine: F2 groups the players behind one Controls tile and gains a Display mode tile](#every-machine-f2-groups-the-players-behind-one-controls-tile-and-gains-a-display-mode-tile-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Every machine: the Restart tile's icon redrawn, two arcs and their arrows](#every-machine-the-restart-tiles-icon-redrawn-two-arcs-and-their-arrows-190) | none | **the host stamp of all 21 profiles** (`retro_menu.c`, `retro_menu.h`) | unchanged (host files are outside every state key) |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-190) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
@@ -1165,6 +1166,29 @@ guest's folder holds no save. Four seats with no save pass too; four seats with 
 same boot digest, then an exception in the smoke tool's link thread; reported to the multiplayer specialist). Not run: the two-PC run
 with a real save.
 guest's folder holds no save. The same with four seats on that file: PASS, the host's file equals the final memory of the four seats, its `.bak` equals the planted file, the guests write nothing. (Two earlier four-seat runs did not start, in the smoke tool's link thread; eight runs since, NBA Jam and Madden NFL 95, three and four seats, on the kit commits before and after the save rule and on this change, all pass.) Not run: the two-PC run with a real save.
+
+## Every machine: F2 groups the players behind one Controls tile and gains a Display mode tile (1.9.0)
+
+Arthur, 20 November 2026. F2's main page (titled **MENU**, a new text in the game languages) no longer lines up a keyboard
+tile and a pad tile per player: it opens on one **Controls** tile (`RR_ICON_CONTROLS`, the menu's small keyboard behind its
+small pad), then the machine's own page when it has one, Options, **Display mode**, and the tiles that followed before
+(Graphics, Chat, the turns' tiles, Restart, Quit). `rrhk_menu.c`:
+
+- **Controls** opens a sub-page titled CONTROLS with the players' tiles in lines of four, a player's keyboard then pad, two
+  players a line (two players: one line; three: four and two, player 3 under player 1; four: two lines of four). Each tile
+  opens the same page as before, with the same rules in a match; a page opened from it comes back to it. Esc, or the pad's
+  B, comes back to the main page with Controls selected.
+- **Display mode** is F4 (`rrhk_cycle_display`): each Enter moves to the next mode (window, pixel perfect, fit, stretched)
+  at once and saves it as F4 and the options do; a failure to enter fullscreen leaves the mode as it was. The menu stays
+  open; the tile's picture shows the current mode (`RR_ICON_DISPLAY_*`: a window, a picture with margins, the full height,
+  the whole screen) and the line under the tiles reads « F4 Display: » and the mode. Each player's own in a match, as F4.
+  The short notice is not shown over F2, whose line under the tiles names the mode instead.
+
+**Proof:** the kit's capabilities self-test (a new script: the main page and its title, the sub-page and its title, a page
+of player 2 and back to the sub-page, Esc and the pad's B back to the main page with Controls selected, four Enters on
+Display mode through the four modes and back to the window, each saved; the existing scripts reach the players' pages
+through the Controls tile). **Stamps:** no game stamp moves; the host stamp of the 21 profiles moves (every export is upgraded
+once, rebuilt, none converted again). **Existing exports:** unchanged until that upgrade.
 
 ## Every machine: the Restart tile's icon redrawn, two arcs and their arrows (1.9.0)
 

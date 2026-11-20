@@ -304,6 +304,35 @@ static const uint64_t icon_sharing[18] = {
     0x0ull, 0x0ull, 0x0ull, 0x0ull, 0x5500c00001540ull, 0x6903c00001a40ull, 0x690fffff01a40ull, 0x5503c00001540ull,
     0xc00000000ull, 0x5500003001540ull, 0x1aa40003c06a90ull, 0x6aa9fffff1aaa4ull, 0x155554003c55555ull, 0x3000000ull, 0x0ull,
     0x0ull, 0x0ull, 0x0ull};
+/* 1.9.0: the F2 tile that opens the players' controls (Arthur, 20 Nov 2026): the small keyboard behind, the small pad in front,
+ * cut out of it by one empty cell. */
+static const uint64_t icon_controls[18] = {
+    0x0ull, 0x555555540ull, 0x1aaaaaaa90ull, 0x1999999990ull, 0x1aaaaaaa90ull, 0x1999999990ull, 0x1aaaaaaa90ull, 0x3ffa90ull,
+    0x155555550aaa90ull, 0x6aaaaaaa455540ull, 0x6aeaaa9a400000ull, 0x6aaaaa56400000ull, 0x6baaaa9a400000ull,
+    0x2aaaaaaa000000ull, 0x6a55556a400000ull, 0x6a40006a400000ull, 0x15000015000000ull, 0x0ull};
+/* 1.9.0: the F2 tile of the display mode (F4's cycle), one picture a mode on the Graphics tile's monitor: a window with its title
+ * bar on the desktop; pixel perfect, a picture with margins all round; fit, the full height with bars at the sides; stretched,
+ * the whole screen. */
+static const uint64_t icon_display_window[18] = {
+    0x15555555555540ull, 0x1aaaaaaaaaaa40ull, 0x1a955555556a40ull, 0x1a97f555556a40ull, 0x1a955555556a40ull,
+    0x1a9aaaaaaa6a40ull, 0x1a9aaaaaaa6a40ull, 0x1a9aaaaaaa6a40ull, 0x1a9aaaaaaa6a40ull, 0x1a9aaaaaaa6a40ull,
+    0x1a9aaaaaaa6a40ull, 0x1a955555556a40ull, 0x1aaaaaaaaaaa40ull, 0x15555555555540ull, 0x555000000ull, 0x55555550000ull,
+    0x0ull, 0x0ull};
+static const uint64_t icon_display_pixel[18] = {
+    0x15555555555540ull, 0x1aaaaaaaaaaa40ull, 0x1aaaaaaaaaaa40ull, 0x1aabfffffeaa40ull, 0x1aabfffffeaa40ull,
+    0x1aabfffffeaa40ull, 0x1aabfffffeaa40ull, 0x1aabfffffeaa40ull, 0x1aabfffffeaa40ull, 0x1aabfffffeaa40ull,
+    0x1aabfffffeaa40ull, 0x1aaaaaaaaaaa40ull, 0x1aaaaaaaaaaa40ull, 0x15555555555540ull, 0x555000000ull, 0x55555550000ull,
+    0x0ull, 0x0ull};
+static const uint64_t icon_display_fit[18] = {
+    0x15555555555540ull, 0x1abfffffffea40ull, 0x1abfffffffea40ull, 0x1abfffffffea40ull, 0x1abfffffffea40ull,
+    0x1abfffffffea40ull, 0x1abfffffffea40ull, 0x1abfffffffea40ull, 0x1abfffffffea40ull, 0x1abfffffffea40ull,
+    0x1abfffffffea40ull, 0x1abfffffffea40ull, 0x1abfffffffea40ull, 0x15555555555540ull, 0x555000000ull, 0x55555550000ull,
+    0x0ull, 0x0ull};
+static const uint64_t icon_display_stretch[18] = {
+    0x15555555555540ull, 0x1fffffffffff40ull, 0x1fffffffffff40ull, 0x1fffffffffff40ull, 0x1fffffffffff40ull,
+    0x1fffffffffff40ull, 0x1fffffffffff40ull, 0x1fffffffffff40ull, 0x1fffffffffff40ull, 0x1fffffffffff40ull,
+    0x1fffffffffff40ull, 0x1fffffffffff40ull, 0x1fffffffffff40ull, 0x15555555555540ull, 0x555000000ull, 0x55555550000ull,
+    0x0ull, 0x0ull};
 /* <row icons> */
 /* Row icons (1.7.5): 9 x 9, at the left of the rows of the control, options and graphics pages. Drawn by hand (the drawing
  * and its packing script are kept with the interface notes); a face button is the ring with its letters drawn inside. */
@@ -363,6 +392,8 @@ static const struct { const uint64_t *rows; unsigned char w, h; } icons[RR_ICON_
     {icon_logo, 26, 20}, {icon_keyboard_small, 17, 9}, {icon_gamepad_small, 17, 9}, {icon_options_small, 17, 9},
     {icon_graphics, 30, 18}, {icon_chat, 30, 18}, {icon_exit, 30, 18}, {icon_restart, 30, 18},
     {icon_pass, 30, 18}, {icon_give, 30, 18}, {icon_sharing, 30, 18},
+    {icon_controls, 30, 18}, {icon_display_window, 30, 18}, {icon_display_pixel, 30, 18}, {icon_display_fit, 30, 18},
+    {icon_display_stretch, 30, 18},
     /* <row table> */
     {icon_row_up, 9, 9}, {icon_row_down, 9, 9}, {icon_row_left, 9, 9}, {icon_row_right, 9, 9}, {icon_row_button, 9, 9},
     {icon_row_start, 9, 9}, {icon_row_select, 9, 9}, {icon_row_coin, 9, 9}, {icon_row_pause, 9, 9}, {icon_row_quit, 9, 9},
