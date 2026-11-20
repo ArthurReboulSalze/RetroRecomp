@@ -21,7 +21,8 @@ from .rounded_skin import skin_of
 from .dialogs import center_dialog, fit_screen
 from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
 from .gui_icons import HERO_CONVERT, hero_picture
-from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
+from .gui_common import (EDGE, HELP_URL, MULTIPLAYER_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS,
+                         UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL)
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
     badged_icon, header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
@@ -546,9 +547,45 @@ class WindowMixin:
         setattr(self, name, None)
         return False
 
+    def help_multiplayer(self, parent, card, tile, background):
+        """Help's Multiplayer card (Arthur, 20 Nov 2026): the same game in the same version, the three ways to meet (the local
+        network, the Internet, a VPN between friends), the controller modes under the Multiplayer window's own names, and its
+        guide. Returned unpacked: show_help reveals it after the keys."""
+        section = tk.Frame(parent, bg=card, highlightthickness=1, highlightbackground=tile, padx=12, pady=10)
+        tk.Label(section, text=self.tr('help_mp_title'), bg=card, fg=COLORS['gold'],
+                 font=(self.ui_font, 9, 'bold')).pack(anchor='w')
+        tk.Label(section, text=self.tr('help_mp_intro'), bg=card, fg=COLORS['text'], font=(self.ui_font, 9),
+                 wraplength=560, justify='left').pack(anchor='w', pady=(3, 6))
+        for key in ('help_mp_local', 'help_mp_internet', 'help_mp_vpn'):
+            way = tk.Frame(section, bg=card)
+            way.pack(fill='x', pady=(2, 3))
+            tk.Frame(way, bg=COLORS['gold'], width=3).pack(side='left', fill='y', padx=(0, 9))
+            text = tk.Frame(way, bg=card)
+            text.pack(side='left', fill='x')
+            tk.Label(text, text=self.tr(key), bg=card, fg=COLORS['text'], font=(self.ui_font, 9, 'bold')).pack(anchor='w')
+            tk.Label(text, text=self.tr(key + '_text'), bg=card, fg=COLORS['muted'], font=(self.ui_font, 8),
+                     wraplength=540, justify='left').pack(anchor='w')
+        tk.Label(section, text=self.tr('help_mp_controls'), bg=card, fg=COLORS['text'],
+                 font=(self.ui_font, 9, 'bold')).pack(anchor='w', pady=(6, 3))
+        modes = tk.Frame(section, bg=card)
+        modes.pack(fill='x')
+        for index, (mode, note) in enumerate((('mp_sharing_per_player', ''), ('mp_sharing_everyone', ''),
+                                              ('mp_sharing_turns', 'help_mp_turns_note'),
+                                              ('mp_sharing_link', 'help_mp_link_note'))):
+            cell = tk.Frame(modes, bg=card)
+            cell.grid(row=index // 2, column=index % 2, sticky='nw', padx=(0, 14), pady=(0, 4))
+            tk.Label(cell, text=self.tr(mode), bg=background, fg=COLORS['gold'], font=(self.ui_font, 8, 'bold'),
+                     padx=6, pady=1, highlightthickness=1, highlightbackground=tile).pack(anchor='w')
+            if note:
+                tk.Label(cell, text=self.tr(note), bg=card, fg=COLORS['muted'], font=(self.ui_font, 8),
+                         wraplength=260, justify='left').pack(anchor='w', pady=(2, 0))
+        ttk.Button(section, text=self.tr('help_mp_guide'),
+                   command=lambda: webbrowser.open_new_tab(MULTIPLAYER_URL)).pack(anchor='w', pady=(6, 0))
+        return section
+
     def show_help(self):
         """How Retro-Recomp works, in five steps and the keys every game
-        shares; the full guides are one click away."""
+        shares, then how to play together; the full guides are one click away."""
         if self.raise_existing('help_window'):
             return
         # The credits page's look: its dark scene behind, '#202020' cards, the same gold.
@@ -626,6 +663,7 @@ class WindowMixin:
                      padx=6, pady=1, highlightthickness=1, highlightbackground=tile).pack(anchor='w')
             tk.Label(cell, text=self.tr(label), bg=card, fg=COLORS['text'],
                      font=(self.ui_font, 8)).pack(anchor='w', pady=(3, 0))
+        players = self.help_multiplayer(body, card, tile, background)
         foot = tk.Frame(body, bg=background)
         tk.Label(foot, text=self.tr('help_private'), bg=background, fg=COLORS['muted'],
                  font=(self.ui_font, 8)).pack(side='left')
@@ -645,14 +683,16 @@ class WindowMixin:
                 window.after(110, reveal, index + 1)
             else:
                 keys.pack(fill='x', pady=(12, 0))
+                players.pack(fill='x', pady=(10, 0))
                 foot.pack(fill='x', pady=(14, 0))
         for row in rows:
             row.pack(fill='x', pady=(0, 6))
         keys.pack(fill='x', pady=(12, 0))
+        players.pack(fill='x', pady=(10, 0))
         foot.pack(fill='x', pady=(14, 0))
         window.update_idletasks()
         width, height = body.winfo_reqwidth() + 2, body.winfo_reqheight() + 2
-        for widget in (*rows, keys, foot):
+        for widget in (*rows, keys, players, foot):
             widget.pack_forget()
         from .dialogs import screen_room
         room_width, room_height = screen_room(self.app)
