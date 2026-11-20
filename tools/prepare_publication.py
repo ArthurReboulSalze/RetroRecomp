@@ -312,7 +312,7 @@ native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py
 native/pce_snapshot_checks.cpp tools/pce_snapshot_selftest.py tools/pce_snapshot_rom.py tests/test_pce_snapshot.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
-native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
+native/gb_ppu_object_span.h native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
 native/gb_link.h native/gb_link_checks.c tools/gameboy_link_selftest.py tools/gameboy_link_play.py tests/test_gameboy_link.py
 tests/test_gameboy_helper_counts.py
 tools/gameboy_campaign.py tools/gameboy_cross_os.py tests/test_gameboy_cross_os.py

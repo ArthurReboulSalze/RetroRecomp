@@ -28,6 +28,35 @@ def adapt_hardware(project: Path) -> None:
     source = adapt_sweep_calculation(source)
     source = adapt_audio_digest(source)
     path.write_text(source, encoding='utf-8')
+    ppu = project / 'runtime/src/ppu.c'
+    ppu.write_text(adapt_ppu_object_spans(ppu.read_text(encoding='utf-8')), encoding='utf-8')
+
+
+def adapt_ppu_object_spans(source: str) -> str:
+    """A line that has sprites is drawn in runs, like a sprite-free line (native/gb_ppu_object_span.h): the pinned runtime draws a sprite-free run of dots
+    in one go (ppu_draw_stable_span) and every dot of a line with a sprite one at a time. DMG hardware only; a run stops before the dot where a sprite
+    fetch starts (that dot, its stall and the mask of fetched sprites stay with the dot path), so the pixels, the timing and the state are the same."""
+    source = replace_once(source, 'static uint32_t ppu_draw_stable_span(GBPPU* ppu,',
+        '#include "gb_ppu_object_span.h"\n\nstatic uint32_t ppu_draw_stable_span(GBPPU* ppu,')
+    source = replace_once(source, '        ppu->visible_sprite_count != 0u ||\n        ctx->ppu_trace_file != NULL ||',
+        '        (ppu->visible_sprite_count != 0u && ctx->config.model == GB_MODEL_CGB) ||   /* the colour hardware keeps the dot path */\n'
+        '        ctx->ppu_trace_file != NULL ||')
+    return replace_once(source,
+        '    if (span > until_tile_boundary) {\n        span = until_tile_boundary;\n    }\n    if (span < 2u) {\n        return 0;\n    }\n\n'
+        '    ppu_render_background_span(ppu, ctx, span);',
+        '    if (span > until_tile_boundary) {\n        span = until_tile_boundary;\n    }\n'
+        '    /* A sprite fetch starts at the dot where the sprite enters: the dot path takes that dot, the run stops before it. */\n'
+        '    for (uint8_t slot = 0; slot < ppu->visible_sprite_count; ++slot) {\n'
+        '        if (ppu->fetched_sprite_mask & (uint16_t)(1u << slot)) continue;\n'
+        '        const int sprite_x = (int)ppu->visible_sprite_x[slot] - 8;\n'
+        '        const int trigger_x = sprite_x < 0 ? 0 : sprite_x;\n'
+        '        if (trigger_x >= GB_SCREEN_WIDTH || trigger_x < (int)ppu->draw_x) continue;\n'
+        '        if (trigger_x == (int)ppu->draw_x) return 0;\n'
+        '        if ((uint32_t)(trigger_x - (int)ppu->draw_x) < span) span = (uint32_t)(trigger_x - (int)ppu->draw_x);\n'
+        '    }\n'
+        '    if (span < 2u) {\n        return 0;\n    }\n\n'
+        '    if (ppu->visible_sprite_count != 0u) {\n        ppu_render_object_span(ppu, ctx, span);\n    } else {\n'
+        '        ppu_render_background_span(ppu, ctx, span);\n    }')
 
 
 def adapt_sweep_calculation(source: str) -> str:

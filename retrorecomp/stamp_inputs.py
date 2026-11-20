@@ -506,6 +506,7 @@ INPUTS = _resolve({
         'native/gb_link.h',
         'native/gb_link_checks.c',
         'native/gb_machine_checks.c',
+        'native/gb_ppu_object_span.h',
         'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
