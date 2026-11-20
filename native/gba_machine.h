@@ -15,6 +15,8 @@ extern "C" {
 /* One frame, from VBlank to VBlank, with the buttons held (the hardware KEYINPUT bits, here high = pressed). The picture and
  * the sound of the frame are taken. false: the guest stopped, or a power cycle was asked. */
 bool rrgba_frame(uint16_t pressed);
+bool rrgba_frame_pads(uint16_t pressed, uint16_t other);   /* the same on a link cable (docs/GAME_BOY_ADVANCE.md): one pad word per console, seat 1 and seat 2 here */
+unsigned rrgba_link_seats(void);                      /* the consoles on the cable (2 to 4); 0: no cable, the single machine */
 const uint32_t *rrgba_pixels(void);                  /* 240 x 160, 0xAARRGGBB */
 size_t rrgba_audio(int16_t *pcm, size_t capacity);   /* the machine's mono sound at 32768 Hz; 0 when nothing is left */
 void rrgba_reset(void);                              /* a power cycle: the loop ends and the machine is built again */

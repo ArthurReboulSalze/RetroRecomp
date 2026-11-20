@@ -34,12 +34,12 @@ static const RrhkAction actions[ACTIONS] = {
 #define WIDTH 240
 #define HEIGHT 160
 
-static int players(void) { return 1; }
+static int players(void) { return rrgba_link_seats() ? (int)rrgba_link_seats() : 1; }
 static int width(void) { return WIDTH; }
 static int height(void) { return HEIGHT; }
 
 static void reset(void) { rrgba_reset(); }
-static bool run_frame(uint16_t p1, uint16_t p2) { (void)p2; return rrgba_frame(p1); }
+static bool run_frame(uint16_t p1, uint16_t p2) { return rrgba_frame_pads(p1, p2); }
 static void pause_machine(bool paused) { (void)paused; }
 static size_t audio(int16_t *pcm, size_t capacity) { return rrgba_audio(pcm, capacity); }
 static bool audio_enable(unsigned rate) { (void)rate; return true; }
