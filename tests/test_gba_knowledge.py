@@ -18,8 +18,8 @@ from tests.test_gba_profile import synthetic_cartridge
 # When it fails you changed, added or removed such a patch. Decide in the same change whether a path could notice it (does the generator accept other roots,
 # are RAM copies read differently, does the decoder decode a function entry otherwise?): if so raise `gba_knowledge.PATH_REVISION` (every qualified row
 # of the base then goes back to pending until a conversion of the new revision reaches it), and in both cases write the new digest here.
-PINNED_PATCHES_SHA256 = '5f7fd5168a9cd53d5f1baa3ff5402940ca47c815d6b5d110b802ac9b3274f357'
-PINNED_PATCH_COUNT = 24         # the recompiler's and the core's patches, and the four of the probe that hold a recorder
+PINNED_PATCHES_SHA256 = '5d12f3c4d757516b2e6a2b5d3732c85efde7b6499d2e42c19b5c7244e8b8fef1'    # 20 Nov 2026: +3 (the session fallback, src/armv4t): it changes a match only, no code generation or discovery: PATH_REVISION stays
+PINNED_PATCH_COUNT = 27         # the recompiler's and the core's patches, and the four of the probe that hold a recorder
 
 ROM = random.Random(1).randbytes(0x4000)
 IDENTITY = hashlib.sha256(ROM).hexdigest()
