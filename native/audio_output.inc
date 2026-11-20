@@ -5,6 +5,8 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "stereo_fir.h"
 #include "audio_cushion.h"
@@ -15,6 +17,10 @@
 #define RR_AUDIO_JITTER_MS 3u
 #define RR_AUDIO_TAPS 256u
 #define RR_AUDIO_PHASES 128u
+/* 1.9.0: the conversion's input is read in chunks of RR_AUDIO_CHUNK samples into a linear window (the 255 samples before it,
+ * then the chunk), and its outputs are computed RR_AUDIO_BLOCK at a time by rr_stereo_fir_block: the same bits as one by one. */
+#define RR_AUDIO_CHUNK 2048u
+#define RR_AUDIO_BLOCK 1024u
 /* The host may ask for an output device by name (RR_HOST_AUDIO_DEVICE) and tell that the speed is not 100%
  * (RR_HOST_AUDIO_HELD: the sound is dropped, not converted nor played). */
 #ifndef RR_HOST_AUDIO_DEVICE
@@ -37,6 +43,12 @@ static struct {
     int16_t history[RR_AUDIO_TAPS * 2];
     float coefficients[RR_AUDIO_PHASES][RR_AUDIO_TAPS];
     RrAudioCushion cushion;
+    int fir_body;                                  /* rr_stereo_fir_block's body: 2 AVX2, 1 SSE2, 0 portable C */
+    int16_t window[(RR_AUDIO_TAPS - 1u + RR_AUDIO_CHUNK) * 2];
+    uint32_t ends[RR_AUDIO_BLOCK];
+    const float *taps_of[RR_AUDIO_BLOCK];
+    double sums[RR_AUDIO_BLOCK * 2];
+    FILE *input_dump;                              /* RETRORECOMP_AUDIO_INPUT_DUMP: what the converter was given (A/B proofs) */
 } rr_audio;
 
 /* The device the player asked for, or the system default when there is none or it cannot be opened. */
@@ -149,6 +161,11 @@ static void audio_resampler_init(uint32_t source_rate) {
     const double pi = 3.14159265358979323846;
     const double cutoff = .45 * SDL_min(1.0, (double)rr_audio.device.freq / source_rate);
     rr_audio.source_rate = source_rate;
+    /* The widest body this CPU runs (SDL asks the CPU and the system); every body gives the same bits. */
+    rr_audio.fir_body = RR_STEREO_FIR_SIMD ? 1 : 0;
+#if RR_STEREO_FIR_AVX2
+    if (SDL_HasAVX2()) rr_audio.fir_body = 2;
+#endif
     for (uint32_t phase = 0; phase < RR_AUDIO_PHASES; ++phase) {
         double sum = 0.0;
         for (uint32_t tap = 0; tap < RR_AUDIO_TAPS; ++tap) {
@@ -183,7 +200,9 @@ bool host_audio_init(uint32_t rate) {
     SDL_AudioSpec want; SDL_zero(want);
     want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 256;
     want.callback = audio_callback;
+    FILE *input_dump = rr_audio.input_dump;      /* an A/B dump stays open across a device reopen */
     memset(&rr_audio, 0, sizeof(rr_audio));
+    rr_audio.input_dump = input_dump;
     /* Consume in the backend's native format/period. WASAPI usually requests
      * float PCM: forcing S16 makes SDL stage another converted output block. */
     audio_device = audio_open_device(&want, &rr_audio.device,
@@ -206,6 +225,17 @@ bool host_audio_init(uint32_t rate) {
     rr_audio.high_water = SDL_min(RR_AUDIO_RING_FRAMES,
         rr_audio.keep + audio_ms_frames(RR_AUDIO_BURST_MS) + rr_audio.device.samples);
     audio_resampler_init(rate);
+    {
+        /* A/B proofs only (off by default): every call's step and its stereo input, as given, to replay the conversion exactly. */
+        const char *dump = getenv("RETRORECOMP_AUDIO_INPUT_DUMP");
+        if (dump && *dump && !rr_audio.input_dump) {
+            rr_audio.input_dump = fopen(dump, "wb");
+            if (rr_audio.input_dump) {
+                const uint32_t header[3] = {0x52524131u, rate, (uint32_t)rr_audio.device.freq};   /* "RRA1", source, device */
+                fwrite(header, sizeof header, 1, rr_audio.input_dump);
+            }
+        }
+    }
     SDL_PauseAudioDevice(audio_device, 0);
     fprintf(stderr, "[host] audio driver=%s, %d Hz, %u samples, format=%s, startup=%.1f ms limit=%.1f ms; physical latency unmeasured\n",
         SDL_GetCurrentAudioDriver(), rr_audio.device.freq, rr_audio.device.samples,
@@ -220,6 +250,19 @@ bool host_audio_init(uint32_t rate) {
  * runs at an output rate of device x rr_drc_ratio(base, fill, target), the target being the start reserve plus half a frame. */
 static double rr_audio_base = 1.0;
 void host_audio_ratio(double base) { rr_audio_base = base; }
+
+/* Outputs [from, to) of the block: their sums from the current window, then rounded and clamped as always. */
+static void audio_fir_outputs(int16_t *output, uint32_t from, uint32_t to) {
+    if (to <= from) return;
+    rr_stereo_fir_block(rr_audio.fir_body, rr_audio.window, rr_audio.ends + from, rr_audio.taps_of + from, RR_AUDIO_TAPS,
+                        to - from, rr_audio.sums);
+    for (uint32_t k = 0; k < to - from; ++k) {
+        output[(from + k) * 2u] = (int16_t)SDL_clamp((int)lrint(rr_audio.sums[k * 2u]), -32768, 32767);
+        output[(from + k) * 2u + 1u] = (int16_t)SDL_clamp((int)lrint(rr_audio.sums[k * 2u + 1u]), -32768, 32767);
+    }
+}
+
+static void audio_convert(const int16_t *samples, size_t count, uint32_t step);
 
 void host_audio_submit(const int16_t *samples, size_t count) {
     if (!audio_device || !samples || !count) return;
@@ -241,23 +284,50 @@ void host_audio_submit(const int16_t *samples, size_t count) {
         }
         return;
     }
-    int16_t output[1024 * 2]; uint32_t pending = 0;
-    while (count--) {
-        rr_audio.history_pos = (rr_audio.history_pos + 1u) % RR_AUDIO_TAPS;
-        rr_audio.history[rr_audio.history_pos * 2u] = *samples++;
-        rr_audio.history[rr_audio.history_pos * 2u + 1u] = *samples++;
-        rr_audio.phase += step;
-        while (rr_audio.phase >= rr_audio.source_rate) {
-            rr_audio.phase -= rr_audio.source_rate;
-            uint32_t phase = (uint32_t)((uint64_t)rr_audio.phase * RR_AUDIO_PHASES / step);
-            phase = SDL_min(phase, RR_AUDIO_PHASES - 1u);
-            double left, right;
-            rr_stereo_fir(rr_audio.history,rr_audio.history_pos,
-                rr_audio.coefficients[phase],RR_AUDIO_TAPS,&left,&right);
-            output[pending * 2u] = (int16_t)SDL_clamp((int)lrint(left), -32768, 32767);
-            output[pending * 2u + 1u] = (int16_t)SDL_clamp((int)lrint(right), -32768, 32767);
-            if (++pending == 1024u) { audio_push(output, pending); pending = 0; }
+    if (rr_audio.input_dump) {
+        const uint32_t call[2] = {(uint32_t)count, step};
+        fwrite(call, sizeof call, 1, rr_audio.input_dump);
+        fwrite(samples, sizeof(int16_t) * 2u, count, rr_audio.input_dump);
+    }
+    audio_convert(samples, count, step);
+}
+
+/* The band-limited conversion of `count` stereo samples at `step` (the output rate, locked or not), pushed to the ring.
+ * 1.9.0: the same steps, phases, outputs and pushes as one output at a time (rr_stereo_fir on the circular history): the
+ * input goes through in chunks; each chunk's window is the 255 samples before it, oldest first, then the chunk, so the
+ * window of the output after input i ends at window[255 + i]; the outputs of a chunk are computed together (independent
+ * sums overlap) before the window changes, and pushed every RR_AUDIO_BLOCK outputs and at the end, as before. */
+static void audio_convert(const int16_t *samples, size_t count, uint32_t step) {
+    if (!count) return;
+    int16_t output[RR_AUDIO_BLOCK * 2]; uint32_t pending = 0, computed = 0;
+    while (count) {
+        const uint32_t chunk = (uint32_t)SDL_min(count, RR_AUDIO_CHUNK);
+        for (uint32_t k = 0; k + 1u < RR_AUDIO_TAPS; ++k) {
+            const uint32_t from = (rr_audio.history_pos + 2u + k) % RR_AUDIO_TAPS;
+            rr_audio.window[k * 2u] = rr_audio.history[from * 2u];
+            rr_audio.window[k * 2u + 1u] = rr_audio.history[from * 2u + 1u];
         }
+        memcpy(rr_audio.window + (RR_AUDIO_TAPS - 1u) * 2u, samples, chunk * 2u * sizeof(int16_t));
+        for (uint32_t i = 0; i < chunk; ++i) {
+            rr_audio.history_pos = (rr_audio.history_pos + 1u) % RR_AUDIO_TAPS;
+            rr_audio.history[rr_audio.history_pos * 2u] = *samples++;
+            rr_audio.history[rr_audio.history_pos * 2u + 1u] = *samples++;
+            rr_audio.phase += step;
+            while (rr_audio.phase >= rr_audio.source_rate) {
+                rr_audio.phase -= rr_audio.source_rate;
+                uint32_t phase = (uint32_t)((uint64_t)rr_audio.phase * RR_AUDIO_PHASES / step);
+                phase = SDL_min(phase, RR_AUDIO_PHASES - 1u);
+                rr_audio.ends[pending] = RR_AUDIO_TAPS - 1u + i;
+                rr_audio.taps_of[pending] = rr_audio.coefficients[phase];
+                if (++pending == RR_AUDIO_BLOCK) {
+                    audio_fir_outputs(output, computed, pending);
+                    audio_push(output, pending); pending = computed = 0;
+                }
+            }
+        }
+        audio_fir_outputs(output, computed, pending);     /* before the next chunk's window replaces this one */
+        computed = pending;
+        count -= chunk;
     }
     audio_push(output, pending);
 }
@@ -276,6 +346,7 @@ bool host_audio_reopen(void) {
 }
 
 void host_audio_shutdown(void) {
+    if (rr_audio.input_dump) { fclose(rr_audio.input_dump); rr_audio.input_dump = NULL; }
     if (!audio_device) return;
     SDL_CloseAudioDevice(audio_device); audio_device = 0;
     fprintf(stderr, "[host] audio produced=%llu played=%llu trimmed=%llu underrun=%llu peak=%u frames"

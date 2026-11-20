@@ -113,6 +113,173 @@ static void conversion_checks(void) {
     free(input); free(a); free(b);
 }
 
+/* ---- 1.9.0: the block conversion against the conversion of 1.8.0, bit for bit ----
+ * The reference is 1.8.0's loop, one output at a time with rr_stereo_fir on its own circular history; it replays the steps the
+ * converter wrote in its A/B dump (RETRORECOMP_AUDIO_INPUT_DUMP's format: a header, then per call its count, its step and its
+ * stereo input), so the locked rates (host_audio_ratio) are followed exactly. */
+typedef struct { uint32_t phase, pos; int16_t history[RR_AUDIO_TAPS * 2]; } FirReference;
+static size_t fir_reference(FirReference *s, const int16_t *samples, size_t count, uint32_t step, uint32_t source_rate,
+                            int16_t *out) {
+    if (source_rate == step) { memcpy(out, samples, count * 2 * sizeof(int16_t)); return count; }
+    size_t produced = 0;
+    while (count--) {
+        s->pos = (s->pos + 1u) % RR_AUDIO_TAPS;
+        s->history[s->pos * 2u] = *samples++;
+        s->history[s->pos * 2u + 1u] = *samples++;
+        s->phase += step;
+        while (s->phase >= source_rate) {
+            s->phase -= source_rate;
+            uint32_t phase = (uint32_t)((uint64_t)s->phase * RR_AUDIO_PHASES / step);
+            phase = SDL_min(phase, RR_AUDIO_PHASES - 1u);
+            double left, right;
+            rr_stereo_fir(s->history, s->pos, rr_audio.coefficients[phase], RR_AUDIO_TAPS, &left, &right);
+            out[produced * 2u] = (int16_t)SDL_clamp((int)lrint(left), -32768, 32767);
+            out[produced * 2u + 1u] = (int16_t)SDL_clamp((int)lrint(right), -32768, 32767);
+            ++produced;
+        }
+    }
+    return produced;
+}
+
+/* The converter's PCM for `input` given in calls of the `chunks` sizes (cycled), at `ratio`, with the given body; the same
+ * stream through the reference, from the dump the converter wrote; both compared. Returns the outputs compared. */
+static size_t fir_ab(const int16_t *input, size_t count, uint32_t source_rate, int output_rate, const size_t *chunks,
+                     size_t chunk_count, double ratio, int body, int16_t *got, int16_t *want) {
+    reset_test(source_rate, output_rate);
+    rr_audio.high_water = RR_AUDIO_RING_FRAMES;   /* large calls are drained after each one: the ring's trim is not under test */
+    rr_audio.fir_body = body;
+    host_audio_ratio(ratio);
+    FILE *dump = fopen("fir-ab-dump.bin", "wb+");
+    assert(dump);
+    const uint32_t header[3] = {0x52524131u, source_rate, (uint32_t)output_rate};
+    fwrite(header, sizeof header, 1, dump);
+    rr_audio.input_dump = dump;
+    size_t produced = 0, offset = 0;
+    for (size_t call = 0; offset < count; ++call) {
+        const size_t n = SDL_min(chunks[call % chunk_count], count - offset);
+        host_audio_submit(input + offset * 2, n);
+        produced += capture(got + produced * 2);
+        offset += n;
+    }
+    rr_audio.input_dump = NULL;
+    host_audio_ratio(1.0);
+    assert(!rr_audio.dropped);
+    /* the replay, from the dump alone */
+    rewind(dump);
+    uint32_t read_header[3];
+    assert(fread(read_header, sizeof read_header, 1, dump) == 1 && !memcmp(read_header, header, sizeof header));
+    FirReference reference; memset(&reference, 0, sizeof reference);
+    static int16_t call_input[8192 * 2];
+    size_t expected = 0;
+    for (uint32_t call[2]; fread(call, sizeof call, 1, dump) == 1;) {
+        assert(call[0] <= 8192u && fread(call_input, sizeof(int16_t) * 2u, call[0], dump) == call[0]);
+        expected += fir_reference(&reference, call_input, call[0], call[1], source_rate, want + expected * 2);
+    }
+    fclose(dump); remove("fir-ab-dump.bin");
+    assert(expected == produced);
+    for (size_t i = 0; i < produced * 2; ++i)
+        if (got[i] != want[i]) {
+            fprintf(stderr, "FIR A/B: body %d, %u -> %d Hz, ratio %.4f: sample %zu is %d, 1.8.0 gives %d\n", body,
+                    (unsigned)source_rate, output_rate, ratio, i, got[i], want[i]);
+            assert(!"block conversion differs from 1.8.0");
+        }
+    return produced;
+}
+
+static void fir_ab_checks(void) {
+    const size_t count = 223721;
+    int16_t *input = calloc(count * 2, sizeof(int16_t));
+    int16_t *got = calloc((count + 64) * 2, sizeof(int16_t));
+    int16_t *want = calloc((count + 64) * 2, sizeof(int16_t));
+    assert(input && got && want);
+    /* the signals: two tones; full-scale squares that clamp; noise over the whole range; silence with impulses */
+    uint32_t seed = 0x2545F491u;
+    for (size_t i = 0; i < count; ++i) {
+        const size_t part = i / (count / 4);
+        int left, right;
+        if (part == 0) { left = (int)(12000 * sin(i * .031)); right = (int)(9000 * cos(i * .017)); }
+        else if (part == 1) { left = (i / 37) & 1 ? 32767 : -32768; right = (i / 53) & 1 ? -32768 : 32767; }
+        else if (part == 2) { seed = seed * 1664525u + 1013904223u; left = (int16_t)(seed >> 16); seed = seed * 1664525u + 1013904223u; right = (int16_t)(seed >> 16); }
+        else { left = i % 4093 == 0 ? 32767 : 0; right = i % 3001 == 7 ? -32768 : 0; }
+        input[i * 2] = (int16_t)left; input[i * 2 + 1] = (int16_t)right;
+    }
+    const size_t frames[] = {3728, 3729, 3728, 3727}, odd[] = {1, 7, 37, 731, 2047, 2048, 2049, 4096}, msx[] = {735, 736};
+    const int bodies[] = {0, RR_STEREO_FIR_SIMD ? 1 : 0, RR_STEREO_FIR_AVX2 && SDL_HasAVX2() ? 2 : (RR_STEREO_FIR_SIMD ? 1 : 0)};
+    const char *names[] = {"C", "SSE2", "AVX2"};
+    size_t compared = 0;
+    for (int b = 0; b < 3; ++b) {
+        const int body = bodies[b];
+        if (b && body != b) { printf("FIR A/B: %s body not on this CPU, skipped\n", names[b]); continue; }
+        /* SMS / GG (NTSC and PAL PSG rates), to 48 and 44.1 kHz; the MSX family's 44.1 kHz to 48 kHz; locked rates */
+        compared += fir_ab(input, count, 223721, 48000, frames, 4, 1.0, body, got, want);
+        compared += fir_ab(input, count, 221681, 48000, frames, 4, 1.0, body, got, want);
+        compared += fir_ab(input, count, 223721, 44100, odd, 8, 1.0, body, got, want);
+        compared += fir_ab(input, count / 5, 44100, 48000, msx, 2, 1.0, body, got, want);
+        compared += fir_ab(input, count, 223721, 48000, frames, 4, 1.0025, body, got, want);
+        compared += fir_ab(input, count / 5, 44100, 48000, odd, 8, 0.9975, body, got, want);
+    }
+    /* speed, one second of PSG at 223 721 Hz to 48 kHz: the one-at-a-time loop against each body */
+    double ms[4];
+    for (int b = -1; b < 3; ++b) {
+        if (b > 0 && bodies[b] != b) { ms[b + 1] = -1; continue; }
+        reset_test(223721, 48000);
+        Uint64 start = SDL_GetPerformanceCounter();
+        if (b < 0) { FirReference r; memset(&r, 0, sizeof r); fir_reference(&r, input, count, 48000, 223721, want); }
+        else {
+            rr_audio.fir_body = bodies[b];
+            for (size_t offset = 0; offset < count; offset += 3728) {
+                host_audio_submit(input + offset * 2, SDL_min(3728u, count - offset)); capture(got);
+            }
+        }
+        ms[b + 1] = (SDL_GetPerformanceCounter() - start) * 1000.0 / SDL_GetPerformanceFrequency();
+    }
+    printf("FIR A/B: %zu outputs identical to 1.8.0 (bodies C/SSE2/AVX2; SMS-GG NTSC and PAL, MSX 44.1 kHz; 48/44.1 kHz; locked rates)\n",
+           compared);
+    printf("FIR speed, ms per second of 223 721 Hz PCM: 1.8.0 loop %.2f, C %.2f, SSE2 %.2f, AVX2 %.2f (an indication, not the timed slot)\n",
+           ms[0], ms[1], ms[2], ms[3]);
+    rr_audio.fir_body = bodies[2];
+    free(input); free(got); free(want);
+}
+
+/* `--replay <dump>`: a game's own sound, recorded by an export with RETRORECOMP_AUDIO_INPUT_DUMP, converted call by call at
+ * its recorded steps by 1.8.0's loop and by every body of this CPU, compared bit for bit. 0: identical. */
+static int fir_replay(const char *path) {
+    FILE *dump = fopen(path, "rb");
+    uint32_t header[3];
+    if (!dump || fread(header, sizeof header, 1, dump) != 1 || header[0] != 0x52524131u) {
+        fprintf(stderr, "replay: %s is not an audio input dump\n", path); if (dump) fclose(dump); return 2;
+    }
+    const int bodies[] = {0, RR_STEREO_FIR_SIMD ? 1 : -1, RR_STEREO_FIR_AVX2 && SDL_HasAVX2() ? 2 : -1};
+    static int16_t call_input[65536 * 2], got[80000 * 2], want[80000 * 2];
+    size_t total = 0, calls = 0, inputs = 0;
+    for (int b = 0; b < 3; ++b) {
+        if (bodies[b] < 0) continue;
+        reset_test(header[1], (int)header[2]);
+        rr_audio.high_water = RR_AUDIO_RING_FRAMES;
+        rr_audio.fir_body = bodies[b];
+        FirReference reference; memset(&reference, 0, sizeof reference);
+        fseek(dump, (long)sizeof header, SEEK_SET);
+        calls = inputs = 0;
+        for (uint32_t call[2]; fread(call, sizeof call, 1, dump) == 1; ++calls) {
+            if (call[0] > 65536u || fread(call_input, sizeof(int16_t) * 2u, call[0], dump) != call[0]) {
+                fprintf(stderr, "replay: truncated call %zu\n", calls); fclose(dump); return 2;
+            }
+            audio_convert(call_input, call[0], call[1]);
+            const size_t n = capture(got);
+            const size_t m = fir_reference(&reference, call_input, call[0], call[1], header[1], want);
+            if (n != m || memcmp(got, want, n * 2 * sizeof(int16_t))) {
+                fprintf(stderr, "replay: body %d differs from 1.8.0 at call %zu (%zu and %zu outputs)\n", bodies[b], calls, n, m);
+                fclose(dump); return 1;
+            }
+            total += n; inputs += call[0];
+        }
+    }
+    fclose(dump);
+    printf("replay: %zu calls, %zu input samples at %u Hz to %u Hz: every body identical to 1.8.0 (%zu outputs compared)\n",
+           calls, inputs, (unsigned)header[1], (unsigned)header[2], total);
+    return 0;
+}
+
 static void ring_checks(void) {
     reset_test(48000, 48000);
     int16_t source[4096 * 2], output[4096 * 2];
@@ -344,9 +511,15 @@ int main(int argc, char **argv) {
     bool device = argc > 1 && !strcmp(argv[1], "--device");
     if (!device) SDL_SetHint(SDL_HINT_AUDIODRIVER, "dummy");
     if (!host_audio_init(223721)) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
+    if (argc > 2 && !strcmp(argv[1], "--replay")) {
+        SDL_PauseAudioDevice(audio_device, 1);
+        const int result = fir_replay(argv[2]);
+        host_audio_shutdown(); SDL_Quit();
+        return result;
+    }
     SDL_PauseAudioDevice(audio_device, 1);
     if (device) { burst_check(); steady_check(); }
-    else { conversion_checks(); ring_checks(); cushion_checks(); float_callback_check(); cadence_checks(); locked_checks(); reset_test(223721, 48000); burst_check(); }
+    else { fir_ab_checks(); conversion_checks(); ring_checks(); cushion_checks(); float_callback_check(); cadence_checks(); locked_checks(); reset_test(223721, 48000); burst_check(); }
     /* Another output device (decision D12): the same stream on a new device, its id known, the audio subsystem not started once more per reopen. */
     SDL_AudioDeviceID before = host_audio_device_id();
     assert(before && host_audio_reopen() && host_audio_device_id() && rr_audio.source_rate == 223721);
