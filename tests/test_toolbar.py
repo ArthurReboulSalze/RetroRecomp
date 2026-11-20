@@ -198,8 +198,10 @@ class PicturesOnly(ToolbarWindow):
             texts = {str(widget.cget('text')) for widget in all_widgets(app.help_window)
                      if widget.winfo_class() in ('Label', 'TButton')}
             for key in ('help_mp_title', 'help_mp_intro', 'help_mp_local', 'help_mp_internet', 'help_mp_vpn',
-                        'mp_sharing_per_player', 'mp_sharing_everyone', 'mp_sharing_turns', 'mp_sharing_link', 'help_mp_guide'):
+                        'mp_sharing_per_player', 'mp_sharing_everyone', 'mp_sharing_turns', 'help_mp_link_note', 'help_mp_guide'):
                 self.assertIn(app.tr(key), texts, key)
+            # three modes, never the link cable as a fourth (Arthur, 20 Nov 2026): it is said under one controller per player
+            self.assertNotIn(app.tr('mp_sharing_link'), texts)
             self.assertIn('Tailscale', app.tr('help_mp_vpn_text'))
             self.assertIn('24611', app.tr('help_mp_internet_text'))
             guide = next(widget for widget in all_widgets(app.help_window)

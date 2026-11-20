@@ -7,6 +7,7 @@ in the lobby, and the hello check of a shared match. The same mapper under real 
 tools/netplay_lockstep_selftest.py (the scenarios `shared-*`, run by tests/test_netplay_lockstep.py)."""
 import random
 import unittest
+from unittest.mock import patch
 
 from retrorecomp.netplay import control, launch, lobby, lobby_check, seat_map, session_pipe as pipe
 from retrorecomp.netplay.lockstep import LockstepDriver, Settings
@@ -198,13 +199,18 @@ class MapperRules(unittest.TestCase):
 
 
 class HandheldsAndSeats(unittest.TestCase):
-    def test_a_handheld_plays_in_input_sharing_only(self):
+    def test_a_handheld_plays_one_controller_per_player_through_its_link_cable(self):
+        # Arthur, 20 Nov 2026: three modes on every machine; on GB, GG and GBA « one controller per player » IS the link
+        # cable (LINK on the wire, unchanged); a handheld without a cable would play it as « everyone »
         for machine in ('gb', 'gba', 'gg'):
             self.assertTrue(seat_map.forced(machine))
-            self.assertEqual(seat_map.effective(machine, PER_PLAYER), SHARED_ALL)
+            self.assertEqual(seat_map.effective(machine, PER_PLAYER), seat_map.LINK)
             self.assertEqual(seat_map.effective(machine, SHARED_TURNS), SHARED_TURNS)
-            self.assertFalse(seat_map.allowed(machine, PER_PLAYER))
+            self.assertFalse(seat_map.allowed(machine, PER_PLAYER))       # never on the wire: the launch carries LINK
+            self.assertTrue(seat_map.allowed(machine, seat_map.effective(machine, PER_PLAYER)))
             self.assertTrue(seat_map.allowed(machine, SHARED_ALL) and seat_map.allowed(machine, SHARED_TURNS))
+        with patch.object(seat_map, 'link_seats', lambda machine: 0):
+            self.assertEqual(seat_map.effective('gb', PER_PLAYER), SHARED_ALL)
         for machine in (None, 'nes', 'md', 'sms', 'cps1', 'scummvm'):
             self.assertFalse(seat_map.forced(machine))
             self.assertEqual(seat_map.effective(machine, PER_PLAYER), PER_PLAYER)
@@ -368,7 +374,18 @@ class LobbyChoice(unittest.TestCase):
         self.answer_all()
         self.assertEqual(self.lobby.plan_launch().guests, (1, 2, 3))
 
+    def test_a_handheld_game_plays_one_controller_per_player_through_its_cable(self):
+        # Arthur, 20 Nov 2026: the host's « one controller per player » on a handheld is played as its link cable
+        self.lobby.select(game(machine='gba', seats_max=1, title='Mario Kart'), 0.0)
+        self.assertEqual((self.lobby.chosen, self.lobby.sharing), (PER_PLAYER, seat_map.LINK))
+        self.assertEqual(self.lobby.roster().seats_max, seat_map.link_seats('gba'))
+        self.assertIsNone(self.lobby.set_sharing(SHARED_ALL))
+        self.assertIsNone(self.lobby.set_sharing(PER_PLAYER))                      # and it can be chosen again
+        self.assertEqual(self.lobby.sharing, seat_map.LINK)
+
     def test_a_handheld_game_is_played_in_input_sharing_whatever_the_host_chose_and_can_be_picked_with_one_player(self):
+        # a handheld without a link cable (none today: its profile would give no link seats)
+        self.enterContext(patch.object(seat_map, 'link_seats', lambda machine: 0))
         handheld = game(machine='gb', seats_max=1, title='Tetris')
         self.assertIsInstance(HostPick.refused(lobby.HostLobby('a'), game(machine='nes', seats_max=1)), lobby.Refusal)    # not a handheld
         self.assertEqual(self.lobby.sharing, PER_PLAYER)
@@ -378,7 +395,8 @@ class LobbyChoice(unittest.TestCase):
         self.assertEqual(self.lobby.chosen, PER_PLAYER)
         self.assertEqual(self.lobby.roster().sharing, SHARED_ALL)
         self.assertEqual(self.lobby.roster().seats_max, 4)
-        self.assertIsInstance(self.lobby.set_sharing(PER_PLAYER), lobby.Refusal)   # and it cannot be set back
+        self.assertIsNone(self.lobby.set_sharing(PER_PLAYER))                      # accepted: it plays as « everyone »
+        self.assertEqual(self.lobby.sharing, SHARED_ALL)
         self.assertIsNone(self.lobby.set_sharing(SHARED_TURNS))                    # a shared mode is the host's to choose
         self.answer_all()
         plan = self.lobby.plan_launch()
