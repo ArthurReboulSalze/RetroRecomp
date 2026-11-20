@@ -46,6 +46,13 @@ KEPT = ('outcome', 'detail', 'tier', 'delay', 'history_frames', 'history_digest'
 
 def script(seat: int, args) -> dict:
     """The scripted pad of a seat, with the host's restart and its save and load of the match's state as record bits."""
+    if getattr(args, 'route', None):      # every seat plays its column of a recorded route (a link game's menus)
+        rows = []                         # "frame p1 p2 ..." lines, hex words held from that frame, # comments
+        for line in Path(args.route).read_text(encoding='utf-8').splitlines():
+            line = line.split('#', 1)[0].split()
+            if line:
+                rows.append([int(line[0])] + [int(word, 16) for word in line[1:]])
+        return {'kind': 'route', 'seat': seat, 'events': rows}
     spec = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': getattr(args, 'sticks', False),
             'keys': getattr(args, 'keys', False)}
     if seat == 0:
@@ -239,6 +246,7 @@ def main() -> int:
         p.add_argument('--jitter-ms', type=float, default=0.0)
         p.add_argument('--out', type=Path)
         p.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too')
+        p.add_argument('--route', type=Path, help='a recorded route ("frame p1 p2" lines of hex words): each seat plays its column')
         p.add_argument('--sharing', choices=('per_player', 'everyone', 'turns', 'link'), default='per_player',
                        help='the input mode (link: the link cable of the handhelds, one console per seat)')
         p.add_argument('--keys', action='store_true',
