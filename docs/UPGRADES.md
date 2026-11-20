@@ -423,6 +423,11 @@ than its 2^23 states) and 300 programs, 123 million samples identical, 33 millio
 to it; three broken variants (one noise step missing, the LFO step missing, a modulator accepted without its fixed point) fail it.
 On converted games, main against this branch, headless runs of the machine's own command line: Manbow 2 (MSX2+ cartridge, MSX-MUSIC never written) over 9,000 frames and the authored FM cartridge (tools/msx_fm_cart.py, a scale on the YM2413) over 3,600 frames give the same final JSON (CPU, RAM, VRAM, picture and the sound digest of 7,885,193 and 2,649,411 samples); quick states saved at frames 3,000 and 1,000 are byte-identical (684,419 bytes); each side loads the other's state and runs on to the same machine state as the full run, the two loaded runs equal to each other, their sound digests included.
 
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread in brackets; main
+`a74490e4` then this change `dfe0d1e2`, the same code as after the rebase): Manbow 2, the engine alone 0.8993 (8.5 %) to 0.7952
+(2.8 %), −11.6 %, and the whole play loop 1.0525 (5.4 %) to 0.9458 (2.0 %), −10.1 %. A game that writes MSX-MUSIC gains
+nothing while its music plays (the predicate is then checked once every 4,096 samples).
+
 **Stamps** (computed with `tools/release_stamps.py` against main `42f50356`): the MSX2+ game stamp only (`msx_music.c` is built
 into an MSX2+ game only; the new fixture is a check, outside the stamps); quick states unchanged.
 
