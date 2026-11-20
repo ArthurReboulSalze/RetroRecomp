@@ -209,7 +209,14 @@ class FrontEndView(tk.Frame):
                                  ('<Control-f>', self.open_search), ('<Control-F>', self.open_search),
                                  ('<F3>', self.open_search),
                                  ('<Shift-F10>', self.open_menu), ('<F11>', self.toggle_tv)):
-            self.wall.bind(sequence, lambda event, action=action: self.key(event, action))
+            try:
+                self.wall.bind(sequence, lambda event, action=action: self.key(event, action))
+            except tk.TclError:          # a key this platform's Tk does not name (Windows' App is X11's Menu): left out
+                pass
+        try:
+            self.wall.bind('<Menu>', lambda event: self.key(event, self.open_menu))      # the menu key on X11
+        except tk.TclError:
+            pass
         self.wall.bind('<Key>', self.letter)
         self.later('drain', 30, self.drain)
 

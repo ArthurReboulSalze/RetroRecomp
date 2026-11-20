@@ -3,7 +3,8 @@
  * A redraws a line only when WinDraw_DrawLine would (rr_bg_resolve, then TextDirtyLine) and keeps the line otherwise;
  * B redraws every line. After each line the two must be identical. Between lines, random writes to the tile maps, the
  * patterns, the sprite registers and the scroll registers change the scene, as a game does during a frame.
- * No ROM, no firmware: the patterns, maps and sprites are pseudo-random bytes.
+ * No ROM, no firmware: the patterns, maps and sprites are pseudo-random bytes. No call takes two rnd() arguments (C leaves
+ * their order to the compiler), so gcc and clang draw the same scenes.
  * Each line printed is "name key=value ..."; tests/test_x68000_redraw_marks.py reads them. */
 #include <stdio.h>
 #include <string.h>
@@ -51,9 +52,12 @@ static void select_line(unsigned line)
       VLINEBG -= ((BG_Regs[0x0f] >> s1) - (CRTC_Regs[0x0d] >> s2));
 }
 
+/* As WinDraw_DrawLine does before BG_DrawLine(1, 1) (windraw_compose.c, no text layer on): the text transparency flags
+ * of the line start empty. Without it a line's pixels would depend on the line drawn before it. */
 static void draw(unsigned line, WORD *out, int gd)
 {
    select_line(line);
+   memset(Text_TrFlag, 0, TextDotX + 16);
    BG_DrawLine(1, gd);
    memcpy(out, &BG_LineBuf[16], TextDotX * sizeof(WORD));
 }
@@ -72,7 +76,8 @@ static void random_write(unsigned scroll_changes)
       unsigned plane = rnd() & 1, offset = rnd() % 0x2000;
       bg((plane ? 0x4000 : 0x6000) + offset, (offset & 1) ? tile() : rnd() % 256);
    } else if (pick < 11) {                           /* a pattern byte of the first 16 patterns */
-      bg(rnd() % (BG_CHRSIZE == 8 ? 512 : 2048), (rnd() % 3) ? rnd() % 256 : 0);
+      unsigned offset = rnd() % (BG_CHRSIZE == 8 ? 512 : 2048);
+      bg(offset, (rnd() % 3) ? rnd() % 256 : 0);
    } else if (pick < 18) {                           /* a sprite register of the first 8 sprites */
       unsigned sprite = rnd() % 8, field = rnd() % 4, high = rnd() & 1, value;
       switch (field) {
@@ -85,7 +90,8 @@ static void random_write(unsigned scroll_changes)
    } else if (pick == 18) {                          /* a 16-bit write of the same value is a no-op */
       bg(rnd() % 2048, 0);
    } else {                                          /* a scroll register of the background */
-      BG_Write(0xeb0800 + rnd() % 8, (BYTE)rnd());
+      unsigned reg = rnd() % 8;
+      BG_Write(0xeb0800 + reg, (BYTE)rnd());
    }
 }
 

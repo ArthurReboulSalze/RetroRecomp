@@ -2,6 +2,7 @@
 role stamps only, stored in the library's row, shown in Compiled games with « Converted with … · compatible … ». No ROM,
 no export; the library is a temporary file."""
 import json
+import os
 import tempfile
 import tkinter as tk
 import unittest
@@ -20,7 +21,8 @@ def running(system):
 
 
 def game(title, system='md', version='1.9.0', status='no_hints', index=1):
-    return Game(f'C:/games/{system}/{title}.exe', system, f'{index:02x}' * 32, title, version=version, status=status)
+    base = 'C:/games' if os.name == 'nt' else '/games'               # absolute on its platform (C:/ is not on Linux)
+    return Game(f'{base}/{system}/{title}.exe', system, f'{index:02x}' * 32, title, version=version, status=status)
 
 
 def check(version='1.9.0', system='md', table=TABLE, now=running):

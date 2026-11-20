@@ -185,7 +185,9 @@ class LoopbackTests(unittest.TestCase):
             self.assertIsNotNone(gone, host.summary())
             self.assertEqual(gone['outcome'], 'seat_left', gone)
             left = [event for event in host.events[killed:] if event['event'] == 'left']
-            self.assertEqual([(event['name'], event['detail']) for event in left], [('Nadia', 'the connection broke')])
+            self.assertEqual([event['name'] for event in left], ['Nadia'])
+            # A killed process: Windows resets its connection, Linux closes it; either is the guest gone.
+            self.assertIn(left[0]['detail'], ('the connection broke', 'the connection closed'))
 
             # three failed handshakes from one address: it is refused, even with the right secret
             with socket.create_connection(('127.0.0.1', port), timeout=5) as stranger:
