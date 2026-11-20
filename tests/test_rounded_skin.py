@@ -114,6 +114,48 @@ class AppliedByTheTheme(SkinCase):
         self.assertGreaterEqual(self.skin.entries[entry], 3)                 # normal, focus, disabled
 
 
+def element_names(layout):
+    """Every element name of a ttk layout, children included."""
+    names = []
+    for name, options in layout:
+        names.append(name)
+        names.extend(element_names(options.get('children', [])))
+    return names
+
+
+class ElementsTkFindsByName(SkinCase):
+    """Tk finds some elements by the END of their name (Arthur, 20 Nov 2026: every scrollbar was one long bar with no thumb to drag):
+    the scrollbar sizes and drags the element matching `*thumb` (its C code, and `switch -glob ... *thumb` in scrollbar.tcl), the
+    spinbox steps on `*uparrow` / `*downarrow` (spinbox.tcl). A withdrawn window answers no identify(), so the names are checked
+    with Tcl's own `string match`; tools/gui_smoke.py and the hidden-desktop captures show the thumb sized and dragged."""
+
+    def matches(self, pattern, layout):
+        return [name for name in element_names(layout) if self.root.tk.call('string', 'match', pattern, name)]
+
+    def test_every_skinned_scrollbar_keeps_one_thumb(self):
+        for name in ('Vertical.TScrollbar', 'Slim.Vertical.TScrollbar', 'Horizontal.TScrollbar'):
+            orient = 'horizontal' if name.startswith('Horizontal') else 'vertical'
+            bar = ttk.Scrollbar(self.root, orient=orient, style=name)
+            layout = self.style.layout(str(bar.cget('style')) or name)
+            thumbs = self.matches('*thumb', layout)
+            self.assertEqual(len(thumbs), 1, (name, element_names(layout)))
+            self.assertTrue(thumbs[0].startswith(self.skin.tag + '.'), thumbs)      # the rounded picture, not clam's
+            self.assertEqual(self.matches('*trough', layout), [f'{orient.title()}.Scrollbar.trough'])
+
+    def test_the_spinbox_arrows_keep_their_names(self):
+        spin = ttk.Spinbox(self.root, from_=1, to=9)
+        layout = self.style.layout(str(spin.cget('style')) or 'TSpinbox')
+        for pattern in ('*uparrow', '*downarrow', '*textarea'):
+            self.assertEqual(len(self.matches(pattern, layout)), 1, (pattern, element_names(layout)))
+        self.assertTrue(self.matches('*uparrow', layout)[0].startswith(self.skin.tag + '.'))
+
+    def test_a_dragged_thumb_shows_it(self):
+        bar = ttk.Scrollbar(self.root, orient='vertical')
+        name = str(bar.cget('style')) or 'Vertical.TScrollbar'
+        thumb = next(e for e in self.skin.entries if e.endswith(name + '.thumb'))
+        self.assertEqual(self.skin.entries[thumb], 3)       # normal, hover, pressed: three different pictures
+
+
 class TheCostsStayDown(SkinCase):
     """The two fixes that kept 60 buttons near 160-240 ms (the prototype took over a second)."""
 
@@ -226,7 +268,7 @@ class CornersAndSurfaces(SkinCase):
         self.style.configure('Late.Vertical.TScrollbar', background='#2b2b2b', troughcolor='#232323')
         bar.configure(style='Late.Vertical.TScrollbar')
         self.skin.restyle(bar)
-        self.assertIn(f'{self.skin.tag}.thumb.Late.Vertical.TScrollbar', self.layout('Late.Vertical.TScrollbar'))
+        self.assertIn(f'{self.skin.tag}.Late.Vertical.TScrollbar.thumb', self.layout('Late.Vertical.TScrollbar'))
 
     def test_scan_skins_widgets_built_before_the_skin(self):
         root = tk_root()

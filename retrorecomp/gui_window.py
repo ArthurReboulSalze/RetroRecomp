@@ -18,7 +18,7 @@ from .console_menu import field_characters, popdown_extra
 from .branding import COLORS, apply_theme, make_icon
 from .rounded_skin import apply_rounded_theme
 from .rounded_skin import skin_of
-from .dialogs import center_dialog, fit_screen
+from .dialogs import center_dialog, fit_screen, screen_room, fit_size
 from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
 from .gui_icons import HERO_CONVERT, hero_picture
 from .gui_common import (EDGE, HELP_URL, MULTIPLAYER_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS,
@@ -35,8 +35,11 @@ class WindowMixin:
     def fit_minimum_width(self):
         # French labels and a large ROM count must keep every action visible.
         app = self.app
-        width = max(fit_screen(app, 1060, app.winfo_screenwidth() - 40), self.toolbar.winfo_reqwidth() + 72)
-        app.minsize(width, fit_screen(app, 640, app.winfo_screenheight() - 90))
+        # Never wider or taller than the screen's room (dialogs.screen_room): a minimum the screen cannot hold pushed the
+        # window's edge off it.
+        room_width, room_height = screen_room(app)
+        width = min(max(fit_screen(app, 1060, room_width), self.toolbar.winfo_reqwidth() + 72), room_width)
+        app.minsize(width, fit_screen(app, 640, room_height))
 
     def layout_empty_state(self, event):
         # Keep the empty-list hint below the heading even on small screens.
@@ -475,7 +478,7 @@ class WindowMixin:
         panel.title(APP_NAME + ' - ' + self.tr('credits_notices'))
         panel.configure(bg=COLORS['background'])
         center_dialog(panel, parent, 880, 630)
-        panel.minsize(min(scaled(panel, 650), panel.winfo_screenwidth() - 40), min(scaled(panel, 420), panel.winfo_screenheight() - 90))
+        panel.minsize(*fit_size(panel, 650, 420))
         panel.transient(parent)
         body = tk.Frame(panel, bg=COLORS['background'], padx=16, pady=16)
         body.pack(fill='both', expand=True)
@@ -620,8 +623,8 @@ class WindowMixin:
         steps = tk.Frame(body, bg=background)
         steps.pack(fill='x')
         style = ttk.Style(window)
-        style.configure('Help.Vertical.TScrollbar', background='#2b2b2b', troughcolor=background,
-                        bordercolor=background, arrowcolor=COLORS['gold'])
+        # The thumb keeps the shared scrollbar colours (Vertical.TScrollbar): a darker one hardly showed on this scene.
+        style.configure('Help.Vertical.TScrollbar', troughcolor=background, bordercolor=background, arrowcolor=COLORS['gold'])
         bar.configure(style='Help.Vertical.TScrollbar')
         if skin_of(bar):
             skin_of(bar).restyle(bar)     # a style set after the widget was built is skinned here
@@ -694,7 +697,6 @@ class WindowMixin:
         width, height = body.winfo_reqwidth() + 2, body.winfo_reqheight() + 2
         for widget in (*rows, keys, players, foot):
             widget.pack_forget()
-        from .dialogs import screen_room
         room_width, room_height = screen_room(self.app)
         if height > room_height:
             bar.pack(side='right', fill='y')
