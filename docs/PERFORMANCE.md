@@ -52,6 +52,7 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
 |---|---|---|---|---|---|---|---|---|
 | sms | Master System | Windows | Sonic The Hedgehog | 0.4363 | 2.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | sms | Master System | Windows | Sonic The Hedgehog | 0.4432 | 7.7 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
+| sms | Master System | Linux | Sonic The Hedgehog | 0.3841 | 5.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-21 |
 | gg | Game Gear | Windows | Sonic The Hedgehog | 0.4934 | 3.7 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | gg | Game Gear | Windows | Sonic The Hedgehog | 0.5004 | 0.7 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
 | gb | Game Boy | Windows | Super Mario Land | 0.2569 | 6.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
@@ -60,10 +61,12 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
 | nes | NES | Windows | Metroid | 2.5119 | 2.2 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
 | md | Mega Drive | Windows | Sonic The Hedgehog 2 | 1.7129 | 1.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | md | Mega Drive | Windows | Sonic The Hedgehog 2 | 1.7357 | 0.2 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
+| md | Mega Drive | Linux | Sonic The Hedgehog 2 | 1.6514 | 2.2 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-21 |
 | pce | PC Engine | Windows | Blazing Lazers | 5.2165 | 2.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | pce | PC Engine | Windows | Blazing Lazers | 5.2231 | 0.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
 | snes | Super Nintendo | Windows | Mega Man X2 | 4.2649 | 2.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | snes | Super Nintendo | Windows | Mega Man X2 | 4.2113 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| snes | Super Nintendo | Linux | Mega Man X2 | 4.5580 | 2.1 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-21 |
 | ng | Neo Geo | Windows | Puzzle De Pon! | 3.0899 | 0.6 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | ng | Neo Geo | Windows | Puzzle De Pon! | 3.1988 | 0.9 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
 | cps1 | CPS-1 | Windows | Final Fight | 1.0628 | 1.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
@@ -74,6 +77,7 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
 | x68 | Sharp X68000 | Windows | R-Type | 1.0679 | 1.8 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
 | amiga | Amiga 500 | Windows | Lotus 2 | 1.1190 | 2.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | amiga | Amiga 500 | Windows | Lotus 2 | 1.1189 | 4.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| amiga | Amiga 500 | Linux | Lotus 2 | 1.1532 | 11.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-21 |
 | a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.1407 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.1114 | 1.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
 | atarist | Atari ST | Windows | Bomb Jack | 1.1335 | 8.7 % | 9 x 600 | 1.8.0 | 2026-11-20 |
@@ -95,7 +99,11 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
 machines, main `4aafb3fd` for the others); both sides of a machine were converted from source with the same tools and timed
 in one pass, interleaved, on an otherwise idle PC. Each row is one game in its attract scene (no input): a busy in-game scene
 costs more. The MSX2+ row is a cartridge game (Manbow 2). The Atari ST rows were timed again with nine runs of 600 frames (its
-loop is noisy: one slow run makes the 1.9.0 spread); four separate passes agreed on a 9 to 11 % gain. No Linux figure yet.
+loop is noisy: one slow run makes the 1.9.0 spread); four separate passes agreed on a 9 to 11 % gain. The Linux rows (WSL2, 21 November 2026) are games converted by the
+Linux converter of main `4aafb3fd`, timed in one pass interleaved with the Windows copies of the same commit: against those
+copies, Linux was faster on the Master System (−15 %) and the Mega Drive (−6 %), slower on the Super Nintendo (+13 %) and
+about level on the Amiga 500 (+6 %, within its spread). There is no 1.8.0 Linux figure, so the README shows them without a
+change.
 
 ## Adding or updating a row
 
