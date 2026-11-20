@@ -96,26 +96,26 @@ The full guide, with portable downloads, updates and uninstalling, is
 
 | Console | Status | Qualification | Multiplayer | CPU per frame |
 | --- | --- | --- | --- | --- |
-| [Atari ST](docs/ATARI_ST.md)\* | supported | `█████` 91 % | supported · rollback | [Win 1.59 ms (−7 %)](docs/PERFORMANCE.md#the-figures) |
-| [Capcom CPS-1](docs/CPS1.md) | supported | `█████` 90 % | supported · rollback | [Win 1.58 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
-| [Capcom CPS-2](docs/CPS2.md) | supported | `█████` 94 % | supported · rollback | [Win 1.58 ms (+3 %)](docs/PERFORMANCE.md#the-figures) |
-| [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████` 91 % | supported · rollback | [Win 1.63 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
-| [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `████░` 84 % | supported · rollback | [Win 2.83 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
-| [Game Boy](docs/GAME_BOY.md) | supported | `█████` 97 % | supported · rollback · link cable | [Win 0.76 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
-| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████` 91 % | supported · delay · link cable | [Win 1.72 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
-| [Game Gear](docs/GAME_GEAR.md) | supported | `█████` 93 % | supported · rollback · link cable | [Win 0.70 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
-| [Master System](docs/MASTER_SYSTEM.md) | supported | `█████` 97 % | supported · rollback | [Win 0.87 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
-| [Mega Drive](docs/MEGADRIVE.md) | supported | `█████` 97 % | supported · rollback | [Win 1.99 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
-| [MSX](docs/MSX.md) | supported | `█████` 93 % | supported · rollback | [Win 0.94 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
-| [MSX2](docs/MSX.md) | supported | `█████` 90 % | supported · rollback | [Win 0.94 ms (−2 %)](docs/PERFORMANCE.md#the-figures) |
-| [MSX2+](docs/MSX.md) | supported | `█████` 91 % | supported · rollback | [Win 1.23 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
-| [Neo Geo](docs/NEOGEO.md) | supported | `█████` 94 % | supported · rollback | [Win 3.76 ms (+3 %)](docs/PERFORMANCE.md#the-figures) |
-| [Nintendo 64](docs/NINTENDO_64.md)\* | supported | `█████` 90 % | supported · delay | [Win 4.86 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
-| [Nintendo NES](docs/NES.md) | supported | `█████` 91 % | supported · rollback | [Win 3.01 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
-| [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████` 94 % | supported · rollback | [Win 5.80 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
-| [Sharp X68000](docs/X68000.md) | supported | `█████` 91 % | supported · rollback | [Win 1.33 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
-| [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | [Win 4.29 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
-| [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.68 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
+| [Atari ST](docs/ATARI_ST.md)\* | supported | `█████` 91 % | supported · rollback | [Win 1.47 ms (−7 %)](docs/PERFORMANCE.md#the-figures) |
+| [Capcom CPS-1](docs/CPS1.md) | supported | `█████` 90 % | supported · rollback | [Win 1.05 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
+| [Capcom CPS-2](docs/CPS2.md) | supported | `█████` 94 % | supported · rollback | [Win 1.19 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
+| [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████` 91 % | supported · rollback | [Win 1.12 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
+| [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `████░` 84 % | supported · rollback | [Win 2.11 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
+| [Game Boy](docs/GAME_BOY.md) | supported | `█████` 97 % | supported · rollback · link cable | [Win 0.26 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████` 91 % | supported · delay · link cable | [Win 1.42 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
+| [Game Gear](docs/GAME_GEAR.md) | supported | `█████` 93 % | supported · rollback · link cable | [Win 0.50 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
+| [Master System](docs/MASTER_SYSTEM.md) | supported | `█████` 97 % | supported · rollback | [Win 0.44 ms (+2 %)](docs/PERFORMANCE.md#the-figures) |
+| [Mega Drive](docs/MEGADRIVE.md) | supported | `█████` 97 % | supported · rollback | [Win 1.74 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
+| [MSX](docs/MSX.md) | supported | `█████` 93 % | supported · rollback | [Win 0.40 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
+| [MSX2](docs/MSX.md) | supported | `█████` 90 % | supported · rollback | [Win 0.68 ms (−2 %)](docs/PERFORMANCE.md#the-figures) |
+| [MSX2+](docs/MSX.md) | supported | `█████` 91 % | supported · rollback | [Win 0.96 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
+| [Neo Geo](docs/NEOGEO.md) | supported | `█████` 94 % | supported · rollback | [Win 3.20 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
+| [Nintendo 64](docs/NINTENDO_64.md)\* | supported | `█████` 90 % | supported · delay | [Win 4.69 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
+| [Nintendo NES](docs/NES.md) | supported | `█████` 91 % | supported · rollback | [Win 2.51 ms (−2 %)](docs/PERFORMANCE.md#the-figures) |
+| [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████` 94 % | supported · rollback | [Win 5.22 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
+| [Sharp X68000](docs/X68000.md) | supported | `█████` 91 % | supported · rollback | [Win 1.07 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
+| [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | [Win 3.83 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
+| [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the two Amigas are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
