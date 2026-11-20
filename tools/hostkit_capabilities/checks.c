@@ -29,6 +29,7 @@
  * No ROM, no visible window, no sound device. Original RetroRecomp code: MIT. */
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+#include <locale.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1500,16 +1501,51 @@ int main(int argc, char **argv) {
     remove(report);
     set_env("RETRORECOMP_HOST_TEST_FRAMES", "20");
     set_env("RETRORECOMP_TIMING_REPORT", report);
+    /* An engine may set the player's locale (the Atari ST core does): with a decimal comma in force, the report still writes
+     * its numbers with a point, and the engine's locale is given back afterwards (20 Nov 2026). */
+    const char *comma_locales[] = {"French_France.1252", "fr-FR", "fr_FR.UTF-8", "German_Germany.1252", "de_DE.UTF-8"};
+    const char *comma = NULL;
+    for (size_t i = 0; i < sizeof comma_locales / sizeof *comma_locales && !comma; ++i) {
+        char probe[16];
+        if (!setlocale(LC_NUMERIC, comma_locales[i])) continue;
+        snprintf(probe, sizeof probe, "%.1f", 0.5);
+        if (strchr(probe, ',')) comma = comma_locales[i];
+    }
+    if (!comma) { setlocale(LC_NUMERIC, "C"); fprintf(stderr, "note: no decimal-comma locale here; the numeric locale check is skipped\n"); }
     begin(test_run_script);
     CHECK(rrhk_main(&full, "Capabilities", 2) == 0);
     set_env("RETRORECOMP_HOST_TEST_FRAMES", "");
     set_env("RETRORECOMP_TIMING_REPORT", "");
     CHECK(step >= 1);
+    if (comma) {
+        const char *after = setlocale(LC_NUMERIC, NULL);
+        CHECK(after && strcmp(after, "C") != 0);            /* the comma locale is back: only the write was in "C" */
+        char probe[16];
+        snprintf(probe, sizeof probe, "%.1f", 0.5);
+        CHECK(strchr(probe, ',') != NULL);
+        setlocale(LC_NUMERIC, "C");
+    }
     FILE *file = fopen(report, "rb");
     CHECK(file != NULL);
     if (file) {
         char text[8192]; size_t n = fread(text, 1, sizeof text - 1, file); text[n] = 0; fclose(file);
         CHECK(strstr(text, "\"gfx\":{\"resolution\":0,\"dither\":1}") != NULL);
+        /* every decimal number with its point: "guest_seconds":0.333..., "max_ms":1.234..., never "0,333" */
+        const char *seconds = strstr(text, "\"guest_seconds\":");
+        CHECK(seconds != NULL);
+        if (seconds) {
+            seconds += strlen("\"guest_seconds\":");
+            while (*seconds >= '0' && *seconds <= '9') ++seconds;
+            CHECK(*seconds == '.');
+        }
+        const char *refresh = strstr(text, "\"refresh_hz\":");
+        CHECK(refresh != NULL);
+        if (refresh) {
+            refresh += strlen("\"refresh_hz\":");
+            if (*refresh == '-') ++refresh;
+            while (*refresh >= '0' && *refresh <= '9') ++refresh;
+            CHECK(*refresh == '.');
+        }
     }
     remove(report);
     /* 4. The same machine with every new field left out. */

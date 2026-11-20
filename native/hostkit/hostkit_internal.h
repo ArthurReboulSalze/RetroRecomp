@@ -112,6 +112,11 @@ int rrhk_gfx_icon(const char *name);                        /* a graphics option
 void rrhk_draw_icon(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, int icon, const char *letters);
 
 double rrhk_thread_cpu(void);
+/* The C numeric locale around a write of numbers (the timing JSON, the [host] lines, the Hz shown in a game): an engine may set the
+ * player's locale (the Atari ST core does), and printf's %f would then write a decimal comma, an invalid JSON (20 Nov 2026). */
+typedef struct { char name[128]; int changed; } RrhkNumeric;
+void rrhk_numeric_begin(RrhkNumeric *saved);
+void rrhk_numeric_end(const RrhkNumeric *saved);
 void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkTiming *timing,
                        SDL_Renderer *renderer, Uint64 frequency);
 

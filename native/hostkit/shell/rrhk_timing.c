@@ -4,7 +4,9 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
+#include <locale.h>
 #include <stdio.h>
+#include <string.h>
 #ifndef _WIN32
 #include <time.h>
 #endif
@@ -18,10 +20,35 @@ double rrhk_thread_cpu(void) {
     return 0;
 }
 
+void rrhk_numeric_begin(RrhkNumeric *saved) {
+    const char *now = setlocale(LC_NUMERIC, NULL);
+    saved->changed = 0;
+    saved->name[0] = 0;
+    if (!now || strcmp(now, "C") == 0 || strlen(now) >= sizeof saved->name) return;
+    memcpy(saved->name, now, strlen(now) + 1);
+    if (setlocale(LC_NUMERIC, "C")) saved->changed = 1;
+}
+
+void rrhk_numeric_end(const RrhkNumeric *saved) {
+    if (saved->changed) setlocale(LC_NUMERIC, saved->name);
+}
+
+static void timing_write(const RrhkMachine *machine, FILE *file, const RrhkTiming *timing, SDL_Renderer *renderer,
+                         Uint64 frequency);
+
 void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkTiming *timing,
                        SDL_Renderer *renderer, Uint64 frequency) {
     if (!path || !*path) return;
     FILE *file = fopen(path, "w"); if (!file) return;
+    RrhkNumeric numeric;
+    rrhk_numeric_begin(&numeric);          /* the machine's own part (timing_report) is written inside, in the C locale too */
+    timing_write(machine, file, timing, renderer, frequency);
+    rrhk_numeric_end(&numeric);
+    fclose(file);
+}
+
+static void timing_write(const RrhkMachine *machine, FILE *file, const RrhkTiming *timing, SDL_Renderer *renderer,
+                         Uint64 frequency) {
     SDL_RendererInfo info = {0}; SDL_GetRendererInfo(renderer, &info);
     const char *names[] = {"events_and_audio_room", "engine_and_delivery", "audio_queue", "drawing", "present", "pacing"};
     fprintf(file, "{\"frames\":%llu,\"guest_seconds\":%.9f,\"main_thread_cpu_seconds\":%.9f,\"renderer\":\"%s\",\"vsync\":%s,\"sections\":{",
@@ -44,5 +71,5 @@ void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkT
         (unsigned long long)rrhk_sync.held[0], (unsigned long long)rrhk_sync.held[1], (unsigned long long)rrhk_sync.held[2],
         (unsigned long long)rrhk_sync.held[3]);
     if (machine->timing_report) machine->timing_report(file, frequency);
-    fprintf(file, "}\n"); fclose(file);
+    fprintf(file, "}\n");
 }

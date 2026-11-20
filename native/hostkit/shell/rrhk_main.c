@@ -592,10 +592,13 @@ static bool sync_frame(RrhkRun *r) {
     }
     if (rrhk_sync.machine_hz != (m->frame_seconds > 0.0 ? 1.0 / m->frame_seconds : 0.0)) {
         sync_decide(r);
+        RrhkNumeric numeric;
+        rrhk_numeric_begin(&numeric);
         fprintf(stderr, "[host] sync to display: %s, screen %.3f Hz (measured), machine %.3f Hz, %s; physical latency unmeasured\n",
                 rrhk_sync.mode == RRHK_SYNC_AUTO ? "auto" : rrhk_sync.mode == RRHK_SYNC_LOCKED ? "locked" :
                 rrhk_sync.mode == RRHK_SYNC_FREE ? "free" : "variable refresh", rrhk_sync.refresh_hz, rrhk_sync.machine_hz,
                 rrhk_sync.lock ? "locked" : "free");
+        rrhk_numeric_end(&numeric);
     }
     if (rrhk_sync.announce) rrhk_sync_notice();
     const bool other_speed = r->fast || r->speed != 100;
@@ -725,10 +728,13 @@ static void close_run(RrhkRun *r) {
     double elapsed = (double)(SDL_GetPerformanceCounter() - r->test_started) / r->frequency;
     if (m->finished) m->finished(elapsed);
     if (r->test_frames) {
+        RrhkNumeric numeric;
+        rrhk_numeric_begin(&numeric);
         fprintf(stderr, "{\"host_frames\":%llu,\"wall_seconds\":%.6f,\"expected_seconds\":%.6f,"
                 "\"measured_fps\":%.6f,\"target_fps\":%.6f,\"video_clock_only\":%s}\n",
                 (unsigned long long)r->frame, elapsed, r->frame * m->frame_seconds, r->frame / elapsed, 1.0 / m->frame_seconds,
                 r->video_clock_test ? "true" : "false");
+        rrhk_numeric_end(&numeric);
     }
     rrhk_timing_write(m, r->timing_path, &r->timing, r->ren, r->frequency);
     if (rrhk_sync.held[0] + rrhk_sync.held[1] + rrhk_sync.held[2] + rrhk_sync.held[3])

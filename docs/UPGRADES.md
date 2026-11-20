@@ -107,6 +107,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Every machine: a Pause on a button of the restart combination waits for the combination (Master System: Start+Select)](#every-machine-a-pause-on-a-button-of-the-restart-combination-waits-for-the-combination-master-system-startselect-190) | none | **the host stamp of all 21 profiles** (the shell: `rrhk_events.c`, `rrhk_options.c`, `hostkit_internal.h`) | unchanged (host files are outside every state key) |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-190) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | Every machine, multiplayer in turns: the F2 tiles Pass / Give the controller and Everyone / Turns, the turn badge and its options row ([HOST_KIT D34](HOST_KIT.md#d34)) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_main.c`, `rrhk_chat.inc`, `hostkit.h`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged |
+| [Every machine: the timing report and the [host] lines keep their decimal point](#every-machine-the-timing-report-and-the-host-lines-keep-their-decimal-point-190) | none | **the host stamp of all 21 profiles** (`rrhk_timing.c`, `rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`) | unchanged |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-190) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
 | [Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match](#sony-playstation-the-host-changes-pgxp-the-cpus-resolution-and-the-renderer-in-a-match-190) | none | the PlayStation's host stamp (`rrhk_psx.c`) | unchanged |
@@ -174,6 +175,19 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
+
+## Every machine: the timing report and the [host] lines keep their decimal point (1.9.0)
+
+The performance specialist found an Atari ST export's timing report (`RETRORECOMP_TIMING_REPORT`) written with decimal commas on a
+French Windows (`"guest_seconds":0,500000000`): an invalid JSON. Our own code sets no numeric locale (only the launcher's
+`LC_CTYPE`); the Atari ST engine sets the player's, and every `%f` then followed it. The host kit now writes its numbers in the C
+numeric locale and gives the engine's back afterwards (`rrhk_numeric_begin` / `rrhk_numeric_end`): the timing report, with the
+machine's own part written inside it, the `[host] sync to display` line and the test run's JSON on stderr, and the Hz shown by the
+Sync to display notice, the same figures on every machine. Cold code: written once at exit or when the sync changes, never per
+frame. Checked by the host kit's capabilities self-test: with a decimal-comma locale in force, the report's numbers keep their point
+and the locale is given back (758 checks pass; with the switch disabled, the two new checks fail).
+
+**Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
 ## Commodore Amiga 500 and 1200: the F1 help says how two players play (1.9.0)
 
