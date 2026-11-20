@@ -188,11 +188,14 @@ in the note of the performance work):
 - **Our patch of the engine's audio clock** (`native/pce_engine/pcm.cpp`, [UPSTREAMS.md](UPSTREAMS.md)): the CD audio fields a HuCard never reads are no
   longer brought up to date after every instruction but when a checkpoint is taken (about 25 to 30 % of the frame in the profile).
 
-**Checked, identical output**, Blazing Lazers (USA) built three ways from one project (main, the first change, both): 4,800 play frames and 3,600 attract
-frames, the per-frame picture / PCM / CPU / RAM hashes, the whole PCM stream (14 MB and 10 MB) and a quick state saved at frame 2,940 (2.6 MB, the engine's
-whole checkpoint, so the settled CD fields included) are equal byte for byte; each build loads each build's state and continues 600 frames equal. The
-snapshot probe (`tools/pce_snapshot_selftest.py`: every frame a save point against the engine's own checkpoint, on the base board and the Street Fighter II
-board) passes on the patched engine. Speed is measured by the performance specialist, not here.
+**Checked, identical output**, on four cards (Blazing Lazers, Bomberman '93 with the multitap, Soldier Blade, R-Type; all USA), each built from one project three ways
+(main, the first change, both) or, for the last three, with main's host files and the pinned engine against the patched ones: 4,800 play frames and 3,600 attract frames,
+the per-frame picture / PCM / CPU / RAM hashes, the whole PCM stream (14 MB and 10 MB) and a quick state saved at frame 2,940 (2.6 MB, the engine's whole checkpoint,
+so the settled CD fields included) are equal byte for byte; each build loads each build's state and continues 600 frames equal. The conversions of the three
+cards, run with the patched engine, passed the converter's own checks (native code against the interpreter reference, 0 interpreted opcodes on the routes). The snapshot probe
+(`tools/pce_snapshot_selftest.py`: every frame a save point against the engine's own checkpoint, on the base board and the Street Fighter II board) passes on the
+patched engine. Without `settle_silent_cd_source` the engine refuses its own checkpoint (« CPU/CD source sample clock mismatch »), which is why the host calls it. Speed is measured
+by the performance specialist, not here.
 
 **Stamps**: the PC Engine game stamp (`native/pce_machine.cpp`, `native/pce_machine_internal.hpp`, `native/pce_snapshot.cpp`, the new
 `native/pce_engine/pcm.cpp`, `retrorecomp/pce_build.py`; the simulation identity of the PC Engine moves with them); no host stamp. Quick states: the PC Engine key hashes
