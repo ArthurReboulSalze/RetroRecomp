@@ -34,6 +34,18 @@ class PlayerProjectTests(unittest.TestCase):
                 header = (self.prepare(rom=b'\x01' * 64 + text + b'\x01' * 64) / 'gba_game.h').read_text(encoding='utf-8')
                 self.assertIn(f'#define RR_GBA_SAVE_LIMIT {limit}', header)
 
+    def test_the_header_says_how_many_consoles_the_cable_may_have(self):
+        from retrorecomp import gba_link
+        self.assertIn('#define RR_GBA_LINK_SEATS 0', (self.prepare() / 'gba_game.h').read_text(encoding='utf-8'))
+        player = self.root / 'ready'
+        sha256 = next(iter(gba_link.SEEDS))
+        (self.root / 'stage/engine').mkdir(parents=True, exist_ok=True)
+        (self.root / 'rom.gba').write_bytes(b'\x01' * 64)
+        (self.root / 'bios.bin').write_bytes(b'\x02' * 64)
+        gba_player.prepare(player, self.root / 'stage', self.root / 'generated', self.root / 'bios_code', self.root / 'rom.gba', self.root / 'bios.bin',
+                           title='An Authored Game', name='An Authored Game', sha1='ab' * 20, sha256=sha256, version='1.7.0')
+        self.assertIn(f'#define RR_GBA_LINK_SEATS {gba_link.seats(sha256)}', (player / 'gba_game.h').read_text(encoding='utf-8'))
+
     def test_the_player_sets_aside_a_save_larger_than_its_chip(self):
         source = (ROOT / 'native' / 'gba_machine.cpp').read_text(encoding='utf-8')
         self.assertIn('set_aside_unusable_save();', source)

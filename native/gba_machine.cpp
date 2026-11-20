@@ -944,8 +944,13 @@ int main(int argc, char** argv) {
     load_script();
     load_link_route();
     if (const char* cable = getenv("RETRORECOMP_GBA_LINK")) {          // the link cable: that many consoles (2 to 4) on one cable
+        // Only a cartridge with a reviewed row (retrorecomp/gba_link.py: RR_GBA_LINK_SEATS, the consoles its route was run with) may have a cable; any other plays on one
+        // console and its report says why. RETRORECOMP_GBA_LINK_FORCE is the test switch of a maintainer's run on a cartridge that has no row yet.
         const int seats = atoi(cable);
-        g_link_seats = seats >= 2 && seats <= 4 ? static_cast<unsigned>(seats) : 0;
+        const unsigned ready = getenv("RETRORECOMP_GBA_LINK_FORCE") ? 4u : static_cast<unsigned>(RR_GBA_LINK_SEATS);
+        if (seats >= 2 && seats <= 4 && static_cast<unsigned>(seats) <= ready) g_link_seats = static_cast<unsigned>(seats);
+        else if (seats >= 2)
+            fprintf(stderr, "[host] the link cable is refused: this game is ready for %u console(s) on a cable (coverage.link_cable of its report); it plays on one console\n", ready);
     }
     open_rows();
     parse_shots();

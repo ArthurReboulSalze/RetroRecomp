@@ -10,7 +10,7 @@ A cartridge is **link-ready** when it is in this table: its roots are added to e
 (`RR_GBA_LINK_SEATS`) and its report says "link: ready" with the evidence. A cartridge that is not in it plays a match by input sharing (one console,
 every seat's buttons merged) and its report says why ("not qualified for the link cable"). Nothing here is ROM content: addresses and numbers only.
 
-A row is made by `tools/gba_link_route.py`'s recipe (docs/GAME_BOY_ADVANCE.md, "The link cable"): the generated code is built into the engine's own
+A row is made by the recipe of docs/GAME_BOY_ADVANCE.md ("The link cable in a match"): the generated code is built into the engine's own
 two-console probe, run on a route, and every "native dispatch entry is missing" is added as a root until the route runs to its end with no miss and no
 interpreted instruction. The evidence stored is that run's final cycle count (the engine's author documents the same figure for his own build of the game).
 """
@@ -44,7 +44,7 @@ SEEDS: dict[str, LinkSeed] = {
     # Mario Kart: Super Circuit (USA), 9d327c03...: the two-console route of the engine's author (cold boot, Multi-Pak link, 50cc Mario GP, Toad and Yoshi, Mushroom Cup,
     # about twenty seconds of race) with empty Flash512 chips. 0802DB5C is the serial callback the engine's author found too (its descriptor pointer is at 080DE1B4).
     'aadc8b9f3c947ff6f610b6c8d7fddaaa9bea98b4bd43576df84f26c457ae1f90': LinkSeed(
-        'Mario Kart: Super Circuit', _roots(0x0802DB5C, 0x0805F80C, 0x0805A790, 0x0805A758, 0x0805A79C, 0x080503B4, 0x080505D8),
+        'Mario Kart: Super Circuit', _roots(0x0802DB5C, 0x0805F80C, 0x0805A790, 0x0805A758, 0x0805A79C, 0x0805A7AC, 0x080503B4, 0x080505D8),
         seats_tested=2, route='Multi-Pak link, 50cc Mario GP, two characters, Mushroom Cup, the first twenty seconds of the race',
         frames=4845, cycles=1360941120),
 }
