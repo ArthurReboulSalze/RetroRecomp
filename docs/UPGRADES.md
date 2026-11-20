@@ -86,6 +86,7 @@ multiplayer branch, which adds its own lines here). One line per change, with th
 
 | Change | Game stamps that move | Host and build stamps | Quick states |
 | --- | --- | --- | --- |
+| [Every machine: a Pause on a button of the restart combination waits for the combination (Master System: Start+Select)](#every-machine-a-pause-on-a-button-of-the-restart-combination-waits-for-the-combination-master-system-startselect-next-release) | none | **the host stamp of all 21 profiles** (the shell: `rrhk_events.c`, `rrhk_options.c`, `hostkit_internal.h`) | unchanged (host files are outside every state key) |
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-next-release) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | Every machine, multiplayer in turns: the F2 tiles Pass / Give the controller and Everyone / Turns, the turn badge and its options row ([HOST_KIT D33](HOST_KIT.md#d33)) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_main.c`, `rrhk_chat.inc`, `hostkit.h`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-next-release) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
@@ -1034,6 +1035,19 @@ self-test (558 checks: the tile restarts once and goes back to the game; the gra
 left; the host's « Change this option? » before a relaunch, ABI 9: No and Esc drop the key, Yes gives it back once). Two more
 texts in the eight locales for that question. **Stamps:** no game stamp moves; the host stamp of the 21 profiles moves: every export is upgraded once (rebuilt), none
 converted again. **Existing exports:** unchanged until that upgrade.
+
+## Every machine: a Pause on a button of the restart combination waits for the combination (Master System: Start+Select) (next release)
+
+The Master System has no Start button, so its Pause is on the pad's Start; the restart combination is Start+Select (Back) held one
+second. Pressing Start first opened the Pause menu before the combination was recognised. `rrhk_events.c`: a pad press of the host
+Pause action that is a member of the restart combination, on player 1's pad (the one that owns the combination), now waits: it opens
+or closes the Pause menu when the button is released or after 200 ms held, and is dropped if another button of the combination is
+down by then, or already down at the press (`rrhk_restart_combo_state`, `rrhk_options.c`). A tap of Start still pauses at once, on
+the release; Start+Select, in either order or together, never pauses and restarts after the second of holding, as on every machine.
+The Game Gear (Pause on Select, the cartridge Start on Start) is the same. The other pads, the keyboard and the machines whose Pause is
+not on a button of the combination (Game Boy: Guide) are unchanged. `tools/hostkit_capabilities/checks.c` drives it with a virtual
+pad (tap, held, Start then Select, Select then Start, both together, released before the second) and fails on the former shell.
+Host stamp of every profile with the host kit; no game stamp, quick states unchanged.
 
 ## Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile (next release)
 

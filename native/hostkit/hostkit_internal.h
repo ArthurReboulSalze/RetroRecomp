@@ -194,6 +194,10 @@ void rrhk_options_notice(void);           /* shows why a combination was not tak
 bool rrhk_options_quick_save(int menu);     /* 1.7.5: player 1's pad combination, once per hold */
 bool rrhk_options_quick_load(int menu);
 bool rrhk_options_component(int key, int button);   /* a key or button that belongs to a quit/restart combination being captured or held */
+/* 1.8.2: where a pad button stands in the restart combination (a bit set): 1 a member of it (a combination of two buttons or more),
+ * 2 another member is held on that pad now, 4 this very button is held. 0: not a member. rrhk_events.c defers the host Pause on
+ * such a button, so that Start+Select (Pause on Start) resets instead of pausing. */
+unsigned rrhk_restart_combo_state(SDL_JoystickID pad, int button);
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
 bool rrhk_sound_toggle_mute(void);   /* M: flip, keep in the preferences, true when muted */

@@ -798,6 +798,75 @@ static void quick_script(void) {
     }
 }
 
+/* 1.8.2: the Pause on the pad's Start (Master System) against the restart combination Start+Select: Start alone still pauses at
+ * once on release (or after 200 ms held), but a Start that is part of Start+Select, in whichever order, never opens the Pause menu,
+ * and the held combination restarts. The machine counts its resets. */
+static int pc_resets;
+static Uint64 pc_t0;
+#define PC_START SDL_CONTROLLER_BUTTON_START
+#define PC_BACK SDL_CONTROLLER_BUTTON_BACK
+static void pause_combo_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    const Uint64 now = SDL_GetTicks64();
+    switch (step++) {
+    case 0:     /* Start alone, held: the Pause menu opens after the window, not at the press */
+        ui->buttons[0][A_ANALOG] = PC_START;
+        CHECK(ui->menu == 0 && rrhk_combo_set(1, true));
+        button(PC_START, true); pc_t0 = now;
+        break;
+    case 1:
+        if (ui->menu != RRHK_MENU_PAUSE && now - pc_t0 < 2000) { --step; break; }
+        CHECK(ui->menu == RRHK_MENU_PAUSE && now - pc_t0 >= 150 && now - pc_t0 < 1000);
+        button(PC_START, false);
+        break;
+    case 2: button(PC_START, true); break;       /* a tap closes it, at once on release */
+    case 3: button(PC_START, false); break;
+    case 4: CHECK(ui->menu == 0); button(PC_START, true); break;
+    case 5: button(PC_START, false); break;      /* and a tap opens it at the release */
+    case 6: CHECK(ui->menu == RRHK_MENU_PAUSE); button(PC_START, true); break;
+    case 7: button(PC_START, false); break;
+    case 8:
+        CHECK(ui->menu == 0);
+        pc_resets = resets;
+        button(PC_START, true);                  /* Start first, Select a frame later: held, it restarts and never pauses */
+        break;
+    case 9: button(PC_BACK, true); pc_t0 = now; break;
+    case 10:
+        if (now - pc_t0 < 450) { CHECK(ui->menu == 0); --step; break; }
+        break;
+    case 11:
+        if (resets == pc_resets && now - pc_t0 < 4000) { CHECK(ui->menu == 0); --step; break; }
+        CHECK(resets == pc_resets + 1 && ui->menu == 0 && now - pc_t0 >= 900);
+        button(PC_START, false); button(PC_BACK, false); pc_t0 = now;
+        break;
+    case 12:
+        if (now - pc_t0 < 300) { CHECK(ui->menu == 0); --step; break; }
+        button(PC_BACK, true);                   /* Select first, then Start: the press of Start belongs to the combination */
+        break;
+    case 13: button(PC_START, true); pc_t0 = now; pc_resets = resets; break;
+    case 14:
+        if (now - pc_t0 < 450) { CHECK(ui->menu == 0); --step; break; }
+        button(PC_START, false); button(PC_BACK, false); pc_t0 = now;   /* released before the second: no restart, no pause */
+        break;
+    case 15:
+        if (now - pc_t0 < 300) { CHECK(ui->menu == 0 && resets == pc_resets); --step; break; }
+        button(PC_START, true); button(PC_BACK, true); pc_t0 = now;      /* both in the same frame */
+        break;
+    case 16:
+        if (now - pc_t0 < 450) { CHECK(ui->menu == 0); --step; break; }
+        button(PC_START, false); button(PC_BACK, false); pc_t0 = now;
+        break;
+    case 17:
+        if (now - pc_t0 < 300) { CHECK(ui->menu == 0 && resets == pc_resets); --step; break; }
+        button(PC_START, true);                  /* Select alone does nothing to the Pause; Start alone pauses again */
+        break;
+    case 18: button(PC_START, false); break;
+    case 19: CHECK(ui->menu == RRHK_MENU_PAUSE); key(SDL_SCANCODE_ESCAPE); break;
+    case 20: CHECK(ui->menu == 0); ui->buttons[0][A_ANALOG] = SDL_CONTROLLER_BUTTON_MISC1; stop = true; break;
+    default: break;
+    }
+}
+
 /* 1.7.5: on a console profile (no trigger_buttons), a game row bound to R2 by F2, then held in play: the row's bit, no speed. */
 static void r2_script(void) {
     RrhkUi *ui = rrhk_ui();
@@ -1472,6 +1541,12 @@ int main(int argc, char **argv) {
     begin(quick_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 20);
+    /* 6b. 1.8.2: the Pause on Start against the restart combination Start+Select. */
+    plain.host_pause = 1 + A_ANALOG;
+    begin(pause_combo_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 20);
+    plain.host_pause = 0;
     /* 7. 1.7.5: a game row on R2 on a console profile. */
     begin(r2_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);

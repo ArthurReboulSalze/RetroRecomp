@@ -138,7 +138,8 @@ Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY a
 
 - **F2** pages: player 1 keyboard and gamepad, player 2 keyboard and gamepad, then the options; a **Light Phaser** page sits
   after the control pages. Each gamepad page ends with a *Gamepad* row (Automatic, a connected controller, or None). Shift+F1
-  or the held restart combination restarts; the second player has no gun of its own.
+  or the held restart combination restarts; the second player has no gun of its own. Pause is on the pad's Start: a tap pauses at
+  once, but a Start that belongs to Start+Select (held one second to restart) never opens the Pause menu.
 - **F5, sprite flicker reduction** (Master System and, since 1.6.5, Game Gear). Off by default, which keeps the console's eight sprites per line. When
   on, sprites beyond the eighth are drawn and confirmed rapid sprite-list reversals are stabilised (at least 75 % of sprite
   identities matching, 95 % of pairwise priorities agreeing, two reversals within four frames). Collision and overflow flags
