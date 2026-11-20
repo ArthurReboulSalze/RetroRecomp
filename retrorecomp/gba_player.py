@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Callable
 
-from . import hostkit
+from . import gba_link, hostkit
 from .conversion_common import write_if_changed
 from .core import ConversionError, run
 from .paths import ASSETS
@@ -46,6 +46,8 @@ if(NOT WIN32 AND NOT APPLE)
 endif()
 find_package(SDL2 CONFIG REQUIRED)
 target_sources(game PRIVATE gba_machine.cpp retro_menu.c platform_io.c runtime_feedback.c @KIT@)
+# The link cable (gba_machine.cpp) reads the engine's session headers, which are C++20; the generated code and the engine keep their own settings.
+set_source_files_properties(gba_machine.cpp PROPERTIES COMPILE_OPTIONS "-std=c++20")
 target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "@ENGINE@/src/runtime")
 target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED RR_RECOMP_VERSION="@VERSION@")
 if(WIN32)
@@ -89,7 +91,9 @@ def prepare(player: Path, stage: Path, game: Path, bios_code: Path, rom_file: Pa
     save_limit = SAVE_LIMITS.get(save_type(Path(rom_file).read_bytes())[0], 0)
     write_if_changed(player / 'gba_game.h', ('#pragma once\n#define RR_GBA_TITLE %s\n#define RR_GBA_NAME %s\n#define RR_GBA_ROM_SHA1 "%s"\n'
                                               '#define RR_GBA_ROM_RESOURCE %d\n#define RR_GBA_BIOS_RESOURCE %d\n#define RR_GBA_SAVE_LIMIT %d\n#define RR_GBA_ROM_SHA256 "%s"\n'
-                                              % (json.dumps(title), json.dumps(name), sha1, ROM_RESOURCE, BIOS_RESOURCE, save_limit, sha256)).encode('utf-8'))
+                                              '#define RR_GBA_LINK_SEATS %d\n'
+                                              % (json.dumps(title), json.dumps(name), sha1, ROM_RESOURCE, BIOS_RESOURCE, save_limit, sha256,
+                                                 gba_link.seats(sha256))).encode('utf-8'))
     write_if_changed(player / 'runtime_feedback_config.h', f'#define RR_FEEDBACK_SYSTEM "gba"\n#define RR_FEEDBACK_IDENTITY "{sha256}"\n'.encode('ascii'))
     from .notices import notice_text
     # The submodule's own licence file at the pin, beside the page that quotes it (licenses/gbarecomp.md).

@@ -109,6 +109,8 @@ def main() -> int:
         copy = folder / game.name
         shutil.copy2(game, copy)
         env = dict(HIDDEN)
+        if args.sharing == 'link':       # a link match's game is started knowing it, as the room's worker does (room_worker._with_link): an engine that builds its consoles before HELLO reads it
+            env['RETRORECOMP_NETPLAY_LINK'] = str(args.seats)
         if args.real_audio:      # the real device pulls the sound (its own clock and period); the game is muted, nothing heard
             del env['SDL_AUDIODRIVER']
             (folder / 'datas').mkdir(exist_ok=True)

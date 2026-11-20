@@ -11,10 +11,14 @@
 #include <SDL.h>
 
 #include <algorithm>
+#include <array>
+#include <memory>
+#include <span>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +32,11 @@
 #include "rr_driver.h"
 #include "runtime.h"
 #include "state_envelope.h"
+// The link cable (below): the engine's session and its cable hub only (never its recomp-net / rbengine network layer).
+#include "gba_bios.h"
+#include "multiplayer_launch.h"
+#include "multiplayer_session.h"
+#include "self_heal.h"
 
 namespace {
 
@@ -51,6 +60,23 @@ bool g_session = false;
 uint64_t g_clock_at_start = 0;      // the session's clock the engine was started with (it reads its guest epoch once, at its start)
 unsigned g_digest_every = 0;       // test switch RETRORECOMP_GBA_DIGEST=<n>: print the digest every n frames (never read in play); the sound is hashed as in a session
 uint64_t g_audio_running = 1469598103934665603ull;     // the hash of every mixed sample so far, taken only in a session: the digest holds it
+
+// The link cable (RETRORECOMP_GBA_LINK=<2..4>, docs/GAME_BOY_ADVANCE.md "The link cable"): the engine's own session (`GbaMultiplayerSession`: N complete consoles on one
+// cable, in this process, on one common timeline) replaces the single machine that run_game() builds. Every PC runs all the consoles; only the pad words travel.
+// Each seat k plays console k, and this PC shows and plays the sound of its own seat's console only.
+std::unique_ptr<gbarecomp::GbaMultiplayerSession> g_link;
+unsigned g_link_seats = 0;                           // 0: no cable (the single machine); else the number of consoles on it
+unsigned g_link_local = 0;                           // the console this PC shows (its seat)
+const gbarecomp::GbaNetplayBoot* g_link_boot = nullptr;   // the engine's verified images and chip, alive while run_game() is in the link
+std::vector<uint8_t> g_link_image;                   // the cartridge save image every console plays on (the host's): the chip's bytes, empty: none
+bool g_link_slices = true;                           // the engine's own product setting: native instruction batching between device events
+struct LinkRow {
+    uint64_t frame;
+    std::array<uint16_t, 4> pads;
+};
+std::vector<LinkRow> g_link_script;                  // test switch RETRORECOMP_GBA_LINK_INPUTS: the engine's route files (`frame pad0 pad1 [pad2 pad3]`, pressed = 1)
+std::array<uint16_t, 4> g_link_held{};
+bool g_link_unwritten = false;                       // the first console's chip held a change when a restart built the consoles again: still to write at a clean end
 
 // Test switches, like the kit's RETRORECOMP_HOST_TEST_*: RETRORECOMP_GBA_INPUT names a script in the engine's own format
 // (`frame,0xKEYS`, active low) that replaces the player's keys; RETRORECOMP_GBA_DUMP names a P6 file that receives the last
@@ -115,6 +141,8 @@ void parse_shots() {
     }
 }
 
+uint64_t interpreted_any();   // defined with the link helpers below
+
 void write_picture(FILE* file) {
     fprintf(file, "P6\n%d %d\n255\n", kWidth, kHeight);
     for (int i = 0; i < kWidth * kHeight; ++i) {
@@ -124,7 +152,7 @@ void write_picture(FILE* file) {
 }
 
 void write_shot(uint64_t frame) {
-    const std::string name = g_shot_dir + "/shot-" + std::to_string(frame) + ".ppm";
+    const std::string name = g_shot_dir + "/shot-" + std::to_string(frame) + (g_link ? "-seat" + std::to_string(g_link_local + 1) : std::string()) + ".ppm";
     if (FILE* file = fopen(name.c_str(), "wb")) {
         write_picture(file);
         fclose(file);
@@ -162,7 +190,7 @@ void report_stats() {
     fprintf(stderr, "[host] frames=%llu audio_samples=%llu audio_nonzero=%llu audio_peak=%d interpreted=%llu\n",
             static_cast<unsigned long long>(g_frame_index), static_cast<unsigned long long>(g_audio_taken),
             static_cast<unsigned long long>(g_audio_nonzero), g_audio_peak,
-            static_cast<unsigned long long>(g_api ? g_api->interpreted_instructions() : 0));
+            static_cast<unsigned long long>(interpreted_any()));
 }
 
 void dump_picture() {
@@ -178,6 +206,33 @@ void dump_picture() {
     fclose(file);
 }
 
+// The console this PC plays: the single machine, or in the link the one of its seat.
+gba::GbaBus* link_bus() { return g_link ? &g_link->input_machine(g_link_local).bus : nullptr; }
+gba::GbaPpu* link_ppu() { return g_link ? &g_link->input_machine(g_link_local).ppu : nullptr; }
+
+size_t drain_any(int16_t* out, size_t capacity, uint32_t* rate) {
+    if (g_link) {
+        uint32_t block_rate = 0;
+        const size_t count = link_bus()->audio().drain_sample_block(out, capacity, block_rate);
+        *rate = block_rate;
+        return count;
+    }
+    return g_api->drain_audio(out, capacity, rate);
+}
+
+const uint8_t* picture_any(int* width, int* height) {
+    if (g_link) {
+        *width = kWidth;
+        *height = kHeight;
+        return link_ppu()->has_latched_framebuffer() ? link_ppu()->latched_framebuffer() : nullptr;
+    }
+    return g_api->picture(width, height);
+}
+
+uint64_t interpreted_any() {
+    return g_link ? static_cast<uint64_t>(gbarecomp::self_heal_interpreted_insns()) : g_api ? g_api->interpreted_instructions() : 0;
+}
+
 void push_sample(int16_t sample) {
     g_ring[g_head % kRingSamples] = sample;
     ++g_head;
@@ -190,7 +245,7 @@ void take_sound() {
     int16_t block[4096];
     uint32_t rate = 0;
     for (;;) {
-        const size_t count = g_api->drain_audio(block, 4096, &rate);
+        const size_t count = drain_any(block, 4096, &rate);
         if (!count) break;
         const uint32_t ratio = rate >= kOutputRate && rate % kOutputRate == 0 ? rate / kOutputRate : 1;
         for (size_t i = 0; i < count; ++i) {
@@ -211,7 +266,7 @@ void take_sound() {
 
 void take_picture() {
     int width = 0, height = 0;
-    const uint8_t* rgb = g_api->picture(&width, &height);
+    const uint8_t* rgb = picture_any(&width, &height);
     if (!rgb || width != kWidth || height != kHeight) return;
     for (int i = 0; i < kWidth * kHeight; ++i)
         g_pixels[i] = 0xFF000000u | static_cast<uint32_t>(rgb[3 * i]) << 16 | static_cast<uint32_t>(rgb[3 * i + 1]) << 8 | rgb[3 * i + 2];
@@ -265,7 +320,7 @@ void set_aside_unusable_save() {
 }
 
 void flush_battery() {
-    if (!g_save_writes || !g_api->save_dirty()) return;     // a guest's cartridge save is never written (side_effects)
+    if (g_link || !g_save_writes || !g_api->save_dirty()) return;     // the link writes its save only at a clean end (rrgba_session_save_commit); a guest's cartridge save is never written (side_effects)
     make_parent_folders(g_save_path);
     if (!g_api->flush_save()) fprintf(stderr, "[host] the cartridge save could not be written\n");
 }
@@ -413,6 +468,149 @@ uint64_t picture_hash() {
     return hash;
 }
 
+// ---- The link cable ----------------------------------------------------------------------------------------------------------------------------------------------------
+// The engine's session is built as its own product runner builds it (multiplayer_runner.cpp), minus its window and its network: the consoles share the BIOS and the cartridge,
+// each has its own chip (every one holds the host's save image: the match's rule is one save for everyone), a clock, and the same code (the generated functions bind the console
+// that runs). A console's picture and sound are read from its own PPU and audio unit; the other consoles' sound is dropped every frame.
+void link_configure_save(gba::GbaSave& save, const gbarecomp::SaveConfiguration& chip) {
+    switch (chip.type) {
+    case gba::SaveType::SRAM: save.configure_sram(chip.size); break;
+    case gba::SaveType::EEPROM: save.configure_eeprom(chip.size); break;
+    case gba::SaveType::Flash512:
+    case gba::SaveType::Flash1M: save.configure_flash(chip.size); break;
+    default: break;      // no chip
+    }
+}
+
+std::vector<uint8_t> link_chip_bytes(const gba::GbaSave& save) {
+    return save.sram_enabled() ? save.sram_bytes() : save.flash_enabled() ? save.flash_bytes() : save.eeprom_enabled() ? save.eeprom_bytes() : std::vector<uint8_t>();
+}
+
+bool link_load_chip(gba::GbaSave& save, const std::vector<uint8_t>& bytes) {
+    if (bytes.empty()) return true;
+    const bool ok = save.flash_enabled() ? save.load_flash_bytes(bytes.data(), bytes.size())
+                    : save.sram_enabled() ? save.load_sram_bytes(bytes.data(), bytes.size())
+                                          : save.eeprom_enabled() && save.load_eeprom_bytes(bytes.data(), bytes.size());
+    if (ok) save.clear_dirty();
+    return ok;
+}
+
+std::vector<uint8_t> read_save_file(const wchar_t* path) {
+    std::vector<uint8_t> bytes;
+    if (FILE* file = path && path[0] ? rr_fopen(path, L"rb") : nullptr) {
+        uint8_t chunk[65536];
+        for (size_t got; (got = fread(chunk, 1, sizeof chunk, file)) > 0;) bytes.insert(bytes.end(), chunk, chunk + got);
+        fclose(file);
+    }
+    return bytes;
+}
+
+// The session's clock: a session's (the same on every seat), else a scripted run's fixed time, else the host's own.
+int64_t link_clock() {
+    if (g_clock_at_start) return static_cast<int64_t>(g_clock_at_start);
+    if (const char* epoch = getenv("GBARECOMP_RTC_GUEST_EPOCH")) return strtoll(epoch, nullptr, 10);
+    return static_cast<int64_t>(time(nullptr));
+}
+
+// The consoles, from power-on, on the image `g_link_image` (the host's chip; empty: a blank chip). The first time, the player's own file is the image.
+bool link_build() {
+    using namespace gbarecomp;
+    const GbaNetplayBoot& boot = *g_link_boot;
+    try {
+        GbaSessionConfig config;
+        GbaLinkGroup cable{GbaLinkMedium::Cable, {}};
+        for (unsigned id = 0; id < g_link_seats; ++id) {
+            config.machines.push_back({id, "retro-recomp-gba-link", boot.expected_rom_sha1});
+            cable.machines.push_back(id);
+            config.input_machines.push_back(id);
+        }
+        config.links = {std::move(cable)};
+        g_link = std::make_unique<GbaMultiplayerSession>(std::move(config));
+        g_link->set_native_slices(g_link_slices);
+        const int64_t clock = link_clock();
+        for (unsigned id = 0; id < g_link_seats; ++id) {
+            auto& machine = g_link->machine(id);
+            machine.bus.set_bios(boot.bios);
+            machine.bus.set_rom(boot.rom->data(), boot.rom->size());
+            link_configure_save(machine.bus.save(), boot.save);
+            machine.bus.rtc().set_emulated_clock(clock);
+            if (!link_load_chip(machine.bus.save(), g_link_image))
+                fprintf(stderr, "[host] the cartridge save (%zu bytes) does not fit this game's chip: console %u starts on a blank one\n", g_link_image.size(), id + 1);
+        }
+        g_link->discard_audio_output();
+    } catch (const std::exception& error) {
+        fprintf(stderr, "[host] the link cable could not be set up: %s\n", error.what());
+        g_link.reset();
+        return false;
+    }
+    return true;
+}
+
+uint64_t link_digest() {
+    if (!g_link) return 0;
+    try {
+        const std::vector<uint8_t> blob = g_link->save_state();
+        return fnv_bytes(1469598103934665603ull, blob.data(), blob.size());
+    } catch (const std::exception&) {
+        return 0;
+    }
+}
+
+// One frame of every console: the pad words in seat order (pressed = 1, the hardware KEYINPUT bits). A route file of the engine (`frame pad0 pad1 ...`) replaces them in a test.
+bool link_step(uint16_t first, uint16_t second) {
+    std::array<uint16_t, 4> pads = {first, second, 0, 0};
+    if (!g_link_script.empty()) {
+        for (const LinkRow& row : g_link_script)
+            if (row.frame <= g_frame_index) g_link_held = row.pads;
+        pads = g_link_held;
+    }
+    const int seat = rrhk_session_seat();
+    if (seat >= 0 && static_cast<unsigned>(seat) < g_link_seats) g_link_local = static_cast<unsigned>(seat);
+    try {
+        g_link->run_frame(std::span<const uint16_t>(pads.data(), g_link_seats));
+    } catch (const std::exception& error) {
+        fprintf(stderr, "[host] the link cable stopped: %s\n", error.what());
+        return false;
+    }
+    return true;
+}
+
+void load_link_route() {
+    const char* path = getenv("RETRORECOMP_GBA_LINK_INPUTS");
+    FILE* file = path ? fopen(path, "r") : nullptr;
+    if (!file) return;
+    char line[256];
+    while (fgets(line, sizeof line, file)) {
+        unsigned long long frame = 0;
+        unsigned pad[4] = {0, 0, 0, 0};
+        if (line[0] != '#' && sscanf(line, "%llu %i %i %i %i", &frame, &pad[0], &pad[1], &pad[2], &pad[3]) >= 3)
+            g_link_script.push_back({frame, {static_cast<uint16_t>(pad[0] & 0x3FF), static_cast<uint16_t>(pad[1] & 0x3FF), static_cast<uint16_t>(pad[2] & 0x3FF), static_cast<uint16_t>(pad[3] & 0x3FF)}});
+    }
+    fclose(file);
+}
+
+// What run_game() calls instead of building the single machine and calling the driver (the engine's netplay branch, taken with our own `run`): the consoles, then the host kit's loop.
+int link_run(const gbarecomp::GbaNetplayLaunch&, const gbarecomp::GbaNetplayBoot& boot) {
+    g_link_boot = &boot;
+    if (const char* slices = getenv("RETRORECOMP_GBA_LINK_SLICES")) g_link_slices = atoi(slices) != 0;
+    g_link_image = read_save_file(g_save_path);
+    if (const char* seat = getenv("RETRORECOMP_GBA_LINK_SEAT")) g_link_local = std::min<unsigned>(g_link_seats - 1, static_cast<unsigned>(std::max(0, atoi(seat))));
+    int status = 1;
+    if (link_build()) {
+        int scale = 3;
+        if (const char* env = getenv("RETRORECOMP_SCALE")) scale = std::max(1, atoi(env));
+        status = rrhk_main(rrhk_adapter(), RR_GBA_TITLE, scale);
+        dump_picture();
+    }
+    if (g_rows) {
+        fclose(g_rows);
+        g_rows = nullptr;
+    }
+    g_link.reset();
+    g_link_boot = nullptr;
+    return g_failed ? 1 : status;
+}
+
 }  // namespace
 
 extern "C" {
@@ -420,9 +618,11 @@ extern "C" {
 static void run_selftest(void);
 static void run_state_switch(void);
 
-bool rrgba_frame(uint16_t pressed) {
-    if (!g_api || g_restart) return false;
-    if (g_session && g_boot_state.empty()) {                  // the state before the first frame: what a restart in a session goes back to
+bool rrgba_frame(uint16_t pressed) { return rrgba_frame_pads(pressed, 0); }
+
+bool rrgba_frame_pads(uint16_t pressed, uint16_t other) {
+    if ((!g_api && !g_link) || g_restart) return false;
+    if (g_session && !g_link && g_boot_state.empty()) {                  // the state before the first frame: what a restart in a session goes back to
         std::string error;
         if (!g_api->save_state(g_boot_state, error)) g_boot_state.clear();
     }
@@ -443,7 +643,18 @@ bool rrgba_frame(uint16_t pressed) {
             std::vector<uint8_t> now;
             std::string error;
             size_t at = 0, length = 0;
-            if (g_api->save_state(now, error) && find_section(now, kSaveTag, &at, &length) && length > 16) {
+            if (g_link) {                                         // the link: the first console's chip gets a byte (programmed the way a game does: the command cycles, then the byte)
+                gba::GbaSave& chip = g_link->machine(0).bus.save();
+                if (chip.flash_enabled()) {
+                    const uint32_t last = static_cast<uint32_t>(chip.flash_size() - 1);
+                    chip.flash_write(0x5555, 0xAA);
+                    chip.flash_write(0x2AAA, 0x55);
+                    chip.flash_write(0x5555, 0xA0);
+                    chip.flash_write(last, 0x00);          // programming only clears bits: 0 changes any byte that is not already 0
+                } else if (chip.sram_enabled()) {
+                    chip.sram_write(static_cast<uint32_t>(chip.sram_size() - 1), 0x5A);
+                }
+            } else if (g_api->save_state(now, error) && find_section(now, kSaveTag, &at, &length) && length > 16) {
                 now[at + 1] = 1;                                  // dirty_
                 now[at + length - 14] ^= 0xFF;                    // the last byte of a Flash chip (the 13 bytes after it: SRAM flag, size, length)
                 g_api->load_state(now, error);
@@ -451,16 +662,17 @@ bool rrgba_frame(uint16_t pressed) {
         }
     }
     if (g_scripted) pressed = scripted_pressed();
-    g_api->set_keyinput(static_cast<uint16_t>(~pressed & 0x3FF));
+    if (!g_link) g_api->set_keyinput(static_cast<uint16_t>(~pressed & 0x3FF));
     ++g_frame_index;
     g_frame_sound = 1469598103934665603ull;
     g_frame_audible = false;
-    if (!g_api->step_frame()) {
+    if (g_link ? !link_step(pressed, other) : !g_api->step_frame()) {
         g_failed = true;
         return false;
     }
     take_picture();
     take_sound();
+    if (g_link) g_link->discard_audio_output();               // the other consoles never feed this PC's speaker
     for (const uint64_t frame : g_shot_frames)
         if (frame == g_frame_index) write_shot(frame);
     if (g_rows)
@@ -468,7 +680,7 @@ bool rrgba_frame(uint16_t pressed) {
                 static_cast<unsigned long long>(g_frame_sound), g_frame_audible ? 1 : 0);
     if (g_digest_every && g_frame_index % g_digest_every == 0) {
         uint64_t parts[5] = {0, 0, 0, 0, 0};
-        const uint64_t first = state_digest(parts), second = state_digest();       // reading the digest must not change the machine: twice in a row is the same
+        const uint64_t first = g_link ? link_digest() : state_digest(parts), second = g_link ? link_digest() : state_digest();       // reading the digest must not change the machine: twice in a row is the same
         fprintf(stderr, "[digest] frame %llu %016llx cpu %016llx bus %016llx io %016llx save %016llx ppu %016llx sound %016llx%s\n", static_cast<unsigned long long>(g_frame_index),
                 static_cast<unsigned long long>(first), static_cast<unsigned long long>(parts[0]), static_cast<unsigned long long>(parts[1]), static_cast<unsigned long long>(parts[2]),
                 static_cast<unsigned long long>(parts[3]), static_cast<unsigned long long>(parts[4]), static_cast<unsigned long long>(g_audio_running), first == second && first ? "" : " UNSTABLE");
@@ -499,6 +711,13 @@ size_t rrgba_audio(int16_t* pcm, size_t capacity) {
 // the session's pipes are closed with the first one. The machine goes back to the state it had before its first frame (kept in memory at that moment) instead, as a power cycle
 // does, except for the cartridge save, which a power cycle keeps: the section of the save of the present state replaces the one of the boot state before it is loaded.
 void rrgba_reset(void) {
+    if (g_link) {                                              // the link: the consoles are built again from power-on, on the chip of the first one (a power cycle keeps the save)
+        g_link_unwritten = g_link_unwritten || g_link->machine(0).bus.save().dirty();   // the chip the file does not hold yet survives the power cycle: it is still to write at the end
+        g_link_image = link_chip_bytes(g_link->machine(0).bus.save());
+        g_audio_running = 1469598103934665603ull;
+        if (!link_build()) g_failed = true;
+        return;
+    }
     if (!g_session || !g_api || g_boot_state.empty()) {
         g_restart = true;
         return;
@@ -517,13 +736,22 @@ void rrgba_reset(void) {
     }
     g_audio_running = 1469598103934665603ull;
 }
-uint64_t rrgba_digest(void) { return state_digest(); }
+uint64_t rrgba_digest(void) { return g_link ? link_digest() : state_digest(); }
 void rrgba_side_effects(bool allowed) { g_save_writes = allowed; }
 
 // The cartridge save in a session (session ABI 8): the host's image travels to every seat. The image is the "SAV0" section of the engine's state container: the chip's memory
 // (SRAM, Flash or EEPROM, whichever the game has) as the machine reads it from power-on, the same fields on every PC. It is read before the first frame (the engine has loaded the
 // save file by then) and a guest puts it back in the same section, in memory only: the file is never touched (side_effects(false)).
 size_t rrgba_session_save(void* out, size_t capacity) {
+    if (g_link) {                                              // the link: the chip's bytes of the first console (the host's seat)
+        const std::vector<uint8_t> chip = link_chip_bytes(g_link->machine(0).bus.save());
+        if (chip.empty() || chip.size() > RRHK_SESSION_MAX_SAVE) return 0;
+        if (out) {
+            if (capacity < chip.size()) return 0;
+            memcpy(out, chip.data(), chip.size());
+        }
+        return chip.size();
+    }
     std::vector<uint8_t> blob;
     std::string error;
     size_t at = 0, length = 0;
@@ -542,8 +770,8 @@ size_t rrgba_session_save(void* out, size_t capacity) {
 // The host, when a match ends cleanly: the save as it is now in memory goes to this PC's own save file, atomically (the engine writes a temporary file and renames it), the previous
 // file kept beside it as ".bak" (itself written atomically). Nothing was written during the match (side_effects(false) on every seat). Nothing changed in memory: nothing to write.
 bool rrgba_session_save_commit(void) {
-    if (!g_api || !g_save_path[0]) return false;
-    if (!g_api->save_dirty()) return true;
+    if (!(g_api || g_link) || !g_save_path[0]) return false;
+    if (g_link ? !(g_link->machine(0).bus.save().dirty() || g_link_unwritten) : !g_api->save_dirty()) return true;
     FILE* file = rr_fopen(g_save_path, L"rb");
     if (file) {
         std::vector<uint8_t> previous;
@@ -557,6 +785,15 @@ bool rrgba_session_save_commit(void) {
         }
     }
     make_parent_folders(g_save_path);
+    if (g_link) {                                              // the link: the first console's chip, atomically (the engine's own write is not in this path)
+        if (!write_atomically(g_save_path, link_chip_bytes(g_link->machine(0).bus.save()))) {
+            fprintf(stderr, "[host] the cartridge save could not be written\n");
+            return false;
+        }
+        g_link->machine(0).bus.save().clear_dirty();
+        g_link_unwritten = false;
+        return true;
+    }
     if (!g_api->flush_save()) {
         fprintf(stderr, "[host] the cartridge save could not be written\n");
         return false;
@@ -565,6 +802,16 @@ bool rrgba_session_save_commit(void) {
 }
 
 bool rrgba_session_save_put(const void* in, size_t size) {
+    if (g_link) {                                              // the link: the host's chip goes in every console (the match plays on one save), in memory only
+        if (!in || size == 0 || size != link_chip_bytes(g_link->machine(0).bus.save()).size()) {
+            fprintf(stderr, "[host] the host's cartridge save (%zu bytes) does not fit this game's chip: this seat keeps its own\n", size);
+            return false;
+        }
+        const std::vector<uint8_t> image(static_cast<const uint8_t*>(in), static_cast<const uint8_t*>(in) + size);
+        for (unsigned id = 0; id < g_link_seats; ++id) link_load_chip(g_link->machine(id).bus.save(), image);
+        g_link_image = image;                                  // a restart builds the consoles again on it
+        return true;
+    }
     if (!g_api || !in || size == 0) return false;
     std::vector<uint8_t> now;
     std::string error;
@@ -592,12 +839,17 @@ void rrgba_session_begin(uint64_t clock) {
         fprintf(stderr, "[host] the session's clock (%llu) is not the one this machine started with (%llu): a cartridge clock would differ\n",
                 static_cast<unsigned long long>(clock), static_cast<unsigned long long>(g_clock_at_start));
 }
-uint64_t rrgba_interpreted(void) { return g_api ? g_api->interpreted_instructions() : 0; }
-uint64_t rrgba_frames(void) { return g_api ? g_api->frames() : 0; }
+uint64_t rrgba_interpreted(void) { return interpreted_any(); }
+unsigned rrgba_link_seats(void) { return g_link_seats; }
+uint64_t rrgba_frames(void) { return g_link ? link_ppu()->frame_count() : g_api ? g_api->frames() : 0; }
 
 bool rrgba_state_path(wchar_t* path, size_t capacity) { return state_location(path, capacity, "states", ".rrstate"); }
 
 bool rrgba_state_file(const wchar_t* path, bool load) {
+    if (g_link) {
+        fprintf(stderr, "[host] quick states are not available on the link cable\n");
+        return false;
+    }
     if (!g_api || !path || !path[0]) return false;
     std::string error;
     if (load) {
@@ -690,6 +942,20 @@ int main(int argc, char** argv) {
     gbarecomp::g_rr_embedded_bios = {static_cast<const uint8_t*>(bios), bios_size};
     gbarecomp::g_rr_driver = driver;
     load_script();
+    load_link_route();
+    // The link cable: that many consoles (2 to 4) on one cable. The room's worker says it in the game's environment (RRHK / session_pipe.LINK_ENV: the consoles the match may run; this engine
+    // builds its consoles before HELLO, so SETUP comes too late for it); RETRORECOMP_GBA_LINK is the same thing for a test run on its own.
+    const char* cable = getenv("RETRORECOMP_NETPLAY_LINK");
+    if (!cable) cable = getenv("RETRORECOMP_GBA_LINK");
+    if (cable) {
+        // Only a cartridge with a reviewed row (retrorecomp/gba_link.py: RR_GBA_LINK_SEATS, the consoles its route was run with) may have a cable; any other plays on one
+        // console and its report says why. RETRORECOMP_GBA_LINK_FORCE is the test switch of a maintainer's run on a cartridge that has no row yet.
+        const int seats = atoi(cable);
+        const unsigned ready = getenv("RETRORECOMP_GBA_LINK_FORCE") ? 4u : static_cast<unsigned>(RR_GBA_LINK_SEATS);
+        if (seats >= 2 && seats <= 4 && static_cast<unsigned>(seats) <= ready) g_link_seats = static_cast<unsigned>(seats);
+        else if (seats >= 2)
+            fprintf(stderr, "[host] the link cable is refused: this game is ready for %u console(s) on a cable (coverage.link_cable of its report); it plays on one console\n", ready);
+    }
     open_rows();
     parse_shots();
     parse_state_switch();
@@ -701,7 +967,7 @@ int main(int argc, char** argv) {
     if (g_session && !getenv("GBARECOMP_RTC_GUEST_EPOCH")) {
         g_clock_at_start = RRHK_SESSION_CLOCK;
         set_environment("GBARECOMP_RTC_GUEST_EPOCH", std::to_string(g_clock_at_start).c_str());
-    } else if ((g_scripted || g_selftest || getenv("RETRORECOMP_HOST_TEST_FRAMES")) && !getenv("GBARECOMP_RTC_GUEST_EPOCH"))
+    } else if ((g_scripted || g_selftest || !g_link_script.empty() || getenv("RETRORECOMP_HOST_TEST_FRAMES")) && !getenv("GBARECOMP_RTC_GUEST_EPOCH"))
         set_environment("GBARECOMP_RTC_GUEST_EPOCH", "1767225600");
     // The player compiles nothing at run time (the engine's self-heal recompiler stays off) and keeps what the engine says about
     // its own coverage, with the addresses the interpreter ran, in `datas/learning`, not beside the executable.
@@ -733,7 +999,19 @@ int main(int argc, char** argv) {
             arguments.push_back(&save_flag[0]);
             arguments.push_back(&save_value[0]);
         }
-        status = gbarecomp::run_game(static_cast<int>(arguments.size()), arguments.data());
+        if (g_link_seats) {
+            // The engine's netplay branch of run_game() (its images checked, its chip chosen, its mods off) with our own `run`: the engine's session, and the host kit's loop on top of it.
+            static std::string link_name = RR_GBA_NAME;
+            gbarecomp::RunOptions options;
+            options.netplay = std::make_shared<gbarecomp::GbaNetplayLaunch>();
+            options.netplay->enabled = true;
+            options.netplay->run = link_run;
+            options.builtin_game_name = link_name.c_str();
+            options.builtin_rom_sha1 = RR_GBA_ROM_SHA1;
+            status = gbarecomp::run_game(static_cast<int>(arguments.size()), arguments.data(), options);
+        } else {
+            status = gbarecomp::run_game(static_cast<int>(arguments.size()), arguments.data());
+        }
     } while (g_restart && status == 0);
     return status;
 }
