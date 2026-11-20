@@ -11,7 +11,8 @@ session the host's Shift+F1 is a request in its LOCAL and the machine restarts o
 guest's is refused); the match's state (the host's F8 / F9: requests in its LOCALs, saved and loaded only on the worker's
 RUN, again after a correction; a guest's refused; a load with nothing saved ends the session). Runs under SDL's
 dummy video and audio drivers (no window, no sound device). Needs the C toolchain and the pinned static SDL2 of `.deps`;
-nothing is written outside DIR (default .build/hostkit-session-selftest). A few seconds.
+nothing is written outside DIR (default .build/hostkit-session-selftest). Several minutes on a busy PC (490 s, build
+included, with every core at 100 %, 20 Nov 2026).
 """
 from __future__ import annotations
 
@@ -35,6 +36,13 @@ CONSTANTS = {name: int(value) for name, value in re.findall(r'\b(RRHK_\w+) = (\d
 ABI = int(re.search(r'#define RRHK_SESSION_ABI (\d+)', HEADER).group(1))
 ENV = re.search(r'#define RRHK_SESSION_ENV "(\w+)"', HEADER).group(1)
 M = (1 << 64) - 1
+# Every wait for a message or for the game to close is a hang bound, not a speed: the games are paced at 60 Hz and, with every
+# core busy with conversions, a paced run starves for CPU and stretches several times over (the capabilities self-test went
+# from 22 s to 70 s, 20 Nov 2026). Silences (Game.quiet) stay short: a load can only make them pass more easily.
+WAIT_SECONDS = 120
+# The whole run (build and 29 scenarios, one game start each, a frame-by-frame exchange through the pipes): 490 s with every
+# core at 100 % (20 Nov 2026), so 600 s was too near; a hang bound, not a speed.
+HANG_SECONDS = 1200
 
 
 def ready() -> str | None:
@@ -242,7 +250,7 @@ class Game:
     def send(self, kind: str, payload: bytes = b''):
         os.write(self.write, struct.pack('<HH', CONSTANTS[kind], len(payload)) + payload)
 
-    def receive(self, timeout: float = 5.0):
+    def receive(self, timeout: float = WAIT_SECONDS):
         """The next message as (name, payload), or None when the game closed its pipe."""
         item = self.messages.get(timeout=timeout)
         if item is None:
@@ -250,7 +258,7 @@ class Game:
         names = {value: name for name, value in CONSTANTS.items() if name.startswith('RRHK_MSG_')}
         return names.get(item[0], str(item[0])), item[1]
 
-    def expect(self, kind: str, timeout: float = 5.0) -> bytes:
+    def expect(self, kind: str, timeout: float = WAIT_SECONDS) -> bytes:
         # The game reports the next frame's LOCAL as soon as a frame is done, so a LOCAL may come before the answer to a
         # command sent meanwhile (DIGEST): it is kept for the next expect('RRHK_MSG_LOCAL').
         for index, (name, payload) in enumerate(self.pending):
@@ -272,7 +280,7 @@ class Game:
         except queue.Empty:
             return True
 
-    def finish(self, timeout: float = 15.0) -> tuple[int, dict, str]:
+    def finish(self, timeout: float = WAIT_SECONDS) -> tuple[int, dict, str]:
         if self.write is not None:
             try:
                 os.close(self.write)
@@ -286,7 +294,7 @@ class Game:
 
 
 def setup(game: Game, *, seat: int = 0, ports: int = 4, depth: int = 0, guest: bool = False, options: str = 'speed=1'):
-    hello = game.expect('RRHK_MSG_HELLO', timeout=30)     # a game starting on a busy PC (other builds running) may be slow
+    hello = game.expect('RRHK_MSG_HELLO')     # a game starting on a busy PC (other builds running) may be slow
     abi, players, caps = struct.unpack_from('<HBB', hello)
     assert abi == ABI, abi
     assert players == 4, players
@@ -334,7 +342,7 @@ def check_digest(game: Game, history: list, restarts=(), states=None) -> None:
 
 def stop(game: Game) -> None:
     game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS['RRHK_STOP_ENDED']))
-    exit_payload = game.expect('RRHK_MSG_EXIT', timeout=10)
+    exit_payload = game.expect('RRHK_MSG_EXIT')
     assert struct.unpack('<H', exit_payload)[0] == CONSTANTS['RRHK_EXIT_STOPPED']     # not the player closing the window
 
 
@@ -449,11 +457,13 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     for frame in range(20):
         live_frame(game, frame, (0, *remote(frame)), history)
     started = time.perf_counter()
-    code, result, text = game.finish(timeout=10)
+    code, result, text = game.finish()
     assert code == 0 and int(result['frames']) == 20, (code, result, text)
     assert 'pipe is closed' in text, text
     seconds = time.perf_counter() - started
-    assert 3.0 < seconds < 8.0, seconds       # the message stays about 3.5 s, then the game closes by itself
+    # The message stays 3.5 s on SDL's clock, then the game closes by itself (finish() holds the hang bound): about 3.5 s on a
+    # quiet PC, more under load (a starved frame, a slow exit), never less.
+    assert 3.0 < seconds, seconds
     passed.append(f'pipe lost: message shown, closed by itself in {seconds:.1f} s')
 
     # 8b. A menu opened by the player asks everyone to pause; closing it while paused is reported, and the game resumes.
@@ -466,7 +476,7 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     assert (frame, word, system) == (31, 0, CONSTANTS['RRHK_SYS_PAUSE']), (frame, word, system)
     name = b'Arthur'
     game.send('RRHK_MSG_PAUSE', bytes([1, len(name)]) + name)
-    frame, word, system = struct.unpack('<IHH', game.expect('RRHK_MSG_LOCAL', timeout=10))
+    frame, word, system = struct.unpack('<IHH', game.expect('RRHK_MSG_LOCAL'))
     assert (frame, word, system) == (31, 0, 0), (frame, word, system)        # Help closed: the same frame, no pause asked
     game.send('RRHK_MSG_PAUSE', bytes([0, 0]))
     game.send('RRHK_MSG_RUN', run_payload(31, (0, *remote(31))))
@@ -566,7 +576,7 @@ def restart_scenarios(executable: Path, out: Path) -> list[str]:
         live_frame(game, frame, (0, 0, 0, 0), history)
     game.expect('RRHK_MSG_LOCAL')
     game.send('RRHK_MSG_RUN', run_payload(5, (0, 0, 0, 0), flags=0x80))
-    code, result, text = game.finish(timeout=10)
+    code, result, text = game.finish()
     assert code == 0 and int(result['frames']) == 5 and 'unknown flags' in text, (code, result, text)
     passed.append('a RUN with an unknown flag: the session ends, nothing run')
     return passed
@@ -637,7 +647,7 @@ def state_scenarios(executable: Path, out: Path) -> list[str]:
         live_frame(game, frame, (0, 0, 0, 0), history)
     game.expect('RRHK_MSG_LOCAL')
     game.send('RRHK_MSG_RUN', run_payload(5, (0, 0, 0, 0), flags=load_flag))
-    code, result, text = game.finish(timeout=10)
+    code, result, text = game.finish()
     assert code == 0 and int(result['frames']) == 5 and int(result['quick']) == 0, (code, result, text)
     assert "match's state could not be saved or loaded" in text, text
     passed.append('match state: a load with nothing saved ends the session, nothing run')
@@ -650,7 +660,7 @@ def save_scenarios(executable: Path, out: Path) -> list[str]:
     passed = []
 
     def opened(game: Game) -> tuple[bytes, bytes]:
-        hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+        hello = game.expect('RRHK_MSG_HELLO')
         name_length = hello[12]
         options_length = struct.unpack_from('<H', hello, 13 + name_length)[0]
         size = struct.unpack_from('<I', hello, 15 + name_length + options_length)[0]
@@ -691,7 +701,7 @@ def save_scenarios(executable: Path, out: Path) -> list[str]:
     game = Game(executable, out, save=2)
     hello, _own = opened(game)
     game.send('RRHK_MSG_SAVE_IN', struct.pack('<II', 64, 8) + bytes(8))
-    code, result, text = game.finish(timeout=15)
+    code, result, text = game.finish()
     assert code == 0 and int(result['frames']) == 0 and 'SAVE_IN' in text, (code, result, text)
     passed.append('save: a SAVE_IN out of order ends the session, nothing run')
 
@@ -709,7 +719,7 @@ def save_scenarios(executable: Path, out: Path) -> list[str]:
         for frame in range(10):
             live_frame(game, frame, (*remote(frame)[:1], 0, 0, 0), history)
         game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS[reason]))
-        game.expect('RRHK_MSG_EXIT', timeout=10)
+        game.expect('RRHK_MSG_EXIT')
         _code, _result, text = game.finish()
         return text
     text = ended('RRHK_STOP_ENDED', 0, False)
@@ -724,7 +734,7 @@ def save_scenarios(executable: Path, out: Path) -> list[str]:
     game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
     setup(game, seat=0, guest=False)
     game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS['RRHK_STOP_ENDED']))
-    game.expect('RRHK_MSG_EXIT', timeout=10)
+    game.expect('RRHK_MSG_EXIT')
     _code, _result, text = game.finish()
     assert '[fake] commit' not in text, text[-600:]
     passed.append('save, end: the host writes its save back once at a clean end (no frame wrote during the match), nothing after '
@@ -742,20 +752,20 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
     # 25. The host's option changes at frame 12: a RELAUNCH with the new options, no LOCAL nor frame after it; STOP_RELAUNCH
     # ends the game (EXIT stopped), and its save is not written back.
     game = Game(executable, out, option_at=12, save=3)
-    hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+    hello = game.expect('RRHK_MSG_HELLO')
     game.expect('RRHK_MSG_SAVE_OUT')                 # its 64-byte battery, one chunk
     game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
     setup(game)
     history = []
     for frame in range(12):
         live_frame(game, frame, (0, *remote(frame)), history)
-    payload = game.expect('RRHK_MSG_RELAUNCH', timeout=10)
+    payload = game.expect('RRHK_MSG_RELAUNCH')
     length = struct.unpack_from('<H', payload)[0]
     assert payload[2:2 + length] == b'speed=2', payload
     game.send('RRHK_MSG_RUN', run_payload(12, (0, *remote(12))))      # a RUN already on its way is never run
     assert game.quiet(0.5), 'the host ran on after its RELAUNCH'
     game.send('RRHK_MSG_STOP', struct.pack('<H', CONSTANTS['RRHK_STOP_RELAUNCH']))
-    exit_payload = game.expect('RRHK_MSG_EXIT', timeout=10)
+    exit_payload = game.expect('RRHK_MSG_EXIT')
     assert struct.unpack('<H', exit_payload)[0] == CONSTANTS['RRHK_EXIT_STOPPED']
     code, result, text = game.finish()
     assert code == 0 and int(result['frames']) == 12 and '[fake] commit' not in text, (code, result, text)
@@ -779,7 +789,7 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
     digests = []
     for guest in (False, True):
         game = Game(executable, out, keys=True)
-        hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+        hello = game.expect('RRHK_MSG_HELLO')
         assert struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_KEYBOARD'], 'no CAP_KEYBOARD in the HELLO'
         game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
         setup(game, seat=1 if guest else 0, guest=guest)
@@ -846,9 +856,9 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
     game = Game(executable, out)
     setup(game, seat=1, guest=True, ports=1)
     game.send('RRHK_MSG_TURNS', bytes([CONSTANTS['RRHK_SHARING_TURNS'], 3, 2, 1]) + b'A' + bytes([1]) + b'B')   # holder 3 of 2
-    while game.receive(timeout=15) is not None:      # the game ends the session itself (its pipe closes)
+    while game.receive() is not None:      # the game ends the session itself (its pipe closes)
         pass
-    code, result, text = game.finish(timeout=15)
+    code, result, text = game.finish()
     assert code == 0 and 'TURNS broke the rules' in text, (code, result, text)
     passed.append('turns: TURNS read (mode, holder, names), the holder\'s pass in one frame\'s LOCALs (by the call and by F2\'s '
                   'Pass tile), a guest not holding asks nothing, a broken TURNS ends the session')
@@ -857,7 +867,7 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
     # ports makes it a link session, known before its first frame (the adapter sees the consoles and its own seat); a game
     # without a link is refused one.
     game = Game(executable, out, link=True)
-    hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+    hello = game.expect('RRHK_MSG_HELLO')
     assert struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_LINK'], 'no CAP_LINK in the HELLO'
     text = b'speed=1'
     game.send('RRHK_MSG_SETUP', struct.pack('<BBBBH', 1, 2, 0, CONSTANTS['RRHK_SETUP_GUEST'] | CONSTANTS['RRHK_SETUP_LINK'],
@@ -869,13 +879,13 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
     code, result, text_out = game.finish()
     assert code == 0 and result.get('link') == '2' and result.get('seat') == '1', (code, result, text_out)
     game = Game(executable, out)
-    hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+    hello = game.expect('RRHK_MSG_HELLO')
     assert not struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_LINK']
     game.send('RRHK_MSG_SETUP', struct.pack('<BBBBH', 1, 2, 0, CONSTANTS['RRHK_SETUP_GUEST'] | CONSTANTS['RRHK_SETUP_LINK'],
                                             len(text)) + text)
-    while game.receive(timeout=15) is not None:
+    while game.receive() is not None:
         pass
-    code, result, text_out = game.finish(timeout=15)
+    code, result, text_out = game.finish()
     assert code == 0 and int(result['frames']) == 0, (code, result, text_out)
     passed.append('link: CAP_LINK in HELLO, SETUP_LINK known before frame 0 (two consoles, this seat), a game without a link '
                   'refuses one')
@@ -892,7 +902,7 @@ def stick_scenarios(executable: Path, out: Path) -> list[str]:
 
     # 21. A machine with sticks: LOCALs of 12 bytes (centred: no pad here), RUNs with the sticks, a correction from frame 30.
     game = Game(executable, out, sticks=True)
-    hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+    hello = game.expect('RRHK_MSG_HELLO')
     assert struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_AXES'], 'no CAP_AXES in the HELLO'
     game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
     setup(game, depth=16)
@@ -1059,7 +1069,7 @@ def chat_scenarios(executable: Path, out: Path) -> list[str]:
     for frame in range(5):
         live_frame(game, frame, (0, 0, 0, 0), history)
     game.send('RRHK_MSG_CHAT_SHOW', bytes([CONSTANTS['RRHK_PHRASE_GG'], 1]) + b'A' + bytes([1]) + b'x')
-    code, result, text = game.finish(timeout=10)
+    code, result, text = game.finish()
     assert code == 0 and 'CHAT_SHOW broke the rules' in text, (code, result, text)
     passed.append('chat: a CHAT_SHOW that breaks its rules ends the session')
     return passed
