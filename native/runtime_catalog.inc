@@ -247,6 +247,7 @@ static const char *const rr_translations[][5] = {
     {"Max speed","Vitesse max","Velocita max","Vel. maxima","Hoechsttempo"},
     {"Maximum speed OFF","Vitesse maximale desactivee","Velocita massima OFF","Velocidad maxima desactivada","Hoechstgeschwindigkeit AUS"},
     {"Maximum speed ON","Vitesse maximale activee","Velocita massima ON","Velocidad maxima activada","Hoechstgeschwindigkeit AN"},
+    {"Menu","Menu","Menu","Menu","Menue"},
     {"Monochrome","Monochrome","Monocromatico","Monocromo","Monochrom"},
     {"Mouse","Souris","Mouse","Raton","Maus"},
     {"Mouse port","Port souris","Porta del mouse","Puerto del raton","Mausport"},
