@@ -76,6 +76,7 @@ struct LinkRow {
 };
 std::vector<LinkRow> g_link_script;                  // test switch RETRORECOMP_GBA_LINK_INPUTS: the engine's route files (`frame pad0 pad1 [pad2 pad3]`, pressed = 1)
 std::array<uint16_t, 4> g_link_held{};
+bool g_link_unwritten = false;                       // the first console's chip held a change when a restart built the consoles again: still to write at a clean end
 
 // Test switches, like the kit's RETRORECOMP_HOST_TEST_*: RETRORECOMP_GBA_INPUT names a script in the engine's own format
 // (`frame,0xKEYS`, active low) that replaces the player's keys; RETRORECOMP_GBA_DUMP names a P6 file that receives the last
@@ -151,7 +152,7 @@ void write_picture(FILE* file) {
 }
 
 void write_shot(uint64_t frame) {
-    const std::string name = g_shot_dir + "/shot-" + std::to_string(frame) + ".ppm";
+    const std::string name = g_shot_dir + "/shot-" + std::to_string(frame) + (g_link ? "-seat" + std::to_string(g_link_local + 1) : std::string()) + ".ppm";
     if (FILE* file = fopen(name.c_str(), "wb")) {
         write_picture(file);
         fclose(file);
@@ -649,7 +650,7 @@ bool rrgba_frame_pads(uint16_t pressed, uint16_t other) {
                     chip.flash_write(0x5555, 0xAA);
                     chip.flash_write(0x2AAA, 0x55);
                     chip.flash_write(0x5555, 0xA0);
-                    chip.flash_write(last, 0x5A);
+                    chip.flash_write(last, 0x00);          // programming only clears bits: 0 changes any byte that is not already 0
                 } else if (chip.sram_enabled()) {
                     chip.sram_write(static_cast<uint32_t>(chip.sram_size() - 1), 0x5A);
                 }
@@ -711,6 +712,7 @@ size_t rrgba_audio(int16_t* pcm, size_t capacity) {
 // does, except for the cartridge save, which a power cycle keeps: the section of the save of the present state replaces the one of the boot state before it is loaded.
 void rrgba_reset(void) {
     if (g_link) {                                              // the link: the consoles are built again from power-on, on the chip of the first one (a power cycle keeps the save)
+        g_link_unwritten = g_link_unwritten || g_link->machine(0).bus.save().dirty();   // the chip the file does not hold yet survives the power cycle: it is still to write at the end
         g_link_image = link_chip_bytes(g_link->machine(0).bus.save());
         g_audio_running = 1469598103934665603ull;
         if (!link_build()) g_failed = true;
@@ -769,7 +771,7 @@ size_t rrgba_session_save(void* out, size_t capacity) {
 // file kept beside it as ".bak" (itself written atomically). Nothing was written during the match (side_effects(false) on every seat). Nothing changed in memory: nothing to write.
 bool rrgba_session_save_commit(void) {
     if (!(g_api || g_link) || !g_save_path[0]) return false;
-    if (g_link ? !g_link->machine(0).bus.save().dirty() : !g_api->save_dirty()) return true;
+    if (g_link ? !(g_link->machine(0).bus.save().dirty() || g_link_unwritten) : !g_api->save_dirty()) return true;
     FILE* file = rr_fopen(g_save_path, L"rb");
     if (file) {
         std::vector<uint8_t> previous;
@@ -789,6 +791,7 @@ bool rrgba_session_save_commit(void) {
             return false;
         }
         g_link->machine(0).bus.save().clear_dirty();
+        g_link_unwritten = false;
         return true;
     }
     if (!g_api->flush_save()) {
