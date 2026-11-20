@@ -377,6 +377,67 @@ class HiddenView(unittest.TestCase):
         self.assertEqual(self.view.cards.online_cover.call_count, 2)
         self.assertEqual(self.view.search_result, (2, 2, 0))
 
+    def wait(self, condition, seconds=5):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline and not condition():
+            self.root.update()
+            time.sleep(0.01)
+
+    def test_a_sharper_thumbnail_is_drawn_never_the_picture_of_the_old_one(self):
+        """The blurred covers (20 Nov 2026): a thumbnail read again for a larger box must not be shown through the
+        picture made, at the same size, from the smaller one."""
+        from PIL import Image
+        self.view.select_shelf(self.view.index_of('gb'), slide=False)
+        self.root.update()
+        target = self.view.games[0]
+        key = fe.game_key(target)
+        small = Image.new('RGB', (12, 16), 'red')
+        self.view.events.put(('cover', self.view.loader.generation, key, small, 0.75))
+        self.wait(lambda: key in self.view.thumbnails)
+        self.view.draw_wall()
+        old = {name: self.view.photos[name] for name in self.view.photos if name[0] == key}
+        self.assertTrue(old)                                   # the small one, stretched to the tile
+        sharp = Image.new('RGB', (300, 400), 'blue')
+        self.view.events.put(('cover', self.view.loader.generation, key, sharp, 0.75))
+        self.wait(lambda: self.view.thumbnails.get(key) is sharp)
+        drawn = {self.view.wall.itemcget(item, 'image') for item in self.view.wall.find_withtag('tile')
+                 if self.view.wall.type(item) == 'image'}
+        self.assertTrue(drawn)
+        self.assertFalse(drawn & {str(photo) for photo in old.values()})      # the old pictures are not reused
+
+    def test_refresh_reads_the_cover_again_and_searches_it_online_only_when_missing_and_allowed(self):
+        self.view.select_shelf(self.view.index_of('gb'), slide=False)
+        self.wait(lambda: all(fe.game_key(g) in self.view.no_cover for g in self.view.games))
+        target = self.view.games[0]
+        items = {key: (action, enabled) for key, action, enabled in self.view.actions()}
+        self.assertIn('front_end_refresh_cover', items)
+        calls = self.view.cards.cached_cover.call_count
+        self.owner.online.get.return_value = False                # online covers off: read again, nothing searched
+        items['front_end_refresh_cover'][0]()
+        self.wait(lambda: self.view.cards.cached_cover.call_count == calls + 1 and not self.view.refreshing)
+        self.assertEqual(self.view.cards.cached_cover.call_count, calls + 1)
+        self.view.cards.online_cover.assert_not_called()
+        self.owner.online.get.return_value = True                 # on: still missing, so searched online
+        self.view.cards.online_cover.return_value = None
+        self.view.refresh_covers([target])
+        self.wait(lambda: self.view.cards.online_cover.call_count == 1 and self.view.searching is None)
+        self.view.cards.online_cover.assert_called_once_with(target)
+
+    def test_the_round_scan_button_runs_the_compiled_games_scan_and_reads_every_cover_again(self):
+        compiled = Mock(running=False)
+        self.owner.ensure_compiled_view.return_value = compiled
+        self.owner.compiled_view = compiled
+        self.view.draw_tabs()
+        box = next((x0, x1) for x0, x1, name in self.view.tool_boxes if name == 'scan')
+        self.view.tab_clicked(Mock(x=(box[0] + box[1]) // 2))
+        compiled.scan.assert_called_once_with()
+        self.view.no_cover.add('x')
+        calls = self.view.cards.cached_cover.call_count
+        self.view.library_refreshed()
+        self.assertNotIn('x', self.view.no_cover)
+        self.wait(lambda: self.view.cards.cached_cover.call_count > calls)
+        self.assertGreater(self.view.cards.cached_cover.call_count, calls)
+
     def test_the_cover_actions_open_the_box_art_window_of_gui_covers(self):
         self.view.select_shelf(self.view.index_of('sms'), slide=False)
         actions = {key: action for key, action, _ in self.view.actions()}

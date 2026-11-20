@@ -859,6 +859,8 @@
     "front_end_played_days": "{days} 天前游玩过",
     "front_end_fallback": "使用备用解释器",
     "front_end_find_cover": "在线搜索封面",
+    "front_end_refresh_cover": "更新",
+    "front_end_refresh_note": "重新读取封面；如果没有封面且已开启在线封面，就在网上搜索。",
     "front_end_network_later": "网络游戏（即将推出）",
     "front_end_tv": "全屏（F11）",
     "front_end_tv_leave": "回到窗口（F11）",

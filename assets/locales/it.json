@@ -859,6 +859,8 @@
     "front_end_played_days": "Giocato {days} giorni fa",
     "front_end_fallback": "Usa l’interprete di riserva",
     "front_end_find_cover": "Cerca la copertina online",
+    "front_end_refresh_cover": "Aggiorna",
+    "front_end_refresh_note": "Rilegge la copertina; la cerca online se manca e le copertine online sono attive.",
     "front_end_network_later": "Gioco in rete (in arrivo)",
     "front_end_tv": "Schermo intero (F11)",
     "front_end_tv_leave": "Torna alla finestra (F11)",

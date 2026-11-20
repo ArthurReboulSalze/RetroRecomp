@@ -467,6 +467,9 @@ class CompiledGamesView(ttk.Frame):
                     self.add_button.configure(state='normal')
                     self.render()
                     if kind=='error':self.status.set(self.tr('scan_failed'))
+                    front_end = getattr(self.owner,'front_end_view',None)
+                    if front_end is not None and getattr(self.owner,'front_end_visible',False):
+                        front_end.library_refreshed()    # its ↻ (the same scan): the wall and its covers read again
         except queue.Empty:pass
         self.after(100,self.drain)
 

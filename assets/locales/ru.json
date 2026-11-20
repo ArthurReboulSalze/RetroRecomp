@@ -859,6 +859,8 @@
     "front_end_played_days": "Запускалась {days} дн. назад",
     "front_end_fallback": "Использует резервный интерпретатор",
     "front_end_find_cover": "Найти обложку в сети",
+    "front_end_refresh_cover": "Обновить",
+    "front_end_refresh_note": "Читает обложку заново; ищет её в сети, если её нет и обложки из сети включены.",
     "front_end_network_later": "Сетевая игра (скоро)",
     "front_end_tv": "Полный экран (F11)",
     "front_end_tv_leave": "Вернуться в окно (F11)",

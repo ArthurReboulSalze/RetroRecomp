@@ -859,6 +859,8 @@
     "front_end_played_days": "{days} 日前にプレイ",
     "front_end_fallback": "予備インタープリターを使用",
     "front_end_find_cover": "パッケージをオンラインで検索",
+    "front_end_refresh_cover": "更新",
+    "front_end_refresh_note": "パッケージ画像を読み直します。無い時はオンライン画像が有効ならネットで探します。",
     "front_end_network_later": "ネットワークプレイ（準備中）",
     "front_end_tv": "全画面（F11）",
     "front_end_tv_leave": "ウィンドウに戻る（F11）",

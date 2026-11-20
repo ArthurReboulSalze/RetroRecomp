@@ -90,7 +90,7 @@ class CoverLoader:
 FAVORITES, SEARCH = 'favorites', 'search'
 # Menu entries with a short note shown under the menu while they are chosen (the labels stay short).
 MENU_NOTES = {'front_end_find_cover': 'front_end_only_note', 'front_end_find_covers': 'front_end_only_note',
-              'front_end_find_missing': 'front_end_only_note'}
+              'front_end_find_missing': 'front_end_only_note', 'front_end_refresh_cover': 'front_end_refresh_note'}
 
 
 class Shelf:
@@ -147,6 +147,7 @@ class FrontEndView(tk.Frame):
         # Games chosen with Ctrl / Shift + click (or Ctrl+A) on the console shown: the menu then acts on all of them.
         self.selected, self.anchor = set(), 0
         self.searching = None      # (done, total, found) while covers are searched online
+        self.refreshing = set()    # keys of the covers asked again (« Refresh »): searched online if still missing
         self.search_result = None  # (total, total, found) once the last search of covers ended
         self.controller, self.pad = None, GridPad()
         self.jobs = {}                 # the view's own `after` jobs, cancelled when it is destroyed
@@ -181,7 +182,8 @@ class FrontEndView(tk.Frame):
             ('tool_more', lambda: self.tr('front_end_more_covers')),
             ('tool_count', lambda: self.tr('front_end_per_row', count=self.layout.columns if self.layout else 0)),
             ('tool_screen', lambda: self.tr('front_end_tv_leave' if self.owner.front_end_fullscreen
-                                            else 'front_end_tv')))]
+                                            else 'front_end_tv')),
+            ('tool_scan', lambda: self.tr('scan_games') + '\n' + self.tr('tip_scan_games')))]
         self.wall.bind('<Button-1>', self.clicked)
         self.wall.bind('<Double-1>', lambda event: self.play())
         self.wall.bind('<Button-3>', self.context_menu)
@@ -619,6 +621,13 @@ class FrontEndView(tk.Frame):
                            fill=COLORS['gold_hover'] if focus else COLORS['muted'], font=self.font_small,
                            width=inner, justify='center', tags='tile')
 
+    def forget_photos(self, key):
+        """Drop the Tk pictures made from `key`'s thumbnail: a new thumbnail (a larger box, a new cover) would else be
+        shown through a picture of the same size made from the old one, a smaller one stretched (the blurred covers
+        that a click made sharp, 20 Nov 2026: the focused tile, larger, was the only one drawn again)."""
+        for name in [name for name in self.photos if name[0] == key]:
+            del self.photos[name]
+
     def photo(self, key, thumbnail, size):
         name = (key, *size)
         photo = self.photos.get(name)
@@ -715,8 +724,8 @@ class FrontEndView(tk.Frame):
         self.pill(canvas, zone_right + self.cx(8), middle, 'RB')
 
     def draw_tools(self, right, middle):
-        """Right of the strip, one family of round buttons: favourites, search, covers per row (minus, the number,
-        plus) and full screen. Returns where they start."""
+        """Right of the strip, one family of round buttons: scan (↻), favourites, search, covers per row (minus, the
+        number, plus) and full screen. Returns where they start."""
         canvas = self.tabs
         height, gap, radius = self.cx(26), self.cx(7), self.cx(9)
         top, bottom = middle - height // 2, middle + height - height // 2
@@ -791,6 +800,16 @@ class FrontEndView(tk.Frame):
         color = chip(x0, x1, 'favorites', active)
         canvas.create_polygon(star_points((x0 + x1) // 2, middle, self.cx(8)), tags=('tool_favorites',),
                               fill=COLORS['gold'] if active else '', outline=color, width=self.cx(1.5))
+        # Compiled Games' Scan (its ↻), the whole library and its covers read again; lit while it runs.
+        x1 = x0 - gap
+        x0 = x1 - icon_w
+        view = getattr(self.owner, 'compiled_view', None)
+        color = chip(x0, x1, 'scan', bool(getattr(view, 'running', False)))
+        from .branding import ICON_PATHS
+        unit, ox, oy = self.cx(16) / 16, (x0 + x1) / 2 - self.cx(8), middle - self.cx(8)
+        for path in ICON_PATHS['refresh']:
+            canvas.create_line(*[ox + v * unit if i % 2 == 0 else oy + v * unit for i, v in enumerate(path)],
+                               fill=color, width=self.cx(1.6), capstyle='round', joinstyle='round', tags=('tool_scan',))
         return x0 - self.cx(4)
 
     def tool_at(self, x):
@@ -1071,6 +1090,8 @@ class FrontEndView(tk.Frame):
             self.finish_editing() if self.editing else self.open_search()
         elif tool in ('fewer', 'more'):
             self.change_columns(-1 if tool == 'fewer' else 1)
+        elif tool == 'scan':
+            self.scan_library()
         elif not self.editing:
             for left, right, index in getattr(self, 'tab_boxes', []):
                 if left <= event.x <= right:
@@ -1143,7 +1164,8 @@ class FrontEndView(tk.Frame):
         find_missing = ('front_end_find_missing', lambda: self.find_covers(missing), bool(missing) and not self.searching)
         if len(games) > 1:
             favorite = all(g.favorite for g in games)
-            return [('front_end_find_covers', lambda: self.find_covers(games), not self.searching), find_missing,
+            return [('front_end_refresh_cover', lambda: self.refresh_covers(games), True),
+                    ('front_end_find_covers', lambda: self.find_covers(games), not self.searching), find_missing,
                     ('front_end_choose_covers', lambda: self.owner.choose_compiled_covers(games), True),
                     ('favorite_remove' if favorite else 'favorite_add', lambda: self.favorites(games, not favorite),
                      True),
@@ -1154,6 +1176,7 @@ class FrontEndView(tk.Frame):
                     ('front_end_leave', self.confirm_leave, True)]
         items = [('play', self.play, True),
                  ('card_choose_cover', lambda: self.owner.choose_compiled_covers([game]), True),
+                 ('front_end_refresh_cover', lambda: self.refresh_covers([game]), True),
                  ('front_end_find_cover', lambda: self.find_covers([game]), not self.searching), find_missing,
                  ('favorite_remove' if game.favorite else 'favorite_add', lambda: self.favorite(game), True),
                  # Network play will join here once it exists: host and join from the chosen game.
@@ -1286,11 +1309,44 @@ class FrontEndView(tk.Frame):
         key = game_key(game)
         self.thumbnails.pop(key, None)
         self.no_cover.discard(key)
-        for name in [name for name in self.photos if name[0] == key]:
-            del self.photos[name]
+        self.forget_photos(key)
         with self.loader.condition:
             self.loader.done.discard(key)
         self.request_covers()
+
+    def refresh_covers(self, games):
+        """« Refresh » (the right-click menu): read each game's saved cover again; one still missing or unreadable is
+        then searched online when the converter's online covers are on (drain)."""
+        for game in games:
+            self.refreshing.add(game_key(game))
+            self.cover_changed(game)
+
+    def online_covers(self):
+        online = getattr(self.owner, 'online', None)
+        try:
+            return bool(online.get()) if online is not None else False
+        except (AttributeError, tk.TclError):
+            return False
+
+    def scan_library(self):
+        """The round ↻ button: Compiled Games' own Scan (the same command as its ↻ button), then library_refreshed."""
+        view = self.owner.ensure_compiled_view()
+        if not view.running:
+            view.scan()
+        self.draw_tabs()
+
+    def library_refreshed(self):
+        """A scan of the games ended: the shelves and every cover are read again."""
+        self.thumbnails.clear()
+        self.photos.clear()
+        self.no_cover.clear()
+        self.ratio_of.clear()
+        self.aspects.clear()
+        current = self.shelf_id() or self.memory.console
+        self.build_shelves()
+        self.select_shelf(self.index_of(current), keep_focus=True, slide=False)
+        self.request_covers(reset=True)
+        self.draw_tabs()
 
     def toggle_tv(self):
         self.owner.set_front_end_fullscreen(not self.owner.front_end_fullscreen)
@@ -1385,7 +1441,7 @@ class FrontEndView(tk.Frame):
     def drain(self):
         if not self.winfo_exists():
             return
-        changed = False
+        changed, lost = False, []
         try:
             while True:
                 kind, generation, key, image, ratio = self.events.get_nowait()
@@ -1398,9 +1454,14 @@ class FrontEndView(tk.Frame):
                     self.search_result = generation if done >= total else None
                     self.draw_details()
                     continue
+                if key in self.refreshing:
+                    self.refreshing.discard(key)
+                    if image is None and self.online_covers():
+                        lost.append(key)
                 if image is None:
                     self.no_cover.add(key)
                 else:
+                    self.forget_photos(key)
                     self.thumbnails[key] = image
                     self.thumbnails.move_to_end(key)
                     while len(self.thumbnails) > KEEP_THUMBNAILS:
@@ -1415,6 +1476,8 @@ class FrontEndView(tk.Frame):
         if changed:
             self.update_aspect()
             self.draw_wall()
+        if lost and not self.searching:
+            self.find_covers([game for game in self.games if game_key(game) in lost])
         self.later('drain', 30, self.drain)
 
     def update_aspect(self):
