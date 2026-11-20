@@ -129,6 +129,8 @@ state-layout keys move too, with the other keys the rows name.
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-190) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-190) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
 | [NES: the APU's quiet cycles run together](#nes-the-apus-quiet-cycles-run-together-190) | **the NES game stamp** (`nes_machine.py`, new `native/nes_apu_batch.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_apu_batch.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
+| [NES: the background tile of the deferred PPU runs in registers](#nes-the-background-tile-of-the-deferred-ppu-runs-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_ppu_lazy.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
+| [NES: the sprite slots of the deferred PPU run in registers](#nes-the-sprite-slots-of-the-deferred-ppu-run-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`, with the tile above) | none (host files unchanged) | **the NES quick-state key moves** with the tile's (the same file) |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 | [Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart](#mega-drive-four-players-with-the-team-player-the-4-way-play-or-the-j-cart-190) | **the Mega Drive game and engine stamps** (`retrorecomp/megadrive_multitap.py`, new, and its hooks); **the game stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation** (`console16.py`, the report's player count; their games do not change) | **the Mega Drive host stamp** (`rrhk_md.c`) | unchanged |
 | [Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end](#mega-drive-super-nintendo-pc-engine-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the game stamps of the Mega Drive, Super Nintendo, PC Engine, MSX, MSX2 and MSX2+** (`native/cart_save.c` and `.h`, which they share; `md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the quick-state keys of those six profiles move** (they hash `cart_save.c`; the Mega Drive's also `md_backend.c` and `md_battery.c`): older quick states are refused cleanly; the state and save formats do not change |
@@ -1067,6 +1069,57 @@ check covers the others), no timing here (the performance specialist measures).
 
 **Stamps:** the NES **game** stamp moves (`nes_machine.py`, the new `nes_apu_batch.inc`, declared for `nes` only) and **the NES quick-state
 key** (`nes_machine.prepare_machine` hashes the file; the saved layout is unchanged). The NES host stamp is unchanged.
+## NES: the background tile of the deferred PPU runs in registers (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-tile`, cut from main `f5e889d0`). The deferred PPU clock (`native/nes_ppu_lazy.inc`)
+runs a background tile of a visible line as eight pairs of dot and half dot (`rr_ppu_tile_pair`) on the global PPU; the compiler reloads
+the fields after every store through a byte pointer, so the tiles were the largest share of a frame (28 to 38 % of the samples of Metroid's
+frame in a sampling profile, not a speed figure). A tile with no sprite output now goes through `rr_ppu_tile_bg`: the fetch pipeline (the bus
+address, the latch, the pattern address register, the planes), the shift registers, the colour pipeline and the scroll address are kept in
+locals for the eight dots and written back once, and the values every pair sets and the next overwrites (the bus signals, the cleared
+latches) are written once. Everything a pair does is done in the same order: the fields of the sprite evaluation stay in the PPU
+(`eval_objects()` reads and writes them), the cartridge's A12 hook (MMC1) sees the address of every dot where it can react (a change of A12),
+and the frame index gets the same pixels from the same colour pipeline. The nametable and CHR read is one function now,
+`rr_ppu_fetch_at`, which the old path uses as well. The first tile of the odd frame's first line (the dropped dot), a tile while the PPU
+open bus is decaying (its deadline counts dots) and a board that watches the bus other than the MMC1 keep the pairs. Tiles with a sprite
+unit about to output are unchanged.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py` compares the original machine with this one on the same authored activity (hidden CPU,
+PPU, frame, bus, memory and APU hashes and the sound, four alignments, mappers 0 to 153, NTSC and PAL, Zapper on and off): all pass. The harness fills the pattern memory with data (it was zeros, so a tile and a sprite fetched nothing different from byte to byte); with that data
+it caught a first version of the tile that had dropped the status latches of `advance_dot()` (vblank set, the `$2002` clear, `overflow_late`): every
+step now calls `advance_dot()` as the pairs do. A mutant of the attribute shift in the new tile is caught (positive control: the new path is exercised).
+On Metroid (USA), converted from this branch and from main: the per-frame lines (CPU, memory, hardware state, picture, sound) and the whole PCM
+(5,750,444 bytes) are identical over 3,600 frames of the boot and the two input routes; a quick state saved at frame 1200 and loaded in a new
+process gives the same memory, CPU, cycle count, hardware state and picture for the next 600 frames. **Not compared:** the sound after a quick
+state load (see the APU section: the headless command line refuses to save a state with the sound on, and a loaded state takes the sound
+switch of the run that saved it), one game on one board (the ROM-free check covers the others), no timing here (the performance specialist measures).
+
+**Stamps:** the NES **game** stamp moves (`nes_ppu_lazy.inc`) and **the NES quick-state key** (`prepare_machine` hashes the file; the saved
+layout is unchanged). The NES host stamp is unchanged.
+
+## NES: the sprite slots of the deferred PPU run in registers (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-slots`, stacked on the tile: it uses the tile's `rr_ppu_fetch_at`; on `spec/nes-perf-190` it is the third commit). The eight sprite slots of a visible line (dots 257 to 320: the dummy nametable fetches and the pattern fetches of the eight
+objects) went through `rr_ppu_slot_pair` eight times each on the global PPU. They now go through `rr_ppu_slot_run`: the fetch pipeline (the
+bus address, the latch, the pattern address register) and the colour pipeline in locals for the eight dots, written back once; the fields of
+the sprite loading stay in the PPU (`par_context()` is called as it was, with the pattern address register put in the PPU for the call),
+`advance_dot()` runs in every step, the A12 hook of an MMC1 sees the address of every dot where it can react, and a decaying open bus or a
+board that watches the bus other than the MMC1 keep the pairs. `rr_ppu_slot_pair` stays as the reference for those cases.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py`, original machine against this one: all pass. Its random activity almost never had a
+sprite in range (2,665 of its 2,800 checkpoints show only the empty secondary OAM), so it now has a **sprites mode**: OAM full of objects of
+every kind (clusters of nine on a line, 8 x 8 and 8 x 16, both pattern tables, flips, priority, the left-column masks), the pattern memory
+filled with data, frames run with no register access, the hidden PPU, the picture and the machine hashed every 331 cycles, 4 alignments x 12
+settings x 420 checkpoints on mappers 0, 1, 2 and 4, NTSC and PAL, Zapper on and off. It is part of the public checks (`native/nes_ppu_checks.c`, run by `tools/nes_ppu_selftest.py`, both in the publication list). It passes for the tile and the slots together, and a
+mutant of the horizontal flip test in a slot is caught (before the mode existed the same mutant was not: the harness did not reach the code).
+On Metroid (USA), converted from this branch and from main: the per-frame lines (CPU, memory, hardware state, picture, sound) and the whole
+PCM are identical over 3,600 frames of the boot and the two input routes, and a quick state saved at frame 1200 and loaded in a new process
+gives the same memory, CPU, cycles, hardware state and picture for the next 600 frames. **Not compared:** the sound after a quick state load
+(see the APU section), one game on one board for real games (the ROM-free check covers the others), no timing here (the performance
+specialist measures).
+
+**Stamps:** the NES game stamp and the NES quick-state key move with `nes_ppu_lazy.inc` (already moved by the tile; one file, one move); the
+NES host stamp is unchanged.
 
 ## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (1.9.0)
 

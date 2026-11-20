@@ -90,27 +90,35 @@ HW_ALWAYS_INLINE void rr_ppu_visible_pair(void)
 static bool rr_ppu_plain;
 static uint32_t rr_ppu_chr_wrap;
 
-/* vram_fetch() with /RD low and no write, on a plain board. */
-HW_ALWAYS_INLINE uint8_t rr_ppu_plain_fetch(void)
+/* What a read of the VRAM bus returns with /RD low and no write, on a plain board, for a latched address (the high byte on the
+ * bus and the low byte in the octal latch). */
+HW_ALWAYS_INLINE uint8_t rr_ppu_fetch_at(uint16_t vbus, uint8_t latch)
 {
     uint8_t value;
-    if (ppu.vbus & 0x2000) {
+    if (vbus & 0x2000) {
         unsigned a10;
-        if (hw_cart.info.four_screen) a10 = ppu.vbus & 0xc00;
+        if (hw_cart.info.four_screen) a10 = vbus & 0xc00;
         else switch (hw_cart.mirroring) {
-        case HW_MIRROR_HORIZONTAL: a10 = (ppu.vbus & 0x800) ? 0x400 : 0; break;
-        case HW_MIRROR_VERTICAL:   a10 = (ppu.vbus & 0x400) ? 0x400 : 0; break;
+        case HW_MIRROR_HORIZONTAL: a10 = (vbus & 0x800) ? 0x400 : 0; break;
+        case HW_MIRROR_VERTICAL:   a10 = (vbus & 0x400) ? 0x400 : 0; break;
         case HW_MIRROR_SCREEN_B:   a10 = 0x400; break;
         default:                   a10 = 0; break;
         }
-        value = ppu.ciram[(ppu.vbus & 0x300) | ppu.octal_latch | a10];
+        value = ppu.ciram[(vbus & 0x300) | latch | a10];
     } else {
-        unsigned addr = ((ppu.vbus & 0x3F00) | ppu.octal_latch) & 0x1FFF;
+        unsigned addr = ((vbus & 0x3F00) | latch) & 0x1FFF;
         uint32_t index = hw_cart.chr_off[addr >> 10] | (addr & 0x3FF);
         if (rr_ppu_chr_wrap)
             index = (rr_ppu_chr_wrap & (rr_ppu_chr_wrap - 1)) ? index % rr_ppu_chr_wrap : index & (rr_ppu_chr_wrap - 1);
         value = hw_cart.chr[index];
     }
+    return value;
+}
+
+/* vram_fetch() with /RD low and no write, on a plain board. */
+HW_ALWAYS_INLINE uint8_t rr_ppu_plain_fetch(void)
+{
+    uint8_t value = rr_ppu_fetch_at(ppu.vbus, ppu.octal_latch);
     ppu.vbus = (uint16_t)((ppu.vbus & 0xFF00) | value);
     return value;
 }
@@ -264,6 +272,189 @@ HW_ALWAYS_INLINE void rr_ppu_tile_pair(unsigned step, bool sprites, bool prefetc
     ppu.wr = 0;
 }
 
+/* The background of one tile in locals. rr_ppu_tile_pair() eight times with no sprite output (sprites false, prefetch false),
+ * with the fetch pipeline, the shift registers and the colour pipeline kept in registers instead of the global PPU between the
+ * calls that cannot alias them, and the values that every pair sets and the next one overwrites (the bus signals, the latches
+ * that are cleared) written once. Everything a pair does, in the same order: the sprite-evaluation fields stay in the PPU
+ * (eval_objects() reads and writes them), the A12 hook sees the address of every dot, and the frame index gets the same
+ * pixels from the same colour pipeline. */
+typedef struct {
+    uint16_t v, vbus, par, bg_lo, bg_hi, attr_lo, attr_hi;
+    uint8_t latch, fetch, attribute, lo_plane, hi_plane, attr_latch, color[4];
+} RrTile;
+
+HW_ALWAYS_INLINE uint16_t rr_tile_increment_x(uint16_t v)
+{
+    if ((v & 0x1F) == 31) v = (uint16_t)((v & 0xFFE0) ^ 0x0400);
+    else v++;
+    return (uint16_t)(v & 0x7FFF);
+}
+
+HW_ALWAYS_INLINE void rr_tile_step(RrTile *t, unsigned step, unsigned d0, bool bg_on, bool a12_only, bool watch)
+{
+    advance_dot();                  /* the position, and the status latches of the first half of the dot */
+    const unsigned dot = d0 + step + 1;
+    const bool h0 = (step & 1) != 0;
+    ppu.oam_latch = ppu.oam_buffer;
+    if (ppu.oam2_reset > 0) ppu.oam2_reset--;
+    if (d0 >= 64) {                 /* dots 65-256: evaluation */
+        if (h0) {
+            eval_objects(false);
+        } else {
+            if (step == 0 && d0 == 64) {
+                ppu.eval_nine = 0;
+                ppu.eval_odd_corrupt = 0;
+                ppu.eval_wrapped = 0;
+            }
+            if (ppu.instant_bg || ppu.instant_spr) ppu.oam_buffer_in = ppu.oam[ppu.oam_addr];
+        }
+    } else if (!h0) {               /* dots 1-64: secondary OAM clear */
+        ppu.oam_buffer_in = 0xFF;
+        if (step == 0 && d0 == 0) {
+            ppu.oam2_addr = 0;
+            ppu.eval_tick = 0;
+            ppu.eval_wrapped = 0;
+        }
+    } else {
+        ppu.oam2[ppu.oam2_addr] = ppu.oam_buffer;
+        oam2_increment();
+    }
+    if (step == 6 && (d0 == 56 || d0 == 248)) ppu.oam2_reset = 3;
+    t->color[3] = t->color[2];
+    t->color[2] = t->color[1];
+    t->color[1] = t->color[0];
+    switch (step) {
+    case 0:
+        t->vbus = (uint16_t)(0x2000 | (t->v & 0x0FFF));
+        break;
+    case 1:
+        t->vbus = (uint16_t)(0x2000 | (t->v & 0x0F00) | t->latch);
+        t->fetch = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | t->fetch);
+        break;
+    case 2:
+        t->vbus = (uint16_t)(0x23C0 | (t->v & 0x0C00) | ((t->v >> 4) & 0x38) | ((t->v >> 2) & 0x07));
+        break;
+    case 3:
+        t->vbus = (uint16_t)(0x2300 | (t->v & 0x0C00) | t->latch);
+        t->fetch = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | t->fetch);
+        break;
+    case 4:
+        t->par = (uint16_t)((t->par & 0x0FF8) | (ppu.bg_table ? 0x1000 : 0) | ((t->v & 0x7000) >> 12));
+        t->par &= 0x1FF7;
+        t->vbus = t->par;
+        break;
+    case 5:
+        t->vbus = (uint16_t)((t->par & 0xFF00) | t->latch);
+        t->fetch = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | t->fetch);
+        break;
+    case 6:
+        t->par = (uint16_t)((t->par & 0x0FF8) | (ppu.bg_table ? 0x1000 : 0) | ((t->v & 0x7000) >> 12));
+        t->par |= 8;
+        t->vbus = t->par;
+        break;
+    default:
+        t->vbus = (uint16_t)((t->par & 0xFF00) | t->latch);
+        t->fetch = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | t->fetch);
+        break;
+    }
+    if (!h0) t->latch = (uint8_t)t->vbus;
+    uint8_t color = 0, pal = 0;
+    if (bg_on) {
+        const unsigned fx = ppu.fine_x;
+        color = (uint8_t)(((t->bg_lo >> (15 - fx)) & 1) | (((t->bg_hi >> (15 - fx)) & 1) << 1));
+        pal = (uint8_t)(((t->attr_lo >> (7 - fx)) & 1) | (((t->attr_hi >> (7 - fx)) & 1) << 1));
+        if (color == 0) pal = 0;
+    }
+    t->color[0] = ppu.palette[(uint8_t)(pal << 2 | color)] & 0x3F;
+    if (dot > 3) {
+        uint8_t c = t->color[3];
+        if (ppu.greyscale) c &= 0x30;
+        hw_frame_index[ppu.scanline * 256 + dot - 4] = (uint16_t)(c | ppu.emphasis << 6);
+    }
+    if (watch && (!a12_only || (unsigned)((t->vbus >> 12) & 1) != hw_cart.m.a12)) hw_cart_ppu_addr_watched(t->vbus);
+    t->bg_lo = (uint16_t)(t->bg_lo << 1);
+    t->bg_hi = (uint16_t)(t->bg_hi << 1 | 1);
+    t->attr_lo = (uint16_t)(t->attr_lo << 1 | (t->attr_latch & 1));
+    t->attr_hi = (uint16_t)(t->attr_hi << 1 | ((t->attr_latch >> 1) & 1));
+    if (ppu.oam2_reset > 0 && --ppu.oam2_reset == 0) {
+        ppu.oam2_addr = 0;
+        ppu.oam2_full = 0;
+    }
+    switch (step) {
+    case 1:
+        t->par = (uint16_t)((t->par & 0x100F) | ((uint8_t)t->vbus << 4));
+        break;
+    case 3: {
+        uint8_t a = t->fetch;
+        if ((t->v & 3) >= 2) a >>= 2;
+        if (((t->v >> 5) & 3) >= 2) a >>= 4;
+        t->attribute = a & 3;
+        break;
+    }
+    case 5:
+        t->lo_plane = t->fetch;
+        break;
+    case 7:
+        t->hi_plane = t->fetch;
+        t->bg_lo = (uint16_t)((t->bg_lo & 0xFF00) | t->lo_plane);
+        t->bg_hi = (uint16_t)((t->bg_hi & 0xFF00) | t->hi_plane);
+        t->attr_latch = t->attribute;
+        t->v = rr_tile_increment_x(t->v);
+        break;
+    }
+    ppu.oam_buffer = ppu.oam_buffer_in;
+    half_dot_status();
+}
+
+static void rr_ppu_tile_bg(void)
+{
+    const unsigned d0 = ppu.dot;
+    /* The first tile of the odd frame's first line drops a dot, and a decaying open bus counts its dots against a deadline:
+     * the pairs take those. */
+    if ((!RR_NES_PAL && d0 == 0 && ppu.scanline == 0 && ppu.odd_frame) ||
+        (ppu.io_bus && ppu.io_decay_clock + 8 >= ppu.io_decay_next)) {
+        rr_ppu_tile_pair(0, false, false); rr_ppu_tile_pair(1, false, false); rr_ppu_tile_pair(2, false, false); rr_ppu_tile_pair(3, false, false);
+        rr_ppu_tile_pair(4, false, false); rr_ppu_tile_pair(5, false, false); rr_ppu_tile_pair(6, false, false); rr_ppu_tile_pair(7, false, false);
+        return;
+    }
+    RrTile t;
+    t.v = ppu.v; t.vbus = ppu.vbus; t.par = ppu.par_chr;
+    t.bg_lo = ppu.bg_lo; t.bg_hi = ppu.bg_hi; t.attr_lo = ppu.attr_lo; t.attr_hi = ppu.attr_hi;
+    t.latch = ppu.octal_latch; t.fetch = ppu.fetch_data; t.attribute = ppu.attribute;
+    t.lo_plane = ppu.lo_plane; t.hi_plane = ppu.hi_plane; t.attr_latch = ppu.attr_latch;
+    for (unsigned i = 0; i < 4; i++) t.color[i] = ppu.color[i];
+    const bool bg_on = ppu.show_bg && (d0 >= 8 || ppu.show_bg8);
+    /* A board that watches the bus here is an MMC1: its hook only reacts to a change of A12. */
+    const bool watch = hw_cart.watch_ppu_addr != 0;
+    const bool a12_only = RR_NES_MAPPER == 1 || RR_NES_MAPPER == 155;
+    if (watch && !a12_only) {
+        rr_ppu_tile_pair(0, false, false); rr_ppu_tile_pair(1, false, false); rr_ppu_tile_pair(2, false, false); rr_ppu_tile_pair(3, false, false);
+        rr_ppu_tile_pair(4, false, false); rr_ppu_tile_pair(5, false, false); rr_ppu_tile_pair(6, false, false); rr_ppu_tile_pair(7, false, false);
+        return;
+    }
+    rr_tile_step(&t, 0, d0, bg_on, a12_only, watch); rr_tile_step(&t, 1, d0, bg_on, a12_only, watch);
+    rr_tile_step(&t, 2, d0, bg_on, a12_only, watch); rr_tile_step(&t, 3, d0, bg_on, a12_only, watch);
+    rr_tile_step(&t, 4, d0, bg_on, a12_only, watch); rr_tile_step(&t, 5, d0, bg_on, a12_only, watch);
+    rr_tile_step(&t, 6, d0, bg_on, a12_only, watch); rr_tile_step(&t, 7, d0, bg_on, a12_only, watch);
+    ppu.v = t.v; ppu.vbus = t.vbus; ppu.par_chr = t.par;
+    ppu.bg_lo = t.bg_lo; ppu.bg_hi = t.bg_hi; ppu.attr_lo = t.attr_lo; ppu.attr_hi = t.attr_hi;
+    ppu.octal_latch = t.latch; ppu.fetch_data = t.fetch; ppu.attribute = t.attribute;
+    ppu.lo_plane = t.lo_plane; ppu.hi_plane = t.hi_plane; ppu.attr_latch = t.attr_latch;
+    for (unsigned i = 0; i < 4; i++) ppu.color[i] = t.color[i];
+    if (ppu.io_bus) ppu.io_decay_clock += 8;
+    /* Set by every pair, and the same at the end of each. */
+    ppu.blnk_latch = 0;
+    ppu.pal_enable = 0;
+    ppu.rd = 1;
+    ppu.ale = 0;
+    ppu.wr = 0;
+    ppu.copy_v = 0;
+}
+
 static void rr_ppu_visible_tile(void)
 {
     /* A unit can be opaque only once its counter is 0; one with pattern
@@ -275,8 +466,7 @@ static void rr_ppu_visible_tile(void)
         rr_ppu_tile_pair(4, true, false); rr_ppu_tile_pair(5, true, false); rr_ppu_tile_pair(6, true, false); rr_ppu_tile_pair(7, true, false);
         return;
     }
-    rr_ppu_tile_pair(0, false, false); rr_ppu_tile_pair(1, false, false); rr_ppu_tile_pair(2, false, false); rr_ppu_tile_pair(3, false, false);
-    rr_ppu_tile_pair(4, false, false); rr_ppu_tile_pair(5, false, false); rr_ppu_tile_pair(6, false, false); rr_ppu_tile_pair(7, false, false);
+    rr_ppu_tile_bg();
     /* shift_sprites() eight times: counters step down to 0, and a unit
      * reaching 0 has no pattern bits to shift. */
     for (unsigned i = 0; i < 8; i++) ppu.spr_x[i] = ppu.spr_x[i] > 8 ? (uint8_t)(ppu.spr_x[i] - 8) : 0;
@@ -395,7 +585,136 @@ HW_ALWAYS_INLINE void rr_ppu_slot_pair(unsigned step, unsigned slot)
     ppu.wr = 0;
 }
 
-#define RR_PPU_SLOT(slot) static void rr_ppu_sprite_slot_##slot(void) {     rr_ppu_slot_pair(0, slot); rr_ppu_slot_pair(1, slot); rr_ppu_slot_pair(2, slot); rr_ppu_slot_pair(3, slot);     rr_ppu_slot_pair(4, slot); rr_ppu_slot_pair(5, slot); rr_ppu_slot_pair(6, slot); rr_ppu_slot_pair(7, slot); }
+/* The eight pairs of a sprite slot with the fetch pipeline and the colour pipeline in locals, as rr_ppu_tile_bg() does for a tile:
+ * the same pairs in the same order (rr_ppu_slot_pair above is the reference), the fields of the sprite loading stay in the PPU, and
+ * what every pair sets and the next overwrites is written once. */
+typedef struct { uint16_t vbus, par; uint8_t latch, fetch, color[4]; } RrSlotRegs;
+
+HW_ALWAYS_INLINE void rr_slot_step(RrSlotRegs *t, unsigned step, unsigned slot, unsigned d0, bool watch, bool a12_only)
+{
+    if (slot == 0 && step == 0) increment_y();
+    else if (slot == 0 && step == 1) ppu.v = (uint16_t)((ppu.v & 0x7BE0) | (ppu.t & 0x041F));
+    advance_dot();
+    const unsigned dot = d0 + step + 1;
+    const bool h0 = (step & 1) != 0;
+    ppu.oam_latch = ppu.oam_buffer;
+    ppu.copy_v = 0;
+    if (ppu.oam2_reset > 0) ppu.oam2_reset--;
+    const unsigned height = ppu.sprite16 ? 16 : 8;
+    ppu.cur_has_s0 = ppu.next_has_s0;
+    ppu.oam_addr = 0;
+    if (h0) t->latch = (uint8_t)t->vbus;
+    ppu.oam_buffer_in = ppu.oam2[ppu.oam2_addr];
+    switch (step) {
+    case 0:
+        t->vbus = (uint16_t)(0x2000 | (ppu.v & 0x0FFF));
+        oam2_increment();
+        break;
+    case 1:
+        ppu.sprite_row = (uint16_t)((ppu.scanline & 0xFF) - ppu.oam_buffer);
+        t->vbus = (uint16_t)(0x2000 | (ppu.v & 0x0F00) | t->latch);
+        t->fetch = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | t->fetch);
+        oam2_increment();
+        break;
+    case 2:
+        ppu.load_tile = ppu.oam_buffer;
+        t->vbus = (uint16_t)(0x2000 | (ppu.v & 0x0FFF));
+        oam2_increment();
+        break;
+    case 3:
+        ppu.spr_attr[slot] = ppu.oam_buffer;
+        ppu.load_attr = ppu.oam_buffer;
+        t->vbus = (uint16_t)(0x2000 | (ppu.v & 0x0F00) | t->latch);
+        t->fetch = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | t->fetch);
+        break;
+    case 4:
+        ppu.spr_x[slot] = ppu.oam_buffer;
+        ppu.par_chr = t->par; par_context(); t->par = ppu.par_chr;
+        t->par &= 0x1FF7;
+        t->vbus = t->par;
+        break;
+    case 5: {
+        ppu.par_chr = t->par; par_context(); t->par = ppu.par_chr;
+        t->par &= 0x1FF7;
+        t->vbus = (uint16_t)((t->par & 0xFF00) | t->latch);
+        uint8_t bits = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | bits);
+        if (ppu.spr_attr[slot] & 0x40) bits = flip_bits(bits);
+        ppu.spr_lo[slot] = ppu.sprite_row < height ? bits : 0;
+        break;
+    }
+    case 6:
+        ppu.par_chr = t->par; par_context(); t->par = ppu.par_chr;
+        t->par |= 8;
+        t->vbus = t->par;
+        break;
+    default: {
+        ppu.par_chr = t->par; par_context(); t->par = ppu.par_chr;
+        t->par |= 8;
+        t->vbus = (uint16_t)((t->par & 0xFF00) | t->latch);
+        uint8_t bits = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | bits);
+        if (ppu.spr_attr[slot] & 0x40) bits = flip_bits(bits);
+        ppu.spr_hi[slot] = ppu.sprite_row < height ? bits : 0;
+        oam2_increment();
+        break;
+    }
+    }
+    if (!h0) t->latch = (uint8_t)t->vbus;
+    t->color[3] = t->color[2];
+    t->color[2] = t->color[1];
+    t->color[1] = t->color[0];
+    if (slot == 0 && step < 3) {
+        uint8_t c = t->color[3];
+        if (ppu.greyscale) c &= 0x30;
+        hw_frame_index[ppu.scanline * 256 + dot - 4] = (uint16_t)(c | ppu.emphasis << 6);
+    }
+    if (watch && (!a12_only || (unsigned)((t->vbus >> 12) & 1) != hw_cart.m.a12)) hw_cart_ppu_addr_watched(t->vbus);
+    if (slot == 0 && step == 0) {
+        ppu.bg_lo = (uint16_t)(ppu.bg_lo << 1);
+        ppu.bg_hi = (uint16_t)(ppu.bg_hi << 1 | 1);
+        ppu.attr_lo = (uint16_t)(ppu.attr_lo << 1 | (ppu.attr_latch & 1));
+        ppu.attr_hi = (uint16_t)(ppu.attr_hi << 1 | ((ppu.attr_latch >> 1) & 1));
+    }
+    if (ppu.oam2_reset > 0 && --ppu.oam2_reset == 0) {
+        ppu.oam2_addr = 0;
+        ppu.oam2_full = 0;
+    }
+    if (step == 1 || step == 3) t->par = (uint16_t)((t->par & 0x100F) | (ppu.load_tile << 4));
+    ppu.oam_buffer = ppu.oam_buffer_in;
+    half_dot_status();
+}
+
+HW_ALWAYS_INLINE void rr_ppu_slot_run(unsigned slot)
+{
+    const unsigned d0 = ppu.dot;
+    const bool watch = hw_cart.watch_ppu_addr != 0;
+    const bool a12_only = RR_NES_MAPPER == 1 || RR_NES_MAPPER == 155;
+    if ((ppu.io_bus && ppu.io_decay_clock + 8 >= ppu.io_decay_next) || (watch && !a12_only)) {
+        rr_ppu_slot_pair(0, slot); rr_ppu_slot_pair(1, slot); rr_ppu_slot_pair(2, slot); rr_ppu_slot_pair(3, slot);
+        rr_ppu_slot_pair(4, slot); rr_ppu_slot_pair(5, slot); rr_ppu_slot_pair(6, slot); rr_ppu_slot_pair(7, slot);
+        return;
+    }
+    RrSlotRegs t;
+    t.vbus = ppu.vbus; t.par = ppu.par_chr; t.latch = ppu.octal_latch; t.fetch = ppu.fetch_data;
+    for (unsigned i = 0; i < 4; i++) t.color[i] = ppu.color[i];
+    rr_slot_step(&t, 0, slot, d0, watch, a12_only); rr_slot_step(&t, 1, slot, d0, watch, a12_only);
+    rr_slot_step(&t, 2, slot, d0, watch, a12_only); rr_slot_step(&t, 3, slot, d0, watch, a12_only);
+    rr_slot_step(&t, 4, slot, d0, watch, a12_only); rr_slot_step(&t, 5, slot, d0, watch, a12_only);
+    rr_slot_step(&t, 6, slot, d0, watch, a12_only); rr_slot_step(&t, 7, slot, d0, watch, a12_only);
+    ppu.vbus = t.vbus; ppu.par_chr = t.par; ppu.octal_latch = t.latch; ppu.fetch_data = t.fetch;
+    for (unsigned i = 0; i < 4; i++) ppu.color[i] = t.color[i];
+    if (ppu.io_bus) ppu.io_decay_clock += 8;
+    ppu.blnk_latch = 0;
+    ppu.pal_enable = 0;
+    ppu.rd = 1;
+    ppu.ale = 0;
+    ppu.wr = 0;
+}
+
+#define RR_PPU_SLOT(slot) static void rr_ppu_sprite_slot_##slot(void) { rr_ppu_slot_run(slot); }
 RR_PPU_SLOT(0) RR_PPU_SLOT(1) RR_PPU_SLOT(2) RR_PPU_SLOT(3)
 RR_PPU_SLOT(4) RR_PPU_SLOT(5) RR_PPU_SLOT(6) RR_PPU_SLOT(7)
 #undef RR_PPU_SLOT
