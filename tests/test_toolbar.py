@@ -119,11 +119,11 @@ class PicturesOnly(ToolbarWindow):
         self.assertIn('players', FEATURE_DRAWERS)
         players = app.button_images[('players', 'feature')][0]
         self.assertEqual(app.multiplayer_button.cget('image')[0], str(players))
-        # a bit larger than the small buttons, smaller than the hero Convert (Arthur, 20 Nov 2026)
-        small, hero = app.options_button, app.start_button
+        # a bit larger than the small buttons (Arthur, 20 Nov 2026), about as tall as Convert since it lost 18 % of its height
+        small = app.options_button
         for button in (app.front_end_button, app.multiplayer_button):
             self.assertGreater(button.winfo_reqheight(), small.winfo_reqheight())
-            self.assertLess(button.winfo_reqheight(), hero.winfo_reqheight())
+            self.assertLessEqual(abs(button.winfo_reqheight() - app.start_button.winfo_reqheight()), 3)
 
     def test_the_toolbar_pictures_follow_the_screen_up_to_125_percent(self):
         from retrorecomp.ui_fonts import toolbar_scale
@@ -193,18 +193,19 @@ class PicturesOnly(ToolbarWindow):
         self.root.update_idletasks()
         play = app.compiled_view.play_button
         self.assertEqual(str(play.cget('style')), 'Hero.Toolbar.Primary.TButton')
-        for hero, neighbours in ((app.start_button, (app.selected_button, app.stop_button, app.retry_button)),
-                                 (play, (app.compiled_view.scan_button, app.compiled_view.add_button))):
-            for neighbour in neighbours:
-                # larger, not oversized: its picture fills it as the neighbours' do (Arthur, 19 Nov 2026)
-                self.assertGreaterEqual(hero.winfo_reqheight(), 1.25 * neighbour.winfo_reqheight())
-                self.assertGreaterEqual(hero.winfo_reqwidth(), 1.25 * neighbour.winfo_reqwidth())
-                if hero is play:
-                    self.assertLessEqual(hero.winfo_reqwidth(), 1.4 * neighbour.winfo_reqwidth())
-        # Convert after Arthur's mock-up (20 Nov 2026): the whole conversion from left to right, a wide dark button with a
-        # gold border two pixels thick, as tall as Play
-        self.assertGreaterEqual(app.start_button.winfo_reqwidth(), 2.8 * app.start_button.winfo_reqheight())
-        self.assertEqual(app.start_button.winfo_reqheight(), play.winfo_reqheight())
+        for neighbour in (app.compiled_view.scan_button, app.compiled_view.add_button):
+            # larger, not oversized: its picture fills it as the neighbours' do (Arthur, 19 Nov 2026)
+            self.assertGreaterEqual(play.winfo_reqheight(), 1.25 * neighbour.winfo_reqheight())
+            self.assertGreaterEqual(play.winfo_reqwidth(), 1.25 * neighbour.winfo_reqwidth())
+            self.assertLessEqual(play.winfo_reqwidth(), 1.4 * neighbour.winfo_reqwidth())
+        # Convert, Arthur's final mock-up (20 Nov 2026): the whole conversion from left to right, a wide dark button with a
+        # gold border two pixels thick; a little taller than its neighbours, less than Play (« 15-20 % less tall »)
+        start = app.start_button
+        for neighbour in (app.selected_button, app.stop_button, app.retry_button):
+            self.assertGreater(start.winfo_reqheight(), neighbour.winfo_reqheight())
+            self.assertLessEqual(start.winfo_reqheight(), 1.15 * neighbour.winfo_reqheight())
+        self.assertLessEqual(start.winfo_reqheight(), 0.85 * play.winfo_reqheight())
+        self.assertGreaterEqual(start.winfo_reqwidth(), 3.8 * start.winfo_reqheight())
         self.assertEqual(str(app.style.lookup('Convert.Toolbar.TButton', 'rrline')), '2')
         normal, disabled = app.button_images[('convert_all', 'hero')]
         small = app.button_images[('stop', False)][0]

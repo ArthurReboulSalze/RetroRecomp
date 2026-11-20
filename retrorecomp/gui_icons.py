@@ -361,64 +361,120 @@ def draw_picture(name, colour, size=HERO_GRID, highlight=None):
     return image.reduce(SUPERSAMPLE)                    # an exact average of 4 x 4 samples: no ringing
 
 
-# ---- Convert, after Arthur's mock-up (20 Nov 2026): gold line art on the dark button, on a 124 x 30 grid ------------------
-CONVERT_GRID = (124, 30)
+# ---- Convert, Arthur's final mock-up (20 Nov 2026): gold line art on the dark button, 124 x 24 px at 100 % --------------
+# The shapes are the mock-up's own, measured on it (its pixels: MOCK_TOP .. MOCK_TOP + MOCK_HEIGHT tall), scaled to the
+# picture's height; the button keeps its width (Arthur: less tall, as wide), so the gaps between the five steps grow.
+CONVERT_GRID = (124, 24)
+MOCK_LEFT, MOCK_TOP, MOCK_WIDTH, MOCK_HEIGHT = 28.4, 25.4, 193.5, 46.8
+# The bits, pixel for pixel (crisp at 100 % and 125 %): '0' and '1', 4 x 6 under 112.5 %, 5 x 7 from it.
+CONVERT_DIGITS = {
+    (4, 6): {'0': ('####', '#..#', '#..#', '#..#', '#..#', '####'),
+             '1': ('.##.', '###.', '.##.', '.##.', '.##.', '####')},
+    (5, 7): {'0': ('#####', '##.##', '##.##', '##.##', '##.##', '##.##', '#####'),
+             '1': ('..##.', '.###.', '..##.', '..##.', '..##.', '..##.', '#####')},
+}
 
 
-def _convert_gear(pen, cx, cy, r, colour, clear, phase):
-    pen.disc(cx, cy, r * 0.74, colour)
+class _MockPen:
+    """Draws in the mock-up's pixels: step `group` (0 cartridge, 1 arrow, 2 gears, 3 arrow, 4 bits, 5 play) moves right by
+    `group` gaps' worth of the room the wider button gives."""
+
+    def __init__(self, draw, k):
+        self.draw, self.k = draw, k
+        self.s = CONVERT_GRID[1] / MOCK_HEIGHT
+        self.extra = (CONVERT_GRID[0] - MOCK_WIDTH * self.s) / 5
+        self.group = 0
+
+    def xy(self, x, y):
+        return (((x - MOCK_LEFT) * self.s + self.group * self.extra) * self.k, (y - MOCK_TOP) * self.s * self.k)
+
+    def w(self, width):
+        return max(1, round(width * self.s * self.k))
+
+    def poly(self, points, colour):
+        self.draw.polygon([self.xy(x, y) for x, y in points], fill=colour)
+
+    def line(self, points, colour, width):
+        self.draw.line([self.xy(x, y) for x, y in points], fill=colour, width=self.w(width), joint='curve')
+
+    def disc(self, cx, cy, r, colour):
+        (x1, y1), (x2, y2) = self.xy(cx - r, cy - r), self.xy(cx + r, cy + r)
+        self.draw.ellipse((x1, y1, x2, y2), fill=colour)
+
+    def box(self, x1, y1, x2, y2, radius, fill=None, outline=None, width=0.0):
+        self.draw.rounded_rectangle((*self.xy(x1, y1), *self.xy(x2, y2)), radius=radius * self.s * self.k, fill=fill,
+                                    outline=outline, width=self.w(width) if outline else 0)
+
+
+def _mock_gear(pen, cx, cy, out, root, top, base, colour):
+    """A gear of eight teeth, one pointing up: its body to `root`, flat-topped teeth to `out` (half-widths `top`, `base`)."""
+    pen.disc(cx, cy, root + 0.4, colour)
     for i in range(8):
-        a = phase + i * math.pi / 4
+        a = -math.pi / 2 + i * math.pi / 4
         ux, uy, vx, vy = math.cos(a), math.sin(a), -math.sin(a), math.cos(a)
-        pen.poly([(cx + ux * r * 0.6 + vx * r * 0.25, cy + uy * r * 0.6 + vy * r * 0.25),
-                  (cx + ux * r + vx * r * 0.17, cy + uy * r + vy * r * 0.17),
-                  (cx + ux * r - vx * r * 0.17, cy + uy * r - vy * r * 0.17),
-                  (cx + ux * r * 0.6 - vx * r * 0.25, cy + uy * r * 0.6 - vy * r * 0.25)], colour)
-    pen.disc(cx, cy, r * 0.40, clear)
+        pen.poly([(cx + ux * (root - 1) + vx * base, cy + uy * (root - 1) + vy * base),
+                  (cx + ux * out + vx * top, cy + uy * out + vy * top),
+                  (cx + ux * out - vx * top, cy + uy * out - vy * top),
+                  (cx + ux * (root - 1) - vx * base, cy + uy * (root - 1) - vy * base)], colour)
 
 
-def _convert_arrow(pen, x, cy, colour, w=8.0):
-    pen.line([(x, cy), (x + w - 1.4, cy)], colour, 2.0)
-    pen.poly([(x + w - 3.8, cy - 3.6), (x + w, cy), (x + w - 3.8, cy + 3.6), (x + w - 5.1, cy + 2.3), (x + w - 2.6, cy),
-              (x + w - 5.1, cy - 2.3)], colour)
-
-
-def _convert_digit(pen, x, y, char, colour, clear, w=4.6, h=7.0, t=1.5):
-    if char == '0':
-        pen.box(x, y, x + w, y + h, 1.0, fill=colour)
-        pen.box(x + t, y + t, x + w - t, y + h - t, 0.3, fill=clear)
-    else:
-        mid = x + w / 2
-        pen.box(mid - t / 2, y, mid + t / 2, y + h, 0, fill=colour)
-        pen.poly([(mid - t / 2, y), (mid + t / 2 - 0.1, y), (mid - t / 2, y + 2.0), (x + 0.4, y + 2.0), (x + 0.4, y + 1.2)],
-                 colour)
-        pen.box(x + 0.3, y + h - t, x + w - 0.3, y + h, 0, fill=colour)
+def _mock_arrow(pen, x, cy, colour):
+    pen.line([(x, cy), (x + 12.5, cy)], colour, 3.7)
+    pen.line([(x + 7.0, cy - 6.4), (x + 13.6, cy), (x + 7.0, cy + 6.4)], colour, 3.7)
 
 
 def draw_convert(colour, scale=1.0):
-    """Convert's picture, from left to right: a cartridge (its outline, its label, the edge at its foot), an arrow, two
-    meshing gears (a big one up left, a small one down right), an arrow, the game as bits (010 / 101 / 010) and a solid play
-    mark; in `colour`, the rest transparent (the button's dark face shows through the gears' holes)."""
+    """Convert's picture, Arthur's final mock-up: a cartridge (a thick rounded outline, its label and the edge at its
+    foot; the mock-up's thin inner frame left out, it merges with the outline at this size), an arrow, two meshing gears
+    with their hubs (a big one up left, a small one down right), an arrow, the game as bits (010 / 101 / 010, drawn pixel for pixel) and a solid play mark with rounded corners; in
+    `colour`, the rest transparent (the button's dark face shows through)."""
     from PIL import Image, ImageDraw
     k = scale * SUPERSAMPLE
-    width, height = (round(side * k) for side in CONVERT_GRID)
+    width, height = (round(side * scale) for side in CONVERT_GRID)
     clear = tuple(int(colour[index:index + 2], 16) for index in (1, 3, 5)) + (0,)
-    image = Image.new('RGBA', (width, height), clear)
-    pen = _Pen(ImageDraw.Draw(image), k)              # ImageDraw writes, never blends: `clear` cuts the holes
-    pen.box(0.8, 3.5, 19.2, 26.5, 2.6, outline=colour, width=1.7)
-    pen.box(4.0, 6.6, 16.0, 20.0, 0.6, outline=colour, width=1.3)
-    pen.line([(4.6, 9.2), (15.4, 9.2)], colour, 1.0)
-    pen.box(3.4, 21.6, 16.6, 24.0, 0.6, fill=colour)
-    _convert_arrow(pen, 24.0, 15.0, colour)
-    _convert_gear(pen, 46.0, 11.2, 10.4, colour, clear, math.pi / 8)
-    pen.disc(58.6, 22.0, 8.6, clear)                 # a dark gap round the small gear
-    _convert_gear(pen, 58.6, 22.0, 7.4, colour, clear, 0.0)
-    _convert_arrow(pen, 70.0, 15.0, colour)
+    image = Image.new('RGBA', (width * SUPERSAMPLE, height * SUPERSAMPLE), clear)
+    pen = _MockPen(ImageDraw.Draw(image), k)          # ImageDraw writes, never blends: `clear` cuts the holes
+    pen.box(28.4, 31.0, 59.0, 67.3, 6.0, outline=colour, width=3.3)
+    pen.box(34.4, 35.4, 53.0, 57.6, 0.8, outline=colour, width=1.6)    # its label, a line under its top
+    pen.line([(35.4, 40.6), (52.0, 40.6)], colour, 1.4)
+    pen.box(34.4, 59.6, 53.0, 62.4, 0.6, fill=colour)
+    pen.group = 1
+    _mock_arrow(pen, 67.6, 49.2, colour)
+    pen.group = 2
+    _mock_gear(pen, 105.9, 41.4, 15.9, 12.0, 2.8, 3.8, colour)
+    pen.disc(105.9, 41.4, 8.6, clear)
+    pen.disc(105.9, 41.4, 5.0, colour)
+    _mock_gear(pen, 116.6, 60.0, 13.6, 10.6, 3.6, 4.6, clear)    # a dark gap round the small gear
+    _mock_gear(pen, 116.6, 60.0, 11.9, 9.0, 2.3, 3.1, colour)
+    pen.disc(116.6, 60.0, 5.6, clear)
+    pen.disc(116.6, 60.0, 3.4, colour)
+    pen.group = 3
+    _mock_arrow(pen, 134.2, 48.9, colour)
+    pen.group = 5
+    rc = 2.2
+    corners = [(200.5 + rc, 31.0 + rc * 1.9), (221.9 - rc * 1.7, 49.2), (200.5 + rc, 67.5 - rc * 1.9)]
+    pen.poly(corners, colour)
+    pen.line(corners + corners[:1], colour, 2 * rc)
+    for x, y in corners:
+        pen.disc(x, y, rc, colour)
+    image = image.resize((width, height), Image.Resampling.BOX)
+    # the bits on the screen's own pixels, so that they read at 100 %
+    pen.group, pen.k = 4, scale
+    cells = (4, 6) if scale < 1.125 else (5, 7)
+    glyphs = CONVERT_DIGITS[cells]
+    draw = ImageDraw.Draw(image)
+    solid = colour if len(colour) == 7 else colour[:7]
+    left, top = (round(v) for v in pen.xy(156.9, 29.6))
+    _, bottom = pen.xy(156.9, 70.0)
+    step_x = round((pen.xy(168.8, 0)[0] - pen.xy(156.9, 0)[0]))
+    step_y = max(cells[1] + 1, round((bottom - top - cells[1]) / 2))
     for row, bits in enumerate(('010', '101', '010')):
         for col, char in enumerate(bits):
-            _convert_digit(pen, 84.0 + col * 6.6, 3.6 + row * 8.2, char, colour, clear)
-    pen.poly([(110.5, 4.5), (123.2, 15.0), (110.5, 25.5)], colour)
-    return image.resize((round(width / SUPERSAMPLE), round(height / SUPERSAMPLE)), Image.Resampling.LANCZOS)
+            for y, line in enumerate(glyphs[char]):
+                for x, bit in enumerate(line):
+                    if bit == '#':
+                        draw.point((left + col * step_x + x, top + row * step_y + y), fill=solid)
+    return image
 
 
 def hero_picture(master, symbol, colour, highlight=None):

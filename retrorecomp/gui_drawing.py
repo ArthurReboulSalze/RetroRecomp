@@ -500,12 +500,13 @@ def _toolbar_styles(style):
     # picture, drawn by decorate_button), brighter under the pointer. There is one dark theme, so there is one set.
     style.configure('Feature.Toolbar.TButton', bordercolor=c['gold'], lightcolor=c['button'], darkcolor=c['button'])
     style.configure('Centre.Feature.Toolbar.TButton', padding=(5, 4))
-    # Convert, after Arthur's mock-up (20 Nov 2026): a dark face with a gold border two pixels thick (rounded_skin draws
+    # Convert, Arthur's final mock-up (20 Nov 2026): a dark face with a gold border two pixels thick (rounded_skin draws
     # `rrline`) and its wide gold line art of the whole conversion; brighter under the pointer, grey when greyed. Play keeps
-    # the hero's gold look. A light focus ring, the gold one would not show on the gold border.
+    # the hero's gold look. A light focus ring, the gold one would not show on the gold border. 36 px tall at 100 %: a
+    # little taller than its neighbours, less than Play (Arthur: 15-20 % less tall than 44, as wide).
     style.configure('Convert.Toolbar.TButton', background=c['field'], foreground=c['gold'], bordercolor=c['gold'],
                     lightcolor=c['field'], darkcolor=c['field'], focuscolor=c['text'], relief='flat', rrline=2,
-                    padding=(8, 4))
+                    padding=(8, 3))
     style.map('Convert.Toolbar.TButton',
               background=[('disabled', c['panel']), ('pressed', c['selected']), ('active', c['button'])],
               foreground=[('disabled', c['disabled']), ('!disabled', c['gold'])],
