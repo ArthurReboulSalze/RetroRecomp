@@ -45,6 +45,7 @@ class PlayStationProfile(SystemProfile):
     quick_state_family = 'rr16'          # the quick-state file of the 16-bit family (console16_state.c), machine number 6
     capabilities = Capabilities(battery=True)
     linux = 'witnessed'                  # Ape Escape on a Debian 13 PC, 8 November 2026: same hashes as Windows (QUALIFICATION.md)
+    netplay_rollback = False
     netplay_session = True               # the delay tier: the digest and the host's settings (docs/PLAYSTATION.md, section 10)
     feedback_kinds = frozenset({23})
     default_frames = 3600

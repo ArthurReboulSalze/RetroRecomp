@@ -37,6 +37,7 @@ ANCHOR = 'docs/QUALIFICATION.md#progress-through-the-qualification-list'
 SYMBOLS = {'Y': '✅', 'P': '🟡', 'N': '❌', '?': '❔', '-': '➖'}
 MEANING = {'Y': 'met', 'P': 'partial', 'N': 'no', '?': 'unknown', '-': 'not applicable'}
 CELLS = 10
+README_CELLS = 5     # the README's shorter bar, next to its Multiplayer column (Arthur, 20 Nov 2026: « cette case un peu moins large »)
 # The machines of the matrix whose game runs on a complete emulator core, marked with an asterisk in the README (docs/ARCHITECTURE.md).
 EMULATOR_CORE = ('amiga', 'a1200', 'atarist', 'n64', 'psx')
 EMULATOR_CORE_NOTE = (
@@ -92,6 +93,23 @@ def profile_facts() -> dict[str, tuple[str, str]]:
     sys.path.insert(0, str(REPO))
     from retrorecomp.systems import ALL_PROFILES
     return {profile.id: (profile.name, profile.status) for profile in ALL_PROFILES}
+
+
+def multiplayer_facts() -> dict[str, str]:
+    """{console id: the README's Multiplayer cell} from the profile registry: supported or not, smooth (rollback) or delay, and the
+    handhelds' link cable (Arthur, 20 Nov 2026: « tu indiques Supported et le type de Multiplayer avec Rollback ou avec Delay »)."""
+    sys.path.insert(0, str(REPO))
+    from retrorecomp.systems import ALL_PROFILES
+    out = {}
+    for profile in ALL_PROFILES:
+        if not getattr(profile, 'netplay_session', False):
+            out[profile.id] = 'not offered'
+            continue
+        cell = 'supported · ' + ('rollback' if getattr(profile, 'netplay_rollback', True) else 'delay')
+        if getattr(profile, 'netplay_link_seats', 0):
+            cell += ' · link cable'
+        out[profile.id] = cell
+    return out
 
 
 def emulated_categories() -> list[tuple[str, str, str]]:
@@ -158,18 +176,23 @@ def render(text: str) -> str:
 def short(text: str) -> str:
     """The short form for the README: one line per console (linked to its page), its status and its bar, the emulated categories, then the notes."""
     pages = read_pages(text)
-    lines = ['| Console | Status | Qualification progress |', '| --- | --- | --- |']
+    multiplayer = multiplayer_facts()
+    lines = ['| Console | Status | Qualification | Multiplayer |', '| --- | --- | --- | --- |']
     # By name, the experimental machines after the supported ones (Arthur, 14 Nov 2026); the emulated categories come last.
     ordered = sorted(gauges(text), key=lambda row: (row['status'] == 'experimental', row['name'].casefold()))
     for row in ordered:
         mark = '\\*' if row['id'] in EMULATOR_CORE else ''
-        lines.append(f"| [{row['name']}](docs/{pages[row['id']]}){mark} | {row['status']} | `{row['bar']}` {row['percent']} % |")
+        filled = int(row['percent'] / 100 * README_CELLS + 0.5)
+        bar = '█' * filled + '░' * (README_CELLS - filled)
+        lines.append(f"| [{row['name']}](docs/{pages[row['id']]}){mark} | {row['status']} | `{bar}` {row['percent']} % "
+                     f"| {multiplayer.get(row['id'], 'not offered')} |")
     for console, name, status in emulated_categories():
-        lines.append(f"| **[{name}](docs/{EMULATED_PAGES[console]})** | {status} | outside this list: emulated, 0 % native code |")
+        lines.append(f"| **[{name}](docs/{EMULATED_PAGES[console]})** | {status} | outside this list: emulated, 0 % native code "
+                     f"| {multiplayer.get(console, 'not offered')} |")
     lines += ['',
               EMULATOR_CORE_NOTE,
               '',
-              '**Qualification progress**, approximate: the share of the gates that apply to a machine that are met (half a point for a',
+              '**Qualification**, approximate: the share of the gates that apply to a machine that are met (half a point for a',
               f'partial one), drawn from the matrix of [QUALIFICATION.md]({ANCHOR}). It is not a quality score, it mixes none of the five',
               "measures, and it never decides a status: leaving the experimental status is the owner's own decision."]
     return '\n'.join(lines)

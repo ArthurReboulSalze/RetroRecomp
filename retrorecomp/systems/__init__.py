@@ -250,6 +250,9 @@ class SystemProfile(ABC):
     # `netplay_link_seats`: the link cable plays in a session with that many consoles (one per seat, every PC running all of
     # them: the link contract of 20 Nov 2026); 0 until the machine's link is proven two seats on one PC.
     netplay_link_seats: int = 0
+    # `netplay_rollback`: the multiplayer mode its exports play in, smooth (rollback: the export saves and loads its state in
+    # memory, HELLO's snapshot capability) or the delay tier (False). The README's machine table and docs/MULTIPLAYER.md read it.
+    netplay_rollback: bool = True
 
     @property
     def declared_notice_files(self) -> tuple[str, ...]:

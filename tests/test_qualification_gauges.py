@@ -130,6 +130,22 @@ class ReadmeTests(unittest.TestCase):
             self.assertNotIn('█', line)
             self.assertNotIn('░', line)
 
+    def test_the_multiplayer_column_comes_from_the_profiles(self):
+        # Arthur, 20 Nov 2026: the README says per machine whether multiplayer is supported, and in rollback or delay.
+        block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
+        self.assertIn('| Console | Status | Qualification | Multiplayer |', block)
+        facts = qg.multiplayer_facts()
+        for profile in ALL_PROFILES:
+            cell = facts[profile.id]
+            if not profile.netplay_session:
+                self.assertEqual(cell, 'not offered')
+                continue
+            self.assertTrue(cell.startswith('supported · '), cell)
+            self.assertIn('rollback' if profile.netplay_rollback else 'delay', cell)
+            self.assertEqual('link cable' in cell, bool(profile.netplay_link_seats))
+        self.assertIn('delay', facts['psx'])
+        self.assertIn('rollback', facts['md'])
+
     def test_every_console_of_the_matrix_has_a_page_that_exists(self):
         page = _page()
         ids, _ = qg.read_matrix(page)

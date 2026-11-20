@@ -24,6 +24,7 @@ class Nintendo64Profile(SystemProfile):
     # Multiplayer on the delay tier: the adapter gives a digest (rr_n64_cpu_digest), no in-process snapshot.
     netplay_session = True
     netplay_seats = 4
+    netplay_rollback = False               # the delay tier (no in-process snapshot of the core)
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     simulation_sources = (SimulationSource('native/blocks/*.c'),
                           SimulationSource('payload/n64_payload.h', drop=('RR_N64_GAME_TITLE',)),)
