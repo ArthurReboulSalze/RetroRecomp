@@ -885,6 +885,8 @@
     "mp_sharing_everyone": "Geteilte Steuerung: alle zugleich",
     "mp_sharing_turns": "Geteilte Steuerung: abwechselnd",
     "mp_sharing_handheld": "Jeder Spieler mit seiner eigenen Konsole: kommt mit dem Link-Kabel, in der nächsten Version.",
+    "mp_sharing_link": "Link-Kabel: eine Konsole pro Spieler",
+    "mp_sharing_link_help": "Jeder hat seine eigene Konsole auf dem Bildschirm, verbunden wie mit dem echten Kabel.",
     "mp_sharing_everyone_help": "Alle Controller steuern denselben Spieler gleichzeitig.",
     "mp_sharing_turns_help": "Ein Spieler hat die Steuerung und gibt sie weiter (F2 im Spiel).",
     "mp_turn_holder": "Am Controller: {name}",

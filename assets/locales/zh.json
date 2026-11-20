@@ -885,6 +885,8 @@
     "mp_sharing_everyone": "共享操控：所有人同时",
     "mp_sharing_turns": "共享操控：轮流",
     "mp_sharing_handheld": "每位玩家使用自己的主机：将在下一版本随连接线推出。",
+    "mp_sharing_link": "连接线：每人一台主机",
+    "mp_sharing_link_help": "每个人在屏幕上有自己的主机，像真实的连接线一样相连。",
     "mp_sharing_everyone_help": "所有手柄同时控制同一个玩家。",
     "mp_sharing_turns_help": "一位玩家操作，然后把手柄传下去（游戏中按F2）。",
     "mp_turn_holder": "正在操作：{name}",
