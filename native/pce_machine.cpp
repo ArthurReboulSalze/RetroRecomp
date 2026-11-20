@@ -1,7 +1,7 @@
 // PC Engine machine: a bridge from the C host of a Retro-Recomp game to the pinned pcenginerecomp runtime.
 // It sets up the HuCard reset recipe the engine's own headless host uses (continuous video, interrupts, PSG,
 // pads, queued VDC accesses, deterministic power-on), runs whole frames under one execution policy, and hands
-// out the picture, the PCM, the counters and in-memory checkpoints. One engine file is our own copy (native/pce_engine/pcm.cpp, docs/UPSTREAMS.md); nothing else of the engine is patched.
+// out the picture, the PCM, the counters and in-memory checkpoints. Four engine files are our own copies (native/pce_engine/, docs/UPSTREAMS.md); nothing else of the engine is patched.
 // Original RetroRecomp code: MIT. The engine keeps its own MIT terms (licenses/pcenginerecomp.md).
 #include "pce_machine.h"
 #include "pce_machine_internal.hpp"

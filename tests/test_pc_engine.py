@@ -1285,8 +1285,8 @@ class EnginePatchTests(unittest.TestCase):
         for relative, (native, sha) in pce_build.PATCHED_ENGINE_FILES.items():
             text = self.ours(native)
             self.assertEqual(len(sha), 64)
-            self.assertGreaterEqual(text.count('Retro-Recomp patch'), 3)        # each edit says what it is
-            self.assertIn('settle_silent_cd_source', text)                      # the host's way to bring the skipped fields up to date
+            self.assertGreaterEqual(text.count('Retro-Recomp patch'), 1)        # each edit says what it is
+        self.assertIn('settle_silent_cd_source', self.ours('pce_engine/pcm.cpp'))   # the host's way to bring the skipped fields up to date
 
     def test_the_pinned_original_is_the_one_the_patch_was_made_from(self):
         checkout = pce_build.checkout_path()
@@ -1296,13 +1296,16 @@ class EnginePatchTests(unittest.TestCase):
 
     def test_the_game_is_built_with_our_copy_in_place_of_the_original(self):
         lines = '\n'.join(pce_build.engine_patch_lines('E:/engine'))
-        self.assertIn('set_property(SOURCE "E:/engine/runtime/src/pcm.cpp" TARGET_DIRECTORY pce-runtime PROPERTY HEADER_FILE_ONLY TRUE)', lines)
-        self.assertIn('engine_patch/pcm.cpp', lines)
+        for name in ('pcm', 'scanline', 'video', 'raster'):
+            self.assertIn(f'set_property(SOURCE "E:/engine/runtime/src/{name}.cpp" TARGET_DIRECTORY pce-runtime PROPERTY HEADER_FILE_ONLY TRUE)', lines)
+            self.assertIn(f'engine_patch/{name}.cpp', lines)
+        self.assertIn('-ffp-contract=off', lines)                               # the engine's own option for video.cpp, kept on our copy
         self.assertIn('\n'.join(pce_build.engine_patch_lines(pce_build.checkout_path().as_posix())), pce_build.game_cmake(None, '1.9.0'))
         with tempfile.TemporaryDirectory() as folder:
             pce_build.stage_engine_patch(Path(folder))
-            staged = (Path(folder) / 'engine_patch' / 'pcm.cpp').read_text(encoding='utf-8')
-            self.assertEqual(staged, self.ours('pce_engine/pcm.cpp'))
+            for name in ('pcm', 'scanline', 'video', 'raster'):
+                staged = (Path(folder) / 'engine_patch' / f'{name}.cpp').read_text(encoding='utf-8')
+                self.assertEqual(staged, self.ours(f'pce_engine/{name}.cpp'))
 
     def test_a_changed_original_is_refused(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -1313,7 +1316,8 @@ class EnginePatchTests(unittest.TestCase):
                 pce_build.verify_patched_base(Path(folder))
 
     def test_the_stamps_know_the_patch(self):
-        self.assertIn('native/pce_engine/pcm.cpp', compilation_inputs.manifest_names('pce'))
+        for name in ('pcm', 'scanline', 'video', 'raster'):
+            self.assertIn(f'native/pce_engine/{name}.cpp', compilation_inputs.manifest_names('pce'))
 
 
 if __name__ == '__main__':

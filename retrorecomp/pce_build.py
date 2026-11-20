@@ -48,7 +48,13 @@ def checkout_path() -> Path:
 # the engine's path, then our file under native/ and the SHA-256 of the pinned original it was made from (line endings as LF).
 PATCHED_ENGINE_FILES = {
     'runtime/src/pcm.cpp': ('pce_engine/pcm.cpp', '8ca39d6f8915246a98539b296ef13e89a0991911da7cab7a69719797622f10b7'),
+    'runtime/src/scanline.cpp': ('pce_engine/scanline.cpp', '57213f2d7727fb84eb14aa02f036f93ca308f1e893a33ea92a05c5c9f5aab35a'),
+    'runtime/src/video.cpp': ('pce_engine/video.cpp', 'aec288fd94dc9b72543deee392e42f20460312e75cdb161a2e447ebc567e18e5'),
+    'runtime/src/raster.cpp': ('pce_engine/raster.cpp', 'ef6b8cd20c53d72d03c6ef5b3e9b77625e705e1c09503eadfe361a5fecfc6d10'),
 }
+# Compile options the engine's own CMake gives a file, which our copy needs too (the picture's floating point stays strict).
+PATCHED_ENGINE_OPTIONS = {'runtime/src/video.cpp': ('/fp:strict', '-ffp-contract=off')}
+ENGINE_PATCH_BEGIN, ENGINE_PATCH_END = '# begin engine patch', '# end engine patch'
 
 
 def verify_patched_base(checkout: Path) -> None:
@@ -64,11 +70,16 @@ def verify_patched_base(checkout: Path) -> None:
 
 def engine_patch_lines(engine: str, folder: str = '${CMAKE_CURRENT_SOURCE_DIR}/engine_patch') -> list[str]:
     """CMake lines (after the engine is added as a subproject): its patched files are not compiled, our copies staged in `engine_patch/` are."""
-    lines = []
+    lines = [ENGINE_PATCH_BEGIN]
     for relative, (native, _sha) in PATCHED_ENGINE_FILES.items():
+        ours = f'{folder}/{Path(native).name}'
         lines += [f'set_property(SOURCE "{engine}/{relative}" TARGET_DIRECTORY pce-runtime PROPERTY HEADER_FILE_ONLY TRUE)',
-                  f'target_sources(pce-runtime PRIVATE "{folder}/{Path(native).name}")']
-    return lines
+                  f'target_sources(pce-runtime PRIVATE "{ours}")']
+        if relative in PATCHED_ENGINE_OPTIONS:
+            msvc, other = PATCHED_ENGINE_OPTIONS[relative]
+            lines += ['if(MSVC)', f'  set_source_files_properties("{ours}" TARGET_DIRECTORY pce-runtime PROPERTIES COMPILE_OPTIONS "{msvc}")',
+                      'else()', f'  set_source_files_properties("{ours}" TARGET_DIRECTORY pce-runtime PROPERTIES COMPILE_OPTIONS "{other}")', 'endif()']
+    return lines + [ENGINE_PATCH_END]
 
 
 def stage_engine_patch(project: Path) -> None:
