@@ -859,6 +859,8 @@
     "front_end_played_days": "Jugado hace {days} días",
     "front_end_fallback": "Usa el intérprete de reserva",
     "front_end_find_cover": "Buscar la carátula en línea",
+    "front_end_refresh_cover": "Actualizar",
+    "front_end_refresh_note": "Vuelve a leer su portada; la busca en línea si falta y las portadas en línea están activadas.",
     "front_end_network_later": "Juego en red (próximamente)",
     "front_end_tv": "Pantalla completa (F11)",
     "front_end_tv_leave": "Volver a la ventana (F11)",

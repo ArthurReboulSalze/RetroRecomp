@@ -859,6 +859,8 @@
     "front_end_played_days": "Vor {days} Tagen gespielt",
     "front_end_fallback": "Nutzt den Ersatz-Interpreter",
     "front_end_find_cover": "Cover online suchen",
+    "front_end_refresh_cover": "Aktualisieren",
+    "front_end_refresh_note": "Liest das Cover erneut; sucht es online, wenn es fehlt und Online-Cover aktiv sind.",
     "front_end_network_later": "Netzwerkspiel (kommt später)",
     "front_end_tv": "Vollbild (F11)",
     "front_end_tv_leave": "Zurück zum Fenster (F11)",

@@ -1126,6 +1126,8 @@ STRINGS = {
     'front_end_played_days': ('Played {days} days ago', 'Joué il y a {days} jours'),
     'front_end_fallback': ('Uses the interpreter fallback', 'Utilise l’interpréteur de secours'),
     'front_end_find_cover': ('Search the box art online', 'Chercher la jaquette en ligne'),
+    'front_end_refresh_cover': ('Refresh', 'Actualiser'),
+    'front_end_refresh_note': ('Reads its box art again; searched online when it is missing and online covers are on.', 'Relit sa jaquette ; la cherche en ligne si elle manque et que les jaquettes en ligne sont activées.'),
     'front_end_find_missing': ('Search the missing box art ({count})', 'Chercher les jaquettes manquantes ({count})'),
     'front_end_only_note': ('Front-end only: the games do not change.', 'Front-end uniquement : les jeux ne changent pas.'),
     'front_end_network_later': ('Network play (coming later)', 'Jouer en réseau (bientôt)'),
