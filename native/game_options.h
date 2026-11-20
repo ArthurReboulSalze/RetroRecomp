@@ -21,7 +21,7 @@ typedef struct { int controls, gun; } RrPages;
  * console, L3+R3 one second to quit. Both can be changed or cleared. */
 #define RR_OPTIONS_RESTART_PAD ((1u << SDL_CONTROLLER_BUTTON_START) | (1u << SDL_CONTROLLER_BUTTON_BACK))
 #define RR_OPTIONS_QUIT_PAD ((1u << SDL_CONTROLLER_BUTTON_LEFTSTICK) | (1u << SDL_CONTROLLER_BUTTON_RIGHTSTICK))
-/* 1.8.1: the pad's Options action, the Guide button by default: it opens and closes the F2 menu of tiles, as F2 does. */
+/* 1.9.0: the pad's Options action, the Guide button by default: it opens and closes the F2 menu of tiles, as F2 does. */
 #define RR_OPTIONS_MENU_PAD (1u << SDL_CONTROLLER_BUTTON_GUIDE)
 /* R3 + Select (Back): the multiplayer chat's own chord (a session only), which no Options combination may overlap. */
 #define RR_CHAT_PAD ((1u << SDL_CONTROLLER_BUTTON_RIGHTSTICK) | (1u << SDL_CONTROLLER_BUTTON_BACK))
@@ -41,7 +41,7 @@ static inline bool rr_trigger_step(bool down, int value) {return down ? value >=
 /* 1.7.6: Fast forward (held) and Max speed (a press toggles it) join the table, on the triggers by default as the speed
  * controls of decision D12 always were (R2 and L2), Tab and ` fixed on the keyboard; the player may move or clear them, so that
  * L2 and R2 are free for the game. */
-/* 1.8.1: Options, last (the stored entries and the capture ids of the others do not move): a press of its buttons opens the F2
+/* 1.9.0: Options, last (the stored entries and the capture ids of the others do not move): a press of its buttons opens the F2
  * tiles, F2 itself on the keyboard. It replaces the Guide button's fixed opening of the options page. */
 #define RR_COMBO_ROWS 7
 enum { RR_COMBO_QUIT, RR_COMBO_RESTART, RR_COMBO_SAVE, RR_COMBO_LOAD, RR_COMBO_FAST, RR_COMBO_MAX, RR_COMBO_OPTIONS };
@@ -95,8 +95,8 @@ static struct {
     char machine[16];
     char status[100];
     int notice;      /* 1.7.5: the status says why a binding was not taken; the host shows it (the control pages draw no status) */
-    int menu_request;   /* 1.8.1: the Options combination was pressed: the host opens or closes its F2 tiles */
-    Uint32 menu_hold;   /* 1.8.1: its buttons, hidden from the game until every one of them is released */
+    int menu_request;   /* 1.9.0: the Options combination was pressed: the host opens or closes its F2 tiles */
+    Uint32 menu_hold;   /* 1.9.0: its buttons, hidden from the game until every one of them is released */
     SDL_Renderer *renderer;
 } rr_options;
 static RrAudioFilter rr_options_dsp;
@@ -330,7 +330,7 @@ static void rr_options_observe(const SDL_Event *e) {
 /* Capture ids: 2 * index + 1 with the keyboard, + 1 more with a gamepad (quit 1/2, restart 3/4, quick save 5/6, quick load 7/8).
  * A capture that equals another combination of the same kind is refused and says which: one hold must never do two things. */
 static bool rr_pad_nested(Uint32 a, Uint32 b) { return a && b && ((a & b) == a || (a & b) == b); }
-/* 1.8.1: Options fires on a press, the others on a hold: an Options combination equal to another one, inside it or around it
+/* 1.9.0: Options fires on a press, the others on a hold: an Options combination equal to another one, inside it or around it
  * would do both, so it is refused both ways; R3 + Select stays the multiplayer chat's (RR_COMBO_ROWS: "the chat"). */
 static int rr_combo_used_by(int index, bool gamepad, const int *keys, Uint32 pad) {
     if (gamepad && index == RR_COMBO_OPTIONS && rr_pad_nested(pad, RR_CHAT_PAD)) return RR_COMBO_ROWS;
@@ -587,7 +587,7 @@ static bool rr_options_pad_holds(SDL_JoystickID from, Uint32 mask) {
 
 /* Returns true when the host must not process the event again. A quit or
  * restart capture takes every event; an existing binding capture has
- * priority. The Options combination (Guide by default, 1.8.1) asks the host to open or close its F2 tiles (menu_request). */
+ * priority. The Options combination (Guide by default, 1.9.0) asks the host to open or close its F2 tiles (menu_request). */
 static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture) {
     rr_options.trigger_press = 0;
     rr_options_observe(e);

@@ -442,7 +442,7 @@ static bool begin_frame(RrhkRun *r) {
         quit_asked = false;
         if (rrhk_options_restart(rrhk.menu) || rrhk_hub_take_restart()) {
             /* In multiplayer the host's restart goes to everyone at the same frame (a guest is told only the host can). The
-             * F2 Restart tile (1.8.1) comes this way too. */
+             * F2 Restart tile (1.9.0) comes this way too. */
             if (!rrhk_session_on) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
             else if (rrhk_session_restart()) rrhk.menu = 0;
         }
@@ -647,7 +647,7 @@ static void end_frame(RrhkRun *r) {
         if (r->test_frames && r->frame >= r->test_frames) r->running = false;
     } else if (!rrhk_session_on || rrhk_session_paused()) rrhk_audio_idle(r);
     /* Multiplayer: an iteration whose frame has not come yet (the network) keeps the sound waiting, which plays on over the wait.
-     * Before 1.8.1 it was thrown away and started again after a reserve of silence at every such wait: the crackle of a game
+     * Before 1.9.0 it was thrown away and started again after a reserve of silence at every such wait: the crackle of a game
      * played together (Arthur, Tekken 3, 19 November 2026). */
     if (r->timing_enabled) r->ticks[3] = now_ticks();
     const bool shown = !r->fast || (r->frame & 7) == 0;

@@ -280,16 +280,16 @@ static const uint64_t icon_graphics[18] = {
 static const uint64_t icon_chat[18] = {
     0x0ull, 0x0ull, 0x55555555555550ull, 0x1aaaaaaaaaaaaa4ull, 0x1aaaaaaaaaaaaa4ull, 0x1aaaaffeffbffa4ull, 0x1aaaaaaaaaaaaa4ull, 0x1aabffbfffeffa4ull, 0x1aaaaaaaaaaaaa4ull,
     0x1aaaaaaffbfffa4ull, 0x1aaaaaaaaaaaaa4ull, 0x55555555a95550ull, 0x690000ull, 0x1a4000ull, 0x69000ull, 0x15000ull, 0x0ull, 0x0ull};
-/* 1.8.1: the F2 tile that quits the game (the same "Quit? No / Yes" as Esc), a door and an arrow out of it. */
+/* 1.9.0: the F2 tile that quits the game (the same "Quit? No / Yes" as Esc), a door and an arrow out of it. */
 static const uint64_t icon_exit[18] = {
     0x0ull, 0x0ull, 0x55555500ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x300006aaaa900ull, 0xf00006aaaa900ull, 0xfffff06aaaa900ull, 0x3fffff06baaa900ull,
     0xfffff06baaa900ull, 0xf00006aaaa900ull, 0x300006aaaa900ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x55555500ull, 0x0ull, 0x0ull};
-/* 1.8.1: the F2 tile that restarts the game (Shift+F1, the pad's Restart combination), a circle closed by its arrow. */
+/* 1.9.0: the F2 tile that restarts the game (Shift+F1, the pad's Restart combination), a circle closed by its arrow. */
 static const uint64_t icon_restart[18] = {
     0x3c0000000ull, 0x3fd0000000ull, 0x3ffe9400000ull, 0x3fd6900000ull, 0x3c0640000ull, 0x190000ull, 0x90000ull, 0x80000060000ull,
     0x190000064000ull, 0x190000064000ull, 0x90000060000ull, 0x60000090000ull, 0x64000190000ull, 0x19000640000ull, 0x6956900000ull,
     0x16a9400000ull, 0x50000000ull, 0x0ull};
-/* 1.8.1, multiplayer in turns (session ABI 9): pass the controller, give it (the host), everyone at once / turns (the host). */
+/* 1.9.0, multiplayer in turns (session ABI 9): pass the controller, give it (the host), everyone at once / turns (the host). */
 static const uint64_t icon_pass[18] = {
     0x0ull, 0x0ull, 0x0ull, 0x0ull, 0x0ull, 0x5555550ull, 0x1aaaaaa4ull, 0x3000001aaaaaa4ull, 0xf000001aeaaba4ull,
     0x3fffffc1aaaafe4ull, 0xf000001baaaba4ull, 0x3000001aaaaaa4ull, 0x5555550ull, 0x5000050ull, 0x0ull, 0x0ull, 0x0ull, 0x0ull};

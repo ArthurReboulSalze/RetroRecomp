@@ -598,7 +598,7 @@ X68000 too, without asking again**.
     timing report (`RETRORECOMP_TIMING_REPORT`) and stderr give the mode, the measured refresh, the decision and the cadence of
     the locked frames (how many refreshes each was held), never a latency. A 2:1 lock for 120 Hz screens, frame delay and
     run-ahead are not part of 1.7.7 (`vsync-study-177`, sections 5 to 7).
-  * 1.8.1: the kit's ring no longer bypasses at a base of 1.0; it is always regulated ([D33](#d33)).
+  * 1.9.0: the kit's ring no longer bypasses at a base of 1.0; it is always regulated ([D33](#d33)).
 
 * <a id="d31"></a>**D31 — The pad's Options button opens the F2 tiles; Quit is their last tile** (owner's words of 17 November
   2026, « Oui, lance »; on the Exit tile: « comme on l'avait déjà fait une fois […] c'était la bonne manière »), on every machine

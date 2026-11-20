@@ -133,7 +133,7 @@ static bool asking_relaunch;          /* the question asks « Change this option
 static void relaunch_back(bool yes);
 
 /* 1.7.6: a machine with a graphics page (D14) has one tile more: it opens that page, which comes back to the tiles. Multiplayer:
- * the Chat tile (in a session only). 1.8.1: the last tile quits, through the one "Quit? No / Yes" (No selected); No and Esc
+ * the Chat tile (in a session only). 1.9.0: the last tile quits, through the one "Quit? No / Yes" (No selected); No and Esc
  * come back to the tiles; the one before it restarts the game (Arthur, 19 Nov 2026). The order: ..., Graphics, Chat, Restart,
  * Quit (Quit stays last everywhere). */
 /* Restart: what Shift+F1 and the pad's Restart combination do, through the same path (rrhk_hub_take_restart, read by the loop).
@@ -220,11 +220,11 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     const int ox = ctx->ox, oy = ctx->oy, unit = ctx->unit;
     const int tiles = hub_tiles(), lines = (tiles + HUB_COLUMNS - 1) / HUB_COLUMNS;
     if (hub_tile < 0 || hub_tile >= tiles) hub_tile = 0;
-    /* A link session (the handhelds' cable, 1.8.1): every PC runs every console; the subtitle says which one is this player's. */
+    /* A link session (the handhelds' cable, 1.9.0): every PC runs every console; the subtitle says which one is this player's. */
     char seat_line[40] = "";
     if (rrhk_session_link() && rrhk_session_seat() >= 0) snprintf(seat_line, sizeof seat_line, rr_tr("You are P%d"), rrhk_session_seat() + 1);
     rr_menu_header(ren, ox, oy, unit, rr_tr("Controls"), seat_line[0] ? seat_line : NULL);
-    /* 1.8.1: two lines of tiles fit over the name of the selected one; past them (four players, a graphics page and Quit: three
+    /* 1.9.0: two lines of tiles fit over the name of the selected one; past them (four players, a graphics page and Quit: three
      * lines) the tiles scroll, two lines around the selected one, ^ and v at the right edge when more lie above or below. */
     const int shown = lines < HUB_LINES ? lines : HUB_LINES;
     if (hub_tile / HUB_COLUMNS < hub_first_line) hub_first_line = hub_tile / HUB_COLUMNS;
@@ -308,7 +308,7 @@ void rrhk_close_menu(void) {
     rrhk.parent_menu = 0;
 }
 
-/* ---- Give the controller (1.8.1, turns): the host chooses the seat; Enter gives, Esc and B come back to the tiles ---- */
+/* ---- Give the controller (1.9.0, turns): the host chooses the seat; Enter gives, Esc and B come back to the tiles ---- */
 void rrhk_give_key(SDL_Scancode key) {
     const int seats = rrhk_session_seats();
     if (seats <= 0) { rrhk_close_menu(); return; }
@@ -377,7 +377,7 @@ bool rrhk_relaunch_asking(void) { return asking_relaunch; }
 void rrhk_quit_ask(void) {
     if (rrhk.menu == RRHK_MENU_QUIT) return;
     asking_relaunch = false;
-    /* No and Esc come back to the Pause menu or (1.8.1) to the F2 tiles it was asked from, else to the game */
+    /* No and Esc come back to the Pause menu or (1.9.0) to the F2 tiles it was asked from, else to the game */
     rrhk.parent_menu = rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_HUB ? rrhk.menu : 0;
     rrhk.menu = RRHK_MENU_QUIT; rrhk.capturing = 0;
     quit_yes = false;
@@ -393,7 +393,7 @@ bool rrhk_quit_key(SDL_Scancode key) {
     return false;
 }
 static void quit_draw(SDL_Renderer *ren, int ox, int oy, int unit) {
-    /* In a network match (1.8.1) the question says what Yes does: the host ends the match, a guest leaves it, and either way
+    /* In a network match (1.9.0) the question says what Yes does: the host ends the match, a guest leaves it, and either way
      * it ends for everyone (a guest's leave is BYE_LEFT, which stops the match for all). The box is wider and taller there. */
     const bool session = rrhk_session_active() || asking_relaunch;
     const int X = session ? 33 : 58, Y = session ? 58 : 62, W = session ? 190 : 140, H = session ? 70 : 62;

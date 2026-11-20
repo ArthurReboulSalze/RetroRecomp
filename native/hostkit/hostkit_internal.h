@@ -7,7 +7,7 @@
 #include "xbr_sdl.h"
 
 bool rrhk_options_hidden(int button);  /* options.c: a button of the Options combination still held from the menu's press */
-#define RRHK_COMBO_ROWS 7     /* Quit, Restart, Quick save, Quick load (1.7.5), Fast forward, Max speed (1.7.6), Options (1.8.1) */
+#define RRHK_COMBO_ROWS 7     /* Quit, Restart, Quick save, Quick load (1.7.5), Fast forward, Max speed (1.7.6), Options (1.9.0) */
 #define RRHK_COMBO_FAST 4
 #define RRHK_COMBO_MAX 5
 
@@ -102,7 +102,7 @@ void rrhk_sync_notice(void);              /* the outcome, named by a notice */
 #define RRHK_KEY_START_HELP (SDL_NUM_SCANCODES + 17)   /* the "Start-up reminders" row (1.7.4) */
 #define RRHK_KEY_WIDESCREEN (SDL_NUM_SCANCODES + 19)   /* the "Screen format: 4:3 / 16:9" row (1.7.6) */
 #define RRHK_KEY_SYNC (SDL_NUM_SCANCODES + 20)         /* the "Sync to display" row (1.7.7, D30) */
-#define RRHK_KEY_TURN_BADGE (SDL_NUM_SCANCODES + 21)   /* the "Turn badge" row (1.8.1, in a session) */
+#define RRHK_KEY_TURN_BADGE (SDL_NUM_SCANCODES + 21)   /* the "Turn badge" row (1.9.0, in a session) */
 
 /* menu.c: the row icons (1.7.5) */
 int rrhk_action_icon(const char *name, char letters[4]);   /* the icon of a control by its English name; a face button's letters */

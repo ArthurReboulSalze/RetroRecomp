@@ -945,7 +945,7 @@ static void pad_row_script(void) {
     }
 }
 
-/* 1.8.1: the F2 menu's last tile, Quit: the same "Quit? No / Yes" as Esc (No selected); No and Esc come back to the tiles, a
+/* 1.9.0: the F2 menu's last tile, Quit: the same "Quit? No / Yes" as Esc (No selected); No and Esc come back to the tiles, a
  * second Esc to the game. (1.7.6 to 1.8.0 had it as the options page's last row.) */
 static void quit_row_script(void) {
     RrhkUi *ui = rrhk_ui();
@@ -973,7 +973,7 @@ static void quit_row_script(void) {
     }
 }
 
-/* 1.8.1: the F2 tile before Quit restarts the game (Arthur, 19 Nov 2026): back to the game, and the machine's reset runs once, through
+/* 1.9.0: the F2 tile before Quit restarts the game (Arthur, 19 Nov 2026): back to the game, and the machine's reset runs once, through
  * the loop's restart path (the one of the pad's Restart combination; in a session, the host's restart for every seat). */
 static int resets_mark;
 static void restart_tile_script(void) {
@@ -988,7 +988,7 @@ static void restart_tile_script(void) {
     }
 }
 
-/* 1.8.1 (session ABI 9): the host's « Change this option? » before a key that relaunches the match. Asked here directly (the
+/* 1.9.0 (session ABI 9): the host's « Change this option? » before a key that relaunches the match. Asked here directly (the
  * loop asks it in a session only): Esc and No drop the key, Yes gives it back once to the machine; the question sits where the
  * kit's « Quit? » does and leaves the menu it was asked from as it was. */
 static void relaunch_confirm_script(void) {
@@ -1020,12 +1020,12 @@ static void relaunch_confirm_script(void) {
     }
 }
 
-/* 1.7.6: on a machine with a graphics page, the F2 tile before Restart and Quit (1.8.1) opens it (and comes back to the tiles), and the options page's
+/* 1.7.6: on a machine with a graphics page, the F2 tile before Restart and Quit (1.9.0) opens it (and comes back to the tiles), and the options page's
  * F3 row, "F3 Graphics", opens it too (and comes back to the options). */
 static void graphics_entry_script(void) {
     RrhkUi *ui = rrhk_ui();
     switch (step++) {
-    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Quit is last, Restart before it (1.8.1) */
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Quit is last, Restart before it (1.9.0) */
     case 1: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
     case 2: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Options: before it */
     case 3: CHECK(ui->menu == RRHK_MENU_OPTIONS && rrhk_option_selected() == 0); key(SDL_SCANCODE_RETURN); break;
@@ -1556,16 +1556,16 @@ int main(int argc, char **argv) {
     begin(pad_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 10);
-    /* 9. 1.8.1: the F2 menu's Quit tile (1.7.6: the options page's Quit row). */
+    /* 9. 1.9.0: the F2 menu's Quit tile (1.7.6: the options page's Quit row). */
     plain.pad_rows = NULL; plain.pad_row_count = 0;
     begin(quit_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 8);
-    /* 9c. 1.8.1: the host's « Change this option? » (session ABI 9). */
+    /* 9c. 1.9.0: the host's « Change this option? » (session ABI 9). */
     begin(relaunch_confirm_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 5);
-    /* 9b. 1.8.1: the F2 menu's Restart tile, before Quit. */
+    /* 9b. 1.9.0: the F2 menu's Restart tile, before Quit. */
     begin(restart_tile_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 5);

@@ -15,7 +15,7 @@ static Uint64 check_frequency(void) { return synthetic ? 1000000 : SDL_GetPerfor
 #define RRHK_RING_COUNTER counter
 #define RRHK_RING_FREQUENCY check_frequency
 /* The callback-ring output of the host kit (the sound output of the NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64 and
- * PlayStation), against authored timelines. Since 1.8.1 the ring is always regulated (rrhk_ring.c): the sound is resampled by at
+ * PlayStation), against authored timelines. Since 1.9.0 the ring is always regulated (rrhk_ring.c): the sound is resampled by at
  * most 0.5 % from its fill, so these checks pin what that keeps (the order of the samples, no jump, the channels apart, no gap
  * and no trim on clocks that drift by 1,000 ppm) instead of the machine's PCM byte for byte. */
 #include "hostkit/shell/rrhk_ring.c"

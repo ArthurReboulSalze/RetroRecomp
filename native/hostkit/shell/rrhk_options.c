@@ -69,7 +69,7 @@ bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu) { return rr_opti
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture) {
     const bool used = rr_options_event(event, menu, binding_capture);
     rrhk_options_notice();
-    /* 1.8.1: the Options combination (Guide by default) opens and closes the F2 tiles, as F2 does. */
+    /* 1.9.0: the Options combination (Guide by default) opens and closes the F2 tiles, as F2 does. */
     if (rr_options.menu_request) { rr_options.menu_request = 0; rrhk_toggle_settings(); }
     return used;
 }
@@ -88,7 +88,7 @@ unsigned rrhk_restart_combo_state(SDL_JoystickID pad, int button) {
     for (int i = 0; i < 4; ++i) if (rr_options.pads[i].id == pad) held = rr_options.pads[i].mask;
     return 1u | ((held & mask & ~bit) ? 2u : 0u) | ((held & bit) ? 4u : 0u);
 }
-/* 1.8.1: a pad button (or trigger) of the Options combination that opened or closed the menu: hidden from the game until every
+/* 1.9.0: a pad button (or trigger) of the Options combination that opened or closed the menu: hidden from the game until every
  * button of that combination is released, on every pad. */
 bool rrhk_options_hidden(int button) {
     if (!rr_options.menu_hold) return false;
@@ -202,11 +202,11 @@ static RrhkOptionRows option_rows(void) {
     for (int i = 0; i < shared.count; ++i) add_row(&d, shared.keys[i], shared.text[i]);
     /* 1.7.4: the plates of the first seconds (F1, F2, Esc, the gamepad's combinations, a computer's keyboard) may be turned off. */
     rrhk_option_row(&d, RRHK_KEY_START_HELP, "Start-up reminders: %s", rr_tr(rrhk_start_help() ? "ON" : "OFF"));
-    /* 1.8.1: in a session, the plate that names who holds the controls in turns may be hidden ([Interface] turn_badge). */
+    /* 1.9.0: in a session, the plate that names who holds the controls in turns may be hidden ([Interface] turn_badge). */
     if (rrhk_session_active()) rrhk_option_row(&d, RRHK_KEY_TURN_BADGE, "Turn badge: %s", rr_tr(rrhk_turn_badge() ? "ON" : "OFF"));
     rrhk_option_row(&d, SDL_SCANCODE_GRAVE, "` Max speed: %s", rr_tr(rrhk.max_speed ? "ON" : "OFF"));
     if (d.count && d.keys[d.count - 1] == SDL_SCANCODE_GRAVE) d.run[d.count - 1] = true;   /* the pace is the session's */
-    /* 1.8.1: quitting is the F2 menu's last tile (the one "Quit? No / Yes"), no longer a row of this page (1.7.6 to 1.8.0). */
+    /* 1.9.0: quitting is the F2 menu's last tile (the one "Quit? No / Yes"), no longer a row of this page (1.7.6 to 1.8.0). */
     return d;
 }
 

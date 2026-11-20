@@ -521,7 +521,7 @@ static bool stick_held(int p, SDL_GameController *pad, SDL_GameControllerButton 
 /* A pad button held, or a trigger bound to a control past the stick threshold (D1); on every machine since 1.7.5. 1.7.6: or a
  * stick direction. */
 static bool pad_held(int p, SDL_GameController *pad, SDL_GameControllerButton button) {
-    if (!pad || button < 0 || rrhk_options_hidden(button)) return false;   /* 1.8.1: the Options press stays the menu's */
+    if (!pad || button < 0 || rrhk_options_hidden(button)) return false;   /* 1.9.0: the Options press stays the menu's */
     if (button < SDL_CONTROLLER_BUTTON_MAX) return SDL_GameControllerGetButton(pad, button) != 0;
     if (RRHK_PAD_IS_STICK(button)) return stick_held(p, pad, button);
     if (button != RRHK_PAD_LEFT_TRIGGER && button != RRHK_PAD_RIGHT_TRIGGER) return false;

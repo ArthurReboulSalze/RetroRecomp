@@ -30,7 +30,7 @@ static struct {
     uint64_t deadline, produced, played, dropped, missing, startup_silence;
     /* What a player hears as a crackle, counted (never by ear): the gaps (a device period that found the ring short), the trims
      * (sound thrown away because the ring was too full) and the clears (the sound waiting thrown away by rrhk_ring_clear: a
-     * pause, a menu, a load, and before 1.8.1 every multiplayer iteration whose frame had not come yet). */
+     * pause, a menu, a load, and before 1.9.0 every multiplayer iteration whose frame had not come yet). */
     uint64_t gaps, trims, clears, cleared;
     bool started;
     RrAudioCushion cushion;
@@ -95,10 +95,10 @@ static void SDLCALL rrhk_ring_callback(void *unused, Uint8 *stream, int bytes) {
     } else rr_cushion_clean(&rrhk_ring.cushion, take, rrhk_ring.rate);
 }
 
-/* The ring is always regulated (1.8.1, Arthur's yes of 19 November 2026): every block goes through the resampler of D30 at
+/* The ring is always regulated (1.9.0, Arthur's yes of 19 November 2026): every block goes through the resampler of D30 at
  * `ring_base` (machine_hz / refresh_hz while the game is locked to the display, 1 + ppm in a multiplayer session, else 1.0) and a
  * correction of at most 0.5 % from its fill against the target (its start reserve plus half a frame, 8 ms), so the fill comes
- * back to the target instead of drifting, with the clocks of the PC and of the sound card, to a trim or a gap. Before 1.8.1 a
+ * back to the target instead of drifting, with the clocks of the PC and of the sound card, to a trim or a gap. Before 1.9.0 a
  * ring at 1.0 was not resampled (byte for byte the machine's PCM), and the drift and the bursts after a late frame were heard as
  * crackles (Tekken 3 on a laptop). The resampler is never restarted by a change of base (a restart repeats a sample), only by a
  * clear. The trim bound has RRHK_RING_ROOM_MS more room (a burst of two or three frames no longer throws sound away) and a trim

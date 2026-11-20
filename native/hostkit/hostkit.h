@@ -59,7 +59,7 @@ extern "C" {
 #define RRHK_MENU_GRAPHICS 6       /* decision D14: F3 on a machine that declares gfx_options */
 #define RRHK_MENU_HUB 7            /* 1.7.4: F2 opens tiles, one per page (controls of each player, the machine's page, options) */
 #define RRHK_MENU_QUIT 8           /* 1.7.4: "Quit?" Yes / No, asked by Esc in play and by the Quit combination */
-#define RRHK_MENU_GIVE 9           /* 1.8.1: multiplayer, turns: the host gives the controller to a seat (from the F2 tiles) */
+#define RRHK_MENU_GIVE 9           /* 1.9.0: multiplayer, turns: the host gives the controller to a seat (from the F2 tiles) */
 
 /* The sticks of a player (RrhkMachine.analog_sticks, rrhk_pad_axes): -32767..32767 since 1.7.6 (SDL's -32768 is given as -32767, a
  * recorded replay's axes as recorded), centre 0, SDL's axes (Y down positive). */

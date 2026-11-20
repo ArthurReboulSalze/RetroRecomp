@@ -27,7 +27,7 @@ static void trigger(int id, int axis, int value) {
     e.type=SDL_CONTROLLERAXISMOTION; e.caxis.which=id; e.caxis.axis=(Uint8)axis; e.caxis.value=(Sint16)value;
     rr_options_event(&e,&menu,false);
 }
-/* F10 is free. 1.8.1: Guide (the Options combination's default) asks the host for its F2 tiles; here the host opens the options
+/* F10 is free. 1.9.0: Guide (the Options combination's default) asks the host for its F2 tiles; here the host opens the options
  * page, the page these checks drive. */
 static void open_options(void) {
     button(7,SDL_CONTROLLER_BUTTON_GUIDE,1);button(7,SDL_CONTROLLER_BUTTON_GUIDE,0);
@@ -125,7 +125,7 @@ static void chords(void) {
     assert(!rr_options_event(&e,&menu,true));key(SDL_SCANCODE_F10,0);
     button(8,SDL_CONTROLLER_BUTTON_GUIDE,1);button(8,SDL_CONTROLLER_BUTTON_GUIDE,0);
     assert(rr_options.menu_request);rr_options.menu_request=0;menu=RR_OPTIONS_MENU;
-    /* 1.8.1: Options is a combination like the others: Guide by default; LB + A taken; R3 + Select (the chat's) and Select +
+    /* 1.9.0: Options is a combination like the others: Guide by default; LB + A taken; R3 + Select (the chat's) and Select +
      * Start (Restart's) refused; while LB + A is held after it fired, A is hidden (menu_hold) until both are released. */
     assert(rr_options.combo[RR_COMBO_OPTIONS].pad==(int)RR_OPTIONS_MENU_PAD);
     button(8,SDL_CONTROLLER_BUTTON_A,1);rr_combo_start(RR_COMBO_OPTIONS,true);button(8,SDL_CONTROLLER_BUTTON_A,0);

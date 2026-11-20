@@ -396,7 +396,7 @@ static void chat_draw_lines(SDL_Renderer *ren, int ox, int oy, int unit, int top
     chat.count = kept;
 }
 
-/* The turn badge (1.8.1): in a match in turns, always there for every seat (the options row « Turn badge » hides it), from who
+/* The turn badge (1.9.0): in a match in turns, always there for every seat (the options row « Turn badge » hides it), from who
  * holds the controls now (rrhk_session_holder); bright for two seconds after a change (the TURN notices), gold for this seat. */
 static int chat_turn_shown(void) {
     const int holder = rrhk_session_holder();
