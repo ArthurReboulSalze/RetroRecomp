@@ -70,6 +70,52 @@ static void whole_sprite_lines(void) {
     }
     romdata=old_rom;ngsys.cdmode=old_cd;sprlimit=old_limit;
 }
+/* The resolved sprite scan (neogeo_sprite_scan.h): lines that follow each other with the tables unchanged are served from the list; the
+ * pinned scalar renderer is the oracle for every one, across chains, sizes up to 63, wraps of Y, both sprite limits, a table rewritten
+ * between two lines (one word, a whole table, the frame state replaced) and lines beyond the list. */
+static void scanned_sprite_lines(void) {
+    static uint8_t tiles[4096],zoom[65536];
+    romdata_t fake={0};romdata_t *old_rom=romdata;
+    unsigned old_cd=ngsys.cdmode,old_limit=sprlimit;
+    fake.c=tiles;fake.csz=sizeof tiles;fake.l0=zoom;fake.l0sz=sizeof zoom;
+    romdata=&fake;ngsys.cdmode=0;
+    uint32_t seed=0x51a7c0de;unsigned expected[2][LSPC_WIDTH];
+    for(unsigned n=0;n<sizeof tiles;++n){seed=seed*1664525u+1013904223u;tiles[n]=(uint8_t)(seed>>24);}
+    for(unsigned n=0;n<sizeof zoom;++n)zoom[n]=(uint8_t)(n^(n>>8));
+    unsigned served=0;
+    for(unsigned scene=0;scene<96;++scene) {
+        sprlimit=(scene&2)?381:96;
+        for(unsigned n=0;n<0x8800;++n){seed=seed*1664525u+1013904223u;lspc.vram[n]=(uint16_t)(seed>>16);}
+        for(unsigned i=1;i<382;++i) {
+            seed=seed*1664525u+1013904223u;
+            unsigned kind=(seed>>24)&3,size=(scene&4)?(seed>>8)&7:(seed>>8)&63;
+            unsigned y=(seed>>16)&511,chain=(kind==0)?0x40:0;
+            if(scene&1)size=(i<40)?33:size;        /* the loop-border case of size 33 */
+            lspc.vram[0x8200+i]=(uint16_t)((y<<7)|chain|size);
+            lspc.vram[0x8000+i]=(uint16_t)(seed&0x0fff);
+            lspc.vram[0x8400+i]=(uint16_t)(((seed>>3)&511)<<7);
+        }
+        lbactive=scene&1;
+        const unsigned first=(scene*29)%230,lines=14;
+        for(unsigned n=0;n<lines;++n) {
+            if(n==5)lspc.vram[0x8200+1+(scene%381)]^=(uint16_t)(0x40<<(scene&1));       /* one word of SCB3 */
+            if(n==9) {for(unsigned i=1;i<382;++i)lspc.vram[0x8400+i]=(uint16_t)(lspc.vram[0x8400+i]+(1<<7));}   /* a whole table */
+            lspc.scanline=LSPC_LINE_BUFSTART+first+n;lspc.aa_counter=scene&7;lspc.aa_disable=(scene>>3)&1;
+            unsigned active=lbactive;
+            memset(linebuf,0,sizeof linebuf);rr_ng_scalar_sprcalc();memcpy(expected,linebuf,sizeof expected);unsigned selector=lbactive;
+            lbactive=active;memset(linebuf,0,sizeof linebuf);geo_lspc_sprcalc();
+            require(selector==lbactive && !memcmp(expected,linebuf,sizeof expected),"a scanned sprite line matches the pinned scalar renderer");
+            served+=rr_ng_scan.built;
+        }
+    }
+    require(served>300,"most lines of a quiet table are served from the list");
+    /* beyond the list (a line the scan never meets in a frame), and the end of the table */
+    lspc.scanline=LSPC_LINE_BUFSTART+300;lbactive=0;
+    memset(linebuf,0,sizeof linebuf);rr_ng_scalar_sprcalc();memcpy(expected,linebuf,sizeof expected);
+    lbactive=0;memset(linebuf,0,sizeof linebuf);geo_lspc_sprcalc();
+    require(!memcmp(expected,linebuf,sizeof expected),"a line beyond the list is scanned as before");
+    romdata=old_rom;ngsys.cdmode=old_cd;sprlimit=old_limit;
+}
 static void specification(void) {
     require(LSPC_PIXELS==384 && LSPC_SCANLINES==264 && LSPC_WIDTH==320,"documented MVS raster geometry");
     geo_lspc_vramaddr_wr(0x7fff);geo_lspc_vrammod_wr(1);geo_lspc_vram_wr(0xabcd);
@@ -120,7 +166,7 @@ static void specification(void) {
 int main(void) {
     static uint32_t pixels[LSPC_WIDTH*264];
     uint8_t saved[RR_NG_LSPC_EXTRA_BYTES],again[RR_NG_LSPC_EXTRA_BYTES];
-    packed_sprite_rows();whole_sprite_lines();unsigned decode_checks=checks;checks=0;
+    packed_sprite_rows();whole_sprite_lines();scanned_sprite_lines();unsigned decode_checks=checks;checks=0;
     geo_lspc_init();geo_lspc_set_buffer(pixels);specification();
     unsigned spec_checks=checks;checks=0;
     for(unsigned n=0;n<SIZE_8K;++n)palette_normal[n]=0xff000000|n;

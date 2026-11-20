@@ -141,6 +141,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Sony PlayStation: longer native steps, a lower frame cost](#sony-playstation-longer-native-steps-a-lower-frame-cost-190) | **the PlayStation game stamp** (`retrorecomp/psx_native.py`) | none | unchanged (no file of the PlayStation key is touched) |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-190) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-190) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
+| [Neo Geo: the sprite scan resolved once per change of the sprite tables](#neo-geo-the-sprite-scan-resolved-once-per-change-of-the-sprite-tables-190) | **the Neo Geo game stamp** (`native/neogeo_sprite_scan.h`, new, and the patch step of `geo_lspc.c` in `neogeo_build.py`; the picture, the sound and the state are unchanged) | unchanged | Neo Geo's key **does not move** |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [Game Boy Advance: multiplayer on the delay tier](#game-boy-advance-multiplayer-on-the-delay-tier-190) | the Game Boy Advance only (`586c1761d5bd` to `2ac1bcdddb63`) | the Game Boy Advance host stamp only (`d52501526302` to `fd6a26f3aada`); build unchanged | unchanged |
 | [Game Boy Advance: the link cable in a match](#game-boy-advance-the-link-cable-in-a-match-190) | the Game Boy Advance only (`c295d2020e01` to `afb7f45c9271`; the stamps are read against `spec/multiplayer` `070aae86`) | the Game Boy Advance host stamp only (`0764780cbbfb` to `165f06c7bb4c`); build unchanged | unchanged |
@@ -996,6 +997,43 @@ other console (nothing shared is edited). **Quick states:** unchanged. Evidence:
 3,001 and 4,700 frames) on NAM-1975 and KOF 2003; two copies on one PC, rollback tier 5, 30 ms latency and 10 ms jitter, the host's
 save at frame 600 and load at 1,500: PASS on both games (NAM-1975: 307 and 498 rollbacks, KOF 2003: 340 and 425), digests equal on both
 seats and, with `--save-digests` (NAM-1975), equal to a run without the save and load up to frame 1,499 and different after it.
+
+## Neo Geo: the sprite scan resolved once per change of the sprite tables (1.9.0)
+
+**What changes.** The line renderer of the Neo Geo walked the 381 sprites for every scanline, reading three tables and following the chain
+bit, although a game rewrites those tables once a frame. The walk is now resolved once per change of the tables: the 381 decoded entries
+and, for each of the 242 lines, the list of sprites that touch it (`native/neogeo_sprite_scan.h`, patched into the pinned `geo_lspc.c` by
+`neogeo_build.py`, our patch). The tables are compared (3 KiB) at every line, so a write by any path (the data port, a state load, a rollback,
+a reset) is seen without a hook; where they change again within three lines (a raster effect) the original walk runs, so a game that rewrites
+them every line never pays more. The sprites reached, their order, their values and the 96 / 381 sprite limit are the same; the work per
+sprite (tile map, palette, auto-animation, pixels) is not touched.
+
+**Hot path:** yes, the per-line sprite pass (25 % of the headless engine in a sampling profile of Puzzle De Pon!).
+
+**What moves:** the Neo Geo game stamp only (the new `neogeo_sprite_scan.h` and the patch step in `neogeo_build.py`, so the engine
+identity of the conversion report changes: 90 files become 91); no other console, no host file. **Quick states:** unchanged, the key does not move
+(the cache holds nothing that is saved: it is rebuilt from the tables, which a state load or a rollback rewrites and the next line sees).
+
+**Identity proofs (CPU fidelity and picture, not hardware fidelity).**
+- The board self-test (`tools/neogeo_board_selftest.py`, `native/neogeo_lspc_checks.c`) compares the scan with the pinned unpatched scalar
+  renderer (`rr_ng_scalar_sprcalc`, generated from the untouched `geo_lspc.c`) over 96 random scenes of 14 consecutive lines each: chains, sizes
+  up to 63, wraps of Y, both sprite limits (96 and 381), one word of the third table and a whole table rewritten between two lines, a size-33
+  sprite, and a line past the list. Same sprites, same order, same values.
+- `tools/ab_conversion.py` on Puzzle De Pon!, Metal Slug, Garou: Mark of the Wolves and Goal! Goal! Goal! (A = main 971df620, B = this
+  change): the route image hashes of the conversion reports are identical on all four. The only differences listed are the engine identity
+  (the new file) and the packed size, which follows from the code.
+- A count on Metal Slug (a build with counters, 1,200 frames, not a timing): the tables change 6.5 times a frame, a list is built 0.5 times a
+  frame and 96.5 % of the lines are served from it.
+
+**Measured gain** (performance specialist, A/B interleaved, one core, host CPU time per frame, not latency; A = 971df620, B = 0a1e41d4):
+
+| Game | engine A → B | loop A → B |
+|---|---|---|
+| Puzzle De Pon! | 1.6094 → 1.4486 ms, **-10.0 %** | 3.6731 → 3.4514 ms, **-6.0 %** |
+| Metal Slug (attract) | 1.8099 → 1.7853 ms, -1.4 % | 3.3140 → 3.2679 ms, -1.4 % |
+
+The gain follows how much of a frame the scan is: clear where there are few sprites to draw, within the noise on Metal Slug, whose frame is
+dominated by drawing its sprites. No regression on either.
 
 ## Game Boy: rollback and the host's F8 / F9 for everyone (1.9.0)
 

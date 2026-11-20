@@ -150,7 +150,7 @@ Licences and notices: [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
   (offline 68000 front end), `neogeo_lithogen.c`, `neogeo_reference.c/.h`,
   `neogeo_state.c`, `neogeo_state_validate.c`, `neogeo_lspc_state.inc`,
   `neogeo_ym_state.inc`, `neogeo_persistence.c/.h`, `neogeo_fixmask.h`,
-  `neogeo_sprite_decode.h`, `neogeo_input.h`, `neogeo_path_io.h`; the 68000
+  `neogeo_sprite_decode.h`, `neogeo_sprite_scan.h`, `neogeo_input.h`, `neogeo_path_io.h`; the 68000
   backend is shared (`m68000_backend*`).
 - **Host-kit adapter**: `native/hostkit/adapters/rrhk_ng.c` (F5/F11 rows, the help
   lines and the displayed view where the edge mask is applied); see [HOST_KIT.md](HOST_KIT.md).
