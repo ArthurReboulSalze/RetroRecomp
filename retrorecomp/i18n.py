@@ -431,6 +431,7 @@ STRINGS = {
     'search': ('Search', 'Rechercher'),
     'games_count': ('{count} games', '{count} jeux'),
     'build_version': ('Built with', 'Version utilisée'),
+    'version_compatible': ('Converted with {built} · compatible {compatible}', 'Converti avec {built} · compatible {compatible}'),
     'saved_hints': ('Saved hints', 'Observations'),
     'game_new_hints': ('New fallbacks · reconvert suggested', 'Nouveaux fallbacks · reconversion conseillée'),
     'game_fallback': ('Fallback during conversion checks', 'Secours dans les tests de conversion'),

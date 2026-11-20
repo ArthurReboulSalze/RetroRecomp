@@ -463,6 +463,7 @@
     "search": "Suchen",
     "games_count": "{count} Spiele",
     "build_version": "Erstellversion",
+    "version_compatible": "Konvertiert mit {built} · kompatibel {compatible}",
     "saved_hints": "Gespeicherte Hinweise",
     "game_new_hints": "Neue Fallbacks · Neukompilierung empfohlen",
     "game_fallback": "Fallback bei Konvertierungstests",

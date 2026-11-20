@@ -463,6 +463,7 @@
     "search": "Поиск",
     "games_count": "Игр: {count}",
     "build_version": "Версия сборки",
+    "version_compatible": "Сконвертировано в {built} · совместимо с {compatible}",
     "saved_hints": "Подсказки",
     "game_new_hints": "Новые fallback · рекомендуется пересборка",
     "game_fallback": "Fallback при проверке преобразования",

@@ -69,6 +69,9 @@ class Game:
     # The deepest scan level a discovery of this export completed (report_level):
     # standard, extended or thorough; '' until its report is read.
     level: str = ''
+    # The newest converter version that would leave this export as it is (compatibility.py: its console's role
+    # stamps did not move since `version`); '' when none. `version` stays the one it was made with.
+    compatible: str = ''
 
     @property
     def key(self):
@@ -102,7 +105,7 @@ class Inventory:
                             and game.status in STATUSES and type(game.hints) is int and game.hints >= 0
                             and type(game.favorite) is bool
                             and all(isinstance(getattr(game,key),str) for key in
-                                    ('title','report','version','target','source','digest','level'))):
+                                    ('title','report','version','target','source','digest','level','compatible'))):
                         if previous is not None:
                             for field in ('executable', 'report', 'source'):
                                 setattr(game, field, _rebase(getattr(game, field), previous, self.base))
@@ -297,6 +300,9 @@ def refresh_changed(inventory, preferences=None, games=None, *, cancel=None, bud
         except (OSError, ValueError, TypeError, KeyError):
             continue
         changed += 1
+    # The running converter may be newer than the rows (an update): their compatible version, from the stamps only.
+    from .compatibility import update
+    changed += update(inventory)
     if changed:
         inventory.save()
     return changed
@@ -490,5 +496,7 @@ def scan(inventory, roots, preferences=None, *, cancel=None, progress=lambda n: 
             if confirmed:
                 with inventory.lock:
                     inventory.games.pop(game.key, None)
+    from .compatibility import update
+    update(inventory)
     inventory.save()
     return count

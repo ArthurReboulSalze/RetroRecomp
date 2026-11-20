@@ -140,6 +140,11 @@ class CompiledGamesView(ttk.Frame):
         self.table.bind('<Button-1>',self.star_clicked)
         self.table.bind('<Double-1>',lambda e:self.play())
         self.table.bind('<<TreeviewSelect>>',self.selection)
+        # The Version cell of a game compatible with a newer converter: « Converted with 1.9.0 · compatible 1.9.1 ».
+        from .tooltips import Tooltip
+        self.version_cell = None
+        self.version_tip = Tooltip(self.table,self.version_hint,place=self.version_box)
+        self.table.bind('<Motion>',self.version_motion,add='+')
         self.table.bind('<Return>',lambda e:self.play())
         bottom = ttk.Frame(self)
         bottom.pack(fill='x',pady=(10,0))
@@ -273,13 +278,13 @@ class CompiledGamesView(ttk.Frame):
                 (g.title+' '+get_profile(g.system).name+' '+g.identity).casefold())]
         key = lambda g:((not g.favorite,g.title.casefold()) if self.sort_key=='favorite' else get_profile(g.system).name if self.sort_key=='system' else
                        self.tr('game_'+g.status) if self.sort_key=='status' else LEVEL_STARS.get(g.level,0) if self.sort_key=='level'
-                       else getattr(g,self.sort_key))
+                       else (g.compatible or g.version) if self.sort_key=='version' else getattr(g,self.sort_key))
         games.sort(key=key,reverse=self.reverse)
         def insert(start=0):
             if token != self.render_token or not self.winfo_exists():return
             for index,g in enumerate(games[start:start+60],start):
                 row = self.table.insert('','end',values=('★' if g.favorite else '☆',g.title,get_profile(g.system).name,
-                    stars(g.level),g.version or '—',g.hints,self.tr('game_'+g.status)),tags=('odd',g.status) if index%2 else (g.status,))
+                    stars(g.level),g.compatible or g.version or '—',g.hints,self.tr('game_'+g.status)),tags=('odd',g.status) if index%2 else (g.status,))
                 self.rows[row] = g
                 if g.key in selected:self.table.selection_add(row)
             if start+60<len(games):self.after(1,lambda:insert(start+60))
@@ -349,6 +354,31 @@ class CompiledGamesView(ttk.Frame):
 
     def chosen(self):
         return [self.rows[r] for r in self.table.selection() if r in self.rows]
+
+    def hovered_version(self):
+        """(row, game) when the pointer is over the Version cell of a game shown as compatible with a newer version."""
+        x = self.table.winfo_pointerx()-self.table.winfo_rootx()
+        y = self.table.winfo_pointery()-self.table.winfo_rooty()
+        row = self.table.identify_row(y)
+        if row in self.rows and self.table.identify_column(x)=='#%d'%(self.columns.index('version')+1):
+            game = self.rows[row]
+            if game.compatible:return row,game
+        return None,None
+
+    def version_hint(self):
+        row,game = self.hovered_version()
+        return self.tr('version_compatible',built=game.version or '—',compatible=game.compatible) if game else ''
+
+    def version_box(self):
+        row,game = self.hovered_version()
+        return self.table.bbox(row,'version') or None if row else None
+
+    def version_motion(self,event):
+        cell = (self.table.identify_row(event.y),self.table.identify_column(event.x))
+        if cell != self.version_cell:
+            self.version_cell = cell
+            self.version_tip.hide()
+            if self.hovered_version()[1] is not None:self.version_tip.schedule()
 
     def context_menu(self,event):
         row = self.table.identify_row(event.y)

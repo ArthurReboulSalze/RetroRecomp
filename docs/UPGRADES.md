@@ -62,6 +62,22 @@ N it covers the exports, receipts, quick states and local files that release N-1
 A player coming from an older release reconverts (or reinstalls); nothing is lost on disk, the old files are simply
 not read.
 
+## Exports a newer release leaves as they are: « compatible »
+
+A release that changes only the converter (its window, its tools) moves no stamp of a console: an export of the release
+before is current for it, nothing is rebuilt. The Compiled games list then shows that export with the newest version it
+is compatible with, and its hint names both: « Converti avec 1.9.0 · compatible 1.9.1 ».
+
+- It comes from the stamps only, never from a manual flag. Each release records its own role stamps (game, host and
+  build) per console in `assets/release-stamps.json` (`python -B tools/release_stamps.py --write` at release time,
+  `--check` to verify the published tree). An export is compatible when the stamps recorded for its release and console
+  equal the running converter's, in every role (`retrorecomp/compatibility.py`).
+- A release not recorded there, or a stamp that differs, stamps nothing: the export is upgraded or reconverted as before,
+  and then carries the new version itself. A row that is missing, unreadable or changed since its receipt stamps nothing.
+- Only the library's row is stamped (`compatible` in `compiled-games.json`), when the collection is scanned or refreshed.
+  The conversion report keeps the version the export was made with, and **the game itself still shows the version it was
+  compiled with** (`RR_RECOMP_VERSION`): no file of the export is written, no stamp moves.
+
 ## What an upgrade does
 
 The console's normal conversion runs at the **quick** scan level: one pass on

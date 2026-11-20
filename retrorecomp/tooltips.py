@@ -11,10 +11,12 @@ class Tooltip:
     # on the toplevel after the hint's widget was destroyed.
     active = set()
 
-    def __init__(self, widget, text, item=None):
+    def __init__(self, widget, text, item=None, place=None):
         """A hint for a widget, or for one canvas item or tag (`item`): then
-        only that item shows it, below its own box."""
-        self.widget, self.text, self.item = widget, text, item
+        only that item shows it, below its own box. `place`, a callable, gives the
+        box of the part of the widget it is about ((x, y, width, height) in the
+        widget, or None): the hint then shows below that part."""
+        self.widget, self.text, self.item, self.place = widget, text, item, place
         self.timer = self.window = None
         top = widget.winfo_toplevel()
         if not getattr(top, '_retro_tooltip_dismiss', False):
@@ -59,6 +61,10 @@ class Tooltip:
             box = self.widget.bbox(self.item)
             if box:
                 left, top, height = left + box[0], top + box[1], box[3] - box[1]
+        elif self.place is not None:
+            box = self.place()
+            if box:
+                left, top, height = left + box[0], top + box[1], box[3]
         x = min(left + 12, self.window.winfo_screenwidth() - self.window.winfo_reqwidth() - 8)
         y = top + height + 6
         if y + self.window.winfo_reqheight() > self.window.winfo_screenheight() - 8:
