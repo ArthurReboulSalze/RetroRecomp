@@ -49,7 +49,11 @@ SEEDS: dict[str, LinkSeed] = {
     # Mario Kart: Super Circuit (USA), 9d327c03...: the two-console route of the engine's author (cold boot, Multi-Pak link, 50cc Mario GP, Toad and Yoshi, Mushroom Cup,
     # about twenty seconds of race) with empty Flash512 chips. 0802DB5C is the serial callback the engine's author found too (its descriptor pointer is at 080DE1B4).
     'aadc8b9f3c947ff6f610b6c8d7fddaaa9bea98b4bd43576df84f26c457ae1f90': LinkSeed(
-        'Mario Kart: Super Circuit', _roots(0x0802DB5C, 0x0805F80C, 0x0805A790, 0x0805A758, 0x0805A79C, 0x0805A7AC, 0x080503B4, 0x080505D8),
+        'Mario Kart: Super Circuit', _roots(0x0802DB5C, 0x0805F80C, 0x0805A790, 0x0805A758, 0x0805A79C, 0x0805A7AC, 0x080503B4, 0x080505D8,
+                                       0x08050794, 0x0805A060, 0x0805A0FC,
+                                       # found on the VS-mode routes of 20 November 2026 (Peach Circuit, Shy Guy Beach, Riverside Park, Bowser Castle 1), after Arthur's play test closed the match in a race
+                                       0x0804F9E4, 0x0804FA4E, 0x08050B64, 0x08050C68, 0x08050C9C, 0x08050CB8, 0x08050D0C, 0x0805A020, 0x0805A042, 0x0805A04E, 0x0805A054,
+                                       0x0805A0D0, 0x0805A0E0, 0x0805A0EC, 0x0805A0F2, 0x0805A39C, 0x0805A3AE, 0x0805A3BA, 0x0805A3C0, 0x0805F74C, 0x0805F752),
         seats_tested=2, route='Multi-Pak link, 50cc Mario GP, two characters, Mushroom Cup, the first twenty seconds of the race',
         frames=4845, cycles=1360941120),
 }
