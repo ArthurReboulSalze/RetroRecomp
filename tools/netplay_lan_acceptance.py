@@ -126,6 +126,11 @@ def run(args) -> int:
     for name in ('save_at', 'load_at', 'restart_at'):
         if getattr(args, name):
             flags += ['--' + name.replace('_', '-'), str(getattr(args, name))]
+    flags += ['--sharing', args.sharing]
+    route = []                     # a recorded route: the guest reads it here, the host from its own copy (--remote-route)
+    if args.route:
+        route = ['--route', str(args.route)]
+        flags += ['--route', f'"{args.remote_route or args.route}"']
     # The host's logs go beside its converter, where they can be read after a run.
     if args.remote_posix:          # a Linux PC: its shell, its separators, and SDL's dummy drivers in its environment
         remote_out = args.remote_out or (args.remote_root.rstrip('/') + '/../acceptance-logs/host')
@@ -178,6 +183,7 @@ def run(args) -> int:
             guest_command += ['--sticks']
         if args.keys:
             guest_command += ['--keys']
+        guest_command += ['--sharing', args.sharing, *route]
         guests.append(subprocess.Popen(guest_command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace'))
     guest_lines: list[list[str]] = []
@@ -255,6 +261,7 @@ def main() -> int:
         p.add_argument('--internet', action='store_true',
                        help='an Internet room (RR2 key, its admission and deadline), the host\'s address typed: no box is asked')
     run_parser = sub.choices['run']
+    run_parser.add_argument('--remote-route', help='the route file on the remote PC (default: the same path as --route)')
     run_parser.add_argument('--remote', required=True, help='USER@HOST of the PC that hosts (SSH, its key already trusted)')
     run_parser.add_argument('--remote-root', required=True, help='its converter folder')
     run_parser.add_argument('--remote-game', required=True, help='its copy of the same export')
