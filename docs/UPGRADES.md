@@ -198,11 +198,13 @@ interpreted. Gran Turismo 2, Tekken 3 and WipEout 2097 (PAL) converted by main a
 trace identical, the F8/F9 check passed.
 
 **Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread of the first in
-brackets; main `e4f40699` then this change): Ape Escape, the engine alone 3.257 (3.3 %) to 2.888, −11.3 %, and the whole loop
-on the graphics card 3.803 (4.8 %) to 3.413, −10.3 %. These are costs of the host's code on one PC, not physical latency.
-Four more items of the wave measured no gain on top (engine −10.7 % to −11.7 % with them, the same as this one alone) and
-were left out: a step that goes on to the next step itself, a table by address for the words that vary at an address, the
-interpreter's loop head reading an instruction-cache hit inline, and the card's picture converted a word at a time.
+brackets; main `e4f40699` then this change): Ape Escape, the engine alone 3.257 (3.3 %) to 2.888, −11.3 %. The whole loop
+on the graphics card was timed with the wave's five items together: 3.803 (4.8 %) to 3.413, −10.3 %, the engine's gain
+carried into the loop. These are costs of the host's code on one PC, not physical latency. Four more items of the wave
+measured no gain on top (engine −10.7 % to −11.7 % with them, the same as this one alone) and were left out, each a second
+path for no speed: a step doing the interpreter loop's work to go on to the next step itself, a 2.5 MB table by address in
+place of a short search, a copy of Beetle's instruction-cache hit in the loop head, and a word-at-a-time conversion of the
+card's picture with its own byte-order branch.
 
 Stamps: the PlayStation game stamp moves (an export of 1.8.0 is converted again once, as every machine's in 1.9.0). The
 quick-state key and the state format do not change.
