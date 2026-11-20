@@ -136,6 +136,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end](#mega-drive-super-nintendo-pc-engine-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the game stamps of the Mega Drive, Super Nintendo, PC Engine, MSX, MSX2 and MSX2+** (`native/cart_save.c` and `.h`, which they share; `md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the quick-state keys of those six profiles move** (they hash `cart_save.c`; the Mega Drive's also `md_backend.c` and `md_battery.c`): older quick states are refused cleanly; the state and save formats do not change |
 | [Mega Drive: the host's save written back at a match's clean end](#mega-drive-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the Mega Drive game stamp** (`md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the Mega Drive quick-state key moves** (it hashes `md_backend.c` and `md_battery.c`): an older quick state is refused cleanly; the state and save formats do not change |
 | [Mega Drive: a lower frame cost, the same pictures and sound](#mega-drive-a-lower-frame-cost-the-same-pictures-and-sound-190) | **the Mega Drive game stamp** (`retrorecomp/megadrive_video.py`) | none | unchanged (no file of the Mega Drive key is touched) |
+| [Sony PlayStation: longer native steps, a lower frame cost](#sony-playstation-longer-native-steps-a-lower-frame-cost-190) | **the PlayStation game stamp** (`retrorecomp/psx_native.py`) | none | unchanged (no file of the PlayStation key is touched) |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-190) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-190) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
@@ -181,6 +182,31 @@ Z80's slice end served on the sound fiber (16 % fewer fiber switches), measured 
 −2.5 % with both) and was left out: it added machinery to the Z80 bus for no speed.
 
 Stamps: the Mega Drive game stamp moves (an export of 1.8.0 is converted again once, as every machine's in 1.9.0). The
+quick-state key and the state format do not change.
+
+## Sony PlayStation: longer native steps, a lower frame cost (1.9.0)
+
+The 1.9.0 optimisation wave for the PlayStation. **A run of native steps is no longer cut at an entered address**
+(`psx_native.plan`). An interrupt returns to any address of a hot loop, so almost every address of one was marked as entered:
+three quarters of the instructions ran in steps of one or two, each going back through Beetle's interpreter loop to find the
+next (on Ape Escape that dispatch was about a quarter of the frame). A run is now cut only where the code stops being
+consecutive; an entered address becomes a label inside its step. Every instruction keeps its own work, cycle count and order.
+
+**Identical output.** Ape Escape on a kept build, both conversion routes (3,600 and 3,900 frames): the per-frame trace (RAM,
+picture, sound, CPU state, VRAM) is byte-identical to main's game, with the same native instruction counts and nothing
+interpreted. Gran Turismo 2, Tekken 3 and WipEout 2097 (PAL) converted by main and by the branch: every route and reference
+trace identical, the F8/F9 check passed.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread of the first in
+brackets; main `e4f40699` then this change): Ape Escape, the engine alone 3.257 (3.3 %) to 2.888, −11.3 %. The whole loop
+on the graphics card was timed with the wave's five items together: 3.803 (4.8 %) to 3.413, −10.3 %, the engine's gain
+carried into the loop. These are costs of the host's code on one PC, not physical latency. Four more items of the wave
+measured no gain on top (engine −10.7 % to −11.7 % with them, the same as this one alone) and were left out, each a second
+path for no speed: a step doing the interpreter loop's work to go on to the next step itself, a 2.5 MB table by address in
+place of a short search, a copy of Beetle's instruction-cache hit in the loop head, and a word-at-a-time conversion of the
+card's picture with its own byte-order branch.
+
+Stamps: the PlayStation game stamp moves (an export of 1.8.0 is converted again once, as every machine's in 1.9.0). The
 quick-state key and the state format do not change.
 
 ## Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder (1.9.0)
