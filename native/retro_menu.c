@@ -284,11 +284,14 @@ static const uint64_t icon_chat[18] = {
 static const uint64_t icon_exit[18] = {
     0x0ull, 0x0ull, 0x55555500ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x300006aaaa900ull, 0xf00006aaaa900ull, 0xfffff06aaaa900ull, 0x3fffff06baaa900ull,
     0xfffff06baaa900ull, 0xf00006aaaa900ull, 0x300006aaaa900ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x6aaaa900ull, 0x55555500ull, 0x0ull, 0x0ull};
-/* 1.9.0: the F2 tile that restarts the game (Shift+F1, the pad's Restart combination), a circle closed by its arrow. */
+/* 1.9.0: the F2 tile that restarts the game (Shift+F1, the pad's Restart combination): two arcs of a ring, each with its
+ * arrowhead (Arthur's pick, 20 Nov 2026). Rasterised from geometry on this grid: a band of three cells from radius 4 to 7
+ * around the point between cells 14/15 and rows 8/9, the quarters from nine to twelve o'clock and from three to six, cut
+ * square; the heads (accent) axis-aligned, 7 x 4 cells, at twelve pointing right and at six pointing left. */
 static const uint64_t icon_restart[18] = {
-    0x3c0000000ull, 0x3fd0000000ull, 0x3ffe9400000ull, 0x3fd6900000ull, 0x3c0640000ull, 0x190000ull, 0x90000ull, 0x80000060000ull,
-    0x190000064000ull, 0x190000064000ull, 0x90000060000ull, 0x60000090000ull, 0x64000190000ull, 0x19000640000ull, 0x6956900000ull,
-    0x16a9400000ull, 0x50000000ull, 0x0ull};
+    0xc0000000ull, 0x3c0000000ull, 0xfd5000000ull, 0x3fd5400000ull, 0xfd5500000ull, 0x3c1540000ull, 0xc0550000ull, 0x150000ull,
+    0x150000ull, 0x54000000000ull, 0x54000000000ull, 0x55030000000ull, 0x1543c000000ull, 0x557f000000ull, 0x157fc00000ull,
+    0x57f000000ull, 0x3c000000ull, 0x30000000ull};
 /* 1.9.0, multiplayer in turns (session ABI 9): pass the controller, give it (the host), everyone at once / turns (the host). */
 static const uint64_t icon_pass[18] = {
     0x0ull, 0x0ull, 0x0ull, 0x0ull, 0x0ull, 0x5555550ull, 0x1aaaaaa4ull, 0x3000001aaaaaa4ull, 0xf000001aeaaba4ull,

@@ -58,7 +58,7 @@ enum { RR_ICON_KEYBOARD, RR_ICON_GAMEPAD, RR_ICON_OPTIONS, RR_ICON_POINTER, RR_I
        RR_ICON_GRAPHICS,  /* 1.7.6: the F2 tile of the graphics page, a 3D shape on a screen */
        RR_ICON_CHAT,      /* the F2 tile of the multiplayer chat, a speech bubble */
        RR_ICON_EXIT,      /* 1.9.0: the F2 tile that quits the game, a door and an arrow */
-       RR_ICON_RESTART,   /* 1.9.0: the F2 tile that restarts the game, a circle with its arrow */
+       RR_ICON_RESTART,   /* 1.9.0: the F2 tile that restarts the game, two arcs of a ring with their arrows */
        RR_ICON_PASS,      /* 1.9.0: multiplayer, turns: pass the controller (a pad, an arrow on) */
        RR_ICON_GIVE,      /* 1.9.0: the host gives the controller (a pad, an arrow to a player) */
        RR_ICON_SHARING,   /* 1.9.0: the host switches everyone at once / turns (two players, arrows both ways) */
