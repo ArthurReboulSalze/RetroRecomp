@@ -16,26 +16,30 @@ which is not the same measure.
   missing firmware).
 - When your game matches, press the big **I'm ready** button. The host clicks **Launch**, and the game opens on every PC.
 - The lobby has a chat, and the room shows each player's link while a match runs.
-- The host must let the room's port (24611, TCP and UDP) in through its firewall. A guest only needs to connect out.
+- The host must let the room's port (24611, TCP and UDP) in through its firewall. A guest only needs to connect out. The
+  installer offers an optional rule for it (unticked by default); when Windows' firewall would block the guests anyway, the
+  host's room says so plainly.
 
 ## How a match plays
 
 | | |
 |---|---|
-| **Controls** | Each player has their own controller on the machine's ports, up to four players. On the handhelds (Game Boy, Game Gear, Game Boy Advance) everyone shares the one set of controls, together or in turns. |
+| **Controls** | Each player has their own controller on the machine's ports, up to four players. On the handhelds (Game Boy, Game Gear, Game Boy Advance) the players share the one set of controls (**Everyone** at once, or **Turns**: one player at a time), or play over the **link cable** (below). |
+| **Turns** | The player who has the controller passes it with F2's **Pass the controller** tile; the host gives it to anyone (**Give the controller to…**) and switches between Everyone and Turns, in the game or in the Multiplayer window. A badge shows who has it (it can be hidden in F2's options). |
+| **Link cable** | On the Game Boy, the Game Gear and the Game Boy Advance, **Link cable (one console per player)**: each player plays their own console, linked as by a real cable. Every PC runs every console, so only the controllers travel, and each PC shows and plays the sound of its own player's console (F2 says « You are P2 »). Two consoles. Every console starts from the host's save, and only the host's console's save is written back at the end. On the Game Boy Advance, a game links only when its cable code has been reviewed (today: Mario Kart: Super Circuit); the others play shared. |
 | **Smooth mode (rollback)** | The game does not wait for the other players' buttons. It guesses them and corrects itself at once when the true ones arrive, so a far player does not slow the game down. Up to five frames are guessed; a slower link adds input delay instead. |
 | **Delay mode** | Every PC waits for every player's buttons, one or two frames on a local network. It is used for the PlayStation, the Nintendo 64 and the Game Boy Advance, and for any game that cannot rewind. |
 | **Pause** | The pause and the menus (F1, F2) pause the match for everyone. The player who paused, or the host, resumes it. |
-| **Restart** | Shift+F1 (or the pad's Restart combination) restarts the game for everyone, from the host only. |
+| **Restart** | Shift+F1, the pad's Restart combination or F2's **Restart the game** tile restarts the game for everyone, from the host only. |
 | **Quick save and load** | F8 and F9 (or the pad's combinations) save and load the match for everyone, from the host only. That save lives in memory for the current match: your own quick states are never read or written. |
 | **The game's own saves** | Battery saves, memory cards, EEPROMs and save files are the host's for the match: the guests play on a copy in memory and never write their own. |
-| **The host's settings** | Settings that change how the game runs (PGXP and the CPU resolution on the PlayStation, the CPU speed of the Amiga, the Neo Geo's clock and system, the sprite limit of the NES and Master System, the DIP switches of the CPS boards…) are the host's for everyone and locked during the match. Settings that only change the picture stay your own. |
+| **The host's settings** | Settings that change how the game runs (PGXP and the CPU resolution on the PlayStation, the CPU speed of the Amiga, the Neo Geo's clock and system, the sprite limit of the NES and Master System, the DIP switches of the CPS boards…) are the host's for everyone: the guests see them greyed. The host can change one during the match: a question asks first, then the game starts again for everyone with the new setting. Settings that only change the picture stay your own. |
+| **The computer's keyboard** | On the Amiga, Atari ST, X68000 and MSX, the host types for everyone: Ctrl+Alt+K hands the host's keyboard to the computer, and every PC's computer gets the same keys at the same frame. The guests stay on their controllers. The function keys stay the converter's in a match. |
 | **Chat** | Y on the keyboard, or R3 + Select on the gamepad, opens the in-game chat, with ready-made phrases or free text. |
 | **Clock** | Machines with a real-time clock start on the same date on every PC. |
 
-Not carried yet: a computer's keyboard and mouse (joystick games only on the Amiga, Atari ST, X68000 and MSX), light guns,
-and the mouse. On the Neo Geo, the host and the guests must play on the same system (AES or MVS: F11 in the game). On the
-Nintendo 64, restarting is not available during a match.
+Not carried yet: the mouse and light guns, and a guest's keyboard. On the Nintendo 64, restarting is not available during a
+match. On the PlayStation, a disc cannot be changed during a match.
 
 ## Machines
 
@@ -43,18 +47,18 @@ Nintendo 64, restarting is not available during a match.
 |---|---|---|---|
 | NES | smooth | up to 4 | Four Score / NES Satellite games read players 3 and 4 |
 | Master System | smooth | 2 | |
-| Game Gear | smooth | shared | |
+| Game Gear | smooth | shared, or 2 by link cable | |
 | Mega Drive | smooth | up to 4 | Team Player, EA 4 Way Play and J-Cart, chosen per game from three players on |
 | Super Nintendo | smooth | up to 4 | every enhancement chip; Super Multitap games from three players on |
 | PC Engine | smooth | up to 4 | the multitap is always plugged for a game built for two or more |
 | Neo Geo | smooth | 2 | |
 | CPS-1, CPS-1.5, CPS-2 | smooth | up to 4 | |
-| MSX, MSX2, MSX2+ | smooth | 2 | joystick games |
-| Game Boy | smooth | shared | |
-| Game Boy Advance | delay | shared | |
-| Amiga 500 and 1200 | smooth | 2 | joystick games |
-| Atari ST | smooth | 2 | joystick games |
-| X68000 | smooth | 2 | joystick games |
+| MSX, MSX2, MSX2+ | smooth | 2 | the host types on the keyboard |
+| Game Boy | smooth | shared, or 2 by link cable | |
+| Game Boy Advance | delay | shared, or 2 by link cable | the cable on reviewed games |
+| Amiga 500 and 1200 | smooth | 2 | the host types on the keyboard |
+| Atari ST | smooth | 2 | the host types on the keyboard |
+| X68000 | smooth | 2 | the host types on the keyboard |
 | PlayStation | delay | 2 | PGXP kept and set by the host |
 | Nintendo 64 | delay | up to 4 | analogue sticks carried |
 | Adventure (ScummVM) | not offered | | one player |
