@@ -127,6 +127,7 @@ state-layout keys move too, with the other keys the rows name.
 | [MSX: a MegaROM with no direct mapper store is probed, not refused](#msx-a-megarom-with-no-direct-mapper-store-is-probed-not-refused-190) | **the MSX, MSX2 and MSX2+ game stamps** (`retrorecomp/msx_conversion.py`) | none | unchanged |
 | [MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end](#msx-msx2-msx2-the-hosts-save-travels-in-a-session-and-is-written-back-at-its-end-190) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout) |
 | [MSX2+: a silent MSX-MUSIC chip takes a short step](#msx2-a-silent-msx-music-chip-takes-a-short-step-190) | **the MSX2+ game stamp** (`msx_music.c`) | none | unchanged (the chip's image is the same; the new flags are not in it) |
+| [MSX2, MSX2+: the picture is converted with a colour table](#msx2-msx2-the-picture-is-converted-with-a-colour-table-190) | none | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`; the MSX1 picture is unchanged) | unchanged (the picture is outside the state) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-190) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-190) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
@@ -642,6 +643,23 @@ nothing while its music plays (the predicate is then checked once every 4,096 sa
 
 **Stamps** (computed with `tools/release_stamps.py` against main `42f50356`): the MSX2+ game stamp only (`msx_music.c` is built
 into an MSX2+ game only; the new fixture is a check, outside the stamps); quick states unchanged.
+
+## MSX2, MSX2+: the picture is converted with a colour table (1.9.0)
+
+Frame cost (the 1.9.0 optimisation wave, Arthur's go of 20 November 2026). A profile of the player's path found the host's
+conversion of the V9938 / V9958 picture to the window's colours at about a third of the MSX2 loop: each of the 512 half-pixels of
+212 lines went through `m_rgb9` (three products by 255 / 7), and the 544 x 228 view was first filled with the border, then
+written again over the picture. `m_picture2` (`native/hostkit/adapters/rrhk_msx.inc`) now reads the 9-bit colours from a table of
+`m_rgb9`'s own results, filled at the first picture; a YJK point of the V9958 (`MSX_COLOUR15`) is still computed, and each view
+point is written once (the border around the picture, the picture's points inside). The MSX1's picture is unchanged.
+
+**Identical picture.** `m_rgb9` reads only the bits `0x777` of a point that is not a YJK one, so the table indexed by those bits
+gives the same value. Checked on a scratch harness that compiles main's conversion and this one side by side: the colour is the
+same for all 65,536 point values, and the whole view is byte-identical on 3,000 random frames (random points of every code, YJK
+included, random borders, every line adjust from -128 to 127, vertical adjusts from -16 to 15, 192 and 212 lines); two broken
+variants (a wrong table index, a picture moved by two columns) fail it. On converted games, a scratch per-frame digest of the whole view (the same patch on both sides), main against this branch, 1,501 frames of the player's path: identical on Space Manbow (MSX2, 177 different pictures) and Manbow 2 (MSX2+ cartridge, 9 different pictures).
+
+**Stamps:** the MSX, MSX2 and MSX2+ host stamps (one adapter for the family); no game stamp; quick states unchanged.
 
 ## MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end (1.9.0)
 
