@@ -52,10 +52,41 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
 | nes | NES | Windows | Metroid | 3.0146 | 2.1 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
 | md | Mega Drive | Windows | Sonic The Hedgehog 2 | 1.9643 | 1.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
 | md | Mega Drive | Windows | Sonic The Hedgehog 2 | 1.9903 | 0.1 % | 3 x 240 | 1.9.0 (main d8dba7b2) | 2026-11-20 |
+| pce | PC Engine | Windows | Blazing Lazers | 5.7940 | 1.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| pce | PC Engine | Windows | Blazing Lazers | 5.8048 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| snes | Super Nintendo | Windows | Mega Man X2 | 4.7309 | 2.9 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| snes | Super Nintendo | Windows | Mega Man X2 | 4.6789 | 0.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| ng | Neo Geo | Windows | Puzzle De Pon! | 3.6552 | 0.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| ng | Neo Geo | Windows | Puzzle De Pon! | 3.7608 | 0.8 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| cps1 | CPS-1 | Windows | Final Fight | 1.5894 | 0.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| cps1 | CPS-1 | Windows | Final Fight | 1.5813 | 1.3 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| cps2 | CPS-2 | Windows | 19XX | 1.5419 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| cps2 | CPS-2 | Windows | 19XX | 1.5839 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| x68 | Sharp X68000 | Windows | R-Type | 1.3167 | 1.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| x68 | Sharp X68000 | Windows | R-Type | 1.3263 | 1.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| amiga | Amiga 500 | Windows | Lotus 2 | 1.6223 | 1.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| amiga | Amiga 500 | Windows | Lotus 2 | 1.6334 | 2.8 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.8553 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| a1200 | Amiga 1200 | Windows | Pinball Illusions | 2.8260 | 1.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| atarist | Atari ST | Windows | Bomb Jack | 1.7062 | 8.8 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| atarist | Atari ST | Windows | Bomb Jack | 1.5929 | 6.6 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| msx | MSX | Windows | Nemesis | 0.9473 | 2.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| msx | MSX | Windows | Nemesis | 0.9391 | 1.7 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| msx2 | MSX2 | Windows | Space Manbow | 0.9594 | 2.5 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| msx2 | MSX2 | Windows | Space Manbow | 0.9400 | 0.3 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| msx2plus | MSX2+ | Windows | Manbow 2 | 1.2317 | 1.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| msx2plus | MSX2+ | Windows | Manbow 2 | 1.2274 | 2.0 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| gba | Game Boy Advance | Windows | Advance Wars | 1.7099 | 5.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| gba | Game Boy Advance | Windows | Advance Wars | 1.7163 | 0.5 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| n64 | Nintendo 64 | Windows | Super Mario 64 | 4.8724 | 16.1 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| n64 | Nintendo 64 | Windows | Super Mario 64 | 4.8636 | 7.1 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
+| psx | PlayStation | Windows | Ape Escape | 4.1288 | 1.0 % | 3 x 240 | 1.8.0 | 2026-11-20 |
+| psx | PlayStation | Windows | Ape Escape | 4.2898 | 2.3 % | 3 x 240 | 1.9.0 (main 4aafb3fd) | 2026-11-20 |
 
-1.8.0 is the published release (tag `v1.8.0`), 1.9.0 the release line before its tag (main `d8dba7b2`); both were converted
-from source with the same tools and timed in one pass, interleaved. No Linux figure yet, and the other machines are not
-measured on this path yet.
+1.8.0 is the published release (tag `v1.8.0`), 1.9.0 the release line before its tag (main `d8dba7b2` for the first five
+machines, main `4aafb3fd` for the others); both sides of a machine were converted from source with the same tools and timed
+in one pass, interleaved, on an otherwise idle PC. Each row is one game in its attract scene (no input): a busy in-game scene
+costs more. The MSX2+ row is a cartridge game (Manbow 2). No Linux figure yet.
 
 ## Adding or updating a row
 
