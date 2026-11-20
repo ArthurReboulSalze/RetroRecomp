@@ -13,7 +13,7 @@ The project's own checks do not establish hardware fidelity, complete gameplay o
 5. [Controls and options](#controls-and-options)
 6. [States and saves](#states-and-saves)
 7. [Qualification](#qualification)
-8. [Gear-to-Gear cable](#gear-to-gear-cable-next-release-work-in-progress)
+8. [Gear-to-Gear cable](#gear-to-gear-cable-next-release)
 9. [Known limits](#known-limits)
 10. [History](#history)
 
@@ -134,7 +134,7 @@ one says what the Game Gear's six cartridges of the 1.6.9 panel add to it. The p
 | G13 Cross-OS | the six Game Gear cartridges of the panel give equal traces, final RAM and final CPU on Windows and on a Debian 13 PC (18 of 18 routes) | the same limits as the Master System's |
 | G15 Honesty | the audit of 5 November 2026 (see the Master System table) corrected two sentences of this page: "faithful to the handheld's visible area" now says what is shown, and "exactly as" now says "in the same way" | |
 
-## Gear-to-Gear cable (next release, work in progress)
+## Gear-to-Gear cable (next release)
 
 The handheld's EXT port and its cable are modelled for two players, each on a Game Gear of their own. Every PC runs **both** consoles
 (`native/gg_link.inc`); only the two controllers travel in a match, as on the NES, so the rollback and the host's F8 / F9 work for the pair.
@@ -161,7 +161,13 @@ How it is checked, and what it does not say:
   with the falling columns on both boards, about 2,700 bytes in each direction in 3,000 frames, none dropped, no interpreted instruction.
   The digest is stable (two runs identical) and the rollback of the pair passes in the middle of the match (digest after the load equal to the saved one,
   the same 40 frames give the same digest). Scripted pads only (the master presses VERSUS alone: two players pressing it in the same frame deadlock in the game's own
-  protocol, as on the handheld); no human played it, two seats over the network are not yet proven (that belongs to the session). Which Game Gear cartridges use the cable is known only from a decoded census of the
+  protocol, as on the handheld); no human played it.
+- **Two seats through the session, on one PC** (`tools/netplay_game_smoke.py`, the link mode of the host kit's contract, scripted pads that bring Super Columns to its Versus mode): 3,000 frames,
+  50 digests all equal on the two seats, about 2,700 bytes each way; on the rollback tier with 30 ms of latency and jitter, 17 corrections,
+  3,004 snapshots saved and 37 loaded, and the host's F8 / F9 at frames 1,700 and 2,300: the same, digests equal. The session opens one frame after the guest started, so the pair
+  begins at the next instruction boundary from the power-on state the runtime kept (a restart of the game for the match). The game's saves: this runtime has no cartridge RAM, so
+  there is nothing to carry or to write back (phase 1 of the link saves contract; per-seat saves are phase 2). Two PCs over the network are the multiplayer specialist's proof, not given here.
+  Which Game Gear cartridges use the cable is known only from a decoded census of the
   player's library (Super Columns, Sonic Drift 1 and 2, Streets of Rage 1 and 2, Bust-A-Move, OutRun, Mappy, Bubble Bobble and others show link code);
   Columns and Super Monaco GP are not in that library.
 - Unverified on the handheld, kept as constants of the model and listed here: whether the transmit buffer is double (a write while a frame is on the wire is dropped here); what an unread byte becomes when another arrives (replaced here, no error flag);

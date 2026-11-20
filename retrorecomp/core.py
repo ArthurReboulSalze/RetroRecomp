@@ -1200,7 +1200,7 @@ static void smsrecomp_state_service(void);
         banked = replace_once(banked, "        banked_after_step(pending_irq);\n        banked_advance_vdp(g_z80.cyc);",
             "        if (rrl_on && rrl_nmi()) banked_accept_nmi(); else banked_after_step(pending_irq);\n        banked_advance_vdp(g_z80.cyc);")
         banked = replace_once(banked, "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */",
-            "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */\n        if (rrl_on) rrl_after_step();")
+            "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */\n        if (rrl_on || rrl_pending) rrl_after_step();")
     glue += "\n" + banked
     # A reset exits through the runtime's existing longjmp, discarding all
     # generated C continuations. Also reset every execution/callback state that

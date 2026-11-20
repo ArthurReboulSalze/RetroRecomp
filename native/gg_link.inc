@@ -36,7 +36,9 @@ static void rrl_selftest(void);
 #define RRL_SLICE_LINES 24               /* 5,472 Z80 cycles: below the 7,087 a byte takes to arrive at 4800 baud (9.5 bit times) */
 #define RRL_MAGIC 0x314B4E4Cu            /* "LNK1" */
 
-void smsrecomp_link_request(bool on) { rrl_request = on; }
+static bool rrl_pending;                 /* asked for after the run began (a session opens one frame in): begin at the next instruction boundary */
+static uint8_t *rrl_poweron;             /* the power-on state of the console, taken when the run begins */
+void smsrecomp_link_request(bool on) { rrl_request = on; if (on && !rrl_on && rrl_poweron) rrl_pending = true; }
 void smsrecomp_link_set_seat(int seat) { rrl_seat = seat ? 1 : 0; }
 void smsrecomp_link_set_host(void (*present)(const uint32_t *, int, int), bool (*frame_done)(void)) {
     rrl_host.present = present; rrl_host.frame_done = frame_done;
@@ -45,10 +47,19 @@ int smsrecomp_link_seat(void) { return rrl_seat; }
 bool smsrecomp_link_active(void) { return rrl_on; }
 
 /* Linked play needs the banked engine (the only one with a snapshot), a Game Gear, and no reference run. */
+static bool rrl_capable(void) {
+#ifdef SMSRECOMP_BANKED_AOT
+    return g_is_gg && !getenv("SMSRECOMP_REFERENCE");
+#else
+    return false;
+#endif
+}
 bool smsrecomp_link_enabled(void) {
     static int probed;
     if (!probed) {
         probed = 1;
+        const char *logfile = getenv("RETRO_RECOMP_GG_LINK_LOGFILE");     /* a developer's log of a run whose stderr nobody keeps */
+        if (logfile && logfile[0]) freopen(logfile, "a", stderr);
         const char *value = getenv("RETRO_RECOMP_GG_LINK");
         if (value && value[0] >= '1' && value[0] <= '2') { rrl_request = true; rrl_seat = value[0] - '1'; }
     }
@@ -148,9 +159,8 @@ static void rrl_report(void) {
 }
 
 /* Start of a run (and of every reset): both consoles from the same power-on state, the cable empty. */
-static void rrl_start(void) {
-    rrl_on = false;
-    if (!smsrecomp_link_enabled()) return;
+static void rrl_begin(void) {
+    if (!smsrecomp_link_enabled()) { if (rrl_request) fprintf(stderr, "[link] asked for but not available (not a Game Gear banked build)\n"); return; }
     rrl_snap_size = smsrecomp_snap_bound();
     if (!rrl_snap_size) return;
     for (int c = 0; c < 2; ++c) {
@@ -167,12 +177,26 @@ static void rrl_start(void) {
     if (g_audio_sink != rrl_sink) rrl_real_sink = g_audio_sink;
     g_audio_sink = rrl_sink;
     g_frame_cb = rrl_frame_cb;
-    if (!smsrecomp_snap_save(rrl_snap[0], rrl_snap_size) || !smsrecomp_snap_save(rrl_snap[1], rrl_snap_size)) rrl_fail("first snapshot");
+    memcpy(rrl_snap[0], rrl_poweron, rrl_snap_size); memcpy(rrl_snap[1], rrl_poweron, rrl_snap_size);
+    rrl_pending = false;
+    if (!smsrecomp_snap_load(rrl_snap[0], rrl_snap_size)) rrl_fail("power-on state");     /* console 0 is the power-on state again */
     rrl_on = true;
-    rrl_chunk = g_vdp.line / RRL_SLICE_LINES;
+    rrl_cur = 0; rrl_chunk = g_vdp.line / RRL_SLICE_LINES;
     g_pad1 = rrl_pad[0]; g_pad2 = 0;
     fprintf(stderr, "[link] Gear-to-Gear cable: two Game Gears in one process, this PC shows console %d, slice %d lines\n",
         rrl_seat + 1, RRL_SLICE_LINES);
+}
+
+/* Start of a run (and of every reset): the power-on state is kept; the pair begins now when it was asked for (the environment), or at the
+ * next instruction boundary once a session asks (smsrecomp_link_request). */
+static void rrl_start(void) {
+    rrl_on = false; rrl_pending = false;
+    if (!rrl_capable()) return;
+    rrl_snap_size = smsrecomp_snap_bound();
+    if (!rrl_snap_size) return;
+    if (!rrl_poweron) rrl_poweron = (uint8_t *)malloc(rrl_snap_size);
+    if (!rrl_poweron || smsrecomp_snap_save(rrl_poweron, rrl_snap_size) != rrl_snap_size) rrl_fail("power-on snapshot");
+    if (smsrecomp_link_enabled()) rrl_begin();
 }
 
 /* The hooks of the banked loop. */
@@ -259,6 +283,7 @@ static void rrl_round_end(void) {
 
 /* After a completed instruction: the slice ends when the line crosses a multiple of 32 (or the frame wraps). */
 static void rrl_after_step(void) {
+    if (!rrl_on) { rrl_pending = false; if (rrl_poweron) rrl_begin(); return; }
     if ((g_vdp.line / RRL_SLICE_LINES) == rrl_chunk) return;
     if (!rrl_save_live()) rrl_fail("save");
     ++rrl_swaps;
@@ -274,17 +299,23 @@ size_t smsrecomp_link_snap_bound(void) {
 }
 size_t smsrecomp_link_snap_save(void *buffer, size_t capacity) {
     const size_t size = smsrecomp_link_snap_bound();
-    if (!rrl_on || !size || !buffer || capacity < size || !rrl_save_live()) return 0;
+    /* A session that has asked and whose pair has not begun yet (it begins at the next instruction boundary, from the power-on state): the
+     * snapshot is the pair as it will begin, so that a load of it later puts the pair back at its start. */
+    const bool coming = !rrl_on && rrl_pending && rrl_poweron;
+    if (!size || !buffer || capacity < size || (!rrl_on && !coming) || (rrl_on && !rrl_save_live())) return 0;
     uint8_t *out = (uint8_t *)buffer;
     RrlHead head; memset(&head, 0, sizeof head);
-    head.magic = RRL_MAGIC; head.size = (uint32_t)rrl_snap_size; head.delivered = rrl_delivered; head.current = (uint32_t)rrl_cur;
-    head.pad[0] = rrl_pad[0]; head.pad[1] = rrl_pad[1];
+    head.magic = RRL_MAGIC; head.size = (uint32_t)rrl_snap_size;
+    head.delivered = coming ? 0 : rrl_delivered; head.current = coming ? 1u : (uint32_t)rrl_cur;
+    head.pad[0] = coming ? 0 : rrl_pad[0]; head.pad[1] = coming ? 0 : rrl_pad[1];
     memcpy(out, &head, sizeof head); out += sizeof head;
+    GgExt fresh; gg_ext_reset(&fresh);
+    GgCable cable = rrl_cable; if (coming) gg_cable_reset(&cable);
     for (int c = 0; c < 2; ++c) {
-        memcpy(out, rrl_snap[c], rrl_snap_size); out += rrl_snap_size;
-        memcpy(out, &rrl_ext[c], sizeof(GgExt)); out += sizeof(GgExt);
+        memcpy(out, coming ? rrl_poweron : rrl_snap[c], rrl_snap_size); out += rrl_snap_size;
+        memcpy(out, coming ? &fresh : &rrl_ext[c], sizeof(GgExt)); out += sizeof(GgExt);
     }
-    memcpy(out, &rrl_cable, sizeof rrl_cable);
+    memcpy(out, &cable, sizeof cable);
     return size;
 }
 bool smsrecomp_link_snap_load(const void *buffer, size_t size) {
@@ -313,7 +344,8 @@ bool smsrecomp_link_snap_load(const void *buffer, size_t size) {
 
 /* The digest: both consoles in seat order, then the cable, as named fields (never a raw struct). */
 uint64_t smsrecomp_link_digest(void) {
-    if (!rrl_on || !rrl_save_live()) return 0;
+    if (!rrl_on) return smsrecomp_digest();      /* a session about to link: the one console, the same on every seat */
+    if (!rrl_save_live()) return 0;
     const int live = rrl_cur;
     uint64_t hash = 14695981039346656037ull;
     for (int c = 0; c < 2; ++c) {

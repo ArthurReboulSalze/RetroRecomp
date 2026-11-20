@@ -180,7 +180,8 @@ uint64_t smsrecomp_digest(void);
  * the whole state is complete. */
 #ifdef RETRO_GAME_GEAR
 /* Linked: one machine of two consoles, in seat order, taken at a round end (native/gg_link.inc). */
-static size_t snap_bound(void) { return LINKED() ? smsrecomp_link_snap_bound() : smsrecomp_snap_bound(); }
+/* The bound is announced in HELLO, before SETUP says whether the session links: the larger size (the pair) always; a save writes what it wrote. */
+static size_t snap_bound(void) { return smsrecomp_link_snap_bound() ? smsrecomp_link_snap_bound() : smsrecomp_snap_bound(); }
 static size_t snap_save(void *buffer, size_t capacity) { return LINKED() ? smsrecomp_link_snap_save(buffer, capacity) : smsrecomp_snap_save(buffer, capacity); }
 static bool snap_load(const void *buffer, size_t size) { return LINKED() ? smsrecomp_link_snap_load(buffer, size) : smsrecomp_snap_load(buffer, size); }
 static uint64_t machine_digest(void) { return LINKED() ? smsrecomp_link_digest() : smsrecomp_digest(); }
@@ -362,6 +363,23 @@ static void settings_loaded(RrhkUi *ui) {
     smsrecomp_video_set_sprite_flicker_reduction(reduce_sprites);
 }
 
+#ifdef RETRO_GAME_GEAR
+/* A link session (docs/MULTIPLAYER.md, the link contract): the runtime builds the pair before the guest starts (the session opens
+ * inside host_init, ahead of glue_run); this PC shows and hears its seat's console. */
+void smsrecomp_link_request(bool on);
+void smsrecomp_link_set_seat(int seat);
+static void session_begin(uint64_t clock) {
+    (void)clock;
+    fprintf(stderr, "[link] session begins: %s, seat %d\n", rrhk_session_link() ? "link session" : "not a link session", rrhk_session_seat() + 1);
+    if (!rrhk_session_link()) return;
+    smsrecomp_link_request(true);
+    smsrecomp_link_set_seat(rrhk_session_seat());
+    /* The guest began before the session opened (one frame in): the pair begins at its next instruction boundary, from the power-on state. */
+    link_on = true;
+    smsrecomp_link_set_host(link_present, link_frame_done);
+}
+#endif
+
 const RrhkMachine *rrhk_adapter(void) {
     static RrhkPage page;
     if (!machine.actions) {
@@ -394,6 +412,9 @@ const RrhkMachine *rrhk_adapter(void) {
             .snap_bound = snap_bound, .snap_save = snap_save, .snap_load = snap_load,
             .digest = machine_digest, .session_option = session_option, .session_options = session_options,
             .page = sms_light_phaser ? &page : NULL,
+#ifdef RETRO_GAME_GEAR
+            .link_consoles = smsrecomp_snap_bound() ? 2 : 0, .session_begin = session_begin,
+#endif
             .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
             .audio_ratio = host_audio_ratio,     /* 1.7.7 (HOST_KIT D30): Sync to display */
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
@@ -414,6 +435,9 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h, int 
     if (!input_poll_period) input_poll_period = 1;
     if (!rrhk_open(rrhk_adapter(), sms_game_title, scale)) return false;
     rrhk_autofire_reset();
+#ifdef RETRO_GAME_GEAR
+    link_on = smsrecomp_link_enabled();       /* the environment's switch, or the link session that opened with the kit */
+#endif
     smsrecomp_set_state_callback(state_completed);
     smsrecomp_set_frame_edge_callback(frame_edge);
 #ifdef RETRO_GAME_GEAR
