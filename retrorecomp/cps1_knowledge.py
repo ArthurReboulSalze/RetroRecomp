@@ -132,7 +132,10 @@ PATH_CAPS = {'m68k_ram': ROW_LIMIT, 'z80_ram': ROW_LIMIT}
 # sites), and Musashi's twenty decimal handlers take the same arithmetic (`musashi_fixes`), so the two paths agree and the 22 decimal vectors of
 # m68k-groups pass. The generated code changes only for those three instructions; V follows Moira too (the five flags). The shipped snapshot holds no
 # qualified CPS-1 path, so nothing is lost today.
-GENERATOR_REVISION = 14
+# 15: the generated CPS project asks for C11 for real (`set(CMAKE_C_STANDARD_REQUIRED ON)` in cps1_build.CMAKE_HEAD), as the page-aligned machine struct of
+# 1.9.0 needs `_Alignas`; the translated code and its results are unchanged (A/B of 20 November 2026, Final Fight, Warriors of Fate, 19XX). The pins cover the
+# whole generator, so the revision is raised.
+GENERATOR_REVISION = 15
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',

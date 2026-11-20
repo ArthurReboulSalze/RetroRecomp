@@ -168,6 +168,7 @@ def _engine(project: Path, *, native: bool, kabuki: bool = False) -> None:
 CMAKE_HEAD = '''cmake_minimum_required(VERSION 3.20)
 project(RetroCps1 LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

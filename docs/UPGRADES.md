@@ -155,6 +155,7 @@ state-layout keys move too, with the other keys the rows name.
 | The converter's window: the toolbar, the Convert button, the Multiplayer window, the front-end's covers no longer blurred (no section of this page; merges `23c1a0aa`, `4c405e31`, `02ba7d2a`, `206a41b4`) | none | none (interface modules, outside the stamps) | none |
 | [Master System and Game Gear: rollback snapshot and the frame handed over at an instruction boundary](#master-system-and-game-gear-rollback-snapshot-and-the-frame-handed-over-at-an-instruction-boundary-190) | **the game stamp of all nine consoles of the shared runtime** (`gamestate.inc`, `gamestate.h`, `state_io.h`, `psg_state.inc`; `video_mode4.inc` the pair's own) | the Master System and Game Gear host stamp | unchanged (format and keys) |
 | [Capcom CPS-1, CPS-1.5 and CPS-2: the rollback tier and the host's F8 / F9 for everyone](#capcom-cps-1-cps-15-and-cps-2-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_opm.cpp`, `cps1_main.c`) | the CPS-1 and CPS-2 host stamps (`cps1_host.c`, `cps1_persistence.c`, `rrhk_cps1.c`) | unchanged (format, key and magic) |
+| [Capcom CPS-1, CPS-1.5 and CPS-2: two small changes to the frame cost, and the checks that go with them](#capcom-cps-1-cps-15-and-cps-2-two-small-changes-to-the-frame-cost-and-the-checks-that-go-with-them-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_native.c`; the CPS-1 generator revision 15) | none | unchanged |
 | [PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, the new snapshot files, `pce_main.c`, `pce_build.py`, the profile) | the PC Engine host stamp (`rrhk_pce.c`) | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c` |
 | [PC Engine / TurboGrafx-16: a cheaper frame](#pc-engine--turbografx-16-a-cheaper-frame-190) | **the PC Engine game stamp** (`pce_machine.cpp`, `pce_machine_internal.hpp`, `pce_snapshot.cpp`, the new `native/pce_engine/` files, `pce_build.py`) | none | refused cleanly (the PC Engine key hashes the patched file) |
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
@@ -912,6 +913,45 @@ paths of both boards changes with the machine's sources, as for any change of th
   `--save-digests`: the rollback tier and the delay tier give the same digests and history; with and without the save and load the
   digests are equal up to frame 1499 and differ from the first one after the load. Not measured: the cost of a save or a load, physical
   latency, hardware fidelity.
+## Capcom CPS-1, CPS-1.5 and CPS-2: two small changes to the frame cost, and the checks that go with them (1.9.0)
+
+The performance wave of 20 November 2026 looked at what a CPS frame costs (about 16,000 native 68000 and 12,000 Z80 instructions a frame: the cost is
+the per-step dispatch, not the instructions). Three changes were tried, each proven identical in output and timed by the performance specialist; two
+stay, one was dropped. What moves: **the game stamp of the CPS-1 and of the CPS-2** (`cps1_machine.c`, `cps1_native.c`; the CPS-1 and CPS-2 stamps,
+`2b95d4e7e0f7` to `594de6cc2ce5`, and `680e09ed6be2` to `d2ccc99ee1f8`, computed on the tree against main `f889087e`); no host stamp, no other machine,
+none of the four 68000 files shared with the X68000. The CPS-1 generator revision goes from 14 to 15 only because the generated project now asks for C11
+for real (see below); no translated code changes.
+
+- **The native 68000 no longer compares a program-ROM step with the image it was decoded from** (`native/cps1_native.c`, `guarded_step`). The words of
+  a step were decoded from this very image (the decrypted one on a CPS-2) and the lookup is keyed by the offset, so the compare could not fail; the RAM and
+  graphics-RAM variants, whose bytes are live, are still compared. This is the change that carries the gain. A debug define, `RR_CPS1_VERIFY_GUARDS`
+  (never in a shipped build), makes the skipped compare anyway and stops the game with a message on a mismatch.
+- **The machine struct is aligned on a page** (`native/cps1_machine.c`). `M` is one megabyte of arrays that a frame sweeps; where it started modulo a
+  page followed the size of the data linked before it (the host kit's), so a frame moved by a few per cent from one build to the next for that reason
+  alone. It no longer depends on the link. The generated project now sets `CMAKE_C_STANDARD_REQUIRED` so the compiler is asked for C11 itself and never falls back to an
+  older standard (`retrorecomp/cps1_build.py`).
+- **Dropped: the native Z80 dispatch skipping its byte check.** Identical output, but no gain at all (Final Fight, with it and without: engine +0.2 %,
+  loop −0.5 % of 1.0437 ms, inside the spread), and it removed a check: it is not in 1.9.0.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms a frame, spread in brackets; main against the branch's
+changes added one after the other): Final Fight (CPS-1), engine 0.9229 (1.3 %), page alignment alone −0.3 %, with the dropped Z80 change −0.1 %, with the
+68000 change −3.4 % (0.8912, spread 2.3 %); whole play loop 1.0437 (1.6 %), −1.9 %, −2.4 %, −2.7 % (1.0160). 19XX (CPS-2): every step within the
+noise (engine +0.1 / −0.1 / −0.8 %, loop +0.2 / −1.2 / −0.7 %, spreads up to 6 %); nothing regresses. The last figure was timed with the dropped Z80
+change still in; it adds nothing on Final Fight, and the final tip is timed again. These are costs of the host's code on one PC, never physical latency.
+The CPS-2's +2.4 % to +3.6 % a frame between 1.8.0 and the multiplayer build is not explained by the machine's placement alone (a four-way timing recovers
+about half of it on the play loop and none on the engine) and is left to the performance specialist's later passes.
+
+**Checks added** (they hold for the code with or without the two changes): twelve authored vectors for the Z80 at a window edge
+(`tools/cps1_z80_vector_selftest.py`: instructions of 2, 3 and 4 bytes starting at 7ffc, 7ffd, bffc and bffd, where the next bytes depend on the bank,
+written from the Zilog manual and not from the corpus); with the 51,328 vectors of the corpus: 51,340, the native and the interpreted paths agree on
+every one, clocks included, and the 68 known differences of the pinned baseline are unchanged. The record's « no instruction bytes » test
+(`tests/test_cps1_knowledge.py`) looks past the 40-digit hashes, where a four-digit pattern turns up by chance.
+
+**Proof of identical output:** `tools/ab_conversion.py`, main `8fd0f1d0` against this branch, on Final Fight (CPS-1), Warriors of Fate (CPS-1.5, Kabuki Z80) and 19XX (CPS-2): every file of the kept build folders equal except the three changed sources (`CMakeLists.txt`, `cps1_machine.c`, `cps1_native.c`), and the report's record, core and engine hashes, which follow them; the evidence under `checks/` (per-frame images, sound, CPU and RAM hashes, traces, the play route, the saves) equal, the executable and the 64 identity bytes of a quick state's header aside (the state's whole body is equal; 19XX keeps no build folder, its `checks/` were compared the same way). `--headless --frames 600`: the image, sound, CPU and RAM hashes and the native counters equal on the three games, with 0 interpreted 68000 and Z80 instructions on all of them (the counts of a run: 8,636,802 native 68000 and 3,726,673 Z80 on Final Fight). The vectors (51,340, all agree), `cps1_kabuki_selftest` (5 and 6 checks) and the debug guard pass (`RR_CPS1_VERIFY_GUARDS`, 6,000 frames of attract and 4,000 of the play route of the three games, `--snapshot-check`, 0 mismatch over about 794 million native steps, run on the earlier branch of the same 68000 code) pass.
+
+**Stamps:** the CPS-1 and CPS-2 game stamps move (above); existing CPS exports are converted again to get the faster frame. Quick states unchanged (the
+layout and the bytes of a state are the same, no key moves).
+
 ## Neo Geo: rollback and the host's F8 / F9 for everyone in a match (1.9.0)
 
 **What changes.** A Neo Geo export answers a multiplayer session like the NES: the delay tier, the rollback tier (the console's frames
