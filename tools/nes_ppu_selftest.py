@@ -81,6 +81,21 @@ target_link_libraries({name} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
             result = dict(pal=pal, zapper=zapper, mapper=mapper, apu_scenarios=28, runs=expected, cycles_hashed_each=True)
             print(json.dumps(result), flush=True)
             results.append(result)
+        # Sprites on every line (the random activity above almost never has one in range), uninterrupted runs, the hidden PPU,
+        # the picture and the machine hashed every 331 cycles; the boards that run the deferred clock and one that does not.
+        for mapper in (0, 1, 2, 4):
+            traces = []
+            for variant in machines:
+                text = run([build_executable(project / 'build', f'{variant}{config}'), str(mapper), 'sprites'], timeout=900)
+                (project / f'{variant}-{config}-{mapper}-sprites.txt').write_text(text, encoding='ascii')
+                traces.append(text.splitlines())
+            expected = 4 * 12 * 420
+            if len(traces[0]) != expected or traces[0] != traces[1]:
+                first = next((i for i, pair in enumerate(zip(*traces)) if pair[0] != pair[1]), -1)
+                raise RuntimeError(f'Sprite mismatch: PAL={pal}, Zapper={zapper}, mapper={mapper}, checkpoint={first}; traces in {project}')
+            result = dict(pal=pal, zapper=zapper, mapper=mapper, sprite_runs=48, checkpoints=expected)
+            print(json.dumps(result), flush=True)
+            results.append(result)
         # Which boards run the deferred clock: mappers 0, 1 and 2 without the Zapper, in NTSC and PAL; the others
         # (an IRQ counter on the PPU address, a CPU-clocked device, MMC5) and every Zapper build keep the eager one.
         for mapper in (0, 1, 2, 4, 5, 69, 85, 153):

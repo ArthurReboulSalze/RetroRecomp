@@ -105,6 +105,38 @@ static int apu_checks(unsigned mapper){
     }
     free(state);return 0;
 }
+/* Sprites on every line, long uninterrupted runs: the random activity of main() rarely has a sprite in range (secondary OAM is
+ * almost always the empty $FF), so this fills OAM with objects of every kind (clusters of nine on a line, 8 x 8 and 8 x 16, both
+ * pattern tables, flips, priority, the left-column masks), fills the pattern memory with data and runs frames without a register
+ * access, hashing the PPU, the picture and the machine every few hundred cycles. */
+static int sprites_checks(void){
+    for(unsigned align=0;align<4;align++)for(unsigned config=0;config<12;config++){
+        cyc_power_on((uint8_t)align);cyc_run_power_on();
+        seed=0x1234567u+align*977u+config*31337u;
+        if(hw_cart.chr&&hw_cart.chr_len)for(size_t i=0;i<hw_cart.chr_len;i++)hw_cart.chr[i]=(uint8_t)(next_value()>>9);
+        for(unsigned i=0;i<sizeof(ppu.ciram);i++)ppu.ciram[i]=(uint8_t)(next_value()>>5);
+        for(unsigned i=0;i<32;i++)ppu.palette[i]=(uint8_t)(next_value()&0x3f);
+        const unsigned cluster=config%3==0?9:config%3==1?3:1;   /* objects that share a line */
+        for(unsigned n=0;n<64;n++){
+            ppu.oam[n*4]=(uint8_t)(((n/cluster)*(config%4==3?5:11)+(next_value()&3))%232);
+            ppu.oam[n*4+1]=(uint8_t)next_value();
+            ppu.oam[n*4+2]=(uint8_t)(next_value()&0xe3);       /* palette, priority, both flips */
+            ppu.oam[n*4+3]=(uint8_t)next_value();
+        }
+        static const uint8_t masks[4]={0x1e,0x1c,0x1a,0x18};
+        cpu_write(0x2000,(uint8_t)(0x80*0|(config&1?0x20:0)|(config&2?0x08:0)|(config&4?0x10:0)),0);
+        cpu_write(0x2005,(uint8_t)(next_value()),0);cpu_write(0x2005,(uint8_t)(next_value()&0xf7),0);
+        cpu_write(0x2001,masks[(config>>2)&3],0);
+        for(unsigned chunk=0;chunk<420;chunk++){
+            for(unsigned k=0;k<331;k++)(void)cpu_read(0,0);
+            rr_ppu_sync();
+            printf("P %u %u %u %016llx %016llx %016llx %016llx\n",align,config,chunk,(unsigned long long)cyc_cycle_count(),
+                (unsigned long long)hash_bytes(&ppu,sizeof(ppu)),(unsigned long long)hash_bytes(hw_frame_index,sizeof(hw_frame_index)),
+                (unsigned long long)cyc_hw_state_hash());
+        }
+    }
+    return 0;
+}
 int main(int argc,char **argv){
     unsigned mapper=argc>1?(unsigned)atoi(argv[1]):0;
     size_t prg=mapper==0?32768:mapper==153?524288:65536,size=16+prg;
@@ -118,6 +150,7 @@ int main(int argc,char **argv){
     }
     if(!cyc_load_ines(rom,size))return 3;free(rom);cyc_run_native=false;
     if(argc>2&&!strcmp(argv[2],"apu"))return apu_checks(mapper);
+    if(argc>2&&!strcmp(argv[2],"sprites"))return sprites_checks();
 #if RR_NES_FAST_PPU
     if(argc>2&&!strcmp(argv[2],"extra"))return extra_sprites_check();
     if(argc>2&&!strcmp(argv[2],"engaged")){ /* whether this board runs the deferred clock, and does defer edges */
@@ -166,6 +199,11 @@ int main(int argc,char **argv){
             rr_nes_apu_save(audio_state);
             /* Observing the machine first runs any deferred PPU edges. */
             uint64_t hw_hash=cyc_hw_state_hash();
+            if(getenv("RR_PPU_SPR")){   /* Diagnostic: the sprite units of every checkpoint, to see what the checks reach */
+                fprintf(stderr,"S %u %u:",align,iteration);
+                for(unsigned k=0;k<8;k++)fprintf(stderr," %02x/%02x/%02x/%02x",ppu.spr_lo[k],ppu.spr_hi[k],ppu.spr_attr[k],ppu.spr_x[k]);
+                fprintf(stderr," sl=%u dot=%u\n",ppu.scanline,ppu.dot);
+            }
             {   /* Diagnostic: RR_PPU_DUMP=align:iteration writes the whole PPU of that checkpoint to stderr, to compare two builds. */
                 const char *dump=getenv("RR_PPU_DUMP");unsigned da,di;
                 if(dump&&sscanf(dump,"%u:%u",&da,&di)==2&&da==align&&di==iteration){

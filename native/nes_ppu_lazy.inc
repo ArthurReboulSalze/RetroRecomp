@@ -585,7 +585,136 @@ HW_ALWAYS_INLINE void rr_ppu_slot_pair(unsigned step, unsigned slot)
     ppu.wr = 0;
 }
 
-#define RR_PPU_SLOT(slot) static void rr_ppu_sprite_slot_##slot(void) {     rr_ppu_slot_pair(0, slot); rr_ppu_slot_pair(1, slot); rr_ppu_slot_pair(2, slot); rr_ppu_slot_pair(3, slot);     rr_ppu_slot_pair(4, slot); rr_ppu_slot_pair(5, slot); rr_ppu_slot_pair(6, slot); rr_ppu_slot_pair(7, slot); }
+/* The eight pairs of a sprite slot with the fetch pipeline and the colour pipeline in locals, as rr_ppu_tile_bg() does for a tile:
+ * the same pairs in the same order (rr_ppu_slot_pair above is the reference), the fields of the sprite loading stay in the PPU, and
+ * what every pair sets and the next overwrites is written once. */
+typedef struct { uint16_t vbus, par; uint8_t latch, fetch, color[4]; } RrSlotRegs;
+
+HW_ALWAYS_INLINE void rr_slot_step(RrSlotRegs *t, unsigned step, unsigned slot, unsigned d0, bool watch, bool a12_only)
+{
+    if (slot == 0 && step == 0) increment_y();
+    else if (slot == 0 && step == 1) ppu.v = (uint16_t)((ppu.v & 0x7BE0) | (ppu.t & 0x041F));
+    advance_dot();
+    const unsigned dot = d0 + step + 1;
+    const bool h0 = (step & 1) != 0;
+    ppu.oam_latch = ppu.oam_buffer;
+    ppu.copy_v = 0;
+    if (ppu.oam2_reset > 0) ppu.oam2_reset--;
+    const unsigned height = ppu.sprite16 ? 16 : 8;
+    ppu.cur_has_s0 = ppu.next_has_s0;
+    ppu.oam_addr = 0;
+    if (h0) t->latch = (uint8_t)t->vbus;
+    ppu.oam_buffer_in = ppu.oam2[ppu.oam2_addr];
+    switch (step) {
+    case 0:
+        t->vbus = (uint16_t)(0x2000 | (ppu.v & 0x0FFF));
+        oam2_increment();
+        break;
+    case 1:
+        ppu.sprite_row = (uint16_t)((ppu.scanline & 0xFF) - ppu.oam_buffer);
+        t->vbus = (uint16_t)(0x2000 | (ppu.v & 0x0F00) | t->latch);
+        t->fetch = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | t->fetch);
+        oam2_increment();
+        break;
+    case 2:
+        ppu.load_tile = ppu.oam_buffer;
+        t->vbus = (uint16_t)(0x2000 | (ppu.v & 0x0FFF));
+        oam2_increment();
+        break;
+    case 3:
+        ppu.spr_attr[slot] = ppu.oam_buffer;
+        ppu.load_attr = ppu.oam_buffer;
+        t->vbus = (uint16_t)(0x2000 | (ppu.v & 0x0F00) | t->latch);
+        t->fetch = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | t->fetch);
+        break;
+    case 4:
+        ppu.spr_x[slot] = ppu.oam_buffer;
+        ppu.par_chr = t->par; par_context(); t->par = ppu.par_chr;
+        t->par &= 0x1FF7;
+        t->vbus = t->par;
+        break;
+    case 5: {
+        ppu.par_chr = t->par; par_context(); t->par = ppu.par_chr;
+        t->par &= 0x1FF7;
+        t->vbus = (uint16_t)((t->par & 0xFF00) | t->latch);
+        uint8_t bits = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | bits);
+        if (ppu.spr_attr[slot] & 0x40) bits = flip_bits(bits);
+        ppu.spr_lo[slot] = ppu.sprite_row < height ? bits : 0;
+        break;
+    }
+    case 6:
+        ppu.par_chr = t->par; par_context(); t->par = ppu.par_chr;
+        t->par |= 8;
+        t->vbus = t->par;
+        break;
+    default: {
+        ppu.par_chr = t->par; par_context(); t->par = ppu.par_chr;
+        t->par |= 8;
+        t->vbus = (uint16_t)((t->par & 0xFF00) | t->latch);
+        uint8_t bits = rr_ppu_fetch_at(t->vbus, t->latch);
+        t->vbus = (uint16_t)((t->vbus & 0xFF00) | bits);
+        if (ppu.spr_attr[slot] & 0x40) bits = flip_bits(bits);
+        ppu.spr_hi[slot] = ppu.sprite_row < height ? bits : 0;
+        oam2_increment();
+        break;
+    }
+    }
+    if (!h0) t->latch = (uint8_t)t->vbus;
+    t->color[3] = t->color[2];
+    t->color[2] = t->color[1];
+    t->color[1] = t->color[0];
+    if (slot == 0 && step < 3) {
+        uint8_t c = t->color[3];
+        if (ppu.greyscale) c &= 0x30;
+        hw_frame_index[ppu.scanline * 256 + dot - 4] = (uint16_t)(c | ppu.emphasis << 6);
+    }
+    if (watch && (!a12_only || (unsigned)((t->vbus >> 12) & 1) != hw_cart.m.a12)) hw_cart_ppu_addr_watched(t->vbus);
+    if (slot == 0 && step == 0) {
+        ppu.bg_lo = (uint16_t)(ppu.bg_lo << 1);
+        ppu.bg_hi = (uint16_t)(ppu.bg_hi << 1 | 1);
+        ppu.attr_lo = (uint16_t)(ppu.attr_lo << 1 | (ppu.attr_latch & 1));
+        ppu.attr_hi = (uint16_t)(ppu.attr_hi << 1 | ((ppu.attr_latch >> 1) & 1));
+    }
+    if (ppu.oam2_reset > 0 && --ppu.oam2_reset == 0) {
+        ppu.oam2_addr = 0;
+        ppu.oam2_full = 0;
+    }
+    if (step == 1 || step == 3) t->par = (uint16_t)((t->par & 0x100F) | (ppu.load_tile << 4));
+    ppu.oam_buffer = ppu.oam_buffer_in;
+    half_dot_status();
+}
+
+HW_ALWAYS_INLINE void rr_ppu_slot_run(unsigned slot)
+{
+    const unsigned d0 = ppu.dot;
+    const bool watch = hw_cart.watch_ppu_addr != 0;
+    const bool a12_only = RR_NES_MAPPER == 1 || RR_NES_MAPPER == 155;
+    if ((ppu.io_bus && ppu.io_decay_clock + 8 >= ppu.io_decay_next) || (watch && !a12_only)) {
+        rr_ppu_slot_pair(0, slot); rr_ppu_slot_pair(1, slot); rr_ppu_slot_pair(2, slot); rr_ppu_slot_pair(3, slot);
+        rr_ppu_slot_pair(4, slot); rr_ppu_slot_pair(5, slot); rr_ppu_slot_pair(6, slot); rr_ppu_slot_pair(7, slot);
+        return;
+    }
+    RrSlotRegs t;
+    t.vbus = ppu.vbus; t.par = ppu.par_chr; t.latch = ppu.octal_latch; t.fetch = ppu.fetch_data;
+    for (unsigned i = 0; i < 4; i++) t.color[i] = ppu.color[i];
+    rr_slot_step(&t, 0, slot, d0, watch, a12_only); rr_slot_step(&t, 1, slot, d0, watch, a12_only);
+    rr_slot_step(&t, 2, slot, d0, watch, a12_only); rr_slot_step(&t, 3, slot, d0, watch, a12_only);
+    rr_slot_step(&t, 4, slot, d0, watch, a12_only); rr_slot_step(&t, 5, slot, d0, watch, a12_only);
+    rr_slot_step(&t, 6, slot, d0, watch, a12_only); rr_slot_step(&t, 7, slot, d0, watch, a12_only);
+    ppu.vbus = t.vbus; ppu.par_chr = t.par; ppu.octal_latch = t.latch; ppu.fetch_data = t.fetch;
+    for (unsigned i = 0; i < 4; i++) ppu.color[i] = t.color[i];
+    if (ppu.io_bus) ppu.io_decay_clock += 8;
+    ppu.blnk_latch = 0;
+    ppu.pal_enable = 0;
+    ppu.rd = 1;
+    ppu.ale = 0;
+    ppu.wr = 0;
+}
+
+#define RR_PPU_SLOT(slot) static void rr_ppu_sprite_slot_##slot(void) { rr_ppu_slot_run(slot); }
 RR_PPU_SLOT(0) RR_PPU_SLOT(1) RR_PPU_SLOT(2) RR_PPU_SLOT(3)
 RR_PPU_SLOT(4) RR_PPU_SLOT(5) RR_PPU_SLOT(6) RR_PPU_SLOT(7)
 #undef RR_PPU_SLOT
