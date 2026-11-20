@@ -642,6 +642,8 @@ bool gb_platform_init(int scale) {
 void gb_platform_shutdown(void) {
     close_input_record_file();
     rrhk_close();
+    if (gb_link_count() > 1)                         /* what the cable did (counted over the frames run again after a rollback too) */
+        fprintf(stderr, "[link] %d consoles, %llu byte exchanges\n", gb_link_count(), (unsigned long long)gb_link_transfers());
     gb_link_stop();
     g_rr_pcm.clear();
     g_port_frame = {};
