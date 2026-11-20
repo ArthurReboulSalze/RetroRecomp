@@ -24,6 +24,10 @@ Compiled Games, filtered to one console: each game's scan level, the version tha
 status, and the chosen game's cover and card. The front-end, the wall of covers, is described in
 [COMPILED_GAMES.md](COMPILED_GAMES.md).
 
+![The front-end in French: the MSX2 shelf, six covers per row, Vampire Killer chosen](../MEDIAS/RetroRecomp_FrontEnd_fr.jpg)
+
+The front-end on the MSX2 shelf, taken by Arthur on his own library (20 Nov 2026), in the README too.
+
 ## Multiplayer
 
 ![The Multiplayer window in English: an Internet room for four players on NBA Jam, the invitation key, the public address and the Launch button, sample data](../MEDIAS/RetroRecomp_Multiplayer_en.png)

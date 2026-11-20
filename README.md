@@ -36,6 +36,11 @@ https://github.com/user-attachments/assets/ac2dff32-b23c-44a4-ab81-ef962833251d
 </p>
 <p align="center"><sub><em>Compiled Games: your converted games, their scan level and fallback status, and the chosen game's cover and card.</em></sub></p>
 
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_FrontEnd_fr.jpg" alt="The front-end in French: the MSX2 shelf, six covers per row, Vampire Killer chosen, with the pad's hints at the bottom" width="860">
+</p>
+<p align="center"><sub><em>The front-end: a wall of covers per machine, played with a gamepad or the mouse, full screen or in the window.</em></sub></p>
+
 RetroRecomp brings several recompilers together in one application. It turns
 your own game dumps into standalone Windows or Linux executables, with as much
 native code as possible: no emulator to configure, no dedicated FPGA hardware.
