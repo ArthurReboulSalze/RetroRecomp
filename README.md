@@ -11,6 +11,7 @@
   <img src="https://img.shields.io/badge/console_profiles-19-626262" alt="Nineteen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
+  <a href="https://discord.gg/VZeJYfNZgz"><img src="https://img.shields.io/badge/Discord-join_the_community-5865F2?logo=discord&logoColor=white" alt="Join the RetroRecomp Discord server"></a>
 </p>
 
 <p align="center">
@@ -96,7 +97,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 
 | Console | Status | Qualification | Multiplayer | CPU per frame |
 | --- | --- | --- | --- | --- |
-| [Atari ST](docs/ATARI_ST.md)\* | supported | `█████` 91 % | supported · rollback | [Win 1.47 ms (−7 %)](docs/PERFORMANCE.md#the-figures) |
+| [Atari ST](docs/ATARI_ST.md)\* | supported | `█████` 91 % | supported · rollback | [Win 1.03 ms (−9 %)](docs/PERFORMANCE.md#the-figures) |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████` 90 % | supported · rollback | [Win 1.05 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████` 94 % | supported · rollback | [Win 1.19 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
 | [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████` 91 % | supported · rollback | [Win 1.12 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
@@ -149,6 +150,10 @@ code, CPU fidelity, hardware fidelity, gameplay validation and physical latency 
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
 **New in 1.9.0.** Multiplayer on every machine, on the local network or over the Internet, up to four players, with rollback on most machines and the handhelds' link cable ([above](#play-together-new-in-190)). The sound of six machines no longer crackles, F2 gains a Restart tile, and the converter has a new toolbar and Convert button. Every export of 1.8.0 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
+
+## Community
+
+Questions, help and news: join the [RetroRecomp Discord server](https://discord.gg/VZeJYfNZgz). Bugs go to [GitHub issues](https://github.com/ArthurReboulSalze/RetroRecomp/issues) or the converter's **Report a problem** button ([CONTRIBUTING.md](CONTRIBUTING.md#reports-and-roms)).
 
 ## Learn more
 

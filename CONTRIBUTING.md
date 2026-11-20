@@ -8,6 +8,11 @@ Interpreter fallback is always counted, per CPU and per device, never hidden.
 
 ## Reports and ROMs
 
+Questions and help: the [RetroRecomp Discord server](https://discord.gg/VZeJYfNZgz). Bug reports: a GitHub issue, the Discord
+server, or the converter's **Report a problem** button. Attach the game's conversion report
+(`conversion-report.json`, under `datas/reports/` beside the converter), **never a ROM, a BIOS or a
+converted game**, on GitHub or on Discord.
+
 For bug reports, include the version, operating system, console, ROM hash and
 steps to reproduce. Remove personal paths from logs. Do not upload commercial
 ROMs, generated game executables, cover image files or box art; none belongs in

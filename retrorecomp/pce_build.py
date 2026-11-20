@@ -8,7 +8,9 @@ Everything the engine does is driven from here, through its own documented inter
 * the game itself (native/pce_main.c, pce_machine.cpp and the host kit) is built with the pinned engine as a CMake
   subproject (`pce-runtime` and `pce_add_native_module`), in the game's project folder.
 
-No engine source is patched. The engine names the object library of a module after a 64-digit hash, and Visual Studio
+One engine file is patched (`PATCHED_ENGINE_FILES`, our own patch, docs/UPSTREAMS.md): the game compiles `native/pce_engine/pcm.cpp` in place of the
+pinned `runtime/src/pcm.cpp`. The pinned original is checked by its SHA-256 whenever the engine is fetched, so a bump of the pin cannot pass unnoticed.
+The engine names the object library of a module after a 64-digit hash, and Visual Studio
 writes `<name>.dir/Release/<name>.lib` below the build folder (166 characters): the game compiles the module's sources in an
 object library of its own short name instead (`game_cmake`), so a deep application folder still links. The engine refuses what it does not model (an unsupported I/O access faults), and the
 converter reports that refusal; it never hides it.
@@ -42,6 +44,51 @@ def checkout_path() -> Path:
     return _core().ROOT / '.deps' / 'pcenginerecomp'
 
 
+# Engine files the game builds from our own copy instead (our patch of the pinned engine, 20 November 2026; docs/UPSTREAMS.md):
+# the engine's path, then our file under native/ and the SHA-256 of the pinned original it was made from (line endings as LF).
+PATCHED_ENGINE_FILES = {
+    'runtime/src/pcm.cpp': ('pce_engine/pcm.cpp', '8ca39d6f8915246a98539b296ef13e89a0991911da7cab7a69719797622f10b7'),
+    'runtime/src/scanline.cpp': ('pce_engine/scanline.cpp', '57213f2d7727fb84eb14aa02f036f93ca308f1e893a33ea92a05c5c9f5aab35a'),
+    'runtime/src/video.cpp': ('pce_engine/video.cpp', 'aec288fd94dc9b72543deee392e42f20460312e75cdb161a2e447ebc567e18e5'),
+    'runtime/src/raster.cpp': ('pce_engine/raster.cpp', 'ef6b8cd20c53d72d03c6ef5b3e9b77625e705e1c09503eadfe361a5fecfc6d10'),
+}
+# Compile options the engine's own CMake gives a file, which our copy needs too (the picture's floating point stays strict).
+PATCHED_ENGINE_OPTIONS = {'runtime/src/video.cpp': ('/fp:strict', '-ffp-contract=off')}
+ENGINE_PATCH_BEGIN, ENGINE_PATCH_END = '# begin engine patch', '# end engine patch'
+
+
+def verify_patched_base(checkout: Path) -> None:
+    """Every patched file of the checkout is the original our copy was made from (the pin moved otherwise: review the patch)."""
+    import hashlib
+    for relative, (_native, expected) in PATCHED_ENGINE_FILES.items():
+        path = checkout / relative
+        if not path.is_file():
+            raise PceBuildError(f'The pinned PC Engine engine has no {relative} any more; review our patch of it (native/pce_engine).')
+        if hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest() != expected:
+            raise PceBuildError(f'{relative} of the pinned PC Engine engine is not the file our patch was made from; review native/pce_engine.')
+
+
+def engine_patch_lines(engine: str, folder: str = '${CMAKE_CURRENT_SOURCE_DIR}/engine_patch') -> list[str]:
+    """CMake lines (after the engine is added as a subproject): its patched files are not compiled, our copies staged in `engine_patch/` are."""
+    lines = [ENGINE_PATCH_BEGIN]
+    for relative, (native, _sha) in PATCHED_ENGINE_FILES.items():
+        ours = f'{folder}/{Path(native).name}'
+        lines += [f'set_property(SOURCE "{engine}/{relative}" TARGET_DIRECTORY pce-runtime PROPERTY HEADER_FILE_ONLY TRUE)',
+                  f'target_sources(pce-runtime PRIVATE "{ours}")']
+        if relative in PATCHED_ENGINE_OPTIONS:
+            msvc, other = PATCHED_ENGINE_OPTIONS[relative]
+            lines += ['if(MSVC)', f'  set_source_files_properties("{ours}" TARGET_DIRECTORY pce-runtime PROPERTIES COMPILE_OPTIONS "{msvc}")',
+                      'else()', f'  set_source_files_properties("{ours}" TARGET_DIRECTORY pce-runtime PROPERTIES COMPILE_OPTIONS "{other}")', 'endif()']
+    return lines + [ENGINE_PATCH_END]
+
+
+def stage_engine_patch(project: Path) -> None:
+    """Our copies of the patched engine files, in the folder the CMake lines name."""
+    from .core import ASSETS
+    for _relative, (native, _sha) in PATCHED_ENGINE_FILES.items():
+        _write(project / 'engine_patch' / Path(native).name, (ASSETS / 'native' / native).read_bytes().decode('utf-8').replace('\r\n', '\n'))
+
+
 @serialized_setup
 def ensure_engine(emit: Callable[[str], None] = print) -> Path:
     """A clean checkout of the pinned revision (cloned when absent; never reset when it carries edits). Under the shared
@@ -52,6 +99,7 @@ def ensure_engine(emit: Callable[[str], None] = print) -> Path:
     deps.mkdir(exist_ok=True)
     checkout = checkout_path()
     core.follow_pin(checkout, ENGINE_URL, ENGINE_REV, deps / 'pcenginerecomp-setup.log', emit)
+    verify_patched_base(checkout)
     return checkout
 
 
@@ -134,7 +182,7 @@ def state_config(card, title: str) -> str:
     from .core import ASSETS, executable_name
     from .pce_conversion import ENGINE_REV
     abi = hashlib.sha256(b'PCE-frame-state-v1:' + ENGINE_REV.encode())
-    for name in ('pce_machine.cpp', 'pce_machine.h', 'pce_main.c'):
+    for name in ('pce_machine.cpp', 'pce_machine.h', 'pce_main.c', *(native for native, _sha in PATCHED_ENGINE_FILES.values())):
         abi.update((ASSETS / 'native' / name).read_bytes())
     if os.name != 'nt':
         from .platforms import target_id
@@ -167,6 +215,7 @@ def game_cmake(module: Path | None, version: str) -> str:
         'set(PCE_BUILD_TESTS OFF CACHE BOOL "" FORCE)',
         'set(PCE_BUILD_DESKTOP OFF CACHE BOOL "" FORCE)',
         f'add_subdirectory("{engine}" engine EXCLUDE_FROM_ALL)',
+        *engine_patch_lines(engine),
         module_line,
         # The engine's own target (named after a SHA-256, 75 characters) validates the manifest and lists the sources; it is
         # never built. Its object folder and library (166 characters under the build folder) passed Windows' 260-character
@@ -219,6 +268,7 @@ def prepare_game(project: Path, card, *, title: str, module: Path | None = None,
     project.mkdir(parents=True, exist_ok=True)
     for name in GAME_FILES:
         _write(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
+    stage_engine_patch(project)
     hostkit.stage(project, 'pce')
     from .notices import notice_text
     _write(project / 'notices.txt', notice_text('pce'))

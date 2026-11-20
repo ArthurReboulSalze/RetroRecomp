@@ -439,7 +439,13 @@ class CompiledGamesView(ttk.Frame):
             return False
         try:
             path = Path(game.executable)
-            self.game_process = subprocess.Popen([str(path)],cwd=path.parent)
+            from .game_logs import new_game_log
+            log = new_game_log(path)        # what the game says (datas/logs/games), kept small; None: nowhere, as before
+            output = open(log,'wb') if log is not None else subprocess.DEVNULL
+            try:
+                self.game_process = subprocess.Popen([str(path)],cwd=path.parent,stdout=output,stderr=subprocess.STDOUT)
+            finally:
+                if log is not None:output.close()
             self.played = game
             return True
         except OSError:

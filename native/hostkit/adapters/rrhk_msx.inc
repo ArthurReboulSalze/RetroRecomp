@@ -167,22 +167,40 @@ static uint32_t m_rgb9(uint16_t c) {
    return 0xFF000000u | (r * 255 / 7) << 16 | (g * 255 / 7) << 8 | (b * 255 / 7);
 }
 
+/* The 9-bit colours as a table (1.9.0, frame cost): m_rgb9 reads only the bits 0x777 of a point that is not a YJK one, so
+ * the table indexed by those bits gives the same ARGB; a YJK point (MSX_COLOUR15) is still computed. Filled at the first
+ * picture. */
+static uint32_t m_rgb9_table[0x778];
+static bool m_rgb9_ready;
+static inline uint32_t m_colour(uint16_t c) { return (c & MSX_COLOUR15) ? m_rgb9(c) : m_rgb9_table[c & 0x777]; }
+
+/* Border points of a view line from `from` to `to`: even and odd columns of the view take the two halves of the border. */
+static void m_edge(uint32_t *out, int from, int to, uint32_t even, uint32_t odd) {
+   for (int x = from; x < to; x++) out[x] = (x & 1) ? odd : even;
+}
+
 static void m_picture2(const MsxMachine *m) {
    const MsxV9938 *v = m->v9938;
+   if (!m_rgb9_ready) {
+      for (unsigned c = 0; c < sizeof m_rgb9_table / sizeof m_rgb9_table[0]; c++) m_rgb9_table[c] = m_rgb9((uint16_t)c);
+      m_rgb9_ready = true;
+   }
    /* R#18: the vertical adjust moves the whole picture (taken at frame start); the horizontal one each line as it was drawn
-    * (a game that changes it at a line interrupt, Space Manbow's playfield under its status bar, scrolls those lines only). */
+    * (a game that changes it at a line interrupt, Space Manbow's playfield under its status bar, scrolls those lines only).
+    * Each view point is written once: the border around the picture, the picture's points inside. */
    int lines = v->lines_latched, top = 8 + (MSX2_LINES - lines) / 2 + v->adjust_v;
    for (int y = 0; y < M_VIEW2_H; y++) {
       int line = y - top;
       int edge_line = line < 0 ? 0 : line >= lines ? lines - 1 : line;
-      uint32_t edge_even = m_rgb9(v->border[edge_line][0]), edge_odd = m_rgb9(v->border[edge_line][1]);
+      uint32_t edge_even = m_colour(v->border[edge_line][0]), edge_odd = m_colour(v->border[edge_line][1]);
       uint32_t *out = m_view + y * M_VIEW2_W;
-      for (int x = 0; x < M_VIEW2_W; x++) out[x] = (x & 1) ? edge_odd : edge_even;
-      if (line >= 0 && line < lines) {
-         const int left = 16 + 2 * v->line_adjust[line];      /* 2 to 32: the 512 half-pixels always fit in 544 */
-         for (int x = 0; x < MSX2_WIDTH; x++)
-            if (left + x >= 0 && left + x < M_VIEW2_W) out[left + x] = m_rgb9(v->frame[line][x]);
-      }
+      if (line < 0 || line >= lines) { m_edge(out, 0, M_VIEW2_W, edge_even, edge_odd); continue; }
+      const int left = 16 + 2 * v->line_adjust[line];         /* 2 to 32: the 512 half-pixels always fit in 544 */
+      const int first = left < 0 ? -left : 0, last = left + MSX2_WIDTH > M_VIEW2_W ? M_VIEW2_W - left : MSX2_WIDTH;
+      const uint16_t *points = v->frame[line];
+      m_edge(out, 0, left + first, edge_even, edge_odd);
+      for (int x = first; x < last; x++) out[left + x] = m_colour(points[x]);
+      m_edge(out, left + last, M_VIEW2_W, edge_even, edge_odd);
    }
 }
 

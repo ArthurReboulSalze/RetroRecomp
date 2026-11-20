@@ -97,6 +97,12 @@ static const RrhkGfxOption options[] = {{"Internal resolution", L"resolution", r
 static uint32_t *picture;          /* BASE x 4 at most, `scale` x BASE in use, rows `width` apart */
 static int scale = 1;
 static bool no_picture, zero_size; /* 1.7.7: the machine hands no picture (NULL) or a 0 x 0 one, as a session just reopened may */
+/* 1.9.0: the plain path with a visible picture smaller than the store (only that rectangle is uploaded); what lies past it is
+ * blue, never shown */
+static bool smaller;
+#define SMALL_W (BASE_W - 64)
+#define SMALL_H (BASE_H - 16)
+#define BLUE 0x0000ffu
 static uint64_t frames;
 static uint16_t last_pad[2];
 static int16_t last_axes[2][RRHK_AXES];
@@ -113,6 +119,12 @@ static int option_rows_total, machine_key;
 
 static void draw_picture(void) {
     const int w = BASE_W * scale, h = BASE_H * scale;
+    if (smaller) {      /* rows BASE_W apart (the store's pitch); the visible SMALL_W x SMALL_H with its red corner, the rest blue */
+        for (int y = 0; y < BASE_H; ++y) for (int x = 0; x < BASE_W; ++x)
+            picture[(size_t)y * BASE_W + x] = 0xff000000u | (x >= SMALL_W || y >= SMALL_H ? BLUE :
+                                                             x >= SMALL_W - 8 && y >= SMALL_H - 8 ? RED : GREEN);
+        return;
+    }
     for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x)
         picture[(size_t)y * w + x] = 0xff000000u | (x >= w - 8 && y >= h - 8 ? RED : GREEN);
 }
@@ -121,8 +133,8 @@ static void gfx_apply(int option, int value) {
     ++apply_count;
     if (option == 0) { scale = 1 << value; draw_picture(); }
 }
-static int width(void) { return zero_size ? 0 : BASE_W * scale; }
-static int height(void) { return zero_size ? 0 : BASE_H * scale; }
+static int width(void) { return zero_size ? 0 : smaller ? SMALL_W : BASE_W * scale; }
+static int height(void) { return zero_size ? 0 : smaller ? SMALL_H : BASE_H * scale; }
 static int base_width(void) { return BASE_W; }
 static int base_height(void) { return BASE_H; }
 static const uint32_t *pixels(void) { return no_picture ? NULL : picture; }
@@ -166,7 +178,32 @@ static Uint32 read_pixel(SDL_Renderer *renderer, int x, int y) {
     return value & 0xffffffu;
 }
 static int black_seen[4], black_wrong;
+/* the whole presented frame, FNV-1a: the same with the full upload and with the visible rectangle only (an A/B across builds) */
+static bool want_digest;
+static Uint32 frame_digest;
+static int blue_seen;
+static Uint32 digest_frame(SDL_Renderer *renderer) {
+    int w = 0, h = 0;
+    SDL_GetRendererOutputSize(renderer, &w, &h);
+    Uint32 *all = w > 0 && h > 0 ? (Uint32 *)malloc((size_t)w * h * 4) : NULL;
+    Uint32 hash = 2166136261u;
+    if (!all) return 0;
+    SDL_Rect area = {0, 0, w, h};
+    if (SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, all, w * 4) == 0)
+        for (size_t i = 0; i < (size_t)w * h; ++i) {
+            const Uint32 value = all[i] & 0xffffffu;
+            blue_seen += value == BLUE;
+            for (int b = 0; b < 3; ++b) { hash ^= (value >> (8 * b)) & 0xffu; hash *= 16777619u; }
+        }
+    free(all);
+    return hash;
+}
 static void before_present(SDL_Renderer *renderer) {
+    if (want_digest && !rrhk_ui()->menu) {
+        frame_digest = digest_frame(renderer);
+        fprintf(stderr, "[check] smaller picture, presented frame digest %08x\n", (unsigned)frame_digest);
+        want_digest = false;
+    }
     if ((no_picture || zero_size) && !rrhk_ui()->menu) {    /* 1.7.7: no picture, whatever the filter: black (the last one was green) */
         int w = 0, h = 0;
         SDL_GetRendererOutputSize(renderer, &w, &h);
@@ -311,9 +348,10 @@ static void full_script(void) {
         CHECK(last_has[0] && last_axes[0][0] == 1000 && last_axes[0][1] == 2000 && last_axes[0][2] == 3000 && last_axes[0][3] == -32768);
         scripted = false;
         axis(SDL_CONTROLLER_AXIS_LEFTX, 0);
-        /* F2 opens the tiles (1.7.4): Right is player 1's gamepad, Enter opens its page; Up wraps to the last row (1.7.6: Restore
+        /* F2 opens the tiles (1.7.4; 1.9.0: Enter on Controls, then Right is player 1's gamepad), Enter opens its page; Up wraps
+         * to the last row (1.7.6: Restore
          * defaults), Up again: the Stick dead zone row; Enter steps it */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP);
         key(SDL_SCANCODE_RETURN);
         break;
     case 19:
@@ -479,7 +517,7 @@ static void full_script(void) {
         CHECK(last_pad[0] == L2_BIT && ui->fast_hold == 0 && ui->max_speed == 0);
         axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT, -32768);
         /* F2 captures a trigger: the first gamepad page, the L1 row, Enter, then the left trigger */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         for (int row = 0; row < A_L1; ++row) key(SDL_SCANCODE_DOWN);
         key(SDL_SCANCODE_RETURN);
         break;
@@ -496,7 +534,7 @@ static void full_script(void) {
         break;
     case 63:    /* a trigger is refused on a host-side row (Change disc): the kit's notice, the row still waits for a button */
         CHECK(ui->menu == 0);
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         for (int row = 0; row < A_DISC; ++row) key(SDL_SCANCODE_DOWN);
         key(SDL_SCANCODE_RETURN);
         break;
@@ -607,7 +645,7 @@ static void plain_script(void) {
         break;
     case 5:     /* no disc, no rumble */
         CHECK(disc_calls == 0 && rumble_calls == 0);
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         break;
     case 6:     /* no Stick dead zone row */
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1);
@@ -630,17 +668,17 @@ static void plain_script(void) {
         CHECK(ui->fast_hold == 0);
         key(SDL_SCANCODE_F2);
         break;
-    case 14:    /* 1.7.4: F2 opens the tiles; Right then Enter open player 1's gamepad page */
+    case 14:    /* 1.7.4: F2 opens the tiles; 1.9.0: Enter on Controls, Right then Enter open player 1's gamepad page */
         CHECK(ui->menu == RRHK_MENU_HUB);
-        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         break;
-    case 15:    /* Esc comes back to the tiles, Esc again to the game */
+    case 15:    /* Esc comes back to the players' tiles, Esc again to the main page, Esc again to the game */
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
         key(SDL_SCANCODE_ESCAPE);
         break;
     case 16:
-        CHECK(ui->menu == RRHK_MENU_HUB);
-        key(SDL_SCANCODE_ESCAPE);
+        CHECK(ui->menu == RRHK_MENU_HUB && rrhk_hub_in_controls());
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
         break;
     case 17:    /* Esc in play asks "Quit?": the machine waits, No is selected */
         CHECK(ui->menu == 0);
@@ -714,7 +752,7 @@ static void quick_script(void) {
     const Uint64 now = SDL_GetTicks64();
     switch (step++) {
     case 0:     /* player 1's gamepad page: the four combinations, the quick ones unassigned */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         break;
     case 1:
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
@@ -872,7 +910,7 @@ static void pause_combo_script(void) {
 static void r2_script(void) {
     RrhkUi *ui = rrhk_ui();
     switch (step++) {
-    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); break;
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); break;
     case 1:
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
         ui->row = A_CROSS; key(SDL_SCANCODE_RETURN);
@@ -904,7 +942,7 @@ static void pad_row_script(void) {
     RrhkUi *ui = rrhk_ui();
     switch (step++) {
     case 0:     /* the tiles: player 1 keyboard, gamepad, player 2 keyboard, gamepad */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);
         break;
     case 1:     /* player 1's gamepad page has no machine row */
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 1 && ui->player == 0);
@@ -942,6 +980,60 @@ static void pad_row_script(void) {
         key(SDL_SCANCODE_F2);
         break;
     case 9: stop = true; break;
+    default: break;
+    }
+}
+
+/* 1.9.0 (Arthur, 20 Nov 2026): the F2 main page (MENU) opens on the Controls tile; Enter opens the players' sub-page (CONTROLS:
+ * player 1's keyboard and pad, player 2's, a line of four); Esc and the pad's B come back to the main page with Controls selected;
+ * a page opened from the sub-page comes back to the sub-page. The Display mode tile (after Options) is F4: each Enter the next
+ * mode, saved, the menu staying open; four presses come back to the window. */
+static void controls_tile_script(void) {
+    RrhkUi *ui = rrhk_ui();
+    switch (step++) {
+    case 0: CHECK(ui->fullscreen == 0); key(SDL_SCANCODE_F2); break;
+    case 1:
+        CHECK(ui->menu == RRHK_MENU_HUB && !rrhk_hub_in_controls() && rrhk_hub_selected() == 0);
+        CHECK(!strcmp(rrhk_hub_title(), rr_tr("Menu")));
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 2:
+        CHECK(ui->menu == RRHK_MENU_HUB && rrhk_hub_in_controls() && rrhk_hub_selected() == 0);
+        CHECK(!strcmp(rrhk_hub_title(), rr_tr("Controls")));
+        key(SDL_SCANCODE_DOWN);                         /* two players: one line of four, Down stays */
+        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN);   /* player 2's pad */
+        break;
+    case 3:
+        CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->player == 1 && ui->gamepad_page == 1);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 4:     /* back on the sub-page, the same tile selected; Esc: the main page, Controls selected */
+        CHECK(ui->menu == RRHK_MENU_HUB && rrhk_hub_in_controls() && rrhk_hub_selected() == 3);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 5:
+        CHECK(ui->menu == RRHK_MENU_HUB && !rrhk_hub_in_controls() && rrhk_hub_selected() == 0);
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 6: CHECK(rrhk_hub_in_controls()); button(SDL_CONTROLLER_BUTTON_B, true); break;     /* the pad's B: back */
+    case 7: break;                                                                         /* the pad's event arrives */
+    case 8:
+        button(SDL_CONTROLLER_BUTTON_B, false);
+        CHECK(ui->menu == RRHK_MENU_HUB && !rrhk_hub_in_controls() && rrhk_hub_selected() == 0);
+        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RIGHT);            /* Controls, Options, Display mode */
+        break;
+    case 9: CHECK(rrhk_hub_selected() == 2); key(SDL_SCANCODE_RETURN); break;
+    case 10:
+        CHECK(ui->menu == RRHK_MENU_HUB && ui->fullscreen == 1 && ini(L"Test3D.Video", L"display_mode") == 1);
+        key(SDL_SCANCODE_RETURN);
+        break;
+    case 11: CHECK(ui->menu == RRHK_MENU_HUB && ui->fullscreen == 2); key(SDL_SCANCODE_RETURN); break;
+    case 12: CHECK(ui->menu == RRHK_MENU_HUB && ui->fullscreen == 3); key(SDL_SCANCODE_RETURN); break;
+    case 13:
+        CHECK(ui->menu == RRHK_MENU_HUB && ui->fullscreen == 0 && ini(L"Test3D.Video", L"display_mode") == 0);
+        key(SDL_SCANCODE_ESCAPE);
+        break;
+    case 14: CHECK(ui->menu == 0); stop = true; break;
     default: break;
     }
 }
@@ -1028,7 +1120,7 @@ static void graphics_entry_script(void) {
     switch (step++) {
     case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Quit is last, Restart before it (1.9.0) */
     case 1: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
-    case 2: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Options: before it */
+    case 2: CHECK(ui->menu == RRHK_MENU_HUB); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN); break;   /* Options: before Display mode (1.9.0), before it */
     case 3: CHECK(ui->menu == RRHK_MENU_OPTIONS && rrhk_option_selected() == 0); key(SDL_SCANCODE_RETURN); break;
     case 4: CHECK(ui->menu == RRHK_MENU_GRAPHICS); key(SDL_SCANCODE_ESCAPE); break;
     case 5: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE); break;
@@ -1042,7 +1134,7 @@ static void graphics_entry_script(void) {
 static void stick_script(void) {
     RrhkUi *ui = rrhk_ui();
     switch (step++) {
-    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); break;
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RETURN); break;
     case 1: ui->row = A_ANALOG; key(SDL_SCANCODE_RETURN); break;              /* a host-side row */
     case 2: CHECK(ui->capturing); axis(SDL_CONTROLLER_AXIS_RIGHTX, 30000); break;
     case 3:
@@ -1077,7 +1169,7 @@ static SDL_Scancode player2_key;
 static void clear_script(void) {
     RrhkUi *ui = rrhk_ui();
     switch (step++) {
-    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); break;                /* player 1's keyboard page */
+    case 0: key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RETURN); break;   /* Controls, player 1's keyboard page */
     case 1:
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 0 && ui->player == 0);
         ui->row = A_CROSS; key(SDL_SCANCODE_DELETE);
@@ -1105,7 +1197,7 @@ static void clear_script(void) {
     case 6:
         CHECK(!rrhk_combo_set(RRHK_COMBO_FAST, true));
         player2_key = ui->keys[1][A_CROSS];
-        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);   /* the page, Controls, the main page */
         break;
     case 7: stop = true; break;
     default: break;
@@ -1117,7 +1209,7 @@ static void clear_again(void) {
     case 0:     /* read back as cleared, not as the defaults */
         CHECK(ui->keys[0][A_CROSS] == SDL_SCANCODE_UNKNOWN && ui->keys[0][A_CIRCLE] == SDL_SCANCODE_W);
         CHECK((int)ui->buttons[0][A_SQUARE] == -1 && !rrhk_combo_set(RRHK_COMBO_FAST, true));
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP);
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_UP);
         break;
     case 1:
         CHECK(ui->menu == RRHK_MENU_CONTROLS && ui->gamepad_page == 0 && rrhk_restore_row());
@@ -1139,7 +1231,7 @@ static void clear_again(void) {
         button(SDL_CONTROLLER_BUTTON_A, false);
         CHECK(ui->buttons[0][A_SQUARE] == SDL_CONTROLLER_BUTTON_X && ui->buttons[0][A_CROSS] == SDL_CONTROLLER_BUTTON_A);
         CHECK(ini(L"Test3D.Gamepad.Player1", L"Square") == SDL_CONTROLLER_BUTTON_X && rrhk_combo_set(RRHK_COMBO_FAST, true));
-        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);
+        key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE); key(SDL_SCANCODE_ESCAPE);   /* the page, Controls, the main page */
         break;
     case 6: stop = true; break;
     default: break;
@@ -1157,7 +1249,8 @@ static void widescreen_script(void) {
         SDL_GetRendererOutputSize(SDL_GetRenderer(rrhk_window()), &w, &h);
         const SDL_Rect dst = rrhk_game_rect(SDL_GetRenderer(rrhk_window()));
         CHECK(dst.w * 3 == dst.h * 4 || dst.w * 3 == dst.h * 4 + 1 || dst.w * 3 + 1 == dst.h * 4);   /* the machine's 4:3 */
-        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_RETURN);   /* the options tile: before Restart and Quit */
+        key(SDL_SCANCODE_F2); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT); key(SDL_SCANCODE_LEFT);
+        key(SDL_SCANCODE_RETURN);   /* the options tile: before Display mode (1.9.0), Restart and Quit */
         break;
     }
     case 1: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN); break;
@@ -1359,6 +1452,20 @@ static void sync_again(void) {
         break;
     case 2: stop = true; break;
     default: break;
+    }
+}
+
+static void smaller_script(void) {
+    switch (step++) {
+    case 0: case 1: case 2: case 3:                    /* F3 to the plain upload (no Scale2x, no xBR, no scanlines) */
+        if (rrhk_ui()->filter != 0) key(SDL_SCANCODE_F3);
+        break;
+    case 4: CHECK(rrhk_ui()->filter == 0); want_picture = true; want_digest = true; break;
+    case 7:
+        CHECK(picture_ok);                            /* the visible corners: green at the top left, red at the bottom right */
+        CHECK(frame_digest != 0 && blue_seen == 0);   /* nothing past the visible rectangle reached the window */
+        stop = true;
+        break;
     }
 }
 
@@ -1565,6 +1672,16 @@ int main(int argc, char **argv) {
     begin(plain_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 24);       /* the last step answered Yes to "Quit?" */
+    /* 1.9.0: the plain path with a smaller visible picture: only its rectangle is uploaded, the presented frame is the same */
+    smaller = true; draw_picture(); picture_ok = false; blue_seen = 0;
+    begin(smaller_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 8);
+    smaller = false; draw_picture();
+    /* the software fallback is said on a real screen, never under the diagnostics' dummy driver */
+    CHECK(rrhk_software_fallback("software", "windows") && rrhk_software_fallback("software", "x11"));
+    CHECK(!rrhk_software_fallback("software", "dummy") && !rrhk_software_fallback("direct3d11", "windows"));
+    CHECK(!rrhk_software_fallback("opengl", "x11") && !rrhk_software_fallback(NULL, "windows"));
     /* 5. 1.7.4: the stretched mode is read back at the next start, even by a machine that reads its former preferences and knows
      * three modes (Master System, Game Gear, Game Boy clamp what they read); F4 then goes back to the window. */
     plain.settings_loaded = three_modes;
@@ -1592,6 +1709,10 @@ int main(int argc, char **argv) {
     begin(pad_row_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 10);
+    /* 8b. 1.9.0: the F2 main page, its Controls sub-page and its Display mode tile. */
+    begin(controls_tile_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 15);
     /* 9. 1.9.0: the F2 menu's Quit tile (1.7.6: the options page's Quit row). */
     plain.pad_rows = NULL; plain.pad_row_count = 0;
     begin(quit_row_script);

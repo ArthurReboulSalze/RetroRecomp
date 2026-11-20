@@ -55,6 +55,11 @@ static unsigned dynamic_cycles(const M68KInstr *ins) {
     }
     return base;
 }
+#ifdef RR_CPS1_VERIFY_GUARDS
+void rr_cps1_guard_abort(const char *what,unsigned pc) {
+    fprintf(stderr,"[cps1] guard mismatch: %s step at %06x does not match the live bytes\n",what,pc);fflush(stderr);abort();
+}
+#endif
 /* Mapping, lookup and complete word guard from one board view. */
 static const RrCps1NativeStep *guarded_step(uint32_t pc) {
     uint32_t region,offset;unsigned available;
@@ -64,6 +69,17 @@ static const RrCps1NativeStep *guarded_step(uint32_t pc) {
                                region==RR_CPS1_CODE_GFX?rr_cps1_gfx_native_lookup(pc,offset,available):
                                                        rr_cps1_native_lookup(region,offset);
     if(!op || op->instruction.byte_length>available)return NULL;
+    /* Program ROM: the table is keyed by the offset and its words were decoded from this very image (the decrypted one on a CPS-2), so
+     * there is nothing to compare. The RAM and graphics-RAM variants are compared in their lookups, and again here: their words are
+     * the live ones. */
+#ifdef RR_CPS1_VERIFY_GUARDS
+    /* Debug build (never shipped): the compare that is skipped for the program ROM is made anyway, and a disagreement between the generator and
+     * the board stops the game, where the release build would run the step. */
+    if(region==RR_CPS1_CODE_ROM)
+        for(unsigned n=0;n<(unsigned)op->instruction.word_count;++n)
+            if((uint16_t)((code[2*n]<<8)|code[2*n+1])!=op->instruction.words[n])rr_cps1_guard_abort("68000",pc);
+#endif
+    if(region==RR_CPS1_CODE_ROM)return op;
     for(unsigned n=0;n<(unsigned)op->instruction.word_count;++n)
         if((uint16_t)((code[2*n]<<8)|code[2*n+1])!=op->instruction.words[n])return NULL;
     return op;

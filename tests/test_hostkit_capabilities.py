@@ -25,8 +25,8 @@ class CapabilityTests(unittest.TestCase):
         self.assertIn('PASS', output)
         self.assertGreaterEqual(int(re.search(r'(\d+) checks', output).group(1)), 100, output)
         # a hang, not a speed: since 1.7.5 the runs hold real seconds (the quick combinations' 0.5 s and 1 s, 1.7.6's stick,
-        # widescreen and graphics runs); a full suite's load takes it past 30 s
-        self.assertLess(seconds, 60, output)
+        # widescreen and graphics runs); about 22 s on a quiet PC, 60 s with every core busy (HANG_SECONDS: the bound)
+        self.assertLess(seconds, selftest.HANG_SECONDS, output)
 
 
 class DefaultsOffTests(unittest.TestCase):

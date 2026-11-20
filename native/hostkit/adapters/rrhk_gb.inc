@@ -48,8 +48,11 @@ static GBJoypadState g_rr_link_pad[RR_GB_LINK_SLOTS];    /* the satellites' pad 
 static int g_rr_link_view;                               /* the console this PC shows and hears: its own seat's */
 static std::vector<ScriptEntry> g_rr_link_script;        /* headless tests only: the second console's input script (RETRO_RECOMP_GB_LINK_SCRIPT) */
 static bool g_rr_link_headless_tried;
-static std::vector<int16_t> g_rr_pcm;   /* interleaved stereo produced since the kit last took the sound */
-enum { RR_GB_PCM_LIMIT_FRAMES = 16384 };
+/* Interleaved stereo produced since the kit last took the sound: a ring made once, so that a sample or a frame never allocates or moves the rest. */
+enum { RR_GB_PCM_LIMIT_FRAMES = 16384, RR_GB_PCM_CAPACITY = RR_GB_PCM_LIMIT_FRAMES * 2 };
+static int16_t g_rr_pcm_ring[RR_GB_PCM_CAPACITY];
+static size_t g_rr_pcm_head, g_rr_pcm_count;       /* the oldest value, how many values */
+static void rr_gb_pcm_clear(void) { g_rr_pcm_head = g_rr_pcm_count = 0; }
 
 /* ---- the former preferences (datas/Retro-Recomp-GameBoy.ini of 1.6.2 and before), read where the kit's keys are absent ---- */
 static const char *const rr_gb_old_names[RR_GB_ACTIONS] = {"up", "down", "left", "right", "a", "b", "start", "select", nullptr};
@@ -166,17 +169,20 @@ static bool rr_gb_run_frame(uint16_t p1, uint16_t p2) {
 static void rr_gb_reset(void) {
     if (g_registered_ctx) gb_context_reset(g_registered_ctx, true);
     for (int i = 1; i < gb_link_count(); ++i) gb_context_reset(gb_link_context(i), true);
-    g_rr_pcm.clear();
+    rr_gb_pcm_clear();
     rrhk_autofire_reset();
 }
 static void rr_gb_pause(bool paused) { (void)paused; }
 
 /* The sound of the frame: the samples the APU produced, 44.1 kHz stereo; `capacity` counts int16 values, the result frames. */
 static size_t rr_gb_audio(int16_t *pcm, size_t capacity) {
-    size_t frames = g_rr_pcm.size() / 2;
+    size_t frames = g_rr_pcm_count / 2;
     if (frames > capacity / 2) frames = capacity / 2;
-    memcpy(pcm, g_rr_pcm.data(), frames * 2 * sizeof(int16_t));
-    g_rr_pcm.erase(g_rr_pcm.begin(), g_rr_pcm.begin() + (ptrdiff_t)(frames * 2));
+    const size_t values = frames * 2, first = RR_GB_PCM_CAPACITY - g_rr_pcm_head < values ? RR_GB_PCM_CAPACITY - g_rr_pcm_head : values;
+    memcpy(pcm, g_rr_pcm_ring + g_rr_pcm_head, first * sizeof(int16_t));
+    memcpy(pcm + first, g_rr_pcm_ring, (values - first) * sizeof(int16_t));          /* the part after the wrap, if any */
+    g_rr_pcm_head = (g_rr_pcm_head + values) % RR_GB_PCM_CAPACITY;
+    g_rr_pcm_count -= values;
     return frames;
 }
 static bool rr_gb_audio_enable(unsigned rate) { (void)rate; return true; }
@@ -190,7 +196,7 @@ static bool rr_gb_state_ready(void) { return g_registered_ctx && g_registered_ct
 static bool rr_gb_state_file(const wchar_t *path, bool load) {
     (void)path;
     const bool done = load ? load_savestate_slot(g_registered_ctx, 0) : save_savestate_slot(g_registered_ctx, 0);
-    if (done && load) { g_rr_pcm.clear(); rrhk_autofire_reset(); }
+    if (done && load) { rr_gb_pcm_clear(); rrhk_autofire_reset(); }
     return done;
 }
 
@@ -270,7 +276,7 @@ static bool rr_gb_snap_load_adapter(const void *buffer, size_t size) {
     if (!bound || !buffer || size != bound) return false;
     for (size_t i = 0; i < bound / one; ++i)
         if (!rr_gb_one_load((int)i, (const uint8_t *)buffer + i * one, one)) return false;
-    g_rr_pcm.clear();            /* the sound of the frames that are run again is discarded */
+    rr_gb_pcm_clear();            /* the sound of the frames that are run again is discarded */
     return true;
 }
 
@@ -404,7 +410,7 @@ static void rr_gb_session_begin(uint64_t clock) {
         if (!g_rr_pristine.empty()) rr_gb_one_load(i, g_rr_pristine.data(), g_rr_pristine.size());
         rr_gb_session_begin_console(rr_gb_console(i), clock);
     }
-    g_rr_pcm.clear();
+    rr_gb_pcm_clear();
 }
 
 /* The match's cartridge RAM (session ABI 8): what the game would read at power-on. The host's is its save file, read here because the kit asks
@@ -576,9 +582,11 @@ const RrhkMachine *rrhk_adapter(void) { return rr_gb_adapter(); }
 /* The sound the APU produces goes to the kit while a window is open (never in the headless runs). */
 static void on_audio_sample(GBContext *ctx, int16_t left, int16_t right) {
     if (!rr_gb_link_shown(ctx)) return;                   /* a link: only the console of this PC's seat is heard */
-    if (g_benchmark_mode || !rrhk_window() || rrhk_session_silent() || g_rr_pcm.size() >= (size_t)RR_GB_PCM_LIMIT_FRAMES * 2) return;
-    g_rr_pcm.push_back(left);
-    g_rr_pcm.push_back(right);
+    if (g_benchmark_mode || !rrhk_window() || rrhk_session_silent() || g_rr_pcm_count + 2 > RR_GB_PCM_CAPACITY) return;
+    const size_t at = (g_rr_pcm_head + g_rr_pcm_count) % RR_GB_PCM_CAPACITY;
+    g_rr_pcm_ring[at] = left;
+    g_rr_pcm_ring[(at + 1) % RR_GB_PCM_CAPACITY] = right;
+    g_rr_pcm_count += 2;
 }
 
 /* ---- the entry points of the generated main (platform_sdl.h) ---- */
@@ -628,7 +636,7 @@ bool gb_platform_init(int scale) {
     g_last_timing = {};
     g_rr_stop = false;
     g_rr_sample_time = 0;
-    g_rr_pcm.clear();
+    rr_gb_pcm_clear();
     if (g_benchmark_mode) {
         if (!SDL_getenv("SDL_VIDEODRIVER")) SDL_setenv("SDL_VIDEODRIVER", "dummy", 0);
         if (!SDL_getenv("SDL_AUDIODRIVER")) SDL_setenv("SDL_AUDIODRIVER", "dummy", 0);
@@ -647,7 +655,7 @@ void gb_platform_shutdown(void) {
     if (gb_link_count() > 1)                         /* what the cable did (counted over the frames run again after a rollback too) */
         fprintf(stderr, "[link] %d consoles, %llu byte exchanges\n", gb_link_count(), (unsigned long long)gb_link_transfers());
     gb_link_stop();
-    g_rr_pcm.clear();
+    rr_gb_pcm_clear();
     g_port_frame = {};
     g_port_frame_valid = false;
     g_registered_ctx = NULL;

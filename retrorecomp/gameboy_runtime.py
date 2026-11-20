@@ -255,6 +255,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('gb_frame_trace.h', project / 'runtime/include/gb_frame_trace.h'),
         ('gb_digest.h', project / 'runtime/include/gb_digest.h'),
         ('gb_machine_state.h', project / 'runtime/include/gb_machine_state.h'),
+        ('gb_ppu_object_span.h', project / 'runtime/include/gb_ppu_object_span.h'),
         ('gb_link.h', project / 'runtime/include/gb_link.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)

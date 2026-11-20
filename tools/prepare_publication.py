@@ -30,7 +30,7 @@ native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
 licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
-retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_machine_internal.hpp native/pce_snapshot.cpp native/pce_snapshot.h
+native/pce_engine/pcm.cpp native/pce_engine/raster.cpp native/pce_engine/scanline.cpp native/pce_engine/video.cpp retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_machine_internal.hpp native/pce_snapshot.cpp native/pce_snapshot.h
 native/pce_backup.c native/pce_backup.h
 native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py native/save_set_aside.c native/save_set_aside.h
 native/hostkit/adapters/rrhk_pce.c
@@ -109,7 +109,7 @@ retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py ret
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/msx_machine/msx_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c
 native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c native/msx_machine/msx2_checks_sprites.c native/msx_machine/msx2_checks_board.c
-native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c
+native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c native/msx_machine/msx_music_checks.c
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c
@@ -176,7 +176,7 @@ tests/test_startup_splash.py
 retrorecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py
-.gitattributes .gitignore .github/workflows/checks.yml
+.gitattributes .gitignore .github/workflows/checks.yml .github/ISSUE_TEMPLATE/config.yml
 tools/build_site.py tests/test_site.py
 site/index.html site/styles.css site/404.html
 README.md LICENSE CONTRIBUTING.md CLAUDE.md THIRD_PARTY_NOTICES.md
@@ -234,7 +234,8 @@ retrorecomp/gui_estimates.py retrorecomp/time_estimates.py assets/conversion-tim
 retrorecomp/gui_firmware.py retrorecomp/firmware_search.py tests/test_firmware_search.py
 retrorecomp/gui_covers.py tests/test_gui_covers.py
 retrorecomp/gui_front_end.py retrorecomp/front_end.py retrorecomp/front_end_view.py tests/test_front_end.py retrorecomp/gui_icons.py
-retrorecomp/gui_multiplayer.py retrorecomp/multiplayer_view.py tests/test_multiplayer_view.py tests/test_toolbar.py retrorecomp/rounded_ui.py retrorecomp/rounded_skin.py tests/test_rounded_skin.py tests/test_window_scale.py tests/tk_cleanup.py
+retrorecomp/gui_multiplayer.py retrorecomp/multiplayer_view.py tests/test_multiplayer_view.py tests/test_toolbar.py retrorecomp/rounded_ui.py retrorecomp/rounded_skin.py tests/test_rounded_skin.py tests/test_window_scale.py tests/test_window_fit.py tests/tk_cleanup.py
+retrorecomp/game_logs.py tests/test_game_logs.py
 retrorecomp/closing_card_view.py tests/test_closing_card.py
 retrorecomp/gui_welcome.py retrorecomp/announcement.py tests/test_announcement.py retrorecomp/tk_threads.py
 retrorecomp/i18n.py retrorecomp/updater.py
@@ -312,7 +313,7 @@ native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py
 native/pce_snapshot_checks.cpp tools/pce_snapshot_selftest.py tools/pce_snapshot_rom.py tests/test_pce_snapshot.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
-native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
+native/gb_ppu_object_span.h native/gb_ppu_span_checks.c tools/gameboy_ppu_span_selftest.py tests/test_gameboy_perf.py native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
 native/gb_link.h native/gb_link_checks.c tools/gameboy_link_selftest.py tools/gameboy_link_play.py tests/test_gameboy_link.py
 tests/test_gameboy_helper_counts.py
 tools/gameboy_campaign.py tools/gameboy_cross_os.py tests/test_gameboy_cross_os.py
@@ -324,7 +325,7 @@ native/nes_guarded_checks.c tools/nes_guarded_selftest.py
 native/nes_windows_checks.c tools/nes_windows_selftest.py
 native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
 native/nes_machine_checks.c tools/nes_machine_selftest.py
-native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py native/nes_mmc1_checks.c tools/nes_mmc1_selftest.py native/nes_ram_sweep_checks.c tools/nes_ram_sweep_selftest.py tools/nes_static_mapper_selftest.py
+native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_apu_batch.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py native/nes_mmc1_checks.c tools/nes_mmc1_selftest.py native/nes_ram_sweep_checks.c tools/nes_ram_sweep_selftest.py tools/nes_static_mapper_selftest.py
 tools/nes_state_selftest.py
 retrorecomp/nes_machine.py retrorecomp/nes_catalog.py retrorecomp/nes_optimization.py
 retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/megadrive_evidence.py retrorecomp/megadrive_bus_rules.py retrorecomp/megadrive_rules.py retrorecomp/systems/console16.py
@@ -343,7 +344,7 @@ tools/neogeo_prototype.py tools/neogeo_qualification.py tests/test_neogeo.py doc
 retrorecomp/neogeo_codegen.py retrorecomp/neogeo_z80.py retrorecomp/neogeo_validation.py retrorecomp/m68000_state_rules.py retrorecomp/musashi_fixes.py
 native/neogeo_native.c native/neogeo_native.h native/neogeo_z80_native.h native/neogeo_decode.c
 native/neogeo_code_view.inc native/neogeo_board_checks.c tools/neogeo_board_selftest.py
-native/neogeo_lspc_state.inc native/neogeo_sprite_decode.h
+native/neogeo_lspc_state.inc native/neogeo_sprite_decode.h native/neogeo_sprite_scan.h
 native/neogeo_lspc_checks.c
 native/neogeo_timer_checks.c native/neogeo_sound_checks.c native/neogeo_ym_checks.c
 tools/neogeo_campaign.py

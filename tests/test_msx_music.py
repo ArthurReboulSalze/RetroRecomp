@@ -19,6 +19,24 @@ class VendoredTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256((VENDOR / name).read_bytes()).hexdigest(), digest, name)
         self.assertIn('emu2413 v1.5.9', (VENDOR / 'emu2413.c').read_text(encoding='utf-8')[:200])
 
+    def test_a_silent_still_chip_takes_the_quiet_step(self):
+        # 1.9.0 frame cost: the quiet step runs only what still moves in a silent, still chip; a write, a reset or a loaded state
+        # asks again. msx_music_checks.c proves it sample by sample against OPLL_calc.
+        music = (ROOT / 'native/msx_machine/msx_music.c').read_text(encoding='utf-8')
+        self.assertIn('static bool music_quiet(const OPLL *opll)', music)
+        self.assertIn('c->out = music_calc_quiet(c->opll);', music)
+        quiet_step = music[music.index('static int16_t music_calc_quiet('):music.index('static void music_write(')]
+        for call in ('update_ampm(opll);', 'update_short_noise(opll);', 'opll->eg_counter++;', 'update_noise(opll, 14);',
+                     'mix_output(opll);'):
+            self.assertIn(call, quiet_step)
+        self.assertEqual(music.count('c->quiet = false;'), 3)          # a write, a reset, a loaded state
+
+    def test_the_quiet_step_check_runs_with_the_msx_fixtures(self):
+        import importlib
+        reference = importlib.import_module('tools.msx_reference')
+        self.assertIn('msx_music_checks', reference.CHECK_PROGRAMS)
+        self.assertTrue((ROOT / 'native/msx_machine/msx_music_checks.c').is_file())
+
     def test_the_state_copy_is_generated_from_the_vendored_header(self):
         from retrorecomp import nes_state_layout
         known = nes_state_layout.parse((VENDOR / 'emu2413.h').read_text(encoding='utf-8'), {'OPLL_PATCH', 'OPLL_SLOT', 'OPLL'})

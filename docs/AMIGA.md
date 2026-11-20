@@ -85,6 +85,8 @@ and shares none. The player supplies the install; Retro-Recomp publishes no game
    compressed copy that is delivered. A quick state saved by it is loaded by a fresh process, which must continue the same
    timeline (CPU, RAM, picture and the sound samples of every frame; vAmiga's snapshot leaves out the state of its sound path, so
    the adapted core saves and restores the samplers' pending samples, the filters' memory and the volume ramps itself). A conversion that fails any of these keeps the earlier export.
+   Each traced frame hashes the picture, the sound and the RAM once. A headless run without a trace or rollback check skips these
+   hashes (1.9.0); the window never computes them.
 6. **Report.** The conversion report (schema v2, shape `amiga_conversion`) carries the interpreter fallback per CPU and keeps the
    five measures in separate objects.
 7. **Picture.** The game shows the display window the game opens, not the overscan border around it: the union of its

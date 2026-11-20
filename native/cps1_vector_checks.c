@@ -61,7 +61,9 @@ int cps1_m68k_int_ack(int level) { (void)level; return M68K_INT_ACK_AUTOVECTOR; 
 void rr_cps1_note_instruction(uint32_t pc, int native) { (void)pc; (void)native; ++interpreted; }
 
 /* The code view: the program ROM is the generated image, read live from the flat bus (as the board reads its
- * ROM), so the steps' complete word guard sees exactly the vector's code. */
+ * ROM). A step of the program ROM is taken without comparing its words: they were decoded from this very image, which is
+ * what this view returns, so the vectors need no word guard here (the RAM and graphics-RAM variants, whose bytes are live, are
+ * still compared by the steps). */
 const uint8_t *rr_cps1_code_bytes(uint32_t address, uint32_t *region, uint32_t *offset, unsigned *available) {
     address &= 0xffffffu;
     if ((address & 1u) || address + 2u > VECTOR_PROGRAM_BYTES) return NULL;

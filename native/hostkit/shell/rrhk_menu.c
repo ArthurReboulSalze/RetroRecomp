@@ -128,6 +128,10 @@ void rrhk_turn_page(int step) {
 enum { HUB_COLUMNS = 5, HUB_LINES = 2, TILE_W = 44, TILE_H = 40, TILE_GAP = 2 };
 static int hub_tile, hub_parent, hub_first_line;
 static bool from_hub;
+/* 1.9.0 (Arthur, 20 Nov 2026): the players' keyboard and pad tiles are grouped behind one Controls tile, first on the main
+ * page; it opens their sub-page (the same tiles, the same pages and rules as before), Esc / B come back to the main page with
+ * Controls selected. */
+static bool hub_controls;
 static bool quit_yes;
 static bool asking_relaunch;          /* the question asks « Change this option? » (rrhk_relaunch_ask, below) */
 static void relaunch_back(bool yes);
@@ -148,12 +152,16 @@ bool rrhk_hub_take_restart(void) { const bool asked = restart_asked; restart_ask
  * the player who holds it, Give the controller (the host, to any seat) and Everyone at once / Take turns (the host, in a match
  * with shared controls), then Restart and Quit, last everywhere (Arthur, 20 Nov 2026). The calls are the kit's
  * (rrhk_session_pass, rrhk_session_set_sharing); what they change comes back from the worker on every seat. */
+/* 1.9.0: the Display mode tile, after the pages (Arthur, 20 Nov 2026: a shortcut, he changes it often): each press is F4,
+ * rrhk_cycle_display (the next mode at once, saved as F4 and the options save it); its picture is the current mode. Each
+ * player's own in a match, as F4: only the picture changes. */
 enum { HUB_GRAPHICS = -3, HUB_CHAT = -4, HUB_QUIT = -5, HUB_RESTART = -6, HUB_PASS = -7, HUB_GIVE = -8, HUB_SHARING = -9,
-       HUB_EXTRAS = 8 };
+       HUB_DISPLAY = -10, HUB_CONTROLS = -11, HUB_EXTRAS = 10 };
 static int hub_extras(int kinds[HUB_EXTRAS]) {
     int n = 0;
     const int sharing = rrhk_session_sharing(), holder = rrhk_session_holder();
     const bool host = rrhk_session_active() && !rrhk_session_guest();
+    kinds[n++] = HUB_DISPLAY;
     if (rrhk.machine->gfx_option_count > 0) kinds[n++] = HUB_GRAPHICS;
     if (rrhk_chat_offered()) kinds[n++] = HUB_CHAT;
     if (holder >= 0 && holder == rrhk_session_seat()) kinds[n++] = HUB_PASS;
@@ -163,23 +171,33 @@ static int hub_extras(int kinds[HUB_EXTRAS]) {
     kinds[n++] = HUB_QUIT;
     return n;
 }
-static int hub_tiles(void) { int kinds[HUB_EXTRAS]; return rrhk_pages_count() + hub_extras(kinds); }
-/* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), or one of the
- * tiles after the pages (HUB_*). */
-static int hub_kind(int tile) {
-    const int pages = rrhk_pages_count();
-    if (tile >= pages) {
-        int kinds[HUB_EXTRAS];
-        const int count = hub_extras(kinds);
-        return tile - pages < count ? kinds[tile - pages] : HUB_QUIT;
-    }
-    const int controls = 2 * rrhk.machine->players();
-    return tile < controls ? tile : tile == pages - 1 ? -2 : -1;
+static int hub_control_pages(void) { return 2 * rrhk.machine->players(); }
+/* The main page: Controls, then the pages after the players' (the machine's own, the options), then the extras; the Controls
+ * sub-page: the players' pages alone. */
+static int hub_tiles(void) {
+    if (hub_controls) return hub_control_pages();
+    int kinds[HUB_EXTRAS];
+    return 1 + rrhk_pages_count() - hub_control_pages() + hub_extras(kinds);
 }
-static void hub_leave(void) { rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false; }
+/* The page a tile opens, as rrhk_pages_goto numbers them (players first, then the machine's page, then the options). */
+static int hub_page(int tile) { return hub_controls ? tile : hub_control_pages() + tile - 1; }
+/* What a tile is: a control page (its number: player * 2 + gamepad), the machine's page (-1), the options (-2), or one of the
+ * other tiles (HUB_*). */
+static int hub_kind(int tile) {
+    const int pages = rrhk_pages_count(), controls = hub_control_pages();
+    if (hub_controls) return tile;
+    if (tile == 0) return HUB_CONTROLS;
+    if (tile <= pages - controls) return hub_page(tile) == pages - 1 ? -2 : -1;
+    int kinds[HUB_EXTRAS];
+    const int count = hub_extras(kinds), extra = tile - 1 - (pages - controls);
+    return extra < count ? kinds[extra] : HUB_QUIT;
+}
+static void hub_leave(void) { rrhk.menu = 0; rrhk.parent_menu = 0; hub_parent = 0; from_hub = false; hub_controls = false; }
 static int give_row;
 static void hub_open(int tile) {
     const int kind = hub_kind(tile);
+    if (kind == HUB_CONTROLS) { hub_controls = true; hub_tile = hub_first_line = 0; return; }
+    if (kind == HUB_DISPLAY) { rrhk_cycle_display(); return; }     /* the menu stays: the tile shows the new mode */
     if (kind == HUB_QUIT) { rrhk_quit_ask(); return; }
     if (kind == HUB_RESTART) { hub_leave(); restart_asked = true; return; }   /* the loop restarts at its next frame */
     /* Multiplayer: the Chat tile closes the menu (the pause it asked for ends) and opens the chat's entry, with the on-screen
@@ -199,36 +217,43 @@ static void hub_open(int tile) {
     }
     if (kind == HUB_GRAPHICS) { rrhk_open_graphics(); return; }
     int control;
-    rrhk.menu = rrhk_pages_goto(tile, &control);
+    rrhk.menu = rrhk_pages_goto(hub_page(tile), &control);
     rrhk.player = control / 2; rrhk.gamepad_page = control % 2;
     rrhk.row = 0; rrhk.capturing = 0; rrhk.status[0] = 0; rrhk.parent_menu = 0;
     from_hub = true;
 }
+/* The main page has five tiles a line; the Controls sub-page four, two players a line (Arthur: P3 under P1). */
+static int hub_columns(void) { return hub_controls ? 4 : HUB_COLUMNS; }
+/* For the self-test and the drawing: the sub-page is open, the selected tile, the header (MENU, or CONTROLS on the sub-page). */
+bool rrhk_hub_in_controls(void) { return hub_controls; }
+int rrhk_hub_selected(void) { return hub_tile; }
+const char *rrhk_hub_title(void) { return rr_tr(hub_controls ? "Controls" : "Menu"); }
 void rrhk_hub_key(SDL_Scancode key) {
-    const int tiles = hub_tiles();
+    const int tiles = hub_tiles(), columns = hub_columns();
     if (hub_tile < 0 || hub_tile >= tiles) hub_tile = 0;
     if (key == SDL_SCANCODE_LEFT) hub_tile = (hub_tile + tiles - 1) % tiles;
     else if (key == SDL_SCANCODE_RIGHT) hub_tile = (hub_tile + 1) % tiles;
-    else if (key == SDL_SCANCODE_UP && hub_tile >= HUB_COLUMNS) hub_tile -= HUB_COLUMNS;
-    else if (key == SDL_SCANCODE_DOWN && hub_tile + HUB_COLUMNS < tiles) hub_tile += HUB_COLUMNS;
-    else if (key == SDL_SCANCODE_DOWN && hub_tile / HUB_COLUMNS < (tiles - 1) / HUB_COLUMNS) hub_tile = tiles - 1;   /* a shorter last line */
+    else if (key == SDL_SCANCODE_UP && hub_tile >= columns) hub_tile -= columns;
+    else if (key == SDL_SCANCODE_DOWN && hub_tile + columns < tiles) hub_tile += columns;
+    else if (key == SDL_SCANCODE_DOWN && hub_tile / columns < (tiles - 1) / columns) hub_tile = tiles - 1;   /* a shorter last line */
     else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER) hub_open(hub_tile);
 }
 static void hub_draw(const RrhkMenuCtx *ctx) {
     const RrhkMachine *m = rrhk.machine;
     SDL_Renderer *ren = ctx->renderer;
     const int ox = ctx->ox, oy = ctx->oy, unit = ctx->unit;
-    const int tiles = hub_tiles(), lines = (tiles + HUB_COLUMNS - 1) / HUB_COLUMNS;
+    const int tiles = hub_tiles(), columns = hub_columns(), lines = (tiles + columns - 1) / columns;
     if (hub_tile < 0 || hub_tile >= tiles) hub_tile = 0;
     /* A link session (the handhelds' cable, 1.9.0): every PC runs every console; the subtitle says which one is this player's. */
     char seat_line[40] = "";
     if (rrhk_session_link() && rrhk_session_seat() >= 0) snprintf(seat_line, sizeof seat_line, rr_tr("You are P%d"), rrhk_session_seat() + 1);
-    rr_menu_header(ren, ox, oy, unit, rr_tr("Controls"), seat_line[0] ? seat_line : NULL);
+    rr_menu_header(ren, ox, oy, unit, rrhk_hub_title(), seat_line[0] ? seat_line : NULL);
+    const int display = rrhk.fullscreen >= 0 && rrhk.fullscreen < 4 ? rrhk.fullscreen : 0;
     /* 1.9.0: two lines of tiles fit over the name of the selected one; past them (four players, a graphics page and Quit: three
      * lines) the tiles scroll, two lines around the selected one, ^ and v at the right edge when more lie above or below. */
     const int shown = lines < HUB_LINES ? lines : HUB_LINES;
-    if (hub_tile / HUB_COLUMNS < hub_first_line) hub_first_line = hub_tile / HUB_COLUMNS;
-    if (hub_tile / HUB_COLUMNS >= hub_first_line + shown) hub_first_line = hub_tile / HUB_COLUMNS - shown + 1;
+    if (hub_tile / columns < hub_first_line) hub_first_line = hub_tile / columns;
+    if (hub_tile / columns >= hub_first_line + shown) hub_first_line = hub_tile / columns - shown + 1;
     if (hub_first_line > lines - shown) hub_first_line = lines - shown;
     if (hub_first_line < 0) hub_first_line = 0;
     const int top = shown > 1 ? 38 : 44;
@@ -236,9 +261,12 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     if (hub_first_line + shown < lines)
         rr_menu_text_plain(ren, ox, oy, unit, 245, top + (shown - 1) * (TILE_H + TILE_GAP) + TILE_H - 12, 5, "v", RR_MENU_HINT);
     char label[16], title[80], value[80];
-    for (int i = hub_first_line * HUB_COLUMNS; i < tiles && i < (hub_first_line + shown) * HUB_COLUMNS; ++i) {
-        const int line = i / HUB_COLUMNS, in_line = line == lines - 1 ? tiles - line * HUB_COLUMNS : HUB_COLUMNS;
-        const int x = (256 - in_line * TILE_W - (in_line - 1) * TILE_GAP) / 2 + (i % HUB_COLUMNS) * (TILE_W + TILE_GAP);
+    for (int i = hub_first_line * columns; i < tiles && i < (hub_first_line + shown) * columns; ++i) {
+        /* The main page centres each line (Restart and Quit under the others); the sub-page keeps the first line's grid, so a
+         * third player's keyboard and pad come under the first player's. */
+        const int line = i / columns, in_line = line == lines - 1 ? tiles - line * columns : columns;
+        const int across = hub_controls ? (tiles < columns ? tiles : columns) : in_line;
+        const int x = (256 - across * TILE_W - (across - 1) * TILE_GAP) / 2 + (i % columns) * (TILE_W + TILE_GAP);
         const int y = top + (line - hub_first_line) * (TILE_H + TILE_GAP), kind = hub_kind(i);
         const bool selected = i == hub_tile;
         if (selected) {
@@ -249,7 +277,9 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
             rr_menu_box(ren, ox, oy, unit, x, y, TILE_W, TILE_H, RR_MENU_SHADE, 255);
             rr_menu_box(ren, ox, oy, unit, x + 1, y + 1, TILE_W - 2, TILE_H - 2, 26, 24, 20, 255);
         }
-        const int icon = kind == HUB_PASS ? RR_ICON_PASS : kind == HUB_GIVE ? RR_ICON_GIVE : kind == HUB_SHARING ? RR_ICON_SHARING :
+        const int icon = kind == HUB_CONTROLS ? RR_ICON_CONTROLS :
+            kind == HUB_DISPLAY ? RR_ICON_DISPLAY_WINDOW + display :
+            kind == HUB_PASS ? RR_ICON_PASS : kind == HUB_GIVE ? RR_ICON_GIVE : kind == HUB_SHARING ? RR_ICON_SHARING :
             kind == -6 ? RR_ICON_RESTART : kind == -5 ? RR_ICON_EXIT : kind == -4 ? RR_ICON_CHAT : kind == -3 ? RR_ICON_GRAPHICS : kind == -2 ? RR_ICON_OPTIONS : kind == -1 ? (m->pointer ? RR_ICON_POINTER : RR_ICON_SWITCHES) :
             kind % 2 ? RR_ICON_GAMEPAD : RR_ICON_KEYBOARD;
         rr_menu_icon(ren, ox, oy, unit, x + (TILE_W - rr_menu_icon_width(icon)) / 2, y + (kind >= 0 ? 4 : 11), icon, !selected);
@@ -265,6 +295,8 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     rr_menu_box(ren, ox, oy, unit, 14, y, 228, 1, RR_MENU_SHADE, 255);
     const int kind = hub_kind(hub_tile);
     if (kind >= 0) snprintf(title, sizeof title, rr_tr(kind % 2 ? "Player %d - Gamepad" : "Player %d - Keyboard"), kind / 2 + 1);
+    else if (kind == HUB_DISPLAY) snprintf(title, sizeof title, rr_tr("F4 Display: %s"), rrhk_display_name(display));
+    else if (kind == HUB_CONTROLS) snprintf(title, sizeof title, "%s", rr_tr("Controls"));
     else {
         /* A page's title names the converter ("Retro-Recomp - Gun"): under the tiles the page alone is named. */
         const char *name = rr_tr(kind == HUB_PASS ? "Pass the controller" : kind == HUB_GIVE ? "Give the controller" :
@@ -295,6 +327,7 @@ void rrhk_toggle_settings(void) {
         hub_parent = rrhk.menu == RRHK_MENU_PAUSE ? RRHK_MENU_PAUSE : 0;
         rrhk.menu = RRHK_MENU_HUB; rrhk.parent_menu = 0; from_hub = false;
         rrhk.player = rrhk.gamepad_page = rrhk.row = hub_tile = hub_first_line = 0;
+        hub_controls = false;
     }
 }
 
@@ -302,6 +335,7 @@ void rrhk_toggle_settings(void) {
 void rrhk_close_menu(void) {
     if (rrhk.menu == RRHK_MENU_GIVE) { rrhk.menu = RRHK_MENU_HUB; rrhk.parent_menu = 0; return; }
     if (rrhk.menu == RRHK_MENU_QUIT && asking_relaunch) { relaunch_back(false); return; }
+    if (rrhk.menu == RRHK_MENU_HUB && hub_controls) { hub_controls = false; hub_tile = hub_first_line = 0; return; }  /* Controls */
     if (rrhk.menu == RRHK_MENU_HUB) { rrhk.menu = hub_parent; hub_parent = 0; rrhk.parent_menu = 0; from_hub = false; return; }
     if (from_hub && rrhk_pages_open(rrhk.menu)) { rrhk.menu = RRHK_MENU_HUB; rrhk.parent_menu = 0; return; }
     rrhk.menu = rrhk.parent_menu;

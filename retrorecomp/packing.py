@@ -30,8 +30,11 @@ UPX_LEVEL = "-9"
 # about twice as fast, for a start that decompresses a little longer (tools/startup_cost.py measures it). A size choice,
 # not an antivirus measure: nothing shows that it changes a detection. Linux: unchanged until the start-up cost of --lzma
 # on a large ELF (see the note on UPX 5.2 below: 2.7 s against 0.17 s on a slow laptop) is measured again.
+# 1.9.0: Windows back to NRV, as Linux (Arthur, 20 Nov 2026). Measured on the reference PC (quiet, 7 fresh-copy starts to the
+# first frame, .build/perf-190/UPX.md): LZMA saved 4-23 % of the file against NRV but cost 60-260 ms more at every start
+# (Sonic SMS 59 -> 119 ms, Mega Man X2 95 -> 196 ms, Pinball Illusions 212 -> 474 ms, Super Mario 64 524 -> 604 ms).
 # `packing_record` reports the method of the file it describes.
-WINDOWS_METHOD = 'lzma'
+WINDOWS_METHOD = 'nrv'
 LINUX_METHOD = 'nrv'
 METHOD_FLAGS: dict[str, tuple[str, ...]] = {'nrv': (), 'lzma': ('--lzma',)}
 UPX_SHA256 = "ff30a651c9e41a2bbb363825fac9e7e23d92871c1ac82813a264e3b8d1cd302b"
