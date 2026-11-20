@@ -38,9 +38,11 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-PER_PLAYER, SHARED_ALL, SHARED_TURNS = 0, 1, 2
-SHARINGS = (PER_PLAYER, SHARED_ALL, SHARED_TURNS)
-NAMES = {PER_PLAYER: 'per_player', SHARED_ALL: 'everyone', SHARED_TURNS: 'turns'}
+PER_PLAYER, SHARED_ALL, SHARED_TURNS, LINK = 0, 1, 2, 3
+SHARINGS = (PER_PLAYER, SHARED_ALL, SHARED_TURNS, LINK)
+NAMES = {PER_PLAYER: 'per_player', SHARED_ALL: 'everyone', SHARED_TURNS: 'turns', LINK: 'link'}
+# LINK (the handhelds' link cable, session ABI 9): one console per seat, every PC running all of them; the words map as one
+# controller per player (seat i's word is port i), and the game is told it is a link session (SETUP).
 BY_NAME = {name: value for value, name in NAMES.items()}
 
 SYS_PAUSE = 0x0001           # the game's (session_pipe.SYS_PAUSE); the only bit a game may set
@@ -79,7 +81,8 @@ def valid(sharing) -> bool:
 
 
 def shared(sharing: int) -> bool:
-    return sharing != PER_PLAYER
+    """Input sharing: every seat on the same controls (everyone or turns). One controller per player and the link are not."""
+    return sharing in (SHARED_ALL, SHARED_TURNS)
 
 
 def forced(machine: str | None) -> bool:
@@ -88,13 +91,23 @@ def forced(machine: str | None) -> bool:
     return bool(profile is not None and profile.netplay_shared_only)
 
 
+def link_seats(machine: str | None) -> int:
+    """The consoles a machine's link cable plays with in a session (its profile's `netplay_link_seats`), 0 for none."""
+    profile = _profile(machine)
+    return int(getattr(profile, 'netplay_link_seats', 0) or 0) if profile is not None else 0
+
+
 def effective(machine: str | None, chosen: int) -> int:
     """The mode a game of `machine` is played in when the host chose `chosen`: a handheld is shared whatever was chosen
     ("everyone" when the host's choice was one controller per player)."""
+    if chosen == LINK and not link_seats(machine):
+        return SHARED_ALL if forced(machine) else PER_PLAYER
     return SHARED_ALL if forced(machine) and chosen == PER_PLAYER else chosen
 
 
 def allowed(machine: str | None, sharing: int) -> bool:
+    if sharing == LINK:
+        return link_seats(machine) >= 2
     return valid(sharing) and (sharing != PER_PLAYER or not forced(machine))
 
 

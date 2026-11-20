@@ -259,7 +259,7 @@ retrorecomp/netplay/rollback.py tests/test_netplay_rollback.py tools/netplay_rol
 retrorecomp/netplay/invitation.py retrorecomp/netplay/internet_key.py retrorecomp/netplay/reach.py retrorecomp/netplay/firewall_check.py retrorecomp/netplay/handshake.py retrorecomp/netplay/sealing.py retrorecomp/netplay/control.py
 retrorecomp/netplay/datagram.py retrorecomp/netplay/limits.py retrorecomp/netplay/room_log.py
 retrorecomp/netplay/lan_transport.py retrorecomp/netplay/room_worker.py retrorecomp/netplay/room_cli.py retrorecomp/netplay/lag_link.py
-tests/test_netplay_transport.py tests/test_netplay_loopback.py tests/test_netplay_internet_key.py tests/test_netplay_reach.py tests/test_netplay_firewall_check.py tests/test_netplay_keyboard_relaunch.py tests/test_netplay_internet_room.py
+tests/test_netplay_transport.py tests/test_netplay_loopback.py tests/test_netplay_internet_key.py tests/test_netplay_reach.py tests/test_netplay_firewall_check.py tests/test_netplay_keyboard_relaunch.py tests/test_netplay_link.py tests/test_netplay_internet_room.py
 retrorecomp/netplay/lobby.py retrorecomp/netplay/lobby_check.py retrorecomp/netplay/lobby_client.py
 tests/test_netplay_lobby.py tests/test_netplay_lobby_loopback.py
 retrorecomp/netplay/seat_map.py tests/test_netplay_seat_map.py

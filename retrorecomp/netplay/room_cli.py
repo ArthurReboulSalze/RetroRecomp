@@ -79,9 +79,10 @@ def _parser() -> argparse.ArgumentParser:
     host.add_argument('--guests', type=int, default=1, choices=(1, 2, 3), help='launch when this many guests have joined')
     host.add_argument('--delay', type=int, default=None, help='input delay in frames (default: measured, chosen by the host)')
     host.add_argument('--digest-every', type=int, default=60)
-    host.add_argument('--sharing', choices=('per_player', 'everyone', 'turns'), default='per_player',
+    host.add_argument('--sharing', choices=('per_player', 'everyone', 'turns', 'link'), default='per_player',
                       help='the input mode of the match: one controller per player (default), or every player on the same controls '
-                           '("everyone" OR-merged, "turns" one at a time); a handheld is always shared')
+                           '("everyone" OR-merged, "turns" one at a time); a handheld is shared, or linked ("link": one console per seat) '
+                           'when the link of its profile is proven (netplay_link_seats)')
     host.add_argument('--tier', choices=TIER_MODES, default='auto',
                       help='the tier of the match: automatic (the default: rollback when the game keeps snapshots, else delay), '
                            'or delay / rollback to force one (a check between two PCs)')

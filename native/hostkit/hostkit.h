@@ -377,6 +377,11 @@ typedef struct RrhkMachine {
      * keyboard mode (Ctrl+Alt+K) is on; false when it is off. Called for the host's LOCAL only. Every seat, the host
      * included, then types what rrhk_session_keys gives for the frame. NULL: a machine without a keyboard. */
     bool (*session_keys)(uint8_t *bits);
+    /* A handheld whose link cable plays in a session (docs/MULTIPLAYER.md, the link contract of 20 Nov 2026): the most consoles
+     * it can run linked (2, or 4), 0 for none. The kit then says RRHK_CAP_LINK in HELLO; in a link session
+     * (rrhk_session_link()) the adapter runs rrhk_session_ports() consoles, console i reading port i's pad, all of them in its
+     * snapshots and digest in seat order, and shows and hears console rrhk_session_seat(). */
+    int link_consoles;
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
@@ -453,6 +458,8 @@ bool rrhk_session_guest(void);
 /* Session ABI 9, a computer's keyboard: the host's keys of the frame being run, unpacked into `state` (SDL_NUM_SCANCODES bytes,
  * 1 for a key held); false (and `state` all zero) when the host does not type this frame. */
 bool rrhk_session_keys(uint8_t *state);
+/* A link session (SETUP said RRHK_SETUP_LINK, known before session_begin): one console per seat, rrhk_session_ports() of them. */
+bool rrhk_session_link(void);
 /* The shared controls of a session (session ABI 9), for the F2 tiles, a pad combination and the badge: the mode in force
  * (RRHK_SHARING_*, -1 outside a session or before the worker said it), the seat holding them in turns (-1: none), this
  * PC's seat, the seats and their names. rrhk_session_pass: the holder passes to the next seat (to = -1), the host gives them

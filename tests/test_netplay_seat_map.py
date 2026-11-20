@@ -194,7 +194,7 @@ class MapperRules(unittest.TestCase):
         host_guest._ask(seat_map.request(SHARED_TURNS, 1, target=2))
         self.assertEqual(host_guest.stats['requests_refused'], 1)
         with self.assertRaises(ValueError):
-            LockstepDriver(NoGame(), None, Settings(seat=0, seats=2, delay=2, sharing=3))
+            LockstepDriver(NoGame(), None, Settings(seat=0, seats=2, delay=2, sharing=4))
 
 
 class HandheldsAndSeats(unittest.TestCase):
@@ -295,18 +295,18 @@ class LaunchSettings(unittest.TestCase):
         self.assertEqual(control.decode(kind, payload), launch_message)
         self.assertEqual(control.decode(kind, payload).sharing, SHARED_TURNS)
         self.assertEqual(payload[10], SHARED_TURNS)
-        for wrong in (3, 255):
+        for wrong in (4, 255):                  # 3 is the link (session ABI 9)
             with self.assertRaises(control.FrameError):
                 control.decode(kind, payload[:10] + bytes([wrong]) + payload[11:])
         with self.assertRaises(ValueError):
-            control.encode(control.Launch(1, 1, 3, 2, 60, 3, 'gb', bytes(32), bytes(32), ('a', 'b', 'c'), '', 3))
+            control.encode(control.Launch(1, 1, 3, 2, 60, 3, 'gb', bytes(32), bytes(32), ('a', 'b', 'c'), '', 4))
         roster = control.Roster(1, control.PHASE_LOBBY, 4, 1, (control.Player(0, 'a'), control.Player(1, 'b')), SHARED_ALL)
         kind, payload = control.encode(roster)
         self.assertEqual(control.decode(kind, payload), roster)
         with self.assertRaises(control.FrameError):
-            control.decode(kind, payload[:5] + b'\x03' + payload[6:])
+            control.decode(kind, payload[:5] + b'\x04' + payload[6:])
         with self.assertRaises(ValueError):
-            control.encode(control.Roster(1, control.PHASE_LOBBY, 4, 1, (control.Player(0, 'a'),), 3))
+            control.encode(control.Roster(1, control.PHASE_LOBBY, 4, 1, (control.Player(0, 'a'),), 4))
 
 
 class LobbyChoice(unittest.TestCase):
@@ -328,7 +328,7 @@ class LobbyChoice(unittest.TestCase):
         self.assertIsInstance(self.lobby.set_sharing(True), lobby.Refusal)
         self.assertEqual(lobby.HostLobby('a', 4, SHARED_ALL).sharing, SHARED_ALL)      # chosen when the room is created
         with self.assertRaises(ValueError):
-            lobby.HostLobby('a', 4, 3)
+            lobby.HostLobby('a', 4, 4)
 
     def test_a_change_of_mode_is_a_roster_change_and_asks_nobody_again(self):
         self.lobby.select(game(), 0.0)

@@ -70,7 +70,7 @@ def side(args) -> int:
         common += ['--lag-ms', str(args.lag_ms), '--jitter-ms', str(args.jitter_ms)]
     if args.role == 'host':
         argv = ['host', '--address', args.address, '--tier', args.tier, '--digest-every', str(args.digest_every),
-                '--join-timeout', '120', '--guests', str(args.seats - 1), *common]
+                '--join-timeout', '120', '--guests', str(args.seats - 1), '--sharing', args.sharing, *common]
         if args.internet:                # an Internet room: its key carries the host's own address, typed (no box asked)
             argv += ['--internet-address', args.address]
     else:
@@ -239,6 +239,8 @@ def main() -> int:
         p.add_argument('--jitter-ms', type=float, default=0.0)
         p.add_argument('--out', type=Path)
         p.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too')
+        p.add_argument('--sharing', choices=('per_player', 'everyone', 'turns', 'link'), default='per_player',
+                       help='the input mode (link: the link cable of the handhelds, one console per seat)')
         p.add_argument('--keys', action='store_true',
                        help="every seat types letters too (a computer, session ABI 9): only the host's may reach the games")
         p.add_argument('--seats', type=int, choices=(2, 3, 4), default=2, help='players in the match: the host and its guests')

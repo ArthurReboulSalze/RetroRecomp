@@ -29,7 +29,9 @@
                                      * 9: the host changes a run-changing option in a match (RELAUNCH, STOP_RELAUNCH: the
                                      * match starts again for everyone with it) and the host types on a computer (LOCAL and
                                      * RUN carry its keys, RRHK_CAP_KEYBOARD, RRHK_SYS_KEYBOARD, RRHK_RUN_KEYS); the shared
-                                     * controls from the game (RRHK_SYS_PASS, RRHK_SYS_SHARE_*) and who holds them (TURNS) */
+                                     * controls from the game (RRHK_SYS_PASS, RRHK_SYS_SHARE_*) and who holds them (TURNS); the
+                                     * link cable of the handhelds (RRHK_CAP_LINK, RRHK_SETUP_LINK: every PC runs every linked
+                                     * console, the pads alone travel) */
 #define RRHK_SESSION_MAX_PAYLOAD 4096
 #define RRHK_SESSION_MAX_RING 64
 #define RRHK_SESSION_MAX_OPTIONS 1024
@@ -86,8 +88,11 @@ enum {
 };
 
 enum { RRHK_CAP_SNAPSHOT = 1, RRHK_CAP_DIGEST = 2, RRHK_CAP_POINTER = 4, RRHK_CAP_AXES = 8, RRHK_CAP_KEYBOARD = 16,
-       RRHK_CAP_DRIVEN = 32 };
-enum { RRHK_SETUP_GUEST = 1 };          /* a guest never writes its cartridge save */
+       RRHK_CAP_DRIVEN = 32,
+       RRHK_CAP_LINK = 64 };            /* the game runs linked consoles (RrhkMachine.link_consoles) */
+enum { RRHK_SETUP_GUEST = 1,            /* a guest never writes its cartridge save */
+       RRHK_SETUP_LINK = 2 };           /* a link session: one console per seat (the ports), all run on every PC, this PC shows
+                                         * and hears its seat's (rrhk_session_link, rrhk_session_seat) */
 enum { RRHK_RUN_SILENT = 1,            /* re-simulation: no picture, no sound, no side effects (a driven machine's guest runs it
                                       * and ends it at its next rrhk_frame_done) */
        RRHK_RUN_RESET = 2,             /* the machine restarts before this frame runs (live or silent): the host asked it */
@@ -108,7 +113,7 @@ enum { RRHK_SYS_PAUSE = 1,             /* the player asked for a pause (the Paus
        RRHK_SYS_SHARE_ALL = 64,        /* the host: the shared controls go to everyone at once */
        RRHK_SYS_SHARE_TURNS = 128 };   /* the host: the shared controls are taken in turns */
 #define RRHK_SYS_PASS_TO_SHIFT 8
-enum { RRHK_SHARING_PER_PLAYER = 0, RRHK_SHARING_EVERYONE = 1, RRHK_SHARING_TURNS = 2 };
+enum { RRHK_SHARING_PER_PLAYER = 0, RRHK_SHARING_EVERYONE = 1, RRHK_SHARING_TURNS = 2, RRHK_SHARING_LINK = 3 };
 /* The keys a computer's keyboard can be typed with in a session: one bit each, SDL scancodes 4 (A) to 100 (the key left of Z
  * on ISO keyboards) as bits 0..96, then the eight modifiers 224..231 as bits 97..104. Nothing else is ever typed. */
 #define RRHK_KEY_BYTES 16

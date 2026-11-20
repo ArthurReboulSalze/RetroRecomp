@@ -247,6 +247,9 @@ class SystemProfile(ABC):
     netplay_seats: int = 2
     netplay_seats_ceiling: bool = False
     netplay_shared_only: bool = False
+    # `netplay_link_seats`: the link cable plays in a session with that many consoles (one per seat, every PC running all of
+    # them: the link contract of 20 Nov 2026); 0 until the machine's link is proven two seats on one PC.
+    netplay_link_seats: int = 0
 
     @property
     def declared_notice_files(self) -> tuple[str, ...]:

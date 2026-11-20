@@ -33,8 +33,8 @@ MSG_TURNS = 43
 MAX_SAVE = 2 * 1024 * 1024   # RRHK_SESSION_MAX_SAVE: the largest save image a game gives or takes
 SAVE_CHUNK = 4000            # the data of one SAVE_OUT / SAVE_IN
 
-CAP_SNAPSHOT, CAP_DIGEST, CAP_POINTER, CAP_AXES, CAP_KEYBOARD, CAP_DRIVEN = 1, 2, 4, 8, 16, 32
-SETUP_GUEST = 1
+CAP_SNAPSHOT, CAP_DIGEST, CAP_POINTER, CAP_AXES, CAP_KEYBOARD, CAP_DRIVEN, CAP_LINK = 1, 2, 4, 8, 16, 32, 64
+SETUP_GUEST, SETUP_LINK = 1, 2
 RUN_SILENT, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD, RUN_AXES, RUN_KEYS = 1, 2, 4, 8, 16, 32
 KEY_BYTES = 16               # RRHK_KEY_BYTES: the keys the host types on a computer, one bit per key (session ABI 9)
 NO_KEYS = bytes(KEY_BYTES)
@@ -44,7 +44,7 @@ RUN_ACTIONS = (0, RUN_RESET, RUN_STATE_SAVE, RUN_STATE_LOAD)       # at most one
 SYS_PAUSE, SYS_RESTART, SYS_STATE_SAVE, SYS_STATE_LOAD, SYS_KEYBOARD = 1, 2, 4, 8, 16
 SYS_PASS, SYS_SHARE_ALL, SYS_SHARE_TURNS = 32, 64, 128     # the shared controls: pass (to a seat), the host's mode switch
 SYS_PASS_TO_SHIFT, SYS_PASS_TO_MASK = 8, 0x0700            # with SYS_PASS, the host's target seat + 1 (0: the next seat)
-SHARING_PER_PLAYER, SHARING_EVERYONE, SHARING_TURNS = 0, 1, 2      # TURNS: the mode in force
+SHARING_PER_PLAYER, SHARING_EVERYONE, SHARING_TURNS, SHARING_LINK = 0, 1, 2, 3      # TURNS: the mode in force
 REFUSED_OPTION, REFUSED_SNAPSHOT, REFUSED_COMMAND = 1, 2, 3
 EXIT_CLOSED, EXIT_LOST, EXIT_STOPPED, EXIT_FAILED = 1, 2, 3, 4
 NOTICE_WAITING, NOTICE_RESUMED, NOTICE_LEFT, NOTICE_TURN, NOTICE_YOUR_TURN, NOTICE_CHAT_SLOW = 1, 2, 3, 4, 5, 6
@@ -65,7 +65,8 @@ HEADER_NAMES = {
     'RRHK_MSG_SAVE_IN': MSG_SAVE_IN, 'RRHK_MSG_RELAUNCH': MSG_RELAUNCH, 'RRHK_MSG_TURNS': MSG_TURNS,
     'RRHK_SYS_PASS': SYS_PASS, 'RRHK_SYS_SHARE_ALL': SYS_SHARE_ALL, 'RRHK_SYS_SHARE_TURNS': SYS_SHARE_TURNS,
     'RRHK_SHARING_PER_PLAYER': SHARING_PER_PLAYER, 'RRHK_SHARING_EVERYONE': SHARING_EVERYONE,
-    'RRHK_SHARING_TURNS': SHARING_TURNS,
+    'RRHK_SHARING_TURNS': SHARING_TURNS, 'RRHK_SHARING_LINK': SHARING_LINK, 'RRHK_CAP_LINK': CAP_LINK,
+    'RRHK_SETUP_LINK': SETUP_LINK,
     'RRHK_MSG_SETUP': MSG_SETUP, 'RRHK_MSG_RUN': MSG_RUN, 'RRHK_MSG_SAVE': MSG_SAVE, 'RRHK_MSG_LOAD': MSG_LOAD,
     'RRHK_MSG_DIGEST': MSG_DIGEST, 'RRHK_MSG_PAUSE': MSG_PAUSE, 'RRHK_MSG_NOTICE': MSG_NOTICE,
     'RRHK_MSG_PACE': MSG_PACE, 'RRHK_MSG_STOP': MSG_STOP,
@@ -192,7 +193,7 @@ def save_in(data: bytes) -> list[bytes]:
             for offset in range(0, len(data), SAVE_CHUNK)]
 
 
-def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:
+def check_hello(hello: Hello, seats: int, shared: bool = False, link: bool = False) -> None:
     """Refuses what the delay tier of stage 1 cannot do; the reason is a sentence for the lobby. In input sharing the seats
     all drive the same controls, so the game's own players only have to be one: the seats are bounded by the room, not by it."""
     if hello.abi != ABI:
@@ -201,7 +202,12 @@ def check_hello(hello: Hello, seats: int, shared: bool = False) -> None:
         raise Refused('the game gives no digest: two copies could not be compared')
     if hello.caps & CAP_POINTER:         # a computer's keyboard travels since session ABI 9 (the host's keys)
         raise Refused('the game reads a pointer or light gun, which the pad words do not carry yet')
-    if shared:
+    if link:                     # the link cable: one console per seat, the game says it runs linked consoles
+        if not hello.caps & CAP_LINK:
+            raise Refused('this export cannot play over the link cable (convert it again)')
+        if not 2 <= seats <= MAX_PLAYERS:
+            raise Refused(f'{seats} seats asked, a link plays 2 to {MAX_PLAYERS} consoles')
+    elif shared:
         if not (1 <= seats <= MAX_PLAYERS and hello.players >= 1):
             raise Refused(f'{seats} seats asked, a room seats 1 to {MAX_PLAYERS}')
     elif not 1 <= seats <= min(hello.players, MAX_PLAYERS):
@@ -283,9 +289,10 @@ def clean_name(name: str) -> bytes:
     return text.strip()[:16].encode('ascii') or b'?'
 
 
-def setup(seat: int, ports: int, ring_depth: int = 0, guest: bool = False, options: str = '') -> bytes:
+def setup(seat: int, ports: int, ring_depth: int = 0, guest: bool = False, options: str = '', link: bool = False) -> bytes:
     text = options.encode('ascii')
-    return frame(MSG_SETUP, struct.pack('<BBBBH', seat, ports, ring_depth, SETUP_GUEST if guest else 0, len(text)) + text)
+    flags = (SETUP_GUEST if guest else 0) | (SETUP_LINK if link else 0)
+    return frame(MSG_SETUP, struct.pack('<BBBBH', seat, ports, ring_depth, flags, len(text)) + text)
 
 
 def run(frame_number: int, words, silent: bool = False, reset: bool = False, action: int = 0, axes=None,
