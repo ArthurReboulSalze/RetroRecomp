@@ -77,5 +77,16 @@ class ProfileTests(unittest.TestCase):
         self.assertIn('.link_consoles = (int)rrgba_link_seats()', adapter)
 
 
+class DrawingTests(unittest.TestCase):
+    def test_only_the_console_this_pc_shows_is_drawn(self):
+        from retrorecomp.paths import ROOT
+        source = (ROOT / 'native' / 'gba_machine.cpp').read_text(encoding='utf-8')
+        player = (ROOT / 'retrorecomp' / 'gba_player.py').read_text(encoding='utf-8')
+        self.assertIn('set_rasterization_enabled(false)', source)
+        self.assertIn('GbaNetplayPresentation', source)
+        self.assertIn('RETRORECOMP_GBA_LINK_RASTER', source)       # the comparison switch: every console draws as before
+        self.assertIn('src/runtime/multiplayer_view.cpp', player)    # the engine's mirror is one more source of the player, not a patch
+
+
 if __name__ == '__main__':
     unittest.main()
