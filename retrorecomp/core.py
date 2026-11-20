@@ -1210,6 +1210,13 @@ static void smsrecomp_state_service(void);
         # is the Master System's own, with one call at its start; the loop that links is a copy with the hooks of the pair, entered once
         # (it never returns, as the loop does not) when the link begins.
         glue += "\n" + (ASSETS / "native/gg_link.inc").read_text(encoding="utf-8")
+        # Two loops call banked_after_step and banked_accept_irq: a hint is not enough for the compiler to keep them inlined in the loop of a
+        # solo game (measured: a real call per guest instruction, +4 % per frame). The Game Gear's text forces it; banked_runtime.inc, shared
+        # with the MSX family and in every stamp, stays as it is.
+        banked = replace_once(banked, "static void banked_accept_irq(void) {", "RR_ALWAYS_INLINE void banked_accept_irq(void) {")
+        banked = replace_once(banked, "static inline void banked_after_step(int pending_irq) {", "RR_ALWAYS_INLINE void banked_after_step(int pending_irq) {")
+        banked = ("#if defined(__GNUC__) || defined(__clang__)\n#define RR_ALWAYS_INLINE static inline __attribute__((always_inline))\n"
+                  "#else\n#define RR_ALWAYS_INLINE static inline\n#endif\n") + banked
         banked = replace_once(banked, "    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n",
             "    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n    if (rrl_start()) smsrecomp_banked_run_linked();\n")
         head = "static void smsrecomp_banked_run(void) {"

@@ -294,6 +294,12 @@ tests after every instruction, `smsrecomp_state_pending`, as the frame edge does
 trace of 1,500 frames (VRAM, CRAM, registers, RAM, picture and sound hashes of every frame), its final CPU and its port counters are identical before and after; the EXT self-test, the three linked
 probes and Super Columns on two seats (delay tier, and rollback tier with latency, jitter and F8 / F9) pass as before. Nothing timed here.
 
+**The loop helpers stay inlined** (performance pass, 20 Nov 2026: the timed measure of the commit above showed the Game Gear solo engine slower, +11.8 % against +7.6 % before, because the
+second copy of the loop gave `banked_after_step` a second call site and the compiler stopped inlining its hint, a real call per guest instruction). The Game Gear's generated text now
+forces the inlining of `banked_after_step` and `banked_accept_irq` (`always_inline`, in `retrorecomp/core.py`; `banked_runtime.inc`, shared with the MSX family and in every stamp, is untouched).
+Checked: `llvm-nm` on the Game Gear solo object no longer lists `banked_after_step` (it did); the solo trace of 1,500 frames, the CPU and the port counters are identical to the build before; the link proofs pass as before.
+Timing is the performance specialist's.
+
 **Stamps** (against `spec/multiplayer` `e0aa1abc`): the **Game Gear** game stamp moves (new `gg_ext.h`, `gg_link.inc`, `gg_ext_checks.c`, declared for `gg`
 only; `retrorecomp/core.py`, which every console lists, patches the generated Game Gear runtime and so moves every console's stamp as any edit of it
 does) and the Master System and Game Gear **host** stamp (`rrhk_sms.c`). **The Master System's generated runtime is byte for byte the previous
