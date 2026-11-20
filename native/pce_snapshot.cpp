@@ -260,6 +260,7 @@ size_t pce_snapshot_save(void *buffer, size_t capacity) {
     try {
         if (!audio_writer) audio_writer = std::make_unique<pce::checkpoint::Writer>();
         audio_writer->data.clear();
+        pce::settle_silent_cd_source(*bus);
         pce::checkpoint::write_audio(*audio_writer, *bus);
         if (audio_writer->data.size() > kAudioCapacity) return 0;
         auto *base = static_cast<uint8_t *>(buffer);
