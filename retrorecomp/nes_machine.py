@@ -118,6 +118,25 @@ def _machine(source: str, *, fast_ppu: bool = True, fast_apu: bool = True) -> st
                           'uint64_t cyc_mem_state_hash(void)\n{', 'void cyc_mem_state_dump(void *file)\n{',
                           'uint64_t cyc_hw_state_hash(void)\n{', 'void cyc_hw_state_dump(void *file)\n{'):
             source = replace_once(source, signature, signature + '\n    rr_ppu_sync();')
+        # The usual cycle of an NTSC board on the deferred clock takes a short path: its edges stay below the room the PPU may wait, so
+        # the three runs of edges and the two samples of run_ticks_1_to_11 (a flush is the only thing between them) become one count and
+        # the two samples; a DMA, a flush, a PAL board or the eager clock take the whole loop, unchanged, out of line.
+        source = replace_once(source,
+            'void hw_cycle_start(uint16_t addr, HwCycleKind kind)\n{\n    hw.cpu_addr = addr;\n    hw.cpu_reading = kind == HW_READ;\n'
+            '    hw_dma_stalls = 0;\n    for (;;) {\n        if (RR_NES_PAL ? (hw.tick == 1 && rr_ppu_lazy) : hw.tick == 1) {',
+            'static void hw_cycle_start_loop(uint16_t addr, HwCycleKind kind, bool ticks_done);\n'
+            'void hw_cycle_start(uint16_t addr, HwCycleKind kind)\n{\n'
+            '    if (!RR_NES_PAL && hw.tick == 1 && rr_ppu_lazy && rr_ppu_due + 6u < rr_ppu_room) {\n'
+            '        hw.cpu_addr = addr;\n        hw.cpu_reading = kind == HW_READ;\n        hw_dma_stalls = 0;\n'
+            '        rr_ppu_due += 5u + (hw.align & 1u);   /* (1 + odd) + (2 - odd) + (2 + odd) edges */\n'
+            '        sample_nmi();\n        apu_sample_irq();\n        hw.tick = 0;\n        hw.pal_bus_pending = 1;\n'
+            '        if (!dma_wants_cycle()) return;\n        hw_cycle_start_loop(addr, kind, true);\n        return;\n    }\n'
+            '    hw_cycle_start_loop(addr, kind, false);\n}\n\n'
+            '#if defined(__GNUC__) || defined(__clang__)\n__attribute__((noinline))\n#endif\n'
+            'static void hw_cycle_start_loop(uint16_t addr, HwCycleKind kind, bool ticks_done)\n{\n'
+            '    hw.cpu_addr = addr;\n    hw.cpu_reading = kind == HW_READ;\n    hw_dma_stalls = 0;\n    for (;;) {\n'
+            '        if (ticks_done) ticks_done = false;\n'
+            '        else if (RR_NES_PAL ? (hw.tick == 1 && rr_ppu_lazy) : hw.tick == 1) {')
     return source + '\n#include "nes_machine_state.inc"\n'
 
 
