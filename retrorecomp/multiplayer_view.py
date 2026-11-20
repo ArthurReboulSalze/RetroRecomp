@@ -89,13 +89,23 @@ def open_firewall_settings():
         subprocess.Popen(['control.exe', 'firewall.cpl'], creationflags=subprocess.CREATE_NO_WINDOW)
 
 
-def shared_only(machine):
-    """A handheld (GB, GG, GBA): one set of controls, played in input sharing only (its profile's netplay_shared_only)."""
-    from .netplay import seat_map
+def handheld(machine):
+    """(a handheld, its link proven) for a machine id: a handheld (GB, GG, GBA) has one set of controls (its profile's
+    netplay_shared_only); « one console per player » needs its link cable, offered once the profile says it is proven
+    (netplay_link, the multiplayer specialist's flag; False until it exists)."""
+    from .systems import get_profile
     try:
-        return seat_map.forced(machine)
-    except Exception:
-        return False
+        profile = get_profile(machine)
+    except (KeyError, ValueError, TypeError):
+        return False, False
+    shared = bool(getattr(profile, 'netplay_shared_only', False))
+    return shared, shared and getattr(profile, 'netplay_link', False) is True
+
+
+def shared_only(machine):
+    """A handheld whose « one console per player » is not offered (its link not proven): input sharing only."""
+    shared, link = handheld(machine)
+    return shared and not link
 
 
 def refused_setting(detail):
@@ -500,19 +510,28 @@ class MultiplayerWindow:
                 self.label(parent, f'mp_sharing_{mode}_help', muted=True, size=8, bg=CARD, wrap=430).pack(
                     anchor='w', padx=(22, 0))
         note = self.label(parent, 'mp_sharing_handheld', muted=True, size=9, bg=CARD, wrap=430)
+        # a handheld with its link proven: the first mode is the link cable, with its own line of help
+        note.link_help = self.label(parent, 'mp_sharing_link_help', muted=True, size=8, bg=CARD, wrap=430)
         return buttons, note
 
     def draw_sharing_choice(self, buttons, note, variable, machine, usable=True):
-        """A handheld greys « One controller per player » and says why; a choice of it moves to « Everyone ». Returns True
-        when that move happened."""
-        handheld = shared_only(machine)
+        """A handheld whose link is not proven greys « One controller per player » and says why (a choice of it moves to
+        « Everyone »: returns True then); one whose link is proven names that mode « Link cable: one console per player »,
+        with its line of help."""
+        shared, link = handheld(machine)
+        greyed = shared and not link
+        buttons['per_player'].configure(text=self.tr('mp_sharing_link' if link else 'mp_sharing_per_player'))
         for mode, button in buttons.items():
-            button.state(['disabled'] if not usable or (handheld and mode == 'per_player') else ['!disabled'])
-        if handheld:
+            button.state(['disabled'] if not usable or (greyed and mode == 'per_player') else ['!disabled'])
+        if greyed:
             note.pack(anchor='w', padx=(22, 0), after=buttons['per_player'])
         else:
             note.pack_forget()
-        if handheld and variable.get() == 'per_player':
+        if link:
+            note.link_help.pack(anchor='w', padx=(22, 0), after=buttons['per_player'])
+        else:
+            note.link_help.pack_forget()
+        if greyed and variable.get() == 'per_player':
             variable.set('everyone')
             return True
         return False
@@ -1398,8 +1417,8 @@ class MultiplayerWindow:
             self.mode_frame.pack_forget()
             self.mode_line.pack(fill='x', pady=(6, 0))
             shown = 'everyone' if sharing == 'per_player' and shared_only(machine) else sharing
-            self.lobby_mode_text.configure(text=self.tr('mp_sharing') + ' : ' + self.tr('mp_sharing_' + shown)
-                                           if shown in SHARINGS else '')
+            word = 'mp_sharing_link' if shown == 'per_player' and handheld(machine)[1] else 'mp_sharing_' + shown
+            self.lobby_mode_text.configure(text=self.tr('mp_sharing') + ' : ' + self.tr(word) if shown in SHARINGS else '')
         self.game_machine.pack(side='left', padx=(10, 0), pady=(3, 0))
 
     def draw_seats(self, players, me, seats_max, checks, host, phase):

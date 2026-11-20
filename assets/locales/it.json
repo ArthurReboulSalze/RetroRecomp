@@ -885,6 +885,8 @@
     "mp_sharing_everyone": "Comandi condivisi: tutti insieme",
     "mp_sharing_turns": "Comandi condivisi: a turno",
     "mp_sharing_handheld": "Ogni giocatore con la propria console: arriva con il cavo link, nella prossima versione.",
+    "mp_sharing_link": "Cavo link: una console per giocatore",
+    "mp_sharing_link_help": "Ognuno ha la propria console sullo schermo, collegate come dal vero cavo.",
     "mp_sharing_everyone_help": "Tutti i controller guidano lo stesso giocatore insieme.",
     "mp_sharing_turns_help": "Un giocatore ha i comandi, poi li passa (F2 nel gioco).",
     "mp_turn_holder": "Al controller: {name}",

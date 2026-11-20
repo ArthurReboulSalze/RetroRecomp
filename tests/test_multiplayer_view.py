@@ -603,6 +603,33 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.feed(view)
         self.assertFalse(view.firewall_host.winfo_manager())
 
+    def test_a_handheld_with_its_link_proven_offers_the_link_cable(self):
+        # Arthur, 20 Nov 2026: the greyed « one controller per player » becomes « Link cable: one console per player » once the
+        # machine's link is proven (the profile's netplay_link)
+        from retrorecomp import multiplayer_view
+        view = self.window(games=(('Tetris', 'gb'), ('Contra', 'nes')))
+        view.show('host')
+        view.console_choice.set(view.console_name('gb'))
+        with patch.object(multiplayer_view, 'handheld', lambda machine: (machine == 'gb', machine == 'gb')):
+            view.console_box.event_generate('<<ComboboxSelected>>')
+            per_player = view.sharing_buttons['per_player']
+            self.assertFalse(per_player.instate(['disabled']))
+            self.assertEqual(per_player.cget('text'), tr('mp_sharing_link', 'fr'))
+            self.assertTrue(view.sharing_note.link_help.winfo_manager())
+            self.assertFalse(view.sharing_note.winfo_manager())
+            view.sharing.set('per_player')
+            view.draw_host_sharing()
+            self.assertEqual(view.sharing.get(), 'per_player')                    # kept: it is the link cable
+        view.console_choice.set(view.console_name('nes'))
+        view.console_box.event_generate('<<ComboboxSelected>>')
+        self.assertEqual(view.sharing_buttons['per_player'].cget('text'), tr('mp_sharing_per_player', 'fr'))
+        self.assertFalse(view.sharing_note.link_help.winfo_manager())
+        # without the flag (today): greyed with why, as before
+        view.console_choice.set(view.console_name('gb'))
+        view.console_box.event_generate('<<ComboboxSelected>>')
+        self.assertTrue(view.sharing_buttons['per_player'].instate(['disabled']))
+        self.assertTrue(view.sharing_note.winfo_manager())
+
     def test_a_guest_ready_automatically_once_per_pick(self):
         remembered = []
         view = self.window()

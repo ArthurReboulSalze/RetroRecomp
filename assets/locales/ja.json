@@ -885,6 +885,8 @@
     "mp_sharing_everyone": "操作を共有：全プレイヤー同時",
     "mp_sharing_turns": "操作を共有：交代で",
     "mp_sharing_handheld": "各プレイヤーが自分のゲーム機で遊ぶモードは、次のバージョンで通信ケーブルとともに登場します。",
+    "mp_sharing_link": "通信ケーブル：一人に一台",
+    "mp_sharing_link_help": "みんなが自分のゲーム機を画面に持ち、本物のケーブルのようにつながります。",
     "mp_sharing_everyone_help": "みんなのコントローラーが同じプレイヤーを同時に動かします。",
     "mp_sharing_turns_help": "一人が操作して、次の人と交代します（ゲーム中のF2）。",
     "mp_turn_holder": "操作中：{name}",
