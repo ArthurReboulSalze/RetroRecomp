@@ -97,6 +97,27 @@ SHADE_NEW = '''        if (sh_mode && px < GVDP_CRAM_ENTRIES) {
         }'''
 
 
+def spans(source):
+    """Fewer, cheaper plane spans, same pixels (1.9.0 frame cost).
+
+    Without 2-cell vertical scroll a plane row is continuous across 16-pixel columns, so a span runs to the next edge
+    or window boundary instead of the next column. Each tile row is stored as one fixed 8-byte write (the bytes past
+    the span are overwritten by the next span or land in the buffers' 8-byte margin) instead of a variable-length copy.
+    """
+    source = replace(source, '    uint8_t plane_a[GVDP_MAX_WIDTH], plane_b[GVDP_MAX_WIDTH];',
+                     '    uint8_t plane_a[GVDP_MAX_WIDTH + 8], plane_b[GVDP_MAX_WIDTH + 8];')
+    source = replace(source, '        else boundary = ((x >> 4) + 1) * 16;',
+                     '        else boundary = vmode_2cell ? ((x >> 4) + 1) * 16 : w;')
+    source = replace(source, '''        uint64_t packed=rr_md_expand_tile(bits,flip,attr);
+        memcpy(out,(const uint8_t *)&packed+fx,(size_t)n);''', '''        uint64_t packed=rr_md_expand_tile(bits,flip,attr);
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        memcpy(out,(const uint8_t *)&packed+fx,(size_t)n);
+#else
+        packed>>=fx*8u;memcpy(out,&packed,8);
+#endif''')
+    return source
+
+
 def optimize(source):
     source = '#include "md_vdp_pixels.inc"\n' + source
     old = '''        for (int i = 0; i < n; ++i) {
@@ -120,6 +141,7 @@ def optimize(source):
     for old, new in SPRITE_OPERATOR.items():
         source = replace(source, old, new)
     source = replace(source, SHADE_OLD, SHADE_NEW)
+    source = spans(source)
     # The helper uses the VDP palette constants, already declared by this include.
     source = source.replace('#include "md_vdp_pixels.inc"\n', '', 1)
     source = replace(source, '#include "genesis_vdp.h"',
