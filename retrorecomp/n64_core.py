@@ -215,6 +215,28 @@ int rr_n64_audio_state_load(const void *in, size_t size)
 }
 '''
 
+FPU_ROUNDING = 'M64P_FPU_INLINE void set_rounding(uint32_t fcr31)\n{\n#if !defined(VITA) && !defined(__SWITCH__)\n    switch(fcr31 & 3) {\n'
+FPU_ROUNDING_KEPT = '''M64P_FPU_INLINE void set_rounding(uint32_t fcr31)
+{
+#if !defined(VITA) && !defined(__SWITCH__)
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    /* Retro-Recomp modification (GPL-2.0-or-later, like this file): fesetround only sets the rounding field of the x87 control
+     * word (bits 10-11) and of MXCSR (bits 13-14), both coded by the hardware as 0 nearest, 1 down, 2 up, 3 toward zero (the FE_
+     * constants differ between C libraries: mingw's are not these bits). When both fields already hold the wanted mode it would
+     * change nothing, so it is skipped (mingw rewrites both words each time, a large share of an FPU-heavy frame). */
+    {
+        const unsigned wanted = (4u - (fcr31 & 3)) & 3u;   /* guest 0 nearest, 1 toward zero, 2 up, 3 down -> the hardware code */
+        unsigned short x87;
+        unsigned int sse;
+        __asm__ __volatile__("fnstcw %0" : "=m"(x87));
+        __asm__ __volatile__("stmxcsr %0" : "=m"(sse));
+        if (((x87 >> 10) & 3u) == wanted && ((sse >> 13) & 3u) == wanted)
+            return;
+    }
+#endif
+    switch(fcr31 & 3) {
+'''
+
 REPLACEMENTS = [
     # Our glue's C interface (native/n64_machine/glue/parallel.h) instead of the unmarked one beside the plugin.
     ('libretro/libretro.c', '#include "../mupen64plus-video-paraLLEl/parallel.h"', '#include "parallel.h"'),
@@ -267,6 +289,10 @@ REPLACEMENTS = [
     # from the first frame after a load).
     ('mupen64plus-rsp-paraLLEl/parallel.cpp', '\t// Hack entry point to use when loading savestates when we\'re tracing.\n',
      RSP_STATE + '\t// Hack entry point to use when loading savestates when we\'re tracing.\n'),
+    # Every FPU operation sets the host's rounding mode to the guest's (fesetround), and mingw's fesetround rewrites the x87 and the
+    # SSE control words each time: 13 % of a Super Mario 64 frame's main thread (.build/n64-perf-20261120.md). It is skipped when
+    # both already hold the wanted mode, where fesetround would change nothing: the same mode is in force for every operation.
+    ('mupen64plus-core/src/device/r4300/fpu.h', FPU_ROUNDING, FPU_ROUNDING_KEPT),
 ]
 
 
