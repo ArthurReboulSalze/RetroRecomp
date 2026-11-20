@@ -111,6 +111,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Every machine: the graphics card first, the software renderer said when it is used, the visible picture alone uploaded](#every-machine-the-graphics-card-first-the-software-renderer-said-when-it-is-used-the-visible-picture-alone-uploaded-190) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`, `runtime_catalog.inc`) | unchanged |
 | [Every machine: F2 groups the players behind one Controls tile and gains a Display mode tile](#every-machine-f2-groups-the-players-behind-one-controls-tile-and-gains-a-display-mode-tile-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [Every machine: the Restart tile's icon redrawn, two arcs and their arrows](#every-machine-the-restart-tiles-icon-redrawn-two-arcs-and-their-arrows-190) | none | **the host stamp of all 21 profiles** (`retro_menu.c`, `retro_menu.h`) | unchanged (host files are outside every state key) |
+| [Every machine: the sound's converter computes its outputs side by side, bit for bit the same](#every-machine-the-sounds-converter-computes-its-outputs-side-by-side-bit-for-bit-the-same-190) | **the game stamp of all 21 profiles** (`native/stereo_fir.h`) | **the host stamp of all 21 profiles** (`native/audio_output.inc`) | unchanged |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-190) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
 | [Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match](#sony-playstation-the-host-changes-pgxp-the-cpus-resolution-and-the-renderer-in-a-match-190) | none | the PlayStation's host stamp (`rrhk_psx.c`) | unchanged |
@@ -215,6 +216,30 @@ Later, in an optimisation release: Scale2x and xBR on the graphics card (SDL2's 
 rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
+
+## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
+
+The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a
+machine's sound rate is not the device's (the Master System and Game Gear PSG at about 223.7 kHz, the MSX family at 44.1 kHz
+on a 48 kHz device), summed each output's 256 taps as one chain of dependent double additions. Arthur chose bit-identical
+sound only (20 November 2026): each output keeps exactly its sequence (tap 0 the newest sample, the float product of the
+sample and the coefficient, added to a double sum in tap order), and only independent outputs now run side by side. The
+input goes through in chunks into a linear window (the 255 samples before the chunk, then the chunk); the outputs of a
+chunk are computed together, four at a time in portable C or SSE2, eight at a time with AVX2 (chosen at start when the CPU
+and the system have it, `SDL_HasAVX2`); the steps, phases, outputs and the pushes to the ring are those of before.
+
+The two end taps are not skipped: the window's end weight is -1.39e-17 in double, so every phase's first and last
+coefficients are tiny but not zero (about 3e-20); leaving them out could change a rounding.
+
+**Proof** (`native/audio_checks.c`, `tools/audio_selftest.py`): 1.8.0's loop kept as the reference, replaying the steps the
+converter wrote in its own input record; the portable C, SSE2 and AVX2 bodies compared bit for bit over the SMS / Game Gear
+NTSC and PAL rates and the MSX 44.1 kHz, to 48 and 44.1 kHz, at odd call sizes, at locked rates, with tones, full-scale
+squares that clamp, full-range noise and impulses: 859 269 outputs, identical. A game's own sound can be checked the same
+way: an export run with `RETRORECOMP_AUDIO_INPUT_DUMP=<file>` records what it gives the converter (each call's count and
+step, then its samples), and `audio_checks --replay <file>` converts it with 1.8.0's loop and with every body of the CPU.
+The speed is the performance specialist's timed slot.
+
+**Stamps**: the game stamp (`stereo_fir.h`) and the host stamp (`audio_output.inc`) of all 21 profiles; quick states unchanged.
 
 ## Commodore Amiga 500 and 1200: the F1 help says how two players play (1.9.0)
 
