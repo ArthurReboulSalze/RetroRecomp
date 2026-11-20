@@ -345,6 +345,7 @@ constructor, closing, the single-instance check, the start-up picture and
 | `gui_account.py`, `gui_leaderboard.py` | the player corner and sign-in; leaderboard, achievement and closing cards |
 | `gui_welcome.py` | the log panel's welcome (an English ASCII terminal typed in until a real line is written) and the developer's message to every player (read and checked by `announcement.py`, interface code too) |
 | `console_menu.py` | the short labels of the console menu (data by profile id, interface only) and the sizes of the field and its list |
+| `gui_multiplayer.py`, `multiplayer_view.py` | the toolbar's Multiplayer button and its window: Local or Internet, the lobby (« dashboard »: seats, each player's check, the input mode, the chat), the launch and the match; everything the room does goes through `netplay/lobby_client.py` and its worker ([MULTIPLAYER.md](MULTIPLAYER.md)) |
 
 All of them are interface modules: no stamp hashes them
 (`INTERFACE_MODULES` in `retrorecomp/stamp_inputs.py`). A test or a tool that

@@ -597,7 +597,7 @@ the player as built, eight authored routes of 4,200 to 12,000 frames read pictur
 * **gameplay validation:** the first minutes and long runs of four cartridges, the owner's play of six games; **no level won**, no boss, no complete game, and not the pseudo-random 18,000-frame level of the other machines;
 * **physical latency:** not measured (`tools/gba_frame_cost.py` has made no quiet-PC pass); nothing here says zero latency.
 
-Also out of scope, as before: link cable, wireless adapter, multiboot, e-Reader, the Game Boy Player, the cartridge sensors (tilt, gyroscope, solar), saves written by real hardware. A converted game still holds code
+Also out of scope, as before: the link cable outside a multiplayer match (see "The link cable in a match" below), wireless adapter, multiboot, e-Reader, the Game Boy Player, the cartridge sensors (tilt, gyroscope, solar), saves written by real hardware. A converted game still holds code
 derived from the player's own BIOS and stays private to that player; supported does not change that. The shared paths stay in the experimental tier of the base (`EXPERIMENTAL_SHARED`, G16 `P`), the site's limits do not move.
 
 **What changed in the code.** `retrorecomp/systems/gba.py` (status `supported`), the report's `status` (read from the profile), the Options note in the eight languages (no "experimental"), the credits (the machine is no longer listed among the
@@ -709,7 +709,7 @@ fidelity to the hardware.
 
 A handheld plays a session in input sharing only (profile `netplay_shared_only`: one pad, the seats' buttons merged). The machine answers a session since the multiplayer branch: its host-kit adapter gives a digest (`rrgba_digest`: the engine's
 state container read section by section, without the sound section and the cartridge clock chip's block, plus a running hash of the mixed samples), a guest never writes the cartridge save and the cartridge's clock starts from the session's clock. There is **no
-snapshot**: the engine's state container allocates per call, so the machine plays on the delay tier, not on rollback, and the host's F8 / F9 for everyone is not offered. What was shown and what was not: [UPGRADES.md](UPGRADES.md#game-boy-advance-multiplayer-on-the-delay-tier-next-release).
+snapshot**: the engine's state container allocates per call, so the machine plays on the delay tier, not on rollback, and the host's F8 / F9 for everyone is not offered. What was shown and what was not: [UPGRADES.md](UPGRADES.md#game-boy-advance-multiplayer-on-the-delay-tier-190).
 
 ## The link cable in a match (20 November 2026, delay tier)
 

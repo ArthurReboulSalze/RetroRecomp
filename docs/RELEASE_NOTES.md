@@ -1,14 +1,40 @@
-# RetroRecomp, next release (in preparation)
+# RetroRecomp v1.9.0 — Multiplayer: play your converted games together, on the local network or over the Internet [TITLE: confirm at release]
 
-- **Multiplayer.** Play a converted game with friends: one PC hosts a room, the others join with an invitation, and each
-  player has their own controller, up to four (the NES Four Score, the Mega Drive's Team Player, 4 Way Play and J-Cart, the
-  Super Nintendo and PC Engine multitaps, the CPS boards, the Nintendo 64), or everyone shares the controls on the
-  handhelds. Every machine plays: the 2D consoles, the arcade boards and the computers on the smooth (rollback) mode, the
-  PlayStation, the Nintendo 64 and the Game Boy Advance on the delay mode. The host restarts, saves and loads (F8, F9)
-  for everyone, for that match only; the host's game saves and the settings that change the run (PGXP, the Amiga's CPU
-  speed, the Neo Geo's boost, the CPS DIP switches…) are everyone's for the match; a chat is built into the game (Y, or
-  R3 + Select on the gamepad). Rooms are for the local network or a VPN between friends (Tailscale, ZeroTier). Every
-  export is converted again once for this release. Physical latency is not measured. See [MULTIPLAYER.md](MULTIPLAYER.md).
+- **Multiplayer, on every machine.** Play a converted game with friends, each on their own PC: one player hosts a room from the new
+  **Multiplayer** window (or right-clicks a game in Compiled Games), the others join with the invitation, everyone presses
+  **I'm ready**, and the host launches the game on every PC. Only the controllers travel, never the game
+  ([MULTIPLAYER.md](MULTIPLAYER.md)).
+  - **Local or Internet.** A room is on the local network (or a VPN between friends) by default, every time. **Internet** gives a key
+    that holds the host's public address: the box opens the port when it agrees (UPnP, then NAT-PMP), IPv6 is used when the PC has it,
+    and the window says plainly when the host cannot be reached and what to try. Three warnings are confirmed before an Internet room
+    opens. Everything a room sends is encrypted, and nobody joins without the invitation.
+  - **Up to four players**, each with their own controller, on the machines that had four: the NES Four Score, the Mega Drive's Team
+    Player, 4 Way Play and J-Cart, the Super Nintendo and PC Engine multitaps, the CPS boards and the Nintendo 64. Two on the others.
+  - **Smooth (rollback) or delay.** The 2D consoles, the arcade boards and the computers do not wait for a far player's buttons: they
+    guess them and correct themselves when the true ones arrive. The PlayStation, the Nintendo 64 and the Game Boy Advance wait a frame
+    or two for every player instead.
+  - **The handhelds' link cable.** On the Game Boy, the Game Gear and the Game Boy Advance, two players can each play their own console,
+    linked as by a real cable: proved on two PCs with Tetris (Game Boy), Super Columns (Game Gear) and Mario Kart: Super Circuit (Game
+    Boy Advance, the one game whose cable code is reviewed). Or everyone shares one console, **Everyone** at once or in **Turns**, with
+    F2's Pass and Give the controller.
+  - **The host leads.** Restart, F8 and F9 save and load the match for everyone, from the host only, in memory for that match: your own
+    quick states are never touched. The host's game saves are everyone's for the match and, on most machines, written back to the
+    host's own file at a clean end. Settings that change the run (PGXP, the Amiga's CPU speed, the Neo Geo's boost, the CPS DIP switches…) are the host's;
+    the host can change one during the match, and the game starts again for everyone with it. On the Amiga, Atari ST, X68000 and MSX
+    the host types on the computer's keyboard for everyone.
+  - **A chat in the game** (Y, or R3 + Select on the gamepad), with ready-made phrases or free text.
+  - **What is checked.** Every PC compares its machine's state with the host's every second, and a match stops with a reason rather
+    than letting two screens drift apart. Each machine's rewinding was proven on real games run as two copies with simulated latency
+    and lost packets, and on two PCs on a home network; the owner played over the Internet between two PCs. Physical latency is not
+    measured: the input delay is counted in frames, which is not the same measure. Not carried yet: the mouse, light guns and a guest's
+    keyboard; no restart in a Nintendo 64 match, no disc change in a PlayStation match.
+- **Every machine: the sound no longer crackles.** On the NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64 and PlayStation, the
+  sound now follows the sound card's clock, alone and in a match (Tekken 3 crackled on the owner's PC): its speed and pitch move by at
+  most 0.5 %, usually about 0.01 %, instead of clicks. No latency is added on average; physical latency is not measured.
+- **Every machine: a Restart the game tile in F2**, before Quit; in a match it restarts the game for everyone, from the host.
+- **The converter: a new toolbar and a new Convert button.** The window's buttons are icons in one toolbar, with larger Front-end
+  and Multiplayer buttons; Convert is a wide button that shows the whole conversion from left to right. The front-end's covers no longer
+  stay blurred, and a cover can be refreshed from its right-click menu.
 - **PC Engine: the second pad works in a local two-player game** (the multitap is plugged for every game built for two
   players or more).
 - **The converter: the Front-end opens in the window.** The **Front-end** button no longer switches to full screen by itself:
@@ -19,6 +45,19 @@
   then to the game. **Quit the game** is now the last tile (it asks Quit? No / Yes, as Esc does) instead of a row of the options
   page, and the tiles scroll when four players need more than two lines. Exports are rebuilt once, not converted again; quick
   states keep working.
+- [SPEED: pending]
+
+**Your exports and quick states.** 1.9.0 moves the game, host and build stamps of every machine (measured between `v1.8.0` and main
+`206a41b4`), so **every export of 1.8.0 is converted again once** on the first batch after you update, from the paths it already
+learned. A quick state of 1.8.0 is refused cleanly, with a message, on the machines whose state key moves: the Mega Drive, the Super
+Nintendo, the PC Engine, the MSX, MSX2 and MSX2+, the NES, the X68000, the Nintendo 64, the two Amigas and the Atari ST; the other
+machines' rows in [UPGRADES.md](UPGRADES.md#exports-of-180-in-190) say their key is unchanged. Cartridge saves, memory cards and the
+copies of written disks are kept. [EXPORTS: check again at the release commit]
+
+None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used, in a match as alone.
+
+---
 
 # RetroRecomp v1.8.0 — The Front-end: your games as a wall of box art, played with the gamepad
 

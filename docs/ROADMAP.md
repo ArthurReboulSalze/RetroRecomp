@@ -49,10 +49,10 @@ It is not a quality score, and it never decides a status.
   test ROMs and reference emulators are what we can offer, and the reports say so.
 - **The shared base.** A converter will send only the paths its base does not know yet, so the online service grows
   slowly between releases.
-- **Up to four players (and five), planned for 1.7.** The common host kit already takes four players with their own keys and
-  pads, and the CPS boards use them. The consoles' own multiplayer adapters come next, each modelled in its machine: the NES
-  Four Score, the Mega Drive Team Player and EA 4-Way Play, the Super Nintendo Super Multitap (five players, like the PC Engine
-  multitap), with the kit passing every player's pad to the machine.
+- **Up to four players: done in 1.9.0.** The consoles' own adapters are modelled in their machines (the NES Four Score, the Mega
+  Drive Team Player, EA 4-Way Play and J-Cart, the Super Nintendo Super Multitap, the PC Engine multitap), and every machine plays
+  with friends on a local network or over the Internet ([MULTIPLAYER.md](MULTIPLAYER.md)). A fifth player is not offered: a room
+  seats four.
 - **Shared code.** The Windows/Linux comparison tools and the MAME capture tools of several machines become one module
   each.
 

@@ -315,7 +315,7 @@ See [video evidence](VIDEO.md) and [console profiles](SYSTEM_PROFILES.md).
 | Native coverage | Execution on a specified path, not a whole-game compatibility score. Game Boy reports fallback cycles but no percentage denominator. |
 | CPU fidelity | 51,328 cases from 1,604 independent Z80 vector families passed for the 0.10.0 CPU work. The pinned corpus is not a console capture. |
 | Hardware fidelity | Native/reference paths share hardware code; agreement does not independently verify the console. |
-| Gameplay | Full playthroughs and physical two-player sessions remain unvalidated. |
+| Gameplay | Full playthroughs remain unvalidated. Two-player matches were played on two PCs in the multiplayer release ([MULTIPLAYER.md](MULTIPLAYER.md)), not as playthroughs. |
 | Physical latency | Device, OS, display and game response have not been measured. |
 
 ROM-free automated tests accompany each release. Earlier input/presentation work

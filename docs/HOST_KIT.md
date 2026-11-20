@@ -245,7 +245,7 @@ picture at 1x, 2x and 4x with and without Scale2x read back from the renderer, r
 key and button, then the same machine with every new field left out (F3 cycles the filters, the left stick is the
 directions, no dead zone row, no rumble, no disc).
 
-### 2.5 Multiplayer sessions (session ABI 8)
+### 2.5 Multiplayer sessions (session ABI 9)
 
 A game is in a session only when the converter's worker starts it with its two pipes (`RETRORECOMP_NETPLAY_PIPE`,
 `hostkit_session.h`); alone, none of this runs and the only cost is one flag test a frame. In a session the game decides
@@ -627,14 +627,6 @@ X68000 too, without asking again**.
   or B drop the key, Yes gives it back once (`rrhk_relaunch_ask`), and a machine page that changes the run (DIP switches) asks
   once while it is open. The pace (` Max speed) stays refused in a session; a guest's run keys stay refused.
 
-* <a id="d33"></a>**D33 — Turns in the F2 tiles, and the turn badge** (owner's request of 20 November 2026, session ABI 9), in a
-  multiplayer match whose controls are shared. Before Restart and Quit the tiles add, when they apply: **Pass the controller**
-  (the seat that holds it, `rrhk_session_pass(-1)`), **Give the controller** (the host, in turns: a short list of the seats'
-  names, the holder marked, Enter gives, Esc comes back to the tiles; `RRHK_MENU_GIVE`) and **Everyone at once / Take turns**
-  (the host, the mode it switches to, `rrhk_session_set_sharing`); the change comes back from the worker on every seat. The
-  turn plate at the top right (« Turn: Nadia », gold « Your turn ») is there for every seat as long as the match is in turns,
-  from who holds the controls (`rrhk_session_holder`), bright for two seconds after a change; the options row **Turn badge**
-  (in a session, `[Interface] turn_badge`) hides it. No pad combination for the pass yet.
 * <a id="d33"></a>**D33 — The kit's sound ring is always regulated** (owner's yes of 19 November 2026, through the lead, after
   Tekken 3 crackled a little alone on his PC, more on the ThinkPad, and a lot together), for the six machines on the ring model
   (D5): **NES, Game Boy / Game Boy Color, PC Engine, Game Boy Advance, Nintendo 64, PlayStation**. Until then, D30's base of
@@ -653,6 +645,14 @@ X68000 too, without asking again**.
     +1,000 and -1,000 ppm: in order, nothing lost or inserted, no gap, no trim, the length within 0.5 % of the machine's; the
     resets and the stereo case with the channels apart); the counts of the ring's closing line (gaps, trims, clears) on Tekken 3
     are in UPGRADES.md.
+* <a id="d34"></a>**D34 — Turns in the F2 tiles, and the turn badge** (owner's request of 20 November 2026, session ABI 9), in a
+  multiplayer match whose controls are shared. Before Restart and Quit the tiles add, when they apply: **Pass the controller**
+  (the seat that holds it, `rrhk_session_pass(-1)`), **Give the controller** (the host, in turns: a short list of the seats'
+  names, the holder marked, Enter gives, Esc comes back to the tiles; `RRHK_MENU_GIVE`) and **Everyone at once / Take turns**
+  (the host, the mode it switches to, `rrhk_session_set_sharing`); the change comes back from the worker on every seat. The
+  turn plate at the top right (« Turn: Nadia », gold « Your turn ») is there for every seat as long as the match is in turns,
+  from who holds the controls (`rrhk_session_holder`), bright for two seconds after a change; the options row **Turn badge**
+  (in a session, `[Interface] turn_badge`) hides it. No pad combination for the pass yet.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

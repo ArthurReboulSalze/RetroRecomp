@@ -361,7 +361,7 @@ Not converted: ADF disk images, the CD32. Known: AGA super-hires at half its det
 shown; the hardware is vAmiga's (Alice, Lisa, Paula and the CIAs emulated, not translated), and neither its fidelity nor any latency is
 claimed. The slow RAM at `$C00000` is kept as it is, on the owner's decision of 16 November 2026 (« Ok, on garde comme ça, note-le »).
 
-## 8. Multiplayer (next release)
+## 8. Multiplayer (1.9.0)
 
 Both Amigas play in a multiplayer session at the NES's level: the rollback tier and the host's F8 / F9 for everyone (Arthur, 17 November
 2026: « pour les consoles à sprite, j'aimerais quand même atteindre ce qu'on arrive à faire avec la NES… Y compris pour de l'Amiga »).
@@ -385,4 +385,4 @@ Both Amigas play in a multiplayer session at the NES's level: the rollback tier 
 - **Proof.** `tools/amiga_rollback_selftest.py` on an authored slave (both models), a headless `--rollback-check` of Lotus 2 (native
   code), and two copies of Lotus 2 on the rollback tier with the host's save, load and restart (`tools/netplay_game_smoke.py`); the
   same on All New World of Lemmings for the Amiga 1200; details
-  in [UPGRADES.md](UPGRADES.md#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-next-release). Physical latency is not measured.
+  in [UPGRADES.md](UPGRADES.md#commodore-amiga-500-and-1200-multiplayer-on-the-rollback-tier-190). Physical latency is not measured.

@@ -195,6 +195,7 @@ MEDIAS/RetroRecomp_UI_1.1.3.png
 MEDIAS/RetroRecomp_Master_System_Collection.png
 MEDIAS/RetroRecomp_Compiled_Games.png MEDIAS/RetroRecomp_Credits.png
 MEDIAS/RetroRecomp_Queue_en.png MEDIAS/RetroRecomp_Collection_fr.png MEDIAS/RetroRecomp_Options_de.png
+MEDIAS/RetroRecomp_Converter_en.png MEDIAS/RetroRecomp_Collection_en.png MEDIAS/RetroRecomp_Multiplayer_en.png MEDIAS/RetroRecomp_Multiplayer_fr.png
 MEDIAS/RetroRecomp_Credits_ja.png MEDIAS/RetroRecomp_Closing_it.gif
 MEDIAS/RetroRecomp_Help_fr.png MEDIAS/RetroRecomp_Leaderboard_fr.png
 MEDIAS/RetroRecomp_learning_cycle.png

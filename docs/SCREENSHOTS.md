@@ -1,18 +1,40 @@
 # Screenshots
 
 A few windows of the converter, in several of its eight interface languages. The accounts and players shown
-are samples. For what each window does, see
+are samples. Covers appear here only as they appear in the app, small and inside its windows: no cover image file is in
+the repository (Arthur, 20 November 2026). For what each window does, see
 [INSTALLING.md](INSTALLING.md) (first start), [COMPILED_GAMES.md](COMPILED_GAMES.md) (the collection),
 [BOXART.md](BOXART.md) (covers and icons), [CREDITS.md](CREDITS.md) (the credits window) and
-[LANGUAGES.md](LANGUAGES.md). The collection window with covers, scan-level stars and summaries is the first picture
-of the [README](../README.md).
+[LANGUAGES.md](LANGUAGES.md); playing together is in [MULTIPLAYER.md](MULTIPLAYER.md). The converter's window is the
+first picture of the [README](../README.md).
 
-## The conversion queue
+## The converter
 
-![RetroRecomp conversion queue with games from six consoles, on Linux, with a sample account and its console badge in the header](../MEDIAS/RetroRecomp_Queue_en.png)
+![The converter in English: the toolbar, a queue of eleven games from seven machines and the Convert button](../MEDIAS/RetroRecomp_Converter_en.png)
 
-The conversion queue: drop games from several consoles and convert them together. Captured on Linux with a sample
-account; Windows shows the same window.
+The converter (1.9.0): drop games from several machines and press **Convert**. The toolbar keeps the queue's buttons on the
+left, **Front-end** and **Multiplayer** in the middle, and Knowledge, Options, updates, help, credits and Report a problem on
+the right.
+
+## Compiled Games
+
+![Compiled Games in English, filtered to the Master System, Alex Kidd in Miracle World chosen with its cover and card](../MEDIAS/RetroRecomp_Collection_en.png)
+
+Compiled Games, filtered to one console: each game's scan level, the version that built it, its saved hints and its fallback
+status, and the chosen game's cover and card. The front-end, the wall of covers, is described in
+[COMPILED_GAMES.md](COMPILED_GAMES.md).
+
+## Multiplayer
+
+![The Multiplayer window in English: an Internet room for four players on NBA Jam, the invitation key, the public address and the Launch button, sample data](../MEDIAS/RetroRecomp_Multiplayer_en.png)
+
+An Internet room for four players ([MULTIPLAYER.md](MULTIPLAYER.md)): the seats and their checks, the controls mode, the chat,
+and the invitation key with the public address the box opened (UPnP). The players are samples and the address is a
+documentation address.
+
+![La fenêtre Multijoueur en français : un salon local pour quatre joueurs, données d'exemple](../MEDIAS/RetroRecomp_Multiplayer_fr.png)
+
+The same window in French, for a room on the local network.
 
 ## Options
 

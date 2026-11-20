@@ -26,7 +26,7 @@ Contents
 | Refused | Game Boy Color-only cartridges (header flag `0xC0`). Color-compatible cartridges are accepted and run as a DMG: the generated main forces the runtime's model to `dmg` |
 | Output | One standalone executable per game under `Export/Games/Game Boy` (a Windows x64 EXE, or a Linux ELF on Linux). The source ROM is read without modification and embedded in the executable |
 | Display | The 160 × 144 window of the original Game Boy, no PAL/NTSC choice (`video_modes = ("dmg",)`) |
-| Players | One on the console. In a multiplayer match, two consoles on a link cable ([below](#link-cable-in-multiplayer-next-release)), or one console in input sharing. No Light Phaser |
+| Players | One on the console. In a multiplayer match, two consoles on a link cable ([below](#link-cable-in-multiplayer-190)), or one console in input sharing. No Light Phaser |
 | Firmware | None needed |
 | Saves | Battery RAM and one quick state, per game (see [States and saves](#states-and-saves)) |
 | Not supported | `.gbc`-only games, the link cable outside a multiplayer match and the four-player adapter, Game Boy Camera and Printer, Super Game Boy features |
@@ -512,7 +512,7 @@ behaviour or the pinned PPU model, since the interpreter shares the PPU, and no 
 unexplained observation about the rendering of this game (a candidate for a check against a reference emulator, not a claim about the
 hardware); it does not change the status of the conversion.
 
-## Link cable in multiplayer (next release)
+## Link cable in multiplayer (1.9.0)
 
 Two Game Boy consoles of the **same game** on one link cable, in a multiplayer match whose seats each have their own port (Tetris, Dr. Mario,
 Tetris Attack, Pokémon battles and trades between the same version...). Every PC of the match runs **both** consoles in one process

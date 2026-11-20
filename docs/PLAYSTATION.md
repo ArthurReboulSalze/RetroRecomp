@@ -297,7 +297,7 @@ GPU programs drawing what a console drew, and shared paths.
   the last one until the next frame (the owner's report of 15 November 2026: « dès que je switch de moteur […] le jeu se ferme
   tout de suite »).
 
-## 10. Multiplayer: the digest and the host's settings (next release, delay tier)
+## 10. Multiplayer: the digest and the host's settings (1.9.0, delay tier)
 
 On the multiplayer branch (`spec/psx-mp-digest`). The PlayStation gives the host kit a **digest** (`rr_psx_digest`,
 `psx_session.c`): FNV-1a 64 over, in this order, the R3000A's state and the GTE's 64 registers (each word little-endian), the 2 MiB

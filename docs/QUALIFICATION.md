@@ -1525,7 +1525,7 @@ complete gameplay or latency; a tick means "it looked and sounded right to you i
 | Pokémon Emerald | new game to the van, Start menu, SAVE, quit, reopen | CONTINUE is offered (Flash 128 KB); the clock cartridge asks nothing odd |
 
 Known limits to keep in mind while you play: the converter checked the first minutes and long runs of four of these cartridges by authored routes, not a level won; the comparison is with the engine's own interpreter, not with a real console;
-the cartridge sensors, the link cable and the e-Reader are not converted. Keep the five measures apart when you judge: a good feel here is neither an exact fidelity nor a latency measure.
+the cartridge sensors and the e-Reader are not converted, and the link cable plays in a multiplayer match only. Keep the five measures apart when you judge: a good feel here is neither an exact fidelity nor a latency measure.
 
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|

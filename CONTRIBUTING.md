@@ -10,7 +10,10 @@ Interpreter fallback is always counted, per CPU and per device, never hidden.
 
 For bug reports, include the version, operating system, console, ROM hash and
 steps to reproduce. Remove personal paths from logs. Do not upload commercial
-ROMs, generated game executables or box art; none belongs in this repository.
+ROMs, generated game executables, cover image files or box art; none belongs in
+this repository. Screenshots of Retro-Recomp's own interface are the one
+exception: they may show covers as they appear in the app (Arthur, 20 November
+2026).
 Use a small authored diagnostic program when a public reproducer is needed.
 Shared knowledge carries numbers about a ROM (addresses, positions, masks),
 never ROM bytes.

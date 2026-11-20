@@ -65,15 +65,18 @@ match. On the PlayStation, a disc cannot be changed during a match.
 
 ## Networks
 
-A room is meant for a **local network**. Its invitation names an address of the local network (10.x, 172.16-31.x,
-192.168.x, 169.254.x) or of a **VPN between friends** such as Tailscale or ZeroTier (100.64.0.0/10). To play across the
-Internet today, put the PCs on such a VPN: each player installs it and joins the same network, and the host uses its VPN
-address in the room. The VPN crosses home routers and mobile networks on its own. Opening the host's port, UPnP and IPv6
-are coming in the next section; a relay of our own is not offered.
+When you host, the room is **Local** (the default, every time) or **Internet** (next section).
 
-## Playing over the Internet (coming)
+- **Local:** the invitation names an address of the local network (10.x, 172.16-31.x, 192.168.x, 169.254.x) or of a **VPN
+  between friends** such as Tailscale or ZeroTier (100.64.0.0/10). A VPN also crosses home routers and mobile networks on its
+  own: each player installs it and joins the same network, and the host uses its VPN address in the room.
+- **Internet:** the host's public address, with a port its box opens or that you open. A relay of our own is not offered:
+  when the host cannot be reached, the window says so.
 
-Not available yet: the window offers the local network and a VPN only. This is what the Internet room will do.
+## Playing over the Internet
+
+The owner played over the Internet between two PCs on 19 November 2026, one of them on a phone's connection. That is a play
+test: the input delay is still counted in frames, and physical latency is not measured.
 
 - **The key.** The host's room shows a key that starts with `RR2-`. A guest pastes it, as with a local invitation. The
   host can also give the three parts by hand: the address, the port (24611 by default) and the code.

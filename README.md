@@ -32,13 +32,32 @@ https://github.com/user-attachments/assets/ac2dff32-b23c-44a4-ab81-ef962833251d
 <p align="center"><sub><em>Under the hood, in under three minutes: how RetroRecomp is built and how it works.</em></sub></p>
 
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_Collection_fr.png" alt="Compiled Games collection in French, with scan-level stars, box art and a game summary, demo collection" width="860">
+  <img src="MEDIAS/RetroRecomp_Collection_en.png" alt="Compiled Games filtered to the Master System, Alex Kidd in Miracle World chosen with its cover and card" width="860">
 </p>
-<p align="center"><sub><em>Compiled Games, in French: favorites, scan-level stars, covers, summaries and New paths.</em></sub></p>
+<p align="center"><sub><em>Compiled Games: your converted games, their scan level and fallback status, and the chosen game's cover and card.</em></sub></p>
 
 RetroRecomp brings several recompilers together in one application. It turns
 your own game dumps into standalone Windows or Linux executables, with as much
 native code as possible: no emulator to configure, no dedicated FPGA hardware.
+
+## Play together (new in 1.9.0)
+
+Every converted game can now be played with friends, each on their own PC. One player hosts a room from the **Multiplayer**
+window, the others join with the invitation, and only the controllers travel between the PCs.
+
+- **Local or Internet:** a room on your local network, or over the Internet with a key you send to your friends.
+- **Up to four players** on the machines that had four (NES Four Score, Mega Drive Team Player, Super Nintendo and PC Engine
+  multitaps, CPS boards, Nintendo 64), two on the others.
+- **Rollback:** most machines do not wait for a far player's buttons; they guess them and correct themselves when they arrive.
+  The PlayStation, the Nintendo 64 and the Game Boy Advance wait a frame or two instead.
+- **Link cable:** two players can link their own Game Boy, Game Gear or Game Boy Advance consoles, as with a real cable.
+
+Every PC checks that its game stays identical to the host's. Physical latency is not measured. How to host and join:
+[docs/MULTIPLAYER.md](docs/MULTIPLAYER.md).
+
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_Multiplayer_en.png" alt="The Multiplayer window: an Internet room for four players on NBA Jam, the seats with their checks, the invitation key and the Launch button, sample players and a documentation address" width="640">
+</p>
 
 ## Install in 3 steps
 
@@ -56,6 +75,11 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
 3. **Convert and play.** Press Convert. The first time, Retro-Recomp offers to install the build
    tools it needs; accept. Your games appear in one folder per console under **Games**, beside
    the application, and in the **Compiled Games** window.
+
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_Converter_en.png" alt="The converter's window: the toolbar with Front-end and Multiplayer in the middle, a queue of eleven games from seven machines, and the Convert button" width="860">
+</p>
+<p align="center"><sub><em>The converter: drop your games, press Convert. Front-end and Multiplayer are in the middle of the toolbar.</em></sub></p>
 
 The full guide, with portable downloads, updates and uninstalling, is
 [docs/INSTALLING.md](docs/INSTALLING.md); the keys of every game are in
@@ -117,7 +141,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.8.0.** The **Front-end**: your compiled games as a wall of box art, one console at a time, played from the sofa with a gamepad (favourites, title search with an on-screen keyboard, covers per row on L2 / R2, full screen or window), and an option to start Retro-Recomp straight in it. A conversion left half built no longer blocks the next one, and the converter no longer closes silently during a batch. No game is converted again: exports of 1.7.9 are only rebuilt. Details in the [release notes](docs/RELEASE_NOTES.md) and [Compiled games](docs/COMPILED_GAMES.md#front-end-180).
+**New in 1.9.0.** Multiplayer on every machine, on the local network or over the Internet, up to four players, with rollback on most machines and the handhelds' link cable ([above](#play-together-new-in-190)). The sound of six machines no longer crackles, F2 gains a Restart tile, and the converter has a new toolbar and Convert button. Every export of 1.8.0 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 
 ## Learn more
 

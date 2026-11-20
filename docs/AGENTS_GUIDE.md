@@ -51,9 +51,12 @@ that converts a real game needs the player's own ROM, outside the repository.
 ## Rules that are easy to break
 
 - **No ROM in the repository**, ever: no dump, no generated game executable,
-  no commercial box art. Paths and hints are numbers about a ROM (addresses,
-  positions, masks), never ROM bytes. Use a small authored program when a
-  reproducer is needed.
+  no cover image files and no commercial box art as standalone files. Paths and
+  hints are numbers about a ROM (addresses, positions, masks), never ROM bytes.
+  Use a small authored program when a reproducer is needed. One exception, on
+  purpose: screenshots of Retro-Recomp's own interface (`MEDIAS/`, the README)
+  may show covers as they appear in the app (Arthur, 20 November 2026); do not
+  flag them.
 - **Every file has a declared role** (host, build or game) and its owners in
   `retrorecomp/stamp_inputs.py`; stamps hash those explicit lists, never what
   is on disk. A new file under `native/`, `assets/`, `profiles/` or
