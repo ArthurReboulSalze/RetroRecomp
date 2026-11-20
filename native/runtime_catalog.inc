@@ -427,6 +427,7 @@ static const char *const rr_translations[][5] = {
     {"White","Blanc","Bianco","Blanco","Weiss"},
     {"Windowed","Mode fenetre","In finestra","En ventana","Fenstermodus"},
     {"Yes","Oui","Si","Si","Ja"},
+    {"You are P%d","Tu es J%d","Sei G%d","Eres J%d","Du bist S%d"},
     {"Your game differs from the host's","Ton jeu differe de celui de l'hote","Il tuo gioco e diverso da quello dell'host","Tu juego no es igual al del anfitrion","Dein Spiel weicht von dem des Hosts ab"},
     {"Your turn","A toi !","Tocca a te","Te toca","Du bist dran"},
     {"Zapper | Tab: controls","Zapper | Tab : commandes","Zapper | Tab: comandi","Zapper | Tab: controles","Zapper | Tab: Steuerung"},

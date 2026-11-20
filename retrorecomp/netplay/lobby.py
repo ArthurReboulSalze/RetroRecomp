@@ -249,7 +249,11 @@ class HostLobby:
 
     def seat_limit(self) -> int:
         """The seats the picked game takes in the mode in force (0 when nothing is picked)."""
-        return seat_map.seat_limit(self.game.seats_max, self.sharing) if self.game is not None else 0
+        if self.game is None:
+            return 0
+        if self.sharing == seat_map.LINK:                # one console per seat, as many as the machine's link plays
+            return min(seat_map.MAX_SEATS, seat_map.link_seats(self.game.machine))
+        return seat_map.seat_limit(self.game.seats_max, self.sharing)
 
     def set_sharing(self, sharing: int) -> Refusal | None:
         """The host's choice of input mode. Only in the lobby; nobody has to answer again (the mode is not part of the game)."""

@@ -129,9 +129,11 @@ static bool session_keys(uint8_t *bits) {
     rrhk_keys_pack(state_keys, bits);
     return true;
 }
-static int last_holder = -9;
+static int last_holder = -9, last_link = -1, last_seat = -9;
 static bool step(uint16_t p1, uint16_t p2) {
     last_holder = rrhk_session_holder();
+    last_link = rrhk_session_link() ? rrhk_session_ports() : 0;      /* SESSION_FAKE_LINK: the consoles of a link session */
+    last_seat = rrhk_session_seat();
     if (slow_ms) SDL_Delay(slow_ms);
     const uint16_t p3 = rrhk_pad_word(2, state.frames), p4 = rrhk_pad_word(3, state.frames);
     const uint64_t words = (uint64_t)p1 | (uint64_t)p2 << 16 | (uint64_t)p3 << 32 | (uint64_t)p4 << 48;
@@ -295,6 +297,8 @@ int main(int argc, char **argv) {
     }
     const char *option = getenv("SESSION_FAKE_OPTION_AT");
     option_at = option ? (unsigned)atoi(option) : 0;
+    const char *linked = getenv("SESSION_FAKE_LINK");          /* a handheld whose link cable plays (two consoles) */
+    if (linked && *linked == '1') machine.link_consoles = 2;
     const char *pass = getenv("SESSION_FAKE_PASS_AT");
     pass_at = pass ? (unsigned)atoi(pass) : 0;
     const char *tile = getenv("SESSION_FAKE_PASS_TILE");
@@ -317,9 +321,9 @@ int main(int argc, char **argv) {
             rrhk_close();
         } while (reopen);
     } else status = rrhk_main(&machine, "Session fake", 1);
-    printf("RESULT frames=%u live=%u silent=%u quick=%u effects_off=%u options=%u resets=%u digest=%016llx holder=%d\n",
+    printf("RESULT frames=%u live=%u silent=%u quick=%u effects_off=%u options=%u resets=%u digest=%016llx holder=%d link=%d seat=%d\n",
            state.frames, live_runs, silent_runs, quick_calls, effects_off_runs, option_calls, resets,
-           (unsigned long long)digest(), last_holder);
+           (unsigned long long)digest(), last_holder, last_link, last_seat);
     fflush(stdout);
     SDL_Quit();
     return status;

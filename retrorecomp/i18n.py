@@ -30,6 +30,8 @@ STRINGS = {
     'mp_sharing_everyone': ('Shared controls: everyone at once', 'Commandes partagées : tout le monde'),
     'mp_sharing_turns': ('Shared controls: in turns', 'Commandes partagées : à tour de rôle'),
     'mp_sharing_handheld': ('Each player with their own console: coming with the link cable, in the next version.', 'Chaque joueur avec sa propre console : arrive avec le câble link, dans la prochaine version.'),
+    'mp_sharing_link': ('Link cable: one console per player', 'Câble link : une console par joueur'),
+    'mp_sharing_link_help': ('Each player has their own console on screen, linked as by the real cable.', "Chacun a sa propre console à l'écran, reliées comme par le vrai câble."),
     'mp_sharing_everyone_help': ('Every pad drives the same player at the same moment.', 'Toutes les manettes dirigent le même joueur en même temps.'),
     'mp_sharing_turns_help': ('One player holds the controls, then passes them on (F2 in the game).', 'Un joueur tient les commandes, puis les passe (F2 dans le jeu).'),
     'mp_turn_holder': ('Holding the controller: {name}', 'À la manette : {name}'),

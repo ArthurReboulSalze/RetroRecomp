@@ -147,7 +147,8 @@ class Game:
 
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
                  restart_at: int = 0, chat_at: int = 0, load_at: int = 0, driven: bool = False, sticks: bool = False,
-                 save: int | None = None, option_at: int = 0, keys: bool = False, pass_at: int = 0, pass_tile: bool = False):
+                 save: int | None = None, option_at: int = 0, keys: bool = False, pass_at: int = 0, pass_tile: bool = False,
+                 link: bool = False):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -167,6 +168,9 @@ class Game:
         env.pop('SESSION_FAKE_KEYS', None)
         env.pop('SESSION_FAKE_PASS_AT', None)
         env.pop('SESSION_FAKE_PASS_TILE', None)
+        env.pop('SESSION_FAKE_LINK', None)
+        if link:
+            env['SESSION_FAKE_LINK'] = '1'
         if pass_tile:
             env['SESSION_FAKE_PASS_TILE'] = '1'
         if pass_at:
@@ -848,6 +852,33 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
     assert code == 0 and 'TURNS broke the rules' in text, (code, result, text)
     passed.append('turns: TURNS read (mode, holder, names), the holder\'s pass in one frame\'s LOCALs (by the call and by F2\'s '
                   'Pass tile), a guest not holding asks nothing, a broken TURNS ends the session')
+
+    # 29. The link cable (the contract of 20 Nov 2026): a game that runs linked consoles says CAP_LINK; SETUP_LINK with two
+    # ports makes it a link session, known before its first frame (the adapter sees the consoles and its own seat); a game
+    # without a link is refused one.
+    game = Game(executable, out, link=True)
+    hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+    assert struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_LINK'], 'no CAP_LINK in the HELLO'
+    text = b'speed=1'
+    game.send('RRHK_MSG_SETUP', struct.pack('<BBBBH', 1, 2, 0, CONSTANTS['RRHK_SETUP_GUEST'] | CONSTANTS['RRHK_SETUP_LINK'],
+                                            len(text)) + text)
+    history = []
+    for frame in range(10):
+        live_frame(game, frame, (*remote(frame)[:2], 0, 0), history)
+    stop(game)
+    code, result, text_out = game.finish()
+    assert code == 0 and result.get('link') == '2' and result.get('seat') == '1', (code, result, text_out)
+    game = Game(executable, out)
+    hello = game.expect('RRHK_MSG_HELLO', timeout=30)
+    assert not struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_LINK']
+    game.send('RRHK_MSG_SETUP', struct.pack('<BBBBH', 1, 2, 0, CONSTANTS['RRHK_SETUP_GUEST'] | CONSTANTS['RRHK_SETUP_LINK'],
+                                            len(text)) + text)
+    while game.receive(timeout=15) is not None:
+        pass
+    code, result, text_out = game.finish(timeout=15)
+    assert code == 0 and int(result['frames']) == 0, (code, result, text_out)
+    passed.append('link: CAP_LINK in HELLO, SETUP_LINK known before frame 0 (two consoles, this seat), a game without a link '
+                  'refuses one')
     return passed
 
 

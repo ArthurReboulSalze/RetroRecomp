@@ -539,7 +539,8 @@ class LockstepDriver:
         self.sticks = bool(hello.caps & pipe.CAP_AXES)     # every record of this match carries the sticks
         self.keyboard = bool(hello.caps & pipe.CAP_KEYBOARD)    # ... and the keys typed (only the host's count)
         try:
-            pipe.check_hello(hello, self.seats, shared=seat_map.shared(self.settings.sharing))
+            pipe.check_hello(hello, self.seats, shared=seat_map.shared(self.settings.sharing),
+                             link=self.settings.sharing == seat_map.LINK)
             reason = self._tier_refusal(hello)
             if reason:
                 raise pipe.Refused(reason)
@@ -552,7 +553,8 @@ class LockstepDriver:
             for message in pipe.save_in(self.settings.save):
                 self._tell(message)
         self._tell(pipe.setup(self.seat, seat_map.ports(self.settings.sharing, self.seats), self._ring_depth(hello),
-                              guest=self.seat != HOST, options=self.settings.options))
+                              guest=self.seat != HOST, options=self.settings.options,
+                              link=self.settings.sharing == seat_map.LINK))
         if self.settings.clock_ppm:
             self._tell(pipe.pace(self.settings.clock_ppm))
         self._tell(pipe.digest())               # the boot digest: the state after SETUP, before any frame

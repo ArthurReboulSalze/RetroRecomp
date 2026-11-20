@@ -44,7 +44,8 @@ PHASE_LOBBY, PHASE_LAUNCHING, PHASE_PLAYING = 0, 1, 2
 LOBBY_PHASES = range(3)
 CHECK_NONE, CHECK_ASKING, CHECK_SAME, CHECK_OTHER, CHECK_MISSING, CHECK_FAILED = range(6)
 ANSWER_STATUSES = (CHECK_SAME, CHECK_OTHER, CHECK_MISSING, CHECK_FAILED)
-SHARINGS = (0, 1, 2)                        # seat_map.SHARINGS: one controller per player, input sharing "everyone", "turns"
+SHARINGS = (0, 1, 2, 3)                     # seat_map.SHARINGS: one controller per player, input sharing "everyone", "turns",
+                                            # the handhelds' link cable
 MODE_PORTABLE, MODE_FULL = 0, 1             # what a guest compares: the identity without the learned paths, or the full one
 NOTICE_CHAT_FAST, NOTICE_BAD_TEXT, NOTICE_BUSY = 1, 2, 3
 NOTICES = range(1, 4)

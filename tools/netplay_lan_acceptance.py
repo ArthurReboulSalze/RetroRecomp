@@ -46,8 +46,16 @@ KEPT = ('outcome', 'detail', 'tier', 'delay', 'history_frames', 'history_digest'
 
 def script(seat: int, args) -> dict:
     """The scripted pad of a seat, with the host's restart and its save and load of the match's state as record bits."""
-    spec = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': getattr(args, 'sticks', False),
-            'keys': getattr(args, 'keys', False)}
+    if getattr(args, 'route', None):      # every seat plays its column of a recorded route (a link game's menus)
+        rows = []                         # "frame p1 p2 ..." lines, hex words held from that frame, # comments
+        for line in Path(args.route).read_text(encoding='utf-8').splitlines():
+            line = line.split('#', 1)[0].split()
+            if line:
+                rows.append([int(line[0])] + [int(word, 16) for word in line[1:]])
+        spec = {'kind': 'route', 'seat': seat, 'events': rows}
+    else:
+        spec = {'kind': 'random', 'seat': seat, 'hold': args.hold, 'sticks': getattr(args, 'sticks', False),
+                'keys': getattr(args, 'keys', False)}
     if seat == 0:
         at = {}
         if args.restart_at:
@@ -70,7 +78,7 @@ def side(args) -> int:
         common += ['--lag-ms', str(args.lag_ms), '--jitter-ms', str(args.jitter_ms)]
     if args.role == 'host':
         argv = ['host', '--address', args.address, '--tier', args.tier, '--digest-every', str(args.digest_every),
-                '--join-timeout', '120', '--guests', str(args.seats - 1), *common]
+                '--join-timeout', '120', '--guests', str(args.seats - 1), '--sharing', args.sharing, *common]
         if args.internet:                # an Internet room: its key carries the host's own address, typed (no box asked)
             argv += ['--internet-address', args.address]
     else:
@@ -119,6 +127,11 @@ def run(args) -> int:
     for name in ('save_at', 'load_at', 'restart_at'):
         if getattr(args, name):
             flags += ['--' + name.replace('_', '-'), str(getattr(args, name))]
+    flags += ['--sharing', args.sharing]
+    route = []                     # a recorded route: the guest reads it here, the host from its own copy (--remote-route)
+    if args.route:
+        route = ['--route', str(args.route)]
+        flags += ['--route', f'"{args.remote_route or args.route}"']
     # The host's logs go beside its converter, where they can be read after a run.
     if args.remote_posix:          # a Linux PC: its shell, its separators, and SDL's dummy drivers in its environment
         remote_out = args.remote_out or (args.remote_root.rstrip('/') + '/../acceptance-logs/host')
@@ -171,6 +184,7 @@ def run(args) -> int:
             guest_command += ['--sticks']
         if args.keys:
             guest_command += ['--keys']
+        guest_command += ['--sharing', args.sharing, *route]
         guests.append(subprocess.Popen(guest_command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace'))
     guest_lines: list[list[str]] = []
@@ -239,12 +253,16 @@ def main() -> int:
         p.add_argument('--jitter-ms', type=float, default=0.0)
         p.add_argument('--out', type=Path)
         p.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too')
+        p.add_argument('--route', type=Path, help='a recorded route ("frame p1 p2" lines of hex words): each seat plays its column')
+        p.add_argument('--sharing', choices=('per_player', 'everyone', 'turns', 'link'), default='per_player',
+                       help='the input mode (link: the link cable of the handhelds, one console per seat)')
         p.add_argument('--keys', action='store_true',
                        help="every seat types letters too (a computer, session ABI 9): only the host's may reach the games")
         p.add_argument('--seats', type=int, choices=(2, 3, 4), default=2, help='players in the match: the host and its guests')
         p.add_argument('--internet', action='store_true',
                        help='an Internet room (RR2 key, its admission and deadline), the host\'s address typed: no box is asked')
     run_parser = sub.choices['run']
+    run_parser.add_argument('--remote-route', help='the route file on the remote PC (default: the same path as --route)')
     run_parser.add_argument('--remote', required=True, help='USER@HOST of the PC that hosts (SSH, its key already trusted)')
     run_parser.add_argument('--remote-root', required=True, help='its converter folder')
     run_parser.add_argument('--remote-game', required=True, help='its copy of the same export')

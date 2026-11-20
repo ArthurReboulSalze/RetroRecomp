@@ -499,6 +499,8 @@ INPUTS = _resolve({
         'native/gb_audio_checks.c',
         'native/gb_boundary_checks.c',
         'native/gb_digest.h',
+        'native/gb_link.h',
+        'native/gb_link_checks.c',
         'native/gb_machine_checks.c',
         'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
@@ -1063,6 +1065,13 @@ INPUTS = _resolve({
     # profile, which would move its stamp; the three others take the module that applies it through `shares:m68000_state_rules`.
     ('cps1', 'md', 'ng', 'x68'): (
         'retrorecomp.megadrive_rules',
+    ),
+    # The Game Gear's Gear-to-Gear cable (docs/GAME_GEAR.md): the EXT port and its serial link, the checks of its model, and the
+    # scheduler that runs two consoles in one process. Game role; the Master System does not own them.
+    ('gg',): (
+        'native/gg_ext.h',
+        'native/gg_ext_checks.c',
+        'native/gg_link.inc',
     ),
     ('sms', 'gg'): (
         'native/video_checks.c',

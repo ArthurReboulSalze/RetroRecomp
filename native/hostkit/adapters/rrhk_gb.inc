@@ -41,6 +41,13 @@ static std::vector<uint8_t> g_rr_pristine;       /* the state at the first slice
 static bool g_rr_pristine_tried;
 static std::vector<uint8_t> g_rr_session_image;  /* the match's cartridge RAM: the host's own (session_save), or the host's given to a guest (session_save_put) */
 static bool g_rr_effects = true;        /* false: nothing is written outside the machine (a guest's session, a silent frame): the cartridge RAM and the clock stay in memory */
+/* The link cable (native/gb_link.h in the runtime): the consoles of a match, all run by this PC. Console 0 is the guest's own context (the kit's registered
+ * one, its pads are the globals of the platform); the satellites 1.. read the registers below through their `joypad` pointer. */
+enum { RR_GB_LINK_SLOTS = 4 };
+static GBJoypadState g_rr_link_pad[RR_GB_LINK_SLOTS];    /* the satellites' pad registers (active low), from the seats' pad words */
+static int g_rr_link_view;                               /* the console this PC shows and hears: its own seat's */
+static std::vector<ScriptEntry> g_rr_link_script;        /* headless tests only: the second console's input script (RETRO_RECOMP_GB_LINK_SCRIPT) */
+static bool g_rr_link_headless_tried;
 static std::vector<int16_t> g_rr_pcm;   /* interleaved stereo produced since the kit last took the sound */
 enum { RR_GB_PCM_LIMIT_FRAMES = 16384 };
 
@@ -148,15 +155,17 @@ static int rr_gb_width(void) { return GB_SCREEN_WIDTH; }
 static int rr_gb_height(void) { return GB_SCREEN_HEIGHT; }
 
 /* One frame of the machine is the guest running after the call returns: the kit only hands the pad over. */
+static void rr_gb_link_apply_pad(int index, uint16_t word);
 static bool rr_gb_run_frame(uint16_t p1, uint16_t p2) {
-    (void)p2;
     rr_gb_apply_pad(g_registered_ctx, p1);
+    if (gb_link_count() > 1) rr_gb_link_apply_pad(1, p2);        /* seat 1's pad drives the second console of a link */
     g_rr_sample_time = SDL_GetPerformanceCounter();
     return true;
 }
 
 static void rr_gb_reset(void) {
     if (g_registered_ctx) gb_context_reset(g_registered_ctx, true);
+    for (int i = 1; i < gb_link_count(); ++i) gb_context_reset(gb_link_context(i), true);
     g_rr_pcm.clear();
     rrhk_autofire_reset();
 }
@@ -195,47 +204,181 @@ typedef struct RrGbPadState {
     uint8_t reserved[10];
 } RrGbPadState;
 
-static size_t rr_gb_snap_bound_adapter(void) {
+/* One console's snapshot: the runtime's part, then its pad registers. Console 0 keeps its registers in the platform's globals, a satellite in its own. */
+static GBContext *rr_gb_console(int index) { return index == 0 ? g_registered_ctx : gb_link_context(index); }
+
+static size_t rr_gb_one_bound(void) {
     const size_t machine = rr_gb_snap_bound(g_registered_ctx);
     return machine ? machine + sizeof(RrGbPadState) : 0;
 }
 
-static size_t rr_gb_snap_save_adapter(void *buffer, size_t capacity) {
-    const size_t bound = rr_gb_snap_bound_adapter();
-    if (!bound || !buffer || capacity < bound) return 0;
-    const size_t machine = rr_gb_snap_save(g_registered_ctx, buffer, bound - sizeof(RrGbPadState));
+static size_t rr_gb_one_save(int index, void *buffer, size_t capacity) {
+    const size_t bound = rr_gb_one_bound();
+    GBContext *ctx = rr_gb_console(index);
+    if (!bound || !ctx || !buffer || capacity < bound) return 0;
+    const size_t machine = rr_gb_snap_save(ctx, buffer, bound - sizeof(RrGbPadState));
     if (!machine || machine + sizeof(RrGbPadState) != bound) return 0;
     RrGbPadState pads;
     memset(&pads, 0, sizeof pads);
-    pads.manual_dpad = g_manual_joypad_dpad; pads.manual_buttons = g_manual_joypad_buttons;
-    pads.script_dpad = g_script_joypad_dpad; pads.script_buttons = g_script_joypad_buttons;
-    pads.dpad = g_joypad_dpad; pads.buttons = g_joypad_buttons;
+    if (index == 0) {
+        pads.manual_dpad = g_manual_joypad_dpad; pads.manual_buttons = g_manual_joypad_buttons;
+        pads.script_dpad = g_script_joypad_dpad; pads.script_buttons = g_script_joypad_buttons;
+        pads.dpad = g_joypad_dpad; pads.buttons = g_joypad_buttons;
+    } else {
+        pads.manual_dpad = pads.dpad = g_rr_link_pad[index].dpad; pads.manual_buttons = pads.buttons = g_rr_link_pad[index].buttons;
+        pads.script_dpad = pads.script_buttons = 0xFF;
+    }
     memcpy((uint8_t *)buffer + machine, &pads, sizeof pads);
     return bound;
 }
 
-static bool rr_gb_snap_load_adapter(const void *buffer, size_t size) {
-    const size_t bound = rr_gb_snap_bound_adapter();
-    if (!bound || !buffer || size != bound) return false;
-    if (!rr_gb_snap_load(g_registered_ctx, buffer, bound - sizeof(RrGbPadState))) return false;
+static bool rr_gb_one_load(int index, const void *buffer, size_t size) {
+    const size_t bound = rr_gb_one_bound();
+    GBContext *ctx = rr_gb_console(index);
+    if (!bound || !ctx || !buffer || size != bound) return false;
+    if (!rr_gb_snap_load(ctx, buffer, bound - sizeof(RrGbPadState))) return false;
     RrGbPadState pads;
     memcpy(&pads, (const uint8_t *)buffer + (bound - sizeof(RrGbPadState)), sizeof pads);
-    g_manual_joypad_dpad = pads.manual_dpad; g_manual_joypad_buttons = pads.manual_buttons;
-    g_script_joypad_dpad = pads.script_dpad; g_script_joypad_buttons = pads.script_buttons;
-    g_joypad_dpad = pads.dpad; g_joypad_buttons = pads.buttons;
+    if (index == 0) {
+        g_manual_joypad_dpad = pads.manual_dpad; g_manual_joypad_buttons = pads.manual_buttons;
+        g_script_joypad_dpad = pads.script_dpad; g_script_joypad_buttons = pads.script_buttons;
+        g_joypad_dpad = pads.dpad; g_joypad_buttons = pads.buttons;
+    } else {
+        g_rr_link_pad[index].dpad = pads.dpad; g_rr_link_pad[index].buttons = pads.buttons;
+    }
+    return true;
+}
+
+/* The match's snapshot: every console's, in seat order (console 0 first), each at the size of one. The consoles of a match are known at SETUP
+ * (rrhk_session_ports, or the link of a headless test); until then, and for a match with no link, it is the size of one console. */
+static int rr_gb_link_consoles_planned(void);
+static size_t rr_gb_snap_bound_adapter(void) {
+    const size_t one = rr_gb_one_bound();
+    return one ? one * (size_t)rr_gb_link_consoles_planned() : 0;
+}
+
+static size_t rr_gb_snap_save_adapter(void *buffer, size_t capacity) {
+    const size_t one = rr_gb_one_bound(), bound = rr_gb_snap_bound_adapter();
+    if (!bound || !buffer || capacity < bound) return 0;
+    for (size_t i = 0; i < bound / one; ++i)
+        if (rr_gb_one_save((int)i, (uint8_t *)buffer + i * one, one) != one) return 0;
+    return bound;
+}
+
+static bool rr_gb_snap_load_adapter(const void *buffer, size_t size) {
+    const size_t one = rr_gb_one_bound(), bound = rr_gb_snap_bound_adapter();
+    if (!bound || !buffer || size != bound) return false;
+    for (size_t i = 0; i < bound / one; ++i)
+        if (!rr_gb_one_load((int)i, (const uint8_t *)buffer + i * one, one)) return false;
     g_rr_pcm.clear();            /* the sound of the frames that are run again is discarded */
     return true;
+}
+
+/* ---- the link cable: this PC runs every console of the match ----
+ * A link match (the SETUP flag, rrhk_session_link(); one port per seat, rrhk_session_ports() consoles) is two
+ * consoles on one cable, run here by the runtime's gb_link (native/gb_link.h): console i is driven by seat i's pad word, and this PC shows and plays its own
+ * seat's console. A headless run can start a link on its own for the tests: RETRO_RECOMP_GB_LINK=2 (consoles), RETRO_RECOMP_GB_LINK_VIEW=n (the console shown),
+ * RETRO_RECOMP_GB_LINK_SCRIPT=<input script of the second console, the format of --input-script>. Never read by a window that is open. */
+static bool rr_gb_link_headless(void) { return g_benchmark_mode || !rrhk_window(); }
+
+static int rr_gb_link_consoles_wanted(void) {
+    if (rrhk_session_active()) {
+        if (!rrhk_session_link()) return 0;         /* "everyone" and "turns" stay one console */
+        const int ports = rrhk_session_ports();
+        return ports >= 2 ? 2 : 0;                  /* two consoles at most: the four-player adapter is not modelled */
+    }
+    if (rr_gb_link_headless()) {
+        const char *value = SDL_getenv("RETRO_RECOMP_GB_LINK");
+        const int consoles = value ? atoi(value) : 0;
+        return consoles >= 2 ? 2 : 0;
+    }
+    return 0;
+}
+
+static int rr_gb_link_consoles_planned(void) {
+    const int started = gb_link_count();
+    if (started > 1) return started;
+    const int wanted = rr_gb_link_consoles_wanted();
+    return wanted > 1 ? wanted : 1;
+}
+
+/* Joypad of a satellite: the seat's pad word (the direction nibble, then the buttons), the same way as the guest console's. */
+static void rr_gb_link_apply_pad(int index, uint16_t word) {
+    GBContext *console = gb_link_context(index);
+    if (!console || index <= 0 || index >= RR_GB_LINK_SLOTS) return;
+    const GBJoypadState previous = g_rr_link_pad[index];
+    GBJoypadState next;
+    next.dpad = (uint8_t)(0xFF & ~(word & 0x0F));
+    next.buttons = (uint8_t)(0xFF & ~((word >> 4) & 0x0F));
+    g_rr_link_pad[index] = next;
+    const uint8_t joyp = console->io[0x00];
+    if (rr_gb_press_created(previous.dpad, previous.buttons, next.dpad, next.buttons, !(joyp & 0x10), !(joyp & 0x20)))
+        request_joypad_interrupt(console);
+}
+
+/* Starts (or keeps) the link the match wants, around the guest's context. false: this match has no link. */
+static bool rr_gb_link_begin(void) {
+    const int wanted = rr_gb_link_consoles_wanted();
+    if (wanted < 2 || !g_registered_ctx) { if (gb_link_count() > 1) gb_link_stop(); return false; }
+    if (gb_link_count() != wanted && !gb_link_start(g_registered_ctx, wanted)) {
+        fprintf(stderr, "[link] the second console could not be made: no link\n");
+        return false;
+    }
+    for (int i = 1; i < wanted; ++i) {
+        g_rr_link_pad[i].dpad = g_rr_link_pad[i].buttons = 0xFF;
+        gb_link_context(i)->joypad = &g_rr_link_pad[i];
+    }
+    int view = 0;
+    if (rrhk_session_active()) view = rrhk_session_seat();
+    else if (const char *text = SDL_getenv("RETRO_RECOMP_GB_LINK_VIEW")) view = atoi(text);
+    g_rr_link_view = view >= 0 && view < wanted ? view : 0;
+    fprintf(stderr, "[link] %d consoles on the cable, this PC shows console %d\n", wanted, g_rr_link_view);
+    return true;
+}
+
+/* The second console's input script of a headless test (the format of --input-script), then its pad word at a frame. */
+static void rr_gb_link_script_parse(const char *text) {
+    g_rr_link_script.clear();
+    if (!text || !*text) return;
+    char *copy = strdup(text);
+    if (!copy) return;
+    for (char *token = strtok(copy, ","); token; token = strtok(NULL, ",")) {
+        char button_text[16] = {0};
+        ScriptEntry entry = {};
+        if (!parse_script_token(token, &entry, button_text, sizeof button_text) || !parse_buttons(button_text, &entry.dpad, &entry.buttons)) {
+            fprintf(stderr, "[link] invalid input token '%s'\n", token);
+            g_rr_link_script.clear();
+            break;
+        }
+        g_rr_link_script.push_back(entry);
+    }
+    free(copy);
+}
+
+static uint16_t rr_gb_link_script_word(const GBContext *console) {
+    uint8_t dpad = 0xFF, buttons = 0xFF;
+    const uint64_t cycles = console ? console->total_cycles : 0, frame = (uint64_t)g_frame_count;
+    for (const ScriptEntry &e : g_rr_link_script) {
+        bool active;
+        if (e.anchor == SCRIPT_ANCHOR_CYCLE) {
+            if (e.period > 0) active = cycles >= e.start && cycles < (e.end + e.duration) && ((cycles - e.start) % e.period) < e.duration;
+            else active = cycles >= e.start && cycles < (e.start + e.duration);
+        } else active = frame >= e.start && frame < (e.start + e.duration);
+        if (active) { dpad &= e.dpad; buttons &= e.buttons; }
+    }
+    return (uint16_t)((~dpad & 0x0F) | ((~buttons & 0x0F) << 4));
+}
+
+/* The console `ctx` belongs to this PC's view: its sound is played and its picture shown; the others advance silently. */
+static bool rr_gb_link_shown(const GBContext *ctx) {
+    return gb_link_count() < 2 || ctx == gb_link_context(g_rr_link_view);
 }
 
 /* A session starts (and again at every restart of it): the cartridge's clock runs on the session's clock, the same on every seat, never on this PC's.
  * The registers become the date of `clock` (seconds since 1970; days counted in the nine bits of the cartridge's counter), the second's
  * cycle counter restarts, and the runtime's own source of time is the same value (the clock file's time stamp is never read in a session). */
-static void rr_gb_session_begin(uint64_t clock) {
-    GBContext *ctx = g_registered_ctx;
+static void rr_gb_session_begin_console(GBContext *ctx, uint64_t clock) {
     if (!ctx) return;
-    /* The game ran one frame before the session's SETUP (the guest's loop runs first, the kit's frame function is called at its end),
-     * on this seat's own save, clock and boot: every seat starts again from the state the game began in, then takes the match's save. */
-    if (!g_rr_pristine.empty()) rr_gb_snap_load_adapter(g_rr_pristine.data(), g_rr_pristine.size());
     if (ctx->eram && ctx->eram_size) {
         if (g_rr_session_image.size() == ctx->eram_size) memcpy(ctx->eram, g_rr_session_image.data(), ctx->eram_size);
         else memset(ctx->eram, 0, ctx->eram_size);        /* no save of the host's (or one this cartridge does not read): every seat starts blank */
@@ -248,6 +391,20 @@ static void rr_gb_session_begin(uint64_t clock) {
     ctx->rtc.latched_s = ctx->rtc.s; ctx->rtc.latched_m = ctx->rtc.m; ctx->rtc.latched_h = ctx->rtc.h;
     ctx->rtc.latched_dl = ctx->rtc.dl; ctx->rtc.latched_dh = ctx->rtc.dh;
     ctx->rtc.latch_state = 0; ctx->rtc.last_time = 0; ctx->rtc.active = true;
+}
+
+static void rr_gb_session_begin(uint64_t clock) {
+    if (!g_registered_ctx) return;
+    const bool linked = rr_gb_link_begin();
+    const int consoles = linked ? gb_link_count() : 1;
+    /* The game ran one frame before the session's SETUP (the guest's loop runs first, the kit's frame function is called at its end),
+     * on this seat's own save, clock and boot: every console starts again from the state the game began in, then takes the match's save
+     * (the host's, on every console for now) and the session's clock. */
+    for (int i = 0; i < consoles; ++i) {
+        if (!g_rr_pristine.empty()) rr_gb_one_load(i, g_rr_pristine.data(), g_rr_pristine.size());
+        rr_gb_session_begin_console(rr_gb_console(i), clock);
+    }
+    g_rr_pcm.clear();
 }
 
 /* The match's cartridge RAM (session ABI 8): what the game would read at power-on. The host's is its save file, read here because the kit asks
@@ -317,6 +474,13 @@ static uint64_t rr_gb_digest_adapter(void) {
     uint64_t hash = rr_gb_digest(g_registered_ctx);
     const uint8_t pads[] = {g_manual_joypad_dpad, g_manual_joypad_buttons, g_script_joypad_dpad, g_script_joypad_buttons, g_joypad_dpad, g_joypad_buttons};
     for (size_t i = 0; i < sizeof pads; ++i) hash = (hash ^ pads[i]) * 0x100000001b3ull;
+    /* A link: the other consoles' digests follow in seat order, each with its pad registers, folded into the same hash. */
+    for (int index = 1; index < gb_link_count(); ++index) {
+        uint64_t part = rr_gb_digest(gb_link_context(index));
+        part = (part ^ g_rr_link_pad[index].dpad) * 0x100000001b3ull;
+        part = (part ^ g_rr_link_pad[index].buttons) * 0x100000001b3ull;
+        for (int byte = 0; byte < 8; ++byte) hash = (hash ^ ((part >> (byte * 8)) & 0xFF)) * 0x100000001b3ull;
+    }
     return hash;
 }
 
@@ -381,6 +545,7 @@ static const RrhkMachine *rr_gb_adapter(void) {
         rr_gb_machine.audio_enable = rr_gb_audio_enable;
         rr_gb_machine.save_failed_en = "Unable to save quick state"; rr_gb_machine.save_failed_fr = "Impossible de sauvegarder";
         rr_gb_machine.driven = true;
+        rr_gb_machine.link_consoles = 2;            /* the most consoles it runs on a link cable: HELLO says RRHK_CAP_LINK */
         rr_gb_machine.host_pause = RR_GB_PAUSE + 1;
         rr_gb_machine.minimum_window = true;
         rr_gb_machine.even_scale2x = true;
@@ -410,7 +575,7 @@ const RrhkMachine *rrhk_adapter(void) { return rr_gb_adapter(); }
 
 /* The sound the APU produces goes to the kit while a window is open (never in the headless runs). */
 static void on_audio_sample(GBContext *ctx, int16_t left, int16_t right) {
-    (void)ctx;
+    if (!rr_gb_link_shown(ctx)) return;                   /* a link: only the console of this PC's seat is heard */
     if (g_benchmark_mode || !rrhk_window() || rrhk_session_silent() || g_rr_pcm.size() >= (size_t)RR_GB_PCM_LIMIT_FRAMES * 2) return;
     g_rr_pcm.push_back(left);
     g_rr_pcm.push_back(right);
@@ -419,6 +584,11 @@ static void on_audio_sample(GBContext *ctx, int16_t left, int16_t right) {
 /* ---- the entry points of the generated main (platform_sdl.h) ---- */
 static void render_frame_internal(const uint32_t* framebuffer, bool count_guest_frame) {
     if (!framebuffer) return;
+    /* A link: the picture is the console of this PC's seat (console 0's is what the generated main hands over). */
+    if (gb_link_count() > 1 && g_rr_link_view > 0) {
+        const uint32_t* shown = gb_get_framebuffer(gb_link_context(g_rr_link_view));
+        if (shown) framebuffer = shown;
+    }
     g_present_count++;
     if (count_guest_frame) {
         g_frame_count++;
@@ -474,6 +644,9 @@ bool gb_platform_init(int scale) {
 void gb_platform_shutdown(void) {
     close_input_record_file();
     rrhk_close();
+    if (gb_link_count() > 1)                         /* what the cable did (counted over the frames run again after a rollback too) */
+        fprintf(stderr, "[link] %d consoles, %llu byte exchanges\n", gb_link_count(), (unsigned long long)gb_link_transfers());
+    gb_link_stop();
     g_rr_pcm.clear();
     g_port_frame = {};
     g_port_frame_valid = false;
@@ -533,6 +706,10 @@ bool gb_platform_poll_events(GBContext* ctx) {
     update_effective_joypad_state();
     record_manual_input_state(current_cycles);
 
+    /* A headless link: the second console's pad is its own script (a window that is open takes the seats' words in rr_gb_run_frame). */
+    if (gb_link_count() > 1 && rr_gb_link_headless() && !rrhk_session_active())
+        rr_gb_link_apply_pad(1, rr_gb_link_script_word(gb_link_context(1)));
+
     return true;
 }
 
@@ -541,8 +718,13 @@ bool gb_platform_wait_while_menu(GBContext* ctx) {
     /* In a session, the state the game begins in (before its first cycle) is kept: SETUP, which comes after the first frame, starts every seat from it. */
     if (ctx && !g_rr_pristine_tried && rrhk_session_active()) {
         g_rr_pristine_tried = true;
-        g_rr_pristine.resize(rr_gb_snap_bound_adapter());
-        if (g_rr_pristine.empty() || rr_gb_snap_save_adapter(g_rr_pristine.data(), g_rr_pristine.size()) != g_rr_pristine.size()) g_rr_pristine.clear();
+        g_rr_pristine.resize(rr_gb_one_bound());                      /* one console's: every console of a link starts from it */
+        if (g_rr_pristine.empty() || rr_gb_one_save(0, g_rr_pristine.data(), g_rr_pristine.size()) != g_rr_pristine.size()) g_rr_pristine.clear();
+    }
+    /* A headless run can start a link of its own (the tests, rr_gb_link_headless): the second console is made before the first cycle. */
+    if (ctx && !g_rr_link_headless_tried && rr_gb_link_headless() && !rrhk_session_active()) {
+        g_rr_link_headless_tried = true;
+        if (rr_gb_link_begin()) rr_gb_link_script_parse(SDL_getenv("RETRO_RECOMP_GB_LINK_SCRIPT"));
     }
     return !g_rr_stop;
 }
@@ -591,6 +773,10 @@ void gb_platform_vsync(uint32_t frame_cycles) {
     const uint32_t cycles = frame_cycles > 0 ? frame_cycles : 70224u;
     g_last_timing.pacing_cycles = cycles;
     g_last_timing.pacing_ms = 0.0;
+    /* A headless link says where it stands (the tests compare these lines between two processes): every 60 frames, the digest of the pair. */
+    if (gb_link_count() > 1 && rr_gb_link_headless() && g_frame_count % 60 == 0 && SDL_getenv("RETRO_RECOMP_GB_LINK_LOG"))
+        fprintf(stderr, "[link] frame %d digest %016llx exchanges %llu\n", g_frame_count, (unsigned long long)rr_gb_digest_adapter(),
+                (unsigned long long)gb_link_transfers());
     if (g_benchmark_mode || !rrhk_window()) return;
     rr_gb_machine.frame_seconds = (double)cycles / 4194304.0;
     if (!rrhk_frame_done()) g_rr_stop = true;

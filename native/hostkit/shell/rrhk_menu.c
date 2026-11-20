@@ -220,7 +220,10 @@ static void hub_draw(const RrhkMenuCtx *ctx) {
     const int ox = ctx->ox, oy = ctx->oy, unit = ctx->unit;
     const int tiles = hub_tiles(), lines = (tiles + HUB_COLUMNS - 1) / HUB_COLUMNS;
     if (hub_tile < 0 || hub_tile >= tiles) hub_tile = 0;
-    rr_menu_header(ren, ox, oy, unit, rr_tr("Controls"), NULL);
+    /* A link session (the handhelds' cable, 1.8.1): every PC runs every console; the subtitle says which one is this player's. */
+    char seat_line[40] = "";
+    if (rrhk_session_link() && rrhk_session_seat() >= 0) snprintf(seat_line, sizeof seat_line, rr_tr("You are P%d"), rrhk_session_seat() + 1);
+    rr_menu_header(ren, ox, oy, unit, rr_tr("Controls"), seat_line[0] ? seat_line : NULL);
     /* 1.8.1: two lines of tiles fit over the name of the selected one; past them (four players, a graphics page and Quit: three
      * lines) the tiles scroll, two lines around the selected one, ^ and v at the right edge when more lie above or below. */
     const int shown = lines < HUB_LINES ? lines : HUB_LINES;

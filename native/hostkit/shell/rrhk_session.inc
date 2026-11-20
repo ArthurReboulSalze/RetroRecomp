@@ -72,6 +72,7 @@ static struct {
     uint8_t keys[RRHK_KEY_BYTES];
     uint16_t turns_pending;         /* a pass or a mode switch asked (RRHK_SYS_PASS ...): in the LOCALs of one frame */
     int sharing, holder, seat, seats;               /* TURNS: the shared controls (-1: not said) */
+    bool link;                      /* SETUP: a link session (one console per seat) */
     char seat_names[RRHK_MAX_PLAYERS][RRHK_CHAT_MAX_NAME + 1];
     char paused_by[24];
     bool setup;                     /* SETUP received and applied: frames may run */
@@ -121,7 +122,8 @@ void rrhk_keys_unpack(const uint8_t *bits, uint8_t *state) {
         if (bit >= 0 && bits[bit >> 3] & (1u << (bit & 7))) state[code] = 1;
     }
 }
-int rrhk_session_sharing(void) { return rrhk_session_on ? s.sharing : -1; }
+int rrhk_session_sharing(void) { return rrhk_session_on ? (s.link ? RRHK_SHARING_LINK : s.sharing) : -1; }
+bool rrhk_session_link(void) { return rrhk_session_on && s.link; }
 int rrhk_session_holder(void) { return rrhk_session_on && s.sharing == RRHK_SHARING_TURNS ? s.holder : -1; }
 int rrhk_session_seat(void) { return rrhk_session_on ? s.seat : -1; }
 int rrhk_session_seats(void) { return rrhk_session_on ? s.seats : 0; }
@@ -333,7 +335,8 @@ bool rrhk_session_open(RrhkRun *run) {
     const size_t bound = m->snap_bound && m->snap_save && m->snap_load ? m->snap_bound() : 0;
     const uint8_t caps = (uint8_t)((bound ? RRHK_CAP_SNAPSHOT : 0) | (m->digest ? RRHK_CAP_DIGEST : 0) |
                                    (m->pointer ? RRHK_CAP_POINTER : 0) | (m->analog_sticks ? RRHK_CAP_AXES : 0) |
-                                   (m->driven ? RRHK_CAP_DRIVEN : 0) | (m->session_keys ? RRHK_CAP_KEYBOARD : 0));
+                                   (m->driven ? RRHK_CAP_DRIVEN : 0) | (m->session_keys ? RRHK_CAP_KEYBOARD : 0) |
+                                   (m->link_consoles >= 2 ? RRHK_CAP_LINK : 0));
     char name[64];
     size_t name_length = 0;
     /* The machine's name as players read it (a CPS-2 board says CPS-2; ini_section stays the preferences' key). */
@@ -391,6 +394,7 @@ bool rrhk_session_open(RrhkRun *run) {
     s.options_known = false; s.relaunching = false; s.match_options_length = 0;
     s.keys_on = false; memset(s.keys, 0, sizeof s.keys); memset(s.keys_sent, 0, sizeof s.keys_sent);
     s.turns_pending = 0; s.sharing = s.holder = s.seat = -1; s.seats = 0; memset(s.seat_names, 0, sizeof s.seat_names);
+    s.link = false;
     s.setup = false; s.setup_until = SDL_GetTicks64() + 15000;
     rrhk_session_on = true;           /* from here the frames wait for SETUP inside the loop (events and pictures go on) */
     /* The worker started this game from a window in the background: without the focus, the keyboard reaches nothing and the
@@ -414,6 +418,11 @@ static bool setup(const RrhkMachine *m, const uint8_t *payload, uint16_t length)
     }
     s.guest = (payload[3] & RRHK_SETUP_GUEST) != 0;
     s.seat = (int)seat;
+    s.link = (payload[3] & RRHK_SETUP_LINK) != 0;
+    if (s.link && (!m->link_consoles || (int)ports > m->link_consoles || ports < 2 || seat >= ports)) {
+        refuse(RRHK_REFUSED_COMMAND, "link");
+        return false;
+    }
     s.setup_ports = (int)ports;
     if (!apply_options(m, payload + 6, options)) return false;
     memcpy(s.options, payload + 6, options); s.options_length = options;
@@ -809,7 +818,7 @@ int rrhk_session_frame(RrhkRun *run, uint64_t input_frame) {
         case RRHK_MSG_TURNS: {
             /* Who plays the shared controls (session ABI 9): kept for the badge and the F2 tiles; the notices of a change
              * come as NOTICE_TURN / NOTICE_YOUR_TURN. */
-            if (length < 3 || payload[0] > RRHK_SHARING_TURNS || payload[2] > RRHK_MAX_PLAYERS ||
+            if (length < 3 || payload[0] > RRHK_SHARING_LINK || payload[2] > RRHK_MAX_PLAYERS ||
                 (payload[1] != 0xff && payload[1] >= payload[2]))
                 return lost(run, "a TURNS broke the rules");
             size_t at = 3;

@@ -48,6 +48,7 @@ class SessionGame:
         game's own lines go to (nowhere when None: the pipes of the session are the only link that matters); `arguments`
         its command line (`launch.game_arguments`: a guest started in the host's machine)."""
         environment = dict(os.environ)
+        environment.pop(pipe.LINK_ENV, None)       # a link match is the worker's to say (its game config), never inherited
         environment.update(env or {})
         for name in NEVER_IN_A_SESSION:
             environment.pop(name, None)

@@ -76,8 +76,9 @@ def main() -> int:
     parser.add_argument('--save-name', default='', help='the file, relative to a seat folder, that the game reads its save from')
     parser.add_argument('--sticks', action='store_true', help='the scripted pads move the sticks too (a game with sticks)')
     parser.add_argument('--machine', default=None, help='the profile id (gb, gg, gba: a handheld is played in input sharing)')
-    parser.add_argument('--sharing', choices=('per_player', 'everyone', 'turns'), default=None,
-                        help='the input mode (a handheld plays in input sharing only: everyone by default)')
+    parser.add_argument('--sharing', choices=('per_player', 'everyone', 'turns', 'link'), default=None,
+                        help='the input mode (a handheld plays in input sharing: everyone by default; link: its link cable, one '
+                             'console per seat, once its profile sets netplay_link_seats)')
     parser.add_argument('--options', default='', help='the run-changing options every seat gets in SETUP ("key=value" lines '
                         'separated by ;), as a room pushes the host game\'s')
     parser.add_argument('--load-at', type=int, default=0, help='and loads it back in its LOCAL of this frame')

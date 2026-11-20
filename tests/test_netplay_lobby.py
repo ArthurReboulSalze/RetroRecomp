@@ -86,7 +86,7 @@ class WireTests(unittest.TestCase):
     def test_a_message_out_of_the_rules_is_refused_by_the_decoder(self):
         good = {kind: control.encode(message)[1] for message in MESSAGES for kind in (control.encode(message)[0],)}
         roster = bytearray(control.encode(MESSAGES[0])[1])
-        for index, value in ((0, control.LOBBY_VERSION + 1), (3, 3), (4, 5), (5, 3), (8, 0), (8, 5)):  # another lobby version, a phase, seats, a mode, a count
+        for index, value in ((0, control.LOBBY_VERSION + 1), (3, 3), (4, 5), (5, 4), (8, 0), (8, 5)):  # another lobby version, a phase, seats, a mode, a count
             damaged = bytearray(roster)
             damaged[index] = value
             with self.assertRaises(control.FrameError, msg=(index, value)):

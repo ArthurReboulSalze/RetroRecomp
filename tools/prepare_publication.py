@@ -259,7 +259,7 @@ retrorecomp/netplay/rollback.py tests/test_netplay_rollback.py tools/netplay_rol
 retrorecomp/netplay/invitation.py retrorecomp/netplay/internet_key.py retrorecomp/netplay/reach.py retrorecomp/netplay/firewall_check.py retrorecomp/netplay/handshake.py retrorecomp/netplay/sealing.py retrorecomp/netplay/control.py
 retrorecomp/netplay/datagram.py retrorecomp/netplay/limits.py retrorecomp/netplay/room_log.py
 retrorecomp/netplay/lan_transport.py retrorecomp/netplay/room_worker.py retrorecomp/netplay/room_cli.py retrorecomp/netplay/lag_link.py
-tests/test_netplay_transport.py tests/test_netplay_loopback.py tests/test_netplay_internet_key.py tests/test_netplay_reach.py tests/test_netplay_firewall_check.py tests/test_netplay_keyboard_relaunch.py tests/test_netplay_internet_room.py
+tests/test_netplay_transport.py tests/test_netplay_loopback.py tests/test_netplay_internet_key.py tests/test_netplay_reach.py tests/test_netplay_firewall_check.py tests/test_netplay_keyboard_relaunch.py tests/test_netplay_link.py tests/test_netplay_internet_room.py
 retrorecomp/netplay/lobby.py retrorecomp/netplay/lobby_check.py retrorecomp/netplay/lobby_client.py
 tests/test_netplay_lobby.py tests/test_netplay_lobby_loopback.py
 retrorecomp/netplay/seat_map.py tests/test_netplay_seat_map.py
@@ -309,6 +309,7 @@ native/pce_snapshot_checks.cpp tools/pce_snapshot_selftest.py tools/pce_snapshot
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
 native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
+native/gb_link.h native/gb_link_checks.c tools/gameboy_link_selftest.py tools/gameboy_link_play.py tests/test_gameboy_link.py
 tests/test_gameboy_helper_counts.py
 tools/gameboy_campaign.py tools/gameboy_cross_os.py tests/test_gameboy_cross_os.py
 tools/gameboy_testroms.py tests/test_gameboy_testroms.py tests/test_gameboy_unused_io.py tests/test_gameboy_boot_apu.py
@@ -493,6 +494,7 @@ native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
 native/frame_stop_checks.c
 native/gamestate.h native/gamestate.inc native/state_envelope.h native/state_io.h native/psg_state.inc native/psg_runs.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
+native/gg_ext.h native/gg_ext_checks.c native/gg_link.inc tools/gg_ext_selftest.py tools/gg_link_selftest.py
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py
 native/audio_output.inc native/audio_checks.c tools/audio_selftest.py
