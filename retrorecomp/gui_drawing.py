@@ -325,8 +325,9 @@ BADGE_HEIGHT = 14
 
 def badges_width(canvas, badges, font):
     measure = _font(canvas, font)
+    pad = max(8, round(max(BADGE_HEIGHT, measure.metrics('linespace') + 2) * 0.57))      # as draw_badges
     labels = [_badge_label(badge) for badge in badges[:online.SHOP_BADGES]]
-    return sum(measure.measure(label) + 8 for label in labels) + 3 * max(0, len(labels) - 1)
+    return sum(measure.measure(label) + pad for label in labels) + 3 * max(0, len(labels) - 1)
 
 
 def _badge_label(badge):
@@ -342,18 +343,21 @@ def draw_badges(canvas, x, middle, badges, font, tags=(), top=()):
     the player is first on that console's all-time board) gets a gold rim and a
     small "1", the same mark in the header, the ranking and the podium."""
     measure = _font(canvas, font)
+    # The badge follows its font: at 125 % its text grew while the badge kept 14 px (20 Nov 2026).
+    height = max(BADGE_HEIGHT, measure.metrics('linespace') + 2)
+    pad = max(8, round(height * 0.57))
     start = x
     for badge in badges[:online.SHOP_BADGES]:
         label = _badge_label(badge)
-        width = measure.measure(label) + 8
+        width = measure.measure(label) + pad
         colour = _colour((badge.get('data') or {}).get('color'), COLORS['button'])
-        _rounded(canvas, x, middle - BADGE_HEIGHT / 2, x + width, middle + BADGE_HEIGHT / 2, 4,
+        _rounded(canvas, x, middle - height / 2, x + width, middle + height / 2, 4,
                  fill=colour, outline=_tint(colour, '#ffffff', 0.25), tags=tags)
         canvas.create_text(x + width / 2, middle, text=label, fill='#ffffff', font=font, tags=tags)
         if badge.get('id') in top:
-            _rounded(canvas, x - 1, middle - BADGE_HEIGHT / 2 - 1, x + width + 1, middle + BADGE_HEIGHT / 2 + 1, 5,
+            _rounded(canvas, x - 1, middle - height / 2 - 1, x + width + 1, middle + height / 2 + 1, 5,
                      fill='', outline=COLORS['gold'], width=1, tags=tags)
-            canvas.create_text(x + width + 1, middle - BADGE_HEIGHT / 2 - 1, text='1', fill=COLORS['gold_hover'],
+            canvas.create_text(x + width + 1, middle - height / 2 - 1, text='1', fill=COLORS['gold_hover'],
                                font=(font[0], 6, 'bold'), anchor='center', tags=tags)
         x += width + 3
     return max(0, x - 3 - start)

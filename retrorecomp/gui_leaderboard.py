@@ -13,175 +13,320 @@ from .dialogs import center_dialog
 from .gui_common import SENDING_AVAILABLE
 from .gui_drawing import (
     PIN_SIZE, TROPHY, badges_width, compact_number, draw_badges, draw_pin, draw_styled_text, elide,
-    name_colours, _font, _scaled_photo, _tint,
+    name_colours, _font, _rounded, _scaled_photo, _tint,
 )
+from .ui_fonts import ui_scale
+
+# Design « Marches » (Arthur's pick, 20 Nov 2026): the Multiplayer window's colours, the podium's three medals, the avatars'
+# colours (the lobby's seats, then four more).
+BOARD_BG, BOARD_CARD, BOARD_ROW_FILL, BOARD_DEEP = COLORS['background'], '#2b2b2b', '#323232', COLORS['field']
+MEDALS = {1: COLORS['gold'], 2: '#c9ced6', 3: '#c58a4a'}
+AVATAR_COLOURS = ('#d4a737', '#5aa9e6', '#45c565', '#d77fd0', '#e0705a', '#8fb1ff', '#e8c15a', '#7fd6c2')
+
+
+def next_place(rows, mine):
+    """Where the player stands against the place above, from the ranking's own rows: None when the player is not in them;
+    {'state': 'first'} when first; else {'state': 'behind', 'gap': points to pass the player above, 'above': that entry,
+    'share': how far from the one below to the one above (0..1)}."""
+    index = next((i for i, (entry, _) in enumerate(rows) if mine and entry.get('pseudonym') == mine), None)
+    if index is None:
+        return None
+    entry = rows[index][0]
+    if index == 0 or entry.get('rank') == 1:
+        return {'state': 'first', 'index': index}
+    above = rows[index - 1][0]
+    below = rows[index + 1][0].get('total', 0) if index + 1 < len(rows) else 0
+    mine_total, above_total = entry.get('total', 0), above.get('total', 0)
+    share = (mine_total - below) / max(1, above_total - below)
+    return {'state': 'behind', 'index': index, 'gap': max(1, above_total - mine_total + 1), 'above': above,
+            'share': min(1.0, max(0.0, share))}
 
 
 class LeaderboardMixin:
     """The leaderboard, the achievement card and the closing card."""
 
-    # The ranking's columns: key, caption, width (0: the player's, the rest) and alignment.
-    BOARD_COLUMNS = (('rank', 'leaderboard_rank', 50, 'e'), ('player', 'leaderboard_player', 0, 'w'),
-                     ('games', 'leaderboard_games', 64, 'e'), ('gold', 'class_gold', 84, 'e'),
-                     ('platinum', 'class_platinum', 96, 'e'), ('diamond', 'class_diamond', 96, 'e'),
+    # The ranking's columns: key, caption, width (0: the player's, the rest) and alignment (the headings).
+    BOARD_COLUMNS = (('rank', 'leaderboard_rank', 50, 'w'), ('player', 'leaderboard_player', 0, 'w'),
+                     ('games', 'leaderboard_games', 64, 'e'), ('gold', 'class_gold', 70, 'w'),
+                     ('platinum', 'class_platinum', 70, 'w'), ('diamond', 'class_diamond', 70, 'w'),
                      ('points', 'leaderboard_points', 84, 'e'))
-    BOARD_ROW = 26
-    BOARD_HEADING = 26
+    BOARD_ROW = 32
+    BOARD_HEADING = 24
 
-    def board_columns(self, width):
-        """{key: (left, right)} of the ranking's columns for a list `width` wide."""
-        fixed = sum(size for _, _, size, _ in self.BOARD_COLUMNS)
+    def board_columns(self, width, scale=1.0):
+        """{key: (left, right)} of the ranking's columns for a list `width` wide (columns written for 96 dpi, times `scale`)."""
+        fixed = sum(round(size * scale) for _, _, size, _ in self.BOARD_COLUMNS)
         spans, left = {}, 0
         for key, _, size, _ in self.BOARD_COLUMNS:
-            size = size or max(160, width - fixed)
+            size = round(size * scale) or max(round(160 * scale), width - fixed)
             spans[key] = (left, left + size)
             left += size
         return spans
 
+    @staticmethod
+    def board_scale(widget):
+        try:
+            return ui_scale(widget)
+        except Exception:
+            return 1.0
+
     def draw_board_heading(self, canvas, width, pictures):
+        """The ranking's column captions, quiet above the rows (the gems' pictures before their classes)."""
         canvas.delete('all')
-        spans = self.board_columns(width)
-        font = (self.ui_font, 9, 'bold')
-        measure = _font(canvas, font)
-        middle = self.BOARD_HEADING // 2
+        k = self.board_scale(canvas)
+        spans = self.board_columns(width, k)
+        font = (self.ui_font, 8, 'bold')
+        middle = round(self.BOARD_HEADING * k) // 2
         for key, caption, _, anchor in self.BOARD_COLUMNS:
             left, right = spans[key]
             text = self.tr(caption)
-            if anchor == 'e':
-                canvas.create_text(right - 8, middle, text=text, anchor='e', fill=COLORS['text'], font=font)
+            if key in ('gold', 'platinum', 'diamond'):
                 picture = pictures.get('gem-' + key)
+                x = left + round(8 * k)
                 if picture:
-                    canvas.create_image(right - 8 - measure.measure(text) - 12, middle, image=picture)
+                    canvas.create_image(x + round(7 * k), middle, image=picture)
+                    x += round(17 * k)
+                canvas.create_text(x, middle, text=text, anchor='w', fill=COLORS['muted'], font=font)
+            elif anchor == 'e':
+                canvas.create_text(right - round(10 * k), middle, text=text, anchor='e', fill=COLORS['muted'], font=font)
             else:
-                canvas.create_text(left + 8, middle, text=text, anchor='w', fill=COLORS['text'], font=font)
-            if left:
-                canvas.create_line(left, 4, left, self.BOARD_HEADING - 4, fill=COLORS['subtle_border'])
+                canvas.create_text(left + round(10 * k), middle, text=text, anchor='w', fill=COLORS['muted'], font=font)
 
-    def draw_board_rows(self, canvas, rows, width, mine, catalog):
-        """The ranking's lines on a canvas: rank, the pseudonym in its shop
-        style, the console badge shown (a first place's one with its mark), the
-        pin and the title, then games, class counts and points. The player's
-        own line is highlighted."""
-        canvas.delete('all')
-        canvas._sparkle = []
-        spans = self.board_columns(width)
+    def board_avatar(self, canvas, x, y, name, radius, tags=()):
+        """A round avatar in one of the lobby's colours, with the name's first letter."""
+        colour = AVATAR_COLOURS[sum(map(ord, name)) % len(AVATAR_COLOURS)]
+        canvas.create_oval(x - radius, y - radius, x + radius, y + radius, fill=colour, outline='', tags=tags)
+        canvas.create_text(x, y, text=name[:1].upper(), fill=COLORS['gold_text'], tags=tags,
+                           font=(self.ui_font, max(7, round(radius * 0.62 / max(1.0, self.board_scale(canvas)))), 'bold'))
+
+    def draw_board_pill(self, canvas, top, width, index, entry, counts, mine, catalog, pictures=None, tags=()):
+        """One ranking row as a pill: the rank chip (the medal's colour for the first three), the avatar, the pseudonym in its
+        shop style, the console badge shown (a first place's one with its mark), the pin and the title, then games, the
+        three class counts and the points. The player's own row is gold-rimmed."""
+        k = self.board_scale(canvas)
+        spans = self.board_columns(width, k)
         font, small, badge_font = (self.ui_font, 9), (self.ui_font, 8), (self.ui_font, 7, 'bold')
         name_font = (self.ui_font, 9, 'bold')
         measure, small_measure = _font(canvas, name_font), _font(canvas, small)
-        row_height = self.BOARD_ROW
+        height = round(self.BOARD_ROW * k)
+        pad = round(3 * k)
+        middle = top + height // 2
+        name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
+        you = bool(mine) and name == mine
+        pill = (round(4 * k), top + pad, width - round(4 * k), top + height - pad)
+        if you:
+            _rounded(canvas, *pill, (height - 2 * pad) / 2, fill=COLORS['selected'], outline=COLORS['gold'], tags=tags)
+        elif index % 2:
+            _rounded(canvas, *pill, (height - 2 * pad) / 2, fill=BOARD_ROW_FILL, outline='', tags=tags)
+        colour = COLORS['gold_hover'] if you else COLORS['text']
+        rank = entry.get('rank', '')
+        medal = MEDALS.get(rank)
+        chip_left, chip_width, chip_height = spans['rank'][0] + round(8 * k), round(34 * k), round(20 * k)
+        _rounded(canvas, chip_left, middle - chip_height / 2, chip_left + chip_width, middle + chip_height / 2, chip_height / 2,
+                 fill=medal or (COLORS['selected'] if you else BOARD_CARD),
+                 outline=COLORS['gold'] if you and not medal else '', tags=tags)
+        canvas.create_text(chip_left + chip_width / 2, middle, text=str(rank), font=(self.ui_font, 9, 'bold'), tags=tags,
+                           fill=COLORS['gold_text'] if medal else colour)
+        left, right = spans['player'][0] + round(4 * k), spans['player'][1] - round(8 * k)
+        self.board_avatar(canvas, left + round(11 * k), middle, name, round(11 * k), tags=tags)
+        left += round(30 * k)
+        look = online.looks(catalog, online.equipped(entry))
+        title = self.title_name(entry.get('title'))
+        badges = look['badges']
+        badge_room = badges_width(canvas, badges, badge_font) + 6 if badges else 0
+        extra = PIN_SIZE + 4 if look['pin'] else 0
+        tail = min(round(140 * k), extra + small_measure.measure(title) + 10) if (title or extra) else 0
+        shown = elide(measure, name, max(40, right - left - badge_room - tail))
+        _items, used = draw_styled_text(canvas, left, middle, shown, name_font, look['name_style'],
+                                        anchor='w', fill=colour, tags=('board_name', *tags))
+        x = left + used + 6
+        if badges:
+            x += draw_badges(canvas, x, middle, badges, badge_font, tags=('board_badge', *tags),
+                             top=online.top_badges(entry)) + 4
+        if title or look['pin']:
+            x += 6
+            if look['pin']:
+                draw_pin(canvas, x, middle - PIN_SIZE // 2, look['pin'], tags=('board_pin', *tags))
+                x += PIN_SIZE + 4
+            if title:
+                canvas.create_text(x, middle, text=elide(small_measure, title, right - x), anchor='w',
+                                   fill=COLORS['muted'], font=small, tags=('board_title', *tags))
+        canvas.create_text(spans['games'][1] - round(10 * k), middle, text=self.count_text(entry.get('games', 0)), anchor='e',
+                           fill=colour, font=font, tags=tags)
+        for kind in ('gold', 'platinum', 'diamond'):
+            x = spans[kind][0] + round(8 * k)
+            picture = (pictures or {}).get('gem-' + kind)
+            if picture:
+                canvas.create_image(x + round(7 * k), middle, image=picture, tags=tags)
+                x += round(17 * k)
+            canvas.create_text(x, middle, text=compact_number(counts.get(kind, 0), self.language, 10_000), anchor='w',
+                               fill=colour, font=font, tags=tags)
+        canvas.create_text(spans['points'][1] - round(10 * k), middle, text=self.count_text(entry.get('total', 0)),
+                           anchor='e', fill=colour, font=(self.ui_font, 10, 'bold'), tags=tags)
+
+    def draw_board_rows(self, canvas, rows, width, mine, catalog, pictures=None):
+        """The ranking's lines on a canvas, as pills (draw_board_pill); the player's own one gold-rimmed."""
+        canvas.delete('all')
+        canvas._sparkle = []
+        height = round(self.BOARD_ROW * self.board_scale(canvas))
         for index, (entry, counts) in enumerate(rows):
-            top, middle = index * row_height, index * row_height + row_height // 2
-            name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
-            you = bool(mine) and name == mine
-            if you:
-                canvas.create_rectangle(0, top, width, top + row_height, fill=COLORS['selected'], outline='')
-            elif index % 2:
-                canvas.create_rectangle(0, top, width, top + row_height, outline='',
-                                        fill=_tint(COLORS['field'], '#ffffff', 0.03))
-            colour = COLORS['gold'] if you else COLORS['text']
-            canvas.create_text(spans['rank'][1] - 8, middle, text=str(entry.get('rank', '')), anchor='e',
-                               fill=colour, font=font)
-            look = online.looks(catalog, online.equipped(entry))
-            title = self.title_name(entry.get('title'))
-            left, right = spans['player'][0] + 8, spans['player'][1] - 8
-            badges = look['badges']
-            badge_room = badges_width(canvas, badges, badge_font) + 6 if badges else 0
-            extra = PIN_SIZE + 4 if look['pin'] else 0
-            tail = min(140, extra + small_measure.measure(title) + 10) if (title or extra) else 0
-            shown = elide(measure, name, max(40, right - left - badge_room - tail))
-            items, used = draw_styled_text(canvas, left, middle, shown, name_font, look['name_style'],
-                                           anchor='w', fill=colour, tags=('board_name',))
-            x = left + used + 6
-            if badges:
-                x += draw_badges(canvas, x, middle, badges, badge_font, tags=('board_badge',),
-                                 top=online.top_badges(entry)) + 4
-            if title or look['pin']:
-                x += 6
-                if look['pin']:
-                    draw_pin(canvas, x, middle - PIN_SIZE // 2, look['pin'], tags=('board_pin',))
-                    x += PIN_SIZE + 4
-                if title:
-                    canvas.create_text(x, middle, text=elide(small_measure, title, right - x), anchor='w',
-                                       fill=COLORS['muted'], font=small, tags=('board_title',))
-            for key, value in (('games', entry.get('games', 0)), ('gold', counts.get('gold', 0)),
-                               ('platinum', counts.get('platinum', 0)), ('diamond', counts.get('diamond', 0)),
-                               ('points', entry.get('total', 0))):
-                canvas.create_text(spans[key][1] - 8, middle, text=self.count_text(value), anchor='e',
-                                   fill=colour, font=font)
-        canvas.configure(scrollregion=(0, 0, width, max(1, len(rows)) * row_height))
+            self.draw_board_pill(canvas, index * height, width, index, entry, counts, mine, catalog, pictures)
+        canvas.configure(scrollregion=(0, 0, width, max(1, len(rows)) * height))
+
+    def draw_board_pinned(self, canvas, rows, width, mine, catalog, pictures=None, visible=True):
+        """The foot of the ranking: the player's own row pinned there while its line is out of view, and how far the next
+        place is (« 141 pts more to pass LoRaster (rank 8) », or the first place). Returns the next_place() answer, None
+        (nothing drawn) when the player is not in the rows."""
+        canvas.delete('all')
+        canvas._sparkle = []
+        place = next_place(rows, mine)
+        if place is None:
+            return None
+        k = self.board_scale(canvas)
+        top = 0
+        if not visible:
+            # a thin rule, then the row: it stands apart from the half-scrolled line above it
+            canvas.create_line(round(8 * k), 1, width - round(8 * k), 1, fill=COLORS['subtle_border'], tags=('pinned_row',))
+            entry, counts = rows[place['index']]
+            self.draw_board_pill(canvas, round(4 * k), width, 1, entry, counts, mine, catalog, pictures, tags=('pinned_row',))
+            top = round(self.BOARD_ROW * k) + round(4 * k)
+        middle = top + round(12 * k)
+        left = self.board_columns(width, k)['player'][0] + round(34 * k)
+        if place['state'] == 'first':
+            text, share = self.tr('leaderboard_first'), 1.0
+        else:
+            above = place['above']
+            text = self.tr('leaderboard_next', points=self.count_text(place['gap']),
+                           name=above.get('pseudonym') or self.tr('leaderboard_anonymous'), rank=above.get('rank', ''))
+            share = place['share']
+        bar, h = round(170 * k), round(6 * k)
+        _rounded(canvas, left, middle - h / 2, left + bar, middle + h / 2, h / 2, fill=BOARD_DEEP, outline='',
+                 tags=('next_place',))
+        _rounded(canvas, left, middle - h / 2, left + max(h, bar * share), middle + h / 2, h / 2, fill=COLORS['gold'],
+                 outline='', tags=('next_place',))
+        canvas.create_text(left + bar + round(12 * k), middle, text=text, anchor='w', fill=COLORS['muted'],
+                           font=(self.ui_font, 8), tags=('next_place', 'next_place_text'))
+        return place
 
     def show_leaderboard(self):
-        """The shared base's ranking in a window: podium order, pseudonyms,
-        games and points, all time or this month, with the player's own line.
-        What players equip in the site's shop shows as there: name styles, the
-        console badge shown (with its "1" for a first place), pins (titles as
-        before); nothing without the shop's catalog."""
+        """The shared base's ranking in a window (design « Marches », Arthur's pick of 20 Nov 2026): the first three on
+        rounded steps that rise one after the other, each with an avatar and a crown; the others as pill rows; the player's
+        own row pinned at the foot while it is out of view, with how far the next place is. All time or this month (one
+        segmented switch). What players equip in the site's shop shows as there: name styles, the console badge shown
+        (with its "1" for a first place), pins and titles; nothing without the shop's catalog. The rules stay one hover
+        away (« The rules »)."""
         if not SENDING_AVAILABLE or self.raise_existing('board_window'):return
-        background = COLORS['panel']
+        from .rounded_ui import Look
+        from .tooltips import Tooltip
+        from .branding import make_icon
+        background = BOARD_BG
         window = tk.Toplevel(self.app)
         self.board_window = window
         window.withdraw()
         window.title(f"{APP_NAME} — {self.tr('leaderboard')}")
         window.configure(bg=background)
         window.transient(self.app)
+        k = self.board_scale(window)
+        look = window.look = Look(window, COLORS, self.ui_font)
+        look.card('BoardCard', BOARD_CARD, background, 16)
+        look.card('BoardTrack', BOARD_DEEP, background, 6)
+        look.segment('BoardSeg', BOARD_DEEP, COLORS['gold'], COLORS['hover'], radius=9, size=9)
         body = tk.Frame(window, bg=background, padx=18, pady=14,
                         highlightthickness=1, highlightbackground=COLORS['gold'])
         body.pack(fill='both', expand=True)
         # The site's trophy and class gems, as converter pictures.
         pictures = window.pictures = {}
-        for name, size in (('trophy', 72), ('gem-gold', 20), ('gem-platinum', 20), ('gem-diamond', 20)):
+        for name, size in (('trophy', 52), ('gem-gold', 15), ('gem-platinum', 15), ('gem-diamond', 15)):
             try:
-                pictures[name] = _scaled_photo(ASSETS / f'assets/board-{name}.png',
-                                               window, size / 40 if name.startswith('gem') else size / 72)
+                pictures[name] = _scaled_photo(ASSETS / f'assets/board-{name}.png', window,
+                                               size * k / 40 if name.startswith('gem') else size * k / 72)
             except (OSError, ValueError, tk.TclError):
                 pictures[name] = ''
-        from tkinter import font as tkfont
-        count_font = tkfont.Font(window, family=self.ui_font, size=9)
         top = tk.Frame(body, bg=background)
         top.pack(fill='x')
-        tk.Label(top, image=pictures['trophy'], bg=background).pack(side='left', padx=(0, 12))
+        tk.Label(top, image=pictures['trophy'], bg=background).pack(side='left', padx=(0, 10))
         titles = tk.Frame(top, bg=background)
         titles.pack(side='left', fill='y')
         tk.Label(titles, text=self.tr('leaderboard').upper(), bg=background, fg=COLORS['gold'],
-                 font=(self.ui_font, 14, 'bold')).pack(anchor='w', pady=(6, 0))
+                 font=(self.ui_font, 15, 'bold')).pack(anchor='w', pady=(4, 0))
+        # The rules, one hover (or click) away: the same text as before, no longer above the podium.
+        window.info_picture = make_icon(window, 'info', COLORS['muted'], size=round(14 * k))
+        rules = tk.Label(titles, text=self.tr('leaderboard_rules_link'), image=window.info_picture, compound='left',
+                         bg=background, fg=COLORS['muted'], font=(self.ui_font, 9, 'underline'), cursor='hand2', padx=0)
+        rules.pack(anchor='w')
+        rules_hint = Tooltip(rules, lambda: self.tr('leaderboard_rules'))
+        rules.bind('<Button-1>', lambda event: rules_hint.show(), add='+')
+        window.rules_link = rules
+        # A state the service sends (loading, an error, the preview, an empty board); empty otherwise.
         note = tk.Label(titles, text=self.tr('leaderboard_loading'), bg=background, fg=COLORS['muted'],
-                        font=(self.ui_font, 9), wraplength=400, justify='left')
+                        font=(self.ui_font, 9), wraplength=round(420 * k), justify='left')
         note.pack(anchor='w')
+        window.board_note = note
         period = tk.StringVar(value='all')
-        switches = tk.Frame(top, bg=background)
-        switches.pack(side='right', anchor='n', pady=(8, 0))
+        track = ttk.Frame(top, style='BoardTrack.TFrame', padding=3)
+        track.pack(side='right', anchor='n', pady=(6, 0))
         for value, key in (('month', 'leaderboard_month'), ('all', 'leaderboard_all')):
-            ttk.Radiobutton(switches, text=self.tr(key), value=value, variable=period,
-                            command=lambda: load()).pack(side='right', padx=(8, 0))
+            ttk.Radiobutton(track, text=self.tr(key), value=value, variable=period, style='BoardSeg.TRadiobutton',
+                            command=lambda: load()).pack(side='left')
+        window.board_period = period
         # The shop's catalog ({id: item}) once the board has answered.
         catalog = {}
-        # Podium: second, first, third, on steps of different heights. CROWN_ROOM keeps the first place's crown (24 px
-        # above its name) inside the canvas: drawn above y = 0 it was cut off under the text above the podium.
-        CROWN_ROOM = 14
-        podium = tk.Canvas(body, height=196 + CROWN_ROOM, bg=background, highlightthickness=0)
-        podium.pack(fill='x', pady=(10, 8))
+        STEP = {1: 134, 2: 112, 3: 96}           # the steps' heights at 96 dpi; above the tallest: name, badge, crown, avatar
+        ABOVE = 114
+        podium = tk.Canvas(body, height=round((STEP[1] + ABOVE + 14) * k), bg=background, highlightthickness=0)
+        podium.pack(fill='x', pady=(8, 6))
         podium.rows = []
         podium.bind('<Configure>', lambda event: draw_podium(podium.rows))
-        # The ranking: a canvas list, so a name can carry its style, badges and pin.
-        listing = tk.Frame(body, bg=COLORS['field'], highlightthickness=1, highlightbackground=COLORS['border'])
-        heading = tk.Canvas(listing, height=self.BOARD_HEADING, bg=COLORS['button'], highlightthickness=0)
-        table = tk.Canvas(listing, height=self.BOARD_ROW * 9, bg=COLORS['field'], highlightthickness=0,
-                          yscrollincrement=self.BOARD_ROW)
+        # The ranking in a rounded card: the column captions, the rows (a canvas list, so a name can carry its style,
+        # badges and pin), then the pinned foot.
+        listing = ttk.Frame(body, style='BoardCard.TFrame', padding=(8, 6))
+        heading = tk.Canvas(listing, height=round(self.BOARD_HEADING * k), bg=BOARD_CARD, highlightthickness=0)
+        table = tk.Canvas(listing, height=round(self.BOARD_ROW * k) * 8, bg=BOARD_CARD, highlightthickness=0,
+                          yscrollincrement=round(self.BOARD_ROW * k))
         bar = ttk.Scrollbar(listing, orient='vertical', command=table.yview)
-        table.configure(yscrollcommand=bar.set)
+        pinned = tk.Canvas(listing, height=1, bg=BOARD_CARD, highlightthickness=0)
         heading.grid(row=0, column=0, sticky='ew')
         table.grid(row=1, column=0, sticky='nsew')
-        bar.grid(row=0, column=1, rowspan=2, sticky='ns')
+        bar.grid(row=1, column=1, sticky='ns')
+        pinned.grid(row=2, column=0, columnspan=2, sticky='ew')
         listing.grid_columnconfigure(0, weight=1)
         listing.grid_rowconfigure(1, weight=1)
         listing.pack(fill='both', expand=True)
         table.rows, table.mine = [], None
+        window.board_table, window.board_pinned = table, pinned
+
+        def mine_visible():
+            place = next_place(table.rows, table.mine)
+            if place is None:
+                return True
+            first, last = table.yview()
+            total = max(1, len(table.rows)) * round(self.BOARD_ROW * k)
+            row_top = place['index'] * round(self.BOARD_ROW * k)
+            return first * total <= row_top and row_top + round(self.BOARD_ROW * k) <= last * total + 1
+
+        def draw_pinned():
+            width = table.winfo_width()
+            if width < 300:
+                return
+            visible = mine_visible()
+            place = self.draw_board_pinned(pinned, table.rows, width, table.mine, catalog, pictures, visible=visible)
+            rows = 0 if place is None else (1 if visible else 2)
+            height = 1 if place is None else (round(self.BOARD_ROW * k) + round(4 * k)) * (rows - 1) + round(26 * k)
+            if int(pinned.cget('height')) != height:
+                pinned.configure(height=height)
+
+        def scrolled(first, last):
+            bar.set(first, last)
+            draw_pinned()
+        table.configure(yscrollcommand=scrolled)
+
         def draw_table(event=None):
             width = table.winfo_width()
             if width < 300:
                 return
             self.draw_board_heading(heading, width, pictures)
-            self.draw_board_rows(table, table.rows, width, table.mine, catalog)
+            self.draw_board_rows(table, table.rows, width, table.mine, catalog, pictures)
+            draw_pinned()
         table.bind('<Configure>', draw_table)
         def scroll(event):
             steps = -1 if getattr(event, 'num', 0) == 4 or getattr(event, 'delta', 0) > 0 else 1
@@ -190,33 +335,26 @@ class LeaderboardMixin:
         for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
             table.bind(sequence, scroll)
         # The footer is reserved first: a longer note above never clips it.
-        you_line = tk.Label(body, text='', bg=background, fg=COLORS['text'], font=(self.ui_font, 9))
-        close = ttk.Button(body, text=self.tr('close'), command=window.destroy)
-        close.pack(side='bottom', anchor='e', pady=(10, 0), before=listing)
-        you_line.pack(side='bottom', anchor='w', pady=(8, 0), before=listing)
+        foot = tk.Frame(body, bg=background)
+        foot.pack(side='bottom', fill='x', pady=(10, 0), before=listing)
+        you_line = tk.Label(foot, text='', bg=background, fg=COLORS['text'], font=(self.ui_font, 9))
+        you_line.pack(side='left')
+        window.board_you = you_line
+        ttk.Button(foot, text=self.tr('close'), command=window.destroy).pack(side='right')
 
-        # Opening animation: the steps rise one after the other (third, second,
-        # first), carrying each player's crown, name, points and gems up.
+        # Opening animation: the steps rise one after the other (third, second, first), carrying each player's
+        # avatar, crown, name and badge up.
         podium.started = time.monotonic()
         RISE, DELAYS = 0.6, {3: 0.0, 2: 0.18, 1: 0.36}
-        GEMS_ROOM = 58   # the top of a step: gems, their counts and the badge
 
         def crown(middle, base, place, colour):
-            """Gold: five points and a jewel; silver: three points; bronze: a
-            low band with two points."""
+            """Gold: five points; silver: three; bronze: a low band with two points."""
             shapes = {
-                1: (-20, 0, -20, -16, -10, -6, 0, -20, 10, -6, 20, -16, 20, 0),
-                2: (-16, 0, -16, -13, -6, -6, 0, -15, 6, -6, 16, -13, 16, 0),
-                3: (-15, 0, -15, -10, -7, -5, 0, -11, 7, -5, 15, -10, 15, 0)}
-            podium.create_polygon(*[middle + v if i % 2 == 0 else base + v for i, v in enumerate(shapes[place])],
+                1: (-14, 0, -14, -12, -7, -5, 0, -14, 7, -5, 14, -12, 14, 0),
+                2: (-12, 0, -12, -10, -5, -5, 0, -11, 5, -5, 12, -10, 12, 0),
+                3: (-11, 0, -11, -7, -5, -4, 0, -8, 5, -4, 11, -7, 11, 0)}
+            podium.create_polygon(*[middle + v * k if i % 2 == 0 else base + v * k for i, v in enumerate(shapes[place])],
                                   fill=colour, outline='', tags=('crown',))
-            # A darker band at the foot, and one jewel per rank's worth.
-            podium.create_rectangle(middle + shapes[place][0], base - 3, middle - shapes[place][0], base,
-                                    fill=_tint(colour, '#000000', 0.35), outline='', tags=('crown',))
-            jewels = {1: (-10, 0, 10), 2: (-6, 6), 3: (0,)}[place]
-            for offset in jewels:
-                podium.create_oval(middle + offset - 2, base - 8, middle + offset + 2, base - 4,
-                                   fill=COLORS['panel'], outline='', tags=('crown',))
 
         def draw_podium(rows, animate=False):
             podium.rows = rows
@@ -227,82 +365,75 @@ class LeaderboardMixin:
             width, bottom = podium.winfo_width(), int(podium.cget('height'))
             if width < 300:
                 return
-            elapsed = time.monotonic() - podium.started
-            step = 170
-            inner = step - 16   # content stays inside each step's box
-            left = (width - 3 * step) // 2
-            # Each place: its column, the top of its name, and its step's height.
-            places = {2: (left, 38 + CROWN_ROOM, 100), 1: (left + step, 16 + CROWN_ROOM, 122),
-                      3: (left + 2 * step, 56 + CROWN_ROOM, 82)}
-            shades = {1: COLORS['gold'], 2: '#c9ced6', 3: '#c58a4a'}
             if not rows:
                 podium.create_text(width // 2, bottom // 2, text=self.tr('leaderboard_empty'),
                                    fill=COLORS['muted'], font=(self.ui_font, 9))
                 return
-            podium.create_line(left, bottom - 1, left + 3 * step, bottom - 1, fill=COLORS['border'])
+            elapsed = time.monotonic() - podium.started
+            step = round(178 * k)
+            left = (width - 3 * step) // 2
+            base = bottom - round(4 * k)
             moving = False
             name_font, title_font, badge_font = (self.ui_font, 10, 'bold'), (self.ui_font, 8), (self.ui_font, 7, 'bold')
             gem_font = (self.ui_font, 8, 'bold')
-            for place in (3, 2, 1):
-                x, top, full = places[place]
+            for slot, place in ((0, 2), (2, 3), (1, 1)):     # drawn second, third, then the first in the middle
+                x0 = left + slot * step + round(5 * k)
+                x1 = x0 + step - round(10 * k)
+                middle = (x0 + x1) / 2
+                medal = MEDALS[place]
                 progress = min(1.0, max(0.0, (elapsed - DELAYS[place]) / RISE))
                 moving |= progress < 1.0
                 eased = 1 - (1 - progress) ** 3
-                height = max(2, round(full * eased))
-                shift = full - height
-                middle = x + step // 2
-                podium.create_rectangle(x + 8, bottom - height, x + step - 8, bottom - 1,
-                                        fill=COLORS['button'], outline=shades[place])
-                podium.create_rectangle(x + 8, bottom - height, x + step - 8, bottom - height + 3,
-                                        fill=shades[place], outline='')
-                # The place's number, under the gems and the badge (GEMS_ROOM).
-                if height > GEMS_ROOM + 20:
-                    podium.create_text(middle, bottom - (height - GEMS_ROOM) // 2, text=str(place),
-                                       fill=shades[place], font=(self.ui_font, 16, 'bold'))
+                height = max(2, round(STEP[place] * k * eased))
+                top = base - height
+                _rounded(podium, x0, top, x1, base, round(14 * k), fill=_tint(BOARD_CARD, medal, 0.10), outline=medal)
+                _rounded(podium, x0, top, x1, top + round(8 * k), round(4 * k), fill=medal, outline='')
+                podium.create_text(middle, base - round(2 * k), text=str(place), anchor='s',
+                                   fill=_tint(medal, BOARD_CARD, 0.45), font=(self.ui_font, 18, 'bold'))
                 if place > len(rows) or progress < 0.2:
                     continue
-                top += shift
                 entry, counts = rows[place - 1]
-                look = online.looks(catalog, online.equipped(entry))
+                # the step's own content: the gems and their counts, then the points
+                if height > round(52 * k):
+                    for column, kind in zip((-1, 0, 1), ('gold', 'platinum', 'diamond')):
+                        centre = middle + column * round(48 * k)
+                        picture = pictures.get(f'gem-{kind}')
+                        if picture:
+                            podium.create_image(centre - round(10 * k), top + round(24 * k), image=picture)
+                        podium.create_text(centre + round(1 * k), top + round(24 * k), anchor='w', font=gem_font,
+                                           text=compact_number(counts.get(kind, 0), self.language, 1_000),
+                                           fill=COLORS['text'])
+                    podium.create_text(middle, top + round(48 * k), text=f"{self.count_text(entry.get('total', 0))} pts",
+                                       fill=medal, font=(self.ui_font, 11, 'bold'))
+                # standing on the step: the avatar, its crown, the badge (pin and title) and the name above
                 name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
-                crown(middle, top - 4, place, shades[place])
+                look = online.looks(catalog, online.equipped(entry))
+                self.board_avatar(podium, middle, top - round(26 * k), name, round(20 * k))
+                crown(middle, top - round(50 * k), place, medal)
+                inner = x1 - x0 - round(12 * k)
+                line = top - round(78 * k)
+                title, pin = self.title_name(entry.get('title')), look['pin']
+                parts = badges_width(podium, look['badges'], badge_font) if look['badges'] else 0
+                measure = _font(podium, title_font)
+                pin_room = PIN_SIZE + 4 if pin else 0
+                shown = elide(measure, title, max(0, inner - parts - pin_room - 8)) if title else ''
+                total = parts + (6 if parts and (pin or shown) else 0) + pin_room + measure.measure(shown)
+                x = middle - total / 2
+                if parts:
+                    x += draw_badges(podium, x, line, look['badges'], badge_font, tags=('podium_badge',),
+                                     top=online.top_badges(entry)) + (6 if (pin or shown) else 0)
+                if pin:
+                    draw_pin(podium, round(x), line - PIN_SIZE // 2, pin, tags=('podium_pin',))
+                    x += PIN_SIZE + 4
+                if shown:
+                    podium.create_text(x, line, text=shown, anchor='w', fill=COLORS['muted'], font=title_font)
+                name_y = line - round(19 * k) if (parts or pin or shown) else line
                 if name_colours(look['name_style'], 1):
-                    draw_styled_text(podium, middle, top + 9, elide(_font(podium, name_font), name, inner),
+                    draw_styled_text(podium, middle, name_y, elide(_font(podium, name_font), name, inner),
                                      name_font, look['name_style'], anchor='center', tags=('podium_name',))
                 else:
-                    podium.create_text(middle, top + 9, text=name, fill=COLORS['text'],
-                                       font=name_font, width=inner)
-                podium.create_text(middle, top + 28, text=f"{self.count_text(entry.get('total', 0))} pts",
-                                   fill=shades[place], font=(self.ui_font, 9, 'bold'))
-                # The title, its pin before it (alone without a title).
-                title, pin = self.title_name(entry.get('title')), look['pin']
-                if title or pin:
-                    measure = _font(podium, title_font)
-                    room = inner - (PIN_SIZE + 4 if pin else 0)
-                    shown = elide(measure, title, room) if title else ''
-                    spot = middle - (measure.measure(shown) + (PIN_SIZE + (4 if shown else 0) if pin else 0)) / 2
-                    if pin:
-                        draw_pin(podium, round(spot), top + 43 - PIN_SIZE // 2, pin, tags=('podium_pin',))
-                        spot += PIN_SIZE + 4
-                    if shown:
-                        podium.create_text(spot, top + 43, text=shown, anchor='w', fill=COLORS['muted'],
-                                           font=title_font)
-                # The three class gems in fixed columns, each count under its gem
-                # (0 included), so the layout never moves; counts from 1,000 shorten (1.2K).
-                for column, kind in zip((-1, 0, 1), ('gold', 'platinum', 'diamond')):
-                    centre = middle + column * (inner // 3)
-                    picture = pictures.get(f'gem-{kind}')
-                    if picture:
-                        podium.create_image(centre, bottom - height + 15, image=picture)
-                    podium.create_text(centre, bottom - height + 33,
-                                       text=compact_number(counts.get(kind, 0), self.language, 1_000),
-                                       fill=COLORS['text'], font=gem_font)
-                # The console badge shown under the gems (a first place's one with
-                # its mark), once the step is tall enough.
-                if look['badges'] and height > GEMS_ROOM + 20:
-                    wide = badges_width(podium, look['badges'], badge_font)
-                    draw_badges(podium, middle - wide / 2, bottom - height + 49, look['badges'], badge_font,
-                                tags=('podium_badge',), top=online.top_badges(entry))
+                    podium.create_text(middle, name_y, text=elide(_font(podium, name_font), name, inner),
+                                       fill=COLORS['text'], font=name_font)
             podium.tag_raise('crown')     # nothing of the podium is ever drawn over a crown
             if moving or elapsed < DELAYS[1] + RISE + 0.05:
                 pending = getattr(podium, 'frame', None)
@@ -323,8 +454,9 @@ class LeaderboardMixin:
                 draw_podium([])
                 return
             entries = answer.get('entries', [])
+            # The rules no longer stand above the podium (« The rules », one hover away): only a state is said here.
             note.configure(text=self.tr('leaderboard_demo') if answer.get('demo')
-                           else self.tr('leaderboard_empty') if not entries else self.tr('leaderboard_rules'))
+                           else self.tr('leaderboard_empty') if not entries else '')
             mine = (self.player.get('profile') or {}).get('pseudonym') or (self.player.get('account') or {}).get('pseudonym')
             rows = []
             for entry in entries:
@@ -340,12 +472,16 @@ class LeaderboardMixin:
             draw_table()
             draw_podium(rows[:3], animate=True)
             you = answer.get('you') or {}
-            if you.get('rank'):
+            # The player's line in the rows is the pinned foot; outside them, the line under the card says the rank.
+            if next_place(rows, mine) is not None:
+                you_line.configure(text='')
+            elif you.get('rank'):
                 you_line.configure(text=self.tr('leaderboard_you', rank=you['rank'], points=self.count_text(you.get('total', 0))))
             elif online.account():
                 you_line.configure(text=self.tr('account_unranked', points=self.count_text(you.get('total', 0))))
             else:
                 you_line.configure(text='')
+        window.board_show = show
         def load():
             note.configure(text=self.tr('leaderboard_loading'))
             wanted = period.get()
@@ -371,7 +507,7 @@ class LeaderboardMixin:
             poll()
         window.bind('<Escape>', lambda event: window.destroy())
         window.update_idletasks()
-        center_dialog(window, self.app, 760, 700)
+        center_dialog(window, self.app, 800, 780)
         window.deiconify()
         load()
 
