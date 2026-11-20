@@ -546,7 +546,7 @@
     "x68_cgrom": "Zeichen-ROM (cgrom.dat)",
     "options_gba": "Game Boy Advance",
     "gba_bios": "System-ROM (BIOS, gba_bios.bin)",
-    "options_gba_note": "Profil Game Boy Advance: .gba-Module (oder ein ZIP mit einem) für einen Spieler. Gib dein eigenes BIOS (gba_bios.bin) an; ein konvertiertes Spiel enthält davon abgeleiteten Code und bleibt privat. Der native Code stammt aus dem, was das Spiel nachweislich ausgeführt hat; der Rest bleibt interpretiert und wird gezählt. Batteriespeicher und Modulzeit sind dabei; kein Link-Kabel, kein e-Reader, keine Modulsensoren. Gemeinsame Menüs, Filter und F8/F9.",
+    "options_gba_note": "Profil Game Boy Advance: .gba-Module (oder ein ZIP mit einem) für einen Spieler. Gib dein eigenes BIOS (gba_bios.bin) an; ein konvertiertes Spiel enthält davon abgeleiteten Code und bleibt privat. Der native Code stammt aus dem, was das Spiel nachweislich ausgeführt hat; der Rest bleibt interpretiert und wird gezählt. Batteriespeicher und Modulzeit sind dabei; Link-Kabel in einer Mehrspielerrunde für jedes Spiel (Code, den nur das Kabel ausführt, wird interpretiert und gezählt, solange das Spiel nicht geprüft ist); kein e-Reader, keine Modulsensoren. Gemeinsame Menüs, Filter und F8/F9.",
     "scan_note_gba": "Empfohlen: Standard: das Spiel läuft unsichtbar auf Skriptrouten, jede mit dem Interpreter der Engine verglichen. Code, den die Routen nicht erreichen, bleibt interpretiert und wird gezählt.",
     "options_x68_note": "Sharp-X68000-Profil: DIM/XDF/D88 und geordnete M3U-Diskettensätze. Eigenes IPL und Zeichen-ROM erforderlich. Gemeinsame Menüs, Filter, Steuerung und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter.",
     "options_amiga": "Commodore Amiga",

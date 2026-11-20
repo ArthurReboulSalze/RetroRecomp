@@ -274,4 +274,26 @@ PATCHES: tuple[tuple[str, str, str, str], ...] = (
      '    ++samples_generated_;\n}\n\nvoid GbaAudio::cap_push(',
      '    ++samples_generated_;\n    audio_hash_ = (audio_hash_ ^ static_cast<uint16_t>(s)) * 1099511628211ull;\n}\n\nvoid GbaAudio::cap_push(',
      'the probe: a hash of every mixed sample (update in ring_push)'),
+    # The link cable of a match for every cartridge (docs/GAME_BOY_ADVANCE.md, "The link cable on every game"). Inside a session an address with no generated function stopped
+    # the match ("multiplayer native dispatch entry is missing"): the consoles take turns, so a whole interpreted function cannot be bridged as a single player's run does. The
+    # same session already runs one instruction at a time through the shell of a callback (`runtime_session_ram_dispatch_boundary`): the missing address now takes that way, the
+    # reference interpreter executes ONE instruction (`runtime_force_interp_step`, the cycles charged to the console as any instruction's), and the next dispatch looks for a
+    # generated entry again. Off unless the host sets `g_runtime_session_interp_fallback` (our player does for a cable match); counted (`g_runtime_session_fallback_entries`,
+    # `g_runtime_session_fallback_distinct`, and the interpreter's own instruction count) and every distinct address is written to the log once.
+    ('src/armv4t/runtime_arm.h',
+     'extern int g_runtime_force_interp_step_active;\n',
+     'extern int g_runtime_force_interp_step_active;\n// A match (session) reached an address with no generated function: a host that allows the fallback is asked to run it (true: handled, one instruction of the interpreter).\nextern bool (*g_runtime_session_miss_hook)(uint32_t pc, int thumb);\nextern int g_runtime_session_interp_fallback;\nextern unsigned long long g_runtime_session_fallback_entries, g_runtime_session_fallback_distinct;\n',
+     'session fallback: the declarations'),
+    ('src/armv4t/runtime_arm.cpp',
+     'extern "C" int g_runtime_force_interp_step_active = 0;\n',
+     'extern "C" int g_runtime_force_interp_step_active = 0;\nextern "C" bool (*g_runtime_session_miss_hook)(uint32_t pc, int thumb) = nullptr;\nextern "C" int g_runtime_session_interp_fallback = 0;\nextern "C" unsigned long long g_runtime_session_fallback_entries = 0, g_runtime_session_fallback_distinct = 0;\n',
+     'session fallback: the definitions'),
+    ('src/armv4t/runtime_arm.cpp',
+     '    if (g_resumable_context) {\n        char message[96];\n        std::snprintf(message,sizeof(message),"multiplayer native dispatch entry is missing: %08x (%s)",',
+     '    if (g_resumable_context) {\n        if (g_runtime_session_miss_hook && g_runtime_session_miss_hook(pc, thumb ? 1 : 0)) return nullptr;\n        char message[96];\n        std::snprintf(message,sizeof(message),"multiplayer native dispatch entry is missing: %08x (%s)",',
+     'session fallback: a missing entry asks the host before it stops the match'),
+    ('src/runtime/runtime_bus_bridge.cpp',
+     'void runtime_session_execution(bool enabled) {\n    g_runtime_native_region_context=enabled?0u:1u;\n',
+     '// A session reached an address with no generated function (see g_runtime_session_interp_fallback). Called from a generated body (`g_session_instruction_started`): the address\n// is resumed from the session\'s own loop, after every machine paid the caller\'s cycle debt, as a callback is. Called from that loop: one instruction of the reference interpreter.\nstatic bool session_interp_miss(uint32_t pc, int thumb) {\n    if (!g_session_execution || !g_runtime_session_interp_fallback) return false;\n    if (g_session_instruction_started) {\n        static uint32_t seen[64];\n        const uint32_t key = (pc & ~1u) | (thumb ? 1u : 0u);\n        ++g_runtime_session_fallback_entries;\n        bool known = false;\n        for (unsigned long long i = 0; i < g_runtime_session_fallback_distinct && i < 64; ++i) known = known || seen[i] == key;\n        if (!known) {\n            if (g_runtime_session_fallback_distinct < 64) seen[g_runtime_session_fallback_distinct] = key;\n            if (++g_runtime_session_fallback_distinct <= 32)\n                std::fprintf(stderr, "[session] no generated function at %08x (%s): the interpreter runs it, counted\\n", pc, thumb ? "Thumb" : "ARM");\n        }\n        g_cpu.R[15] = pc;\n        throw RuntimeDispatchYield{};\n    }\n    g_session_slice = false;\n    runtime_force_interp_step();\n    return true;\n}\nvoid runtime_session_execution(bool enabled) {\n    g_runtime_session_miss_hook = enabled ? session_interp_miss : nullptr;\n    g_runtime_native_region_context=enabled?0u:1u;\n',
+     'session fallback: the interpreter runs an address with no generated function, one instruction at a time, counted'),
 )
