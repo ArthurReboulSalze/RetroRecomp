@@ -24,7 +24,7 @@ from .i18n import tr, extended_default, game_boy_validation_default
 from .languages import LANGUAGE_NAMES, language_code, language_name
 from .tooltips import Tooltip
 from .ui_fonts import load_fonts, family, scaled
-from .dialogs import fit_screen
+from .dialogs import fit_screen, place_window, screen_room, watch_windows, work_area
 from .windows import set_converter_identity
 from .artwork import ICON_SIZES
 from .systems import discover_roms
@@ -110,10 +110,13 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.language = language_code(preferences.get('language'))
         self.multiplayer_auto_ready = preferences.get('multiplayer_auto_ready') is True
         app.title(APP_NAME)
-        # Sizes are written for 96 dpi and follow the screen's scaling (1.0 on Windows), never beyond the screen.
-        app.geometry(f'{fit_screen(app, 1120, app.winfo_screenwidth() - 40)}x'
-                     f'{max(fit_screen(app, 640, app.winfo_screenheight() - 90), min(scaled(app, 940), app.winfo_screenheight() - 80))}')
-        app.minsize(fit_screen(app, 1060, app.winfo_screenwidth() - 40), fit_screen(app, 640, app.winfo_screenheight() - 90))
+        # Sizes are written for 96 dpi and follow the screen's scaling (1.0 on Windows), never beyond the room of the screen it opens
+        # on (the work area, taskbar excluded): centred there, title bar and bottom on the screen (dialogs.place_window). Every window
+        # is checked again once shown (watch_windows).
+        room_width, room_height = screen_room(app)
+        place_window(app, fit_screen(app, 1120, room_width), fit_screen(app, 940, room_height))
+        app.minsize(fit_screen(app, 1060, room_width), fit_screen(app, 640, room_height))
+        watch_windows(app)
         load_fonts()
         self.ui_font = family(self.language)
         self.style = apply_rounded_theme(app, self.ui_font)
@@ -723,9 +726,8 @@ class StartupSplash:
             window.attributes('-transparentcolor', SPLASH_KEY)
         self.canvas = tk.Canvas(window, width=300, height=290, bg=background, highlightthickness=0, borderwidth=0)
         self.canvas.pack()
-        x = (window.winfo_screenwidth() - 300) // 2
-        y = (window.winfo_screenheight() - 290) // 2
-        window.geometry(f'300x290+{x}+{y}')
+        left, top, right, bottom = work_area(app)          # the screen it opens on, taskbar excluded
+        window.geometry(f'300x290+{(left + right - 300) // 2}+{(top + bottom - 290) // 2}')
 
     def step(self, step, key):
         from PIL import ImageTk

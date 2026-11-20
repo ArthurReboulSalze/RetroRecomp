@@ -1,7 +1,8 @@
 """Window sizes follow the screen's Tk scaling (retrorecomp/ui_fonts.scaled, dialogs.center_dialog and fit_screen, the main
 window, the Multiplayer window). At 96 dpi (Tk scaling 96/72, what Windows reports at every scale) every size is the constant it
 was before; at 144 and 192 dpi (1.5 and 2.0, Linux) it grows with the factor and stays on the screen. `tk scaling` belongs to the
-display: every test puts it back."""
+display: every test puts it back. A simulated screen is Tk's screen size with the monitor's own work area switched off
+(`simulated_screen`), so the room is the fallback's (dialogs.work_area); 20 Nov 2026: the room always wins, at 96 dpi too."""
 import tempfile
 import tkinter as tk
 import unittest
@@ -18,6 +19,16 @@ from tools.gui_patching import keep_window_data_in, patch_gui
 FACTORS = (1.0, 1.5, 2.0)
 BIG = (3840, 2160)          # a screen that holds every scaled size
 SMALL = (1366, 768)         # a small laptop: the scaled sizes must still fit
+
+
+def simulated_screen(test, size):
+    """Tk reports a `size` screen and dialogs reads no monitor of its own (tests/test_window_fit.py covers that part)."""
+    patcher = patch.multiple(tk.Misc, winfo_screenwidth=lambda widget: size[0], winfo_screenheight=lambda widget: size[1])
+    patcher.start()
+    test.addCleanup(patcher.stop)
+    monitor = patch.object(dialogs, '_monitor_work_area', return_value=None)
+    monitor.start()
+    test.addCleanup(monitor.stop)
 
 
 def size_of(geometry):
@@ -76,9 +87,7 @@ class ScaledWindowSizes(unittest.TestCase):
         self.root.tk.call('tk', 'scaling', factor * 96 / 72)
 
     def screen(self, size):
-        patcher = patch.multiple(tk.Misc, winfo_screenwidth=lambda widget: size[0], winfo_screenheight=lambda widget: size[1])
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        simulated_screen(self, size)
 
     def test_scaled_is_the_old_constant_at_96_dpi(self):
         self.force(1.0)
@@ -93,14 +102,14 @@ class ScaledWindowSizes(unittest.TestCase):
                 self.assertEqual(scaled(self.root, pixels), round(pixels * ui_scale(self.root)))
                 self.assertAlmostEqual(scaled(self.root, pixels), pixels * factor, delta=pixels * 0.005 + 1)   # Tk keeps 1.501, not 1.5
 
-    def test_fit_screen_never_changes_a_96_dpi_size_and_stops_at_the_room_above(self):
+    def test_fit_screen_scales_and_stops_at_the_room(self):
         self.force(1.0)
-        for room in (500, 1000, 5000):
-            self.assertEqual(fit_screen(self.root, 1120, room), 1120)       # the old constant, whatever the screen
+        for room in (1200, 5000):
+            self.assertEqual(fit_screen(self.root, 1120, room), 1120)       # the old constant on a screen that holds it
+        self.assertEqual(fit_screen(self.root, 1120, 900), 900)             # 20 Nov 2026: a smaller screen wins at 96 dpi too
         self.force(1.5)
         self.assertEqual(fit_screen(self.root, 1120, 3000), scaled(self.root, 1120))
         self.assertEqual(fit_screen(self.root, 1120, 1500), 1500)           # clamped to the room
-        self.assertEqual(fit_screen(self.root, 1120, 900), 1120)            # never below the 96 dpi size
 
     def test_center_dialog_scales_constants_and_clamps_to_the_screen(self):
         for factor in FACTORS:
@@ -108,7 +117,7 @@ class ScaledWindowSizes(unittest.TestCase):
                 with self.subTest(factor=factor, screen=screen):
                     self.force(factor)
                     with patch.multiple(tk.Misc, winfo_screenwidth=lambda widget: screen[0],
-                                        winfo_screenheight=lambda widget: screen[1]):
+                                        winfo_screenheight=lambda widget: screen[1]),                             patch.object(dialogs, '_monitor_work_area', return_value=None):
                         room_width, room_height = dialogs.screen_room(self.root)
                         panel = tk.Toplevel(self.root)
                         panel.withdraw()
@@ -164,14 +173,16 @@ class ScaledWindowSizes(unittest.TestCase):
         self.assertEqual(geometry_of(app.app), (1120, old_height))
         self.assertEqual(app.app.wm_minsize(), (max(1060, app.toolbar.winfo_reqwidth() + 72), 640))
 
-    def test_main_window_is_the_old_geometry_at_96_dpi_on_a_small_screen(self):
-        app = self.main_window(1.0, (1024, 600))            # smaller than the window: Windows never clamped it
-        self.assertEqual(geometry_of(app.app), (1120, max(640, min(940, 600 - 80))))
-        self.assertEqual(app.app.wm_minsize()[1], 640)
+    def test_main_window_fits_a_screen_smaller_than_it_at_96_dpi(self):
+        app = self.main_window(1.0, (1024, 600))            # smaller than the window: 20 Nov 2026, the room wins (it was not clamped)
+        room_width, room_height = dialogs.screen_room(self.root)
+        self.assertEqual((room_width, room_height), (1024 - 40, 600 - dialogs.PANEL - 64))
+        self.assertEqual(geometry_of(app.app), (room_width, room_height))
+        self.assertEqual(app.app.wm_minsize(), (room_width, room_height))
 
     def check_main_window_scaled(self, factor):
         app = self.main_window(factor, BIG)
-        self.assertEqual(geometry_of(app.app), (scaled(self.root, 1120), min(scaled(self.root, 940), BIG[1] - 80)))
+        self.assertEqual(geometry_of(app.app), (scaled(self.root, 1120), min(scaled(self.root, 940), dialogs.screen_room(self.root)[1])))
         minimum = app.app.wm_minsize()
         self.assertEqual(minimum[1], scaled(self.root, 640))
         self.assertGreaterEqual(minimum[0], scaled(self.root, 1060))
@@ -184,10 +195,12 @@ class ScaledWindowSizes(unittest.TestCase):
 
     def test_main_window_scaled_still_fits_a_small_screen(self):
         app = self.main_window(1.5, SMALL)
+        room_width, room_height = dialogs.screen_room(self.root)
         width, height = geometry_of(app.app)
-        self.assertLessEqual(width, max(1120, SMALL[0] - 40))
-        self.assertLessEqual(height, max(640, SMALL[1] - 80))
-        self.assertLessEqual(app.app.wm_minsize()[1], max(640, SMALL[1] - 90))
+        self.assertLessEqual(width, room_width)
+        self.assertLessEqual(height, room_height)
+        self.assertLessEqual(app.app.wm_minsize()[0], room_width)
+        self.assertLessEqual(app.app.wm_minsize()[1], room_height)
 
 
 class ScaledMultiplayerWindow(unittest.TestCase):
@@ -211,9 +224,7 @@ class ScaledMultiplayerWindow(unittest.TestCase):
         if not hasattr(self, 'original_scaling'):
             self.original_scaling = float(self.root.tk.call('tk', 'scaling'))
         self.root.tk.call('tk', 'scaling', factor * 96 / 72)
-        patcher = patch.multiple(tk.Misc, winfo_screenwidth=lambda widget: screen[0], winfo_screenheight=lambda widget: screen[1])
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        simulated_screen(self, screen)
         view = self.window()
         self.last_view = view
         return view.window

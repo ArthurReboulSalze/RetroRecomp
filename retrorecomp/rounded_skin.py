@@ -19,6 +19,9 @@ The widgets stay ttk widgets: focus, Tab, the gamepad's focus moves, any text le
   that is a dark patch, so one that just inherits the window's colour gets a derived name too (`follow_surface`).
 - Pictures are pixel sizes: every size is multiplied by `Skin.scale`, the Tk scaling relative to 96 dpi.
 - Not rounded (square, on purpose): tables and their headings, notebook tabs, tk.Text, progress bars, menus, the scrollbars' arrow buttons.
+- An element that replaces one Tk finds BY NAME keeps the end of that name: the scrollbar sizes and drags only an element whose name ends
+  in `thumb` (Tk's C code and `*thumb` in scrollbar.tcl), the spinbox steps only on `*uparrow` / `*downarrow` (spinbox.tcl). A thumb named
+  otherwise filled the whole trough and could not be dragged (Arthur, 20 Nov 2026).
 
 `rounded_ui.Look.pill_button` (the Multiplayer window and the closing card) is one way of asking this skin for a button with explicit colours
 and radius: there is no second mechanism."""
@@ -44,6 +47,11 @@ DEFAULT_SURFACE = '#232323'
 def rgb(colour):
     colour = colour.lstrip('#')
     return tuple(int(colour[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def lighter(colour, amount):
+    """`colour` moved `amount` (0..1) of the way to white."""
+    return '#%02x%02x%02x' % tuple(round(v + (255 - v) * amount) for v in rgb(colour))
 
 
 def is_gold(colour):
@@ -448,7 +456,8 @@ class Skin:
         off = self.lookup(name, 'foreground', ['disabled'], '#777777')
         normal = self.photo(('chev', w, h, colour, direction), lambda: chevron_image(w, h, colour, direction), None)
         grey = self.photo(('chev', w, h, off, direction), lambda: chevron_image(w, h, off, direction), None)
-        element = f'{self.tag}.arrow.{direction}.{w}.{colour.lstrip("#")}.{off.lstrip("#")}'
+        # Ends in `uparrow` / `downarrow`: the spinbox's bindings find its arrows by that name (spinbox.tcl, `*uparrow`).
+        element = f'{self.tag}.{w}.{colour.lstrip("#")}.{off.lstrip("#")}.{direction}arrow'
         if element not in self.cache:
             self.style.element_create(element, 'image', normal, ('disabled', grey))
             self.cache[element] = element
@@ -472,13 +481,18 @@ class Skin:
         side = self.side(r, 2 * inset)
         c = self.lookup
         images = {}
+        fills = {state: c(name, 'background', [state] if state else [], '#343434') for state in ('', 'active', 'pressed')}
+        if fills['pressed'] == fills['']:
+            # No pressed colour in the style: a step lighter than the hover one, so a thumb being dragged shows it.
+            fills['pressed'] = lighter(fills['active'], 0.14)
         for state in ('', 'active', 'pressed'):
-            fill = c(name, 'background', [state] if state else [], '#343434')
+            fill = fills[state]
             border = c(name, 'bordercolor', [], '#3b3b3b')
             outline = fill if slim else border
             images[state] = self.photo(('thumb', r, inset, fill, outline), lambda f=fill, o=outline: box_image(
                 side, side, [(inset, r, o), (inset + (0 if slim else 1), r - (0 if slim else 1), f)], surface), surface)
-        element = self.element('thumb.' + name, images[''], ('pressed', images['pressed']), ('active', images['active']),
+        # The name ends in `thumb`: Tk sizes and drags the scrollbar's thumb by that name (see the module's notes).
+        element = self.element(name + '.thumb', images[''], ('pressed', images['pressed']), ('active', images['active']),
                                border=r + 1 + inset, padding=0)
         self.sizes[element] = (side, 2 * (r + 1 + inset))
         self.style.layout(name, self.rewrite(self.base_layout(name), {'Vertical.Scrollbar.thumb': element,

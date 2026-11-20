@@ -34,7 +34,7 @@ import tkinter as tk
 from tkinter import font as tkfont, messagebox, ttk
 
 from .branding import COLORS
-from .dialogs import center_dialog
+from .dialogs import center_dialog, fit_size
 from .ui_fonts import scaled
 from .rounded_ui import Look, RoundButton
 
@@ -169,7 +169,7 @@ class MultiplayerWindow:
         window.title(self.tr('mp_title'))
         window.configure(bg=BG)
         center_dialog(window, app.app, WIDTH, HEIGHT)
-        window.minsize(min(scaled(window, 820), window.winfo_screenwidth() - 40), min(scaled(window, 600), window.winfo_screenheight() - 90))
+        window.minsize(*fit_size(window, 820, 600))
         window.protocol('WM_DELETE_WINDOW', self.ask_close)
         self.make_styles()
         self.mode = tk.StringVar(value='local')

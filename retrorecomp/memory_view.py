@@ -10,7 +10,7 @@ from tkinter import ttk
 
 from .branding import COLORS
 from .compiled_games import read_json
-from .dialogs import center_dialog
+from .dialogs import center_dialog, fit_size
 from .ui_fonts import scaled
 from .library import library_root, atomic_json
 from .paths import APP_NAME, data_directory
@@ -90,7 +90,7 @@ class MemoryView:
         panel.configure(bg=COLORS['background'])
         panel.transient(owner.app)
         center_dialog(panel, owner.app, 860, 510)
-        panel.minsize(min(scaled(panel, 680), panel.winfo_screenwidth() - 40), min(scaled(panel, 350), panel.winfo_screenheight() - 90))
+        panel.minsize(*fit_size(panel, 680, 350))
         body = ttk.Frame(panel, padding=16)
         body.pack(fill='both', expand=True)
         ttk.Label(body, text=self.tr('memory_intro'), wraplength=800).pack(anchor='w', pady=(0,10))
