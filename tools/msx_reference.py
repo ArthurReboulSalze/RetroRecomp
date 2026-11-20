@@ -359,11 +359,11 @@ endforeach()
 
 # The fixture programs built with the reference: the TMS9918A, AY-3-8910 and key click (stage 3), then the MSX2's V9938
 # registers and timing, its picture modes, its sprites, and the MSX2 board (stage 6); the command engine (stage 7); the
-# quick-state serializer (stage 8). Each prints "ok"/"FAIL" lines with
+# quick-state serializer (stage 8); MSX-MUSIC's quiet step against emu2413's own sample (1.9.0). Each prints "ok"/"FAIL" lines with
 # the hand-worked value next to the one found, and exits 1 on any failure.
 CHECK_PROGRAMS = ('msx_hardware_checks', 'msx2_checks_regs', 'msx2_checks_modes', 'msx2_checks_sprites', 'msx2_checks_board',
                   'msx2_checks_cmd_bytes', 'msx2_checks_cmd_dots', 'msx2_checks_cmd_line', 'msx2_checks_state',
-                  'msx2plus_checks')
+                  'msx2plus_checks', 'msx_music_checks')
 
 
 def hardware_checks() -> list[str]:

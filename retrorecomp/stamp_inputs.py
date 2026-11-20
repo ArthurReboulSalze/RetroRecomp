@@ -313,7 +313,9 @@ NOT_INPUTS = (
     # The MSX2 fixtures (stage 6): the V9938's registers, modes and sprites and the MSX2 board, checked by hand-worked values.
     'native/msx_machine/msx2_checks_',
     # The MSX2+ fixtures: the V9958's registers, ID, scroll and YJK colours, checked by hand-worked values.
-    'native/msx_machine/msx2plus_checks.c')
+    'native/msx_machine/msx2plus_checks.c',
+    # MSX-MUSIC's quiet step against emu2413's own sample, sample by sample (a check only; run again after a bump of emu2413).
+    'native/msx_machine/msx_music_checks.c')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
