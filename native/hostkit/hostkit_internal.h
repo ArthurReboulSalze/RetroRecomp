@@ -64,6 +64,7 @@ typedef struct RrhkRun {
     int refused_w, refused_h;      /* the last picture size the store could not grow to: not tried again until the size changes */
     bool double_refused;           /* Scale2x's buffer could not be made for this store: the picture is shown without it */
     Uint64 presented;              /* 1.7.7: when the last present returned */
+    bool software_notice;          /* 1.9.0: SDL's software renderer on a real screen: said once, when no other notice shows */
 } RrhkRun;
 
 /* 1.7.7 (HOST_KIT D30): Sync to display, the row of the options page kept per machine ([<Console>.Video] sync).
@@ -112,6 +113,9 @@ int rrhk_gfx_icon(const char *name);                        /* a graphics option
 void rrhk_draw_icon(SDL_Renderer *renderer, int ox, int oy, int unit, int x, int y, int icon, const char *letters);
 
 double rrhk_thread_cpu(void);
+/* 1.9.0: the picture is drawn by SDL's software renderer on a real screen (not the dummy driver of the diagnostics): no graphics
+ * card took it, the CPU scales it. The window says so once (rrhk_main.c). */
+bool rrhk_software_fallback(const char *renderer, const char *video_driver);
 /* The C numeric locale around a write of numbers (the timing JSON, the [host] lines, the Hz shown in a game): an engine may set the
  * player's locale (the Atari ST core does), and printf's %f would then write a decimal comma, an invalid JSON (20 Nov 2026). */
 typedef struct { char name[128]; int changed; } RrhkNumeric;

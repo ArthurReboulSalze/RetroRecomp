@@ -136,7 +136,11 @@ void rrhk_present_picture(RrhkRun *run) {
             SDL_UpdateTexture(run->tex, &area, pixels, pitch * 4);
         }
     } else if (rrhk.filter == 2) { rrhk_scale2x(pixels, run->upscaled); SDL_UpdateTexture(run->tex, NULL, run->upscaled, m->max_width * 2 * 4); }
-    else SDL_UpdateTexture(run->tex, NULL, pixels, m->max_width * 4);
+    else {
+        /* 1.9.0: only the visible rectangle, the part the copy below draws (a smaller picture left the rest uploaded for nothing) */
+        SDL_Rect area = {0, 0, width, height};
+        SDL_UpdateTexture(run->tex, &area, pixels, m->max_width * 4);
+    }
     SDL_Rect dst = rrhk_game_rect(ren);
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
     int texture_scale = doubled(run) ? 2 : 1;

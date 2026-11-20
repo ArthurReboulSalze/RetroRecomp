@@ -1494,6 +1494,7 @@
     "Free": "自由",
     "Variable refresh": "可变刷新率",
     "Variable refresh: from the next start": "可变刷新率: 下次启动时生效",
+    "Software rendering: no graphics acceleration": "软件渲染：没有图形加速",
     "Free: the game's own %s Hz": "自由: 游戏自身的 %s Hz",
     "Free: screen %s Hz, game %s Hz": "自由: 屏幕 %s Hz，游戏 %s Hz",
     "Free: the screen's refresh is unknown": "自由: 屏幕刷新率未知",

@@ -318,6 +318,11 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
             r->limit_w = info.max_texture_width; r->limit_h = info.max_texture_height;
             fprintf(stderr, "[host] renderer=%s, vsync=%s; physical latency is unmeasured\n",
                 info.name, info.flags & SDL_RENDERER_PRESENTVSYNC ? "on" : "off");
+            /* Every graphics card is asked first (ACCELERATED: Direct3D 11/12, OpenGL); SDL's software renderer is the last
+             * resort, and the player is told once (draw_notices). */
+            r->software_notice = rrhk_software_fallback(info.name, SDL_GetCurrentVideoDriver());
+            if (r->software_notice)
+                fprintf(stderr, "[host] no graphics acceleration: SDL's software renderer scales the picture on the CPU (fallback)\n");
             rrhk_sync.vsync = (info.flags & SDL_RENDERER_PRESENTVSYNC) != 0;
             rrhk_sync.vrr_renderer = info.name && !strcmp(info.name, "direct3d12");
         }
@@ -383,8 +388,16 @@ void rrhk_toggle_start_help(void) {
         snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
 }
 
+bool rrhk_software_fallback(const char *renderer, const char *video_driver) {
+    return renderer && !strcmp(renderer, "software") && !(video_driver && !strcmp(video_driver, "dummy"));
+}
+
 static void draw_notices(RrhkRun *r) {
     const RrhkMachine *m = r->machine;
+    if (r->software_notice && !(rrhk.status[0] && SDL_GetTicks64() < rrhk.status_until)) {
+        r->software_notice = false;     /* once, when no other notice is showing */
+        rrhk_notice(rr_tr("Software rendering: no graphics acceleration"), 6000);
+    }
     if (!start_until && !rrhk.status[0]) return;      /* nothing to show: no clock read, no layout (every frame comes here) */
     const Uint64 now = SDL_GetTicks64();
     if (now >= start_until) start_until = 0;

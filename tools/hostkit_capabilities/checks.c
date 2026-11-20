@@ -97,6 +97,12 @@ static const RrhkGfxOption options[] = {{"Internal resolution", L"resolution", r
 static uint32_t *picture;          /* BASE x 4 at most, `scale` x BASE in use, rows `width` apart */
 static int scale = 1;
 static bool no_picture, zero_size; /* 1.7.7: the machine hands no picture (NULL) or a 0 x 0 one, as a session just reopened may */
+/* 1.9.0: the plain path with a visible picture smaller than the store (only that rectangle is uploaded); what lies past it is
+ * blue, never shown */
+static bool smaller;
+#define SMALL_W (BASE_W - 64)
+#define SMALL_H (BASE_H - 16)
+#define BLUE 0x0000ffu
 static uint64_t frames;
 static uint16_t last_pad[2];
 static int16_t last_axes[2][RRHK_AXES];
@@ -113,6 +119,12 @@ static int option_rows_total, machine_key;
 
 static void draw_picture(void) {
     const int w = BASE_W * scale, h = BASE_H * scale;
+    if (smaller) {      /* rows BASE_W apart (the store's pitch); the visible SMALL_W x SMALL_H with its red corner, the rest blue */
+        for (int y = 0; y < BASE_H; ++y) for (int x = 0; x < BASE_W; ++x)
+            picture[(size_t)y * BASE_W + x] = 0xff000000u | (x >= SMALL_W || y >= SMALL_H ? BLUE :
+                                                             x >= SMALL_W - 8 && y >= SMALL_H - 8 ? RED : GREEN);
+        return;
+    }
     for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x)
         picture[(size_t)y * w + x] = 0xff000000u | (x >= w - 8 && y >= h - 8 ? RED : GREEN);
 }
@@ -121,8 +133,8 @@ static void gfx_apply(int option, int value) {
     ++apply_count;
     if (option == 0) { scale = 1 << value; draw_picture(); }
 }
-static int width(void) { return zero_size ? 0 : BASE_W * scale; }
-static int height(void) { return zero_size ? 0 : BASE_H * scale; }
+static int width(void) { return zero_size ? 0 : smaller ? SMALL_W : BASE_W * scale; }
+static int height(void) { return zero_size ? 0 : smaller ? SMALL_H : BASE_H * scale; }
 static int base_width(void) { return BASE_W; }
 static int base_height(void) { return BASE_H; }
 static const uint32_t *pixels(void) { return no_picture ? NULL : picture; }
@@ -166,7 +178,32 @@ static Uint32 read_pixel(SDL_Renderer *renderer, int x, int y) {
     return value & 0xffffffu;
 }
 static int black_seen[4], black_wrong;
+/* the whole presented frame, FNV-1a: the same with the full upload and with the visible rectangle only (an A/B across builds) */
+static bool want_digest;
+static Uint32 frame_digest;
+static int blue_seen;
+static Uint32 digest_frame(SDL_Renderer *renderer) {
+    int w = 0, h = 0;
+    SDL_GetRendererOutputSize(renderer, &w, &h);
+    Uint32 *all = w > 0 && h > 0 ? (Uint32 *)malloc((size_t)w * h * 4) : NULL;
+    Uint32 hash = 2166136261u;
+    if (!all) return 0;
+    SDL_Rect area = {0, 0, w, h};
+    if (SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, all, w * 4) == 0)
+        for (size_t i = 0; i < (size_t)w * h; ++i) {
+            const Uint32 value = all[i] & 0xffffffu;
+            blue_seen += value == BLUE;
+            for (int b = 0; b < 3; ++b) { hash ^= (value >> (8 * b)) & 0xffu; hash *= 16777619u; }
+        }
+    free(all);
+    return hash;
+}
 static void before_present(SDL_Renderer *renderer) {
+    if (want_digest && !rrhk_ui()->menu) {
+        frame_digest = digest_frame(renderer);
+        fprintf(stderr, "[check] smaller picture, presented frame digest %08x\n", (unsigned)frame_digest);
+        want_digest = false;
+    }
     if ((no_picture || zero_size) && !rrhk_ui()->menu) {    /* 1.7.7: no picture, whatever the filter: black (the last one was green) */
         int w = 0, h = 0;
         SDL_GetRendererOutputSize(renderer, &w, &h);
@@ -1362,6 +1399,20 @@ static void sync_again(void) {
     }
 }
 
+static void smaller_script(void) {
+    switch (step++) {
+    case 0: case 1: case 2: case 3:                    /* F3 to the plain upload (no Scale2x, no xBR, no scanlines) */
+        if (rrhk_ui()->filter != 0) key(SDL_SCANCODE_F3);
+        break;
+    case 4: CHECK(rrhk_ui()->filter == 0); want_picture = true; want_digest = true; break;
+    case 7:
+        CHECK(picture_ok);                            /* the visible corners: green at the top left, red at the bottom right */
+        CHECK(frame_digest != 0 && blue_seen == 0);   /* nothing past the visible rectangle reached the window */
+        stop = true;
+        break;
+    }
+}
+
 static void (*script)(void);
 static void frame_start(void *window, void *renderer) { (void)window; (void)renderer; if (script) script(); }
 
@@ -1565,6 +1616,16 @@ int main(int argc, char **argv) {
     begin(plain_script);
     CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
     CHECK(step >= 24);       /* the last step answered Yes to "Quit?" */
+    /* 1.9.0: the plain path with a smaller visible picture: only its rectangle is uploaded, the presented frame is the same */
+    smaller = true; draw_picture(); picture_ok = false; blue_seen = 0;
+    begin(smaller_script);
+    CHECK(rrhk_main(&plain, "Capabilities", 2) == 0);
+    CHECK(step >= 8);
+    smaller = false; draw_picture();
+    /* the software fallback is said on a real screen, never under the diagnostics' dummy driver */
+    CHECK(rrhk_software_fallback("software", "windows") && rrhk_software_fallback("software", "x11"));
+    CHECK(!rrhk_software_fallback("software", "dummy") && !rrhk_software_fallback("direct3d11", "windows"));
+    CHECK(!rrhk_software_fallback("opengl", "x11") && !rrhk_software_fallback(NULL, "windows"));
     /* 5. 1.7.4: the stretched mode is read back at the next start, even by a machine that reads its former preferences and knows
      * three modes (Master System, Game Gear, Game Boy clamp what they read); F4 then goes back to the window. */
     plain.settings_loaded = three_modes;

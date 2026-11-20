@@ -1494,6 +1494,7 @@
     "Free": "Свободно",
     "Variable refresh": "Переменная частота",
     "Variable refresh: from the next start": "Переменная частота: со следующего запуска",
+    "Software rendering: no graphics acceleration": "Программная отрисовка: нет графического ускорения",
     "Free: the game's own %s Hz": "Свободно: собственные %s Гц игры",
     "Free: screen %s Hz, game %s Hz": "Свободно: экран %s Гц, игра %s Гц",
     "Free: the screen's refresh is unknown": "Свободно: частота экрана неизвестна",
