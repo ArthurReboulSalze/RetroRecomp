@@ -41,5 +41,21 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(len(gba_link.roots(sha256)), report['roots_added'])
 
 
+class ProfileTests(unittest.TestCase):
+    def test_the_profile_offers_the_cable_to_two_consoles_and_a_game_needs_its_row(self):
+        from retrorecomp.systems import get_profile
+        self.assertEqual(get_profile('gba').netplay_link_seats, 2)
+        self.assertLessEqual(max(seed.seats_tested for seed in gba_link.SEEDS.values()), get_profile('gba').netplay_link_seats)
+
+    def test_the_player_learns_the_cable_from_the_workers_environment_and_refuses_a_game_without_a_row(self):
+        from retrorecomp.paths import ROOT
+        source = (ROOT / 'native' / 'gba_machine.cpp').read_text(encoding='utf-8')
+        adapter = (ROOT / 'native' / 'hostkit' / 'adapters' / 'rrhk_gba.c').read_text(encoding='utf-8')
+        self.assertIn('getenv("RETRORECOMP_NETPLAY_LINK")', source)
+        self.assertIn('RR_GBA_LINK_SEATS', source)
+        self.assertIn('the link cable is refused', source)
+        self.assertIn('.link_consoles = (int)rrgba_link_seats()', adapter)
+
+
 if __name__ == '__main__':
     unittest.main()

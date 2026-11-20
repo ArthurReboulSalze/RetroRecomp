@@ -943,7 +943,11 @@ int main(int argc, char** argv) {
     gbarecomp::g_rr_driver = driver;
     load_script();
     load_link_route();
-    if (const char* cable = getenv("RETRORECOMP_GBA_LINK")) {          // the link cable: that many consoles (2 to 4) on one cable
+    // The link cable: that many consoles (2 to 4) on one cable. The room's worker says it in the game's environment (RRHK / session_pipe.LINK_ENV: the consoles the match may run; this engine
+    // builds its consoles before HELLO, so SETUP comes too late for it); RETRORECOMP_GBA_LINK is the same thing for a test run on its own.
+    const char* cable = getenv("RETRORECOMP_NETPLAY_LINK");
+    if (!cable) cable = getenv("RETRORECOMP_GBA_LINK");
+    if (cable) {
         // Only a cartridge with a reviewed row (retrorecomp/gba_link.py: RR_GBA_LINK_SEATS, the consoles its route was run with) may have a cable; any other plays on one
         // console and its report says why. RETRORECOMP_GBA_LINK_FORCE is the test switch of a maintainer's run on a cartridge that has no row yet.
         const int seats = atoi(cable);

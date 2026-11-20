@@ -2,7 +2,7 @@
  * drives one frame at a time (the engine's own window loop is not used). Original Retro-Recomp code: MIT; the linked engine
  * keeps its own terms (PolyForm Noncommercial) and so does the player's own BIOS, which the exported game carries privately.
  * This file is the machine's own: the ten buttons and their defaults, the picture (240 x 160), the sound (mono, 32768 Hz), the
- * quick state and the entry the engine's driver reaches (rrhk_main). One player. A multiplayer session (hostkit_session.h) plays on the delay tier: the digest
+ * quick state and the entry the engine's driver reaches (rrhk_main). One player, or in a link match (native/gba_machine.cpp, the engine's own cable session) one console per seat. A multiplayer session (hostkit_session.h) plays on the delay tier: the digest
  * comes from native/gba_machine.cpp and there is no in-process snapshot (the engine's state container allocates per call), so no rollback. */
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
@@ -75,6 +75,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .digest = rrgba_digest, .side_effects = rrgba_side_effects,
             .session_save = rrgba_session_save, .session_save_put = rrgba_session_save_put,
             .session_save_commit = rrgba_session_save_commit, .session_begin = rrgba_session_begin,
+            .link_consoles = (int)rrgba_link_seats(),
             .help_controls = help_controls,
         };
     }
