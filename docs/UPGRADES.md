@@ -667,7 +667,8 @@ two consoles on a link cable: `native/gb_link.h` (runtime, appended after the ma
 (`adapt_link_cable`: the end of a master transfer reads the other console's byte, `gb_run_cycles` runs the satellites in 256-cycle chunks; the
 original body is kept as `rr_gb_run_cycles_one`, a console with no link goes through it unchanged; the generated init is registered so that
 the satellite is made with it), and the adapter (one pad word per seat, this PC's seat shown and heard, snapshot and digest over both consoles).
-**Game Boy game stamp and host stamp move** (no other machine); existing Game Boy exports must be converted again to play on a cable. A match with
+**Game Boy game stamp and host stamp move** (no other machine); existing Game Boy exports must be converted again to play on a cable. The Game Boy profile sets `netplay_link_seats = 2` (the room's "Câble link" choice; the match is the SETUP flag `rrhk_session_link()`, the machine declares
+`link_consoles = 2`). A match with
 one console, and the game alone, are not changed. Test hooks of a headless run only (never read by an open window): `RETRO_RECOMP_GB_LINK`,
 `RETRO_RECOMP_GB_LINK_VIEW`, `RETRO_RECOMP_GB_LINK_SCRIPT`, `RETRO_RECOMP_GB_LINK_LOG`. Proof: `tools/gameboy_link_selftest.py`,
 `tools/gameboy_link_play.py` ([GAME_BOY.md](GAME_BOY.md#link-cable-in-multiplayer-next-release)).

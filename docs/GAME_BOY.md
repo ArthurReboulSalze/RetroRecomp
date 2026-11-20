@@ -528,6 +528,10 @@ registers are swapped when the other console is armed as a slave, and a master w
 - **Proved (a real game, no window, no network):** `tools/gameboy_link_play.py` runs the delivered game twice in an empty folder with scripted pads for
   both consoles; Tetris and Dr. Mario reach their two-player game on both consoles (one exchange per frame), and the digest lines of the pair, every 60
   frames, are identical between two separate processes.
+- **Proved (a real room on one PC, 20 Nov 2026):** the multiplayer layer's LAN room in the `link` mode (host and guest on this PC's own address, rollback tier,
+  scripted pads along a recorded route): Tetris (1,600 frames) and Dr. Mario (1,600 frames, 30 ms lag and 10 ms jitter added) reach their two-player game,
+  the history digests are equal on both seats, no desync, about 850 and 1,500 byte exchanges on each seat; the host shows console 0, the guest console 1.
+  Two PCs (the ThinkPad) and Linux are not proved yet.
 - **Limits.** The same game on every seat (a match of Red against Blue is not offered). The cartridge RAM is the host's on both consoles (saves
   are not per seat yet), and only the host's console is written back at the end. Two consoles at most: the four-player adapter (F-1 Race for four)
   is not modelled. The cable is a byte swap at the end of a transfer: no bit-by-bit shifting, a skew of at most one chunk between the consoles. The

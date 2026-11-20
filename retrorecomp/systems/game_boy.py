@@ -12,6 +12,7 @@ class GameBoyProfile(SystemProfile):
     id = "gb"
     netplay_seats = 1
     netplay_shared_only = True
+    netplay_link_seats = 2        # the link cable: two consoles, proven 2 seats on one PC (Tetris, Dr. Mario) on 20 Nov 2026
     netplay_session = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project.
     # game_main.c pins the model; its two lines that name the save folder carry the title.
