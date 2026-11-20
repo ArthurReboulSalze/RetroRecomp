@@ -391,6 +391,14 @@ frames per game: reference, native, packed copy, restart) have identical traces,
 differ, and the quick states, whose key moved. On both games, a 1200-frame headless run without a trace (the path that now skips the
 hashes) gives the same report and the same last frame.
 
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame; main `e4f40699` then this
+branch `bb5a40f2`; headless engine 1,200 frames × 5, play loop × 3): Lotus 2, the engine alone 6.9350 to 1.4862, −78.6 %, and the
+play loop 1.1726 to 1.1716, −0.1 %; Pinball Illusions, engine 14.0215 to 2.5255, −82.0 %, and loop 2.1705 to 2.2460, +3.5 %, inside
+the 14.6 % spread of the branch's runs (one slow run). The headless path loses the per-frame hashing; the player's path is unchanged,
+as expected, since it never hashed. The Amiga's headless engine figure becomes comparable to the other machines'. These are costs of
+the host's code on one PC, not physical latency. Conversions get faster too (Pinball Illusions about 35 to 18 minutes on a busy PC: a
+hint, not a measure).
+
 **Stamps** (against main `e4f40699`): the Amiga 500 and Amiga 1200 game stamps (`amiga_player.c`, `amiga_session.cpp`,
 `amiga_session.h`), and with them the reports' `simulation_identity`, as for any change to the game's sources. The Amiga quick-state key
 moves (it hashes `amiga_session.cpp` and `amiga_session.h`): an older quick state is refused cleanly. The host stamps do not move. The
