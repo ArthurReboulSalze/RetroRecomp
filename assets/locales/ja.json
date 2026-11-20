@@ -1494,6 +1494,7 @@
     "Free": "自由",
     "Variable refresh": "可変リフレッシュレート",
     "Variable refresh: from the next start": "可変リフレッシュレート: 次回起動から",
+    "Software rendering: no graphics acceleration": "ソフトウェア描画: グラフィック加速なし",
     "Free: the game's own %s Hz": "自由: ゲーム本来の %s Hz",
     "Free: screen %s Hz, game %s Hz": "自由: 画面 %s Hz、ゲーム %s Hz",
     "Free: the screen's refresh is unknown": "自由: 画面のリフレッシュレートが不明",

@@ -1494,6 +1494,7 @@
     "Free": "Libre",
     "Variable refresh": "Frecuencia variable",
     "Variable refresh: from the next start": "Frec. variable: desde el próximo inicio",
+    "Software rendering: no graphics acceleration": "Renderizado por software: sin aceleración gráfica",
     "Free: the game's own %s Hz": "Libre: el juego a %s Hz",
     "Free: screen %s Hz, game %s Hz": "Libre: pantalla %s Hz, juego %s Hz",
     "Free: the screen's refresh is unknown": "Libre: frecuencia de pantalla desconocida",

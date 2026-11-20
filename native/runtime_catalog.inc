@@ -372,6 +372,7 @@ static const char *const rr_translations[][5] = {
     {"Size: %d / 5","Taille : %d / 5","Dimensione: %d / 5","Tamano: %d / 5","Groesse: %d / 5"},
     {"Smooth scaling (console)","Mise a l'echelle lissee (console)","Scala smussata (console)","Escalado suavizado (consola)","Weiche Skalierung (Konsole)"},
     {"Soft","Doux","Morbido","Suave","Sanft"},
+    {"Software rendering: no graphics acceleration","Rendu logiciel : pas d'acceleration graphique","Rendering software: nessuna accelerazione grafica","Renderizado por software: sin aceleracion grafica","Software-Rendering: keine Grafikbeschleunigung"},
     {"Sound CPU: interpreter fallback","CPU audio : secours interprete","CPU audio: interprete di riserva","CPU de sonido: interprete de respaldo","Sound-CPU: Interpreter-Fallback"},
     {"Sound CPU: native code","CPU audio : code natif","CPU audio: codice nativo","CPU de sonido: codigo nativo","Sound-CPU: nativer Code"},
     {"Sound muted","Son coupe","Audio disattivato","Sonido silenciado","Ton aus"},

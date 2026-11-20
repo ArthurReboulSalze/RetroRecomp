@@ -108,6 +108,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Every machine: the pad's Options button opens the F2 tiles, Quit is their last tile](#every-machine-the-pads-options-button-opens-the-f2-tiles-quit-is-their-last-tile-190) | none | **the host stamp of all 21 profiles** (the shell, `game_options.h`, `retro_menu.c`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | Every machine, multiplayer in turns: the F2 tiles Pass / Give the controller and Everyone / Turns, the turn badge and its options row ([HOST_KIT D34](HOST_KIT.md#d34)) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_main.c`, `rrhk_chat.inc`, `hostkit.h`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged |
 | [Every machine: the timing report and the [host] lines keep their decimal point](#every-machine-the-timing-report-and-the-host-lines-keep-their-decimal-point-190) | none | **the host stamp of all 21 profiles** (`rrhk_timing.c`, `rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`) | unchanged |
+| [Every machine: the graphics card first, the software renderer said when it is used, the visible picture alone uploaded](#every-machine-the-graphics-card-first-the-software-renderer-said-when-it-is-used-the-visible-picture-alone-uploaded-190) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`, `runtime_catalog.inc`) | unchanged |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-190) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
 | [Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match](#sony-playstation-the-host-changes-pgxp-the-cpus-resolution-and-the-renderer-in-a-match-190) | none | the PlayStation's host stamp (`rrhk_psx.c`) | unchanged |
@@ -186,6 +187,27 @@ machine's own part written inside it, the `[host] sync to display` line and the 
 Sync to display notice, the same figures on every machine. Cold code: written once at exit or when the sync changes, never per
 frame. Checked by the host kit's capabilities self-test: with a decimal-comma locale in force, the report's numbers keep their point
 and the locale is given back (758 checks pass; with the switch disabled, the two new checks fail).
+
+**Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
+
+## Every machine: the graphics card first, the software renderer said when it is used, the visible picture alone uploaded (1.9.0)
+
+Arthur's rule (20 November 2026): what the graphics card can do goes through it. The game's window already asks for an accelerated
+renderer (Direct3D 11 on Windows, Direct3D 12 in Variable refresh, OpenGL on Linux) and scales the picture with the graphics card
+(one texture, `SDL_RenderCopy`): measured on a copy of a 1.8.0 Master System export, drawing 0.13 ms a frame on Direct3D 11 against
+0.59 ms when SDL's software renderer is forced. The software scaler that the performance figures showed comes from the diagnostics'
+`SDL_VIDEODRIVER=dummy`, whose only renderer is the software one.
+
+- When no graphics card can be used at all (SDL creates no accelerated renderer), the window now says so once, when no other notice
+  shows: « Software rendering: no graphics acceleration », in the five game languages, and the log adds a line. Never under the
+  diagnostics' dummy driver.
+- The plain path (no Scale2x, no xBR) uploads only the visible rectangle of the picture, the part the copy draws, not the whole store.
+  The presented frame is the same: the host kit's capabilities self-test shows a picture smaller than its store with blue past it,
+  checks its corners and that no blue reaches the window, and digests the whole frame; the digest is the same with the full upload
+  and with the visible rectangle (`65f55465`, 766 checks).
+
+Later, in an optimisation release: Scale2x and xBR on the graphics card (SDL2's renderer has no shaders), and telling a CPU
+rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
