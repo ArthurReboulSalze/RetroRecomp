@@ -22,6 +22,9 @@ MAX_PAYLOAD = 4096
 MAX_RING = 64
 MAX_OPTIONS = 1024           # RRHK_SESSION_MAX_OPTIONS: the run-changing options a HELLO may carry
 ENV = 'RETRORECOMP_NETPLAY_PIPE'
+# A link session's game is started with this in its environment (the consoles it may run: SETUP's ports say how many it has):
+# a machine that builds its consoles before HELLO (the Game Boy Advance's engine) learns it there; the others read SETUP_LINK.
+LINK_ENV = 'RETRORECOMP_NETPLAY_LINK'
 MAX_PLAYERS = 4              # RRHK_MAX_PLAYERS: the port words a RUN may carry
 
 # game -> worker

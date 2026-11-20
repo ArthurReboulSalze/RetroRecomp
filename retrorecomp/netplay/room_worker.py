@@ -53,6 +53,7 @@ from . import session_pipe as pipe
 from . import worker_channel as channel
 from .lan_transport import RoomError, RoomGuest, RoomHost
 from .launch import Refusal, game_arguments, launch_settings, merge_options
+from .session_pipe import LINK_ENV
 from .lobby import game_from_dict
 from .lockstep import LockstepDriver, Settings
 from .lag_link import LagLink
@@ -236,6 +237,15 @@ class RoomWorker:
             raise ValueError('the launch names no game')
         return game
 
+    @staticmethod
+    def _with_link(game: dict, machine: str | None, sharing, seats: int | None = None) -> dict:
+        """The game of a link match is started knowing it (session_pipe.LINK_ENV: the consoles it may run; a guest knows the
+        seats, the host the machine's link at most), for an engine that builds its consoles before HELLO."""
+        if sharing != seat_map.LINK:
+            return game
+        count = seats or seat_map.link_seats(machine) or 2
+        return {**game, 'env': {**(game.get('env') or {}), LINK_ENV: str(count)}}
+
     def _open_game(self, game: dict, arguments: tuple = ()) -> SessionGame:
         return SessionGame(Path(game['exe']), cwd=Path(game['cwd']) if game.get('cwd') else None, env=game.get('env'),
                            stdout=Path(game['stdout']) if game.get('stdout') else None,
@@ -372,6 +382,7 @@ class RoomWorker:
             self.emit({'event': 'launch_error', 'detail': f'the launch is not what it should be ({type(error).__name__})'})
             return
         session = None
+        game = self._with_link(game, identity.get('machine'), net.get('sharing'))
         try:
             session, rollback, host_options, save = self._decide_tier(game, tier)
             options = merge_options(net.get('options', ''), host_options)
@@ -501,6 +512,8 @@ class RoomWorker:
             self.emit({'event': 'launch_error', 'detail': refusal.reason})
             return
         session = None
+        picked = self.room.lobby.game
+        game = self._with_link(game, picked.machine if picked is not None else None, self.room.lobby.sharing)
         try:
             session, rollback, host_options, save = self._decide_tier(game, tier)
             with self.lock:             # held until `pending` is set: a guest that answers at once finds it there
@@ -544,6 +557,7 @@ class RoomWorker:
             game = self._game_config(message)
             settings = test_settings(pending['settings'], {**self.test_values, **(message.get('test_settings') or {})}, self.tests)
             arguments = game_arguments(pending.get('machine', ''), settings.options or '')    # the host's machine (Neo Geo)
+            game = self._with_link(game, pending.get('machine'), settings.sharing, settings.seats)
             self._run_match(pending['match_id'], game, settings, self._link(), False, arguments=arguments)
         except Exception as error:
             self.room.launched(pending['match_id'], control.LAUNCHED_FAILED)
