@@ -261,7 +261,9 @@ class HostLobby:
             return Refusal('the input mode cannot change while a match is starting or running')
         if not seat_map.valid(sharing):
             return Refusal('an input mode that does not exist')
-        if not seat_map.allowed(self.game.machine if self.game is not None else None, sharing):
+        machine = self.game.machine if self.game is not None else None
+        # what the choice is played as: « one controller per player » on a handheld is its link cable (seat_map.effective)
+        if not seat_map.allowed(machine, seat_map.effective(machine, sharing)):
             return Refusal('this game plays in input sharing only')
         if sharing != self.chosen:
             self.chosen = sharing

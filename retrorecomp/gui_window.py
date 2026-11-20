@@ -572,9 +572,9 @@ class WindowMixin:
                  font=(self.ui_font, 9, 'bold')).pack(anchor='w', pady=(6, 3))
         modes = tk.Frame(section, bg=card)
         modes.pack(fill='x')
-        for index, (mode, note) in enumerate((('mp_sharing_per_player', ''), ('mp_sharing_everyone', ''),
-                                              ('mp_sharing_turns', 'help_mp_turns_note'),
-                                              ('mp_sharing_link', 'help_mp_link_note'))):
+        # three modes on every machine; on the handhelds one controller per player is their link cable (Arthur, 20 Nov 2026)
+        for index, (mode, note) in enumerate((('mp_sharing_per_player', 'help_mp_link_note'), ('mp_sharing_everyone', ''),
+                                              ('mp_sharing_turns', 'help_mp_turns_note'))):
             cell = tk.Frame(modes, bg=card)
             cell.grid(row=index // 2, column=index % 2, sticky='nw', padx=(0, 14), pady=(0, 4))
             tk.Label(cell, text=self.tr(mode), bg=background, fg=COLORS['gold'], font=(self.ui_font, 8, 'bold'),

@@ -623,8 +623,8 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.assertFalse(view.firewall_host.winfo_manager())
 
     def test_a_handheld_with_its_link_proven_offers_the_link_cable(self):
-        # Arthur, 20 Nov 2026: the greyed « one controller per player » becomes « Link cable: one console per player » once the
-        # machine's link is proven (the profile's netplay_link)
+        # Arthur, 20 Nov 2026: three modes on every machine; on a handheld with a cable « one controller per player » keeps
+        # its name and value and says under it that it plays through the link cable (the room plays it so: seat_map.effective)
         from retrorecomp import multiplayer_view
         view = self.window(games=(('Tetris', 'gb'), ('Contra', 'nes')))
         view.show('host')
@@ -633,15 +633,17 @@ class MultiplayerWindowTest(unittest.TestCase):
             view.console_box.event_generate('<<ComboboxSelected>>')
             per_player = view.sharing_buttons['per_player']
             self.assertFalse(per_player.instate(['disabled']))
-            self.assertEqual(per_player.cget('text'), tr('mp_sharing_link', 'fr'))
-            self.assertEqual(str(per_player.cget('value')), 'link')                # the room's own value (LINK_CONTRACT)
+            self.assertEqual(per_player.cget('text'), tr('mp_sharing_per_player', 'fr'))
+            self.assertEqual(str(per_player.cget('value')), 'per_player')
+            self.assertEqual(set(view.sharing_buttons), {'per_player', 'everyone', 'turns'})     # never a fourth mode
             self.assertTrue(view.sharing_note.link_help.winfo_manager())
+            self.assertEqual(view.sharing_note.link_help.cget('text'), tr('mp_sharing_link_help', 'fr'))
             self.assertFalse(view.sharing_note.winfo_manager())
             per_player.invoke()
             view.draw_host_sharing()
-            self.assertEqual(view.sharing.get(), 'link')                          # kept: it is the link cable
+            self.assertEqual(view.sharing.get(), 'per_player')
             view.open_room()
-            self.assertEqual(self.started[-1]['room']['sharing'], 'link')
+            self.assertEqual(self.started[-1]['room']['sharing'], 'per_player')
             view.leave_room()
         view.console_choice.set(view.console_name('nes'))
         view.console_box.event_generate('<<ComboboxSelected>>')
@@ -654,6 +656,30 @@ class MultiplayerWindowTest(unittest.TestCase):
             view.console_box.event_generate('<<ComboboxSelected>>')
             self.assertTrue(view.sharing_buttons['per_player'].instate(['disabled']))
             self.assertTrue(view.sharing_note.winfo_manager())
+
+    def test_the_lobby_shows_three_modes_and_the_cable_note_follows_the_console_chosen(self):
+        # Arthur, 20 Nov 2026: « Link cable » was offered with the PlayStation chosen; three modes everywhere, the cable is
+        # a note under one controller per player on GB, GG and GBA only
+        view = self.window(games=(('Mario Kart', 'gba'), ('Tekken 3', 'psx')))
+        view.show('host')
+        view.console_choice.set(view.console_name('gba'))
+        view.console_box.event_generate('<<ComboboxSelected>>')
+        view.open_room()
+        self.feed(view, {'event': 'room_open', 'address': '192.168.1.20', 'port': 24611})
+        host = {'seat': 0, 'guest': 0, 'name': 'Arthur', 'ready': False, 'in_match': False, 'check': 'none'}
+        self.feed(view, {'event': 'lobby_selection', 'selection': 1, 'game': {'title': 'Mario Kart', 'machine': 'gba'}},
+                  self.roster([host], sharing='link'))                 # the room says what it plays: the cable
+        buttons = view.lobby_sharing_buttons
+        self.assertEqual(set(buttons), {'per_player', 'everyone', 'turns'})
+        self.assertEqual(view.lobby_sharing.get(), 'per_player')
+        self.assertEqual(buttons['per_player'].cget('text'), tr('mp_sharing_per_player', 'fr'))
+        self.assertTrue(view.lobby_sharing_note.link_help.winfo_manager())
+        view.lobby_console.set(view.console_name('psx'))
+        view.lobby_console_box.event_generate('<<ComboboxSelected>>')
+        self.assertFalse(view.lobby_sharing_note.link_help.winfo_manager())     # the PlayStation: no cable
+        self.feed(view, self.roster([host], sharing='link'))                    # a poll keeps the console chosen
+        self.assertFalse(view.lobby_sharing_note.link_help.winfo_manager())
+        self.assertEqual(view.lobby_sharing.get(), 'per_player')
 
     def test_the_link_is_offered_from_the_profiles_link_seats(self):
         from retrorecomp import multiplayer_view

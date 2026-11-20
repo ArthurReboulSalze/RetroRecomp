@@ -98,11 +98,15 @@ def link_seats(machine: str | None) -> int:
 
 
 def effective(machine: str | None, chosen: int) -> int:
-    """The mode a game of `machine` is played in when the host chose `chosen`: a handheld is shared whatever was chosen
-    ("everyone" when the host's choice was one controller per player)."""
+    """The mode a game of `machine` is played in when the host chose `chosen`. The player sees three modes on every machine
+    (Arthur, 20 Nov 2026): on a handheld with a link cable (GB, GG, GBA), « one controller per player » IS the link cable
+    (LINK on the wire, unchanged); a handheld without one plays it as « everyone ». LINK itself, sent by a release that
+    still offered it as a fourth mode, plays as one controller per player on a machine that has no cable."""
     if chosen == LINK and not link_seats(machine):
         return SHARED_ALL if forced(machine) else PER_PLAYER
-    return SHARED_ALL if forced(machine) and chosen == PER_PLAYER else chosen
+    if chosen == PER_PLAYER and forced(machine):
+        return LINK if link_seats(machine) >= 2 else SHARED_ALL
+    return chosen
 
 
 def allowed(machine: str | None, sharing: int) -> bool:

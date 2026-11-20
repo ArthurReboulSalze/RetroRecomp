@@ -31,7 +31,9 @@ class LinkModeTests(unittest.TestCase):
         with patch.object(seat_map, 'link_seats', lambda machine: 2 if machine == 'gb' else 0):
             self.assertTrue(seat_map.allowed('gb', seat_map.LINK))
             self.assertEqual(seat_map.effective('gb', seat_map.LINK), seat_map.LINK)
-            self.assertEqual(seat_map.effective('gb', seat_map.PER_PLAYER), seat_map.SHARED_ALL)   # the other modes as before
+            # Arthur, 20 Nov 2026: « one controller per player » on a handheld with a cable is that cable
+            self.assertEqual(seat_map.effective('gb', seat_map.PER_PLAYER), seat_map.LINK)
+            self.assertEqual(seat_map.effective('gb', seat_map.SHARED_TURNS), seat_map.SHARED_TURNS)   # the others as before
 
     def test_the_game_must_say_it_links_and_setup_tells_it(self):
         pipe.check_hello(hello(), 2, link=True)
