@@ -45,7 +45,7 @@ class GameBoyProfile(SystemProfile):
                          shapes=(("sm83", "gb", dict(roles=("rom",), caps={"gb_offsets": 65536, "gb_rows": 65536},
                                                      unit=0x4000, pc_window=(0, 0x7fff))),))
     report_shape = ReportShape("gameboy", "generated_build")
-    catalogues = Catalogues(libretro="libretro-thumbnails/Nintendo_-_Game_Boy", screenscraper=9, thegamesdb=4,
+    catalogues = Catalogues(libretro="libretro-thumbnails/Nintendo_-_Game_Boy", screenscraper=9, thegamesdb=4, igdb="gb",
                             wikidata=("Q186437",), cover_references=True)
     library_layout = LibraryLayout(folder="gb", summary_glob="*/trace.json", companion="entries.trace")
     input_layout = InputLayout(("a", "b"), (), "select", 180, script_format="gameboy")

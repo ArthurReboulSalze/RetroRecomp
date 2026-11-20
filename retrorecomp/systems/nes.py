@@ -40,7 +40,7 @@ class NesProfile(SystemProfile):
                                                          windows=((0, 0x2000), (0x6000, 0x10000)), guard="first")),))
     report_shape = ReportShape("nes", "host_audio")
     catalogues = Catalogues(libretro="libretro-thumbnails/Nintendo_-_Nintendo_Entertainment_System",
-                            screenscraper=3, thegamesdb=7, wikidata=("Q172742",), cover_references=True)
+                            screenscraper=3, thegamesdb=7, igdb="nes", wikidata=("Q172742",), cover_references=True)
     library_layout = LibraryLayout(folder="nes", summary_glob="*/*/cycle-seeds.trace", identity="grandfolder")
     input_layout = InputLayout(("a", "b"), (), "select", 180, script_format="nes", script_suffix=".input")
     shared_knowledge = SharedKnowledge("stable", site_builder=True)

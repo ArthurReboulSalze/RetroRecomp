@@ -75,7 +75,8 @@ class AmigaProfile(SystemProfile):
     # two joysticks, the keyboard and the mouse not carried yet; proof on Lotus 2 (docs/AMIGA.md, section 8).
     netplay_session = True
     report_shape = ReportShape('amiga_conversion', 'whdload')
-    catalogues = Catalogues(libretro='libretro-thumbnails/Commodore_-_Amiga')
+    catalogues = Catalogues(libretro='libretro-thumbnails/Commodore_-_Amiga', screenscraper=64, thegamesdb=4911,
+                            igdb='amiga')
     library_layout = LibraryLayout(folder='amiga', summary_glob='*/compilation.json')
     # A `.lha` is the Amiga's only when it holds a WHDLoad slave; the archive's member names are read, never run.
     identify = Identify(path_order=40)
@@ -99,9 +100,15 @@ class AmigaProfile(SystemProfile):
     def cover_titles(self, path: Path) -> tuple[str, ...]:
         """The slave's own name, cleaned, as a further name for the box (artwork.profile_cover_titles): the archive's
         name is often a short label (Lotus 2) where the slave names the game (Lotus Turbo Challenge II)."""
-        from ..amiga import cover_title, read_input
-        name = cover_title(read_input(path).title)
-        return (name,) if name else ()
+        from ..amiga import archive_title, cover_title, read_input
+        from ..core import ConversionError
+        names = []
+        try:
+            names.append(cover_title(read_input(path).title))
+        except (OSError, ConversionError, ValueError):
+            pass             # the archive is gone or unreadable: its name still says which game it is
+        names.append(archive_title(Path(path).stem))
+        return tuple(dict.fromkeys(name for name in names if name))
 
     def read_rom(self, path: Path):
         from ..amiga import read_input
@@ -129,6 +136,9 @@ class Amiga1200Profile(AmigaProfile):
     status, qualification column, library folder, quick-state family and path section; the Amiga 500 profile is untouched by it."""
     id = 'a1200'
     name = 'Commodore Amiga 1200'
+    # ScreenScraper files the AGA games apart (111); TheGamesDB and IGDB have one Amiga.
+    catalogues = Catalogues(libretro='libretro-thumbnails/Commodore_-_Amiga', screenscraper=111, thegamesdb=4911,
+                            igdb='amiga')
     export_folder = 'Amiga 1200'
     status = 'supported'     # from 1.7.8, on the owner's G14 of 16 November 2026 (open as experimental in 1.7.6)
     scope_note = 'Amiga 1200 WHDLoad installs (68EC020, AGA)'

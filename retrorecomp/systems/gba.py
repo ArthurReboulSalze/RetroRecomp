@@ -71,7 +71,8 @@ class GameBoyAdvanceProfile(SystemProfile):
     # hints and guide the first pass; the quick check from shared paths is declined because RAM code does not travel (a first conversion must run its own passes).
     shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='gba_knowledge')
     # The ScreenScraper, TheGamesDB and Wikidata numbers of the platform are added when the box-art stage verifies them.
-    catalogues = Catalogues(libretro='libretro-thumbnails/Nintendo_-_Game_Boy_Advance')
+    catalogues = Catalogues(libretro='libretro-thumbnails/Nintendo_-_Game_Boy_Advance', screenscraper=12,
+                            thegamesdb=5, igdb='gba')
     # The player's own paths live in library/gba/<sha256>/<engine revision>/paths.json; the record a passed conversion shares is
     # library/gba/<sha256>/compilation.json (gba_knowledge.library_record). No per-ROM summary is listed, so there is no summary_glob:
     # the memory window has nothing to list (declined in tests/test_machine_registry.py).

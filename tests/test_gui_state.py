@@ -729,11 +729,23 @@ class OptionsFromProfiles(unittest.TestCase):
             'snes': 'libretro-thumbnails/Nintendo_-_Super_Nintendo_Entertainment_System',
             'ng': 'libretro-thumbnails/SNK_-_Neo_Geo', 'x68': 'libretro-thumbnails/Sharp_-_X68000'})
         self.assertEqual([k for k in artwork.REPOSITORIES if k in nine], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'])
-        self.assertEqual(cover_sources.SS_SYSTEMS, {'sms': 2, 'gg': 21, 'gb': 9, 'nes': 3, 'md': 1, 'snes': 4, 'cps1': 6, 'cps2': 7,
+        # Every machine's platform on each service (checked 20 Nov 2026 against the services' own platform lists; the MSX2+ is
+        # ScreenScraper's 117, not the MSX2's 116)
+        self.assertEqual(cover_sources.SS_SYSTEMS, {'sms': 2, 'gg': 21, 'gb': 9, 'nes': 3, 'md': 1, 'snes': 4, 'ng': 142, 'x68': 79,
+                                                    'cps1': 6, 'cps2': 7, 'pce': 31, 'gba': 12, 'amiga': 64, 'a1200': 111,
+                                                    'atarist': 42, 'n64': 14,
                                                     'scummvm': 123,      # 123: ScreenScraper's ScummVM platform
-                                                    'msx': 113, 'msx2': 116, 'msx2plus': 116})
-        self.assertEqual(cover_sources.TGDB_SYSTEMS, {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7, 'md': 18, 'snes': 6, 'cps1': 23, 'cps2': 23,
+                                                    'psx': 57, 'msx': 113, 'msx2': 116, 'msx2plus': 117})
+        self.assertEqual(cover_sources.TGDB_SYSTEMS, {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7, 'md': 18, 'snes': 6, 'ng': 24, 'x68': 4931,
+                                                      'cps1': 23, 'cps2': 23, 'pce': 34, 'gba': 5, 'amiga': 4911, 'a1200': 4911,
+                                                      'atarist': 4937, 'n64': 3, 'psx': 10,
                                                       'msx': 4929, 'msx2': 4929, 'msx2plus': 4929})   # TheGamesDB has one MSX platform for all three
+        self.assertEqual(cover_sources.IGDB_SLUGS, {
+            'sms': 'sms', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'genesis-slash-megadrive', 'snes': 'snes',
+            'ng': 'neogeomvs', 'x68': 'sharp-x68000', 'cps1': 'arcade', 'cps2': 'arcade', 'pce': 'turbografx16--1', 'gba': 'gba',
+            'amiga': 'amiga', 'a1200': 'amiga', 'atarist': 'atari-st', 'n64': 'n64', 'psx': 'ps',
+            'msx': 'msx', 'msx2': 'msx2', 'msx2plus': 'msx2'})
+        self.assertEqual(cover_sources.ARCADEITALIA, frozenset(('cps1', 'cps2', 'ng')))
         self.assertEqual(game_metadata.PLATFORMS, {
             'sms': {'Q209868'}, 'gg': {'Q751719'}, 'gb': {'Q186437'}, 'nes': {'Q172742'}, 'md': {'Q10676'},
             'snes': {'Q183259'}, 'ng': {'Q1054350', 'Q64428080', 'Q3338058'}})

@@ -1,7 +1,10 @@
 """Optional official cover APIs. Only clean box/front media are accepted.
 
-ArcadeItalia's public query_mame API is deliberately not queried for console
-ROMs: a matching arcade title is not artwork for the console version.
+ArcadeItalia's public query_mame API needs no key. It is asked only for the
+arcade boards' MAME sets (a profile with `catalogues.arcadeitalia`: CPS-1,
+CPS-1.5, CPS-2, Neo Geo), by the set's own name; its flyer is the cover. It is
+never asked for console ROMs: a matching arcade title is not artwork for the
+console version.
 """
 from __future__ import annotations
 
@@ -27,18 +30,29 @@ from .cover_titles import clean_title, matching_indices, search_queries
 
 PROVIDERS = {
     'screenscraper': ('ScreenScraper', 'https://www.screenscraper.fr/webapi2.php'),
-    'thegamesdb': ('TheGamesDB', 'https://api.thegamesdb.net/'),
+    'thegamesdb': ('TheGamesDB', 'https://api.thegamesdb.net/key.php'),
     'igdb': ('IGDB', 'https://api-docs.igdb.com/#account-creation'),
     'arcadeitalia': ('ArcadeItalia', 'https://adb.arcadeitalia.net/service_scraper.php'),
 }
-# IDs verified against the providers' own platform pages.
-# Read from the profiles' catalogues; a machine without a number there has no entry (Neo Geo, X68000, CPS-1).
+# The platforms of each service, read from the profiles' catalogues (each checked against the service's own platform list);
+# a machine whose profile gives none (0 or '') is not asked of that service.
 SS_SYSTEMS = {profile.id: profile.catalogues.screenscraper for profile in ALL_PROFILES
               if profile.catalogues and profile.catalogues.screenscraper}
 TGDB_SYSTEMS = {profile.id: profile.catalogues.thegamesdb for profile in ALL_PROFILES
                 if profile.catalogues and profile.catalogues.thegamesdb}
-IGDB_SLUGS = {'sms': 'sms', 'gg': 'game-gear', 'gb': 'gb', 'nes': 'nes',
-              'md': 'genesis-slash-megadrive', 'snes': 'snes'}
+IGDB_SLUGS = {profile.id: profile.catalogues.igdb for profile in ALL_PROFILES
+              if profile.catalogues and profile.catalogues.igdb}
+ARCADEITALIA = frozenset(profile.id for profile in ALL_PROFILES if profile.catalogues and profile.catalogues.arcadeitalia)
+SERVICE_SYSTEMS = {'screenscraper': SS_SYSTEMS, 'thegamesdb': TGDB_SYSTEMS, 'igdb': IGDB_SLUGS,
+                   'arcadeitalia': ARCADEITALIA}
+# The order the automatic search asks them in: the keyed services, then ArcadeItalia (public libretro servers come after).
+ORDER = ('screenscraper', 'thegamesdb', 'igdb', 'arcadeitalia')
+MAME_SET = re.compile(r'[a-z0-9_]{1,40}')
+
+
+def available(provider: str, system: str) -> bool:
+    """The service knows a platform for this machine (its profile's catalogues)."""
+    return system in SERVICE_SYSTEMS.get(provider, ())
 REGIONS = {'eu': 'Europe', 'us': 'USA', 'jp': 'Japan', 'br': 'Brazil',
            'wor': 'World', 'kr': 'Korea'}
 _locks = {name: threading.Lock() for name in PROVIDERS}
@@ -120,8 +134,12 @@ def request(url: str, maximum: int, *, body: bytes | None = None,
         raise CoverServiceError('Cover service unavailable; check your internet connection or firewall.') from None
 
 
+# The least time between two requests to one service; ArcadeItalia is a small community site.
+GAPS = {'arcadeitalia': 1.0}
+
+
 def _json(provider, url, *, body=None, headers=None):
-    delay = .30 - (time.monotonic() - _last_request.get(provider, 0))
+    delay = GAPS.get(provider, .30) - (time.monotonic() - _last_request.get(provider, 0))
     if delay > 0:
         time.sleep(delay)
     _last_request[provider] = time.monotonic()
@@ -294,8 +312,24 @@ def _igdb(account, rom, title, system, normalize):
     return RemoteCover('igdb', request(url, 8 * 1024 * 1024), page, 'front', url)
 
 
+def _arcadeitalia(rom, title, system):
+    """An arcade set's flyer from ArcadeItalia's public MAME database, asked by the set's own name."""
+    name = rom.stem.casefold()
+    if not MAME_SET.fullmatch(name):
+        return None
+    params = {'ajax': 'query_mame', 'game_name': name, 'use_parent': 1}
+    response = _json('arcadeitalia', 'https://adb.arcadeitalia.net/service_scraper.php?' + urllib.parse.urlencode(params))
+    rows = response.get('result', []) if isinstance(response, dict) else []
+    game = next((row for row in rows if isinstance(row, dict) and str(row.get('game_name', '')).casefold() == name), None)
+    if not game or not game.get('url_image_flyer'):
+        return None
+    url = _media_url(game['url_image_flyer'], ('adb.arcadeitalia.net',))
+    page = _media_url(game.get('url') or f'https://adb.arcadeitalia.net/?mame={name}', ('adb.arcadeitalia.net',))
+    return RemoteCover('arcadeitalia', request(url, 8 * 1024 * 1024), page, 'front', url)
+
+
 def fetch(provider, account, rom: Path, title: str, system: str, *, prefer3d=False, normalize):
-    if system not in SS_SYSTEMS or not configured(provider, account):
+    if not available(provider, system) or not configured(provider, account):
         return None
     credential_id = hashlib.sha256(json.dumps(account, sort_keys=True).encode()).hexdigest()
     key = provider, credential_id
@@ -309,6 +343,8 @@ def fetch(provider, account, rom: Path, title: str, system: str, *, prefer3d=Fal
                 return _screenscraper(account, rom, title, system, prefer3d, normalize)
             if provider == 'thegamesdb':
                 return _thegamesdb(account, rom, title, system, normalize)
+            if provider == 'arcadeitalia':
+                return _arcadeitalia(rom, title, system)
             return _igdb(account, rom, title, system, normalize)
         except CoverServiceError as error:
             if error.temporary:

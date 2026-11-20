@@ -75,7 +75,7 @@ class MasterSystemProfile(SystemProfile):
                                                      pc_below=0xbf01)),))
     report_shape = ReportShape("core", "strict_checks")
     catalogues = Catalogues(libretro="libretro-thumbnails/Sega_-_Master_System_-_Mark_III", screenscraper=2,
-                            thegamesdb=35, wikidata=("Q209868",), cover_references=True)
+                            thegamesdb=35, igdb="sms", wikidata=("Q209868",), cover_references=True)
     # The library of the Master System predates the per-console folders.
     library_layout = LibraryLayout(folder="", summary_glob="*/compilation.json", companion="observations.log")
     input_layout = InputLayout(("a", "b"), (), None, 240, start=False, script_format="sega")

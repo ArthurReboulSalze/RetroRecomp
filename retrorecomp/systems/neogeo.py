@@ -53,8 +53,8 @@ class NeoGeoProfile(SystemProfile):
                 ('z80', 'ng-sound', dict(roles=('m1', 'sm1'), caps={'insn_masked': 32768},
                                          windows=((0xf800, 0x10000),), length=(4, 4), guard='mask'))))
     report_shape = ReportShape('neogeo_conversion', 'prepared_cartridge')
-    catalogues = Catalogues(libretro='libretro-thumbnails/SNK_-_Neo_Geo',
-                            wikidata=('Q1054350', 'Q3338058', 'Q64428080'), cover_references=True,
+    catalogues = Catalogues(libretro='libretro-thumbnails/SNK_-_Neo_Geo', screenscraper=142, thegamesdb=24,
+                            igdb='neogeomvs', arcadeitalia=True, wikidata=('Q1054350', 'Q3338058', 'Q64428080'), cover_references=True,
                             local_catalogue='assets/neogeo-catalogue.json')
     library_layout = LibraryLayout(folder='ng', summary_glob='*/compilation.json')
     input_layout = InputLayout(('a', 'b', 'c', 'd'), (), None, 2400, script_format='neogeo',

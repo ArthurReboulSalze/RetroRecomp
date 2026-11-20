@@ -57,7 +57,10 @@ replace an older icon. Explicitly selected images retain priority.
    edition name, reusing its cached download whenever available.
 3. Previously validated online covers in the converter's `datas/BoxArt/<console>`,
    matching the console, ROM identity and requested style.
-4. Configured services: ScreenScraper, TheGamesDB, then IGDB.
+4. Configured services: ScreenScraper, TheGamesDB, then IGDB; for the arcade
+   boards (CPS-1, CPS-1.5, CPS-2, Neo Geo), ArcadeItalia's public MAME database
+   after them. Each machine's platform on each service comes from its profile
+   (`catalogues`), checked against the service's own platform list.
 5. The public Libretro `Named_Boxarts` library on GitHub, with the
    [Libretro thumbnail server](https://docs.libretro.com/guides/roms-playlists-thumbnails/#thumbnails)
    as an alternative host for both images and catalogue lookup.
@@ -167,9 +170,9 @@ sources and does not prevent conversion. This mechanism is shared by all console
 | Source | Access needed | Artwork used |
 | --- | --- | --- |
 | [ScreenScraper](https://www.screenscraper.fr/webapi2.php) | Developer ID and developer password; optional user name/password | Front covers by default; optional real 3D boxes with a front fallback; region preference follows the ROM name |
-| [TheGamesDB](https://api.thegamesdb.net/) | TheGamesDB API key | Front box art for the matching console and an unambiguous title |
-| [IGDB](https://api-docs.igdb.com/#account-creation) | Twitch application Client ID and Client Secret | Platform-filtered front covers |
-| [ArcadeItalia](https://adb.arcadeitalia.net/service_scraper.php) | Its documented MAME API is public; no key is required | Reference only for now: the current console profiles are outside this API's scope |
+| [TheGamesDB](https://api.thegamesdb.net/key.php) | TheGamesDB API key, shown on that page once signed in on thegamesdb.net; the site's login is never entered in the converter | Front box art for the matching console and an unambiguous title |
+| [IGDB](https://api-docs.igdb.com/#account-creation) | Client ID and Client Secret of an application registered on the [Twitch developer console](https://dev.twitch.tv/console); no login or password | Platform-filtered front covers |
+| [ArcadeItalia](https://adb.arcadeitalia.net/service_scraper.php) | Nothing: its MAME API is public | The flyer of an arcade board's MAME set (CPS-1, CPS-1.5, CPS-2, Neo Geo), asked by the set's own name |
 | [Libretro](https://github.com/libretro-thumbnails/libretro-thumbnails) | None | Console-specific front box art; title screen or game image as last resort; GitHub and public thumbnail server |
 
 Ordinary website accounts alone do not supply the developer access needed by
@@ -179,9 +182,19 @@ service; IGDB uses a registered Twitch application, not an IGDB user password.
 RetroRecomp does not bundle shared credentials or borrow credentials from other
 scraper applications.
 
-ArcadeItalia is shown in the same options selector with its documentation and
-scope. It is deliberately not queried for Master System, Game Gear, Game Boy or
-NES: an arcade game with the same name is not the console edition's box art.
+ArcadeItalia is asked only for the arcade boards' MAME sets, by the set's own
+name (`mslug`, `sf2`), at most one request a second. It is never queried for a
+console game: an arcade game with the same name is not the console edition's box
+art.
+
+Every machine's profile names its platform on each service (ScreenScraper and
+TheGamesDB numbers, IGDB slug), or « none » when the service has no such
+platform (ScummVM on TheGamesDB and IGDB); a test refuses a machine left
+unreviewed. The numbers were checked on 20 November 2026 against ScreenScraper's
+platform menu and TheGamesDB's platform list; IGDB's slugs against Wikidata's
+record of them (IGDB's own pages refuse automated reads), and the converter asks
+IGDB for the slug's exact platform before any search, so a wrong slug finds
+nothing rather than another machine's cover.
 
 Requests to each authenticated provider are serialized across concurrent game
 conversions. API calls are spaced apart, and authentication/quota refusals cause
@@ -189,8 +202,12 @@ a temporary backoff. IGDB application tokens stay in memory. Provider failures
 fall through to the next usable source.
 
 The Libretro catalogue uses the GitHub tree API rather than a directory listing
-limited to 1,000 files. A complete, filtered catalogue is cached for seven days;
-truncated responses are rejected. Each console uses its own repository and cache.
+limited to 1,000 files: the repository's root, then the category's own folder (a
+recursive tree of a large repository, the PlayStation's, is refused). A complete,
+filtered catalogue is cached for seven days; truncated responses are rejected.
+Each console uses its own repository and cache. An Amiga install's WHDLoad
+archive name (`ChaosEngine_v1.2_AGA_1324`) is also tried as a title (`Chaos
+Engine`), beside the slave's own name.
 
 ## Front covers and optional three-quarter boxes
 

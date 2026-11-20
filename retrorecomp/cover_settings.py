@@ -151,6 +151,7 @@ def _save_record(record: dict, directory: Path) -> None:
 
 
 def configured(provider: str, account: dict) -> bool:
+    # ArcadeItalia's public API needs nothing: it is always ready.
     required = {'screenscraper': ('devid', 'devpassword'),
-                'thegamesdb': ('apikey',), 'igdb': ('client_id', 'client_secret')}
+                'thegamesdb': ('apikey',), 'igdb': ('client_id', 'client_secret'), 'arcadeitalia': ()}
     return all(account.get(key) for key in required.get(provider, ())) and provider in required

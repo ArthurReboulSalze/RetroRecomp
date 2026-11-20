@@ -387,12 +387,27 @@ class CoverSourceTests(unittest.TestCase):
             self.assertEqual(bounds[3] - bounds[1], 256)
 
     def test_complete_libretro_catalog_keeps_entries_after_1000_and_rejects_truncated_tree(self):
-        rows = [{'type': 'blob', 'path': f'Named_Boxarts/Game {n}.png'} for n in range(1100)]
-        rows += [{'type': 'blob', 'path': 'Named_Snaps/Game.png'}]
-        with patch('retrorecomp.artwork._get', return_value=json.dumps({'truncated': False, 'tree': rows}).encode()):
+        rows = [{'type': 'blob', 'path': f'Game {n}.png'} for n in range(1100)]
+        root = {'tree': [{'type': 'tree', 'path': 'Named_Boxarts', 'sha': 'a' * 40},
+                         {'type': 'tree', 'path': 'Named_Snaps', 'sha': 'b' * 40}]}
+
+        def answer(truncated):
+            def get(url, maximum):
+                if url.endswith('/git/trees/master'):
+                    return json.dumps(root).encode()
+                if '/git/trees/' in url:
+                    return json.dumps({'truncated': truncated, 'tree': rows}).encode()
+                raise OSError('no public index in this test')
+            return get
+        with patch('retrorecomp.artwork._get', side_effect=answer(False)):
             catalog = _catalog(self.art, 'gb')
         self.assertEqual(len(catalog), 1100)
         self.assertIn('Game 1099.png', catalog)
+        # a truncated folder listing is refused: the public server's index is read instead (unavailable here)
+        (self.art / 'Downloaded' / 'libretro-catalog.json').unlink()
+        with patch('retrorecomp.artwork._get', side_effect=answer(True)):
+            with self.assertRaises(OSError):
+                _catalog(self.art, 'gb')
 
     def test_public_metadata_drops_authenticated_links(self):
         for query in ('apikey=test', 'devpassword=test', 'sspassword=test', 'access_token=test'):
@@ -406,6 +421,38 @@ class CoverSourceTests(unittest.TestCase):
             with self.assertRaises(ArtworkError):
                 _atomic(network, png())
 
+
+
+class ArcadeAndAmigaNames(unittest.TestCase):
+    """ArcadeItalia for the arcade sets, never for consoles; WHDLoad archive names as titles (Arthur, 20 Nov 2026)."""
+
+    def test_an_arcade_set_gets_its_flyer_from_arcadeitalia_by_its_own_name(self):
+        answer = {'result': [{'game_name': 'mslug', 'url': 'https://adb.arcadeitalia.net/?mame=mslug',
+                              'url_image_flyer': 'https://adb.arcadeitalia.net/?mame=mslug&type=flyer&resize=0'}]}
+        with patch('retrorecomp.cover_sources._json', return_value=answer) as query,                 patch('retrorecomp.cover_sources.request', return_value=png()) as image:
+            cover = api.fetch('arcadeitalia', {}, Path('mslug.zip'), 'Metal Slug', 'ng', normalize=normalized)
+        self.assertEqual((cover.provider, cover.style), ('arcadeitalia', 'front'))
+        self.assertIn('game_name=mslug', query.call_args.args[1])
+        self.assertEqual(image.call_args.args[0], 'https://adb.arcadeitalia.net/?mame=mslug&type=flyer&resize=0')
+
+    def test_arcadeitalia_is_never_asked_for_a_console_or_a_name_that_is_no_mame_set(self):
+        with patch('retrorecomp.cover_sources._json', side_effect=AssertionError('not asked')):
+            self.assertIsNone(api.fetch('arcadeitalia', {}, Path('Sonic.md'), 'Sonic', 'md', normalize=normalized))
+            self.assertIsNone(api.fetch('arcadeitalia', {}, Path('Metal Slug (Japan).zip'), 'Metal Slug', 'ng', normalize=normalized))
+        self.assertFalse(api.available('arcadeitalia', 'md'))
+        self.assertTrue(all(api.available('arcadeitalia', system) for system in ('cps1', 'cps2', 'ng')))
+
+    def test_a_machine_without_a_screenscraper_number_still_asks_the_other_services(self):
+        # until 20 Nov 2026 every service was skipped for a machine ScreenScraper had no number for (fetch's first test)
+        self.assertTrue(api.available('thegamesdb', 'x68') and api.available('igdb', 'pce'))
+        self.assertFalse(api.available('thegamesdb', 'scummvm') or api.available('igdb', 'scummvm'))
+
+    def test_whdload_archive_names_become_titles(self):
+        from retrorecomp.amiga import archive_title
+        for stem, title in (('ChaosEngine_v1.2_AGA_1324', 'Chaos Engine'), ('Zool2_v1.0_AGA_0415', 'Zool 2'),
+                            ('AlienBreed3D_v1.0_AGA_Fixed_0624', 'Alien Breed 3D'), ('Banshee_v3.2_AGA_0633', 'Banshee'),
+                            ('1869 (AGA)', ''), ('Lotus2', '')):
+            self.assertEqual(archive_title(stem), title, stem)
 
 if __name__ == '__main__':
     unittest.main()

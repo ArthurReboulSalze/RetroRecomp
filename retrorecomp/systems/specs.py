@@ -50,11 +50,17 @@ class ReportShape:
 
 @dataclass(frozen=True)
 class Catalogues:
-    """The public catalogues and local tables that name the machine's games."""
-    # libretro-thumbnails repository of box art; ScreenScraper and TheGamesDB platform numbers.
+    """The public catalogues and local tables that name the machine's games.
+
+    The cover services' platforms (ScreenScraper and TheGamesDB numbers, IGDB slug) are each checked against the service's
+    own platform list: None is « not reviewed », 0 or '' is « reviewed, the service has no such platform »."""
+    # libretro-thumbnails repository of box art; ScreenScraper and TheGamesDB platform numbers; IGDB platform slug.
     libretro: str | None = None
     screenscraper: int | None = None
     thegamesdb: int | None = None
+    igdb: str | None = None
+    # ArcadeItalia's public MAME database knows the machine's sets by their MAME names (the arcade boards only).
+    arcadeitalia: bool = False
     # Wikidata items of the platform (game information searches).
     wikidata: tuple[str, ...] = ()
     # The machine takes part in the reviewed cover references (assets/cover-references.json).

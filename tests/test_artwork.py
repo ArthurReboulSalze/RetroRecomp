@@ -54,8 +54,13 @@ class ArtworkTests(unittest.TestCase):
     def test_a_machine_without_libretro_catalogue_converts_without_a_cover(self):
         # A machine that names no libretro-thumbnails repository (the CPS-1 did until 1.7.0): an online lookup must leave the icon
         # missing, never stop the conversion on a missing key (1.6.4 pre-release: every CPS-1 reconversion with online covers failed).
+        # ArcadeItalia (no key, asked for the arcade sets) is out of this case: no network in the suite.
+        from retrorecomp import cover_sources
         without = {name: repository for name, repository in REPOSITORIES.items() if name != 'cps1'}
-        with patch.dict(REPOSITORIES, without, clear=True),                 patch("retrorecomp.artwork._get", side_effect=AssertionError("no libretro request for this machine")):
+        with patch.dict(REPOSITORIES, without, clear=True), \
+                patch.dict(cover_sources.SERVICE_SYSTEMS, {'arcadeitalia': frozenset()}), \
+                patch('retrorecomp.cover_sources.request', side_effect=AssertionError('no service request in the suite')), \
+                patch("retrorecomp.artwork._get", side_effect=AssertionError("no libretro request for this machine")):
             report = prepare_icon(self.game, self.root / "1941.zip", "1941: Counter Attack", self.art,
                                   system_id='cps1', settings=defaults())
         self.assertFalse(report["embedded"])
@@ -287,15 +292,19 @@ class ArtworkTests(unittest.TestCase):
     def test_catalog_fallback_keeps_exact_title(self):
         missing = urllib.error.HTTPError("url", 404, "Not Found", {}, None)
         catalog = json.dumps({'truncated': False, 'tree': [
-            {"type": "blob", "path": "Named_Boxarts/Game (World).png"},
-            {"type": "blob", "path": "Named_Boxarts/Game II (World).png"},
-            {"type": "blob", "path": "Named_Boxarts/../escape.png"}]}).encode()
-        with patch("retrorecomp.artwork._get", side_effect=[missing, missing, catalog, png()]) as request:
+            {"type": "blob", "path": "Game (World).png"},
+            {"type": "blob", "path": "Game II (World).png"},
+            {"type": "blob", "path": "../escape.png"}]}).encode()
+        root = json.dumps({'tree': [{'type': 'tree', 'path': 'Named_Boxarts', 'sha': 'a' * 40},
+                                    {'type': 'tree', 'path': 'Named_Snaps', 'sha': 'b' * 40}]}).encode()
+        with patch("retrorecomp.artwork._get", side_effect=[missing, missing, root, catalog, png()]) as request:
             report = prepare_icon(self.game, self.rom, "Game", self.art)
         self.assertTrue(report["embedded"])
         self.assertEqual(Path(report["image"]).name, "Game (World).png")
-        self.assertEqual(request.call_count, 4)
-        self.assertIn('git/trees/master?recursive=1', request.call_args_list[2].args[0])
+        self.assertEqual(request.call_count, 5)
+        # the category's own folder, from the root's listing: no recursive tree (a large repository refuses it)
+        self.assertTrue(request.call_args_list[2].args[0].endswith('/git/trees/master'))
+        self.assertTrue(request.call_args_list[3].args[0].endswith('/git/trees/' + 'a' * 40))
 
     def test_public_server_recovers_a_github_network_failure(self):
         with patch('retrorecomp.artwork._get', side_effect=[urllib.error.URLError('blocked'), png()]) as client:

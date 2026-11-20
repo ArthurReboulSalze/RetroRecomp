@@ -49,7 +49,7 @@ class MegaDriveProfile(SystemProfile):
                                                           length=(4, 4), guard='derived'))))
     report_shape = ReportShape('console16', 'native_percentage')
     catalogues = Catalogues(libretro='libretro-thumbnails/Sega_-_Mega_Drive_-_Genesis', screenscraper=1,
-                            thegamesdb=18, wikidata=('Q10676',), cover_references=True)
+                            thegamesdb=18, igdb='genesis-slash-megadrive', wikidata=('Q10676',), cover_references=True)
     library_layout = LibraryLayout(folder='md', summary_glob='*/native-entries.json')
     input_layout = InputLayout(('a', 'b', 'c'), ('x', 'y', 'z'), None, 240, script_format='console16')
     shared_knowledge = SharedKnowledge('stable', site_builder=True)
@@ -122,7 +122,7 @@ class SnesProfile(SystemProfile):
                                                          budget=262144))))
     report_shape = ReportShape('console16', 'native_percentage')
     catalogues = Catalogues(libretro='libretro-thumbnails/Nintendo_-_Super_Nintendo_Entertainment_System',
-                            screenscraper=4, thegamesdb=6, wikidata=('Q183259',), cover_references=True)
+                            screenscraper=4, thegamesdb=6, igdb='snes', wikidata=('Q183259',), cover_references=True)
     library_layout = LibraryLayout(folder='snes', summary_glob='*/native-ram.json')
     input_layout = InputLayout(('a', 'b', 'x', 'y'), ('l', 'r'), 'select', 240, script_format='console16')
     shared_knowledge = SharedKnowledge('stable', site_builder=True)

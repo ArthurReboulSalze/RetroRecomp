@@ -71,7 +71,8 @@ class AtariStProfile(SystemProfile):
     observed_code = ObservedCode('atarist_codegen:hatari_bodies', 'rr_st_', 'RrStStep', APERTURES,
                                  source_extension='.c', steps_head='#include "step_semantics.h"\n', index_extension='.c')
     report_shape = ReportShape('atarist_conversion', 'floppy')
-    catalogues = Catalogues(libretro='libretro-thumbnails/Atari_-_ST')
+    catalogues = Catalogues(libretro='libretro-thumbnails/Atari_-_ST', screenscraper=42, thegamesdb=4937,
+                            igdb='atari-st')
     library_layout = LibraryLayout(folder='atarist', summary_glob='*/compilation.json')
     # A .zip is the ST's only when every member is a ST floppy image (before the arcade sets, which never hold one).
     identify = Identify(path_order=35)

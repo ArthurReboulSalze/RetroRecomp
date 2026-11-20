@@ -66,7 +66,8 @@ class PlayStationProfile(SystemProfile):
     report_shape = ReportShape('psx_conversion', 'disc')
     # The observations of a game live under the library's psx folder; no record the memory window summarises yet.
     library_layout = LibraryLayout(folder='psx')
-    catalogues = Catalogues(libretro='libretro-thumbnails/Sony_-_PlayStation')
+    catalogues = Catalogues(libretro='libretro-thumbnails/Sony_-_PlayStation', screenscraper=57, thegamesdb=10,
+                            igdb='ps')
     # A disc is recognised by what it holds (an ISO 9660 volume of system "PLAYSTATION" and its boot executable), never by its
     # extension alone: .bin, .img and .iso are shared with other machines.
     identify = Identify(path_order=60)
