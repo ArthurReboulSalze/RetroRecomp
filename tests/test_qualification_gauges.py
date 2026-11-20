@@ -133,7 +133,7 @@ class ReadmeTests(unittest.TestCase):
     def test_the_multiplayer_column_comes_from_the_profiles(self):
         # Arthur, 20 Nov 2026: the README says per machine whether multiplayer is supported, and in rollback or delay.
         block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
-        self.assertIn('| Console | Status | Qualification | Multiplayer |', block)
+        self.assertIn('| Console | Status | Qualification | Multiplayer | CPU per frame |', block)
         facts = qg.multiplayer_facts()
         for profile in ALL_PROFILES:
             cell = facts[profile.id]
@@ -145,6 +145,27 @@ class ReadmeTests(unittest.TestCase):
             self.assertEqual('link cable' in cell, bool(profile.netplay_link_seats))
         self.assertIn('delay', facts['psx'])
         self.assertIn('rollback', facts['md'])
+
+    def test_the_cpu_per_frame_column_comes_from_the_performance_page(self):
+        # Arthur, 20 Nov 2026: a CPU time per frame per machine, read from docs/PERFORMANCE.md, never called a latency.
+        block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
+        facts = qg.performance_facts()
+        ids = {profile.id for profile in ALL_PROFILES}
+        self.assertTrue(facts)
+        self.assertLessEqual(set(facts), ids)
+        rows = [line for line in block.splitlines() if line.startswith('| [') or line.startswith('| **[')]
+        for profile in ALL_PROFILES:
+            row = next(line for line in rows if f'[{profile.name}](docs/' in line)
+            cell = row.rstrip(' |').rsplit(' | ', 1)[1]
+            self.assertEqual(cell, facts.get(profile.id, 'not measured'), profile.id)
+        for cell in facts.values():
+            self.assertRegex(cell, r'^\[\d+\.\d\d ms \(\d+\.\d+\.\d+\)\]\(docs/PERFORMANCE\.md#the-figures\)$')
+        self.assertIn(qg.PERFORMANCE_NOTE, block)
+        self.assertIn('not latency', qg.PERFORMANCE_NOTE)
+        self.assertIn('16.7 ms', qg.PERFORMANCE_NOTE)
+        page = qg.PERFORMANCE.read_text(encoding='utf-8')
+        self.assertIn('\n## The figures\n', page)
+        self.assertNotRegex(page.lower(), r'(?<!not )latency of|ms of latency|latency:')
 
     def test_every_console_of_the_matrix_has_a_page_that_exists(self):
         page = _page()

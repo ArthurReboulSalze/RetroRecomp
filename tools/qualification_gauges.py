@@ -14,7 +14,8 @@ the one source of truth; test_machine_registry reads it too. This tool writes, b
 * in README.md, between two markers of its own, the short form: one line per console with its bar, its percentage and its status,
   an asterisk on the machines that run on an emulator core with its explanation under the table, and a line without a bar for an
   emulated category, which is outside the matrix. Both blocks come from the same matrix and the same `--check`, so the README cannot
-  drift from it.
+  drift from it. Its « CPU per frame » column is read from the table of docs/PERFORMANCE.md (the host's CPU time per frame on one
+  reference PC, never a latency), « not measured » for a machine without a row.
 
     python tools/qualification_gauges.py --check    # exit 1 when the page differs from what the matrix says
     python tools/qualification_gauges.py --write    # rewrite the block between the markers
@@ -34,6 +35,12 @@ BEGIN = '<!-- qualification-gauges:begin (written by tools/qualification_gauges.
 END = '<!-- qualification-gauges:end -->'
 README_BEGIN = '<!-- qualification-gauges:begin (written by tools/qualification_gauges.py from docs/QUALIFICATION.md: edit the matrix there, not this block) -->'
 ANCHOR = 'docs/QUALIFICATION.md#progress-through-the-qualification-list'
+PERFORMANCE = REPO / 'docs' / 'PERFORMANCE.md'
+PERFORMANCE_ANCHOR = 'docs/PERFORMANCE.md#the-figures'
+PERFORMANCE_HEADER = '| Machine id | Machine | Game | Median ms per frame | Spread | Runs x frames | Version | Date |'
+PERFORMANCE_NOTE = (
+    '**CPU per frame**: the host\'s CPU time to compute one frame, alone, on the player\'s path, on one reference PC '
+    f'([PERFORMANCE.md]({PERFORMANCE_ANCHOR})); a 60 Hz frame lasts 16.7 ms. It is not latency or response time, and other PCs differ.')
 SYMBOLS = {'Y': '✅', 'P': '🟡', 'N': '❌', '?': '❔', '-': '➖'}
 MEANING = {'Y': 'met', 'P': 'partial', 'N': 'no', '?': 'unknown', '-': 'not applicable'}
 CELLS = 10
@@ -112,6 +119,23 @@ def multiplayer_facts() -> dict[str, str]:
     return out
 
 
+def performance_facts(text: str | None = None) -> dict[str, str]:
+    """{console id: the README's « CPU per frame » cell} from the table of docs/PERFORMANCE.md (Arthur, 20 Nov 2026): the median
+    and the version, linked to the page. A machine without a row is not in the dict (its cell reads « not measured »)."""
+    if text is None:
+        text = PERFORMANCE.read_text(encoding='utf-8')
+    lines = text.splitlines()
+    start = lines.index(PERFORMANCE_HEADER)
+    out = {}
+    for line in lines[start + 2:]:
+        if not line.startswith('| '):
+            break
+        cells = [cell.strip() for cell in line.strip().strip('|').split('|')]
+        console, median, version = cells[0], cells[3], cells[6].split()[0]
+        out[console] = f'[{median} ms ({version})]({PERFORMANCE_ANCHOR})'
+    return out
+
+
 def emulated_categories() -> list[tuple[str, str, str]]:
     """[(id, name, status)] of the profiles that are emulated outright, from the registry."""
     sys.path.insert(0, str(REPO))
@@ -177,7 +201,8 @@ def short(text: str) -> str:
     """The short form for the README: one line per console (linked to its page), its status and its bar, the emulated categories, then the notes."""
     pages = read_pages(text)
     multiplayer = multiplayer_facts()
-    lines = ['| Console | Status | Qualification | Multiplayer |', '| --- | --- | --- | --- |']
+    cpu = performance_facts()
+    lines = ['| Console | Status | Qualification | Multiplayer | CPU per frame |', '| --- | --- | --- | --- | --- |']
     # By name, the experimental machines after the supported ones (Arthur, 14 Nov 2026); the emulated categories come last.
     ordered = sorted(gauges(text), key=lambda row: (row['status'] == 'experimental', row['name'].casefold()))
     for row in ordered:
@@ -185,16 +210,18 @@ def short(text: str) -> str:
         filled = int(row['percent'] / 100 * README_CELLS + 0.5)
         bar = '█' * filled + '░' * (README_CELLS - filled)
         lines.append(f"| [{row['name']}](docs/{pages[row['id']]}){mark} | {row['status']} | `{bar}` {row['percent']} % "
-                     f"| {multiplayer.get(row['id'], 'not offered')} |")
+                     f"| {multiplayer.get(row['id'], 'not offered')} | {cpu.get(row['id'], 'not measured')} |")
     for console, name, status in emulated_categories():
         lines.append(f"| **[{name}](docs/{EMULATED_PAGES[console]})** | {status} | outside this list: emulated, 0 % native code "
-                     f"| {multiplayer.get(console, 'not offered')} |")
+                     f"| {multiplayer.get(console, 'not offered')} | {cpu.get(console, 'not measured')} |")
     lines += ['',
               EMULATOR_CORE_NOTE,
               '',
               '**Qualification**, approximate: the share of the gates that apply to a machine that are met (half a point for a',
               f'partial one), drawn from the matrix of [QUALIFICATION.md]({ANCHOR}). It is not a quality score, it mixes none of the five',
-              "measures, and it never decides a status: leaving the experimental status is the owner's own decision."]
+              "measures, and it never decides a status: leaving the experimental status is the owner's own decision.",
+              '',
+              PERFORMANCE_NOTE]
     return '\n'.join(lines)
 
 

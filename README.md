@@ -94,35 +94,37 @@ The full guide, with portable downloads, updates and uninstalling, is
 
 <!-- qualification-gauges:begin (written by tools/qualification_gauges.py from docs/QUALIFICATION.md: edit the matrix there, not this block) -->
 
-| Console | Status | Qualification | Multiplayer |
-| --- | --- | --- | --- |
-| [Atari ST](docs/ATARI_ST.md)\* | supported | `█████` 91 % | supported · rollback |
-| [Capcom CPS-1](docs/CPS1.md) | supported | `█████` 90 % | supported · rollback |
-| [Capcom CPS-2](docs/CPS2.md) | supported | `█████` 94 % | supported · rollback |
-| [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████` 91 % | supported · rollback |
-| [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `████░` 84 % | supported · rollback |
-| [Game Boy](docs/GAME_BOY.md) | supported | `█████` 97 % | supported · rollback · link cable |
-| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████` 91 % | supported · delay · link cable |
-| [Game Gear](docs/GAME_GEAR.md) | supported | `█████` 93 % | supported · rollback · link cable |
-| [Master System](docs/MASTER_SYSTEM.md) | supported | `█████` 97 % | supported · rollback |
-| [Mega Drive](docs/MEGADRIVE.md) | supported | `█████` 97 % | supported · rollback |
-| [MSX](docs/MSX.md) | supported | `█████` 93 % | supported · rollback |
-| [MSX2](docs/MSX.md) | supported | `█████` 90 % | supported · rollback |
-| [MSX2+](docs/MSX.md) | supported | `█████` 91 % | supported · rollback |
-| [Neo Geo](docs/NEOGEO.md) | supported | `█████` 94 % | supported · rollback |
-| [Nintendo 64](docs/NINTENDO_64.md)\* | supported | `█████` 90 % | supported · delay |
-| [Nintendo NES](docs/NES.md) | supported | `█████` 91 % | supported · rollback |
-| [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████` 94 % | supported · rollback |
-| [Sharp X68000](docs/X68000.md) | supported | `█████` 91 % | supported · rollback |
-| [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay |
-| [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback |
-| **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered |
+| Console | Status | Qualification | Multiplayer | CPU per frame |
+| --- | --- | --- | --- | --- |
+| [Atari ST](docs/ATARI_ST.md)\* | supported | `█████` 91 % | supported · rollback | not measured |
+| [Capcom CPS-1](docs/CPS1.md) | supported | `█████` 90 % | supported · rollback | not measured |
+| [Capcom CPS-2](docs/CPS2.md) | supported | `█████` 94 % | supported · rollback | not measured |
+| [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████` 91 % | supported · rollback | not measured |
+| [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `████░` 84 % | supported · rollback | not measured |
+| [Game Boy](docs/GAME_BOY.md) | supported | `█████` 97 % | supported · rollback · link cable | [0.76 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
+| [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████` 91 % | supported · delay · link cable | not measured |
+| [Game Gear](docs/GAME_GEAR.md) | supported | `█████` 93 % | supported · rollback · link cable | [0.70 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
+| [Master System](docs/MASTER_SYSTEM.md) | supported | `█████` 97 % | supported · rollback | [0.87 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
+| [Mega Drive](docs/MEGADRIVE.md) | supported | `█████` 97 % | supported · rollback | [1.99 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
+| [MSX](docs/MSX.md) | supported | `█████` 93 % | supported · rollback | not measured |
+| [MSX2](docs/MSX.md) | supported | `█████` 90 % | supported · rollback | not measured |
+| [MSX2+](docs/MSX.md) | supported | `█████` 91 % | supported · rollback | not measured |
+| [Neo Geo](docs/NEOGEO.md) | supported | `█████` 94 % | supported · rollback | not measured |
+| [Nintendo 64](docs/NINTENDO_64.md)\* | supported | `█████` 90 % | supported · delay | not measured |
+| [Nintendo NES](docs/NES.md) | supported | `█████` 91 % | supported · rollback | [3.01 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
+| [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████` 94 % | supported · rollback | not measured |
+| [Sharp X68000](docs/X68000.md) | supported | `█████` 91 % | supported · rollback | not measured |
+| [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | not measured |
+| [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | not measured |
+| **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the two Amigas are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
 
 **Qualification**, approximate: the share of the gates that apply to a machine that are met (half a point for a
 partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five
 measures, and it never decides a status: leaving the experimental status is the owner's own decision.
+
+**CPU per frame**: the host's CPU time to compute one frame, alone, on the player's path, on one reference PC ([PERFORMANCE.md](docs/PERFORMANCE.md#the-figures)); a 60 Hz frame lasts 16.7 ms. It is not latency or response time, and other PCs differ.
 
 <!-- qualification-gauges:end -->
 
