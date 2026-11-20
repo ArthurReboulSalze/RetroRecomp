@@ -540,6 +540,19 @@ changes the cost, never the output:
 Nothing to propose upstream before the first measure; if any of it is offered later, it is these four files against `6bb848e` (or the head then) with the digests
 below as the proof.
 
+## Nintendo 64: patches carried on Mupen64Plus-Next (1.9.0)
+
+The pinned core is prepared by anchored replacements (`n64_core.REPLACEMENTS`, applied when the core is adapted; an anchor
+not found exactly once refuses the pinned tree). Since 1.9.0 some are for speed only, the same results on every frame:
+
+| Patch | Measure | File of the machine | Anchors |
+|---|---|---|---|
+| `set_rounding` called `fesetround` before every FPU operation; with llvm-mingw that rewrites the x87 control word and MXCSR each time (about 13 % of a Super Mario 64 frame's main thread). On x86-64 with GCC or Clang it now reads both rounding fields first and returns when they already hold the guest's mode | Same evidence as main on three games (11,200 frames each); engine −13.3 %, loop −19.0 % (Super Mario 64, quiet PC) | `mupen64plus-core/src/device/r4300/fpu.h` | the head of `set_rounding` |
+
+To propose upstream (the maintainer posts, on Arthur's word): the rounding check, as a small pull request to
+`libretro/mupen64plus-libretro-nx`; it helps every build whose `fesetround` is costly. A bump of the pin re-checks the anchors
+before anything else.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

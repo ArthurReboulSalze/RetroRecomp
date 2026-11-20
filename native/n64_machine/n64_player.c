@@ -551,7 +551,10 @@ int main(int argc, char **argv) {
     if (events_path && !load_events(events_path)) { fail("Invalid input event file"); return 1; }
     game.rom = rom;
     game.rom_size = rom_size;
-    game.evidence = headless;
+    /* The per-frame evidence (the GPU waited for, then the picture, RDRAM and the CPU hashed) only for the outputs that read it:
+     * the trace, the digests, an RDRAM dump and a state reload. A run that asks for none of them (a frame-cost run, a capture)
+     * does what a player's game does each frame, which has no evidence. */
+    game.evidence = headless && (trace_path || digests_path || dump_rdram || reload_at);
     if (verbose) game.log = log_line;
 #ifdef RR_N64_WINDOWED
     {   /* A multiplayer session needs the same frames on every seat: ParaLLEl-RDP records on the emulation thread. */
