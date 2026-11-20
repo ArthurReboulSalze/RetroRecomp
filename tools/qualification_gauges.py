@@ -37,10 +37,8 @@ README_BEGIN = '<!-- qualification-gauges:begin (written by tools/qualification_
 ANCHOR = 'docs/QUALIFICATION.md#progress-through-the-qualification-list'
 PERFORMANCE = REPO / 'docs' / 'PERFORMANCE.md'
 PERFORMANCE_ANCHOR = 'docs/PERFORMANCE.md#the-figures'
-PERFORMANCE_HEADER = '| Machine id | Machine | Game | Median ms per frame | Spread | Runs x frames | Version | Date |'
-PERFORMANCE_NOTE = (
-    '**CPU per frame**: the host\'s CPU time to compute one frame, alone, on the player\'s path, on one reference PC '
-    f'([PERFORMANCE.md]({PERFORMANCE_ANCHOR})); a 60 Hz frame lasts 16.7 ms. It is not latency or response time, and other PCs differ.')
+PERFORMANCE_HEADER = '| Machine id | Machine | System | Game | Median ms per frame | Spread | Runs x frames | Version | Date |'
+PERFORMANCE_SYSTEMS = (('Windows', 'Win'), ('Linux', 'Linux'))
 SYMBOLS = {'Y': '✅', 'P': '🟡', 'N': '❌', '?': '❔', '-': '➖'}
 MEANING = {'Y': 'met', 'P': 'partial', 'N': 'no', '?': 'unknown', '-': 'not applicable'}
 CELLS = 10
@@ -119,21 +117,62 @@ def multiplayer_facts() -> dict[str, str]:
     return out
 
 
-def performance_facts(text: str | None = None) -> dict[str, str]:
-    """{console id: the README's « CPU per frame » cell} from the table of docs/PERFORMANCE.md (Arthur, 20 Nov 2026): the median
-    and the version, linked to the page. A machine without a row is not in the dict (its cell reads « not measured »)."""
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split()[0].split('.'))
+
+
+def performance_rows(text: str | None = None) -> list[dict]:
+    """The rows of the table of docs/PERFORMANCE.md: one per machine, system and version."""
     if text is None:
         text = PERFORMANCE.read_text(encoding='utf-8')
     lines = text.splitlines()
     start = lines.index(PERFORMANCE_HEADER)
-    out = {}
+    rows = []
     for line in lines[start + 2:]:
         if not line.startswith('| '):
             break
         cells = [cell.strip() for cell in line.strip().strip('|').split('|')]
-        console, median, version = cells[0], cells[3], cells[6].split()[0]
-        out[console] = f'[{median} ms ({version})]({PERFORMANCE_ANCHOR})'
-    return out
+        rows.append({'id': cells[0], 'system': cells[2], 'median': float(cells[4]), 'version': cells[7]})
+    return rows
+
+
+def _change(new: float, old: float) -> str:
+    percent = round((new - old) / old * 100)
+    return '±0 %' if percent == 0 else f"{'+' if percent > 0 else '−'}{abs(percent)} %"
+
+
+def performance_facts(text: str | None = None) -> tuple[dict[str, str], set[tuple[str, str]]]:
+    """({console id: the README's « CPU per frame » cell}, {(newest version, previous version) compared}) from the table of
+    docs/PERFORMANCE.md (Arthur, 20 Nov 2026): per system the newest median, and in parentheses its change against the
+    previous version measured for that machine on that system. A machine without a row is not in the dict (« not measured »)."""
+    rows = performance_rows(text)
+    cells, pairs = {}, set()
+    for console in dict.fromkeys(row['id'] for row in rows):
+        parts = []
+        for system, label in PERFORMANCE_SYSTEMS:
+            mine = sorted((row for row in rows if row['id'] == console and row['system'] == system),
+                          key=lambda row: _version_key(row['version']))
+            if not mine:
+                continue
+            part = f"{label} {mine[-1]['median']:.2f} ms"
+            if len(mine) > 1:
+                part += f" ({_change(mine[-1]['median'], mine[-2]['median'])})"
+                pairs.add((mine[-1]['version'].split()[0], mine[-2]['version'].split()[0]))
+            parts.append(part)
+        cells[console] = f"[{' · '.join(parts)}]({PERFORMANCE_ANCHOR})"
+    return cells, pairs
+
+
+def performance_note(pairs: set[tuple[str, str]]) -> str:
+    """The legend under the README's table (Arthur, 20 Nov 2026)."""
+    versions = ''
+    if len(pairs) == 1:
+        new, old = next(iter(pairs))
+        versions = f' ({new} against {old} here)'
+    return ("**CPU per frame**: the host's computing time for one frame of a game in solo on the reference PC "
+            f"([PERFORMANCE.md]({PERFORMANCE_ANCHOR})), not latency. « Win » is Windows 11, « Linux » is WSL2 on the same PC. In "
+            f"parentheses, the change from the previous version measured{versions}; a minus sign means faster. A 60 Hz frame lasts "
+            "16.7 ms, and other PCs differ.")
 
 
 def emulated_categories() -> list[tuple[str, str, str]]:
@@ -201,7 +240,7 @@ def short(text: str) -> str:
     """The short form for the README: one line per console (linked to its page), its status and its bar, the emulated categories, then the notes."""
     pages = read_pages(text)
     multiplayer = multiplayer_facts()
-    cpu = performance_facts()
+    cpu, compared = performance_facts()
     lines = ['| Console | Status | Qualification | Multiplayer | CPU per frame |', '| --- | --- | --- | --- | --- |']
     # By name, the experimental machines after the supported ones (Arthur, 14 Nov 2026); the emulated categories come last.
     ordered = sorted(gauges(text), key=lambda row: (row['status'] == 'experimental', row['name'].casefold()))
@@ -221,7 +260,7 @@ def short(text: str) -> str:
               f'partial one), drawn from the matrix of [QUALIFICATION.md]({ANCHOR}). It is not a quality score, it mixes none of the five',
               "measures, and it never decides a status: leaving the experimental status is the owner's own decision.",
               '',
-              PERFORMANCE_NOTE]
+              performance_note(compared)]
     return '\n'.join(lines)
 
 

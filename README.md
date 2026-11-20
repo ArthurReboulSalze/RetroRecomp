@@ -101,17 +101,17 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████` 94 % | supported · rollback | not measured |
 | [Commodore Amiga](docs/AMIGA.md)\* | supported | `█████` 91 % | supported · rollback | not measured |
 | [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `████░` 84 % | supported · rollback | not measured |
-| [Game Boy](docs/GAME_BOY.md) | supported | `█████` 97 % | supported · rollback · link cable | [0.76 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
+| [Game Boy](docs/GAME_BOY.md) | supported | `█████` 97 % | supported · rollback · link cable | [Win 0.76 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████` 91 % | supported · delay · link cable | not measured |
-| [Game Gear](docs/GAME_GEAR.md) | supported | `█████` 93 % | supported · rollback · link cable | [0.70 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
-| [Master System](docs/MASTER_SYSTEM.md) | supported | `█████` 97 % | supported · rollback | [0.87 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
-| [Mega Drive](docs/MEGADRIVE.md) | supported | `█████` 97 % | supported · rollback | [1.99 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
+| [Game Gear](docs/GAME_GEAR.md) | supported | `█████` 93 % | supported · rollback · link cable | [Win 0.70 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
+| [Master System](docs/MASTER_SYSTEM.md) | supported | `█████` 97 % | supported · rollback | [Win 0.87 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
+| [Mega Drive](docs/MEGADRIVE.md) | supported | `█████` 97 % | supported · rollback | [Win 1.99 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
 | [MSX](docs/MSX.md) | supported | `█████` 93 % | supported · rollback | not measured |
 | [MSX2](docs/MSX.md) | supported | `█████` 90 % | supported · rollback | not measured |
 | [MSX2+](docs/MSX.md) | supported | `█████` 91 % | supported · rollback | not measured |
 | [Neo Geo](docs/NEOGEO.md) | supported | `█████` 94 % | supported · rollback | not measured |
 | [Nintendo 64](docs/NINTENDO_64.md)\* | supported | `█████` 90 % | supported · delay | not measured |
-| [Nintendo NES](docs/NES.md) | supported | `█████` 91 % | supported · rollback | [3.01 ms (1.9.0)](docs/PERFORMANCE.md#the-figures) |
+| [Nintendo NES](docs/NES.md) | supported | `█████` 91 % | supported · rollback | [Win 3.01 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████` 94 % | supported · rollback | not measured |
 | [Sharp X68000](docs/X68000.md) | supported | `█████` 91 % | supported · rollback | not measured |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | not measured |
@@ -124,7 +124,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 partial one), drawn from the matrix of [QUALIFICATION.md](docs/QUALIFICATION.md#progress-through-the-qualification-list). It is not a quality score, it mixes none of the five
 measures, and it never decides a status: leaving the experimental status is the owner's own decision.
 
-**CPU per frame**: the host's CPU time to compute one frame, alone, on the player's path, on one reference PC ([PERFORMANCE.md](docs/PERFORMANCE.md#the-figures)); a 60 Hz frame lasts 16.7 ms. It is not latency or response time, and other PCs differ.
+**CPU per frame**: the host's computing time for one frame of a game in solo on the reference PC ([PERFORMANCE.md](docs/PERFORMANCE.md#the-figures)), not latency. « Win » is Windows 11, « Linux » is WSL2 on the same PC. In parentheses, the change from the previous version measured (1.9.0 against 1.8.0 here); a minus sign means faster. A 60 Hz frame lasts 16.7 ms, and other PCs differ.
 
 <!-- qualification-gauges:end -->
 

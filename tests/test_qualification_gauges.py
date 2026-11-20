@@ -147,9 +147,9 @@ class ReadmeTests(unittest.TestCase):
         self.assertIn('rollback', facts['md'])
 
     def test_the_cpu_per_frame_column_comes_from_the_performance_page(self):
-        # Arthur, 20 Nov 2026: a CPU time per frame per machine, read from docs/PERFORMANCE.md, never called a latency.
+        # Arthur, 20 Nov 2026: a CPU time per frame per machine and system, its change against the previous version, never a latency.
         block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)
-        facts = qg.performance_facts()
+        facts, pairs = qg.performance_facts()
         ids = {profile.id for profile in ALL_PROFILES}
         self.assertTrue(facts)
         self.assertLessEqual(set(facts), ids)
@@ -158,14 +158,26 @@ class ReadmeTests(unittest.TestCase):
             row = next(line for line in rows if f'[{profile.name}](docs/' in line)
             cell = row.rstrip(' |').rsplit(' | ', 1)[1]
             self.assertEqual(cell, facts.get(profile.id, 'not measured'), profile.id)
+        part = r'(Win|Linux) \d+\.\d\d ms( \(((\+|−)\d+|±0) %\))?'
         for cell in facts.values():
-            self.assertRegex(cell, r'^\[\d+\.\d\d ms \(\d+\.\d+\.\d+\)\]\(docs/PERFORMANCE\.md#the-figures\)$')
-        self.assertIn(qg.PERFORMANCE_NOTE, block)
-        self.assertIn('not latency', qg.PERFORMANCE_NOTE)
-        self.assertIn('16.7 ms', qg.PERFORMANCE_NOTE)
-        page = qg.PERFORMANCE.read_text(encoding='utf-8')
-        self.assertIn('\n## The figures\n', page)
-        self.assertNotRegex(page.lower(), r'(?<!not )latency of|ms of latency|latency:')
+            self.assertRegex(cell, rf'^\[{part}( · {part})?\]\(docs/PERFORMANCE\.md#the-figures\)$')
+        self.assertIn(qg.performance_note(pairs), block)
+        self.assertIn('not latency', qg.performance_note(pairs))
+        self.assertIn('minus sign means faster', qg.performance_note(pairs))
+        self.assertNotIn('response time', block)
+
+    def test_the_change_is_against_the_previous_version_of_the_same_machine_and_system(self):
+        page = '\n'.join([qg.PERFORMANCE_HEADER, '|' + '---|' * 9,
+                          '| md | Mega Drive | Windows | Sonic 2 | 2.0000 | 1 % | 3 x 240 | 1.8.0 | 2026-11-20 |',
+                          '| md | Mega Drive | Windows | Sonic 2 | 2.2000 | 1 % | 3 x 240 | 1.10.0 | 2026-12-01 |',
+                          '| md | Mega Drive | Windows | Sonic 2 | 1.8000 | 1 % | 3 x 240 | 1.9.0 (main abc) | 2026-11-20 |',
+                          '| md | Mega Drive | Linux | Sonic 2 | 2.0500 | 1 % | 3 x 240 | 1.9.0 | 2026-11-20 |',
+                          '| sms | Master System | Windows | Sonic | 0.8600 | 1 % | 3 x 240 | 1.9.0 | 2026-11-20 |', ''])
+        facts, pairs = qg.performance_facts(page)
+        self.assertEqual(facts['md'], '[Win 2.20 ms (+22 %) · Linux 2.05 ms](docs/PERFORMANCE.md#the-figures)')
+        self.assertEqual(facts['sms'], '[Win 0.86 ms](docs/PERFORMANCE.md#the-figures)')
+        self.assertEqual(pairs, {('1.10.0', '1.9.0')})
+        self.assertIn('1.10.0 against 1.9.0', qg.performance_note(pairs))
 
     def test_every_console_of_the_matrix_has_a_page_that_exists(self):
         page = _page()
