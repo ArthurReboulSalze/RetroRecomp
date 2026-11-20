@@ -123,6 +123,12 @@ class InTheList(unittest.TestCase):
             self.skipTest('no display')
         self.root.withdraw()
         self.addCleanup(self.root.destroy)
+        # The window's quiet refresh of the collection (1.5 s after it opens, and on focus) restamps every row with the
+        # real shipped table and the running stamps, which clears this test's made-up compatible version: on a loaded
+        # PC the test outlasts 1.5 s and failed once in a full suite (20 Nov 2026). The rows here are set by hand.
+        quiet = patch.object(Application, 'quiet_refresh_collection')
+        quiet.start()
+        self.addCleanup(quiet.stop)
         with patch_gui('load_preferences', return_value={'language': 'fr'}), \
                 patch_gui('preferred_games_root', return_value=(folder / 'exports', False)):
             self.app = Application(self.root)
