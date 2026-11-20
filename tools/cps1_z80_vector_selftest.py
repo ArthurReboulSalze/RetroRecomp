@@ -47,6 +47,29 @@ BASELINE = {'corpus_revision': 'ebe1875d48f374bcfd4b505d8eb8ee751568b5f7', 'samp
             'families': {'37': 4, '3f': 7, 'dd 37': 12, 'dd 3f': 17, 'fd 37': 11, 'fd 3f': 17}}
 
 
+EDGE_PCS = (0x7ffc, 0x7ffd, 0xbffc, 0xbffd)
+# (name, code, clocks, refreshes, registers after the instruction): authored with the Zilog manual, not from the corpus.
+EDGE_CODE = (('edge a,n', (0x3e, 0x5a), 7, 1, {'a': 0x5a}, 2),
+             ('edge bc,nn', (0x01, 0x34, 0x12), 10, 1, {'b': 0x12, 'c': 0x34}, 3),
+             ('edge ix,nn', (0xdd, 0x21, 0x78, 0x56), 14, 2, {'ix': 0x5678}, 4))
+AUTHORED = len(EDGE_PCS) * len(EDGE_CODE)
+
+
+def authored_cases() -> list[dict]:
+    """Instructions of 2, 3 and 4 bytes that start just before the edge of a ROM window (fixed 0000-7fff, banked 8000-bfff): the dispatcher
+    reads their live bytes again there, and the result must be the same as anywhere else."""
+    cases = []
+    for pc in EDGE_PCS:
+        for name, code, clocks, refreshes, changed, size in EDGE_CODE:
+            initial = {field: 0 for field in FIELDS}
+            initial['pc'] = pc
+            final = dict(initial, pc=(pc + size) & 0xffff, r=refreshes)
+            final.update(changed)
+            ram = [[(pc + n) & 0xffff, byte] for n, byte in enumerate(code)]
+            cases.append({'family': name, 'cycles': [None] * clocks, 'initial': dict(initial, ram=ram), 'final': dict(final, ram=ram)})
+    return cases
+
+
 def window(case: dict) -> bytes:
     memory = dict(case['initial']['ram'])
     return bytes(memory.get((case['initial']['pc'] + n) & 0xffff, 0xA5) for n in range(4))
@@ -100,7 +123,7 @@ def replay(samples: int = 32, project: Path | None = None) -> dict:
     project.mkdir(parents=True, exist_ok=True)
     source = fetch(samples)
     corpus = json.loads(source.read_text(encoding='utf-8'))
-    cases = corpus['cases']
+    cases = corpus['cases'] + authored_cases()
     image, ram, slots, forms = prepare(cases)
     cps1_build._engine(project, native=True)
     geolith, _ = cps1_build.sources()
@@ -149,10 +172,11 @@ def problems(result: dict) -> list[str]:
     totals = result['totals']
     if totals['paths_equal'] != cases or totals['paths_clock_equal'] != cases:
         found.append(f"the native and interpreted paths differ on {cases - totals['paths_equal']} vector(s) of state and {cases - totals['paths_clock_equal']} of clock")
-    if (result['corpus_revision'], result['samples_per_family'], cases) == (BASELINE['corpus_revision'], BASELINE['samples_per_family'],
-                                                                         BASELINE['cases']):
+    if (result['corpus_revision'], result['samples_per_family'], cases - AUTHORED) == (BASELINE['corpus_revision'], BASELINE['samples_per_family'],
+                                                                                    BASELINE['cases']):
         differing = {f['family']: f['cases'] - f['native_state'] for f in result['families'] if f['native_state'] != f['cases']}
-        if (totals['native_state'] != BASELINE['native_state'] or totals['native_clock'] != BASELINE['native_clock']
+        # the authored edge cases are not in the baseline: every one of them must agree with its expected state and clock
+        if (totals['native_state'] != BASELINE['native_state'] + AUTHORED or totals['native_clock'] != BASELINE['native_clock'] + AUTHORED
                 or result['field_failures']['native'] != BASELINE['field_failures'] or differing != BASELINE['families']):
             found.append('the differences with the vectors changed from the pinned baseline '
                          f"(state {totals['native_state']}, clock {totals['native_clock']}, fields {result['field_failures']['native']}); "

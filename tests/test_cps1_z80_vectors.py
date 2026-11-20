@@ -69,10 +69,11 @@ class ProblemTests(unittest.TestCase):
     def test_the_pinned_baseline_is_enforced_only_for_its_corpus(self):
         pinned = selftest.BASELINE
         result = copy.deepcopy(self.GOOD)
-        result.update(corpus_revision=pinned['corpus_revision'], samples_per_family=pinned['samples_per_family'], cases=pinned['cases'],
+        result.update(corpus_revision=pinned['corpus_revision'], samples_per_family=pinned['samples_per_family'], cases=pinned['cases'] + selftest.AUTHORED,
                       rom_mapped=0, ram_mapped=0, outside_code_map=0, native_as_expected=0, interpreted_and_counted_as_expected=0)
-        result['totals'] = {'paths_equal': pinned['cases'], 'paths_clock_equal': pinned['cases'],
-                            'native_state': pinned['native_state'], 'native_clock': pinned['native_clock']}
+        # the authored window-edge vectors come after the corpus and all agree: they are added to the pinned totals
+        result['totals'] = {'paths_equal': pinned['cases'] + selftest.AUTHORED, 'paths_clock_equal': pinned['cases'] + selftest.AUTHORED,
+                            'native_state': pinned['native_state'] + selftest.AUTHORED, 'native_clock': pinned['native_clock'] + selftest.AUTHORED}
         result['field_failures'] = {'native': dict(pinned['field_failures']), 'reference': dict(pinned['field_failures'])}
         result['families'] = [{'family': name, 'cases': 32, 'native_state': 32 - count} for name, count in pinned['families'].items()]
         self.assertEqual(selftest.problems(result), [])
