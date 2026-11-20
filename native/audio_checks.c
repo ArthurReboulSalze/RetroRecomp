@@ -186,6 +186,30 @@ static size_t fir_ab(const int16_t *input, size_t count, uint32_t source_rate, i
     return produced;
 }
 
+/* Steps that change from one call to the next, as a locked game's do while its ring fills and drains: the conversion (as the
+ * replay drives it) against 1.8.0's loop, the steps of an authored sequence around 48 kHz, then around 44.1 kHz. */
+static size_t fir_varying_steps(const int16_t *input, size_t count, int body, int16_t *got, int16_t *want) {
+    static const int32_t offsets[] = {0, 37, -90, 113, -12, 0, 240, -241, 5, -5, 1, -1, 0, 64, -64};
+    size_t compared = 0;
+    for (int device = 0; device < 2; ++device) {
+        const uint32_t rate = device ? 44100u : 48000u;
+        reset_test(223721, (int)rate);
+        rr_audio.high_water = RR_AUDIO_RING_FRAMES;
+        rr_audio.fir_body = body;
+        FirReference reference; memset(&reference, 0, sizeof reference);
+        size_t offset = 0;
+        for (size_t call = 0; offset < count; ++call) {
+            const size_t n = SDL_min((size_t)(3728 + (call % 5) * 211), count - offset);
+            const uint32_t step = (uint32_t)((int32_t)rate + offsets[call % (sizeof offsets / sizeof *offsets)]);
+            audio_convert(input + offset * 2, n, step);
+            const size_t a = capture(got), b = fir_reference(&reference, input + offset * 2, n, step, 223721, want);
+            assert(a == b && !memcmp(got, want, a * 2 * sizeof(int16_t)));
+            compared += a; offset += n;
+        }
+    }
+    return compared;
+}
+
 static void fir_ab_checks(void) {
     const size_t count = 223721;
     int16_t *input = calloc(count * 2, sizeof(int16_t));
@@ -206,10 +230,12 @@ static void fir_ab_checks(void) {
     const size_t frames[] = {3728, 3729, 3728, 3727}, odd[] = {1, 7, 37, 731, 2047, 2048, 2049, 4096}, msx[] = {735, 736};
     const int bodies[] = {0, RR_STEREO_FIR_SIMD ? 1 : 0, RR_STEREO_FIR_AVX2 && SDL_HasAVX2() ? 2 : (RR_STEREO_FIR_SIMD ? 1 : 0)};
     const char *names[] = {"C", "SSE2", "AVX2"};
+    char run[32] = "";
     size_t compared = 0;
     for (int b = 0; b < 3; ++b) {
         const int body = bodies[b];
         if (b && body != b) { printf("FIR A/B: %s body not on this CPU, skipped\n", names[b]); continue; }
+        snprintf(run + strlen(run), sizeof run - strlen(run), "%s%s", run[0] ? "/" : "", names[b]);
         /* SMS / GG (NTSC and PAL PSG rates), to 48 and 44.1 kHz; the MSX family's 44.1 kHz to 48 kHz; locked rates */
         compared += fir_ab(input, count, 223721, 48000, frames, 4, 1.0, body, got, want);
         compared += fir_ab(input, count, 221681, 48000, frames, 4, 1.0, body, got, want);
@@ -217,6 +243,7 @@ static void fir_ab_checks(void) {
         compared += fir_ab(input, count / 5, 44100, 48000, msx, 2, 1.0, body, got, want);
         compared += fir_ab(input, count, 223721, 48000, frames, 4, 1.0025, body, got, want);
         compared += fir_ab(input, count / 5, 44100, 48000, odd, 8, 0.9975, body, got, want);
+        compared += fir_varying_steps(input, count, body, got, want);
     }
     /* speed, one second of PSG at 223 721 Hz to 48 kHz: the one-at-a-time loop against each body */
     double ms[4];
@@ -233,8 +260,8 @@ static void fir_ab_checks(void) {
         }
         ms[b + 1] = (SDL_GetPerformanceCounter() - start) * 1000.0 / SDL_GetPerformanceFrequency();
     }
-    printf("FIR A/B: %zu outputs identical to 1.8.0 (bodies C/SSE2/AVX2; SMS-GG NTSC and PAL, MSX 44.1 kHz; 48/44.1 kHz; locked rates)\n",
-           compared);
+    printf("FIR A/B: %zu outputs identical to 1.8.0 (bodies %s; SMS-GG NTSC and PAL, MSX 44.1 kHz; 48/44.1 kHz; steps varying "
+           "call to call)\n", compared, run);
     printf("FIR speed, ms per second of 223 721 Hz PCM: 1.8.0 loop %.2f, C %.2f, SSE2 %.2f, AVX2 %.2f (an indication, not the timed slot)\n",
            ms[0], ms[1], ms[2], ms[3]);
     rr_audio.fir_body = bodies[2];
@@ -261,6 +288,13 @@ static int fir_replay(const char *path) {
         fseek(dump, (long)sizeof header, SEEK_SET);
         calls = inputs = 0;
         for (uint32_t call[2]; fread(call, sizeof call, 1, dump) == 1; ++calls) {
+            if (call[0] == RR_AUDIO_DUMP_RESET) {      /* a device reopen: both conversions start again, at its rate */
+                reset_test(header[1], (int)call[1]);
+                rr_audio.high_water = RR_AUDIO_RING_FRAMES;
+                rr_audio.fir_body = bodies[b];
+                memset(&reference, 0, sizeof reference);
+                continue;
+            }
             if (call[0] > 65536u || fread(call_input, sizeof(int16_t) * 2u, call[0], dump) != call[0]) {
                 fprintf(stderr, "replay: truncated call %zu\n", calls); fclose(dump); return 2;
             }
@@ -275,8 +309,10 @@ static int fir_replay(const char *path) {
         }
     }
     fclose(dump);
-    printf("replay: %zu calls, %zu input samples at %u Hz to %u Hz: every body identical to 1.8.0 (%zu outputs compared)\n",
-           calls, inputs, (unsigned)header[1], (unsigned)header[2], total);
+    printf("replay: %zu calls, %zu input samples at %u Hz to %u Hz: bodies %s%s%s identical to 1.8.0 (%zu outputs compared)\n",
+           calls, inputs, (unsigned)header[1], (unsigned)header[2], "C", bodies[1] >= 0 ? "/SSE2" : "",
+           bodies[2] >= 0 ? "/AVX2" : "", total);
+    if (bodies[2] < 0) printf("replay: AVX2 body not on this CPU, skipped\n");
     return 0;
 }
 
@@ -521,6 +557,26 @@ int main(int argc, char **argv) {
     if (device) { burst_check(); steady_check(); }
     else { fir_ab_checks(); conversion_checks(); ring_checks(); cushion_checks(); float_callback_check(); cadence_checks(); locked_checks(); reset_test(223721, 48000); burst_check(); }
     /* Another output device (decision D12): the same stream on a new device, its id known, the audio subsystem not started once more per reopen. */
+    {   /* a dump across a device reopen: the reset marker is written and the replay follows it (review of efcd90f2) */
+        reset_test(223721, 48000);
+        rr_audio.high_water = RR_AUDIO_RING_FRAMES;
+        FILE *dump = fopen("fir-reopen-dump.bin", "wb");
+        assert(dump);
+        const uint32_t header[3] = {0x52524131u, 223721u, 48000u};
+        fwrite(header, sizeof header, 1, dump);
+        rr_audio.input_dump = dump;
+        int16_t burst[3728 * 2];
+        for (int i = 0; i < 3728; ++i) { burst[i * 2] = (int16_t)(9000 * sin(i * .02)); burst[i * 2 + 1] = (int16_t)(i * 7); }
+        static int16_t sink[8192 * 2];
+        for (int k = 0; k < 3; ++k) { host_audio_submit(burst, 3728); capture(sink); }
+        assert(host_audio_reopen());
+        SDL_PauseAudioDevice(audio_device, 1);
+        rr_audio.high_water = RR_AUDIO_RING_FRAMES;
+        for (int k = 0; k < 3; ++k) host_audio_submit(burst, 3728);
+        fclose(rr_audio.input_dump); rr_audio.input_dump = NULL;
+        assert(fir_replay("fir-reopen-dump.bin") == 0);
+        remove("fir-reopen-dump.bin");
+    }
     SDL_AudioDeviceID before = host_audio_device_id();
     assert(before && host_audio_reopen() && host_audio_device_id() && rr_audio.source_rate == 223721);
     for (int i = 0; i < 3; ++i) assert(host_audio_reopen());

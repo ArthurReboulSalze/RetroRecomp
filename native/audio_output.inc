@@ -21,6 +21,7 @@
  * then the chunk), and its outputs are computed RR_AUDIO_BLOCK at a time by rr_stereo_fir_block: the same bits as one by one. */
 #define RR_AUDIO_CHUNK 2048u
 #define RR_AUDIO_BLOCK 1024u
+#define RR_AUDIO_DUMP_RESET 0xffffffffu   /* in an A/B dump: the conversion starts again (a device reopen) */
 /* The host may ask for an output device by name (RR_HOST_AUDIO_DEVICE) and tell that the speed is not 100%
  * (RR_HOST_AUDIO_HELD: the sound is dropped, not converted nor played). */
 #ifndef RR_HOST_AUDIO_DEVICE
@@ -200,7 +201,7 @@ bool host_audio_init(uint32_t rate) {
     SDL_AudioSpec want; SDL_zero(want);
     want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 256;
     want.callback = audio_callback;
-    FILE *input_dump = rr_audio.input_dump;      /* an A/B dump stays open across a device reopen */
+    FILE *input_dump = rr_audio.input_dump;      /* an A/B dump stays open across a device reopen... */
     memset(&rr_audio, 0, sizeof(rr_audio));
     rr_audio.input_dump = input_dump;
     /* Consume in the backend's native format/period. WASAPI usually requests
@@ -225,6 +226,12 @@ bool host_audio_init(uint32_t rate) {
     rr_audio.high_water = SDL_min(RR_AUDIO_RING_FRAMES,
         rr_audio.keep + audio_ms_frames(RR_AUDIO_BURST_MS) + rr_audio.device.samples);
     audio_resampler_init(rate);
+    if (rr_audio.input_dump) {
+        /* ...and says that the conversion starts again here (history and phase cleared, perhaps another device rate):
+         * a call whose count is RR_AUDIO_DUMP_RESET, its step the new device rate */
+        const uint32_t reset[2] = {RR_AUDIO_DUMP_RESET, (uint32_t)rr_audio.device.freq};
+        fwrite(reset, sizeof reset, 1, rr_audio.input_dump);
+    }
     {
         /* A/B proofs only (off by default): every call's step and its stereo input, as given, to replay the conversion exactly. */
         const char *dump = getenv("RETRORECOMP_AUDIO_INPUT_DUMP");

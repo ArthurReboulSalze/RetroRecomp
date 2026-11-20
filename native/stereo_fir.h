@@ -5,7 +5,7 @@
  * sequence of rr_stereo_fir (tap 0 the newest sample, the float product of the sample and the coefficient, added to a double
  * sum in tap order), so every output is bit-identical to it. Only independent outputs run side by side: their additions
  * overlap instead of waiting on one chain of 256 dependent sums. Three bodies: portable C (any CPU), SSE2 (x86 baseline) and
- * AVX2 (a runtime choice, rr_stereo_fir_avx2_ready), all with the same per-output sequence. */
+ * AVX2 (chosen at start by audio_output.inc when SDL_HasAVX2()), all with the same per-output sequence. */
 #ifndef RR_STEREO_FIR_H
 #define RR_STEREO_FIR_H
 #include <stddef.h>
