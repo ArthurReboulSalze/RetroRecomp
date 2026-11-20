@@ -128,6 +128,7 @@ state-layout keys move too, with the other keys the rows name.
 | [NES: the APU's quiet cycles run together](#nes-the-apus-quiet-cycles-run-together-190) | **the NES game stamp** (`nes_machine.py`, new `native/nes_apu_batch.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_apu_batch.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
 | [NES: the background tile of the deferred PPU runs in registers](#nes-the-background-tile-of-the-deferred-ppu-runs-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_ppu_lazy.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
 | [NES: the sprite slots of the deferred PPU run in registers](#nes-the-sprite-slots-of-the-deferred-ppu-run-in-registers-190) | **the NES game stamp** (`native/nes_ppu_lazy.inc`, with the tile above) | none (host files unchanged) | **the NES quick-state key moves** with the tile's (the same file) |
+| [NES: the usual CPU cycle takes a short path](#nes-the-usual-cpu-cycle-takes-a-short-path-190) | **the NES game stamp** (`nes_machine.py`) | none (host files unchanged) | **the NES quick-state key moves** (the staged `hw_machine.c` is one of the files the key hashes); the saved layout is unchanged, an older state is refused cleanly |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 | [Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart](#mega-drive-four-players-with-the-team-player-the-4-way-play-or-the-j-cart-190) | **the Mega Drive game and engine stamps** (`retrorecomp/megadrive_multitap.py`, new, and its hooks); **the game stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation** (`console16.py`, the report's player count; their games do not change) | **the Mega Drive host stamp** (`rrhk_md.c`) | unchanged |
 | [Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end](#mega-drive-super-nintendo-pc-engine-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the game stamps of the Mega Drive, Super Nintendo, PC Engine, MSX, MSX2 and MSX2+** (`native/cart_save.c` and `.h`, which they share; `md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the quick-state keys of those six profiles move** (they hash `cart_save.c`; the Mega Drive's also `md_backend.c` and `md_battery.c`): older quick states are refused cleanly; the state and save formats do not change |
@@ -1007,6 +1008,24 @@ specialist measures).
 
 **Stamps:** the NES game stamp and the NES quick-state key move with `nes_ppu_lazy.inc` (already moved by the tile; one file, one move); the
 NES host stamp is unchanged.
+
+## NES: the usual CPU cycle takes a short path (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-cycle`, on top of `spec/nes-perf-190`). `hw_cycle_start()` runs once per CPU cycle and was a function of
+2,384 bytes (the ticks of four alignments, the PAL ticks, the DMA loop): every call paid its prologue (three registers saved) although the usual cycle
+does very little. The usual cycle of an NTSC board on the deferred PPU clock, when its edges stay below the room the PPU may wait (`rr_ppu_due + 6 <
+rr_ppu_room`, so that no flush can fall between them), now takes a short path: the three runs of edges of `run_ticks_1_to_11` become one count
+(`5 + odd` edges) between the same two samples (the NMI input, the IRQ line), then the DMA test. A cycle that needs a flush, a DMA, a PAL board and
+the eager clock take the whole loop, unchanged, which moved out of line (`hw_cycle_start_loop`, not inlined; entered after the ticks when the short
+path found a DMA). In the compiled game the function now starts with no saved register on the short path and tail-jumps to the loop for the rest.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py`, all modes (the hidden-state checks, the APU runs and the sprites runs) pass on this branch, which
+carries the three commits below it; a mutant of the edge count (4 for 5) is caught at once. On Metroid (USA), converted from this branch and from main:
+the per-frame lines and the whole PCM are identical over 3,600 frames of the boot and the two input routes; a quick state saved at frame 1200 and
+loaded in a new process gives the same memory, CPU, cycles, hardware state and picture for the next 600 frames. **Not compared:** the sound after a
+quick-state load (see the APU section), one game on one board for real games, no timing here (the performance specialist measures).
+
+**Stamps:** the NES **game** stamp moves (`nes_machine.py`, which stages the machine) and **the NES quick-state key** (the staged `hw_machine.c` is hashed); the saved layout and the NES host stamp are unchanged.
 
 ## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (1.9.0)
 
