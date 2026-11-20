@@ -135,6 +135,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart](#mega-drive-four-players-with-the-team-player-the-4-way-play-or-the-j-cart-190) | **the Mega Drive game and engine stamps** (`retrorecomp/megadrive_multitap.py`, new, and its hooks); **the game stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation** (`console16.py`, the report's player count; their games do not change) | **the Mega Drive host stamp** (`rrhk_md.c`) | unchanged |
 | [Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end](#mega-drive-super-nintendo-pc-engine-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the game stamps of the Mega Drive, Super Nintendo, PC Engine, MSX, MSX2 and MSX2+** (`native/cart_save.c` and `.h`, which they share; `md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the quick-state keys of those six profiles move** (they hash `cart_save.c`; the Mega Drive's also `md_backend.c` and `md_battery.c`): older quick states are refused cleanly; the state and save formats do not change |
 | [Mega Drive: the host's save written back at a match's clean end](#mega-drive-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the Mega Drive game stamp** (`md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the Mega Drive quick-state key moves** (it hashes `md_backend.c` and `md_battery.c`): an older quick state is refused cleanly; the state and save formats do not change |
+| [Mega Drive: a lower frame cost, the same pictures and sound](#mega-drive-a-lower-frame-cost-the-same-pictures-and-sound-190) | **the Mega Drive game stamp** (`retrorecomp/megadrive_video.py`) | none | unchanged (no file of the Mega Drive key is touched) |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-190) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-190) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
@@ -158,6 +159,22 @@ state-layout keys move too, with the other keys the rows name.
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
 | [Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring](#game-boy-a-line-with-sprites-is-drawn-in-runs-and-the-adapters-sound-is-a-ring-190) | **the Game Boy game stamp** (`native/gb_ppu_object_span.h`, `gameboy_hardware.py`, `gameboy_runtime.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`); build unchanged | unchanged (the bytes of a state are the same) |
+
+## Mega Drive: a lower frame cost, the same pictures and sound (1.9.0)
+
+The 1.9.0 optimisation wave for the Mega Drive. Every change is a rewrite with the same output: on Sonic The Hedgehog 2,
+Streets of Rage 2 and Gunstar Heroes (USA dumps), the picture, the audio, the CPU state and the counters of every frame
+over 3,600 frames of the play route, and the final report, are identical before and after. Only the host CPU time per
+frame changes; the five measures stay apart, and the time is measured by the performance pass, not here.
+
+- **The plane rows are fetched in fewer, cheaper spans** (`retrorecomp/megadrive_video.py`, `spans`). Without 2-cell
+  vertical scroll, a plane row is continuous across the 16-pixel columns, so one span runs to the screen edge or the
+  window boundary instead of stopping at every column. Each tile row is stored as one fixed 8-byte write instead of a
+  variable-length copy (the two row buffers gain an 8-byte margin). The VDP self-tests (scalar, batched and SSE2 rows
+  equal over 32,768 rows; shadow/highlight; raster; interlace) pass unchanged.
+
+Stamps: the Mega Drive game stamp moves (an export of 1.8.0 is converted again once, as every machine's in 1.9.0). The
+quick-state key and the state format do not change.
 
 ## Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder (1.9.0)
 
