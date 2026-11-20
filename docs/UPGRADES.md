@@ -122,6 +122,7 @@ state-layout keys move too, with the other keys the rows name.
 | [MSX, MSX2, MSX2+: multiplayer on the rollback tier](#msx-msx2-msx2-multiplayer-on-the-rollback-tier-190) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`, `msx_state.c`, `msx_build.py`, `systems/msx.py`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout and the picture) |
 | [MSX: a MegaROM with no direct mapper store is probed, not refused](#msx-a-megarom-with-no-direct-mapper-store-is-probed-not-refused-190) | **the MSX, MSX2 and MSX2+ game stamps** (`retrorecomp/msx_conversion.py`) | none | unchanged |
 | [MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end](#msx-msx2-msx2-the-hosts-save-travels-in-a-session-and-is-written-back-at-its-end-190) | **the MSX, MSX2 and MSX2+ game stamps** (`msx_snapshot.inc`, `msx_player.c`) | **the MSX, MSX2 and MSX2+ host stamps** (`rrhk_msx.inc`) | unchanged (the quick-state files keep their layout) |
+| [MSX2+: a silent MSX-MUSIC chip takes a short step](#msx2-a-silent-msx-music-chip-takes-a-short-step-190) | **the MSX2+ game stamp** (`msx_music.c`) | none | unchanged (the chip's image is the same; the new flags are not in it) |
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-190) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-190) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
@@ -397,6 +398,33 @@ times in 3,000 frames: replaying 5 frames of that machine fits less easily in a 
 PC, with the owner's agreement).
 
 **Stamps** (against `spec/multiplayer` `a08bdd4e`): the Amiga 500 and Amiga 1200 game and host stamps, and their quick-state key; nothing else.
+
+## MSX2+: a silent MSX-MUSIC chip takes a short step (1.9.0)
+
+Frame cost (the 1.9.0 optimisation wave, Arthur's go of 20 November 2026). Every MSX2+ has MSX-MUSIC, and a game that never
+writes it still paid emu2413's whole sample 49,716 times a second: about 10 % of Manbow 2's loop in a profile of the player's
+path (991 samples a frame); on our C-BIOS MSX2+ that cartridge makes no write to ports 7Ch-7Dh in three minutes of its attract
+mode, music included. `native/msx_machine/msx_music.c` now checks, after a reset, a write, a loaded state and every 4,096 full
+samples, whether the chip is silent and still (`music_quiet`): no rhythm mode, test bit or rate converter; every slot in RELEASE
+or SUSTAIN with F-number 0, and either silent (envelope at its mute level, outputs 0) or a modulator left sustained after its
+note whose envelope rate is 0 and whose output is the fixed point of emu2413's own modulator formula, its carrier silent. In
+that state a sample of emu2413 changes nothing in the slots or the channel outputs, so `music_calc_quiet` runs only what still
+moves, with emu2413's own functions: `update_ampm`, `update_short_noise`, the envelope counter, `update_noise` (14, 2 and 2 steps)
+and `mix_output`. The first write leaves the short step. emu2413 stays vendored unmodified (its file is included by
+`msx_music.c`, as before); the two flags are not in the chip's image, so quick states keep their layout.
+
+**Identical chip.** `native/msx_machine/msx_music_checks.c` (a fixture run by `tools/msx_reference.py`, and to be run after a
+bump of emu2413) drives two chips, one through `OPLL_calc` at every sample as before, one through the new code, and compares
+their whole images (the quick-state serialisation) and outputs after every sample: an untouched chip for 600,000 samples (599,999
+on the short step), random register programs with machine resets, states loaded on a quiet chip and releases that end, and one
+violin note keyed on then off, after which the chip comes back to the short step; it checks that the short step is taken, left
+and taken again. A longer scratch run of the same comparison: 20 million untouched samples (360 million steps of the noise register, more
+than its 2^23 states) and 300 programs, 123 million samples identical, 33 million of them on the short step, 136 writes made on it, 32 returns
+to it; three broken variants (one noise step missing, the LFO step missing, a modulator accepted without its fixed point) fail it.
+On converted games, main against this branch, headless runs of the machine's own command line: Manbow 2 (MSX2+ cartridge, MSX-MUSIC never written) over 9,000 frames and the authored FM cartridge (tools/msx_fm_cart.py, a scale on the YM2413) over 3,600 frames give the same final JSON (CPU, RAM, VRAM, picture and the sound digest of 7,885,193 and 2,649,411 samples); quick states saved at frames 3,000 and 1,000 are byte-identical (684,419 bytes); each side loads the other's state and runs on to the same machine state as the full run, the two loaded runs equal to each other, their sound digests included.
+
+**Stamps** (computed with `tools/release_stamps.py` against main `a74490e4`): the MSX2+ game stamp only (`msx_music.c` is built
+into an MSX2+ game only; the new fixture is a check, outside the stamps); quick states unchanged.
 
 ## MSX, MSX2, MSX2+: the host's save travels in a session and is written back at its end (1.9.0)
 
