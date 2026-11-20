@@ -28,9 +28,10 @@ reaction to a button, and a large one under 16.7 ms does not make the game slowe
   sound device and the software renderer. There is no scripted input: the boot and the attract mode.
 - **The figure.** The shell's own timing report gives the work of each frame: the machine's frame and its delivery, the
   sound queue and the drawing. Frame pacing and the wait for room in the sound queue are left out, since they are waiting,
-  not work. The figure also leaves out putting the picture on screen (the present): with a GPU renderer, which a player's
-  window uses (Direct3D on Windows, OpenGL on Linux), that costs little; on a PC that falls back to SDL's software renderer
-  it can add about 0.4-0.6 ms. Each run gives the work per frame; the table gives the median of three timed runs, after one
+  not work. The figure also leaves out putting the picture on screen (the present), which depends on the graphics driver
+  more than on the machine: a player's window uses Direct3D on Windows and OpenGL on Linux, and on this PC a real
+  Direct3D 11 window of a Master System game spent about 0.4 ms of each frame in it (one measurement); the test run's
+  software renderer spends about as much. It comes on top of the figure, whatever the machine. Each run gives the work per frame; the table gives the median of three timed runs, after one
   warm-up run that is dropped.
 - **Linux** figures are measured in **WSL2** on the same PC, with the same method. WSL2 is a light virtual machine: its CPU
   figures are close to a native Linux's on that processor, not identical, and they are not a measure of another Linux PC.
