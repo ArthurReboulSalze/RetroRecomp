@@ -109,6 +109,7 @@ state-layout keys move too, with the other keys the rows name.
 | Every machine, multiplayer in turns: the F2 tiles Pass / Give the controller and Everyone / Turns, the turn badge and its options row ([HOST_KIT D34](HOST_KIT.md#d34)) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_events.c`, `rrhk_options.c`, `rrhk_main.c`, `rrhk_chat.inc`, `hostkit.h`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged |
 | [Every machine: the timing report and the [host] lines keep their decimal point](#every-machine-the-timing-report-and-the-host-lines-keep-their-decimal-point-190) | none | **the host stamp of all 21 profiles** (`rrhk_timing.c`, `rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`) | unchanged |
 | [Every machine: the graphics card first, the software renderer said when it is used, the visible picture alone uploaded](#every-machine-the-graphics-card-first-the-software-renderer-said-when-it-is-used-the-visible-picture-alone-uploaded-190) | none | **the host stamp of all 21 profiles** (`rrhk_main.c`, `rrhk_video.c`, `hostkit_internal.h`, `runtime_catalog.inc`) | unchanged |
+| [Every machine: the Restart tile's icon redrawn, two arcs and their arrows](#every-machine-the-restart-tiles-icon-redrawn-two-arcs-and-their-arrows-190) | none | **the host stamp of all 21 profiles** (`retro_menu.c`, `retro_menu.h`) | unchanged (host files are outside every state key) |
 | [Every machine: a Restart the game tile in F2](#every-machine-a-restart-the-game-tile-in-f2-190) | none | **the host stamp of all 21 profiles** (`rrhk_menu.c`, `rrhk_main.c`, `hostkit_internal.h`, `retro_menu.c` and `.h`, the catalogue and the locales) | unchanged (host files are outside every state key) |
 | [NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64, PlayStation: the sound ring is always regulated](#nes-game-boy-pc-engine-game-boy-advance-nintendo-64-playstation-the-sound-ring-is-always-regulated-190) | none | **the host stamp of all 21 profiles** (`rrhk_ring.c`, `rrhk_audio.c`, `hostkit_internal.h`, `audio_cushion.h`; the sound changes only on the six ring machines) | unchanged |
 | [Sony PlayStation: the host changes PGXP, the CPU's resolution and the renderer in a match](#sony-playstation-the-host-changes-pgxp-the-cpus-resolution-and-the-renderer-in-a-match-190) | none | the PlayStation's host stamp (`rrhk_psx.c`) | unchanged |
@@ -1164,6 +1165,17 @@ guest's folder holds no save. Four seats with no save pass too; four seats with 
 same boot digest, then an exception in the smoke tool's link thread; reported to the multiplayer specialist). Not run: the two-PC run
 with a real save.
 guest's folder holds no save. The same with four seats on that file: PASS, the host's file equals the final memory of the four seats, its `.bak` equals the planted file, the guests write nothing. (Two earlier four-seat runs did not start, in the smoke tool's link thread; eight runs since, NBA Jam and Madden NFL 95, three and four seats, on the kit commits before and after the save rule and on this change, all pass.) Not run: the two-PC run with a real save.
+
+## Every machine: the Restart tile's icon redrawn, two arcs and their arrows (1.9.0)
+
+The F2 tile **Restart the game** had a ring of one-cell steps that read as broken dashes, with a lumpy arrowhead (Arthur, 20
+November 2026). `RR_ICON_RESTART` (`retro_menu.c`) is redrawn from geometry on its 30 x 18 grid: two quarters of a ring three
+cells thick (from nine to twelve o'clock and from three to six, cut square), each ending in one arrowhead of the accent gold,
+7 x 4 cells, axis-aligned so it stays a clean pixel triangle at every scale; the same gold and the same two tones as the other
+tiles. Arthur chose this one among three variants (a single thick arc, the double arc, the arc with a play mark), each
+captured in the real F2 menu at 1x, 2x and 3x beside the Quit, Pass and Give tiles. Only the picture changes: the tile, its
+place, its text and what it does are those of before. **Stamps:** no game stamp moves; the host stamp of the 21 profiles moves
+(every export is upgraded once, rebuilt, none converted again). **Existing exports:** unchanged until that upgrade.
 
 ## Every machine: a Restart the game tile in F2 (1.9.0)
 
