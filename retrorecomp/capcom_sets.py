@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
+import re
 from typing import Callable
 from zipfile import ZipFile
 import zlib
@@ -191,6 +192,26 @@ def cover_titles(family: Family, path: Path, title_of: Callable[[str], str]) -> 
         return ()
     parent = by_set.get(game.get('parent') or '')
     return tuple(title_of(g['title']) for g in (game, parent) if g is not None)
+
+
+# A clone named like this is not the game's own edition: its box never stands for the set.
+_NOT_AN_EDITION = re.compile(r'bootleg|hack|prototype|location test|unlicensed|unofficial', re.I)
+
+
+def clone_titles(family: Family, path: Path, title_of: Callable[[str], str]) -> tuple[str, ...]:
+    """The titles of the other official editions of the set's game (its parent's clones, the set and its parent left out), for
+    the profiles' `cover_fallback_titles`: a box filed only under another region's set (megaman2's under rockman2j) stands for
+    the game when nothing else does. Only the maker's own editions: bootlegs, hacks and prototypes are left out."""
+    games = family.catalogue.games()
+    by_set = {game['set']: game for game in games}
+    game = by_set.get(path.stem.casefold())
+    if game is None:
+        return ()
+    root = game.get('parent') or game['set']
+    maker = (by_set.get(root) or game).get('company')
+    return tuple(title_of(g['title']) for g in sorted(games, key=lambda g: g['set'])
+                 if g.get('parent') == root and g['set'] != game['set'] and g.get('company') == maker
+                 and not _NOT_AN_EDITION.search(g['title']))
 
 
 def read_set(family: Family, path: Path, games: list[dict] | None, set_name: str | None, title_of: Callable[[dict], str],
