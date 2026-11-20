@@ -135,6 +135,8 @@ int main(int argc,char **argv){
     for(unsigned align=0;align<4;align++){
         cyc_power_on((uint8_t)align);cyc_run_power_on();cyc_audio_enable(48000);seed=1+align;
         for(unsigned i=0;i<256;i++)ppu.oam[i]=(uint8_t)(i*19);
+        /* Pattern data that differs from byte to byte, so that tiles and sprites (flipped ones too) fetch something. */
+        if(hw_cart.chr&&hw_cart.chr_len)for(size_t i=0;i<hw_cart.chr_len;i++)hw_cart.chr[i]=(uint8_t)(next_value()>>11);
         for(unsigned i=0;i<sizeof(ppu.ciram);i++)ppu.ciram[i]=(uint8_t)(i*23);
         for(unsigned i=0;i<32;i++)ppu.palette[i]=(uint8_t)(i*3);
         for(unsigned iteration=0;iteration<700;iteration++){
@@ -164,6 +166,14 @@ int main(int argc,char **argv){
             rr_nes_apu_save(audio_state);
             /* Observing the machine first runs any deferred PPU edges. */
             uint64_t hw_hash=cyc_hw_state_hash();
+            {   /* Diagnostic: RR_PPU_DUMP=align:iteration writes the whole PPU of that checkpoint to stderr, to compare two builds. */
+                const char *dump=getenv("RR_PPU_DUMP");unsigned da,di;
+                if(dump&&sscanf(dump,"%u:%u",&da,&di)==2&&da==align&&di==iteration){
+                    const unsigned char *p=(const unsigned char *)&ppu;
+                    for(size_t k=0;k<sizeof(ppu);k++)fprintf(stderr,"%02x%s",p[k],(k&31)==31?"\n":"");
+                    fprintf(stderr,"\n");
+                }
+            }
             /* The CPU's interrupt inputs and edges show when /NMI and /IRQ were sampled. */
             printf("%u %u %u %llu %016llx %016llx %016llx %016llx %016llx %016llx %016llx\n",RR_NES_PAL,align,iteration,
                 (unsigned long long)cyc_cycle_count(),(unsigned long long)hash_bytes(&cpu,sizeof(cpu)),
