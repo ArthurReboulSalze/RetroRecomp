@@ -361,47 +361,63 @@ def draw_picture(name, colour, size=HERO_GRID, highlight=None):
     return image.reduce(SUPERSAMPLE)                    # an exact average of 4 x 4 samples: no ringing
 
 
-# ---- Convert, « H1 » (Arthur, 20 Nov 2026): the conversion from left to right, on a 80 x 30 grid (80 x 30 px at 100 %) ----
-MILL_GRID = (80, 30)
-_BITS = {'0': ('111', '101', '101', '101', '111'), '1': ('010', '110', '010', '010', '111')}
+# ---- Convert, after Arthur's mock-up (20 Nov 2026): gold line art on the dark button, on a 124 x 30 grid ------------------
+CONVERT_GRID = (124, 30)
 
 
-def _mill_gear(pen, cx, cy, r, fill, hole, phase):
-    pen.disc(cx, cy, r * 0.72, fill)
+def _convert_gear(pen, cx, cy, r, colour, clear, phase):
+    pen.disc(cx, cy, r * 0.74, colour)
     for i in range(8):
         a = phase + i * math.pi / 4
         ux, uy, vx, vy = math.cos(a), math.sin(a), -math.sin(a), math.cos(a)
-        pen.poly([(cx + ux * r * 0.6 + vx * r * 0.24, cy + uy * r * 0.6 + vy * r * 0.24),
+        pen.poly([(cx + ux * r * 0.6 + vx * r * 0.25, cy + uy * r * 0.6 + vy * r * 0.25),
                   (cx + ux * r + vx * r * 0.17, cy + uy * r + vy * r * 0.17),
                   (cx + ux * r - vx * r * 0.17, cy + uy * r - vy * r * 0.17),
-                  (cx + ux * r * 0.6 - vx * r * 0.24, cy + uy * r * 0.6 - vy * r * 0.24)], fill)
-    pen.disc(cx, cy, r * 0.26, hole)
+                  (cx + ux * r * 0.6 - vx * r * 0.25, cy + uy * r * 0.6 - vy * r * 0.25)], colour)
+    pen.disc(cx, cy, r * 0.40, clear)
 
 
-def draw_mill(colour, scale=1.0, face='#d4a737'):
-    """Convert's picture: a cartridge lying on its side going in between two meshing gears (one above the other), the game
-    coming out as 1s and 0s that spread out, then a play mark; in `colour` on the button's `face` (the gear's hole and the
-    cartridge's label are cut in the face colour)."""
+def _convert_arrow(pen, x, cy, colour, w=8.0):
+    pen.line([(x, cy), (x + w - 1.4, cy)], colour, 2.0)
+    pen.poly([(x + w - 3.8, cy - 3.6), (x + w, cy), (x + w - 3.8, cy + 3.6), (x + w - 5.1, cy + 2.3), (x + w - 2.6, cy),
+              (x + w - 5.1, cy - 2.3)], colour)
+
+
+def _convert_digit(pen, x, y, char, colour, clear, w=4.6, h=7.0, t=1.5):
+    if char == '0':
+        pen.box(x, y, x + w, y + h, 1.0, fill=colour)
+        pen.box(x + t, y + t, x + w - t, y + h - t, 0.3, fill=clear)
+    else:
+        mid = x + w / 2
+        pen.box(mid - t / 2, y, mid + t / 2, y + h, 0, fill=colour)
+        pen.poly([(mid - t / 2, y), (mid + t / 2 - 0.1, y), (mid - t / 2, y + 2.0), (x + 0.4, y + 2.0), (x + 0.4, y + 1.2)],
+                 colour)
+        pen.box(x + 0.3, y + h - t, x + w - 0.3, y + h, 0, fill=colour)
+
+
+def draw_convert(colour, scale=1.0):
+    """Convert's picture, from left to right: a cartridge (its outline, its label, the edge at its foot), an arrow, two
+    meshing gears (a big one up left, a small one down right), an arrow, the game as bits (010 / 101 / 010) and a solid play
+    mark; in `colour`, the rest transparent (the button's dark face shows through the gears' holes)."""
     from PIL import Image, ImageDraw
     k = scale * SUPERSAMPLE
-    width, height = (round(side * k) for side in MILL_GRID)
+    width, height = (round(side * k) for side in CONVERT_GRID)
     clear = tuple(int(colour[index:index + 2], 16) for index in (1, 3, 5)) + (0,)
     image = Image.new('RGBA', (width, height), clear)
-    pen = _Pen(ImageDraw.Draw(image), k)
-    x, y = 0, 10                                       # the cartridge, its connector pointing into the mill
-    pen.poly([(x, y + 2), (x + 2, y), (x + 12, y), (x + 12, y + 10), (x, y + 10)], colour)
-    pen.box(x + 1.6, y + 1.6, x + 6, y + 8.4, 0.4, fill=face)
-    for i in range(3):
-        pen.box(x + 10.2, y + 1.4 + i * 2.8, x + 11.7, y + 2.6 + i * 2.8, 0, fill=face)
-    _mill_gear(pen, 21, 15 - 6.5, 7.0, colour, face, math.pi / 8)
-    _mill_gear(pen, 21, 15 + 6.5, 7.0, colour, face, 0.0)
-    for bx, by, char in ((33, 11.5, '1'), (40, 6.5, '0'), (40, 16.5, '1'), (47, 2.0, '1'), (47, 11.5, '0'), (47, 21.0, '1'),
-                         (54, 6.5, '0'), (54, 16.5, '1')):
-        for row, bits in enumerate(_BITS[char]):
-            for col, bit in enumerate(bits):
-                if bit == '1':
-                    pen.box(bx + col * 1.4, by + row * 1.4, bx + (col + 1) * 1.4, by + (row + 1) * 1.4, 0, fill=colour)
-    pen.poly([(65, 5), (79, 15), (65, 25)], colour)
+    pen = _Pen(ImageDraw.Draw(image), k)              # ImageDraw writes, never blends: `clear` cuts the holes
+    pen.box(0.8, 3.5, 19.2, 26.5, 2.6, outline=colour, width=1.7)
+    pen.box(4.0, 6.6, 16.0, 20.0, 0.6, outline=colour, width=1.3)
+    pen.line([(4.6, 9.2), (15.4, 9.2)], colour, 1.0)
+    pen.box(3.4, 21.6, 16.6, 24.0, 0.6, fill=colour)
+    _convert_arrow(pen, 24.0, 15.0, colour)
+    _convert_gear(pen, 46.0, 11.2, 10.4, colour, clear, math.pi / 8)
+    pen.disc(58.6, 22.0, 8.6, clear)                 # a dark gap round the small gear
+    _convert_gear(pen, 58.6, 22.0, 7.4, colour, clear, 0.0)
+    _convert_arrow(pen, 70.0, 15.0, colour)
+    for row, bits in enumerate(('010', '101', '010')):
+        for col, char in enumerate(bits):
+            _convert_digit(pen, 84.0 + col * 6.6, 3.6 + row * 8.2, char, colour, clear)
+    pen.poly([(110.5, 4.5), (123.2, 15.0), (110.5, 25.5)], colour)
     return image.resize((round(width / SUPERSAMPLE), round(height / SUPERSAMPLE)), Image.Resampling.LANCZOS)
 
 
@@ -410,10 +426,8 @@ def hero_picture(master, symbol, colour, highlight=None):
     polylines drawn larger and thicker (gui_drawing.hero_icon). Sized for the screen's scaling (96 dpi: HERO_SIZE, 30 px)."""
     from PIL import ImageTk
     from .ui_fonts import toolbar_scale
-    if symbol == HERO_CONVERT:                      # Convert's wide picture, « H1 »
-        from .branding import COLORS
-        face = COLORS['panel'] if colour == COLORS['disabled'] else COLORS['gold']   # greyed: the button's own face
-        return ImageTk.PhotoImage(draw_mill(colour, toolbar_scale(master), face), master=master)
+    if symbol == HERO_CONVERT:                      # Convert's wide line art, after Arthur's mock-up
+        return ImageTk.PhotoImage(draw_convert(colour, toolbar_scale(master)), master=master)
     if symbol not in DRAWERS:
         from .gui_drawing import hero_icon
         return hero_icon(master, symbol, colour)

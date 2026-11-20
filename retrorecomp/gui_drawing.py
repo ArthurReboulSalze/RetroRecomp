@@ -500,9 +500,19 @@ def _toolbar_styles(style):
     # picture, drawn by decorate_button), brighter under the pointer. There is one dark theme, so there is one set.
     style.configure('Feature.Toolbar.TButton', bordercolor=c['gold'], lightcolor=c['button'], darkcolor=c['button'])
     style.configure('Centre.Feature.Toolbar.TButton', padding=(5, 4))
-    # Convert: the hero's gold, a bevelled edge (rounded_skin draws `rrbevel`) and its wide picture of the whole conversion,
-    # « H1 » (Arthur, 20 Nov 2026); Play keeps the hero's own look.
-    style.configure('Mill.Hero.Toolbar.Primary.TButton', rrbevel=1)
+    # Convert, after Arthur's mock-up (20 Nov 2026): a dark face with a gold border two pixels thick (rounded_skin draws
+    # `rrline`) and its wide gold line art of the whole conversion; brighter under the pointer, grey when greyed. Play keeps
+    # the hero's gold look. A light focus ring, the gold one would not show on the gold border.
+    style.configure('Convert.Toolbar.TButton', background=c['field'], foreground=c['gold'], bordercolor=c['gold'],
+                    lightcolor=c['field'], darkcolor=c['field'], focuscolor=c['text'], relief='flat', rrline=2,
+                    padding=(8, 4))
+    style.map('Convert.Toolbar.TButton',
+              background=[('disabled', c['panel']), ('pressed', c['selected']), ('active', c['button'])],
+              foreground=[('disabled', c['disabled']), ('!disabled', c['gold'])],
+              bordercolor=[('disabled', c['border']), ('pressed', c['gold_hover']), ('active', c['gold_hover']),
+                           ('!disabled', c['gold'])],
+              lightcolor=[('pressed', c['selected']), ('active', c['button'])],
+              darkcolor=[('pressed', c['selected']), ('active', c['button'])])
     style.map('Feature.Toolbar.TButton',
               bordercolor=[('disabled', c['border']), ('pressed', c['gold_hover']), ('active', c['gold_hover']),
                            ('!disabled', c['gold'])],

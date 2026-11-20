@@ -182,7 +182,7 @@ class PicturesOnly(ToolbarWindow):
             pictures[name] = normal
         # Every item of the queue against the selected rows: two different pictures.
         self.assertNotEqual(pictures['start'], pictures['start_selected'])
-        self.assertEqual(str(app.start_button.cget('style')), 'Mill.Hero.Toolbar.Primary.TButton')   # gold, larger, bevelled
+        self.assertEqual(str(app.start_button.cget('style')), 'Convert.Toolbar.TButton')   # dark, gold border, larger
         self.assertEqual(str(app.add_roms_button.cget('style')), 'Toolbar.Primary.TButton')
         self.assertEqual(str(app.play_button.cget('state')), 'disabled')
 
@@ -192,18 +192,20 @@ class PicturesOnly(ToolbarWindow):
             app.toggle_compiled_games()
         self.root.update_idletasks()
         play = app.compiled_view.play_button
+        self.assertEqual(str(play.cget('style')), 'Hero.Toolbar.Primary.TButton')
         for hero, neighbours in ((app.start_button, (app.selected_button, app.stop_button, app.retry_button)),
                                  (play, (app.compiled_view.scan_button, app.compiled_view.add_button))):
-            self.assertIn('Hero.Toolbar.Primary.TButton', str(hero.cget('style')))         # the hero's style, both rows
             for neighbour in neighbours:
                 # larger, not oversized: its picture fills it as the neighbours' do (Arthur, 19 Nov 2026)
                 self.assertGreaterEqual(hero.winfo_reqheight(), 1.25 * neighbour.winfo_reqheight())
                 self.assertGreaterEqual(hero.winfo_reqwidth(), 1.25 * neighbour.winfo_reqwidth())
                 if hero is play:
                     self.assertLessEqual(hero.winfo_reqwidth(), 1.4 * neighbour.winfo_reqwidth())
-        # Convert is « H1 » (Arthur, 20 Nov 2026): the whole conversion from left to right, a wide button with a bevelled edge
-        self.assertGreaterEqual(app.start_button.winfo_reqwidth(), 90)
-        self.assertEqual(str(app.style.lookup('Mill.Hero.Toolbar.Primary.TButton', 'rrbevel')), '1')
+        # Convert after Arthur's mock-up (20 Nov 2026): the whole conversion from left to right, a wide dark button with a
+        # gold border two pixels thick, as tall as Play
+        self.assertGreaterEqual(app.start_button.winfo_reqwidth(), 2.8 * app.start_button.winfo_reqheight())
+        self.assertEqual(app.start_button.winfo_reqheight(), play.winfo_reqheight())
+        self.assertEqual(str(app.style.lookup('Convert.Toolbar.TButton', 'rrline')), '2')
         normal, disabled = app.button_images[('convert_all', 'hero')]
         small = app.button_images[('stop', False)][0]
         self.assertGreater(normal.width(), small.width())                                      # a bigger picture

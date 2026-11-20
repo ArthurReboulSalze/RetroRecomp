@@ -20,7 +20,7 @@ from .rounded_skin import apply_rounded_theme
 from .rounded_skin import skin_of
 from .dialogs import center_dialog, fit_screen
 from . import gui_icons   # registers the toolbar's and the queue's pictures in ICON_PATHS
-from .gui_icons import hero_picture
+from .gui_icons import HERO_CONVERT, hero_picture
 from .gui_common import EDGE, HELP_URL, PLATFORMS, PROFILES, SENDING_AVAILABLE, UPSTREAM_CREDITS, UPSTREAM_CREDIT_NOTES, UPX_SOURCE_URL
 from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
@@ -365,7 +365,9 @@ class WindowMixin:
         Multiplayer and Front-end), light on the others; a hero button (the main one of a row) has a larger, thicker one."""
         key = (symbol, 'hero') if hero else (symbol, 'feature') if feature else (symbol, 'accent') if accent else (symbol, primary)
         if key not in self.button_images:
-            colour = COLORS['gold_text'] if primary or hero else COLORS['gold'] if accent else COLORS['text']
+            # Convert is gold line art on its dark face (Arthur's mock-up, 20 Nov 2026), the other heroes dark on the gold
+            colour = (COLORS['gold'] if accent or symbol == HERO_CONVERT else COLORS['gold_text'] if primary or hero
+                      else COLORS['text'])
             if feature:
                 # Front-end and Multiplayer, in the middle of the bar (Arthur, 20 Nov 2026: « un peu plus grands »): their
                 # gold picture at FEATURE_SIZE, two pixels thick, up to 125 % on a HiDPI screen.
@@ -414,7 +416,8 @@ class WindowMixin:
         and border, a primary one is gold with a dark picture, a hero one (the main button of a row: Convert /
         regenerate, Play game of Compiled Games) is gold too and larger than the others, with a larger picture."""
         button = ttk.Button(parent, text=self.tr(name), command=command,
-                            style='Hero.Toolbar.Primary.TButton' if hero else
+                            style='Convert.Toolbar.TButton' if hero and symbol == HERO_CONVERT else
+                            'Hero.Toolbar.Primary.TButton' if hero else
                             'Feature.Toolbar.TButton' if accent else
                             'Toolbar.Primary.TButton' if primary else 'Toolbar.TButton')
         self.decorate_button(button, symbol, primary=primary, accent=accent, hero=hero)
