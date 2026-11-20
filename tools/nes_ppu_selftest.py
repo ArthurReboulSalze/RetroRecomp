@@ -18,7 +18,7 @@ def main():
         folder = project / variant
         folder.mkdir(parents=True, exist_ok=True)
         machines[variant] = prepare_machine(folder, ROOT / '.deps/nesrecomp',
-                                            fast_ppu=optimized, fast_audio=optimized)
+                                            fast_ppu=optimized, fast_audio=optimized, fast_apu=optimized)
         (folder / 'retro_nes_config.h').write_text('#define RR_NES_ROM_SHA "' + '0' * 64 + '"\n')
     baseline = machines['baseline']
     source = f'''cmake_minimum_required(VERSION 3.20)
@@ -64,6 +64,21 @@ target_link_libraries({name} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
                 raise RuntimeError(f'PPU mismatch: PAL={pal}, Zapper={zapper}, mapper={mapper}, checkpoint={first}; traces in {project}')
             result = dict(pal=pal, zapper=zapper, mapper=mapper, alignments=4, checkpoints=2800, vblank_cycles=expected - 2800,
                           hidden_ppu_apu_frame_bus_pcm_match=True)
+            print(json.dumps(result), flush=True)
+            results.append(result)
+        # The APU alone over long runs (the deferred cycles of nes_apu_batch.inc): interrupt lines and cycle count on every
+        # cycle, the APU state, the sound and the machine at the end of each run; boards with expansion sound included.
+        for mapper in (0, 1, 4, 5, 69, 85):
+            traces = []
+            for variant in machines:
+                text = run([build_executable(project / 'build', f'{variant}{config}'), str(mapper), 'apu'], timeout=600)
+                (project / f'{variant}-{config}-{mapper}-apu.txt').write_text(text, encoding='ascii')
+                traces.append(text.splitlines())
+            expected = 28 * 14
+            if len(traces[0]) != expected or traces[0] != traces[1]:
+                first = next((i for i, pair in enumerate(zip(*traces)) if pair[0] != pair[1]), -1)
+                raise RuntimeError(f'APU mismatch: PAL={pal}, Zapper={zapper}, mapper={mapper}, run={first}; traces in {project}')
+            result = dict(pal=pal, zapper=zapper, mapper=mapper, apu_scenarios=28, runs=expected, cycles_hashed_each=True)
             print(json.dumps(result), flush=True)
             results.append(result)
         # Which boards run the deferred clock: mappers 0, 1 and 2 without the Zapper, in NTSC and PAL; the others

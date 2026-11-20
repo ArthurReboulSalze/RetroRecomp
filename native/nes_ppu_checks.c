@@ -52,6 +52,59 @@ static int extra_sprites_check(void){
     return 0;
 }
 #endif
+/* The APU alone, over long runs (the deferred cycles of nes_apu_batch.inc): channel and frame counter settings written at
+ * random, runs of 1 to 40,000 cycles, the interrupt lines and the cycle count hashed on every cycle (a DMA stall or an IRQ
+ * one cycle late shows at once), and the whole APU state, the sound and the machine hashed at the end of each run. */
+static int apu_checks(unsigned mapper){
+    static const uint16_t regs[]={
+        0x4000,0x4001,0x4002,0x4003,0x4004,0x4005,0x4006,0x4007,0x4008,0x400a,0x400b,0x400c,0x400e,0x400f,
+        0x4010,0x4011,0x4012,0x4013,0x4015,0x4017,0x4015,0x4017,0x4003,0x4007,0x400b,0x400f};
+    uint8_t *state=malloc(rr_nes_apu_size());if(!state)return 4;
+    for(unsigned scenario=0;scenario<28;scenario++){
+        cyc_power_on((uint8_t)(scenario&3));cyc_run_power_on();
+        if(scenario%3!=2)cyc_audio_enable(scenario&1?44100:48000);
+        seed=0x9e3779b9u+scenario*7919u;cpu.i=0;
+        for(unsigned segment=0;segment<14;segment++){
+            unsigned changes=next_value()%7;
+            if(segment==0)changes+=6;
+            for(unsigned c=0;c<changes;c++){
+                uint16_t reg=regs[next_value()%(sizeof(regs)/sizeof(regs[0]))];
+                uint8_t value=(uint8_t)(next_value()>>8);
+                if(reg==0x4015&&(next_value()&3))value|=0x0f;       /* mostly enabled */
+                if(reg==0x4017&&(next_value()&1))value&=0xc0;
+                if(reg==0x4010&&(next_value()&1))value&=0xcf;       /* no loop, a slow rate */
+                cpu_write(reg,value,0);
+            }
+            unsigned kind=segment%4;
+            unsigned length=1+next_value()%(kind==0?40000u:kind==1?3000u:kind==2?400u:40u);
+            uint64_t trace=14695981039346656037ULL;
+            cpu.do_irq=0;
+            for(unsigned cycle=0;cycle<length;cycle++){
+                uint32_t r=next_value();
+                if((r&1023)==0){
+                    switch((r>>10)%6){
+                    case 0:(void)cpu_read(0x4015,0);break;
+                    case 1:(void)cpu_read(0x4016,0);break;
+                    case 2:(void)cpu_read(0x4017,0);break;
+                    case 3:(void)cyc_hw_state_hash();break;
+                    case 4:cpu_write(0x4014,(uint8_t)(r>>16),0);break;
+                    default:cpu_write(0x4016,(uint8_t)((r>>16)&1),0);break;
+                    }
+                }else (void)cpu_read(0,(r&15)==0?CYC_POLL:0);
+                if((r&0xfff)==7)cpu.do_irq=0;
+                trace=(trace^(hw.irq_line|cpu.do_irq<<1|cpu.do_nmi<<2|(unsigned)(cyc_cycle_count()<<3)))*1099511628211ULL;
+            }
+            int16_t pcm[4096];size_t n;uint64_t sound=14695981039346656037ULL;
+            while((n=cyc_audio_read(pcm,4096)))sound^=hash_bytes(pcm,n*sizeof(*pcm));
+            rr_nes_apu_save(state);
+            printf("A %u %u %u %llu %016llx %016llx %016llx %016llx %016llx\n",mapper,scenario,segment,
+                (unsigned long long)cyc_cycle_count(),(unsigned long long)trace,(unsigned long long)hash_bytes(&cpu,sizeof(cpu)),
+                (unsigned long long)sound,(unsigned long long)hash_bytes(state,rr_nes_apu_size()),
+                (unsigned long long)cyc_hw_state_hash());
+        }
+    }
+    free(state);return 0;
+}
 int main(int argc,char **argv){
     unsigned mapper=argc>1?(unsigned)atoi(argv[1]):0;
     size_t prg=mapper==0?32768:mapper==153?524288:65536,size=16+prg;
@@ -64,6 +117,7 @@ int main(int argc,char **argv){
         rom[pos+4091]=rom[pos+4093]=rom[pos+4095]=0x80;
     }
     if(!cyc_load_ines(rom,size))return 3;free(rom);cyc_run_native=false;
+    if(argc>2&&!strcmp(argv[2],"apu"))return apu_checks(mapper);
 #if RR_NES_FAST_PPU
     if(argc>2&&!strcmp(argv[2],"extra"))return extra_sprites_check();
     if(argc>2&&!strcmp(argv[2],"engaged")){ /* whether this board runs the deferred clock, and does defer edges */

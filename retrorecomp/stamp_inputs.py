@@ -539,6 +539,7 @@ INPUTS = _resolve({
         'native/nes_ppu_checks.c',
         'native/nes_ppu_fast.inc',
         'native/nes_ppu_lazy.inc',
+        'native/nes_apu_batch.inc',
         'native/nes_ram.inc',
         'native/nes_ram_sweep_checks.c',
         'native/nes_sprite_extra.inc',
