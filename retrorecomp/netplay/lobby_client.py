@@ -28,9 +28,9 @@ from .lobby import game_dict, game_from_dict
 from .lobby_check import LocalLibrary, game_config
 from .worker_client import WorkerProcess, worker_command
 
-# The Internet room (INTERNET_PLAN.md): False until a room really works over the Internet (the box's port, the window's
-# warnings, the security review); the window greys its Internet choice with « bientôt » while it is False.
-INTERNET = False
+# The Internet room (INTERNET_PLAN.md): on since Arthur's two-PC test over a phone's connection (19 Nov 2026, « ça marche en local
+# et par internet, sans lag ni bug »); False would grey the window's Internet choice with « bientôt ».
+INTERNET = True
 CHAT_KEPT = 200
 NOTICES_KEPT = 50
 ROOM_CAPACITY = 4                  # the host and up to three guests

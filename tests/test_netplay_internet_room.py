@@ -25,7 +25,7 @@ class ConfigTests(unittest.TestCase):
             config, text = lobby_client.host_config('192.168.1.58', 24611, 'Arthur', 'per_player', folder)
             self.assertFalse(config['room']['internet'])
             self.assertTrue(text.startswith('rr1:lan:192.168.1.58:24611:'))
-            self.assertFalse(lobby_client.INTERNET)                   # greyed in the window until the room works over the Internet
+            self.assertTrue(lobby_client.INTERNET)                    # the window offers Internet (Arthur's two-PC test, 19 Nov 2026)
 
     def test_the_guest_takes_a_key_an_invitation_or_the_typed_form_and_says_what_is_wrong(self):
         key = internet_key.format_key(24611, SECRET, '82.65.10.20')
