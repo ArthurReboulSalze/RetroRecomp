@@ -146,8 +146,26 @@ def _score(query: _Title, candidate: _Title, *, fuzzy: bool) -> float:
     return .90 + .01 * similarity if similarity else 0
 
 
-def matching_indices(names: list[str], rom_name: str, title: str) -> list[int]:
-    """Return editions of one sufficiently clear title, otherwise no match."""
+# A file named after one of a game's alternative names scores this much below a file named after the game itself.
+ALTERNATIVE_PENALTY = .03
+
+
+@lru_cache(maxsize=8192)
+def _alternatives(name: str) -> tuple[str, ...]:
+    """The first name a No-Intro file gives its game when it has several ("Columns / Shapes and Columns", whose slash the
+    thumbnail collections turn into " _ "). A slash and an "&" become the same " _ ", so each leading run of names is
+    offered: "Putt _ Putter _ Minigolf" offers "Putt" and "Putt _ Putter" (Putt & Putter). A later name alone is never
+    offered: "Tennis Ace _ Super Tennis" is not the box of another game called Super Tennis. The whole name is not one."""
+    base = clean_title(name)
+    parts = [part.strip() for part in base.split(' _ ')]
+    if len(parts) < 2 or not all(parts):
+        return ()
+    return tuple(' _ '.join(parts[:end]) for end in range(1, len(parts)))
+
+
+def matching_indices(names: list[str], rom_name: str, title: str, *, alternatives: bool = False) -> list[int]:
+    """Return editions of one sufficiently clear title, otherwise no match. With `alternatives`, a file named after several
+    names of its game (No-Intro thumbnails) also answers to its first name (`_alternatives`)."""
     queries = [_describe(q) for q in _queries(rom_name, title)]
     # An abbreviated export label must not remove a sequel number from the ROM.
     authoritative = _describe(rom_name).numbers
@@ -173,7 +191,13 @@ def matching_indices(names: list[str], rom_name: str, title: str) -> list[int]:
             if not editions <= requested_editions:
                 continue
             score = max((_score(q, candidate, fuzzy=fuzzy) for q in queries), default=0)
-            if score:
+            for alternative in (_alternatives(names[index]) if alternatives else ()):
+                # Only an exact first name counts, and a little lower, so a file that bears the name itself always wins.
+                described = _describe(alternative)
+                exact = max((_score(q, described, fuzzy=False) for q in queries), default=0)
+                if exact >= .99:
+                    score = max(score, exact - ALTERNATIVE_PENALTY)
+            if score > 0:
                 group = groups.setdefault(candidate.key, [0, []])
                 group[0] = max(group[0], score)
                 group[1].append(index)

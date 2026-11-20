@@ -144,6 +144,31 @@ state-layout keys move too, with the other keys the rows name.
 | [Capcom CPS-1, CPS-1.5 and CPS-2: the rollback tier and the host's F8 / F9 for everyone](#capcom-cps-1-cps-15-and-cps-2-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_opm.cpp`, `cps1_main.c`) | the CPS-1 and CPS-2 host stamps (`cps1_host.c`, `cps1_persistence.c`, `rrhk_cps1.c`) | unchanged (format, key and magic) |
 | [PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, the new snapshot files, `pce_main.c`, `pce_build.py`, the profile) | the PC Engine host stamp (`rrhk_pce.c`) | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c` |
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
+| [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
+
+## Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder (1.9.0)
+
+On top of the cover services reviewed per machine (merge `a5e9179f`), measured by dry matching over a copy of Arthur's 1,315
+compiled games against the public catalogues (libretro thumbnails, ArcadeItalia; no image stored, his keys never used):
+1.8.0's code found a box for 1,169, main `a5e9179f` for 1,257 (the libretro folder read: NES, PlayStation, MAME), this change
+for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's edition.
+
+- **ArcadeItalia's placeholder is refused, and a clone asks its parent.** ArcadeItalia's image address answers every set,
+  with MAME's logo (140 x 105) for a set it has no flyer for. Its API omitted the flyer address for those sets in Arthur's
+  library (7 of 112 sets, none served the logo), so this is a guard: that image, or any picture under 200 pixels, is no
+  cover. A set without a flyer then asks its parent's (the profiles' `cover_sets`: the set, then its parent; 19xxu, progearu
+  and sf2hf have none of their own).
+- **ArcadeItalia comes after the libretro boxes**, before any title screen: a Neo Geo AES box from libretro is not
+  replaced by a flyer.
+- **The set's own MAME description names the edition first**: Street Fighter II (World 910522), not the Japanese flyer
+  that the title's regional fallback picked (21 of 46 CPS games).
+- **No-Intro thumbnails with several names** (`Columns _ Shapes and Columns`) answer to their first name only, exactly,
+  and below a file named after the game itself; the arcade boards keep their reviewed aliases. Master System 247 to 253.
+- **WHDLoad archive names without a pack number** (`Turrican2_v1.4`) give the game's name too.
+- **ScreenScraper never reads a disc image whole**: a file over 64 MiB or a game folder is looked up by name and size.
+
+**Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
+both Amigas; build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
 
 ## Commodore Amiga 500 and 1200: the F1 help says how two players play (1.9.0)
 

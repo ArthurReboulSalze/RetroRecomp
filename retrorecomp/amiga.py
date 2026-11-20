@@ -90,9 +90,10 @@ def cover_title(name: str) -> str:
 
 
 def archive_title(stem: str) -> str:
-    """A WHDLoad archive's name as a title (`ChaosEngine_v1.2_AGA_1324`, `Zool2_v1.0_AGA_0415`): the version, the chipset and
-    the number dropped, the joined words split (`Chaos Engine`, `Zool 2`). '' for a name of another shape."""
-    if not re.fullmatch(r'[A-Za-z0-9&!\'+-]+(?:_[A-Za-z0-9.&+-]+)*_\d{3,5}', stem or ''):
+    """A WHDLoad archive's name as a title (`ChaosEngine_v1.2_AGA_1324`, `Zool2_v1.0_AGA_0415`, `Turrican2_v1.4`): the version,
+    the chipset and the number dropped, the joined words split (`Chaos Engine`, `Zool 2`). '' for a name of another shape."""
+    if not (re.fullmatch(r'[A-Za-z0-9&!\'+-]+(?:_[A-Za-z0-9.&+-]+)*_\d{3,5}', stem or '')
+            or re.fullmatch(r'[A-Za-z0-9&!\'+-]+_v\d+(?:\.\d+)*[a-z]?(?:_[A-Za-z0-9.&+-]+)*', stem or '')):
         return ''
     words = re.sub(r'(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z][a-z])', ' ', stem.split('_', 1)[0])
     return words.strip() if len(words) < 120 else ''

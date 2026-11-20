@@ -429,7 +429,7 @@ class ArcadeAndAmigaNames(unittest.TestCase):
     def test_an_arcade_set_gets_its_flyer_from_arcadeitalia_by_its_own_name(self):
         answer = {'result': [{'game_name': 'mslug', 'url': 'https://adb.arcadeitalia.net/?mame=mslug',
                               'url_image_flyer': 'https://adb.arcadeitalia.net/?mame=mslug&type=flyer&resize=0'}]}
-        with patch('retrorecomp.cover_sources._json', return_value=answer) as query,                 patch('retrorecomp.cover_sources.request', return_value=png()) as image:
+        with patch('retrorecomp.cover_sources._json', return_value=answer) as query,                 patch('retrorecomp.cover_sources.request', return_value=png(size=(600, 900))) as image:
             cover = api.fetch('arcadeitalia', {}, Path('mslug.zip'), 'Metal Slug', 'ng', normalize=normalized)
         self.assertEqual((cover.provider, cover.style), ('arcadeitalia', 'front'))
         self.assertIn('game_name=mslug', query.call_args.args[1])
@@ -442,6 +442,51 @@ class ArcadeAndAmigaNames(unittest.TestCase):
         self.assertFalse(api.available('arcadeitalia', 'md'))
         self.assertTrue(all(api.available('arcadeitalia', system) for system in ('cps1', 'cps2', 'ng')))
 
+    @staticmethod
+    def arcade_answer(name, flyer=True):
+        game = {'game_name': name, 'url': f'https://adb.arcadeitalia.net/?mame={name}'}
+        if flyer:
+            game['url_image_flyer'] = f'https://adb.arcadeitalia.net/?mame={name}&type=flyer&resize=0'
+        return {'result': [game]}
+
+    def test_arcadeitalia_placeholder_and_thumbnails_are_no_cover_and_a_clone_shows_its_parent(self):
+        # ArcadeItalia answers every image request: a set without a flyer gets MAME's logo (140 x 105). It is never a cover;
+        # the parent's flyer is asked next (the profile's `cover_sets`: the set, then its parent).
+        self.assertEqual(api.cover_sets('cps1', Path('ffightu.zip')), ('ffightu', 'ffight'))
+        self.assertEqual(api.cover_sets('cps1', Path('Final Fight.zip')), ())     # a file named otherwise offers none
+        self.assertEqual(api.cover_sets('md', Path('ffight.zip')), ())            # a console has no sets
+        answers = [self.arcade_answer('ffightu'), self.arcade_answer('ffight')]
+        with patch('retrorecomp.cover_sources._json', side_effect=answers) as query, \
+                patch('retrorecomp.cover_sources.request', side_effect=[png(size=(140, 105)), png(size=(700, 1000))]) as image:
+            cover = api.fetch('arcadeitalia', {}, Path('ffightu.zip'), 'Final Fight', 'cps1', normalize=normalized)
+        self.assertEqual(cover.url, 'https://adb.arcadeitalia.net/?mame=ffight&type=flyer&resize=0')
+        self.assertEqual((query.call_count, image.call_count), (2, 2))
+        self.assertFalse(api._flyer(png(size=(150, 190))))
+        with patch.object(api.hashlib, 'sha256') as digest:
+            digest.return_value.hexdigest.return_value = api.ARCADEITALIA_PLACEHOLDER
+            self.assertFalse(api._flyer(png(size=(700, 1000))))
+        with patch('retrorecomp.cover_sources._json', side_effect=[self.arcade_answer('ffightu', False),
+                                                                   self.arcade_answer('ffight', False)]), \
+                patch('retrorecomp.cover_sources.request', side_effect=AssertionError('no image without a flyer')):
+            self.assertIsNone(api.fetch('arcadeitalia', {}, Path('ffightu.zip'), 'Final Fight', 'cps1', normalize=normalized))
+
+    def test_screenscraper_looks_a_disc_up_by_name_and_size_without_reading_it(self):
+        with tempfile.TemporaryDirectory() as folder:
+            disc = Path(folder) / 'Game (USA).bin'
+            disc.write_bytes(b'authored')
+            game = {'id': 1, 'systeme': {'id': '57'}, 'noms': [{'text': 'Game'}],
+                    'medias': [{'type': 'box-2D', 'region': 'us', 'url': 'https://api.screenscraper.fr/front'}]}
+            with patch.object(api, 'SS_HASHED_BYTES', 4), \
+                    patch.object(Path, 'read_bytes', side_effect=AssertionError('a disc is never read whole')), \
+                    patch.object(api, 'request', side_effect=[json.dumps({'response': {'jeu': game}}).encode(), png()]) as client:
+                cover = api.fetch('screenscraper', {'devid': 'test', 'devpassword': 'test'}, disc, 'Game', 'psx',
+                                  normalize=normalized)
+        query = client.call_args_list[0].args[0]
+        self.assertNotIn('crc=', query)
+        self.assertNotIn('sha1=', query)
+        self.assertIn('romtaille=8', query)
+        self.assertEqual(cover.style, 'front')
+
     def test_a_machine_without_a_screenscraper_number_still_asks_the_other_services(self):
         # until 20 Nov 2026 every service was skipped for a machine ScreenScraper had no number for (fetch's first test)
         self.assertTrue(api.available('thegamesdb', 'x68') and api.available('igdb', 'pce'))
@@ -451,7 +496,8 @@ class ArcadeAndAmigaNames(unittest.TestCase):
         from retrorecomp.amiga import archive_title
         for stem, title in (('ChaosEngine_v1.2_AGA_1324', 'Chaos Engine'), ('Zool2_v1.0_AGA_0415', 'Zool 2'),
                             ('AlienBreed3D_v1.0_AGA_Fixed_0624', 'Alien Breed 3D'), ('Banshee_v3.2_AGA_0633', 'Banshee'),
-                            ('1869 (AGA)', ''), ('Lotus2', '')):
+                            ('Turrican2_v1.4', 'Turrican 2'), ('F1GrandPrix_v1.1', 'F1 Grand Prix'),
+                            ('Roadkill_v2.1b_AGA', 'Roadkill'), ('1869 (AGA)', ''), ('Lotus2', '')):
             self.assertEqual(archive_title(stem), title, stem)
 
 if __name__ == '__main__':

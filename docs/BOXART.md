@@ -57,16 +57,18 @@ replace an older icon. Explicitly selected images retain priority.
    edition name, reusing its cached download whenever available.
 3. Previously validated online covers in the converter's `datas/BoxArt/<console>`,
    matching the console, ROM identity and requested style.
-4. Configured services: ScreenScraper, TheGamesDB, then IGDB; for the arcade
-   boards (CPS-1, CPS-1.5, CPS-2, Neo Geo), ArcadeItalia's public MAME database
-   after them. Each machine's platform on each service comes from its profile
-   (`catalogues`), checked against the service's own platform list.
+4. Configured services: ScreenScraper, TheGamesDB, then IGDB. Each machine's
+   platform on each service comes from its profile (`catalogues`), checked
+   against the service's own platform list.
 5. The public Libretro `Named_Boxarts` library on GitHub, with the
    [Libretro thumbnail server](https://docs.libretro.com/guides/roms-playlists-thumbnails/#thumbnails)
    as an alternative host for both images and catalogue lookup.
-6. Matching local artwork in the console's BoxArt directory, if online boxes
+6. For the arcade boards (CPS-1, CPS-1.5, CPS-2, Neo Geo), ArcadeItalia's public
+   MAME database: the set's flyer, then its parent's. It comes after the Libretro
+   boxes, so a home box (the Neo Geo's AES boxes) is never replaced by a flyer.
+7. Matching local artwork in the console's BoxArt directory, if online boxes
    are unavailable.
-7. If no usable box art exists, the matching console's `Named_Titles` image,
+8. If no usable box art exists, the matching console's `Named_Titles` image,
    then its `Named_Snaps` image. No API credentials are needed for these sources.
 
 Configured APIs select only box/front-cover media. Fan art, logos, cartridge
@@ -80,7 +82,16 @@ skipped rather than selecting the first search result.
 Trailing articles keep their regional tags during exact matching:
 `The Game (USA)` can select `Game, The (USA)` without confusing other editions.
 
-The same title matcher is shared by all nine consoles, local/downloaded artwork,
+Each collection's naming is read as it is written. No-Intro thumbnails that give a
+game several names (`Columns _ Shapes and Columns`, from "Columns / Shapes and
+Columns") answer to their first name only, exactly, and below a file named after the
+game itself; a later name alone is never taken (Super Tennis is not "Tennis Ace _
+Super Tennis"). An arcade set's MAME description (`Street Fighter II - The World
+Warrior (World 910522)`) names its edition before the title does, then its parent's.
+WHDLoad archive names (`AlienBreed3D_v1.0_AGA_Fixed_0624`, `Turrican2_v1.4`) give the
+game's name beside the name inside the install.
+
+The same title matcher is shared by every machine, local/downloaded artwork,
 Libretro and the configured cover APIs. Exact names remain first. Additional
 matches tolerate accents, punctuation, article placement, optional Disney
 branding, `Bros.`/`Brothers`, `vs`/`versus`, Roman sequel numerals and a missing
@@ -172,7 +183,7 @@ sources and does not prevent conversion. This mechanism is shared by all console
 | [ScreenScraper](https://www.screenscraper.fr/webapi2.php) | Developer ID and developer password; optional user name/password | Front covers by default; optional real 3D boxes with a front fallback; region preference follows the ROM name |
 | [TheGamesDB](https://api.thegamesdb.net/key.php) | TheGamesDB API key, shown on that page once signed in on thegamesdb.net; the site's login is never entered in the converter | Front box art for the matching console and an unambiguous title |
 | [IGDB](https://api-docs.igdb.com/#account-creation) | Client ID and Client Secret of an application registered on the [Twitch developer console](https://dev.twitch.tv/console); no login or password | Platform-filtered front covers |
-| [ArcadeItalia](https://adb.arcadeitalia.net/service_scraper.php) | Nothing: its MAME API is public | The flyer of an arcade board's MAME set (CPS-1, CPS-1.5, CPS-2, Neo Geo), asked by the set's own name |
+| [ArcadeItalia](https://adb.arcadeitalia.net/service_scraper.php) | Nothing: its MAME API is public | The flyer of an arcade board's MAME set (CPS-1, CPS-1.5, CPS-2, Neo Geo), asked by the set's own name, then its parent's; its placeholder (MAME's logo, sent for a set without a flyer) is refused |
 | [Libretro](https://github.com/libretro-thumbnails/libretro-thumbnails) | None | Console-specific front box art; title screen or game image as last resort; GitHub and public thumbnail server |
 
 Ordinary website accounts alone do not supply the developer access needed by
@@ -183,7 +194,11 @@ RetroRecomp does not bundle shared credentials or borrow credentials from other
 scraper applications.
 
 ArcadeItalia is asked only for the arcade boards' MAME sets, by the set's own
-name (`mslug`, `sf2`), at most one request a second. It is never queried for a
+name (`mslug`, `sf2`) and then its parent's, at most one request a second. It
+answers every image request, with MAME's logo (140 x 105) for a set it has no
+flyer for: that image, or any picture under 200 pixels, is never a cover.
+ScreenScraper receives a cartridge's or a floppy's hashes; a disc image or a game
+folder is looked up by its name and size, never read whole. It is never queried for a
 console game: an arcade game with the same name is not the console edition's box
 art.
 

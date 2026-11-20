@@ -82,9 +82,24 @@ def profile_cover_titles(system_id: str, rom_path: Path) -> tuple[str, ...]:
         return ()
 
 
+def _no_intro_names(system_id: str | None) -> bool:
+    from .systems import get_profile
+    try:
+        catalogues = get_profile(system_id or 'sms').catalogues
+    except (KeyError, ValueError):
+        return False
+    return bool(catalogues and not catalogues.local_catalogue and not catalogues.arcadeitalia)
+
+
 def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallback=False,
                  system_id: str | None = None, extra_titles: tuple[str, ...] = ()) -> str | None:
-    """The box of the file's name or the title; when neither finds one, of each extra name in turn."""
+    """The box of the file's name or the title; when neither finds one, of each extra name in turn. An extra name that is
+    exactly one catalogue file's name (MAME's description of the set, with its region and date) is taken first: it names
+    the edition, where the title alone would pick any region's box."""
+    for extra in extra_titles:
+        exact = [n for n in names if normalized(Path(n).stem) == normalized(extra)]
+        if len(exact) == 1:
+            return exact[0]
     found, refused = None, None
     try:
         found = _choose_cover(names, rom_name, title, regional_fallback=regional_fallback, system_id=system_id)
@@ -125,7 +140,9 @@ def _choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallb
             return matches[0]
         if len(matches) > 1:
             raise ArtworkError("Plusieurs covers portent le même nom ; choisis une image explicitement.")
-    indices = matching_indices([Path(n).stem for n in names], rom_name, title)
+    # Thumbnails named after No-Intro entries may give several names of the game; a machine whose sets are named by its own
+    # reviewed catalogue (the arcade boards) keeps its reviewed aliases only.
+    indices = matching_indices([Path(n).stem for n in names], rom_name, title, alternatives=_no_intro_names(system_id))
     if not indices and system_id=='ng':
         from .cover_titles import clean_title
         aliases=_neogeo_title_aliases();titles=[]
@@ -642,38 +659,45 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
             if not downloaded or fresh(cover):
                 return remember(cover)
             cached = cover
+
+    def from_service(provider, account):
+        emit(f"Box art: searching {PROVIDERS[provider][0]}…")
+        try:
+            cover = fetch(provider, account, rom_path, title, system_id,
+                          prefer3d=prefer3d, normalize=normalized)
+            if cover is None:
+                return None
+            if not prefer3d and cover.style == 'box3d':
+                emit(f"Box art · {PROVIDERS[provider][0]}: no front cover; trying the next source.")
+                return None
+            image = _image(cover.data)
+            buffer = BytesIO(); image.save(buffer, format='PNG')
+            filename = re.sub(r'[&*/:`<>?\\|"\x00-\x1f]', '_', rom_path.stem) + '.png'
+            data = buffer.getvalue()
+            record = {'provider': provider, 'source_page': _public_url(cover.source_page),
+                      'url': _public_url(cover.url), 'style': cover.style,
+                      'checked_sources': active, 'settings_revision': settings.get('revision', ''),
+                      'checked_box_3d': prefer3d,
+                      'checked_image_policy': IMAGE_SOURCE_POLICY,
+                      'sha256': hashlib.sha256(data).hexdigest(),
+                      'downloaded_utc': datetime.now(timezone.utc).isoformat()}
+            path = _store_download(storage, filename, data, record)
+            return remember({'path': path, 'source': provider, 'data': data, 'url': record['url'],
+                             'source_page': record['source_page'], 'style': cover.style})
+        except CoverServiceError as exc:
+            emit(f"Box art · {PROVIDERS[provider][0]}: {exc}")
+        except (ArtworkError, OSError):
+            emit(f"Box art · {PROVIDERS[provider][0]}: unusable image; trying the next source.")
+        return None
+
     if online:
         for provider in active:
             account = settings.get('accounts', {}).get(provider, {})
             if not configured(provider, account):
                 continue
-            emit(f"Box art: searching {PROVIDERS[provider][0]}…")
-            try:
-                cover = fetch(provider, account, rom_path, title, system_id,
-                              prefer3d=prefer3d, normalize=normalized)
-                if cover is None:
-                    continue
-                if not prefer3d and cover.style == 'box3d':
-                    emit(f"Box art · {PROVIDERS[provider][0]}: no front cover; trying the next source.")
-                    continue
-                image = _image(cover.data)
-                buffer = BytesIO(); image.save(buffer, format='PNG')
-                filename = re.sub(r'[&*/:`<>?\\|"\x00-\x1f]', '_', rom_path.stem) + '.png'
-                data = buffer.getvalue()
-                record = {'provider': provider, 'source_page': _public_url(cover.source_page),
-                          'url': _public_url(cover.url), 'style': cover.style,
-                          'checked_sources': active, 'settings_revision': settings.get('revision', ''),
-                          'checked_box_3d': prefer3d,
-                          'checked_image_policy': IMAGE_SOURCE_POLICY,
-                          'sha256': hashlib.sha256(data).hexdigest(),
-                          'downloaded_utc': datetime.now(timezone.utc).isoformat()}
-                path = _store_download(storage, filename, data, record)
-                return remember({'path': path, 'source': provider, 'data': data, 'url': record['url'],
-                                 'source_page': record['source_page'], 'style': cover.style})
-            except CoverServiceError as exc:
-                emit(f"Box art · {PROVIDERS[provider][0]}: {exc}")
-            except (ArtworkError, OSError):
-                emit(f"Box art · {PROVIDERS[provider][0]}: unusable image; trying the next source.")
+            found = from_service(provider, account)
+            if found is not None:
+                return found
         if (cached is not None and cached.get('style') not in ('title', 'snapshot')
                 and style_matches(cached)):
             _checked_cache(cached['path'], active, settings)
@@ -693,6 +717,11 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
                         (category == 'Named_Titles' and cached.get('style') == 'title')):
                     _checked_cache(cached['path'], active, settings)
                     return remember(cached)
+                # An arcade set's flyer from ArcadeItalia (no account), after the libretro boxes and before any title screen.
+                if category == 'Named_Boxarts' and available('arcadeitalia', system_id):
+                    found = from_service('arcadeitalia', {})
+                    if found is not None:
+                        return found
                 if category == 'Named_Boxarts' and local is not None:
                     emit('Box art: online boxes unavailable; using the matching local image.')
                     return local

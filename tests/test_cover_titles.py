@@ -32,7 +32,10 @@ class CoverTitleTests(unittest.TestCase):
                             ('Art of Fighting 2',4),("Blue's Journey",5)]:
             with self.subTest(query=query):
                 self.assertEqual(choose_cover(names,query,query,system_id='ng',regional_fallback=True),names[index])
-        self.assertIsNone(choose_cover(names[:1],'3 Count Bout','3 Count Bout',system_id='sms'))
+        # A No-Intro machine reads a file's first name (Columns _ Shapes and Columns: the box of Columns), never a later
+        # one; the Neo Geo keeps its reviewed aliases only (the last assertion).
+        self.assertEqual(choose_cover(names[:1],'3 Count Bout','3 Count Bout',system_id='sms'),names[0])
+        self.assertIsNone(choose_cover(names[:1],'Fire Suplex','Fire Suplex',system_id='sms'))
         self.assertIsNone(choose_cover(names[3:4],'Art of Fighting 2','Art of Fighting 2',system_id='ng'))
         self.assertIsNone(choose_cover(names[1:2],'Alpha Mission II','Alpha Mission II',system_id='ng'))
         self.assertIsNone(choose_cover(['Game A _ Game B (NGM-123).png'],'Game A','Game A',system_id='ng'))
@@ -234,6 +237,34 @@ class CoverTitleProviderTests(unittest.TestCase):
             self.assertIsNone(api.fetch('screenscraper', {'devid': 'test', 'devpassword': 'test'},
                                       rom, 'Super Metriod', 'snes', normalize=normalized))
         self.assertEqual(request.call_count, 1)
+
+
+class AlternativeNameTests(unittest.TestCase):
+    def test_a_no_intro_file_answers_to_its_first_name_and_never_to_a_later_one(self):
+        names = ['Columns _ Shapes and Columns (USA, Europe, Brazil) (En).png',
+                 'Putt _ Putter _ Minigolf (Europe, Brazil) (En).png',
+                 'Tennis Ace _ Super Tennis (Europe, Brazil) (En).png']
+        self.assertEqual(choose_cover(names, 'Columns (USA, Europe)', 'Columns', system_id='sms'), names[0])
+        self.assertEqual(choose_cover(names, 'Putt & Putter (Europe)', 'Putt & Putter', system_id='sms'), names[1])
+        self.assertEqual(choose_cover(names, 'Tennis Ace (Europe)', 'Tennis Ace', system_id='sms'), names[2])
+        # A later name is not the game's: Super Tennis is another cartridge.
+        self.assertIsNone(choose_cover(names, 'Super Tennis (USA, Europe)', 'Super Tennis', system_id='sms'))
+        self.assertIsNone(choose_cover(names, 'Shapes and Columns', 'Shapes and Columns', system_id='sms'))
+        # A file that bears the name itself wins over a first name.
+        both = names + ['Tennis Ace (Europe).png']
+        self.assertEqual(choose_cover(both, 'Tennis Ace (Europe)', 'Tennis Ace', system_id='sms'), both[-1])
+        # Only exact first names: no near spelling through an alternative.
+        self.assertIsNone(choose_cover(names, 'Colums (USA, Europe)', 'Colums', system_id='sms'))
+        # Without the option (API rows, ScreenScraper names), nothing changes.
+        self.assertEqual(matching_indices([Path(names[0]).stem], 'Columns', 'Columns'), [])
+
+    def test_an_exact_mame_description_names_the_edition_before_the_title(self):
+        names = ['Street Fighter II - The World Warrior (Japan 911210).png',
+                 'Street Fighter II - The World Warrior (World 910522).png',
+                 'Street Fighter II - The World Warrior (US 910206).png']
+        self.assertEqual(choose_cover(names, 'sf2', 'Street Fighter II - The World Warrior', regional_fallback=True,
+                                      system_id='cps1',
+                                      extra_titles=('Street Fighter II - The World Warrior (World 910522)',)), names[1])
 
 
 if __name__ == '__main__':

@@ -92,6 +92,12 @@ class Cps2Profile(SystemProfile):
         from ..cps2 import cover_titles
         return cover_titles(path)
 
+    def cover_sets(self, path: Path) -> tuple[str, ...]:
+        # The MAME sets ArcadeItalia is asked for: the set, then its parent (cover_sources.catalogue_sets).
+        from ..cps2 import FAMILY
+        from ..cover_sources import catalogue_sets
+        return catalogue_sets(FAMILY.catalogue.games(), path)
+
     def convert(self, path: Path, **options) -> Path:
         from ..cps1_conversion import convert
         return convert(path, family='cps2', **options)
