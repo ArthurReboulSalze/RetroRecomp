@@ -12,6 +12,7 @@
 #include "msx_music.h"
 #include "state_io.h"
 #include "msx_opll_state.inc"
+#include <stdbool.h>
 
 enum { MSX_MUSIC_CLOCK = 3579545, MSX_MUSIC_RATE = 49716, MSX_MUSIC_CYCLES = 72 };
 
@@ -20,7 +21,80 @@ typedef struct {
     uint8_t latch;
     uint64_t next;        /* the machine cycle of the next chip sample */
     int16_t out;          /* the last sample, held until the next */
+    bool quiet;           /* the chip is silent and still (music_quiet): its samples take the short step; not in the image */
+    bool check;           /* a reset, a write or a loaded state: music_quiet is asked again after the next full sample */
+    uint16_t full;        /* full samples since music_quiet was last asked: asked again every 4,096 (a chip whose notes ended) */
 } MsxMusic;
+
+/* A silent, still chip (1.9.0, frame cost): every MSX2+ has MSX-MUSIC, and a game that never writes it still paid emu2413's whole
+ * sample 49,716 times a second. In the state music_quiet checks, a sample of emu2413 changes nothing in its 18 slots and its 14
+ * channel outputs:
+ * - no rhythm mode, no test bit, no rate converter, every channel output 0;
+ * - no pending update that would change a slot (commit_slot_update keeps a request pending when the envelope's rate is 0 and
+ *   then recomputes the same fields at every sample: such a slot is committed on a copy and must come out the same);
+ * - every slot in RELEASE or SUSTAIN with F-number 0 (calc_phase then adds 0: the PM row of F-number 0 is all zeros) and pg_out
+ *   already pg_phase >> DP_BASE_BITS;
+ * - every slot silent (envelope at EG_MUTE, outputs 0: calc_envelope keeps it there, to_linear gives 0 above EG_MAX), or a
+ *   modulator left sustained after its note (emu2413 keeps it after a key-off) that is still: envelope rate 0, so calc_envelope
+ *   changes nothing, no AM, and its two outputs equal to calc_slot_mod's own formula on them; its carrier is silent, so the
+ *   channel gives 0.
+ * What still moves is what music_calc_quiet runs: emu2413's own update_ampm, update_short_noise, the envelope counter,
+ * update_noise (14, 2 and 2 steps, as update_output) and mix_output. The chip after a reset is in this state (reset_slot, then
+ * the 64 register writes of 0), so a game that never writes MSX-MUSIC takes the short step from its second sample on; the first
+ * write leaves it, and a chip whose notes have all ended (key off, F-number 0) comes back to it (music_quiet is asked after a
+ * write, a reset or a loaded state, and every 4,096 full samples). The flags are not in the image: they change the speed only.
+ * The chip's image and every sample are OPLL_calc's (msx_music_checks.c, docs/UPGRADES.md); a bump of emu2413 runs that check. */
+static bool music_quiet(const OPLL *opll)
+{
+    if (opll->conv || opll->test_flag || opll->rhythm_mode)
+        return false;
+    for (int i = 0; i < 14; ++i)
+        if (opll->ch_out[i])
+            return false;
+    for (int i = 0; i < 18; ++i) {
+        const OPLL_SLOT *slot = &opll->slot[i];
+        if (slot->update_requests) {
+            OPLL_SLOT probe;
+            memcpy(&probe, slot, sizeof probe);
+            commit_slot_update(&probe);
+            if (memcmp(&probe, slot, sizeof probe))
+                return false;
+        }
+        if ((slot->eg_state != RELEASE && slot->eg_state != SUSTAIN) || slot->fnum
+            || slot->pg_out != slot->pg_phase >> DP_BASE_BITS || slot->pg_phase >= DP_WIDTH)
+            return false;
+        if (slot->eg_out == EG_MUTE && !slot->output[0] && !slot->output[1])
+            continue;                                   /* a silent slot */
+        /* Else only a still modulator (emu2413 leaves a modulator sustained after its key-off): envelope rate 0, so calc_envelope
+         * changes nothing; no AM; its output the fixed point of calc_slot_mod's own formula. Its carrier is checked silent in its
+         * own turn, so the channel gives 0 whatever the modulator feeds it (to_linear gives 0 above EG_MAX). */
+        if ((slot->type & 1) || slot->eg_rate_h || slot->patch->AM || slot->output[0] != slot->output[1])
+            return false;
+        OPLL_SLOT probe;
+        memcpy(&probe, slot, sizeof probe);
+        int16_t fm = probe.patch->FB > 0 ? (probe.output[1] + probe.output[0]) >> (9 - probe.patch->FB) : 0;
+        if (to_linear(probe.wave_table[(probe.pg_out + fm) & (PG_WIDTH - 1)], &probe, 0) != probe.output[0])
+            return false;
+    }
+    return true;
+}
+
+/* OPLL_calc for a chip in the music_quiet state: update_output without the slots' and channels' work, which changes nothing there. */
+static int16_t music_calc_quiet(OPLL *opll)
+{
+    while (opll->out_step > opll->out_time) {
+        opll->out_time += opll->inp_step;
+        update_ampm(opll);
+        update_short_noise(opll);
+        opll->eg_counter++;
+        update_noise(opll, 14);
+        update_noise(opll, 2);
+        update_noise(opll, 2);
+        mix_output(opll);
+    }
+    opll->out_time -= opll->out_step;
+    return opll->mix_out[0];
+}
 
 static MsxMusic music;
 static MsxFm hooks;
@@ -28,17 +102,29 @@ static MsxFm hooks;
 static void music_write(void *chip, uint8_t port, uint8_t value)
 {
     MsxMusic *c = (MsxMusic *)chip;
-    if (port == 0x7C)
+    if (port == 0x7C) {
         c->latch = value;
-    else
+    } else {
         OPLL_writeReg(c->opll, c->latch, value);
+        c->quiet = false;
+        c->check = true;
+    }
 }
 
 static int music_sample(void *chip, uint64_t cycle)
 {
     MsxMusic *c = (MsxMusic *)chip;
     while (c->next <= cycle) {
-        c->out = OPLL_calc(c->opll);
+        if (c->quiet) {
+            c->out = music_calc_quiet(c->opll);
+        } else {
+            c->out = OPLL_calc(c->opll);
+            if (c->check || !(++c->full & 4095)) {
+                c->check = false;
+                c->full = 0;
+                c->quiet = music_quiet(c->opll);
+            }
+        }
         c->next += MSX_MUSIC_CYCLES;
     }
     return c->out;
@@ -51,6 +137,8 @@ static void music_reset(void *chip, uint64_t cycle)
     c->latch = 0;
     c->next = cycle + MSX_MUSIC_CYCLES;
     c->out = 0;
+    c->quiet = false;
+    c->check = true;
 }
 
 /* The OPLL's image: its fields, then each slot's patch index and wave-table index (18 + 18 bytes). */
@@ -101,6 +189,8 @@ static void music_state(void *chip, void *raw)
     c->latch = latch;
     c->next = next;
     c->out = (int16_t)out;
+    c->quiet = false;                 /* a loaded chip: music_quiet is asked again after its next full sample */
+    c->check = true;
 }
 
 MsxFm *msx_music_create(void)
