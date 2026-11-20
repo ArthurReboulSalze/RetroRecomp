@@ -144,6 +144,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Mega Drive: a lower frame cost, the same pictures and sound](#mega-drive-a-lower-frame-cost-the-same-pictures-and-sound-190) | **the Mega Drive game stamp** (`retrorecomp/megadrive_video.py`) | none | unchanged (no file of the Mega Drive key is touched) |
 | [Sony PlayStation: longer native steps, a lower frame cost](#sony-playstation-longer-native-steps-a-lower-frame-cost-190) | **the PlayStation game stamp** (`retrorecomp/psx_native.py`) | none | unchanged (no file of the PlayStation key is touched) |
 | [Nintendo 64: the FPU's rounding mode is set only when it changes](#nintendo-64-the-fpus-rounding-mode-is-set-only-when-it-changes-190) | **the Nintendo 64 game stamp** (`retrorecomp/n64_core.py`: the adaptation of `fpu.h`) | none | **the Nintendo 64 quick-state key moves** (it hashes the adapted core's `ready.json`); an earlier state is refused cleanly |
+| [Nintendo 64: a headless run hashes each frame only for an output that reads it](#nintendo-64-a-headless-run-hashes-each-frame-only-for-an-output-that-reads-it-190) | **the Nintendo 64 game stamp** (`native/n64_machine/n64_player.c`) | none | unchanged (`n64_player.c` is outside the quick-state key) |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-190) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-190) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
 | [Neo Geo: the sprite scan resolved once per change of the sprite tables](#neo-geo-the-sprite-scan-resolved-once-per-change-of-the-sprite-tables-190) | **the Neo Geo game stamp** (`native/neogeo_sprite_scan.h`, new, and the patch step of `geo_lspc.c` in `neogeo_build.py`; the picture, the sound and the state are unchanged) | unchanged | Neo Geo's key **does not move** |
@@ -243,6 +244,25 @@ PC, not physical latency. Native code, the interpreter's counts, CPU and hardwar
 Stamps: the Nintendo 64 game stamp moves (the adaptation digest), and with it the quick-state key, which hashes the adapted
 core's `ready.json`: a state of an earlier build is refused cleanly. The patch is ours, recorded in
 [UPSTREAMS.md](UPSTREAMS.md#nintendo-64-patches-carried-on-mupen64plus-next-190).
+
+## Nintendo 64: a headless run hashes each frame only for an output that reads it (1.9.0)
+
+The second item of the wave, for checks only: a player's game never did this work. A headless run waited for the graphics card
+at the end of every frame, then hashed the picture, the 8 MB of RDRAM and the CPU state (about 9 % of a Super Mario 64 frame's
+main thread), even when nothing read those hashes. It now does so only when an output reads them (`--trace`, `--digests`,
+`--dump-rdram`, `--reload-at`). A conversion always passes `--trace`, so its evidence is the same as before.
+
+**Identical output.** The three games' conversions as in the section above, Super Mario 64 again with this change: the same
+evidence files. One game run headless over 3,600 frames of its main route, with and without `--trace`: the quick state saved
+at frame 3,500 is equal apart from its checksum and the region of the core's own block that holds run-dependent addresses; the
+final picture, the saves and the report's counters are equal.
+
+**Measured** (the same slot, the FPU change on both sides): Super Mario 64, the engine alone headless 6.239 (3.6 %) to 4.972
+(2.3 %) ms per frame, −20.3 %; the player's loop 4.021 to 4.069, the same within its spread, as expected. The gain is for
+headless checks and campaigns, and it makes the engine figure of a timing what a player's game does. Costs of the host's code on
+one PC, not physical latency.
+
+Stamps: the Nintendo 64 game stamp moves (`n64_player.c`); the quick-state key does not.
 
 ## Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder (1.9.0)
 
