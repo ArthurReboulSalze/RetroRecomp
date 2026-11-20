@@ -150,6 +150,7 @@ state-layout keys move too, with the other keys the rows name.
 | [PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, the new snapshot files, `pce_main.c`, `pce_build.py`, the profile) | the PC Engine host stamp (`rrhk_pce.c`) | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c` |
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
+| [Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring](#game-boy-a-line-with-sprites-is-drawn-in-runs-and-the-adapters-sound-is-a-ring-190) | **the Game Boy game stamp** (`native/gb_ppu_object_span.h`, `gameboy_hardware.py`, `gameboy_runtime.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`); build unchanged | unchanged (the bytes of a state are the same) |
 
 ## Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder (1.9.0)
 
@@ -260,6 +261,39 @@ mode of a run of 60 s does not show the laptop's crackle (Arthur heard it in pla
 **Stamps** (against `spec/psx-audio` `b3fb20ba`): the host stamp of all 21 profiles (`rrhk_ring.c`, `rrhk_audio.c`,
 `hostkit_internal.h`, `audio_cushion.h`, a comment); no game stamp; quick states unchanged (host files are outside every state key).
 An export's own sound changes only on the six ring machines.
+
+## Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring (1.9.0)
+
+Branch `perf/190-gb-ppu` (Arthur's go of 20 November 2026 for the Game Boy frame-cost work; the figures come from the performance specialist's
+slot). Same pictures, same sound, same program: the change is how much work the host does per frame.
+
+- **A line with sprites in runs of dots** (`native/gb_ppu_object_span.h`, `retrorecomp/gameboy_hardware.py: adapt_ppu_object_spans`, DMG hardware
+  only). The pinned PPU draws a sprite-free run of dots in one go and falls back to one dot at a time on every line that has a sprite. A run on a
+  line with sprites is now drawn in one go too: the sprites of the line are read once, each pixel takes the one the dot path would give (DMG priority:
+  further left, then lower OAM index; behind-the-background kept; the same palettes). A run stops before the dot where a sprite fetch starts, so the
+  stalls and the mask of fetched sprites stay with the dot path. The colour hardware keeps the dot path.
+- **The adapter's sound is a ring** (`native/hostkit/adapters/rrhk_gb.inc`): a preallocated ring of 16,384 frames in place of a vector with a
+  push per sample and an erase per frame; same limit, same values in the same order. The picture copy is left as it was.
+
+**Proof** (fidelity; no timing is claimed from it). `tools/ab_conversion.py`, main `e4f40699` against this branch, on Super Mario Land, Tetris,
+Pokémon Red, Kirby's Dream Land, Link's Awakening and Metroid II: every evidence file (per-frame picture, sound, RAM and program counter, traces,
+hashes, audio, state) identical; a 6,000-frame `--frame-trace` of Super Mario Land with a varied pad script, identical. `tools/gameboy_ppu_span_selftest.py`
+(an authored program and a host writing the video memory, the sprite table and the video registers at random in the middle of lines; sprites at
+every x, 8x8 and 8x16, flipped, behind the background, the window at every WX, scrolled, objects on and off): the new and the pinned drawing give
+the same hash of every picture on five seeds (600 frames each), and a planted priority error is caught. The sound ring was checked against the vector
+it replaces on 200,000 random push and take rounds (same values, same order, the limit reached). `tests/test_gameboy_perf.py` checks the text of the
+patch without a ROM or a compiler. Counts, not times: the per-dot path is called 42 % less often and `ppu.c` runs 35 % fewer blocks on the sampled game.
+
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread in brackets; main `e4f40699` then this
+branch `f2bdd4eb`): Super Mario Land, the engine alone 0.6067 (1.3 %) to 0.5829 (1.9 %), −3.9 %, and the whole play loop 0.2731 (4.4 %) to 0.2532
+(1.9 %), −7.3 %; Tetris, engine 0.6058 to 0.5983, −1.2 %, inside its 6-11 % spread, loop flat (0.6054 to 0.6057, few sprite lines). A gain
+where sprites are drawn, none where there are few; no regression. These are costs of the host's code on one PC, not physical latency. Not touched:
+the scheduling of the ticks (about half of the work) and the framebuffer copy.
+
+**Stamps** (computed on the tree against main `e4f40699`, all 21 profiles compared): **the Game Boy game stamp** (`e6827073` to `277fb0e6`: the new
+runtime header, the patch of `gameboy_hardware.py`, the copy list of `gameboy_runtime.py`) and **the Game Boy host stamp** (`c05b8312` to `24065247`:
+`rrhk_gb.inc`); the build stamp and every other machine unchanged. Existing Game Boy exports are converted again to get the faster drawing. Quick
+states unchanged (their layout and the bytes of a state are the same, no key moves), and so is a match: the digest of a frame is the same as before.
 
 ## Every machine: the sound no longer crackles in multiplayer (1.9.0)
 
