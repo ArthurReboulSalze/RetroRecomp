@@ -200,7 +200,7 @@ def _convert(path: Path, *, output: Path | None = None, title: str | None = None
              f"({received_info['qualified_by_the_base']} qualified by the base, {received_info['pending']} pending"
              + (f", {received_info['left_out_by_the_cap']['roots']} roots left out by the cap" if received_info['left_out_by_the_cap']['roots'] else '')
              + '); this conversion checks them and qualifies none.')
-    # The roots of the link cable (gba_link): reviewed data of this cartridge, built with the rest, never written to the player's own paths nor shared (they are not observed here).
+    # The roots of the link cable (gba_link): reviewed data of this cartridge (none for most: the cable then runs through the counted interpreter fallback), built with the rest, never written to the player's own paths nor shared (they are not observed here).
     link_roots = gba_link.roots(rom.sha256)
     scripts = project / 'scripts'
     scenarios = [('boot', min(frames, BOOT_FRAMES), 'boot'), ('generic', frames, 'generic')]
