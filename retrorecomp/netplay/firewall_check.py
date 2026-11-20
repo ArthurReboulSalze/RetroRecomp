@@ -62,7 +62,9 @@ def _same_program(rule_app: str | None, program: str) -> bool:
     if not rule_app:
         return False
     expanded = os.path.expandvars(rule_app)
-    return os.path.normcase(os.path.normpath(expanded)) == os.path.normcase(os.path.normpath(program))
+    def windows(path: str) -> str:               # a Windows path, whatever platform reads it: no case, one separator
+        return path.replace('/', '\\').rstrip('\\').casefold()
+    return windows(expanded) == windows(program)
 
 
 def _port_in(ports, port: int) -> bool:

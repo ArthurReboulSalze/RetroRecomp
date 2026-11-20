@@ -315,7 +315,7 @@ class FakeLibrary:
     def add(self, number: int, env: dict | None = None, **changes):
         rom, title = IDENT[number]
         entry = self.scratch.add(report(rom=rom, title=title, **changes), rom=rom, title=title, version=changes.get('version', '1.7.9'))
-        shutil.copyfile(self.executable, entry.executable)            # the fake game stands in for every game
+        shutil.copy(self.executable, entry.executable)                # the fake game stands in for every game (mode kept)
         self.entries[number] = entry
         self.envs[str(entry.executable)] = env or {}      # e.g. SESSION_FAKE_NO_SNAPSHOT=1: a machine that keeps no snapshot
         return entry
