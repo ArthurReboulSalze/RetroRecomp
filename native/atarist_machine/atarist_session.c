@@ -934,7 +934,7 @@ static uint64_t fnv(uint64_t h, const void *data, size_t size) {
 
 /* The digest of a picture's rows and of the RAM, which every frame of a validation run computes (a megabyte and a half: byte by byte it
  * was most of such a run). Four lanes of 64-bit words, each a multiply and an xor-shift, then the lanes and the length folded in; the bytes
- * are read as little-endian words, so the value is the same on every host. It is a digest for the comparisons of one run against another
+ * are read as words in the host's byte order, so the value is the same on every little-endian host (all the hosts we build for). It is a digest for the comparisons of one run against another
  * (the reference, the native game, the packed copy), never stored for another version to compare. */
 static uint64_t wide(uint64_t h, const void *data, size_t size) {
     const uint8_t *p = (const uint8_t *)data;
