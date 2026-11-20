@@ -26,10 +26,10 @@ Contents
 | Refused | Game Boy Color-only cartridges (header flag `0xC0`). Color-compatible cartridges are accepted and run as a DMG: the generated main forces the runtime's model to `dmg` |
 | Output | One standalone executable per game under `Export/Games/Game Boy` (a Windows x64 EXE, or a Linux ELF on Linux). The source ROM is read without modification and embedded in the executable |
 | Display | The 160 × 144 window of the original Game Boy, no PAL/NTSC choice (`video_modes = ("dmg",)`) |
-| Players | One. No second player, no Light Phaser |
+| Players | One on the console. In a multiplayer match, two consoles on a link cable ([below](#link-cable-in-multiplayer-next-release)), or one console in input sharing. No Light Phaser |
 | Firmware | None needed |
 | Saves | Battery RAM and one quick state, per game (see [States and saves](#states-and-saves)) |
-| Not supported | `.gbc`-only games, link cable, Game Boy Camera and Printer, Super Game Boy features |
+| Not supported | `.gbc`-only games, the link cable outside a multiplayer match and the four-player adapter, Game Boy Camera and Printer, Super Game Boy features |
 
 RetroRecomp 0.12.0 introduced the profile. Conversion and regeneration use the same batch queue, readable game filenames, Windows
 version information and optional box-art icon process as the Sega profiles ([BOXART.md](BOXART.md)).
@@ -43,7 +43,7 @@ version information and optional box-art icon process as the Sega profiles ([BOX
 | Sound: four-channel APU, 44.1 kHz stereo PCM | `runtime/src/audio.c`, with three corrections of ours ([below](#apu-corrections-11-october-2026)) | The wave channel behaviour, the exact timer low bits and the analogue output still need separate accuracy work. The host kit plays the PCM through its callback ring |
 | Cartridge: ROM banking and battery RAM | `runtime/src/gbrt.c` | MBC1 (the runtime also detects MBC1M multicart wiring), MBC2, MBC3 with its real-time clock, MBC5, the Wisdom Tree mapper (since 1.6.6, below), and cartridges with no mapper. Cartridge types `0x01-0x03`, `0x05-0x06`, `0x0F-0x13` and `0x19-0x1E` are the ones the runtime banks. Battery RAM and the clock are written only when they changed |
 | Timer, interrupts, OAM DMA, joypad | The pinned runtime | Run by the pinned runtime in step with the CPU's cycle counts; the HRAM sprite-DMA wait routine is a guarded helper (below). Input is sampled by the host kit's pad word |
-| Peripherals | Joypad only | No link cable, Camera, Printer or Super Game Boy |
+| Peripherals | Joypad; a link cable between two consoles in a multiplayer match only | No four-player adapter, Camera, Printer or Super Game Boy |
 | Player shell | The host kit, `native/hostkit/adapters/rrhk_gb.inc` | Window, menus, bindings, controllers, sound device and pacing since 1.6.3 ([HOST_KIT.md](HOST_KIT.md)) |
 
 *In the report (since 1.6.6, gate G2).* The mapper and the sound unit are two entries of `devices` (`cartridge_mapper`, `audio_unit`),
@@ -512,6 +512,35 @@ behaviour or the pinned PPU model, since the interpreter shares the PPU, and no 
 unexplained observation about the rendering of this game (a candidate for a check against a reference emulator, not a claim about the
 hardware); it does not change the status of the conversion.
 
+## Link cable in multiplayer (next release)
+
+Two Game Boy consoles of the **same game** on one link cable, in a multiplayer match whose seats each have their own port (Tetris, Dr. Mario,
+Tetris Attack, Pokémon battles and trades between the same version...). Every PC of the match runs **both** consoles in one process
+(`native/gb_link.h`): the first is the guest's own, the second is made from the same generated init and run inside the first one's `gb_run_cycles`
+in fixed chunks of 256 cycles, in a fixed order, so the interleave depends on the two consoles' states only and every PC (and every replay after a
+rollback) sees the same run. Seat *i*'s pad drives console *i*; a PC shows and plays **its own seat's** console, the other advances silently. The
+snapshot and the digest cover both consoles in seat order (687 KB per frame for two). The serial port: SB / SC, the internal clock (master), the
+external clock (slave, which the runtime did not have), the end of the transfer with its interrupt; at the end of a master transfer the two SB
+registers are swapped when the other console is armed as a slave, and a master with nobody armed reads `$FF`, as with no cable.
+
+- **Proved (ROM-free):** `tools/gameboy_link_selftest.py`, an authored program on both consoles: the exchange in both roles, the serial interrupts, a
+  master with no partner, two masters, the replay of the pair from snapshots at frame boundaries and mid-frame with a transfer in flight, the digest.
+- **Proved (a real game, no window, no network):** `tools/gameboy_link_play.py` runs the delivered game twice in an empty folder with scripted pads for
+  both consoles; Tetris and Dr. Mario reach their two-player game on both consoles (one exchange per frame), and the digest lines of the pair, every 60
+  frames, are identical between two separate processes.
+- **Proved (a real room on one PC, 20 Nov 2026):** the multiplayer layer's LAN room in the `link` mode (host and guest on this PC's own address, rollback tier,
+  scripted pads along a recorded route): Tetris (1,600 frames) and Dr. Mario (1,600 frames, 30 ms lag and 10 ms jitter added) reach their two-player game,
+  the history digests are equal on both seats, no desync, about 850 and 1,500 byte exchanges on each seat; the host shows console 0, the guest console 1.
+  Two PCs (the ThinkPad) and Linux are not proved yet.
+- **Limits.** The same game on every seat (a match of Red against Blue is not offered). The cartridge RAM is the host's on both consoles (saves
+  are not per seat yet), and only the host's console is written back at the end. Two consoles at most: the four-player adapter (F-1 Race for four)
+  is not modelled. The cable is a byte swap at the end of a transfer: no bit-by-bit shifting, a skew of at most one chunk between the consoles. The
+  external clock and the swap are **not covered by any reference test** (Mooneye's serial tests cover the internal clock and the boot phase only).
+- **Five measures.** Native code: both consoles run the same generated code, the interpreter fallback is counted per console. CPU fidelity: unchanged
+  for the core; the cable is not validated against a reference. Hardware fidelity: not claimed. Gameplay validation: the two-player screens of two
+  games were reached with scripted pads; no played match. Physical latency: not claimed (the cable itself has no delay by construction; the input delay
+  is the multiplayer layer's).
+
 ## Known limits
 
 - **Not native code:** the interpreter fallback is always counted and shown per CPU; the one-by-one WRAM and HRAM instructions are
@@ -520,8 +549,8 @@ hardware); it does not change the status of the conversion.
   runtime's model. Sprite-limit flicker reported in some games has no established cause and is not hidden.
 - **Gameplay validation:** scripted paths only, no completed games; the user performs visual, gameplay and listening checks.
 - **Physical latency:** not measured; host-buffer figures are not latency.
-- **Cartridges:** MBC3 RTC persistence has no independent regression test; no `.gbc`-only games, link cable, Camera, Printer or Super
-  Game Boy.
+- **Cartridges:** MBC3 RTC persistence has no independent regression test; no `.gbc`-only games, four-player adapter, Camera, Printer or Super
+  Game Boy. The link cable exists in a multiplayer match only (below).
 - **Cold build time** is high for large cartridges: in the parallel batch Wario Land II took about 24 minutes and Pokemon Yellow's
   corrected cold conversion about 23, mostly compiling large generated C files over two passes. Bundled observations avoid
   rediscovery and another pass but not the first C build. Wario Land II re-run on 29 October 2026 on an empty library: about 10 minutes of conversion in one pass (600 s, against 709 s in two passes before the `CB` prefix was handled).
