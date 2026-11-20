@@ -186,6 +186,28 @@ class PicturesOnly(ToolbarWindow):
         self.assertEqual(str(app.add_roms_button.cget('style')), 'Toolbar.Primary.TButton')
         self.assertEqual(str(app.play_button.cget('state')), 'disabled')
 
+    def test_help_explains_multiplayer_with_the_window_s_own_mode_names_and_its_guide(self):
+        """Arthur, 20 Nov 2026: Help gets a Multiplayer section (local network, Internet, a VPN between friends, the same game
+        in the same version, the controller modes) and a link to docs/MULTIPLAYER.md."""
+        from retrorecomp.gui_common import MULTIPLAYER_URL
+        app = self.app
+        with patch('retrorecomp.gui_window.webbrowser.open_new_tab') as browser:
+            app.show_help()
+            self.addCleanup(lambda: app.help_window.winfo_exists() and app.help_window.destroy())
+            self.root.update_idletasks()
+            texts = {str(widget.cget('text')) for widget in all_widgets(app.help_window)
+                     if widget.winfo_class() in ('Label', 'TButton')}
+            for key in ('help_mp_title', 'help_mp_intro', 'help_mp_local', 'help_mp_internet', 'help_mp_vpn',
+                        'mp_sharing_per_player', 'mp_sharing_everyone', 'mp_sharing_turns', 'mp_sharing_link', 'help_mp_guide'):
+                self.assertIn(app.tr(key), texts, key)
+            self.assertIn('Tailscale', app.tr('help_mp_vpn_text'))
+            self.assertIn('24611', app.tr('help_mp_internet_text'))
+            guide = next(widget for widget in all_widgets(app.help_window)
+                         if widget.winfo_class() == 'TButton' and str(widget.cget('text')) == app.tr('help_mp_guide'))
+            guide.invoke()
+        browser.assert_called_once_with(MULTIPLAYER_URL)
+        self.assertTrue(MULTIPLAYER_URL.endswith('/docs/MULTIPLAYER.md'))
+
     def test_the_main_buttons_of_a_row_are_larger_than_their_neighbours_through_one_shared_style(self):
         app = self.app
         with patch('retrorecomp.compiled_games_view.CompiledGamesView.scan'):
