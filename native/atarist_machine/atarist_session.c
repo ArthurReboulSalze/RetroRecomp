@@ -932,6 +932,31 @@ static uint64_t fnv(uint64_t h, const void *data, size_t size) {
     return h;
 }
 
+/* The digest of a picture's rows and of the RAM, which every frame of a validation run computes (a megabyte and a half: byte by byte it
+ * was most of such a run). Four lanes of 64-bit words, each a multiply and an xor-shift, then the lanes and the length folded in; the bytes
+ * are read as little-endian words, so the value is the same on every host. It is a digest for the comparisons of one run against another
+ * (the reference, the native game, the packed copy), never stored for another version to compare. */
+static uint64_t wide(uint64_t h, const void *data, size_t size) {
+    const uint8_t *p = (const uint8_t *)data;
+    const uint64_t k = 0x9e3779b97f4a7c15ull;
+    uint64_t a = h, b = h ^ 0x243f6a8885a308d3ull, c = h ^ 0x13198a2e03707344ull, d = h ^ 0xa4093822299f31d0ull, w[4];
+    size_t n = size;
+    while (n >= 32) {
+        memcpy(w, p, 32);
+        a = (a ^ w[0]) * k; a ^= a >> 29;
+        b = (b ^ w[1]) * k; b ^= b >> 29;
+        c = (c ^ w[2]) * k; c ^= c >> 29;
+        d = (d ^ w[3]) * k; d ^= d >> 29;
+        p += 32; n -= 32;
+    }
+    h = a + (b << 1) + (c << 2) + (d << 3);
+    while (n >= 8) { uint64_t v; memcpy(&v, p, 8); h = (h ^ v) * k; h ^= h >> 29; p += 8; n -= 8; }
+    while (n) { h = (h ^ *p++) * 0x100000001b3ull; n--; }
+    h ^= (uint64_t)size * k;
+    h ^= h >> 32; h *= k; h ^= h >> 29;
+    return h;
+}
+
 void rr_st_frame_info(const RrStSession *s, RrStFrameInfo *info) {
     const uint64_t basis = 0xcbf29ce484222325ull;
     int y, r;
@@ -942,14 +967,14 @@ void rr_st_frame_info(const RrStSession *s, RrStFrameInfo *info) {
     for (y = 0; y < s->height; y++) {
         const uint32_t *row = s->picture + (size_t)y * RR_ST_PICTURE_MAX_WIDTH;
         int x;
-        info->video = fnv(info->video, row, (size_t)s->width * 4);
+        info->video = wide(info->video, row, (size_t)s->width * 4);
         for (x = 0; x < s->width; x++) any |= row[x] & 0xffffffu;
     }
     info->nonblack = any != 0;
     info->pcm = fnv(basis, s->audio, s->audio_frames * 4);
     info->samples = (uint32_t)s->audio_frames;
     for (y = 0; (size_t)y < s->audio_frames * 2; y++) if (s->audio[y]) { info->audible = 1; break; }
-    info->ram = fnv(basis, STRam, STRamEnd);
+    info->ram = wide(basis, STRam, STRamEnd);
     info->pc = M68000_GetPC();
     info->sr = M68000_GetSR();
     for (r = 0; r < 8; r++) { info->d[r] = Regs[REG_D0 + r]; info->a[r] = Regs[REG_A0 + r]; }
