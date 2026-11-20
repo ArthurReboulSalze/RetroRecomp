@@ -1063,6 +1063,13 @@ INPUTS = _resolve({
     ('cps1', 'md', 'ng', 'x68'): (
         'retrorecomp.megadrive_rules',
     ),
+    # The Game Gear's Gear-to-Gear cable (docs/GAME_GEAR.md): the EXT port and its serial link, the checks of its model, and the
+    # scheduler that runs two consoles in one process. Game role; the Master System does not own them.
+    ('gg',): (
+        'native/gg_ext.h',
+        'native/gg_ext_checks.c',
+        'native/gg_link.inc',
+    ),
     ('sms', 'gg'): (
         'native/video_checks.c',
         'native/video_mode4.inc',

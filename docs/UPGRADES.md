@@ -204,6 +204,23 @@ its own regulation in a session is not measured here.
 **Stamps** (against `spec/multiplayer` `ba3ff615`): the host stamp of all 21 profiles (`rrhk_main.c`, `rrhk_audio.c`, `rrhk_ring.c`,
 `hostkit_internal.h`); no game stamp; quick states unchanged.
 
+## Game Gear: the Gear-to-Gear cable, two consoles in one process (next release)
+
+The EXT port (`$01`-`$05`: the seven pins, their direction and the PC6 NMI, the serial transmit and receive data, the serial control and
+status) and the cable between two Game Gears are modelled (`native/gg_ext.h`), and a Game Gear game can run **two consoles in one process**
+(`native/gg_link.inc`): the console that runs owns the runtime's globals, the other one is kept as a whole snapshot, and the two swap every 24
+video lines inside the banked loop; the received byte and the PC6 edge raise the Z80 NMI. A frame is handed to the host kit once both consoles
+finished it; the snapshot and the digest hold both consoles in seat order and the cable; the adapter gives seat *i*'s controller to console *i*, shows and
+plays the seat's console, and refuses the quick states while linked. This PC starts linked from the environment (`RETRO_RECOMP_GG_LINK=<seat>`,
+a developer's switch) or from a link session of the host kit (`link_consoles = 2`, the pair begins at the first instruction boundary after SETUP; the game's profile says `netplay_link_seats = 2`: the lobby offers the link for the Game Gear). Details, checks and limits:
+[GAME_GEAR.md](GAME_GEAR.md#gear-to-gear-cable-next-release).
+
+**Stamps** (against `spec/multiplayer` `e0aa1abc`): the **Game Gear** game stamp moves (new `gg_ext.h`, `gg_link.inc`, `gg_ext_checks.c`, declared for `gg`
+only; `retrorecomp/core.py`, which every console lists, patches the generated Game Gear runtime and so moves every console's stamp as any edit of it
+does) and the Master System and Game Gear **host** stamp (`rrhk_sms.c`). **The Master System's generated runtime is byte for byte the previous
+build's** (`runtime_glue.c`, `runtime_video.c`, `runtime_audio.c`, `runtime_main.c` hashed before and after), so its behaviour does not change; the
+Game Gear's changes only by tests of a flag that is false unless the link is asked for. Quick-state layouts are unchanged. No timing measured.
+
 ## Commodore Amiga 500 and 1200: the host writes its saves back at a match's clean end (next release)
 
 The host kit's rule of 19 November 2026 (Arthur: « Oui, réécris la carte de l'hôte à la fin »): nobody writes a save file during a
