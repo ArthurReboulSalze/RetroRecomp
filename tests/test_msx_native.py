@@ -382,6 +382,23 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(route_warnings(rows), ['play: the picture stopped changing at frame 100 of 3600'])
 
 
+class PictureTests(unittest.TestCase):
+    """The MSX2 / MSX2+ picture conversion (1.9.0 frame cost): a colour table built from m_rgb9, each view point written once.
+    The proof that the view is byte-identical to the per-point conversion is in docs/UPGRADES.md."""
+
+    def setUp(self):
+        self.adapter = (ROOT / 'native/hostkit/adapters/rrhk_msx.inc').read_text(encoding='utf-8')
+
+    def test_the_table_is_m_rgb9_and_a_yjk_point_is_still_computed(self):
+        self.assertIn('m_rgb9_table[c] = m_rgb9((uint16_t)c);', self.adapter)
+        self.assertIn('return (c & MSX_COLOUR15) ? m_rgb9(c) : m_rgb9_table[c & 0x777];', self.adapter)
+
+    def test_each_view_point_is_written_once(self):
+        body = self.adapter[self.adapter.index('static void m_picture2('):self.adapter.index('static void m_picture(')]
+        self.assertIn('for (int x = first; x < last; x++) out[left + x] = m_colour(points[x]);', body)
+        self.assertNotIn('m_rgb9(v->frame', body)
+
+
 class SessionSaveTests(unittest.TestCase):
     """The host's save in a multiplayer session (session ABI 8): the image the MSX gives and takes, what a guest never writes. The
     run itself is `tools/netplay_game_smoke.py --host-save` on a converted game."""
