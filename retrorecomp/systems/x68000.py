@@ -50,7 +50,8 @@ class X68000Profile(SystemProfile):
     observed_code = ObservedCode('m68k_observed:recompiler_bodies', 'rr_x68k_', 'RrX68NativeStep',
                                  ((0, 0xc00000, 0xc00000), (0xe00000, 0xe80000, 0xe80000), (0xea0000, 0xea2000, 0xea2000), (0xfc0000, 0xfffffe, 0x1000000)))
     report_shape = ReportShape('x68000_conversion', 'exploration_checks')
-    catalogues = Catalogues(libretro='libretro-thumbnails/Sharp_-_X68000', cover_references=True)
+    catalogues = Catalogues(libretro='libretro-thumbnails/Sharp_-_X68000', screenscraper=79, thegamesdb=4931,
+                            igdb='sharp-x68000', cover_references=True)
     library_layout = LibraryLayout(folder='x68', summary_glob='*/compilation.json')
     # No pad layout for the random routes: it plays routes of its own (x68000_scan.long_routes).
     # Disk images and playlists are claimed by their extension, whatever their bytes.

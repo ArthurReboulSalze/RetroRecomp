@@ -52,7 +52,8 @@ class Cps1Profile(SystemProfile):
                                                             guard='mask'))))
     report_shape = ReportShape('cps1_conversion', 'native_analysis')
     # No box-art repository was ever chosen for the arcade board; its own catalogue names the sets.
-    catalogues = Catalogues(libretro='libretro-thumbnails/MAME', screenscraper=6, thegamesdb=23, local_catalogue='assets/cps1-catalogue.json')
+    catalogues = Catalogues(libretro='libretro-thumbnails/MAME', screenscraper=6, thegamesdb=23, igdb='arcade',
+                            arcadeitalia=True, local_catalogue='assets/cps1-catalogue.json')
     # The memory window has no reader for it yet.
     library_layout = LibraryLayout(folder='cps1')
     input_layout = InputLayout(('b1', 'b2', 'b3'), ('b4', 'b5', 'b6'), None, 720, script_format='cps1',

@@ -54,7 +54,8 @@ class Nintendo64Profile(SystemProfile):
                                                         offset_align=4, address_align=4, span_max=1 << 23)),))
     report_shape = ReportShape('n64_conversion', 'cartridge')
     library_layout = LibraryLayout(folder='n64', summary_glob='*/compilation.json')
-    catalogues = Catalogues(libretro='libretro-thumbnails/Nintendo_-_Nintendo_64')
+    catalogues = Catalogues(libretro='libretro-thumbnails/Nintendo_-_Nintendo_64', screenscraper=14, thegamesdb=3,
+                            igdb='n64')
     # A cartridge image is recognised by its first word (three byte orders) and its boot entry point, never by the extension alone.
     identify = Identify(path_order=45)
 

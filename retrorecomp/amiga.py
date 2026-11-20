@@ -89,6 +89,15 @@ def cover_title(name: str) -> str:
     return text if len(text) < 120 else ''
 
 
+def archive_title(stem: str) -> str:
+    """A WHDLoad archive's name as a title (`ChaosEngine_v1.2_AGA_1324`, `Zool2_v1.0_AGA_0415`): the version, the chipset and
+    the number dropped, the joined words split (`Chaos Engine`, `Zool 2`). '' for a name of another shape."""
+    if not re.fullmatch(r'[A-Za-z0-9&!\'+-]+(?:_[A-Za-z0-9.&+-]+)*_\d{3,5}', stem or ''):
+        return ''
+    words = re.sub(r'(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z][a-z])', ' ', stem.split('_', 1)[0])
+    return words.strip() if len(words) < 120 else ''
+
+
 def read_input(path) -> AmigaInput:
     from . import amiga_whdload
     path = Path(path)

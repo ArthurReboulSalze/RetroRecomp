@@ -81,7 +81,7 @@ class MsxProfile(SystemProfile):
                          required_sources=('rom',), hashed_sources=('rom', 'bios'),
                          shapes=(('z80', 'msx', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
     report_shape = ReportShape('msx_conversion', 'msx_checks')
-    catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX', screenscraper=113, thegamesdb=4929)
+    catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX', screenscraper=113, thegamesdb=4929, igdb='msx')
     library_layout = LibraryLayout(folder='msx', summary_glob='*/compilation.json')
     # A .rom (or .bin) is the MSX's when its bytes hold an MSX cartridge header, asked after the five consoles that
     # recognise their own headers.
@@ -140,7 +140,7 @@ class Msx2Profile(MsxProfile):
                          source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', (0x10000, 0x10000))),
                          required_sources=('rom',), hashed_sources=('rom', 'bios'),
                          shapes=(('z80', 'msx2', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))
-    catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX2', screenscraper=116, thegamesdb=4929)
+    catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX2', screenscraper=116, thegamesdb=4929, igdb='msx2')
     library_layout = LibraryLayout(folder='msx2', summary_glob='*/compilation.json')
     # Claimed from the path, before the MSX1's content sniff: a .mx2, or a .rom / ZIP chosen as MSX2 or found in an msx2
     # folder, when its bytes hold an MSX cartridge header.
@@ -222,8 +222,8 @@ class Msx2PlusProfile(Msx2Profile):
     disk_set = (('.dsk',), 'msx2plus-sets')
     # The MSX2's catalogues (there is no MSX2+ folder in libretro-thumbnails), with the reviewed references of
     # assets/cover-references.json for the titles they name otherwise.
-    catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX2', screenscraper=116, thegamesdb=4929,
-                            cover_references=True)
+    catalogues = Catalogues(libretro='libretro-thumbnails/Microsoft_-_MSX2', screenscraper=117, thegamesdb=4929,
+                            igdb='msx2', cover_references=True)
     media_kinds = ('cartridge', 'disk')
     export_folder = 'MSX2+'
     scope_note = ('MSX2+ cartridges (plain, Konami, Konami SCC, ASCII 8 and ASCII 16 mappers) with C-BIOS or your own MSX2+ '

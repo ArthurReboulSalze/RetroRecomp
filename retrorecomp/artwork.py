@@ -28,7 +28,7 @@ from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 from .paths import ASSETS, boxart_cache_directory
 from .systems import ALL_PROFILES
 from .cover_settings import load_settings, configured
-from .cover_sources import PROVIDERS, CoverServiceError, fetch
+from .cover_sources import ORDER as SERVICE_ORDER, PROVIDERS, CoverServiceError, available, fetch
 from .cover_references import find as cover_reference
 from .cover_titles import matching_indices, normalized, sequence_numbers
 
@@ -395,8 +395,9 @@ def _load_catalog(directory: Path, system_id: str, category: str = 'Named_Boxart
                   unavailable: set[str] | None = None) -> list[str]:
     unavailable = unavailable if unavailable is not None else set()
     repository = REPOSITORIES[system_id]
-    # Contents listings stop at 1,000 files. Game Boy exceeds that limit.
-    catalog_url = f"https://api.github.com/repos/{repository}/git/trees/master?recursive=1"
+    # Contents listings stop at 1,000 files (the Game Boy exceeds it), and a recursive tree of a large repository is
+    # refused (the PlayStation's): the category's own folder is read, from the root's listing.
+    root_url = f"https://api.github.com/repos/{repository}/git/trees/master"
     cache = directory / 'Downloaded' / ('libretro-catalog.json' if category == 'Named_Boxarts'
                                       else f'libretro-{category}-catalog.json')
     try:
@@ -407,11 +408,17 @@ def _load_catalog(directory: Path, system_id: str, category: str = 'Named_Boxart
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         pass
     try:
-        record = json.loads(_public_get(catalog_url, 8 * 1024 * 1024, unavailable))
+        root = json.loads(_public_get(root_url, 8 * 1024 * 1024, unavailable))
+        folder = next((r for r in root.get('tree', []) if isinstance(r, dict) and r.get('path') == category
+                       and r.get('type') == 'tree' and re.fullmatch(r'[0-9a-f]{40}', str(r.get('sha', '')))), None)
+        if folder is None:
+            raise ArtworkError('Catalogue Libretro indisponible.')
+        record = json.loads(_public_get(f"https://api.github.com/repos/{repository}/git/trees/{folder['sha']}",
+                                        16 * 1024 * 1024, unavailable))
         if not isinstance(record, dict) or record.get('truncated') or not isinstance(record.get('tree'), list):
             raise ArtworkError('Catalogue Libretro indisponible.')
-        names = _catalog_names([r['path'].removeprefix(category + '/') for r in record['tree']
-            if isinstance(r, dict) and r.get('type') == 'blob' and str(r.get('path', '')).startswith(category + '/')])
+        names = _catalog_names([r['path'] for r in record['tree']
+            if isinstance(r, dict) and r.get('type') == 'blob' and isinstance(r.get('path'), str)])
     except (ArtworkError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
         if isinstance(exc, urllib.error.HTTPError):
             exc.close()
@@ -544,8 +551,8 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
     settings = settings if settings is not None else load_settings()
     prefer3d = settings.get('box_3d', False) is True
     extra_titles = profile_cover_titles(system_id, rom_path)
-    active = [p for p in ('screenscraper', 'thegamesdb', 'igdb')
-              if configured(p, settings.get('accounts', {}).get(p, {}))]
+    active = [p for p in SERVICE_ORDER
+              if available(p, system_id) and configured(p, settings.get('accounts', {}).get(p, {}))]
     cached = None
     local = None
     storage = cache_directory or directory

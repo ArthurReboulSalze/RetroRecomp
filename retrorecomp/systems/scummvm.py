@@ -40,7 +40,7 @@ class ScummvmProfile(SystemProfile):
     report_shape = ReportShape('scummvm_export', 'scummvm')
     # libretro-thumbnails/ScummVM (Named_Boxarts, Named_Titles, Named_Snaps) and ScreenScraper platform 123 ("ScummVM"),
     # both checked at their source on 6 November 2026.
-    catalogues = Catalogues(libretro='libretro-thumbnails/ScummVM', screenscraper=123)
+    catalogues = Catalogues(libretro='libretro-thumbnails/ScummVM', screenscraper=123, thegamesdb=0, igdb='')
 
     def request_identity(self, item, options: dict, settings: dict) -> None:
         """A folder is never hashed as a file: unless the player chose a cover, the item gets the cover file the shared

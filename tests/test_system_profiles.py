@@ -247,14 +247,31 @@ class ProfileContractTests(unittest.TestCase):
             catalogues = profile.catalogues
             with self.subTest(profile.id):
                 self.assertEqual(catalogues.libretro, artwork.REPOSITORIES.get(profile.id))
-                self.assertEqual(catalogues.screenscraper, cover_sources.SS_SYSTEMS.get(profile.id))
-                self.assertEqual(catalogues.thegamesdb, cover_sources.TGDB_SYSTEMS.get(profile.id))
+                self.assertEqual(catalogues.screenscraper or None, cover_sources.SS_SYSTEMS.get(profile.id))
+                self.assertEqual(catalogues.thegamesdb or None, cover_sources.TGDB_SYSTEMS.get(profile.id))
+                self.assertEqual(catalogues.igdb or None, cover_sources.IGDB_SLUGS.get(profile.id))
+                self.assertEqual(catalogues.arcadeitalia, profile.id in cover_sources.ARCADEITALIA)
                 self.assertEqual(set(catalogues.wikidata), set(game_metadata.PLATFORMS.get(profile.id, ())))
                 self.assertEqual(catalogues.cover_references, profile.id in cover_references.SYSTEMS)
                 if catalogues.local_catalogue:
                     self.assertIn(catalogues.local_catalogue, stamp_inputs.RAW_FILES)
                     self.assertTrue((REPO / catalogues.local_catalogue).is_file())
         self.assertEqual({p.id for p in ALL_PROFILES if p.catalogues.local_catalogue}, {'ng', 'cps1', 'cps2'})
+
+    def test_every_machine_with_covers_names_its_platform_on_every_cover_service(self):
+        """Arthur, 20 Nov 2026: the services stopped at the older machines. Each profile with box art gives its ScreenScraper and
+        TheGamesDB numbers and its IGDB slug, or an explicit « none » (0 or ''): None is a machine nobody reviewed."""
+        for profile in ALL_PROFILES:
+            catalogues = profile.catalogues
+            if not catalogues or not catalogues.libretro:
+                continue
+            with self.subTest(profile.id):
+                self.assertIsInstance(catalogues.screenscraper, int)
+                self.assertIsInstance(catalogues.thegamesdb, int)
+                self.assertIsInstance(catalogues.igdb, str)
+                self.assertRegex(catalogues.igdb, r'^(?:[a-z0-9]+(?:-{1,2}[a-z0-9]+)*)?$')
+                # ArcadeItalia knows MAME sets: only the arcade boards ask it
+                self.assertEqual(catalogues.arcadeitalia, profile.id in ('cps1', 'cps2', 'ng'))
 
     def test_library_layout_equals_the_library_root_and_the_memory_window(self):
         import os

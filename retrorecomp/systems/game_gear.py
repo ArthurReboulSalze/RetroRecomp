@@ -41,7 +41,7 @@ class GameGearProfile(SystemProfile):
     path_spec = PathSpec(order=1, sections=(("z80", "sms"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
                          required_sources=("rom",))
     report_shape = ReportShape("core", "strict_checks")
-    catalogues = Catalogues(libretro="libretro-thumbnails/Sega_-_Game_Gear", screenscraper=21, thegamesdb=20,
+    catalogues = Catalogues(libretro="libretro-thumbnails/Sega_-_Game_Gear", screenscraper=21, thegamesdb=20, igdb="gamegear",
                             wikidata=("Q751719",), cover_references=True)
     library_layout = LibraryLayout(folder="gg", summary_glob="*/compilation.json", companion="observations.log")
     input_layout = InputLayout(("a", "b"), (), None, 240, script_format="sega")

@@ -61,7 +61,8 @@ class PcEngineProfile(SystemProfile):
     # The module is rebuilt from what the routes observe, so a received path adds to the routes and never replaces them.
     shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='pce_knowledge')
     report_shape = ReportShape('pce_conversion', 'hucard_checks')
-    catalogues = Catalogues(libretro='libretro-thumbnails/NEC_-_PC_Engine_-_TurboGrafx_16')
+    catalogues = Catalogues(libretro='libretro-thumbnails/NEC_-_PC_Engine_-_TurboGrafx_16', screenscraper=31,
+                            thegamesdb=34, igdb='turbografx16--1')
     library_layout = LibraryLayout(folder='pce')
 
     def simulation_files(self, project: Path) -> tuple[SimulationSource, ...]:
