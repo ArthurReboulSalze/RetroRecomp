@@ -77,6 +77,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state', 'tk_threads',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
+                               # The newest version an export is compatible with (the library only; reads the stamps).
+                               'compatibility',
                                'report_schema',
                                # Do two exports compute the same frames (multiplayer): hashes generated sources after a
                                # conversion, for its report; it changes nothing a game is or does, and its own schema
@@ -237,6 +239,8 @@ NOT_INPUTS = (
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     # The window's conversion time estimates (time_estimates.py): read by the interface only.
     'assets/conversion-times.json',
+    # Each release's role stamps (compatibility.py, tools/release_stamps.py): read by the library only.
+    'assets/release-stamps.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
     # emu2413's own licence file, kept beside the vendored sources (its text is licenses/emu2413.md, which games embed).
     'native/msx_machine/emu2413/LICENSE',
