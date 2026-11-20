@@ -84,6 +84,23 @@ static const wchar_t *const old_pad_sections[2] = {L"Manette", L"ManetteJ2"};
 static const wchar_t *const old_entries[ACTIONS] = {L"haut", L"bas", L"gauche", L"droite", L"bouton1", L"bouton2", L"start"};
 #endif
 
+/* ---- the Game Gear link (docs/GAME_GEAR.md, native/gg_link.inc): two consoles in one process, seat i's pad drives console i ---- */
+#ifdef RETRO_GAME_GEAR
+bool smsrecomp_link_enabled(void);
+void smsrecomp_link_set_host(void (*present)(const uint32_t *, int, int), bool (*frame_done)(void));
+void smsrecomp_link_set_pads(uint8_t first, uint8_t second);
+size_t smsrecomp_link_snap_bound(void);
+size_t smsrecomp_link_snap_save(void *buffer, size_t capacity);
+bool smsrecomp_link_snap_load(const void *buffer, size_t size);
+uint64_t smsrecomp_link_digest(void);
+static bool link_on;
+static void link_present(const uint32_t *fb, int width, int height);
+static bool link_frame_done(void);
+#define LINKED() link_on
+#else
+#define LINKED() false
+#endif
+
 /* ---- the machine's state ---- */
 static uint8_t pads[2];
 static RrhkMachine machine;
@@ -117,7 +134,7 @@ void rrhk_options_audio_reset(void);
 #include "audio_output.inc"
 
 /* ---- the machine ---- */
-static int players(void) { return PLAYERS; }
+static int players(void) { return LINKED() ? 2 : PLAYERS; }
 static int view_width(void) { return crop.w; }
 static int view_height(void) { return crop.h; }
 static const uint32_t *view_pixels(void) { return view; }
@@ -127,8 +144,11 @@ static uint64_t input_frame(void) { return glue_frame_count(); }
 /* The guest runs when host_present returns: the kit only hands the pad words over. */
 static void deliver(uint16_t p1, uint16_t p2) {
     pads[0] = (uint8_t)p1;
-    pads[1] = PLAYERS > 1 ? (uint8_t)(p2 | (phaser_alias ? SMS_PAD_B1 : 0)) : 0;
+    pads[1] = players() > 1 ? (uint8_t)(p2 | (phaser_alias ? SMS_PAD_B1 : 0)) : 0;
     input_sample_counter = SDL_GetPerformanceCounter();
+#ifdef RETRO_GAME_GEAR
+    if (LINKED()) smsrecomp_link_set_pads(pads[0], pads[1]);
+#endif
 }
 static bool run_frame(uint16_t p1, uint16_t p2) { deliver(p1, p2); return true; }
 
@@ -158,14 +178,24 @@ uint64_t smsrecomp_digest(void);
 /* Rollback (the banked engine; the functions engine and the reference interpreter have no snapshot, size 0, and stay on the delay
  * tier): gamestate.inc. The frame is handed to the kit at the end of the instruction that follows the frame end (frame_edge), where
  * the whole state is complete. */
+#ifdef RETRO_GAME_GEAR
+/* Linked: one machine of two consoles, in seat order, taken at a round end (native/gg_link.inc). */
+static size_t snap_bound(void) { return LINKED() ? smsrecomp_link_snap_bound() : smsrecomp_snap_bound(); }
+static size_t snap_save(void *buffer, size_t capacity) { return LINKED() ? smsrecomp_link_snap_save(buffer, capacity) : smsrecomp_snap_save(buffer, capacity); }
+static bool snap_load(const void *buffer, size_t size) { return LINKED() ? smsrecomp_link_snap_load(buffer, size) : smsrecomp_snap_load(buffer, size); }
+static uint64_t machine_digest(void) { return LINKED() ? smsrecomp_link_digest() : smsrecomp_digest(); }
+#else
 static size_t snap_bound(void) { return smsrecomp_snap_bound(); }
 static size_t snap_save(void *buffer, size_t capacity) { return smsrecomp_snap_save(buffer, capacity); }
 static bool snap_load(const void *buffer, size_t size) { return smsrecomp_snap_load(buffer, size); }
+static uint64_t machine_digest(void) { return smsrecomp_digest(); }
+#endif
 static bool state_ready(void) { return true; }
 static bool frame_edge(void);
 /* The guest services the request after a completed banked CPU instruction and reports through state_completed. */
 static bool state_file(const wchar_t *path, bool load) {
     (void)path;
+    if (LINKED()) return false;      /* a quick state of one console would break the pair: not offered while linked */
     return smsrecomp_request_state(load ? RR_QUICKLOAD : RR_QUICKSAVE);
 }
 static void state_completed(int operation, int result) {
@@ -335,6 +365,9 @@ static void settings_loaded(RrhkUi *ui) {
 const RrhkMachine *rrhk_adapter(void) {
     static RrhkPage page;
     if (!machine.actions) {
+#ifdef RETRO_GAME_GEAR
+        link_on = smsrecomp_link_enabled();
+#endif
         page = rrhk_pointer_page;
         page.available = phaser_page_available;
         machine = (RrhkMachine){
@@ -343,7 +376,7 @@ const RrhkMachine *rrhk_adapter(void) {
 #else
             .ini_section = SECTION, .console_name = "Master System", .start = PAUSE,
 #endif
-            .table_players = PLAYERS, .players = players,
+            .table_players = LINKED() ? 2 : PLAYERS, .players = players,
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT,
             .max_width = SMS_SCREEN_W, .max_height = SMS_SCREEN_H, .frame_seconds = 1.0 / 60.0,
@@ -359,7 +392,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .state_ready = state_ready, .state_file = state_file, .input_frame = input_frame,
             .pointer_input = pointer_input,
             .snap_bound = snap_bound, .snap_save = snap_save, .snap_load = snap_load,
-            .digest = smsrecomp_digest, .session_option = session_option, .session_options = session_options,
+            .digest = machine_digest, .session_option = session_option, .session_options = session_options,
             .page = sms_light_phaser ? &page : NULL,
             .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
             .audio_ratio = host_audio_ratio,     /* 1.7.7 (HOST_KIT D30): Sync to display */
@@ -384,7 +417,9 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h, int 
     smsrecomp_set_state_callback(state_completed);
     smsrecomp_set_frame_edge_callback(frame_edge);
 #ifdef RETRO_GAME_GEAR
-    rrhk_notice(rrhk_tr("F1: help | Enter: pause", "F1 : aide | Entree : pause"), 2400);
+    if (LINKED()) smsrecomp_link_set_host(link_present, link_frame_done);
+    rrhk_notice(LINKED() ? rrhk_tr("Gear-to-Gear cable: two players | F1: help", "Cable Gear-to-Gear : deux joueurs | F1 : aide") :
+                           rrhk_tr("F1: help | Enter: pause", "F1 : aide | Entree : pause"), 2400);
 #else
     rrhk_notice(sms_light_phaser ? rrhk_tr("Light Phaser: mouse | F2: options", "Light Phaser : souris | F2 : options") :
                                    rrhk_tr("F1: help | Enter: pause", "F1 : aide | Entree : pause"), 2400);
@@ -400,14 +435,18 @@ void host_set_frame_cap(double fps) {
 }
 
 /* The picture of the frame the guest just ran: the visible part, then the kit's end of frame and the next beginning. */
-bool host_present(const uint32_t *fb, int width, int height) {
-    (void)height;
-    if (!rrhk_window()) return false;
+static void present_copy(const uint32_t *fb, int width) {
     /* Use the mask attached to the rendered frame, not a shared setting or a live register. The window size is unchanged. */
     crop = full_crop;
     if (full_crop.x == 0 && full_crop.w == SMS_SCREEN_W && smsrecomp_frame_left_border() == 8) { crop.x += 8; crop.w -= 8; }
     for (int row = 0; row < crop.h; ++row)
         memcpy(view + row * SMS_SCREEN_W, fb + (crop.y + row) * width + crop.x, (size_t)crop.w * sizeof *view);
+}
+
+bool host_present(const uint32_t *fb, int width, int height) {
+    (void)height;
+    if (!rrhk_window()) return false;
+    present_copy(fb, width);
     /* In a session on the banked engine the frame is handed to the kit at the end of the instruction that follows (frame_edge). */
     if (rrhk_session_active() && smsrecomp_defer_frame()) return true;
     return rrhk_frame_done();
@@ -421,8 +460,22 @@ static bool frame_edge(void) {
     return keep;
 }
 
+#ifdef RETRO_GAME_GEAR
+/* Linked: the picture of the console this PC shows is copied when its frame ends; the kit's frame is run once BOTH consoles have
+ * finished it (a round end), and the next pads go to the two consoles. */
+static void link_present(const uint32_t *fb, int width, int height) {
+    (void)height;
+    if (rrhk_window()) present_copy(fb, width);
+}
+static bool link_frame_done(void) {
+    const bool keep = rrhk_frame_done();
+    smsrecomp_link_set_pads(pads[0], pads[1]);
+    return keep;
+}
+#endif
+
 uint8_t host_get_pad1(void) { return pads[0]; }
-uint8_t host_get_pad2(void) { return PLAYERS > 1 ? pads[1] : 0; }
+uint8_t host_get_pad2(void) { return players() > 1 ? pads[1] : 0; }
 
 /* The guest polls its ports many times in a frame: refresh both players and the Light Phaser together, at most once a
  * millisecond, so that a busy guest cannot force an operating-system poll per instruction. Main thread only. System
@@ -433,9 +486,10 @@ void host_refresh_input(void) {
     if (input_sample_counter && now - input_sample_counter < input_poll_period) return;
     SDL_PumpEvents();
     const uint64_t frame = glue_frame_count();
-    const uint16_t p1 = rrhk_pad_word(0, frame), p2 = PLAYERS > 1 ? rrhk_pad_word(1, frame) : 0;
+    const uint16_t p1 = rrhk_pad_word(0, frame), p2 = players() > 1 ? rrhk_pad_word(1, frame) : 0;
     rrhk_pointer_poll(p1);
     deliver(p1, p2);
+    if (LINKED()) return;            /* deliver gave each console its own pad */
     glue_set_pad1(pads[0]); glue_set_pad2(pads[1]);
 }
 
