@@ -29,6 +29,19 @@ namespace {
 constexpr std::uint64_t kFrameTicks = 1365ull * 262ull;   // one NTSC HuC6260 frame in master ticks
 constexpr std::uint64_t kFnvBasis = 14695981039346656037ull, kFnvPrime = 1099511628211ull;
 
+// pce::step of the engine, without its bus-trace scope. The scope is a no-op unless a trace is attached to the thread, and this
+// host never attaches one, yet it was built and torn down for every retired instruction (about 4 % of a frame). The policy
+// handling is the engine's own: the generated entry, a counted guard miss, and the interpreter on a miss under the hybrid policy.
+inline pce::Exit step_untraced(pce::Bus &bus, pce::Cpu &cpu, std::uint64_t deadline, pce::ExecutionPolicy policy) {
+    if (policy == pce::ExecutionPolicy::interpreter_only) return pce::interpret_step(bus, cpu, deadline);
+    const auto result = pce::generated_step(bus, cpu, deadline);
+    if (result == pce::Exit::miss) {
+        ++cpu.guard_misses;
+        if (policy == pce::ExecutionPolicy::hybrid) return pce::interpret_step(bus, cpu, deadline);
+    }
+    return result;
+}
+
 struct Machine {
     pce::Bus bus;
     pce::Cpu cpu;
@@ -258,7 +271,7 @@ int pce_machine_run_frame(char *error, size_t error_size) {
                 before_mpr = cpu.mpr;
                 before_interpreted = cpu.interpreter_steps;
             }
-            const auto status = pce::step(bus, cpu, deadline, policy);
+            const auto status = step_untraced(bus, cpu, deadline, policy);
             if (recording && cpu.interpreter_steps != before_interpreted)
                 note_interpreted(bus, before_pc, before_mpr);
             if (capture) capture->after(*pending, cpu);
