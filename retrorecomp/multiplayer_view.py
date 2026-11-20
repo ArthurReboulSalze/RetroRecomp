@@ -41,6 +41,8 @@ from .rounded_ui import Look, RoundButton
 POLL_MS = 150
 CHAT_MAX = 80                    # the lobby's own limit (LOBBY.md section 2); the entry stops there
 SHARINGS = ('per_player', 'everyone', 'turns')
+LINK = 'link'                    # a handheld's link cable: one console per player (the room's value, LINK_CONTRACT)
+MODES = SHARINGS + (LINK,)
 CHECKS = ('none', 'asking', 'same', 'other', 'missing', 'failed')
 BACKS = ('ended', 'game_closed', 'pipe_lost', 'left', 'seat_left', 'seat_silent', 'host_closed', 'desync', 'boot_mismatch',
          'error', 'launch_failed', 'relaunch')     # relaunch: the host changed an option, the match starts again (ABI 9)
@@ -91,15 +93,16 @@ def open_firewall_settings():
 
 def handheld(machine):
     """(a handheld, its link proven) for a machine id: a handheld (GB, GG, GBA) has one set of controls (its profile's
-    netplay_shared_only); « one console per player » needs its link cable, offered once the profile says it is proven
-    (netplay_link, the multiplayer specialist's flag; False until it exists)."""
+    netplay_shared_only); « one console per player » needs its link cable, offered once the profile gives its link seats
+    (netplay_link_seats > 0, the multiplayer specialist's LINK_CONTRACT; 0 until it exists)."""
     from .systems import get_profile
     try:
         profile = get_profile(machine)
     except (KeyError, ValueError, TypeError):
         return False, False
     shared = bool(getattr(profile, 'netplay_shared_only', False))
-    return shared, shared and getattr(profile, 'netplay_link', False) is True
+    seats = getattr(profile, 'netplay_link_seats', 0)
+    return shared, shared and isinstance(seats, int) and seats > 0
 
 
 def shared_only(machine):
@@ -520,7 +523,14 @@ class MultiplayerWindow:
         with its line of help."""
         shared, link = handheld(machine)
         greyed = shared and not link
-        buttons['per_player'].configure(text=self.tr('mp_sharing_link' if link else 'mp_sharing_per_player'))
+        buttons['per_player'].configure(text=self.tr('mp_sharing_link' if link else 'mp_sharing_per_player'),
+                                        value=LINK if link else 'per_player')
+        # the room's value follows the console: « one console per player » is 'link' on a linked handheld, 'per_player'
+        # elsewhere (a 'per_player' on a handheld would be played as « everyone »)
+        if link and variable.get() == 'per_player':
+            variable.set(LINK)
+        elif not link and variable.get() == LINK:
+            variable.set('per_player')
         for mode, button in buttons.items():
             button.state(['disabled'] if not usable or (greyed and mode == 'per_player') else ['!disabled'])
         if greyed:
@@ -531,7 +541,7 @@ class MultiplayerWindow:
             note.link_help.pack(anchor='w', padx=(22, 0), after=buttons['per_player'])
         else:
             note.link_help.pack_forget()
-        if greyed and variable.get() == 'per_player':
+        if greyed and variable.get() in ('per_player', LINK):
             variable.set('everyone')
             return True
         return False
@@ -989,7 +999,7 @@ class MultiplayerWindow:
         choices.pack(side='left', fill='x')
         self.lobby_sharing = tk.StringVar(value='per_player')
         self.lobby_sharing_buttons, self.lobby_sharing_note = self.sharing_choice(
-            choices, self.lobby_sharing, command=lambda: self.set_sharing(SHARINGS.index(self.lobby_sharing.get())))
+            choices, self.lobby_sharing, command=lambda: self.set_sharing(self.lobby_sharing.get()))
         self.mode_line = line
         # during a match with shared controls: who holds them (turns), the host's « Give to » and its Everyone / Turns switch
         self.turn_slot = tk.Frame(card, bg=CARD)
@@ -1225,9 +1235,10 @@ class MultiplayerWindow:
             self.note_line(self.tr('mp_pick_refused'))
             self.drawn_game, self.version = None, -1        # the next poll shows the room's game again
 
-    def set_sharing(self, index):
-        if self.controller is not None and 0 <= index < len(SHARINGS):
-            self.controller.set_sharing(SHARINGS[index])
+    def set_sharing(self, mode):
+        """The host's control mode for the room: one of MODES ('link' only on a linked handheld)."""
+        if self.controller is not None and mode in MODES:
+            self.controller.set_sharing(mode)
 
     def move_seat(self, guest, target):
         if self.controller is not None and guest and 1 <= target < max(2, self.seats_max):
@@ -1398,12 +1409,12 @@ class MultiplayerWindow:
             self.drawn_game = shown
             for box in (self.lobby_console_box, self.lobby_game_box):
                 box.state(['!disabled'] if phase == 'lobby' else ['disabled'])
-            self.lobby_sharing.set(sharing if sharing in SHARINGS else 'per_player')
+            self.lobby_sharing.set(sharing if sharing in MODES else 'per_player')
             moved = self.draw_sharing_choice(self.lobby_sharing_buttons, self.lobby_sharing_note, self.lobby_sharing, machine,
                                              usable=phase == 'lobby')
             if moved and phase == 'lobby' and self.sharing_moved != (game or {}).get('title'):
                 self.sharing_moved = (game or {}).get('title')      # once per game: the room plays it shared anyway
-                self.set_sharing(SHARINGS.index('everyone'))
+                self.set_sharing('everyone')
             self.mode_line.pack_forget()
             if phase == 'lobby':
                 self.mode_frame.pack(fill='x', pady=(8, 0), before=self.turn_slot)
@@ -1416,9 +1427,9 @@ class MultiplayerWindow:
             self.lobby_game_text.pack(side='left')
             self.mode_frame.pack_forget()
             self.mode_line.pack(fill='x', pady=(6, 0))
-            shown = 'everyone' if sharing == 'per_player' and shared_only(machine) else sharing
-            word = 'mp_sharing_link' if shown == 'per_player' and handheld(machine)[1] else 'mp_sharing_' + shown
-            self.lobby_mode_text.configure(text=self.tr('mp_sharing') + ' : ' + self.tr(word) if shown in SHARINGS else '')
+            shown = 'everyone' if sharing in ('per_player', LINK) and shared_only(machine) else sharing
+            self.lobby_mode_text.configure(text=self.tr('mp_sharing') + ' : ' + self.tr('mp_sharing_' + shown)
+                                           if shown in MODES else '')
         self.game_machine.pack(side='left', padx=(10, 0), pady=(3, 0))
 
     def draw_seats(self, players, me, seats_max, checks, host, phase):

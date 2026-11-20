@@ -615,20 +615,35 @@ class MultiplayerWindowTest(unittest.TestCase):
             per_player = view.sharing_buttons['per_player']
             self.assertFalse(per_player.instate(['disabled']))
             self.assertEqual(per_player.cget('text'), tr('mp_sharing_link', 'fr'))
+            self.assertEqual(str(per_player.cget('value')), 'link')                # the room's own value (LINK_CONTRACT)
             self.assertTrue(view.sharing_note.link_help.winfo_manager())
             self.assertFalse(view.sharing_note.winfo_manager())
-            view.sharing.set('per_player')
+            per_player.invoke()
             view.draw_host_sharing()
-            self.assertEqual(view.sharing.get(), 'per_player')                    # kept: it is the link cable
+            self.assertEqual(view.sharing.get(), 'link')                          # kept: it is the link cable
+            view.open_room()
+            self.assertEqual(self.started[-1]['room']['sharing'], 'link')
+            view.leave_room()
         view.console_choice.set(view.console_name('nes'))
         view.console_box.event_generate('<<ComboboxSelected>>')
         self.assertEqual(view.sharing_buttons['per_player'].cget('text'), tr('mp_sharing_per_player', 'fr'))
+        self.assertEqual(view.sharing.get(), 'per_player')                        # another console: one pad per player
         self.assertFalse(view.sharing_note.link_help.winfo_manager())
         # without the flag (today): greyed with why, as before
         view.console_choice.set(view.console_name('gb'))
         view.console_box.event_generate('<<ComboboxSelected>>')
         self.assertTrue(view.sharing_buttons['per_player'].instate(['disabled']))
         self.assertTrue(view.sharing_note.winfo_manager())
+
+    def test_the_link_is_offered_from_the_profiles_link_seats(self):
+        from retrorecomp import multiplayer_view
+        from types import SimpleNamespace as NS
+        profiles = {'gb': NS(netplay_shared_only=True, netplay_link_seats=2), 'gg': NS(netplay_shared_only=True),
+                    'nes': NS(netplay_shared_only=False, netplay_link_seats=0)}
+        with patch('retrorecomp.systems.get_profile', lambda machine: profiles[machine]):
+            self.assertEqual(multiplayer_view.handheld('gb'), (True, True))
+            self.assertEqual(multiplayer_view.handheld('gg'), (True, False))      # no seats given yet: greyed
+            self.assertEqual(multiplayer_view.handheld('nes'), (False, False))
 
     def test_a_guest_ready_automatically_once_per_pick(self):
         remembered = []
