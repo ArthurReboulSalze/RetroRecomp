@@ -870,6 +870,7 @@
     "mp_title": "Mehrspieler",
     "tip_multiplayer": "Spiele ein konvertiertes Spiel mit Freunden im lokalen Netzwerk: eröffne einen Raum oder tritt mit einer Einladung bei.",
     "mp_intro": "Spiele eines deiner konvertierten Spiele mit Freunden im selben lokalen Netzwerk. Jeder Spieler braucht seinen eigenen Export desselben Spiels; der Raum prüft das vor dem Start.",
+    "mp_intro_internet": "Spiele mit Freunden, wo immer sie sind, über das Internet. Jeder Spieler braucht seinen eigenen Export desselben Spiels; der Raum prüft das vor dem Start.",
     "mp_host": "Hosten",
     "mp_host_note": "Öffne einen Raum auf diesem PC, wähle das Spiel und teile die Einladung mit deinen Freunden.",
     "mp_join": "Beitreten",

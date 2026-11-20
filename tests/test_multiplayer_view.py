@@ -299,6 +299,21 @@ class MultiplayerWindowTest(unittest.TestCase):
         again = self.window(internet=True)
         self.assertEqual((again.mode.get(), again.internet_confirmed), ('local', False))
 
+    def test_the_first_page_explains_both_modes_and_does_not_move(self):
+        """Arthur, 20 Nov 2026: Internet had no sentence under the title; each mode has its own, the page stays still."""
+        for language in ('fr', 'de', 'ja'):
+            view = self.window(internet=True, language=language)
+            view.window.update_idletasks()
+            local = (view.intro.cget('text'), view.intro.winfo_reqheight(), view.intro.winfo_manager())
+            self.assertEqual(local, (tr('mp_intro', language), local[1], 'pack'))
+            view.mode.set('internet')
+            view.confirm_internet()
+            view.window.update_idletasks()
+            self.assertEqual(view.intro.winfo_manager(), 'pack')
+            self.assertEqual(view.intro.cget('text'), tr('mp_intro_internet', language))
+            self.assertEqual(view.intro.winfo_reqheight(), local[1], language)      # the longer one's height, both modes
+            view.close()
+
     def test_internet_is_offered_only_when_the_room_supports_it(self):
         view = self.window(internet=False)
         self.assertTrue(view.mode_buttons['internet'].instate(['disabled']))

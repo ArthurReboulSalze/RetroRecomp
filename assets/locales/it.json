@@ -870,6 +870,7 @@
     "mp_title": "Multigiocatore",
     "tip_multiplayer": "Gioca a un gioco convertito con gli amici sulla rete locale: ospita una stanza, o entra in una con un invito.",
     "mp_intro": "Gioca a uno dei tuoi giochi convertiti con gli amici sulla stessa rete locale. Ogni giocatore ha bisogno della propria esportazione dello stesso gioco; la stanza lo verifica prima dell'avvio.",
+    "mp_intro_internet": "Gioca con gli amici ovunque si trovino, via Internet. Ogni giocatore ha bisogno della propria esportazione dello stesso gioco; la stanza lo verifica prima del lancio.",
     "mp_host": "Ospita",
     "mp_host_note": "Apri una stanza su questo PC, scegli il gioco e condividi l'invito con i tuoi amici.",
     "mp_join": "Entra",

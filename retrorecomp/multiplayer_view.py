@@ -31,7 +31,7 @@ import sys
 import tempfile
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import font as tkfont, messagebox, ttk
 
 from .branding import COLORS
 from .dialogs import center_dialog
@@ -40,6 +40,8 @@ from .rounded_ui import Look, RoundButton
 
 POLL_MS = 150
 CHAT_MAX = 80                    # the lobby's own limit (LOBBY.md section 2); the entry stops there
+# The first page's explanation, by mode.
+INTROS = {'local': 'mp_intro', 'internet': 'mp_intro_internet'}
 SHARINGS = ('per_player', 'everyone', 'turns')
 LINK = 'link'                    # a handheld's link cable: one console per player (the room's value, LINK_CONTRACT)
 MODES = SHARINGS + (LINK,)
@@ -230,6 +232,15 @@ class MultiplayerWindow:
                         fg=colour or (COLORS['gold_hover'] if gold else COLORS['muted'] if muted else COLORS['text']),
                         font=(self.font, size, 'bold' if bold else 'normal'), justify='left', anchor='w', wraplength=scaled(parent, wrap))
 
+    @staticmethod
+    def text_lines(label, text):
+        """How many lines `text` takes in `label` (its font and wrap length)."""
+        label.configure(text=text, height=0)
+        label.update_idletasks()
+        line = tkfont.Font(font=label.cget('font')).metrics('linespace')
+        frame = 2 * (int(float(label.cget('bd'))) + int(float(label.cget('pady'))) + int(float(label.cget('highlightthickness'))))
+        return max(1, round((label.winfo_reqheight() - frame) / line))
+
     def card(self, parent, style='MpCard', padding=14):
         return ttk.Frame(parent, style=f'{style}.TFrame', padding=padding)
 
@@ -352,8 +363,12 @@ class MultiplayerWindow:
     def build_entry(self):
         page = self.page('entry')
         tk.Label(page, text=self.tr('mp_title'), bg=BG, fg=COLORS['text'], font=(self.font, 18, 'bold')).pack(anchor='w')
+        # One sentence for each mode (Arthur, 20 Nov 2026: Internet had none); the label keeps the height of the longer one,
+        # so the page does not move when the mode changes.
         self.intro = self.label(page, 'mp_intro', muted=True, wrap=840)
-        self.intro.pack(anchor='w', pady=(4, 0))
+        self.intro.configure(anchor='nw')
+        self.intro.pack(anchor='w', fill='x', pady=(4, 0))
+        self.intro.configure(height=max(self.text_lines(self.intro, self.tr(key)) for key in INTROS.values()))
         where = tk.Frame(page, bg=BG)
         where.pack(fill='x', pady=(14, 0))
         self.where_row = where
@@ -418,10 +433,7 @@ class MultiplayerWindow:
             self.warn_card.pack_forget()
         for button in self.choice_buttons:
             button.state(['disabled'] if asking else ['!disabled'])
-        if internet:
-            self.intro.pack_forget()
-        else:
-            self.intro.pack(anchor='w', pady=(4, 0), before=self.where_row)
+        self.intro.configure(text=self.tr(INTROS['internet' if internet else 'local']))
         icons = {'local': 'home', 'internet': 'globe'}
         for mode, button in self.mode_buttons.items():
             chosen = mode == self.mode.get()

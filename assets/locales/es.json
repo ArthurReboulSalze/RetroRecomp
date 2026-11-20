@@ -870,6 +870,7 @@
     "mp_title": "Multijugador",
     "tip_multiplayer": "Juega a un juego convertido con amigos en tu red local: crea una sala, o únete a una con una invitación.",
     "mp_intro": "Juega a uno de tus juegos convertidos con amigos en la misma red local. Cada jugador necesita su propia exportación del mismo juego; la sala lo comprueba antes de empezar.",
+    "mp_intro_internet": "Juega con amigos estén donde estén, por Internet. Cada jugador necesita su propia exportación del mismo juego; la sala lo comprueba antes del lanzamiento.",
     "mp_host": "Crear sala",
     "mp_host_note": "Abre una sala en este PC, elige el juego y comparte la invitación con tus amigos.",
     "mp_join": "Unirse",

@@ -12,6 +12,7 @@ STRINGS = {
     'mp_title': ('Multiplayer', 'Multijoueur'),
     'tip_multiplayer': ('Play a converted game with friends on your local network: host a room, or join one with an invitation.', 'Joue à un jeu converti avec des amis sur ton réseau local : héberge un salon, ou rejoins-en un avec une invitation.'),
     'mp_intro': ('Play one of your converted games with friends on the same local network. Each player needs their own export of the same game; the room checks it before the launch.', "Joue à l'un de tes jeux convertis avec des amis sur le même réseau local. Chaque joueur a besoin de son propre export du même jeu ; le salon le vérifie avant le lancement."),
+    'mp_intro_internet': ('Play with friends wherever they are, over the Internet. Each player needs their own export of the same game; the room checks it before the launch.', "Joue avec des amis où qu'ils soient, par Internet. Chaque joueur a besoin de son propre export du même jeu ; le salon le vérifie avant le lancement."),
     'mp_host': ('Host', 'Héberger'),
     'mp_host_note': ('Open a room on this PC, choose the game and share the invitation with your friends.', "Ouvre un salon sur ce PC, choisis le jeu et partage l'invitation avec tes amis."),
     'mp_join': ('Join', 'Rejoindre'),
