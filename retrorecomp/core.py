@@ -1050,14 +1050,24 @@ void smsrecomp_set_input_refresh(void (*refresh)(void)) { g_host_input_refresh =
     /* Only live host input opts in. Other machine ports and deterministic
      * scripted/headless runs retain their existing timing and state. */
     if ((p >= 0xC0 || (g_is_gg && p == 0x00)) && g_host_input_refresh)
-        g_host_input_refresh();''' + ('''
-    if (rrl_on && g_is_gg && p >= 0x01 && p <= 0x05) return rrl_port_in(p);   /* the Gear-to-Gear cable (native/gg_link.inc) */''' if rom.system_id == 'gg' else ''))
+        g_host_input_refresh();''')
     if rom.system_id == 'gg':
-        glue = replace_once(glue, '    g_io_out_count[p]++;', '''    g_io_out_count[p]++;
-    if (rrl_on && g_is_gg && p >= 0x01 && p <= 0x05) { rrl_port_out(p, v); return; }''')
-        glue = '''static _Bool rrl_on;
+        # The Gear-to-Gear cable (native/gg_link.inc): the EXT ports $01-$05 sit in the branch of the system ports ($00-$3F), which a game
+        # reads and writes rarely; the hot ports ($7E, $BE, $BF, $DC) do not pass through a test of the link.
+        glue = replace_once(glue, '''            return (uint8_t)(0xFF ^ ((g_pad1 & SMS_PAD_START) ? 0x80 : 0x00));
+        return 0xFF;''', '''            return (uint8_t)(0xFF ^ ((g_pad1 & SMS_PAD_START) ? 0x80 : 0x00));
+        if (rrl_on && g_is_gg && p <= 0x05) return rrl_port_in(p);
+        return 0xFF;''')
+        glue = replace_once(glue, '''        if (g_is_gg && p == 0x06) psg_write_stereo(v);   /* GG stereo routing register */
+        return;''', '''        if (g_is_gg && p == 0x06) psg_write_stereo(v);   /* GG stereo routing register */
+        if (rrl_on && g_is_gg && p >= 0x01 && p <= 0x05) { rrl_port_out(p, v); return; }
+        return;''')
+        glue = '''static _Bool rrl_on, rrl_pending;
 static unsigned char rrl_port_in(unsigned char port);
 static void rrl_port_out(unsigned char port, unsigned char value);
+static void rrl_enter_linked(void);
+static void smsrecomp_banked_run_linked(void);
+#define RR_LINK_BEGIN 4
 ''' + glue
     glue = replace_once(glue, '            return vdp_hcounter(sub);', '''            if (lightphaser_enabled()) return lightphaser_hcounter(g_z80.cyc);
             return vdp_hcounter(sub);''')
@@ -1187,20 +1197,34 @@ static void smsrecomp_state_service(void);
     fprintf(stderr, "[interp] reference run stopped after %llu frames\\n",''')
     # The debug harness references the function-form dispatcher; it is not
     # active in this backend, whose production loop always uses the guest PC.
-    glue += "\n" + (ASSETS / "native/gamestate.inc").read_text(encoding="utf-8")
+    state_text = (ASSETS / "native/gamestate.inc").read_text(encoding="utf-8")
+    if rom.system_id == 'gg':
+        # The beginning of a link (a session asks one frame after the guest started) rides the request word that the loop already tests
+        # after every instruction (smsrecomp_state_pending), as the frame edge does: a solo game pays nothing per instruction.
+        state_text = replace_once(state_text, "    if (operation == RR_FRAME_EDGE) {",
+            "    if (operation == RR_LINK_BEGIN) { rrl_pending = 0; if (!rrl_on) rrl_enter_linked(); return; }\n    if (operation == RR_FRAME_EDGE) {")
+    glue += "\n" + state_text
     banked = banked_runtime(find_profile(rom.system_id).z80_machine, ASSETS)
     if rom.system_id == 'gg':
-        # The Gear-to-Gear cable: two consoles in one process, swapped by slices inside the banked loop (native/gg_link.inc).
-        # Without a link request the hooks are tests of rrl_on, which is false.
+        # The Gear-to-Gear cable: two consoles in one process, swapped by slices (native/gg_link.inc). The loop of a game that does not link
+        # is the Master System's own, with one call at its start; the loop that links is a copy with the hooks of the pair, entered once
+        # (it never returns, as the loop does not) when the link begins.
         glue += "\n" + (ASSETS / "native/gg_link.inc").read_text(encoding="utf-8")
         banked = replace_once(banked, "    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n",
-            "    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n    rrl_start();\n")
-        banked = replace_once(banked, "        if (!prefix_pending) pending_irq = vdp_irq_asserted();",
-            "        if (!prefix_pending) pending_irq = vdp_irq_asserted() || (rrl_on && rrl_irq());")
-        banked = replace_once(banked, "        banked_after_step(pending_irq);\n        banked_advance_vdp(g_z80.cyc);",
-            "        if (rrl_on && rrl_nmi()) banked_accept_nmi(); else banked_after_step(pending_irq);\n        banked_advance_vdp(g_z80.cyc);")
-        banked = replace_once(banked, "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */",
-            "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */\n        if (rrl_on || rrl_pending) rrl_after_step();")
+            "    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n    if (rrl_start()) smsrecomp_banked_run_linked();\n")
+        head = "static void smsrecomp_banked_run(void) {"
+        begin, end = banked.index(head), banked.index("static void smsrecomp_banked_stats(void) {")
+        loop = banked[begin:end]
+        cut = loop.index("    g_z80.a = g_z80.f = 0xFF;")
+        keep = loop.index("    int prefix_pending = 0, pending_irq = 0;")
+        linked = loop[:cut].replace(head, "static void smsrecomp_banked_run_linked(void) {") + loop[keep:]
+        linked = replace_once(linked, "        if (!prefix_pending) pending_irq = vdp_irq_asserted();",
+            "        if (!prefix_pending) pending_irq = vdp_irq_asserted() || rrl_irq();")
+        linked = replace_once(linked, "        banked_after_step(pending_irq);\n        banked_advance_vdp(g_z80.cyc);",
+            "        if (rrl_nmi()) banked_accept_nmi(); else banked_after_step(pending_irq);\n        banked_advance_vdp(g_z80.cyc);")
+        linked = replace_once(linked, "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */",
+            "        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */\n        rrl_after_step();")
+        banked = banked[:end] + linked + banked[end:]
     glue += "\n" + banked
     # A reset exits through the runtime's existing longjmp, discarding all
     # generated C continuations. Also reset every execution/callback state that

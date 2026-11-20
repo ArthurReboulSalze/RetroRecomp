@@ -273,6 +273,13 @@ plays the seat's console, and refuses the quick states while linked. This PC sta
 a developer's switch) or from a link session of the host kit (`link_consoles = 2`, the pair begins at the first instruction boundary after SETUP; the game's profile says `netplay_link_seats = 2`: the lobby offers the link for the Game Gear). Details, checks and limits:
 [GAME_GEAR.md](GAME_GEAR.md#gear-to-gear-cable-190).
 
+**A game that does not link pays nothing per instruction** (performance rule, 20 Nov 2026: the first version tested the link three times per guest instruction and the Game Gear
+engine measured +7 % per frame): the loop of a Game Gear game is the Master System's loop, byte for byte (compared), with one call at its start; the loop that runs the pair is a
+copy with the hooks of the cable, entered when the link begins (from the environment at the start, or, when a session asks one frame in, through the request word the loop already
+tests after every instruction, `smsrecomp_state_pending`, as the frame edge does); the EXT ports sit in the rarely taken branch of the system ports. Checked: the solo Game Gear
+trace of 1,500 frames (VRAM, CRAM, registers, RAM, picture and sound hashes of every frame), its final CPU and its port counters are identical before and after; the EXT self-test, the three linked
+probes and Super Columns on two seats (delay tier, and rollback tier with latency, jitter and F8 / F9) pass as before. Nothing timed here.
+
 **Stamps** (against `spec/multiplayer` `e0aa1abc`): the **Game Gear** game stamp moves (new `gg_ext.h`, `gg_link.inc`, `gg_ext_checks.c`, declared for `gg`
 only; `retrorecomp/core.py`, which every console lists, patches the generated Game Gear runtime and so moves every console's stamp as any edit of it
 does) and the Master System and Game Gear **host** stamp (`rrhk_sms.c`). **The Master System's generated runtime is byte for byte the previous
