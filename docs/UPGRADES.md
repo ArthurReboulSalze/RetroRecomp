@@ -173,6 +173,13 @@ frame changes; the five measures stay apart, and the time is measured by the per
   variable-length copy (the two row buffers gain an 8-byte margin). The VDP self-tests (scalar, batched and SSE2 rows
   equal over 32,768 rows; shadow/highlight; raster; interlace) pass unchanged.
 
+**Measured** (the performance specialist, a quiet PC, runs interleaved, one core, median ms per frame, spread of the
+first in brackets; main `e4f40699` then this change `c35bd496`): Sonic The Hedgehog 2, the engine alone 2.4330 (3.4 %)
+to 2.3740, −2.4 %, and the whole play loop 1.7698 (1.4 %) to 1.7110, −3.3 %. A small gain, about the size of the spread;
+no regression. These are costs of the host's code on one PC, not physical latency. A second item of the wave, the
+Z80's slice end served on the sound fiber (16 % fewer fiber switches), measured no gain on top (engine −2.1 %, loop
+−2.5 % with both) and was left out: it added machinery to the Z80 bus for no speed.
+
 Stamps: the Mega Drive game stamp moves (an export of 1.8.0 is converted again once, as every machine's in 1.9.0). The
 quick-state key and the state format do not change.
 
