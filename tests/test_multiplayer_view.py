@@ -2,6 +2,8 @@
 stand-in controller that records the calls and a real `LobbyModel` fed with the room's events."""
 import tkinter as tk
 from tkinter import ttk
+import tempfile
+from pathlib import Path
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -78,6 +80,9 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.root.withdraw()
         self.started, self.closed = [], []
         Controller.made.clear()
+        folder = tempfile.TemporaryDirectory()          # the window's datas/logs: never the player's real Export/datas
+        self.addCleanup(folder.cleanup)
+        self.log_folder = Path(folder.name)
 
     def tearDown(self):
         try:
@@ -109,6 +114,7 @@ class MultiplayerWindowTest(unittest.TestCase):
         view = MultiplayerWindow(app, Library([entry(*title) if isinstance(title, tuple) else entry(title) for title in games]), name='Arthur', configs=configs,
                                  controller_class=Controller, addresses=lambda: ['192.168.1.20'], hidden=True,
                                  internet=internet, guest_manual=guest_manual)
+        view.log_dir = self.log_folder
         self.addCleanup(lambda: view.close())
         self.settle(view)
         return view

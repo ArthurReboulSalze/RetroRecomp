@@ -115,6 +115,11 @@ class RoomWorker:
         self.inbox: queue.Queue = queue.Queue()
         self.finished = threading.Event()       # the room is over: the converter said so, or went away
         self.exit_code = 0
+        # The room log (host and guest) and, beside it, the games' own lines (game_logs: `datas/logs/games` in the product):
+        # a game that closes by itself leaves its reason there, and the room log says how each match ended.
+        log_path = Path(room['log']) if room.get('log') else None
+        self.log = RoomLog(log_path)
+        self.game_logs = log_path.parent / 'games' if log_path is not None else None
 
     # ---- what goes to the converter ----
 
@@ -133,7 +138,7 @@ class RoomWorker:
         room = self.room_config
         try:
             if self.role == 'host':
-                log = RoomLog(Path(room['log']) if room.get('log') else None)
+                log = self.log
                 host = RoomHost(room['address'], room.get('port', invitation.DEFAULT_PORT), bytes.fromhex(room['secret']),
                                 room.get('capacity', 4), name=room.get('name', 'Host'), tests=self.tests, log=log,
                                 on_event=self._room_event, seat_rate=room.get('seat_rate') if self.tests else None,
@@ -247,9 +252,27 @@ class RoomWorker:
         return {**game, 'env': {**(game.get('env') or {}), LINK_ENV: str(count)}}
 
     def _open_game(self, game: dict, arguments: tuple = ()) -> SessionGame:
+        stdout = Path(game['stdout']) if game.get('stdout') else None
+        stderr = Path(game['stderr']) if game.get('stderr') else None
+        if stdout is None and stderr is None and self.game_logs is not None:
+            from ..game_logs import new_game_log
+            stdout = stderr = new_game_log(game['exe'], self.game_logs)      # one file for both (None: nowhere, as before)
         return SessionGame(Path(game['exe']), cwd=Path(game['cwd']) if game.get('cwd') else None, env=game.get('env'),
-                           stdout=Path(game['stdout']) if game.get('stdout') else None,
-                           stderr=Path(game['stderr']) if game.get('stderr') else None, arguments=arguments)
+                           stdout=stdout, stderr=stderr, arguments=arguments)
+
+    def _log_end(self, match: _Match, result: dict) -> None:
+        """« match 5 over: <outcome> (<detail>), exit <code> — <the game's own reason line> » in the room log, and the game's
+        log cut to its last 64 KB: what a game that closed by itself said is kept, and the log stays small."""
+        from ..game_logs import cut, reason_line
+        path = getattr(match.session, 'log_path', None)
+        line = reason_line(path)
+        if path is not None:
+            cut(path)
+        outcome = match.driver.outcome or 'ended'
+        detail = match.driver.detail
+        code = result.get('exit_code')
+        text = outcome + (f' ({detail})' if detail else '') + f', exit {code if code is not None else "unknown"}'
+        self.log.over(match.match_id, text + (f' - {line}' if line else ''))
 
     def _link(self):
         """The match's link; with the room command's `--lag-ms` (a test of a far player), what this PC sends is held that long."""
@@ -295,6 +318,7 @@ class RoomWorker:
                 self.match = None
         if self.role == 'host' and self.room is not None:
             self.room.end_match(match.driver.outcome or 'ended')       # and every guest is back in the lobby
+        self._log_end(match, result)
         self.emit({'event': 'match_over', 'match_id': match.match_id, 'outcome': match.driver.outcome,
                    'detail': match.driver.detail, 'counters': self.room.counters if self.room is not None else {}})
         if match.host and match.driver.outcome == 'relaunch' and match.driver.relaunch_options is not None:
