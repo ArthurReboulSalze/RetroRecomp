@@ -176,7 +176,7 @@ tests/test_startup_splash.py
 retrorecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py
-.gitattributes .gitignore .github/workflows/checks.yml
+.gitattributes .gitignore .github/workflows/checks.yml .github/ISSUE_TEMPLATE/config.yml
 tools/build_site.py tests/test_site.py
 site/index.html site/styles.css site/404.html
 README.md LICENSE CONTRIBUTING.md CLAUDE.md THIRD_PARTY_NOTICES.md
