@@ -87,7 +87,9 @@ game several names (`Columns _ Shapes and Columns`, from "Columns / Shapes and
 Columns") answer to their first name only, exactly, and below a file named after the
 game itself; a later name alone is never taken (Super Tennis is not "Tennis Ace _
 Super Tennis"). An arcade set's MAME description (`Street Fighter II - The World
-Warrior (World 910522)`) names its edition before the title does, then its parent's.
+Warrior (World 910522)`) names its edition before the title does, then its parent's; when none has a box, another official edition of
+the same maker, by its exact name (megaman2's box is filed under rockman2j); bootlegs
+and hacks never stand in.
 WHDLoad archive names (`AlienBreed3D_v1.0_AGA_Fixed_0624`, `Turrican2_v1.4`) give the
 game's name beside the name inside the install.
 
@@ -197,8 +199,13 @@ ArcadeItalia is asked only for the arcade boards' MAME sets, by the set's own
 name (`mslug`, `sf2`) and then its parent's, at most one request a second. It
 answers every image request, with MAME's logo (140 x 105) for a set it has no
 flyer for: that image, or any picture under 200 pixels, is never a cover.
-ScreenScraper receives a cartridge's or a floppy's hashes; a disc image or a game
-folder is looked up by its name and size, never read whole. It is never queried for a
+ScreenScraper is asked by the file's identity (`jeuInfos.php`: name, size, CRC, MD5
+and SHA-1), so a renamed dump is still recognised: the dump inside a ZIP of one file,
+the first disk of an `.m3u` playlist. A file over 128 MiB (a disc image), an arcade
+set's ZIP, a ZIP of several files or a game folder is looked up by name and size,
+never read whole. ScreenScraper asks every program for developer credentials of its
+own; Retro-Recomp has none of its own and does not bundle any, so the player enters
+them (Options › covers). It is never queried for a
 console game: an arcade game with the same name is not the console edition's box
 art.
 

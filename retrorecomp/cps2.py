@@ -53,6 +53,10 @@ def cover_titles(path: Path) -> tuple[str, ...]:
     return capcom_sets.cover_titles(FAMILY, path, display_title)
 
 
+def clone_titles(path: Path) -> tuple[str, ...]:
+    return capcom_sets.clone_titles(FAMILY, path, display_title)
+
+
 def read_set(path: Path, games: list[dict] | None = None, *, set_name: str | None = None) -> Cps2Set:
     """Identify, then hash every required file (the key file included); CRC and SHA-1 must both agree."""
     found = capcom_sets.read_set(FAMILY, path, games, set_name, lambda game: display_title(game['title']), 'cps2',

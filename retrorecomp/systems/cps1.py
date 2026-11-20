@@ -88,6 +88,11 @@ class Cps1Profile(SystemProfile):
         from ..cps1 import cover_titles
         return cover_titles(path)
 
+    def cover_fallback_titles(self, path: Path) -> tuple[str, ...]:
+        # The other official editions of the game, asked last and only by their exact names (artwork.profile_cover_fallback_titles).
+        from ..cps1 import clone_titles
+        return clone_titles(path)
+
     def cover_sets(self, path: Path) -> tuple[str, ...]:
         # The MAME sets ArcadeItalia is asked for: the set, then its parent (cover_sources.catalogue_sets).
         from ..cps1 import FAMILY

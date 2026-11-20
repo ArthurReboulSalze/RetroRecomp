@@ -82,6 +82,25 @@ def profile_cover_titles(system_id: str, rom_path: Path) -> tuple[str, ...]:
         return ()
 
 
+def profile_cover_fallback_titles(system_id: str, rom_path: Path) -> tuple[str, ...]:
+    """Names a machine offers as a last resort (an optional profile capability, `cover_fallback_titles(path)`): the arcade
+    boards' other official editions of the game. Only an exact catalogue name is taken from them (`_download`)."""
+    from .systems import get_profile
+    try:
+        hook = getattr(get_profile(system_id), 'cover_fallback_titles', None)
+        return tuple(name for name in (hook(rom_path) if hook else ()) if isinstance(name, str) and name.strip())
+    except Exception:  # noqa: BLE001 - a box is never worth a failed conversion
+        return ()
+
+
+def _exact_fallback(names: list[str], titles: tuple[str, ...]) -> str | None:
+    for title in titles:
+        exact = [n for n in names if normalized(Path(n).stem) == normalized(title)]
+        if len(exact) == 1:
+            return exact[0]
+    return None
+
+
 def _no_intro_names(system_id: str | None) -> bool:
     from .systems import get_profile
     try:
@@ -499,6 +518,10 @@ def _download(rom_name: str, title: str, directory: Path, emit, system_id: str =
         match = choose_cover(_one_per_name(_catalog(directory, system_id, category, unavailable)) if extra_titles
                              else _catalog(directory, system_id, category, unavailable), rom_name, title,
                              regional_fallback=True,system_id=system_id, extra_titles=extra_titles)
+        if not match:
+            # Last, the other official editions of an arcade game, by their exact names only.
+            match = _exact_fallback(_catalog(directory, system_id, category, unavailable),
+                                    profile_cover_fallback_titles(system_id, Path(rom_name + '.zip')))
         if not match:
             raise ArtworkError('No matching artwork in this Libretro collection.')
         filename = match

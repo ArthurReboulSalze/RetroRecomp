@@ -22,6 +22,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 import zlib
 
 from PIL import Image
@@ -55,8 +56,9 @@ MAME_SET = re.compile(r'[a-z0-9_]{1,40}')
 # ArcadeItalia answers every image request: a set it has no flyer for gets MAME's logo (140 x 105), never a cover.
 ARCADEITALIA_PLACEHOLDER = '78569f903f1b8557b205ab9e0be17309a3cad900fbfe371b64c53f0f018ee399'
 ARCADEITALIA_MINIMUM_EDGE = 200
-# A larger file (a disc image) is looked up on ScreenScraper by its name and size, never read whole to hash it.
-SS_HASHED_BYTES = 64 * 1024 * 1024
+# ScreenScraper matches a file by its identity (name, size, CRC, MD5, SHA-1; jeuInfos.php). A larger file (a disc image) is
+# looked up by its name and size, never read whole to hash it.
+SS_HASHED_BYTES = 128 * 1024 * 1024
 
 
 def available(provider: str, system: str) -> bool:
@@ -189,18 +191,45 @@ def _media_url(url: str, hosts: tuple[str, ...]) -> str:
     return urllib.parse.urlunsplit(('https', parts.netloc.replace(':80', ''), parts.path, parts.query, ''))
 
 
+def _identity(rom: Path, system: str) -> tuple[str, bytes | None, int]:
+    """The file ScreenScraper knows the game by: its name, its bytes when they are worth hashing, and its size.
+
+    A playlist (.m3u) is known by its first disk; a ZIP of one file by that file (the dump, as the ROM sets list it). An arcade
+    set's ZIP, a ZIP of several files, a game folder and anything over SS_HASHED_BYTES are known by name and size only."""
+    try:
+        if rom.suffix.casefold() == '.m3u' and rom.is_file() and rom.stat().st_size <= 64 * 1024:
+            first = next((line.strip() for line in rom.read_text(encoding='utf-8', errors='replace').splitlines()
+                          if line.strip() and not line.startswith('#')), '')
+            disk = (rom.parent / first) if first else None
+            if disk is not None and disk.is_file() and disk.resolve().parent == rom.resolve().parent:
+                rom = disk
+        if not rom.is_file():
+            return rom.name, None, 0
+        size = rom.stat().st_size
+        if rom.suffix.casefold() == '.zip' and system not in ARCADEITALIA:
+            with zipfile.ZipFile(rom) as archive:
+                members = [m for m in archive.infolist() if not m.is_dir()]
+                if len(members) == 1 and 0 < members[0].file_size <= SS_HASHED_BYTES:
+                    member = members[0]
+                    return Path(member.filename).name, archive.read(member), member.file_size
+            return rom.name, None, size
+        if rom.suffix.casefold() == '.zip':
+            return rom.name, None, size
+        return rom.name, (rom.read_bytes() if 0 < size <= SS_HASHED_BYTES else None), size
+    except (OSError, ValueError, zipfile.BadZipFile, RuntimeError):
+        return rom.name, None, 0
+
+
 def _screenscraper(account, rom, title, system, prefer3d, normalize):
-    # Hashes identify a cartridge or a floppy; a disc image or a game folder is searched by its name and size only.
-    size = rom.stat().st_size if rom.is_file() else 0
+    name, payload, size = _identity(rom, system)
     params = {'devid': account['devid'], 'devpassword': account['devpassword'],
               'softname': f'RetroRecomp {__version__}', 'output': 'json',
-              'systemeid': SS_SYSTEMS[system], 'romtype': 'rom', 'romnom': rom.name}
+              'systemeid': SS_SYSTEMS[system], 'romtype': 'rom', 'romnom': name}
     crc = sha1 = None
-    if 0 < size <= SS_HASHED_BYTES:
-        payload = rom.read_bytes()
+    if payload is not None:
         crc = f'{zlib.crc32(payload) & 0xffffffff:08X}'
         sha1 = hashlib.sha1(payload).hexdigest()
-        params.update(romtaille=len(payload), crc=crc, sha1=sha1)
+        params.update(romtaille=len(payload), crc=crc, md5=hashlib.md5(payload).hexdigest(), sha1=sha1)
     elif size:
         params['romtaille'] = size
     if account.get('ssid') and account.get('sspassword'):

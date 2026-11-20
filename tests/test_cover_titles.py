@@ -258,6 +258,16 @@ class AlternativeNameTests(unittest.TestCase):
         # Without the option (API rows, ScreenScraper names), nothing changes.
         self.assertEqual(matching_indices([Path(names[0]).stem], 'Columns', 'Columns'), [])
 
+    def test_a_parent_set_without_a_box_takes_an_official_edition_of_its_own_by_exact_name(self):
+        # megaman2 (USA) has no box; its Japanese edition rockman2j has. Bootlegs and hacks of the maker's sets never stand in.
+        from retrorecomp.artwork import _exact_fallback, profile_cover_fallback_titles
+        titles = profile_cover_fallback_titles('cps2', Path('megaman2.zip'))
+        self.assertIn('Rockman 2 - The Power Fighters (Japan 960708)', titles)
+        names = ['Rockman 2_ The Power Fighters (Japan 960708).png', 'Mega Man (USA).png']
+        self.assertEqual(_exact_fallback(names, titles), names[0])
+        self.assertFalse(any('Magic KO' in title for title in profile_cover_fallback_titles('cps1', Path('sf2ce.zip'))))
+        self.assertEqual(profile_cover_fallback_titles('md', Path('megaman2.zip')), ())
+
     def test_an_exact_mame_description_names_the_edition_before_the_title(self):
         names = ['Street Fighter II - The World Warrior (Japan 911210).png',
                  'Street Fighter II - The World Warrior (World 910522).png',

@@ -144,7 +144,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Capcom CPS-1, CPS-1.5 and CPS-2: the rollback tier and the host's F8 / F9 for everyone](#capcom-cps-1-cps-15-and-cps-2-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_opm.cpp`, `cps1_main.c`) | the CPS-1 and CPS-2 host stamps (`cps1_host.c`, `cps1_persistence.c`, `rrhk_cps1.c`) | unchanged (format, key and magic) |
 | [PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, the new snapshot files, `pce_main.c`, `pce_build.py`, the profile) | the PC Engine host stamp (`rrhk_pce.c`) | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c` |
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
-| [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
+| [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
 
 ## Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder (1.9.0)
 
@@ -165,10 +165,15 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 - **No-Intro thumbnails with several names** (`Columns _ Shapes and Columns`) answer to their first name only, exactly,
   and below a file named after the game itself; the arcade boards keep their reviewed aliases. Master System 247 to 253.
 - **WHDLoad archive names without a pack number** (`Turrican2_v1.4`) give the game's name too.
-- **ScreenScraper never reads a disc image whole**: a file over 64 MiB or a game folder is looked up by name and size.
+- **ScreenScraper by the file's identity**: `jeuInfos.php` gets the dump's name, size, CRC, **MD5** and SHA-1; the dump inside
+  a ZIP of one file and the first disk of an `.m3u` playlist (X68000 sets), not the archive or the list. A file over 128 MiB,
+  an arcade set's ZIP, a ZIP of several files or a game folder is looked up by name and size, never read whole. Not measured:
+  it needs ScreenScraper developer credentials, which Retro-Recomp does not have.
+- **An arcade parent without a box takes another official edition by its exact name**: megaman2 (USA) uses rockman2j's
+  (Japan) box; only the maker's own editions, never a bootleg or a hack. CPS-2 16 to 17 of 17, all 1,265.
 
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
-both Amigas; build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
+both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
 
 ## Commodore Amiga 500 and 1200: the F1 help says how two players play (1.9.0)
 

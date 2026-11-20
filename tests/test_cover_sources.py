@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import urllib.error
+import urllib.parse
+import zlib
 
 from PIL import Image
 
@@ -486,6 +488,50 @@ class ArcadeAndAmigaNames(unittest.TestCase):
         self.assertNotIn('sha1=', query)
         self.assertIn('romtaille=8', query)
         self.assertEqual(cover.style, 'front')
+
+    def test_screenscraper_knows_a_file_by_its_identity(self):
+        # jeuInfos.php is asked with the dump's name, size, CRC, MD5 and SHA-1: the dump inside a ZIP of one file, the first
+        # disk of a playlist; an arcade set's ZIP or a ZIP of several files by name and size only.
+        import hashlib as digests
+        import zipfile
+        dump = b'authored cartridge bytes'
+        game = {'id': 1, 'systeme': {'id': '9'}, 'noms': [{'text': 'Other Name'}],
+                'rom': {'romsha1': digests.sha1(dump).hexdigest()},
+                'medias': [{'type': 'box-2D', 'region': 'eu', 'url': 'https://api.screenscraper.fr/front'}]}
+        answer = json.dumps({'response': {'jeu': game}}).encode()
+
+        def ask(rom, system='gb', systeme=None):
+            if systeme:
+                game['systeme'] = {'id': systeme}
+            with patch.object(api, 'request', side_effect=[json.dumps({'response': {'jeu': game}}).encode(), png()]) as client:
+                cover = api.fetch('screenscraper', {'devid': 'test', 'devpassword': 'test'}, rom, 'Game', system,
+                                  normalize=normalized)
+            return cover, urllib.parse.parse_qs(urllib.parse.urlsplit(client.call_args_list[0].args[0]).query)
+
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            packed = folder / 'Game.zip'
+            with zipfile.ZipFile(packed, 'w') as archive:
+                archive.writestr('Game (Europe).gb', dump)
+            cover, query = ask(packed)
+            self.assertIsNotNone(cover)            # the hash confirms the game although its name differs
+            self.assertEqual(query['romnom'], ['Game (Europe).gb'])
+            self.assertEqual(query['md5'], [digests.md5(dump).hexdigest()])
+            self.assertEqual(query['crc'], [f'{zlib.crc32(dump) & 0xffffffff:08X}'])
+            self.assertEqual(query['romtaille'], [str(len(dump))])
+            disk = folder / 'Game (Disk 1 of 2).dim'
+            disk.write_bytes(dump)
+            (folder / 'Game.m3u').write_text('# set\nGame (Disk 1 of 2).dim\nGame (Disk 2 of 2).dim\n', encoding='utf-8')
+            _, query = ask(folder / 'Game.m3u', 'x68', '79')
+            self.assertEqual((query['romnom'], query['md5']), (['Game (Disk 1 of 2).dim'], [digests.md5(dump).hexdigest()]))
+            arcade = folder / 'ffight.zip'
+            with zipfile.ZipFile(arcade, 'w') as archive:
+                archive.writestr('ff_36.11f', dump)
+            game['noms'] = [{'text': 'Final Fight'}]
+            _, query = ask(arcade, 'cps1', '6')
+            self.assertEqual(query['romnom'], ['ffight.zip'])
+            self.assertNotIn('md5', query)
+            self.assertNotIn('crc', query)
 
     def test_a_machine_without_a_screenscraper_number_still_asks_the_other_services(self):
         # until 20 Nov 2026 every service was skipped for a machine ScreenScraper had no number for (fetch's first test)
