@@ -143,6 +143,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Mega Drive: the host's save written back at a match's clean end](#mega-drive-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the Mega Drive game stamp** (`md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the Mega Drive quick-state key moves** (it hashes `md_backend.c` and `md_battery.c`): an older quick state is refused cleanly; the state and save formats do not change |
 | [Mega Drive: a lower frame cost, the same pictures and sound](#mega-drive-a-lower-frame-cost-the-same-pictures-and-sound-190) | **the Mega Drive game stamp** (`retrorecomp/megadrive_video.py`) | none | unchanged (no file of the Mega Drive key is touched) |
 | [Sony PlayStation: longer native steps, a lower frame cost](#sony-playstation-longer-native-steps-a-lower-frame-cost-190) | **the PlayStation game stamp** (`retrorecomp/psx_native.py`) | none | unchanged (no file of the PlayStation key is touched) |
+| [Nintendo 64: the FPU's rounding mode is set only when it changes](#nintendo-64-the-fpus-rounding-mode-is-set-only-when-it-changes-190) | **the Nintendo 64 game stamp** (`retrorecomp/n64_core.py`: the adaptation of `fpu.h`) | none | **the Nintendo 64 quick-state key moves** (it hashes the adapted core's `ready.json`); an earlier state is refused cleanly |
 | [Sony PlayStation: multiplayer, the digest and the host's settings (delay tier)](#sony-playstation-multiplayer-the-digest-and-the-hosts-settings-delay-tier-190) | **the game stamp of the PlayStation** (`psx_session.c`, `psx_main.c`, `psx_session.h`; Beetle's adaptation: one line of `spu.c`) | **the host stamp of the PlayStation** (`rrhk_psx.c`) and **of every machine with the host kit** (one catalogue string in the eight locales, `runtime_catalog.inc`) | unchanged (the PlayStation's state key hashes none of these files; a state's format does not change) |
 | [Neo Geo: rollback and the host's F8 / F9 for everyone in a match](#neo-geo-rollback-and-the-hosts-f8--f9-for-everyone-in-a-match-190) | **the Neo Geo game stamp** (`native/neogeo_state.c`, `neogeo_main.c`, `neogeo_persistence.c`, `neogeo_reference.c` and `.h`, `neogeo_host.h`, the profile) | **the Neo Geo host stamp** (`rrhk_ng.c`) | Neo Geo's key **does not move** (the F8 state is untouched; no quick-state file or key is edited) |
 | [Neo Geo: the sprite scan resolved once per change of the sprite tables](#neo-geo-the-sprite-scan-resolved-once-per-change-of-the-sprite-tables-190) | **the Neo Geo game stamp** (`native/neogeo_sprite_scan.h`, new, and the patch step of `geo_lspc.c` in `neogeo_build.py`; the picture, the sound and the state are unchanged) | unchanged | Neo Geo's key **does not move** |
@@ -218,6 +219,30 @@ card's picture with its own byte-order branch.
 
 Stamps: the PlayStation game stamp moves (an export of 1.8.0 is converted again once, as every machine's in 1.9.0). The
 quick-state key and the state format do not change.
+
+## Nintendo 64: the FPU's rounding mode is set only when it changes (1.9.0)
+
+The first item of the Nintendo 64's 1.9.0 optimisation wave. Mupen64Plus sets the host's rounding mode before every
+floating-point add, subtract, multiply, divide and square root, single and double, and before four conversions (`set_rounding`
+in `fpu.h`, called with the guest's FCR31). With llvm-mingw `fesetround` rewrites the x87 control word and MXCSR every time:
+about 13 % of the main thread of a Super Mario 64 frame in a sampling profile (20 November 2026). Our adaptation of `fpu.h`
+(`n64_core.REPLACEMENTS`, x86-64 with GCC or Clang) reads both rounding fields first and returns when they already hold the
+guest's mode; otherwise the original switch runs. Every operation, its order and its result are as before.
+
+**Identical output.** Super Mario 64, The Legend of Zelda: Ocarina of Time and Mario Kart 64 converted by main `e4f40699` and
+by this change (Quick): every evidence file of the conversion is byte-identical, 15 per game: the traces of the reference, the
+packed game and the restart (picture, sound, RDRAM and CPU hashed on each of 11,200 frames per game), the final frames, the
+observations, the interpreted sites and the results.
+
+**Measured** (the performance specialist, a quiet PC, three games interleaved, one core, median ms per frame, spread in
+brackets; main `e4f40699` then this change): Super Mario 64, the engine alone 7.193 (2.9 %) to 6.239 (3.6 %), −13.3 %; the
+player's loop on the graphics card, the present excluded, 4.966 (16.4 %) to 4.021 (19.7 %), −19.0 %. The loop's spread comes
+from its waits on the graphics card: right for a ratio, not for a published figure. These are costs of the host's code on one
+PC, not physical latency. Native code, the interpreter's counts, CPU and hardware fidelity are unchanged.
+
+Stamps: the Nintendo 64 game stamp moves (the adaptation digest), and with it the quick-state key, which hashes the adapted
+core's `ready.json`: a state of an earlier build is refused cleanly. The patch is ours, recorded in
+[UPSTREAMS.md](UPSTREAMS.md#nintendo-64-patches-carried-on-mupen64plus-next-190).
 
 ## Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder (1.9.0)
 
