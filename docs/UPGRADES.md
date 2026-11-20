@@ -128,6 +128,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Game Boy: rollback and the host's F8 / F9 for everyone](#game-boy-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the Game Boy game stamp** (`gb`: the runtime part `native/gb_machine_state.h`, `gb_digest.h`, the patches of `gameboy_runtime.py` and `gameboy_hardware.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`) | unchanged (the quick-state file format is not touched) |
 | [NES: the Four Score, players 3 and 4 (multiplayer)](#nes-the-four-score-players-3-and-4-multiplayer-190) | **the NES game stamp** (`nes_machine.py`, `nes_runtime.py`, `nes_catalog.py`, `nes.py`, the profile) | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) | **the NES quick-state key moves** (`nes_machine.py` adds the Four Score register to the saved APU); an older quick state is refused cleanly |
 | [NES: the host's save travels in a session](#nes-the-hosts-save-travels-in-a-session-190) | none | **the NES host stamp** (`rrhk_nes.c`, `retro_nes.h`) and the game stamp (`nes_runtime.py`: the save write of the program) | **the NES quick-state key moves again** (it hashes `nes_machine_state.inc`); an older quick state is refused cleanly |
+| [NES: the APU's quiet cycles run together](#nes-the-apus-quiet-cycles-run-together-190) | **the NES game stamp** (`nes_machine.py`, new `native/nes_apu_batch.inc`) | none (host files unchanged) | **the NES quick-state key moves** (`nes_apu_batch.inc` is one of the files the key hashes); the saved bytes are the same, an older state is refused cleanly |
 | [Mega Drive: the rollback tier and the host's F8 / F9 for everyone](#mega-drive-the-rollback-tier-and-the-hosts-f8--f9-for-everyone-190) | **the Mega Drive game stamp and engine stamp** (`retrorecomp/megadrive_rollback.py`, new, and its hooks in `megadrive_audio`, `megadrive_bus`, `megadrive_memory`, `megadrive_runtime`) | **the Mega Drive host stamp** (`native/hostkit/adapters/rrhk_md.c`) | unchanged (no file of the Mega Drive key is touched; the quick-state format does not change) |
 | [Mega Drive: four players with the Team Player, the 4 Way Play or the J-Cart](#mega-drive-four-players-with-the-team-player-the-4-way-play-or-the-j-cart-190) | **the Mega Drive game and engine stamps** (`retrorecomp/megadrive_multitap.py`, new, and its hooks); **the game stamps of the Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine and PlayStation** (`console16.py`, the report's player count; their games do not change) | **the Mega Drive host stamp** (`rrhk_md.c`) | unchanged |
 | [Mega Drive, Super Nintendo, PC Engine: the host's save written back at a match's clean end](#mega-drive-super-nintendo-pc-engine-the-hosts-save-written-back-at-a-matchs-clean-end-190) | **the game stamps of the Mega Drive, Super Nintendo, PC Engine, MSX, MSX2 and MSX2+** (`native/cart_save.c` and `.h`, which they share; `md_battery.c` and `.h`, `md_backend.c`) | **the Mega Drive host stamp** (`rrhk_md.c`) | **the quick-state keys of those six profiles move** (they hash `cart_save.c`; the Mega Drive's also `md_backend.c` and `md_battery.c`): older quick states are refused cleanly; the state and save formats do not change |
@@ -1034,6 +1035,38 @@ Legend of Zelda, two seats, `--host-save` with a raw 32 KB seed: PASS, equal boo
 written back", the host's `.sav` changed (8,154 bytes differ from the seed), its `.bak` is byte for byte the seed, and the guest's
 folder holds no save file. Not compared: the written file against the machine's final memory by an independent reader (it is
 `cyc_nvram_export` written by the existing `save_write`), the Datach's own file, a desync or a lost connection (no write by the kit's rule).
+
+## NES: the APU's quiet cycles run together (1.9.0)
+
+Performance pass (20 November 2026, `spec/nes-perf-apu`, cut from main `971df620`; the profile that led to it is in the lead's notes).
+`apu_cycle()` ran once per CPU cycle, about 10 % (engine) to 13 % (with sound) of the samples of Metroid's frame, although on most
+cycles nothing the CPU can see changes. The machine now counts those cycles (`rr_apu_pend`, `hw_machine.c`) and runs them together
+(`native/nes_apu_batch.inc`, included in the staged `hw_apu.c`) up to the first cycle where something else can happen: a frame counter
+step, the DMC timer, a delay (a `$4017` reset, a `$4015` DMC start, the controller shift), a DMA, a controller strobe, or the step of a
+channel whose output is audible (length counter above 0). That cycle, and every one while such an event is pending, goes through
+`apu_cycle()` itself. A register access, a state hash, a save, a state load and the sound read run the pending cycles first, and the
+cycle after an access is a plain one, so the state at every access is the one the cycle-by-cycle machine has there. What is
+computed at once is only what the cycles would have done without an event: counters and timers stepped by the number of cycles, the
+steps of a silent pulse or triangle and the noise register, and the sound accumulator, whose floating-point additions keep the order of
+the single cycles (the samples are bit for bit the same). A board with expansion sound (MMC5, VRC6, VRC7, Namco 163, Sunsoft 5B) keeps
+the cycle by cycle path while its sound is on, as its level is read on every cycle.
+
+**Checked, identical:** `tools/nes_ppu_selftest.py` runs the original machine and this one on the same authored activity and compares
+them: its existing checks (hidden CPU, PPU, frame, bus, memory and APU hashes and the sound, four alignments, mappers 0 to 153, NTSC
+and PAL) pass, and a new mode `apu` adds 28 scenarios of 14 runs each (1 to 40,000 cycles, channel and frame counter settings written
+at random, `$4015` / `$4016` / `$4017` reads, `$4014` and `$4016` writes, a state hash taken at random) on mappers 0, 1, 4, 5, 69 and 85,
+NTSC and PAL, Zapper on and off: the interrupt lines and the cycle count are hashed on **every** cycle (a DMA stall or an IRQ a cycle late
+shows at once), the APU state, the sound and the machine at the end of each run. A mutant with the frame counter's horizon one cycle
+too long is caught in the first scenario (positive control). On Metroid (USA), converted from this branch and from main: the per-frame
+lines (CPU, memory, hardware state, picture, sound) and the whole PCM (5,750,444 bytes) are identical over 3,600 frames of the boot
+and of the two input routes; a quick state saved at frame 1200 and loaded in a new process gives the same memory, CPU, cycle count,
+hardware state and picture for the next 600 frames. **Not compared:** the sound after a quick-state load of that run (the state
+carries the sound switch of the run that saved it: with the sound on, saving a state through this headless command line fails on main
+as well, so only the ROM-free check covers a save and a load with the sound on), Metroid is one game on one board (the ROM-free
+check covers the others), no timing here (the performance specialist measures).
+
+**Stamps:** the NES **game** stamp moves (`nes_machine.py`, the new `nes_apu_batch.inc`, declared for `nes` only) and **the NES quick-state
+key** (`nes_machine.prepare_machine` hashes the file; the saved layout is unchanged). The NES host stamp is unchanged.
 
 ## Mega Drive: the rollback tier and the host's F8 / F9 for everyone (1.9.0)
 

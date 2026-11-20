@@ -251,7 +251,7 @@ engine is carried at present. Cartridge observations from other players join the
 |---|---|
 | Profile | `retrorecomp/systems/nes.py` |
 | Converter | `retrorecomp/nes.py` (conversion, ROM reading, probes, report), `nes_codegen.py` (private compiler), `nes_machine.py` (staged machine adapter and state ABI), `nes_runtime.py` (private host adapter), `nes_build.py` (exact-input generation and stable build paths), `nes_ram.py` (RAM entry/opcode guards), `nes_optimization.py` (Linux profile-guided build), `nes_catalog.py` (Zapper catalogue) |
-| Native | `native/nes_state.c`, `nes_machine_state.inc`, `nes_mapper_state.inc` (quick states), `nes_ppu_fast.inc`, `nes_ppu_lazy.inc`, `nes_sprite_shift.h`, `nes_sprite_extra.inc` (PPU), `nes_dense_codegen.inc`, `nes_live_codegen.inc`, `nes_ram.inc` (dispatch and guards), `native/retro_nes.h` |
+| Native | `native/nes_state.c`, `nes_machine_state.inc`, `nes_mapper_state.inc` (quick states), `nes_ppu_fast.inc`, `nes_ppu_lazy.inc`, `nes_sprite_shift.h`, `nes_sprite_extra.inc` (PPU), `nes_apu_batch.inc` (APU), `nes_dense_codegen.inc`, `nes_live_codegen.inc`, `nes_ram.inc` (dispatch and guards), `native/retro_nes.h` |
 | Checks compiled into tests | `native/nes_*_checks.c` (audio, dense, guarded, machine, PPU, lower-ROM windows) |
 | Host-kit adapter | `native/hostkit/adapters/rrhk_nes.c` |
 | Tools | `tools/nes_native_selftest.py`, `nes_guarded_selftest.py`, `nes_windows_selftest.py`, `nes_machine_selftest.py`, `nes_ppu_selftest.py`, `nes_audio_selftest.py`, `nes_state_selftest.py`, `nes_state_cross.py` |
