@@ -159,7 +159,7 @@ at Ctrl+F1). The F2 pages, autofire (F6) and the speed and sound controls are th
 
 ### SG-1000
 
-In development (experimental, developer only): the game exists, no real cartridge has been converted yet. The pad is the console's own: the D-pad and
+In development (experimental, developer only): a conversion delivers the game, and no player has played it. The pad is the console's own: the D-pad and
 buttons 1 and 2, on two pads, and **Pause**, the console's NMI. Player 1: the arrow keys, **S** is button 1, **D** is button 2 and **Enter** is Pause;
 player 2: the numeric keypad (5, 2, 1, 3 move, 8 and 9 are the buttons, 7 is Pause). On a controller, the D-pad moves, A is button 1, B is button 2 and
 Start is Pause. Pause raises the console's NMI once: the game's own pause routine runs, the kit's Pause menu is not used. Every key can be changed in F2

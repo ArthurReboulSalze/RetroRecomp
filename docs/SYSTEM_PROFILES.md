@@ -69,9 +69,10 @@ export to `Games/ZX Spectrum`, on the shared banked Z80 chain, with the Amstrad 
 (`zxs_rom48`, `zxs_rom128`). Its path section is `z80/zxs` (sources `snapshot` and `rom`), path order 20; it records no gameplay feedback
 yet (its kind, 28, is reserved with the other new machines' when one first records). See [ZX Spectrum](ZX_SPECTRUM.md).
 
-The **SG-1000** profile (`sg1000`, experimental and developer only, stage 1 of the machine) identifies a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as
+The **SG-1000** profile (`sg1000`, experimental and developer only, stage 3 of the machine) identifies a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as
 SG-1000 or that sits in a folder named `sg1000` (`sg-1000` and `sg_1000` too), and reads it (2 KiB to 48 KiB, plain ROM; no firmware and no option); its
-conversion is a refusal until the machine is written, and it will export to `Games/SG-1000`. Its path section is `z80/sg1000` (source `rom`), it uses the
+conversion translates the cartridge, checks it against the reference interpreter and delivers a game executable (no player is offered it yet), and it
+exports to `Games/SG-1000`. Its path section is `z80/sg1000` (source `rom`), it uses the
 shared banked Z80 chain with its own machine description (`SG1000_MACHINE`, with the /NMI pin of the Pause button) and the shared TMS9918A, and it declares
 no gameplay feedback kind yet. See [SG-1000](SG1000.md).
 

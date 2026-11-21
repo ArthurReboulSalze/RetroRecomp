@@ -1,7 +1,8 @@
 """ROM-free self-test of the delivered SG-1000 game (native/sg1000_machine/sg1000_player.c, the host-kit adapter
 native/hostkit/adapters/rrhk_sg1000.inc and the quick states of sg1000_state_file.inc).
 
-It builds, from an AUTHORED cartridge (no ROM, nothing of a commercial game), the same files the converter's packaging will: the
+It builds, from an AUTHORED cartridge (no ROM, nothing of a commercial game), the same files the converter's packaging writes (it calls
+retrorecomp/sg1000_build.py project_cmake and retrorecomp/sg1000_conversion.py prepare_game, with only the probe's files added): the
 generated bodies of the shared banked Z80 chain, the reference runner, the headless native check and the game (its own resources, the
 host kit, SDL2). Then it proves, and says exactly what each proof covers:
 
@@ -45,36 +46,8 @@ os.environ.setdefault('RETRO_RECOMP_TOOLCHAIN', 'llvm')
 os.environ.setdefault('RETRO_RECOMP_BUILD_JOBS', '4')
 
 TITLE = 'Authored SG-1000 Test'
-STATE_LAYOUT = 'sg1000-state-1'
 BUILD_TIMEOUT = 2 * 3600
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-
-# The generator's game.toml: the cartridge is source 0 of the region map, there is no other source (no BIOS).
-GAME_TOML = '''# SG-1000: the cartridge is source 0 of the region map; banked.sources is empty (no BIOS).
-[game]
-output_prefix = "game"
-platform = "sms"
-rom = "rom.sms"
-crc32 = 0x00000000
-[mapper]
-kind = "sega"
-[functions]
-extra = []
-blacklist = []
-'''
-
-# The files of native/ the game's work folder holds, flat (the machine's, the shared modules', the chain's glue, the kit's companions).
-MACHINE_SOURCES = ('sg1000_machine.c',)
-MACHINE_FILES = (*MACHINE_SOURCES, 'sg1000_machine.h', 'sg1000_glue.inc', 'sg1000_headless.inc', 'sg1000_state_file.inc',
-                 'sg1000_native_main.c', 'sg1000_reference_main.c', 'sg1000_player.c')
-SHARED_MODULES = (('tms9918', ('tms9918.c',), ('tms9918.h', 'tms_tiles.inc')), ('sn76489', ('sn76489.c',), ('sn76489.h',)))
-SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)
-CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h')
-KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
-             'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
-             'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
-             'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
-             'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_io.h', 'state_envelope.h', 'gamestate.h')
 
 # Fields that are cumulative counters of the PROCESS, not of the machine: a process that loaded a state has not seen the frames before it.
 PROCESS_FIELDS = ('engine', 'interrupts', 'audio_samples', 'audio_fnv', 'native_steps', 'halt_steps', 'fallback_steps',
@@ -141,19 +114,6 @@ def authored_cartridge() -> bytes:
                0x3A, 0x01, 0xC0, 0xD3, 0xBE,                                          # the Pause count as a tile
                0xF1, 0xFB, 0xED, 0x4D]))                                              # POP AF; EI; RETI
     return bytes(image)
-
-
-# ---- the files of the game's packaging, as the converter writes them ----
-def state_binding(standard: str, rom_size: int) -> bytes:
-    """RR_SG_STATE_ABI: the SHA-256 of the layout name, the standard and the cartridge's size as the machine sees it."""
-    return hashlib.sha256(f'{STATE_LAYOUT}\n{standard}\n{rom_size}'.encode('ascii')).digest()
-
-
-def game_header(identity: str, standard: str, rom_size: int) -> str:
-    abi = ', '.join(f'0x{b:02X}' for b in state_binding(standard, rom_size))
-    return ('#pragma once\n'
-            f'#define RR_SG_TITLE "{TITLE}"\n#define RR_SG_IDENTITY "{identity}"\n'
-            f'#define RR_SG_PAL {int(standard == "pal")}\n#define RR_SG_STATE_ABI {{{abi}}}\n')
 
 
 PROBE_SOURCE = r'''/* Test double of the SG-1000 game's host: the kit's picture upload and keyboard state, renamed to these (the self-test's CMake file does
@@ -254,44 +214,14 @@ const Uint8 *sgprobe_GetKeyboardState(int *numkeys)
 
 
 def project_cmake(version: str) -> str:
-    """The game's CMake project: what the converter's packaging (retrorecomp/sg1000_build.py) writes, plus the test double `game_probe`."""
-    from retrorecomp import hostkit
-    machine = ' '.join((*MACHINE_SOURCES, *SHARED_SOURCES))
+    """The game's CMake project: the converter's own (retrorecomp/sg1000_build.py project_cmake, the reference, the check and the game),
+    plus the test double `game_probe`: the same sources, two copies of the kit's files with two SDL calls renamed, the probe; a console
+    program."""
+    from retrorecomp import hostkit, sg1000_build
+    machine = ' '.join((*sg1000_build.MACHINE_SOURCES, *sg1000_build.SHARED_SOURCES))
     kit = hostkit.sources('sg1000')
     probe_kit = ' '.join(f'hostkit/shell/probe_{Path(n).name}' if Path(n).name in ('rrhk_video.c', 'rrhk_input.c') else n for n in kit)
-    kit = ' '.join(kit)
-    return '\n'.join([
-        'cmake_minimum_required(VERSION 3.20)',
-        'project(RetroSg1000 LANGUAGES C)',
-        'set(CMAKE_C_STANDARD 11)',
-        'set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")',
-        'if(MSVC)', '  add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)', 'endif()',
-        f'add_executable(sg1000_reference sg1000_reference_main.c {machine} runtime_reference.c)',
-        'file(GLOB bodies "generated/game_banked_ops_*.c")',
-        'add_library(sg1000_bodies OBJECT generated/game_banked_index.c ${bodies})',
-        'target_include_directories(sg1000_bodies PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        'target_compile_definitions(sg1000_bodies PRIVATE SMSRECOMP_BANKED_AOT)',
-        f'add_executable(sg1000_check sg1000_native_main.c {machine} runtime_reference.c $<TARGET_OBJECTS:sg1000_bodies>)',
-        'foreach(target sg1000_reference sg1000_check)',
-        '  target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        '  target_compile_definitions(${target} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)',
-        '  if(NOT WIN32)', '    target_link_libraries(${target} PRIVATE m)', '  endif()',
-        'endforeach()',
-        'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
-        'find_package(SDL2 CONFIG REQUIRED)',
-        # The game: the player, the machine, the fallback interpreter, the kit's menu and platform files, the kit's shell, the bodies.
-        f'add_executable(game sg1000_player.c {machine} runtime_reference.c retro_menu.c platform_io.c runtime_feedback.c {kit}',
-        '  $<TARGET_OBJECTS:sg1000_bodies>)',
-        'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        'if(WIN32)', '  target_sources(game PRIVATE content.rc)',
-        '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
-        'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
-        '  target_link_libraries(game PRIVATE m)', 'endif()',
-        'target_link_libraries(game PRIVATE SDL2::SDL2-static)',
-        f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS [[RR_RECOMP_VERSION="{version}"]])',
-        'if(MSVC)', '  target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)', 'endif()',
-        'if(WIN32 AND NOT MSVC)', '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',
-        # The test double: the same sources, two copies of the kit's files with two SDL calls renamed, the probe; a console program.
+    return sg1000_build.project_cmake(game=True, version=version) + '\n'.join([
         f'add_executable(game_probe sg1000_player.c sg1000_probe.c {machine} runtime_reference.c retro_menu.c platform_io.c '
         f'runtime_feedback.c {probe_kit}',
         '  $<TARGET_OBJECTS:sg1000_bodies>)',
@@ -306,41 +236,20 @@ def project_cmake(version: str) -> str:
 
 
 def stage(work: Path, cartridge: bytes, standard: str) -> None:
-    """Everything of the game's project beside the generated bodies (the converter's packaging does the same, for a real cartridge)."""
-    from retrorecomp import hostkit, z80_chain_build
-    from retrorecomp.metadata import write_game_metadata
-    from retrorecomp.notices import notice_text
-    from retrorecomp.paths import ASSETS
+    """Everything of the game's project beside the generated bodies: the converter's own packaging (sg1000_conversion.prepare_game, with
+    the sources it stages and the resources), plus the probe's files."""
+    from retrorecomp import sg1000_conversion, z80_chain_build
+    sg1000_conversion.prepare_game(work, hashlib.sha256(cartridge).hexdigest(), (work / 'rom.sms').read_bytes(), TITLE, standard)
     write = z80_chain_build.write_if_changed
-    z80_chain_build.stage_files(work, ((ASSETS / 'native' / 'sg1000_machine', MACHINE_FILES),
-                                       *((ASSETS / 'native' / folder, (*sources, *files)) for folder, sources, files in SHARED_MODULES),
-                                       (ASSETS / 'native', (*CHAIN_FILES, *KIT_FILES))))
-    hostkit.stage(work, 'sg1000')
-    identity = hashlib.sha256(cartridge).hexdigest()
-    padded = (work / 'rom.sms').read_bytes()
-    write(work / 'cartridge.rom', padded)
-    write(work / 'notices.txt', notice_text('sg1000').encode('utf-8'))
-    write(work / 'runtime_feedback_config.h', f'#define RR_FEEDBACK_SYSTEM "sg1000"\n#define RR_FEEDBACK_IDENTITY "{identity}"\n'.encode('ascii'))
-    write(work / 'export-identity.bin', b'[Retro-Recomp]\0' + identity.encode('ascii') + b'\0')
-    write_game_metadata(work, TITLE, TITLE + '.exe', light_phaser=False, icon=False, standard=standard, system_id='sg1000')
-    write(work / 'content.rc', ('#pragma code_page(65001)\n103 RCDATA "cartridge.rom"\n203 RCDATA "notices.txt"\n'
-                                '205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n').encode('utf-8'))
-    if os.name != 'nt':
-        from retrorecomp.resources import embed_resources
-        embed_resources(work, {103: work / 'cartridge.rom', 203: work / 'notices.txt', 205: work / 'export-identity.bin'})
-    write(work / 'sg1000_game.h', game_header(identity, standard, len(padded)).encode('ascii'))
     write(work / 'sg1000_probe.c', PROBE_SOURCE.encode('utf-8'))
     for name in ('rrhk_video.c', 'rrhk_input.c'):
         write(work / 'hostkit' / 'shell' / f'probe_{name}', (work / 'hostkit' / 'shell' / name).read_bytes())
 
 
 def build_all(work: Path, cartridge: bytes) -> dict[str, Path]:
-    from retrorecomp import __version__, z80_chain_build
-    from retrorecomp.systems.sg1000 import SG1000_MACHINE
+    from retrorecomp import __version__, sg1000_build, z80_chain_build
     work.mkdir(parents=True, exist_ok=True)
-    padded = SG1000_MACHINE.regions.image(cartridge, 1)
-    z80_chain_build.generate_bodies(work, SG1000_MACHINE, padded, (), GAME_TOML, print, loop_name='sg1000_banked_loop.inc',
-                                    accept='sg1000_reference_accept')
+    sg1000_build.generate(work, sg1000_build.padded(cartridge))
     stage(work, cartridge, 'ntsc')
     exes = z80_chain_build.build_project(work, ('sg1000_reference', 'sg1000_check', 'game', 'game_probe'), project_cmake(__version__),
                                          sdl=True)

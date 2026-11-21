@@ -1,5 +1,6 @@
 """The SG-1000's build on the banked Z80 chain (retrorecomp/sg1000_build.py): what both runners report, the generator's input, the project
 text and the comparison, with synthetic data (no toolchain, no ROM)."""
+import hashlib
 import json
 import re
 import tempfile
@@ -125,23 +126,66 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn('sg1000_check', text)
         self.assertNotIn('sg1000_bodies', text)
 
-    def test_the_game_target_waits_for_the_player(self):
-        with self.assertRaisesRegex(build.Sg1000BuildError, 'player is not written yet'):
-            build.project_cmake(game=True)
-        saved = build.PLAYER_SOURCES
-        try:
-            build.PLAYER_SOURCES = ('sg1000_player.c',)
-            text = build.project_cmake(game=True)
-        finally:
-            build.PLAYER_SOURCES = saved
-        self.assertIn('add_executable(game sg1000_player.c sg1000_machine.c tms9918.c sn76489.c runtime_reference.c '
-                      '$<TARGET_OBJECTS:sg1000_bodies>)', text)
+    def test_the_game_target_is_the_player_with_the_kit_and_the_bodies(self):
+        text = build.project_cmake(game=True, version='9.8.7')
+        self.assertIn('add_executable(game sg1000_player.c sg1000_machine.c tms9918.c sn76489.c runtime_reference.c retro_menu.c platform_io.c '
+                      'runtime_feedback.c ', text)
+        self.assertIn('$<TARGET_OBJECTS:sg1000_bodies>)', text)
+        self.assertIn('hostkit/shell/rrhk_main.c', text)
+        self.assertIn('target_link_libraries(game PRIVATE SDL2::SDL2-static)', text)
+        self.assertIn('target_sources(game PRIVATE content.rc)', text)
+        self.assertIn('embedded_resources.c embedded_resources.S', text)
+        self.assertIn('SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT', text)
+        self.assertIn('[[RR_RECOMP_VERSION="9.8.7"]]', text)
+        self.assertIn('/SUBSYSTEM:WINDOWS', text)
+        self.assertIn('-Wl,--subsystem,windows', text)
+        self.assertIn('foreach(target sg1000_reference sg1000_check)', text)     # the check is built with the game: the same bodies
+        self.assertNotIn('\r', text)
+
+    def test_without_the_game_the_project_has_no_sdl(self):
+        for text in (build.project_cmake(), build.project_cmake(bodies=False)):
+            self.assertNotIn('SDL2', text)
+            self.assertNotIn('add_executable(game', text)
+
+    def test_every_player_and_kit_file_exists_and_is_staged(self):
+        for name in build.PLAYER_FILES:
+            self.assertTrue((NATIVE / 'sg1000_machine' / name).is_file(), name)
+            self.assertIn(f'native/sg1000_machine/{name}', stamp_inputs.INPUTS[('sg1000',)], name)
+        self.assertEqual(build.PLAYER_SOURCES, ('sg1000_player.c',))
+        for name in build.KIT_FILES:
+            self.assertTrue((NATIVE / name).is_file(), name)
+        self.assertFalse({'media_request.h', 'cart_save.c', 'cart_save.h'} & set(build.KIT_FILES))   # no media, no battery
+
+    def test_the_header_names_the_game_the_player_reads(self):
+        header = build.game_header('Flicky "Test"', 'ab' * 32, 'pal', 0x8000)
+        self.assertIn('#define RR_SG_TITLE "Flicky \\"Test\\""', header)
+        self.assertIn(f'#define RR_SG_IDENTITY "{"ab" * 32}"', header)
+        self.assertIn('#define RR_SG_PAL 1', header)
+        self.assertIn('#define RR_SG_PAL 0', build.game_header('x', 'ab' * 32, 'ntsc', 0x2000))
+        abi = [int(v, 16) for v in re.search(r'RR_SG_STATE_ABI \{([^}]*)\}', header).group(1).split(',')]
+        self.assertEqual(bytes(abi), build.state_binding('pal', 0x8000))
+        self.assertEqual(len(abi), 32)
+        for line in header.splitlines():                                  # every symbol the player reads is defined
+            self.assertTrue(line.startswith(('#pragma', '#define RR_SG_')), line)
+        player = (NATIVE / 'sg1000_machine/sg1000_player.c').read_text(encoding='utf-8')
+        for symbol in ('RR_SG_TITLE', 'RR_SG_IDENTITY', 'RR_SG_PAL', 'RR_SG_STATE_ABI'):
+            self.assertIn(symbol, player)
+            self.assertIn(f'#define {symbol} ', header)
+
+    def test_the_binding_follows_the_layout_the_standard_and_the_size(self):
+        base = build.state_binding('ntsc', 0x2000)
+        self.assertEqual(len(base), 32)
+        self.assertNotEqual(base, build.state_binding('pal', 0x2000))
+        self.assertNotEqual(base, build.state_binding('ntsc', 0x4000))
+        self.assertEqual(base, hashlib.sha256(b'sg1000-state-1\nntsc\n8192').digest())
+        self.assertIn(build.STATE_LAYOUT, (NATIVE / 'sg1000_machine/sg1000_state_file.inc').read_text(encoding='utf-8'))
 
     def test_staging_copies_what_changed_beside_the_bodies(self):
         with tempfile.TemporaryDirectory() as folder:
             work = Path(folder)
             build.stage_sources(work)
-            for name in ('sg1000_machine.c', 'sg1000_glue.inc', 'tms9918.c', 'tms_tiles.inc', 'sn76489.h', 'z80_chain_glue.inc'):
+            for name in ('sg1000_machine.c', 'sg1000_glue.inc', 'sg1000_player.c', 'sg1000_state_file.inc', 'tms9918.c', 'tms_tiles.inc',
+                         'sn76489.h', 'z80_chain_glue.inc', 'retro_menu.c', 'state_envelope.h'):
                 self.assertEqual((work / name).read_bytes(), next(NATIVE.rglob(name)).read_bytes(), name)
             marked = work / 'sg1000_machine.c'
             before = marked.stat().st_mtime_ns
@@ -171,7 +215,8 @@ class ChainTests(unittest.TestCase):
     def test_the_build_is_on_the_shared_helpers(self):
         self.assertIs(build.frame_rows, z80_chain_build.frame_rows)
         source = (ROOT / 'retrorecomp/sg1000_build.py').read_text(encoding='utf-8')
-        for helper in ('generate_bodies', 'stage_files', 'build_project', 'run_program', 'learn_passes', 'differences'):
+        for helper in ('generate_bodies', 'stage_files', 'build_project', 'run_program', 'run_game', 'game_exit_code', 'learn_passes',
+                       'differences'):
             self.assertIn(f'z80_chain_build.{helper}', source, helper)
 
 

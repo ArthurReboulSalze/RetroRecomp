@@ -146,8 +146,8 @@ and its limits are on its page.
 Six machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision**, the
 **Amstrad CPC**, the **ZX Spectrum** and the **PC Engine CD**. None is available yet: each starts as an experimental
 profile once its study is approved, and no date is promised. The ZX Spectrum's study is approved: its experimental profile
-identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)). The **SG-1000** has also reached that first step, for developers only: its experimental profile recognises the cartridge files and converts nothing
-yet ([SG1000.md](docs/SG1000.md)).
+identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)). The **SG-1000** has also reached that first step, for developers only: its experimental profile converts cartridges into a game executable for
+developers (no player is offered it yet, and no game has been played: [SG1000.md](docs/SG1000.md)).
 
 Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 

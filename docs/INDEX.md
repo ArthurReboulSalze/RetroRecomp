@@ -126,7 +126,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Sony PlayStation** — [PLAYSTATION.md](PLAYSTATION.md) (supported since 1.7.6, open as experimental in 1.7.1: discs on Beetle PSX with guarded native steps; scope, the five measures, licences, the exit record).
 - **MSX** — [MSX.md](MSX.md) (supported since 1.7.5, open since 1.7.3: MSX1 cartridges booted by C-BIOS or your own MSX BIOS, on the shared Z80 chain; scope, the five measures, licences, known C-BIOS failures); [section 8](MSX.md#8-the-msx2-msx2) is the MSX2 profile (the V9938 with its command engine, its timing approximated); [section 9](MSX.md#9-the-msx2-msx2plus) the MSX2+ (supported since 1.7.6, experimental from 1.7.4: the V9958, MSX-MUSIC, the kanji font, disk games with their requests answered, shared paths).
 - **ZX Spectrum** — [ZX_SPECTRUM.md](ZX_SPECTRUM.md) (experimental and in development from 21 November 2026: snapshots identified, nothing converted yet; scope, route, the Amstrad ROMs, the panel).
-- **SG-1000** — [SG1000.md](SG1000.md) (experimental, developer only, stage 1: the cartridge files are recognised and nothing is converted yet; scope, the five measures, licences).
+- **SG-1000** — [SG1000.md](SG1000.md) (experimental, developer only, stage 3: cartridges are converted into a game executable for developers, no player is offered it; scope, the five measures, licences).
 - **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, supported since 1.7.1: emulated and 0 % native, one executable per game, licences, limits, evidence).
 
 ## Running the project

@@ -1,12 +1,13 @@
 """Sega SG-1000 profile (experimental, developer only, in development: see docs/SG1000.md).
 
-Stages 1 and 2 of the machine: the profile recognises a cartridge (a .sg, or a .bin, .rom or ZIP chosen as SG-1000 or kept in a folder named
-sg1000), reads it (2 KiB to 48 KiB, plain ROM), translates it and checks it against the reference interpreter (retrorecomp/sg1000_conversion.py);
-it delivers no game executable yet (the player is the next stage). What it will be: the SG-1000 and SG-1000 II cartridges, translated ahead of time by the shared banked Z80 chain
+Stages 1 to 3 of the machine: the profile recognises a cartridge (a .sg, or a .bin, .rom or ZIP chosen as SG-1000 or kept in a folder named
+sg1000), reads it (2 KiB to 48 KiB, plain ROM), translates it, checks it against the reference interpreter and builds and delivers a game
+executable (retrorecomp/sg1000_conversion.py; the player is native/sg1000_machine/sg1000_player.c on the host kit). What it is: the SG-1000 and SG-1000 II cartridges, translated ahead of time by the shared banked Z80 chain
 (retrorecomp/z80_chain.py) on the machine's own description below (eight 8 KiB regions of the cartridge space, no wait state on the M1
 cycle, /INT read at the end of each instruction, the /NMI pin of the Pause button), with the TMS9918A of native/tms9918 shared with the
 MSX. Left out on purpose: the SC-3000 (keyboard, BASIC, cassette) and the peripherals and boards of docs/SG1000.md.
-Nothing is measured yet: no native share, no CPU or hardware fidelity, no gameplay validation, no latency.
+Measured per conversion, on the routes played only: the native share (the counted interpreter fallback) and the agreement with the reference
+interpreter. Not measured: CPU fidelity against an independent oracle, hardware fidelity, gameplay validation, physical latency.
 """
 from __future__ import annotations
 
@@ -40,10 +41,10 @@ class Sg1000Profile(SystemProfile):
     export_folder = 'SG-1000'
     video_modes = ('ntsc', 'pal')
     status = 'experimental'
-    # Stage 1: it identifies files and converts nothing. Offered by installations that carry its profile, as the X68000 is.
+    # Stages 1 to 3: it identifies files and converts cartridges for developers. Offered by installations that carry its profile, as the X68000 is.
     developer_only = True
     linux = 'pending'
-    scope_note = ('SG-1000 and SG-1000 II cartridges of 2 to 48 KiB, plain ROM only; in development, nothing is converted yet; '
+    scope_note = ('SG-1000 and SG-1000 II cartridges of 2 to 48 KiB, plain ROM only; in development, converts for developers only (no player is offered it yet, no game has been played); '
                   'no SC-3000 (keyboard, BASIC, cassette), no Othello Multivision, Terebi Oekaki, Dahjee or other peripherals or boards')
     # The machine has one processor; the sound chip and the video chip are chips of our own C, not CPUs.
     cpus = (Cpu('z80', 'main', 'cycles'),)

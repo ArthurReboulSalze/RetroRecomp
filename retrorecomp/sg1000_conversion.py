@@ -1,15 +1,16 @@
 """SG-1000 conversion (experimental, developer only): a cartridge translated by the banked Z80 chain, checked against the reference
-interpreter. MIT, Retro-Recomp.
+interpreter, built into a game. MIT, Retro-Recomp.
 
 The steps: read the cartridge (sg1000_rom.py, plain ROM of 2 to 48 KiB); choose how the `play` route starts on the reference
 (sg1000_routes, route_start); translate the cartridge and learn the code run from RAM on the routes of the scan level (sg1000_build.learn,
 at most `passes` passes); run the native check and the reference on every route and REFUSE the conversion when any compared field differs
-(CPU, RAM, VRAM, the picture of every frame, sound, PSG) or any frame's row differs; write the report (schema 2).
+(CPU, RAM, VRAM, the picture of every frame, sound, PSG) or any frame's row differs; build the game (the player and the host kit,
+`prepare_game` writes its resources); replay the delivered (compressed) file headless on every route and compare it with the reference and
+with the native check; check quick states in a fresh process; write the report (schema 2) and put the delivered file in the output folder.
 
-Not in this stage: the game executable (the player and its host-kit adapter come next). When the checks pass the report is written and
-the work folder returned; the report says that nothing was delivered. The five measures stay apart: native code (the Z80 instructions run
-natively and on the counted interpreter, in instructions and in cycles) and agreement with the reference on the routes played are
-measured; hardware fidelity, gameplay and physical latency are not.
+The five measures stay apart: native code (the Z80 instructions run natively and on the counted interpreter, in instructions and in
+cycles) and agreement with the reference on the routes played are measured; hardware fidelity, gameplay and physical latency are not. The
+delivered game has been run headless on the routes played, never by a player on a console's display: the report claims nothing more.
 """
 from __future__ import annotations
 
@@ -25,8 +26,90 @@ LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_
                                         'distinct_program_counters')}
 WATCH = (0xC000, 0xC001)         # the first RAM bytes: what a program keeps there is compared too
 PAL_TAGS = re.compile(r'\((?:[^)]*[ ,])?(?:Europe|Australia|PAL)\b[^)]*\)', re.I)
-NOT_DELIVERED = ('no game executable is delivered by this stage: the SG-1000 player and its host-kit adapter are not written yet; the '
-                 'checks below are those of the translated cartridge run headless against the reference interpreter')
+DELIVERY_NOTE = ('a game executable is delivered (developer only, experimental): the translated cartridge with the SG-1000 player and the '
+                 'host kit; the file delivered was replayed headless on every route and equals the reference interpreter and the native '
+                 'check on every compared field and every frame row; no player has played it, and nothing is claimed about the hardware, '
+                 'the gameplay or the latency')
+NATIVE_COUNTS = ('native_steps', 'halt_steps', 'fallback_steps', 'guarded_steps', 'fallback_cycles', 'fallback_at')   # the game's equal the check's
+STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
+
+
+def damaged_states(state: bytes) -> dict[str, bytes]:
+    """Damaged copies of a quick state (state_envelope.h: magic 0, schema 8, machine 12, identity 16, length 80, CRC 84; then the build
+    binding 88 and the payload), by what is wrong with them: the game must refuse every one (exit 4). The MSX's, the Amiga's and the
+    Nintendo 64's conversions each carry the same list; it is not lifted to conversion_gates here because that would move the stamps of
+    the other machines (a unification for a release of its own)."""
+    def flipped(offset: int) -> bytes:
+        data = bytearray(state)
+        data[offset] ^= 0x80
+        return bytes(data)
+    return {'empty': b'', 'header-cut': state[:40], 'one-byte-short': state[:-1], 'body-cut': state[:len(state) // 2],
+            'magic': flipped(0), 'schema': flipped(8), 'machine': flipped(12), 'identity': flipped(16), 'length': flipped(80),
+            'crc': flipped(84), 'binding': flipped(88), 'payload': flipped(len(state) - 1),
+            'not-a-state': b'not a state.' * 4096}
+
+
+def check_states(game: Path, folder: Path, name: str, frames: int, route_rest: list[str], expected: Path) -> dict:
+    """F8 at a frame of the route, F9 in a fresh process (conversion_gates.check_quick_states, as the MSX): the loaded process continues the
+    uninterrupted trace `expected` for STATE_SETTLE frames; damaged states are refused and left as they were; a missing state is refused
+    and creates nothing. `route_rest`: the route's options without its frame count."""
+    from . import sg1000_build
+    from .conversion_gates import check_quick_states
+    folder.mkdir(parents=True, exist_ok=True)
+    at = max(60, frames - STATE_SETTLE - 60)
+    state = folder / 'quick.rrstate'
+    state.unlink(missing_ok=True)
+
+    def continued():
+        sg1000_build.run_game(game, ['--frames', str(at + 1), *route_rest, '--rows', str(folder / 'save.csv'),
+                                     '--save-state', str(state), '--save-at', str(at)], folder / 'save.json')
+        sg1000_build.run_game(game, ['--frames', str(at + STATE_SETTLE), *route_rest, '--rows', str(folder / 'load.csv'),
+                                     '--load-state', str(state)], folder / 'load.json')
+        return (expected.read_text(encoding='ascii').splitlines()[1:], (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:])
+
+    def refused(path: Path) -> bool:
+        return sg1000_build.game_exit_code(game, ['--frames', '1', '--load-state', str(path)]) == 4
+    return check_quick_states(folder, state, machine='SG-1000', route=name, at=at, settle=STATE_SETTLE, continued=continued,
+                              refused=refused, damaged=damaged_states, error=ConversionError)
+
+
+def prepare_game(work: Path, identity: str, cartridge: bytes, title: str, standard: str, emit=print, *,
+                 presentation: dict | None = None) -> dict:
+    """The game's project beside the generated bodies: the machine, the player and the host kit (sg1000_build.stage_sources), the
+    cartridge as the checked runs saw it (resource 103, padded to whole 8 KiB regions), the notices (203), the identity (205), the Windows
+    metadata and the icon, and sg1000_game.h. `identity`: the cartridge file's SHA-256. `presentation` (the player's cover options:
+    rom_path, cover, use_cover, online_cover, boxart_dir) gives the icon its cover, found as on the other machines (artwork.prepare_icon: an
+    explicit file, the BoxArt folder, then the online catalogues of the profile); None leaves the game without one."""
+    import json
+    from . import sg1000_build
+    from .core import executable_name
+    from .metadata import write_game_metadata
+    from .notices import notice_text
+    from .resources import embed_resources
+    from .z80_chain_build import write_if_changed as write
+    sg1000_build.stage_sources(work)
+    write(work / 'cartridge.rom', cartridge)
+    # The notices of the components compiled into this game (the profile's list; no BIOS, nothing optional).
+    write(work / 'notices.txt', notice_text('sg1000').encode('utf-8'))
+    write(work / 'runtime_feedback_config.h', f'#define RR_FEEDBACK_SYSTEM "sg1000"\n#define RR_FEEDBACK_IDENTITY "{identity}"\n'.encode('ascii'))
+    write(work / 'export-identity.bin', b'[Retro-Recomp]\0' + identity.encode('ascii') + b'\0')
+    artwork = {'embedded': False, 'source': 'disabled'}
+    if presentation is not None:
+        from .artwork import prepare_icon
+        from .core import ROOT
+        from .paths import boxart_cache_directory
+        artwork = prepare_icon(work, presentation['rom_path'], title, presentation.get('boxart_dir') or ROOT / 'BoxArt',
+                               explicit=presentation.get('cover'), online=presentation.get('online_cover', True),
+                               enabled=presentation.get('use_cover', True), cache_directory=boxart_cache_directory('sg1000'),
+                               system_id='sg1000', emit=emit)
+    write(work / 'artwork.json', json.dumps(artwork, indent=2).encode('utf-8'))
+    metadata = write_game_metadata(work, title, executable_name(title), light_phaser=False, icon=bool(artwork['embedded']),
+                                   standard=standard, system_id='sg1000')
+    write(work / 'content.rc', ('#pragma code_page(65001)\n103 RCDATA "cartridge.rom"\n203 RCDATA "notices.txt"\n'
+                                '205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n').encode('utf-8'))
+    embed_resources(work, {103: work / 'cartridge.rom', 203: work / 'notices.txt', 205: work / 'export-identity.bin'})
+    write(work / 'sg1000_game.h', sg1000_build.game_header(title, identity, standard, len(cartridge)).encode('ascii'))
+    return {'artwork': artwork, 'windows_metadata': metadata}
 
 
 def proposed_standard(name: str) -> str:
@@ -45,14 +128,19 @@ def hardware_devices() -> list:
                          'interpreter': 'none: the sound chip is C code in the runtime', **common}}]
 
 
-def convert(path: Path, *, title=None, output=None, frames=FRAMES, passes=3, scan_level=None, standard_override=None, emit=print,
-            **unused) -> Path:
+def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, boxart_dir=None, frames=FRAMES, passes=3,
+            scan_level=None, standard_override=None, emit=print, **unused) -> Path:
+    """Convert and deliver the cartridge at `path`; the delivered game (also copied into `output`) is returned, the report is
+    `output/conversion-report.json`. Nothing is written to `output` when a check refuses the conversion."""
     import hashlib
+    import shutil
     from . import __version__, route_start, sg1000_build, sg1000_routes
     from .conversion_common import check_run_budget, resolve_scan_level
-    from .core import ROOT
-    from .delivery_evidence import liveness_summary, replay_routes, report_fields, require_moving_picture
+    from .core import ROOT, executable_name
+    from .delivery_evidence import (deliver_packed, liveness_summary, replay_packed, replay_routes, report_fields,
+                                    require_moving_picture, same_trace)
     from .library import entry_lock
+    from .notices import notice_files
     from .report_schema import write_report
     from .sega_evidence import route_warnings
     from .sg1000_rom import read_cartridge
@@ -158,6 +246,44 @@ def convert(path: Path, *, title=None, output=None, frames=FRAMES, passes=3, sca
                         f'SG-1000: {title}: the picture never changes on the {name} route; nothing was written.'))
             learned = work / 'native.patterns'
             learned_patterns = len(learned.read_text(encoding='utf-8').split()) if learned.is_file() else 0
+
+            # The game: the player and the host kit around the same bodies, with the cartridge and the notices as its own resources.
+            phase = time.perf_counter()
+            emit('SG-1000: building the game.')
+            presentation = {'rom_path': Path(path), 'cover': Path(cover) if cover else None, 'use_cover': use_cover,
+                            'online_cover': online_cover, 'boxart_dir': boxart_dir}
+            prepared = prepare_game(work, cart.sha256, cartridge, title, standard, emit, presentation=presentation)
+            try:
+                executable = sg1000_build.build(work, ('game',), emit)['game']
+            except sg1000_build.Sg1000BuildError as error:
+                raise ConversionError(f'SG-1000: the game could not be built ({error}).') from None
+            timings['game_build'] = round(time.perf_counter() - phase, 3)
+            # The delivered file: the compressed copy the player receives (UPX when enabled; delivery_evidence falls back to the build if it
+            # fails), replayed headless on every route and compared with the fresh reference (every compared field and every frame row) and
+            # with the native check (its counts of native and interpreted steps).
+            phase = time.perf_counter()
+            delivered = deliver_packed(executable, work / ('packed-' + executable.name), 'SG-1000', emit)
+
+            def replay(route):
+                name = route[0]
+                return sg1000_build.run_game(delivered.path, [*options(*route), '--rows', str(folder / f'{name}-packed.csv')],
+                                             folder / f'{name}-packed.json')
+
+            def same(route, result):
+                name = route[0]
+                native, reference, rows_reference, _differing = compared[name]
+                return (not sg1000_build.differences(result, reference)
+                        and all(result.get(key) == native.get(key) for key in NATIVE_COUNTS)
+                        and same_trace(folder / f'{name}-packed.csv', rows_reference))
+            replay_packed(delivered, routes, replay, same=same, workers=3, mismatch=lambda route: ConversionError(
+                f'SG-1000: the delivered (compressed) game differs from the reference on the {route[0]} route; nothing was published.'))
+            timings['packed_replay'] = round(time.perf_counter() - phase, 3)
+            # Quick states on the delivered file: saved near the play route's end, continued by a fresh process.
+            phase = time.perf_counter()
+            emit('SG-1000: checking quick states in a fresh process.')
+            play = next(route for route in routes if route[0] == 'play')
+            states = check_states(delivered.path, work / 'states', 'play', play[1], options(*play)[2:], folder / 'play-packed.csv')
+            timings['quick_states'] = round(time.perf_counter() - phase, 3)
     except sg1000_build.Sg1000BuildError as error:
         raise ConversionError(f'SG-1000: {error}') from None
     final_checks = []
@@ -176,7 +302,8 @@ def convert(path: Path, *, title=None, output=None, frames=FRAMES, passes=3, sca
             'reference_match': True, 'compared_fields': list(sg1000_build.COMPARED),
             'frame_trace': native['frame_trace'], 'ram_hash': native['ram_fnv'], 'vram_hash': native['vram_fnv'],
             'image_hash': native['frame_fnv'], 'pcm_hash': native['audio_fnv'], 'pcm_samples': native['audio_samples'],
-            'interrupts': native['interrupts'], 'frame_rows_equal': True, 'liveness': report_fields(liveness[name], LIVENESS_FIELDS)})
+            'interrupts': native['interrupts'], 'frame_rows_equal': True, 'packed_rows_equal': True,
+            'liveness': report_fields(liveness[name], LIVENESS_FIELDS)})
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'system': {'id': 'sg1000', 'name': 'SG-1000'},
               'rom': {'sha256': cart.sha256, 'bytes': cart.size, 'file': Path(path).name}, 'converted': True,
               'compiler': {'engine': 'the banked Z80 chain (retrorecomp/z80_chain.py), machine "sg1000"',
@@ -185,7 +312,7 @@ def convert(path: Path, *, title=None, output=None, frames=FRAMES, passes=3, sca
               'sg1000_checks': {'machine': 'SG-1000', 'cartridge_bytes': cart.size, 'padded_bytes': len(cartridge),
                                 'mapper': 'none: plain ROM mirrored to 48 KiB', 'standard': standard, 'bios': None,
                                 'learning_passes_fallback_steps': pass_counts, 'learned_patterns': learned_patterns,
-                                'delivered': False, 'delivery_note': NOT_DELIVERED},
+                                'delivered': True, 'delivery_note': DELIVERY_NOTE},
               'final_checks': final_checks, 'scan_level': level, 'route_start': start_record, 'hardware_devices': hardware_devices(),
               'route_warnings': route_warnings(final_checks),
               'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()},
@@ -193,19 +320,29 @@ def convert(path: Path, *, title=None, output=None, frames=FRAMES, passes=3, sca
                                                                       'interpreter (corrected SuperZazu, no wait state, /INT and /NMI)',
                                     'cpu_agreement': True, 'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                                     'hardware_fidelity_validated': False, 'full_game_validated': False,
-                                    'sound_heard': any(record['audible_frames'] for record in liveness.values())},
-              'delivered_file': None, 'native_coverage': all(row['interpreted_steps'] == 0 for row in final_checks),
+                                    'sound_heard': any(record['audible_frames'] for record in liveness.values()),
+                                    **delivered.validation_fields()},
+              **delivered.report_fields(), 'delivered_file': delivered.kind,
+              'native_coverage': all(row['interpreted_steps'] == 0 for row in final_checks),
               'video_model': {'chip': 'TMS9918A (our own C, line by line, shared with the MSX)', 'standard': standard,
                               'display_aspect': '4:3'},
               'audio_cpu': None, 'audio_model': {'kind': 'SN76489A (our own C); mixing levels stated, not validated', 'rate': 44100,
                                                  'channels': 1},
               'counter_unit': 'cycles', 'physical_latency_measured': False, 'latency_ms': None, 'hardware_accuracy_validated': False,
-              'full_game_validated': False, 'executable': None, 'build_executable': None, 'toolchain': toolchain_description(),
+              'full_game_validated': False,
+              'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'schema': 'RRSG1ST-1', 'layout': sg1000_build.STATE_LAYOUT,
+                              'compatibility': 'the exact cartridge, standard and build', 'fresh_process_verified': True,
+                              'validation': states},
+              'notices': {'files': list(notice_files('sg1000')), 'embedded_resource': 203},
+              'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
+              'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
               'build_directory': str(work), 'conversion_phases_seconds': timings,
               'conversion_wall_seconds': round(time.perf_counter() - started, 3),
               'qualification_scope': {'controls': 'pad 1 (the D-pad and buttons 1 and 2); the Pause button is only pressed by an '
                                                   'authored test', 'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
-    emit(f'SG-1000: {title}: checks passed ({"no interpreter on the routes played" if report["native_coverage"] else "interpreter fallback reported"}); '
-         'no executable was delivered (the player is not written yet).')
-    return output
+    # The delivered file (compressed when UPX was enabled and passed) beside the report; the batch publishes the build it names itself.
+    file = output / executable_name(title)
+    shutil.copy2(delivered.path, file)
+    emit(f'SG-1000: {title} ready ({"no interpreter on the routes played" if report["native_coverage"] else "interpreter fallback reported"}).')
+    return file
