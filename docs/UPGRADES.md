@@ -522,6 +522,20 @@ does not call them yet (a later change, with its identity proof); no generated b
 **Stamps** (`compilation_inputs.role_stamps`, 23 profiles, before and after): the game stamps of the MSX, the MSX2 and the MSX2+ move (the file is in
 their group `shares:z80_chain_glue`); nothing else.
 
+## ColecoVision (experimental, developer only): a new machine on the Z80 chain, and the on-screen keypad is its own stamp group (1.9.0)
+
+The ColecoVision enters as an experimental machine for developers (`docs/COLECOVISION.md`): its profile, the cartridge reader, the BIOS check (the
+player's own 8 KiB image, never shipped), its machine (the BIOS, the console's RAM, the controllers' ports and the VDP's interrupt on /NMI), the
+conversion on the banked Z80 chain with the BIOS as the second translated source, and the player on the host kit with the keypad's twelve keys as
+action rows. Nothing is changed in the chain, the TMS9918A, the SN76489A, the state files or the keypad's own file: they are reused as they are.
+
+The on-screen keypad of a gamepad player (`native/hostkit/adapters/rrhk_keypad.inc`) was declared out of every stamp while no machine used it.
+It becomes the group `shares:hostkit_keypad` (host role), which only a machine whose adapter includes it names: the ColecoVision. The build of the
+ColecoVision stages the file beside its adapter, as the MSX and the ZX Spectrum stage the computers' adapter file, so the kit's own stager
+(`retrorecomp/hostkit.py`) is not touched.
+
+**Stamps** (`compilation_inputs.role_stamps`, 25 profiles, before and after): no stamp of any other machine moves. The ColecoVision's are new.
+
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
 
 The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a

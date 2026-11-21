@@ -286,6 +286,13 @@ hardware fidelity, gameplay validation and physical latency are unknown, and non
 it cannot hold (larger than 48 KiB, or another board) is refused with a sentence before anything is written. The keyboard, BASIC and cassette of the SC-3000, and
 the peripherals and boards listed in [SG1000.md](SG1000.md#1-what-is-converted-and-what-is-not), are out of scope.
 
+The **ColecoVision** profile (`coleco`) is experimental, for developers only, and in development ([status](COLECOVISION.md)). It recognises ColecoVision
+cartridges (a `.col`, or a `.bin`, `.rom` or ZIP that you choose as ColecoVision or keep in a folder named `colecovision`, beginning with a header word; 4 KiB
+to 32 KiB, plain ROM) and converts them with the option for your own BIOS (8 KiB, required, never shipped), for developers only, into a game executable that is checked headless
+against the reference interpreter on the routes played (only native code and that agreement are measured; CPU fidelity against an independent oracle, hardware
+fidelity, gameplay validation and physical latency are unknown, and none is claimed). No player is offered it and no game has been played. A file it cannot hold (larger than 32 KiB, or another board) is refused with a sentence. The Super Action Controller,
+the roller and driving modules, the Super Game Module and the homebrew boards are out of scope ([COLECOVISION.md](COLECOVISION.md#1-what-is-converted-and-what-is-not)).
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy

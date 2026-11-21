@@ -143,7 +143,7 @@ class StampTests(unittest.TestCase):
         for name in ('tms9918.c', 'tms9918.h', 'tms_tiles.inc'):
             self.assertTrue((ROOT / 'native/tms9918' / name).is_file(), name)
             self.assertIn('native/tms9918/' + name, tms)
-        self.assertEqual(stamp_inputs.sharing('tms9918'), ('msx', 'msx2', 'msx2plus', 'sg1000'))
+        self.assertEqual(stamp_inputs.sharing('tms9918'), ('msx', 'msx2', 'msx2plus', 'sg1000', 'coleco'))
         # The AY-3-8910 is the shared module native/ay38910, a game file of every machine that has the chip.
         ay = stamp_inputs.INPUTS[stamp_inputs.sharing('ay38910')]
         for name in ('ay38910.c', 'ay38910.h'):

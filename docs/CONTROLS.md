@@ -171,6 +171,15 @@ Start is Pause. Pause raises the console's NMI once: the game's own pause routin
 (see the common rules above); F6 autofire, F8 and F9 quick states, the F2 pages and the speed and sound controls are the common ones
 ([SG1000.md](SG1000.md#4-controls)).
 
+### ColecoVision
+
+In development (experimental, developer only): a conversion delivers the game, and no player has played it. The controls (decided 21 November 2026): the stick on the
+arrow keys, the two fire buttons on **D** and **S**, the keypad's digits on the top-row and numeric-pad digit keys, `*` and `#` on the `[` and `]` keys (and the
+numeric pad's `*` and `/`); on a gamepad, the D-pad moves, A and B are the fire buttons, and Y opens a short on-screen keypad (the D-pad moves on it, A presses a key, B or Y
+closes it; the game keeps running). Player 2 plays on I J K L, U (fire 1) and O (fire 2), with the numeric pad's digits for the keypad. The console has no Pause button. Every key can
+be changed in F2; F6 autofire never pulses a keypad key, F8 and F9 are quick states, and the F2 pages, the speed and the sound controls are the common ones.
+See [COLECOVISION.md](COLECOVISION.md#3-how-it-is-planned-to-work).
+
 ## In a multiplayer match
 
 The keys change meaning in a match ([MULTIPLAYER.md](MULTIPLAYER.md)): **F8** and **F9** save and load the match for

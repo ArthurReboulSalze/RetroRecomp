@@ -82,6 +82,7 @@ LEFT_OUT = {
     'atarist': _OWN_RECORD, 'gba': _OWN_RECORD, 'psx': _OWN_RECORD, 'pcecd': _OWN_RECORD,
     'n64': 'its conversion keeps its own files in the library folder of the game; recipe mode is not established for it',
     'sg1000': 'experimental, developer only: it converts cartridges but has no multiplayer session or path record, so recipe mode is not established for it',
+    'coleco': 'experimental, developer only: it converts cartridges but has no multiplayer session or path record, so recipe mode is not established for it',
     'scummvm': 'emulated: it translates no code and has no path to carry; recipe mode is not wired for it',
     'zxs': 'in development: the ZX Spectrum converts nothing yet, so it has no conversion to replay; recipe mode is not established for it',
 }

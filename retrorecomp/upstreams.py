@@ -346,6 +346,8 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'zxs': (SMSGGRECOMP, Z80_RECOMP_CORE, ZX_SPECTRUM_ROMS),
     # The SG-1000 runs on the same banked Z80 chain on its own region map; it boots by itself (no BIOS, so no C-BIOS).
     'sg1000': (SMSGGRECOMP, Z80_RECOMP_CORE),
+    # The ColecoVision on the same chain, on its own region map; the BIOS is the player's own (no pinned ROM source, so no entry for it).
+    'coleco': (SMSGGRECOMP, Z80_RECOMP_CORE),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

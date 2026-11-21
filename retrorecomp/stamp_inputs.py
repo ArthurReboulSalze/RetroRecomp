@@ -208,7 +208,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
-    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc', 'hostkit/adapters/rrhk_keypad.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 # No file outside the prefixes below is a host input any more: THIRD_PARTY_NOTICES.md, the complete public list of the converter
 # distribution, is embedded in no game since 1.7.3 (each game embeds the notices of its own components, notices.py).
@@ -285,11 +285,8 @@ NOT_INPUTS = (
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
     'native/banked_reference_state.inc',
-    # The on-screen keypad of a gamepad player (docs/HOST_KIT.md 2.6): an adapter includes it and calls it from hooks the shell
-    # already calls. No machine builds with it yet: with its first (the ColecoVision) it leaves this list for a group
-    # `shares:hostkit_keypad`, host role, hashed by the machines whose adapter includes it only. tools/hostkit_keypad_selftest.py
-    # builds it around a fake machine, never into a game.
-    'native/hostkit/adapters/rrhk_keypad.inc',
+    # (the on-screen keypad of a gamepad player, native/hostkit/adapters/rrhk_keypad.inc, is the group `shares:hostkit_keypad` since the
+    # ColecoVision, its first machine; tools/hostkit_keypad_selftest.py builds it around a fake machine, never into a game.)
     # tools/cart_save_selftest.py (the cartridge save file of the Mega Drive, the Super Nintendo and the PC Engine, on each machine's own
     # entry points with a stand-in memory): built for a check, never into a game.
     'native/cart_save_checks.c',
@@ -881,6 +878,23 @@ INPUTS = _resolve({
         'retrorecomp.sg1000_rom',
         'retrorecomp.sg1000_routes',
     ),
+    # The ColecoVision (experimental, developer only, in development): its converter modules, the cartridge reader, the BIOS check and
+    # the conversion. Its profile module comes from the profile; the Z80 chain, the TMS9918A, the SN76489A and the gates from stamp_groups.
+    ('coleco',): (
+        'native/coleco_machine/coleco_glue.inc',
+        'native/coleco_machine/coleco_headless.inc',
+        'native/coleco_machine/coleco_machine.c',
+        'native/coleco_machine/coleco_machine.h',
+        'native/coleco_machine/coleco_native_main.c',
+        'native/coleco_machine/coleco_player.c',
+        'native/coleco_machine/coleco_reference_main.c',
+        'native/coleco_machine/coleco_state_file.inc',
+        'retrorecomp.coleco_bios',
+        'retrorecomp.coleco_build',
+        'retrorecomp.coleco_conversion',
+        'retrorecomp.coleco_rom',
+        'retrorecomp.coleco_routes',
+    ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
     # the player, and its host-kit adapter (host role: in HOST_NATIVE above).
@@ -1222,6 +1236,11 @@ INPUTS = _resolve({
     # What the host kit's adapters of the disk computers share (the guest keyboard, the captured mouse, the floppy drives...), included by each adapter. Host role.
     'shares:hostkit_computer': (
         'native/hostkit/adapters/rrhk_computer.inc',
+    ),
+    # The on-screen keypad of a gamepad player (docs/HOST_KIT.md 2.6): an adapter includes it and calls it from hooks the shell already
+    # calls; hashed by the machines whose adapter includes it only (the ColecoVision). Host role (in HOST_NATIVE above).
+    'shares:hostkit_keypad': (
+        'native/hostkit/adapters/rrhk_keypad.inc',
     ),
     # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
     'shares:m68k_observed': (
