@@ -60,6 +60,70 @@ static FILE *headless_audio, *headless_rows;
 static FILE *headless_trace;
 static unsigned long long headless_trace_from;
 static unsigned long headless_trace_lines;
+
+/* --script FILE: a route's inputs on top of the boot keys, one event a line, frames not decreasing:
+ *   FRAME key CPCKEY 0|1      a key of the CPC's matrix (cpc_ppi.h CPC_KEY_*, row * 8 + bit) up or down
+ *   FRAME joy PORT HEX        joystick PORT (0: row 9, 1: row 6) holding CPC_JOY_* bits
+ * What a frame holds is a function of its number alone (every event up to it, in order), so a loaded state continues the
+ * route; the keys add to the boot sequence's while it runs. */
+typedef struct { unsigned long long frame; uint8_t joy, code, value; } HeadlessEvent;
+static HeadlessEvent *headless_events;
+static size_t headless_event_count;
+static size_t headless_event_next;
+static uint8_t headless_keys_held[CPC_KEY_ROWS], headless_joy_held[2];
+static unsigned long long headless_events_frame;
+
+static int headless_script(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    char line[128], kind[8];
+    unsigned long long frame, last = 0;
+    unsigned a, b;
+    size_t cap = 0;
+    while (fgets(line, sizeof line, f)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        if (sscanf(line, "%llu %7s %u %x", &frame, kind, &a, &b) != 4 || frame < last) { fclose(f); return 0; }
+        const int joy = !strcmp(kind, "joy");
+        if ((!joy && strcmp(kind, "key")) || (joy && (a > 1 || b > 0x3F)) || (!joy && (a >= CPC_KEY_ROWS * 8 || b > 1))) {
+            fclose(f);
+            return 0;
+        }
+        if (headless_event_count == cap) {
+            cap = cap ? cap * 2 : 256;
+            HeadlessEvent *grown = (HeadlessEvent *)realloc(headless_events, cap * sizeof *grown);
+            if (!grown) { fclose(f); return 0; }
+            headless_events = grown;
+        }
+        headless_events[headless_event_count++] = (HeadlessEvent){ frame, (uint8_t)joy, (uint8_t)a, (uint8_t)b };
+        last = frame;
+    }
+    fclose(f);
+    return 1;
+}
+
+/* The route's held keys and sticks at the board's frame (replayed from the start when the frame went back: a loaded state). */
+static void headless_script_inputs(void)
+{
+    if (!headless_event_count) return;
+    if (machine.frames < headless_events_frame) {
+        headless_event_next = 0;
+        memset(headless_keys_held, 0, sizeof headless_keys_held);
+        memset(headless_joy_held, 0, sizeof headless_joy_held);
+    }
+    headless_events_frame = machine.frames;
+    for (; headless_event_next < headless_event_count && headless_events[headless_event_next].frame <= machine.frames;
+         ++headless_event_next) {
+        const HeadlessEvent *e = &headless_events[headless_event_next];
+        if (e->joy) headless_joy_held[e->code] = e->value;
+        else if (e->value) headless_keys_held[e->code >> 3] |= (uint8_t)(1u << (e->code & 7));
+        else headless_keys_held[e->code >> 3] &= (uint8_t)~(1u << (e->code & 7));
+    }
+    for (unsigned key = 0; key < CPC_KEY_ROWS * 8; ++key)
+        if (headless_keys_held[key >> 3] >> (key & 7) & 1) cpc_ppi_key(&machine.ppi, key, 1);
+    machine.ppi.joystick[0] |= headless_joy_held[0];
+    machine.ppi.joystick[1] |= headless_joy_held[1];
+}
 static unsigned headless_watch[16], headless_watches;
 static uint32_t headless_audio_hash = 2166136261u, headless_frame_sound = 2166136261u;
 static unsigned long long headless_audio_samples, headless_frame_samples;
@@ -86,6 +150,7 @@ static int headless_option(int argc, char **argv, int *i)
     else if (!strcmp(a, "--report")) { headless_report_file = v; ++*i; }
     else if (!strcmp(a, "--trace")) { headless_trace = fopen(v, "w"); if (!headless_trace) exit(3); ++*i; }
     else if (!strcmp(a, "--trace-from")) { headless_trace_from = strtoull(v, NULL, 10); ++*i; }
+    else if (!strcmp(a, "--script")) { if (!headless_script(v)) { fprintf(stderr, "--script: not a route script\n"); exit(2); } ++*i; }
     else if (!strcmp(a, "--rows")) {
         headless_rows = fopen(v, "w");
         if (!headless_rows) exit(3);
@@ -191,6 +256,7 @@ static void headless_service(void)
         headless_frame_min = 32767;
         headless_frame_max = -32768;
         cpc_boot_inputs(&machine, &rr_boot_keys);
+        headless_script_inputs();
     }
     CpcCpuView c;
     headless_cpu(&c);

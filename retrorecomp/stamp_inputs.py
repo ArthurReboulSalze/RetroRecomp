@@ -937,6 +937,7 @@ INPUTS = _resolve({
         'retrorecomp.cpc_firmware',
         'retrorecomp.cpc_keys',
         'retrorecomp.cpc_roms',
+        'retrorecomp.cpc_routes',
         'retrorecomp.cpc_timing',
         'retrorecomp.state_envelope',     # the envelope's damaged states: the CPC its first user, the others move onto it later
     ),

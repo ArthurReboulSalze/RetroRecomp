@@ -38,10 +38,10 @@ DELIVERY_NOTE = ('a game executable is delivered (developer only, experimental):
                  'no player has played it, and nothing is claimed about the hardware, the gameplay or the latency')
 
 
-def check_states(game: Path, folder: Path, frames: int, expected: Path) -> dict:
+def check_states(game: Path, folder: Path, frames: int, route_rest: list[str], expected: Path) -> dict:
     """F8 at a frame of the route, F9 in a fresh process (conversion_gates.check_quick_states): the loaded process continues the
     uninterrupted trace `expected` for STATE_SETTLE frames; damaged states (state_envelope.damaged_states) are refused and left as
-    they were; a missing state is refused and creates nothing."""
+    they were; a missing state is refused and creates nothing. `route_rest`: the route's options without its frame count."""
     from . import cpc_build
     from .conversion_gates import check_quick_states
     from .state_envelope import damaged_states
@@ -51,15 +51,15 @@ def check_states(game: Path, folder: Path, frames: int, expected: Path) -> dict:
     state.unlink(missing_ok=True)
 
     def continued():
-        cpc_build.run_game(game, ['--frames', str(at + 1), '--rows', str(folder / 'save.csv'), '--save-state', str(state),
-                                  '--save-at', str(at)], folder / 'save.json')
-        cpc_build.run_game(game, ['--frames', str(at + STATE_SETTLE), '--rows', str(folder / 'load.csv'), '--load-state',
-                                  str(state)], folder / 'load.json')
+        cpc_build.run_game(game, ['--frames', str(at + 1), *route_rest, '--rows', str(folder / 'save.csv'), '--save-state',
+                                  str(state), '--save-at', str(at)], folder / 'save.json')
+        cpc_build.run_game(game, ['--frames', str(at + STATE_SETTLE), *route_rest, '--rows', str(folder / 'load.csv'),
+                                  '--load-state', str(state)], folder / 'load.json')
         return (expected.read_text(encoding='ascii').splitlines()[1:], (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:])
 
     def refused(path: Path) -> bool:
         return cpc_build.game_exit_code(game, ['--frames', '1', '--load-state', str(path)]) == 4
-    return check_quick_states(folder, state, machine='Amstrad CPC', route='boot', at=at, settle=STATE_SETTLE, continued=continued,
+    return check_quick_states(folder, state, machine='Amstrad CPC', route='play', at=at, settle=STATE_SETTLE, continued=continued,
                               refused=refused, damaged=damaged_states, error=ConversionError)
 
 
@@ -112,7 +112,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     `output/conversion-report.json`. Nothing is written to `output` when a check refuses the conversion."""
     import hashlib
     import shutil
-    from . import __version__, cpc_build, cpc_keys
+    from . import __version__, cpc_build, cpc_keys, cpc_routes
     from .z80_chain_build import write_if_changed as write
     from .conversion_common import check_run_budget, resolve_scan_level
     from .core import ROOT, executable_name
@@ -159,30 +159,41 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             folder.mkdir(parents=True, exist_ok=True)
             machine_args = ['--system', str(work / 'run-system.rom'), '--amsdos', str(work / 'run-amsdos.rom'), '--disk',
                             str(work / 'run-disk.dsk'), '--crtc', str(CRTC_TYPE)]
-            route = ['--frames', str(frames)]
+            play_script = folder / 'play.inputs'
+            play_text = cpc_routes.script(cpc_routes.play_events(frames, disk.sha256))
+            if not play_script.is_file() or play_script.read_text(encoding='ascii') != play_text:
+                play_script.write_text(play_text, encoding='ascii', newline='\n')
+            # (name, the options of the three programs, the script's text): boot plays nothing after the start command; play
+            # presses the title screens' keys and moves the joystick (cpc_routes).
+            routes = [('boot', ['--frames', str(frames)], ''),
+                      ('play', ['--frames', str(frames), '--script', str(play_script)], play_text)]
 
             emit(f'Amstrad CPC: {title}: {disk.size // 1024} KiB disk, starts with {disk.run_command}; translating the firmware, '
-                 f'learning on the boot route ({frames} frames).')
+                 f'learning on the boot and play routes ({frames} frames each).')
             phase = time.perf_counter()
-            check, pass_counts = cpc_build.learn(work, system, amsdos, [[*machine_args, *route]], emit, passes=passes)
+            check, pass_counts = cpc_build.learn(work, system, amsdos, [[*machine_args, *options] for _, options, _ in routes], emit,
+                                                 passes=passes)
             timings['translation_and_learning'] = round(time.perf_counter() - phase, 3)
             from .platforms import build_executable
             reference_exe = build_executable(work / 'build', 'cpc_reference')
 
             phase = time.perf_counter()
             emit('Amstrad CPC: comparing the native run with the reference interpreter, field by field and frame by frame.')
-            native = cpc_build.run(check, [*machine_args, *route, '--rows', str(folder / 'boot-native.csv')])
-            reference = cpc_build.run(reference_exe, [*machine_args, *route, '--rows', str(folder / 'boot-reference.csv')])
-            differing = cpc_build.differences(native, reference)
-            if (folder / 'boot-native.csv').read_bytes() != (folder / 'boot-reference.csv').read_bytes():
-                differing['frame_rows'] = ('native', 'reference')
+            compared, liveness = {}, {}
+            for name, options, _text in routes:
+                native = cpc_build.run(check, [*machine_args, *options, '--rows', str(folder / f'{name}-native.csv')])
+                reference = cpc_build.run(reference_exe, [*machine_args, *options, '--rows', str(folder / f'{name}-reference.csv')])
+                differing = cpc_build.differences(native, reference)
+                if (folder / f'{name}-native.csv').read_bytes() != (folder / f'{name}-reference.csv').read_bytes():
+                    differing['frame_rows'] = ('native', 'reference')
+                if differing:
+                    raise ConversionError(f'Amstrad CPC: on the {name} route the native run differs from the reference '
+                                          f'({", ".join(sorted(differing))}); nothing was written.')
+                compared[name] = (native, reference)
+                liveness[name] = liveness_summary(cpc_build.frame_rows(folder / f'{name}-reference.csv'))
             timings['reference_comparison'] = round(time.perf_counter() - phase, 3)
-            if differing:
-                raise ConversionError(f'Amstrad CPC: on the boot route the native run differs from the reference '
-                                      f'({", ".join(sorted(differing))}); nothing was written.')
-            liveness = liveness_summary(cpc_build.frame_rows(folder / 'boot-reference.csv'))
-            require_moving_picture(liveness, lambda: ConversionError(
-                f'Amstrad CPC: {title}: the picture never changes on the boot route; nothing was written.'))
+            require_moving_picture(liveness['play'], lambda: ConversionError(
+                f'Amstrad CPC: {title}: the picture never changes on the play route; nothing was written.'))
             learned = work / 'native.patterns'
             learned_patterns = len(learned.read_text(encoding='utf-8').split()) if learned.is_file() else 0
 
@@ -204,33 +215,41 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             phase = time.perf_counter()
             delivered = deliver_packed(executable, work / ('packed-' + executable.name), 'Amstrad CPC', emit)
 
-            def replay(_route):
-                return cpc_build.run_game(delivered.path, [*route, '--rows', str(folder / 'boot-packed.csv')], folder / 'boot-packed.json')
+            def replay(route):
+                name, options, _text = route
+                return cpc_build.run_game(delivered.path, [*options, '--rows', str(folder / f'{name}-packed.csv')],
+                                          folder / f'{name}-packed.json')
 
-            def same(_route, result):
+            def same(route, result):
+                name = route[0]
+                native, reference = compared[name]
                 return (not cpc_build.differences(result, reference) and all(result.get(key) == native.get(key) for key in NATIVE_COUNTS)
-                        and same_trace(folder / 'boot-packed.csv', folder / 'boot-reference.csv'))
-            replay_packed(delivered, [('boot',)], replay, same=same, workers=1, mismatch=lambda _route: ConversionError(
-                'Amstrad CPC: the delivered (compressed) game differs from the reference on the boot route; nothing was published.'))
+                        and same_trace(folder / f'{name}-packed.csv', folder / f'{name}-reference.csv'))
+            replay_packed(delivered, routes, replay, same=same, workers=2, mismatch=lambda route: ConversionError(
+                f'Amstrad CPC: the delivered (compressed) game differs from the reference on the {route[0]} route; nothing was '
+                'published.'))
             timings['packed_replay'] = round(time.perf_counter() - phase, 3)
             phase = time.perf_counter()
             emit('Amstrad CPC: checking quick states in a fresh process.')
-            states = check_states(delivered.path, work / 'states', frames, folder / 'boot-packed.csv')
+            states = check_states(delivered.path, work / 'states', frames, routes[1][1][2:], folder / 'play-packed.csv')
             timings['quick_states'] = round(time.perf_counter() - phase, 3)
     except cpc_build.CpcBuildError as error:
         raise ConversionError(f'Amstrad CPC: {error}') from None
-    executed = native['native_steps'] + native['fallback_steps']
-    final_checks = [{
-        'name': 'boot', 'scenario': 'boot', 'frames': native['frames'],
-        'script_sha256': hashlib.sha256(start.encode('ascii')).hexdigest(), 'script_events': len(start),
-        'native_steps': native['native_steps'], 'interpreted_steps': native['fallback_steps'],
-        # The same counts under the names the common report reads (report_schema._main_scenario): Z80 instructions.
-        'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps'],
-        'interpreter_percent': round(100 * native['fallback_steps'] / max(1, executed), 6),
-        'reference_match': True, 'compared_fields': list(cpc_build.COMPARED),
-        'ram_hash': native['ram_fnv'], 'image_hash': native['picture_fnv'], 'pcm_hash': native['audio_fnv'],
-        'pcm_samples': native['audio_samples'], 'interrupts': native['interrupts'], 'frame_rows_equal': True,
-        'packed_rows_equal': True, 'liveness': report_fields(liveness, LIVENESS_FIELDS)}]
+    final_checks = []
+    for name, _options, text in routes:
+        native = compared[name][0]
+        executed = native['native_steps'] + native['fallback_steps']
+        final_checks.append({
+            'name': name, 'scenario': name, 'frames': native['frames'],
+            'script_sha256': hashlib.sha256((start + text).encode('ascii')).hexdigest(), 'script_events': len(text.splitlines()),
+            'native_steps': native['native_steps'], 'interpreted_steps': native['fallback_steps'],
+            # The same counts under the names the common report reads (report_schema._main_scenario): Z80 instructions.
+            'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps'],
+            'interpreter_percent': round(100 * native['fallback_steps'] / max(1, executed), 6),
+            'reference_match': True, 'compared_fields': list(cpc_build.COMPARED),
+            'ram_hash': native['ram_fnv'], 'image_hash': native['picture_fnv'], 'pcm_hash': native['audio_fnv'],
+            'pcm_samples': native['audio_samples'], 'interrupts': native['interrupts'], 'frame_rows_equal': True,
+            'packed_rows_equal': True, 'liveness': report_fields(liveness[name], LIVENESS_FIELDS)})
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'system': {'id': 'cpc', 'name': 'Amstrad CPC'},
               'rom': {'sha256': disk.sha256, 'bytes': disk.size, 'file': Path(path).name}, 'converted': True,
               'firmware': firmware_identity(system, amsdos, firmware_record),
@@ -242,14 +261,15 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                              'learning_passes_fallback_steps': pass_counts, 'learned_patterns': learned_patterns,
                              'delivered': True, 'delivery_note': DELIVERY_NOTE},
               'final_checks': final_checks, 'scan_level': level, 'hardware_devices': hardware_devices(),
-              'sound_routes': {'boot': bool(liveness['audible_frames'])},
+              'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()},
               'native_validation': {'passed': True, 'reference_kind': 'the same machine with every instruction on the reference '
                                                                       'interpreter (corrected SuperZazu, the CPC\'s costs, 16-bit ports)',
                                     'cpu_agreement': True, 'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                                     'hardware_fidelity_validated': False, 'full_game_validated': False,
-                                    'sound_heard': bool(liveness['audible_frames']), **delivered.validation_fields()},
+                                    'sound_heard': any(record['audible_frames'] for record in liveness.values()),
+                                    **delivered.validation_fields()},
               **delivered.report_fields(), 'delivered_file': delivered.kind,
-              'native_coverage': native['fallback_steps'] == 0,
+              'native_coverage': all(check['interpreted_steps'] == 0 for check in final_checks),
               'video_model': {'chip': 'CRTC 6845 type 1 and the Gate Array (our own C)', 'standard': 'pal', 'display_aspect': '4:3'},
               'audio_cpu': None, 'audio_model': {'kind': 'AY-3-8912 (the shared C model); mixing levels stated, not validated',
                                                  'rate': 44100, 'channels': 2},
@@ -263,10 +283,11 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
               'build_directory': str(work), 'conversion_phases_seconds': timings,
               'conversion_wall_seconds': round(time.perf_counter() - started, 3),
-              'qualification_scope': {'routes': 'the boot route only: the start command typed, then the frames that follow, no '
-                                                'joystick', 'universal_zero_fallback_claim': False}}
+              'qualification_scope': {'routes': 'boot (the start command typed, then nothing) and play (from frame '
+                                                f'{cpc_routes.PLAY_FROM}: title-screen keys, then the joystick at random, seeded by '
+                                                'the disk)', 'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
     file = output / executable_name(title)
     shutil.copy2(delivered.path, file)
-    emit(f'Amstrad CPC: {title} ready ({"no interpreter on the route played" if report["native_coverage"] else "interpreter fallback reported"}).')
+    emit(f'Amstrad CPC: {title} ready ({"no interpreter on the routes played" if report["native_coverage"] else "interpreter fallback reported"}).')
     return file
