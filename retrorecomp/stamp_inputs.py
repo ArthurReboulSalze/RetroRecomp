@@ -856,6 +856,7 @@ INPUTS = _resolve({
         'native/upd765/upd765.h',
         'retrorecomp.cpc_disk',
         'retrorecomp.cpc_firmware',
+        'retrorecomp.cpc_timing',
     ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and

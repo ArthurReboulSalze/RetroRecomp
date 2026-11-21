@@ -22,6 +22,7 @@ RAM may stay interpreted, counted and shown.
 | Disk reader: DSK and EXTENDED DSK, sector IDs and recorded status, weak sectors in several copies, unformatted tracks; the AMSDOS catalogue and the start command | `retrorecomp/cpc_disk.py` | `tests/test_cpc_disk.py` (images built by the test) |
 | The same reader for the runtime, and the uPD765 floppy controller (machine-neutral) | `native/upd765/` | `tools/upd765_selftest.py` |
 | I/O decoding and memory map (ROMs, the 6128's RAM configurations), CRTC 6845 (types 0, 1, 2), Gate Array (pens, 27 colours, modes 0-3, 300 Hz interrupt, the 6128's RAM banking, the picture), PPI 8255 with the keyboard matrix and two joysticks | `native/cpc_machine/` | `tools/cpc_hardware_selftest.py` |
+| The Z80's costs on a CPC, in microseconds, for every opcode of the seven tables (taken branches and repeating block instructions apart): the Gate Array puts every bus access on one phase of its 1 MHz clock, applied to the SingleStepTests bus traces; HALT and the interrupt acceptance derived with the same rule, not yet checked against a CPC | `retrorecomp/cpc_timing.py`, `tools/cpc_timing_table.py` | `tests/test_cpc_timing.py` (57 documented costs, and the table against its derivation) |
 | Firmware recognition (the player's system ROM and AMSDOS ROM, by their public SHA-1) | `retrorecomp/cpc_firmware.py` | `tests/test_cpc_profile.py` |
 
 These checks are tests of our chips against their documented behaviour, on images and screens the checks build: they say
