@@ -80,14 +80,15 @@ class RegistryTests(unittest.TestCase):
         seen = set()
         for profile in ALL_PROFILES:
             self.assertEqual(feedback.KINDS[profile.id], set(profile.feedback_kinds))
-            # The Game Gear shares kind 1 with the Master System, the MSX2+ kind 27 with the MSX2, the Amiga 1200 kind 22 with the Amiga 500, the PC Engine CD kind 20 with the PC Engine (one record format each pair).
-            if profile.id not in ('gg', 'msx2plus', 'a1200', 'pcecd'):
+            # The Game Gear shares kind 1 with the Master System, the MSX2+ kind 27 with the MSX2, the Amiga 1200 kind 22 with the Amiga 500, the PC Engine CD kind 20 with the PC Engine, the Game Boy Color kind 2 with the Game Boy (one record format each pair).
+            if profile.id not in ('gg', 'msx2plus', 'a1200', 'pcecd', 'gbc'):
                 self.assertFalse(seen & set(profile.feedback_kinds), profile.id)
             seen |= set(profile.feedback_kinds)
         self.assertEqual(feedback.KINDS['sms'], feedback.KINDS['gg'])
         self.assertEqual(feedback.KINDS['msx2'], feedback.KINDS['msx2plus'])
         self.assertEqual(feedback.KINDS['amiga'], feedback.KINDS['a1200'])
         self.assertEqual(feedback.KINDS['pce'], feedback.KINDS['pcecd'])
+        self.assertEqual(feedback.KINDS['gb'], feedback.KINDS['gbc'])
         # The runtime recorder refuses a kind above RR_FB_MAX_KIND: every declared kind must fit under it
         # (until 1.7.0 the bound was the CPS-1's last kind, 16, and the CPS-2 and PC Engine hints were dropped).
         import re
@@ -303,7 +304,7 @@ class ProfileContractTests(unittest.TestCase):
         laid_out = [p for p in ALL_PROFILES if p.library_layout is not None]     # an emulated machine learns nothing
         self.assertEqual({p.id for p in laid_out if p.library_layout.identity == 'grandfolder'}, {'nes'})
         self.assertEqual({p.id: p.library_layout.companion for p in laid_out if p.library_layout.companion},
-                         {'sms': 'observations.log', 'gg': 'observations.log', 'gb': 'entries.trace'})
+                         {'sms': 'observations.log', 'gg': 'observations.log', 'gb': 'entries.trace', 'gbc': 'entries.trace'})
 
     def test_input_layout_equals_the_random_route_pads_and_scripts(self):
         from retrorecomp import random_routes as routes
@@ -391,7 +392,7 @@ class ProfileContractTests(unittest.TestCase):
         # A game folder (Adventure (ScummVM)) is claimed first; a file is never that machine's.
         self.assertEqual([p.id for p in registry.path_stage()], ['scummvm', 'msx2plus', 'x68', 'cps1', 'cps2', 'ng', 'atarist', 'a1200', 'amiga', 'n64', 'gba', 'msx2', 'psx', 'pcecd', 'zxs', 'sg1000'])
         # The iNES signature wins over the Mega Drive one; the Sega region header comes before the SNES map.
-        self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb', 'msx'])
+        self.assertEqual([p.id for p in registry.content_stage()], ['nes', 'md', 'sms', 'snes', 'gb', 'msx', 'gbc'])
         self.assertEqual([p.id for p in PROFILES if p.id in IDS], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
         self.assertEqual([p.id for p in ALL_PROFILES if p.developer_only and p.id in IDS], ['x68'])
         # The developer-only machines (X68000, Amiga) come after the listed ones, when this installation carries their files.
@@ -468,8 +469,9 @@ class ConvertedOptionsTests(unittest.TestCase):
             batch.convert_batch([batch.identify(rom)], Path(folder) / 'out', jobs=3, emit=lambda _: None)
         self.assertEqual(seen['gb_parallel_games'], 3)
         self.assertEqual(seen['ng_parallel_games'], 3)
+        self.assertEqual(seen['gbc_parallel_games'], 3)
         self.assertEqual({key for key in seen if key.endswith('_parallel_games')},
-                         {'gb_parallel_games', 'ng_parallel_games'})
+                         {'gb_parallel_games', 'gbc_parallel_games', 'ng_parallel_games'})
 
 
 if __name__ == '__main__':

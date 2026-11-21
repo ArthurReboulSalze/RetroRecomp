@@ -124,7 +124,7 @@ class IdentificationTests(unittest.TestCase):
         # Common > Disk space never lists it (the Amiga and the Atari ST had piled up 54 GB here before 1.7.3).
         from retrorecomp import build_cleanup
         from retrorecomp.systems import system_ids
-        top_level = {'sms', 'gg', 'gb', 'gba', 'nes', 'md', 'snes', 'ng'}
+        top_level = {'sms', 'gg', 'gb', 'gbc', 'gba', 'nes', 'md', 'snes', 'ng'}
         covered = top_level | {folder for folder, _ in build_cleanup._FLAT} | set(build_cleanup._BASED)
         for system in system_ids():
             self.assertIn(build_cleanup._FOLDER_OF.get(system, system), covered, system)

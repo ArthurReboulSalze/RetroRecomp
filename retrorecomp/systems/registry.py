@@ -27,6 +27,7 @@ from .atari_st import ATARI_ST
 from .cps1 import CPS1
 from .cps2 import CPS2
 from .game_boy import GAME_BOY
+from .game_boy_color import GAME_BOY_COLOR
 from .game_gear import GAME_GEAR
 from .gba import GAME_BOY_ADVANCE
 from .console16 import MEGA_DRIVE, SUPER_NINTENDO
@@ -48,7 +49,7 @@ from .zx_spectrum import ZX_SPECTRUM
 # window can say "unknown console" instead of skipping them silently. Each machine's own extensions are added
 # from its profile.
 FOREIGN_EXTENSIONS = frozenset({
-    '.zip', '.bin', '.rom', '.gbc', '.fds', '.smd',
+    '.zip', '.bin', '.rom', '.fds', '.smd',
     '.a26', '.a78', '.7z',
 })
 
@@ -76,7 +77,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, AMIGA1200, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS, ZX_SPECTRUM, PC_ENGINE_CD, SG1000):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, AMIGA1200, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS, ZX_SPECTRUM, PC_ENGINE_CD, SG1000, GAME_BOY_COLOR):
     register(_profile)
 del _profile
 

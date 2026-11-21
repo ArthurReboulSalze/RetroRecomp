@@ -71,6 +71,7 @@ REMOVING = '.retro-recomp-removing-'
 #                              (the <SDK12> base is shared: only the game below)
 _SEGA = re.compile(r'(sms|gg)_.+_[0-9A-F]{8}_([0-9a-f]{12})(?:_banked)?')
 _GB = re.compile(r'gb_.+_([0-9a-f]{12})_[0-9a-f]{8}')
+_GBC = re.compile(r'gbc_.+_([0-9a-f]{12})_[0-9a-f]{8}')
 _GBA = re.compile(r'gba_.+_([0-9a-f]{12})_[0-9a-f]{8}')
 _NES = re.compile(r'nes_.+_([0-9a-f]{12})_[0-9a-f]{8}(?:_(?:ntsc|pal))?')
 _MD = re.compile(r'md-rom-([0-9a-f]{64})')
@@ -129,7 +130,7 @@ def classify(parts) -> tuple[str, str] | None:
     parts = tuple(parts)
     if len(parts) == 1:
         name = parts[0]
-        for pattern, system in ((_GB, 'gb'), (_GBA, 'gba'), (_NES, 'nes'), (_MD, 'md'), (_SNES, 'snes'), (_NG, 'ng')):
+        for pattern, system in ((_GB, 'gb'), (_GBC, 'gbc'), (_GBA, 'gba'), (_NES, 'nes'), (_MD, 'md'), (_SNES, 'snes'), (_NG, 'ng')):
             if match := pattern.fullmatch(name):
                 return system, match[1]
         if match := _SEGA.fullmatch(name):
@@ -351,7 +352,7 @@ def _owner(path: Path, system: str) -> str | None:
 
 
 def _same_rom(system: str, key: str, sha256: str, path: Path, machine: str = '') -> bool:
-    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'pcecd', 'psx', 'msx', 'scummvm'):
+    if system in ('sms', 'gg', 'gb', 'gbc', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'pcecd', 'psx', 'msx', 'scummvm'):
         return key == sha256[:12]
     if system in ('amiga', 'n64', 'atarist'):
         return key == sha256[:16]
