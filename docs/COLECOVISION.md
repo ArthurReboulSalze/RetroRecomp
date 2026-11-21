@@ -128,7 +128,7 @@ What is checked, and what each check covers (the five measures stay apart):
 
 **Not measured**: hardware fidelity (MAME is an emulator, not a console: where this machine agrees with it, both may differ from a real ColecoVision;
 nothing was measured on one), CPU fidelity beyond the independent vectors (they pass: 51,328 of 51,328 through this machine's own generator build with one wait state per M1 cycle, `tools/banked_vector_selftest.py --machine coleco`, 22 November 2026; an emulator's vectors on a flat test bus, not hardware captures), gameplay validation, physical latency. The
-qualification gates ([QUALIFICATION.md](QUALIFICATION.md)) were read on a panel of eight games on 22 November 2026: `Y` on G2 to G6, G8, G9, G10, G12 and G13, `P` on G1, G11 and G15, `-` on G7 (no cartridge save), `?` on G14 (the owner's) and G16.
+qualification gates ([QUALIFICATION.md](QUALIFICATION.md)) were read on a panel of eight games on 22 November 2026: `Y` on G2 to G6, G8, G9, G10, G12 and G13, `P` on G1, G11 and G15, `-` on G7 (no cartridge save), `-` on G16 (path sharing declined: nothing to share, 0 interpreted steps and no learned pattern on the 16 games of the two panels), `?` on G14 (the owner's).
 
 ## 6. G14 checklist for the owner's play test (22 November 2026)
 
@@ -154,7 +154,7 @@ steps on its play route (3,540 guarded steps), Bump 'N' Jump 24.9 million, Pitfa
 the BIOS is the owner's own, checked by SHA-256 and recorded in the report; the offscreen frames at 1,500 and 3,000 frames show the games in play.
 Against MAME 0.289 as a private oracle: the controllers' ports agree line by line, the Z80 timing groups agree, and the console RAM writes of the BIOS, the
 title and the game-select screen are identical over 1,000 frames. The matrix on the panel of eight (22 November 2026): `Y` on G2 to G6, G8, G9, G10 (51,328 independent Z80 vectors), G12 and G13; `P` on G1, G11 and G15; `-` on G7;
-**G14 and G16 stay `?`**.
+**G14 stays `?`** (G16 is `-`, sharing declined).
 
 **Not claimed**: hardware fidelity (MAME is an emulator; nothing was measured on a console; keys `0 9 * #` follow MAME only), the unexplained parting from
 MAME about twenty frames after a key press at the game-select screen, gameplay validation (three games, played by routes, not through), physical
