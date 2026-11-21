@@ -24,12 +24,12 @@ from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
 # bank 1 BASIC at C000h) or AMSDOS (source 1, the upper ROM 7) as the Gate Array and the upper ROM number say; no M1 wait state
 # of its own, every instruction in whole microseconds instead (retrorecomp/cpc_timing.py); /INT read once the machine has caught
 # up with the instruction; the start of each step and the reference CPU's state copies from the chain; its own generator
-# folders. The game's own code runs from RAM: learned with byte guards, kept as offsets in the disk. The full 16-bit port
-# (port_bits) joins when the chain has it (native/cpc_machine/cpc_glue.inc is written for it).
+# folders; the full 16-bit port (port_bits 16: the CPC decodes its devices from the high byte). The game's own code runs from
+# RAM: learned with byte guards, kept as offsets in the disk.
 CPC_MACHINE = Z80Machine('cpc', Z80RegionMap(region_bits=14, sources=('system', 'amsdos'), bank_values=2,
                                              scope='cpc-firmware-region-map'),
                          m1_wait=0, irq_sample='instruction_end', generator_tag='-cpc', step_begin=True,
-                         reference_state=True, costs=z80_costs())
+                         reference_state=True, costs=z80_costs(), port_bits=16)
 
 # A CPC disk image: the smallest one holds a single 256-byte disk block and one track; the largest a 3.5" drive's 84
 # double-sided tracks (retrorecomp/cpc_disk.py, MAX_IMAGE).

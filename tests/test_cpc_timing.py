@@ -91,8 +91,11 @@ class ChainTests(unittest.TestCase):
                 kind = ('djnz_taken' if opcode == 0x10 else 'jr_taken' if opcode < 0x40 else
                         'ret_taken' if opcode & 7 == 0 else 'call_taken')
                 self.assertEqual(4 * extra, getattr(costs, kind), (table, hex(opcode)))
-        wrong = {('ed', opcode) for opcode, extra in cpc_timing.EXTRA['ed'].items() if 4 * extra != costs.repeat}
-        self.assertEqual(wrong, set(cpc_timing.UNEXPRESSED))
+        compare = {0xB1, 0xB9}                                           # CPIR, CPDR
+        for opcode, extra in cpc_timing.EXTRA['ed'].items():
+            self.assertEqual(4 * extra, costs.repeat_compare if opcode in compare else costs.repeat, hex(opcode))
+        self.assertEqual((costs.repeat, costs.repeat_compare), (4, 8))
+        self.assertEqual(cpc_timing.UNEXPRESSED, frozenset())
         self.assertEqual((costs.irq, costs.irq_im2, costs.halt, costs.fragment), (20, 28, 4, 4))
 
 
@@ -104,6 +107,7 @@ class MachineTests(unittest.TestCase):
         machine = get_profile('cpc').z80_machine
         self.assertEqual((machine.key, machine.mapped, machine.regions.regions, machine.regions.sources, machine.m1_wait),
                          ('cpc', True, 4, ('system', 'amsdos'), 0))
+        self.assertEqual(machine.port_bits, 16)
         self.assertEqual(machine.cost, cpc_timing.z80_costs())
         loop = banked_runtime(machine, ASSETS)
         self.assertIn('g_z80.cyc += g_z80.im == 2 ? 28 : 20;', loop)       # the interrupt acceptance in whole microseconds

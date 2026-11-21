@@ -103,21 +103,22 @@ INTERRUPT = {mode: _interrupt(mode) for mode in (0, 1, 2)}
 
 # The chain's encoding groups (retrorecomp/z80_chain.COST_GROUPS) for this module's tables.
 GROUPS = {'base': '', 'cb': 'cb', 'dd': 'dd', 'fd': 'fd', 'ed': 'ed', 'ddcb': 'ddcb', 'fdcb': 'fdcb'}
-# What Z80Costs cannot say yet: its `repeat` is one value for every block instruction, but on a CPC a repeating CPIR or CPDR
-# adds 2 us and LDIR, INIR, OTIR and their decrementing forms add 1 (asked of the lead, 21 Nov 2026).
-UNEXPRESSED = frozenset({('ed', 0xB1), ('ed', 0xB9)})
+# What Z80Costs cannot say: none since Z80Costs.repeat_compare (a repeating CPIR or CPDR adds 2 us on a CPC, LDIR, INIR, OTIR
+# and their decrementing forms 1: `repeat` and `repeat_compare`).
+UNEXPRESSED = frozenset()
 
 
 def z80_costs():
     """The CPC's costs as the shared chain takes them (z80_chain.Z80Costs, in T-states, before M1 wait states: the CPC's
     Z80Machine states m1_wait 0). Every opcode of the seven tables is given; a prefix byte (0 here) is left to its table. The
-    taken extras are uniform on a CPC (JR cc and DJNZ 1 us, RET cc and CALL cc 2 us, with or without a DD or FD prefix); the
-    block repeat is LDIR's 1 us, CPIR and CPDR excepted (UNEXPRESSED)."""
+    taken extras are uniform on a CPC (JR cc and DJNZ 1 us, RET cc and CALL cc 2 us, with or without a DD or FD prefix); a
+    repeating block instruction adds LDIR's 1 us, CPIR and CPDR 2 us (`repeat_compare`). The interrupt acceptance and HALT are
+    derived with the same rule from the Z80 data sheet's cycle shapes, not checked against a CPC."""
     from .z80_chain import Z80Costs
     base = tuple((GROUPS[table], opcode, 4 * int(row[opcode])) for table, row in COSTS.items() for opcode in range(256)
                  if int(row[opcode]))
     return Z80Costs(base=base, jr_taken=4 * EXTRA['base'][0x20], djnz_taken=4 * EXTRA['base'][0x10],
-                    ret_taken=4 * EXTRA['base'][0xC0], call_taken=4 * EXTRA['base'][0xC4], repeat=4 * EXTRA['ed'][0xB0],
+                    ret_taken=4 * EXTRA['base'][0xC0], call_taken=4 * EXTRA['base'][0xC4], repeat=4 * EXTRA['ed'][0xB0], repeat_compare=4 * EXTRA['ed'][0xB1],
                     irq=4 * INTERRUPT[1], irq_im2=4 * INTERRUPT[2], halt=4 * HALT, fragment=4 * int(COSTS['dd'][0xDD]))
 
 

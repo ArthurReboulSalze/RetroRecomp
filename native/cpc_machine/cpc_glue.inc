@@ -9,7 +9,7 @@
  *
  * The port: the CPC decodes its devices from the high byte of the address (cpc_bus.h), so the chain gives the whole address
  * (Z80Machine port_bits 16: (A << 8) | n for IN A,(n) and OUT (n),A, BC for the (C) and block forms, B after its decrement for
- * OUTI and its kind): sms_io_in16 / sms_io_out16.
+ * OUTI and its kind): sms_io_in16 / sms_io_out16, declared by game_banked.h (SMSRECOMP_PORT16).
  *
  * Timing: an instruction's I/O happens at the instruction's start time (`step_start`, the chain's contract); so does a write to
  * the 16 KiB page the CRTC shows, so that the picture is drawn up to that time before the byte changes. The Gate Array's
