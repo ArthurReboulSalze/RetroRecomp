@@ -73,7 +73,7 @@ class ColecoProfile(SystemProfile):
                           SimulationSource('generated/game_banked_ops_*.c'),
                           SimulationSource('generated/game_banked.h'),)
     z80_machine = COLECO_MACHINE
-    path_spec = PathSpec(order=23, sections=(('z80', 'coleco'),),
+    path_spec = PathSpec(order=24, sections=(('z80', 'coleco'),),
                          source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', BIOS_BOUNDS)),
                          required_sources=('rom',), hashed_sources=('rom', 'bios'),
                          shapes=(('z80', 'coleco', dict(roles=('rom', 'bios'), caps={'window4': 4096})),))

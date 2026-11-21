@@ -164,7 +164,7 @@ def kit_platform(source: str, title: str) -> str:
     return source
 
 
-def adapt_shell(project: Path, title: str) -> None:
+def adapt_shell(project: Path, title: str, system_id: str = 'gb') -> None:
     """Stage the kit and its headers, and rebuild the platform file of the private project on them."""
     # Keep the compiler checkout pristine. Each generated game carries the shell sources of the other consoles and
     # the Game Boy adapter the patched platform includes.
@@ -191,7 +191,7 @@ def adapt_shell(project: Path, title: str) -> None:
         ('console16_video.h', project / 'runtime/include/console16_video.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
-    hostkit.stage(project, 'gb')
+    hostkit.stage(project, system_id)
     runtime = project / 'runtime/src/platform_sdl.cpp'
     runtime.write_text(kit_platform(runtime.read_text(encoding='utf-8'), title), encoding='utf-8')
 
@@ -203,7 +203,7 @@ def adapt_shell(project: Path, title: str) -> None:
     platform_header.write_text(source, encoding='utf-8')
 
 
-def kit_cmake(source: str) -> str:
+def kit_cmake(source: str, system_id: str = 'gb') -> str:
     """The kit's shell files, compiled into the runtime library the platform layer lives in."""
-    kit = ' '.join(f'${{CMAKE_CURRENT_SOURCE_DIR}}/{name}' for name in hostkit.sources('gb'))
+    kit = ' '.join(f'${{CMAKE_CURRENT_SOURCE_DIR}}/{name}' for name in hostkit.sources(system_id))
     return source + f'\ntarget_sources(gbrt PRIVATE {kit})\n'

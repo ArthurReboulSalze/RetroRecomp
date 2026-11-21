@@ -44,6 +44,7 @@ from retrorecomp.nes import list_memory as list_nes_memory
 from retrorecomp.neogeo_knowledge import list_memory as list_ng_memory
 from retrorecomp.cover_settings import defaults as cover_defaults
 from retrorecomp.languages import LANGUAGES, LANGUAGE_NAMES
+from retrorecomp import time_estimates
 from tools.gui_patching import patch_gui
 
 
@@ -739,8 +740,10 @@ def smoke(window):
             application.options_console_pages[application.options_console_index][1])
         # The time per game at the chosen level follows the language, and names the reference PC.
         assert application.level_timings, 'no level estimate in the Options'
+        # A machine the converter offers has a row (tests/test_time_estimates.py); a developer-only one may have none yet and shows nothing.
         for console, timing in application.level_timings.items():
-            assert timing.get() == application.level_estimate_text(console) and reference in timing.get(), (language, console)
+            known = time_estimates.game_time(console) is not None
+            assert timing.get() == application.level_estimate_text(console) and (reference in timing.get() if known else timing.get() == ''), (language, console)
         common_page = open_notebook.nametowidget(open_notebook.tabs()[0])
         frames = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TLabelframe'}
         assert {application.tr('options_firmware'), application.tr('options_account'), application.tr('options_boxart'),

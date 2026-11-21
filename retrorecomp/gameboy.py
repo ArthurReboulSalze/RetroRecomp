@@ -1,4 +1,4 @@
-"""Game Boy (DMG) conversion using a pinned SM83 static recompiler."""
+"""Game Boy (DMG) and Game Boy Color (CGB) conversion using one pinned SM83 static recompiler."""
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -50,6 +50,22 @@ FALLBACK_SITE = re.compile(r"\[INTERP\] Fallback site #\d+ ([0-9A-Fa-f]+):([0-9A
 
 
 @dataclass(frozen=True)
+class GameBoyVariant:
+    """What differs between the two machines of the one engine (the Game Gear is to the Master System what the Color is to the Game Boy): the id
+    that keys the library, the feedback and the host kit, the model the runtime is told, and the cartridge files each one reads. The original
+    Game Boy is the default everywhere, so its conversion is what it was."""
+    system_id: str
+    name: str
+    model: str                      # the runtime's `--model` default: "dmg" or "cgb"
+    suffixes: tuple                 # the file names a cartridge or its single-ROM ZIP may have
+    box_art: str                    # the folder of the box-art repository below BoxArt/
+
+
+DMG = GameBoyVariant("gb", "Game Boy", "dmg", (".gb", ".bin", ".rom"), "Game Boy")
+COLOR = GameBoyVariant("gbc", "Game Boy Color", "cgb", (".gbc", ".gb", ".bin", ".rom"), "Game Boy Color")
+
+
+@dataclass(frozen=True)
 class GameBoyRom:
     path: Path
     data: bytes
@@ -66,24 +82,30 @@ class GameBoyRom:
                 "system_id": self.system_id}
 
 
-def read_game_boy_rom(path: Path) -> GameBoyRom:
+def read_game_boy_rom(path: Path, variant: GameBoyVariant = DMG) -> GameBoyRom:
     path = path.resolve()
     if path.suffix.casefold() == ".zip":
         suffix, data = archive_rom(path)
-        if suffix not in (".gb", ".bin", ".rom"):
-            raise ConversionError("This ZIP does not contain a Game Boy .gb cartridge.")
-    elif path.suffix.casefold() in (".gb", ".bin", ".rom"):
+        if suffix not in variant.suffixes:
+            if variant is DMG:
+                raise ConversionError("This ZIP does not contain a Game Boy .gb cartridge.")
+            raise ConversionError(f"This ZIP does not contain a {variant.name} {variant.suffixes[0]} cartridge.")
+    elif path.suffix.casefold() in variant.suffixes:
         with path.open("rb") as source:
             data = source.read(MAX_ROM_BYTES + 1)
     else:
-        raise ConversionError("Choose a Game Boy .gb cartridge or single-ROM ZIP.")
+        if variant is DMG:
+            raise ConversionError("Choose a Game Boy .gb cartridge or single-ROM ZIP.")
+        raise ConversionError(f"Choose a {variant.name} {variant.suffixes[0]} cartridge or single-ROM ZIP.")
     if not 0x8000 <= len(data) <= MAX_ROM_BYTES or len(data) % 0x4000:
-        raise ConversionError("Invalid Game Boy cartridge size (expected 32 KiB to 8 MiB in 16 KiB banks).")
+        raise ConversionError(f"Invalid {variant.name} cartridge size (expected 32 KiB to 8 MiB in 16 KiB banks).")
     cgb_flag = data[0x143]
-    if cgb_flag == 0xC0:
+    if variant is DMG and cgb_flag == 0xC0:
         raise ConversionError("This cartridge requires Game Boy Color; the current profile targets original Game Boy.")
+    if variant is COLOR and not cgb_flag & 0x80:
+        raise ConversionError("This cartridge is for the original Game Boy (its header has no Color flag); convert it with the Game Boy profile.")
     title = data[0x134:0x143].split(b"\0", 1)[0].decode("ascii", errors="replace").strip()
-    return GameBoyRom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(), title, cgb_flag)
+    return GameBoyRom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(), title, cgb_flag, variant.system_id)
 
 
 @serialized_setup
@@ -204,7 +226,7 @@ def _gb_parallelism(parallel_games: int) -> tuple[int, int]:
 
 
 def _verified_trace(rom: GameBoyRom) -> Path | None:
-    folder = library_root("gb") / rom.sha256
+    folder = library_root(rom.system_id) / rom.sha256
     try:
         record = json.loads((folder / 'trace.json').read_text(encoding="utf-8"))
         return _trace_from_record(folder, record, rom.sha256)
@@ -234,7 +256,7 @@ def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
     incoming = read_entries(trace, len(rom.data))
     if not incoming:
         return
-    folder = library_root("gb") / rom.sha256
+    folder = library_root(rom.system_id) / rom.sha256
     with entry_lock(folder):
         verified = _verified_trace(rom)
         previous = read_entries(verified, len(rom.data))
@@ -259,24 +281,39 @@ def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
             pass  # A reader can still hold it on Windows; next write retries.
 
 
+def _gameplay_entries(rom: GameBoyRom) -> set[tuple[int, int]]:
+    """The entries this player's own play recorded for the exact cartridge (feedback records of the cartridge's machine)."""
+    from .feedback import records
+    entries = set()
+    for row in records(getattr(rom, 'system_id', 'gb'), rom.sha256, 2, rom):
+        pc, bank = row.address, row.auxiliary
+        offset = bank*0x4000 + (pc & 0x3fff)
+        span = min(len(row.data), 0x4000 - (pc & 0x3fff))
+        if (pc < 0x8000 and bank < len(rom.data)//0x4000 and
+                row.data and rom.data[offset:offset+span] == row.data[:span]):
+            entries.add((bank, pc))
+    return entries
+
+
 def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, int]]:
     """Entries a conversion starts from. Without `imported`, only this player's
     library and gameplay rows and the qualified bank: hints from other
     players guide a conversion but are remembered only once it observes them."""
-    from .feedback import gb_entries, records
+    from .feedback import records
+    system = getattr(rom, 'system_id', 'gb')
     if imported:
-        own = gb_entries(rom)
-        shared = record_for('gb', rom, ENGINE_REV).get('rom_entries', [])
+        own = _gameplay_entries(rom)
+        shared = record_for(system, rom, ENGINE_REV).get('rom_entries', [])
     else:
         own = set()
-        for row in records('gb', rom.sha256, 2):
+        for row in records(system, rom.sha256, 2):
             pc, bank = row.address, row.auxiliary
             offset = bank*0x4000 + (pc & 0x3fff)
             span = min(len(row.data), 0x4000 - (pc & 0x3fff))
             if (pc < 0x8000 and bank < len(rom.data)//0x4000 and
                     row.data and rom.data[offset:offset+span] == row.data[:span]):
                 own.add((bank, pc))
-        shared = bundled_record('gb', rom, ENGINE_REV).get('rom_entries', [])
+        shared = bundled_record(system, rom, ENGINE_REV).get('rom_entries', [])
     return own | read_entries(_verified_trace(rom), len(rom.data)) | {
         (bank, address) for bank, address in shared
         if bank < len(rom.data) // 0x4000 and address < 0x8000}
@@ -284,16 +321,16 @@ def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, 
 
 def memory_summary(rom: GameBoyRom) -> dict:
     trace = _verified_trace(rom)
-    return {"sha256": rom.sha256, "directory": str(library_root("gb") / rom.sha256),
+    return {"sha256": rom.sha256, "directory": str(library_root(rom.system_id) / rom.sha256),
             "trace_bytes": trace.stat().st_size if trace else 0,
             "known": bool(_known_entries(rom)),
-            "bundled_rom_entries": len(record_for('gb', rom, ENGINE_REV).get('rom_entries', [])),
+            "bundled_rom_entries": len(record_for(rom.system_id, rom, ENGINE_REV).get('rom_entries', [])),
             "kind": "headless_observed_entries"}
 
 
-def list_memory() -> list[dict]:
+def list_memory(variant: GameBoyVariant = DMG) -> list[dict]:
     result = []
-    for folder in sorted(library_root("gb").glob("*")):
+    for folder in sorted(library_root(variant.system_id).glob("*")):
         if not folder.is_dir() or not re.fullmatch(r"[0-9a-f]{64}", folder.name):
             continue
         try:
@@ -301,7 +338,7 @@ def list_memory() -> list[dict]:
             trace = _trace_from_record(folder, record, folder.name)
             if trace is None or not trace.stat().st_size:
                 continue
-            result.append({"title": record.get("title") or "Game Boy", "sha256": folder.name,
+            result.append({"title": record.get("title") or variant.name, "sha256": folder.name,
                            "trace_bytes": trace.stat().st_size, "directory": str(folder)})
         except (OSError, ValueError, TypeError, AttributeError):
             continue
@@ -317,6 +354,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                      gb_parallel_games: int = 1,
                      standard_override: str | None = None,
                      scan_level: str | None = None,
+                     variant: GameBoyVariant = DMG,
                      emit: Callable[[str], None] = print) -> Path:
     from .scan_levels import gameboy_budget
     level = resolve_scan_level(scan_level)
@@ -328,9 +366,11 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             icon_tags=icon_tags, gb_deep_validation=gb_deep_validation, scan_level=level,
             standard_override=standard_override, emit=emit)
     if profile is not None:
-        raise ConversionError("Game Boy does not use Master System TOML profiles.")
-    if standard_override not in (None, "dmg"):
-        raise ConversionError("This Game Boy profile supports original DMG hardware only.")
+        raise ConversionError(f"{variant.name} does not use Master System TOML profiles.")
+    if standard_override not in (None, variant.model):
+        if variant is DMG:
+            raise ConversionError("This Game Boy profile supports original DMG hardware only.")
+        raise ConversionError("This profile supports Game Boy Color hardware only.")
     check_run_budget(passes, frames, "Choose 1–10 passes and 1–10000 frames per test.")
     if not 1 <= gb_parallel_games <= 8:
         raise ConversionError("Concurrent games must be between 1 and 8.")
@@ -338,32 +378,32 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     started = time.perf_counter()
     stage_seconds = dict(setup=0.0, discovery=0.0, translation=0.0, build=0.0,
                          coverage_probes=0.0, cpu_validation=0.0, packed_replay=0.0, state_checks=0.0)
-    rom = read_game_boy_rom(rom_path)
+    rom = read_game_boy_rom(rom_path, variant)
     title = title or re.sub(r"\s*\([^)]*\)", "", rom.path.stem).strip()
     name = slug(title)
     storage_id = f"{name}-{rom.sha256[:12]}"
-    project = ROOT / ".build" / f"gb_{name}_{rom.sha256[:12]}_{ENGINE_REV[:8]}"
+    project = ROOT / ".build" / f"{variant.system_id}_{name}_{rom.sha256[:12]}_{ENGINE_REV[:8]}"
     project.mkdir(parents=True, exist_ok=True)
     destination = output.resolve()
     destination.mkdir(parents=True, exist_ok=True)
     from .feedback import ingest
-    gameplay_feedback = ingest('gb', rom.sha256, destination, emit=emit)
-    emit(f"ROM: {title}, {len(rom.data) // 1024} KB, CRC32 {rom.crc32:08X}; Game Boy DMG.")
+    gameplay_feedback = ingest(variant.system_id, rom.sha256, destination, emit=emit)
+    emit(f"ROM: {title}, {len(rom.data) // 1024} KB, CRC32 {rom.crc32:08X}; {variant.name} {'DMG' if variant is DMG else 'CGB'}.")
     if gb_deep_validation:
         emit("Game Boy deep CPU validation enabled: extra instruction-by-instruction play checks "
              "add conversion time depending on the game. Native discovery is unchanged.")
     artwork = prepare_game_icon(project, rom.path, title,
-        boxart_dir or ROOT / "BoxArt/Game Boy", explicit=cover,
+        boxart_dir or ROOT / "BoxArt" / variant.box_art, explicit=cover,
         online=online_cover, enabled=use_cover,
-        cache_directory=boxart_cache_directory('gb'),
-        tags=(), system_id="gb", emit=emit)
+        cache_directory=boxart_cache_directory(variant.system_id),
+        tags=(), system_id=variant.system_id, emit=emit)
     engine, compiler, sdl, cmake, generator = _dependencies(emit)
     (project / "rom.gb").write_bytes(rom.data)
     metadata = write_game_metadata(project, title, executable_name(title),
                                    light_phaser=False, icon=artwork["embedded"],
-                                   standard="dmg", system_id="gb")
+                                   standard=variant.model, system_id=variant.system_id)
     from .notices import notice_text
-    (project / "game_legal.md").write_text(notice_text("gb"), encoding="utf-8")
+    (project / "game_legal.md").write_text(notice_text(variant.system_id), encoding="utf-8")
     (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')
     from .resources import embed_resources
     embed_resources(project, {102:project/'game_legal.md',104:project/'game_identity.bin'})
@@ -386,7 +426,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     long_routes = ()
     if scan['route_count']:
         from .random_routes import long_routes as pseudo_random_routes
-        long_routes = pseudo_random_routes('gb', rom.sha256, count=scan['route_count'],
+        long_routes = pseudo_random_routes(variant.system_id, rom.sha256, count=scan['route_count'],
                                            frames=scan['route_frames'], two_players=False)
         emit(f"Game Boy scan level {level}: {len(long_routes)} reproducible pseudo-random routes of "
              f"{long_routes[0].frames} frames.")
@@ -412,7 +452,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         stage_started = time.perf_counter()
         with timings.phase('code_generation'), preserve_unchanged_sources(project):
             run(command, log=project / "build.log", timeout=1800)
-            adapt_generated_project(project, storage_id, rom.sha256, title)
+            adapt_generated_project(project, storage_id, rom.sha256, title, variant=variant)
             boundary = adapt_bank_boundaries(project)
             shared_bodies = share_native_bodies(project)
             compact_dispatch = compact_generated_dispatch(project)
@@ -513,7 +553,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     write_entries(remembered, _known_entries(rom, imported=False) | reached)
     _remember_trace(rom, remembered)
     generated = json.loads((project / "game_metadata.json").read_text(encoding="utf-8"))
-    report = {"tool": "Retro-Recomp", "version": __version__, "system": {"id": "gb", "name": "Game Boy"},
+    report = {"tool": "Retro-Recomp", "version": __version__, "system": {"id": variant.system_id, "name": variant.name},
         "scan_level": level, "long_routes": [route.metadata() for route in long_routes],
         "rom": rom.metadata(), "backend": "gb-recompiled-sm83", "compiler": {"url": ENGINE_URL,
             "revision": ENGINE_REV, "license": "MIT"},
@@ -532,8 +572,9 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             # the frames of the first comparison (the boot); each comparison says its own in `scenarios`
             "frames": cpu_checks[0]["frames"], "hardware_accuracy": False, "full_game": False},
         "reference_vdp_trace_match": None,
-        "video_model": {"standard": "dmg", "visible_pixels": [160, 144],
-            "palette": "monochrome grayscale by default; F5 switches directly to/from classic green",
+        "video_model": {"standard": variant.model, "visible_pixels": [160, 144],
+            "palette": ("monochrome grayscale by default; F5 switches directly to/from classic green" if variant is DMG
+                        else "the game's own palettes, neutral expansion of the 5-bit channels"),
             "hardware_accuracy_validated": False},
         "hardware_adaptations": {"apu": ["live_envelope_mix", "pulse_retrigger_duty_phase", "noise_shift_14_15_clock_stop"],
             "state_layout_changed": False, "independent_full_hardware_validation": False},

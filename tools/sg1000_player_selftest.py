@@ -246,9 +246,23 @@ def stage(work: Path, cartridge: bytes, standard: str) -> None:
         write(work / 'hostkit' / 'shell' / f'probe_{name}', (work / 'hostkit' / 'shell' / name).read_bytes())
 
 
+def forget_unfound_sdl(*folders: Path) -> None:
+    """A build folder whose CMake cache remembers « SDL2_DIR-NOTFOUND » (an earlier configure ran without the SDL2 install in its prefix path)
+    is configured again from scratch: the converter's own helper (z80_chain_build.build_project) passes the pinned install by CMAKE_PREFIX_PATH on
+    every configure, and nothing else in the folder is worth keeping."""
+    for folder in folders:
+        cache = folder / 'build' / 'CMakeCache.txt'
+        try:
+            if 'SDL2_DIR:PATH=SDL2_DIR-NOTFOUND' in cache.read_text(encoding='utf-8', errors='replace'):
+                shutil.rmtree(folder / 'build')
+        except OSError:
+            pass
+
+
 def build_all(work: Path, cartridge: bytes) -> dict[str, Path]:
     from retrorecomp import __version__, sg1000_build, z80_chain_build
     work.mkdir(parents=True, exist_ok=True)
+    forget_unfound_sdl(work, work.parent / (work.name + '-pal'))
     sg1000_build.generate(work, sg1000_build.padded(cartridge))
     stage(work, cartridge, 'ntsc')
     exes = z80_chain_build.build_project(work, ('sg1000_reference', 'sg1000_check', 'game', 'game_probe'), project_cmake(__version__),

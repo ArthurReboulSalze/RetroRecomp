@@ -536,8 +536,13 @@ static void rr_gb_pause_page(RrhkUi *ui, const RrhkMenuCtx *ctx) {
 
 static const RrhkMachine *rr_gb_adapter(void) {
     if (!rr_gb_machine.actions) {
+#ifdef RR_GB_COLOR                                  /* the Game Boy Color profile: the same engine, its own name and settings */
+        rr_gb_machine.ini_section = L"GameBoyColor";
+        rr_gb_machine.console_name = "Game Boy Color";
+#else
         rr_gb_machine.ini_section = L"GameBoy";
         rr_gb_machine.console_name = "Game Boy";
+#endif
         rr_gb_machine.table_players = 1;
         rr_gb_machine.players = rr_gb_players;
         rr_gb_machine.actions = rr_gb_actions;

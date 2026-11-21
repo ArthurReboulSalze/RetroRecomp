@@ -518,7 +518,8 @@ INPUTS = _resolve({
         'retrorecomp.toolchain',
         'retrorecomp.windows',
     ),
-    ('gb',): (
+    # The engine, the runtime parts and the tools of the two Game Boy machines (the Color is a variant of the same modules).
+    'shares:gameboy': (
         'native/gb_audio_checks.c',
         'native/gb_boundary_checks.c',
         'native/gb_digest.h',
@@ -527,6 +528,7 @@ INPUTS = _resolve({
         'native/gb_machine_checks.c',
         'native/gb_ppu_object_span.h',
         'native/gb_ppu_span_checks.c',
+        'native/gbc_hardware_checks.c',
         'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
@@ -856,6 +858,7 @@ INPUTS = _resolve({
         'retrorecomp.zxs_roms',
         'retrorecomp.zxs_routes',
         'retrorecomp.zxs_snapshot',
+        'retrorecomp.zxs_starts',
     ),
     # The SG-1000 (experimental, developer only): its converter modules, the cartridge reader and the conversion, the machine (our own
     # C), the glue of the banked Z80 chain, the player (stage 3: the game's main and its quick states) and the native and reference

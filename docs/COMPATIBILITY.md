@@ -111,7 +111,7 @@ hardware fidelity; see [video evidence](VIDEO.md).
 
 The Game Boy profile uses a separate pinned SM83 compiler and runtime. It
 supports `.gb` and single-ROM ZIP input, but rejects Game Boy Color-only
-cartridges. Local Tetris, MBC1 Super Mario Land and MBC2
+cartridges (those go to the Game Boy Color profile, [experimental, in development](GAME_BOY_COLOR.md): `.gbc` and Color-only cartridges, on the same engine in the colour hardware's model; no game has been converted for a qualification yet). Local Tetris, MBC1 Super Mario Land and MBC2
 Lazlos' Leap 120-frame boot scenarios reached zero reported fallback cycles
 in their final exports; each matched a 30-frame generated/reference CPU comparison. Super
 Mario Land first showed 76 fallback cycles, then a ROM-specific entry trace
