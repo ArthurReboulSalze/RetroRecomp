@@ -273,9 +273,9 @@ NOT_INPUTS = (
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # The checks of the box filter of the sound chips (native/audio_box.h, group shares:audio_box): tools/audio_box_selftest.py, never in a game.
     'native/audio_box_checks.c',
-    # The Z80 chain's CPU state and the quick-state file around the shared envelope: no machine builds with them yet; they join
-    # their first machine's groups (the Amstrad CPC). tools/z80_chain_state_selftest.py builds their checks, never in a game.
-    'native/z80_chain_state.inc', 'native/state_file.h', 'native/state_file_checks.c',
+    # The checks of the Z80 chain's CPU state and of the quick-state file (groups shares:z80_chain_state and shares:state_file):
+    # tools/z80_chain_state_selftest.py, never in a game.
+    'native/state_file_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/zxs_machine/zxs_machine_checks.c',      # tools/zxs_machine_selftest.py: the ZX Spectrum core on authored images, never in a game
@@ -1221,6 +1221,16 @@ INPUTS = _resolve({
     # Header-only. Game role.
     'shares:audio_box': (
         'native/audio_box.h',
+    ),
+    # The Z80's registers in a quick state of a machine on the banked Z80 chain (native/z80_chain_state.inc, the MSX's field order).
+    # Game role; the ZX Spectrum first, the Amstrad CPC next.
+    'shares:z80_chain_state': (
+        'native/z80_chain_state.inc',
+    ),
+    # A quick state's file around the shared envelope: its build binding, the atomic save, the whole read (native/state_file.h).
+    # Machine-neutral, game role; the ZX Spectrum first, the Amstrad CPC next.
+    'shares:state_file': (
+        'native/state_file.h',
     ),
     'shares:tms9918': (
         'native/tms9918/tms9918.c',

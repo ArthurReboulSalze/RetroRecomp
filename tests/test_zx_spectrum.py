@@ -214,7 +214,7 @@ class ProfileTests(unittest.TestCase):
     def test_the_profile_is_experimental_developer_only_and_unlisted(self):
         profile = get_profile('zxs')
         self.assertEqual((profile.name, profile.status, profile.linux, profile.developer_only),
-                         ('ZX Spectrum', 'experimental', 'pending', True))
+                         ('ZX Spectrum', 'experimental', 'witnessed', True))
         self.assertFalse(profile.available())
         from retrorecomp.systems import PROFILES, convertible_profiles
         self.assertNotIn(profile, PROFILES)
@@ -412,8 +412,12 @@ class QuickStateTests(unittest.TestCase):
         envelope = (root / 'native/state_envelope.h').read_text(encoding='utf-8')
         self.assertIn('#define RR_STATE_ENVELOPE_HEADER 88u', envelope)
         player = (root / 'native/zxs_machine/zxs_player.c').read_text(encoding='utf-8')
-        self.assertIn('RetroStateEnvelope e = {"RRZXSST\\0"', player)
-        self.assertIn('memcmp(data + RR_STATE_ENVELOPE_HEADER, zxs_state_binding, 32)', player)
+        self.assertIn('RetroStateFile f = {{"RRZXSST\\0"', player)
+        self.assertIn('zxs_state_binding, sizeof zxs_state_binding', player)
+        # native/state_file.h reads the build binding first in the body, before the machine's own fields.
+        state_file = (root / 'native/state_file.h').read_text(encoding='utf-8')
+        body = state_file[state_file.index('static void rr_state_file_body'):]
+        self.assertLess(body.index('f->binding[i]'), body.index('f->envelope.body(io)'))
         from retrorecomp.zxs_conversion import STATE_SETTLE, check_states  # noqa: F401 - the conversion's own gate
         from retrorecomp.msx_conversion import damaged_states
         state = bytes(range(256)) * 4

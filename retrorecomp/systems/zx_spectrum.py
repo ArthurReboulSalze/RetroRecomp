@@ -45,7 +45,7 @@ class ZxSpectrumProfile(SystemProfile):
     # shared banked Z80 chain writes, as on the MSX; the machine's own files join them with its conversion.
     simulation_sources = (SimulationSource('generated/game_banked_index.c'), SimulationSource('generated/game_banked_ops_*.c'),
                           SimulationSource('generated/game_banked.h'), SimulationSource('zxs_banked_loop.inc'))
-    linux = 'pending'
+    linux = 'witnessed'
     scope_note = ('ZX Spectrum 16K, 48K and 128K snapshots (.z80, .sna), in development: identified, not converted yet; '
                   'no tapes, +2A, +3 or disks')
     # One processor; the ULA, the beeper and the AY-3-8910 are chips of our own C, not CPUs.
@@ -73,7 +73,7 @@ class ZxSpectrumProfile(SystemProfile):
     developer_only = True
     # The shared groups its game is built from: the banked Z80 chain and its glue, the AY-3-8910 of the 128K (native/ay38910), the
     # computers' side of the host kit (rrhk_computer.inc, which its adapter includes).
-    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910', 'audio_box', 'hostkit_computer')
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910', 'audio_box', 'z80_chain_state', 'state_file', 'hostkit_computer')
     z80_machine = ZXS_MACHINE
     path_spec = PathSpec(order=20, sections=(('z80', 'zxs'),),
                          source_bounds=(('snapshot', SNAPSHOT_BOUNDS), ('rom', ROM_BOUNDS)),

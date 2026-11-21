@@ -29,6 +29,8 @@
 #include "embedded_resources.h"
 #include "platform_io.h"
 #include "state_envelope.h"
+#include "state_file.h"
+#include "z80_chain_state.inc"
 
 /* The frontend variables rrhk_computer.inc reads (see its header). The fast-loading hold-off and the drive keys' choices are set
  * there and never read here (no tape, no drive). */
@@ -81,8 +83,9 @@ static uint64_t headless_interrupts(void) { return g_irq_taken; }
 
 /* ---- quick states ----
  * The file is the envelope the Z80 machines share (state_envelope.h: magic RRZXSST, schema 1, machine 1 48K / 2 128K / 3 16K, the
- * identity zxs_game.h gives), then the body: (1) the build binding RR_ZXS_STATE_ABI, 32 bytes the converter writes (the state
- * layout, the ROM, the model), compared and never applied; (2) the CPU; (3) the machine: every field of ZxsMachine but the ROM
+ * identity zxs_game.h gives) around the shared quick-state file (state_file.h), then the body: (1) the build binding
+ * RR_ZXS_STATE_ABI, 32 bytes the converter writes (the state layout, the ROM, the model), compared and never applied; (2) the
+ * CPU (z80_chain_state.inc); (3) the machine: every field of ZxsMachine but the ROM
  * pointer, the hooks and the trace switch (the per-model constants are checked, not applied). A state is checked whole on
  * scratch copies and applied only then; saved and loaded at the service point (an instruction and the interrupt it may accept
  * complete), where the loop's own locals hold nothing a state would need. */
@@ -93,21 +96,6 @@ static const uint8_t zxs_state_binding[32] = RR_ZXS_STATE_ABI;
 static ZxsMachine zxs_state_scratch;              /* the candidate machine of a check or a load */
 
 static uint32_t zxs_state_model(void) { return machine.ram16k ? 3u : (uint32_t)machine.model + 1u; }
-
-/* (2) The CPU, field for field as the MSX's (msx_state_file.inc), into `s`. */
-static void zxs_cpu_state(RetroStateIO *io, Z80State *s)
-{
-    Z80State v = *s;
-    RR_FIELD(v, a, 1, 255); RR_FIELD(v, f, 1, 255); RR_FIELD(v, b, 1, 255); RR_FIELD(v, c, 1, 255);
-    RR_FIELD(v, d, 1, 255); RR_FIELD(v, e, 1, 255); RR_FIELD(v, h, 1, 255); RR_FIELD(v, l, 1, 255);
-    RR_FIELD(v, a_, 1, 255); RR_FIELD(v, f_, 1, 255); RR_FIELD(v, b_, 1, 255); RR_FIELD(v, c_, 1, 255);
-    RR_FIELD(v, d_, 1, 255); RR_FIELD(v, e_, 1, 255); RR_FIELD(v, h_, 1, 255); RR_FIELD(v, l_, 1, 255);
-    RR_FIELD(v, pc, 2, 65535); RR_FIELD(v, sp, 2, 65535); RR_FIELD(v, ix, 2, 65535);
-    RR_FIELD(v, iy, 2, 65535); RR_FIELD(v, wz, 2, 65535); RR_FIELD(v, i, 1, 255); RR_FIELD(v, r, 1, 255);
-    RR_FIELD(v, iff1, 1, 1); RR_FIELD(v, iff2, 1, 1); RR_FIELD(v, im, 1, 2); RR_FIELD(v, halted, 1, 1);
-    RR_FIELD(v, q, 1, 255); RR_FIELD(v, p, 1, 1); RR_FIELD(v, ei_block, 1, 1); RR_FIELD(v, cyc, 8, (1ULL << 60));
-    *s = v;
-}
 
 /* A field that must equal the running machine's (fixed for the game): written, then compared on reading. */
 static void zxs_state_same(RetroStateIO *io, uint64_t value, unsigned width)
@@ -160,15 +148,12 @@ static void zxs_machine_state(RetroStateIO *io, ZxsMachine *m)
         io->ok = false;
 }
 
+/* The machine's body, after the build binding state_file.h checks: (2) the CPU, (3) the machine. */
 static void zxs_state_body(RetroStateIO *io)
 {
-    /* (1) the build binding */
-    for (int i = 0; i < 32; ++i)
-        if (rr_state_word(io, zxs_state_binding[i], 1, 255) != zxs_state_binding[i])
-            io->ok = false;
-    /* (2) the CPU: into a candidate, applied last */
+    /* (2) the CPU (native/z80_chain_state.inc): into a candidate, applied last */
     Z80State cpu = g_z80;
-    zxs_cpu_state(io, &cpu);
+    rr_z80_cpu_state(io, &cpu);
     /* (3) the machine */
     if (io->mode == RR_STATE_WRITE) {
         zxs_machine_state(io, &machine);
@@ -192,56 +177,17 @@ static void zxs_state_body(RetroStateIO *io)
     }
 }
 
-static RetroStateEnvelope zxs_state_envelope(void)
+/* The file (native/state_file.h): the envelope, the binding, the capacity; saved beside its place then put there, loaded whole,
+ * checked on the scratch copies and applied only then; a whole state of another build is incompatible, not damaged. */
+static RetroStateFile zxs_state_file(void)
 {
-    RetroStateEnvelope e = {"RRZXSST\0", ZXS_STATE_SCHEMA, zxs_state_model(), RR_ZXS_IDENTITY, zxs_state_body};
-    return e;
+    RetroStateFile f = {{"RRZXSST\0", ZXS_STATE_SCHEMA, zxs_state_model(), RR_ZXS_IDENTITY, zxs_state_body},
+                        zxs_state_binding, sizeof zxs_state_binding, NULL, ZXS_STATE_CAPACITY};
+    return f;
 }
 
-/* Save to `path`: written beside it, flushed, then put in its place (the old state stays whole if anything fails). */
-static int zxs_state_save(const wchar_t *path)
-{
-    uint8_t *data = (uint8_t *)malloc(ZXS_STATE_CAPACITY);
-    if (!data) return RR_STATE_IO_ERROR;
-    RetroStateEnvelope envelope = zxs_state_envelope();
-    size_t size = 0;
-    if (rr_state_envelope_write(&envelope, data, ZXS_STATE_CAPACITY, &size) != RR_STATE_OK) { free(data); return RR_STATE_INVALID; }
-    wchar_t temporary[32768];
-    swprintf(temporary, 32768, L"%ls.%lu.tmp", path, rr_process_id());
-    FILE *f = rr_fopen(temporary, L"wb");
-    bool ok = f && fwrite(data, size, 1, f) == 1;
-    if (ok) ok = rr_flush_file(f) != 0;
-    if (f && fclose(f) != 0) ok = false;
-    free(data);
-    if (ok) ok = rr_replace(temporary, path) != 0;
-    if (!ok) rr_remove(temporary);
-    return ok ? RR_STATE_OK : RR_STATE_IO_ERROR;
-}
-
-/* Load `path`: RR_STATE_OK, or a refusal that leaves the machine and the file as they were. */
-static int zxs_state_load(const wchar_t *path)
-{
-    FILE *f = rr_fopen(path, L"rb");
-    if (!f) return rr_exists(path) ? RR_STATE_IO_ERROR : RR_STATE_MISSING;
-    uint8_t *data = (uint8_t *)malloc(ZXS_STATE_CAPACITY);
-    if (!data) { fclose(f); return RR_STATE_IO_ERROR; }
-    size_t size = fread(data, 1, ZXS_STATE_CAPACITY, f);
-    int extra = fgetc(f); bool read_ok = !ferror(f); fclose(f);
-    int result = RR_STATE_INVALID;
-    if (read_ok && extra == EOF) {
-        RetroStateEnvelope envelope = zxs_state_envelope();
-        result = rr_state_envelope_read(&envelope, data, size);
-        /* A whole, undamaged state of another build (another ROM, layout or model): incompatible, not damaged. */
-        if (result == RR_STATE_INVALID && size >= RR_STATE_ENVELOPE_HEADER + 32
-            && (size_t)(data[80] | data[81] << 8 | (uint32_t)data[82] << 16 | (uint32_t)data[83] << 24) == size - RR_STATE_ENVELOPE_HEADER
-            && rr_state_crc(data + RR_STATE_ENVELOPE_HEADER, size - RR_STATE_ENVELOPE_HEADER)
-               == (uint32_t)(data[84] | data[85] << 8 | (uint32_t)data[86] << 16 | (uint32_t)data[87] << 24)
-            && memcmp(data + RR_STATE_ENVELOPE_HEADER, zxs_state_binding, 32))
-            result = RR_STATE_INCOMPATIBLE;
-    }
-    free(data);
-    return result;
-}
+static int zxs_state_save(const wchar_t *path) { RetroStateFile f = zxs_state_file(); return rr_state_file_save(&f, path); }
+static int zxs_state_load(const wchar_t *path) { RetroStateFile f = zxs_state_file(); return rr_state_file_load(&f, path); }
 
 /* F8/F9 in play, at the service point (the kit calls this from the frame's end). */
 static bool zxs_game_state_file(const wchar_t *path, bool load)

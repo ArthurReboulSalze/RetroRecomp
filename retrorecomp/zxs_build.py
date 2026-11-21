@@ -8,6 +8,7 @@ native check, the game) and the learning of the RAM code, for retrorecomp/zxs_co
 from __future__ import annotations
 
 import struct
+from pathlib import Path
 
 from .zxs_snapshot import JOYSTICKS, PAGE, Snapshot
 
@@ -65,7 +66,7 @@ MACHINE_FILES = (*MACHINE_SOURCES, 'zxs_machine.h', 'zxs_glue.inc', 'zxs_headles
                  'zxs_reference_main.c')
 SHARED_MODULES = (('ay38910', ('ay38910.c',), ('ay38910.h',)),)
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)
-CHAIN_FILES = ('z80_chain_glue.inc', 'banked_reference_state.inc', 'audio_box.h')   # native/, staged flat
+CHAIN_FILES = ('z80_chain_glue.inc', 'banked_reference_state.inc', 'audio_box.h', 'z80_chain_state.inc', 'state_file.h')   # native/, staged flat
 # The player (the `game` target) and the companions of the host kit it is built with (the MSX's list, less its cartridge saves).
 GAME_FILES = ('zxs_player.c',)
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
@@ -143,6 +144,22 @@ def build(work, targets: tuple, emit=print) -> dict:
     game = 'game' in targets
     bodies = game or 'zxs_check' in targets or (work / 'generated' / 'game_banked_index.c').is_file()
     return z80_chain_build.build_project(work, targets, project_cmake(bodies, game, __version__), sdl=game, emit=emit)
+
+
+def build_reference(work, emit=print) -> Path:
+    """The reference runner alone, before any body is generated (the start of the play route is chosen on it;
+    z80_chain_build.build_reference_runner: the reference CPU prepared for the Spectrum's 16-bit ports)."""
+    from . import z80_chain_build
+    from .cpu import prepare_cpu_headers
+    from .systems.zx_spectrum import ZXS_MACHINE
+
+    def stage(folder):
+        # The reference main keeps the translated register file (Z80State, banked_reference_state.inc): the CPU headers the bodies'
+        # generation writes (sms_runtime.h), written here before any generation.
+        stage_sources(folder)
+        prepare_cpu_headers(folder, z80_chain_build.generator(ZXS_MACHINE, emit)[1])
+    return z80_chain_build.build_reference_runner(work, ZXS_MACHINE, accept='zxs_reference_accept', stage=stage, build=build,
+                                                  target='zxs_reference', emit=emit, error=ZxsBuildError)
 
 
 def run(exe, rom_path, image: bytes, args: list, timeout: int = 1800) -> dict:

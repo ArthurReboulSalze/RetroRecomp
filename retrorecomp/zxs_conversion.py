@@ -117,9 +117,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         folder = work / 'routes'
         folder.mkdir(parents=True, exist_ok=True)
         try:
-            zxs_build.generate(work, rom.data, emit)
-            zxs_build.stage_sources(work)
-            reference_exe = zxs_build.build(work, ('zxs_reference',), emit)['zxs_reference']
+            reference_exe = zxs_build.build_reference(work, emit)
         except zxs_build.ZxsBuildError as error:
             raise ConversionError(f'ZX Spectrum: {error}') from None
 
