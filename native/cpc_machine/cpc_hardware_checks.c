@@ -11,6 +11,9 @@
 #include "cpc_crtc.h"
 #include "cpc_gate_array.h"
 #include "cpc_ppi.h"
+#include "rrhk_boot_keys.h"
+#include "rrhk_cpc_keys.h"
+#include "boot_keys.h"           /* written by tools/cpc_hardware_selftest.py: Bomb Jack's RUN"BOMB and RETURN, first key at frame 10 */
 
 static unsigned passed, failed;
 
@@ -415,9 +418,78 @@ static void check_machine(void)
         && cpc_next_event(&board) <= board.cycles + 4 && cpc_next_event(&board) % 4 == 0);
 }
 
+/* The keyboard as the CPC adapter will feed it: a frame's host keys through RRHK_CPC_KEYS onto the PPI's matrix, then read
+ * as the firmware reads it, a key counted when it goes down (with the Shift line of that frame). */
+static unsigned typed_count;
+static uint8_t typed_key[64], typed_shift[64];
+
+static void feed(const uint8_t *state, CpcPpi *ppi)
+{
+    memset(ppi->keys, 0, sizeof ppi->keys);
+    for (unsigned i = 0; i < sizeof RRHK_CPC_KEYS / sizeof RRHK_CPC_KEYS[0]; ++i)
+        if (state[RRHK_CPC_KEYS[i].scancode]) cpc_ppi_key(ppi, RRHK_CPC_KEYS[i].cpc_key, 1);
+}
+
+/* Run a sequence from frame 0 to `frames`, the player holding host key `held` all along (0: none): the adapter takes the
+ * sequence's keys while it owns the keyboard, the player's after. */
+static void type_frames(const RrhkBootKeys *seq, uint32_t frames, uint8_t held)
+{
+    static uint8_t state[SDL_NUM_SCANCODES];
+    CpcPpi ppi;
+    memset(&ppi, 0, sizeof ppi);
+    uint8_t before[CPC_KEY_ROWS] = { 0 };
+    typed_count = 0;
+    for (uint32_t frame = 0; frame < frames; ++frame) {
+        if (!rrhk_boot_keys_frame(seq, frame, state)) {
+            memset(state, 0, sizeof state);
+            if (held) state[held] = 1;
+        }
+        feed(state, &ppi);
+        int shift = (ppi.keys[CPC_KEY_SHIFT >> 3] >> (CPC_KEY_SHIFT & 7)) & 1;
+        for (unsigned key = 0; key < CPC_KEY_ROWS * 8; ++key) {
+            if (key == CPC_KEY_SHIFT) continue;
+            int now = (ppi.keys[key >> 3] >> (key & 7)) & 1, was = (before[key >> 3] >> (key & 7)) & 1;
+            if (now && !was && typed_count < 64) { typed_key[typed_count] = (uint8_t)key; typed_shift[typed_count++] = (uint8_t)shift; }
+        }
+        memcpy(before, ppi.keys, sizeof before);
+    }
+}
+
+static void check_boot_keys(void)
+{
+    static uint8_t state[SDL_NUM_SCANCODES];
+    uint32_t end = rrhk_boot_keys_end(&rr_boot_keys);
+    expect("RUN\"BOMB + RETURN: nine keys from frame 10, 4 frames each", rr_boot_keys.count == 9 && end == 10 + 9 * 4);
+    memset(state, 0xAA, sizeof state);
+    expect("before the first key the sequence owns the keyboard with no key down",
+        rrhk_boot_keys_frame(&rr_boot_keys, 0, state) == 1 && state[21] == 0 && state[SDL_SCANCODE_LSHIFT] == 0);
+    expect("its last gap still owns it (no key down), the frame after is the player's",
+        rrhk_boot_keys_frame(&rr_boot_keys, end - 1, state) == 1 && state[40] == 0
+        && rrhk_boot_keys_frame(&rr_boot_keys, end, state) == 0);
+    expect("the shifted key: 2 and Left Shift down together", rrhk_boot_keys_frame(&rr_boot_keys, 10 + 3 * 4, state) == 1
+        && state[31] && state[SDL_SCANCODE_LSHIFT]);
+    RrhkBootKeys none = { 0, 2, 2, 0, NULL };
+    expect("no sequence: never owns the keyboard", rrhk_boot_keys_frame(&none, 0, state) == 0 && rrhk_boot_keys_end(&none) == 0);
+
+    /* Read back through the CPC's matrix, the player holding L all along: R U N " B O M B RETURN, then his L. */
+    type_frames(&rr_boot_keys, end + 4, 15);
+    static const uint8_t want[9] = { CPC_KEY_R, CPC_KEY_U, CPC_KEY_N, CPC_KEY_2, CPC_KEY_B, CPC_KEY_O, CPC_KEY_M, CPC_KEY_B,
+                                     CPC_KEY_RETURN };
+    int same = typed_count == 10;
+    for (unsigned i = 0; same && i < 9; ++i) same = typed_key[i] == want[i] && typed_shift[i] == (i == 3);
+    expect("every key read once, the \" with Shift, in order", same);
+    expect("the key the player holds is read after the sequence, not merged with RETURN",
+        typed_count == 10 && typed_key[9] == CPC_KEY_L && !typed_shift[9]);
+    static const RrhkBootKey double_l[3] = { { 15, 0 }, { 15, 0 }, { 40, 0 } };
+    RrhkBootKeys hello = { 0, 2, 2, 3, double_l };
+    type_frames(&hello, rrhk_boot_keys_end(&hello), 0);
+    expect("two equal letters in a row read as two", typed_count == 3 && typed_key[0] == CPC_KEY_L && typed_key[1] == CPC_KEY_L);
+}
+
 int main(void)
 {
     check_bus();
+    check_boot_keys();
     check_machine();
     check_crtc();
     check_gate_array();

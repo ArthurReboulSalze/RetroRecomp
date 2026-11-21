@@ -208,7 +208,9 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
-    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc',
+    # The Amstrad CPC's (in development, its adapter to come): the boot key sequence player and its key table.
+    'hostkit/adapters/rrhk_boot_keys.h', 'hostkit/adapters/rrhk_cpc_keys.h')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 # No file outside the prefixes below is a host input any more: THIRD_PARTY_NOTICES.md, the complete public list of the converter
 # distribution, is embedded in no game since 1.7.3 (each game embeds the notices of its own components, notices.py).
@@ -857,9 +859,12 @@ INPUTS = _resolve({
         'native/upd765/dsk_image.h',
         'native/upd765/upd765.c',
         'native/upd765/upd765.h',
+        'native/hostkit/adapters/rrhk_boot_keys.h',
+        'native/hostkit/adapters/rrhk_cpc_keys.h',
         'retrorecomp.cpc_build',
         'retrorecomp.cpc_disk',
         'retrorecomp.cpc_firmware',
+        'retrorecomp.cpc_keys',
         'retrorecomp.cpc_timing',
     ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
