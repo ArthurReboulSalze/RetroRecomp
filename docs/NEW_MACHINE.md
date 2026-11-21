@@ -3,7 +3,8 @@
 The playbook that takes a machine from its study to the release that ships it: one ordered path, each step with its
 checklist, the evidence it must leave and the gate that closes it. The lead session (the one that merges) drives it with a
 specialist per machine; the maintainer tests (G14), decides the exit from the experimental status and gives the publication
-go, and decides a route only when it mixes licences. The second half of the page is reference: the registration steps that
+go, and decides a route only when it mixes licences. Anyone on the path stops and asks him when a step meets an unknown, a
+fundamental question or a blocker ([Stop and ask the maintainer](#stop-and-ask-the-maintainer)). The second half of the page is reference: the registration steps that
 step 1 points to, reuse by CPU, what the registry test checks, what stays scattered, and the dry run that measured them.
 
 The rules behind every step are in [STANDARDS.md](STANDARDS.md) and [AGENTS_GUIDE.md](AGENTS_GUIDE.md): no ROM in the
@@ -26,6 +27,22 @@ without the maintainer's word.
 [Step 7](#step-7-who-does-what) says who does what, and the [progress board](#progress-board) follows each machine through
 the steps. Multiplayer and optimisation never change what a game does alone: each change shows identical output first, or the
 evidence of step 2 that it touches is taken again.
+
+## Stop and ask the maintainer
+
+The path runs with little help, but not at any cost. At every step, stop and ask instead of pushing on when one of these
+comes up:
+
+- **An unknown or a possible problem**: something the study did not foresee, a behaviour nobody can explain yet, a risk to
+  the player's files, the exports or another machine.
+- **A fundamental question**: the scope, the design, a licence, a result that contradicts the plan, a gate that cannot be met
+  as it is written.
+- **Being stuck.** The stop rule: two approaches that failed on the same blocker, or about three hours of work on it with no
+  step forward, whichever comes first.
+
+The report says what blocks, what was tried and what it showed, and the options with a recommendation. A specialist sends it
+to the lead, and the lead takes it to the maintainer. Then wait: nobody works around the blocker alone, relaxes a gate to get
+past it, or starts a different route without his answer. Other work that does not depend on it may go on.
 
 ## Step 0: study
 
@@ -311,6 +328,10 @@ Gate: the maintainer's publication go. Nothing is pushed, tagged or published be
 | Shared specialists | documentation (cross-machine pages, notes, the release texts), interface (the in-game shell: F1-F12, pause, menus), multiplayer (the session, lobby and proofs), performance (timed passes, the risky list), upstream liaison (fixes offered back, sent only on the maintainer's word). |
 
 Every brief carries the house rules:
+
+- stop and ask on an unknown, a fundamental question or a blocker (two failed approaches, or about three hours with no step
+  forward), with what blocks, what was tried and the options with a recommendation; then wait
+  ([Stop and ask the maintainer](#stop-and-ask-the-maintainer));
 
 - commit on the specialist's own branch, files staged by name, never a stash, never a push or merge;
 - no visible window (SDL's dummy video and sound drivers, the splash screen suppressed), no busy-wait loop, no search of a
