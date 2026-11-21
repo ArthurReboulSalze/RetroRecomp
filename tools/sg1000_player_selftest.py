@@ -50,7 +50,7 @@ BUILD_TIMEOUT = 2 * 3600
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
 # Fields that are cumulative counters of the PROCESS, not of the machine: a process that loaded a state has not seen the frames before it.
-PROCESS_FIELDS = ('engine', 'interrupts', 'audio_samples', 'audio_fnv', 'native_steps', 'halt_steps', 'fallback_steps',
+PROCESS_FIELDS = ('engine', 'interrupts', 'nmi', 'audio_samples', 'audio_fnv', 'native_steps', 'halt_steps', 'fallback_steps',
                   'guarded_steps', 'fallback_cycles', 'fallback_at')
 NATIVE_ONLY = ('native_steps', 'halt_steps', 'fallback_steps', 'guarded_steps', 'fallback_cycles', 'fallback_at')
 

@@ -47,7 +47,7 @@ void cv_write(CvMachine *m, uint16_t address, uint8_t value)
 }
 
 /* A controller's port, active low. Joystick mode: up, right, down, left in bits 0-3 and the left fire button in bit 6; keypad mode: the key's
- * code (the lines it pulls) in bits 0-3 and the right fire button in bit 6. Bits 4, 5 and 7 read 1. While the host's on-screen keypad is open
+ * code (the lines it pulls) in bits 0-3 and the right fire button in bit 6. Bits 4 and 5 read 1, bit 7 reads 0. While the host's on-screen keypad is open
  * (CV_PAD_KEYPAD_OPEN) the stick and the fire buttons are not the game's: only the keypad's lines reach the port. */
 static uint8_t controller(const CvMachine *m, int index)
 {
@@ -63,7 +63,7 @@ static uint8_t controller(const CvMachine *m, int index)
         lines = (pad & CV_PAD_UP ? 1u : 0u) | (pad & CV_PAD_RIGHT ? 2u : 0u) | (pad & CV_PAD_DOWN ? 4u : 0u) | (pad & CV_PAD_LEFT ? 8u : 0u)
               | (pad & CV_PAD_B1 ? 0x40u : 0u);
     }
-    return (uint8_t)~lines;
+    return (uint8_t)(~lines & 0x7F);
 }
 
 uint8_t cv_in(CvMachine *m, uint8_t port)
@@ -96,10 +96,18 @@ void cv_out(CvMachine *m, uint8_t port, uint8_t value)
     case 0xE0:
         sn76489_run(&m->psg, m->cycles);                     /* the sound up to now, then the new register */
         sn76489_write(&m->psg, value);
+        m->io_wait += CV_PSG_WAIT;                           /* the chip's /READY holds the CPU */
         break;
     default:
         break;
     }
+}
+
+uint32_t cv_take_wait(CvMachine *m)
+{
+    const uint32_t wait = m->io_wait;
+    m->io_wait = 0;
+    return wait;
 }
 
 int cv_irq(const CvMachine *m)

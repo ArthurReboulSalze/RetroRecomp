@@ -54,7 +54,7 @@ BUILD_TIMEOUT = 2 * 3600
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
 # Fields that are cumulative counters of the PROCESS, not of the machine: a process that loaded a state has not seen the frames before it.
-PROCESS_FIELDS = ('engine', 'interrupts', 'audio_samples', 'audio_fnv', 'native_steps', 'halt_steps', 'fallback_steps',
+PROCESS_FIELDS = ('engine', 'interrupts', 'nmi', 'audio_samples', 'audio_fnv', 'native_steps', 'halt_steps', 'fallback_steps',
                   'guarded_steps', 'fallback_cycles', 'fallback_at')
 NATIVE_ONLY = ('native_steps', 'halt_steps', 'fallback_steps', 'guarded_steps', 'fallback_cycles', 'fallback_at')
 
@@ -287,7 +287,7 @@ def prove_equal_runs(res: Results, exes: dict[str, Path], cart_file: Path, bios_
         res.check(c['frames'] == 840 and c['interrupts'] == 0, f'{standard}: the run is real (840 frames; /INT is not wired: {c["interrupts"]} taken)')
         res.check(c['audio_samples'] > 0 and any(line.split(',')[6] == '1' for line in load_rows(check['rows']).values()),
                   f'{standard}: the sound is audible (a tone, {c["audio_samples"]} samples)')
-        released = {f'{authored.STICK_1:04X}': 0xFF, f'{authored.KEYPAD_1:04X}': 0xFF, f'{authored.KEYPAD_2:04X}': 0xFF}
+        released = {f'{authored.STICK_1:04X}': 0x7F, f'{authored.KEYPAD_1:04X}': 0x7F, f'{authored.KEYPAD_2:04X}': 0x7F}
         res.check(c['watch'][f'{authored.FRAME_COUNT:04X}'] != 0 and all(c['watch'][key] == value for key, value in released.items()),
                   f'{standard}: the cartridge counted its /NMI frames and read every controller released at the end', str(c['watch']))
         res.check(c['fallback_steps'] > 0 and g['fallback_steps'] == c['fallback_steps'],

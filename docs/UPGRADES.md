@@ -559,6 +559,16 @@ ColecoVision stages the file beside its adapter, as the MSX and the ZX Spectrum 
 
 **Stamps** (`compilation_inputs.role_stamps`, 25 profiles, before and after): no stamp of any other machine moves. The ColecoVision's are new.
 
+## ColecoVision (developer only): the console's wait states and the controllers' bytes follow MAME 0.289 (1.9.0)
+
+A private MAME 0.289 run (never part of the repository) showed three differences in the machine of the ColecoVision's first step, now corrected:
+the console inserts **one wait state on every M1 cycle** (`COLECO_MACHINE.m1_wait` 1, and the reference runner counts them), **each write to the
+SN76489A holds the CPU 28 more cycles** (`CV_PSG_WAIT`, added to the CPU's cycle count by the glue and by the reference runner), and the controllers'
+bytes differ in two places (the keys `*` and `#` were swapped, and the unused bit 7 reads 0). With them the real BIOS's writes to the console's RAM
+land at the same cycles as MAME's. No game file of any other machine changes.
+
+**Stamps** (`compilation_inputs.role_stamps`): the ColecoVision's only.
+
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
 
 The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a

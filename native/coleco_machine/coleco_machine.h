@@ -14,7 +14,8 @@
  * enabled with the flag already up (cv_nmi_edge). /INT is not wired.
  *
  * The controllers: in joystick mode a port reads the stick (bits 0-3: up, right, down, left) and the left fire button (bit 6); in keypad
- * mode the key's code in bits 0-3 and the right fire button (bit 6); the other bits read 1; every line is active low. The pad word of a
+ * mode the key's code in bits 0-3 and the right fire button (bit 6); bits 4 and 5 read 1 and bit 7 reads 0, as MAME 0.289's controller
+ * reads do (this machine was compared with it line by line, docs/COLECOVISION.md); every line is active low. The pad word of a
  * player (CV_PAD_*) is the buttons HELD: the stick, the two fire buttons, and the keypad's four lines (a key is the code of the lines
  * it pulls: two keys held merge, as on the real keypad). */
 #ifndef COLECO_MACHINE_H
@@ -27,7 +28,7 @@
 #include "tms9918.h"
 
 enum { CV_CYCLES_PER_LINE = 228, CV_LINES_NTSC = 262, CV_LINES_PAL = 313, CV_RAM_SIZE = 1024, CV_BIOS_SIZE = 8192, CV_REGION_BITS = 13,
-       CV_REGIONS = 8, CV_AUDIO_BUFFER = SN_AUDIO_BUFFER, CV_AUDIO_RATE = SN_AUDIO_RATE, CV_CPU_CLOCK = SN_CPU_CLOCK };
+       CV_REGIONS = 8, CV_PSG_WAIT = 28, CV_AUDIO_BUFFER = SN_AUDIO_BUFFER, CV_AUDIO_RATE = SN_AUDIO_RATE, CV_CPU_CLOCK = SN_CPU_CLOCK };
 
 /* Pad bits, in `pad[port]` as the buttons HELD (a set bit is a held button or a pulled keypad line); the ports read them active low.
  * Bits 0-5: the stick and the two fire buttons; bits 6-9: the keypad's lines; bit 10 is reserved (the console has no Pause button: its
@@ -38,7 +39,7 @@ enum { CV_PAD_UP = 1, CV_PAD_DOWN = 2, CV_PAD_LEFT = 4, CV_PAD_RIGHT = 8, CV_PAD
 
 /* The keypad's keys as the lines they pull (the 4 bits of CV_PAD_KEY_MASK, shifted down): the code the real keypad gives, active high here. */
 enum { CV_KEY_0 = 0x05, CV_KEY_1 = 0x02, CV_KEY_2 = 0x08, CV_KEY_3 = 0x03, CV_KEY_4 = 0x0D, CV_KEY_5 = 0x0C, CV_KEY_6 = 0x01,
-       CV_KEY_7 = 0x0A, CV_KEY_8 = 0x0E, CV_KEY_9 = 0x04, CV_KEY_HASH = 0x06, CV_KEY_STAR = 0x09 };
+       CV_KEY_7 = 0x0A, CV_KEY_8 = 0x0E, CV_KEY_9 = 0x04, CV_KEY_HASH = 0x09, CV_KEY_STAR = 0x06 };
 
 typedef struct {
     const uint8_t *bios;         /* the 8 KiB BIOS */
@@ -50,6 +51,7 @@ typedef struct {
     uint16_t pad[2];             /* the buttons held (CV_PAD_*) */
     uint8_t keypad_mode;         /* 1: the controllers read the keypad and the right fire button; 0: the stick and the left fire button */
     uint8_t nmi_level;           /* the VDP's interrupt line as the CPU last saw it (an edge is a rise from 0) */
+    uint32_t io_wait;            /* cycles the last port access holds the CPU for (cv_take_wait): never alive at a service point, not saved */
     uint64_t cycles;             /* the CPU cycle the chips are brought to */
     uint64_t next_line;
     unsigned lines_per_frame, line;
@@ -67,6 +69,11 @@ void cv_write(CvMachine *m, uint16_t address, uint8_t value);
 uint8_t cv_in(CvMachine *m, uint8_t port);
 void cv_out(CvMachine *m, uint8_t port, uint8_t value);
 int cv_irq(const CvMachine *m);
+
+/* The cycles the CPU waits for the access it just made (0 for most): a write to the SN76489A holds /READY low, and the console wires it to the
+ * Z80's /WAIT. CV_PSG_WAIT (28) is the extra time one write takes, measured against MAME 0.289 (docs/COLECOVISION.md); the caller adds it to the
+ * CPU's cycle count, native and reference alike. */
+uint32_t cv_take_wait(CvMachine *m);
 void cv_advance(CvMachine *m, uint64_t cycles);
 static inline uint64_t cv_next_event(const CvMachine *m) { return m->next_line; }
 
