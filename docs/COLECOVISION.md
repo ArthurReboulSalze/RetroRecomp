@@ -126,5 +126,5 @@ What is checked, and what each check covers (the five measures stay apart):
     explained yet (a candidate is how a held key is sampled against the frame interrupt), and not claimed either way.
 
 **Not measured**: hardware fidelity (MAME is an emulator, not a console: where this machine agrees with it, both may differ from a real ColecoVision;
-nothing was measured on one), CPU fidelity against an independent corpus of instruction vectors, gameplay validation, physical latency. The
+nothing was measured on one), CPU fidelity beyond the independent vectors (they pass: 51,328 of 51,328 through this machine's own generator build with one wait state per M1 cycle, `tools/banked_vector_selftest.py --machine coleco`, 22 November 2026; an emulator's vectors on a flat test bus, not hardware captures), gameplay validation, physical latency. The
 qualification gates ([QUALIFICATION.md](QUALIFICATION.md)) are `?` for this machine until a panel has been converted and read.
