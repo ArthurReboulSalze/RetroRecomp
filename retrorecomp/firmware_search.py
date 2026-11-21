@@ -272,7 +272,8 @@ RECOGNISERS = {
                                  near='msx2plus_bios'),
     'zxs_rom48': Recogniser(CHECKS['zxs'], 'zxs_roms.own_rom: the SHA-256 of the 48K ROM'),
     'zxs_rom128': Recogniser(CHECKS['zxs'], 'zxs_roms.own_rom: the SHA-256 of the 128K pair, or its editor ROM with the BASIC ROM beside it'),
-    'cpc_system': Recogniser(CHECKS['cpc'], 'cpc_firmware.identify: SHA-1 of the system ROMs (MAME 0.289)'),
+    'cpc_system': Recogniser(CHECKS['cpc'], 'cpc_firmware.identify: SHA-1 of the system ROMs (MAME 0.289), one 32 KiB file or the '
+                                            '16 KiB OS half with the BASIC half beside it'),
     'cpc_amsdos': Recogniser(CHECKS['cpc'], 'cpc_firmware.identify: SHA-1 of the AMSDOS ROM (MAME 0.289)'),
 }
 

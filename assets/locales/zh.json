@@ -618,7 +618,7 @@
     "msx2plus_kanji_label": "MSX2+：你自己的日文字体 ROM（128 或 256 KiB，可选）",
     "options_cpc": "Amstrad CPC",
     "options_cpc_note": "Amstrad CPC 配置（开发中）：CPC 6128 的磁盘游戏（.dsk，或含 .dsk 的 ZIP）。尚未转换。需要你自己的系统 ROM（32 KiB，CPC 6128 或 664）和你自己的 AMSDOS ROM（16 KiB）。",
-    "cpc_system_label": "Amstrad CPC：你自己的系统 ROM（32 KiB）",
+    "cpc_system_label": "Amstrad CPC：你自己的系统 ROM（32 KiB / 16 KiB 的 OS + BASIC）",
     "cpc_amsdos_label": "Amstrad CPC：你自己的 AMSDOS ROM（16 KiB，磁盘）",
     "options_n64": "Nintendo 64",
     "options_n64_note": "Nintendo 64 配置：卡带镜像（.z64、.v64、.n64，任意字节序），在带 ParaLLEl RDP 图形引擎的 Mupen64Plus-Next 上运行（需要支持 Vulkan 1.1 的显卡；集成显卡未经验证）。转换过程中看到运行的代码会成为带保护的原生代码段；其他部分在核心的解释器上运行并计数。不支持 64DD 和传输包。支持摇杆、摇动、F3 图形页面和 F8/F9。首次转换会下载固定版本的机器源代码。",

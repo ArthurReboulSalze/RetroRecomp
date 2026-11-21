@@ -63,7 +63,10 @@ measure of one.
 
 No free CPC firmware exists. The player gives his own: the 32 KiB system ROM (the OS and Locomotive BASIC) of a CPC 6128 (English,
 French or Spanish) or 664, and the 16 KiB AMSDOS ROM, chosen in Options or found by « Find firmware in a folder ». They are
-recognised by the SHA-1 MAME 0.289 lists for them and are never shipped. Locomotive BASIC is not covered by Amstrad's 1999
+recognised by the SHA-1 MAME 0.289 lists for them and are never shipped. The system ROM may also be its two 16 KiB halves in
+one folder, the OS and BASIC files of Clock Signal and most CPC emulators (`os6128.rom` and `basic6128.rom`, `os664.rom` and
+`basic664.rom`, `amsdos.rom` beside them): the OS half is chosen, and is recognised when it and a 16 KiB neighbour together are
+a system ROM of that list, whatever their names. Locomotive BASIC is not covered by Amstrad's 1999
 permission for emulators, so the converter does not fetch these files.
 
 ## 4. The five measures
