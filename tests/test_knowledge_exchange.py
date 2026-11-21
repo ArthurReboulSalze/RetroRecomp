@@ -429,6 +429,18 @@ class DiscoveryPathTests(unittest.TestCase):
             again = knowledge_exchange.discovery_paths(self.document(md([0x400])))
         self.assertEqual(again[('md', 'a' * 64)]['hints'], game['hints'])
 
+    def test_a_single_number_entry_becomes_a_key(self):
+        # A Game Boy Advance root is one number, not a tuple: 1.9.0 raised « 'int' object is not iterable » here and
+        # held every automatic send of a player with new GBA roots.
+        document = {'knowledge': {'schema': 1, 'consoles': {'gba': {'b' * 64: {}}}}, 'observations': {}}
+        with patch('retrorecomp.knowledge_exchange._bundled', return_value={}),                 patch('retrorecomp.knowledge_exchange._entries',
+                      return_value={('gba_root', 330549), ('gba_span', (4, 8))}):
+            paths = knowledge_exchange.discovery_paths(document)
+        hints = paths[('gba', 'b' * 64)]['hints']
+        self.assertEqual(len(hints), 2)
+        self.assertIn(knowledge_exchange._path_key(['gba_root', 330549]), hints)
+        self.assertIn(knowledge_exchange._path_key(['gba_span', [4, 8]]), hints)
+
     def test_a_new_game_cannot_flood_the_board(self):
         with patch('retrorecomp.knowledge_exchange._bundled', return_value={}):
             paths = knowledge_exchange.discovery_paths(self.document(md(range(0x200, 0x200 + 2 * 5000, 2))))

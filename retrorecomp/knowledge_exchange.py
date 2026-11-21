@@ -773,7 +773,10 @@ def discovery_paths(document: dict) -> dict:
         for identity, record in records.items():
             bundled = _bundled(system, identity)
             known = _entries(system, bundled) if bundled and _same_rom(system, bundled, record) else set()
-            keys = sorted({_path_key([name, list(entry)]) for name, entry in _entries(system, record) - known})
+            # An entry is a tuple of numbers on most machines, a single number on some (a Game Boy Advance root):
+            # 1.9.0 raised « 'int' object is not iterable » here and held every automatic send.
+            keys = sorted({_path_key([name, list(entry) if isinstance(entry, (tuple, list)) else entry])
+                           for name, entry in _entries(system, record) - known})
             games[(system, identity)] = {'known': bool(bundled), 'hints': keys[:PATH_LIMIT], 'observations': []}
     for system, rows_by_game in document['observations'].items():
         for identity, rows in rows_by_game.items():
