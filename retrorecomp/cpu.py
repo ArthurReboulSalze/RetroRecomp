@@ -212,7 +212,7 @@ static void rr_apply_costs(z80* const z, unsigned long start, bool halted, unsig
     else if ((op & 0xE7) == 0x20) { plain = 7 + prefix; extra = %(jr)d; }
     else if ((op & 0xC7) == 0xC0) { plain = 5 + prefix; extra = %(ret)d; }
     else if ((op & 0xC7) == 0xC4) { plain = 10 + prefix; extra = %(call)d; }
-  } else if (group == 4 && (op & 0xF4) == 0xB0) { plain = 16; extra = %(repeat)d; }
+  } else if (group == 4 && (op & 0xF4) == 0xB0) { plain = 16; extra = %(repeat)s; }
   bool taken = plain && own > plain;
   unsigned base = rr_cost_table[group][op] ? rr_cost_table[group][op] : (unsigned)(taken ? plain : own);
   z->cyc = start + base + (taken ? extra : 0);
@@ -234,7 +234,8 @@ def _reference_costs(source: str, costs) -> str:
                      f'    z->pc++; z->cyc += {costs.fragment}; inc_r(z); op = next;')
     function = _REFERENCE_COST_FUNCTION % dict(table=costs.c_table('rr_cost_table'), halt=costs.halt, djnz=costs.djnz_taken,
                                                jr=costs.jr_taken, ret=costs.ret_taken, call=costs.call_taken,
-                                               repeat=costs.repeat)
+                                               repeat=str(costs.repeat) if costs.compare_repeat == costs.repeat else
+                                               f'(op & 3) == 1 ? {costs.compare_repeat} : {costs.repeat}')
     source = replace(source, 'void z80_step(z80* const z) {\n', function + '\nvoid z80_step(z80* const z) {\n')
     # The group of the instruction (z80_chain.COST_GROUPS order) from what the step decoded, and its cost once it has run.
     source = replace(source, '  if (z->halted) exec_opcode(z, 0); else exec_opcode(z, nextb(z));\n',

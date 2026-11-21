@@ -359,7 +359,8 @@ A machine whose bus stretches the Z80's own T-states (the Amstrad CPC, whose gat
 microsecond, so that every instruction takes whole microseconds) needs its own count of each instruction on both sides of the
 chain. `Z80Machine` (`retrorecomp/z80_chain.py`) gets a field `costs`, a `Z80Costs` or None (the default): a table of base
 counts per encoding (no prefix, CB, DD, FD, ED, DD CB, FD CB), the extras of a taken JR cc, DJNZ, RET cc and CALL cc and of a
-block instruction going round again, the acceptances of /INT (modes 0 and 1, mode 2) and /NMI, one HALT cycle and a redundant
+block instruction going round again (and, apart, of a repeating CPIR or CPDR: `repeat_compare`, the CPC's 8 T against 4 T for the
+others; by default the same), the acceptances of /INT (modes 0 and 1, mode 2) and /NMI, one HALT cycle and a redundant
 prefix. The emitter writes the table and a lookup in place of the Z80's own count, the step loop takes the HALT cycle and the
 acceptances from it, and `cpu.prepare_reference(costs=...)` gives the reference CPU of the counted fallback the same table: it
 applies the cost after each instruction, before the interrupts, telling a taken branch from its untaken form by the Z80's own

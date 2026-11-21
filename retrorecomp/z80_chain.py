@@ -123,7 +123,8 @@ class Z80Costs:
     `base` replaces the Z80's own count of some encodings: (group of COST_GROUPS, opcode, T-states). A conditional branch keeps
     its base when it is not taken and adds its `*_taken` extra when it is (JR cc and DJNZ, RET cc, CALL cc; JP cc has none,
     and the same with a DD or FD prefix before them); a repeating block instruction (LDIR, CPIR, INIR, OTIR and their
-    decrementing forms) adds `repeat` each time it goes round again. `irq` and `irq_im2` are the acceptance of /INT (modes 0 and
+    decrementing forms) adds `repeat` each time it goes round again, CPIR and CPDR `repeat_compare` (the CPC counts 8 T there and 4 T
+    for the others; None: the same as `repeat`). `irq` and `irq_im2` are the acceptance of /INT (modes 0 and
     1, mode 2), `nmi` the acceptance of /NMI, `halt` one cycle of a HALT, `fragment` a redundant DD or FD prefix. The emitter
     (`emitter_source`), the step loop (`runtime_source`) and the reference CPU of the counted fallback
     (`cpu.prepare_reference(costs=...)`) all read the same values; tools/z80_costs_selftest.py checks that they agree."""
@@ -133,6 +134,7 @@ class Z80Costs:
     ret_taken: int = 6
     call_taken: int = 7
     repeat: int = 5
+    repeat_compare: int | None = None
     irq: int = 13
     irq_im2: int = 19
     nmi: int = 11
@@ -156,9 +158,16 @@ class Z80Costs:
             value = getattr(self, name)
             if not (isinstance(value, int) and 0 <= value <= 255):
                 raise ValueError(f'Z80 costs: {name} is 0 to 255 T-states.')
+        if self.repeat_compare is not None and not (isinstance(self.repeat_compare, int) and 0 <= self.repeat_compare <= 255):
+            raise ValueError('Z80 costs: repeat_compare is None or 0 to 255 T-states.')
         # Mode 0 runs the RST 38h the floating bus gives: the reference CPU adds the RST's own 11 T-states to the acceptance.
         if not (isinstance(self.irq, int) and 11 <= self.irq <= 255):
             raise ValueError('Z80 costs: irq is 11 to 255 T-states (mode 0 runs RST 38h, 11 of them).')
+
+    @property
+    def compare_repeat(self) -> int:
+        """What a repeating CPIR or CPDR adds each time it goes round again."""
+        return self.repeat if self.repeat_compare is None else self.repeat_compare
 
     @property
     def table(self) -> list[list[int]]:
@@ -265,7 +274,11 @@ def _emitter_cost_lines(costs: Z80Costs) -> tuple[str, ...]:
         f'            fprintf(o, "    s->b = (uint8_t)(s->b - 1);\\n    if (s->b) {{ s->cyc += {costs.djnz_taken}; s->pc = %s; s->wz = s->pc; }}\\n", target);\n',
         f'            fprintf(o, "    if (%s) {{ s->cyc += {costs.jr_taken}; s->pc = %s; s->wz = s->pc; }}\\n", cond((in->opcode >> 3) & 3), target);\n',
         f'        fprintf(o, "    s->wz = %s; if (%s) {{ s->cyc += {costs.call_taken}; s->sp = (uint16_t)(s->sp - 2); sms_write16(s->sp, s->pc); s->pc = %s; }}\\n", target, cond((in->opcode >> 3) & 7), target);\n',
-        f'        fprintf(o, "    if (%s) {{ s->cyc += {costs.repeat}; s->pc = (uint16_t)(s->pc - 2);", more);\n',
+        # A repeating CPIR or CPDR (opcode & 3 == 1) adds its own count when the machine gives it one.
+        (f'        fprintf(o, "    if (%s) {{ s->cyc += {costs.repeat}; s->pc = (uint16_t)(s->pc - 2);", more);\n'
+         if costs.compare_repeat == costs.repeat else
+         f'        fprintf(o, "    if (%s) {{ s->cyc += %d; s->pc = (uint16_t)(s->pc - 2);", more, '
+         f'(in->opcode & 3) == 1 ? {costs.compare_repeat} : {costs.repeat});\n'),
     )
 
 

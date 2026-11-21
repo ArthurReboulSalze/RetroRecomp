@@ -4,8 +4,8 @@ The emitter writes a body for every encoding of the Z80 (native/z80_costs_emit.c
 converter patches it for one machine), and native/z80_costs_checks.c runs each body against the reference CPU of the counted
 fallback (cpu.prepare_reference) from the same states, comparing the T-states and the PC. Three runs, never a game:
 
-1. an authored table (a third of the encodings of every group given counts of their own, every taken-branch extra, the repeat,
-   the fragment changed), on both sides: every encoding must agree;
+1. an authored table (a third of the encodings of every group given counts of their own, every taken-branch extra, the repeat
+   and the CPIR/CPDR repeat apart, the fragment changed), on both sides: every encoding must agree;
 2. the same bodies against a reference copied without the table: they must disagree (a positive control);
 3. the Z80's own counts on both sides: every encoding must agree (the check itself is sound without any table).
 
@@ -27,7 +27,7 @@ def authored():
     from retrorecomp.z80_chain import COST_GROUPS, Z80Costs
     base = tuple((group, opcode, 4 + (index * 256 + opcode) * 7 % 37)
                  for index, group in enumerate(COST_GROUPS) for opcode in range(256) if (index * 256 + opcode) % 3 == 0)
-    return Z80Costs(base=base, jr_taken=3, djnz_taken=6, ret_taken=9, call_taken=2, repeat=8, irq=15, irq_im2=22, nmi=12,
+    return Z80Costs(base=base, jr_taken=3, djnz_taken=6, ret_taken=9, call_taken=2, repeat=8, repeat_compare=3, irq=15, irq_im2=22, nmi=12,
                     halt=6, fragment=5)
 
 

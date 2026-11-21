@@ -361,6 +361,28 @@ class Z80ChainTests(unittest.TestCase):
             self.skipTest('no C compiler')
         self.assertEqual(module.main(), 0)
 
+    def test_a_repeating_cpir_can_cost_its_own_count(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        from retrorecomp.z80_chain import Z80Costs
+        same = Z80Costs(repeat=4, repeat_compare=4)
+        plain = Z80Costs(repeat=4)
+        apart = Z80Costs(repeat=4, repeat_compare=8)
+        machine = lambda costs: Z80Machine('c', MAPPED.regions, irq_sample='instruction_end', costs=costs)
+        # The same count given twice is the text of one: every existing table keeps its bytes.
+        self.assertEqual(z80_chain.emitter_source(machine(same), EMITTER), z80_chain.emitter_source(machine(plain), EMITTER))
+        self.assertEqual(z80_chain.emitter_source(machine(apart), EMITTER).count('more, (in->opcode & 3) == 1 ? 8 : 4);'), 1)
+        texts = {}
+        for name, costs in (('same', same), ('plain', plain), ('apart', apart)):
+            with tempfile.TemporaryDirectory() as folder:
+                prepare_reference(Path(folder), ENGINE, costs=costs)
+                texts[name] = (Path(folder) / 'runtime_reference.c').read_text(encoding='utf-8')
+        self.assertEqual(texts['same'], texts['plain'])
+        self.assertIn('plain = 16; extra = (op & 3) == 1 ? 8 : 4; }', texts['apart'])
+        self.assertIn('plain = 16; extra = 4; }', texts['plain'])
+        with self.assertRaises(ValueError):
+            Z80Costs(repeat_compare=256)
+
 
 if __name__ == '__main__':
     unittest.main()
