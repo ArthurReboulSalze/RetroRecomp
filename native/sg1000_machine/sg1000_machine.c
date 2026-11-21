@@ -146,7 +146,7 @@ int sg_dump_frame(const SgMachine *m, FILE *out)
 /* The fields of the machine's state a report compares, as JSON members (a comma and a space after each). */
 void sg_print_state(const SgMachine *m, FILE *out)
 {
-    fprintf(out, "\"frame_trace\": %u, \"psg\": [%u, %u, %u, %u, %u, %u, %u, %u], \"audio_ticks\": %llu, ", m->frame_trace,
+    fprintf(out, "\"frame_trace\": %u, \"psg\": [%u, %u, %u, %u, %u, %u, %u, %u], \"audio_dropped\": %llu, ", m->frame_trace,
             m->psg.tone[0], m->psg.tone[1], m->psg.tone[2], m->psg.noise, m->psg.volume[0], m->psg.volume[1], m->psg.volume[2],
-            m->psg.volume[3], (unsigned long long)m->psg.ticks);
+            m->psg.volume[3], (unsigned long long)m->psg.box.dropped);
 }

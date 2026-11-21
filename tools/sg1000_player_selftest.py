@@ -69,7 +69,7 @@ MACHINE_FILES = (*MACHINE_SOURCES, 'sg1000_machine.h', 'sg1000_glue.inc', 'sg100
                  'sg1000_native_main.c', 'sg1000_reference_main.c', 'sg1000_player.c')
 SHARED_MODULES = (('tms9918', ('tms9918.c',), ('tms9918.h', 'tms_tiles.inc')), ('sn76489', ('sn76489.c',), ('sn76489.h',)))
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)
-CHAIN_FILES = ('z80_chain_glue.inc',)
+CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h')
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',

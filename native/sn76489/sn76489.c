@@ -7,7 +7,7 @@
  *   register resets the register to 4000h;
  * - the attenuation is 2 dB a step, 15 is off.
  * The levels below and the mix (the four channels added at equal weight, headroom left) are our choice and not validated against the chip.
- * Output: box-filtered to SN_AUDIO_RATE, mono. */
+ * Output: the shared box filter (native/audio_box.h) at SN_AUDIO_RATE, mono, each tick's level weighted by its 16 cycles. */
 #include "sn76489.h"
 
 #include <string.h>
@@ -16,7 +16,6 @@
 static const int level[16] = { 6553, 5206, 4135, 3285, 2609, 2073, 1646, 1308, 1039, 825, 655, 520, 413, 328, 260, 0 };
 
 enum { TICK = 16 };
-#define SAMPLE_STEP ((uint64_t)SN_CPU_CLOCK * 65536u / SN_AUDIO_RATE)
 
 void sn76489_reset(Sn76489 *s, uint64_t cycle)
 {
@@ -25,7 +24,7 @@ void sn76489_reset(Sn76489 *s, uint64_t cycle)
         s->volume[i] = 15;
     s->lfsr = 0x4000;
     s->time = cycle;
-    s->next_sample = (cycle << 16) + SAMPLE_STEP;
+    audio_box_init(&s->box, 1, SN_CPU_CLOCK, SN_AUDIO_RATE, s->samples, SN_AUDIO_BUFFER, cycle);
 }
 
 static unsigned tone_period(const Sn76489 *s, int channel)
@@ -103,22 +102,11 @@ void sn76489_run(Sn76489 *s, uint64_t cycle)
 {
     if (cycle <= s->time)
         return;
+    s->box.out = s->samples;                    /* the buffer is the chip's own: a copied or loaded chip points at its own */
     uint64_t now = s->time - s->tick_rest;      /* the end of the last tick */
     while (now + TICK <= cycle) {
         now += TICK;
-        int value = one_tick(s);
-        s->acc += value;
-        ++s->acc_ticks;
-        while ((now << 16) >= s->next_sample) {
-            s->next_sample += SAMPLE_STEP;
-            int sample = s->acc_ticks ? s->acc / (int32_t)s->acc_ticks : value;
-            s->acc = 0;
-            s->acc_ticks = 0;
-            if (s->sample_count < SN_AUDIO_BUFFER)
-                s->samples[s->sample_count++] = (int16_t)sample;
-            else
-                ++s->dropped;
-        }
+        audio_box_feed_mono(&s->box, one_tick(s), TICK);
     }
     s->tick_rest = (unsigned)(cycle - now);
     s->time = cycle;
@@ -126,9 +114,6 @@ void sn76489_run(Sn76489 *s, uint64_t cycle)
 
 unsigned sn76489_take(Sn76489 *s, int16_t *out, unsigned max)
 {
-    unsigned n = s->sample_count < max ? s->sample_count : max;
-    memcpy(out, s->samples, n * sizeof *out);
-    memmove(s->samples, s->samples + n, (s->sample_count - n) * sizeof *out);
-    s->sample_count -= n;
-    return n;
+    s->box.out = s->samples;
+    return audio_box_take(&s->box, out, max);
 }

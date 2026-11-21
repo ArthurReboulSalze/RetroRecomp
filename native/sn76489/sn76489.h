@@ -3,7 +3,8 @@
  *
  * The chip knows nothing of the machine: the machine writes a data byte (`sn76489_write`) after bringing the chip up to the CPU's
  * cycle (`sn76489_run`), and takes the finished samples (`sn76489_take`). The clock is the CPU's, 3,579,545 Hz; the chip advances in
- * ticks of 16 CPU cycles, and the stream is the same whatever the steps it is produced in. This is the TI chip: the noise register is
+ * ticks of 16 CPU cycles, each feeding its level to the shared box filter (native/audio_box.h), and the stream is the same whatever
+ * the steps it is produced in. This is the TI chip: the noise register is
  * 15 bits wide, white noise taps bits 0 and 1 (the Master System's, Game Gear's and Mega Drive's PSG is the Sega variant: 16 bits, taps
  * bits 0 and 3).
  *
@@ -16,6 +17,8 @@
 
 #include <stdint.h>
 
+#include "audio_box.h"
+
 enum { SN_CPU_CLOCK = 3579545, SN_AUDIO_RATE = 44100, SN_AUDIO_BUFFER = 8192 };
 
 typedef struct {
@@ -27,14 +30,9 @@ typedef struct {
     uint8_t out[4];
     uint16_t lfsr;
     uint64_t time;             /* the CPU cycle the chip is brought to */
-    unsigned tick_rest;        /* cycles of the tick in progress */
-    uint32_t ticks;
-    uint64_t next_sample;      /* in CPU cycles x 65536 */
-    int32_t acc;
-    uint32_t acc_ticks;
-    int16_t samples[SN_AUDIO_BUFFER];
-    unsigned sample_count;     /* samples waiting; the machine takes them with sn76489_take */
-    uint64_t dropped;          /* samples lost because the machine did not take them */
+    unsigned tick_rest;        /* cycles of the tick in progress: the box has the stream up to time - tick_rest */
+    AudioBox box;              /* the levels over cycles to samples at SN_AUDIO_RATE (mono); `box.count` waiting, `box.dropped` lost */
+    int16_t samples[SN_AUDIO_BUFFER];   /* the box's buffer */
 } Sn76489;
 
 void sn76489_reset(Sn76489 *s, uint64_t cycle);

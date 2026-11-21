@@ -270,9 +270,9 @@ NOT_INPUTS = (
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
-    # The box filter of the sound chips (levels over guest cycles to samples): no machine builds with it yet; it joins a group
-    # `shares:audio_box` with its first machine (the Amstrad CPC). tools/audio_box_selftest.py builds its checks, never in a game.
-    'native/audio_box.h', 'native/audio_box_checks.c',
+    # The box filter of the sound chips (levels over guest cycles to samples): its header is the group `shares:audio_box` (the SG-1000 is the
+    # first machine to build with it). tools/audio_box_selftest.py builds its checks, never in a game.
+    'native/audio_box_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
@@ -1197,6 +1197,10 @@ INPUTS = _resolve({
     # The TMS9918A video chip (native/tms9918): the state, the CPU's ports, the picture and the line the frame flag rises on, shared by
     # the machines that have it (the MSX family now, the SG-1000 and the ColecoVision next). Game role.
     # The SN76489A (native/sn76489): the TI sound chip of the SG-1000 and the ColecoVision, our own MIT module. Game role.
+    # The box filter of the sound chips (native/audio_box.h): header only, machine-neutral. Game role.
+    'shares:audio_box': (
+        'native/audio_box.h',
+    ),
     'shares:sn76489': (
         'native/sn76489/sn76489.c',
         'native/sn76489/sn76489.h',

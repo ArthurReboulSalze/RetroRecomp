@@ -136,7 +136,7 @@ static void sg_route_line(void)
         route_frame_min = 32767;
         route_frame_max = -32768;
         route_frame_due = 1;
-    } else if (machine.psg.sample_count >= SG_AUDIO_BUFFER / 2) {
+    } else if (machine.psg.box.count >= SG_AUDIO_BUFFER / 2) {
         route_take_audio();
     }
 }

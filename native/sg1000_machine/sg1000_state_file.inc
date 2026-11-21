@@ -82,21 +82,23 @@ static void sg_psg_state(RetroStateIO *io, Sn76489 *s)
     SGW(s->lfsr, 2, 0x7FFF);
     SGW(s->time, 8, UINT64_MAX);
     SGW(s->tick_rest, 4, 15);
-    SGW(s->ticks, 4, 0xFFFFFFFFu);
-    SGW(s->next_sample, 8, UINT64_MAX);
+    /* The box filter (native/audio_box.h): the stream's time and boundary, the level x cycles being built, the samples not yet taken. Its
+     * clock, rate, capacity and buffer are constants of the build. */
+    SGW(s->box.time, 8, UINT64_MAX);
+    SGW(s->box.next_sample, 8, UINT64_MAX);
     if (io->mode == RR_STATE_WRITE)
-        sg_state_signed(io, s->acc, 4);
+        sg_state_signed(io, (int32_t)s->box.acc[0], 4);
     else
-        s->acc = sg_state_signed(io, s->acc, 4);
-    SGW(s->acc_ticks, 4, 16);
-    SGW(s->sample_count, 4, SN_AUDIO_BUFFER);
-    for (unsigned i = 0; io->ok && i < s->sample_count; ++i) {
+        s->box.acc[0] = sg_state_signed(io, (int32_t)s->box.acc[0], 4);
+    SGW(s->box.acc_cycles, 8, 1u << 20);
+    SGW(s->box.count, 4, SN_AUDIO_BUFFER);
+    for (unsigned i = 0; io->ok && i < s->box.count; ++i) {
         if (io->mode == RR_STATE_WRITE)
             sg_state_signed(io, s->samples[i], 2);
         else
             s->samples[i] = (int16_t)sg_state_signed(io, s->samples[i], 2);
     }
-    SGW(s->dropped, 8, UINT64_MAX);
+    SGW(s->box.dropped, 4, 0xFFFFFFFFu);
 }
 
 /* What a decoded state must satisfy before it is applied. `cpu_cycles` is the decoded CPU's cycle counter. */
@@ -118,9 +120,11 @@ static int sg_state_consistent(const SgMachine *m, uint64_t cpu_cycles)
     const Sn76489 *s = &m->psg;
     if (s->time > m->cycles || m->cycles - s->time > SG_CYCLES_PER_LINE || s->tick_rest > s->time)
         return 0;
-    if (s->next_sample <= ((s->time - s->tick_rest) << 16) || s->next_sample > (s->time << 16) + ((uint64_t)SN_CPU_CLOCK * 65536u / SN_AUDIO_RATE))
+    if (s->box.time != s->time - s->tick_rest)
         return 0;
-    if (s->acc < 0 || (int64_t)s->acc > (int64_t)s->acc_ticks * 26212)
+    if (s->box.next_sample <= (s->box.time << 16) || s->box.next_sample > (s->box.time << 16) + s->box.step)
+        return 0;
+    if (s->box.acc[0] < 0 || s->box.acc[0] > (int64_t)s->box.acc_cycles * 26212)
         return 0;
     return 1;
 }
