@@ -119,7 +119,7 @@ retrorecomp/systems/amstrad_cpc.py native/cpc_machine/cpc_reference_main.c tools
 native/hostkit/adapters/rrhk_boot_keys.h native/hostkit/adapters/rrhk_cpc_keys.h retrorecomp/cpc_keys.py tests/test_cpc_keys.py
 retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
 native/cpc_machine/cpc_bus.h native/cpc_machine/cpc_crtc.c native/cpc_machine/cpc_crtc.h native/cpc_machine/cpc_gate_array.c native/cpc_machine/cpc_gate_array.h
-native/cpc_machine/cpc_ppi.c native/cpc_machine/cpc_ppi.h native/cpc_machine/cpc_machine.c native/cpc_machine/cpc_machine.h native/cpc_machine/cpc_glue.inc native/cpc_machine/cpc_hardware_checks.c tools/cpc_hardware_selftest.py
+native/cpc_machine/cpc_ppi.c native/cpc_machine/cpc_ppi.h native/cpc_machine/cpc_machine.c native/cpc_machine/cpc_machine.h native/cpc_machine/cpc_state.c native/cpc_machine/cpc_state.h native/cpc_machine/cpc_glue.inc native/cpc_machine/cpc_hardware_checks.c tools/cpc_hardware_selftest.py
 native/upd765/dsk_image.c native/upd765/dsk_image.h native/upd765/upd765.c native/upd765/upd765.h native/upd765/upd765_checks.c
 tools/upd765_selftest.py retrorecomp/cpc_timing.py tools/cpc_timing_table.py tests/test_cpc_timing.py tests/test_cpc_disk.py tests/test_cpc_hardware.py tests/test_cpc_profile.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md

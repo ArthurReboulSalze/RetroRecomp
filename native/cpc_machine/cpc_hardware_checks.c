@@ -8,6 +8,7 @@
 
 #include "cpc_bus.h"
 #include "cpc_machine.h"
+#include "cpc_state.h"
 #include "cpc_crtc.h"
 #include "cpc_gate_array.h"
 #include "cpc_ppi.h"
@@ -569,6 +570,59 @@ static void check_sound(void)
     expect("after reset the AY is silent", count == 4410 && silent);
 }
 
+/* The board's state: a save, a run, a load and the same run again give the same digests; a damaged state is refused and changes
+ * nothing; the frame count (the boot key sequence's clock) is in the digest. */
+static uint8_t state_a[CPC_RAM_BYTES + 4096], state_b[CPC_RAM_BYTES + 4096];
+
+static void run_frames(CpcMachine *m, unsigned frames)
+{
+    uint64_t until = m->frames + frames;
+    while (m->frames < until) {
+        cpc_advance(m, 52);
+        if (cpc_irq(m)) cpc_acknowledge(m);
+    }
+}
+
+static void check_state(void)
+{
+    cpc_insert_disk(&board, 0, NULL, 0, 0);                          /* no disk: the drives as the state will say */
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    ay_set(&board, 0, 113); ay_set(&board, 7, 0x3E); ay_set(&board, 8, 15);
+    cpc_out(&board, 0x7F00, 0xC1);
+    cpc_write(&board, 0xC000, 0x5A);
+    run_frames(&board, 3);
+    size_t size = cpc_state_save(&board, state_a, sizeof state_a);
+    uint64_t at_save = cpc_state_digest(&board);
+    expect("a state is written, its size the same as cpc_state_size", size > CPC_RAM_BYTES && size == cpc_state_size(&board));
+    run_frames(&board, 2);
+    uint64_t later = cpc_state_digest(&board);
+    uint64_t frames_later = board.frames, cycles_later = board.cycles;
+    expect("the machine moves on: another digest", later != at_save);
+    uint32_t generation = board.generation;
+    expect("the state loads", cpc_state_load(&board, state_a, size) == 1);
+    expect("loaded: the digest of the save, the map rebuilt (a new generation)", cpc_state_digest(&board) == at_save
+        && board.generation != generation && board.map.ram[3] == 7);
+    run_frames(&board, 2);
+    expect("and the same two frames after it give the same digest, frames and time", cpc_state_digest(&board) == later
+        && board.frames == frames_later && board.cycles == cycles_later);
+
+    uint64_t before = cpc_state_digest(&board);
+    memcpy(state_b, state_a, size);
+    expect("a state one byte short is refused", cpc_state_load(&board, state_b, size - 1) == 0 && cpc_state_digest(&board) == before);
+    state_b[0] ^= 1;
+    expect("a state with another magic is refused", cpc_state_load(&board, state_b, size) == 0 && cpc_state_digest(&board) == before);
+    memcpy(state_b, state_a, size);
+    state_b[4 + 1 + CPC_RAM_BYTES] = 9;                              /* the CRTC type, out of its range */
+    expect("a field out of its range is refused, the machine unchanged", cpc_state_load(&board, state_b, size) == 0
+        && cpc_state_digest(&board) == before);
+    board.frames += 1;
+    expect("the frame count is in the digest", cpc_state_digest(&board) != before);
+    board.frames -= 1;
+    expect("a state with no disk in drive A is refused once one is in", cpc_insert_disk(&board, 0, disk, sizeof disk, 0) == DSK_OK
+        && cpc_state_load(&board, state_a, size) == 0);
+    cpc_insert_disk(&board, 0, NULL, 0, 0);
+}
+
 static void check_boot_keys(void)
 {
     static uint8_t state[SDL_NUM_SCANCODES];
@@ -607,6 +661,7 @@ int main(void)
     check_machine();
     check_board_ay();
     check_sound();
+    check_state();
     check_crtc();
     check_gate_array();
     check_picture();

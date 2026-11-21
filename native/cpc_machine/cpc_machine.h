@@ -77,6 +77,8 @@ void cpc_advance(CpcMachine *m, uint64_t tstates);
 uint64_t cpc_next_event(const CpcMachine *m);
 /* Move up to `max` stereo samples (left, right) of the sound so far to `out`; how many. */
 uint32_t cpc_audio_take(CpcMachine *m, int16_t *out, uint32_t max);
+/* After a state was loaded: the memory map again from the Gate Array and the upper ROM, with a new generation. */
+void cpc_rebuild(CpcMachine *m);
 int cpc_irq(const CpcMachine *m);
 void cpc_acknowledge(CpcMachine *m);
 #endif

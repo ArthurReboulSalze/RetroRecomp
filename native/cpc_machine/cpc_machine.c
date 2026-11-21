@@ -205,6 +205,12 @@ uint64_t cpc_next_event(const CpcMachine *m)
     return m->cycles + (4u - m->phase);
 }
 
+void cpc_rebuild(CpcMachine *m)
+{
+    memset(&m->map, 0xFF, sizeof m->map);
+    remap(m);
+}
+
 int cpc_irq(const CpcMachine *m)
 {
     return m->ga.interrupt;

@@ -29,7 +29,7 @@ class CpcChipTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             result = _tool('cpc_hardware_selftest').run_checks(Path(folder))
         self.assertEqual(result['failed'], 0)
-        self.assertGreaterEqual(result['passed'], 105)
+        self.assertGreaterEqual(result['passed'], 115)
 
     def test_floppy_controller_and_disk_images(self):
         _need_toolchain(self)

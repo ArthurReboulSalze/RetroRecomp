@@ -856,6 +856,8 @@ INPUTS = _resolve({
         'native/cpc_machine/cpc_native_main.c',
         'native/cpc_machine/cpc_ppi.c',
         'native/cpc_machine/cpc_ppi.h',
+        'native/cpc_machine/cpc_state.c',
+        'native/cpc_machine/cpc_state.h',
         'native/upd765/dsk_image.c',
         'native/upd765/dsk_image.h',
         'native/upd765/upd765.c',
