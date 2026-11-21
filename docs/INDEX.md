@@ -5,7 +5,7 @@ Linux programs. It translates as much of each game as possible into native code,
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
 never hidden. Twenty machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
 Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the MSX2+, the Commodore Amiga, the Atari ST, the Game Boy Advance, the Nintendo 64, the Sony PlayStation and
-the Commodore Amiga 1200; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
+the Commodore Amiga 1200, and the PC Engine CD as an experimental machine; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
 
@@ -119,6 +119,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Sharp X68000** — [X68000.md](X68000.md) (supported since 1.6.9: floppy games, availability and licences).
 - **Capcom CPS-2** — [CPS2.md](CPS2.md) (supported since 1.7.0, experimental in 1.6.9: the standard boards, with the key file of your own romset and your own QSound DSP ROM).
 - **PC Engine / TurboGrafx-16** — [PC_ENGINE.md](PC_ENGINE.md) (HuCards, panel, shared paths, limits; open since 1.6.9, supported since 1.7.2).
+- **PC Engine CD / TurboGrafx-CD** — [PC_ENGINE_CD.md](PC_ENGINE_CD.md) (experimental, in development, developer installations only: discs as CHD, CUE/BIN or ISO with your own System Card; scope, the five measures, where stage 1 stands).
 - **Game Boy Advance** — [GAME_BOY_ADVANCE.md](GAME_BOY_ADVANCE.md) (supported since 1.7.6, experimental from 1.7.0: scope, BIOS, engine, the panels, the exit record, known gaps).
 - **Commodore Amiga** — [AMIGA.md](AMIGA.md) (supported since 1.7.5, open since 1.7.0: Amiga 500 WHDLoad installs, with your own Kickstart 1.x when one asks for it; scope, the five measures, licences); [section 7](AMIGA.md#7-the-amiga-1200-a1200) is the Amiga 1200 profile (supported since 1.7.8, experimental from 1.7.6: AGA WHDLoad installs, with your own Kickstart 3.1 when one asks for it; the exit record).
 - **Atari ST** — [ATARI_ST.md](ATARI_ST.md) (supported since 1.7.5, open since 1.7.1: ST, STF and Mega ST floppy games on Hatari; scope, the five measures, licences); [ATARI_ST_TRANSLATION.md](ATARI_ST_TRANSLATION.md) (a plan for translated 68000 code, not started).

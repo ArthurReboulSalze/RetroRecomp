@@ -176,13 +176,14 @@ def _write(path: Path, text: str) -> bool:
     return write_if_changed(path, text.encode('utf-8'))
 
 
-def state_config(card, title: str) -> str:
-    """Quick states load only into the same HuCard, the same engine revision and the same bridge sources."""
+def state_config(card, title: str, disc_files: tuple = ()) -> str:
+    """Quick states load only into the same HuCard, the same engine revision and the same bridge sources (the PC Engine CD adds its disc files and
+    its disc, `card` being then the disc's input: its `sha256` is the disc's digest)."""
     import hashlib
     from .core import ASSETS, executable_name
     from .pce_conversion import ENGINE_REV
     abi = hashlib.sha256(b'PCE-frame-state-v1:' + ENGINE_REV.encode())
-    for name in ('pce_machine.cpp', 'pce_machine.h', 'pce_main.c', *(native for native, _sha in PATCHED_ENGINE_FILES.values())):
+    for name in ('pce_machine.cpp', 'pce_machine.h', 'pce_main.c', *disc_files, *(native for native, _sha in PATCHED_ENGINE_FILES.values())):
         abi.update((ASSETS / 'native' / name).read_bytes())
     if os.name != 'nt':
         from .platforms import target_id
@@ -193,8 +194,9 @@ def state_config(card, title: str) -> str:
             f'#define RR16_STATE_NAME {json.dumps(stem)}\n')
 
 
-def game_cmake(module: Path | None, version: str) -> str:
-    """The game's CMake project: the pinned engine as a subproject, its module, the bridge, the kit, SDL2."""
+def game_cmake(module: Path | None, version: str, *, disc: bool = False, family: str = 'pce') -> str:
+    """The game's CMake project: the pinned engine as a subproject, its module, the bridge, the kit, SDL2. A PC Engine CD game (`disc`) also builds
+    libchdr as a static library and the disc provider and pack reader, and defines RR_PCE_DISC for the bridge and the entry."""
     from . import hostkit
     engine = checkout_path().as_posix()
     if module is None:
@@ -202,7 +204,12 @@ def game_cmake(module: Path | None, version: str) -> str:
     else:
         module_line = (f'pce_add_native_module(PCE_MODULE MODULE "{(module / "module.cpp").as_posix()}" '
                        f'MANIFEST "{(module / "module.json").as_posix()}")')
-    kit = ' '.join(hostkit.sources('pce'))
+    kit = ' '.join(hostkit.sources(family))
+    disc_sources = ' pcecd_disc.cpp pcecd_pack.c' if disc else ''
+    libchdr_lines = []
+    if disc:
+        from . import pcecd_build
+        libchdr_lines = pcecd_build.libchdr_cmake_lines()
     lines = [
         'cmake_minimum_required(VERSION 3.20)',
         'project(RetroPce LANGUAGES C CXX)',
@@ -216,6 +223,7 @@ def game_cmake(module: Path | None, version: str) -> str:
         'set(PCE_BUILD_DESKTOP OFF CACHE BOOL "" FORCE)',
         f'add_subdirectory("{engine}" engine EXCLUDE_FROM_ALL)',
         *engine_patch_lines(engine),
+        *libchdr_lines,
         module_line,
         # The engine's own target (named after a SHA-256, 75 characters) validates the manifest and lists the sources; it is
         # never built. Its object folder and library (166 characters under the build folder) passed Windows' 260-character
@@ -226,15 +234,15 @@ def game_cmake(module: Path | None, version: str) -> str:
         'set_target_properties(pce_module PROPERTIES CXX_EXTENSIONS OFF)',
         'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
         'find_package(SDL2 CONFIG REQUIRED)',
-        f'add_executable(game pce_main.c pce_machine.cpp pce_snapshot.cpp pce_backup.c cart_save.c {kit} console16_state.c retro_menu.c',
+        f'add_executable(game pce_main.c pce_machine.cpp pce_snapshot.cpp pce_backup.c cart_save.c {kit} console16_state.c retro_menu.c{disc_sources}',
         '  $<TARGET_OBJECTS:pce_module>)',
         'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")',
         'if(WIN32)', '  target_sources(game PRIVATE content.rc)',
         '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
         'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
         '  target_link_libraries(game PRIVATE m)', 'endif()',
-        'target_link_libraries(game PRIVATE pce-runtime SDL2::SDL2-static)',
-        f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED [[RR_RECOMP_VERSION="{version}"]])',
+        f'target_link_libraries(game PRIVATE pce-runtime {"chdr-static " if disc else ""}SDL2::SDL2-static)',
+        f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED{" RR_PCE_DISC=1" if disc else ""} [[RR_RECOMP_VERSION="{version}"]])',
         'if(MSVC)', '  target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)', 'endif()',
         'if(WIN32 AND NOT MSVC)',
         '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',

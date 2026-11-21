@@ -83,7 +83,7 @@ _X68_SDK = re.compile(r'[0-9a-f]{12}')
 _X68_GAME = re.compile(r'[0-9a-f]{16}')
 _MSX = re.compile(r'([0-9a-f]{12})-[0-9a-f]{8}')
 # Machines whose project is <machine>/<12 hex>[-...]: (folder, pattern).
-_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE),
+_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('pcecd', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE),
          ('zxs', _MSX),   # the ZX Spectrum (in development): laid out as the MSX's, on the same Z80 chain
          ('sg1000', _PCE))   # the SG-1000: <sha12>, no BIOS
 # Machines whose project sits below a shared base <machine>/<host>/<SDK12>/: how many folders the game takes there.
@@ -351,7 +351,7 @@ def _owner(path: Path, system: str) -> str | None:
 
 
 def _same_rom(system: str, key: str, sha256: str, path: Path, machine: str = '') -> bool:
-    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'psx', 'msx', 'scummvm'):
+    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'pcecd', 'psx', 'msx', 'scummvm'):
         return key == sha256[:12]
     if system in ('amiga', 'n64', 'atarist'):
         return key == sha256[:16]

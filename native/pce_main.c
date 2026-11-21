@@ -21,6 +21,9 @@
 #include "pce_machine.h"
 #include "pce_snapshot.h"
 #include "pce_backup.h"
+#ifdef RR_PCE_DISC
+#include "pcecd_pack.h"
+#endif
 #include "runtime_i18n.h"
 #include "runtime_feedback.h"
 
@@ -41,6 +44,9 @@ static FILE *trace_file, *pcm;
 static uint64_t pcm_hash = FNV_BASIS, image_hash = FNV_BASIS, samples, nonzero, energy;
 static unsigned peak, nonuniform_frames;
 static char fault[256];
+#ifdef RR_PCE_DISC
+static const char *disc_argument, *disc_sha256_argument;     /* the converter's runs read the disc in place; a game holds it (pcecd_pack.h) */
+#endif
 static uint64_t capture_identities, capture_dropped, capture_first_drop_frame;
 typedef struct { unsigned frame, pads[4]; } Input;
 static Input script[8192];
@@ -345,6 +351,10 @@ static int execute(int argc, char **argv)
         else if (i + 1 < argc && !strcmp(argv[i], "--code-capture")) code_capture_path = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture-limit")) capture_limit = (unsigned)atoi(argv[++i]);
         else if (i + 1 < argc && !strcmp(argv[i], "--script")) { if (!load_script(argv[++i])) return 2; }
+#ifdef RR_PCE_DISC
+        else if (i + 1 < argc && !strcmp(argv[i], "--disc")) disc_argument = argv[++i];
+        else if (i + 1 < argc && !strcmp(argv[i], "--disc-sha256")) disc_sha256_argument = argv[++i];
+#endif
         else return 2;
     }
     if (frames < 0 || frames > 1000000 || (headless && !frames) || (reference && native_only) || !capture_every) return 2;
@@ -352,12 +362,41 @@ static int execute(int argc, char **argv)
     if (SDL_Init(SDL_INIT_TIMER)) return 3;
     size_t size = 0;
     const uint8_t *rom = rr_resource(103, &size);
+#ifdef RR_PCE_DISC
+    /* The System Card is resource 103, the player's own; the disc is named on the command line (the converter's runs, read in place) or is held by this
+     * executable. A disc that is neither is no game. */
+    char own_path[4096], held_sha256[65] = {0};
+    uint64_t disc_offset = 0, disc_length = 0;
+    const char *disc_path = disc_argument, *disc_sha256 = disc_sha256_argument;
+    if (disc_argument) {
+        if (!disc_sha256 || strlen(disc_sha256) != 64) {
+            fprintf(stderr, "--disc needs --disc-sha256 with the 64 digits of its digest\n");
+            SDL_Quit();
+            return 2;
+        }
+    } else if (rr_pcecd_find_embedded(own_path, sizeof own_path, &disc_offset, &disc_length, held_sha256)) {
+        disc_path = own_path;
+        disc_sha256 = held_sha256;
+    } else {
+        fprintf(stderr, "no disc in this executable\n");
+        SDL_Quit();
+        return 3;
+    }
+    const PceDiscRecipe disc = {rom, size, disc_path, disc_offset, disc_length, disc_sha256, RR_PCE_SUPER_RAM, RR_PCE_REGION_JAPAN, RR_PCE_UNKNOWN_STATUS,
+                                RR_PCE_PAD_BUTTONS, RR_PCE_MULTITAP};
+    if (!rom || !size || !pce_machine_init_disc(&disc, fault, sizeof fault)) {
+        fprintf(stderr, "%s\n", fault[0] ? fault : "no System Card in this executable");
+        SDL_Quit();
+        return 3;
+    }
+#else
     if (!rom || !size || !pce_machine_init(rom, size, RR_PCE_COPIER_HEADER, RR_PCE_BIT_REVERSED, RR_PCE_BOARD,
                                            RR_PCE_PAD_BUTTONS, RR_PCE_MULTITAP, fault, sizeof fault)) {
         fprintf(stderr, "%s\n", fault[0] ? fault : "no HuCard in this executable");
         SDL_Quit();
         return 3;
     }
+#endif
     pce_machine_policy(reference ? PCE_POLICY_REFERENCE : native_only ? PCE_POLICY_NATIVE_ONLY : PCE_POLICY_HYBRID);
     /* The player's own record: in a window by default (F12 switches it), in a headless run only with RETRO_RECOMP_FEEDBACK=1. Standard boards only:
      * the Street Fighter II board never records, so its F12 line stays off and the report says so. */

@@ -79,7 +79,7 @@ LEFT_OUT = {
            'RETRO_RECOMP_LIBRARY_DIR itself; recipe mode is not established for it'),
     'cps1': _OWN_RECORD, 'cps2': _OWN_RECORD, 'x68': _OWN_RECORD, 'pce': _OWN_RECORD, 'msx': _OWN_RECORD,
     'msx2': _OWN_RECORD, 'msx2plus': _OWN_RECORD, 'amiga': _OWN_RECORD, 'a1200': _OWN_RECORD,
-    'atarist': _OWN_RECORD, 'gba': _OWN_RECORD, 'psx': _OWN_RECORD,
+    'atarist': _OWN_RECORD, 'gba': _OWN_RECORD, 'psx': _OWN_RECORD, 'pcecd': _OWN_RECORD,
     'n64': 'its conversion keeps its own files in the library folder of the game; recipe mode is not established for it',
     'sg1000': 'experimental, developer only: it converts cartridges but has no multiplayer session or path record, so recipe mode is not established for it',
     'scummvm': 'emulated: it translates no code and has no path to carry; recipe mode is not wired for it',

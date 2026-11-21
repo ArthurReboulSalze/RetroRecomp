@@ -736,11 +736,13 @@ class OptionsFromProfiles(unittest.TestCase):
                                                     'atarist': 42, 'n64': 14,
                                                     'scummvm': 123,      # 123: ScreenScraper's ScummVM platform
                                                     'psx': 57, 'msx': 113, 'msx2': 116, 'msx2plus': 117,
+                                                    'pcecd': 114,        # 114: ScreenScraper's PC Engine CD-Rom platform (read 21 Nov 2026)
                                                     'zxs': 76, 'sg1000': 109})
         self.assertEqual(cover_sources.TGDB_SYSTEMS, {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7, 'md': 18, 'snes': 6, 'ng': 24, 'x68': 4931,
                                                       'cps1': 23, 'cps2': 23, 'pce': 34, 'gba': 5, 'amiga': 4911, 'a1200': 4911,
                                                       'atarist': 4937, 'n64': 3, 'psx': 10,
                                                       'msx': 4929, 'msx2': 4929, 'msx2plus': 4929,   # TheGamesDB has one MSX platform for all three
+                                                      'pcecd': 4955,       # 4955: TheGamesDB's TurboGrafx CD (read 21 Nov 2026)
                                                       'zxs': 4913, 'sg1000': 4949})
         self.assertEqual(cover_sources.IGDB_SLUGS, {
             'sms': 'sms', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'genesis-slash-megadrive', 'snes': 'snes',

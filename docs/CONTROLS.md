@@ -139,6 +139,11 @@ and the two shoulder buttons). Most games pause on Run, so the first press of a 
 F6 autofire and the F2 pages work as on the other machines. The multitap takes five players on a real console; a converted
 game is built for two today and the fifth multitap player is never offered.
 
+### PC Engine CD
+
+The controls are the PC Engine's (same keys, same pad). The System Card waits for **Run** at its start screen before it starts the disc, and Run pauses in most games; a game that
+reads the six-button pad is built with two buttons today.
+
 ### Game Boy Advance
 
 One player, ten buttons. Arrows move; **D** is A, **S** is B, **E** is L, **R** is R, **Enter** is Start and **Shift** is Select. On a controller,

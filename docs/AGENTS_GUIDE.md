@@ -13,7 +13,7 @@ Retro-Recomp converts a player's own game dumps into standalone Windows or
 Linux executables, with as much native code as possible and a counted
 interpreter fallback for the rest. Twenty machines: Master System, Game Gear,
 Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the MSX2+, the Commodore Amiga, the Atari ST, the Game Boy Advance, the Nintendo 64, the Sony PlayStation and the
-Commodore Amiga 1200 (all supported), plus Adventure (ScummVM), a category of its own (supported, emulated, 0 % native; twenty-one profiles in the registry). Original code is MIT; some third-party engines
+Commodore Amiga 1200 (all supported), plus the PC Engine CD (experimental, since 21 November 2026), plus Adventure (ScummVM), a category of its own (supported, emulated, 0 % native; twenty-two profiles in the registry). Original code is MIT; some third-party engines
 keep other terms ([THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)).
 
 ## Map of the repository

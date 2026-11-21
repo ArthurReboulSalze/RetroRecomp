@@ -269,6 +269,7 @@ NOT_INPUTS = (
     'native/cps1_eeprom_checks.c', 'native/cps1_qsound_checks.c', 'native/cps1_persistence_checks.c',
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
+    'native/pcecd_disc_checks.cpp',                 # tools/pcecd_disc_selftest.py: the disc provider against two readers, never in a game
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # The box filter of the sound chips (levels over guest cycles to samples): its header is the group `shares:audio_box` (the SG-1000 is the
     # first machine to build with it). tools/audio_box_selftest.py builds its checks, never in a game.
@@ -574,7 +575,7 @@ INPUTS = _resolve({
     ),
     # The cartridge save file the machines with a battery or a backup unit share (the format of each is in its own *_battery.c /
     # pce_backup.c / msx_sram.c). Game role.
-    ('md', 'snes', 'pce', 'msx', 'msx2', 'msx2plus'): (
+    ('md', 'snes', 'pce', 'pcecd', 'msx', 'msx2', 'msx2plus'): (
         'native/cart_save.c',
         'native/cart_save.h',
     ),
@@ -1048,7 +1049,10 @@ INPUTS = _resolve({
         'retrorecomp.scummvm_build',
         'retrorecomp.scummvm_export',
     ),
-    ('pce',): (
+    # The machine of the PC Engine and of the PC Engine CD (docs/PC_ENGINE_CD.md): the bridge to the pinned engine, its snapshot, the
+    # backup memory, our copies of four engine files and the build module. One machine, two kinds of media: no second copy.
+    ('pce', 'pcecd'): (
+        'native/hostkit/adapters/rrhk_pce.c',
         'native/pce_backup.c',
         'native/pce_backup.h',
         'native/pce_engine/pcm.cpp',
@@ -1058,17 +1062,36 @@ INPUTS = _resolve({
         'native/pce_machine.cpp',
         'native/pce_machine.h',
         'native/pce_machine_internal.hpp',
-        'native/pce_main.c',
         'native/pce_snapshot.cpp',
         'native/pce_snapshot.h',
         'retrorecomp.pce_build',
+    ),
+    ('pce',): (
+        'native/pce_main.c',
         'retrorecomp.pce_conversion',
         'retrorecomp.pce_knowledge',
         'retrorecomp.pce_rom',
     ),
+    # The PC Engine CD (experimental, docs/PC_ENGINE_CD.md): its disc and System Card readers, the CHD reader, its input module and
+    # its report writer. The disc reader of the CUE and ISO containers is the PlayStation's (shared below).
+    ('pcecd',): (
+        'native/pcecd_disc.cpp',
+        'native/pcecd_disc.h',
+        'native/pcecd_pack.c',
+        'native/pcecd_pack.h',
+        'retrorecomp.pcecd',
+        'retrorecomp.pcecd_build',
+        'retrorecomp.pcecd_card',
+        'retrorecomp.pcecd_chd',
+        'retrorecomp.pcecd_conversion',
+        'retrorecomp.pcecd_disc',
+    ),
+    ('psx', 'pcecd'): (
+        'retrorecomp.psx_disc',
+    ),
     # The start chosen among variants played on the reference (route_start, lifted from pce_conversion on 12 November 2026):
     # the PC Engine and the MSX family call it.
-    ('pce', 'msx', 'msx2', 'msx2plus'): (
+    ('pce', 'pcecd', 'msx', 'msx2', 'msx2plus'): (
         'retrorecomp.route_start',
     ),
     # The MSX2+ alone (1.7.6): MSX-MUSIC, the YM2413 on emu2413 (vendored unmodified, MIT; its provenance in revision.json),
@@ -1103,7 +1126,6 @@ INPUTS = _resolve({
         'retrorecomp.psx_bios',
         'retrorecomp.psx_build',
         'retrorecomp.psx_conversion',
-        'retrorecomp.psx_disc',
         'retrorecomp.psx_native',
         'retrorecomp.psx_knowledge',
         'retrorecomp.psx_pack',
