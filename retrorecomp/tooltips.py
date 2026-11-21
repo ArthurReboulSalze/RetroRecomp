@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from .branding import COLORS
+from . import tk_later
 
 
 class Tooltip:
@@ -74,7 +75,7 @@ class Tooltip:
         if self.pinned:
             return                    # back over the widget of an open, clicked hint: it stays as it is
         self.hide()
-        self.timer = self.widget.after(450, self.show)
+        self.timer = tk_later.later(self.widget, 450, self.show)
         Tooltip.active.add(self)
 
     def show(self):
@@ -129,7 +130,7 @@ class Tooltip:
         self.pinned = False
         Tooltip.active.discard(self)
         if self.timer is not None:
-            self.widget.after_cancel(self.timer)
+            tk_later.cancel(self.widget, self.timer)
             self.timer = None
         if self.window is not None:
             self.window.destroy()

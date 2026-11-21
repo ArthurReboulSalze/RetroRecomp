@@ -76,7 +76,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'gui_estimates', 'time_estimates',
                                # The log panel's welcome and the developer's message to the players, read from the site at start.
                                'gui_welcome', 'announcement',
-                               'dropfiles', 'updater', 'linux_desktop', 'queue_state', 'tk_threads',
+                               'dropfiles', 'updater', 'linux_desktop', 'queue_state', 'tk_threads', 'tk_later',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
                                # The newest version an export is compatible with (the library only; reads the stamps).

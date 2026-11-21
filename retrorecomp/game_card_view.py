@@ -11,6 +11,7 @@ from PIL import Image, ImageTk
 from .branding import COLORS
 from .game_details import Cards
 from .systems import get_profile
+from . import tk_later
 
 
 class GameCardView(ttk.Frame):
@@ -41,7 +42,7 @@ class GameCardView(ttk.Frame):
         self.info.bind('<Leave>',lambda event:self.touch_info(False))
         for sequence in ('<MouseWheel>','<Button-4>','<Button-5>'):
             self.info.bind(sequence,lambda event:self.touch_info(),add='+')
-        self.after(2500,self.scroll_info)
+        tk_later.later(self,2500,self.scroll_info)
         footer=ttk.Frame(self)
         footer.grid(row=3,column=0,sticky='ew',pady=(6,0))
         self.message=tk.StringVar()
@@ -65,7 +66,7 @@ class GameCardView(ttk.Frame):
         self._cover_payload=None
         self._cover_image=None
         self._cover_render=None
-        self.after(80,self.drain)
+        tk_later.later(self,80,self.drain)
         self.localize()
         self.select(None)
 
@@ -82,7 +83,7 @@ class GameCardView(ttk.Frame):
             elif first > 0:
                 self.info.yview_moveto(0)
                 self.info_touched = time.monotonic()
-        self.after(2500,self.scroll_info)
+        tk_later.later(self,2500,self.scroll_info)
 
     def localize(self):
         self.choose.configure(text=self.tr('card_choose_cover'))
@@ -278,4 +279,4 @@ class GameCardView(ttk.Frame):
                     if busy and self.info_active and self.info_current is game:self.next_info()
                 self.controls()
         except queue.Empty:pass
-        self.after(100,self.drain)
+        tk_later.later(self,100,self.drain)

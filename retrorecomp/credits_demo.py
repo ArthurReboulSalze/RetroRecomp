@@ -18,6 +18,7 @@ from .credits_music import MusicSession
 from .dialogs import center_dialog, fit_size
 from .ui_fonts import scaled
 from .paths import ASSETS, APP_NAME
+from . import tk_later
 
 BG = '#141414'
 GOLD = COLORS['gold']
@@ -687,7 +688,7 @@ class CreditsDemo:
                 self.session.set_effects(stage)
         else:
             self.governor.reset(now)  # hidden windows are not drawn, so not measured
-        self.timer = self.panel.after(33,self._frame)
+        self.timer = tk_later.later(self.panel,33,self._frame)
 
     def _destroyed(self, event):
         if event.widget is self.panel: self._cleanup()
@@ -696,7 +697,7 @@ class CreditsDemo:
         if self.closed: return
         self.closed = True
         if self.timer:
-            self.panel.after_cancel(self.timer)
+            tk_later.cancel(self.panel,self.timer)
             self.timer = None
         self._timer_resolution(False)
         self.player.close()

@@ -15,6 +15,7 @@ from .dialogs import center_dialog
 from .ui_fonts import scaled
 from .gui_options import FIRMWARE_ROWS
 from .paths import APP_NAME
+from . import tk_later
 
 ROLE_CHARACTERS = 160     # a folder of many images is described by its first ones
 
@@ -84,7 +85,7 @@ class FirmwareSearchMixin:
                 return
             if state['result'] is None:
                 progress.set(self.tr('firmware_search_progress', files=state['files']))
-                window.after(100, poll)
+                tk_later.later(window, 100, poll)
                 return
             if cancel.is_set() or state['result'].cancelled:
                 close()
@@ -102,7 +103,7 @@ class FirmwareSearchMixin:
         center_dialog(window, self.app, scaled(window, 560), window.winfo_reqheight(), measured=True)
         window.deiconify()
         window.grab_set()
-        window.after(100, poll)
+        tk_later.later(window, 100, poll)
 
     def build_firmware_review(self, body, result, lines, missing, close):
         """The review inside `body`: one line per option found, its checkbox, its candidates, then Use and Cancel.

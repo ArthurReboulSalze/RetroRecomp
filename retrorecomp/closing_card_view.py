@@ -22,6 +22,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageTk
 from .branding import COLORS
 from .paths import APP_NAME
 from .rounded_ui import Look, S, draw_icon, rgb
+from . import tk_later
 
 BG = COLORS['background']
 CARD, DEEP = '#2b2b2b', COLORS['field']
@@ -335,15 +336,12 @@ class ClosingCard:
         if elapsed >= DURATION:
             self.done = True
             return
-        self.job = self.win.after(TICK_MS, self.tick)
+        self.job = tk_later.later(self.win, TICK_MS, self.tick)
 
     def stop(self):
         """Cancel the pending animation step (the card closes mid-animation)."""
         if self.job is not None:
-            try:
-                self.win.after_cancel(self.job)
-            except tk.TclError:
-                pass
+            tk_later.cancel(self.win, self.job)
             self.job = None
 
     # ---- showing ----

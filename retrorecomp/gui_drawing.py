@@ -7,6 +7,7 @@ import tkinter as tk
 
 from . import online
 from .branding import COLORS, make_icon, icon_paths, ICON_PATHS
+from . import tk_later
 
 
 HATCH_SPACING = 4
@@ -319,10 +320,10 @@ def start_sparkle(canvas):
         canvas._sparkle_job = None
         try:
             if canvas.winfo_exists() and sparkle_frame(canvas):
-                canvas._sparkle_job = canvas.after(SPARKLE_FRAME, tick)
+                canvas._sparkle_job = tk_later.later(canvas, SPARKLE_FRAME, tick)
         except tk.TclError:
             pass
-    canvas._sparkle_job = canvas.after(SPARKLE_FRAME, tick)
+    canvas._sparkle_job = tk_later.later(canvas, SPARKLE_FRAME, tick)
 
 
 # The site's pin: a small pixel trophy in its tier's colour.

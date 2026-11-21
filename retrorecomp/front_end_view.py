@@ -25,6 +25,7 @@ from .front_end import (DEFAULT_ASPECT, FOCUS_GROWTH, KEYBOARD, MAX_COLUMNS, MIN
                         keyboard_move, move, search, shelves, sort_games, step_columns, type_key)
 from .platforms import open_local
 from .systems import available_profiles
+from . import tk_later
 
 KEEP_THUMBNAILS = 360        # covers kept scaled in memory (about 40 MB at the default size)
 KEEP_PHOTOS = 160            # Tk pictures kept for the tiles drawn or just scrolled out
@@ -1536,7 +1537,7 @@ class FrontEndView(tk.Frame):
 
     def later(self, name, delay, callback):
         """`after`, remembered by name, so that destroying the view cancels what is still waiting."""
-        job = self.after(delay, callback)
+        job = tk_later.later(self, delay, callback)
         self.jobs[name] = job
         return job
 
@@ -1544,10 +1545,7 @@ class FrontEndView(tk.Frame):
         self.loader.close()
         self.close_controller()
         for job in getattr(self, 'jobs', {}).values():
-            try:
-                self.after_cancel(job)
-            except tk.TclError:
-                pass
+            tk_later.cancel(self, job)
         super().destroy()
 
 

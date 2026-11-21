@@ -19,6 +19,7 @@ from .paths import APP_NAME
 from .platforms import open_local, target_id
 from .systems import available_profiles, get_profile
 from .netplay.lobby_check import session_capable
+from . import tk_later
 PROFILES = available_profiles()
 import subprocess
 
@@ -117,7 +118,7 @@ class CompiledGamesView(ttk.Frame):
         from .game_card_view import GameCardView
         self.card = GameCardView(panes,owner)
         panes.add(self.card,weight=1)
-        self.after_idle(lambda:panes.sashpos(0,max(460,self.winfo_width()-340)))
+        tk_later.later(self,'idle',lambda:panes.sashpos(0,max(460,self.winfo_width()-340)))
         self.columns = ('favorite','title','system','level','version','hints','status')
         # The games someone already finished at the Thorough level (online.explored), once
         # asked, and when (time.monotonic()); asked again after online.SHOP_REFRESH.
@@ -162,11 +163,11 @@ class CompiledGamesView(ttk.Frame):
         self.detail_label.pack(anchor='w')
         self.localize()
         self.render()
-        self.after(80,self.drain)
+        tk_later.later(self,80,self.drain)
         self.played = None
-        self.after(1000,self.watch_played)
-        self.after_idle(self.relocate)
-        self.after_idle(self.start_controller)
+        tk_later.later(self,1000,self.watch_played)
+        tk_later.later(self,'idle',self.relocate)
+        tk_later.later(self,'idle',self.start_controller)
         self.bind('<Destroy>',self.close_controller,add=True)
 
     def start_controller(self):
@@ -177,7 +178,7 @@ class CompiledGamesView(ttk.Frame):
             # Mouse and keyboard remain available on hosts with no controller
             # backend. A packaged app supplies the small native SDL bridge.
             return
-        self.after(40,self.poll_controller)
+        tk_later.later(self,40,self.poll_controller)
 
     def close_controller(self,event=None):
         if event is not None and event.widget is not self:return
@@ -208,7 +209,7 @@ class CompiledGamesView(ttk.Frame):
                 self.table.selection_set(row)
                 self.table.focus(row)
                 self.table.see(row)
-        self.after(40,self.poll_controller)
+        tk_later.later(self,40,self.poll_controller)
 
     def quiet_refresh(self, games=None, every=0):
         """Re-read only rows whose files changed (see the application)."""
@@ -222,7 +223,7 @@ class CompiledGamesView(ttk.Frame):
         if self.played is not None and (process is None or process.poll() is not None):
             played, self.played = self.played, None
             self.quiet_refresh([played])
-        self.after(1000,self.watch_played)
+        tk_later.later(self,1000,self.watch_played)
 
     def relocate(self):
         if (self.inventory.relocation_pending and not self.relocation_attempted
@@ -250,8 +251,8 @@ class CompiledGamesView(ttk.Frame):
         self.render()
 
     def search_changed(self,*args):
-        if self.search_after: self.after_cancel(self.search_after)
-        self.search_after = self.after(160,self.render)
+        tk_later.cancel(self,self.search_after)
+        self.search_after = tk_later.later(self,160,self.render)
 
     def render(self):
         self.search_after = None
@@ -287,7 +288,7 @@ class CompiledGamesView(ttk.Frame):
                     stars(g.level),g.compatible or g.version or '—',g.hints,self.tr('game_'+g.status)),tags=('odd',g.status) if index%2 else (g.status,))
                 self.rows[row] = g
                 if g.key in selected:self.table.selection_add(row)
-            if start+60<len(games):self.after(1,lambda:insert(start+60))
+            if start+60<len(games):tk_later.later(self,1,lambda:insert(start+60))
         insert()
         self.status.set(self.tr('games_count',count=len(games)) if games else self.tr('compiled_empty'))
         if state==EXPLORE:
@@ -507,7 +508,7 @@ class CompiledGamesView(ttk.Frame):
                     if front_end is not None and getattr(self.owner,'front_end_visible',False):
                         front_end.library_refreshed()    # its ↻ (the same scan): the wall and its covers read again
         except queue.Empty:pass
-        self.after(100,self.drain)
+        tk_later.later(self,100,self.drain)
 
     def show_log(self, text):
         """Keep the latest converter lines, one screen line each."""

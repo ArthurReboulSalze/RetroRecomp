@@ -27,6 +27,7 @@ from . import __version__, announcement, online
 from .branding import COLORS
 from .gui_common import PLATFORMS
 from .i18n import tr
+from . import tk_later
 
 # Hand-drawn in the figlet style, six rows of equal width, ASCII only.
 WELCOME_LOGO = (
@@ -134,15 +135,12 @@ class WelcomeMixin:
             return False
 
     def _welcome_later(self, delay, step):
-        self.welcome['job'] = self.log.after(delay, step)
+        self.welcome['job'] = tk_later.later(self.log, delay, step)
 
     def _welcome_cancel(self):
         job, self.welcome['job'] = self.welcome['job'], None
         if job is not None:
-            try:
-                self.log.after_cancel(job)
-            except tk.TclError:
-                pass
+            tk_later.cancel(self.log, job)
 
     def _welcome_insert(self, index, text, *tags):
         self.log.configure(state='normal')

@@ -27,6 +27,7 @@ from .gui_drawing import (
     HATCH_SPACING, HEADER_HEIGHT, PIN_SIZE, PORTRAIT_SIZE, badges_width, draw_badges, draw_pin, draw_styled_text,
     badged_icon, header_theme, name_colours, _scaled_photo, _tint, _toolbar_styles,
 )
+from . import tk_later
 
 
 class WindowMixin:
@@ -127,10 +128,10 @@ class WindowMixin:
     def queue_background(self, canvas):
         pending = getattr(canvas, '_background_pending', None)
         if pending is not None:
-            canvas.after_cancel(pending)
+            tk_later.cancel(canvas, pending)
         # Tk lays out the nested controls on its idle pass. A short delay also
         # coalesces resize events before we measure the text bounds.
-        canvas._background_pending = canvas.after(20, lambda: self.paint_background(canvas))
+        canvas._background_pending = tk_later.later(canvas, 20, lambda: self.paint_background(canvas))
 
     def protected_square_areas(self, canvas):
         padding = 10
@@ -683,7 +684,7 @@ class WindowMixin:
             if not window.winfo_exists():return
             if index < len(rows):
                 rows[index].pack(fill='x', pady=(0, 6))
-                window.after(110, reveal, index + 1)
+                tk_later.later(window, 110, reveal, index + 1)
             else:
                 keys.pack(fill='x', pady=(12, 0))
                 players.pack(fill='x', pady=(10, 0))
