@@ -119,6 +119,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | [Win 3.83 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
 | [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %) · Linux 4.56 ms](docs/PERFORMANCE.md#the-figures) |
 | [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `██░░░` 43 % | not offered | not measured |
+| [SG-1000](docs/SG1000.md) | experimental (developer-only) | `░░░░░` 0 % | not offered | not measured |
 | [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `░░░░░` 3 % | not offered | not measured |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
 
@@ -148,7 +149,8 @@ Four machines are being studied, in this order: the **SG-1000**, the **Game Boy 
 profile once its study is approved, and no date is promised. The ZX Spectrum's study is approved: its experimental profile
 identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)). The **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card) is open as an
 experimental machine: nine discs convert, none is translated beyond what their routes ran, and the owner has not played them yet
-([status](docs/PC_ENGINE_CD.md)).
+([status](docs/PC_ENGINE_CD.md)). The **SG-1000** has also reached that first step, for developers only: its experimental profile converts cartridges for
+developers (no player is offered it yet, and no game has been played: [SG1000.md](docs/SG1000.md)).
 
 Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 

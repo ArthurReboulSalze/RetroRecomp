@@ -26,8 +26,8 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 
 | Upstream | Consoles | Pin | Full revision | Pinned in |
 |---|---|---|---|---|
-| [mstan/smsggrecomp](https://github.com/mstan/smsggrecomp) | sms, gg, msx, msx2, msx2plus, zxs | `224d5bb` | `224d5bb2c150a2c295033d35dec629ef9ee42940` | `core.ENGINE_REV` |
-| [mstan/z80-recomp-core](https://github.com/mstan/z80-recomp-core) (submodule) | sms, gg, md, msx, msx2, msx2plus, zxs | `0e6606a` | `0e6606a41245d54c5fd0c3dc322ef9d6890d3923` | submodule `external/z80-recomp-core` of smsggrecomp and segagenesisrecomp |
+| [mstan/smsggrecomp](https://github.com/mstan/smsggrecomp) | sms, gg, msx, msx2, msx2plus, zxs, sg1000 | `224d5bb` | `224d5bb2c150a2c295033d35dec629ef9ee42940` | `core.ENGINE_REV` |
+| [mstan/z80-recomp-core](https://github.com/mstan/z80-recomp-core) (submodule) | sms, gg, md, msx, msx2, msx2plus, zxs, sg1000 | `0e6606a` | `0e6606a41245d54c5fd0c3dc322ef9d6890d3923` | submodule `external/z80-recomp-core` of smsggrecomp and segagenesisrecomp |
 | [arcanite24/gb-recompiled](https://github.com/arcanite24/gb-recompiled) | gb | `9150f87` | `9150f87d82fa98abcb6ea22329170463f9702eb8` | `gameboy.ENGINE_REV` |
 | [mstan/nesrecomp](https://github.com/mstan/nesrecomp) | nes | `1b0c621` | `1b0c621a927db17afa9723bf456a89ad15809907` | `nes.ENGINE_REV` |
 | [mstan/segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | md, ng, cps1, cps2, x68, atarist | `00c60bc` | `00c60bc855a7998f92e5614585d52bca8fffcaf2` | `console16.REPOSITORIES['md']` |
@@ -58,7 +58,7 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [Kitware/CMake](https://github.com/Kitware/CMake) | all (Windows build) | `4.4.4` | `4.4.4` | `toolchain.CMAKE_VERSION` |
 | [ninja-build/ninja](https://github.com/ninja-build/ninja) | all (Windows build) | `1.13.2` | `1.13.2` | `toolchain.NINJA_VERSION` |
 | [upx/upx](https://github.com/upx/upx) | all | `5.3.0` | `5.3.0` | `packing.UPX_VERSION` |
-| [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | sms, gg, md, msx, msx2, msx2plus | `ebe1875` | `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7` | `tools/fetch_z80_vectors.REVISION` |
+| [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | sms, gg, md, msx, msx2, msx2plus, sg1000 | `ebe1875` | `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7` | `tools/fetch_z80_vectors.REVISION` |
 | [SingleStepTests/65816](https://github.com/SingleStepTests/65816) | snes | `307c63f` | `307c63f5673c8c6b861c52f71ddb89212a227480` | `tools/fetch_snes_vectors.REVISION_65816` |
 | [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700) | snes | `67d15f4` | `67d15f492b2740964abd4efd1229e0ec9c342228` | `tools/fetch_snes_vectors.REVISION_SPC700` |
 | [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) | gb | `f9c3021` | `f9c30210245dd691661db39f5ace022c465ecc2f` | `tools/fetch_sm83_vectors.REVISION` |

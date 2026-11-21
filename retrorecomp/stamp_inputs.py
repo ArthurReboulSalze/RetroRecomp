@@ -271,12 +271,12 @@ NOT_INPUTS = (
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/pcecd_disc_checks.cpp',                 # tools/pcecd_disc_selftest.py: the disc provider against two readers, never in a game
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
-    # The box filter of the sound chips (levels over guest cycles to samples): no machine builds with it yet; it joins a group
-    # `shares:audio_box` with its first machine (the Amstrad CPC). tools/audio_box_selftest.py builds its checks, never in a game.
-    'native/audio_box.h', 'native/audio_box_checks.c',
-    # The Z80 chain's CPU state and the quick-state file around the shared envelope: no machine builds with them yet; they join
-    # their first machine's groups (the Amstrad CPC). tools/z80_chain_state_selftest.py builds their checks, never in a game.
-    'native/z80_chain_state.inc', 'native/state_file.h', 'native/state_file_checks.c',
+    # The box filter of the sound chips (levels over guest cycles to samples): its header is the group `shares:audio_box` (the SG-1000 is the
+    # first machine to build with it). tools/audio_box_selftest.py builds its checks, never in a game.
+    'native/audio_box_checks.c',
+    # The Z80 chain's CPU state and the quick-state file around the shared envelope: their headers are the groups `shares:z80_chain_state` and
+    # `shares:state_file` (the SG-1000 is the first machine to build with them). tools/z80_chain_state_selftest.py builds their checks, never in a game.
+    'native/state_file_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
@@ -841,6 +841,24 @@ INPUTS = _resolve({
         'retrorecomp.zxs_roms',
         'retrorecomp.zxs_snapshot',
     ),
+    # The SG-1000 (experimental, developer only): its converter modules, the cartridge reader and the conversion, the machine (our own
+    # C), the glue of the banked Z80 chain, the player (stage 3: the game's main and its quick states) and the native and reference
+    # runners the conversion builds to compare. Its profile module and its host-kit adapter (host role: in HOST_NATIVE above) come
+    # from the profile; the Z80 chain, the TMS9918A, the SN76489A and the gates come from stamp_groups.
+    ('sg1000',): (
+        'native/sg1000_machine/sg1000_glue.inc',
+        'native/sg1000_machine/sg1000_headless.inc',
+        'native/sg1000_machine/sg1000_machine.c',
+        'native/sg1000_machine/sg1000_machine.h',
+        'native/sg1000_machine/sg1000_native_main.c',
+        'native/sg1000_machine/sg1000_player.c',
+        'native/sg1000_machine/sg1000_reference_main.c',
+        'retrorecomp.sg1000_build',
+        'native/sg1000_machine/sg1000_state_file.inc',
+        'retrorecomp.sg1000_conversion',
+        'retrorecomp.sg1000_rom',
+        'retrorecomp.sg1000_routes',
+    ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
     # the player, and its host-kit adapter (host role: in HOST_NATIVE above).
@@ -1203,6 +1221,22 @@ INPUTS = _resolve({
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).
     # The TMS9918A video chip (native/tms9918): the state, the CPU's ports, the picture and the line the frame flag rises on, shared by
     # the machines that have it (the MSX family now, the SG-1000 and the ColecoVision next). Game role.
+    # The SN76489A (native/sn76489): the TI sound chip of the SG-1000 and the ColecoVision, our own MIT module. Game role.
+    # The box filter of the sound chips (native/audio_box.h): header only, machine-neutral. Game role.
+    # The Z80 chain's CPU state record (native/z80_chain_state.inc) and the quick-state file helper (native/state_file.h). Game role.
+    'shares:z80_chain_state': (
+        'native/z80_chain_state.inc',
+    ),
+    'shares:state_file': (
+        'native/state_file.h',
+    ),
+    'shares:audio_box': (
+        'native/audio_box.h',
+    ),
+    'shares:sn76489': (
+        'native/sn76489/sn76489.c',
+        'native/sn76489/sn76489.h',
+    ),
     'shares:tms9918': (
         'native/tms9918/tms9918.c',
         'native/tms9918/tms9918.h',
