@@ -19,7 +19,7 @@ PUBLIC_FILES = tuple("""
 retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.py
 retrorecomp/systems/x68000.py docs/X68000.md
 retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
-retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
+retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md docs/GAME_BOY_COLOR.md
 retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
 tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
 retrorecomp/gba_knowledge.py retrorecomp/gba_link.py tests/test_gba_link.py tests/test_gba_knowledge.py tools/gba_bogus_rows_audit.py tests/test_gba_bogus_rows_audit.py
@@ -286,7 +286,7 @@ retrorecomp/peripherals.py
 retrorecomp/metadata.py tests/test_metadata.py
 retrorecomp/systems/__init__.py retrorecomp/systems/master_system.py
 retrorecomp/systems/registry.py retrorecomp/systems/specs.py tests/test_registration_surface.py
-retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py
+retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py retrorecomp/systems/game_boy_color.py
 retrorecomp/gameboy.py retrorecomp/gameboy_runtime.py
 retrorecomp/gameboy_build.py retrorecomp/gameboy_boundary.py tests/test_gameboy_build.py
 native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py

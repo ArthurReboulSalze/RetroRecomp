@@ -521,7 +521,8 @@ INPUTS = _resolve({
         'retrorecomp.toolchain',
         'retrorecomp.windows',
     ),
-    ('gb',): (
+    # The engine, the runtime parts and the tools of the two Game Boy machines (the Color is a variant of the same modules).
+    'shares:gameboy': (
         'native/gb_audio_checks.c',
         'native/gb_boundary_checks.c',
         'native/gb_digest.h',

@@ -274,7 +274,7 @@ SST_Z80 = Upstream(
 SST_SM83 = Upstream(
     'SingleStepTests/sm83', 'SingleStepTests/sm83', 'main', 'independent SM83 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_sm83_vectors.py into .deps, checked against a pinned digest; not shipped',
-    _py('tools/fetch_sm83_vectors.py', 'REVISION'), shared_by=('gb',))
+    _py('tools/fetch_sm83_vectors.py', 'REVISION'), shared_by=('gb', 'gbc'))
 SST_HUC6280 = Upstream(
     'SingleStepTests/huc6280', 'SingleStepTests/huc6280', 'main', 'independent HuC6280 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_huc6280_vectors.py into .deps, checked against a pinned digest; not shipped',
@@ -316,6 +316,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'sms': (SMSGGRECOMP, Z80_RECOMP_CORE),
     'gg': (SMSGGRECOMP, Z80_RECOMP_CORE),
     'gb': (GB_RECOMPILED,),
+    'gbc': (GB_RECOMPILED, SST_SM83),
     'nes': (NESRECOMP,),
     'md': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, Z80_RECOMP_CORE, RBENGINE),
     'snes': (SNESRECOMP,),
