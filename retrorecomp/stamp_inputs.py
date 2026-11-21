@@ -848,6 +848,7 @@ INPUTS = _resolve({
     # would make it a shared group). The game (cpc_player.c) is built by developers only so far: these move only the CPC's own
     # stamp.
     ('cpc',): (
+        'native/cpc_machine/cpc_boot_input.h',
         'native/cpc_machine/cpc_bus.h',
         'native/cpc_machine/cpc_crtc.c',
         'native/cpc_machine/cpc_crtc.h',

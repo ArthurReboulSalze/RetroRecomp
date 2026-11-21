@@ -23,9 +23,9 @@
 #define SMSRECOMP_BANKED_AOT 1
 #include <SDL.h>
 #include "cpc_glue.inc"
+#include "boot_keys.h"
 #include "cpc_headless.inc"
 #include "cpc_game.h"
-#include "boot_keys.h"
 #include "embedded_resources.h"
 #include "platform_io.h"
 
@@ -116,18 +116,6 @@ static void power_on(void)
     g_next_line_cyc = cpc_next_event(&machine);
 }
 
-/* Headless: the boot keys of the frame that just ended, as the adapter's input function writes them in the window (the
- * matrix is the sequence's keys alone while it owns the keyboard, nothing after it; no joystick). */
-static void headless_inputs(void)
-{
-    static uint8_t state[SDL_NUM_SCANCODES];
-    memset(machine.ppi.keys, 0, sizeof machine.ppi.keys);
-    machine.ppi.joystick[0] = machine.ppi.joystick[1] = 0;
-    if (!rrhk_boot_keys_frame(&rr_boot_keys, (uint32_t)machine.frames, state))
-        return;
-    for (unsigned i = 0; i < sizeof RRHK_CPC_KEYS / sizeof RRHK_CPC_KEYS[0]; ++i)
-        if (state[RRHK_CPC_KEYS[i].scancode]) cpc_ppi_key(&machine.ppi, RRHK_CPC_KEYS[i].cpc_key, 1);
-}
 
 /* --snap-probe AT:N (headless): the multiplayer snapshots checked in one process, as the MSX's probe does. At the end of frame AT a
  * snapshot is taken twice (the same bytes, within its bound), a load one byte short is refused with nothing changed; the next N
@@ -203,11 +191,9 @@ static void cpc_main_service(void)
             return;
         }
         const int frame_end = machine.frame_ready;
-        if (frame_end) {
-            headless_inputs();
+        headless_service();                      /* the frame's sound, row and next boot keys; the stop (it ends the process) */
+        if (frame_end)
             snap_probe_service();
-        }
-        headless_service();                      /* the frame's sound, the stop (it ends the process there) */
         if (frame_end && state_save_due && machine.frames >= state_save_at) {
             state_save_due = 0;
             if (cpc_quick_save(state_save_file) != RR_STATE_OK) exit(3);

@@ -33,7 +33,7 @@ blacklist = []
 # The machine's C sources, compiled into every program, and the files they include; the uPD765 and the DSK reader, from
 # native/upd765 (machine-neutral), staged with them.
 MACHINE_SOURCES = ('cpc_machine.c', 'cpc_crtc.c', 'cpc_gate_array.c', 'cpc_ppi.c', 'cpc_state.c')
-MACHINE_FILES = (*MACHINE_SOURCES, 'cpc_machine.h', 'cpc_bus.h', 'cpc_crtc.h', 'cpc_gate_array.h', 'cpc_ppi.h', 'cpc_state.h', 'cpc_glue.inc', 'cpc_headless.inc', 'cpc_state_file.inc')
+MACHINE_FILES = (*MACHINE_SOURCES, 'cpc_machine.h', 'cpc_bus.h', 'cpc_crtc.h', 'cpc_gate_array.h', 'cpc_ppi.h', 'cpc_state.h', 'cpc_glue.inc', 'cpc_headless.inc', 'cpc_state_file.inc', 'cpc_boot_input.h')
 DISK_SOURCES = ('upd765.c', 'dsk_image.c')
 DISK_FILES = (*DISK_SOURCES, 'upd765.h', 'dsk_image.h')
 CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h', 'state_io.h', 'z80_chain_state.inc', 'state_file.h')
@@ -52,6 +52,15 @@ KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runti
              'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
              'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_envelope.h', 'gamestate.h')
 ADAPTER_FILES = ('rrhk_computer.inc', 'rrhk_boot_keys.h', 'rrhk_cpc_keys.h')
+# The boot key sequence and the CPC's key table, staged flat too: the three headless programs type the start command
+# (cpc_boot_input.h), the native check and the reference runner as well as the game.
+BOOT_FILES = ('rrhk_boot_keys.h', 'rrhk_cpc_keys.h')
+# The report fields the conversion compares between the native check, the reference runner and the delivered game
+# (native/cpc_machine/cpc_headless.inc): the time, the CPU, the RAM, the picture, the sound, the chips, the watched bytes. The step
+# counts are each program's own.
+COMPARED = ('frames', 'cycles', 'interrupts', 'pc', 'sp', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'iff1', 'im', 'halted', 'cpu_hash',
+            'ram_fnv', 'picture_fnv', 'audio_fnv', 'audio_samples', 'mode', 'rom_config', 'ram_config', 'upper_rom', 'ay',
+            'fdc_commands', 'disk_written', 'watch')
 # The game's resources (native/cpc_machine/cpc_player.c): its disks, then the player's own system ROM and AMSDOS.
 RESOURCE_DISKS, RESOURCE_SYSTEM, RESOURCE_AMSDOS = 103, 104, 105
 # The layout of the CPC's quick states (native/cpc_machine/cpc_state_file.inc and cpc_state.c): raised whenever either writes
@@ -89,6 +98,9 @@ def stage_sources(work: Path, game: bool = False) -> None:
     z80_chain_build.stage_files(work, ((native / 'cpc_machine', (*MACHINE_FILES, *MAINS)), (native / 'upd765', DISK_FILES),
                                        (native, (*CHAIN_FILES, *(KIT_FILES if game else ()))),
                                        *((native / folder, (*sources, *files)) for folder, sources, files in SHARED_MODULES)))
+    z80_chain_build.stage_files(work, ((native / 'hostkit' / 'adapters', BOOT_FILES),))
+    if not (work / 'boot_keys.h').is_file():
+        write_boot_keys(work, '')                # no start command until a game gives one (the checks of authored programs)
     if game:
         from . import hostkit
         hostkit.stage(work, 'cpc')
@@ -135,6 +147,57 @@ def build(work: Path, targets: tuple[str, ...], emit: Callable[[str], None] = pr
     return z80_chain_build.build_project(work, targets, project_cmake(__version__, game), sdl=game, emit=emit)
 
 
+def build_reference(work: Path, emit: Callable[[str], None] = print) -> Path:
+    """The reference runner alone, before any body is generated."""
+    from .systems.amstrad_cpc import CPC_MACHINE
+    return z80_chain_build.build_reference_runner(work, CPC_MACHINE, accept=ACCEPT, stage=stage_sources, build=build,
+                                                  target='cpc_reference', emit=emit, error=CpcBuildError)
+
+
+def run(exe: Path, args: list[str], timeout: int = 1800) -> dict:
+    """One headless run of the check or the reference runner (the firmware and the disk given as files in `args`); its report."""
+    return z80_chain_build.run_program(exe, args, None, timeout, CpcBuildError)
+
+
+def run_game(game: Path, options: list[str], report: Path) -> dict:
+    """The game's headless replay (`--headless`, from its own resources): its report, read from `report`."""
+    return z80_chain_build.run_game(game, options, report, error=CpcBuildError)
+
+
+def game_exit_code(game: Path, options: list[str]) -> int:
+    """The exit code of a headless run of the game (a refused quick state ends it with 4)."""
+    return z80_chain_build.game_exit_code(game, options)
+
+
+def differences(native: dict, reference: dict) -> dict:
+    """The compared fields that differ (a field missing on either side differs)."""
+    return z80_chain_build.differences(native, reference, COMPARED)
+
+
+frame_rows = z80_chain_build.frame_rows
+
+
+def learn(work: Path, system: bytes, amsdos: bytes, runs: list[list[str]], emit: Callable[[str], None] = print, *, passes: int = 3,
+          workers: int = 1) -> tuple[Path, list[int]]:
+    """Generate, build the headless check and run every route (`runs`: the options of each, the firmware and the disk included)
+    with learning, at most `passes` times (z80_chain_build.learn_passes: what the interpreter ran from RAM is translated with byte
+    guards on the next generation). Returns the check program and the fallback steps of each pass, summed over the routes."""
+    def build_check() -> Path:
+        stage_sources(work)
+        return build(work, ('cpc_check', 'cpc_reference'), emit)['cpc_check']
+    return z80_chain_build.learn_passes(work, runs, generate=lambda: generate(work, system, amsdos, emit), build_check=build_check,
+                                        run_check=lambda check, args, _learned: run(check, args)['fallback_steps'],
+                                        passes=passes, workers=workers)
+
+
+def write_boot_keys(work: Path, start_text: str, start_frame: int | None = None) -> None:
+    """work/boot_keys.h: the start command the three headless programs and the game type (retrorecomp/cpc_keys.py), from
+    `start_frame` (its default: the firmware's prompt)."""
+    from . import cpc_keys
+    frame = cpc_keys.BOOT_FRAME if start_frame is None else start_frame
+    z80_chain_build.write_if_changed(work / 'boot_keys.h', cpc_keys.boot_keys_header(start_text, frame).encode('utf-8'))
+
+
 def state_binding(system: bytes, amsdos: bytes, crtc: int, disks: list[bytes]) -> bytes:
     """The 32 bytes a quick state of this build carries and compares (never applies): the state's layout, the system ROM,
     AMSDOS, the CRTC and the game's disks as they came. Another build's state is then INCOMPATIBLE, not damaged."""
@@ -153,7 +216,6 @@ def prepare_game(work: Path, title: str, identity: str, disks: list[bytes], syst
     command `start_text`, typed from frame `boot_frame`). `identity` is the SHA-256 of the game's first disk. `presentation`
     (rom_path, cover, use_cover, online_cover, boxart_dir) gives the icon its cover as on the other machines."""
     import json
-    from . import cpc_keys
     from .core import executable_name
     from .metadata import write_game_metadata
     from .notices import notice_text
@@ -194,6 +256,5 @@ def prepare_game(work: Path, title: str, identity: str, disks: list[bytes], syst
     binding = state_binding(system, amsdos, crtc, disks)
     write(work / 'cpc_game.h', (work / 'cpc_game.h').read_bytes()
           + f'#define RR_CPC_STATE_ABI {{{", ".join(f"0x{b:02X}" for b in binding)}}}\n'.encode('ascii'))
-    frame = cpc_keys.BOOT_FRAME if boot_frame is None else boot_frame
-    write(work / 'boot_keys.h', cpc_keys.boot_keys_header(start_text, frame).encode('utf-8'))
+    write_boot_keys(work, start_text, boot_frame)
     return {'artwork': artwork, 'windows_metadata': metadata}

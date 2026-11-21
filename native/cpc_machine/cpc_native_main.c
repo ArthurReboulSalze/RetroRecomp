@@ -1,13 +1,13 @@
 /* Headless Amstrad CPC native run: the translated Z80 bodies of the system ROM and AMSDOS, the shared banked step loop
  * (native/banked_runtime.inc rendered for the CPC by retrorecomp.z80_chain: a region map of four 16 KiB regions, the CPC's
  * costs in whole microseconds, the full 16-bit port, /INT read at the end of each instruction), the counted fallback on the
- * corrected reference interpreter, and the board of cpc_machine.c, through cpc_glue.inc. MIT, Retro-Recomp. A development
- * check (tools/cpc_native.py): it is compared field by field with cpc_reference_main.c, which takes the same options and
- * prints the same JSON; this one adds the native and fallback step counts (cpc_headless.inc, shared with the game's
- * --headless mode). Its machine comes from files: --system FILE (32 KiB: OS then BASIC) [--amsdos FILE] [--disk FILE]
- * [--crtc 0|1|2]. */
+ * corrected reference interpreter, and the board of cpc_machine.c, through cpc_glue.inc. MIT, Retro-Recomp. A development and
+ * conversion check: it is compared field by field and row by row with cpc_reference_main.c, which takes the same options and
+ * writes the same report and rows (cpc_headless.inc); this one adds the native and fallback step counts. Its machine comes from
+ * files: --system FILE (32 KiB: OS then BASIC) [--amsdos FILE] [--disk FILE] [--crtc 0|1|2]. */
 #define SMSRECOMP_BANKED_AOT 1
 #include "cpc_glue.inc"
+#include "boot_keys.h"
 #include "cpc_headless.inc"
 
 static uint8_t system_rom[0x8000], amsdos_rom[0x4000];
