@@ -44,7 +44,9 @@ class BuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             cpc_build.stage_sources(Path(folder))
             self.assertTrue((Path(folder) / 'cpc_glue.inc').is_file() and (Path(folder) / 'upd765.c').is_file()
-                            and (Path(folder) / 'z80_chain_glue.inc').is_file())
+                            and (Path(folder) / 'z80_chain_glue.inc').is_file() and (Path(folder) / 'ay38910.c').is_file())
+        names = set(compilation_inputs.manifest_names('cpc'))
+        self.assertTrue({'native/ay38910/ay38910.c', 'native/z80_chain_glue.inc'} <= names)
 
 
 if __name__ == '__main__':

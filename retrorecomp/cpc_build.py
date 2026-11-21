@@ -37,6 +37,9 @@ MACHINE_FILES = (*MACHINE_SOURCES, 'cpc_machine.h', 'cpc_bus.h', 'cpc_crtc.h', '
 DISK_SOURCES = ('upd765.c', 'dsk_image.c')
 DISK_FILES = (*DISK_SOURCES, 'upd765.h', 'dsk_image.h')
 CHAIN_FILES = ('z80_chain_glue.inc',)
+# The shared chips, each a folder of native/: (folder, the sources compiled into every program, the other files staged with them).
+SHARED_MODULES = (('ay38910', ('ay38910.c',), ('ay38910.h',)),)
+SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)
 LOOP = 'cpc_banked_loop.inc'
 ACCEPT = 'cpc_reference_accept'
 
@@ -68,4 +71,5 @@ def stage_sources(work: Path) -> None:
     from .paths import ASSETS
     native = ASSETS / 'native'
     z80_chain_build.stage_files(work, ((native / 'cpc_machine', MACHINE_FILES), (native / 'upd765', DISK_FILES),
-                                       (native, CHAIN_FILES)))
+                                       (native, CHAIN_FILES),
+                                       *((native / folder, (*sources, *files)) for folder, sources, files in SHARED_MODULES)))

@@ -4,8 +4,11 @@
  * The bus is the Z80's (cpc_read / cpc_write, cpc_in / cpc_out with the full 16-bit port: the CPC decodes its devices from the
  * high byte, see cpc_bus.h). The machine advances in T-states (cpc_advance): every 4 T-states, one microsecond, the CRTC and the
  * Gate Array take one character; the interrupt is a level (cpc_irq) that the Z80's acknowledge drops (cpc_acknowledge). A frame
- * is complete when the VSYNC starts (`frame_ready`). The AY-3-8912 is the shared module's, reached through `psg` (left empty, the
- * AY reads FFh and takes nothing, until it is wired); its port A is the keyboard row the PPI selects.
+ * is complete when the VSYNC starts (`frame_ready`). The AY-3-8912 is the shared chip (native/ay38910): the board keeps its sixteen
+ * registers and its address latch, which the PPI drives (port A the data, port C bits 7-6 BDIR/BC1); its I/O port A (R14) reads
+ * the keyboard row the PPI selects. The registers keep the bits the chip has (R1, R3, R5 and R13 four, R6 and R8-R10 five); a
+ * latch byte with any of its high four bits set selects nothing (the AY-3-8912's address lines A4-A7 are tied low). Its clock
+ * is 1 MHz: one tick of 8 chip clocks every CPC_AY_TICK T-states.
  *
  * The region map the banked Z80 chain reads (cpc_glue.inc) follows `generation`, raised each time what the Z80 sees in a
  * window changes: the Gate Array's ROM enables or RAM configuration, or the upper ROM number. */
@@ -18,14 +21,15 @@
 #include "cpc_gate_array.h"
 #include "cpc_ppi.h"
 #include "upd765.h"
+#include "ay38910.h"
 
-enum { CPC_RAM_BYTES = 0x20000, CPC_ROM_BYTES = 0x4000, CPC_DRIVES = 2, CPC_AMSDOS_SLOT = 7 };
+enum { CPC_RAM_BYTES = 0x20000, CPC_ROM_BYTES = 0x4000, CPC_DRIVES = 2, CPC_AMSDOS_SLOT = 7, CPC_AY_TICK = 32 };
 
 typedef struct {
     /* the machine as it was built (not part of a quick state) */
     const uint8_t *os, *basic, *amsdos;      /* 16 KiB each: the player's system ROM halves and AMSDOS (NULL: no ROM, reads FFh) */
     uint32_t *picture;                       /* CPC_SCREEN_WIDTH x CPC_SCREEN_HEIGHT, or NULL */
-    CpcPsgBus psg;
+    CpcPsgBus psg;                           /* the PPI's bus to the AY (set by cpc_reset) */
     DskImage disk[CPC_DRIVES];
     /* state */
     uint8_t ram[CPC_RAM_BYTES];
@@ -33,6 +37,9 @@ typedef struct {
     CpcGateArray ga;
     CpcPpi ppi;
     Upd765 fdc;
+    Ay38910 ay;
+    uint8_t ay_reg[16];
+    uint8_t ay_latch;                        /* the register the AY's bus selects; 16: none */
     uint8_t upper_rom;                       /* the number written at DFxxh */
     uint8_t motor;                           /* the drives' motor (FA7Eh bit 0) */
     uint8_t phase;                           /* T-states into the current microsecond, 0-3 */

@@ -455,6 +455,54 @@ static void type_frames(const RrhkBootKeys *seq, uint32_t frames, uint8_t held)
     }
 }
 
+/* The AY through the board's PPI ports, as the firmware drives it: F4xxh the data, F6xxh BDIR/BC1 (C0h select, 80h write,
+ * 40h read, 00h inactive), F7xxh the direction of port A. */
+static void ay_set(CpcMachine *m, uint8_t reg, uint8_t value)
+{
+    cpc_out(m, 0xF400, reg); cpc_out(m, 0xF600, 0xC0); cpc_out(m, 0xF600, 0x00);
+    cpc_out(m, 0xF400, value); cpc_out(m, 0xF600, 0x80); cpc_out(m, 0xF600, 0x00);
+}
+
+static uint8_t ay_get(CpcMachine *m, uint8_t reg, uint8_t row)
+{
+    cpc_out(m, 0xF400, reg); cpc_out(m, 0xF600, 0xC0); cpc_out(m, 0xF600, 0x00);
+    cpc_out(m, 0xF700, 0x92);                                        /* port A input */
+    cpc_out(m, 0xF600, (uint8_t)(0x40 | row));
+    uint8_t value = cpc_in(m, 0xF400);
+    cpc_out(m, 0xF700, 0x82);
+    return value;
+}
+
+static void check_board_ay(void)
+{
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    ay_set(&board, 7, 0x38);
+    ay_set(&board, 1, 0xFF);
+    ay_set(&board, 6, 0xFF);
+    expect("the AY written through the PPI, each register with its own bits", board.ay_reg[7] == 0x38
+        && board.ay_reg[1] == 0x0F && board.ay_reg[6] == 0x1F && ay_get(&board, 1, 0) == 0x0F);
+    ay_set(&board, 0x1E, 0x55);
+    expect("a select with a high bit set reaches no register", board.ay_latch == 16 && board.ay_reg[14] == 0
+        && board.ay_reg[0x0E] != 0x55);
+    board.ay.env_step = 9; board.ay.env_holding = 1;
+    ay_set(&board, 13, 0x0E);
+    expect("a write of R13 restarts the envelope", board.ay_reg[13] == 0x0E && board.ay.env_step == 0 && !board.ay.env_holding);
+    expect("R14 reads the keyboard row the PPI selects: none down", ay_get(&board, 14, 9) == 0xFF);
+    board.ppi.joystick[0] = CPC_JOY_FIRE1;
+    cpc_ppi_key(&board.ppi, CPC_KEY_SPACE, 1);
+    expect("R14: joystick fire on row 9, SPACE on row 5", ay_get(&board, 14, 9) == (uint8_t)~CPC_JOY_FIRE1
+        && ay_get(&board, 14, 5) == (uint8_t)~0x80 && ay_get(&board, 14, 4) == 0xFF);
+    board.ppi.joystick[0] = 0;
+    cpc_ppi_key(&board.ppi, CPC_KEY_SPACE, 0);
+    int levels[3];
+    ay_set(&board, 0, 1); ay_set(&board, 1, 0); ay_set(&board, 7, 0x3E); ay_set(&board, 8, 15);
+    ay38910_tick(&board.ay, board.ay_reg, levels);
+    int first = levels[0];
+    ay38910_tick(&board.ay, board.ay_reg, levels);
+    expect("the shared chip sounds the registers the PPI wrote (a period-1 tone at volume 15 toggles)", first != levels[0]
+        && (first == 32767 || levels[0] == 32767) && levels[1] == 0);
+}
+
 static void check_boot_keys(void)
 {
     static uint8_t state[SDL_NUM_SCANCODES];
@@ -491,6 +539,7 @@ int main(void)
     check_bus();
     check_boot_keys();
     check_machine();
+    check_board_ay();
     check_crtc();
     check_gate_array();
     check_picture();

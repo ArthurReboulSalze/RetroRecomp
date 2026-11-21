@@ -12,6 +12,36 @@ static void remap(CpcMachine *m)
     }
 }
 
+/* ---- the AY-3-8912 behind the PPI ---- */
+static const uint8_t AY_MASK[16] = { 0xFF, 0x0F, 0xFF, 0x0F, 0xFF, 0x0F, 0x1F, 0xFF, 0x1F, 0x1F, 0x1F, 0xFF, 0xFF, 0x0F,
+                                     0xFF, 0xFF };
+
+static void ay_latch(void *context, uint8_t reg)
+{
+    CpcMachine *m = context;
+    m->ay_latch = reg & 0xF0 ? 16 : reg;
+}
+
+static void ay_write(void *context, uint8_t value)
+{
+    CpcMachine *m = context;
+    if (m->ay_latch >= 16)
+        return;
+    m->ay_reg[m->ay_latch] = value & AY_MASK[m->ay_latch];
+    if (m->ay_latch == 13)
+        ay38910_shape_written(&m->ay, m->ay_reg[13]);
+}
+
+static uint8_t ay_read(void *context)
+{
+    CpcMachine *m = context;
+    if (m->ay_latch >= 16)
+        return 0xFF;
+    if (m->ay_latch == 14)                                           /* port A, an input on the CPC: the keyboard row */
+        return (m->ay_reg[7] & 0x40) ? (uint8_t)(m->ay_reg[14] & cpc_ppi_row(&m->ppi)) : cpc_ppi_row(&m->ppi);
+    return m->ay_reg[m->ay_latch];
+}
+
 void cpc_reset(CpcMachine *m, uint8_t crtc_type)
 {
     memset(m->ram, 0, sizeof m->ram);
@@ -22,6 +52,13 @@ void cpc_reset(CpcMachine *m, uint8_t crtc_type)
     m->fdc.unit_mask = 1;                                            /* US1 is not decoded: drive A and drive B */
     m->fdc.tc_wired = 0;                                             /* nor is the terminal count */
     upd765_reset(&m->fdc);
+    ay38910_reset(&m->ay);
+    memset(m->ay_reg, 0, sizeof m->ay_reg);
+    m->ay_latch = 16;
+    m->psg.context = m;
+    m->psg.latch = ay_latch;
+    m->psg.write = ay_write;
+    m->psg.read = ay_read;
     for (int d = 0; d < CPC_DRIVES; ++d)
         m->fdc.drive[d].pcn = 0;
     m->upper_rom = 0;

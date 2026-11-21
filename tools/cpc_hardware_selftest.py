@@ -29,6 +29,7 @@ def run_checks(project: Path | None = None) -> dict:
     native = (ROOT / 'native' / 'cpc_machine').as_posix()
     upd765 = (ROOT / 'native' / 'upd765').as_posix()
     adapters = (ROOT / 'native' / 'hostkit' / 'adapters').as_posix()
+    ay = (ROOT / 'native' / 'ay38910').as_posix()
     from retrorecomp.cpc_keys import boot_keys_header
     (project / 'boot_keys.h').write_text(boot_keys_header('RUN"BOMB\n', start_frame=10), encoding='utf-8', newline='\n')
     (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
@@ -36,8 +37,8 @@ project(RetroCpcHardware C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(checks "{native}/cpc_hardware_checks.c" "{native}/cpc_crtc.c" "{native}/cpc_gate_array.c" "{native}/cpc_ppi.c"
-               "{native}/cpc_machine.c" "{upd765}/upd765.c" "{upd765}/dsk_image.c")
-target_include_directories(checks PRIVATE "{native}" "{upd765}" "{adapters}" "{project.as_posix()}")
+               "{native}/cpc_machine.c" "{upd765}/upd765.c" "{upd765}/dsk_image.c" "{ay}/ay38910.c")
+target_include_directories(checks PRIVATE "{native}" "{upd765}" "{adapters}" "{ay}" "{project.as_posix()}")
 ''', encoding='utf-8')
     cmake, generator = toolchain()
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
