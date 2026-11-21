@@ -129,6 +129,12 @@ PCENGINERECOMP = Upstream(
     'the MIT PCECD_seek notice it carries: licenses/pcenginerecomp.md)',
     'the Python analysis and emitter and the C++ pce-runtime, fetched at the pin when a conversion needs them (no copy in the repository)',
     _py('retrorecomp/pce_conversion.py', 'ENGINE_REV'), checkout='pcenginerecomp')
+LIBCHDR = Upstream(
+    'libchdr', 'rtissera/libchdr', 'master',
+    'CHD disc image reader: the decoder the engine loads by path, linked into a PC Engine CD game instead', 'BSD-3-Clause (LICENSE.txt), with its '
+    'bundled LZMA SDK (public domain), miniz (MIT), zstd (BSD-3-Clause) and dr_flac (public domain or MIT-0)',
+    'the library, fetched at the pin when a conversion needs it, built into the game (no copy in the repository)',
+    _py('retrorecomp/pcecd_build.py', 'LIBCHDR_REV'), checkout='libchdr')
 BEETLE_PSX = Upstream(
     'beetle-psx-libretro', 'libretro/beetle-psx-libretro', 'master',
     'PlayStation machine (derived from Mednafen): R3000A interpreter, GTE, GPU software renderer, SPU, CD-ROM, MDEC, pads, cards',
@@ -309,6 +315,8 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'x68': (PX68K_HISSORII, PX68K_LIBRETRO, SEGAGENESISRECOMP, M68K_RECOMP_CORE, GEOLITH),
     'gba': (GBARECOMP, ARM_RECOMP_CORE),
     'pce': (PCENGINERECOMP,),
+    # The PC Engine CD is the PC Engine's machine with a disc: the same engine, and libchdr for the CHD.
+    'pcecd': (PCENGINERECOMP, LIBCHDR),
     # Everything the Amiga's native code comes from is vAmiga's Moira: its handlers, and the instructions' lengths through its disassembler.
     'amiga': (VAMIGA,),
     'a1200': (VAMIGA,),          # the same vAmiga and Moira, run with the A1200 model

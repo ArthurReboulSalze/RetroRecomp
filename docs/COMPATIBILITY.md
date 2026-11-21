@@ -239,6 +239,8 @@ recognises becomes one executable holding the whole game, with ScummVM as its ru
 nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
 that need Ogg Vorbis, FLAC or MP3 decoders are not supported yet ([details](SCUMMVM.md)).
 
+The **PC Engine CD / TurboGrafx-CD** profile (`pcecd`) is experimental and in development, offered on developer installations only ([status](PC_ENGINE_CD.md)): it recognises CD-ROM² discs (a CHD of version 4 or 5, a CUE sheet with its BIN files, an ISO) by their boot record and the player's own System Card by its hash, and converts nothing yet. Native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are not claimed.
+
 The **Sony PlayStation** profile is supported since 1.7.6, on the owner's decision of 15 November 2026 after his play test (open in 1.7.1; [status](PLAYSTATION.md)): a conversion makes a
 playable game whose R3000A code, as far as its routes saw it run, is guarded native steps; the rest runs on the interpreter and
 is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
