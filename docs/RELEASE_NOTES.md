@@ -1,4 +1,4 @@
-# RetroRecomp v1.9.0 — Multiplayer: play your converted games together, on the local network or over the Internet [TITLE: confirm at release]
+# RetroRecomp v1.9.0 — Multiplayer: play your converted games together, on the local network or over the Internet
 
 - **Multiplayer, on every machine.** Play a converted game with friends, each on their own PC: one player hosts a room from the new
   **Multiplayer** window (or right-clicks a game in Compiled Games), the others join with the invitation, everyone presses
@@ -8,21 +8,27 @@
     that holds the host's public address: the box opens the port when it agrees (UPnP, then NAT-PMP), IPv6 is used when the PC has it,
     and the window says plainly when the host cannot be reached and what to try. Three warnings are confirmed before an Internet room
     opens. Everything a room sends is encrypted, and nobody joins without the invitation.
-  - **Up to four players**, each with their own controller, on the machines that had four: the NES Four Score, the Mega Drive's Team
-    Player, 4 Way Play and J-Cart, the Super Nintendo and PC Engine multitaps, the CPS boards and the Nintendo 64. Two on the others.
+  - **Three ways to share the controls:** one controller per player, everyone on the same controls at once, or in turns (F2's Pass
+    and Give the controller). **One controller per player** goes up to four on the machines that had four: the NES Four Score, the
+    Mega Drive's Team Player, 4 Way Play and J-Cart, the Super Nintendo and PC Engine multitaps, the CPS boards and the Nintendo 64;
+    two on the others.
+  - **The handhelds' link cable.** On the Game Boy, the Game Gear and the Game Boy Advance, « one controller per player » is the link
+    cable: each player plays their own console, linked as by a real cable (Tetris and Dr. Mario on the Game Boy, Super Columns on the
+    Game Gear). **Every Game Boy Advance game links**: where a game's cable code was not seen running during its conversion, it runs
+    on the counted interpreter in the match, and the report counts it. In a Game Boy Advance match each PC draws only the console it
+    shows (Mario Kart: Super Circuit's link frame takes 13.5 % less CPU time). The owner played the whole link panel on two PCs on
+    21 November 2026. Multi-pak only: a game that sends itself to the other console from one cartridge (multiboot) does not link yet.
+    The PlayStation does not offer the link.
   - **Smooth (rollback) or delay.** The 2D consoles, the arcade boards and the computers do not wait for a far player's buttons: they
     guess them and correct themselves when the true ones arrive. The PlayStation, the Nintendo 64 and the Game Boy Advance wait a frame
     or two for every player instead.
-  - **The handhelds' link cable.** On the Game Boy, the Game Gear and the Game Boy Advance, two players can each play their own console,
-    linked as by a real cable: proved on two PCs with Tetris (Game Boy), Super Columns (Game Gear) and Mario Kart: Super Circuit (Game
-    Boy Advance, the one game whose cable code is reviewed). Or everyone shares one console, **Everyone** at once or in **Turns**, with
-    F2's Pass and Give the controller.
   - **The host leads.** Restart, F8 and F9 save and load the match for everyone, from the host only, in memory for that match: your own
     quick states are never touched. The host's game saves are everyone's for the match and, on most machines, written back to the
-    host's own file at a clean end. Settings that change the run (PGXP, the Amiga's CPU speed, the Neo Geo's boost, the CPS DIP switches…) are the host's;
-    the host can change one during the match, and the game starts again for everyone with it. On the Amiga, Atari ST, X68000 and MSX
-    the host types on the computer's keyboard for everyone.
-  - **A chat in the game** (Y, or R3 + Select on the gamepad), with ready-made phrases or free text.
+    host's own file at a clean end. Settings that change the run (PGXP, the Amiga's CPU speed, the Neo Geo's boost, the CPS DIP
+    switches…) are the host's; the host can change one during the match, and the game starts again for everyone with it. On the
+    Amiga, Atari ST, X68000 and MSX the host types on the computer's keyboard for everyone.
+  - **A chat in the game** (Y, or R3 + Select on the gamepad), with ready-made phrases or free text. The Help window has a
+    Multiplayer card, and every game launched from the converter keeps a log in `datas/logs/games`, with how each match ended.
   - **What is checked.** Every PC compares its machine's state with the host's every second, and a match stops with a reason rather
     than letting two screens drift apart. Each machine's rewinding was proven on real games run as two copies with simulated latency
     and lost packets, and on two PCs on a home network; the owner played over the Internet between two PCs. Physical latency is not
@@ -31,31 +37,60 @@
 - **Every machine: the sound no longer crackles.** On the NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64 and PlayStation, the
   sound now follows the sound card's clock, alone and in a match (Tekken 3 crackled on the owner's PC): its speed and pitch move by at
   most 0.5 %, usually about 0.01 %, instead of clicks. No latency is added on average; physical latency is not measured.
-- **Every machine: a Restart the game tile in F2**, before Quit; in a match it restarts the game for everyone, from the host.
-- **The converter: a new toolbar and a new Convert button.** The window's buttons are icons in one toolbar, with larger Front-end
-  and Multiplayer buttons; Convert is a wide button that shows the whole conversion from left to right. The front-end's covers no longer
-  stay blurred, and a cover can be refreshed from its right-click menu.
-- **PC Engine: the second pad works in a local two-player game** (the multitap is plugged for every game built for two
-  players or more).
-- **The converter: the Front-end opens in the window.** The **Front-end** button no longer switches to full screen by itself:
-  a **Full screen** button appears left of it while the front-end is open (X on the gamepad and F11 still switch too).
-  **Options › Common** can still start Retro-Recomp straight in the front-end in full screen.
-- **Every machine: the gamepad opens the F2 menu.** A new **Options** control, the Guide button by default (any button or
-  combination can be chosen on player 1's gamepad page), opens and closes the F2 tiles; Back returns from a page to the tiles,
-  then to the game. **Quit the game** is now the last tile (it asks Quit? No / Yes, as Esc does) instead of a row of the options
-  page, and the tiles scroll when four players need more than two lines. Exports are rebuilt once, not converted again; quick
-  states keep working.
-- [SPEED: pending]
+- **Every machine: a new F2 menu.** The gamepad opens it: a new **Options** control, the Guide button by default (any button or
+  combination can be chosen on player 1's gamepad page), opens and closes the tiles; Back returns from a page to the tiles, then to
+  the game. The main page, **MENU**, has one **Controls** tile that opens the players' keyboard and pad pages (four to a row), a
+  **Display mode** tile that cycles window, pixel perfect, fit and stretched (as F4 does), a redrawn **Restart the game** tile (in
+  a match, the host's restart for everyone) and **Quit the game** last (it asks Quit? No / Yes, as Esc does). A one-time notice says
+  when a game falls back to SDL's software renderer on a real screen.
+- **The converter.**
+  - **A new toolbar and a new Convert button.** The window's buttons are icons in one toolbar, with larger Front-end and Multiplayer
+    buttons; Convert is a wide button that shows the whole conversion from left to right.
+  - **The front-end** opens in the window (a **Full screen** button appears beside it; X on the gamepad and F11 still switch, and
+    **Options › Common** can still start in it full screen); its console strip follows the mouse wheel and Ctrl+Left / Ctrl+Right;
+    its covers no longer stay blurred, and a cover can be refreshed from its right-click menu. It opens on Linux too.
+  - **Covers** are found more often: ScreenScraper by the dump's own identity, arcade sets by their exact MAME edition, and the
+    cover services reviewed for every machine.
+  - **The leaderboard** is a flight of steps (« Marches ») with the podium's real portraits, or the portrait the site generates;
+    the ranking rows show no avatar, and the rules panel closes.
+  - **Windows fit the screen they open on** and stay on it; scrollbars have a thumb you can drag again. A dialog can no longer be
+    answered by itself after an earlier one closed (the Stop dialog), and no delayed call runs on a window already closed.
+  - **Compiled Games** shows, beside the version that built a game, the newest release it is still up to date with.
+  - **Community:** the README and the issue page link the RetroRecomp Discord server.
+- **Windows: games packed with UPX NRV again**, as on Linux: they start sooner and are 4 to 23 % larger.
+- **PC Engine: the second pad works in a local two-player game** (the multitap is plugged for every game built for two players or
+  more).
+- **Speed.** An optimisation pass cut the CPU time per frame on the player's path, change by change, each one measured on a quiet PC
+  against the build just before it, with identical output: the shared sound converter (Master System Sonic −30 %, MSX2 Space
+  Manbow −23 %), the PC Engine's frame (Blazing Lazers −30 %), the MSX picture (Space Manbow −23 %, Manbow 2 −20 %) and a silent
+  MSX-MUSIC chip (Manbow 2 −10 %), the NES's sound and picture (Metroid −13 %, then −8 %, then −3 %), the PlayStation's native runs
+  (Ape Escape −10 %), the Game Boy's sprites (Super Mario Land −7 %), the Neo Geo's sprite scan
+  (Puzzle De Pon! −6 %), the Mega Drive's planes (Sonic 2 −3 %) and the CPS-1's guarded step (Final Fight −3 %). These are host CPU
+  costs on one PC, not latency, and the steps do not add up to one figure. The figures of every machine, against 1.8.0, are in
+  [PERFORMANCE.md](PERFORMANCE.md).
 
 **Your exports and quick states.** 1.9.0 moves the game, host and build stamps of every machine (measured between `v1.8.0` and main
-`206a41b4`), so **every export of 1.8.0 is converted again once** on the first batch after you update, from the paths it already
+`9ca18056`), so **every export of 1.8.0 is converted again once** on the first batch after you update, from the paths it already
 learned. A quick state of 1.8.0 is refused cleanly, with a message, on the machines whose state key moves: the Mega Drive, the Super
-Nintendo, the PC Engine, the MSX, MSX2 and MSX2+, the NES, the X68000, the Nintendo 64, the two Amigas and the Atari ST; the other
-machines' rows in [UPGRADES.md](UPGRADES.md#exports-of-180-in-190) say their key is unchanged. Cartridge saves, memory cards and the
-copies of written disks are kept. [EXPORTS: check again at the release commit]
+Nintendo, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the PC Engine, the PlayStation, the NES, the X68000, the Nintendo 64, the two
+Amigas and the Atari ST. It loads on the Master System, the Game Gear, the Game Boy, the Game Boy Advance and the MSX, MSX2 and MSX2+,
+whose state formats did not change. Cartridge saves, memory cards and the copies of written disks are kept
+([UPGRADES.md](UPGRADES.md#exports-of-180-in-190)).
 
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used, in a match as alone.
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
 
 ---
 
