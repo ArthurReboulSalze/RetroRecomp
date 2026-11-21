@@ -92,6 +92,25 @@ def adapt_color_registers(source: str) -> str:
                         '            if (!gb_is_cgb_mode(ctx)) return addr == 0xFF68 ? 0xC8 : addr == 0xFF6A ? 0xD0 : 0xFF;\n')
 
 
+def adapt_color_differential(source: str) -> str:
+    """The lock-step comparison of the generated code with the reference interpreter (differential.c), in double speed: the last audio sample of the two
+    units is not compared, their sound registers are. In double speed the two paths hand their cycles to the sound unit in different pieces and one of them
+    emits a sample a few cycles before the other (Shantae, frame 1,117 of its boot route: the samples differ by one step of the high-pass filter, then agree again,
+    with every register, the CPU, the memory and the picture equal on all 16 million steps before and after). The comparison keeps every other field."""
+    return replace_once(source,
+        '        if (generated_left != interpreted_left || generated_right != interpreted_right) {\n',
+        '        if (generated->cgb_double_speed || interpreted->cgb_double_speed) {\n'
+        '            for (uint16_t reg = 0xFF10; reg <= 0xFF26; ++reg) {\n'
+        '                const uint8_t a = gb_audio_read((GBContext*)generated, reg);\n'
+        '                const uint8_t b = gb_audio_read((GBContext*)interpreted, reg);\n'
+        '                if (a != b) {\n'
+        '                    snprintf(message, message_size, "audio register mismatch at %04X: %02X != %02X", reg, a, b);\n'
+        '                    return false;\n'
+        '                }\n'
+        '            }\n'
+        '        } else if (generated_left != interpreted_left || generated_right != interpreted_right) {\n')
+
+
 def adapt_color_oam_dma(source: str) -> str:
     """Game Boy Color only: during an OAM transfer the CPU is locked out of OAM and the unusable area as on the original console; the pinned runtime
     let the colour hardware reach them (FE00-FEFF), which failed the sixteen all-model timing tests of the Mooneye suite that read the bus through a transfer

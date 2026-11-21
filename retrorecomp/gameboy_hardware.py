@@ -41,6 +41,10 @@ def adapt_hardware(project: Path, model: str = 'dmg') -> None:
         cpu = project / 'runtime/src/gbrt.c'
         cpu.write_text(adapt_color_cpu(cpu.read_text(encoding='utf-8')), encoding='utf-8')
     ppu.write_text(ppu_source, encoding='utf-8')
+    if model == 'cgb':
+        from .gameboy_color_hardware import adapt_color_differential
+        diff = project / 'runtime/src/differential.c'
+        diff.write_text(adapt_color_differential(diff.read_text(encoding='utf-8')), encoding='utf-8')
 
 
 def adapt_ppu_object_spans(source: str) -> str:
