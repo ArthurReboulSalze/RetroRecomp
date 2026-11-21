@@ -226,6 +226,10 @@ class Z80Machine:
     # (the ZX Spectrum and the Amstrad CPC decode the high byte too). 16: the bodies and the reference CPU pass the whole address the
     # Z80 puts on the bus, and the glue's bus is `sms_io_in16` / `sms_io_out16`. 8: no byte of the text changes.
     port_bits: int = 8
+    # The loop starts from the Z80's documented reset values of AF and SP (FFFFh), as a machine that boots from its ROM does.
+    # False for a machine whose program starts from a saved state (a ZX Spectrum snapshot): its glue sets every register before
+    # the loop, and the loop keeps them. True: no byte of the text changes.
+    reset_registers: bool = True
 
     def __post_init__(self):
         if not 0 <= self.m1_wait <= 3:
@@ -426,6 +430,7 @@ def _nmi_accept(costs: Z80Costs) -> str:
 
 
 _AFTER_STEP = 'static inline void banked_after_step(int pending_irq) {'
+_RESET_REGISTERS = '    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n'
 _TAKE_AFTER_STEP = '        banked_after_step(pending_irq);\n'
 
 
@@ -485,6 +490,9 @@ def _runtime_parts(machine: Z80Machine) -> tuple[str, ...]:
         _nmi_accept(machine.cost) + _AFTER_STEP if machine.nmi else _AFTER_STEP,
         # The acceptance of /INT: the machine's counts of modes 0 and 1, and of mode 2.
         f'    g_z80.cyc += g_z80.im == 2 ? {machine.cost.irq_im2} : {machine.cost.irq};\n',
+        # The registers the loop starts from: the reset values, or the ones the machine's glue gave (a saved state).
+        _RESET_REGISTERS if machine.reset_registers else
+        '    /* The machine\'s glue set every register (a saved state, Z80Machine.reset_registers False): kept as they are. */\n',
         f'    unsigned counts[{count}] = {{0}};\n'
         f'    for (int s = 0; s < {count}; ++s) for (int b = 0; b < 256; ++b) counts[s] += banked_seen[s][b];\n'
         '    fprintf(stderr, "[banked] native_steps=%llu halt_steps=%llu fallback_steps=%llu banks_seen='

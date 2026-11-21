@@ -442,6 +442,17 @@ class Z80ChainTests(unittest.TestCase):
             self.skipTest('no C compiler')
         self.assertEqual(module.main(), 0)
 
+    def test_a_machine_that_starts_from_a_saved_state_keeps_its_registers(self):
+        for machine in (SEGA_MAPPER, OTHER, MAPPED, STANDALONE, WITH_NMI):
+            self.assertTrue(machine.reset_registers)
+            self.assertEqual(z80_chain.runtime_source(machine, RUNTIME, STATE if machine.reference_state else '').count(
+                z80_chain._RESET_REGISTERS), 1)
+        given = Z80Machine('given', MAPPED.regions, irq_sample='instruction_end', step_begin=True, reference_state=True,
+                           reset_registers=False)
+        text = z80_chain.runtime_source(given, RUNTIME, STATE)
+        self.assertNotIn('g_z80.sp = 0xFFFF', text)
+        self.assertIn('kept as they are', text)
+
 
 if __name__ == '__main__':
     unittest.main()

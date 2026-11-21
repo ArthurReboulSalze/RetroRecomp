@@ -376,6 +376,9 @@ poisoned after the include, so a wrong definition does not compile. No machine s
   the 16-bit reference copy from five register states: the 140 runs agree on every access (direction, address, value), on PC, B, C and
   the cycles, and every first address is the one the Z80 puts on the bus (an independent rule in the check). Against the reference
   left at 8 bits, 132 of them differ (a positive control).
+- In the same change, `Z80Machine.reset_registers` (default True): a machine whose program starts from a saved state (a ZX Spectrum
+  snapshot) sets every register in its glue and the loop keeps them, instead of starting from the reset values of AF and SP; True
+  renders the loop as it was.
 - In the same change, `Z80Costs.repeat_compare`: a repeating CPIR or CPDR may cost its own count (the CPC's 8 T against 4 T for the
   other block instructions); by default the same as `repeat`, so a table that gives none keeps its text.
 
