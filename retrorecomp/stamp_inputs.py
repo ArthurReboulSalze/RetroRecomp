@@ -859,6 +859,7 @@ INPUTS = _resolve({
         'retrorecomp.zxs_roms',
         'retrorecomp.zxs_routes',
         'retrorecomp.zxs_snapshot',
+        'retrorecomp.zxs_starts',
     ),
     # The SG-1000 (experimental, developer only): its converter modules, the cartridge reader and the conversion, the machine (our own
     # C), the glue of the banked Z80 chain, the player (stage 3: the game's main and its quick states) and the native and reference

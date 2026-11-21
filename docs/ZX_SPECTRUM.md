@@ -47,9 +47,11 @@ Amstrad's permission for emulators of 31 August 1999 (no charge for the ROM code
 1. The snapshot is read and turned into the machine image (`retrorecomp/zxs_build.py`: the model, the ports, the registers, the
    T-state, the RAM banks); the ROM of its model comes from `zxs_roms`.
 2. How the play route starts is chosen on the reference (`route_start`, `retrorecomp/zxs_routes.py`): ENTER, SPACE, 0, 1, 5 or
-   pad 1's fire pressed one to four times (each press held half a second: some titles read their key only between two notes of a tune),
-   judged against the route without input. Then a deterministic walk on the controls the snapshot
-   was saved for (cursor keys, Kempston or Sinclair Interface 2).
+   pad 1's fire pressed one to four times, or one of these keys then fire (each press held half a second: some titles read their
+   key only between two notes of a tune), judged against the route without input. A snapshot whose start the search cannot find
+   has reviewed start data instead (`retrorecomp/zxs_starts.py`, keyed by its SHA-256: the presses and why, found on the
+   reference, played and checked like any route; the report names them). Then a deterministic walk on the controls the snapshot
+   was saved for (cursor keys, Kempston or Sinclair Interface 2); a game whose own menu chose other keys does not answer it.
 3. The ROM is translated ahead of time on the shared chain; the code the snapshot runs from RAM is learned over the routes
    and translated with byte guards (`zxs_build.learn`, up to three passes).
 4. Every route is run natively and on the reference interpreter (the same machine, every instruction interpreted): the
@@ -87,11 +89,13 @@ interrupt handler), Jetpac (16K), Arkanoid (the floating bus question), Match Da
 paging and the AY), Robocop (the whole game in the 128K banks, sampled speech), Elite (heavy maths, the keyboard as the
 controller), The Hobbit (typing and printing through the ROM); in reserve Uridium and Rainbow Islands.
 
-The first panel run (21 November 2026, standard level, routes of 1,800 frames): the eight games equal the reference on every
-route with no instruction on the interpreter fallback. Manic Miner, Jetpac, Head over Heels and The Hobbit reach play; Arkanoid,
-Match Day II, Robocop and Elite stay on a menu their start needs keys of its own for (a control choice, then fire; a Y/N
-question): a candidate for start data keyed by the snapshot's SHA-256, not yet written. This is agreement with our reference,
-on routes that reach part of each game: no gameplay validation.
+The panel (22 November 2026, standard level, play route of 2,100 frames): the eight games equal the reference on every route
+with no instruction on the interpreter fallback. Manic Miner, Jetpac, Head over Heels and The Hobbit reach play through the
+variant search; Robocop, Arkanoid and Match Day II through reviewed start data (a control menu then a typed screen; ENTER then
+fire; ENTER four times). Elite does not: about 50 frames after its snapshot the program halts with interrupts disabled inside
+its own decryption, on the reference as natively, so its title never animates; a timing-dependent protection is suspected, to
+be checked again once the ULA's contention is modelled, and its report says so (`route_stop`). This is agreement with our
+reference, on routes that reach part of each game: no gameplay validation.
 
 The first Linux witness, the same day, in WSL (Debian 13) on the build PC: Manic Miner and Head over Heels converted from the
 same tree give the same start, the same learning counts and, on both routes, the same frame trace, RAM, picture and sound
