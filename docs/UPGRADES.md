@@ -421,6 +421,27 @@ the ports 98h/99h and the PPI stay its own. The quick states and the rollback sn
 and the MSX2+ move (new group `shares:tms9918`, the three files left the MSX group), nothing else: no host stamp, and the Master System,
 the Game Gear and every other machine keep theirs.
 
+## MSX, MSX2, MSX2+: the AY-3-8910 is a module of its own, the same sound (1.9.0)
+
+The ZX Spectrum 128K and the Amstrad CPC have the sound chip the MSX has. It leaves the MSX machine for `native/ay38910/`:
+`ay38910.h` (the chip's state, `Ay38910`: the tone, noise and envelope counters and the noise register, moved unchanged from
+`msx_psg.c`; the tick, inline as it was there, which gives the three channel levels; the sixteen ayumi levels) and `ay38910.c` (the
+reset and the restart of the envelope on a write to R13). `MsxPsgSynth` embeds the chip and keeps the MSX's own mixing (the key
+click, the SCC, MSX-MUSIC) and resampling; the registers stay `MsxMachine.psg`. The quick states and the rollback snapshot write the
+same fields in the same order (the struct's layout is unchanged: the chip at the place of the fields it replaces). Reviewed by the
+MSX specialist.
+
+- **Identical output, proved** (main `b90ae9e6` against this change): `tools/msx_reference.py` (the TMS9918A and AY-3-8910
+  fixtures, a tone set through the BIOS and measured in the recorded sound, the authored cartridges) passes on both with the same
+  JSON; one real conversion of an MSX1 game (Nemesis) and one of an MSX2 game (Aleste), from empty libraries
+  (`tools/ab_conversion.py`), give the same conversion reports in every field but the engine's identity (two files more) and the
+  executable's own bytes: the RAM, VRAM and PCM hashes of every route, the interpreted counts and the native coverage are equal.
+- The tool says « FAILED » for an MSX conversion because it finds no build folder it knows for the MSX: both conversions of each
+  game succeeded (their logs), and the reports are what it compares.
+
+**Stamps** (measured input by input on the 21 profiles, before and after): the game stamps of the MSX, the MSX2 and the MSX2+ move
+(new group `shares:ay38910`; `msx_psg.c`, `msx_machine.h`, `msx_state.c`, `msx_build` and the profile module changed), nothing else.
+
 ## MSX, MSX2, MSX2+: the glue and the build steps of the Z80 chain move to files every machine on the chain shares (1.9.0)
 
 The SG-1000, the ColecoVision, the ZX Spectrum and the Amstrad CPC are the next machines on the banked Z80 chain. What was MSX only by
