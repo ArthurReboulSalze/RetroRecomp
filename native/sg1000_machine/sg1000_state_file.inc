@@ -21,7 +21,8 @@
  * would need. A state loaded by a fresh process continues the frames the saving process would have run. */
 #include <wchar.h>
 
-#include "state_envelope.h"
+#include "z80_chain_state.inc"
+#include "state_file.h"
 
 #define SG_STATE_SCHEMA 1u
 /* The largest body: the VRAM, the picture, the sound samples not yet taken, the CPU and the rest, with room to spare. */
@@ -40,21 +41,6 @@ static void sg_state_same(RetroStateIO *io, uint64_t live, unsigned width)
     uint64_t v = rr_state_word(io, live, width, width == 8 ? UINT64_MAX : (1ull << (8 * width)) - 1);
     if (io->mode != RR_STATE_WRITE && v != live)
         io->ok = false;
-}
-
-/* (2) The CPU, field for field as the MSX's (msx_state_file.inc) and the Master System's (gamestate.inc), into `s`. */
-static void sg_cpu_state(RetroStateIO *io, Z80State *s)
-{
-    Z80State v = *s;
-    RR_FIELD(v, a, 1, 255); RR_FIELD(v, f, 1, 255); RR_FIELD(v, b, 1, 255); RR_FIELD(v, c, 1, 255);
-    RR_FIELD(v, d, 1, 255); RR_FIELD(v, e, 1, 255); RR_FIELD(v, h, 1, 255); RR_FIELD(v, l, 1, 255);
-    RR_FIELD(v, a_, 1, 255); RR_FIELD(v, f_, 1, 255); RR_FIELD(v, b_, 1, 255); RR_FIELD(v, c_, 1, 255);
-    RR_FIELD(v, d_, 1, 255); RR_FIELD(v, e_, 1, 255); RR_FIELD(v, h_, 1, 255); RR_FIELD(v, l_, 1, 255);
-    RR_FIELD(v, pc, 2, 65535); RR_FIELD(v, sp, 2, 65535); RR_FIELD(v, ix, 2, 65535);
-    RR_FIELD(v, iy, 2, 65535); RR_FIELD(v, wz, 2, 65535); RR_FIELD(v, i, 1, 255); RR_FIELD(v, r, 1, 255);
-    RR_FIELD(v, iff1, 1, 1); RR_FIELD(v, iff2, 1, 1); RR_FIELD(v, im, 1, 2); RR_FIELD(v, halted, 1, 1);
-    RR_FIELD(v, q, 1, 255); RR_FIELD(v, p, 1, 1); RR_FIELD(v, ei_block, 1, 1); RR_FIELD(v, cyc, 8, (1ULL << 60));
-    *s = v;
 }
 
 static int32_t sg_state_signed(RetroStateIO *io, int64_t value, unsigned width)
@@ -129,7 +115,7 @@ static int sg_state_consistent(const SgMachine *m, uint64_t cpu_cycles)
     return 1;
 }
 
-static void sg_machine_state(SgMachine *m, RetroStateIO *io, uint64_t cpu_cycles)
+static void sg_machine_state(SgMachine *m, RetroStateIO *io)
 {
     /* (3) The machine. */
     SGW(m->line, 4, 0xFFFFFFFFu);
@@ -158,26 +144,29 @@ static void sg_machine_state(SgMachine *m, RetroStateIO *io, uint64_t cpu_cycles
         SGW(t->border[y], 1, 15);
     /* (6) The SN76489A. */
     sg_psg_state(io, &m->psg);
-    if (io->ok && io->mode != RR_STATE_WRITE && !sg_state_consistent(m, cpu_cycles))
-        io->ok = false;
 }
 
+/* What the file's consistency hook checks (state_file.h): the machine the body decoded in the check pass, and the CPU's cycle it decoded. */
+static SgMachine sg_scratch;
+static uint64_t sg_scratch_cpu_cycles;
+static bool sg_consistent(void)
+{
+    return sg_state_consistent(&sg_scratch, sg_scratch_cpu_cycles);
+}
+
+/* The body after the build binding (which state_file.h compares): the CPU, then the machine. */
 static void sg_state_body(RetroStateIO *io)
 {
-    /* (1) the build binding */
-    for (int i = 0; i < 32; ++i)
-        if (rr_state_word(io, sg_state_binding[i], 1, 255) != sg_state_binding[i])
-            io->ok = false;
     /* (2) the CPU: into a candidate, applied last */
     Z80State cpu = g_z80;
-    sg_cpu_state(io, &cpu);
+    rr_z80_cpu_state(io, &cpu);
     if (io->mode == RR_STATE_CHECK) {
-        static SgMachine scratch;                    /* the live machine is never touched by a check */
-        scratch = machine;
-        sg_machine_state(&scratch, io, cpu.cyc);
+        sg_scratch = machine;                        /* the live machine is never touched by a check */
+        sg_machine_state(&sg_scratch, io);
+        sg_scratch_cpu_cycles = cpu.cyc;
         return;
     }
-    sg_machine_state(&machine, io, cpu.cyc);
+    sg_machine_state(&machine, io);
     if (io->mode == RR_STATE_APPLY && io->ok) {
         g_z80 = cpu;
         map_built = UINT32_MAX;                      /* the loop's region map is rebuilt before the next step */
@@ -189,30 +178,18 @@ static void sg_state_body(RetroStateIO *io)
     }
 }
 
-static RetroStateEnvelope sg_state_envelope(void)
+static RetroStateFile sg_state_file(void)
 {
-    RetroStateEnvelope e = {"RRSG1ST\0", SG_STATE_SCHEMA, (unsigned)(RR_SG_PAL ? 2 : 1), RR_SG_IDENTITY, sg_state_body};
-    return e;
+    RetroStateFile f = {{"RRSG1ST\0", SG_STATE_SCHEMA, (unsigned)(RR_SG_PAL ? 2 : 1), RR_SG_IDENTITY, sg_state_body},
+                        sg_state_binding, sizeof sg_state_binding, sg_consistent, SG_STATE_CAPACITY};
+    return f;
 }
 
 /* Save to `path`: written beside it, flushed, then put in its place (the old state stays whole if anything fails). */
 static int sg_state_save(const wchar_t *path)
 {
-    uint8_t *data = (uint8_t *)malloc(SG_STATE_CAPACITY);
-    if (!data) return RR_STATE_IO_ERROR;
-    RetroStateEnvelope envelope = sg_state_envelope();
-    size_t size = 0;
-    if (rr_state_envelope_write(&envelope, data, SG_STATE_CAPACITY, &size) != RR_STATE_OK) { free(data); return RR_STATE_INVALID; }
-    wchar_t temporary[32768];
-    swprintf(temporary, 32768, L"%ls.%lu.tmp", path, rr_process_id());
-    FILE *f = rr_fopen(temporary, L"wb");
-    bool ok = f && fwrite(data, size, 1, f) == 1;
-    if (ok) ok = rr_flush_file(f) != 0;
-    if (f && fclose(f) != 0) ok = false;
-    free(data);
-    if (ok) ok = rr_replace(temporary, path) != 0;
-    if (!ok) rr_remove(temporary);
-    return ok ? RR_STATE_OK : RR_STATE_IO_ERROR;
+    RetroStateFile f = sg_state_file();
+    return rr_state_file_save(&f, path);
 }
 
 /* Load `path`: RR_STATE_OK, or a refusal that leaves the machine and the file as they were: RR_STATE_MISSING (no file: nothing is
@@ -220,24 +197,6 @@ static int sg_state_save(const wchar_t *path)
  * cut, or a body whose values no machine could have made), RR_STATE_IO_ERROR. */
 static int sg_state_load(const wchar_t *path)
 {
-    FILE *f = rr_fopen(path, L"rb");
-    if (!f) return rr_exists(path) ? RR_STATE_IO_ERROR : RR_STATE_MISSING;
-    uint8_t *data = (uint8_t *)malloc(SG_STATE_CAPACITY);
-    if (!data) { fclose(f); return RR_STATE_IO_ERROR; }
-    size_t size = fread(data, 1, SG_STATE_CAPACITY, f);
-    int extra = fgetc(f); bool read_ok = !ferror(f); fclose(f);
-    int result = RR_STATE_INVALID;
-    if (read_ok && extra == EOF) {
-        RetroStateEnvelope envelope = sg_state_envelope();
-        result = rr_state_envelope_read(&envelope, data, size);
-        /* A whole, undamaged state of another build (the layout, the standard, the cartridge's size): incompatible, not damaged. */
-        if (result == RR_STATE_INVALID && size >= RR_STATE_ENVELOPE_HEADER + 32
-            && (size_t)(data[80] | data[81] << 8 | (uint32_t)data[82] << 16 | (uint32_t)data[83] << 24) == size - RR_STATE_ENVELOPE_HEADER
-            && rr_state_crc(data + RR_STATE_ENVELOPE_HEADER, size - RR_STATE_ENVELOPE_HEADER)
-               == (uint32_t)(data[84] | data[85] << 8 | (uint32_t)data[86] << 16 | (uint32_t)data[87] << 24)
-            && memcmp(data + RR_STATE_ENVELOPE_HEADER, sg_state_binding, 32))
-            result = RR_STATE_INCOMPATIBLE;
-    }
-    free(data);
-    return result;
+    RetroStateFile f = sg_state_file();
+    return rr_state_file_load(&f, path);
 }

@@ -47,7 +47,7 @@ SHARED_MODULES = (('tms9918', ('tms9918.c',), ('tms9918.h', 'tms_tiles.inc')),
                   ('sn76489', ('sn76489.c',), ('sn76489.h',)))
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)      # in the work folder, flat
 # The glue every machine on the banked Z80 chain shares (native/z80_chain_glue.inc), included by sg1000_glue.inc.
-CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h')
+CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h', 'z80_chain_state.inc', 'state_file.h')
 # The player (the host kit's game of this machine): its source and what it includes; the game target of the project lists the source.
 PLAYER_SOURCES: tuple[str, ...] = ('sg1000_player.c',)
 PLAYER_FILES: tuple[str, ...] = (*PLAYER_SOURCES, 'sg1000_state_file.inc')
@@ -117,35 +117,15 @@ def game_header(title: str, identity: str, standard: str, rom_size: int) -> str:
 
 def project_cmake(game: bool = False, bodies: bool = True, version: str = '') -> str:
     """The project: the reference runner always; with `bodies` the generated bodies and the headless native check; `game` adds the player
-    (it needs the bodies, the generated header and the resources `prepare_game` writes). `version`: the converter's, named in the game."""
+    (it needs the bodies, the generated header and the resources `prepare_game` writes). `version`: the converter's, named in the game.
+    The common part is `z80_chain_build.chain_project_cmake`; what is here is the player's lines."""
     from . import hostkit
     machine = ' '.join((*MACHINE_SOURCES, *SHARED_SOURCES))
-    programs = 'sg1000_reference sg1000_check' if bodies or game else 'sg1000_reference'
-    lines = [
-        'cmake_minimum_required(VERSION 3.20)', 'project(RetroSg1000 LANGUAGES C)', 'set(CMAKE_C_STANDARD 11)',
-        'set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")',
-        'if(MSVC)', '  add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)', 'endif()',
-        f'add_executable(sg1000_reference sg1000_reference_main.c {machine} runtime_reference.c)',
-    ]
-    if bodies or game:
-        lines += [
-            'file(GLOB bodies "generated/game_banked_ops_*.c")',
-            'add_library(sg1000_bodies OBJECT generated/game_banked_index.c ${bodies})',
-            'target_include_directories(sg1000_bodies PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-            'target_compile_definitions(sg1000_bodies PRIVATE SMSRECOMP_BANKED_AOT)',
-            f'add_executable(sg1000_check sg1000_native_main.c {machine} runtime_reference.c $<TARGET_OBJECTS:sg1000_bodies>)',
-        ]
-    lines += [
-        f'foreach(target {programs})',
-        '  target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        '  target_compile_definitions(${target} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)',
-        '  if(NOT WIN32)', '    target_link_libraries(${target} PRIVATE m)', '  endif()',
-        'endforeach()',
-    ]
+    lines = []
     if game:
         # The game: the player, the machine, the fallback interpreter, the kit's menu and platform files, the kit's shell, the bodies.
         kit = ' '.join(hostkit.sources('sg1000'))
-        lines += [
+        lines = [
             'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
             'find_package(SDL2 CONFIG REQUIRED)',
             f'add_executable(game {" ".join(PLAYER_SOURCES)} {machine} runtime_reference.c retro_menu.c platform_io.c runtime_feedback.c {kit}',
@@ -159,7 +139,9 @@ def project_cmake(game: bool = False, bodies: bool = True, version: str = '') ->
             'if(MSVC)', '  target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)', 'endif()',
             'if(WIN32 AND NOT MSVC)', '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',
         ]
-    return '\n'.join(lines) + '\n'
+    return z80_chain_build.chain_project_cmake(
+        'sg1000', 'RetroSg1000', reference_main='sg1000_reference_main.c', native_main='sg1000_native_main.c',
+        machine_sources=(*MACHINE_SOURCES, *SHARED_SOURCES), bodies=bodies or game, game_lines=lines)
 
 
 def build(work: Path, targets: tuple[str, ...], emit: Callable[[str], None] = print) -> dict[str, Path]:
@@ -177,14 +159,9 @@ def build(work: Path, targets: tuple[str, ...], emit: Callable[[str], None] = pr
 
 def build_reference(work: Path, emit: Callable[[str], None] = print) -> Path:
     """The reference runner alone, before any body is generated (the start of the play route is chosen on it)."""
-    from .cpu import prepare_reference
     from .systems.sg1000 import SG1000_MACHINE
-    _, engine = z80_chain_build.generator(SG1000_MACHINE, emit)
-    work.mkdir(parents=True, exist_ok=True)
-    prepare_reference(work, engine, m1_counter=SG1000_MACHINE.counts_m1, nmi=SG1000_MACHINE.nmi)
-    z80_chain_build.instrument_reference(work / 'runtime_reference.c', 'sg1000_reference_accept', SG1000_MACHINE, Sg1000BuildError)
-    stage_sources(work)
-    return build(work, ('sg1000_reference',), emit)['sg1000_reference']
+    return z80_chain_build.build_reference_runner(work, SG1000_MACHINE, accept='sg1000_reference_accept', stage=stage_sources, build=build,
+                                                  target='sg1000_reference', emit=emit, error=Sg1000BuildError)
 
 
 def run(exe: Path, args: list[str], image: bytes | None = None, timeout: int = 1800) -> dict:
