@@ -42,8 +42,12 @@ Summary summarise(pce::SectorProvider &provider) {
         if (toc.tracks[t].type == 4) {
             for (std::uint32_t lba = toc.tracks[t].index1_lba; lba < end && lba < toc.tracks[t].index1_lba + 64; ++lba) {
                 if (!provider.program_track(lba).index) continue;       // a gap between tracks: no data to read
-                const auto sector = provider.read(lba);
-                hash = fnv(hash, sector.data(), sector.size());
+                try {
+                    const auto sector = provider.read(lba);
+                    hash = fnv(hash, sector.data(), sector.size());
+                } catch (const pce::SectorReadError &) {                // a sector a guest would see as a read error: only the fact is hashed
+                    hash = fnv(hash, "E", 1);
+                }
             }
             out.data[t] = hash;
         } else if (audio_seen < 3) {

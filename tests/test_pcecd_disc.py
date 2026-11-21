@@ -219,7 +219,7 @@ def write_chd_v4(path: Path, layout: Layout, compressed: bool, hunk_frames: int 
     hunk_bytes = hunk_frames * FRAME
     hunks = [logical[n:n + hunk_bytes] for n in range(0, len(logical), hunk_bytes)]
     header_len = 108
-    map_len = 16 * len(hunks)
+    map_len = 16 * len(hunks) + 16          # the entries, then the end-of-list cookie libchdr looks for
     body, entries, position = b'', b'', header_len + map_len
     for hunk in hunks:
         if compressed:
@@ -241,7 +241,7 @@ def write_chd_v4(path: Path, layout: Layout, compressed: bool, hunk_frames: int 
     header = (b'MComprHD' + struct.pack('>II', header_len, 4) + struct.pack('>III', 0, 1 if compressed else 0, len(hunks))
               + struct.pack('>QQ', len(logical), meta_offset) + struct.pack('>I', hunk_bytes) + bytes(20) + bytes(20) + sha)
     assert len(header) == header_len, len(header)
-    path.write_bytes(header + entries + body + meta)
+    path.write_bytes(header + entries + b'EndOfListCookie\0' + body + meta)
 
 
 # ---- tests ----------------------------------------------------------------------------------------------------------------
