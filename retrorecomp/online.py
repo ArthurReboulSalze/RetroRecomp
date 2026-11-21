@@ -635,10 +635,11 @@ def _prune_frames(catalog: dict) -> None:
             pass
 
 
-def frame_picture(item, download: bool = True) -> bytes | None:
+def frame_picture(item, download: bool = True, timeout: float = 20) -> bytes | None:
     """The image of a frame item (WebP or PNG from the site), cached in
     `datas/` once downloaded; None without one, or on any failure (a frame is
-    decoration, never an error)."""
+    decoration, never an error). The leaderboard's podium asks with the
+    portraits' shorter `timeout` (BOARD_PORTRAIT_TIMEOUT)."""
     data = item.get('data') if isinstance(item, dict) and item.get('slot') == 'frame' else None
     url = _media_url(data.get('image')) if isinstance(data, dict) else None
     if not url:
@@ -654,7 +655,7 @@ def frame_picture(item, download: bool = True) -> bytes | None:
         return None
     request = urllib.request.Request(url, headers={'User-Agent': f'RetroRecomp/{__version__}'})
     try:
-        with _OPENER.open(request, timeout=20) as response:
+        with _OPENER.open(request, timeout=timeout) as response:
             if response.headers.get_content_type() not in FRAME_TYPES:
                 return None
             raw = response.read(FRAME_LIMIT + 1)

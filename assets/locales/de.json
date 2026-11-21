@@ -805,6 +805,8 @@
     "conversions_queued_one": "Ein umgewandeltes Spiel wartet auf seine Belohnung: Über dem Tageslimit wird es an einem der folgenden Tage gutgeschrieben ({wait}).",
     "conversions_wait_days": "etwa {days} Tage",
     "conversions_wait_day": "etwa 1 Tag",
+    "discord": "Discord",
+    "tip_discord": "Tritt dem Server der Retro-Recomp-Community bei (er öffnet sich im Webbrowser).",
     "tip_leaderboard": "Rangliste: die Spieler mit den meisten gefundenen nativen Pfaden, insgesamt oder in diesem Monat, mit Edelsteinen, Titeln und Abzeichen.",
     "tip_compiled_games": "Kompilierte Spiele: deine konvertierten Spiele mit Cover, Details und Stufensternen; spielen, neu konvertieren oder weitergehen.",
     "tip_start_selected": "Auswahl konvertieren: nur die in der Liste ausgewählten Spiele.",

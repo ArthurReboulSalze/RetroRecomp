@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 
 from .branding import ICON_PATHS
+from .paths import ASSETS
 
 
 def _rectangle(x1, y1, x2, y2):
@@ -489,3 +490,27 @@ def hero_picture(master, symbol, colour, highlight=None):
         return hero_icon(master, symbol, colour)
     from .gui_drawing import HERO_SIZE
     return ImageTk.PhotoImage(draw_picture(symbol, colour, round(HERO_SIZE * toolbar_scale(master)), highlight), master=master)
+
+
+# The Discord button's picture (1.9.1): Discord's own symbol in white, as Discord's brand resources give it
+# (discord.com/branding, « Discord-Symbol-White.png », unmodified; Arthur's choice of 21 Nov 2026 over a drawing of ours),
+# only reduced to the toolbar's 18 px box with its proportions kept. It links to the Retro-Recomp server, as Discord's
+# guidelines allow; the notice is in THIRD_PARTY_NOTICES.md.
+DISCORD_SYMBOL = 'assets/discord-symbol-white.png'
+
+
+def discord_picture(master, size=18):
+    """Discord's white symbol centred in a transparent `size` px square (the toolbar pictures' box), 16 px wide like
+    their drawings; None when the file cannot be read."""
+    from PIL import Image, ImageTk
+    try:
+        with Image.open(ASSETS / DISCORD_SYMBOL) as image:
+            symbol = image.convert('RGBA')
+    except (OSError, ValueError):
+        return None
+    width = size - 2
+    height = max(1, round(width * symbol.height / symbol.width))
+    symbol = symbol.resize((width, height), Image.Resampling.LANCZOS)
+    square = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    square.alpha_composite(symbol, ((size - width) // 2, (size - height) // 2))
+    return ImageTk.PhotoImage(square, master=master)

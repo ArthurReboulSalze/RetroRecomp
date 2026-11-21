@@ -11,7 +11,7 @@ from .dialogs import popup_menu
 from . import __version__, online
 from .paths import APP_NAME
 from .branding import COLORS
-from .gui_common import SENDING_AVAILABLE, typed_pseudonym
+from .gui_common import DISCORD_URL, SENDING_AVAILABLE, typed_pseudonym
 from .gui_drawing import compact_number, _portrait_photo
 from . import tk_later
 
@@ -38,6 +38,10 @@ class AccountMixin:
         if SENDING_AVAILABLE:
             self.site_opened = time.monotonic()
             webbrowser.open_new_tab(online.service_url() + page)
+
+    def open_discord(self):
+        """The Retro-Recomp community's Discord server, in the web browser (with or without the online service)."""
+        webbrowser.open_new_tab(DISCORD_URL)
 
     def open_account_site(self):
         """The player's account page on the site, in the web browser."""

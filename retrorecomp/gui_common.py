@@ -21,6 +21,8 @@ EDGE = 12
 # The status bar's marks: the dot and the squares' outer edges sit EDGE from the window's side and bottom.
 STATUS_MARK = 12
 HELP_URL = 'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/INDEX.md'
+# The Retro-Recomp community's Discord server (Arthur, 21 Nov 2026), opened by the toolbar's Discord button.
+DISCORD_URL = 'https://discord.gg/VZeJYfNZgz'
 MULTIPLAYER_URL = 'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/MULTIPLAYER.md'
 UPX_SOURCE_URL = ('https://github.com/ArthurReboulSalze/RetroRecomp/blob/'
                   '3846c13bf21575ecb9dbaecead2943f72403e5c9/licenses/upx-5.3.0-src.tar.xz')
