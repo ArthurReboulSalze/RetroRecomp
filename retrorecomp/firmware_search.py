@@ -111,6 +111,12 @@ def _psx(path: Path) -> list:
              (0 if bios.model == preferred else 1,), bios.sha256)]
 
 
+def _pcecd(path: Path) -> list:
+    from . import pcecd_card
+    card = pcecd_card.identify(path)
+    return [('pcecd_system_card', f'{card.name} {card.version} ({card.region.upper()})', (0 if card.checked == 'engine' else 1,), card.sha256)]
+
+
 def _kickstart(path: Path) -> list:
     from .amiga_kickstart import scan
     found = []
@@ -208,13 +214,14 @@ def _sizes(*sizes) -> Callable[[int, str], bool]:
 
 
 def _checks() -> dict:
-    from . import amiga_kickstart, atarist_tos, cps1_qsound, gba, psx_bios, x68000_media
+    from . import amiga_kickstart, atarist_tos, cps1_qsound, gba, pcecd_card, psx_bios, x68000_media
     return {
         'neogeo': Check(lambda size, suffix: suffix == '.zip', _neogeo),
         'qsound': Check(lambda size, suffix: (suffix == '.zip' and size <= cps1_qsound.MAX_ARCHIVE) or size == cps1_qsound.SIZE,
                         _qsound),
         'gba': Check(_sizes(gba.BIOS_BYTES), _gba),
         'psx': Check(_sizes(psx_bios.BIOS_BYTES), _psx),
+        'pcecd': Check(_sizes(pcecd_card.CARD_BYTES), _pcecd),
         'kickstart': Check(_sizes(*amiga_kickstart.CANDIDATE_SIZES), _kickstart),
         'tos': Check(_sizes(atarist_tos.TOS_SIZE), _tos),
         'x68000': Check(_sizes(x68000_media.IPL_BYTES, x68000_media.CGROM_BYTES), _x68000),
@@ -234,6 +241,7 @@ RECOGNISERS = {
     'qsound_rom': Recogniser(CHECKS['qsound'], 'cps1_qsound.validate_dsp_rom: CRC and SHA-1, a file or a ZIP'),
     'gba_bios': Recogniser(CHECKS['gba'], 'gba.bios_status: size and SHA-1 of the supported image'),
     'psx_bios': Recogniser(CHECKS['psx'], 'psx_bios.identify: the SHA-1 table of the retail images', target='folder'),
+    'pcecd_system_card': Recogniser(CHECKS['pcecd'], 'pcecd_card.identify: the SHA-1 table of the known System Cards'),
     'amiga_kickstart': Recogniser(CHECKS['kickstart'], 'amiga_kickstart.scan: the Kickstart header, version by CRC-32',
                                   target='folder'),
     'a1200_kickstart': Recogniser(CHECKS['kickstart'], 'amiga_kickstart.scan: the Kickstart header, version by CRC-32',

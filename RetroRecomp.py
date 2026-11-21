@@ -40,6 +40,7 @@ _PATH_HELP = {
     'x68_ram': 'X68000 RAM in MiB.',
     'psx_bios': 'PlayStation: your own BIOS, a file or a folder (the image of the disc\'s region is chosen and embedded in the '
                 'game); without it the free OpenBIOS is used.',
+    'pcecd_system_card': 'PC Engine CD: your own System Card (a 256 KiB file or a folder; checked by its hash, never shipped).',
     'msx_bios': 'MSX: your own MSX1 BIOS (a 32 KiB main ROM); without it C-BIOS 0.29a is used.',
     'msx2_bios': 'MSX2: your own MSX2 BIOS main ROM (with --msx2-subrom); without both C-BIOS 0.29a is used.',
     'msx2_subrom': 'MSX2: your own MSX2 sub-ROM (16 KiB, with --msx2-bios).',

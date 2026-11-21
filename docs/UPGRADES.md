@@ -169,6 +169,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Capcom CPS-1, CPS-1.5 and CPS-2: two small changes to the frame cost, and the checks that go with them](#capcom-cps-1-cps-15-and-cps-2-two-small-changes-to-the-frame-cost-and-the-checks-that-go-with-them-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_native.c`; the CPS-1 generator revision 15) | none | unchanged |
 | [PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, the new snapshot files, `pce_main.c`, `pce_build.py`, the profile) | the PC Engine host stamp (`rrhk_pce.c`) | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c` |
 | [PC Engine / TurboGrafx-16: a cheaper frame](#pc-engine--turbografx-16-a-cheaper-frame-190) | **the PC Engine game stamp** (`pce_machine.cpp`, `pce_machine_internal.hpp`, `pce_snapshot.cpp`, the new `native/pce_engine/` files, `pce_build.py`) | none | refused cleanly (the PC Engine key hashes the patched file) |
+| [PC Engine CD: the PC Engine's bridge learns a disc](#pc-engine-cd-the-pc-engines-bridge-learns-a-disc) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, `pce_main.c`, `pce_build.py`, `pce_conversion.py`) | none | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c`, so quick states of existing exports are refused cleanly |
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
 | [Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring](#game-boy-a-line-with-sprites-is-drawn-in-runs-and-the-adapters-sound-is-a-ring-190) | **the Game Boy game stamp** (`native/gb_ppu_object_span.h`, `gameboy_hardware.py`, `gameboy_runtime.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`); build unchanged | unchanged (the bytes of a state are the same) |
@@ -292,6 +293,16 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
+
+## PC Engine CD: the PC Engine's bridge learns a disc
+
+The PC Engine CD ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)) is the PC Engine's machine with a disc and the player's System Card: it shares the bridge to the pinned engine, the
+snapshot, the host-kit adapter and the build module, so that no second copy exists. The shared files gain a disc path that a HuCard game never compiles
+(`RR_PCE_DISC`): `pce_machine.cpp` and `pce_machine.h` (`pce_machine_init_disc` and the disc boot of the machine), `pce_main.c` (the `--disc` arguments and the held disc), `pce_build.py`
+(`game_cmake` and `state_config` take the disc's switches) and `pce_conversion.py` (`check_states`, `check_backup` and `complete_prefix` take extra arguments and the memory a game finds
+without a save). Nothing a HuCard game computes changes: **only the PC Engine game stamp moves**, so each existing PC Engine export is rebuilt once at its next conversion or
+reconversion; the host stamp (the adapter `rrhk_pce.c` is untouched: the CD machine's adapter includes it) and the build stamp do not move, and **no other machine's stamp moves** (measured
+against the base commit, every machine). Quick states of an existing PC Engine export are refused cleanly after the rebuild, as at each change of the bridge.
 
 ## PC Engine / TurboGrafx-16: a cheaper frame (1.9.0)
 

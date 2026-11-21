@@ -197,7 +197,7 @@ list, multiplayer and an optimisation pass.
 | ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller |
 | Amstrad CPC | the Z80, the AY sound chip of the MSX | the video, the floppy drive, code loaded from disk |
 | ZX Spectrum | the Z80, the AY sound chip (128K) | the video, snapshots first (tapes later); study approved 21 November 2026, experimental profile begun ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)) |
-| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | the CD drive, ADPCM and CD audio, the player's System Card, code loaded from disc |
+| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done as an experimental machine (21 November 2026, [PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).
