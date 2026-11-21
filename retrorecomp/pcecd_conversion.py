@@ -262,6 +262,9 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
               'disc': {'container': item.identity.container, 'title': item.identity.title, 'carried': 'appended to the executable and read in place',
                        'ipl': item.identity.metadata()['ipl']},
               'firmware': {'system_card': card.metadata() | {'carried': 'embedded in the executable (resource 103); never shipped by Retro-Recomp'}},
+              # The lobby compares a firmware only when the report names it at the top level with a sha256 (netplay/lobby_check.FIRMWARE_KEYS): two players
+              # with another System Card are refused before the launch, with the reason « firmware ». Same record as firmware.system_card.
+              'bios': card.metadata() | {'kind': 'player'},
               'compiler': {'engine': hu.ENGINE_REPO, 'engine_revision': hu.ENGINE_REV, 'runtime_abi': hu.ENGINE_ABI, 'disc_reader': 'libchdr (BSD-3-Clause), linked statically',
                            'native_cpu': 'guarded HuC6280 instructions emitted from observed runs (full MPR context, physical fetch addresses and exact bytes '
                                          'checked before each one), the System Card\'s and the code the disc loads'},

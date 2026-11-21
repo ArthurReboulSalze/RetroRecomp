@@ -49,5 +49,20 @@ class StyleTests(unittest.TestCase):
         self.assertEqual(pcecd_routes.score({}, {}), (0, 0))
 
 
+class LobbyTests(unittest.TestCase):
+    def test_the_report_names_the_system_card_at_the_top_level_for_the_lobby(self):
+        # The lobby compares a firmware only from a top-level record with a sha256 (netplay/lobby_check.FIRMWARE_KEYS): two players with another System Card are
+        # refused before the launch. The nested firmware.system_card record is not seen by it.
+        from retrorecomp.netplay import lobby_check
+        source = (Path(__file__).resolve().parents[1] / 'retrorecomp' / 'pcecd_conversion.py').read_text(encoding='utf-8')
+        self.assertIn("'bios': card.metadata()", source)
+        digest = 'e' * 64
+        one = lobby_check.firmware_digest({'bios': {'sha256': digest, 'kind': 'player'}})
+        other = lobby_check.firmware_digest({'bios': {'sha256': 'd' * 64, 'kind': 'player'}})
+        self.assertNotEqual(one, bytes(32))
+        self.assertNotEqual(one, other)
+        self.assertEqual(lobby_check.firmware_digest({'firmware': {'system_card': {'sha256': digest}}}), bytes(32))
+
+
 if __name__ == '__main__':
     unittest.main()
