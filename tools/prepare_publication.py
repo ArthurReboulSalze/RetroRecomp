@@ -109,6 +109,7 @@ native/tms9918/tms9918.c native/tms9918/tms9918.h native/ay38910/ay38910.c nativ
 native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_captures.py tools/msx_panel.py tools/msx_write_disk.py tools/msx_fm_cart.py tools/msx_kanji_cart.py native/media_request.h tools/msx_fdc_selftest.py native/msx_machine/msx_fdc_checks.c tests/test_msx_fdc.py tests/test_msx_native.py
 retrorecomp/systems/zx_spectrum.py retrorecomp/zxs_snapshot.py retrorecomp/zxs_roms.py retrorecomp/zxs_conversion.py
 licenses/zx-spectrum-roms.md docs/ZX_SPECTRUM.md tests/test_zx_spectrum.py
+retrorecomp/zxs_build.py native/zxs_machine/zxs_machine.c native/zxs_machine/zxs_machine.h native/zxs_machine/zxs_machine_checks.c tools/zxs_machine_selftest.py
 retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py retrorecomp/msx_conversion.py retrorecomp/msx_routes.py licenses/cbios.md docs/MSX.md
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/tms9918/tms_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c

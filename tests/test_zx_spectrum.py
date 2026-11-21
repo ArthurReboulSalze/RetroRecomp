@@ -315,5 +315,45 @@ class RomTests(unittest.TestCase):
         self.assertIn(zxs_roms.SOURCE_COMMIT, text)
 
 
+class MachineImageTests(unittest.TestCase):
+    """The machine image the C machine loads (retrorecomp/zxs_build.zxs_image, native/zxs_machine/zxs_machine.c)."""
+
+    def test_the_image_carries_the_model_the_ports_the_registers_and_the_banks(self):
+        import struct
+        from retrorecomp.zxs_build import IMAGE_BYTES, IMAGE_HEADER, zxs_image
+        folder = Path(tempfile.mkdtemp())
+        path = folder / 'a.z80'
+        pages128 = {3 + bank: BANKS[bank] for bank in range(8)}
+        path.write_bytes(z80_v23(pages128, 4, port=0x13))
+        image = zxs_image(zxs_snapshot.read_snapshot(path))
+        self.assertEqual(len(image), IMAGE_BYTES)
+        self.assertEqual((image[:4], image[4], image[5], image[8], image[9]), (b'ZXS1', 1, 0, 0x13, 7))
+        self.assertEqual(image[10:26], bytes(range(16)))
+        self.assertEqual(struct.unpack('<12H', image[32:56])[11], 0x6000)          # PC
+        self.assertEqual(struct.unpack('<I', image[56:60])[0], 17727 - 17001)
+        for bank in range(8):
+            self.assertEqual(image[IMAGE_HEADER + bank * PAGE:IMAGE_HEADER + (bank + 1) * PAGE], BANKS[bank])
+        # A 48K .sna does not say where in the frame it was taken: the end of the /INT pulse.
+        path = folder / 'b.sna'
+        path.write_bytes(sna48(BANKS))
+        image = zxs_image(zxs_snapshot.read_snapshot(path))
+        self.assertEqual((image[4], struct.unpack('<I', image[56:60])[0]), (0, 32))
+        self.assertEqual(image[IMAGE_HEADER + 1 * PAGE:IMAGE_HEADER + 2 * PAGE], bytes(PAGE))  # a bank a 48K never had
+
+    def test_the_machine_core_passes_its_authored_checks(self):
+        # tools/zxs_machine_selftest.py: the memory map, the paging, the frame, the ports, the picture, the beeper; skipped
+        # without a C compiler.
+        import importlib.util
+        root = Path(__file__).resolve().parents[1]
+        spec = importlib.util.spec_from_file_location('zxs_machine_selftest', root / 'tools/zxs_machine_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        try:
+            module.compiler()
+        except SystemExit:
+            self.skipTest('no C compiler')
+        self.assertEqual(module.main(), 0)
+
+
 if __name__ == '__main__':
     unittest.main()

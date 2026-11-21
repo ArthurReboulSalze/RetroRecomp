@@ -279,6 +279,7 @@ NOT_INPUTS = (
     'native/z80_chain_state.inc', 'native/state_file.h', 'native/state_file_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
+    'native/zxs_machine/zxs_machine_checks.c',      # tools/zxs_machine_selftest.py: the ZX Spectrum core on authored images, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
@@ -837,6 +838,9 @@ INPUTS = _resolve({
     # profile module comes from the profile, the ROMs' notice from its notice_files; the machine's C and the shared chain come with
     # its conversion.
     ('zxs',): (
+        'native/zxs_machine/zxs_machine.c',
+        'native/zxs_machine/zxs_machine.h',
+        'retrorecomp.zxs_build',
         'retrorecomp.zxs_conversion',
         'retrorecomp.zxs_roms',
         'retrorecomp.zxs_snapshot',
