@@ -119,6 +119,7 @@ native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c nat
 native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c native/msx_machine/msx_music_checks.c
 native/audio_box.h native/audio_box_checks.c tools/audio_box_selftest.py tests/test_audio_box.py
 native/z80_chain_state.inc native/state_file.h native/state_file_checks.c tools/z80_chain_state_selftest.py tests/test_z80_chain_state.py
+native/disk_copies.inc native/disk_copies_checks.c tools/disk_copies_selftest.py tests/test_disk_copies.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c
