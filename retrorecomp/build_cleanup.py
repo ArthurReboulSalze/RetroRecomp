@@ -82,7 +82,7 @@ _X68_SDK = re.compile(r'[0-9a-f]{12}')
 _X68_GAME = re.compile(r'[0-9a-f]{16}')
 _MSX = re.compile(r'([0-9a-f]{12})-[0-9a-f]{8}')
 # Machines whose project is <machine>/<12 hex>[-...]: (folder, pattern).
-_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE))
+_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('pcecd', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE))
 # Machines whose project sits below a shared base <machine>/<host>/<SDK12>/: how many folders the game takes there.
 _BASED = {'x68': 1, 'amiga': 1, 'n64': 1, 'atarist': 2}
 # A profile that shares another one's build folder (the MSX2 converts with the MSX's converter, the Amiga 1200 with the Amiga's).
@@ -348,7 +348,7 @@ def _owner(path: Path, system: str) -> str | None:
 
 
 def _same_rom(system: str, key: str, sha256: str, path: Path, machine: str = '') -> bool:
-    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'psx', 'msx', 'scummvm'):
+    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'pcecd', 'psx', 'msx', 'scummvm'):
         return key == sha256[:12]
     if system in ('amiga', 'n64', 'atarist'):
         return key == sha256[:16]
