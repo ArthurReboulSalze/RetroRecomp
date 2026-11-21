@@ -18,6 +18,8 @@ MAPPED = Z80Machine('mapped', Z80RegionMap(region_bits=13, sources=('rom', 'firm
                     m1_wait=1, irq_sample='instruction_end')
 # The same without the Sega runner around the loop: a call at the start of every step and the chain's own state copies.
 STANDALONE = Z80Machine('standalone', MAPPED.regions, m1_wait=1, irq_sample='instruction_end', step_begin=True, reference_state=True)
+# A machine with a /NMI pin (the ColecoVision's VDP, the SG-1000's pause button): no wait state, /INT read at the end of the instruction.
+WITH_NMI = Z80Machine('with-nmi', MAPPED.regions, irq_sample='instruction_end', step_begin=True, reference_state=True, nmi=True)
 
 
 def statements(function: str, text: str) -> set[str]:
@@ -212,6 +214,60 @@ class Z80ChainTests(unittest.TestCase):
         self.assertFalse(any(guarded(off, 0, 0) for off in range(0x2000)))                      # no window: both 0
         hit = [off for off in range(0x2000) if guarded(off, 0x1800, 0x2000)]                    # 9800h-9FFFh of 8000h-9FFFh
         self.assertEqual((hit[0], hit[-1], len(hit)), (0x17FD, 0x1FFF, 0x803))
+
+    def test_a_machine_without_the_nmi_pin_keeps_the_text_it_always_had(self):
+        # The Sega mapper (the Master System, the Game Gear) and the MSX family render no byte of the NMI.
+        for machine, state in ((SEGA_MAPPER, ''), (MAPPED, ''), (STANDALONE, STATE)):
+            text = z80_chain.runtime_source(machine, RUNTIME, state)
+            self.assertNotIn('banked_accept_nmi', text)
+            self.assertNotIn('banked_nmi_edge', text)
+        self.assertEqual(z80_chain.runtime_source(SEGA_MAPPER, RUNTIME), RUNTIME)
+
+    def test_a_machine_with_the_nmi_pin_accepts_the_edge_before_the_level(self):
+        text = z80_chain.runtime_source(WITH_NMI, RUNTIME, STATE)
+        self.assertEqual(text.count('static void banked_accept_nmi(void) {'), 1)
+        # defined once, before the function that ends a step, and called in place of it when an edge waits
+        self.assertLess(text.index('static void banked_accept_nmi(void) {'), text.index('static inline void banked_after_step(int pending_irq) {'))
+        self.assertEqual(text.count('        if (banked_nmi_edge()) banked_accept_nmi(); else banked_after_step(pending_irq);\n'), 1)
+        self.assertEqual(text.count('banked_after_step(pending_irq);'), 1)
+        # the edge is read after the hardware caught up, and EI's delay does not hold it back
+        self.assertLess(text.index('pending_irq = vdp_irq_asserted();'), text.index('if (banked_nmi_edge())'))
+        body = statements('banked_accept_nmi', text)
+        for statement in ('g_z80.p=g_z80.q=0', 'g_z80.ei_block=0', 'g_z80.iff1=false', 'g_z80.halted=false', 'g_z80.cyc+=11',
+                          'g_z80.pc=0x0066', 'g_z80.wz=g_z80.pc'):
+            self.assertIn(statement, body)
+        self.assertNotIn('g_z80.iff2=false', body)      # IFF2 keeps its value, so that RETN restores it
+
+    def test_the_nmi_is_read_at_the_end_of_an_instruction(self):
+        with self.assertRaises(ValueError):
+            Z80Machine('x', MAPPED.regions, nmi=True)       # the default samples /INT at the start of a step
+
+    def test_the_reference_cpu_takes_the_nmi_as_the_chain_does_only_when_asked(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        with tempfile.TemporaryDirectory() as plain, tempfile.TemporaryDirectory() as nmi:
+            prepare_reference(Path(plain), ROOT / '.deps/smsggrecomp')
+            prepare_reference(Path(nmi), ROOT / '.deps/smsggrecomp', nmi=True)
+            off = (Path(plain) / 'runtime_reference.c').read_text(encoding='utf-8')
+            on = (Path(nmi) / 'runtime_reference.c').read_text(encoding='utf-8')
+            self.assertEqual((Path(plain) / 'runtime_reference.h').read_bytes(), (Path(nmi) / 'runtime_reference.h').read_bytes())
+        # off: EI's delay holds the NMI back as it holds /INT back (the pinned engine's code); on: the NMI comes first
+        self.assertLess(off.index('  if (z->iff_delay) return;'), off.index('  if (z->nmi_pending) {'))
+        self.assertLess(on.index('  if (z->nmi_pending) {'), on.index('  if (z->iff_delay) return;'))
+        self.assertIn('    z->nmi_pending = 0;\n    z->q = z->p = 0;\n', on)
+        self.assertNotIn('    z->nmi_pending = 0;\n    z->q = z->p = 0;\n', off)
+
+    def test_the_nmi_acceptance_agrees_with_the_reference_cpu_state_by_state(self):
+        # tools/z80_nmi_selftest.py builds native/z80_nmi_checks.c twice (28,800 cases each); skipped without a C compiler.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('z80_nmi_selftest', ROOT / 'tools/z80_nmi_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        try:
+            module.compiler()
+        except SystemExit:
+            self.skipTest('no C compiler')
+        self.assertEqual(module.main(), 0)
 
     def test_a_line_of_the_step_loop_that_moved_is_refused(self):
         with self.assertRaises(ValueError):

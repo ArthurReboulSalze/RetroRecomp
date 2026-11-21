@@ -40,7 +40,7 @@ def prepare_cpu_headers(game: Path, engine: Path) -> None:
     (game / 'z80_ops.h').write_text(ops, encoding='utf-8')
 
 
-def prepare_reference(game: Path, engine: Path, m1_counter: bool = False) -> None:
+def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: bool = False) -> None:
     """Correct the pinned fallback/oracle in a generated copy.
 
     This CPU is checked against the same independent vectors as the emitter.
@@ -49,6 +49,10 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False) -> Non
     `m1_counter` (a machine with wait states on M1 cycles, `z80_chain.Z80Machine.counts_m1`) adds a count of the M1
     cycles, `z80_m1_fetches`, where the CPU increments R; its cycle counts stay the Z80's own, and whoever runs it adds
     the wait states from the count. Off, the copy is what it always was.
+
+    `nmi` (a machine with a /NMI pin, `z80_chain.Z80Machine.nmi`) makes the copy accept a pending NMI as the chain's
+    `banked_accept_nmi` does: before EI's one-instruction delay, which only holds /INT back, with the Q and P latches cleared.
+    Off, the copy is what it always was (the pinned code lets EI's delay hold the NMI back too).
     """
     original = engine / 'runner/external/superzazu'
     header = (original / 'z80.h').read_text(encoding='utf-8')
@@ -112,6 +116,11 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False) -> Non
     start = source.index('  if (z->iff_delay > 0) {')
     end = source.index('\n  if (z->nmi_pending)', start)
     source = source[:start] + '  if (z->iff_delay) return;\n' + source[end:]
+    if nmi:
+        source = replace(source, '  if (z->iff_delay) return;\n\n  if (z->nmi_pending) {\n    z->nmi_pending = 0;\n    z->halted = 0;\n',
+                         '  if (z->nmi_pending) {\n    z->nmi_pending = 0;\n    z->q = z->p = 0;\n    z->halted = 0;\n')
+        source = replace(source, '    call(z, 0x66);\n    return;\n  }\n',
+                         '    call(z, 0x66);\n    return;\n  }\n  if (z->iff_delay) return;\n')
     source = replace(source, '    z->int_pending = 0;\n    z->halted = 0;',
         '    z->int_pending = 0;\n    if (z->p) z->pf = 0;\n    z->q = z->p = 0;\n    z->halted = 0;')
     # A floating SMS interrupt bus supplies FF (RST 38): 13 T-states total.
