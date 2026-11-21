@@ -286,6 +286,81 @@ class Z80ChainTests(unittest.TestCase):
             with self.assertRaises(ValueError, msg=change):
                 Z80Machine('x', Z80Regions(**good), **change)
 
+    # --- a machine's instruction costs (Z80Costs) ---------------------------------------------------------------------------
+
+    def test_without_costs_or_with_the_z80s_own_the_text_is_what_it_always_was(self):
+        from retrorecomp.z80_chain import Z80_COSTS
+        for machine in (SEGA_MAPPER, OTHER, MAPPED, STANDALONE, WITH_NMI):
+            same = Z80Machine(machine.key, machine.regions, m1_wait=machine.m1_wait, irq_sample=machine.irq_sample,
+                              step_begin=machine.step_begin, reference_state=machine.reference_state, nmi=machine.nmi,
+                              costs=Z80_COSTS)
+            state = STATE if machine.reference_state else ''
+            self.assertEqual(z80_chain.emitter_source(same, EMITTER), z80_chain.emitter_source(machine, EMITTER))
+            self.assertEqual(z80_chain.runtime_source(same, RUNTIME, state), z80_chain.runtime_source(machine, RUNTIME, state))
+        self.assertEqual(z80_chain._emitter_costs(SEGA_MAPPER, EMITTER), EMITTER)
+        self.assertEqual(z80_chain._nmi_accept(Z80_COSTS), z80_chain._NMI_ACCEPT)
+
+    def test_a_machine_with_costs_writes_its_own_counts(self):
+        from retrorecomp.z80_chain import Z80Costs
+        costs = Z80Costs(base=(('', 0x00, 8), ('ed', 0xB0, 20), ('ddcb', 0x06, 28)), jr_taken=3, djnz_taken=6, ret_taken=9,
+                         call_taken=2, repeat=8, irq=15, irq_im2=22, nmi=12, halt=6, fragment=5)
+        machine = Z80Machine('costs', MAPPED.regions, m1_wait=1, irq_sample='instruction_end', step_begin=True,
+                             reference_state=True, nmi=True, costs=costs)
+        emitter = z80_chain.emitter_source(machine, EMITTER)
+        for text in ('{ s->cyc += 9; s->pc = sms_read16(s->sp)', 'if (s->b) { s->cyc += 6;', '"    if (%s) { s->cyc += 3; s->pc = %s;',
+                     '{ s->cyc += 2; s->sp = (uint16_t)(s->sp - 2)', '{ s->cyc += 8; s->pc = (uint16_t)(s->pc - 2);',
+                     's->cyc += %d;\\n}\\n", 5 + banked_machine.m1_wait', 'banked_cost(in, 16) + m1', 'banked_cost(in, cyc_base(in)) + m1',
+                     'static const unsigned char banked_cost_table[7][256] = {'):
+            self.assertEqual(emitter.count(text), 1, text)
+        rows = costs.table
+        self.assertEqual((rows[0][0x00], rows[4][0xB0], rows[5][0x06], sum(map(sum, rows))), (8, 20, 28, 56))
+        loop = z80_chain.runtime_source(machine, RUNTIME, STATE)
+        for text in ('g_z80.cyc += g_z80.im == 2 ? 22 : 15;', 'g_z80.cyc += 12;', 'g_z80.cyc += 7; banked_halt_steps++;'):
+            self.assertEqual(loop.count(text), 1, text)       # HALT: the machine's 6 and its one M1 wait state
+
+    def test_costs_are_checked(self):
+        from retrorecomp.z80_chain import Z80Costs
+        for bad in (dict(base=(('xx', 0, 4),)), dict(base=(('', 256, 4),)), dict(base=(('', 0, 0),)),
+                    dict(base=(('cb', 1, 8), ('cb', 1, 9))), dict(base=(('', 0),)), dict(irq=10), dict(halt=-1), dict(nmi=256)):
+            with self.subTest(bad), self.assertRaises(ValueError):
+                Z80Costs(**bad)
+        with self.assertRaises(ValueError):
+            Z80Machine('x', MAPPED.regions, costs={'halt': 4})
+
+    def test_the_reference_cpu_counts_as_the_table_says_only_when_given_one(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        from retrorecomp.z80_chain import Z80_COSTS, Z80Costs
+        texts = {}
+        for name, costs in (('none', None), ('own', Z80_COSTS), ('table', Z80Costs(base=(('', 0x00, 8),), irq=15, irq_im2=22,
+                                                                                         nmi=12, fragment=5))):
+            with tempfile.TemporaryDirectory() as folder:
+                prepare_reference(Path(folder), ENGINE, m1_counter=True, costs=costs)
+                texts[name] = (Path(folder) / 'runtime_reference.c').read_text(encoding='utf-8')
+        self.assertEqual(texts['none'], texts['own'])
+        table = texts['table']
+        self.assertNotIn('rr_apply_costs', texts['none'])
+        self.assertEqual(table.count('  rr_apply_costs(z, rr_start, rr_halted, rr_group, decoded);\n'), 1)
+        for text in ('    z->cyc += 12;\n    call(z, 0x66);', '      z->cyc += 4;\n      exec_opcode(z, z->int_data);',
+                     '      z->cyc += 15;\n      call(z, 0x38);', '      z->cyc += 22;\n      call(z, rw(',
+                     'z->pc++; z->cyc += 5; inc_r(z); op = next;'):
+            self.assertEqual(table.count(text), 1, text)
+        # the instruction's cost is applied before the interrupts are looked at
+        self.assertLess(table.index('  rr_apply_costs(z, rr_start'), table.index('  process_interrupts(z);\n}'))
+
+    def test_the_costs_agree_with_the_reference_cpu_encoding_by_encoding(self):
+        # tools/z80_costs_selftest.py builds the emitter for an authored table and for the Z80's own counts and runs every
+        # encoding on both sides; skipped without a C compiler.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('z80_costs_selftest', ROOT / 'tools/z80_costs_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        try:
+            module.compiler()
+        except SystemExit:
+            self.skipTest('no C compiler')
+        self.assertEqual(module.main(), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

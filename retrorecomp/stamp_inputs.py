@@ -271,6 +271,7 @@ NOT_INPUTS = (
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
+    'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.

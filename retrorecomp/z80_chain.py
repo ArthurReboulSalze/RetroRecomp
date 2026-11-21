@@ -107,6 +107,76 @@ class Z80RegionMap:
 # When the step loop reads the /INT level of an instruction it will accept the interrupt after.
 IRQ_SAMPLES = ('step_start', 'instruction_end')
 
+# The encoding groups of the Z80, as `Z80Costs.base` names them: no prefix, CB, DD, FD, ED, DD CB d and FD CB d (the opcode of
+# the last two is the byte after the displacement).
+COST_GROUPS = ('', 'cb', 'dd', 'fd', 'ed', 'ddcb', 'fdcb')
+
+
+@dataclass(frozen=True)
+class Z80Costs:
+    """The T-states of each instruction on a machine whose bus stretches the Z80's own, as a static table.
+
+    The Amstrad CPC is the case: its gate array lets the CPU touch the bus only once per microsecond (4 T-states), so every
+    instruction takes a whole number of microseconds, which a table per encoding states. Every value is in T-states, before the
+    machine's M1 wait states (`Z80Machine.m1_wait`), and the defaults are the Z80's own: `Z80Costs()` changes nothing.
+
+    `base` replaces the Z80's own count of some encodings: (group of COST_GROUPS, opcode, T-states). A conditional branch keeps
+    its base when it is not taken and adds its `*_taken` extra when it is (JR cc and DJNZ, RET cc, CALL cc; JP cc has none,
+    and the same with a DD or FD prefix before them); a repeating block instruction (LDIR, CPIR, INIR, OTIR and their
+    decrementing forms) adds `repeat` each time it goes round again. `irq` and `irq_im2` are the acceptance of /INT (modes 0 and
+    1, mode 2), `nmi` the acceptance of /NMI, `halt` one cycle of a HALT, `fragment` a redundant DD or FD prefix. The emitter
+    (`emitter_source`), the step loop (`runtime_source`) and the reference CPU of the counted fallback
+    (`cpu.prepare_reference(costs=...)`) all read the same values; tools/z80_costs_selftest.py checks that they agree."""
+    base: tuple[tuple[str, int, int], ...] = ()
+    jr_taken: int = 5
+    djnz_taken: int = 5
+    ret_taken: int = 6
+    call_taken: int = 7
+    repeat: int = 5
+    irq: int = 13
+    irq_im2: int = 19
+    nmi: int = 11
+    halt: int = 4
+    fragment: int = 4
+
+    def __post_init__(self):
+        seen = set()
+        for entry in self.base:
+            if not isinstance(entry, tuple) or len(entry) != 3:
+                raise ValueError('Z80 costs: a base entry is (group, opcode, T-states).')
+            group, opcode, states = entry
+            if group not in COST_GROUPS or not (isinstance(opcode, int) and 0 <= opcode <= 255):
+                raise ValueError(f'Z80 costs: unknown encoding {entry!r}.')
+            if not (isinstance(states, int) and 1 <= states <= 255):
+                raise ValueError(f'Z80 costs: {entry!r} must cost 1 to 255 T-states.')
+            if (group, opcode) in seen:
+                raise ValueError(f'Z80 costs: {group or "unprefixed"} {opcode:02X}h is given twice.')
+            seen.add((group, opcode))
+        for name in ('jr_taken', 'djnz_taken', 'ret_taken', 'call_taken', 'repeat', 'irq_im2', 'nmi', 'halt', 'fragment'):
+            value = getattr(self, name)
+            if not (isinstance(value, int) and 0 <= value <= 255):
+                raise ValueError(f'Z80 costs: {name} is 0 to 255 T-states.')
+        # Mode 0 runs the RST 38h the floating bus gives: the reference CPU adds the RST's own 11 T-states to the acceptance.
+        if not (isinstance(self.irq, int) and 11 <= self.irq <= 255):
+            raise ValueError('Z80 costs: irq is 11 to 255 T-states (mode 0 runs RST 38h, 11 of them).')
+
+    @property
+    def table(self) -> list[list[int]]:
+        """The base costs as seven rows of 256 (COST_GROUPS order), 0 where the Z80's own count stands."""
+        rows = [[0] * 256 for _ in COST_GROUPS]
+        for group, opcode, states in self.base:
+            rows[COST_GROUPS.index(group)][opcode] = states
+        return rows
+
+    def c_table(self, name: str) -> str:
+        """The base costs as a C array of that shape, for the emitter and the reference CPU alike."""
+        rows = ['    {' + ','.join(str(value) for value in row) + '}' for row in self.table]
+        return f'static const unsigned char {name}[7][256] = {{\n' + ',\n'.join(rows) + '\n};\n'
+
+
+# The Z80's own counts: what a machine without a table of its own runs on.
+Z80_COSTS = Z80Costs()
+
 
 @dataclass(frozen=True)
 class Z80Machine:
@@ -140,6 +210,9 @@ class Z80Machine:
     # (`banked_nmi_edge()`: nonzero once per edge, consuming it) and, if so, accepts it (`banked_accept_nmi`) instead of /INT:
     # the NMI is never masked, not even by EI's one-instruction delay, and has priority. Off: no byte of the text changes.
     nmi: bool = False
+    # The T-states of each instruction when the machine's bus stretches the Z80's own (Z80Costs: the Amstrad CPC's whole
+    # microseconds). None: the Z80's own counts, and no byte of the text changes.
+    costs: Z80Costs | None = None
 
     def __post_init__(self):
         if not 0 <= self.m1_wait <= 3:
@@ -150,6 +223,13 @@ class Z80Machine:
             raise ValueError('Z80 machine: /NMI is read at the end of an instruction, once the hardware has caught up (instruction_end).')
         if self.generator_tag and not (self.generator_tag.startswith('-') and self.generator_tag[1:].isalnum()):
             raise ValueError('Z80 machine: the generator tag is empty or a hyphen and letters or digits.')
+        if self.costs is not None and not isinstance(self.costs, Z80Costs):
+            raise ValueError('Z80 machine: costs is a Z80Costs or None.')
+
+    @property
+    def cost(self) -> Z80Costs:
+        """The machine's instruction costs, the Z80's own when it states none."""
+        return self.costs or Z80_COSTS
 
     @property
     def mapped(self) -> bool:
@@ -176,11 +256,52 @@ class Z80Machine:
         return self.m1_wait > 0
 
 
+def _emitter_cost_lines(costs: Z80Costs) -> tuple[str, ...]:
+    """The lines of native/banked_emitter.inc that write a fixed cost (a redundant prefix, the taken branches, a block
+    instruction going round again), as `costs` renders them. With the Z80's own counts they are the file's lines byte for byte."""
+    return (
+        f'        fprintf(o, "    s->pc++; s->r = (s->r & 0x80) | ((s->r + 1) & 0x7F); s->cyc += %d;\\n}}\\n", {costs.fragment} + banked_machine.m1_wait);\n',
+        f'        fprintf(o, "    if (%s) {{ s->cyc += {costs.ret_taken}; s->pc = sms_read16(s->sp); s->wz = s->pc; s->sp = (uint16_t)(s->sp + 2); }}\\n", cond((in->opcode >> 3) & 7));\n',
+        f'            fprintf(o, "    s->b = (uint8_t)(s->b - 1);\\n    if (s->b) {{ s->cyc += {costs.djnz_taken}; s->pc = %s; s->wz = s->pc; }}\\n", target);\n',
+        f'            fprintf(o, "    if (%s) {{ s->cyc += {costs.jr_taken}; s->pc = %s; s->wz = s->pc; }}\\n", cond((in->opcode >> 3) & 3), target);\n',
+        f'        fprintf(o, "    s->wz = %s; if (%s) {{ s->cyc += {costs.call_taken}; s->sp = (uint16_t)(s->sp - 2); sms_write16(s->sp, s->pc); s->pc = %s; }}\\n", target, cond((in->opcode >> 3) & 7), target);\n',
+        f'        fprintf(o, "    if (%s) {{ s->cyc += {costs.repeat}; s->pc = (uint16_t)(s->pc - 2);", more);\n',
+    )
+
+
+# The two lines that write an instruction's base count (a block instruction, any other), and the place of the table and its
+# lookup in a machine that has one.
+_EMITTER_BASE = ('        fprintf(o, "    s->cyc += %d;\\n", 16 + m1 * banked_machine.m1_wait);\n',
+                 '        fprintf(o, "    s->cyc += %d;\\n", cyc_base(in) + m1 * banked_machine.m1_wait);\n')
+_EMITTER_MACHINE = 'static const BankedMachine banked_machine = BANKED_MACHINE;\n'
+_COST_LOOKUP = '''/* The machine's own T-states for some encodings (retrorecomp/z80_chain.py, Z80Costs.base): 0 keeps the Z80's count. The rows
+ * are no prefix, CB, DD, FD, ED, DD CB and FD CB, as in cpu.prepare_reference's copy of the same table. */
+static int banked_cost(const Z80Insn *in, int own) {
+    int row = in->prefix == Z80_PFX_CB ? 1 : in->prefix == Z80_PFX_DD ? 2 : in->prefix == Z80_PFX_FD ? 3 :
+        in->prefix == Z80_PFX_ED ? 4 : in->prefix == Z80_PFX_DDCB ? 5 : in->prefix == Z80_PFX_FDCB ? 6 : 0;
+    return banked_cost_table[row][in->opcode & 0xFF] ? banked_cost_table[row][in->opcode & 0xFF] : own;
+}
+'''
+
+
+def _emitter_costs(machine: Z80Machine, emitter: str) -> str:
+    """The emitter with the machine's instruction costs; the text itself, byte for byte, for the Z80's own counts."""
+    costs = machine.cost
+    for old, new in zip(_emitter_cost_lines(Z80_COSTS), _emitter_cost_lines(costs)):
+        emitter = _once(emitter, old, new)
+    if costs.base:
+        emitter = _once(emitter, _EMITTER_BASE[0], _EMITTER_BASE[0].replace('16 + m1', 'banked_cost(in, 16) + m1'))
+        emitter = _once(emitter, _EMITTER_BASE[1], _EMITTER_BASE[1].replace('cyc_base(in) + m1', 'banked_cost(in, cyc_base(in)) + m1'))
+        emitter = _once(emitter, _EMITTER_MACHINE, _EMITTER_MACHINE + costs.c_table('banked_cost_table') + _COST_LOOKUP)
+    return emitter
+
+
 def emitter_source(machine: Z80Machine, emitter: str) -> str:
-    """The banked emitter for one machine: its description as a C initialiser, then the emitter that reads it."""
+    """The banked emitter for one machine: its description as a C initialiser, then the emitter that reads it, with the
+    machine's own instruction costs (`Z80Machine.costs`) when it states some."""
     return (f'/* The machine this generator is built for (retrorecomp/z80_chain.py, {machine.key}). */\n'
             f'#define BANKED_MACHINE {{ {machine.regions.initialiser()}, .m1_wait = {machine.m1_wait}, '
-            f'.scope = "{machine.regions.scope}" }}\n' + emitter)
+            f'.scope = "{machine.regions.scope}" }}\n' + _emitter_costs(machine, emitter))
 
 
 def _once(source: str, old: str, new: str) -> str:
@@ -207,6 +328,12 @@ static void banked_accept_nmi(void) {
 }
 
 '''
+
+def _nmi_accept(costs: Z80Costs) -> str:
+    """The chain's NMI acceptance with the machine's count of it (`Z80Costs.nmi`)."""
+    return _NMI_ACCEPT.replace('    g_z80.cyc += 11;\n', f'    g_z80.cyc += {costs.nmi};\n', 1)
+
+
 _AFTER_STEP = 'static inline void banked_after_step(int pending_irq) {'
 _TAKE_AFTER_STEP = '        banked_after_step(pending_irq);\n'
 
@@ -257,14 +384,16 @@ def _runtime_parts(machine: Z80Machine) -> tuple[str, ...]:
         seen,
         '        if (!prefix_pending) pending_irq = vdp_irq_asserted();\n' if at_start else '',
         mark,
-        f'            g_z80.cyc += {4 + machine.m1_wait}; banked_halt_steps++;\n',
+        f'            g_z80.cyc += {machine.cost.halt + machine.m1_wait}; banked_halt_steps++;\n',
         f'            int step = game_banked_step({key});\n',
         '        prefix_pending = 0; g_frame_ic++;\n' + ('' if at_start else
             '        banked_advance_vdp(g_z80.cyc);   /* the hardware catches up, then /INT is read at the end of the instruction */\n'
             '        pending_irq = vdp_irq_asserted();\n')
         + ('        if (banked_nmi_edge()) banked_accept_nmi(); else banked_after_step(pending_irq);\n' if machine.nmi
            else _TAKE_AFTER_STEP),
-        _NMI_ACCEPT + _AFTER_STEP if machine.nmi else _AFTER_STEP,
+        _nmi_accept(machine.cost) + _AFTER_STEP if machine.nmi else _AFTER_STEP,
+        # The acceptance of /INT: the machine's counts of modes 0 and 1, and of mode 2.
+        f'    g_z80.cyc += g_z80.im == 2 ? {machine.cost.irq_im2} : {machine.cost.irq};\n',
         f'    unsigned counts[{count}] = {{0}};\n'
         f'    for (int s = 0; s < {count}; ++s) for (int b = 0; b < 256; ++b) counts[s] += banked_seen[s][b];\n'
         '    fprintf(stderr, "[banked] native_steps=%llu halt_steps=%llu fallback_steps=%llu banks_seen='
