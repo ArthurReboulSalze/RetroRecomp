@@ -412,7 +412,7 @@ def window(exe: Path, run_folder: Path, frames: int, script: str, *, state: Path
         shutil.rmtree(run_folder)
     run_folder.mkdir(parents=True)
     copy = run_folder / 'game_probe.exe'
-    shutil.copyfile(exe, copy)
+    shutil.copy(exe, copy)                 # keeps the executable bit (Linux)
     identity = (game or exe).parent.parent.joinpath('coleco_game.h').read_text(encoding='ascii').split('RR_CV_IDENTITY "')[1][:12]
     data = run_folder / 'datas' / 'games' / f'coleco-{identity}'
     if state is not None:
