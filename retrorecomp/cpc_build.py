@@ -33,7 +33,7 @@ blacklist = []
 # The machine's C sources, compiled into every program, and the files they include; the uPD765 and the DSK reader, from
 # native/upd765 (machine-neutral), staged with them.
 MACHINE_SOURCES = ('cpc_machine.c', 'cpc_crtc.c', 'cpc_gate_array.c', 'cpc_ppi.c', 'cpc_state.c')
-MACHINE_FILES = (*MACHINE_SOURCES, 'cpc_machine.h', 'cpc_bus.h', 'cpc_crtc.h', 'cpc_gate_array.h', 'cpc_ppi.h', 'cpc_state.h', 'cpc_glue.inc')
+MACHINE_FILES = (*MACHINE_SOURCES, 'cpc_machine.h', 'cpc_bus.h', 'cpc_crtc.h', 'cpc_gate_array.h', 'cpc_ppi.h', 'cpc_state.h', 'cpc_glue.inc', 'cpc_headless.inc')
 DISK_SOURCES = ('upd765.c', 'dsk_image.c')
 DISK_FILES = (*DISK_SOURCES, 'upd765.h', 'dsk_image.h')
 CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h', 'state_io.h')

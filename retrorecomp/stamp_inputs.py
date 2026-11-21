@@ -851,6 +851,7 @@ INPUTS = _resolve({
         'native/cpc_machine/cpc_gate_array.c',
         'native/cpc_machine/cpc_gate_array.h',
         'native/cpc_machine/cpc_glue.inc',
+        'native/cpc_machine/cpc_headless.inc',
         'native/cpc_machine/cpc_machine.c',
         'native/cpc_machine/cpc_machine.h',
         'native/cpc_machine/cpc_native_main.c',
