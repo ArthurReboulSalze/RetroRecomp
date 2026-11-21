@@ -46,6 +46,12 @@ class StagingTests(unittest.TestCase):
     def test_every_kit_file_is_a_listed_host_input_and_every_name_is_unique(self):
         files = sorted(path.relative_to(ROOT).as_posix() for path in KIT.rglob('*') if path.is_file())
         listed = set(inputs.manifest_names())
+        # A kit file no machine builds with yet (the on-screen keypad until the ColecoVision) is declared out of the stamps
+        # by name, with its reason, until its first machine; every other one is a listed host input.
+        from retrorecomp.stamp_inputs import NOT_INPUTS
+        waiting = {name for name in files if name in NOT_INPUTS}
+        self.assertLessEqual(waiting, {'native/hostkit/adapters/rrhk_keypad.inc'})
+        files = [name for name in files if name not in waiting]
         for name in files:
             self.assertIn(name, listed)
             self.assertEqual(inputs.role(name), 'host', name)
