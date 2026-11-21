@@ -77,7 +77,7 @@ class AmstradCpcProfile(SystemProfile):
     # The RAM windows a conversion will learn, kept as offsets in the disk (the MSX2+ disks' mechanism); the firmware as the
     # second source.
     # order: the next free place in the schema's dense list (the ZX Spectrum took 20).
-    path_spec = PathSpec(order=21, sections=(('z80', 'cpc'),),
+    path_spec = PathSpec(order=22, sections=(('z80', 'cpc'),),
                          source_bounds=(('disk', DISK_BOUNDS), ('system', SYSTEM_BOUNDS), ('amsdos', AMSDOS_BOUNDS)),
                          required_sources=('disk', 'system'), hashed_sources=('disk', 'system', 'amsdos'),
                          shapes=(('z80', 'cpc', dict(roles=('disk', 'system', 'amsdos'), caps={'window4': 4096})),))

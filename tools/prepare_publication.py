@@ -29,7 +29,9 @@ tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_se
 native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
-licenses/pcenginerecomp.md tests/test_pc_engine.py docs/PC_ENGINE.md
+retrorecomp/pcecd.py retrorecomp/pcecd_build.py retrorecomp/pcecd_card.py retrorecomp/pcecd_chd.py retrorecomp/pcecd_conversion.py retrorecomp/pcecd_disc.py retrorecomp/systems/pc_engine_cd.py
+tests/test_pcecd_disc.py tests/test_pcecd_build.py docs/PC_ENGINE_CD.md native/hostkit/adapters/rrhk_pcecd.c native/pcecd_disc.cpp native/pcecd_disc.h native/pcecd_pack.c native/pcecd_pack.h native/pcecd_disc_checks.cpp tools/pcecd_disc_selftest.py
+licenses/pcenginerecomp.md licenses/libchdr.md tests/test_pc_engine.py docs/PC_ENGINE.md
 native/pce_engine/pcm.cpp native/pce_engine/raster.cpp native/pce_engine/scanline.cpp native/pce_engine/video.cpp retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_machine_internal.hpp native/pce_snapshot.cpp native/pce_snapshot.h
 native/pce_backup.c native/pce_backup.h
 native/cart_save.c native/cart_save.h native/cart_save_checks.c tools/cart_save_selftest.py native/save_set_aside.c native/save_set_aside.h
@@ -113,6 +115,7 @@ native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_ma
 native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c native/msx_machine/msx2_checks_sprites.c native/msx_machine/msx2_checks_board.c
 native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c native/msx_machine/msx_music_checks.c
 native/audio_box.h native/audio_box_checks.c tools/audio_box_selftest.py tests/test_audio_box.py
+native/z80_chain_state.inc native/state_file.h native/state_file_checks.c tools/z80_chain_state_selftest.py tests/test_z80_chain_state.py
 retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
 retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
 retrorecomp/systems/amstrad_cpc.py native/cpc_machine/cpc_reference_main.c tools/cpc_reference.py tests/test_cpc_reference.py native/cpc_machine/cpc_native_main.c native/cpc_machine/cpc_headless.inc native/cpc_machine/cpc_player.c tools/cpc_native.py tests/test_cpc_native.py

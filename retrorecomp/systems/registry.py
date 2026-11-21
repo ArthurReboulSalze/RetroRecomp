@@ -37,6 +37,7 @@ from .n64 import NINTENDO_64
 from .neogeo import NEOGEO
 from .nes import NES
 from .pc_engine import PC_ENGINE
+from .pc_engine_cd import PC_ENGINE_CD
 from .scummvm import SCUMMVM
 from .psx import PLAYSTATION
 from .x68000 import X68000
@@ -48,7 +49,7 @@ from .zx_spectrum import ZX_SPECTRUM
 # from its profile.
 FOREIGN_EXTENSIONS = frozenset({
     '.zip', '.bin', '.rom', '.gbc', '.fds', '.smd',
-    '.a26', '.a78', '.7z', '.chd',
+    '.a26', '.a78', '.7z',
 })
 
 _REGISTERED: list[SystemProfile] = []
@@ -75,7 +76,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, AMIGA1200, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS, ZX_SPECTRUM, AMSTRAD_CPC):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, AMIGA1200, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS, ZX_SPECTRUM, PC_ENGINE_CD, AMSTRAD_CPC):
     register(_profile)
 del _profile
 

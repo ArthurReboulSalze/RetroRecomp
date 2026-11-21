@@ -49,17 +49,19 @@ DECLINED = {
     # The Atari ST likewise (atarist_conversion.main_route / explore_route: joystick and keyboard events in its own script format).
     # The Nintendo 64 too (n64_conversion.main_route / explore_route: pad buttons and analog stick events in its own script format).
     # The MSX, MSX2 and MSX2+: their routes come from msx_routes (the default mapping's keys and joystick).
+    # The PC Engine CD plays the routes of its own converter too (the PC Engine's attract and play routes, pcecd_conversion), no random pad layout.
     # The ZX Spectrum (in development): keyboard and joystick routes of its own come with its conversion, as the MSX's.
     # The Amstrad CPC (in development): its routes will type the start command into BASIC, then play joystick and keyboard
     # events in a script of its own, as the MSX's do; it has no pad layout.
-    'random_routes': {'x68', 'pce', 'amiga', 'a1200', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus', 'zxs', 'cpc'},
+    'random_routes': {'x68', 'pce', 'pcecd', 'amiga', 'a1200', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus', 'zxs', 'cpc'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),
     # Per-console reader of the local library for the memory window (retrorecomp/memory_view.py). The PC Engine
     # keeps no per-ROM library record (its report is conversion-report.json beside the game), so there is nothing to summarise.
     # The Game Boy Advance keeps its paths in library/gba/<sha256>/<engine revision>/paths.json and no per-ROM summary.
-    'memory_view': {'cps1', 'cps2', 'pce', 'gba', 'psx'},
+    # The PC Engine CD keeps its observations in its own library folder and no per-ROM summary yet (stage 1 of its profile).
+    'memory_view': {'cps1', 'cps2', 'pce', 'pcecd', 'gba', 'psx'},
     # Path sharing (gate G16) for a supported machine. Arthur, 14 Nov 2026: a machine on which sharing paths serves no purpose
     # does not share them and can still leave the experimental status. A console is listed here only on the measured evidence
     # of its panel (received paths would add no native instruction and save no conversion pass, or a gain Arthur judges too small to be

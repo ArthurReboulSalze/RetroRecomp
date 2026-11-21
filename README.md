@@ -119,6 +119,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | [Win 3.83 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
 | [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %) · Linux 4.56 ms](docs/PERFORMANCE.md#the-figures) |
 | [Amstrad CPC](docs/AMSTRAD_CPC.md) | experimental (developer-only) | `░░░░░` 0 % | not offered | not measured |
+| [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `██░░░` 43 % | not offered | not measured |
 | [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `░░░░░` 3 % | not offered | not measured |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
 
@@ -143,10 +144,12 @@ and its limits are on its page.
 
 ### In development
 
-Six machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision**, the
-**Amstrad CPC**, the **ZX Spectrum** and the **PC Engine CD**. None is available yet: each starts as an experimental
+Four machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision** and the
+**Amstrad CPC**. None is available yet: each starts as an experimental
 profile once its study is approved, and no date is promised. The ZX Spectrum's study is approved: its experimental profile
-identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)).
+identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)). The **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card) is open as an
+experimental machine: nine discs convert, none is translated beyond what their routes ran, and the owner has not played them yet
+([status](docs/PC_ENGINE_CD.md)).
 
 Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 

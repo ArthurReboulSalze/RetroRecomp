@@ -5,6 +5,9 @@
 // Original RetroRecomp code: MIT. The engine keeps its own MIT terms (licenses/pcenginerecomp.md).
 #include "pce_machine.h"
 #include "pce_machine_internal.hpp"
+#ifdef RR_PCE_DISC
+#include "pcecd_disc.h"
+#endif
 
 #include "pce/cartridge.hpp"
 #include "pce/checkpoint.hpp"
@@ -55,6 +58,12 @@ struct Recipe {
     unsigned buttons = 2;
     bool multitap = false;
     std::array<std::uint8_t, PCE_BACKUP_BYTES> backup{};
+    // The PC Engine CD (RR_PCE_DISC, docs/PC_ENGINE_CD.md): the System Card replaces the HuCard, and the disc is read through the engine's drive.
+    bool disc = false, super_ram = true, japan = false;
+    int unknown_status = PCE_UNKNOWN_FAULT;
+    std::vector<std::uint8_t> card;
+    std::string disc_path, disc_sha256;
+    std::uint64_t disc_offset = 0, disc_length = 0;
 };
 
 constexpr std::uint32_t kBackupBank = 0xF7, kBankBytes = 0x2000;
@@ -121,7 +130,41 @@ std::uint64_t fnv(std::uint64_t hash, const void *data, std::size_t size) {
     return hash;
 }
 
+#ifdef RR_PCE_DISC
+// The engine's own recipe for a System Card reset boot (runtime/src/headless.cpp: --system-card-reset with --disc and a continuous picture), the same
+// deterministic power-on as a HuCard's. The backup memory is the card's own device (2 KiB at bank $F7, locked until a game asks), seeded from the
+// player's file. Nothing of the engine changes; the card is never patched and no service is made up.
+std::unique_ptr<Machine> build_disc() {
+    auto fresh = std::make_unique<Machine>();
+    auto &bus = fresh->bus;
+    bus.configure_system_card(recipe.super_ram ? pce::SystemCardProfile::super : pce::SystemCardProfile::standard, recipe.card);
+    bus.enable_cd_transport();
+    bus.enable_continuous_video();
+    bus.enable_interrupts();
+    bus.enable_psg();
+    bus.enable_adpcm();
+    if (recipe.unknown_status != PCE_UNKNOWN_FAULT)
+        bus.cd.unknown_policy = recipe.unknown_status == PCE_UNKNOWN_GEAR_GOOD ? pce::CdUnknownPolicy::gear_good : pce::CdUnknownPolicy::nec_invalid;
+    bus.cd.set_sector_provider(pcecd::open_disc(recipe.disc_path, recipe.disc_offset, recipe.disc_length, recipe.disc_sha256));
+    if (!bus.cd.enabled) bus.enable_cd_control();
+    bus.load(std::uint32_t(kBackupBank) << 13, recipe.backup.data(), recipe.backup.size());
+    if (bus.vdc.raster.enabled) bus.vdc.queued_cpu_accesses = true;
+    bus.enable_joypad(recipe.japan, bus.cd.enabled);
+    bus.joypad.set_multitap(recipe.multitap);
+    for (unsigned slot = 0; slot < PCE_PADS; ++slot) {
+        bus.joypad.set_type(slot, recipe.buttons);
+        bus.joypad.set_pressed(slot, 0);
+    }
+    bus.power_on_cpu(fresh->cpu);
+    bus.enable_audio_output(pce::AudioProfile::raw, PCE_AUDIO_RATE, pce::AudioTiming::gear);
+    return fresh;
+}
+#endif
+
 std::unique_ptr<Machine> build() {
+#ifdef RR_PCE_DISC
+    if (recipe.disc) return build_disc();
+#endif
     auto fresh = std::make_unique<Machine>();
     auto &bus = fresh->bus;
     const auto decoded = pce::decode_hucard(recipe.file, recipe.header, recipe.encoding, recipe.profile);
@@ -217,9 +260,42 @@ int pce_machine_init(const uint8_t *file, size_t size, int copier_header, int bi
     });
 }
 
+#ifdef RR_PCE_DISC
+int pce_machine_init_disc(const PceDiscRecipe *given, char *error, size_t error_size) {
+    return guarded(error, error_size, [&] {
+        if (!given || !given->card || given->card_size != PCE_CARD_BYTES || !given->disc_path || !given->disc_sha256) throw pce::Fault("incomplete disc recipe");
+        if (given->pad_buttons != 2 && given->pad_buttons != 6) throw pce::Fault("pads have two or six buttons");
+        recipe = Recipe{};
+        recipe.disc = true;
+        recipe.card.assign(given->card, given->card + given->card_size);
+        recipe.disc_path = given->disc_path;
+        recipe.disc_sha256 = given->disc_sha256;
+        recipe.disc_offset = given->disc_offset;
+        recipe.disc_length = given->disc_length;
+        recipe.super_ram = given->super_ram != 0;
+        recipe.japan = given->region_japan != 0;
+        recipe.unknown_status = given->unknown_status;
+        recipe.buttons = unsigned(given->pad_buttons);
+        recipe.multitap = given->multitap != 0;
+        recipe.backup.fill(0);                                  // a memory nobody formatted: the System Card formats it when a game asks
+        machine = build();
+        last_sequence = machine->bus.vdc.video.sequence();
+        frames = cropped_frames = 0;
+        picture_width = picture_height = 0;
+        audio.clear();
+        std::memset(pads, 0, sizeof pads);
+    });
+}
+#else
+int pce_machine_init_disc(const PceDiscRecipe *, char *error, size_t error_size) {
+    message(error, error_size, "this game was not built for a disc");
+    return 0;
+}
+#endif
+
 int pce_machine_reset(char *error, size_t error_size) {
     return guarded(error, error_size, [&] {
-        if (recipe.file.empty()) throw pce::Fault("the machine was never started");
+        if (recipe.file.empty() && !recipe.disc) throw pce::Fault("the machine was never started");
         // The reset button leaves a backup unit's memory as it is.
         if (machine) std::copy_n(pce_machine_backup(), recipe.backup.size(), recipe.backup.begin());
         machine = build();
@@ -257,7 +333,7 @@ int pce_machine_run_frame(char *error, size_t error_size) {
         for (unsigned slot = 0; slot < PCE_PADS; ++slot) bus.joypad.set_pressed(slot, pads[slot]);
         const std::uint64_t deadline = cpu.ticks + 8 * kFrameTicks;
         // The player's record: the hybrid policy on a standard board, while the host's recorder is on (F12), outside a code capture.
-        const bool recording = record_note && !capture && policy == pce::ExecutionPolicy::hybrid &&
+        const bool recording = record_note && !capture && policy == pce::ExecutionPolicy::hybrid && !recipe.disc &&
                                recipe.profile == pce::HuCardProfile::base && record_active && record_active();
         while (bus.vdc.video.sequence() == last_sequence) {
             if (cpu.ticks >= deadline) throw pce::Fault("no picture was published within eight frames");
@@ -345,7 +421,7 @@ void pce_machine_set_backup(const uint8_t data[PCE_BACKUP_BYTES]) {
 }
 
 unsigned pce_machine_backup_beyond(void) {
-    if (!machine) return 0;
+    if (!machine || recipe.disc) return 0;          // the System Card's own memory answers $FF past its 2 KiB: nothing to notice
     const auto *bank = machine->bus.bytes->data() + kBackupBank * kBankBytes;
     return unsigned(std::count_if(bank + PCE_BACKUP_BYTES, bank + kBankBytes, [](std::uint8_t byte) { return byte != 0xFF; }));
 }

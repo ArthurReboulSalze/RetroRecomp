@@ -20,6 +20,7 @@ UPSTREAM_NOTICES = {
     'm68k-recomp-core': ('licenses/segagenesisrecomp.md',),      # the page holds the submodule's terms too
     'snesrecomp': ('licenses/snesrecomp.md',),
     'pcenginerecomp': ('licenses/pcenginerecomp.md',),
+    'libchdr': ('licenses/libchdr.md',),
     'beetle-psx-libretro': ('licenses/beetle-psx.md',),
     'Vulkan-Headers': ('licenses/beetle-psx.md',),                # the page holds Khronos's MIT terms too
     # Geolith's own BSD terms cover the Neo Geo machine; the CPS family and the X68000 compile only its Musashi copy.
@@ -197,9 +198,9 @@ class OwnershipTests(unittest.TestCase):
                 after = {profile.id: inputs.role_stamps(profile.id) for profile in ALL_PROFILES}
         for profile in ALL_PROFILES:
             with self.subTest(machine=profile.id):
-                if profile.id == 'pce':
-                    self.assertNotEqual(before['pce']['host'], after['pce']['host'])
-                    self.assertEqual(before['pce']['game'], after['pce']['game'])
+                if profile.id in ('pce', 'pcecd'):         # the PC Engine CD is built from the same engine and declares its notice
+                    self.assertNotEqual(before[profile.id]['host'], after[profile.id]['host'])
+                    self.assertEqual(before[profile.id]['game'], after[profile.id]['game'])
                 else:
                     self.assertEqual(before[profile.id], after[profile.id])
 
