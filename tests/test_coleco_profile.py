@@ -36,7 +36,7 @@ class ProfileTests(unittest.TestCase):
     def test_the_machine_has_the_bios_and_the_cartridge_as_sources_and_the_nmi_pin(self):
         self.assertIs(COLECO.z80_machine, COLECO_MACHINE)
         self.assertEqual((COLECO_MACHINE.key, COLECO_MACHINE.m1_wait, COLECO_MACHINE.irq_sample, COLECO_MACHINE.generator_tag),
-                         ('coleco', 0, 'instruction_end', '-cv'))
+                         ('coleco', 1, 'instruction_end', '-cv'))      # one wait state on every M1 cycle (MAME 0.289's timing)
         self.assertTrue(COLECO_MACHINE.nmi and COLECO_MACHINE.step_begin and COLECO_MACHINE.reference_state)
         self.assertEqual((COLECO_MACHINE.regions.region_bits, COLECO_MACHINE.regions.sources), (13, ('cartridge', 'bios')))
 

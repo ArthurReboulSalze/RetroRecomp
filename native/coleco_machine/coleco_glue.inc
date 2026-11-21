@@ -4,7 +4,7 @@
  * What every machine on the chain shares is native/z80_chain_glue.inc, included below; its header is the contract. This file is what
  * the ColecoVision owes it: the machine of coleco_machine.c, the Z80 bus on it, the region map (the BIOS in the first 8 KiB region, nothing in
  * the next two, the console's RAM in the fourth, the cartridge in the last four, mirrored by bank), the VDP's interrupt as /NMI, and the
- * loop's include (the step loop rendered for the machine by retrorecomp/z80_chain.py: eight 8 KiB regions, no wait state, /NMI read at the end
+ * loop's include (the step loop rendered for the machine by retrorecomp/z80_chain.py: eight 8 KiB regions, one wait state on every M1 cycle, /NMI read at the end
  * of each instruction). The includer defines SMSRECOMP_BANKED_AOT before including it and supplies cv_main_service(). */
 #include "coleco_machine.h"
 #include "game_banked.h"
@@ -38,7 +38,7 @@ static int banked_nmi_edge(void) { return cv_nmi_edge(&machine); }
 uint8_t sms_read8(uint16_t address) { return cv_read(&machine, address); }
 void sms_write8(uint16_t address, uint8_t value) { cv_write(&machine, address, value); }
 uint8_t sms_io_in(uint8_t port) { machine_to(step_start); return cv_in(&machine, port); }
-void sms_io_out(uint8_t port, uint8_t value) { machine_to(step_start); cv_out(&machine, port, value); }
+void sms_io_out(uint8_t port, uint8_t value) { machine_to(step_start); cv_out(&machine, port, value); g_z80.cyc += cv_take_wait(&machine); }
 
 /* The region map the step loop reads, which never changes: region 0 the BIOS (source 1), regions 1 and 2 the expansion port (RAM in the
  * chain's sense: nothing is translated there, the machine's bus answers FFh), region 3 the console's RAM, regions 4 to 7 the cartridge

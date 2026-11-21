@@ -2,11 +2,11 @@
  * copy by retrorecomp.cpu.prepare_reference with the NMI corrections, never edited by hand) on the ColecoVision machine of
  * coleco_machine.c. MIT, Retro-Recomp. A development check and the conversion's oracle: never built into a game.
  *
- * The ColecoVision inserts no wait state. The VDP's interrupt is /NMI, an edge the Z80 takes at the end of an instruction: the step runs with
+ * The ColecoVision inserts one wait state on every M1 cycle (the chain's `m1_wait`; MAME 0.289's timing agrees, docs/COLECOVISION.md). The VDP's interrupt is /NMI, an edge the Z80 takes at the end of an instruction: the step runs with
  * nothing pending, the machine advances by its cycles, then the edge is read and the NMI accepted (coleco_reference_accept, the
  * interpreter's own acceptance, exported by the same generated copy; the corrected interpreter accepts it even right after EI). /INT is not wired.
  *
-* Usage: coleco_reference --bios FILE --cart FILE|- [--pal] [--frames N] [--watch ADDR]... [--vram FILE] [--ram FILE] [--frame FILE] [--rows FILE] [--audio FILE]
+* Usage: coleco_reference --bios FILE --cart FILE|- [--pal] [--frames N] [--watch ADDR]... [--vram FILE] [--ram FILE] [--write-log FILE] [--frame FILE] [--rows FILE] [--audio FILE]
  *                         [--script FILE | --event FRAME:pad:PORT:HEX]... [--report FILE] */
 #include "coleco_machine.h"
 #include "runtime_reference.h"
@@ -21,14 +21,24 @@
 
 void coleco_reference_accept(z80 *const z);      /* the interpreter's interrupt acceptance (both /INT and /NMI) */
 
+extern unsigned long z80_m1_fetches;          /* counted by the reference CPU (cpu.prepare_reference, m1_counter): the M1 cycles that take a wait state */
 static CvMachine machine;
 static uint8_t bios[CV_BIOS_SIZE];
 static uint8_t cart[0x8000];
 
 static uint8_t bus_read(void *user, uint16_t address) { return cv_read((CvMachine *)user, address); }
-static void bus_write(void *user, uint16_t address, uint8_t value) { cv_write((CvMachine *)user, address, value); }
+static FILE *write_log;                       /* --write-log FILE: every write to RAM, `address value cycle`, for a comparison with another emulator */
+static void bus_write(void *user, uint16_t address, uint8_t value)
+{
+    if (write_log && (address >> 13) == 3) fprintf(write_log, "%04X %02X %llu\n", 0x6000 + (address & 0x3FF), value, (unsigned long long)((CvMachine *)user)->cycles);
+    cv_write((CvMachine *)user, address, value);
+}
 static uint8_t bus_in(z80 *z, uint8_t port) { return cv_in((CvMachine *)z->userdata, port); }
-static void bus_out(z80 *z, uint8_t port, uint8_t value) { cv_out((CvMachine *)z->userdata, port, value); }
+static void bus_out(z80 *z, uint8_t port, uint8_t value)
+{
+    cv_out((CvMachine *)z->userdata, port, value);
+    z->cyc += cv_take_wait((CvMachine *)z->userdata);      /* the sound chip's /READY holds the CPU */
+}
 
 /* "-" reads standard input: a player's ROM taken from its archive in memory reaches the program with no file copy. */
 static long load(const char *path, uint8_t *into, long limit)
@@ -73,6 +83,7 @@ int main(int argc, char **argv)
         ++i;
         if (!strcmp(a, "--cart")) cart_rom = v;
         else if (!strcmp(a, "--bios")) bios_rom = v;
+        else if (!strcmp(a, "--write-log")) { write_log = fopen(v, "w"); if (!write_log) return 2; }
         else if ((route_result = headless_option(a, v)) != 0) {
             if (route_result < 0) { fprintf(stderr, "bad value for %s\n", a); return 2; }
         } else { fprintf(stderr, "unknown option %s\n", a); return 2; }
@@ -98,9 +109,9 @@ int main(int argc, char **argv)
     machine.line_hook = cv_route_line;
     while (machine.frames < frames_wanted) {
         z.int_pending = 0;                    /* the step accepts nothing: the levels are read after it */
-        unsigned long c0 = z.cyc;
+        unsigned long c0 = z.cyc, f0 = z80_m1_fetches;
         z80_step(&z);
-        cv_advance(&machine, (uint64_t)(z.cyc - c0));
+        cv_advance(&machine, (uint64_t)(z.cyc - c0) + (z80_m1_fetches - f0));   /* one wait state on every M1 cycle */
         if (cv_nmi_edge(&machine)) {
             unsigned long c1 = z.cyc;
             z.nmi_pending = 1;

@@ -45,13 +45,14 @@ the game file is for its owner only, as the MSX's own-BIOS games are. The work f
 
 1. **Native code.** The cartridge and the BIOS are translated ahead of time to C by the shared banked Z80 chain (`retrorecomp/z80_chain.py`) on
    the machine's own description, `COLECO_MACHINE` in `retrorecomp/systems/coleco.py`: eight 8 KiB regions (the BIOS in the first, nothing in
-   the next two, the console's RAM, then the cartridge window mirrored by its size), no wait state on the M1 cycle, and the TMS9928A's frame
+   the next two, the console's RAM, then the cartridge window mirrored by its size), one wait state on every M1 cycle (as MAME 0.289's timing has it: the writes of the BIOS's start land at the same cycles once it is counted), and the TMS9928A's frame
    interrupt wired to the Z80's **/NMI** (an edge: taken when the frame flag rises with the interrupt enabled, or when it is enabled with the
    flag already up; the chain learned that pin for this machine and the SG-1000). /INT is not wired. What the translation does not cover runs on
    the reference Z80 interpreter and is counted, per CPU; code a game runs from RAM is learned and translated with byte guards on the next pass.
 2. **The machine.** The video chip is the shared module `native/tms9918/` of the MSX family and the SG-1000; the sound chip is the shared
    `native/sn76489/` of the SG-1000; the 1 KiB of RAM (6000h, mirrored through 7FFFh), the expansion port (2000h-5FFFh: nothing, reads FFh), the
-   controllers' ports and the keypad are the machine's own C (`native/coleco_machine/coleco_machine.c`, header comment: the map and the ports). No
+   controllers' ports and the keypad are the machine's own C (`native/coleco_machine/coleco_machine.c`, header comment: the map and the ports). A write
+   to the SN76489A holds the CPU for 28 more cycles (the chip's /READY line is wired to the Z80's /WAIT: a value measured against MAME, below). No
    emulator core is inside the executable.
 3. **The controllers.** Each player's controller is one pad word of the host kit: the stick (bits 0-3), the two fire buttons (4-5) and the keypad's
    four lines (6-9): a key is the code of the lines it pulls, so two keys held merge as on the real keypad; bit 10 is reserved (the console has no
@@ -102,10 +103,19 @@ What is checked, and what each check covers (the five measures stay apart):
 - **The delivered game on the host kit** (`tools/coleco_player_selftest.py`, needs a C toolchain): the game's headless replay equals the native
   check, quick states carry a fresh process, and a windowed run (offscreen video, dummy audio) presents pictures and answers the keyboard.
 - **The keypad on a gamepad** (`tools/hostkit_keypad_selftest.py`): the host kit's on-screen keypad, around a fake machine.
-- **A first look at the real BIOS**, on the owner's copy: the BIOS boots to its title and its game-select screen on the machine, and at the game-select
-  screen the keys 1 to 4 and 5 to 8 behave as the two groups the screen offers (one player, two players) while 0, 9, `*` and `#` do nothing, which is
-  what the key codes of the machine's keypad predict for 1 to 8. The codes of 0, 9, `*` and `#` themselves are **not** checked by that look.
+- **MAME 0.289 as a private oracle** (22 November 2026, run apart from this repository, on the owner's BIOS and cartridges; nothing of MAME is in it):
+  - *the controllers' ports*, with every input pressed in turn and read in both modes on both controllers: the twelve keys' codes, the four
+    directions and the two fire buttons agree line by line, with two corrections it gave: `*` and `#` were swapped, and the unused bit 7 reads 0. A
+    ROM-free end-to-end check keeps those bytes (`tests/test_coleco_conversion.py`, `MAME_KEYPAD`);
+  - *the Z80's timing*: twenty-six groups of instructions (the prefixed ones, the block, I/O and branch ones) take exactly the cycles MAME gives them
+    on an authored program with an authored BIOS, once the console's two wait states are in: **one on every M1 cycle**, and **28 more cycles for each
+    write to the sound chip**; both were found because the real BIOS's writes landed late in MAME, and each is now in the machine and in the chain's
+    description of it;
+  - *the writes to the console's RAM*: from power on, the real BIOS and a retail cartridge's title and game-select screens make the same
+    318,494 writes, in the same order and at the same cycles (within the width of one instruction), as MAME over the first 1000 frames, the frame
+    interrupt included; with a key pressed at the game-select screen the two stay the same until about twenty frames after it, where they part: not
+    explained yet (a candidate is how a held key is sampled against the frame interrupt), and not claimed either way.
 
-**Not measured**: CPU fidelity against an independent oracle, hardware fidelity (the port decoding, the keypad codes of 0, 9, `*` and `#`, the VDP's
-interrupt timing against a reference), gameplay validation, physical latency. MAME 0.289 is the planned private oracle; the qualification gates
-([QUALIFICATION.md](QUALIFICATION.md)) are `?` for this machine until a panel has been converted and read.
+**Not measured**: hardware fidelity (MAME is an emulator, not a console: where this machine agrees with it, both may differ from a real ColecoVision;
+nothing was measured on one), CPU fidelity against an independent corpus of instruction vectors, gameplay validation, physical latency. The
+qualification gates ([QUALIFICATION.md](QUALIFICATION.md)) are `?` for this machine until a panel has been converted and read.

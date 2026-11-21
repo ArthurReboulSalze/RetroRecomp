@@ -2,7 +2,7 @@
 native check and the game) and the comparison of the native run with the reference. Thin, on top of retrorecomp/z80_chain_build.py.
 
 * The generator is the shared banked Z80 generator built for the ColecoVision's own machine description (systems/coleco.py, `COLECO_MACHINE`:
-  eight 8 KiB regions, the cartridge as source 0 and the player's BIOS as source 1, no wait state), in its own folders
+  eight 8 KiB regions, the cartridge as source 0 and the player's BIOS as source 1, one wait state on every M1 cycle), in its own folders
   (`core.dependencies(emit, COLECO_MACHINE)`).
 * The generator reads the cartridge as `rom.sms` beside `game.toml` and the BIOS as `bios.rom` (named in `banked.sources`), and keys positions
   modulo the image size, so it gets the cartridge padded to whole 8 KiB regions with FFh, exactly as the machine sees it.

@@ -329,7 +329,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'route_warnings': route_warnings(final_checks),
               'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()},
               'native_validation': {'passed': True, 'reference_kind': 'the same machine with every instruction on the reference '
-                                                                      'interpreter (corrected SuperZazu, no wait state, the VDP interrupt on /NMI)',
+                                                                      'interpreter (corrected SuperZazu, one wait state on every M1 cycle, the VDP interrupt on /NMI)',
                                     'cpu_agreement': True, 'cpu_fidelity_validated': False, 'independent_cpu_oracle': False,
                                     'hardware_fidelity_validated': False, 'full_game_validated': False,
                                     'sound_heard': any(record['audible_frames'] for record in liveness.values()),

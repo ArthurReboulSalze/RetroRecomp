@@ -38,6 +38,12 @@ def toolchain_ready() -> bool:
         return False
 
 
+# The keypad as MAME 0.289's ColecoVision controller reads it in keypad mode: key -> (the lines it pulls, the byte read). Recorded on
+# 22 November 2026 with a private MAME run (tools of .build, never in the repository); the machine's own ports give the same bytes.
+MAME_KEYPAD = {'0': (0x05, 0x7A), '1': (0x02, 0x7D), '2': (0x08, 0x77), '3': (0x03, 0x7C), '4': (0x0D, 0x72), '5': (0x0C, 0x73),
+               '6': (0x01, 0x7E), '7': (0x0A, 0x75), '8': (0x0E, 0x71), '9': (0x04, 0x7B), '#': (0x09, 0x76), '*': (0x06, 0x79)}
+
+
 class AuthoredBiosCase(unittest.TestCase):
     """The converter accepts one BIOS by its digest: the checks stand the authored one in for it (the table only, nothing else changes)."""
     def setUp(self):
@@ -333,20 +339,31 @@ class EndToEndTests(AuthoredBiosCase):
             self.assertEqual(native['watch'][f'{authored.FRAME_COUNT:04X}'], native['nmi'] % 256)   # one per frame, as the program counts them
             self.assertGreaterEqual(native['nmi'], 290)
             # Held at the end of the route they are all released: the ports read as no controller (every line high).
-            self.assertEqual(native['watch'][f'{authored.STICK_1:04X}'], 0xFF)
-            self.assertEqual(native['watch'][f'{authored.KEYPAD_1:04X}'], 0xFF)
+            self.assertEqual(native['watch'][f'{authored.STICK_1:04X}'], 0x7F)
+            self.assertEqual(native['watch'][f'{authored.KEYPAD_1:04X}'], 0x7F)
             # What each controller reads while something is held, on both programs: the stick (active low, bits 0-3: up, right, down, left) and the
             # left fire button (bit 6) in joystick mode; the keypad's code and the right fire button in keypad mode; the other bits read 1.
-            for frames, address, value, what in ((50, authored.STICK_1, 0xFE, 'up on controller 1'),
-                                                 (140, authored.KEYPAD_1, 0xFD, 'key 1 on controller 1'),
-                                                 (190, authored.KEYPAD_1, 0xB6, 'key * and the right fire button on controller 1'),
-                                                 (230, authored.STICK_2, 0xB7, 'left and the left fire button on controller 2'),
-                                                 (230, authored.KEYPAD_2, 0xFF, 'nothing on controller 2 in keypad mode')):
+            for frames, address, value, what in ((50, authored.STICK_1, 0x7E, 'up on controller 1'),
+                                                 (140, authored.KEYPAD_1, 0x7D, 'key 1 on controller 1'),
+                                                 (190, authored.KEYPAD_1, 0x39, 'key * and the right fire button on controller 1'),
+                                                 (230, authored.STICK_2, 0x37, 'left and the left fire button on controller 2'),
+                                                 (230, authored.KEYPAD_2, 0x7F, 'nothing on controller 2 in keypad mode')):
                 held = list(args)
                 held[held.index('--frames') + 1] = str(frames)
                 for engine, program in (('native', 'coleco_check'), ('reference', 'coleco_reference')):
                     result = build.run(exe(program), held, cart)
                     self.assertEqual(result['watch'][f'{address:04X}'], value, f'{engine}: {what} at frame {frames}')
+            # Every key of the keypad, on both controllers, against what MAME 0.289's ColecoVision controller reads (private oracle, run apart:
+            # a write to 80h-9Fh then a read of FCh or FFh with the key held; the bytes are numbers, the keypad's codes active low in bits 0-3,
+            # bits 4 and 5 high, bit 7 low). The key is the code of the lines it pulls in bits 6-9 of the pad word.
+            for key, (lines, expected) in MAME_KEYPAD.items():
+                for controller, port, address in ((0, 0, authored.KEYPAD_1), (1, 1, authored.KEYPAD_2)):
+                    one = Path(folder) / f'key-{controller}.inputs'
+                    one.write_text(coleco_routes.script([('pad', 5, port, lines << coleco_routes.KEY_SHIFT)]), encoding='ascii')
+                    held = ['--bios', str(bios), '--pal', '--frames', '20', '--watch', f'{address:04X}', '--script', str(one)]
+                    for engine, program in (('native', 'coleco_check'), ('reference', 'coleco_reference')):
+                        result = build.run(exe(program), held, cart)
+                        self.assertEqual(result['watch'][f'{address:04X}'], expected, f'{engine}: key {key} on controller {controller + 1}')
             # A positive control: the comparison does see a difference (the same program on a PAL machine against an NTSC reference).
             ntsc = build.run(exe('coleco_reference'), [a for a in args if a != '--pal'], cart)
             self.assertIn('cycles', build.differences(native, ntsc))
@@ -376,7 +393,7 @@ class EndToEndTests(AuthoredBiosCase):
 
 def routes_bits(routes) -> tuple[int, int, int]:
     """(stick up, keypad key 1, keypad key *) as the pad word holds them."""
-    return routes.UP, routes.KEY_1, 0x09 << routes.KEY_SHIFT
+    return routes.UP, routes.KEY_1, 0x06 << routes.KEY_SHIFT
 
 
 if __name__ == '__main__':
