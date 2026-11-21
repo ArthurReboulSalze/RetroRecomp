@@ -79,7 +79,11 @@ class ConversionRefusalTests(unittest.TestCase):
         system, amsdos = b'\x01' * 0x8000, b'\x02' * 0x4000
         record = cpc_conversion.firmware_identity(system, amsdos, {'cpc_system': {'origin': 'pinned'}, 'cpc_amsdos': {'origin': 'player'}})
         self.assertIn('firmware', lobby_check.FIRMWARE_KEYS)
-        self.assertEqual((record['system']['origin'], record['amsdos']['origin']), ('pinned', 'player'))
+        self.assertEqual(record['model'], 'cpc6128')
+        self.assertEqual([(rom['name'], rom['bytes'], rom['origin']) for rom in record['roms']],
+                         [('os', 0x4000, 'pinned'), ('basic', 0x4000, 'pinned'), ('amsdos', 0x4000, 'player')])
+        import hashlib
+        self.assertEqual(record['sha256'], hashlib.sha256(system + amsdos).hexdigest())   # OS, BASIC, AMSDOS concatenated
         one = lobby_check.firmware_digest({'firmware': record})
         other = lobby_check.firmware_digest({'firmware': cpc_conversion.firmware_identity(system, b'\x03' * 0x4000, {})})
         self.assertNotEqual(one, lobby_check.ZERO)

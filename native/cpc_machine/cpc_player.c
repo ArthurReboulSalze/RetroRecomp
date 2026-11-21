@@ -18,8 +18,14 @@
  * --load-state FILE (loaded at the first service), for the conversion's fresh-process check, and --snap-probe AT:N (the snapshots
  * and the digest checked in one process).
  *
- * Not yet here: the copies of a disk the game wrote (it is written in memory and travels with the states), the disk keys for a
- * game of several disks, the game's saves in a session (each seat plays its own embedded disk). */
+ * The disk's saves: what the game writes on drive A's disk goes to a copy beside player.cfg (native/disk_copies.inc:
+ * datas/games/cpc-<identity>/disk-1.dsk, read back at the next start when its size is right, written a few seconds after the last
+ * write and when the game closes; the embedded disk is never changed). In a multiplayer match the host's disk A, as it stands,
+ * travels to every seat and is played in memory (session_save / session_save_put), laid again at the match's start and at every
+ * restart; nobody writes a copy during the match, the host writes its own once at a clean end (the previous copy kept as .bak),
+ * and a guest never writes one for the rest of its run.
+ *
+ * Not yet here: the disk keys for a game of several disks. */
 #define SMSRECOMP_BANKED_AOT 1
 #include <SDL.h>
 #include "cpc_glue.inc"
@@ -28,6 +34,7 @@
 #include "cpc_game.h"
 #include "embedded_resources.h"
 #include "platform_io.h"
+#include "disk_copies.inc"
 
 /* The frontend variables rrhk_computer.inc reads (see its header). */
 static bool guest_keyboard, mouse_grab, mouse_game, input_focus = true, fast_forward, want_swap, want_eject;
@@ -47,9 +54,14 @@ static size_t cpc_snap_bound(void);
 static size_t cpc_snap_save(void *buffer, size_t capacity);
 static bool cpc_snap_load(const void *buffer, size_t size);
 static uint64_t cpc_snap_digest(void);
-/* What a frame does outside the machine: nothing yet (no disk copies); kept for the copies to come. */
+/* What a frame does outside the machine (the disk's copy): off for silent frames and for every seat during a match. */
 static bool cpc_effects_allowed = true;
 static void cpc_side_effects(bool allowed) { cpc_effects_allowed = allowed; }
+/* The disk's save in a match (below, after the disks). */
+static size_t cpc_session_save(void *out, size_t capacity);
+static bool cpc_session_save_put(const void *in, size_t size);
+static void cpc_session_begin(uint64_t clock);
+static bool cpc_session_save_commit(void);
 
 #include "hostkit/adapters/rrhk_cpc.inc"
 
@@ -61,6 +73,101 @@ static uint32_t picture[CPC_SCREEN_WIDTH * CPC_SCREEN_HEIGHT];
 static int headless;                             /* --headless: the start replayed, no host */
 
 #include "cpc_state_file.inc"
+
+/* ---- the disk's copy and its save in a match ---- */
+static RrDiskCopies copies;                      /* drive A's disk: its copy beside player.cfg (none in a headless run) */
+
+/* What the game wrote on drive A this frame: the copy is due, and the disk's bytes travel with every state from now on. */
+static int disk_take_written(void)
+{
+    if (!machine.fdc.drive[0].written) return 0;
+    machine.fdc.drive[0].written = 0;
+    rr_disk_copies_written(&copies, 0);
+    disk_ever = 1;
+    return 1;
+}
+
+static void disk_at_exit(void) { if (cpc_effects_allowed && !rrhk_session_active()) rr_disk_copies_save(&copies); }
+
+/* The match's disk image: a magic word, the disk's size, then its bytes. The host plays the match on the bytes it sends (held, laid
+ * again at the start and at each restart), a guest on the host's. */
+#define CPC_SESSION_MAGIC "RCPCDSK1"
+static uint8_t *session_held;
+static size_t session_held_size;
+static uint8_t *session_start;                   /* the machine at power-on, for session_begin */
+static size_t session_start_size;
+
+static size_t cpc_session_image_size(void) { return 8u + 4u + disk_sizes[0]; }
+
+static void cpc_session_hold(const void *image, size_t size)
+{
+    uint8_t *copy = (uint8_t *)malloc(size);
+    if (!copy) return;
+    memcpy(copy, image, size);
+    free(session_held);
+    session_held = copy;
+    session_held_size = size;
+}
+
+/* Lay a match's image on drive A (checked: this game's disk size): in memory only. */
+static bool cpc_session_lay(const uint8_t *image, size_t size)
+{
+    if (size != cpc_session_image_size() || memcmp(image, CPC_SESSION_MAGIC, 8)) return false;
+    const uint32_t bytes = (uint32_t)image[8] | (uint32_t)image[9] << 8 | (uint32_t)image[10] << 16 | (uint32_t)image[11] << 24;
+    if (bytes != disk_sizes[0]) return false;
+    memcpy(disk_data[0], image + 12, disk_sizes[0]);
+    if (cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0) != DSK_OK) return false;
+    disk_ever = 1;                               /* the match's disk travels with every snapshot */
+    return true;
+}
+
+static size_t cpc_session_save(void *out, size_t capacity)
+{
+    const size_t size = cpc_session_image_size();
+    if (!out) return size;
+    if (capacity < size) return 0;
+    uint8_t *image = (uint8_t *)out;
+    memcpy(image, CPC_SESSION_MAGIC, 8);
+    for (int i = 0; i < 4; ++i) image[8 + i] = (uint8_t)(disk_sizes[0] >> (8 * i));
+    memcpy(image + 12, disk_data[0], disk_sizes[0]);
+    cpc_session_hold(out, size);                 /* the host plays the match on the bytes it sends */
+    return size;
+}
+
+static bool cpc_session_save_put(const void *in, size_t size)
+{
+    if (size != cpc_session_image_size() || memcmp(in, CPC_SESSION_MAGIC, 8)) return false;   /* nothing is changed */
+    cpc_session_hold(in, size);
+    copies.folder[0] = 0;                        /* a guest never writes its own disk's copy, not even after the match */
+    for (unsigned n = 0; n < copies.count; ++n) copies.disk[n].dirty = 0;
+    return cpc_session_lay((const uint8_t *)in, size);
+}
+
+/* Called once after power_on when the game starts in a session: the machine at power-on, laid again by session_begin. */
+static void cpc_session_keep_start(void)
+{
+    const size_t bound = cpc_snap_bound();
+    session_start = (uint8_t *)malloc(bound);
+    session_start_size = session_start ? cpc_snap_save(session_start, bound) : 0;
+    if (!session_start_size) { free(session_start); session_start = NULL; }
+}
+
+/* The match starts, and at each restart: every seat back at power-on, then the match's disk (the CPC has no clock to set). */
+static void cpc_session_begin(uint64_t clock)
+{
+    (void)clock;
+    if (session_start) cpc_snap_load(session_start, session_start_size);
+    if (session_held) cpc_session_lay(session_held, session_held_size);
+}
+
+/* The host, at a clean end of a match: the disk as it is now to this PC's copy, the previous copy kept as .bak. */
+static bool cpc_session_save_commit(void)
+{
+    disk_take_written();
+    const bool ok = rr_disk_copies_commit(&copies);
+    fprintf(stderr, "[cpc] match end: disk A %s\n", ok ? "written" : "not written");
+    return ok;
+}
 
 /* F8/F9 in play, at the service point (the kit calls this from the frame's end). */
 static bool cpc_game_state_file(const wchar_t *path, bool load)
@@ -203,6 +310,8 @@ static void cpc_main_service(void)
     if (!machine.frame_ready)
         return;
     machine.frame_ready = 0;
+    /* What the game wrote goes to its copy once the disk has been quiet for about three seconds; never in a match. */
+    rr_disk_copies_frame(&copies, disk_take_written(), cpc_effects_allowed && !rrhk_session_active());
     switch (cpc_host_frame(&machine)) {
     case 0: break;
     case 2: power_on(); break;
@@ -232,6 +341,7 @@ static void prepare_data_folder(void)
     }
     snprintf(player_config, sizeof player_config, "%s/player.cfg", folder);
     snprintf(state_file_utf8, sizeof state_file_utf8, "%s/quick.rrstate", folder);
+    rr_disk_copies_init(&copies, folder);        /* the disk's copy lives beside player.cfg */
 }
 
 /* The machine from the game's own resources: the ROMs (104, 105) and the disks (103), the first in drive A. */
@@ -272,8 +382,20 @@ static int run(void)
     if (status)
         return status;
     prepare_data_folder();
+    copies.disk[0] = (RrDiskImage){ disk_data[0], disk_sizes[0], 0 };
+    copies.count = 1;
+    if (rr_disk_copies_load(&copies)) {          /* a copy the game wrote before: in drive A, and in every state from now on */
+        disk_ever = 1;
+        if (cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0) != DSK_OK) {
+            memcpy(disk_data[0], disk_original[0], disk_sizes[0]);      /* not a disk any more: the embedded one */
+            disk_ever = 0;
+            cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0);
+        }
+    }
+    atexit(disk_at_exit);
     if (!cpc_host_open(RR_CPC_TITLE, 2)) return 4;
     power_on();
+    if (rrhk_session_active()) cpc_session_keep_start();   /* session_begin puts every seat back here */
     smsrecomp_banked_run();                      /* returns through exit() when the player quits */
     return 0;
 }

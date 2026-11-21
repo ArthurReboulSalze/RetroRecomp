@@ -31,6 +31,7 @@ NATIVE_COUNTS = ('native_steps', 'fallback_steps')   # the delivered game's equa
 STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
 MIN_FRAMES = 60 + STATE_SETTLE + 60
 CRTC_TYPE = 1                    # the CRTC of the board (cpc_crtc.h: type 1, the 6128's commonest)
+MODEL = 'cpc6128'                # the board modelled (its firmware record names it: part of the identity)
 DELIVERY_NOTE = ('a game executable is delivered (developer only, experimental): the translated firmware and the code the game ran '
                  'from RAM, with the CPC player, the host kit and the game\'s disk; the file delivered was replayed headless on the '
                  'boot route and equals the reference interpreter and the native check on every compared field and every frame row; '
@@ -92,15 +93,17 @@ def firmware_pair(options: dict, emit=print) -> tuple[bytes, bytes, dict]:
 
 
 def firmware_identity(system: bytes, amsdos: bytes, record: dict) -> dict:
-    """The report's top-level `firmware` record (retrorecomp/netplay/lobby_check.py FIRMWARE_KEYS): one SHA-256 of the system ROM
-    then AMSDOS, so a room refuses two seats on different firmware before the match; each part's own SHA-256 and origin beside it."""
+    """The report's top-level `firmware` record (retrorecomp/netplay/lobby_check.py FIRMWARE_KEYS), as the multiplayer specialist
+    asked on 21 Nov 2026: one SHA-256 over the OS, BASIC and AMSDOS in that order (the set the lobby compares, so a room refuses two
+    seats on different firmware before the match), the model, and each ROM's own SHA-256 and origin for the people reading."""
     import hashlib
-    parts = {}
-    for key, data in (('cpc_system', system), ('cpc_amsdos', amsdos)):
+    roms = []
+    for name, data, key in (('os', system[:0x4000], 'cpc_system'), ('basic', system[0x4000:], 'cpc_system'),
+                            ('amsdos', amsdos, 'cpc_amsdos')):
         given = record.get(key)
-        parts[key] = {'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data),
-                      'origin': given.get('origin', 'player') if isinstance(given, dict) else str(given)}
-    return {'sha256': hashlib.sha256(system + amsdos).hexdigest(), 'system': parts['cpc_system'], 'amsdos': parts['cpc_amsdos']}
+        roms.append({'name': name, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data),
+                     'origin': given.get('origin', 'player') if isinstance(given, dict) else str(given)})
+    return {'sha256': hashlib.sha256(system + amsdos).hexdigest(), 'model': MODEL, 'roms': roms}
 
 
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, boxart_dir=None, frames=FRAMES,

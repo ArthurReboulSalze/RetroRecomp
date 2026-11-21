@@ -18,7 +18,8 @@
  *
  * The picture is the board's 768 x 272 (48 characters of 16 mode-2 pixels), shown at the width of 384 mode-1 pixels; the sound
  * is the board's stereo 44,100 Hz, straight into the shared ring of native/audio_output.inc. Quick states (F8/F9) are the game's,
- * saved and loaded at the frame's end, its service point. */
+ * saved and loaded at the frame's end, its service point. In a session the player gives the snapshots, the digest, the frame's
+ * effects and the disk's save (cpc_session_save, _save_put, _begin, _save_commit). */
 #include "hostkit/hostkit.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
@@ -227,6 +228,9 @@ const RrhkMachine *rrhk_adapter(void) {
       /* Multiplayer: the game's in-process snapshots, its digest (the board's, with the boot sequence's frame), its effects. */
       t->snap_bound = cpc_snap_bound; t->snap_save = cpc_snap_save; t->snap_load = cpc_snap_load;
       t->digest = cpc_snap_digest; t->side_effects = cpc_side_effects;
+      /* The disk's save in a match: the host's disk A travels to every seat, played in memory, written back at a clean end. */
+      t->session_save = cpc_session_save; t->session_save_put = cpc_session_save_put;
+      t->session_begin = cpc_session_begin; t->session_save_commit = cpc_session_save_commit;
       t->session_keys = x_session_keys;
       t->input_frame = c_input_frame;
       t->settings_loaded = x_settings_loaded; t->help_lines = x_help_lines; t->help_controls = c_help_controls;

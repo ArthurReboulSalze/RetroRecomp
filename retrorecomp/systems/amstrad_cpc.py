@@ -62,6 +62,12 @@ class AmstradCpcProfile(SystemProfile):
     # No kind in native/runtime_feedback.h yet: it waits for the lead's reservation (DECLINED['feedback_kind'] of the registry test).
     feedback_kinds = frozenset()
     developer_only = True
+    # Multiplayer (docs/HOST_KIT.md 2.5, the multiplayer checklist of 21 Nov 2026): rollback on the game's own snapshots, two seats
+    # (joystick 1 on keyboard row 9, joystick 2 on row 6), the host typing for everyone, the host's disk A as the match's save.
+    # Offered nowhere while the profile is developer only.
+    netplay_session = True
+    netplay_seats = 2
+    netplay_rollback = True
     z80_machine = CPC_MACHINE
     # The components its games are to compile: the banked Z80 chain's generator and core, and the reference interpreter of
     # the counted fallback (the MSX's three).
@@ -73,7 +79,7 @@ class AmstradCpcProfile(SystemProfile):
                           SimulationSource('generated/game_banked.h'))
     # What its game is built from beside its own files: the banked Z80 chain and its shared glue, the shared AY-3-8910 and the
     # box filter, the computer side of the host kit; the gates join with the conversion loop.
-    stamp_groups = ('z80_main', 'z80_chain_glue', 'z80_chain_state', 'state_file', 'ay38910', 'audio_box', 'conversion_gates',
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'z80_chain_state', 'state_file', 'ay38910', 'audio_box', 'disk_copies', 'conversion_gates',
                     'hostkit_computer')
     # The player shell is the host kit through the CPC's adapter (on rrhk_computer.inc, as the MSX's).
     host_adapter = 'adapters/rrhk_cpc.inc'

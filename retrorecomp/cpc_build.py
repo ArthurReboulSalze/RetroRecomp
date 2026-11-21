@@ -50,7 +50,7 @@ KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runti
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
              'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
-             'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_envelope.h', 'gamestate.h')
+             'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_envelope.h', 'gamestate.h', 'disk_copies.inc')
 ADAPTER_FILES = ('rrhk_computer.inc', 'rrhk_boot_keys.h', 'rrhk_cpc_keys.h')
 # The boot key sequence and the CPC's key table, staged flat too: the three headless programs type the start command
 # (cpc_boot_input.h), the native check and the reference runner as well as the game.
