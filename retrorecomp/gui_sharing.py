@@ -13,6 +13,7 @@ from . import online, shared_batch
 from .paths import APP_NAME
 from .branding import COLORS
 from .gui_common import BUSY_SEND_RETRY, SENDING_AVAILABLE, SEND_EVERY
+from . import tk_later
 
 
 class SharingMixin:
@@ -245,17 +246,14 @@ class SharingMixin:
             dot.itemconfigure('dot', state='hidden')
             dot.create_arc(1, 1, 11, 11, start=angle, extent=270, style='arc', outline=COLORS['gold'],
                            width=2, tags='spinner')
-            self.spin_after = dot.after(60, turn, (angle - 30) % 360)
+            self.spin_after = tk_later.later(dot, 60, turn, (angle - 30) % 360)
         turn()
 
     def sending_finished(self):
         self.sending_count = max(0, getattr(self, 'sending_count', 0) - 1)
         if self.sending_count or not hasattr(self, 'status_dot'):
             return
-        try:
-            self.status_dot.after_cancel(self.spin_after)
-        except (AttributeError, tk.TclError, ValueError):
-            pass
+        tk_later.cancel(self.status_dot, getattr(self, 'spin_after', None))
         self.status_dot.delete('spinner')
         self.status_dot.itemconfigure('dot', state='normal')
         self.footer_label.configure(text=self.tr('footer'))

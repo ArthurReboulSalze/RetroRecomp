@@ -16,6 +16,7 @@ from .branding import COLORS
 from .dialogs import center_dialog
 from .ui_fonts import scaled
 from .gui_common import UPDATE_CHECK_EVERY, base_is_newer, update_error_text
+from . import tk_later
 
 
 def shared_pieces_unreachable(error: str) -> bool:
@@ -466,7 +467,7 @@ class UpdatesMixin:
                 step.configure(text=self.tr(key) if key in STRINGS else log_text(key, self.language))
                 detail.configure(text=self.tr('deps_step_hint'))
             if state['result'] is None:
-                window.after(150, poll)
+                tk_later.later(window, 150, poll)
                 return
             bar.stop()
             window.destroy()

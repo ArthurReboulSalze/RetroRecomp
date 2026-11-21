@@ -16,6 +16,7 @@ from .library import library_root, atomic_json
 from .paths import APP_NAME, data_directory
 from .platforms import open_local
 from .systems import ALL_PROFILES, available_profiles, get_profile
+from . import tk_later
 PROFILES = available_profiles()
 
 
@@ -120,8 +121,8 @@ class MemoryView:
         ttk.Button(bottom, text=self.tr('open_memory'), command=self.open_folder).pack(side='left')
         ttk.Button(bottom, text=self.tr('close'), command=panel.destroy).pack(side='right')
         panel.bind('<Escape>', lambda e:panel.destroy())
-        panel.after(20, self.load)
-        panel.after(50, self.drain)
+        tk_later.later(panel, 20, self.load)
+        tk_later.later(panel, 50, self.drain)
 
     def selected(self):
         return next(p.id for p in PROFILES if p.name == self.system.get())
@@ -161,7 +162,7 @@ class MemoryView:
                 # Chunk insertions keep a large console responsive to close/resize.
                 self.insert(rows, token)
         except queue.Empty: pass
-        self.panel.after(80, self.drain)
+        tk_later.later(self.panel, 80, self.drain)
 
     def insert(self, rows, token):
         if token != self.generation or not self.panel.winfo_exists(): return
@@ -170,4 +171,4 @@ class MemoryView:
             self.table.insert('', 'end', values=(get_profile(row['system']).name, row['title'],
                                row['identity'][:12], count))
         if len(rows)>60:
-            self.panel.after(1, lambda:self.insert(rows[60:], token))
+            tk_later.later(self.panel, 1, lambda:self.insert(rows[60:], token))

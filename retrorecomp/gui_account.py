@@ -13,6 +13,7 @@ from .paths import APP_NAME
 from .branding import COLORS
 from .gui_common import SENDING_AVAILABLE, typed_pseudonym
 from .gui_drawing import compact_number, _portrait_photo
+from . import tk_later
 
 
 class AccountMixin:
@@ -282,7 +283,7 @@ class AccountMixin:
             def wait():
                 if not window.winfo_exists():return
                 if not answer:
-                    window.after(100, wait)
+                    tk_later.later(window, 100, wait)
                     return
                 go.state(['!disabled'])
                 if 'error' in answer:message.set(self.online_message(answer['error']))
@@ -387,7 +388,7 @@ class AccountMixin:
             def wait():
                 if not window.winfo_exists():return
                 if not answer:
-                    window.after(100, wait)
+                    tk_later.later(window, 100, wait)
                     return
                 go.state(['!disabled'])
                 if 'error' in answer:

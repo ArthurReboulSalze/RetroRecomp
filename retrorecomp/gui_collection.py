@@ -15,6 +15,7 @@ from .branding import COLORS
 from .dialogs import center_dialog
 from .gui_common import INTERFACE_PREFERENCES
 from .tooltips import Tooltip
+from . import tk_later
 
 
 class CollectionMixin:
@@ -198,7 +199,7 @@ class CollectionMixin:
             self.compiled_view.grid(row=1,column=0,rowspan=7,sticky='nsew')
             self.compiled_view.render()
             # Games played or converted elsewhere: re-read only what changed.
-            self.compiled_view.after_idle(self.compiled_view.quiet_refresh)
+            tk_later.later(self.compiled_view, 'idle', self.compiled_view.quiet_refresh)
         else:
             self.compiled_view.grid_remove()
             self.body.rowconfigure(1, weight=4, minsize=100)

@@ -237,7 +237,7 @@ retrorecomp/gui_front_end.py retrorecomp/front_end.py retrorecomp/front_end_view
 retrorecomp/gui_multiplayer.py retrorecomp/multiplayer_view.py tests/test_multiplayer_view.py tests/test_toolbar.py retrorecomp/rounded_ui.py retrorecomp/rounded_skin.py tests/test_rounded_skin.py tests/test_window_scale.py tests/test_window_fit.py tests/tk_cleanup.py
 retrorecomp/game_logs.py tests/test_game_logs.py
 retrorecomp/closing_card_view.py tests/test_closing_card.py
-retrorecomp/gui_welcome.py retrorecomp/announcement.py tests/test_announcement.py retrorecomp/tk_threads.py
+retrorecomp/gui_welcome.py retrorecomp/announcement.py tests/test_announcement.py retrorecomp/tk_threads.py retrorecomp/tk_later.py
 retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
 retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py tests/test_compress_option.py tests/test_console_menu.py
@@ -505,7 +505,7 @@ native/presentation_checks.c tools/presentation_selftest.py
 native/audio_output.inc native/audio_checks.c tools/audio_selftest.py
 tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
-tests/test_toolchain.py tests/test_tk_threads.py tests/test_build_config.py tests/test_build_tools_offer.py tests/test_tooltips.py tests/test_legacy_compat.py tests/test_zz_datas_guard.py tools/toolchain_compare.py tools/nes_state_cross.py
+tests/test_toolchain.py tests/test_tk_threads.py tests/test_tk_later.py tests/test_build_config.py tests/test_build_tools_offer.py tests/test_tooltips.py tests/test_legacy_compat.py tests/test_zz_datas_guard.py tools/toolchain_compare.py tools/nes_state_cross.py
 tools/state16_cross.py tools/neogeo_state_cross.py tools/x68000_cross.py
 tools/mixed_build_gate.py tests/test_mixed_build_gate.py
 tools/selftest_build.py tests/test_selftest_build.py

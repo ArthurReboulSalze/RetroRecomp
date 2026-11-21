@@ -16,6 +16,7 @@ from .gui_drawing import (
     name_colours, _font, _podium_picture, _rounded, _scaled_photo, _tint,
 )
 from .ui_fonts import ui_scale
+from . import tk_later
 
 # Design « Marches » (Arthur's pick, 20 Nov 2026): the Multiplayer window's colours and the podium's three medals. The
 # podium shows its players' real portraits; the ranking rows show none (Arthur, 21 Nov 2026: the initial said nothing,
@@ -513,8 +514,8 @@ class LeaderboardMixin:
             if moving or elapsed < DELAYS[1] + RISE + 0.05:
                 pending = getattr(podium, 'frame', None)
                 if pending:
-                    podium.after_cancel(pending)
-                podium.frame = podium.after(16, lambda: window.winfo_exists() and draw_podium(podium.rows))
+                    tk_later.cancel(podium, pending)
+                podium.frame = tk_later.later(podium, 16, lambda: draw_podium(podium.rows))
             else:
                 podium.frame = None
 
@@ -581,7 +582,7 @@ class LeaderboardMixin:
                         portraits.update(data[0])
                         draw_podium(podium.rows)
                 if not finished or messages:
-                    window.after(50, poll)
+                    tk_later.later(window, 50, poll)
             threading.Thread(target=worker, daemon=True).start()
             poll()
         # Esc closes the rules first when they show, then the window.
@@ -637,7 +638,7 @@ class LeaderboardMixin:
             number.configure(text=str(round(count * (1 - (1 - progress) ** 3))))
             for index, item in enumerate(sparkles):
                 art.itemconfigure(item, state='normal' if (frame // 4 + index) % 3 else 'hidden')
-            window.after(40, animate, frame + 1)
+            tk_later.later(window, 40, animate, frame + 1)
         window.bind('<Escape>', lambda event:window.destroy())
         window.bind('<Return>', lambda event:go.invoke())
         window.update_idletasks()

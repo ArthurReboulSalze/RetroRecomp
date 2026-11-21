@@ -36,6 +36,7 @@ from .branding import COLORS
 from .dialogs import center_dialog, fit_size
 from .ui_fonts import scaled
 from .rounded_ui import Look, RoundButton
+from . import tk_later
 
 POLL_MS = 150
 CHAT_MAX = 80                    # the lobby's own limit (LOBBY.md section 2); the entry stops there
@@ -186,7 +187,7 @@ class MultiplayerWindow:
         self.build_lobby()
         self.show('host' if pick is not None else 'entry')
         self.load_games()
-        self.window.after(POLL_MS, self.poll)
+        tk_later.later(self.window, POLL_MS, self.poll)
 
     # ---- the look ----
 
@@ -935,7 +936,7 @@ class MultiplayerWindow:
                     if self.window.tk.call('clock', 'seconds') - self.joined_at > JOIN_WAIT_S:
                         self.room_failed('', 'unreachable')
         finally:
-            self.window.after(POLL_MS, self.poll)
+            tk_later.later(self.window, POLL_MS, self.poll)
 
     def model_changed(self, model):
         with model.lock:
