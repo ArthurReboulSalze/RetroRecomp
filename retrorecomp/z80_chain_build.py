@@ -8,6 +8,7 @@ project, its runs and its comparisons. The C side of the same split is native/z8
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -96,3 +97,101 @@ def stage_files(work: Path, groups: Iterable[tuple[Path, Iterable[str]]]) -> Non
     for folder, names in groups:
         for name in names:
             write_if_changed(work / name, (folder / name).read_bytes())
+
+
+def _flags() -> int:
+    return subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+
+
+def build_project(work: Path, targets: Sequence[str], cmake_text: str, *, sdl: bool = False,
+                  emit: Callable[[str], None] = print) -> dict[str, Path]:
+    """Configure and build `targets` of the machine's project in `work` (`cmake_text` is its CMakeLists.txt; `sdl` gives it the SDL2 of
+    the converter, for the game). Returns each target's executable."""
+    from . import core
+    from .platforms import build_executable, sdl_install
+    write_if_changed(work / 'CMakeLists.txt', cmake_text.encode('utf-8'))
+    cmake, generator_kind = core.toolchain()
+    log = work / 'build.log'
+    extra = [f'-DCMAKE_PREFIX_PATH={Path(sdl_install()).as_posix()}'] if sdl else []
+    core.run([cmake, '-S', work, '-B', work / 'build', '-G', generator_kind, *core.cmake_target_args(),
+              '-DCMAKE_BUILD_TYPE=Release', *extra], log=log, emit=emit, timeout=BUILD_TIMEOUT)
+    for target in targets:
+        core.run([cmake, '--build', work / 'build', '--config', 'Release', '--target', target, '--parallel', core.build_jobs()],
+                 log=log, emit=emit, timeout=BUILD_TIMEOUT)
+    return {target: build_executable(work / 'build', target) for target in targets}
+
+
+def run_program(exe: Path, args: list[str], image: bytes | None = None, timeout: int = 1800, error: type = RuntimeError) -> dict:
+    """One headless run; its JSON report. The cartridge, when given, reaches the program on its standard input (`--cart -`)."""
+    result = subprocess.run([str(exe), *args, *(['--cart', '-'] if image is not None else [])], input=image,
+                            capture_output=True, timeout=timeout, creationflags=_flags())
+    if result.returncode:
+        raise error(f'{exe.name} failed: {result.stderr.decode(errors="replace").strip()[-500:]}')
+    return json.loads(result.stdout)
+
+
+def run_game(game: Path, options: list[str], report: Path, timeout: int = 1800, error: type = RuntimeError) -> dict:
+    """The game's headless replay (`--headless`, from its own resources): its report, read from `report` (the game is linked for the
+    Windows subsystem, so its standard output is not relied on)."""
+    report.unlink(missing_ok=True)
+    result = subprocess.run([str(game), '--headless', *options, '--report', str(report)], capture_output=True, timeout=timeout,
+                            creationflags=_flags())
+    if result.returncode or not report.is_file():
+        raise error(f'{game.name} --headless failed (exit {result.returncode}): {result.stderr.decode(errors="replace").strip()[-300:]}')
+    return json.loads(report.read_text(encoding='utf-8'))
+
+
+def game_exit_code(game: Path, options: list[str], timeout: int = 120) -> int:
+    """The exit code of a headless run of the game (a refused quick state ends it with 4)."""
+    return subprocess.run([str(game), '--headless', *options], capture_output=True, timeout=timeout, creationflags=_flags()).returncode
+
+
+def frame_rows(path: Path) -> list:
+    """The rows of a --rows file as delivery_evidence.FrameRow (frame, picture, sound, audible, ram, pc)."""
+    from .delivery_evidence import FrameRow
+    rows = []
+    for line in path.read_text(encoding='utf-8').splitlines()[1:]:
+        frame, cpu, ram, picture, sound, samples, audible, pc = line.split(',')
+        rows.append(FrameRow(int(frame), picture, sound=sound, audible=audible == '1', ram=ram, pc=pc))
+    return rows
+
+
+def differences(native: dict, reference: dict, compared: Sequence[str]) -> dict:
+    """The compared fields that differ (a field missing on either side differs)."""
+    return {key: (native.get(key), reference.get(key)) for key in compared
+            if key not in native or key not in reference or native[key] != reference[key]}
+
+
+def learn_passes(work: Path, runs: list[list[str]], *, generate: Callable[[], None], build_check: Callable[[], Path],
+                 run_check: Callable[[Path, list[str], Path], int], passes: int = 3, workers: int = 1) -> tuple[Path, list[int]]:
+    """Generate, build the headless check and run every route with learning, at most `passes` times: it stops when nothing fell back or
+    nothing new was seen. `run_check(check, args, learned_file)` runs one route and returns its fallback steps; what the routes learned
+    (the code the interpreter ran from RAM) is united in `native.patterns`, which the next generation translates with byte guards.
+    Returns the check program and the fallback steps of each pass (summed over the routes)."""
+    from .delivery_evidence import replay_routes
+    patterns = work / 'native.patterns'
+    counts: list[int] = []
+    for _ in range(passes):
+        generate()
+        check = build_check()
+
+        def trial(index):
+            learned = work / f'learned-{index}.txt'
+            learned.unlink(missing_ok=True)
+            steps = run_check(check, [*runs[index], '--learn', str(learned)], learned)
+            return steps, set(learned.read_text(encoding='utf-8').split()) if learned.is_file() else set()
+        trials = replay_routes(range(len(runs)), trial, workers=workers)
+        counts.append(sum(steps for steps, _ in trials))
+        seen = set().union(*(found for _, found in trials))
+        if not counts[-1] or not seen:
+            break
+        known = set(patterns.read_text(encoding='utf-8').split()) if patterns.is_file() else set()
+        if seen <= known:
+            break
+        patterns.write_text(''.join(f'{line}\n' for line in sorted(known | seen)), encoding='utf-8', newline='\n')
+    else:
+        # The last pass still learned something: the bodies are generated once more, so the checked program (and the game built beside
+        # it) hold every pattern the report counts.
+        generate()
+        check = build_check()
+    return check, counts
