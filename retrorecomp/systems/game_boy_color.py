@@ -31,7 +31,7 @@ class GameBoyColorProfile(SystemProfile):
     notice_files = ('licenses/gb-recompiled.md', 'licenses/dear-imgui.md')
     name = "Game Boy Color"
     extensions = (".gbc",)
-    archived_rom_limits = (('.gbc', 8 * 1024 * 1024), ('.gb', 8 * 1024 * 1024))
+    archived_rom_limits = (('.gbc', 8 * 1024 * 1024),)
     export_folder = "Game Boy Color"
     video_modes = ("cgb",)
     cpus = (Cpu("sm83", "main", "cycles"),)

@@ -316,7 +316,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'sms': (SMSGGRECOMP, Z80_RECOMP_CORE),
     'gg': (SMSGGRECOMP, Z80_RECOMP_CORE),
     'gb': (GB_RECOMPILED,),
-    'gbc': (GB_RECOMPILED, SST_SM83),
+    'gbc': (GB_RECOMPILED,),
     'nes': (NESRECOMP,),
     'md': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, Z80_RECOMP_CORE, RBENGINE),
     'snes': (SNESRECOMP,),

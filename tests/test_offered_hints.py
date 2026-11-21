@@ -82,7 +82,7 @@ class OfferedHintsTests(unittest.TestCase):
 
     def test_game_boy_known_entries_without_imported(self):
         data = bytes(0x10000)
-        rom = SimpleNamespace(data=data, sha256=hashlib.sha256(data).hexdigest())
+        rom = SimpleNamespace(data=data, sha256=hashlib.sha256(data).hexdigest(), system_id='gb')
         with patch('retrorecomp.gameboy.record_for', return_value={'rom_entries': [[1, 0x4567]]}):
             self.assertEqual(gameboy._known_entries(rom), {(1, 0x4567)})
             self.assertEqual(gameboy._known_entries(rom, imported=False), set())

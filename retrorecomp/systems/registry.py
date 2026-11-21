@@ -49,7 +49,7 @@ from .zx_spectrum import ZX_SPECTRUM
 # window can say "unknown console" instead of skipping them silently. Each machine's own extensions are added
 # from its profile.
 FOREIGN_EXTENSIONS = frozenset({
-    '.zip', '.bin', '.rom', '.gbc', '.fds', '.smd',
+    '.zip', '.bin', '.rom', '.fds', '.smd',
     '.a26', '.a78', '.7z',
 })
 

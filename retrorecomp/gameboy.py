@@ -285,7 +285,7 @@ def _gameplay_entries(rom: GameBoyRom) -> set[tuple[int, int]]:
     """The entries this player's own play recorded for the exact cartridge (feedback records of the cartridge's machine)."""
     from .feedback import records
     entries = set()
-    for row in records(rom.system_id, rom.sha256, 2, rom):
+    for row in records(getattr(rom, 'system_id', 'gb'), rom.sha256, 2, rom):
         pc, bank = row.address, row.auxiliary
         offset = bank*0x4000 + (pc & 0x3fff)
         span = min(len(row.data), 0x4000 - (pc & 0x3fff))
@@ -300,19 +300,20 @@ def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, 
     library and gameplay rows and the qualified bank: hints from other
     players guide a conversion but are remembered only once it observes them."""
     from .feedback import records
+    system = getattr(rom, 'system_id', 'gb')
     if imported:
         own = _gameplay_entries(rom)
-        shared = record_for(rom.system_id, rom, ENGINE_REV).get('rom_entries', [])
+        shared = record_for(system, rom, ENGINE_REV).get('rom_entries', [])
     else:
         own = set()
-        for row in records(rom.system_id, rom.sha256, 2):
+        for row in records(system, rom.sha256, 2):
             pc, bank = row.address, row.auxiliary
             offset = bank*0x4000 + (pc & 0x3fff)
             span = min(len(row.data), 0x4000 - (pc & 0x3fff))
             if (pc < 0x8000 and bank < len(rom.data)//0x4000 and
                     row.data and rom.data[offset:offset+span] == row.data[:span]):
                 own.add((bank, pc))
-        shared = bundled_record(rom.system_id, rom, ENGINE_REV).get('rom_entries', [])
+        shared = bundled_record(system, rom, ENGINE_REV).get('rom_entries', [])
     return own | read_entries(_verified_trace(rom), len(rom.data)) | {
         (bank, address) for bank, address in shared
         if bank < len(rom.data) // 0x4000 and address < 0x8000}

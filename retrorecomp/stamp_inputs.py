@@ -531,6 +531,7 @@ INPUTS = _resolve({
         'native/gb_machine_checks.c',
         'native/gb_ppu_object_span.h',
         'native/gb_ppu_span_checks.c',
+        'native/gbc_hardware_checks.c',
         'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
