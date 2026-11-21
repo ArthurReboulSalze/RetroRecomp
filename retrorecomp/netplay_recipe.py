@@ -81,6 +81,7 @@ LEFT_OUT = {
     'msx2': _OWN_RECORD, 'msx2plus': _OWN_RECORD, 'amiga': _OWN_RECORD, 'a1200': _OWN_RECORD,
     'atarist': _OWN_RECORD, 'gba': _OWN_RECORD, 'psx': _OWN_RECORD,
     'n64': 'its conversion keeps its own files in the library folder of the game; recipe mode is not established for it',
+    'sg1000': 'in development (stage 1): nothing is converted yet, so there is no conversion to run in recipe mode',
     'scummvm': 'emulated: it translates no code and has no path to carry; recipe mode is not wired for it',
     'zxs': 'in development: the ZX Spectrum converts nothing yet, so it has no conversion to replay; recipe mode is not established for it',
 }
