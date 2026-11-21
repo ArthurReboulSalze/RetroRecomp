@@ -5,13 +5,13 @@
  * registers, palette and VRAM of that instant, as 512 colours of 9 bits (0GGG0RRR0BBB, the palette applied: a split
  * that changes the palette between lines shows); a 256-pixel mode is doubled.
  *
- * Modes: Graphic 1, Graphic 2, Multicolor and Text 1 through msx_tiles.inc (shared with the TMS9918A) on the V9938's
+ * Modes: Graphic 1, Graphic 2, Multicolor and Text 1 through tms_tiles.inc (shared with the TMS9918A) on the V9938's
  * table addresses; Graphic 3 (Graphic 2 with sprite mode 2); Text 2 (80 columns, blink attributes and R#12's colours);
  * Graphic 4 (256 x 4 bits), 5 (512 x 2 bits), 6 (512 x 4 bits), 7 (256 x 8 bits, colours GGGRRRBB). The vertical
  * scroll R#23 picks the picture row; R#2 the page of the bitmap modes, its low bit alternating with R#13 or on even
  * fields with R#9 EO. Colour 0 shows the backdrop, or palette 0 with TP (R#8 bit 5); Graphic 7 has no transparency.
  *
- * Sprite mode 1 in G1, G2 and MC (msx_tiles.inc; colour-0 sprites drawn and colliding only with TP); sprite mode 2 in
+ * Sprite mode 1 in G1, G2 and MC (tms_tiles.inc; colour-0 sprites drawn and colliding only with TP); sprite mode 2 in
  * G3-G7: 8 per line, Y = 216 ends the list, a colour byte per row (EC, CC, IC, colour), sprites with CC set OR their
  * colour into the sprite before them and show only after a sprite with CC clear, collisions between sprites with CC
  * and IC clear (colour 0 only with TP) with the coordinates x + 12, y + 8 in S#3-S#6. Where hardware reports disagree,
@@ -20,7 +20,7 @@
 
 #include <string.h>
 
-#include "msx_tiles.inc"
+#include "tms_tiles.inc"
 
 enum { MODE_G1 = 0x00, MODE_T1 = 0x01, MODE_MC = 0x02, MODE_G2 = 0x04, MODE_G3 = 0x08, MODE_T2 = 0x09,
        MODE_G4 = 0x0C, MODE_G5 = 0x10, MODE_G6 = 0x14, MODE_G7 = 0x1C };
@@ -43,7 +43,7 @@ static const uint16_t g7_sprite_colours[16] = {
     0x472, 0x007, 0x070, 0x077, 0x700, 0x707, 0x770, 0x777,
 };
 
-static void v9938_tile_params(const MsxV9938 *v, MsxTileParams *t, int tp)
+static void v9938_tile_params(const MsxV9938 *v, TmsTileParams *t, int tp)
 {
     memset(t, 0, sizeof *t);
     t->vram = v->vram;
@@ -293,10 +293,10 @@ void msx_v9938_draw_line(MsxMachine *m, int line)
     uint8_t idx[MSX_WIDTH];
     switch (mode) {
     case MODE_G1: case MODE_G2: case MODE_G3: case MODE_MC: case MODE_T1: {
-        MsxTileParams t;
+        TmsTileParams t;
         v9938_tile_params(v, &t, tp);
-        int tile = mode == MODE_T1 ? MSX_TILE_T1 : mode == MODE_MC ? MSX_TILE_MC : mode == MODE_G1 ? MSX_TILE_G1 : MSX_TILE_G2;
-        msx_tiles_line(&t, tile, y, v->reg[7] >> 4, backdrop, idx);
+        int tile = mode == MODE_T1 ? TMS_TILE_T1 : mode == MODE_MC ? TMS_TILE_MC : mode == MODE_G1 ? TMS_TILE_G1 : TMS_TILE_G2;
+        tms_tiles_line(&t, tile, y, v->reg[7] >> 4, backdrop, idx);
         int scroll = v->v9958 && mode != MODE_T1 ? ((v->reg[26] & 0x3F) << 3) - (v->reg[27] & 7) : 0;
         if (scroll) {                              /* V9958: the background moves, the sprites do not */
             uint8_t moved[MSX_WIDTH];
@@ -312,7 +312,7 @@ void msx_v9938_draw_line(MsxMachine *m, int line)
         } else if (mode != MODE_T1 && !(v->reg[8] & 0x02)) {
             uint8_t plain[MSX_WIDTH];
             memset(plain, 0xFF, sizeof plain);       /* mode 1: 0FFh marks "no sprite" */
-            msx_sprites1_line(&t, y, &v->status0, plain);
+            tms_sprites1_line(&t, y, &v->status0, plain);
             for (int x = 0; x < MSX_WIDTH; ++x)
                 if (plain[x] != 0xFF)
                     layer[x] = (uint8_t)(0x10 | plain[x]);

@@ -813,11 +813,9 @@ INPUTS = _resolve({
         'native/msx_machine/msx_state.c',
         'native/msx_machine/msx_state_file.inc',
         'native/msx_machine/msx_snapshot.inc',
-        'native/msx_machine/msx_tiles.inc',
         'native/msx_machine/msx_v9938.c',
         'native/msx_machine/msx_v9938_cmd.c',
         'native/msx_machine/msx_v9938_draw.c',
-        'native/msx_machine/msx_video.c',
         'retrorecomp.msx_build',
         'retrorecomp.msx_cbios',
         'retrorecomp.msx_conversion',
@@ -1165,6 +1163,13 @@ INPUTS = _resolve({
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
     # The emitter and the step loop it parametrises (native/banked_*) are under ALL above; native/banked_reference_state.inc, which no
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).
+    # The TMS9918A video chip (native/tms9918): the state, the CPU's ports, the picture and the line the frame flag rises on, shared by
+    # the machines that have it (the MSX family now, the SG-1000 and the ColecoVision next). Game role.
+    'shares:tms9918': (
+        'native/tms9918/tms9918.c',
+        'native/tms9918/tms9918.h',
+        'native/tms9918/tms_tiles.inc',
+    ),
     'shares:z80_main': (
         'retrorecomp.cpu',
         'retrorecomp.z80_chain',
