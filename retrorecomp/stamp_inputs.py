@@ -873,6 +873,7 @@ INPUTS = _resolve({
         'native/hostkit/adapters/rrhk_boot_keys.h',
         'native/hostkit/adapters/rrhk_cpc_keys.h',
         'retrorecomp.cpc_build',
+        'retrorecomp.cpc_conversion',
         'retrorecomp.cpc_disk',
         'retrorecomp.cpc_firmware',
         'retrorecomp.cpc_keys',
@@ -1259,6 +1260,7 @@ INPUTS = _resolve({
     'shares:z80_chain_state': (
         'native/state_file.h',
         'native/z80_chain_state.inc',
+        'retrorecomp.state_envelope',
     ),
     'shares:ay38910': (
         'native/ay38910/ay38910.c',

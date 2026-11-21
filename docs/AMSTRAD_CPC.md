@@ -1,8 +1,9 @@
 # Amstrad CPC
 
-**Status: in development (experimental, developer only).** The profile `cpc` recognises Amstrad CPC disk images and converts
-nothing yet; it is offered in no installation. This page says what is built, what is planned and what is left out. No game is
-claimed to run.
+**Status: in development (experimental, developer only).** The profile `cpc` recognises Amstrad CPC disk images, and a
+developer's conversion runs its whole chain on authored programs in place of the firmware; it is offered in no installation and
+has converted no game yet (the first, Bomb Jack, waits for the owner's firmware). This page says what is built, what is planned
+and what is left out. No game is claimed to run.
 
 ## 1. Scope
 
@@ -27,9 +28,13 @@ RAM may stay interpreted, counted and shown.
 | The reference Z80 interpreter on the board (the counted fallback's copy, with the CPC's costs and 16-bit ports), run by authored programs as the system ROM: the costs in microseconds, 300 Hz interrupts, the drawn picture, a sector read as AMSDOS reads it | `native/cpc_machine/cpc_reference_main.c`, `tools/cpc_reference.py` | `tests/test_cpc_reference.py` |
 | Native code: the same authored programs translated by the CPC's own generator on the banked Z80 chain, run headless through `cpc_glue.inc` and compared with the reference field by field (CPU, time, interrupts, RAM, picture, Gate Array, AY, controller): equal on all three, 0 interpreted steps; code built in RAM interpreted and counted (600 steps), then native with byte guards once learned (0) | `native/cpc_machine/cpc_native_main.c`, `tools/cpc_native.py` | `tests/test_cpc_native.py` |
 | Firmware recognition (the player's system ROM and AMSDOS ROM, by their public SHA-1) | `retrorecomp/cpc_firmware.py` | `tests/test_cpc_profile.py` |
+| The game: the board with the disk in drive A, the host kit's window through the CPC adapter (`rrhk_cpc.inc` on the computers' adapter), the start command typed from the machine's frame count; quick states (F8/F9) and the multiplayer snapshots and digest on the chain's shared state files (`z80_chain_state.inc`, `state_file.h`) | `native/cpc_machine/cpc_player.c`, `cpc_state_file.inc`, `retrorecomp/cpc_build.py` | `tests/test_cpc_build.py`; a state saved at frame 40 continued by a fresh process equals the uninterrupted run, the snapshot probe passes |
+| One headless run shared by the reference runner, the native check and the game (options, the frame's sound, a row per frame, the report, the boot keys), so the three are compared field by field and row by row | `native/cpc_machine/cpc_headless.inc`, `cpc_boot_input.h` | `tools/cpc_native.py` (every row equal) |
+| The conversion: the start command written, the firmware translated and the code run from RAM learned (`learn_passes`), the native run against the reference on every field and every row (a difference refuses it), the game built, the delivered (compressed) file replayed against both, quick states in a fresh process (13 damaged states refused), the report | `retrorecomp/cpc_conversion.py` | `tests/test_cpc_conversion.py` (the refusals); run end to end on an authored disk and authored programs in place of the firmware: 0 interpreted on its boot route |
 
-These checks are tests of our chips against their documented behaviour, on images and screens the checks build: they say
-nothing yet about a game.
+These checks are tests of our chips and of the chain against their documented behaviour, on images, screens and programs the
+checks build: they say nothing yet about a game. The conversion's route is the start of a game only (the command typed, then the
+frames that follow, no joystick).
 
 ### The start command
 
@@ -64,7 +69,8 @@ permission for emulators, so the converter does not fetch these files.
 ## 4. The five measures
 
 Native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures. None is measured
-for the Amstrad CPC yet: no game is converted.
+for the Amstrad CPC yet: no game is converted (the authored checks measure native code and agreement with the reference on
+programs written for the check, not on a game).
 
 ## 5. Panel (from the owner's library)
 

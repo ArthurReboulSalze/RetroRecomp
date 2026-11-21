@@ -7,8 +7,9 @@ shared banked Z80 chain of the Master System and the MSX, its time rounded to th
 the CRTC 6845, the PPI 8255 with the keyboard and the uPD765 floppy controller are our own C (native/cpc_machine,
 native/upd765), the AY-3-8912 the shared module of the MSX and the ZX Spectrum.
 
-Today the profile identifies a CPC disk (its signature, before the MSX2+ which takes every other .dsk) and converts nothing:
-the machine is offered nowhere (developer only, `available` false) until its conversion loop is on the chain.
+Today the profile identifies a CPC disk (its signature, before the MSX2+ which takes every other .dsk), and a developer's
+conversion (retrorecomp/cpc_conversion.py) runs the boot route on the chain; the machine is offered nowhere (developer only,
+`available` false) until a real game has gone through it on the player's own firmware.
 Not planned for this profile: tapes (.cdt), snapshots (.sna), the Plus range and the GX4000 (their ASIC, .cpr cartridges).
 """
 from __future__ import annotations
@@ -124,8 +125,9 @@ class AmstradCpcProfile(SystemProfile):
         return 'pal'
 
     def convert(self, path: Path, **options) -> Path:
-        from ..core import ConversionError
-        raise ConversionError('The Amstrad CPC is in development: its disks are recognised, not converted yet.')
+        """A developer's conversion (the profile is not offered to players: `available` is false)."""
+        from ..cpc_conversion import convert
+        return convert(path, **options)
 
 
 AMSTRAD_CPC = AmstradCpcProfile()
