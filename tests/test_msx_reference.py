@@ -143,7 +143,7 @@ class StampTests(unittest.TestCase):
         for name in ('tms9918.c', 'tms9918.h', 'tms_tiles.inc'):
             self.assertTrue((ROOT / 'native/tms9918' / name).is_file(), name)
             self.assertIn('native/tms9918/' + name, tms)
-        self.assertEqual(stamp_inputs.sharing('tms9918'), ('msx', 'msx2', 'msx2plus'))
+        self.assertEqual(stamp_inputs.sharing('tms9918'), ('msx', 'msx2', 'msx2plus', 'sg1000'))
 
 
 if __name__ == '__main__':

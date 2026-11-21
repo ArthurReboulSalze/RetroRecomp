@@ -157,6 +157,12 @@ B are the triggers. **Ctrl+Alt+K** hands the whole keyboard to the MSX (the same
 at Ctrl+F1). The F2 pages, autofire (F6) and the speed and sound controls are the common ones. F8 saves a quick state and F9 loads it, refused when the cartridge, the BIOS, the options or the build differ. See
 [MSX.md](MSX.md#4-controls).
 
+### SG-1000
+
+In development: the machine is not playable yet, so there are no keys to list. The pad it is built for is the console's own: the D-pad and two buttons
+(1 and 2), on two pads, and **Pause**, which is the console's NMI. The keys and the controller buttons are decided with the host-kit adapter
+([SG1000.md](SG1000.md#4-controls)).
+
 ## In a multiplayer match
 
 The keys change meaning in a match ([MULTIPLAYER.md](MULTIPLAYER.md)): **F8** and **F9** save and load the match for

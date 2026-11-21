@@ -33,6 +33,7 @@ fallback stays counted and shown wherever it is used.
 | MSX | supported (since 1.7.5) | route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
 | MSX2 | supported (since 1.7.5) | battery saves shown on an MSX2 game, route depth on menu-driven games, the command engine's timing, independent hardware evidence, FM-PAC |
 | MSX2+ | supported (since 1.7.6; experimental from 1.7.4) | route depth (Golvellius II's intro, Pachipro Densetsu's date entry), the Linux half of shared paths, MSX-MUSIC's level on games, independent hardware evidence, FM-PAC |
+| SG-1000 | experimental, developer only (stage 1: recognises cartridge files, converts nothing yet) | the conversion on the banked Z80 chain and a first game, then the qualification gates on a small panel |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
@@ -188,7 +189,8 @@ Supported since 1.7.1 as a category of its own, emulated and 0 % native by desig
 
 Six machines close to the hardware already converted are in their study (November 2026), in this order. Each follows the
 playbook of [NEW_MACHINE.md](NEW_MACHINE.md): the study is approved first, then an experimental profile, the qualification
-list, multiplayer and an optimisation pass.
+list, multiplayer and an optimisation pass. The SG-1000 has its experimental profile since 21 November 2026, for developers only
+([SG1000.md](SG1000.md)): it recognises its cartridge files and converts nothing yet.
 
 | Machine | What is reused | What is new |
 | --- | --- | --- |

@@ -118,6 +118,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████` 91 % | supported · rollback | [Win 1.07 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | [Win 3.83 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
 | [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %) · Linux 4.56 ms](docs/PERFORMANCE.md#the-figures) |
+| [SG-1000](docs/SG1000.md) | experimental (developer-only) | `░░░░░` 0 % | not offered | not measured |
 | [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `░░░░░` 3 % | not offered | not measured |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
 
@@ -145,7 +146,8 @@ and its limits are on its page.
 Six machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision**, the
 **Amstrad CPC**, the **ZX Spectrum** and the **PC Engine CD**. None is available yet: each starts as an experimental
 profile once its study is approved, and no date is promised. The ZX Spectrum's study is approved: its experimental profile
-identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)).
+identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)). The **SG-1000** has also reached that first step, for developers only: its experimental profile recognises the cartridge files and converts nothing
+yet ([SG1000.md](docs/SG1000.md)).
 
 Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 

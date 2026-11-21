@@ -276,6 +276,12 @@ its birth-date entry; no game has been played through (gameplay validation: none
 The **ZX Spectrum** profile is experimental and in development ([status](ZX_SPECTRUM.md)): it identifies 16K, 48K and 128K snapshots
 (`.z80`, `.sna`, or a ZIP holding one) and writes reports, converts nothing yet, and no installation lists it.
 
+The **SG-1000** profile (`sg1000`) is experimental, for developers only, and in development ([status](SG1000.md)). It recognises SG-1000 and SG-1000 II
+cartridges (a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as SG-1000 or keep in a folder named `sg1000`; 2 KiB to 48 KiB, plain ROM) and
+converts nothing yet: a conversion is refused with a sentence before anything is written. No game has been converted, so native code, CPU fidelity,
+hardware fidelity, gameplay validation and physical latency are all unknown, and none is claimed. The keyboard, BASIC and cassette of the SC-3000, and
+the peripherals and boards listed in [SG1000.md](SG1000.md#1-what-is-converted-and-what-is-not), are out of scope.
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy
