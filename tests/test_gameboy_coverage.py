@@ -223,7 +223,7 @@ class CoverageTests(unittest.TestCase):
         with ExitStack() as stack:
             patches = {'ROOT': self.root,
                        '_dependencies': lambda emit: (self.root, self.root/'compiler', self.root, self.root/'cmake', 'generator'),
-                       'write_game_metadata': lambda *a, **k: {}, 'adapt_generated_project': lambda *a: None,
+                       'write_game_metadata': lambda *a, **k: {}, 'adapt_generated_project': lambda *a, **k: None,
                        '_verified_trace': lambda rom: prior, 'run': fake_command, '_probe': fake_probe,
                        '_cpu_compare': fake_compare, '_remember_trace': lambda *a: None, 'state_checks': fake_states}
             for name, value in patches.items():
