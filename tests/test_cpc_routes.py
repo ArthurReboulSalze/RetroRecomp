@@ -27,7 +27,9 @@ class RouteTests(unittest.TestCase):
     def test_the_title_screen_keys_come_first(self):
         events = cpc_routes.play_events(3600, 'd' * 64)
         pressed = [(kind, code if kind == 'key' else value) for _f, kind, code, value in events if value]
-        self.assertEqual(pressed[0], ('key', cpc_routes.KEY_SPACE))
+        self.assertEqual(pressed[:2], [('key', cpc_routes.KEY_N), ('key', cpc_routes.KEY_RETURN)])
+        first = [event for event in events if event[0] < cpc_routes.PLAY_FROM + len(cpc_routes.FIRST_ANSWERS) * cpc_routes.ANSWER_GAP]
+        self.assertFalse([event for event in first if event[1] == 'joy' and event[3] & 0x0F])   # no direction while answering
         keys = {code for kind, code in pressed if kind == 'key'}
         self.assertTrue({cpc_routes.KEY_SPACE, cpc_routes.KEY_N, cpc_routes.KEY_RETURN, cpc_routes.KEY_1} <= keys)
 
