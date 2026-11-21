@@ -279,6 +279,7 @@ NOT_INPUTS = (
     'native/state_file_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
+    'native/zxs_machine/zxs_machine_checks.c',      # tools/zxs_machine_selftest.py: the ZX Spectrum core on authored images, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
@@ -838,12 +839,25 @@ INPUTS = _resolve({
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
     ),
-    # The ZX Spectrum (in development, step 1): its converter modules (the snapshot reader, the ROM pin, the conversion). The
-    # profile module comes from the profile, the ROMs' notice from its notice_files; the machine's C and the shared chain come with
-    # its conversion.
+    # The ZX Spectrum (in development, stage 2): its converter modules (the snapshot reader, the ROM pin, the build, the routes, the
+    # conversion), the machine (ULA, beeper, paging: our own C), the glue of the banked Z80 chain, the headless route, the player,
+    # the native and reference runners the conversion builds to learn and compare, and the host-kit adapter (host role: in
+    # HOST_NATIVE above, from the profile's host_adapter). The profile module comes from the profile, the ROMs' notice from its
+    # notice_files; the Z80 chain, the AY-3-8910 and the computer adapter come from stamp_groups.
     ('zxs',): (
+        'native/hostkit/adapters/rrhk_zxs.inc',
+        'native/zxs_machine/zxs_cpu_start.inc',
+        'native/zxs_machine/zxs_glue.inc',
+        'native/zxs_machine/zxs_headless.inc',
+        'native/zxs_machine/zxs_machine.c',
+        'native/zxs_machine/zxs_machine.h',
+        'native/zxs_machine/zxs_native_main.c',
+        'native/zxs_machine/zxs_player.c',
+        'native/zxs_machine/zxs_reference_main.c',
+        'retrorecomp.zxs_build',
         'retrorecomp.zxs_conversion',
         'retrorecomp.zxs_roms',
+        'retrorecomp.zxs_routes',
         'retrorecomp.zxs_snapshot',
     ),
     # The SG-1000 (experimental, developer only): its converter modules, the cartridge reader and the conversion, the machine (our own
