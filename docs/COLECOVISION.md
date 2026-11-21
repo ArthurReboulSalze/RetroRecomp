@@ -128,3 +128,33 @@ What is checked, and what each check covers (the five measures stay apart):
 **Not measured**: hardware fidelity (MAME is an emulator, not a console: where this machine agrees with it, both may differ from a real ColecoVision;
 nothing was measured on one), CPU fidelity beyond the independent vectors (they pass: 51,328 of 51,328 through this machine's own generator build with one wait state per M1 cycle, `tools/banked_vector_selftest.py --machine coleco`, 22 November 2026; an emulator's vectors on a flat test bus, not hardware captures), gameplay validation, physical latency. The
 qualification gates ([QUALIFICATION.md](QUALIFICATION.md)) are `?` for this machine until a panel has been converted and read.
+
+## 6. G14 checklist for the owner's play test (22 November 2026)
+
+Three delivered executables in `Export/Games/ColecoVision` (built from main of 22 November 2026 with the owner's own BIOS, empty scratch library, portable
+toolchain, online covers on); about three minutes each. The owner fills the row of the owner-acceptance table in his own words and date; nothing here
+sets G14 or the status. The console has **no Pause button**: a game that pauses does it with its own keys.
+
+Controls: arrows move; **D** and **S** are the two fire buttons; the keypad is the digit keys (top row or numeric pad), `*` on **[** and `#` on **]**;
+on a gamepad the D-pad moves, A/B fire, **Y opens the on-screen keypad** (D-pad to move, A to press, B or Y closes it; the game keeps running).
+
+| Game | Try | Should happen |
+|---|---|---|
+| Donkey Kong (USA, Europe) | At the game-select screen press **1** (keypad) or a fire button, then fire again; walk Mario to the first ladder and climb, jump a barrel with **D**; **F8**, play on, **F9**. | Title, then the girders with barrels and the music; jumps over barrels score and ring; the state comes back where it was saved. |
+| Bump 'N' Jump (USA, Europe) | **1** at the select screen, then fire; steer with left/right, jump with **D**; try the gamepad keypad (**Y**) once to pick the game if you have one. | The road scrolls, cars and the jump bonus; engine and jump sounds. The play route reaches the game only through the keypad start, as it should. |
+| Pitfall II - Lost Caverns (USA) | A fire button at the title; run, jump, climb; **F8**/**F9**. | The jungle and cavern screens with their music; Harry runs and jumps; the picture changes on a long walk. |
+
+Also, once: **F2** shows the keys and the keypad's row, **F6** autofire never presses a keypad key, player 2 on I J K L (U and O fire), the sound is clean for a
+minute.
+
+**Evidence beside it** (conversion reports; the native run equals the corrected reference interpreter, with one wait state on every M1 cycle and the VDP
+interrupt on /NMI, on every frame of the attract and of a 3,600-frame pad route): **0 interpreted steps on all six runs**; Donkey Kong 22.3 million native
+steps on its play route (3,540 guarded steps), Bump 'N' Jump 24.9 million, Pitfall II 22.8 million (1,497 guarded steps); sound heard on every play route;
+the BIOS is the owner's own, checked by SHA-256 and recorded in the report; the offscreen frames at 1,500 and 3,000 frames show the games in play.
+Against MAME 0.289 as a private oracle: the controllers' ports agree line by line, the Z80 timing groups agree, and the console RAM writes of the BIOS, the
+title and the game-select screen are identical over 1,000 frames. **G10 is `Y`** (51,328 independent Z80 vectors); G1 to G9 and G11 to G16 stay `?`
+until a panel is read.
+
+**Not claimed**: hardware fidelity (MAME is an emulator; nothing was measured on a console; keys `0 9 * #` follow MAME only), the unexplained parting from
+MAME about twenty frames after a key press at the game-select screen, gameplay validation (three games, played by routes, not through), physical
+latency (never measured). Not converted: the Super Game Module, Adam and the driving or roller controllers.
