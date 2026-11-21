@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.9.0-d4a737" alt="Release version 1.9.0">
+  <img src="https://img.shields.io/badge/release-1.9.1-d4a737" alt="Release version 1.9.1">
   <img src="https://img.shields.io/badge/console_profiles-19-626262" alt="Nineteen machine profiles, and Adventure (ScummVM) as a category of its own">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -148,6 +148,8 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 [compatibility guide](docs/COMPATIBILITY.md). Interpreter fallback is always reported: native
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
+
+**New in 1.9.1.** The automatic sending of discoveries works again after a Game Boy Advance conversion, the leaderboard's podium shows the frames and portrait animations its players equipped, and a Discord button joins the toolbar.
 
 **New in 1.9.0.** Multiplayer on every machine, on the local network or over the Internet, up to four players, with rollback on most machines and the link cable on every handheld ([above](#play-together-new-in-190)). A new F2 menu, sound that no longer crackles on six machines, a faster player's path on several machines, and a new toolbar in the converter. Every export of 1.8.0 is converted again once. Details in the [release notes](docs/RELEASE_NOTES.md).
 

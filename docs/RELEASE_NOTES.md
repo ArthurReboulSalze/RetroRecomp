@@ -1,3 +1,20 @@
+# RetroRecomp v1.9.1 — Sharing fix, the podium's shop items and a Discord button
+
+- **Shared base: the automatic sending works again.** In 1.9.0 it stopped with « 'int' object is not iterable » once a
+  Game Boy Advance conversion had found new paths (a root is one number, the sending expected a list); the discoveries
+  stayed pending and now leave with the next send. Nothing is converted again.
+- **Leaderboard: the podium shows what its players bought.** The frame and the portrait animation each of the first three
+  equipped in the shop (« shine » once when the pointer arrives, « spin » while it stays), as on the site. Players without
+  a photo show the portrait the site generates for them.
+- **A Discord button** in the toolbar, left of Knowledge, opens the RetroRecomp Discord server.
+
+**Your exports and quick states.** No stamp moves: exports and quick states of 1.9.0 stay as they are.
+
+None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still
+counted and shown per CPU and per device wherever it is used.
+
+---
+
 # RetroRecomp v1.9.0 — Multiplayer: play your converted games together, on the local network or over the Internet
 
 ### Multiplayer, on every machine ([MULTIPLAYER.md](MULTIPLAYER.md))
