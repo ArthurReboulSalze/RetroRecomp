@@ -578,11 +578,19 @@ its /NMI once on the press edge, from a per-seat latch kept in its state, so a m
 quick-state layout moves to `sg1000-state-2` (one byte more: the latch). The ColecoVision's report carries its BIOS at the top level
 (`bios: {sha256, ...}`), where the lobby reads firmware.
 
-**Proofs run** (the specialist's checklist, in order): (1) `--snap-probe AT:N` in each delivered game, headless, in the player self-tests (proof (d)):
-a snapshot is the same bytes twice, fits its bound, a buffer one byte short is refused and changes nothing, and after a load the same N frames give
-every digest and every picture again, at two frames and on PAL; (solo) the SG-1000's reference runner on its authored program gives the same
-fields and the same per-frame rows before and after, NTSC and PAL. **Still to run**: the Windows and WSL digests, `tools/netplay_game_smoke.py`,
-the netplay selftests and the full suite, then the multiplayer specialist's two-PC acceptance.
+**Proofs run** (the multiplayer specialist's checklist, in order): (1) `--snap-probe AT:N` in each delivered game, headless: a snapshot is the same
+bytes twice, fits its bound, a buffer one byte short is refused and changes nothing, and after a load the same N frames give every digest and every
+picture again. Run on an authored program (in the player self-tests, proof (d): 85 checks for the ColecoVision, 84 for the SG-1000, NTSC and PAL, at two
+frames) and on **eight real games** from the owner's library (Donkey Kong, Bump 'N' Jump, Ken Uston's Blackjack-Poker and Pitfall II; Flicky, Congo Bongo,
+Sega-Galaga and Champion Baseball), two probes each, the keypad and Pause exercised by the routes: 16 of 16 pass. (Solo) the SG-1000's reference runner
+on its authored program gives the same fields and the same per-frame rows before and after the Pause bit, NTSC and PAL. (2) **Windows and Linux (WSL
+Debian 13) give the same digests on the same frames**: the probe prints every digest of a run folded in one number, and the six probes of the authored
+programs and the four of two real games (Donkey Kong, Flicky; the Linux games converted in WSL from the same sources) give the same six and four
+numbers on both. (3) `tools/netplay_game_smoke.py --seats 2 --rollback 5 --latency 30 --jitter 10 --loss 0.02 --save-at 600 --load-at 1500
+--restart-at 2200` on the authored game of each machine and on the eight real ones: PASS (digests equal every 60 frames, restart before the same frame,
+save and load for everyone). (4) `hostkit_session_selftest` 29, `netplay_lockstep_selftest` 26 and `netplay_rollback_selftest` 15 scenarios pass
+unchanged, and the `tests/test_netplay_*` suite with the one word its machines list needed (`sg1000`, `coleco` in the session-capable set). **Still to
+run**: the full suite on the merge, then the multiplayer specialist's two-PC acceptance and the owner's play.
 
 **Stamps** (`compilation_inputs.role_stamps`): the SG-1000's and the ColecoVision's only (the host adapters and the state files are theirs).
 
