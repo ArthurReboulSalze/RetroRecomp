@@ -398,7 +398,8 @@ def prove_snapshots(res: Results, exes: dict[str, Path], folder: Path) -> None:
         process = run([game, '--headless', '--frames', at + 2 * count + 20, '--snap-probe', f'{at}:{count}', *route_options(ROUTE)])
         text = process.stderr.decode(errors='replace')
         line = next((l for l in text.splitlines() if l.startswith('snap-probe:')), '')
-        res.check(process.returncode == 0 and ': PASS at' in line, f'{label}: snapshot at frame {at}, {count} frames, load, the same {count} frames, every digest equal', line or text[-300:])
+        folded = line.rsplit('digests ', 1)[-1] if 'digests ' in line else '?'
+        res.check(process.returncode == 0 and ': PASS at' in line, f'{label}: snapshot at frame {at}, {count} frames, load, the same {count} frames, every digest equal (folded {folded})', line or text[-300:])
         if label == 'NTSC':
             size = line.split(' bytes ')[0].rsplit(' ', 1)[-1] if line else '0'
             res.check(line and 'same over other bytes 1' in line and 'wrong size refused 1' in line,
