@@ -142,47 +142,10 @@ def _portrait_picture(raw=None, initial='', frame=None):
     return picture.resize((PORTRAIT_SIZE, PORTRAIT_SIZE), Image.Resampling.LANCZOS)
 
 
-# The portrait the site draws for a player who uploaded none (web/app/src/components/Avatar.tsx, 21 Nov 2026): a 5 x 5
-# pattern mirrored left to right, from an FNV-1a hash of the pseudonym, gold or deep gold cells on the site's surface,
-# one free cell around it (a 7 x 7 grid), shown round.
-SITE_SURFACE, SITE_GOLD, SITE_GOLD_DEEP = '#1d1d1f', '#f2b51c', '#d4a737'
-
-
-def site_pattern(name):
-    """The site's generated portrait for `name` (Avatar.tsx `pattern`): [(x, y, light)] cells of the 5 x 5 pattern; the
-    same hash as the browser's (FNV-1a over the code points, 32 bits), so the same cells."""
-    value = 0x811c9dc5
-    for char in name or 'player':
-        value ^= ord(char)
-        value = (value * 0x01000193) & 0xFFFFFFFF
-    cells = []
-    for y in range(5):
-        for x in range(3):
-            if (value >> (y * 3 + x)) & 1:
-                light = (value >> (15 + y)) & 1 == 1
-                cells.append((x, y, light))
-                if x < 2:
-                    cells.append((4 - x, y, light))
-    return cells
-
-
-def _site_generated(name, size):
-    """The site's generated portrait as a square picture `size` px (rounded by the caller)."""
-    from PIL import Image, ImageDraw
-    picture = Image.new('RGBA', (size, size), SITE_SURFACE)
-    draw = ImageDraw.Draw(picture)
-    cell = size / 7
-    for x, y, light in site_pattern(name):
-        draw.rectangle((round((x + 1) * cell), round((y + 1) * cell), round((x + 2) * cell) - 1,
-                        round((y + 2) * cell) - 1), fill=SITE_GOLD if light else SITE_GOLD_DEEP)
-    return picture
-
-
-def _podium_picture(raw, diameter, ring, disc, figure, generated=None):
-    """A podium player's round portrait, `diameter` px, ringed in their medal's colour (`ring`): their uploaded picture
-    (WebP or PNG bytes); for a player who uploaded none, the site's generated portrait of the pseudonym `generated`;
-    else (a picture not here yet, or one that cannot be read) a quiet head-and-shoulders on a `disc`, in `figure`. Drawn
-    at 4x then reduced, so the circle and the ring stay smooth."""
+def _podium_picture(raw, diameter, ring, disc, figure):
+    """A podium player's round portrait, `diameter` px, ringed in their medal's colour (`ring`): their site picture
+    (WebP or PNG bytes), or, without one or when it cannot be read, a quiet head-and-shoulders on a `disc`, in `figure`.
+    Drawn at 4x then reduced, so the circle and the ring stay smooth."""
     from PIL import Image, ImageDraw
     import io
     scale = 4
@@ -195,8 +158,6 @@ def _podium_picture(raw, diameter, ring, disc, figure, generated=None):
                     picture = image.convert('RGBA').resize((size, size), Image.Resampling.LANCZOS)
         except (OSError, ValueError, Image.DecompressionBombError):
             picture = None
-    elif generated is not None:
-        picture = _site_generated(generated, size)
     if picture is None:
         picture = Image.new('RGBA', (size, size), disc)
         draw = ImageDraw.Draw(picture)

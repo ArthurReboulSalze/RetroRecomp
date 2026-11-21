@@ -284,21 +284,12 @@ class PodiumPortrait(OnACanvas):
         self.assertEqual(real.getpixel((20, 20))[:3], (200, 30, 30))               # the player's own picture
         self.assertEqual(real.getpixel((0, 0))[3], 0)                              # round: the corners are clear
 
-    def test_a_player_without_an_uploaded_portrait_gets_the_site_s_generated_one(self):
-        from retrorecomp.gui_drawing import SITE_GOLD, SITE_GOLD_DEEP, SITE_SURFACE, _podium_picture
-        generated = _podium_picture(None, 70, '#d4a737', '#333333', '#777777', generated='Lightningz')
-        silhouette = _podium_picture(None, 70, '#d4a737', '#333333', '#777777')
-        self.assertNotEqual(generated.tobytes(), silhouette.tobytes())
-        rgb = lambda value: tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
-        cell = 70 / 7
-        centre = lambda x, y: (round((x + 1.5) * cell), round((y + 1.5) * cell))
-        self.assertEqual(generated.getpixel(centre(2, 0))[:3], rgb(SITE_GOLD))         # a light cell (row 0)
-        self.assertEqual(generated.getpixel(centre(2, 3))[:3], rgb(SITE_GOLD_DEEP))    # a deep one (row 3)
-        self.assertEqual(generated.getpixel(centre(2, 2))[:3], rgb(SITE_SURFACE))      # an empty one
-        drawn = self.app.podium_portrait(self.canvas, 100, 40, 35, 1, None, key=None, generated='Lightningz')
-        waiting = self.app.podium_portrait(self.canvas, 200, 40, 35, 1, None, key='/avatars/p1.webp')
-        self.assertNotEqual(self.canvas.itemcget(drawn, 'image'), self.canvas.itemcget(waiting, 'image'))
-        self.assertEqual(len(self.canvas._portraits), 2)
+    def test_a_player_the_site_names_no_portrait_for_gets_the_silhouette_never_a_local_drawing(self):
+        import retrorecomp.gui_drawing as drawing
+        self.assertFalse(hasattr(drawing, 'site_pattern'))          # Arthur, 21 Nov: always fetched from the site
+        nothing = self.app.podium_portrait(self.canvas, 100, 40, 35, 1, None, key=None)
+        waiting = self.app.podium_portrait(self.canvas, 200, 40, 35, 1, None, key='/avatars/g-0badf00d.png')
+        self.assertEqual(self.canvas.itemcget(nothing, 'image'), self.canvas.itemcget(waiting, 'image'))
 
     def test_the_podium_portraits_are_clearly_larger_than_the_old_letter_circle(self):
         from retrorecomp.gui_leaderboard import PODIUM_PORTRAIT
@@ -310,26 +301,29 @@ class PodiumPortrait(OnACanvas):
         self.assertEqual((x1 - x0, y1 - y0), (2 * PODIUM_PORTRAIT[1],) * 2)
 
 
-class SitePattern(unittest.TestCase):
-    """The site's generated portrait (web/app/src/components/Avatar.tsx): the same cells as the browser's."""
+class PortraitFields(unittest.TestCase):
+    """Where an entry names its portrait on the site: the upload, else the site's generated one (`avatar_generated`)."""
 
-    # pattern() run by node on the site's own code (21 Nov 2026), for two names.
-    BROWSER = {'Lightningz': [[0, 0, True], [4, 0, True], [2, 0, True], [0, 1, True], [4, 1, True], [0, 3, False],
-                              [4, 3, False], [1, 3, False], [3, 3, False], [2, 3, False], [1, 4, True], [3, 4, True]],
-               'player': [[2, 2, False], [0, 3, False], [4, 3, False], [2, 4, True]]}
+    def test_the_upload_first_then_the_site_s_generated_portrait_then_none(self):
+        from retrorecomp.gui_leaderboard import portrait_path
+        self.assertEqual(portrait_path({'avatar': '/avatars/up.webp', 'avatar_generated': '/avatars/g-1.png'}),
+                         '/avatars/up.webp')
+        self.assertEqual(portrait_path({'avatar': None, 'avatar_generated': '/avatars/g-1.png'}), '/avatars/g-1.png')
+        for entry in ({}, {'avatar': None}, {'avatar': '', 'avatar_generated': None}, {'avatar_generated': 7}):
+            self.assertIsNone(portrait_path(entry), entry)
 
-    def test_the_cells_are_the_browser_s(self):
-        from retrorecomp.gui_drawing import site_pattern
-        for name, cells in self.BROWSER.items():
-            self.assertEqual([list(cell) for cell in site_pattern(name)], cells, name)
-        self.assertEqual(site_pattern(''), site_pattern('player'))                 # pattern(name || 'player')
+    def test_the_podium_downloads_a_generated_portrait_like_an_upload(self):
+        entries = [{'avatar': None, 'avatar_generated': '/avatars/g-1.png'}, {'avatar': '/avatars/two.webp'},
+                   {'avatar': None}, {'avatar': None, 'avatar_generated': '/avatars/g-4.png'}]
+        self.assertEqual(podium_paths(entries), ['/avatars/g-1.png', '/avatars/two.webp'])     # third: none; fourth: a row
 
-    def test_the_pattern_is_mirrored_and_inside_five_by_five(self):
-        from retrorecomp.gui_drawing import site_pattern
-        for name in ('Aurora', 'Ünïcødé 🎮 名前', 'x' * 64):
-            cells = {(x, y): light for x, y, light in site_pattern(name)}
-            self.assertTrue(all(0 <= x < 5 and 0 <= y < 5 for x, y in cells))
-            self.assertEqual(cells, {(4 - x, y): light for (x, y), light in cells.items()})
+    def test_online_accepts_the_proposed_generated_file_like_an_upload(self):
+        with patch.dict(os.environ, {'RETRO_RECOMP_SERVICE': 'https://retro-recomp.com'}):
+            folder = Path(tempfile.mkdtemp())
+            with patch('retrorecomp.online._account_path', return_value=folder / 'account.json'):
+                found = online._board_portrait_path('/avatars/g-0badf00d.png')
+        self.assertEqual(found[0], 'https://retro-recomp.com/avatars/g-0badf00d.png')
+        self.assertEqual(found[1].name, 'board-portrait-g-0badf00d.png')
 
 
 class RulesPanel(unittest.TestCase):
