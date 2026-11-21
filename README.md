@@ -141,7 +141,9 @@ and its limits are on its page.
 
 ### In development
 
-No other machine is available yet. Each new one starts as an experimental profile; no date is promised.
+Six machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision**, the
+**Amstrad CPC**, the **ZX Spectrum** and the **PC Engine CD**. None is available yet: each starts as an experimental
+profile once its study is approved, and no date is promised.
 
 Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 

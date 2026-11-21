@@ -186,6 +186,19 @@ Supported since 1.7.1 as a category of its own, emulated and 0 % native by desig
 
 ## Planned after that
 
+Six machines close to the hardware already converted are in their study (November 2026), in this order. Each follows the
+playbook of [NEW_MACHINE.md](NEW_MACHINE.md): the study is approved first, then an experimental profile, the qualification
+list, multiplayer and an optimisation pass.
+
+| Machine | What is reused | What is new |
+| --- | --- | --- |
+| SG-1000 | the Z80, the TMS9918A video chip of the MSX, the SN76489 sound chip of the Master System | the board, the pads |
+| Game Boy Color | the Game Boy's CPU and engine, which already runs the colour mode | colour-mode timing, double speed, the colour boot ROM question |
+| ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller |
+| Amstrad CPC | the Z80, the AY sound chip of the MSX | the video, the floppy drive, code loaded from disk |
+| ZX Spectrum | the Z80, the AY sound chip (128K) | the video, tapes and snapshots |
+| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | the CD drive, ADPCM and CD audio, the player's System Card, code loaded from disc |
+
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
