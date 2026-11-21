@@ -39,11 +39,12 @@ CHARACTERS = {
 }
 
 # The sequence's timing (the interface specialist's review of 21 Nov 2026): each key 2 frames down, 2 frames all up. The first
-# key waits for the firmware's « Ready »; BOOT_FRAME is the frame BASIC is ready on a 6128 with AMSDOS, to be measured on the
-# player's firmware (Bomb Jack is the check).
+# key waits for the firmware's « Ready ». Measured on 22 November 2026 on the pinned CPC 6128 firmware with AMSDOS (the native
+# check and the reference equal): the picture is still from frame 42 on, a command typed from frame 42 loses its first key, from
+# frame 45 BASIC runs it (POKE &8000,42 read back). BOOT_FRAME keeps 15 frames above that.
 HOLD_FRAMES = 2
 GAP_FRAMES = 2
-BOOT_FRAME = 150
+BOOT_FRAME = 60
 
 
 def _host_key(cpc_key: str) -> int:
