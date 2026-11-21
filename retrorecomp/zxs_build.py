@@ -65,7 +65,7 @@ MACHINE_FILES = (*MACHINE_SOURCES, 'zxs_machine.h', 'zxs_glue.inc', 'zxs_headles
                  'zxs_reference_main.c')
 SHARED_MODULES = (('ay38910', ('ay38910.c',), ('ay38910.h',)),)
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)
-CHAIN_FILES = ('z80_chain_glue.inc', 'banked_reference_state.inc')
+CHAIN_FILES = ('z80_chain_glue.inc', 'banked_reference_state.inc', 'audio_box.h')   # native/, staged flat
 # The player (the `game` target) and the companions of the host kit it is built with (the MSX's list, less its cartridge saves).
 GAME_FILES = ('zxs_player.c',)
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',

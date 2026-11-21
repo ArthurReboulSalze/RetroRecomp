@@ -35,9 +35,7 @@ void zxs_reset(ZxsMachine *m, int model, int ram16k, const uint8_t *rom)
     m->frame_hook = NULL; m->hook_user = NULL; m->trace_frames = 0;
     memset(m->picture, 0, sizeof m->picture);
     m->frame_trace = 2166136261u;
-    m->audio_time = 0;
-    m->next_sample = (uint64_t)m->clock_hz * 65536u / ZXS_AUDIO_RATE;
-    m->acc = 0; m->acc_cycles = 0; m->out_count = 0; m->dropped = 0;
+    audio_box_init(&m->box, 1, m->clock_hz, ZXS_AUDIO_RATE, m->out, ZXS_AUDIO_BUFFER, 0);
 }
 
 int zxs_load_image(ZxsMachine *m, const uint8_t *image, size_t size, const uint8_t *rom, ZxsCpuStart *cpu)
@@ -64,9 +62,8 @@ int zxs_load_image(ZxsMachine *m, const uint8_t *image, size_t size, const uint8
     m->cycles = t;
     m->frame_start = 0;
     m->line = t / m->t_line;
-    m->audio_time = t;
+    audio_box_reset(&m->box, t);
     m->ay_next = t + AY_TICK;
-    m->next_sample = ((uint64_t)t << 16) + (uint64_t)m->clock_hz * 65536u / ZXS_AUDIO_RATE;
     return 0;
 }
 
@@ -102,52 +99,28 @@ enum { BEEP_LEVEL = 12000, AY_WEIGHT = 18000 };
 
 static int beeper_level(const ZxsMachine *m) { return (m->out_fe & 0x10) ? BEEP_LEVEL : 0; }
 
-/* The sound up to `cycle`: each output sample is the mean level over its interval (a box filter); the AY moves one tick every
- * AY_TICK cycles, its level held between two ticks. */
+/* The sound up to `cycle`: the beeper's level and the AY's, held between two AY ticks (one every AY_TICK cycles), given to the
+ * shared box filter, which makes each output sample the mean level over its interval. */
 static void sound_to(ZxsMachine *m, uint64_t cycle)
 {
-    if (cycle <= m->audio_time)
-        return;
     int beep = beeper_level(m);
-    uint64_t step = (uint64_t)m->clock_hz * 65536u / ZXS_AUDIO_RATE;
-    while (m->audio_time < cycle) {
-        if (m->model == ZXS_128K && m->audio_time >= m->ay_next) {
+    while (m->box.time < cycle) {
+        if (m->model == ZXS_128K && m->box.time >= m->ay_next) {
             int levels[3];
             ay38910_tick(&m->ay, m->ay_regs, levels);
             m->ay_level = (int)(((int64_t)levels[0] + levels[1] + levels[2]) * AY_WEIGHT / (3 * 32767));
             m->ay_next += AY_TICK;
         }
-        int level = beep + m->ay_level;
-        uint64_t sample_end = (m->next_sample + 65535) >> 16;             /* the first cycle at or after the sample's end */
-        uint64_t until = sample_end < cycle ? sample_end : cycle;
+        uint64_t until = cycle;
         if (m->model == ZXS_128K && m->ay_next < until)
             until = m->ay_next;
-        if (until <= m->audio_time)
-            until = m->audio_time + 1;
-        uint64_t span = until - m->audio_time;
-        m->acc += (int64_t)level * (int64_t)span;
-        m->acc_cycles += span;
-        m->audio_time = until;
-        if ((m->audio_time << 16) >= m->next_sample) {
-            int64_t mean = m->acc_cycles ? m->acc / (int64_t)m->acc_cycles : level;
-            int16_t sample = (int16_t)(mean > 32767 ? 32767 : mean);
-            if (m->out_count < ZXS_AUDIO_BUFFER)
-                m->out[m->out_count++] = sample;
-            else
-                ++m->dropped;
-            m->acc = 0; m->acc_cycles = 0;
-            m->next_sample += step;
-        }
+        audio_box_hold(&m->box, beep + m->ay_level, 0, until);
     }
 }
 
 unsigned zxs_audio_take(ZxsMachine *m, int16_t *out, unsigned max)
 {
-    unsigned n = m->out_count < max ? m->out_count : max;
-    memcpy(out, m->out, n * sizeof *out);
-    memmove(m->out, m->out + n, (m->out_count - n) * sizeof *out);
-    m->out_count -= n;
-    return n;
+    return audio_box_take(&m->box, out, max);
 }
 
 /* ---- ports ---- */

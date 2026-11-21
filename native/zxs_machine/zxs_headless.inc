@@ -193,7 +193,7 @@ static void headless_report(void)
     fprintf(out, "], \"ram_fnv\": %u, \"frame_fnv\": %u, \"frame_trace\": %u, \"audio_samples\": %llu, \"audio_fnv\": %u, "
             "\"dropped_samples\": %llu, ",
             zxs_ram_hash(), zxs_picture_hash(), machine.frame_trace, (unsigned long long)route_samples, route_audio_hash,
-            (unsigned long long)machine.dropped);
+            (unsigned long long)machine.box.dropped);
 #ifdef HEADLESS_EXTRA
     HEADLESS_EXTRA(out);
 #endif

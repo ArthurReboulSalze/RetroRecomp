@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "audio_box.h"
 #include "ay38910.h"
 
 enum { ZXS_48K = 0, ZXS_128K = 1 };
@@ -58,15 +59,10 @@ typedef struct {
     void (*frame_hook)(void *user);    /* optional: called at the start of each frame (a line boundary, between instructions) */
     void *hook_user;
 
-    /* The beeper, box-filtered to ZXS_AUDIO_RATE. */
+    /* The sound (the beeper, the AY), box-filtered to ZXS_AUDIO_RATE by the shared box (native/audio_box.h). */
     uint32_t clock_hz;
-    uint64_t audio_time;           /* the cycle the sound has reached */
-    uint64_t next_sample;          /* in cycles x 65536 */
-    int64_t acc;                   /* level x cycles since the last sample */
-    uint64_t acc_cycles;
+    AudioBox box;                  /* its time is the cycle the sound has reached; its `out` is the buffer below */
     int16_t out[ZXS_AUDIO_BUFFER];
-    unsigned out_count;
-    uint64_t dropped;
 } ZxsMachine;
 
 /* Reset to the model's power-on map (RAM is left as it is). `rom` stays the caller's. */

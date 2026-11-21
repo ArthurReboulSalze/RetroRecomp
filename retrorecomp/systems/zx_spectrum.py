@@ -73,7 +73,7 @@ class ZxSpectrumProfile(SystemProfile):
     developer_only = True
     # The shared groups its game is built from: the banked Z80 chain and its glue, the AY-3-8910 of the 128K (native/ay38910), the
     # computers' side of the host kit (rrhk_computer.inc, which its adapter includes).
-    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910', 'hostkit_computer')
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910', 'audio_box', 'hostkit_computer')
     z80_machine = ZXS_MACHINE
     path_spec = PathSpec(order=20, sections=(('z80', 'zxs'),),
                          source_bounds=(('snapshot', SNAPSHOT_BOUNDS), ('rom', ROM_BOUNDS)),

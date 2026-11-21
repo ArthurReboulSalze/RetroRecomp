@@ -271,9 +271,8 @@ NOT_INPUTS = (
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/pcecd_disc_checks.cpp',                 # tools/pcecd_disc_selftest.py: the disc provider against two readers, never in a game
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
-    # The box filter of the sound chips (levels over guest cycles to samples): no machine builds with it yet; it joins a group
-    # `shares:audio_box` with its first machine (the Amstrad CPC). tools/audio_box_selftest.py builds its checks, never in a game.
-    'native/audio_box.h', 'native/audio_box_checks.c',
+    # The checks of the box filter of the sound chips (native/audio_box.h, group shares:audio_box): tools/audio_box_selftest.py, never in a game.
+    'native/audio_box_checks.c',
     # The Z80 chain's CPU state and the quick-state file around the shared envelope: no machine builds with them yet; they join
     # their first machine's groups (the Amstrad CPC). tools/z80_chain_state_selftest.py builds their checks, never in a game.
     'native/z80_chain_state.inc', 'native/state_file.h', 'native/state_file_checks.c',
@@ -1217,6 +1216,12 @@ INPUTS = _resolve({
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).
     # The TMS9918A video chip (native/tms9918): the state, the CPU's ports, the picture and the line the frame flag rises on, shared by
     # the machines that have it (the MSX family now, the SG-1000 and the ColecoVision next). Game role.
+    # The box filter of the sound chips (native/audio_box.h): a chip's levels over guest cycles turned into samples, shared by the
+    # machines on a level-driven chip (the ZX Spectrum's beeper and AY first, the Amstrad CPC, the SG-1000 and ColecoVision next).
+    # Header-only. Game role.
+    'shares:audio_box': (
+        'native/audio_box.h',
+    ),
     'shares:tms9918': (
         'native/tms9918/tms9918.c',
         'native/tms9918/tms9918.h',

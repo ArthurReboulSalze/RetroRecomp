@@ -75,6 +75,7 @@ def main() -> int:
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
     ay = ROOT / 'native' / 'ay38910'
     built = subprocess.run([compiler(), '-std=gnu11', '-O1', '-Wall', '-Wextra', '-I', str(source), '-I', str(ay),
+                            '-I', str(ROOT / 'native'),
                             str(source / 'zxs_machine.c'), str(ay / 'ay38910.c'), str(source / 'zxs_machine_checks.c'),
                             '-o', str(exe)],
                            capture_output=True, encoding='utf-8', errors='replace', creationflags=flags)

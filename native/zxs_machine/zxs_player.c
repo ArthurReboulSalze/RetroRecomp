@@ -143,18 +143,20 @@ static void zxs_machine_state(RetroStateIO *io, ZxsMachine *m)
             if (io->data[io->pos + i] > 15) { io->ok = false; break; }
     rr_state_bytes(io, m->picture, sizeof m->picture);
     RR_FIELD(*m, frame_trace, 4, UINT32_MAX);
-    RR_FIELD(*m, audio_time, 8, 1ULL << 60); RR_FIELD(*m, next_sample, 8, UINT64_MAX);
-    uint64_t acc = (uint64_t)m->acc;               /* levels are never negative: the sum is not either */
+    /* The sound's box (native/audio_box.h): its time, the sample being built, the samples waiting; its step and buffer are the
+     * machine's own (zxs_reset), not state. */
+    RR_FIELD(*m, box.time, 8, 1ULL << 60); RR_FIELD(*m, box.next_sample, 8, UINT64_MAX);
+    uint64_t acc = (uint64_t)m->box.acc[0];        /* levels are never negative: the sum is not either */
     acc = rr_state_word(io, acc, 8, 1ULL << 62);
-    m->acc = (int64_t)acc;
-    RR_FIELD(*m, acc_cycles, 8, 1ULL << 60);
-    RR_FIELD(*m, out_count, 2, ZXS_AUDIO_BUFFER);
-    for (unsigned i = 0; i < m->out_count && io->ok; ++i)
+    m->box.acc[0] = (int64_t)acc;
+    RR_FIELD(*m, box.acc_cycles, 8, 1ULL << 60);
+    RR_FIELD(*m, box.count, 2, ZXS_AUDIO_BUFFER);
+    for (unsigned i = 0; i < m->box.count && io->ok; ++i)
         m->out[i] = (int16_t)(uint16_t)rr_state_word(io, (uint16_t)m->out[i], 2, 65535);
-    RR_FIELD(*m, dropped, 8, UINT64_MAX);
+    RR_FIELD(*m, box.dropped, 4, UINT32_MAX);
     /* The frame position must be one the machine can be at: within the line it is drawing, the sound caught up to it. */
     if (m->cycles < m->frame_start + (uint64_t)m->line * m->t_line || m->cycles >= m->frame_start + (uint64_t)(m->line + 1) * m->t_line
-        || m->audio_time > m->cycles)
+        || m->box.time > m->cycles)
         io->ok = false;
 }
 
