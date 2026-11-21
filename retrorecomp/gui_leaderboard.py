@@ -22,7 +22,10 @@ from .ui_fonts import ui_scale
 # and portraits there would cost bandwidth).
 BOARD_BG, BOARD_CARD, BOARD_ROW_FILL, BOARD_DEEP = COLORS['background'], '#2b2b2b', '#323232', COLORS['field']
 MEDALS = {1: COLORS['gold'], 2: '#c9ced6', 3: '#c58a4a'}
-PODIUM_PORTRAIT = 20            # the podium portraits' radius at 96 dpi
+# The podium portraits' radius at 96 dpi, by place (Arthur, 21 Nov 2026: clearly larger than the old 20 px letter
+# circle; the first larger, as on the site's podium), and the room between a portrait and its step.
+PODIUM_PORTRAIT = {1: 36, 2: 30, 3: 30}
+PODIUM_GAP = 6
 
 
 def next_place(rows, mine):
@@ -129,20 +132,23 @@ class LeaderboardMixin:
             else:
                 canvas.create_text(left + round(10 * k), middle, text=text, anchor='w', fill=COLORS['muted'], font=font)
 
-    def podium_portrait(self, canvas, x, y, radius, place, raw, key=None, tags=()):
-        """A podium player's portrait, ringed in the medal's colour: the site picture `raw` (bytes), or a quiet
-        head-and-shoulders on a disc tinted by the medal when the player has none (or it is not here yet). The pictures
-        are kept on the canvas by (key, place, size): the opening animation redraws the podium every frame."""
+    def podium_portrait(self, canvas, x, y, radius, place, raw, key=None, generated=None, tags=()):
+        """A podium player's portrait, ringed in the medal's colour: the uploaded picture `raw` (bytes); for a player
+        who uploaded none, the portrait the site generates from the pseudonym `generated` (site_pattern); a quiet
+        head-and-shoulders on a disc tinted by the medal only while an uploaded picture is not here (downloading, or a
+        real failure). The pictures are kept on the canvas by (what, place, size): the opening animation redraws the
+        podium every frame."""
         from PIL import ImageTk
         medal = MEDALS[place]
         size = 2 * radius
         cache = canvas.__dict__.setdefault('_portraits', {})
-        wanted = (key if raw else None, place, size)
+        wanted = (('picture', key) if raw else ('generated', generated) if generated is not None else None, place, size)
         photo = cache.get(wanted)
         if photo is None:
             try:
                 photo = ImageTk.PhotoImage(_podium_picture(raw, size, medal, _tint(BOARD_CARD, medal, 0.16),
-                                                           _tint(BOARD_CARD, medal, 0.42)), master=canvas)
+                                                           _tint(BOARD_CARD, medal, 0.42),
+                                                           generated=None if raw else generated), master=canvas)
             except (OSError, ValueError, tk.TclError):
                 return None
             cache[wanted] = photo
@@ -302,9 +308,11 @@ class LeaderboardMixin:
         rules = tk.Label(titles, text=self.tr('leaderboard_rules_link'), image=window.info_picture, compound='left',
                          bg=background, fg=COLORS['muted'], font=(self.ui_font, 9, 'underline'), cursor='hand2', padx=0)
         rules.pack(anchor='w')
+        # A click toggles the rules and keeps them up; a click elsewhere or Esc closes them; opened by hovering, they
+        # close when the pointer leaves the link (Tooltip.toggle; a second show() used to leave the first one up).
         rules_hint = Tooltip(rules, lambda: self.tr('leaderboard_rules'))
-        rules.bind('<Button-1>', lambda event: rules_hint.show(), add='+')
-        window.rules_link = rules
+        rules.bind('<Button-1>', rules_hint.toggle)
+        window.rules_link, window.rules_hint = rules, rules_hint
         # A state the service sends (loading, an error, the preview, an empty board); empty otherwise.
         note = tk.Label(titles, text=self.tr('leaderboard_loading'), bg=background, fg=COLORS['muted'],
                         font=(self.ui_font, 9), wraplength=round(420 * k), justify='left')
@@ -322,7 +330,7 @@ class LeaderboardMixin:
         catalog = {}
         portraits = window.board_portraits = {}
         STEP = {1: 134, 2: 112, 3: 96}           # the steps' heights at 96 dpi; above the tallest: name, badge, crown, portrait
-        ABOVE = 114
+        ABOVE = 114 + 2 * (PODIUM_PORTRAIT[1] - 20)       # the room the larger portraits take, the steps unchanged
         podium = tk.Canvas(body, height=round((STEP[1] + ABOVE + 14) * k), bg=background, highlightthickness=0)
         podium.pack(fill='x', pady=(8, 6))
         podium.rows = []
@@ -459,11 +467,15 @@ class LeaderboardMixin:
                 name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
                 look = online.looks(catalog, online.equipped(entry))
                 path = entry.get('avatar')
-                self.podium_portrait(podium, middle, top - round(26 * k), round(PODIUM_PORTRAIT * k), place,
-                                     portraits.get(path) if isinstance(path, str) else None, key=path)
-                crown(middle, top - round(50 * k), place, medal)
+                uploaded = isinstance(path, str) and bool(path)
+                radius = PODIUM_PORTRAIT[place]
+                self.podium_portrait(podium, middle, top - round((PODIUM_GAP + radius) * k), round(radius * k), place,
+                                     portraits.get(path) if uploaded else None, key=path,
+                                     generated=None if uploaded else name)
+                crown_base = top - round((PODIUM_GAP + 2 * radius + 4) * k)
+                crown(middle, crown_base, place, medal)
                 inner = x1 - x0 - round(12 * k)
-                line = top - round(78 * k)
+                line = crown_base - round(28 * k)
                 title, pin = self.title_name(entry.get('title')), look['pin']
                 parts = badges_width(podium, look['badges'], badge_font) if look['badges'] else 0
                 measure = _font(podium, title_font)
@@ -561,9 +573,10 @@ class LeaderboardMixin:
                     window.after(50, poll)
             threading.Thread(target=worker, daemon=True).start()
             poll()
-        window.bind('<Escape>', lambda event: window.destroy())
+        # Esc closes the rules first when they show, then the window.
+        window.bind('<Escape>', lambda event: None if Tooltip.close_shown() else window.destroy())
         window.update_idletasks()
-        center_dialog(window, self.app, 800, 780)
+        center_dialog(window, self.app, 800, 780 + 2 * (PODIUM_PORTRAIT[1] - 20))     # the list keeps its rows
         window.deiconify()
         load()
 

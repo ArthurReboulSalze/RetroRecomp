@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
 from tests.tk_cleanup import release_tk
 from unittest.mock import Mock
 
@@ -293,6 +294,76 @@ class HiddenView(unittest.TestCase):
         self.assertNotIn('gb', self.view.memory.columns)
         self.assertEqual(json.loads((self.folder / 'fe.json').read_text(encoding='utf-8'))['columns'],
                          {'sms': fe.MIN_COLUMNS})
+
+    def lb_rb(self, start, event):
+        """Where LB / RB lead from entry `start`: the reference the wheel and Ctrl+arrows follow."""
+        self.view.select_shelf(start, slide=False)
+        self.view.pad_event(event)
+        return self.view.shelf
+
+    def wheel(self, delta=0, num=0):
+        """A wheel event over the strip, as Tk gives it (a withdrawn window gets no generated events)."""
+        return self.view.strip_wheel(SimpleNamespace(delta=delta, num=num))
+
+    def test_the_strip_s_wheel_and_ctrl_arrows_are_bound(self):
+        for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            self.assertIn('strip_wheel', self.view.tabs.bind(sequence), sequence)
+        for widget in (self.view.wall, self.view.tabs, self.view.details):     # from anywhere in the front-end
+            self.assertIn('previous_console', widget.bind('<Control-Left>'))
+            self.assertIn('next_console', widget.bind('<Control-Right>'))
+        # The covers keep their own wheel (scrolling) and Ctrl+wheel (covers per row); the plain arrows move between
+        # covers; Ctrl+F still searches; none of them is one of the strip's.
+        self.assertIn('wheel', self.view.wall.bind('<MouseWheel>'))
+        self.assertNotIn('strip_wheel', self.view.wall.bind('<MouseWheel>'))
+        self.assertIn('zoom_wheel', self.view.wall.bind('<Control-MouseWheel>'))
+        for sequence in ('<Left>', '<Right>', '<Control-f>'):
+            self.assertNotIn('console', self.view.wall.bind(sequence), sequence)
+        self.assertEqual(self.view.tabs.bind('<Control-MouseWheel>'), '')
+
+    def test_the_wheel_over_the_strip_changes_console_one_notch_for_one_like_lb_rb(self):
+        count = len(self.view.shelves)
+        for start in (0, count - 1):                                       # round at both ends, as LB / RB are
+            for delta, event in ((-120, 'rb'), (120, 'lb')):               # down: the next; up: the previous
+                expected = self.lb_rb(start, event)
+                self.view.select_shelf(start, slide=False)
+                self.assertEqual(self.wheel(delta), 'break')
+                self.assertEqual(self.view.shelf, expected, (start, delta))
+        self.view.select_shelf(0, slide=False)
+        self.wheel(-240)                                                   # two notches in one event: two consoles
+        self.assertEqual(self.view.shelf, 2 % count)
+        for _ in range(3):                                                 # a fine wheel: a console per 120
+            self.wheel(-40)
+        self.assertEqual(self.view.shelf, 3 % count)
+        self.wheel(num=5)                                                  # X11's wheel: down is the next
+        self.assertEqual(self.view.shelf, 4 % count)
+        self.wheel(num=4)
+        self.assertEqual(self.view.shelf, 3 % count)
+
+    def test_ctrl_left_and_right_change_console_like_lb_and_rb(self):
+        count = len(self.view.shelves)
+        for method, event in ((self.view.next_console, 'rb'), (self.view.previous_console, 'lb')):
+            for start in (0, count - 1):
+                expected = self.lb_rb(start, event)
+                self.view.select_shelf(start, slide=False)
+                self.assertEqual(method(SimpleNamespace()), 'break')
+                self.assertEqual(self.view.shelf, expected, (event, start))
+
+    def test_the_wheel_and_ctrl_arrows_leave_the_typed_search_and_the_menu_alone(self):
+        self.view.open_search()
+        for key in 'MA':
+            self.view.type(key)
+        self.view.next_console()
+        self.wheel(-120)
+        self.assertEqual(self.view.shelf_id(), 'search')
+        self.assertTrue(self.view.editing)
+        self.view.type('done')
+        self.view.back()
+        self.view.select_shelf(self.view.index_of('sms'), slide=False)
+        self.view.open_menu()
+        self.assertIsNotNone(self.view.menu_items)
+        self.view.previous_console()
+        self.wheel(120)
+        self.assertEqual(self.view.shelf_id(), 'sms')
 
     def test_favourites_and_back_to_the_console(self):
         self.view.select_shelf(self.view.index_of('sms'), slide=False)

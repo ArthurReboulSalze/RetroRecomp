@@ -1120,7 +1120,7 @@ STRINGS = {
     'conversions_wait_day': ('about 1 day', 'environ 1 jour'),
     # Front-end (gui_front_end, front_end_view): the compiled games as a wall of box art.
     'front_end': ('Front-end', 'Front-end'),
-    'tip_front_end': ('Front-end: your compiled games as a wall of box art, one console at a time. Mouse, keyboard or gamepad: LB/RB change console, L2/R2 set the covers per row, A plays, B goes back.', 'Front-end : tes jeux compilés en mur de jaquettes, une console à la fois. Souris, clavier ou manette : LB/RB changent de console, L2/R2 règlent les jaquettes par ligne, A lance, B revient.'),
+    'tip_front_end': ('Front-end: your compiled games as a wall of box art, one console at a time. Mouse, keyboard or gamepad: LB/RB, Ctrl+Left/Right or the wheel over the console strip change console, L2/R2 set the covers per row, A plays, B goes back.', 'Front-end : tes jeux compilés en mur de jaquettes, une console à la fois. Souris, clavier ou manette : LB/RB, Ctrl+Gauche/Droite ou la molette sur la bande des consoles changent de console, L2/R2 règlent les jaquettes par ligne, A lance, B revient.'),
     'front_end_empty': ('No compiled game yet. Convert a game, or scan your folders in Compiled Games.', 'Aucun jeu compilé pour l’instant. Convertis un jeu, ou analyse tes dossiers dans Jeux recompilés.'),
     'front_end_add_cover': ('Add a cover', 'Ajouter une jaquette'),
     'front_end_back': ('Back', 'Retour'),

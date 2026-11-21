@@ -852,7 +852,7 @@
     "estimate_paths_native": "Die Pfade anderer Spieler machen, wenn bekannt, mehr vom Spiel nativ; auf dieser Konsole läuft die Erkundung trotzdem vollständig.",
     "estimate_paths_time": "Mit den Pfaden anderer Spieler: {span} auf dem Referenz-PC (Neukompilierung ohne Erkundung der Pfade).",
     "front_end": "Front-end",
-    "tip_front_end": "Front-end: deine kompilierten Spiele als Cover-Wand, eine Konsole nach der anderen. Maus, Tastatur oder Gamepad: LB/RB wechseln die Konsole, L2/R2 stellen die Cover pro Reihe ein, A startet, B geht zurück.",
+    "tip_front_end": "Front-end: deine kompilierten Spiele als Cover-Wand, eine Konsole nach der anderen. Maus, Tastatur oder Gamepad: LB/RB, Strg+Links/Rechts oder das Mausrad über der Konsolenleiste wechseln die Konsole, L2/R2 stellen die Cover pro Reihe ein, A startet, B geht zurück.",
     "front_end_empty": "Noch kein kompiliertes Spiel. Konvertiere ein Spiel oder durchsuche deine Ordner in Kompilierte Spiele.",
     "front_end_add_cover": "Cover hinzufügen",
     "front_end_back": "Zurück",

@@ -284,6 +284,144 @@ class PodiumPortrait(OnACanvas):
         self.assertEqual(real.getpixel((20, 20))[:3], (200, 30, 30))               # the player's own picture
         self.assertEqual(real.getpixel((0, 0))[3], 0)                              # round: the corners are clear
 
+    def test_a_player_without_an_uploaded_portrait_gets_the_site_s_generated_one(self):
+        from retrorecomp.gui_drawing import SITE_GOLD, SITE_GOLD_DEEP, SITE_SURFACE, _podium_picture
+        generated = _podium_picture(None, 70, '#d4a737', '#333333', '#777777', generated='Lightningz')
+        silhouette = _podium_picture(None, 70, '#d4a737', '#333333', '#777777')
+        self.assertNotEqual(generated.tobytes(), silhouette.tobytes())
+        rgb = lambda value: tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
+        cell = 70 / 7
+        centre = lambda x, y: (round((x + 1.5) * cell), round((y + 1.5) * cell))
+        self.assertEqual(generated.getpixel(centre(2, 0))[:3], rgb(SITE_GOLD))         # a light cell (row 0)
+        self.assertEqual(generated.getpixel(centre(2, 3))[:3], rgb(SITE_GOLD_DEEP))    # a deep one (row 3)
+        self.assertEqual(generated.getpixel(centre(2, 2))[:3], rgb(SITE_SURFACE))      # an empty one
+        drawn = self.app.podium_portrait(self.canvas, 100, 40, 35, 1, None, key=None, generated='Lightningz')
+        waiting = self.app.podium_portrait(self.canvas, 200, 40, 35, 1, None, key='/avatars/p1.webp')
+        self.assertNotEqual(self.canvas.itemcget(drawn, 'image'), self.canvas.itemcget(waiting, 'image'))
+        self.assertEqual(len(self.canvas._portraits), 2)
+
+    def test_the_podium_portraits_are_clearly_larger_than_the_old_letter_circle(self):
+        from retrorecomp.gui_leaderboard import PODIUM_PORTRAIT
+        self.assertGreaterEqual(min(PODIUM_PORTRAIT.values()), 30)                 # the letter circle was 20
+        self.assertGreater(PODIUM_PORTRAIT[1], PODIUM_PORTRAIT[2])                 # the first larger, as on the site
+        self.assertEqual(PODIUM_PORTRAIT[2], PODIUM_PORTRAIT[3])
+        item = self.app.podium_portrait(self.canvas, 100, 40, PODIUM_PORTRAIT[1], 1, picture(), key='/avatars/p1.webp')
+        x0, y0, x1, y1 = self.canvas.bbox(item)
+        self.assertEqual((x1 - x0, y1 - y0), (2 * PODIUM_PORTRAIT[1],) * 2)
+
+
+class SitePattern(unittest.TestCase):
+    """The site's generated portrait (web/app/src/components/Avatar.tsx): the same cells as the browser's."""
+
+    # pattern() run by node on the site's own code (21 Nov 2026), for two names.
+    BROWSER = {'Lightningz': [[0, 0, True], [4, 0, True], [2, 0, True], [0, 1, True], [4, 1, True], [0, 3, False],
+                              [4, 3, False], [1, 3, False], [3, 3, False], [2, 3, False], [1, 4, True], [3, 4, True]],
+               'player': [[2, 2, False], [0, 3, False], [4, 3, False], [2, 4, True]]}
+
+    def test_the_cells_are_the_browser_s(self):
+        from retrorecomp.gui_drawing import site_pattern
+        for name, cells in self.BROWSER.items():
+            self.assertEqual([list(cell) for cell in site_pattern(name)], cells, name)
+        self.assertEqual(site_pattern(''), site_pattern('player'))                 # pattern(name || 'player')
+
+    def test_the_pattern_is_mirrored_and_inside_five_by_five(self):
+        from retrorecomp.gui_drawing import site_pattern
+        for name in ('Aurora', 'Ünïcødé 🎮 名前', 'x' * 64):
+            cells = {(x, y): light for x, y, light in site_pattern(name)}
+            self.assertTrue(all(0 <= x < 5 and 0 <= y < 5 for x, y in cells))
+            self.assertEqual(cells, {(4 - x, y): light for (x, y), light in cells.items()})
+
+
+class RulesPanel(unittest.TestCase):
+    """« The rules » (Tooltip.toggle): a click opens and keeps them, a second click, a click elsewhere or Esc closes them;
+    opened by hovering, leaving the link closes them; never two panels at once (the bug of 21 Nov 2026). The panel's
+    window is a stand-in: nothing is shown."""
+
+    def setUp(self):
+        release_tk(self)
+        try:
+            self.root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('no display')
+        self.root.withdraw()
+        self.addCleanup(self.root.destroy)
+        self.link = tk.Label(self.root, text='The rules')
+        self.link.winfo_ismapped = lambda: True                  # withdrawn: never mapped; the hint asks
+        self.other = tk.Label(self.root, text='elsewhere')
+        from retrorecomp import tooltips
+        self.windows = []
+        def window(*args, **kwargs):
+            from unittest.mock import MagicMock
+            made = MagicMock()
+            made.winfo_reqwidth.return_value = made.winfo_reqheight.return_value = 100
+            made.winfo_screenwidth.return_value, made.winfo_screenheight.return_value = 1920, 1080
+            made.destroy.side_effect = lambda: self.windows.remove(made)
+            self.windows.append(made)
+            return made
+        for patcher in (patch.object(tooltips.tk, 'Toplevel', side_effect=window),
+                        patch.object(tooltips.tk, 'Label'), patch.object(tooltips.ttk, 'Style'),
+                        patch.object(tooltips.Tooltip, 'active', set())):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.hint = tooltips.Tooltip(self.link, lambda: 'The rules, in full')
+        self.Tooltip = tooltips.Tooltip
+
+    def test_a_click_opens_and_keeps_them_and_a_second_click_closes_them(self):
+        self.hint.toggle()
+        self.assertEqual(len(self.windows), 1)
+        self.hint.leave()                                         # leaving the link: they stay
+        self.hint.schedule()                                      # back over it: still the same one
+        self.assertEqual(len(self.windows), 1)
+        self.hint.toggle()
+        self.assertEqual(self.windows, [])
+
+    def test_a_click_elsewhere_or_esc_closes_them(self):
+        self.hint.toggle()
+        self.Tooltip.click_away(SimpleEvent(self.link))          # the link's own click toggles, not this
+        self.assertEqual(len(self.windows), 1)
+        self.Tooltip.click_away(SimpleEvent(self.other))
+        self.assertEqual(self.windows, [])
+        self.hint.toggle()
+        self.assertTrue(self.Tooltip.close_shown())             # Esc: the rules close...
+        self.assertEqual(self.windows, [])
+        self.assertFalse(self.Tooltip.close_shown())            # ...and the next Esc closes the window
+
+    def test_opened_by_hovering_leaving_closes_them_and_a_click_does_not_add_a_second_panel(self):
+        self.hint.show()                                          # the hover's timer ran
+        self.assertEqual(len(self.windows), 1)
+        self.hint.toggle()                                        # a click on shown rules closes them
+        self.assertEqual(self.windows, [])
+        self.hint.show()
+        self.hint.show()                                          # a second show replaces the first
+        self.assertEqual(len(self.windows), 1)
+        self.hint.leave()
+        self.assertEqual(self.windows, [])
+
+    def test_on_a_second_monitor_the_panel_stays_beside_its_link(self):
+        from retrorecomp import dialogs
+        for area, root_x, expected_x in (((1920, 0, 3840, 1040), 2500, 2512),     # a monitor on the right
+                                         ((-1920, 0, 0, 1040), -1500, -1488),     # one on the left
+                                         ((1920, 0, 3840, 1040), 3800, 3840 - 100 - 8)):   # its right edge
+            with patch.object(dialogs, '_monitor_work_area', return_value=area), \
+                    patch.object(self.link, 'winfo_rootx', return_value=root_x), \
+                    patch.object(self.link, 'winfo_rooty', return_value=300):
+                self.hint.show()
+            geometry = self.windows[-1].geometry.call_args.args[0]
+            self.assertEqual(geometry, f'+{expected_x}+{300 + self.link.winfo_height() + 6}', area)
+            self.hint.hide()
+
+    def test_the_link_and_the_board_window_are_wired_to_it(self):
+        self.assertIn('click_away', self.root.bind('<ButtonPress>'))
+        self.assertIn('leave', self.link.bind('<Leave>'))
+        source = Path(__file__).resolve().parents[1].joinpath('retrorecomp', 'gui_leaderboard.py').read_text(encoding='utf-8')
+        self.assertIn("rules.bind('<Button-1>', rules_hint.toggle)", source)
+        self.assertIn("Tooltip.close_shown() else window.destroy()", source)
+
+
+class SimpleEvent:
+    def __init__(self, widget):
+        self.widget = widget
+
 
 if __name__ == '__main__':
     unittest.main()
