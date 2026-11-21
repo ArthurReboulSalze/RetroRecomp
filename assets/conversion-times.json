@@ -9,7 +9,7 @@
   "games_at_once": 3
  },
  "measured_on": "2026-11-16",
- "method": "tools/conversion_times.py over the conversion reports of the reference PC (its exports and the campaign outputs), read only: the wall time of one game (timings.total), Windows reports built with the portable toolchain, releases 1.7.0 and later (1.6.x for a cell with fewer than three such reports), totals under 5 s left out (exports taken over as they were). seconds = [first quartile, median, third quartile]; longest = the longest seen. The games were converted in batches, three at once by default, so a figure is the time a player waits for one game of such a batch. Checked against the 1.9.0-line reports already on the reference PC (21 Nov 2026, no new conversion: a 20-game panel run four or five at once and the machine specialists' A/B folders); no cell changed, since most machines had one report from a loaded PC. The Atari ST standard cell now overestimates: its one 1.9.0 report (Bomb Jack, three at once) took about 110 s, since a74490e4 cut the validation phases from 170 s to 63 s; a cell needs three reports.",
+ "method": "tools/conversion_times.py over the conversion reports of the reference PC (its exports and the campaign outputs), read only: the wall time of one game (timings.total), Windows reports built with the portable toolchain, releases 1.7.0 and later (1.6.x for a cell with fewer than three such reports), totals under 5 s left out (exports taken over as they were). seconds = [first quartile, median, third quartile]; longest = the longest seen. The games were converted in batches, three at once by default, so a figure is the time a player waits for one game of such a batch.",
  "level_factors": {"quick": 0.5, "standard": 1.0, "extended": 2.3, "thorough": 2.5},
  "level_factors_source": "Used only for a level a machine has no measured cell for: the median ratio to the standard time of the machines measured at both levels in this table (quick: 7 machines, ratios 0.30 to 1.31, median 0.49; extended: 13 machines, 1.18 to 4.06, median 2.33; thorough: 5 machines, 1.69 to 3.85, median 2.43, rounded up to 2.5 since it runs one long route more than extended).",
  "machines": {
@@ -73,7 +73,7 @@
    "standard": {"seconds": [646, 774, 1107], "longest": 1463, "reports": 35, "versions": "1.7.5..1.7.8"}
   },
   "atarist": {
-   "standard": {"seconds": [196, 258, 301], "longest": 459, "reports": 20, "versions": "1.7.1..1.7.5"},
+   "standard": {"seconds": [94, 110, 216], "longest": 322, "reports": 3, "versions": "1.9.0..1.9.0"},
    "extended": {"seconds": [462, 476, 498], "longest": 627, "reports": 7, "versions": "1.7.3..1.7.3"}
   },
   "n64": {
