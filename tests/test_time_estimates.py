@@ -42,6 +42,14 @@ class TableTests(unittest.TestCase):
                 self.assertRegex(cell['versions'], r'^\d+\.\d+\.\d+\.\.\d+\.\d+\.\d+$')
         self.assertIs(te.table(), te.table())
 
+    def test_every_machine_the_converter_offers_has_a_row(self):
+        # A machine that is not developer-only shows a level estimate in the Options (gui_estimates.py): without a row of its own the text is empty
+        # (tools/gui_smoke.py failed on the PC Engine CD, 21 Nov 2026). The standard level is the one every row carries; a machine opened later fails here.
+        from retrorecomp.systems import registry
+        machines = te.load()['machines']
+        missing = [profile.id for profile in registry.listed_profiles() if 'standard' not in machines.get(profile.id, {})]
+        self.assertEqual(missing, [], 'add a row (standard level) to assets/conversion-times.json from the machine own conversion reports (tools/conversion_times.py)')
+
     def test_validation_refuses_a_bad_table(self):
         for change in (lambda d: d.update(format=2), lambda d: d['reference'].pop('label'),
                        lambda d: d['level_factors'].update(standard=2.0),
