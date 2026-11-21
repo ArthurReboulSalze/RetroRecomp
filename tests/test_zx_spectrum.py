@@ -364,7 +364,7 @@ class RouteTests(unittest.TestCase):
         cursor = routes.events(1800, seed, (2, 'SPACE'), 'cursor')
         self.assertEqual(cursor, routes.events(1800, seed, (2, 'SPACE'), 'cursor'))      # deterministic
         presses = [event for event in cursor if event[1] < routes.walk_start(2)]
-        self.assertEqual(presses, [('key', 150, 7, 0, 1), ('key', 156, 7, 0, 0), ('key', 390, 7, 0, 1), ('key', 396, 7, 0, 0)])
+        self.assertEqual(presses, [('key', 150, 7, 0, 1), ('key', 175, 7, 0, 0), ('key', 390, 7, 0, 1), ('key', 415, 7, 0, 0)])
         frames = [event[1] for event in cursor]
         self.assertEqual(frames, sorted(frames))
         self.assertTrue(all(event[1] < 1800 for event in cursor))

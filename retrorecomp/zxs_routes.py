@@ -21,7 +21,10 @@ from .scan_levels import LONG_ROUTE_FRAMES, LONG_ROUTES
 
 FIRST_PRESS = 150          # frames: three seconds, after the snapshot's first picture
 PRESS_SPACING = 240        # frames between two presses of the start
-PRESS_FRAMES = 6           # frames a press is held
+# Frames a press is held: half a second. Some games read their start key only between two notes of a tune (Manic Miner's title
+# misses a press of 6 frames and starts on one of 12); it stays under the ROM's key repeat delay (REPDEL, 35 frames), so a menu
+# that reads keys through the ROM sees one press.
+PRESS_FRAMES = 25
 WALK_SETTLE = 180          # frames between the last press and the walk
 QUIET_WALK = 900           # frames of walk with directions only
 PLAY_FRAMES = 1800         # the shortest play route

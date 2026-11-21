@@ -47,7 +47,8 @@ Amstrad's permission for emulators of 31 August 1999 (no charge for the ROM code
 1. The snapshot is read and turned into the machine image (`retrorecomp/zxs_build.py`: the model, the ports, the registers, the
    T-state, the RAM banks); the ROM of its model comes from `zxs_roms`.
 2. How the play route starts is chosen on the reference (`route_start`, `retrorecomp/zxs_routes.py`): ENTER, SPACE, 0 or 1
-   pressed one to four times, judged against the route without input. Then a deterministic walk on the controls the snapshot
+   pressed one to four times (each press held half a second: some titles read their key only between two notes of a tune),
+   judged against the route without input. Then a deterministic walk on the controls the snapshot
    was saved for (cursor keys, Kempston or Sinclair Interface 2).
 3. The ROM is translated ahead of time on the shared chain; the code the snapshot runs from RAM is learned over the routes
    and translated with byte guards (`zxs_build.learn`, up to three passes).
@@ -57,8 +58,9 @@ Amstrad's permission for emulators of 31 August 1999 (no charge for the ROM code
    copy replayed headless on every route against the reference, and its quick states (F8, F9) checked in fresh processes,
    damaged copies refused.
 
-The first game, Manic Miner (48K), on 21 November 2026: on the attract and play routes (1,800 frames each) 11,348,617 Z80
-instructions ran natively and **none on the interpreter fallback**; the native runs, the build and its compressed copy
+The first game, Manic Miner (48K), on 21 November 2026: the play route starts with ENTER pressed twice and reaches Central
+Cavern; on the attract and play routes (1,800 frames each) 6,919,640 Z80 instructions ran natively and **none on the
+interpreter fallback**; the native runs, the build and its compressed copy
 equal the reference on every compared field and frame row; a quick state saved at frame 1,140 continues the route for 600
 frames in a fresh process. That is agreement between our native code and our reference interpreter on these routes, not a
 proof of CPU fidelity against an independent Z80 or of hardware fidelity (below).
