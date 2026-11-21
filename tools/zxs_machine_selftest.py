@@ -3,7 +3,7 @@
 Writes three authored machine images through the converter's own writer (retrorecomp/zxs_build.zxs_image: a 48K, a 128K with bank 3
 and ROM 1 paged, a 16K), builds the checks with a C compiler and runs them: the memory map and the 128K paging with its lock, the frame
 length and the /INT pulse, the keyboard half-rows, the Kempston port, the picture (border, paper, ink, bright, flash), the beeper's
-samples, the AY's registers, the 16K's missing RAM. No ROM and no game: the "ROM" is a byte pattern. Nothing is written outside
+samples, the AY's registers and tone, the 16K's missing RAM. No ROM and no game: the "ROM" is a byte pattern. Nothing is written outside
 .build/zxs-machine-selftest.
 """
 import os
@@ -73,8 +73,10 @@ def main() -> int:
     source = ROOT / 'native' / 'zxs_machine'
     exe = work / ('zxs_machine_checks.exe' if os.name == 'nt' else 'zxs_machine_checks')
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-    built = subprocess.run([compiler(), '-std=gnu11', '-O1', '-Wall', '-Wextra', '-I', str(source),
-                            str(source / 'zxs_machine.c'), str(source / 'zxs_machine_checks.c'), '-o', str(exe)],
+    ay = ROOT / 'native' / 'ay38910'
+    built = subprocess.run([compiler(), '-std=gnu11', '-O1', '-Wall', '-Wextra', '-I', str(source), '-I', str(ay),
+                            str(source / 'zxs_machine.c'), str(ay / 'ay38910.c'), str(source / 'zxs_machine_checks.c'),
+                            '-o', str(exe)],
                            capture_output=True, encoding='utf-8', errors='replace', creationflags=flags)
     if built.returncode:
         print(built.stdout + built.stderr)

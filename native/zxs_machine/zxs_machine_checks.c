@@ -124,6 +124,32 @@ int main(int argc, char **argv)
     zxs_out(&m, 0xFFFD, 0x07);
     zxs_out(&m, 0xBFFD, 0x3E);
     check("128K: AY register 7 written and read back", zxs_in(&m, 0xFFFD), 0x3E);
+    /* The AY's tone A at full volume (period 100: 1,773,450 / 1,600 = 1,108 Hz) sounds; mute (mixer FFh) gives silence. */
+    {
+        static const uint8_t tone[][2] = {{0, 100}, {1, 0}, {7, 0x3E}, {8, 15}};
+        for (unsigned i = 0; i < 4; ++i) { zxs_out(&m, 0xFFFD, tone[i][0]); zxs_out(&m, 0xBFFD, tone[i][1]); }
+        int16_t buffer[ZXS_AUDIO_BUFFER];
+        zxs_audio_take(&m, buffer, ZXS_AUDIO_BUFFER);
+        zxs_advance(&m, m.t_frame);
+        unsigned count = zxs_audio_take(&m, buffer, ZXS_AUDIO_BUFFER), low = 0, high = 0, flips = 0;
+        for (unsigned i = 0; i < count; ++i) {
+            low += buffer[i] < 1000; high += buffer[i] > 5000;
+            if (i && (buffer[i] > 3000) != (buffer[i - 1] > 3000)) ++flips;
+        }
+        check("128K: the AY tone has low and high samples", low > 100 && high > 100, 1);
+        check("128K: 1,108 Hz is about 44 edges in a frame (3,200 T a period)", flips >= 40 && flips <= 48, 1);
+        /* A channel whose tone and noise are off outputs its volume as a steady level: volume 0 is silence. */
+        zxs_out(&m, 0xFFFD, 7); zxs_out(&m, 0xBFFD, 0xFF);
+        zxs_advance(&m, m.t_frame);
+        count = zxs_audio_take(&m, buffer, ZXS_AUDIO_BUFFER);
+        check("128K: tone and noise off: the volume as a steady level", buffer[count / 2], 6000);
+        zxs_out(&m, 0xFFFD, 8); zxs_out(&m, 0xBFFD, 0x00);
+        zxs_advance(&m, m.t_frame);
+        zxs_audio_take(&m, buffer, ZXS_AUDIO_BUFFER);
+        zxs_advance(&m, m.t_frame);
+        count = zxs_audio_take(&m, buffer, ZXS_AUDIO_BUFFER);
+        check("128K: volume 0 is silent", buffer[count / 2], 0);
+    }
     frames_and_irq(ZXS_128K, 70908, 36);
 
     /* ---- 16K ---- */

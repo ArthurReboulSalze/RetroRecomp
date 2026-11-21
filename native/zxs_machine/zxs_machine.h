@@ -6,8 +6,8 @@
  * /INT pulse at its start (32 T, 36 T on the 128K), the picture drawn line by line at the end of each line (256 x 192 paper
  * from the screen bank, the border of that line, the attribute flash every 16 frames), port FEh (border, beeper, keyboard
  * half-rows by the high byte of the port, the EAR bit of an issue 3 board), the 128K's port 7FFDh (RAM bank at C000h, screen
- * bank, ROM, lock), the Kempston port 1Fh, the AY-3-8910's ports FFFDh/BFFDh (registers only for now: its sound joins when the
- * shared chip does).
+ * bank, ROM, lock), the Kempston port 1Fh, the 128K's AY-3-8910 (native/ay38910, the chip shared with the MSX; its clock is the
+ * CPU's / 2, a tick every 16 T-states) on ports FFFDh/BFFDh, mixed with the beeper.
  *
  * What it does not model (stated, never hidden): the ULA's memory contention (every instruction takes its plain Z80 time), the
  * floating bus (an unused port reads FFh), the border changes within a line, tapes, the +2A/+3. */
@@ -16,6 +16,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+
+#include "ay38910.h"
 
 enum { ZXS_48K = 0, ZXS_128K = 1 };
 enum { ZXS_AUDIO_RATE = 44100, ZXS_AUDIO_BUFFER = 8192 };
@@ -39,7 +41,10 @@ typedef struct {
     uint8_t keys[8];               /* the half-rows, active low (bits 0-4): FEFE, FDFE, FBFE, F7FE, EFFE, DFFE, BFFE, 7FFE */
     uint8_t kempston;              /* active high: bits 0 right, 1 left, 2 down, 3 up, 4 fire */
     int kempston_present;          /* the Kempston interface answers at port 1Fh */
-    uint8_t ay_latch, ay_regs[16]; /* the 128K's AY-3-8910 registers (its sound comes with the shared chip) */
+    uint8_t ay_latch, ay_regs[16]; /* the 128K's AY-3-8910 registers */
+    Ay38910 ay;                    /* its counters (native/ay38910) */
+    uint64_t ay_next;              /* the cycle of its next tick (every 16 T) */
+    int ay_level;                  /* its mixed output since the last tick */
 
     unsigned t_line, lines, int_len, top_line;   /* T-states a line, lines a frame, the /INT pulse, the first paper line */
     uint32_t t_frame;

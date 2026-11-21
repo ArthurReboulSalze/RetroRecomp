@@ -59,6 +59,9 @@ class ZxSpectrumProfile(SystemProfile):
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md',
                     'licenses/zx-spectrum-roms.md')
     developer_only = True
+    # The shared groups its game is built from: the AY-3-8910 of the 128K (native/ay38910). The banked Z80 chain and its glue join
+    # with the conversion.
+    stamp_groups = ('ay38910',)
     path_spec = PathSpec(order=20, sections=(('z80', 'zxs'),),
                          source_bounds=(('snapshot', SNAPSHOT_BOUNDS), ('rom', ROM_BOUNDS)),
                          required_sources=('snapshot',), hashed_sources=('snapshot', 'rom'),

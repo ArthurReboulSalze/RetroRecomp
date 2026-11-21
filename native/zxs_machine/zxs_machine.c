@@ -3,6 +3,8 @@
 
 #include <string.h>
 
+enum { AY_TICK = 16 };      /* the AY runs at the CPU clock / 2 and ticks every 8 of its clocks */
+
 /* The image the converter writes (retrorecomp/zxs_build.py, zxs_image), little-endian:
  *   0 "ZXS1"; 4 model (0 48K, 1 128K); 5 a 16K; 6 joystick (0 cursor, 1 Kempston, 2/3 Sinclair, FFh none); 7 border;
  *   8 port 7FFDh; 9 the AY's latch; 10-25 its registers; 26 IM; 27 IFF1; 28 IFF2; 29 I; 30 R; 31 0;
@@ -21,6 +23,8 @@ void zxs_reset(ZxsMachine *m, int model, int ram16k, const uint8_t *rom)
     memset(m->keys, 0xFF, sizeof m->keys);
     m->kempston = 0;
     m->ay_latch = 0; memset(m->ay_regs, 0, sizeof m->ay_regs);
+    ay38910_reset(&m->ay);
+    m->ay_next = AY_TICK; m->ay_level = 0;
     if (model == ZXS_128K) {
         m->t_line = 228; m->lines = 311; m->int_len = 36; m->top_line = 63; m->clock_hz = 3546900;
     } else {
@@ -60,6 +64,7 @@ int zxs_load_image(ZxsMachine *m, const uint8_t *image, size_t size, const uint8
     m->frame_start = 0;
     m->line = t / m->t_line;
     m->audio_time = t;
+    m->ay_next = t + AY_TICK;
     m->next_sample = ((uint64_t)t << 16) + (uint64_t)m->clock_hz * 65536u / ZXS_AUDIO_RATE;
     return 0;
 }
@@ -89,21 +94,33 @@ void zxs_write(ZxsMachine *m, uint16_t address, uint8_t value)
     }
 }
 
-/* ---- the beeper ---- */
-enum { BEEP_LEVEL = 12000 };
+/* ---- the sound: the beeper and, on the 128K, the AY ---- */
+/* The beeper at a fixed level; the AY's three channels at equal weight, together at most AY_WEIGHT (our choice: the two are
+ * mixed as a 128K's sound output adds them; the balance is not measured on a machine). */
+enum { BEEP_LEVEL = 12000, AY_WEIGHT = 18000 };
 
 static int beeper_level(const ZxsMachine *m) { return (m->out_fe & 0x10) ? BEEP_LEVEL : 0; }
 
-/* The sound up to `cycle`: each output sample is the mean level over its interval (a box filter). */
+/* The sound up to `cycle`: each output sample is the mean level over its interval (a box filter); the AY moves one tick every
+ * AY_TICK cycles, its level held between two ticks. */
 static void sound_to(ZxsMachine *m, uint64_t cycle)
 {
     if (cycle <= m->audio_time)
         return;
-    int level = beeper_level(m);
+    int beep = beeper_level(m);
     uint64_t step = (uint64_t)m->clock_hz * 65536u / ZXS_AUDIO_RATE;
     while (m->audio_time < cycle) {
+        if (m->model == ZXS_128K && m->audio_time >= m->ay_next) {
+            int levels[3];
+            ay38910_tick(&m->ay, m->ay_regs, levels);
+            m->ay_level = (int)(((int64_t)levels[0] + levels[1] + levels[2]) * AY_WEIGHT / (3 * 32767));
+            m->ay_next += AY_TICK;
+        }
+        int level = beep + m->ay_level;
         uint64_t sample_end = (m->next_sample + 65535) >> 16;             /* the first cycle at or after the sample's end */
         uint64_t until = sample_end < cycle ? sample_end : cycle;
+        if (m->model == ZXS_128K && m->ay_next < until)
+            until = m->ay_next;
         if (until <= m->audio_time)
             until = m->audio_time + 1;
         uint64_t span = until - m->audio_time;
@@ -111,7 +128,8 @@ static void sound_to(ZxsMachine *m, uint64_t cycle)
         m->acc_cycles += span;
         m->audio_time = until;
         if ((m->audio_time << 16) >= m->next_sample) {
-            int16_t sample = (int16_t)(m->acc_cycles ? m->acc / (int64_t)m->acc_cycles : level);
+            int64_t mean = m->acc_cycles ? m->acc / (int64_t)m->acc_cycles : level;
+            int16_t sample = (int16_t)(mean > 32767 ? 32767 : mean);
             if (m->out_count < ZXS_AUDIO_BUFFER)
                 m->out[m->out_count++] = sample;
             else
@@ -161,8 +179,12 @@ void zxs_out(ZxsMachine *m, uint16_t port, uint8_t value)
             m->port_7ffd = value;
         else if ((port & 0xC002) == 0xC000)              /* FFFDh: select an AY register */
             m->ay_latch = value & 15;
-        else if ((port & 0xC002) == 0x8000)              /* BFFDh: write it */
+        else if ((port & 0xC002) == 0x8000) {            /* BFFDh: write it, the sound caught up first */
+            sound_to(m, m->cycles);
             m->ay_regs[m->ay_latch] = value;
+            if (m->ay_latch == 13)
+                ay38910_shape_written(&m->ay, value);
+        }
     }
 }
 
