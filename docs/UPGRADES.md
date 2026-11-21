@@ -601,9 +601,9 @@ stayed on « ENTER YOUR POT » (7 distinct pictures on its `play` route). `retro
 a **keypad tour** (`KEYPAD_TOUR`: each digit then `*`, the digits 1 2 5 3 4 6 7 8 9 0, then `#` and `*`; a 6-frame tap every 60 frames, never in the last 200
 frames), with the twelve keys as the lines they pull (`KEY_LINES`, the machine's `CV_KEY_*`). Measured on the delivered games, same 3,600-frame route: Ken
 Uston 7 → 56 distinct pictures (the game deals, hits and shows « YOU LOSE »); Donkey Kong unchanged (1,172 and 1,172); Bump 'N' Jump and Pitfall II keep
-hundreds to a thousand (a few fewer, the tour taking time from the walk). Two conversions rerun end to end from an empty scratch library, Ken Uston and
-Donkey Kong: native equals the reference on every route, 0 interpreted steps, the start of `play` chosen again by the same rule (Ken Uston `key1x1`, 30
-distinct pictures, after the tour; Donkey Kong `key1x3`). **Stamps**: `retrorecomp.coleco_routes` is one of the ColecoVision's own converter inputs (`stamp_inputs.INPUTS`, `('coleco',)`), so the ColecoVision's stamps move and
+hundreds to a thousand (a few fewer, the tour taking time from the walk). Three conversions rerun end to end from an empty scratch library (Ken Uston, Donkey Kong and Alcazar, which went from 50 to 85 distinct pictures on the
+start chosen, `fire1x2`, and 112 on the key 1 starts): native equals the reference on every route, 0 interpreted steps, the start of `play` chosen again by the same rule (Ken Uston `key1x1`, 30
+distinct pictures, after the tour; Donkey Kong `key1x3`; the tour is not why Alcazar's number is still low: it is a maze game, its picture changes 2,600 times). **Stamps**: `retrorecomp.coleco_routes` is one of the ColecoVision's own converter inputs (`stamp_inputs.INPUTS`, `('coleco',)`), so the ColecoVision's stamps move and
 no other machine's (a developer-only machine: there is no released export to upgrade); a ColecoVision reconverted by this version may learn from a different route.
 
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
