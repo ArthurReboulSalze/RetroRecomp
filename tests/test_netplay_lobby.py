@@ -653,7 +653,8 @@ class CheckTests(unittest.TestCase):
 
     def test_the_library_is_the_one_given_and_never_the_real_one(self):
         scratch = Scratch(self)
-        self.assertEqual(scratch.inventory.path.parent.parent, scratch.root)
+        # Resolved on both sides: a Windows temp folder may be given by its 8.3 short name (RUNNER~1) and kept long.
+        self.assertEqual(scratch.inventory.path.parent.parent.resolve(), scratch.root.resolve())
         self.assertEqual(scratch.library().inventory.snapshot(), [])
         self.assertFalse(scratch.inventory.path.exists())                         # nothing was even written
 
