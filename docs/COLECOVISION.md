@@ -153,8 +153,8 @@ interrupt on /NMI, on every frame of the attract and of a 3,600-frame pad route)
 steps on its play route (3,540 guarded steps), Bump 'N' Jump 24.9 million, Pitfall II 22.8 million (1,497 guarded steps); audible frames measured on every play route (nobody has listened yet);
 the BIOS is the owner's own, checked by SHA-256 and recorded in the report; the offscreen frames at 1,500 and 3,000 frames show the games in play.
 Against MAME 0.289 as a private oracle: the controllers' ports agree line by line, the Z80 timing groups agree, and the console RAM writes of the BIOS, the
-title and the game-select screen are identical over 1,000 frames. **G10 is `Y`** (51,328 independent Z80 vectors); G1 to G9 and G11 to G16 stay `?`
-until a panel is read.
+title and the game-select screen are identical over 1,000 frames. The matrix on the panel of eight (22 November 2026): `Y` on G2 to G6, G8, G9, G10 (51,328 independent Z80 vectors), G12 and G13; `P` on G1, G11 and G15; `-` on G7;
+**G14 and G16 stay `?`**.
 
 **Not claimed**: hardware fidelity (MAME is an emulator; nothing was measured on a console; keys `0 9 * #` follow MAME only), the unexplained parting from
 MAME about twenty frames after a key press at the game-select screen, gameplay validation (three games, played by routes, not through), physical
