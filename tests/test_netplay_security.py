@@ -174,7 +174,9 @@ class BoundedWorkTests(unittest.TestCase):
             self.finish(driver, release)
 
     def test_one_seats_packet_rate_is_limited_and_the_excess_counted(self):
-        driver, release = self.blocked()
+        # The rate is given: derived, it follows the game's HELLO, which may or may not be taken before the loop is held
+        # (FakeGame's 500 Hz with 3 seats gives 2000 a second and a burst of 500, as Linux CI took it).
+        driver, release = self.blocked(packet_rate=lockstep.PACKET_RATE_MIN)
         try:
             ping, started = wire.encode_ping(1, 1), time.monotonic()
             for _ in range(3000):
