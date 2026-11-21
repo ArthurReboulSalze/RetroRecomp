@@ -32,6 +32,7 @@ void zxs_reset(ZxsMachine *m, int model, int ram16k, const uint8_t *rom)
     }
     m->t_frame = m->t_line * m->lines;
     m->cycles = 0; m->frame_start = 0; m->frames = 0; m->line = 0;
+    m->frame_hook = NULL; m->hook_user = NULL; m->trace_frames = 0;
     memset(m->picture, 0, sizeof m->picture);
     m->frame_trace = 2166136261u;
     m->audio_time = 0;
@@ -243,6 +244,8 @@ void zxs_advance(ZxsMachine *m, uint64_t cycles)
             ++m->frames;
             if (m->trace_frames)
                 m->frame_trace = fnv_add(m->frame_trace, &m->picture[0][0], sizeof m->picture);
+            if (m->frame_hook)
+                m->frame_hook(m->hook_user);
         }
     }
     m->cycles = target;

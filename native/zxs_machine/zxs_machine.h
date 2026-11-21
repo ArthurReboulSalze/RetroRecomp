@@ -55,6 +55,8 @@ typedef struct {
     uint8_t picture[ZXS_HEIGHT][ZXS_WIDTH];      /* colour indices 0-15 (8-15 bright) */
     uint32_t frame_trace;          /* a running hash of every finished picture */
     int trace_frames;
+    void (*frame_hook)(void *user);    /* optional: called at the start of each frame (a line boundary, between instructions) */
+    void *hook_user;
 
     /* The beeper, box-filtered to ZXS_AUDIO_RATE. */
     uint32_t clock_hz;
