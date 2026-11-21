@@ -837,17 +837,20 @@ INPUTS = _resolve({
         'retrorecomp.zxs_roms',
         'retrorecomp.zxs_snapshot',
     ),
-    # The SG-1000 (experimental, developer only, stage 2: it identifies cartridges, translates them and checks them against the reference,
-    # and delivers no executable yet): its converter modules (the cartridge reader, the build, the routes, the conversion) and the machine's C. Its profile module and its host-kit adapter (host role: in HOST_NATIVE
-    # above, a placeholder until stage 3) come from the profile; the Z80 chain, the TMS9918A and the gates come from stamp_groups.
+    # The SG-1000 (experimental, developer only): its converter modules, the cartridge reader and the conversion, the machine (our own
+    # C), the glue of the banked Z80 chain, the player (stage 3: the game's main and its quick states) and the native and reference
+    # runners the conversion builds to compare. Its profile module and its host-kit adapter (host role: in HOST_NATIVE above) come
+    # from the profile; the Z80 chain, the TMS9918A, the SN76489A and the gates come from stamp_groups.
     ('sg1000',): (
         'native/sg1000_machine/sg1000_glue.inc',
         'native/sg1000_machine/sg1000_headless.inc',
         'native/sg1000_machine/sg1000_machine.c',
         'native/sg1000_machine/sg1000_machine.h',
         'native/sg1000_machine/sg1000_native_main.c',
+        'native/sg1000_machine/sg1000_player.c',
         'native/sg1000_machine/sg1000_reference_main.c',
         'retrorecomp.sg1000_build',
+        'native/sg1000_machine/sg1000_state_file.inc',
         'retrorecomp.sg1000_conversion',
         'retrorecomp.sg1000_rom',
         'retrorecomp.sg1000_routes',

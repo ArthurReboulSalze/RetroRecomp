@@ -13,44 +13,8 @@
 #include <io.h>
 #endif
 
+#define SG_HEADLESS_NATIVE 1                  /* the native side of the headless run (native_cpu, native_extra, headless_finish) */
 #include "sg1000_headless.inc"
-
-static SgCpuView native_cpu(void)
-{
-    SgCpuView c;
-    c.af = z80_af(&g_z80); c.bc = z80_bc(&g_z80); c.de = z80_de(&g_z80); c.hl = z80_hl(&g_z80);
-    c.ix = g_z80.ix; c.iy = g_z80.iy; c.sp = g_z80.sp; c.pc = g_z80.pc;
-    c.af2 = (uint16_t)(g_z80.a_ << 8 | g_z80.f_); c.bc2 = (uint16_t)(g_z80.b_ << 8 | g_z80.c_);
-    c.de2 = (uint16_t)(g_z80.d_ << 8 | g_z80.e_); c.hl2 = (uint16_t)(g_z80.h_ << 8 | g_z80.l_);
-    c.ir = (uint16_t)(g_z80.i << 8 | g_z80.r);
-    c.flags = (uint16_t)(g_z80.im | (g_z80.iff1 ? 4 : 0) | (g_z80.iff2 ? 8 : 0) | (g_z80.halted ? 16 : 0));
-    c.wz = g_z80.wz; c.iff1 = g_z80.iff1; c.iff2 = g_z80.iff2; c.halted = g_z80.halted; c.im = g_z80.im;
-    c.i = g_z80.i; c.r = g_z80.r;
-    return c;
-}
-
-static void native_extra(FILE *out)
-{
-    fprintf(out, "\"native_steps\": %llu, \"halt_steps\": %llu, \"fallback_steps\": %llu, \"guarded_steps\": %llu, \"fallback_cycles\": %llu, "
-            "\"fallback_at\": {", (unsigned long long)banked_native_steps, (unsigned long long)banked_halt_steps,
-            (unsigned long long)banked_fallback_steps, (unsigned long long)banked_guarded_steps, (unsigned long long)g_hybrid_cyc);
-    for (int i = 0; i < 16 && fallback_count[i]; ++i)
-        fprintf(out, "%s\"%04X\": %llu", i ? ", " : "", fallback_at[i], (unsigned long long)fallback_count[i]);
-    fprintf(out, "}, ");
-}
-
-/* The end of the run: the learned code, the dumps and the report, then the process ends. */
-static void headless_finish(void)
-{
-    if (learn_out) {
-        FILE *f = fopen(learn_out, "w");
-        for (int i = 0; f && i < learned_count; ++i) fprintf(f, "%08X\n", (unsigned)learned[i]);
-        if (f) fclose(f);
-    }
-    SgCpuView c = native_cpu();
-    headless_report("native", &c, g_irq_taken, native_extra);
-    exit(0);
-}
 
 /* At each instruction boundary the includer calls this when a frame may have ended (the native check: always; the game: after its
  * frame flag): the due row, the frame limit. */
