@@ -1107,6 +1107,7 @@ INPUTS = _resolve({
         'retrorecomp.pcecd_chd',
         'retrorecomp.pcecd_conversion',
         'retrorecomp.pcecd_disc',
+        'retrorecomp.pcecd_routes',
     ),
     ('psx', 'pcecd'): (
         'retrorecomp.psx_disc',
