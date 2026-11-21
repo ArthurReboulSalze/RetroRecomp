@@ -32,6 +32,9 @@ static uint64_t headless_interrupts(void) { return g_irq_taken; }
 static void zxs_main_service(void)
 {
     if (headless_service()) {
+        /* The loop runs the machine up to its next line only when it reaches it: catch it up to the CPU's time (the interrupt the
+         * last step accepted included), where the reference, which runs it after every instruction, is. */
+        machine_to(g_z80.cyc);
         headless_report();
         if (learn_out) {
             FILE *f = fopen(learn_out, "w");
