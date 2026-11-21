@@ -32,7 +32,9 @@ class ComparedTests(unittest.TestCase):
                                                             'fallback_cycles', 'fallback_at'}, {'engine', 'audio_ticks'})
 
     def test_the_native_only_counts_are_printed_by_the_native_check_only(self):
-        native = (NATIVE / 'sg1000_machine/sg1000_native_main.c').read_bytes().decode('utf-8')
+        # The native counters are printed by the shared headless file, behind SG_HEADLESS_NATIVE: the native check and the player define it.
+        native = (NATIVE / 'sg1000_machine/sg1000_headless.inc').read_bytes().decode('utf-8')
+        self.assertIn('SG_HEADLESS_NATIVE', native)
         reference = (NATIVE / 'sg1000_machine/sg1000_reference_main.c').read_bytes().decode('utf-8')
         for key in ('native_steps', 'halt_steps', 'fallback_steps', 'guarded_steps', 'fallback_cycles', 'fallback_at'):
             self.assertIn(f'\\"{key}\\"', native, key)
