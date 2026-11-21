@@ -538,7 +538,7 @@ void write_audio(Writer& ar,const Bus& bus) {
     AudioCheckpointAccess::cd(ar,bus.cd);AudioCheckpointAccess::psg(ar,bus.psg);
     AudioCheckpointAccess::adpcm(ar,bus.adpcm);AudioCheckpointAccess::pcm(ar,bus.pcm,bus.cd.provider);
 }
-// Retro-Recomp patch 4: the CD drive and the ADPCM unit, written as the checkpoint writes them and nothing else. A disc machine's multiplayer digest hashes
+// Retro-Recomp patch 7: the CD drive and the ADPCM unit, written as the checkpoint writes them and nothing else. A disc machine's multiplayer digest hashes
 // them (native/pce_snapshot.cpp): they decide the guest's future (sectors, interrupts, the ADPCM end flags), and the engine's own lists stay the one place that
 // names the fields, so a field added at a new pin is hashed without a copy of the list here.
 void write_cd_digest(Writer& ar,const Bus& bus) {

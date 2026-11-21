@@ -541,7 +541,14 @@ changes the cost, never the output:
 | `scanline_indices` called `background_pixel` for every pixel of a line, which divides twice by a variable and reads the descriptor and both pattern words from VRAM again (about 12 % with `Vdc::read_vram` out of line) | frame cost only | `native/pce_engine/video.cpp` | patch 5: the three words are read once per tile, at the first pixel of the tile, in the same order (descriptor, low, high); the line's rows, the shifts and the colour are the original expressions. The VRAM bus latch ends the line as before (a repeat re-reads the same words after the descriptor read that sets the latch, so an address past the VRAM returns the same value). The copy keeps the engine's `-ffp-contract=off` for this file (`PATCHED_ENGINE_OPTIONS`) |
 | `Vdc::advance_raster` took `hclock % divider` with a variable divider at every step (the divider is 2, 3 or 4) | frame cost only | `native/pce_engine/raster.cpp` | patch 6: the remainder as a mask for 4 and 2, a division by the constant 3 otherwise |
 
-Nothing to propose upstream before the first measure; if any of it is offered later, it is these four files against `6bb848e` (or the head then) with the digests
+One more edit, of the same file as the first, for the PC Engine CD's multiplayer (21 November 2026, step 3; the lead's condition: the HuCard output stays identical, proved by an A/B
+of two HuCard games and by the snapshot self-test):
+
+| Fix | Measure | Our file | Edit |
+|---|---|---|---|
+| A disc machine's multiplayer digest must read the CD drive and the ADPCM unit (sectors, interrupts, end flags decide the guest's future) and the engine already lists those fields once, in its checkpoint (`AudioCheckpointAccess::cd` and `::adpcm`, private to `pcm.cpp`). | none: no instruction path changes | `native/pce_engine/pcm.cpp` | patch 7 adds `checkpoint::write_cd_digest(Writer&, const Bus&)`, those two accessors and nothing else, declared in `native/pce_machine_internal.hpp`; only a disc machine's digest calls it (`native/pce_snapshot.cpp`), a HuCard never does. A field added to the engine's lists at a new pin is hashed without a copy of the list. |
+
+Nothing to propose upstream before the first measure; if any of it is offered later, it is these four files (and the added function of patch 7) against `6bb848e` (or the head then) with the digests
 below as the proof.
 
 ## PC Engine CD: our own disc provider beside the engine's reader (stage 1 of its profile)

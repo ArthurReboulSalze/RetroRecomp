@@ -13,7 +13,7 @@ namespace pce {
 // when every instruction updated them.
 void settle_silent_cd_source(Bus &bus);
 namespace checkpoint {
-// Patch 4 of the same file: the CD drive and the ADPCM unit as the engine's checkpoint writes them, for the digest of a disc machine (pce_snapshot.cpp).
+// Patch 7 of the same file: the CD drive and the ADPCM unit as the engine's checkpoint writes them, for the digest of a disc machine (pce_snapshot.cpp).
 void write_cd_digest(Writer &ar, const Bus &bus);
 }  // namespace checkpoint
 }  // namespace pce
