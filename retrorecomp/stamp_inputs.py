@@ -837,6 +837,12 @@ INPUTS = _resolve({
     # cartridge reader and the conversion (a refusal for now). Its profile module and its host-kit adapter (host role: in HOST_NATIVE
     # above, a placeholder until stage 3) come from the profile; the Z80 chain, the TMS9918A and the gates come from stamp_groups.
     ('sg1000',): (
+        'native/sg1000_machine/sg1000_glue.inc',
+        'native/sg1000_machine/sg1000_headless.inc',
+        'native/sg1000_machine/sg1000_machine.c',
+        'native/sg1000_machine/sg1000_machine.h',
+        'native/sg1000_machine/sg1000_native_main.c',
+        'native/sg1000_machine/sg1000_reference_main.c',
         'retrorecomp.sg1000_conversion',
         'retrorecomp.sg1000_rom',
     ),
@@ -1181,6 +1187,11 @@ INPUTS = _resolve({
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).
     # The TMS9918A video chip (native/tms9918): the state, the CPU's ports, the picture and the line the frame flag rises on, shared by
     # the machines that have it (the MSX family now, the SG-1000 and the ColecoVision next). Game role.
+    # The SN76489A (native/sn76489): the TI sound chip of the SG-1000 and the ColecoVision, our own MIT module. Game role.
+    'shares:sn76489': (
+        'native/sn76489/sn76489.c',
+        'native/sn76489/sn76489.h',
+    ),
     'shares:tms9918': (
         'native/tms9918/tms9918.c',
         'native/tms9918/tms9918.h',
