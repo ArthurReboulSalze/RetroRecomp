@@ -2,7 +2,8 @@
 
 The names and lengths are the MSX's and the PC Engine's: `attract` (no input: the baseline a start is judged against), `play` (a start,
 then a walk), and at the extended and thorough levels `long-1`, `long-2` of `scan_levels.LONG_ROUTE_FRAMES` frames. A route drives controller 1
-(the stick, the two fire buttons and the keypad's keys 1 and 2) and nothing else: the console has no Pause button.
+(the stick, the two fire buttons, the keypad's keys 1 and 2 in the walk, and a keypad tour of all twelve keys at its end) and nothing else:
+the console has no Pause button.
 
 The BIOS shows its title screen for a while before it reads the cartridge, and most games then wait at a game-select screen for a fire button or a
 digit, so the first press comes late (FIRST_PRESS); how `play` reaches play is chosen per conversion on the reference (route_start.choose_start,

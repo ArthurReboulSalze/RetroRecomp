@@ -73,7 +73,7 @@ the game file is for its owner only, as the MSX's own-BIOS games are. The work f
 1. the cartridge and the BIOS are read and refused with a sentence when they are not what the machine holds (size, header word of a `.bin`, the BIOS's
    digest), before anything is written;
 2. **the start of the `play` route** is chosen on the reference (the walk after it ends with a **keypad tour**: each digit then `*`, then `#` and `*`, one tap
-   every 60 frames after the quiet part of the walk, so a game that asks for a bet or a code and then `*` is taken past its first screen), then the cartridge and the BIOS are translated and the native check is built beside
+   every 60 frames after the quiet part of the walk, so a game that asks for a bet or a code and then `*` is taken past its first screen; a game whose `*` or `#` restarts it goes back to its select screen, which the part before the tour has already got past), then the cartridge and the BIOS are translated and the native check is built beside
    the reference runner; every route is run on the check, and the code the interpreter ran from RAM is learned (at most three passes);
 3. **the comparison**: the native check and the reference run every route; every compared field (CPU registers, cycles, the /NMI count, RAM, VRAM, the picture of
    every frame, the VDP registers, the sound and the PSG, the watched bytes) and every frame's row must be equal, or the conversion is **refused**; a
@@ -128,7 +128,7 @@ What is checked, and what each check covers (the five measures stay apart):
 
 **Not measured**: hardware fidelity (MAME is an emulator, not a console: where this machine agrees with it, both may differ from a real ColecoVision;
 nothing was measured on one), CPU fidelity beyond the independent vectors (they pass: 51,328 of 51,328 through this machine's own generator build with one wait state per M1 cycle, `tools/banked_vector_selftest.py --machine coleco`, 22 November 2026; an emulator's vectors on a flat test bus, not hardware captures), gameplay validation, physical latency. The
-qualification gates ([QUALIFICATION.md](QUALIFICATION.md)) are `?` for this machine until a panel has been converted and read.
+qualification gates ([QUALIFICATION.md](QUALIFICATION.md)) were read on a panel of eight games on 22 November 2026: `Y` on G2 to G6, G8, G9, G10, G12 and G13, `P` on G1, G11 and G15, `-` on G7 (no cartridge save), `?` on G14 (the owner's) and G16.
 
 ## 6. G14 checklist for the owner's play test (22 November 2026)
 

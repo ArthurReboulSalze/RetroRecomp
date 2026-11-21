@@ -353,8 +353,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
               'build_directory': str(work), 'conversion_phases_seconds': timings,
               'conversion_wall_seconds': round(time.perf_counter() - started, 3),
-              'qualification_scope': {'controls': 'controller 1 (the stick, the two fire buttons and the keypad\'s keys 1 and 2); the other '
-                                                  'keys and controller 2 are only pressed by an authored test',
+              'qualification_scope': {'controls': 'controller 1 (the stick, the two fire buttons, the keypad\'s keys 1 and 2 in the walk and all twelve keys, each digit '
+                                                  'then *, in a keypad tour at its end); controller 2 is only pressed by an authored test',
                                       'universal_zero_fallback_claim': False}}
     write_report(output / 'conversion-report.json', report)
     # The delivered file (compressed when UPX was enabled and passed) beside the report; the batch publishes the build it names itself.
