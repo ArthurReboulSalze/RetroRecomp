@@ -25,6 +25,23 @@ typedef struct {
 /* The pad masks are the engine's: I, II, Select, Run, Up, Right, Down, Left, III, IV, V, VI (bits 0-11). */
 int pce_machine_init(const uint8_t *file, size_t size, int copier_header, int bit_reversed, int board,
                      int pad_buttons, int multitap, char *error, size_t error_size);
+/* The PC Engine CD (docs/PC_ENGINE_CD.md; only in a game built with RR_PCE_DISC): the machine boots the System Card from its reset vector and reads the
+ * disc through the engine's CD drive. The card is the player's own (256 KiB, checked by its hash before it gets here). The disc is `disc_length` bytes of
+ * `disc_path` from `disc_offset` (length 0: the whole file), a CHD of version 4 or 5 or an ISO; `disc_sha256` is its digest (64 lower-case hex digits). */
+#define PCE_CARD_BYTES 262144u
+enum { PCE_UNKNOWN_FAULT = 0, PCE_UNKNOWN_GEAR_GOOD = 1, PCE_UNKNOWN_NEC_INVALID = 2 };
+typedef struct {
+    const uint8_t *card;
+    size_t card_size;
+    const char *disc_path;
+    uint64_t disc_offset, disc_length;
+    const char *disc_sha256;
+    int super_ram;       /* 1: the Super System Card's 192 KiB of RAM, 0: the original card's */
+    int region_japan;    /* the region bit the pads report */
+    int unknown_status;  /* PCE_UNKNOWN_*: how the drive answers a command the engine does not model */
+    int pad_buttons, multitap;
+} PceDiscRecipe;
+int pce_machine_init_disc(const PceDiscRecipe *recipe, char *error, size_t error_size);
 int pce_machine_reset(char *error, size_t error_size);
 void pce_machine_policy(int policy);
 /* The console has one pad port: a second player needs the multitap (TurboTap), which a session plugs in for every seat whatever the game (the converter plugs

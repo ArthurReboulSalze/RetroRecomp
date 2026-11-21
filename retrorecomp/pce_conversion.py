@@ -300,7 +300,7 @@ def damaged_states(state: bytes) -> dict[str, bytes]:
             'rom': flipped(32), 'abi': flipped(96), 'payload': flipped(len(state) - 1), 'not-a-state': b'not a state.' * 4096}
 
 
-def check_states(executable: Path, folder: Path, name: str, frames: int, script: Path, expected: Path) -> dict:
+def check_states(executable: Path, folder: Path, name: str, frames: int, script: Path, expected: Path, extra: tuple = ()) -> dict:
     """F8 at a frame, F9 in a fresh process: the continued timeline must match; every damaged state is refused (exit 4)
     and left as it was; loading a missing state is refused and creates nothing (conversion_gates.check_quick_states)."""
     from .conversion_common import spawn
@@ -309,13 +309,13 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
     state = folder / 'quick.rrstate'
 
     def continued():
-        run(executable, folder, 'save', at + 1, script, '--save-state', str(state), '--save-at', str(at))
-        run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), ends_at=at + STATE_SETTLE)
+        run(executable, folder, 'save', at + 1, script, '--save-state', str(state), '--save-at', str(at), *extra)
+        run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), *extra, ends_at=at + STATE_SETTLE)
         return (expected.read_text(encoding='ascii').splitlines()[1:],
                 (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:])
 
     def refused(path: Path) -> bool:
-        return spawn([str(executable), '--headless', '--frames', '1', '--load-state', str(path)],
+        return spawn([str(executable), '--headless', '--frames', '1', '--load-state', str(path), *extra],
                      cwd=folder, timeout=120, capture_output=True).returncode == 4
     return check_quick_states(folder, state, machine='PC Engine', route=name, at=at, settle=STATE_SETTLE,
                               continued=continued, refused=refused, damaged=damaged_states, error=ConversionError)
@@ -346,10 +346,11 @@ def damaged_backups(good: bytes) -> dict[str, bytes]:
     return damaged_cart_saves(good)
 
 
-def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_sha256: str) -> dict:
+def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_sha256: str, formatted: bytes = BACKUP_FORMATTED, extra: tuple = ()) -> dict:
     """The save beside the game, in fresh processes. No file: the formatted memory, and nothing written unless the game wrote. A
     valid file reaches the game. Damaged files are set aside whole and never block it. What the play route leaves in the memory
-    is there in the next process. With the same memory, the game and the interpreted reference stay equal on the play route."""
+    is there in the next process. With the same memory, the game and the interpreted reference stay equal on the play route. `formatted` is the memory a game
+    finds with no file (the PC Engine CD's is blank: the System Card formats it), `extra` the arguments every run takes (the CD's disc)."""
     from .conversion_gates import require, require_same_file
     from .delivery_evidence import same_trace
 
@@ -362,41 +363,41 @@ def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_
     folder.mkdir(parents=True, exist_ok=True)
     quiet.write_text(_script([]), encoding='ascii', newline='\n')
     none = folder / 'none.rrsram'
-    start = run(executable, folder, 'backup-none', BACKUP_FRAMES, quiet, '--backup', str(none))
-    require(start['backup_start_hash'] == hex64(BACKUP_FORMATTED) and not start['backup_notice'],
+    start = run(executable, folder, 'backup-none', BACKUP_FRAMES, quiet, '--backup', str(none), *extra)
+    require(start['backup_start_hash'] == hex64(formatted) and not start['backup_notice'],
             failure('without a file the game did not find the formatted memory.'))
     require(none.exists() == (start['backup_hash'] != start['backup_start_hash']),
             failure('a file was written though the game wrote nothing, or the reverse.'))
-    seeded = BACKUP_FORMATTED[:-1] + b'\x5a'
+    seeded = formatted[:-1] + b'\x5a'
     valid = folder / 'valid.rrsram'
     good = backup_file(seeded, rom_sha256)
     valid.write_bytes(good)
-    loaded = run(executable, folder, 'backup-valid', BACKUP_FRAMES, quiet, '--backup', str(valid))
+    loaded = run(executable, folder, 'backup-valid', BACKUP_FRAMES, quiet, '--backup', str(valid), *extra)
     require(loaded['backup_start_hash'] == hex64(seeded) and not loaded['backup_notice'],
             failure('a valid file did not reach the game.'))
     damaged = damaged_backups(good)
     for label, data in damaged.items():
         path = folder / f'damaged-{label}.rrsram'
         path.write_bytes(data)
-        result = run(executable, folder, f'backup-{label}', BACKUP_FRAMES, quiet, '--backup', str(path))
+        result = run(executable, folder, f'backup-{label}', BACKUP_FRAMES, quiet, '--backup', str(path), *extra)
         aside = path.with_name(path.name + '.unusable-1')
-        require(result['backup_notice'] == 1 and result['backup_start_hash'] == hex64(BACKUP_FORMATTED),
+        require(result['backup_notice'] == 1 and result['backup_start_hash'] == hex64(formatted),
                 failure(f'a damaged file ({label}) was used.'))
         require(aside.is_file() and aside.read_bytes() == data, failure(f'a damaged file ({label}) was not kept as it was.'))
     route = folder / 'route.rrsram'
-    played = run(executable, folder, 'backup-route', frames, script, '--backup', str(route))
+    played = run(executable, folder, 'backup-route', frames, script, '--backup', str(route), *extra)
     changed = played['backup_hash'] != played['backup_start_hash']
     require(route.exists() == changed, failure('the file does not follow what the game wrote on the play route.'))
     if changed:
-        survived = run(executable, folder, 'backup-survived', BACKUP_FRAMES, quiet, '--backup', str(route))
+        survived = run(executable, folder, 'backup-survived', BACKUP_FRAMES, quiet, '--backup', str(route), *extra)
         require(survived['backup_start_hash'] == played['backup_hash'],
                 failure('what the game wrote did not survive into a fresh process.'))
     memory = route.read_bytes() if changed else good
     native_copy, reference_copy = folder / 'same-native.rrsram', folder / 'same-reference.rrsram'
     native_copy.write_bytes(memory)
     reference_copy.write_bytes(memory)
-    native = run(executable, folder, 'backup-same-native', frames, script, '--backup', str(native_copy))
-    reference = run(executable, folder, 'backup-same-reference', frames, script, '--reference', '--backup', str(reference_copy))
+    native = run(executable, folder, 'backup-same-native', frames, script, '--backup', str(native_copy), *extra)
+    reference = run(executable, folder, 'backup-same-reference', frames, script, '--reference', '--backup', str(reference_copy), *extra)
     require(same_trace(native['trace'], reference['trace']),
             failure('with the same memory the game and the reference differ on the play route.'))
     require_same_file(native_copy, reference_copy, failure('with the same memory the two runs saved different files.'))
@@ -406,7 +407,7 @@ def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_
             'bytes_beyond_2k_on_play_route': played['backup_beyond']}
 
 
-def complete_prefix(executable: Path, folder: Path, name: str, script: Path, result: dict, emit):
+def complete_prefix(executable: Path, folder: Path, name: str, script: Path, result: dict, emit, extra: tuple = ()):
     """(capture, frames): a complete capture, in the larger format, of the start of a route that has more identities than that format holds, or (None, 0). A capture that
     lost identities cannot become a module, and the route then stays interpreted past its prefix, counted."""
     frames = int(result['capture_first_drop_frame']) - 1
@@ -415,7 +416,7 @@ def complete_prefix(executable: Path, folder: Path, name: str, script: Path, res
             emit(f'PC Engine {name}: more than {EXTENDED_CAPTURE_LIMIT} distinct code identities within the first second: no observation can be kept from this route.')
             return None, 0
         capture = folder / f'{name}-prefix{attempt}-capture.jsonl'
-        again = run(executable, folder, f'{name}-prefix{attempt}', frames, script, '--code-capture', str(capture), '--capture-limit', str(EXTENDED_CAPTURE_LIMIT))
+        again = run(executable, folder, f'{name}-prefix{attempt}', frames, script, '--code-capture', str(capture), '--capture-limit', str(EXTENDED_CAPTURE_LIMIT), *extra)
         if not again.get('capture_dropped'):
             emit(f'PC Engine {name}: complete capture of the first {frames} of {result["frames"]} frames ({again.get("capture_identities")} identities); the rest stays interpreted, counted.')
             return capture, frames

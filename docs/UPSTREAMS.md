@@ -542,6 +542,24 @@ changes the cost, never the output:
 Nothing to propose upstream before the first measure; if any of it is offered later, it is these four files against `6bb848e` (or the head then) with the digests
 below as the proof.
 
+## PC Engine CD: our own disc provider beside the engine's reader (stage 1 of its profile)
+
+The pinned engine (`6bb848e`, ABI 29) reads a disc through `runtime/src/sector.cpp`. For a game that holds its disc inside its executable, that reader needed three
+changes at once, and the engine stays as it is: the game links **`native/pcecd_disc.cpp`, a sector provider of our own** (it implements the engine's public
+`pce::SectorProvider` and attaches through `CdControl::set_sector_provider`, which the engine documents for providers other than its own), and it does not compile the
+engine's reader into a different shape. What the provider does that the engine's reader does not:
+
+| Need | Engine's reader | `native/pcecd_disc.cpp` |
+|---|---|---|
+| A CHD of **version 4** (11 of the 42 CHD of the maintainer's library) | refused: `chd_metadata` requires the 124-byte version 5 header (`be32(header + 12) != 5`) | libchdr reads versions 1 to 5; the provider asks it for the header and the `CHT2` or `CHTR` track records, and accepts 4 and 5 |
+| **No DLL beside the game** | loads libchdr as a shared library by path (`LoadLibraryExW`, `dlopen`) | libchdr (pinned, BSD-3-Clause) linked statically as `chdr-static` |
+| The disc **inside the executable** | a whole file named by a path; hashes the whole file at open (hundreds of megabytes) | `length` bytes of a file at `offset` through libchdr's core-file callbacks; the converter gives the digest it computed |
+
+The numbering of sectors, the classification of tracks and the errors a guest can see are the engine's (the same rules, written again): `tools/pcecd_disc_selftest.py`
+proves the provider equal to the engine's on version 5 discs, audio included (Ys III, Lords of Thunder and an authored set of CHD, ISO and embedded forms), and equal to the
+pure-Python reader of `retrorecomp/pcecd_chd.py` on version 4 (Dracula X, Valis IV). The ISO of the engine's reader is read the same way. Nothing here is offered upstream yet: a
+version 4 header in the engine's reader would be a small change against `6bb848e` (or the head then), on the maintainer's word.
+
 ## Nintendo 64: patches carried on Mupen64Plus-Next (1.9.0)
 
 The pinned core is prepared by anchored replacements (`n64_core.REPLACEMENTS`, applied when the core is adapted; an anchor

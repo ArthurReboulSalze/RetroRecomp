@@ -1047,6 +1047,8 @@ INPUTS = _resolve({
     ('pcecd',): (
         'native/pcecd_disc.cpp',
         'native/pcecd_disc.h',
+        'native/pcecd_pack.c',
+        'native/pcecd_pack.h',
         'retrorecomp.pcecd',
         'retrorecomp.pcecd_build',
         'retrorecomp.pcecd_card',

@@ -18,7 +18,7 @@ from .paths import ASSETS
 
 # The files this machine's converter needs from the installation itself (the engine's sources and libchdr are fetched at their pinned
 # revisions on the first conversion, like the other machines' dependencies; the disc and the System Card always come from the player).
-CONVERTER_FILES = ('native/pcecd_machine.cpp', 'native/pcecd_main.c', 'native/hostkit/adapters/rrhk_pcecd.c')
+CONVERTER_FILES = ('native/pcecd_disc.cpp', 'native/pcecd_pack.c', 'native/hostkit/adapters/rrhk_pcecd.c')
 
 
 def converter_available() -> bool:

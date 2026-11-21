@@ -30,7 +30,7 @@ native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
 retrorecomp/pcecd.py retrorecomp/pcecd_build.py retrorecomp/pcecd_card.py retrorecomp/pcecd_chd.py retrorecomp/pcecd_conversion.py retrorecomp/pcecd_disc.py retrorecomp/systems/pc_engine_cd.py
-tests/test_pcecd_disc.py docs/PC_ENGINE_CD.md native/hostkit/adapters/rrhk_pcecd.c native/pcecd_disc.cpp native/pcecd_disc.h native/pcecd_disc_checks.cpp tools/pcecd_disc_selftest.py
+tests/test_pcecd_disc.py docs/PC_ENGINE_CD.md native/hostkit/adapters/rrhk_pcecd.c native/pcecd_disc.cpp native/pcecd_disc.h native/pcecd_pack.c native/pcecd_pack.h native/pcecd_disc_checks.cpp tools/pcecd_disc_selftest.py
 licenses/pcenginerecomp.md licenses/libchdr.md tests/test_pc_engine.py docs/PC_ENGINE.md
 native/pce_engine/pcm.cpp native/pce_engine/raster.cpp native/pce_engine/scanline.cpp native/pce_engine/video.cpp retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_machine_internal.hpp native/pce_snapshot.cpp native/pce_snapshot.h
 native/pce_backup.c native/pce_backup.h
