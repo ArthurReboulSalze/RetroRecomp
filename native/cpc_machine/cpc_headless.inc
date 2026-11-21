@@ -3,14 +3,15 @@
  *
  * Options (headless_option): --frames N, --until-halt, --picture FILE (the last frame, 768 x 272 x 0x00RRGGBB little endian),
  * --audio FILE (44,100 Hz 16-bit stereo), --watch ADDR (hexadecimal, up to 16), --learn FILE (the code the interpreter ran,
- * for the next generation). The run stops at the frame limit, or after the first instruction that halts the CPU with
+ * for the next generation), --report FILE (the JSON line in FILE instead of the standard output: a game linked for the Windows
+ * subsystem has none to rely on). The run stops at the frame limit, or after the first instruction that halts the CPU with
  * --until-halt, once an instruction and the interrupt it may accept are complete, and prints one JSON line: the fields of
  * tools/cpc_reference.py's runner, plus the native and fallback step counts. */
 
 static uint32_t headless_picture[CPC_SCREEN_WIDTH * CPC_SCREEN_HEIGHT];
 static unsigned long long headless_frames_wanted = 50;
 static int headless_until_halt, headless_was_halted;
-static const char *headless_picture_file, *headless_audio_file;
+static const char *headless_picture_file, *headless_audio_file, *headless_report_file;
 static FILE *headless_audio;
 static unsigned headless_watch[16], headless_watches;
 
@@ -31,6 +32,7 @@ static int headless_option(int argc, char **argv, int *i)
     else if (!strcmp(a, "--audio")) { headless_audio_file = v; ++*i; }
     else if (!strcmp(a, "--watch") && headless_watches < 16) { headless_watch[headless_watches++] = (unsigned)strtoul(v, NULL, 16); ++*i; }
     else if (!strcmp(a, "--learn")) { learn_out = v; ++*i; }
+    else if (!strcmp(a, "--report")) { headless_report_file = v; ++*i; }
     else return 0;
     return 1;
 }
@@ -54,7 +56,9 @@ static void headless_finish(void)
         FILE *f = fopen(headless_picture_file, "wb");
         if (f) { fwrite(headless_picture, sizeof headless_picture, 1, f); fclose(f); }
     }
-    printf("{\"frames\": %llu, \"cycles\": %llu, \"native_steps\": %llu, \"fallback_steps\": %llu, \"interrupts\": %llu, "
+    FILE *out = headless_report_file ? fopen(headless_report_file, "w") : stdout;
+    if (!out) exit(3);
+    fprintf(out, "{\"frames\": %llu, \"cycles\": %llu, \"native_steps\": %llu, \"fallback_steps\": %llu, \"interrupts\": %llu, "
            "\"pc\": %u, \"sp\": %u, \"af\": %u, \"bc\": %u, \"de\": %u, \"hl\": %u, \"ix\": %u, \"iy\": %u, \"iff1\": %d, "
            "\"im\": %d, \"halted\": %d, \"ram_fnv\": %u, \"picture_fnv\": %u, \"mode\": %u, \"rom_config\": %u, "
            "\"ram_config\": %u, \"upper_rom\": %u, \"ay\": [", (unsigned long long)machine.frames,
@@ -64,12 +68,13 @@ static void headless_finish(void)
            (unsigned)(g_z80.h << 8 | g_z80.l), g_z80.ix, g_z80.iy, g_z80.iff1, g_z80.im, g_z80.halted,
            headless_fnv(machine.ram, sizeof machine.ram), headless_fnv((const uint8_t *)headless_picture, sizeof headless_picture),
            machine.ga.mode, machine.ga.rom_config, machine.ga.ram_config, machine.upper_rom);
-    for (int r = 0; r < 16; ++r) printf("%s%u", r ? ", " : "", machine.ay_reg[r]);
-    printf("], \"fdc_commands\": %u, \"disk_written\": %d, \"watch\": {", machine.fdc.commands, machine.fdc.drive[0].written);
+    for (int r = 0; r < 16; ++r) fprintf(out, "%s%u", r ? ", " : "", machine.ay_reg[r]);
+    fprintf(out, "], \"fdc_commands\": %u, \"disk_written\": %d, \"watch\": {", machine.fdc.commands, machine.fdc.drive[0].written);
     for (unsigned w = 0; w < headless_watches; ++w)
-        printf("%s\"%04X\": %u", w ? ", " : "", headless_watch[w], cpc_read(&machine, (uint16_t)headless_watch[w]));
-    printf("}}\n");
-    fflush(stdout);
+        fprintf(out, "%s\"%04X\": %u", w ? ", " : "", headless_watch[w], cpc_read(&machine, (uint16_t)headless_watch[w]));
+    fprintf(out, "}}\n");
+    if (out == stdout) fflush(out);
+    else if (fclose(out)) exit(3);
     exit(0);
 }
 

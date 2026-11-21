@@ -33,38 +33,13 @@ REFERENCE_ONLY = ('steps',)
 AMSDOS_STANDIN = b'\xC9' * 0x4000               # a 16 KiB stand-in: never paged in by these programs
 
 
-def project(work: Path) -> None:
-    from retrorecomp import cpc_build
-    machine = ' '.join((*cpc_build.MACHINE_SOURCES, *cpc_build.DISK_SOURCES, *cpc_build.SHARED_SOURCES))
-    (work / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
-project(RetroCpc LANGUAGES C)
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-add_executable(cpc_reference cpc_reference_main.c {machine} runtime_reference.c)
-file(GLOB bodies "generated/game_banked_ops_*.c")
-add_library(cpc_bodies OBJECT generated/game_banked_index.c ${{bodies}})
-target_include_directories(cpc_bodies PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "${{CMAKE_CURRENT_SOURCE_DIR}}/generated")
-target_compile_definitions(cpc_bodies PRIVATE SMSRECOMP_BANKED_AOT)
-add_executable(cpc_check cpc_native_main.c {machine} runtime_reference.c $<TARGET_OBJECTS:cpc_bodies>)
-foreach(target cpc_reference cpc_check)
-  target_include_directories(${{target}} PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "${{CMAKE_CURRENT_SOURCE_DIR}}/generated")
-  target_compile_definitions(${{target}} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)
-  if(NOT WIN32)
-    target_link_libraries(${{target}} PRIVATE m)
-  endif()
-endforeach()
-''', encoding='utf-8', newline='\n')
-
-
 def build(work: Path, rom: bytes) -> tuple[Path, Path]:
     from retrorecomp import cpc_build, toolchain
     from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args
     work.mkdir(parents=True, exist_ok=True)
     cpc_build.generate(work, rom, AMSDOS_STANDIN)
     cpc_build.stage_sources(work)
-    for name in ('cpc_native_main.c', 'cpc_reference_main.c'):
-        shutil.copyfile(ROOT / 'native' / 'cpc_machine' / name, work / name)
-    project(work)
+    (work / 'CMakeLists.txt').write_text(cpc_build.project_cmake('check', game=False), encoding='utf-8', newline='\n')
     selection = toolchain.select()
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
     for step in ([str(selection.cmake), '-S', str(work), '-B', str(work / 'build'), '-G', selection.generator,

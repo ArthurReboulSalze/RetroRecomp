@@ -48,6 +48,41 @@ class BuildTests(unittest.TestCase):
         names = set(compilation_inputs.manifest_names('cpc'))
         self.assertTrue({'native/ay38910/ay38910.c', 'native/z80_chain_glue.inc'} <= names)
 
+    def test_the_game_folder_has_the_player_the_kit_and_the_adapters_files(self):
+        from retrorecomp import compilation_inputs
+        names = set(compilation_inputs.manifest_names('cpc'))
+        for name in cpc_build.MAINS:
+            with self.subTest(name=name):
+                self.assertIn(f'native/cpc_machine/{name}', names)
+        with tempfile.TemporaryDirectory() as folder:
+            work = Path(folder)
+            cpc_build.stage_sources(work, game=True)
+            for name in (*cpc_build.MAINS, 'retro_menu.c', 'platform_io.c', 'hostkit/adapters/rrhk_cpc.inc',
+                         *(f'hostkit/adapters/{name}' for name in cpc_build.ADAPTER_FILES)):
+                with self.subTest(name=name):
+                    self.assertTrue((work / name).is_file())
+            self.assertFalse((work / 'hostkit' / 'adapters' / 'rrhk_msx.inc').exists())
+
+    def test_the_game_project_links_the_player_on_the_same_bodies(self):
+        check = cpc_build.project_cmake('9.9.9', game=False)
+        game = cpc_build.project_cmake('9.9.9', game=True)
+        self.assertNotIn('add_executable(game', check)
+        self.assertTrue(game.startswith(check.split('if(WIN32)')[0]))
+        self.assertIn('add_executable(game cpc_player.c', game)
+        self.assertIn('$<TARGET_OBJECTS:cpc_bodies>)', game)
+        self.assertIn('"${CMAKE_CURRENT_SOURCE_DIR}/hostkit/adapters"', game)
+        self.assertIn('RR_RECOMP_VERSION="9.9.9"', game)
+
+    def test_the_players_resources_and_its_game_header(self):
+        player = (ASSETS / 'native' / 'cpc_machine' / 'cpc_player.c').read_text(encoding='utf-8')
+        for resource in (cpc_build.RESOURCE_DISKS, cpc_build.RESOURCE_SYSTEM, cpc_build.RESOURCE_AMSDOS):
+            self.assertIn(f'rr_resource({resource},', player)
+        for name in ('RR_CPC_TITLE', 'RR_CPC_IDENTITY', 'RR_CPC_CRTC', 'RR_CPC_DISKS', 'RR_CPC_DISK_MAX', 'RR_CPC_DISK_SIZES'):
+            self.assertIn(name, player)
+        source = (ASSETS / 'retrorecomp' / 'cpc_build.py').read_text(encoding='utf-8')
+        for name in ('RR_CPC_TITLE', 'RR_CPC_IDENTITY', 'RR_CPC_CRTC', 'RR_CPC_DISKS', 'RR_CPC_DISK_MAX', 'RR_CPC_DISK_SIZES'):
+            self.assertIn(f'#define {name} ', source)
+
 
 if __name__ == '__main__':
     unittest.main()

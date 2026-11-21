@@ -279,7 +279,6 @@ NOT_INPUTS = (
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
     'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
-    'native/cpc_machine/cpc_reference_main.c',      # tools/cpc_reference.py: the reference interpreter on the board, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
@@ -843,7 +842,8 @@ INPUTS = _resolve({
     ),
     # The Amstrad CPC (in development, developer only): its disk reader and firmware table, its chips (CRTC, Gate Array, PPI and
     # keyboard) and the uPD765 with the DSK / EXTENDED DSK reader (machine-neutral, the CPC its first user; the ZX Spectrum +3
-    # would make it a shared group). No CPC game is built yet: these move only the CPC's own stamp.
+    # would make it a shared group). The game (cpc_player.c) is built by developers only so far: these move only the CPC's own
+    # stamp.
     ('cpc',): (
         'native/cpc_machine/cpc_bus.h',
         'native/cpc_machine/cpc_crtc.c',
@@ -855,6 +855,8 @@ INPUTS = _resolve({
         'native/cpc_machine/cpc_machine.c',
         'native/cpc_machine/cpc_machine.h',
         'native/cpc_machine/cpc_native_main.c',
+        'native/cpc_machine/cpc_player.c',
+        'native/cpc_machine/cpc_reference_main.c',
         'native/cpc_machine/cpc_ppi.c',
         'native/cpc_machine/cpc_ppi.h',
         'native/cpc_machine/cpc_state.c',
