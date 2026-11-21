@@ -141,7 +141,6 @@ The page of each console, which the README links its line to (a console of the m
 | gg | [GAME_GEAR.md](GAME_GEAR.md) |
 | gb | [GAME_BOY.md](GAME_BOY.md) |
 | gbc | [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md) |
-| gbc | [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md) |
 | nes | [NES.md](NES.md) |
 | md | [MEGADRIVE.md](MEGADRIVE.md) |
 | snes | [SNES.md](SNES.md) |
