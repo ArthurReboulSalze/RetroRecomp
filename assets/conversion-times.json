@@ -73,7 +73,7 @@
    "standard": {"seconds": [646, 774, 1107], "longest": 1463, "reports": 35, "versions": "1.7.5..1.7.8"}
   },
   "atarist": {
-   "standard": {"seconds": [196, 258, 301], "longest": 459, "reports": 20, "versions": "1.7.1..1.7.5"},
+   "standard": {"seconds": [94, 110, 216], "longest": 322, "reports": 3, "versions": "1.9.0..1.9.0"},
    "extended": {"seconds": [462, 476, 498], "longest": 627, "reports": 7, "versions": "1.7.3..1.7.3"}
   },
   "n64": {
