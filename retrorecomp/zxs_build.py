@@ -66,6 +66,18 @@ MACHINE_FILES = (*MACHINE_SOURCES, 'zxs_machine.h', 'zxs_glue.inc', 'zxs_headles
 SHARED_MODULES = (('ay38910', ('ay38910.c',), ('ay38910.h',)),)
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)
 CHAIN_FILES = ('z80_chain_glue.inc', 'banked_reference_state.inc')
+# The player (the `game` target) and the companions of the host kit it is built with (the MSX's list, less its cartridge saves).
+GAME_FILES = ('zxs_player.c',)
+KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
+             'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
+             'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
+             'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
+             'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_io.h', 'state_envelope.h', 'gamestate.h')
+# The game's resources, named here only: prepare_game writes them into content.rc (and the Linux embedding) and their ids into
+# zxs_game.h, which the player reads (RR_ZXS_ROM_RESOURCE, RR_ZXS_IMAGE_RESOURCE).
+ROM_RESOURCE, IMAGE_RESOURCE, NOTICES_RESOURCE, IDENTITY_RESOURCE = 103, 104, 203, 205
+# The quick state's layout (native/zxs_machine/zxs_player.c): part of its build binding, raised when the body changes.
+STATE_LAYOUT = 'zxs-state-1'
 BUILD_TIMEOUT = 2 * 3600
 
 
@@ -89,21 +101,30 @@ def generate(work, rom: bytes, emit=print, *, keep_rom: bool = True) -> None:
 
 
 def stage_sources(work) -> None:
-    """The machine, the glue, the mains and the shared files, copied beside the generated bodies."""
-    from . import z80_chain_build
+    """The machine, the glue, the mains, the player, the shared files and the host kit's, copied beside the generated bodies."""
+    from . import hostkit, z80_chain_build
     from .paths import ASSETS
-    z80_chain_build.stage_files(work, ((ASSETS / 'native' / 'zxs_machine', MACHINE_FILES),
+    z80_chain_build.stage_files(work, ((ASSETS / 'native' / 'zxs_machine', (*MACHINE_FILES, *GAME_FILES)),
                                        *((ASSETS / 'native' / folder, (*sources, *files)) for folder, sources, files in SHARED_MODULES),
-                                       (ASSETS / 'native', CHAIN_FILES)))
+                                       (ASSETS / 'native', (*CHAIN_FILES, *KIT_FILES))))
+    hostkit.stage(work, 'zxs')
+    # What the computers' adapters share (the guest keyboard and its chords), included by the Spectrum adapter.
+    z80_chain_build.write_if_changed(work / 'hostkit' / 'adapters' / 'rrhk_computer.inc',
+                                     (ASSETS / 'native' / 'hostkit' / 'adapters' / 'rrhk_computer.inc').read_bytes())
 
 
-def project_cmake(bodies: bool = True) -> str:
-    """The project: the reference runner always; with `bodies` the generated bodies and the headless native check."""
+def project_cmake(bodies: bool = True, game: bool = False, version: str = '') -> str:
+    """The project: the reference runner always; with `bodies` the generated bodies and the headless native check; with `game`
+    the player too (it needs the bodies; `version` is the converter's, RR_RECOMP_VERSION)."""
+    from . import hostkit
     machine = ' '.join((*MACHINE_SOURCES, *SHARED_SOURCES))
+    bodies = bodies or game
     lines = [
         'cmake_minimum_required(VERSION 3.20)',
         'project(RetroZxs LANGUAGES C)',
         'set(CMAKE_C_STANDARD 11)',
+        'set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")',
+        'if(MSVC)', '  add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)', 'endif()',
         f'add_executable(zxs_reference zxs_reference_main.c {machine} runtime_reference.c)',
     ]
     if bodies:
@@ -121,19 +142,41 @@ def project_cmake(bodies: bool = True) -> str:
         '  if(NOT WIN32)', '    target_link_libraries(${target} PRIVATE m)', '  endif()',
         'endforeach()',
     ]
+    if game:
+        kit = ' '.join(hostkit.sources('zxs'))
+        lines += [
+            'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
+            'find_package(SDL2 CONFIG REQUIRED)',
+            f'add_executable(game zxs_player.c {machine} runtime_reference.c retro_menu.c platform_io.c runtime_feedback.c {kit}',
+            '  $<TARGET_OBJECTS:zxs_bodies>)',
+            'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
+            'if(WIN32)', '  target_sources(game PRIVATE content.rc)',
+            '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
+            'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
+            '  target_link_libraries(game PRIVATE m)', 'endif()',
+            'target_link_libraries(game PRIVATE SDL2::SDL2-static)',
+            f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS '
+            f'[[RR_RECOMP_VERSION="{version}"]])',
+            'if(MSVC)', '  target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)', 'endif()',
+            'if(WIN32 AND NOT MSVC)',
+            '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',
+        ]
     return '\n'.join(lines) + '\n'
 
 
 def build(work, targets: tuple, emit=print) -> dict:
-    """Configure and build `targets` of the project in `work`."""
-    from . import core, z80_chain_build
-    from .platforms import build_executable
-    bodies = 'zxs_check' in targets or (work / 'generated' / 'game_banked_index.c').is_file()
-    z80_chain_build.write_if_changed(work / 'CMakeLists.txt', project_cmake(bodies).encode('utf-8'))
+    """Configure and build `targets` of the project in `work` (the SDL2 of the converter for the game)."""
+    from . import __version__, core, z80_chain_build
+    from .platforms import build_executable, sdl_install
+    from pathlib import Path
+    game = 'game' in targets
+    bodies = game or 'zxs_check' in targets or (work / 'generated' / 'game_banked_index.c').is_file()
+    z80_chain_build.write_if_changed(work / 'CMakeLists.txt', project_cmake(bodies, game, __version__).encode('utf-8'))
     cmake, generator_kind = core.toolchain()
     log = work / 'build.log'
+    extra = [f'-DCMAKE_PREFIX_PATH={Path(sdl_install()).as_posix()}'] if game else []
     core.run([cmake, '-S', work, '-B', work / 'build', '-G', generator_kind, *core.cmake_target_args(),
-              '-DCMAKE_BUILD_TYPE=Release'], log=log, emit=emit, timeout=BUILD_TIMEOUT)
+              '-DCMAKE_BUILD_TYPE=Release', *extra], log=log, emit=emit, timeout=BUILD_TIMEOUT)
     for target in targets:
         core.run([cmake, '--build', work / 'build', '--config', 'Release', '--target', target, '--parallel',
                   core.build_jobs()], log=log, emit=emit, timeout=BUILD_TIMEOUT)
@@ -206,3 +249,89 @@ def write_rom(path, data: bytes) -> None:
     """The ROM beside the bodies, written only when it changed (the runners read it with --rom)."""
     from . import z80_chain_build
     z80_chain_build.write_if_changed(path, data)
+
+
+# ---- the game (the `game` target: native/zxs_machine/zxs_player.c on the host kit) ---------------------------------------------
+def _c_string(text: str) -> str:
+    """A C string literal of `text` as UTF-8 bytes (octal escapes outside printable ASCII), as msx_conversion writes the title."""
+    out = []
+    for byte in text.encode('utf-8'):
+        char = chr(byte)
+        out.append('\\' + char if char in '"\\' else char if 32 <= byte < 127 and char != '?' else f'\\{byte:03o}')
+    return '"' + ''.join(out) + '"'
+
+
+def state_binding(rom: bytes, image: bytes) -> bytes:
+    """The quick state's build binding (RR_ZXS_STATE_ABI, 32 bytes): a state of another layout, ROM or model is refused as
+    incompatible."""
+    import hashlib
+    text = '\n'.join([STATE_LAYOUT, hashlib.sha256(rom).hexdigest(), str(image[4]), str(image[5])])
+    return hashlib.sha256(text.encode('ascii')).digest()
+
+
+def prepare_game(work, title: str, identity: str, rom: bytes, image: bytes, emit=print, *, presentation: dict | None = None) -> dict:
+    """The game's resources beside the project: the ROM (ROM_RESOURCE) and the machine image (IMAGE_RESOURCE) as the checked runs
+    saw them, the notices, the identity, the Windows metadata and icon, and zxs_game.h (the title, the identity, the resource ids,
+    the quick state's binding). `identity` is the snapshot's SHA-256 (64 hex digits). `presentation` (the player's cover options:
+    rom_path, cover, use_cover, online_cover, boxart_dir) gives the icon its cover, as on the MSX (artwork.prepare_icon)."""
+    import json
+    from . import z80_chain_build
+    from .core import executable_name
+    from .metadata import write_game_metadata
+    from .notices import notice_text
+    from .resources import embed_resources
+    if len(identity) != 64 or any(c not in '0123456789abcdef' for c in identity):
+        raise ZxsBuildError('the game identity is not a SHA-256')
+    if len(image) != IMAGE_BYTES or len(rom) != (0x8000 if image[4] else 0x4000):
+        raise ZxsBuildError('the ROM does not fit the machine image')
+    write = z80_chain_build.write_if_changed
+    write(work / 'game-rom.bin', rom)
+    write(work / 'game-image.bin', image)
+    write(work / 'notices.txt', notice_text('zxs').encode('utf-8'))
+    write(work / 'runtime_feedback_config.h',
+          f'#define RR_FEEDBACK_SYSTEM "zxs"\n#define RR_FEEDBACK_IDENTITY "{identity}"\n'.encode('ascii'))
+    write(work / 'export-identity.bin', b'[Retro-Recomp]\0' + identity.encode('ascii') + b'\0')
+    artwork = {'embedded': False, 'source': 'disabled'}
+    if presentation is not None:
+        from .artwork import prepare_icon
+        from .core import ROOT
+        from .paths import boxart_cache_directory
+        artwork = prepare_icon(work, presentation['rom_path'], title, presentation.get('boxart_dir') or ROOT / 'BoxArt',
+                               explicit=presentation.get('cover'), online=presentation.get('online_cover', True),
+                               enabled=presentation.get('use_cover', True), cache_directory=boxart_cache_directory('zxs'),
+                               system_id='zxs', emit=emit)
+    write(work / 'artwork.json', json.dumps(artwork, indent=2).encode('utf-8'))
+    metadata = write_game_metadata(work, title, executable_name(title), light_phaser=False, icon=bool(artwork['embedded']),
+                                   system_id='zxs')
+    resources = {ROM_RESOURCE: 'game-rom.bin', IMAGE_RESOURCE: 'game-image.bin', NOTICES_RESOURCE: 'notices.txt',
+                 IDENTITY_RESOURCE: 'export-identity.bin'}
+    write(work / 'content.rc', ('#pragma code_page(65001)\n'
+                                + ''.join(f'{number} RCDATA "{name}"\n' for number, name in resources.items())
+                                + '#include "game_resources.rc"\n').encode('utf-8'))
+    embed_resources(work, {number: work / name for number, name in resources.items()})
+    binding = ', '.join(f'0x{b:02X}' for b in state_binding(rom, image))
+    write(work / 'zxs_game.h', (f'#pragma once\n#define RR_ZXS_TITLE {_c_string(title)}\n#define RR_ZXS_IDENTITY "{identity}"\n'
+                                f'#define RR_ZXS_ROM_RESOURCE {ROM_RESOURCE}\n#define RR_ZXS_IMAGE_RESOURCE {IMAGE_RESOURCE}\n'
+                                f'#define RR_ZXS_STATE_ABI {{{binding}}}\n').encode('utf-8'))
+    return {'artwork': artwork, 'windows_metadata': metadata}
+
+
+def run_game(game, options: list, report, timeout: int = 1800) -> dict:
+    """The game's headless replay (`--headless`, from its own resources): its report, read from `report` (the game is linked for
+    the Windows subsystem, so its standard output is not relied on)."""
+    import json
+    import subprocess
+    report.unlink(missing_ok=True)
+    result = subprocess.run([str(game), '--headless', *options, '--report', str(report)], capture_output=True, timeout=timeout,
+                            creationflags=_flags())
+    if result.returncode or not report.is_file():
+        raise ZxsBuildError(f'{game.name} --headless failed (exit {result.returncode}): '
+                            f'{result.stderr.decode(errors="replace").strip()[-300:]}')
+    return json.loads(report.read_text(encoding='utf-8'))
+
+
+def game_exit_code(game, options: list, timeout: int = 120) -> int:
+    """The exit code of a headless run of the game (a refused quick state ends it with 4)."""
+    import subprocess
+    return subprocess.run([str(game), '--headless', *options], capture_output=True, timeout=timeout,
+                          creationflags=_flags()).returncode

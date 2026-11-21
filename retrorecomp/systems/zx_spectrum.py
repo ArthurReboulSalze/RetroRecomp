@@ -59,6 +59,8 @@ class ZxSpectrumProfile(SystemProfile):
                    OptionKey('zxs_rom128', signature=False, kind='path', label='zxs_rom128_label'))
     capabilities = Capabilities(keyboard=True)
     quick_state_family = 'zxs'
+    # The player's window on the host kit (a computer adapter, as the MSX's); no multiplayer hooks yet (step 3).
+    host_adapter = 'adapters/rrhk_zxs.inc'
     # No runtime-feedback kind yet: nothing is recorded. The lead reserves the new machines' kinds in native/runtime_feedback.h in
     # one change (28 for this machine), with the release that first needs one, so that every machine's stamp moves once
     # (tests/test_machine_registry.py, DECLINED['feedback_kind']).
@@ -69,8 +71,9 @@ class ZxSpectrumProfile(SystemProfile):
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md',
                     'licenses/zx-spectrum-roms.md')
     developer_only = True
-    # The shared groups its game is built from: the banked Z80 chain and its glue, the AY-3-8910 of the 128K (native/ay38910).
-    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910')
+    # The shared groups its game is built from: the banked Z80 chain and its glue, the AY-3-8910 of the 128K (native/ay38910), the
+    # computers' side of the host kit (rrhk_computer.inc, which its adapter includes).
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910', 'hostkit_computer')
     z80_machine = ZXS_MACHINE
     path_spec = PathSpec(order=20, sections=(('z80', 'zxs'),),
                          source_bounds=(('snapshot', SNAPSHOT_BOUNDS), ('rom', ROM_BOUNDS)),

@@ -110,6 +110,8 @@ native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_capture
 retrorecomp/systems/zx_spectrum.py retrorecomp/zxs_snapshot.py retrorecomp/zxs_roms.py retrorecomp/zxs_conversion.py
 licenses/zx-spectrum-roms.md docs/ZX_SPECTRUM.md tests/test_zx_spectrum.py
 retrorecomp/zxs_build.py native/zxs_machine/zxs_machine.c native/zxs_machine/zxs_machine.h native/zxs_machine/zxs_machine_checks.c tools/zxs_machine_selftest.py
+native/zxs_machine/zxs_player.c native/hostkit/adapters/rrhk_zxs.inc native/zxs_machine/zxs_glue.inc native/zxs_machine/zxs_headless.inc
+native/zxs_machine/zxs_cpu_start.inc native/zxs_machine/zxs_native_main.c native/zxs_machine/zxs_reference_main.c retrorecomp/zxs_routes.py tools/zxs_native.py
 retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py retrorecomp/msx_conversion.py retrorecomp/msx_routes.py licenses/cbios.md docs/MSX.md
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/tms9918/tms_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c
