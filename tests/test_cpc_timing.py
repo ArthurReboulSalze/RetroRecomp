@@ -77,5 +77,24 @@ class TableTests(unittest.TestCase):
         self.assertEqual(cpc_timing.EXTRA, extra)
 
 
+class ChainTests(unittest.TestCase):
+    def test_the_chains_cost_table_says_the_same_but_for_the_unexpressed(self):
+        costs = cpc_timing.z80_costs()
+        rows = dict(zip(('', 'cb', 'dd', 'fd', 'ed', 'ddcb', 'fdcb'), costs.table))
+        for table, group in cpc_timing.GROUPS.items():
+            for opcode in range(256):
+                with self.subTest(table=table, opcode=f'{opcode:02X}'):
+                    self.assertEqual(rows[group][opcode], 4 * cpc_timing.cost(table, opcode))
+        # The taken extras are uniform on a CPC: one value each says every case.
+        for table in ('base', 'dd', 'fd'):
+            for opcode, extra in cpc_timing.EXTRA[table].items():
+                kind = ('djnz_taken' if opcode == 0x10 else 'jr_taken' if opcode < 0x40 else
+                        'ret_taken' if opcode & 7 == 0 else 'call_taken')
+                self.assertEqual(4 * extra, getattr(costs, kind), (table, hex(opcode)))
+        wrong = {('ed', opcode) for opcode, extra in cpc_timing.EXTRA['ed'].items() if 4 * extra != costs.repeat}
+        self.assertEqual(wrong, set(cpc_timing.UNEXPRESSED))
+        self.assertEqual((costs.irq, costs.irq_im2, costs.halt, costs.fragment), (20, 28, 4, 4))
+
+
 if __name__ == '__main__':
     unittest.main()
