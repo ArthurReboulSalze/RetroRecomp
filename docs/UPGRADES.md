@@ -580,7 +580,7 @@ quick-state layout moves to `sg1000-state-2` (one byte more: the latch). The Col
 
 **Proofs run** (the multiplayer specialist's checklist, in order): (1) `--snap-probe AT:N` in each delivered game, headless: a snapshot is the same
 bytes twice, fits its bound, a buffer one byte short is refused and changes nothing, and after a load the same N frames give every digest and every
-picture again. Run on an authored program (in the player self-tests, proof (d): 85 checks for the ColecoVision, 84 for the SG-1000, NTSC and PAL, at two
+picture again. Run on an authored program (in the player self-tests, proof (d): 85 checks for the ColecoVision, 84 for the SG-1000 (97 with the pad-port proof (e) against MAME's bytes), NTSC and PAL, at two
 frames) and on **eight real games** from the owner's library (Donkey Kong, Bump 'N' Jump, Ken Uston's Blackjack-Poker and Pitfall II; Flicky, Congo Bongo,
 Sega-Galaga and Champion Baseball), two probes each, the keypad and Pause exercised by the routes: 16 of 16 pass. (Solo) the SG-1000's reference runner
 on its authored program gives the same fields and the same per-frame rows before and after the Pause bit, NTSC and PAL. (2) **Windows and Linux (WSL

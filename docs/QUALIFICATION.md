@@ -77,9 +77,9 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Commodore Amiga 1200 | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
 | ZX Spectrum | experimental | `░░░░░░░░░░` 3 % | ✅ 0 · 🟡 1 · ❔ 15 |
 | PC Engine CD / TurboGrafx-CD | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
-| SG-1000 | experimental | `█░░░░░░░░░` 6 % | ✅ 1 · 🟡 0 · ❔ 15 |
+| SG-1000 | experimental | `█░░░░░░░░░` 9 % | ✅ 1 · 🟡 1 · ❔ 14 |
 | Game Boy Color | experimental | `░░░░░░░░░░` 0 % | ✅ 0 · 🟡 0 · ❔ 16 |
-| ColecoVision | experimental | `█░░░░░░░░░` 6 % | ✅ 1 · 🟡 0 · ❔ 15 |
+| ColecoVision | experimental | `█░░░░░░░░░` 9 % | ✅ 1 · 🟡 1 · ❔ 14 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
@@ -95,7 +95,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | ❔ | ❔ | ❔ |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | ✅ | ❔ | ✅ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | ❔ |
@@ -125,7 +125,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+, zxs = ZX Spect
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | ? | ? | ? | ? | ? |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P | ? | P | Y | ? | Y |
-| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | ? | P | ? | ? | ? |
+| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | ? | P | P | ? | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | ? |
@@ -167,7 +167,8 @@ The page of each console, which the README links its line to (a console of the m
 
 ### Caveats
 
-- SG-1000 and ColecoVision (22 November 2026; branch `spec/smsgg-g10`, Windows): **G10 moves from `?` to `Y` on both**; every other gate stays `?` until a panel is read. `tools/banked_vector_selftest.py --machine sg1000` and `--machine coleco` compile the 51,328 SingleStepTests/z80 vectors (22,704 encodings) with each machine's own build of the generator (`SG1000_MACHINE`, no wait state; `COLECO_MACHINE`, one wait state per M1 cycle added to the expected T-states): 51,328 pass, 0 fail, 0 miss on each ([CPU_Z80.md](CPU_Z80.md)). The vectors are an emulator's, not hardware captures, and run on a flat test bus, so the region map's dispatch is covered by the games, not by them.
+- SG-1000 and ColecoVision (22 November 2026; branch `spec/smsgg-g10`, Windows): **G10 moves from `?` to `Y` on both**, and **G11 from `?` to `P` on both** (MAME 0.289 as a private oracle, below); every other gate stays `?` until a panel is read. `tools/banked_vector_selftest.py --machine sg1000` and `--machine coleco` compile the 51,328 SingleStepTests/z80 vectors (22,704 encodings) with each machine's own build of the generator (`SG1000_MACHINE`, no wait state; `COLECO_MACHINE`, one wait state per M1 cycle added to the expected T-states): 51,328 pass, 0 fail, 0 miss on each ([CPU_Z80.md](CPU_Z80.md)). The vectors are an emulator's, not hardware captures, and run on a flat test bus, so the region map's dispatch is covered by the games, not by them.
+  **G11 `P`**: no hardware was used. ColecoVision: the controller ports agree with MAME line by line (two corrections it gave), the Z80's two wait states (one per M1 cycle, 28 cycles per sound-chip write) were found and kept, and the console's RAM writes of the BIOS and a cartridge's first 1000 frames are identical to MAME's; one parting after a key press is not explained. SG-1000: the pad ports for both pads and the one-NMI-per-press Pause agree with MAME; Flicky's frames agree for 65 frames and then differ by a frame phase that is understood and not adopted (the maintainer's choice). See [COLECOVISION.md](COLECOVISION.md#5-evidence) and [SG1000.md](SG1000.md#7-where-it-stands-in-the-qualification).
 - PC Engine CD (21 November 2026; branch `spec/pcecd-profile`, Windows and one witness on Debian 13 in WSL, from an empty scratch library, two conversions at a time): the column is `P` on G1 to G8, G10 to G13 and G15; **G9 and G14 stay `?`, G16 `-`**. Evidence: nine discs of the maintainer's library (Ys III, Dracula X in CHD version 4, The Addams Family, Lords of Thunder, Buster Bros., Dungeon Explorer II, Valis III, 4 in 1 Super CD, Ys Book I & II) converted with the player's Japanese Super System Card 3.0: on the two routes of each (a boot route and a play route of 3,600 frames), 0 interpreted instructions, the delivered game equal to the build with every instruction interpreted (picture, sound, RAM and CPU state, every frame), a quick state continued in a fresh process, eleven kinds of damaged backup file set aside; The Addams Family on Linux gives the same hashes as Windows. **Why `P` and not `Y`:** the routes are shallow (the boot route stays on the System Card's "push RUN" screen, a play route reaches the first screens), the play routes wrote no backup memory, the panel is nine discs, and the hardware evidence is the engine's. Details: [PC_ENGINE_CD.md](PC_ENGINE_CD.md#4-stage-1-where-it-stands-21-november-2026).
 - ZX Spectrum (21 November 2026, step 1 of the playbook, in development): G1 `P`: the profile is declared experimental and
   developer-only, `tools/status_lint.py` agrees, and no installation lists it; nothing converts yet, so every other gate is `?`.

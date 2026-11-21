@@ -12,6 +12,9 @@ host kit, SDL2). Then it proves, and says exactly what each proof covers:
       and final state equal); a missing, damaged, cut, extended, foreign (another game, standard, schema, build) or crafted-but-CRC-valid
       state is refused (exit 4), the file is left as it was, nothing is created; and in a WINDOWED game F8 saves, F9 loads, and a refused
       F9 (missing, damaged, foreign) leaves the frames exactly as a run that never asked.
+  (e) the pad ports DC and DD, read by the authored cartridge for each of the twelve directions and buttons of both pads, equal the bytes
+      MAME 0.289 (a private oracle, run apart) returns for the same inputs on its SG-1000 (`MAME_PADS`): where this machine agrees with it,
+      both may still differ from a real console.
   (c) the game run WINDOWED (SDL offscreen video, dummy audio, a hidden window; RETRORECOMP_HOST_TEST_FRAMES frames) exits 0, presents a
       picture every frame, which is not blank, and answers the keyboard: a held direction and button reach the cartridge through the
       pads, the Pause key raises its /NMI. The sound of the window is NOT checked (the dummy device plays nothing): the sound is proved by
@@ -58,6 +61,12 @@ NATIVE_ONLY = ('native_steps', 'halt_steps', 'fallback_steps', 'guarded_steps', 
 ROUTE = ['20:pad:0:08', '60:pad:0:00', '90:pad:1:11', '120:pause', '130:pad:0:30', '200:pause', '230:pad:0:00', '300:pad:0:04',
          '330:pad:1:40', '336:pad:1:00', '400:pause', '500:pad:0:21', '700:pad:0:00', '760:pause']      # 330: Pause pressed as a bit of seat 2's word
 WATCH = ['C000', 'C001', 'C002', 'C003']
+# What MAME 0.289 reads at ports DC and DD (the pad ports; the rest of the byte is 1) with each input held alone, from
+# .build/sg1000-mame/ports.lua on the SG-1000 driver (22 November 2026): (name, seat, SG_PAD_* word, DC, DD).
+MAME_PADS = [('P1 Up', 0, 0x01, 0xFE, 0xFF), ('P1 Down', 0, 0x02, 0xFD, 0xFF), ('P1 Left', 0, 0x04, 0xFB, 0xFF),
+             ('P1 Right', 0, 0x08, 0xF7, 0xFF), ('P1 Button 1', 0, 0x10, 0xEF, 0xFF), ('P1 Button 2', 0, 0x20, 0xDF, 0xFF),
+             ('P2 Up', 1, 0x01, 0xBF, 0xFF), ('P2 Down', 1, 0x02, 0x7F, 0xFF), ('P2 Left', 1, 0x04, 0xFF, 0xFE),
+             ('P2 Right', 1, 0x08, 0xFF, 0xFD), ('P2 Button 1', 1, 0x10, 0xFF, 0xFB), ('P2 Button 2', 1, 0x20, 0xFF, 0xF7)]
 
 
 # ---- the authored cartridge: Z80 bytes assembled here, 8 KiB, no ROM ----
@@ -469,6 +478,15 @@ def prove_snapshots(res: Results, exes: dict[str, Path], folder: Path) -> None:
                       f'  the snapshot ({size} bytes) is the same bytes twice, fits its bound, and one byte short is refused and changes nothing')
 
 
+def prove_pad_ports(res: Results, exes: dict[str, Path], cart_file: Path, folder: Path) -> None:
+    print('(e) the pad ports equal what MAME reads for each input held alone (and idle reads FF on both)')
+    for name, seat, word, dc, dd in [('idle', 0, 0x00, 0xFF, 0xFF), *MAME_PADS]:
+        got = headless(exes['sg1000_check'], folder, 'pads', 60, ['--cart', cart_file], [f'5:pad:{seat}:{word:02X}'], game=False)
+        watch = (got['json'] or {}).get('watch', {})
+        res.check(got['code'] == 0 and (watch.get('C002'), watch.get('C003')) == (dc, dd), f'{name}: DC={dc:02X} DD={dd:02X}',
+                  f"{got['code']} {watch}")
+
+
 def window(exe: Path, run_folder: Path, frames: int, script: str, *, state: Path | None = None, game: Path | None = None) -> dict:
     """One windowed run of the test double in a clean folder (hidden window, offscreen video, dummy audio); the probe's rows, the state file."""
     if run_folder.exists():
@@ -583,6 +601,7 @@ def main() -> int:
     saved = prove_states(results, exes, runs / 'states')
     prove_window(results, exes, saved, runs)
     prove_snapshots(results, exes, runs)
+    prove_pad_ports(results, exes, cart_file, runs / 'pads')
     print(f'{results.checks} checks, {len(results.failures)} failed')
     for failure in results.failures:
         print('FAILED:', failure)

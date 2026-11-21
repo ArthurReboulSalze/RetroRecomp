@@ -149,7 +149,7 @@ minute.
 
 **Evidence beside it** (conversion reports; the native run equals the corrected reference interpreter, with one wait state on every M1 cycle and the VDP
 interrupt on /NMI, on every frame of the attract and of a 3,600-frame pad route): **0 interpreted steps on all six runs**; Donkey Kong 22.3 million native
-steps on its play route (3,540 guarded steps), Bump 'N' Jump 24.9 million, Pitfall II 22.8 million (1,497 guarded steps); sound heard on every play route;
+steps on its play route (3,540 guarded steps), Bump 'N' Jump 24.9 million, Pitfall II 22.8 million (1,497 guarded steps); audible frames measured on every play route (nobody has listened yet);
 the BIOS is the owner's own, checked by SHA-256 and recorded in the report; the offscreen frames at 1,500 and 3,000 frames show the games in play.
 Against MAME 0.289 as a private oracle: the controllers' ports agree line by line, the Z80 timing groups agree, and the console RAM writes of the BIOS, the
 title and the game-select screen are identical over 1,000 frames. **G10 is `Y`** (51,328 independent Z80 vectors); G1 to G9 and G11 to G16 stay `?`
