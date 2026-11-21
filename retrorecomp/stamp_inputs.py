@@ -270,6 +270,9 @@ NOT_INPUTS = (
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
+    # The box filter of the sound chips (levels over guest cycles to samples): no machine builds with it yet; it joins a group
+    # `shares:audio_box` with its first machine (the Amstrad CPC). tools/audio_box_selftest.py builds its checks, never in a game.
+    'native/audio_box.h', 'native/audio_box_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
