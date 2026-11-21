@@ -437,34 +437,14 @@ class RouteTests(unittest.TestCase):
         self.assertIsNone(zxs_starts.start_for('00' * 32))
         self.assertIsNone(zxs_starts.route_stop('00' * 32))
 
-    def test_a_game_prepared_again_with_other_bytes_rebuilds_its_resources(self):
-        # The resource compiler does not track the files content.rc includes: prepare_game touches it (and the Linux .incbin
-        # source) whenever an embedded file is newer, and leaves its time alone otherwise (Match Day II, 22 November 2026: a
-        # reviewed joystick changed the image of a work folder and the build linked the old one, which the packed replay caught).
-        import os
-        from retrorecomp import zxs_build
-        folder = Path(tempfile.mkdtemp())
-        try:
-            path = folder / 'a.z80'
-            path.write_bytes(z80_v1(BANKS, True))
-            image = bytearray(zxs_build.zxs_image(zxs_snapshot.read_snapshot(path)))
-            work, rom, identity = folder / 'work', bytes(0x4000), 'ab' * 32
-            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
-            rc = work / 'content.rc'
-            for name in ('game-rom.bin', 'game-image.bin', 'notices.txt', 'export-identity.bin'):
-                os.utime(work / name, (1_000_000, 1_000_000))
-            os.utime(rc, (2_000_000, 2_000_000))
-            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
-            self.assertEqual(rc.stat().st_mtime, 2_000_000)                  # nothing new: no rebuild
-            image[6] ^= 1
-            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
-            self.assertGreater(rc.stat().st_mtime, 2_000_000)                 # a new image: the resources are compiled again
-            self.assertEqual((work / 'game-image.bin').read_bytes(), bytes(image))
-            os.utime(rc, (500_000, 500_000))                                  # a folder left stale by an earlier conversion
-            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
-            self.assertGreater(rc.stat().st_mtime, 500_000)
-        finally:
-            shutil.rmtree(folder)
+    def test_the_game_project_tracks_what_its_resources_embed(self):
+        # The resource compiler does not report the files content.rc includes (Match Day II, 22 November 2026: a reviewed joystick
+        # changed the image of a work folder and the build linked the old one, which the packed replay caught): the game's
+        # project names them to the build (retrorecomp/resource_rebuild.py, tests/test_resource_rebuild.py builds it).
+        from retrorecomp import resource_rebuild, zxs_build
+        text = zxs_build.project_cmake(game=True, version='0')
+        self.assertIn('\n'.join(resource_rebuild.CMAKE_LINES), text)
+        self.assertLess(text.index('add_executable(game'), text.index('rr_embedded_depends(content.rc'))
 
     def test_reviewed_joysticks_name_an_interface_the_machine_knows(self):
         # zxs_starts.JOYSTICKS: SHA-256 keys, one of the snapshot format's interfaces, and a reason; the conversion reads the

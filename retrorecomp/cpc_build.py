@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+from . import resource_rebuild
 from . import z80_chain_build
 
 GAME_TOML = '''# Amstrad CPC: the system ROM is source 0 of the region map; AMSDOS is named in banked.sources.
@@ -128,6 +129,7 @@ def project_cmake(version: str, game: bool) -> str:
             '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
             'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
             '  target_link_libraries(game PRIVATE m)', 'endif()',
+            *resource_rebuild.CMAKE_LINES,
             'target_link_libraries(game PRIVATE SDL2::SDL2-static)',
             f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS '
             f'[[RR_RECOMP_VERSION="{version}"]])',
