@@ -238,6 +238,8 @@ RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.js
 NOT_INPUTS = (
     'assets/Retro-Recomp-banner.png', 'assets/Retro-Recomp-consoles.png',
     'assets/RetroRecomp-UI-JP.otf', 'assets/RetroRecomp-UI-SC.otf', 'assets/board-',
+    # Discord's white symbol on the toolbar's Discord button (gui_icons.discord_picture): read by the interface only.
+    'assets/discord-symbol-white.png',
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     # The window's conversion time estimates (time_estimates.py): read by the interface only.
     'assets/conversion-times.json',

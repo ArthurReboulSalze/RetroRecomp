@@ -12,8 +12,8 @@ from .branding import COLORS
 from .dialogs import center_dialog
 from .gui_common import SENDING_AVAILABLE
 from .gui_drawing import (
-    PIN_SIZE, TROPHY, badges_width, compact_number, draw_badges, draw_pin, draw_styled_text, elide,
-    name_colours, _font, _podium_picture, _rounded, _scaled_photo, _tint,
+    HOVER_EFFECTS, PIN_SIZE, TROPHY, badges_width, compact_number, draw_badges, draw_pin, draw_styled_text, elide,
+    frame_side, hover_effect_picture, name_colours, _font, _podium_picture, _rounded, _scaled_photo, _tint,
 )
 from .ui_fonts import ui_scale
 from . import tk_later
@@ -27,6 +27,14 @@ MEDALS = {1: COLORS['gold'], 2: '#c9ced6', 3: '#c58a4a'}
 # circle; the first larger, as on the site's podium), and the room between a portrait and its step.
 PODIUM_PORTRAIT = {1: 36, 2: 30, 3: 30}
 PODIUM_GAP = 6
+# What the first three bought in the site's shop shows on their portraits too, as on the site's podium (Arthur, 21 Nov
+# 2026): the frame they equip, in a box FRAMED_BOX times the portrait's width (the site's 124 / 88), the portrait inside
+# it at the frame's hole (hole x box x 1.04, the site's rule), and the portrait animation they equip (the `hover` slot,
+# HOVER_EFFECTS), played while the pointer is on the player. A frame's picture is the shop's own (online.frame_picture:
+# the corner's cache in datas/, 1 MB at most), downloaded for the first three only, with the portraits' short timeout;
+# the podium's map of pictures holds it under FRAME_KEY + the item's id.
+FRAMED_BOX = 1.4
+FRAME_KEY = 'frame:'
 
 
 def next_place(rows, mine):
@@ -67,6 +75,33 @@ def podium_paths(entries):
     return [path for path in (portrait_path(entry) for entry in entries[:3]) if path]
 
 
+def podium_frame(entry, catalog):
+    """The frame item an entry equips, when the catalog can draw it (a picture and a usable hole); None otherwise."""
+    item = online.looks(catalog, online.equipped(entry))['frame']
+    data = item.get('data') if isinstance(item, dict) else None
+    if not isinstance(data, dict) or not data.get('image') or frame_side(data.get('hole'), 100) is None:
+        return None
+    return item
+
+
+def podium_frames(entries, catalog):
+    """{FRAME_KEY + id: item} of the frames the first three equip (podium_frame), the only frames downloaded."""
+    return {FRAME_KEY + item['id']: item for item in (podium_frame(entry, catalog) for entry in entries[:3]) if item}
+
+
+def podium_frame_bytes(item, download):
+    """online.frame_picture with the portraits' timeout, never raising: a frame is decoration."""
+    try:
+        return online.frame_picture(item, download=download, timeout=online.BOARD_PORTRAIT_TIMEOUT)
+    except Exception:
+        return None
+
+
+def framed_face(box, hole):
+    """The portrait's diameter inside a frame `box` px wide with that `hole` (the site's rule: hole x box x 1.04)."""
+    return round(float(hole) * box * 1.04)
+
+
 def podium_portrait_bytes(path, download):
     """online.board_portrait, never raising: a portrait is decoration."""
     try:
@@ -79,8 +114,9 @@ def board_messages(period, online_message):
     """What the leaderboard's loader sends the window, in order (run in a thread, no Tk call):
     ('board', (answer, error, shop), {path: portrait}) first, with the podium's portraits already in datas/, then, only
     when some are not, ('portraits', {path: portrait}) once they are downloaded: the board never waits for a picture,
-    and a podium player without a portrait (or a failed download) keeps the quiet fallback. The shop's catalog comes
-    from its cache (refreshed every 30 minutes at most)."""
+    and a podium player without a portrait (or a failed download) keeps the quiet fallback. The frames the first three
+    equip come the same way, under FRAME_KEY + their id (a frame not there yet: the medal's ring). The shop's catalog
+    comes from its cache (refreshed every 30 minutes at most)."""
     try:
         board = online.board(period)
     except (online.ServiceError, online.ServiceConnectionError) as exc:
@@ -90,12 +126,17 @@ def board_messages(period, online_message):
         shop = online.shop()
     except Exception:
         shop = {}
-    known = {path: podium_portrait_bytes(path, False) for path in podium_paths(board.get('entries', []))}
-    yield 'board', (board, None, shop), {path: raw for path, raw in known.items() if raw}
-    missing = [path for path, raw in known.items() if raw is None]
+    entries = board.get('entries', [])
+    frames = podium_frames(entries, shop)
+
+    def picture(key, download):
+        return podium_frame_bytes(frames[key], download) if key in frames else podium_portrait_bytes(key, download)
+    known = {key: picture(key, False) for key in [*podium_paths(entries), *frames]}
+    yield 'board', (board, None, shop), {key: raw for key, raw in known.items() if raw}
+    missing = [key for key, raw in known.items() if raw is None]
     if missing:
-        found = {path: podium_portrait_bytes(path, True) for path in missing}
-        yield 'portraits', {path: raw for path, raw in found.items() if raw}
+        found = {key: picture(key, True) for key in missing}
+        yield 'portraits', {key: raw for key, raw in found.items() if raw}
 
 
 class LeaderboardMixin:
@@ -148,21 +189,26 @@ class LeaderboardMixin:
             else:
                 canvas.create_text(left + round(10 * k), middle, text=text, anchor='w', fill=COLORS['muted'], font=font)
 
-    def podium_portrait(self, canvas, x, y, radius, place, raw, key=None, tags=()):
+    def podium_portrait(self, canvas, x, y, radius, place, raw, key=None, tags=(), frame=None):
         """A podium player's portrait, ringed in the medal's colour: the picture `raw` (bytes) the site serves (uploaded,
         or generated by the site for a player who uploaded none), or a quiet head-and-shoulders on a disc tinted by the
-        medal while there is none (the site names none, it is downloading, or the download failed). The pictures are
-        kept on the canvas by (key, place, size): the opening animation redraws the podium every frame."""
+        medal while there is none (the site names none, it is downloading, or the download failed). With the shop
+        `frame` the player equips (picture bytes, hole, id), the frame instead of the ring, in a box FRAMED_BOX times
+        the portrait, the portrait inside at framed_face. The pictures are kept on the canvas by (key, frame, place,
+        size): the opening animation redraws the podium every frame."""
         from PIL import ImageTk
         medal = MEDALS[place]
         size = 2 * radius
+        drawn = (frame[0], frame[1]) if frame else None
+        if frame:
+            size = framed_face(2 * round(radius * FRAMED_BOX), frame[1])
         cache = canvas.__dict__.setdefault('_portraits', {})
-        wanted = (key if raw else None, place, size)
+        wanted = (key if raw else None, frame[2] if frame else None, place, size)
         photo = cache.get(wanted)
         if photo is None:
             try:
                 photo = ImageTk.PhotoImage(_podium_picture(raw, size, medal, _tint(BOARD_CARD, medal, 0.16),
-                                                           _tint(BOARD_CARD, medal, 0.42)), master=canvas)
+                                                           _tint(BOARD_CARD, medal, 0.42), frame=drawn), master=canvas)
             except (OSError, ValueError, tk.TclError):
                 return None
             cache[wanted] = photo
@@ -428,13 +474,26 @@ class LeaderboardMixin:
             podium.create_polygon(*[middle + v * k if i % 2 == 0 else base + v * k for i, v in enumerate(shapes[place])],
                                   fill=colour, outline='', tags=('crown',))
 
+        def podium_framed(entry):
+            """(picture bytes, hole, id) of the frame the entry equips, once its picture is here; None otherwise."""
+            item = podium_frame(entry, catalog)
+            raw = portraits.get(FRAME_KEY + item['id']) if item else None
+            return (raw, item['data']['hole'], item['id']) if raw else None
+
         def draw_podium(rows, animate=False):
             podium.rows = rows
             if animate:
                 podium.started = time.monotonic()
             podium.delete('all')
             podium._sparkle = []
-            width, bottom = podium.winfo_width(), int(podium.cget('height'))
+            podium.hot = []
+            # A framed portrait is larger: the canvas grows by the largest frame's extra room (the list keeps the rest).
+            extra = max((2 * (round(PODIUM_PORTRAIT[place] * FRAMED_BOX) - PODIUM_PORTRAIT[place])
+                         for place, (entry, _) in enumerate(rows[:3], 1) if podium_framed(entry)), default=0)
+            wanted = round((STEP[1] + ABOVE + 14 + extra) * k)
+            if int(podium.cget('height')) != wanted:
+                podium.configure(height=wanted)
+            width, bottom = podium.winfo_width(), wanted
             if width < 300:
                 return
             if not rows:
@@ -482,9 +541,18 @@ class LeaderboardMixin:
                 look = online.looks(catalog, online.equipped(entry))
                 path = portrait_path(entry)
                 radius = PODIUM_PORTRAIT[place]
-                self.podium_portrait(podium, middle, top - round((PODIUM_GAP + radius) * k), round(radius * k), place,
-                                     portraits.get(path) if path else None, key=path)
-                crown_base = top - round((PODIUM_GAP + 2 * radius + 4) * k)
+                framed = podium_framed(entry)
+                outer = round(radius * FRAMED_BOX) if framed else radius
+                centre = top - round((PODIUM_GAP + outer) * k)
+                self.podium_portrait(podium, middle, centre, round(radius * k), place,
+                                     portraits.get(path) if path else None, key=path, frame=framed)
+                # Where the portrait animation plays (the player's column above the step) and over what.
+                face = (framed_face(2 * round(round(radius * k) * FRAMED_BOX), framed[1]) if framed
+                        else 2 * round(radius * k))
+                effect = ((look['hover'] or {}).get('data') or {}).get('effect')
+                podium.hot.append({'place': place, 'x0': x0, 'x1': x1, 'bottom': top, 'x': middle, 'y': centre,
+                                   'face': face, 'effect': effect if effect in HOVER_EFFECTS else None})
+                crown_base = top - round((PODIUM_GAP + 2 * outer + 4) * k)
                 crown(middle, crown_base, place, medal)
                 inner = x1 - x0 - round(12 * k)
                 line = crown_base - round(28 * k)
@@ -518,6 +586,62 @@ class LeaderboardMixin:
                 podium.frame = tk_later.later(podium, 16, lambda: draw_podium(podium.rows))
             else:
                 podium.frame = None
+
+        # The portrait animation a podium player equips, while the pointer is on them (their column above the step):
+        # « shine » sweeps once per visit, « spin » turns until the pointer leaves, as on the site.
+        podium.hot, podium.effect = [], None
+
+        def effect_photo(effect, face, index):
+            from PIL import ImageTk
+            cache = podium.__dict__.setdefault('_effects', {})
+            wanted = (effect, face, index)
+            if wanted not in cache:
+                try:
+                    picture = hover_effect_picture(effect, face, index)
+                    cache[wanted] = ImageTk.PhotoImage(picture, master=podium) if picture else None
+                except (OSError, ValueError, tk.TclError):
+                    cache[wanted] = None
+            return cache[wanted]
+
+        def effect_step():
+            state = podium.effect
+            if state is None or not podium.winfo_exists():
+                return
+            state['job'] = None
+            podium.delete('podium_effect')
+            spot = next((spot for spot in podium.hot if spot['place'] == state['place']), None)
+            if spot is None or spot['effect'] != state['effect']:
+                podium.effect = None
+                return
+            seconds, count = HOVER_EFFECTS[state['effect']]
+            elapsed = time.monotonic() - state['started']
+            if state['effect'] == 'shine' and elapsed >= seconds:
+                return                              # once per visit
+            photo = effect_photo(state['effect'], spot['face'], int(elapsed / seconds * count) % count)
+            if photo:
+                # disabled: the overlay never takes the pointer's events
+                podium.create_image(spot['x'], spot['y'], image=photo, state='disabled', tags=('podium_effect',))
+            state['job'] = tk_later.later(podium, 40, effect_step)
+
+        def effect_stop(event=None):
+            state, podium.effect = podium.effect, None
+            if state and state.get('job'):
+                tk_later.cancel(podium, state['job'])
+            podium.delete('podium_effect')
+
+        def effect_pointer(event):
+            spot = next((spot for spot in podium.hot if spot['x0'] <= event.x <= spot['x1'] and event.y <= spot['bottom']),
+                        None)
+            place = spot['place'] if spot and spot['effect'] else None
+            if place == (podium.effect or {}).get('place'):
+                return
+            effect_stop()
+            if place:
+                podium.effect = {'place': place, 'effect': spot['effect'], 'started': time.monotonic(), 'job': None}
+                effect_step()
+        podium.bind('<Motion>', effect_pointer)
+        podium.bind('<Leave>', effect_stop)
+        window.podium_pointer, window.podium_effect_stop = effect_pointer, effect_stop
 
         def show(answer, error, shop=None):
             if not window.winfo_exists():return

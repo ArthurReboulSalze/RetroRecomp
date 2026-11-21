@@ -805,6 +805,8 @@
     "conversions_queued_one": "Un gioco convertito attende la sua ricompensa: oltre il limite giornaliero sarà accreditato in uno dei giorni successivi ({wait}).",
     "conversions_wait_days": "circa {days} giorni",
     "conversions_wait_day": "circa 1 giorno",
+    "discord": "Discord",
+    "tip_discord": "Unisciti al server della community Retro-Recomp (si apre nel browser).",
     "tip_leaderboard": "Classifica: i giocatori che hanno trovato più percorsi nativi, da sempre o questo mese, con gemme, titoli e badge.",
     "tip_compiled_games": "Giochi ricompilati: i tuoi giochi convertiti con copertina, dettagli e stelle di livello; gioca, riconverti o vai oltre.",
     "tip_start_selected": "Converti selezionati: solo i giochi selezionati nell’elenco.",

@@ -403,6 +403,9 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         # Shared discoveries: visible beside the queue and the collection (a brain; the menu opens under it).
         self.knowledge_button = self.icon_button(toolbar, 'knowledge', 'tip_knowledge', self.knowledge_menu, 'network')
         self.knowledge_button.pack(side='right', padx=(0, 8))
+        # The community's Discord server, in the web browser: left of Knowledge (Arthur's placement, 21 Nov 2026).
+        self.discord_button = self.icon_button(toolbar, 'discord', 'tip_discord', self.open_discord, 'discord', managed=False)
+        self.discord_button.pack(side='right', padx=(0, 8))
         # The middle of the bar: the two buttons that bring the games together, in their own frame in the room left
         # between the buttons of the view (left) and the rarely used ones (right), so they stand apart and centred.
         self.toolbar_centre = ttk.Frame(toolbar)

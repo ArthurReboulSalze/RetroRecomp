@@ -136,6 +136,10 @@ Free BIOS replacements are research candidates only, not bundled dependencies.
 | cryptography (multiplayer encryption), with its OpenSSL, cffi and pycparser | 50.0.2 (OpenSSL 4.0.3, cffi 2.1.1, pycparser 3.12); Apache 2.0 OR BSD-3-Clause, OpenSSL Apache 2.0, cffi MIT-0, pycparser BSD-3-Clause | [Full text](licenses/cryptography.md) |
 | zlib / zlib-ng | zlib terms; CPython uses zlib-ng 2.2.4 | [zlib](licenses/zlib.md), [zlib-ng](licenses/zlib-ng.md) |
 
+The Discord symbol on the converter's Discord button (`assets/discord-symbol-white.png`) is a trademark of Discord
+Inc., taken unmodified from [Discord's brand resources](https://discord.com/branding) and used, as their guidelines
+allow, only to link to the Retro-Recomp community server. It is not covered by the root MIT license.
+
 PyInstaller's exception permits distribution of frozen applications under
 their own license, subject to the application's dependencies. It does not
 change those dependencies' licenses. Python and Pillow notices include the

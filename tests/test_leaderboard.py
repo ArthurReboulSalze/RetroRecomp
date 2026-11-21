@@ -162,6 +162,48 @@ class LoadingTheBoard(unittest.TestCase):
         portrait.assert_not_called()
 
 
+class PodiumFrames(unittest.TestCase):
+    """The frames the first three equip (1.9.1): asked with the portraits (cached first, downloaded after, the portraits'
+    short timeout), for the first three only, and only when the catalog can draw them."""
+
+    CATALOG = {'frame_gold': {'id': 'frame_gold', 'slot': 'frame', 'data': {'image': '/media/frames/frame_gold.webp',
+                                                                          'hole': 0.646}},
+               'frame_bad': {'id': 'frame_bad', 'slot': 'frame', 'data': {'image': '/media/frames/bad.webp', 'hole': 7}},
+               'hover_spin': {'id': 'hover_spin', 'slot': 'hover', 'data': {'effect': 'spin'}}}
+
+    def entries(self):
+        worn = ({'frame': 'frame_gold', 'hover': 'hover_spin'}, {'frame': 'frame_bad'}, {}, {'frame': 'frame_gold'})
+        return [{'rank': i, 'pseudonym': f'P{i}', 'avatar': None, 'equipped': w} for i, w in enumerate(worn, 1)]
+
+    def test_only_a_drawable_frame_of_the_first_three_is_asked_for_cached_first_then_downloaded(self):
+        from retrorecomp.gui_leaderboard import FRAME_KEY, podium_frames
+        self.assertEqual(list(podium_frames(self.entries(), self.CATALOG)), [FRAME_KEY + 'frame_gold'])
+        self.assertEqual(podium_frames(self.entries(), {}), {})                  # no catalog: no frame
+        calls = []
+
+        def frame_picture(item, download=True, timeout=20):
+            calls.append((item['id'], download, timeout))
+            return b'frame' if download else None
+        with patch('retrorecomp.online.board', return_value={'entries': self.entries()}), \
+                patch('retrorecomp.online.shop', return_value=self.CATALOG), \
+                patch('retrorecomp.online.board_portrait') as portrait, \
+                patch('retrorecomp.online.frame_picture', side_effect=frame_picture):
+            messages = list(board_messages('all', str))
+        portrait.assert_not_called()                                             # nobody names a portrait
+        self.assertEqual([m[0] for m in messages], ['board', 'portraits'])
+        self.assertEqual(messages[0][2], {})
+        self.assertEqual(messages[1][1], {FRAME_KEY + 'frame_gold': b'frame'})
+        self.assertEqual(calls, [('frame_gold', False, online.BOARD_PORTRAIT_TIMEOUT),
+                                 ('frame_gold', True, online.BOARD_PORTRAIT_TIMEOUT)])
+
+    def test_a_frame_that_raises_is_only_a_missing_one(self):
+        with patch('retrorecomp.online.board', return_value={'entries': self.entries()}), \
+                patch('retrorecomp.online.shop', return_value=self.CATALOG), \
+                patch('retrorecomp.online.frame_picture', side_effect=RuntimeError('broken')):
+            messages = list(board_messages('all', str))
+        self.assertEqual(messages[1], ('portraits', {}))
+
+
 class NextPlace(unittest.TestCase):
     def test_a_player_not_in_the_rows_gets_nothing(self):
         self.assertIsNone(next_place(rows(900, 800), 'Someone'))
@@ -299,6 +341,54 @@ class PodiumPortrait(OnACanvas):
         item = self.app.podium_portrait(self.canvas, 100, 40, PODIUM_PORTRAIT[1], 1, picture(), key='/avatars/p1.webp')
         x0, y0, x1, y1 = self.canvas.bbox(item)
         self.assertEqual((x1 - x0, y1 - y0), (2 * PODIUM_PORTRAIT[1],) * 2)
+
+
+class FramedAndAnimated(OnACanvas):
+    """A podium portrait in its equipped frame (the site's rule: a box FRAMED_BOX times the portrait, the portrait at
+    hole x box x 1.04, no medal ring) and the pictures of the portrait animations (shine, spin)."""
+
+    def frame(self, hole=0.6):
+        from PIL import Image
+        buffer = io.BytesIO()
+        Image.new('RGBA', (256, 256), (240, 60, 200, 255)).save(buffer, 'PNG')
+        return buffer.getvalue(), hole, 'frame_neon'
+
+    def test_a_framed_portrait_fills_the_frame_s_box_and_is_kept_apart_from_the_unframed_one(self):
+        from retrorecomp.gui_leaderboard import FRAMED_BOX
+        raw = picture((200, 30, 30))
+        plain = self.app.podium_portrait(self.canvas, 100, 60, 30, 2, raw, key='/avatars/p2.webp')
+        framed = self.app.podium_portrait(self.canvas, 300, 60, 30, 2, raw, key='/avatars/p2.webp', frame=self.frame())
+        x0, y0, x1, y1 = self.canvas.bbox(framed)
+        self.assertLessEqual(abs((x1 - x0) - 2 * round(30 * FRAMED_BOX)), 2)
+        self.assertNotEqual(self.canvas.itemcget(plain, 'image'), self.canvas.itemcget(framed, 'image'))
+        self.assertEqual(len(self.canvas._portraits), 2)
+
+    def test_the_frame_replaces_the_medal_ring_and_an_unusable_frame_gives_the_ring_back(self):
+        from retrorecomp.gui_drawing import _podium_picture
+        raw = picture((200, 30, 30))
+        framed = _podium_picture(raw, 50, '#d4a737', '#333333', '#777777', frame=self.frame()[:2])
+        self.assertGreater(framed.width, 50)
+        self.assertEqual(framed.getpixel((2, framed.height // 2))[:3], (240, 60, 200))   # the frame, outside the face
+        self.assertEqual(framed.getpixel((framed.width // 2, framed.height // 2))[:3], (200, 30, 30))
+        broken = _podium_picture(raw, 50, '#d4a737', '#333333', '#777777', frame=(b'not a picture', 0.6))
+        ringed = _podium_picture(raw, 50, '#d4a737', '#333333', '#777777')
+        self.assertEqual(broken.tobytes(), ringed.tobytes())
+
+    def test_shine_sweeps_across_the_portrait_and_spin_turns_a_ring_outside_it(self):
+        from retrorecomp.gui_drawing import HOVER_EFFECTS, hover_effect_picture
+        self.assertEqual(set(HOVER_EFFECTS), {'shine', 'spin'})                  # the site's two effects
+        self.assertIsNone(hover_effect_picture('glow', 60, 0))
+        count = HOVER_EFFECTS['shine'][1]
+        shines = [hover_effect_picture('shine', 60, index) for index in range(count)]
+        self.assertEqual({shine.size for shine in shines}, {(60, 60)})
+        lit = [max(range(60), key=lambda x: shine.getpixel((x, 30))[3]) for shine in shines[3:count - 3]]
+        self.assertEqual(lit, sorted(lit))                                       # the band moves left to right
+        self.assertGreater(len(set(lit)), 3)
+        self.assertEqual(shines[5].getpixel((0, 0))[3], 0)                       # round: nothing outside the face
+        spins = [hover_effect_picture('spin', 60, index) for index in (0, 6)]
+        self.assertEqual(spins[0].size, (68, 68))
+        self.assertEqual(spins[0].getpixel((34, 34))[3], 0)                      # a ring: the portrait shows through
+        self.assertNotEqual(spins[0].tobytes(), spins[1].tobytes())              # turned
 
 
 class PortraitFields(unittest.TestCase):

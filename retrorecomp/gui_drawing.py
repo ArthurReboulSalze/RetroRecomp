@@ -1,6 +1,8 @@
 """Drawing helpers of the interface: portraits, styled names, pins, badges, header themes and icons."""
 from __future__ import annotations
 
+import functools
+import math
 import os
 import time
 import tkinter as tk
@@ -143,9 +145,11 @@ def _portrait_picture(raw=None, initial='', frame=None):
     return picture.resize((PORTRAIT_SIZE, PORTRAIT_SIZE), Image.Resampling.LANCZOS)
 
 
-def _podium_picture(raw, diameter, ring, disc, figure):
+def _podium_picture(raw, diameter, ring, disc, figure, frame=None):
     """A podium player's round portrait, `diameter` px, ringed in their medal's colour (`ring`): their site picture
     (WebP or PNG bytes), or, without one or when it cannot be read, a quiet head-and-shoulders on a `disc`, in `figure`.
+    With the shop `frame` the player equips (image bytes, hole), the frame is drawn around it instead of the ring, as on
+    the site (`_framed`: larger than the portrait, the portrait on top); the ring again when the frame cannot be drawn.
     Drawn at 4x then reduced, so the circle and the ring stay smooth."""
     from PIL import Image, ImageDraw
     import io
@@ -169,10 +173,77 @@ def _podium_picture(raw, diameter, ring, disc, figure):
     mask = Image.new('L', (size, size), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
     picture.putalpha(mask)
+    framed = _framed(picture, frame, max(8, diameter)) if frame else None
+    if framed is not None:
+        return framed
     width = max(2, round(size / 22))
     ImageDraw.Draw(picture).ellipse((width // 2, width // 2, size - 1 - width // 2, size - 1 - width // 2),
                                     outline=ring, width=width)
     return picture.resize((size // scale, size // scale), Image.Resampling.LANCZOS)
+
+
+# The portrait animations of the site's shop (the `hover` slot, played while the pointer is on the player, as on the
+# site's podium): « shine », a light band that sweeps once across the portrait in 0.9 s, and « spin », a gold ring that
+# turns around it, one turn in 1.4 s. Their pictures are overlays drawn over the portrait (transparent elsewhere).
+HOVER_EFFECTS = {'shine': (0.9, 14), 'spin': (1.4, 24)}      # effect: (seconds, pictures) of one sweep or one turn
+
+
+def hover_effect_picture(effect, diameter, index):
+    """Picture `index` of a portrait animation (HOVER_EFFECTS) over a round portrait `diameter` px wide: for « shine »
+    the size of the portrait, for « spin » 8 px wider (the ring stands just outside it, 3 px thick, as on the site).
+    None for an unknown effect."""
+    from PIL import Image, ImageChops, ImageDraw
+    if effect not in HOVER_EFFECTS:
+        return None
+    scale = 4
+    count = HOVER_EFFECTS[effect][1]
+    if effect == 'shine':
+        size = max(8, diameter) * scale
+        band = Image.new('L', (size, size), 0)
+        draw = ImageDraw.Draw(band)
+        # The site's band: 45 % of the portrait wide, skewed by 20 degrees, from -70 % to 130 % of its width.
+        left = (-0.7 + 2.0 * index / max(1, count - 1)) * size
+        width, skew = 0.45 * size, math.tan(math.radians(20)) * size
+        steps = 12
+        for step in range(steps):
+            # light in the middle of the band, clear at its edges (a gradient in bands)
+            middle = abs(step + 0.5 - steps / 2) / (steps / 2)
+            alpha = round(153 * (1 - middle))
+            x0 = left + width * step / steps
+            x1 = left + width * (step + 1) / steps
+            draw.polygon(((x0 + skew / 2, 0), (x1 + skew / 2, 0), (x1 - skew / 2, size), (x0 - skew / 2, size)),
+                         fill=alpha)
+        mask = Image.new('L', (size, size), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+        picture = Image.new('RGBA', (size, size), (255, 255, 255, 0))
+        picture.putalpha(ImageChops.multiply(band, mask))
+        return picture.resize((size // scale, size // scale), Image.Resampling.LANCZOS)
+    ring = _spin_ring(max(8, diameter), scale).rotate(-360 * index / count, resample=Image.Resampling.BICUBIC)
+    return ring.resize((ring.width // scale, ring.height // scale), Image.Resampling.LANCZOS)
+
+
+@functools.lru_cache(maxsize=8)
+def _spin_ring(diameter, scale):
+    """The « spin » ring at `scale` times its size, unturned: the site's conic gradient (gold, fading out by 28 %, amber
+    at half, fading out by 78 %, gold again) on a ring 3 px thick, 8 px wider than the portrait. Turned per picture."""
+    from PIL import Image, ImageChops, ImageDraw
+    side = (diameter + 8) * scale
+    ring = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(ring)
+    stops = ((0.0, (255, 210, 74, 255)), (0.28, (255, 210, 74, 0)), (0.5, (255, 154, 31, 255)),
+             (0.78, (255, 154, 31, 0)), (1.0, (255, 210, 74, 255)))
+    for degree in range(360):
+        at = degree / 360
+        for (a, first), (b, second) in zip(stops, stops[1:]):
+            if a <= at <= b:
+                mix = (at - a) / (b - a)
+                colour = tuple(round(first[c] + (second[c] - first[c]) * mix) for c in range(4))
+                break
+        draw.pieslice((0, 0, side - 1, side - 1), degree - 90, degree - 88, fill=colour)
+    hole = Image.new('L', (side, side), 255)
+    ImageDraw.Draw(hole).ellipse((3 * scale, 3 * scale, side - 1 - 3 * scale, side - 1 - 3 * scale), fill=0)
+    ring.putalpha(ImageChops.multiply(ring.getchannel('A'), hole))
+    return ring
 
 
 def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:

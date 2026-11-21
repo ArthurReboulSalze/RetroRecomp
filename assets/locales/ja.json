@@ -805,6 +805,8 @@
     "conversions_queued_one": "変換したゲーム 1 本が報酬待ちです。1日の上限を超えたため、翌日以降に付与されます（{wait}）。",
     "conversions_wait_days": "あと約 {days} 日",
     "conversions_wait_day": "あと約 1 日",
+    "discord": "Discord",
+    "tip_discord": "Retro-Recomp コミュニティのサーバーに参加します（ウェブブラウザーで開きます）。",
     "tip_leaderboard": "ランキング：ネイティブ経路を最も多く見つけたプレイヤー（累計または今月）と、その宝石・称号・バッジ。",
     "tip_compiled_games": "コンパイル済みゲーム：変換したゲームとパッケージ画像、詳細、レベルの星。プレイ、再変換、さらに深く解析できます。",
     "tip_start_selected": "選択したゲームを変換：一覧で選んだゲームだけを変換します。",

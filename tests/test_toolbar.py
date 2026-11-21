@@ -458,6 +458,44 @@ class HeroPictures(unittest.TestCase):
         self.assertIn(gui_icons.HERO_PLAY, gui_icons.ICONS)                    # and a polyline fallback exists
 
 
+class DiscordButton(ToolbarWindow):
+    """The community's Discord server (1.9.1): a picture-only button left of Knowledge (Arthur's placement, 21 Nov 2026),
+    Discord's own white symbol (Arthur's choice), a translated hint, and the server's invitation in the web browser."""
+
+    def test_it_stands_left_of_knowledge_and_shows_only_its_picture_with_name_and_hint(self):
+        app = self.app
+        slaves = app.toolbar.pack_slaves()
+        self.assertEqual(slaves.index(app.discord_button), slaves.index(app.knowledge_button) + 1)   # packed next: left
+        self.assertEqual(str(app.discord_button.pack_info()['side']), 'right')
+        self.assertEqual(str(app.discord_button.cget('compound')), 'image')
+        hints = {id(hint.widget): hint.text() for hint in app.tooltips}
+        self.assertEqual(hints[id(app.discord_button)], 'Discord\n' + app.tr('tip_discord'))
+
+    def test_it_opens_the_server_s_invitation_and_stays_available_while_a_conversion_runs(self):
+        from retrorecomp.gui_common import DISCORD_URL
+        self.assertEqual(DISCORD_URL, 'https://discord.gg/VZeJYfNZgz')
+        app = self.app
+        app.set_controls(False)
+        self.assertEqual(str(app.discord_button.cget('state')), 'normal')
+        with patch('retrorecomp.gui_account.webbrowser.open_new_tab') as opened:
+            app.discord_button.invoke()
+        opened.assert_called_once_with(DISCORD_URL)
+        app.set_controls(True)
+
+    def test_the_picture_is_discord_s_own_white_symbol_in_the_toolbar_s_box(self):
+        from retrorecomp.gui_icons import DISCORD_SYMBOL, discord_picture
+        from retrorecomp.paths import ASSETS
+        from PIL import Image
+        with Image.open(ASSETS / DISCORD_SYMBOL) as image:
+            self.assertEqual(image.size, (528, 400))                      # the brand file as Discord gives it
+            colours = {pixel[:3] for pixel in image.convert('RGBA').getdata() if pixel[3] == 255}
+        self.assertEqual(colours, {(255, 255, 255)})                       # white only
+        picture = discord_picture(self.root)
+        self.assertEqual((picture.width(), picture.height()), (18, 18))
+        images = self.app.button_images[('discord', False)]
+        self.assertIn(str(images[0]), str(self.app.discord_button.cget('image')))
+
+
 class ReportButton(ToolbarWindow):
     def test_it_is_the_last_button_after_credits_and_opens_the_report_flow(self):
         app = self.app

@@ -379,6 +379,11 @@ class WindowMixin:
                 from .gui_icons import feature_picture
                 self.button_images[key] = (feature_picture(self.app, symbol, COLORS['gold']),
                                            feature_picture(self.app, symbol, COLORS['disabled']))
+            elif symbol == 'discord':
+                # Discord's own white symbol (gui_icons.discord_picture), never greyed: the button stays available.
+                from .gui_icons import discord_picture
+                picture = discord_picture(self.app) or make_icon(self.app, 'network', colour)
+                self.button_images[key] = (picture, picture)
             elif hero:
                 # Drawn with Pillow when the picture has a drawing (gui_icons.hero_picture): dark on the gold, with a
                 # lighter gold for its bevelled edge; grey, with a lighter grey, when greyed.
