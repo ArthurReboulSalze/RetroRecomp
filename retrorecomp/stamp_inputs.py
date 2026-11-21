@@ -1352,6 +1352,8 @@ INPUTS = _resolve({
         'retrorecomp.z80_chain',
         # The Z80's bus cycles per encoding (the ULA contention's data, checked by tools/z80_timing_vectors.py).
         'retrorecomp.z80_timing',
+        # Its evaluator: the delay a machine's contention rule adds, rendered into the bodies and the reference (z80_timed.py).
+        'retrorecomp.z80_timed',
     ),
     'family:rr16': (
         'native/console16_main.c',
