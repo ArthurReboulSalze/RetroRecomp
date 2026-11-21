@@ -115,6 +115,7 @@ native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_ma
 native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c native/msx_machine/msx2_checks_sprites.c native/msx_machine/msx2_checks_board.c
 native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c native/msx_machine/msx_music_checks.c
 native/audio_box.h native/audio_box_checks.c tools/audio_box_selftest.py tests/test_audio_box.py
+native/z80_chain_state.inc native/state_file.h native/state_file_checks.c tools/z80_chain_state_selftest.py tests/test_z80_chain_state.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c
@@ -505,7 +506,7 @@ native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
 native/frame_stop_checks.c
 native/gamestate.h native/gamestate.inc native/state_envelope.h native/state_io.h native/psg_state.inc native/psg_runs.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
-native/gg_ext.h native/gg_ext_checks.c native/gg_link.inc tools/gg_ext_selftest.py tools/gg_link_selftest.py native/z80_nmi_checks.c tools/z80_nmi_selftest.py native/z80_chain_glue.inc retrorecomp/z80_chain_build.py native/sn76489/sn76489.c native/sn76489/sn76489.h native/sg1000_machine/sg1000_machine.c native/sg1000_machine/sg1000_machine.h native/sg1000_machine/sg1000_glue.inc native/sg1000_machine/sg1000_headless.inc native/sg1000_machine/sg1000_native_main.c native/sg1000_machine/sg1000_reference_main.c tests/test_z80_chain_glue.py native/sg1000_machine/sg1000_player.c native/sg1000_machine/sg1000_state_file.inc tools/sg1000_player_selftest.py
+native/gg_ext.h native/gg_ext_checks.c native/gg_link.inc tools/gg_ext_selftest.py tools/gg_link_selftest.py native/z80_nmi_checks.c tools/z80_nmi_selftest.py native/z80_chain_glue.inc retrorecomp/z80_chain_build.py native/sn76489/sn76489.c native/sn76489/sn76489.h native/sg1000_machine/sg1000_machine.c native/sg1000_machine/sg1000_machine.h native/sg1000_machine/sg1000_glue.inc native/sg1000_machine/sg1000_headless.inc native/sg1000_machine/sg1000_native_main.c native/sg1000_machine/sg1000_reference_main.c tests/test_z80_chain_glue.py native/sg1000_machine/sg1000_player.c native/sg1000_machine/sg1000_state_file.inc tools/sg1000_player_selftest.py tests/test_z80_chain_build.py
 native/z80_costs_emit.c native/z80_costs_checks.c tools/z80_costs_selftest.py native/z80_ports_emit.c native/z80_ports_checks.c tools/z80_ports_selftest.py
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py

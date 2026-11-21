@@ -55,6 +55,15 @@ def instrument_reference(path: Path, accept: str, machine, error: type = Runtime
         path.write_text(source, encoding='utf-8', newline='\n')
 
 
+def prepare_machine_reference(work: Path, engine: Path, machine) -> None:
+    """The reference interpreter's copy (`runtime_reference.c` and `.h`) in `work`, corrected for the machine: its M1 count, its NMI, its
+    instruction costs and its 16-bit ports (`z80_chain.Z80Machine`). The one place that turns a machine into the arguments of
+    `cpu.prepare_reference`: the bodies' generation and the reference runner built alone both call it, so the two copies of the same
+    machine can never differ."""
+    from .cpu import prepare_reference
+    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi, costs=machine.costs, port16=machine.port_bits == 16)
+
+
 def generate_bodies(work: Path, machine, cartridge: bytes, sources: Sequence[tuple[str, bytes]], game_toml: str,
                     emit: Callable[[str], None] = print, *, loop_name: str, accept: str,
                     keep_rom: bool = True, error: type = RuntimeError) -> None:
@@ -87,9 +96,7 @@ def generate_bodies(work: Path, machine, cartridge: bytes, sources: Sequence[tup
     if result.returncode:
         raise error(f'The Z80 generator failed (see {log}).')
     prepare_cpu_headers(work, engine)
-    # The machine's corrections of the copy: its M1 count, its NMI, its instruction costs and its 16-bit ports (z80_chain.Z80Machine).
-    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi, costs=machine.costs,
-                      port16=machine.port_bits == 16)
+    prepare_machine_reference(work, engine, machine)
     instrument_reference(work / 'runtime_reference.c', accept, machine, error)
     (work / loop_name).write_text(banked_runtime(machine, ASSETS), encoding='utf-8', newline='\n')
 
@@ -197,3 +204,52 @@ def learn_passes(work: Path, runs: list[list[str]], *, generate: Callable[[], No
         generate()
         check = build_check()
     return check, counts
+
+
+def chain_project_cmake(prefix: str, project: str, *, reference_main: str, native_main: str, machine_sources: Sequence[str],
+                        bodies: bool = True, definitions: Sequence[str] = (), game_lines: Sequence[str] = ()) -> str:
+    """The CMakeLists.txt of a machine on the banked chain (staged flat in its work folder): the reference runner `<prefix>_reference`
+    always; with `bodies` the object library of the generated bodies `<prefix>_bodies` and the headless native check `<prefix>_check`.
+    `machine_sources` are the machine's C files (its own and the shared modules'), compiled into every program; `definitions` are added to
+    the programs' compile definitions (a machine's own switches); `game_lines` are the machine's lines for its player (they come after
+    the others and may use the bodies library). Pass `bodies=True` for a game too: the player needs the bodies."""
+    machine = ' '.join(machine_sources)
+    programs = f'{prefix}_reference {prefix}_check' if bodies else f'{prefix}_reference'
+    lines = [
+        'cmake_minimum_required(VERSION 3.20)', f'project({project} LANGUAGES C)', 'set(CMAKE_C_STANDARD 11)',
+        'set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")',
+        'if(MSVC)', '  add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)', 'endif()',
+        f'add_executable({prefix}_reference {reference_main} {machine} runtime_reference.c)',
+    ]
+    if bodies:
+        lines += [
+            'file(GLOB bodies "generated/game_banked_ops_*.c")',
+            f'add_library({prefix}_bodies OBJECT generated/game_banked_index.c ${{bodies}})',
+            f'target_include_directories({prefix}_bodies PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "${{CMAKE_CURRENT_SOURCE_DIR}}/generated")',
+            f'target_compile_definitions({prefix}_bodies PRIVATE SMSRECOMP_BANKED_AOT)',
+            f'add_executable({prefix}_check {native_main} {machine} runtime_reference.c $<TARGET_OBJECTS:{prefix}_bodies>)',
+        ]
+    lines += [
+        f'foreach(target {programs})',
+        '  target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
+        f'  target_compile_definitions(${{target}} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS{"".join(" " + d for d in definitions)})',
+        '  if(NOT WIN32)', '    target_link_libraries(${target} PRIVATE m)', '  endif()',
+        'endforeach()',
+        *game_lines,
+    ]
+    return '\n'.join(lines) + '\n'
+
+
+def build_reference_runner(work: Path, machine, *, accept: str, stage: Callable[[Path], None],
+                           build: Callable[[Path, tuple[str, ...], Callable[[str], None]], dict[str, Path]], target: str,
+                           emit: Callable[[str], None] = print, error: type = RuntimeError) -> Path:
+    """The machine's reference runner alone, before any body is generated (what is chosen on the reference, such as the start of a route
+    or a mapper, runs it): the reference interpreter's copy corrected for the machine (M1 count, NMI), its interrupt acceptance exported
+    as `accept`, the machine's files staged by `stage(work)`, then `build(work, (target,), emit)` (the machine's own build function,
+    which writes its project). Returns the executable."""
+    _, engine = generator(machine, emit)
+    work.mkdir(parents=True, exist_ok=True)
+    prepare_machine_reference(work, engine, machine)
+    instrument_reference(work / 'runtime_reference.c', accept, machine, error)
+    stage(work)
+    return build(work, (target,), emit)[target]

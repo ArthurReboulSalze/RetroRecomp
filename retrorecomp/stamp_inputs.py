@@ -274,6 +274,9 @@ NOT_INPUTS = (
     # The box filter of the sound chips (levels over guest cycles to samples): its header is the group `shares:audio_box` (the SG-1000 is the
     # first machine to build with it). tools/audio_box_selftest.py builds its checks, never in a game.
     'native/audio_box_checks.c',
+    # The Z80 chain's CPU state and the quick-state file around the shared envelope: their headers are the groups `shares:z80_chain_state` and
+    # `shares:state_file` (the SG-1000 is the first machine to build with them). tools/z80_chain_state_selftest.py builds their checks, never in a game.
+    'native/state_file_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
@@ -1220,6 +1223,13 @@ INPUTS = _resolve({
     # the machines that have it (the MSX family now, the SG-1000 and the ColecoVision next). Game role.
     # The SN76489A (native/sn76489): the TI sound chip of the SG-1000 and the ColecoVision, our own MIT module. Game role.
     # The box filter of the sound chips (native/audio_box.h): header only, machine-neutral. Game role.
+    # The Z80 chain's CPU state record (native/z80_chain_state.inc) and the quick-state file helper (native/state_file.h). Game role.
+    'shares:z80_chain_state': (
+        'native/z80_chain_state.inc',
+    ),
+    'shares:state_file': (
+        'native/state_file.h',
+    ),
     'shares:audio_box': (
         'native/audio_box.h',
     ),
