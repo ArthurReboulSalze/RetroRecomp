@@ -1,92 +1,66 @@
 # RetroRecomp v1.9.0 — Multiplayer: play your converted games together, on the local network or over the Internet
 
-- **Multiplayer, on every machine.** Play a converted game with friends, each on their own PC: one player hosts a room from the new
-  **Multiplayer** window (or right-clicks a game in Compiled Games), the others join with the invitation, everyone presses
-  **I'm ready**, and the host launches the game on every PC. Only the controllers travel, never the game
-  ([MULTIPLAYER.md](MULTIPLAYER.md)).
-  - **Local or Internet.** A room is on the local network (or a VPN between friends) by default, every time. **Internet** gives a key
-    that holds the host's public address: the box opens the port when it agrees (UPnP, then NAT-PMP), IPv6 is used when the PC has it,
-    and the window says plainly when the host cannot be reached and what to try. Three warnings are confirmed before an Internet room
-    opens. Everything a room sends is encrypted, and nobody joins without the invitation.
-  - **Three ways to share the controls:** one controller per player, everyone on the same controls at once, or in turns (F2's Pass
-    and Give the controller). **One controller per player** goes up to four on the machines that had four: the NES Four Score, the
-    Mega Drive's Team Player, 4 Way Play and J-Cart, the Super Nintendo and PC Engine multitaps, the CPS boards and the Nintendo 64;
-    two on the others.
-  - **The handhelds' link cable.** On the Game Boy, the Game Gear and the Game Boy Advance, « one controller per player » is the link
-    cable: each player plays their own console, linked as by a real cable (Tetris and Dr. Mario on the Game Boy, Super Columns on the
-    Game Gear). **Every Game Boy Advance game links**: where a game's cable code was not seen running during its conversion, it runs
-    on the counted interpreter in the match, and the report counts it. In a Game Boy Advance match each PC draws only the console it
-    shows (Mario Kart: Super Circuit's link frame takes 13.5 % less CPU time). The owner played the whole link panel on two PCs on
-    21 November 2026. Multi-pak only: a game that sends itself to the other console from one cartridge (multiboot) does not link yet.
-    The PlayStation does not offer the link.
-  - **Smooth (rollback) or delay.** The 2D consoles, the arcade boards and the computers do not wait for a far player's buttons: they
-    guess them and correct themselves when the true ones arrive. The PlayStation, the Nintendo 64 and the Game Boy Advance wait a frame
-    or two for every player instead.
-  - **The host leads.** Restart, F8 and F9 save and load the match for everyone, from the host only, in memory for that match: your own
-    quick states are never touched. The host's game saves are everyone's for the match and, on most machines, written back to the
-    host's own file at a clean end. Settings that change the run (PGXP, the Amiga's CPU speed, the Neo Geo's boost, the CPS DIP
-    switches…) are the host's; the host can change one during the match, and the game starts again for everyone with it. On the
-    Amiga, Atari ST, X68000 and MSX the host types on the computer's keyboard for everyone.
-  - **A chat in the game** (Y, or R3 + Select on the gamepad), with ready-made phrases or free text. The Help window has a
-    Multiplayer card, and every game launched from the converter keeps a log in `datas/logs/games`, with how each match ended.
-  - **What is checked.** Every PC compares its machine's state with the host's every second, and a match stops with a reason rather
-    than letting two screens drift apart. Each machine's rewinding was proven on real games run as two copies with simulated latency
-    and lost packets, and on two PCs on a home network; the owner played over the Internet between two PCs. Physical latency is not
-    measured: the input delay is counted in frames, which is not the same measure. Not carried yet: the mouse, light guns and a guest's
-    keyboard; no restart in a Nintendo 64 match, no disc change in a PlayStation match.
-- **Every machine: the sound no longer crackles.** On the NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64 and PlayStation, the
-  sound now follows the sound card's clock, alone and in a match (Tekken 3 crackled on the owner's PC): its speed and pitch move by at
-  most 0.5 %, usually about 0.01 %, instead of clicks. No latency is added on average; physical latency is not measured.
-- **Every machine: a new F2 menu.** The gamepad opens it: a new **Options** control, the Guide button by default (any button or
-  combination can be chosen on player 1's gamepad page), opens and closes the tiles; Back returns from a page to the tiles, then to
-  the game. The main page, **MENU**, has one **Controls** tile that opens the players' keyboard and pad pages (four to a row), a
-  **Display mode** tile that cycles window, pixel perfect, fit and stretched (as F4 does), a redrawn **Restart the game** tile (in
-  a match, the host's restart for everyone) and **Quit the game** last (it asks Quit? No / Yes, as Esc does). A one-time notice says
-  when a game falls back to SDL's software renderer on a real screen.
-- **The converter.**
-  - **A new toolbar and a new Convert button.** The window's buttons are icons in one toolbar, with larger Front-end and Multiplayer
-    buttons; Convert is a wide button that shows the whole conversion from left to right.
-  - **The front-end** opens in the window (a **Full screen** button appears beside it; X on the gamepad and F11 still switch, and
-    **Options › Common** can still start in it full screen); its console strip follows the mouse wheel and Ctrl+Left / Ctrl+Right;
-    its covers no longer stay blurred, and a cover can be refreshed from its right-click menu. It opens on Linux too.
-  - **Covers** are found more often: ScreenScraper by the dump's own identity, arcade sets by their exact MAME edition, and the
-    cover services reviewed for every machine.
-  - **The leaderboard** is a flight of steps (« Marches ») with the podium's real portraits, or the portrait the site generates;
-    the ranking rows show no avatar, and the rules panel closes.
-  - **Windows fit the screen they open on** and stay on it; scrollbars have a thumb you can drag again. A dialog can no longer be
-    answered by itself after an earlier one closed (the Stop dialog), and no delayed call runs on a window already closed.
-  - **Compiled Games** shows, beside the version that built a game, the newest release it is still up to date with.
-  - **Community:** the README and the issue page link the RetroRecomp Discord server.
-- **Windows: games packed with UPX NRV again**, as on Linux: they start sooner and are 4 to 23 % larger.
-- **PC Engine: the second pad works in a local two-player game** (the multitap is plugged for every game built for two players or
-  more).
-- **Speed.** An optimisation pass cut the CPU time per frame on the player's path. Each figure below is one change measured against
-  its own base (the main of the moment, the same game), on a quiet PC, with identical output; the figures do not add up to one
-  1.8.0 → 1.9.0 figure, which was not measured after these changes.
-  - The shared sound converter, now computed side by side (SSE2 or AVX2): Master System Sonic −30 %, MSX2 Space Manbow −23 %.
-  - PC Engine, a cheaper frame: Blazing Lazers −30 %.
-  - MSX, the picture through a colour table: Space Manbow −23 %, Manbow 2 −20 %; a silent MSX-MUSIC chip: Manbow 2 −10 %.
-  - Nintendo 64, the FPU rounding mode set only when it changes: Super Mario 64 −19 % (the runs spread by 16 to 20 %).
-  - NES, four changes to its sound and picture: Metroid −13 %, then −8 %, −3 % and −3 %.
-  - PlayStation, native runs no longer cut at entered addresses: Ape Escape −10 %.
-  - Game Boy, sprite lines in runs: Super Mario Land −7 %; Neo Geo, the sprite scan: Puzzle De Pon! −6 %; Mega Drive, the planes:
-    Sonic 2 −3 %; CPS-1, the guarded step: Final Fight −3 %.
-  - In a Game Boy Advance link match, each PC drawing only its own console: Mario Kart: Super Circuit −13.5 %.
-  - **What 1.9.0 adds:** the Gear-to-Gear cable costs a solo Game Gear 7 % more engine time per frame than in 1.8.0 (on the
-    player's path +1.4 %, inside the runs' spread); a linked Game Boy match costs each seat about 50 % more than one console,
-    since every PC runs both.
-  - Windows games start sooner with UPX NRV (a second start of a Master System game: 119 ms to 59 ms); that is start-up, not frame
-    cost.
+### Multiplayer, on every machine ([MULTIPLAYER.md](MULTIPLAYER.md))
 
-  These are host CPU costs on one PC, not latency. The rows of [PERFORMANCE.md](PERFORMANCE.md) and the README's « CPU per frame »
-  column were timed before these changes, so their changes against 1.8.0 do not include them.
+- Rooms on the local network or over the Internet, joined with an encrypted invitation key; nobody joins without it.
+- Internet: the box opens the port (UPnP, then NAT-PMP), or IPv6; three warnings first; the window says what to try when the
+  host cannot be reached; an optional firewall rule in the Windows installer.
+- Up to four players (NES Four Score, Mega Drive Team Player, 4 Way Play and J-Cart, Super Nintendo and PC Engine multitaps, CPS
+  boards, Nintendo 64), two on the others.
+- Three play modes: one controller per player, everyone at once, or turns with F2's Pass and Give the controller.
+- Rollback on the 2D consoles, arcade boards and computers; a frame or two of delay on the PlayStation, Nintendo 64 and Game Boy
+  Advance.
+- The handhelds' link cable: Game Boy, Game Gear and every Game Boy Advance game (counted interpreter where the cable code was not
+  seen), each PC drawing its own console; played on two PCs by the owner on 21 November; multi-pak only, no multiboot yet.
+- The host leads: Restart, and F8 / F9 quick saves for everyone, kept in memory for the match.
+- The host's game saves for everyone, written back to the host's file at a clean end.
+- The host's settings for everyone (PGXP, Amiga CPU speed, Neo Geo boost and machine, CPS DIP switches…), changed in a match with a
+  restart for all.
+- The host types on the computers' keyboard (Amiga, Atari ST, X68000, MSX).
+- In-game chat (Y, or R3 + Select) with ready-made phrases or free text.
+- A state check against the host every second; a match stops with a reason rather than drifting.
+- Game logs in `datas/logs/games`, with how each match ended; a Multiplayer card in Help; the Amiga's F1 says how two play.
+- Not carried yet: mouse, light guns, a guest's keyboard; no restart in a Nintendo 64 match, no disc change in a PlayStation match.
 
-**Your exports and quick states.** 1.9.0 moves the game, host and build stamps of every machine (measured between `v1.8.0` and main
-`9ca18056`), so **every export of 1.8.0 is converted again once** on the first batch after you update, from the paths it already
-learned. A quick state of 1.8.0 is refused cleanly, with a message, on the machines whose state key moves: the Mega Drive, the Super
-Nintendo, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the PC Engine, the PlayStation, the NES, the X68000, the Nintendo 64, the two
-Amigas and the Atari ST. It loads on the Master System, the Game Gear, the Game Boy, the Game Boy Advance and the MSX, MSX2 and MSX2+,
-whose state formats did not change. Cartridge saves, memory cards and the copies of written disks are kept
+### In the game
+
+- F2's main page, MENU: one Controls tile for the players' keyboard and pad pages, a Display mode tile (window, pixel perfect, fit,
+  stretched, as F4), a redrawn Restart tile, Quit the game as the last tile.
+- The pad opens F2: a new Options control, the Guide button by default.
+- Sound without crackles on the NES, Game Boy, PC Engine, Game Boy Advance, Nintendo 64 and PlayStation (pitch moves at most
+  0.5 %, usually about 0.01 %).
+- A one-time notice when a game falls back to SDL's software renderer.
+- PC Engine: the second pad works in a local two-player game.
+
+### The converter
+
+- A new toolbar, a new Convert button, and the Multiplayer window.
+- The front-end opens in the window, with a Full screen button; the mouse wheel and Ctrl+Left / Ctrl+Right change console; covers
+  no longer blurred, and Refresh on a cover; the front-end opens on Linux too.
+- Covers found more often: ScreenScraper by the dump's identity, arcade sets by their exact edition, every machine's services.
+- The leaderboard « Marches », with the podium's real portraits.
+- Compiled Games: Play and Convert stand out, and the newest release an export is still up to date with.
+- Windows fit the screen they open on; scrollbars have a thumb again; the Stop dialog can no longer be answered by itself.
+- A link to the RetroRecomp Discord server.
+
+### Speed
+
+CPU time per frame on the player's path, change by change, each against its own base on a quiet PC, with identical output (not
+one combined figure): the shared sound converter (Master System −30 %, MSX2 −23 %), PC Engine −30 %, the MSX picture (−23 %,
+−20 %), Nintendo 64 −19 %, NES up to −13 %, Game Boy Advance link match −13.5 %, PlayStation −10 %, MSX-MUSIC −10 %, Neo Geo
+−6 %. The Amiga's and the Nintendo 64's evidence gains speed up only the headless checks. What 1.9.0 adds: the Gear-to-Gear
+cable costs a solo Game Gear 7 % more engine time, and a linked Game Boy match about 50 % more per seat. The rows of
+[PERFORMANCE.md](PERFORMANCE.md) and the README's column were timed before these changes. Host CPU costs on one PC, not latency.
+
+### Packaging
+
+- Windows games packed with UPX NRV again, as on Linux: they start sooner and are 4 to 23 % larger.
+
+**Your exports and quick states.** 1.9.0 moves the game, host and build stamps of every machine, so **every export of 1.8.0 is
+converted again once** on the first batch after you update, from the paths it already learned. A quick state of 1.8.0 is refused
+cleanly, with a message, on the Mega Drive, the Super Nintendo, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the PC Engine, the
+PlayStation, the NES, the X68000, the Nintendo 64, the two Amigas and the Atari ST; it loads on the Master System, the Game Gear, the
+Game Boy, the Game Boy Advance and the MSX family. Cartridge saves, memory cards and the copies of written disks are kept
 ([UPGRADES.md](UPGRADES.md#exports-of-180-in-190)).
 
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
