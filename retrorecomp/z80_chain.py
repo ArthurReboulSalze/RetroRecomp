@@ -19,6 +19,7 @@ What a machine without the Sega runner asks of the step loop is data too: a call
 (`step_begin`), the hardware left alone inside a chain of redundant prefixes (`irq_sample='instruction_end'`) and the
 copies between the translated register file and the reference CPU of the fallback (`reference_state`,
 native/banked_reference_state.inc). The Sega mapper asks for none: its loop is native/banked_runtime.inc itself.
+A machine with a /NMI pin (`nmi`) gets the check of an edge at the end of every instruction and the chain's one `banked_accept_nmi`.
 
 Game role, group `shares:z80_main` (retrorecomp/stamp_inputs.py): an edit moves the game stamp of the machines on the chain.
 It imports no module of the converter.
@@ -134,12 +135,19 @@ class Z80Machine:
     # .deps/recompiler-build<tag>...). Empty for the Sega mapper, whose folders predate it; another machine names its own, so
     # that two machines never rebuild each other's generator.
     generator_tag: str = ''
+    # The machine has a /NMI input (the ColecoVision's VDP, the SG-1000's pause button). The loop then asks the machine's glue,
+    # at the end of every instruction once the hardware has caught up, whether a falling edge of /NMI is waiting
+    # (`banked_nmi_edge()`: nonzero once per edge, consuming it) and, if so, accepts it (`banked_accept_nmi`) instead of /INT:
+    # the NMI is never masked, not even by EI's one-instruction delay, and has priority. Off: no byte of the text changes.
+    nmi: bool = False
 
     def __post_init__(self):
         if not 0 <= self.m1_wait <= 3:
             raise ValueError('Z80 machine: 0 to 3 wait states per M1 cycle.')
         if self.irq_sample not in IRQ_SAMPLES:
             raise ValueError('Z80 machine: /INT is sampled at step_start or at instruction_end.')
+        if self.nmi and self.irq_sample != 'instruction_end':
+            raise ValueError('Z80 machine: /NMI is read at the end of an instruction, once the hardware has caught up (instruction_end).')
         if self.generator_tag and not (self.generator_tag.startswith('-') and self.generator_tag[1:].isalnum()):
             raise ValueError('Z80 machine: the generator tag is empty or a hyphen and letters or digits.')
 
@@ -179,6 +187,28 @@ def _once(source: str, old: str, new: str) -> str:
     if source.count(old) != 1:
         raise ValueError(f'The banked runtime changed; the Z80 chain must follow: {old[:90]!r}')
     return source.replace(old, new, 1)
+
+
+# The Z80's non-maskable interrupt, written once for every machine that has the pin (`Z80Machine.nmi`). The return address is
+# pushed and execution goes on at $0066 (11 T-states, one refresh); IFF1 is cleared and IFF2 keeps what it was, so that RETN
+# restores it. EI's pending delay does not hold it back (it only holds back /INT) and it ends a HALT, the PC being the
+# instruction after the HALT as for /INT. The Q and P latches are cleared; the parity flag of LD A,I / LD A,R is an /INT
+# artefact and is left alone. cpu.prepare_reference(nmi=True) gives the reference CPU the same acceptance.
+_NMI_ACCEPT = '''/* The Z80 NMI (retrorecomp/z80_chain.py): the return address is pushed and execution goes on at $0066; IFF1 is cleared, IFF2
+ * keeps its value, a HALT ends, and EI's delay does not hold it back. banked_nmi_edge() is the machine's: nonzero once per
+ * falling edge of /NMI. */
+static void banked_accept_nmi(void) {
+    g_z80.p = g_z80.q = 0; g_z80.ei_block = 0;
+    g_z80.iff1 = false; g_z80.halted = false;
+    g_z80.r = (uint8_t)((g_z80.r & 0x80) | ((g_z80.r + 1) & 0x7F));
+    g_z80.cyc += 11;
+    g_z80.sp = (uint16_t)(g_z80.sp - 2); sms_write16(g_z80.sp, g_z80.pc);
+    g_z80.pc = 0x0066; g_z80.wz = g_z80.pc;
+}
+
+'''
+_AFTER_STEP = 'static inline void banked_after_step(int pending_irq) {'
+_TAKE_AFTER_STEP = '        banked_after_step(pending_irq);\n'
 
 
 def _runtime_parts(machine: Z80Machine) -> tuple[str, ...]:
@@ -232,7 +262,9 @@ def _runtime_parts(machine: Z80Machine) -> tuple[str, ...]:
         '        prefix_pending = 0; g_frame_ic++;\n' + ('' if at_start else
             '        banked_advance_vdp(g_z80.cyc);   /* the hardware catches up, then /INT is read at the end of the instruction */\n'
             '        pending_irq = vdp_irq_asserted();\n')
-        + '        banked_after_step(pending_irq);\n',
+        + ('        if (banked_nmi_edge()) banked_accept_nmi(); else banked_after_step(pending_irq);\n' if machine.nmi
+           else _TAKE_AFTER_STEP),
+        _NMI_ACCEPT + _AFTER_STEP if machine.nmi else _AFTER_STEP,
         f'    unsigned counts[{count}] = {{0}};\n'
         f'    for (int s = 0; s < {count}; ++s) for (int b = 0; b < 256; ++b) counts[s] += banked_seen[s][b];\n'
         '    fprintf(stderr, "[banked] native_steps=%llu halt_steps=%llu fallback_steps=%llu banks_seen='
