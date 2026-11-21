@@ -1,5 +1,5 @@
-"""The ZX Spectrum profile, step 1 stage 1 (docs/ZX_SPECTRUM.md): the snapshot reader, the ROM pin, identification and the
-report skeleton. No ROM and no game: every snapshot here is built by the test from authored bytes, and no ROM file is read."""
+"""The ZX Spectrum (docs/ZX_SPECTRUM.md): the snapshot reader, the ROM pin, identification, the report skeleton, the machine
+image and core, the routes and the quick states' envelope. No ROM and no game: every snapshot here is built by the test from authored bytes, and no ROM file is read."""
 import hashlib
 import json
 import tempfile
@@ -353,6 +353,68 @@ class MachineImageTests(unittest.TestCase):
         except SystemExit:
             self.skipTest('no C compiler')
         self.assertEqual(module.main(), 0)
+
+
+class RouteTests(unittest.TestCase):
+    """retrorecomp/zxs_routes.py: what a conversion plays (numbers about inputs, no ROM)."""
+
+    def test_the_start_presses_come_first_and_the_walk_drives_the_snapshots_controls(self):
+        from retrorecomp import zxs_routes as routes
+        seed = routes.route_seed('ab' * 32, 'play')
+        cursor = routes.events(1800, seed, (2, 'SPACE'), 'cursor')
+        self.assertEqual(cursor, routes.events(1800, seed, (2, 'SPACE'), 'cursor'))      # deterministic
+        presses = [event for event in cursor if event[1] < routes.walk_start(2)]
+        self.assertEqual(presses, [('key', 150, 7, 0, 1), ('key', 156, 7, 0, 0), ('key', 390, 7, 0, 1), ('key', 396, 7, 0, 0)])
+        frames = [event[1] for event in cursor]
+        self.assertEqual(frames, sorted(frames))
+        self.assertTrue(all(event[1] < 1800 for event in cursor))
+        # Cursor keys 5-8 and 0 for pad 1; a Kempston snapshot moves the port, never those keys.
+        pad = set(routes.PAD_KEYS['cursor'].values())
+        self.assertTrue(any((event[2], event[3]) in pad for event in cursor if event[0] == 'key' and event[1] >= 900))
+        kempston = routes.events(1800, seed, (2, 'SPACE'), 'kempston')
+        self.assertTrue(any(event[0] == 'kempston' for event in kempston))
+        directions_only = pad - set(routes.MENU_KEYS)                          # '0' is both fire and a menu key
+        self.assertFalse(any(event[0] == 'key' and (event[2], event[3]) in directions_only for event in kempston))
+        self.assertTrue(all(0 <= event[2] <= 0x1F for event in kempston if event[0] == 'kempston'))
+
+    def test_the_script_is_the_text_the_headless_programs_read(self):
+        from retrorecomp import zxs_routes as routes
+        text = routes.script([('kempston', 920, 0x11), ('key', 150, 6, 0, 1), ('key', 156, 6, 0, 0)])
+        self.assertEqual(text, '150 key 6 0 1\n156 key 6 0 0\n920 kempston 11\n')
+
+    def test_the_levels_name_their_routes_and_the_variants_leave_a_walk(self):
+        from retrorecomp import zxs_routes as routes
+        from retrorecomp.scan_levels import LONG_ROUTES
+        identity = 'cd' * 32
+        self.assertEqual([name for name, _, _ in routes.routes(identity, frames=1800, level='quick')], ['play'])
+        standard = routes.routes(identity, frames=1800, level='standard')
+        self.assertEqual([name for name, _, _ in standard][:2], ['attract', 'play'])
+        self.assertEqual(standard[0][2], '')                                    # the attract route has no input
+        self.assertEqual(len(standard), 2 + LONG_ROUTES['standard'])
+        self.assertNotEqual(routes.route_seed(identity, 'long-1'), routes.route_seed(identity, 'long-2'))
+        variants = routes.candidates(1800)
+        self.assertEqual(len(variants), 12)                                     # four keys, presses 1 to 3 fit 1,800 frames
+        self.assertTrue(all(routes.walk_start(presses) + 600 <= 1800 for presses, _ in variants))
+        self.assertEqual(min(variants, key=routes.variant_order), (1, 'ENTER'))
+        self.assertEqual(routes.variant_name((3, '0')), '3x0')
+
+
+class QuickStateTests(unittest.TestCase):
+    def test_the_damaged_copies_hit_the_shared_envelopes_fields(self):
+        # zxs_conversion.check_states uses the MSX's list of damaged copies: it is right only while the Spectrum's state is the
+        # shared envelope (native/state_envelope.h, 88 bytes of header, then the build binding the player checks first).
+        root = Path(__file__).resolve().parents[1]
+        envelope = (root / 'native/state_envelope.h').read_text(encoding='utf-8')
+        self.assertIn('#define RR_STATE_ENVELOPE_HEADER 88u', envelope)
+        player = (root / 'native/zxs_machine/zxs_player.c').read_text(encoding='utf-8')
+        self.assertIn('RetroStateEnvelope e = {"RRZXSST\\0"', player)
+        self.assertIn('memcmp(data + RR_STATE_ENVELOPE_HEADER, zxs_state_binding, 32)', player)
+        from retrorecomp.zxs_conversion import STATE_SETTLE, check_states  # noqa: F401 - the conversion's own gate
+        from retrorecomp.msx_conversion import damaged_states
+        state = bytes(range(256)) * 4
+        damaged = damaged_states(state)
+        self.assertEqual(damaged['binding'][88], state[88] ^ 0x80)
+        self.assertTrue(all(copy != state for copy in damaged.values()))
 
 
 if __name__ == '__main__':

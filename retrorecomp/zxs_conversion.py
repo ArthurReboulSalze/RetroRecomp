@@ -1,10 +1,10 @@
-"""ZX Spectrum conversion (docs/ZX_SPECTRUM.md), step 1 stage 2 in progress.
+"""ZX Spectrum conversion (docs/ZX_SPECTRUM.md).
 
 `convert` reads the snapshot and the ROM (retrorecomp/zxs_roms.py: the player's own, or the pinned Amstrad images), chooses how the
 play route starts on the reference interpreter (route_start, zxs_routes), translates the ROM and learns the code the snapshot runs
 from RAM (zxs_build.learn), then compares every native route with the reference, field by field and frame by frame, and refuses the
-conversion on any difference. The game, its delivered file and its quick states come with the player (`deliver_game`, not wired yet:
-the conversion stops there). The report goes through the common builder; it states the hardware limits (no ULA contention, no
+conversion on any difference. Then the game is built, its delivered (compressed) file replayed on every route against the
+reference, and its quick states checked in fresh processes (`deliver_game`). The report goes through the common builder; it states the hardware limits (no ULA contention, no
 floating bus, the border drawn per line) and keeps the five measures apart.
 
 The route (the maintainer's choice of 21 November 2026, route A): the shared banked Z80 chain the Master System and the MSX
@@ -39,7 +39,7 @@ def skeleton_report(source, scenarios, level='standard') -> dict:
             'native_coverage': 'not measured', 'final_checks': checks, 'zxs_checks': checks,
             'game_states': {'supported': False, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': False},
             'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
-            # A hardware-fidelity limit every report states until the contention stage lands (docs/ZX_SPECTRUM.md, section 4).
+            # A hardware-fidelity limit every report states until the contention stage lands (docs/ZX_SPECTRUM.md, section 5).
             'hardware_limits': ['ULA memory contention is not modelled: every instruction takes its plain Z80 time']}
 
 
@@ -48,16 +48,17 @@ def write_skeleton_report(path, source, scenarios, level='standard') -> dict:
 
 
 def developer_available() -> bool:
-    """True when this installation carries the ZX Spectrum converter files. Nothing converts yet, so none does."""
+    """True when this installation offers the ZX Spectrum. A development tree converts through `convert`; no installation lists
+    the machine before its first panel (docs/NEW_MACHINE.md, step 1), so none does yet."""
     return False
 
 
-# ---- the conversion (step 1, stage 2) ------------------------------------------------------------------------------------------
+# ---- the conversion ---------------------------------------------------------------------------------------------------------
 FRAMES = 3600                    # the batch's default route length (the profile's default_frames)
 LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame',
                                         'audible_frames', 'last_audible_frame', 'distinct_sound_blocks', 'distinct_ram_states',
                                         'distinct_program_counters')}
-CONTENTION = 'not modelled: every instruction takes its plain Z80 time (docs/ZX_SPECTRUM.md, section 4)'
+CONTENTION = 'not modelled: every instruction takes its plain Z80 time (docs/ZX_SPECTRUM.md, section 5)'
 
 
 def hardware_devices(snapshot) -> list:
@@ -222,7 +223,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'reference_match': True, 'compared_fields': list(zxs_build.COMPARED),
             'frame_trace': native['frame_trace'], 'ram_hash': native['ram_fnv'], 'image_hash': native['frame_fnv'],
             'pcm_hash': native['audio_fnv'], 'pcm_samples': native['audio_samples'], 'interrupts': native['interrupts'],
-            'frame_rows_equal': True, 'liveness': report_fields(liveness[name], LIVENESS_FIELDS)})
+            'frame_rows_equal': True, 'packed_rows_equal': True, 'liveness': report_fields(liveness[name], LIVENESS_FIELDS)})
     report = {'tool': 'Retro-Recomp', 'version': __version__,
               'system': {'id': 'zxs', 'name': 'ZX Spectrum', 'model': snapshot.model}, 'status': 'experimental',
               'rom': {**snapshot.metadata(), 'file': Path(path).name}, 'converted': True,
@@ -278,8 +279,86 @@ def route_warnings(final_checks: list) -> list:
     return words(final_checks)
 
 
+STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
+
+
 def deliver_game(work, snapshot, rom, image, title, routes, options, compared, emit, timings, presentation) -> dict:
     """The game, its delivered (compressed) file replayed against the reference, its quick states: the player's part of the
-    conversion (native/zxs_machine/zxs_player.c, native/hostkit/adapters/rrhk_zxs.inc). Not wired yet: the conversion stops here."""
-    raise ConversionError('ZX Spectrum: the native runs equal the reference; the player is not built yet (step 1, stage 2 in '
-                          'progress), so nothing is delivered.')
+    conversion (native/zxs_machine/zxs_player.c, native/hostkit/adapters/rrhk_zxs.inc), on the MSX's pattern. `compared` maps
+    each route to (native report, reference report, reference rows, differences); `options(name, frames, script)` gives a route's
+    options. Returns the build, the report's delivery fields and the quick states' record."""
+    import time
+    from . import zxs_build
+    from .delivery_evidence import deliver_packed, replay_packed, same_trace
+    phase = time.perf_counter()
+    emit('ZX Spectrum: building the game.')
+    try:
+        prepared = zxs_build.prepare_game(work, title, snapshot.sha256, rom.data, image, emit, presentation=presentation)
+        zxs_build.stage_sources(work)
+        executable = zxs_build.build(work, ('game',), emit)['game']
+    except Exception as error:  # noqa: BLE001 - the build's own log names the cause
+        raise ConversionError(f'ZX Spectrum: the game could not be built ({error}).') from None
+    timings['game_build'] = round(time.perf_counter() - phase, 3)
+    # The delivered file (G5): the compressed copy the player receives, replayed headless on every route and compared with the
+    # fresh reference (report and every frame's row); delivery_evidence falls back to the build if the compression fails.
+    phase = time.perf_counter()
+    folder = work / 'routes'
+    delivered = deliver_packed(executable, work / ('packed-' + executable.name), 'ZX Spectrum', emit)
+
+    def replay(route):
+        name = route[0]
+        return zxs_build.run_game(delivered.path, [*options(*route), '--rows', str(folder / f'{name}-packed.csv')],
+                                  folder / f'{name}-packed.json')
+
+    def same(route, result):
+        name = route[0]
+        return not zxs_build.differences(result, compared[name][1]) and same_trace(folder / f'{name}-packed.csv', compared[name][2])
+    try:
+        replay_packed(delivered, routes, replay, same=same, workers=2, mismatch=lambda route: ConversionError(
+            f'ZX Spectrum: the delivered (compressed) game differs from the reference on the {route[0]} route; nothing was '
+            'published.'))
+    except zxs_build.ZxsBuildError as error:
+        raise ConversionError(f'ZX Spectrum: {error}') from None
+    timings['packed_replay'] = round(time.perf_counter() - phase, 3)
+    # Quick states (G6) on the delivered file: saved near the play route's end, continued by a fresh process.
+    phase = time.perf_counter()
+    emit('ZX Spectrum: checking quick states in a fresh process.')
+    play = next(route for route in routes if route[0] == 'play')
+    try:
+        states = check_states(delivered.path, work / 'states', 'play', play[1], options(*play)[2:], folder / 'play-packed.csv')
+    except zxs_build.ZxsBuildError as error:
+        raise ConversionError(f'ZX Spectrum: {error}') from None
+    timings['quick_states'] = round(time.perf_counter() - phase, 3)
+    return {'executable': executable, 'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
+            'validation_fields': delivered.validation_fields(),
+            'report_fields': {**delivered.report_fields(), 'delivered_file': delivered.kind},
+            'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'schema': 'RRZXSST-1',
+                            'compatibility': 'the exact snapshot, ROM and build', 'fresh_process_verified': True,
+                            'validation': states}}
+
+
+def check_states(game: Path, folder: Path, name: str, frames: int, route_rest: list[str], expected: Path) -> dict:
+    """F8 at a frame of the route, F9 in a fresh process (conversion_gates.check_quick_states, as the MSX): the loaded process
+    continues the uninterrupted trace `expected` for STATE_SETTLE frames; damaged states are refused and left as they were; a
+    missing state is refused and creates nothing. `route_rest`: the route's options without its frame count."""
+    from . import zxs_build
+    from .conversion_gates import check_quick_states
+    # The envelope is the one the Z80 machines share (native/state_envelope.h, the build binding at 88): the MSX's offsets.
+    from .msx_conversion import damaged_states
+    folder.mkdir(parents=True, exist_ok=True)
+    at = max(60, frames - STATE_SETTLE - 60)
+    state = folder / 'quick.rrstate'
+    state.unlink(missing_ok=True)
+
+    def continued():
+        zxs_build.run_game(game, ['--frames', str(at + 1), *route_rest, '--rows', str(folder / 'save.csv'),
+                                  '--save-state', str(state), '--save-at', str(at)], folder / 'save.json')
+        zxs_build.run_game(game, ['--frames', str(at + STATE_SETTLE), *route_rest, '--rows', str(folder / 'load.csv'),
+                                  '--load-state', str(state)], folder / 'load.json')
+        return (expected.read_text(encoding='ascii').splitlines()[1:],
+                (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:])
+
+    def refused(path: Path) -> bool:
+        return zxs_build.game_exit_code(game, ['--frames', '1', '--load-state', str(path)]) == 4
+    return check_quick_states(folder, state, machine='ZX Spectrum', route=name, at=at, settle=STATE_SETTLE, continued=continued,
+                              refused=refused, damaged=damaged_states, error=ConversionError)

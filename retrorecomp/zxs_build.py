@@ -2,8 +2,8 @@
 
 The image is what native/zxs_machine/zxs_machine.c loads (`zxs_load_image`): a 64-byte header (the model, the ports, the
 CPU's registers, the T-state within the frame) and the eight RAM banks of 16 KiB. It is built from the snapshot alone; the ROM
-is the machine's other input (retrorecomp/zxs_roms.py). The generated bodies, the project and the runs come with the
-conversion of stage 2.
+is the machine's other input (retrorecomp/zxs_roms.py). Then the generated bodies, the project, the headless runs (reference,
+native check, the game) and the learning of the RAM code, for retrorecomp/zxs_conversion.py.
 """
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def zxs_image(snapshot: Snapshot) -> bytes:
     return bytes(header) + banks
 
 
-# ---- the build (stage 2) -------------------------------------------------------------------------------------------------------
+# ---- the build ----------------------------------------------------------------------------------------------------------------
 # The fields a native run must give exactly as the reference does: the CPU (main and shadow registers, I, R, IM, IFF, WZ, HALT),
 # time and interrupts, the RAM, the picture of the last frame and a running hash of every frame, the sound, the ports and the AY.
 COMPARED = ('frames', 'cycles', 'interrupts', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'sp', 'pc', 'af2', 'bc2', 'de2', 'hl2', 'i', 'r',
