@@ -149,7 +149,7 @@ class StampTests(unittest.TestCase):
         for name in ('ay38910.c', 'ay38910.h'):
             self.assertTrue((ROOT / 'native/ay38910' / name).is_file(), name)
             self.assertIn('native/ay38910/' + name, ay)
-        self.assertEqual(stamp_inputs.sharing('ay38910'), ('msx', 'msx2', 'msx2plus', 'zxs'))     # the ZX Spectrum 128K's too
+        self.assertEqual(stamp_inputs.sharing('ay38910'), ('msx', 'msx2', 'msx2plus', 'zxs', 'cpc'))     # the ZX Spectrum 128K's too
 
 
 if __name__ == '__main__':

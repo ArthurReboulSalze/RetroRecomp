@@ -64,6 +64,7 @@ REMOVING = '.retro-recomp-removing-'
 #   msx     msx_conversion.py  msx/<sha12>-<BIOS8>         (MSX and MSX2 alike)
 #   sg1000  sg1000_conversion  sg1000/<sha12>             (the reference, the headless check and the game; the machine's conversion)
 #   coleco  coleco_conversion  coleco/<sha12>-<BIOS8>      (as the SG-1000's, and the player's BIOS: the MSX's folder name)
+#   cpc     (in development)   cpc/<sha12>-<firmware8>     (the MSX's layout)
 #   scummvm scummvm_export.py  scummvm/<sha12>
 #   x68     x68000_conversion  x68/<win|win-llvm|linux>/<SDK12>/<machine16>
 #   amiga   amiga_conversion   amiga/<win|win-llvm|linux>/<SDK12>/<sha16>
@@ -85,7 +86,7 @@ _X68_SDK = re.compile(r'[0-9a-f]{12}')
 _X68_GAME = re.compile(r'[0-9a-f]{16}')
 _MSX = re.compile(r'([0-9a-f]{12})-[0-9a-f]{8}')
 # Machines whose project is <machine>/<12 hex>[-...]: (folder, pattern).
-_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('pcecd', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE),
+_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('pcecd', _PCE), ('psx', _PCE), ('msx', _MSX), ('cpc', _MSX), ('scummvm', _PCE),
          ('zxs', _MSX),   # the ZX Spectrum (in development): laid out as the MSX's, on the same Z80 chain
          ('sg1000', _PCE),   # the SG-1000: <sha12>, no BIOS
          ('coleco', _MSX))   # the ColecoVision (in development): <sha12>-<BIOS8>, laid out as the MSX's

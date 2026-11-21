@@ -120,6 +120,15 @@ native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_do
 native/audio_box.h native/audio_box_checks.c tools/audio_box_selftest.py tests/test_audio_box.py
 native/z80_chain_state.inc native/state_file.h native/state_file_checks.c tools/z80_chain_state_selftest.py tests/test_z80_chain_state.py
 native/disk_copies.inc native/disk_copies_checks.c tools/disk_copies_selftest.py tests/test_disk_copies.py
+retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
+retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
+retrorecomp/systems/amstrad_cpc.py native/cpc_machine/cpc_reference_main.c tools/cpc_reference.py tests/test_cpc_reference.py native/cpc_machine/cpc_native_main.c native/cpc_machine/cpc_headless.inc native/cpc_machine/cpc_player.c native/cpc_machine/cpc_state_file.inc native/cpc_machine/cpc_boot_input.h retrorecomp/cpc_conversion.py retrorecomp/cpc_roms.py retrorecomp/cpc_routes.py tests/test_cpc_routes.py licenses/amstrad-cpc-roms.md retrorecomp/state_envelope.py tests/test_cpc_conversion.py tests/test_cpc_roms.py tools/cpc_native.py tests/test_cpc_native.py
+native/hostkit/adapters/rrhk_boot_keys.h native/hostkit/adapters/rrhk_cpc_keys.h native/hostkit/adapters/rrhk_cpc.inc retrorecomp/cpc_keys.py tests/test_cpc_keys.py
+retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
+native/cpc_machine/cpc_bus.h native/cpc_machine/cpc_crtc.c native/cpc_machine/cpc_crtc.h native/cpc_machine/cpc_gate_array.c native/cpc_machine/cpc_gate_array.h
+native/cpc_machine/cpc_ppi.c native/cpc_machine/cpc_ppi.h native/cpc_machine/cpc_machine.c native/cpc_machine/cpc_machine.h native/cpc_machine/cpc_state.c native/cpc_machine/cpc_state.h native/cpc_machine/cpc_glue.inc native/cpc_machine/cpc_hardware_checks.c tools/cpc_hardware_selftest.py
+native/upd765/dsk_image.c native/upd765/dsk_image.h native/upd765/upd765.c native/upd765/upd765.h native/upd765/upd765_checks.c
+tools/upd765_selftest.py retrorecomp/cpc_timing.py tools/cpc_timing_table.py tests/test_cpc_timing.py tests/test_cpc_disk.py tests/test_cpc_hardware.py tests/test_cpc_profile.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c

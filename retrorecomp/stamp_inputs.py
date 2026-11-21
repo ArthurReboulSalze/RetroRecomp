@@ -208,7 +208,9 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
-    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc', 'hostkit/adapters/rrhk_keypad.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc', 'hostkit/adapters/rrhk_keypad.inc',
+    # The Amstrad CPC's (in development, its adapter to come): the boot key sequence player and its key table.
+    'hostkit/adapters/rrhk_boot_keys.h', 'hostkit/adapters/rrhk_cpc_keys.h')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
 # No file outside the prefixes below is a host input any more: THIRD_PARTY_NOTICES.md, the complete public list of the converter
 # distribution, is embedded in no game since 1.7.3 (each game embeds the notices of its own components, notices.py).
@@ -277,13 +279,15 @@ NOT_INPUTS = (
     # The Z80 chain's CPU state and the quick-state file around the shared envelope: their headers are the groups `shares:z80_chain_state` and
     # `shares:state_file` (the SG-1000 is the first machine to build with them). tools/z80_chain_state_selftest.py builds their checks, never in a game.
     'native/state_file_checks.c',
-    # The copies of the disks a game writes, kept beside the game (machine-neutral): no machine builds with it yet; it joins a group
-    # `shares:disk_copies` with its first machine (the Amstrad CPC). tools/disk_copies_selftest.py builds its checks, never in a game.
-    'native/disk_copies.inc', 'native/disk_copies_checks.c',
+    # tools/disk_copies_selftest.py: the checks of the copies of written disks (native/disk_copies.inc, group shares:disk_copies),
+    # never in a game.
+    'native/disk_copies_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/zxs_machine/zxs_machine_checks.c',      # tools/zxs_machine_selftest.py: the ZX Spectrum core on authored images, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
+    # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
+    'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
@@ -898,6 +902,45 @@ INPUTS = _resolve({
         'retrorecomp.coleco_rom',
         'retrorecomp.coleco_routes',
     ),
+    # The Amstrad CPC (in development, developer only): its disk reader and firmware table, its chips (CRTC, Gate Array, PPI and
+    # keyboard) and the uPD765 with the DSK / EXTENDED DSK reader (machine-neutral, the CPC its first user; the ZX Spectrum +3
+    # would make it a shared group). The game (cpc_player.c) is built by developers only so far: these move only the CPC's own
+    # stamp.
+    ('cpc',): (
+        'native/cpc_machine/cpc_boot_input.h',
+        'native/cpc_machine/cpc_bus.h',
+        'native/cpc_machine/cpc_crtc.c',
+        'native/cpc_machine/cpc_crtc.h',
+        'native/cpc_machine/cpc_gate_array.c',
+        'native/cpc_machine/cpc_gate_array.h',
+        'native/cpc_machine/cpc_glue.inc',
+        'native/cpc_machine/cpc_headless.inc',
+        'native/cpc_machine/cpc_machine.c',
+        'native/cpc_machine/cpc_machine.h',
+        'native/cpc_machine/cpc_native_main.c',
+        'native/cpc_machine/cpc_player.c',
+        'native/cpc_machine/cpc_reference_main.c',
+        'native/cpc_machine/cpc_ppi.c',
+        'native/cpc_machine/cpc_ppi.h',
+        'native/cpc_machine/cpc_state.c',
+        'native/cpc_machine/cpc_state_file.inc',
+        'native/cpc_machine/cpc_state.h',
+        'native/upd765/dsk_image.c',
+        'native/upd765/dsk_image.h',
+        'native/upd765/upd765.c',
+        'native/upd765/upd765.h',
+        'native/hostkit/adapters/rrhk_boot_keys.h',
+        'native/hostkit/adapters/rrhk_cpc_keys.h',
+        'retrorecomp.cpc_build',
+        'retrorecomp.cpc_conversion',
+        'retrorecomp.cpc_disk',
+        'retrorecomp.cpc_firmware',
+        'retrorecomp.cpc_keys',
+        'retrorecomp.cpc_roms',
+        'retrorecomp.cpc_routes',
+        'retrorecomp.cpc_timing',
+        'retrorecomp.state_envelope',     # the envelope's damaged states: the CPC its first user, the others move onto it later
+    ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
     # the player, and its host-kit adapter (host role: in HOST_NATIVE above).
@@ -1273,6 +1316,11 @@ INPUTS = _resolve({
     ),
     'shares:state_file': (
         'native/state_file.h',
+    ),
+    # The copies of the disks a game writes, kept beside the game (native/disk_copies.inc): the Amstrad CPC first, the MSX2+ later
+    # with a proof that its files stay the same. Game role.
+    'shares:disk_copies': (
+        'native/disk_copies.inc',
     ),
     'shares:audio_box': (
         'native/audio_box.h',
