@@ -13,6 +13,7 @@ static void remap(CpcMachine *m)
 }
 
 /* ---- the AY-3-8912 behind the PPI ---- */
+static void sound_to(CpcMachine *m);
 static const uint8_t AY_MASK[16] = { 0xFF, 0x0F, 0xFF, 0x0F, 0xFF, 0x0F, 0x1F, 0xFF, 0x1F, 0x1F, 0x1F, 0xFF, 0xFF, 0x0F,
                                      0xFF, 0xFF };
 
@@ -27,6 +28,7 @@ static void ay_write(void *context, uint8_t value)
     CpcMachine *m = context;
     if (m->ay_latch >= 16)
         return;
+    sound_to(m);                                                     /* the levels so far are the old registers' */
     m->ay_reg[m->ay_latch] = value & AY_MASK[m->ay_latch];
     if (m->ay_latch == 13)
         ay38910_shape_written(&m->ay, m->ay_reg[13]);
@@ -42,6 +44,33 @@ static uint8_t ay_read(void *context)
     return m->ay_reg[m->ay_latch];
 }
 
+/* The output level of each side: A + B / 2 on the left, C + B / 2 on the right, the loudest (all three at 15) at AY_FULL. */
+enum { AY_FULL = 24000 };
+
+static void ay_levels(CpcMachine *m)
+{
+    int levels[3];
+    ay38910_tick(&m->ay, m->ay_reg, levels);
+    m->ay_left = (int)(((int64_t)levels[0] * 2 + levels[1]) * AY_FULL / (3 * 32767));
+    m->ay_right = (int)(((int64_t)levels[2] * 2 + levels[1]) * AY_FULL / (3 * 32767));
+}
+
+/* The sound up to the machine's time: each level held from its tick to the next. */
+static void sound_to(CpcMachine *m)
+{
+    while (m->ay_next <= m->cycles) {
+        audio_box_hold(&m->audio, m->ay_left, m->ay_right, m->ay_next);
+        ay_levels(m);
+        m->ay_next += CPC_AY_TICK;
+    }
+    audio_box_hold(&m->audio, m->ay_left, m->ay_right, m->cycles);
+}
+
+uint32_t cpc_audio_take(CpcMachine *m, int16_t *out, uint32_t max)
+{
+    return audio_box_take(&m->audio, out, max);
+}
+
 void cpc_reset(CpcMachine *m, uint8_t crtc_type)
 {
     memset(m->ram, 0, sizeof m->ram);
@@ -55,6 +84,9 @@ void cpc_reset(CpcMachine *m, uint8_t crtc_type)
     ay38910_reset(&m->ay);
     memset(m->ay_reg, 0, sizeof m->ay_reg);
     m->ay_latch = 16;
+    m->ay_next = CPC_AY_TICK;
+    m->ay_left = m->ay_right = 0;
+    audio_box_init(&m->audio, 2, CPC_CLOCK, CPC_AUDIO_RATE, m->audio_out, CPC_AUDIO_BUFFER, 0);
     m->psg.context = m;
     m->psg.latch = ay_latch;
     m->psg.write = ay_write;
@@ -165,6 +197,7 @@ void cpc_advance(CpcMachine *m, uint64_t tstates)
             ++m->frames;
         }
     }
+    sound_to(m);
 }
 
 uint64_t cpc_next_event(const CpcMachine *m)

@@ -503,6 +503,72 @@ static void check_board_ay(void)
         && (first == 32767 || levels[0] == 32767) && levels[1] == 0);
 }
 
+/* The sound: one channel at a time at volume 15, a tone of period 113 (1 MHz / 16 / 113 = 553 Hz), half a second. */
+enum { SOUND_MAX = 30000 };
+static int16_t sound[SOUND_MAX * 2];
+
+/* As the player does, the samples are taken as the machine runs (each frame), so its buffer never fills. */
+static uint32_t play(CpcMachine *m, uint8_t mixer, int channel, uint64_t step)
+{
+    cpc_reset(m, CPC_CRTC_TYPE1);
+    ay_set(m, (uint8_t)(channel * 2), 113);
+    ay_set(m, (uint8_t)(channel * 2 + 1), 0);
+    ay_set(m, 7, mixer);
+    ay_set(m, (uint8_t)(8 + channel), 15);
+    uint32_t count = 0;
+    for (uint64_t done = 0; done < 2000000; done += step) {
+        cpc_advance(m, step);
+        if (m->frame_ready || done + step >= 2000000) {
+            m->frame_ready = 0;
+            count += cpc_audio_take(m, sound + 2 * count, SOUND_MAX - count);
+        }
+    }
+    return count;
+}
+
+static unsigned rises(const int16_t *stereo, uint32_t count, int side)
+{
+    unsigned n = 0;
+    for (uint32_t i = 1; i < count; ++i)
+        n += stereo[2 * i + side] > 6000 && stereo[2 * (i - 1) + side] <= 6000;
+    return n;
+}
+
+static void check_sound(void)
+{
+    uint32_t count = play(&board, 0x3E, 0, 64);                      /* tone A only */
+    int right_silent = 1, left_loud = 0;
+    for (uint32_t i = 0; i < count; ++i) { right_silent &= sound[2 * i + 1] == 0; left_loud |= sound[2 * i] > 15000; }
+    expect("half a second of sound: 22,050 stereo samples", count == 22050 && board.audio.dropped == 0);
+    expect("channel A on the left only", left_loud && right_silent);
+    unsigned up = rises(sound, count, 0);
+    expect("its pitch: 553 Hz, about 276 rises in half a second", up >= 272 && up <= 280);
+    count = play(&board, 0x3B, 2, 64);                               /* tone C only */
+    int left_silent = 1, right_loud = 0;
+    for (uint32_t i = 0; i < count; ++i) { left_silent &= sound[2 * i] == 0; right_loud |= sound[2 * i + 1] > 15000; }
+    expect("channel C on the right only", left_silent && right_loud);
+    count = play(&board, 0x3D, 1, 64);                               /* tone B only */
+    int equal = 1, some = 0, half = 1;
+    for (uint32_t i = 0; i < count; ++i) {
+        equal &= sound[2 * i] == sound[2 * i + 1];
+        some |= sound[2 * i] > 0;
+        half &= sound[2 * i] <= 24000 / 3 + 1;
+    }
+    expect("channel B on both sides, at half the weight", equal && some && half);
+    static int16_t coarse[SOUND_MAX * 2];
+    uint32_t fine = play(&board, 0x3E, 0, 7);
+    memcpy(coarse, sound, sizeof coarse);
+    uint32_t big = play(&board, 0x3E, 0, 1000);
+    expect("the same samples whether the machine runs 7 T-states or 1,000 at a time", fine == big
+        && !memcmp(coarse, sound, (size_t)fine * 2 * sizeof *sound));
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    cpc_advance(&board, 400000);
+    count = cpc_audio_take(&board, sound, SOUND_MAX);
+    int silent = 1;
+    for (uint32_t i = 0; i < count * 2; ++i) silent &= sound[i] == 0;
+    expect("after reset the AY is silent", count == 4410 && silent);
+}
+
 static void check_boot_keys(void)
 {
     static uint8_t state[SDL_NUM_SCANCODES];
@@ -540,6 +606,7 @@ int main(void)
     check_boot_keys();
     check_machine();
     check_board_ay();
+    check_sound();
     check_crtc();
     check_gate_array();
     check_picture();

@@ -10,7 +10,8 @@ screen (border, display window, a byte changed), the AY written through the PPI 
 the firmware scans them, and the board through its 16-bit ports: the memory map with the ROMs, AMSDOS and the RAM
 configurations, a sector read through FB7Fh, the frames and interrupts in T-states; and the boot key sequence
 (native/hostkit/adapters/rrhk_boot_keys.h) of Bomb Jack's RUN"BOMB, written by retrorecomp/cpc_keys.py, read back through the
-CPC's key matrix: every key once, the shifted ", two equal letters as two, a key the player holds kept apart. It says nothing about the Z80, the firmware or a game: those are the conversions' checks.
+CPC's key matrix: every key once, the shifted ", two equal letters as two, a key the player holds kept apart; and the AY
+through the PPI and its sound (A left, C right, B on both, a 553 Hz tone's pitch, the same samples whatever the steps). It says nothing about the Z80, the firmware or a game: those are the conversions' checks.
 """
 from __future__ import annotations
 import json
@@ -38,7 +39,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(checks "{native}/cpc_hardware_checks.c" "{native}/cpc_crtc.c" "{native}/cpc_gate_array.c" "{native}/cpc_ppi.c"
                "{native}/cpc_machine.c" "{upd765}/upd765.c" "{upd765}/dsk_image.c" "{ay}/ay38910.c")
-target_include_directories(checks PRIVATE "{native}" "{upd765}" "{adapters}" "{ay}" "{project.as_posix()}")
+target_include_directories(checks PRIVATE "{native}" "{upd765}" "{adapters}" "{ay}" "{(ROOT / 'native').as_posix()}" "{project.as_posix()}")
 ''', encoding='utf-8')
     cmake, generator = toolchain()
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')

@@ -10,6 +10,11 @@
  * latch byte with any of its high four bits set selects nothing (the AY-3-8912's address lines A4-A7 are tied low). Its clock
  * is 1 MHz: one tick of 8 chip clocks every CPC_AY_TICK T-states.
  *
+ * The sound: the AY's channels on the stereo output of the CPC's socket, A left, C right, B on both at half each (the mix of the
+ * CPC's resistors as documented; its balance is our choice, not measured on a CPC), held between ticks and box-filtered to
+ * CPC_AUDIO_RATE stereo samples (native/audio_box.h), taken by the player (cpc_audio_take). The stream follows the machine's
+ * time, so it is the same whatever steps the machine is advanced in.
+ *
  * The region map the banked Z80 chain reads (cpc_glue.inc) follows `generation`, raised each time what the Z80 sees in a
  * window changes: the Gate Array's ROM enables or RAM configuration, or the upper ROM number. */
 #ifndef RR_CPC_MACHINE_H
@@ -22,8 +27,10 @@
 #include "cpc_ppi.h"
 #include "upd765.h"
 #include "ay38910.h"
+#include "audio_box.h"
 
-enum { CPC_RAM_BYTES = 0x20000, CPC_ROM_BYTES = 0x4000, CPC_DRIVES = 2, CPC_AMSDOS_SLOT = 7, CPC_AY_TICK = 32 };
+enum { CPC_RAM_BYTES = 0x20000, CPC_ROM_BYTES = 0x4000, CPC_DRIVES = 2, CPC_AMSDOS_SLOT = 7, CPC_AY_TICK = 32,
+       CPC_CLOCK = 4000000, CPC_AUDIO_RATE = 44100, CPC_AUDIO_BUFFER = 8192 };
 
 typedef struct {
     /* the machine as it was built (not part of a quick state) */
@@ -40,6 +47,10 @@ typedef struct {
     Ay38910 ay;
     uint8_t ay_reg[16];
     uint8_t ay_latch;                        /* the register the AY's bus selects; 16: none */
+    uint64_t ay_next;                        /* the cycle of the AY's next tick */
+    int ay_left, ay_right;                   /* the stereo level since the last tick */
+    AudioBox audio;                          /* its samples (its buffer below, not part of a state) */
+    int16_t audio_out[CPC_AUDIO_BUFFER * 2];
     uint8_t upper_rom;                       /* the number written at DFxxh */
     uint8_t motor;                           /* the drives' motor (FA7Eh bit 0) */
     uint8_t phase;                           /* T-states into the current microsecond, 0-3 */
@@ -64,6 +75,8 @@ void cpc_advance(CpcMachine *m, uint64_t tstates);
 /* The cycle (T-states since the reset) of the next microsecond boundary, where the Gate Array may raise the interrupt or start a
  * frame: the loop may run to it without missing one. */
 uint64_t cpc_next_event(const CpcMachine *m);
+/* Move up to `max` stereo samples (left, right) of the sound so far to `out`; how many. */
+uint32_t cpc_audio_take(CpcMachine *m, int16_t *out, uint32_t max);
 int cpc_irq(const CpcMachine *m);
 void cpc_acknowledge(CpcMachine *m);
 #endif

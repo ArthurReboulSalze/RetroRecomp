@@ -71,7 +71,7 @@ class AmstradCpcProfile(SystemProfile):
                           SimulationSource('generated/game_banked.h'))
     # What its game is built from beside its own files: the banked Z80 chain and its shared glue, the shared AY-3-8910; the
     # computer adapter and the gates join with the player and the conversion loop.
-    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910')
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910', 'audio_box')
     # The RAM windows a conversion will learn, kept as offsets in the disk (the MSX2+ disks' mechanism); the firmware as the
     # second source.
     # order: the next free place in the schema's dense list (the ZX Spectrum took 20).

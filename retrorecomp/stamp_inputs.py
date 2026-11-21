@@ -272,9 +272,8 @@ NOT_INPUTS = (
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
-    # The box filter of the sound chips (levels over guest cycles to samples): no machine builds with it yet; it joins a group
-    # `shares:audio_box` with its first machine (the Amstrad CPC). tools/audio_box_selftest.py builds its checks, never in a game.
-    'native/audio_box.h', 'native/audio_box_checks.c',
+    # tools/audio_box_selftest.py: the box filter's checks (native/audio_box.h, group shares:audio_box), never in a game.
+    'native/audio_box_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
@@ -1216,6 +1215,11 @@ INPUTS = _resolve({
     # The AY-3-8910 sound chip (native/ay38910): its counters, noise register and envelope and the three channel levels, shared by the
     # machines that have it (the MSX family now, the ZX Spectrum 128K and the Amstrad CPC next); each machine mixes and resamples it.
     # Game role.
+    # The box filter from a sound chip's levels over guest cycles to samples (native/audio_box.h): the Amstrad CPC's AY first;
+    # the ZX Spectrum, the SG-1000 and the ColecoVision next, the MSX later with its identity proof.
+    'shares:audio_box': (
+        'native/audio_box.h',
+    ),
     'shares:ay38910': (
         'native/ay38910/ay38910.c',
         'native/ay38910/ay38910.h',
