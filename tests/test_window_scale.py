@@ -17,6 +17,13 @@ from tests import test_multiplayer_view as multiplayer_tests
 from tools.gui_patching import keep_window_data_in, patch_gui
 
 FACTORS = (1.0, 1.5, 2.0)
+
+
+def tk_rounding(root):
+    """How far the `tk scaling` Tk applied may be from the one a test set, relatively. Tk keeps it as the screen's width in
+    whole millimetres (tkCmds.c, ScalingCmd): on a 1024 px screen 2.0 reads back as 2.0069 (1024 / 135 mm, GitHub's
+    Windows runner, 21 Nov 2026), on a wide screen nearly exact. Half a millimetre over the screen's width, as it is now."""
+    return 0.5 / max(1, root.winfo_screenmmwidth()) + 1e-9
 BIG = (3840, 2160)          # a screen that holds every scaled size
 SMALL = (1366, 768)         # a small laptop: the scaled sizes must still fit
 
@@ -99,8 +106,10 @@ class ScaledWindowSizes(unittest.TestCase):
         for factor in FACTORS[1:]:
             self.force(factor)
             for pixels in (300, 900, 1120):
-                self.assertEqual(scaled(self.root, pixels), round(pixels * ui_scale(self.root)))
-                self.assertAlmostEqual(scaled(self.root, pixels), pixels * factor, delta=pixels * 0.005 + 1)   # Tk keeps 1.501, not 1.5
+                self.assertEqual(scaled(self.root, pixels), round(pixels * ui_scale(self.root)))     # what Tk applied
+                # The factor asked for, within what Tk's whole millimetres keep of it (tk_rounding), plus the rounding.
+                self.assertAlmostEqual(scaled(self.root, pixels), pixels * factor,
+                                       delta=pixels * factor * tk_rounding(self.root) + 1)
 
     def test_fit_screen_scales_and_stops_at_the_room(self):
         self.force(1.0)
