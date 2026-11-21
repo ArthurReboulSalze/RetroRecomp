@@ -155,6 +155,22 @@ def keep_on_screen(window):
         return
 
 
+def window_shown(root, window):
+    """A window was mapped (watch_windows): check it once, when Tk is next idle (keep_on_screen)."""
+    try:
+        if window is not window.winfo_toplevel() or getattr(window, '_rr_kept_on_screen', False):
+            return
+        window._rr_kept_on_screen = True
+        # Scheduled on the main window, never on `window`: tkinter names a callback's Tcl command after the Python
+        # function's id and deletes the commands of a widget when it is destroyed, but not its pending idle script.
+        # A dialog closed before its idle check ran left that script queued, and the next dialog's button command,
+        # given the same freed id and so the same name, was pressed by it: the Stop dialog answered « Stop now » by
+        # itself (gui_smoke, 21 Nov 2026). keep_on_screen skips a window that no longer exists.
+        root.after_idle(keep_on_screen, window)
+    except Exception:
+        return
+
+
 def watch_windows(root):
     """Check every converter window once, when it is first shown (the main window and every Toplevel, not tooltips or menus): see
     keep_on_screen. Install once, on the main window."""
@@ -163,14 +179,7 @@ def watch_windows(root):
     root._rr_watching_windows = True
 
     def shown(event):
-        window = event.widget
-        try:
-            if window is not window.winfo_toplevel() or getattr(window, '_rr_kept_on_screen', False):
-                return
-            window._rr_kept_on_screen = True
-            window.after_idle(lambda: keep_on_screen(window))
-        except Exception:
-            return
+        window_shown(root, event.widget)
 
     root.bind_class('Toplevel', '<Map>', shown, add='+')
     root.bind_class('Tk', '<Map>', shown, add='+')

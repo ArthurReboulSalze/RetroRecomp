@@ -178,6 +178,33 @@ class KeepOnScreen(Base):
             script = self.root.bind_class(window_class, '<Map>')
             self.assertEqual(script.count('== "break"} break'), 1, (window_class, script))   # one Python command
 
+    def test_the_check_is_scheduled_on_the_main_window_not_on_the_dialog(self):
+        dialog = tk.Toplevel(self.root)
+        self.addCleanup(lambda: dialog.winfo_exists() and dialog.destroy())
+        with patch.object(self.root, 'after_idle') as on_root, patch.object(dialog, 'after_idle') as on_dialog:
+            dialogs.window_shown(self.root, dialog)
+            dialogs.window_shown(self.root, dialog)                       # once per window
+        on_root.assert_called_once_with(keep_on_screen, dialog)
+        on_dialog.assert_not_called()
+
+    def test_a_dialog_closed_before_its_check_ran_presses_no_button_of_the_next_one(self):
+        """The Stop dialog answered « Stop now » by itself (gui_smoke, 21 Nov 2026): the first dialog's pending idle check,
+        orphaned by its destroy, ran the next dialog's button command that had taken its freed name."""
+        from tkinter import ttk
+        pressed, checked = [], []
+        with patch.object(dialogs, 'keep_on_screen', side_effect=lambda window: checked.append(str(window))):
+            for _ in range(20):
+                first = tk.Toplevel(self.root)
+                dialogs.window_shown(self.root, first)
+                first.destroy()                                           # before Tk is idle
+                second = tk.Toplevel(self.root)
+                for value in ('now', 'wait'):
+                    ttk.Button(second, command=lambda value=value: pressed.append(value)).pack()
+                self.root.update_idletasks()
+                second.destroy()
+        self.assertEqual(pressed, [])
+        self.assertEqual(len(checked), 20)                               # the check ran, on the closed dialog: a no-op
+
 
 if __name__ == '__main__':
     unittest.main()
