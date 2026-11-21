@@ -44,11 +44,14 @@ blacklist = []
 # The machine and the glue, from native/msx_machine; the host kit's companions, from native/.
 # The machine's C sources (both VDPs, the sound, the cartridges, the MSX2 board), compiled into every program; the files
 # they include; the mains and the glue.
-MACHINE_SOURCES = ('msx_machine.c', 'msx_video.c', 'msx_psg.c', 'msx_cart.c', 'msx_v9938.c', 'msx_v9938_draw.c',
+MACHINE_SOURCES = ('msx_machine.c', 'msx_psg.c', 'msx_cart.c', 'msx_v9938.c', 'msx_v9938_draw.c',
                    'msx_v9938_cmd.c', 'msx_msx2.c', 'msx_state.c', 'msx_fdc.c')
-MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_tiles.inc', 'msx_glue.inc', 'msx_route.inc', 'msx_headless.inc', 'msx_state_file.inc', 'msx_snapshot.inc',
+MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_glue.inc', 'msx_route.inc', 'msx_headless.inc', 'msx_state_file.inc', 'msx_snapshot.inc',
                  'msx_native_main.c',
                  'msx_reference_main.c', 'msx_player.c', 'msx_sram.c', 'msx_sram.h', 'msx_fdc.h')
+# The TMS9918A, shared with the other machines that have the chip (native/tms9918): compiled into every program, staged beside the machine.
+SHARED_SOURCES = ('tms9918.c',)
+SHARED_FILES = (*SHARED_SOURCES, 'tms9918.h', 'tms_tiles.inc')
 KIT_FILES = ('media_request.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
@@ -146,6 +149,8 @@ def stage_sources(work: Path) -> None:
     from .paths import ASSETS
     for name in MACHINE_FILES:
         _write(work / name, (ASSETS / 'native' / 'msx_machine' / name).read_bytes())
+    for name in SHARED_FILES:
+        _write(work / name, (ASSETS / 'native' / 'tms9918' / name).read_bytes())
     for name in KIT_FILES:
         _write(work / name, (ASSETS / 'native' / name).read_bytes())
     if (work / MUSIC_MARK).is_file():
@@ -176,7 +181,7 @@ def project_cmake(version: str, game: bool, bodies: bool = True, music: bool = F
     """The project: the reference runner always; with `bodies` the generated bodies and the headless native check; with
     `game` the player too (it needs the bodies)."""
     from . import hostkit
-    machine = ' '.join((*MACHINE_SOURCES, 'msx_music.c') if music else MACHINE_SOURCES)
+    machine = ' '.join((*MACHINE_SOURCES, *SHARED_SOURCES, 'msx_music.c') if music else (*MACHINE_SOURCES, *SHARED_SOURCES))
     music_flag = ' RR_MSX_MUSIC=1' if music else ''
     lines = [
         'cmake_minimum_required(VERSION 3.20)',

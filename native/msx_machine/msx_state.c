@@ -290,7 +290,7 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
         rr_state_bytes(io, ram64, 65536);
     }
     /* 6. TMS9918A */
-    MsxVdp *t = &m->vdp;
+    Tms9918 *t = &m->vdp;
     rr_state_bytes(io, t->vram, sizeof t->vram);
     rr_state_bytes(io, t->reg, sizeof t->reg);
     B(t->status);

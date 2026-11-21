@@ -158,7 +158,7 @@ static int eq_machine(const MsxMachine *x, const MsxMachine *y, const uint8_t *r
     } else {
         EQ("ram", memcmp(rx, ry, 65536), 0);
     }
-    const MsxVdp *t = &x->vdp, *u = &y->vdp;
+    const Tms9918 *t = &x->vdp, *u = &y->vdp;
     EQM("tms.vram", t->vram, u->vram); EQM("tms.reg", t->reg, u->reg); EQ("tms.status", t->status, u->status);
     EQ("tms.address", t->address, u->address); EQ("tms.latch", t->latch, u->latch); EQ("tms.first", t->first, u->first);
     EQ("tms.readahead", t->readahead, u->readahead); EQM("tms.frame", t->frame, u->frame);

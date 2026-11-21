@@ -132,12 +132,18 @@ class PinTests(unittest.TestCase):
 class StampTests(unittest.TestCase):
     def test_the_machine_is_the_msx_game_files_and_the_hardware_checks_move_no_stamp(self):
         msx = stamp_inputs.INPUTS[('msx', 'msx2', 'msx2plus')]
-        for name in ('msx_machine.h', 'msx_machine.c', 'msx_reference_main.c', 'msx_video.c', 'msx_psg.c', 'msx_cart.c',
+        for name in ('msx_machine.h', 'msx_machine.c', 'msx_reference_main.c', 'msx_psg.c', 'msx_cart.c',
                      'msx_native_main.c', 'msx_glue.inc', 'msx_player.c'):
             path = 'native/msx_machine/' + name
             self.assertTrue((ROOT / path).is_file(), path)
             self.assertIn(path, msx)
         self.assertIn('native/msx_machine/msx_hardware_checks.c', stamp_inputs.NOT_INPUTS)
+        # The TMS9918A is the shared module native/tms9918, a game file of every machine that has the chip.
+        tms = stamp_inputs.INPUTS[stamp_inputs.sharing('tms9918')]
+        for name in ('tms9918.c', 'tms9918.h', 'tms_tiles.inc'):
+            self.assertTrue((ROOT / 'native/tms9918' / name).is_file(), name)
+            self.assertIn('native/tms9918/' + name, tms)
+        self.assertEqual(stamp_inputs.sharing('tms9918'), ('msx', 'msx2', 'msx2plus'))
 
 
 if __name__ == '__main__':
