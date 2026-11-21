@@ -1435,6 +1435,12 @@ CPS-1 and X68000 queue output and the NES ring (they call the same stage; the NE
 10. ~~**Fast-forward and mute on every console**~~ **Settled on 29 October 2026 (maintainer, D12)**: the Game Boy's fast-forward (Tab held,
     right trigger), maximum-speed toggle (backquote, left trigger), mute (M), volume and output-device choice are kit features of every
     console, with the Game Boy's former keys and behaviour. The second binding of each action stays retired (it is a contract change).
+11. **Waiting for the next move of the catalogue or the shell** (the lead's list, 21 Nov 2026): work held so that no host stamp
+    moves, to be done in a change that moves every host stamp anyway.
+    - When `native/runtime_catalog.inc` next moves: the on-screen keypad's title and hint (`rrhk_keypad_texts` in
+      `native/hostkit/adapters/rrhk_keypad.inc`, five languages) join `assets/locales` and the keypad reads them with `rr_tr`.
+    - When the shell next moves: the keypad's per-player release rule (`rrhk_keypad_pad_released`) and the chat's
+      (`chat_anything_held`, `rrhk_chat.inc`) become one shell function taking a player.
 
 The kit's own effort estimates stay in the local plan (`hosts.md:513-531`);
 they are not part of this public contract.
