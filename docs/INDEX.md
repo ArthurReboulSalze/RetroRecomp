@@ -132,7 +132,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - [UPGRADES.md](UPGRADES.md) — upgrading exports without rediscovery; host versus game inputs; the current and the previous release.
 - [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md) and [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md) — the same detail for releases 1.6.9, 1.6.7 and 1.6.6, and for 1.6.5 and before.
 - [UPSTREAMS.md](UPSTREAMS.md) — every pinned upstream repository (revision, where it is pinned, licence, what we compile, last review), how to check them with `tools/check_upstreams.py`, the rules for moving a pin or carrying a fix, and the deferred list.
-- [NEW_MACHINE.md](NEW_MACHINE.md) — the template for adding a machine (experimental, then supported), measured on an Atari ST dry run, with what is still scattered.
+- [NEW_MACHINE.md](NEW_MACHINE.md) — the playbook for adding a machine, from the study to the release (experimental profile, qualification, multiplayer, optimisation, sharing, release kit, who decides what, a progress board), then the registration steps, reuse by CPU and the Atari ST dry run behind them.
 - [RELEASE_NOTES.md](RELEASE_NOTES.md) — what changed, release by release.
 - [ROADMAP.md](ROADMAP.md) — current scope and the next machines.
 - [QUALITY_REVIEW.md](QUALITY_REVIEW.md) — final local review before a release.

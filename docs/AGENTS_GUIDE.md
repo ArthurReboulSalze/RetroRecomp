@@ -81,8 +81,9 @@ that converts a real game needs the player's own ROM, outside the repository.
   unification with identical results, written criteria for "supported", clean
   licences in shared code, files split beyond about 1,500 lines, and the
   credits window kept current and short.
-- **A new machine** follows [NEW_MACHINE.md](NEW_MACHINE.md): experimental
-  profile first, then the checklist in [QUALIFICATION.md](QUALIFICATION.md).
+- **A new machine** follows the playbook of [NEW_MACHINE.md](NEW_MACHINE.md),
+  from the study to the release: experimental profile first, then the checklist
+  in [QUALIFICATION.md](QUALIFICATION.md), multiplayer, optimisation, release kit.
   `tests/test_machine_registry.py` lists the registries a new machine must join.
 - **Upstream pins are tracked in one place.** Each machine declares its upstreams in
   `retrorecomp/upstreams.py`; [UPSTREAMS.md](UPSTREAMS.md) has the table, the rules
