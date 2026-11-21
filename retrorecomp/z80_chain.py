@@ -412,8 +412,10 @@ def _once(source: str, old: str, new: str) -> str:
 # artefact and is left alone. cpu.prepare_reference(nmi=True) gives the reference CPU the same acceptance.
 _NMI_ACCEPT = '''/* The Z80 NMI (retrorecomp/z80_chain.py): the return address is pushed and execution goes on at $0066; IFF1 is cleared, IFF2
  * keeps its value, a HALT ends, and EI's delay does not hold it back. banked_nmi_edge() is the machine's: nonzero once per
- * falling edge of /NMI. */
+ * falling edge of /NMI. g_nmi_taken counts the NMIs accepted, as g_irq_taken counts the /INT (a machine's report prints it as `nmi`). */
+static uint64_t g_nmi_taken;
 static void banked_accept_nmi(void) {
+    g_nmi_taken++;
     g_z80.p = g_z80.q = 0; g_z80.ei_block = 0;
     g_z80.iff1 = false; g_z80.halted = false;
     g_z80.r = (uint8_t)((g_z80.r & 0x80) | ((g_z80.r + 1) & 0x7F));

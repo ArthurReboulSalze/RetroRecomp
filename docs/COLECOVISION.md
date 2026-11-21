@@ -73,7 +73,7 @@ the game file is for its owner only, as the MSX's own-BIOS games are. The work f
    digest), before anything is written;
 2. **the start of the `play` route** is chosen on the reference, then the cartridge and the BIOS are translated and the native check is built beside
    the reference runner; every route is run on the check, and the code the interpreter ran from RAM is learned (at most three passes);
-3. **the comparison**: the native check and the reference run every route; every compared field (CPU registers, cycles, RAM, VRAM, the picture of
+3. **the comparison**: the native check and the reference run every route; every compared field (CPU registers, cycles, the /NMI count, RAM, VRAM, the picture of
    every frame, the VDP registers, the sound and the PSG, the watched bytes) and every frame's row must be equal, or the conversion is **refused**; a
    route whose picture never changes is refused too;
 4. **the game** is built (the player, the machine, the host kit, SDL2, the cartridge as resource 103, the BIOS as 104, the notices as 203), delivered

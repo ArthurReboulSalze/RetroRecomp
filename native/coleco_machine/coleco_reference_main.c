@@ -94,7 +94,7 @@ int main(int argc, char **argv)
     z.port_out = bus_out;
     z.userdata = &machine;
 
-    uint64_t accepted = 0;
+    uint64_t accepted = 0, nmis = 0;
     machine.line_hook = cv_route_line;
     while (machine.frames < frames_wanted) {
         z.int_pending = 0;                    /* the step accepts nothing: the levels are read after it */
@@ -104,7 +104,8 @@ int main(int argc, char **argv)
         if (cv_nmi_edge(&machine)) {
             unsigned long c1 = z.cyc;
             z.nmi_pending = 1;
-            coleco_reference_accept(&z);      /* the NMI: never masked, ahead of /INT, even right after EI (not counted with /INT) */
+            coleco_reference_accept(&z);      /* the NMI: never masked, ahead of /INT, even right after EI (counted apart from /INT) */
+            ++nmis;
             cv_advance(&machine, (uint64_t)(z.cyc - c1));
         } else if (cv_irq(&machine)) {
             z.int_pending = 1;
@@ -123,6 +124,6 @@ int main(int argc, char **argv)
         }
     }
     CvCpuView c = reference_cpu(&z);
-    headless_report("reference", &c, accepted, NULL);
+    headless_report("reference", &c, accepted, nmis, NULL);
     return 0;
 }
