@@ -277,6 +277,9 @@ NOT_INPUTS = (
     # The Z80 chain's CPU state and the quick-state file around the shared envelope: their headers are the groups `shares:z80_chain_state` and
     # `shares:state_file` (the SG-1000 is the first machine to build with them). tools/z80_chain_state_selftest.py builds their checks, never in a game.
     'native/state_file_checks.c',
+    # The copies of the disks a game writes, kept beside the game (machine-neutral): no machine builds with it yet; it joins a group
+    # `shares:disk_copies` with its first machine (the Amstrad CPC). tools/disk_copies_selftest.py builds its checks, never in a game.
+    'native/disk_copies.inc', 'native/disk_copies_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/zxs_machine/zxs_machine_checks.c',      # tools/zxs_machine_selftest.py: the ZX Spectrum core on authored images, never in a game
