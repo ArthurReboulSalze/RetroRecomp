@@ -274,6 +274,9 @@ NOT_INPUTS = (
     # The box filter of the sound chips (levels over guest cycles to samples): no machine builds with it yet; it joins a group
     # `shares:audio_box` with its first machine (the Amstrad CPC). tools/audio_box_selftest.py builds its checks, never in a game.
     'native/audio_box.h', 'native/audio_box_checks.c',
+    # The Z80 chain's CPU state and the quick-state file around the shared envelope: no machine builds with them yet; they join
+    # their first machine's groups (the Amstrad CPC). tools/z80_chain_state_selftest.py builds their checks, never in a game.
+    'native/z80_chain_state.inc', 'native/state_file.h', 'native/state_file_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
