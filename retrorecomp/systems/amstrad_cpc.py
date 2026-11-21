@@ -80,7 +80,7 @@ class AmstradCpcProfile(SystemProfile):
     # What its game is built from beside its own files: the banked Z80 chain and its shared glue, the shared AY-3-8910 and the
     # box filter, the computer side of the host kit; the gates join with the conversion loop.
     stamp_groups = ('z80_main', 'z80_chain_glue', 'z80_chain_state', 'state_file', 'ay38910', 'audio_box', 'disk_copies', 'conversion_gates',
-                    'hostkit_computer')
+                    'hostkit_computer', 'hostkit_text')
     # The player shell is the host kit through the CPC's adapter (on rrhk_computer.inc, as the MSX's).
     host_adapter = 'adapters/rrhk_cpc.inc'
     # The RAM windows a conversion will learn, kept as offsets in the disk (the MSX2+ disks' mechanism); the firmware as the

@@ -27,6 +27,7 @@
 #include "display_settings.h"
 #include "rrhk_boot_keys.h"
 #include "rrhk_cpc_keys.h"
+#include "hostkit/adapters/rrhk_text.h"
 #include <math.h>
 
 /* The four libretro mouse ids rrhk_computer.inc names (no mouse on these games: they only keep its code compiling). */
@@ -172,21 +173,13 @@ void rrhk_options_audio_reset(void);
 #define C_ROW_SOUND (SDL_NUM_SCANCODES + 2)     /* the row's key: past the computers' keyboard row (+1), before the kit's own (+16) */
 static bool c_stereo;
 
-/* The adapter's texts in the five game languages (rr_language_codes' spelling, ASCII as the games write them). */
-static const char *const c_texts[][4] = {
-   /* code  label            mono                      stereo */
-   {"en", "Sound: %s",       "mono (built-in speaker)", "stereo (headphone jack)"},
-   {"fr", "Son : %s",        "mono (haut-parleur)",     "stereo (prise casque)"},
-   {"de", "Ton: %s",         "Mono (Lautsprecher)",     "Stereo (Kopfhoerer)"},
-   {"es", "Sonido: %s",      "mono (altavoz)",          "estereo (auriculares)"},
-   {"it", "Audio: %s",       "mono (altoparlante)",     "stereo (cuffie)"},
-};
-static const char *c_text(int which) {
-   const char *code = rr_language_code(rr_language_get());
-   for (size_t i = 0; i < sizeof c_texts / sizeof c_texts[0]; ++i)
-      if (code && !strcmp(code, c_texts[i][0])) return c_texts[i][1 + which];
-   return c_texts[0][1 + which];
-}
+/* The adapter's texts in the five game languages (rrhk_text.h: en, fr, it, es, de; ASCII, as the games write them). */
+static const RrhkText c_sound_row = {"Sound: %s", "Son : %s", "Audio: %s", "Sonido: %s", "Ton: %s"};
+static const RrhkText c_sound_mono = {"mono (built-in speaker)", "mono (haut-parleur)", "mono (altoparlante)", "mono (altavoz)",
+                                      "Mono (Lautsprecher)"};
+static const RrhkText c_sound_stereo = {"stereo (headphone jack)", "stereo (prise casque)", "stereo (cuffie)", "estereo (auriculares)",
+                                        "Stereo (Kopfhoerer)"};
+static const char *c_sound_value(void) { return rrhk_text(c_stereo ? &c_sound_stereo : &c_sound_mono); }
 
 /* sound.cfg beside player.cfg (its folder: player_config without "player.cfg"). */
 static bool c_sound_path(wchar_t *wide, size_t capacity) {
@@ -230,14 +223,14 @@ static void c_sound(CpcMachine *m) {
 
 static void c_option_rows(int slot, RrhkOptionRows *rows) {
    x_option_rows(slot, rows);
-   if (slot == 1) rrhk_option_row_icon(rows, C_ROW_SOUND, RR_ICON_ROW_HEADPHONES, c_text(0), c_text(c_stereo ? 2 : 1));
+   if (slot == 1) rrhk_option_row_icon(rows, C_ROW_SOUND, RR_ICON_ROW_HEADPHONES, rrhk_text(&c_sound_row), c_sound_value());
 }
 static bool c_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
    char plate[96];
    if ((int)key != C_ROW_SOUND) return x_key_event(ui, key, running);
    c_stereo = !c_stereo;
    c_sound_save();
-   snprintf(plate, sizeof plate, c_text(0), c_text(c_stereo ? 2 : 1));
+   snprintf(plate, sizeof plate, rrhk_text(&c_sound_row), c_sound_value());
    rrhk_notice(plate, 2500);
    return true;
 }
