@@ -79,6 +79,12 @@ exports to `Games/SG-1000`. Its path section is `z80/sg1000` (source `rom`), it 
 shared banked Z80 chain with its own machine description (`SG1000_MACHINE`, with the /NMI pin of the Pause button) and the shared TMS9918A, and it declares
 no gameplay feedback kind yet. See [SG-1000](SG1000.md).
 
+The **ColecoVision** profile (`coleco`, experimental and developer only, stage 3 of the machine) identifies a `.col`, or a `.bin`, `.rom` or ZIP that you choose as
+ColecoVision or that sits in a folder named `colecovision` (`coleco`, `coleco vision` and `coleco_vision` too) and begins with a header word, and reads it (4 KiB to
+32 KiB, plain ROM). It has one firmware option, `coleco_bios` (your own 8 KiB BIOS, required to convert, never shipped), whose digest is part of a request's identity;
+its conversion translates the cartridge with the BIOS, checks it against the reference interpreter and delivers a game executable (no player is offered it yet), and it exports to `Games/ColecoVision`. Its path section is `z80/coleco` (sources `rom` and `bios`), path order 24; it uses the shared banked Z80 chain with its own machine
+description (`COLECO_MACHINE`, with the VDP's interrupt on /NMI) and records no gameplay feedback yet. See [ColecoVision](COLECOVISION.md).
+
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
 chosen. Foreign ROM extensions appear as **Unknown console** and are skipped,

@@ -69,7 +69,7 @@ class GlueContractTests(unittest.TestCase):
             self.assertTrue((Path(work) / 'msx_glue.inc').is_file())
 
     def test_the_msx_family_shares_the_glue_group(self):
-        self.assertEqual(stamp_inputs.sharing('z80_chain_glue'), ('msx', 'msx2', 'msx2plus', 'zxs', 'sg1000'))
+        self.assertEqual(stamp_inputs.sharing('z80_chain_glue'), ('msx', 'msx2', 'msx2plus', 'zxs', 'sg1000', 'coleco'))
         group = stamp_inputs.INPUTS[stamp_inputs.sharing('z80_chain_glue')]
         self.assertIn('native/z80_chain_glue.inc', group)
         self.assertIn('retrorecomp.z80_chain_build', group)

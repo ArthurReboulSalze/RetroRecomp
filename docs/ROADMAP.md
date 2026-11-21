@@ -34,6 +34,7 @@ fallback stays counted and shown wherever it is used.
 | MSX2 | supported (since 1.7.5) | battery saves shown on an MSX2 game, route depth on menu-driven games, the command engine's timing, independent hardware evidence, FM-PAC |
 | MSX2+ | supported (since 1.7.6; experimental from 1.7.4) | route depth (Golvellius II's intro, Pachipro Densetsu's date entry), the Linux half of shared paths, MSX-MUSIC's level on games, independent hardware evidence, FM-PAC |
 | SG-1000 | experimental, developer only (stage 3: the conversion delivers a game executable, checked headless against the reference; no player is offered it, no game has been played) | the qualification gates on a small panel, then multiplayer and an optimisation pass |
+| ColecoVision | experimental, developer only (stage 3: the conversion delivers a game executable, checked headless against the reference; no player is offered it, no game has been played) | the qualification gates on a small panel, then multiplayer and an optimisation pass |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
@@ -196,7 +197,7 @@ list, multiplayer and an optimisation pass. The SG-1000 has its experimental pro
 | --- | --- | --- |
 | SG-1000 | the Z80, the TMS9918A video chip of the MSX, the SN76489 sound chip of the Master System | the board, the pads |
 | Game Boy Color | the Game Boy's CPU and engine, which already runs the colour mode | colour-mode timing, double speed, the colour boot ROM question |
-| ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller |
+| ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller; its experimental profile has begun for developers (21 November 2026, [COLECOVISION.md](COLECOVISION.md)) |
 | Amstrad CPC | the Z80, the AY sound chip of the MSX | the video, the floppy drive, code loaded from disk |
 | ZX Spectrum | the Z80, the AY sound chip (128K) | the video, snapshots first (tapes later); study approved 21 November 2026, experimental profile begun ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)) |
 | PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done as an experimental machine (21 November 2026, [PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |

@@ -536,7 +536,7 @@ tools/frame_stop_selftest.py
 tests/test_game_gear.py tests/test_game_boy.py
 retrorecomp/cover_keyring.py tests/test_cover_keyring.py
 tools/package_linux.py docs/LINUX.md licenses/Linux-desktop.md
-retrorecomp/systems/sg1000.py retrorecomp/sg1000_rom.py retrorecomp/sg1000_conversion.py native/hostkit/adapters/rrhk_sg1000.inc docs/SG1000.md tests/test_sg1000_profile.py retrorecomp/sg1000_build.py retrorecomp/sg1000_routes.py tests/test_sg1000_build.py tests/test_sg1000_routes.py tests/test_sg1000_conversion.py
+retrorecomp/systems/sg1000.py retrorecomp/sg1000_rom.py retrorecomp/sg1000_conversion.py native/hostkit/adapters/rrhk_sg1000.inc docs/SG1000.md retrorecomp/systems/coleco.py retrorecomp/coleco_rom.py retrorecomp/coleco_bios.py retrorecomp/coleco_conversion.py docs/COLECOVISION.md tests/test_coleco_profile.py retrorecomp/coleco_build.py retrorecomp/coleco_routes.py native/hostkit/adapters/rrhk_coleco.inc native/coleco_machine/coleco_glue.inc native/coleco_machine/coleco_headless.inc native/coleco_machine/coleco_machine.c native/coleco_machine/coleco_machine.h native/coleco_machine/coleco_native_main.c native/coleco_machine/coleco_player.c native/coleco_machine/coleco_reference_main.c native/coleco_machine/coleco_state_file.inc tests/test_coleco_build.py tests/test_coleco_conversion.py tests/test_coleco_routes.py tools/coleco_authored.py tools/coleco_player_selftest.py tests/test_sg1000_profile.py retrorecomp/sg1000_build.py retrorecomp/sg1000_routes.py tests/test_sg1000_build.py tests/test_sg1000_routes.py tests/test_sg1000_conversion.py
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 # Every public converter module is frozen into the executable, including ones
