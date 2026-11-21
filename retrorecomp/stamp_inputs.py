@@ -275,9 +275,8 @@ NOT_INPUTS = (
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # tools/audio_box_selftest.py: the box filter's checks (native/audio_box.h, group shares:audio_box), never in a game.
     'native/audio_box_checks.c',
-    # The Z80 chain's CPU state and the quick-state file around the shared envelope: no machine builds with them yet; they join
-    # their first machine's groups (the Amstrad CPC). tools/z80_chain_state_selftest.py builds their checks, never in a game.
-    'native/z80_chain_state.inc', 'native/state_file.h', 'native/state_file_checks.c',
+    # tools/z80_chain_state_selftest.py: the checks of the Z80 chain's CPU state and of the state file, never in a game.
+    'native/state_file_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
@@ -864,6 +863,7 @@ INPUTS = _resolve({
         'native/cpc_machine/cpc_ppi.c',
         'native/cpc_machine/cpc_ppi.h',
         'native/cpc_machine/cpc_state.c',
+        'native/cpc_machine/cpc_state_file.inc',
         'native/cpc_machine/cpc_state.h',
         'native/upd765/dsk_image.c',
         'native/upd765/dsk_image.h',
@@ -1251,6 +1251,13 @@ INPUTS = _resolve({
     # the ZX Spectrum, the SG-1000 and the ColecoVision next, the MSX later with its identity proof.
     'shares:audio_box': (
         'native/audio_box.h',
+    ),
+    # The Z80 chain's CPU state in a quick state or a snapshot (native/z80_chain_state.inc) and the quick-state file around the
+    # shared envelope (native/state_file.h): the Amstrad CPC first; the SG-1000 and the ZX Spectrum next, the MSX and the Master
+    # System later with a proof that their state bytes stay equal. Game role.
+    'shares:z80_chain_state': (
+        'native/state_file.h',
+        'native/z80_chain_state.inc',
     ),
     'shares:ay38910': (
         'native/ay38910/ay38910.c',

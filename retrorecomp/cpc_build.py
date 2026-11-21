@@ -33,10 +33,10 @@ blacklist = []
 # The machine's C sources, compiled into every program, and the files they include; the uPD765 and the DSK reader, from
 # native/upd765 (machine-neutral), staged with them.
 MACHINE_SOURCES = ('cpc_machine.c', 'cpc_crtc.c', 'cpc_gate_array.c', 'cpc_ppi.c', 'cpc_state.c')
-MACHINE_FILES = (*MACHINE_SOURCES, 'cpc_machine.h', 'cpc_bus.h', 'cpc_crtc.h', 'cpc_gate_array.h', 'cpc_ppi.h', 'cpc_state.h', 'cpc_glue.inc', 'cpc_headless.inc')
+MACHINE_FILES = (*MACHINE_SOURCES, 'cpc_machine.h', 'cpc_bus.h', 'cpc_crtc.h', 'cpc_gate_array.h', 'cpc_ppi.h', 'cpc_state.h', 'cpc_glue.inc', 'cpc_headless.inc', 'cpc_state_file.inc')
 DISK_SOURCES = ('upd765.c', 'dsk_image.c')
 DISK_FILES = (*DISK_SOURCES, 'upd765.h', 'dsk_image.h')
-CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h', 'state_io.h')
+CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h', 'state_io.h', 'z80_chain_state.inc', 'state_file.h')
 # The shared chips, each a folder of native/: (folder, the sources compiled into every program, the other files staged with them).
 SHARED_MODULES = (('ay38910', ('ay38910.c',), ('ay38910.h',)),)
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)
@@ -54,7 +54,9 @@ KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runti
 ADAPTER_FILES = ('rrhk_computer.inc', 'rrhk_boot_keys.h', 'rrhk_cpc_keys.h')
 # The game's resources (native/cpc_machine/cpc_player.c): its disks, then the player's own system ROM and AMSDOS.
 RESOURCE_DISKS, RESOURCE_SYSTEM, RESOURCE_AMSDOS = 103, 104, 105
-BUILD_TIMEOUT = 2 * 3600
+# The layout of the CPC's quick states (native/cpc_machine/cpc_state_file.inc and cpc_state.c): raised whenever either writes
+# another body, so that a state of the old layout is told apart as another build's (RR_STATE_INCOMPATIBLE), never misread.
+STATE_LAYOUT = 'cpc-state-1'
 
 
 class CpcBuildError(RuntimeError):
@@ -95,29 +97,15 @@ def stage_sources(work: Path, game: bool = False) -> None:
 
 def project_cmake(version: str, game: bool) -> str:
     """The project: `cpc_reference` (the reference interpreter on the board) and `cpc_check` (the generated bodies, the step
-    loop, the headless native run); with `game` the game too (the same bodies and board, the host kit, SDL2)."""
-    machine = ' '.join((*MACHINE_SOURCES, *DISK_SOURCES, *SHARED_SOURCES))
-    lines = [
-        'cmake_minimum_required(VERSION 3.20)',
-        'project(RetroCpc LANGUAGES C)',
-        'set(CMAKE_C_STANDARD 11)',
-        'set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")',
-        f'add_executable(cpc_reference cpc_reference_main.c {machine} runtime_reference.c)',
-        'file(GLOB bodies "generated/game_banked_ops_*.c")',
-        'add_library(cpc_bodies OBJECT generated/game_banked_index.c ${bodies})',
-        'target_include_directories(cpc_bodies PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        'target_compile_definitions(cpc_bodies PRIVATE SMSRECOMP_BANKED_AOT)',
-        f'add_executable(cpc_check cpc_native_main.c {machine} runtime_reference.c $<TARGET_OBJECTS:cpc_bodies>)',
-        'foreach(target cpc_reference cpc_check)',
-        '  target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        '  target_compile_definitions(${target} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)',
-        '  if(NOT WIN32)', '    target_link_libraries(${target} PRIVATE m)', '  endif()',
-        'endforeach()',
-    ]
+    loop, the headless native run), the chain's common part (z80_chain_build.chain_project_cmake); with `game` the game too (the
+    same bodies and board, the host kit, SDL2): the lines here."""
+    machine_sources = (*MACHINE_SOURCES, *DISK_SOURCES, *SHARED_SOURCES)
+    lines: list[str] = []
     if game:
         from . import hostkit
+        machine = ' '.join(machine_sources)
         kit = ' '.join(hostkit.sources('cpc'))
-        lines += [
+        lines = [
             'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
             'find_package(SDL2 CONFIG REQUIRED)',
             f'add_executable(game cpc_player.c {machine} runtime_reference.c retro_menu.c platform_io.c runtime_feedback.c {kit}',
@@ -135,24 +123,26 @@ def project_cmake(version: str, game: bool) -> str:
             'if(WIN32 AND NOT MSVC)',
             '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',
         ]
-    return '\n'.join(lines) + '\n'
+    return z80_chain_build.chain_project_cmake('cpc', 'RetroCpc', reference_main='cpc_reference_main.c',
+                                               native_main='cpc_native_main.c', machine_sources=machine_sources,
+                                               game_lines=lines)
 
 
 def build(work: Path, targets: tuple[str, ...], emit: Callable[[str], None] = print) -> dict[str, Path]:
     """Configure and build `targets` of the project in `work` (the converter's SDL2 for the game)."""
-    from . import __version__, core
-    from .platforms import build_executable, sdl_install
+    from . import __version__
     game = 'game' in targets
-    z80_chain_build.write_if_changed(work / 'CMakeLists.txt', project_cmake(__version__, game).encode('utf-8'))
-    cmake, generator_kind = core.toolchain()
-    log = work / 'build.log'
-    extra = [f'-DCMAKE_PREFIX_PATH={Path(sdl_install()).as_posix()}'] if game else []
-    core.run([cmake, '-S', work, '-B', work / 'build', '-G', generator_kind, *core.cmake_target_args(),
-              '-DCMAKE_BUILD_TYPE=Release', *extra], log=log, emit=emit, timeout=BUILD_TIMEOUT)
-    for target in targets:
-        core.run([cmake, '--build', work / 'build', '--config', 'Release', '--target', target, '--parallel',
-                  core.build_jobs()], log=log, emit=emit, timeout=BUILD_TIMEOUT)
-    return {target: build_executable(work / 'build', target) for target in targets}
+    return z80_chain_build.build_project(work, targets, project_cmake(__version__, game), sdl=game, emit=emit)
+
+
+def state_binding(system: bytes, amsdos: bytes, crtc: int, disks: list[bytes]) -> bytes:
+    """The 32 bytes a quick state of this build carries and compares (never applies): the state's layout, the system ROM,
+    AMSDOS, the CRTC and the game's disks as they came. Another build's state is then INCOMPATIBLE, not damaged."""
+    import hashlib
+    digest = hashlib.sha256(STATE_LAYOUT.encode('ascii'))
+    for part in (system, amsdos, bytes([crtc]), *disks):
+        digest.update(hashlib.sha256(part).digest())
+    return digest.digest()
 
 
 def prepare_game(work: Path, title: str, identity: str, disks: list[bytes], system: bytes, amsdos: bytes, start_text: str, *,
@@ -201,6 +191,9 @@ def prepare_game(work: Path, title: str, identity: str, disks: list[bytes], syst
           f'#define RR_CPC_TITLE {json.dumps(title)}\n#define RR_CPC_IDENTITY "{identity}"\n#define RR_CPC_CRTC {int(crtc)}\n'
           f'#define RR_CPC_DISKS {len(disks)}\n#define RR_CPC_DISK_MAX {max(len(disk) for disk in disks)}\n'
           f'#define RR_CPC_DISK_SIZES {{{", ".join(str(len(disk)) for disk in disks)}}}\n').encode('utf-8'))
+    binding = state_binding(system, amsdos, crtc, disks)
+    write(work / 'cpc_game.h', (work / 'cpc_game.h').read_bytes()
+          + f'#define RR_CPC_STATE_ABI {{{", ".join(f"0x{b:02X}" for b in binding)}}}\n'.encode('ascii'))
     frame = cpc_keys.BOOT_FRAME if boot_frame is None else boot_frame
     write(work / 'boot_keys.h', cpc_keys.boot_keys_header(start_text, frame).encode('utf-8'))
     return {'artwork': artwork, 'windows_metadata': metadata}
