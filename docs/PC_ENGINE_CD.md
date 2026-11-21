@@ -1,8 +1,7 @@
 # PC Engine CD / TurboGrafx-CD
 
-Status: **experimental, in development** (developer installations only: the profile is not offered to players yet). Stage 1 of
-[NEW_MACHINE.md](NEW_MACHINE.md) is under way: the machine identifies discs and System Cards and converts nothing yet. The decisions
-below are the owner's, taken on 21 November 2026 after the study.
+Status: **experimental**, open to players (21 November 2026). Step 1 of [NEW_MACHINE.md](NEW_MACHINE.md) is done: nine discs convert, the Linux witness agrees with Windows, the
+owner has not played them (G14, step 2). The decisions below are the owner's, taken on 21 November 2026 after the study.
 
 ## 1. What it converts, and what it does not
 
@@ -42,13 +41,37 @@ Kept apart in every report and every page, as everywhere:
 - **Gameplay validation**: scripted routes and the owner's play test; none yet.
 - **Physical latency**: not measured; nothing here says zero latency or exact timing.
 
-## 4. Stage 1, where it stands
+## 4. Stage 1, where it stands (21 November 2026)
 
 | Stage | State |
 |---|---|
-| 1a. Profile (developer only), disc and System Card readers, registries, stamps, firmware search, languages | this change |
-| 1b. The conversion loop on the pinned engine, the CHD version 4 and static libchdr patch, the first disc | not started |
-| 1c. The exported game and its host-kit adapter, the first game plays | not started |
+| 1a. Profile, disc and System Card readers, registries, stamps, firmware search, languages | done |
+| 1b. The conversion loop on the pinned engine, our disc provider (libchdr static, CHD version 4 and 5, the disc inside the executable) | done: nine discs converted |
+| 1c. The delivered game and its host-kit adapter | the delivered game replays its routes equal to the reference, quick states and backup memory checked; the window itself is for the owner's play test (G14) |
 
-Two measures remain to be made before they are written as facts: whether the Japanese card runs the USA discs and the other way round, and
-which RAM profile (standard or super) each disc needs.
+**The nine discs converted from an empty library** (Windows, llvm toolchain, two conversions at a time, scan level `standard`: a boot route and a play route of 3,600 frames each; the
+maintainer's Japanese Super System Card 3.0, the Super RAM profile, the drive's unknown commands answered as the NEC reference does, `nec-invalid`):
+
+| Disc | Container | Why it is in the panel | Native instructions run / interpreted | Emitted in the module |
+|---|---|---|---|---|
+| Ys III (USA) | CHD v5 | the engine's own flagship; first game | 102.7 M / 0 (one play route) | 10,861 instructions, 35 contexts |
+| Akumajou Dracula X (Japan) | CHD **v4** | a version 4 container; Japan region | 214.5 M / 0 | 13,124, 133 contexts |
+| The Addams Family (USA) | CHD v5, one cooked data track, no audio track | the smallest disc (7 MB) | 222.5 M / 0 | 8,810, 23 contexts |
+| Lords of Thunder (USA) | CHD v5 | a scrolling shooter, CD audio driven by the game | 208.2 M / 0 | 79,512, 573 contexts |
+| Buster Bros. (USA) | CHD v5 | two players | 214.5 M / 0 | 6,953, 19 contexts |
+| Dungeon Explorer II (USA) | CHD v5 | a multitap candidate | 201.3 M / 0 | 15,746, 92 contexts |
+| Valis III (USA) | CHD v5 | 18 data tracks interleaved with the audio | 216.4 M / 0 | 6,860, 21 contexts |
+| 4 in 1 Super CD (USA) | CHD v5 | four games behind a menu | 204.8 M / 0 | 49,673, 317 contexts |
+| Ys Book I & II (USA) | CHD v5 | the most ADPCM voice | 204.7 M / 0 | 14,483, 54 contexts |
+
+What these numbers say and what they do not: on the two routes of each disc (boot, then a play route), no instruction ran on the interpreter, the delivered game gave the same picture, sound,
+RAM and CPU state on every frame as the build with every instruction interpreted, a quick state continued the saved timeline in a fresh process, and eleven kinds of damaged backup
+file were set aside. **They do not say the games are translated**: a route of 3,600 frames reaches the System Card's start-up and the first screens of a game, and the boot route sees only the
+System Card's "push RUN" screen (three pictures, no sound), so the code a game loads later from its disc has not run. The depth of the routes past the loading screens is gate G9, still `?`.
+Nothing here says hardware fidelity, gameplay or latency.
+
+Measured on the way: the strict policy for the drive's unknown commands stops Ys III and The Addams Family (an unknown command `$FF` when RUN is pressed) and is not the default; the Japanese
+card runs USA discs and Japanese ones; a conversion takes about twelve minutes on this PC (two at a time).
+
+**The Linux witness**: The Addams Family converted on Debian 13 (WSL, gcc, headless) from an empty library gives the same 222,527,282 observed instructions, the same module (8,810
+instructions in 23 contexts) and, on both routes, the same CPU, RAM, picture and PCM hashes and the same trace digest as Windows. One disc, not a panel; no Linux GPU is involved.

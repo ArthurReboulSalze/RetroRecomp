@@ -5,7 +5,7 @@ Linux programs. It translates as much of each game as possible into native code,
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
 never hidden. Twenty machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
 Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the MSX2+, the Commodore Amiga, the Atari ST, the Game Boy Advance, the Nintendo 64, the Sony PlayStation and
-the Commodore Amiga 1200; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
+the Commodore Amiga 1200, and the PC Engine CD as an experimental machine; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
 
