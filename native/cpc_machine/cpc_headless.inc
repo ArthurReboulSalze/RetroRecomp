@@ -54,6 +54,12 @@ static unsigned long long headless_frames_wanted = 50;
 static int headless_until_halt, headless_was_halted;
 static const char *headless_picture_file, *headless_audio_file, *headless_report_file;
 static FILE *headless_audio, *headless_rows;
+/* --trace FILE --trace-from N (a development aid): from frame N, one line a service point (the board's time, PC, AF BC DE HL SP,
+ * IFF1), at most HEADLESS_TRACE_MAX lines; the native check's and the reference runner's files compare line by line. */
+#define HEADLESS_TRACE_MAX 400000ul
+static FILE *headless_trace;
+static unsigned long long headless_trace_from;
+static unsigned long headless_trace_lines;
 static unsigned headless_watch[16], headless_watches;
 static uint32_t headless_audio_hash = 2166136261u, headless_frame_sound = 2166136261u;
 static unsigned long long headless_audio_samples, headless_frame_samples;
@@ -78,6 +84,8 @@ static int headless_option(int argc, char **argv, int *i)
     else if (!strcmp(a, "--audio")) { headless_audio_file = v; ++*i; }
     else if (!strcmp(a, "--watch") && headless_watches < 16) { headless_watch[headless_watches++] = (unsigned)strtoul(v, NULL, 16); ++*i; }
     else if (!strcmp(a, "--report")) { headless_report_file = v; ++*i; }
+    else if (!strcmp(a, "--trace")) { headless_trace = fopen(v, "w"); if (!headless_trace) exit(3); ++*i; }
+    else if (!strcmp(a, "--trace-from")) { headless_trace_from = strtoull(v, NULL, 10); ++*i; }
     else if (!strcmp(a, "--rows")) {
         headless_rows = fopen(v, "w");
         if (!headless_rows) exit(3);
@@ -186,6 +194,11 @@ static void headless_service(void)
     }
     CpcCpuView c;
     headless_cpu(&c);
+    if (headless_trace && machine.frames >= headless_trace_from && headless_trace_lines < HEADLESS_TRACE_MAX) {
+        fprintf(headless_trace, "%llu %04x %04x %04x %04x %04x %04x %d\n", (unsigned long long)machine.cycles, c.pc, c.af, c.bc,
+                c.de, c.hl, c.sp, c.iff1);
+        if (++headless_trace_lines == HEADLESS_TRACE_MAX) fflush(headless_trace);
+    }
     if ((headless_until_halt && c.halted && !headless_was_halted) || machine.frames >= headless_frames_wanted)
         headless_finish();
     headless_was_halted = c.halted;

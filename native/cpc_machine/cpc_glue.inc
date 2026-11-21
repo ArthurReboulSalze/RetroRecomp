@@ -14,7 +14,7 @@
  * Timing: an instruction's I/O happens at the instruction's start time (`step_start`, the chain's contract); so does a write to
  * the 16 KiB page the CRTC shows, so that the picture is drawn up to that time before the byte changes. The Gate Array's
  * interrupt is a level the Z80 drops by accepting it: once the loop has accepted one (its count `g_irq_taken` moved), the Gate
- * Array is acknowledged before the next instruction. */
+ * Array is acknowledged at the start of the acceptance, before the board runs the acceptance's microseconds (machine_to). */
 #include "cpc_machine.h"
 #include "game_banked.h"
 #include "runtime_reference.h"
@@ -31,9 +31,24 @@ static void cpc_main_service(void);
 static void machine_to(uint64_t cycle);          /* the shared glue (z80_chain_glue.inc) catches the hardware up through it */
 #include "z80_chain_glue.inc"
 
+/* The Gate Array is acknowledged when the Z80 accepts its interrupt, at the start of the acceptance: the loop advances the board
+ * to the end of the instruction, accepts (its count g_irq_taken moves), then asks the board to the end of the acceptance; the
+ * acknowledge comes first, as on the machine and in the reference runner. Acknowledging after the acceptance's microseconds
+ * would let an HSYNC inside them count before bit 5 of the line counter is cleared, and the next interrupt would move (Bomb Jack
+ * lost one while loading). */
+static uint64_t acknowledged;
+static void acknowledge_taken(void)
+{
+    if (g_irq_taken != acknowledged) {
+        acknowledged = g_irq_taken;
+        cpc_acknowledge(&machine);
+    }
+}
+
 /* Bring the machine to `cycle`: its video, interrupt and frame flag up to then. */
 static void machine_to(uint64_t cycle)
 {
+    acknowledge_taken();
     if (cycle > machine.cycles)
         cpc_advance(&machine, cycle - machine.cycles);
     g_next_line_cyc = cpc_next_event(&machine);
@@ -82,10 +97,6 @@ static const BankedRegion *smsrecomp_region_map(void)
 /* Called by the loop once an instruction and the interrupt it may accept are complete. */
 static void smsrecomp_state_service(void)
 {
-    static uint64_t acknowledged;
-    if (g_irq_taken != acknowledged) {
-        acknowledged = g_irq_taken;
-        cpc_acknowledge(&machine);
-    }
+    acknowledge_taken();                         /* already done by machine_to whenever the board moved after the acceptance */
     cpc_main_service();
 }
