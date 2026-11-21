@@ -174,6 +174,12 @@ class FrontEndView(tk.Frame):
         self.tabs.bind('<Button-1>', self.tab_clicked)
         self.tabs.bind('<Motion>', self.tab_motion)
         self.tabs.bind('<Leave>', self.tab_motion)
+        # The wheel over the strip changes console, one notch for one, like LB / RB (Arthur, 21 Nov 2026: many consoles
+        # and no gamepad); Ctrl+Left / Ctrl+Right do the same from anywhere in the front-end (previous_console and
+        # next_console, bound below).
+        for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            self.tabs.bind(sequence, self.strip_wheel)
+        self.strip_notches = 0
         from .tooltips import Tooltip
         self.hints = [Tooltip(self.tabs, text, item=tag) for tag, text in (
             ('tool_favorites', lambda: self.tr('front_end_tip_favorites')),
@@ -218,6 +224,11 @@ class FrontEndView(tk.Frame):
         except tk.TclError:
             pass
         self.wall.bind('<Key>', self.letter)
+        # Ctrl+Left / Ctrl+Right: the previous or next console, like LB / RB. More specific than the plain arrows (which
+        # move between covers) and than the <Key> letters, so Tk runs only these; nothing else of the front-end uses them.
+        for widget in (self.wall, self.tabs, self.details):
+            widget.bind('<Control-Left>', self.previous_console)
+            widget.bind('<Control-Right>', self.next_console)
         self.later('drain', 30, self.drain)
 
     # ---- sizes and fonts
@@ -986,6 +997,30 @@ class FrontEndView(tk.Frame):
     def switch(self, direction):
         if self.menu_items is None and self.shelves and not self.editing:
             self.select_shelf(self.shelf + direction)
+
+    def previous_console(self, event=None):
+        """Ctrl+Left: the previous console, as LB. While the search is typed it does nothing (switch())."""
+        self.switch(-1)
+        return 'break'
+
+    def next_console(self, event=None):
+        """Ctrl+Right: the next console, as RB."""
+        self.switch(1)
+        return 'break'
+
+    def strip_wheel(self, event):
+        """The wheel over the strip: up is the previous console, down the next, one notch for one (a fine-grained
+        wheel or touchpad adds up to a notch of 120 first); round like LB / RB."""
+        number = getattr(event, 'num', 0)
+        if number in (4, 5):
+            notches = -1 if number == 4 else 1
+        else:
+            self.strip_notches -= getattr(event, 'delta', 0) or 0
+            notches = int(self.strip_notches / 120)
+            self.strip_notches -= notches * 120
+        for _ in range(abs(notches)):
+            self.switch(1 if notches > 0 else -1)
+        return 'break'
 
     def letter(self, event):
         """A letter or digit jumps to the next game whose title starts with it (it types while the search is)."""

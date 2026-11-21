@@ -852,7 +852,7 @@
     "estimate_paths_native": "Los caminos de otros jugadores, cuando se conocen, hacen nativa una mayor parte del juego; en esta consola la conversión sigue haciendo su descubrimiento completo.",
     "estimate_paths_time": "Con los caminos de otros jugadores: {span} en el PC de referencia (recompilación sin descubrir caminos).",
     "front_end": "Front-end",
-    "tip_front_end": "Front-end: tus juegos compilados como un muro de carátulas, una consola cada vez. Ratón, teclado o mando: LB/RB cambian de consola, L2/R2 ajustan las carátulas por fila, A juega, B vuelve.",
+    "tip_front_end": "Front-end: tus juegos compilados como un muro de carátulas, una consola cada vez. Ratón, teclado o mando: LB/RB, Ctrl+Izquierda/Derecha o la rueda sobre la franja de consolas cambian de consola, L2/R2 ajustan las carátulas por fila, A juega, B vuelve.",
     "front_end_empty": "Aún no hay juegos compilados. Convierte un juego o analiza tus carpetas en Juegos recompilados.",
     "front_end_add_cover": "Añadir una carátula",
     "front_end_back": "Volver",

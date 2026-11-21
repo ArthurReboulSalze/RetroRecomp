@@ -852,7 +852,7 @@
     "estimate_paths_native": "I percorsi di altri giocatori, quando noti, rendono nativa una parte maggiore del gioco; su questa console la conversione fa comunque la sua scoperta completa.",
     "estimate_paths_time": "Con i percorsi di altri giocatori: {span} sul PC di riferimento (ricompilazione senza scoperta dei percorsi).",
     "front_end": "Front-end",
-    "tip_front_end": "Front-end: i tuoi giochi compilati come un muro di copertine, una console alla volta. Mouse, tastiera o controller: LB/RB cambiano console, L2/R2 regolano le copertine per riga, A avvia, B torna indietro.",
+    "tip_front_end": "Front-end: i tuoi giochi compilati come un muro di copertine, una console alla volta. Mouse, tastiera o controller: LB/RB, Ctrl+Sinistra/Destra o la rotellina sulla barra delle console cambiano console, L2/R2 regolano le copertine per riga, A avvia, B torna indietro.",
     "front_end_empty": "Ancora nessun gioco compilato. Converti un gioco o analizza le tue cartelle in Giochi ricompilati.",
     "front_end_add_cover": "Aggiungi una copertina",
     "front_end_back": "Indietro",

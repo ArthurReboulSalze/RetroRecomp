@@ -284,6 +284,138 @@ class PodiumPortrait(OnACanvas):
         self.assertEqual(real.getpixel((20, 20))[:3], (200, 30, 30))               # the player's own picture
         self.assertEqual(real.getpixel((0, 0))[3], 0)                              # round: the corners are clear
 
+    def test_a_player_the_site_names_no_portrait_for_gets_the_silhouette_never_a_local_drawing(self):
+        import retrorecomp.gui_drawing as drawing
+        self.assertFalse(hasattr(drawing, 'site_pattern'))          # Arthur, 21 Nov: always fetched from the site
+        nothing = self.app.podium_portrait(self.canvas, 100, 40, 35, 1, None, key=None)
+        waiting = self.app.podium_portrait(self.canvas, 200, 40, 35, 1, None, key='/avatars/g-0badf00d.png')
+        self.assertEqual(self.canvas.itemcget(nothing, 'image'), self.canvas.itemcget(waiting, 'image'))
+
+    def test_the_podium_portraits_are_clearly_larger_than_the_old_letter_circle(self):
+        from retrorecomp.gui_leaderboard import PODIUM_PORTRAIT
+        self.assertGreaterEqual(min(PODIUM_PORTRAIT.values()), 30)                 # the letter circle was 20
+        self.assertGreater(PODIUM_PORTRAIT[1], PODIUM_PORTRAIT[2])                 # the first larger, as on the site
+        self.assertEqual(PODIUM_PORTRAIT[2], PODIUM_PORTRAIT[3])
+        item = self.app.podium_portrait(self.canvas, 100, 40, PODIUM_PORTRAIT[1], 1, picture(), key='/avatars/p1.webp')
+        x0, y0, x1, y1 = self.canvas.bbox(item)
+        self.assertEqual((x1 - x0, y1 - y0), (2 * PODIUM_PORTRAIT[1],) * 2)
+
+
+class PortraitFields(unittest.TestCase):
+    """Where an entry names its portrait on the site: the upload, else the site's generated one (`avatar_generated`)."""
+
+    def test_the_upload_first_then_the_site_s_generated_portrait_then_none(self):
+        from retrorecomp.gui_leaderboard import portrait_path
+        self.assertEqual(portrait_path({'avatar': '/avatars/up.webp', 'avatar_generated': '/avatars/g-1.png'}),
+                         '/avatars/up.webp')
+        self.assertEqual(portrait_path({'avatar': None, 'avatar_generated': '/avatars/g-1.png'}), '/avatars/g-1.png')
+        for entry in ({}, {'avatar': None}, {'avatar': '', 'avatar_generated': None}, {'avatar_generated': 7}):
+            self.assertIsNone(portrait_path(entry), entry)
+
+    def test_the_podium_downloads_a_generated_portrait_like_an_upload(self):
+        entries = [{'avatar': None, 'avatar_generated': '/avatars/g-1.png'}, {'avatar': '/avatars/two.webp'},
+                   {'avatar': None}, {'avatar': None, 'avatar_generated': '/avatars/g-4.png'}]
+        self.assertEqual(podium_paths(entries), ['/avatars/g-1.png', '/avatars/two.webp'])     # third: none; fourth: a row
+
+    def test_online_accepts_the_proposed_generated_file_like_an_upload(self):
+        with patch.dict(os.environ, {'RETRO_RECOMP_SERVICE': 'https://retro-recomp.com'}):
+            folder = Path(tempfile.mkdtemp())
+            with patch('retrorecomp.online._account_path', return_value=folder / 'account.json'):
+                found = online._board_portrait_path('/avatars/g-0badf00d.png')
+        self.assertEqual(found[0], 'https://retro-recomp.com/avatars/g-0badf00d.png')
+        self.assertEqual(found[1].name, 'board-portrait-g-0badf00d.png')
+
+
+class RulesPanel(unittest.TestCase):
+    """« The rules » (Tooltip.toggle): a click opens and keeps them, a second click, a click elsewhere or Esc closes them;
+    opened by hovering, leaving the link closes them; never two panels at once (the bug of 21 Nov 2026). The panel's
+    window is a stand-in: nothing is shown."""
+
+    def setUp(self):
+        release_tk(self)
+        try:
+            self.root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('no display')
+        self.root.withdraw()
+        self.addCleanup(self.root.destroy)
+        self.link = tk.Label(self.root, text='The rules')
+        self.link.winfo_ismapped = lambda: True                  # withdrawn: never mapped; the hint asks
+        self.other = tk.Label(self.root, text='elsewhere')
+        from retrorecomp import tooltips
+        self.windows = []
+        def window(*args, **kwargs):
+            from unittest.mock import MagicMock
+            made = MagicMock()
+            made.winfo_reqwidth.return_value = made.winfo_reqheight.return_value = 100
+            made.winfo_screenwidth.return_value, made.winfo_screenheight.return_value = 1920, 1080
+            made.destroy.side_effect = lambda: self.windows.remove(made)
+            self.windows.append(made)
+            return made
+        for patcher in (patch.object(tooltips.tk, 'Toplevel', side_effect=window),
+                        patch.object(tooltips.tk, 'Label'), patch.object(tooltips.ttk, 'Style'),
+                        patch.object(tooltips.Tooltip, 'active', set())):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.hint = tooltips.Tooltip(self.link, lambda: 'The rules, in full')
+        self.Tooltip = tooltips.Tooltip
+
+    def test_a_click_opens_and_keeps_them_and_a_second_click_closes_them(self):
+        self.hint.toggle()
+        self.assertEqual(len(self.windows), 1)
+        self.hint.leave()                                         # leaving the link: they stay
+        self.hint.schedule()                                      # back over it: still the same one
+        self.assertEqual(len(self.windows), 1)
+        self.hint.toggle()
+        self.assertEqual(self.windows, [])
+
+    def test_a_click_elsewhere_or_esc_closes_them(self):
+        self.hint.toggle()
+        self.Tooltip.click_away(SimpleEvent(self.link))          # the link's own click toggles, not this
+        self.assertEqual(len(self.windows), 1)
+        self.Tooltip.click_away(SimpleEvent(self.other))
+        self.assertEqual(self.windows, [])
+        self.hint.toggle()
+        self.assertTrue(self.Tooltip.close_shown())             # Esc: the rules close...
+        self.assertEqual(self.windows, [])
+        self.assertFalse(self.Tooltip.close_shown())            # ...and the next Esc closes the window
+
+    def test_opened_by_hovering_leaving_closes_them_and_a_click_does_not_add_a_second_panel(self):
+        self.hint.show()                                          # the hover's timer ran
+        self.assertEqual(len(self.windows), 1)
+        self.hint.toggle()                                        # a click on shown rules closes them
+        self.assertEqual(self.windows, [])
+        self.hint.show()
+        self.hint.show()                                          # a second show replaces the first
+        self.assertEqual(len(self.windows), 1)
+        self.hint.leave()
+        self.assertEqual(self.windows, [])
+
+    def test_on_a_second_monitor_the_panel_stays_beside_its_link(self):
+        from retrorecomp import dialogs
+        for area, root_x, expected_x in (((1920, 0, 3840, 1040), 2500, 2512),     # a monitor on the right
+                                         ((-1920, 0, 0, 1040), -1500, -1488),     # one on the left
+                                         ((1920, 0, 3840, 1040), 3800, 3840 - 100 - 8)):   # its right edge
+            with patch.object(dialogs, '_monitor_work_area', return_value=area), \
+                    patch.object(self.link, 'winfo_rootx', return_value=root_x), \
+                    patch.object(self.link, 'winfo_rooty', return_value=300):
+                self.hint.show()
+            geometry = self.windows[-1].geometry.call_args.args[0]
+            self.assertEqual(geometry, f'+{expected_x}+{300 + self.link.winfo_height() + 6}', area)
+            self.hint.hide()
+
+    def test_the_link_and_the_board_window_are_wired_to_it(self):
+        self.assertIn('click_away', self.root.bind('<ButtonPress>'))
+        self.assertIn('leave', self.link.bind('<Leave>'))
+        source = Path(__file__).resolve().parents[1].joinpath('retrorecomp', 'gui_leaderboard.py').read_text(encoding='utf-8')
+        self.assertIn("rules.bind('<Button-1>', rules_hint.toggle)", source)
+        self.assertIn("Tooltip.close_shown() else window.destroy()", source)
+
+
+class SimpleEvent:
+    def __init__(self, widget):
+        self.widget = widget
+
 
 if __name__ == '__main__':
     unittest.main()
