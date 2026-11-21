@@ -3,6 +3,7 @@
 It guards what made the first prototype 5x to 40x slower (a narrow 9-slice middle, which Tk tiles, and one state entry per state
 combination, which Tk instantiates per widget), the focus ring that replaces the dotted line, the colour of the corners, the layout
 that must not move, and the picture sizes at Tk scaling 1.0, 1.5 and 2.0."""
+import os
 import tkinter as tk
 import unittest
 from tests.tk_cleanup import release_tk
@@ -14,16 +15,27 @@ from retrorecomp.branding import COLORS, apply_theme
 from retrorecomp.rounded_skin import apply_rounded_theme
 from retrorecomp.rounded_ui import Look
 from retrorecomp.rounded_skin import CENTER, RADIUS, Skin, skin_of
+from retrorecomp.ui_fonts import ui_scale
+from tests.test_window_scale import tk_rounding
 
 WIDGETS = (('TButton', ttk.Button), ('Primary.TButton', ttk.Button), ('TEntry', ttk.Entry), ('TCombobox', ttk.Combobox),
            ('TSpinbox', ttk.Spinbox), ('TCheckbutton', ttk.Checkbutton), ('TLabelframe', ttk.LabelFrame),
            ('Vertical.TScrollbar', ttk.Scrollbar))
 
 
-def tk_root():
-    root = tk.Tk()
+def tk_root(test):
+    """A withdrawn root, or the test skipped where there is no display (a Linux runner without $DISPLAY)."""
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        test.skipTest('no display')
     root.withdraw()
     return root
+
+
+def applied_factor(root):
+    """The scale Tk applied (`tk scaling` read back over 96 dpi), not the one a test asked for: see tk_rounding."""
+    return float(root.tk.call('tk', 'scaling')) * 72 / 96
 
 
 def restore_scaling(test, root):
@@ -49,7 +61,7 @@ def requested(root):
 class SkinCase(unittest.TestCase):
     def setUp(self):
         release_tk(self)                      # first: its cleanup runs after root.destroy (tests/tk_cleanup.py)
-        self.root = tk_root()
+        self.root = tk_root(self)
         self.addCleanup(self.root.destroy)
         apply_rounded_theme(self.root, 'Segoe UI')
         self.style = ttk.Style(self.root)
@@ -271,7 +283,7 @@ class CornersAndSurfaces(SkinCase):
         self.assertIn(f'{self.skin.tag}.Late.Vertical.TScrollbar.thumb', self.layout('Late.Vertical.TScrollbar'))
 
     def test_scan_skins_widgets_built_before_the_skin(self):
-        root = tk_root()
+        root = tk_root(self)
         self.addCleanup(root.destroy)
         with patch('retrorecomp.rounded_skin.install'):
             apply_rounded_theme(root, 'Segoe UI')
@@ -358,15 +370,19 @@ class ThickBorder(SkinCase):
 class LayoutDoesNotMove(unittest.TestCase):
     def test_no_widget_asks_for_another_size_than_before(self):
         # At 96 dpi (Windows always): a Linux display at about 100 dpi rounds the combobox chevron's 15 px up to 16.
-        plain = tk_root()
+        # The scaling is set BEFORE the two compared roots exist: a root sizes its own fonts at the display's scaling when
+        # it is created, so on a screen that is not at 96 dpi (GitHub's Windows runner) a root made before the change
+        # measured its text at the runner's dpi and the other at 96 (21 Nov 2026).
+        display = tk_root(self)
+        self.addCleanup(display.destroy)
+        restore_scaling(self, display)
+        display.tk.call('tk', 'scaling', 96 / 72)
+        plain = tk_root(self)
         self.addCleanup(plain.destroy)
-        restore_scaling(self, plain)
-        plain.tk.call('tk', 'scaling', 96 / 72)
         apply_theme(plain, 'Segoe UI')                     # branding alone: square
         square = requested(plain)
-        rounded = tk_root()
+        rounded = tk_root(self)
         self.addCleanup(rounded.destroy)
-        rounded.tk.call('tk', 'scaling', 96 / 72)
         apply_rounded_theme(rounded, 'Segoe UI')
         self.assertEqual(requested(rounded), square)
 
@@ -375,23 +391,29 @@ class HiDpi(unittest.TestCase):
     """The pictures are pixel sizes: they follow `tk scaling` (1.0 is 96 dpi: 4/3 Tk scaling), built once at start."""
 
     def at(self, factor):
-        root = tk_root()
+        root = tk_root(self)
         self.addCleanup(root.destroy)
         restore_scaling(self, root)
         root.tk.call('tk', 'scaling', factor * 96 / 72)
         apply_rounded_theme(root, 'Segoe UI')
         skin = skin_of(root)
+        self.assert_follows(skin, root, factor)
         ttk.Button(root, style='TButton')
         ttk.Button(root, style='Primary.TButton')
         ttk.Entry(root)
         ttk.Checkbutton(root)
         return skin
 
+    def assert_follows(self, skin, root, factor):
+        """The skin is built at the scale Tk applied, exactly; that scale is the one asked for, within what Tk's whole
+        millimetres keep of it (tests/test_window_scale.py tk_rounding: 2.0 reads 2.0069 on a 1024 px screen)."""
+        self.assertAlmostEqual(skin.scale, ui_scale(root), places=9)
+        self.assertAlmostEqual(applied_factor(root), factor, delta=factor * tk_rounding(root))
+
     def test_sizes_follow_the_scaling(self):
         sides = {}
         for factor in (1.0, 1.5, 2.0):
             skin = self.at(factor)
-            self.assertAlmostEqual(skin.scale, factor, places=2)
             button = f'{skin.tag}.btn.TButton'
             side, minimum = skin.sizes[button]
             radius = (minimum - 2) // 2
@@ -407,17 +429,19 @@ class HiDpi(unittest.TestCase):
         self.assertEqual((two.px(1), two.px(2), two.px(3)), (2, 4, 6))
 
     def test_the_scale_is_one_shared_helper_clamped_to_1_to_3(self):
-        from retrorecomp.ui_fonts import ui_scale
-        root = tk_root()
+        root = tk_root(self)
         self.addCleanup(root.destroy)
         restore_scaling(self, root)
         for scaling, expected in ((96 / 72, 1.0), (72 / 72, 1.0), (144 / 72, 1.5), (192 / 72, 2.0), (500 / 72, 3.0)):
             root.tk.call('tk', 'scaling', scaling)
-            self.assertAlmostEqual(ui_scale(root), expected, places=2)
+            # The one definition, on what Tk applied: over 96 dpi, clamped to 1..3 ...
+            self.assertAlmostEqual(ui_scale(root), min(3.0, max(1.0, applied_factor(root))), places=9)
+            # ... which is the scale asked for, within Tk's whole millimetres (tk_rounding).
+            self.assertAlmostEqual(ui_scale(root), expected, delta=expected * tk_rounding(root))
         self.assertEqual(ui_scale(object()), 1.0)
 
     def test_apply_theme_again_rebuilds_with_the_new_scaling_and_new_element_names(self):
-        root = tk_root()
+        root = tk_root(self)
         self.addCleanup(root.destroy)
         restore_scaling(self, root)
         apply_rounded_theme(root, 'Segoe UI')
@@ -428,7 +452,7 @@ class HiDpi(unittest.TestCase):
         apply_rounded_theme(root, 'Segoe UI')
         self.assertIs(skin_of(root), skin)
         self.assertNotEqual(skin.tag, first)
-        self.assertAlmostEqual(skin.scale, 2.0, places=2)
+        self.assert_follows(skin, root, 2.0)
         self.assertIn(f'{skin.tag}.btn.TButton', str(ttk.Style(root).layout('TButton')))
 
 
@@ -445,7 +469,7 @@ class FreedOnItsOwnThread(unittest.TestCase):
         gc.collect()
         gc.disable()
         self.addCleanup(gc.enable)
-        root = tk_root()
+        root = tk_root(self)
         apply_rounded_theme(root, 'Segoe UI')
         ttk.Button(root, text='x').pack()
         ttk.Entry(root).pack()
@@ -478,6 +502,7 @@ print('alive')
 '''
 
 
+@unittest.skipUnless(os.environ.get('DISPLAY') or os.name == 'nt', 'needs a Tk display (kept hidden)')
 class NoAbortWhenAWorkerCollects(unittest.TestCase):
     def test_a_destroyed_skinned_root_then_a_collection_in_a_worker_thread_does_not_abort(self):
         # A player's worker threads (the front-end's cover loader, the netplay workers) collect garbage while windows open
