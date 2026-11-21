@@ -40,7 +40,7 @@ def prepare_cpu_headers(game: Path, engine: Path) -> None:
     (game / 'z80_ops.h').write_text(ops, encoding='utf-8')
 
 
-def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: bool = False) -> None:
+def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: bool = False, costs=None) -> None:
     """Correct the pinned fallback/oracle in a generated copy.
 
     This CPU is checked against the same independent vectors as the emitter.
@@ -53,6 +53,10 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: b
     `nmi` (a machine with a /NMI pin, `z80_chain.Z80Machine.nmi`) makes the copy accept a pending NMI as the chain's
     `banked_accept_nmi` does: before EI's one-instruction delay, which only holds /INT back, with the Q and P latches cleared.
     Off, the copy is what it always was (the pinned code lets EI's delay hold the NMI back too).
+
+    `costs` (a machine whose bus stretches the Z80's own counts, `z80_chain.Z80Machine.costs`) makes the copy count each
+    instruction, interrupt acceptance, HALT cycle and redundant prefix as the machine's table says, as the emitter and the step
+    loop do (`_reference_costs`). None, or the Z80's own counts: the copy is what it always was.
     """
     original = engine / 'runner/external/superzazu'
     header = (original / 'z80.h').read_text(encoding='utf-8')
@@ -185,4 +189,58 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: b
         if source.count(take_back) != 2:
             raise RuntimeError('reference CPU: the two R take-backs were not found where the M1 count expects them')
         source = source.replace(take_back, take_back + ' --z80_m1_fetches;')
+    if costs is not None:
+        source = _reference_costs(source, costs)
     (game / 'runtime_reference.c').write_text(source, encoding='utf-8')
+
+
+# The cost of one instruction on a machine with a table of its own (z80_chain.Z80Costs), applied after the instruction ran and
+# before the interrupts are looked at. The interpreter counted the Z80's own T-states; a conditional branch that was taken, or
+# a block instruction that goes round again, counted more than its untaken form, which tells the two apart. The base is the
+# machine's (its table) or the Z80's own; the machine's extra is added when the branch was taken. The same rows, the same
+# kinds of branch and the same extras as the emitter (z80_chain._emitter_costs).
+_REFERENCE_COST_FUNCTION = '''
+/* The machine's own instruction counts (retrorecomp/cpu.py, from z80_chain.Z80Costs). */
+%(table)s
+static void rr_apply_costs(z80* const z, unsigned long start, bool halted, unsigned group, uint8_t op) {
+  if (halted) { z->cyc = start + %(halt)d; return; }
+  unsigned long own = z->cyc - start;
+  unsigned plain = 0, extra = 0;
+  unsigned prefix = (group == 2 || group == 3) ? 4 : 0;   /* a DD or FD before the branch: 4 more, as the emitter counts */
+  if (group == 0 || group == 2 || group == 3) {
+    if (op == 0x10) { plain = 8 + prefix; extra = %(djnz)d; }
+    else if ((op & 0xE7) == 0x20) { plain = 7 + prefix; extra = %(jr)d; }
+    else if ((op & 0xC7) == 0xC0) { plain = 5 + prefix; extra = %(ret)d; }
+    else if ((op & 0xC7) == 0xC4) { plain = 10 + prefix; extra = %(call)d; }
+  } else if (group == 4 && (op & 0xF4) == 0xB0) { plain = 16; extra = %(repeat)d; }
+  bool taken = plain && own > plain;
+  unsigned base = rr_cost_table[group][op] ? rr_cost_table[group][op] : (unsigned)(taken ? plain : own);
+  z->cyc = start + base + (taken ? extra : 0);
+}
+'''
+
+
+def _reference_costs(source: str, costs) -> str:
+    """The reference copy counting as a machine's table says (`prepare_reference(costs=...)`); the Z80's own counts leave it."""
+    from .z80_chain import Z80_COSTS
+    if costs == Z80_COSTS:
+        return source
+    source = replace(source, '    z->cyc += 11;\n    call(z, 0x66);', f'    z->cyc += {costs.nmi};\n    call(z, 0x66);')
+    source = replace(source, '      z->cyc += 2;\n      exec_opcode(z, z->int_data);',
+                     f'      z->cyc += {costs.irq - 11};\n      exec_opcode(z, z->int_data);')
+    source = replace(source, '      z->cyc += 13;\n      call(z, 0x38);', f'      z->cyc += {costs.irq};\n      call(z, 0x38);')
+    source = replace(source, '      z->cyc += 19;\n      call(z, rw(', f'      z->cyc += {costs.irq_im2};\n      call(z, rw(')
+    source = replace(source, '    z->pc++; z->cyc += 4; inc_r(z); op = next;',
+                     f'    z->pc++; z->cyc += {costs.fragment}; inc_r(z); op = next;')
+    function = _REFERENCE_COST_FUNCTION % dict(table=costs.c_table('rr_cost_table'), halt=costs.halt, djnz=costs.djnz_taken,
+                                               jr=costs.jr_taken, ret=costs.ret_taken, call=costs.call_taken,
+                                               repeat=costs.repeat)
+    source = replace(source, 'void z80_step(z80* const z) {\n', function + '\nvoid z80_step(z80* const z) {\n')
+    # The group of the instruction (z80_chain.COST_GROUPS order) from what the step decoded, and its cost once it has run.
+    source = replace(source, '  if (z->halted) exec_opcode(z, 0); else exec_opcode(z, nextb(z));\n',
+                     '  unsigned rr_group = family == 2 ? 4 : family == 1 ? (op == 0xDD ? 5 : op == 0xFD ? 6 : 1) :\n'
+                     '    (op == 0xDD ? 2 : op == 0xFD ? 3 : 0);\n'
+                     '  unsigned long rr_start = z->cyc; bool rr_halted = z->halted;\n'
+                     '  if (z->halted) exec_opcode(z, 0); else exec_opcode(z, nextb(z));\n'
+                     '  rr_apply_costs(z, rr_start, rr_halted, rr_group, decoded);\n')
+    return source
