@@ -1,8 +1,9 @@
 """Compile independent Z80 vectors through the production AOT emitter.
 
-`--machine msx` runs them through the MSX's own build of the generator (systems/msx.py, `MSX_MACHINE`: a region map and one
-wait state per M1 cycle, which its bodies add to the Z80's T-states): the expected T-states are the vector's plus one per M1
-cycle of the instruction (`m1_cycles`). The reference interpreter adds no wait state, so `--reference` checks the plain count."""
+`--machine msx|sg1000|coleco` runs them through that machine's own build of the generator (`Z80Machine` of systems/msx.py,
+sg1000.py, coleco.py: a region map and `m1_wait` wait states per M1 cycle, which its bodies add to the Z80's T-states: one for the
+MSX and the ColecoVision, none for the SG-1000): the expected T-states are the vector's plus `m1_wait` per M1 cycle of the
+instruction (`m1_cycles`). The reference interpreter adds no wait state, so `--reference` checks the plain count."""
 import argparse
 from collections import Counter
 import hashlib
@@ -45,11 +46,12 @@ def main():
     parser.add_argument('--samples', type=int, default=32)
     parser.add_argument('--reuse-build', action='store_true')
     parser.add_argument('--reference', action='store_true')
-    parser.add_argument('--machine', choices=('sms', 'msx'), default='sms')
+    parser.add_argument('--machine', choices=('sms', 'msx', 'sg1000', 'coleco'), default='sms')
     args = parser.parse_args()
     machine = None
-    if args.machine == 'msx':
-        from retrorecomp.systems.msx import MSX_MACHINE as machine
+    if args.machine != 'sms':
+        from retrorecomp.systems import get_profile
+        machine = get_profile(args.machine).z80_machine
     source = fetch(args.samples)
     vectors = json.loads(source.read_text(encoding='utf-8'))
     cases = vectors['cases']
@@ -114,7 +116,7 @@ def main():
     source_dir = 'recompiler-src' if machine is None else machine.generator_source
     emitter_digest = hashlib.sha256((ROOT / '.deps' / source_dir / 'src/code_generator.c').read_bytes()).hexdigest()
     tool = build_executable(recompiler_build(), 'SmsRecomp') if machine is None else __import__(
-        'retrorecomp.msx_build', fromlist=['generator']).generator()[0]
+        'retrorecomp.z80_chain_build', fromlist=['generator']).generator(machine)[0]
     stamp = game / 'generated/emitter.sha256'
     if args.reuse_build and (not stamp.exists() or stamp.read_text() != emitter_digest):
         parser.error('Generated bodies do not match the current emitter; run without --reuse-build.')

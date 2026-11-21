@@ -580,7 +580,7 @@ quick-state layout moves to `sg1000-state-2` (one byte more: the latch). The Col
 
 **Proofs run** (the multiplayer specialist's checklist, in order): (1) `--snap-probe AT:N` in each delivered game, headless: a snapshot is the same
 bytes twice, fits its bound, a buffer one byte short is refused and changes nothing, and after a load the same N frames give every digest and every
-picture again. Run on an authored program (in the player self-tests, proof (d): 85 checks for the ColecoVision, 84 for the SG-1000, NTSC and PAL, at two
+picture again. Run on an authored program (in the player self-tests, proof (d): 85 checks for the ColecoVision, 84 for the SG-1000 (97 with the pad-port proof (e) against MAME's bytes), NTSC and PAL, at two
 frames) and on **eight real games** from the owner's library (Donkey Kong, Bump 'N' Jump, Ken Uston's Blackjack-Poker and Pitfall II; Flicky, Congo Bongo,
 Sega-Galaga and Champion Baseball), two probes each, the keypad and Pause exercised by the routes: 16 of 16 pass. (Solo) the SG-1000's reference runner
 on its authored program gives the same fields and the same per-frame rows before and after the Pause bit, NTSC and PAL. (2) **Windows and Linux (WSL
@@ -593,6 +593,18 @@ unchanged, and the `tests/test_netplay_*` suite with the one word its machines l
 run**: the full suite on the merge, then the multiplayer specialist's two-PC acceptance and the owner's play.
 
 **Stamps** (`compilation_inputs.role_stamps`): the SG-1000's and the ColecoVision's only (the host adapters and the state files are theirs).
+
+## ColecoVision (developer only): the route's walk ends with a keypad tour (1.9.0)
+
+A walk of directions and the two fire buttons never answered a game that asks for a number on the keypad and then for `*`: Ken Uston's Blackjack-Poker
+stayed on « ENTER YOUR POT » (7 distinct pictures on its `play` route). `retrorecomp/coleco_routes.py` now adds, after the quiet part of the walk,
+a **keypad tour** (`KEYPAD_TOUR`: each digit then `*`, the digits 1 2 5 3 4 6 7 8 9 0, then `#` and `*`; a 6-frame tap every 60 frames, never in the last 200
+frames), with the twelve keys as the lines they pull (`KEY_LINES`, the machine's `CV_KEY_*`). Measured on the delivered games, same 3,600-frame route: Ken
+Uston 7 → 56 distinct pictures (the game deals, hits and shows « YOU LOSE »); Donkey Kong unchanged (1,172 and 1,172); Bump 'N' Jump and Pitfall II keep
+hundreds to a thousand (a few fewer, the tour taking time from the walk). Three conversions rerun end to end from an empty scratch library (Ken Uston, Donkey Kong and Alcazar, which went from 50 to 85 distinct pictures on the
+start chosen, `fire1x2`, and 112 on the key 1 starts): native equals the reference on every route, 0 interpreted steps, the start of `play` chosen again by the same rule (Ken Uston `key1x1`, 30
+distinct pictures, after the tour; Donkey Kong `key1x3`; the tour is not why Alcazar's number is still low: it is a maze game, its picture changes 2,600 times). **Stamps**: `retrorecomp.coleco_routes` is one of the ColecoVision's own converter inputs (`stamp_inputs.INPUTS`, `('coleco',)`), so the ColecoVision's stamps move and
+no other machine's (a developer-only machine: there is no released export to upgrade); a ColecoVision reconverted by this version may learn from a different route.
 
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
 

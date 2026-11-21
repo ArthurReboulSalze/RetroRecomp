@@ -2,13 +2,18 @@
 
 The names and lengths are the MSX's and the PC Engine's: `attract` (no input: the baseline a start is judged against), `play` (a start,
 then a walk), and at the extended and thorough levels `long-1`, `long-2` of `scan_levels.LONG_ROUTE_FRAMES` frames. A route drives controller 1
-(the stick, the two fire buttons and the keypad's keys 1 and 2) and nothing else: the console has no Pause button.
+(the stick, the two fire buttons, the keypad's keys 1 and 2 in the walk, and a keypad tour of all twelve keys at its end) and nothing else:
+the console has no Pause button.
 
 The BIOS shows its title screen for a while before it reads the cartridge, and most games then wait at a game-select screen for a fire button or a
 digit, so the first press comes late (FIRST_PRESS); how `play` reaches play is chosen per conversion on the reference (route_start.choose_start,
 as the MSX): fire button 1, key 1, or key 1 then fire button 1 in turn, pressed 1, 2 or 3 times, one press every PRESS_SPACING frames. Then a
 deterministic walk seeded by the cartridge (computer_routes.long_events, its mouse dropped; its menu keys are the two fire buttons and keys 1
 and 2); its first QUIET_WALK frames are directions only, so `reach` counts what the stick moved, not what a button pressed.
+
+After the quiet part of the walk, a keypad tour taps the twelve keys in a fixed order, each digit followed by `*` (KEYPAD_TOUR): the games that
+ask for a number on the keypad (a bet, a code, a menu choice) and then for `*` to enter it take their first steps there, which a walk of
+directions and the two fire buttons never reaches. The tour is numbers about inputs, like the rest of the route.
 
 A script is text, one event per line, `FRAME pad PORT HEX` (the buttons held on controller PORT, the CV_PAD_* bits of
 native/coleco_machine: the stick, the fire buttons and the keypad's lines in bits 6-9, as the host kit's pad word has them), frames not
@@ -36,6 +41,12 @@ MASK = 0x0FFF & ~(1 << 10)                                      # CV_PAD_MASK: b
 START_SEQUENCES = ((B1,), (KEY_1,), (KEY_1, B1))
 MOVES = (UP, DOWN, LEFT, RIGHT)                                 # computer_routes' joystick codes 0 to 3
 MENU_KEYS = (B1, B2, KEY_1, KEY_2)                              # the walk's menu keys: the two fire buttons and keys 1 and 2
+# The keypad keys as the lines they pull (CV_KEY_*, native/coleco_machine/coleco_machine.h), in the pad word's bits 6-9.
+KEY_LINES = {'0': 0x05, '1': 0x02, '2': 0x08, '3': 0x03, '4': 0x0D, '5': 0x0C, '6': 0x01, '7': 0x0A, '8': 0x0E, '9': 0x04, '#': 0x09, '*': 0x06}
+# The tour: each digit then `*` (enter), the digits in the order a bet or a short code is typed first; `#` (clear) last. Taps of TOUR_PRESS frames every TOUR_SPACING.
+KEYPAD_TOUR = tuple(key for digit in '1253467890' for key in (digit, '*')) + ('#', '*')
+TOUR_PRESS = 6
+TOUR_SPACING = 60
 BUTTON_NAMES = {B1: 'fire1', B2: 'fire2', KEY_1: 'key1', KEY_2: 'key2'}
 
 
@@ -81,6 +92,12 @@ def _intervals(frames: int, seed: int, variant: tuple[tuple[int, ...], int]) -> 
             held.append((first, min(last, frames), B1))
         elif kind == 'key' and not quiet:
             held.append((first, min(last, frames), code))
+    tour = start + QUIET_WALK
+    for index, key in enumerate(KEYPAD_TOUR):
+        first = tour + TOUR_SPACING * index
+        if first + TOUR_PRESS > frames - 200:
+            break
+        held.append((first, first + TOUR_PRESS, KEY_LINES[key] << KEY_SHIFT))
     return [interval for interval in held if interval[0] < interval[1] <= frames]
 
 

@@ -73,7 +73,11 @@ DECLINED = {
     # panel (QUALIFICATION.md, "Nintendo 64: evidence behind its column"); « Ça me paraît bien faible pour partager les chemins. »
     # The Amiga 1200 was listed here from 1.7.8, not shared for now pending a measure; it shares from 1.7.9 on Arthur's word of 16 November 2026
     # (« Je préfère que tu mettes en place directement le partage de chemin pour l'Amiga 500 et 1200 »), the measure cancelled.
-    'path_sharing': {'msx', 'msx2', 'n64'},
+    # The SG-1000 and the ColecoVision: declined on the panel's evidence (22 November 2026, under Arthur's rule of 14 Nov, « useless sharing → no
+    # sharing »): the 16 games of their two panels learn no pattern (learned_patterns 0, every learning pass 0 interpreted steps) and reach 0
+    # interpreted steps on every route, so a received path would add no native instruction and save no pass (QUALIFICATION.md,
+    # "SG-1000 and ColecoVision (22 November 2026"), with G16 `-`.
+    'path_sharing': {'msx', 'msx2', 'n64', 'sg1000', 'coleco'},
     # A runtime-feedback kind (native/runtime_feedback.h): a machine in development that records nothing yet may wait for it. The
     # lead reserves the new machines' kinds in one change, with the release that first needs one, so that the game stamps of
     # every machine move once, not once per new machine (21 Nov 2026). The ZX Spectrum's will be 28.

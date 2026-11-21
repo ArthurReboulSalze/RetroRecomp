@@ -77,30 +77,30 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Commodore Amiga 1200 | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
 | ZX Spectrum | experimental | `░░░░░░░░░░` 3 % | ✅ 0 · 🟡 1 · ❔ 15 |
 | PC Engine CD / TurboGrafx-CD | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
-| SG-1000 | experimental | `░░░░░░░░░░` 0 % | ✅ 0 · 🟡 0 · ❔ 16 |
+| SG-1000 | experimental | `████████░░` 82 % | ✅ 10 · 🟡 3 · ❔ 1 |
 | Game Boy Color | experimental | `░░░░░░░░░░` 0 % | ✅ 0 · 🟡 0 · ❔ 16 |
-| ColecoVision | experimental | `░░░░░░░░░░` 0 % | ✅ 0 · 🟡 0 · ❔ 16 |
+| ColecoVision | experimental | `████████░░` 82 % | ✅ 10 · 🟡 3 · ❔ 1 |
 
 **The matrix, with symbols** (the letters below are its source): ✅ met, 🟡 partial, ❌ no, ❔ unknown, ➖ not applicable.
 
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ | Commodore Amiga 1200 | ZX Spectrum | PC Engine CD / TurboGrafx-CD | SG-1000 | Game Boy Color | ColecoVision |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❔ | ❔ | ❔ |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | ❔ | ❔ | ❔ |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ❔ | ❔ | ❔ |
+| G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ➖ | ❔ | ➖ |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | ✅ | ❔ | ✅ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | ✅ | ❔ | ✅ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | ❔ | ❔ | ❔ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | 🟡 | ❔ | ➖ | ❔ | ❔ | ❔ |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | ❔ | 🟡 |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | 🟡 | ❔ | ➖ | ➖ | ❔ | ➖ |
 
 <!-- qualification-gauges:end -->
 
@@ -111,26 +111,26 @@ console's status is never a threshold of this bar: leaving the experimental stat
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
 md = Mega Drive, snes = Super Nintendo, ng = Neo Geo, cps1 = Capcom CPS-1,
 x68 = Sharp X68000, cps2 = Capcom CPS-2, pce = PC Engine / TurboGrafx-16, gba = Game Boy Advance, amiga = Commodore Amiga, atarist = Atari ST, n64 = Nintendo 64,
-psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+, zxs = ZX Spectrum, sg1000 = SG-1000 (experimental, developer only: its gates are read on a panel, none yet), pcecd = PC Engine CD / TurboGrafx-CD, gbc = Game Boy Color, coleco = ColecoVision (experimental, developer only: its gates are read on a panel, none yet).
+psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+, zxs = ZX Spectrum, sg1000 = SG-1000 (experimental, developer only: read on a panel of eight, 22 November 2026), pcecd = PC Engine CD / TurboGrafx-CD, gbc = Game Boy Color, coleco = ColecoVision (experimental, developer only: its gates are read on a panel, none yet).
 
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus | a1200 | zxs | pcecd | sg1000 | gbc | coleco |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | ? | ? | ? |
-| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y | ? | P | ? | ? | ? |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y | ? | P | ? | ? | ? |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | ? | ? | ? |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | ? | ? | ? | ? | ? |
-| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P | ? | P | ? | ? | ? |
-| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | ? | P | ? | ? | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | ? | ? | ? |
+| G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P |
+| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y | ? | P | Y | ? | Y |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y | ? | P | Y | ? | Y |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | - | ? | - |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | ? | ? | Y | ? | Y |
+| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P | ? | P | Y | ? | Y |
+| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | ? | P | P | ? | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | ? |
-| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P | ? | P | ? | ? | ? |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | P | ? | - | ? | ? | ? |
+| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P | ? | P | P | ? | P |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | P | ? | - | - | ? | - |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -167,6 +167,7 @@ The page of each console, which the README links its line to (a console of the m
 
 ### Caveats
 
+- SG-1000 and ColecoVision (22 November 2026; branch `spec/smsgg-g10` at `08196a91`, Windows and a witness on Debian 13 in WSL, an empty scratch library, two conversions at a time; the matrix reading is the specialist's, the lead merges): **G2 to G6, G8, G9, G12 and G13 move from `?` to `Y` on both, G10 too; G1, G11 and G15 to `P`; G7 to `-` (neither console has a cartridge save) and G16 to `-` (sharing declined, below); G14 stays `?`** (the owner's, with the checklists of [SG1000.md](SG1000.md#10-g14-checklist-for-the-owners-play-test-22-november-2026) and [COLECOVISION.md](COLECOVISION.md#6-g14-checklist-for-the-owners-play-test-22-november-2026)). The panel is eight games on each machine, none dropped: ColecoVision Donkey Kong, Bump 'N' Jump, Pitfall II, Ken Uston's Blackjack-Poker (the keypad game), Alcazar (a maze), 2010 (a 32 KiB board with heavy guarded steps), Moon Patrol (32 KiB prototype) and Pac-Man (prototype); SG-1000 Flicky, Congo Bongo (PAL by its name), Sega-Galaga, Champion Baseball (40 KiB), Bomb Jack, Elevator Action, Zaxxon and Hang-On II. **G2, G3, G4, G5, G6**: `tools/release_check.py`'s `check_report` reads the 16 reports and passes every gate on all of them: conversion, native equals the reference on every final scenario, **0 interpreted steps** (main CPU; the video and sound chips are C models, counted apart as devices), the delivered file replayed against the reference, and the quick states in a fresh process with the damaged ones refused; the report is the common v2 with its counters separate. **G8 and G9**: every play route is alive at its end (the picture changes until frame 3,400 to 3,600) with audible frames measured on every one (nobody has listened yet); the captures at 1,800 and 3,500 frames of the 16 games were looked at (all in play, the ColecoVision keypad games after their menu); at the extended level one long route of 18,000 frames was run on eight of them (Donkey Kong, Pitfall II, Ken Uston, Pac-Man; Flicky, Elevator Action, Zaxxon, Hang-On II): every one stays alive to its last 20 to 220 frames with 0 interpreted steps and native equal to the reference, 2,670 to 10,533 distinct pictures (Ken Uston, a card game: 50). Pad routes, not full games, and the keypad tour can send a game back to its select screen (seen on Pac-Man, Pitfall II and Moon Patrol: the part before it reached play). **G12 and G13**: five of the panel's games (Bump 'N' Jump, Pitfall II, Ken Uston, Congo Bongo, Sega-Galaga) were converted again in WSL from the same sources: every field of the final checks (the picture, RAM, VRAM and sound hashes, the frame trace, the native steps) and the chosen start are equal to Windows', and the snapshot digests of seven real games (those five, Donkey Kong, Flicky) are equal on both systems; the authored self-tests ran on both. Not covered: a Linux PC with a real display. **G15 `P`**: the two machine pages, their rows in the README, COMPATIBILITY and CONTROLS were read for « exact », « zero latency » and hardware claims: none; the sweep of every page is the documentation specialist's. **G10 `Y`**: `tools/banked_vector_selftest.py --machine sg1000` and `--machine coleco` compile the 51,328 SingleStepTests/z80 vectors (22,704 encodings) with each machine's own build of the generator (`SG1000_MACHINE`, no wait state; `COLECO_MACHINE`, one wait state per M1 cycle added to the expected T-states): 51,328 pass, 0 fail, 0 miss on each ([CPU_Z80.md](CPU_Z80.md)); an emulator's vectors, not hardware captures, on a flat test bus, so the region map's dispatch is covered by the games, not by them. **G11 `P`**: no hardware was used. ColecoVision: the controller ports agree with MAME 0.289 line by line (two corrections it gave), the Z80's two wait states (one per M1 cycle, 28 cycles per sound-chip write) were found and kept, and the console's RAM writes of the BIOS and a cartridge's first 1000 frames are identical to MAME's; one parting after a key press is not explained. SG-1000: the pad ports for both pads and the one-NMI-per-press Pause agree with MAME; Flicky's frames agree for 65 frames and then differ by a frame phase that is understood and **not adopted** (a recorded difference, to revisit only if a game depends on it). See [COLECOVISION.md](COLECOVISION.md#5-evidence) and [SG1000.md](SG1000.md#7-where-it-stands-in-the-qualification). **G16 `-`**: path sharing is declined on the panels' evidence, under the owner's rule of 14 November 2026 (« useless sharing → no sharing », `DECLINED['path_sharing']` in `tests/test_machine_registry.py`): the 16 games learn no pattern (`learned_patterns` 0, every learning pass 0 interpreted steps) and reach 0 interpreted steps on every route, so a received path would add no native instruction and save no pass; neither machine is in `path_profiles.SHARED_SYSTEMS`. Not claimed: hardware fidelity, gameplay validation, physical latency.
 - PC Engine CD (21 November 2026; branch `spec/pcecd-profile`, Windows and one witness on Debian 13 in WSL, from an empty scratch library, two conversions at a time): the column is `P` on G1 to G8, G10 to G13 and G15; **G9 and G14 stay `?`, G16 `-`**. Evidence: nine discs of the maintainer's library (Ys III, Dracula X in CHD version 4, The Addams Family, Lords of Thunder, Buster Bros., Dungeon Explorer II, Valis III, 4 in 1 Super CD, Ys Book I & II) converted with the player's Japanese Super System Card 3.0: on the two routes of each (a boot route and a play route of 3,600 frames), 0 interpreted instructions, the delivered game equal to the build with every instruction interpreted (picture, sound, RAM and CPU state, every frame), a quick state continued in a fresh process, eleven kinds of damaged backup file set aside; The Addams Family on Linux gives the same hashes as Windows. **Why `P` and not `Y`:** the routes are shallow (the boot route stays on the System Card's "push RUN" screen, a play route reaches the first screens), the play routes wrote no backup memory, the panel is nine discs, and the hardware evidence is the engine's. Details: [PC_ENGINE_CD.md](PC_ENGINE_CD.md#4-stage-1-where-it-stands-21-november-2026).
 - ZX Spectrum (21 November 2026, step 1 of the playbook, in development): G1 `P`: the profile is declared experimental and
   developer-only, `tools/status_lint.py` agrees, and no installation lists it; nothing converts yet, so every other gate is `?`.
