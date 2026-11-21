@@ -8,7 +8,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.9.1-d4a737" alt="Release version 1.9.1">
-  <img src="https://img.shields.io/badge/console_profiles-19-626262" alt="Nineteen machine profiles, and Adventure (ScummVM) as a category of its own">
+  <img src="https://img.shields.io/badge/machines-20_%2B_Adventure-626262" alt="Twenty machines, and Adventure (ScummVM) as a category of its own">
+  <a href="#play-together-new-in-190"><img src="https://img.shields.io/badge/multiplayer-rollback_%C2%B7_up_to_4_players_%C2%B7_LAN_%26_Internet-2ea44f" alt="Multiplayer: rollback, up to 4 players, on the local network or over the Internet"></a>
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
   <a href="https://discord.gg/VZeJYfNZgz"><img src="https://img.shields.io/badge/Discord-join_the_community-5865F2?logo=discord&logoColor=white" alt="Join the RetroRecomp Discord server"></a>
