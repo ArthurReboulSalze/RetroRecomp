@@ -40,7 +40,8 @@ def prepare_cpu_headers(game: Path, engine: Path) -> None:
     (game / 'z80_ops.h').write_text(ops, encoding='utf-8')
 
 
-def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: bool = False, costs=None) -> None:
+def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: bool = False, costs=None,
+                      port16: bool = False) -> None:
     """Correct the pinned fallback/oracle in a generated copy.
 
     This CPU is checked against the same independent vectors as the emitter.
@@ -57,10 +58,17 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: b
     `costs` (a machine whose bus stretches the Z80's own counts, `z80_chain.Z80Machine.costs`) makes the copy count each
     instruction, interrupt acceptance, HALT cycle and redundant prefix as the machine's table says, as the emitter and the step
     loop do (`_reference_costs`). None, or the Z80's own counts: the copy is what it always was.
+
+    `port16` (a machine whose bus decodes the whole port, `z80_chain.Z80Machine.port_bits` 16) widens the copy's port callbacks to
+    16 bits and passes the address the Z80 puts on the bus, as the chain's bodies do (`_reference_ports`). Off, the copy is what it
+    always was.
     """
     original = engine / 'runner/external/superzazu'
     header = (original / 'z80.h').read_text(encoding='utf-8')
     header = replace(header, '  uint8_t iff_delay;', '  uint8_t q, p;\n  uint8_t iff_delay;')
+    if port16:
+        header = replace(header, '  uint8_t (*port_in)(z80*, uint8_t);', '  uint8_t (*port_in)(z80*, uint16_t);')
+        header = replace(header, '  void (*port_out)(z80*, uint8_t, uint8_t);', '  void (*port_out)(z80*, uint16_t, uint8_t);')
     (game / 'runtime_reference.h').write_text(header, encoding='utf-8')
     source = (original / 'z80.c').read_text(encoding='utf-8')
     source = replace(source, '#include "z80.h"', '#include "runtime_reference.h"')
@@ -191,6 +199,8 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: b
         source = source.replace(take_back, take_back + ' --z80_m1_fetches;')
     if costs is not None:
         source = _reference_costs(source, costs)
+    if port16:
+        source = _reference_ports(source)
     (game / 'runtime_reference.c').write_text(source, encoding='utf-8')
 
 
@@ -244,4 +254,25 @@ def _reference_costs(source: str, costs) -> str:
                      '  unsigned long rr_start = z->cyc; bool rr_halted = z->halted;\n'
                      '  if (z->halted) exec_opcode(z, 0); else exec_opcode(z, nextb(z));\n'
                      '  rr_apply_costs(z, rr_start, rr_halted, rr_group, decoded);\n')
+    return source
+
+
+def _reference_ports(source: str) -> str:
+    """The reference copy passing the whole port (`prepare_reference(port16=True)`): A and n for IN A,(n) and OUT (n),A (A as it
+    was before the instruction), BC for the (C) forms and INI/IND (B before its decrement), B after its decrement for OUTI/OUTD,
+    which the Z80 decrements before the OUT (the interpreter decrements it after: the address is given as the chip makes it)."""
+    source = replace(source, '    z->a = z->port_in(z, port);', '    z->a = z->port_in(z, (uint16_t)(a << 8 | port));')
+    source = replace(source, '    z->port_out(z, port, z->a);', '    z->port_out(z, (uint16_t)(z->a << 8 | port), z->a);')
+    source = replace(source, '  *r = z->port_in(z, z->c);', '  *r = z->port_in(z, get_bc(z));')
+    for old, new, count in (('  uint8_t val = z->port_in(z, z->c);', '  uint8_t val = z->port_in(z, get_bc(z));', 2),
+                            ('  z->port_out(z, z->c, val);', '  z->port_out(z, (uint16_t)((uint8_t)(z->b - 1) << 8 | z->c), val);', 2)):
+        if source.count(old) != count:
+            raise ValueError(f'Pinned CPU source changed: {old!r}')
+        source = source.replace(old, new)
+    # OUT (C),r and the undocumented OUT (C),0: every remaining OUT through C.
+    if source.count('z->port_out(z, z->c, ') != 8:
+        raise ValueError('Pinned CPU source changed: the eight OUT (C) forms')
+    source = source.replace('z->port_out(z, z->c, ', 'z->port_out(z, get_bc(z), ')
+    if 'port_in(z, z->c)' in source or 'port_out(z, z->c' in source or 'port_in(z, port)' in source:
+        raise ValueError('Pinned CPU source changed: an 8-bit port call is left')
     return source

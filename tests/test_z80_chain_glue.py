@@ -24,6 +24,9 @@ class GlueContractTests(unittest.TestCase):
                      'game_banked.h', 'runtime_reference.h', 'SMSRECOMP_BANKED_AOT', '_banked_loop.inc'):
             self.assertIn(name, HEADER, name)
         self.assertIn('RESERVED, not implemented', HEADER)       # the cost hook is named, not written
+        # A 16-bit machine's pair (Z80Machine.port_bits): the header names it and the define that selects it.
+        for name in ('sms_io_in16', 'sms_io_out16', 'SMSRECOMP_PORT16', 'exactly one pair'):
+            self.assertIn(name, HEADER, name)
 
     def test_the_msx_glue_supplies_what_the_header_asks_for(self):
         self.assertIn('static void machine_to(uint64_t cycle);', MSX_GLUE)          # the prototype, before the include

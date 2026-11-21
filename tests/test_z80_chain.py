@@ -383,6 +383,65 @@ class Z80ChainTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Z80Costs(repeat_compare=256)
 
+    # --- 16-bit ports (Z80Machine.port_bits) -------------------------------------------------------------------------------
+
+    def test_an_8_bit_machine_keeps_its_text_and_a_16_bit_one_re_spells_its_io(self):
+        for machine in (SEGA_MAPPER, OTHER, MAPPED, STANDALONE, WITH_NMI):
+            self.assertEqual(machine.port_bits, 8)
+            self.assertEqual(z80_chain._emitter_ports(machine, EMITTER), EMITTER)
+        wide = Z80Machine('wide', MAPPED.regions, irq_sample='instruction_end', port_bits=16)
+        text = z80_chain.emitter_source(wide, EMITTER)
+        self.assertEqual(text.count('static void banked_io16_file(const char *path) {'), 1)
+        self.assertEqual(text.count('        banked_io16_file(path);\n'), 1)
+        self.assertEqual(text.count('#define SMSRECOMP_PORT16 1'), 1)
+        for spelling in ('sms_io_in16((uint16_t)(s->a << 8 | 0x%02X))', 'sms_io_in16(z80_bc(s))',
+                         'sms_io_out16((uint16_t)(s->a << 8 | 0x%02X), ', 'sms_io_out16(z80_bc(s), '):
+            self.assertIn(spelling, text)
+        with self.assertRaises(ValueError):
+            Z80Machine('x', MAPPED.regions, port_bits=12)
+
+    def test_the_reference_cpu_passes_the_whole_port_only_when_asked(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        texts = {}
+        for name, wide in (('plain', False), ('wide', True)):
+            with tempfile.TemporaryDirectory() as folder:
+                prepare_reference(Path(folder), ENGINE, m1_counter=True, port16=wide)
+                texts[name] = ((Path(folder) / 'runtime_reference.c').read_text(encoding='utf-8'),
+                               (Path(folder) / 'runtime_reference.h').read_text(encoding='utf-8'))
+        source, header = texts['wide']
+        self.assertIn('uint8_t (*port_in)(z80*, uint16_t);', header)
+        self.assertIn('uint8_t (*port_in)(z80*, uint8_t);', texts['plain'][1])
+        for text in ('z->a = z->port_in(z, (uint16_t)(a << 8 | port));', 'z->port_out(z, (uint16_t)(z->a << 8 | port), z->a);',
+                     '*r = z->port_in(z, get_bc(z));', 'z->port_out(z, (uint16_t)((uint8_t)(z->b - 1) << 8 | z->c), val);'):
+            self.assertIn(text, source)
+        self.assertNotIn('port_in(z, z->c)', source)
+        self.assertIn('port_in(z, z->c)', texts['plain'][0])
+
+    def test_the_glue_poisons_the_other_pair_of_port_functions(self):
+        glue = (ROOT / 'native/z80_chain_glue.inc').read_text(encoding='utf-8')
+        wide, narrow = glue.split('#ifdef SMSRECOMP_PORT16\n', 1)[1].split('#else\n', 1)
+        narrow = narrow.split('#endif\n', 1)[0]
+        self.assertIn('return sms_io_in16(port);', wide)
+        self.assertIn('#define sms_io_in RR_', wide)
+        self.assertIn('#define sms_io_out RR_', wide)
+        self.assertIn('return sms_io_in(port);', narrow)
+        self.assertIn('#define sms_io_in16 RR_', narrow)
+        self.assertIn('#define sms_io_out16 RR_', narrow)
+
+    def test_the_ports_agree_with_the_reference_cpu_and_the_z80(self):
+        # tools/z80_ports_selftest.py builds the emitter for a 16-bit machine and runs every I/O encoding on both sides; skipped
+        # without a C compiler.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('z80_ports_selftest', ROOT / 'tools/z80_ports_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        try:
+            module.compiler()
+        except SystemExit:
+            self.skipTest('no C compiler')
+        self.assertEqual(module.main(), 0)
+
 
 if __name__ == '__main__':
     unittest.main()
