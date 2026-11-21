@@ -115,6 +115,56 @@ class NonPureAddressTests(unittest.TestCase):
         self.assertEqual(self.addresses('', 0x22)[-2:], [('mem', word), ('mem', (word + 1) & 0xFFFF)])
 
 
+class ChainTests(unittest.TestCase):
+    """Z80Machine.contention in the chain's texts: rendered only where asked, refused where it cannot hold."""
+
+    def test_contention_needs_the_z80s_own_counts(self):
+        from retrorecomp.z80_chain import SEGA_MAPPER, Z80Costs, Z80Machine
+        for bad in (dict(m1_wait=1), dict(costs=Z80Costs(irq=15))):
+            with self.subTest(bad), self.assertRaises(ValueError):
+                Z80Machine('x', SEGA_MAPPER.regions, contention=True, **bad)
+
+    def test_only_a_machine_with_contention_renders_the_evaluator(self):
+        import dataclasses
+        from retrorecomp import z80_chain
+        from retrorecomp.systems import find_profile
+        for system in ('sms', 'gg', 'msx', 'msx2', 'msx2plus', 'sg1000', 'coleco', 'zxs'):
+            machine = find_profile(system).z80_machine
+            self.assertFalse(machine.contention, system)
+            for text in (z80_chain.banked_runtime(machine, ROOT), z80_chain.banked_emitter(machine, ROOT)):
+                self.assertNotIn('rr_timed', text, system)
+        timed = dataclasses.replace(find_profile('zxs').z80_machine, contention=True)
+        loop = z80_chain.banked_runtime(timed, ROOT)
+        for needle in ('rr_timed_epoch = base;', 'RR_TIMED_HALT', 'RR_TIMED_IM2 : RR_TIMED_IM1'):
+            self.assertIn(needle, loop)
+        emitter = z80_chain.banked_emitter(timed, ROOT)
+        self.assertEqual(emitter.count('rr_timed_extra(rr_g, rr_op, &rr_ts, s->cyc)'), 5)    # RET, DJNZ, JR, CALL, repeat
+        self.assertEqual(emitter.count('rr_timed_base(rr_g, rr_op, &rr_ts, rr_t0)'), 2)      # a block, any other
+        self.assertIn('RR_TIMED_FRAGMENT', emitter)
+        self.assertIn('#include \\"banked_timed.h\\"', emitter)
+        with_nmi = dataclasses.replace(find_profile('sg1000').z80_machine, contention=True)      # a machine with the /NMI pin
+        self.assertIn('RR_TIMED_NMI', z80_chain.banked_runtime(with_nmi, ROOT))
+
+    @unittest.skipUnless((ROOT / '.deps/smsggrecomp/runner/external/superzazu/z80.c').is_file(),
+                         'pinned smsggrecomp sources are not downloaded')
+    def test_the_reference_takes_the_delays_only_when_asked(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        texts = {}
+        for timed in (False, True):
+            with tempfile.TemporaryDirectory() as folder:
+                prepare_reference(Path(folder), ROOT / '.deps/smsggrecomp', contention=timed, port16=True)
+                texts[timed] = (Path(folder) / 'runtime_reference.c').read_text(encoding='utf-8')
+        self.assertNotIn('rr_timed', texts[False])
+        for needle in ('uint64_t rr_timed_epoch;', 'RR_TIMED_FRAGMENT', 'RR_TIMED_HALT', 'RR_TIMED_NMI', 'RR_TIMED_IM2',
+                       'rr_timed_plain[rr_tg][decoded]'):
+            self.assertIn(needle, texts[True])
+        self.assertEqual(texts[True].count('RR_TIMED_IM1'), 2)                  # modes 0 and 1
+        with self.assertRaises(ValueError):
+            with tempfile.TemporaryDirectory() as folder:
+                prepare_reference(Path(folder), ROOT / '.deps/smsggrecomp', contention=True, m1_counter=True)
+
+
 class RenderTests(unittest.TestCase):
     def test_the_c_text_holds_every_encoding_and_is_stable(self):
         text = z80_timed.render_c()
@@ -122,7 +172,8 @@ class RenderTests(unittest.TestCase):
         self.assertIn('static const uint16_t rr_timed_index[7][256]', text)
         self.assertIn('RR_TIMED_IM2', text)
         for name in ('rr_timed_base', 'rr_timed_extra', 'rr_timed_special_delay'):
-            self.assertIn(f'static uint32_t {name}(', text)
+            self.assertIn(f'RR_TIMED_API uint32_t {name}(', text)
+            self.assertIn(f'RR_TIMED_API uint32_t {name}(', z80_timed.render_header())
         self.assertNotIn('\r', text)
 
     def test_the_rendered_c_walks_as_the_python_model(self):

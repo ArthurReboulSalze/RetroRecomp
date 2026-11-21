@@ -138,6 +138,43 @@ def _pairs(cycle_list) -> list[int]:
     return out
 
 
+def render_header() -> str:
+    """banked_timed.h: the start state, the acceptances' numbers and the three entry points (RR_TIMED_API, `static` unless the
+    includer defines it, as the chain's bodies, loop and reference do, which link the one banked_timed.c), and the machine's three
+    functions the chain's banked_timed.c asks: its memory rule, its I/O rule and a side-effect-free read of memory."""
+    names = ''.join(f'enum {{ RR_TIMED_{name.upper()} = {position} }};\n' for position, name in enumerate(SPECIALS))
+    return ('/* The Z80 contention evaluator\'s interface. Rendered by retrorecomp/z80_timed.py; never edited by hand. */\n'
+            '#ifndef RR_TIMED_H\n#define RR_TIMED_H\n#include <stdint.h>\n'
+            '#ifndef RR_TIMED_API\n#define RR_TIMED_API static\n#endif\n'
+            'typedef struct { uint16_t pc, sp, bc, de, hl, ix, iy, vec; uint8_t a, i, r; } RrTimedStart;\n' + names +
+            'RR_TIMED_API uint32_t rr_timed_base(int g, unsigned op, const RrTimedStart *st, uint64_t t);\n'
+            'RR_TIMED_API uint32_t rr_timed_extra(int g, unsigned op, const RrTimedStart *st, uint64_t t);\n'
+            'RR_TIMED_API uint32_t rr_timed_special_delay(int which, const RrTimedStart *st, uint64_t t);\n'
+            '/* The T-state the reference CPU\'s count starts from (the fallback counts each step from 0). */\n'
+            'extern uint64_t rr_timed_epoch;\n'
+            '/* The machine\'s (its glue): the delay of a memory or internal cycle starting at T-state t on address, the whole delay\n'
+            ' * of an I/O cycle on port starting at t, and memory read without side effect. */\n'
+            'unsigned rr_contend_memory(uint64_t t, uint16_t address);\nunsigned rr_contend_io(uint64_t t, uint16_t port);\n'
+            'uint8_t rr_contend_peek(uint16_t address);\n#endif\n')
+
+
+def render_source() -> str:
+    """banked_timed.c: the evaluator compiled once for the chain, on the machine's three functions."""
+    return ('/* The Z80 contention evaluator, compiled once (retrorecomp/z80_timed.py); never edited by hand. */\n'
+            '#define RR_TIMED_API\n#define RR_TIMED_PEEK(a) rr_contend_peek(a)\n'
+            '#define RR_TIMED_MEMORY(t, a) rr_contend_memory(t, a)\n#define RR_TIMED_IO(t, p) rr_contend_io(t, p)\n'
+            + render_c())
+
+
+def render_plain_table(name: str) -> str:
+    """The plain T-states of every encoding's base cycles, as a C table (the reference tells a taken branch by its own count)."""
+    rows = []
+    for group in COST_GROUPS:
+        values = [length(cycles(group, opcode)[0]) for opcode in range(256)]
+        rows.append('  {' + ','.join(str(value) for value in values) + '},')
+    return f'static const uint8_t {name}[{len(COST_GROUPS)}][256] = {{\n' + '\n'.join(rows) + '\n};\n'
+
+
 def render_c() -> str:
     """The C text of the evaluator (native code and reference interpreter alike). The includer defines RR_TIMED_PEEK(address),
     RR_TIMED_MEMORY(t, address) and RR_TIMED_IO(t, port) before including it; `t` is a uint64_t T-state."""
@@ -166,9 +203,7 @@ def render_c() -> str:
     lines = ['/* The Z80\'s bus cycles and their walker: the delay a machine\'s contention rule adds to each instruction.',
              ' * Rendered by retrorecomp/z80_timed.py from retrorecomp/z80_timing.py (MIT); never edited by hand. The includer defines',
              ' * RR_TIMED_PEEK(address) (memory, no side effect), RR_TIMED_MEMORY(t, address) and RR_TIMED_IO(t, port) (the rules). */',
-             '#include <stdint.h>',
-             'typedef struct { uint16_t pc, sp, bc, de, hl, ix, iy, vec; uint8_t a, i, r; } RrTimedStart;',
-             ''.join(f'enum {{ RR_TIMED_{name.upper()} = {position} }};\n' for position, (name, _, _) in enumerate(special_index)).rstrip(),
+             render_header().rstrip(),
              f'static const uint8_t rr_timed_cycles[{len(data)}] = {{', rows(data, 32), '};',
              f'static const uint16_t rr_timed_index[{len(COST_GROUPS)}][256] = {{']
     lines += ['  {\n' + rows(row, 16) + '\n  },' for row in index]
@@ -248,20 +283,20 @@ static uint32_t rr_timed_walk(int g, const uint8_t *c, unsigned n, const RrTimed
 }
 
 /* The delay of the base cycles of encoding (g, op) started at `t`. */
-static uint32_t rr_timed_base(int g, unsigned op, const RrTimedStart *st, uint64_t t)
+RR_TIMED_API uint32_t rr_timed_base(int g, unsigned op, const RrTimedStart *st, uint64_t t)
 {
     return rr_timed_walk(g, rr_timed_cycles + 2u * rr_timed_index[g][op], rr_timed_counts[g][op] >> 4, st, t);
 }
 
 /* The delay of its extra cycles (a taken branch, a repeat), walked from `t`, the moment its base cycles ended. */
-static uint32_t rr_timed_extra(int g, unsigned op, const RrTimedStart *st, uint64_t t)
+RR_TIMED_API uint32_t rr_timed_extra(int g, unsigned op, const RrTimedStart *st, uint64_t t)
 {
     return rr_timed_walk(g, rr_timed_cycles + 2u * (rr_timed_index[g][op] + (rr_timed_counts[g][op] >> 4)),
                          rr_timed_counts[g][op] & 15, st, t);
 }
 
 /* The delay of an acceptance or a HALT cycle (RR_TIMED_IM1 ...) started at `t`. */
-static uint32_t rr_timed_special_delay(int which, const RrTimedStart *st, uint64_t t)
+RR_TIMED_API uint32_t rr_timed_special_delay(int which, const RrTimedStart *st, uint64_t t)
 {
     return rr_timed_walk(0, rr_timed_cycles + 2u * rr_timed_special[which][0], rr_timed_special[which][1], st, t);
 }
