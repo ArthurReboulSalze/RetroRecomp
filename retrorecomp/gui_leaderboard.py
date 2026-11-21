@@ -13,15 +13,16 @@ from .dialogs import center_dialog
 from .gui_common import SENDING_AVAILABLE
 from .gui_drawing import (
     PIN_SIZE, TROPHY, badges_width, compact_number, draw_badges, draw_pin, draw_styled_text, elide,
-    name_colours, _font, _rounded, _scaled_photo, _tint,
+    name_colours, _font, _podium_picture, _rounded, _scaled_photo, _tint,
 )
 from .ui_fonts import ui_scale
 
-# Design « Marches » (Arthur's pick, 20 Nov 2026): the Multiplayer window's colours, the podium's three medals, the avatars'
-# colours (the lobby's seats, then four more).
+# Design « Marches » (Arthur's pick, 20 Nov 2026): the Multiplayer window's colours and the podium's three medals. The
+# podium shows its players' real portraits; the ranking rows show none (Arthur, 21 Nov 2026: the initial said nothing,
+# and portraits there would cost bandwidth).
 BOARD_BG, BOARD_CARD, BOARD_ROW_FILL, BOARD_DEEP = COLORS['background'], '#2b2b2b', '#323232', COLORS['field']
 MEDALS = {1: COLORS['gold'], 2: '#c9ced6', 3: '#c58a4a'}
-AVATAR_COLOURS = ('#d4a737', '#5aa9e6', '#45c565', '#d77fd0', '#e0705a', '#8fb1ff', '#e8c15a', '#7fd6c2')
+PODIUM_PORTRAIT = 20            # the podium portraits' radius at 96 dpi
 
 
 def next_place(rows, mine):
@@ -40,6 +41,42 @@ def next_place(rows, mine):
     share = (mine_total - below) / max(1, above_total - below)
     return {'state': 'behind', 'index': index, 'gap': max(1, above_total - mine_total + 1), 'above': above,
             'share': min(1.0, max(0.0, share))}
+
+
+def podium_paths(entries):
+    """The public portraits (the entries' `avatar`) of the first three, the only ones downloaded; none for the rows."""
+    return [path for path in (entry.get('avatar') for entry in entries[:3]) if isinstance(path, str) and path]
+
+
+def podium_portrait_bytes(path, download):
+    """online.board_portrait, never raising: a portrait is decoration."""
+    try:
+        return online.board_portrait(path, download=download)
+    except Exception:
+        return None
+
+
+def board_messages(period, online_message):
+    """What the leaderboard's loader sends the window, in order (run in a thread, no Tk call):
+    ('board', (answer, error, shop), {path: portrait}) first, with the podium's portraits already in datas/, then, only
+    when some are not, ('portraits', {path: portrait}) once they are downloaded: the board never waits for a picture,
+    and a podium player without a portrait (or a failed download) keeps the quiet fallback. The shop's catalog comes
+    from its cache (refreshed every 30 minutes at most)."""
+    try:
+        board = online.board(period)
+    except (online.ServiceError, online.ServiceConnectionError) as exc:
+        yield 'board', (None, online_message(exc), {}), {}
+        return
+    try:
+        shop = online.shop()
+    except Exception:
+        shop = {}
+    known = {path: podium_portrait_bytes(path, False) for path in podium_paths(board.get('entries', []))}
+    yield 'board', (board, None, shop), {path: raw for path, raw in known.items() if raw}
+    missing = [path for path, raw in known.items() if raw is None]
+    if missing:
+        found = {path: podium_portrait_bytes(path, True) for path in missing}
+        yield 'portraits', {path: raw for path, raw in found.items() if raw}
 
 
 class LeaderboardMixin:
@@ -92,16 +129,28 @@ class LeaderboardMixin:
             else:
                 canvas.create_text(left + round(10 * k), middle, text=text, anchor='w', fill=COLORS['muted'], font=font)
 
-    def board_avatar(self, canvas, x, y, name, radius, tags=()):
-        """A round avatar in one of the lobby's colours, with the name's first letter."""
-        colour = AVATAR_COLOURS[sum(map(ord, name)) % len(AVATAR_COLOURS)]
-        canvas.create_oval(x - radius, y - radius, x + radius, y + radius, fill=colour, outline='', tags=tags)
-        canvas.create_text(x, y, text=name[:1].upper(), fill=COLORS['gold_text'], tags=tags,
-                           font=(self.ui_font, max(7, round(radius * 0.62 / max(1.0, self.board_scale(canvas)))), 'bold'))
+    def podium_portrait(self, canvas, x, y, radius, place, raw, key=None, tags=()):
+        """A podium player's portrait, ringed in the medal's colour: the site picture `raw` (bytes), or a quiet
+        head-and-shoulders on a disc tinted by the medal when the player has none (or it is not here yet). The pictures
+        are kept on the canvas by (key, place, size): the opening animation redraws the podium every frame."""
+        from PIL import ImageTk
+        medal = MEDALS[place]
+        size = 2 * radius
+        cache = canvas.__dict__.setdefault('_portraits', {})
+        wanted = (key if raw else None, place, size)
+        photo = cache.get(wanted)
+        if photo is None:
+            try:
+                photo = ImageTk.PhotoImage(_podium_picture(raw, size, medal, _tint(BOARD_CARD, medal, 0.16),
+                                                           _tint(BOARD_CARD, medal, 0.42)), master=canvas)
+            except (OSError, ValueError, tk.TclError):
+                return None
+            cache[wanted] = photo
+        return canvas.create_image(x, y, image=photo, tags=('podium_portrait', *tags))
 
     def draw_board_pill(self, canvas, top, width, index, entry, counts, mine, catalog, pictures=None, tags=()):
-        """One ranking row as a pill: the rank chip (the medal's colour for the first three), the avatar, the pseudonym in its
-        shop style, the console badge shown (a first place's one with its mark), the pin and the title, then games, the
+        """One ranking row as a pill: the rank chip (the medal's colour for the first three), the pseudonym in its shop style
+        (no portrait: those are the podium's), the console badge shown (a first place's one with its mark), the pin and the title, then games, the
         three class counts and the points. The player's own row is gold-rimmed."""
         k = self.board_scale(canvas)
         spans = self.board_columns(width, k)
@@ -127,9 +176,8 @@ class LeaderboardMixin:
                  outline=COLORS['gold'] if you and not medal else '', tags=tags)
         canvas.create_text(chip_left + chip_width / 2, middle, text=str(rank), font=(self.ui_font, 9, 'bold'), tags=tags,
                            fill=COLORS['gold_text'] if medal else colour)
-        left, right = spans['player'][0] + round(4 * k), spans['player'][1] - round(8 * k)
-        self.board_avatar(canvas, left + round(11 * k), middle, name, round(11 * k), tags=tags)
-        left += round(30 * k)
+        # The name starts where the column's caption does, a clear step after the rank chip.
+        left, right = spans['player'][0] + round(10 * k), spans['player'][1] - round(8 * k)
         look = online.looks(catalog, online.equipped(entry))
         title = self.title_name(entry.get('title'))
         badges = look['badges']
@@ -191,7 +239,7 @@ class LeaderboardMixin:
             self.draw_board_pill(canvas, round(4 * k), width, 1, entry, counts, mine, catalog, pictures, tags=('pinned_row',))
             top = round(self.BOARD_ROW * k) + round(4 * k)
         middle = top + round(12 * k)
-        left = self.board_columns(width, k)['player'][0] + round(34 * k)
+        left = self.board_columns(width, k)['player'][0] + round(10 * k)       # under the names
         if place['state'] == 'first':
             text, share = self.tr('leaderboard_first'), 1.0
         else:
@@ -210,7 +258,7 @@ class LeaderboardMixin:
 
     def show_leaderboard(self):
         """The shared base's ranking in a window (design « Marches », Arthur's pick of 20 Nov 2026): the first three on
-        rounded steps that rise one after the other, each with an avatar and a crown; the others as pill rows; the player's
+        rounded steps that rise one after the other, each with the player's portrait and a crown; the others as pill rows; the player's
         own row pinned at the foot while it is out of view, with how far the next place is. All time or this month (one
         segmented switch). What players equip in the site's shop shows as there: name styles, the console badge shown
         (with its "1" for a first place), pins and titles; nothing without the shop's catalog. The rules stay one hover
@@ -269,9 +317,11 @@ class LeaderboardMixin:
             ttk.Radiobutton(track, text=self.tr(key), value=value, variable=period, style='BoardSeg.TRadiobutton',
                             command=lambda: load()).pack(side='left')
         window.board_period = period
-        # The shop's catalog ({id: item}) once the board has answered.
+        # The shop's catalog ({id: item}) once the board has answered; the podium's portraits ({public path: bytes}),
+        # read from datas/ with the answer, downloaded after it (the board shows first).
         catalog = {}
-        STEP = {1: 134, 2: 112, 3: 96}           # the steps' heights at 96 dpi; above the tallest: name, badge, crown, avatar
+        portraits = window.board_portraits = {}
+        STEP = {1: 134, 2: 112, 3: 96}           # the steps' heights at 96 dpi; above the tallest: name, badge, crown, portrait
         ABOVE = 114
         podium = tk.Canvas(body, height=round((STEP[1] + ABOVE + 14) * k), bg=background, highlightthickness=0)
         podium.pack(fill='x', pady=(8, 6))
@@ -343,7 +393,7 @@ class LeaderboardMixin:
         ttk.Button(foot, text=self.tr('close'), command=window.destroy).pack(side='right')
 
         # Opening animation: the steps rise one after the other (third, second, first), carrying each player's
-        # avatar, crown, name and badge up.
+        # portrait, crown, name and badge up.
         podium.started = time.monotonic()
         RISE, DELAYS = 0.6, {3: 0.0, 2: 0.18, 1: 0.36}
 
@@ -405,10 +455,12 @@ class LeaderboardMixin:
                                            fill=COLORS['text'])
                     podium.create_text(middle, top + round(48 * k), text=f"{self.count_text(entry.get('total', 0))} pts",
                                        fill=medal, font=(self.ui_font, 11, 'bold'))
-                # standing on the step: the avatar, its crown, the badge (pin and title) and the name above
+                # standing on the step: the portrait, its crown, the badge (pin and title) and the name above
                 name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
                 look = online.looks(catalog, online.equipped(entry))
-                self.board_avatar(podium, middle, top - round(26 * k), name, round(20 * k))
+                path = entry.get('avatar')
+                self.podium_portrait(podium, middle, top - round(26 * k), round(PODIUM_PORTRAIT * k), place,
+                                     portraits.get(path) if isinstance(path, str) else None, key=path)
                 crown(middle, top - round(50 * k), place, medal)
                 inner = x1 - x0 - round(12 * k)
                 line = top - round(78 * k)
@@ -482,27 +534,31 @@ class LeaderboardMixin:
             else:
                 you_line.configure(text='')
         window.board_show = show
+
         def load():
             note.configure(text=self.tr('leaderboard_loading'))
             wanted = period.get()
-            result = []
+            messages, finished = [], []
+            window.board_load = token = object()        # a newer load (the period switch) wins over this one
             def worker():
-                # No Tk call here: the window polls for the answer. The shop's
-                # catalog comes from its cache (refreshed every 30 minutes at most).
+                # No Tk call here: the window polls for the messages.
                 try:
-                    board = online.board(wanted)
-                except (online.ServiceError, online.ServiceConnectionError) as exc:
-                    result.append((None, self.online_message(exc), {}))
-                    return
-                try:
-                    shop = online.shop()
-                except Exception:
-                    shop = {}
-                result.append((board, None, shop))
+                    for message in board_messages(wanted, self.online_message):
+                        messages.append(message)
+                finally:
+                    finished.append(True)
             def poll():
-                if not window.winfo_exists():return
-                if result:show(*result[0])
-                else:window.after(50, poll)
+                if not window.winfo_exists() or window.board_load is not token:return
+                while messages:
+                    kind, *data = messages.pop(0)
+                    if kind == 'board':
+                        portraits.update(data[1])
+                        show(*data[0])
+                    elif data[0]:
+                        portraits.update(data[0])
+                        draw_podium(podium.rows)
+                if not finished or messages:
+                    window.after(50, poll)
             threading.Thread(target=worker, daemon=True).start()
             poll()
         window.bind('<Escape>', lambda event: window.destroy())

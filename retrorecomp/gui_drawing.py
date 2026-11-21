@@ -142,6 +142,38 @@ def _portrait_picture(raw=None, initial='', frame=None):
     return picture.resize((PORTRAIT_SIZE, PORTRAIT_SIZE), Image.Resampling.LANCZOS)
 
 
+def _podium_picture(raw, diameter, ring, disc, figure):
+    """A podium player's round portrait, `diameter` px, ringed in their medal's colour (`ring`): their site picture
+    (WebP or PNG bytes), or, without one or when it cannot be read, a quiet head-and-shoulders on a `disc`, in `figure`.
+    Drawn at 4x then reduced, so the circle and the ring stay smooth."""
+    from PIL import Image, ImageDraw
+    import io
+    scale = 4
+    size = max(8, diameter) * scale
+    picture = None
+    if raw:
+        try:
+            with Image.open(io.BytesIO(raw)) as image:
+                if max(image.size) <= 4096:
+                    picture = image.convert('RGBA').resize((size, size), Image.Resampling.LANCZOS)
+        except (OSError, ValueError, Image.DecompressionBombError):
+            picture = None
+    if picture is None:
+        picture = Image.new('RGBA', (size, size), disc)
+        draw = ImageDraw.Draw(picture)
+        head = size * 0.19
+        centre, head_y = size / 2, size * 0.39
+        draw.ellipse((centre - head, head_y - head, centre + head, head_y + head), fill=figure)
+        draw.chord((centre - size * 0.33, size * 0.62, centre + size * 0.33, size * 1.12), 180, 360, fill=figure)
+    mask = Image.new('L', (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+    picture.putalpha(mask)
+    width = max(2, round(size / 22))
+    ImageDraw.Draw(picture).ellipse((width // 2, width // 2, size - 1 - width // 2, size - 1 - width // 2),
+                                    outline=ring, width=width)
+    return picture.resize((size // scale, size // scale), Image.Resampling.LANCZOS)
+
+
 def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
     """Blend a procedural decoration over the canvas background."""
     channel = lambda color, at: int(color[at:at + 2], 16)

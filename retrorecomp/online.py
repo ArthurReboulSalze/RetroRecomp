@@ -672,6 +672,78 @@ def frame_picture(item, download: bool = True) -> bytes | None:
     return raw
 
 
+# The leaderboard's podium shows its three players' public portraits (Arthur, 21 Nov 2026); the ranking rows show
+# none, to spare the bandwidth. The board's entries name each portrait by its public path (`avatar`, '/avatars/<file>'
+# or null); a new portrait gets a new file name, so a portrait is downloaded once and read from `datas/` after that,
+# under that name. Small timeout and size limit; the most recently used BOARD_PORTRAIT_KEEP are kept.
+BOARD_PORTRAIT_PREFIX = 'board-portrait-'
+BOARD_PORTRAIT_LIMIT = 2 * 1024 * 1024
+BOARD_PORTRAIT_TIMEOUT = 6
+BOARD_PORTRAIT_KEEP = 12
+
+
+def _board_portrait_path(value) -> tuple[str, Path] | None:
+    """(url, cache file) of a board entry's public portrait; None for anything else than a file of the site's avatars."""
+    url = _media_url(value)
+    if not url or not url.startswith(service_url() + '/avatars/') or url.count('/') != service_url().count('/') + 2:
+        return None
+    return url, _account_path().with_name(BOARD_PORTRAIT_PREFIX + url.rsplit('/', 1)[1])
+
+
+def board_portrait(value, download: bool = True) -> bytes | None:
+    """The public portrait a board entry names (its `avatar`), from `datas/` once downloaded; None without one, on any
+    failure, or (`download` false) when it is not cached yet. A portrait is decoration: never an error."""
+    found = _board_portrait_path(value)
+    if found is None:
+        return None
+    url, path = found
+    try:
+        cached = path.read_bytes()
+        if 0 < len(cached) <= BOARD_PORTRAIT_LIMIT:
+            try:
+                os.utime(path)                      # most recently used: kept by the pruning
+            except OSError:
+                pass
+            return cached
+    except OSError:
+        pass
+    if not download:
+        return None
+    request = urllib.request.Request(url, headers={'User-Agent': f'RetroRecomp/{__version__}'})
+    try:
+        with _OPENER.open(request, timeout=BOARD_PORTRAIT_TIMEOUT) as response:
+            if response.headers.get_content_type() not in FRAME_TYPES:
+                return None
+            raw = response.read(BOARD_PORTRAIT_LIMIT + 1)
+    except urllib.error.HTTPError as error:
+        error.close()
+        return None
+    except (OSError, http.client.IncompleteRead, ValueError):
+        return None
+    if not 0 < len(raw) <= BOARD_PORTRAIT_LIMIT:
+        return None
+    try:
+        _write_bytes(path, raw)
+        _prune_board_portraits()
+    except OSError:
+        pass
+    return raw
+
+
+def _prune_board_portraits(keep: int = BOARD_PORTRAIT_KEEP) -> None:
+    """Only the `keep` most recently used podium portraits stay in `datas/`."""
+    try:
+        files = sorted(_account_path().parent.glob(BOARD_PORTRAIT_PREFIX + '*'), key=lambda p: p.stat().st_mtime,
+                       reverse=True)
+    except OSError:
+        return
+    for path in files[keep:]:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
 def _cached_avatar_url() -> str | None:
     try:
         return json.loads(_player_path().read_text(encoding='utf-8')).get('avatar_url')
