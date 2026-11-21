@@ -26,10 +26,10 @@ class ComparedTests(unittest.TestCase):
         for field in build.COMPARED:
             self.assertIn(field, printed, field)
 
-    def test_every_common_member_is_compared_but_the_engine_and_the_tick_count(self):
+    def test_every_common_member_is_compared_but_the_engine(self):
         printed = set(report_keys(HEADLESS)) | set(report_keys(MACHINE_C))
         self.assertEqual(printed - set(build.COMPARED) - {'native_steps', 'halt_steps', 'fallback_steps', 'guarded_steps',
-                                                            'fallback_cycles', 'fallback_at'}, {'engine', 'audio_ticks'})
+                                                            'fallback_cycles', 'fallback_at'}, {'engine'})
 
     def test_the_native_only_counts_are_printed_by_the_native_check_only(self):
         # The native counters are printed by the shared headless file, behind SG_HEADLESS_NATIVE: the native check and the player define it.

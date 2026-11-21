@@ -21,7 +21,7 @@ from . import z80_chain_build
 # frame and a running hash of every frame, the VDP registers and status, the sound and the PSG, the watched bytes.
 COMPARED = ('frames', 'cycles', 'interrupts', 'pc', 'sp', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'af2', 'bc2', 'de2', 'hl2', 'i', 'r', 'im',
             'iff1', 'iff2', 'wz', 'halted', 'vdp_regs', 'vdp_status', 'vram_fnv', 'ram_fnv', 'frame_fnv', 'frame_trace',
-            'audio_samples', 'audio_fnv', 'psg', 'watch')
+            'audio_samples', 'audio_fnv', 'audio_dropped', 'psg', 'watch')
 GAME_TOML = '''# SG-1000: the cartridge is source 0 of the region map; there is no other source (no BIOS).
 [game]
 output_prefix = "game"
