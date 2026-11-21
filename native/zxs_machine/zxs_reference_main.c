@@ -7,8 +7,8 @@
  * by the generated copy), as the native loop does. An instruction's I/O happens during its step, before the machine advances: at
  * its start time, as in the native glue.
  *
- * Usage: zxs_reference --rom FILE --image FILE and the route's options (zxs_headless.inc); "-" for --image reads the standard
- * input. It prints the report JSON. */
+ * Usage: zxs_reference --rom FILE --cart FILE and the route's options (zxs_headless.inc); --cart is the machine image (the chain's
+ * runners take their image as --cart), "-" reads the standard input. It prints the report JSON. */
 #include "zxs_machine.h"
 #include "sms_runtime.h"
 #include "runtime_reference.h"
@@ -77,11 +77,11 @@ int main(int argc, char **argv)
         ++i;
         int result;
         if (!strcmp(a, "--rom")) rom_file = v;
-        else if (!strcmp(a, "--image")) image_file = v;
+        else if (!strcmp(a, "--cart")) image_file = v;
         else if ((result = headless_option(a, v)) != 0) { if (result < 0) { fprintf(stderr, "bad value for %s\n", a); return 2; } }
         else { fprintf(stderr, "unknown option %s\n", a); return 2; }
     }
-    if (!rom_file || !image_file) { fprintf(stderr, "--rom and --image are required\n"); return 2; }
+    if (!rom_file || !image_file) { fprintf(stderr, "--rom and --cart are required\n"); return 2; }
     memset(rom, 0xFF, sizeof rom);
     long rom_size = load(rom_file, rom, (long)sizeof rom);
     long size = load(image_file, image, (long)sizeof image);

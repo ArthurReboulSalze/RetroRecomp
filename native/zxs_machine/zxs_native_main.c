@@ -2,8 +2,9 @@
  * the shared banked step loop and the counted fallback on the corrected reference interpreter, on the machine of zxs_machine.c
  * (zxs_glue.inc). MIT, Retro-Recomp. The conversion runs it against zxs_reference_main.c.
  *
- * Usage: zxs_check --rom FILE --image FILE [--learn FILE] and the route's options (zxs_headless.inc). "-" for --image reads the
- * standard input. It prints the same JSON as the reference, plus the native, guarded and fallback step counts. */
+ * Usage: zxs_check --rom FILE --cart FILE [--learn FILE] and the route's options (zxs_headless.inc); --cart is the machine image
+ * (the chain's runners take their image as --cart), "-" reads the standard input. It prints the same JSON as the reference, plus
+ * the native, guarded and fallback step counts. */
 #define SMSRECOMP_BANKED_AOT 1
 #include "zxs_glue.inc"
 
@@ -70,12 +71,12 @@ int main(int argc, char **argv)
         ++i;
         int result;
         if (!strcmp(a, "--rom")) rom_file = v;
-        else if (!strcmp(a, "--image")) image_file = v;
+        else if (!strcmp(a, "--cart")) image_file = v;
         else if (!strcmp(a, "--learn")) learn_out = v;
         else if ((result = headless_option(a, v)) != 0) { if (result < 0) { fprintf(stderr, "bad value for %s\n", a); return 2; } }
         else { fprintf(stderr, "unknown option %s\n", a); return 2; }
     }
-    if (!rom_file || !image_file) { fprintf(stderr, "--rom and --image are required\n"); return 2; }
+    if (!rom_file || !image_file) { fprintf(stderr, "--rom and --cart are required\n"); return 2; }
     memset(rom, 0xFF, sizeof rom);
     long rom_size = load(rom_file, rom, (long)sizeof rom);
     long size = load(image_file, image, (long)sizeof image);

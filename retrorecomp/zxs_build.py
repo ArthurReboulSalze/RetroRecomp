@@ -78,17 +78,10 @@ KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runti
 ROM_RESOURCE, IMAGE_RESOURCE, NOTICES_RESOURCE, IDENTITY_RESOURCE = 103, 104, 203, 205
 # The quick state's layout (native/zxs_machine/zxs_player.c): part of its build binding, raised when the body changes.
 STATE_LAYOUT = 'zxs-state-1'
-BUILD_TIMEOUT = 2 * 3600
 
 
 class ZxsBuildError(RuntimeError):
     """The generator, the build or a run failed."""
-
-
-def _flags() -> int:
-    import os
-    import subprocess
-    return subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
 
 def generate(work, rom: bytes, emit=print, *, keep_rom: bool = True) -> None:
@@ -114,37 +107,15 @@ def stage_sources(work) -> None:
 
 
 def project_cmake(bodies: bool = True, game: bool = False, version: str = '') -> str:
-    """The project: the reference runner always; with `bodies` the generated bodies and the headless native check; with `game`
-    the player too (it needs the bodies; `version` is the converter's, RR_RECOMP_VERSION)."""
+    """The project (z80_chain_build.chain_project_cmake): the reference runner always; with `bodies` the generated bodies and the
+    headless native check; with `game` the player too (it needs the bodies; `version` is the converter's, RR_RECOMP_VERSION)."""
     from . import hostkit
+    from .z80_chain_build import chain_project_cmake
     machine = ' '.join((*MACHINE_SOURCES, *SHARED_SOURCES))
-    bodies = bodies or game
-    lines = [
-        'cmake_minimum_required(VERSION 3.20)',
-        'project(RetroZxs LANGUAGES C)',
-        'set(CMAKE_C_STANDARD 11)',
-        'set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")',
-        'if(MSVC)', '  add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)', 'endif()',
-        f'add_executable(zxs_reference zxs_reference_main.c {machine} runtime_reference.c)',
-    ]
-    if bodies:
-        lines += [
-            'file(GLOB bodies "generated/game_banked_ops_*.c")',
-            'add_library(zxs_bodies OBJECT generated/game_banked_index.c ${bodies})',
-            'target_include_directories(zxs_bodies PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-            'target_compile_definitions(zxs_bodies PRIVATE SMSRECOMP_BANKED_AOT)',
-            f'add_executable(zxs_check zxs_native_main.c {machine} runtime_reference.c $<TARGET_OBJECTS:zxs_bodies>)',
-        ]
-    lines += [
-        f'foreach(target zxs_reference{" zxs_check" if bodies else ""})',
-        '  target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
-        '  target_compile_definitions(${target} PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)',
-        '  if(NOT WIN32)', '    target_link_libraries(${target} PRIVATE m)', '  endif()',
-        'endforeach()',
-    ]
+    game_lines = []
     if game:
         kit = ' '.join(hostkit.sources('zxs'))
-        lines += [
+        game_lines = [
             'if(WIN32)', '  enable_language(RC)', 'else()', '  enable_language(ASM)', 'endif()',
             'find_package(SDL2 CONFIG REQUIRED)',
             f'add_executable(game zxs_player.c {machine} runtime_reference.c retro_menu.c platform_io.c runtime_feedback.c {kit}',
@@ -161,88 +132,52 @@ def project_cmake(bodies: bool = True, game: bool = False, version: str = '') ->
             'if(WIN32 AND NOT MSVC)',
             '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',
         ]
-    return '\n'.join(lines) + '\n'
+    return chain_project_cmake('zxs', 'RetroZxs', reference_main='zxs_reference_main.c', native_main='zxs_native_main.c',
+                               machine_sources=(*MACHINE_SOURCES, *SHARED_SOURCES), bodies=bodies or game, game_lines=game_lines)
 
 
 def build(work, targets: tuple, emit=print) -> dict:
-    """Configure and build `targets` of the project in `work` (the SDL2 of the converter for the game)."""
-    from . import __version__, core, z80_chain_build
-    from .platforms import build_executable, sdl_install
-    from pathlib import Path
+    """Configure and build `targets` of the project in `work` (z80_chain_build.build_project; the SDL2 of the converter for the
+    game)."""
+    from . import __version__, z80_chain_build
     game = 'game' in targets
     bodies = game or 'zxs_check' in targets or (work / 'generated' / 'game_banked_index.c').is_file()
-    z80_chain_build.write_if_changed(work / 'CMakeLists.txt', project_cmake(bodies, game, __version__).encode('utf-8'))
-    cmake, generator_kind = core.toolchain()
-    log = work / 'build.log'
-    extra = [f'-DCMAKE_PREFIX_PATH={Path(sdl_install()).as_posix()}'] if game else []
-    core.run([cmake, '-S', work, '-B', work / 'build', '-G', generator_kind, *core.cmake_target_args(),
-              '-DCMAKE_BUILD_TYPE=Release', *extra], log=log, emit=emit, timeout=BUILD_TIMEOUT)
-    for target in targets:
-        core.run([cmake, '--build', work / 'build', '--config', 'Release', '--target', target, '--parallel',
-                  core.build_jobs()], log=log, emit=emit, timeout=BUILD_TIMEOUT)
-    return {target: build_executable(work / 'build', target) for target in targets}
+    return z80_chain_build.build_project(work, targets, project_cmake(bodies, game, __version__), sdl=game, emit=emit)
 
 
 def run(exe, rom_path, image: bytes, args: list, timeout: int = 1800) -> dict:
-    """One headless run; its JSON report. The machine image reaches the program on its standard input."""
-    import json
-    import subprocess
-    result = subprocess.run([str(exe), '--rom', str(rom_path), '--image', '-', *args], input=image, capture_output=True,
-                            timeout=timeout, creationflags=_flags())
-    if result.returncode:
-        raise ZxsBuildError(f'{exe.name} failed: {result.stderr.decode(errors="replace").strip()[-500:]}')
-    return json.loads(result.stdout)
+    """One headless run; its JSON report. The ROM is read from `rom_path`; the machine image reaches the program on its standard
+    input (`--cart -`, z80_chain_build.run_program)."""
+    from . import z80_chain_build
+    return z80_chain_build.run_program(exe, ['--rom', str(rom_path), *args], image, timeout, ZxsBuildError)
 
 
 def differences(native: dict, reference: dict) -> dict:
     """The compared fields that differ (a field missing on either side differs)."""
-    return {key: (native.get(key), reference.get(key)) for key in COMPARED
-            if key not in native or key not in reference or native[key] != reference[key]}
+    from . import z80_chain_build
+    return z80_chain_build.differences(native, reference, COMPARED)
 
 
 def learn(work, rom: bytes, image: bytes, runs: list, emit=print, *, passes: int = 3) -> tuple:
-    """Generate, build the native check and run it with learning on every route, at most `passes` times: it stops when nothing
-    fell back or nothing new was seen. Returns the check program and the fallback steps of each pass (summed over the routes)."""
-    rom_path = work / 'rom.bin'
+    """The shared learn loop (z80_chain_build.learn_passes) on the Spectrum: generate and stage, build the native check (and the
+    reference beside it), run every route with learning. Returns the check program and the fallback steps of each pass."""
     from . import z80_chain_build
+    rom_path = work / 'rom.bin'
     z80_chain_build.write_if_changed(rom_path, rom)
-    patterns = work / 'native.patterns'
-    counts = []
-    check = None
-    for _ in range(passes):
+
+    def generate_and_stage():
         generate(work, rom, emit)
         stage_sources(work)
-        check = build(work, ('zxs_check', 'zxs_reference'), emit)['zxs_check']
-        seen, steps = set(), 0
-        for index, args in enumerate(runs):
-            learned = work / f'learned-{index}.txt'
-            learned.unlink(missing_ok=True)
-            result = run(check, rom_path, image, [*args, '--learn', str(learned)])
-            steps += result['fallback_steps']
-            if learned.is_file():
-                seen |= set(learned.read_text(encoding='utf-8').split())
-        counts.append(steps)
-        if not steps or not seen:
-            break
-        known = set(patterns.read_text(encoding='utf-8').split()) if patterns.is_file() else set()
-        if seen <= known:
-            break
-        patterns.write_text(''.join(f'{line}\n' for line in sorted(known | seen)), encoding='utf-8', newline='\n')
-    else:
-        generate(work, rom, emit)
-        check = build(work, ('zxs_check', 'zxs_reference'), emit)['zxs_check']
-    return check, counts
+    return z80_chain_build.learn_passes(
+        work, runs, generate=generate_and_stage,
+        build_check=lambda: build(work, ('zxs_check', 'zxs_reference'), emit)['zxs_check'],
+        run_check=lambda check, args, _learned: run(check, rom_path, image, args)['fallback_steps'], passes=passes)
 
 
 def frame_rows(path) -> list:
-    """The rows of a --rows file (native/zxs_machine/zxs_headless.inc) as delivery_evidence.FrameRow (frame, picture, sound, audible,
-    ram, pc)."""
-    from .delivery_evidence import FrameRow
-    rows = []
-    for line in path.read_text(encoding='utf-8').splitlines()[1:]:
-        frame, _cpu, ram, picture, sound, _samples, audible, pc = line.split(',')
-        rows.append(FrameRow(int(frame), picture, sound=sound, audible=audible == '1', ram=ram, pc=pc))
-    return rows
+    """The rows of a --rows file (native/zxs_machine/zxs_headless.inc), as every machine on the chain writes them."""
+    from . import z80_chain_build
+    return z80_chain_build.frame_rows(path)
 
 
 def write_rom(path, data: bytes) -> None:
@@ -317,21 +252,12 @@ def prepare_game(work, title: str, identity: str, rom: bytes, image: bytes, emit
 
 
 def run_game(game, options: list, report, timeout: int = 1800) -> dict:
-    """The game's headless replay (`--headless`, from its own resources): its report, read from `report` (the game is linked for
-    the Windows subsystem, so its standard output is not relied on)."""
-    import json
-    import subprocess
-    report.unlink(missing_ok=True)
-    result = subprocess.run([str(game), '--headless', *options, '--report', str(report)], capture_output=True, timeout=timeout,
-                            creationflags=_flags())
-    if result.returncode or not report.is_file():
-        raise ZxsBuildError(f'{game.name} --headless failed (exit {result.returncode}): '
-                            f'{result.stderr.decode(errors="replace").strip()[-300:]}')
-    return json.loads(report.read_text(encoding='utf-8'))
+    """The game's headless replay (`--headless`, from its own resources; z80_chain_build.run_game)."""
+    from . import z80_chain_build
+    return z80_chain_build.run_game(game, options, report, timeout, ZxsBuildError)
 
 
 def game_exit_code(game, options: list, timeout: int = 120) -> int:
     """The exit code of a headless run of the game (a refused quick state ends it with 4)."""
-    import subprocess
-    return subprocess.run([str(game), '--headless', *options], capture_output=True, timeout=timeout,
-                          creationflags=_flags()).returncode
+    from . import z80_chain_build
+    return z80_chain_build.game_exit_code(game, options, timeout)
