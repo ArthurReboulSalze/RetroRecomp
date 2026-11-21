@@ -5,7 +5,7 @@ named colecovision, beginning with a header word), reads it (4 KiB to 32 KiB, pl
 BIOS, translates both, checks them against the reference interpreter and builds and delivers a game executable
 (retrorecomp/coleco_conversion.py; the player is native/coleco_machine/coleco_player.c on the host kit). What it is: the ColecoVision (NTSC) with two standard controllers, translated ahead of time by the shared banked
 Z80 chain (retrorecomp/z80_chain.py) on the machine's own description below (eight 8 KiB regions: the BIOS, the console's RAM, the
-cartridge window; no wait state on the M1 cycle; the TMS9928A's frame interrupt wired to /NMI), with the TMS9918A of native/tms9918
+cartridge window; one wait state on every M1 cycle; the TMS9928A's frame interrupt wired to /NMI), with the TMS9918A of native/tms9918
 and the SN76489A of native/sn76489 shared with the MSX and the SG-1000. The BIOS is the player's own (retrorecomp/coleco_bios.py): the
 converted game holds it translated, for its owner only. Left out on purpose: the Super Action Controller, the roller and driving
 modules, the Super Game Module, the MegaCart and other homebrew boards, the ADAM.
@@ -22,12 +22,12 @@ from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
 
 # The ColecoVision on the banked Z80 chain: eight 8 KiB regions, each showing a source or RAM. Source 0 is the cartridge (the last four
 # regions, 8000h-FFFFh), source 1 the BIOS (the first region, 0000h-1FFFh); the console's 1 KiB of RAM (6000h, mirrored through
-# 7FFFh) and the expansion port (2000h-5FFFh, nothing there: reads give FFh) are regions the machine's bus answers. No wait state on
-# the M1 cycle; /INT is not wired (the VDP's interrupt is /NMI, an edge the machine raises); the start of each step and the
+# 7FFFh) and the expansion port (2000h-5FFFh, nothing there: reads give FFh) are regions the machine's bus answers. One wait state on
+# every M1 cycle; /INT is not wired (the VDP's interrupt is /NMI, an edge the machine raises); the start of each step and the
 # reference CPU's state copies from the chain; its own generator folders.
 COLECO_MACHINE = Z80Machine('coleco', Z80RegionMap(region_bits=13, sources=('cartridge', 'bios'), bank_values=256,
                                                    scope='coleco-cartridge-region-map'),
-                            m1_wait=0, irq_sample='instruction_end', generator_tag='-cv', step_begin=True,
+                            m1_wait=1, irq_sample='instruction_end', generator_tag='-cv', step_begin=True,
                             reference_state=True, nmi=True)
 
 # 4 KiB to 32 KiB cartridges (the window 8000h-FFFFh, no bank switching); the BIOS: 8 KiB.

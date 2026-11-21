@@ -1,5 +1,5 @@
 /* Headless ColecoVision native run: the translated Z80 bodies of the BIOS and of the cartridge, the shared banked step loop
- * (native/banked_runtime.inc rendered for the ColecoVision by retrorecomp.z80_chain: eight 8 KiB regions, no wait state, /NMI read at the end of
+ * (native/banked_runtime.inc rendered for the ColecoVision by retrorecomp.z80_chain: eight 8 KiB regions, one wait state on every M1 cycle, /NMI read at the end of
  * each instruction), the counted fallback on the corrected reference interpreter, and the machine of coleco_machine.c, through
  * coleco_glue.inc (shared with the game, coleco_player.c). MIT, Retro-Recomp. The conversion runs it (headless) against the reference.
  *
