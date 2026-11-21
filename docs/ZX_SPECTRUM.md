@@ -52,6 +52,10 @@ Amstrad's permission for emulators of 31 August 1999 (no charge for the ROM code
    has reviewed start data instead (`retrorecomp/zxs_starts.py`, keyed by its SHA-256: the presses and why, found on the
    reference, played and checked like any route; the report names them). Then a deterministic walk on the controls the snapshot
    was saved for (cursor keys, Kempston or Sinclair Interface 2); a game whose own menu chose other keys does not answer it.
+   When a game's menu uses another interface than the snapshot's header says, reviewed data names it (`zxs_starts.JOYSTICKS`,
+   by SHA-256, found by holding each key and Kempston bit in play on the reference): the image, the pads and the routes follow
+   it, and the report says why (`zxs_checks.joystick_rule`). Head over Heels reads Interface 2 (6-0); Match Day II's start
+   picks « Kempston joystick » in its menu, which waits for ever unless a Kempston answers at port 1Fh.
 3. The ROM is translated ahead of time on the shared chain; the code the snapshot runs from RAM is learned over the routes
    and translated with byte guards (`zxs_build.learn`, up to three passes).
 4. Every route is run natively and on the reference interpreter (the same machine, every instruction interpreted): the

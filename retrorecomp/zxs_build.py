@@ -231,12 +231,15 @@ def prepare_game(work, title: str, identity: str, rom: bytes, image: bytes, emit
     if len(image) != IMAGE_BYTES or len(rom) != (0x8000 if image[4] else 0x4000):
         raise ZxsBuildError('the ROM does not fit the machine image')
     write = z80_chain_build.write_if_changed
-    write(work / 'game-rom.bin', rom)
-    write(work / 'game-image.bin', image)
-    write(work / 'notices.txt', notice_text('zxs').encode('utf-8'))
+    embedded = {'game-rom.bin': rom, 'game-image.bin': image, 'notices.txt': notice_text('zxs').encode('utf-8'),
+                'export-identity.bin': b'[Retro-Recomp]\0' + identity.encode('ascii') + b'\0'}
+    # The resource compiler (and the assembler's .incbin on Linux) does not track the files it includes: a work folder converted
+    # again with other bytes (a reviewed joystick, another ROM) would link the old ones. Below, the including files are touched
+    # whenever an included file is newer than them (which also mends a folder an earlier conversion left behind).
+    for name, data in embedded.items():
+        write(work / name, data)
     write(work / 'runtime_feedback_config.h',
           f'#define RR_FEEDBACK_SYSTEM "zxs"\n#define RR_FEEDBACK_IDENTITY "{identity}"\n'.encode('ascii'))
-    write(work / 'export-identity.bin', b'[Retro-Recomp]\0' + identity.encode('ascii') + b'\0')
     artwork = {'embedded': False, 'source': 'disabled'}
     if presentation is not None:
         from .artwork import prepare_icon
@@ -255,6 +258,10 @@ def prepare_game(work, title: str, identity: str, rom: bytes, image: bytes, emit
                                 + ''.join(f'{number} RCDATA "{name}"\n' for number, name in resources.items())
                                 + '#include "game_resources.rc"\n').encode('utf-8'))
     embed_resources(work, {number: work / name for number, name in resources.items()})
+    newest = max((work / name).stat().st_mtime_ns for name in embedded)
+    for including in ('content.rc', 'embedded_resources.S'):
+        if (work / including).is_file() and (work / including).stat().st_mtime_ns <= newest:
+            (work / including).touch()
     binding = ', '.join(f'0x{b:02X}' for b in state_binding(rom, image))
     write(work / 'zxs_game.h', (f'#pragma once\n#define RR_ZXS_TITLE {_c_string(title)}\n#define RR_ZXS_IDENTITY "{identity}"\n'
                                 f'#define RR_ZXS_ROM_RESOURCE {ROM_RESOURCE}\n#define RR_ZXS_IMAGE_RESOURCE {IMAGE_RESOURCE}\n'
