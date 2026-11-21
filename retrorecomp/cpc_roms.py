@@ -25,10 +25,14 @@ SOURCE_REPOSITORY = 'ColinPitrat/caprice32'
 SOURCE_COMMIT = '276658ae9a9e40fc899987e69c3f5653ece37693'
 SOURCE_URL = f'https://raw.githubusercontent.com/{SOURCE_REPOSITORY}/{SOURCE_COMMIT}/rom/'
 RETRY_SECONDS = 3
-# file name in the pinned folder -> (option it fills, bytes, Git blob SHA-1 at the commit, SHA-256)
+# file name in the pinned folder -> (option it fills, bytes, Git blob SHA-1 at the commit, SHA-256). The SHA-256 recorded on
+# 22 November 2026 from the first download (Arthur's yes): both files are the commit's blobs and the ones MAME 0.289 lists (the
+# English CPC 6128's system ROM, AMSDOS).
 FILES = {
-    'cpc6128.rom': ('cpc_system', 0x8000, 'fe0aba5e67ef2f21e27cc0ff15dd97940b7ead51', None),
-    'amsdos.rom': ('cpc_amsdos', 0x4000, 'ee61b8cb0e45ab06ad68531d4c483e5ae41a22d0', None),
+    'cpc6128.rom': ('cpc_system', 0x8000, 'fe0aba5e67ef2f21e27cc0ff15dd97940b7ead51',
+                    '31c3668c67bea027dab698ece233c9434d9324f9ba7dac84db58f400b6689562'),
+    'amsdos.rom': ('cpc_amsdos', 0x4000, 'ee61b8cb0e45ab06ad68531d4c483e5ae41a22d0',
+                   'ea65e0fb44ee93ede4b6c507509b7e5ddf497fb7155023bea91ef229469fa04d'),
 }
 
 
