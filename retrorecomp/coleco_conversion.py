@@ -320,6 +320,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'compiler': {'engine': 'the banked Z80 chain (retrorecomp/z80_chain.py), machine "coleco"',
                            'native_cpu': 'every instruction position of the cartridge translated ahead of time; code run from RAM '
                                          'learned and translated with byte guards'},
+              # The player's BIOS at the top of the report, where the multiplayer lobby reads firmware (netplay/lobby_check.FIRMWARE_KEYS): two
+              # seats with different BIOS files are refused before the match starts.
+              'bios': {'sha256': bios_sha256, 'bytes': len(bios), 'origin': 'player'},
               'coleco_checks': {'machine': 'ColecoVision', 'cartridge_bytes': cart.size, 'padded_bytes': len(cartridge),
                                 'mapper': 'none: plain ROM mirrored to 32 KiB', 'header_word': cart.header or 'none',
                                 'standard': standard, 'bios': {'sha256': bios_sha256, 'bytes': len(bios), 'origin': 'player'},

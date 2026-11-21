@@ -25,6 +25,7 @@
 #include "state_file.h"
 
 #define CV_STATE_SCHEMA 1u
+static int cv_state_picture = 1;               /* 0: the snapshots leave the picture and the borders out (they are drawn again) */
 /* The largest body: the VRAM, the picture, the sound samples not yet taken, the CPU and the rest, with room to spare. */
 #define CV_STATE_CAPACITY ((size_t)(160u << 10))
 
@@ -138,11 +139,13 @@ static void cv_machine_state(CvMachine *m, RetroStateIO *io)
     CVW(t->latch, 1, 1);
     CVB(t->first);
     CVB(t->readahead);
-    for (int y = 0; y < TMS_HEIGHT; ++y)
-        for (int x = 0; x < TMS_WIDTH; ++x)
-            CVW(t->frame[y][x], 1, 15);
-    for (int y = 0; y < TMS_HEIGHT; ++y)
-        CVW(t->border[y], 1, 15);
+    if (cv_state_picture) {
+        for (int y = 0; y < TMS_HEIGHT; ++y)
+            for (int x = 0; x < TMS_WIDTH; ++x)
+                CVW(t->frame[y][x], 1, 15);
+        for (int y = 0; y < TMS_HEIGHT; ++y)
+            CVW(t->border[y], 1, 15);
+    }
     /* (6) The SN76489A. */
     cv_psg_state(io, &m->psg);
 }
@@ -200,4 +203,75 @@ static int cv_state_load(const wchar_t *path)
 {
     RetroStateFile f = cv_state_file();
     return rr_state_file_load(&f, path);
+}
+
+/* ---- In-process snapshots for multiplayer (hostkit.h, "Multiplayer"; MIT, Retro-Recomp) ----
+ * The rollback tier saves one a frame and loads one a correction, the host's F8 / F9 for everyone are the same snapshots, and the digest the
+ * session compares is a hash of one. A snapshot is a head (the magic and the two pad words the adapter set) then the quick state's body
+ * (the CPU and the whole machine, without the picture: the next frame draws it again, as the MSX's snapshots). Fixed-width little-endian
+ * fields, never a C layout or an address: the same bytes on Windows and Linux. Memory only, never a file, no envelope, no allocation per
+ * call; taken and loaded at the service point (the frame's end), where the quick states already are. A load is checked whole (the head,
+ * then the body on the machine's scratch copy, then its consistency rules) before anything is applied; a buffer of another size is refused. */
+#define CV_SNAP_MAGIC 0x31504E5356435252ull
+static uint8_t cv_snap_scratch[CV_STATE_CAPACITY];
+
+static void cv_snap_head(RetroStateIO *io, uint16_t pads[2])
+{
+    if (rr_state_word(io, CV_SNAP_MAGIC, 8, UINT64_MAX) != CV_SNAP_MAGIC)
+        io->ok = false;
+    for (int i = 0; i < 2; ++i)
+        pads[i] = (uint16_t)rr_state_word(io, machine.pad[i], 2, CV_PAD_MASK);
+}
+
+static size_t cv_snap_save(void *buffer, size_t capacity)
+{
+    uint16_t pads[2];
+    RetroStateIO io = {(uint8_t *)buffer, capacity, 0, RR_STATE_WRITE, true};
+    cv_snap_head(&io, pads);
+    cv_state_picture = 0;                       /* the next frame draws the picture again: not stored */
+    cv_state_body(&io);
+    cv_state_picture = 1;
+    return io.ok ? io.pos : 0;
+}
+
+static bool cv_snap_load(const void *buffer, size_t size)
+{
+    uint16_t pads[2];
+    RetroStateIO check = {(uint8_t *)buffer, size, 0, RR_STATE_CHECK, true};
+    cv_snap_head(&check, pads);
+    if (!check.ok)
+        return false;
+    cv_state_picture = 0;
+    cv_state_body(&check);
+    cv_state_picture = 1;
+    if (!check.ok || check.pos != size || !cv_consistent())
+        return false;
+    RetroStateIO apply = {(uint8_t *)buffer, size, 0, RR_STATE_APPLY, true};
+    cv_snap_head(&apply, pads);
+    cv_state_picture = 0;
+    cv_state_body(&apply);
+    cv_state_picture = 1;
+    if (!apply.ok)
+        return false;                                /* not reached: the same bytes passed the check */
+    machine.pad[0] = pads[0];
+    machine.pad[1] = pads[1];
+    handed_this_frame = machine.line >= TMS_VBLANK_LINE;
+    return true;
+}
+
+static size_t cv_snap_bound(void)
+{
+    static size_t bound;
+    if (!bound)
+        bound = cv_snap_save(cv_snap_scratch, sizeof cv_snap_scratch);
+    return bound;
+}
+
+/* FNV-1a 64 over a snapshot's bytes: the deterministic state after the last frame, in the order the snapshot names its fields. */
+static uint64_t cv_snap_digest(void)
+{
+    const size_t n = cv_snap_save(cv_snap_scratch, sizeof cv_snap_scratch);
+    uint64_t h = 1469598103934665603ull;
+    for (size_t i = 0; i < n; ++i) { h ^= cv_snap_scratch[i]; h *= 1099511628211ull; }
+    return n ? h : 0;
 }

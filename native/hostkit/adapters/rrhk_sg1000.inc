@@ -8,14 +8,14 @@
  * mouse) is used: the machine has two pads and a Pause button, and every hook that file provides is left NULL, which the kit reads as
  * "none" (as the Master System's adapter leaves them).
  *
- * What is the SG-1000's: the two pads (the D-pad and buttons 1 and 2, the bits of the machine's `pad[]`); Pause, the host's own
- * action (no bit in the pad word): a press raises /NMI once (sg_pause), as the console's button does, and the kit pauses nothing
- * itself (RrhkMachine.host_pause stays 0: the Pause menu of the Master System is the host's; here the game's own pause routine runs);
+ * What is the SG-1000's: the two pads (the D-pad and buttons 1 and 2, the bits of the machine's `pad[]`); Pause, bit 6 of each
+ * seat's word (an ordinary action row, so a match carries it): the machine raises /NMI once on the press edge, from the word it kept last frame
+ * (sg_pad_word), as the console's button does, and the kit pauses nothing itself (RrhkMachine.host_pause stays 0: the game's own pause runs);
  * the TMS9918A picture, 256 x 192 colour indices through the chip's sixteen colours with the border of each line around it (the
  * MSX1's view and palette: the same chip); the sound, the SN76489A's mono samples doubled into the shared stereo ring of
  * native/audio_output.inc. Quick states (F8/F9) are the game's (sg1000_state_file.inc), saved and loaded at once: the kit calls them
- * from the frame's end, which is already the game's service point. No multiplayer hook yet (snap_bound, digest, session_* stay NULL:
- * netplay is a later step, the profile says so). Nothing here says how long a press takes to reach the picture: that is not measured. */
+ * from the frame's end, which is already the game's service point. Multiplayer: an in-process snapshot and the digest
+ * (sg1000_state_file.inc: the state's body without the picture), rollback; no cartridge save, so session_save* stay NULL. Nothing here says how long a press takes to reach the picture: that is not measured. */
 #include "hostkit/hostkit.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
@@ -32,7 +32,7 @@ static const RrhkAction s_actions[S_ACTIONS] = {
    {"Right", L"Right", SG_PAD_RIGHT, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_KP_3}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT}},
    {"Button 1", L"Button1", SG_PAD_B1, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_KP_8}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}},
    {"Button 2", L"Button2", SG_PAD_B2, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_KP_9}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}},
-   {"Pause", L"Pause", 0, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}}};
+   {"Pause", L"Pause", SG_PAD_PAUSE, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_7}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}}};
 
 /* ---- the picture: the TMS9918A's 256 x 192 with eight border pixels around it (the MSX1's view, the same chip) ---- */
 enum { S_VIEW_W = TMS_WIDTH + 16, S_VIEW_H = TMS_HEIGHT + 16 };
@@ -102,17 +102,6 @@ static bool s_state_ready(void) { return true; }
 static bool s_state_file(const wchar_t *path, bool load) { return sg_game_state_file(path, load); }
 static bool s_state_path(wchar_t *path, size_t capacity) { return sg_game_state_path(path, capacity); }
 
-/* The Pause button: a press of its key or button, in play, of either player, is one /NMI. It is not in the pad words, so a match
- * (netplay, a later step) would not carry it: the profile does not offer one yet, and the press is refused there all the same. */
-static bool s_event(const SDL_Event *e, bool *running) {
-   (void)running;
-   const unsigned players = rrhk_action_pressed(e, S_PAUSE);
-   if (!players) return false;
-   if (rrhk_session_active()) { rrhk_notice(rr_tr("Not during a multiplayer game"), 4000); return false; }
-   sg_pause(&machine);
-   return false;
-}
-
 static void s_help_lines(int slot, const char **lines, int *count) {
    if (slot == 1) lines[(*count)++] = rrhk_tr("Enter  Pause", "Entree  Pause");
 }
@@ -144,7 +133,9 @@ const RrhkMachine *rrhk_adapter(void) {
       adapter.audio_ratio = host_audio_ratio;   /* 1.7.7 (HOST_KIT D30): Sync to display */
       adapter.state_ready = s_state_ready; adapter.state_file = s_state_file; adapter.state_path = s_state_path;
       adapter.input_frame = s_input_frame;
-      adapter.help_lines = s_help_lines; adapter.help_controls = s_help_controls; adapter.event = s_event;
+      /* Multiplayer (hostkit.h): an in-process snapshot for rollback and the digest (the state's body without the picture, hashed). */
+      adapter.snap_bound = sg_snap_bound; adapter.snap_save = sg_snap_save; adapter.snap_load = sg_snap_load; adapter.digest = sg_snap_digest;
+      adapter.help_lines = s_help_lines; adapter.help_controls = s_help_controls;
    }
    return &adapter;
 }
@@ -168,8 +159,8 @@ static int sg_host_frame(SgMachine *m) {
    s_sound(m);
    const bool running = rrhk_frame_done();
    sh.frame++;
-   m->pad[0] = (uint8_t)(sh.pad[0] & 0x3F);
-   m->pad[1] = (uint8_t)(sh.pad[1] & 0x3F);
+   sg_pad_word(m, 0, (uint16_t)(sh.pad[0] & SG_PAD_MASK));   /* a press of Pause is one /NMI, from the word kept in the machine */
+   sg_pad_word(m, 1, (uint16_t)(sh.pad[1] & SG_PAD_MASK));
    if (sh.reset) { sh.reset = false; audio_output_clear(); return 2; }
    return running ? 0 : 1;
 }

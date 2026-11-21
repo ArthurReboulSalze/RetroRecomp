@@ -86,6 +86,15 @@ What exists today: the profile, the reader, the BIOS check, the machine's descri
 `native/tms9918` and `native/sn76489`), the conversion loop, the game itself (`coleco_player.c`, its adapter `rrhk_coleco.inc` and its quick states
 `coleco_state_file.inc`), the registries and this page.
 
+### Multiplayer
+
+A match is two seats in rollback (docs/MULTIPLAYER.md): the host kit saves one in-process snapshot a frame (the state's body without the picture,
+`cv_snap_*` in `coleco_state_file.inc`) and compares a digest of it. The pad word carries the stick, the fire buttons and the keypad's lines (and the
+on-screen keypad's flag), so a key pressed on any seat reaches the game on every PC; the pop-up opens on the local seat only. Both PCs need the same
+BIOS: the report has a top-level `bios` record the lobby compares, and the boot digest would refuse a different one anyway. There is no cartridge save
+to share. `--snap-probe AT:N` of the delivered game (headless) saves a snapshot, runs N frames, loads it and runs the same frames again: every digest
+and picture is compared (`tools/coleco_player_selftest.py`, proof (d)).
+
 ## 4. Licences
 
 The converted game will compile in the banked Z80 chain's generator and core, the corrected reference interpreter (`licenses/smsggrecomp.md`,
