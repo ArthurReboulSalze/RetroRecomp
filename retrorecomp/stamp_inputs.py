@@ -1299,6 +1299,8 @@ INPUTS = _resolve({
     'shares:z80_main': (
         'retrorecomp.cpu',
         'retrorecomp.z80_chain',
+        # The Z80's bus cycles per encoding (the ULA contention's data, checked by tools/z80_timing_vectors.py).
+        'retrorecomp.z80_timing',
     ),
     'family:rr16': (
         'native/console16_main.c',
