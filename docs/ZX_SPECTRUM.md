@@ -46,8 +46,8 @@ Amstrad's permission for emulators of 31 August 1999 (no charge for the ROM code
 
 1. The snapshot is read and turned into the machine image (`retrorecomp/zxs_build.py`: the model, the ports, the registers, the
    T-state, the RAM banks); the ROM of its model comes from `zxs_roms`.
-2. How the play route starts is chosen on the reference (`route_start`, `retrorecomp/zxs_routes.py`): ENTER, SPACE, 0 or 1
-   pressed one to four times (each press held half a second: some titles read their key only between two notes of a tune),
+2. How the play route starts is chosen on the reference (`route_start`, `retrorecomp/zxs_routes.py`): ENTER, SPACE, 0, 1, 5 or
+   pad 1's fire pressed one to four times (each press held half a second: some titles read their key only between two notes of a tune),
    judged against the route without input. Then a deterministic walk on the controls the snapshot
    was saved for (cursor keys, Kempston or Sinclair Interface 2).
 3. The ROM is translated ahead of time on the shared chain; the code the snapshot runs from RAM is learned over the routes

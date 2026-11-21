@@ -393,7 +393,12 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(len(standard), 2 + LONG_ROUTES['standard'])
         self.assertNotEqual(routes.route_seed(identity, 'long-1'), routes.route_seed(identity, 'long-2'))
         variants = routes.candidates(1800)
-        self.assertEqual(len(variants), 12)                                     # four keys, presses 1 to 3 fit 1,800 frames
+        self.assertEqual(len(variants), 18)                                     # six candidates, presses 1 to 3 fit 1,800 frames
+        # Pad 1's fire as a start: the Kempston bit on a Kempston snapshot, the fire key of the cursor set otherwise.
+        fire = routes.events(1800, 1, (1, 'FIRE'), 'kempston')
+        self.assertEqual(fire[:2], [('kempston', 150, routes.KEMPSTON_BIT[routes.FIRE]), ('kempston', 175, 0)])
+        self.assertEqual(routes.events(1800, 1, (1, 'FIRE'), 'cursor')[:2], [('key', 150, 4, 0, 1), ('key', 175, 4, 0, 0)])
+        self.assertEqual(routes.events(1800, 1, (1, '5'), 'cursor')[:2], [('key', 150, 3, 4, 1), ('key', 175, 3, 4, 0)])
         self.assertTrue(all(routes.walk_start(presses) + 600 <= 1800 for presses, _ in variants))
         self.assertEqual(min(variants, key=routes.variant_order), (1, 'ENTER'))
         self.assertEqual(routes.variant_name((3, '0')), '3x0')

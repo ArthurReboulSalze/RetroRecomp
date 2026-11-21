@@ -7,8 +7,8 @@ the directions and fire of pad 1 on the controls the snapshot was saved for (its
 Kempston port, or one of the Sinclair Interface 2's two sets of keys), the start keys of the keyboard.
 
 A snapshot is taken after its game loaded: most show a title or a menu at once, some a pause of their BASIC loader first. How `play`
-reaches play is chosen per conversion on the reference (route_start.choose_start): ENTER, SPACE, 0 or 1 pressed 1, 2, 3 or 4 times
-from FIRST_PRESS, one press every PRESS_SPACING frames. Then a deterministic walk seeded by the snapshot (computer_routes.long_events);
+reaches play is chosen per conversion on the reference (route_start.choose_start): ENTER, SPACE, 0, 1, 5 or pad 1's fire pressed
+1, 2, 3 or 4 times from FIRST_PRESS, one press every PRESS_SPACING frames. Then a deterministic walk seeded by the snapshot (computer_routes.long_events);
 its first QUIET_WALK frames are directions only.
 
 A script is text, one event per line, `FRAME key ROW BIT DOWN` or `FRAME kempston HEX` (native/zxs_machine/zxs_headless.inc), frames
@@ -32,10 +32,12 @@ START_PRESSES = (1, 2, 3, 4)
 
 # The keyboard's half-rows (zxs_machine.h, keys[]): 0 FEFE (CAPS SHIFT Z X C V), 1 FDFE (A-G), 2 FBFE (Q-T), 3 F7FE (1-5), 4 EFFE
 # (0 9 8 7 6), 5 DFFE (P O I U Y), 6 BFFE (ENTER L K J H), 7 7FFE (SPACE SYMBOL SHIFT M N B); bit 0 is the outer key of the row.
-ENTER, SPACE, ZERO, ONE = (6, 0), (7, 0), (4, 0), (3, 0)
-START_KEYS = {'ENTER': ENTER, 'SPACE': SPACE, '0': ZERO, '1': ONE}
-MENU_KEYS = (ENTER, SPACE, ZERO, ONE)                 # the walk's keys
+ENTER, SPACE, ZERO, ONE, FIVE = (6, 0), (7, 0), (4, 0), (3, 0), (3, 4)
 UP, DOWN, LEFT, RIGHT, FIRE = 'up', 'down', 'left', 'right', 'fire'
+# The start candidates: four keys of menus, 5 (Ultimate's « 5 START GAME » and its followers), and pad 1's fire on the controls the
+# snapshot was saved for (« press fire to start »: the Kempston port, or the fire key of the cursor or Interface 2 set).
+START_KEYS = {'ENTER': ENTER, 'SPACE': SPACE, '0': ZERO, '1': ONE, '5': FIVE, 'FIRE': FIRE}
+MENU_KEYS = (ENTER, SPACE, ZERO, ONE)                 # the walk's keys
 MOVES = (UP, DOWN, LEFT, RIGHT)                       # computer_routes' joystick codes 0 to 3
 
 # Pad 1 by the snapshot's joystick byte (zxs_snapshot.JOYSTICKS; a .sna does not say: the cursor keys). The same table as the player's
@@ -62,7 +64,7 @@ def variant_name(variant) -> str:
 
 
 def variant_order(variant) -> tuple:
-    """The tie-break of route_start.choose_start: the fewest presses, then ENTER, SPACE, 0, 1."""
+    """The tie-break of route_start.choose_start: the fewest presses, then ENTER, SPACE, 0, 1, 5, fire."""
     return variant[0], list(START_KEYS).index(variant[1])
 
 
