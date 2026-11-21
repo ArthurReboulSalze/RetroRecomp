@@ -115,7 +115,8 @@ native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_do
 native/audio_box.h native/audio_box_checks.c tools/audio_box_selftest.py tests/test_audio_box.py
 retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
 retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
-retrorecomp/systems/amstrad_cpc.py native/hostkit/adapters/rrhk_boot_keys.h native/hostkit/adapters/rrhk_cpc_keys.h retrorecomp/cpc_keys.py tests/test_cpc_keys.py
+retrorecomp/systems/amstrad_cpc.py native/cpc_machine/cpc_reference_main.c tools/cpc_reference.py tests/test_cpc_reference.py
+native/hostkit/adapters/rrhk_boot_keys.h native/hostkit/adapters/rrhk_cpc_keys.h retrorecomp/cpc_keys.py tests/test_cpc_keys.py
 retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
 native/cpc_machine/cpc_bus.h native/cpc_machine/cpc_crtc.c native/cpc_machine/cpc_crtc.h native/cpc_machine/cpc_gate_array.c native/cpc_machine/cpc_gate_array.h
 native/cpc_machine/cpc_ppi.c native/cpc_machine/cpc_ppi.h native/cpc_machine/cpc_machine.c native/cpc_machine/cpc_machine.h native/cpc_machine/cpc_glue.inc native/cpc_machine/cpc_hardware_checks.c tools/cpc_hardware_selftest.py
