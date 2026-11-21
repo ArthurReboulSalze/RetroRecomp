@@ -100,6 +100,9 @@
   "msx2plus": {
    "standard": {"seconds": [59, 67, 79], "longest": 90, "reports": 18, "versions": "1.7.3..1.7.6"},
    "extended": {"seconds": [156, 162, 167], "longest": 177, "reports": 10, "versions": "1.7.3..1.7.3"}
+  },
+  "pcecd": {
+   "standard": {"seconds": [726, 749, 777], "longest": 855, "reports": 8, "versions": "1.9.1..1.9.1"}
   }
  },
  "with_paths": {
