@@ -59,7 +59,7 @@ KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runti
              'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
              'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_io.h', 'state_envelope.h', 'gamestate.h')
 # The quick state's layout name (native/sg1000_machine/sg1000_state_file.inc): raised whenever the body it writes changes.
-STATE_LAYOUT = 'sg1000-state-1'
+STATE_LAYOUT = 'sg1000-state-2'
 
 
 class Sg1000BuildError(RuntimeError):

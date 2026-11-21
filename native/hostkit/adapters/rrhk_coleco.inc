@@ -17,8 +17,8 @@
  * The TMS9928A picture, 256 x 192 colour indices through the chip's sixteen colours with the border of each line around it (the MSX1's and
  * the SG-1000's view and palette: the same chip); the sound, the SN76489A's mono samples doubled into the shared stereo ring of
  * native/audio_output.inc. Quick states (F8/F9) are the game's (coleco_state_file.inc), saved and loaded at once: the kit calls them from
- * the frame's end, which is already the game's service point. No multiplayer hook yet (snap_bound, digest, session_* stay NULL: netplay is a
- * later step, the profile says so). Nothing here says how long a press takes to reach the picture: that is not measured. */
+ * the frame's end, which is already the game's service point. Multiplayer: an in-process snapshot and the digest
+ * (coleco_state_file.inc: the state's body without the picture), rollback; no cartridge save, so session_save* stay NULL. Nothing here says how long a press takes to reach the picture: that is not measured. */
 #include "hostkit/hostkit.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
@@ -166,6 +166,8 @@ const RrhkMachine *rrhk_adapter(void) {
       adapter.audio_ratio = host_audio_ratio;   /* 1.7.7 (HOST_KIT D30): Sync to display */
       adapter.state_ready = s_state_ready; adapter.state_file = s_state_file; adapter.state_path = s_state_path;
       adapter.input_frame = s_input_frame;
+      /* Multiplayer (hostkit.h): an in-process snapshot for rollback and the digest (the state's body without the picture, hashed). */
+      adapter.snap_bound = cv_snap_bound; adapter.snap_save = cv_snap_save; adapter.snap_load = cv_snap_load; adapter.digest = cv_snap_digest;
       adapter.help_lines = s_help_lines; adapter.help_controls = s_help_controls;
       adapter.event = s_event; adapter.action_held = s_action_held; adapter.before_present = s_before_present;
    }

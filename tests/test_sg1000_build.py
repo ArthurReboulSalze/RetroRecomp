@@ -177,7 +177,7 @@ class ProjectTests(unittest.TestCase):
         self.assertEqual(len(base), 32)
         self.assertNotEqual(base, build.state_binding('pal', 0x2000))
         self.assertNotEqual(base, build.state_binding('ntsc', 0x4000))
-        self.assertEqual(base, hashlib.sha256(b'sg1000-state-1\nntsc\n8192').digest())
+        self.assertEqual(base, hashlib.sha256(b'sg1000-state-2\nntsc\n8192').digest())
         self.assertIn(build.STATE_LAYOUT, (NATIVE / 'sg1000_machine/sg1000_state_file.inc').read_text(encoding='utf-8'))
 
     def test_staging_copies_what_changed_beside_the_bodies(self):

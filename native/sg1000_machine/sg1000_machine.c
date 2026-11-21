@@ -88,6 +88,15 @@ void sg_pause(SgMachine *m)
     m->nmi_edge = 1;
 }
 
+void sg_pad_word(SgMachine *m, int seat, uint16_t word)
+{
+    const uint8_t bit = (uint8_t)(1u << seat);
+    if ((word & SG_PAD_PAUSE) && !(m->pause_held & bit))
+        sg_pause(m);                                         /* the press edge: one /NMI */
+    m->pause_held = (uint8_t)((m->pause_held & ~bit) | ((word & SG_PAD_PAUSE) ? bit : 0));
+    m->pad[seat] = (uint8_t)(word & SG_PAD_MASK);
+}
+
 int sg_nmi_edge(SgMachine *m)
 {
     int edge = m->nmi_edge;

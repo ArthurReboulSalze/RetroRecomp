@@ -8,7 +8,8 @@
  * Memory: the cartridge at 0000h-BFFFh, mirrored every `rom_size` bytes (a multiple of 8 KiB, the image padded with FFh as the chain's
  * region map pads it); RAM 1 KiB at C000h, mirrored through FFFFh. Ports (A7 A6, A0): 40h-7Fh write the SN76489A; 80h-BFh the TMS9918A
  * (A0 low: data, high: control and status); C0h-FFh the pads (A0 low: DCh, high: DDh). The VDP's interrupt is on /INT; the Pause button
- * is /NMI (sg_pause). */
+ * is /NMI: it is bit 6 of each pad's word (SG_PAD_PAUSE), and the edge (the press, from the word the machine last saw, kept in its state)
+ * raises it once (sg_pad_word, sg_pause). */
 #ifndef SG1000_MACHINE_H
 #define SG1000_MACHINE_H
 
@@ -22,7 +23,7 @@ enum { SG_CYCLES_PER_LINE = 228, SG_LINES_NTSC = 262, SG_LINES_PAL = 313, SG_RAM
        SG_AUDIO_BUFFER = SN_AUDIO_BUFFER, SG_AUDIO_RATE = SN_AUDIO_RATE, SG_CPU_CLOCK = SN_CPU_CLOCK };
 
 /* Pad bits, in `pad[port]` as the buttons HELD (a set bit is a held button); the ports read them active low. */
-enum { SG_PAD_UP = 1, SG_PAD_DOWN = 2, SG_PAD_LEFT = 4, SG_PAD_RIGHT = 8, SG_PAD_B1 = 16, SG_PAD_B2 = 32 };
+enum { SG_PAD_UP = 1, SG_PAD_DOWN = 2, SG_PAD_LEFT = 4, SG_PAD_RIGHT = 8, SG_PAD_B1 = 16, SG_PAD_B2 = 32, SG_PAD_PAUSE = 64, SG_PAD_MASK = 0x7F };
 
 typedef struct {
     const uint8_t *rom;          /* the cartridge, padded to `rom_size` */
@@ -32,6 +33,7 @@ typedef struct {
     Sn76489 psg;
     uint8_t pad[2];              /* the buttons held (SG_PAD_*) */
     uint8_t nmi_edge;            /* the Pause button was pressed since the CPU last asked */
+    uint8_t pause_held;          /* bit per seat: its word had Pause at the last sg_pad_word (the press edge comes from it) */
     uint64_t cycles;             /* the CPU cycle the chips are brought to */
     uint64_t next_line;
     unsigned lines_per_frame, line;
@@ -54,6 +56,8 @@ static inline uint64_t sg_next_event(const SgMachine *m) { return m->next_line; 
 
 /* The Pause button: raises /NMI once; sg_nmi_edge takes it (the chain asks after every instruction). */
 void sg_pause(SgMachine *m);
+/* One seat's word for the frame to come (SG_PAD_*): its pad, and a press of Pause (bit 6 set where it was not) is one /NMI. */
+void sg_pad_word(SgMachine *m, int seat, uint16_t word);
 int sg_nmi_edge(SgMachine *m);
 
 /* Sound: mono 16-bit samples at SG_AUDIO_RATE. Takes up to `max` samples. */

@@ -51,7 +51,7 @@ class Sg1000Profile(SystemProfile):
     media_kinds = ('cartridge',)
     capabilities = Capabilities()          # two pads and the Pause button: no keyboard, no mouse, no disk
     quick_state_family = 'sg1000'
-    netplay_session = False                # stage 3 of the machine
+    netplay_session = True                 # the host kit's adapter gives a digest and an in-process snapshot (multiplayer rollback)
     host_adapter = 'adapters/rrhk_sg1000.inc'
     # No record kind of its own yet (native/runtime_feedback.h): nothing is recorded for path sharing before the conversion exists.
     feedback_kinds = frozenset()

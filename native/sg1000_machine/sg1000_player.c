@@ -10,7 +10,7 @@
  *                        and the name of the game's own data folder, datas/games/sg1000-<its first 12 characters>)
  *       RR_SG_PAL        1 for a PAL game (313 lines, 50 Hz), 0 for NTSC (262 lines, 60 Hz)
  *       RR_SG_STATE_ABI  the quick state's build binding, 32 bytes as a C initialiser { 0x.., ... }: the SHA-256 of the text
- *                        "sg1000-state-1\n<ntsc|pal>\n<the cartridge's size as the machine sees it, whole 8 KiB regions>" (retrorecomp/sg1000_build.py
+ *                        "sg1000-state-2\n<ntsc|pal>\n<the cartridge's size as the machine sees it, whole 8 KiB regions>" (retrorecomp/sg1000_build.py
  *                        state_binding; sg1000_state_file.inc names the layout);
  *   - the cartridge, as the checked runs saw it, as resource 103 (whole 8 KiB regions padded with FFh; the program pads again if it was
  *     not), the notices of the compiled components as 203 and the identity file as 205 (the other games' resource numbers), the icon
@@ -28,7 +28,10 @@
  *   --save-state FILE --save-at N   save a quick state at the service of frame N (after its row); N must be below --frames
  *   --load-state FILE               load a quick state at the first service of the run, then continue (the route's events up to the
  *                                   loaded frame apply at once; a Pause already taken is not taken again)
- * Exit codes: 0 done, 2 a bad option, 3 a missing resource or a state that cannot be written, 4 a state refused (nothing is changed). */
+ *   --snap-probe AT:N               a test of the multiplayer snapshots (hostkit.h): at frame AT take one, run N frames, load it, run the same N
+ *                                   frames and compare the digest of every frame; N is at most 600, AT + 2N below --frames
+ * Exit codes: 0 done, 2 a bad option, 3 a missing resource or a state that cannot be written, 4 a state refused (nothing is changed), 5 the
+ * snapshot probe failed. */
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
@@ -41,6 +44,8 @@
 
 static char state_file_utf8[1100] = "quick.rrstate";
 static uint32_t rom_bytes;                      /* the cartridge as the machine sees it: whole 8 KiB regions */
+
+static int handed_this_frame;                   /* one hand-over per frame (the snapshots set it too) */
 
 #include "sg1000_state_file.inc"
 
@@ -55,7 +60,6 @@ static bool sg_game_state_path(wchar_t *path, size_t capacity);
 
 static volatile int frame_ended;
 static int headless;                            /* --headless: a route replayed, no host */
-static int handed_this_frame;                   /* one hand-over per frame */
 
 /* The picture is whole when the VDP raises its frame flag, at the first line after it: the frame is handed over there. */
 static void line_hook(void)
@@ -120,13 +124,84 @@ static int headless_path(const char *v, wchar_t *out)
 #endif
 }
 
+#define SNAP_PROBE_MAX 600
+static unsigned long snap_probe_at, snap_probe_n;
+static int snap_probe_phase;                   /* 0 off, 1 take, 2 first run, 3 second run */
+static uint8_t snap_probe_a[SG_STATE_CAPACITY], snap_probe_b[SG_STATE_CAPACITY];
+static size_t snap_probe_size, snap_probe_bound;
+static int snap_probe_same, snap_probe_refused;
+static uint64_t snap_probe_digests[SNAP_PROBE_MAX + 1];
+static uint32_t snap_probe_pictures[SNAP_PROBE_MAX + 1];
+static unsigned long snap_probe_picture_mismatches;
+static unsigned long snap_probe_mismatches;
+static long snap_probe_bad = -1;
+
 static int headless_state_option(const char *a, const char *v)
 {
     if (!strcmp(a, "--save-state")) { if (!headless_path(v, state_save_file)) return -1; state_save_due = 1; }
     else if (!strcmp(a, "--save-at")) state_save_at = strtoul(v, NULL, 10);
     else if (!strcmp(a, "--load-state")) { if (!headless_path(v, state_load_file)) return -1; state_load_due = 1; }
+    else if (!strcmp(a, "--snap-probe")) {
+        char *rest = NULL;
+        snap_probe_at = strtoul(v, &rest, 10);
+        if (!rest || *rest != ':') return -1;
+        snap_probe_n = strtoul(rest + 1, NULL, 10);
+        if (!snap_probe_n || snap_probe_n > SNAP_PROBE_MAX) return -1;
+        snap_probe_phase = 1;
+    }
     else return 0;
     return 1;
+}
+
+
+/* `--snap-probe AT:N` (headless, a test of the multiplayer snapshots): at the service of frame AT it takes a snapshot, checks it is the same
+ * bytes twice, fits snap_bound and that a buffer one byte short is refused and changes nothing; records the digest of each of the next N
+ * frames; loads the snapshot (the rollback), runs the same N frames again and compares every digest. Ends the process: 0 PASS, 5 FAIL (stderr
+ * says what differed). The route's events up to the loaded frame are applied again after the load, as a fresh process does. */
+
+static void snap_probe_service(void)
+{
+    if (!snap_probe_phase || machine.frames < snap_probe_at)
+        return;
+    const unsigned long k = (unsigned long)(machine.frames - snap_probe_at);
+    if (snap_probe_phase == 1) {
+        snap_probe_bound = sg_snap_bound();
+        snap_probe_size = sg_snap_save(snap_probe_a, SG_STATE_CAPACITY);
+        memset(snap_probe_b, 0xA5, sizeof snap_probe_b);
+        snap_probe_same = snap_probe_size && sg_snap_save(snap_probe_b, SG_STATE_CAPACITY) == snap_probe_size
+                          && !memcmp(snap_probe_a, snap_probe_b, snap_probe_size) && snap_probe_size <= snap_probe_bound;
+        const uint64_t before = sg_snap_digest();
+        snap_probe_refused = !sg_snap_load(snap_probe_a, snap_probe_size - 1) && sg_snap_digest() == before;
+        snap_probe_digests[0] = before;
+        snap_probe_phase = 2;
+    } else if (snap_probe_phase == 2) {
+        snap_probe_digests[k] = sg_snap_digest();
+        snap_probe_pictures[k] = sg_frame_hash(&machine);
+        if (k >= snap_probe_n) {
+            if (!sg_snap_load(snap_probe_a, snap_probe_size)) snap_probe_mismatches = ~0ul;
+            route_next_event = 0;                  /* the snapshot holds the pads: the events up to the loaded frame are skipped */
+            while (route_next_event < route_event_count && route_events[route_next_event].frame <= machine.frames)
+                ++route_next_event;
+            if (sg_snap_digest() != snap_probe_digests[0]) { ++snap_probe_mismatches; snap_probe_bad = 0; }
+            snap_probe_phase = 3;
+        }
+    } else if (snap_probe_phase == 3) {
+        if (sg_snap_digest() != snap_probe_digests[k]) {
+            ++snap_probe_mismatches;
+            if (snap_probe_bad < 0) snap_probe_bad = (long)k;
+        }
+        if (k >= 1 && sg_frame_hash(&machine) != snap_probe_pictures[k])
+            ++snap_probe_picture_mismatches;      /* from the first frame drawn again after the load */
+        if (k >= snap_probe_n) {
+            const int pass = snap_probe_same && snap_probe_refused && !snap_probe_mismatches && !snap_probe_picture_mismatches;
+            uint64_t folded = 1469598103934665603ull;        /* every digest of the run folded in one number: the same on Windows and Linux */
+            for (unsigned long i = 0; i <= snap_probe_n; ++i) { folded ^= snap_probe_digests[i]; folded *= 1099511628211ull; }
+            fprintf(stderr, "snap-probe: %s at %lu, %lu frames, %zu bytes (bound %zu), same over other bytes %d, wrong size refused %d, "
+                    "mismatches %lu, first at +%ld, pictures differing %lu, digests %016llx\n", pass ? "PASS" : "FAIL", snap_probe_at, snap_probe_n, snap_probe_size,
+                    snap_probe_bound, snap_probe_same, snap_probe_refused, snap_probe_mismatches, snap_probe_bad, snap_probe_picture_mismatches, (unsigned long long)folded);
+            exit(pass ? 0 : 5);
+        }
+    }
 }
 
 /* The glue's service point: an instruction and the interrupt it may accept are complete. */
@@ -142,9 +217,10 @@ static void sg_main_service(void)
                 exit(4);
             /* The pads are host input, not part of a state: the route's events up to the loaded frame apply again. A Pause among them
              * was taken before the state was saved (the state holds the /NMI edge as it was): it is not taken a second time. */
-            const uint8_t edge = machine.nmi_edge;
+            const uint8_t edge = machine.nmi_edge, held = machine.pause_held;
             sg_route_events();
             machine.nmi_edge = edge;
+            machine.pause_held = held;
             handed_this_frame = machine.line >= TMS_VBLANK_LINE;
             return;
         }
@@ -152,6 +228,7 @@ static void sg_main_service(void)
             SgCpuView c = native_cpu();
             sg_route_row(&c);
         }
+        snap_probe_service();
         if (machine.frames >= frames_wanted)
             headless_finish();                  /* the report; it ends the process */
         if (state_save_due && machine.frames >= state_save_at) {
