@@ -17,8 +17,13 @@
  *   - `static void machine_to(uint64_t cycle)`: bring the machine's hardware (its video lines, its frame flag, its sound) up to `cycle` and
  *     set `g_next_line_cyc` to the cycle of its next event. `advance_vdp` (here) calls it once the instruction is done; the bus calls it at the
  *     instruction's start time (`step_start`) before an I/O access or a write a device must see in time;
- *   - the Z80 bus: `uint8_t sms_read8(uint16_t)`, `void sms_write8(uint16_t, uint8_t)`, `uint8_t sms_io_in(uint8_t)`,
- *     `void sms_io_out(uint8_t, uint8_t)`. The reference interpreter goes through the same four (the `hyb_*` wrappers below);
+ *   - the Z80 bus: `uint8_t sms_read8(uint16_t)`, `void sms_write8(uint16_t, uint8_t)`, and exactly one pair of port functions:
+ *     `uint8_t sms_io_in(uint8_t)` and `void sms_io_out(uint8_t, uint8_t)`, the default and mandatory for every machine that does not
+ *     set `Z80Machine.port_bits = 16` (the low byte of the port only); or, for a 16-bit machine (game_banked.h defines
+ *     SMSRECOMP_PORT16), `uint8_t sms_io_in16(uint16_t)` and `void sms_io_out16(uint16_t, uint8_t)`, given the whole address the
+ *     Z80 puts on the bus (A and n for IN A,(n) / OUT (n),A, BC for the others, B after its decrement for OUTI/OUTD). Defining the
+ *     other pair after this include does not compile (the names are poisoned below). The reference interpreter goes through the
+ *     same functions (the `hyb_*` wrappers below);
  *   - `static int vdp_irq_asserted(void)`: the level of /INT (the name the rendered loop uses, whatever chip raises it);
  *   - `static const BankedRegion *smsrecomp_region_map(void)` and `smsrecomp_region_generation` (a machine keyed by a region map);
  *   - the rendered loop itself, `#include "<machine>_banked_loop.inc"` (written by `z80_chain_build.generate_bodies`);
@@ -73,8 +78,19 @@ static void advance_vdp(uint64_t cycle)
 /* The reference CPU of the fallback, on the same bus. */
 static uint8_t hyb_read(void *user, uint16_t address) { (void)user; return sms_read8(address); }
 static void hyb_write(void *user, uint16_t address, uint8_t value) { (void)user; sms_write8(address, value); }
+#ifdef SMSRECOMP_PORT16
+static uint8_t hyb_in(z80 *z, uint16_t port) { (void)z; return sms_io_in16(port); }
+static void hyb_out(z80 *z, uint16_t port, uint8_t value) { (void)z; sms_io_out16(port, value); }
+/* A 16-bit machine defines sms_io_in16 / sms_io_out16 only: a definition of the 8-bit pair after this point does not compile. */
+#define sms_io_in RR_a_16_bit_machine_defines_sms_io_in16_not_sms_io_in(
+#define sms_io_out RR_a_16_bit_machine_defines_sms_io_out16_not_sms_io_out(
+#else
 static uint8_t hyb_in(z80 *z, uint8_t port) { (void)z; return sms_io_in(port); }
 static void hyb_out(z80 *z, uint8_t port, uint8_t value) { (void)z; sms_io_out(port, value); }
+/* An 8-bit machine defines sms_io_in / sms_io_out only: a definition of the 16-bit pair after this point does not compile. */
+#define sms_io_in16 RR_an_8_bit_machine_defines_sms_io_in_not_sms_io_in16(
+#define sms_io_out16 RR_an_8_bit_machine_defines_sms_io_out_not_sms_io_out16(
+#endif
 
 /* Fallback accounting: where the interpreter ran (first addresses, for the report). */
 static uint16_t fallback_at[16];

@@ -189,11 +189,11 @@ static int eq_machine(const MsxMachine *x, const MsxMachine *y, const uint8_t *r
         EQ("rtc.counted", x->rtc.counted, y->rtc.counted);
     }
     const MsxPsgSynth *s = &x->synth, *r = &y->synth;
-    EQ("synth.time", s->time, r->time); EQ("synth.tick_rest", s->tick_rest, r->tick_rest); EQ("synth.ticks", s->ticks, r->ticks);
-    EQM("synth.tone_count", s->tone_count, r->tone_count); EQM("synth.tone_out", s->tone_out, r->tone_out);
-    EQ("synth.noise_count", s->noise_count, r->noise_count); EQ("synth.lfsr", s->lfsr, r->lfsr);
-    EQ("synth.env_count", s->env_count, r->env_count); EQ("synth.env_step", s->env_step, r->env_step);
-    EQ("synth.env_up", s->env_up, r->env_up); EQ("synth.env_holding", s->env_holding, r->env_holding);
+    EQ("synth.time", s->time, r->time); EQ("synth.tick_rest", s->tick_rest, r->tick_rest); EQ("synth.ticks", s->chip.ticks, r->chip.ticks);
+    EQM("synth.tone_count", s->chip.tone_count, r->chip.tone_count); EQM("synth.tone_out", s->chip.tone_out, r->chip.tone_out);
+    EQ("synth.noise_count", s->chip.noise_count, r->chip.noise_count); EQ("synth.lfsr", s->chip.lfsr, r->chip.lfsr);
+    EQ("synth.env_count", s->chip.env_count, r->chip.env_count); EQ("synth.env_step", s->chip.env_step, r->chip.env_step);
+    EQ("synth.env_up", s->chip.env_up, r->chip.env_up); EQ("synth.env_holding", s->chip.env_holding, r->chip.env_holding);
     EQ("synth.next_sample", s->next_sample, r->next_sample); EQ("synth.acc", s->acc, r->acc);
     EQ("synth.acc_ticks", s->acc_ticks, r->acc_ticks); EQ("synth.out_count", s->out_count, r->out_count);
     EQ("synth.out", memcmp(s->out, r->out, s->out_count * sizeof s->out[0]), 0);

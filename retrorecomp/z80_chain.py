@@ -123,7 +123,8 @@ class Z80Costs:
     `base` replaces the Z80's own count of some encodings: (group of COST_GROUPS, opcode, T-states). A conditional branch keeps
     its base when it is not taken and adds its `*_taken` extra when it is (JR cc and DJNZ, RET cc, CALL cc; JP cc has none,
     and the same with a DD or FD prefix before them); a repeating block instruction (LDIR, CPIR, INIR, OTIR and their
-    decrementing forms) adds `repeat` each time it goes round again. `irq` and `irq_im2` are the acceptance of /INT (modes 0 and
+    decrementing forms) adds `repeat` each time it goes round again, CPIR and CPDR `repeat_compare` (the CPC counts 8 T there and 4 T
+    for the others; None: the same as `repeat`). `irq` and `irq_im2` are the acceptance of /INT (modes 0 and
     1, mode 2), `nmi` the acceptance of /NMI, `halt` one cycle of a HALT, `fragment` a redundant DD or FD prefix. The emitter
     (`emitter_source`), the step loop (`runtime_source`) and the reference CPU of the counted fallback
     (`cpu.prepare_reference(costs=...)`) all read the same values; tools/z80_costs_selftest.py checks that they agree."""
@@ -133,6 +134,7 @@ class Z80Costs:
     ret_taken: int = 6
     call_taken: int = 7
     repeat: int = 5
+    repeat_compare: int | None = None
     irq: int = 13
     irq_im2: int = 19
     nmi: int = 11
@@ -156,9 +158,16 @@ class Z80Costs:
             value = getattr(self, name)
             if not (isinstance(value, int) and 0 <= value <= 255):
                 raise ValueError(f'Z80 costs: {name} is 0 to 255 T-states.')
+        if self.repeat_compare is not None and not (isinstance(self.repeat_compare, int) and 0 <= self.repeat_compare <= 255):
+            raise ValueError('Z80 costs: repeat_compare is None or 0 to 255 T-states.')
         # Mode 0 runs the RST 38h the floating bus gives: the reference CPU adds the RST's own 11 T-states to the acceptance.
         if not (isinstance(self.irq, int) and 11 <= self.irq <= 255):
             raise ValueError('Z80 costs: irq is 11 to 255 T-states (mode 0 runs RST 38h, 11 of them).')
+
+    @property
+    def compare_repeat(self) -> int:
+        """What a repeating CPIR or CPDR adds each time it goes round again."""
+        return self.repeat if self.repeat_compare is None else self.repeat_compare
 
     @property
     def table(self) -> list[list[int]]:
@@ -213,6 +222,14 @@ class Z80Machine:
     # The T-states of each instruction when the machine's bus stretches the Z80's own (Z80Costs: the Amstrad CPC's whole
     # microseconds). None: the Z80's own counts, and no byte of the text changes.
     costs: Z80Costs | None = None
+    # The width of a port on the machine's bus: 8 (the Master System, the Game Gear, the MSX: the low byte decodes everything) or 16
+    # (the ZX Spectrum and the Amstrad CPC decode the high byte too). 16: the bodies and the reference CPU pass the whole address the
+    # Z80 puts on the bus, and the glue's bus is `sms_io_in16` / `sms_io_out16`. 8: no byte of the text changes.
+    port_bits: int = 8
+    # The loop starts from the Z80's documented reset values of AF and SP (FFFFh), as a machine that boots from its ROM does.
+    # False for a machine whose program starts from a saved state (a ZX Spectrum snapshot): its glue sets every register before
+    # the loop, and the loop keeps them. True: no byte of the text changes.
+    reset_registers: bool = True
 
     def __post_init__(self):
         if not 0 <= self.m1_wait <= 3:
@@ -223,6 +240,8 @@ class Z80Machine:
             raise ValueError('Z80 machine: /NMI is read at the end of an instruction, once the hardware has caught up (instruction_end).')
         if self.generator_tag and not (self.generator_tag.startswith('-') and self.generator_tag[1:].isalnum()):
             raise ValueError('Z80 machine: the generator tag is empty or a hyphen and letters or digits.')
+        if self.port_bits not in (8, 16):
+            raise ValueError('Z80 machine: ports are 8 or 16 bits wide.')
         if self.costs is not None and not isinstance(self.costs, Z80Costs):
             raise ValueError('Z80 machine: costs is a Z80Costs or None.')
 
@@ -265,7 +284,11 @@ def _emitter_cost_lines(costs: Z80Costs) -> tuple[str, ...]:
         f'            fprintf(o, "    s->b = (uint8_t)(s->b - 1);\\n    if (s->b) {{ s->cyc += {costs.djnz_taken}; s->pc = %s; s->wz = s->pc; }}\\n", target);\n',
         f'            fprintf(o, "    if (%s) {{ s->cyc += {costs.jr_taken}; s->pc = %s; s->wz = s->pc; }}\\n", cond((in->opcode >> 3) & 3), target);\n',
         f'        fprintf(o, "    s->wz = %s; if (%s) {{ s->cyc += {costs.call_taken}; s->sp = (uint16_t)(s->sp - 2); sms_write16(s->sp, s->pc); s->pc = %s; }}\\n", target, cond((in->opcode >> 3) & 7), target);\n',
-        f'        fprintf(o, "    if (%s) {{ s->cyc += {costs.repeat}; s->pc = (uint16_t)(s->pc - 2);", more);\n',
+        # A repeating CPIR or CPDR (opcode & 3 == 1) adds its own count when the machine gives it one.
+        (f'        fprintf(o, "    if (%s) {{ s->cyc += {costs.repeat}; s->pc = (uint16_t)(s->pc - 2);", more);\n'
+         if costs.compare_repeat == costs.repeat else
+         f'        fprintf(o, "    if (%s) {{ s->cyc += %d; s->pc = (uint16_t)(s->pc - 2);", more, '
+         f'(in->opcode & 3) == 1 ? {costs.compare_repeat} : {costs.repeat});\n'),
     )
 
 
@@ -295,13 +318,85 @@ def _emitter_costs(machine: Z80Machine, emitter: str) -> str:
         emitter = _once(emitter, _EMITTER_MACHINE, _EMITTER_MACHINE + costs.c_table('banked_cost_table') + _COST_LOOKUP)
     return emitter
 
+# ---- 16-bit ports (Z80Machine.port_bits) ------------------------------------------------------------------------------------
+# The pinned emitter names the low byte of a port only: `sms_io_in(0xNN)` and `sms_io_out(0xNN, s->a)` for IN A,(n) and
+# OUT (n),A, `sms_io_in(s->c)` and `sms_io_out(s->c, v)` for the (C) and block forms. On the Z80 the address bus carries the whole
+# port: A then n for the immediate forms (A as it was before the instruction: the call is made before IN writes A), BC for the
+# others (B before its decrement for INI and IND, after it for OUTI and OUTD, which the emitter's order already gives). A machine
+# that decodes the high byte (the ZX Spectrum, the Amstrad CPC) asks for 16-bit ports: its generator re-spells each of those four
+# shapes in the files of bodies it has just written, and refuses any other spelling of an I/O call, so an emitter change cannot
+# slip through. Its bodies call `sms_io_in16` / `sms_io_out16`, which game_banked.h declares (with SMSRECOMP_PORT16) for the
+# machine's glue (native/z80_chain_glue.inc) to define. An 8-bit machine renders none of this.
+_IO16_REWRITE = r'''/* 16-bit ports (retrorecomp/z80_chain.py, Z80Machine.port_bits): the I/O calls of a file of bodies re-spelled with the whole
+ * address on the bus (A and n for IN A,(n) / OUT (n),A, BC for the others); any other spelling is refused. */
+static int banked_hex2(const char *p, unsigned *value) {
+    unsigned v = 0;
+    for (int i = 0; i < 2; ++i) {
+        char c = p[i];
+        unsigned d = c >= '0' && c <= '9' ? (unsigned)(c - '0') : c >= 'A' && c <= 'F' ? (unsigned)(c - 'A' + 10) : 16;
+        if (d > 15) return 0;
+        v = v << 4 | d;
+    }
+    *value = v;
+    return 1;
+}
+static void banked_io16_file(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "[banked] cannot read %s\n", path); exit(1); }
+    fseek(f, 0, SEEK_END); long size = ftell(f); fseek(f, 0, SEEK_SET);
+    char *text = (char *)malloc((size_t)size + 1), *out = (char *)malloc((size_t)size * 2 + 64);
+    if (!text || !out) exit(1);
+    size_t got = fread(text, 1, (size_t)size, f); fclose(f); text[got] = 0;
+    char *w = out; const char *r = text;
+    while (*r) {
+        const char *in = strstr(r, "sms_io_in("), *ot = strstr(r, "sms_io_out(");
+        const char *at = in && (!ot || in < ot) ? in : ot;
+        if (!at) { size_t n = strlen(r); memcpy(w, r, n); w += n; break; }
+        memcpy(w, r, (size_t)(at - r)); w += at - r;
+        unsigned port;
+        if (at == in && !strncmp(at, "sms_io_in(0x", 12) && banked_hex2(at + 12, &port) && at[14] == ')') {
+            w += sprintf(w, "sms_io_in16((uint16_t)(s->a << 8 | 0x%02X))", port); r = at + 15;
+        } else if (at == in && !strncmp(at, "sms_io_in(s->c)", 15)) {
+            w += sprintf(w, "sms_io_in16(z80_bc(s))"); r = at + 15;
+        } else if (at == ot && !strncmp(at, "sms_io_out(0x", 13) && banked_hex2(at + 13, &port) && !strncmp(at + 15, ", ", 2)) {
+            w += sprintf(w, "sms_io_out16((uint16_t)(s->a << 8 | 0x%02X), ", port); r = at + 17;
+        } else if (at == ot && !strncmp(at, "sms_io_out(s->c, ", 17)) {
+            w += sprintf(w, "sms_io_out16(z80_bc(s), "); r = at + 17;
+        } else {
+            fprintf(stderr, "[banked] an I/O call the 16-bit ports do not know in %s: %.40s\n", path, at); exit(1);
+        }
+    }
+    f = fopen(path, "wb");
+    if (!f) { fprintf(stderr, "[banked] cannot write %s\n", path); exit(1); }
+    fwrite(out, 1, (size_t)(w - out), f); fclose(f);
+    free(text); free(out);
+}
+
+'''
+_IO16_HEADER = r'''    fprintf(h, "/* 16-bit ports (Z80Machine.port_bits): the machine's glue defines these two, not sms_io_in / sms_io_out. */\n"
+        "#define SMSRECOMP_PORT16 1\nuint8_t sms_io_in16(uint16_t port);\nvoid sms_io_out16(uint16_t port, uint8_t value);\n");
+'''
+_BODIES_HEADER = '    fprintf(h, "#pragma once\\n#include <stddef.h>\\n#include \\"sms_runtime.h\\"\\n#include \\"z80_ops.h\\"\\n");\n'
+_BODIES_CLOSE = ('        for (uint32_t id = first; id <= pool->count && id < first+256; ++id) banked_body(o, &pool->ops[id], id);\n'
+                 '        fclose(o);\n')
+_BODIES_WRITER = '/* game_layout.c, game_banked.h and the native bodies. */\n'
+
+
+def _emitter_ports(machine: Z80Machine, emitter: str) -> str:
+    """The emitter for a machine with 16-bit ports; the text itself, byte for byte, for an 8-bit one."""
+    if machine.port_bits == 8:
+        return emitter
+    emitter = _once(emitter, _BODIES_WRITER, _IO16_REWRITE + _BODIES_WRITER)
+    emitter = _once(emitter, _BODIES_HEADER, _BODIES_HEADER + _IO16_HEADER)
+    return _once(emitter, _BODIES_CLOSE, _BODIES_CLOSE + '        banked_io16_file(path);\n')
+
 
 def emitter_source(machine: Z80Machine, emitter: str) -> str:
     """The banked emitter for one machine: its description as a C initialiser, then the emitter that reads it, with the
-    machine's own instruction costs (`Z80Machine.costs`) when it states some."""
+    machine's own instruction costs (`Z80Machine.costs`) when it states some and its 16-bit ports (`Z80Machine.port_bits`)."""
     return (f'/* The machine this generator is built for (retrorecomp/z80_chain.py, {machine.key}). */\n'
             f'#define BANKED_MACHINE {{ {machine.regions.initialiser()}, .m1_wait = {machine.m1_wait}, '
-            f'.scope = "{machine.regions.scope}" }}\n' + _emitter_costs(machine, emitter))
+            f'.scope = "{machine.regions.scope}" }}\n' + _emitter_ports(machine, _emitter_costs(machine, emitter)))
 
 
 def _once(source: str, old: str, new: str) -> str:
@@ -335,6 +430,7 @@ def _nmi_accept(costs: Z80Costs) -> str:
 
 
 _AFTER_STEP = 'static inline void banked_after_step(int pending_irq) {'
+_RESET_REGISTERS = '    g_z80.a = g_z80.f = 0xFF; g_z80.sp = 0xFFFF;\n'
 _TAKE_AFTER_STEP = '        banked_after_step(pending_irq);\n'
 
 
@@ -394,6 +490,9 @@ def _runtime_parts(machine: Z80Machine) -> tuple[str, ...]:
         _nmi_accept(machine.cost) + _AFTER_STEP if machine.nmi else _AFTER_STEP,
         # The acceptance of /INT: the machine's counts of modes 0 and 1, and of mode 2.
         f'    g_z80.cyc += g_z80.im == 2 ? {machine.cost.irq_im2} : {machine.cost.irq};\n',
+        # The registers the loop starts from: the reset values, or the ones the machine's glue gave (a saved state).
+        _RESET_REGISTERS if machine.reset_registers else
+        '    /* The machine\'s glue set every register (a saved state, Z80Machine.reset_registers False): kept as they are. */\n',
         f'    unsigned counts[{count}] = {{0}};\n'
         f'    for (int s = 0; s < {count}; ++s) for (int b = 0; b < 256; ++b) counts[s] += banked_seen[s][b];\n'
         '    fprintf(stderr, "[banked] native_steps=%llu halt_steps=%llu fallback_steps=%llu banks_seen='

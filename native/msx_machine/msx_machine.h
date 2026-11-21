@@ -15,6 +15,7 @@
 
 #include "msx_fdc.h"
 #include "tms9918.h"
+#include "ay38910.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -180,17 +181,12 @@ typedef struct {
 
 enum { MSX_AUDIO_RATE = 44100, MSX_AUDIO_BUFFER = 8192, MSX_CPU_CLOCK = 3579545 };
 
-/* The AY-3-8910 as a sound generator (msx_psg.c); its registers are MsxMachine.psg. */
+/* The MSX's sound (msx_psg.c): the AY-3-8910, a chip of its own (native/ay38910), whose registers are MsxMachine.psg, and the
+ * MSX's mixing and resampling around it. */
 typedef struct {
     uint64_t time;                 /* CPU cycle the generator has reached */
     unsigned tick_rest;            /* CPU cycles left over below one tick (16 CPU cycles) */
-    uint32_t ticks;                /* ticks run so far (noise and envelope run on every second one) */
-    uint16_t tone_count[3];
-    uint8_t tone_out[3];
-    uint16_t noise_count;
-    uint32_t lfsr;
-    uint16_t env_count;
-    uint8_t env_step, env_up, env_holding;
+    Ay38910 chip;                  /* the counters, the noise register and the envelope (ay38910.h) */
     uint64_t next_sample;          /* in CPU cycles x 65536 */
     int32_t acc;
     uint32_t acc_ticks;
