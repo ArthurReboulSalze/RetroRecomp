@@ -14,7 +14,16 @@ from pathlib import Path
 
 from . import (Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile,
                UnsupportedConsoleError)
+from ..z80_chain import Z80Machine, Z80RegionMap
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
+
+# The Spectrum on the banked Z80 chain: four 16 KiB regions, the ROM (16 KiB, or the 128K's two banks) as the one translated source
+# at 0000h and RAM above (the snapshot's code runs from RAM: it is learned and translated with byte guards); no wait state (the
+# ULA's contention is not modelled); /INT read once the machine has caught up with the instruction; 16-bit ports (the keyboard's
+# half-rows, the 128K's paging and AY are decoded by the high byte); its own generator folders.
+ZXS_MACHINE = Z80Machine('zxs', Z80RegionMap(region_bits=14, sources=('rom',), bank_values=2, scope='zx-spectrum-rom-region-map'),
+                         irq_sample='instruction_end', generator_tag='-zxs', step_begin=True, reference_state=True,
+                         port_bits=16)
 
 # The sources of a game: the snapshot (its RAM, where almost all the code lives) and the ROM (16 KiB on the 48K, the 128K's
 # two banks as 32 KiB). A snapshot is 16 KiB of RAM plus a header at the least, 128 KiB plus headers at the most.
@@ -34,7 +43,7 @@ class ZxSpectrumProfile(SystemProfile):
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py): the translated code the
     # shared banked Z80 chain writes, as on the MSX; the machine's own files join them with its conversion.
     simulation_sources = (SimulationSource('generated/game_banked_index.c'), SimulationSource('generated/game_banked_ops_*.c'),
-                          SimulationSource('generated/game_banked.h'))
+                          SimulationSource('generated/game_banked.h'), SimulationSource('zxs_banked_loop.inc'))
     linux = 'pending'
     scope_note = ('ZX Spectrum 16K, 48K and 128K snapshots (.z80, .sna), in development: identified, not converted yet; '
                   'no tapes, +2A, +3 or disks')
@@ -59,9 +68,9 @@ class ZxSpectrumProfile(SystemProfile):
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md',
                     'licenses/zx-spectrum-roms.md')
     developer_only = True
-    # The shared groups its game is built from: the AY-3-8910 of the 128K (native/ay38910). The banked Z80 chain and its glue join
-    # with the conversion.
-    stamp_groups = ('ay38910',)
+    # The shared groups its game is built from: the banked Z80 chain and its glue, the AY-3-8910 of the 128K (native/ay38910).
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910')
+    z80_machine = ZXS_MACHINE
     path_spec = PathSpec(order=20, sections=(('z80', 'zxs'),),
                          source_bounds=(('snapshot', SNAPSHOT_BOUNDS), ('rom', ROM_BOUNDS)),
                          required_sources=('snapshot',), hashed_sources=('snapshot', 'rom'),
