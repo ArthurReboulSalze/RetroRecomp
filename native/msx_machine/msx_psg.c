@@ -1,15 +1,8 @@
 /* The AY-3-8910 sound generator of the MSX and the key click. MIT, Retro-Recomp.
  *
- * The AY-3-8910 itself is native/ay38910 (shared with the other machines that have the chip since 21 November 2026, moved
- * there unchanged). The chip runs at the CPU clock / 2 (1,789,772.5 Hz); it advances in ticks of 16 CPU cycles (the chip
- * clock / 8):
- * - a tone channel toggles every TP ticks, so its frequency is clock / (16 TP); a period of 0 acts as 1;
- * - the noise generator, a 17-bit shift register (taps 0 and 3), shifts every NP x 2 ticks;
- * - the envelope takes one of its 16 steps every EP x 2 ticks (a whole ramp lasts 256 EP / clock); writing R#13
- *   restarts it; shapes 0-7 fall to 0 and hold, 8 and 12 repeat, 10 and 14 alternate, 11 and 13 hold at the top,
- *   9 and 15 hold at 0.
- * A channel sounds when (tone or tone disabled) and (noise or noise disabled), at its fixed level or the envelope's.
- * The sixteen output levels are the measured, normalised AY-3-8910 levels published with ayumi (MIT, Peter Sovietov).
+ * The chip itself (tone, noise, envelope, its sixteen levels) is native/ay38910/ay38910.h, shared with the other machines that
+ * have it since 21 November 2026. On the MSX it runs at the CPU clock / 2 (1,789,772.5 Hz) and advances in ticks of 16 CPU
+ * cycles (the chip clock / 8).
  *
  * Mixing: the three channels at equal weight, and the key click (PPI port C bit 7) at 0.756 of a PSG channel at volume
  * 15: the ratio measured on 12 November 2026 from the outside in openMSX 22.0 run as a separate program (a black box),
