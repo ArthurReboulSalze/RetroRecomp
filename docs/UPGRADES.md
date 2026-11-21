@@ -173,6 +173,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
 | [Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring](#game-boy-a-line-with-sprites-is-drawn-in-runs-and-the-adapters-sound-is-a-ring-190) | **the Game Boy game stamp** (`native/gb_ppu_object_span.h`, `gameboy_hardware.py`, `gameboy_runtime.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`); build unchanged | unchanged (the bytes of a state are the same) |
+| [Game Boy Color: an experimental profile, and the Game Boy modules take a variant](#game-boy-color-an-experimental-profile-and-the-game-boy-modules-take-a-variant-190) | **the Game Boy game stamp** (`retrorecomp/gameboy.py`, `gameboy_runtime.py`, `gameboy_host.py`, the stamp group `gameboy`); the Game Boy Color is a new machine with its own stamps | **the Game Boy host stamp** (`rrhk_gb.inc`: the Color's name and settings under `RR_GB_COLOR`); build unchanged | unchanged for the Game Boy (a Game Boy state is the same bytes; the Color has its own family) |
 
 ## Mega Drive: a lower frame cost, the same pictures and sound (1.9.0)
 
@@ -688,6 +689,31 @@ the scheduling of the ticks (about half of the work) and the framebuffer copy.
 runtime header, the patch of `gameboy_hardware.py`, the copy list of `gameboy_runtime.py`) and **the Game Boy host stamp** (`c05b8312` to `24065247`:
 `rrhk_gb.inc`); the build stamp and every other machine unchanged. Existing Game Boy exports are converted again to get the faster drawing. Quick
 states unchanged (their layout and the bytes of a state are the same, no key moves), and so is a match: the digest of a frame is the same as before.
+
+## Game Boy Color: an experimental profile, and the Game Boy modules take a variant (1.9.0)
+
+Arthur's go of 21 November 2026 (study first, then the path of [NEW_MACHINE.md](NEW_MACHINE.md); branch `spec/gbc-profile`). The Game Boy Color is the second machine of the Game Boy
+engine ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `gbc`, experimental, in development, not offered in a release yet. **What changes for the Game Boy.**
+
+- `retrorecomp/gameboy.py` gets `GameBoyVariant` (`DMG`, `COLOR`): the library, the feedback records, the box art and the notice text are keyed by the variant's id, the
+  cartridge reader takes its file names and its Color-flag rule from it, the report says its id, name and model. `adapt_generated_project` takes the variant (the
+  model the runtime starts in, the id that stages the host kit and the feedback), `gameboy_host` stages the kit for it, and the adapter (`rrhk_gb.inc`) names the machine
+  and keeps its own settings section when built with `RR_GB_COLOR` (the Color only). The Game Boy is the default everywhere: its program is the same.
+- The Game Boy profile's header test is a function of its own (`header_matches`) and it refuses a Color-only cartridge (flag `C0`); a `.gb` or a ZIP holding one goes
+  to the Color through `refine_match`. Color-enhanced cartridges (flag `80`: Pokémon Yellow in the player's `gb` folder) stay with the Game Boy (Arthur, 21 November 2026).
+- The stamp group `gameboy` replaces the Game Boy only list: both machines hash the same engine files; the Color's own is its profile module.
+
+**Proof for the Game Boy** (nothing may change for it): `tools/ab_conversion.py`, main `e51658c5` against this branch, quick level, Tetris and Super Mario Land: 133 and 136 compared files (frames,
+traces, hashes, audio, state, generated sources, the executable's reports); the only differences are the adapter's source text (the `RR_GB_COLOR` lines) and what is derived
+from it: the export receipt's host hash and the simulation identity (its engine file count 63 to 64, which moves the identity a multiplayer room compares).
+
+**Stamps** (computed on the tree against `e51658c5`, all machines compared): **the Game Boy game stamp** (`a150c491` to `dafbb4a6`) and **the Game Boy host stamp** (`0fdc380c` to `9219189b`);
+the build stamp and every other machine unchanged; `gbc` is new. Existing Game Boy exports are converted again. Quick states unchanged for the Game Boy.
+
+**The first Color evidence** (not a qualification): seven cartridges of the panel convert (quick level, two passes, 600 frames, scratch library) with the CPU comparison passing on the
+boot route and the fallback counted per route (Tetris DX 17,440 interpreter cycles, Pokémon Gold 0, Wario Land 3 0 with 1,526 instructions run one by one, Shantae 473,680, Super Mario
+Bros. Deluxe 36, Pokémon Pinball 0, Lufia 393,930 on the boot route; the play routes are in each report). `tools/gameboy_color_selftest.py`: 417 authored checks of the colour hardware against the register
+pages of Pan Docs (banks, palettes, both HDMA modes, the speed switch): documentation, not a console.
 
 ## Every machine: the sound no longer crackles in multiplayer (1.9.0)
 

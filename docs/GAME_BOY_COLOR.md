@@ -24,10 +24,10 @@ Game Boy unless it is a `.gbc`. A headerless `.bin` or `.rom` is told by its hea
 
 ## Five measures, kept apart
 
-- **Native code:** the generated SM83 code is the Game Boy's; the counted interpreter fallback is reported per CPU and per device as for the Game Boy. Not measured on a Color game yet.
-- **CPU fidelity:** the SM83 is the Game Boy's (independent vectors apply unchanged; double speed and STOP are not covered by them). Not measured here yet.
-- **Hardware fidelity:** the engine's Color model (double speed, the two video banks, the eight work-RAM banks, palettes, HDMA) is the upstream's and is not verified. In a first study the engine's Color model failed 17 all-model timing tests of the Mooneye suite; sixteen of them pass in a private experiment that gives the Color hardware the original console's rule for the bus during an OAM transfer. That change is not in the product, and it is to be confirmed against Color-only evidence first.
-- **Gameplay validation:** none yet; the panel is chosen, not run.
+- **Native code:** the generated SM83 code is the Game Boy's; the counted interpreter fallback is reported per CPU and per device as for the Game Boy. First figures (quick level, two passes, 600 frames, boot route; the play routes are in each report): Tetris DX 17,440 interpreter cycles, Pokémon Gold 0, Wario Land 3 0 (1,526 instructions run one by one in writable memory, counted apart), Shantae 473,680, Super Mario Bros. Deluxe 36, Pokémon Pinball 0, Lufia 393,930. The two high ones are what the next steps work on.
+- **CPU fidelity:** the SM83 is the Game Boy's (independent vectors apply unchanged; double speed and STOP are not covered by them). Each conversion compares the generated code with the reference interpreter on its boot route (passed for the seven games); no longer route yet.
+- **Hardware fidelity:** the engine's Color model (double speed, the two video banks, the eight work-RAM banks, palettes, HDMA) is the upstream's and is not verified. In a first study the engine's Color model failed 17 all-model timing tests of the Mooneye suite; sixteen of them pass in a private experiment that gives the Color hardware the original console's rule for the bus during an OAM transfer. That change is not in the product, and it is to be confirmed against Color-only evidence first. `tools/gameboy_color_selftest.py` runs 417 authored checks of the colour hardware against the register pages of Pan Docs (the seven work-RAM banks, the second video bank, the palette ports, both HDMA modes, the speed switch): they show what the engine does, not what a console does. Known and not yet changed: the engine expands the 5-bit colour channels as `x*255/31`, while every test reference uses `(x<<3)|(x>>2)`.
+- **Gameplay validation:** none yet; the panel converts, it is not played.
 - **Physical latency:** not measured.
 
 Everything not yet measured is `?` in [QUALIFICATION.md](QUALIFICATION.md).
@@ -40,5 +40,6 @@ Legend Returns; in reserve Kirby's Tilt 'n' Tumble (MBC7, declared out of scope)
 
 ## Where it stands
 
-Step 1 of [NEW_MACHINE.md](NEW_MACHINE.md): the profile, the registries, the shared variant of the conversion modules. The conversion of a first
-game and the independent evidence follow.
+Step 1 of [NEW_MACHINE.md](NEW_MACHINE.md): the profile, the registries, the shared variant of the conversion modules (the Game Boy's output is
+unchanged: an A/B on two games), the seven games of the panel converted at the quick level, the authored colour-hardware checks. The Linux witness, the qualification
+gates and the Color-only evidence (the OAM-transfer rule above) belong to step 2.
