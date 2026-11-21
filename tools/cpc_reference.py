@@ -127,6 +127,32 @@ def interrupt_program() -> bytes:
     return system_rom(a.image(0x4000))
 
 
+# The routine the RAM program builds: LD A,(8002h); ADD A,3; LD (8002h),A; RET. Its bytes are written one by one from immediate
+# operands, so they appear nowhere in the ROM as a sequence: only learning makes it native.
+RAM_ROUTINE = (0x3A, 0x02, 0x80, 0xC6, 0x03, 0x32, 0x02, 0x80, 0xC9)
+
+
+def ram_program() -> bytes:
+    """A routine built byte by byte in RAM at 4000h and called 200 times: code the interpreter runs until it is learned."""
+    a = Asm()
+    a.b(0xF3)
+    a.jp(0xC3, 'main')
+    a.org(0x100)
+    a.label('main')
+    a.b(0x31); a.w(0xBFF0)
+    a.b(0x21); a.w(0x4000)               # LD HL,4000h
+    for value in RAM_ROUTINE:
+        a.b(0x36, value, 0x23)           # LD (HL),n; INC HL
+    a.b(0x06, 200)                       # LD B,200
+    a.label('again')
+    a.b(0xC5)                            # PUSH BC
+    a.b(0xCD); a.w(0x4000)               # CALL 4000h
+    a.b(0xC1)                            # POP BC
+    a.jr(0x10, 'again')                  # DJNZ again
+    a.b(0x76)                            # HALT
+    return system_rom(a.image(0x4000))
+
+
 READ_COMMAND = (0x46, 0x00, 0, 0, 0xC1, 2, 0xC1, 0x2A, 0xFF)   # READ DATA, drive A, C0 H0 R C1h N2, EOT C1h
 
 

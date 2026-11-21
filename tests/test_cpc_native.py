@@ -32,8 +32,12 @@ class NativeTests(unittest.TestCase):
             self.skipTest("no CPC generator built here (.deps/recompiler-build-cpc*)")
         results = tool.checks()
         self.assertEqual({name: result['differences'] for name, result in results.items() if not result['equal']}, {})
-        self.assertEqual({name: result['fallback_steps'] for name, result in results.items()},
-                         {name: 0 for name in results})
+        self.assertEqual({name: result['fallback_steps'] for name, result in results.items() if name != 'ram'},
+                         {name: 0 for name in results if name != 'ram'})
+        # Code built in RAM: interpreted and counted on the first generation, native with byte guards once learned.
+        first, second = results['ram']['fallback_steps']
+        self.assertGreater(first, 0)
+        self.assertEqual(second, 0)
 
 
 if __name__ == '__main__':

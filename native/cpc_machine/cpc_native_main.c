@@ -3,7 +3,8 @@
  * costs in whole microseconds, the full 16-bit port, /INT read at the end of each instruction), the counted fallback on the
  * corrected reference interpreter, and the board of cpc_machine.c, through cpc_glue.inc. MIT, Retro-Recomp. A development
  * check (tools/cpc_native.py): it is compared field by field with cpc_reference_main.c, which takes the same options and
- * prints the same JSON; this one adds the native and fallback step counts. */
+ * prints the same JSON; this one adds the native and fallback step counts. With --learn FILE it writes the code the interpreter
+ * ran (the 4 bytes at each address, as the chain learns), translated with byte guards by the next generation. */
 #define SMSRECOMP_BANKED_AOT 1
 #include "cpc_glue.inc"
 
@@ -34,6 +35,11 @@ static size_t load(const char *path, uint8_t *into, size_t room)
 
 static void finish(void)
 {
+    if (learn_out) {                             /* --learn: the code the interpreter ran, for the next generation */
+        FILE *f = fopen(learn_out, "w");
+        for (int i = 0; f && i < learned_count; ++i) fprintf(f, "%08X\n", (unsigned)learned[i]);
+        if (f) fclose(f);
+    }
     if (audio) fclose(audio);
     if (picture_file) {
         FILE *f = fopen(picture_file, "wb");
