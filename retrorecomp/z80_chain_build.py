@@ -86,7 +86,9 @@ def generate_bodies(work: Path, machine, cartridge: bytes, sources: Sequence[tup
     if result.returncode:
         raise error(f'The Z80 generator failed (see {log}).')
     prepare_cpu_headers(work, engine)
-    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi)
+    # The machine's corrections of the copy: its M1 count, its NMI, its instruction costs and its 16-bit ports (z80_chain.Z80Machine).
+    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi, costs=machine.costs,
+                      port16=machine.port_bits == 16)
     instrument_reference(work / 'runtime_reference.c', accept, machine, error)
     (work / loop_name).write_text(banked_runtime(machine, ASSETS), encoding='utf-8', newline='\n')
 
