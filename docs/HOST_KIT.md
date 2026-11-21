@@ -283,7 +283,10 @@ key's code, and the open row's bit is a flag the keypad holds while open and, af
 is released; the machine's input mapping takes the flag as « this pad's stick and fire buttons are not the game's ». So
 rollback, the digest and a session need nothing more. A menu, the Pause, another seat's pause, the chat, a restart or a
 quick-state load closes it; in turns, a seat without the controls cannot open it. Its title and hint are in the five game
-languages in the file itself until the catalogue next moves. `tools/hostkit_keypad_selftest.py` checks it ROM-free.
+languages in the file itself until the catalogue next moves. `tools/hostkit_keypad_selftest.py` checks it ROM-free. The ColecoVision's
+adapter (`rrhk_coleco.inc`) is its first user: each key's `bit` is the code of the four keypad lines it pulls (bits 6-9 of the word: two keys held
+merge, as on the real keypad), the open row's bit is bit 11, and the machine masks the stick and the fire buttons while it is set; the group
+`shares:hostkit_keypad` names the file for the machines that include it, and the machine's build stages it beside its adapter.
 
 ## 3. Behaviour: one rule per divergence
 
