@@ -66,7 +66,7 @@ class Sg1000Profile(SystemProfile):
                           SimulationSource('generated/game_banked_ops_*.c'),
                           SimulationSource('generated/game_banked.h'),)
     z80_machine = SG1000_MACHINE
-    path_spec = PathSpec(order=21, sections=(('z80', 'sg1000'),),
+    path_spec = PathSpec(order=22, sections=(('z80', 'sg1000'),),
                          source_bounds=(('rom', CARTRIDGE_BOUNDS),),
                          required_sources=('rom',), hashed_sources=('rom',),
                          shapes=(('z80', 'sg1000', dict(roles=('rom',), caps={'window4': 4096})),))
