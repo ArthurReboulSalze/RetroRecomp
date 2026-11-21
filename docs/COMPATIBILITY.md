@@ -273,6 +273,9 @@ of 14 November 2026 (four cartridges and five disk games, extended level) every 
 play on their long route, Xak III answers its disk request and loads its third disk, Golvellius II stays in its intro and Pachipro Densetsu in
 its birth-date entry; no game has been played through (gameplay validation: none), and hardware fidelity and latency are not claimed.
 
+The **ZX Spectrum** profile is experimental and in development ([status](ZX_SPECTRUM.md)): it identifies 16K, 48K and 128K snapshots
+(`.z80`, `.sna`, or a ZIP holding one) and writes reports, converts nothing yet, and no installation lists it.
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy

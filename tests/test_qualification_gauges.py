@@ -104,7 +104,11 @@ class ReadmeTests(unittest.TestCase):
             line = next(row for row in block.splitlines() if row.startswith('| [' + profile.name + '](docs/'))
             self.assertIn(' ' + profile.status + ' ', line)
         # No machine of the list is experimental since 1.6.9: the status column reads the profile, so a new experimental machine shows up here.
-        self.assertEqual(block.count('| experimental |'), sum(profile.status == 'experimental' for profile in RECOMPILED))
+        # A developer-only experimental machine (no installation lists it yet) says so beside its status.
+        self.assertEqual(block.count('| experimental |') + block.count('| experimental (developer-only) |'),
+                         sum(profile.status == 'experimental' for profile in RECOMPILED))
+        self.assertEqual(block.count('| experimental (developer-only) |'),
+                         sum(profile.status == 'experimental' and profile.developer_only for profile in RECOMPILED))
 
     def test_the_asterisk_marks_the_machines_on_an_emulator_core_and_its_explanation_only(self):
         block = qg.current_block(qg.README.read_text(encoding='utf-8'), qg.README_BEGIN, qg.END)

@@ -824,6 +824,14 @@ INPUTS = _resolve({
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
     ),
+    # The ZX Spectrum (in development, step 1): its converter modules (the snapshot reader, the ROM pin, the conversion). The
+    # profile module comes from the profile, the ROMs' notice from its notice_files; the machine's C and the shared chain come with
+    # its conversion.
+    ('zxs',): (
+        'retrorecomp.zxs_conversion',
+        'retrorecomp.zxs_roms',
+        'retrorecomp.zxs_snapshot',
+    ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
     # the player, and its host-kit adapter (host role: in HOST_NATIVE above).

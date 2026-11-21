@@ -38,6 +38,7 @@ UPSTREAM_NOTICES = {
     'FreeType': ('licenses/freetype.md',),
     'C-BIOS': ('licenses/cbios.md',),                          # the MSX and MSX2: optional, in a game that boots it
     'emu2413': ('licenses/emu2413.md',),                       # the MSX2+'s MSX-MUSIC (the NES's VRC7 names it in nesrecomp's notice)
+    'zx-spectrum-roms': ('licenses/zx-spectrum-roms.md',),     # the ZX Spectrum: every game holds the Amstrad ROM of its model
 }
 # Upstreams a machine follows without compiling any of their code into its games, each with the reason
 # (retrorecomp/upstreams.py says the same in its `compiled` column or beside MACHINE_UPSTREAMS).

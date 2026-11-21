@@ -1123,7 +1123,12 @@
     "options_firmware": "BIOS 和固件",
     "firmware_search_explain": "选择一个文件夹：转换器会找出它所支持的所有机型的固件，并在填入路径之前显示确认页面。不会复制或发送任何内容。",
     "front_end_window": "回到窗口",
-    "tip_conversion_queue": "转换队列：等待转换的 ROM。添加它们，选择封面，然后转换。"
+    "tip_conversion_queue": "转换队列：等待转换的 ROM。添加它们，选择封面，然后转换。",
+    "options_zxs": "ZX Spectrum",
+    "options_zxs_note": "实验性配置，开发中：可以识别 ZX Spectrum 16K、48K 和 128K 的快照（.z80、.sna，或包含其中之一的 ZIP），暂不转换任何内容。游戏将使用 Spectrum 自己的 ROM 运行，Amstrad 允许这类软件再分发它：它会从一个固定的来源只下载一次，你也可以在下面的行中选择你自己的 ROM。磁带、+2A、+3 和磁盘暂不支持。",
+    "scan_note_zxs": "建议：标准。配置开发中：可以选择扫描级别，不过暂不转换任何内容。",
+    "zxs_rom48_label": "ZX Spectrum：你自己的 48K ROM（16 KiB，可选）",
+    "zxs_rom128_label": "ZX Spectrum：你自己的 128K ROM（32 KiB，或同一文件夹中两个 16 KiB 的文件，可选）"
   },
   "runtime": {
     "Internal resolution": "内部分辨率",

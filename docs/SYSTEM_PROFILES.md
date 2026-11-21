@@ -63,6 +63,12 @@ identifies a `.mx2`, or a `.rom` or ZIP that you choose as MSX2 or that sits in 
 mapper RAM, part of the request); its path section is `z80/msx2`, it uses the shared banked Z80 chain, and its gameplay feedback kind is 27. See
 [MSX](MSX.md#8-the-msx2-msx2).
 
+The **ZX Spectrum** profile (`zxs`, experimental and in development since 21 November 2026, developer-only: no installation lists it yet)
+identifies snapshots of the 16K, 48K and 128K (`.z80` versions 1 to 3 and `.sna`, or a ZIP holding one) and converts nothing yet. It will
+export to `Games/ZX Spectrum`, on the shared banked Z80 chain, with the Amstrad ROMs fetched from a pinned source or your own identical ROM
+(`zxs_rom48`, `zxs_rom128`). Its path section is `z80/zxs` (sources `snapshot` and `rom`), path order 20; it records no gameplay feedback
+yet (its kind, 28, is reserved with the other new machines' when one first records). See [ZX Spectrum](ZX_SPECTRUM.md).
+
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
 chosen. Foreign ROM extensions appear as **Unknown console** and are skipped,

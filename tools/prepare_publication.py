@@ -105,6 +105,8 @@ tools/atarist_saves_check.py tests/test_atarist_saves.py tools/atarist_keys_chec
 native/msx_machine/msx_machine.h native/msx_machine/msx_machine.c native/msx_machine/msx_reference_main.c tools/msx_reference.py tests/test_msx_reference.py
 native/tms9918/tms9918.c native/tms9918/tms9918.h native/msx_machine/msx_psg.c native/msx_machine/msx_hardware_checks.c native/msx_machine/msx_cart.c retrorecomp/msx_rom.py retrorecomp/msx_disk.py retrorecomp/msx_knowledge.py retrorecomp/msx2plus_knowledge.py tests/test_msx_knowledge.py native/msx_machine/msx_music.c native/msx_machine/msx_music.h native/msx_machine/msx_opll_state.inc native/msx_machine/emu2413/LICENSE native/msx_machine/emu2413/emu2413.c native/msx_machine/emu2413/emu2413.h native/msx_machine/emu2413/revision.json tests/test_msx_music.py tests/test_msx_rom.py tools/msx_first_read.py
 native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_captures.py tools/msx_panel.py tools/msx_write_disk.py tools/msx_fm_cart.py tools/msx_kanji_cart.py native/media_request.h tools/msx_fdc_selftest.py native/msx_machine/msx_fdc_checks.c tests/test_msx_fdc.py tests/test_msx_native.py
+retrorecomp/systems/zx_spectrum.py retrorecomp/zxs_snapshot.py retrorecomp/zxs_roms.py retrorecomp/zxs_conversion.py
+licenses/zx-spectrum-roms.md docs/ZX_SPECTRUM.md tests/test_zx_spectrum.py
 retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py retrorecomp/msx_conversion.py retrorecomp/msx_routes.py licenses/cbios.md docs/MSX.md
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/tms9918/tms_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c

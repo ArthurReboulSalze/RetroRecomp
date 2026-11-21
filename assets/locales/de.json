@@ -1123,7 +1123,12 @@
     "options_firmware": "BIOS und Firmware",
     "firmware_search_explain": "Wähle einen Ordner: Der Konverter findet die Firmware aller Maschinen, die er kennt, und zeigt dir eine Übersicht, bevor er die Pfade einträgt. Nichts wird kopiert oder gesendet.",
     "front_end_window": "Zurück zum Fenster",
-    "tip_conversion_queue": "Konvertierungswarteschlange: die ROMs, die auf ihre Konvertierung warten. Füge sie hinzu, wähle ihre Cover und konvertiere sie."
+    "tip_conversion_queue": "Konvertierungswarteschlange: die ROMs, die auf ihre Konvertierung warten. Füge sie hinzu, wähle ihre Cover und konvertiere sie.",
+    "options_zxs": "ZX Spectrum",
+    "options_zxs_note": "Experimentelles Profil in Entwicklung: ZX-Spectrum-Snapshots für 16K, 48K und 128K (.z80, .sna oder ein ZIP mit einem davon) werden erkannt, konvertiert wird noch nichts. Die Spiele laufen später auf dem ROM des Spectrum, das Amstrad Emulatoren weiterzugeben erlaubt: Es wird einmal von einer festgelegten Quelle heruntergeladen, oder wähle dein eigenes ROM in den Zeilen unten. Noch keine Kassetten, kein +2A, +3 und keine Disketten.",
+    "scan_note_zxs": "Empfohlen: Standard. Profil in Entwicklung: Die Scan-Stufen werden angenommen, konvertiert wird aber noch nichts.",
+    "zxs_rom48_label": "ZX Spectrum: dein eigenes 48K-ROM (16 KiB, optional)",
+    "zxs_rom128_label": "ZX Spectrum: dein eigenes 128K-ROM (32 KiB oder seine beiden 16-KiB-Hälften nebeneinander, optional)"
   },
   "runtime": {
     "Internal resolution": "Interne Auflösung",

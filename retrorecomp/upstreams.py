@@ -229,6 +229,16 @@ EMU2413 = Upstream(
     'revision.json, the same files the NES engine vendors); compiled into an MSX2+ game, with its notice (licenses/emu2413.md)',
     Pin('json', 'native/msx_machine/emu2413/revision.json', 'commit'))
 
+ZX_SPECTRUM_ROMS = Upstream(
+    'zx-spectrum-roms', 'fuse-emulator/fuse', 'master', 'the Amstrad ZX Spectrum 48K and 128K ROMs a converted snapshot runs on '
+    '(the roms folder of the GitHub mirror of the Fuse project)',
+    'Amstrad copyright, distribution allowed for emulators without charge for the ROM code (Cliff Lawson, 31 August 1999); '
+    'not under the GPL of Fuse (its roms/README.copyright)',
+    'roms/48.rom, roms/128-0.rom and roms/128-1.rom only, fetched on first use and checked by size and SHA-256, translated into '
+    'every Spectrum game with their notice (licenses/zx-spectrum-roms.md); no Fuse code is used and nothing of it is in this repository',
+    _py('retrorecomp/zxs_roms.py', 'SOURCE_COMMIT'),
+    watch=('roms/48.rom', 'roms/128-0.rom', 'roms/128-1.rom', 'roms/README.copyright'))
+
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
     'SDL', 'libsdl-org/SDL', 'release-2.32.x', 'SDL2 window, audio and input library linked into every export', 'zlib',
@@ -323,6 +333,8 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'msx': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
     'msx2': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS),
     'msx2plus': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS, EMU2413),
+    # The ZX Spectrum (in development) on the same chain, on its own machine description, with the Amstrad ROMs.
+    'zxs': (SMSGGRECOMP, Z80_RECOMP_CORE, ZX_SPECTRUM_ROMS),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

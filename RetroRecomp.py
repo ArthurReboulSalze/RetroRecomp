@@ -50,6 +50,8 @@ _PATH_HELP = {
     'msx2plus_diskrom': 'MSX2+: your own disk ROM (16 KiB, the Panasonic TC8566AF interface), needed for disk games with --msx2plus-bios and --msx2plus-subrom; never shipped.',
     'msx2plus_fmbios': 'MSX2+: your own MSX-MUSIC BIOS (16 KiB with the APRLOPLL signature); without it C-BIOS\'s music ROM is used; never shipped.',
     'msx2plus_kanji': 'MSX2+: your own kanji font ROM (128 KiB JIS level 1, or 256 KiB with level 2) for Japanese games that draw kanji; C-BIOS has none; never shipped.',
+    'zxs_rom48': 'ZX Spectrum: your own 48K ROM (16 KiB, accepted when it is the original image); without it the Amstrad ROM is fetched from its pinned source.',
+    'zxs_rom128': 'ZX Spectrum: your own 128K ROM (one 32 KiB image, or the editor ROM with the BASIC ROM beside it); without it the Amstrad ROMs are fetched from their pinned source.',
 }
 _FLAG_HELP = {
     'convert': {
