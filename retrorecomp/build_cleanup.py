@@ -62,7 +62,7 @@ REMOVING = '.retro-recomp-removing-'
 #   pce     pce_conversion.py  pce/<sha12>
 #   psx     psx_conversion.py  psx/<sha12>
 #   msx     msx_conversion.py  msx/<sha12>-<BIOS8>         (MSX and MSX2 alike)
-#   sg1000  sg1000_conversion  sg1000/<sha12>             (stage 1 builds nothing yet: the machine's conversion confirms this rule)
+#   sg1000  sg1000_conversion  sg1000/<sha12>             (the headless check and the reference; the machine's conversion)
 #   scummvm scummvm_export.py  scummvm/<sha12>
 #   x68     x68000_conversion  x68/<win|win-llvm|linux>/<SDK12>/<machine16>
 #   amiga   amiga_conversion   amiga/<win|win-llvm|linux>/<SDK12>/<sha16>

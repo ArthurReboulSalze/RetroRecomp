@@ -1,8 +1,8 @@
 """Sega SG-1000 profile (experimental, developer only, in development: see docs/SG1000.md).
 
-Stage 1 of the machine: the profile recognises a cartridge (a .sg, or a .bin, .rom or ZIP chosen as SG-1000 or kept in a folder named
-sg1000), reads it (2 KiB to 48 KiB, plain ROM) and converts nothing yet: its conversion refuses with a sentence before anything is
-written. What it will be: the SG-1000 and SG-1000 II cartridges, translated ahead of time by the shared banked Z80 chain
+Stages 1 and 2 of the machine: the profile recognises a cartridge (a .sg, or a .bin, .rom or ZIP chosen as SG-1000 or kept in a folder named
+sg1000), reads it (2 KiB to 48 KiB, plain ROM), translates it and checks it against the reference interpreter (retrorecomp/sg1000_conversion.py);
+it delivers no game executable yet (the player is the next stage). What it will be: the SG-1000 and SG-1000 II cartridges, translated ahead of time by the shared banked Z80 chain
 (retrorecomp/z80_chain.py) on the machine's own description below (eight 8 KiB regions of the cartridge space, no wait state on the M1
 cycle, /INT read at the end of each instruction, the /NMI pin of the Pause button), with the TMS9918A of native/tms9918 shared with the
 MSX. Left out on purpose: the SC-3000 (keyboard, BASIC, cassette) and the peripherals and boards of docs/SG1000.md.

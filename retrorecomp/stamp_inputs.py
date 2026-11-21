@@ -833,8 +833,8 @@ INPUTS = _resolve({
         'retrorecomp.zxs_roms',
         'retrorecomp.zxs_snapshot',
     ),
-    # The SG-1000 (experimental, developer only, stage 1: it identifies cartridges and converts nothing yet): its converter modules, the
-    # cartridge reader and the conversion (a refusal for now). Its profile module and its host-kit adapter (host role: in HOST_NATIVE
+    # The SG-1000 (experimental, developer only, stage 2: it identifies cartridges, translates them and checks them against the reference,
+    # and delivers no executable yet): its converter modules (the cartridge reader, the build, the routes, the conversion) and the machine's C. Its profile module and its host-kit adapter (host role: in HOST_NATIVE
     # above, a placeholder until stage 3) come from the profile; the Z80 chain, the TMS9918A and the gates come from stamp_groups.
     ('sg1000',): (
         'native/sg1000_machine/sg1000_glue.inc',
@@ -843,8 +843,10 @@ INPUTS = _resolve({
         'native/sg1000_machine/sg1000_machine.h',
         'native/sg1000_machine/sg1000_native_main.c',
         'native/sg1000_machine/sg1000_reference_main.c',
+        'retrorecomp.sg1000_build',
         'retrorecomp.sg1000_conversion',
         'retrorecomp.sg1000_rom',
+        'retrorecomp.sg1000_routes',
     ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and

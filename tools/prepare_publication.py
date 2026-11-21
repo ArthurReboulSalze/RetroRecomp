@@ -528,7 +528,7 @@ tools/frame_stop_selftest.py
 tests/test_game_gear.py tests/test_game_boy.py
 retrorecomp/cover_keyring.py tests/test_cover_keyring.py
 tools/package_linux.py docs/LINUX.md licenses/Linux-desktop.md
-retrorecomp/systems/sg1000.py retrorecomp/sg1000_rom.py retrorecomp/sg1000_conversion.py native/hostkit/adapters/rrhk_sg1000.inc docs/SG1000.md tests/test_sg1000_profile.py
+retrorecomp/systems/sg1000.py retrorecomp/sg1000_rom.py retrorecomp/sg1000_conversion.py native/hostkit/adapters/rrhk_sg1000.inc docs/SG1000.md tests/test_sg1000_profile.py retrorecomp/sg1000_build.py retrorecomp/sg1000_routes.py tests/test_sg1000_build.py tests/test_sg1000_routes.py tests/test_sg1000_conversion.py
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 # Every public converter module is frozen into the executable, including ones

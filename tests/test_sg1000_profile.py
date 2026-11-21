@@ -178,14 +178,14 @@ class IdentificationTests(unittest.TestCase):
 
 
 class ConversionTests(unittest.TestCase):
-    def test_the_conversion_refuses_with_a_sentence_and_writes_nothing(self):
+    def test_the_profile_converts_through_the_machines_own_conversion(self):
+        self.assertFalse(hasattr(sg1000_conversion, 'NOT_YET'))              # stage 2: the refusal of stage 1 is gone
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'game.sg'
-            path.write_bytes(cartridge(8 * KIB))
-            with self.assertRaisesRegex(ConversionError, 'in development: nothing is converted yet'):
+            path.write_bytes(cartridge(64 * KIB))                            # no board it can hold: refused before anything is written
+            with self.assertRaisesRegex(ConversionError, 'larger than 48 KiB'):
                 SG1000.convert(path, frames=3600, emit=print)
             self.assertEqual([p.name for p in Path(folder).iterdir()], ['game.sg'])
-        self.assertEqual(sg1000_conversion.NOT_YET[:15], 'The SG-1000 is ')
 
 
 if __name__ == '__main__':

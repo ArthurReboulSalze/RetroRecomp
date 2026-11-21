@@ -3,11 +3,15 @@
  * instruction), the counted fallback on the corrected reference interpreter, and the machine of sg1000_machine.c, through
  * sg1000_glue.inc (shared with the game, sg1000_player.c). MIT, Retro-Recomp. The conversion runs it (headless) against the reference.
  *
- * Options: --cart FILE (the cartridge, whole 8 KiB regions: the program pads it) [--pal] [--learn FILE] and the common ones of
+ * Options: --cart FILE or - (the cartridge, from a file or standard input; the program pads it to whole 8 KiB regions) [--pal] [--learn FILE] and the common ones of
  * sg1000_headless.inc (--frames --frame --vram --report --watch --event --script --rows --audio). It prints the same JSON as
  * sg1000_reference, plus the native and fallback step counts. */
 #define SMSRECOMP_BANKED_AOT 1
 #include "sg1000_glue.inc"
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 #include "sg1000_headless.inc"
 
@@ -60,13 +64,18 @@ static void sg_main_service(void)
         headless_finish();
 }
 
+/* "-" reads standard input: a player's ROM taken from its archive in memory reaches the program with no file copy. */
 static long load(const char *path, uint8_t *into, long limit)
 {
-    FILE *f = fopen(path, "rb");
+    int piped = !strcmp(path, "-");
+#ifdef _WIN32
+    if (piped) _setmode(_fileno(stdin), _O_BINARY);
+#endif
+    FILE *f = piped ? stdin : fopen(path, "rb");
     if (!f) { fprintf(stderr, "cannot open %s\n", path); exit(2); }
     long n = (long)fread(into, 1, (size_t)limit, f);
     int more = fgetc(f) != EOF;
-    fclose(f);
+    if (!piped) fclose(f);
     if (more) { fprintf(stderr, "%s is larger than %ld bytes\n", path, limit); exit(2); }
     return n;
 }

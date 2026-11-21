@@ -7,7 +7,7 @@
  * interpreter's own acceptance, exported by the same generated copy). The Pause button is /NMI, an edge: taken first, at the same
  * boundary (the corrected interpreter accepts it even right after EI).
  *
- * Usage: sg1000_reference --cart FILE [--pal] [--frames N] [--watch ADDR]... [--vram FILE] [--frame FILE] [--rows FILE] [--audio FILE]
+* Usage: sg1000_reference --cart FILE|- [--pal] [--frames N] [--watch ADDR]... [--vram FILE] [--frame FILE] [--rows FILE] [--audio FILE]
  *                         [--script FILE | --event FRAME:pad:PORT:HEX | --event FRAME:pause]... [--report FILE] */
 #include "sg1000_machine.h"
 #include "runtime_reference.h"
@@ -15,6 +15,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 void sg1000_reference_accept(z80 *const z);      /* the interpreter's interrupt acceptance (both /INT and /NMI) */
 
@@ -26,13 +30,18 @@ static void bus_write(void *user, uint16_t address, uint8_t value) { sg_write((S
 static uint8_t bus_in(z80 *z, uint8_t port) { return sg_in((SgMachine *)z->userdata, port); }
 static void bus_out(z80 *z, uint8_t port, uint8_t value) { sg_out((SgMachine *)z->userdata, port, value); }
 
+/* "-" reads standard input: a player's ROM taken from its archive in memory reaches the program with no file copy. */
 static long load(const char *path, uint8_t *into, long limit)
 {
-    FILE *f = fopen(path, "rb");
+    int piped = !strcmp(path, "-");
+#ifdef _WIN32
+    if (piped) _setmode(_fileno(stdin), _O_BINARY);
+#endif
+    FILE *f = piped ? stdin : fopen(path, "rb");
     if (!f) { fprintf(stderr, "cannot open %s\n", path); exit(2); }
     long n = (long)fread(into, 1, (size_t)limit, f);
     int more = fgetc(f) != EOF;
-    fclose(f);
+    if (!piped) fclose(f);
     if (more) { fprintf(stderr, "%s is larger than %ld bytes\n", path, limit); exit(2); }
     return n;
 }
