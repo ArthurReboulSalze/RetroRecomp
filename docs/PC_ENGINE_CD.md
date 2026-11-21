@@ -114,5 +114,5 @@ Proofs (all on Dracula X or Lords of Thunder, the player's own card and discs, n
 | The HuCard output | unchanged: an A/B of Alien Crush and Air Zonk and the snapshot self-test on both boards (UPGRADES.md) |
 
 Not proved, and not claimed: three or four seats on a disc (the converter builds every disc for two players today, the sessions refuse more seats than the game has; no CD game with a recorded player count above two), the two-PC run
-(the multiplayer specialist's, with the ThinkPad) and physical latency (never measured). The backup memory stayed blank in these routes: the save path is proved on a hand-set byte (the probe's disturbed-state load), not by a game saving.
+(the multiplayer specialist's, with the ThinkPad) and physical latency (never measured). The backup memory stayed blank in the probe's route (Lords of Thunder), so the snapshot's path for it is proved on hand-set bytes (the probe's disturbed-state load). A game did write it on a route of the panel: Ys Book I & II's play route answers its « initialize the File Cabinet? » question, the memory it wrote survives a fresh process (section 4), but no session has played that game yet.
 
