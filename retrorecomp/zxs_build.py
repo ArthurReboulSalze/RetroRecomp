@@ -148,17 +148,11 @@ def build(work, targets: tuple, emit=print) -> dict:
 
 def build_reference(work, emit=print) -> Path:
     """The reference runner alone, before any body is generated (the start of the play route is chosen on it;
-    z80_chain_build.build_reference_runner: the reference CPU prepared for the Spectrum's 16-bit ports)."""
+    z80_chain_build.build_reference_runner: the reference CPU prepared for the Spectrum's 16-bit ports, and, the reference main
+    keeping the translated register file, the CPU headers written before any body)."""
     from . import z80_chain_build
-    from .cpu import prepare_cpu_headers
     from .systems.zx_spectrum import ZXS_MACHINE
-
-    def stage(folder):
-        # The reference main keeps the translated register file (Z80State, banked_reference_state.inc): the CPU headers the bodies'
-        # generation writes (sms_runtime.h), written here before any generation.
-        stage_sources(folder)
-        prepare_cpu_headers(folder, z80_chain_build.generator(ZXS_MACHINE, emit)[1])
-    return z80_chain_build.build_reference_runner(work, ZXS_MACHINE, accept='zxs_reference_accept', stage=stage, build=build,
+    return z80_chain_build.build_reference_runner(work, ZXS_MACHINE, accept='zxs_reference_accept', stage=stage_sources, build=build,
                                                   target='zxs_reference', emit=emit, error=ZxsBuildError)
 
 
