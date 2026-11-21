@@ -87,6 +87,17 @@ interrupt handler), Jetpac (16K), Arkanoid (the floating bus question), Match Da
 paging and the AY), Robocop (the whole game in the 128K banks, sampled speech), Elite (heavy maths, the keyboard as the
 controller), The Hobbit (typing and printing through the ROM); in reserve Uridium and Rainbow Islands.
 
+The first panel run (21 November 2026, standard level, routes of 1,800 frames): the eight games equal the reference on every
+route with no instruction on the interpreter fallback. Manic Miner, Jetpac, Head over Heels and The Hobbit reach play; Arkanoid,
+Match Day II, Robocop and Elite stay on a menu their start needs keys of its own for (a control choice, then fire; a Y/N
+question): a candidate for start data keyed by the snapshot's SHA-256, not yet written. This is agreement with our reference,
+on routes that reach part of each game: no gameplay validation.
+
+The first Linux witness, the same day, in WSL (Debian 13) on the build PC: Manic Miner and Head over Heels converted from the
+same tree give the same start, the same learning counts and, on both routes, the same frame trace, RAM, picture and sound
+hashes and step counts as on Windows; the compressed copy and the quick states pass there too. A witness in WSL is not a proof
+of a Linux graphics driver.
+
 ## 7. Multiplayer (later)
 
 Two seats: the Sinclair Interface 2 has two joysticks on the keyboard matrix, and the Kempston beside it is the common pair.
