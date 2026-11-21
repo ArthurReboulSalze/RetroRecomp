@@ -189,3 +189,20 @@ def learn(work, rom: bytes, image: bytes, runs: list, emit=print, *, passes: int
         generate(work, rom, emit)
         check = build(work, ('zxs_check', 'zxs_reference'), emit)['zxs_check']
     return check, counts
+
+
+def frame_rows(path) -> list:
+    """The rows of a --rows file (native/zxs_machine/zxs_headless.inc) as delivery_evidence.FrameRow (frame, picture, sound, audible,
+    ram, pc)."""
+    from .delivery_evidence import FrameRow
+    rows = []
+    for line in path.read_text(encoding='utf-8').splitlines()[1:]:
+        frame, _cpu, ram, picture, sound, _samples, audible, pc = line.split(',')
+        rows.append(FrameRow(int(frame), picture, sound=sound, audible=audible == '1', ram=ram, pc=pc))
+    return rows
+
+
+def write_rom(path, data: bytes) -> None:
+    """The ROM beside the bodies, written only when it changed (the runners read it with --rom)."""
+    from . import z80_chain_build
+    z80_chain_build.write_if_changed(path, data)

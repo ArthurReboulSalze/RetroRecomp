@@ -34,6 +34,11 @@ static uint32_t route_frame_sound = 2166136261u;
 static uint64_t route_frame_samples;
 static int route_frame_min = 32767, route_frame_max = -32768;
 static uint64_t route_rows_done;
+/* The sound of the frame that ended, closed by the machine's frame hook at the frame's boundary exactly (the samples up to that
+ * cycle), so that each row holds the same samples whatever instruction the service point falls after. */
+static uint32_t closed_sound = 2166136261u;
+static uint64_t closed_samples;
+static int closed_audible;
 
 static uint32_t zxs_fnv(uint32_t h, const void *data, size_t size)
 {
@@ -97,10 +102,16 @@ static int route_script(const char *path)
     return result;
 }
 
-/* The machine's frame hook: the events of the frame that begins. */
+static void route_take_sound(void);
+
+/* The machine's frame hook: the sound of the frame that ended is closed, then the events of the frame that begins apply. */
 static void route_frame_start(void *user)
 {
-    (void)user;
+    if (user) {                                              /* NULL: the first frame, nothing ended */
+        route_take_sound();
+        closed_sound = route_frame_sound; closed_samples = route_frame_samples; closed_audible = route_frame_min != route_frame_max;
+        route_frame_sound = 2166136261u; route_frame_samples = 0; route_frame_min = 32767; route_frame_max = -32768;
+    }
     while (route_next_event < route_event_count && route_events[route_next_event].frame <= machine.frames) {
         const ZxsRouteEvent *e = &route_events[route_next_event++];
         if (e->kempston)
@@ -147,6 +158,7 @@ static int headless_option(const char *a, const char *v)
 static void headless_start(void)
 {
     machine.frame_hook = route_frame_start;
+    machine.hook_user = &machine;
     machine.trace_frames = 1;
     if (audio_out && !(route_audio_file = fopen(audio_out, "wb"))) exit(3);
     if (rows_out) {
@@ -195,17 +207,15 @@ static void headless_report(void)
 static int headless_service(void)
 {
     if (machine.frames > route_rows_done) {
-        route_take_sound();
         while (route_rows_done < machine.frames) {
             ++route_rows_done;
             if (route_rows_file) {
                 uint16_t regs[16];
                 headless_registers(regs);
                 fprintf(route_rows_file, "%llu,%08x,%08x,%08x,%08x,%llu,%d,%04x\n", (unsigned long long)route_rows_done,
-                        zxs_cpu_hash(), zxs_ram_hash(), zxs_picture_hash(), route_frame_sound,
-                        (unsigned long long)route_frame_samples, route_frame_min != route_frame_max, regs[7]);
+                        zxs_cpu_hash(), zxs_ram_hash(), zxs_picture_hash(), closed_sound,
+                        (unsigned long long)closed_samples, closed_audible, regs[7]);
             }
-            route_frame_sound = 2166136261u; route_frame_samples = 0; route_frame_min = 32767; route_frame_max = -32768;
         }
     }
     return machine.frames >= frames_wanted;

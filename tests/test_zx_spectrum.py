@@ -265,11 +265,11 @@ class ProfileTests(unittest.TestCase):
         report = read_report(target)
         self.assertEqual(report['system']['id'], 'zxs')
 
-    def test_the_conversion_refuses_plainly(self):
+    def test_a_damaged_snapshot_is_refused_before_anything_is_built(self):
         from retrorecomp.core import ConversionError
         path = self.folder / 'a.z80'
-        path.write_bytes(z80_v1(BANKS))
-        with self.assertRaisesRegex(ConversionError, 'does not convert yet'):
+        path.write_bytes(z80_v1(BANKS)[:-10])
+        with self.assertRaisesRegex(ConversionError, '48 KiB'):
             get_profile('zxs').convert(path)
 
 
