@@ -271,6 +271,20 @@ The kit refuses a session for a game that reads a pointer or a light gun (not ca
 feed the pad words like a pad's; the computer adapter gives its guest no key of this PC in a session. The public page is
 [MULTIPLAYER.md](MULTIPLAYER.md).
 
+### 2.6 The on-screen keypad (adapter side)
+
+A controller with a keypad (the ColecoVision's twelve keys; later the Atari 5200's, the Intellivision's) gives a gamepad
+player a small grid over the picture: the open row (gamepad Y by default, never Back, which is in Restart and the chat's
+chord) opens it, the D-pad moves, A holds the selected key, B closes it, and the game keeps running. It is
+`native/hostkit/adapters/rrhk_keypad.inc`, which an adapter includes and calls from hooks the shell already calls
+(`event`, `action_held`, `before_present`, and its own `reset` and quick-state load), so a machine that uses it moves no
+other machine's host stamp. What reaches the game is the pad word only: each key is an ordinary action row whose `bit` is the
+key's code, and the open row's bit is a flag the keypad holds while open and, after closing, until every button of that pad
+is released; the machine's input mapping takes the flag as « this pad's stick and fire buttons are not the game's ». So
+rollback, the digest and a session need nothing more. A menu, the Pause, another seat's pause, the chat, a restart or a
+quick-state load closes it; in turns, a seat without the controls cannot open it. Its title and hint are in the five game
+languages in the file itself until the catalogue next moves. `tools/hostkit_keypad_selftest.py` checks it ROM-free.
+
 ## 3. Behaviour: one rule per divergence
 
 Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour. A

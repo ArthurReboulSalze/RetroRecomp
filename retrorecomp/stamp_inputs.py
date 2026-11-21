@@ -284,6 +284,11 @@ NOT_INPUTS = (
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
     'native/banked_reference_state.inc',
+    # The on-screen keypad of a gamepad player (docs/HOST_KIT.md 2.6): an adapter includes it and calls it from hooks the shell
+    # already calls. No machine builds with it yet: with its first (the ColecoVision) it leaves this list for a group
+    # `shares:hostkit_keypad`, host role, hashed by the machines whose adapter includes it only. tools/hostkit_keypad_selftest.py
+    # builds it around a fake machine, never into a game.
+    'native/hostkit/adapters/rrhk_keypad.inc',
     # tools/cart_save_selftest.py (the cartridge save file of the Mega Drive, the Super Nintendo and the PC Engine, on each machine's own
     # entry points with a stand-in memory): built for a check, never into a game.
     'native/cart_save_checks.c',
