@@ -55,6 +55,15 @@ def instrument_reference(path: Path, accept: str, machine, error: type = Runtime
         path.write_text(source, encoding='utf-8', newline='\n')
 
 
+def prepare_machine_reference(work: Path, engine: Path, machine) -> None:
+    """The reference interpreter's copy (`runtime_reference.c` and `.h`) in `work`, corrected for the machine: its M1 count, its NMI, its
+    instruction costs and its 16-bit ports (`z80_chain.Z80Machine`). The one place that turns a machine into the arguments of
+    `cpu.prepare_reference`: the bodies' generation and the reference runner built alone both call it, so the two copies of the same
+    machine can never differ."""
+    from .cpu import prepare_reference
+    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi, costs=machine.costs, port16=machine.port_bits == 16)
+
+
 def generate_bodies(work: Path, machine, cartridge: bytes, sources: Sequence[tuple[str, bytes]], game_toml: str,
                     emit: Callable[[str], None] = print, *, loop_name: str, accept: str,
                     keep_rom: bool = True, error: type = RuntimeError) -> None:
@@ -87,9 +96,7 @@ def generate_bodies(work: Path, machine, cartridge: bytes, sources: Sequence[tup
     if result.returncode:
         raise error(f'The Z80 generator failed (see {log}).')
     prepare_cpu_headers(work, engine)
-    # The machine's corrections of the copy: its M1 count, its NMI, its instruction costs and its 16-bit ports (z80_chain.Z80Machine).
-    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi, costs=machine.costs,
-                      port16=machine.port_bits == 16)
+    prepare_machine_reference(work, engine, machine)
     instrument_reference(work / 'runtime_reference.c', accept, machine, error)
     (work / loop_name).write_text(banked_runtime(machine, ASSETS), encoding='utf-8', newline='\n')
 
@@ -240,10 +247,9 @@ def build_reference_runner(work: Path, machine, *, accept: str, stage: Callable[
     or a mapper, runs it): the reference interpreter's copy corrected for the machine (M1 count, NMI), its interrupt acceptance exported
     as `accept`, the machine's files staged by `stage(work)`, then `build(work, (target,), emit)` (the machine's own build function,
     which writes its project). Returns the executable."""
-    from .cpu import prepare_reference
     _, engine = generator(machine, emit)
     work.mkdir(parents=True, exist_ok=True)
-    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi)
+    prepare_machine_reference(work, engine, machine)
     instrument_reference(work / 'runtime_reference.c', accept, machine, error)
     stage(work)
     return build(work, (target,), emit)[target]

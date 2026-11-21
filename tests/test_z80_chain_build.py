@@ -5,8 +5,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 from retrorecomp import z80_chain_build as chain
+from retrorecomp.z80_chain import Z80Costs, Z80Machine, Z80RegionMap
 
 
 class ProjectCmakeTests(unittest.TestCase):
@@ -126,6 +129,34 @@ class LearnTests(unittest.TestCase):
             self.assertEqual(counts, [1, 1, 1])
             self.assertEqual((calls['generate'], calls['build']), (4, 4))        # three passes, then the bodies with every pattern
             self.assertEqual(len((Path(folder) / 'native.patterns').read_text(encoding='utf-8').split()), 3)
+
+
+class ReferenceCopyTests(unittest.TestCase):
+    """The bodies' generation and the reference runner built alone prepare the reference interpreter's copy with the same arguments."""
+    MACHINE = Z80Machine('refcopy', Z80RegionMap(region_bits=13, sources=('rom',), bank_values=256, scope='refcopy'), m1_wait=1,
+                         irq_sample='instruction_end', nmi=True, port_bits=16,
+                         costs=Z80Costs(base=(('', 0x00, 8),), irq=15, irq_im2=22, nmi=14))
+
+    def calls(self):
+        recorded = []
+        engine = Path('engine')
+        with tempfile.TemporaryDirectory() as folder,                 mock.patch('retrorecomp.cpu.prepare_reference', lambda *a, **k: recorded.append((a[2:], k))),                 mock.patch('retrorecomp.cpu.prepare_cpu_headers', lambda *a, **k: None),                 mock.patch.object(chain, 'generator', lambda machine, emit=print: (Path('tool'), engine)),                 mock.patch.object(chain, 'instrument_reference', lambda *a, **k: None),                 mock.patch.object(chain.subprocess, 'run', lambda *a, **k: SimpleNamespace(returncode=0)):
+            work = Path(folder)
+            chain.generate_bodies(work, self.MACHINE, bytes(8192), (), 'game', loop_name='loop.inc', accept='accept')
+            chain.build_reference_runner(work / 'alone', self.MACHINE, accept='accept', stage=lambda w: None,
+                                         build=lambda w, targets, emit: {targets[0]: Path('ref.exe')}, target='ref')
+        return recorded
+
+    def test_the_two_call_sites_pass_the_same_arguments_for_a_machine_with_costs_and_16_bit_ports(self):
+        generated, alone = self.calls()
+        self.assertEqual(generated, alone)
+        self.assertEqual(generated[1], dict(m1_counter=True, nmi=True, costs=self.MACHINE.costs, port16=True))
+
+    def test_the_arguments_come_from_one_function(self):
+        recorded = []
+        with mock.patch('retrorecomp.cpu.prepare_reference', lambda *a, **k: recorded.append((a, k))):
+            chain.prepare_machine_reference(Path('w'), Path('e'), self.MACHINE)
+        self.assertEqual(recorded, [((Path('w'), Path('e')), dict(m1_counter=True, nmi=True, costs=self.MACHINE.costs, port16=True))])
 
 
 if __name__ == '__main__':
