@@ -89,36 +89,41 @@ static int disk_take_written(void)
 
 static void disk_at_exit(void) { if (cpc_effects_allowed && !rrhk_session_active()) rr_disk_copies_save(&copies); }
 
-/* The match's disk image: a magic word, the disk's size, then its bytes. The host plays the match on the bytes it sends (held, laid
- * again at the start and at each restart), a guest on the host's. */
+/* The match's disk image: a magic word, the disk's size, then its bytes. Which disk a seat plays (laid at the match's start and at
+ * every restart, over the power-on state): the host's image when the host sent one (session_save_put: on a guest, and on the host
+ * itself at a restart); else, on the host, the image it sent (session_save at HELLO); else, on a guest, the EMBEDDED disk, never its
+ * own copy (a guest that saved earlier would start the match on another disk than everyone else). */
 #define CPC_SESSION_MAGIC "RCPCDSK1"
-static uint8_t *session_held;
-static size_t session_held_size;
+static uint8_t *session_mine, *session_given;    /* this PC's image as sent at HELLO; the host's as received */
+static size_t session_mine_size, session_given_size;
 static uint8_t *session_start;                   /* the machine at power-on, for session_begin */
 static size_t session_start_size;
 
 static size_t cpc_session_image_size(void) { return 8u + 4u + disk_sizes[0]; }
 
-static void cpc_session_hold(const void *image, size_t size)
+static void cpc_session_keep(uint8_t **held, size_t *held_size, const void *image, size_t size)
 {
     uint8_t *copy = (uint8_t *)malloc(size);
     if (!copy) return;
     memcpy(copy, image, size);
-    free(session_held);
-    session_held = copy;
-    session_held_size = size;
+    free(*held);
+    *held = copy;
+    *held_size = size;
 }
 
-/* Lay a match's image on drive A (checked: this game's disk size): in memory only. */
-static bool cpc_session_lay(const uint8_t *image, size_t size)
+static bool cpc_session_valid(const uint8_t *image, size_t size)
 {
     if (size != cpc_session_image_size() || memcmp(image, CPC_SESSION_MAGIC, 8)) return false;
     const uint32_t bytes = (uint32_t)image[8] | (uint32_t)image[9] << 8 | (uint32_t)image[10] << 16 | (uint32_t)image[11] << 24;
-    if (bytes != disk_sizes[0]) return false;
-    memcpy(disk_data[0], image + 12, disk_sizes[0]);
-    if (cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0) != DSK_OK) return false;
-    disk_ever = 1;                               /* the match's disk travels with every snapshot */
-    return true;
+    return bytes == disk_sizes[0];
+}
+
+/* Drive A's disk for the match (NULL: the embedded disk), in memory only; the disk then travels with every snapshot. */
+static bool cpc_session_lay(const uint8_t *image)
+{
+    memcpy(disk_data[0], image ? image + 12 : disk_original[0], disk_sizes[0]);
+    disk_ever = 1;
+    return cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0) == DSK_OK;
 }
 
 static size_t cpc_session_save(void *out, size_t capacity)
@@ -130,17 +135,19 @@ static size_t cpc_session_save(void *out, size_t capacity)
     memcpy(image, CPC_SESSION_MAGIC, 8);
     for (int i = 0; i < 4; ++i) image[8 + i] = (uint8_t)(disk_sizes[0] >> (8 * i));
     memcpy(image + 12, disk_data[0], disk_sizes[0]);
-    cpc_session_hold(out, size);                 /* the host plays the match on the bytes it sends */
+    cpc_session_keep(&session_mine, &session_mine_size, out, size);   /* the host plays the match on the bytes it sends */
     return size;
 }
 
 static bool cpc_session_save_put(const void *in, size_t size)
 {
-    if (size != cpc_session_image_size() || memcmp(in, CPC_SESSION_MAGIC, 8)) return false;   /* nothing is changed */
-    cpc_session_hold(in, size);
-    copies.folder[0] = 0;                        /* a guest never writes its own disk's copy, not even after the match */
-    for (unsigned n = 0; n < copies.count; ++n) copies.disk[n].dirty = 0;
-    return cpc_session_lay((const uint8_t *)in, size);
+    if (!cpc_session_valid((const uint8_t *)in, size)) return false;   /* another game's image, or a broken one: nothing changes */
+    cpc_session_keep(&session_given, &session_given_size, in, size);
+    if (rrhk_session_guest()) {                  /* a guest never writes its own disk's copy, not even after the match */
+        copies.folder[0] = 0;
+        for (unsigned n = 0; n < copies.count; ++n) copies.disk[n].dirty = 0;
+    }
+    return cpc_session_lay(session_given);       /* session_begin, which follows, lays it again over the power-on state */
 }
 
 /* Called once after power_on when the game starts in a session: the machine at power-on, laid again by session_begin. */
@@ -156,8 +163,16 @@ static void cpc_session_keep_start(void)
 static void cpc_session_begin(uint64_t clock)
 {
     (void)clock;
-    if (session_start) cpc_snap_load(session_start, session_start_size);
-    if (session_held) cpc_session_lay(session_held, session_held_size);
+    const bool reset = session_start && cpc_snap_load(session_start, session_start_size);
+    const uint8_t *image = session_given ? session_given : rrhk_session_guest() ? NULL : session_mine;
+    if (!image && rrhk_session_guest()) {        /* the host sent none: this guest plays the embedded disk, and writes nothing */
+        copies.folder[0] = 0;
+        for (unsigned n = 0; n < copies.count; ++n) copies.disk[n].dirty = 0;
+    }
+    const bool laid = cpc_session_lay(image);
+    fprintf(stderr, "[cpc] match start: power-on state %s; drive A: %s%s\n", reset ? "back" : "not kept",
+            image == session_given && image ? "the host's disk" : image ? "this host's own disk" : "the embedded disk",
+            laid ? "" : " (not a disk: refused)");
 }
 
 /* The host, at a clean end of a match: the disk as it is now to this PC's copy, the previous copy kept as .bak. */
