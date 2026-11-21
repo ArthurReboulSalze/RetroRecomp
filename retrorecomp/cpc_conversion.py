@@ -1,9 +1,10 @@
-"""Amstrad CPC conversion (experimental, developer only): a disk game started from BASIC on the player's own firmware, the firmware
+"""Amstrad CPC conversion (experimental, developer only): a disk game started from BASIC on the CPC 6128's firmware, the firmware
 translated by the banked Z80 chain and the game's code learned from RAM, checked against the reference interpreter, built into a
 game. MIT, Retro-Recomp.
 
-The steps: read the disk (cpc_disk.py: DSK or EXTENDED DSK, its catalogue and the start command it implies) and the player's
-firmware (cpc_firmware.py: the 32 KiB system ROM and AMSDOS, by digest); write the start command the three headless programs and
+The steps: read the disk (cpc_disk.py: DSK or EXTENDED DSK, its catalogue and the start command it implies) and the firmware
+(cpc_roms.firmware_for: the player's own system ROM and AMSDOS when Options name them, checked by digest in cpc_firmware.py, else
+the pinned, hash-checked fetch); write the start command the three headless programs and
 the game type (cpc_build.write_boot_keys); translate the firmware and learn the code the game runs from RAM on the boot route
 (cpc_build.learn, the chain's learn_passes, at most `passes` passes); run the native check and the reference on the route and
 REFUSE the conversion when any compared field (cpc_build.COMPARED: the CPU, the time, the RAM, the picture, the sound, the
@@ -74,21 +75,20 @@ def hardware_devices() -> list:
              'details': {'media': 'DSK / EXTENDED DSK', 'interpreter': 'none: our own uPD765 C model', **common}}]
 
 
-def firmware_pair(options: dict) -> tuple[bytes, bytes, dict]:
-    """The player's system ROM and AMSDOS (options cpc_system, cpc_amsdos: files, checked by digest), and what the report says of
-    them. A development check may pass `firmware` (two byte strings: authored programs in their place), recorded as such."""
+def firmware_pair(options: dict, emit=print) -> tuple[bytes, bytes, dict]:
+    """The system ROM and AMSDOS a conversion runs on (cpc_roms.firmware_for: the player's own file for each option that names one,
+    checked by digest, else the pinned, hash-checked fetch), and what the report says of them. A development check may pass
+    `firmware` (two byte strings: authored programs in their place), recorded as such."""
     given = options.get('firmware')
     if given is not None:
         system, amsdos = given
-        return system, amsdos, {'system': 'authored (development check)', 'amsdos': 'authored (development check)'}
-    from .cpc_firmware import own_firmware
+        return system, amsdos, {'cpc_system': 'authored (development check)', 'cpc_amsdos': 'authored (development check)'}
+    from .cpc_roms import firmware_for
     try:
-        system = own_firmware('cpc_system', options.get('cpc_system'))
-        amsdos = own_firmware('cpc_amsdos', options.get('cpc_amsdos'))
-    except ValueError as error:
+        found = firmware_for(options, emit)
+    except (OSError, ValueError) as error:
         raise ConversionError(str(error)) from None
-    return system.data, amsdos.data, {'system': {'label': system.label, 'sha256': system.sha256},
-                                      'amsdos': {'label': amsdos.label, 'sha256': amsdos.sha256}}
+    return found.system, found.amsdos, found.record
 
 
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, boxart_dir=None, frames=FRAMES,
@@ -119,7 +119,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     title = title or disk.title
     if any(ord(c) < 32 for c in title) or len(title) > 160:
         raise ConversionError('Invalid Amstrad CPC game title.')
-    system, amsdos, firmware_record = firmware_pair(options)
+    system, amsdos, firmware_record = firmware_pair(options, emit)
     level = resolve_scan_level(scan_level)
     frames, passes = int(frames or FRAMES), int(passes or 3)
     check_run_budget(passes, frames, 'Amstrad CPC: a conversion runs 1 to 10 learning passes on a route of 1 to 10,000 frames.')

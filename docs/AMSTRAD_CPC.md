@@ -61,13 +61,20 @@ measure of one.
 
 ## 3. Firmware
 
-No free CPC firmware exists. The player gives his own: the 32 KiB system ROM (the OS and Locomotive BASIC) of a CPC 6128 (English,
-French or Spanish) or 664, and the 16 KiB AMSDOS ROM, chosen in Options or found by « Find firmware in a folder ». They are
-recognised by the SHA-1 MAME 0.289 lists for them and are never shipped. The system ROM may also be its two 16 KiB halves in
-one folder, the OS and BASIC files of Clock Signal and most CPC emulators (`os6128.rom` and `basic6128.rom`, `os664.rom` and
-`basic664.rom`, `amsdos.rom` beside them): the OS half is chosen, and is recognised when it and a 16 KiB neighbour together are
-a system ROM of that list, whatever their names. Locomotive BASIC is not covered by Amstrad's 1999
-permission for emulators, so the converter does not fetch these files.
+No free CPC firmware exists. A converted game runs on the CPC 6128's system ROM (the OS and Locomotive BASIC, 32 KiB) and the
+AMSDOS ROM (16 KiB), which come from one of two places:
+
+* **Fetched** (the default, the maintainer's choice of 21 November 2026, as for the ZX Spectrum's ROMs): on first use the
+  converter fetches `cpc6128.rom` and `amsdos.rom` from the `rom/` folder of the Caprice32 project at one pinned commit, under
+  Amstrad's 1999 permission for emulators ([amstrad-cpc-roms.md](../licenses/amstrad-cpc-roms.md); Locomotive BASIC is not named
+  in it). Each file is checked by its size, its Git blob SHA-1 at that commit, the SHA-1 MAME 0.289 lists for it and its pinned
+  SHA-256 (`retrorecomp/cpc_roms.py`); a file that fails any check is refused with a sentence. Nothing of them is in this
+  repository or the installer; every converted game holds them with their notice.
+* **The player's own**, chosen in Options or found by « Find firmware in a folder »: a CPC 6128 (English, French or Spanish) or
+  664 system ROM and the AMSDOS ROM, recognised by the SHA-1 MAME 0.289 lists for them. The system ROM may also be its two 16 KiB
+  halves in one folder, the OS and BASIC files of Clock Signal and most CPC emulators (`os6128.rom` and `basic6128.rom`,
+  `os664.rom` and `basic664.rom`, `amsdos.rom` beside them): the OS half is chosen, and is recognised when it and a 16 KiB
+  neighbour together are a system ROM of that list, whatever their names. Each option the player fills replaces the fetched file.
 
 ## 4. The five measures
 

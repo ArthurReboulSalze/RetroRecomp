@@ -288,7 +288,8 @@ the peripherals and boards listed in [SG1000.md](SG1000.md#1-what-is-converted-a
 
 The **Amstrad CPC** profile (`cpc`) is in development (experimental, not offered yet; [status](AMSTRAD_CPC.md)): it recognises CPC 6128
 disk images (`.dsk`, standard or extended, or a ZIP holding one) and refuses them with that reason; nothing is converted yet. Its games
-will need your own system ROM and AMSDOS ROM.
+will run on the CPC 6128's system ROM and AMSDOS, fetched from a pinned, hash-checked source under Amstrad's permission for emulators, or
+your own if you choose them in Options.
 
 ## Local game regression set
 

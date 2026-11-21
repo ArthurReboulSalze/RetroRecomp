@@ -65,7 +65,8 @@ class AmstradCpcProfile(SystemProfile):
     z80_machine = CPC_MACHINE
     # The components its games are to compile: the banked Z80 chain's generator and core, and the reference interpreter of
     # the counted fallback (the MSX's three).
-    notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')
+    notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md',
+                    'licenses/amstrad-cpc-roms.md')
     # The chain's generated files (retrorecomp/simulation_identity.py); the machine's own loop file joins with it.
     simulation_sources = (SimulationSource('generated/game_banked_index.c'),
                           SimulationSource('generated/game_banked_ops_*.c'),

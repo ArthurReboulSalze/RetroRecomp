@@ -1,5 +1,6 @@
-"""The Amstrad CPC firmware the player gives (docs/AMSTRAD_CPC.md): the system ROM (the OS and Locomotive BASIC, 32 KiB) and the
-AMSDOS ROM (16 KiB). No free replacement exists and none is shipped: the converter accepts the images whose SHA-1 is in the
+"""The Amstrad CPC firmware the player may give (docs/AMSTRAD_CPC.md): the system ROM (the OS and Locomotive BASIC, 32 KiB) and the
+AMSDOS ROM (16 KiB). No free replacement exists and none is shipped; when the player gives none, the converter fetches the pinned
+files (retrorecomp/cpc_roms.py), which must have a SHA-1 of this table too. The converter accepts the images whose SHA-1 is in the
 public table below, and the « Find firmware in a folder » search (retrorecomp/firmware_search.py) asks the same table.
 
 Source of the digests: MAME 0.289, `mame -listxml cpc664 cpc6128 cpc6128f cpc6128s cpc6128sp` (the maincpu region's system

@@ -51,10 +51,13 @@ class ConversionRefusalTests(unittest.TestCase):
             cpc_conversion.convert(path, output=self.root / 'out')
         self.assertFalse((self.root / 'out').exists())
 
-    def test_the_players_own_firmware_is_required(self):
+    def test_the_firmware_is_fetched_when_the_player_gives_none_and_refused_when_wrong(self):
+        from retrorecomp import cpc_roms
         path = self.disk((('DISC', 'BAS', 0, False),))
-        with self.assertRaisesRegex(ConversionError, 'your own system ROM'):
-            cpc_conversion.convert(path, output=self.root / 'out')
+        with mock.patch.object(cpc_roms, 'fetch', side_effect=ValueError('The Amstrad CPC firmware could not be fetched')) as fetch:
+            with self.assertRaisesRegex(ConversionError, 'could not be fetched'):
+                cpc_conversion.convert(path, output=self.root / 'out')
+        fetch.assert_called_once()
         wrong = self.root / 'wrong.rom'
         wrong.write_bytes(bytes(0x8000))
         with self.assertRaisesRegex(ConversionError, 'is not a CPC 6128 or 664 system ROM'):
