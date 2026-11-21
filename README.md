@@ -2,7 +2,7 @@
   <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=6c27780690cc" alt="RetroRecomp: the RR cartridge" width="240"><br>
   RetroRecomp
 </h1>
-<p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
+<p align="center"><strong>Static recompiler for 20 retro consoles and computers. Native Windows &amp; Linux games, a gamepad front-end, and rollback multiplayer for up to 4 players.</strong></p>
 <p align="center">Atari ST · Capcom CPS-1 · Capcom CPS-2 · Commodore Amiga · Commodore Amiga 1200 · Game Boy · Game Boy Advance · Game Gear · Master System · Mega Drive · MSX · MSX2 · MSX2+ · Neo Geo · NES · Nintendo 64 · PC Engine / TurboGrafx-16 · Sharp X68000 · Sony PlayStation · Super Nintendo · and Adventure (ScummVM)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
