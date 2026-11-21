@@ -82,6 +82,9 @@ void zxs_advance(ZxsMachine *m, uint64_t cycles);
 uint64_t zxs_next_event(const ZxsMachine *m);
 /* The level of /INT now (the pulse at the start of each frame). */
 int zxs_irq(const ZxsMachine *m);
+/* The /INT level at `cycle`, a time within the line the machine has reached (the native step loop catches the machine up only
+ * at line boundaries, so between two of them the machine runs behind the CPU; the pulse is shorter than a line). */
+int zxs_irq_at(const ZxsMachine *m, uint64_t cycle);
 /* Which RAM bank shows at C000h, and which ROM at 0000h (0 on the 48K). */
 int zxs_bank_c000(const ZxsMachine *m);
 int zxs_rom_bank(const ZxsMachine *m);

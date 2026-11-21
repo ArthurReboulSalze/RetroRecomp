@@ -163,7 +163,8 @@ void zxs_out(ZxsMachine *m, uint16_t port, uint8_t value)
 }
 
 /* ---- the frame and the picture ---- */
-int zxs_irq(const ZxsMachine *m) { return m->cycles - m->frame_start < m->int_len; }
+int zxs_irq_at(const ZxsMachine *m, uint64_t cycle) { return cycle >= m->frame_start && cycle - m->frame_start < m->int_len; }
+int zxs_irq(const ZxsMachine *m) { return zxs_irq_at(m, m->cycles); }
 
 uint64_t zxs_next_event(const ZxsMachine *m) { return m->frame_start + (uint64_t)(m->line + 1) * m->t_line; }
 

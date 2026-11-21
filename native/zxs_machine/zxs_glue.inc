@@ -8,8 +8,10 @@
  * zxs_main_service().
  *
  * Timing contract, the same as zxs_reference_main.c so the runs can be compared state for state: an instruction's I/O happens at
- * its start time (the machine caught up to it first); the machine's lines run at instruction boundaries; /INT is read once the
- * machine has caught up with the instruction. Memory is plain RAM and ROM (the 128K pages through a port), so a write needs no
+ * its start time (the machine caught up to it first); the machine's lines run at instruction boundaries; /INT is read at the
+ * instruction's end time. The step loop catches the machine up only when an instruction crosses a line, so the level is computed
+ * at the CPU's time, not at the machine's (zxs_irq_at): read at the machine's, a pulse of 32 T lasted the whole first line, and
+ * an EI late in that line took an interrupt the machine never gave (Match Day II, 21 November 2026). Memory is plain RAM and ROM (the 128K pages through a port), so a write needs no
  * catching up. The ULA's contention is not modelled. */
 #include "zxs_machine.h"
 #include "game_banked.h"
@@ -37,7 +39,7 @@ static void machine_to(uint64_t cycle)
     g_next_line_cyc = zxs_next_event(&machine);
 }
 
-static int vdp_irq_asserted(void) { return zxs_irq(&machine); }
+static int vdp_irq_asserted(void) { return zxs_irq_at(&machine, g_z80.cyc); }
 
 uint8_t sms_read8(uint16_t address) { return zxs_read(&machine, address); }
 void sms_write8(uint16_t address, uint8_t value) { zxs_write(&machine, address, value); }

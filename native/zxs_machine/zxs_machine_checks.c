@@ -50,6 +50,15 @@ static void frames_and_irq(int model, uint32_t frame, unsigned pulse)
     zxs_advance(&m, 1);
     snprintf(what, sizeof what, "%s: /INT low at T %u", name, pulse);
     check(what, zxs_irq(&m), 0);
+    /* The level at a later time of the same line, the machine left behind (the native loop's case). */
+    uint64_t next = m.frame_start + m.t_frame;
+    zxs_advance(&m, next - m.cycles);
+    snprintf(what, sizeof what, "%s: /INT at the CPU's time is low at T %u, the machine still at T 0", name, pulse);
+    check(what, zxs_irq_at(&m, next + pulse), 0);
+    snprintf(what, sizeof what, "%s: /INT at the CPU's time is high at T %u, the machine still at T 0", name, pulse - 1);
+    check(what, zxs_irq_at(&m, next + pulse - 1), 1);
+    snprintf(what, sizeof what, "%s: /INT at the CPU's time is low late in the first line, the machine still at T 0", name);
+    check(what, zxs_irq_at(&m, next + m.t_line - 1), 0);
 }
 
 int main(int argc, char **argv)
