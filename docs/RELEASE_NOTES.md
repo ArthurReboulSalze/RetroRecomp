@@ -60,14 +60,26 @@
 - **Windows: games packed with UPX NRV again**, as on Linux: they start sooner and are 4 to 23 % larger.
 - **PC Engine: the second pad works in a local two-player game** (the multitap is plugged for every game built for two players or
   more).
-- **Speed.** An optimisation pass cut the CPU time per frame on the player's path, change by change, each one measured on a quiet PC
-  against the build just before it, with identical output: the shared sound converter (Master System Sonic −30 %, MSX2 Space
-  Manbow −23 %), the PC Engine's frame (Blazing Lazers −30 %), the MSX picture (Space Manbow −23 %, Manbow 2 −20 %) and a silent
-  MSX-MUSIC chip (Manbow 2 −10 %), the NES's sound and picture (Metroid −13 %, then −8 %, then −3 %), the PlayStation's native runs
-  (Ape Escape −10 %), the Game Boy's sprites (Super Mario Land −7 %), the Neo Geo's sprite scan
-  (Puzzle De Pon! −6 %), the Mega Drive's planes (Sonic 2 −3 %) and the CPS-1's guarded step (Final Fight −3 %). These are host CPU
-  costs on one PC, not latency, and the steps do not add up to one figure. The figures of every machine, against 1.8.0, are in
-  [PERFORMANCE.md](PERFORMANCE.md).
+- **Speed.** An optimisation pass cut the CPU time per frame on the player's path. Each figure below is one change measured against
+  its own base (the main of the moment, the same game), on a quiet PC, with identical output; the figures do not add up to one
+  1.8.0 → 1.9.0 figure, which was not measured after these changes.
+  - The shared sound converter, now computed side by side (SSE2 or AVX2): Master System Sonic −30 %, MSX2 Space Manbow −23 %.
+  - PC Engine, a cheaper frame: Blazing Lazers −30 %.
+  - MSX, the picture through a colour table: Space Manbow −23 %, Manbow 2 −20 %; a silent MSX-MUSIC chip: Manbow 2 −10 %.
+  - Nintendo 64, the FPU rounding mode set only when it changes: Super Mario 64 −19 % (the runs spread by 16 to 20 %).
+  - NES, four changes to its sound and picture: Metroid −13 %, then −8 %, −3 % and −3 %.
+  - PlayStation, native runs no longer cut at entered addresses: Ape Escape −10 %.
+  - Game Boy, sprite lines in runs: Super Mario Land −7 %; Neo Geo, the sprite scan: Puzzle De Pon! −6 %; Mega Drive, the planes:
+    Sonic 2 −3 %; CPS-1, the guarded step: Final Fight −3 %.
+  - In a Game Boy Advance link match, each PC drawing only its own console: Mario Kart: Super Circuit −13.5 %.
+  - **What 1.9.0 adds:** the Gear-to-Gear cable costs a solo Game Gear 7 % more engine time per frame than in 1.8.0 (on the
+    player's path +1.4 %, inside the runs' spread); a linked Game Boy match costs each seat about 50 % more than one console,
+    since every PC runs both.
+  - Windows games start sooner with UPX NRV (a second start of a Master System game: 119 ms to 59 ms); that is start-up, not frame
+    cost.
+
+  These are host CPU costs on one PC, not latency. The rows of [PERFORMANCE.md](PERFORMANCE.md) and the README's « CPU per frame »
+  column were timed before these changes, so their changes against 1.8.0 do not include them.
 
 **Your exports and quick states.** 1.9.0 moves the game, host and build stamps of every machine (measured between `v1.8.0` and main
 `9ca18056`), so **every export of 1.8.0 is converted again once** on the first batch after you update, from the paths it already
