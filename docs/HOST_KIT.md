@@ -271,6 +271,20 @@ The kit refuses a session for a game that reads a pointer or a light gun (not ca
 feed the pad words like a pad's; the computer adapter gives its guest no key of this PC in a session. The public page is
 [MULTIPLAYER.md](MULTIPLAYER.md).
 
+### 2.6 The on-screen keypad (adapter side)
+
+A controller with a keypad (the ColecoVision's twelve keys; later the Atari 5200's, the Intellivision's) gives a gamepad
+player a small grid over the picture: the open row (gamepad Y by default, never Back, which is in Restart and the chat's
+chord) opens it, the D-pad moves, A holds the selected key, B closes it, and the game keeps running. It is
+`native/hostkit/adapters/rrhk_keypad.inc`, which an adapter includes and calls from hooks the shell already calls
+(`event`, `action_held`, `before_present`, and its own `reset` and quick-state load), so a machine that uses it moves no
+other machine's host stamp. What reaches the game is the pad word only: each key is an ordinary action row whose `bit` is the
+key's code, and the open row's bit is a flag the keypad holds while open and, after closing, until every button of that pad
+is released; the machine's input mapping takes the flag as « this pad's stick and fire buttons are not the game's ». So
+rollback, the digest and a session need nothing more. A menu, the Pause, another seat's pause, the chat, a restart or a
+quick-state load closes it; in turns, a seat without the controls cannot open it. Its title and hint are in the five game
+languages in the file itself until the catalogue next moves. `tools/hostkit_keypad_selftest.py` checks it ROM-free.
+
 ## 3. Behaviour: one rule per divergence
 
 Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour. A
@@ -1421,6 +1435,12 @@ CPS-1 and X68000 queue output and the NES ring (they call the same stage; the NE
 10. ~~**Fast-forward and mute on every console**~~ **Settled on 29 October 2026 (maintainer, D12)**: the Game Boy's fast-forward (Tab held,
     right trigger), maximum-speed toggle (backquote, left trigger), mute (M), volume and output-device choice are kit features of every
     console, with the Game Boy's former keys and behaviour. The second binding of each action stays retired (it is a contract change).
+11. **Waiting for the next move of the catalogue or the shell** (the lead's list, 21 Nov 2026): work held so that no host stamp
+    moves, to be done in a change that moves every host stamp anyway.
+    - When `native/runtime_catalog.inc` next moves: the on-screen keypad's title and hint (`rrhk_keypad_texts` in
+      `native/hostkit/adapters/rrhk_keypad.inc`, five languages) join `assets/locales` and the keypad reads them with `rr_tr`.
+    - When the shell next moves: the keypad's per-player release rule (`rrhk_keypad_pad_released`) and the chat's
+      (`chat_anything_held`, `rrhk_chat.inc`) become one shell function taking a player.
 
 The kit's own effort estimates stay in the local plan (`hosts.md:513-531`);
 they are not part of this public contract.

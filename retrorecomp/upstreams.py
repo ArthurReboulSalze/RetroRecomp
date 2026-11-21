@@ -270,7 +270,7 @@ UPX = Upstream(
 SST_Z80 = Upstream(
     'SingleStepTests/z80', 'SingleStepTests/z80', 'main', 'independent Z80 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_z80_vectors.py into .deps; not shipped',
-    _py('tools/fetch_z80_vectors.py', 'REVISION'), shared_by=('sms', 'gg', 'md', 'msx', 'msx2', 'msx2plus'))
+    _py('tools/fetch_z80_vectors.py', 'REVISION'), shared_by=('sms', 'gg', 'md', 'msx', 'msx2', 'msx2plus', 'sg1000'))
 SST_SM83 = Upstream(
     'SingleStepTests/sm83', 'SingleStepTests/sm83', 'main', 'independent SM83 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_sm83_vectors.py into .deps, checked against a pinned digest; not shipped',
@@ -343,6 +343,8 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'msx2plus': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS, EMU2413),
     # The ZX Spectrum (in development) on the same chain, on its own machine description, with the Amstrad ROMs.
     'zxs': (SMSGGRECOMP, Z80_RECOMP_CORE, ZX_SPECTRUM_ROMS),
+    # The SG-1000 runs on the same banked Z80 chain on its own region map; it boots by itself (no BIOS, so no C-BIOS).
+    'sg1000': (SMSGGRECOMP, Z80_RECOMP_CORE),
     # The Amstrad CPC (in development): the same banked Z80 chain, the route of its games; its chips are our own C, written from
     # floooh/chips (zlib) and Clock Signal (MIT) read as documentation, nothing of them compiled.
     'cpc': (SMSGGRECOMP, Z80_RECOMP_CORE),

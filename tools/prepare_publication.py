@@ -109,6 +109,9 @@ native/tms9918/tms9918.c native/tms9918/tms9918.h native/ay38910/ay38910.c nativ
 native/msx_machine/msx_native_main.c tools/msx_native.py tools/msx_route_captures.py tools/msx_panel.py tools/msx_write_disk.py tools/msx_fm_cart.py tools/msx_kanji_cart.py native/media_request.h tools/msx_fdc_selftest.py native/msx_machine/msx_fdc_checks.c tests/test_msx_fdc.py tests/test_msx_native.py
 retrorecomp/systems/zx_spectrum.py retrorecomp/zxs_snapshot.py retrorecomp/zxs_roms.py retrorecomp/zxs_conversion.py
 licenses/zx-spectrum-roms.md docs/ZX_SPECTRUM.md tests/test_zx_spectrum.py
+retrorecomp/zxs_build.py native/zxs_machine/zxs_machine.c native/zxs_machine/zxs_machine.h native/zxs_machine/zxs_machine_checks.c tools/zxs_machine_selftest.py
+native/zxs_machine/zxs_player.c native/hostkit/adapters/rrhk_zxs.inc native/zxs_machine/zxs_glue.inc native/zxs_machine/zxs_headless.inc
+native/zxs_machine/zxs_cpu_start.inc native/zxs_machine/zxs_native_main.c native/zxs_machine/zxs_reference_main.c retrorecomp/zxs_routes.py tools/zxs_native.py
 retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py retrorecomp/msx_conversion.py retrorecomp/msx_routes.py licenses/cbios.md docs/MSX.md
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/tms9918/tms_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c
@@ -417,6 +420,7 @@ native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hos
 native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_computer.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py tools/sega_states_selftest.py tests/test_sega_evidence.py tools/sega_bank_dispatch_check.py tools/sega_campaign.py tools/sega_cross_os.py tests/test_sega_cross_os.py
 tools/hostkit_players_selftest.py tools/hostkit_players/checks.c tests/test_hostkit_players.py
 tools/hostkit_capabilities_selftest.py tools/hostkit_capabilities/checks.c tests/test_hostkit_capabilities.py
+native/hostkit/adapters/rrhk_keypad.inc tools/hostkit_keypad_selftest.py tools/hostkit_keypad/checks.c tests/test_hostkit_keypad.py
 tools/hostkit_session_selftest.py tools/hostkit_session/fake.c tests/test_hostkit_session.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
@@ -515,7 +519,7 @@ native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
 native/frame_stop_checks.c
 native/gamestate.h native/gamestate.inc native/state_envelope.h native/state_io.h native/psg_state.inc native/psg_runs.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
-native/gg_ext.h native/gg_ext_checks.c native/gg_link.inc tools/gg_ext_selftest.py tools/gg_link_selftest.py native/z80_nmi_checks.c tools/z80_nmi_selftest.py native/z80_chain_glue.inc retrorecomp/z80_chain_build.py tests/test_z80_chain_build.py tests/test_z80_chain_glue.py
+native/gg_ext.h native/gg_ext_checks.c native/gg_link.inc tools/gg_ext_selftest.py tools/gg_link_selftest.py native/z80_nmi_checks.c tools/z80_nmi_selftest.py native/z80_chain_glue.inc retrorecomp/z80_chain_build.py native/sn76489/sn76489.c native/sn76489/sn76489.h native/sg1000_machine/sg1000_machine.c native/sg1000_machine/sg1000_machine.h native/sg1000_machine/sg1000_glue.inc native/sg1000_machine/sg1000_headless.inc native/sg1000_machine/sg1000_native_main.c native/sg1000_machine/sg1000_reference_main.c tests/test_z80_chain_glue.py native/sg1000_machine/sg1000_player.c native/sg1000_machine/sg1000_state_file.inc tools/sg1000_player_selftest.py tests/test_z80_chain_build.py
 native/z80_costs_emit.c native/z80_costs_checks.c tools/z80_costs_selftest.py native/z80_ports_emit.c native/z80_ports_checks.c tools/z80_ports_selftest.py
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py
@@ -541,6 +545,7 @@ tools/frame_stop_selftest.py
 tests/test_game_gear.py tests/test_game_boy.py
 retrorecomp/cover_keyring.py tests/test_cover_keyring.py
 tools/package_linux.py docs/LINUX.md licenses/Linux-desktop.md
+retrorecomp/systems/sg1000.py retrorecomp/sg1000_rom.py retrorecomp/sg1000_conversion.py native/hostkit/adapters/rrhk_sg1000.inc docs/SG1000.md tests/test_sg1000_profile.py retrorecomp/sg1000_build.py retrorecomp/sg1000_routes.py tests/test_sg1000_build.py tests/test_sg1000_routes.py tests/test_sg1000_conversion.py
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 # Every public converter module is frozen into the executable, including ones

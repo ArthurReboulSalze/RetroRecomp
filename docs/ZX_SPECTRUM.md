@@ -1,9 +1,9 @@
 # ZX Spectrum
 
-Status: **experimental, in development** (step 1 of [NEW_MACHINE.md](NEW_MACHINE.md), from 21 November 2026). The profile
-identifies snapshots and writes reports; **nothing is converted yet**, and no installation lists the machine (it is a
-developer-only profile, as the Game Boy Advance was before its first conversion). This page says what the machine will
-convert, what it leaves out, and how the five measures stay apart.
+Status: **experimental, in development** (step 1 of [NEW_MACHINE.md](NEW_MACHINE.md), from 21 November 2026). The
+conversion runs from a snapshot to a game in a development tree (section 4); no installation lists the machine yet (it is a
+developer-only profile, as the Game Boy Advance was before its first panel). This page says what the machine converts, what
+it leaves out, and how the five measures stay apart.
 
 ## 1. Scope
 
@@ -40,20 +40,46 @@ Amstrad's permission for emulators of 31 August 1999 (no charge for the ROM code
   its editor ROM with the BASIC ROM beside it). It is accepted when its SHA-256 is the one of the same images, so the game
   is the same either way; Options' « Find firmware in a folder… » looks for these files too.
 
-## 4. The five measures
+## 4. A conversion
+
+`retrorecomp/zxs_conversion.py`, on the MSX's pattern:
+
+1. The snapshot is read and turned into the machine image (`retrorecomp/zxs_build.py`: the model, the ports, the registers, the
+   T-state, the RAM banks); the ROM of its model comes from `zxs_roms`.
+2. How the play route starts is chosen on the reference (`route_start`, `retrorecomp/zxs_routes.py`): ENTER, SPACE, 0, 1, 5 or
+   pad 1's fire pressed one to four times (each press held half a second: some titles read their key only between two notes of a tune),
+   judged against the route without input. Then a deterministic walk on the controls the snapshot
+   was saved for (cursor keys, Kempston or Sinclair Interface 2).
+3. The ROM is translated ahead of time on the shared chain; the code the snapshot runs from RAM is learned over the routes
+   and translated with byte guards (`zxs_build.learn`, up to three passes).
+4. Every route is run natively and on the reference interpreter (the same machine, every instruction interpreted): the
+   report fields (CPU, RAM, picture, sound, interrupts) and every frame's row must be equal, or nothing is built.
+5. The game is built (`native/zxs_machine/zxs_player.c` and the host kit's computer adapter `rrhk_zxs.inc`), its compressed
+   copy replayed headless on every route against the reference, and its quick states (F8, F9) checked in fresh processes,
+   damaged copies refused.
+
+The first game, Manic Miner (48K), on 21 November 2026: the play route starts with ENTER pressed twice and reaches Central
+Cavern; on the attract and play routes (1,800 frames each) 6,919,640 Z80 instructions ran natively and **none on the
+interpreter fallback**; the native runs, the build and its compressed copy
+equal the reference on every compared field and frame row; a quick state saved at frame 1,140 continues the route for 600
+frames in a fresh process. That is agreement between our native code and our reference interpreter on these routes, not a
+proof of CPU fidelity against an independent Z80 or of hardware fidelity (below).
+
+## 5. The five measures
 
 Native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are kept apart in the report, the
-interface and this page. Nothing is measured yet: the report skeleton (`retrorecomp/zxs_conversion.py`) carries every measure
-as not measured or not validated, and the interpreter fallback will be counted in Z80 cycles, as on the MSX.
+interface and this page. The report counts the interpreter fallback per route in Z80 instructions and cycles (as on the
+MSX), says that the native code agrees with the reference interpreter, and leaves CPU fidelity, hardware fidelity, gameplay
+validation and physical latency as not validated or not measured.
 
 **A hardware-fidelity limit, stated plainly: the ULA's memory contention is not modelled.** On a real Spectrum the CPU is slowed when it
 touches 4000h-7FFFh (and some ports) while the ULA draws the screen; here every instruction takes its plain Z80 time. Games run
 slightly faster than on the machine, and effects timed to the T-state (multicolour engines, some border effects and beeper tunes)
-can differ. Nothing claims exact timing. Contention comes in a later stage of step 1, written as a design for the shared Z80 chain
-first, and it is required before the panel is judged for leaving the experimental status (Arkanoid and the multicolour games
+can differ. Nothing claims exact timing. Contention comes in a later stage of step 1 (a table of each instruction's memory accesses
+on the shared Z80 chain, checked against an independent test suite), and it is required before the panel is judged for leaving the experimental status (Arkanoid and the multicolour games
 depend on it).
 
-## 5. Qualification
+## 6. Qualification
 
 The machine's column of [QUALIFICATION.md](QUALIFICATION.md) is `?` except G1 (`P`: the status is declared and linted). The
 panel of the study, used for the gates once conversions run: Manic Miner (the first game: 48K, the beeper, the ROM's
@@ -61,7 +87,18 @@ interrupt handler), Jetpac (16K), Arkanoid (the floating bus question), Match Da
 paging and the AY), Robocop (the whole game in the 128K banks, sampled speech), Elite (heavy maths, the keyboard as the
 controller), The Hobbit (typing and printing through the ROM); in reserve Uridium and Rainbow Islands.
 
-## 6. Multiplayer (later)
+The first panel run (21 November 2026, standard level, routes of 1,800 frames): the eight games equal the reference on every
+route with no instruction on the interpreter fallback. Manic Miner, Jetpac, Head over Heels and The Hobbit reach play; Arkanoid,
+Match Day II, Robocop and Elite stay on a menu their start needs keys of its own for (a control choice, then fire; a Y/N
+question): a candidate for start data keyed by the snapshot's SHA-256, not yet written. This is agreement with our reference,
+on routes that reach part of each game: no gameplay validation.
+
+The first Linux witness, the same day, in WSL (Debian 13) on the build PC: Manic Miner and Head over Heels converted from the
+same tree give the same start, the same learning counts and, on both routes, the same frame trace, RAM, picture and sound
+hashes and step counts as on Windows; the compressed copy and the quick states pass there too. A witness in WSL is not a proof
+of a Linux graphics driver.
+
+## 7. Multiplayer (later)
 
 Two seats: the Sinclair Interface 2 has two joysticks on the keyboard matrix, and the Kempston beside it is the common pair.
 The whole state (48 or 128 KiB of RAM, the ULA and AY registers, the CPU) is small, so the rollback tier is expected.

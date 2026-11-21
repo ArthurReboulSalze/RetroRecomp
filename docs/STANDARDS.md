@@ -16,6 +16,10 @@ today is described in [ARCHITECTURE.md](ARCHITECTURE.md).
    shared module instead of being copied a third time. A deliberate per-machine
    difference is a named capability of that machine, documented, not a silent
    divergence between two copies.
+   Documented differences: the SN76489. The Master System, the Game Gear and the Mega Drive use the Sega variant (16-bit noise register, taps on
+   bits 0 and 3) of the pinned engine's runner, which is stereo and low-passed for the Game Gear; the SG-1000 and the ColecoVision use the Texas
+   Instruments SN76489A (15-bit register, taps on bits 0 and 1) as our own MIT module `native/sn76489`. Two chips, two routes, one module for the
+   second; the SG-1000 and the ColecoVision share it (header of `native/sn76489/sn76489.h`).
 2. **Shared pieces first.** A new machine plugs into the profile, the host kit,
    the CPU-keyed path schema and the report schema. Anything it cannot use is
    written down in its own document with the reason.

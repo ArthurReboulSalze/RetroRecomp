@@ -273,12 +273,15 @@ NOT_INPUTS = (
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/pcecd_disc_checks.cpp',                 # tools/pcecd_disc_selftest.py: the disc provider against two readers, never in a game
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
-    # tools/audio_box_selftest.py: the box filter's checks (native/audio_box.h, group shares:audio_box), never in a game.
+    # The box filter of the sound chips (levels over guest cycles to samples): its header is the group `shares:audio_box` (the SG-1000 is the
+    # first machine to build with it). tools/audio_box_selftest.py builds its checks, never in a game.
     'native/audio_box_checks.c',
-    # tools/z80_chain_state_selftest.py: the checks of the Z80 chain's CPU state and of the state file, never in a game.
+    # The Z80 chain's CPU state and the quick-state file around the shared envelope: their headers are the groups `shares:z80_chain_state` and
+    # `shares:state_file` (the SG-1000 is the first machine to build with them). tools/z80_chain_state_selftest.py builds their checks, never in a game.
     'native/state_file_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
+    'native/zxs_machine/zxs_machine_checks.c',      # tools/zxs_machine_selftest.py: the ZX Spectrum core on authored images, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
     'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
@@ -286,6 +289,11 @@ NOT_INPUTS = (
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
     'native/banked_reference_state.inc',
+    # The on-screen keypad of a gamepad player (docs/HOST_KIT.md 2.6): an adapter includes it and calls it from hooks the shell
+    # already calls. No machine builds with it yet: with its first (the ColecoVision) it leaves this list for a group
+    # `shares:hostkit_keypad`, host role, hashed by the machines whose adapter includes it only. tools/hostkit_keypad_selftest.py
+    # builds it around a fake machine, never into a game.
+    'native/hostkit/adapters/rrhk_keypad.inc',
     # tools/cart_save_selftest.py (the cartridge save file of the Mega Drive, the Super Nintendo and the PC Engine, on each machine's own
     # entry points with a stand-in memory): built for a check, never into a game.
     'native/cart_save_checks.c',
@@ -835,13 +843,44 @@ INPUTS = _resolve({
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
     ),
-    # The ZX Spectrum (in development, step 1): its converter modules (the snapshot reader, the ROM pin, the conversion). The
-    # profile module comes from the profile, the ROMs' notice from its notice_files; the machine's C and the shared chain come with
-    # its conversion.
+    # The ZX Spectrum (in development, stage 2): its converter modules (the snapshot reader, the ROM pin, the build, the routes, the
+    # conversion), the machine (ULA, beeper, paging: our own C), the glue of the banked Z80 chain, the headless route, the player,
+    # the native and reference runners the conversion builds to learn and compare, and the host-kit adapter (host role: in
+    # HOST_NATIVE above, from the profile's host_adapter). The profile module comes from the profile, the ROMs' notice from its
+    # notice_files; the Z80 chain, the AY-3-8910 and the computer adapter come from stamp_groups.
     ('zxs',): (
+        'native/hostkit/adapters/rrhk_zxs.inc',
+        'native/zxs_machine/zxs_cpu_start.inc',
+        'native/zxs_machine/zxs_glue.inc',
+        'native/zxs_machine/zxs_headless.inc',
+        'native/zxs_machine/zxs_machine.c',
+        'native/zxs_machine/zxs_machine.h',
+        'native/zxs_machine/zxs_native_main.c',
+        'native/zxs_machine/zxs_player.c',
+        'native/zxs_machine/zxs_reference_main.c',
+        'retrorecomp.zxs_build',
         'retrorecomp.zxs_conversion',
         'retrorecomp.zxs_roms',
+        'retrorecomp.zxs_routes',
         'retrorecomp.zxs_snapshot',
+    ),
+    # The SG-1000 (experimental, developer only): its converter modules, the cartridge reader and the conversion, the machine (our own
+    # C), the glue of the banked Z80 chain, the player (stage 3: the game's main and its quick states) and the native and reference
+    # runners the conversion builds to compare. Its profile module and its host-kit adapter (host role: in HOST_NATIVE above) come
+    # from the profile; the Z80 chain, the TMS9918A, the SN76489A and the gates come from stamp_groups.
+    ('sg1000',): (
+        'native/sg1000_machine/sg1000_glue.inc',
+        'native/sg1000_machine/sg1000_headless.inc',
+        'native/sg1000_machine/sg1000_machine.c',
+        'native/sg1000_machine/sg1000_machine.h',
+        'native/sg1000_machine/sg1000_native_main.c',
+        'native/sg1000_machine/sg1000_player.c',
+        'native/sg1000_machine/sg1000_reference_main.c',
+        'retrorecomp.sg1000_build',
+        'native/sg1000_machine/sg1000_state_file.inc',
+        'retrorecomp.sg1000_conversion',
+        'retrorecomp.sg1000_rom',
+        'retrorecomp.sg1000_routes',
     ),
     # The Amstrad CPC (in development, developer only): its disk reader and firmware table, its chips (CRTC, Gate Array, PPI and
     # keyboard) and the uPD765 with the DSK / EXTENDED DSK reader (machine-neutral, the CPC its first user; the ZX Spectrum +3
@@ -878,6 +917,7 @@ INPUTS = _resolve({
         'retrorecomp.cpc_firmware',
         'retrorecomp.cpc_keys',
         'retrorecomp.cpc_timing',
+        'retrorecomp.state_envelope',     # the envelope's damaged states: the CPC its first user, the others move onto it later
     ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
@@ -1241,6 +1281,22 @@ INPUTS = _resolve({
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).
     # The TMS9918A video chip (native/tms9918): the state, the CPU's ports, the picture and the line the frame flag rises on, shared by
     # the machines that have it (the MSX family now, the SG-1000 and the ColecoVision next). Game role.
+    # The SN76489A (native/sn76489): the TI sound chip of the SG-1000 and the ColecoVision, our own MIT module. Game role.
+    # The box filter of the sound chips (native/audio_box.h): header only, machine-neutral. Game role.
+    # The Z80 chain's CPU state record (native/z80_chain_state.inc) and the quick-state file helper (native/state_file.h). Game role.
+    'shares:z80_chain_state': (
+        'native/z80_chain_state.inc',
+    ),
+    'shares:state_file': (
+        'native/state_file.h',
+    ),
+    'shares:audio_box': (
+        'native/audio_box.h',
+    ),
+    'shares:sn76489': (
+        'native/sn76489/sn76489.c',
+        'native/sn76489/sn76489.h',
+    ),
     'shares:tms9918': (
         'native/tms9918/tms9918.c',
         'native/tms9918/tms9918.h',
@@ -1249,19 +1305,6 @@ INPUTS = _resolve({
     # The AY-3-8910 sound chip (native/ay38910): its counters, noise register and envelope and the three channel levels, shared by the
     # machines that have it (the MSX family now, the ZX Spectrum 128K and the Amstrad CPC next); each machine mixes and resamples it.
     # Game role.
-    # The box filter from a sound chip's levels over guest cycles to samples (native/audio_box.h): the Amstrad CPC's AY first;
-    # the ZX Spectrum, the SG-1000 and the ColecoVision next, the MSX later with its identity proof.
-    'shares:audio_box': (
-        'native/audio_box.h',
-    ),
-    # The Z80 chain's CPU state in a quick state or a snapshot (native/z80_chain_state.inc) and the quick-state file around the
-    # shared envelope (native/state_file.h): the Amstrad CPC first; the SG-1000 and the ZX Spectrum next, the MSX and the Master
-    # System later with a proof that their state bytes stay equal. Game role.
-    'shares:z80_chain_state': (
-        'native/state_file.h',
-        'native/z80_chain_state.inc',
-        'retrorecomp.state_envelope',
-    ),
     'shares:ay38910': (
         'native/ay38910/ay38910.c',
         'native/ay38910/ay38910.h',

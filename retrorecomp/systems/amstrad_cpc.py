@@ -72,13 +72,14 @@ class AmstradCpcProfile(SystemProfile):
                           SimulationSource('generated/game_banked.h'))
     # What its game is built from beside its own files: the banked Z80 chain and its shared glue, the shared AY-3-8910 and the
     # box filter, the computer side of the host kit; the gates join with the conversion loop.
-    stamp_groups = ('z80_main', 'z80_chain_glue', 'z80_chain_state', 'ay38910', 'audio_box', 'hostkit_computer')
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'z80_chain_state', 'state_file', 'ay38910', 'audio_box', 'conversion_gates',
+                    'hostkit_computer')
     # The player shell is the host kit through the CPC's adapter (on rrhk_computer.inc, as the MSX's).
     host_adapter = 'adapters/rrhk_cpc.inc'
     # The RAM windows a conversion will learn, kept as offsets in the disk (the MSX2+ disks' mechanism); the firmware as the
     # second source.
     # order: the next free place in the schema's dense list (the ZX Spectrum took 20).
-    path_spec = PathSpec(order=22, sections=(('z80', 'cpc'),),
+    path_spec = PathSpec(order=23, sections=(('z80', 'cpc'),),
                          source_bounds=(('disk', DISK_BOUNDS), ('system', SYSTEM_BOUNDS), ('amsdos', AMSDOS_BOUNDS)),
                          required_sources=('disk', 'system'), hashed_sources=('disk', 'system', 'amsdos'),
                          shapes=(('z80', 'cpc', dict(roles=('disk', 'system', 'amsdos'), caps={'window4': 4096})),))

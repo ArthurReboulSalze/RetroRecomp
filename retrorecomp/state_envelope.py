@@ -5,7 +5,7 @@ The envelope: magic at 0, schema at 8, machine at 12, the identity (64 character
 then the body at 88, whose first bytes are the build binding when the machine has one (state_file.h). The list below is the one the
 MSX, the SG-1000, the Amiga and the Nintendo 64 conversions each carry for their own states; the Amstrad CPC is its first user here.
 The others move onto it on their own branches (moving them would move their stamps), with the same labels, so their reports do not
-change. Game role, the group shares:z80_chain_state of retrorecomp/stamp_inputs.py.
+change. Game role, in the cpc group of retrorecomp/stamp_inputs.py until a second machine uses it.
 """
 from __future__ import annotations
 
