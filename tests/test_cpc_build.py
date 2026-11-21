@@ -73,6 +73,16 @@ class BuildTests(unittest.TestCase):
         self.assertIn('"${CMAKE_CURRENT_SOURCE_DIR}/hostkit/adapters"', game)
         self.assertIn('RR_RECOMP_VERSION="9.9.9"', game)
 
+    def test_the_sound_is_mono_by_default_and_the_jack_stereo_an_option_in_five_languages(self):
+        adapter = (ASSETS / 'native' / 'hostkit' / 'adapters' / 'rrhk_cpc.inc').read_text(encoding='utf-8')
+        self.assertIn('static bool c_stereo;', adapter)                     # false: the built-in speaker's mono
+        self.assertIn('stereo[2 * i] = stereo[2 * i + 1] = mono;', adapter)
+        table = adapter[adapter.index('static const char *const c_texts[][4]'):adapter.index('static const char *c_text(int which)')]
+        self.assertEqual(sorted(code for code in ('en', 'fr', 'de', 'es', 'it') if f'{{"{code}",' in table),
+                         ['de', 'en', 'es', 'fr', 'it'])
+        self.assertTrue(table.isascii())
+        self.assertIn('t->option_rows = c_option_rows; t->key_event = c_key_event;', adapter)
+
     def test_the_players_resources_and_its_game_header(self):
         player = (ASSETS / 'native' / 'cpc_machine' / 'cpc_player.c').read_text(encoding='utf-8')
         for resource in (cpc_build.RESOURCE_DISKS, cpc_build.RESOURCE_SYSTEM, cpc_build.RESOURCE_AMSDOS):

@@ -17,7 +17,8 @@
  *   joystick lines of rows 9 and 6 stay live.
  *
  * The picture is the board's 768 x 272 (48 characters of 16 mode-2 pixels), shown at the width of 384 mode-1 pixels; the sound
- * is the board's stereo 44,100 Hz, straight into the shared ring of native/audio_output.inc. Quick states (F8/F9) are the game's,
+ * is the board's 44,100 Hz into the shared ring of native/audio_output.inc, mono as the built-in speaker by default, the headphone
+ * jack's stereo as a row of F2's options page (c_sound). Quick states (F8/F9) are the game's,
  * saved and loaded at the frame's end, its service point. In a session the player gives the snapshots, the digest, the frame's
  * effects and the disk's save (cpc_session_save, _save_put, _begin, _save_commit). */
 #include "hostkit/hostkit.h"
@@ -163,12 +164,82 @@ void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, 
 void rrhk_options_audio_reset(void);
 #include "audio_output.inc"
 
+/* ---- the sound's output: the built-in speaker (mono, the default) or the headphone jack (stereo), the player's choice ----
+ * The board gives the jack's stereo (A left, C right, B half on each side). Most CPC games were written for the built-in speaker,
+ * which plays the three voices together: the default is that mono, (left + right) / 2 = (A + B + C) / 2 on both sides; the
+ * stereo of the jack is a row on F2's options page, kept per game in sound.cfg beside player.cfg (« output=stereo »). Only what this
+ * PC hears changes: the board, its states and the multiplayer digest are the same either way. */
+#define C_ROW_SOUND (SDL_NUM_SCANCODES + 2)     /* the row's key: past the computers' keyboard row (+1), before the kit's own (+16) */
+static bool c_stereo;
+
+/* The adapter's texts in the five game languages (rr_language_codes' spelling, ASCII as the games write them). */
+static const char *const c_texts[][4] = {
+   /* code  label            mono                      stereo */
+   {"en", "Sound: %s",       "mono (built-in speaker)", "stereo (headphone jack)"},
+   {"fr", "Son : %s",        "mono (haut-parleur)",     "stereo (prise casque)"},
+   {"de", "Ton: %s",         "Mono (Lautsprecher)",     "Stereo (Kopfhoerer)"},
+   {"es", "Sonido: %s",      "mono (altavoz)",          "estereo (auriculares)"},
+   {"it", "Audio: %s",       "mono (altoparlante)",     "stereo (cuffie)"},
+};
+static const char *c_text(int which) {
+   const char *code = rr_language_code(rr_language_get());
+   for (size_t i = 0; i < sizeof c_texts / sizeof c_texts[0]; ++i)
+      if (code && !strcmp(code, c_texts[i][0])) return c_texts[i][1 + which];
+   return c_texts[0][1 + which];
+}
+
+/* sound.cfg beside player.cfg (its folder: player_config without "player.cfg"). */
+static bool c_sound_path(wchar_t *wide, size_t capacity) {
+   char path[1100];
+   const char *slash = strrchr(player_config, '/');
+   const size_t folder = slash ? (size_t)(slash - player_config) + 1 : 0;
+   if (folder + 10 >= sizeof path) return false;
+   memcpy(path, player_config, folder);
+   strcpy(path + folder, "sound.cfg");
+   return rr_from_utf8(path, wide, capacity) != 0;
+}
+static void c_sound_load(void) {
+   wchar_t wide[1100];
+   char line[32] = "";
+   FILE *f;
+   c_stereo = false;
+   if (!c_sound_path(wide, 1100) || !(f = rr_fopen(wide, L"rb"))) return;
+   if (fgets(line, sizeof line, f)) c_stereo = !strncmp(line, "output=stereo", 13);
+   fclose(f);
+}
+static void c_sound_save(void) {
+   wchar_t wide[1100];
+   FILE *f;
+   if (!c_sound_path(wide, 1100) || !(f = rr_fopen(wide, L"wb"))) return;
+   fputs(c_stereo ? "output=stereo\n" : "output=mono\n", f);
+   fclose(f);
+}
+
 static void c_sound(CpcMachine *m) {
    static int16_t stereo[2 * CPC_AUDIO_BUFFER];
    uint32_t n = cpc_audio_take(m, stereo, CPC_AUDIO_BUFFER);
    if (fast_forward) return;                     /* frames faster than the sound: the samples are dropped, not queued */
    if (rrhk_session_silent()) return;           /* a frame run again after a multiplayer correction: no sound */
+   if (!c_stereo)
+      for (uint32_t i = 0; i < n; ++i) {
+         const int16_t mono = (int16_t)(((int32_t)stereo[2 * i] + stereo[2 * i + 1]) / 2);
+         stereo[2 * i] = stereo[2 * i + 1] = mono;
+      }
    host_audio_submit(stereo, n);
+}
+
+static void c_option_rows(int slot, RrhkOptionRows *rows) {
+   x_option_rows(slot, rows);
+   if (slot == 1) rrhk_option_row_icon(rows, C_ROW_SOUND, RR_ICON_ROW_HEADPHONES, c_text(0), c_text(c_stereo ? 2 : 1));
+}
+static bool c_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
+   char plate[96];
+   if ((int)key != C_ROW_SOUND) return x_key_event(ui, key, running);
+   c_stereo = !c_stereo;
+   c_sound_save();
+   snprintf(plate, sizeof plate, c_text(0), c_text(c_stereo ? 2 : 1));
+   rrhk_notice(plate, 2500);
+   return true;
 }
 
 /* ---- the machine table ---- */
@@ -234,7 +305,7 @@ const RrhkMachine *rrhk_adapter(void) {
       t->session_keys = x_session_keys;
       t->input_frame = c_input_frame;
       t->settings_loaded = x_settings_loaded; t->help_lines = x_help_lines; t->help_controls = c_help_controls;
-      t->option_rows = x_option_rows; t->key_event = x_key_event;
+      t->option_rows = c_option_rows; t->key_event = c_key_event;   /* the computers' keyboard row, then the sound's output */
       t->frame_start = x_frame_start; t->finished = x_finished;
       t->event = x_event; t->keyboard_pad = x_keyboard_pad; t->fast_forward = x_fast_forward; t->game_rect = x_game_rect;
       t->help_page = x_help_page; t->action_held = x_action_held;
@@ -251,6 +322,7 @@ static bool cpc_host_open(const char *title, int scale) {
    if (!rrhk_open(table, title, scale)) return false;
    rrhk_autofire_reset();
    host_audio_init(CPC_AUDIO_RATE);
+   c_sound_load();                              /* the player's sound output for this game: mono unless sound.cfg says stereo */
    rrhk_notice(rrhk_tr("F1: help | Ctrl+Alt+K: CPC keyboard", "F1 : aide | Ctrl+Alt+K : clavier CPC"), 2400);
    return true;
 }
