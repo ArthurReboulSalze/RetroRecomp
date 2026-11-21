@@ -119,6 +119,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | [Win 3.83 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
 | [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %) · Linux 4.56 ms](docs/PERFORMANCE.md#the-figures) |
 | [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `██░░░` 43 % | not offered | not measured |
+| [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `░░░░░` 3 % | not offered | not measured |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the two Amigas are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
@@ -142,9 +143,10 @@ and its limits are on its page.
 
 ### In development
 
-Five machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision**, the
-**Amstrad CPC** and the **ZX Spectrum**. None is available yet: each starts as an experimental
-profile once its study is approved, and no date is promised. The **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card) is open as an
+Four machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision** and the
+**Amstrad CPC**. None is available yet: each starts as an experimental
+profile once its study is approved, and no date is promised. The ZX Spectrum's study is approved: its experimental profile
+identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)). The **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card) is open as an
 experimental machine: nine discs convert, none is translated beyond what their routes ran, and the owner has not played them yet
 ([status](docs/PC_ENGINE_CD.md)).
 

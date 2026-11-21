@@ -3,7 +3,7 @@
  * MIT, Retro-Recomp. Written from the MSX standard as documented (MSX2 Technical Handbook, TMS9918A data
  * manual); behaviour they leave open was checked against openMSX 22.0 run as a separate program (private comparisons; none of its code or tables is here).
  *
- * The picture (TMS9918A, line by line) is in msx_video.c, the sound (AY-3-8910 and key click) in msx_psg.c, the
+ * The picture (TMS9918A, line by line) is in native/tms9918/tms9918.c, the sound (AY-3-8910 and key click) in msx_psg.c, the
  * cartridges (plain, Konami, Konami SCC with its sound chip, ASCII 8 KB and 16 KB) in msx_cart.c. The MSX2's V9938 in
  * msx_v9938*.c, its memory mapper and clock in msx_msx2.c. A CPU (the reference interpreter, later the native bodies) calls msx_read /
  * msx_write / msx_in / msx_out and advances time with msx_advance. */
@@ -14,6 +14,8 @@
 #include <stddef.h>
 
 #include "msx_fdc.h"
+#include "tms9918.h"
+#include "ay38910.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,19 +102,8 @@ typedef struct {
     uint8_t device;        /* 1 when a mapper or a sound chip of the slot answers in this region */
 } MsxRegion;
 
-enum { MSX_WIDTH = 256, MSX_HEIGHT = 192 };
+enum { MSX_WIDTH = TMS_WIDTH, MSX_HEIGHT = TMS_HEIGHT };
 
-typedef struct {
-    uint8_t vram[16384];
-    uint8_t reg[8];
-    uint8_t status;
-    uint16_t address;
-    uint8_t latch, first, readahead;
-    /* The picture, one line at a time: colour indices 0-15 (colour 0 already replaced by the backdrop), and the
-     * border colour of each line (R#7 low nibble when the line was drawn). Text mode draws 240 pixels from x = 6. */
-    uint8_t frame[MSX_HEIGHT][MSX_WIDTH];
-    uint8_t border[MSX_HEIGHT];
-} MsxVdp;
 
 /* The V9938 (MSX2; msx_v9938.c, msx_v9938_draw.c) and its command engine (msx_v9938_cmd.c). */
 enum { MSX_VIDEO_TMS9918A = 0, MSX_VIDEO_V9938 = 1 };
@@ -190,17 +181,12 @@ typedef struct {
 
 enum { MSX_AUDIO_RATE = 44100, MSX_AUDIO_BUFFER = 8192, MSX_CPU_CLOCK = 3579545 };
 
-/* The AY-3-8910 as a sound generator (msx_psg.c); its registers are MsxMachine.psg. */
+/* The MSX's sound (msx_psg.c): the AY-3-8910, a chip of its own (native/ay38910), whose registers are MsxMachine.psg, and the
+ * MSX's mixing and resampling around it. */
 typedef struct {
     uint64_t time;                 /* CPU cycle the generator has reached */
     unsigned tick_rest;            /* CPU cycles left over below one tick (16 CPU cycles) */
-    uint32_t ticks;                /* ticks run so far (noise and envelope run on every second one) */
-    uint16_t tone_count[3];
-    uint8_t tone_out[3];
-    uint16_t noise_count;
-    uint32_t lfsr;
-    uint16_t env_count;
-    uint8_t env_step, env_up, env_holding;
+    Ay38910 chip;                  /* the counters, the noise register and the envelope (ay38910.h) */
     uint64_t next_sample;          /* in CPU cycles x 65536 */
     int32_t acc;
     uint32_t acc_ticks;
@@ -224,7 +210,7 @@ typedef struct {
     void (*line_hook)(void);   /* optional: called after each line the machine runs */
     uint8_t trace_frames;      /* comparisons: fold every frame's picture and VDP state into frame_trace */
     uint32_t frame_trace;
-    MsxVdp vdp;
+    Tms9918 vdp;
     MsxPsgSynth synth;
     void (*cart_write_hook)(void *user, uint16_t address, uint8_t value);   /* optional trace of writes to a cartridge */
     void *hook_user;
@@ -351,8 +337,6 @@ void msx_v9938_cmd_sync(MsxMachine *m, uint64_t cycle);
 void msx_v9938_cmd_reset(MsxMachine *m);
 void msx_v9938_cmd_line(MsxMachine *m);                             /* a line boundary: the engine's screen is latched */
 void msx_v9938_cmd_print(const MsxMachine *m, FILE *out);
-void msx_vdp_draw_line(MsxMachine *m, int line);
-void msx_vdp_check_line(MsxMachine *m, int line);
 void msx_psg_reset(MsxMachine *m);
 void msx_psg_catch_up(MsxMachine *m);
 void msx_psg_catch_up_to(MsxMachine *m, uint64_t cycle);

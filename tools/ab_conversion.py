@@ -18,7 +18,8 @@ writes into the main checkout's `Export`.
 
 It compares, between A and B:
   * every file of each kept build folder (`.build/<game>`; for Neo Geo `.build/ng-*`, for CPS-1 `.build/cps1/<set>-*`,
-    for the X68000 `.build/x68/<toolchain>/<stamp>`) that is a source or a data file: SHA-256 of the bytes, with
+    for the MSX family `.build/msx/<cartridge>-<bios>`, for the X68000 `.build/x68/<toolchain>/<stamp>`) that is a
+    source or a data file: SHA-256 of the bytes, with
     the tree and output paths replaced by placeholders in text files (CMake files name their folder) - this covers
     every `generated/` folder and every adapted host source;
   * `conversion-report.json` without its volatile keys (creation time, timings, wall times, stamps, version) and with
@@ -54,7 +55,8 @@ NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
 SKIP_DIRECTORIES = {'build', 'CMakeFiles', '.git', '__pycache__'}
 SKIP_SUFFIXES = {'.exe', '.o', '.obj', '.a', '.lib', '.dll', '.pdb', '.ilk', '.exp', '.log', '.lock', '.tmp', '.pyc'}
 TEXT_SUFFIXES = {'.c', '.h', '.inc', '.cpp', '.cmake', '.txt', '.toml', '.rc', '.md', '.json', '.csv', '.tsv', '.inputs',
-                 '.hash', '.patterns', '.manifest', '.trace', '.ini', '.cfg', ''}
+                 '.hash', '.patterns', '.manifest', '.trace', '.ini', '.cfg', '.sources', ''}
+# `.sources`: the banked Z80 chain's `banked.sources` (retrorecomp/z80_chain_build.py) names the BIOS files by their path in the tree.
 VOLATILE_KEY = re.compile(r'(created|elapsed|seconds|wall|stamp|timing|_utc|duration|_ms$|started|finished)', re.I)
 VOLATILE_TOP = {'version', 'tool', 'converter_version'}
 EXECUTABLE_SECTIONS = {'packed', 'packing', 'export_receipt'}
@@ -81,6 +83,8 @@ X68_STATE_CHECKSUM = slice(160, 168)
 # A state key derived from the game stamp (so from the converter's code), written into a header.
 STAMP_TEXT = re.compile(rb'(STATE_ABI ")[0-9a-f]{64}(")')
 REPORT = 'conversion-report.json'
+# The machines whose conversion keeps one folder per game under a folder of their own (`.build/<family>/<game>`).
+NESTED_BUILDS = ('cps1', 'msx')
 # What the X68000 names after the converter's code or at random: the folder of a workspace is the start of the SDK stamp
 # (`.build/x68/<toolchain>/<stamp12>`), and every run makes its evidence folder with `tempfile.mkdtemp` (`qa-xxxxxxxx`,
 # `reference-xxxxxxxx`). Replaced by placeholders in names and texts, so that the two trees line up.
@@ -163,6 +167,13 @@ def prepare_tree(spec: str, label: str, work: Path, deps: Path, tools: Path | No
     """(tree, created): a folder to convert with. A git ref becomes a detached worktree under `work`."""
     given = Path(spec)
     if given.is_dir():
+        held = links_in(given)
+        if held:
+            # The tool detaches every link of a tree when it ends (release_tree): on a worktree that already has its .deps junctions
+            # that leaves the worktree without them (three times on 21 Nov 2026, the targets intact).
+            raise SystemExit(f'ab_conversion: {given} already holds {len(held)} link(s) (for instance {held[0]}), which this tool would '
+                             f'detach when it ends. Pass a git ref (a branch or a commit) instead of the folder of a worktree: the tool '
+                             f'then makes its own tree, links its own .deps and removes both.')
         tree, created = given.resolve(), False
     else:
         tree, created = work / label, True
@@ -206,15 +217,17 @@ def kept_builds(tree: Path) -> list[Path]:
     """The game folders the conversion kept under `.build` (they hold the ROM copy, or data made from it).
 
     A folder with `rom.*` (Sega, Game Boy, NES), a 16-bit project (`md-*`, `snes-*`), a Neo Geo project (`ng-*`, with
-    its cartridge and BIOS copies), a CPS-1 project (`cps1/<set>-<sha>`) and an X68000 workspace
-    (`x68/<toolchain>/<stamp12>`)."""
+    its cartridge and BIOS copies), a CPS-1 project (`cps1/<set>-<sha>`), an MSX work folder (`msx/<cartridge sha12>-<bios
+    sha8>`, MSX, MSX2 and MSX2+: retrorecomp/msx_conversion.py) and an X68000 workspace (`x68/<toolchain>/<stamp12>`).
+    A conversion that keeps none of these is counted as failed."""
     root = tree / '.build'
     if not root.is_dir():
         return []
     found = [path for path in root.iterdir()
              if path.is_dir() and (any(path.glob('rom.*')) or path.name.startswith(('ng-', 'md-', 'snes-')))]
-    if (root / 'cps1').is_dir():
-        found += [path for path in (root / 'cps1').iterdir() if path.is_dir()]
+    for family in NESTED_BUILDS:
+        if (root / family).is_dir():
+            found += [path for path in (root / family).iterdir() if path.is_dir()]
     if (root / 'x68').is_dir():
         # One workspace per toolchain and SDK stamp: the discovery build, the machine tree and the game's folder.
         found += [stamp for toolchain in (root / 'x68').iterdir() if toolchain.is_dir()

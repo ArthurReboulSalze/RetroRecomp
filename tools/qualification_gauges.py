@@ -244,11 +244,15 @@ def short(text: str) -> str:
     lines = ['| Console | Status | Qualification | Multiplayer | CPU per frame |', '| --- | --- | --- | --- | --- |']
     # By name, the experimental machines after the supported ones (Arthur, 14 Nov 2026); the emulated categories come last.
     ordered = sorted(gauges(text), key=lambda row: (row['status'] == 'experimental', row['name'].casefold()))
+    # An experimental machine no installation lists yet (SystemProfile.developer_only) says so beside its status.
+    from retrorecomp.systems import ALL_PROFILES
+    unlisted = {profile.id for profile in ALL_PROFILES if profile.developer_only and profile.status == 'experimental'}
     for row in ordered:
         mark = '\\*' if row['id'] in EMULATOR_CORE else ''
+        status = row['status'] + (' (developer-only)' if row['id'] in unlisted else '')
         filled = int(row['percent'] / 100 * README_CELLS + 0.5)
         bar = '█' * filled + '░' * (README_CELLS - filled)
-        lines.append(f"| [{row['name']}](docs/{pages[row['id']]}){mark} | {row['status']} | `{bar}` {row['percent']} % "
+        lines.append(f"| [{row['name']}](docs/{pages[row['id']]}){mark} | {status} | `{bar}` {row['percent']} % "
                      f"| {multiplayer.get(row['id'], 'not offered')} | {cpu.get(row['id'], 'not measured')} |")
     for console, name, status in emulated_categories():
         lines.append(f"| **[{name}](docs/{EMULATED_PAGES[console]})** | {status} | outside this list: emulated, 0 % native code "

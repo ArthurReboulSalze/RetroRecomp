@@ -74,7 +74,7 @@ class MsxProfile(SystemProfile):
     # boots it (no MSX BIOS of the player's own).
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')
     optional_notice_files = ('licenses/cbios.md',)
-    stamp_groups = ('z80_main', 'hostkit_computer', 'conversion_gates')  # the gates: packed replay, liveness, quick states
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'tms9918', 'ay38910', 'hostkit_computer', 'conversion_gates')  # the chain's glue; the TMS9918A; the AY-3-8910; the gates: packed replay, liveness, quick states
     z80_machine = MSX_MACHINE
     path_spec = PathSpec(order=16, sections=(('z80', 'msx'),),
                          source_bounds=(('rom', CARTRIDGE_BOUNDS), ('bios', BIOS_BOUNDS)),

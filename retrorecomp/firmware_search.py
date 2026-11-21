@@ -6,7 +6,7 @@ folder (Batocera's `bios`) or any pile of loose BIOS files.
 
 * A file is recognised by its content, never by its name: each option names, in `RECOGNISERS`, the check the converter already
   makes (the Neo Geo archive's members, the QSound DSP's CRC and SHA-1, the Game Boy Advance BIOS's SHA-1, the PlayStation table,
-  the Kickstart and TOS headers, the MSX ROM signatures). Where the converter only checks a size (the X68000), `KNOWN_DIGESTS`
+  the Kickstart and TOS headers, the MSX ROM signatures, the ZX Spectrum ROMs' SHA-256). Where the converter only checks a size (the X68000), `KNOWN_DIGESTS`
   holds the public digests of the images (data, one table). A renamed file is found; an unknown or damaged one is left out.
 * The registry is keyed by option name and every path option of every profile must appear in it
   (`tests/test_machine_registry.py`); a new machine adds its line here, and the search itself holds no list of machines.
@@ -191,6 +191,23 @@ def _msx_kanji(path: Path) -> list:
     return [('msx2plus_kanji', 'MSX kanji ROM', (0,), _sha256(path))]
 
 
+def _zxs(path: Path) -> list:
+    """A ZX Spectrum ROM, by the SHA-256 the converter accepts (zxs_roms.own_rom): the 48K ROM, the 128K pair as one image,
+    or the 128K editor ROM when its BASIC ROM lies beside it. The ROM the converter fetches itself is the same image."""
+    from .zxs_roms import known_digest, own_rom
+    data = path.read_bytes()
+    name = known_digest(data)
+    if name == '48.rom':
+        return [('zxs_rom48', 'ZX Spectrum 48K ROM', (0,), hashlib.sha256(data).hexdigest())]
+    if name in ('128', '128-0.rom'):
+        try:
+            rom = own_rom(path, '128k')
+        except (OSError, ValueError):
+            return []
+        return [('zxs_rom128', 'ZX Spectrum 128K ROM', (0 if name == '128' else 1,), rom.sha256)]
+    return []
+
+
 def _sizes(*sizes) -> Callable[[int, str], bool]:
     wanted = frozenset(sizes)
     return lambda size, suffix: size in wanted
@@ -211,6 +228,7 @@ def _checks() -> dict:
         'msx_main': Check(_sizes(0x8000), _msx_main),
         'msx_16k': Check(_sizes(0x4000), _msx_16k),
         'msx_kanji': Check(_sizes(0x20000, 0x40000), _msx_kanji),
+        'zxs': Check(_sizes(0x4000, 0x8000), _zxs),
     }
 
 
@@ -244,6 +262,8 @@ RECOGNISERS = {
                                   beside='msx2plus_bios'),
     'msx2plus_kanji': Recogniser(CHECKS['msx_kanji'], 'msx_conversion.own_kanji: 128 or 256 KiB of glyphs',
                                  near='msx2plus_bios'),
+    'zxs_rom48': Recogniser(CHECKS['zxs'], 'zxs_roms.own_rom: the SHA-256 of the 48K ROM'),
+    'zxs_rom128': Recogniser(CHECKS['zxs'], 'zxs_roms.own_rom: the SHA-256 of the 128K pair, or its editor ROM with the BASIC ROM beside it'),
 }
 
 

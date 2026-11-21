@@ -170,14 +170,14 @@ static void synth_state(MsxMachine *m, RetroStateIO *io)
     MsxPsgSynth *s = &m->synth;
     W(s->time, 8, UINT64_MAX);
     W(s->tick_rest, 4, 0xFFFFFFFFu);
-    W(s->ticks, 4, 0xFFFFFFFFu);
-    words16(io, s->tone_count, 3, 0xFFFF);
+    W(s->chip.ticks, 4, 0xFFFFFFFFu);
+    words16(io, s->chip.tone_count, 3, 0xFFFF);
     for (int c = 0; c < 3; ++c)
-        W(s->tone_out[c], 1, 1);
-    W(s->noise_count, 2, 0xFFFF);
-    W(s->lfsr, 4, 0xFFFFFFFFu);
-    W(s->env_count, 2, 0xFFFF);
-    W(s->env_step, 1, 15); W(s->env_up, 1, 1); W(s->env_holding, 1, 1);
+        W(s->chip.tone_out[c], 1, 1);
+    W(s->chip.noise_count, 2, 0xFFFF);
+    W(s->chip.lfsr, 4, 0xFFFFFFFFu);
+    W(s->chip.env_count, 2, 0xFFFF);
+    W(s->chip.env_step, 1, 15); W(s->chip.env_up, 1, 1); W(s->chip.env_holding, 1, 1);
     W(s->next_sample, 8, UINT64_MAX);
     S(s->acc, 4);
     W(s->acc_ticks, 4, 0xFFFFFFFFu);
@@ -290,7 +290,7 @@ int msx_machine_state(MsxMachine *m, uint8_t *ram64, RetroStateIO *io)
         rr_state_bytes(io, ram64, 65536);
     }
     /* 6. TMS9918A */
-    MsxVdp *t = &m->vdp;
+    Tms9918 *t = &m->vdp;
     rr_state_bytes(io, t->vram, sizeof t->vram);
     rr_state_bytes(io, t->reg, sizeof t->reg);
     B(t->status);

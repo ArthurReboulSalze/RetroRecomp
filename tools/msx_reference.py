@@ -32,7 +32,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from retrorecomp.msx_build import MACHINE_SOURCES  # noqa: E402
+from retrorecomp.msx_build import MACHINE_SOURCES, SHARED_MODULES  # noqa: E402
 from retrorecomp.msx_cbios import ARCHIVE, MEMBERS, URL, VERSION  # noqa: E402  (the pin lives in the converter)
 JIFFY = 0xFC9E
 WORK = ROOT / '.build' / 'msx-reference'
@@ -328,15 +328,16 @@ def build() -> Path:
     instrument(WORK / 'runtime_reference.c')
     native = (ROOT / 'native' / 'msx_machine').as_posix()
     shared = (ROOT / 'native').as_posix()          # state_io.h, beside the other machines' shared headers
+    modules = [((ROOT / 'native' / folder).as_posix(), sources) for folder, sources, _ in SHARED_MODULES]   # shared with other machines
     (WORK / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.21)
 project(MsxReference C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
-set(machine {' '.join(f'"{native}/{name}"' for name in MACHINE_SOURCES)})
+set(machine {' '.join(f'"{native}/{name}"' for name in MACHINE_SOURCES)} {' '.join(f'"{path}/{name}"' for path, sources in modules for name in sources)})
 add_executable(msx_reference "{native}/msx_reference_main.c" ${{machine}} runtime_reference.c)
-target_include_directories(msx_reference PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "{native}" "{shared}")
+target_include_directories(msx_reference PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "{native}" "{shared}" {" ".join(chr(34) + path + chr(34) for path, _ in modules)})
 {"".join(f'add_executable({name} "{native}/{name}.c" ${{machine}})' + chr(10)
-         + f'target_include_directories({name} PRIVATE "{native}" "{shared}")' + chr(10) for name in CHECK_PROGRAMS)}
+         + f'target_include_directories({name} PRIVATE "{native}" "{shared}" {" ".join(chr(34) + path + chr(34) for path, _ in modules)})' + chr(10) for name in CHECK_PROGRAMS)}
 foreach(target msx_reference {' '.join(CHECK_PROGRAMS)})
   target_compile_definitions(${{target}} PRIVATE _CRT_SECURE_NO_WARNINGS)
   if(NOT WIN32)

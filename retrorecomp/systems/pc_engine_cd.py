@@ -46,7 +46,7 @@ class PcEngineCdProfile(SystemProfile):
     host_adapter = 'adapters/rrhk_pcecd.c'
     # Paths: an instruction is its logical pc, its eight MPRs and its bytes (as the HuCard's), so a row is `insn` and the contexts are
     # `opcode_ptr` rows; the sources are the disc (the data tracks' user bytes) and the System Card.
-    path_spec = PathSpec(order=20, sections=(('huc6280', 'pcecd'),),
+    path_spec = PathSpec(order=21, sections=(('huc6280', 'pcecd'),),
                          source_bounds=(('disc', (1, 1 << 32)), ('card', (1, 1 << 20))),
                          required_sources=('disc',), hashed_sources=('disc', 'card'),
                          shapes=(('huc6280', 'pcecd', dict(roles=('disc', 'card'), caps={'insn': 65536, 'opcode_ptr': 4096 * 8},

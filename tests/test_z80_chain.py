@@ -18,6 +18,8 @@ MAPPED = Z80Machine('mapped', Z80RegionMap(region_bits=13, sources=('rom', 'firm
                     m1_wait=1, irq_sample='instruction_end')
 # The same without the Sega runner around the loop: a call at the start of every step and the chain's own state copies.
 STANDALONE = Z80Machine('standalone', MAPPED.regions, m1_wait=1, irq_sample='instruction_end', step_begin=True, reference_state=True)
+# A machine with a /NMI pin (the ColecoVision's VDP, the SG-1000's pause button): no wait state, /INT read at the end of the instruction.
+WITH_NMI = Z80Machine('with-nmi', MAPPED.regions, irq_sample='instruction_end', step_begin=True, reference_state=True, nmi=True)
 
 
 def statements(function: str, text: str) -> set[str]:
@@ -213,6 +215,60 @@ class Z80ChainTests(unittest.TestCase):
         hit = [off for off in range(0x2000) if guarded(off, 0x1800, 0x2000)]                    # 9800h-9FFFh of 8000h-9FFFh
         self.assertEqual((hit[0], hit[-1], len(hit)), (0x17FD, 0x1FFF, 0x803))
 
+    def test_a_machine_without_the_nmi_pin_keeps_the_text_it_always_had(self):
+        # The Sega mapper (the Master System, the Game Gear) and the MSX family render no byte of the NMI.
+        for machine, state in ((SEGA_MAPPER, ''), (MAPPED, ''), (STANDALONE, STATE)):
+            text = z80_chain.runtime_source(machine, RUNTIME, state)
+            self.assertNotIn('banked_accept_nmi', text)
+            self.assertNotIn('banked_nmi_edge', text)
+        self.assertEqual(z80_chain.runtime_source(SEGA_MAPPER, RUNTIME), RUNTIME)
+
+    def test_a_machine_with_the_nmi_pin_accepts_the_edge_before_the_level(self):
+        text = z80_chain.runtime_source(WITH_NMI, RUNTIME, STATE)
+        self.assertEqual(text.count('static void banked_accept_nmi(void) {'), 1)
+        # defined once, before the function that ends a step, and called in place of it when an edge waits
+        self.assertLess(text.index('static void banked_accept_nmi(void) {'), text.index('static inline void banked_after_step(int pending_irq) {'))
+        self.assertEqual(text.count('        if (banked_nmi_edge()) banked_accept_nmi(); else banked_after_step(pending_irq);\n'), 1)
+        self.assertEqual(text.count('banked_after_step(pending_irq);'), 1)
+        # the edge is read after the hardware caught up, and EI's delay does not hold it back
+        self.assertLess(text.index('pending_irq = vdp_irq_asserted();'), text.index('if (banked_nmi_edge())'))
+        body = statements('banked_accept_nmi', text)
+        for statement in ('g_z80.p=g_z80.q=0', 'g_z80.ei_block=0', 'g_z80.iff1=false', 'g_z80.halted=false', 'g_z80.cyc+=11',
+                          'g_z80.pc=0x0066', 'g_z80.wz=g_z80.pc'):
+            self.assertIn(statement, body)
+        self.assertNotIn('g_z80.iff2=false', body)      # IFF2 keeps its value, so that RETN restores it
+
+    def test_the_nmi_is_read_at_the_end_of_an_instruction(self):
+        with self.assertRaises(ValueError):
+            Z80Machine('x', MAPPED.regions, nmi=True)       # the default samples /INT at the start of a step
+
+    def test_the_reference_cpu_takes_the_nmi_as_the_chain_does_only_when_asked(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        with tempfile.TemporaryDirectory() as plain, tempfile.TemporaryDirectory() as nmi:
+            prepare_reference(Path(plain), ROOT / '.deps/smsggrecomp')
+            prepare_reference(Path(nmi), ROOT / '.deps/smsggrecomp', nmi=True)
+            off = (Path(plain) / 'runtime_reference.c').read_text(encoding='utf-8')
+            on = (Path(nmi) / 'runtime_reference.c').read_text(encoding='utf-8')
+            self.assertEqual((Path(plain) / 'runtime_reference.h').read_bytes(), (Path(nmi) / 'runtime_reference.h').read_bytes())
+        # off: EI's delay holds the NMI back as it holds /INT back (the pinned engine's code); on: the NMI comes first
+        self.assertLess(off.index('  if (z->iff_delay) return;'), off.index('  if (z->nmi_pending) {'))
+        self.assertLess(on.index('  if (z->nmi_pending) {'), on.index('  if (z->iff_delay) return;'))
+        self.assertIn('    z->nmi_pending = 0;\n    z->q = z->p = 0;\n', on)
+        self.assertNotIn('    z->nmi_pending = 0;\n    z->q = z->p = 0;\n', off)
+
+    def test_the_nmi_acceptance_agrees_with_the_reference_cpu_state_by_state(self):
+        # tools/z80_nmi_selftest.py builds native/z80_nmi_checks.c twice (28,800 cases each); skipped without a C compiler.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('z80_nmi_selftest', ROOT / 'tools/z80_nmi_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        try:
+            module.compiler()
+        except SystemExit:
+            self.skipTest('no C compiler')
+        self.assertEqual(module.main(), 0)
+
     def test_a_line_of_the_step_loop_that_moved_is_refused(self):
         with self.assertRaises(ValueError):
             z80_chain.runtime_source(SEGA_MAPPER, RUNTIME.replace('g_z80.cyc += 4; banked_halt_steps++;', 'g_z80.cyc += 4;'))
@@ -229,6 +285,173 @@ class Z80ChainTests(unittest.TestCase):
         for change in (dict(m1_wait=4), dict(irq_sample='never')):
             with self.assertRaises(ValueError, msg=change):
                 Z80Machine('x', Z80Regions(**good), **change)
+
+    # --- a machine's instruction costs (Z80Costs) ---------------------------------------------------------------------------
+
+    def test_without_costs_or_with_the_z80s_own_the_text_is_what_it_always_was(self):
+        from retrorecomp.z80_chain import Z80_COSTS
+        for machine in (SEGA_MAPPER, OTHER, MAPPED, STANDALONE, WITH_NMI):
+            same = Z80Machine(machine.key, machine.regions, m1_wait=machine.m1_wait, irq_sample=machine.irq_sample,
+                              step_begin=machine.step_begin, reference_state=machine.reference_state, nmi=machine.nmi,
+                              costs=Z80_COSTS)
+            state = STATE if machine.reference_state else ''
+            self.assertEqual(z80_chain.emitter_source(same, EMITTER), z80_chain.emitter_source(machine, EMITTER))
+            self.assertEqual(z80_chain.runtime_source(same, RUNTIME, state), z80_chain.runtime_source(machine, RUNTIME, state))
+        self.assertEqual(z80_chain._emitter_costs(SEGA_MAPPER, EMITTER), EMITTER)
+        self.assertEqual(z80_chain._nmi_accept(Z80_COSTS), z80_chain._NMI_ACCEPT)
+
+    def test_a_machine_with_costs_writes_its_own_counts(self):
+        from retrorecomp.z80_chain import Z80Costs
+        costs = Z80Costs(base=(('', 0x00, 8), ('ed', 0xB0, 20), ('ddcb', 0x06, 28)), jr_taken=3, djnz_taken=6, ret_taken=9,
+                         call_taken=2, repeat=8, irq=15, irq_im2=22, nmi=12, halt=6, fragment=5)
+        machine = Z80Machine('costs', MAPPED.regions, m1_wait=1, irq_sample='instruction_end', step_begin=True,
+                             reference_state=True, nmi=True, costs=costs)
+        emitter = z80_chain.emitter_source(machine, EMITTER)
+        for text in ('{ s->cyc += 9; s->pc = sms_read16(s->sp)', 'if (s->b) { s->cyc += 6;', '"    if (%s) { s->cyc += 3; s->pc = %s;',
+                     '{ s->cyc += 2; s->sp = (uint16_t)(s->sp - 2)', '{ s->cyc += 8; s->pc = (uint16_t)(s->pc - 2);',
+                     's->cyc += %d;\\n}\\n", 5 + banked_machine.m1_wait', 'banked_cost(in, 16) + m1', 'banked_cost(in, cyc_base(in)) + m1',
+                     'static const unsigned char banked_cost_table[7][256] = {'):
+            self.assertEqual(emitter.count(text), 1, text)
+        rows = costs.table
+        self.assertEqual((rows[0][0x00], rows[4][0xB0], rows[5][0x06], sum(map(sum, rows))), (8, 20, 28, 56))
+        loop = z80_chain.runtime_source(machine, RUNTIME, STATE)
+        for text in ('g_z80.cyc += g_z80.im == 2 ? 22 : 15;', 'g_z80.cyc += 12;', 'g_z80.cyc += 7; banked_halt_steps++;'):
+            self.assertEqual(loop.count(text), 1, text)       # HALT: the machine's 6 and its one M1 wait state
+
+    def test_costs_are_checked(self):
+        from retrorecomp.z80_chain import Z80Costs
+        for bad in (dict(base=(('xx', 0, 4),)), dict(base=(('', 256, 4),)), dict(base=(('', 0, 0),)),
+                    dict(base=(('cb', 1, 8), ('cb', 1, 9))), dict(base=(('', 0),)), dict(irq=10), dict(halt=-1), dict(nmi=256)):
+            with self.subTest(bad), self.assertRaises(ValueError):
+                Z80Costs(**bad)
+        with self.assertRaises(ValueError):
+            Z80Machine('x', MAPPED.regions, costs={'halt': 4})
+
+    def test_the_reference_cpu_counts_as_the_table_says_only_when_given_one(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        from retrorecomp.z80_chain import Z80_COSTS, Z80Costs
+        texts = {}
+        for name, costs in (('none', None), ('own', Z80_COSTS), ('table', Z80Costs(base=(('', 0x00, 8),), irq=15, irq_im2=22,
+                                                                                         nmi=12, fragment=5))):
+            with tempfile.TemporaryDirectory() as folder:
+                prepare_reference(Path(folder), ENGINE, m1_counter=True, costs=costs)
+                texts[name] = (Path(folder) / 'runtime_reference.c').read_text(encoding='utf-8')
+        self.assertEqual(texts['none'], texts['own'])
+        table = texts['table']
+        self.assertNotIn('rr_apply_costs', texts['none'])
+        self.assertEqual(table.count('  rr_apply_costs(z, rr_start, rr_halted, rr_group, decoded);\n'), 1)
+        for text in ('    z->cyc += 12;\n    call(z, 0x66);', '      z->cyc += 4;\n      exec_opcode(z, z->int_data);',
+                     '      z->cyc += 15;\n      call(z, 0x38);', '      z->cyc += 22;\n      call(z, rw(',
+                     'z->pc++; z->cyc += 5; inc_r(z); op = next;'):
+            self.assertEqual(table.count(text), 1, text)
+        # the instruction's cost is applied before the interrupts are looked at
+        self.assertLess(table.index('  rr_apply_costs(z, rr_start'), table.index('  process_interrupts(z);\n}'))
+
+    def test_the_costs_agree_with_the_reference_cpu_encoding_by_encoding(self):
+        # tools/z80_costs_selftest.py builds the emitter for an authored table and for the Z80's own counts and runs every
+        # encoding on both sides; skipped without a C compiler.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('z80_costs_selftest', ROOT / 'tools/z80_costs_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        try:
+            module.compiler()
+        except SystemExit:
+            self.skipTest('no C compiler')
+        self.assertEqual(module.main(), 0)
+
+    def test_a_repeating_cpir_can_cost_its_own_count(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        from retrorecomp.z80_chain import Z80Costs
+        same = Z80Costs(repeat=4, repeat_compare=4)
+        plain = Z80Costs(repeat=4)
+        apart = Z80Costs(repeat=4, repeat_compare=8)
+        machine = lambda costs: Z80Machine('c', MAPPED.regions, irq_sample='instruction_end', costs=costs)
+        # The same count given twice is the text of one: every existing table keeps its bytes.
+        self.assertEqual(z80_chain.emitter_source(machine(same), EMITTER), z80_chain.emitter_source(machine(plain), EMITTER))
+        self.assertEqual(z80_chain.emitter_source(machine(apart), EMITTER).count('more, (in->opcode & 3) == 1 ? 8 : 4);'), 1)
+        texts = {}
+        for name, costs in (('same', same), ('plain', plain), ('apart', apart)):
+            with tempfile.TemporaryDirectory() as folder:
+                prepare_reference(Path(folder), ENGINE, costs=costs)
+                texts[name] = (Path(folder) / 'runtime_reference.c').read_text(encoding='utf-8')
+        self.assertEqual(texts['same'], texts['plain'])
+        self.assertIn('plain = 16; extra = (op & 3) == 1 ? 8 : 4; }', texts['apart'])
+        self.assertIn('plain = 16; extra = 4; }', texts['plain'])
+        with self.assertRaises(ValueError):
+            Z80Costs(repeat_compare=256)
+
+    # --- 16-bit ports (Z80Machine.port_bits) -------------------------------------------------------------------------------
+
+    def test_an_8_bit_machine_keeps_its_text_and_a_16_bit_one_re_spells_its_io(self):
+        for machine in (SEGA_MAPPER, OTHER, MAPPED, STANDALONE, WITH_NMI):
+            self.assertEqual(machine.port_bits, 8)
+            self.assertEqual(z80_chain._emitter_ports(machine, EMITTER), EMITTER)
+        wide = Z80Machine('wide', MAPPED.regions, irq_sample='instruction_end', port_bits=16)
+        text = z80_chain.emitter_source(wide, EMITTER)
+        self.assertEqual(text.count('static void banked_io16_file(const char *path) {'), 1)
+        self.assertEqual(text.count('        banked_io16_file(path);\n'), 1)
+        self.assertEqual(text.count('#define SMSRECOMP_PORT16 1'), 1)
+        for spelling in ('sms_io_in16((uint16_t)(s->a << 8 | 0x%02X))', 'sms_io_in16(z80_bc(s))',
+                         'sms_io_out16((uint16_t)(s->a << 8 | 0x%02X), ', 'sms_io_out16(z80_bc(s), '):
+            self.assertIn(spelling, text)
+        with self.assertRaises(ValueError):
+            Z80Machine('x', MAPPED.regions, port_bits=12)
+
+    def test_the_reference_cpu_passes_the_whole_port_only_when_asked(self):
+        import tempfile
+        from retrorecomp.cpu import prepare_reference
+        texts = {}
+        for name, wide in (('plain', False), ('wide', True)):
+            with tempfile.TemporaryDirectory() as folder:
+                prepare_reference(Path(folder), ENGINE, m1_counter=True, port16=wide)
+                texts[name] = ((Path(folder) / 'runtime_reference.c').read_text(encoding='utf-8'),
+                               (Path(folder) / 'runtime_reference.h').read_text(encoding='utf-8'))
+        source, header = texts['wide']
+        self.assertIn('uint8_t (*port_in)(z80*, uint16_t);', header)
+        self.assertIn('uint8_t (*port_in)(z80*, uint8_t);', texts['plain'][1])
+        for text in ('z->a = z->port_in(z, (uint16_t)(a << 8 | port));', 'z->port_out(z, (uint16_t)(z->a << 8 | port), z->a);',
+                     '*r = z->port_in(z, get_bc(z));', 'z->port_out(z, (uint16_t)((uint8_t)(z->b - 1) << 8 | z->c), val);'):
+            self.assertIn(text, source)
+        self.assertNotIn('port_in(z, z->c)', source)
+        self.assertIn('port_in(z, z->c)', texts['plain'][0])
+
+    def test_the_glue_poisons_the_other_pair_of_port_functions(self):
+        glue = (ROOT / 'native/z80_chain_glue.inc').read_text(encoding='utf-8')
+        wide, narrow = glue.split('#ifdef SMSRECOMP_PORT16\n', 1)[1].split('#else\n', 1)
+        narrow = narrow.split('#endif\n', 1)[0]
+        self.assertIn('return sms_io_in16(port);', wide)
+        self.assertIn('#define sms_io_in RR_', wide)
+        self.assertIn('#define sms_io_out RR_', wide)
+        self.assertIn('return sms_io_in(port);', narrow)
+        self.assertIn('#define sms_io_in16 RR_', narrow)
+        self.assertIn('#define sms_io_out16 RR_', narrow)
+
+    def test_the_ports_agree_with_the_reference_cpu_and_the_z80(self):
+        # tools/z80_ports_selftest.py builds the emitter for a 16-bit machine and runs every I/O encoding on both sides; skipped
+        # without a C compiler.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('z80_ports_selftest', ROOT / 'tools/z80_ports_selftest.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        try:
+            module.compiler()
+        except SystemExit:
+            self.skipTest('no C compiler')
+        self.assertEqual(module.main(), 0)
+
+    def test_a_machine_that_starts_from_a_saved_state_keeps_its_registers(self):
+        for machine in (SEGA_MAPPER, OTHER, MAPPED, STANDALONE, WITH_NMI):
+            self.assertTrue(machine.reset_registers)
+            self.assertEqual(z80_chain.runtime_source(machine, RUNTIME, STATE if machine.reference_state else '').count(
+                z80_chain._RESET_REGISTERS), 1)
+        given = Z80Machine('given', MAPPED.regions, irq_sample='instruction_end', step_begin=True, reference_state=True,
+                           reset_registers=False)
+        text = z80_chain.runtime_source(given, RUNTIME, STATE)
+        self.assertNotIn('g_z80.sp = 0xFFFF', text)
+        self.assertIn('kept as they are', text)
 
 
 if __name__ == '__main__':

@@ -271,6 +271,12 @@ NOT_INPUTS = (
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/pcecd_disc_checks.cpp',                 # tools/pcecd_disc_selftest.py: the disc provider against two readers, never in a game
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
+    # The box filter of the sound chips (levels over guest cycles to samples): no machine builds with it yet; it joins a group
+    # `shares:audio_box` with its first machine (the Amstrad CPC). tools/audio_box_selftest.py builds its checks, never in a game.
+    'native/audio_box.h', 'native/audio_box_checks.c',
+    'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
+    'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
+    'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
@@ -813,11 +819,9 @@ INPUTS = _resolve({
         'native/msx_machine/msx_state.c',
         'native/msx_machine/msx_state_file.inc',
         'native/msx_machine/msx_snapshot.inc',
-        'native/msx_machine/msx_tiles.inc',
         'native/msx_machine/msx_v9938.c',
         'native/msx_machine/msx_v9938_cmd.c',
         'native/msx_machine/msx_v9938_draw.c',
-        'native/msx_machine/msx_video.c',
         'retrorecomp.msx_build',
         'retrorecomp.msx_cbios',
         'retrorecomp.msx_conversion',
@@ -825,6 +829,14 @@ INPUTS = _resolve({
         'retrorecomp.msx_knowledge', 'retrorecomp.msx2plus_knowledge',
         'retrorecomp.msx_rom',
         'retrorecomp.msx_routes',
+    ),
+    # The ZX Spectrum (in development, step 1): its converter modules (the snapshot reader, the ROM pin, the conversion). The
+    # profile module comes from the profile, the ROMs' notice from its notice_files; the machine's C and the shared chain come with
+    # its conversion.
+    ('zxs',): (
+        'retrorecomp.zxs_conversion',
+        'retrorecomp.zxs_roms',
+        'retrorecomp.zxs_snapshot',
     ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and
@@ -1186,6 +1198,26 @@ INPUTS = _resolve({
     # (its regions, its RAM cut, its M1 wait states) and the corrections of the Z80 state and of the reference CPU. Game role.
     # The emitter and the step loop it parametrises (native/banked_*) are under ALL above; native/banked_reference_state.inc, which no
     # machine of the converter uses yet, is declared out of the stamps (NOT_INPUTS).
+    # The TMS9918A video chip (native/tms9918): the state, the CPU's ports, the picture and the line the frame flag rises on, shared by
+    # the machines that have it (the MSX family now, the SG-1000 and the ColecoVision next). Game role.
+    'shares:tms9918': (
+        'native/tms9918/tms9918.c',
+        'native/tms9918/tms9918.h',
+        'native/tms9918/tms_tiles.inc',
+    ),
+    # The AY-3-8910 sound chip (native/ay38910): its counters, noise register and envelope and the three channel levels, shared by the
+    # machines that have it (the MSX family now, the ZX Spectrum 128K and the Amstrad CPC next); each machine mixes and resamples it.
+    # Game role.
+    'shares:ay38910': (
+        'native/ay38910/ay38910.c',
+        'native/ay38910/ay38910.h',
+    ),
+    # The glue and the build steps every machine on the banked Z80 chain shares (native/z80_chain_glue.inc: the names of the bodies, the fallback's
+    # accounting, the learning; retrorecomp/z80_chain_build.py: the generator, the bodies, the reference copy). Game role.
+    'shares:z80_chain_glue': (
+        'native/z80_chain_glue.inc',
+        'retrorecomp.z80_chain_build',
+    ),
     'shares:z80_main': (
         'retrorecomp.cpu',
         'retrorecomp.z80_chain',

@@ -82,7 +82,8 @@ _X68_SDK = re.compile(r'[0-9a-f]{12}')
 _X68_GAME = re.compile(r'[0-9a-f]{16}')
 _MSX = re.compile(r'([0-9a-f]{12})-[0-9a-f]{8}')
 # Machines whose project is <machine>/<12 hex>[-...]: (folder, pattern).
-_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('pcecd', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE))
+_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('pcecd', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE),
+         ('zxs', _MSX))   # the ZX Spectrum (in development): laid out as the MSX's, on the same Z80 chain
 # Machines whose project sits below a shared base <machine>/<host>/<SDK12>/: how many folders the game takes there.
 _BASED = {'x68': 1, 'amiga': 1, 'n64': 1, 'atarist': 2}
 # A profile that shares another one's build folder (the MSX2 converts with the MSX's converter, the Amiga 1200 with the Amiga's).

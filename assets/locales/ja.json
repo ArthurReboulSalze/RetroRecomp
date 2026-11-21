@@ -1127,7 +1127,12 @@
     "options_firmware": "BIOS とファームウェア",
     "firmware_search_explain": "フォルダーを選ぶと、変換ツールが対応するすべての機種のファームウェアを探し、パスを入力する前に確認画面を表示します。コピーも送信もされません。",
     "front_end_window": "ウィンドウに戻る",
-    "tip_conversion_queue": "変換キュー：変換待ちの ROM です。追加して、カバーを選び、変換します。"
+    "tip_conversion_queue": "変換キュー：変換待ちの ROM です。追加して、カバーを選び、変換します。",
+    "options_zxs": "ZX Spectrum",
+    "options_zxs_note": "実験的なプロファイル（開発中）：ZX Spectrum 16K、48K、128K のスナップショット（.z80、.sna、またはそれを含む ZIP）を認識しますが、まだ何も変換しません。ゲームは Spectrum 自身の ROM で動きます。Amstrad はエミュレーターでの再配布を許可しています。ROM は固定されたソースから一度だけダウンロードされます。または下の行であなた自身の ROM を選んでください。カセット、+2A、+3、ディスクにはまだ非対応です。",
+    "scan_note_zxs": "推奨：標準。開発中のプロファイルです。スキャンレベルは受け付けますが、まだ何も変換しません。",
+    "zxs_rom48_label": "ZX Spectrum：あなた自身の 48K ROM（16 KiB、任意）",
+    "zxs_rom128_label": "ZX Spectrum：あなた自身の 128K ROM（32 KiB、または同じフォルダーにある 16 KiB の二つのファイル、任意）"
   },
   "runtime": {
     "Internal resolution": "内部解像度",

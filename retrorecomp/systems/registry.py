@@ -40,6 +40,7 @@ from .pc_engine_cd import PC_ENGINE_CD
 from .scummvm import SCUMMVM
 from .psx import PLAYSTATION
 from .x68000 import X68000
+from .zx_spectrum import ZX_SPECTRUM
 
 # Extensions of files that are cartridge images or disks of machines the converter does not handle, plus the
 # containers and headerless names every machine may sit in. They are listed by `discover_roms` so that the
@@ -74,7 +75,7 @@ def unregister(system_id: str) -> SystemProfile:
     raise KeyError(system_id)
 
 
-for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, AMIGA1200, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS, PC_ENGINE_CD):
+for _profile in (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO, X68000, CPS1, CPS2, PC_ENGINE, GAME_BOY_ADVANCE, AMIGA, AMIGA1200, ATARI_ST, NINTENDO_64, SCUMMVM, PLAYSTATION, MSX, MSX2, MSX2PLUS, ZX_SPECTRUM, PC_ENGINE_CD):
     register(_profile)
 del _profile
 

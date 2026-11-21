@@ -382,58 +382,6 @@ uint8_t msx_slot_of(const MsxMachine *m, uint16_t address)
     return (uint8_t)((m->expanded[r->primary] ? 0x80 : 0) | (r->secondary << 2) | r->primary);
 }
 
-/* TMS9918A ports 98h (VRAM data) and 99h (control and status). */
-static uint8_t vdp_read_data(MsxVdp *v)
-{
-    uint8_t value = v->readahead;
-    v->readahead = v->vram[v->address];
-    v->address = (uint16_t)((v->address + 1) & 0x3FFF);
-    v->latch = 0;
-    return value;
-}
-
-static void vdp_write_data(MsxVdp *v, uint8_t value)
-{
-    v->vram[v->address] = value;
-    v->readahead = value;
-    v->address = (uint16_t)((v->address + 1) & 0x3FFF);
-    v->latch = 0;
-}
-
-static uint8_t vdp_read_status(MsxVdp *v)
-{
-    uint8_t value = v->status;
-    v->status &= 0x1F;        /* the frame flag, the fifth-sprite flag and the collision flag clear on a read */
-    v->latch = 0;
-    return value;
-}
-
-/* Bits the TMS9918A keeps in each register (the others read as zero in our model). */
-static const uint8_t vdp_masks[8] = { 0x03, 0xFB, 0x0F, 0xFF, 0x07, 0x7F, 0x07, 0xFF };
-
-static void vdp_write_control(MsxVdp *v, uint8_t value)
-{
-    if (!v->latch) {
-        /* The MSX1 VDP has no real latch for the address: the first byte is the low address byte at once. */
-        v->address = (uint16_t)((v->address & 0x3F00) | value);
-        v->first = value;
-        v->latch = 1;
-        return;
-    }
-    v->latch = 0;
-    if (value & 0x80) {
-        v->reg[value & 7] = (uint8_t)(v->first & vdp_masks[value & 7]);
-        /* A register write also loads the high address bits (TMS99x8 behaviour some MSX1 programs rely on). */
-        v->address = (uint16_t)(((value << 8) | (v->address & 0xFF)) & 0x3FFF);
-    } else {
-        v->address = (uint16_t)(v->first | ((value & 0x3F) << 8));
-        if (!(value & 0x40)) {     /* read setup: the VDP prefetches the first byte */
-            v->readahead = v->vram[v->address];
-            v->address = (uint16_t)((v->address + 1) & 0x3FFF);
-        }
-    }
-}
-
 /* Bits of each AY-3-8910 register: coarse periods 4 bits, noise and volumes 5, envelope shape 4. */
 static const uint8_t psg_masks[16] = { 0xFF, 0x0F, 0xFF, 0x0F, 0xFF, 0x0F, 0x1F, 0xFF,
                                        0x1F, 0x1F, 0x1F, 0xFF, 0xFF, 0x0F, 0xFF, 0xFF };
@@ -451,8 +399,8 @@ uint8_t msx_in(MsxMachine *m, uint8_t port)
     if (port >= 0xD8 && port <= 0xDB && m->kanji)
         return kanji_in(m, port);
     switch (port) {
-    case 0x98: return vdp_read_data(&m->vdp);
-    case 0x99: return vdp_read_status(&m->vdp);
+    case 0x98: return tms9918_read_data(&m->vdp);
+    case 0x99: return tms9918_read_status(&m->vdp);
     case 0xA2:
         if (m->psg_latch == 14) {
             int connector = (m->psg[15] >> 6) & 1;
@@ -498,8 +446,8 @@ void msx_out(MsxMachine *m, uint8_t port, uint8_t value)
         return;
     }
     switch (port) {
-    case 0x98: vdp_write_data(&m->vdp, value); break;
-    case 0x99: vdp_write_control(&m->vdp, value); break;
+    case 0x98: tms9918_write_data(&m->vdp, value); break;
+    case 0x99: tms9918_write_control(&m->vdp, value); break;
     case 0xA0: m->psg_latch = value; break;
     case 0xA1: if (m->psg_latch < 16) msx_psg_write(m, m->psg_latch, (uint8_t)(value & psg_masks[m->psg_latch])); break;
     case 0xA8: m->primary = value; rebuild_regions(m); break;
@@ -519,7 +467,7 @@ int msx_irq(const MsxMachine *m)
 {
     if (m->video == MSX_VIDEO_V9938)
         return msx_v9938_irq(m);
-    return (m->vdp.status & 0x80) && (m->vdp.reg[1] & 0x20);
+    return tms9918_irq(&m->vdp);
 }
 
 void msx_advance(MsxMachine *m, uint64_t cycles)
@@ -532,14 +480,7 @@ void msx_advance(MsxMachine *m, uint64_t cycles)
     }
     while (m->cycles >= m->next_line) {
         m->next_line += MSX_CYCLES_PER_LINE;
-        if (m->line < MSX_HEIGHT)            /* the line that just ended is drawn with the state it ended with */
-            msx_vdp_draw_line(m, (int)m->line);
-        if (m->line == MSX_HEIGHT - 1)       /* sprites of line 192: flags only, before the frame flag */
-            msx_vdp_check_line(m, MSX_HEIGHT);
-        if (++m->line == MSX_VBLANK_LINE)
-            m->vdp.status |= 0x80;
-        if (m->line == m->lines_per_frame) {
-            m->line = 0;
+        if (tms9918_line_end(&m->vdp, &m->line, m->lines_per_frame)) {
             ++m->frames;
             if (m->trace_frames) {           /* a running hash, so a divergence that reconverges still shows */
                 uint32_t h = m->frame_trace ^ 2166136261u;
