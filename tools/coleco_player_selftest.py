@@ -392,6 +392,19 @@ def prove_states(res: Results, exes: dict[str, Path], folder: Path) -> Path:
     return state
 
 
+def prove_snapshots(res: Results, exes: dict[str, Path], folder: Path) -> None:
+    print('(d) multiplayer snapshots: a rollback replays the same frames, the digest is the same, a wrong size is refused')
+    for label, game, at, count in (('NTSC', exes['game'], 300, 120), ('NTSC, later', exes['game'], 520, 60), ('PAL', exes['game_pal'], 300, 120)):
+        process = run([game, '--headless', '--frames', at + 2 * count + 20, '--snap-probe', f'{at}:{count}', *route_options(ROUTE)])
+        text = process.stderr.decode(errors='replace')
+        line = next((l for l in text.splitlines() if l.startswith('snap-probe:')), '')
+        res.check(process.returncode == 0 and ': PASS at' in line, f'{label}: snapshot at frame {at}, {count} frames, load, the same {count} frames, every digest equal', line or text[-300:])
+        if label == 'NTSC':
+            size = line.split(' bytes ')[0].rsplit(' ', 1)[-1] if line else '0'
+            res.check(line and 'same over other bytes 1' in line and 'wrong size refused 1' in line,
+                      f'  the snapshot ({size} bytes) is the same bytes twice, fits its bound, and one byte short is refused and changes nothing')
+
+
 def window(exe: Path, run_folder: Path, frames: int, script: str, *, state: Path | None = None, game: Path | None = None) -> dict:
     """One windowed run of the test double in a clean folder (hidden window, offscreen video, dummy audio); the probe's rows, the state file."""
     if run_folder.exists():
@@ -512,6 +525,7 @@ def main() -> int:
     prove_equal_runs(results, exes, cart_file, bios_file, runs / 'headless')
     saved = prove_states(results, exes, runs / 'states')
     prove_window(results, exes, saved, runs)
+    prove_snapshots(results, exes, runs)
     print(f'{results.checks} checks, {len(results.failures)} failed')
     for failure in results.failures:
         print('FAILED:', failure)

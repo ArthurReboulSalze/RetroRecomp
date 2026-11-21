@@ -569,6 +569,23 @@ land at the same cycles as MAME's. No game file of any other machine changes.
 
 **Stamps** (`compilation_inputs.role_stamps`): the ColecoVision's only.
 
+## SG-1000 and ColecoVision (developer only): in-process snapshots, the digest, and multiplayer in rollback (1.9.0)
+
+Both players now give the host kit an in-process snapshot (`snap_bound`, `snap_save`, `snap_load`) and a digest (FNV-1a 64 over a snapshot): a head
+(a magic and the two seats' pad words) then the quick state's body without the picture, which the next frame draws again. The profiles say
+`netplay_session = True` (two seats, rollback). The SG-1000's Pause becomes bit 6 of each seat's word (an ordinary action row): the machine raises
+its /NMI once on the press edge, from a per-seat latch kept in its state, so a match carries it and the host no longer presses it for the seat; its
+quick-state layout moves to `sg1000-state-2` (one byte more: the latch). The ColecoVision's report carries its BIOS at the top level
+(`bios: {sha256, ...}`), where the lobby reads firmware.
+
+**Proofs run** (the specialist's checklist, in order): (1) `--snap-probe AT:N` in each delivered game, headless, in the player self-tests (proof (d)):
+a snapshot is the same bytes twice, fits its bound, a buffer one byte short is refused and changes nothing, and after a load the same N frames give
+every digest and every picture again, at two frames and on PAL; (solo) the SG-1000's reference runner on its authored program gives the same
+fields and the same per-frame rows before and after, NTSC and PAL. **Still to run**: the Windows and WSL digests, `tools/netplay_game_smoke.py`,
+the netplay selftests and the full suite, then the multiplayer specialist's two-PC acceptance.
+
+**Stamps** (`compilation_inputs.role_stamps`): the SG-1000's and the ColecoVision's only (the host adapters and the state files are theirs).
+
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
 
 The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a

@@ -1,12 +1,12 @@
 /* Quick states of the SG-1000 game (MIT, Retro-Recomp), included by sg1000_player.c after sg1000_glue.inc and sg1000_game.h.
  *
  * The file is the envelope the Z80 machines share (state_envelope.h: magic RRSG1ST, schema 1, machine 1 NTSC or 2 PAL, the
- * cartridge's SHA-256), then the body, layout `sg1000-state-1`, in this fixed order (state_io.h: fixed-width little-endian
+ * cartridge's SHA-256), then the body, layout `sg1000-state-2`, in this fixed order (state_io.h: fixed-width little-endian
  * fields, never a pointer, a host address or a C layout):
  *   (1) the build binding, RR_SG_STATE_ABI, 32 bytes the converter writes in sg1000_game.h (the layout name, the standard, the size of
  *       the cartridge as the machine sees it), compared and never applied;
  *   (2) the CPU: A F B C D E H L, the shadow set, PC SP IX IY WZ I R, IFF1 IFF2 IM, halted, Q P, the EI delay, the cycle counter;
- *   (3) the machine: line, cycles, next line, frames, the frame trace, the /NMI edge, and (never applied, refused when they differ)
+ *   (3) the machine: line, cycles, next line, frames, the frame trace, the /NMI edge, the Pause latch of each seat, and (never applied, refused when they differ)
  *       the lines per frame and the cartridge's size;
  *   (4) the 1 KiB of RAM;
  *   (5) the TMS9918A: the 16 KiB of VRAM, the eight registers, the status, the address, the control latch, the first control byte, the
@@ -25,6 +25,7 @@
 #include "state_file.h"
 
 #define SG_STATE_SCHEMA 1u
+static int sg_state_picture = 1;               /* 0: the snapshots leave the picture and the borders out (they are drawn again) */
 /* The largest body: the VRAM, the picture, the sound samples not yet taken, the CPU and the rest, with room to spare. */
 #define SG_STATE_CAPACITY ((size_t)(160u << 10))
 
@@ -92,7 +93,7 @@ static int sg_state_consistent(const SgMachine *m, uint64_t cpu_cycles)
 {
     if (m->lines_per_frame != SG_LINES_NTSC && m->lines_per_frame != SG_LINES_PAL)
         return 0;
-    if (m->line >= m->lines_per_frame || m->frames >= (1ull << 40) || m->cycles >= (1ull << 47) || m->nmi_edge > 1)
+    if (m->line >= m->lines_per_frame || m->frames >= (1ull << 40) || m->cycles >= (1ull << 47) || m->nmi_edge > 1 || m->pause_held > 3)
         return 0;
     /* The line clock is a function of the frame and the line: a state whose clock says otherwise is not one this machine made, and
      * a crafted one would only make the next catch-up loop for ever. */
@@ -124,6 +125,7 @@ static void sg_machine_state(SgMachine *m, RetroStateIO *io)
     SGW(m->frames, 8, UINT64_MAX);
     SGW(m->frame_trace, 4, 0xFFFFFFFFu);
     SGW(m->nmi_edge, 1, 1);
+    SGW(m->pause_held, 1, 3);
     sg_state_same(io, m->lines_per_frame, 4);
     sg_state_same(io, m->rom_size, 4);
     /* (4) RAM. */
@@ -137,11 +139,13 @@ static void sg_machine_state(SgMachine *m, RetroStateIO *io)
     SGW(t->latch, 1, 1);
     SGB(t->first);
     SGB(t->readahead);
-    for (int y = 0; y < TMS_HEIGHT; ++y)
-        for (int x = 0; x < TMS_WIDTH; ++x)
-            SGW(t->frame[y][x], 1, 15);
-    for (int y = 0; y < TMS_HEIGHT; ++y)
-        SGW(t->border[y], 1, 15);
+    if (sg_state_picture) {
+        for (int y = 0; y < TMS_HEIGHT; ++y)
+            for (int x = 0; x < TMS_WIDTH; ++x)
+                SGW(t->frame[y][x], 1, 15);
+        for (int y = 0; y < TMS_HEIGHT; ++y)
+            SGW(t->border[y], 1, 15);
+    }
     /* (6) The SN76489A. */
     sg_psg_state(io, &m->psg);
 }
@@ -199,4 +203,75 @@ static int sg_state_load(const wchar_t *path)
 {
     RetroStateFile f = sg_state_file();
     return rr_state_file_load(&f, path);
+}
+
+/* ---- In-process snapshots for multiplayer (hostkit.h, "Multiplayer"; MIT, Retro-Recomp) ----
+ * The rollback tier saves one a frame and loads one a correction, the host's F8 / F9 for everyone are the same snapshots, and the digest the
+ * session compares is a hash of one. A snapshot is a head (the magic and the two pad words the adapter set) then the quick state's body
+ * (the CPU and the whole machine, without the picture: the next frame draws it again, as the MSX's snapshots). Fixed-width little-endian
+ * fields, never a C layout or an address: the same bytes on Windows and Linux. Memory only, never a file, no envelope, no allocation per
+ * call; taken and loaded at the service point (the frame's end), where the quick states already are. A load is checked whole (the head,
+ * then the body on the machine's scratch copy, then its consistency rules) before anything is applied; a buffer of another size is refused. */
+#define SG_SNAP_MAGIC 0x31504E5347535252ull
+static uint8_t sg_snap_scratch[SG_STATE_CAPACITY];
+
+static void sg_snap_head(RetroStateIO *io, uint16_t pads[2])
+{
+    if (rr_state_word(io, SG_SNAP_MAGIC, 8, UINT64_MAX) != SG_SNAP_MAGIC)
+        io->ok = false;
+    for (int i = 0; i < 2; ++i)
+        pads[i] = (uint16_t)rr_state_word(io, machine.pad[i], 2, SG_PAD_MASK);
+}
+
+static size_t sg_snap_save(void *buffer, size_t capacity)
+{
+    uint16_t pads[2];
+    RetroStateIO io = {(uint8_t *)buffer, capacity, 0, RR_STATE_WRITE, true};
+    sg_snap_head(&io, pads);
+    sg_state_picture = 0;                       /* the next frame draws the picture again: not stored */
+    sg_state_body(&io);
+    sg_state_picture = 1;
+    return io.ok ? io.pos : 0;
+}
+
+static bool sg_snap_load(const void *buffer, size_t size)
+{
+    uint16_t pads[2];
+    RetroStateIO check = {(uint8_t *)buffer, size, 0, RR_STATE_CHECK, true};
+    sg_snap_head(&check, pads);
+    if (!check.ok)
+        return false;
+    sg_state_picture = 0;
+    sg_state_body(&check);
+    sg_state_picture = 1;
+    if (!check.ok || check.pos != size || !sg_consistent())
+        return false;
+    RetroStateIO apply = {(uint8_t *)buffer, size, 0, RR_STATE_APPLY, true};
+    sg_snap_head(&apply, pads);
+    sg_state_picture = 0;
+    sg_state_body(&apply);
+    sg_state_picture = 1;
+    if (!apply.ok)
+        return false;                                /* not reached: the same bytes passed the check */
+    machine.pad[0] = (uint8_t)pads[0];
+    machine.pad[1] = (uint8_t)pads[1];
+    handed_this_frame = machine.line >= TMS_VBLANK_LINE;
+    return true;
+}
+
+static size_t sg_snap_bound(void)
+{
+    static size_t bound;
+    if (!bound)
+        bound = sg_snap_save(sg_snap_scratch, sizeof sg_snap_scratch);
+    return bound;
+}
+
+/* FNV-1a 64 over a snapshot's bytes: the deterministic state after the last frame, in the order the snapshot names its fields. */
+static uint64_t sg_snap_digest(void)
+{
+    const size_t n = sg_snap_save(sg_snap_scratch, sizeof sg_snap_scratch);
+    uint64_t h = 1469598103934665603ull;
+    for (size_t i = 0; i < n; ++i) { h ^= sg_snap_scratch[i]; h *= 1099511628211ull; }
+    return n ? h : 0;
 }

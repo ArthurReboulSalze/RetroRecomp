@@ -117,7 +117,7 @@ static void sg_route_events(void)
     for (; route_next_event < route_event_count && route_events[route_next_event].frame <= machine.frames; ++route_next_event) {
         const SgRouteEvent *e = &route_events[route_next_event];
         if (e->kind == 1) sg_pause(&machine);
-        else if (e->a == 0 || e->a == 1) machine.pad[e->a] = (uint8_t)(e->b & 0x3F);
+        else if (e->a == 0 || e->a == 1) sg_pad_word(&machine, e->a, (uint16_t)(e->b & SG_PAD_MASK));
     }
 }
 

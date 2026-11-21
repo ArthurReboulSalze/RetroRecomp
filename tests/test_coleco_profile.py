@@ -30,7 +30,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual((COLECO.extensions, COLECO.export_folder, COLECO.video_modes), (('.col',), 'ColecoVision', ('ntsc', 'pal')))
         self.assertEqual([(cpu.arch, cpu.role, cpu.unit) for cpu in COLECO.cpus], [('z80', 'main', 'cycles')])
         self.assertEqual((COLECO.firmware, [key.name for key in COLECO.option_keys], COLECO.netplay_session, COLECO.feedback_kinds),
-                         (('bios',), ['coleco_bios'], False, frozenset()))
+                         (('bios',), ['coleco_bios'], True, frozenset()))
         self.assertEqual(COLECO.default_video_mode(Path('game.col')), 'ntsc')
 
     def test_the_machine_has_the_bios_and_the_cartridge_as_sources_and_the_nmi_pin(self):

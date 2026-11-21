@@ -286,6 +286,7 @@ class EndToEndTests(AuthoredBiosCase):
             self.assertEqual(report['status'], 'experimental')
             self.assertEqual(report['coleco_checks']['standard'], 'pal')
             self.assertEqual(report['coleco_checks']['bios'], {'sha256': BIOS_SHA256, 'bytes': 8192, 'origin': 'player'})
+            self.assertEqual(report['bios'], {'sha256': BIOS_SHA256, 'bytes': 8192, 'origin': 'player'})        # where the lobby reads firmware
             self.assertEqual(report['coleco_checks']['header_word'], 'direct')
             # The game is delivered: a file in the output folder under the title's name, the report names it and how it was checked.
             self.assertEqual(game, output / executable_name('Authored (Europe)'))

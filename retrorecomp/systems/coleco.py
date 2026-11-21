@@ -56,7 +56,7 @@ class ColecoProfile(SystemProfile):
     media_kinds = ('cartridge',)
     capabilities = Capabilities()          # two controllers (stick, two fire buttons, a keypad): no Pause button, no keyboard, no mouse, no disk
     quick_state_family = 'coleco'
-    netplay_session = False                # a later step of the machine
+    netplay_session = True                 # the host kit's adapter gives a digest and an in-process snapshot (multiplayer rollback)
     host_adapter = 'adapters/rrhk_coleco.inc'
     # No record kind of its own yet (native/runtime_feedback.h): nothing is recorded for path sharing before the conversion exists.
     feedback_kinds = frozenset()
