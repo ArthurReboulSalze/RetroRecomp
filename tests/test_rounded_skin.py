@@ -380,6 +380,18 @@ class LayoutDoesNotMove(unittest.TestCase):
         plain = tk_root(self)
         self.addCleanup(plain.destroy)
         apply_theme(plain, 'Segoe UI')                     # branding alone: square
+        # The reference must itself be at 96 dpi. Tk's own clam elements (the check indicator, the spinbox arrows) can be
+        # sized from the host's real dpi, not from `tk scaling`: on GitHub's Windows runner the square TCheckbutton was
+        # 48 x 22 and TSpinbox 143 wide while the rounded ones measured exactly as on a 96 dpi PC (42 x 21, 141). A bare
+        # check (no text) is 21 px wide at 96 dpi (Tk 8.6.15 on Windows, 8.6.16 on Linux); elsewhere there is no square
+        # 96 dpi reference to compare with, and players never see the square theme.
+        bare = ttk.Checkbutton(plain, text='')
+        bare.pack()
+        plain.update_idletasks()
+        if bare.winfo_reqwidth() != 21:
+            self.skipTest(f'the host draws Tk\'s own clam indicator at {bare.winfo_reqwidth()} px, not its 21 px at 96 dpi: '
+                          'no square 96 dpi reference here')
+        bare.destroy()
         square = requested(plain)
         rounded = tk_root(self)
         self.addCleanup(rounded.destroy)
