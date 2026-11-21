@@ -79,6 +79,7 @@ class MachineTests(unittest.TestCase):
 
     def test_the_glue_defines_what_the_loop_needs(self):
         glue = (ROOT / 'native' / 'msx_machine' / 'msx_glue.inc').read_text(encoding='utf-8')
+        glue += (ROOT / 'native' / 'z80_chain_glue.inc').read_text(encoding='utf-8')     # the part every machine on the chain shares
         for name in ('smsrecomp_region_map', 'smsrecomp_region_generation', 'smsrecomp_step_begin',
                      'hyb_read', 'advance_vdp', 'vdp_irq_asserted', 'sms_dispatch_miss', 'smsrecomp_feedback_at',
                      'smsrecomp_learning_enabled', 'smsrecomp_observe_code', 'smsrecomp_state_service',

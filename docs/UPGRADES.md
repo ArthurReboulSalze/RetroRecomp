@@ -394,6 +394,30 @@ the ports 98h/99h and the PPI stay its own. The quick states and the rollback sn
 and the MSX2+ move (new group `shares:tms9918`, the three files left the MSX group), nothing else: no host stamp, and the Master System,
 the Game Gear and every other machine keep theirs.
 
+## MSX, MSX2, MSX2+: the glue and the build steps of the Z80 chain move to files every machine on the chain shares (1.9.0)
+
+The SG-1000, the ColecoVision, the ZX Spectrum and the Amstrad CPC are the next machines on the banked Z80 chain. What was MSX only by
+position in `msx_glue.inc` and `msx_build.py` becomes shared, so that there are not five copies:
+
+- `native/z80_chain_glue.inc`: the names the generated bodies and the step loop link to, the instruction's start time, the wrappers that put
+  the reference interpreter on the machine's bus, the fallback's accounting, the learning of code run from RAM, the dispatch miss and
+  the catching up of the hardware after an instruction. Its header is the includer's contract (what to define before and after it; the
+  optional `banked_nmi_edge`; a reserved name, `machine_instruction_cost`, for a machine whose video steals bus cycles). The MSX keeps its
+  machine, its bus, its region map and the loop's include in `msx_glue.inc`.
+- `retrorecomp/z80_chain_build.py`: the machine's own generator, the generated bodies (cartridge, further sources, `game.toml`, the reference
+  interpreter's copy corrected for the machine, the rendered loop), the export of the reference's interrupt acceptance and the staging of
+  files from a list of shared folders. `msx_build.py` keeps its `game.toml`, its media, its project and its runs; the shared modules it
+  stages and compiles are one list, `SHARED_MODULES` (the TMS9918A today).
+
+- **Identical output, proved** (main `f3fe139d` against this change): the generated files of one MSX cartridge and the C-BIOS (the bodies, the
+  index, the layout, the rendered loop, `runtime_reference.c` and `.h`) are byte for byte equal (`banked.sources` only names another folder);
+  `tools/msx_reference.py` gives the same JSON; one real conversion of an MSX1 game (Nemesis) gives the same conversion report in every field
+  but the engine identity. `tests/test_z80_chain_glue.py` pins the contract (the names the rendered loop needs are in the glue or in its
+  header, the MSX glue supplies what the header asks) and the build module.
+
+**Stamps** (`compilation_inputs.role_stamps`, 21 profiles, before and after): the game stamps of the MSX, the MSX2 and the MSX2+ move (new
+group `shares:z80_chain_glue`); nothing else.
+
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
 
 The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a

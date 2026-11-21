@@ -21,6 +21,8 @@ import shutil
 import subprocess
 from typing import Callable
 
+from . import z80_chain_build
+
 # The fields a native run must give exactly as the reference does: the CPU (main and shadow registers, I, R, IM, IFF, WZ),
 # time and interrupts, RAM, VRAM, the picture of the last frame and a running hash of every frame, the sound, the PSG, the
 # slots and the cartridge banks, the watched bytes; on the MSX2 the V9938 (registers, command registers, status, pointer,
@@ -50,8 +52,12 @@ MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_glue.inc', 'msx_route.i
                  'msx_native_main.c',
                  'msx_reference_main.c', 'msx_player.c', 'msx_sram.c', 'msx_sram.h', 'msx_fdc.h')
 # The TMS9918A, shared with the other machines that have the chip (native/tms9918): compiled into every program, staged beside the machine.
-SHARED_SOURCES = ('tms9918.c',)
-SHARED_FILES = (*SHARED_SOURCES, 'tms9918.h', 'tms_tiles.inc')
+# Each is one folder of native/: (folder, the sources compiled into every program, the other files staged with them). Another shared module
+# (the AY-3-8910) is one more line here: the staging, the project and the reference checks read this list.
+SHARED_MODULES = (('tms9918', ('tms9918.c',), ('tms9918.h', 'tms_tiles.inc')),)
+SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)      # in the work folder, flat
+# The glue every machine on the banked Z80 chain shares (native/z80_chain_glue.inc), included by msx_glue.inc.
+CHAIN_FILES = ('z80_chain_glue.inc',)
 KIT_FILES = ('media_request.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
@@ -78,84 +84,38 @@ def padded(image: bytes, mapper: str | None) -> bytes:
 
 def generator(emit: Callable[[str], None] = print) -> tuple[Path, Path]:
     """The MSX machine's own Z80 -> C generator (built once, in its own folders) and the engine checkout."""
-    from . import core
-    from .platforms import build_executable
     from .systems.msx import MSX_MACHINE
-    from .toolchain import suffix
-    engine, _, _, _ = core.dependencies(emit, MSX_MACHINE)
-    return build_executable(core.ROOT / '.deps' / (MSX_MACHINE.generator_build + suffix()), 'SmsRecomp'), engine
-
-
-# The interpreter runs a DD/FD prefix before an opcode that does not use the index register by executing that opcode
-# again as unprefixed, and takes back the second R increment; the M1 count (one wait state per M1 cycle on the MSX) must
-# be taken back with it, or "DD C9" costs three wait states instead of two. cpu.prepare_reference(m1_counter=True) does it
-# (shared, since main b9f0d38f); this module only checks that it did.
-DDFD_R_BACK = '    // R should not be incremented twice:\n    z->r = (z->r & 0x80) | ((z->r - 1) & 0x7f);'
+    return z80_chain_build.generator(MSX_MACHINE, emit)
 
 
 def instrument_reference(path: Path) -> None:
     """The MSX's addition to its copy of the reference interpreter: its own interrupt acceptance exported (behaviour
     unchanged; the reference runner reads /INT after each instruction, as the native loop does). Refuses a copy whose M1
-    count is not taken back after the DD/FD fallback (DDFD_R_BACK)."""
-    source = path.read_text(encoding='utf-8')
-    if 'static inline void process_interrupts(z80* const z)' not in source:
-        raise MsxBuildError('Pinned CPU source changed: process_interrupts')
-    at = source.find(DDFD_R_BACK)
-    if at < 0 or '--z80_m1_fetches;' not in source[at + len(DDFD_R_BACK):at + len(DDFD_R_BACK) + 40]:
-        raise MsxBuildError('The reference CPU copy does not take the M1 count back after the DD/FD fallback '
-                            '(cpu.prepare_reference with m1_counter).')
-    if 'msx_reference_accept' not in source:
-        source += '\nvoid msx_reference_accept(z80* const z) { process_interrupts(z); }\n'
-        path.write_text(source, encoding='utf-8', newline='\n')
+    count is not taken back after the DD/FD fallback (z80_chain_build.DDFD_R_BACK)."""
+    from .systems.msx import MSX_MACHINE
+    z80_chain_build.instrument_reference(path, 'msx_reference_accept', MSX_MACHINE, MsxBuildError)
 
 
-def _write(path: Path, data: bytes) -> None:
-    if not path.is_file() or path.read_bytes() != data:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
+_write = z80_chain_build.write_if_changed
 
 
 def generate(work: Path, cartridge: bytes, bios: bytes, emit: Callable[[str], None] = print, *, keep_rom: bool = True) -> None:
     """The bodies of `cartridge` (padded as the machine sees it) and `bios` in `work/generated`, with the learned patterns."""
-    from .cpu import prepare_cpu_headers, prepare_reference
-    from .paths import ASSETS
     from .systems.msx import MSX_MACHINE
-    from .z80_chain import banked_runtime
-    tool, engine = generator(emit)
-    (work / 'generated').mkdir(parents=True, exist_ok=True)
-    for stale in (work / 'generated').glob('game_banked_ops_*.c'):
-        stale.unlink()
-    _write(work / 'rom.sms', cartridge)
-    _write(work / 'bios.rom', bios)
-    (work / 'banked.sources').write_text(str((work / 'bios.rom').resolve()) + '\n', encoding='utf-8', newline='\n')
-    (work / 'game.toml').write_text(GAME_TOML, encoding='utf-8', newline='\n')
-    log = work / 'generate.log'
-    with log.open('w', encoding='utf-8') as out:
-        result = subprocess.run([str(tool), '--game', str(work / 'game.toml'), '--banked-step'], stdout=out,
-                                stderr=subprocess.STDOUT, timeout=BUILD_TIMEOUT, creationflags=_flags())
-    if not keep_rom:
-        (work / 'rom.sms').unlink(missing_ok=True)
-    if result.returncode:
-        raise MsxBuildError(f'The Z80 generator failed (see {log}).')
-    prepare_cpu_headers(work, engine)
-    prepare_reference(work, engine, m1_counter=MSX_MACHINE.counts_m1)
-    instrument_reference(work / 'runtime_reference.c')
-    (work / 'msx_banked_loop.inc').write_text(banked_runtime(MSX_MACHINE, ASSETS), encoding='utf-8', newline='\n')
+    z80_chain_build.generate_bodies(work, MSX_MACHINE, cartridge, (('bios.rom', bios),), GAME_TOML, emit,
+                                    loop_name='msx_banked_loop.inc', accept='msx_reference_accept', keep_rom=keep_rom,
+                                    error=MsxBuildError)
 
 
 def stage_sources(work: Path) -> None:
     """The machine, the glue, the mains and the host kit's companions, copied beside the generated bodies."""
     from . import hostkit
     from .paths import ASSETS
-    for name in MACHINE_FILES:
-        _write(work / name, (ASSETS / 'native' / 'msx_machine' / name).read_bytes())
-    for name in SHARED_FILES:
-        _write(work / name, (ASSETS / 'native' / 'tms9918' / name).read_bytes())
-    for name in KIT_FILES:
-        _write(work / name, (ASSETS / 'native' / name).read_bytes())
+    z80_chain_build.stage_files(work, ((ASSETS / 'native' / 'msx_machine', MACHINE_FILES),
+                                       *((ASSETS / 'native' / folder, (*sources, *files)) for folder, sources, files in SHARED_MODULES),
+                                       (ASSETS / 'native', (*CHAIN_FILES, *KIT_FILES))))
     if (work / MUSIC_MARK).is_file():
-        for name in MUSIC_FILES:
-            _write(work / name, (ASSETS / 'native' / 'msx_machine' / name).read_bytes())
+        z80_chain_build.stage_files(work, ((ASSETS / 'native' / 'msx_machine', MUSIC_FILES),))
     hostkit.stage(work, 'msx')
     # What the computers' adapters share (the guest keyboard, the captured mouse), included by the MSX adapter.
     _write(work / 'hostkit' / 'adapters' / 'rrhk_computer.inc',

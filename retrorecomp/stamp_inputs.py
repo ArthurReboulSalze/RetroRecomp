@@ -1170,6 +1170,12 @@ INPUTS = _resolve({
         'native/tms9918/tms9918.h',
         'native/tms9918/tms_tiles.inc',
     ),
+    # The glue and the build steps every machine on the banked Z80 chain shares (native/z80_chain_glue.inc: the names of the bodies, the fallback's
+    # accounting, the learning; retrorecomp/z80_chain_build.py: the generator, the bodies, the reference copy). Game role.
+    'shares:z80_chain_glue': (
+        'native/z80_chain_glue.inc',
+        'retrorecomp.z80_chain_build',
+    ),
     'shares:z80_main': (
         'retrorecomp.cpu',
         'retrorecomp.z80_chain',
