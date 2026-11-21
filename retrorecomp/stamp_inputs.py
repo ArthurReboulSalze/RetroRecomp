@@ -1179,6 +1179,13 @@ INPUTS = _resolve({
         'native/tms9918/tms9918.h',
         'native/tms9918/tms_tiles.inc',
     ),
+    # The AY-3-8910 sound chip (native/ay38910): its counters, noise register and envelope and the three channel levels, shared by the
+    # machines that have it (the MSX family now, the ZX Spectrum 128K and the Amstrad CPC next); each machine mixes and resamples it.
+    # Game role.
+    'shares:ay38910': (
+        'native/ay38910/ay38910.c',
+        'native/ay38910/ay38910.h',
+    ),
     # The glue and the build steps every machine on the banked Z80 chain shares (native/z80_chain_glue.inc: the names of the bodies, the fallback's
     # accounting, the learning; retrorecomp/z80_chain_build.py: the generator, the bodies, the reference copy). Game role.
     'shares:z80_chain_glue': (

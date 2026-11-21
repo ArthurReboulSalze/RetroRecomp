@@ -54,7 +54,8 @@ MACHINE_FILES = (*MACHINE_SOURCES, 'msx_machine.h', 'msx_glue.inc', 'msx_route.i
 # The TMS9918A, shared with the other machines that have the chip (native/tms9918): compiled into every program, staged beside the machine.
 # Each is one folder of native/: (folder, the sources compiled into every program, the other files staged with them). Another shared module
 # (the AY-3-8910) is one more line here: the staging, the project and the reference checks read this list.
-SHARED_MODULES = (('tms9918', ('tms9918.c',), ('tms9918.h', 'tms_tiles.inc')),)
+SHARED_MODULES = (('tms9918', ('tms9918.c',), ('tms9918.h', 'tms_tiles.inc')),
+                  ('ay38910', ('ay38910.c',), ('ay38910.h',)))
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)      # in the work folder, flat
 # The glue every machine on the banked Z80 chain shares (native/z80_chain_glue.inc), included by msx_glue.inc.
 CHAIN_FILES = ('z80_chain_glue.inc',)
