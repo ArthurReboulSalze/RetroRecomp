@@ -95,6 +95,31 @@ class RouteTests(unittest.TestCase):
             if start <= frame < start + routes.QUIET_WALK:
                 self.assertEqual(bits & buttons, 0, frame)
 
+    def test_the_keypad_tour_follows_the_quiet_walk_and_taps_every_key_then_enter(self):
+        frames, variant = 6000, ((routes.B1,), 1)
+        events = routes.events(frames, 4242, variant)
+        tour_start = routes.walk_start(1) + routes.QUIET_WALK
+        taps = []
+        for _, frame, _, bits in events:
+            keys = (bits >> routes.KEY_SHIFT) & 15
+            if keys and frame >= tour_start:
+                taps.append((frame, keys))
+        self.assertTrue(all(frame >= tour_start for frame, _ in taps))
+        # the first taps of the tour, in order: 1 then * (enter), 2 then *, 5 then *: the lines each key pulls (CV_KEY_*)
+        lines = [routes.KEY_LINES[key] for key in routes.KEYPAD_TOUR]
+        got = [keys for _, keys in taps if keys in lines][:6]
+        self.assertEqual(got, lines[:6])
+        self.assertEqual(set(routes.KEY_LINES), set('0123456789#*'))
+        self.assertEqual(sorted(routes.KEY_LINES.values()), sorted({0x05, 0x02, 0x08, 0x03, 0x0D, 0x0C, 0x01, 0x0A, 0x0E, 0x04, 0x09, 0x06}))
+        self.assertEqual(sorted(set(routes.KEYPAD_TOUR)), sorted(set('0123456789#*')))
+        for digit, after in zip(routes.KEYPAD_TOUR[:-2:2], routes.KEYPAD_TOUR[1:-2:2]):
+            self.assertEqual(after, '*', digit)
+
+    def test_the_keypad_tour_ends_before_the_last_two_hundred_frames(self):
+        events = routes.events(3600, 9, ((routes.B1,), 1))
+        late = [frame for _, frame, _, bits in events if (bits >> routes.KEY_SHIFT) & 15 and frame > 3600 - 200]
+        self.assertEqual(late, [])
+
     def test_an_event_changes_what_is_held(self):
         events = routes.events(6000, 99, ((routes.KEY_1, routes.B1), 2))
         bits = [event[3] for event in events]

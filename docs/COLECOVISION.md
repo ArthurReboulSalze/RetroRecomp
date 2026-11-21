@@ -72,7 +72,8 @@ the game file is for its owner only, as the MSX's own-BIOS games are. The work f
 
 1. the cartridge and the BIOS are read and refused with a sentence when they are not what the machine holds (size, header word of a `.bin`, the BIOS's
    digest), before anything is written;
-2. **the start of the `play` route** is chosen on the reference, then the cartridge and the BIOS are translated and the native check is built beside
+2. **the start of the `play` route** is chosen on the reference (the walk after it ends with a **keypad tour**: each digit then `*`, then `#` and `*`, one tap
+   every 60 frames after the quiet part of the walk, so a game that asks for a bet or a code and then `*` is taken past its first screen), then the cartridge and the BIOS are translated and the native check is built beside
    the reference runner; every route is run on the check, and the code the interpreter ran from RAM is learned (at most three passes);
 3. **the comparison**: the native check and the reference run every route; every compared field (CPU registers, cycles, the /NMI count, RAM, VRAM, the picture of
    every frame, the VDP registers, the sound and the PSG, the watched bytes) and every frame's row must be equal, or the conversion is **refused**; a
