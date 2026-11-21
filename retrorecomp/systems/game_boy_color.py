@@ -44,7 +44,7 @@ class GameBoyColorProfile(SystemProfile):
                              default=True),
                    OptionKey("gbc_parallel_games", signature=False, kind="count", default=1))
     parallel_games_option = "gbc_parallel_games"
-    path_spec = PathSpec(order=21, sections=(("sm83", "gbc"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
+    path_spec = PathSpec(order=23, sections=(("sm83", "gbc"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
                          required_sources=("rom",),
                          shapes=(("sm83", "gbc", dict(roles=("rom",), caps={"gb_offsets": 65536, "gb_rows": 65536},
                                                       unit=0x4000, pc_window=(0, 0x7fff))),))
