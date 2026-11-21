@@ -208,7 +208,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
-    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc',
+    'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc', 'hostkit/adapters/rrhk_keypad.inc',
     # The Amstrad CPC's (in development, its adapter to come): the boot key sequence player and its key table.
     'hostkit/adapters/rrhk_boot_keys.h', 'hostkit/adapters/rrhk_cpc_keys.h')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
@@ -279,6 +279,9 @@ NOT_INPUTS = (
     # The Z80 chain's CPU state and the quick-state file around the shared envelope: their headers are the groups `shares:z80_chain_state` and
     # `shares:state_file` (the SG-1000 is the first machine to build with them). tools/z80_chain_state_selftest.py builds their checks, never in a game.
     'native/state_file_checks.c',
+    # The copies of the disks a game writes, kept beside the game (machine-neutral): no machine builds with it yet; it joins a group
+    # `shares:disk_copies` with its first machine (the Amstrad CPC). tools/disk_copies_selftest.py builds its checks, never in a game.
+    'native/disk_copies.inc', 'native/disk_copies_checks.c',
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/zxs_machine/zxs_machine_checks.c',      # tools/zxs_machine_selftest.py: the ZX Spectrum core on authored images, never in a game
@@ -289,11 +292,8 @@ NOT_INPUTS = (
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
     'native/banked_reference_state.inc',
-    # The on-screen keypad of a gamepad player (docs/HOST_KIT.md 2.6): an adapter includes it and calls it from hooks the shell
-    # already calls. No machine builds with it yet: with its first (the ColecoVision) it leaves this list for a group
-    # `shares:hostkit_keypad`, host role, hashed by the machines whose adapter includes it only. tools/hostkit_keypad_selftest.py
-    # builds it around a fake machine, never into a game.
-    'native/hostkit/adapters/rrhk_keypad.inc',
+    # (the on-screen keypad of a gamepad player, native/hostkit/adapters/rrhk_keypad.inc, is the group `shares:hostkit_keypad` since the
+    # ColecoVision, its first machine; tools/hostkit_keypad_selftest.py builds it around a fake machine, never into a game.)
     # tools/cart_save_selftest.py (the cartridge save file of the Mega Drive, the Super Nintendo and the PC Engine, on each machine's own
     # entry points with a stand-in memory): built for a check, never into a game.
     'native/cart_save_checks.c',
@@ -525,7 +525,8 @@ INPUTS = _resolve({
         'retrorecomp.toolchain',
         'retrorecomp.windows',
     ),
-    ('gb',): (
+    # The engine, the runtime parts and the tools of the two Game Boy machines (the Color is a variant of the same modules).
+    'shares:gameboy': (
         'native/gb_audio_checks.c',
         'native/gb_boundary_checks.c',
         'native/gb_digest.h',
@@ -534,6 +535,7 @@ INPUTS = _resolve({
         'native/gb_machine_checks.c',
         'native/gb_ppu_object_span.h',
         'native/gb_ppu_span_checks.c',
+        'native/gbc_hardware_checks.c',
         'native/gb_machine_state.h',
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
@@ -863,6 +865,7 @@ INPUTS = _resolve({
         'retrorecomp.zxs_roms',
         'retrorecomp.zxs_routes',
         'retrorecomp.zxs_snapshot',
+        'retrorecomp.zxs_starts',
     ),
     # The SG-1000 (experimental, developer only): its converter modules, the cartridge reader and the conversion, the machine (our own
     # C), the glue of the banked Z80 chain, the player (stage 3: the game's main and its quick states) and the native and reference
@@ -881,6 +884,23 @@ INPUTS = _resolve({
         'retrorecomp.sg1000_conversion',
         'retrorecomp.sg1000_rom',
         'retrorecomp.sg1000_routes',
+    ),
+    # The ColecoVision (experimental, developer only, in development): its converter modules, the cartridge reader, the BIOS check and
+    # the conversion. Its profile module comes from the profile; the Z80 chain, the TMS9918A, the SN76489A and the gates from stamp_groups.
+    ('coleco',): (
+        'native/coleco_machine/coleco_glue.inc',
+        'native/coleco_machine/coleco_headless.inc',
+        'native/coleco_machine/coleco_machine.c',
+        'native/coleco_machine/coleco_machine.h',
+        'native/coleco_machine/coleco_native_main.c',
+        'native/coleco_machine/coleco_player.c',
+        'native/coleco_machine/coleco_reference_main.c',
+        'native/coleco_machine/coleco_state_file.inc',
+        'retrorecomp.coleco_bios',
+        'retrorecomp.coleco_build',
+        'retrorecomp.coleco_conversion',
+        'retrorecomp.coleco_rom',
+        'retrorecomp.coleco_routes',
     ),
     # The Amstrad CPC (in development, developer only): its disk reader and firmware table, its chips (CRTC, Gate Array, PPI and
     # keyboard) and the uPD765 with the DSK / EXTENDED DSK reader (machine-neutral, the CPC its first user; the ZX Spectrum +3
@@ -1261,6 +1281,11 @@ INPUTS = _resolve({
     # What the host kit's adapters of the disk computers share (the guest keyboard, the captured mouse, the floppy drives...), included by each adapter. Host role.
     'shares:hostkit_computer': (
         'native/hostkit/adapters/rrhk_computer.inc',
+    ),
+    # The on-screen keypad of a gamepad player (docs/HOST_KIT.md 2.6): an adapter includes it and calls it from hooks the shell already
+    # calls; hashed by the machines whose adapter includes it only (the ColecoVision). Host role (in HOST_NATIVE above).
+    'shares:hostkit_keypad': (
+        'native/hostkit/adapters/rrhk_keypad.inc',
     ),
     # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
     'shares:m68k_observed': (

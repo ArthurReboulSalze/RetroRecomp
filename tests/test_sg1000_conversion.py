@@ -317,6 +317,8 @@ class EndToEndTests(unittest.TestCase):
             self.assertEqual(native['watch']['C001'], 2)                       # two Pause presses, two NMIs taken
             self.assertEqual(native['watch']['C000'], native['interrupts'] % 256)   # the /INT of every frame, counted by the program
             self.assertGreaterEqual(native['interrupts'], 290)
+            self.assertEqual(native['nmi'], 2)                                 # the two Pause presses, counted apart from /INT
+            self.assertEqual(native['nmi'], reference['nmi'])
             # A positive control: the comparison does see a difference (the same program on a PAL machine against an NTSC reference).
             ntsc = sg1000_build.run(work / 'build' / ('sg1000_reference.exe' if os.name == 'nt' else 'sg1000_reference'),
                                     args[1:], cart)

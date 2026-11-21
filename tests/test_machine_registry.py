@@ -54,7 +54,7 @@ DECLINED = {
     # The Amstrad CPC (in development): its routes will type the start command into BASIC, then play joystick and keyboard
     # events in a script of its own, as the MSX's do; it has no pad layout.
     # The SG-1000 (stage 1: experimental, developer only, nothing converted yet) likewise: its routes come with its conversion.
-    'random_routes': {'x68', 'pce', 'pcecd', 'amiga', 'a1200', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus', 'zxs', 'sg1000', 'cpc'},
+    'random_routes': {'x68', 'pce', 'pcecd', 'amiga', 'a1200', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus', 'zxs', 'sg1000', 'coleco', 'cpc'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
     'artwork': set(),
@@ -79,7 +79,7 @@ DECLINED = {
     # A runtime-feedback kind (native/runtime_feedback.h): a machine in development that records nothing yet may wait for it. The
     # lead reserves the new machines' kinds in one change, with the release that first needs one, so that the game stamps of
     # every machine move once, not once per new machine (21 Nov 2026). The ZX Spectrum's will be 28; the Amstrad CPC waits too.
-    'feedback_kind': {'zxs', 'sg1000', 'cpc'},
+    'feedback_kind': {'zxs', 'sg1000', 'coleco', 'cpc'},
 }
 # An emulated machine (SystemProfile.emulated) is not recompiled: its profile gives the reason in a sentence, and the registry
 # asks it for no CPU, path profile, scan level, feedback kind or quick-state family, no qualification column (it is a category

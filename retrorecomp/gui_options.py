@@ -25,6 +25,7 @@ from .gui_common import EDGE, PROFILES, SENDING_AVAILABLE
 # width on purpose (1.6.3: no visible change). 'note' is the interface key of the note when it is not
 # 'options_<id>_note'; 'extended' adds the Sega mapper checkbox (the "extended" native coverage setting).
 PAGE_LAYOUT = {
+    'gbc': {'note': 'options_gb_note'},      # the Game Boy's deep validation, same words
     'sms': {'note': 'options_sega_note', 'extended': True},
     'gg': {'note': 'options_sega_note', 'extended': True},
     'md': {'wraplength': 590},

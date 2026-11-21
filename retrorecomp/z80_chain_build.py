@@ -244,11 +244,17 @@ def build_reference_runner(work: Path, machine, *, accept: str, stage: Callable[
                            build: Callable[[Path, tuple[str, ...], Callable[[str], None]], dict[str, Path]], target: str,
                            emit: Callable[[str], None] = print, error: type = RuntimeError) -> Path:
     """The machine's reference runner alone, before any body is generated (what is chosen on the reference, such as the start of a route
-    or a mapper, runs it): the reference interpreter's copy corrected for the machine (M1 count, NMI), its interrupt acceptance exported
+    or a mapper, runs it): the corrected CPU headers when the machine uses the translated register file, the reference interpreter's copy corrected
+    for the machine (M1 count, NMI), its interrupt acceptance exported
     as `accept`, the machine's files staged by `stage(work)`, then `build(work, (target,), emit)` (the machine's own build function,
     which writes its project). Returns the executable."""
+    from .cpu import prepare_cpu_headers
     _, engine = generator(machine, emit)
     work.mkdir(parents=True, exist_ok=True)
+    if machine.reference_state:
+        # A reference main that uses the translated register file (`Z80Machine.reference_state`) includes the corrected CPU headers
+        # (sms_runtime.h): the bodies' generation writes them, and the runner built alone, before any body, writes them itself.
+        prepare_cpu_headers(work, engine)
     prepare_machine_reference(work, engine, machine)
     instrument_reference(work / 'runtime_reference.c', accept, machine, error)
     stage(work)

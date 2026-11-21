@@ -7,9 +7,11 @@ the directions and fire of pad 1 on the controls the snapshot was saved for (its
 Kempston port, or one of the Sinclair Interface 2's two sets of keys), the start keys of the keyboard.
 
 A snapshot is taken after its game loaded: most show a title or a menu at once, some a pause of their BASIC loader first. How `play`
-reaches play is chosen per conversion on the reference (route_start.choose_start): ENTER, SPACE, 0, 1, 5 or pad 1's fire pressed
-1, 2, 3 or 4 times from FIRST_PRESS, one press every PRESS_SPACING frames. Then a deterministic walk seeded by the snapshot (computer_routes.long_events);
-its first QUIET_WALK frames are directions only.
+reaches play is chosen per conversion on the reference (route_start.choose_start) among the start variants: ENTER, SPACE, 0, 1, 5
+or pad 1's fire pressed 1, 2, 3 or 4 times, or one of these keys then fire (« press any key », then « press fire to start »), from
+FIRST_PRESS, one press every PRESS_SPACING frames. A snapshot whose start no variant finds has reviewed start data instead
+(retrorecomp/zxs_starts.py, keyed by its SHA-256). A variant is the presses themselves: (frame, key name) pairs. Then a
+deterministic walk seeded by the snapshot (computer_routes.long_events); its first QUIET_WALK frames are directions only.
 
 A script is text, one event per line, `FRAME key ROW BIT DOWN` or `FRAME kempston HEX` (native/zxs_machine/zxs_headless.inc), frames
 not decreasing. Everything here is numbers about inputs; nothing reads a ROM.
@@ -27,16 +29,22 @@ PRESS_SPACING = 240        # frames between two presses of the start
 PRESS_FRAMES = 25
 WALK_SETTLE = 180          # frames between the last press and the walk
 QUIET_WALK = 900           # frames of walk with directions only
-PLAY_FRAMES = 1800         # the shortest play route
+PLAY_FRAMES = 2100         # the shortest play route: four presses and the walk after them fit (Match Day II starts on the fourth)
 START_PRESSES = (1, 2, 3, 4)
 
 # The keyboard's half-rows (zxs_machine.h, keys[]): 0 FEFE (CAPS SHIFT Z X C V), 1 FDFE (A-G), 2 FBFE (Q-T), 3 F7FE (1-5), 4 EFFE
 # (0 9 8 7 6), 5 DFFE (P O I U Y), 6 BFFE (ENTER L K J H), 7 7FFE (SPACE SYMBOL SHIFT M N B); bit 0 is the outer key of the row.
-ENTER, SPACE, ZERO, ONE, FIVE = (6, 0), (7, 0), (4, 0), (3, 0), (3, 4)
+# Every key of the keyboard by its name, (row, bit) as above.
+KEYS = {name: (row, bit) for row, names in enumerate((('CAPS', 'Z', 'X', 'C', 'V'), ('A', 'S', 'D', 'F', 'G'), ('Q', 'W', 'E', 'R', 'T'),
+                                                     ('1', '2', '3', '4', '5'), ('0', '9', '8', '7', '6'), ('P', 'O', 'I', 'U', 'Y'),
+                                                     ('ENTER', 'L', 'K', 'J', 'H'), ('SPACE', 'SYMBOL', 'M', 'N', 'B')))
+        for bit, name in enumerate(names)}
+ENTER, SPACE, ZERO, ONE, FIVE = KEYS['ENTER'], KEYS['SPACE'], KEYS['0'], KEYS['1'], KEYS['5']
 UP, DOWN, LEFT, RIGHT, FIRE = 'up', 'down', 'left', 'right', 'fire'
 # The start candidates: four keys of menus, 5 (Ultimate's « 5 START GAME » and its followers), and pad 1's fire on the controls the
-# snapshot was saved for (« press fire to start »: the Kempston port, or the fire key of the cursor or Interface 2 set).
-START_KEYS = {'ENTER': ENTER, 'SPACE': SPACE, '0': ZERO, '1': ONE, '5': FIVE, 'FIRE': FIRE}
+# snapshot was saved for (« press fire to start »: the Kempston port, or the fire key of the cursor or Interface 2 set). FIRE is
+# also the name of pad 1's fire in a variant or in start data; every other name is a key of KEYS.
+START_KEYS = ('ENTER', 'SPACE', '0', '1', '5', 'FIRE')
 MENU_KEYS = (ENTER, SPACE, ZERO, ONE)                 # the walk's keys
 MOVES = (UP, DOWN, LEFT, RIGHT)                       # computer_routes' joystick codes 0 to 3
 
@@ -50,22 +58,37 @@ PAD_KEYS = {
 KEMPSTON_BIT = {RIGHT: 0x01, LEFT: 0x02, DOWN: 0x04, UP: 0x08, FIRE: 0x10}
 
 
-def walk_start(presses: int) -> int:
-    return max(900, FIRST_PRESS + PRESS_SPACING * presses + WALK_SETTLE)
+def repeated(presses: int, key: str) -> tuple:
+    """The variant that presses `key` `presses` times, one press every PRESS_SPACING frames from FIRST_PRESS."""
+    return tuple((FIRST_PRESS + PRESS_SPACING * index, key) for index in range(presses))
+
+
+def then_fire(key: str) -> tuple:
+    """The variant that presses `key`, then pad 1's fire."""
+    return (FIRST_PRESS, key), (FIRST_PRESS + PRESS_SPACING, 'FIRE')
+
+
+def walk_start(variant) -> int:
+    """The first frame of the walk after the variant's presses."""
+    return max(900, variant[-1][0] + PRESS_SPACING + WALK_SETTLE)
 
 
 def candidates(frames: int) -> list:
-    """The start variants that leave a route of `frames` at least ten seconds of walk: (presses, key name)."""
-    return [(presses, key) for key in START_KEYS for presses in START_PRESSES if walk_start(presses) + 600 <= frames]
+    """The start variants that leave a route of `frames` at least ten seconds of walk."""
+    variants = [repeated(presses, key) for key in START_KEYS for presses in START_PRESSES]
+    variants += [then_fire(key) for key in START_KEYS if key != 'FIRE']
+    return [variant for variant in variants if walk_start(variant) + 600 <= frames]
 
 
 def variant_name(variant) -> str:
-    return f'{variant[0]}x{variant[1]}'
+    """`2xENTER` for a key pressed twice, `ENTER+FIRE` for different keys in turn."""
+    keys = [key for _, key in variant]
+    return f'{len(keys)}x{keys[0]}' if len(set(keys)) == 1 else '+'.join(keys)
 
 
 def variant_order(variant) -> tuple:
-    """The tie-break of route_start.choose_start: the fewest presses, then ENTER, SPACE, 0, 1, 5, fire."""
-    return variant[0], list(START_KEYS).index(variant[1])
+    """The tie-break of route_start.choose_start: the fewest presses, then ENTER, SPACE, 0, 1, 5, fire (in press order)."""
+    return len(variant), tuple(START_KEYS.index(key) if key in START_KEYS else len(START_KEYS) for _, key in variant)
 
 
 def route_seed(identity: str, name: str) -> int:
@@ -74,14 +97,19 @@ def route_seed(identity: str, name: str) -> int:
     return seed + 7919 * int(name.split('-')[1]) if name.startswith('long-') else seed
 
 
+def press_input(key: str):
+    """What a press of `key` holds: pad 1's fire, or a key (row, bit)."""
+    if key == 'FIRE':
+        return FIRE
+    if key not in KEYS:
+        raise ValueError(f'not a ZX Spectrum key: {key!r}')
+    return KEYS[key]
+
+
 def _intervals(frames: int, seed: int, variant) -> list[tuple[int, int, object]]:
     """(first frame, end frame, input) with the input held over [first, end): a direction or fire, or a key (row, bit)."""
-    presses, key = variant
-    held = []
-    for index in range(presses):
-        at = FIRST_PRESS + PRESS_SPACING * index
-        held.append((at, at + PRESS_FRAMES, START_KEYS[key]))
-    start = walk_start(presses)
+    held = [(at, at + PRESS_FRAMES, press_input(key)) for at, key in variant]
+    start = walk_start(variant)
     for first, last, kind, code, _value in long_events(str(seed), frames, MENU_KEYS, start=start):
         quiet = first < start + QUIET_WALK
         if kind == 'joy' and code < len(MOVES):
@@ -131,8 +159,9 @@ def script(route_events: list[tuple]) -> str:
     return ''.join(lines)
 
 
-def routes(identity: str, *, frames: int, level: str, variant=(1, 'ENTER'), joystick: str | None = 'cursor') -> list:
+def routes(identity: str, *, frames: int, level: str, variant=None, joystick: str | None = 'cursor') -> list:
     """(name, frames, script) of a conversion at `level`: attract and play (play alone at the quick level), then the long routes."""
+    variant = variant or repeated(1, 'ENTER')
     rows = [] if level == 'quick' else [('attract', frames, '')]
     play = max(frames, PLAY_FRAMES)
     rows.append(('play', play, script(events(play, route_seed(identity, 'play'), variant, joystick))))

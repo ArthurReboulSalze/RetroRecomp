@@ -215,6 +215,13 @@ def _zxs(path: Path) -> list:
     return []
 
 
+def _coleco(path: Path) -> list:
+    """The ColecoVision BIOS, by the SHA-256 the converter accepts (coleco_bios.own_bios)."""
+    from .coleco_bios import identify
+    found = identify(path)
+    return [('coleco_bios', found[0], (0,), found[1])] if found else []
+
+
 def _sizes(*sizes) -> Callable[[int, str], bool]:
     wanted = frozenset(sizes)
     return lambda size, suffix: size in wanted
@@ -236,6 +243,7 @@ def _checks() -> dict:
         'msx_16k': Check(_sizes(0x4000), _msx_16k),
         'msx_kanji': Check(_sizes(0x20000, 0x40000), _msx_kanji),
         'zxs': Check(_sizes(0x4000, 0x8000), _zxs),
+        'coleco': Check(_sizes(0x2000), _coleco),
         'cpc': Check(_sizes(0x8000, 0x4000), _cpc),
     }
 
@@ -270,6 +278,7 @@ RECOGNISERS = {
                                   beside='msx2plus_bios'),
     'msx2plus_kanji': Recogniser(CHECKS['msx_kanji'], 'msx_conversion.own_kanji: 128 or 256 KiB of glyphs',
                                  near='msx2plus_bios'),
+    'coleco_bios': Recogniser(CHECKS['coleco'], 'coleco_bios.own_bios: the SHA-256 of the 8 KiB BIOS'),
     'zxs_rom48': Recogniser(CHECKS['zxs'], 'zxs_roms.own_rom: the SHA-256 of the 48K ROM'),
     'zxs_rom128': Recogniser(CHECKS['zxs'], 'zxs_roms.own_rom: the SHA-256 of the 128K pair, or its editor ROM with the BASIC ROM beside it'),
     'cpc_system': Recogniser(CHECKS['cpc'], 'cpc_firmware.identify: SHA-1 of the system ROMs (MAME 0.289), one 32 KiB file or the '

@@ -111,7 +111,7 @@ hardware fidelity; see [video evidence](VIDEO.md).
 
 The Game Boy profile uses a separate pinned SM83 compiler and runtime. It
 supports `.gb` and single-ROM ZIP input, but rejects Game Boy Color-only
-cartridges. Local Tetris, MBC1 Super Mario Land and MBC2
+cartridges (those go to the Game Boy Color profile, [experimental, in development](GAME_BOY_COLOR.md): `.gbc` and Color-only cartridges, on the same engine in the colour hardware's model; no game has been converted for a qualification yet). Local Tetris, MBC1 Super Mario Land and MBC2
 Lazlos' Leap 120-frame boot scenarios reached zero reported fallback cycles
 in their final exports; each matched a 30-frame generated/reference CPU comparison. Super
 Mario Land first showed 76 fallback cycles, then a ROM-specific entry trace
@@ -285,6 +285,13 @@ measures stay apart: only native code and the agreement with the reference are m
 hardware fidelity, gameplay validation and physical latency are unknown, and none is claimed). No player is offered it and no game has been played. A file
 it cannot hold (larger than 48 KiB, or another board) is refused with a sentence before anything is written. The keyboard, BASIC and cassette of the SC-3000, and
 the peripherals and boards listed in [SG1000.md](SG1000.md#1-what-is-converted-and-what-is-not), are out of scope.
+
+The **ColecoVision** profile (`coleco`) is experimental, for developers only, and in development ([status](COLECOVISION.md)). It recognises ColecoVision
+cartridges (a `.col`, or a `.bin`, `.rom` or ZIP that you choose as ColecoVision or keep in a folder named `colecovision`, beginning with a header word; 4 KiB
+to 32 KiB, plain ROM) and converts them with the option for your own BIOS (8 KiB, required, never shipped), for developers only, into a game executable that is checked headless
+against the reference interpreter on the routes played (only native code and that agreement are measured; CPU fidelity against an independent oracle, hardware
+fidelity, gameplay validation and physical latency are unknown, and none is claimed). No player is offered it and no game has been played. A file it cannot hold (larger than 32 KiB, or another board) is refused with a sentence. The Super Action Controller,
+the roller and driving modules, the Super Game Module and the homebrew boards are out of scope ([COLECOVISION.md](COLECOVISION.md#1-what-is-converted-and-what-is-not)).
 
 The **Amstrad CPC** profile (`cpc`) is in development (experimental, not offered yet; [status](AMSTRAD_CPC.md)): it recognises CPC 6128
 disk images (`.dsk`, standard or extended, or a ZIP holding one) and refuses them with that reason; nothing is converted yet. Its games

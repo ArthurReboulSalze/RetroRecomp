@@ -19,16 +19,16 @@ upstreams in the same change as its profile ([NEW_MACHINE.md](NEW_MACHINE.md)), 
 below. `tests/test_upstreams.py` fails when a machine has no declaration, when a declared pin cannot be read, and
 when a pin or a repository is missing from this page.
 
-Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md` Mega Drive, `snes` Super Nintendo,
+Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `gbc` Game Boy Color, `nes` NES, `md` Mega Drive, `snes` Super Nintendo,
 `ng` Neo Geo, `cps1` Capcom CPS-1, `cps2` Capcom CPS-2, `x68` Sharp X68000, `pce` PC Engine, `gba` Game Boy Advance, `amiga` Commodore Amiga.
 
 ## The pins
 
 | Upstream | Consoles | Pin | Full revision | Pinned in |
 |---|---|---|---|---|
-| [mstan/smsggrecomp](https://github.com/mstan/smsggrecomp) | sms, gg, msx, msx2, msx2plus, zxs, sg1000, cpc | `224d5bb` | `224d5bb2c150a2c295033d35dec629ef9ee42940` | `core.ENGINE_REV` |
-| [mstan/z80-recomp-core](https://github.com/mstan/z80-recomp-core) (submodule) | sms, gg, md, msx, msx2, msx2plus, zxs, sg1000, cpc | `0e6606a` | `0e6606a41245d54c5fd0c3dc322ef9d6890d3923` | submodule `external/z80-recomp-core` of smsggrecomp and segagenesisrecomp |
-| [arcanite24/gb-recompiled](https://github.com/arcanite24/gb-recompiled) | gb | `9150f87` | `9150f87d82fa98abcb6ea22329170463f9702eb8` | `gameboy.ENGINE_REV` |
+| [mstan/smsggrecomp](https://github.com/mstan/smsggrecomp) | sms, gg, msx, msx2, msx2plus, zxs, sg1000, coleco, cpc | `224d5bb` | `224d5bb2c150a2c295033d35dec629ef9ee42940` | `core.ENGINE_REV` |
+| [mstan/z80-recomp-core](https://github.com/mstan/z80-recomp-core) (submodule) | sms, gg, md, msx, msx2, msx2plus, zxs, sg1000, coleco, cpc | `0e6606a` | `0e6606a41245d54c5fd0c3dc322ef9d6890d3923` | submodule `external/z80-recomp-core` of smsggrecomp and segagenesisrecomp |
+| [arcanite24/gb-recompiled](https://github.com/arcanite24/gb-recompiled) | gb, gbc | `9150f87` | `9150f87d82fa98abcb6ea22329170463f9702eb8` | `gameboy.ENGINE_REV` |
 | [mstan/nesrecomp](https://github.com/mstan/nesrecomp) | nes | `1b0c621` | `1b0c621a927db17afa9723bf456a89ad15809907` | `nes.ENGINE_REV` |
 | [mstan/segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | md, ng, cps1, cps2, x68, atarist | `00c60bc` | `00c60bc855a7998f92e5614585d52bca8fffcaf2` | `console16.REPOSITORIES['md']` |
 | [mstan/m68k-recomp-core](https://github.com/mstan/m68k-recomp-core) (submodule) | md, ng, cps1, cps2, x68, atarist | `921f67b` | `921f67b1e62bf24ee0a8f2aaad0ff50cbbc4b41a` | submodule `external/m68k-recomp-core` of segagenesisrecomp |
@@ -62,7 +62,7 @@ Console ids: `sms` Master System, `gg` Game Gear, `gb` Game Boy, `nes` NES, `md`
 | [SingleStepTests/z80](https://github.com/SingleStepTests/z80) | sms, gg, md, msx, msx2, msx2plus, sg1000 | `ebe1875` | `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7` | `tools/fetch_z80_vectors.REVISION` |
 | [SingleStepTests/65816](https://github.com/SingleStepTests/65816) | snes | `307c63f` | `307c63f5673c8c6b861c52f71ddb89212a227480` | `tools/fetch_snes_vectors.REVISION_65816` |
 | [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700) | snes | `67d15f4` | `67d15f492b2740964abd4efd1229e0ec9c342228` | `tools/fetch_snes_vectors.REVISION_SPC700` |
-| [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) | gb | `f9c3021` | `f9c30210245dd691661db39f5ace022c465ecc2f` | `tools/fetch_sm83_vectors.REVISION` |
+| [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) | gb, gbc | `f9c3021` | `f9c30210245dd691661db39f5ace022c465ecc2f` | `tools/fetch_sm83_vectors.REVISION` |
 | [SingleStepTests/huc6280](https://github.com/SingleStepTests/huc6280) | pce | `4ce378e` | `4ce378e04e243437e6f74dfe76c3cb7c70e45bf1` | `tools/fetch_huc6280_vectors.REVISION` |
 | [SingleStepTests/m68000](https://github.com/SingleStepTests/m68000) | md | `64b2531` | `64b253116a3de04aaac4346c43680960dc9b67e5` | `tests/fixtures/md-prefetch/cases.json` (also `tests/fixtures/md-exceptions/cases.json`) |
 | [scummvm/scummvm](https://github.com/scummvm/scummvm) | scummvm | `7d2709d` (tag v2026.4.0) | `7d2709da5136866589f7602f5f5a7b17de03420e` | `scummvm_build.SCUMMVM_REV` |
