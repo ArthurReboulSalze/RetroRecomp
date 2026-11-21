@@ -857,6 +857,7 @@ INPUTS = _resolve({
         'native/upd765/dsk_image.h',
         'native/upd765/upd765.c',
         'native/upd765/upd765.h',
+        'retrorecomp.cpc_build',
         'retrorecomp.cpc_disk',
         'retrorecomp.cpc_firmware',
         'retrorecomp.cpc_timing',

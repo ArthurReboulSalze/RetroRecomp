@@ -114,6 +114,7 @@ native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c nat
 native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c native/msx_machine/msx_music_checks.c
 native/audio_box.h native/audio_box_checks.c tools/audio_box_selftest.py tests/test_audio_box.py
 retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
+retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
 native/cpc_machine/cpc_bus.h native/cpc_machine/cpc_crtc.c native/cpc_machine/cpc_crtc.h native/cpc_machine/cpc_gate_array.c native/cpc_machine/cpc_gate_array.h
 native/cpc_machine/cpc_ppi.c native/cpc_machine/cpc_ppi.h native/cpc_machine/cpc_machine.c native/cpc_machine/cpc_machine.h native/cpc_machine/cpc_glue.inc native/cpc_machine/cpc_hardware_checks.c tools/cpc_hardware_selftest.py
 native/upd765/dsk_image.c native/upd765/dsk_image.h native/upd765/upd765.c native/upd765/upd765.h native/upd765/upd765_checks.c
