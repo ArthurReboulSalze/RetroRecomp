@@ -15,7 +15,8 @@
  *
  * Quick states (F8/F9, quick.rrstate beside player.cfg) and the multiplayer snapshots and digest: cpc_state_file.inc, on the
  * chain's shared CPU state and state file. --headless also takes --save-state FILE --save-at N (saved at the end of frame N) and
- * --load-state FILE (loaded at the first service), for the conversion's fresh-process check.
+ * --load-state FILE (loaded at the first service), for the conversion's fresh-process check, and --snap-probe AT:N (the snapshots
+ * and the digest checked in one process).
  *
  * Not yet here: the copies of a disk the game wrote (it is written in memory and travels with the states), the disk keys for a
  * game of several disks, the game's saves in a session (each seat plays its own embedded disk). */
@@ -128,6 +129,71 @@ static void headless_inputs(void)
         if (state[RRHK_CPC_KEYS[i].scancode]) cpc_ppi_key(&machine.ppi, RRHK_CPC_KEYS[i].cpc_key, 1);
 }
 
+/* --snap-probe AT:N (headless): the multiplayer snapshots checked in one process, as the MSX's probe does. At the end of frame AT a
+ * snapshot is taken twice (the same bytes, within its bound), a load one byte short is refused with nothing changed; the next N
+ * frames record the digest and the picture's hash; the snapshot is loaded and the same N frames must give the same digests and,
+ * from the first frame drawn again, the same pictures. The process ends there: exit 0 PASS, 5 FAIL (one line on stderr). */
+static unsigned long long snap_probe_at, snap_probe_n;
+static int snap_probe_phase, snap_probe_same, snap_probe_refused;
+static uint64_t *snap_probe_digests;
+static uint32_t *snap_probe_pictures;
+static uint8_t *snap_probe_a, *snap_probe_b;
+static size_t snap_probe_size;
+static unsigned long snap_probe_mismatches, snap_probe_picture_mismatches;
+static long snap_probe_bad = -1;
+
+static int snap_probe_option(int argc, char **argv, int *i)
+{
+    if (strcmp(argv[*i], "--snap-probe")) return 0;
+    if (*i + 1 >= argc || sscanf(argv[++*i], "%llu:%llu", &snap_probe_at, &snap_probe_n) != 2 || !snap_probe_n
+        || snap_probe_n > 100000)
+        return -1;
+    snap_probe_digests = (uint64_t *)calloc(snap_probe_n + 1, sizeof *snap_probe_digests);
+    snap_probe_pictures = (uint32_t *)calloc(snap_probe_n + 1, sizeof *snap_probe_pictures);
+    snap_probe_a = (uint8_t *)malloc(CPC_STATE_CAPACITY);
+    snap_probe_b = (uint8_t *)malloc(CPC_STATE_CAPACITY);
+    if (!snap_probe_digests || !snap_probe_pictures || !snap_probe_a || !snap_probe_b) return -1;
+    snap_probe_phase = 1;
+    return 1;
+}
+
+/* At the end of a frame, its boot keys written (the inputs of the next frame, which the snapshot carries). */
+static void snap_probe_service(void)
+{
+    if (!snap_probe_phase || machine.frames < snap_probe_at) return;
+    const unsigned long long k = machine.frames - snap_probe_at;
+    const uint32_t shown = headless_fnv((const uint8_t *)headless_picture, sizeof headless_picture);
+    if (snap_probe_phase == 1) {
+        snap_probe_size = cpc_snap_save(snap_probe_a, CPC_STATE_CAPACITY);
+        memset(snap_probe_b, 0xA5, CPC_STATE_CAPACITY);
+        snap_probe_same = snap_probe_size && cpc_snap_save(snap_probe_b, CPC_STATE_CAPACITY) == snap_probe_size
+                          && !memcmp(snap_probe_a, snap_probe_b, snap_probe_size) && snap_probe_size <= cpc_snap_bound();
+        const uint64_t before = cpc_snap_digest();
+        snap_probe_refused = !cpc_snap_load(snap_probe_a, snap_probe_size - 1) && cpc_snap_digest() == before;
+        snap_probe_digests[0] = before;
+        snap_probe_phase = 2;
+    } else if (snap_probe_phase == 2) {
+        snap_probe_digests[k] = cpc_snap_digest();
+        snap_probe_pictures[k] = shown;
+        if (k >= snap_probe_n) {
+            if (!cpc_snap_load(snap_probe_a, snap_probe_size)) snap_probe_mismatches = ~0ul;
+            if (cpc_snap_digest() != snap_probe_digests[0]) { ++snap_probe_mismatches; snap_probe_bad = 0; }
+            snap_probe_phase = 3;
+        }
+    } else {
+        if (cpc_snap_digest() != snap_probe_digests[k]) { ++snap_probe_mismatches; if (snap_probe_bad < 0) snap_probe_bad = (long)k; }
+        if (k >= 1 && shown != snap_probe_pictures[k]) ++snap_probe_picture_mismatches;   /* from the first frame drawn again */
+        if (k >= snap_probe_n) {
+            const int pass = snap_probe_same && snap_probe_refused && !snap_probe_mismatches && !snap_probe_picture_mismatches;
+            fprintf(stderr, "snap-probe: %s at %llu, %llu frames, %zu bytes (bound %zu), same over other bytes %d, wrong size "
+                    "refused %d, mismatches %lu, first at +%ld, pictures differing %lu\n", pass ? "PASS" : "FAIL", snap_probe_at,
+                    snap_probe_n, snap_probe_size, cpc_snap_bound(), snap_probe_same, snap_probe_refused, snap_probe_mismatches,
+                    snap_probe_bad, snap_probe_picture_mismatches);
+            exit(pass ? 0 : 5);
+        }
+    }
+}
+
 static void cpc_main_service(void)
 {
     if (headless) {
@@ -137,8 +203,10 @@ static void cpc_main_service(void)
             return;
         }
         const int frame_end = machine.frame_ready;
-        if (frame_end)
+        if (frame_end) {
             headless_inputs();
+            snap_probe_service();
+        }
         headless_service();                      /* the frame's sound, the stop (it ends the process there) */
         if (frame_end && state_save_due && machine.frames >= state_save_at) {
             state_save_due = 0;
@@ -224,15 +292,18 @@ static int run(void)
     return 0;
 }
 
-/* `--headless`: exit codes 0 done, 2 a bad option, 3 a missing resource or an unwritable file, 4 a refused state. */
+/* `--headless`: exit codes 0 done, 2 a bad option, 3 a missing resource or an unwritable file, 4 a refused state, 5 a snapshot
+ * probe that failed. */
 static int run_headless(int argc, char **argv)
 {
     for (int i = 2; i < argc; ++i) {
         int known = headless_state_option(argc, argv, &i);
+        if (!known) known = snap_probe_option(argc, argv, &i);
         if (!known) known = headless_option(argc, argv, &i);
         if (known <= 0) { fprintf(stderr, "bad option %s\n", argv[i]); return 2; }
     }
     if (state_save_due && state_save_at >= headless_frames_wanted) return 2;   /* the save would never happen */
+    if (snap_probe_phase && snap_probe_at + 2 * snap_probe_n >= headless_frames_wanted) return 2;   /* nor the probe's end */
     int status = setup_machine();
     if (status)
         return status;
