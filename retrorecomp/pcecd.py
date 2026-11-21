@@ -72,7 +72,8 @@ def read_input(path) -> PcCdInput:
     except pcecd_disc.DiscError as error:
         raise ConversionError(f'{path.name}: {error}') from None
     size = sum(f.stat().st_size for f in pcecd_disc.files_of(path))
-    return PcCdInput(path, size, identity.title or path.stem, identity)
+    # The name of the file, as for every machine: the boot record's title is the game's own spelling of it and often the same for a series (Dracula X says SAMPLE PROGRAM).
+    return PcCdInput(path, size, path.stem, identity)
 
 
 def video_mode(path) -> str:
