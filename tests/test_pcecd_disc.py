@@ -365,7 +365,7 @@ class DiscReaderTests(unittest.TestCase):
         iso = self.folder / 'c.iso'
         write_iso(iso)
         item = pcecd.read_input(iso)
-        self.assertEqual((item.title, item.sha256, item.metadata()['system']), ('AUTHORED TEST DISC', hashlib.sha256(iso.read_bytes()).hexdigest(), 'pcecd'))
+        self.assertEqual((item.title, item.sha256, item.metadata()['system'], item.metadata()['title']), ('c', hashlib.sha256(iso.read_bytes()).hexdigest(), 'pcecd', 'AUTHORED TEST DISC'))
         none = pcecd.machine_identity(item, None)
         card = self.folder / 'card.pce'
         card.write_bytes(bytes(pcecd_card.CARD_BYTES))
