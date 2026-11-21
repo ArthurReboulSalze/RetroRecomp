@@ -71,6 +71,10 @@ DECLINED = {
     # The Amiga 1200 was listed here from 1.7.8, not shared for now pending a measure; it shares from 1.7.9 on Arthur's word of 16 November 2026
     # (« Je préfère que tu mettes en place directement le partage de chemin pour l'Amiga 500 et 1200 »), the measure cancelled.
     'path_sharing': {'msx', 'msx2', 'n64'},
+    # A runtime-feedback kind (native/runtime_feedback.h): a machine in development that records nothing yet may wait for it. The
+    # lead reserves the new machines' kinds in one change, with the release that first needs one, so that the game stamps of
+    # every machine move once, not once per new machine (21 Nov 2026). The ZX Spectrum's will be 28.
+    'feedback_kind': {'zxs'},
 }
 # An emulated machine (SystemProfile.emulated) is not recompiled: its profile gives the reason in a sentence, and the registry
 # asks it for no CPU, path profile, scan level, feedback kind or quick-state family, no qualification column (it is a category
@@ -133,7 +137,8 @@ def registry_problems(profile: SystemProfile) -> list[str]:
         add('the profile must declare exactly one main CPU')
     if not (profile.extensions or getattr(profile, 'accepts_folders', False)) or not set(profile.extensions) <= ROM_CANDIDATE_EXTENSIONS:
         add('extensions missing from systems.ROM_CANDIDATE_EXTENSIONS (discover_roms would skip them)')
-    if not profile.video_modes or not emulated and (not profile.feedback_kinds or not profile.quick_state_family):
+    waiting = system in DECLINED['feedback_kind']
+    if not profile.video_modes or not emulated and (not (profile.feedback_kinds or waiting) or not profile.quick_state_family):
         add('video_modes, feedback_kinds and quick_state_family must be declared')
     if profile.linux not in ('witnessed', 'pending'):
         add('linux must be "witnessed" or "pending"')
@@ -333,6 +338,9 @@ class RegistryTests(unittest.TestCase):
             self.assertLessEqual(declined, ids, registry)
         self.assertTrue(DECLINED['random_routes'].isdisjoint(random_routes.CONSOLES))
         self.assertTrue(DECLINED['artwork'].isdisjoint(artwork.REPOSITORIES))
+        # A machine waiting for its feedback kind records nothing and is still experimental.
+        waiting = [profile for profile in ALL_PROFILES if profile.id in DECLINED['feedback_kind']]
+        self.assertTrue(all(not profile.feedback_kinds and profile.status == 'experimental' for profile in waiting))
 
     def test_the_qualification_matrix_has_one_column_per_machine_and_no_stranger(self):
         # An emulated machine is a category apart from the matrix of the recompiled consoles.

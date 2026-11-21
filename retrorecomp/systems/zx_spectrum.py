@@ -49,8 +49,10 @@ class ZxSpectrumProfile(SystemProfile):
                    OptionKey('zxs_rom128', signature=False, kind='path', label='zxs_rom128_label'))
     capabilities = Capabilities(keyboard=True)
     quick_state_family = 'zxs'
-    # Its kind in native/runtime_feedback.h, reserved when the conversion records anything (stage 2); no record is written yet.
-    feedback_kinds = frozenset({28})
+    # No runtime-feedback kind yet: nothing is recorded. The lead reserves the new machines' kinds in native/runtime_feedback.h in
+    # one change (28 for this machine), with the release that first needs one, so that every machine's stamp moves once
+    # (tests/test_machine_registry.py, DECLINED['feedback_kind']).
+    feedback_kinds = frozenset()
     fallback_display = 'cycles'
     # The banked Z80 chain's generator and core, the counted fallback's reference interpreter, and the ROMs' permission notice
     # (every game holds a Spectrum ROM, the player's own or the pinned one).
