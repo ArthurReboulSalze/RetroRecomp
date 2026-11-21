@@ -152,6 +152,25 @@ class ReferenceCopyTests(unittest.TestCase):
         self.assertEqual(generated, alone)
         self.assertEqual(generated[1], dict(m1_counter=True, nmi=True, costs=self.MACHINE.costs, port16=True))
 
+    def alone(self, machine):
+        """The CPU headers written while the runner is built alone, and the order they come in."""
+        calls = []
+        engine = Path('engine')
+        with tempfile.TemporaryDirectory() as folder,                 mock.patch('retrorecomp.cpu.prepare_reference', lambda *a, **k: calls.append('reference')),                 mock.patch('retrorecomp.cpu.prepare_cpu_headers', lambda work, eng: calls.append(('headers', Path(work).name, eng))),                 mock.patch.object(chain, 'generator', lambda machine, emit=print: (Path('tool'), engine)),                 mock.patch.object(chain, 'instrument_reference', lambda *a, **k: None):
+            work = Path(folder) / 'alone'
+            chain.build_reference_runner(work, machine, accept='accept', stage=lambda w: None,
+                                         build=lambda w, targets, emit: {targets[0]: Path('ref.exe')}, target='ref')
+        return calls
+
+    def test_a_machine_with_the_translated_register_file_gets_the_cpu_headers_when_the_runner_is_built_alone(self):
+        from dataclasses import replace
+        with_state = replace(self.MACHINE, reference_state=True)
+        self.assertEqual(self.alone(with_state), [('headers', 'alone', Path('engine')), 'reference'])      # the headers come first
+
+    def test_a_machine_without_it_writes_no_headers(self):
+        self.assertFalse(self.MACHINE.reference_state)
+        self.assertEqual(self.alone(self.MACHINE), ['reference'])
+
     def test_the_arguments_come_from_one_function(self):
         recorded = []
         with mock.patch('retrorecomp.cpu.prepare_reference', lambda *a, **k: recorded.append((a, k))):

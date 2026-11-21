@@ -329,6 +329,9 @@ class EndToEndTests(AuthoredBiosCase):
             reference = build.run(exe('coleco_reference'), args, cart)
             self.assertEqual(build.differences(native, reference), {})
             self.assertEqual(native['interrupts'], 0)                           # /INT is not wired: every frame's interrupt is an /NMI
+            self.assertEqual(native['nmi'], reference['nmi'])                   # the NMIs taken are counted, on both programs
+            self.assertEqual(native['watch'][f'{authored.FRAME_COUNT:04X}'], native['nmi'] % 256)   # one per frame, as the program counts them
+            self.assertGreaterEqual(native['nmi'], 290)
             # Held at the end of the route they are all released: the ports read as no controller (every line high).
             self.assertEqual(native['watch'][f'{authored.STICK_1:04X}'], 0xFF)
             self.assertEqual(native['watch'][f'{authored.KEYPAD_1:04X}'], 0xFF)

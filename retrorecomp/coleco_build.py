@@ -23,7 +23,7 @@ from . import z80_chain_build
 # The fields a native run must give exactly as the reference does (the keys both runners print, native/coleco_machine/coleco_headless.inc
 # and cv_print_state): the CPU (main and shadow registers, I, R, IM, IFF, WZ), time and interrupts, RAM, VRAM, the picture of the last
 # frame and a running hash of every frame, the VDP registers and status, the sound and the PSG, the watched bytes.
-COMPARED = ('frames', 'cycles', 'interrupts', 'pc', 'sp', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'af2', 'bc2', 'de2', 'hl2', 'i', 'r', 'im',
+COMPARED = ('frames', 'cycles', 'interrupts', 'nmi', 'pc', 'sp', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'af2', 'bc2', 'de2', 'hl2', 'i', 'r', 'im',
             'iff1', 'iff2', 'wz', 'halted', 'vdp_regs', 'vdp_status', 'vram_fnv', 'ram_fnv', 'frame_fnv', 'frame_trace',
             'audio_samples', 'audio_fnv', 'audio_dropped', 'psg', 'watch')
 GAME_TOML = '''# ColecoVision: the cartridge is source 0 of the region map, the player's BIOS source 1 (banked.sources).

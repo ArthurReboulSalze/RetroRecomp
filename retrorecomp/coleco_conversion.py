@@ -313,7 +313,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'reference_match': True, 'compared_fields': list(coleco_build.COMPARED),
             'frame_trace': native['frame_trace'], 'ram_hash': native['ram_fnv'], 'vram_hash': native['vram_fnv'],
             'image_hash': native['frame_fnv'], 'pcm_hash': native['audio_fnv'], 'pcm_samples': native['audio_samples'],
-            'interrupts': native['interrupts'], 'frame_rows_equal': True, 'packed_rows_equal': True,
+            'interrupts': native['interrupts'], 'nmi': native['nmi'], 'frame_rows_equal': True, 'packed_rows_equal': True,
             'liveness': report_fields(liveness[name], LIVENESS_FIELDS)})
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'system': {'id': 'coleco', 'name': 'ColecoVision'},
               'rom': {'sha256': cart.sha256, 'bytes': cart.size, 'file': Path(path).name}, 'converted': True,
