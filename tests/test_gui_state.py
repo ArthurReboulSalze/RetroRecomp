@@ -735,16 +735,18 @@ class OptionsFromProfiles(unittest.TestCase):
                                                     'cps1': 6, 'cps2': 7, 'pce': 31, 'gba': 12, 'amiga': 64, 'a1200': 111,
                                                     'atarist': 42, 'n64': 14,
                                                     'scummvm': 123,      # 123: ScreenScraper's ScummVM platform
-                                                    'psx': 57, 'msx': 113, 'msx2': 116, 'msx2plus': 117})
+                                                    'psx': 57, 'msx': 113, 'msx2': 116, 'msx2plus': 117,
+                                                    'zxs': 76})
         self.assertEqual(cover_sources.TGDB_SYSTEMS, {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7, 'md': 18, 'snes': 6, 'ng': 24, 'x68': 4931,
                                                       'cps1': 23, 'cps2': 23, 'pce': 34, 'gba': 5, 'amiga': 4911, 'a1200': 4911,
                                                       'atarist': 4937, 'n64': 3, 'psx': 10,
-                                                      'msx': 4929, 'msx2': 4929, 'msx2plus': 4929})   # TheGamesDB has one MSX platform for all three
+                                                      'msx': 4929, 'msx2': 4929, 'msx2plus': 4929,   # TheGamesDB has one MSX platform for all three
+                                                      'zxs': 4913})
         self.assertEqual(cover_sources.IGDB_SLUGS, {
             'sms': 'sms', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'genesis-slash-megadrive', 'snes': 'snes',
             'ng': 'neogeomvs', 'x68': 'sharp-x68000', 'cps1': 'arcade', 'cps2': 'arcade', 'pce': 'turbografx16--1', 'gba': 'gba',
             'amiga': 'amiga', 'a1200': 'amiga', 'atarist': 'atari-st', 'n64': 'n64', 'psx': 'ps',
-            'msx': 'msx', 'msx2': 'msx2', 'msx2plus': 'msx2'})
+            'msx': 'msx', 'msx2': 'msx2', 'msx2plus': 'msx2', 'zxs': 'zxs'})
         self.assertEqual(cover_sources.ARCADEITALIA, frozenset(('cps1', 'cps2', 'ng')))
         self.assertEqual(game_metadata.PLATFORMS, {
             'sms': {'Q209868'}, 'gg': {'Q751719'}, 'gb': {'Q186437'}, 'nes': {'Q172742'}, 'md': {'Q10676'},
