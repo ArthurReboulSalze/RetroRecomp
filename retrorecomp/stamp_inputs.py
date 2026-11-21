@@ -276,6 +276,8 @@ NOT_INPUTS = (
     'native/z80_nmi_checks.c',                       # tools/z80_nmi_selftest.py: the chain's NMI acceptance against the reference CPU, never in a game
     'native/z80_ports_emit.c', 'native/z80_ports_checks.c',   # tools/z80_ports_selftest.py: 16-bit ports, emitter against reference, never in a game
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
+    # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
+    'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
@@ -836,6 +838,24 @@ INPUTS = _resolve({
         'retrorecomp.zxs_conversion',
         'retrorecomp.zxs_roms',
         'retrorecomp.zxs_snapshot',
+    ),
+    # The Amstrad CPC (in development, developer only): its disk reader and firmware table, its chips (CRTC, Gate Array, PPI and
+    # keyboard) and the uPD765 with the DSK / EXTENDED DSK reader (machine-neutral, the CPC its first user; the ZX Spectrum +3
+    # would make it a shared group). No CPC game is built yet: these move only the CPC's own stamp.
+    ('cpc',): (
+        'native/cpc_machine/cpc_bus.h',
+        'native/cpc_machine/cpc_crtc.c',
+        'native/cpc_machine/cpc_crtc.h',
+        'native/cpc_machine/cpc_gate_array.c',
+        'native/cpc_machine/cpc_gate_array.h',
+        'native/cpc_machine/cpc_ppi.c',
+        'native/cpc_machine/cpc_ppi.h',
+        'native/upd765/dsk_image.c',
+        'native/upd765/dsk_image.h',
+        'native/upd765/upd765.c',
+        'native/upd765/upd765.h',
+        'retrorecomp.cpc_disk',
+        'retrorecomp.cpc_firmware',
     ),
     # The Nintendo 64 (experimental): its converter modules, the machine on Mupen64Plus-Next (GPL-2.0-or-later core, MIT ParaLLEl,
     # adapted at build time by n64_core), our MIT glue in place of the unmarked upstream files, the VR4300 hooks, the session and

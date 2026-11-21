@@ -52,6 +52,8 @@ _PATH_HELP = {
     'msx2plus_kanji': 'MSX2+: your own kanji font ROM (128 KiB JIS level 1, or 256 KiB with level 2) for Japanese games that draw kanji; C-BIOS has none; never shipped.',
     'zxs_rom48': 'ZX Spectrum: your own 48K ROM (16 KiB, accepted when it is the original image); without it the Amstrad ROM is fetched from its pinned source.',
     'zxs_rom128': 'ZX Spectrum: your own 128K ROM (one 32 KiB image, or the editor ROM with the BASIC ROM beside it); without it the Amstrad ROMs are fetched from their pinned source.',
+    'cpc_system': 'Amstrad CPC: your own system ROM (32 KiB, the OS and BASIC of a CPC 6128 or 664); never shipped.',
+    'cpc_amsdos': 'Amstrad CPC: your own AMSDOS ROM (16 KiB); never shipped.',
 }
 _FLAG_HELP = {
     'convert': {

@@ -113,6 +113,11 @@ native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_ma
 native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c native/msx_machine/msx2_checks_sprites.c native/msx_machine/msx2_checks_board.c
 native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c native/msx_machine/msx_music_checks.c
 native/audio_box.h native/audio_box_checks.c tools/audio_box_selftest.py tests/test_audio_box.py
+retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
+native/cpc_machine/cpc_bus.h native/cpc_machine/cpc_crtc.c native/cpc_machine/cpc_crtc.h native/cpc_machine/cpc_gate_array.c native/cpc_machine/cpc_gate_array.h
+native/cpc_machine/cpc_ppi.c native/cpc_machine/cpc_ppi.h native/cpc_machine/cpc_hardware_checks.c tools/cpc_hardware_selftest.py
+native/upd765/dsk_image.c native/upd765/dsk_image.h native/upd765/upd765.c native/upd765/upd765.h native/upd765/upd765_checks.c
+tools/upd765_selftest.py tests/test_cpc_disk.py tests/test_cpc_hardware.py tests/test_cpc_profile.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c

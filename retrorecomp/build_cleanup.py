@@ -62,6 +62,7 @@ REMOVING = '.retro-recomp-removing-'
 #   pce     pce_conversion.py  pce/<sha12>
 #   psx     psx_conversion.py  psx/<sha12>
 #   msx     msx_conversion.py  msx/<sha12>-<BIOS8>         (MSX and MSX2 alike)
+#   cpc     (in development)   cpc/<sha12>-<firmware8>     (the MSX's layout)
 #   scummvm scummvm_export.py  scummvm/<sha12>
 #   x68     x68000_conversion  x68/<win|win-llvm|linux>/<SDK12>/<machine16>
 #   amiga   amiga_conversion   amiga/<win|win-llvm|linux>/<SDK12>/<sha16>
@@ -82,7 +83,7 @@ _X68_SDK = re.compile(r'[0-9a-f]{12}')
 _X68_GAME = re.compile(r'[0-9a-f]{16}')
 _MSX = re.compile(r'([0-9a-f]{12})-[0-9a-f]{8}')
 # Machines whose project is <machine>/<12 hex>[-...]: (folder, pattern).
-_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE),
+_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('psx', _PCE), ('msx', _MSX), ('cpc', _MSX), ('scummvm', _PCE),
          ('zxs', _MSX))   # the ZX Spectrum (in development): laid out as the MSX's, on the same Z80 chain
 # Machines whose project sits below a shared base <machine>/<host>/<SDK12>/: how many folders the game takes there.
 _BASED = {'x68': 1, 'amiga': 1, 'n64': 1, 'atarist': 2}

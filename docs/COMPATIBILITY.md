@@ -276,6 +276,10 @@ its birth-date entry; no game has been played through (gameplay validation: none
 The **ZX Spectrum** profile is experimental and in development ([status](ZX_SPECTRUM.md)): it identifies 16K, 48K and 128K snapshots
 (`.z80`, `.sna`, or a ZIP holding one) and writes reports, converts nothing yet, and no installation lists it.
 
+The **Amstrad CPC** profile (`cpc`) is in development (experimental, not offered yet; [status](AMSTRAD_CPC.md)): it recognises CPC 6128
+disk images (`.dsk`, standard or extended, or a ZIP holding one) and refuses them with that reason; nothing is converted yet. Its games
+will need your own system ROM and AMSDOS ROM.
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy

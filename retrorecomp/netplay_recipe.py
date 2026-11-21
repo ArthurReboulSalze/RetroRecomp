@@ -83,6 +83,7 @@ LEFT_OUT = {
     'n64': 'its conversion keeps its own files in the library folder of the game; recipe mode is not established for it',
     'scummvm': 'emulated: it translates no code and has no path to carry; recipe mode is not wired for it',
     'zxs': 'in development: the ZX Spectrum converts nothing yet, so it has no conversion to replay; recipe mode is not established for it',
+    'cpc': 'in development: no game is converted yet; recipe mode is not established for it',
 }
 
 

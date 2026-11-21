@@ -121,6 +121,7 @@ docs/*
 !docs/PLAYSTATION.md
 !docs/MSX.md
 !docs/ZX_SPECTRUM.md
+!docs/AMSTRAD_CPC.md
 !docs/INDEX.md
 !docs/MASTER_SYSTEM.md
 !docs/MEGADRIVE.md

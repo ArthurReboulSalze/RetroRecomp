@@ -335,6 +335,9 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'msx2plus': (SMSGGRECOMP, Z80_RECOMP_CORE, CBIOS, EMU2413),
     # The ZX Spectrum (in development) on the same chain, on its own machine description, with the Amstrad ROMs.
     'zxs': (SMSGGRECOMP, Z80_RECOMP_CORE, ZX_SPECTRUM_ROMS),
+    # The Amstrad CPC (in development): the same banked Z80 chain, the route of its games; its chips are our own C, written from
+    # floooh/chips (zlib) and Clock Signal (MIT) read as documentation, nothing of them compiled.
+    'cpc': (SMSGGRECOMP, Z80_RECOMP_CORE),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}
