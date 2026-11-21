@@ -19,11 +19,13 @@
  * The keypad closes on any menu, the Pause, a pause asked by another seat, the multiplayer chat, a restart and a quick-state
  * load; in a session whose controls are taken in turns, a seat that does not hold them cannot open it. Autofire never pulses a
  * keypad key (the keys are SYSTEM rows; A's own bit is masked by the flag).
- * Its two texts (title, hint) are in the five game languages in this file: native/runtime_catalog.inc is a host file of every
- * machine, and adding them there would move every machine's host stamp. They join the catalogue the next time it moves. */
+ * Its two texts (title, hint) are in the five game languages in this file, read with rrhk_text (rrhk_text.h): native/runtime_catalog.inc
+ * is a host file of every machine, and adding them there would move every machine's host stamp. They join the catalogue the next time
+ * it moves. */
 #include "hostkit/hostkit.h"
 #include "hostkit/hostkit_internal.h"      /* rrhk_chat_open, rrhk_session_paused: read only, never changed by this file */
 #include "hostkit/hostkit_session.h"
+#include "hostkit/adapters/rrhk_text.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
 #include <string.h>
@@ -45,22 +47,10 @@ static struct {
     int pressed;                            /* the cell A holds down, -1: none */
 } rrhk_keypad_state[RRHK_MAX_PLAYERS];
 
-/* The keypad's texts in the five game languages (rr_language_codes' order and spelling: ASCII, as the catalogue writes them). */
-enum { RRHK_KEYPAD_TITLE, RRHK_KEYPAD_HINT };
-static const char *const rrhk_keypad_texts[][6] = {
-    /* code  title               hint */
-    {"en", "Keypad",             "A: press | B: close"},
-    {"fr", "Pave numerique",     "A : appuyer | B : fermer"},
-    {"it", "Tastierino",         "A: premi | B: chiudi"},
-    {"es", "Teclado numerico",   "A: pulsar | B: cerrar"},
-    {"de", "Tastenfeld",         "A: druecken | B: schliessen"},
-};
-static const char *rrhk_keypad_text(int which) {
-    const char *code = rr_language_code(rr_language_get());
-    for (size_t i = 0; i < sizeof rrhk_keypad_texts / sizeof rrhk_keypad_texts[0]; ++i)
-        if (code && !strcmp(code, rrhk_keypad_texts[i][0])) return rrhk_keypad_texts[i][1 + which];
-    return rrhk_keypad_texts[0][1 + which];
-}
+/* The keypad's texts in the five game languages (rrhk_text.h: en, fr, it, es, de; ASCII, as the catalogue writes them). */
+static const RrhkText rrhk_keypad_title = {"Keypad", "Pave numerique", "Tastierino", "Teclado numerico", "Tastenfeld"};
+static const RrhkText rrhk_keypad_hint = {"A: press | B: close", "A : appuyer | B : fermer", "A: premi | B: chiudi",
+                                          "A: pulsar | B: cerrar", "A: druecken | B: schliessen"};
 
 /* The player whose gamepad sent the event, -1: none of the machine's players. */
 static int rrhk_keypad_player(SDL_JoystickID which) {
@@ -179,8 +169,8 @@ static void rrhk_keypad_draw_player(SDL_Renderer *ren, const RrhkKeypad *keypad,
     rr_menu_box(ren, ox, oy, unit, left, top, RRHK_KEYPAD_PANEL_W, panel_h, RR_MENU_PANEL_RGB, 235);
     rr_menu_box(ren, ox, oy, unit, left, top, RRHK_KEYPAD_PANEL_W, 1, RR_MENU_GOLD, 255);
     char title[48];
-    if (numbered) snprintf(title, sizeof title, "%s %d", rrhk_keypad_text(RRHK_KEYPAD_TITLE), p + 1);
-    else snprintf(title, sizeof title, "%s", rrhk_keypad_text(RRHK_KEYPAD_TITLE));
+    if (numbered) snprintf(title, sizeof title, "%s %d", rrhk_text(&rrhk_keypad_title), p + 1);
+    else snprintf(title, sizeof title, "%s", rrhk_text(&rrhk_keypad_title));
     int width = rr_menu_text_width(title);
     if (width > RRHK_KEYPAD_PANEL_W - 8) width = RRHK_KEYPAD_PANEL_W - 8;
     rr_menu_text_plain(ren, ox, oy, unit, left + (RRHK_KEYPAD_PANEL_W - width) / 2, top + 3, width, title, RR_MENU_GOLD);
@@ -205,7 +195,7 @@ static void rrhk_keypad_draw_player(SDL_Renderer *ren, const RrhkKeypad *keypad,
         else if (selected) rr_menu_text_plain(ren, ox, oy, unit, label_x, y + 1, label_w, label, RR_MENU_ACCENT);
         else rr_menu_text_plain(ren, ox, oy, unit, label_x, y + 1, label_w, label, RR_MENU_GOLD);
     }
-    rr_menu_hints(ren, ox, oy, unit, left + 4, top + panel_h - 13, RRHK_KEYPAD_PANEL_W - 8, rrhk_keypad_text(RRHK_KEYPAD_HINT),
+    rr_menu_hints(ren, ox, oy, unit, left + 4, top + panel_h - 13, RRHK_KEYPAD_PANEL_W - 8, rrhk_text(&rrhk_keypad_hint),
                   RR_MENU_HINT);
 }
 

@@ -41,7 +41,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual((COLECO_MACHINE.regions.region_bits, COLECO_MACHINE.regions.sources), (13, ('cartridge', 'bios')))
 
     def test_it_reuses_the_chain_the_two_chips_and_the_gates_and_the_bios_is_the_players_not_ours(self):
-        self.assertEqual(COLECO.stamp_groups, ('z80_main', 'z80_chain_glue', 'tms9918', 'sn76489', 'audio_box', 'z80_chain_state', 'state_file', 'hostkit_keypad', 'conversion_gates'))
+        self.assertEqual(COLECO.stamp_groups, ('z80_main', 'z80_chain_glue', 'tms9918', 'sn76489', 'audio_box', 'z80_chain_state', 'state_file', 'hostkit_keypad', 'hostkit_text', 'conversion_gates'))
         self.assertEqual(COLECO.notice_files, ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md'))
         self.assertEqual(COLECO.optional_notice_files, ())
 

@@ -197,8 +197,8 @@ class ProjectTests(unittest.TestCase):
             for name in ('coleco_machine.c', 'coleco_glue.inc', 'coleco_player.c', 'coleco_state_file.inc', 'tms9918.c', 'tms_tiles.inc',
                          'sn76489.h', 'z80_chain_glue.inc', 'retro_menu.c', 'state_envelope.h'):
                 self.assertEqual((work / name).read_bytes(), next(NATIVE.rglob(name)).read_bytes(), name)
-            self.assertEqual((work / 'hostkit/adapters/rrhk_keypad.inc').read_bytes(),
-                             (NATIVE / 'hostkit/adapters/rrhk_keypad.inc').read_bytes())      # the adapter includes it
+            for name in ('rrhk_keypad.inc', 'rrhk_text.h'):                              # the adapter includes them
+                self.assertEqual((work / 'hostkit/adapters' / name).read_bytes(), (NATIVE / 'hostkit/adapters' / name).read_bytes(), name)
             self.assertTrue((work / 'hostkit/adapters/rrhk_coleco.inc').is_file())
             marked = work / 'coleco_machine.c'
             before = marked.stat().st_mtime_ns

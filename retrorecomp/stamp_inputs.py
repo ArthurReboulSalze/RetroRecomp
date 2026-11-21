@@ -209,6 +209,7 @@ HOST_NATIVE = frozenset((
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
     'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc', 'hostkit/adapters/rrhk_keypad.inc',
+    'hostkit/adapters/rrhk_text.h',
     # The Amstrad CPC's (in development, its adapter to come): the boot key sequence player and its key table.
     'hostkit/adapters/rrhk_boot_keys.h', 'hostkit/adapters/rrhk_cpc_keys.h')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
@@ -1287,6 +1288,12 @@ INPUTS = _resolve({
     # calls; hashed by the machines whose adapter includes it only (the ColecoVision). Host role (in HOST_NATIVE above).
     'shares:hostkit_keypad': (
         'native/hostkit/adapters/rrhk_keypad.inc',
+    ),
+    # One adapter text in the five game languages, read for the current game language (docs/HOST_KIT.md 2.6): header only, included by
+    # the adapters whose own words are not in the catalogue yet; hashed by the machines that include it (the ColecoVision, through the
+    # on-screen keypad). Host role (in HOST_NATIVE above).
+    'shares:hostkit_text': (
+        'native/hostkit/adapters/rrhk_text.h',
     ),
     # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
     'shares:m68k_observed': (
