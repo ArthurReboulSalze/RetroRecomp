@@ -120,7 +120,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %) · Linux 4.56 ms](docs/PERFORMANCE.md#the-figures) |
 | [Amstrad CPC](docs/AMSTRAD_CPC.md) | experimental (developer-only) | `███░░` 69 % | supported · rollback | not measured |
 | [ColecoVision](docs/COLECOVISION.md) | experimental (developer-only) | `████░` 82 % | supported · rollback | not measured |
-| [Game Boy Color](docs/GAME_BOY_COLOR.md) | experimental | `░░░░░` 0 % | not offered | not measured |
+| [Game Boy Color](docs/GAME_BOY_COLOR.md) | experimental | `░░░░░` 6 % | not offered | not measured |
 | [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `██░░░` 43 % | supported · rollback | not measured |
 | [SG-1000](docs/SG1000.md) | experimental (developer-only) | `████░` 82 % | supported · rollback | not measured |
 | [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `███░░` 67 % | supported · rollback | not measured |

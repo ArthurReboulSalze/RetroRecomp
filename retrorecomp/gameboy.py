@@ -59,6 +59,8 @@ class GameBoyVariant:
     model: str                      # the runtime's `--model` default: "dmg" or "cgb"
     suffixes: tuple                 # the file names a cartridge or its single-ROM ZIP may have
     box_art: str                    # the folder of the box-art repository below BoxArt/
+    requires_color_flag: bool = True    # the Color refuses a cartridge without the header's Color flag; only the test-ROM harness
+                                        # (tools/gameboy_testroms.py --model cgb) lifts it, to run the public tests in the Color build
 
 
 DMG = GameBoyVariant("gb", "Game Boy", "dmg", (".gb", ".bin", ".rom"), "Game Boy")
@@ -102,7 +104,7 @@ def read_game_boy_rom(path: Path, variant: GameBoyVariant = DMG) -> GameBoyRom:
     cgb_flag = data[0x143]
     if variant is DMG and cgb_flag == 0xC0:
         raise ConversionError("This cartridge requires Game Boy Color; the current profile targets original Game Boy.")
-    if variant is COLOR and not cgb_flag & 0x80:
+    if variant.model == "cgb" and variant.requires_color_flag and not cgb_flag & 0x80:
         raise ConversionError("This cartridge is for the original Game Boy (its header has no Color flag); convert it with the Game Boy profile.")
     title = data[0x134:0x143].split(b"\0", 1)[0].decode("ascii", errors="replace").strip()
     return GameBoyRom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(), title, cgb_flag, variant.system_id)

@@ -560,6 +560,9 @@ INPUTS = _resolve({
         'retrorecomp.gameboy_host',
         'retrorecomp.gameboy_runtime',
     ),
+    ('gbc',): (
+        'retrorecomp.gameboy_color_hardware',
+    ),
     ('nes',): (
         'native/nes_audio_checks.c',
         'native/nes_dense_checks.c',

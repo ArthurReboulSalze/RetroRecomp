@@ -4,7 +4,9 @@ from pathlib import Path
 from .core import ConversionError, replace_once
 
 
-def adapt_hardware(project: Path) -> None:
+def adapt_hardware(project: Path, model: str = 'dmg') -> None:
+    """`model` is the machine the program is ('dmg' for the Game Boy, 'cgb' for the Game Boy Color): the Color-only fixes apply to the latter and the
+    Game Boy's sources stay as they were."""
     path = project / 'runtime/src/audio.c'
     source = path.read_text(encoding='utf-8')
     # NRx2 holds the *initial* envelope volume. The live envelope can grow from
@@ -27,9 +29,18 @@ def adapt_hardware(project: Path) -> None:
     source = adapt_length_clock(source)
     source = adapt_sweep_calculation(source)
     source = adapt_audio_digest(source)
+    if model == 'cgb':
+        from .gameboy_color_hardware import adapt_color_audio
+        source = adapt_color_audio(source)
     path.write_text(source, encoding='utf-8')
     ppu = project / 'runtime/src/ppu.c'
-    ppu.write_text(adapt_ppu_object_spans(ppu.read_text(encoding='utf-8')), encoding='utf-8')
+    ppu_source = adapt_ppu_object_spans(ppu.read_text(encoding='utf-8'))
+    if model == 'cgb':
+        from .gameboy_color_hardware import adapt_color_cpu, adapt_color_ppu
+        ppu_source = adapt_color_ppu(ppu_source)
+        cpu = project / 'runtime/src/gbrt.c'
+        cpu.write_text(adapt_color_cpu(cpu.read_text(encoding='utf-8')), encoding='utf-8')
+    ppu.write_text(ppu_source, encoding='utf-8')
 
 
 def adapt_ppu_object_spans(source: str) -> str:
