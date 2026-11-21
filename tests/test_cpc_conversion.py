@@ -74,6 +74,20 @@ class ConversionRefusalTests(unittest.TestCase):
         convert.assert_called_once_with(Path('x.dsk'), frames=900)
         self.assertFalse(AMSTRAD_CPC.available())
 
+    def test_the_firmware_record_is_one_the_lobby_compares(self):
+        from retrorecomp.netplay import lobby_check
+        system, amsdos = b'\x01' * 0x8000, b'\x02' * 0x4000
+        record = cpc_conversion.firmware_identity(system, amsdos, {'cpc_system': {'origin': 'pinned'}, 'cpc_amsdos': {'origin': 'player'}})
+        self.assertIn('firmware', lobby_check.FIRMWARE_KEYS)
+        self.assertEqual((record['system']['origin'], record['amsdos']['origin']), ('pinned', 'player'))
+        one = lobby_check.firmware_digest({'firmware': record})
+        other = lobby_check.firmware_digest({'firmware': cpc_conversion.firmware_identity(system, b'\x03' * 0x4000, {})})
+        self.assertNotEqual(one, lobby_check.ZERO)
+        self.assertNotEqual(one, other)                    # another AMSDOS: another firmware for the room
+        self.assertEqual(one, lobby_check.firmware_digest({'firmware': cpc_conversion.firmware_identity(system, amsdos, {})}))
+        source = Path(cpc_conversion.__file__).read_text(encoding='utf-8')
+        self.assertIn("'firmware': firmware_identity(system, amsdos, firmware_record)", source)
+
     def test_the_report_keeps_the_five_measures_apart(self):
         source = Path(cpc_conversion.__file__).read_text(encoding='utf-8')
         for claim in ("'hardware_fidelity_validated': False", "'physical_latency_measured': False", "'full_game_validated': False",

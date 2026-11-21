@@ -91,6 +91,18 @@ def firmware_pair(options: dict, emit=print) -> tuple[bytes, bytes, dict]:
     return found.system, found.amsdos, found.record
 
 
+def firmware_identity(system: bytes, amsdos: bytes, record: dict) -> dict:
+    """The report's top-level `firmware` record (retrorecomp/netplay/lobby_check.py FIRMWARE_KEYS): one SHA-256 of the system ROM
+    then AMSDOS, so a room refuses two seats on different firmware before the match; each part's own SHA-256 and origin beside it."""
+    import hashlib
+    parts = {}
+    for key, data in (('cpc_system', system), ('cpc_amsdos', amsdos)):
+        given = record.get(key)
+        parts[key] = {'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data),
+                      'origin': given.get('origin', 'player') if isinstance(given, dict) else str(given)}
+    return {'sha256': hashlib.sha256(system + amsdos).hexdigest(), 'system': parts['cpc_system'], 'amsdos': parts['cpc_amsdos']}
+
+
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True, boxart_dir=None, frames=FRAMES,
             passes=3, scan_level=None, emit=print, **options) -> Path:
     """Convert and deliver the disk at `path`; the delivered game (also copied into `output`) is returned, the report is
@@ -218,6 +230,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'packed_rows_equal': True, 'liveness': report_fields(liveness, LIVENESS_FIELDS)}]
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'system': {'id': 'cpc', 'name': 'Amstrad CPC'},
               'rom': {'sha256': disk.sha256, 'bytes': disk.size, 'file': Path(path).name}, 'converted': True,
+              'firmware': firmware_identity(system, amsdos, firmware_record),
               'compiler': {'engine': 'the banked Z80 chain (retrorecomp/z80_chain.py), machine "cpc"',
                            'native_cpu': 'every instruction position of the system ROM and AMSDOS translated ahead of time; code '
                                          'run from RAM (the game, loaded from its disk) learned and translated with byte guards'},
