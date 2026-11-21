@@ -2,6 +2,7 @@
 image and core, the routes and the quick states' envelope. No ROM and no game: every snapshot here is built by the test from authored bytes, and no ROM file is read."""
 import hashlib
 import json
+import shutil
 import tempfile
 import unittest
 import zipfile
@@ -435,6 +436,59 @@ class RouteTests(unittest.TestCase):
             self.assertIsNone(zxs_starts.start_for(identity))
         self.assertIsNone(zxs_starts.start_for('00' * 32))
         self.assertIsNone(zxs_starts.route_stop('00' * 32))
+
+    def test_a_game_prepared_again_with_other_bytes_rebuilds_its_resources(self):
+        # The resource compiler does not track the files content.rc includes: prepare_game touches it (and the Linux .incbin
+        # source) whenever an embedded file is newer, and leaves its time alone otherwise (Match Day II, 22 November 2026: a
+        # reviewed joystick changed the image of a work folder and the build linked the old one, which the packed replay caught).
+        import os
+        from retrorecomp import zxs_build
+        folder = Path(tempfile.mkdtemp())
+        try:
+            path = folder / 'a.z80'
+            path.write_bytes(z80_v1(BANKS, True))
+            image = bytearray(zxs_build.zxs_image(zxs_snapshot.read_snapshot(path)))
+            work, rom, identity = folder / 'work', bytes(0x4000), 'ab' * 32
+            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
+            rc = work / 'content.rc'
+            for name in ('game-rom.bin', 'game-image.bin', 'notices.txt', 'export-identity.bin'):
+                os.utime(work / name, (1_000_000, 1_000_000))
+            os.utime(rc, (2_000_000, 2_000_000))
+            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
+            self.assertEqual(rc.stat().st_mtime, 2_000_000)                  # nothing new: no rebuild
+            image[6] ^= 1
+            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
+            self.assertGreater(rc.stat().st_mtime, 2_000_000)                 # a new image: the resources are compiled again
+            self.assertEqual((work / 'game-image.bin').read_bytes(), bytes(image))
+            os.utime(rc, (500_000, 500_000))                                  # a folder left stale by an earlier conversion
+            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
+            self.assertGreater(rc.stat().st_mtime, 500_000)
+        finally:
+            shutil.rmtree(folder)
+
+    def test_reviewed_joysticks_name_an_interface_the_machine_knows(self):
+        # zxs_starts.JOYSTICKS: SHA-256 keys, one of the snapshot format's interfaces, and a reason; the conversion reads the
+        # snapshot with it, so the image's joystick byte (zxs_build: the Kempston answers at port 1Fh only when it is 1) follows.
+        import dataclasses
+        from retrorecomp import zxs_build, zxs_starts
+        from retrorecomp.zxs_snapshot import JOYSTICKS
+        self.assertTrue(zxs_starts.JOYSTICKS)
+        for identity, entry in zxs_starts.JOYSTICKS.items():
+            self.assertRegex(identity, '^[0-9a-f]{64}$')
+            self.assertIn(entry['joystick'], JOYSTICKS)
+            self.assertTrue(entry['why'])
+            self.assertEqual(zxs_starts.joystick_for(identity), (entry['joystick'], entry['why']))
+        self.assertIsNone(zxs_starts.joystick_for('00' * 32))
+        folder = Path(tempfile.mkdtemp())
+        path = folder / 'a.z80'
+        path.write_bytes(z80_v1(BANKS, True))
+        snapshot = zxs_snapshot.read_snapshot(path)
+        self.assertEqual(zxs_build.zxs_image(snapshot)[6], JOYSTICKS.index(snapshot.joystick))
+        for joystick in JOYSTICKS:
+            self.assertEqual(zxs_build.zxs_image(dataclasses.replace(snapshot, joystick=joystick))[6], JOYSTICKS.index(joystick))
+        shutil.rmtree(folder)
+        source = (Path(__file__).resolve().parents[1] / 'retrorecomp/zxs_conversion.py').read_text(encoding='utf-8')
+        self.assertIn('snapshot = dataclasses.replace(snapshot, joystick=reviewed_joystick[0])', source)
 
 
 class QuickStateTests(unittest.TestCase):

@@ -13,6 +13,7 @@ MIT C for the rest, written from floooh/chips (zlib) and Clock Signal (MIT) as r
 """
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -93,7 +94,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         raise ConversionError('ZX Spectrum snapshots are read from their content; TOML cartridge profiles do not apply.')
     try:
         snapshot = read_snapshot(path)
-        rom = zxs_roms.rom_for(snapshot.model, {'zxs_rom48': zxs_rom48, 'zxs_rom128': zxs_rom128}, emit)
+        reviewed_joystick = zxs_starts.joystick_for(snapshot.sha256)
+        if reviewed_joystick:
+            # The interface the game's own menu uses (reviewed data): the image's joystick byte, the pads and the routes follow it.
+            snapshot = dataclasses.replace(snapshot, joystick=reviewed_joystick[0])
+            emit(f'ZX Spectrum: the joystick is the {reviewed_joystick[0]} interface (reviewed data of this snapshot, zxs_starts).')
+        rom =zxs_roms.rom_for(snapshot.model, {'zxs_rom48': zxs_rom48, 'zxs_rom128': zxs_rom128}, emit)
     except (OSError, ValueError) as error:
         raise ConversionError(str(error)) from None
     title = title or Path(path).stem
@@ -234,6 +240,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                            'native_cpu': 'every instruction position of the Spectrum ROM translated ahead of time; the code the '
                                          'snapshot runs from RAM learned and translated with byte guards'},
               'zxs_checks': {'machine': snapshot.hardware, 'model': snapshot.model, 'joystick': snapshot.joystick,
+                             'joystick_rule': f'reviewed data of this snapshot (retrorecomp/zxs_starts.py): {reviewed_joystick[1]}'
+                             if reviewed_joystick else 'the snapshot\'s header',
                              'rom': {'origin': rom.origin, 'sha256': rom.sha256,
                                      'source': None if rom.origin == 'player' else
                                      f'{zxs_roms.SOURCE_REPOSITORY} at {zxs_roms.SOURCE_COMMIT} (Amstrad\'s permission for emulators)'},
