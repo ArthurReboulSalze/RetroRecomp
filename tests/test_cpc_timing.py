@@ -96,5 +96,19 @@ class ChainTests(unittest.TestCase):
         self.assertEqual((costs.irq, costs.irq_im2, costs.halt, costs.fragment), (20, 28, 4, 4))
 
 
+class MachineTests(unittest.TestCase):
+    def test_the_cpcs_z80_machine_runs_on_its_costs(self):
+        from retrorecomp.paths import ASSETS
+        from retrorecomp.systems import get_profile
+        from retrorecomp.z80_chain import banked_runtime
+        machine = get_profile('cpc').z80_machine
+        self.assertEqual((machine.key, machine.mapped, machine.regions.regions, machine.regions.sources, machine.m1_wait),
+                         ('cpc', True, 4, ('system', 'amsdos'), 0))
+        self.assertEqual(machine.cost, cpc_timing.z80_costs())
+        loop = banked_runtime(machine, ASSETS)
+        self.assertIn('g_z80.cyc += g_z80.im == 2 ? 28 : 20;', loop)       # the interrupt acceptance in whole microseconds
+        self.assertIn('g_z80.cyc += 4; banked_halt_steps++;', loop)         # a HALT cycle: 1 us
+
+
 if __name__ == '__main__':
     unittest.main()

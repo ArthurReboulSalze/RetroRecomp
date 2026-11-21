@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "cpc_bus.h"
+#include "cpc_machine.h"
 #include "cpc_crtc.h"
 #include "cpc_gate_array.h"
 #include "cpc_ppi.h"
@@ -331,9 +332,93 @@ static void check_bus(void)
     expect("a 64 KiB machine ignores the configuration", m.ram[3] == 3);
 }
 
+/* The board through its bus, as the Z80 drives it: stand-in ROMs (each byte its ROM's tag), a disk built here. */
+static CpcMachine board;
+static uint8_t os_rom[CPC_ROM_BYTES], basic_rom[CPC_ROM_BYTES], amsdos_rom[CPC_ROM_BYTES];
+static uint8_t disk[256 + 256 + 9 * 512];
+
+static void check_machine(void)
+{
+    memset(os_rom, 0x05, sizeof os_rom);
+    memset(basic_rom, 0xBA, sizeof basic_rom);
+    memset(amsdos_rom, 0xAD, sizeof amsdos_rom);
+    board.os = os_rom; board.basic = basic_rom; board.amsdos = amsdos_rom;
+    board.picture = NULL;
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    uint32_t g0 = board.generation;
+    expect("reset: the OS at 0000h, BASIC at C000h, RAM between", cpc_read(&board, 0x0000) == 0x05
+        && cpc_read(&board, 0xC123) == 0xBA && cpc_read(&board, 0x4000) == 0x00);
+    cpc_write(&board, 0x0010, 0x77);
+    cpc_write(&board, 0xC010, 0x66);
+    expect("a write under a ROM goes to the RAM below it", cpc_read(&board, 0x0010) == 0x05 && board.ram[0x0010] == 0x77
+        && board.ram[0xC010] == 0x66);
+    cpc_out(&board, 0x7F00, 0x8C);                                   /* both ROMs off */
+    expect("ROMs off: RAM at 0000h and C000h, a new map", cpc_read(&board, 0x0010) == 0x77 && cpc_read(&board, 0xC010) == 0x66
+        && board.generation != g0);
+    cpc_out(&board, 0x7F00, 0x84);                                   /* lower off, upper on */
+    cpc_out(&board, 0xDF00, CPC_AMSDOS_SLOT);
+    expect("upper ROM 7: AMSDOS at C000h", cpc_read(&board, 0xC000) == 0xAD);
+    cpc_out(&board, 0xDF00, 0);
+    expect("upper ROM 0: BASIC again", cpc_read(&board, 0xC000) == 0xBA);
+    uint32_t g1 = board.generation;
+    cpc_out(&board, 0xDF00, 0);
+    expect("the same ROM selected again: the map does not change", board.generation == g1);
+    cpc_out(&board, 0x7F00, 0x8C);
+    cpc_out(&board, 0x7F00, 0xC1);                                   /* configuration 1: bank 7 at C000h */
+    cpc_write(&board, 0xC000, 0x42);
+    expect("RAM configuration 1: C000h is bank 7", board.ram[0x1C000] == 0x42 && board.ram[0xC000] != 0x42);
+    expect("the screen is read from the base 64 KiB whatever the configuration", board.map.ram[3] == 7);
+    cpc_out(&board, 0x7F00, 0xC0);
+    expect("the GA cannot be read: FFh", cpc_in(&board, 0x7F00) == 0xFF);
+    cpc_out(&board, 0xBC00, 12);
+    cpc_out(&board, 0xBD00, 0x20);
+    expect("the CRTC through BCxxh / BDxxh", board.crtc.reg[12] == 0x20);
+    cpc_out(&board, 0xBC00, 31);
+    expect("type 1 reads R31 at BFxxh", cpc_in(&board, 0xBF00) == 0xFF);
+    expect("PPI port B at F5xxh: Amstrad, 50 Hz", (cpc_in(&board, 0xF500) & 0xFE) == 0x7E);
+    cpc_out(&board, 0xFA7E, 1);
+    expect("the motor at FA7Eh", board.motor == 1);
+
+    /* A one-track standard disk, sector C1h holding its tag. */
+    memset(disk, 0, sizeof disk);
+    memcpy(disk, "MV - CPCEMU Disk-File\r\nDisk-Info\r\n", 34);
+    disk[0x30] = 1; disk[0x31] = 1; disk[0x32] = 0x00; disk[0x33] = 0x13;
+    uint8_t *track = disk + 256;
+    memcpy(track, "Track-Info\r\n", 12);
+    track[0x14] = 2; track[0x15] = 9;
+    for (unsigned s = 0; s < 9; ++s) { track[0x18 + 8 * s + 2] = (uint8_t)(0xC1 + s); track[0x18 + 8 * s + 3] = 2; }
+    memset(track + 256, 0xD5, 512);
+    expect("a disk goes in drive A", cpc_insert_disk(&board, 0, disk, sizeof disk, 0) == DSK_OK);
+    expect("the controller's status at FB7Eh: ready for a command", cpc_in(&board, 0xFB7E) == 0x80);
+    static const uint8_t read[9] = { 0x46, 0x00, 0, 0, 0xC1, 2, 0xC1, 0x2A, 0xFF };
+    for (unsigned i = 0; i < 9; ++i) cpc_out(&board, 0xFB7F, read[i]);
+    unsigned bytes = 0, same = 1;
+    while ((cpc_in(&board, 0xFB7E) & 0xE0) == 0xE0 && bytes < 600) { same &= cpc_in(&board, 0xFB7F) == 0xD5; ++bytes; }
+    uint8_t st0 = cpc_in(&board, 0xFB7F), st1 = cpc_in(&board, 0xFB7F);
+    for (unsigned i = 0; i < 5; ++i) cpc_in(&board, 0xFB7F);
+    expect("a sector read through FB7Fh as AMSDOS does: 512 bytes, end of cylinder", bytes == 512 && same && st0 == 0x40
+        && st1 == 0x80);
+
+    /* Time: 4 T-states a character; the firmware's frame and its six interrupts, acknowledged as the Z80 does. */
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    unsigned frames = 0, interrupts = 0, raised = 0;
+    for (unsigned step = 0; step < 3 * 19968 * 4 / 7; ++step) {      /* 7-T steps: not aligned on the microsecond */
+        cpc_advance(&board, 7);
+        if (board.frame_ready) { board.frame_ready = 0; ++frames; }
+        if (cpc_irq(&board)) { ++raised; cpc_acknowledge(&board); }
+    }
+    interrupts = raised;
+    expect("three frames of 19,968 us in 7-T steps", frames == 3 && board.frames == 3
+        && board.cycles == (uint64_t)(3 * 19968 * 4 / 7) * 7);
+    expect("six interrupts a frame, each dropped by its acknowledge", interrupts >= 17 && interrupts <= 18);
+    expect("the next event is the next microsecond", cpc_next_event(&board) > board.cycles
+        && cpc_next_event(&board) <= board.cycles + 4 && cpc_next_event(&board) % 4 == 0);
+}
+
 int main(void)
 {
     check_bus();
+    check_machine();
     check_crtc();
     check_gate_array();
     check_picture();

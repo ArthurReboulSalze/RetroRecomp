@@ -16,7 +16,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile, UnsupportedConsoleError
+from ..cpc_timing import z80_costs
+from ..z80_chain import Z80Machine, Z80RegionMap
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
+
+# The CPC on the banked Z80 chain: four 16 KiB regions, each showing RAM, the system ROM (source 0: bank 0 the OS below 4000h,
+# bank 1 BASIC at C000h) or AMSDOS (source 1, the upper ROM 7) as the Gate Array and the upper ROM number say; no M1 wait state
+# of its own, every instruction in whole microseconds instead (retrorecomp/cpc_timing.py); /INT read once the machine has caught
+# up with the instruction; the start of each step and the reference CPU's state copies from the chain; its own generator
+# folders. The game's own code runs from RAM: learned with byte guards, kept as offsets in the disk. The full 16-bit port
+# (port_bits) joins when the chain has it (native/cpc_machine/cpc_glue.inc is written for it).
+CPC_MACHINE = Z80Machine('cpc', Z80RegionMap(region_bits=14, sources=('system', 'amsdos'), bank_values=2,
+                                             scope='cpc-firmware-region-map'),
+                         m1_wait=0, irq_sample='instruction_end', generator_tag='-cpc', step_begin=True,
+                         reference_state=True, costs=z80_costs())
 
 # A CPC disk image: the smallest one holds a single 256-byte disk block and one track; the largest a 3.5" drive's 84
 # double-sided tracks (retrorecomp/cpc_disk.py, MAX_IMAGE).
@@ -48,6 +61,7 @@ class AmstradCpcProfile(SystemProfile):
     # No kind in native/runtime_feedback.h yet: it waits for the lead's reservation (DECLINED['feedback_kind'] of the registry test).
     feedback_kinds = frozenset()
     developer_only = True
+    z80_machine = CPC_MACHINE
     # The components its games are to compile: the banked Z80 chain's generator and core, and the reference interpreter of
     # the counted fallback (the MSX's three).
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')

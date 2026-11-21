@@ -7,7 +7,8 @@ characters, 40 x 200 displayed, the HSYNC and VSYNC widths), the screen addresse
 CRTC type (when R12/R13 are taken, the VSYNC width, the registers read back, type 1's status), the 300 Hz interrupt with its
 VSYNC phase and acknowledge, the pixels of each mode and the 27 colours, the 6128's RAM configurations, the picture of a known
 screen (border, display window, a byte changed), the AY written through the PPI and the keyboard and joystick rows read back as
-the firmware scans them. It says nothing about the Z80, the firmware or a game: those are the conversions' checks.
+the firmware scans them, and the board through its 16-bit ports: the memory map with the ROMs, AMSDOS and the RAM
+configurations, a sector read through FB7Fh, the frames and interrupts in T-states. It says nothing about the Z80, the firmware or a game: those are the conversions' checks.
 """
 from __future__ import annotations
 import json
@@ -24,12 +25,14 @@ def run_checks(project: Path | None = None) -> dict:
     project = project or ROOT / '.build' / 'cpc-hardware-selftest'
     project.mkdir(parents=True, exist_ok=True)
     native = (ROOT / 'native' / 'cpc_machine').as_posix()
+    upd765 = (ROOT / 'native' / 'upd765').as_posix()
     (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
 project(RetroCpcHardware C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-add_executable(checks "{native}/cpc_hardware_checks.c" "{native}/cpc_crtc.c" "{native}/cpc_gate_array.c" "{native}/cpc_ppi.c")
-target_include_directories(checks PRIVATE "{native}")
+add_executable(checks "{native}/cpc_hardware_checks.c" "{native}/cpc_crtc.c" "{native}/cpc_gate_array.c" "{native}/cpc_ppi.c"
+               "{native}/cpc_machine.c" "{upd765}/upd765.c" "{upd765}/dsk_image.c")
+target_include_directories(checks PRIVATE "{native}" "{upd765}")
 ''', encoding='utf-8')
     cmake, generator = toolchain()
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
