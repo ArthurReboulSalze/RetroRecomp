@@ -163,6 +163,13 @@ def prepare_tree(spec: str, label: str, work: Path, deps: Path, tools: Path | No
     """(tree, created): a folder to convert with. A git ref becomes a detached worktree under `work`."""
     given = Path(spec)
     if given.is_dir():
+        held = links_in(given)
+        if held:
+            # The tool detaches every link of a tree when it ends (release_tree): on a worktree that already has its .deps junctions
+            # that leaves the worktree without them (three times on 21 Nov 2026, the targets intact).
+            raise SystemExit(f'ab_conversion: {given} already holds {len(held)} link(s) (for instance {held[0]}), which this tool would '
+                             f'detach when it ends. Pass a git ref (a branch or a commit) instead of the folder of a worktree: the tool '
+                             f'then makes its own tree, links its own .deps and removes both.')
         tree, created = given.resolve(), False
     else:
         tree, created = work / label, True
