@@ -150,5 +150,17 @@ Evidence (22 November 2026, `spec/zx-multiplayer`):
 - Not done yet: two PCs (the multiplayer specialist's run with the second PC), the owner's play on two PCs. The input delay is
   counted in frames; physical latency is not measured.
 
-Not yet: per-game data for the games whose two players share the keyboard in halves (keyed by the dump's SHA-256, sent and locked
-as a session option).
+Known limits (22 November 2026):
+
+- A restart in a match goes through the game's own reset path (the embedded machine image loaded again on every seat at the same
+  frame, the keyboard rows and the Kempston latch cleared), not through `session_begin`, which lays the start snapshot at the
+  match's start only; the smoke test's digests stay equal after the restart at frame 2,200.
+- With player 1 on the cursor keys (5 left, 6 down, 7 up, 8 right, 0 fire), player 2 goes on Interface 2's 1-5, whose fire (5)
+  is player 1's left: a press of player 2's fire also reads as player 1 going left. Interface 2's 6-0 would overlap four keys, so
+  1-5 is the smaller overlap; the fix is per-game data (player 2 on the Kempston when the game reads it, or the interface the game's
+  menu gives player 2), keyed by the dump's SHA-256 and locked for the match.
+- Match Day II offers player 2 its own keys (« Keys and options », « Player 2 keys »), where the host can type 6, 7, 8, 9 and 0 so
+  that player 2's pad drives them; on the reference its menu cursor moves more than one place per press and kept moving under the
+  scripted presses, so the exact presses to reach that screen are not yet confirmed.
+- Not yet: per-game data for the games whose two players share the keyboard in halves (keyed by the dump's SHA-256, sent and locked
+  as a session option).
