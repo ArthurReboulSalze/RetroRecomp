@@ -216,23 +216,31 @@ class ProfileTests(unittest.TestCase):
         profile = get_profile('zxs')
         self.assertEqual((profile.name, profile.status, profile.linux, profile.developer_only),
                          ('ZX Spectrum', 'experimental', 'witnessed', True))
-        self.assertFalse(profile.available())
+        # It converts through the real player path (batch, the window) on a developer tree, as the SG-1000 and the
+        # ColecoVision do, and no installation lists it for players (developer_only).
+        self.assertTrue(profile.available())
         from retrorecomp.systems import PROFILES, convertible_profiles
         self.assertNotIn(profile, PROFILES)
-        self.assertNotIn(profile, convertible_profiles())
+        self.assertIn(profile, convertible_profiles())
         self.assertIn(profile, ALL_PROFILES)
 
-    def test_a_snapshot_says_the_machine_is_unavailable_and_steals_nothing(self):
-        for name, data in (('a.z80', z80_v1(BANKS)), ('b.sna', sna48(BANKS))):
-            path = self.folder / name
-            path.write_bytes(data)
+    def test_a_snapshot_says_the_machine_is_unavailable_when_it_is_and_steals_nothing(self):
+        profile = get_profile('zxs')
+        original = type(profile).available
+        type(profile).available = lambda self: False         # an installation without the machine
+        try:
+            for name, data in (('a.z80', z80_v1(BANKS)), ('b.sna', sna48(BANKS))):
+                path = self.folder / name
+                path.write_bytes(data)
+                with self.assertRaisesRegex(UnsupportedConsoleError, 'ZX Spectrum'):
+                    profile_for_path(path)
+            bundle = self.folder / 'zx.zip'
+            with zipfile.ZipFile(bundle, 'w') as archive:
+                archive.writestr('game.z80', z80_v1(BANKS))
             with self.assertRaisesRegex(UnsupportedConsoleError, 'ZX Spectrum'):
-                profile_for_path(path)
-        bundle = self.folder / 'zx.zip'
-        with zipfile.ZipFile(bundle, 'w') as archive:
-            archive.writestr('game.z80', z80_v1(BANKS))
-        with self.assertRaisesRegex(UnsupportedConsoleError, 'ZX Spectrum'):
-            profile_for_path(bundle)
+                profile_for_path(bundle)
+        finally:
+            type(profile).available = original
         # A ZIP of another machine is left to it: an MSX cartridge is not looked at by the Spectrum.
         other = self.folder / 'other.zip'
         with zipfile.ZipFile(other, 'w') as archive:

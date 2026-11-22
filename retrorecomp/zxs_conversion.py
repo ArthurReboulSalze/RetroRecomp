@@ -49,9 +49,10 @@ def write_skeleton_report(path, source, scenarios, level='standard') -> dict:
 
 
 def developer_available() -> bool:
-    """True when this installation offers the ZX Spectrum. A development tree converts through `convert`; no installation lists
-    the machine before its first panel (docs/NEW_MACHINE.md, step 1), so none does yet."""
-    return False
+    """True: the ZX Spectrum converts wherever the converter's files are, through `convert` and the real player path (batch, the
+    window), as the SG-1000 and the ColecoVision do. It stays `developer_only` (systems/zx_spectrum.py): no installation lists it
+    for players until the owner says so."""
+    return True
 
 
 # ---- the conversion ---------------------------------------------------------------------------------------------------------
