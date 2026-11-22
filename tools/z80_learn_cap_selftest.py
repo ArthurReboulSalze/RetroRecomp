@@ -11,8 +11,8 @@ AUTHORED cartridge (no ROM), the SG-1000's machine (the chain is the same for ev
       many new native bodies in banked-coverage.json (nothing left out), and a table that has to grow does not change a byte of what is
       written for fewer windows (checked in the A/B of the change, tests/test_z80_learn_cap.py keeps the anchors);
   (c) the whole loop, with `learn_passes`: a program that writes and runs 5,120 different routines from RAM learns all 5,120 windows in
-      the first pass and runs on the interpreter for none of them in the second (the passes shrink to 0), where a 4,096 bound
-      leaves 1,024 of them for a third.
+      the first pass and runs on the interpreter for none of them in the second (the passes shrink to 0: 5,120 then 0), where the
+      4,096 bound of the old chain leaves 1,024 of them for a third and a fourth (5,120, 1,024, 1,024: checked on main 7c8b04ba).
 
 What it does not prove: anything about a real cartridge; the machine's own chips (the other self-tests). Everything is written under
 .build/z80-learn-cap (default); no window, every run bounded.
@@ -142,7 +142,7 @@ def prove_loop(res: Results, work: Path) -> None:
         work, [['--frames', str(FRAMES), '--cart', str(cart_file)]], generate=lambda: generate(work, cartridge),
         build_check=lambda: build_check(work), run_check=run_check, passes=4)
     words = len((work / 'native.patterns').read_text(encoding='utf-8').split())
-    res.check(words >= ROUTINES, f'every window is learned in the first pass ({words} words, at least {ROUTINES})')
+    res.check(words >= ROUTINES, f'every window ends in native.patterns ({words} words, at least {ROUTINES})')
     res.check(len(counts) >= 2 and counts[0] >= ROUTINES and counts[-1] == 0, f'the interpreter runs for none of them in the end (steps per pass: {counts})')
     res.check(all(a > b for a, b in zip(counts, counts[1:])), f'the passes shrink at every step (monotonically: {counts})')
     report = coverage(work)
