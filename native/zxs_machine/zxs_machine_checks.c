@@ -137,6 +137,11 @@ static void floating_bus_checks(void)
     check("48K floating bus: the next frame", read_at(69888 + 14347, 0, 0x00FF), 0xA1);
     check("48K floating bus: port 1Fh floats without a Kempston", read_at(14347, 0, 0x001F), 0xA1);
     check("48K floating bus: the ULA's port reads the keyboard", read_at(14347, 0, 0x00FE) & 0x1F, 0x1F);
+    check("48K floating bus: the Fuller port floats without a Fuller box", read_at(14347, 0, 0x017F), 0xA1);
+    m.fuller_present = 1;
+    check("48K: a Fuller box present and idle reads FFh in the paper", read_at(14347, 0, 0x017F), 0xFF);
+    check("48K: and its port is 7Fh only", read_at(14347, 0, 0x01FF), 0xA1);
+    m.fuller_present = 0;
     zxs_reset(&m, ZXS_128K, 0, rom);
     m.ram[5][0x0000] = 0x5A; m.ram[7][0x0000] = 0x7A;
     check("128K floating bus: FFh at 14367", read_at(14367, 0, 0x00FF), 0xFF);

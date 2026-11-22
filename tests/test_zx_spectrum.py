@@ -467,6 +467,25 @@ class RouteTests(unittest.TestCase):
         self.assertIn('\n'.join(resource_rebuild.CMAKE_LINES), text)
         self.assertLess(text.index('add_executable(game'), text.index('rr_embedded_depends(content.rc'))
 
+    def test_a_reviewed_fuller_box_is_byte_31_of_the_image(self):
+        # zxs_starts.FULLER_IDLE (by SHA-256, with its reason): the game polls the Fuller port though no Fuller is chosen; the
+        # machine gets one, idle (native/zxs_machine: port 7Fh reads FFh). Image byte 31, 0 otherwise.
+        from retrorecomp import zxs_build, zxs_starts
+        for identity, why in zxs_starts.FULLER_IDLE.items():
+            self.assertRegex(identity, '^[0-9a-f]{64}$')
+            self.assertGreater(len(why), 40)
+            self.assertEqual(zxs_starts.fuller_idle(identity), why)
+        self.assertIsNone(zxs_starts.fuller_idle('00' * 32))
+        folder = Path(tempfile.mkdtemp())
+        try:
+            path = folder / 'a.z80'
+            path.write_bytes(z80_v1(BANKS, True))
+            snapshot = zxs_snapshot.read_snapshot(path)
+            self.assertEqual(zxs_build.zxs_image(snapshot)[31], 0)
+            self.assertEqual(zxs_build.zxs_image(snapshot, fuller_idle=True)[31], 1)
+        finally:
+            shutil.rmtree(folder)
+
     def test_reviewed_joysticks_name_an_interface_the_machine_knows(self):
         # zxs_starts.JOYSTICKS: SHA-256 keys, one of the snapshot format's interfaces, and a reason; the conversion reads the
         # snapshot with it, so the image's joystick byte (zxs_build: the Kempston answers at port 1Fh only when it is 1) follows.

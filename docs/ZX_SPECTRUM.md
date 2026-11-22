@@ -55,7 +55,9 @@ Amstrad's permission for emulators of 31 August 1999 (no charge for the ROM code
    When a game's menu uses another interface than the snapshot's header says, reviewed data names it (`zxs_starts.JOYSTICKS`,
    by SHA-256, found by holding each key and Kempston bit in play on the reference): the image, the pads and the routes follow
    it, and the report says why (`zxs_checks.joystick_rule`). Head over Heels reads Interface 2 (6-0); Match Day II's start
-   picks « Kempston joystick » in its menu, which waits for ever unless a Kempston answers at port 1Fh.
+   picks « Kempston joystick » in its menu, which waits for ever unless a Kempston answers at port 1Fh. A game that polls the
+   Fuller joystick's port (7Fh) though no Fuller is chosen gets a Fuller box present and idle, reading FFh (`zxs_starts.FULLER_IDLE`,
+   image byte 31): Match Day II reads it every frame, and floating, its screen bytes moved the menu's cursor with no key held.
 3. The ROM is translated ahead of time on the shared chain; the code the snapshot runs from RAM is learned over the routes
    and translated with byte guards (`zxs_build.learn`, up to three passes).
 4. Every route is run natively and on the reference interpreter (the same machine, every instruction interpreted): the
@@ -96,6 +98,14 @@ after its start and its contention; the chain's evaluator gives the machine that
 reference alike (`zxs_floating_bus`, 20 checks in tools/zxs_machine_selftest.py). Arkanoid, which the guide names as depending
 on it, now plays its first round on the play route (297 distinct pictures, bricks broken) where without it the picture froze
 after frame 1,409. Not measured on a real Spectrum here.
+
+Research note (22 November 2026): the moment an IN samples the floating bus is taken from Ramsoft's guide (3 T-states into the I/O
+cycle, after its contention); Clock Signal samples at the cycle's end, about one T-state later, and the two disagree by about 5
+T-states on the 128K's first fetch. A second documented source, or a measurement, would settle it; until then the model is the
+guide's. What the panel's games read on unattached ports, over their play routes: Arkanoid reads port FFh 140,074 times (its
+deliberate use of the floating bus); Manic Miner sweeps the 256 ports ending in 1Fh once, just after its start key, with no Kempston
+present (75 of them read screen bytes; the game plays on); Head over Heels reads 1Fh once without a Kempston (FFh, in the border);
+Match Day II polled the Fuller port every frame (now given an idle Fuller box); the others read none.
 Nothing claims exact timing. With contention, Manic Miner's play route runs 19 % fewer instructions in its 2,100 frames than
 without it, and Head over Heels' 8 %.
 
@@ -159,8 +169,12 @@ Known limits (22 November 2026):
   is player 1's left: a press of player 2's fire also reads as player 1 going left. Interface 2's 6-0 would overlap four keys, so
   1-5 is the smaller overlap; the fix is per-game data (player 2 on the Kempston when the game reads it, or the interface the game's
   menu gives player 2), keyed by the dump's SHA-256 and locked for the match.
-- Match Day II offers player 2 its own keys (« Keys and options », « Player 2 keys »), where the host can type 6, 7, 8, 9 and 0 so
-  that player 2's pad drives them; on the reference its menu cursor moves more than one place per press and kept moving under the
-  scripted presses, so the exact presses to reach that screen are not yet confirmed.
+- Match Day II, two players: with the idle Fuller box its menu cursor stays where a press leaves it (a press, then nothing held:
+  the cursor does not move again; native, reference and the delivered game equal on every frame of that route). The two-player
+  match is reached on the reference by: ENTER on the title; on « Select joystick », SPACE until the arrow is on « Kempston
+  joystick », ENTER; on the main menu, SPACE once to « 2 Player Matchday », ENTER; on « First half », ENTER. Which keys player 2
+  moves with in the match is not yet confirmed: after the kick-off, held for a second, only the bottom row, 0 and the Kempston's fire
+  changed the picture, and no direction of either player; « Keys and options », « Player 2 keys » lets the host type player 2's
+  keys (6, 7, 8, 9, 0 would put them on player 2's pad).
 - Not yet: per-game data for the games whose two players share the keyboard in halves (keyed by the dump's SHA-256, sent and locked
   as a session option).

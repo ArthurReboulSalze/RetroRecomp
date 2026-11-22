@@ -22,6 +22,7 @@ void zxs_reset(ZxsMachine *m, int model, int ram16k, const uint8_t *rom)
     m->border = 7; m->out_fe = 0;
     memset(m->keys, 0xFF, sizeof m->keys);
     m->kempston = 0;
+    m->kempston_present = m->fuller_present = 0;
     m->ay_latch = 0; memset(m->ay_regs, 0, sizeof m->ay_regs);
     ay38910_reset(&m->ay);
     m->ay_next = AY_TICK; m->ay_level = 0;
@@ -45,6 +46,7 @@ int zxs_load_image(ZxsMachine *m, const uint8_t *image, size_t size, const uint8
         return -1;
     zxs_reset(m, image[4], image[5], rom);
     m->kempston_present = image[6] == 1;
+    m->fuller_present = image[31] & 1;
     m->border = image[7] & 7;
     m->out_fe = m->border;
     if (m->model == ZXS_128K)
@@ -137,6 +139,8 @@ uint8_t zxs_in(ZxsMachine *m, uint16_t port)
     }
     if (m->kempston_present && !(port & 0xE0))          /* the Kempston interface: A5-A7 low */
         return m->kempston;
+    if (m->fuller_present && (port & 0xFF) == 0x7F)     /* a Fuller box, idle (no stick wired to it) */
+        return 0xFF;
     if (m->model == ZXS_128K && (port & 0xC002) == 0xC000)  /* FFFDh: the AY's selected register */
         return m->ay_regs[m->ay_latch];
     return zxs_floating_bus(m);                         /* an unattached port: the byte the ULA is fetching */

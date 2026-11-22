@@ -383,6 +383,19 @@ rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
+## ZX Spectrum: a game that polls the Fuller port gets an idle Fuller box (Match Day II) (next release)
+
+Match Day II reads the Fuller joystick's port (7Fh) every frame, even with the Kempston chosen. Without a Fuller box that port floats,
+and since the floating bus the screen bytes read there moved its menu's cursor with no key held (the key's release reached the
+keyboard rows on its frame: an instrumented reference showed every row back to FFh). Reviewed data by its SHA-256
+(`zxs_starts.FULLER_IDLE`, with the reason) gives the machine a Fuller box present and idle (port 7Fh reads FFh, image byte 31); the
+floating bus itself stays the documented model. Proof: the menu route with a press and its release keeps the cursor still, native,
+reference and the delivered game equal on every frame row; the panel's conversion still reaches the match; three more machine
+checks (109 in all). The panel's reads of unattached ports were surveyed (docs/ZX_SPECTRUM.md, section 5). The quick state's layout
+moves to `zxs-state-2` (the Fuller flag is checked): a quick state of the previous build is refused cleanly.
+
+**Stamps**: the ZX Spectrum's game stamp; nothing else.
+
 ## ZX Spectrum: multiplayer, rollback on the game's own snapshots, two seats (next release)
 
 The Spectrum's games join the multiplayer session (`netplay_session`, two seats, rollback), offered nowhere while the machine is

@@ -22,8 +22,9 @@ MODEL_BYTE = {'16k': 0, '48k': 0, '128k': 1}
 REGISTERS = ('af', 'bc', 'de', 'hl', 'af_', 'bc_', 'de_', 'hl_', 'ix', 'iy', 'sp', 'pc')
 
 
-def zxs_image(snapshot: Snapshot) -> bytes:
-    """The machine image of `snapshot` (IMAGE_BYTES), as zxs_load_image reads it."""
+def zxs_image(snapshot: Snapshot, fuller_idle: bool = False) -> bytes:
+    """The machine image of `snapshot` (IMAGE_BYTES), as zxs_load_image reads it; `fuller_idle` gives the machine a Fuller box
+    present and idle (byte 31, reviewed data: zxs_starts.FULLER_IDLE)."""
     regs = snapshot.registers
     joystick = JOYSTICKS.index(snapshot.joystick) if snapshot.joystick in JOYSTICKS else 0xFF
     ay = snapshot.ay_registers or (0,) * 16
@@ -37,6 +38,7 @@ def zxs_image(snapshot: Snapshot) -> bytes:
     header[9] = (snapshot.ay_select or 0) & 15
     header[10:26] = bytes(value & 0xFF for value in ay)
     header[26:31] = bytes((regs['im'] & 3, regs['iff1'] & 1, regs['iff2'] & 1, regs['i'] & 0xFF, regs['r'] & 0xFF))
+    header[31] = 1 if fuller_idle else 0
     header[32:56] = struct.pack('<12H', *(regs[name] & 0xFFFF for name in REGISTERS))
     tstates = snapshot.tstates if snapshot.tstates is not None else INT_END[snapshot.model]
     header[56:60] = struct.pack('<I', tstates)
@@ -81,7 +83,7 @@ KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runti
 # zxs_game.h, which the player reads (RR_ZXS_ROM_RESOURCE, RR_ZXS_IMAGE_RESOURCE).
 ROM_RESOURCE, IMAGE_RESOURCE, NOTICES_RESOURCE, IDENTITY_RESOURCE = 103, 104, 203, 205
 # The quick state's layout (native/zxs_machine/zxs_player.c): part of its build binding, raised when the body changes.
-STATE_LAYOUT = 'zxs-state-1'
+STATE_LAYOUT = 'zxs-state-2'   # 2: the Fuller box's presence (22 Nov 2026)
 
 
 class ZxsBuildError(RuntimeError):

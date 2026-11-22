@@ -119,6 +119,7 @@ static void zxs_machine_state(RetroStateIO *io, ZxsMachine *m)
     zxs_state_same(io, (uint64_t)m->model, 1);
     zxs_state_same(io, (uint64_t)m->ram16k, 1);
     zxs_state_same(io, (uint64_t)m->kempston_present, 1);
+    zxs_state_same(io, (uint64_t)m->fuller_present, 1);
     for (int bank = 0; bank < 8; ++bank)
         rr_state_bytes(io, m->ram[bank], sizeof m->ram[bank]);
     RR_FIELD(*m, port_7ffd, 1, 255); RR_FIELD(*m, border, 1, 7); RR_FIELD(*m, out_fe, 1, 255);
