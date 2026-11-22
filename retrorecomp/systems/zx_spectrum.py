@@ -46,8 +46,8 @@ class ZxSpectrumProfile(SystemProfile):
     simulation_sources = (SimulationSource('generated/game_banked_index.c'), SimulationSource('generated/game_banked_ops_*.c'),
                           SimulationSource('generated/game_banked.h'), SimulationSource('zxs_banked_loop.inc'))
     linux = 'witnessed'
-    scope_note = ('ZX Spectrum 16K, 48K and 128K snapshots (.z80, .sna), in development: identified, not converted yet; '
-                  'no tapes, +2A, +3 or disks')
+    scope_note = ('ZX Spectrum 16K, 48K and 128K snapshots (.z80, .sna), in development, for developers: converted with the '
+                  'ULA\'s contention and the floating bus; no tapes, +2A, +3 or disks')
     # One processor; the ULA, the beeper and the AY-3-8910 are chips of our own C, not CPUs.
     cpus = (Cpu('z80', 'main', 'cycles'),)
     media_kinds = ('snapshot',)

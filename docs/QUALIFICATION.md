@@ -75,7 +75,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Commodore Amiga 1200 | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
-| ZX Spectrum | experimental | `█░░░░░░░░░` 9 % | ✅ 1 · 🟡 1 · ❔ 14 |
+| ZX Spectrum | experimental | `███████░░░` 67 % | ✅ 8 · 🟡 4 · ❔ 3 |
 | PC Engine CD / TurboGrafx-CD | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | SG-1000 | experimental | `████████░░` 82 % | ✅ 10 · 🟡 3 · ❔ 1 |
 | Game Boy Color | experimental | `░░░░░░░░░░` 0 % | ✅ 0 · 🟡 0 · ❔ 16 |
@@ -87,20 +87,20 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | Gate (short name) | Master System | Game Gear | Game Boy | Nintendo NES | Mega Drive | Super Nintendo | Neo Geo | Capcom CPS-1 | Sharp X68000 | Capcom CPS-2 | PC Engine / TurboGrafx-16 | Game Boy Advance | Commodore Amiga | Atari ST | Nintendo 64 | Sony PlayStation | MSX | MSX2 | MSX2+ | Commodore Amiga 1200 | ZX Spectrum | PC Engine CD / TurboGrafx-CD | SG-1000 | Game Boy Color | ColecoVision | Amstrad CPC |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | G1 Status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 |
-| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
-| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
-| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
-| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
-| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
-| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ➖ | ❔ | ➖ | 🟡 |
-| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
-| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | ✅ | ❔ | ✅ | 🟡 |
+| G2 Report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | ✅ | ✅ |
+| G3 Native code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | ✅ | ✅ |
+| G4 CPU check | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | ✅ | ✅ |
+| G5 Delivered file | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | ✅ | ✅ |
+| G6 States | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | ✅ | ✅ |
+| G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ➖ | 🟡 | ➖ | ❔ | ➖ | 🟡 |
+| G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ❔ | ✅ | ✅ |
+| G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ✅ | ❔ | ✅ | 🟡 |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ | ❔ | ✅ | ✅ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
-| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
-| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | 🟡 |
+| G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | ✅ | ✅ |
+| G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ❔ | ✅ | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ |
-| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | 🟡 | ❔ | 🟡 | 🟡 |
+| G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | 🟡 | ❔ | ➖ | ➖ | ❔ | ➖ | ❔ |
 
 <!-- qualification-gauges:end -->
@@ -117,20 +117,20 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+, zxs = ZX Spect
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 | cps2 | pce | gba | amiga | atarist | n64 | psx | msx | msx2 | msx2plus | a1200 | zxs | pcecd | sg1000 | gbc | coleco | cpc |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | G1 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | ? | P | P |
-| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
-| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
-| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
-| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
-| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
-| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | - | ? | - | P |
-| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
-| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | ? | ? | Y | ? | Y | P |
+| G2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | Y | ? | Y | Y |
+| G3 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? | Y | Y |
+| G4 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? | Y | Y |
+| G5 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? | Y | Y |
+| G6 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y | Y | P | Y | ? | Y | Y |
+| G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | - | P | - | ? | - | P |
+| G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | ? | Y | Y |
+| G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | ? | Y | ? | Y | P |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P | Y | P | Y | ? | Y | Y |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | ? | P | P | ? | P | ? |
-| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
-| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? | Y | Y |
+| G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | ? | Y | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | ? | ? |
-| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P | ? | P | P | ? | P | P |
+| G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P | P | P | P | ? | P | P |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | P | ? | - | - | ? | - | ? |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
@@ -186,6 +186,39 @@ The page of each console, which the README links its line to (a console of the m
   delay (`--expect-no-delay`) fails exactly those 10,697 on cycles. An emulator's vectors on a flat test bus with a documented rule,
   not hardware captures; the interrupt acceptance, HALT and the 176 undefined ED opcodes are outside the corpus (the acceptances and
   HALT are covered by the chain's compiled gate). Not claimed: hardware fidelity, gameplay validation, physical latency.
+- ZX Spectrum, the panel (22 November 2026; branch `spec/zx-g10` on main 7c8b04ba, Windows and a witness on Debian 13 in WSL, an
+  empty scratch library and datas, two conversions at a time, the ULA's contention and the floating bus on; the matrix reading is
+  the specialist's, the lead merges): **G2 to G6, G12 and G13 move from `?` to `Y`; G8, G9 and G15 to `P`; G7 to `-` (a snapshot has
+  no cartridge or battery save); G1 stays `P`, G11, G14 and G16 stay `?`**. The panel is eight snapshots, none dropped: Manic Miner
+  (48K, the beeper), Jetpac (16K), Arkanoid (the floating bus), Match Day II (a Kempston chosen in its menu), Head over Heels (128K
+  paging and the AY), Robocop (the game in the 128K banks, sampled speech), Elite (its own decryption at start) and The Hobbit (typing
+  through the ROM), each with an attract route of 1,800 frames and a play route of 2,100. **G2 to G6**: `tools/release_check.py`'s
+  `check_report` passes conversion, native_reference, fallback, packed and states on the eight reports: the native run equals the
+  reference interpreter on both routes, every field and every frame's row; **0 interpreted steps** on every route (the ULA, the
+  beeper and the AY are C models, not counted as CPU), after one learning pass on six games and two on Elite and The Hobbit; the
+  delivered compressed file replayed headless equals both; a quick state continues in a fresh process and damaged states are
+  refused. **G8 `P`**: seven play routes change their picture to the end (The Hobbit, a text adventure, is silent; the six others
+  audible to frame 1,842 to 2,100), and the captures at frames 800 and 2,050 were looked at (Central Cavern, Jetpac in flight, the
+  first round of Arkanoid with bricks broken, a match, the rooms of Head over Heels, Robocop's street, The Hobbit answering LOOK and
+  WAIT); Elite does not: its program halts in its own decryption about 50 frames in, with or without contention and the floating bus
+  (an open note in its report). **G9 `P`**: at the extended level a long route of 18,000 frames (five minutes) was run on four
+  (Manic Miner, Jetpac, Head over Heels, Robocop): native equals the reference on every one of the 18,000 frames' rows, 0 interpreted
+  steps, the picture still changing at frame 17,138 to 18,000, 2,804 to 8,493 distinct pictures, audible frames on all four; captures
+  at 9,000 and 17,990: three in play, Robocop back on its control menu after its game ended. Random routes, not played games.
+  **G12 `Y`**: the eight vary in model (16K, 48K, 128K), sound (beeper, AY, speech), controls (cursor keys, Kempston, Interface 2,
+  the keyboard as a text parser) and what they read (the floating bus, a menu-chosen joystick, the 128K's paging); the reviewed data
+  of four (start presses, a joystick interface) is keyed by their SHA-256. **G13 `Y`**: Manic Miner, Head over Heels, Arkanoid and
+  Robocop converted again in WSL from the same tree give every field of every route's final check equal to Windows' (the CPU, RAM,
+  picture and sound hashes, the frame trace, the step counts), the same chosen start and the same learning, and the compressed file
+  replays there; no Linux PC with a real display. **G15 `P`**: the machine page and the Spectrum's rows of the README and
+  COMPATIBILITY were read for « exact », « zero latency » and hardware claims: none (the stale « converts nothing yet » of the README,
+  COMPATIBILITY and the profile's scope note corrected); the sweep of every page is the documentation specialist's. **G11 `?`**: the
+  contention and floating-bus fixtures are written from documented numbers (Ramsoft's guide; Clock Signal, MIT, agrees on the 48K
+  and differs by about 5 T-states on the 128K's first fetch, unverified); no hardware and no second emulator compared. **G16 `?`**:
+  six games learn their code with no interpreted step on the first pass, Elite and The Hobbit need a second (24,126 and 3,422,129
+  steps on the first): a received path would save that second pass (about 13 to 16 s of learning) on those two and add no native
+  instruction; whether that gain is worth sharing is the maintainer's to decide. **G14 `?`**: the owner's, with the checklist of
+  the six delivered games. Not claimed: hardware fidelity, gameplay validation, physical latency.
 
 - Atari ST (6 to 9 November 2026; experimental profile of 1.7.1, raised on the branch of 1.7.2): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every conversion. G3 `P`:
