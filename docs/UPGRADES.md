@@ -445,6 +445,11 @@ steps: the words learned by the last pass all sat past line 4,096. Found and dia
   first-seen order; the emitter translates 3,000 and 6,000 windows into as many new bodies; a program that writes and runs 5,120
   routines from RAM learns them all and the passes go 5,120 then 0. On the old chain the same check fails on 5 of its 8 points (4,096
   windows loaded of 6,000; passes 5,120, 1,024, 1,024). `tests/test_z80_learn_cap.py` keeps the anchors without a compiler.
+  **Carrier Command on the CPC** (the CPC specialist, 22 November 2026, this change at `ce2d503a`, an empty `native.patterns`, three
+  passes, the 3,600-frame boot and play routes, the pinned 6128 firmware): the interpreted steps of the passes go 3,962,944 then 0
+  (before: 3,962,944, 531,162, 3,428,853); 7,391 words learned, 5,922 translated into new native bodies, 7,391 windows loaded, 0
+  unsupported, 0 dropped; the boot and play routes end at 0 interpreted steps (before: 1,657,977 and 1,770,876), native equals the
+  reference, and the quick states pass in a fresh process.
 - **Not changed, and not silent**: the Master System and the Game Gear keep their own, explicit limit of 4,096 windows a ROM
   (`library.PATTERN_LIMIT`, `native/learning.c`), the number of windows left out is counted and shown (`pattern_overflow`, the report's
   `windows_over_limit`); the shared records keep their own caps (`msx_knowledge.ROW_LIMIT`, reported as `truncated`).
