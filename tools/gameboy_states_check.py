@@ -166,13 +166,15 @@ def main() -> int:
     parser.add_argument('--work', type=Path, default=ROOT / '.build' / 'gb-states')
     parser.add_argument('--rom', type=Path, help='a game of the player\'s instead of the authored cartridge')
     parser.add_argument('--reuse', action='store_true', help='use the executable already converted in the work folder')
+    parser.add_argument('--model', choices=('dmg', 'cgb'), default='dmg', help='the Game Boy (default) or the Game Boy Color (the authored cartridge then carries the Color-only flag C0)')
     parser.add_argument('--frames', type=int, default=120)
     parser.add_argument('--more', type=int, default=120)
     args = parser.parse_args()
+    saves.set_model(args.model)
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
     name = args.rom.stem if args.rom else NAME
-    executable = work / f'out_{name}' / 'Game Boy' / f'{name}.exe'
+    executable = work / f'out_{name}' / saves.FOLDER / f'{name}.exe'
     if not (args.reuse and executable.is_file()):
         executable = saves.convert(name, work, args.rom.read_bytes() if args.rom else authored_rom())
     failures: list[str] = []
