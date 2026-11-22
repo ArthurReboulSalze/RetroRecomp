@@ -276,7 +276,8 @@ play on their long route, Xak III answers its disk request and loads its third d
 its birth-date entry; no game has been played through (gameplay validation: none), and hardware fidelity and latency are not claimed.
 
 The **ZX Spectrum** profile is experimental and in development ([status](ZX_SPECTRUM.md)): it identifies 16K, 48K and 128K snapshots
-(`.z80`, `.sna`, or a ZIP holding one) and writes reports, converts nothing yet, and no installation lists it.
+(`.z80`, `.sna`, or a ZIP holding one) and converts them for developers (a panel of eight, with the ULA's contention and the
+floating bus); no installation lists it, and the owner has not played them yet.
 
 The **SG-1000** profile (`sg1000`) is experimental, for developers only, and in development ([status](SG1000.md)). It recognises SG-1000 and SG-1000 II
 cartridges (a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as SG-1000 or keep in a folder named `sg1000`; 2 KiB to 48 KiB, plain ROM) and

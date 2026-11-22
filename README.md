@@ -123,7 +123,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Game Boy Color](docs/GAME_BOY_COLOR.md) | experimental | `░░░░░` 0 % | not offered | not measured |
 | [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `██░░░` 43 % | supported · rollback | not measured |
 | [SG-1000](docs/SG1000.md) | experimental (developer-only) | `████░` 82 % | supported · rollback | not measured |
-| [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `░░░░░` 3 % | not offered | not measured |
+| [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `███░░` 67 % | not offered | not measured |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
 
 \* The PlayStation, the Nintendo 64, the Atari ST and the two Amigas are not fully recompiled systems: each game runs on a complete emulator core inside its executable, with native code for the main CPU only, so their native share is not comparable with the other machines' ([how to read it](docs/ARCHITECTURE.md#machines-that-run-on-an-emulator-core); detail on each machine's page).
@@ -149,8 +149,8 @@ and its limits are on its page.
 
 Four machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision** and the
 **Amstrad CPC**. None is available yet: each starts as an experimental
-profile once its study is approved, and no date is promised. The ZX Spectrum's study is approved: its experimental profile
-identifies snapshots and converts nothing yet ([status](docs/ZX_SPECTRUM.md)). The **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card) is open as an
+profile once its study is approved, and no date is promised. The ZX Spectrum is an experimental machine for developers: its
+snapshots convert on a panel of eight, the owner has not played them yet ([status](docs/ZX_SPECTRUM.md)). The **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card) is open as an
 experimental machine: nine discs convert, none is translated beyond what their routes ran, and the owner has not played them yet
 ([status](docs/PC_ENGINE_CD.md)). The **SG-1000** has also reached that first step, for developers only: its experimental profile converts cartridges for
 developers (no player is offered it yet, and no game has been played: [SG1000.md](docs/SG1000.md)).
