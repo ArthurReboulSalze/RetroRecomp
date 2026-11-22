@@ -153,7 +153,7 @@ class CollectionMixin:
         def ticks_changed(*_):
             go.configure(state='normal' if any(ticked.get() for _, ticked in checks) else 'disabled')
         for _, ticked in checks:
-            ticked.trace_add('write', ticks_changed)
+            tk_later.follow(window, ticked, ticks_changed)
         window.bind('<Escape>', lambda event: window.destroy())
         window.update_idletasks()
         center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight(), measured=True)

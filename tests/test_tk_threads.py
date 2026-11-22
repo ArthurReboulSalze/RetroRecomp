@@ -83,6 +83,38 @@ class TkThreadsTests(unittest.TestCase):
         self.assertTrue(getattr(tk.Tk, '_retro_recomp_guarded', False))
 
 
+    def test_a_pillow_picture_dropped_in_a_worker_is_deleted_later(self):
+        from PIL import Image, ImageTk
+        holder = [ImageTk.PhotoImage(Image.new('RGB', (2, 2)), master=self.root)]
+        name = str(holder[0])
+        worker = threading.Thread(target=holder.clear)                 # its __del__ would call Tcl from the worker
+        worker.start(); worker.join(10)
+        self.assertFalse(worker.is_alive())
+        self.assertIn(name, self.root.image_names())
+        tk_threads.release_deferred()
+        self.assertNotIn(name, self.root.image_names())
+
+    def test_a_destroyed_root_keeps_no_python_callback_so_its_owner_is_freed(self):
+        import weakref
+
+        class Owner:
+            def changed(self, *_):
+                pass
+        other = tk.Tk()
+        other.withdraw()
+        owner = Owner()
+        owner.root, owner.value = other, tk.StringVar(other)          # the window object and its variable
+        owner.value.trace_add('write', owner.changed)                   # held by Tcl, not by a widget
+        other.bind('<Map>', lambda event: owner.changed())
+        gone = weakref.ref(owner)
+        other.destroy()
+        commands = [name for name in other.tk.splitlist(other.tk.call('info', 'commands')) if name[:1].isdigit()]
+        self.assertEqual(commands, [])
+        del owner, other
+        gc.collect()
+        self.assertIsNone(gone())                                       # its variable's __del__ found its command gone, silently
+        tk_threads.release_deferred()
+
 # A destroyed root in a reference cycle, freed by the cycle collector in a worker thread (what the full suite hit twice on
 # 22 Nov 2026: Tcl deletes the interpreter from the wrong thread and aborts the process, exit 3, no traceback). With a font
 # too, which holds the interpreter as well. argv: the repository, then "guard" to import tk_later first.

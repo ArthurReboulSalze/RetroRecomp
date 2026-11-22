@@ -175,7 +175,7 @@ class MultiplayerWindow:
         window.protocol('WM_DELETE_WINDOW', self.ask_close)
         self.make_styles()
         self.mode = tk.StringVar(value='local')
-        self.mode.trace_add('write', lambda *unused: self.mode_changed())
+        tk_later.follow(window, self.mode, lambda *unused: self.mode_changed())
         self.body = tk.Frame(window, bg=BG, padx=16, pady=14)
         self.body.pack(fill='both', expand=True)
         self.name = tk.StringVar(value=name)
@@ -291,7 +291,7 @@ class MultiplayerWindow:
             else:
                 ghost.place(in_=entry, x=1, rely=0.5, anchor='w')
         frame.sync_hint = sync
-        variable.trace_add('write', sync)
+        tk_later.follow(frame, variable, sync)
         sync()
         return frame
 
@@ -718,7 +718,7 @@ class MultiplayerWindow:
             return label, widget
 
         self.invite = tk.StringVar()
-        self.invite.trace_add('write', lambda *unused: self.invite_changed())
+        tk_later.follow(self.window, self.invite, lambda *unused: self.invite_changed())
         key_line = tk.Frame(grid, bg=CARD)
         self.key_field = self.deep_entry(key_line, self.invite, mono=True)
         self.key_field.pack(side='left', fill='x', expand=True)
@@ -1038,7 +1038,7 @@ class MultiplayerWindow:
         say = tk.Frame(card, bg=CARD)
         say.pack(side='bottom', fill='x', pady=(8, 0))
         self.chat_entry = tk.StringVar()
-        self.chat_entry.trace_add('write', lambda *unused: self.bound_chat())
+        tk_later.follow(self.window, self.chat_entry, lambda *unused: self.bound_chat())
         field = self.deep_entry(say, self.chat_entry)
         field.pack(side='left', fill='x', expand=True, padx=(0, 8))
         field.entry.bind('<Return>', lambda event: self.send_chat())

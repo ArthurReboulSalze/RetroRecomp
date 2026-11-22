@@ -47,7 +47,7 @@ class GameCardView(ttk.Frame):
         footer.grid(row=3,column=0,sticky='ew',pady=(6,0))
         self.message=tk.StringVar()
         self.notice=ttk.Label(footer,textvariable=self.message,style='Muted.TLabel',wraplength=290)
-        self.message.trace_add('write',self.update_notice)
+        tk_later.follow(self,self.message,self.update_notice)
         actions=ttk.Frame(footer)
         actions.pack(fill='x')
         actions.columnconfigure((0,1),weight=1,uniform='cover-actions')

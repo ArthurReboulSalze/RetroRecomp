@@ -105,5 +105,60 @@ class Later(unittest.TestCase):
         self.assertEqual((pressed, ran), ([], []))
 
 
+
+class NoRawTraces(unittest.TestCase):
+    def test_every_variable_trace_goes_through_follow(self):
+        found = []
+        for path in sorted(SOURCE.rglob('*.py')):
+            if path.name in ('tk_later.py', 'tk_threads.py'):
+                continue
+            for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                code = line.split('#', 1)[0]
+                if re.search(r'\.trace(_add|_variable)?\(', code):
+                    found.append(f'{path.relative_to(SOURCE.parent)}:{number}: {code.strip()}')
+        self.assertEqual(found, [], 'use tk_later.follow(widget, variable, callback):\n' + '\n'.join(found))
+
+
+class Follow(unittest.TestCase):
+    def setUp(self):
+        release_tk(self)
+        try:
+            self.root = tk.Tk()
+        except tk.TclError:
+            self.skipTest('no display')
+        self.root.withdraw()
+        self.addCleanup(self.root.destroy)
+
+    def python_commands(self):
+        return {name for name in self.root.tk.splitlist(self.root.tk.call('info', 'commands')) if re.match(r'^[0-9]', name)}
+
+    def test_the_trace_lives_with_its_widget_and_goes_with_it(self):
+        import gc
+        import weakref
+
+        class Owner:
+            def changed(self, *_):
+                self.seen.append(variable.get())
+        variable = tk.StringVar(self.root)          # the session's variable: it outlives the window
+        window = tk.Toplevel(self.root)
+        child = ttk.Frame(window)
+        owner = Owner()
+        owner.seen = []
+        before = self.python_commands()
+        tk_later.follow(window, variable, owner.changed)
+        variable.set('a')
+        child.destroy()                             # a child's <Destroy> reaches the window's binding: the trace stays
+        variable.set('b')
+        self.assertEqual(owner.seen, ['a', 'b'])
+        gone = weakref.ref(owner)
+        del owner
+        window.destroy()
+        variable.set('c')                           # no trace any more, and no error
+        gc.collect()
+        self.assertIsNone(gone())                   # nothing in Tcl holds the window's object
+        self.assertEqual(variable.trace_info(), [])
+        self.assertEqual(self.python_commands() - before, set())
+
+
 if __name__ == '__main__':
     unittest.main()

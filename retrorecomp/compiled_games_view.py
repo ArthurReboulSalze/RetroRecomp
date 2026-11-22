@@ -108,7 +108,7 @@ class CompiledGamesView(ttk.Frame):
         search = ttk.Entry(filters,textvariable=self.search)
         search.pack(side='left',fill='x',expand=True)
         self.search_after = None
-        self.search.trace_add('write',self.search_changed)
+        tk_later.follow(self,self.search,self.search_changed)
         self.consoles.bind('<<ComboboxSelected>>',lambda e:self.render())
         self.states.bind('<<ComboboxSelected>>',lambda e:self.states_changed())
         panes = ttk.Panedwindow(self,orient='horizontal')

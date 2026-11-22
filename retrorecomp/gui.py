@@ -13,7 +13,7 @@ import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from . import __version__, online
+from . import __version__, online, tk_later
 from .batch import BatchItem
 from .packing import compression_from_preferences
 from .paths import (
@@ -61,6 +61,10 @@ from .gui_estimates import EstimatesMixin
 from .gui_welcome import WelcomeMixin
 from .gui_front_end import FrontEndMixin
 from .gui_multiplayer import MultiplayerMixin
+
+
+# The .ico read once per process (Application.__init__): Tk keeps every icon it reads from a file.
+ICO_GIVEN: list = []
 
 
 class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, UpdatesMixin, OptionsMixin,
@@ -226,7 +230,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.deferred_send = None
         self.closing_send_deadline = None   # closing_send itself is the closing card's 'Send and close'
         self.discoveries_waiting = bool(preferences.get('discoveries_waiting'))
-        self.send_after_batch.trace_add('write', self.send_option_changed)
+        tk_later.follow(self.app, self.send_after_batch, self.send_option_changed)
         self.manual_sending = False   # Knowledge › Sync (or the closing card's) send is on its way
         self.syncing = False          # Knowledge › Sync: the base update chains the send
         self.sync_line = ''           # its base result, shown with the send's
@@ -257,12 +261,18 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         if os.name != 'nt':
             self.app_icon = tk.PhotoImage(master=app, file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'))
             app.iconphoto(True, self.app_icon)
-        try:
-            icon_path = str(ASSETS / 'assets/Retro-Recomp.ico')
-            app.iconbitmap(icon_path)
-            app.iconbitmap(default=icon_path)
-        except (OSError, tk.TclError):
-            pass
+        # Tk on Windows never frees an icon it read from a .ico file (about 27 GDI and 9 USER handles per call, to the end of the
+        # process), and -default sets the window class's icon, which every later root and toplevel of the process shows. So the
+        # file is read by the process's first main window only: the converter has one, the test suite builds hundreds (they ran
+        # Windows out of GDI handles, « Fail to allocate bitmap », 22 Nov 2026).
+        if not ICO_GIVEN:
+            try:
+                icon_path = str(ASSETS / 'assets/Retro-Recomp.ico')
+                app.iconbitmap(icon_path)
+                app.iconbitmap(default=icon_path)
+                ICO_GIVEN.append(icon_path)
+            except (OSError, tk.TclError):
+                pass
         try:
             self.window_icons = [tk.PhotoImage(file=str(ASSETS / f'assets/Retro-Recomp-icon-{size}.png'))
                                  for size in ICON_SIZES]
