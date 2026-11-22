@@ -197,9 +197,17 @@ draws the 16 pixels of that microsecond when it is in the picture (`draw`: 48 x 
 | 4 | The board caught up at its next event (the end of the next HSYNC, where an interrupt can be raised, or the frame's end) instead of every microsecond, the bus still catching it up before a port or a write to the screen page | about 7,000 catch-ups a frame become about 312, one a line | every row and the interrupt counts equal on the panel and the authored interrupt and timing programs; native equal to the reference | **medium: for the maintainer's list**: a read that depends on the board's time without going through a port would see it late |
 | 5 | The AY's levels mixed without a 64-bit multiply and divide per tick | small | the sound hashes equal | low |
 
-Headless only, not the player's path: the frame rows' hashes (rows are written by the checks, not the game). Gains are expected
-from 1 and 2 first; 4 is the largest change and goes on the risky list with its proof. The CPC's rows go in PERFORMANCE.md once
-timed (Windows, and Linux in WSL2).
+Headless only, not the player's path: the frame rows' hashes (rows are written by the checks, not the game).
+
+**Where it stands (22 November 2026, still not timed).** 1 and 3 are done, each in its own commit, each proved on the eight panel
+games converted before and after: every route's final hashes, the 21,600 frame rows of each game (native, reference and delivered
+file on both routes), the snapshot probe's digests and every `release_check` gate equal, the hardware self-test 115/115. 5 is
+dropped: the division is by a constant, which the compiler already turns into a multiplication, so there is nothing to gain.
+2 goes on the maintainer's list instead of being merged: counted on the panel's routes, four games have one frame in 3,600 that
+draws fewer than the 13,056 positions (Gryzor 12,870, Robocop 12,968, Head over Heels and Super Hang-On none, a frame the CRTC
+ends early); such a frame shown right after a correction would keep pixels of an older frame than without the correction, so the
+change could alter what is shown, if only for that frame. 4 is on the same list. The timed pass is to come, on the quiet PC with
+the maintainer's go.
 
 ## 9. References
 

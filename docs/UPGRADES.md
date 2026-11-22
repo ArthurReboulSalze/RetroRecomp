@@ -743,6 +743,16 @@ The conversion report's final checks add the native counters the release check r
 **Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
 released export to upgrade.
 
+## Amstrad CPC (developer only): the Gate Array draws from tables, memory is read through a pointer per window (1.9.0)
+
+Two changes of the optimisation plan ([AMSTRAD_CPC.md](AMSTRAD_CPC.md#8-optimisation-plan-step-4-22-november-2026-nothing-timed-yet)),
+each its own commit and each proved to give the same output on the eight panel games (every route's hashes, every frame row of
+the native, reference and delivered runs, the snapshot digests, every release_check gate): the pens of a screen byte and the
+hardware colours come from tables built once from the same functions (`cpc_gate_array.c`), and a read goes through the window's
+pointer that the map sets (`cpc_machine.c`, `cpc_machine.h`: a field outside the quick state). Not timed yet.
+
+**Stamps** (`compilation_inputs.role_stamps`): the CPC's game stamp only. A developer-only machine: no released export.
+
 ## Amstrad CPC (developer only): the snapshot probe prints its digests folded in one value (1.9.0)
 
 `game.exe --headless --snap-probe AT:N` ends its line with `digests` (every frame's snapshot digest, folded), as the SG-1000's does, so
