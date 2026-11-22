@@ -42,6 +42,7 @@ class OnThePinnedEngine(unittest.TestCase):
         self.assertIn('the byte being played', files['audio.c'])
         self.assertIn('the first sample comes 6 clocks late', files['audio.c'])
         self.assertIn('audio register mismatch at %04X', files['differential.c'])
+        self.assertIn('gbrt_audio_sync((GBContext*)generated);', files['differential.c'])
 
     def test_the_original_game_boy_receives_none_of_them(self):
         files = self.patched('dmg')
