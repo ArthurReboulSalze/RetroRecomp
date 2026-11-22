@@ -237,14 +237,14 @@ def _reference_contention(source: str) -> str:
                      '  unsigned rr_tg = family == 2 ? 4 : family == 1 ? (op == 0xDD ? 5 : op == 0xFD ? 6 : 1) :\n'
                      '    (op == 0xDD ? 2 : op == 0xFD ? 3 : 0);\n'
                      '  RrTimedStart rr_ts = rr_timed_from(z); unsigned long rr_t0 = z->cyc; bool rr_th = z->halted;\n'
+                     '  /* The base cycles are walked BEFORE the instruction runs, as the bodies do: the rule and the operands it peeks are\n'
+                     '   * the machine as the instruction found it (an OUT that pages memory, a store into its own operand change them). */\n'
+                     '  uint32_t rr_d = rr_th ? rr_timed_special_delay(RR_TIMED_HALT, &rr_ts, rr_timed_epoch + rr_t0) :\n'
+                     '    rr_timed_base((int)rr_tg, decoded, &rr_ts, rr_timed_epoch + rr_t0);\n'
                      + step +
-                     '  if (rr_th) z->cyc += rr_timed_special_delay(RR_TIMED_HALT, &rr_ts, rr_timed_epoch + rr_t0);\n'
-                     '  else {\n'
-                     '    uint32_t rr_d = rr_timed_base((int)rr_tg, decoded, &rr_ts, rr_timed_epoch + rr_t0);\n'
-                     '    if (z->cyc - rr_t0 > rr_timed_plain[rr_tg][decoded])   /* taken, or going round again */\n'
-                     '      rr_d += rr_timed_extra((int)rr_tg, decoded, &rr_ts, rr_timed_epoch + rr_t0 + rr_timed_plain[rr_tg][decoded] + rr_d);\n'
-                     '    z->cyc += rr_d;\n'
-                     '  }\n')
+                     '  if (!rr_th && z->cyc - rr_t0 > rr_timed_plain[rr_tg][decoded])   /* taken, or going round again */\n'
+                     '    rr_d += rr_timed_extra((int)rr_tg, decoded, &rr_ts, rr_timed_epoch + rr_t0 + rr_timed_plain[rr_tg][decoded] + rr_d);\n'
+                     '  z->cyc += rr_d;\n')
     for old, which in (('    z->cyc += 11;\n    call(z, 0x66);', 'RR_TIMED_NMI'),
                        ('      z->cyc += 2;\n      exec_opcode(z, z->int_data);', 'RR_TIMED_IM1'),
                        ('      z->cyc += 13;\n      call(z, 0x38);', 'RR_TIMED_IM1'),

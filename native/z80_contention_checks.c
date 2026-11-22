@@ -24,17 +24,18 @@ static uint8_t memory[65536];
 uint8_t sms_read8(uint16_t a) { return memory[a]; }
 void sms_write8(uint16_t a, uint8_t v) { memory[a] = v; }
 uint8_t sms_io_in(uint8_t port) { (void)port; return 0x5A; }
-void sms_io_out(uint8_t port, uint8_t value) { (void)port; (void)value; }
+static int odd_bank;     /* the authored rule's paging: an OUT to port 05h toggles whether C000h-FFFFh is slow too */
+void sms_io_out(uint8_t port, uint8_t value) { (void)value; if (port == 0x05) odd_bank ^= 1; }
 static uint8_t read_byte(void *u, uint16_t a) { (void)u; return memory[a]; }
 static void write_byte(void *u, uint16_t a, uint8_t v) { (void)u; memory[a] = v; }
 static uint8_t port_in(z80 *z, uint8_t p) { (void)z; (void)p; return 0x5A; }
-static void port_out(z80 *z, uint8_t p, uint8_t v) { (void)z; (void)p; (void)v; }
+static void port_out(z80 *z, uint8_t p, uint8_t v) { (void)z; (void)v; if (p == 0x05) odd_bank ^= 1; }
 
 /* The authored rule (the machine's three functions). */
 unsigned rr_contend_memory(uint64_t t, uint16_t a)
 {
     static const unsigned pattern[8] = {6, 5, 4, 3, 2, 1, 0, 0};
-    if ((a & 0xC000) != 0x4000) return 0;
+    if ((a & 0xC000) != 0x4000 && !((a & 0xC000) == 0xC000 && odd_bank)) return 0;
     unsigned line = (unsigned)(t % 224);
     return line < 128 ? pattern[line & 7] : 0;
 }
@@ -60,8 +61,9 @@ uint64_t rr_timed_epoch;    /* a reference copied without contention does not de
 
 static void setup(const uint8_t bytes[4], int state, uint16_t *start, uint64_t *base) {
     for (unsigned i = 0; i < sizeof memory; ++i) memory[i] = (uint8_t)(i * 31 + 7);
-    *start = (state & 4) ? 0x6000 : 0x8000;
-    *base = 1000 + 37u * (unsigned)state;
+    odd_bank = 0;
+    *start = state == 8 ? 0xC100 : state == 9 ? 0x3403 : (state & 4) ? 0x6000 : 0x8000;
+    *base = state >= 8 ? 2240 : 1000 + 37u * (unsigned)state;   /* the authored cases start at the first T-state of a line */
     memcpy(memory + *start, bytes, 4);
     memset(&g_z80, 0, sizeof g_z80);
     g_z80.a = 0x5A; g_z80.f = (state & 1) ? 0xFF : 0x00;
@@ -109,6 +111,34 @@ int main(int argc, char **argv) {
         }
     }
     if (dump) return 0;
+    /* Two authored cases where the walk must read the state BEFORE the instruction (the bodies do; the reference must too):
+     * state 8, OUT (05h),A at C100h, which pages the slow memory in at C000h: its own M1s at C100h/C101h are not slowed;
+     * state 9, LD (3405h),A at 3403h, whose write changes its own operand's high byte to 5Ah: the write is at 3405h, not 5A05h. */
+    static const uint8_t out_bytes[4] = {0xD3, 0x05, 0x34, 0x12}, store_bytes[4] = {0x32, 0x05, 0x34, 0x12};
+    const struct { const uint8_t *bytes; int state; const char *what; } authored[2] = {
+        {out_bytes, 8, "OUT paging the slow memory in under its own M1"}, {store_bytes, 9, "a store rewriting its own operand"}};
+    for (int k = 0; k < 2; ++k) {
+        unsigned c = 0;
+        while (c < sizeof cases / sizeof cases[0] && memcmp(cases[c].bytes, authored[k].bytes, 4)) ++c;
+        if (c == sizeof cases / sizeof cases[0]) { printf("authored case not interned: %s\n", authored[k].what); return 1; }
+        uint16_t start; uint64_t base;
+        setup(cases[c].bytes, authored[k].state, &start, &base);
+        bodies[cases[c].body]();
+        uint64_t native_cycles = g_z80.cyc - base;
+        setup(cases[c].bytes, authored[k].state, &start, &base);
+        state_to_hz(); g_hz.pc = start; g_hz.cyc = 0; g_hz.halted = 0; g_hz.int_pending = 0; g_hz.nmi_pending = 0;
+        g_hz.int_data = 0xFF;
+        rr_timed_epoch = base;
+        z80_step(&g_hz);
+        ++compared;
+        if (native_cycles != (uint64_t)g_hz.cyc) {
+            ++differ;
+            if (!expect_difference)
+                printf("differ: %s: native %llu T, reference %llu T\n", authored[k].what, (unsigned long long)native_cycles,
+                       (unsigned long long)g_hz.cyc);
+        } else
+            printf("authored: %s: %llu T on both sides\n", authored[k].what, (unsigned long long)native_cycles);
+    }
     printf("compared=%u differ=%u\n", compared, differ);
     return expect_difference ? (differ ? 0 : 1) : (differ ? 1 : 0);
 }

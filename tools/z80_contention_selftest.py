@@ -5,7 +5,8 @@ contention, or without), and native/z80_contention_checks.c runs each body again
 (cpu.prepare_reference) from the same states under an authored rule (not any real machine's), comparing the T-states and the PC.
 Four runs, never a game:
 
-1. contention on both sides: every encoding must agree;
+1. contention on both sides: every encoding must agree, and two authored cases where the walk must read the machine as the
+   instruction found it (an OUT that pages the slow memory in under its own M1s, a store rewriting its own operand);
 2. bodies with contention, reference without: they must disagree (a positive control: the check sees the delays);
 3. neither side: every encoding must agree;
 4. the delay of every case (the bodies with contention less the bodies without) must equal retrorecomp/z80_timed.delay, the

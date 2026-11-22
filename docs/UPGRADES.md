@@ -390,6 +390,9 @@ Contention needs the Z80's own counts (no cost table, no M1 wait states: a taken
 - **Identity**: the step loop, the emitter and the reference copy rendered for the Master System, the Game Gear, the MSX, MSX2,
   MSX2+, the SG-1000, the ColecoVision, the ZX Spectrum and the Amstrad CPC (its cost table included) have the same SHA-256 on this
   branch as on main d6cd0fa5 (27 files).
+- The reference walks an instruction's base cycles before running it, as the bodies do (the extra cycles after): the rule and the
+  operands it peeks are the machine as the instruction found it. Two authored cases of the self-test fail if it walks after: an
+  OUT that pages the slow memory in under its own M1s (13 T against 23) and a store rewriting its own operand (13 T against 17).
 - Not compiled yet: the step loop's contention lines (HALT, acceptances, the fallback's epoch) are checked as text only; they are
   first built when the Spectrum turns contention on, with its own rule.
 
