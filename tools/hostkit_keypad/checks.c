@@ -223,12 +223,24 @@ static void script(void) {
     case 49: {      /* the texts follow the game language */
         const int english = rr_language_get();
         rr_language_set(rr_language_from_code("fr"));
-        CHECK(!strcmp(rrhk_keypad_text(RRHK_KEYPAD_TITLE), "Pave numerique"));
-        CHECK(!strcmp(rrhk_keypad_text(RRHK_KEYPAD_HINT), "A : appuyer | B : fermer"));
+        CHECK(!strcmp(rrhk_text(&rrhk_keypad_title), "Pave numerique"));
+        CHECK(!strcmp(rrhk_text(&rrhk_keypad_hint), "A : appuyer | B : fermer"));
         rr_language_set(rr_language_from_code("de"));
-        CHECK(!strcmp(rrhk_keypad_text(RRHK_KEYPAD_TITLE), "Tastenfeld"));
+        CHECK(!strcmp(rrhk_text(&rrhk_keypad_title), "Tastenfeld"));
+        rr_language_set(rr_language_from_code("it"));
+        CHECK(!strcmp(rrhk_text(&rrhk_keypad_title), "Tastierino"));
+        rr_language_set(rr_language_from_code("es"));
+        CHECK(!strcmp(rrhk_text(&rrhk_keypad_hint), "A: pulsar | B: cerrar"));
+        {   /* rrhk_text.h's fallback: a missing or empty translation reads the English one, a present one its own */
+            static const RrhkText partial = {"English", "Francais", NULL, "", "Deutsch"};
+            CHECK(!strcmp(rrhk_text(&partial), "English"));                         /* es: empty */
+            rr_language_set(rr_language_from_code("it"));
+            CHECK(!strcmp(rrhk_text(&partial), "English"));                         /* it: missing */
+            rr_language_set(rr_language_from_code("de"));
+            CHECK(!strcmp(rrhk_text(&partial), "Deutsch"));
+        }
         rr_language_set(english);
-        CHECK(!strcmp(rrhk_keypad_text(RRHK_KEYPAD_TITLE), "Keypad"));
+        CHECK(!strcmp(rrhk_text(&rrhk_keypad_title), "Keypad"));
         stop = true;
         break;
     }

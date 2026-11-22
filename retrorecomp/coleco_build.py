@@ -90,10 +90,10 @@ def stage_sources(work: Path) -> None:
                                        *((native / folder, (*sources, *files)) for folder, sources, files in SHARED_MODULES),
                                        (native, (*CHAIN_FILES, *KIT_FILES))))
     hostkit.stage(work, 'coleco')
-    # The on-screen keypad the adapter includes (the kit stages only its shell and the adapter: the computers' adapter file is staged
-    # the same way by the MSX's and the ZX Spectrum's builds).
-    z80_chain_build.write_if_changed(work / 'hostkit' / 'adapters' / 'rrhk_keypad.inc',
-                                     (native / 'hostkit' / 'adapters' / 'rrhk_keypad.inc').read_bytes())
+    # The on-screen keypad the adapter includes, and the five-language text it reads (the kit stages only its shell and the adapter: the
+    # computers' adapter file is staged the same way by the MSX's and the ZX Spectrum's builds).
+    for name in ('rrhk_keypad.inc', 'rrhk_text.h'):
+        z80_chain_build.write_if_changed(work / 'hostkit' / 'adapters' / name, (native / 'hostkit' / 'adapters' / name).read_bytes())
 
 
 def state_binding(standard: str, rom_size: int, bios_sha256: str) -> bytes:

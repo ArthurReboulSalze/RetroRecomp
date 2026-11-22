@@ -77,10 +77,12 @@ class BuildTests(unittest.TestCase):
         adapter = (ASSETS / 'native' / 'hostkit' / 'adapters' / 'rrhk_cpc.inc').read_text(encoding='utf-8')
         self.assertIn('static bool c_stereo;', adapter)                     # false: the built-in speaker's mono
         self.assertIn('stereo[2 * i] = stereo[2 * i + 1] = mono;', adapter)
-        table = adapter[adapter.index('static const char *const c_texts[][4]'):adapter.index('static const char *c_text(int which)')]
-        self.assertEqual(sorted(code for code in ('en', 'fr', 'de', 'es', 'it') if f'{{"{code}",' in table),
-                         ['de', 'en', 'es', 'fr', 'it'])
-        self.assertTrue(table.isascii())
+        # The row and its two values are RrhkText rows (rrhk_text.h), read in the game language: tests/test_hostkit_text.py checks
+        # every row of every adapter has the five languages, ASCII.
+        for row in ('c_sound_row', 'c_sound_mono', 'c_sound_stereo'):
+            self.assertIn(f'static const RrhkText {row} = {{', adapter)
+        self.assertIn('rrhk_text(&c_sound_row), c_sound_value()', adapter)
+        self.assertIn('#include "hostkit/adapters/rrhk_text.h"', adapter)
         self.assertIn('t->option_rows = c_option_rows; t->key_event = c_key_event;', adapter)
 
     def test_the_players_resources_and_its_game_header(self):
