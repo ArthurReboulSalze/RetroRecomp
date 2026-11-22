@@ -21,6 +21,7 @@ import shutil
 import subprocess
 from typing import Callable
 
+from . import resource_rebuild
 from . import z80_chain_build
 
 # The fields a native run must give exactly as the reference does: the CPU (main and shadow registers, I, R, IM, IFF, WZ),
@@ -180,6 +181,7 @@ def project_cmake(version: str, game: bool, bodies: bool = True, music: bool = F
             '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
             'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
             '  target_link_libraries(game PRIVATE m)', 'endif()',
+            *resource_rebuild.CMAKE_LINES,
             'target_link_libraries(game PRIVATE SDL2::SDL2-static)',
             f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS{music_flag} '
             f'[[RR_RECOMP_VERSION="{version}"]])',

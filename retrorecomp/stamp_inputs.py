@@ -1353,6 +1353,8 @@ INPUTS = _resolve({
     'shares:z80_chain_glue': (
         'native/z80_chain_glue.inc',
         'retrorecomp.z80_chain_build',
+        # The CMake that names the files a game's resources embed (its own group once machines off the chain use it too).
+        'retrorecomp.resource_rebuild',
     ),
     'shares:z80_main': (
         'retrorecomp.cpu',
