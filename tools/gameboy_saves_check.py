@@ -6,7 +6,10 @@ executable is run twice in an empty folder, headless, with `--dump-state`. The f
 pattern; the second must find the magic, copy the pattern to work RAM and report that it did. Then the damaged-file cases: a
 battery file cut short, one of the wrong size and one that is not a save at all must not stop the game from starting.
 
-    python tools/gameboy_saves_check.py [--work FOLDER] [--only NAME] [--reuse]
+    python tools/gameboy_saves_check.py [--work FOLDER] [--only NAME] [--reuse] [--model dmg|cgb]
+
+With `--model cgb` every authored cartridge carries the Color-only flag (header byte 0143 = C0) and is converted for the Game Boy Color: the same
+files, the same reload, the same damaged cases, through the Color's profile and runtime.
 
 Nothing here says anything about hardware fidelity or about the games' own save code; it checks the files and the reload.
 """
@@ -21,6 +24,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# The machine being checked: the Game Boy (dmg) or the Game Boy Color (cgb); `main` sets them from --model.
+SYSTEM, FOLDER, COLOR = 'gb', 'Game Boy', False
 
 MAGIC = (0x52, 0x52, 0x53)            # 'R', 'R', 'S'
 PATTERN_LENGTH = 28                   # bytes written after the magic and the version byte
@@ -144,6 +150,8 @@ def build_rom(title: str, header_type: int, ram_code: int, code: bytes, extra: d
     name = title.upper().encode('ascii')[:15]
     rom[0x134:0x134 + len(name)] = name
     rom[0x147], rom[0x148], rom[0x149] = header_type, 0x00, ram_code
+    if COLOR:
+        rom[0x143] = 0xC0                                          # Color only (the profile claims no 0x80 cartridge): runs in Color mode, covered by the header checksum
     checksum = 0
     for index in range(0x134, 0x14D):
         checksum = (checksum - rom[index] - 1) & 0xFF
@@ -185,10 +193,10 @@ def convert(name: str, work: Path, data: bytes | None = None) -> Path:
     rom.write_bytes(authored_rom(name) if data is None else data)
     out = work / f'out_{name}'
     shutil.rmtree(out, ignore_errors=True)
-    result = subprocess.run([sys.executable, '-B', str(ROOT / 'RetroRecomp.py'), 'convert', str(rom), '--system', 'gb',
+    result = subprocess.run([sys.executable, '-B', str(ROOT / 'RetroRecomp.py'), 'convert', str(rom), '--system', SYSTEM,
                              '--scan-level', 'quick', '--no-online-cover', '--output', str(out)],
                             env=environment(), capture_output=True, text=True, timeout=1800, cwd=ROOT)
-    executable = out / 'Game Boy' / f'{name}.exe'
+    executable = out / FOLDER / f'{name}.exe'
     if result.returncode or not executable.is_file():
         raise SystemExit(f'conversion of {name} failed:\n{result.stdout[-1500:]}\n{result.stderr[-800:]}')
     return executable
@@ -295,18 +303,26 @@ def damaged_cases(game: Path, folder: Path, work: Path, files: dict, battery: st
     return outcomes
 
 
+def set_model(model: str) -> None:
+    """Select the machine: the Game Boy ('dmg') or the Game Boy Color ('cgb')."""
+    global SYSTEM, FOLDER, COLOR
+    SYSTEM, FOLDER, COLOR = ('gbc', 'Game Boy Color', True) if model == 'cgb' else ('gb', 'Game Boy', False)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--work', type=Path, default=ROOT / '.build' / 'gb-saves')
     parser.add_argument('--only', choices=sorted(CARTRIDGES), action='append')
     parser.add_argument('--reuse', action='store_true', help='use the executables already converted in the work folder')
+    parser.add_argument('--model', choices=('dmg', 'cgb'), default='dmg', help='the Game Boy (default) or the Game Boy Color')
     args = parser.parse_args()
+    set_model(args.model)
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
     failures: list[str] = []
     records = []
     for name in args.only or list(CARTRIDGES):
-        executable = work / f'out_{name}' / 'Game Boy' / f'{name}.exe'
+        executable = work / f'out_{name}' / FOLDER / f'{name}.exe'
         if not (args.reuse and executable.is_file()):
             executable = convert(name, work)
         records.append(run_cartridge(name, executable, work, failures))

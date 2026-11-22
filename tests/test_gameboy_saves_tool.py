@@ -21,6 +21,22 @@ class AuthoredCartridgeTests(unittest.TestCase):
             self.assertEqual(rom[0x14D], checksum, name)
             self.assertEqual(rom[0x100:0x104], bytes.fromhex('00c35001'), name)
 
+    def test_the_color_model_flags_every_cartridge_and_keeps_the_header_valid(self):
+        try:
+            saves.set_model('cgb')
+            self.assertEqual((saves.SYSTEM, saves.FOLDER), ('gbc', 'Game Boy Color'))
+            for name in saves.CARTRIDGES:
+                rom = saves.authored_rom(name)
+                self.assertEqual(rom[0x143], 0xC0, name)
+                checksum = 0
+                for index in range(0x134, 0x14D):
+                    checksum = (checksum - rom[index] - 1) & 0xFF
+                self.assertEqual(rom[0x14D], checksum, name)
+        finally:
+            saves.set_model('dmg')
+        self.assertEqual(saves.authored_rom('mbc1')[0x143], 0x00)
+        self.assertEqual((saves.SYSTEM, saves.FOLDER), ('gb', 'Game Boy'))
+
     def test_titles_are_distinct_and_ascii(self):
         titles = {bytes(saves.authored_rom(name)[0x134:0x143]).rstrip(b'\0').decode('ascii') for name in saves.CARTRIDGES}
         self.assertEqual(len(titles), len(saves.CARTRIDGES))
