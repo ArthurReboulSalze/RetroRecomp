@@ -52,6 +52,8 @@ REJECTIONS = {control.REJECT_FULL: 'the room is full', control.REJECT_VERSION: '
 BYE_LEFT, BYE_CLOSED, BYE_KICKED = 1, 2, 3          # the control stream's BYE reasons
 PENDING_LIMIT = 64 * 1024           # bytes waiting on one control connection: past this the peer does not read, it is closed (N4)
 CLOSING_SECONDS = 2.0               # a peer being turned away keeps its place this long, whatever waits to be sent (N4)
+BIND_TRIES = 32                     # the room's port: the asked one, then random ones (`RoomHost._bind`)
+DYNAMIC_PORTS = range(49152, 65536)  # the IANA dynamic range
 
 
 def room_code(reason: str) -> str:
@@ -294,14 +296,18 @@ class RoomHost:
         return invitation.format_invitation(self.address, self.port, self._secret, self.tests)
 
     def _bind(self) -> tuple[socket.socket, socket.socket]:
+        """The TCP listener and the UDP socket on one port number: the asked port first (0: the system's choice), then ports
+        drawn at random in the dynamic range. Not the system's choice again: Windows hands out port 0 in sequence, and Hyper-V,
+        WSL or Docker reserve blocks of a hundred UDP ports or more (`netsh int ipv4 show excludedportrange protocol=udp`); a
+        TCP port inside such a block has no UDP twin (WinError 10013), nor have the next ones (22 Nov 2026, a suite run)."""
         last: Exception | None = None
-        for attempt in range(8):
+        for attempt in range(BIND_TRIES):
             tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
                 _exclusive(tcp, True)
                 _exclusive(udp, False)
-                tcp.bind((self.address, self.port if attempt == 0 else 0))
+                tcp.bind((self.address, self.port if attempt == 0 else secrets.choice(DYNAMIC_PORTS)))
                 udp.bind((self.address, tcp.getsockname()[1]))
                 tcp.listen(16)
                 return tcp, udp

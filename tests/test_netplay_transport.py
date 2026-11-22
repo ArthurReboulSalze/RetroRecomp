@@ -644,6 +644,33 @@ class BindingTests(unittest.TestCase):
             with self.assertRaises(lan_transport.RoomError):
                 lan_transport.RoomGuest(invitation.Invitation('127.0.0.1', 30000, SECRET), 'x')
 
+    def test_a_room_opens_when_the_next_ports_have_no_udp_twin(self):
+        # 22 Nov 2026: Windows hands out port 0 in sequence and Hyper-V/WSL reserve blocks of UDP ports; eight retries on the
+        # system's next ports all fell inside one. Here the next 40 UDP ports are held, which gives the same refusal there.
+        probe = socket.socket()
+        probe.bind(('127.0.0.1', 0))
+        start = probe.getsockname()[1]
+        probe.close()
+        held = []
+        try:
+            for port in range(start + 1, min(start + 41, 65536)):
+                udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                try:
+                    lan_transport._exclusive(udp, False)
+                    udp.bind(('127.0.0.1', port))
+                    held.append(udp)
+                except OSError:
+                    udp.close()
+            host = lan_transport.RoomHost('127.0.0.1', 0, SECRET, tests=True)
+            port = host.open()
+            try:
+                self.assertNotIn(port, [sock.getsockname()[1] for sock in held])
+            finally:
+                host.close()
+        finally:
+            for udp in held:
+                udp.close()
+
     def test_the_only_module_that_binds_never_names_a_wildcard_address(self):
         with open(lan_transport.__file__, encoding='utf-8') as source:
             text = source.read()
