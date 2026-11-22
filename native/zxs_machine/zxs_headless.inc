@@ -104,6 +104,15 @@ static int route_script(const char *path)
 
 static void route_take_sound(void);
 
+/* After a snapshot is loaded (the player's --snap-probe): the route's next event is the first one after the loaded frame, the
+ * events up to it being in the snapshot (the keys and the Kempston are machine state). */
+static inline void route_rewind(void)
+{
+    route_next_event = 0;
+    while (route_next_event < route_event_count && route_events[route_next_event].frame <= machine.frames)
+        ++route_next_event;
+}
+
 /* The machine's frame hook: the sound of the frame that ended is closed, then the events of the frame that begins apply. */
 static void route_frame_start(void *user)
 {

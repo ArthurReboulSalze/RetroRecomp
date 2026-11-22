@@ -126,7 +126,41 @@ same tree give the same start, the same learning counts and, on both routes, the
 hashes and step counts as on Windows; the compressed copy and the quick states pass there too. A witness in WSL is not a proof
 of a Linux graphics driver.
 
-## 7. Multiplayer (later)
+## 7. Multiplayer
 
-Two seats: the Sinclair Interface 2 has two joysticks on the keyboard matrix, and the Kempston beside it is the common pair.
-The whole state (48 or 128 KiB of RAM, the ULA and AY registers, the CPU) is small, so the rollback tier is expected.
+Rollback (smooth) on the game's own snapshots, two seats, offered nowhere while the machine is developer only
+([MULTIPLAYER.md](MULTIPLAYER.md)). A snapshot is the quick state's body (the CPU, then every field of the machine: the RAM
+banks, the ULA, the keyboard rows and the Kempston latch, the AY's counters, the frame position) in memory, about 203 KiB, checked
+whole and applied only then; the digest is FNV-1a 64 over the same bytes with the picture and the sound box left out (the next
+frame redraws every line; each PC drains its sound at its own pace). Player 1 is on the joystick interface the snapshot was saved
+for (or the reviewed one), player 2 on the Interface 2 keys player 1 does not use, each a pure function of its seat's word ANDed
+with the keyboard; the host types for everyone. A restart puts every seat back at the game's start (the snapshot taken when the
+game opened in the match). The report carries a top-level `firmware` record (the model's ROMs in bank order, their SHA-256, each
+bank's), so a room refuses two PCs on different ROMs before the match. The Spectrum has no save to carry.
+
+Evidence (22 November 2026, `spec/zx-multiplayer`):
+
+- `--snap-probe AT:N` (headless, in the game itself) on six panel games (Manic Miner, Jetpac, Arkanoid, Match Day II, Head over
+  Heels, Robocop), at frames 300 (120 frames) and 1,200 (200 frames): the snapshot is the same bytes twice, a load one byte short
+  is refused with nothing changed, and after the load every digest and every picture is the same: PASS on all twelve.
+- Windows and Linux (WSL, Debian 13) give the same digests on the same frames (Manic Miner, Head over Heels, Arkanoid, six points).
+- `tools/netplay_game_smoke.py` on Manic Miner, two seats, rollback 5, 30 ms of latency with 10 of jitter, 2 % of packets lost,
+  the match saved at 600 and loaded at 1,500, restarted at 2,200: 3,000 frames, 50 digests equal on both seats, 133 rollbacks
+  (deepest 2), the restart and the save and load on the same frames: PASS.
+- Not done yet: two PCs (the multiplayer specialist's run with the second PC), the owner's play on two PCs. The input delay is
+  counted in frames; physical latency is not measured.
+
+Known limits (22 November 2026):
+
+- A restart in a match goes through the game's own reset path (the embedded machine image loaded again on every seat at the same
+  frame, the keyboard rows and the Kempston latch cleared), not through `session_begin`, which lays the start snapshot at the
+  match's start only; the smoke test's digests stay equal after the restart at frame 2,200.
+- With player 1 on the cursor keys (5 left, 6 down, 7 up, 8 right, 0 fire), player 2 goes on Interface 2's 1-5, whose fire (5)
+  is player 1's left: a press of player 2's fire also reads as player 1 going left. Interface 2's 6-0 would overlap four keys, so
+  1-5 is the smaller overlap; the fix is per-game data (player 2 on the Kempston when the game reads it, or the interface the game's
+  menu gives player 2), keyed by the dump's SHA-256 and locked for the match.
+- Match Day II offers player 2 its own keys (« Keys and options », « Player 2 keys »), where the host can type 6, 7, 8, 9 and 0 so
+  that player 2's pad drives them; on the reference its menu cursor moves more than one place per press and kept moving under the
+  scripted presses, so the exact presses to reach that screen are not yet confirmed.
+- Not yet: per-game data for the games whose two players share the keyboard in halves (keyed by the dump's SHA-256, sent and locked
+  as a session option).

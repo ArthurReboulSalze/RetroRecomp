@@ -383,6 +383,24 @@ rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
+## ZX Spectrum: multiplayer, rollback on the game's own snapshots, two seats (next release)
+
+The Spectrum's games join the multiplayer session (`netplay_session`, two seats, rollback), offered nowhere while the machine is
+developer only. The player (native/zxs_machine/zxs_player.c) gives the kit its snapshots (the quick state's body in memory, checked
+whole, applied only then), a digest (FNV-1a 64 over the same bytes without the picture and the sound box), the match's start
+(`session_begin`: the snapshot taken when the game opened) and nothing to gate in a silent frame; the adapter (`rrhk_zxs.inc`)
+names them and carries the host's typing. Player 1 is on the snapshot's joystick interface, player 2 on the Interface 2 keys player 1
+does not use. The report gains a top-level `firmware` record (the ROMs in bank order and each bank's SHA-256): a room refuses two PCs
+on different ROMs before the match. `--snap-probe AT:N` checks the snapshots in one process.
+
+- `--snap-probe` PASS on six panel games at two points each; Windows and WSL give the same digests on three; `netplay_game_smoke`
+  PASS on Manic Miner (two seats, rollback 5, latency, jitter, loss, a save and load, a restart: 3,000 frames, 133 rollbacks).
+- `tools/hostkit_session_selftest.py` (29 scenarios), `netplay_lockstep_selftest.py` (26) and `netplay_rollback_selftest.py` (15)
+  unchanged and green.
+- Not done yet: two PCs and the owner's play on them. Physical latency is not measured.
+
+**Stamps**: the ZX Spectrum's game stamp (its player, adapter, headless file, profile, conversion); nothing else.
+
 ## ZX Spectrum: the ULA's memory contention is modelled (next release)
 
 The Spectrum turns the chain's contention on (`Z80Machine.contention`, below) with its own rule (`zxs_contend_memory`,

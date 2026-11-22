@@ -8,7 +8,8 @@
  * joystick interface the snapshot was saved for, the 320 x 240 picture of colour indices with the Spectrum's sixteen colours,
  * the sound (beeper and, on the 128K, the AY) through the shared stereo ring of native/audio_output.inc. Quick states (F8/F9)
  * are the game's (zxs_player.c), saved and loaded at once: the kit calls them from the frame's end, which is already the game's
- * service point. Guest state is never filtered. Multiplayer (snapshots, digest, session saves) is not offered yet: step 3. */
+ * service point. Guest state is never filtered. Multiplayer: the game's snapshots and digest (zxs_player.c), two seats: player 1
+ * on the snapshot's interface, player 2 on the Interface 2 keys player 1 does not use; the host types for everyone. */
 #include "hostkit/hostkit.h"
 #include "retro_menu.h"
 #include "runtime_i18n.h"
@@ -272,8 +273,12 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.audio_reopen = host_audio_reopen; machine.audio_device_id = host_audio_device_id;
       machine.audio_ratio = host_audio_ratio;
       machine.state_ready = z_state_ready; machine.state_file = z_state_file; machine.state_path = z_state_path;
-      /* Multiplayer (snap_bound / snap_save / snap_load, digest, side_effects, session_*): left NULL until step 3; without a
-       * digest the game is not offered in multiplayer. */
+      /* Multiplayer: the game's in-process snapshots, their digest (the picture and the sound box left out), its effects
+       * (nothing to hold back), the match's start; the host's typing travels (x_session_keys). No save: session_save NULL. */
+      machine.snap_bound = zxs_snap_bound; machine.snap_save = zxs_snap_save; machine.snap_load = zxs_snap_load;
+      machine.digest = zxs_snap_digest; machine.side_effects = zxs_side_effects;
+      machine.session_begin = zxs_session_begin;
+      machine.session_keys = x_session_keys;
       machine.input_frame = z_input_frame;
       machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = z_help_controls;
       machine.option_rows = x_option_rows; machine.key_event = x_key_event;
