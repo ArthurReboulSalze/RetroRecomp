@@ -69,6 +69,14 @@ class AmstradCpcProfile(SystemProfile):
     netplay_seats = 2
     netplay_rollback = True
     z80_machine = CPC_MACHINE
+
+    @staticmethod
+    def z80_vector_tstates(trace) -> int:
+        """The T-states of one instruction on a CPC from its Z80 bus trace (one 'rwmi' flag string per T-state): what
+        tools/banked_vector_selftest.py expects of each vector, the CPC's bus rule applied to that vector alone, not the table."""
+        from ..cpc_timing import cpc_nops
+        return 4 * cpc_nops(trace)
+
     # The components its games are to compile: the banked Z80 chain's generator and core, and the reference interpreter of
     # the counted fallback (the MSX's three).
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md',

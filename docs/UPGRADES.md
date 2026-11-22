@@ -729,6 +729,19 @@ The conversion report's final checks add the native counters the release check r
 **Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
 released export to upgrade.
 
+## Amstrad CPC (developer only): the independent Z80 vectors through the CPC's generator (1.9.0)
+
+`tools/banked_vector_selftest.py` takes `--machine cpc`. A profile may give `z80_vector_tstates`, a rule that turns one vector's
+bus trace into T-states; the CPC's (`AmstradCpcProfile.z80_vector_tstates`, the Gate Array's rule of `cpc_timing.cpc_nops`) is
+then what each vector is expected, in place of the vector's own count plus M1 wait states. A machine with 16-bit ports gets a copy
+of the test bus written beside its build, with the two whole-address calls its bodies make (`native/banked_vectors.c` itself, a
+game input of every machine, is not changed). A machine whose map reaches fewer banks of its first source than the corpus needs
+(the CPC and the ZX Spectrum: two of 16 KiB) runs it in parts that fit, each generated, built and run alone; the other machines run
+in one part, in the folder they always used (the MSX run again: 51,328 pass, as before).
+
+**Stamps** (`compilation_inputs.role_stamps`, 27 profiles, before and after): the CPC's game stamp only (its profile file). The
+tool is outside every stamp.
+
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
 
 The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a

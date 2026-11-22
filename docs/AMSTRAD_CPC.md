@@ -83,8 +83,12 @@ Native code, CPU fidelity, hardware fidelity, gameplay validation and physical l
 
 * **Native code** (measured, per conversion): the Z80 instructions run natively and on the counted interpreter, per route. The
   panel's routes run 0 interpreted instructions once the code the games load into RAM is learned (two passes).
-* **CPU fidelity** (measured against the project's own reference, not an independent oracle): the native run and the reference
-  interpreter on the same board agree on every compared field and every frame's row (CPU, RAM, picture, sound, chips).
+* **CPU fidelity** (measured against the project's own reference, and against independent vectors): the native run and the
+  reference interpreter on the same board agree on every compared field and every frame's row (CPU, RAM, picture, sound, chips).
+  The 51,328 SingleStepTests/z80 vectors (an emulator's, MIT, not hardware captures) pass through the CPC's own generator,
+  registers, flags, memory, the whole 16-bit port and each vector's microseconds as the Gate Array's bus rule gives them for its
+  own trace (`tools/banked_vector_selftest.py --machine cpc`, 22 November 2026). The interrupt acceptance and HALT costs come from
+  the same rule on the Z80 data sheet's cycle shapes and are not in the vectors.
 * **Hardware fidelity**: not measured. The chips are our own C, checked against their documented behaviour; no CPC and no
   external emulator was compared yet.
 * **Gameplay validation**: not done. The routes are 3,600 frames each, scripted; the owner's play test is G14.
