@@ -411,8 +411,15 @@ Contention needs the Z80's own counts (no cost table, no M1 wait states: a taken
 - **Identity**: the step loop, the emitter and the reference copy rendered for the Master System, the Game Gear, the MSX, MSX2,
   MSX2+, the SG-1000, the ColecoVision, the ZX Spectrum and the Amstrad CPC (its cost table included) have the same SHA-256 on this
   branch as on main d6cd0fa5 (27 files).
-- Not compiled yet: the step loop's contention lines (HALT, acceptances, the fallback's epoch) are checked as text only; they are
-  first built when the Spectrum turns contention on, with its own rule.
+- The step loop's contention lines (HALT, the acceptances in modes 1 and 2 and /NMI, the fallback's epoch) are compiled by
+  `tools/z80_contention_loop_selftest.py` (`native/z80_contention_gate.c`, an authored rule that is no machine's), on the SG-1000's
+  machine with `contention=True` made by `dataclasses.replace` (no machine of the converter turns it on) and an authored cartridge: one
+  program in interrupt mode 1 and one in mode 2 (I = 03h, the vector at I:FFh), both with `EI; HALT` and 17 presses of Pause (/NMI).
+  The native check equals the reference runner on every common field of the report and on every frame row (20 checks, 0 failed);
+  the check with contention against a reference without it differs; and one mutation of the loop at a time (the HALT delay, the
+  /NMI delay, the mode-1 delay, the mode-2 walk taken for mode 1) makes the check differ from the reference, while the mutation of
+  the mode the program does not run changes nothing. A tool and its test (`tests/test_z80_contention_loop.py` keeps the mutations'
+  anchors without a compiler); no stamp moves (the rule is declared outside the stamps).
 
 **Stamps**: the game stamps of the Master System, the Game Gear, the MSX, the MSX2, the MSX2+, the SG-1000, the ColecoVision, the
 ZX Spectrum and the Amstrad CPC (`shares:z80_main` gains `retrorecomp.z80_timed`; `retrorecomp.cpu`, `retrorecomp.z80_chain` and
