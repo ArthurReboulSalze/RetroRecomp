@@ -33,6 +33,17 @@ class RouteTests(unittest.TestCase):
         keys = {code for kind, code in pressed if kind == 'key'}
         self.assertTrue({cpc_routes.KEY_SPACE, cpc_routes.KEY_N, cpc_routes.KEY_RETURN, cpc_routes.KEY_1} <= keys)
 
+    def test_a_long_route_presses_the_start_keys_again_past_the_conversions_routes(self):
+        events = cpc_routes.play_events(18000, 'e' * 64)
+        frames = [event[0] for event in events]
+        self.assertEqual(frames, sorted(frames))
+        starts = {cpc_routes.KEY_SPACE, cpc_routes.KEY_N, cpc_routes.KEY_J, cpc_routes.KEY_1, cpc_routes.KEY_RETURN, cpc_routes.KEY_2}
+        later = [frame for frame, kind, code, value in events if frame >= cpc_routes.LATER_FROM and value
+                 and ((kind == 'key' and code in starts) or (kind == 'joy' and value == cpc_routes.JOY_FIRE1))]
+        self.assertGreaterEqual(len(later), (18000 - cpc_routes.LATER_FROM) // cpc_routes.LATER_EVERY - 1)
+        # The conversion's route (LATER_FROM frames) holds none of them: what it plays is the same as before.
+        self.assertFalse([e for e in cpc_routes.play_events(cpc_routes.LATER_FROM, 'e' * 64) if e[0] >= cpc_routes.LATER_FROM])
+
     def test_the_script_text(self):
         text = cpc_routes.script([(900, 'key', 47, 1), (904, 'key', 47, 0), (908, 'joy', 0, 0x26)])
         self.assertEqual(text, '900 key 47 1\n904 key 47 0\n908 joy 0 26\n')

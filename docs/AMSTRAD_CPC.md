@@ -119,11 +119,13 @@ fallback, packed and states gates pass. The pictures at frames 2,400 and 3,600 o
 written as WAV. **Linux**: Bomb Jack converted again in WSL (Debian 13) from the same sources gives the same rows as Windows on
 both routes (native, reference and delivered file), the same learning and the same final hashes.
 
-**Long routes** (22 November 2026): the eight games played 18,000 frames (five minutes: the play route's 3,600, then the joystick on)
-with the programs each conversion built. Native equals the reference on every field and every frame's row; the code first run after
-frame 3,600 runs on the counted interpreter (0 to 467,668 steps), since learning sees the 3,600-frame routes. At frames 7,800 and
-18,000 Castle Master, Gryzor and Robocop are in play; Bomb Jack and Dizzy are back on their menu or title after the game ended, Head
-over Heels and Match Day II on their menus, Super Hang-On in its attract mode: random routes, not played games.
+**Long routes** (22 November 2026): the eight games played 18,000 frames (five minutes: the play route's 3,600, then the joystick
+and a start key every 600 frames, so a game that ended goes back into play; the 3,600-frame scripts are unchanged) with the programs
+each conversion built. Native equals the reference on every field, drive A's digest included, and every frame's row; the code first
+run after frame 3,600 runs on the counted interpreter (0 to 1,705,300 steps), since learning sees the 3,600-frame routes. At frames
+6,000, 12,000 and 18,000: Castle Master, Gryzor and Robocop in play; Dizzy in its first room; Bomb Jack on its pyramids, then game
+over, then its menu; Super Hang-On racing, then its tables and title; Match Day II in a match at the end; Head over Heels stays on
+its menu. Random routes, not played games.
 
 **Written disks**: what a game writes on drive A goes to a copy beside it (`datas/games/cpc-<identity>/disk-1.dsk`), read back at the
 next start. Every conversion checks it in fresh processes of the delivered file (`--disk-copies`, the report's `disk_writes`): a

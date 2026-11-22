@@ -743,6 +743,15 @@ The conversion report's final checks add the native counters the release check r
 **Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
 released export to upgrade.
 
+## Amstrad CPC (developer only): a long route presses the start keys again past frame 3,600 (1.9.0)
+
+`retrorecomp/cpc_routes.play_events` adds, past `LATER_FROM` (3,600 frames), a start key every `LATER_EVERY` (600) frames, so a long
+route (the qualification's 18,000 frames) takes a game that ended back into play. A route of 3,600 frames or fewer, the conversion's,
+is the same byte for byte (checked on 42 disks' seeds at 720, 1,800 and 3,600 frames): no conversion's script, report or game changes.
+
+**Stamps** (`compilation_inputs.role_stamps`): the CPC's game stamp only (`cpc_routes.py`). A developer-only machine: no released
+export to upgrade.
+
 ## Amstrad CPC (developer only): a written disk checked in fresh processes (1.9.0)
 
 The CPC's headless report gives drive A's digest at the end (`disk_fnv`, compared between the native run, the reference and the
