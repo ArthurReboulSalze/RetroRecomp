@@ -128,7 +128,7 @@ class ChainTests(unittest.TestCase):
         import dataclasses
         from retrorecomp import z80_chain
         from retrorecomp.systems import find_profile
-        for system in ('sms', 'gg', 'msx', 'msx2', 'msx2plus', 'sg1000', 'coleco', 'zxs'):
+        for system in ('sms', 'gg', 'msx', 'msx2', 'msx2plus', 'sg1000', 'coleco', 'zxs', 'cpc'):
             machine = find_profile(system).z80_machine
             self.assertFalse(machine.contention, system)
             for text in (z80_chain.banked_runtime(machine, ROOT), z80_chain.banked_emitter(machine, ROOT)):
