@@ -3,7 +3,8 @@
 **Status: in development (experimental, developer only).** The profile `cpc` recognises Amstrad CPC disk images and converts
 them, for developers only, on the CPC 6128's firmware: the panel's eight games convert with 0 interpreted instructions on their
 routes, equal to the reference interpreter frame by frame, the same on Windows and Linux ([section 5](#5-panel-22-november-2026)).
-It is offered in no installation; the owner's play test (G14) is to come. This page says what is built, what is measured and what
+It is offered in no installation (the packaged converter does not list it); on a development tree it converts through
+`RetroRecomp.py batch --system cpc` and the converter window as the other machines do. The owner's play test (G14) is to come. This page says what is built, what is measured and what
 is left out. No game is claimed to be validated: the routes are short, scripted runs.
 
 ## 1. Scope

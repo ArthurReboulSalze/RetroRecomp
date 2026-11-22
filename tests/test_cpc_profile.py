@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+import sys
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 from retrorecomp import cpc_firmware
@@ -23,7 +25,9 @@ class ProfileTests(unittest.TestCase):
     def test_the_profile(self):
         profile = get_profile('cpc')
         self.assertEqual((profile.name, profile.status, profile.linux, profile.developer_only, profile.available()),
-                         ('Amstrad CPC', 'experimental', 'pending', True, False))
+                         ('Amstrad CPC', 'experimental', 'pending', True, True))      # a development tree converts it
+        with mock.patch.object(sys, 'frozen', True, create=True):
+            self.assertFalse(profile.available())                                     # the packaged converter does not
         self.assertEqual(profile.option_key_names, {'cpc_system', 'cpc_amsdos'})
 
     def test_the_vector_rule_is_the_bus_rule_per_trace_in_t_states(self):
@@ -41,8 +45,9 @@ class ProfileTests(unittest.TestCase):
     def test_a_cpc_disk_is_the_cpcs_and_refused_while_in_development(self):
         disk = self.root / 'Game.dsk'
         disk.write_bytes(image((('DISC', 'BAS', 0, False),)))
-        with self.assertRaisesRegex(UnsupportedConsoleError, 'Amstrad CPC'):
-            profile_for_path(disk)
+        self.assertEqual(profile_for_path(disk).id, 'cpc')                          # a development tree
+        with mock.patch.object(sys, 'frozen', True, create=True), self.assertRaisesRegex(UnsupportedConsoleError, 'Amstrad CPC'):
+            profile_for_path(disk)                                                    # the packaged converter
         with self.assertRaises(ConsoleMismatchError):
             profile_for_path(disk, 'msx2plus')
         self.assertEqual(get_profile('cpc').read_rom(disk).run_command, 'RUN"DISC')
@@ -51,7 +56,8 @@ class ProfileTests(unittest.TestCase):
         archive = self.root / 'Game (Europe).zip'
         with zipfile.ZipFile(archive, 'w') as bundle:
             bundle.writestr('Game (E).dsk', image())
-        with self.assertRaisesRegex(UnsupportedConsoleError, 'Amstrad CPC'):
+        self.assertEqual(profile_for_path(archive).id, 'cpc')
+        with mock.patch.object(sys, 'frozen', True, create=True), self.assertRaisesRegex(UnsupportedConsoleError, 'Amstrad CPC'):
             profile_for_path(archive)
 
     def test_an_msx_disk_is_left_to_the_msx2plus(self):

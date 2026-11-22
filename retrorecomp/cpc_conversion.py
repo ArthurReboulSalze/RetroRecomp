@@ -24,6 +24,15 @@ from pathlib import Path
 from .core import ConversionError
 
 FRAMES = 3600                    # the boot route's default length
+
+
+def developer_available() -> bool:
+    """True on a development tree (the converter run from its sources), so that the batch and the converter window convert the
+    CPC there; False in the packaged converter, which no player has the machine in until it leaves its developer-only stage."""
+    import sys
+    return not getattr(sys, 'frozen', False)
+
+
 LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame', 'audible_frames',
                                         'last_audible_frame', 'distinct_sound_blocks', 'distinct_ram_states',
                                         'distinct_program_counters')}
