@@ -1,9 +1,10 @@
 # Amstrad CPC
 
-**Status: in development (experimental, developer only).** The profile `cpc` recognises Amstrad CPC disk images, and a
-developer's conversion runs its whole chain on authored programs in place of the firmware; it is offered in no installation and
-has converted no game yet (the first, Bomb Jack, waits for the owner's firmware). This page says what is built, what is planned
-and what is left out. No game is claimed to run.
+**Status: in development (experimental, developer only).** The profile `cpc` recognises Amstrad CPC disk images and converts
+them, for developers only, on the CPC 6128's firmware: the panel's eight games convert with 0 interpreted instructions on their
+routes, equal to the reference interpreter frame by frame, the same on Windows and Linux ([section 5](#5-panel-22-november-2026)).
+It is offered in no installation; the owner's play test (G14) is to come. This page says what is built, what is measured and what
+is left out. No game is claimed to be validated: the routes are short, scripted runs.
 
 ## 1. Scope
 
@@ -78,18 +79,76 @@ AMSDOS ROM (16 KiB), which come from one of two places:
 
 ## 4. The five measures
 
-Native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures. None is measured
-for the Amstrad CPC yet: no game is converted (the authored checks measure native code and agreement with the reference on
-programs written for the check, not on a game).
+Native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures.
 
-## 5. Panel (from the owner's library)
+* **Native code** (measured, per conversion): the Z80 instructions run natively and on the counted interpreter, per route. The
+  panel's routes run 0 interpreted instructions once the code the games load into RAM is learned (two passes).
+* **CPU fidelity** (measured against the project's own reference, not an independent oracle): the native run and the reference
+  interpreter on the same board agree on every compared field and every frame's row (CPU, RAM, picture, sound, chips).
+* **Hardware fidelity**: not measured. The chips are our own C, checked against their documented behaviour; no CPC and no
+  external emulator was compared yet.
+* **Gameplay validation**: not done. The routes are 3,600 frames each, scripted; the owner's play test is G14.
+* **Physical latency**: not measured, never claimed.
 
-Bomb Jack (the first game), Gryzor, Head over Heels, Match Day II (two players: the second joystick on keyboard row 6), Super
-Hang-On and Robocop (extended images with protection tracks), Castle Master (Freescape 3D), Dizzy - The Ultimate Cartoon Adventure.
-`tools/cpc_panel.py` reads a folder of disks and writes numbers about each one (format, odd tracks, weak and error sectors, the
-start command), never their bytes.
+## 5. Panel (22 November 2026)
 
-## 6. References
+Eight games of the owner's library (DSK and EXTENDED DSK images, read from the NAS, never copied into the repository), converted on
+the pinned CPC 6128 firmware from an empty scratch library, two conversions at a time; each has two routes of 3,600 frames:
+**boot** (the start command typed, then nothing) and **play** (the trainers' questions and title-screen keys first, keys only, then
+the joystick at random, seeded by the disk; `retrorecomp/cpc_routes.py`).
+
+| Game | Start | Learning (interpreted steps, pass 1 → 2) | Interpreted on boot / play | Play route reaches | Audible frames (play) |
+|---|---|---|---|---|---|
+| Bomb Jack | `RUN"BOMB` | 3,655,961 → 0 | 0 / 0 | the first level (the pyramids), after its trainer and control menu | 508 |
+| Gryzor | `RUN"GRYZOR` | 14,386,604 → 0 | 0 / 0 | the first level (the jungle) | 66 |
+| Head over Heels | `RUN"HEAD` | 336,120 → 0 | 0 / 0 | its main menu, after a trainer's three « (o/n)? » | 190 |
+| Match Day II | `RUN"MATCHDAY` | 6,088,719 → 0 | 0 / 0 | its match menu | 2,698 |
+| Super Hang-On | `RUN"DISC` | 7,514,067 → 0 | 0 / 0 | the race (Africa) | 2,344 |
+| Robocop | `RUN"M` | 1,268,142 → 0 | 0 / 0 | the first street | 2,247 |
+| Castle Master | `RUN"CASTLE` | 6,990,294 → 0 | 0 / 0 | the castle, in 3D | 186 |
+| Dizzy - The Ultimate Cartoon Adventure | `RUN"DIZZYFL` | 5,042,300 → 0 | 0 / 0 | the first screen, in play | 2,932 |
+
+For every game: the native run equals the reference interpreter on both routes, every field and every frame's row; the delivered
+(compressed) file replayed headless equals both; a quick state saved near the play route's end continues in a fresh process for
+600 frames, 13 kinds of damaged state and a missing one are refused; `tools/release_check.py`'s conversion, native_reference,
+fallback, packed and states gates pass. The pictures at frames 2,400 and 3,600 of each play route were looked at, and the sound
+written as WAV. **Linux**: Bomb Jack converted again in WSL (Debian 13) from the same sources gives the same rows as Windows on
+both routes (native, reference and delivered file), the same learning and the same final hashes.
+
+Bomb Jack, Gryzor and Head over Heels are delivered for the owner's play test, with a short checklist (G14). `tools/cpc_panel.py`
+reads a folder of disks and writes numbers about each one (format, odd tracks, weak and error sectors, the start command), never
+their bytes.
+
+**Found on the way**: the native side acknowledged the Gate Array's interrupt after running the acceptance's microseconds, the
+reference before; an HSYNC inside them moved the next interrupt, and Bomb Jack lost one while AMSDOS loaded (now acknowledged at
+the start of the acceptance, as the machine does). Most CPC games were written for the built-in mono speaker: the sound is mono by
+default, the headphone jack's stereo an option (F2).
+
+## 6. Multiplayer
+
+Two seats in rollback (the game's own snapshots: the CPU, the board and, once the game has written it, drive A's disk): joystick 1
+on keyboard row 9, joystick 2 on row 6 as the machine wires it, the host typing for everyone. The host's disk A is the match's save:
+it travels to every seat and is played in memory; a guest plays the host's disk or, if none comes, the embedded one, never its own
+copy; nobody writes a copy during the match, the host writes its own once at a clean end (the previous one kept as `.bak`). The
+report's top-level `firmware` record (the system ROM and AMSDOS) makes a room refuse two seats on different firmware. Proved on an
+authored game (`tools/netplay_game_smoke.py`: two seats, rollback, latency, loss, a save and load and a restart for everyone, equal
+digests); on two PCs and with the panel's games, to come.
+
+## 7. G14 checklist for the owner's play test (22 November 2026)
+
+About three minutes a game, on Bomb Jack, Gryzor and Head over Heels as delivered:
+
+1. **Start**: the CPC's screen (« Amstrad 128K Microcomputer », BASIC 1.1, « Ready »), then the start command typed by itself and
+   the disk loading (about ten seconds). The three disks carry trainers: Bomb Jack asks « Unlimited Lives (Y/N) ? » then shows a
+   control menu (J: joystick, 1: one player); Head over Heels asks three « (o/n)? » questions (N and RETURN each time).
+2. **Picture**: colours, centring, no tearing; a border of another colour than the paper is the machine's.
+3. **Sound**: mono by default (the built-in speaker); F2's « Sound » row gives the headphone jack's stereo (A left, C right, B in the
+   middle), kept per game. Bomb Jack is loud: say if it clips.
+4. **Controls**: the pad is joystick 1 (A fire 1, B fire 2, Start SPACE, Select RETURN); the keyboard at the CPC's positions,
+   Ctrl+Alt+K for the full keyboard. Reactivity is the owner's impression, never a latency figure.
+5. **Quick states**: F8, play on, F9; then F1 (help), pause and the restart.
+
+## 8. References
 
 Written from the chips' data sheets and the CPC's documented behaviour; floooh/chips (zlib) and Clock Signal (MIT) read as
 documentation, nothing of them copied. No GPL code: the Z80 chain carries a noncommercial licence, so no GPL part may share a CPC

@@ -628,6 +628,25 @@ start chosen, `fire1x2`, and 112 on the key 1 starts): native equals the referen
 distinct pictures, after the tour; Donkey Kong `key1x3`; the tour is not why Alcazar's number is still low: it is a maze game, its picture changes 2,600 times). **Stamps**: `retrorecomp.coleco_routes` is one of the ColecoVision's own converter inputs (`stamp_inputs.INPUTS`, `('coleco',)`), so the ColecoVision's stamps move and
 no other machine's (a developer-only machine: there is no released export to upgrade); a ColecoVision reconverted by this version may learn from a different route.
 
+## Amstrad CPC (experimental, developer only): a new machine on the Z80 chain, and the copies of written disks are a shared group (1.9.0)
+
+The Amstrad CPC 6128 enters as an experimental machine for developers (`docs/AMSTRAD_CPC.md`): its profile (machine id `cpc`), the DSK and
+EXTENDED DSK reader, the firmware check (the player's own system and AMSDOS ROMs, or the pinned caprice32 copies fetched on the player's
+word, never shipped), its own MIT machine (the Gate Array and the CRTC's picture, the PPI's keyboard and joysticks, the uPD765, the AY-3-8910
+module the MSX and the ZX Spectrum use), the conversion on the banked Z80 chain with its own instruction costs in microseconds and 16-bit
+ports, the start command typed at boot, the quick states, and multiplayer on the rollback tier (two seats; a disk the game writes travels
+in the session as the host's save). Mono is the default sound, as the built-in speaker; the headphone jack's stereo is an F2 option.
+
+The copies of the disks a game writes, kept beside the game with a `.bak` of the last one, are one file every machine with written disks
+can include (`native/disk_copies.inc`, its checks `native/disk_copies_checks.c` and `tools/disk_copies_selftest.py`): the group
+`shares:disk_copies` (game role), which only a machine that includes it names. The CPC is the first; the MSX2+ may follow.
+
+The conversion report's final checks add the native counters the release check reads (`halt_steps`, `guarded_steps`, `fallback_cycles`,
+`fallback_at`, and `interpreter_cycles` per route), so `tools/release_check.py` reads a CPC report as it reads the others.
+
+**Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
+released export to upgrade.
+
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
 
 The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a
