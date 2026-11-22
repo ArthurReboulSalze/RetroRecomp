@@ -1053,10 +1053,13 @@ pages of Pan Docs (banks, palettes, both HDMA modes, the speed switch): document
 ## Game Boy Color: Color-only fixes of the runtime, the public tests, the link cable (1.9.0)
 
 Steps 2 and 3 of [NEW_MACHINE.md](NEW_MACHINE.md) for the Game Boy Color (21 and 22 November 2026; branches `spec/gbc-qualify`, after `spec/gbc-profile`). **What changes for the Game Boy Color only:**
-`retrorecomp/gameboy_color_hardware.py` holds seven fixes of the pinned runtime that the Color's build receives and the Game Boy's never does (a test pins that): the CPU's lock-out of OAM during a transfer, the timer's
+`retrorecomp/gameboy_color_hardware.py` holds eight fixes of the pinned runtime that the Color's build receives and the Game Boy's never does (a test pins that): the CPU's lock-out of OAM during a transfer, the timer's
 disable edge, the sound unit's power-off, the wave channel's writes and timer, the registers a cartridge without the Color flag finds, and the 5-bit colour expansion. Each is named by the public test that showed it
-([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): in the Color build 115 of the 116 applicable Mooneye and blargg tests pass (108 before), each with the lock-step comparison equal. The lock-step comparison of a Color game in double
-speed compares the sound registers instead of the last audio sample (the two paths hand the sound unit their cycles in different pieces and one emits a sample a few cycles before the other: Shantae, frame 1,117).
+([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): in the Color build 115 of the 116 applicable Mooneye and blargg tests pass (108 before), each with the lock-step comparison equal. An eighth fix, in the same module and for the Color's build only, moves the point where a tick hands its cycles to the sound unit: before the picture unit is synchronised, not after.
+In double speed the HDMA's stall tick nests inside that synchronisation and reached the sound unit before the cycles of the tick that caused it, so the generated code (which splits an
+instruction's cycles around its memory access) and the interpreter (which does not) ended one system cycle apart for good: Shantae, frame 17 of its boot route, then a different sound sample at every
+sample boundary and a stop of the lock-step comparison at frame 1,117. **The comparison itself is unchanged** (it compares the last audio sample, as for every machine); with the fix Shantae's 3,600 frames
+compare equal over 54.7 million steps at the extended level (0 mismatches, one conversion, scratch library), and the 116 public tests give the same 115 passes.
 The multiplayer: the profile sets the Game Boy's session and link flags (`netplay_session`, `netplay_link_seats = 2`), GBC with GBC only; the adapter and the link runtime are the Game Boy's and **did not change**.
 
 **Proof for the Game Boy** (nothing may change for it): `tools/ab_conversion.py`, main `3ab496a6` against this branch, quick level, Tetris and Super Mario Land: **identical** (133 and 136 compared files, nothing differs, not even the adapter's text).
