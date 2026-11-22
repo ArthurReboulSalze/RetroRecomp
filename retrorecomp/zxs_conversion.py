@@ -63,6 +63,16 @@ CONTENTION = ('modelled: the ULA holds each bus cycle on 4000h-7FFFh (and the 12
               'by the documented pattern, through the chain\'s evaluator (docs/ZX_SPECTRUM.md, section 5)')
 
 
+def firmware_identity(rom) -> dict:
+    """The report's top-level `firmware` record (retrorecomp/netplay/lobby_check.py FIRMWARE_KEYS), as the multiplayer specialist
+    asked on 22 Nov 2026: one SHA-256 over the model's ROMs in bank order (the set the lobby compares, so a room refuses two seats
+    on different ROMs before the match), the model, and each 16 KiB bank's own SHA-256 and origin for the people reading."""
+    import hashlib
+    banks = [{'bank': n, 'sha256': hashlib.sha256(rom.data[n * 0x4000:(n + 1) * 0x4000]).hexdigest(), 'origin': rom.origin}
+             for n in range(len(rom.data) // 0x4000)]
+    return {'sha256': rom.sha256, 'model': rom.model, 'roms': banks}
+
+
 def hardware_devices(snapshot) -> list:
     """The machine's devices as the common report lists them: what is modelled, by whom, and what is not."""
     devices = [{'id': 'ula', 'kind': 'video_unit', 'mode': 'c_model', 'model': 'our own C, line by line (border per line); '
@@ -240,6 +250,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'compiler': {'engine': 'the banked Z80 chain (retrorecomp/z80_chain.py), machine "zxs"',
                            'native_cpu': 'every instruction position of the Spectrum ROM translated ahead of time; the code the '
                                          'snapshot runs from RAM learned and translated with byte guards'},
+              'firmware': firmware_identity(rom),
               'zxs_checks': {'machine': snapshot.hardware, 'model': snapshot.model, 'joystick': snapshot.joystick,
                              'joystick_rule': f'reviewed data of this snapshot (retrorecomp/zxs_starts.py): {reviewed_joystick[1]}'
                              if reviewed_joystick else 'the snapshot\'s header',

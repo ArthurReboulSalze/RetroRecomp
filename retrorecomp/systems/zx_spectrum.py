@@ -71,6 +71,12 @@ class ZxSpectrumProfile(SystemProfile):
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md',
                     'licenses/zx-spectrum-roms.md')
     developer_only = True
+    # Multiplayer (docs/HOST_KIT.md 2.5, the multiplayer checklist of 21 Nov 2026): rollback on the game's own snapshots, two seats
+    # (player 1 on the snapshot's joystick interface, player 2 on the Interface 2 keys player 1 does not use), the host typing for
+    # everyone; no save to carry. Offered nowhere while the profile is developer only.
+    netplay_session = True
+    netplay_seats = 2
+    netplay_rollback = True
     # The shared groups its game is built from: the banked Z80 chain and its glue, the AY-3-8910 of the 128K (native/ay38910), the
     # computers' side of the host kit (rrhk_computer.inc, which its adapter includes).
     stamp_groups = ('z80_main', 'z80_chain_glue', 'ay38910', 'audio_box', 'z80_chain_state', 'state_file', 'hostkit_computer', 'conversion_gates')

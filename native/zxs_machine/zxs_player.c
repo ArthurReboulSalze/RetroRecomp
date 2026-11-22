@@ -55,6 +55,14 @@ static size_t rom_size;
 /* Quick states for the host kit's F8/F9 (defined below). */
 static bool zxs_game_state_file(const wchar_t *path, bool load);
 static bool zxs_game_state_path(wchar_t *path, size_t capacity);
+/* Multiplayer (hostkit.h "Multiplayer"; defined below): the in-process snapshots, their digest, the frame's effects and the
+ * match's start. The Spectrum has no save to carry (session_save stays NULL). */
+static size_t zxs_snap_bound(void);
+static size_t zxs_snap_save(void *buffer, size_t capacity);
+static bool zxs_snap_load(const void *buffer, size_t size);
+static uint64_t zxs_snap_digest(void);
+static void zxs_side_effects(bool allowed);
+static void zxs_session_begin(uint64_t clock);
 
 #include "hostkit/adapters/rrhk_zxs.inc"
 
@@ -94,6 +102,7 @@ static uint64_t headless_interrupts(void) { return g_irq_taken; }
                             + 2u * ZXS_AUDIO_BUFFER + 512u)
 static const uint8_t zxs_state_binding[32] = RR_ZXS_STATE_ABI;
 static ZxsMachine zxs_state_scratch;              /* the candidate machine of a check or a load */
+static int zxs_digesting;                         /* a digest's write: the picture and the sound box left out */
 
 static uint32_t zxs_state_model(void) { return machine.ram16k ? 3u : (uint32_t)machine.model + 1u; }
 
@@ -125,6 +134,8 @@ static void zxs_machine_state(RetroStateIO *io, ZxsMachine *m)
     RR_FIELD(*m, ay_level, 4, 32767);
     RR_FIELD(*m, cycles, 8, 1ULL << 60); RR_FIELD(*m, frame_start, 8, 1ULL << 60); RR_FIELD(*m, frames, 8, 1ULL << 40);
     RR_FIELD(*m, line, 2, m->lines - 1);
+    if (zxs_digesting)                             /* the digest: the next frame redraws every line; the sound is each host's */
+        return;
     /* The picture's indices are colours 0-15: a damaged one is refused, never looked up. */
     if (io->mode == RR_STATE_CHECK && io->ok && io->pos <= io->size && sizeof m->picture <= io->size - io->pos)
         for (size_t i = 0; i < sizeof m->picture; ++i)
@@ -188,6 +199,70 @@ static RetroStateFile zxs_state_file(void)
 
 static int zxs_state_save(const wchar_t *path) { RetroStateFile f = zxs_state_file(); return rr_state_file_save(&f, path); }
 static int zxs_state_load(const wchar_t *path) { RetroStateFile f = zxs_state_file(); return rr_state_file_load(&f, path); }
+
+/* ---- multiplayer (hostkit.h "Multiplayer") ----
+ * A snapshot is the quick state's body (the CPU, then every machine field) behind its own magic, in memory: checked whole on the
+ * scratch copies, applied only then; no allocation per call, valid at any frame's end. The digest is FNV-1a 64 over the same
+ * bytes with the picture and the sound box left out (the next frame redraws every line; each seat's host drains the sound at
+ * its own pace). The Spectrum has no save to carry and nothing to gate in a silent frame. */
+#define ZXS_SNAP_MAGIC 0x31504E5353585A52ull     /* "RZXSSNP1" */
+static uint8_t *session_start;                   /* the machine as the game started, for session_begin */
+static size_t session_start_size;
+
+static void zxs_snap_body(RetroStateIO *io)
+{
+    if (rr_state_word(io, ZXS_SNAP_MAGIC, 8, UINT64_MAX) != ZXS_SNAP_MAGIC) io->ok = false;
+    zxs_state_body(io);
+}
+
+static size_t zxs_snap_bound(void) { return ZXS_STATE_CAPACITY; }
+
+static size_t zxs_snap_save(void *buffer, size_t capacity)
+{
+    RetroStateIO io = { (uint8_t *)buffer, capacity, 0, RR_STATE_WRITE, true };
+    zxs_snap_body(&io);
+    return io.ok ? io.pos : 0;
+}
+
+static bool zxs_snap_load(const void *buffer, size_t size)
+{
+    RetroStateIO check = { (uint8_t *)buffer, size, 0, RR_STATE_CHECK, true };
+    zxs_snap_body(&check);
+    if (!check.ok || check.pos != size) return false;
+    RetroStateIO apply = { (uint8_t *)buffer, size, 0, RR_STATE_APPLY, true };
+    zxs_snap_body(&apply);
+    return apply.ok;
+}
+
+static uint64_t zxs_snap_digest(void)
+{
+    static uint8_t scratch[ZXS_STATE_CAPACITY];
+    zxs_digesting = 1;
+    const size_t n = zxs_snap_save(scratch, sizeof scratch);
+    zxs_digesting = 0;
+    uint64_t h = 1469598103934665603ull;
+    for (size_t i = 0; i < n; ++i) { h ^= scratch[i]; h *= 1099511628211ull; }
+    return n ? h : 0;
+}
+
+static void zxs_side_effects(bool allowed) { (void)allowed; }   /* no save, recording or rumble to hold back */
+
+/* Called once when the game starts in a session: the machine as it starts, which session_begin lays again. */
+static void zxs_session_keep_start(void)
+{
+    const size_t bound = zxs_snap_bound();
+    session_start = (uint8_t *)malloc(bound);
+    session_start_size = session_start ? zxs_snap_save(session_start, bound) : 0;
+    if (!session_start_size) { free(session_start); session_start = NULL; }
+}
+
+/* The match starts, and at each restart: every seat back where the game started (the Spectrum has no clock to set). */
+static void zxs_session_begin(uint64_t clock)
+{
+    (void)clock;
+    const bool back = session_start && zxs_snap_load(session_start, session_start_size);
+    fprintf(stderr, "[zxs] match start: the game's start %s\n", back ? "laid again" : "not kept");
+}
 
 /* F8/F9 in play, at the service point (the kit calls this from the frame's end). */
 static bool zxs_game_state_file(const wchar_t *path, bool load)
@@ -261,11 +336,76 @@ static int headless_path(const char *v, wchar_t *out)
 #endif
 }
 
+/* --snap-probe AT:N (headless): the multiplayer snapshots checked in one process, as the MSX's and the CPC's probes do. At the end
+ * of frame AT a snapshot is taken twice (the same bytes, within its bound) and a load one byte short is refused with nothing
+ * changed; the next N frames record the digest and the picture's hash; the snapshot is loaded and the same N frames must give
+ * the same digests and, from the first frame drawn again, the same pictures. The process ends there: exit 0 PASS, 5 FAIL. */
+static unsigned long long snap_probe_at, snap_probe_n;
+static int snap_probe_phase, snap_probe_same, snap_probe_refused;
+static uint64_t *snap_probe_digests;
+static uint32_t *snap_probe_pictures;
+static uint8_t *snap_probe_a, *snap_probe_b;
+static size_t snap_probe_size;
+static unsigned long snap_probe_mismatches, snap_probe_picture_mismatches;
+static long snap_probe_bad = -1;
+
+static int snap_probe_option(const char *v)
+{
+    if (sscanf(v, "%llu:%llu", &snap_probe_at, &snap_probe_n) != 2 || !snap_probe_n || snap_probe_n > 100000) return -1;
+    snap_probe_digests = (uint64_t *)calloc(snap_probe_n + 1, sizeof *snap_probe_digests);
+    snap_probe_pictures = (uint32_t *)calloc(snap_probe_n + 1, sizeof *snap_probe_pictures);
+    snap_probe_a = (uint8_t *)malloc(ZXS_STATE_CAPACITY);
+    snap_probe_b = (uint8_t *)malloc(ZXS_STATE_CAPACITY);
+    if (!snap_probe_digests || !snap_probe_pictures || !snap_probe_a || !snap_probe_b) return -1;
+    snap_probe_phase = 1;
+    return 1;
+}
+
+/* At the end of a frame, the next frame's route events applied (the inputs the snapshot carries). */
+static void snap_probe_service(void)
+{
+    if (!snap_probe_phase || machine.frames < snap_probe_at) return;
+    const unsigned long long k = machine.frames - snap_probe_at;
+    const uint32_t shown = zxs_picture_hash();
+    if (snap_probe_phase == 1) {
+        snap_probe_size = zxs_snap_save(snap_probe_a, ZXS_STATE_CAPACITY);
+        memset(snap_probe_b, 0xA5, ZXS_STATE_CAPACITY);
+        snap_probe_same = snap_probe_size && zxs_snap_save(snap_probe_b, ZXS_STATE_CAPACITY) == snap_probe_size
+                          && !memcmp(snap_probe_a, snap_probe_b, snap_probe_size) && snap_probe_size <= zxs_snap_bound();
+        const uint64_t before = zxs_snap_digest();
+        snap_probe_refused = !zxs_snap_load(snap_probe_a, snap_probe_size - 1) && zxs_snap_digest() == before;
+        snap_probe_digests[0] = before;
+        snap_probe_phase = 2;
+    } else if (snap_probe_phase == 2) {
+        snap_probe_digests[k] = zxs_snap_digest();
+        snap_probe_pictures[k] = shown;
+        if (k >= snap_probe_n) {
+            if (!zxs_snap_load(snap_probe_a, snap_probe_size)) snap_probe_mismatches = ~0ul;
+            route_rewind();                      /* the route's events from the loaded frame on */
+            if (zxs_snap_digest() != snap_probe_digests[0]) { ++snap_probe_mismatches; snap_probe_bad = 0; }
+            snap_probe_phase = 3;
+        }
+    } else {
+        if (zxs_snap_digest() != snap_probe_digests[k]) { ++snap_probe_mismatches; if (snap_probe_bad < 0) snap_probe_bad = (long)k; }
+        if (k >= 1 && shown != snap_probe_pictures[k]) ++snap_probe_picture_mismatches;   /* from the first frame drawn again */
+        if (k >= snap_probe_n) {
+            const int pass = snap_probe_same && snap_probe_refused && !snap_probe_mismatches && !snap_probe_picture_mismatches;
+            fprintf(stderr, "snap-probe: %s at %llu, %llu frames, %zu bytes (bound %zu), same over other bytes %d, wrong size "
+                    "refused %d, mismatches %lu, first at +%ld, pictures differing %lu, digest %016llx\n", pass ? "PASS" : "FAIL",
+                    snap_probe_at, snap_probe_n, snap_probe_size, zxs_snap_bound(), snap_probe_same, snap_probe_refused,
+                    snap_probe_mismatches, snap_probe_bad, snap_probe_picture_mismatches,
+                    (unsigned long long)snap_probe_digests[snap_probe_n]);
+            exit(pass ? 0 : 5);
+        }
+    }
+}
+
 static int headless_state_option(const char *a, const char *v)
 {
     if (!strcmp(a, "--save-state")) { if (!headless_path(v, state_save_file)) return -1; state_save_due = 1; }
     else if (!strcmp(a, "--save-at")) state_save_at = strtoul(v, NULL, 10);
     else if (!strcmp(a, "--load-state")) { if (!headless_path(v, state_load_file)) return -1; state_load_due = 1; }
+    else if (!strcmp(a, "--snap-probe")) return snap_probe_option(v);
     else return 0;
     return 1;
 }
@@ -284,6 +424,7 @@ static void headless_main_service(void)
         return;
     }
     int done = headless_service();             /* the row of the frame that ended */
+    snap_probe_service();
     if (state_save_due && machine.frames >= state_save_at) {
         state_save_due = 0;
         if (zxs_state_save(state_save_file) != RR_STATE_OK)
@@ -349,6 +490,7 @@ static int run(void)
     machine.frame_hook = play_frame_hook;
     prepare_data_folder();
     if (!zxs_host_open(RR_ZXS_TITLE, 3, &machine, image[6])) return 4;
+    if (rrhk_session_active()) zxs_session_keep_start();   /* session_begin puts every seat back here */
     smsrecomp_banked_run();                      /* returns through exit() when the player quits */
     return 0;
 }
