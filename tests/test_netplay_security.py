@@ -81,7 +81,11 @@ class Fixture:
         self.test.assertTrue(self.link.opened.wait(10))
         for seat in range(1, self.seats):
             self.say(seat, wire.encode_boot(seat, BOOT))
-        self.test.assertTrue(self.driver.wait_for(lambda driver: driver.delay is not None, 20), self.driver.snapshot())
+        # The match has started, not only been given its delay: the host holds its start for its measured one-way time, which a
+        # busy PC stretches; frames asked during that hold are kept and run in one burst (22 Nov 2026: the safety-floor test
+        # failed so in a loaded full suite, its stepped game seeing live frames it had not asked for).
+        self.test.assertTrue(self.driver.wait_for(lambda driver: driver.delay is not None and not driver._holding, 20),
+                             self.driver.snapshot())
         return self
 
     def __exit__(self, *_exc):
