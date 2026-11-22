@@ -15,6 +15,13 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from . import tk_threads
+
+# Every window module schedules through here, so importing it is the moment before any window exists: the Tk objects (variables,
+# images, fonts, a root's interpreter) freed in another thread are released on the main thread instead (tk_threads), in the
+# converter, the game collection and the test suite alike.
+tk_threads.install()
+
 
 def later(widget: tk.Misc, delay, func, *args):
     """Call ``func(*args)`` after ``delay`` milliseconds, or when Tk is next idle (``delay='idle'``), for ``widget``:

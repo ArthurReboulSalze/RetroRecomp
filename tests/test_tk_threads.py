@@ -1,10 +1,16 @@
-"""A Tk variable or image freed in a worker thread is released later on the Tk thread (no Tcl_AsyncDelete abort)."""
+"""A Tk variable, image, font or root freed in a worker thread is released later on the Tk thread (no Tcl_AsyncDelete abort)."""
 import gc
+import os
+import subprocess
+import sys
 import threading
 import tkinter as tk
 import unittest
+from pathlib import Path
 
 from retrorecomp import tk_threads
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class TkThreadsTests(unittest.TestCase):
@@ -46,6 +52,83 @@ class TkThreadsTests(unittest.TestCase):
         self.assertEqual(tk_threads.pending(), 0)
         with self.assertRaises(tk.TclError):
             self.root.globalgetvar('rr_main_var')
+
+
+    def test_a_dead_root_s_interpreter_waits_for_the_next_root_on_the_main_thread(self):
+        tk_threads.release_deferred()
+        other = tk.Tk()
+        other.withdraw()
+        other.destroy()
+        del other                                                       # its __del__ parks the interpreter
+        self.assertEqual(tk_threads.parked(), 1)
+        held = []
+        third = tk.Tk()                                                 # a new root frees it first, on this thread
+        third.withdraw()
+        self.addCleanup(third.destroy)
+        self.assertEqual(tk_threads.parked(), 0)
+        fourth = tk.Tk()
+        fourth.withdraw()
+        held.append(fourth.tk)                                          # something still holds this one: it stays parked
+        fourth.destroy()
+        del fourth
+        self.assertEqual(tk_threads.release_deferred(), 0)
+        self.assertEqual(tk_threads.parked(), 1)
+        held.clear()
+        self.assertEqual(tk_threads.release_deferred(), 1)
+        self.assertEqual(tk_threads.parked(), 0)
+
+    def test_tk_later_installs_the_guard_when_imported(self):
+        from retrorecomp import tk_later                               # every window module imports it
+        self.assertTrue(tk_later.tk_threads is tk_threads)
+        self.assertTrue(getattr(tk.Tk, '_retro_recomp_guarded', False))
+
+
+# A destroyed root in a reference cycle, freed by the cycle collector in a worker thread (what the full suite hit twice on
+# 22 Nov 2026: Tcl deletes the interpreter from the wrong thread and aborts the process, exit 3, no traceback). With a font
+# too, which holds the interpreter as well. argv: the repository, then "guard" to import tk_later first.
+GC_IN_A_WORKER = r'''
+import gc, sys, threading, tkinter as tk
+from tkinter import font
+sys.path.insert(0, sys.argv[1])
+if sys.argv[2] == 'guard':
+    from retrorecomp import tk_later
+gc.disable()
+class Owner:
+    pass
+for _ in range(3):
+    root = tk.Tk()
+    root.withdraw()
+    owner = Owner()
+    owner.root, root.owner = root, owner
+    owner.font = font.Font(root=root, family='Arial', size=9)
+    tk.Label(root, text='x', font=owner.font).pack()
+    root.update()
+    root.destroy()
+    del root, owner
+worker = threading.Thread(target=gc.collect)
+worker.start()
+worker.join()
+gc.collect()
+print('alive')
+'''
+
+
+@unittest.skipUnless(os.environ.get('DISPLAY') or os.name == 'nt', 'needs a Tk display (kept hidden)')
+class NoAbortWhenAWorkerCollectsARoot(unittest.TestCase):
+    # In a child process: an abort there is a failed test, not a dead suite.
+    def collect_in_a_worker(self, mode):
+        return subprocess.run([sys.executable, '-B', '-c', GC_IN_A_WORKER, str(ROOT), mode], capture_output=True, text=True,
+                              timeout=120, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+
+    def test_with_the_guard_the_process_lives(self):
+        result = self.collect_in_a_worker('guard')
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, 'alive'), result.stderr[-2000:])
+
+    def test_without_it_the_same_script_aborts(self):
+        # The positive control: the child reproduces the abort the guard prevents.
+        result = self.collect_in_a_worker('none')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Tcl_AsyncDelete', result.stderr)
 
 
 if __name__ == '__main__':
