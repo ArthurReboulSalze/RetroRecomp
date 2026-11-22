@@ -3,6 +3,10 @@
 
 #include <string.h>
 
+static const uint8_t *rom_of(const CpcMachine *m, uint8_t source);
+
+/* The map from the Gate Array and the upper ROM; each window's bytes for a read (the ROM it shows, NULL for a missing ROM, or
+ * its RAM bank) set again every time, so that the ROMs given before cpc_reset are the ones read. */
 static void remap(CpcMachine *m)
 {
     CpcMap map = cpc_memory_map(&m->ga, m->upper_rom);
@@ -10,6 +14,9 @@ static void remap(CpcMachine *m)
         m->map = map;
         ++m->generation;
     }
+    for (unsigned window = 0; window < 4; ++window)
+        m->read_base[window] = m->map.source[window] != CPC_SOURCE_RAM ? rom_of(m, m->map.source[window])
+                                                                       : m->ram + ((uint32_t)m->map.ram[window] << 14);
 }
 
 /* ---- the AY-3-8912 behind the PPI ---- */
@@ -129,13 +136,8 @@ static const uint8_t *rom_of(const CpcMachine *m, uint8_t source)
 
 uint8_t cpc_read(const CpcMachine *m, uint16_t address)
 {
-    unsigned window = address >> 14;
-    uint8_t source = m->map.source[window];
-    if (source != CPC_SOURCE_RAM) {
-        const uint8_t *rom = rom_of(m, source);
-        return rom ? rom[address & 0x3FFF] : 0xFF;
-    }
-    return m->ram[((uint32_t)m->map.ram[window] << 14) | (address & 0x3FFF)];
+    const uint8_t *base = m->read_base[address >> 14];
+    return base ? base[address & 0x3FFF] : 0xFF;
 }
 
 void cpc_write(CpcMachine *m, uint16_t address, uint8_t value)
