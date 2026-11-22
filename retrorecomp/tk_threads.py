@@ -6,15 +6,32 @@ wrong thread and the whole process aborts with « Tcl_AsyncDelete: async handler
 (seen 16 November 2026 in the test suite, the multiplayer branch's batch worker allocating a little more). The guard below
 makes ``__del__`` defer, outside the main thread, to a list the Tk thread empties on a timer: the object is forgotten by Tcl
 a moment later, from the right thread. On the main thread nothing changes.
+
+A root (``tk.Tk``) is the same danger in a larger form: its interpreter (the ``tkapp`` object every widget, image, font and
+variable of the root holds as ``.tk``) is deleted by Tcl when its last reference goes away, and from another thread that is
+the same abort. A destroyed root that sits in a reference cycle (a window and the object that owns it, a test and its stand-ins)
+is freed by the cycle collector, which runs in whichever thread happens to allocate: twice in the full test suite on 22 November
+2026, during the interface tests. So a root's ``__del__`` parks its interpreter here, whatever the thread, and the main thread
+frees it later, once nothing else holds it: when the next root is created, on the app's drain timer, or at exit.
 """
 from __future__ import annotations
 
+import sys
 import threading
 import tkinter as tk
+from tkinter import font as tk_font
 
 DRAIN_MS = 500
 _pending: list = []
+_parked: list = []          # the interpreters of dead roots, freed on the main thread only (release_deferred)
 _lock = threading.Lock()
+
+
+def _count(items: list, index: int) -> int:
+    return sys.getrefcount(items[index])
+
+
+_ALONE = _count([object()], 0)   # an object only a list holds, counted the same way (the interpreter's own borrowed references)
 
 
 def _guard(cls) -> None:
@@ -33,28 +50,70 @@ def _guard(cls) -> None:
     cls.__del__ = __del__
 
 
+def _guard_root() -> None:
+    if getattr(tk.Tk, '_retro_recomp_guarded', False):
+        return
+    original_init = tk.Tk.__init__
+
+    def __init__(self, *args, **kwargs):
+        if threading.current_thread() is threading.main_thread():
+            release_deferred()                          # the interpreters of the roots that died since the last one
+        original_init(self, *args, **kwargs)
+
+    def __del__(self):
+        interpreter = self.__dict__.get('tk')           # absent when Tk() itself failed (no display)
+        if interpreter is not None:
+            with _lock:
+                _parked.append(interpreter)
+
+    tk.Tk.__init__ = __init__
+    tk.Tk.__del__ = __del__
+    tk.Tk._retro_recomp_guarded = True
+
+
 def install() -> None:
-    """Once, before any Tk object exists: Variable (and its subclasses) and Image (PhotoImage, BitmapImage)."""
+    """Once, before any Tk object is freed (tk_later installs it when it is imported, so before any window exists): Variable
+    (and its subclasses), Image (PhotoImage, BitmapImage), Font, and the root's interpreter."""
     _guard(tk.Variable)
     _guard(tk.Image)
+    _guard(tk_font.Font)
+    _guard_root()
 
 
 def release_deferred() -> int:
-    """Run, on the Tk thread, the finalisers other threads deferred; returns how many."""
+    """Run, on the Tk thread, the finalisers other threads deferred, and free the parked interpreters nothing else holds any
+    more; returns how many finalisers ran and interpreters were freed. Outside the main thread it does nothing."""
+    if threading.current_thread() is not threading.main_thread():
+        return 0
     with _lock:
         items = _pending[:]
         _pending.clear()
+        parked = _parked.copy()
+        _parked.clear()
     for finaliser, obj in items:
         try:
             finaliser(obj)
         except Exception:       # the interpreter may be gone already (the window closed)
             pass
-    return len(items)
+    held = [_count(parked, index) > _ALONE for index in range(len(parked))]
+    kept = [interpreter for interpreter, busy in zip(parked, held) if busy]
+    freed = len(parked) - len(kept)
+    parked.clear()              # the others are deleted here, on this thread
+    if kept:
+        with _lock:
+            _parked.extend(kept)
+    return len(items) + freed
 
 
 def pending() -> int:
     with _lock:
         return len(_pending)
+
+
+def parked() -> int:
+    """How many interpreters of dead roots wait for the main thread."""
+    with _lock:
+        return len(_parked)
 
 
 def keep_draining(root: tk.Misc) -> None:
