@@ -177,6 +177,25 @@ def differences(native: dict, reference: dict, compared: Sequence[str]) -> dict:
             if key not in native or key not in reference or native[key] != reference[key]}
 
 
+def learning_record(work: Path) -> dict:
+    """What a conversion's report says about the code the interpreter ran from RAM, counted three ways that are not the same number: the
+    windows learned (`learned_patterns`: the words of `native.patterns`, four bytes each), the native bodies the last generation made from
+    them (`learned_pattern_bodies`: a window whose instruction the ROM already holds, or that repeats another's, adds none), and the
+    windows the generator could not translate (`learned_windows_unsupported`: none for code a Z80 runs). None is ever left out: the
+    chain has no bound on them (native/z80_learned_set.h, banked_learn), and a word that is not in the loaded count is a fault."""
+    patterns = work / 'native.patterns'
+    words = len(patterns.read_text(encoding='utf-8').split()) if patterns.is_file() else 0
+    try:
+        coverage = json.loads((work / 'generated' / 'banked-coverage.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        coverage = {}
+    loaded = coverage.get('profile_windows_loaded')
+    return {'learned_patterns': words, 'learned_pattern_bodies': coverage.get('profile_added_native_bodies'),
+            'learned_windows_loaded': loaded, 'learned_windows_unsupported': coverage.get('profile_unsupported_windows'),
+            # Words of the file the last generation did not read: 0 unless the file holds a line the emitter cannot read (never a bound).
+            'learned_windows_dropped': max(0, words - loaded) if loaded is not None else None}
+
+
 def learn_passes(work: Path, runs: list[list[str]], *, generate: Callable[[], None], build_check: Callable[[], Path],
                  run_check: Callable[[Path, list[str], Path], int], passes: int = 3, workers: int = 1) -> tuple[Path, list[int]]:
     """Generate, build the headless check and run every route with learning, at most `passes` times: it stops when nothing fell back or

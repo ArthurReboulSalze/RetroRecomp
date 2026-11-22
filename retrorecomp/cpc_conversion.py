@@ -150,7 +150,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     `output/conversion-report.json`. Nothing is written to `output` when a check refuses the conversion."""
     import hashlib
     import shutil
-    from . import __version__, cpc_build, cpc_keys, cpc_routes
+    from . import __version__, z80_chain_build, cpc_build, cpc_keys, cpc_routes
     from .z80_chain_build import write_if_changed as write
     from .conversion_common import check_run_budget, resolve_scan_level
     from .core import ROOT, executable_name
@@ -232,8 +232,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             timings['reference_comparison'] = round(time.perf_counter() - phase, 3)
             require_moving_picture(liveness['play'], lambda: ConversionError(
                 f'Amstrad CPC: {title}: the picture never changes on the play route; nothing was written.'))
-            learned = work / 'native.patterns'
-            learned_patterns = len(learned.read_text(encoding='utf-8').split()) if learned.is_file() else 0
+            learning = z80_chain_build.learning_record(work)
 
             phase = time.perf_counter()
             emit('Amstrad CPC: building the game.')
@@ -303,7 +302,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                                          'run from RAM (the game, loaded from its disk) learned and translated with byte guards'},
               'cpc_checks': {'machine': 'Amstrad CPC 6128', 'disk': disk.features(), 'run_command': disk.run_command,
                              'boot_keys_from_frame': cpc_keys.BOOT_FRAME, 'firmware': firmware_record, 'crtc_type': CRTC_TYPE,
-                             'learning_passes_fallback_steps': pass_counts, 'learned_patterns': learned_patterns,
+                             'learning_passes_fallback_steps': pass_counts, **learning,
                              'delivered': True, 'delivery_note': DELIVERY_NOTE},
               'final_checks': final_checks, 'scan_level': level, 'hardware_devices': hardware_devices(),
               'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()},
