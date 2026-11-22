@@ -10,8 +10,8 @@
  * CPU's / 2, a tick every 16 T-states) on ports FFFDh/BFFDh, mixed with the beeper.
  *
  * The ULA's memory contention is modelled (zxs_contend_memory, zxs_contend_io), from the documented pattern; the chain's evaluator
- * asks it for each bus cycle. What it does not model (stated, never hidden): the floating bus (an unused port reads FFh), the
- * border changes within a line, tapes, the +2A/+3. */
+ * asks it for each bus cycle; the floating bus (zxs_floating_bus) from the documented fetch timing. What it does not model
+ * (stated, never hidden): the border changes within a line, tapes, the +2A/+3. */
 #ifndef RR_ZXS_MACHINE_H
 #define RR_ZXS_MACHINE_H
 
@@ -52,6 +52,8 @@ typedef struct {
     uint32_t t_frame;
     uint64_t cycles;               /* T-states since reset */
     uint64_t frame_start;          /* the cycle the current frame began at */
+    uint64_t io_t;                 /* the last I/O cycle the chain's evaluator walked: its start (CPU cycle) and its */
+    unsigned io_wait;              /* contention; the floating bus is sampled 3 T-states into it (zxs_floating_bus) */
     uint64_t frames;
     unsigned line;                 /* the next line of the frame to draw */
     uint8_t picture[ZXS_HEIGHT][ZXS_WIDTH];      /* colour indices 0-15 (8-15 bright) */
@@ -96,7 +98,12 @@ int zxs_bank_c000(const ZxsMachine *m);
  * clock; the machine may lag behind it, the frame position is taken from its frame start. */
 int zxs_contended(const ZxsMachine *m, uint16_t address);
 unsigned zxs_contend_memory(const ZxsMachine *m, uint64_t t, uint16_t address);
-unsigned zxs_contend_io(const ZxsMachine *m, uint64_t t, uint16_t port);
+unsigned zxs_contend_io(ZxsMachine *m, uint64_t t, uint16_t port);
+/* The floating bus: what an unattached port reads, the byte the ULA is fetching at the moment the I/O cycle the evaluator last
+ * walked samples the bus (its start, its contention, then 3 T-states): in each 8 T-states of the first 128 of a paper line,
+ * the bitmap byte, the attribute, the next bitmap byte, the next attribute, then FFh four times; FFh outside the paper. The
+ * first fetch is at T-state 14347 of the frame on the 48K and 14368 on the 128K (Ramsoft's floating bus guide). */
+uint8_t zxs_floating_bus(const ZxsMachine *m);
 int zxs_rom_bank(const ZxsMachine *m);
 /* Up to `max` mono 16-bit samples at ZXS_AUDIO_RATE. */
 unsigned zxs_audio_take(ZxsMachine *m, int16_t *out, unsigned max);

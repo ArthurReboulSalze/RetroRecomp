@@ -379,7 +379,11 @@ runs 19 % fewer instructions in its 2,100 frames, Head over Heels' 8 %.
   compressed copy equal and the quick states checked in a fresh process; seven reach play. Elite still halts in its own decryption,
   so contention is not its cause (its report says so).
 - Not claimed: the pattern is the documented one, not measured on a real Spectrum here; the refresh cycles are not contended; the
-  floating bus is not modelled (Arkanoid); the +2A/+3 are out of scope. Nothing claims exact timing.
+  +2A/+3 are out of scope. Nothing claims exact timing.
+- The floating bus: an unattached port reads the byte the ULA is fetching (bitmap, attribute, next bitmap, next attribute, then
+  FFh, in each 8 T-states of the paper; first fetch at 14347 on the 48K, 14368 on the 128K, from Ramsoft's guide), sampled 3
+  T-states into the I/O cycle the evaluator walked; 20 checks. Arkanoid now plays its first round (it froze after frame 1,409
+  without it). Elite halts the same way with both: neither is its cause.
 - Exports made before this change run without contention; the converter rebuilds them (the game stamp moves).
 
 **Stamps**: the ZX Spectrum's game stamp (its machine, glue, reference runner, builder, profile and conversion); nothing else.

@@ -32,6 +32,7 @@ void zxs_reset(ZxsMachine *m, int model, int ram16k, const uint8_t *rom)
     }
     m->t_frame = m->t_line * m->lines;
     m->cycles = 0; m->frame_start = 0; m->frames = 0; m->line = 0;
+    m->io_t = 0; m->io_wait = 0;
     m->frame_hook = NULL; m->hook_user = NULL; m->trace_frames = 0;
     memset(m->picture, 0, sizeof m->picture);
     m->frame_trace = 2166136261u;
@@ -138,7 +139,7 @@ uint8_t zxs_in(ZxsMachine *m, uint16_t port)
         return m->kempston;
     if (m->model == ZXS_128K && (port & 0xC002) == 0xC000)  /* FFFDh: the AY's selected register */
         return m->ay_regs[m->ay_latch];
-    return 0xFF;                                        /* the floating bus is not modelled */
+    return zxs_floating_bus(m);                         /* an unattached port: the byte the ULA is fetching */
 }
 
 void zxs_out(ZxsMachine *m, uint16_t port, uint8_t value)
@@ -192,7 +193,7 @@ unsigned zxs_contend_memory(const ZxsMachine *m, uint64_t t, uint16_t address)
     return zxs_contended(m, address) ? contend_at(m, t) : 0;
 }
 
-unsigned zxs_contend_io(const ZxsMachine *m, uint64_t t, uint16_t port)
+static unsigned io_delay(const ZxsMachine *m, uint64_t t, uint16_t port)
 {
     const int high = zxs_contended(m, port), ula = !(port & 1);
     unsigned delay = 0;
@@ -210,6 +211,31 @@ unsigned zxs_contend_io(const ZxsMachine *m, uint64_t t, uint16_t port)
         at += wait + 1;
     }
     return delay;
+}
+
+unsigned zxs_contend_io(ZxsMachine *m, uint64_t t, uint16_t port)
+{
+    const unsigned delay = io_delay(m, t, port);
+    m->io_t = t;                                        /* the read that follows samples the bus inside this cycle */
+    m->io_wait = delay;
+    return delay;
+}
+
+uint8_t zxs_floating_bus(const ZxsMachine *m)
+{
+    const uint64_t frame = m->t_frame, t = m->io_t + m->io_wait + 3;
+    const uint64_t in_frame = t >= m->frame_start ? (t - m->frame_start) % frame : (frame - (m->frame_start - t) % frame) % frame;
+    const uint64_t first = m->model == ZXS_128K ? 14368 : 14347;
+    if (in_frame < first || in_frame >= first + 192u * (uint64_t)m->t_line)
+        return 0xFF;
+    const unsigned line = (unsigned)((in_frame - first) / m->t_line), in_line = (unsigned)((in_frame - first) % m->t_line);
+    if (in_line >= 128 || (in_line & 7) >= 4)
+        return 0xFF;
+    const unsigned column = (in_line >> 3) * 2 + ((in_line >> 1) & 1);
+    const uint8_t *screen = m->ram[screen_bank(m)];
+    if (in_line & 1)                                    /* the attribute */
+        return screen[0x1800 + (line >> 3) * 32 + column];
+    return screen[(line & 0xC0) << 5 | (line & 0x07) << 8 | (line & 0x38) << 2 | column];
 }
 
 uint64_t zxs_next_event(const ZxsMachine *m) { return m->frame_start + (uint64_t)(m->line + 1) * m->t_line; }
