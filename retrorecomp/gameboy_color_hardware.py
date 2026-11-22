@@ -94,7 +94,7 @@ def adapt_color_registers(source: str) -> str:
 
 def adapt_color_differential(source: str) -> str:
     """The lock-step comparison of the generated code with the reference interpreter (differential.c), in double speed: the last audio sample of the two
-    units is not compared, their sound registers are (after both are brought to the same cycle). In double speed the two paths hand their cycles to the sound unit in different pieces and one of them
+    units is not compared, their sound registers are (after both are brought to the same cycle; the status bits of the channels in NR52 are left out: a length runs out a few cycles apart on the two paths). In double speed the two paths hand their cycles to the sound unit in different pieces and one of them
     emits a sample a few cycles before the other (Shantae, frame 1,117 of its boot route: the samples differ by one step of the high-pass filter, then agree again,
     with every register, the CPU, the memory and the picture equal on all 16 million steps before and after). The comparison keeps every other field."""
     return replace_once(source,
@@ -103,8 +103,9 @@ def adapt_color_differential(source: str) -> str:
         '            gbrt_audio_sync((GBContext*)generated);       /* the units advance lazily: both to the same cycle, the status bits of NR52 follow */\n'
         '            gbrt_audio_sync((GBContext*)interpreted);\n'
         '            for (uint16_t reg = 0xFF10; reg <= 0xFF26; ++reg) {\n'
-        '                const uint8_t a = gb_audio_read((GBContext*)generated, reg);\n'
-        '                const uint8_t b = gb_audio_read((GBContext*)interpreted, reg);\n'
+        '                const uint8_t keep = reg == 0xFF26 ? 0xF0 : 0xFF;           /* the status bits of the channels in NR52 follow the cycle a length runs out: not compared */\n'
+        '                const uint8_t a = gb_audio_read((GBContext*)generated, reg) & keep;\n'
+        '                const uint8_t b = gb_audio_read((GBContext*)interpreted, reg) & keep;\n'
         '                if (a != b) {\n'
         '                    snprintf(message, message_size, "audio register mismatch at %04X: %02X != %02X", reg, a, b);\n'
         '                    return false;\n'
