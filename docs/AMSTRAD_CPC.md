@@ -152,7 +152,17 @@ it travels to every seat and is played in memory; a guest plays the host's disk 
 copy; nobody writes a copy during the match, the host writes its own once at a clean end (the previous one kept as `.bak`). The
 report's top-level `firmware` record (the system ROM and AMSDOS) makes a room refuse two seats on different firmware. Proved on an
 authored game (`tools/netplay_game_smoke.py`: two seats, rollback, latency, loss, a save and load and a restart for everyone, equal
-digests); on two PCs and with the panel's games, to come.
+digests), then on the panel's games (22 November 2026):
+
+* the snapshots on all eight (`--snap-probe 2400:300` on the play route of the delivered game): saved twice the same, a snapshot of
+  the wrong size refused, and after loading the one of frame 2,400 the next 300 frames give the same digests and pictures again;
+* Bomb Jack on Windows and in WSL (Debian 13), converted from the same commit: the same folded digest of those 301 frames
+  (`ee81e7a4c12c893f`) and the same final hashes on both routes;
+* `tools/netplay_game_smoke.py` on real games, one PC: Bomb Jack, two seats in rollback with 30 ms latency, 10 ms jitter and 2 %
+  loss and a restart for everyone at frame 1,500 (97 corrections, at most 2 frames deep, digests equal on every 60th frame of
+  3,000); Gryzor with the host's save at frame 1,800 and load at 2,400 for everyone (equal digests).
+
+Not yet: two PCs (Bomb Jack is in the multiplayer specialist's plan).
 
 ## 7. G14 checklist for the owner's play test (22 November 2026)
 

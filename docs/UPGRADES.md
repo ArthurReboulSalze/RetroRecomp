@@ -743,6 +743,11 @@ The conversion report's final checks add the native counters the release check r
 **Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
 released export to upgrade.
 
+## Amstrad CPC (developer only): the snapshot probe prints its digests folded in one value (1.9.0)
+
+`game.exe --headless --snap-probe AT:N` ends its line with `digests` (every frame's snapshot digest, folded), as the SG-1000's does, so
+two PCs compare one value. **Stamps**: the CPC's game stamp only (`cpc_player.c`); no released export.
+
 ## Amstrad CPC (developer only): a long route presses the start keys again past frame 3,600 (1.9.0)
 
 `retrorecomp/cpc_routes.play_events` adds, past `LATER_FROM` (3,600 frames), a start key every `LATER_EVERY` (600) frames, so a long

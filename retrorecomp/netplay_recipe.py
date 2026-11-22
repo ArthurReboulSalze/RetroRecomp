@@ -87,7 +87,8 @@ LEFT_OUT = {
     'coleco': 'experimental, developer only: it has a multiplayer session (rollback) but no path record, so recipe mode is not established for it',
     'scummvm': 'emulated: it translates no code and has no path to carry; recipe mode is not wired for it',
     'zxs': 'in development: the ZX Spectrum converts nothing yet, so it has no conversion to replay; recipe mode is not established for it',
-    'cpc': 'in development: no game is converted yet; recipe mode is not established for it',
+    'cpc': ('experimental, developer only: it has a multiplayer session (rollback, the host disk A as the save) but no path '
+            'record (what a game teaches lives in its build folder), so recipe mode is not established for it'),
 }
 
 
