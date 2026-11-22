@@ -1064,8 +1064,7 @@ The multiplayer: the profile sets the Game Boy's session and link flags (`netpla
 
 **Proof for the Game Boy** (nothing may change for it): `tools/ab_conversion.py`, main `3ab496a6` against this branch, quick level, Tetris and Super Mario Land: **identical** (133 and 136 compared files, nothing differs, not even the adapter's text).
 
-**Stamps** (computed on the tree, against the Game Boy before the Color profile): **the Game Boy game stamp** (`a150c491` to `0ae5345c`, the Color's variant argument in three shared modules) and **the Game Boy host stamp** (`0fdc380c` to `9219189b`,
-declared with the profile); the build stamp and every other machine unchanged by this change; `gbc` is new (game `6ebf3745`, host `2f9bb2ba`). Existing Game Boy exports are converted again. Quick states unchanged for the Game Boy.
+**Stamps** (computed on the tree of this branch against main `88ef5307`, the profiles gb, gbc, sms, gg, nes and md compared): **the Game Boy game stamp** (`3dd6195e` to `28a0098f`: the Color's variant argument in the shared conversion modules, the Color-only fixes being outside the Game Boy's lists) and **the Color's game stamp** (`47605ea1` to `0a11d439`: its fixes and the link checks); the host and build stamps of both and every other machine unchanged. Existing Game Boy exports are converted again (their generated sources are byte for byte the same: the A/B above). Quick states unchanged for the Game Boy.
 
 **The link cable on the Color** (authored, no ROM bytes): `tools/gameboy_link_selftest.py --model cgb` runs `native/gbc_link_checks.c`: two Color consoles on one cable in the sixteen pairings of the master (console 0 or 1), normal or
 double speed on each console, and the normal or the fast serial clock; the exchange of eight bytes each way, both serial interrupts, nothing left pending, and the replay of the pair from 660 snapshots (42 taken with a transfer in flight)
