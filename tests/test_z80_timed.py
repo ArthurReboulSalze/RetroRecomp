@@ -128,12 +128,13 @@ class ChainTests(unittest.TestCase):
         import dataclasses
         from retrorecomp import z80_chain
         from retrorecomp.systems import find_profile
-        for system in ('sms', 'gg', 'msx', 'msx2', 'msx2plus', 'sg1000', 'coleco', 'zxs', 'cpc'):
+        self.assertTrue(find_profile('zxs').z80_machine.contention)           # the ZX Spectrum's ULA
+        for system in ('sms', 'gg', 'msx', 'msx2', 'msx2plus', 'sg1000', 'coleco', 'cpc'):
             machine = find_profile(system).z80_machine
             self.assertFalse(machine.contention, system)
             for text in (z80_chain.banked_runtime(machine, ROOT), z80_chain.banked_emitter(machine, ROOT)):
                 self.assertNotIn('rr_timed', text, system)
-        timed = dataclasses.replace(find_profile('zxs').z80_machine, contention=True)
+        timed = find_profile('zxs').z80_machine
         loop = z80_chain.banked_runtime(timed, ROOT)
         for needle in ('rr_timed_epoch = base;', 'RR_TIMED_HALT', 'RR_TIMED_IM2 : RR_TIMED_IM1'):
             self.assertIn(needle, loop)

@@ -365,6 +365,25 @@ rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
+## ZX Spectrum: the ULA's memory contention is modelled (next release)
+
+The Spectrum turns the chain's contention on (`Z80Machine.contention`, below) with its own rule (`zxs_contend_memory`,
+`zxs_contend_io`, native/zxs_machine/zxs_machine.c): 4000h-7FFFh, and the 128K's odd RAM banks paged at C000h, are held off by 6, 5,
+4, 3, 2, 1, 0 or 0 T-states by the moment within the first 128 T-states of each of the 192 paper lines, from T-state 14335 of the
+frame (48K, 224 a line) or 14361 (128K, 228 a line); an I/O cycle by the four documented cases of its high byte and bit 0. The rule
+is checked against those documented numbers (32 more checks in tools/zxs_machine_selftest.py, 86 in all); the reference runner counts
+each step from the machine's clock. Games run at the machine's speed rather than faster: with contention Manic Miner's play route
+runs 19 % fewer instructions in its 2,100 frames, Head over Heels' 8 %.
+
+- The panel of eight converts again with no instruction on the fallback, native equal to the reference on every route, the
+  compressed copy equal and the quick states checked in a fresh process; seven reach play. Elite still halts in its own decryption,
+  so contention is not its cause (its report says so).
+- Not claimed: the pattern is the documented one, not measured on a real Spectrum here; the refresh cycles are not contended; the
+  floating bus is not modelled (Arkanoid); the +2A/+3 are out of scope. Nothing claims exact timing.
+- Exports made before this change run without contention; the converter rebuilds them (the game stamp moves).
+
+**Stamps**: the ZX Spectrum's game stamp (its machine, glue, reference runner, builder, profile and conversion); nothing else.
+
 ## ZX Spectrum, SG-1000, ColecoVision, MSX, MSX2, MSX2+, Amstrad CPC: the build tracks what a game's resources embed (next release)
 
 The resource compiler (llvm-rc) reads the files content.rc names (the ROM, the machine image, the notices, the icon through the
@@ -411,6 +430,9 @@ Contention needs the Z80's own counts (no cost table, no M1 wait states: a taken
 - **Identity**: the step loop, the emitter and the reference copy rendered for the Master System, the Game Gear, the MSX, MSX2,
   MSX2+, the SG-1000, the ColecoVision, the ZX Spectrum and the Amstrad CPC (its cost table included) have the same SHA-256 on this
   branch as on main d6cd0fa5 (27 files).
+- The reference walks an instruction's base cycles before running it, as the bodies do (the extra cycles after): the rule and the
+  operands it peeks are the machine as the instruction found it. Two authored cases of the self-test fail if it walks after: an
+  OUT that pages the slow memory in under its own M1s (13 T against 23) and a store rewriting its own operand (13 T against 17).
 - The step loop's contention lines (HALT, the acceptances in modes 1 and 2 and /NMI, the fallback's epoch) are compiled by
   `tools/z80_contention_loop_selftest.py` (`native/z80_contention_gate.c`, an authored rule that is no machine's), on the SG-1000's
   machine with `contention=True` made by `dataclasses.replace` (no machine of the converter turns it on) and an authored cartridge: one

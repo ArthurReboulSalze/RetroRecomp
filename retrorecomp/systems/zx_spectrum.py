@@ -18,13 +18,13 @@ from ..z80_chain import Z80Machine, Z80RegionMap
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
 
 # The Spectrum on the banked Z80 chain: four 16 KiB regions, the ROM (16 KiB, or the 128K's two banks) as the one translated source
-# at 0000h and RAM above (the snapshot's code runs from RAM: it is learned and translated with byte guards); no wait state (the
-# ULA's contention is not modelled); /INT read once the machine has caught up with the instruction; 16-bit ports (the keyboard's
+# at 0000h and RAM above (the snapshot's code runs from RAM: it is learned and translated with byte guards); the ULA's contention
+# (Z80Machine.contention: the machine's rule, native/zxs_machine/zxs_machine.c, on the chain's evaluator); /INT read once the machine has caught up with the instruction; 16-bit ports (the keyboard's
 # half-rows, the 128K's paging and AY are decoded by the high byte); the registers are the snapshot's (not the reset values);
 # its own generator folders.
 ZXS_MACHINE = Z80Machine('zxs', Z80RegionMap(region_bits=14, sources=('rom',), bank_values=2, scope='zx-spectrum-rom-region-map'),
                          irq_sample='instruction_end', generator_tag='-zxs', step_begin=True, reference_state=True,
-                         port_bits=16, reset_registers=False)
+                         port_bits=16, reset_registers=False, contention=True)
 
 # The sources of a game: the snapshot (its RAM, where almost all the code lives) and the ROM (16 KiB on the 48K, the 128K's
 # two banks as 32 KiB). A snapshot is 16 KiB of RAM plus a header at the least, 128 KiB plus headers at the most.

@@ -10,7 +10,7 @@ it leaves out, and how the five measures stay apart.
 | First (this experimental profile) | Later | Left out for now |
 |---|---|---|
 | Snapshots of the 16K, 48K and 128K (and the +2, a 128K with another menu ROM): `.z80` versions 1, 2 and 3 and `.sna` (48K and 128K), from a file or a ZIP holding exactly one | `.szx` snapshots; the +2A and +3 (another contention pattern, port 1FFDh, the +3 disk) | Tapes (`.tap`, `.tzx`): their loaders need exact EAR timing, and a snapshot skips every loader; the Interface 1 and Microdrive, the Timex, Pentagon, Scorpion and other clones, the ZX80 and ZX81 |
-| The ULA picture (256 x 192, attributes, flash, the border per line), the beeper, the AY-3-8910 on the 128K, the keyboard, the Kempston and Sinclair Interface 2 joysticks, quick states | The floating bus (a few games read it), the ULA's memory contention | Games that load their next level from tape during play: a snapshot cannot; they stop at that load, and the report says so |
+| The ULA picture (256 x 192, attributes, flash, the border per line), the beeper, the AY-3-8910 on the 128K, the keyboard, the Kempston and Sinclair Interface 2 joysticks, quick states | The floating bus (a few games read it) | Games that load their next level from tape during play: a snapshot cannot; they stop at that load, and the report says so |
 
 A snapshot is the machine's RAM and registers at one moment, saved after the game had loaded. The reader
 (`retrorecomp/zxs_snapshot.py`, our own code from the public format descriptions) refuses, with a sentence, a snapshot of a
@@ -78,12 +78,17 @@ interface and this page. The report counts the interpreter fallback per route in
 MSX), says that the native code agrees with the reference interpreter, and leaves CPU fidelity, hardware fidelity, gameplay
 validation and physical latency as not validated or not measured.
 
-**A hardware-fidelity limit, stated plainly: the ULA's memory contention is not modelled.** On a real Spectrum the CPU is slowed when it
-touches 4000h-7FFFh (and some ports) while the ULA draws the screen; here every instruction takes its plain Z80 time. Games run
-slightly faster than on the machine, and effects timed to the T-state (multicolour engines, some border effects and beeper tunes)
-can differ. Nothing claims exact timing. Contention comes in a later stage of step 1 (a table of each instruction's memory accesses
-on the shared Z80 chain, checked against an independent test suite), and it is required before the panel is judged for leaving the experimental status (Arkanoid and the multicolour games
-depend on it).
+**The ULA's memory contention is modelled; what it rests on is stated.** On a real Spectrum the CPU is held off when it touches
+4000h-7FFFh (and, on the 128K, the odd RAM banks paged at C000h) while the ULA fetches the paper, by 6, 5, 4, 3, 2, 1, 0 or 0 T-states
+by the moment within the first 128 T-states of each of the 192 paper lines, from T-state 14335 of the frame (48K, 224 a line) or
+14361 (128K, 228 a line); an I/O cycle is held by the four documented cases of its high byte and bit 0. The machine's rule
+(`zxs_contend_memory`, `zxs_contend_io`, native/zxs_machine/zxs_machine.c) is checked against those documented numbers
+(tools/zxs_machine_selftest.py); the chain's evaluator (`Z80Machine.contention`, retrorecomp/z80_timed.py) asks it for every bus
+cycle of every instruction, acceptance and HALT, natively and on the reference alike, from the bus-cycle table checked against
+the SingleStepTests vectors. What is not claimed: the pattern is the documented one, not measured on a real Spectrum here; the
+refresh cycles are not contended; the +2A/+3 (another pattern) are out of scope; the floating bus is not modelled (Arkanoid).
+Nothing claims exact timing. With contention, Manic Miner's play route runs 19 % fewer instructions in its 2,100 frames than
+without it, and Head over Heels' 8 %.
 
 ## 6. Qualification
 
@@ -97,9 +102,14 @@ The panel (22 November 2026, standard level, play route of 2,100 frames): the ei
 with no instruction on the interpreter fallback. Manic Miner, Jetpac, Head over Heels and The Hobbit reach play through the
 variant search; Robocop, Arkanoid and Match Day II through reviewed start data (a control menu then a typed screen; ENTER then
 fire; ENTER four times). Elite does not: about 50 frames after its snapshot the program halts with interrupts disabled inside
-its own decryption, on the reference as natively, so its title never animates; a timing-dependent protection is suspected, to
-be checked again once the ULA's contention is modelled, and its report says so (`route_stop`). This is agreement with our
-reference, on routes that reach part of each game: no gameplay validation.
+its own decryption, on the reference as natively, so its title never animates, and its report says so (`route_stop`). This is
+agreement with our reference, on routes that reach part of each game: no gameplay validation.
+
+With the ULA's contention (the same day, standard level): the eight games convert again with no instruction on the fallback,
+native equal to the reference on every route, the compressed copy equal and the quick states checked in a fresh process; the same
+seven reach play, the CPU now held off as the documented pattern says (Manic Miner's play route runs 19 % fewer instructions in its
+2,100 frames, Head over Heels' 8 %). Elite halts the same way with contention (40,981 instructions): contention is not its cause;
+the floating bus (not modelled) and a snapshot taken inside its loader stay open.
 
 The first Linux witness, the same day, in WSL (Debian 13) on the build PC: Manic Miner and Head over Heels converted from the
 same tree give the same start, the same learning counts and, on both routes, the same frame trace, RAM, picture and sound
