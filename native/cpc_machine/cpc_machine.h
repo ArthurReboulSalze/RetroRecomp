@@ -59,6 +59,7 @@ typedef struct {
     uint64_t frames;
     uint32_t generation;                     /* raised when the memory map changes */
     CpcMap map;                              /* the current map (cpc_memory_map of the Gate Array and the upper ROM) */
+    const uint8_t *read_base[4];             /* each window's bytes for a read, from the map (NULL: a missing ROM, reads FFh) */
 } CpcMachine;
 
 /* Reset the board (power on): RAM cleared, the Gate Array, the CRTC (its type), the PPI and the controller reset, the ROMs and

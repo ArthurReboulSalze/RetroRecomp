@@ -119,11 +119,13 @@ fallback, packed and states gates pass. The pictures at frames 2,400 and 3,600 o
 written as WAV. **Linux**: Bomb Jack converted again in WSL (Debian 13) from the same sources gives the same rows as Windows on
 both routes (native, reference and delivered file), the same learning and the same final hashes.
 
-**Long routes** (22 November 2026): the eight games played 18,000 frames (five minutes: the play route's 3,600, then the joystick on)
-with the programs each conversion built. Native equals the reference on every field and every frame's row; the code first run after
-frame 3,600 runs on the counted interpreter (0 to 467,668 steps), since learning sees the 3,600-frame routes. At frames 7,800 and
-18,000 Castle Master, Gryzor and Robocop are in play; Bomb Jack and Dizzy are back on their menu or title after the game ended, Head
-over Heels and Match Day II on their menus, Super Hang-On in its attract mode: random routes, not played games.
+**Long routes** (22 November 2026): the eight games played 18,000 frames (five minutes: the play route's 3,600, then the joystick
+and a start key every 600 frames, so a game that ended goes back into play; the 3,600-frame scripts are unchanged) with the programs
+each conversion built. Native equals the reference on every field, drive A's digest included, and every frame's row; the code first
+run after frame 3,600 runs on the counted interpreter (0 to 1,705,300 steps), since learning sees the 3,600-frame routes. At frames
+6,000, 12,000 and 18,000: Castle Master, Gryzor and Robocop in play; Dizzy in its first room; Bomb Jack on its pyramids, then game
+over, then its menu; Super Hang-On racing, then its tables and title; Match Day II in a match at the end; Head over Heels stays on
+its menu. Random routes, not played games.
 
 **Written disks**: what a game writes on drive A goes to a copy beside it (`datas/games/cpc-<identity>/disk-1.dsk`), read back at the
 next start. Every conversion checks it in fresh processes of the delivered file (`--disk-copies`, the report's `disk_writes`): a
@@ -150,7 +152,17 @@ it travels to every seat and is played in memory; a guest plays the host's disk 
 copy; nobody writes a copy during the match, the host writes its own once at a clean end (the previous one kept as `.bak`). The
 report's top-level `firmware` record (the system ROM and AMSDOS) makes a room refuse two seats on different firmware. Proved on an
 authored game (`tools/netplay_game_smoke.py`: two seats, rollback, latency, loss, a save and load and a restart for everyone, equal
-digests); on two PCs and with the panel's games, to come.
+digests), then on the panel's games (22 November 2026):
+
+* the snapshots on all eight (`--snap-probe 2400:300` on the play route of the delivered game): saved twice the same, a snapshot of
+  the wrong size refused, and after loading the one of frame 2,400 the next 300 frames give the same digests and pictures again;
+* Bomb Jack on Windows and in WSL (Debian 13), converted from the same commit: the same folded digest of those 301 frames
+  (`ee81e7a4c12c893f`) and the same final hashes on both routes;
+* `tools/netplay_game_smoke.py` on real games, one PC: Bomb Jack, two seats in rollback with 30 ms latency, 10 ms jitter and 2 %
+  loss and a restart for everyone at frame 1,500 (97 corrections, at most 2 frames deep, digests equal on every 60th frame of
+  3,000); Gryzor with the host's save at frame 1,800 and load at 2,400 for everyone (equal digests).
+
+Not yet: two PCs (Bomb Jack is in the multiplayer specialist's plan).
 
 ## 7. G14 checklist for the owner's play test (22 November 2026)
 
@@ -166,7 +178,38 @@ About three minutes a game, on Bomb Jack, Gryzor and Head over Heels as delivere
    Ctrl+Alt+K for the full keyboard. Reactivity is the owner's impression, never a latency figure.
 5. **Quick states**: F8, play on, F9; then F1 (help), pause and the restart.
 
-## 8. References
+## 8. Optimisation plan (step 4, 22 November 2026; nothing timed yet)
+
+Read from the code, not measured: what a CPC frame costs on the player's path and what could cost less. Each change is proved on
+its own before any timing (the same pictures, sound and state hashes on the panel's routes, every frame's row, and the snapshot
+probe), then timed in one slot on the quiet PC with the maintainer's go ([NEW_MACHINE.md](NEW_MACHINE.md#step-4-optimisation-pass)).
+
+A frame is 19,968 microseconds. For each one the board steps the CRTC and the Gate Array once (`cpc_advance`), and the Gate Array
+draws the 16 pixels of that microsecond when it is in the picture (`draw`: 48 x 272 = 13,056 of them). A game runs about 7,000 to
+9,000 instructions a frame, each at least one microsecond, so the glue catches the board up after nearly every instruction
+(`cpc_next_event` is the next microsecond).
+
+| # | Change | Why | Proof of identical output | Risk |
+|---|---|---|---|---|
+| 1 | The pens of a byte from a table (`cpc_byte_pens`: four modes x 256 bytes, built once) and each ink's colour kept when the ink is set (`cpc_colour` per pen today) | 13,056 draws a frame, each decoding two bytes bit by bit and looking up three levels per pen | pure functions of the same inputs: every row of the panel's routes and the authored picture checks equal | low |
+| 2 | A frame run again after a multiplayer correction draws nothing (the board's `picture` NULL on a silent frame, as its sound) | rollback runs up to 8 frames again; their pictures are never shown | the shown frames' pictures and every digest equal (smoke and snapshot probe with pictures) | low to medium: the frame after the corrections must be drawn whole |
+| 3 | Memory reads through a pointer per 16 KiB window, set when the map changes (`cpc_read` switches on the source today) | every read of every instruction | every row equal | low |
+| 4 | The board caught up at its next event (the end of the next HSYNC, where an interrupt can be raised, or the frame's end) instead of every microsecond, the bus still catching it up before a port or a write to the screen page | about 7,000 catch-ups a frame become about 312, one a line | every row and the interrupt counts equal on the panel and the authored interrupt and timing programs; native equal to the reference | **medium: for the maintainer's list**: a read that depends on the board's time without going through a port would see it late |
+| 5 | The AY's levels mixed without a 64-bit multiply and divide per tick | small | the sound hashes equal | low |
+
+Headless only, not the player's path: the frame rows' hashes (rows are written by the checks, not the game).
+
+**Where it stands (22 November 2026, still not timed).** 1 and 3 are done, each in its own commit, each proved on the eight panel
+games converted before and after: every route's final hashes, the 21,600 frame rows of each game (native, reference and delivered
+file on both routes), the snapshot probe's digests and every `release_check` gate equal, the hardware self-test 115/115. 5 is
+dropped: the division is by a constant, which the compiler already turns into a multiplication, so there is nothing to gain.
+2 goes on the maintainer's list instead of being merged: counted on the panel's routes, four games have one frame in 3,600 that
+draws fewer than the 13,056 positions (Gryzor 12,870, Robocop 12,968, Head over Heels and Super Hang-On none, a frame the CRTC
+ends early); such a frame shown right after a correction would keep pixels of an older frame than without the correction, so the
+change could alter what is shown, if only for that frame. 4 is on the same list. The timed pass is to come, on the quiet PC with
+the maintainer's go.
+
+## 9. References
 
 Written from the chips' data sheets and the CPC's documented behaviour; floooh/chips (zlib) and Clock Signal (MIT) read as
 documentation, nothing of them copied. No GPL code: the Z80 chain carries a noncommercial licence, so no GPL part may share a CPC

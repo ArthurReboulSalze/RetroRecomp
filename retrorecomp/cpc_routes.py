@@ -32,6 +32,10 @@ FIRST_ANSWERS = ((('key', KEY_N), ('key', KEY_RETURN)), (('key', KEY_N), ('key',
                  (('key', KEY_SPACE),), (('key', KEY_J),), (('key', KEY_1),), (('joy', JOY_FIRE1),), (('key', KEY_RETURN),),
                  (('key', KEY_2),))
 ANSWER_GAP = 100                 # frames between two first answers
+# Past the conversion's routes (3,600 frames), on a long route only: the start keys come back every LATER_EVERY frames, so a game
+# that ended goes back into play (a title's « press fire », a menu's RETURN). A route of LATER_FROM frames or fewer is unchanged.
+LATER_FROM = 3600
+LATER_EVERY = 600
 
 
 def seed(disk_sha256: str) -> int:
@@ -48,7 +52,8 @@ def _press(events: list, frame: int, kind: str, code: int) -> None:
 def play_events(frames: int, disk_sha256: str) -> list[tuple[int, str, int, int]]:
     """(frame, kind, code, value) in order: from PLAY_FROM the first answers (keys only, FIRST_ANSWERS, ANSWER_GAP apart); then a
     start key every 150 frames until START_FOR frames after PLAY_FROM, and between them, and after, the joystick held 6 to 40
-    frames in a direction (with fire one time in three), then released."""
+    frames in a direction (with fire one time in three), then released. Past LATER_FROM (a long route), a start key again every
+    LATER_EVERY frames; the events of a route of LATER_FROM frames or fewer do not change."""
     rng = random.Random(seed(disk_sha256))
     events: list[tuple[int, str, int, int]] = []
     frame = PLAY_FROM
@@ -58,7 +63,15 @@ def play_events(frames: int, disk_sha256: str) -> list[tuple[int, str, int, int]
         frame += ANSWER_GAP
     start_until = PLAY_FROM + START_FOR
     next_start = frame
+    next_later, later = LATER_FROM, 0
     while frame < frames - 2:
+        if frame >= next_later:
+            kind, code = START_KEYS[later % len(START_KEYS)]
+            _press(events, frame, kind, code)
+            frame += 8
+            next_later += LATER_EVERY
+            later += 1
+            continue
         if frame >= next_start and frame < start_until:
             kind, code = START_KEYS[(next_start - PLAY_FROM) // 150 % len(START_KEYS)]
             _press(events, frame, kind, code)
@@ -68,6 +81,8 @@ def play_events(frames: int, disk_sha256: str) -> list[tuple[int, str, int, int]
         held = rng.randint(6, 40)
         bits = rng.choice(DIRECTIONS) | (JOY_FIRE1 if rng.random() < 1 / 3 else 0)
         end = min(frame + held, frames - 1, next_start if frame < start_until else frames - 1)
+        if frame >= LATER_FROM:
+            end = min(end, next_later)
         if end <= frame:
             frame += 1
             continue
