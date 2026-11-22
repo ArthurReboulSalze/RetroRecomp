@@ -4,7 +4,7 @@
 play route starts on the reference interpreter (route_start, zxs_routes), translates the ROM and learns the code the snapshot runs
 from RAM (zxs_build.learn), then compares every native route with the reference, field by field and frame by frame, and refuses the
 conversion on any difference. Then the game is built, its delivered (compressed) file replayed on every route against the
-reference, and its quick states checked in fresh processes (`deliver_game`). The report goes through the common builder; it states the hardware limits (no ULA contention, no
+reference, and its quick states checked in fresh processes (`deliver_game`). The report goes through the common builder; it states the hardware limits (no
 floating bus, the border drawn per line) and keeps the five measures apart.
 
 The route (the maintainer's choice of 21 November 2026, route A): the shared banked Z80 chain the Master System and the MSX
@@ -40,8 +40,8 @@ def skeleton_report(source, scenarios, level='standard') -> dict:
             'native_coverage': 'not measured', 'final_checks': checks, 'zxs_checks': checks,
             'game_states': {'supported': False, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': False},
             'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
-            # A hardware-fidelity limit every report states until the contention stage lands (docs/ZX_SPECTRUM.md, section 5).
-            'hardware_limits': ['ULA memory contention is not modelled: every instruction takes its plain Z80 time']}
+            # The hardware-fidelity limits every report states (docs/ZX_SPECTRUM.md, section 5).
+            'hardware_limits': ['the floating bus is not modelled: an unused port reads FFh']}
 
 
 def write_skeleton_report(path, source, scenarios, level='standard') -> dict:
@@ -59,7 +59,8 @@ FRAMES = 3600                    # the batch's default route length (the profile
 LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame',
                                         'audible_frames', 'last_audible_frame', 'distinct_sound_blocks', 'distinct_ram_states',
                                         'distinct_program_counters')}
-CONTENTION = 'not modelled: every instruction takes its plain Z80 time (docs/ZX_SPECTRUM.md, section 5)'
+CONTENTION = ('modelled: the ULA holds each bus cycle on 4000h-7FFFh (and the 128K\'s odd banks at C000h, and the I/O cases) '
+              'by the documented pattern, through the chain\'s evaluator (docs/ZX_SPECTRUM.md, section 5)')
 
 
 def hardware_devices(snapshot) -> list:
@@ -251,7 +252,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                              'contention': CONTENTION},
               'final_checks': final_checks, 'scan_level': level, 'route_start': start_record,
               'hardware_devices': hardware_devices(snapshot),
-              'hardware_limits': ['ULA memory contention is not modelled: every instruction takes its plain Z80 time',
+              'hardware_limits': ['ULA contention follows the documented pattern, not measured against a real machine; the '
+                                  'refresh cycles and the +2A/+3 pattern are not modelled',
                                   'the floating bus is not modelled: an unused port reads FFh',
                                   'border changes within a line are drawn at the line\'s end'],
               'route_warnings': route_warnings(final_checks),

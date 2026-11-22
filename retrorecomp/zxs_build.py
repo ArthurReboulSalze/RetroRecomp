@@ -10,6 +10,7 @@ from __future__ import annotations
 import struct
 from pathlib import Path
 
+from . import resource_rebuild
 from .zxs_snapshot import JOYSTICKS, PAGE, Snapshot
 
 IMAGE_HEADER = 64
@@ -66,6 +67,8 @@ MACHINE_FILES = (*MACHINE_SOURCES, 'zxs_machine.h', 'zxs_glue.inc', 'zxs_headles
                  'zxs_reference_main.c')
 SHARED_MODULES = (('ay38910', ('ay38910.c',), ('ay38910.h',)),)
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)
+# The chain's contention evaluator, rendered beside the reference copy (Z80Machine.contention, retrorecomp/z80_timed.py).
+GENERATED_SOURCES = ('banked_timed.c',)
 CHAIN_FILES = ('z80_chain_glue.inc', 'banked_reference_state.inc', 'audio_box.h', 'z80_chain_state.inc', 'state_file.h')   # native/, staged flat
 # The player (the `game` target) and the companions of the host kit it is built with (the MSX's list, less its cartridge saves).
 GAME_FILES = ('zxs_player.c',)
@@ -112,7 +115,7 @@ def project_cmake(bodies: bool = True, game: bool = False, version: str = '') ->
     headless native check; with `game` the player too (it needs the bodies; `version` is the converter's, RR_RECOMP_VERSION)."""
     from . import hostkit
     from .z80_chain_build import chain_project_cmake
-    machine = ' '.join((*MACHINE_SOURCES, *SHARED_SOURCES))
+    machine = ' '.join((*MACHINE_SOURCES, *SHARED_SOURCES, *GENERATED_SOURCES))
     game_lines = []
     if game:
         kit = ' '.join(hostkit.sources('zxs'))
@@ -126,6 +129,7 @@ def project_cmake(bodies: bool = True, game: bool = False, version: str = '') ->
             '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
             'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
             '  target_link_libraries(game PRIVATE m)', 'endif()',
+            *resource_rebuild.CMAKE_LINES,
             'target_link_libraries(game PRIVATE SDL2::SDL2-static)',
             f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS '
             f'[[RR_RECOMP_VERSION="{version}"]])',
@@ -134,7 +138,8 @@ def project_cmake(bodies: bool = True, game: bool = False, version: str = '') ->
             '  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)', 'endif()',
         ]
     return chain_project_cmake('zxs', 'RetroZxs', reference_main='zxs_reference_main.c', native_main='zxs_native_main.c',
-                               machine_sources=(*MACHINE_SOURCES, *SHARED_SOURCES), bodies=bodies or game, game_lines=game_lines)
+                               machine_sources=(*MACHINE_SOURCES, *SHARED_SOURCES, *GENERATED_SOURCES), bodies=bodies or game,
+                               game_lines=game_lines)
 
 
 def build(work, targets: tuple, emit=print) -> dict:
@@ -233,9 +238,7 @@ def prepare_game(work, title: str, identity: str, rom: bytes, image: bytes, emit
     write = z80_chain_build.write_if_changed
     embedded = {'game-rom.bin': rom, 'game-image.bin': image, 'notices.txt': notice_text('zxs').encode('utf-8'),
                 'export-identity.bin': b'[Retro-Recomp]\0' + identity.encode('ascii') + b'\0'}
-    # The resource compiler (and the assembler's .incbin on Linux) does not track the files it includes: a work folder converted
-    # again with other bytes (a reviewed joystick, another ROM) would link the old ones. Below, the including files are touched
-    # whenever an included file is newer than them (which also mends a folder an earlier conversion left behind).
+    # The build tracks these files itself (retrorecomp/resource_rebuild.py, in the project's CMake).
     for name, data in embedded.items():
         write(work / name, data)
     write(work / 'runtime_feedback_config.h',
@@ -258,10 +261,6 @@ def prepare_game(work, title: str, identity: str, rom: bytes, image: bytes, emit
                                 + ''.join(f'{number} RCDATA "{name}"\n' for number, name in resources.items())
                                 + '#include "game_resources.rc"\n').encode('utf-8'))
     embed_resources(work, {number: work / name for number, name in resources.items()})
-    newest = max((work / name).stat().st_mtime_ns for name in embedded)
-    for including in ('content.rc', 'embedded_resources.S'):
-        if (work / including).is_file() and (work / including).stat().st_mtime_ns <= newest:
-            (work / including).touch()
     binding = ', '.join(f'0x{b:02X}' for b in state_binding(rom, image))
     write(work / 'zxs_game.h', (f'#pragma once\n#define RR_ZXS_TITLE {_c_string(title)}\n#define RR_ZXS_IDENTITY "{identity}"\n'
                                 f'#define RR_ZXS_ROM_RESOURCE {ROM_RESOURCE}\n#define RR_ZXS_IMAGE_RESOURCE {IMAGE_RESOURCE}\n'

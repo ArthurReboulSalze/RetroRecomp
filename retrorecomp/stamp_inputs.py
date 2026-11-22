@@ -209,6 +209,7 @@ HOST_NATIVE = frozenset((
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
     'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc', 'hostkit/adapters/rrhk_keypad.inc',
+    'hostkit/adapters/rrhk_text.h',
     # The Amstrad CPC's (in development, its adapter to come): the boot key sequence player and its key table.
     'hostkit/adapters/rrhk_boot_keys.h', 'hostkit/adapters/rrhk_cpc_keys.h')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
@@ -288,6 +289,8 @@ NOT_INPUTS = (
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
     'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
+    'native/z80_contention_checks.c',   # tools/z80_contention_selftest.py: contention, emitter against reference, never in a game
+    'native/z80_contention_gate.c',   # tools/z80_contention_loop_selftest.py: an authored contention rule for the step loop's lines, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
@@ -1288,6 +1291,12 @@ INPUTS = _resolve({
     'shares:hostkit_keypad': (
         'native/hostkit/adapters/rrhk_keypad.inc',
     ),
+    # One adapter text in the five game languages, read for the current game language (docs/HOST_KIT.md 2.6): header only, included by
+    # the adapters whose own words are not in the catalogue yet; hashed by the machines that include it (the ColecoVision, through the
+    # on-screen keypad). Host role (in HOST_NATIVE above).
+    'shares:hostkit_text': (
+        'native/hostkit/adapters/rrhk_text.h',
+    ),
     # The generator of guarded native code for the instructions a computer runs from RAM (the X68000 now, the Amiga when it joins). Game role.
     'shares:m68k_observed': (
         'retrorecomp.m68k_observed',
@@ -1346,12 +1355,16 @@ INPUTS = _resolve({
     'shares:z80_chain_glue': (
         'native/z80_chain_glue.inc',
         'retrorecomp.z80_chain_build',
+        # The CMake that names the files a game's resources embed (its own group once machines off the chain use it too).
+        'retrorecomp.resource_rebuild',
     ),
     'shares:z80_main': (
         'retrorecomp.cpu',
         'retrorecomp.z80_chain',
         # The Z80's bus cycles per encoding (the ULA contention's data, checked by tools/z80_timing_vectors.py).
         'retrorecomp.z80_timing',
+        # Its evaluator: the delay a machine's contention rule adds, rendered into the bodies and the reference (z80_timed.py).
+        'retrorecomp.z80_timed',
     ),
     'family:rr16': (
         'native/console16_main.c',

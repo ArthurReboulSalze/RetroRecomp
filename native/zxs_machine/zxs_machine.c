@@ -166,6 +166,52 @@ void zxs_out(ZxsMachine *m, uint16_t port, uint8_t value)
 int zxs_irq_at(const ZxsMachine *m, uint64_t cycle) { return cycle >= m->frame_start && cycle - m->frame_start < m->int_len; }
 int zxs_irq(const ZxsMachine *m) { return zxs_irq_at(m, m->cycles); }
 
+/* ---- contention ---- */
+int zxs_contended(const ZxsMachine *m, uint16_t address)
+{
+    if ((address & 0xC000) == 0x4000)
+        return 1;
+    return m->model == ZXS_128K && (address & 0xC000) == 0xC000 && (zxs_bank_c000(m) & 1);
+}
+
+/* The ULA's delay for a cycle starting at CPU cycle t, whatever the address (the callers decide that). */
+static unsigned contend_at(const ZxsMachine *m, uint64_t t)
+{
+    static const uint8_t pattern[8] = {6, 5, 4, 3, 2, 1, 0, 0};
+    const uint64_t frame = m->t_frame;
+    const uint64_t in_frame = t >= m->frame_start ? (t - m->frame_start) % frame : (frame - (m->frame_start - t) % frame) % frame;
+    const uint64_t first = m->model == ZXS_128K ? 14361 : 14335;
+    if (in_frame < first || in_frame >= first + 192u * (uint64_t)m->t_line)
+        return 0;
+    const unsigned in_line = (unsigned)((in_frame - first) % m->t_line);
+    return in_line < 128 ? pattern[in_line & 7] : 0;
+}
+
+unsigned zxs_contend_memory(const ZxsMachine *m, uint64_t t, uint16_t address)
+{
+    return zxs_contended(m, address) ? contend_at(m, t) : 0;
+}
+
+unsigned zxs_contend_io(const ZxsMachine *m, uint64_t t, uint16_t port)
+{
+    const int high = zxs_contended(m, port), ula = !(port & 1);
+    unsigned delay = 0;
+    uint64_t at = t;
+    if (!high)                                          /* N:1, C:3 for the ULA's port; N:4 otherwise */
+        return ula ? contend_at(m, t + 1) : 0;
+    if (ula) {                                          /* C:1, C:3 */
+        delay = contend_at(m, at);
+        at += delay + 1;
+        return delay + contend_at(m, at);
+    }
+    for (int k = 0; k < 4; ++k) {                       /* C:1, C:1, C:1, C:1 */
+        const unsigned wait = contend_at(m, at);
+        delay += wait;
+        at += wait + 1;
+    }
+    return delay;
+}
+
 uint64_t zxs_next_event(const ZxsMachine *m) { return m->frame_start + (uint64_t)(m->line + 1) * m->t_line; }
 
 static uint32_t fnv_add(uint32_t h, const uint8_t *data, size_t size)

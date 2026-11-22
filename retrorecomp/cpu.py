@@ -41,7 +41,7 @@ def prepare_cpu_headers(game: Path, engine: Path) -> None:
 
 
 def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: bool = False, costs=None,
-                      port16: bool = False) -> None:
+                      port16: bool = False, contention: bool = False) -> None:
     """Correct the pinned fallback/oracle in a generated copy.
 
     This CPU is checked against the same independent vectors as the emitter.
@@ -62,6 +62,11 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: b
     `port16` (a machine whose bus decodes the whole port, `z80_chain.Z80Machine.port_bits` 16) widens the copy's port callbacks to
     16 bits and passes the address the Z80 puts on the bus, as the chain's bodies do (`_reference_ports`). Off, the copy is what it
     always was.
+
+    `contention` (a machine whose bus holds the CPU off, `z80_chain.Z80Machine.contention`) adds, to each instruction, redundant
+    prefix, HALT cycle and acceptance, the delay of the chain's evaluator (banked_timed.h, retrorecomp/z80_timed.py), from the
+    registers before the instruction and the T-state rr_timed_epoch + its count, as the bodies and the step loop do
+    (`_reference_contention`). Off, the copy is what it always was.
     """
     original = engine / 'runner/external/superzazu'
     header = (original / 'z80.h').read_text(encoding='utf-8')
@@ -201,7 +206,53 @@ def prepare_reference(game: Path, engine: Path, m1_counter: bool = False, nmi: b
         source = _reference_costs(source, costs)
     if port16:
         source = _reference_ports(source)
+    if contention:
+        from .z80_chain import Z80_COSTS
+        if m1_counter or (costs is not None and costs != Z80_COSTS):
+            raise ValueError('reference CPU: contention counts on the Z80\'s own T-states (no cost table, no M1 count).')
+        source = _reference_contention(source)
     (game / 'runtime_reference.c').write_text(source, encoding='utf-8')
+
+
+def _reference_contention(source: str) -> str:
+    """The reference copy adding the contention evaluator's delays (`prepare_reference(contention=True)`)."""
+    from .z80_timed import render_plain_table
+    helpers = ('/* Contention (retrorecomp/cpu.py, z80_chain.Z80Machine.contention): the chain\'s evaluator on the registers before\n'
+               ' * each instruction; rr_timed_epoch + the count is the T-state the machine\'s rule sees. */\n'
+               '#define RR_TIMED_API\n#include "banked_timed.h"\nuint64_t rr_timed_epoch;\n'
+               + render_plain_table('rr_timed_plain') +
+               'static RrTimedStart rr_timed_from(z80* const z) {\n'
+               '  RrTimedStart s = {z->pc, z->sp, get_bc(z), get_de(z), get_hl(z), z->ix, z->iy,\n'
+               '                    (uint16_t)(z->i << 8 | z->int_data), z->a, z->i, z->r};\n'
+               '  return s;\n}\n')
+    # After the register-pair getters, before the interrupt code and the step that use it.
+    source = replace(source, 'static inline void set_bc(z80* const z, uint16_t val) {\n',
+                     helpers + '\nstatic inline void set_bc(z80* const z, uint16_t val) {\n')
+    source = replace(source, '    z->pc++; z->cyc += 4; inc_r(z); op = next;',
+                     '    { RrTimedStart rr_fs = rr_timed_from(z);\n'
+                     '      z->cyc += rr_timed_special_delay(RR_TIMED_FRAGMENT, &rr_fs, rr_timed_epoch + z->cyc); }\n'
+                     '    z->pc++; z->cyc += 4; inc_r(z); op = next;')
+    step = '  if (z->halted) exec_opcode(z, 0); else exec_opcode(z, nextb(z));\n'
+    source = replace(source, step,
+                     '  unsigned rr_tg = family == 2 ? 4 : family == 1 ? (op == 0xDD ? 5 : op == 0xFD ? 6 : 1) :\n'
+                     '    (op == 0xDD ? 2 : op == 0xFD ? 3 : 0);\n'
+                     '  RrTimedStart rr_ts = rr_timed_from(z); unsigned long rr_t0 = z->cyc; bool rr_th = z->halted;\n'
+                     '  /* The base cycles are walked BEFORE the instruction runs, as the bodies do: the rule and the operands it peeks are\n'
+                     '   * the machine as the instruction found it (an OUT that pages memory, a store into its own operand change them). */\n'
+                     '  uint32_t rr_d = rr_th ? rr_timed_special_delay(RR_TIMED_HALT, &rr_ts, rr_timed_epoch + rr_t0) :\n'
+                     '    rr_timed_base((int)rr_tg, decoded, &rr_ts, rr_timed_epoch + rr_t0);\n'
+                     + step +
+                     '  if (!rr_th && z->cyc - rr_t0 > rr_timed_plain[rr_tg][decoded])   /* taken, or going round again */\n'
+                     '    rr_d += rr_timed_extra((int)rr_tg, decoded, &rr_ts, rr_timed_epoch + rr_t0 + rr_timed_plain[rr_tg][decoded] + rr_d);\n'
+                     '  z->cyc += rr_d;\n')
+    for old, which in (('    z->cyc += 11;\n    call(z, 0x66);', 'RR_TIMED_NMI'),
+                       ('      z->cyc += 2;\n      exec_opcode(z, z->int_data);', 'RR_TIMED_IM1'),
+                       ('      z->cyc += 13;\n      call(z, 0x38);', 'RR_TIMED_IM1'),
+                       ('      z->cyc += 19;\n      call(z, rw(', 'RR_TIMED_IM2')):
+        indent = old[:len(old) - len(old.lstrip())]
+        source = replace(source, old, f'{indent}{{ RrTimedStart rr_as = rr_timed_from(z);\n'
+                         f'{indent}  z->cyc += rr_timed_special_delay({which}, &rr_as, rr_timed_epoch + z->cyc); }}\n' + old)
+    return source
 
 
 # The cost of one instruction on a machine with a table of its own (z80_chain.Z80Costs), applied after the instruction ran and

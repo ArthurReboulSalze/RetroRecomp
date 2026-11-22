@@ -230,6 +230,11 @@ class Z80Machine:
     # False for a machine whose program starts from a saved state (a ZX Spectrum snapshot): its glue sets every register before
     # the loop, and the loop keeps them. True: no byte of the text changes.
     reset_registers: bool = True
+    # The machine's bus holds the CPU off by the address and the moment of each bus cycle (the ZX Spectrum's ULA contention): the
+    # bodies, the step loop and the reference CPU add the delay retrorecomp/z80_timed.py's evaluator gives (banked_timed.h and
+    # banked_timed.c, rendered into the project), from the machine's `rr_contend_memory`, `rr_contend_io` and `rr_contend_peek`.
+    # Not with a cost table or M1 wait states (a taken branch is told from the Z80's own counts). False: no byte of the text changes.
+    contention: bool = False
 
     def __post_init__(self):
         if not 0 <= self.m1_wait <= 3:
@@ -244,6 +249,8 @@ class Z80Machine:
             raise ValueError('Z80 machine: ports are 8 or 16 bits wide.')
         if self.costs is not None and not isinstance(self.costs, Z80Costs):
             raise ValueError('Z80 machine: costs is a Z80Costs or None.')
+        if self.contention and (self.cost != Z80_COSTS or self.m1_wait):
+            raise ValueError('Z80 machine: contention counts on the Z80\'s own T-states (no cost table, no M1 wait states).')
 
     @property
     def cost(self) -> Z80Costs:
@@ -393,10 +400,48 @@ def _emitter_ports(machine: Z80Machine, emitter: str) -> str:
 
 def emitter_source(machine: Z80Machine, emitter: str) -> str:
     """The banked emitter for one machine: its description as a C initialiser, then the emitter that reads it, with the
-    machine's own instruction costs (`Z80Machine.costs`) when it states some and its 16-bit ports (`Z80Machine.port_bits`)."""
+    machine's own instruction costs (`Z80Machine.costs`) when it states some, its contention (`Z80Machine.contention`) and its
+    16-bit ports (`Z80Machine.port_bits`)."""
     return (f'/* The machine this generator is built for (retrorecomp/z80_chain.py, {machine.key}). */\n'
             f'#define BANKED_MACHINE {{ {machine.regions.initialiser()}, .m1_wait = {machine.m1_wait}, '
-            f'.scope = "{machine.regions.scope}" }}\n' + _emitter_ports(machine, _emitter_costs(machine, emitter)))
+            f'.scope = "{machine.regions.scope}" }}\n'
+            + _emitter_ports(machine, _emitter_contention(machine, _emitter_costs(machine, emitter))))
+
+
+# ---- contention (Z80Machine.contention) ----------------------------------------------------------------------------------------
+# Each body captures the registers as they were before the instruction (RR_TIMED_START), its row and opcode, and the T-state it
+# began at; its base count gains the delay of its base cycles, and a taken branch or a repeat the delay of its extra cycles, walked
+# from where the base ended (the body's count at that point). A redundant prefix is one M1 on its own address. The loop adds the
+# delay of a HALT cycle and of the acceptances (retrorecomp/z80_timed.py). A machine without contention renders none of it.
+_TIMED_HEADER = (r'    fprintf(h, "/* Contention (Z80Machine.contention): the evaluator and the start state of a body. */\n'
+                 r'#define RR_TIMED_API\n#include \"banked_timed.h\"\n#define RR_TIMED_START(s) ((RrTimedStart){ (s)->pc, (s)->sp, '
+                 r'(uint16_t)((s)->b << 8 | (s)->c), (uint16_t)((s)->d << 8 | (s)->e), (uint16_t)((s)->h << 8 | (s)->l), (s)->ix, '
+                 r'(s)->iy, (uint16_t)((s)->i << 8 | 0xFF), (s)->a, (s)->i, (s)->r })\n");' '\n')
+_TIMED_CAPTURE_AT = '    fprintf(o, "    s->r = (uint8_t)((s->r & 0x80) | ((s->r + %d) & 0x7F));\\n", m1);\n'
+_TIMED_CAPTURE = ('    fprintf(o, "    const RrTimedStart rr_ts = RR_TIMED_START(s); const uint64_t rr_t0 = s->cyc; '
+                  'const int rr_g = %d; const unsigned rr_op = 0x%02X;\\n",\n'
+                  '        in->prefix == Z80_PFX_CB ? 1 : in->prefix == Z80_PFX_DD ? 2 : in->prefix == Z80_PFX_FD ? 3 :\n'
+                  '        in->prefix == Z80_PFX_ED ? 4 : in->prefix == Z80_PFX_DDCB ? 5 : in->prefix == Z80_PFX_FDCB ? 6 : 0, in->opcode & 0xFF);\n')
+_TIMED_FRAGMENT = ('"    s->pc++;', '"    { const RrTimedStart rr_fs = RR_TIMED_START(s); s->cyc += rr_timed_special_delay(RR_TIMED_FRAGMENT, '
+                   '&rr_fs, s->cyc); }\\n    s->pc++;')
+
+
+def _emitter_contention(machine: Z80Machine, emitter: str) -> str:
+    """The emitter for a machine with contention; the text itself, byte for byte, for one without."""
+    if not machine.contention:
+        return emitter
+    import re
+    lines = _emitter_cost_lines(Z80_COSTS)
+    emitter = _once(emitter, lines[0], lines[0].replace(*_TIMED_FRAGMENT))
+    for line in lines[1:]:
+        timed, count = re.subn(r's->cyc \+= (\d+);', r's->cyc += \1 + rr_timed_extra(rr_g, rr_op, &rr_ts, s->cyc);', line)
+        if count != 1:
+            raise ValueError(f'The banked emitter changed; contention must follow: {line[:90]!r}')
+        emitter = _once(emitter, line, timed)
+    for line in _EMITTER_BASE:
+        emitter = _once(emitter, line, line.replace(';\\n"', ' + rr_timed_base(rr_g, rr_op, &rr_ts, rr_t0);\\n"'))
+    emitter = _once(emitter, _TIMED_CAPTURE_AT, _TIMED_CAPTURE + _TIMED_CAPTURE_AT)
+    return _once(emitter, _BODIES_HEADER, _BODIES_HEADER + _TIMED_HEADER)
 
 
 def _once(source: str, old: str, new: str) -> str:
@@ -426,9 +471,12 @@ static void banked_accept_nmi(void) {
 
 '''
 
-def _nmi_accept(costs: Z80Costs) -> str:
-    """The chain's NMI acceptance with the machine's count of it (`Z80Costs.nmi`)."""
-    return _NMI_ACCEPT.replace('    g_z80.cyc += 11;\n', f'    g_z80.cyc += {costs.nmi};\n', 1)
+def _nmi_accept(costs: Z80Costs, contention: bool = False) -> str:
+    """The chain's NMI acceptance with the machine's count of it (`Z80Costs.nmi`) and, with contention, its delay."""
+    count = (f'    g_z80.cyc += {costs.nmi};\n' if not contention else
+             '    { const RrTimedStart rr_ns = RR_TIMED_START(&g_z80);\n'
+             f'      g_z80.cyc += {costs.nmi} + rr_timed_special_delay(RR_TIMED_NMI, &rr_ns, g_z80.cyc); }}\n')
+    return _NMI_ACCEPT.replace('    g_z80.cyc += 11;\n', count, 1)
 
 
 _AFTER_STEP = 'static inline void banked_after_step(int pending_irq) {'
@@ -475,23 +523,31 @@ def _runtime_parts(machine: Z80Machine) -> tuple[str, ...]:
          '                prefix_pending = 1;\n'),
         # The counted fallback: one instruction on the reference CPU, which knows no wait state. It counts its M1 cycles
         # (cpu.prepare_reference, `m1_counter`) and the machine's wait states are added from that count.
-        ('    z80_step(&g_hz);\n' if not machine.m1_wait else
+        ('    z80_step(&g_hz);\n' if not machine.m1_wait and not machine.contention else
+         '    rr_timed_epoch = base;   /* the reference counts from 0: the contention rule sees base + its count */\n'
+         '    z80_step(&g_hz);\n' if machine.contention else
          '    extern unsigned long z80_m1_fetches;\n    unsigned long m1_before = z80_m1_fetches;\n    z80_step(&g_hz);\n'
          f'    g_hz.cyc += {machine.m1_wait} * (z80_m1_fetches - m1_before);   /* the machine\'s wait states, per M1 cycle */\n')
         + '    state_from_hz(); g_z80.pc = g_hz.pc; g_z80.cyc = base + g_hz.cyc;\n',
         seen,
         '        if (!prefix_pending) pending_irq = vdp_irq_asserted();\n' if at_start else '',
         mark,
-        f'            g_z80.cyc += {machine.cost.halt + machine.m1_wait}; banked_halt_steps++;\n',
+        (f'            g_z80.cyc += {machine.cost.halt + machine.m1_wait}; banked_halt_steps++;\n' if not machine.contention else
+         '            { const RrTimedStart rr_hs = RR_TIMED_START(&g_z80);\n'
+         f'              g_z80.cyc += {machine.cost.halt} + rr_timed_special_delay(RR_TIMED_HALT, &rr_hs, g_z80.cyc); }}\n'
+         '            banked_halt_steps++;\n'),
         f'            int step = game_banked_step({key});\n',
         '        prefix_pending = 0; g_frame_ic++;\n' + ('' if at_start else
             '        banked_advance_vdp(g_z80.cyc);   /* the hardware catches up, then /INT is read at the end of the instruction */\n'
             '        pending_irq = vdp_irq_asserted();\n')
         + ('        if (banked_nmi_edge()) banked_accept_nmi(); else banked_after_step(pending_irq);\n' if machine.nmi
            else _TAKE_AFTER_STEP),
-        _nmi_accept(machine.cost) + _AFTER_STEP if machine.nmi else _AFTER_STEP,
+        _nmi_accept(machine.cost, machine.contention) + _AFTER_STEP if machine.nmi else _AFTER_STEP,
         # The acceptance of /INT: the machine's counts of modes 0 and 1, and of mode 2.
-        f'    g_z80.cyc += g_z80.im == 2 ? {machine.cost.irq_im2} : {machine.cost.irq};\n',
+        (f'    g_z80.cyc += g_z80.im == 2 ? {machine.cost.irq_im2} : {machine.cost.irq};\n' if not machine.contention else
+         '    { const RrTimedStart rr_is = RR_TIMED_START(&g_z80);\n'
+         f'      g_z80.cyc += (g_z80.im == 2 ? {machine.cost.irq_im2} : {machine.cost.irq}) +\n'
+         '          rr_timed_special_delay(g_z80.im == 2 ? RR_TIMED_IM2 : RR_TIMED_IM1, &rr_is, g_z80.cyc); }\n'),
         # The registers the loop starts from: the reset values, or the ones the machine's glue gave (a saved state).
         _RESET_REGISTERS if machine.reset_registers else
         '    /* The machine\'s glue set every register (a saved state, Z80Machine.reset_registers False): kept as they are. */\n',

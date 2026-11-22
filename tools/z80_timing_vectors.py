@@ -26,6 +26,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from retrorecomp.z80_timed import address  # noqa: E402
 from retrorecomp.z80_timing import cycles, length  # noqa: E402
 
 GROUPS = {'': '', 'cb': 'cb', 'dd': 'dd', 'fd': 'fd', 'ed': 'ed', 'dd cb': 'ddcb', 'fd cb': 'fdcb'}
@@ -45,40 +46,17 @@ def family_encoding(name: str):
 
 def expand(group: str, cycle_list, state: dict, refresh_after: bool = False) -> list[int]:
     """The address on the bus at each T-state of `cycle_list`, from the instruction's initial `state` (a vector's `initial`)."""
+    # The addresses are the evaluator's own (retrorecomp/z80_timed.address): this check covers them too.
     ram = {address: value for address, value in state['ram']}
-
-    def mem(address: int) -> int:
-        return ram.get(address & 0xFFFF, 0)
-
-    pc, sp = state['pc'], state['sp']
-    prefixed = group in ('dd', 'fd', 'ed', 'ddcb', 'fdcb')
-    operand = pc + (2 if prefixed else 1)
-    index = state['ix'] if group in ('dd', 'ddcb') else state['iy']
-    displacement = mem(pc + 2)
-    values = {'hl': state['h'] << 8 | state['l'], 'bc': state['b'] << 8 | state['c'], 'de': state['d'] << 8 | state['e'],
-              'sp': sp, 'sp+1': sp + 1, 'sp-1': sp - 1, 'sp-2': sp - 2,
-              'ixd': index + (displacement - 256 if displacement > 127 else displacement),
-              'nn': mem(operand) | mem(operand + 1) << 8, 'an': state['a'] << 8 | mem(operand),
-              'bc-': ((state['b'] - 1) & 0xFF) << 8 | state['c']}
-    values['nn+1'] = values['nn'] + 1
     r, fetches, refresh, out = state['r'], 0, None, []
-
-    def address(source: str) -> int:
-        if source == 'ir':
-            return refresh
-        if source == 'pc':
-            return pc
-        if source.startswith('pc+'):
-            return pc + int(source[3:])
-        return values[source]
-
     for kind, source, count in cycle_list:
+        where = address(group, source, state, lambda at: ram.get(at, 0), refresh)
         if kind == 'm1':
             refresh = state['i'] << 8 | (r & 0x80) | ((r + fetches + refresh_after) & 0x7F)
             fetches += 1
-            out += [address(source) & 0xFFFF] * 2 + [refresh] * 2
+            out += [where] * 2 + [refresh] * 2
         else:
-            out += [address(source) & 0xFFFF] * {'rd': 3, 'wr': 3, 'in': 4, 'out': 4, 'int': count}[kind]
+            out += [where] * {'rd': 3, 'wr': 3, 'in': 4, 'out': 4, 'int': count}[kind]
     return out
 
 

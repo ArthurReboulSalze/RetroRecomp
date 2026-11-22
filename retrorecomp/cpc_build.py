@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+from . import resource_rebuild
 from . import z80_chain_build
 
 GAME_TOML = '''# Amstrad CPC: the system ROM is source 0 of the region map; AMSDOS is named in banked.sources.
@@ -45,13 +46,14 @@ ACCEPT = 'cpc_reference_accept'
 # The three programs of a work folder: the native check, the reference runner, the game.
 MAINS = ('cpc_native_main.c', 'cpc_reference_main.c', 'cpc_player.c')
 # The host kit's companions the game compiles or includes beside it, from native/, and the computers' adapter files staged with
-# the CPC's adapter (native/hostkit/adapters: the shared keyboard and mouse, the boot key sequence, the CPC's key table).
+# the CPC's adapter (native/hostkit/adapters: the shared keyboard and mouse, the boot key sequence, the CPC's key table, the
+# five-language texts).
 KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',
              'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
              'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_envelope.h', 'gamestate.h', 'disk_copies.inc')
-ADAPTER_FILES = ('rrhk_computer.inc', 'rrhk_boot_keys.h', 'rrhk_cpc_keys.h')
+ADAPTER_FILES = ('rrhk_computer.inc', 'rrhk_boot_keys.h', 'rrhk_cpc_keys.h', 'rrhk_text.h')
 # The boot key sequence and the CPC's key table, staged flat too: the three headless programs type the start command
 # (cpc_boot_input.h), the native check and the reference runner as well as the game.
 BOOT_FILES = ('rrhk_boot_keys.h', 'rrhk_cpc_keys.h')
@@ -128,6 +130,7 @@ def project_cmake(version: str, game: bool) -> str:
             '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
             'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)',
             '  target_link_libraries(game PRIVATE m)', 'endif()',
+            *resource_rebuild.CMAKE_LINES,
             'target_link_libraries(game PRIVATE SDL2::SDL2-static)',
             f'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS '
             f'[[RR_RECOMP_VERSION="{version}"]])',

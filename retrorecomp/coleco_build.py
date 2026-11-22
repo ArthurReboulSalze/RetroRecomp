@@ -18,6 +18,7 @@ import hashlib
 from pathlib import Path
 from typing import Callable
 
+from . import resource_rebuild
 from . import z80_chain_build
 
 # The fields a native run must give exactly as the reference does (the keys both runners print, native/coleco_machine/coleco_headless.inc
@@ -90,10 +91,10 @@ def stage_sources(work: Path) -> None:
                                        *((native / folder, (*sources, *files)) for folder, sources, files in SHARED_MODULES),
                                        (native, (*CHAIN_FILES, *KIT_FILES))))
     hostkit.stage(work, 'coleco')
-    # The on-screen keypad the adapter includes (the kit stages only its shell and the adapter: the computers' adapter file is staged
-    # the same way by the MSX's and the ZX Spectrum's builds).
-    z80_chain_build.write_if_changed(work / 'hostkit' / 'adapters' / 'rrhk_keypad.inc',
-                                     (native / 'hostkit' / 'adapters' / 'rrhk_keypad.inc').read_bytes())
+    # The on-screen keypad the adapter includes, and the five-language text it reads (the kit stages only its shell and the adapter: the
+    # computers' adapter file is staged the same way by the MSX's and the ZX Spectrum's builds).
+    for name in ('rrhk_keypad.inc', 'rrhk_text.h'):
+        z80_chain_build.write_if_changed(work / 'hostkit' / 'adapters' / name, (native / 'hostkit' / 'adapters' / name).read_bytes())
 
 
 def state_binding(standard: str, rom_size: int, bios_sha256: str) -> bytes:
@@ -138,6 +139,7 @@ def project_cmake(game: bool = False, bodies: bool = True, version: str = '') ->
             'target_include_directories(game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")',
             'if(WIN32)', '  target_sources(game PRIVATE content.rc)', '  target_link_libraries(game PRIVATE shell32 user32 gdi32)',
             'else()', '  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)', '  target_link_libraries(game PRIVATE m)', 'endif()',
+            *resource_rebuild.CMAKE_LINES,
             'target_link_libraries(game PRIVATE SDL2::SDL2-static)',
             'target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS '
             f'[[RR_RECOMP_VERSION="{version}"]])',

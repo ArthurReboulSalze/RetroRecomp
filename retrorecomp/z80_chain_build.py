@@ -59,9 +59,15 @@ def prepare_machine_reference(work: Path, engine: Path, machine) -> None:
     """The reference interpreter's copy (`runtime_reference.c` and `.h`) in `work`, corrected for the machine: its M1 count, its NMI, its
     instruction costs and its 16-bit ports (`z80_chain.Z80Machine`). The one place that turns a machine into the arguments of
     `cpu.prepare_reference`: the bodies' generation and the reference runner built alone both call it, so the two copies of the same
-    machine can never differ."""
+    machine can never differ. A machine with contention also gets the evaluator (banked_timed.h, and banked_timed.c, which its
+    project compiles once: retrorecomp/z80_timed.py)."""
     from .cpu import prepare_reference
-    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi, costs=machine.costs, port16=machine.port_bits == 16)
+    prepare_reference(work, engine, m1_counter=machine.counts_m1, nmi=machine.nmi, costs=machine.costs, port16=machine.port_bits == 16,
+                      contention=machine.contention)
+    if machine.contention:
+        from .z80_timed import render_header, render_source
+        write_if_changed(work / 'banked_timed.h', render_header().encode('utf-8'))
+        write_if_changed(work / 'banked_timed.c', render_source().encode('utf-8'))
 
 
 def generate_bodies(work: Path, machine, cartridge: bytes, sources: Sequence[tuple[str, bytes]], game_toml: str,

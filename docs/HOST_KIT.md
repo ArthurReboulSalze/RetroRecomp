@@ -288,6 +288,14 @@ adapter (`rrhk_coleco.inc`) is its first user: each key's `bit` is the code of t
 merge, as on the real keypad), the open row's bit is bit 11, and the machine masks the stick and the fire buttons while it is set; the group
 `shares:hostkit_keypad` names the file for the machines that include it, and the machine's build stages it beside its adapter.
 
+An adapter's own words that are not in the catalogue yet (the keypad's title and hint, the CPC's sound row) are rows of
+`RrhkText` (`native/hostkit/adapters/rrhk_text.h`, header only): five strings in the order of the game languages (en, fr,
+it, es, de), printable ASCII as the games' menus write them, and `rrhk_text(&row)` returns the one of the current game
+language, English when it is missing or empty. A new string in `native/runtime_catalog.inc` would move every machine's host
+stamp; a row here moves only the stamps of the machines whose adapter has it. `tests/test_hostkit_text.py` checks every row
+of every adapter (five strings, none empty, ASCII). The group `shares:hostkit_text` names the file for the machines that
+include it (the ColecoVision, through the keypad), and their builds stage it beside the adapter.
+
 ## 3. Behaviour: one rule per divergence
 
 Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour. A
@@ -1440,8 +1448,12 @@ CPS-1 and X68000 queue output and the NES ring (they call the same stage; the NE
     console, with the Game Boy's former keys and behaviour. The second binding of each action stays retired (it is a contract change).
 11. **Waiting for the next move of the catalogue or the shell** (the lead's list, 21 Nov 2026): work held so that no host stamp
     moves, to be done in a change that moves every host stamp anyway.
-    - When `native/runtime_catalog.inc` next moves: the on-screen keypad's title and hint (`rrhk_keypad_texts` in
-      `native/hostkit/adapters/rrhk_keypad.inc`, five languages) join `assets/locales` and the keypad reads them with `rr_tr`.
+    - When `native/runtime_catalog.inc` next moves: the adapters' `RrhkText` rows (`rrhk_text.h`: the on-screen keypad's
+      title and hint in `rrhk_keypad.inc`, the CPC's in `rrhk_cpc.inc`) join `assets/locales` and are read with `rr_tr`.
+    - When the Amiga's host stamp next moves (the Amiga is released, so not before): `a_language` and its tables in
+      `native/hostkit/adapters/rrhk_amiga.inc` (the same five languages in another order, en, fr, de, es, it) become
+      `RrhkText` rows read with `rrhk_text`, and the Amiga joins `shares:hostkit_text` (the third copy of the lookup,
+      STANDARDS rule 1, the lead's list of 22 Nov 2026).
     - When the shell next moves: the keypad's per-player release rule (`rrhk_keypad_pad_released`) and the chat's
       (`chat_anything_held`, `rrhk_chat.inc`) become one shell function taking a player.
 
