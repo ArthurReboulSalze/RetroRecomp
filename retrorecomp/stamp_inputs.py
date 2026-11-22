@@ -561,6 +561,7 @@ INPUTS = _resolve({
         'retrorecomp.gameboy_runtime',
     ),
     ('gbc',): (
+        'native/gbc_link_checks.c',
         'retrorecomp.gameboy_color_hardware',
     ),
     ('nes',): (

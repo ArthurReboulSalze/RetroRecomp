@@ -220,7 +220,7 @@ class HandheldsAndSeats(unittest.TestCase):
     def test_the_handhelds_are_the_machines_with_one_player_and_a_pad(self):
         from retrorecomp.systems.registry import ALL_PROFILES
         handhelds = {profile.id for profile in ALL_PROFILES if seat_map.forced(profile.id)}
-        self.assertEqual(handhelds, {'gb', 'gba', 'gg'})
+        self.assertEqual(handhelds, {'gb', 'gbc', 'gba', 'gg'})
         self.assertEqual(handhelds, {profile.id for profile in ALL_PROFILES if lobby_check.machine_seats(profile.id) == 1} - {'scummvm'})
 
     def test_input_sharing_seats_up_to_four_whatever_the_machine_has_and_one_controller_per_player_only_the_players(self):

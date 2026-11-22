@@ -56,7 +56,10 @@ static void build_rom(unsigned limit, bool fast) {            /* the number of t
     put(0x16C, "CB 50 20 06");                                /* BIT 2 (SELECT): not pressed skips the switch */
     put(0x170, "3E 01 E0 4D 10 00");                          /* KEY1 = 1 ; STOP: the speed switch */
     put(0x176, "CB 58 FB");                                   /* BIT 3 (START) ; EI */
-    put(0x179, "CA 90 01 C3 C0 01");                          /* START pressed: the master ; else the slave */
+    put(0x179, "CA 40 02 C3 C0 01");                          /* START pressed: the master (after a wait) ; else the slave */
+    /* the wait: about 50,000 cycles, so that a slave that is slow to start (the speed switch of a console in double speed stops it for about 8,000) has armed
+     * its clock before the master's first transfer, which on the fast clock lasts only 128 cycles */
+    put(0x240, "11 00 08 1B 7A B3 20 FB C3 90 01");
     /* master: send 3 n + $11 on the internal clock, wait for the interrupt, n up to 8 */
     put(0x190, "F0 82 47 87 80 C6 11 E0 01 AF E0 81 3E 81 E0 02");
     put(0x1A0, "76 00 F0 81 A7 CA A0 01 F0 82 FE 08 DA 90 01 18 FE");
@@ -65,6 +68,8 @@ static void build_rom(unsigned limit, bool fast) {            /* the number of t
     put(0x1CD, "76 00 F0 81 A7 CA CD 01 F0 82 FE 08 DA C0 01 18 FE");
     /* the serial handler: log SB at C000 + index, count, raise the flag */
     rom_image[0x1AB] = rom_image[0x1D8] = (uint8_t)limit;
+    put(0x1AC, "DA 50 02");                                  /* between two transfers the master waits about 6,000 cycles: a slave on the fast clock must re-arm */
+    put(0x250, "11 00 01 1B 7A B3 20 FB C3 90 01");
     if (fast) rom_image[0x19D] = 0x83;                       /* the master's transfers on the fast clock */
     put(0x220, "F5 E5 F0 80 6F 26 C0 F0 01 77 2C 7D E0 80 F0 82 3C E0 82 3E 01 E0 81 E1 F1 D9");
 }
@@ -174,6 +179,13 @@ static void expect_exchange(int master) {
     log_of(first, log0); log_of(second, log1);
     const uint8_t* want0 = master == 0 ? from_slave : from_master;      /* what console 0 reads */
     const uint8_t* want1 = master == 0 ? from_master : from_slave;
+    if (memcmp(log0, want0, LOG) != 0 || memcmp(log1, want1, LOG) != 0) {
+        fprintf(stderr, "exchange failed: master %d, speed mask %u: log0", master, speed_mask);
+        for (int i = 0; i < LOG; ++i) fprintf(stderr, " %02X", log0[i]);
+        fprintf(stderr, " log1");
+        for (int i = 0; i < LOG; ++i) fprintf(stderr, " %02X", log1[i]);
+        fprintf(stderr, " transfers %llu speeds %u %u pc %04X %04X\n", (unsigned long long)gb_link_transfers(), first->cgb_double_speed, second->cgb_double_speed, first->pc, second->pc);
+    }
     assert(memcmp(log0, want0, LOG) == 0);
     assert(memcmp(log1, want1, LOG) == 0);
     assert(gb_read8(first, 0xFF82) == 8 && gb_read8(second, 0xFF82) == 8);                      /* both handlers ran eight times */

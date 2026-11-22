@@ -20,6 +20,12 @@ class GameBoyColorProfile(SystemProfile):
     id = "gbc"
     status = "experimental"
     linux = "pending"
+    # Multiplayer: the Game Boy's session and its link cable (GBC with GBC only; docs/GAME_BOY_COLOR.md). Set once the pair of Color consoles was proved
+    # on one PC: tools/gameboy_link_selftest.py --model cgb (every pairing of normal and double speed, normal and fast serial clock) and the room's smoke test.
+    netplay_seats = 1
+    netplay_shared_only = True
+    netplay_link_seats = 2
+    netplay_session = True
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py): the original Game Boy's, one engine.
     simulation_sources = (SimulationSource('game.c'),
                           SimulationSource('game.h'),
