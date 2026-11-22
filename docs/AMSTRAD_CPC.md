@@ -119,6 +119,20 @@ fallback, packed and states gates pass. The pictures at frames 2,400 and 3,600 o
 written as WAV. **Linux**: Bomb Jack converted again in WSL (Debian 13) from the same sources gives the same rows as Windows on
 both routes (native, reference and delivered file), the same learning and the same final hashes.
 
+**Long routes** (22 November 2026): the eight games played 18,000 frames (five minutes: the play route's 3,600, then the joystick on)
+with the programs each conversion built. Native equals the reference on every field and every frame's row; the code first run after
+frame 3,600 runs on the counted interpreter (0 to 467,668 steps), since learning sees the 3,600-frame routes. At frames 7,800 and
+18,000 Castle Master, Gryzor and Robocop are in play; Bomb Jack and Dizzy are back on their menu or title after the game ended, Head
+over Heels and Match Day II on their menus, Super Hang-On in its attract mode: random routes, not played games.
+
+**Written disks**: what a game writes on drive A goes to a copy beside it (`datas/games/cpc-<identity>/disk-1.dsk`), read back at the
+next start. Every conversion checks it in fresh processes of the delivered file (`--disk-copies`, the report's `disk_writes`): a
+copy exactly when the game wrote, a new process starting from it, a copy of the wrong size not read and left as it was. No panel
+game writes its disk on its routes; an authored program that writes a sector as AMSDOS does (`tools/cpc_reference.py`) shows the
+whole path: native equal to the reference with the disk's digest compared, the copy equal to the disk with that sector written, a
+fresh process starting from it. Castle Master and Rigel's Revenge were looked at for a real save: no key writes in the first, the
+second saves to tape through its own routine.
+
 Bomb Jack, Gryzor and Head over Heels are delivered for the owner's play test, with a short checklist (G14). `tools/cpc_panel.py`
 reads a folder of disks and writes numbers about each one (format, odd tracks, weak and error sectors, the start command), never
 their bytes.

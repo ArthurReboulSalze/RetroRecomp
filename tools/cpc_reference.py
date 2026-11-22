@@ -10,7 +10,9 @@ authored programs as the system ROM (no firmware, no game; the player's own ROMs
 - interrupts and picture: IM 1, a handler at 0038h counting in RAM, the screen filled through LDIR in mode 1 with its pens
   and border set at port 7Fxxh: six interrupts a frame (300 Hz), the pens and the border on the drawn picture;
 - disk: a sector of a disk built here read as AMSDOS reads it, through FB7Eh / FB7Fh (wait for RQM, the execution phase while
-  bit 5 is set, then seven result bytes): its 512 bytes in RAM, the result "abnormal, end of cylinder".
+  bit 5 is set, then seven result bytes): its 512 bytes in RAM, the result "abnormal, end of cylinder";
+- written disk: another sector written as AMSDOS writes one (WRITE DATA, the bytes sent while bit 5 is set), then read back:
+  its bytes in RAM, the disk marked written and its digest (disk_fnv) changed.
 
 A development check: nothing here is built into a game. The engine checkout is the main checkout's `.deps/smsggrecomp` (a
 worktree passes `--engine`).
@@ -202,6 +204,86 @@ def disk_program() -> bytes:
     return system_rom(a.image(0x4000))
 
 
+WRITE_COMMAND = (0x45, 0x00, 0, 0, 0xC2, 2, 0xC2, 0x2A, 0xFF)  # WRITE DATA, drive A, C0 H0 R C2h N2, EOT C2h
+READ_BACK = (0x46, 0x00, 0, 0, 0xC2, 2, 0xC2, 0x2A, 0xFF)      # READ DATA of the same sector
+
+
+def written_byte(n: int) -> int:
+    return (n * 5 + 11) & 0xFF
+
+
+def write_program() -> bytes:
+    """WRITE DATA of sector C2h as AMSDOS writes one (written_byte(0..511), from the ROM at 0400h), its result bytes at 4200h; then
+    READ DATA of the same sector into 4400h, its result at 4210h: the bytes come back from the disk in memory, which the run's
+    disk_fnv shows changed."""
+    a = Asm()
+    a.b(0xF3)
+    a.jp(0xC3, 'main')
+    a.org(0x100)
+    a.label('send')                      # A to the controller once it asks (RQM)
+    a.b(0x01); a.w(0xFB7E)               # LD BC,FB7Eh
+    a.b(0xF5)                            # PUSH AF
+    a.label('send_wait')
+    a.b(0xED, 0x78, 0x87)                # IN A,(C); ADD A,A (RQM to carry)
+    a.jr(0x30, 'send_wait')              # JR NC
+    a.b(0xF1, 0x0C, 0xED, 0x79, 0xC9)    # POP AF; INC C; OUT (C),A; RET
+    a.label('commands')                  # the nine command bytes at HL
+    a.b(0x16, 9)                         # LD D,9
+    a.label('command')
+    a.b(0x7E, 0x23)                      # LD A,(HL); INC HL
+    a.jp(0xCD, 'send')                   # CALL send
+    a.b(0x15)                            # DEC D
+    a.jr(0x20, 'command')
+    a.b(0xC9)                            # RET
+    a.label('results')                   # the seven result bytes to HL
+    a.b(0x01); a.w(0xFB7E)
+    a.b(0x16, 7)
+    a.label('status')
+    a.b(0xED, 0x78, 0x87)
+    a.jr(0x30, 'status')
+    a.b(0x0C, 0xED, 0x78, 0x0D, 0x77, 0x23, 0x15)   # INC C; IN A,(C); DEC C; LD (HL),A; INC HL; DEC D
+    a.jr(0x20, 'status')
+    a.b(0xC9)
+    a.label('main')
+    a.b(0x31); a.w(0xBFF0)
+    a.b(0x01); a.w(0xFA7E)               # the motor on
+    a.b(0x3E, 0x01, 0xED, 0x79)
+    a.b(0x21); a.w(0x0200)               # WRITE DATA
+    a.jp(0xCD, 'commands')
+    a.b(0x21); a.w(0x0400)               # LD HL,0400h: the bytes to write
+    a.b(0x01); a.w(0xFB7E)
+    a.label('write')
+    a.b(0xED, 0x78, 0x87)                # IN A,(C); ADD A,A: RQM
+    a.jr(0x30, 'write')
+    a.b(0x87, 0x87)                      # ADD A,A twice: EXM (bit 5) to carry
+    a.jr(0x30, 'written')
+    a.b(0x7E, 0x23, 0x0C, 0xED, 0x79, 0x0D)   # LD A,(HL); INC HL; INC C; OUT (C),A; DEC C
+    a.jr(0x18, 'write')
+    a.label('written')
+    a.b(0x21); a.w(0x4200)
+    a.jp(0xCD, 'results')
+    a.b(0x21); a.w(0x0209)               # READ DATA of the same sector
+    a.jp(0xCD, 'commands')
+    a.b(0x21); a.w(0x4400)
+    a.b(0x01); a.w(0xFB7E)
+    a.label('read')
+    a.b(0xED, 0x78, 0x87)
+    a.jr(0x30, 'read')
+    a.b(0x87, 0x87)
+    a.jr(0x30, 'read_done')
+    a.b(0x0C, 0xED, 0x78, 0x0D, 0x77, 0x23)   # INC C; IN A,(C); DEC C; LD (HL),A; INC HL
+    a.jr(0x18, 'read')
+    a.label('read_done')
+    a.b(0x21); a.w(0x4210)
+    a.jp(0xCD, 'results')
+    a.b(0x76)                            # HALT
+    a.org(0x200)
+    a.b(*WRITE_COMMAND, *READ_BACK)
+    a.org(0x400)
+    a.b(*(written_byte(n) for n in range(512)))
+    return system_rom(a.image(0x4000))
+
+
 def sector_byte(n: int) -> int:
     return (n * 7 + 3) & 0xFF
 
@@ -293,6 +375,16 @@ def checks(exe: Path) -> dict:
     results['and the result: abnormal, end of cylinder, next ID C1 R1'] = (
         watched['4200'] == 0x40 and watched['4201'] == 0x80 and watched['4203'] == 1 and watched['4205'] == 1
         and sector['fdc_commands'] == 1)
+    disk.write_bytes(disk_image())
+    written = run(exe, write_program(), '--disk', str(disk), '--frames', '5', '--until-halt',
+                  *[part for n in (0, 1, 255, 511) for part in ('--watch', f'{0x4400 + n:04X}')],
+                  *[part for n in (0, 1, 16, 17) for part in ('--watch', f'{0x4200 + n:04X}')])
+    watched = written['watch']
+    results['a sector written as AMSDOS writes it, then read back: its bytes in RAM, the disk changed'] = (
+        all(watched[f'{0x4400 + n:04X}'] == written_byte(n) for n in (0, 1, 255, 511)) and written['disk_written'] == 1
+        and written['fdc_commands'] == 2 and written['disk_fnv'] != sector['disk_fnv'])
+    results['both results: abnormal, end of cylinder (no terminal count on a CPC)'] = (
+        watched['4200'] == 0x40 and watched['4201'] == 0x80 and watched['4210'] == 0x40 and watched['4211'] == 0x80)
     return results
 
 

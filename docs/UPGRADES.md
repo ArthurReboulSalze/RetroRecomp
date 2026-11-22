@@ -729,6 +729,17 @@ The conversion report's final checks add the native counters the release check r
 **Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
 released export to upgrade.
 
+## Amstrad CPC (developer only): a written disk checked in fresh processes (1.9.0)
+
+The CPC's headless report gives drive A's digest at the end (`disk_fnv`, compared between the native run, the reference and the
+delivered file) and, in the game, at the start (`disk_start_fnv`, its copy read). `game.exe --headless --disk-copies DIR` keeps drive
+A's copy in DIR, read at the start as in the window and written at the end when the game wrote. Each conversion checks it on the
+play route (`cpc_conversion.check_disk_copies`, the report's `disk_writes`), as the MSX2+ does for its disks. `tools/cpc_reference.py`
+and `tools/cpc_native.py` add an authored program that writes a sector and reads it back.
+
+**Stamps** (`compilation_inputs.role_stamps`): the CPC's game stamp only (`cpc_player.c`, `cpc_headless.inc`, `cpc_build.py`,
+`cpc_conversion.py`). A developer-only machine: no released export to upgrade.
+
 ## Amstrad CPC (developer only): the independent Z80 vectors through the CPC's generator (1.9.0)
 
 `tools/banked_vector_selftest.py` takes `--machine cpc`. A profile may give `z80_vector_tstates`, a rule that turns one vector's

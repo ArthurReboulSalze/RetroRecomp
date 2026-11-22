@@ -235,7 +235,13 @@ static void headless_finish(void)
             headless_audio_hash, headless_audio_samples, machine.ga.mode, machine.ga.rom_config, machine.ga.ram_config,
             machine.upper_rom);
     for (int r = 0; r < 16; ++r) fprintf(out, "%s%u", r ? ", " : "", machine.ay_reg[r]);
-    fprintf(out, "], \"fdc_commands\": %u, \"disk_written\": %d, \"watch\": {", machine.fdc.commands, machine.fdc.drive[0].written);
+    const DskImage *disk = machine.fdc.drive[0].image;   /* drive A as it stands: what the game wrote on it included */
+    fprintf(out, "], \"fdc_commands\": %u, \"disk_written\": %d, \"disk_fnv\": %u, ", machine.fdc.commands,
+            machine.fdc.drive[0].written, disk ? headless_fnv(disk->bytes, disk->size) : 0u);
+#ifdef CPC_HEADLESS_DISK_START
+    fprintf(out, "\"disk_start_fnv\": %u, ", CPC_HEADLESS_DISK_START);   /* the game's: drive A when the run began, its copy read */
+#endif
+    fprintf(out, "\"watch\": {");
     for (unsigned w = 0; w < headless_watches; ++w)
         fprintf(out, "%s\"%04X\": %u", w ? ", " : "", headless_watch[w], cpc_read(&machine, (uint16_t)headless_watch[w]));
     fprintf(out, "}}\n");
