@@ -178,7 +178,30 @@ About three minutes a game, on Bomb Jack, Gryzor and Head over Heels as delivere
    Ctrl+Alt+K for the full keyboard. Reactivity is the owner's impression, never a latency figure.
 5. **Quick states**: F8, play on, F9; then F1 (help), pause and the restart.
 
-## 8. References
+## 8. Optimisation plan (step 4, 22 November 2026; nothing timed yet)
+
+Read from the code, not measured: what a CPC frame costs on the player's path and what could cost less. Each change is proved on
+its own before any timing (the same pictures, sound and state hashes on the panel's routes, every frame's row, and the snapshot
+probe), then timed in one slot on the quiet PC with the maintainer's go ([NEW_MACHINE.md](NEW_MACHINE.md#step-4-optimisation-pass)).
+
+A frame is 19,968 microseconds. For each one the board steps the CRTC and the Gate Array once (`cpc_advance`), and the Gate Array
+draws the 16 pixels of that microsecond when it is in the picture (`draw`: 48 x 272 = 13,056 of them). A game runs about 7,000 to
+9,000 instructions a frame, each at least one microsecond, so the glue catches the board up after nearly every instruction
+(`cpc_next_event` is the next microsecond).
+
+| # | Change | Why | Proof of identical output | Risk |
+|---|---|---|---|---|
+| 1 | The pens of a byte from a table (`cpc_byte_pens`: four modes x 256 bytes, built once) and each ink's colour kept when the ink is set (`cpc_colour` per pen today) | 13,056 draws a frame, each decoding two bytes bit by bit and looking up three levels per pen | pure functions of the same inputs: every row of the panel's routes and the authored picture checks equal | low |
+| 2 | A frame run again after a multiplayer correction draws nothing (the board's `picture` NULL on a silent frame, as its sound) | rollback runs up to 8 frames again; their pictures are never shown | the shown frames' pictures and every digest equal (smoke and snapshot probe with pictures) | low to medium: the frame after the corrections must be drawn whole |
+| 3 | Memory reads through a pointer per 16 KiB window, set when the map changes (`cpc_read` switches on the source today) | every read of every instruction | every row equal | low |
+| 4 | The board caught up at its next event (the end of the next HSYNC, where an interrupt can be raised, or the frame's end) instead of every microsecond, the bus still catching it up before a port or a write to the screen page | about 7,000 catch-ups a frame become about 312, one a line | every row and the interrupt counts equal on the panel and the authored interrupt and timing programs; native equal to the reference | **medium: for the maintainer's list**: a read that depends on the board's time without going through a port would see it late |
+| 5 | The AY's levels mixed without a 64-bit multiply and divide per tick | small | the sound hashes equal | low |
+
+Headless only, not the player's path: the frame rows' hashes (rows are written by the checks, not the game). Gains are expected
+from 1 and 2 first; 4 is the largest change and goes on the risky list with its proof. The CPC's rows go in PERFORMANCE.md once
+timed (Windows, and Linux in WSL2).
+
+## 9. References
 
 Written from the chips' data sheets and the CPC's documented behaviour; floooh/chips (zlib) and Clock Signal (MIT) read as
 documentation, nothing of them copied. No GPL code: the Z80 chain carries a noncommercial licence, so no GPL part may share a CPC
