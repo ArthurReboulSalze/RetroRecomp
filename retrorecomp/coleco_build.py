@@ -49,7 +49,7 @@ SHARED_MODULES = (('tms9918', ('tms9918.c',), ('tms9918.h', 'tms_tiles.inc')),
                   ('sn76489', ('sn76489.c',), ('sn76489.h',)))
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)      # in the work folder, flat
 # The glue every machine on the banked Z80 chain shares (native/z80_chain_glue.inc), included by coleco_glue.inc.
-CHAIN_FILES = ('z80_chain_glue.inc', 'audio_box.h', 'z80_chain_state.inc', 'state_file.h')
+CHAIN_FILES = ('z80_chain_glue.inc', 'z80_learned_set.h', 'audio_box.h', 'z80_chain_state.inc', 'state_file.h')
 # The player (the host kit's game of this machine): its source and what it includes; the game target of the project lists the source.
 PLAYER_SOURCES: tuple[str, ...] = ('coleco_player.c',)
 PLAYER_FILES: tuple[str, ...] = (*PLAYER_SOURCES, 'coleco_state_file.inc')

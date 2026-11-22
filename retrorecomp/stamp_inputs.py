@@ -289,6 +289,7 @@ NOT_INPUTS = (
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
     'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
+    'native/z80_learned_set_checks.c',   # tools/z80_learn_cap_selftest.py: the learned-window set has no bound, never in a game
     'native/z80_contention_checks.c',   # tools/z80_contention_selftest.py: contention, emitter against reference, never in a game
     'native/z80_contention_gate.c',   # tools/z80_contention_loop_selftest.py: an authored contention rule for the step loop's lines, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
@@ -1355,6 +1356,7 @@ INPUTS = _resolve({
     # accounting, the learning; retrorecomp/z80_chain_build.py: the generator, the bodies, the reference copy). Game role.
     'shares:z80_chain_glue': (
         'native/z80_chain_glue.inc',
+        'native/z80_learned_set.h',     # the windows a run learns: no bound (checked by native/z80_learned_set_checks.c)
         'retrorecomp.z80_chain_build',
         # The CMake that names the files a game's resources embed (its own group once machines off the chain use it too).
         'retrorecomp.resource_rebuild',
