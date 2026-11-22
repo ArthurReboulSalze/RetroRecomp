@@ -94,7 +94,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     import hashlib
     import json
     import time
-    from . import __version__, route_start, zxs_build, zxs_roms, zxs_routes, zxs_starts
+    from . import __version__, z80_chain_build, route_start, zxs_build, zxs_roms, zxs_routes, zxs_starts
     from .conversion_common import check_run_budget, resolve_scan_level
     from .core import ROOT, executable_name
     from .delivery_evidence import liveness_summary, replay_routes, report_fields, require_moving_picture
@@ -258,8 +258,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                                      'source': None if rom.origin == 'player' else
                                      f'{zxs_roms.SOURCE_REPOSITORY} at {zxs_roms.SOURCE_COMMIT} (Amstrad\'s permission for emulators)'},
                              'learning_passes_fallback_steps': pass_counts,
-                             'learned_patterns': len((work / 'native.patterns').read_text(encoding='utf-8').split())
-                             if (work / 'native.patterns').is_file() else 0,
+                             **z80_chain_build.learning_record(work),
                              'contention': CONTENTION},
               'final_checks': final_checks, 'scan_level': level, 'route_start': start_record,
               'hardware_devices': hardware_devices(snapshot),

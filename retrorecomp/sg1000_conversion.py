@@ -134,7 +134,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     `output/conversion-report.json`. Nothing is written to `output` when a check refuses the conversion."""
     import hashlib
     import shutil
-    from . import __version__, route_start, sg1000_build, sg1000_routes
+    from . import __version__, z80_chain_build, route_start, sg1000_build, sg1000_routes
     from .conversion_common import check_run_budget, resolve_scan_level
     from .core import ROOT, executable_name
     from .delivery_evidence import (deliver_packed, liveness_summary, replay_packed, replay_routes, report_fields,
@@ -244,8 +244,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 if name != 'attract':
                     require_moving_picture(record, lambda name=name: ConversionError(
                         f'SG-1000: {title}: the picture never changes on the {name} route; nothing was written.'))
-            learned = work / 'native.patterns'
-            learned_patterns = len(learned.read_text(encoding='utf-8').split()) if learned.is_file() else 0
+            learning = z80_chain_build.learning_record(work)
 
             # The game: the player and the host kit around the same bodies, with the cartridge and the notices as its own resources.
             phase = time.perf_counter()
@@ -311,7 +310,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                                          'learned and translated with byte guards'},
               'sg1000_checks': {'machine': 'SG-1000', 'cartridge_bytes': cart.size, 'padded_bytes': len(cartridge),
                                 'mapper': 'none: plain ROM mirrored to 48 KiB', 'standard': standard, 'bios': None,
-                                'learning_passes_fallback_steps': pass_counts, 'learned_patterns': learned_patterns,
+                                'learning_passes_fallback_steps': pass_counts, **learning,
                                 'delivered': True, 'delivery_note': DELIVERY_NOTE},
               'final_checks': final_checks, 'scan_level': level, 'route_start': start_record, 'hardware_devices': hardware_devices(),
               'route_warnings': route_warnings(final_checks),

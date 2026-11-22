@@ -129,7 +129,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             msx_bios=None, frames=FRAMES, passes=3, scan_level=None,
             standard_override=None, profile=None, emit=print, model='msx1', msx2_bios=None, msx2_subrom=None,
             msx2_ram=256, msx2_diskrom=None, msx2_fmbios=None, msx2_kanji=None, **unused) -> Path:
-    from . import __version__, msx_build, msx_cbios, msx_knowledge
+    from . import __version__, z80_chain_build, msx_build, msx_cbios, msx_knowledge
     from .core import ROOT, executable_name
     from .library import entry_lock
     from .msx_rom import read_cartridge
@@ -462,8 +462,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                        'mirrored': guess.mirrored, 'bios': bios_source, 'standard': standard,
                        'mapper_probe': probe,
                        'learning_passes_fallback_steps': pass_counts,
-                       'learned_patterns': len((work / 'native.patterns').read_text(encoding='utf-8').split())
-                       if (work / 'native.patterns').is_file() else 0,
+                       **z80_chain_build.learning_record(work),
                        **({'mapper_ram_kib': mapper_kib, 'rtc': 'RP5C01 started on Saturday 2000-01-01 12:00:00, machine time only',
                            'v9938_commands_started': (native.get('v9938') or {}).get('cmd_writes', 0),
                            'v9938_commands_by_kind': dict(zip(('stop', 'stop1', 'stop2', 'stop3', 'point', 'pset', 'srch', 'line', 'lmmv',

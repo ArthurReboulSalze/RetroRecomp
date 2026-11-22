@@ -328,10 +328,12 @@ static void snap_probe_service(void)
         if (k >= 1 && shown != snap_probe_pictures[k]) ++snap_probe_picture_mismatches;   /* from the first frame drawn again */
         if (k >= snap_probe_n) {
             const int pass = snap_probe_same && snap_probe_refused && !snap_probe_mismatches && !snap_probe_picture_mismatches;
+            uint64_t folded = 1469598103934665603ull;   /* every frame's digest in one value: two PCs compare it */
+            for (unsigned long long i = 0; i <= snap_probe_n; ++i) { folded ^= snap_probe_digests[i]; folded *= 1099511628211ull; }
             fprintf(stderr, "snap-probe: %s at %llu, %llu frames, %zu bytes (bound %zu), same over other bytes %d, wrong size "
-                    "refused %d, mismatches %lu, first at +%ld, pictures differing %lu\n", pass ? "PASS" : "FAIL", snap_probe_at,
-                    snap_probe_n, snap_probe_size, cpc_snap_bound(), snap_probe_same, snap_probe_refused, snap_probe_mismatches,
-                    snap_probe_bad, snap_probe_picture_mismatches);
+                    "refused %d, mismatches %lu, first at +%ld, pictures differing %lu, digests %016llx\n", pass ? "PASS" : "FAIL",
+                    snap_probe_at, snap_probe_n, snap_probe_size, cpc_snap_bound(), snap_probe_same, snap_probe_refused,
+                    snap_probe_mismatches, snap_probe_bad, snap_probe_picture_mismatches, (unsigned long long)folded);
             exit(pass ? 0 : 5);
         }
     }

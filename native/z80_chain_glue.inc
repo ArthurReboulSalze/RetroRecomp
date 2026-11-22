@@ -104,16 +104,19 @@ static void smsrecomp_feedback_at(uint16_t address)
 }
 /* Learning (--learn FILE): the four bytes at each address the interpreter ran, written out at the end; the next
  * generation translates them as byte-guarded native bodies (native.patterns beside game.toml, read by the emitter). */
+#include "z80_learned_set.h"
 static const char *learn_out;
-static uint32_t learned[4096];
+static RrLearnedSet learned_set;     /* every window, once, with no bound (native/z80_learned_set.h): none is dropped */
+static uint32_t *learned;            /* the same windows, first seen first: what the headless mains write to the --learn file */
 static int learned_count;
 static int smsrecomp_learning_enabled(void) { return learn_out != NULL; }
 static void smsrecomp_observe_code(const uint8_t *bytes)
 {
     uint32_t word = (uint32_t)bytes[0] << 24 | (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
-    for (int i = 0; i < learned_count; ++i)
-        if (learned[i] == word) return;
-    if (learned_count < 4096) learned[learned_count++] = word;
+    if (rr_learned_add(&learned_set, word)) {
+        learned = learned_set.words;
+        learned_count = (int)learned_set.count;
+    }
 }
 static void smsrecomp_state_service(void);
 static void smsrecomp_banked_fallback(uint16_t addr);

@@ -33,6 +33,22 @@ static int banked_key_order(const void *a, const void *b) {
     return (x->key > y->key) - (x->key < y->key);
 }
 
+/* The table doubles when it is half full: the windows a game learns are not bounded (native.patterns holds every one the interpreter
+ * ran), so the table cannot be sized from the ROM alone. The guard tables are written sorted by key, so the size never shows in the output. */
+static void banked_hash_grow(BankedOps *pool) {
+    size_t old_size = pool->mask + 1, new_size = old_size * 2;
+    BankedHash *grown = (BankedHash*)calloc(new_size, sizeof(*grown));
+    if (!grown) { fprintf(stderr, "[banked] out of memory\n"); exit(1); }
+    for (size_t i = 0; i < old_size; ++i) {
+        if (!pool->hash[i].id) continue;
+        size_t h = (size_t)((pool->hash[i].key * UINT64_C(11400714819323198485)) >> 17) & (new_size - 1);
+        while (grown[h].id) h = (h + 1) & (new_size - 1);
+        grown[h] = pool->hash[i];
+    }
+    free(pool->hash);
+    pool->hash = grown; pool->mask = new_size - 1;
+}
+
 static uint32_t banked_intern(BankedOps *pool, const uint8_t bytes[4]) {
     Z80Insn in;
     bool fragment = (bytes[0] == 0xDD || bytes[0] == 0xFD) &&
@@ -59,6 +75,11 @@ static uint32_t banked_intern(BankedOps *pool, const uint8_t bytes[4]) {
     size_t h = (size_t)((key * UINT64_C(11400714819323198485)) >> 17) & pool->mask;
     while (pool->hash[h].id && pool->hash[h].key != key) h = (h + 1) & pool->mask;
     if (pool->hash[h].id) return pool->hash[h].id;
+    if ((size_t)(pool->count + 1) * 2 > pool->mask + 1) {
+        banked_hash_grow(pool);
+        h = (size_t)((key * UINT64_C(11400714819323198485)) >> 17) & pool->mask;
+        while (pool->hash[h].id) h = (h + 1) & pool->mask;
+    }
     if (pool->count + 1 >= pool->capacity) {
         pool->capacity = pool->capacity ? pool->capacity * 2 : 1024;
         pool->ops = (Z80Insn*)realloc(pool->ops, pool->capacity * sizeof(*pool->ops));
@@ -241,7 +262,9 @@ static void banked_learn(BankedOps *pool, const char *dir, size_t *profile_windo
     *profile_windows = *profile_unsupported = 0;
     if (learned) {
         char line[80], extra; unsigned b[4];
-        while (*profile_windows < 4096 && fgets(line, sizeof line, learned)) {
+        /* Every window of the file, however many (no bound: a game that runs a lot of code from RAM learns a lot, and a window left
+         * out here is code that runs on the interpreter again). */
+        while (fgets(line, sizeof line, learned)) {
             if (sscanf(line, "%2x%2x%2x%2x %c", &b[0], &b[1], &b[2], &b[3], &extra) != 4) continue;
             uint8_t bytes[4] = {(uint8_t)b[0], (uint8_t)b[1], (uint8_t)b[2], (uint8_t)b[3]};
             ++*profile_windows;
@@ -282,6 +305,8 @@ static void banked_write_bodies(const BankedOps *pool, const GameConfig *cfg, co
 
 /* The tables every step uses and the guarded step; returns the number of guarded encodings. */
 static size_t banked_write_tables(FILE *o, const BankedOps *pool, size_t hash_size) {
+    (void)hash_size;                     /* the table grows while the windows are learned: its size is the pool's now */
+    const size_t slots = pool->mask + 1;
     fprintf(o, "static void (*const bodies[])(void) = {0,\n");
     for (uint32_t id = 1; id <= pool->count; ++id) fprintf(o, "game_banked_op_%u,\n", id);
     fprintf(o, "};\nstatic const uint8_t lengths[] = {0,\n");
@@ -293,7 +318,7 @@ static size_t banked_write_tables(FILE *o, const BankedOps *pool, size_t hash_si
     BankedHash *guards = (BankedHash*)malloc(pool->count * sizeof(*guards));
     if (!guards) exit(1);
     size_t guard_n = 0;
-    for (size_t i = 0; i < hash_size; ++i) if (pool->hash[i].id) guards[guard_n++] = pool->hash[i];
+    for (size_t i = 0; i < slots; ++i) if (pool->hash[i].id) guards[guard_n++] = pool->hash[i];
     qsort(guards, guard_n, sizeof(*guards), banked_key_order);
     fprintf(o, "static const uint64_t guard_keys[%zu] = {\n", guard_n);
     for (size_t i = 0; i < guard_n; ++i) fprintf(o, "UINT64_C(0x%llX),%s", (unsigned long long)guards[i].key, (i & 7) == 7 ? "\n" : "");
@@ -338,6 +363,9 @@ static void banked_write_coverage(const char *dir, size_t positions, size_t cove
         guard_n, profile_windows, profile_unsupported, pool->count-rom_bodies);
     fclose(o);
     printf("[banked] %zu/%zu ROM positions, %u native bodies, %zu bank seam variants\n", covered, positions, pool->count, seam_n+fixed_n);
+    if (profile_windows)
+        printf("[banked] learned: %zu windows read, %u translated into new native bodies, %zu not translatable (none left out)\n",
+               profile_windows, pool->count - rom_bodies, profile_unsupported);
 }
 
 /* A machine keyed by a region map (BankedMachine.mapped): every region of the address space shows a bank of one of several

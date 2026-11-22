@@ -59,7 +59,7 @@ SHARED_MODULES = (('tms9918', ('tms9918.c',), ('tms9918.h', 'tms_tiles.inc')),
                   ('ay38910', ('ay38910.c',), ('ay38910.h',)))
 SHARED_SOURCES = tuple(name for _, sources, _ in SHARED_MODULES for name in sources)      # in the work folder, flat
 # The glue every machine on the banked Z80 chain shares (native/z80_chain_glue.inc), included by msx_glue.inc.
-CHAIN_FILES = ('z80_chain_glue.inc',)
+CHAIN_FILES = ('z80_chain_glue.inc', 'z80_learned_set.h',)
 KIT_FILES = ('media_request.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc',
              'retro_keyboard.h', 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
              'stereo_fir.h', 'audio_output.inc', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h',

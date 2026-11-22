@@ -50,6 +50,27 @@ unsigned cpc_byte_pens(uint8_t mode, uint8_t b, uint8_t pens[8])
     }
 }
 
+/* What draw() reads for each pixel, built once from cpc_byte_pens and cpc_colour (the same values, looked up): the pen of each
+ * of the eight pixels a screen byte gives in each mode (a mode 1 pen twice, a mode 0 pen four times), and each hardware
+ * colour as 0x00RRGGBB. */
+static uint8_t PIXEL_PEN[4][256][8];
+static uint32_t COLOUR[32];
+static int tables_built;
+
+static void build_tables(void)
+{
+    for (unsigned mode = 0; mode < 4; ++mode)
+        for (unsigned b = 0; b < 256; ++b) {
+            uint8_t pens[8];
+            unsigned count = cpc_byte_pens((uint8_t)mode, (uint8_t)b, pens), width = 8 / count;
+            for (unsigned x = 0; x < 8; ++x)
+                PIXEL_PEN[mode][b][x] = pens[x / width];
+        }
+    for (unsigned c = 0; c < 32; ++c)
+        COLOUR[c] = cpc_colour((uint8_t)c);
+    tables_built = 1;
+}
+
 void cpc_ga_reset(CpcGateArray *g)
 {
     uint8_t pal = g->has_ram_pal;
@@ -95,25 +116,22 @@ static void draw(const CpcGateArray *g, CpcCrtcOut crtc, const uint8_t *ram, uin
     if (g->beam_x < WINDOW_X || g->beam_x >= WINDOW_X + CPC_SCREEN_WIDTH / 16
         || g->beam_y < WINDOW_Y || g->beam_y >= WINDOW_Y + CPC_SCREEN_HEIGHT)
         return;
+    if (!tables_built)
+        build_tables();
     uint32_t *out = picture + (g->beam_y - WINDOW_Y) * CPC_SCREEN_WIDTH + (g->beam_x - WINDOW_X) * 16;
     if (crtc.hsync || crtc.vsync) {
         for (unsigned i = 0; i < 16; ++i) out[i] = 0;
         return;
     }
     if (!crtc.display) {
-        uint32_t border = cpc_colour(g->ink[CPC_BORDER_PEN]);
+        uint32_t border = COLOUR[g->ink[CPC_BORDER_PEN] & 31];
         for (unsigned i = 0; i < 16; ++i) out[i] = border;
         return;
     }
     for (unsigned byte = 0; byte < 2; ++byte) {
-        uint8_t pens[8];
-        unsigned count = cpc_byte_pens(g->mode, ram[cpc_crtc_address(crtc.ma, crtc.ra, byte)], pens);
-        unsigned width = 8 / count;
-        for (unsigned p = 0; p < count; ++p) {
-            uint32_t colour = cpc_colour(g->ink[pens[p]]);
-            for (unsigned w = 0; w < width; ++w)
-                *out++ = colour;
-        }
+        const uint8_t *pens = PIXEL_PEN[g->mode & 3][ram[cpc_crtc_address(crtc.ma, crtc.ra, byte)]];
+        for (unsigned x = 0; x < 8; ++x)
+            *out++ = COLOUR[g->ink[pens[x]] & 31];
     }
 }
 
