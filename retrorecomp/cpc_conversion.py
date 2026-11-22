@@ -27,7 +27,7 @@ FRAMES = 3600                    # the boot route's default length
 LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame', 'audible_frames',
                                         'last_audible_frame', 'distinct_sound_blocks', 'distinct_ram_states',
                                         'distinct_program_counters')}
-NATIVE_COUNTS = ('native_steps', 'fallback_steps')   # the delivered game's equal the check's
+NATIVE_COUNTS = ('native_steps', 'halt_steps', 'guarded_steps', 'fallback_steps', 'fallback_cycles', 'fallback_at')   # the game's equal the check's
 STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
 MIN_FRAMES = 60 + STATE_SETTLE + 60
 CRTC_TYPE = 1                    # the CRTC of the board (cpc_crtc.h: type 1, the 6128's commonest)
@@ -242,9 +242,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         final_checks.append({
             'name': name, 'scenario': name, 'frames': native['frames'],
             'script_sha256': hashlib.sha256((start + text).encode('ascii')).hexdigest(), 'script_events': len(text.splitlines()),
-            'native_steps': native['native_steps'], 'interpreted_steps': native['fallback_steps'],
+            'native_steps': native['native_steps'], 'halt_steps': native['halt_steps'], 'guarded_steps': native['guarded_steps'],
+            'interpreted_steps': native['fallback_steps'], 'interpreted_cycles': native['fallback_cycles'],
+            'fallback_at': native['fallback_at'],
             # The same counts under the names the common report reads (report_schema._main_scenario): Z80 instructions.
             'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps'],
+            'interpreter_cycles': native['fallback_cycles'],
             'interpreter_percent': round(100 * native['fallback_steps'] / max(1, executed), 6),
             'reference_match': True, 'compared_fields': list(cpc_build.COMPARED),
             'ram_hash': native['ram_fnv'], 'image_hash': native['picture_fnv'], 'pcm_hash': native['audio_fnv'],

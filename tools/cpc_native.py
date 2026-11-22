@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import cpc_reference  # noqa: E402
 
 WORK = ROOT / '.build' / 'cpc-native'
-NATIVE_ONLY = ('native_steps', 'fallback_steps')
+NATIVE_ONLY = ('native_steps', 'halt_steps', 'guarded_steps', 'fallback_steps', 'fallback_cycles', 'fallback_at')
 REFERENCE_ONLY = ('steps',)
 AMSDOS_STANDIN = b'\xC9' * 0x4000               # a 16 KiB stand-in: never paged in by these programs
 
