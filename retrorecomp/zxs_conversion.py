@@ -121,7 +121,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         output = games_directory(system_id='zxs') / 'datas/reports' / snapshot.sha256
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
-    image = zxs_build.zxs_image(snapshot)
+    fuller = zxs_starts.fuller_idle(snapshot.sha256)
+    image = zxs_build.zxs_image(snapshot, fuller_idle=bool(fuller))
     work = ROOT / '.build' / 'zxs' / f'{snapshot.sha256[:12]}-{rom.sha256[:8]}'
     level = resolve_scan_level(scan_level)
     frames, passes = int(frames or FRAMES), int(passes or 3)
@@ -254,6 +255,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'zxs_checks': {'machine': snapshot.hardware, 'model': snapshot.model, 'joystick': snapshot.joystick,
                              'joystick_rule': f'reviewed data of this snapshot (retrorecomp/zxs_starts.py): {reviewed_joystick[1]}'
                              if reviewed_joystick else 'the snapshot\'s header',
+                             'fuller_idle': f'reviewed data of this snapshot (retrorecomp/zxs_starts.py): {fuller}' if fuller else None,
                              'rom': {'origin': rom.origin, 'sha256': rom.sha256,
                                      'source': None if rom.origin == 'player' else
                                      f'{zxs_roms.SOURCE_REPOSITORY} at {zxs_roms.SOURCE_COMMIT} (Amstrad\'s permission for emulators)'},

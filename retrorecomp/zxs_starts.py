@@ -9,6 +9,8 @@ replace the search of the start variants, and the report names them (route_start
 ROUTE_STOPS: snapshots whose routes are known to stop short of play for a reason no input changes; the report carries the note
 (route_stop), and nothing is hidden: the routes are played and compared as usual.
 
+FULLER_IDLE: snapshots whose game polls the Fuller port (7Fh) though no Fuller is chosen: the machine gets one, idle.
+
 JOYSTICKS: the joystick interface a game's own menu uses when the snapshot's header says another; the conversion reads the
 snapshot with it (pads, routes, the Kempston port), and the report names it (zxs_checks.joystick_rule).
 
@@ -63,6 +65,17 @@ JOYSTICKS: dict[str, dict] = {
     },
 }
 
+FULLER_IDLE: dict[str, str] = {
+    # Snapshots whose game reads the Fuller joystick's port (7Fh) every frame even when another interface is chosen: on a machine
+    # without a Fuller box that port floats, and the floating bus's screen bytes read as presses. Reviewed data gives the machine a
+    # Fuller box, present and idle (FFh). The floating bus itself stays the documented model (docs/ZX_SPECTRUM.md, section 5).
+    # Match Day II (1987, Ocean), 22 November 2026: every frame it reads the eight half-rows and port 017Fh; after a key's release
+    # the menu cursor kept moving on its own, 15 of 73 reads of 7Fh returning screen bytes (00h, 45h, 46h) in that window.
+    'b4b188edc2c5b03aef01bd593721f8807aa403510c439df14d66dcd4e5820c86':
+        'it reads the Fuller port (7Fh) every frame, even on the Kempston; floating, the screen bytes there moved its menu cursor '
+        'with no key held',
+}
+
 ROUTE_STOPS: dict[str, str] = {
     # Elite (1985, Firebird), 21 November 2026: the snapshot starts inside the game's own decryption (LDI chains, interrupts off);
     # about 50 frames in, the program halts with interrupts disabled and never runs again, on the reference as natively, so its
@@ -86,6 +99,11 @@ def joystick_for(identity: str):
     """The reviewed joystick interface of the snapshot `identity` (one of zxs_snapshot.JOYSTICKS) and why, or None."""
     entry = JOYSTICKS.get(identity)
     return (entry['joystick'], entry['why']) if entry else None
+
+
+def fuller_idle(identity: str) -> str | None:
+    """Why the snapshot `identity` gets a Fuller box present and idle (FULLER_IDLE), or None."""
+    return FULLER_IDLE.get(identity)
 
 
 def route_stop(identity: str) -> str | None:

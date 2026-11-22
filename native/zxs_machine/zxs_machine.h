@@ -43,6 +43,7 @@ typedef struct {
     uint8_t keys[8];               /* the half-rows, active low (bits 0-4): FEFE, FDFE, FBFE, F7FE, EFFE, DFFE, BFFE, 7FFE */
     uint8_t kempston;              /* active high: bits 0 right, 1 left, 2 down, 3 up, 4 fire */
     int kempston_present;          /* the Kempston interface answers at port 1Fh */
+    int fuller_present;            /* a Fuller box answers at port 7Fh, idle (FFh): reviewed data, image byte 31 */
     uint8_t ay_latch, ay_regs[16]; /* the 128K's AY-3-8910 registers */
     Ay38910 ay;                    /* its counters (native/ay38910) */
     uint64_t ay_next;              /* the cycle of its next tick (every 16 T) */
