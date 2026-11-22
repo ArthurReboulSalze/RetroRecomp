@@ -9,8 +9,9 @@
  * bank, ROM, lock), the Kempston port 1Fh, the 128K's AY-3-8910 (native/ay38910, the chip shared with the MSX; its clock is the
  * CPU's / 2, a tick every 16 T-states) on ports FFFDh/BFFDh, mixed with the beeper.
  *
- * What it does not model (stated, never hidden): the ULA's memory contention (every instruction takes its plain Z80 time), the
- * floating bus (an unused port reads FFh), the border changes within a line, tapes, the +2A/+3. */
+ * The ULA's memory contention is modelled (zxs_contend_memory, zxs_contend_io), from the documented pattern; the chain's evaluator
+ * asks it for each bus cycle. What it does not model (stated, never hidden): the floating bus (an unused port reads FFh), the
+ * border changes within a line, tapes, the +2A/+3. */
 #ifndef RR_ZXS_MACHINE_H
 #define RR_ZXS_MACHINE_H
 
@@ -87,6 +88,15 @@ int zxs_irq(const ZxsMachine *m);
 int zxs_irq_at(const ZxsMachine *m, uint64_t cycle);
 /* Which RAM bank shows at C000h, and which ROM at 0000h (0 on the 48K). */
 int zxs_bank_c000(const ZxsMachine *m);
+/* Contention (docs/ZX_SPECTRUM.md): the ULA holds the CPU off 4000h-7FFFh (and, on the 128K, the odd RAM banks paged at C000h)
+ * while it fetches the paper. zxs_contended: the address is in contended memory. zxs_contend_memory: the delay of a memory or
+ * internal cycle starting at cycle `t` on `address` (6, 5, 4, 3, 2, 1, 0, 0 by the T-state within the first 128 of each paper
+ * line, from T-state 14335 of the frame on the 48K and 14361 on the 128K). zxs_contend_io: the whole delay of an I/O cycle on
+ * `port` starting at `t` (the four cases of the high byte and the ULA's bit 0). `t` is the CPU's cycle count, the machine's
+ * clock; the machine may lag behind it, the frame position is taken from its frame start. */
+int zxs_contended(const ZxsMachine *m, uint16_t address);
+unsigned zxs_contend_memory(const ZxsMachine *m, uint64_t t, uint16_t address);
+unsigned zxs_contend_io(const ZxsMachine *m, uint64_t t, uint16_t port);
 int zxs_rom_bank(const ZxsMachine *m);
 /* Up to `max` mono 16-bit samples at ZXS_AUDIO_RATE. */
 unsigned zxs_audio_take(ZxsMachine *m, int16_t *out, unsigned max);

@@ -61,6 +61,51 @@ static void frames_and_irq(int model, uint32_t frame, unsigned pulse)
     check(what, zxs_irq_at(&m, next + m.t_line - 1), 0);
 }
 
+/* Contention, from the documented numbers (docs/ZX_SPECTRUM.md): the delay 6, 5, 4, 3, 2, 1, 0, 0 by the T-state within the first
+ * 128 of each of the 192 paper lines, from T-state 14335 (48K, 224 a line) or 14361 (128K, 228 a line) of the frame; 4000h-7FFFh,
+ * and the 128K's odd banks at C000h; the I/O cases N:1 C:3, N:4, C:1 C:3 and C:1 x4. */
+static void contention_checks(void)
+{
+    zxs_reset(&m, ZXS_48K, 0, rom);
+    check("48K: no delay before 14335", zxs_contend_memory(&m, 14334, 0x4000), 0);
+    check("48K: 6 at 14335", zxs_contend_memory(&m, 14335, 0x4000), 6);
+    check("48K: 5 at 14336", zxs_contend_memory(&m, 14336, 0x5800), 5);
+    check("48K: 1 at 14340", zxs_contend_memory(&m, 14340, 0x7FFF), 1);
+    check("48K: 0 at 14341", zxs_contend_memory(&m, 14341, 0x4000), 0);
+    check("48K: 0 at 14342", zxs_contend_memory(&m, 14342, 0x4000), 0);
+    check("48K: 6 again at 14343", zxs_contend_memory(&m, 14343, 0x4000), 6);
+    check("48K: 6 at 14335 + 120", zxs_contend_memory(&m, 14335 + 120, 0x4000), 6);
+    check("48K: none from the 128th T-state of a line", zxs_contend_memory(&m, 14335 + 128, 0x4000), 0);
+    check("48K: none in the right border", zxs_contend_memory(&m, 14335 + 223, 0x4000), 0);
+    check("48K: 6 at the next line", zxs_contend_memory(&m, 14335 + 224, 0x4000), 6);
+    check("48K: 6 on the last paper line", zxs_contend_memory(&m, 14335 + 191 * 224, 0x4000), 6);
+    check("48K: none below the paper", zxs_contend_memory(&m, 14335 + 192 * 224, 0x4000), 0);
+    check("48K: the next frame, from the frame start", zxs_contend_memory(&m, 69888 + 14335, 0x4000), 6);
+    check("48K: ROM is not contended", zxs_contend_memory(&m, 14335, 0x3FFF), 0);
+    check("48K: 8000h is not contended", zxs_contend_memory(&m, 14335, 0x8000), 0);
+    check("48K: I/O N:1 C:3 on the ULA (high byte free)", zxs_contend_io(&m, 14334, 0x00FE), 6);
+    check("48K: I/O N:4 (neither)", zxs_contend_io(&m, 14335, 0x00FF), 0);
+    check("48K: I/O C:1 C:3 (contended high byte, the ULA)", zxs_contend_io(&m, 14337, 0x40FE), 4);
+    check("48K: I/O C:1 x4 (contended high byte only)", zxs_contend_io(&m, 14335, 0x40FF), 12);
+    check("48K: I/O outside the paper", zxs_contend_io(&m, 100, 0x40FF), 0);
+
+    zxs_reset(&m, ZXS_128K, 0, rom);
+    check("128K: no delay at 14360", zxs_contend_memory(&m, 14360, 0x4000), 0);
+    check("128K: 6 at 14361", zxs_contend_memory(&m, 14361, 0x4000), 6);
+    check("128K: 6 at the next line (228)", zxs_contend_memory(&m, 14361 + 228, 0x4000), 6);
+    check("128K: none from the 128th T-state", zxs_contend_memory(&m, 14361 + 128, 0x4000), 0);
+    check("128K: the next frame (70908)", zxs_contend_memory(&m, 70908 + 14361, 0x4000), 6);
+    check("128K: bank 2 at 8000h is not contended", zxs_contend_memory(&m, 14361, 0x8000), 0);
+    zxs_out(&m, 0x7FFD, 0x01);
+    check("128K: bank 1 at C000h is", zxs_contend_memory(&m, 14361, 0xC000), 6);
+    check("128K: and a port with its high byte there", zxs_contend_io(&m, 14361, 0xC0FF), 12);
+    zxs_out(&m, 0x7FFD, 0x07);
+    check("128K: bank 7 at C000h is", zxs_contend_memory(&m, 14361, 0xFFFF), 6);
+    zxs_out(&m, 0x7FFD, 0x02);
+    check("128K: bank 2 at C000h is not", zxs_contend_memory(&m, 14361, 0xC000), 0);
+    check("128K: nor a port with its high byte there", zxs_contend_io(&m, 14361, 0xC0FF), 0);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) { printf("usage: zxs_machine_checks image48 image128 image16\n"); return 2; }
@@ -169,6 +214,7 @@ int main(int argc, char **argv)
     check("16K: nothing written at C000h", zxs_read(&m, 0xC000), 0xFF);
     check("16K: bank 5 at 4000h", zxs_read(&m, 0x7FFF), 5);
 
+    contention_checks();
     printf("CHECKS=%d FAILED=%d\n", checks, failed);
     return failed ? 1 : 0;
 }

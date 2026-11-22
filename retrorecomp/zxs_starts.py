@@ -66,11 +66,13 @@ JOYSTICKS: dict[str, dict] = {
 ROUTE_STOPS: dict[str, str] = {
     # Elite (1985, Firebird), 21 November 2026: the snapshot starts inside the game's own decryption (LDI chains, interrupts off);
     # about 50 frames in, the program halts with interrupts disabled and never runs again, on the reference as natively, so its
-    # « Press Space, Commander » never animates. Suspected: a protection that depends on the machine's timing (the ULA's
-    # contention is not modelled yet); to be checked again once it is.
+    # « Press Space, Commander » never animates. Suspected at first: a protection on the machine's timing; on 22 November 2026,
+    # with the ULA's contention modelled, it halts the same way (40,981 instructions): the cause is not contention. Open: the
+    # floating bus (not modelled), or a snapshot taken inside the loader's decryption.
     '72980b5cdf6057ec112536b376fe64878d55d761bc19875f0535a92c216a7b7b':
-        'the program halts with interrupts disabled about 50 frames after the snapshot, inside its own decryption: suspected '
-        'timing-dependent protection (ULA contention is not modelled yet); the routes stay on its title',
+        'the program halts with interrupts disabled about 50 frames after the snapshot, inside its own decryption, with or '
+        'without the ULA contention; open: the floating bus (not modelled) or a snapshot taken inside the loader; the routes '
+        'stay on its title',
 }
 
 

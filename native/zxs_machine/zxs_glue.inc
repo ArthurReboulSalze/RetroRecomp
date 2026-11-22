@@ -12,7 +12,7 @@
  * instruction's end time. The step loop catches the machine up only when an instruction crosses a line, so the level is computed
  * at the CPU's time, not at the machine's (zxs_irq_at): read at the machine's, a pulse of 32 T lasted the whole first line, and
  * an EI late in that line took an interrupt the machine never gave (Match Day II, 21 November 2026). Memory is plain RAM and ROM (the 128K pages through a port), so a write needs no
- * catching up. The ULA's contention is not modelled. */
+ * catching up. The ULA's contention is the machine's rule (zxs_contend_*), asked by the chain's evaluator below. */
 #include "zxs_machine.h"
 #include "game_banked.h"
 #include "runtime_reference.h"
@@ -29,6 +29,11 @@ static ZxsMachine machine;
 static uint8_t rom[0x8000];                 /* the ROM source: 16 KiB (48K) or 32 KiB (128K, the editor ROM then the BASIC ROM) */
 
 static void zxs_main_service(void);
+/* Contention (z80_chain.Z80Machine.contention): the chain's evaluator asks the machine; the CPU's count is the machine's clock. */
+unsigned rr_contend_memory(uint64_t t, uint16_t address) { return zxs_contend_memory(&machine, t, address); }
+unsigned rr_contend_io(uint64_t t, uint16_t port) { return zxs_contend_io(&machine, t, port); }
+uint8_t rr_contend_peek(uint16_t address) { return zxs_read(&machine, address); }
+
 static void machine_to(uint64_t cycle);     /* the shared glue (z80_chain_glue.inc) catches the hardware up through it */
 #include "z80_chain_glue.inc"
 

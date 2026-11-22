@@ -12,6 +12,8 @@
 #include "zxs_machine.h"
 #include "sms_runtime.h"
 #include "runtime_reference.h"
+#define RR_TIMED_API
+#include "banked_timed.h"     /* rr_timed_epoch (z80_chain.Z80Machine.contention) */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +35,12 @@ static uint8_t bus_read(void *user, uint16_t address) { (void)user; return zxs_r
 static void bus_write(void *user, uint16_t address, uint8_t value) { (void)user; zxs_write(&machine, address, value); }
 static uint8_t bus_in(z80 *z, uint16_t port) { (void)z; return zxs_in(&machine, port); }
 static void bus_out(z80 *z, uint16_t port, uint8_t value) { (void)z; zxs_out(&machine, port, value); }
+
+/* Contention (z80_chain.Z80Machine.contention): the reference copy's evaluator asks the machine. Each step counts from 0
+ * (g_hz.cyc), from the machine's clock (rr_timed_epoch). */
+unsigned rr_contend_memory(uint64_t t, uint16_t address) { return zxs_contend_memory(&machine, t, address); }
+unsigned rr_contend_io(uint64_t t, uint16_t port) { return zxs_contend_io(&machine, t, port); }
+uint8_t rr_contend_peek(uint16_t address) { return zxs_read(&machine, address); }
 
 #include "banked_reference_state.inc"
 #include "zxs_cpu_start.inc"
@@ -96,6 +104,7 @@ int main(int argc, char **argv)
     g_hz.pc = g_z80.pc;
     for (;;) {
         g_hz.int_pending = 0;                    /* the step accepts nothing: the level is read after it */
+        g_hz.cyc = 0; rr_timed_epoch = machine.cycles;   /* the step's count, from the machine's clock */
         unsigned long c0 = g_hz.cyc;
         z80_step(&g_hz);
         zxs_advance(&machine, (uint64_t)(g_hz.cyc - c0));

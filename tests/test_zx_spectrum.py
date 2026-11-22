@@ -262,7 +262,8 @@ class ProfileTests(unittest.TestCase):
         stored = json.loads(target.read_text(encoding='utf-8'))
         self.assertEqual((stored['system']['id'], stored['status'], stored['latency_ms']), ('zxs', 'experimental', None))
         self.assertFalse(stored['hardware_accuracy_validated'])
-        self.assertIn('contention is not modelled', stored['hardware_limits'][0])
+        self.assertIn('floating bus is not modelled', stored['hardware_limits'][0])
+        self.assertTrue(get_profile('zxs').z80_machine.contention)      # the ULA's contention (docs/ZX_SPECTRUM.md, section 5)
         report = read_report(target)
         self.assertEqual(report['system']['id'], 'zxs')
 
