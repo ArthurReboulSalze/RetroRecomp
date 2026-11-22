@@ -13,6 +13,7 @@ MIT C for the rest, written from floooh/chips (zlib) and Clock Signal (MIT) as r
 """
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -82,7 +83,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     import hashlib
     import json
     import time
-    from . import __version__, route_start, zxs_build, zxs_roms, zxs_routes
+    from . import __version__, route_start, zxs_build, zxs_roms, zxs_routes, zxs_starts
     from .conversion_common import check_run_budget, resolve_scan_level
     from .core import ROOT, executable_name
     from .delivery_evidence import liveness_summary, replay_routes, report_fields, require_moving_picture
@@ -93,7 +94,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         raise ConversionError('ZX Spectrum snapshots are read from their content; TOML cartridge profiles do not apply.')
     try:
         snapshot = read_snapshot(path)
-        rom = zxs_roms.rom_for(snapshot.model, {'zxs_rom48': zxs_rom48, 'zxs_rom128': zxs_rom128}, emit)
+        reviewed_joystick = zxs_starts.joystick_for(snapshot.sha256)
+        if reviewed_joystick:
+            # The interface the game's own menu uses (reviewed data): the image's joystick byte, the pads and the routes follow it.
+            snapshot = dataclasses.replace(snapshot, joystick=reviewed_joystick[0])
+            emit(f'ZX Spectrum: the joystick is the {reviewed_joystick[0]} interface (reviewed data of this snapshot, zxs_starts).')
+        rom =zxs_roms.rom_for(snapshot.model, {'zxs_rom48': zxs_rom48, 'zxs_rom128': zxs_rom128}, emit)
     except (OSError, ValueError) as error:
         raise ConversionError(str(error)) from None
     title = title or Path(path).stem
@@ -132,12 +138,15 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             rows = folder / f'{name}-reference.csv'
             return zxs_build.run(reference_exe, rom_path, image, [*options(name, count, text), '--rows', str(rows)]), rows
 
-        # The start (route_start, as the MSX): each variant played on the reference against the route without input.
+        # The start (route_start, as the MSX): each variant played on the reference against the route without input; a snapshot
+        # with reviewed start data (zxs_starts) plays its own presses instead, measured the same way.
         phase = time.perf_counter()
         play_frames = max(frames, zxs_routes.PLAY_FRAMES)
         seed = zxs_routes.route_seed(snapshot.sha256, 'play')
-        variants = zxs_routes.candidates(play_frames)
-        emit(f'ZX Spectrum: choosing how the play route starts ({len(variants)} variants on the reference).')
+        reviewed = zxs_starts.start_for(snapshot.sha256)
+        variants = [reviewed[0]] if reviewed else zxs_routes.candidates(play_frames)
+        emit('ZX Spectrum: the play route starts with the reviewed presses of this snapshot (zxs_starts).' if reviewed else
+             f'ZX Spectrum: choosing how the play route starts ({len(variants)} variants on the reference).')
         try:
             played = replay_routes(
                 [('baseline', None), *((f'start-{zxs_routes.variant_name(v)}', v) for v in variants)],
@@ -155,11 +164,13 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             mine = pictures(rows)
             results[variant] = {'liveness': report_fields(liveness_summary(zxs_build.frame_rows(rows)), LIVENESS_FIELDS),
                                 'divergence': route_start.divergence(mine, baseline),
-                                'reach': route_start.reach(mine, baseline, zxs_routes.walk_start(variant[0]),
+                                'reach': route_start.reach(mine, baseline, zxs_routes.walk_start(variant),
                                                            zxs_routes.QUIET_WALK)}
-        chosen = route_start.choose_start(results, play_frames, zxs_routes.variant_order)
-        start_record = {'presses': chosen[0], 'key': chosen[1],
-                        'rule': 'alive until the last 120 frames, then most pictures the walk reached that no input showed, '
+        chosen = variants[0] if reviewed else route_start.choose_start(results, play_frames, zxs_routes.variant_order)
+        start_record = {'presses': [list(press) for press in chosen], 'name': zxs_routes.variant_name(chosen),
+                        'source': 'reviewed' if reviewed else 'chosen',
+                        'rule': f'reviewed start data of this snapshot (retrorecomp/zxs_starts.py): {reviewed[1]}' if reviewed else
+                                'alive until the last 120 frames, then most pictures the walk reached that no input showed, '
                                 'then most frames the input changed, then the fewest presses',
                         'variants': {zxs_routes.variant_name(v): r for v, r in results.items()}}
         emit(f'ZX Spectrum: the play route starts with {zxs_routes.variant_name(chosen)}.')
@@ -229,6 +240,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                            'native_cpu': 'every instruction position of the Spectrum ROM translated ahead of time; the code the '
                                          'snapshot runs from RAM learned and translated with byte guards'},
               'zxs_checks': {'machine': snapshot.hardware, 'model': snapshot.model, 'joystick': snapshot.joystick,
+                             'joystick_rule': f'reviewed data of this snapshot (retrorecomp/zxs_starts.py): {reviewed_joystick[1]}'
+                             if reviewed_joystick else 'the snapshot\'s header',
                              'rom': {'origin': rom.origin, 'sha256': rom.sha256,
                                      'source': None if rom.origin == 'player' else
                                      f'{zxs_roms.SOURCE_REPOSITORY} at {zxs_roms.SOURCE_COMMIT} (Amstrad\'s permission for emulators)'},
@@ -242,6 +255,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                                   'the floating bus is not modelled: an unused port reads FFh',
                                   'border changes within a line are drawn at the line\'s end'],
               'route_warnings': route_warnings(final_checks),
+              'route_stop': zxs_starts.route_stop(snapshot.sha256),
               'ordinary_saves': {'supported': False, 'reason': 'the ZX Spectrum has no battery save', 'scope': None,
                                  'path': None, 'validation': None},
               'sound_routes': {name: bool(record['audible_frames']) for name, record in liveness.items()},

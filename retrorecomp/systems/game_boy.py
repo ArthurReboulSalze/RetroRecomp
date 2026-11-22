@@ -33,7 +33,7 @@ class GameBoyProfile(SystemProfile):
     quick_state_family = "gb"
     host_adapter = "adapters/rrhk_gb.inc"
     capabilities = Capabilities(battery=True)
-    stamp_groups = ('conversion_gates',)
+    stamp_groups = ('conversion_gates', 'gameboy')
     feedback_kinds = frozenset({2})
     option_keys = (OptionKey("gb_deep_validation", label="gb_deep_validation", hint="tip_gb_deep_validation",
                              default=True),
@@ -50,10 +50,12 @@ class GameBoyProfile(SystemProfile):
     library_layout = LibraryLayout(folder="gb", summary_glob="*/trace.json", companion="entries.trace")
     input_layout = InputLayout(("a", "b"), (), "select", 180, script_format="gameboy")
     shared_knowledge = SharedKnowledge("stable", site_builder=True)
-    # A headerless dump is a Game Boy cartridge when its header checksum, declared size and title agree.
+    # A headerless dump is a Game Boy cartridge when its header checksum, declared size and title agree (and it is not Color-only).
     identify = Identify(content_order=5)
 
-    def identify_content(self, data: bytes):
+    @staticmethod
+    def header_matches(data: bytes) -> bool:
+        """True when the header of a Game Boy or Game Boy Color cartridge checks out: checksum, declared size, title."""
         if len(data) >= 0x8000 and len(data) % 0x4000 == 0:
             checksum = 0
             for value in data[0x134:0x14d]:
@@ -63,10 +65,27 @@ class GameBoyProfile(SystemProfile):
             declared_size = (0x8000 << size_code) if size_code <= 8 else {
                 0x52: 72 * 0x4000, 0x53: 80 * 0x4000,
                 0x54: 96 * 0x4000}.get(size_code)
-            if (checksum == data[0x14d] and declared_size == len(data)
-                    and title and all(32 <= value < 127 for value in title)):
-                return self
+            return bool(checksum == data[0x14d] and declared_size == len(data)
+                        and title and all(32 <= value < 127 for value in title))
+        return False
+
+    def identify_content(self, data: bytes):
+        if self.header_matches(data) and data[0x143] != 0xC0:
+            return self
         return None
+
+    def refine_match(self, path: Path, data: bytes | None):
+        """A cartridge whose header says Color-only is the Game Boy Color's, whatever its extension (a ``.gb`` or a ZIP holding one)."""
+        if data is None and path.suffix.casefold() == '.gb':
+            try:
+                with path.open('rb') as source:
+                    data = source.read(0x150)
+            except OSError:
+                return self
+        if data is not None and len(data) >= 0x150 and data[0x143] == 0xC0:
+            from .game_boy_color import GAME_BOY_COLOR
+            return GAME_BOY_COLOR
+        return self
 
     def read_rom(self, path: Path):
         from ..gameboy import read_game_boy_rom

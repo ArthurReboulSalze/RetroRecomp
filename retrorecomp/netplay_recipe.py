@@ -74,7 +74,7 @@ _CARTRIDGE = ('its conversion reads learned files of its own in the library (cod
               'for its converter')
 # Why each other machine is not in recipe mode: what the code shows, nothing more.
 LEFT_OUT = {
-    'gb': _CARTRIDGE, 'nes': _CARTRIDGE, 'md': _CARTRIDGE, 'snes': _CARTRIDGE,
+    'gb': _CARTRIDGE, 'gbc': _CARTRIDGE, 'nes': _CARTRIDGE, 'md': _CARTRIDGE, 'snes': _CARTRIDGE,
     'ng': ('its paths are keyed by cartridge and BIOS together and read by neogeo_knowledge, which tests '
            'RETRO_RECOMP_LIBRARY_DIR itself; recipe mode is not established for it'),
     'cps1': _OWN_RECORD, 'cps2': _OWN_RECORD, 'x68': _OWN_RECORD, 'pce': _OWN_RECORD, 'msx': _OWN_RECORD,
@@ -83,9 +83,11 @@ LEFT_OUT = {
     'pcecd': ('its paths are keyed by the disc and the System Card together (the disc is a CHD, a CUE sheet with its tracks or an ISO, not a dump with a ROM hash), and its conversion '
               'reads observations of its own in the library folder of the game; how they travel as numbers and are rebuilt on the other side is not established'),
     'n64': 'its conversion keeps its own files in the library folder of the game; recipe mode is not established for it',
-    'sg1000': 'experimental, developer only: it converts cartridges but has no multiplayer session or path record, so recipe mode is not established for it',
+    'sg1000': 'experimental, developer only: it has a multiplayer session (rollback) but no path record, so recipe mode is not established for it',
+    'coleco': 'experimental, developer only: it has a multiplayer session (rollback) but no path record, so recipe mode is not established for it',
     'scummvm': 'emulated: it translates no code and has no path to carry; recipe mode is not wired for it',
     'zxs': 'in development: the ZX Spectrum converts nothing yet, so it has no conversion to replay; recipe mode is not established for it',
+    'cpc': 'in development: no game is converted yet; recipe mode is not established for it',
 }
 
 

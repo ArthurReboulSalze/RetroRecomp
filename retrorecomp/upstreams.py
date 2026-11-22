@@ -245,6 +245,17 @@ ZX_SPECTRUM_ROMS = Upstream(
     _py('retrorecomp/zxs_roms.py', 'SOURCE_COMMIT'),
     watch=('roms/48.rom', 'roms/128-0.rom', 'roms/128-1.rom', 'roms/README.copyright'))
 
+AMSTRAD_CPC_ROMS = Upstream(
+    'amstrad-cpc-roms', 'ColinPitrat/caprice32', 'master', 'the Amstrad CPC 6128 system ROM and AMSDOS a converted disk game runs '
+    'on (the rom folder of the Caprice32 project)',
+    'Amstrad copyright, distribution allowed for emulators without charge for the ROM code (Cliff Lawson, 1999); Locomotive BASIC '
+    "not named in it; the ROM files are not Caprice32's code",
+    "rom/cpc6128.rom and rom/amsdos.rom only, fetched on first use and checked by size, Git blob SHA-1, MAME's SHA-1 and SHA-256, "
+    'translated into every CPC game with their notice (licenses/amstrad-cpc-roms.md); no Caprice32 code is used and nothing of it is '
+    'in this repository',
+    _py('retrorecomp/cpc_roms.py', 'SOURCE_COMMIT'),
+    watch=('rom/cpc6128.rom', 'rom/amsdos.rom'))
+
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
     'SDL', 'libsdl-org/SDL', 'release-2.32.x', 'SDL2 window, audio and input library linked into every export', 'zlib',
@@ -270,11 +281,11 @@ UPX = Upstream(
 SST_Z80 = Upstream(
     'SingleStepTests/z80', 'SingleStepTests/z80', 'main', 'independent Z80 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_z80_vectors.py into .deps; not shipped',
-    _py('tools/fetch_z80_vectors.py', 'REVISION'), shared_by=('sms', 'gg', 'md', 'msx', 'msx2', 'msx2plus', 'sg1000'))
+    _py('tools/fetch_z80_vectors.py', 'REVISION'), shared_by=('sms', 'gg', 'md', 'msx', 'msx2', 'msx2plus', 'sg1000', 'coleco'))
 SST_SM83 = Upstream(
     'SingleStepTests/sm83', 'SingleStepTests/sm83', 'main', 'independent SM83 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_sm83_vectors.py into .deps, checked against a pinned digest; not shipped',
-    _py('tools/fetch_sm83_vectors.py', 'REVISION'), shared_by=('gb',))
+    _py('tools/fetch_sm83_vectors.py', 'REVISION'), shared_by=('gb', 'gbc'))
 SST_HUC6280 = Upstream(
     'SingleStepTests/huc6280', 'SingleStepTests/huc6280', 'main', 'independent HuC6280 test vectors (development tests only)', 'MIT',
     'fetched on demand by tools/fetch_huc6280_vectors.py into .deps, checked against a pinned digest; not shipped',
@@ -316,6 +327,7 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'sms': (SMSGGRECOMP, Z80_RECOMP_CORE),
     'gg': (SMSGGRECOMP, Z80_RECOMP_CORE),
     'gb': (GB_RECOMPILED,),
+    'gbc': (GB_RECOMPILED,),
     'nes': (NESRECOMP,),
     'md': (SEGAGENESISRECOMP, M68K_RECOMP_CORE, Z80_RECOMP_CORE, RBENGINE),
     'snes': (SNESRECOMP,),
@@ -345,6 +357,11 @@ MACHINE_UPSTREAMS: dict[str, tuple[Upstream, ...]] = {
     'zxs': (SMSGGRECOMP, Z80_RECOMP_CORE, ZX_SPECTRUM_ROMS),
     # The SG-1000 runs on the same banked Z80 chain on its own region map; it boots by itself (no BIOS, so no C-BIOS).
     'sg1000': (SMSGGRECOMP, Z80_RECOMP_CORE),
+    # The ColecoVision on the same chain, on its own region map; the BIOS is the player's own (no pinned ROM source, so no entry for it).
+    'coleco': (SMSGGRECOMP, Z80_RECOMP_CORE),
+    # The Amstrad CPC (in development): the same banked Z80 chain, the route of its games; its chips are our own C, written from
+    # floooh/chips (zlib) and Clock Signal (MIT) read as documentation, nothing of them compiled.
+    'cpc': (SMSGGRECOMP, Z80_RECOMP_CORE, AMSTRAD_CPC_ROMS),
 }
 # A machine with no upstream of its own says why (an empty tuple above is refused without a reason here).
 NO_UPSTREAM: dict[str, str] = {}

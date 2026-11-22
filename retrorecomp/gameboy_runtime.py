@@ -242,12 +242,16 @@ static bool gb_diff_compare_ppu''')
     path.write_text(source, encoding='utf-8')
 
 
-def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, title: str, halt_mode3_bound: bool = True) -> None:
+def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, title: str, halt_mode3_bound: bool = True,
+                            variant=None) -> None:
     """`halt_mode3_bound=False` leaves the halted fast-forward as the pinned runtime has it: only tools/gameboy_halt_selftest.py asks for it,
-    to compare the two."""
+    to compare the two. `variant` (retrorecomp.gameboy.GameBoyVariant; none means the original Game Boy) says which machine the program is:
+    its id, which keys the host kit and the feedback, and the model the runtime starts in."""
+    model = variant.model if variant else 'dmg'
+    system_id = variant.system_id if variant else 'gb'
     # Shared player shell first (menus, filters, platform), then the machine.
     from .gameboy_host import adapt_shell
-    adapt_shell(project, title)
+    adapt_shell(project, title, system_id)
     for source_name, destination in (
         ('embedded_resources.h', project / 'runtime/include/embedded_resources.h'),
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
@@ -500,7 +504,7 @@ static void rr_gb_feedback(GBContext *ctx) {
             if (!gb_platform_wait_while_menu(ctx)) { running = false; break; }
             bool smooth_lcd_transitions''')
     source = replace_once(source, 'const char* model_override = "auto";',
-                          'const char* model_override = "dmg";')
+                          f'const char* model_override = "{model}";')
     source = replace_once(source, '''    if (persistence_dir && !gb_platform_set_persistence_dir(persistence_dir)) {''',
         f'''    char rr_save_dir[2048] = {{0}};
 #ifdef GB_HAS_SDL2
@@ -546,9 +550,11 @@ static void rr_gb_feedback(GBContext *ctx) {
                '    target_compile_options(game PRIVATE "/MP${GBRECOMP_GENERATED_COMPILE_JOBS}")\n'
                'endif()\n')
     from .gameboy_host import kit_cmake
-    cmake.write_text(kit_cmake(source), encoding="utf-8")   # the host kit's shell, beside the platform layer
+    if model == 'cgb':                  # the adapter (rrhk_gb.inc) names the machine and keeps its own settings section
+        source += '\ntarget_compile_definitions(gbrt PRIVATE RR_GB_COLOR=1)\n'
+    cmake.write_text(kit_cmake(source, system_id), encoding="utf-8")   # the host kit's shell, beside the platform layer
     from .feedback import stage
-    stage(project, 'gb', rom_sha256, target='gbrt')
+    stage(project, system_id, rom_sha256, target='gbrt')
     adapt_input_refresh_hook(project)
     from .gameboy_hardware import adapt_hardware
     adapt_hardware(project)

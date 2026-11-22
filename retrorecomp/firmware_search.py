@@ -6,7 +6,8 @@ folder (Batocera's `bios`) or any pile of loose BIOS files.
 
 * A file is recognised by its content, never by its name: each option names, in `RECOGNISERS`, the check the converter already
   makes (the Neo Geo archive's members, the QSound DSP's CRC and SHA-1, the Game Boy Advance BIOS's SHA-1, the PlayStation table,
-  the Kickstart and TOS headers, the MSX ROM signatures, the ZX Spectrum ROMs' SHA-256). Where the converter only checks a size (the X68000), `KNOWN_DIGESTS`
+  the Kickstart and TOS headers, the MSX ROM signatures, the ZX Spectrum ROMs' SHA-256, the CPC firmware's
+  SHA-1). Where the converter only checks a size (the X68000), `KNOWN_DIGESTS`
   holds the public digests of the images (data, one table). A renamed file is found; an unknown or damaged one is left out.
 * The registry is keyed by option name and every path option of every profile must appear in it
   (`tests/test_machine_registry.py`); a new machine adds its line here, and the search itself holds no list of machines.
@@ -141,6 +142,12 @@ def _x68000(path: Path) -> list:
     return [(known[0], known[1], (known[2],), hashlib.sha256(data).hexdigest())] if known else []
 
 
+def _cpc(path: Path) -> list:
+    from .cpc_firmware import identify
+    found = identify(path)
+    return [(found.option, found.label, (found.rank,), found.sha256)] if found else []
+
+
 # C-BIOS, which the converter fetches and pins itself, is never proposed as the player's own BIOS: the images of its pinned
 # release by digest, and any other release by the text its main, logo and music ROMs carry.
 CBIOS_MARKS = (b'C-BIOS', b'music: INIOPL')
@@ -208,6 +215,13 @@ def _zxs(path: Path) -> list:
     return []
 
 
+def _coleco(path: Path) -> list:
+    """The ColecoVision BIOS, by the SHA-256 the converter accepts (coleco_bios.own_bios)."""
+    from .coleco_bios import identify
+    found = identify(path)
+    return [('coleco_bios', found[0], (0,), found[1])] if found else []
+
+
 def _sizes(*sizes) -> Callable[[int, str], bool]:
     wanted = frozenset(sizes)
     return lambda size, suffix: size in wanted
@@ -229,6 +243,8 @@ def _checks() -> dict:
         'msx_16k': Check(_sizes(0x4000), _msx_16k),
         'msx_kanji': Check(_sizes(0x20000, 0x40000), _msx_kanji),
         'zxs': Check(_sizes(0x4000, 0x8000), _zxs),
+        'coleco': Check(_sizes(0x2000), _coleco),
+        'cpc': Check(_sizes(0x8000, 0x4000), _cpc),
     }
 
 
@@ -262,8 +278,12 @@ RECOGNISERS = {
                                   beside='msx2plus_bios'),
     'msx2plus_kanji': Recogniser(CHECKS['msx_kanji'], 'msx_conversion.own_kanji: 128 or 256 KiB of glyphs',
                                  near='msx2plus_bios'),
+    'coleco_bios': Recogniser(CHECKS['coleco'], 'coleco_bios.own_bios: the SHA-256 of the 8 KiB BIOS'),
     'zxs_rom48': Recogniser(CHECKS['zxs'], 'zxs_roms.own_rom: the SHA-256 of the 48K ROM'),
     'zxs_rom128': Recogniser(CHECKS['zxs'], 'zxs_roms.own_rom: the SHA-256 of the 128K pair, or its editor ROM with the BASIC ROM beside it'),
+    'cpc_system': Recogniser(CHECKS['cpc'], 'cpc_firmware.identify: SHA-1 of the system ROMs (MAME 0.289), one 32 KiB file or the '
+                                            '16 KiB OS half with the BASIC half beside it'),
+    'cpc_amsdos': Recogniser(CHECKS['cpc'], 'cpc_firmware.identify: SHA-1 of the AMSDOS ROM (MAME 0.289)'),
 }
 
 

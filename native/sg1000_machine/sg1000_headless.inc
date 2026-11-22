@@ -117,7 +117,7 @@ static void sg_route_events(void)
     for (; route_next_event < route_event_count && route_events[route_next_event].frame <= machine.frames; ++route_next_event) {
         const SgRouteEvent *e = &route_events[route_next_event];
         if (e->kind == 1) sg_pause(&machine);
-        else if (e->a == 0 || e->a == 1) machine.pad[e->a] = (uint8_t)(e->b & 0x3F);
+        else if (e->a == 0 || e->a == 1) sg_pad_word(&machine, e->a, (uint16_t)(e->b & SG_PAD_MASK));
     }
 }
 
@@ -176,7 +176,7 @@ static void sg_route_finish(void)
 
 /* The report: the JSON the conversion compares. `extra` writes the members only one engine has (the native step counts), between the
  * common ones and the watched bytes. */
-static void headless_report(const char *engine, const SgCpuView *c, uint64_t interrupts, void (*extra)(FILE *))
+static void headless_report(const char *engine, const SgCpuView *c, uint64_t interrupts, uint64_t nmis, void (*extra)(FILE *))
 {
     sg_route_finish();
     if (frame_out) {
@@ -189,12 +189,12 @@ static void headless_report(const char *engine, const SgCpuView *c, uint64_t int
     }
     FILE *out = report_out ? fopen(report_out, "w") : stdout;
     if (!out) exit(3);
-    fprintf(out, "{\"engine\": \"%s\", \"frames\": %llu, \"cycles\": %llu, \"interrupts\": %llu, \"pc\": %u, \"sp\": %u, \"af\": %u, \"bc\": %u, "
+    fprintf(out, "{\"engine\": \"%s\", \"frames\": %llu, \"cycles\": %llu, \"interrupts\": %llu, \"nmi\": %llu, \"pc\": %u, \"sp\": %u, \"af\": %u, \"bc\": %u, "
             "\"de\": %u, \"hl\": %u, \"ix\": %u, \"iy\": %u, \"iff1\": %d, \"halted\": %d, \"af2\": %u, \"bc2\": %u, \"de2\": %u, \"hl2\": %u, "
             "\"i\": %u, \"r\": %u, \"im\": %d, \"iff2\": %d, \"wz\": %u, "
             "\"vdp_regs\": [%u, %u, %u, %u, %u, %u, %u, %u], \"vdp_status\": %u, \"vram_fnv\": %u, \"ram_fnv\": %u, \"frame_fnv\": %u, "
             "\"audio_samples\": %llu, \"audio_fnv\": %u, ",
-            engine, (unsigned long long)machine.frames, (unsigned long long)machine.cycles, (unsigned long long)interrupts, c->pc, c->sp, c->af,
+            engine, (unsigned long long)machine.frames, (unsigned long long)machine.cycles, (unsigned long long)interrupts, (unsigned long long)nmis, c->pc, c->sp, c->af,
             c->bc, c->de, c->hl, c->ix, c->iy, c->iff1, c->halted, c->af2, c->bc2, c->de2, c->hl2, c->i, c->r, c->im, c->iff2, c->wz,
             machine.vdp.reg[0], machine.vdp.reg[1], machine.vdp.reg[2], machine.vdp.reg[3], machine.vdp.reg[4], machine.vdp.reg[5],
             machine.vdp.reg[6], machine.vdp.reg[7], machine.vdp.status, sg_vram_hash(&machine), sg_ram_hash(&machine), sg_frame_hash(&machine),
@@ -246,7 +246,7 @@ static void headless_finish(void)
         if (f) fclose(f);
     }
     SgCpuView c = native_cpu();
-    headless_report("native", &c, g_irq_taken, native_extra);
+    headless_report("native", &c, g_irq_taken, g_nmi_taken, native_extra);
     exit(0);
 }
 #endif

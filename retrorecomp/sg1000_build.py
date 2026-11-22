@@ -22,7 +22,7 @@ from . import z80_chain_build
 # The fields a native run must give exactly as the reference does (the keys both runners print, native/sg1000_machine/sg1000_headless.inc
 # and sg_print_state): the CPU (main and shadow registers, I, R, IM, IFF, WZ), time and interrupts, RAM, VRAM, the picture of the last
 # frame and a running hash of every frame, the VDP registers and status, the sound and the PSG, the watched bytes.
-COMPARED = ('frames', 'cycles', 'interrupts', 'pc', 'sp', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'af2', 'bc2', 'de2', 'hl2', 'i', 'r', 'im',
+COMPARED = ('frames', 'cycles', 'interrupts', 'nmi', 'pc', 'sp', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'af2', 'bc2', 'de2', 'hl2', 'i', 'r', 'im',
             'iff1', 'iff2', 'wz', 'halted', 'vdp_regs', 'vdp_status', 'vram_fnv', 'ram_fnv', 'frame_fnv', 'frame_trace',
             'audio_samples', 'audio_fnv', 'audio_dropped', 'psg', 'watch')
 GAME_TOML = '''# SG-1000: the cartridge is source 0 of the region map; there is no other source (no BIOS).
@@ -59,7 +59,7 @@ KIT_FILES = ('retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runti
              'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'console16_video.h', 'runtime_feedback.h',
              'runtime_feedback.c', 'runtime_feedback_sdl.h', 'state_io.h', 'state_envelope.h', 'gamestate.h')
 # The quick state's layout name (native/sg1000_machine/sg1000_state_file.inc): raised whenever the body it writes changes.
-STATE_LAYOUT = 'sg1000-state-1'
+STATE_LAYOUT = 'sg1000-state-2'
 
 
 class Sg1000BuildError(RuntimeError):

@@ -63,6 +63,8 @@ REMOVING = '.retro-recomp-removing-'
 #   psx     psx_conversion.py  psx/<sha12>
 #   msx     msx_conversion.py  msx/<sha12>-<BIOS8>         (MSX and MSX2 alike)
 #   sg1000  sg1000_conversion  sg1000/<sha12>             (the reference, the headless check and the game; the machine's conversion)
+#   coleco  coleco_conversion  coleco/<sha12>-<BIOS8>      (as the SG-1000's, and the player's BIOS: the MSX's folder name)
+#   cpc     (in development)   cpc/<sha12>-<firmware8>     (the MSX's layout)
 #   scummvm scummvm_export.py  scummvm/<sha12>
 #   x68     x68000_conversion  x68/<win|win-llvm|linux>/<SDK12>/<machine16>
 #   amiga   amiga_conversion   amiga/<win|win-llvm|linux>/<SDK12>/<sha16>
@@ -71,6 +73,7 @@ REMOVING = '.retro-recomp-removing-'
 #                              (the <SDK12> base is shared: only the game below)
 _SEGA = re.compile(r'(sms|gg)_.+_[0-9A-F]{8}_([0-9a-f]{12})(?:_banked)?')
 _GB = re.compile(r'gb_.+_([0-9a-f]{12})_[0-9a-f]{8}')
+_GBC = re.compile(r'gbc_.+_([0-9a-f]{12})_[0-9a-f]{8}')
 _GBA = re.compile(r'gba_.+_([0-9a-f]{12})_[0-9a-f]{8}')
 _NES = re.compile(r'nes_.+_([0-9a-f]{12})_[0-9a-f]{8}(?:_(?:ntsc|pal))?')
 _MD = re.compile(r'md-rom-([0-9a-f]{64})')
@@ -83,9 +86,10 @@ _X68_SDK = re.compile(r'[0-9a-f]{12}')
 _X68_GAME = re.compile(r'[0-9a-f]{16}')
 _MSX = re.compile(r'([0-9a-f]{12})-[0-9a-f]{8}')
 # Machines whose project is <machine>/<12 hex>[-...]: (folder, pattern).
-_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('pcecd', _PCE), ('psx', _PCE), ('msx', _MSX), ('scummvm', _PCE),
+_FLAT = (('cps1', _CPS1), ('cps2', _CPS1), ('pce', _PCE), ('pcecd', _PCE), ('psx', _PCE), ('msx', _MSX), ('cpc', _MSX), ('scummvm', _PCE),
          ('zxs', _MSX),   # the ZX Spectrum (in development): laid out as the MSX's, on the same Z80 chain
-         ('sg1000', _PCE))   # the SG-1000: <sha12>, no BIOS
+         ('sg1000', _PCE),   # the SG-1000: <sha12>, no BIOS
+         ('coleco', _MSX))   # the ColecoVision (in development): <sha12>-<BIOS8>, laid out as the MSX's
 # Machines whose project sits below a shared base <machine>/<host>/<SDK12>/: how many folders the game takes there.
 _BASED = {'x68': 1, 'amiga': 1, 'n64': 1, 'atarist': 2}
 # A profile that shares another one's build folder (the MSX2 converts with the MSX's converter, the Amiga 1200 with the Amiga's).
@@ -129,7 +133,7 @@ def classify(parts) -> tuple[str, str] | None:
     parts = tuple(parts)
     if len(parts) == 1:
         name = parts[0]
-        for pattern, system in ((_GB, 'gb'), (_GBA, 'gba'), (_NES, 'nes'), (_MD, 'md'), (_SNES, 'snes'), (_NG, 'ng')):
+        for pattern, system in ((_GB, 'gb'), (_GBC, 'gbc'), (_GBA, 'gba'), (_NES, 'nes'), (_MD, 'md'), (_SNES, 'snes'), (_NG, 'ng')):
             if match := pattern.fullmatch(name):
                 return system, match[1]
         if match := _SEGA.fullmatch(name):
@@ -351,7 +355,7 @@ def _owner(path: Path, system: str) -> str | None:
 
 
 def _same_rom(system: str, key: str, sha256: str, path: Path, machine: str = '') -> bool:
-    if system in ('sms', 'gg', 'gb', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'pcecd', 'psx', 'msx', 'scummvm'):
+    if system in ('sms', 'gg', 'gb', 'gbc', 'gba', 'nes', 'cps1', 'cps2', 'pce', 'pcecd', 'psx', 'msx', 'scummvm'):
         return key == sha256[:12]
     if system in ('amiga', 'n64', 'atarist'):
         return key == sha256[:16]

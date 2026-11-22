@@ -1,0 +1,671 @@
+/* Checks of the CPC's CRTC (cpc_crtc.c), Gate Array (cpc_gate_array.c) and PPI with its keyboard (cpc_ppi.c), stepped as the
+ * machine steps them, one character (1 us) at a time: the firmware's 50 Hz frame and its 300 Hz interrupt, the screen
+ * addresses, what differs by CRTC type, the picture of a known screen, the AY bus and the keyboard matrix as the firmware
+ * scans it. Built by tools/cpc_hardware_selftest.py; no ROM, no game. MIT, Retro-Recomp. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "cpc_bus.h"
+#include "cpc_machine.h"
+#include "cpc_state.h"
+#include "cpc_crtc.h"
+#include "cpc_gate_array.h"
+#include "cpc_ppi.h"
+#include "rrhk_boot_keys.h"
+#include "rrhk_cpc_keys.h"
+#include "boot_keys.h"           /* written by tools/cpc_hardware_selftest.py: Bomb Jack's RUN"BOMB and RETURN, first key at frame 10 */
+
+static unsigned passed, failed;
+
+static void expect(const char *what, int ok)
+{
+    if (ok) ++passed; else { ++failed; fprintf(stderr, "FAIL: %s\n", what); }
+}
+
+static CpcCrtc crtc;
+static CpcGateArray ga;
+static uint8_t ram[65536];
+static uint32_t picture[CPC_SCREEN_WIDTH * CPC_SCREEN_HEIGHT];
+
+/* Step until the VSYNC starts (a frame boundary); the characters stepped, or 0 after a million. */
+static unsigned to_vsync(void)
+{
+    unsigned steps = 0;
+    int was = cpc_crtc_out(&crtc).vsync;
+    while (++steps < 1000000) {
+        cpc_crtc_step(&crtc);
+        int now = cpc_crtc_out(&crtc).vsync;
+        if (now && !was) return steps;
+        was = now;
+    }
+    return 0;
+}
+
+static void check_crtc(void)
+{
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE1);
+    to_vsync();
+    expect("the firmware's frame: 64 x 312 characters from VSYNC to VSYNC (50.08 Hz)", to_vsync() == 64 * 312);
+    unsigned display = 0, hsync = 0, vsync = 0;
+    for (unsigned i = 0; i < 64 * 312; ++i) {
+        CpcCrtcOut o = cpc_crtc_out(&crtc);
+        display += o.display;
+        hsync += o.hsync;
+        vsync += o.vsync;
+        cpc_crtc_step(&crtc);
+    }
+    expect("40 x 200 characters displayed a frame", display == 40 * 200);
+    expect("an HSYNC of 14 characters each of the 312 lines", hsync == 14 * 312);
+    expect("type 1: a VSYNC of 16 lines", vsync == 16 * 64);
+
+    /* The first displayed character: MA 3000h, the byte at C000h; its next line C800h; the next row C050h. */
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE1);
+    to_vsync();
+    while (!cpc_crtc_out(&crtc).display) cpc_crtc_step(&crtc);
+    CpcCrtcOut o = cpc_crtc_out(&crtc);
+    expect("the screen starts at C000h", o.ma == 0x3000 && o.ra == 0 && cpc_crtc_address(o.ma, o.ra, 0) == 0xC000);
+    for (unsigned i = 0; i < 64; ++i) cpc_crtc_step(&crtc);
+    o = cpc_crtc_out(&crtc);
+    expect("its second line at C800h", o.ra == 1 && cpc_crtc_address(o.ma, o.ra, 1) == 0xC801);
+    for (unsigned i = 0; i < 7 * 64; ++i) cpc_crtc_step(&crtc);
+    o = cpc_crtc_out(&crtc);
+    expect("the second row at C050h", o.ra == 0 && o.ma == 0x3000 + 40 && cpc_crtc_address(o.ma, o.ra, 0) == 0xC050);
+
+    /* R12/R13 written during row 0: type 1 takes them at the next line, type 0 at the next frame. */
+    for (int type = CPC_CRTC_TYPE0; type <= CPC_CRTC_TYPE1; ++type) {
+        cpc_crtc_reset(&crtc, (uint8_t)type);
+        to_vsync();
+        while (!cpc_crtc_out(&crtc).display) cpc_crtc_step(&crtc);
+        cpc_crtc_select(&crtc, 13);
+        cpc_crtc_write(&crtc, 0x20);
+        for (unsigned i = 0; i < 64; ++i) cpc_crtc_step(&crtc);
+        while (!cpc_crtc_out(&crtc).display) cpc_crtc_step(&crtc);
+        uint16_t ma = cpc_crtc_out(&crtc).ma;
+        if (type == CPC_CRTC_TYPE1)
+            expect("type 1: R13 written in row 0 shows from the next line", ma == 0x3020);
+        else
+            expect("type 0: R13 written in row 0 waits for the next frame", ma == 0x3000);
+        to_vsync();
+        while (!cpc_crtc_out(&crtc).display) cpc_crtc_step(&crtc);
+        if (type == CPC_CRTC_TYPE0)
+            expect("type 0: and shows in the next frame", cpc_crtc_out(&crtc).ma == 0x3020);
+    }
+
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE0);
+    to_vsync();
+    vsync = 0;
+    for (unsigned i = 0; i < 64 * 312; ++i) { vsync += cpc_crtc_out(&crtc).vsync; cpc_crtc_step(&crtc); }
+    expect("type 0: the VSYNC width from R3 (8 lines for 8Eh)", vsync == 8 * 64);
+    cpc_crtc_select(&crtc, 5);
+    cpc_crtc_write(&crtc, 2);
+    to_vsync();
+    expect("R5 adds lines to the frame (314)", to_vsync() == 64 * 314);
+
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE0);
+    cpc_crtc_select(&crtc, 12);
+    expect("type 0 reads R12 back", cpc_crtc_read(&crtc) == 0x30);
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE1);
+    cpc_crtc_select(&crtc, 12);
+    uint8_t r12 = cpc_crtc_read(&crtc);
+    cpc_crtc_select(&crtc, 31);
+    expect("type 1 reads R12 as 0 and R31 as FFh", r12 == 0x00 && cpc_crtc_read(&crtc) == 0xFF);
+    cpc_crtc_select(&crtc, 14);
+    cpc_crtc_write(&crtc, 0xFF);
+    expect("R14 keeps its six bits", cpc_crtc_read(&crtc) == 0x3F);
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE2);
+    cpc_crtc_select(&crtc, 12);
+    expect("type 2 reads R12 as 0", cpc_crtc_read(&crtc) == 0x00);
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE1);
+    to_vsync();
+    expect("type 1 status: bit 5 in the vertical blanking", (cpc_crtc_status(&crtc) & 0x20) == 0x20);
+    while (!cpc_crtc_out(&crtc).display) cpc_crtc_step(&crtc);
+    expect("and clear on screen", (cpc_crtc_status(&crtc) & 0x20) == 0);
+}
+
+/* The machine's loop: one character of the CRTC and the Gate Array; the interrupts and frames seen. */
+static unsigned run(unsigned characters, unsigned *interrupts, unsigned *frames, int acknowledge, uint32_t *pic)
+{
+    unsigned last_irq_line = 0;
+    for (unsigned i = 0; i < characters; ++i) {
+        cpc_crtc_step(&crtc);
+        unsigned events = cpc_ga_tick(&ga, cpc_crtc_out(&crtc), ram, pic);
+        if (events & CPC_GA_INTERRUPT) {
+            ++*interrupts;
+            last_irq_line = ga.beam_y;
+            if (acknowledge) cpc_ga_acknowledge(&ga);
+        }
+        if (events & CPC_GA_FRAME) ++*frames;
+    }
+    return last_irq_line;
+}
+
+static void check_gate_array(void)
+{
+    uint8_t pens[8];
+    expect("mode 2: eight pixels, bit 7 first", cpc_byte_pens(2, 0x81, pens) == 8 && pens[0] == 1 && pens[1] == 0
+        && pens[7] == 1);
+    expect("mode 1: four pixels, pen bits 7/3 for the first", cpc_byte_pens(1, 0x88, pens) == 4 && pens[0] == 3
+        && pens[1] == 0);
+    expect("mode 1: bit 4 alone is the last pixel's pen 1", cpc_byte_pens(1, 0x10, pens) == 4 && pens[3] == 1);
+    expect("mode 0: two pixels, pen bits 7, 3, 5, 1 for the first", cpc_byte_pens(0, 0xAA, pens) == 2 && pens[0] == 15
+        && pens[1] == 0);
+    expect("mode 0: bits 6, 2, 4, 0 for the second", cpc_byte_pens(0, 0x41, pens) == 2 && pens[1] == 9 && pens[0] == 0);
+    expect("mode 3: mode 0's pixels on four pens", cpc_byte_pens(3, 0xAA, pens) == 2 && pens[0] == 3);
+    expect("colours: 14h black, 0Bh bright white, 00h white (50 %), 1Ch red (50 %)", cpc_colour(0x14) == 0
+        && cpc_colour(0x0B) == 0xFFFFFF && cpc_colour(0x00) == 0x808080 && cpc_colour(0x1C) == 0x800000);
+    int distinct = 0;
+    for (unsigned a = 0; a < 32; ++a) {
+        int seen = 0;
+        for (unsigned b = 0; b < a; ++b) seen |= cpc_colour((uint8_t)a) == cpc_colour((uint8_t)b);
+        distinct += !seen;
+    }
+    expect("27 distinct colours among the 32", distinct == 27);
+
+    uint8_t banks[4];
+    cpc_ram_banks(0, banks);
+    int ok = banks[0] == 0 && banks[3] == 3;
+    cpc_ram_banks(1, banks);
+    ok &= banks[3] == 7 && banks[2] == 2;
+    cpc_ram_banks(2, banks);
+    ok &= banks[0] == 4 && banks[3] == 7;
+    cpc_ram_banks(3, banks);
+    ok &= banks[1] == 3 && banks[3] == 7;
+    cpc_ram_banks(6, banks);
+    ok &= banks[1] == 6 && banks[0] == 0;
+    expect("the 6128's eight RAM configurations", ok);
+    ga.has_ram_pal = 0;
+    cpc_ga_reset(&ga);
+    cpc_ga_write(&ga, 0xC2);
+    expect("no PAL (464, 664): the RAM configuration is ignored", ga.ram_config == 0);
+    ga.has_ram_pal = 1;
+    cpc_ga_reset(&ga);
+    cpc_ga_write(&ga, 0xC2);
+    expect("6128: the PAL takes it", ga.ram_config == 2 && ga.has_ram_pal);
+
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE1);
+    cpc_ga_reset(&ga);
+    unsigned interrupts = 0, frames = 0;
+    run(64 * 312 * 3, &interrupts, &frames, 1, NULL);
+    interrupts = frames = 0;
+    unsigned line = run(64 * 312 * 10, &interrupts, &frames, 1, NULL);
+    expect("300 Hz: six interrupts a frame, ten frames", interrupts == 60 && frames == 10);
+    /* From any counter, the VSYNC brings the interrupts to the same lines within two frames. */
+    unsigned lines[2];
+    for (unsigned k = 0; k < 2; ++k) {
+        cpc_crtc_reset(&crtc, CPC_CRTC_TYPE1);
+        cpc_ga_reset(&ga);
+        ga.counter = (uint8_t)(k ? 40 : 7);
+        interrupts = frames = 0;
+        run(64 * 312 * 3 + 64 * 100, &interrupts, &frames, 1, NULL);
+        lines[k] = line = run(64 * 312, &interrupts, &frames, 1, NULL);
+    }
+    expect("the VSYNC sets the interrupt phase, whatever the counter was", lines[0] == lines[1]);
+    ga.counter = 40;
+    ga.interrupt = 1;
+    cpc_ga_acknowledge(&ga);
+    expect("the acknowledge clears the counter's bit 5 and the request", ga.counter == 8 && !ga.interrupt);
+    ga.counter = 30;
+    cpc_ga_write(&ga, 0x80 | 0x10 | 0x01);
+    expect("mode byte with bit 4: counter cleared; the mode waits for the HSYNC", ga.counter == 0 && ga.mode_next == 1);
+    cpc_ga_write(&ga, 0x82);
+    while (!cpc_crtc_out(&crtc).hsync) { cpc_crtc_step(&crtc); cpc_ga_tick(&ga, cpc_crtc_out(&crtc), NULL, NULL); }
+    expect("the mode written is taken at the HSYNC", ga.mode == 2 && ga.rom_config == 0);
+    cpc_ga_write(&ga, 0x8C);
+    expect("the ROM enables: both off", ga.rom_config == 0x0C);
+    unsigned no_ack = 0;
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE1);
+    cpc_ga_reset(&ga);
+    frames = 0;
+    run(64 * 312 * 4, &no_ack, &frames, 0, NULL);
+    expect("without acknowledge the counter still raises six a frame (the request stays up)", no_ack == 24 && ga.interrupt);
+}
+
+static void check_picture(void)
+{
+    cpc_crtc_reset(&crtc, CPC_CRTC_TYPE1);
+    cpc_ga_reset(&ga);
+    memset(ram, 0, sizeof ram);
+    memset(ram + 0xC000, 0x80, 0x4000);                              /* mode 1: each byte's first pixel pen 1 */
+    cpc_ga_write(&ga, 0x10); cpc_ga_write(&ga, 0x40 | 0x04);         /* border: blue */
+    cpc_ga_write(&ga, 0x00); cpc_ga_write(&ga, 0x40 | 0x14);         /* pen 0: black */
+    cpc_ga_write(&ga, 0x01); cpc_ga_write(&ga, 0x40 | 0x0B);         /* pen 1: bright white */
+    unsigned interrupts = 0, frames = 0;
+    run(64 * 312 * 2, &interrupts, &frames, 1, picture);
+    uint32_t border = cpc_colour(0x04), white = 0xFFFFFF;
+    expect("the border's colour at the window's corner", picture[0] == border && picture[767] == border
+        && picture[271 * 768] == border);
+    /* The display starts after the 4-character, 36-line border: pixel (64, 36) is the first byte's first pixel. */
+    expect("the first screen byte: pen 1 for two mode-2 pixels, then pen 0", picture[36 * 768 + 64] == white
+        && picture[36 * 768 + 65] == white && picture[36 * 768 + 66] == 0);
+    expect("the display ends 40 characters later", picture[36 * 768 + 64 + 640] == border
+        && picture[36 * 768 + 64 + 639] == 0);
+    expect("and 200 lines lower", picture[(36 + 199) * 768 + 64] == white && picture[(36 + 200) * 768 + 64] == border);
+    ram[0xC000] = 0x08;                                              /* first pixel pen 2 (black: not set), second... */
+    cpc_ga_write(&ga, 0x02); cpc_ga_write(&ga, 0x40 | 0x0C);         /* pen 2: bright red */
+    run(64 * 312, &interrupts, &frames, 1, picture);
+    expect("a byte changed shows in the next frame (pen 2)", picture[36 * 768 + 64] == 0xFF0000);
+}
+
+/* A stand-in AY: register 14 reads the keyboard row, every write recorded. */
+static CpcPpi ppi;
+static uint8_t ay_reg[16], ay_selected;
+static unsigned ay_writes;
+static void ay_latch(void *c, uint8_t r) { (void)c; ay_selected = r & 15; }
+static void ay_write(void *c, uint8_t v) { (void)c; ay_reg[ay_selected] = v; ++ay_writes; }
+static uint8_t ay_read(void *c) { (void)c; return ay_selected == 14 ? cpc_ppi_row(&ppi) : ay_reg[ay_selected]; }
+
+/* The firmware's way of reading one row of the matrix. */
+static uint8_t scan_row(const CpcPsgBus *bus, uint8_t row)
+{
+    cpc_ppi_write(&ppi, 0, 14, bus);                                 /* F4xx: register 14 */
+    cpc_ppi_write(&ppi, 2, 0xC0, bus);                               /* F6xx: latch */
+    cpc_ppi_write(&ppi, 2, 0x00, bus);                               /* inactive */
+    cpc_ppi_write(&ppi, 3, 0x92, bus);                               /* F7xx: port A input */
+    cpc_ppi_write(&ppi, 2, (uint8_t)(0x40 | row), bus);              /* read, with the row */
+    uint8_t v = cpc_ppi_read(&ppi, 0, 0, bus);
+    cpc_ppi_write(&ppi, 3, 0x82, bus);                               /* port A output again */
+    return v;
+}
+
+static void check_ppi(void)
+{
+    CpcPsgBus bus = { NULL, ay_latch, ay_write, ay_read };
+    memset(&ppi, 0, sizeof ppi);
+    cpc_ppi_reset(&ppi);
+    cpc_ppi_write(&ppi, 3, 0x82, &bus);
+    cpc_ppi_write(&ppi, 0, 7, &bus);
+    cpc_ppi_write(&ppi, 2, 0xC0, &bus);
+    cpc_ppi_write(&ppi, 2, 0x00, &bus);
+    cpc_ppi_write(&ppi, 0, 0x3F, &bus);
+    cpc_ppi_write(&ppi, 2, 0x80, &bus);
+    cpc_ppi_write(&ppi, 2, 0x00, &bus);
+    expect("the AY is written through the PPI: register 7 holds 3Fh", ay_reg[7] == 0x3F && ay_writes == 1);
+    expect("no key: every row reads FFh", scan_row(&bus, 0) == 0xFF && scan_row(&bus, 9) == 0xFF);
+    cpc_ppi_key(&ppi, CPC_KEY_ESC, 1);
+    expect("ESC down: row 8 reads FBh", scan_row(&bus, 8) == 0xFB && scan_row(&bus, 7) == 0xFF);
+    cpc_ppi_key(&ppi, CPC_KEY_ESC, 0);
+    ppi.joystick[0] = CPC_JOY_FIRE1 | CPC_JOY_LEFT;
+    expect("joystick 1 on row 9 (fire 1 bit 5, left bit 2)", scan_row(&bus, 9) == (uint8_t)~0x24);
+    ppi.joystick[1] = CPC_JOY_UP;
+    expect("joystick 2 on row 6, shared with the 6 key", scan_row(&bus, 6) == 0xFE);
+    cpc_ppi_key(&ppi, CPC_KEY_6, 1);
+    expect("the key and the stick read as one line", scan_row(&bus, 6) == 0xFE);
+    expect("rows past 9 read FFh", scan_row(&bus, 12) == 0xFF);
+    expect("port B: Amstrad, 50 Hz, VSYNC on bit 0", cpc_ppi_read(&ppi, 1, 1, &bus) == 0x7F
+        && cpc_ppi_read(&ppi, 1, 0, &bus) == 0x7E);
+    cpc_ppi_write(&ppi, 3, 0x82, &bus);
+    cpc_ppi_write(&ppi, 3, 0x09, &bus);                              /* bit set: C4, the tape motor */
+    expect("bit set / reset of port C (the tape motor)", (ppi.port_c & 0x10) && cpc_ppi_read(&ppi, 2, 0, &bus) == 0x10);
+    cpc_ppi_write(&ppi, 3, 0x08, &bus);
+    expect("and reset", (ppi.port_c & 0x10) == 0);
+    cpc_ppi_write(&ppi, 2, 0x45, &bus);
+    cpc_ppi_write(&ppi, 3, 0x82, &bus);
+    expect("a mode byte clears the outputs", ppi.port_c == 0 && ppi.port_a == 0);
+}
+
+static void check_bus(void)
+{
+    expect("7F00h: the Gate Array only", cpc_io_devices(0x7F00) == CPC_IO_GATE_ARRAY);
+    expect("BC00h: the CRTC, select", cpc_io_devices(0xBC00) == CPC_IO_CRTC && cpc_io_function(0xBC00) == 0);
+    expect("BD00h: the CRTC, write; BF00h read", cpc_io_function(0xBD00) == 1 && cpc_io_function(0xBF00) == 3
+        && cpc_io_devices(0xBF00) == CPC_IO_CRTC);
+    expect("DF00h: the upper ROM select", cpc_io_devices(0xDF00) == CPC_IO_ROM_SELECT);
+    expect("EF00h: the printer", cpc_io_devices(0xEF00) == CPC_IO_PRINTER);
+    expect("F400h-F700h: the PPI ports", cpc_io_devices(0xF400) == CPC_IO_PPI && cpc_io_function(0xF600) == 2
+        && cpc_io_function(0xF700) == 3);
+    expect("FA7Eh: the floppy motor", cpc_io_devices(0xFA7E) == CPC_IO_FDC_MOTOR);
+    expect("FB7Eh, FB7Fh: the floppy controller", cpc_io_devices(0xFB7E) == CPC_IO_FDC && cpc_io_devices(0xFB7F) == CPC_IO_FDC);
+    expect("a careless 0000h reaches the CRTC, ROM select, printer, PPI and motor at once",
+        cpc_io_devices(0x0000) == (CPC_IO_CRTC | CPC_IO_ROM_SELECT | CPC_IO_PRINTER | CPC_IO_PPI | CPC_IO_FDC_MOTOR));
+    CpcGateArray g;
+    g.has_ram_pal = 1;
+    cpc_ga_reset(&g);
+    CpcMap m = cpc_memory_map(&g, 0);
+    expect("at reset: lower ROM, RAM, RAM, BASIC", m.source[0] == CPC_SOURCE_LOWER_ROM && m.source[1] == CPC_SOURCE_RAM
+        && m.source[3] == CPC_SOURCE_BASIC && m.ram[3] == 3);
+    m = cpc_memory_map(&g, 7);
+    expect("upper ROM 7: AMSDOS", m.source[3] == CPC_SOURCE_AMSDOS);
+    cpc_ga_write(&g, 0x8C);
+    cpc_ga_write(&g, 0xC1);
+    m = cpc_memory_map(&g, 7);
+    expect("both ROMs off and configuration 1: RAM banks 0, 1, 2, 7", m.source[0] == CPC_SOURCE_RAM
+        && m.source[3] == CPC_SOURCE_RAM && m.ram[0] == 0 && m.ram[3] == 7);
+    g.has_ram_pal = 0;
+    m = cpc_memory_map(&g, 0);
+    expect("a 64 KiB machine ignores the configuration", m.ram[3] == 3);
+}
+
+/* The board through its bus, as the Z80 drives it: stand-in ROMs (each byte its ROM's tag), a disk built here. */
+static CpcMachine board;
+static uint8_t os_rom[CPC_ROM_BYTES], basic_rom[CPC_ROM_BYTES], amsdos_rom[CPC_ROM_BYTES];
+static uint8_t disk[256 + 256 + 9 * 512];
+
+static void check_machine(void)
+{
+    memset(os_rom, 0x05, sizeof os_rom);
+    memset(basic_rom, 0xBA, sizeof basic_rom);
+    memset(amsdos_rom, 0xAD, sizeof amsdos_rom);
+    board.os = os_rom; board.basic = basic_rom; board.amsdos = amsdos_rom;
+    board.picture = NULL;
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    uint32_t g0 = board.generation;
+    expect("reset: the OS at 0000h, BASIC at C000h, RAM between", cpc_read(&board, 0x0000) == 0x05
+        && cpc_read(&board, 0xC123) == 0xBA && cpc_read(&board, 0x4000) == 0x00);
+    cpc_write(&board, 0x0010, 0x77);
+    cpc_write(&board, 0xC010, 0x66);
+    expect("a write under a ROM goes to the RAM below it", cpc_read(&board, 0x0010) == 0x05 && board.ram[0x0010] == 0x77
+        && board.ram[0xC010] == 0x66);
+    cpc_out(&board, 0x7F00, 0x8C);                                   /* both ROMs off */
+    expect("ROMs off: RAM at 0000h and C000h, a new map", cpc_read(&board, 0x0010) == 0x77 && cpc_read(&board, 0xC010) == 0x66
+        && board.generation != g0);
+    cpc_out(&board, 0x7F00, 0x84);                                   /* lower off, upper on */
+    cpc_out(&board, 0xDF00, CPC_AMSDOS_SLOT);
+    expect("upper ROM 7: AMSDOS at C000h", cpc_read(&board, 0xC000) == 0xAD);
+    cpc_out(&board, 0xDF00, 0);
+    expect("upper ROM 0: BASIC again", cpc_read(&board, 0xC000) == 0xBA);
+    uint32_t g1 = board.generation;
+    cpc_out(&board, 0xDF00, 0);
+    expect("the same ROM selected again: the map does not change", board.generation == g1);
+    cpc_out(&board, 0x7F00, 0x8C);
+    cpc_out(&board, 0x7F00, 0xC1);                                   /* configuration 1: bank 7 at C000h */
+    cpc_write(&board, 0xC000, 0x42);
+    expect("RAM configuration 1: C000h is bank 7", board.ram[0x1C000] == 0x42 && board.ram[0xC000] != 0x42);
+    expect("the screen is read from the base 64 KiB whatever the configuration", board.map.ram[3] == 7);
+    cpc_out(&board, 0x7F00, 0xC0);
+    expect("the GA cannot be read: FFh", cpc_in(&board, 0x7F00) == 0xFF);
+    cpc_out(&board, 0xBC00, 12);
+    cpc_out(&board, 0xBD00, 0x20);
+    expect("the CRTC through BCxxh / BDxxh", board.crtc.reg[12] == 0x20);
+    cpc_out(&board, 0xBC00, 31);
+    expect("type 1 reads R31 at BFxxh", cpc_in(&board, 0xBF00) == 0xFF);
+    expect("PPI port B at F5xxh: Amstrad, 50 Hz", (cpc_in(&board, 0xF500) & 0xFE) == 0x7E);
+    cpc_out(&board, 0xFA7E, 1);
+    expect("the motor at FA7Eh", board.motor == 1);
+
+    /* A one-track standard disk, sector C1h holding its tag. */
+    memset(disk, 0, sizeof disk);
+    memcpy(disk, "MV - CPCEMU Disk-File\r\nDisk-Info\r\n", 34);
+    disk[0x30] = 1; disk[0x31] = 1; disk[0x32] = 0x00; disk[0x33] = 0x13;
+    uint8_t *track = disk + 256;
+    memcpy(track, "Track-Info\r\n", 12);
+    track[0x14] = 2; track[0x15] = 9;
+    for (unsigned s = 0; s < 9; ++s) { track[0x18 + 8 * s + 2] = (uint8_t)(0xC1 + s); track[0x18 + 8 * s + 3] = 2; }
+    memset(track + 256, 0xD5, 512);
+    expect("a disk goes in drive A", cpc_insert_disk(&board, 0, disk, sizeof disk, 0) == DSK_OK);
+    expect("the controller's status at FB7Eh: ready for a command", cpc_in(&board, 0xFB7E) == 0x80);
+    static const uint8_t read[9] = { 0x46, 0x00, 0, 0, 0xC1, 2, 0xC1, 0x2A, 0xFF };
+    for (unsigned i = 0; i < 9; ++i) cpc_out(&board, 0xFB7F, read[i]);
+    unsigned bytes = 0, same = 1;
+    while ((cpc_in(&board, 0xFB7E) & 0xE0) == 0xE0 && bytes < 600) { same &= cpc_in(&board, 0xFB7F) == 0xD5; ++bytes; }
+    uint8_t st0 = cpc_in(&board, 0xFB7F), st1 = cpc_in(&board, 0xFB7F);
+    for (unsigned i = 0; i < 5; ++i) cpc_in(&board, 0xFB7F);
+    expect("a sector read through FB7Fh as AMSDOS does: 512 bytes, end of cylinder", bytes == 512 && same && st0 == 0x40
+        && st1 == 0x80);
+
+    /* Time: 4 T-states a character; the firmware's frame and its six interrupts, acknowledged as the Z80 does. */
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    unsigned frames = 0, interrupts = 0, raised = 0;
+    for (unsigned step = 0; step < 3 * 19968 * 4 / 7; ++step) {      /* 7-T steps: not aligned on the microsecond */
+        cpc_advance(&board, 7);
+        if (board.frame_ready) { board.frame_ready = 0; ++frames; }
+        if (cpc_irq(&board)) { ++raised; cpc_acknowledge(&board); }
+    }
+    interrupts = raised;
+    expect("three frames of 19,968 us in 7-T steps", frames == 3 && board.frames == 3
+        && board.cycles == (uint64_t)(3 * 19968 * 4 / 7) * 7);
+    expect("six interrupts a frame, each dropped by its acknowledge", interrupts >= 17 && interrupts <= 18);
+    expect("the next event is the next microsecond", cpc_next_event(&board) > board.cycles
+        && cpc_next_event(&board) <= board.cycles + 4 && cpc_next_event(&board) % 4 == 0);
+}
+
+/* The keyboard as the CPC adapter will feed it: a frame's host keys through RRHK_CPC_KEYS onto the PPI's matrix, then read
+ * as the firmware reads it, a key counted when it goes down (with the Shift line of that frame). */
+static unsigned typed_count;
+static uint8_t typed_key[64], typed_shift[64];
+
+static void feed(const uint8_t *state, CpcPpi *ppi)
+{
+    memset(ppi->keys, 0, sizeof ppi->keys);
+    for (unsigned i = 0; i < sizeof RRHK_CPC_KEYS / sizeof RRHK_CPC_KEYS[0]; ++i)
+        if (state[RRHK_CPC_KEYS[i].scancode]) cpc_ppi_key(ppi, RRHK_CPC_KEYS[i].cpc_key, 1);
+}
+
+/* Run a sequence from frame 0 to `frames`, the player holding host key `held` all along (0: none): the adapter takes the
+ * sequence's keys while it owns the keyboard, the player's after. */
+static void type_frames(const RrhkBootKeys *seq, uint32_t frames, uint8_t held)
+{
+    static uint8_t state[SDL_NUM_SCANCODES];
+    CpcPpi ppi;
+    memset(&ppi, 0, sizeof ppi);
+    uint8_t before[CPC_KEY_ROWS] = { 0 };
+    typed_count = 0;
+    for (uint32_t frame = 0; frame < frames; ++frame) {
+        if (!rrhk_boot_keys_frame(seq, frame, state)) {
+            memset(state, 0, sizeof state);
+            if (held) state[held] = 1;
+        }
+        feed(state, &ppi);
+        int shift = (ppi.keys[CPC_KEY_SHIFT >> 3] >> (CPC_KEY_SHIFT & 7)) & 1;
+        for (unsigned key = 0; key < CPC_KEY_ROWS * 8; ++key) {
+            if (key == CPC_KEY_SHIFT) continue;
+            int now = (ppi.keys[key >> 3] >> (key & 7)) & 1, was = (before[key >> 3] >> (key & 7)) & 1;
+            if (now && !was && typed_count < 64) { typed_key[typed_count] = (uint8_t)key; typed_shift[typed_count++] = (uint8_t)shift; }
+        }
+        memcpy(before, ppi.keys, sizeof before);
+    }
+}
+
+/* The AY through the board's PPI ports, as the firmware drives it: F4xxh the data, F6xxh BDIR/BC1 (C0h select, 80h write,
+ * 40h read, 00h inactive), F7xxh the direction of port A. */
+static void ay_set(CpcMachine *m, uint8_t reg, uint8_t value)
+{
+    cpc_out(m, 0xF400, reg); cpc_out(m, 0xF600, 0xC0); cpc_out(m, 0xF600, 0x00);
+    cpc_out(m, 0xF400, value); cpc_out(m, 0xF600, 0x80); cpc_out(m, 0xF600, 0x00);
+}
+
+static uint8_t ay_get(CpcMachine *m, uint8_t reg, uint8_t row)
+{
+    cpc_out(m, 0xF400, reg); cpc_out(m, 0xF600, 0xC0); cpc_out(m, 0xF600, 0x00);
+    cpc_out(m, 0xF700, 0x92);                                        /* port A input */
+    cpc_out(m, 0xF600, (uint8_t)(0x40 | row));
+    uint8_t value = cpc_in(m, 0xF400);
+    cpc_out(m, 0xF700, 0x82);
+    return value;
+}
+
+static void check_board_ay(void)
+{
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    ay_set(&board, 7, 0x38);
+    ay_set(&board, 1, 0xFF);
+    ay_set(&board, 6, 0xFF);
+    expect("the AY written through the PPI, each register with its own bits", board.ay_reg[7] == 0x38
+        && board.ay_reg[1] == 0x0F && board.ay_reg[6] == 0x1F && ay_get(&board, 1, 0) == 0x0F);
+    ay_set(&board, 0x1E, 0x55);
+    expect("a select with a high bit set reaches no register", board.ay_latch == 16 && board.ay_reg[14] == 0
+        && board.ay_reg[0x0E] != 0x55);
+    board.ay.env_step = 9; board.ay.env_holding = 1;
+    ay_set(&board, 13, 0x0E);
+    expect("a write of R13 restarts the envelope", board.ay_reg[13] == 0x0E && board.ay.env_step == 0 && !board.ay.env_holding);
+    expect("R14 reads the keyboard row the PPI selects: none down", ay_get(&board, 14, 9) == 0xFF);
+    board.ppi.joystick[0] = CPC_JOY_FIRE1;
+    cpc_ppi_key(&board.ppi, CPC_KEY_SPACE, 1);
+    expect("R14: joystick fire on row 9, SPACE on row 5", ay_get(&board, 14, 9) == (uint8_t)~CPC_JOY_FIRE1
+        && ay_get(&board, 14, 5) == (uint8_t)~0x80 && ay_get(&board, 14, 4) == 0xFF);
+    board.ppi.joystick[0] = 0;
+    cpc_ppi_key(&board.ppi, CPC_KEY_SPACE, 0);
+    int levels[3];
+    ay_set(&board, 0, 1); ay_set(&board, 1, 0); ay_set(&board, 7, 0x3E); ay_set(&board, 8, 15);
+    ay38910_tick(&board.ay, board.ay_reg, levels);
+    int first = levels[0];
+    ay38910_tick(&board.ay, board.ay_reg, levels);
+    expect("the shared chip sounds the registers the PPI wrote (a period-1 tone at volume 15 toggles)", first != levels[0]
+        && (first == 32767 || levels[0] == 32767) && levels[1] == 0);
+}
+
+/* The sound: one channel at a time at volume 15, a tone of period 113 (1 MHz / 16 / 113 = 553 Hz), half a second. */
+enum { SOUND_MAX = 30000 };
+static int16_t sound[SOUND_MAX * 2];
+
+/* As the player does, the samples are taken as the machine runs (each frame), so its buffer never fills. */
+static uint32_t play(CpcMachine *m, uint8_t mixer, int channel, uint64_t step)
+{
+    cpc_reset(m, CPC_CRTC_TYPE1);
+    ay_set(m, (uint8_t)(channel * 2), 113);
+    ay_set(m, (uint8_t)(channel * 2 + 1), 0);
+    ay_set(m, 7, mixer);
+    ay_set(m, (uint8_t)(8 + channel), 15);
+    uint32_t count = 0;
+    for (uint64_t done = 0; done < 2000000; done += step) {
+        cpc_advance(m, step);
+        if (m->frame_ready || done + step >= 2000000) {
+            m->frame_ready = 0;
+            count += cpc_audio_take(m, sound + 2 * count, SOUND_MAX - count);
+        }
+    }
+    return count;
+}
+
+static unsigned rises(const int16_t *stereo, uint32_t count, int side)
+{
+    unsigned n = 0;
+    for (uint32_t i = 1; i < count; ++i)
+        n += stereo[2 * i + side] > 6000 && stereo[2 * (i - 1) + side] <= 6000;
+    return n;
+}
+
+static void check_sound(void)
+{
+    uint32_t count = play(&board, 0x3E, 0, 64);                      /* tone A only */
+    int right_silent = 1, left_loud = 0;
+    for (uint32_t i = 0; i < count; ++i) { right_silent &= sound[2 * i + 1] == 0; left_loud |= sound[2 * i] > 15000; }
+    expect("half a second of sound: 22,050 stereo samples", count == 22050 && board.audio.dropped == 0);
+    expect("channel A on the left only", left_loud && right_silent);
+    unsigned up = rises(sound, count, 0);
+    expect("its pitch: 553 Hz, about 276 rises in half a second", up >= 272 && up <= 280);
+    count = play(&board, 0x3B, 2, 64);                               /* tone C only */
+    int left_silent = 1, right_loud = 0;
+    for (uint32_t i = 0; i < count; ++i) { left_silent &= sound[2 * i] == 0; right_loud |= sound[2 * i + 1] > 15000; }
+    expect("channel C on the right only", left_silent && right_loud);
+    count = play(&board, 0x3D, 1, 64);                               /* tone B only */
+    int equal = 1, some = 0, half = 1;
+    for (uint32_t i = 0; i < count; ++i) {
+        equal &= sound[2 * i] == sound[2 * i + 1];
+        some |= sound[2 * i] > 0;
+        half &= sound[2 * i] <= 24000 / 3 + 1;
+    }
+    expect("channel B on both sides, at half the weight", equal && some && half);
+    static int16_t coarse[SOUND_MAX * 2];
+    uint32_t fine = play(&board, 0x3E, 0, 7);
+    memcpy(coarse, sound, sizeof coarse);
+    uint32_t big = play(&board, 0x3E, 0, 1000);
+    expect("the same samples whether the machine runs 7 T-states or 1,000 at a time", fine == big
+        && !memcmp(coarse, sound, (size_t)fine * 2 * sizeof *sound));
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    cpc_advance(&board, 400000);
+    count = cpc_audio_take(&board, sound, SOUND_MAX);
+    int silent = 1;
+    for (uint32_t i = 0; i < count * 2; ++i) silent &= sound[i] == 0;
+    expect("after reset the AY is silent", count == 4410 && silent);
+}
+
+/* The board's state: a save, a run, a load and the same run again give the same digests; a damaged state is refused and changes
+ * nothing; the frame count (the boot key sequence's clock) is in the digest. */
+static uint8_t state_a[CPC_RAM_BYTES + 4096], state_b[CPC_RAM_BYTES + 4096];
+
+static void run_frames(CpcMachine *m, unsigned frames)
+{
+    uint64_t until = m->frames + frames;
+    while (m->frames < until) {
+        cpc_advance(m, 52);
+        if (cpc_irq(m)) cpc_acknowledge(m);
+    }
+}
+
+static void check_state(void)
+{
+    cpc_insert_disk(&board, 0, NULL, 0, 0);                          /* no disk: the drives as the state will say */
+    cpc_reset(&board, CPC_CRTC_TYPE1);
+    ay_set(&board, 0, 113); ay_set(&board, 7, 0x3E); ay_set(&board, 8, 15);
+    cpc_out(&board, 0x7F00, 0xC1);
+    cpc_write(&board, 0xC000, 0x5A);
+    run_frames(&board, 3);
+    size_t size = cpc_state_save(&board, state_a, sizeof state_a);
+    uint64_t at_save = cpc_state_digest(&board);
+    expect("a state is written, its size the same as cpc_state_size", size > CPC_RAM_BYTES && size == cpc_state_size(&board));
+    run_frames(&board, 2);
+    uint64_t later = cpc_state_digest(&board);
+    uint64_t frames_later = board.frames, cycles_later = board.cycles;
+    expect("the machine moves on: another digest", later != at_save);
+    uint32_t generation = board.generation;
+    expect("the state loads", cpc_state_load(&board, state_a, size) == 1);
+    expect("loaded: the digest of the save, the map rebuilt (a new generation)", cpc_state_digest(&board) == at_save
+        && board.generation != generation && board.map.ram[3] == 7);
+    run_frames(&board, 2);
+    expect("and the same two frames after it give the same digest, frames and time", cpc_state_digest(&board) == later
+        && board.frames == frames_later && board.cycles == cycles_later);
+
+    uint64_t before = cpc_state_digest(&board);
+    memcpy(state_b, state_a, size);
+    expect("a state one byte short is refused", cpc_state_load(&board, state_b, size - 1) == 0 && cpc_state_digest(&board) == before);
+    state_b[0] ^= 1;
+    expect("a state with another magic is refused", cpc_state_load(&board, state_b, size) == 0 && cpc_state_digest(&board) == before);
+    memcpy(state_b, state_a, size);
+    state_b[4 + 1 + CPC_RAM_BYTES] = 9;                              /* the CRTC type, out of its range */
+    expect("a field out of its range is refused, the machine unchanged", cpc_state_load(&board, state_b, size) == 0
+        && cpc_state_digest(&board) == before);
+    board.frames += 1;
+    expect("the frame count is in the digest", cpc_state_digest(&board) != before);
+    board.frames -= 1;
+    expect("a state with no disk in drive A is refused once one is in", cpc_insert_disk(&board, 0, disk, sizeof disk, 0) == DSK_OK
+        && cpc_state_load(&board, state_a, size) == 0);
+    cpc_insert_disk(&board, 0, NULL, 0, 0);
+}
+
+static void check_boot_keys(void)
+{
+    static uint8_t state[SDL_NUM_SCANCODES];
+    uint32_t end = rrhk_boot_keys_end(&rr_boot_keys);
+    expect("RUN\"BOMB + RETURN: nine keys from frame 10, 4 frames each", rr_boot_keys.count == 9 && end == 10 + 9 * 4);
+    memset(state, 0xAA, sizeof state);
+    expect("before the first key the sequence owns the keyboard with no key down",
+        rrhk_boot_keys_frame(&rr_boot_keys, 0, state) == 1 && state[21] == 0 && state[SDL_SCANCODE_LSHIFT] == 0);
+    expect("its last gap still owns it (no key down), the frame after is the player's",
+        rrhk_boot_keys_frame(&rr_boot_keys, end - 1, state) == 1 && state[40] == 0
+        && rrhk_boot_keys_frame(&rr_boot_keys, end, state) == 0);
+    expect("the shifted key: 2 and Left Shift down together", rrhk_boot_keys_frame(&rr_boot_keys, 10 + 3 * 4, state) == 1
+        && state[31] && state[SDL_SCANCODE_LSHIFT]);
+    RrhkBootKeys none = { 0, 2, 2, 0, NULL };
+    expect("no sequence: never owns the keyboard", rrhk_boot_keys_frame(&none, 0, state) == 0 && rrhk_boot_keys_end(&none) == 0);
+
+    /* Read back through the CPC's matrix, the player holding L all along: R U N " B O M B RETURN, then his L. */
+    type_frames(&rr_boot_keys, end + 4, 15);
+    static const uint8_t want[9] = { CPC_KEY_R, CPC_KEY_U, CPC_KEY_N, CPC_KEY_2, CPC_KEY_B, CPC_KEY_O, CPC_KEY_M, CPC_KEY_B,
+                                     CPC_KEY_RETURN };
+    int same = typed_count == 10;
+    for (unsigned i = 0; same && i < 9; ++i) same = typed_key[i] == want[i] && typed_shift[i] == (i == 3);
+    expect("every key read once, the \" with Shift, in order", same);
+    expect("the key the player holds is read after the sequence, not merged with RETURN",
+        typed_count == 10 && typed_key[9] == CPC_KEY_L && !typed_shift[9]);
+    static const RrhkBootKey double_l[3] = { { 15, 0 }, { 15, 0 }, { 40, 0 } };
+    RrhkBootKeys hello = { 0, 2, 2, 3, double_l };
+    type_frames(&hello, rrhk_boot_keys_end(&hello), 0);
+    expect("two equal letters in a row read as two", typed_count == 3 && typed_key[0] == CPC_KEY_L && typed_key[1] == CPC_KEY_L);
+}
+
+int main(void)
+{
+    check_bus();
+    check_boot_keys();
+    check_machine();
+    check_board_ay();
+    check_sound();
+    check_state();
+    check_crtc();
+    check_gate_array();
+    check_picture();
+    check_ppi();
+    printf("{\"passed\": %u, \"failed\": %u}\n", passed, failed);
+    return failed ? 1 : 0;
+}

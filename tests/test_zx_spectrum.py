@@ -2,6 +2,7 @@
 image and core, the routes and the quick states' envelope. No ROM and no game: every snapshot here is built by the test from authored bytes, and no ROM file is read."""
 import hashlib
 import json
+import shutil
 import tempfile
 import unittest
 import zipfile
@@ -361,9 +362,11 @@ class RouteTests(unittest.TestCase):
     def test_the_start_presses_come_first_and_the_walk_drives_the_snapshots_controls(self):
         from retrorecomp import zxs_routes as routes
         seed = routes.route_seed('ab' * 32, 'play')
-        cursor = routes.events(1800, seed, (2, 'SPACE'), 'cursor')
-        self.assertEqual(cursor, routes.events(1800, seed, (2, 'SPACE'), 'cursor'))      # deterministic
-        presses = [event for event in cursor if event[1] < routes.walk_start(2)]
+        two_space = routes.repeated(2, 'SPACE')
+        self.assertEqual(two_space, ((150, 'SPACE'), (390, 'SPACE')))
+        cursor = routes.events(1800, seed, two_space, 'cursor')
+        self.assertEqual(cursor, routes.events(1800, seed, two_space, 'cursor'))      # deterministic
+        presses = [event for event in cursor if event[1] < routes.walk_start(two_space)]
         self.assertEqual(presses, [('key', 150, 7, 0, 1), ('key', 175, 7, 0, 0), ('key', 390, 7, 0, 1), ('key', 415, 7, 0, 0)])
         frames = [event[1] for event in cursor]
         self.assertEqual(frames, sorted(frames))
@@ -371,7 +374,7 @@ class RouteTests(unittest.TestCase):
         # Cursor keys 5-8 and 0 for pad 1; a Kempston snapshot moves the port, never those keys.
         pad = set(routes.PAD_KEYS['cursor'].values())
         self.assertTrue(any((event[2], event[3]) in pad for event in cursor if event[0] == 'key' and event[1] >= 900))
-        kempston = routes.events(1800, seed, (2, 'SPACE'), 'kempston')
+        kempston = routes.events(1800, seed, two_space, 'kempston')
         self.assertTrue(any(event[0] == 'kempston' for event in kempston))
         directions_only = pad - set(routes.MENU_KEYS)                          # '0' is both fire and a menu key
         self.assertFalse(any(event[0] == 'key' and (event[2], event[3]) in directions_only for event in kempston))
@@ -390,18 +393,102 @@ class RouteTests(unittest.TestCase):
         standard = routes.routes(identity, frames=1800, level='standard')
         self.assertEqual([name for name, _, _ in standard][:2], ['attract', 'play'])
         self.assertEqual(standard[0][2], '')                                    # the attract route has no input
+        self.assertEqual(standard[1][1], routes.PLAY_FRAMES)                    # the play route is never shorter
         self.assertEqual(len(standard), 2 + LONG_ROUTES['standard'])
         self.assertNotEqual(routes.route_seed(identity, 'long-1'), routes.route_seed(identity, 'long-2'))
-        variants = routes.candidates(1800)
-        self.assertEqual(len(variants), 18)                                     # six candidates, presses 1 to 3 fit 1,800 frames
+        variants = routes.candidates(routes.PLAY_FRAMES)
+        # Six keys pressed 1 to 4 times (Match Day II starts on the fourth ENTER), five keys then fire (Arkanoid: ENTER, fire).
+        self.assertEqual(len(variants), 6 * 4 + 5)
+        self.assertIn(routes.repeated(4, 'ENTER'), variants)
+        self.assertIn(((150, 'ENTER'), (390, 'FIRE')), variants)
+        self.assertTrue(all(routes.walk_start(variant) + 600 <= routes.PLAY_FRAMES for variant in variants))
         # Pad 1's fire as a start: the Kempston bit on a Kempston snapshot, the fire key of the cursor set otherwise.
-        fire = routes.events(1800, 1, (1, 'FIRE'), 'kempston')
+        fire = routes.events(1800, 1, routes.repeated(1, 'FIRE'), 'kempston')
         self.assertEqual(fire[:2], [('kempston', 150, routes.KEMPSTON_BIT[routes.FIRE]), ('kempston', 175, 0)])
-        self.assertEqual(routes.events(1800, 1, (1, 'FIRE'), 'cursor')[:2], [('key', 150, 4, 0, 1), ('key', 175, 4, 0, 0)])
-        self.assertEqual(routes.events(1800, 1, (1, '5'), 'cursor')[:2], [('key', 150, 3, 4, 1), ('key', 175, 3, 4, 0)])
-        self.assertTrue(all(routes.walk_start(presses) + 600 <= 1800 for presses, _ in variants))
-        self.assertEqual(min(variants, key=routes.variant_order), (1, 'ENTER'))
-        self.assertEqual(routes.variant_name((3, '0')), '3x0')
+        self.assertEqual(routes.events(1800, 1, routes.repeated(1, 'FIRE'), 'cursor')[:2], [('key', 150, 4, 0, 1), ('key', 175, 4, 0, 0)])
+        self.assertEqual(routes.events(1800, 1, routes.repeated(1, '5'), 'cursor')[:2], [('key', 150, 3, 4, 1), ('key', 175, 3, 4, 0)])
+        self.assertEqual(min(variants, key=routes.variant_order), routes.repeated(1, 'ENTER'))
+        self.assertEqual(routes.variant_name(routes.repeated(3, '0')), '3x0')
+        self.assertEqual(routes.variant_name(routes.then_fire('ENTER')), 'ENTER+FIRE')
+        with self.assertRaises(ValueError):
+            routes.press_input('F1')
+
+    def test_reviewed_start_data_names_real_keys_and_leaves_a_walk(self):
+        # retrorecomp/zxs_starts.py: SHA-256 keys, presses in frame order with names the routes know, room for the walk in a play
+        # route; route stops are sentences. The data plays like any variant.
+        from retrorecomp import zxs_routes as routes, zxs_starts
+        for identity, entry in zxs_starts.STARTS.items():
+            self.assertRegex(identity, '^[0-9a-f]{64}$')
+            presses = entry['presses']
+            self.assertEqual([at for at, _ in presses], sorted(at for at, _ in presses))
+            self.assertGreaterEqual(presses[0][0], routes.FIRST_PRESS)
+            for _, key in presses:
+                routes.press_input(key)
+            self.assertLessEqual(routes.walk_start(presses) + 600, routes.PLAY_FRAMES)
+            self.assertTrue(entry['why'])
+            self.assertEqual(zxs_starts.start_for(identity), (tuple(presses), entry['why']))
+            events = routes.events(routes.PLAY_FRAMES, 1, tuple(presses), 'kempston')
+            self.assertEqual([event[1] for event in events if event[0] == 'key' and event[4] == 1][:len(presses)],
+                             [at for at, key in presses if key != 'FIRE'])
+        for identity, note in zxs_starts.ROUTE_STOPS.items():
+            self.assertRegex(identity, '^[0-9a-f]{64}$')
+            self.assertGreater(len(note), 40)
+            self.assertIsNone(zxs_starts.start_for(identity))
+        self.assertIsNone(zxs_starts.start_for('00' * 32))
+        self.assertIsNone(zxs_starts.route_stop('00' * 32))
+
+    def test_a_game_prepared_again_with_other_bytes_rebuilds_its_resources(self):
+        # The resource compiler does not track the files content.rc includes: prepare_game touches it (and the Linux .incbin
+        # source) whenever an embedded file is newer, and leaves its time alone otherwise (Match Day II, 22 November 2026: a
+        # reviewed joystick changed the image of a work folder and the build linked the old one, which the packed replay caught).
+        import os
+        from retrorecomp import zxs_build
+        folder = Path(tempfile.mkdtemp())
+        try:
+            path = folder / 'a.z80'
+            path.write_bytes(z80_v1(BANKS, True))
+            image = bytearray(zxs_build.zxs_image(zxs_snapshot.read_snapshot(path)))
+            work, rom, identity = folder / 'work', bytes(0x4000), 'ab' * 32
+            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
+            rc = work / 'content.rc'
+            for name in ('game-rom.bin', 'game-image.bin', 'notices.txt', 'export-identity.bin'):
+                os.utime(work / name, (1_000_000, 1_000_000))
+            os.utime(rc, (2_000_000, 2_000_000))
+            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
+            self.assertEqual(rc.stat().st_mtime, 2_000_000)                  # nothing new: no rebuild
+            image[6] ^= 1
+            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
+            self.assertGreater(rc.stat().st_mtime, 2_000_000)                 # a new image: the resources are compiled again
+            self.assertEqual((work / 'game-image.bin').read_bytes(), bytes(image))
+            os.utime(rc, (500_000, 500_000))                                  # a folder left stale by an earlier conversion
+            zxs_build.prepare_game(work, 'Test', identity, rom, bytes(image), emit=lambda _: None)
+            self.assertGreater(rc.stat().st_mtime, 500_000)
+        finally:
+            shutil.rmtree(folder)
+
+    def test_reviewed_joysticks_name_an_interface_the_machine_knows(self):
+        # zxs_starts.JOYSTICKS: SHA-256 keys, one of the snapshot format's interfaces, and a reason; the conversion reads the
+        # snapshot with it, so the image's joystick byte (zxs_build: the Kempston answers at port 1Fh only when it is 1) follows.
+        import dataclasses
+        from retrorecomp import zxs_build, zxs_starts
+        from retrorecomp.zxs_snapshot import JOYSTICKS
+        self.assertTrue(zxs_starts.JOYSTICKS)
+        for identity, entry in zxs_starts.JOYSTICKS.items():
+            self.assertRegex(identity, '^[0-9a-f]{64}$')
+            self.assertIn(entry['joystick'], JOYSTICKS)
+            self.assertTrue(entry['why'])
+            self.assertEqual(zxs_starts.joystick_for(identity), (entry['joystick'], entry['why']))
+        self.assertIsNone(zxs_starts.joystick_for('00' * 32))
+        folder = Path(tempfile.mkdtemp())
+        path = folder / 'a.z80'
+        path.write_bytes(z80_v1(BANKS, True))
+        snapshot = zxs_snapshot.read_snapshot(path)
+        self.assertEqual(zxs_build.zxs_image(snapshot)[6], JOYSTICKS.index(snapshot.joystick))
+        for joystick in JOYSTICKS:
+            self.assertEqual(zxs_build.zxs_image(dataclasses.replace(snapshot, joystick=joystick))[6], JOYSTICKS.index(joystick))
+        shutil.rmtree(folder)
+        source = (Path(__file__).resolve().parents[1] / 'retrorecomp/zxs_conversion.py').read_text(encoding='utf-8')
+        self.assertIn('snapshot = dataclasses.replace(snapshot, joystick=reviewed_joystick[0])', source)
 
 
 class QuickStateTests(unittest.TestCase):

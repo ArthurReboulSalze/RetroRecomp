@@ -19,7 +19,7 @@ PUBLIC_FILES = tuple("""
 retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.py
 retrorecomp/systems/x68000.py docs/X68000.md
 retrorecomp/gba.py retrorecomp/gba_conversion.py retrorecomp/systems/gba.py
-retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md
+retrorecomp/gba_analysis.py retrorecomp/gba_build.py retrorecomp/gba_engine.py retrorecomp/gba_patches.py docs/GAME_BOY_ADVANCE.md docs/GAME_BOY_COLOR.md
 retrorecomp/gba_player.py native/gba_driver.h native/gba_machine.cpp native/gba_machine.h native/hostkit/adapters/rrhk_gba.c
 tests/test_gba_profile.py tests/test_gba_conversion.py tests/test_gba_player.py licenses/gbarecomp.md
 retrorecomp/gba_knowledge.py retrorecomp/gba_link.py tests/test_gba_link.py tests/test_gba_knowledge.py tools/gba_bogus_rows_audit.py tests/test_gba_bogus_rows_audit.py
@@ -111,7 +111,7 @@ retrorecomp/systems/zx_spectrum.py retrorecomp/zxs_snapshot.py retrorecomp/zxs_r
 licenses/zx-spectrum-roms.md docs/ZX_SPECTRUM.md tests/test_zx_spectrum.py
 retrorecomp/zxs_build.py native/zxs_machine/zxs_machine.c native/zxs_machine/zxs_machine.h native/zxs_machine/zxs_machine_checks.c tools/zxs_machine_selftest.py
 native/zxs_machine/zxs_player.c native/hostkit/adapters/rrhk_zxs.inc native/zxs_machine/zxs_glue.inc native/zxs_machine/zxs_headless.inc
-native/zxs_machine/zxs_cpu_start.inc native/zxs_machine/zxs_native_main.c native/zxs_machine/zxs_reference_main.c retrorecomp/zxs_routes.py tools/zxs_native.py
+native/zxs_machine/zxs_cpu_start.inc native/zxs_machine/zxs_native_main.c native/zxs_machine/zxs_reference_main.c retrorecomp/zxs_routes.py retrorecomp/zxs_starts.py tools/zxs_native.py
 retrorecomp/systems/msx.py retrorecomp/msx_cbios.py retrorecomp/msx_build.py retrorecomp/msx_conversion.py retrorecomp/msx_routes.py licenses/cbios.md docs/MSX.md
 native/msx_machine/msx_glue.inc native/msx_machine/msx_player.c native/hostkit/adapters/rrhk_msx.inc native/tms9918/tms_tiles.inc
 native/msx_machine/msx_v9938.c native/msx_machine/msx_v9938_draw.c native/msx_machine/msx_v9938_cmd.c native/msx_machine/msx_msx2.c
@@ -119,6 +119,16 @@ native/msx_machine/msx2_checks_regs.c native/msx_machine/msx2_checks_modes.c nat
 native/msx_machine/msx2_checks_cmd_bytes.c native/msx_machine/msx2_checks_cmd_dots.c native/msx_machine/msx2_checks_cmd_line.c native/msx_machine/msx_route.inc native/msx_machine/msx_headless.inc native/msx_machine/msx_state.c native/msx_machine/msx_sram.c native/msx_machine/msx_sram.h native/msx_machine/msx_fdc.c native/msx_machine/msx_fdc.h native/msx_machine/msx_state_file.inc native/msx_machine/msx_snapshot.inc native/msx_machine/msx2_checks_state.c native/msx_machine/msx2plus_checks.c native/msx_machine/msx_music_checks.c
 native/audio_box.h native/audio_box_checks.c tools/audio_box_selftest.py tests/test_audio_box.py
 native/z80_chain_state.inc native/state_file.h native/state_file_checks.c tools/z80_chain_state_selftest.py tests/test_z80_chain_state.py
+native/disk_copies.inc native/disk_copies_checks.c tools/disk_copies_selftest.py tests/test_disk_copies.py
+retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
+retrorecomp/systems/amstrad_cpc.py retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
+retrorecomp/systems/amstrad_cpc.py native/cpc_machine/cpc_reference_main.c tools/cpc_reference.py tests/test_cpc_reference.py native/cpc_machine/cpc_native_main.c native/cpc_machine/cpc_headless.inc native/cpc_machine/cpc_player.c native/cpc_machine/cpc_state_file.inc native/cpc_machine/cpc_boot_input.h retrorecomp/cpc_conversion.py retrorecomp/cpc_roms.py retrorecomp/cpc_routes.py tests/test_cpc_routes.py licenses/amstrad-cpc-roms.md retrorecomp/state_envelope.py tests/test_cpc_conversion.py tests/test_cpc_roms.py tools/cpc_native.py tests/test_cpc_native.py
+native/hostkit/adapters/rrhk_boot_keys.h native/hostkit/adapters/rrhk_cpc_keys.h native/hostkit/adapters/rrhk_cpc.inc retrorecomp/cpc_keys.py tests/test_cpc_keys.py
+retrorecomp/cpc_build.py retrorecomp/cpc_disk.py retrorecomp/cpc_firmware.py tests/test_cpc_build.py docs/AMSTRAD_CPC.md tools/cpc_panel.py
+native/cpc_machine/cpc_bus.h native/cpc_machine/cpc_crtc.c native/cpc_machine/cpc_crtc.h native/cpc_machine/cpc_gate_array.c native/cpc_machine/cpc_gate_array.h
+native/cpc_machine/cpc_ppi.c native/cpc_machine/cpc_ppi.h native/cpc_machine/cpc_machine.c native/cpc_machine/cpc_machine.h native/cpc_machine/cpc_state.c native/cpc_machine/cpc_state.h native/cpc_machine/cpc_glue.inc native/cpc_machine/cpc_hardware_checks.c tools/cpc_hardware_selftest.py
+native/upd765/dsk_image.c native/upd765/dsk_image.h native/upd765/upd765.c native/upd765/upd765.h native/upd765/upd765_checks.c
+tools/upd765_selftest.py retrorecomp/cpc_timing.py tools/cpc_timing_table.py tests/test_cpc_timing.py tests/test_cpc_disk.py tests/test_cpc_hardware.py tests/test_cpc_profile.py
 retrorecomp/systems/n64.py retrorecomp/n64.py retrorecomp/n64_core.py retrorecomp/n64_native.py retrorecomp/n64_conversion.py docs/NINTENDO_64.md
 native/n64_machine/CMakeLists.txt native/n64_machine/n64_cpu.c native/n64_machine/n64_cpu.h native/n64_machine/n64_player.c
 native/n64_machine/n64_session.cpp native/n64_machine/n64_session.h native/libretro_vulkan_host.c native/libretro_vulkan_host.h native/n64_machine/n64_stubs.c
@@ -286,7 +296,7 @@ retrorecomp/peripherals.py
 retrorecomp/metadata.py tests/test_metadata.py
 retrorecomp/systems/__init__.py retrorecomp/systems/master_system.py
 retrorecomp/systems/registry.py retrorecomp/systems/specs.py tests/test_registration_surface.py
-retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py
+retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py retrorecomp/systems/game_boy_color.py
 retrorecomp/gameboy.py retrorecomp/gameboy_runtime.py
 retrorecomp/gameboy_build.py retrorecomp/gameboy_boundary.py tests/test_gameboy_build.py
 native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
@@ -323,7 +333,7 @@ native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py
 native/pce_snapshot_checks.cpp tools/pce_snapshot_selftest.py tools/pce_snapshot_rom.py tests/test_pce_snapshot.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
-native/gb_ppu_object_span.h native/gb_ppu_span_checks.c tools/gameboy_ppu_span_selftest.py tests/test_gameboy_perf.py native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
+native/gb_ppu_object_span.h native/gb_ppu_span_checks.c native/gbc_hardware_checks.c tools/gameboy_color_selftest.py tests/test_gameboy_color.py tools/gameboy_ppu_span_selftest.py tests/test_gameboy_perf.py native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
 native/gb_link.h native/gb_link_checks.c tools/gameboy_link_selftest.py tools/gameboy_link_play.py tests/test_gameboy_link.py
 tests/test_gameboy_helper_counts.py
 tools/gameboy_campaign.py tools/gameboy_cross_os.py tests/test_gameboy_cross_os.py
@@ -511,7 +521,7 @@ native/frame_stop_checks.c
 native/gamestate.h native/gamestate.inc native/state_envelope.h native/state_io.h native/psg_state.inc native/psg_runs.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
 native/gg_ext.h native/gg_ext_checks.c native/gg_link.inc tools/gg_ext_selftest.py tools/gg_link_selftest.py native/z80_nmi_checks.c tools/z80_nmi_selftest.py native/z80_chain_glue.inc retrorecomp/z80_chain_build.py native/sn76489/sn76489.c native/sn76489/sn76489.h native/sg1000_machine/sg1000_machine.c native/sg1000_machine/sg1000_machine.h native/sg1000_machine/sg1000_glue.inc native/sg1000_machine/sg1000_headless.inc native/sg1000_machine/sg1000_native_main.c native/sg1000_machine/sg1000_reference_main.c tests/test_z80_chain_glue.py native/sg1000_machine/sg1000_player.c native/sg1000_machine/sg1000_state_file.inc tools/sg1000_player_selftest.py tests/test_z80_chain_build.py
-native/z80_costs_emit.c native/z80_costs_checks.c tools/z80_costs_selftest.py native/z80_ports_emit.c native/z80_ports_checks.c tools/z80_ports_selftest.py
+native/z80_costs_emit.c native/z80_costs_checks.c tools/z80_costs_selftest.py retrorecomp/z80_timing.py tools/z80_timing_vectors.py tests/test_z80_timing.py native/z80_ports_emit.c native/z80_ports_checks.c tools/z80_ports_selftest.py
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py
 native/audio_output.inc native/audio_checks.c tools/audio_selftest.py
@@ -536,7 +546,7 @@ tools/frame_stop_selftest.py
 tests/test_game_gear.py tests/test_game_boy.py
 retrorecomp/cover_keyring.py tests/test_cover_keyring.py
 tools/package_linux.py docs/LINUX.md licenses/Linux-desktop.md
-retrorecomp/systems/sg1000.py retrorecomp/sg1000_rom.py retrorecomp/sg1000_conversion.py native/hostkit/adapters/rrhk_sg1000.inc docs/SG1000.md tests/test_sg1000_profile.py retrorecomp/sg1000_build.py retrorecomp/sg1000_routes.py tests/test_sg1000_build.py tests/test_sg1000_routes.py tests/test_sg1000_conversion.py
+retrorecomp/systems/sg1000.py retrorecomp/sg1000_rom.py retrorecomp/sg1000_conversion.py native/hostkit/adapters/rrhk_sg1000.inc docs/SG1000.md retrorecomp/systems/coleco.py retrorecomp/coleco_rom.py retrorecomp/coleco_bios.py retrorecomp/coleco_conversion.py docs/COLECOVISION.md tests/test_coleco_profile.py retrorecomp/coleco_build.py retrorecomp/coleco_routes.py native/hostkit/adapters/rrhk_coleco.inc native/coleco_machine/coleco_glue.inc native/coleco_machine/coleco_headless.inc native/coleco_machine/coleco_machine.c native/coleco_machine/coleco_machine.h native/coleco_machine/coleco_native_main.c native/coleco_machine/coleco_player.c native/coleco_machine/coleco_reference_main.c native/coleco_machine/coleco_state_file.inc tests/test_coleco_build.py tests/test_coleco_conversion.py tests/test_coleco_routes.py tools/coleco_authored.py tools/coleco_player_selftest.py tests/test_sg1000_profile.py retrorecomp/sg1000_build.py retrorecomp/sg1000_routes.py tests/test_sg1000_build.py tests/test_sg1000_routes.py tests/test_sg1000_conversion.py
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 # Every public converter module is frozen into the executable, including ones

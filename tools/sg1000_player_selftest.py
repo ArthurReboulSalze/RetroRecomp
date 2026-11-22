@@ -12,6 +12,9 @@ host kit, SDL2). Then it proves, and says exactly what each proof covers:
       and final state equal); a missing, damaged, cut, extended, foreign (another game, standard, schema, build) or crafted-but-CRC-valid
       state is refused (exit 4), the file is left as it was, nothing is created; and in a WINDOWED game F8 saves, F9 loads, and a refused
       F9 (missing, damaged, foreign) leaves the frames exactly as a run that never asked.
+  (e) the pad ports DC and DD, read by the authored cartridge for each of the twelve directions and buttons of both pads, equal the bytes
+      MAME 0.289 (a private oracle, run apart) returns for the same inputs on its SG-1000 (`MAME_PADS`): where this machine agrees with it,
+      both may still differ from a real console.
   (c) the game run WINDOWED (SDL offscreen video, dummy audio, a hidden window; RETRORECOMP_HOST_TEST_FRAMES frames) exits 0, presents a
       picture every frame, which is not blank, and answers the keyboard: a held direction and button reach the cartridge through the
       pads, the Pause key raises its /NMI. The sound of the window is NOT checked (the dummy device plays nothing): the sound is proved by
@@ -50,14 +53,20 @@ BUILD_TIMEOUT = 2 * 3600
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
 # Fields that are cumulative counters of the PROCESS, not of the machine: a process that loaded a state has not seen the frames before it.
-PROCESS_FIELDS = ('engine', 'interrupts', 'audio_samples', 'audio_fnv', 'native_steps', 'halt_steps', 'fallback_steps',
+PROCESS_FIELDS = ('engine', 'interrupts', 'nmi', 'audio_samples', 'audio_fnv', 'native_steps', 'halt_steps', 'fallback_steps',
                   'guarded_steps', 'fallback_cycles', 'fallback_at')
 NATIVE_ONLY = ('native_steps', 'halt_steps', 'fallback_steps', 'guarded_steps', 'fallback_cycles', 'fallback_at')
 
 # The route every run replays: pad 1 right, release, pad 2 up + button 1, Pause, both buttons, Pause... then events after the saved frame.
 ROUTE = ['20:pad:0:08', '60:pad:0:00', '90:pad:1:11', '120:pause', '130:pad:0:30', '200:pause', '230:pad:0:00', '300:pad:0:04',
-         '400:pause', '500:pad:0:21', '700:pad:0:00', '760:pause']
+         '330:pad:1:40', '336:pad:1:00', '400:pause', '500:pad:0:21', '700:pad:0:00', '760:pause']      # 330: Pause pressed as a bit of seat 2's word
 WATCH = ['C000', 'C001', 'C002', 'C003']
+# What MAME 0.289 reads at ports DC and DD (the pad ports; the rest of the byte is 1) with each input held alone, from
+# .build/sg1000-mame/ports.lua on the SG-1000 driver (22 November 2026): (name, seat, SG_PAD_* word, DC, DD).
+MAME_PADS = [('P1 Up', 0, 0x01, 0xFE, 0xFF), ('P1 Down', 0, 0x02, 0xFD, 0xFF), ('P1 Left', 0, 0x04, 0xFB, 0xFF),
+             ('P1 Right', 0, 0x08, 0xF7, 0xFF), ('P1 Button 1', 0, 0x10, 0xEF, 0xFF), ('P1 Button 2', 0, 0x20, 0xDF, 0xFF),
+             ('P2 Up', 1, 0x01, 0xBF, 0xFF), ('P2 Down', 1, 0x02, 0x7F, 0xFF), ('P2 Left', 1, 0x04, 0xFF, 0xFE),
+             ('P2 Right', 1, 0x08, 0xFF, 0xFD), ('P2 Button 1', 1, 0x10, 0xFF, 0xFB), ('P2 Button 2', 1, 0x20, 0xFF, 0xF7)]
 
 
 # ---- the authored cartridge: Z80 bytes assembled here, 8 KiB, no ROM ----
@@ -246,9 +255,23 @@ def stage(work: Path, cartridge: bytes, standard: str) -> None:
         write(work / 'hostkit' / 'shell' / f'probe_{name}', (work / 'hostkit' / 'shell' / name).read_bytes())
 
 
+def forget_unfound_sdl(*folders: Path) -> None:
+    """A build folder whose CMake cache remembers « SDL2_DIR-NOTFOUND » (an earlier configure ran without the SDL2 install in its prefix path)
+    is configured again from scratch: the converter's own helper (z80_chain_build.build_project) passes the pinned install by CMAKE_PREFIX_PATH on
+    every configure, and nothing else in the folder is worth keeping."""
+    for folder in folders:
+        cache = folder / 'build' / 'CMakeCache.txt'
+        try:
+            if 'SDL2_DIR:PATH=SDL2_DIR-NOTFOUND' in cache.read_text(encoding='utf-8', errors='replace'):
+                shutil.rmtree(folder / 'build')
+        except OSError:
+            pass
+
+
 def build_all(work: Path, cartridge: bytes) -> dict[str, Path]:
     from retrorecomp import __version__, sg1000_build, z80_chain_build
     work.mkdir(parents=True, exist_ok=True)
+    forget_unfound_sdl(work, work.parent / (work.name + '-pal'))
     sg1000_build.generate(work, sg1000_build.padded(cartridge))
     stage(work, cartridge, 'ntsc')
     exes = z80_chain_build.build_project(work, ('sg1000_reference', 'sg1000_check', 'game', 'game_probe'), project_cmake(__version__),
@@ -336,7 +359,7 @@ def prove_equal_runs(res: Results, exes: dict[str, Path], cart_file: Path, folde
         res.check(c['frames'] == 840 and c['interrupts'] > 800, f'{standard}: the run is real (840 frames, {c["interrupts"]} interrupts)')
         res.check(c['audio_samples'] > 0 and any(line.split(',')[6] == '1' for line in load_rows(check['rows']).values()),
                   f'{standard}: the sound is audible (a tone, {c["audio_samples"]} samples)')
-        res.check(c['watch']['C001'] == 4 and c['watch']['C000'] != 0, f'{standard}: the cartridge saw the 4 Pause presses and counted frames',
+        res.check(c['watch']['C001'] == 5 and c['watch']['C000'] != 0, f'{standard}: the cartridge saw the 5 Pause presses (four events and a bit of a seat word) and counted frames',
                   str(c['watch']))
         res.check(c['fallback_steps'] > 0 and g['fallback_steps'] == c['fallback_steps'],
                   f'{standard}: the interpreter fallback is counted, the same in the game ({g["fallback_steps"]} steps, at {sorted(g["fallback_at"])})')
@@ -359,11 +382,11 @@ def refix(data: bytearray) -> bytearray:
     return data
 
 
-# Offsets in the body (layout sg1000-state-1, native/sg1000_machine/sg1000_state_file.inc): the binding 0, the CPU 32 (43 bytes), the
-# machine 75 (line 4, cycles 8, next line 8, frames 8, trace 4, /NMI edge 1, lines 4, ROM size 4), RAM 116 (1024), VRAM 1140 (16384),
+# Offsets in the body (layout sg1000-state-2, native/sg1000_machine/sg1000_state_file.inc): the binding 0, the CPU 32 (43 bytes), the
+# machine 75 (line 4, cycles 8, next line 8, frames 8, trace 4, /NMI edge 1, Pause latch 1, lines 4, ROM size 4), RAM 117 (1024), VRAM 1141 (16384),
 # the registers 17524, status 17532, address 17533.
 BODY = 88
-OFFSETS = {'cpu_cyc': 32 + 35, 'next_line': 75 + 12, 'nmi_edge': 75 + 32, 'vdp_address': 17533, 'ram': 116, 'vdp_latch': 17535}
+OFFSETS = {'cpu_cyc': 32 + 35, 'next_line': 75 + 12, 'nmi_edge': 75 + 32, 'pause_latch': 75 + 33, 'vdp_address': 17534, 'ram': 117, 'vdp_latch': 17536}
 
 
 def damaged_variants(good: bytes, folder: Path) -> dict[str, Path]:
@@ -380,6 +403,7 @@ def damaged_variants(good: bytes, folder: Path) -> dict[str, Path]:
     v = bytearray(good); v[BODY] ^= 1; variants['another build (binding), CRC fixed'] = refix(v)
     v = bytearray(good); v[BODY + OFFSETS['vdp_address'] + 1] = 0xFF; variants['crafted: VDP address above 3FFF, CRC fixed'] = refix(v)
     v = bytearray(good); v[BODY + OFFSETS['nmi_edge']] = 2; variants['crafted: /NMI edge 2, CRC fixed'] = refix(v)
+    v = bytearray(good); v[BODY + OFFSETS['pause_latch']] = 4; variants['crafted: Pause latch 4, CRC fixed'] = refix(v)
     v = bytearray(good); v[BODY + OFFSETS['next_line']] ^= 0x04; variants['crafted: line clock off, CRC fixed'] = refix(v)
     v = bytearray(good); v[BODY + OFFSETS['cpu_cyc'] + 5] = 0x70; variants['crafted: CPU cycle far ahead of the machine, CRC fixed'] = refix(v)
     v = bytearray(good); v[BODY + OFFSETS['vdp_latch']] = 7; variants['crafted: control latch 7, CRC fixed'] = refix(v)
@@ -412,7 +436,7 @@ def prove_states(res: Results, exes: dict[str, Path], folder: Path) -> Path:
         different = {k: (ja[k], jb[k]) for k in ja if k not in PROCESS_FIELDS and ja[k] != jb[k]}
         res.check(not different, 'the final machine state (registers, cycles, RAM, VRAM, picture, VDP, PSG, watched bytes) equals the saving run\'s',
                   str(different)[:300])
-        res.check(jb['watch']['C001'] == ja['watch']['C001'] == 4, 'the Pause already taken before the state is not taken twice (and the later ones are)',
+        res.check(jb['watch']['C001'] == ja['watch']['C001'] == 5, 'the Pause already taken before the state is not taken twice (and the later ones are)',
                   str(jb['watch']))
     # PAL: the same on the PAL game; and a state of one standard is refused by the other.
     pal_state = folder / 'saved-pal.rrstate'
@@ -440,13 +464,36 @@ def prove_states(res: Results, exes: dict[str, Path], folder: Path) -> Path:
     return state
 
 
+def prove_snapshots(res: Results, exes: dict[str, Path], folder: Path) -> None:
+    print('(d) multiplayer snapshots: a rollback replays the same frames, the digest is the same, a wrong size is refused')
+    for label, game, at, count in (('NTSC', exes['game'], 300, 120), ('NTSC, later', exes['game'], 520, 60), ('PAL', exes['game_pal'], 300, 120)):
+        process = run([game, '--headless', '--frames', at + 2 * count + 20, '--snap-probe', f'{at}:{count}', *route_options(ROUTE)])
+        text = process.stderr.decode(errors='replace')
+        line = next((l for l in text.splitlines() if l.startswith('snap-probe:')), '')
+        folded = line.rsplit('digests ', 1)[-1] if 'digests ' in line else '?'
+        res.check(process.returncode == 0 and ': PASS at' in line, f'{label}: snapshot at frame {at}, {count} frames, load, the same {count} frames, every digest equal (folded {folded})', line or text[-300:])
+        if label == 'NTSC':
+            size = line.split(' bytes ')[0].rsplit(' ', 1)[-1] if line else '0'
+            res.check(line and 'same over other bytes 1' in line and 'wrong size refused 1' in line,
+                      f'  the snapshot ({size} bytes) is the same bytes twice, fits its bound, and one byte short is refused and changes nothing')
+
+
+def prove_pad_ports(res: Results, exes: dict[str, Path], cart_file: Path, folder: Path) -> None:
+    print('(e) the pad ports equal what MAME reads for each input held alone (and idle reads FF on both)')
+    for name, seat, word, dc, dd in [('idle', 0, 0x00, 0xFF, 0xFF), *MAME_PADS]:
+        got = headless(exes['sg1000_check'], folder, 'pads', 60, ['--cart', cart_file], [f'5:pad:{seat}:{word:02X}'], game=False)
+        watch = (got['json'] or {}).get('watch', {})
+        res.check(got['code'] == 0 and (watch.get('C002'), watch.get('C003')) == (dc, dd), f'{name}: DC={dc:02X} DD={dd:02X}',
+                  f"{got['code']} {watch}")
+
+
 def window(exe: Path, run_folder: Path, frames: int, script: str, *, state: Path | None = None, game: Path | None = None) -> dict:
     """One windowed run of the test double in a clean folder (hidden window, offscreen video, dummy audio); the probe's rows, the state file."""
     if run_folder.exists():
         shutil.rmtree(run_folder)
     run_folder.mkdir(parents=True)
     copy = run_folder / 'game_probe.exe'
-    shutil.copyfile(exe, copy)
+    shutil.copy(exe, copy)                 # keeps the executable bit (Linux)
     identity = (game or exe).parent.parent.joinpath('sg1000_game.h').read_text(encoding='ascii').split('RR_SG_IDENTITY "')[1][:12]
     data = run_folder / 'datas' / 'games' / f'sg1000-{identity}'
     if state is not None:
@@ -476,7 +523,7 @@ def prove_window(res: Results, exes: dict[str, Path], saved_state: Path, folder:
               'every picture after the first frames is not blank: two colours or more, over 30% of the 272 x 208 pixels not black')
     res.check(len(set(r[1] for r in steady)) == 1, 'the picture is steady while nothing is pressed (one hash)', str(len(set(r[1] for r in steady))))
     idle = plain['hashes'][20]
-    keys = window(probe, base / 'keys', 160, 'hold:Right+S@30-60;Return@90')
+    keys = window(probe, base / 'keys', 160, 'hold:Right+S@30-60;hold:Return@90-96')
     h = keys['hashes']
     res.check(keys['code'] == 0 and len(h) == 161, 'the run with keys ends 0 and presents 161 pictures')
     held, released, paused = set(h[40:58]), set(h[70:88]), set(h[100:160])
@@ -491,7 +538,7 @@ def prove_window(res: Results, exes: dict[str, Path], saved_state: Path, folder:
     res.check(len(pal['rows']) == 151 and all(int(r[2]) >= 2 and int(r[3]) > 0.3 * 272 * 208 for r in pal['rows'][10:]) and len(set(pal['hashes'][40:58])) == 1
               and pal['hashes'][40] != pal['hashes'][20], 'PAL game windowed: pictures not blank, and the held key shows')
     # F8 saves, F9 loads, in play. Sequence: F8 at 40 (the Pause count is 0), Pause at 60 (1), F9 at 90 (back to 0), Pause at 120 (1 again).
-    quick = window(probe, base / 'states', 170, 'F8@40;Return@60;F9@90;Return@120')
+    quick = window(probe, base / 'states', 170, 'F8@40;hold:Return@60-66;F9@90;hold:Return@120-126')
     q = quick['hashes']
     res.check(quick['code'] == 0 and len(q) == 171 and quick['state'].is_file() and quick['state'].stat().st_size > 60000,
               f'F8 in play writes the quick state beside the game ({quick["state"].stat().st_size if quick["state"].is_file() else 0} bytes)')
@@ -501,14 +548,14 @@ def prove_window(res: Results, exes: dict[str, Path], saved_state: Path, folder:
     res.check(set(q[130:170]) == pause_look, 'and the game goes on, live: the next Pause counts 1 (not 2), the picture is the first Pause\'s')
     # A FRESH window process loads the state another process saved, and goes on as that one did: A saves at 80 (Pause count 1) then takes a
     # Pause at 100 (count 2); B starts clean, loads at 20 and takes its Pause at 40: B's frames from 21 are A's from 81.
-    carry_a = window(probe, base / 'carry-a', 170, 'Return@60;F8@80;Return@100')
-    carry_b = window(probe, base / 'carry-b', 120, 'F9@20;Return@40', state=carry_a['state'])
+    carry_a = window(probe, base / 'carry-a', 170, 'hold:Return@60-66;F8@80;hold:Return@100-106')
+    carry_b = window(probe, base / 'carry-b', 120, 'F9@20;hold:Return@40-46', state=carry_a['state'])
     a, b = carry_a['hashes'], carry_b['hashes']
     res.check(carry_a['code'] == 0 and carry_b['code'] == 0 and len(a) == 171 and len(b) == 121 and a[81:161] == b[21:101],
               "a fresh windowed process loads another process's quick state (F9) and shows the same 80 frames after it")
     res.check(len(set(b[21:101])) == 2 and b[30] != b[60], '  (positive control: those frames are not all alike; the Pause count came with the state)')
     # Refused F9s leave the frames as a run that never asked: the control presses Pause at 70 only.
-    control = window(probe, base / 'control', 120, 'Return@70')
+    control = window(probe, base / 'control', 120, 'hold:Return@70-76')
     good = saved_state.read_bytes()
     bad = bytearray(good); bad[BODY + 7000] ^= 0x10
     foreign = bytearray(good); foreign[16] ^= 1
@@ -520,7 +567,7 @@ def prove_window(res: Results, exes: dict[str, Path], saved_state: Path, folder:
         if data is not None:
             path = folder / f'window-{key}.rrstate'
             write_state(path, data)
-        trial = window(probe, base / f'refused-{key}', 120, 'F9@50;Return@70', state=path)
+        trial = window(probe, base / f'refused-{key}', 120, 'F9@50;hold:Return@70-76', state=path)
         same = trial['code'] == 0 and trial['hashes'] == control['hashes'] and len(control['hashes']) == 121
         res.check(same, f'F9 with {label} state is refused and every frame equals a run that never asked ({len(trial["hashes"])} frames)')
         if path is None:
@@ -553,6 +600,8 @@ def main() -> int:
     prove_equal_runs(results, exes, cart_file, runs / 'headless')
     saved = prove_states(results, exes, runs / 'states')
     prove_window(results, exes, saved, runs)
+    prove_snapshots(results, exes, runs)
+    prove_pad_ports(results, exes, cart_file, runs / 'pads')
     print(f'{results.checks} checks, {len(results.failures)} failed')
     for failure in results.failures:
         print('FAILED:', failure)
