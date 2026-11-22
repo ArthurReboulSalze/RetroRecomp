@@ -18,7 +18,7 @@ def adapt_color_ppu(source: str) -> str:
 
 def adapt_color_cpu(source: str) -> str:
     """The machine (gbrt.c): the bus during an OAM transfer, the timer's disable edge, the registers a cartridge finds."""
-    return adapt_color_registers(adapt_color_timer(adapt_color_oam_dma(source)))
+    return adapt_color_audio_order(adapt_color_registers(adapt_color_timer(adapt_color_oam_dma(source))))
 
 
 def adapt_color_expansion(source: str) -> str:
@@ -90,6 +90,20 @@ def adapt_color_registers(source: str) -> str:
     return replace_once(source, '        if (addr >= 0xFF68 && addr <= 0xFF6B) {\n            if (!gb_is_cgb_mode(ctx)) return 0xFF;\n',
                         '        if (addr >= 0xFF68 && addr <= 0xFF6B) {\n'
                         '            if (!gb_is_cgb_mode(ctx)) return addr == 0xFF68 ? 0xC8 : addr == 0xFF6A ? 0xD0 : 0xFF;\n')
+
+
+def adapt_color_audio_order(source: str) -> str:
+    """A tick hands its cycles to the sound unit before the picture unit is synchronised, not after. In double speed a transfer of the HDMA stalls the CPU
+    from inside that synchronisation, with a tick of its own that reaches the sound unit first: the unit then received the stall before the cycles of the tick
+    that caused it, with the half-cycle carry of the wrong end, and the generated code (which splits an instruction's cycles around its memory access) and
+    the interpreter (which does not) ended one system cycle apart, for good. Shantae, frame 17 of its boot route: from there the lock-step comparison with the
+    interpreter saw a different sound sample at every sample boundary and stopped at frame 1,117. With this order the full 3,600 frames compare equal
+    (54.7 million steps). The sound unit is unchanged; only the point where a tick delivers its cycles moves, for the Color's build only."""
+    call = ('    gbrt_audio_schedule(ctx,\n                        old_div,\n                        cpu_cycles,\n                        system_cycles,\n'
+            '                        ctx->cgb_double_speed != 0,\n                        previous_system_cycle_remainder);\n')
+    anchor = '    /* The reference execution path must publish PPU mode/LY/STAT events at\n'
+    source = replace_once(source, call, '')
+    return replace_once(source, anchor, '    /* The sound unit gets this tick before a stall tick can nest inside gb_sync (retrorecomp/gameboy_color_hardware.py) */\n' + call + anchor)
 
 
 def adapt_color_oam_dma(source: str) -> str:

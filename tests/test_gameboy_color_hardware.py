@@ -41,11 +41,12 @@ class OnThePinnedEngine(unittest.TestCase):
         self.assertNotIn('kept_length[0];', files['audio.c'])
         self.assertIn('the byte being played', files['audio.c'])
         self.assertIn('the first sample comes 6 clocks late', files['audio.c'])
+        self.assertIn('The sound unit gets this tick before a stall tick can nest inside gb_sync', files['gbrt.c'])
 
     def test_the_original_game_boy_receives_none_of_them(self):
         files = self.patched('dmg')
         for marker in ('<< 3) | (', 'return true;     /* OAM', 'cgb_disable_edge = false', 'selection lines start high', '0xC8 : addr == 0xFF6A',
-                       'the byte being played', 'comes 6 clocks late', 'if (false) {'):
+                       'the byte being played', 'comes 6 clocks late', 'if (false) {', 'before a stall tick can nest'):
             for name, text in files.items():
                 self.assertNotIn(marker, text, (marker, name))
         self.assertIn('kept_length[0];', files['audio.c'])
@@ -69,7 +70,7 @@ class OnThePinnedEngine(unittest.TestCase):
 class MovedMarkers(unittest.TestCase):
     def test_a_fix_refuses_a_source_whose_marker_moved(self):
         for fix in (color.adapt_color_expansion, color.adapt_color_oam_dma, color.adapt_color_timer, color.adapt_color_registers,
-                    color.adapt_color_power_off, color.adapt_color_wave_write, color.adapt_color_wave_timer):
+                    color.adapt_color_power_off, color.adapt_color_wave_write, color.adapt_color_wave_timer, color.adapt_color_audio_order):
             with self.subTest(fix.__name__), self.assertRaises(ConversionError):
                 fix('nothing of the pinned runtime')
 
