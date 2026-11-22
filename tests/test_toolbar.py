@@ -1,6 +1,7 @@
 """The converter's toolbar (retrorecomp/gui.py, gui_collection.py, gui_window.py): the buttons that show only their
 picture, the New paths button (its red dot and its list of games), the problem report button, and the way Front-end and
 Multiplayer stand apart. The real window is built withdrawn, its data in a temporary folder: no ROM, no game."""
+import os
 import tempfile
 import tkinter as tk
 import unittest
@@ -535,6 +536,64 @@ class ReportButton(ToolbarWindow):
             app.toggle_compiled_games()
         self.assertTrue(app.count_label.winfo_manager())
         self.root.withdraw()
+
+
+
+class IconOncePerProcess(ToolbarWindow):
+    @unittest.skipUnless(os.name == 'nt', 'the .ico is the Windows icon')
+    def test_the_ico_is_read_by_the_first_main_window_only(self):
+        # Tk on Windows keeps every icon it read from a .ico file to the end of the process; the window class's -default icon
+        # covers every later root (retrorecomp/gui.py, ICO_GIVEN). setUp built a main window already.
+        from retrorecomp import gui
+        self.assertEqual(len(gui.ICO_GIVEN), 1)
+        calls = []
+        folder = Path(self.temp.name).resolve()
+        second = tk.Tk()
+        second.withdraw()
+        self.addCleanup(second.destroy)
+        with patch.object(tk.Tk, 'iconbitmap', lambda root, *args, **kwargs: calls.append((args, kwargs))),                 patch_gui('load_preferences', return_value={'language': 'en'}),                 patch_gui('preferred_games_root', return_value=(folder / 'exports', False)):
+            Application(second)
+        self.assertEqual(calls, [])
+        self.assertEqual(len(gui.ICO_GIVEN), 1)
+
+
+class ReopenedWindowsLeaveNothing(ToolbarWindow):
+    """A session keeps one root: a page or a list opened and closed again and again leaves no Python callback in Tcl (a
+    variable's trace or a bind_all command would keep the closed window's objects for the rest of the session)."""
+    def callbacks(self):
+        import gc
+        import re
+        gc.collect()
+        tcl = self.root.tk
+        commands = sum(1 for name in tcl.splitlist(tcl.call('info', 'commands')) if re.match(r'^[0-9]', name))
+        traces = sum(len(tcl.splitlist(tcl.call('trace', 'info', 'variable', name))) for name in tcl.splitlist(tcl.call('info', 'globals')))
+        return commands, traces
+
+    def test_options_opened_and_closed(self):
+        self.app.show_options()
+        with patch_gui('save_preferences'):
+            self.app.close_options()
+        self.root.update()
+        first = self.callbacks()
+        for _ in range(3):
+            self.app.show_options()
+            self.root.update_idletasks()
+            with patch_gui('save_preferences'):
+                self.app.close_options()
+            self.root.update()
+        commands, traces = self.callbacks()
+        self.assertLessEqual(commands, first[0])
+        self.assertEqual(traces, first[1])
+
+    def test_the_new_paths_list_opened_and_closed(self):
+        self.with_games(GAMES)
+        self.dialog(lambda window, boxes: window.destroy())
+        self.root.update()
+        first = self.callbacks()
+        for _ in range(3):
+            self.dialog(lambda window, boxes: window.destroy())
+            self.root.update()
+        self.assertEqual(self.callbacks(), first)
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
-from . import online
+from . import online, tk_later
 from .paths import APP_NAME, save_preferences, selected_bios_path, console_options
 from .i18n import STRINGS, log_text
 from .languages import language_code
@@ -145,8 +145,9 @@ class OptionsMixin:
         # Every tab scrolls when the window is shorter than its content: a
         # light scrollbar appears, and the wheel scrolls anywhere on the page.
         self.option_scrollers = []
-        for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
-            panel.bind_all(sequence, self.options_wheel)
+        # bind_all's commands are nobody's widget's: tkinter never deletes them, so close_options does (three per opening otherwise).
+        self.option_wheel_commands = [panel.bind_all(sequence, self.options_wheel)
+                                      for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>')]
 
         def tab(key):
             page = ttk.Frame(notebook)
@@ -379,7 +380,9 @@ class OptionsMixin:
             control = ttk.Combobox(page, textvariable=shown, values=list(values), width=max(8, max(len(name) for name in values) + 2),
                                    state='readonly')
             control.bind('<<ComboboxSelected>>', lambda _event: variable.set(values[shown.get()]))
-            variable.trace_add('write', lambda *_: shown.set(names.get(variable.get(), str(variable.get()))))
+            # The option's variable outlives the page: the trace goes with the control (one per opening otherwise, each
+            # setting a dead page's label).
+            tk_later.follow(control, variable, lambda *_: shown.set(names.get(variable.get(), str(variable.get()))))
             self.option_choice_views = getattr(self, 'option_choice_views', []) + [shown]
         control.pack(anchor='w')
         self.option_controls.append((control, 'readonly'))
@@ -952,6 +955,12 @@ class OptionsMixin:
         del self.tooltips[self.option_tooltips_start:]
         for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
             panel.unbind_all(sequence)
+        for command in getattr(self, 'option_wheel_commands', ()):
+            try:
+                self.app.deletecommand(command)
+            except tk.TclError:
+                pass
+        self.option_wheel_commands = []
         self.option_scrollers = []
         if getattr(self, 'disk_cancel', None) is not None:
             self.disk_cancel.set()      # a measurement still running stops

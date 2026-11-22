@@ -119,6 +119,31 @@ class MultiplayerWindowTest(unittest.TestCase):
         self.settle(view)
         return view
 
+    def test_a_closed_window_is_freed_and_reopening_leaves_nothing_behind(self):
+        # A session keeps one root: the window opened and closed again and again must not stay (its variables' traces
+        # held it, with its pictures, until the converter closed: tk_later.follow).
+        import gc
+        import re
+        from retrorecomp.multiplayer_view import MultiplayerWindow
+
+        def callbacks():
+            gc.collect()
+            return sum(1 for name in self.root.tk.splitlist(self.root.tk.call('info', 'commands')) if re.match(r'^[0-9]', name))
+        view = self.window()
+        view.close()
+        self._cleanups.pop()                        # window() asked for a close at cleanup: done here
+        del view
+        self.root.update()
+        first = callbacks()
+        for _ in range(3):
+            view = self.window()
+            view.close()
+            self._cleanups.pop()
+            del view
+            self.root.update()
+        self.assertEqual(callbacks(), first)
+        self.assertEqual(sum(isinstance(item, MultiplayerWindow) for item in gc.get_objects()), 0)
+
     def settle(self, view):
         """Let the games' thread answer and the window take the model's changes (its poll, called by hand)."""
         import time
