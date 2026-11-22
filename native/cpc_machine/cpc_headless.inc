@@ -39,10 +39,17 @@ static void headless_cpu(CpcCpuView *v)
     v->iff1 = z->iff1; v->iff2 = z->iff2; v->im = z->im; v->halted = z->halted;
 }
 
+/* The native programs' own counts: steps run natively (HALT steps and byte-guarded RAM steps among them), steps and cycles on the
+ * counted interpreter and the addresses it ran most (up to 16), and the interrupts accepted (compared with the reference's). */
 static void headless_counts(FILE *out)
 {
-    fprintf(out, "\"native_steps\": %llu, \"fallback_steps\": %llu, \"interrupts\": %llu, ", (unsigned long long)banked_native_steps,
-            (unsigned long long)banked_fallback_steps, (unsigned long long)g_irq_taken);
+    fprintf(out, "\"native_steps\": %llu, \"halt_steps\": %llu, \"guarded_steps\": %llu, \"fallback_steps\": %llu, "
+            "\"fallback_cycles\": %llu, \"fallback_at\": {", (unsigned long long)banked_native_steps,
+            (unsigned long long)banked_halt_steps, (unsigned long long)banked_guarded_steps,
+            (unsigned long long)banked_fallback_steps, (unsigned long long)g_hybrid_cyc);
+    for (int i = 0; i < 16 && fallback_count[i]; ++i)
+        fprintf(out, "%s\"%04X\": %llu", i ? ", " : "", fallback_at[i], (unsigned long long)fallback_count[i]);
+    fprintf(out, "}, \"interrupts\": %llu, ", (unsigned long long)g_irq_taken);
 }
 #else
 static void headless_cpu(CpcCpuView *view);
@@ -228,7 +235,13 @@ static void headless_finish(void)
             headless_audio_hash, headless_audio_samples, machine.ga.mode, machine.ga.rom_config, machine.ga.ram_config,
             machine.upper_rom);
     for (int r = 0; r < 16; ++r) fprintf(out, "%s%u", r ? ", " : "", machine.ay_reg[r]);
-    fprintf(out, "], \"fdc_commands\": %u, \"disk_written\": %d, \"watch\": {", machine.fdc.commands, machine.fdc.drive[0].written);
+    const DskImage *disk = machine.fdc.drive[0].image;   /* drive A as it stands: what the game wrote on it included */
+    fprintf(out, "], \"fdc_commands\": %u, \"disk_written\": %d, \"disk_fnv\": %u, ", machine.fdc.commands,
+            machine.fdc.drive[0].written, disk ? headless_fnv(disk->bytes, disk->size) : 0u);
+#ifdef CPC_HEADLESS_DISK_START
+    fprintf(out, "\"disk_start_fnv\": %u, ", CPC_HEADLESS_DISK_START);   /* the game's: drive A when the run began, its copy read */
+#endif
+    fprintf(out, "\"watch\": {");
     for (unsigned w = 0; w < headless_watches; ++w)
         fprintf(out, "%s\"%04X\": %u", w ? ", " : "", headless_watch[w], cpc_read(&machine, (uint16_t)headless_watch[w]));
     fprintf(out, "}}\n");

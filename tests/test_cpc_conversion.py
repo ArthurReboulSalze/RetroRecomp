@@ -99,5 +99,44 @@ class ConversionRefusalTests(unittest.TestCase):
             self.assertIn(claim, source)
 
 
+class DiskCopyTests(unittest.TestCase):
+    """check_disk_copies on a fake game: what the --disk-copies runs would do, as the player does it (a copy of the disk's size is
+    read at the start; drive A's bytes are written to the copy at the end when the game wrote)."""
+    EMBEDDED, WRITTEN = 111, 222
+
+    def fake_game(self, writes: bool, keeps: bool = True):
+        def run_game(game, options, report):
+            copies = Path(options[options.index('--disk-copies') + 1]) if '--disk-copies' in options else None
+            copy = copies / 'disk-1.dsk' if copies else None
+            start = self.WRITTEN if copy and copy.is_file() and copy.read_bytes() == b'disk' else self.EMBEDDED
+            disk = start
+            if writes and '--script' in options:
+                disk = self.WRITTEN
+                if copy:
+                    copy.write_bytes(b'disk' if keeps else b'disc')
+            return {'disk_start_fnv': start, 'disk_fnv': disk}
+        return mock.patch('retrorecomp.cpc_build.run_game', side_effect=run_game)
+
+    def check(self):
+        with tempfile.TemporaryDirectory() as folder:
+            return cpc_conversion.check_disk_copies(Path('game.exe'), Path(folder) / 'disk', 3600, ['--script', 'play.inputs'])
+
+    def test_a_game_that_writes_leaves_a_copy_a_fresh_process_starts_from(self):
+        with self.fake_game(writes=True):
+            result = self.check()
+        self.assertEqual((result['game_wrote'], result['copies_written'], result['written_data_survives_a_fresh_process']),
+                         (True, ['disk-1.dsk'], True))
+
+    def test_a_game_that_writes_nothing_leaves_no_copy(self):
+        with self.fake_game(writes=False):
+            result = self.check()
+        self.assertEqual((result['game_wrote'], result['copies_written'], result['written_data_survives_a_fresh_process']),
+                         (False, [], None))
+
+    def test_a_copy_that_does_not_come_back_is_refused(self):
+        with self.fake_game(writes=True, keeps=False), self.assertRaises(ConversionError):
+            self.check()
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -710,6 +710,49 @@ start chosen, `fire1x2`, and 112 on the key 1 starts): native equals the referen
 distinct pictures, after the tour; Donkey Kong `key1x3`; the tour is not why Alcazar's number is still low: it is a maze game, its picture changes 2,600 times). **Stamps**: `retrorecomp.coleco_routes` is one of the ColecoVision's own converter inputs (`stamp_inputs.INPUTS`, `('coleco',)`), so the ColecoVision's stamps move and
 no other machine's (a developer-only machine: there is no released export to upgrade); a ColecoVision reconverted by this version may learn from a different route.
 
+## Amstrad CPC (experimental, developer only): a new machine on the Z80 chain, and the copies of written disks are a shared group (1.9.0)
+
+The Amstrad CPC 6128 enters as an experimental machine for developers (`docs/AMSTRAD_CPC.md`): its profile (machine id `cpc`), the DSK and
+EXTENDED DSK reader, the firmware check (the player's own system and AMSDOS ROMs, or the pinned caprice32 copies fetched on the player's
+word, never shipped), its own MIT machine (the Gate Array and the CRTC's picture, the PPI's keyboard and joysticks, the uPD765, the AY-3-8910
+module the MSX and the ZX Spectrum use), the conversion on the banked Z80 chain with its own instruction costs in microseconds and 16-bit
+ports, the start command typed at boot, the quick states, and multiplayer on the rollback tier (two seats; a disk the game writes travels
+in the session as the host's save). Mono is the default sound, as the built-in speaker; the headphone jack's stereo is an F2 option.
+
+The copies of the disks a game writes, kept beside the game with a `.bak` of the last one, are one file every machine with written disks
+can include (`native/disk_copies.inc`, its checks `native/disk_copies_checks.c` and `tools/disk_copies_selftest.py`): the group
+`shares:disk_copies` (game role), which only a machine that includes it names. The CPC is the first; the MSX2+ may follow.
+
+The conversion report's final checks add the native counters the release check reads (`halt_steps`, `guarded_steps`, `fallback_cycles`,
+`fallback_at`, and `interpreter_cycles` per route), so `tools/release_check.py` reads a CPC report as it reads the others.
+
+**Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
+released export to upgrade.
+
+## Amstrad CPC (developer only): a written disk checked in fresh processes (1.9.0)
+
+The CPC's headless report gives drive A's digest at the end (`disk_fnv`, compared between the native run, the reference and the
+delivered file) and, in the game, at the start (`disk_start_fnv`, its copy read). `game.exe --headless --disk-copies DIR` keeps drive
+A's copy in DIR, read at the start as in the window and written at the end when the game wrote. Each conversion checks it on the
+play route (`cpc_conversion.check_disk_copies`, the report's `disk_writes`), as the MSX2+ does for its disks. `tools/cpc_reference.py`
+and `tools/cpc_native.py` add an authored program that writes a sector and reads it back.
+
+**Stamps** (`compilation_inputs.role_stamps`): the CPC's game stamp only (`cpc_player.c`, `cpc_headless.inc`, `cpc_build.py`,
+`cpc_conversion.py`). A developer-only machine: no released export to upgrade.
+
+## Amstrad CPC (developer only): the independent Z80 vectors through the CPC's generator (1.9.0)
+
+`tools/banked_vector_selftest.py` takes `--machine cpc`. A profile may give `z80_vector_tstates`, a rule that turns one vector's
+bus trace into T-states; the CPC's (`AmstradCpcProfile.z80_vector_tstates`, the Gate Array's rule of `cpc_timing.cpc_nops`) is
+then what each vector is expected, in place of the vector's own count plus M1 wait states. A machine with 16-bit ports gets a copy
+of the test bus written beside its build, with the two whole-address calls its bodies make (`native/banked_vectors.c` itself, a
+game input of every machine, is not changed). A machine whose map reaches fewer banks of its first source than the corpus needs
+(the CPC and the ZX Spectrum: two of 16 KiB) runs it in parts that fit, each generated, built and run alone; the other machines run
+in one part, in the folder they always used (the MSX run again: 51,328 pass, as before).
+
+**Stamps** (`compilation_inputs.role_stamps`, 27 profiles, before and after): the CPC's game stamp only (its profile file). The
+tool is outside every stamp.
+
 ## Every machine: the sound's converter computes its outputs side by side, bit for bit the same (1.9.0)
 
 The shared band-limited converter (`native/audio_output.inc`, `native/stereo_fir.h`: 256 taps, 128 phases), used when a

@@ -62,7 +62,7 @@ BOOT_FILES = ('rrhk_boot_keys.h', 'rrhk_cpc_keys.h')
 # counts are each program's own.
 COMPARED = ('frames', 'cycles', 'interrupts', 'pc', 'sp', 'af', 'bc', 'de', 'hl', 'ix', 'iy', 'iff1', 'im', 'halted', 'cpu_hash',
             'ram_fnv', 'picture_fnv', 'audio_fnv', 'audio_samples', 'mode', 'rom_config', 'ram_config', 'upper_rom', 'ay',
-            'fdc_commands', 'disk_written', 'watch')
+            'fdc_commands', 'disk_written', 'disk_fnv', 'watch')
 # The game's resources (native/cpc_machine/cpc_player.c): its disks, then the player's own system ROM and AMSDOS.
 RESOURCE_DISKS, RESOURCE_SYSTEM, RESOURCE_AMSDOS = 103, 104, 105
 # The layout of the CPC's quick states (native/cpc_machine/cpc_state_file.inc and cpc_state.c): raised whenever either writes

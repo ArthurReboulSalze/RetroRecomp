@@ -27,7 +27,7 @@ FRAMES = 3600                    # the boot route's default length
 LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame', 'audible_frames',
                                         'last_audible_frame', 'distinct_sound_blocks', 'distinct_ram_states',
                                         'distinct_program_counters')}
-NATIVE_COUNTS = ('native_steps', 'fallback_steps')   # the delivered game's equal the check's
+NATIVE_COUNTS = ('native_steps', 'halt_steps', 'guarded_steps', 'fallback_steps', 'fallback_cycles', 'fallback_at')   # the game's equal the check's
 STATE_SETTLE = 600               # frames a fresh process continues after it loaded a quick state
 MIN_FRAMES = 60 + STATE_SETTLE + 60
 CRTC_TYPE = 1                    # the CRTC of the board (cpc_crtc.h: type 1, the 6128's commonest)
@@ -61,6 +61,44 @@ def check_states(game: Path, folder: Path, frames: int, route_rest: list[str], e
         return cpc_build.game_exit_code(game, ['--frames', '1', '--load-state', str(path)]) == 4
     return check_quick_states(folder, state, machine='Amstrad CPC', route='play', at=at, settle=STATE_SETTLE, continued=continued,
                               refused=refused, damaged=damaged_states, error=ConversionError)
+
+
+def check_disk_copies(game: Path, folder: Path, frames: int, route_rest: list[str]) -> dict:
+    """What the game writes on drive A, kept in the copy beside it (here --disk-copies), in fresh processes of the delivered file:
+    the route played with no copy leaves a copy exactly when the game wrote on its disk, and a new process starts from that copy;
+    a copy of the wrong size is not read (the embedded disk is used) and is left as it was (the fresh processes run 30 frames,
+    before the start command is typed: no game code runs, nothing is written). The embedded disk never changes.
+    `route_rest`: the route's options without its frame count. The MSX2+'s check (msx_conversion.check_disks) on the CPC's
+    single drive and its report's disk_start_fnv and disk_fnv (drive A's bytes when the run began, its copy read, and at the end)."""
+    import shutil
+    from . import cpc_build
+    from .conversion_gates import require
+
+    def failure(text: str):
+        return lambda: ConversionError(f'Amstrad CPC disk: {text}')
+
+    def run(label: str, count: int, rest: list[str], copies: Path) -> dict:
+        return cpc_build.run_game(game, ['--frames', str(count), *rest, '--disk-copies', str(copies)], folder / f'{label}.json')
+    shutil.rmtree(folder, ignore_errors=True)      # the build folder is reused: no copy of an earlier conversion may be read
+    copies = folder / 'copies'
+    copies.mkdir(parents=True)
+    played = run('route', frames, route_rest, copies)
+    start_fnv = played['disk_start_fnv']            # no copy yet: the embedded disk
+    wrote = played['disk_fnv'] != start_fnv
+    written = sorted(path.name for path in copies.glob('disk-*.dsk'))
+    require(bool(written) == wrote, failure('the copy does not follow what the game wrote on the route.'))
+    if wrote:
+        again = run('again', 30, [], copies)
+        require(again['disk_start_fnv'] == played['disk_fnv'],
+                failure('what the game wrote did not come back in a fresh process.'))
+    damaged = folder / 'damaged'
+    damaged.mkdir()
+    (damaged / 'disk-1.dsk').write_bytes(b'not a disk')
+    blank = run('damaged', 30, [], damaged)
+    require(blank['disk_start_fnv'] == start_fnv and (damaged / 'disk-1.dsk').read_bytes() == b'not a disk',
+            failure('a copy of the wrong size was read, or changed.'))
+    return {'route': 'play', 'game_wrote': wrote, 'copies_written': written, 'written_data_survives_a_fresh_process': wrote or None,
+            'wrong_size_copy_ignored_and_kept': True, 'embedded_disk_unchanged': True}
 
 
 def hardware_devices() -> list:
@@ -233,6 +271,10 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             emit('Amstrad CPC: checking quick states in a fresh process.')
             states = check_states(delivered.path, work / 'states', frames, routes[1][1][2:], folder / 'play-packed.csv')
             timings['quick_states'] = round(time.perf_counter() - phase, 3)
+            phase = time.perf_counter()
+            emit('Amstrad CPC: checking what the game writes on its disk, in fresh processes.')
+            disk_writes = check_disk_copies(delivered.path, work / 'disk-copies', frames, routes[1][1][2:])
+            timings['disk_copies'] = round(time.perf_counter() - phase, 3)
     except cpc_build.CpcBuildError as error:
         raise ConversionError(f'Amstrad CPC: {error}') from None
     final_checks = []
@@ -242,9 +284,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         final_checks.append({
             'name': name, 'scenario': name, 'frames': native['frames'],
             'script_sha256': hashlib.sha256((start + text).encode('ascii')).hexdigest(), 'script_events': len(text.splitlines()),
-            'native_steps': native['native_steps'], 'interpreted_steps': native['fallback_steps'],
+            'native_steps': native['native_steps'], 'halt_steps': native['halt_steps'], 'guarded_steps': native['guarded_steps'],
+            'interpreted_steps': native['fallback_steps'], 'interpreted_cycles': native['fallback_cycles'],
+            'fallback_at': native['fallback_at'],
             # The same counts under the names the common report reads (report_schema._main_scenario): Z80 instructions.
             'native_entries': native['native_steps'], 'interpreted_opcodes': native['fallback_steps'],
+            'interpreter_cycles': native['fallback_cycles'],
             'interpreter_percent': round(100 * native['fallback_steps'] / max(1, executed), 6),
             'reference_match': True, 'compared_fields': list(cpc_build.COMPARED),
             'ram_hash': native['ram_fnv'], 'image_hash': native['picture_fnv'], 'pcm_hash': native['audio_fnv'],
@@ -278,6 +323,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'schema': 'RRCPCST-1',
                               'layout': cpc_build.STATE_LAYOUT, 'compatibility': 'the exact disk, firmware, CRTC and build',
                               'fresh_process_verified': True, 'validation': states},
+              'disk_writes': disk_writes,
               'notices': {'files': list(notice_files('cpc')), 'embedded_resource': 203},
               'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
               'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),

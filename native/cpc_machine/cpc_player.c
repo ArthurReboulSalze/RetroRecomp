@@ -12,6 +12,8 @@
  * `game.exe --headless [options]` replays the start with no window, no sound device and nothing written beside the game: the
  * ROMs and the disk are the game's own resources, the options and the report those of the native check (cpc_headless.inc), the
  * boot keys typed at the same frames as in the window, so the delivered file is compared with the reference as the check is.
+ * --disk-copies DIR gives a headless run drive A's copy in DIR (read at the start as in the window; written at the end when the
+ * game wrote on its disk): the conversion's check of a written disk in fresh processes.
  *
  * Quick states (F8/F9, quick.rrstate beside player.cfg) and the multiplayer snapshots and digest: cpc_state_file.inc, on the
  * chain's shared CPU state and state file. --headless also takes --save-state FILE --save-at N (saved at the end of frame N) and
@@ -30,6 +32,8 @@
 #include <SDL.h>
 #include "cpc_glue.inc"
 #include "boot_keys.h"
+static uint32_t headless_disk_start_fnv;         /* drive A at the start of a headless run, its copy read */
+#define CPC_HEADLESS_DISK_START headless_disk_start_fnv
 #include "cpc_headless.inc"
 #include "cpc_game.h"
 #include "embedded_resources.h"
@@ -88,6 +92,31 @@ static int disk_take_written(void)
 }
 
 static void disk_at_exit(void) { if (cpc_effects_allowed && !rrhk_session_active()) rr_disk_copies_save(&copies); }
+
+/* Drive A's copy, in the folder rr_disk_copies_init named: in place of the embedded disk when its size is right and it is still a
+ * DSK image (else the embedded disk), in every state from then on. */
+static void disk_copy_start(void)
+{
+    copies.disk[0] = (RrDiskImage){ disk_data[0], disk_sizes[0], 0 };
+    copies.count = 1;
+    if (rr_disk_copies_load(&copies)) {          /* a copy the game wrote before: in drive A, and in every state from now on */
+        disk_ever = 1;
+        if (cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0) != DSK_OK) {
+            memcpy(disk_data[0], disk_original[0], disk_sizes[0]);      /* not a disk any more: the embedded one */
+            disk_ever = 0;
+            cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0);
+        }
+    }
+}
+
+/* --disk-copies in a headless run: the copy written at the end when the game wrote on drive A. */
+static char headless_copies[1024];
+static void headless_copies_at_exit(void)
+{
+    if (!machine.fdc.drive[0].written) return;
+    rr_disk_copies_written(&copies, 0);
+    rr_disk_copies_save(&copies);
+}
 
 /* The match's disk image: a magic word, the disk's size, then its bytes. Which disk a seat plays (laid at the match's start and at
  * every restart, over the power-on state): the host's image when the host sent one (session_save_put: on a guest, and on the host
@@ -218,9 +247,13 @@ static int headless_path(const char *v, wchar_t *out)
 static int headless_state_option(int argc, char **argv, int *i)
 {
     const char *a = argv[*i], *v = *i + 1 < argc ? argv[*i + 1] : NULL;
-    if (strcmp(a, "--save-state") && strcmp(a, "--save-at") && strcmp(a, "--load-state")) return 0;
+    if (strcmp(a, "--save-state") && strcmp(a, "--save-at") && strcmp(a, "--load-state") && strcmp(a, "--disk-copies")) return 0;
     if (!v) return -1;
     ++*i;
+    if (!strcmp(a, "--disk-copies")) {
+        wchar_t wide[1024];
+        return headless_path(v, wide) && rr_to_utf8(wide, headless_copies, sizeof headless_copies) && headless_copies[0] ? 1 : -1;
+    }
     if (!strcmp(a, "--save-at")) { state_save_at = strtoull(v, NULL, 10); return 1; }
     if (!headless_path(v, !strcmp(a, "--save-state") ? state_save_file : state_load_file)) return -1;
     if (!strcmp(a, "--save-state")) state_save_due = 1; else state_load_due = 1;
@@ -397,16 +430,7 @@ static int run(void)
     if (status)
         return status;
     prepare_data_folder();
-    copies.disk[0] = (RrDiskImage){ disk_data[0], disk_sizes[0], 0 };
-    copies.count = 1;
-    if (rr_disk_copies_load(&copies)) {          /* a copy the game wrote before: in drive A, and in every state from now on */
-        disk_ever = 1;
-        if (cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0) != DSK_OK) {
-            memcpy(disk_data[0], disk_original[0], disk_sizes[0]);      /* not a disk any more: the embedded one */
-            disk_ever = 0;
-            cpc_insert_disk(&machine, 0, disk_data[0], disk_sizes[0], 0);
-        }
-    }
+    disk_copy_start();
     atexit(disk_at_exit);
     if (!cpc_host_open(RR_CPC_TITLE, 2)) return 4;
     power_on();
@@ -430,6 +454,13 @@ static int run_headless(int argc, char **argv)
     int status = setup_machine();
     if (status)
         return status;
+    if (headless_copies[0]) {
+        if (!rr_disk_copies_init(&copies, headless_copies)) return 2;
+        disk_copy_start();
+        atexit(headless_copies_at_exit);
+    }
+    const DskImage *disk = machine.fdc.drive[0].image;
+    headless_disk_start_fnv = disk ? headless_fnv(disk->bytes, disk->size) : 0u;
     headless = 1;
     headless_start();                            /* the board draws into the headless picture from here */
     power_on();

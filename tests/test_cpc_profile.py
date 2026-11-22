@@ -26,6 +26,18 @@ class ProfileTests(unittest.TestCase):
                          ('Amstrad CPC', 'experimental', 'pending', True, False))
         self.assertEqual(profile.option_key_names, {'cpc_system', 'cpc_amsdos'})
 
+    def test_the_vector_rule_is_the_bus_rule_per_trace_in_t_states(self):
+        # What tools/banked_vector_selftest.py --machine cpc expects of a vector: the CPC's bus rule on its own trace, in
+        # T-states, a whole number of microseconds. A NOP (one fetch strobed on the phase) is 1 us; an access off the phase
+        # waits for it; one T-state past a microsecond rounds up to the next.
+        tstates = get_profile('cpc').z80_vector_tstates
+        fetch = ['----', 'r-m-', '----', '----']
+        self.assertEqual(tstates(fetch), 4)
+        self.assertEqual(tstates(fetch + ['----', 'r-m-', '----']), 8)
+        self.assertEqual(tstates(fetch + ['----', '----', 'r-m-', '----']), 12)
+        self.assertEqual(tstates(fetch + ['----']), 8)
+        self.assertEqual(get_profile('cpc').z80_machine.port_bits, 16)
+
     def test_a_cpc_disk_is_the_cpcs_and_refused_while_in_development(self):
         disk = self.root / 'Game.dsk'
         disk.write_bytes(image((('DISC', 'BAS', 0, False),)))
