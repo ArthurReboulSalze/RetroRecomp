@@ -75,3 +75,44 @@ card runs USA discs and Japanese ones; a conversion takes about twelve minutes o
 
 **The Linux witness**: The Addams Family converted on Debian 13 (WSL, gcc, headless) from an empty library gives the same 222,527,282 observed instructions, the same module (8,810
 instructions in 23 contexts) and, on both routes, the same CPU, RAM, picture and PCM hashes and the same trace digest as Windows. One disc, not a panel; no Linux GPU is involved.
+
+## 5. Route depth (gate G9), 21 November 2026
+
+The first routes (the PC Engine's walk: Run pressed a few times, then directions and taps) leave a disc in its menus: Ys Book I & II rested on its « Location / Start game story » menu for the
+whole 18,000-frame route. From the extended level, a conversion now plays three **styles** of input for 6,000 frames each on the observing build (`retrorecomp/pcecd_routes.py`) and gives the long routes
+the styles that made the game run the most different code (the number of distinct code identities of the engine's capture, then the distinct pictures): `walk` (the PC Engine's), `menu` (a cursor stepped
+down and answered, over and over) and `action` (directions held, I in bursts, II tapped). Nothing knows a game; the report names each style's score (`route_start.exploration`) and the style of every route
+(`final_checks[].style`).
+
+| Disc | walk | menu | action | Style kept for the long route | What the long route shows |
+|---|---|---|---|---|---|
+| Ys Book I & II | 14,584 identities, 250 pictures | 26,237, 1,217 | 27,348, 1,140 | action | the file cabinet question, then **the game**: the harbour, a town, HP and EXP on screen (before: the menu) |
+| Valis III | 11,229, 129 | 13,685, 169 | 13,685, 169 | menu | (see the panel table) |
+
+A route's depth is a measure of the route, never of the game: what a route reaches is not what a player can reach.
+
+## 6. Multiplayer (step 3, 22 November 2026)
+
+The machine joins the sessions on the **rollback** tier, with the PC Engine's adapter (`rrhk_pce.c`, which the CD adapter includes): a state saved at any frame and loaded back leaves the machine as it was, a
+digest of every frame is compared between the seats, the multitap is plugged for every seat, and the backup memory is the session's save (the host's file is handed to the guests, played in memory and written
+back at a clean end, the old file kept).
+
+* **What the snapshot holds** (`native/pce_snapshot.cpp`): the CPU, the System Card's RAM and the drive's (RAM banks of 8 KiB), the 2 KiB of backup memory (bank $F7, locked until a game
+  asks), the video, the palette, the pads and interrupts as for a HuCard, and, through the engine's own checkpoint writer, the drive (command and data transport, a read in flight, the CD audio position and
+  fader), the ADPCM unit (its 64 KiB of RAM, its clocks and flags) and the PSG. About 0.85 MB a snapshot, less than 2 MB the bound.
+* **The digest** is the HuCard's (the CPU, the RAM banks, the video, the palette, the pads, the timer) plus the backup memory and the engine's own field list of the drive and the ADPCM unit (patch 7 of the engine, UPSTREAMS.md),
+  never the PCM the host drank, never the step counters. It does not depend on how the host drained the sound, nor on Windows or Linux.
+* **The lobby** compares the System Card: the report names it at the top level (`bios`, with its SHA-256), so two players with another card are refused before the launch.
+
+Proofs (all on Dracula X or Lords of Thunder, the player's own card and discs, never in the repository):
+
+| Proof | Result |
+|---|---|
+| `tools/pcecd_snapshot_selftest.py` (the probe on the interpreter, 1,800 frames of pseudo-random pads on Lords of Thunder, a save point every 60 frames) | PASS: the engine's full checkpoint after each load equals the one at the save, 696 frames replayed after the loads repeat the digest and the checkpoint, damaged or short snapshots refused, the digest reads the drive, the ADPCM RAM, the backup memory and the card's RAM and does not read how the sound was drained. The first pass read 396 sectors, played 1,505 CD audio sectors and made 98,336 ADPCM writes |
+| The same probe on Debian 13 (WSL) | the 30 digests of the first pass equal Windows's, line for line |
+| `tools/netplay_game_smoke.py` on Dracula X, 2 seats, rollback 5, 30 ms ± 10, 2 % loss, save at frame 600, load at 1,500, restart at 2,200, 3,000 frames | PASS: boot digests equal, 50 digests of 50 different values equal on both seats, 95 and 183 rollbacks (deepest 5), the host's save written back |
+| The HuCard output | unchanged: an A/B of Alien Crush and Air Zonk and the snapshot self-test on both boards (UPGRADES.md) |
+
+Not proved, and not claimed: three or four seats on a disc (the converter builds every disc for two players today, the sessions refuse more seats than the game has; no CD game with a recorded player count above two), the two-PC run
+(the multiplayer specialist's, with the ThinkPad) and physical latency (never measured). The backup memory stayed blank in the probe's route (Lords of Thunder), so the snapshot's path for it is proved on hand-set bytes (the probe's disturbed-state load). A game did write it on a route of the panel: Ys Book I & II's play route answers its « initialize the File Cabinet? » question, the memory it wrote survives a fresh process (section 4), but no session has played that game yet.
+

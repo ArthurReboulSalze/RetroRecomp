@@ -62,6 +62,7 @@ constexpr size_t kHeader = 32;                 // magic, version, core length, t
 constexpr size_t kFrameCapacity = 640u * 264u * 3u;    // the most one frame buffer holds in a snapshot: the bridge's picture limit (PCE_MAX_WIDTH x PCE_MAX_HEIGHT), the engine allows 1024 x 512
 constexpr size_t kAudioCapacity = 192u * 1024u;       // the engine's audio side: the 8,192-frame PCM ring and the 64 KiB of ADPCM RAM dominate
 constexpr size_t kBankBytes = 0x2000;
+constexpr size_t kBramBytes = 0x800;           // the System Card's backup memory: the first 2 KiB of its bank
 
 template <class> constexpr bool dependent_false = false;
 template <class T> struct is_std_array : std::false_type {};
@@ -166,8 +167,15 @@ size_t ram_banks(const pce::Bus &bus) {
     for (const auto kind : bus.kind) count += kind == pce::BankKind::ram;
     return count;
 }
-// Only the standard HuCard boards: a CD, an ADPCM unit or an Arcade Card is a machine this snapshot does not describe.
+// Two machines: the standard HuCard boards, and a disc machine (the System Card, the CD drive with the player's disc, the ADPCM unit, no Arcade Card). A disc's
+// backup memory is bank $F7 (a bank of its own kind), the card's RAM and the drive's are RAM banks like the HuCard's work RAM, and the drive, the ADPCM unit and
+// the CD audio are written by the engine's audio side. A disc machine without its disc (a drive with no provider) is not one a session can start.
+bool disc_machine(const pce::Bus &bus) {
+    return !bus.hucard && bus.system_card != pce::SystemCardProfile::none && bus.system_card_powered && !bus.arcade_card && bus.cd.enabled &&
+           bus.cd.scsi.enabled && bus.adpcm.enabled && bus.cd.provider;
+}
 bool supported(const pce::Bus &bus) {
+    if (disc_machine(bus)) return true;
     return bus.hucard && bus.system_card == pce::SystemCardProfile::none && !bus.arcade_card && !bus.cd.enabled && !bus.adpcm.enabled &&
            (bus.hucard_profile == pce::HuCardProfile::base || bus.hucard_profile == pce::HuCardProfile::sf2);
 }
@@ -179,6 +187,11 @@ template <class A, class B, class C> void core(A &ar, B &bus, C &cpu) {
     for (size_t bank = 0; bank < 256; ++bank) {
         if (bus.kind[bank] != pce::BankKind::ram) continue;
         ar.bytes(bus.bytes->data() + bus.backing_address(static_cast<uint32_t>(bank) << 13), kBankBytes);
+    }
+    // The System Card's backup memory: 2 KiB of the bank, locked until a game asks (a HuCard machine's is a RAM bank above).
+    for (size_t bank = 0; bank < 256; ++bank) {
+        if (bus.kind[bank] != pce::BankKind::bram) continue;
+        ar.bytes(bus.bytes->data() + bus.backing_address(static_cast<uint32_t>(bank) << 13), kBramBytes);
     }
     vdc_core(ar, bus.vdc);
     ar(bus.vce.enabled, bus.vce.control, bus.vce.address, bus.vce.palette, bus.vce.reads, bus.vce.writes);
@@ -339,7 +352,16 @@ uint64_t pce_snapshot_digest(void) {
     Out out(digest_scratch.data(), digest_scratch.size());
     core(out, *bus, *cpu);
     if (!out.ok()) return 0;
-    return hash_bytes(digest_scratch.data(), out.size());
+    uint64_t digest = hash_bytes(digest_scratch.data(), out.size());
+    if (disc_machine(*bus)) {
+        // The drive and the ADPCM unit decide the guest's future (sectors, interrupts, end flags), so they are read as well: the engine's own lists, never a copy.
+        if (!audio_writer) audio_writer = std::make_unique<pce::checkpoint::Writer>();
+        audio_writer->data.clear();
+        pce::checkpoint::write_cd_digest(*audio_writer, *bus);
+        digest = (digest ^ hash_bytes(audio_writer->data.data(), audio_writer->data.size())) * 0x9E3779B97F4A7C15ull;
+        digest ^= digest >> 31;
+    }
+    return digest;
 }
 
 }  // extern "C"

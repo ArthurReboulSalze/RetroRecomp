@@ -44,6 +44,12 @@ class PcEngineCdProfile(SystemProfile):
     option_keys = (OptionKey('pcecd_system_card', kind='path', label='pcecd_system_card'),)
     stamp_groups = ('conversion_gates',)
     host_adapter = 'adapters/rrhk_pcecd.c'
+    # Multiplayer: the PC Engine's adapter hooks (rrhk_pce.c) over the snapshot of native/pce_snapshot.cpp, which carries the System Card's RAM, the drive, the ADPCM unit and
+    # the backup memory (rollback tier; docs/PC_ENGINE_CD.md, "Multiplayer"). The backup memory is the session's save (the host's file is handed to the guests and written back
+    # at a clean end). The console has one pad port: a session plugs the multitap for every seat, as for a HuCard.
+    netplay_session = True
+    netplay_seats = 4
+    netplay_seats_ceiling = True
     # Paths: an instruction is its logical pc, its eight MPRs and its bytes (as the HuCard's), so a row is `insn` and the contexts are
     # `opcode_ptr` rows; the sources are the disc (the data tracks' user bytes) and the System Card.
     path_spec = PathSpec(order=21, sections=(('huc6280', 'pcecd'),),
