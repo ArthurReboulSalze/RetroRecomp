@@ -10,7 +10,7 @@ it leaves out, and how the five measures stay apart.
 | First (this experimental profile) | Later | Left out for now |
 |---|---|---|
 | Snapshots of the 16K, 48K and 128K (and the +2, a 128K with another menu ROM): `.z80` versions 1, 2 and 3 and `.sna` (48K and 128K), from a file or a ZIP holding exactly one | `.szx` snapshots; the +2A and +3 (another contention pattern, port 1FFDh, the +3 disk) | Tapes (`.tap`, `.tzx`): their loaders need exact EAR timing, and a snapshot skips every loader; the Interface 1 and Microdrive, the Timex, Pentagon, Scorpion and other clones, the ZX80 and ZX81 |
-| The ULA picture (256 x 192, attributes, flash, the border per line), the beeper, the AY-3-8910 on the 128K, the keyboard, the Kempston and Sinclair Interface 2 joysticks, quick states | The floating bus (a few games read it) | Games that load their next level from tape during play: a snapshot cannot; they stop at that load, and the report says so |
+| The ULA picture (256 x 192, attributes, flash, the border per line), the beeper, the AY-3-8910 on the 128K, the keyboard, the Kempston and Sinclair Interface 2 joysticks, quick states, the ULA's contention and the floating bus | Border changes within a line (drawn at the line's end) | Games that load their next level from tape during play: a snapshot cannot; they stop at that load, and the report says so |
 
 A snapshot is the machine's RAM and registers at one moment, saved after the game had loaded. The reader
 (`retrorecomp/zxs_snapshot.py`, our own code from the public format descriptions) refuses, with a sentence, a snapshot of a
@@ -86,7 +86,16 @@ by the moment within the first 128 T-states of each of the 192 paper lines, from
 (tools/zxs_machine_selftest.py); the chain's evaluator (`Z80Machine.contention`, retrorecomp/z80_timed.py) asks it for every bus
 cycle of every instruction, acceptance and HALT, natively and on the reference alike, from the bus-cycle table checked against
 the SingleStepTests vectors. What is not claimed: the pattern is the documented one, not measured on a real Spectrum here; the
-refresh cycles are not contended; the +2A/+3 (another pattern) are out of scope; the floating bus is not modelled (Arkanoid).
+refresh cycles are not contended; the +2A/+3 (another pattern) are out of scope.
+
+**The floating bus is modelled from the documented fetch timing.** An unattached port reads what the ULA is fetching: in each 8
+T-states of the first 128 of a paper line the bitmap byte, its attribute, the next bitmap byte, the next attribute, then FFh four
+times; FFh outside the paper; the first fetch at T-state 14347 (48K) or 14368 (128K), from Ramsoft's floating bus guide (Clock
+Signal, MIT, agrees on the 48K and is about 5 T-states later on the 128K: unverified). The I/O cycle samples the bus 3 T-states
+after its start and its contention; the chain's evaluator gives the machine that moment before the read, natively and on the
+reference alike (`zxs_floating_bus`, 20 checks in tools/zxs_machine_selftest.py). Arkanoid, which the guide names as depending
+on it, now plays its first round on the play route (297 distinct pictures, bricks broken) where without it the picture froze
+after frame 1,409. Not measured on a real Spectrum here.
 Nothing claims exact timing. With contention, Manic Miner's play route runs 19 % fewer instructions in its 2,100 frames than
 without it, and Head over Heels' 8 %.
 
@@ -108,8 +117,8 @@ agreement with our reference, on routes that reach part of each game: no gamepla
 With the ULA's contention (the same day, standard level): the eight games convert again with no instruction on the fallback,
 native equal to the reference on every route, the compressed copy equal and the quick states checked in a fresh process; the same
 seven reach play, the CPU now held off as the documented pattern says (Manic Miner's play route runs 19 % fewer instructions in its
-2,100 frames, Head over Heels' 8 %). Elite halts the same way with contention (40,981 instructions): contention is not its cause;
-the floating bus (not modelled) and a snapshot taken inside its loader stay open.
+2,100 frames, Head over Heels' 8 %). Elite halts the same way with contention (40,981 instructions), and again with the floating
+bus: neither is its cause; a snapshot taken inside its loader stays open.
 
 The first Linux witness, the same day, in WSL (Debian 13) on the build PC: Manic Miner and Head over Heels converted from the
 same tree give the same start, the same learning counts and, on both routes, the same frame trace, RAM, picture and sound

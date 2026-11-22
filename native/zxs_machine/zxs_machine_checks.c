@@ -106,6 +106,46 @@ static void contention_checks(void)
     check("128K: nor a port with its high byte there", zxs_contend_io(&m, 14361, 0xC0FF), 0);
 }
 
+/* The floating bus (an unattached port reads what the ULA fetches), from Ramsoft's floating bus guide: in each 8 T-states of the
+ * first 128 of a paper line the bitmap byte, the attribute, the next bitmap byte, the next attribute, then FFh; the first fetch
+ * at T-state 14347 (48K) or 14368 (128K); the I/O cycle samples the bus 3 T-states after its start and its contention. */
+static uint8_t read_at(uint64_t sample, unsigned wait, uint16_t port)
+{
+    m.io_t = sample - 3 - wait; m.io_wait = wait;
+    return zxs_in(&m, port);
+}
+
+static void floating_bus_checks(void)
+{
+    zxs_reset(&m, ZXS_48K, 0, rom);
+    uint8_t *screen = m.ram[5];
+    screen[0x0000] = 0xA1; screen[0x1800] = 0xB2; screen[0x0001] = 0xC3; screen[0x1801] = 0xD4;   /* line 0, columns 0 and 1 */
+    screen[0x0002] = 0xE5; screen[0x0100] = 0x96; screen[0x0020] = 0x87; screen[0x1820] = 0x78;   /* column 2; lines 1 and 8 */
+    check("48K floating bus: FFh before the first fetch", read_at(14346, 0, 0x00FF), 0xFF);
+    check("48K floating bus: the bitmap at 14347", read_at(14347, 0, 0x00FF), 0xA1);
+    check("48K floating bus: its attribute at 14348", read_at(14348, 0, 0x00FF), 0xB2);
+    check("48K floating bus: the next bitmap at 14349", read_at(14349, 0, 0x00FF), 0xC3);
+    check("48K floating bus: the next attribute at 14350", read_at(14350, 0, 0x00FF), 0xD4);
+    check("48K floating bus: FFh in the idle half", read_at(14351, 0, 0x00FF), 0xFF);
+    check("48K floating bus: column 2 at 14355", read_at(14355, 0, 0x00FF), 0xE5);
+    check("48K floating bus: line 1 at 14347 + 224", read_at(14347 + 224, 0, 0x00FF), 0x96);
+    check("48K floating bus: line 8 at 14347 + 8 x 224", read_at(14347 + 8 * 224, 0, 0x00FF), 0x87);
+    check("48K floating bus: line 8's attribute", read_at(14348 + 8 * 224, 0, 0x00FF), 0x78);
+    check("48K floating bus: FFh in the right border", read_at(14347 + 128, 0, 0x00FF), 0xFF);
+    check("48K floating bus: FFh below the paper", read_at(14347 + 192 * 224, 0, 0x00FF), 0xFF);
+    check("48K floating bus: the contention delays the sample", read_at(14347, 4, 0x40FF), 0xA1);
+    check("48K floating bus: the next frame", read_at(69888 + 14347, 0, 0x00FF), 0xA1);
+    check("48K floating bus: port 1Fh floats without a Kempston", read_at(14347, 0, 0x001F), 0xA1);
+    check("48K floating bus: the ULA's port reads the keyboard", read_at(14347, 0, 0x00FE) & 0x1F, 0x1F);
+    zxs_reset(&m, ZXS_128K, 0, rom);
+    m.ram[5][0x0000] = 0x5A; m.ram[7][0x0000] = 0x7A;
+    check("128K floating bus: FFh at 14367", read_at(14367, 0, 0x00FF), 0xFF);
+    check("128K floating bus: the bitmap at 14368", read_at(14368, 0, 0x00FF), 0x5A);
+    check("128K floating bus: line 1 at 14368 + 228", read_at(14368 + 228, 0, 0x00FF), m.ram[5][0x0100]);
+    zxs_out(&m, 0x7FFD, 0x08);
+    check("128K floating bus: the shadow screen (bank 7)", read_at(14368, 0, 0x00FF), 0x7A);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) { printf("usage: zxs_machine_checks image48 image128 image16\n"); return 2; }
@@ -215,6 +255,7 @@ int main(int argc, char **argv)
     check("16K: bank 5 at 4000h", zxs_read(&m, 0x7FFF), 5);
 
     contention_checks();
+    floating_bus_checks();
     printf("CHECKS=%d FAILED=%d\n", checks, failed);
     return failed ? 1 : 0;
 }

@@ -4,8 +4,8 @@
 play route starts on the reference interpreter (route_start, zxs_routes), translates the ROM and learns the code the snapshot runs
 from RAM (zxs_build.learn), then compares every native route with the reference, field by field and frame by frame, and refuses the
 conversion on any difference. Then the game is built, its delivered (compressed) file replayed on every route against the
-reference, and its quick states checked in fresh processes (`deliver_game`). The report goes through the common builder; it states the hardware limits (no
-floating bus, the border drawn per line) and keeps the five measures apart.
+reference, and its quick states checked in fresh processes (`deliver_game`). The report goes through the common builder; it states the hardware limits (the
+documented contention and floating bus, the border drawn per line) and keeps the five measures apart.
 
 The route (the maintainer's choice of 21 November 2026, route A): the shared banked Z80 chain the Master System and the MSX
 use (smsggrecomp and z80-recomp-core, pinned; superzazu/z80 as the counted fallback's reference interpreter), and our own
@@ -41,7 +41,7 @@ def skeleton_report(source, scenarios, level='standard') -> dict:
             'game_states': {'supported': False, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': False},
             'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
             # The hardware-fidelity limits every report states (docs/ZX_SPECTRUM.md, section 5).
-            'hardware_limits': ['the floating bus is not modelled: an unused port reads FFh']}
+            'hardware_limits': ['the floating bus follows the documented fetch timing, not measured against a real machine']}
 
 
 def write_skeleton_report(path, source, scenarios, level='standard') -> dict:
@@ -66,7 +66,7 @@ CONTENTION = ('modelled: the ULA holds each bus cycle on 4000h-7FFFh (and the 12
 def hardware_devices(snapshot) -> list:
     """The machine's devices as the common report lists them: what is modelled, by whom, and what is not."""
     devices = [{'id': 'ula', 'kind': 'video_unit', 'mode': 'c_model', 'model': 'our own C, line by line (border per line); '
-                f'contention {CONTENTION}; floating bus not modelled'},
+                f'contention {CONTENTION}; the floating bus from the documented fetch timing'},
                {'id': 'beeper', 'kind': 'sound_unit', 'mode': 'c_model', 'model': 'port FEh bit 4, box-filtered to 44.1 kHz'},
                {'id': 'keyboard', 'kind': 'input', 'mode': 'c_model', 'model': 'the eight half-rows of port FEh'}]
     if snapshot.model == '128k':
@@ -254,7 +254,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
               'hardware_devices': hardware_devices(snapshot),
               'hardware_limits': ['ULA contention follows the documented pattern, not measured against a real machine; the '
                                   'refresh cycles and the +2A/+3 pattern are not modelled',
-                                  'the floating bus is not modelled: an unused port reads FFh',
+                                  'the floating bus follows the documented fetch timing (Ramsoft), not measured on a real machine',
                                   'border changes within a line are drawn at the line\'s end'],
               'route_warnings': route_warnings(final_checks),
               'route_stop': zxs_starts.route_stop(snapshot.sha256),
