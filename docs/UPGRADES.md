@@ -383,6 +383,16 @@ rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
+## ZX Spectrum: converted through batch and the window on a developer tree (next release)
+
+`zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`
+and the converter window convert the Spectrum, and batch writes the report's `simulation_identity`, without which the multiplayer
+lobby refuses a game. The profile stays `developer_only`: no installation lists it for players. Proof: Manic Miner converted with
+`batch --system zxs` from an empty scratch library: its report has the identity (engine pins, ROM, the top-level firmware record) and
+`lobby_check.game_from_report` accepts it (two seats).
+
+**Stamps**: the ZX Spectrum's game stamp; nothing else.
+
 ## ZX Spectrum: multiplayer, rollback on the game's own snapshots, two seats (next release)
 
 The Spectrum's games join the multiplayer session (`netplay_session`, two seats, rollback), offered nowhere while the machine is
