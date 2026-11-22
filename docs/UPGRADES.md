@@ -176,6 +176,7 @@ state-layout keys move too, with the other keys the rows name.
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
 | [Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring](#game-boy-a-line-with-sprites-is-drawn-in-runs-and-the-adapters-sound-is-a-ring-190) | **the Game Boy game stamp** (`native/gb_ppu_object_span.h`, `gameboy_hardware.py`, `gameboy_runtime.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`); build unchanged | unchanged (the bytes of a state are the same) |
 | [Game Boy Color: an experimental profile, and the Game Boy modules take a variant](#game-boy-color-an-experimental-profile-and-the-game-boy-modules-take-a-variant-190) | **the Game Boy game stamp** (`retrorecomp/gameboy.py`, `gameboy_runtime.py`, `gameboy_host.py`, the stamp group `gameboy`); the Game Boy Color is a new machine with its own stamps | **the Game Boy host stamp** (`rrhk_gb.inc`: the Color's name and settings under `RR_GB_COLOR`); build unchanged | unchanged for the Game Boy (a Game Boy state is the same bytes; the Color has its own family) |
+| [Game Boy Color: Color-only fixes of the runtime, the public tests, the link cable](#game-boy-color-color-only-fixes-of-the-runtime-the-public-tests-the-link-cable-190) | **the Game Boy game stamp** (the variant argument in `gameboy.py`, `gameboy_hardware.py`, `gameboy_runtime.py`); the Game Boy Color own game stamp | no host stamp moves (the adapter did not change); build unchanged | unchanged |
 
 ## Mega Drive: a lower frame cost, the same pictures and sound (1.9.0)
 
@@ -1048,6 +1049,28 @@ the build stamp and every other machine unchanged; `gbc` is new. Existing Game B
 boot route and the fallback counted per route (Tetris DX 17,440 interpreter cycles, Pokémon Gold 0, Wario Land 3 0 with 1,526 instructions run one by one, Shantae 473,680, Super Mario
 Bros. Deluxe 36, Pokémon Pinball 0, Lufia 393,930 on the boot route; the play routes are in each report). `tools/gameboy_color_selftest.py`: 417 authored checks of the colour hardware against the register
 pages of Pan Docs (banks, palettes, both HDMA modes, the speed switch): documentation, not a console.
+
+## Game Boy Color: Color-only fixes of the runtime, the public tests, the link cable (1.9.0)
+
+Steps 2 and 3 of [NEW_MACHINE.md](NEW_MACHINE.md) for the Game Boy Color (21 and 22 November 2026; branches `spec/gbc-qualify`, after `spec/gbc-profile`). **What changes for the Game Boy Color only:**
+`retrorecomp/gameboy_color_hardware.py` holds eight fixes of the pinned runtime that the Color's build receives and the Game Boy's never does (a test pins that): the CPU's lock-out of OAM during a transfer, the timer's
+disable edge, the sound unit's power-off, the wave channel's writes and timer, the registers a cartridge without the Color flag finds, and the 5-bit colour expansion. Each is named by the public test that showed it
+([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): in the Color build 115 of the 116 applicable Mooneye and blargg tests pass (108 before), each with the lock-step comparison equal. An eighth fix, in the same module and for the Color's build only, moves the point where a tick hands its cycles to the sound unit: before the picture unit is synchronised, not after.
+In double speed the HDMA's stall tick nests inside that synchronisation and reached the sound unit before the cycles of the tick that caused it, so the generated code (which splits an
+instruction's cycles around its memory access) and the interpreter (which does not) ended one system cycle apart for good: Shantae, frame 17 of its boot route, then a different sound sample at every
+sample boundary and a stop of the lock-step comparison at frame 1,117. **The comparison itself is unchanged** (it compares the last audio sample, as for every machine); with the fix Shantae's 3,600 frames
+compare equal over 54.7 million steps at the extended level (0 mismatches, one conversion, scratch library), and the 116 public tests give the same 115 passes.
+The multiplayer: the profile sets the Game Boy's session and link flags (`netplay_session`, `netplay_link_seats = 2`), GBC with GBC only; the adapter and the link runtime are the Game Boy's and **did not change**.
+
+**Proof for the Game Boy** (nothing may change for it): `tools/ab_conversion.py`, main `3ab496a6` against this branch, quick level, Tetris and Super Mario Land: **identical** (133 and 136 compared files, nothing differs, not even the adapter's text).
+
+**Stamps** (computed on the tree of this branch against main `88ef5307`, the profiles gb, gbc, sms, gg, nes and md compared): **the Game Boy game stamp** (`3dd6195e` to `28a0098f`: the Color's variant argument in the shared conversion modules, the Color-only fixes being outside the Game Boy's lists) and **the Color's game stamp** (`47605ea1` to `0a11d439`: its fixes and the link checks); the host and build stamps of both and every other machine unchanged. Existing Game Boy exports are converted again (their generated sources are byte for byte the same: the A/B above). Quick states unchanged for the Game Boy.
+
+**The link cable on the Color** (authored, no ROM bytes): `tools/gameboy_link_selftest.py --model cgb` runs `native/gbc_link_checks.c`: two Color consoles on one cable in the sixteen pairings of the master (console 0 or 1), normal or
+double speed on each console, and the normal or the fast serial clock; the exchange of eight bytes each way, both serial interrupts, nothing left pending, and the replay of the pair from 660 snapshots (42 taken with a transfer in flight)
+with equal digests; the slave takes its byte at the end of the master's transfer whatever its own speed. A real room (`tools/netplay_game_smoke.py --machine gbc --sharing link --rollback 5 --latency 30 --jitter 10 --loss 0.02`) on Tetris DX:
+3,000 frames, 50 equal digests on both seats, rollback tier, a restart for everyone, a state saved and loaded: PASS. Windows and WSL (Debian 13) print the same 35 digest lines of the pair over 2,100 frames of a scripted route. **Not proved:** the two-player screen
+of a real game (Tetris DX's menu was not reached by the script), two PCs, a Game Boy with a Color on one cable (not offered).
 
 ## Every machine: the sound no longer crackles in multiplayer (1.9.0)
 

@@ -14,6 +14,7 @@ from pathlib import Path
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,10 +25,12 @@ def run_view(game: Path, view: int, frames: int, script0: str, script1: str, dum
     folder.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, RETRO_RECOMP_GB_LINK='2', RETRO_RECOMP_GB_LINK_VIEW=str(view), RETRO_RECOMP_GB_LINK_LOG='1',
                RETRO_RECOMP_GB_LINK_SCRIPT=script1)
-    command = [str(game), '--headless', '--limit-frames', str(frames), '--input', script0]
-    if dump:
-        command += ['--dump-frames', dump, '--screenshot-prefix', str(folder / 'frame')]
-    with tempfile.TemporaryDirectory() as scratch:                       # an empty folder: the game finds no save and writes none
+    with tempfile.TemporaryDirectory() as scratch:                       # an empty folder, and a copy of the game in it: a cartridge save is written beside the executable
+        copy = Path(scratch) / game.name
+        shutil.copy2(game, copy)
+        command = [str(copy), '--headless', '--limit-frames', str(frames), '--input', script0]
+        if dump:
+            command += ['--dump-frames', dump, '--screenshot-prefix', str(folder / 'frame')]
         done = subprocess.run(command, cwd=scratch, env=env, capture_output=True, text=True, timeout=900,
                               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     lines = [line for line in (done.stderr + done.stdout).splitlines() if line.startswith('[link] frame')]

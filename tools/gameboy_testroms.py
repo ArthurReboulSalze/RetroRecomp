@@ -14,6 +14,9 @@ delivered executable is run headless in an empty folder and judged by the protoc
     python tools/gameboy_testroms.py run ROOT --work FOLDER [--only TEXT ...] [--no-differential]
     python tools/gameboy_testroms.py report --work FOLDER
 
+Add `--model cgb` to every command to run the tests of the Game Boy Color in the Color build (docs/GAME_BOY_COLOR.md): the applicable set changes (the tests of every model and those marked
+for the Color; `cgb_sound` in, `dmg_sound` and `oam_bug` out) and each ROM, which carries no Color flag, is converted in-process with a variant that does not ask for it.
+
 A test that does not apply to the original Game Boy (another model, a test of the boot ROM dump, a manual visual test) is listed as
 "not applicable" with its reason, never counted as passed. Nothing here validates a complete game.
 """
@@ -35,6 +38,9 @@ FIBONACCI = bytes((3, 5, 8, 13, 21, 34))
 FAILURE = bytes((0x42,)) * 6
 MODEL_SUFFIX = re.compile(r'-([A-Za-z0-9]+)$')
 APPLICABLE_SUFFIXES = {'GS', 'dmgABC', 'dmgABCmgb'}
+# The Game Boy Color (revisions B to E, the reference of docs/GAME_BOY_COLOR.md): the tests of every model, and those marked for it.
+COLOR_SUFFIXES = {'C', 'cgb', 'cgbABCDE'}
+FOLDER = {'dmg': 'Game Boy', 'cgb': 'Game Boy Color'}
 RUNTIME_PREFIXES = ('[', 'Frame limit')
 
 
@@ -46,10 +52,19 @@ def environment() -> dict:
     return dict(os.environ, PYTHONUTF8='1', SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', PYINSTALLER_SUPPRESS_SPLASH_SCREEN='1')
 
 
-def mooneye_applicability(relative: str) -> str | None:
-    """None when the test applies to the original Game Boy, else the reason it does not."""
+def mooneye_applicability(relative: str, model: str = 'dmg') -> str | None:
+    """None when the test applies to the machine (`model`: dmg, the original Game Boy, or cgb, the Color), else the reason it does not."""
     folder, _, name = relative.rpartition('/')
     stem = name[:-3]
+    if model == 'cgb':
+        if folder.startswith('utils') or folder == 'madness':
+            return 'tool or other model'
+        if folder == 'manual-only':
+            return 'visual test, no verdict'
+        suffix = MODEL_SUFFIX.search(stem)
+        if suffix and suffix.group(1) not in COLOR_SUFFIXES:
+            return {'cgb0': 'Color revision 0 only', 'A': 'Game Boy Advance only'}.get(suffix.group(1), 'another model')
+        return None
     if folder.startswith(('utils', 'misc')) or folder == 'madness':
         return 'tool or other model' if not folder.startswith('misc') else 'Game Boy Color or Advance'
     if folder == 'manual-only':
@@ -61,7 +76,7 @@ def mooneye_applicability(relative: str) -> str | None:
     return None
 
 
-def discover(root: Path) -> list[dict]:
+def discover(root: Path, model: str = 'dmg') -> list[dict]:
     """Every test ROM under ROOT: id, suite, source path, hash, protocol, reason when not applicable."""
     tests: list[dict] = []
     mooneye = next(iter(sorted(root.glob('mooneye-*/x/mts-*'))), None)
@@ -70,12 +85,14 @@ def discover(root: Path) -> list[dict]:
             relative = path.relative_to(mooneye).as_posix()
             ident = 'mooneye-' + relative[:-3].replace('/', '-')
             tests.append(dict(id=ident, suite='mooneye', source=str(path), name=relative, protocol='mooneye',
-                              frames=1200, sha256=sha256(path), not_applicable=mooneye_applicability(relative)))
+                              frames=1200, sha256=sha256(path), not_applicable=mooneye_applicability(relative, model)))
     for archive in sorted(root.glob('blargg-archive-org/*/x/*')):
         group = archive.parent.parent.name
         for path in sorted(archive.rglob('*.gb')):
             relative = path.relative_to(archive).as_posix()
-            if group == 'cgb_sound':
+            if model == 'cgb' and group in ('dmg_sound', 'dmg_sound-2', 'oam_bug', 'oam_bug-2'):
+                reason = 'original Game Boy only'
+            elif group == 'cgb_sound' and model != 'cgb':
                 reason = 'Game Boy Color only'
             elif relative.count('/') == 0 and group != 'instr_timing':
                 reason = 'combined ROM: the single ROMs are run instead'
@@ -123,22 +140,24 @@ def judge(protocol: str, raw: bytes, state: dict | None) -> tuple[str, str]:
     return 'incomplete', ('serial: ' + text.replace('\n', ' | ')[-100:]) if text else 'no serial text before the frame limit'
 
 
-def converted_executable(work: Path, test: dict) -> Path:
-    return work / 'out' / 'Game Boy' / f"{test['id']}.exe"
+def converted_executable(work: Path, test: dict, model: str = 'dmg') -> Path:
+    return work / 'out' / FOLDER[model] / f"{test['id']}.exe"
 
 
-def convert(tests: list[dict], work: Path, jobs: int) -> None:
+def convert(tests: list[dict], work: Path, jobs: int, model: str = 'dmg') -> None:
     (work / 'roms').mkdir(parents=True, exist_ok=True)
     (work / 'lib').mkdir(parents=True, exist_ok=True)
     todo = []
     for test in tests:
-        if converted_executable(work, test).exists():
+        if converted_executable(work, test, model).exists():
             continue
         target = work / 'roms' / f"{test['id']}.gb"
         shutil.copyfile(test['source'], target)
         todo.append(str(target))
     if not todo:
         return
+    if model == 'cgb':
+        return convert_color(todo, work, jobs)
     command = [sys.executable, '-B', str(ROOT / 'RetroRecomp.py'), 'batch', *todo, '--output', str(work / 'out'), '--jobs', str(jobs),
                '--scan-level', 'quick', '--no-online-cover', '--no-cover', '--no-icon-tags']
     log = work / 'convert.log'
@@ -146,6 +165,36 @@ def convert(tests: list[dict], work: Path, jobs: int) -> None:
         code = subprocess.run(command, cwd=ROOT, env=dict(environment(), RETRO_RECOMP_LIBRARY_DIR=str(work / 'lib')),
                               stdout=handle, stderr=subprocess.STDOUT).returncode
     print(f'conversion of {len(todo)} ROM(s) ended with code {code}; log: {log}')
+
+
+def convert_color(todo: list[str], work: Path, jobs: int) -> None:
+    """The Color build of each ROM, which carries no Color flag: the converter is called with a variant that does not ask for it (one process each,
+    `jobs` at a time), into the games folder `out`, in the scratch library of `work`."""
+    from concurrent.futures import ThreadPoolExecutor
+    log = work / 'convert.log'
+    def one(rom: str) -> int:
+        command = [sys.executable, '-B', str(Path(__file__).resolve()), 'convert-one', rom, '--work', str(work)]
+        with log.open('ab') as handle:
+            return subprocess.run(command, cwd=ROOT, env=dict(environment(), RETRO_RECOMP_LIBRARY_DIR=str(work / 'lib')),
+                                  stdout=handle, stderr=subprocess.STDOUT).returncode
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        codes = list(pool.map(one, todo))
+    print(f'conversion of {len(todo)} ROM(s) in the Color build ended with codes {sorted(set(codes))}; log: {log}')
+
+
+def convert_one_color(rom: Path, work: Path) -> int:
+    sys.path.insert(0, str(ROOT))
+    import dataclasses
+    from retrorecomp import gameboy
+    variant = dataclasses.replace(gameboy.COLOR, requires_color_flag=False)
+    # One folder for each test (the converter writes the game and its report into the folder it is given), then the executable goes where the
+    # Game Boy's batch puts it.
+    folder = work / 'games' / rom.stem
+    game = gameboy.convert_game_boy(rom, output=folder, scan_level='quick', online_cover=False, use_cover=False, icon_tags=False, variant=variant)
+    target = work / 'out' / FOLDER['cgb'] / (rom.stem + '.exe')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(game, target)
+    return 0
 
 
 def launch(executable: Path, folder: Path, *arguments: str, timeout: int) -> tuple[bytes, int]:
@@ -161,8 +210,8 @@ def launch(executable: Path, folder: Path, *arguments: str, timeout: int) -> tup
     return done.stdout + done.stderr, done.returncode
 
 
-def run_one(test: dict, work: Path, differential: bool) -> dict:
-    executable = converted_executable(work, test)
+def run_one(test: dict, work: Path, differential: bool, model: str = 'dmg') -> dict:
+    executable = converted_executable(work, test, model)
     result = dict(id=test['id'], name=test['name'], suite=test['suite'], sha256=test['sha256'])
     if not executable.exists():
         return dict(result, verdict='not converted', evidence='no executable')
@@ -195,11 +244,11 @@ def run_one(test: dict, work: Path, differential: bool) -> dict:
     return result
 
 
-def run(tests: list[dict], work: Path, differential: bool) -> None:
+def run(tests: list[dict], work: Path, differential: bool, model: str = 'dmg') -> None:
     results_file = work / 'results.json'
     results = {item['id']: item for item in json.loads(results_file.read_text())} if results_file.exists() else {}
     for test in tests:
-        results[test['id']] = run_one(test, work, differential)
+        results[test['id']] = run_one(test, work, differential, model)
         row = results[test['id']]
         print(f"{row['verdict']:<14}{row['id']:<62}{row.get('frames')}\t{row.get('differential', '')}", flush=True)
         results_file.write_text(json.dumps(sorted(results.values(), key=lambda item: item['id']), indent=1))
@@ -218,22 +267,25 @@ def report(tests: list[dict], work: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    parser.add_argument('command', choices=('list', 'convert', 'run', 'report'))
+    parser.add_argument('command', choices=('list', 'convert', 'convert-one', 'run', 'report'))
     parser.add_argument('root', type=Path, nargs='?', help='folder holding the downloaded archives')
     parser.add_argument('--work', type=Path, required=False)
     parser.add_argument('--only', nargs='*', help='keep the tests whose id contains one of these texts')
     parser.add_argument('--jobs', type=int, default=2, choices=(1, 2))
     parser.add_argument('--no-differential', action='store_true')
+    parser.add_argument('--model', choices=('dmg', 'cgb'), default='dmg', help='the machine: the original Game Boy or the Game Boy Color')
     args = parser.parse_args(argv)
-    tests = discover(args.root) if args.root else []
+    if args.command == 'convert-one':
+        return convert_one_color(Path(args.root), args.work)
+    tests = discover(args.root, args.model) if args.root else []
     if args.command == 'list':
         for test in tests:
             print(f"{test['id']:<62}{test['sha256'][:12]}  {test['not_applicable'] or ''}")
         return 0
     if args.command == 'convert':
-        convert(select(tests, args.only), args.work, args.jobs)
+        convert(select(tests, args.only), args.work, args.jobs, args.model)
     elif args.command == 'run':
-        run(select(tests, args.only), args.work, not args.no_differential)
+        run(select(tests, args.only), args.work, not args.no_differential, args.model)
     else:
         report(tests, args.work)
     return 0

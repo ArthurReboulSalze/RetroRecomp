@@ -557,7 +557,7 @@ static void rr_gb_feedback(GBContext *ctx) {
     stage(project, system_id, rom_sha256, target='gbrt')
     adapt_input_refresh_hook(project)
     from .gameboy_hardware import adapt_hardware
-    adapt_hardware(project)
+    adapt_hardware(project, model)
     adapt_differential(project)
     deduplicate_entry_trace(project)
 

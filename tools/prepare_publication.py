@@ -300,7 +300,7 @@ retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py retrorecomp/sys
 retrorecomp/gameboy.py retrorecomp/gameboy_runtime.py
 retrorecomp/gameboy_build.py retrorecomp/gameboy_boundary.py tests/test_gameboy_build.py
 native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
-retrorecomp/gameboy_hardware.py
+retrorecomp/gameboy_hardware.py retrorecomp/gameboy_color_hardware.py
 native/gb_audio_checks.c tools/gameboy_hardware_selftest.py
 retrorecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
 retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrorecomp/nes_ram.py retrorecomp/nes_state_layout.py retrorecomp/nes_checks.py tests/test_nes_checks.py tools/nes_saves_check.py tools/nes_route_captures.py tools/nes_owner_trial.py tools/nes_cross_os.py tools/nes_state_prg_check.py retrorecomp/systems/nes.py tests/test_nes.py
@@ -333,8 +333,8 @@ native/pce_huc6280_native_checks.cpp tools/pce_huc6280_native_vector_selftest.py
 native/pce_snapshot_checks.cpp tools/pce_snapshot_selftest.py tools/pce_snapshot_rom.py tests/test_pce_snapshot.py
 tools/gameboy_ei_check.py tests/test_gameboy_ei_delay.py
 native/gb_state_compare.h native/gb_halt_checks.c tools/gameboy_halt_selftest.py tests/test_gameboy_halt_bound.py
-native/gb_ppu_object_span.h native/gb_ppu_span_checks.c native/gbc_hardware_checks.c tools/gameboy_color_selftest.py tests/test_gameboy_color.py tools/gameboy_ppu_span_selftest.py tests/test_gameboy_perf.py native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
-native/gb_link.h native/gb_link_checks.c tools/gameboy_link_selftest.py tools/gameboy_link_play.py tests/test_gameboy_link.py
+native/gb_ppu_object_span.h native/gb_ppu_span_checks.c native/gbc_hardware_checks.c tools/gameboy_color_selftest.py tests/test_gameboy_color.py tests/test_gameboy_color_hardware.py tools/gameboy_ppu_span_selftest.py tests/test_gameboy_perf.py native/gb_digest.h native/gb_machine_state.h native/gb_machine_checks.c tools/gameboy_machine_selftest.py tests/test_gameboy_machine_state.py
+native/gb_link.h native/gb_link_checks.c native/gbc_link_checks.c tools/gameboy_link_selftest.py tools/gameboy_link_play.py tests/test_gameboy_link.py
 tests/test_gameboy_helper_counts.py
 tools/gameboy_campaign.py tools/gameboy_cross_os.py tests/test_gameboy_cross_os.py
 tools/gameboy_testroms.py tests/test_gameboy_testroms.py tests/test_gameboy_unused_io.py tests/test_gameboy_boot_apu.py
