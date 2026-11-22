@@ -150,7 +150,7 @@ class ReferenceCopyTests(unittest.TestCase):
     def test_the_two_call_sites_pass_the_same_arguments_for_a_machine_with_costs_and_16_bit_ports(self):
         generated, alone = self.calls()
         self.assertEqual(generated, alone)
-        self.assertEqual(generated[1], dict(m1_counter=True, nmi=True, costs=self.MACHINE.costs, port16=True))
+        self.assertEqual(generated[1], dict(m1_counter=True, nmi=True, costs=self.MACHINE.costs, port16=True, contention=False))
 
     def alone(self, machine):
         """The CPU headers written while the runner is built alone, and the order they come in."""
@@ -175,7 +175,7 @@ class ReferenceCopyTests(unittest.TestCase):
         recorded = []
         with mock.patch('retrorecomp.cpu.prepare_reference', lambda *a, **k: recorded.append((a, k))):
             chain.prepare_machine_reference(Path('w'), Path('e'), self.MACHINE)
-        self.assertEqual(recorded, [((Path('w'), Path('e')), dict(m1_counter=True, nmi=True, costs=self.MACHINE.costs, port16=True))])
+        self.assertEqual(recorded, [((Path('w'), Path('e')), dict(m1_counter=True, nmi=True, costs=self.MACHINE.costs, port16=True, contention=False))])
 
 
 if __name__ == '__main__':

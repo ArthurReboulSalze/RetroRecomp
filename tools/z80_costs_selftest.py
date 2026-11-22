@@ -56,12 +56,13 @@ def _compile(sources, include: Path, output: Path, defines=()) -> None:
         raise RuntimeError(f'{output.name} did not build:\n{built.stdout}{built.stderr}'[-4000:])
 
 
-def emit_bodies(costs, folder: Path) -> Path:
-    """The emitter's bodies for every encoding, built with the generator patched for a machine with these costs."""
+def emit_bodies(costs, folder: Path, machine=None) -> Path:
+    """The emitter's bodies for every encoding, built with the generator patched for a machine with these costs (or for `machine`,
+    as tools/z80_contention_selftest.py asks)."""
     from retrorecomp.core import patched_generator_source
     from retrorecomp.z80_chain import SEGA_MAPPER, Z80Machine
     engine = ROOT / '.deps' / 'smsggrecomp'
-    machine = Z80Machine('costs-check', SEGA_MAPPER.regions, costs=costs)
+    machine = machine or Z80Machine('costs-check', SEGA_MAPPER.regions, costs=costs)
     stage = folder / 'generator'
     stage.mkdir(parents=True)
     for path in (engine / 'recompiler' / 'src').iterdir():

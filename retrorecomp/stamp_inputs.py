@@ -289,6 +289,7 @@ NOT_INPUTS = (
     'native/z80_costs_emit.c', 'native/z80_costs_checks.c',   # tools/z80_costs_selftest.py: a machine's instruction costs, emitter against reference, never in a game
     # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
     'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
+    'native/z80_contention_checks.c',   # tools/z80_contention_selftest.py: contention, emitter against reference, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
     # (retrorecomp/z80_chain.py pastes it ahead of the step loop when Z80Machine.reference_state asks). No machine of the converter asks
     # yet: the Master System and the Game Gear keep the pair of their pinned runner. It joins the game files of the first that does.
@@ -1361,6 +1362,8 @@ INPUTS = _resolve({
         'retrorecomp.z80_chain',
         # The Z80's bus cycles per encoding (the ULA contention's data, checked by tools/z80_timing_vectors.py).
         'retrorecomp.z80_timing',
+        # Its evaluator: the delay a machine's contention rule adds, rendered into the bodies and the reference (z80_timed.py).
+        'retrorecomp.z80_timed',
     ),
     'family:rr16': (
         'native/console16_main.c',
