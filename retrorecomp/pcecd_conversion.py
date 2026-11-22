@@ -107,7 +107,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
             phase = time.perf_counter()
             emit(f'PC Engine CD: building the game (pass {attempt + 1}, {"everything interpreted" if module is None else "with the guarded native module"}).')
             with stages.phase('code_generation'):
-                prepared = pcecd_build.prepare_game(project, item, card, title=title, module=module, presentation=presentation,
+                prepared = pcecd_build.prepare_game(project, item, card, title=title, module=module, presentation=presentation, players=pcecd.players_of(item),
                                                     super_ram=pcecd_ram == 'super', region_japan=pcecd_region == 'japan', unknown=pcecd_unknown)
             with stages.phase('compile'):
                 executable = pce_build.build_game(project, emit)

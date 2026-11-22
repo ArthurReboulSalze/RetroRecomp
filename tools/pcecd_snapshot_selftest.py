@@ -84,6 +84,7 @@ def main() -> int:
     parser.add_argument('--card', type=Path, required=True, help="the player's own System Card (256 KiB)")
     parser.add_argument('--disc', type=Path, required=True, help='a disc: CHD (version 4 or 5) or ISO')
     parser.add_argument('--standard', action='store_true', help="the original System Card's RAM instead of the Super System Card's")
+    parser.add_argument('--tap', type=int, default=2, help='the pads pressed, 2 to 4 (the multitap is plugged either way, as in every converted disc)')
     parser.add_argument('--frames', type=int, default=600)
     parser.add_argument('--stride', type=int, default=20)
     parser.add_argument('--replay', type=int, default=24)
@@ -100,6 +101,7 @@ def main() -> int:
         command.append('--standard')
     if arguments.digests:
         command.append('--digests')
+    command += ['--tap', str(arguments.tap)]
     done = subprocess.run(command, capture_output=True, text=True, timeout=7200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     print(done.stdout.rstrip())
     if done.stderr.strip():

@@ -93,3 +93,18 @@ def machine_identity(item: PcCdInput, card_option) -> str:
     card = card_for(item, card_option)
     tag = f'card:{card.sha256}' if card else 'card:none'
     return hashlib.sha256(b'rr-pcecd-machine\0' + tag.encode()).hexdigest()
+
+
+# The discs that take more than two players through the multitap, keyed by the disc's digest (a reviewed table, never a condition on a game in code; the rule of the HuCards'
+# `pce_build.MULTITAP_PLAYERS`): the players the disc was shown to read, at most four (a room seats four; the console takes five). A disc that is not listed is built for
+# two. An entry is evidence, not a guess: `tools/pcecd_multitap_probe.py` runs the converted game on its own long route and presses each of pads 2, 3 and 4 in turn; a pad
+# that changes the RAM, CPU, picture or sound hash of the run is a pad the game reads. The probe's verdict of the day each entry was added is its comment.
+MULTITAP_PLAYERS = {
+    '58b53fb3d71b00059fb056f6a77564e0933ca7ec19a7a7e50276460d5397fe6a': 4,    # Dungeon Explorer II (USA): pads 2 and 3 change all four hashes, pad 4 the RAM (22 Nov 2026)
+}
+
+
+def players_of(item: PcCdInput) -> int:
+    """The players a converted disc is built for: its entry of MULTITAP_PLAYERS, else two."""
+    return MULTITAP_PLAYERS.get(item.sha256, 2)
+

@@ -3,7 +3,7 @@
 // tools/pcecd_snapshot_selftest.py against the player's own System Card and a disc (a build with RR_PCE_DISC), never run by the public checks.
 //
 //   pce_snapshot_checks ROM [--sf2]
-//   pce_snapshot_checks --disc CARD DISC SHA256 [--standard] [--frames N] [--stride N] [--replay N]
+//   pce_snapshot_checks --disc CARD DISC SHA256 [--standard] [--tap N] [--frames N] [--stride N] [--replay N]   (--tap N: N pads pressed, 2 to 4; the multitap is plugged)
 //
 // What it proves, on the interpreter (the native code is the same machine, proved apart against the reference):
 //   1. A state saved at ANY save point of the first pass (every frame for a HuCard, every --stride frames for a disc), loaded back, leaves the machine exactly as it
@@ -49,6 +49,7 @@ struct Config {
     std::string disc_path, disc_sha256;
     bool super_ram = true;
     unsigned frames = 150, stride = 1, replay = 24;
+    unsigned pads = 2;          // the pads that are pressed: 2 on the console's own port, 3 to 4 with the multitap plugged (--tap N)
     bool digests = false;       // print the digest of every 60th frame of the first pass: two machines' lines (Windows, Linux) must be the same
 } config;
 
@@ -63,7 +64,7 @@ void pads_of(unsigned f, uint16_t pads[PCE_PADS]) {
     uint32_t x = f * 2654435761u;
     for (unsigned slot = 0; slot < PCE_PADS; ++slot) {
         x = x * 1664525u + 1013904223u;
-        pads[slot] = slot < 2 ? static_cast<uint16_t>((x >> 11) & 0x0FF) : 0;
+        pads[slot] = slot < config.pads ? static_cast<uint16_t>((x >> 11) & 0x0FF) : 0;
     }
 }
 
@@ -105,7 +106,7 @@ bool start() {
     bool ok;
     if (config.disc) {
         const PceDiscRecipe recipe = {config.card.data(), config.card.size(), config.disc_path.c_str(), 0, 0, config.disc_sha256.c_str(),
-                                      config.super_ram ? 1 : 0, 0, PCE_UNKNOWN_NEC_INVALID, 2, 0};
+                                      config.super_ram ? 1 : 0, 0, PCE_UNKNOWN_NEC_INVALID, 2, 1};      // the multitap is plugged, as in every converted disc (a game built for two players or more)
         ok = pce_machine_init_disc(&recipe, error, sizeof error) != 0;
     } else {
         ok = pce_machine_init(config.rom.data(), config.rom.size(), 0, 0, config.sf2 ? PCE_BOARD_SF2 : PCE_BOARD_BASE, 2, 0, error, sizeof error) != 0;
@@ -309,6 +310,7 @@ int main(int argc, char **argv) {
             if (option == "--standard") config.super_ram = false;
             else if (option == "--frames" && i + 1 < argc) config.frames = static_cast<unsigned>(std::max(1, std::atoi(argv[++i])));
             else if (option == "--digests") config.digests = true;
+            else if (option == "--tap" && i + 1 < argc) config.pads = static_cast<unsigned>(std::min(4, std::max(2, std::atoi(argv[++i]))));
             else if (option == "--stride" && i + 1 < argc) config.stride = static_cast<unsigned>(std::max(1, std::atoi(argv[++i])));
             else if (option == "--replay" && i + 1 < argc) config.replay = static_cast<unsigned>(std::atoi(argv[++i]));
         }

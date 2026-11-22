@@ -113,6 +113,18 @@ Proofs (all on Dracula X or Lords of Thunder, the player's own card and discs, n
 | `tools/netplay_game_smoke.py` on Dracula X, 2 seats, rollback 5, 30 ms ± 10, 2 % loss, save at frame 600, load at 1,500, restart at 2,200, 3,000 frames | PASS: boot digests equal, 50 digests of 50 different values equal on both seats, 95 and 183 rollbacks (deepest 5), the host's save written back |
 | The HuCard output | unchanged: an A/B of Alien Crush and Air Zonk and the snapshot self-test on both boards (UPGRADES.md) |
 
-Not proved, and not claimed: three or four seats on a disc (the converter builds every disc for two players today, the sessions refuse more seats than the game has; no CD game with a recorded player count above two), the two-PC run
-(the multiplayer specialist's, with the ThinkPad) and physical latency (never measured). The backup memory stayed blank in the probe's route (Lords of Thunder), so the snapshot's path for it is proved on hand-set bytes (the probe's disturbed-state load). A game did write it on a route of the panel: Ys Book I & II's play route answers its « initialize the File Cabinet? » question, the memory it wrote survives a fresh process (section 4), but no session has played that game yet.
+**Three and four seats, 22 November 2026.** The converter builds every disc for two players, except the ones a reviewed table lists (`pcecd.MULTITAP_PLAYERS`, keyed by the disc's digest, the rule of the HuCards'
+`pce_build.MULTITAP_PLAYERS`). An entry is evidence: `tools/pcecd_multitap_probe.py` runs the converted game on its own long route, with the multitap plugged, once with the other pads idle (twice, to show the run is deterministic)
+and once for each of pads 2, 3 and 4 pressed by a fixed pattern; **a pad that changes the RAM, CPU, picture or sound hash of the run is a pad the game reads**. On the nine-disc panel: Dungeon Explorer II reads pads 2 and 3
+(all four hashes) and pad 4 (the RAM): **four players**; Buster Bros. reads pad 2 only; Dracula X, Lords of Thunder, Ys III, Addams Family, 4 in 1 Super CD and Ys Book I & II read pad 1 only on their routes (that is what the route
+reached, not a claim about the game's menus). Only Dungeon Explorer II is listed; every other disc stays at two seats.
+
+| Proof, Dungeon Explorer II (USA), four players | Result |
+|---|---|
+| `tools/pcecd_snapshot_selftest.py --tap 4` (1,800 frames of pseudo-random pads on four pads, a save point every 60 frames) | PASS: 30 save points loaded, 696 frames replayed after the loads, same checks as above; 417 sectors read |
+| The same probe on Debian 13 (WSL) | the 30 digests equal Windows's, line for line |
+| `tools/netplay_game_smoke.py --seats 4`, rollback 5, 30 ms ± 10, 2 % loss, save at 600, load at 1,500, restart at 2,200, 3,000 frames | PASS: boot digests equal, 50 digests of 50 different values equal on the four seats, 132 to 350 rollbacks per seat (deepest 3), the host's save written back |
+| The same with `--seats 3` | PASS |
+
+Not proved, and not claimed: the two-PC run (the multiplayer specialist's, with the ThinkPad) and physical latency (never measured). The backup memory stayed blank in the probe's route (Lords of Thunder), so the snapshot's path for it is proved on hand-set bytes (the probe's disturbed-state load). A game did write it on a route of the panel: Ys Book I & II's play route answers its « initialize the File Cabinet? » question, the memory it wrote survives a fresh process (section 4), but no session has played that game yet.
 

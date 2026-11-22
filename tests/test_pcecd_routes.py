@@ -64,5 +64,21 @@ class LobbyTests(unittest.TestCase):
         self.assertEqual(lobby_check.firmware_digest({'firmware': {'system_card': {'sha256': digest}}}), bytes(32))
 
 
+class MultitapTableTests(unittest.TestCase):
+    def test_the_table_is_reviewed_data_keyed_by_disc_digest(self):
+        from retrorecomp import pcecd
+        self.assertTrue(pcecd.MULTITAP_PLAYERS)
+        for digest, players in pcecd.MULTITAP_PLAYERS.items():
+            self.assertRegex(digest, r'^[0-9a-f]{64}$')
+            self.assertIn(players, (3, 4))             # two is what every other disc gets; a room seats four
+
+        class Disc:
+            def __init__(self, sha256):
+                self.sha256 = sha256
+        self.assertEqual(pcecd.players_of(Disc('0' * 64)), 2)
+        listed = next(iter(pcecd.MULTITAP_PLAYERS))
+        self.assertEqual(pcecd.players_of(Disc(listed)), pcecd.MULTITAP_PLAYERS[listed])
+
+
 if __name__ == '__main__':
     unittest.main()
