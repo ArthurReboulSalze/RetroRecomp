@@ -830,6 +830,19 @@ The conversion report's final checks add the native counters the release check r
 **Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
 released export to upgrade.
 
+## Amstrad CPC (developer only): the batch and the converter window convert it on a development tree, with its simulation identity (1.9.0)
+
+`AmstradCpcProfile.available()` is `cpc_conversion.developer_available()`: True when the converter runs from its sources, False in
+the packaged converter, so a development tree converts the CPC through `RetroRecomp.py batch --system cpc` and the window while no
+player has it. `build_cleanup` reads the CPC's build folder as it is laid out, `cpc/<sha12>` (as the SG-1000's; it named
+`<sha12>-<firmware8>`, which the CPC never wrote), so `report_project` finds it and the batch writes the report's
+`simulation_identity` (it was null: « the report names no build project »), which the multiplayer lobby needs. Proof: Bomb Jack
+converted by the batch into a scratch library: an identity of 39 generated sources, `lobby_check.game_from_report` gives a game
+(2 seats, the firmware record), every `release_check` gate passes.
+
+**Stamps** (`compilation_inputs.role_stamps`, 27 profiles, before and after): the CPC's game stamp only (`cpc_conversion.py`,
+`systems/amstrad_cpc.py`); `build_cleanup.py` is in no stamp. No released export.
+
 ## Amstrad CPC (developer only): the Gate Array draws from tables, memory is read through a pointer per window (1.9.0)
 
 Two changes of the optimisation plan ([AMSTRAD_CPC.md](AMSTRAD_CPC.md#8-optimisation-plan-step-4-22-november-2026-nothing-timed-yet)),

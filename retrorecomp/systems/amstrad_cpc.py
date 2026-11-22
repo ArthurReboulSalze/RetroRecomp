@@ -107,7 +107,8 @@ class AmstradCpcProfile(SystemProfile):
     identify = Identify(path_order=6)
 
     def available(self) -> bool:
-        return False                    # no conversion loop yet (docs/AMSTRAD_CPC.md, stage 1)
+        from ..cpc_conversion import developer_available
+        return developer_available()
 
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if suffix not in ('.dsk', '.zip'):

@@ -3,6 +3,7 @@ ROM: what is refused before anything is built, and the list of states a game mus
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -72,7 +73,9 @@ class ConversionRefusalTests(unittest.TestCase):
         with mock.patch.object(cpc_conversion, 'convert', return_value=Path('game.exe')) as convert:
             self.assertEqual(AMSTRAD_CPC.convert(Path('x.dsk'), frames=900), Path('game.exe'))
         convert.assert_called_once_with(Path('x.dsk'), frames=900)
-        self.assertFalse(AMSTRAD_CPC.available())
+        self.assertTrue(AMSTRAD_CPC.available())                     # a development tree
+        with mock.patch.object(sys, 'frozen', True, create=True):
+            self.assertFalse(AMSTRAD_CPC.available())                # the packaged converter
 
     def test_the_firmware_record_is_one_the_lobby_compares(self):
         from retrorecomp.netplay import lobby_check
