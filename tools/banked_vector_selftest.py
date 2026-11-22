@@ -9,7 +9,12 @@ instruction (`m1_cycles`). The reference interpreter adds no wait state, so `--r
 A machine whose profile gives `z80_vector_tstates` (the CPC's bus rule, systems/amstrad_cpc.py) is expected, vector by vector,
 the T-states that rule gives for that vector's own bus trace, not the value of its table: the table is per encoding, the rule
 per case, so a branch taken or not, a block instruction that repeats, a prefixed form each meet their own count. With
-`port_bits` 16 the whole port address of each I/O cycle is checked, not its low byte."""
+`port_bits` 16 the whole port address of each I/O cycle is checked, not its low byte.
+
+`--machine zxs` runs them through the ZX Spectrum's build with its ULA contention on (`Z80Machine.contention`): each vector starts
+at the T-state its profile gives (`z80_vector_start`, inside a 48K frame's contended window), its bodies ask the machine's own C
+rule (`z80_vector_files` and `z80_vector_glue`, built beside them with the chain's evaluator), and it is expected the vector's
+T-states plus the delay the profile's documented rule gives over its bus cycles (`z80_vector_delay`)."""
 import argparse
 from collections import Counter
 import hashlib
@@ -52,15 +57,19 @@ def main():
     parser.add_argument('--samples', type=int, default=32)
     parser.add_argument('--reuse-build', action='store_true')
     parser.add_argument('--reference', action='store_true')
-    parser.add_argument('--machine', choices=('sms', 'msx', 'sg1000', 'coleco', 'cpc'), default='sms')
+    parser.add_argument('--machine', choices=('sms', 'msx', 'sg1000', 'coleco', 'cpc', 'zxs'), default='sms')
+    parser.add_argument('--expect-no-delay', action='store_true',
+                        help='positive control for a machine with contention: expect the plain T-states; the delayed vectors must fail')
     args = parser.parse_args()
-    machine = tstates = None
+    machine = tstates = profile = None
     if args.machine != 'sms':
         from retrorecomp.systems import get_profile
         profile = get_profile(args.machine)
         machine = profile.z80_machine
         if not args.reference:
             tstates = getattr(profile, 'z80_vector_tstates', None)
+    # A machine with contention: each vector from its own T-state, expected with the delay of the machine's documented rule.
+    contention = profile if machine is not None and machine.contention and not args.reference else None
     source = fetch(args.samples)
     vectors = json.loads(source.read_text(encoding='utf-8'))
     cases = vectors['cases']
@@ -96,7 +105,7 @@ def main():
         folder.mkdir(parents=True, exist_ok=True)
         indexes = [i for i, case in enumerate(cases) if part_of[window_of(case)] == n]
         run_part(folder, machine, part, [cases[i] for i in indexes], wait, tstates, engine, emitter_digest, tool, args, parser,
-                 cmake, generator, target)
+                 cmake, generator, target, contention)
         result = subprocess.run([str(build_executable(folder / 'build', target)), str(folder / 'vectors.bin')],
             capture_output=True, text=True, timeout=120, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         (folder / f'{target}.log').write_text(result.stdout + result.stderr, encoding='utf-8')
@@ -119,7 +128,9 @@ def main():
         reference_sha256=hashlib.sha256((game if len(parts) == 1 else game / 'part0').joinpath('runtime_reference.c').read_bytes()).hexdigest(),
         helpers_sha256=hashlib.sha256((game if len(parts) == 1 else game / 'part0').joinpath('z80_ops.h').read_bytes()).hexdigest(),
         families=len(vectors['families']), cases=len(cases), selected_per_family=args.samples, machine=args.machine,
-        m1_wait_added=wait, cycles_expected='machine bus rule per vector' if tstates is not None else 'vector T-states + m1_wait',
+        m1_wait_added=wait, cycles_expected='machine bus rule per vector' if tstates is not None else
+        'vector T-states + the contention delay of the documented rule, from the profile\'s start T-state' if contention is not None
+        else 'vector T-states + m1_wait',
         port_bits=16 if machine is not None and machine.port_bits == 16 and not args.reference else 8,
         exact_encodings=len(windows), exit_code=exit_code, failure_counts=dict(failures), failures=details,
         scope='Generated native bodies: registers, flags, WZ/Q/P, total cycles, all memory writes and the I/O ports (low byte, or the whole address with port_bits 16); not bus waveforms or hardware fidelity')
@@ -161,7 +172,8 @@ def harness(game, machine) -> Path:
     return copy
 
 
-def run_part(game, machine, windows, cases, wait, tstates, engine, emitter_digest, tool, args, parser, cmake, generator, target):
+def run_part(game, machine, windows, cases, wait, tstates, engine, emitter_digest, tool, args, parser, cmake, generator, target,
+             contention=None):
     """One part of the corpus: its encodings as the first source, its vectors, the generated bodies and the test built."""
     rom = b''.join(window + b'\0' * 4 for window in windows)
     rom += b'\0' * (-len(rom) % 16384)
@@ -179,7 +191,8 @@ def run_part(game, machine, windows, cases, wait, tstates, engine, emitter_diges
             values = list(values)
             output.write(struct.pack('<' + 'I' * len(values), *values))
         words([len(cases)])
-        for case in cases:
+        for index, case in enumerate(cases):
+            start = contention.z80_vector_start(index) if contention is not None else 0
             for phase in ('initial', 'final'):
                 state = case[phase]
                 if phase == 'final' and wait:
@@ -190,9 +203,14 @@ def run_part(game, machine, windows, cases, wait, tstates, engine, emitter_diges
                     extra = 0
                 if phase == 'final' and tstates is not None:
                     cycles = tstates([flags for _, _, flags in case['cycles']])
+                elif phase == 'final' and contention is not None:
+                    cycles = start + len(case['cycles']) + (0 if args.expect_no_delay else contention.z80_vector_delay(case, start))
                 else:
                     cycles = len(case['cycles']) + extra
-                words(cycles if key == 'cycles' and phase == 'final' else state.get(key, 0) for key in FIELDS)
+                if phase == 'initial' and contention is not None:
+                    words(start if key == 'cycles' else state.get(key, 0) for key in FIELDS)
+                else:
+                    words(cycles if key == 'cycles' and phase == 'final' else state.get(key, 0) for key in FIELDS)
             for phase in ('initial', 'final'):
                 words([len(case[phase]['ram'])])
                 for address, value in case[phase]['ram']:
@@ -214,6 +232,20 @@ def run_part(game, machine, windows, cases, wait, tstates, engine, emitter_diges
     (game / 'vector_state.h').write_text('\n'.join(header), encoding='utf-8')
     prepare_cpu_headers(game, engine)
     prepare_reference(game, engine)
+    extra_sources = ''
+    if contention is not None:
+        # The chain's evaluator, the machine's rule and its glue, built into the bodies' test.
+        from retrorecomp.z80_timed import render_header, render_source
+        (game / 'banked_timed.h').write_text(render_header(), encoding='utf-8', newline='\n')
+        (game / 'banked_timed.c').write_text(render_source(), encoding='utf-8', newline='\n')
+        (game / 'vector_contention.c').write_text(contention.z80_vector_glue, encoding='utf-8', newline='\n')
+        names = ['banked_timed.c', 'vector_contention.c']
+        for folder, files in contention.z80_vector_files:
+            for name in files:
+                (game / name).write_bytes((ROOT / folder / name).read_bytes())
+                if name.endswith('.c'):
+                    names.append(name)
+        extra_sources = ' ' + ' '.join(names)
     stamp = game / 'generated/emitter.sha256'
     if args.reuse_build and (not stamp.exists() or stamp.read_text() != emitter_digest):
         parser.error('Generated bodies do not match the current emitter; run without --reuse-build.')
@@ -228,7 +260,7 @@ project(BankedVectors C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
 file(GLOB bodies "generated/game_banked_ops_*.c")
-add_executable(banked_vectors "{bus}" generated/game_banked_index.c ${{bodies}})
+add_executable(banked_vectors "{bus}" generated/game_banked_index.c ${{bodies}}{extra_sources})
 target_include_directories(banked_vectors PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "${{CMAKE_CURRENT_SOURCE_DIR}}/generated")
 target_compile_definitions(banked_vectors PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)
 target_compile_options(banked_vectors PRIVATE "$<$<C_COMPILER_ID:MSVC>:/W2;/MP4>")

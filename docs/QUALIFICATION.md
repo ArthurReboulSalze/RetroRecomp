@@ -75,7 +75,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Commodore Amiga 1200 | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
-| ZX Spectrum | experimental | `░░░░░░░░░░` 3 % | ✅ 0 · 🟡 1 · ❔ 15 |
+| ZX Spectrum | experimental | `█░░░░░░░░░` 9 % | ✅ 1 · 🟡 1 · ❔ 14 |
 | PC Engine CD / TurboGrafx-CD | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | SG-1000 | experimental | `████████░░` 82 % | ✅ 10 · 🟡 3 · ❔ 1 |
 | Game Boy Color | experimental | `░░░░░░░░░░` 0 % | ✅ 0 · 🟡 0 · ❔ 16 |
@@ -95,7 +95,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G7 Saves | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ❔ | 🟡 | ➖ | ❔ | ➖ | 🟡 |
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ❔ | ✅ | ❔ | ✅ | 🟡 |
-| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
+| G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ | ❔ | ✅ | ✅ |
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | ❔ | 🟡 | ❔ |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | ✅ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | 🟡 | ✅ | ❔ | ✅ | 🟡 |
@@ -125,7 +125,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+, zxs = ZX Spect
 | G7 | - | - | Y | Y | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | ? | P | - | ? | - | P |
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | ? | ? | Y | ? | Y | P |
-| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P | ? | P | Y | ? | Y | Y |
+| G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P | Y | P | Y | ? | Y | Y |
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | ? | P | P | ? | P | ? |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | Y |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | P | Y | ? | Y | P |
@@ -174,6 +174,18 @@ The page of each console, which the README links its line to (a console of the m
 - PC Engine CD (21 November 2026; branch `spec/pcecd-profile`, Windows and one witness on Debian 13 in WSL, from an empty scratch library, two conversions at a time): the column is `P` on G1 to G8, G10 to G13 and G15; **G9 and G14 stay `?`, G16 `-`**. Evidence: nine discs of the maintainer's library (Ys III, Dracula X in CHD version 4, The Addams Family, Lords of Thunder, Buster Bros., Dungeon Explorer II, Valis III, 4 in 1 Super CD, Ys Book I & II) converted with the player's Japanese Super System Card 3.0: on the two routes of each (a boot route and a play route of 3,600 frames), 0 interpreted instructions, the delivered game equal to the build with every instruction interpreted (picture, sound, RAM and CPU state, every frame), a quick state continued in a fresh process, eleven kinds of damaged backup file set aside; The Addams Family on Linux gives the same hashes as Windows. **Why `P` and not `Y`:** the routes are shallow (the boot route stays on the System Card's "push RUN" screen, a play route reaches the first screens), the play routes wrote no backup memory, the panel is nine discs, and the hardware evidence is the engine's. Details: [PC_ENGINE_CD.md](PC_ENGINE_CD.md#4-stage-1-where-it-stands-21-november-2026).
 - ZX Spectrum (21 November 2026, step 1 of the playbook, in development): G1 `P`: the profile is declared experimental and
   developer-only, `tools/status_lint.py` agrees, and no installation lists it; nothing converts yet, so every other gate is `?`.
+- ZX Spectrum, G10 (22 November 2026; branch `spec/zx-g10` on main 7c8b04ba, Windows; the matrix reading is the specialist's, the
+  lead merges): **G10 moves from `?` to `Y`**. `tools/banked_vector_selftest.py --machine zxs` compiles the 51,328
+  SingleStepTests/z80 vectors (22,704 encodings, in six parts that fit the two 16 KiB banks the Spectrum's map reaches) with the
+  Spectrum's own build of the generator, **its ULA contention on** (`ZXS_MACHINE`: 16-bit ports, `contention`; the bodies ask the
+  machine's own C rule, native/zxs_machine): each vector starts at its own T-state inside a 48K frame's contended window
+  (`z80_vector_start`: every phase of the 8 T-state pattern, the idle part of a line, several lines) and is expected the vector's
+  T-states plus the delay the documented rule gives over its bus cycles from its initial state (`z80_vector_delay`, in Python, on
+  the bus-cycle table these same vectors check T-state by T-state): 51,328 pass, 0 fail, 0 miss, registers, flags, WZ/Q/P, memory,
+  the whole port address of each I/O cycle and the total T-states. 10,697 vectors carry a delay. Positive control: expecting no
+  delay (`--expect-no-delay`) fails exactly those 10,697 on cycles. An emulator's vectors on a flat test bus with a documented rule,
+  not hardware captures; the interrupt acceptance, HALT and the 176 undefined ED opcodes are outside the corpus (the acceptances and
+  HALT are covered by the chain's compiled gate). Not claimed: hardware fidelity, gameplay validation, physical latency.
 
 - Atari ST (6 to 9 November 2026; experimental profile of 1.7.1, raised on the branch of 1.7.2): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every conversion. G3 `P`:

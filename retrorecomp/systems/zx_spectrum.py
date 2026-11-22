@@ -86,6 +86,72 @@ class ZxSpectrumProfile(SystemProfile):
     # A snapshot is claimed by its extension, or a ZIP by the one snapshot it holds (its names only), before the ZIP is opened.
     identify = Identify(path_order=65)
 
+    # tools/banked_vector_selftest.py --machine zxs: the SingleStepTests vectors run with the ULA's contention on (G10). Each vector
+    # starts at its own T-state inside a 48K frame's contended window; its bodies ask the machine's own C rule (native/zxs_machine,
+    # with the glue below); the T-states expected are the vector's plus the delay the documented rule gives over its bus cycles.
+    z80_vector_files = (('native/zxs_machine', ('zxs_machine.c', 'zxs_machine.h')), ('native/ay38910', ('ay38910.c', 'ay38910.h')),
+                        ('native', ('audio_box.h',)))
+    z80_vector_glue = ('/* The ZX Spectrum\'s contention rule for the vector check (tools/banked_vector_selftest.py): a 48K machine. */\n'
+                       '#include "zxs_machine.h"\nuint8_t sms_read8(uint16_t a);\n'
+                       'static ZxsMachine rr_vector_machine;\nstatic const uint8_t rr_vector_rom[0x4000];\n'
+                       'static ZxsMachine *rr_vector(void) {\n'
+                       '    static int ready;\n'
+                       '    if (!ready) { zxs_reset(&rr_vector_machine, ZXS_48K, 0, rr_vector_rom); ready = 1; }\n'
+                       '    return &rr_vector_machine;\n}\n'
+                       'unsigned rr_contend_memory(uint64_t t, uint16_t a) { return zxs_contend_memory(rr_vector(), t, a); }\n'
+                       'unsigned rr_contend_io(uint64_t t, uint16_t p) { return zxs_contend_io(rr_vector(), t, p); }\n'
+                       'uint8_t rr_contend_peek(uint16_t a) { return sms_read8(a); }\n')
+
+    @staticmethod
+    def z80_vector_start(index: int) -> int:
+        """The T-state vector `index` starts at: inside the 48K's contended window (from 14335), across every phase of its 8 T-state
+        pattern, its idle 96 T-states of each line and several lines."""
+        return 14335 + 224 * (index % 7) + (index * 37) % 224
+
+    @staticmethod
+    def z80_vector_delay(case, start: int) -> int:
+        """The contention delay of one vector on a 48K started at `start`: the documented rule (4000h-7FFFh held 6, 5, 4, 3, 2, 1, 0,
+        0 within the first 128 T-states of each of the 192 lines from 14335, 224 a line; the four I/O cases) over the vector's bus
+        cycles (retrorecomp/z80_timing, which these vectors check T-state by T-state), from its initial state; the extra cycles
+        when the vector took the branch or the repeat."""
+        from ..z80_timed import delay
+        from ..z80_timing import cycles, length
+
+        def at(t):
+            in_frame = t % 69888
+            if in_frame < 14335 or in_frame >= 14335 + 192 * 224:
+                return 0
+            pos = (in_frame - 14335) % 224
+            return (6, 5, 4, 3, 2, 1, 0, 0)[pos & 7] if pos < 128 else 0
+
+        def memory(t, address):
+            return at(t) if (address & 0xC000) == 0x4000 else 0
+
+        def io(t, port):
+            high, ula = (port & 0xC000) == 0x4000, not port & 1
+            if not high:
+                return at(t + 1) if ula else 0
+            if ula:
+                first = at(t)
+                return first + at(t + first + 1)
+            total = 0
+            for _ in range(4):
+                wait = at(t + total + _)
+                total += wait
+            return total
+
+        family = case['family'].lower().split()
+        if family[:2] in (['dd', 'cb'], ['fd', 'cb']):
+            group, opcode = ('ddcb' if family[0] == 'dd' else 'fdcb'), int(family[3], 16)
+        elif len(family) == 2:
+            group, opcode = family[0], int(family[1], 16)
+        else:
+            group, opcode = '', int(family[0], 16)
+        state = dict(case['initial'], vec=case['initial']['i'] << 8 | 0xFF)
+        ram = dict(case['initial']['ram'])
+        taken = len(case['cycles']) > length(cycles(group, opcode)[0])
+        return delay(group, opcode, state, lambda address: ram.get(address, 0), start, memory, io, taken=taken)
+
     def available(self) -> bool:
         from ..zxs_conversion import developer_available
         return developer_available()

@@ -438,6 +438,26 @@ class RouteTests(unittest.TestCase):
         self.assertIsNone(zxs_starts.start_for('00' * 32))
         self.assertIsNone(zxs_starts.route_stop('00' * 32))
 
+    def test_the_vector_check_expects_the_documented_contention(self):
+        # tools/banked_vector_selftest.py --machine zxs (G10): each vector starts inside the contended window and is expected its
+        # T-states plus the documented delay over its bus cycles. An authored vector: NOP at 4000h, then LD A,(HL) with HL in slow memory.
+        profile = get_profile('zxs')
+        starts = [profile.z80_vector_start(index) for index in range(200)]
+        self.assertTrue(all(14335 <= start < 14335 + 7 * 224 for start in starts))
+        self.assertEqual(len({(start - 14335) % 224 % 8 for start in starts}), 8)          # every phase of the pattern
+        self.assertTrue(any((start - 14335) % 224 >= 128 for start in starts))             # and the idle part of a line
+
+        def case(family, ram, cycles, **registers):
+            initial = {**dict(pc=0x4000, sp=0xFF00, a=0, b=0, c=0, d=0, e=0, h=0, l=0, i=0x3F, r=0, ix=0, iy=0), **registers, 'ram': ram}
+            return {'family': family, 'initial': initial, 'cycles': [[0, 0, '----']] * cycles}
+        nop = case('00', [[0x4000, 0x00]], 4)
+        self.assertEqual(profile.z80_vector_delay(nop, 14335), 6)                       # the M1 at 4000h, at the pattern's 6
+        self.assertEqual(profile.z80_vector_delay(nop, 14335 + 6), 0)                   # at its 0
+        self.assertEqual(profile.z80_vector_delay(nop, 14335 + 130), 0)                 # in the idle part of the line
+        load = case('7e', [[0x8000, 0x7E]], 7, pc=0x8000, h=0x40, l=0x00)
+        self.assertEqual(profile.z80_vector_delay(load, 14335), 2)                       # only the read at 4000h, at 14339 (the 2)
+        self.assertEqual(profile.z80_vector_delay(load, 14335 - 4), 6)                   # the read at 14335
+
     def test_the_game_project_tracks_what_its_resources_embed(self):
         # The resource compiler does not report the files content.rc includes (Match Day II, 22 November 2026: a reviewed joystick
         # changed the image of a work folder and the build linked the old one, which the packed replay caught): the game's
