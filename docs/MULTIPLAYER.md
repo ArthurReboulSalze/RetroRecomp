@@ -51,7 +51,7 @@ match. On the PlayStation, a disc cannot be changed during a match.
 | Mega Drive | smooth | up to 4 | Team Player, EA 4 Way Play and J-Cart, chosen per game from three players on |
 | Super Nintendo | smooth | up to 4 | every enhancement chip; Super Multitap games from three players on |
 | PC Engine | smooth | up to 4 | the multitap is always plugged for a game built for two or more |
-| PC Engine CD | smooth | the game's own count (2 today) | the System Card, the drive and the backup memory travel with the snapshot; the backup memory is the session's save; the room refuses another System Card (« firmware ») |
+| PC Engine CD | smooth | the game's own count: up to 4 for Dungeon Explorer II (a reviewed table keyed by the disc), 2 for every other disc | the System Card, the drive and the backup memory travel with the snapshot; the backup memory is the session's save; the room refuses another System Card (« firmware ») |
 | Neo Geo | smooth | 2 | |
 | CPS-1, CPS-1.5, CPS-2 | smooth | up to 4 | |
 | MSX, MSX2, MSX2+ | smooth | 2 | the host types on the keyboard |
