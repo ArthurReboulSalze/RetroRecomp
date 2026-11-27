@@ -275,42 +275,48 @@ of 14 November 2026 (four cartridges and five disk games, extended level) every 
 play on their long route, Xak III answers its disk request and loads its third disk, Golvellius II stays in its intro and Pachipro Densetsu in
 its birth-date entry; no game has been played through (gameplay validation: none), and hardware fidelity and latency are not claimed.
 
-The **ZX Spectrum** profile is experimental and in development ([status](ZX_SPECTRUM.md)): it identifies 16K, 48K and 128K snapshots
-(`.z80`, `.sna`, or a ZIP holding one) and converts them for developers (a panel of eight, with the ULA's contention and the
-floating bus); no installation lists it, and the owner has not played them yet.
+The **ZX Spectrum** profile (`zxs`) is supported since 1.10.0, on the owner's decision of 27 November 2026 ([status](ZX_SPECTRUM.md)): it
+converts 16K, 48K and 128K snapshots (`.z80`, `.sna`, or a ZIP holding one) with the ULA's memory contention and the floating bus
+modelled from published timings. Tapes, the +2A, the +3 and disks are not converted. Panel of eight: seven reach play with no
+interpreted instruction on their routes; Elite's snapshot halts in its own decryption, in MAME 0.289 too, and its report says so.
+Hardware was compared with MAME 0.289 only, gameplay validation is the owner's play of six games, and physical latency is not measured.
 
-The **SG-1000** profile (`sg1000`) is experimental, for developers only, and in development ([status](SG1000.md)). It recognises SG-1000 and SG-1000 II
-cartridges (a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as SG-1000 or keep in a folder named `sg1000`; 2 KiB to 48 KiB, plain ROM) and
-converts them, for developers only, into a game executable that is checked headless against the reference interpreter on the routes played (the five
-measures stay apart: only native code and the agreement with the reference are measured, per conversion; CPU fidelity against an independent oracle,
-hardware fidelity, gameplay validation and physical latency are unknown, and none is claimed). No player is offered it and no game has been played. A file
-it cannot hold (larger than 48 KiB, or another board) is refused with a sentence before anything is written. The keyboard, BASIC and cassette of the SC-3000, and
-the peripherals and boards listed in [SG1000.md](SG1000.md#1-what-is-converted-and-what-is-not), are out of scope.
+The **SG-1000** profile (`sg1000`) is supported since 1.10.0, on the owner's decision of 27 November 2026 ([status](SG1000.md)). It converts
+SG-1000 and SG-1000 II cartridges (a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as SG-1000 or keep in a folder named `sg1000`; 2 KiB to
+48 KiB, plain ROM; no firmware) into a game executable checked headless against the reference interpreter on the routes played, with
+multiplayer. The five measures stay apart: native code and the agreement with the reference are measured per conversion; hardware fidelity
+was compared with an emulator only, gameplay validation is the maintainer's play of a few games, and physical latency is not measured. The
+Linux witness (Debian 13 in WSL) predates the F5 sprite option and the CRT and LCD looks. A file it cannot hold (larger than 48 KiB, or
+another board) is refused with a sentence before anything is written. The keyboard, BASIC and cassette of the SC-3000, cartridges with their
+own RAM, and the peripherals and boards listed in [SG1000.md](SG1000.md#1-what-is-converted-and-what-is-not), are out of scope.
 
-The **ColecoVision** profile (`coleco`) is experimental, for developers only, and in development ([status](COLECOVISION.md)). It recognises ColecoVision
-cartridges (a `.col`, or a `.bin`, `.rom` or ZIP that you choose as ColecoVision or keep in a folder named `colecovision`, beginning with a header word; 4 KiB
-to 32 KiB, plain ROM) and converts them with the option for your own BIOS (8 KiB, required, never shipped), for developers only, into a game executable that is checked headless
-against the reference interpreter on the routes played (only native code and that agreement are measured; CPU fidelity against an independent oracle, hardware
-fidelity, gameplay validation and physical latency are unknown, and none is claimed). No player is offered it and no game has been played. A file it cannot hold (larger than 32 KiB, or another board) is refused with a sentence. The Super Action Controller,
-the roller and driving modules, the Super Game Module and the homebrew boards are out of scope ([COLECOVISION.md](COLECOVISION.md#1-what-is-converted-and-what-is-not)).
+The **ColecoVision** profile (`coleco`) is supported since 1.10.0, on the owner's decision of 27 November 2026 ([status](COLECOVISION.md)). It
+converts ColecoVision cartridges (a `.col`, or a `.bin`, `.rom` or ZIP that you choose as ColecoVision or keep in a folder named `colecovision`,
+beginning with a header word; 4 KiB to 32 KiB, plain ROM) with your own BIOS (8 KiB, required, never shipped; the converted game holds it and
+is for you only) into a game executable checked headless against the reference interpreter on the routes played, with multiplayer. The five
+measures stay apart: native code and that agreement are measured per conversion; hardware fidelity was compared with an emulator only,
+gameplay validation is the maintainer's play of a few games, and physical latency is not measured. The Linux witness (Debian 13 in WSL)
+predates the F5 sprite option and the CRT and LCD looks. A file it cannot hold is refused with a sentence. The Super Action Controller, the
+roller and driving modules, the Super Game Module and the homebrew boards are out of scope
+([COLECOVISION.md](COLECOVISION.md#1-what-is-converted-and-what-is-not)).
 
-The **Amstrad CPC** profile (`cpc`) is experimental and developer-only ([status](AMSTRAD_CPC.md)): it recognises CPC 6128 disk images
-(`.dsk`, standard or extended, or a ZIP holding one) and converts them on a development tree; the packaged converter offers it to no
-player yet and refuses such a disk with that reason. Its games run on the CPC 6128's system ROM and AMSDOS, fetched from a pinned,
-hash-checked source under Amstrad's permission for emulators, or your own if you choose them in Options. A game that writes on its disk
-keeps a copy of it beside the game. Not converted: tapes and snapshots, the CPC 464's firmware, the Plus range and the GX4000; a game
-on several disks plays its first disk only (no disk swap yet).
+The **Amstrad CPC** profile (`cpc`) is supported since 1.10.0, on the owner's decision of 27 November 2026 ([status](AMSTRAD_CPC.md)): it
+converts CPC 6128 disk images (`.dsk`, standard or extended, or a ZIP holding one). Its games run on the CPC 6128's system ROM and AMSDOS,
+fetched from a pinned, hash-checked source under Amstrad's permission for emulators, or your own if you choose them in Options. A game that
+writes on its disk keeps a copy of it beside the game. Not converted: tapes and snapshots, the CPC 464's firmware, the Plus range and the
+GX4000; a game on several disks plays its first disk only (no disk swap yet). Hardware was compared with MAME 0.289 only, gameplay validation
+is the owner's play of three games, and physical latency is not measured.
 
-The **Game Boy Color** profile (`gbc`) is experimental and not in a release yet ([status](GAME_BOY_COLOR.md)). It converts
-`.gbc` cartridges, and Color-only cartridges in a `.gb` or a single-ROM ZIP, on the engine of the monochrome console in the
-colour hardware's model (MBC1, MBC3 with its clock, MBC5; no boot ROM). A Color-enhanced cartridge kept as a `.gb` keeps
-its monochrome conversion. Not converted: infrared, the MBC7 tilt sensor, the Printer, the Camera, Super Game Boy borders. On a panel of
-seven cartridges, the four final routes of each report 0 interpreter cycles; code run one instruction at a time in
-writable memory is counted apart and is not native. The generated code equals the reference interpreter in lock-step over
-30 boot frames and 240 frames of each input route (all 3,600 frames on two of the seven). Four of the seven were also
-converted on Debian 13 in WSL with equal per-frame traces. In the Color build, 115 of 116 public Mooneye and blargg test ROMs pass and
-`cgb-acid2` differs on 40 of 23,040 pixels. Hardware fidelity, gameplay validation (the owner has not played the games
-yet) and physical latency are not established.
+The **Game Boy Color** profile (`gbc`) is supported since 1.10.0, on the owner's decision of 27 November 2026 ([status](GAME_BOY_COLOR.md)).
+It converts `.gbc` cartridges, and Color-only cartridges in a `.gb` or a single-ROM ZIP, on the engine of the monochrome console in the
+colour hardware's model (MBC1, MBC3 with its clock, MBC5; no boot ROM). A Color-enhanced cartridge kept as a `.gb` keeps its monochrome
+conversion. Not converted: infrared, the MBC7 tilt sensor, the Printer, the Camera, Super Game Boy borders. On a panel of seven cartridges,
+the four final routes of each report 0 interpreter cycles; code run one instruction at a time in writable memory is counted apart and is not
+native. The generated code equals the reference interpreter in lock-step over 30 boot frames and 240 frames of each input route (all 3,600
+frames on two of the seven). Four of the seven were also converted on Debian 13 in WSL with equal per-frame traces. In the Color build, 115
+of 116 public Mooneye and blargg test ROMs pass and `cgb-acid2` differs on 40 of 23,040 pixels. Its paths are shared, in the base's
+experimental tier. Hardware fidelity, full games (the owner accepted three games on a short play test) and physical latency are not
+established.
 
 ## Local game regression set
 

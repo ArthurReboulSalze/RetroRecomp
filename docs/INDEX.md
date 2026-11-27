@@ -3,9 +3,9 @@
 Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk images) into standalone Windows or
 Linux programs. It translates as much of each game as possible into native code, checks that code against a reference
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
-never hidden. Twenty machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
+never hidden. Twenty-five machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
 Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the MSX2+, the Commodore Amiga, the Atari ST, the Game Boy Advance, the Nintendo 64, the Sony PlayStation and
-the Commodore Amiga 1200, and the PC Engine CD and the Game Boy Color as experimental machines; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
+the Commodore Amiga 1200, the SG-1000, the ColecoVision, the Game Boy Color, the ZX Spectrum and the Amstrad CPC, and the PC Engine CD as an experimental machine; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
 
@@ -36,7 +36,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Master System](MASTER_SYSTEM.md) | none | main | none | none | none |
 | [Game Gear](GAME_GEAR.md) | none | main | none | none | none |
 | [Game Boy](GAME_BOY.md) | none | none | none | main | none |
-| [Game Boy Color](GAME_BOY_COLOR.md) (experimental) | none | none | none | main | none |
+| [Game Boy Color](GAME_BOY_COLOR.md) | none | none | none | main | none |
 | [NES](NES.md) | none | none | main | none | none |
 | [Mega Drive](MEGADRIVE.md) | main | sound | none | none | none |
 | [Super Nintendo](SNES.md) | none | none | none | none | main (65816), sound (SPC700) |
@@ -49,9 +49,9 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [MSX](MSX.md) | none | main | none | none | none |
 | [MSX2](MSX.md#8-the-msx2-msx2) | none | main | none | none | none |
 | [MSX2+](MSX.md#9-the-msx2-msx2plus) | none | main | none | none | none |
-| [SG-1000](SG1000.md) (experimental, developer only) | none | main | none | none | none |
-| [ColecoVision](COLECOVISION.md) (experimental, developer only) | none | main | none | none | none |
-| [Amstrad CPC](AMSTRAD_CPC.md) (experimental, developer only) | none | main | none | none | none |
+| [SG-1000](SG1000.md) | none | main | none | none | none |
+| [ColecoVision](COLECOVISION.md) | none | main | none | none | none |
+| [Amstrad CPC](AMSTRAD_CPC.md) | none | main | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
 
 The PC Engine (HuC6280), the Game Boy Advance (ARM), the Nintendo 64 (VR4300) and the Sony PlayStation (R3000A) have no processor page yet: their processor
@@ -105,7 +105,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Master System** — [MASTER_SYSTEM.md](MASTER_SYSTEM.md). Deep dive: [LIGHT_PHASER.md](LIGHT_PHASER.md) (the Light Phaser).
 - **Game Gear** — [GAME_GEAR.md](GAME_GEAR.md), sharing the Master System engine.
 - **Game Boy** — [GAME_BOY.md](GAME_BOY.md) (original DMG profile and qualification); log: [GAME_BOY_LOG.md](GAME_BOY_LOG.md).
-- **Game Boy Color** — [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md) (experimental, not in a release yet: Color cartridges on the Game Boy's engine; scope, the five measures, the sixteen gates).
+- **Game Boy Color** — [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md) (supported since 1.10.0: Color cartridges on the Game Boy's engine; scope, the five measures, the sixteen gates).
 - **NES** — [NES.md](NES.md) (profile, cartridge and peripheral scope); log: [NES_LOG.md](NES_LOG.md).
 - **Mega Drive** — [MEGADRIVE.md](MEGADRIVE.md); log: [MEGADRIVE_LOG.md](MEGADRIVE_LOG.md). Deep dives:
   [MEGADRIVE_CPU_EXCEPTIONS.md](MEGADRIVE_CPU_EXCEPTIONS.md) (synchronous MC68000 exceptions),
@@ -130,10 +130,10 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Nintendo 64** — [NINTENDO_64.md](NINTENDO_64.md) (supported since 1.7.6, experimental from 1.7.1: cartridges on Mupen64Plus-Next with the ParaLLEl renderer on Vulkan, guarded native blocks of the VR4300; scope, the five measures, licences).
 - **Sony PlayStation** — [PLAYSTATION.md](PLAYSTATION.md) (supported since 1.7.6, open as experimental in 1.7.1: discs on Beetle PSX with guarded native steps; scope, the five measures, licences, the exit record).
 - **MSX** — [MSX.md](MSX.md) (supported since 1.7.5, open since 1.7.3: MSX1 cartridges booted by C-BIOS or your own MSX BIOS, on the shared Z80 chain; scope, the five measures, licences, known C-BIOS failures); [section 8](MSX.md#8-the-msx2-msx2) is the MSX2 profile (the V9938 with its command engine, its timing approximated); [section 9](MSX.md#9-the-msx2-msx2plus) the MSX2+ (supported since 1.7.6, experimental from 1.7.4: the V9958, MSX-MUSIC, the kanji font, disk games with their requests answered, shared paths).
-- **ZX Spectrum** — [ZX_SPECTRUM.md](ZX_SPECTRUM.md) (experimental and in development from 21 November 2026: snapshots identified, nothing converted yet; scope, route, the Amstrad ROMs, the panel).
-- **SG-1000** — [SG1000.md](SG1000.md) (experimental, developer only, stage 3: cartridges are converted into a game executable for developers, no player is offered it; scope, the five measures, licences).
-- **ColecoVision** — [COLECOVISION.md](COLECOVISION.md) (experimental, developer only, stage 3: cartridges are converted with your own BIOS into a game executable for developers, no player is offered it; scope, the BIOS, the five measures, licences).
-- **Amstrad CPC** — [AMSTRAD_CPC.md](AMSTRAD_CPC.md) (experimental, developer only: CPC 6128 disk games converted for developers on the 6128's firmware, no player is offered it; scope, the firmware, the five measures, the panel, multiplayer, the optimisation plan).
+- **ZX Spectrum** — [ZX_SPECTRUM.md](ZX_SPECTRUM.md) (supported since 1.10.0: 16K, 48K and 128K snapshots; scope, route, the Amstrad ROMs, the panel).
+- **SG-1000** — [SG1000.md](SG1000.md) (supported since 1.10.0: SG-1000 and SG-1000 II cartridges; scope, the five measures, licences).
+- **ColecoVision** — [COLECOVISION.md](COLECOVISION.md) (supported since 1.10.0: cartridges with your own BIOS; scope, the BIOS, the five measures, licences).
+- **Amstrad CPC** — [AMSTRAD_CPC.md](AMSTRAD_CPC.md) (supported since 1.10.0: CPC 6128 disk games on the 6128's firmware; scope, the firmware, the five measures, the panel, multiplayer, the optimisation plan).
 - **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, supported since 1.7.1: emulated and 0 % native, one executable per game, licences, limits, evidence).
 
 ## Running the project

@@ -1,24 +1,24 @@
 # RetroRecomp v1.10.0 — Six new machines, CRT and LCD looks, and a faster window
 
-### Six new machines, each with multiplayer **[PLACEHOLDER pass 2: their status]**
+### Six new machines, each with multiplayer
 
-- **ZX Spectrum** ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)): 16K, 48K and 128K snapshots (`.z80` versions 1 to 3, `.sna`, or a ZIP
+- **ZX Spectrum**, supported ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)): 16K, 48K and 128K snapshots (`.z80` versions 1 to 3, `.sna`, or a ZIP
   holding one), with the ULA's memory contention and the floating bus from published timings. The Spectrum's own ROM is fetched
   once from a pinned source, under Amstrad's permission, or is your own. The pad is the joystick the snapshot was saved for
   (cursor keys, Kempston, Interface 2); Ctrl+Alt+K gives the keyboard to the game. Not converted: tapes, the +2A, the +3, disks.
-- **SG-1000** ([SG1000.md](SG1000.md)): SG-1000 and SG-1000 II cartridges, 2 to 48 KiB, no firmware needed; Pause is a key and a
+- **SG-1000**, supported ([SG1000.md](SG1000.md)): SG-1000 and SG-1000 II cartridges, 2 to 48 KiB, no firmware needed; Pause is a key and a
   pad button. Not converted: the SC-3000's keyboard, BASIC and cassette, cartridges with their own RAM.
-- **ColecoVision** ([COLECOVISION.md](COLECOVISION.md)): cartridges with your own BIOS (8 KiB, checked by its hash, never
+- **ColecoVision**, supported ([COLECOVISION.md](COLECOVISION.md)): cartridges with your own BIOS (8 KiB, checked by its hash, never
   shipped); the keypad on the digit keys, or on screen with the pad's Y. Not converted: the Super Action Controller, the roller
   and driving modules, the Super Game Module.
-- **Amstrad CPC 6128** ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)): DSK and EXTENDED DSK disk games, on your own firmware or on pinned
+- **Amstrad CPC 6128**, supported ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)): DSK and EXTENDED DSK disk games, on your own firmware or on pinned
   copies of the system ROM and AMSDOS fetched on your word; the start command is typed by itself; what a game writes on its disk
   is kept in a copy beside it. Mono sound by default, the headphone jack's stereo in F2.
-- **Game Boy Color** ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `.gbc` cartridges and Color-only cartridges in a `.gb`, on the
+- **Game Boy Color**, supported ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `.gbc` cartridges and Color-only cartridges in a `.gb`, on the
   Game Boy's engine with the colour hardware; MBC1, MBC3 with its clock, MBC5, battery saves, no boot ROM needed. Eight fixes of
   the engine for the Color only; 115 of 116 public Mooneye and blargg test ROMs pass. Not converted: infrared, the tilt sensor,
-  the Printer, the Camera, Super Game Boy borders; a rumble cartridge converts, but the pad does not vibrate.
-- **PC Engine CD / TurboGrafx-CD** ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): CD-ROM² and Super CD-ROM² discs from a CHD (version 4
+  the Printer, the Camera, Super Game Boy borders; a rumble cartridge converts, but the pad does not vibrate. Its paths are shared, in the base's experimental tier.
+- **PC Engine CD / TurboGrafx-CD**, experimental **[PLACEHOLDER: supported once spec/pcecd-g11 lands]** ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): CD-ROM² and Super CD-ROM² discs from a CHD (version 4
   or 5), a CUE sheet with its BIN files, or an ISO, with your own System Card 3.0 (checked by its hash, never shipped); one
   executable holds the disc and the card; backup memory in `datas/saves`. Not converted: the Arcade Card, SuperGrafx,
   multi-disc games.
@@ -27,7 +27,8 @@
   interpreter. Windows and Debian 13 (in WSL) gave the same results on the games compared. The four Z80 machines pass the 51,328 SingleStepTests
   vectors through their own generators. Compared with MAME 0.289, never with a real console: the SG-1000's ports, the
   ColecoVision, the CPC, the Spectrum's panel, the PC Engine CD's drive, CD audio and ADPCM. Elite's Spectrum snapshot halts in
-  its own decryption, in MAME too, and its report says so.
+  its own decryption, in MAME too, and its report says so. The SG-1000's and the ColecoVision's Linux witness predates the F5
+  option and the CRT and LCD looks.
 - **Multiplayer**: two players with rollback on the six, four on Dungeon Explorer II (the PC Engine CD's multitap, per disc);
   the Game Boy Color's link cable between two Colors of the same game; the host types on the CPC's keyboard; the SG-1000's
   Pause and the ColecoVision's keypad per player. Proven by the automatic runs on two PCs (11 matches of 11: every state digest
@@ -105,10 +106,20 @@ The window's figures are medians on a loaded PC, before and after each change, n
 
 ### PlayStation **[PLACEHOLDER: CHD discs, to confirm]**
 
-### Automatic detection **[PLACEHOLDER: the detection fixes, to confirm]**
+### Automatic detection ([UPGRADES.md](UPGRADES.md))
 
-**Your exports and quick states.** **[PLACEHOLDER pass 2: the stamps measured between 1.9.1 and 1.10.0, what is converted again,
-which quick states load, what is kept]** ([UPGRADES.md](UPGRADES.md)).
+- Audited on a player's library of 12,347 files: 76 more MSX1 cartridges are recognised by their content when nothing else names
+  the machine.
+- Firmware is refused with a sentence that says what it is, instead of being converted as a game: the Mega-CD boot ROM, the BS-X
+  BIOS, the Super Game Boy and Sufami Turbo bases, a System Card dropped as a `.pce`, the MSX system ROMs. Sufami Turbo games are
+  refused as unsupported.
+- An X1, PC-88 or PC-98 `.d88` and a playlist of discs are no longer taken for X68000 disks.
+- Amiga 500 and 1200: 29 more WHDLoad archives convert from the window's drop and the automatic console, the install's slave chosen
+  as the conversion does; an archive of several games says so.
+- R-Type (MSX) is still not converted: its mapper is not supported ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
+
+**Your exports and quick states.** **[PLACEHOLDER final commit: the stamps measured between 1.9.1 and 1.10.0, what is converted
+again]** An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC Engine, the Sharp X68000, the Atari ST, the Nintendo 64 and the two Amigas: their keys follow the game stamp, the build or engine files that changed. On the Master System, the Game Gear, the Game Boy, the NES, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the Game Boy Advance, the PlayStation and the MSX family, nothing their key reads changed, so a 1.9.1 state should load (read from each key's inputs, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept. ([UPGRADES.md](UPGRADES.md)).
 
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used, in a match as alone.

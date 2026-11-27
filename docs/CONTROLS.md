@@ -29,7 +29,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | Gamepad | Since 1.7.6, **Fast forward** (held, R2 by default) and **Max speed** (a press toggles it, L2 by default) are rows of player 1's gamepad page too: move them, or clear them (Delete) to leave L2 and R2 to the game. Tab and ` stay the keys |
 | F10 | Free: the options are the last F2 page |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
-| F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
+| F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game. On the machines of the shared Z80 chain (MSX, MSX2, MSX2+, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC) the kind is reserved and nothing is recorded from play: the row stays off ([RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md)) |
 | Enter / keypad Enter / P | Pause/resume: the Master System uses Enter, its default Start/Menu key (its Pause button is on the console). Game Gear and Game Boy use P. On Mega Drive, SNES, NES, Neo Geo and CPS-1, P is free: Enter (the cartridge Start) pauses the game itself |
 | Tab (held) / right trigger | Fast-forward at 2.5 times the speed, on every console since 1.6.3 (see [Speed and sound](#speed-and-sound)); the trigger of player 1's controller |
 | ` (backquote) / left trigger | Toggle the maximum speed, 5 times (see below); the trigger of player 1's controller |
