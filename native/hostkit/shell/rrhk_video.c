@@ -10,6 +10,7 @@
 #include "console16_video.h"
 #include "platform_io.h"
 #include "runtime_i18n.h"
+#include "display_settings.h"
 #include "hostkit/hostkit_internal.h"
 
 /* Scale2x into a store of store_w x store_h source pixels (the target is twice that, store_w * 2 pixels a row). */
@@ -146,8 +147,13 @@ void rrhk_present_picture(RrhkRun *run) {
     int texture_scale = doubled(run) ? 2 : 1;
     SDL_Rect source = {0, 0, width * texture_scale, height * texture_scale};
     SDL_Texture *smooth = rrhk.filter == 1 ? rr_xbr_update(ren, &run->xbr, pixels, width, height, pitch) : NULL;
+    /* D35: the CRT and LCD looks draw the picture themselves; one that cannot (a size the LCD grid does not fit, no texture)
+     * leaves it to the plain copy */
+    const int look = rrhk.filter == RR_FILTER_CRT_FLAT ? RR_LOOK_CRT_FLAT : rrhk.filter == RR_FILTER_CRT_CURVED ? RR_LOOK_CRT_CURVED :
+                     rrhk.filter == RR_FILTER_LCD ? RR_LOOK_LCD : -1;
     if (smooth) SDL_RenderCopy(ren, smooth, NULL, &dst);
-    else SDL_RenderCopy(ren, run->tex, &source, &dst);
+    else if (look < 0 || !rr_look_draw(ren, &run->look, run->tex, &source, &dst, m->raster_height(), look, run->software))
+        SDL_RenderCopy(ren, run->tex, &source, &dst);
     /* 1.7.6: one scanline per line of the console (raster_height), not per row of a raised internal resolution (visible_height):
      * a 240-line game drawn at 2x or 4x keeps its 240 dark lines, which show on any screen of 480 rows or more */
     if (rrhk.filter == 3) rr_scanlines_draw(ren, &run->scanlines, &dst, m->raster_height());

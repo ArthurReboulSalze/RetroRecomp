@@ -27,6 +27,23 @@ rest of the game. They do not establish whole-game performance or physical
 latency. Run `python tools/xbr_selftest.py` to check contour coverage, rotation,
 RGBA mixing, boundaries and these workloads without a ROM or window.
 
+## CRT and LCD looks
+
+Since the release after 1.9.1, F3 continues after **xBR smooth** with **CRT flat** and **CRT curved**, and on the
+handhelds (Game Boy, Game Boy Color, Game Boy Advance, Game Gear) with **LCD grid** (host kit decision
+[D35](HOST_KIT.md#d35)). They are drawn without a shader, with the same calls on every graphics driver:
+
+- **CRT flat**: one beam per line of the console with dark gaps between them, a phosphor mask (aperture grille), a
+  little glow and a light vignette.
+- **CRT curved**: the same picture bent like a tube screen, with rounded corners and a slot mask.
+- **LCD grid**: each pixel of the handheld in its own cell with a thin dark gap, at three screen pixels a pixel or more.
+
+The CRT looks count the console's own lines, not the rows of a raised internal resolution. Above 300 lines a frame
+(interlaced modes, 31 kHz monitors) they draw no gaps, as those screens showed none. Without a graphics card (SDL's
+software renderer) the CRT looks are drawn flat and lighter. A mask darkens the picture: the looks give some
+brightness back, but bright colours can clip. They are presentation only: nothing reaches the game, its saves, its
+quick states or a multiplayer match. No frame cost has been timed, and physical latency is not measured.
+
 The help screen (**F1**) shows **v<version>** at the right of its title row.
 The converter injects its own version during compilation for each console;
 updating the converter does not change the label in an already-generated game.

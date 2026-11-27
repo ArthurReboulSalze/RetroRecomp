@@ -24,11 +24,17 @@ extern "C" {
 #define RR_MENU_HINT 196, 160, 72    /* key hints and secondary lines */
 #define RR_MENU_ACCENT 255, 222, 128 /* emphasis: guns, cartridge Start, notices */
 #define RR_MENU_SELECT 81, 68, 42    /* selected row, as in the converter lists */
-/* Stored IDs remain stable: sharp=0, xBR=1, Scale2x=2, scanlines=3.
- * F3 presents xBR last without changing an existing saved preference. */
-static inline int rr_menu_next_filter(int filter) {
-    static const int next[4] = {2, 0, 3, 1};
-    return filter >= 0 && filter < 4 ? next[filter] : 0;
+/* Stored IDs remain stable: sharp=0, xBR=1, Scale2x=2, scanlines=3, CRT flat=4, CRT curved=5, LCD grid=6 (display_settings.h).
+ * F3's order: sharp, Scale2x, scanlines, xBR, CRT flat, CRT curved, then the LCD grid on a machine with an LCD screen (lcd). */
+static inline int rr_menu_next_filter(int filter, int lcd) {
+    static const int next[7] = {2, 4, 3, 1, 5, 6, 0};
+    const int n = filter >= 0 && filter < 7 ? next[filter] : 0;
+    return n == 6 && !lcd ? 0 : n;
+}
+static inline int rr_menu_previous_filter(int filter, int lcd) {
+    static const int previous[7] = {6, 3, 0, 2, 1, 4, 5};
+    const int p = filter >= 0 && filter < 7 ? previous[filter] : 0;
+    return p == 6 && !lcd ? 5 : p;
 }
 bool rr_menu_init(SDL_Renderer *renderer);
 void rr_menu_shutdown(void);

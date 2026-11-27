@@ -678,6 +678,30 @@ X68000 too, without asking again**.
   turn plate at the top right (« Turn: Nadia », gold « Your turn ») is there for every seat as long as the match is in turns,
   from who holds the controls (`rrhk_session_holder`), bright for two seconds after a change; the options row **Turn badge**
   (in a session, `[Interface] turn_badge`) hides it. No pad combination for the pass yet.
+* <a id="d35"></a>**D35 — CRT and LCD looks in F3** (owner's go of 27 November 2026: players asked for CRT shaders like
+  RetroArch's; study in two stages, both approved; this is stage 1, without a shader). Three filters join F3's list after xBR:
+  **CRT flat** (4), **CRT curved** (5) and, on a machine that declares `RrhkMachine.lcd_screen` (Game Boy, Game Boy Color,
+  Game Boy Advance, Game Gear), **LCD grid** (6); on the 3D machines they are values of the graphics page's Filter row. They
+  are drawn with SDL_Renderer only (`native/scanlines.h` for the overlays' values, `native/scanline_sdl.h` `rr_look_draw` for
+  the drawing), on every driver, from the picture the kit already uploads:
+  * **CRT**: the picture with sharp lines and a soft horizontal blend, a brightness boost (x1.45, clipped) for what the mask and
+    the gaps take, one Gaussian beam per console line (`raster_height`, as the scanlines since D27; no gaps below two output rows
+    a line nor above 300 lines a frame: interlaced TV modes, 31 kHz monitors and the ST's mono screen had too fine lines), a glow
+    (an eighth-size copy stretched back and added), a vignette and rounded corners, then flat or through crt-lottes' curve (a
+    48 x 36 grid of triangles, `SDL_RenderGeometry`, placed by solving the warp backwards), then the phosphor mask in screen
+    space (aperture grille for flat, slot mask for curved). On SDL's software renderer (no graphics card) the CRT keeps the
+    picture, the beams and the mask and is drawn flat: the software renderer samples triangles nearest and the curved lines step.
+  * **LCD grid**: the picture in whole cells with a dim gap on each cell's right and bottom and three faint colour columns;
+    cells of at least three pixels, otherwise the picture is shown plain and the Filter row says « (not at this size) ».
+  * Presentation only: the looks read the finished picture and write the back buffer; nothing enters the machine, its state,
+    the quick states, the netplay digest or the inputs, and each player keeps their own look in a match. The overlays are made
+    once per size (the mask at the output's size), never read back. `[<Console>.Video] filter` takes 4 to 6; the previous
+    release reads them as sharp pixels; the LCD grid saved for a machine without an LCD screen reads as sharp pixels.
+  * Our own code (MIT): beams, mask, vignette and the warp's formula are common techniques (the warp is crt-lottes', public
+    domain). Stage 2 (real shaders on the graphics card, crt-lottes-fast and a public-domain or MIT LCD shader) keeps these looks
+    as its fallback. ROM-free checks: `tools/crt_look_selftest.py` (overlays, curve, F3's cycle, whole looks drawn by the
+    software renderer the light and the full way), `tools/hostkit_capabilities_selftest.py` (no picture and a 0 x 0 picture
+    under every filter of the cycle). Physical latency stays unmeasured; no frame cost was timed.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

@@ -342,7 +342,7 @@ static void settings_loaded(RrhkUi *ui) {
     int filter = (int)rr_ini_int(L"Video", L"filtre", 0, file), mode = (int)rr_ini_int(L"Video", L"display_mode", 0, file);
     filter = (int)rr_ini_int(ui->video_section, L"filter", filter, file);
     mode = (int)rr_ini_int(ui->video_section, L"display_mode", mode, file);
-    ui->filter = filter >= 0 && filter < 4 ? filter : 0;
+    ui->filter = filter >= 0 && filter < RR_FILTERS ? filter : 0;
     ui->fullscreen = mode >= 0 && mode < 3 ? mode : 0;
     /* Light Phaser: [LightPhaser] dot_size 1..5, shape cross|dot, color red|white|green. */
     int dot = (int)rr_ini_int(L"LightPhaser", L"dot_size", 1, file);
@@ -381,7 +381,7 @@ const RrhkMachine *rrhk_adapter(void) {
         page.available = phaser_page_available;
         machine = (RrhkMachine){
 #ifdef RETRO_GAME_GEAR
-            .ini_section = SECTION, .console_name = "Game Gear", .start = START,
+            .ini_section = SECTION, .console_name = "Game Gear", .start = START, .lcd_screen = true,
 #else
             .ini_section = SECTION, .console_name = "Master System", .start = PAUSE,
 #endif

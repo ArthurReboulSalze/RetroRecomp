@@ -26,7 +26,7 @@ int wmain(int argc,wchar_t **argv) {
             int stored=-1; rr_display_load(path,sections[s],&filter,&stored);
             assert(stored==mode && stored==(cycle+1)%RR_DISPLAY_MODES);
         }
-        for (int f=0;f<4;++f) {
+        for (int f=0;f<RR_FILTERS;++f) {     /* D35: 4 to 6 are the CRT and LCD looks */
             assert(rr_display_save(path,argv[1],sections[s],L"filter",f));
             rr_display_load(path,sections[s],&filter,&mode); assert(filter==f);
         }
@@ -36,6 +36,8 @@ int wmain(int argc,wchar_t **argv) {
     assert(rr_display_save(path,argv[1],sections[0],L"display_mode",2));
     rr_display_load(path,sections[1],&filter,&mode); assert(mode==0);
     assert(rr_display_save(path,argv[1],sections[0],L"display_mode",99));
+    assert(rr_display_save(path,argv[1],sections[0],L"filter",RR_FILTERS));
+    rr_display_load(path,sections[0],&filter,&mode); assert(filter==0);
     assert(rr_display_save(path,argv[1],sections[0],L"filter",-1));
     rr_display_load(path,sections[0],&filter,&mode); assert(filter==0 && mode==0);
     /* 1.7.4: a value saved by an earlier release keeps its meaning (0 window, 1 pixel, 2 fit); 3 is the new stretched mode;
@@ -47,6 +49,6 @@ int wmain(int argc,wchar_t **argv) {
             rr_display_load(path,sections[2],&filter,&mode); assert(mode==read[i]);
         }
     }
-    puts("PASS: lazy reads; three independent console profiles; F4 cycles of four modes survive reload; saved modes keep their meaning; four filters; failed transitions; invalid values.");
+    puts("PASS: lazy reads; three independent console profiles; F4 cycles of four modes survive reload; saved modes keep their meaning; seven filters; failed transitions; invalid values.");
     return 0;
 }

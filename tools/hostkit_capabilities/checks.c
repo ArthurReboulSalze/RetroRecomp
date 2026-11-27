@@ -38,6 +38,7 @@
 #include <wchar.h>
 #include "platform_io.h"
 #include "retro_menu.h"
+#include "display_settings.h"
 #include "hostkit/hostkit_internal.h"
 #ifndef _WIN32
 #include <sys/stat.h>
@@ -177,7 +178,7 @@ static Uint32 read_pixel(SDL_Renderer *renderer, int x, int y) {
     SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, &value, 4);
     return value & 0xffffffu;
 }
-static int black_seen[4], black_wrong;
+static int black_seen[RR_FILTERS], black_wrong;
 /* the whole presented frame, FNV-1a: the same with the full upload and with the visible rectangle only (an A/B across builds) */
 static bool want_digest;
 static Uint32 frame_digest;
@@ -209,7 +210,7 @@ static void before_present(SDL_Renderer *renderer) {
         SDL_GetRendererOutputSize(renderer, &w, &h);
         const int filter = rrhk_ui()->filter;
         if (w > 0 && read_pixel(renderer, w / 2, h / 2) == 0 && read_pixel(renderer, w / 4, h / 4) == 0 &&
-            read_pixel(renderer, w * 3 / 4, h * 3 / 4) == 0 && filter >= 0 && filter < 4) ++black_seen[filter];
+            read_pixel(renderer, w * 3 / 4, h * 3 / 4) == 0 && filter >= 0 && filter < RR_FILTERS) ++black_seen[filter];
         else ++black_wrong;
     }
     if (!want_picture || rrhk_ui()->menu) return;
@@ -639,7 +640,7 @@ static void plain_script(void) {
         key(SDL_SCANCODE_F3);
         break;
     case 4:     /* F3 cycles the filters, no page */
-        CHECK(ui->menu == 0 && ui->filter == rr_menu_next_filter(plain_filter));
+        CHECK(ui->menu == 0 && ui->filter == rr_menu_next_filter(plain_filter, 0));
         key(SDL_SCANCODE_C);
         rrhk_rumble(0, 9000, 9001, 10000);
         break;
@@ -1291,7 +1292,8 @@ static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     return true;
 }
 
-/* 1.7.7: a machine with no picture (pixels() NULL), then a 0 x 0 one, under each of the four filters: no crash (xBR and Scale2x
+/* 1.7.7: a machine with no picture (pixels() NULL), then a 0 x 0 one, under each filter (D35: the CRT looks too; this machine has no
+ * LCD screen, so six): no crash (xBR and Scale2x
  * read the picture), a black game area, then the picture again once the machine has one. `graphics_page`: the filter changed on the F3 page (a
  * machine with graphics options and a growing picture), otherwise F3 cycles it. */
 static bool graphics_page;
@@ -1308,18 +1310,19 @@ static void null_picture_script(void) {
         null_filter = ui->filter; no_picture = true;
         return;
     }
-    /* four filters, three presents or more each: NULL (steps 1-16), then 0 x 0 (steps 18-33) */
-    if ((s >= 1 && s <= 16) || (s >= 18 && s <= 33)) { if (s % 4 == 0) next_filter(); return; }
-    if (s == 17 || s == 34) {
+    /* every filter of the cycle (RR_FILTERS - 1: no LCD grid here), three presents or more each: NULL, then 0 x 0 */
+    enum { CYCLE = RR_FILTERS - 1, FIRST = 4 * CYCLE + 1, SECOND = 8 * CYCLE + 2 };
+    if ((s >= 1 && s < FIRST) || (s > FIRST && s < SECOND)) { if ((s - (s > FIRST)) % 4 == 0) next_filter(); return; }
+    if (s == FIRST || s == SECOND) {
         CHECK(ui->filter == null_filter);                       /* back to the first one */
-        for (int f = 0; f < 4; ++f) CHECK(black_seen[f] > 0);
+        for (int f = 0; f < CYCLE; ++f) CHECK(black_seen[f] > 0);
         CHECK(black_wrong == 0);
         memset(black_seen, 0, sizeof black_seen); black_wrong = 0;
-        no_picture = false; zero_size = s == 17;
-        if (s == 34) { null_checks = picture_checks; want_picture = true; }
+        no_picture = false; zero_size = s == FIRST;
+        if (s == SECOND) { null_checks = picture_checks; want_picture = true; }
         return;
     }
-    if (s == 37) { CHECK(picture_checks == null_checks + 1 && picture_ok); stop = true; }   /* the picture again */
+    if (s == SECOND + 3) { CHECK(picture_checks == null_checks + 1 && picture_ok); stop = true; }   /* the picture again */
 }
 
 /* 1.7.7 (HOST_KIT D30): Sync to display, without a display. The decision Auto and Locked make for given rates; the sound's
@@ -1457,11 +1460,11 @@ static void sync_again(void) {
 
 static void smaller_script(void) {
     switch (step++) {
-    case 0: case 1: case 2: case 3:                    /* F3 to the plain upload (no Scale2x, no xBR, no scanlines) */
+    case 0: case 1: case 2: case 3: case 4: case 5:    /* F3 to the plain upload (no Scale2x, no xBR, no scanlines, no look) */
         if (rrhk_ui()->filter != 0) key(SDL_SCANCODE_F3);
         break;
-    case 4: CHECK(rrhk_ui()->filter == 0); want_picture = true; want_digest = true; break;
-    case 7:
+    case 6: CHECK(rrhk_ui()->filter == 0); want_picture = true; want_digest = true; break;
+    case 9:
         CHECK(picture_ok);                            /* the visible corners: green at the top left, red at the bottom right */
         CHECK(frame_digest != 0 && blue_seen == 0);   /* nothing past the visible rectangle reached the window */
         stop = true;
