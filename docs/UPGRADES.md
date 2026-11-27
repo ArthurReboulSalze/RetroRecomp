@@ -316,10 +316,28 @@ conversion's own routes (`native.patterns`) and, where paths are shared, from th
 **What a game's code gains.** The converter generates the same sources; the header is copied beside them. The only compiled change is the
 guard of `rr_feedback_note` in `native/runtime_feedback.c`, the one user of `RR_FB_MAX_KIND`: the object of that file differs in two
 immediates, the range check of the kind from 1-27 to 1-31 (clang `-O2`), nothing else. A game of an older machine notes only its own kinds,
-all below 28, so the guard lets through and refuses exactly what it did. An export of the previous release therefore differs from a fresh
-one by those bytes alone, with the same behaviour: its game stamp belongs in `LEGACY_GAME_STAMPS` at the release.
+all below 28, so the guard lets through and refuses exactly what it did: this change alone leaves an older machine's game
+behaving the same, and its game stamp belongs in `LEGACY_GAME_STAMPS` at the release.
 
-**Quick states and hot path:** unchanged (no state field, no new call).
+**Evidence: the same game converted before and after, at the same folder path** (one detached tree; `--scan-level quick`, an empty
+library, no cover, `RETRO_RECOMP_TOOLCHAIN=llvm`; the header of `9ce0f3a6`, then the branch's; 27 November 2026). Every conversion
+passed. The kept files of each build are equal, but `runtime_feedback.h` itself and, where noted, a measured file:
+- Master System (Alex Kidd in Miracle World, banked), Game Boy (Nemesis), PC Engine (Alien Crush) and MSX (Nemesis): the game
+  differs in **two bytes**, the two immediates of the guard; the MSX's check and reference programs are identical. The packed games
+  differ in 9 bytes of the compressed stream, as two changed bytes must.
+- NES (Super Mario Bros.): the game and the packed game are **identical**.
+- Mega Drive (Sonic The Hedgehog): the two bytes of the guard, and the quick-state key (`RR16_STATE_ABI` in `retro16_state_config.h`,
+  see below).
+- Super Nintendo (F-Zero): no conclusion from the executable. Its build is guided by a profile measured during the conversion
+  (`hardware-profile.profdata`), and a control converting it twice with the same header differs as much (about 152,000 bytes). Its
+  sources are equal but the header, the measured files and the quick-state key.
+- Not converted: the Neo Geo, CPS-1, CPS-2, X68000, Game Boy Advance, Amiga, Atari ST, Nintendo 64 and PlayStation. For them the
+  object of `runtime_feedback.c` is the evidence: the header's other change is four new names, which no file of theirs uses.
+
+**Quick states.** The Mega Drive's and the Super Nintendo's quick-state key hashes every non-host native file the console owns
+(`console16_state.state_layout_files`), this header included, so it moves. It had already moved this release
+(`native/banked_emitter.inc` changed since v1.9.1), so this change refuses no further state. The other machines' keys do not hash
+this header. **Hot path:** unchanged (no new call).
 
 ## Game Boy Color: the F1 help offers no palette key (next release)
 
