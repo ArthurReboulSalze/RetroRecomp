@@ -76,8 +76,8 @@ are bytecode, and the Linux converter is built with Python 3.13 (not checked wit
 ### `LEGACY_GAME_STAMPS`
 
 **The rule (28 October 2026): the previous release only.** `compilation_inputs.LEGACY_GAME_STAMPS` lists the game
-stamps of the release before the one being built, never those of older releases, and the quick-state keys
-(`RR16_STATE_COMPAT_ABI`, [GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)) follow the same rule. The
+stamps of the release before the one being built, never those of older releases. Quick states have no such list: from
+1.6.5 no compatibility key is written ([GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)). The
 table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the entries of 1.6.0 ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-160-in-161)); the
 tree of 1.6.2 listed those of 1.6.1 ([UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md#exports-of-161-in-162)); the tree of 1.6.3 listed those of 1.6.2,
 two per console (the Windows converter's and the Linux converter's), for the Master System, Game Gear, Game Boy and NES

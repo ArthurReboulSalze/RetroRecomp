@@ -611,8 +611,8 @@ def state_config(content: Path,bios: Path,title: str) -> str:
     if os.name != 'nt':
         from .platforms import target_id
         abi.update(target_id().encode())
-    # From 1.6.5 no compatibility key is listed (docs/GAME_STATES.md): a quick state of an earlier release is refused
-    # cleanly. native/console16_state.c still accepts an `RR16_STATE_COMPAT_ABI` line if one is ever needed.
+    # No compatibility key: a quick state of another build is refused cleanly (docs/GAME_STATES.md).
+    # The rule holds from 1.6.5; tests/test_legacy_compat.py guards it for every machine.
     return '#pragma once\n#include "neogeo_host.h"\n#define RR16_STATE_SYSTEM 3\n#define RR16_STATE_PAL 0\n'+\
         '#define RR16_STATE_ROM (rr_ng_aes()?'+json.dumps(aes_identity(cart.sha256,firmware))+':'+json.dumps(identity)+')\n#define RR16_STATE_ABI '+json.dumps(abi.hexdigest())+\
         '\n#define RR16_STATE_NAME '+json.dumps(Path(executable_name(title)).stem if os.name=='nt' else executable_name(title))+'\n'

@@ -33,9 +33,8 @@ time. F9 validates the full cartridge before mutation, rebuilds its ROM mapping
 and preserves already prefetched CPU words. Independent actual-backend fixtures
 exercise busy-write and banked-code states in fresh processes. Quick states of
 the Mega Drive and Super Nintendo are bound to the exact build signature, with
-one exception: the signature of the previous release (see
-[the rule](#the-rule-the-previous-release-only)). Earlier signatures that older
-releases accepted (the ABI-2 to ABI-11 predecessors, the 1.4.1 and 1.5.6 keys)
+no exception (see [the rule](#the-rule-the-previous-release-only)). Earlier signatures that older
+releases accepted (the ABI-2 to ABI-11 predecessors, the 1.4.1, 1.5.6 and 1.7.4 keys)
 are no longer recognized, so the migrations of their layouts that the
 generated code still holds can no longer be reached; a previously unsupported
 EEPROM/mapper image cannot invent that cartridge history from old ordinary states. See
@@ -260,21 +259,22 @@ old microphase. See [phase evidence](MEGADRIVE_PREFETCH.md).
 
 ## The rule: the previous release only
 
-A quick state resumes only in an export built by the same release, or by the next one when that release lists the
-state key of the previous one: backward compatibility is owed to the previous release and to nothing older (decision of
-28 October 2026). The key is the 64-character `RR16_STATE_ABI` of `retro16_state_config.h`. The release that follows a
-release writes that release's key as `RR16_STATE_COMPAT_ABI` (`console16_state.write_config` for the Mega Drive and
-Super Nintendo, `neogeo_build.state_config`, `cps1_build.state_config`; `native/console16_state.c` accepts the keys a
-build defines, next to its own) after checking, with a real state of a real export, that the serialized bytes are the
-same. It drops the keys of older releases. The tree of 1.6.0 listed none: its states resumed in 1.6.0 exports only. The
-tree of 1.6.1 listed the 1.6.0 key of the Mega Drive, the Neo Geo and CPS-1 (Windows), as
+A quick state resumes only in an export whose state key is the one it was written under, and no compatibility key is
+written for any release or machine (the rule from 1.6.5, [below](#quick-states-across-releases-from-165)): a state of another
+build is refused cleanly by the loader, never loaded wrongly, and the player starts again from the game's own saves. The key
+is the 64-character `RR16_STATE_ABI` of `retro16_state_config.h`; `native/console16_state.c` compares it with the state's and
+accepts nothing else. `tests/test_legacy_compat.py` builds that loader, offers it foreign keys, and refuses any compatibility
+key declared in the converter or the native code.
+
+History. Until 1.6.4 backward compatibility of quick states was owed to the previous release (decision of 28 October 2026),
+which listed that release's key as a second accepted key. The tree of 1.6.0 listed none: its states resumed in 1.6.0 exports
+only. The tree of 1.6.1 listed the 1.6.0 key of the Mega Drive, the Neo Geo and CPS-1 (Windows), as
 [below](#states-written-by-release-160). The tree of 1.6.2 listed the 1.6.1 key of those three and of the Super Nintendo
 (Windows) and dropped the 1.6.0 ones, as [below](#states-written-by-release-161). The tree of 1.6.3 listed the 1.6.2 key
-of the same four (Windows) and dropped the 1.6.1 ones, as [below](#states-written-by-release-162). The tree of 1.6.4 lists
-the 1.6.3 key of the Neo Geo alone (Windows) and drops the 1.6.2 ones: the Mega Drive and Super Nintendo keys did not move
-(the build's own key is the key of 1.6.3, so nothing is added), and the CPS-1 and NES states changed, so theirs are
-refused, as [below](#states-written-by-release-163). A state that is not accepted is refused cleanly by the loader, never
-loaded wrongly; a player coming from an older release starts the game again from its own saves.
+of the same four (Windows) and dropped the 1.6.1 ones, as [below](#states-written-by-release-162). The tree of 1.6.4 listed
+the 1.6.3 key of the Neo Geo alone (Windows) and dropped the 1.6.2 ones: the Mega Drive and Super Nintendo keys did not move
+(the build's own key was the key of 1.6.3, so nothing was added), and the CPS-1 and NES states changed, so theirs were
+refused, as [below](#states-written-by-release-163).
 
 ## States written by release 1.5.6 (history)
 
@@ -437,14 +437,16 @@ hardware fidelity.
 ## Quick states across releases, from 1.6.5
 
 Decided on 29 October 2026: F8/F9 quick states need not survive an update. From 1.6.5 no compatibility key
-(`RR16_STATE_COMPAT_ABI` or a console's own) is listed for the previous release; a quick state written by an earlier
+(a second accepted key of `native/console16_state.c`, or a console's own) is listed for the previous release; a quick state written by an earlier
 release is refused cleanly by the key check, with its message, and nothing is lost but that state. Cartridge saves
 (battery SRAM, EEPROM, memory cards) are not quick states; keeping them across an update is wanted but not required,
 decided case by case: what is required is that a save the new export cannot use never crashes or blocks the game (it
 is refused or set aside, and the game creates a new one). In 1.6.5 the Mega Drive and
 Super Nintendo keys move because `native/video_mode4.inc` and `native/video_checks.c` left the all-consoles group
 (their serialized bytes did not change), the NES state becomes `RRNESST2`, the CPS-1 key moves with its generator, and
-the Neo Geo key moves with `neogeo_build` (the Windows 1.6.3 compatibility key `STATE_ABI_163` is removed).
+the Neo Geo key moves with `neogeo_build` (the Windows 1.6.3 compatibility key `STATE_ABI_163` is removed). One exception
+followed, the 1.7.4 keys of the Mega Drive and the Super Nintendo ([below](#mega-drive-and-super-nintendo-the-key-hashes-the-layout-files-only-175)):
+it is gone from the next release.
 
 In 1.6.6 the Neo Geo and CPS-1 sound CPU is corrected (`retrorecomp/neogeo_z80.py`,
 [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md#neo-geo-and-cps-1-the-sound-cpus-z80-is-corrected-166)). The Neo Geo key hashes the fingerprint of that module, so a
@@ -476,7 +478,9 @@ revisions and, for the Super Nintendo, the fingerprints of the `snes_*` modules.
   the console owned, with the bytes of the tag) run through the same function as the build's own key, `console16_state.state_key`,
   for each target; the test recomputes it from the tag, and its Windows values are the keys real 1.7.4 builds wrote. Proof: Sonic The Hedgehog 2 and Super Mario World
   converted on the v1.7.4 tree, a state saved there after 600 frames, loaded by the 1.7.5 build: it loads, and 300 more frames give the same
-  16 (Mega Drive) and 15 (Super Nintendo) hashes as the 1.7.4 build continuing the same state. The release after 1.7.5 drops these keys.
+  16 (Mega Drive) and 15 (Super Nintendo) hashes as the 1.7.4 build continuing the same state. These keys were meant for 1.7.5
+  alone, but the table stayed in the builds of 1.7.6 to 1.9.1, which therefore still accepted a 1.7.4 state although the layout
+  had changed since. It is removed in the next release, with the loader's list of accepted keys.
 - The other consoles' keys are not affected: the CPS-1, Neo Geo, PC Engine and PlayStation keys hash explicit lists of their own, and the
   Master System / Game Gear build signature (`core.compiler_signature`) keeps the full owned list, as before.
 
