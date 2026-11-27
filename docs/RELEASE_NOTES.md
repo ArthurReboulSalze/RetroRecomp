@@ -2,50 +2,84 @@
 
 ### Six new machines, each with multiplayer
 
-- **ZX Spectrum**, supported ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)): 16K, 48K and 128K snapshots (`.z80` versions 1 to 3, `.sna`, or a ZIP
-  holding one), with the ULA's memory contention and the floating bus from published timings. The Spectrum's own ROM is fetched
-  once from a pinned source, under Amstrad's permission, or is your own. The pad is the joystick the snapshot was saved for
-  (cursor keys, Kempston, Interface 2); Ctrl+Alt+K gives the keyboard to the game. Not converted: tapes, the +2A, the +3, disks.
-- **SG-1000**, supported ([SG1000.md](SG1000.md)): SG-1000 and SG-1000 II cartridges, 2 to 48 KiB, no firmware needed; Pause is a key and a
-  pad button. Not converted: the SC-3000's keyboard, BASIC and cassette, cartridges with their own RAM.
+- **ZX Spectrum**, supported ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)): 16K, 48K and 128K snapshots (`.z80` versions 1 to 3, `.sna`, or a
+  ZIP holding one). The Spectrum's own ROM is fetched once from a pinned source under Amstrad's permission, or is your own. Not
+  converted: tapes, the +2A, the +3, disks.
+  - The ULA's memory and I/O contention, from published timings; the floating bus sampled inside the I/O cycle (Arkanoid no longer
+    freezes, and runs at its speed).
+  - The pad is the joystick the snapshot was saved for (cursor keys, Kempston, Interface 2), from reviewed data per snapshot (Head
+    over Heels on Interface 2, Match Day II on its Kempston), which also start the menu games; a game that polls the Fuller port reads an idle box (Match Day II's
+    menu cursor no longer drifts). Ctrl+Alt+K gives the keyboard to the game.
+  - Arkanoid's paddle runs faster to the right than to the left on a pad: that is the game's own code, checked against MAME 0.289.
+- **SG-1000**, supported ([SG1000.md](SG1000.md)): SG-1000 and SG-1000 II cartridges, 2 to 48 KiB, no firmware needed; Pause is a
+  key and a pad button, its ports and Pause equal to MAME 0.289's. Not converted: the SC-3000's keyboard, BASIC and cassette,
+  cartridges with their own RAM.
 - **ColecoVision**, supported ([COLECOVISION.md](COLECOVISION.md)): cartridges with your own BIOS (8 KiB, checked by its hash, never
-  shipped); the keypad on the digit keys, or on screen with the pad's Y. Not converted: the Super Action Controller, the roller
-  and driving modules, the Super Game Module.
-- **Amstrad CPC 6128**, supported ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)): DSK and EXTENDED DSK disk games, on your own firmware or on pinned
-  copies of the system ROM and AMSDOS fetched on your word; the start command is typed by itself; what a game writes on its disk
-  is kept in a copy beside it. Mono sound by default, the headphone jack's stereo in F2.
-- **Game Boy Color**, supported ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `.gbc` cartridges and Color-only cartridges in a `.gb`, on the
-  Game Boy's engine with the colour hardware; MBC1, MBC3 with its clock, MBC5, battery saves, no boot ROM needed. Eight fixes of
-  the engine for the Color only; 115 of 116 public Mooneye and blargg test ROMs pass. Not converted: infrared, the tilt sensor,
-  the Printer, the Camera, Super Game Boy borders; a rumble cartridge converts, but the pad does not vibrate. Its paths are shared, in the base's experimental tier.
-- **PC Engine CD / TurboGrafx-CD**, supported ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): CD-ROM² and Super CD-ROM² discs from a CHD (version 4
-  or 5), a CUE sheet with its BIN files, or an ISO, with your own System Card 3.0 (checked by its hash, never shipped); one
-  executable holds the disc and the card; backup memory in `datas/saves`. Measured with the Japanese System Card only. Not converted: the Arcade Card, SuperGrafx,
-  multi-disc games.
+  shipped); the keypad on the digit keys, or on screen with the pad's Y; one M1 wait state, the wait of each sound write and the
+  controller bytes as MAME 0.289 has them. Not converted: the Super Action Controller, the roller and driving modules, the Super Game
+  Module.
+- **Amstrad CPC 6128**, supported ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)): DSK and EXTENDED DSK disk games, on your own firmware or on
+  pinned copies of the system ROM and AMSDOS fetched on your word; the start command is typed by itself.
+  - What a game writes on its disk is kept in a copy beside it and read back at the next start (Sport of Kings' save).
+  - The pad's main button is the stick's default fire (pin 6), the second button the other fire. Mono sound by default, the
+    headphone jack's stereo in F2.
+  - Beyond the panel, Carrier Command, Dark Side and Rigel's Revenge convert with 0 interpreted instructions on their routes.
+  - Two optimisations of its picture and memory reads, proven to give the same output (not timed).
+- **Game Boy Color**, supported ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `.gbc` cartridges and Color-only cartridges in a `.gb`,
+  on the Game Boy's engine with the colour hardware; MBC1, MBC3 with its clock, MBC5, battery saves, no boot ROM needed. Not
+  converted: infrared, the tilt sensor, the Printer, the Camera, Super Game Boy borders; a rumble cartridge converts, but the pad
+  does not vibrate.
+  - Eight fixes of the engine for the Color only (the double-speed sound order among them), 417 colour-hardware checks; 115 of 116
+    public Mooneye and blargg test ROMs pass. The Game Boy's own output is unchanged.
+  - The link cable between two Colors of the same game. F1 no longer offers the monochrome palette key. Its paths are shared, in
+    the base's experimental tier.
+- **PC Engine CD / TurboGrafx-CD**, supported ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): CD-ROM² and Super CD-ROM² discs, with your own
+  System Card 3.0 (checked by its hash, never shipped; measured with the Japanese card only). Not converted: the Arcade Card,
+  SuperGrafx, multi-disc games.
+  - Discs from a CHD (version 4 or 5, read by our own provider on libchdr), a CUE sheet with its BIN files (packed into the game) or
+    an ISO; one executable holds the disc and the card; backup memory in `datas/saves`.
+  - The multitap per disc, from a reviewed table: Dungeon Explorer II plays at three and four.
+  - The long route is built segment by segment: Dracula X types a name on its file screen, starts and passes its opening scenes.
+  - The HuC6280 vectors run again on this machine: the translated code differs from the interpreter in none of 56,767 cases.
 - **Native code and checks, on their panels**: every panel game reports 0 interpreted instructions on its conversion routes,
   and the native run equals the reference interpreter frame by frame there; code no route reached runs on the counted
-  interpreter. Windows and Debian 13 (in WSL) gave the same results on the games compared. The four Z80 machines pass the 51,328 SingleStepTests
-  vectors through their own generators. Compared with MAME 0.289, never with a real console: the SG-1000's ports, the
-  ColecoVision, the CPC, the Spectrum's panel, the PC Engine CD's drive, CD audio and ADPCM. Elite's Spectrum snapshot halts in
-  its own decryption, in MAME too, and its report says so. The SG-1000's and the ColecoVision's Linux witness predates the F5
-  option and the CRT and LCD looks.
-- **Multiplayer**: two players with rollback on the six, four on Dungeon Explorer II (the PC Engine CD's multitap, per disc);
-  the Game Boy Color's link cable between two Colors of the same game; the host types on the CPC's keyboard; the SG-1000's
-  Pause and the ColecoVision's keypad per player. Proven by the automatic runs on two PCs (11 matches of 11: every state digest
-  equal, save, load and restart on the same frames), not by the owner's own play on two PCs.
+  interpreter. Windows and Debian 13 (in WSL) gave the same results on the games compared, the SG-1000 and ColecoVision ones taken
+  again on the release tree. The four Z80 machines pass the 51,328 SingleStepTests vectors through their own generators. Hardware
+  was compared with MAME 0.289 only, never with a real console. Elite's Spectrum snapshot halts in its own decryption, in MAME too,
+  and its report says so.
+- **Multiplayer**: two players with rollback on the six, four on Dungeon Explorer II; the Game Boy Color's link cable; the host
+  types on the CPC's keyboard; the SG-1000's Pause and the ColecoVision's keypad per player. Proven by the automatic runs on two
+  PCs (11 matches of 11: every state digest equal, save, load and restart on the same frames), not by the owner's own play on two
+  PCs.
 - **The owner's play test**: on 27 November 2026 he played the games delivered for him (three a machine, six on the Spectrum)
   and accepted each machine. A play impression, not a measure.
+
+### The shared Z80 chain (Master System, Game Gear, MSX family and the four new Z80 machines)
+
+- **No bound on the code learned from RAM.** The chain kept at most 4,096 learned windows, and silently dropped the rest: Carrier
+  Command (CPC) goes from 3.96 million interpreted steps a route to 0. Every machine of the chain gains it, the MSX family included;
+  a game under the old bound generates the same files.
+- **A game's resources are rebuilt when an embedded file changes** (its ROM, picture or icon), on the ZX Spectrum, SG-1000,
+  ColecoVision, MSX family and CPC: a work folder converted again no longer links the old ones.
+- **Shared pieces, written once**: the AY-3-8910 (MSX, ZX Spectrum, CPC) and the TMS9918A (MSX, SG-1000, ColecoVision) as shared
+  chips, with the MSX's output unchanged; the sound chips' levels to samples (`audio_box`); the copies of written disks (from the
+  MSX); the on-screen keypad and the five-language text rows of the adapters.
+- The chain gains 16-bit I/O ports, the /NMI pin, per-instruction cost tables and a bus-cycle model for memory contention, each
+  checked against the SingleStepTests vectors; the Master System, Game Gear and MSX generate the same code.
+- Runtime-feedback kinds 28 to 31 are reserved for the ZX Spectrum, SG-1000, ColecoVision and CPC; as on the MSX, nothing is
+  recorded from play on them yet.
 
 ### CRT and LCD looks, in F3 ([VIDEO.md](VIDEO.md#crt-and-lcd-looks))
 
 - F3 continues after xBR smooth with **CRT flat** and **CRT curved**, and **LCD screen** on the Game Boy, Game Boy Color, Game
   Boy Advance and Game Gear; on the 3D machines they are values of the graphics page's Filter row.
-- With a graphics card the CRT looks are drawn by CRTS (Timothy Lottes' crt-lottes-fast, public domain), on Direct3D 11 on
-  Windows and OpenGL on Linux; without one, or under Variable refresh, a simpler drawing with the same looks.
-- A style per look, kept per console on the options page: **CRT style** Soft, Sharp or Arcade (the arcade boards start in
-  Arcade); **LCD style** Real screen (the handheld's own panel, with its short trail) or Grid.
+- Stage 1, on every graphics driver: beams, a phosphor mask, glow and a vignette drawn with SDL alone (about 4 KB per packed game).
+- Stage 2, with a graphics card: the CRT looks drawn by CRTS (Timothy Lottes' crt-lottes-fast, public domain) on Direct3D 11 on
+  Windows and OpenGL on Linux; stage 1 when there is no card, under Variable refresh, or if the driver refuses the shader.
+- A style per look, kept per console on the options page (about 3 KB more per packed game): **CRT style** Soft, Sharp or Arcade
+  (the arcade boards start in Arcade); **LCD style** Real screen (the handheld's own panel, with its short trail) or Grid.
 - Presentation only: nothing enters the game, its states or the multiplayer digest, and each player of a match keeps their own
-  look. About 7 KB more per packed game.
+  look. F3's notice names every filter in the five game languages.
 - Cost, a light measure on a busy PC (not a quiet one): the CRT pass 0.13 to 0.46 ms of graphics-card time a frame from 1080p
   to 4K, under 0.65 ms of CPU; no queued frame added. On Direct3D 11 the pass is compiled once a run, 0.1 to 0.2 s, before the
   first frame when the game opens on a CRT look.
@@ -56,9 +90,6 @@
   stand-in until it comes back; a chosen pad is matched by its vendor and product.
 - Sprite flicker reduction: F5 on the SG-1000 and the ColecoVision, as on the Master System; a row of F2's options page on the
   MSX, MSX2 and MSX2+, where F5 stays fast loading. Picture only, off by default.
-- F3's notice names every filter in the five game languages.
-- The shared Z80 chain no longer stops learning code run from RAM at 4,096 patterns: Carrier Command (CPC) goes from 1.7 million
-  interpreted steps a route to 0, and the output of the games under that bound is unchanged.
 
 ### Multiplayer
 
@@ -67,16 +98,17 @@
 - A guest that finds the games out of step tells the host before it leaves: the match ends as « desync », not as a departure.
 - A room whose port is in a block Windows reserves (Hyper-V, WSL, Docker) tries random ports in the dynamic range instead of
   failing to open.
+- The rooms accept the six new machines' games: each conversion carries the identity the room checks.
 
 ### The converter
 
-- **A batch no longer freezes the window.** The log's lines are written in batches and the panel keeps the last 5,000; the
-  whole session stays available for problem reports. Before, 3,000 lines arriving together held the window about 2.8 s.
+- **A batch no longer freezes the window.** The log's lines are written in batches and the panel keeps the last 5,000 (the whole
+  session stays available for problem reports): 3,000 lines arriving together held the window 2.8 s, now 59 ms.
 - **Options opens at once**: a machine's page is built the first time it is chosen, no longer the 27 pages at every opening
-  (2.2 s to 0.9 s on a loaded PC).
-- **Compiled Games opens about twice as fast** with a large collection (1.75 s to 0.81 s with 1,322 games), and reads the
-  games' files again at most every 20 seconds.
-- **Favourites are instant**: marking 100 games saves the collection once (about 10 s before, 0.2 s now).
+  (2.2 s to 0.9 s).
+- **Compiled Games opens about twice as fast** with a large collection (1.75 s to 0.81 s with 1,322 games); the quiet refresh
+  yields to the window and reads the games' files again at most every 20 seconds.
+- **Favourites are instant**: marking 100 games saves the collection once (10 s before, 0.2 s now).
 - **A deleted game leaves Compiled Games** at the next scan, Rescan or return to the window; it stays greyed only while its
   drive or network share cannot be reached.
 - **Compiled Games: Delete game…** (right-click, or the Delete key): the executables and conversion reports of the selected
@@ -86,8 +118,27 @@
 - **Options > Common > Rounded corners**: off for plain rectangles drawn without pictures, from the next start.
 - Closed windows no longer leave memory and handles behind, and a rare abort when a window was freed from a background thread
   is fixed.
+- The ZX Spectrum and the CPC convert through the batch and the window like every machine.
 
-The window's figures are medians on a loaded PC, before and after each change, not a quiet-PC timing.
+The window's figures are medians on a loaded PC with a collection of 1,322 games, before and after each change, not a quiet-PC
+timing.
+
+### Automatic detection ([UPGRADES.md](UPGRADES.md))
+
+Audited on a player's library of 12,347 files and a frontend's firmware folder of 1,503:
+- **MSX**: 76 more MSX1 cartridges are recognised by their content when nothing else names the machine; the MSX system ROMs (disk,
+  MSX-MUSIC, BASIC extensions and others) are refused as firmware. R-Type is still not converted: its mapper is not supported
+  ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
+- **Mega Drive**: the Mega-CD boot ROM is refused as firmware.
+- **Super Nintendo**: the BS-X BIOS and the Super Game Boy and Sufami Turbo bases are refused as firmware; Sufami Turbo games are
+  refused as unsupported.
+- **PC Engine**: a System Card dropped as a `.pce` is refused as firmware, and an older System Card or a Games Express card gets
+  its own sentence; the firmware search still finds the card.
+- **Sharp X68000**: an X1, PC-88 or PC-98 `.d88` is no longer taken for an X68000 disk, while a raw 2HD image named `.d88` is still
+  read; a playlist stays the X68000's when it lists one of its disks, and an empty one is refused.
+- **Amiga 500 and 1200**: the install's slave is chosen as the conversion chooses it, so 29 more WHDLoad archives convert (an intro,
+  an editor or a duplicate slave beside the game); an archive of several games says so, in eight languages.
+- **Amstrad CPC**: the disks of a game named « (Disk 1 of 2) » are queued one by one, no longer grouped into an MSX2+ playlist.
 
 ### Linux ([LINUX.md](LINUX.md))
 
@@ -104,22 +155,14 @@ The window's figures are medians on a loaded PC, before and after each change, n
   version reads it again (a ceiling of 8 GiB against a hostile archive, the disk's room checked first, a base too large named
   as such), and the server now publishes a slimmer base.
 
-### PlayStation **[PLACEHOLDER: CHD discs, to confirm]**
-
-### Automatic detection ([UPGRADES.md](UPGRADES.md))
-
-- Audited on a player's library of 12,347 files: 76 more MSX1 cartridges are recognised by their content when nothing else names
-  the machine.
-- Firmware is refused with a sentence that says what it is, instead of being converted as a game: the Mega-CD boot ROM, the BS-X
-  BIOS, the Super Game Boy and Sufami Turbo bases, a System Card dropped as a `.pce`, the MSX system ROMs. Sufami Turbo games are
-  refused as unsupported.
-- An X1, PC-88 or PC-98 `.d88` and a playlist of discs are no longer taken for X68000 disks.
-- Amiga 500 and 1200: 29 more WHDLoad archives convert from the window's drop and the automatic console, the install's slave chosen
-  as the conversion does; an archive of several games says so.
-- R-Type (MSX) is still not converted: its mapper is not supported ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
+### PlayStation **[PLACEHOLDER: CHD discs and the CHD reader shared with the PC Engine CD, to confirm]**
 
 **Your exports and quick states.** **[PLACEHOLDER final commit: the stamps measured between 1.9.1 and 1.10.0, what is converted
-again]** An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC Engine, the Sharp X68000, the Atari ST, the Nintendo 64 and the two Amigas: their keys follow the game stamp, the build or engine files that changed. On the Master System, the Game Gear, the Game Boy, the NES, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the Game Boy Advance, the PlayStation and the MSX family, nothing their key reads changed, so a 1.9.1 state should load (read from each key's inputs, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept. ([UPGRADES.md](UPGRADES.md)).
+again]** An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC
+Engine, the Sharp X68000, the Atari ST, the Nintendo 64 and the two Amigas: their keys follow the game stamp, the build or engine
+files that changed. On the Master System, the Game Gear, the Game Boy, the NES, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the Game
+Boy Advance, the PlayStation and the MSX family, nothing their key reads changed, so a 1.9.1 state should load (read from each key's
+inputs, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept ([UPGRADES.md](UPGRADES.md)).
 
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used, in a match as alone.

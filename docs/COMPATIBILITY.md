@@ -291,8 +291,8 @@ The **SG-1000** profile (`sg1000`) is supported since 1.10.0, on the owner's dec
 SG-1000 and SG-1000 II cartridges (a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as SG-1000 or keep in a folder named `sg1000`; 2 KiB to
 48 KiB, plain ROM; no firmware) into a game executable checked headless against the reference interpreter on the routes played, with
 multiplayer. The five measures stay apart: native code and the agreement with the reference are measured per conversion; hardware fidelity
-was compared with an emulator only, gameplay validation is the maintainer's play of a few games, and physical latency is not measured. The
-Linux witness (Debian 13 in WSL) predates the F5 sprite option and the CRT and LCD looks. A file it cannot hold (larger than 48 KiB, or
+was compared with an emulator only, gameplay validation is the maintainer's play of a few games, and physical latency is not measured. Windows and
+Debian 13 in WSL give equal results, witnessed again on the release tree. A file it cannot hold (larger than 48 KiB, or
 another board) is refused with a sentence before anything is written. The keyboard, BASIC and cassette of the SC-3000, cartridges with their
 own RAM, and the peripherals and boards listed in [SG1000.md](SG1000.md#1-what-is-converted-and-what-is-not), are out of scope.
 
@@ -301,8 +301,8 @@ converts ColecoVision cartridges (a `.col`, or a `.bin`, `.rom` or ZIP that you 
 beginning with a header word; 4 KiB to 32 KiB, plain ROM) with your own BIOS (8 KiB, required, never shipped; the converted game holds it and
 is for you only) into a game executable checked headless against the reference interpreter on the routes played, with multiplayer. The five
 measures stay apart: native code and that agreement are measured per conversion; hardware fidelity was compared with an emulator only,
-gameplay validation is the maintainer's play of a few games, and physical latency is not measured. The Linux witness (Debian 13 in WSL)
-predates the F5 sprite option and the CRT and LCD looks. A file it cannot hold is refused with a sentence. The Super Action Controller, the
+gameplay validation is the maintainer's play of a few games, and physical latency is not measured. Windows and Debian 13 in WSL give
+equal results, witnessed again on the release tree. A file it cannot hold is refused with a sentence. The Super Action Controller, the
 roller and driving modules, the Super Game Module and the homebrew boards are out of scope
 ([COLECOVISION.md](COLECOVISION.md#1-what-is-converted-and-what-is-not)).
 
