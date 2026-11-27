@@ -110,8 +110,8 @@ not start), and complete pixel-clock raster effects are not validated. PAL and N
 hardware fidelity; see [video evidence](VIDEO.md).
 
 The Game Boy profile uses a separate pinned SM83 compiler and runtime. It
-supports `.gb` and single-ROM ZIP input, but rejects Game Boy Color-only
-cartridges (those go to the Game Boy Color profile, [experimental, in development](GAME_BOY_COLOR.md): `.gbc` and Color-only cartridges, on the same engine in the colour hardware's model; no game has been converted for a qualification yet). Local Tetris, MBC1 Super Mario Land and MBC2
+supports `.gb` and single-ROM ZIP input, but rejects Color-only
+cartridges, which have a profile of their own (below). Local Tetris, MBC1 Super Mario Land and MBC2
 Lazlos' Leap 120-frame boot scenarios reached zero reported fallback cycles
 in their final exports; each matched a 30-frame generated/reference CPU comparison. Super
 Mario Land first showed 76 fallback cycles, then a ROM-specific entry trace
@@ -298,6 +298,17 @@ The **Amstrad CPC** profile (`cpc`) is in development (experimental, not offered
 disk images (`.dsk`, standard or extended, or a ZIP holding one) and refuses them with that reason; nothing is converted yet. Its games
 will run on the CPC 6128's system ROM and AMSDOS, fetched from a pinned, hash-checked source under Amstrad's permission for emulators, or
 your own if you choose them in Options.
+
+The **Game Boy Color** profile (`gbc`) is experimental and not in a release yet ([status](GAME_BOY_COLOR.md)). It converts
+`.gbc` cartridges, and Color-only cartridges in a `.gb` or a single-ROM ZIP, on the engine of the monochrome console in the
+colour hardware's model (MBC1, MBC3 with its clock, MBC5; no boot ROM). A Color-enhanced cartridge kept as a `.gb` keeps
+its monochrome conversion. Not converted: infrared, the MBC7 tilt sensor, the Printer, the Camera, Super Game Boy borders. On a panel of
+seven cartridges, the four final routes of each report 0 interpreter cycles; code run one instruction at a time in
+writable memory is counted apart and is not native. The generated code equals the reference interpreter in lock-step over
+30 boot frames and 240 frames of each input route (all 3,600 frames on two of the seven). Four of the seven were also
+converted on Debian 13 in WSL with equal per-frame traces. In the Color build, 115 of 116 public Mooneye and blargg test ROMs pass and
+`cgb-acid2` differs on 40 of 23,040 pixels. Hardware fidelity, gameplay validation (the owner has not played the games
+yet) and physical latency are not established.
 
 ## Local game regression set
 

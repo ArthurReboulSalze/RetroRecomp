@@ -23,9 +23,11 @@ sound and cartridge hardware of the machine are on [GAME_BOY.md](GAME_BOY.md).
 | Machine | Role of the CPU | Clock | Page |
 |---|---|---|---|
 | Game Boy (original DMG) | Main and only CPU | 4.194304 MHz; a frame is 70,224 cycles, about 59.7275 Hz | [GAME_BOY.md](GAME_BOY.md) |
+| Game Boy Color (experimental, not in a release yet) | Main and only CPU | the same, or twice that in double speed | [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md) |
 
-Game Boy Color-only cartridges (header flag `$C0`) are rejected by the converter; cartridges that also run on the DMG
-are converted as DMG games. No other machine of the project has an SM83. In the machine profile the CPU is declared as
+The Game Boy profile rejects Game Boy Color-only cartridges (header flag `$C0`), which go to the Game Boy Color profile; a
+`.gb` cartridge that also runs on the DMG is converted as a DMG game. No other machine of the project has an SM83. STOP and
+double speed, the Color's, are not covered by the vectors below. In the machine profile the CPU is declared as
 `Cpu("sm83", "main", "cycles")`: the interpreter counters are in clock cycles at 4.194304 MHz (a `NOP` is 4 cycles).
 The frame constant is in `native/hostkit/adapters/rrhk_gb.inc`.
 

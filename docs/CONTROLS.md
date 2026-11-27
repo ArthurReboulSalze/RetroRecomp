@@ -152,6 +152,14 @@ B is A, A is B, the shoulder buttons are L and R, Start is Start and Back is Sel
 below and the two shortcuts F1 and Shift+F1 are the common ones of the host kit, not repeated here. The cartridge save (SRAM, Flash or
 EEPROM) is kept in `datas/saves` and written when it changes and at exit. The help page of F1 lists these keys.
 
+### Game Boy Color
+
+Experimental, not in a release yet. One player, with the Game Boy's keys and pad: arrows move, **S/D** are A/B, **Enter** is
+cartridge Start and either **Shift** is cartridge Select; P pauses; F6 autofire, F8 and F9 quick states, the F2 pages and the
+speed and sound controls are the common ones. There is no palette choice: a Color game uses its own colours, F5 only shows a
+notice saying so, and the options page has no palette row. A rumble cartridge does not make the pad vibrate
+([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)).
+
 ### MSX and MSX2
 
 The MSX1 and MSX2 profiles share these controls. The MSX2 picture is 544 x 228.
