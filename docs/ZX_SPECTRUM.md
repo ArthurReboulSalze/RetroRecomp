@@ -93,16 +93,20 @@ refresh cycles are not contended; the +2A/+3 (another pattern) are out of scope.
 **The floating bus is modelled from the documented fetch timing.** An unattached port reads what the ULA is fetching: in each 8
 T-states of the first 128 of a paper line the bitmap byte, its attribute, the next bitmap byte, the next attribute, then FFh four
 times; FFh outside the paper; the first fetch at T-state 14347 (48K) or 14368 (128K), from Ramsoft's floating bus guide (Clock
-Signal, MIT, agrees on the 48K and is about 5 T-states later on the 128K: unverified). The I/O cycle samples the bus 3 T-states
-after its start and its contention; the chain's evaluator gives the machine that moment before the read, natively and on the
-reference alike (`zxs_floating_bus`, 20 checks in tools/zxs_machine_selftest.py). Arkanoid, which the guide names as depending
+Signal, MIT, agrees on the 48K and is about 5 T-states later on the 128K: unverified). The I/O cycle samples the bus at its end,
+4 T-states after its start and its contention (`ZXS_FLOATING_SAMPLE`); the chain's evaluator gives the machine that moment before
+the read, natively and on the reference alike (`zxs_floating_bus`, 23 checks in tools/zxs_machine_selftest.py). Arkanoid, which the guide names as depending
 on it, now plays its first round on the play route (297 distinct pictures, bricks broken) where without it the picture froze
 after frame 1,409. Not measured on a real Spectrum here.
 
-Research note (22 November 2026): the moment an IN samples the floating bus is taken from Ramsoft's guide (3 T-states into the I/O
-cycle, after its contention); Clock Signal samples at the cycle's end, about one T-state later, and the two disagree by about 5
-T-states on the 128K's first fetch. A second documented source, or a measurement, would settle it; until then the model is the
-guide's. What the panel's games read on unattached ports, over their play routes: Arkanoid reads port FFh 140,074 times (its
+Research note (22 November 2026, settled for the 48K on 27 November): the moment an IN samples the floating bus was first taken
+from Ramsoft's guide (3 T-states into the I/O cycle, after its contention); Clock Signal samples at the cycle's end, one T-state
+later. MAME 0.289 (a private oracle, never in a game) settled it on Arkanoid, from the same snapshot with the same inputs: its
+raster loop (8490h-84D4h: it writes the screen at 401Fh, then reads port 28FFh until four FFh in a row) lasts the whole paper in
+MAME, and with 3 T-states it read bitmap bytes where MAME reads attributes, met four FFh after about 30 lines and ran the game
+loop twice a frame (two keyboard reads a frame against MAME's one). Sampled at the cycle's end, the loop and the paddle match MAME
+frame for frame (section 6b). The 128K's first fetch (14368) remains the guide's and unverified: no panel game reads the floating
+bus on the 128K. What the panel's games read on unattached ports, over their play routes: Arkanoid reads port FFh 140,074 times (its
 deliberate use of the floating bus); Manic Miner sweeps the 256 ports ending in 1Fh once, just after its start key, with no Kempston
 present (75 of them read screen bytes; the game plays on); Head over Heels reads 1Fh once without a Kempston (FFh, in the border);
 Match Day II polled the Fuller port every frame (now given an idle Fuller box); the others read none.
@@ -135,6 +139,27 @@ The first Linux witness, the same day, in WSL (Debian 13) on the build PC: Manic
 same tree give the same start, the same learning counts and, on both routes, the same frame trace, RAM, picture and sound
 hashes and step counts as on Windows; the compressed copy and the quick states pass there too. A witness in WSL is not a proof
 of a Linux graphics driver.
+
+## 6b. Controls of two panel games (27 November 2026, after the owner's first play)
+
+- **Arkanoid** reads the keyboard (left: the half-row Caps Shift to V; right: B to M and Space; fire: A to L, not redefinable) and
+  Sinclair Interface 2 on keys 1-5 (1 left, 2 right, 5 fire); it reads the Kempston port once at its start and uses no Kempston
+  here (the snapshot declares none). ZXDB lists Interface 2 and Kempston as its joysticks, and no mouse: the Spectrum had mice
+  (AMX, Kempston mouse), but this game reads none, so the kit's mouse has nothing to drive. On the reference, the pad (arrows and
+  Right Ctrl, on Interface 2's 1-5) and the keyboard move the paddle the same way. Measured with authored routes against MAME
+  0.289 (same snapshot, same inputs, the paddle read from both pictures): with the ball in flight the paddle moves 2 pixels a
+  frame both ways; while the ball rests on the paddle before a launch, it moves 2 pixels a frame to the left and accelerates to
+  the right (4, 5, 6 ... 13 pixels a frame), with the same stops (paper x 19.5 and 170.5). Ours matches MAME 0.289 on every frame
+  of both holds, one frame earlier. The resting-ball asymmetry is the game's (it matches MAME 0.289; no real Spectrum here). Our
+  first build moved the paddle twice as fast (4 a frame in flight, 4 left and 9, 13, 17 ... right at rest): the floating bus was
+  sampled one T-state early and the game ran its loop twice a frame (section 5); fixed on 27 November. With the floating bus off
+  the game does not run at all (as documented for the original edition).
+- **Robocop** reads the Kempston (chosen in its own menu by the start data); the pad drives it. Compared with MAME 0.289 (`spec128`
+  with a Kempston added, same snapshot, same inputs, frame numbers equal): the paper is pixel-identical through the menus and
+  the directives and in many play frames, and held left behaves the same in both: from the start of play Robocop only turns to
+  face left (he is at the level's left end) and nothing scrolls in 300 frames; after walking right (the street scrolls about
+  0.8 pixel a frame), left scrolls the street back only once the enemies standing against him are gone. This matches MAME 0.289;
+  it is the game's behaviour, not hardware-verified. The keyboard controls were not compared.
 
 ## 7. Multiplayer
 

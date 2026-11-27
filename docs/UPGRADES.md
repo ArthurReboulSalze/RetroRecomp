@@ -392,6 +392,22 @@ lobby refuses a game. The profile stays `developer_only`: no installation lists 
 `batch --system zxs` from an empty scratch library: its report has the identity (engine pins, ROM, the top-level firmware record) and
 `lobby_check.game_from_report` accepts it (two seats).
 
+## ZX Spectrum: the floating bus is sampled at the I/O cycle's end (Arkanoid's speed) (next release)
+
+The owner found Arkanoid too fast and lopsided. Compared with MAME 0.289 (a private oracle) from the same snapshot with the same
+inputs, our machine ran Arkanoid's game loop twice a frame: its raster loop reads the floating bus until four FFh in a row, and
+sampled 3 T-states into the I/O cycle our reads landed on bitmap bytes where MAME's land on attributes, so the loop ended after
+about 30 lines instead of the whole paper. The sample moves to the cycle's end, 4 T-states after its start and its contention
+(`ZXS_FLOATING_SAMPLE`, as Clock Signal and MAME do). Proof: one keyboard read a frame as in MAME; the paddle's positions match
+MAME's on every frame of four authored holds (ball resting and in flight, left and right), one frame earlier; three more machine
+checks pin the cycle's end (112 in all). The resting-ball asymmetry (2 a frame left, accelerating to 13 right) is the game's, as in
+MAME. The 128K's first fetch stays the guide's (unverified; no panel game reads the floating bus there).
+
+**Stamps**: the ZX Spectrum's game stamp; nothing else. Exports of the machine (experimental, developers only) are rebuilt by a
+new conversion. The panel of eight passes again (0 instructions interpreted, native = reference, packed copy and quick states;
+Arkanoid plays to frame 2,037 with 303 distinct pictures); Manic Miner's single sweep of the ports ending in 1Fh reads screen
+bytes either way and it plays on; Elite stops on its title as before.
+
 ## ZX Spectrum: a game that polls the Fuller port gets an idle Fuller box (Match Day II) (next release)
 
 Match Day II reads the Fuller joystick's port (7Fh) every frame, even with the Kempston chosen. Without a Fuller box that port floats,
