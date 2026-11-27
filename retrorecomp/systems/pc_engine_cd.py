@@ -3,7 +3,7 @@
 Scope decided on 21 November 2026 (the study and the owner's answers): discs as the player gives them (a CHD of version 4 or 5, a
 CUE sheet with its BIN files, an ISO), run on the same HuC6280, video and PSG as the PC Engine with the CD drive, CD audio, ADPCM
 and backup memory of the pinned engine, the player's own System Card (checked by its hash, never shipped), the disc appended to the
-game executable and read in place, authentic drive timing. Out of this version: the Arcade Card, SuperGrafx and the unlisted cards.
+game executable and read in place, the drive's timing as the engine models it. Out of this version: the Arcade Card, SuperGrafx and the unlisted cards.
 Engine: rages4calm/pcenginerecomp (MIT) and libchdr (BSD-3-Clause), pinned in upstreams.py.
 """
 from pathlib import Path

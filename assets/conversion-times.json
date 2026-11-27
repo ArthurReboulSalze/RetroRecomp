@@ -102,7 +102,8 @@
    "extended": {"seconds": [156, 162, 167], "longest": 177, "reports": 10, "versions": "1.7.3..1.7.3"}
   },
   "pcecd": {
-   "standard": {"seconds": [726, 749, 777], "longest": 855, "reports": 8, "versions": "1.9.1..1.9.1"}
+   "standard": {"seconds": [726, 749, 777], "longest": 855, "reports": 8, "versions": "1.9.1..1.9.1"},
+   "extended": {"seconds": [2057, 2164, 2220], "longest": 2346, "reports": 9, "versions": "1.9.1..1.9.1"}
   },
   "gbc": {
    "standard": {"seconds": [391, 491, 628], "longest": 765, "reports": 3, "versions": "1.9.1..1.9.1"}

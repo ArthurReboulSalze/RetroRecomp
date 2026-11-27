@@ -64,7 +64,7 @@ class HeldDiscTests(unittest.TestCase):
             self.assertEqual(struct.unpack('<QQ', trailer[64:80]), (offset, length))
             self.assertEqual(trailer[80:], b'RRPCECD1')
 
-    def test_a_cue_set_is_refused_until_it_is_packed(self):
+    def test_a_bare_cue_sheet_is_not_appended(self):          # the conversion packs it first (pcecd_disc.write_pack)
         with tempfile.TemporaryDirectory(prefix='rr-pcecd-pack-') as temp:
             program = Path(temp) / 'game.exe'
             program.write_bytes(b'MZ')

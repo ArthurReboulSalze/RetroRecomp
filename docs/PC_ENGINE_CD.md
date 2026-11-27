@@ -1,7 +1,8 @@
 # PC Engine CD / TurboGrafx-CD
 
-Status: **experimental**, open to players (21 November 2026). Step 1 of [NEW_MACHINE.md](NEW_MACHINE.md) is done: nine discs convert, the Linux witness agrees with Windows, the
-owner has not played them (G14, step 2). The decisions below are the owner's, taken on 21 November 2026 after the study.
+Status: **experimental**, open to players (21 November 2026). Steps 1 to 3 of [NEW_MACHINE.md](NEW_MACHINE.md) are done as far as they can be without the owner: nine discs convert and match on
+Windows and Linux, routes reach play on eight of them, multiplayer is proved on one PC. The owner has tried the delivered games; his acceptance (G14) and the exit are not recorded. The decisions
+below are the owner's, taken on 21 November 2026 after the study.
 
 ## 1. What it converts, and what it does not
 
@@ -12,7 +13,7 @@ owner has not played them (G14, step 2). The decisions below are the owner's, ta
   in stage 1, section 4).
 - **The disc inside the executable** (the PlayStation's way: the game holds the whole image and reads it in place) and **no DLL beside it**:
   the CHD decoder (libchdr, BSD-3-Clause) is linked into the game.
-- **Authentic drive timing**: loading takes what the real drive takes. A speed-up is not part of this version.
+- **The drive's own timing**: loading takes the time the engine's drive model gives it (seek and read delays), never shortened; it was not compared with a real drive. A speed-up is not part of this version.
 - **Backup memory** (the 2 KiB of the CD system), kept beside the game like the PC Engine's.
 - **Not in this version:** the Arcade Card (the engine has its Duo profile; no disc of it in the maintainer's library), SuperGrafx, System
   Cards that are not in the table, multi-disc games (there is none), a disc image that needs a protection circumvented.
@@ -36,10 +37,29 @@ Kept apart in every report and every page, as everywhere:
 
 - **Native code**: how much of what the disc and the System Card run was translated and how much ran on the counted interpreter fallback,
   per CPU (the HuC6280) and per device. A disc is only translated where its routes were seen to run; the rest runs counted.
-- **CPU fidelity**: the HuC6280 is the PC Engine's (the vectors of the PC Engine, 640,000 of them).
+- **CPU fidelity**: the HuC6280 is the PC Engine's; its vectors were run again for this machine on 27 November 2026 (table below).
 - **Hardware fidelity**: the CD drive, CD audio, ADPCM and backup memory are the pinned engine's models; their evidence is the engine's.
-- **Gameplay validation**: scripted routes and the owner's play test; none yet.
+- **Gameplay validation**: scripted routes and captures looked at; no full play of a game is recorded.
 - **Physical latency**: not measured; nothing here says zero latency or exact timing.
+
+**The HuC6280 vectors** (`SingleStepTests/huc6280`, commit `4ce378e04e243437e6f74dfe76c3cb7c70e45bf1`, 256 files, 185,548,937 bytes, files digest
+`f5b70cc85766242f8249728b56d60e269e9ee1168c252f21bf9719ca5dc84ea0`, pinned in `tools/fetch_huc6280_vectors.py`; MIT, generated with the Mesen emulator, so an emulator's expectations, not hardware).
+Run on 27 November 2026: the pinned interpreter, then the code the engine's emitter translates (250 vectors an opcode). The disc games compile the same CPU, emitter and pin.
+
+| Group | Opcodes | Interpreter: vectors run | equal (state and cycles) | state differs | cycles differ | Translated code: cases | differs from the interpreter | Known differences |
+|---|---|---|---|---|---|---|---|---|
+| load, store, register transfer | 49 | 122,500 | 122,500 | 0 | 0 | 12,250 | 0 | - |
+| arithmetic, logic, compare, test | 69 | 172,500 | 172,500 | 0 | 0 | 17,250 | 0 | - |
+| shift, increment, bit change | 54 | 135,000 | 133,508 | 1,492 | 0 | 13,500 | 0 | TSB, TRB: the Z flag from the result (as MAME), the vectors from A AND memory |
+| branch, jump, call, return, BRK | 33 | 82,500 | 82,500 | 0 | 0 | 8,250 | 0 | - |
+| stack | 8 | 20,000 | 20,000 | 0 | 0 | 2,000 | 0 | - |
+| flags, speed, NOP | 11 | 27,500 | 27,500 | 0 | 0 | 2,750 | 0 | - |
+| block transfers | 5 | 19 | 19 | 0 | 0 | 17 | 0 | most are cut by the corpus's length cap |
+| bank registers and VDC port (TAM, TMA, ST0-ST2) | 5 | 12,500 | 4,987 | 13 | 7,500 | 750 | 0 | ST0-ST2: 1 cycle more (VDC access, as MAME); TMA with mask 0: the transfer latch |
+| reserved opcodes | 22 | 0 | 0 | 0 | 0 | 0 | 0 | refused by design (55,000 vectors) |
+
+The translated code ran 56,767 cases; its 157 state differences and 750 cycle differences from the vectors are the interpreter's, on the same cases, and none differs from the interpreter. TAM and TMA are left
+to the interpreter tier (they change the guarded mapping).
 
 ## 4. Stage 1, where it stands (21 November 2026)
 
@@ -67,7 +87,7 @@ maintainer's Japanese Super System Card 3.0, the Super RAM profile, the drive's 
 What these numbers say and what they do not: on the two routes of each disc (boot, then a play route), no instruction ran on the interpreter, the delivered game gave the same picture, sound,
 RAM and CPU state on every frame as the build with every instruction interpreted, a quick state continued the saved timeline in a fresh process, and eleven kinds of damaged backup
 file were set aside. **They do not say the games are translated**: a route of 3,600 frames reaches the System Card's start-up and the first screens of a game, and the boot route sees only the
-System Card's "push RUN" screen (three pictures, no sound), so the code a game loads later from its disc has not run. The depth of the routes past the loading screens is gate G9, still `?`.
+System Card's "push RUN" screen (three pictures, no sound), so the code a game loads later from its disc has not run. The depth of the routes past the loading screens is gate G9: the extended level's explored route (below) reaches play on eight discs of the panel.
 Nothing here says hardware fidelity, gameplay or latency.
 
 Measured on the way: the strict policy for the drive's unknown commands stops Ys III and The Addams Family (an unknown command `$FF` when RUN is pressed) and is not the default; the Japanese
@@ -76,20 +96,40 @@ card runs USA discs and Japanese ones; a conversion takes about twelve minutes o
 **The Linux witness**: The Addams Family converted on Debian 13 (WSL, gcc, headless) from an empty library gives the same 222,527,282 observed instructions, the same module (8,810
 instructions in 23 contexts) and, on both routes, the same CPU, RAM, picture and PCM hashes and the same trace digest as Windows. One disc, not a panel; no Linux GPU is involved.
 
-## 5. Route depth (gate G9), 21 November 2026
+### The panel of nine at the extended level (27 November 2026)
+
+Converted through `batch` as a player converts (`tools/release_check.py`, extended level, an empty private library, two at a time, the portable llvm toolchain, Japanese Super System Card 3.0, tree
+`spec/pcecd-g9`). Routes: attract (3,600 frames), play (3,600), and the explored long route (21,600). Every gate of `release_check` passes on all nine: **0 interpreted instructions on all 27 routes**, 0 guard
+misses, native equal to the reference on every frame, the published executable replayed, quick states and damaged states. A conversion takes 30 to 39 minutes on this PC, two at a time.
+
+| Disc | Native instructions run (millions) | Emitted (instructions, bank contexts) | Explored segments | Long route: distinct pictures | What the long route reaches (captures looked at) |
+|---|---|---|---|---|---|
+| The Addams Family | 889 | 9,932 / 25 | walk, action, action, menu, menu, walk | 9,562 | **in play**: the first level |
+| Akumajou Dracula X | 872 | 43,896 / 383 | walk, walk, action, action, tap, walk | 7,937 | **in play**: a name typed (a save written), the stage 0 fight on the carriage |
+| Buster Bros. | 867 | 8,098 / 19 | walk, menu, action, walk, walk, action | 13,634 | **in play**: stages 1 and 2-4 |
+| Dungeon Explorer II | 773 | 45,071 / 252 | tap, tap, tap, menu, walk, walk | 1,300 | the player-count menu, the world map and the opening scenes; **no play seen** |
+| 4 in 1 Super CD | 839 | 115,380 / 574 | action, menu, tap, walk, walk, walk | 13,796 | **in play**: Gate of Thunder (one of the four games) |
+| Lords of Thunder | 858 | 125,684 / 841 | action, action, walk, menu, menu, walk | 12,695 | **in play**: the shop, the first stage and its enemies |
+| Valis III | 814 | 18,103 / 34 | tap, action, action, walk, action, tap | 9,938 | **in play**: the first stage |
+| Ys Book I & II | 800 | 43,708 / 109 | tap, walk, walk, action, walk, walk | 12,796 | **in play**: the town of Ys I (a save written) |
+| Ys III | 827 | 37,199 / 55 | menu, tap, action, walk, tap, action | 3,724 | **in play**: the opening and the first town, then a room the route does not leave |
+
+**Saves:** Dracula X and Ys Book I & II write the backup memory on their long route; in a fresh process the game starts with exactly the memory the first run left, and Dracula X shows the name it saved
+(« PLAYER1 AA ») in its file screen and goes on to play. Every disc: no file starts blank (the System Card formats it when a game asks), a valid file is read, eleven kinds of damaged file are set aside.
+
+## 5. Route depth (gate G9)
 
 The first routes (the PC Engine's walk: Run pressed a few times, then directions and taps) leave a disc in its menus: Ys Book I & II rested on its « Location / Start game story » menu for the
-whole 18,000-frame route. From the extended level, a conversion now plays three **styles** of input for 6,000 frames each on the observing build (`retrorecomp/pcecd_routes.py`) and gives the long routes
-the styles that made the game run the most different code (the number of distinct code identities of the engine's capture, then the distinct pictures): `walk` (the PC Engine's), `menu` (a cursor stepped
-down and answered, over and over) and `action` (directions held, I in bursts, II tapped). Nothing knows a game; the report names each style's score (`route_start.exploration`) and the style of every route
-(`final_checks[].style`).
+whole 18,000-frame route, and Akumajou Dracula X stayed on its file screen. From the extended level, the first long route of a conversion (21,600 frames, six minutes of the game) is therefore built **segment by segment**
+(`retrorecomp/pcecd_routes.py`): from the quick state at the end of what was chosen so far, four **styles** of input each play the next 3,600 frames on the observing build (two at a time),
+and the style that makes the game run the most code **not run before** (the engine's code capture identities, then the distinct pictures) is kept: `walk` (the PC Engine's), `menu` (a cursor stepped
+down and answered, over and over), `action` (directions held, I in bursts, II tapped) and `tap` (single taps of any button, one after the other: it types on a name entry grid). Nothing knows a game;
+the report names each segment's choice and every style's score (`route_start.exploration`) and marks the route `explored` (`final_checks[].style`). The route the conversion then plays against the reference,
+checks and ships is the composed script, played from the start; the states it was built from are the quick states the conversion checks.
 
-| Disc | walk | menu | action | Style kept for the long route | What the long route shows |
-|---|---|---|---|---|---|
-| Ys Book I & II | 14,584 identities, 250 pictures | 26,237, 1,217 | 27,348, 1,140 | action | the file cabinet question, then **the game**: the harbour, a town, HP and EXP on screen (before: the menu) |
-| Valis III | 11,229, 129 | 13,685, 169 | 13,685, 169 | menu | (see the panel table) |
-
-A route's depth is a measure of the route, never of the game: what a route reaches is not what a player can reach.
+On Akumajou Dracula X this is what changes: the route types a name in the file screen (a save in the backup memory), starts the game, reaches the first stage (health bar and score on screen) and its
+cut-scenes, where the walk stopped at the file screen for the whole route. A route's depth is a measure of the route, never of the game: what a route reaches is not what a player can reach, and what it
+does not reach runs on the interpreter, counted.
 
 ## 6. Multiplayer (step 3, 22 November 2026)
 

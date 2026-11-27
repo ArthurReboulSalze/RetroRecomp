@@ -2,7 +2,7 @@
 // tools/pcecd_disc_selftest.py can compare it with the pure-Python reader (retrorecomp/pcecd_disc.py) and, for a CHD of version 5, with the engine's own
 // provider (which loads a libchdr shared library by path and refuses version 4).
 //
-//   pcecd_disc_checks IMAGE SHA256 [--offset N --length N] [--engine LIBCHDR]
+//   pcecd_disc_checks IMAGE SHA256 [--offset N --length N] [--engine LIBCHDR [--engine-image IMAGE]]   (--engine-image: the engine reads the CUE sheet, ours its pack)
 //
 // The hash is FNV-1a over the user data of the first 64 sectors of every data track and over the samples of the first 8 sectors of the first
 // three audio tracks. Original RetroRecomp code: MIT.
@@ -80,22 +80,23 @@ bool same(const Summary &a, const Summary &b) {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: pcecd_disc_checks IMAGE SHA256 [--offset N --length N] [--engine LIBCHDR]\n");
+        std::fprintf(stderr, "usage: pcecd_disc_checks IMAGE SHA256 [--offset N --length N] [--engine LIBCHDR [--engine-image IMAGE]]\n");
         return 2;
     }
     std::uint64_t offset = 0, length = 0;
-    std::string engine;
+    std::string engine, referee = argv[1];
     for (int i = 3; i + 1 < argc; i += 2) {
         if (!std::strcmp(argv[i], "--offset")) offset = std::strtoull(argv[i + 1], nullptr, 10);
         else if (!std::strcmp(argv[i], "--length")) length = std::strtoull(argv[i + 1], nullptr, 10);
         else if (!std::strcmp(argv[i], "--engine")) engine = argv[i + 1];
+        else if (!std::strcmp(argv[i], "--engine-image")) referee = argv[i + 1];   // the engine reads this (a CUE sheet), ours reads IMAGE (its pack)
     }
     try {
         auto ours = pcecd::open_disc(argv[1], offset, length, argv[2]);
         const Summary ours_summary = summarise(*ours);
         print("ours", ours_summary);
         if (!engine.empty()) {
-            auto theirs = pce::open_sector_provider(argv[1], engine);
+            auto theirs = pce::open_sector_provider(referee, engine);
             const Summary theirs_summary = summarise(*theirs);
             print("engine", theirs_summary);
             std::printf("engine %s\n", same(ours_summary, theirs_summary) ? "SAME" : "DIFFERENT");

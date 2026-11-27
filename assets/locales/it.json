@@ -653,7 +653,7 @@
     "options_psx_note": "Profilo PlayStation: dischi in EBOOT (.pbp), CUE/BIN, CloneCD (.ccd) o ISO, NTSC e PAL, due giocatori. Il tuo BIOS va nel gioco; senza, si usa l’OpenBIOS libero. Il codice nativo viene da ciò che il gioco è stato visto eseguire; il resto resta interpretato e contato. Nessun BIOS scaricato o fornito.",
     "psx_bios": "BIOS PlayStation (file o cartella)",
     "options_pcecd": "PC Engine CD",
-    "options_pcecd_note": "Profilo PC Engine CD (in sviluppo): dischi CD-ROM2 in CHD, CUE/BIN o ISO. Serve la tua System Card, verificata dal suo hash, che non viene mai fornita. Per ora riconosce solo i dischi e non converte nulla.",
+    "options_pcecd_note": "PC Engine CD (sperimentale): dischi CD-ROM2 e Super CD-ROM2 in CHD, CUE/BIN o ISO. Serve la tua System Card, verificata dal suo hash, che non viene mai fornita. Il disco è contenuto nel gioco.",
     "pcecd_system_card": "System Card PC Engine CD (file o cartella)",
     "knowledge_achievement": "Obiettivo sbloccato",
     "knowledge_discovery": "scoperta",

@@ -361,6 +361,37 @@ class DiscReaderTests(unittest.TestCase):
         self.assertEqual(pcecd_disc.image_sha256(iso), hashlib.sha256(iso.read_bytes()).hexdigest())
         self.assertEqual(len(pcecd_disc.files_of(sheet)), 4)
 
+    def test_a_cue_set_is_packed_with_the_sheets_numbering(self):
+        folder = self.folder / 'pack'
+        folder.mkdir()
+        sheet = write_cue(folder, 'game')
+        # a stored pregap (INDEX 00) on the last audio track: its two seconds are in the BIN and travel with the pack
+        third = folder / 'game (Track 3).bin'
+        third.write_bytes(b''.join(audio_sector(5) for _ in range(150)) + third.read_bytes())
+        sheet.write_text(sheet.read_text(encoding='utf-8').replace('TRACK 03 AUDIO\n    PREGAP 00:02:00\n    INDEX 01 00:00:00', 'TRACK 03 AUDIO\n    INDEX 00 00:00:00\n    INDEX 01 00:02:00'),
+                         encoding='utf-8')
+        packed = pcecd_disc.write_pack(sheet, folder / 'disc.rrcd')
+        data = packed.read_bytes()
+        count, leadout = struct.unpack_from('<II', data, 8)
+        disc = pcecd_disc.open_disc(sheet)
+        try:
+            self.assertEqual((data[:8], count, leadout), (b'RRCDPCK1', 3, disc.leadout))
+            for index, track in enumerate(disc.tracks):
+                start, length, pregap, flags, stride, zero, offset = pcecd_disc.PACK_ROW.unpack_from(data, 16 + pcecd_disc.PACK_ROW.size * index)
+                self.assertEqual((start, length, pregap, flags, stride, zero),
+                                 (track.start, track.length, track.stored_pregap, 2 if track.audio else 1, 2352, 0))
+                stored = data[offset - pregap * stride:offset + length * stride]
+                self.assertEqual(stored, track.source.read(track.offset - pregap * stride, (pregap + length) * stride))
+        finally:
+            disc.close()
+        self.assertEqual(pcecd_disc.PACK_ROW.unpack_from(data, 16 + pcecd_disc.PACK_ROW.size * 2)[2], 150)
+        for old, new in (('BINARY', 'MOTOROLA'), ('MODE1/2352', 'MODE2/2352')):
+            other = folder / 'other.cue'
+            other.write_text(sheet.read_text(encoding='utf-8').replace(old, new, 1), encoding='utf-8')
+            with self.assertRaises(pcecd_disc.DiscError, msg=new):
+                pcecd_disc.write_pack(other, folder / 'other.rrcd')
+            self.assertFalse((folder / 'other.rrcd').exists())
+
     def test_the_input_names_the_disc_and_the_card_changes_the_machine_identity(self):
         iso = self.folder / 'c.iso'
         write_iso(iso)

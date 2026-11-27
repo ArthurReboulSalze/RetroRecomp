@@ -113,9 +113,10 @@ def python_summary(path: Path) -> dict:
                     except pcecd_disc.DiscError:                      # the audio codec (cdfl) is not read in Python: the engine's provider is the referee
                         hash_value = None
                         break
-                    # the audio of a CHD is big-endian: the probe hashes host (little-endian) samples
+                    # the audio of a CHD is big-endian (a BIN's is little-endian): the probe hashes host (little-endian) samples
                     swapped = bytearray(raw)
-                    swapped[0::2], swapped[1::2] = raw[1::2], raw[0::2]
+                    if disc.container == 'chd':
+                        swapped[0::2], swapped[1::2] = raw[1::2], raw[0::2]
                     hash_value = fnv(bytes(swapped), hash_value)
                 audio = hash_value
             out['rows'].append((track.start, 0 if track.audio else 4, data, audio))
@@ -141,7 +142,7 @@ def run_probe(probe: Path, image: Path, sha: str, *extra: str) -> subprocess.Com
                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
 
 
-def check(probe: Path, image: Path, label: str, libchdr: Path | None, *, offset: int = 0, length: int = 0, plain: Path | None = None) -> bool:
+def check(probe: Path, image: Path, label: str, libchdr: Path | None, *, offset: int = 0, length: int = 0, plain: Path | None = None, referee: Path | None = None) -> bool:
     sha = '0' * 64
     extra = []
     if offset or length:
@@ -155,7 +156,7 @@ def check(probe: Path, image: Path, label: str, libchdr: Path | None, *, offset:
     good = done.returncode == 0 and ours == expected
     note = ''
     if good and libchdr and not (offset or length):
-        theirs = run_probe(probe, image, sha, '--engine', str(libchdr))
+        theirs = run_probe(probe, image, sha, '--engine', str(libchdr), *(('--engine-image', str(referee)) if referee else ()))
         if 'engine SAME' in theirs.stdout:
             note = ', and the same as the engine\'s provider'
         elif 'FAULT' in theirs.stdout:
@@ -196,8 +197,22 @@ def main() -> int:
         plain = WORK / ('plain-' + image.name)
         plain.write_bytes(data)
         good = check(probe, embedded, label + ' embedded', None, offset=10000, length=len(data), plain=plain) and good
+    # A CUE sheet as a game holds it: our pack (pcecd_disc.write_pack) against the Python reader of the sheet and the engine's own CUE reader.
+    from retrorecomp import pcecd_disc
+    (WORK / 'cue').mkdir(exist_ok=True)
+    sheet = authored.write_cue(WORK / 'cue')
+    pack = pcecd_disc.write_pack(sheet, WORK / 'cue.rrcd')
+    good = check(probe, pack, 'cue packed', libchdr, plain=sheet, referee=sheet) and good
+    data = pack.read_bytes()
+    embedded = WORK / 'cue.rrcd.embedded'
+    embedded.write_bytes(b'executable' * 1000 + data + b'trailer' * 100)
+    good = check(probe, embedded, 'cue packed embedded', None, offset=10000, length=len(data), plain=sheet) and good
     for path in arguments.disc:
-        good = check(probe, path, path.name, libchdr) and good
+        if path.suffix.lower() == '.cue':
+            pack = pcecd_disc.write_pack(path, WORK / (path.stem + '.rrcd'))
+            good = check(probe, pack, path.name + ' packed', libchdr, plain=path, referee=path) and good
+        else:
+            good = check(probe, path, path.name, libchdr) and good
     print('PASS' if good else 'FAIL')
     return 0 if good else 1
 

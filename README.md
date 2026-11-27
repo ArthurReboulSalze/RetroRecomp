@@ -121,7 +121,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Amstrad CPC](docs/AMSTRAD_CPC.md) | experimental (developer-only) | `████░` 78 % | supported · rollback | not measured |
 | [ColecoVision](docs/COLECOVISION.md) | experimental (developer-only) | `████░` 82 % | supported · rollback | not measured |
 | [Game Boy Color](docs/GAME_BOY_COLOR.md) | experimental | `███░░` 69 % | supported · rollback · link cable | not measured |
-| [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `██░░░` 43 % | supported · rollback | not measured |
+| [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `████░` 75 % | supported · rollback | not measured |
 | [SG-1000](docs/SG1000.md) | experimental (developer-only) | `████░` 82 % | supported · rollback | not measured |
 | [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `████░` 70 % | supported · rollback | not measured |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |

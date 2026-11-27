@@ -1,10 +1,10 @@
 # pcenginerecomp (PC Engine engine)
 
-The PC Engine profile (experimental since 1.6.9: [docs/PC_ENGINE.md](../docs/PC_ENGINE.md)) is built on
-[`rages4calm/pcenginerecomp` at `81b5c231e452c6879d58585c8863012e438f1d55`](https://github.com/rages4calm/pcenginerecomp/tree/81b5c231e452c6879d58585c8863012e438f1d55):
+The PC Engine profile ([docs/PC_ENGINE.md](../docs/PC_ENGINE.md)) and the PC Engine CD profile ([docs/PC_ENGINE_CD.md](../docs/PC_ENGINE_CD.md)) are built on
+[`rages4calm/pcenginerecomp` at `6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0`](https://github.com/rages4calm/pcenginerecomp/tree/6bb848e88c75b3ed5dbbdcab6d1b7ef5dc1cf6d0):
 its Python analysis and emitter, and its C++ runtime (`pce-runtime`: HuC6280 interpreter, VDC, VCE, PSG, timer,
 interrupts, pads, HuCard boards). The engine is fetched at that revision when a conversion needs it; no copy of
-it is kept in this repository. Its runtime is compiled into every PC Engine game the converter makes, with the bridge and
+it is kept in this repository. Its runtime is compiled into every PC Engine and PC Engine CD game the converter makes, with the bridge and
 the host-kit adapter of Retro-Recomp (MIT).
 
 Three notices travel with the runtime and the emitter: the engine's own MIT licence, the BSD terms of the MAME

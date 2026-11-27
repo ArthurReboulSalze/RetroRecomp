@@ -653,7 +653,7 @@
     "options_psx_note": "Sony PlayStation プロファイル：ディスク（EBOOT .pbp、CUE/BIN、CloneCD .ccd、ISO）、NTSC と PAL、2 人用。自分の BIOS が必要です（ない時は OpenBIOS）。ネイティブコードはゲームの実行が確認された部分から作られ、残りはインタプリタで実行され数えられます。",
     "psx_bios": "PlayStation BIOS（ファイル）",
     "options_pcecd": "PC Engine CD",
-    "options_pcecd_note": "PC Engine CD プロファイル（開発中）：ディスク（CHD、CUE/BIN、ISO）。自分の System Card が必要です（ハッシュで確認、同梱はしません）。今はディスクの識別のみで、変換はしません。",
+    "options_pcecd_note": "PC Engine CD（実験版）：CD-ROM2 と Super CD-ROM2 のディスク（CHD、CUE/BIN、ISO）。自分の System Card が必要です（ハッシュで確認、同梱はしません）。ディスクはゲームに含まれます。",
     "pcecd_system_card": "PC Engine CD System Card（ファイル）",
     "knowledge_achievement": "実績解除",
     "knowledge_discovery": "件の発見",
