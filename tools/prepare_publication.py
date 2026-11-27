@@ -300,7 +300,7 @@ retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py retrorecomp/sys
 retrorecomp/gameboy.py retrorecomp/gameboy_runtime.py
 retrorecomp/gameboy_build.py retrorecomp/gameboy_boundary.py tests/test_gameboy_build.py
 native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
-retrorecomp/gameboy_hardware.py retrorecomp/gameboy_color_hardware.py
+retrorecomp/gameboy_hardware.py retrorecomp/gameboy_color_hardware.py retrorecomp/gbc_knowledge.py tests/test_gbc_knowledge.py
 native/gb_audio_checks.c tools/gameboy_hardware_selftest.py
 retrorecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
 retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrorecomp/nes_ram.py retrorecomp/nes_state_layout.py retrorecomp/nes_checks.py tests/test_nes_checks.py tools/nes_saves_check.py tools/nes_route_captures.py tools/nes_owner_trial.py tools/nes_cross_os.py tools/nes_state_prg_check.py retrorecomp/systems/nes.py tests/test_nes.py

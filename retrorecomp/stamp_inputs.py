@@ -574,6 +574,7 @@ INPUTS = _resolve({
     ('gbc',): (
         'native/gbc_link_checks.c',
         'retrorecomp.gameboy_color_hardware',
+        'retrorecomp.gbc_knowledge',
     ),
     ('nes',): (
         'native/nes_audio_checks.c',

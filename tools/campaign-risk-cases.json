@@ -14,6 +14,14 @@
       {"title": "Phantasy Star Gaiden", "category": "cartridge-save", "reason": "RPG (translated dump); long game states and a probable cartridge save, which the Sega profiles do not validate", "source": "docs/COMPATIBILITY.md"},
       {"title": "Streets of Rage II", "category": "qualified-brawler", "reason": "One of the twelve cartridges of the 18 October qualification", "source": "docs/GAME_GEAR.md"}
     ],
+    "gbc": [
+      {"title": "Tetris DX", "category": "smallest", "reason": "The smallest Color-only cartridge of the panel, with the link cable mode used for two players", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Pokemon - Gold Version", "category": "mbc3-clock", "reason": "MBC3 with its clock and a 32 KiB save; trade and battle over the cable", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Wario Land 3", "category": "ram-code", "reason": "The most code run one instruction at a time from writable memory, counted apart from native code", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Shantae", "category": "double-speed", "reason": "256 banks, heavy palette and DMA use; its double speed found the sound unit ordering fix", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Super Mario Bros. Deluxe", "category": "mbc5", "reason": "The Color counterpart of a cartridge of the Game Boy's panel", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Lufia - The Legend Returns", "category": "big-script", "reason": "A long RPG with a 32 KiB save, compared with the reference over every frame at the extended level", "source": "docs/GAME_BOY_COLOR.md"}
+    ],
     "gb": [
       {"title": "Tetris", "category": "no-banking", "reason": "No bank switching; the smallest control case", "source": "docs/COMPATIBILITY.md"},
       {"title": "Pokemon - Red Version", "category": "mbc3-battery", "reason": "MBC3 with battery RAM; Pokemon Yellow, from the same family, exposed a stack overflow and a long cold build in earlier campaigns", "source": "docs/GAME_BOY.md"},
