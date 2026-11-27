@@ -136,7 +136,21 @@ whole path: native equal to the reference with the disk's digest compared, the c
 fresh process starting from it. Castle Master and Rigel's Revenge were looked at for a real save: no key writes in the first, the
 second saves to tape through its own routine.
 
-Bomb Jack, Gryzor and Head over Heels are delivered for the owner's play test, with a short checklist (G14). `tools/cpc_panel.py`
+**Beyond the panel** (27 November 2026, on main `dce6c18d`): three more disks, each for a reason the panel did not cover, converted
+from an empty scratch library: **Carrier Command** (code it rewrites in RAM, 7,391 learned windows: the case that showed the chain's
+silent bound of 4,096 learned windows, lifted on main), **Dark Side** (the Freescape 3D engine of Castle Master's makers, on another
+disk) and **Rigel's Revenge** (a text adventure, its parser and its SAVE to tape). Each converts with 0 interpreted instructions on
+both routes and passes every `release_check` gate.
+
+**Would shared paths help (G16)?** Measured on those three: converted from an empty library, a game learns on a first pass
+(Carrier Command 3,962,944 interpreted steps, Dark Side 3,111,544, Rigel's Revenge 284,663) and runs 0 on the second; converted again
+with the patterns it learned (what a received path would bring), it runs 0 from the first pass. The native code at the end is the
+same (the same native steps, 0 interpreted either way): received paths would add no native instruction, and would save one learning
+pass, 12 to 15 s of 60 to 95 s here (a PC busy with other work, not a timed measure). Whether that is worth sharing the CPC's paths
+is the maintainer's decision.
+
+Bomb Jack, Gryzor and Head over Heels are delivered for the owner's play test, with a short checklist (G14); he played the copies
+converted through the batch (main `aeafa681`) and found them working, inputs included (27 November 2026). `tools/cpc_panel.py`
 reads a folder of disks and writes numbers about each one (format, odd tracks, weak and error sectors, the start command), never
 their bytes.
 
