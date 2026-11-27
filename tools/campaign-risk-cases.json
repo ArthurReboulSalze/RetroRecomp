@@ -216,6 +216,18 @@
       {"title": "Match Day II", "category": "reviewed-start", "reason": "Polls the Fuller port every frame (an idle Fuller box is given by reviewed data), and its start picks « Kempston joystick » in a menu that waits for ever unless a Kempston answers at port 1Fh", "source": "docs/ZX_SPECTRUM.md"},
       {"title": "Robocop", "category": "128k-banks", "reason": "128K: the whole game lives in the paged banks, with sampled speech on the AY; starts through reviewed start data (a control menu, then a typed screen)", "source": "docs/ZX_SPECTRUM.md"},
       {"title": "Jetpac", "category": "start-phase", "reason": "16K, a .z80 version 1 with no frame position: starts at the interrupt's end, so its random choices part from MAME 0.289's after frame 368 (a known limit, not adopted)", "source": "docs/ZX_SPECTRUM.md"}
+    ],
+    "sg1000": [
+      {"title": "Flicky", "category": "mid-frame-writes", "reason": "Rewrites its colour and pattern tables while the picture is being drawn and puts more than four sprites on a line: the frames that break are the same in MAME (27 November 2026)", "source": "docs/SG1000.md"},
+      {"title": "Congo Bongo", "category": "region", "reason": "Converted as PAL from the (Europe) tag of its name: the 50 Hz path of the panel", "source": "docs/SG1000.md"},
+      {"title": "Champion Baseball", "category": "large-cartridge", "reason": "40 KiB cartridge, past the 32 KiB window most of the library stays within", "source": "docs/SG1000.md"},
+      {"title": "Hang-On II", "category": "route-depth", "reason": "One of the panel's 18,000-frame routes: alive to its end with no interpreted step", "source": "docs/SG1000.md"}
+    ],
+    "coleco": [
+      {"title": "Ken Uston's Blackjack-Poker", "category": "keypad", "reason": "Played on the keypad: its play route showed 7 pictures until the walk ended with a keypad tour (56)", "source": "docs/COLECOVISION.md"},
+      {"title": "Bump 'N' Jump", "category": "sprite-limit", "reason": "Starts from the keypad; redraws the playfield during display and puts five to eight sprites on a line when it jumps, as in MAME (27 November 2026)", "source": "docs/COLECOVISION.md"},
+      {"title": "2010 - The Graphic Action Game", "category": "guarded-code", "reason": "A 32 KiB cartridge with the most steps run through byte guards on the panel", "source": "docs/COLECOVISION.md"},
+      {"title": "Donkey Kong", "category": "regression-baseline", "reason": "The first ColecoVision cartridge converted and the first delivered: the game-select screen of the BIOS, then play, with sound after about fifteen seconds", "source": "docs/COLECOVISION.md"}
     ]
   }
 }

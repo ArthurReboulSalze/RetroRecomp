@@ -1,6 +1,6 @@
-"""Sega SG-1000 profile (experimental, developer only, in development: see docs/SG1000.md).
+"""Sega SG-1000 profile (supported, on the owner's acceptance of 27 November 2026: see docs/SG1000.md).
 
-Stages 1 to 3 of the machine: the profile recognises a cartridge (a .sg, or a .bin, .rom or ZIP chosen as SG-1000 or kept in a folder named
+The profile recognises a cartridge (a .sg, or a .bin, .rom or ZIP chosen as SG-1000 or kept in a folder named
 sg1000), reads it (2 KiB to 48 KiB, plain ROM), translates it, checks it against the reference interpreter and builds and delivers a game
 executable (retrorecomp/sg1000_conversion.py; the player is native/sg1000_machine/sg1000_player.c on the host kit). What it is: the SG-1000 and SG-1000 II cartridges, translated ahead of time by the shared banked Z80 chain
 (retrorecomp/z80_chain.py) on the machine's own description below (eight 8 KiB regions of the cartridge space, no wait state on the M1
@@ -40,11 +40,9 @@ class Sg1000Profile(SystemProfile):
     archived_rom_limits = (('.sg', 0xC000),)
     export_folder = 'SG-1000'
     video_modes = ('ntsc', 'pal')
-    status = 'experimental'
-    # Stages 1 to 3: it identifies files and converts cartridges for developers. Offered by installations that carry its profile, as the X68000 is.
-    developer_only = True
-    linux = 'pending'
-    scope_note = ('SG-1000 and SG-1000 II cartridges of 2 to 48 KiB, plain ROM only; in development, converts for developers only (no player is offered it yet, no game has been played); '
+    status = 'supported'
+    linux = 'witnessed'                    # five games of the two panels converted in WSL equal to Windows (docs/QUALIFICATION.md, 22 November 2026)
+    scope_note = ('SG-1000 and SG-1000 II cartridges of 2 to 48 KiB, plain ROM only; '
                   'no SC-3000 (keyboard, BASIC, cassette), no Othello Multivision, Terebi Oekaki, Dahjee or other peripherals or boards')
     # The machine has one processor; the sound chip and the video chip are chips of our own C, not CPUs.
     cpus = (Cpu('z80', 'main', 'cycles'),)

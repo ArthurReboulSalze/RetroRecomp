@@ -771,6 +771,17 @@ hide (Bump 'N' Jump draws cars over its status line).
 stages the new piece); the game stamps of the SG-1000, the ColecoVision, the Master System, the Game Gear, the MSX, the MSX2 and the MSX2+
 move (the video chip's files, `shares:tms9918`, and the option's); no quick state changes.
 
+## SG-1000 and ColecoVision: supported (next release)
+
+Both profiles move from `experimental`, developer only, to **`supported`** (the owner's G14 of 27 November 2026, [QUALIFICATION.md](QUALIFICATION.md)):
+every installation lists them, the Linux converter takes them (`linux = 'witnessed'`), and the interface notes, the scan note and the delivery note of a
+report say so in the eight languages. What a conversion does is unchanged: the same translation, checks, player and routes.
+
+- **Stamps:** only the **game stamps of `sg1000` and `coleco`** move (their profile and conversion modules); no host or build stamp, and no other
+  machine's. No release carried these two machines, so no player's export is concerned; the maintainer's own exports reconvert once.
+- Paths are not shared (G16 `-`). Their runtime-feedback kinds (29 and 30) are reserved by [the shared change](#every-machine-feedback-kinds-28-to-31-reserved-for-the-zx-spectrum-sg-1000-colecovision-and-amstrad-cpc-next-release); nothing is recorded under them.
+- `tools/campaign.py` reads the ColecoVision's ROM folder as `colecovision`, and `tools/campaign-risk-cases.json` lists four cases for each machine.
+
 ## Z80 chain (MSX family, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC): no bound on the code learned from RAM, and the reports count windows and bodies apart (next release)
 
 The chain kept at most 4,096 windows twice over, and kept none of it quietly. A headless run learned at most 4,096 windows

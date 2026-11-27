@@ -122,7 +122,7 @@ class ReportShapeTests(unittest.TestCase):
 
     def test_the_delivery_note_keeps_the_five_measures_apart(self):
         note = coleco_conversion.DELIVERY_NOTE
-        self.assertIn('developer only, experimental', note)
+        self.assertIn('for its owner only: it holds the BIOS you gave', note)
         self.assertIn('no player has played it', note)
         self.assertIn('for its owner only', note)                                        # it holds the player's BIOS
         for measure in ('hardware', 'gameplay', 'latency'):
@@ -283,7 +283,7 @@ class EndToEndTests(AuthoredBiosCase):
             output = Path(folder) / 'out'
             report = json.loads((output / 'conversion-report.json').read_text(encoding='utf-8'))
             self.assertEqual(report['system']['id'], 'coleco')
-            self.assertEqual(report['status'], 'experimental')
+            self.assertEqual(report['status'], 'supported')
             self.assertEqual(report['coleco_checks']['standard'], 'pal')
             self.assertEqual(report['coleco_checks']['bios'], {'sha256': BIOS_SHA256, 'bytes': 8192, 'origin': 'player'})
             self.assertEqual(report['bios'], {'sha256': BIOS_SHA256, 'bytes': 8192, 'origin': 'player'})        # where the lobby reads firmware

@@ -1,4 +1,4 @@
-"""SG-1000 conversion (experimental, developer only): a cartridge translated by the banked Z80 chain, checked against the reference
+"""SG-1000 conversion: a cartridge translated by the banked Z80 chain, checked against the reference
 interpreter, built into a game. MIT, Retro-Recomp.
 
 The steps: read the cartridge (sg1000_rom.py, plain ROM of 2 to 48 KiB); choose how the `play` route starts on the reference
@@ -26,7 +26,7 @@ LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_
                                         'distinct_program_counters')}
 WATCH = (0xC000, 0xC001)         # the first RAM bytes: what a program keeps there is compared too
 PAL_TAGS = re.compile(r'\((?:[^)]*[ ,])?(?:Europe|Australia|PAL)\b[^)]*\)', re.I)
-DELIVERY_NOTE = ('a game executable is delivered (developer only, experimental): the translated cartridge with the SG-1000 player and the '
+DELIVERY_NOTE = ('a game executable is delivered: the translated cartridge with the SG-1000 player and the '
                  'host kit; the file delivered was replayed headless on every route and equals the reference interpreter and the native '
                  'check on every compared field and every frame row; no player has played it, and nothing is claimed about the hardware, '
                  'the gameplay or the latency')

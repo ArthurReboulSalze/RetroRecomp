@@ -21,10 +21,10 @@ def cartridge(size: int, fill: int = 0xC3) -> bytes:
 
 
 class ProfileTests(unittest.TestCase):
-    def test_the_profile_states_what_stage_one_is(self):
+    def test_the_profile_states_a_supported_machine(self):
         self.assertIs(get_profile('sg1000'), SG1000)
         self.assertEqual((SG1000.name, SG1000.status, SG1000.developer_only, SG1000.linux),
-                         ('SG-1000', 'experimental', True, 'pending'))
+                         ('SG-1000', 'supported', False, 'witnessed'))
         self.assertEqual((SG1000.extensions, SG1000.export_folder, SG1000.video_modes), (('.sg',), 'SG-1000', ('ntsc', 'pal')))
         self.assertEqual([(cpu.arch, cpu.role, cpu.unit) for cpu in SG1000.cpus], [('z80', 'main', 'cycles')])
         self.assertEqual((SG1000.firmware, SG1000.option_keys, SG1000.netplay_session, SG1000.feedback_kinds),
