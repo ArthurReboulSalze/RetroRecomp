@@ -244,6 +244,11 @@ RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.js
 # tests/test_stamp_inputs.py fails for a tracked file in those folders that is neither
 # listed in INPUTS nor declared here.
 NOT_INPUTS = (
+    # The converter's CHD reader (retrorecomp/chd_native.py builds it with the converter's toolchain): it runs in the converter
+    # only and no game compiles it. What it gives a game, a CHD's sectors, is checked hunk by hunk against the CRC of the CHD's map
+    # and is already in the game key (the disc's digest) and in the packed game's bytes; listed as a game input it moved the
+    # PlayStation's simulation identity (its engine files) without changing any game.
+    'native/chd_sectors/chd_sectors.c',
     'assets/Retro-Recomp-banner.png', 'assets/Retro-Recomp-consoles.png',
     'assets/RetroRecomp-UI-JP.otf', 'assets/RetroRecomp-UI-SC.otf', 'assets/board-',
     # Discord's white symbol on the toolbar's Discord button (gui_icons.discord_picture): read by the interface only.
@@ -1238,7 +1243,6 @@ INPUTS = _resolve({
         'retrorecomp.psx_knowledge',
         'retrorecomp.psx_pack',
         # the converter's CHD reader (libchdr, the PC Engine CD's pin): a CHD's sectors for the game key and the disc pack
-        'native/chd_sectors/chd_sectors.c',
         'retrorecomp.chd_native',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four

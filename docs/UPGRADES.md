@@ -353,6 +353,41 @@ passed. The kept files of each build are equal, but `runtime_feedback.h` itself 
 (`console16_state.state_layout_files`), this header included, so it moves. It had already moved this release
 (`native/banked_emitter.inc` changed since v1.9.1), so this change refuses no further state. The other machines' keys do not hash
 this header. **Hot path:** unchanged (no new call).
+## Sony PlayStation: CHD discs are read (next release)
+
+A player's question on Discord (« Is it possible to support the CHD format in the future? »), Arthur's go of 27 November 2026 for
+this release. A PlayStation disc in a CHD image (MAME's compressed CD format, versions 4 and 5, any of its codecs: LZMA, Deflate,
+FLAC for the audio tracks, Zstandard) converts like the CUE/BIN set it was made from ([PLAYSTATION.md](PLAYSTATION.md#1-what-is-converted)).
+
+- **The converter decodes the disc; the game does not change.** The track table and the identity's first sectors are read by the
+  pure-Python reader the PC Engine CD already had, moved to a shared module (`retrorecomp/cd_chd.py`, from `pcecd_chd.py`, with raw
+  Mode 2 tracks and `layout()`, the one numbering of a CHD's sectors both machines use). A whole disc and any FLAC or Zstandard hunk
+  are decoded by libchdr (BSD-3-Clause, the PC Engine CD's pinned revision), built once with the converter's own toolchain as a
+  small helper (`native/chd_sectors/chd_sectors.c`, `retrorecomp/chd_native.py`) and never part of a game. The disc's raw sectors
+  go into the game's disc pack behind a CUE sheet of its own geometry, as for a CUE/BIN set; the game holds the decoded disc (as
+  large as the BIN files), not the CHD.
+- **A CHD is claimed by what its disc holds.** `.chd` is shared with the PC Engine CD (identify order 60, then 61): a CHD without a
+  PlayStation volume is left to it (its 42 CHDs on the test library are all still recognised as PC Engine CD discs).
+
+**Same game whatever the container** (27 November 2026, CHDs made with MAME 0.289's chdman from five CUE/BIN sets of the test
+library: Soul Blade, WipEout 2097, also with `-c cdzs`, Destruction Derby 2, Tomb Raider 2 with its 60 audio tracks):
+
+- Every CHD gives its CUE/BIN set's identity, geometry, digest (the game key: duplicates, the library, shared paths, a multiplayer
+  session) and CUE sheet for the core, on Windows and in WSL Debian 13 (the same digests on both).
+- Converted (Windows, an empty library and work folder each, the CHD named like its sheet): Soul Blade, WipEout 2097 and Destruction
+  Derby 2 give the same game key, routes (traces, native counts, 0 interpreted), reference traces, F8/F9 check, simulation identity,
+  export receipts (game, host) and **a byte-identical exported game** (577, 752 and 685 MB). WSL: WipEout 2097 converted from its CUE/BIN copy and from its CHD gives the same key, routes (the same native
+  counts as on Windows), reference traces, states, simulation identity, receipts and a byte-identical Linux game (757 MB).
+- The PC Engine CD reads as before: `describe().metadata()` of its 42 CHDs (versions 4 and 5) identical before and after the move,
+  `tests.test_pcecd_disc` and `tools/pcecd_disc_selftest.py` (Ys III, version 5; Dracula X, version 4) pass; reviewed by its
+  specialist.
+
+**Stamps:** the PlayStation game stamp (`psx_disc.py`, `psx_pack.py`, `systems/psx.py`, the new `chd_native.py`) and the PC
+Engine CD game stamp (`psx_disc.py` and `cd_chd.py`, shared). The helper's source (`native/chd_sectors/chd_sectors.c`) is declared
+out of the stamps: it runs in the converter only, and what it gives a game is in the game key and the packed bytes; so the
+simulation identity of both machines (the multiplayer check) does not move. No game file changes: a
+game converted before and after this change is the same file ({LEGACY_LINE}), so the previous game stamps of both machines can be
+listed as upgradable (`LEGACY_GAME_STAMPS`, at the release). No host or build stamp, no quick-state key moves.
 
 ## Game Boy Color: the F1 help offers no palette key (1.10.0)
 
