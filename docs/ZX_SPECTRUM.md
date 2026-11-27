@@ -207,6 +207,31 @@ This is agreement with a second emulator (G11 `P`), not hardware proof.
       half-row, no Kempston and no player 2. The speeds are those above.
 
     The pad path is pinned by `tests/test_zx_spectrum.py` (the adapter's table is the routes' table, one key a direction).
+  - **A second, adversarial pass** (27 November 2026, on the owner's word that right stayed faster in flight). A scratch build
+    of the delivered game played three sessions of 6,500 frames with a virtual left stick (random holds while the ball is high,
+    tracking when it comes down). Over 15,633 logged frames:
+
+    | Ball in play | Stick left | Stick right |
+    |---|---|---|
+    | left of the paddle's centre | mean 6.2 pixels a frame, up to 17 (1,195 frames) | 2 pixels a frame, always (1,462 frames) |
+    | right of the paddle's centre | 2 pixels a frame, always (2,383 frames) | mean 6.3 pixels a frame, up to 15 (1,128 frames) |
+
+    The fast side is under 4 pixels on 2 to 5 % of its frames, when the ball has just crossed the centre. The ball's height
+    changes nothing. The same sessions show:
+    - the move routine runs once a frame: one read of each key port in each of the 14,828 play frames, and the paddle never
+      moves by anything but its stored speed;
+    - the stick presses key 1 or key 2 alone, on every frame.
+
+    Three things that could have made this ours were ruled out:
+    - **The start phase.** Nine start T-states from 0 to 69,000 give the same paddle and ball on every frame: the snapshot waits
+      in the ROM's `PAUSE` (a `HALT`), so the first interrupt aligns it.
+    - **The snapshot.** It is a `.z80` version 2 of the 48K original, saved in BASIC before the game starts, with no trainer.
+    - **The frame sync.** The loop at 848Fh waits for the paper, then for four idle reads of the floating bus in a row, and
+      returns once a frame.
+
+    Independent sources say the same of the original: a 2018 Retro Video Gamer review describes the bat's speed « depending on
+    how far away you were from the ball », and Sinclair User (April 1987) says the ball flies up by itself « after a couple of
+    seconds ». No real Spectrum was used here.
   - **The first build ran twice as fast.** Our first build moved the paddle twice as fast (4 a frame in flight, 4 left and 9,
     13, 17 … right at rest): the floating bus was sampled one T-state early and the game ran its loop twice a frame (section
     5); fixed on 27 November.
