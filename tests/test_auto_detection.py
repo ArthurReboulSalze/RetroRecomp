@@ -112,6 +112,15 @@ class ContentWinsOverExtensionTests(AutoDetectionCase):
         self.assertEqual(self.detect(self.make('msx2+/c.rom', msx_cartridge())), 'msx2plus')
 
 
+    def test_an_msx_game_with_text_over_its_header_fields_is_still_an_msx_cartridge(self):
+        # Hydlide 3 spells its name over STATEMENT, DEVICE, TEXT and the reserved bytes: 76 of the 77 MSX1 games of the owner's
+        # msx1 folder that a stricter sniff refused were of this kind.
+        data = bytearray(msx_cartridge() * 2)
+        data[4:16] = b'HYDLIDE3MSX2'
+        self.assertEqual(self.detect(self.make('any/hydlide.rom', bytes(data))), 'msx')
+        self.assertEqual(self.detect(self.archive('msx1/hydlide.zip', {'hydlide.rom': bytes(data)})), 'msx')
+
+
 class FolderHintTests(AutoDetectionCase):
     """A cartridge with no header of its own is claimed by a folder name, never by its bytes alone."""
 

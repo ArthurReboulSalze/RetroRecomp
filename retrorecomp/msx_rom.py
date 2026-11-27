@@ -177,18 +177,6 @@ def guess(image: bytes) -> Guess:
 MAX_CARTRIDGE = 0x200000      # 2 MiB: the largest MegaROM the first scope reads
 
 
-def _pointers_fit(image: bytes, offset: int) -> bool:
-    """A credible "AB" header at `offset`: at least one routine pointer (INIT, STATEMENT, DEVICE, TEXT), every one either
-    zero or inside the cartridge window its page allows (0000h-BFFFh), and the six reserved bytes after them zero or FFh."""
-    if image[offset:offset + 2] != b'AB':
-        return False
-    pointers = [int.from_bytes(image[offset + 2 + 2 * i:offset + 4 + 2 * i], 'little') for i in range(4)]
-    if not any(pointers) or any(p >= 0xC000 for p in pointers):
-        return False
-    reserved = image[offset + 10:offset + 16]
-    return reserved in (bytes(6), b'\xFF' * 6)
-
-
 def system_rom(image: bytes) -> str | None:
     """What kind of MSX system ROM an "AB"-headed image is, or None for a cartridge to play. A player's BIOS folder holds
     them beside the main ROMs, and their header is a cartridge's:
@@ -217,22 +205,22 @@ def system_rom(image: bytes) -> str | None:
 
 
 def looks_like_cartridge(image: bytes) -> bool:
-    """The bytes of a .rom are an MSX cartridge: 8 KiB to 2 MiB, whole kilobytes, and an "AB" header at the start (or at
-    4000h of an image whose first page belongs to the game), and not a system ROM (system_rom). Asked after the other
-    machines' sniffers, which recognise their own headers first."""
-    size = len(image)
-    if not 0x2000 <= size <= MAX_CARTRIDGE or size % 0x400:
-        return False
-    if not (_pointers_fit(image, 0) or (size >= 0x8000 and _pointers_fit(image, 0x4000))):
-        return False
-    return system_rom(image) is None
+    """The bytes of a .rom are an MSX cartridge: what the BIOS itself needs of one (has_header: 8 KiB to 2 MiB, whole
+    kilobytes, an "AB" header at the start or at 4000h with an INIT pointer below C000h), and not a system ROM
+    (system_rom). Asked after the other machines' sniffers, which recognise their own headers first. It used to demand more
+    (every pointer below C000h and the reserved bytes zero or FFh): 76 of 77 MSX1 ROMs that a player's msx1 folder holds and
+    this refused were real games (Hydlide 3 and others write text over those fields), and no other machine's file in the
+    owner's library, firmware included, passes the BIOS rule (audit of 27 November 2026)."""
+    return has_header(image) and system_rom(image) is None
 
 
 def has_header(image: bytes) -> bool:
     """What the BIOS itself reads of a cartridge already known to be the MSX's (a .mx1/.mx2, a file chosen as MSX or found in
-    an MSX folder): 8 KiB to 2 MiB, whole kilobytes, "AB" at the start (or at 4000h) and an INIT or TEXT pointer below
-    C000h. Some games put text in the other header fields (Hydlide 3 spells its name over them), which the strict sniff of
-    looks_like_cartridge refuses."""
+    an MSX folder): 8 KiB to 2 MiB, whole kilobytes, "AB" at the start (or at 4000h) and an INIT pointer below C000h (with no INIT,
+    a TEXT one). Nothing else is read: some games put text in the other header fields (Hydlide 3 spells its name over them), and
+    some ports (Beam Rider, H.E.R.O., River Raid...) carry a small INIT of 10h or 160h. A header with a STATEMENT pointer only is a
+    BASIC extension, which starts nothing. A header found at 4000h of a larger image must point into 4000h-BFFFh, which keeps ASCII
+    that begins with "AB" out (the Commander X16's ROM has "ABC/X16" at 4000h)."""
     size = len(image)
     if not 0x2000 <= size <= MAX_CARTRIDGE or size % 0x400:
         return False
@@ -241,7 +229,8 @@ def has_header(image: bytes) -> bool:
             continue
         init = int.from_bytes(image[offset + 2:offset + 4], 'little')
         text = int.from_bytes(image[offset + 8:offset + 10], 'little')
-        if 0 < init < 0xC000 or (not init and 0 < text < 0xC000):
+        low = 0x4000 if offset else 1
+        if low <= init < 0xC000 or (not init and low <= text < 0xC000):
             return True
     return False
 
