@@ -389,6 +389,35 @@ class RouteTests(unittest.TestCase):
         self.assertFalse(any(event[0] == 'key' and (event[2], event[3]) in directions_only for event in kempston))
         self.assertTrue(all(0 <= event[2] <= 0x1F for event in kempston if event[0] == 'kempston'))
 
+    def test_the_players_pad_presses_the_routes_keys_one_key_a_direction(self):
+        # The pad path of a delivered game (hostkit/adapters/rrhk_zxs.inc): the kit's pad word, where the left stick and the d-pad
+        # are the same direction bit, becomes the keys of the interface the snapshot was saved for, or the Kempston port. It must
+        # be the table the routes drive (zxs_routes.PAD_KEYS, KEMPSTON_BIT): the games were compared with MAME 0.289 on those
+        # keys, and the owner plays on the pad. Each direction is one key and no shift: Arkanoid's paddle is faster towards the
+        # ball (the game's code, 27 November 2026, ZX_SPECTRUM.md section 6b), not from a second key pressed on one side.
+        import re
+        from retrorecomp import zxs_routes as routes
+        from retrorecomp.zxs_snapshot import JOYSTICKS
+        source = (Path(__file__).resolve().parents[1] / 'native/hostkit/adapters/rrhk_zxs.inc').read_text(encoding='utf-8')
+        kinds = re.search(r'enum \{ (Z_PAD_CURSOR, [^}]*) \};', source).group(1).split(', ')
+        self.assertEqual(kinds, ['Z_PAD_' + name.upper().replace('-', '_') for name in JOYSTICKS])   # the image's joystick byte
+        body = re.search(r'static void z_pad_on_keys\(.*?\n\}', source, re.S).group(0)
+        slot = {name: int(index) for name, index in re.findall(r'Z_BIT\(Z_(LEFT|RIGHT|DOWN|UP)\)\) z_press\(held, k\[(\d)\]\)', body)}
+        slot['FIRE'] = int(re.search(r'Z_BIT\(Z_FIRE2\)\)\) z_press\(held, k\[(\d)\]\)', body).group(1))
+        self.assertEqual(sorted(slot.values()), [0, 1, 2, 3, 4])
+        for joystick in ('cursor', 'sinclair-left', 'sinclair-right'):
+            row = re.search(r'\[Z_PAD_%s\] = \{([^}]*)\}' % joystick.upper().replace('-', '_'), source).group(1)
+            keys = [(int(r), int(b)) for r, b in re.findall(r'Z_KEY\((\d), (\d)\)', row)]
+            self.assertEqual(len(set(keys)), 5, joystick)
+            self.assertEqual({what: keys[slot[what.upper()]] for what in routes.PAD_KEYS[joystick]}, routes.PAD_KEYS[joystick], joystick)
+            self.assertFalse({(0, 0), (7, 1)} & set(keys), joystick)                     # CAPS SHIFT, SYMBOL SHIFT
+        bits = {name.lower(): int(value, 16) for name, value in re.findall(r'Z_KEMPSTON_(RIGHT|LEFT|DOWN|UP|FIRE) = 0x([0-9A-F]{2})', source)}
+        self.assertEqual(bits, routes.KEMPSTON_BIT)
+        kempston = re.search(r'static uint8_t z_kempston\(.*?\n\}', source, re.S).group(0)
+        for what in ('RIGHT', 'LEFT', 'DOWN', 'UP'):
+            self.assertIn(f'(pad & Z_BIT(Z_{what})) ? Z_KEMPSTON_{what} : 0', kempston)
+        self.assertIn('(pad & (Z_BIT(Z_FIRE) | Z_BIT(Z_FIRE2))) ? Z_KEMPSTON_FIRE : 0', kempston)
+
     def test_the_script_is_the_text_the_headless_programs_read(self):
         from retrorecomp import zxs_routes as routes
         text = routes.script([('kempston', 920, 0x11), ('key', 150, 6, 0, 1), ('key', 156, 6, 0, 0)])
