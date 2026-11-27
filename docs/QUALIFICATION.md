@@ -75,7 +75,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Commodore Amiga 1200 | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
-| ZX Spectrum | experimental | `███████░░░` 67 % | ✅ 8 · 🟡 4 · ❔ 3 |
+| ZX Spectrum | experimental | `███████░░░` 70 % | ✅ 8 · 🟡 5 · ❔ 2 |
 | PC Engine CD / TurboGrafx-CD | experimental | `████░░░░░░` 43 % | ✅ 0 · 🟡 13 · ❔ 2 |
 | SG-1000 | experimental | `████████░░` 82 % | ✅ 10 · 🟡 3 · ❔ 1 |
 | Game Boy Color | experimental | `███████░░░` 69 % | ✅ 8 · 🟡 6 · ❔ 2 |
@@ -96,7 +96,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G8 Liveness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G9 Route depth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | ✅ | 🟡 | ✅ | ✅ |
 | G10 CPU vectors | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ |
-| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
+| G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ |
@@ -126,7 +126,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+, zxs = ZX Spect
 | G8 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | Y | Y | Y | Y |
 | G9 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | ? | Y | P | Y | Y |
 | G10 | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | P | P | P | P | P | Y | Y | Y | P | Y | P | Y | P | Y | Y |
-| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | ? | P | P | P | P | ? |
+| G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | P | P | P | P | P | ? |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | Y |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | ? | ? | ? | ? |
@@ -220,6 +220,31 @@ The page of each console, which the README links its line to (a console of the m
   steps on the first): a received path would save that second pass (about 13 to 16 s of learning) on those two and add no native
   instruction; whether that gain is worth sharing is the maintainer's to decide. **G14 `?`**: the owner's, with the checklist of
   the six delivered games. Not claimed: hardware fidelity, gameplay validation, physical latency.
+- ZX Spectrum, G11 (27 November 2026; branch `spec/zx-g11` on main f63e259b, Windows; MAME 0.289 as a private oracle, never in a
+  game; the matrix reading is the specialist's, the lead merges): **G11 moves from `?` to `P`**. No hardware was used: this is
+  agreement with a second emulator. The eight panel games were replayed in MAME 0.289 from the same snapshots, with the same
+  routes and the same peripherals (a Kempston, the idle Fuller box). The paper was compared on every frame of the 2,100-frame
+  play route (our frame f is MAME's picture f+1).
+  - Manic Miner: 2,043 of 2,099 frames identical.
+  - Match Day II: identical from frame 1,082 to the end; the 18 frames that differ are all in its menus.
+  - Head over Heels (128K paging and the AY): 1,958 of 2,098 frames identical.
+  - Elite stops in MAME too. It halts with interrupts disabled at the same instruction, with the same registers, and the RAM is
+    byte-identical at frame 300: the stop is the snapshot's, not our machine's.
+  - Robocop: pixel-identical through its menus and in many play frames; held left behaves the same.
+  - Arkanoid: its paddle matches MAME frame by frame. This comparison found our only real error: the floating bus was sampled
+    one T-state early, and it is fixed (ZX_SPECTRUM.md, section 5).
+  - The other frames that differ do so by 1 to 92 pixels in one or two rows, never more than three frames in a row. We draw each
+    paper row at the end of its line, so a byte written while the beam passes shows a line later than in MAME. This was traced on
+    one frame (Jetpac, frame 168: the same writes in the same order).
+
+  Two differences are recorded and **not adopted**:
+  - The start phase of a snapshot that does not give one. A `.z80` v1 carries no T-state, and we start at the end of the
+    interrupt. Jetpac seeds its random numbers from the R register: with MAME's R advanced by 114, it is identical on 1,610 of
+    2,099 frames; without that, it parts at frame 368.
+  - The Hobbit makes a different random choice at frame 709. A seed in RAM differs from the start key at frame 150, and no start
+    phase of ours from 0 to 480 T-states (step 8) reproduces MAME's.
+
+  Not claimed: hardware fidelity, gameplay validation, physical latency.
 
 - Atari ST (6 to 9 November 2026; experimental profile of 1.7.1, raised on the branch of 1.7.2): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every conversion. G3 `P`:
