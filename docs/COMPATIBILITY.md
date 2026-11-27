@@ -294,10 +294,12 @@ against the reference interpreter on the routes played (only native code and tha
 fidelity, gameplay validation and physical latency are unknown, and none is claimed). No player is offered it and no game has been played. A file it cannot hold (larger than 32 KiB, or another board) is refused with a sentence. The Super Action Controller,
 the roller and driving modules, the Super Game Module and the homebrew boards are out of scope ([COLECOVISION.md](COLECOVISION.md#1-what-is-converted-and-what-is-not)).
 
-The **Amstrad CPC** profile (`cpc`) is in development (experimental, not offered yet; [status](AMSTRAD_CPC.md)): it recognises CPC 6128
-disk images (`.dsk`, standard or extended, or a ZIP holding one) and refuses them with that reason; nothing is converted yet. Its games
-will run on the CPC 6128's system ROM and AMSDOS, fetched from a pinned, hash-checked source under Amstrad's permission for emulators, or
-your own if you choose them in Options.
+The **Amstrad CPC** profile (`cpc`) is experimental and developer-only ([status](AMSTRAD_CPC.md)): it recognises CPC 6128 disk images
+(`.dsk`, standard or extended, or a ZIP holding one) and converts them on a development tree; the packaged converter offers it to no
+player yet and refuses such a disk with that reason. Its games run on the CPC 6128's system ROM and AMSDOS, fetched from a pinned,
+hash-checked source under Amstrad's permission for emulators, or your own if you choose them in Options. A game that writes on its disk
+keeps a copy of it beside the game. Not converted: tapes and snapshots, the CPC 464's firmware, the Plus range and the GX4000; a game
+on several disks plays its first disk only (no disk swap yet).
 
 ## Local game regression set
 

@@ -50,6 +50,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [MSX2+](MSX.md#9-the-msx2-msx2plus) | none | main | none | none | none |
 | [SG-1000](SG1000.md) (experimental, developer only) | none | main | none | none | none |
 | [ColecoVision](COLECOVISION.md) (experimental, developer only) | none | main | none | none | none |
+| [Amstrad CPC](AMSTRAD_CPC.md) (experimental, developer only) | none | main | none | none | none |
 | *Processor page* | [CPU_68000.md](CPU_68000.md) | [CPU_Z80.md](CPU_Z80.md) | [CPU_6502.md](CPU_6502.md) | [CPU_SM83.md](CPU_SM83.md) | [CPU_65816_SPC700.md](CPU_65816_SPC700.md) |
 
 The PC Engine (HuC6280), the Game Boy Advance (ARM), the Nintendo 64 (VR4300) and the Sony PlayStation (R3000A) have no processor page yet: their processor
@@ -130,6 +131,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **ZX Spectrum** — [ZX_SPECTRUM.md](ZX_SPECTRUM.md) (experimental and in development from 21 November 2026: snapshots identified, nothing converted yet; scope, route, the Amstrad ROMs, the panel).
 - **SG-1000** — [SG1000.md](SG1000.md) (experimental, developer only, stage 3: cartridges are converted into a game executable for developers, no player is offered it; scope, the five measures, licences).
 - **ColecoVision** — [COLECOVISION.md](COLECOVISION.md) (experimental, developer only, stage 3: cartridges are converted with your own BIOS into a game executable for developers, no player is offered it; scope, the BIOS, the five measures, licences).
+- **Amstrad CPC** — [AMSTRAD_CPC.md](AMSTRAD_CPC.md) (experimental, developer only: CPC 6128 disk games converted for developers on the 6128's firmware, no player is offered it; scope, the firmware, the five measures, the panel, multiplayer, the optimisation plan).
 - **Adventure games (ScummVM)** — [SCUMMVM.md](SCUMMVM.md) (a category of its own, supported since 1.7.1: emulated and 0 % native, one executable per game, licences, limits, evidence).
 
 ## Running the project
