@@ -9,6 +9,8 @@ static const Uint8 *mock_keyboard(int *size) {if(size)*size=SDL_NUM_SCANCODES;re
 #include "hostkit/shell/rrhk_input.c"
 #include "hostkit/adapters/rrhk_ng.c"
 #include "neogeo_input.h"
+#define RRHK_STUBS_LINK_RETRO_MENU 1     /* this check links retro_menu.c */
+#include "hostkit_shell_stubs.h"  /* tools/: the rest of the shell, shared with the autofire check */
 static uint32_t test_pixels[320*224];
 RrNgFixMask rr_ng_fix_mask;   /* the adapter's view reads the detector the engine owns */
 bool rr16_init(bool h) {(void)h;return true;}
@@ -49,16 +51,26 @@ void rr_ng_test_json(FILE *file,const char *text) {fprintf(file,"\"%s\"",text?te
 /* The adapter names these services of the shell; this check never runs the loop or the menus. */
 int rrhk_main(const RrhkMachine *machine,const char *title,int scale) {(void)machine;(void)title;(void)scale;return 0;}
 void rrhk_option_row(RrhkOptionRows *rows,int key,const char *format,const char *value) {(void)rows;(void)key;(void)format;(void)value;}
-void rrhk_notice(const char *text,Uint64 milliseconds) {(void)text;(void)milliseconds;}
 void rrhk_menu_line(const RrhkMenuCtx *ctx,int y,const char *text) {(void)ctx;(void)y;(void)text;}
 void rrhk_help_sound_line(const RrhkMenuCtx *ctx,int y) {(void)ctx;(void)y;}
 const RrhkPage rrhk_pointer_page={0};
+/* The Neo Geo's multiplayer hooks the adapter names; no session runs here. */
+size_t rr_ng_snap_bound(void) {return 0;}
+size_t rr_ng_snap_save(void *buffer,size_t capacity) {(void)buffer;(void)capacity;return 0;}
+bool rr_ng_snap_load(const void *buffer,size_t size) {(void)buffer;(void)size;return false;}
+uint64_t rr_ng_digest(void) {return 0;}
+void rr_ng_side_effects(bool allowed) {(void)allowed;}
+void rr_ng_session_clock(uint64_t clock) {(void)clock;}
+size_t rr_ng_session_save(void *out,size_t capacity) {(void)out;(void)capacity;return 0;}
+bool rr_ng_session_save_put(const void *in,size_t size) {(void)in;(void)size;return false;}
+bool rr_ng_session_save_commit(void) {return false;}
 
 int main(void) {
     SDL_SetMainReady();assert(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER));rrhk_bind(rrhk_adapter());rrhk_load_bindings();
     const uint16_t expected[10]={16,32,64,128,256,512,1,2,4,8};unsigned checked=0;
-    assert(!strcmp(rr_keyboard_name(rrhk.keys[0][A]),"W"));
-    assert(!strcmp(rr_keyboard_name(rrhk.keys[0][B]),"X"));
+    /* S D F / E R T by position since 1.7.6 */
+    assert(!strcmp(rr_keyboard_name(rrhk.keys[0][A]),"S"));
+    assert(!strcmp(rr_keyboard_name(rrhk.keys[0][B]),"D"));
     for(int p=0;p<2;++p)for(int a=0;a<10;++a) {
         memset(mock_keys,0,sizeof mock_keys);mock_keys[rrhk.keys[p][a]]=1;
         assert(rrhk_pad_word(p,0)==expected[a]);assert(rrhk_pad_word(!p,0)==0);++checked;

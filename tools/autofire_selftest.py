@@ -105,18 +105,7 @@ const wchar_t *rr_language_wide(int language) {(void)language;return L"en";}
 void rr_language_set(int language) {(void)language;}
 #include "platform_io.c"
 #include "hostkit/shell/rrhk_input.c"
-/* The rest of the shell the input module calls (menu, options, session, notices): no menu is open, no session runs. */
-const char *rr_menu_pad_name(int button) {(void)button;return "";}
-void rrhk_notice(const char *text,Uint64 milliseconds) {(void)text;(void)milliseconds;}
-bool rrhk_options_hidden(int button) {(void)button;return false;}
-void rrhk_combo_restore(bool gamepad) {(void)gamepad;}
-int rrhk_action_row(void) {return -1;}
-bool rrhk_trigger_step(bool down,int value) {(void)down;(void)value;return false;}
-const char *rrhk_crt_style_name(int style) {(void)style;return "";}
-const char *rrhk_lcd_style_name(int style) {(void)style;return "";}
-bool rrhk_session_on;
-uint16_t rrhk_session_port(int port) {(void)port;return 0;}
-void rrhk_session_axes(int port,int16_t axes[RRHK_AXES]) {(void)port;for(int i=0;i<RRHK_AXES;++i)axes[i]=0;}
+#include "hostkit_shell_stubs.h"   /* the rest of the shell, shared with the Neo Geo controls check */
 #define keys rrhk.keys
 #define buttons rrhk.buttons
 #define pads rrhk.pads
@@ -192,7 +181,7 @@ def main():
     systems=('sms','gg','gb','nes','md','snes','ng','cps1')
     for system in systems:(out/(system+'.c')).write_text(source(system),encoding='utf-8')
     cmake,generator=toolchain();sdl=sdl_install()
-    targets='\n'.join(f'add_executable({s} {s}.c)\ntarget_include_directories({s} PRIVATE "{(ASSETS/"native").as_posix()}")\ntarget_link_libraries({s} PRIVATE SDL2::SDL2-static)' for s in systems)
+    targets='\n'.join(f'add_executable({s} {s}.c)\ntarget_include_directories({s} PRIVATE "{(ASSETS/"native").as_posix()}" "{(ROOT/"tools").as_posix()}")\ntarget_link_libraries({s} PRIVATE SDL2::SDL2-static)' for s in systems)
     (out/'CMakeLists.txt').write_text('cmake_minimum_required(VERSION 3.20)\nproject(AutofireChecks C)\nfind_package(SDL2 REQUIRED CONFIG)\n'+targets+'\n')
     log=out/'build.log'
     run([cmake,'-S',out,'-B',out/'build','-G',generator,*cmake_target_args(),f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'],log=log)

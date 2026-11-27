@@ -377,7 +377,7 @@ native/neogeo_ui_test.c native/neogeo_controls_checks.c native/neogeo_fixmask.h 
 native/neogeo_persistence.c native/neogeo_persistence.h native/neogeo_persistence_checks.c
 native/neogeo_path_io.h
 tools/neogeo_persistence_selftest.py
-tools/neogeo_state_selftest.py tools/neogeo_host_selftest.py tools/neogeo_controls_selftest.py
+tools/neogeo_state_selftest.py tools/neogeo_host_selftest.py tools/neogeo_controls_selftest.py tools/hostkit_shell_stubs.h
 tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_native.py
 retrorecomp/cps1.py retrorecomp/cps1_catalogue.py assets/cps1-catalogue.json
 retrorecomp/capcom_catalogue.py retrorecomp/capcom_sets.py tools/mame_driver_parse.py
