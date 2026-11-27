@@ -66,10 +66,10 @@ identifies a `.mx2`, or a `.rom` or ZIP that you choose as MSX2 or that sits in 
 mapper RAM, part of the request); its path section is `z80/msx2`, it uses the shared banked Z80 chain, and its gameplay feedback kind is 27. See
 [MSX](MSX.md#8-the-msx2-msx2).
 
-The **ZX Spectrum** profile (`zxs`, experimental and in development since 21 November 2026, developer-only: no installation lists it yet)
-identifies snapshots of the 16K, 48K and 128K (`.z80` versions 1 to 3 and `.sna`, or a ZIP holding one) and converts nothing yet. It will
-export to `Games/ZX Spectrum`, on the shared banked Z80 chain, with the Amstrad ROMs fetched from a pinned source or your own identical ROM
-(`zxs_rom48`, `zxs_rom128`). Its path section is `z80/zxs` (sources `snapshot` and `rom`), path order 20; its gameplay feedback kind is 28,
+The **ZX Spectrum** profile (`zxs`, supported from the release after 1.9.1; opened on 21 November 2026 as an experimental, developer-only
+profile) converts snapshots of the 16K, 48K and 128K (`.z80` versions 1 to 3 and `.sna`, or a ZIP holding one). It
+exports to `Games/ZX Spectrum`, on the shared banked Z80 chain, with the Amstrad ROMs fetched from a pinned source or your own identical ROM
+(`zxs_rom48`, `zxs_rom128`). It does not share its paths (gate G16 declined on its measure). Its path section is `z80/zxs` (sources `snapshot` and `rom`), path order 20; its gameplay feedback kind is 28,
 reserved with the SG-1000's, the ColecoVision's and the CPC's (nothing is recorded under it yet, as on the MSX). See [ZX Spectrum](ZX_SPECTRUM.md).
 
 The **SG-1000** profile (`sg1000`, experimental and developer only, stage 3 of the machine) identifies a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as

@@ -509,8 +509,8 @@ The ZX Spectrum leaves the experimental status on the owner's decision of 27 Nov
   of the instructions of a long route would become native. Five risk cases join `tools/campaign-risk-cases.json`.
 - **What does not change:** the machine, its native code and its routes. A game converted before and after is the same game.
 - **Known limits, unchanged:** snapshots only (no tapes, +2A, +3 or disks); lines drawn at their end; a snapshot without a frame
-  position starts at the interrupt's end; no player's record of the code reached past the routes
-  ([ZX_SPECTRUM.md](ZX_SPECTRUM.md), section 5).
+  position starts at the interrupt's end; the game records nothing of the code a player reaches past the routes (its
+  runtime-feedback kind, 28, is reserved and the F12 row stays OFF) ([ZX_SPECTRUM.md](ZX_SPECTRUM.md), section 5).
 
 **Stamps**: the ZX Spectrum's game stamp (its profile and its conversion module); nothing else. The machine was developer-only,
 so the only exports are the maintainer's own: a new conversion rebuilds them.

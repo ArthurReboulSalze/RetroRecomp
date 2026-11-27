@@ -55,7 +55,7 @@ class ZxSpectrumProfile(SystemProfile):
                    OptionKey('zxs_rom128', signature=False, kind='path', label='zxs_rom128_label'))
     capabilities = Capabilities(keyboard=True)
     quick_state_family = 'zxs'
-    # The player's window on the host kit (a computer adapter, as the MSX's); no multiplayer hooks yet (step 3).
+    # The player's window on the host kit (a computer adapter, as the MSX's).
     host_adapter = 'adapters/rrhk_zxs.inc'
     # RR_FB_ZXS in native/runtime_feedback.h, reserved with the SG-1000's, the ColecoVision's and the CPC's in one change (1.10.0) so
     # that every machine's stamp moved once. Nothing is recorded under it yet: the game never starts the recorder, as on the MSX.

@@ -130,8 +130,9 @@ without it, and Head over Heels' 8 %.
   inside its own decryption, in MAME 0.289 as here. The conversion still builds the game; its report says the route stopped
   (`route_stop`), and the title never animates. Another snapshot of the same game may run.
 - **Code past the routes stays interpreted, and the game keeps no record of it.** What a player reaches beyond the conversion's
-  routes runs on the interpreter fallback, counted and shown in the game. The Spectrum has no player's record yet (no
-  runtime-feedback kind), so a new conversion does not make that code native. A deeper scan level does (section 6 has the measure).
+  routes runs on the interpreter fallback, counted and shown in the game. Its runtime-feedback kind is 28 (reserved); its games
+  record nothing: the F12 row stays OFF. What a conversion learns comes from its own routes, as on the MSX, so a new conversion
+  does not make that code native. A deeper scan level does (section 6 has the measure).
 - **Paths are not shared between players** (gate G16, declined on its measure: section 6).
 
 ## 6. Qualification
