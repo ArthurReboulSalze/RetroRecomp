@@ -307,7 +307,11 @@ Evidence (22 November 2026, `spec/zx-multiplayer`):
 - `tools/netplay_game_smoke.py` on Manic Miner, two seats, rollback 5, 30 ms of latency with 10 of jitter, 2 % of packets lost,
   the match saved at 600 and loaded at 1,500, restarted at 2,200: 3,000 frames, 50 digests equal on both seats, 133 rollbacks
   (deepest 2), the restart and the save and load on the same frames: PASS.
-- Not done yet: two PCs (the multiplayer specialist's run with the second PC), the owner's play on two PCs. The input delay is
+- Two PCs (27 November 2026, the multiplayer specialist's harness, the same commit dce6c18d on both PCs): Manic Miner ran in
+  both passes of the eight-game run (12 of 12, then 11 of 11 PASS). Each side's log reads « 2 ports »; 50 digests were compared
+  and all are equal; the save, the load and the restart fall on the same frames; rollback. Manic Miner is a one-player game: one
+  seat plays and the other watches.
+- Not done yet: a two-PC run of a Spectrum game with two players, and the owner's own play on two PCs. The input delay is
   counted in frames; physical latency is not measured.
 
 Known limits (22 November 2026):
