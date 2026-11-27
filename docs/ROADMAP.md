@@ -190,8 +190,7 @@ Supported since 1.7.1 as a category of its own, emulated and 0 % native by desig
 
 Six machines close to the hardware already converted are in their study (November 2026), in this order. Each follows the
 playbook of [NEW_MACHINE.md](NEW_MACHINE.md): the study is approved first, then an experimental profile, the qualification
-list, multiplayer and an optimisation pass. Five have left that path and are supported since 1.10.0: the SG-1000, the ColecoVision, the Game Boy Color, the ZX Spectrum and the
-Amstrad CPC; the PC Engine CD is experimental.
+list, multiplayer and an optimisation pass. All six have left that path and are supported since 1.10.0.
 
 | Machine | What is reused | What is new |
 | --- | --- | --- |
@@ -200,7 +199,7 @@ Amstrad CPC; the PC Engine CD is experimental.
 | ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller; done, supported ([COLECOVISION.md](COLECOVISION.md)) |
 | Amstrad CPC | the Z80, the AY sound chip of the MSX | the video, the floppy drive, code loaded from disk; done, supported since 1.10.0 ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)) |
 | ZX Spectrum | the Z80, the AY sound chip (128K) | the video, snapshots first (tapes later); done, supported since 1.10.0 ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)) |
-| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done as an experimental machine (21 November 2026, [PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |
+| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done, supported since 1.10.0 ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).

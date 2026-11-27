@@ -18,9 +18,9 @@
   Game Boy's engine with the colour hardware; MBC1, MBC3 with its clock, MBC5, battery saves, no boot ROM needed. Eight fixes of
   the engine for the Color only; 115 of 116 public Mooneye and blargg test ROMs pass. Not converted: infrared, the tilt sensor,
   the Printer, the Camera, Super Game Boy borders; a rumble cartridge converts, but the pad does not vibrate. Its paths are shared, in the base's experimental tier.
-- **PC Engine CD / TurboGrafx-CD**, experimental **[PLACEHOLDER: supported once spec/pcecd-g11 lands]** ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): CD-ROM² and Super CD-ROM² discs from a CHD (version 4
+- **PC Engine CD / TurboGrafx-CD**, supported ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): CD-ROM² and Super CD-ROM² discs from a CHD (version 4
   or 5), a CUE sheet with its BIN files, or an ISO, with your own System Card 3.0 (checked by its hash, never shipped); one
-  executable holds the disc and the card; backup memory in `datas/saves`. Not converted: the Arcade Card, SuperGrafx,
+  executable holds the disc and the card; backup memory in `datas/saves`. Measured with the Japanese System Card only. Not converted: the Arcade Card, SuperGrafx,
   multi-disc games.
 - **Native code and checks, on their panels**: every panel game reports 0 interpreted instructions on its conversion routes,
   and the native run equals the reference interpreter frame by frame there; code no route reached runs on the counted

@@ -2,13 +2,13 @@
   <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=6c27780690cc" alt="RetroRecomp: the RR cartridge" width="240"><br>
   RetroRecomp
 </h1>
-<p align="center"><strong>Static recompiler for 25 retro consoles and computers. Native Windows &amp; Linux games, a gamepad front-end, and rollback multiplayer for up to 4 players.</strong></p>
-<p align="center">Amstrad CPC · Atari ST · Capcom CPS-1 · Capcom CPS-2 · ColecoVision · Commodore Amiga · Commodore Amiga 1200 · Game Boy · Game Boy Advance · Game Boy Color · Game Gear · Master System · Mega Drive · MSX · MSX2 · MSX2+ · Neo Geo · NES · Nintendo 64 · PC Engine / TurboGrafx-16 · SG-1000 · Sharp X68000 · Sony PlayStation · Super Nintendo · ZX Spectrum · and Adventure (ScummVM)</p>
+<p align="center"><strong>Static recompiler for 26 retro consoles and computers. Native Windows &amp; Linux games, a gamepad front-end, and rollback multiplayer for up to 4 players.</strong></p>
+<p align="center">Amstrad CPC · Atari ST · Capcom CPS-1 · Capcom CPS-2 · ColecoVision · Commodore Amiga · Commodore Amiga 1200 · Game Boy · Game Boy Advance · Game Boy Color · Game Gear · Master System · Mega Drive · MSX · MSX2 · MSX2+ · Neo Geo · NES · Nintendo 64 · PC Engine / TurboGrafx-16 · PC Engine CD · SG-1000 · Sharp X68000 · Sony PlayStation · Super Nintendo · ZX Spectrum · and Adventure (ScummVM)</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/release-1.10.0-d4a737" alt="Release version 1.10.0">
-  <img src="https://img.shields.io/badge/machines-25_%2B_Adventure-626262" alt="Twenty-five machines, and Adventure (ScummVM) as a category of its own">
+  <img src="https://img.shields.io/badge/machines-26_%2B_Adventure-626262" alt="Twenty-six machines, and Adventure (ScummVM) as a category of its own">
   <a href="#play-together-new-in-190"><img src="https://img.shields.io/badge/multiplayer-rollback_%C2%B7_up_to_4_players_%C2%B7_LAN_%26_Internet-2ea44f" alt="Multiplayer: rollback, up to 4 players, on the local network or over the Internet"></a>
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -147,9 +147,8 @@ and its limits are on its page.
 
 ### In development
 
-One machine is still experimental: the **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card), which
-converts a panel of the owner's discs checked against its reference interpreter, multiplayer included ([PC_ENGINE_CD.md](docs/PC_ENGINE_CD.md)).
-**[PLACEHOLDER: this paragraph changes once spec/pcecd-g11 lands]**
+No machine is in development at the moment: the six of November 2026 left the experimental status in 1.10.0, after the owner's
+play test of 27 November 2026.
 
 Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 
@@ -158,7 +157,7 @@ Compatibility depends on the game and the revision; there is no fixed game list.
 code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate
 measures, and native execution alone guarantees neither complete compatibility nor zero latency.
 
-**New in 1.10.0.** Five machines join the supported ones, each with multiplayer: the ZX Spectrum, the SG-1000, the ColecoVision, the Amstrad CPC and the Game Boy Color. F3 gains CRT and LCD looks with their styles, a pad plugged in during play reaches the game, the converter's window answers faster and can delete a game, Linux works on Fedora and Bazzite, and a player without a local base reads the full shared base again ([release notes](docs/RELEASE_NOTES.md)). **[PLACEHOLDER final commit: which exports are converted again]**
+**New in 1.10.0.** Six machines join the supported ones, each with multiplayer: the ZX Spectrum, the SG-1000, the ColecoVision, the Amstrad CPC, the Game Boy Color and the PC Engine CD. F3 gains CRT and LCD looks with their styles, a pad plugged in during play reaches the game, the converter's window answers faster and can delete a game, Linux works on Fedora and Bazzite, and a player without a local base reads the full shared base again ([release notes](docs/RELEASE_NOTES.md)). **[PLACEHOLDER final commit: which exports are converted again]**
 
 **New in 1.9.1.** The automatic sending of discoveries works again after a Game Boy Advance conversion, the leaderboard's podium shows the frames and portrait animations its players equipped, and a Discord button joins the toolbar.
 

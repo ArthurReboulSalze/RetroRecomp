@@ -40,7 +40,7 @@ and `.m3u` disk sets with the player's own IPL and font ROM, and exports to
 The experimental **PC Engine** profile (`pce`, listed since 1.6.9 when the installation carries its native files) identifies `.pce`
 HuCards, or a ZIP holding one (header, bit order and board read from the content), and converts them to Windows games; see
 [PC Engine](PC_ENGINE.md).
-The experimental **PC Engine CD** profile (`pcecd`, listed since 21 November 2026 when the installation carries its native files) identifies a `.chd`, `.cue` or `.iso`
+The **PC Engine CD** profile (`pcecd`, supported since 1.10.0; listed since 21 November 2026 when the installation carries its native files) identifies a `.chd`, `.cue` or `.iso`
 by the boot record of its first data track (never by its extension), converts the disc with the player's own System Card (a file or a folder, checked by its hash) and exports to
 `Games/PC Engine CD`, the disc held by the game; its paths come after the others in the path order (21); see [PC Engine CD](PC_ENGINE_CD.md).
 The **Game Boy Advance** profile (`gba`, supported since 1.7.6, listed since 1.7.0 when the installation carries its native files) identifies `.gba`
