@@ -66,7 +66,7 @@ identifies a `.mx2`, or a `.rom` or ZIP that you choose as MSX2 or that sits in 
 mapper RAM, part of the request); its path section is `z80/msx2`, it uses the shared banked Z80 chain, and its gameplay feedback kind is 27. See
 [MSX](MSX.md#8-the-msx2-msx2).
 
-The **ZX Spectrum** profile (`zxs`, supported from the release after 1.9.1; opened on 21 November 2026 as an experimental, developer-only
+The **ZX Spectrum** profile (`zxs`, supported since 1.10.0; opened on 21 November 2026 as an experimental, developer-only
 profile) converts snapshots of the 16K, 48K and 128K (`.z80` versions 1 to 3 and `.sna`, or a ZIP holding one). It
 exports to `Games/ZX Spectrum`, on the shared banked Z80 chain, with the Amstrad ROMs fetched from a pinned source or your own identical ROM
 (`zxs_rom48`, `zxs_rom128`). It does not share its paths (gate G16 declined on its measure). Its path section is `z80/zxs` (sources `snapshot` and `rom`), path order 20; its gameplay feedback kind is 28,
@@ -85,7 +85,7 @@ ColecoVision or that sits in a folder named `colecovision` (`coleco`, `coleco vi
 its conversion translates the cartridge with the BIOS, checks it against the reference interpreter and delivers a game executable, and it exports to `Games/ColecoVision`. Its path section is `z80/coleco` (sources `rom` and `bios`), path order 24; it uses the shared banked Z80 chain with its own machine
 description (`COLECO_MACHINE`, with the VDP's interrupt on /NMI) and its gameplay feedback kind is 30 (reserved; nothing is recorded under it yet). See [ColecoVision](COLECOVISION.md).
 
-The **Amstrad CPC** profile (`cpc`, experimental and developer-only from 21 November 2026, supported from 27 November 2026) identifies CPC
+The **Amstrad CPC** profile (`cpc`, experimental and developer-only from 21 November 2026, supported since 1.10.0 on the owner's decision of 27 November 2026) identifies CPC
 6128 disk images (`.dsk`, standard or EXTENDED, by their CPCEMU signature, or a ZIP holding one; asked before the MSX2+, which takes every
 other `.dsk`), reads the disk's AMSDOS catalogue for the command that starts the game from BASIC, and exports to `Games/Amstrad CPC`. Its
 firmware options are `cpc_system` (your own 32 KiB system ROM, or its 16 KiB OS and BASIC halves) and `cpc_amsdos` (your own AMSDOS ROM);
@@ -117,7 +117,7 @@ VDP raster is never exposed in this version; see [Game Gear](GAME_GEAR.md).
 The original Game Boy profile uses `gb`, `.gb` input,
 `Export/Games/Game Boy` output, a separate SM83 compiler, a DMG 160 × 144
 runtime and ROM-specific trace memory. Game Boy Color-only ROMs are rejected;
-see [Game Boy](GAME_BOY.md). The Game Boy Color profile (`gbc`, experimental, in development) uses `.gbc` input (and Color-only cartridges in a `.gb` or a ZIP), `Export/Games/Game Boy Color` output, the same compiler in the
+see [Game Boy](GAME_BOY.md). The Game Boy Color profile (`gbc`, supported since 1.10.0) uses `.gbc` input (and Color-only cartridges in a `.gb` or a ZIP), `Export/Games/Game Boy Color` output, the same compiler in the
 colour hardware's model and its own library and paths; see [Game Boy Color](GAME_BOY_COLOR.md).
 The NES profile uses `nes`, `.nes` input, `Export/Games/Nintendo NES` output,
 a separate 6502 compiler, its own verified ROM entry library and PAL/NTSC

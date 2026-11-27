@@ -297,7 +297,7 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
 
-## Game Boy Color: out of experimental, its paths shared (next release)
+## Game Boy Color: out of experimental, its paths shared (1.10.0)
 
 Arthur's G14 of 27 November 2026 (branch `spec/gbc-supported` on main `847f17ed`). The profile is `supported`, Linux `witnessed`. It shares its paths as schema 3 records
 (`retrorecomp/gbc_knowledge.py`, experimental tier of the base, withdrawable; no quick check from received paths): [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md#shared-paths-g16).
@@ -312,7 +312,7 @@ move this release, so no export is converted once more for it. Quick states and 
 **Before the release:** the online service must be told about `gbc` (its limits regenerated from this converter and deployed): a machine shared before the service names it
 has its uploads refused whole.
 
-## Every machine: feedback kinds 28 to 31 reserved for the ZX Spectrum, SG-1000, ColecoVision and Amstrad CPC (next release)
+## Every machine: feedback kinds 28 to 31 reserved for the ZX Spectrum, SG-1000, ColecoVision and Amstrad CPC (1.10.0)
 
 `native/runtime_feedback.h` reserves `RR_FB_ZXS` 28, `RR_FB_SG1000` 29, `RR_FB_COLECO` 30 and `RR_FB_CPC` 31, and `RR_FB_MAX_KIND` goes
 from 27 to 31. The four profiles declare them (`feedback_kinds`), so `retrorecomp/feedback.py` reads and writes them like the others, and
@@ -354,7 +354,7 @@ passed. The kept files of each build are equal, but `runtime_feedback.h` itself 
 (`native/banked_emitter.inc` changed since v1.9.1), so this change refuses no further state. The other machines' keys do not hash
 this header. **Hot path:** unchanged (no new call).
 
-## Game Boy Color: the F1 help offers no palette key (next release)
+## Game Boy Color: the F1 help offers no palette key (1.10.0)
 
 A Color game keeps its own colours: its options window has no palette row and F5 only shows a notice, yet the F1 help still listed « F5 Monochrome / classic green ». It is listed
 now only in a monochrome Game Boy game (`native/hostkit/adapters/rrhk_gb.inc`, `rr_gb_help_lines`, the same test as the options row; `tests/test_gameboy_color.py`). Because the adapter is shared,
@@ -452,7 +452,7 @@ rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
-## Every machine: CRT and LCD looks in F3 (next release)
+## Every machine: CRT and LCD looks in F3 (1.10.0)
 
 The host kit's F3 gains **CRT flat**, **CRT curved** and, on the handhelds, **LCD grid** (decision
 [D35](HOST_KIT.md#d35)). These are host files only:
@@ -482,7 +482,7 @@ sharp, arcade) and, on the handhelds, `lcd_style` (real screen, grid), rows of t
 start in the arcade style; the handhelds name their screen). Every host-kit machine's host stamp moves; exports are
 upgraded, never rediscovered. The previous release ignores the two new keys.
 
-## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (next release)
+## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (1.10.0)
 
 Owner's report of 27 November 2026 (Alex Kidd in Miracle World): with player 1 pinned to his first pad on F2's Gamepad
 row, another pad, or the same pad on another USB port, answered the menus but never the game. Player 1 waited for the
@@ -501,7 +501,7 @@ Host files only: `native/hostkit/shell/rrhk_input.c` and `native/runtime_catalog
 So the host stamp of every host-kit machine moves and its exports are upgraded (rebuilt), never rediscovered. The
 game part is unchanged. Preferences are unchanged: a `device=<GUID>` saved by the previous release still pins its pad.
 
-## Linux: the full shared base is accepted, Fedora's packages are checked, progress lines follow the language (next release)
+## Linux: the full shared base is accepted, Fedora's packages are checked, progress lines follow the language (1.10.0)
 
 Found on 27 November 2026 by converting five games on WSL Ubuntu 26.04 and Fedora 45 (published 1.9.1 as the control). What
 changes for a player:
@@ -532,7 +532,7 @@ changes for a player:
 no export is rebuilt or rediscovered. The role stamps of all 27 machines were compared before and after: identical. Locale files
 (`assets/locales`) gain one key, `base_error_toolarge`.
 
-## Every machine: automatic console detection refuses firmware and other machines' files, and finds MSX1 games it missed (next release)
+## Every machine: automatic console detection refuses firmware and other machines' files, and finds MSX1 games it missed (1.10.0)
 
 Found on 27 November 2026 by running the detection of the window's drop and of `batch --system auto` over a player's whole library
 (12,347 cartridge, disk and disc files) and over his frontend's bios folder (1,503 files). What changes for a player:
@@ -563,7 +563,7 @@ Engine's (`pce_rom`) and the PC Engine CD's (`pcecd_card`) move for their own fi
 `rom_sources` (the CPC disks), `i18n` and the locale files (`amiga_several_slaves`). Exports are upgraded (rebuilt), never
 rediscovered; no learned path is lost.
 
-## ZX Spectrum: supported, and listed in every installation (next release)
+## ZX Spectrum: supported, and listed in every installation (1.10.0)
 
 The ZX Spectrum leaves the experimental status on the owner's decision of 27 November 2026, after his play test (G14).
 
@@ -579,7 +579,7 @@ The ZX Spectrum leaves the experimental status on the owner's decision of 27 Nov
 **Stamps**: the ZX Spectrum's game stamp (its profile and its conversion module); nothing else. The machine was developer-only,
 so the only exports are the maintainer's own: a new conversion rebuilds them.
 
-## Commodore Amiga 500 and 1200: the detection chooses the install's slave as the conversion does (next release)
+## Commodore Amiga 500 and 1200: the detection chooses the install's slave as the conversion does (1.10.0)
 
 Found while reviewing the section above: of a player's 4,788 WHDLoad archives, 40 hold several slaves, and the detection (the
 window's drop, `batch --system auto`) refused all 40, while the conversion itself (`amiga_whdload.install`) already chose the
@@ -605,7 +605,7 @@ is written: the build folder's name (15 times), the quick-state key (it hashes t
 section above and by 1.10.0, and with them the Amiga quick-state key, as for every game-stamp change. No host stamp; the play of an
 archive that was accepted before does not change.
 
-## ZX Spectrum: converted through batch and the window on a developer tree (next release)
+## ZX Spectrum: converted through batch and the window on a developer tree (1.10.0)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`
 and the converter window convert the Spectrum, and batch writes the report's `simulation_identity`, without which the multiplayer
@@ -613,7 +613,7 @@ lobby refuses a game. The profile stays `developer_only`: no installation lists 
 `batch --system zxs` from an empty scratch library: its report has the identity (engine pins, ROM, the top-level firmware record) and
 `lobby_check.game_from_report` accepts it (two seats).
 
-## ZX Spectrum: the floating bus is sampled at the I/O cycle's end (Arkanoid's speed) (next release)
+## ZX Spectrum: the floating bus is sampled at the I/O cycle's end (Arkanoid's speed) (1.10.0)
 
 The owner found Arkanoid too fast and lopsided. Compared with MAME 0.289 (a private oracle) from the same snapshot with the same
 inputs, our machine ran Arkanoid's game loop twice a frame: its raster loop reads the floating bus until four FFh in a row, and
@@ -629,7 +629,7 @@ new conversion. The panel of eight passes again (0 instructions interpreted, nat
 Arkanoid plays to frame 2,037 with 303 distinct pictures); Manic Miner's single sweep of the ports ending in 1Fh reads screen
 bytes either way and it plays on; Elite stops on its title as before.
 
-## ZX Spectrum: a game that polls the Fuller port gets an idle Fuller box (Match Day II) (next release)
+## ZX Spectrum: a game that polls the Fuller port gets an idle Fuller box (Match Day II) (1.10.0)
 
 Match Day II reads the Fuller joystick's port (7Fh) every frame, even with the Kempston chosen. Without a Fuller box that port floats,
 and since the floating bus the screen bytes read there moved its menu's cursor with no key held (the key's release reached the
@@ -642,7 +642,7 @@ moves to `zxs-state-2` (the Fuller flag is checked): a quick state of the previo
 
 **Stamps**: the ZX Spectrum's game stamp; nothing else.
 
-## ZX Spectrum: multiplayer, rollback on the game's own snapshots, two seats (next release)
+## ZX Spectrum: multiplayer, rollback on the game's own snapshots, two seats (1.10.0)
 
 The Spectrum's games join the multiplayer session (`netplay_session`, two seats, rollback), offered nowhere while the machine is
 developer only. The player (native/zxs_machine/zxs_player.c) gives the kit its snapshots (the quick state's body in memory, checked
@@ -660,7 +660,7 @@ on different ROMs before the match. `--snap-probe AT:N` checks the snapshots in 
 
 **Stamps**: the ZX Spectrum's game stamp (its player, adapter, headless file, profile, conversion); nothing else.
 
-## ZX Spectrum: the ULA's memory contention is modelled (next release)
+## ZX Spectrum: the ULA's memory contention is modelled (1.10.0)
 
 The Spectrum turns the chain's contention on (`Z80Machine.contention`, below) with its own rule (`zxs_contend_memory`,
 `zxs_contend_io`, native/zxs_machine/zxs_machine.c): 4000h-7FFFh, and the 128K's odd RAM banks paged at C000h, are held off by 6, 5,
@@ -683,7 +683,7 @@ runs 19 % fewer instructions in its 2,100 frames, Head over Heels' 8 %.
 
 **Stamps**: the ZX Spectrum's game stamp (its machine, glue, reference runner, builder, profile and conversion); nothing else.
 
-## Amstrad CPC: supported, in every installation (next release)
+## Amstrad CPC: supported, in every installation (1.10.0)
 
 The owner played the three delivered CPC games and gave G14 (27 November 2026), so the CPC leaves the experimental status
 (`docs/AMSTRAD_CPC.md`): `AmstradCpcProfile` is `supported`, its Linux conversion witnessed (five panel games converted in WSL
@@ -698,7 +698,7 @@ picture on a silent rollback frame, the board caught up only at its events) stay
 (`systems/amstrad_cpc.py`, `cpc_conversion.py`); no host or build stamp, no other machine. Exports made by a development tree
 before this change convert again under the new game stamp; no released export exists.
 
-## ZX Spectrum, SG-1000, ColecoVision, MSX, MSX2, MSX2+, Amstrad CPC: the build tracks what a game's resources embed (next release)
+## ZX Spectrum, SG-1000, ColecoVision, MSX, MSX2, MSX2+, Amstrad CPC: the build tracks what a game's resources embed (1.10.0)
 
 The resource compiler (llvm-rc) reads the files content.rc names (the ROM, the machine image, the notices, the icon through the
 `.rc` file it includes) but reports none of them to the build, and neither does the assembler's `.incbin` in the Linux embedding. A
@@ -719,7 +719,7 @@ hand (the Spectrum's touch of 4f7f1fef is gone), and an unchanged project still 
 (`shares:z80_chain_glue` gains `retrorecomp.resource_rebuild`; their builders' game CMake lines change); the compiled game is the
 same; nothing else.
 
-## MSX, MSX2, MSX2+: sprite flicker reduction, on the F2 options row (next release)
+## MSX, MSX2, MSX2+: sprite flicker reduction, on the F2 options row (1.10.0)
 
 The MSX family gets the option of the Master System, the SG-1000 and the ColecoVision, **off by default**, saved in `[MSX]
 reduce_sprite_flicker` of `datas/Retro-Recomp.ini`. Its key is not F5: on the MSX, as on every computer, F5 held is « fast loading »
@@ -750,7 +750,7 @@ are unchanged, and each player of a match chooses their own. Like the others, it
 on the host kit moves (`hostkit.h` gains `RRHK_ROW_SPRITES`, the shared piece its row-key parameter, the MSX adapter its row, and the MSX
 profiles now hash `shares:hostkit_sprite_option` and `shares:hostkit_text`); no build stamp moves; no quick state changes.
 
-## SG-1000 and ColecoVision: sprite flicker reduction (F5), the Master System's option; one shared text (next release)
+## SG-1000 and ColecoVision: sprite flicker reduction (F5), the Master System's option; one shared text (1.10.0)
 
 The TMS9918A shows four sprites a line. The SG-1000 and the ColecoVision now have the Master System's **F5** option (off by default,
 saved in `[SG1000.Video]` / `[ColecoVision.Video] reduce_sprite_flicker`, the same strings, menu row, icon and help line, from one new
@@ -771,7 +771,7 @@ hide (Bump 'N' Jump draws cars over its status line).
 stages the new piece); the game stamps of the SG-1000, the ColecoVision, the Master System, the Game Gear, the MSX, the MSX2 and the MSX2+
 move (the video chip's files, `shares:tms9918`, and the option's); no quick state changes.
 
-## SG-1000 and ColecoVision: supported (next release)
+## SG-1000 and ColecoVision: supported (1.10.0)
 
 Both profiles move from `experimental`, developer only, to **`supported`** (the owner's G14 of 27 November 2026, [QUALIFICATION.md](QUALIFICATION.md)):
 every installation lists them, the Linux converter takes them (`linux = 'witnessed'`), and the interface notes, the scan note and the delivery note of a
@@ -779,10 +779,10 @@ report say so in the eight languages. What a conversion does is unchanged: the s
 
 - **Stamps:** only the **game stamps of `sg1000` and `coleco`** move (their profile and conversion modules); no host or build stamp, and no other
   machine's. No release carried these two machines, so no player's export is concerned; the maintainer's own exports reconvert once.
-- Paths are not shared (G16 `-`). Their runtime-feedback kinds (29 and 30) are reserved by [the shared change](#every-machine-feedback-kinds-28-to-31-reserved-for-the-zx-spectrum-sg-1000-colecovision-and-amstrad-cpc-next-release); nothing is recorded under them.
+- Paths are not shared (G16 `-`). Their runtime-feedback kinds (29 and 30) are reserved by [the shared change](#every-machine-feedback-kinds-28-to-31-reserved-for-the-zx-spectrum-sg-1000-colecovision-and-amstrad-cpc-1100); nothing is recorded under them.
 - `tools/campaign.py` reads the ColecoVision's ROM folder as `colecovision`, and `tools/campaign-risk-cases.json` lists four cases for each machine.
 
-## Z80 chain (MSX family, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC): no bound on the code learned from RAM, and the reports count windows and bodies apart (next release)
+## Z80 chain (MSX family, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC): no bound on the code learned from RAM, and the reports count windows and bodies apart (1.10.0)
 
 The chain kept at most 4,096 windows twice over, and kept none of it quietly. A headless run learned at most 4,096 windows
 (`learned[4096]` in `native/z80_chain_glue.inc`, the rest dropped), and `native/banked_emitter.inc` read at most the first 4,096 lines of
@@ -821,7 +821,7 @@ steps: the words learned by the last pass all sat past line 4,096. Found and dia
 moves**, though no generated byte changes for a game under the old cap; `native/z80_learned_set.h` joins the group of the seven machines
 that share the glue. No quick state changes.
 
-## Master System, Game Gear, MSX, MSX2, MSX2+, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC: the Z80 chain can model memory contention; no machine turns it on, no generated byte changes (next release)
+## Master System, Game Gear, MSX, MSX2, MSX2+, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC: the Z80 chain can model memory contention; no machine turns it on, no generated byte changes (1.10.0)
 
 A machine whose bus holds the CPU off by the address and the moment of each bus cycle (the ZX Spectrum's ULA) now has a place on the
 chain: `Z80Machine.contention` (`retrorecomp/z80_chain.py`, False by default). `retrorecomp/z80_timed.py` turns the bus-cycle table
@@ -863,7 +863,7 @@ Contention needs the Z80's own counts (no cost table, no M1 wait states: a taken
 ZX Spectrum and the Amstrad CPC (`shares:z80_main` gains `retrorecomp.z80_timed`; `retrorecomp.cpu`, `retrorecomp.z80_chain` and
 `retrorecomp.z80_chain_build` change), with no change of any generated byte; nothing else.
 
-## Master System, Game Gear, MSX, MSX2, MSX2+, SG-1000, ZX Spectrum: the Z80's bus cycles join the chain's shared module; no generated byte changes (next release)
+## Master System, Game Gear, MSX, MSX2, MSX2+, SG-1000, ZX Spectrum: the Z80's bus cycles join the chain's shared module; no generated byte changes (1.10.0)
 
 The ZX Spectrum's ULA holds the CPU off the bus by the address and the moment of each bus cycle (its memory contention, not modelled
 yet). That needs, for every encoding, the ordered list of the cycles an instruction puts on the bus, not only its total.
@@ -1388,7 +1388,7 @@ runtime header, the patch of `gameboy_hardware.py`, the copy list of `gameboy_ru
 `rrhk_gb.inc`); the build stamp and every other machine unchanged. Existing Game Boy exports are converted again to get the faster drawing. Quick
 states unchanged (their layout and the bytes of a state are the same, no key moves), and so is a match: the digest of a frame is the same as before.
 
-## Game Boy Color: an experimental profile, and the Game Boy modules take a variant (next release)
+## Game Boy Color: an experimental profile, and the Game Boy modules take a variant (1.10.0)
 
 Arthur's go of 21 November 2026 (study first, then the path of [NEW_MACHINE.md](NEW_MACHINE.md); branch `spec/gbc-profile`). The Game Boy Color is the second machine of the Game Boy
 engine ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `gbc`, experimental, in development, not offered in a release yet. **What changes for the Game Boy.**
@@ -1413,7 +1413,7 @@ boot route and the fallback counted per route (Tetris DX 17,440 interpreter cycl
 Bros. Deluxe 36, Pokémon Pinball 0, Lufia 393,930 on the boot route; the play routes are in each report). `tools/gameboy_color_selftest.py`: 417 authored checks of the colour hardware against the register
 pages of Pan Docs (banks, palettes, both HDMA modes, the speed switch): documentation, not a console.
 
-## Game Boy and Game Boy Color: exports of 1.9.1 (next release)
+## Game Boy and Game Boy Color: exports of 1.9.1 (1.10.0)
 
 Measured on 27 November 2026 on the tree of main `dce6c18d` against the stamps recorded for 1.9.1
 (`assets/release-stamps.json`, `compilation_inputs.role_stamps`), for these two profiles only; the release measures every
@@ -1428,7 +1428,7 @@ Every Game Boy export of 1.9.1 is converted again once. The Game Boy quick-state
 by the Color's work (the two Color sections around this one). 1.9.1 has no Color export: a Color-only cartridge was refused, so there is
 nothing of the Color's to keep from it.
 
-## Game Boy Color: Color-only fixes of the runtime, the public tests, the link cable (next release)
+## Game Boy Color: Color-only fixes of the runtime, the public tests, the link cable (1.10.0)
 
 Steps 2 and 3 of [NEW_MACHINE.md](NEW_MACHINE.md) for the Game Boy Color (21 and 22 November 2026; branches `spec/gbc-qualify`, after `spec/gbc-profile`). **What changes for the Game Boy Color only:**
 `retrorecomp/gameboy_color_hardware.py` holds eight fixes of the pinned runtime that the Color's build receives and the Game Boy's never does (a test pins that): the CPU's lock-out of OAM during a transfer, the timer's

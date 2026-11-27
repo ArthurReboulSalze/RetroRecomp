@@ -390,7 +390,7 @@ The profile's `status` says so; nothing else may contradict it (`tools/status_li
 | Paths section, report through `write_report` | yes | yes |
 | Stamps, host adapter or declared own shell | yes | yes |
 | Interface tab, scan note, 8 languages, README and COMPATIBILITY rows | yes | yes |
-| `release_check` reader, campaign folder and extensions, risk-case list | yes (the list may be empty) | at least 6 cases in 5 categories |
+| `release_check` reader, campaign folder and extensions, risk-case list | yes (the list may be empty) | at least four cases (four or five a machine, the owner's rule of 27 October 2026; `tests/test_machine_registry.py`) |
 | QUALIFICATION column | yes, mostly `?` | no `N`; G1, G2, G4 at least `P` |
 | Linux witness (`linux = 'witnessed'`) | no (`pending`) | yes |
 | Shared knowledge (`SHARED_SYSTEMS`) | no | yes (G16) |

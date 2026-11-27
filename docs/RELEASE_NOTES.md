@@ -1,53 +1,140 @@
-# RetroRecomp, next release (in preparation)
+# RetroRecomp v1.10.0 — Six new machines, CRT and LCD looks, and a faster window
 
-## Game Boy Color opens as an experimental machine ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md))
+### Six new machines, each with multiplayer
 
-- Converts `.gbc` cartridges, and Color-only cartridges in a `.gb` or a single-ROM ZIP, on the Game Boy's engine in the
-  colour hardware's model; a Color-enhanced cartridge kept as a `.gb` stays with the Game Boy.
-- MBC1, MBC3 with its clock and MBC5; battery saves and F8 / F9 quick states, a family of their own. No boot ROM is needed.
-- Not converted: infrared, the MBC7 tilt sensor, the Printer, the Camera, Super Game Boy borders. A rumble cartridge
-  converts, but the pad does not vibrate.
-- Native code: on a panel of seven cartridges, the four final routes of each report 0 interpreter cycles; code run one
-  instruction at a time in writable memory is counted apart and is not native.
-- CPU check: the generated code equals the reference interpreter in lock-step over 30 boot frames and 240 frames of each
-  input route (all 3,600 frames on two of the seven), and the delivered file passes its replay.
-- Windows and Linux: four of the seven games give equal per-frame traces on Windows and on Debian 13 in WSL.
-- Hardware tests: eight fixes of the engine for the Color only; 115 of 116 public Mooneye and blargg test ROMs pass,
-  `cgb-acid2` differs on 40 of 23,040 pixels. These are tests, not a comparison with a console.
-- Multiplayer: shared controls, or two Color consoles of the same game on a link cable (not with a Game Boy). Checked on
-  one PC; a game's own two-player screen and two PCs are not proved.
-- Experimental: the owner has not played the games yet. Hardware fidelity, gameplay validation and physical latency are not
-  established.
+- **ZX Spectrum**, supported ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)): 16K, 48K and 128K snapshots (`.z80` versions 1 to 3, `.sna`, or a ZIP
+  holding one), with the ULA's memory contention and the floating bus from published timings. The Spectrum's own ROM is fetched
+  once from a pinned source, under Amstrad's permission, or is your own. The pad is the joystick the snapshot was saved for
+  (cursor keys, Kempston, Interface 2); Ctrl+Alt+K gives the keyboard to the game. Not converted: tapes, the +2A, the +3, disks.
+- **SG-1000**, supported ([SG1000.md](SG1000.md)): SG-1000 and SG-1000 II cartridges, 2 to 48 KiB, no firmware needed; Pause is a key and a
+  pad button. Not converted: the SC-3000's keyboard, BASIC and cassette, cartridges with their own RAM.
+- **ColecoVision**, supported ([COLECOVISION.md](COLECOVISION.md)): cartridges with your own BIOS (8 KiB, checked by its hash, never
+  shipped); the keypad on the digit keys, or on screen with the pad's Y. Not converted: the Super Action Controller, the roller
+  and driving modules, the Super Game Module.
+- **Amstrad CPC 6128**, supported ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)): DSK and EXTENDED DSK disk games, on your own firmware or on pinned
+  copies of the system ROM and AMSDOS fetched on your word; the start command is typed by itself; what a game writes on its disk
+  is kept in a copy beside it. Mono sound by default, the headphone jack's stereo in F2.
+- **Game Boy Color**, supported ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `.gbc` cartridges and Color-only cartridges in a `.gb`, on the
+  Game Boy's engine with the colour hardware; MBC1, MBC3 with its clock, MBC5, battery saves, no boot ROM needed. Eight fixes of
+  the engine for the Color only; 115 of 116 public Mooneye and blargg test ROMs pass. Not converted: infrared, the tilt sensor,
+  the Printer, the Camera, Super Game Boy borders; a rumble cartridge converts, but the pad does not vibrate. Its paths are shared, in the base's experimental tier.
+- **PC Engine CD / TurboGrafx-CD**, experimental **[PLACEHOLDER: supported once spec/pcecd-g11 lands]** ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): CD-ROM² and Super CD-ROM² discs from a CHD (version 4
+  or 5), a CUE sheet with its BIN files, or an ISO, with your own System Card 3.0 (checked by its hash, never shipped); one
+  executable holds the disc and the card; backup memory in `datas/saves`. Not converted: the Arcade Card, SuperGrafx,
+  multi-disc games.
+- **Native code and checks, on their panels**: every panel game reports 0 interpreted instructions on its conversion routes,
+  and the native run equals the reference interpreter frame by frame there; code no route reached runs on the counted
+  interpreter. Windows and Debian 13 (in WSL) gave the same results on the games compared. The four Z80 machines pass the 51,328 SingleStepTests
+  vectors through their own generators. Compared with MAME 0.289, never with a real console: the SG-1000's ports, the
+  ColecoVision, the CPC, the Spectrum's panel, the PC Engine CD's drive, CD audio and ADPCM. Elite's Spectrum snapshot halts in
+  its own decryption, in MAME too, and its report says so. The SG-1000's and the ColecoVision's Linux witness predates the F5
+  option and the CRT and LCD looks.
+- **Multiplayer**: two players with rollback on the six, four on Dungeon Explorer II (the PC Engine CD's multitap, per disc);
+  the Game Boy Color's link cable between two Colors of the same game; the host types on the CPC's keyboard; the SG-1000's
+  Pause and the ColecoVision's keypad per player. Proven by the automatic runs on two PCs (11 matches of 11: every state digest
+  equal, save, load and restart on the same frames), not by the owner's own play on two PCs.
+- **The owner's play test**: on 27 November 2026 he played the games delivered for him (three a machine, six on the Spectrum)
+  and accepted each machine. A play impression, not a measure.
 
-**Your exports and quick states.** The Game Boy's game and host stamps move, so every Game Boy export of 1.9.1 is converted
-again once; its cartridge saves and quick-state format are not changed by this work
-([UPGRADES.md](UPGRADES.md#game-boy-and-game-boy-color-exports-of-191-next-release)).
+### CRT and LCD looks, in F3 ([VIDEO.md](VIDEO.md#crt-and-lcd-looks))
 
-## The converter's window answers faster
+- F3 continues after xBR smooth with **CRT flat** and **CRT curved**, and **LCD screen** on the Game Boy, Game Boy Color, Game
+  Boy Advance and Game Gear; on the 3D machines they are values of the graphics page's Filter row.
+- With a graphics card the CRT looks are drawn by CRTS (Timothy Lottes' crt-lottes-fast, public domain), on Direct3D 11 on
+  Windows and OpenGL on Linux; without one, or under Variable refresh, a simpler drawing with the same looks.
+- A style per look, kept per console on the options page: **CRT style** Soft, Sharp or Arcade (the arcade boards start in
+  Arcade); **LCD style** Real screen (the handheld's own panel, with its short trail) or Grid.
+- Presentation only: nothing enters the game, its states or the multiplayer digest, and each player of a match keeps their own
+  look. About 7 KB more per packed game.
+- Cost, a light measure on a busy PC (not a quiet one): the CRT pass 0.13 to 0.46 ms of graphics-card time a frame from 1080p
+  to 4K, under 0.65 ms of CPU; no queued frame added. On Direct3D 11 the pass is compiled once a run, 0.1 to 0.2 s, before the
+  first frame when the game opens on a CRT look.
 
-- **A batch no longer freezes the window.** Each turn now writes the log's lines at once, and the panel keeps the last 5,000 lines;
-  the whole session stays available for problem reports. Before, 3,000 lines arriving together held the window more than a
-  second.
-- **Options opens at once.** A machine's page is built the first time it is chosen in the Consoles list, no longer the 27 pages
-  each time Options opens.
-- **Compiled Games opens sooner**, about twice as fast with a large collection. Its code is read in the background after
-  start. Opening it again no longer re-reads every game's files each time: that happens at most every 20 seconds, as when
-  the window comes back to the front. While the files are read, the window keeps its turn.
-- **Favourites are instant.** Marking several games saves the collection once, not once per game (100 games took about
-  ten seconds).
-- **A deleted game leaves Compiled Games.** Once its executable is deleted, the next scan, Rescan or return to the
-  window removes the game from the list. Before, it stayed greyed until a full scan. A game stays greyed only while its
-  drive or network share cannot be reached, and comes back with it.
-- **Compiled Games: Delete game…** (right-click, or the Delete key). It deletes the selected games' executables and
-  conversion reports after a dialog that lists them, into the Recycle Bin or the trash. The dialog says when there is none,
-  for example on a network drive. The saves stay unless « Also delete the saves » is ticked. The ROM, the library and
-  the shared paths are never touched. It deletes only files that the game's report and the identity in its executable
-  show to be Retro-Recomp's own, inside the output folders. It is not offered in the front-end.
-- **Options > Common > Rounded corners.** Turn it off for plain rectangles, drawn without pictures. It applies at the next
-  start. Rounded corners are not what made the window slow.
+### In the game
 
-None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still
-counted and shown per CPU and per device wherever it is used.
+- A pad plugged in during play, or moved to another USB port, reaches the game; a player whose chosen pad is missing takes a
+  stand-in until it comes back; a chosen pad is matched by its vendor and product.
+- Sprite flicker reduction: F5 on the SG-1000 and the ColecoVision, as on the Master System; a row of F2's options page on the
+  MSX, MSX2 and MSX2+, where F5 stays fast loading. Picture only, off by default.
+- F3's notice names every filter in the five game languages.
+- The shared Z80 chain no longer stops learning code run from RAM at 4,096 patterns: Carrier Command (CPC) goes from 1.7 million
+  interpreted steps a route to 0, and the output of the games under that bound is unchanged.
+
+### Multiplayer
+
+- The delay is measured again once a guest's game has booted, so a slow start no longer inflates it (Bomb Jack on the CPC: 10
+  frames before, 2 after, on two PCs).
+- A guest that finds the games out of step tells the host before it leaves: the match ends as « desync », not as a departure.
+- A room whose port is in a block Windows reserves (Hyper-V, WSL, Docker) tries random ports in the dynamic range instead of
+  failing to open.
+
+### The converter
+
+- **A batch no longer freezes the window.** The log's lines are written in batches and the panel keeps the last 5,000; the
+  whole session stays available for problem reports. Before, 3,000 lines arriving together held the window about 2.8 s.
+- **Options opens at once**: a machine's page is built the first time it is chosen, no longer the 27 pages at every opening
+  (2.2 s to 0.9 s on a loaded PC).
+- **Compiled Games opens about twice as fast** with a large collection (1.75 s to 0.81 s with 1,322 games), and reads the
+  games' files again at most every 20 seconds.
+- **Favourites are instant**: marking 100 games saves the collection once (about 10 s before, 0.2 s now).
+- **A deleted game leaves Compiled Games** at the next scan, Rescan or return to the window; it stays greyed only while its
+  drive or network share cannot be reached.
+- **Compiled Games: Delete game…** (right-click, or the Delete key): the executables and conversion reports of the selected
+  games, after a dialog that lists them, into the Recycle Bin or the trash where there is one; the saves stay unless « Also
+  delete the saves » is ticked. The ROM, the library and the shared paths are never touched; only files the game's report and
+  executable show to be Retro-Recomp's own, inside the output folders. Not offered in the front-end.
+- **Options > Common > Rounded corners**: off for plain rectangles drawn without pictures, from the next start.
+- Closed windows no longer leave memory and handles behind, and a rare abort when a window was freed from a background thread
+  is fixed.
+
+The window's figures are medians on a loaded PC, before and after each change, not a quiet-PC timing.
+
+### Linux ([LINUX.md](LINUX.md))
+
+- Tested by us on Debian 13, Ubuntu 26.04 and Fedora 45 (WSL2: converted and ran headless; no GPU, sound or gamepad proof
+  there); works on Bazzite by a player's report, Internet fixed in this version.
+- On Fedora, Bazzite, Arch, openSUSE and Alpine the converter now finds the system's certificates: covers, the shared base,
+  updates and sources download there. Before, every request failed and showed as « no connection ».
+- On Fedora and Bazzite the build packages are checked with dnf, and the missing ones are named.
+- The progress lines are in the player's language.
+
+### The shared base of paths
+
+- 1.9.1 refuses a full shared base above 1 GiB unpacked, so a player without a local base got a full discovery, longer. This
+  version reads it again (a ceiling of 8 GiB against a hostile archive, the disk's room checked first, a base too large named
+  as such), and the server now publishes a slimmer base.
+
+### PlayStation **[PLACEHOLDER: CHD discs, to confirm]**
+
+### Automatic detection ([UPGRADES.md](UPGRADES.md))
+
+- Audited on a player's library of 12,347 files: 76 more MSX1 cartridges are recognised by their content when nothing else names
+  the machine.
+- Firmware is refused with a sentence that says what it is, instead of being converted as a game: the Mega-CD boot ROM, the BS-X
+  BIOS, the Super Game Boy and Sufami Turbo bases, a System Card dropped as a `.pce`, the MSX system ROMs. Sufami Turbo games are
+  refused as unsupported.
+- An X1, PC-88 or PC-98 `.d88` and a playlist of discs are no longer taken for X68000 disks.
+- Amiga 500 and 1200: 29 more WHDLoad archives convert from the window's drop and the automatic console, the install's slave chosen
+  as the conversion does; an archive of several games says so.
+- R-Type (MSX) is still not converted: its mapper is not supported ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
+
+**Your exports and quick states.** **[PLACEHOLDER final commit: the stamps measured between 1.9.1 and 1.10.0, what is converted
+again]** An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC Engine, the Sharp X68000, the Atari ST, the Nintendo 64 and the two Amigas: their keys follow the game stamp, the build or engine files that changed. On the Master System, the Game Gear, the Game Boy, the NES, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the Game Boy Advance, the PlayStation and the MSX family, nothing their key reads changed, so a 1.9.1 state should load (read from each key's inputs, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept. ([UPGRADES.md](UPGRADES.md)).
+
+None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
+and shown per CPU and per device wherever it is used, in a match as alone.
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it. A
+converted game is compressed to save space; if an antivirus removes the
+compressor's temporary file, the compression is retried once and, if it fails
+again, the game is delivered unpacked: larger, and the same program (and
+**Options → Common → Compress games** turns the compression off).
 
 ---
 
