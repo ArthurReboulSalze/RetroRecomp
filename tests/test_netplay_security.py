@@ -483,6 +483,53 @@ class EndingsTests(unittest.TestCase):
             driver.join(30)
         self.assertEqual(game.stops, [pipe.STOP_DESYNC])
 
+    # 27 Nov 2026, the lockstep self-test in a full suite: the guest found the games out of step the moment its game
+    # reported the digest, before any packet of it carried that digest; the host, which believes only its own comparison,
+    # waited `desync_confirm` and ended « seat_left » (« Nadia left, reporting the games out of step »). The order of the
+    # two findings is forced here both ways.
+
+    def test_a_guest_that_finds_it_first_sends_the_host_its_digest_before_its_bye(self):
+        link = StubLink(1)
+        game = RecordingGame()
+        driver = LockstepDriver(game, link, Settings(seat=1, seats=2, delay=2, digest_every=50))
+        driver._phase = 'play'
+        driver._set_delay(2, time.monotonic())
+        driver._peer_digests[0][99] = 0x1111                       # the host's digest of frame 99 came first
+        driver._from_game((pipe.MSG_DIGEST_OF, struct.pack('<IQ', 99, 0x2222)))     # then this game's, another one
+        self.assertEqual((driver.outcome, driver.desync[0]), ('desync', 99))
+        kinds = [(packet.kind, packet.digest_frame, packet.digest) if packet.kind == wire.INPUT else (packet.kind,)
+                 for packet in (wire.decode(data, 2) for to, data in link.sent if to == 0)]
+        self.assertIn((wire.INPUT, 99, 0x2222), kinds)
+        self.assertEqual(kinds.count((wire.INPUT, 99, 0x2222)), lockstep.BYE_COPIES)
+
+    def _host_with_a_digest(self, fixture):
+        """Feeds seat 2's neutral records until the host's game reported a digest; returns (frame, the host's digest)."""
+        driver = fixture.driver
+        deadline = time.monotonic() + 20
+        sent = 0
+        while not driver.digests and time.monotonic() < deadline:
+            fixture.say(1, wire.encode_input(1, sent, NO_ACKS, [(1, 2 + sent, [(0, 0)] * 8)]))
+            sent += 8
+            time.sleep(0.01)
+        self.assertTrue(driver.digests, driver.snapshot())
+        frame = min(driver.digests)
+        return frame, driver.digests[frame]
+
+    def test_the_host_ends_out_of_step_whichever_word_of_the_guest_comes_first(self):
+        for order in ('bye first', 'digest first'):
+            with self.subTest(order=order), Fixture(self, desync_confirm=10.0) as fixture:
+                driver = fixture.driver
+                frame, mine = self._host_with_a_digest(fixture)
+                bye = wire.encode_bye(1, wire.BYE_DESYNC, frame + 1)
+                proof = wire.encode_input(1, frame + 1, NO_ACKS, [], digest_frame=frame, digest=mine ^ 1)
+                for packet in ((bye, proof) if order == 'bye first' else (proof, bye)):
+                    fixture.say(1, packet)
+                self.assertTrue(driver.wait_for(lambda d: d.outcome is not None, 5), driver.snapshot())
+                self.assertEqual((driver.outcome, driver.desync[0]), ('desync', frame), driver.detail)
+                self.assertIn('out of step at frame', driver.detail)
+                driver.join(30)
+                self.assertEqual(fixture.game.stops, [pipe.STOP_DESYNC])
+
     def test_a_boot_mismatch_tells_the_culprit_and_the_others_a_neutral_reason(self):
         simulator = LinkSimulator(3, seed=2, latency_ms=2.0)
         games = [RecordingGame(salt=5 if seat == 2 else 0) for seat in range(3)]
