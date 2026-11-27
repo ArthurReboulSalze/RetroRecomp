@@ -70,6 +70,9 @@ def main():
     rom = directory / "Authored gun CPU proof.sms"
     rom.write_bytes(data)
     os.environ["RETRO_RECOMP_LIBRARY_DIR"] = str(directory / "library")
+    # The authored program draws nothing: the refusal of a play route whose picture never changes (sega_evidence, 1.6.6)
+    # does not apply to it, as in tools/cpu_selftest.py.
+    os.environ['RETRO_RECOMP_STILL_ROUTE_OK'] = '1'
     results = []
     for backend in ("functions", "banked"):
         target = directory / backend

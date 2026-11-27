@@ -28,8 +28,11 @@ def main():
     program = bytes.fromhex('F3 31 F0 DF DB DC 32 00 C0 DB DD 32 01 C0 C3 04 01')
     data[0x100:0x100 + len(program)] = program
     synthetic.write_bytes(data)
+    # The authored program draws nothing: no still-route refusal for it alone (sega_evidence, 1.6.6); a real --rom keeps it.
+    os.environ['RETRO_RECOMP_STILL_ROUTE_OK'] = '1'
     diagnostic = convert(synthetic, title='Linux input diagnostic', output=work/'diagnostic',
                          frames=3, passes=2, use_cover=False, online_cover=False)
+    del os.environ['RETRO_RECOMP_STILL_ROUTE_OK']
     result = {'target': target_id(), 'synthetic': str(diagnostic)}
     run(['cc', '-std=gnu11', '-I', ROOT/'native', ROOT/'native/platform_posix_checks.c',
          ROOT/'native/platform_io.c', '-o', work/'platform-checks'])
