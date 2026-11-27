@@ -347,7 +347,7 @@ class BatchTests(unittest.TestCase):
 
     def test_a_console_with_its_own_number_runs_as_a_group_of_the_real_batch_with_one_summary(self):
         from retrorecomp.queue_state import convert_in_groups
-        from threading import Lock
+        from threading import Barrier, BrokenBarrierError, Lock
         import time
         sms = [self.item(str(index), index) for index in range(1, 4)]
         gear = []
@@ -358,6 +358,9 @@ class BatchTests(unittest.TestCase):
         queue = [sms[0], gear[0], sms[1], gear[1], sms[2]]
         lock, active, peak, together = Lock(), {'sms': 0, 'gg': 0}, {'sms': 0, 'gg': 0}, []
         events = []
+        # The three Master System games meet at a barrier, so their overlap does not depend on how busy the PC is:
+        # a pool that ran fewer than three at once leaves the barrier broken after its timeout and the peak below 3.
+        meet = Barrier(3, timeout=10)
 
         def compile(console):
             def run(path, **options):
@@ -365,6 +368,11 @@ class BatchTests(unittest.TestCase):
                     active[console] += 1
                     peak[console] = max(peak[console], active[console])
                     together.append(active['sms'] and active['gg'])
+                if console == 'sms':
+                    try:
+                        meet.wait()
+                    except BrokenBarrierError:
+                        pass
                 time.sleep(0.15)
                 with lock:
                     active[console] -= 1
