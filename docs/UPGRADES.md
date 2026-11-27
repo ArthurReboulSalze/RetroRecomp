@@ -296,6 +296,14 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
 
+## Game Boy Color: the F1 help offers no palette key (next release)
+
+A Color game keeps its own colours: its options window has no palette row and F5 only shows a notice, yet the F1 help still listed « F5 Monochrome / classic green ». It is listed
+now only in a monochrome Game Boy game (`native/hostkit/adapters/rrhk_gb.inc`, `rr_gb_help_lines`, the same test as the options row; `tests/test_gameboy_color.py`). Because the adapter is shared,
+**the Game Boy host stamp (`15e8fc20` to `55796f53`) and the Game Boy Color host stamp (`7784e231` to `5370911d`) move** (computed on the tree against main `e6bc5eec`, every machine compared;
+game and build stamps and every other machine unchanged). The Game Boy's stamps already move this release, so no export is converted once more for it. Quick states unchanged. The
+link-cable notes of the converter (the multiplayer note and the credits, eight languages) now name the Game Boy Color too; no stamp moves for them.
+
 ## PC Engine CD: the PC Engine's bridge learns a disc
 
 The PC Engine CD ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)) is the PC Engine's machine with a disc and the player's System Card: it shares the bridge to the pinned engine, the
