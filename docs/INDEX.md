@@ -5,7 +5,7 @@ Linux programs. It translates as much of each game as possible into native code,
 processor, and keeps a counted interpreter as a fallback for the rest: what still runs interpreted is always reported,
 never hidden. Twenty machines are covered today: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo
 Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the MSX2+, the Commodore Amiga, the Atari ST, the Game Boy Advance, the Nintendo 64, the Sony PlayStation and
-the Commodore Amiga 1200, and the PC Engine CD as an experimental machine; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
+the Commodore Amiga 1200, and the PC Engine CD and the Game Boy Color as experimental machines; Adventure (ScummVM) is a category of its own, supported, emulated and 0 % native.
 
 **Where to start**
 
@@ -36,6 +36,7 @@ fidelity, hardware fidelity, gameplay validation and physical latency are five s
 | [Master System](MASTER_SYSTEM.md) | none | main | none | none | none |
 | [Game Gear](GAME_GEAR.md) | none | main | none | none | none |
 | [Game Boy](GAME_BOY.md) | none | none | none | main | none |
+| [Game Boy Color](GAME_BOY_COLOR.md) (experimental) | none | none | none | main | none |
 | [NES](NES.md) | none | none | main | none | none |
 | [Mega Drive](MEGADRIVE.md) | main | sound | none | none | none |
 | [Super Nintendo](SNES.md) | none | none | none | none | main (65816), sound (SPC700) |
@@ -93,7 +94,7 @@ upstream, how code is found and translated, what stays interpreted, semantics an
 - [CPU_68000.md](CPU_68000.md) — Motorola 68000: Mega Drive, Neo Geo, Capcom CPS-1, Sharp X68000.
 - [CPU_Z80.md](CPU_Z80.md) — Zilog Z80: Master System, Game Gear, MSX and MSX2 (main), Mega Drive, Neo Geo and CPS-1 (sound).
 - [CPU_6502.md](CPU_6502.md) — 6502 (Ricoh 2A03 and 2A07): NES.
-- [CPU_SM83.md](CPU_SM83.md) — SM83: the original Game Boy.
+- [CPU_SM83.md](CPU_SM83.md) — SM83: the original Game Boy and the Game Boy Color.
 - [CPU_65816_SPC700.md](CPU_65816_SPC700.md) — 65816 and SPC700: Super Nintendo.
 
 ## Machines
@@ -104,6 +105,7 @@ qualification, known limits), often a `_LOG` companion with the dated evidence, 
 - **Master System** — [MASTER_SYSTEM.md](MASTER_SYSTEM.md). Deep dive: [LIGHT_PHASER.md](LIGHT_PHASER.md) (the Light Phaser).
 - **Game Gear** — [GAME_GEAR.md](GAME_GEAR.md), sharing the Master System engine.
 - **Game Boy** — [GAME_BOY.md](GAME_BOY.md) (original DMG profile and qualification); log: [GAME_BOY_LOG.md](GAME_BOY_LOG.md).
+- **Game Boy Color** — [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md) (experimental, not in a release yet: Color cartridges on the Game Boy's engine; scope, the five measures, the sixteen gates).
 - **NES** — [NES.md](NES.md) (profile, cartridge and peripheral scope); log: [NES_LOG.md](NES_LOG.md).
 - **Mega Drive** — [MEGADRIVE.md](MEGADRIVE.md); log: [MEGADRIVE_LOG.md](MEGADRIVE_LOG.md). Deep dives:
   [MEGADRIVE_CPU_EXCEPTIONS.md](MEGADRIVE_CPU_EXCEPTIONS.md) (synchronous MC68000 exceptions),
