@@ -123,5 +123,39 @@ class PcEngineFirmwareTests(FirmwareCase):
         self.assertEqual([hit[0] for hit in hits], ['pcecd_system_card'])
 
 
+class MsxFirmwareTests(FirmwareCase):
+    def header(self, init: int, statement: int, at10: bytes = b'', size: int = 0x8000) -> bytes:
+        data = bytearray(size)
+        data[0:6] = b'AB' + init.to_bytes(2, 'little') + statement.to_bytes(2, 'little')
+        data[0x10:0x10 + len(at10)] = at10
+        return bytes(data)
+
+    def test_a_system_rom_by_its_header_is_refused_from_any_folder(self):
+        disk_kernel = self.header(0x576F, 0x6576, b'\xC3\x95\x74' * 7)
+        for folder in ('msx1', 'msx2', 'msx2+', 'rom'):
+            (self.root / folder).mkdir(exist_ok=True)
+            with self.subTest(folder):
+                self.refused(self.make(f'{folder}/DISK.rom', disk_kernel), 'MSX system ROM', 'not a game')
+
+    def test_a_known_extension_rom_is_refused_by_its_digest(self):
+        import hashlib
+        from unittest.mock import patch
+        from retrorecomp import msx_rom
+        image = self.header(0x4047, 0x42B9, b'\xC3\xE9\x48' * 10)        # INIT, STATEMENT and ten jumps: no header rule says "firmware"
+        self.accepted(self.make('plain.rom', image), 'msx')
+        with patch.dict(msx_rom.KNOWN_SYSTEM_ROMS, {hashlib.sha256(image).hexdigest(): 'Arabic extension ROM'}):
+            self.refused(self.make('ARABIC.rom', image), 'Arabic extension ROM', 'not a game')
+
+    def test_the_owners_digests_are_whole_sha256_values(self):
+        from retrorecomp.msx_rom import KNOWN_SYSTEM_ROMS
+        self.assertEqual(len(KNOWN_SYSTEM_ROMS), 8)
+        for digest in KNOWN_SYSTEM_ROMS:
+            self.assertRegex(digest, '^[0-9a-f]{64}$')
+
+    def test_a_game_is_not_taken_for_firmware(self):
+        game = self.header(0x4010, 0)
+        self.accepted(self.make('game.rom', game), 'msx')
+
+
 if __name__ == '__main__':
     unittest.main()

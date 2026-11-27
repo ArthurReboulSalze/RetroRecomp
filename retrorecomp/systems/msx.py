@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import Capabilities, Cpu, OptionKey, SimulationSource, SystemProfile
+from . import Capabilities, Cpu, OptionKey, SimulationSource, SystemProfile, UnsupportedConsoleError
 from ..z80_chain import Z80Machine, Z80RegionMap
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
@@ -89,8 +89,13 @@ class MsxProfile(SystemProfile):
     identify = Identify(content_order=6)
 
     def identify_content(self, data: bytes):
-        from ..msx_rom import looks_like_cartridge
-        return self if looks_like_cartridge(data) else None
+        from ..msx_rom import has_header, looks_like_cartridge, system_rom
+        if looks_like_cartridge(data):
+            return self
+        kind = system_rom(data) if has_header(data) else None
+        if kind:       # firmware with a cartridge's header: say so, rather than "no recognized header"
+            raise UnsupportedConsoleError(f'This is an MSX system ROM ({kind}): firmware, not a game.')
+        return None
 
     def request_identity(self, item, options: dict, settings: dict) -> None:
         """The BIOS the machine boots is part of the request: the player's own image (its SHA-256), or C-BIOS (its pin)."""

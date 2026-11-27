@@ -177,6 +177,22 @@ def guess(image: bytes) -> Guess:
 MAX_CARTRIDGE = 0x200000      # 2 MiB: the largest MegaROM the first scope reads
 
 
+# System ROMs no header pattern tells from a game (language and interface extensions, a machine's whole firmware): their SHA-256, as
+# numbers about files seen in a player's BIOS folder, 27 November 2026 (no ROM byte is stored here). A small reviewed table: an entry
+# is added only for a file that is firmware beyond doubt.
+KNOWN_SYSTEM_ROMS = {
+    '91c33f3304c437c151b9ad877019463d1b68e1dbaa792a6b42a7a890f8c55c34': 'Arabic extension ROM',
+    'c530b4749986b0384fd4a0a2c0d6841a6aa229e745a7f40a27d67b29f872d43e': 'Arabic extension ROM',
+    '092a9b5157e0d4703955584f388f0f44035e4991e21b8e1499db8f333076bca7': 'Korean Hangul ROM',
+    'c0aa4a95a5d6eefafd2f191058d6c675b9ca87bf29d88fc20b05aa45a5d1475e': 'Korean extension ROM',
+    '974bb2dfca1a6da6cf19a11d3370a8dab96e42e329b395c82eb5ab9d2da0196c': 'Korean Hangul ROM',
+    '696da03345b9fd27799b8fd92024050a201c020ef730e9006cb8f10bbbf68004': 'RS-232C interface ROM',
+    '38cde34f03bb7d134acd1d013eccbac3a447f570039ab1c37fa4b222e59cfc61': 'Panasonic FS-A1WSX firmware',
+    '6f3a760be58bace2bce20496ffc7d43e0dbe7d229ac14453f2194fcc7059d3ab': 'Pioneer PX-7 PBASIC ROM',
+}
+_KNOWN_SYSTEM_SIZES = frozenset({0x2000, 0x8000, 0x200000})
+
+
 def system_rom(image: bytes) -> str | None:
     """What kind of MSX system ROM an "AB"-headed image is, or None for a cartridge to play. A player's BIOS folder holds
     them beside the main ROMs, and their header is a cartridge's:
@@ -187,6 +203,11 @@ def system_rom(image: bytes) -> str | None:
     Measured on 12 November 2026 on a player's BIOS folder (24 of its 37 "AB" images) and two MSX game libraries (0 of 522
     cartridges caught: games whose header bytes are code have C3h, JP, where STATEMENT sits, or longer jump tables).
     Firmware, word processors, RS-232C and other language extensions stay listed: no header pattern tells them apart."""
+    if len(image) in _KNOWN_SYSTEM_SIZES:
+        import hashlib
+        known = KNOWN_SYSTEM_ROMS.get(hashlib.sha256(image).hexdigest())
+        if known:
+            return known
     for offset in (0, 0x4000):
         if offset + 0x20 > len(image) or image[offset:offset + 2] != b'AB':
             continue
@@ -278,4 +299,7 @@ def read_cartridge(path) -> Cartridge:
         member = ''
     if not has_header(data):
         raise ValueError(f'{path.name}: no MSX cartridge header ("AB" and its routine pointers).')
+    kind = system_rom(data)
+    if kind:
+        raise ValueError(f'{path.name} is an MSX system ROM ({kind}): firmware, not a game.')
     return Cartridge(path, data, hashlib.sha256(data).hexdigest(), guess(data), member)
