@@ -1302,7 +1302,6 @@ LOG_PATTERNS = [
     (r'^Niveau de scan (.*) : (\d+) parcours pseudo-aléatoires reproductibles de (\d+) images.$',
      r'Scan level \1: \2 reproducible pseudo-random routes of \3 frames.'),
     (r'^Ancien exécutable conservé : (.*)$', r'Previous executable kept: \1'),
-    (r'^Commande interrompue \((\d+)\)\.', r'Command stopped (\1).'),
     (r'^La variante native change le résultat (.*) : (.*)\. Exécutable candidat conservé dans (.*), sortie précédente préservée\.$',
      r'The native variant changes the result \1: \2. Candidate executable kept in \3, previous output preserved.'),
     # core.follow_pin: the engine sources and SDL of dependencies() follow their pins.
