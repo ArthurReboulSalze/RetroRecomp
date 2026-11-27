@@ -238,7 +238,7 @@ first). No console of this release declares any of them, so nothing below appear
 - **Vibration**: a row **Vibration: ON/OFF** of the options page, on by default, the same setting for every such machine
   (`[Manettes] rumble`).
 - **F3, the graphics page**: one row per option of the machine's renderer (internal resolution and the like; Left/Right or
-  Enter/A change it at once), the **Filter** row (the four filters of F3 on the other consoles), and **Restore defaults**.
+  Enter/A change it at once), the **Filter** row (the filters of F3 on the other consoles, CRT flat and CRT curved included), and **Restore defaults**.
   Esc, B or F3 closes it; the game waits meanwhile. Kept under `[<Console>.Video]`.
 - **Change disc**: a control of the F2 pages like the others (its default key is the machine's); in play it takes the next
   disc, after the last the first, and shows "Disc 2/3".
@@ -399,8 +399,8 @@ shortcut is added. See [fallback recovery and moved games](RUNTIME_FEEDBACK.md).
 The xBR implementation is shared by Master System, Game Gear, Game Boy, NES,
 Mega Drive, Super Nintendo, the local Neo Geo profile, CPS-1 and the X68000.
 New exports cache
-unchanged image regions while producing the same filtered pixels. It remains
-last in the F3 cycle and requires no new setting. Existing EXEs need regeneration
+unchanged image regions while producing the same filtered pixels. It stays
+after Scanlines in the F3 cycle, before the CRT and LCD looks, and requires no new setting. Existing EXEs need regeneration
 to receive this improvement; updating the converter alone does not alter them.
 
 In F2, Enter selects a binding instead of pausing. Left/Right (or Tab) turns
@@ -430,7 +430,7 @@ and buttons; there is no second-player or Light Phaser page. Game Gear key
 bindings have their own INI sections so they do not overwrite Master System
 controls when games share an executable folder.
 
-The Neo Geo MVS profile shares the same menus and four filters.
+The Neo Geo MVS profile shares the same menus and the F3 filters, CRT flat and CRT curved included.
 Player 1: arrows, **S/D/F/E** for **A/B/C/D**, **Enter** for Start and either
 **Shift** for Coin. Player 2: keypad **5/2/1/3**, **8/9/6/4**, keypad Enter and
 keypad 0 respectively. Two controllers use D-pad/left stick, A/B/X/Y, Start
@@ -458,8 +458,8 @@ Back are cartridge Start/Select, and the Guide button opens pause. Since
 1.6.3 Game Boy runs the same player shell as every other console (the host kit):
 F2 has the keyboard and gamepad pages of player 1 with the Quit and Restart
 combinations and the Gamepad row, then the options; the Pause/Menu action
-(P, the Guide button) is a row of the page like the Game Gear's. F3 cycles all four
-filters, including Scale2x and scanlines; F4 keeps the same three display
+(P, the Guide button) is a row of the page like the Game Gear's. F3 cycles every
+filter, from sharp pixels to xBR smooth, CRT flat, CRT curved and the LCD grid; F4 keeps the same three display
 modes. F5 immediately switches between pseudo black-and-white monochrome
 (the default) and classic green, without opening a menu or pausing the game.
 The palette choice is saved with the other Game Boy settings.

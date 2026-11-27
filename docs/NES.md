@@ -272,7 +272,7 @@ A/B and Start/Back. Since 1.7.6 player 1's buttons sit on keys at the same place
 (L3+R3 held) and restart (Start+Select) are the host kit's, described in
 [CONTROLS.md](CONTROLS.md).
 
-F1 opens help, Shift+F1 restarts, Enter (Start) pauses the game itself, F3 cycles sharp/Scale2x/scanlines/xBR,
+F1 opens help, Shift+F1 restarts, Enter (Start) pauses the game itself, F3 cycles sharp/Scale2x/scanlines/xBR/CRT flat/CRT curved,
 F4 cycles window/integer fullscreen/fit fullscreen, F6 toggles gamepad
 autofire, and F7 changes language. Autofire is sampled once per guest frame;
 the game's own input sampling determines its effective rate.
