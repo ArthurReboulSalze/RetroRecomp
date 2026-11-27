@@ -15,7 +15,7 @@ fallback stays counted and shown wherever it is used.
 | Master System | supported | the evidence lot below |
 | Game Gear | supported | the evidence lot below |
 | Game Boy | supported | the remaining test ROMs, at low priority |
-| Game Boy Color | experimental, in development (not in a release yet) | the owner's play test, routes that play further on the whole panel, the cause of the `cgb-acid2` difference, an optimisation pass |
+| Game Boy Color | supported (since 1.10.0) | routes that play further on the whole panel, the cause of the `cgb-acid2` difference, an optimisation pass |
 | NES | supported | broader panel |
 | Mega Drive | supported | report and Linux witness; MAME sound comparison |
 | Super Nintendo | supported | Linux witness; DSP-2 and DSP-4 |
@@ -25,7 +25,7 @@ fallback stays counted and shown wherever it is used.
 | Sharp X68000 | supported | MAME sound and colours on more games; deeper disk-change and save evidence |
 | Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
 | PC Engine / TurboGrafx-16 | supported (since 1.7.2) | the window and Linux proof of the player's own record (in 1.7.3), more HuCards |
-| PC Engine CD / TurboGrafx-CD | supported (release after 1.9.1) | routes that go further on some discs, the two-PC match, the frame cost past the routes |
+| PC Engine CD / TurboGrafx-CD | supported (since 1.10.0) | routes that go further on some discs, the two-PC match, the frame cost past the routes |
 | Game Boy Advance | supported (since 1.7.6; experimental from 1.7.0) | a level won on a panel game, the LDM/STM vectors, an independent emulator comparison (G10, G11), the quiet-PC cost of a frame, the cartridge sensors |
 | Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
 | Commodore Amiga 1200 | supported (since 1.7.8; experimental from 1.7.6) | AGA super-hires at full detail, the 76 68EC020 vector cases to referee (G10), the frame cost of the display's shortcuts on a quiet PC, a game played on Linux |
@@ -35,8 +35,10 @@ fallback stays counted and shown wherever it is used.
 | MSX | supported (since 1.7.5) | route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
 | MSX2 | supported (since 1.7.5) | battery saves shown on an MSX2 game, route depth on menu-driven games, the command engine's timing, independent hardware evidence, FM-PAC |
 | MSX2+ | supported (since 1.7.6; experimental from 1.7.4) | route depth (Golvellius II's intro, Pachipro Densetsu's date entry), the Linux half of shared paths, MSX-MUSIC's level on games, independent hardware evidence, FM-PAC |
-| SG-1000 | supported (the owner's acceptance of 27 November 2026) | an optimisation pass, independent hardware evidence, a cartridge with its own RAM (The Castle) |
-| ColecoVision | supported (the owner's acceptance of 27 November 2026) | an optimisation pass, independent hardware evidence, the unexplained parting from MAME after a key press |
+| SG-1000 | supported (since 1.10.0) | an optimisation pass, independent hardware evidence, a cartridge with its own RAM (The Castle) |
+| ColecoVision | supported (since 1.10.0) | an optimisation pass, independent hardware evidence, the unexplained parting from MAME after a key press |
+| ZX Spectrum | supported (since 1.10.0) | tapes, the +2A and +3; a two-player game on two PCs; an optimisation pass |
+| Amstrad CPC | supported (since 1.10.0) | disk timing for the protections that measure it, a game on several disks, the optimisations left out of 1.10.0 |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
@@ -191,8 +193,7 @@ Supported since 1.7.1 as a category of its own, emulated and 0 % native by desig
 
 Six machines close to the hardware already converted are in their study (November 2026), in this order. Each follows the
 playbook of [NEW_MACHINE.md](NEW_MACHINE.md): the study is approved first, then an experimental profile, the qualification
-list, multiplayer and an optimisation pass. Five have left that path and are supported since 1.10.0: the SG-1000, the ColecoVision, the Game Boy Color, the ZX Spectrum and the
-Amstrad CPC; the PC Engine CD is experimental.
+list, multiplayer and an optimisation pass. All six have left that path and are supported since 1.10.0.
 
 | Machine | What is reused | What is new |
 | --- | --- | --- |
@@ -201,7 +202,7 @@ Amstrad CPC; the PC Engine CD is experimental.
 | ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller; done, supported ([COLECOVISION.md](COLECOVISION.md)) |
 | Amstrad CPC | the Z80, the AY sound chip of the MSX | the video, the floppy drive, code loaded from disk; done, supported since 1.10.0 ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)) |
 | ZX Spectrum | the Z80, the AY sound chip (128K) | the video, snapshots first (tapes later); done, supported since 1.10.0 ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)) |
-| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done (experimental from 21 November 2026, supported on 27 November 2026, [PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |
+| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done, supported since 1.10.0 ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).

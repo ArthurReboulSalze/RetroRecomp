@@ -1,6 +1,6 @@
 # PC Engine CD / TurboGrafx-CD
 
-Status: **supported** from the release after 1.9.1, on the owner's decision of 27 November 2026 after his play test (G14); open as experimental since 21 November 2026. Nine discs of the panel convert and match on
+Status: **supported** since 1.10.0, on the owner's decision of 27 November 2026 after his play test (G14); open as experimental since 21 November 2026. Nine discs of the panel convert and match on
 Windows and Linux, each has a route that reaches play, multiplayer is proved by automatic runs on one PC and on two. What is proved and what is not is in sections 3, 7 and 8. The decisions below are the owner's, taken on 21 November 2026 after the
 study.
 

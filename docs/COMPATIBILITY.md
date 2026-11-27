@@ -239,7 +239,13 @@ recognises becomes one executable holding the whole game, with ScummVM as its ru
 nothing is recompiled and no native share is measured. A folder that matches several editions asks the player to choose; games
 that need Ogg Vorbis, FLAC or MP3 decoders are not supported yet ([details](SCUMMVM.md)).
 
-The **PC Engine CD / TurboGrafx-CD** profile (`pcecd`) is experimental and open to players ([status](PC_ENGINE_CD.md)): a CD-ROM² or Super CD-ROM² disc (a CHD of version 4 or 5, a CUE sheet with its BIN files, an ISO; the disc is held by the game) is converted with your own System Card, checked by its hash and never shipped. Nine discs of the maintainer's library convert with no interpreted instruction on their three routes (a boot route, a play route of 3,600 frames and, from the extended level, an explored route of six minutes that reaches play on eight of the nine); code no route reached runs on the counted interpreter, the games are not validated, the Arcade Card and SuperGrafx are not supported, and the owner's acceptance is still to come. Native code, CPU fidelity, hardware fidelity, gameplay validation and physical latency are separate measures and none is claimed beyond that.
+The **PC Engine CD / TurboGrafx-CD** profile (`pcecd`) is supported since 1.10.0, on the owner's decision of 27 November 2026 after his play
+test ([status](PC_ENGINE_CD.md)): a CD-ROM² or Super CD-ROM² disc (a CHD of version 4 or 5, a CUE sheet with its BIN files, an ISO; the disc is
+held by the game) is converted with your own System Card, checked by its hash and never shipped. At the extended level, nine CHD discs of the
+maintainer's library, with the Japanese System Card 3.0, convert with no interpreted instruction on their three routes and each has a route that
+reaches play; code no route reached runs on the counted interpreter. The drive, CD audio, ADPCM and backup memory were compared with MAME 0.289
+on three discs, never with a console. The Arcade Card and SuperGrafx are not supported. Native code, CPU fidelity, hardware fidelity, gameplay
+validation and physical latency are separate measures and none is claimed beyond that.
 
 The **Sony PlayStation** profile is supported since 1.7.6, on the owner's decision of 15 November 2026 after his play test (open in 1.7.1; [status](PLAYSTATION.md)): a conversion makes a
 playable game whose R3000A code, as far as its routes saw it run, is guarded native steps; the rest runs on the interpreter and
@@ -279,14 +285,14 @@ The **ZX Spectrum** profile (`zxs`) is supported since 1.10.0, on the owner's de
 converts 16K, 48K and 128K snapshots (`.z80`, `.sna`, or a ZIP holding one) with the ULA's memory contention and the floating bus
 modelled from published timings. Tapes, the +2A, the +3 and disks are not converted. Panel of eight: seven reach play with no
 interpreted instruction on their routes; Elite's snapshot halts in its own decryption, in MAME 0.289 too, and its report says so.
-Hardware was compared with MAME 0.289 only, gameplay validation is the owner's play of six games, and physical latency is not measured.
+Hardware was compared with MAME 0.289 only, gameplay validation is the owner's play test of the games delivered for him, and physical latency is not measured.
 
 The **SG-1000** profile (`sg1000`) is supported since 1.10.0, on the owner's decision of 27 November 2026 ([status](SG1000.md)). It converts
 SG-1000 and SG-1000 II cartridges (a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as SG-1000 or keep in a folder named `sg1000`; 2 KiB to
 48 KiB, plain ROM; no firmware) into a game executable checked headless against the reference interpreter on the routes played, with
 multiplayer. The five measures stay apart: native code and the agreement with the reference are measured per conversion; hardware fidelity
-was compared with an emulator only, gameplay validation is the maintainer's play of a few games, and physical latency is not measured. The
-Linux witness (Debian 13 in WSL) predates the F5 sprite option and the CRT and LCD looks. A file it cannot hold (larger than 48 KiB, or
+was compared with an emulator only, gameplay validation is the maintainer's play of a few games, and physical latency is not measured. Windows and
+Debian 13 in WSL give equal results, witnessed again on the release candidate without a screen. A file it cannot hold (larger than 48 KiB, or
 another board) is refused with a sentence before anything is written. The keyboard, BASIC and cassette of the SC-3000, cartridges with their
 own RAM, and the peripherals and boards listed in [SG1000.md](SG1000.md#1-what-is-converted-and-what-is-not), are out of scope.
 
@@ -295,8 +301,8 @@ converts ColecoVision cartridges (a `.col`, or a `.bin`, `.rom` or ZIP that you 
 beginning with a header word; 4 KiB to 32 KiB, plain ROM) with your own BIOS (8 KiB, required, never shipped; the converted game holds it and
 is for you only) into a game executable checked headless against the reference interpreter on the routes played, with multiplayer. The five
 measures stay apart: native code and that agreement are measured per conversion; hardware fidelity was compared with an emulator only,
-gameplay validation is the maintainer's play of a few games, and physical latency is not measured. The Linux witness (Debian 13 in WSL)
-predates the F5 sprite option and the CRT and LCD looks. A file it cannot hold is refused with a sentence. The Super Action Controller, the
+gameplay validation is the maintainer's play of a few games, and physical latency is not measured. Windows and Debian 13 in WSL give
+equal results, witnessed again on the release candidate without a screen. A file it cannot hold is refused with a sentence. The Super Action Controller, the
 roller and driving modules, the Super Game Module and the homebrew boards are out of scope
 ([COLECOVISION.md](COLECOVISION.md#1-what-is-converted-and-what-is-not)).
 

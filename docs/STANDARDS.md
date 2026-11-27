@@ -1,9 +1,8 @@
 # Standards for adding to Retro-Recomp
 
-Retro-Recomp converts games for twenty-five machines (Master System, Game Gear, Game
+Retro-Recomp converts games for twenty-six machines (Master System, Game Gear, Game
 Boy, NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1, Sharp X68000, Capcom CPS-2, the PC Engine / TurboGrafx-16, the MSX, the MSX2, the MSX2+, the Commodore Amiga, the Atari ST, the Game Boy Advance, the Nintendo 64, the Sony PlayStation and the
-Commodore Amiga 1200, the SG-1000, the ColecoVision, the Game Boy Color, the ZX Spectrum and the Amstrad CPC; the PC Engine CD is open as an
-experimental machine),
+Commodore Amiga 1200, the SG-1000, the ColecoVision, the Game Boy Color, the ZX Spectrum, the Amstrad CPC and the PC Engine CD),
 and runs adventure games through ScummVM as a category of its own; more are planned. This page states the rules every change follows and the
 shape the code is converging to, so that a new machine costs a profile, a CPU
 core and a host adapter, not a copy of everything. The inventory behind it

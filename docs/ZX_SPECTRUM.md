@@ -1,6 +1,6 @@
 # ZX Spectrum
 
-Status: **supported** from the release after 1.9.1, on the owner's play test of 27 November 2026 (section 6). The machine
+Status: **supported** since 1.10.0, on the owner's play test of 27 November 2026 (section 6). The machine
 opened on 21 November 2026 as an experimental, developer-only profile; every installation now lists it. This page says what
 the machine converts, what it leaves out, and how the five measures stay apart.
 

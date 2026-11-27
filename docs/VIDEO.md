@@ -29,7 +29,7 @@ RGBA mixing, boundaries and these workloads without a ROM or window.
 
 ## CRT and LCD looks
 
-Since the release after 1.9.1, F3 continues after **xBR smooth** with **CRT flat** and **CRT curved**, and on the
+Since 1.10.0, F3 continues after **xBR smooth** with **CRT flat** and **CRT curved**, and on the
 handhelds (Game Boy, Game Boy Color, Game Boy Advance, Game Gear) with **LCD screen** (host kit decision
 [D35](HOST_KIT.md#d35)). They are drawn without a shader, with the same calls on every graphics driver:
 
