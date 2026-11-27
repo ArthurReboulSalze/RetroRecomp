@@ -135,11 +135,9 @@ the old bound. This evidence was taken on earlier mains of the cycle, each for i
   Mega Drive, Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine, Game Boy Advance, Nintendo 64, PlayStation, Atari ST, Amiga 500, Amiga
   1200, Adventure (ScummVM). Rebuilt at the quick level from the paths already learned; the generated code is the same; the host part is
   the new one (the CRT and LCD looks, a pad plugged in during play).
-- **[PLACEHOLDER: the MSX A/B of v1.9.1 against the head (Nemesis, Aleste, Family Stadium) decides; keep one of the two lines]**
-  - *If identical:* **Upgraded, not rediscovered:** MSX, MSX2 and MSX2+ too (their 1.9.1 game stamps listed in `LEGACY_GAME_STAMPS`):
-    the A/B of v1.9.1 against the head gives the same game on Nemesis (MSX), Aleste (MSX2) and Family Stadium (MSX2+).
-  - *If not:* **Converted again once:** MSX, MSX2 and MSX2+: the chain is shared with five new machines, and a game that learned more
-    than 4,096 windows now translates them.
+- **Upgraded, not rediscovered:** MSX, MSX2 and MSX2+ too (their 1.9.1 game stamps are listed in `LEGACY_GAME_STAMPS`): the A/B of
+  v1.9.1 against the release head gives the same generated code, learned patterns and frame rows on Nemesis (MSX), Aleste (MSX2) and
+  Family Stadium Professional Baseball (MSX2+); only the copied runtime and host-kit sources differ, as in every 1.10.0 build.
 - **Converted again once:** the Sharp X68000 (its request carries an SDK stamp derived from the game stamp; the game's code does not
   change).
 - **Quick states:** the Mega Drive, Super Nintendo, PC Engine, Amiga 500 and 1200, Atari ST, Nintendo 64 and X68000 states of 1.9.1 are

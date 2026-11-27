@@ -162,7 +162,53 @@ BUILD_MODULES = frozenset(('toolchain', 'packing', 'scummvm_build'))
 # consoles, are kept as evidence in docs/COMPILATION_LIBRARY.md ("Release 1.6.3 entries") and tests/test_legacy_compat.py,
 # unlisted. Evidence and limits: docs/UPGRADES_HISTORY.md, "Exports of 1.6.3 in 1.6.4". The X68000 would have no entry in any
 # case: its request carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not recompute.
-LEGACY_GAME_STAMPS: dict[str, tuple[str, ...]] = {}
+# The tree of 1.10.0 lists the game stamps of 1.9.1 (tag v1.9.1) for twenty consoles: every changed game input of those
+# consoles cannot change a generated game or changes only how it is built, shown by conversions of the same game
+# before and after at one folder path (docs/UPGRADES.md, "Exports of 1.9.1 in 1.10.0"; the MSX family by an A/B of
+# v1.9.1 against the release head on Nemesis, Aleste and Family Stadium, identical generated code). The X68000 has
+# none (above). Each entry: the Windows converter of 1.9.1 (Python 3.14), then the Linux one (Python 3.13.5).
+LEGACY_GAME_STAMPS: dict[str, tuple[str, ...]] = {
+    'a1200': ('812cec6812909613e39a5fd5950e5e493d783615b87f4f985af1cc6796d194d9',
+        '553d4f66679899c1b7b6f2322819e0843c2adf562fde8e1387fac87f8bfd6d41'),
+    'amiga': ('75245c7103bb8a07cba0e79d62b9130806c111829bc8cf54855c2ba665e6815e',
+        'c06ccf6a103d2e0905ced329a18f40517ca6396d043a8d263b03f35f722a50c3'),
+    'atarist': ('e97efb0370ef42e72f95c63c30d590a869a34acc8148af314e7637a7d58f01d2',
+        '71f5b462b3f8d5ccd8c751c0284b15d941994ee2b053f2c1da704fc65c57e9bb'),
+    'cps1': ('f84e4dcaa659c3e5984768f5132fb0cf64b2faa7777c2d9777a41b38a20f611e',
+        'da25c9169ee9f335aef08fdfb97a122f624ee1fc3625fe4bdd1df4c7624b8d62'),
+    'cps2': ('b35c364f2cf319a5a599e6b8d0941b8baff98f1a1aca2e806849da2b9fb9fab6',
+        '9693b4cb98e3df3fd02511d39f649b61c8fb9a1584e7a8aa2fe9ec05ba90db8a'),
+    'gb': ('a150c491385fb3927608a227ebed5b8ffae3ab5001aa2f0dea62dda82be0481d',
+        '080585dfe5dd4a748e60ba01fc1ec993776797b955d4ac67b53adc17896ee69f'),
+    'gba': ('cb61fb5ef9436a106b599e64eb67710beb614ae56332eddd953fd6ae4dd3de0c',
+        'b28745a6a6a9f05678fa490664efbf27b622e95d691214845bc506f78754a8bf'),
+    'gg': ('2cd62410c2b9709529b7823b3b9d179ca0b9c8846981f6a296c17ee3901c1716',
+        'a7952ee4ec9c2357efde40768bf890244848c29fa89d0624456795c5c516c3ea'),
+    'md': ('983cdd11a296a6f6b1a14427c0a759fcb706a8f0b6b4019666ce2b0e66220f7e',
+        'fe2c6fc143941450b6eb6e4ff4adfa929bc01b028a634b3a9de748b03f38d442'),
+    'msx': ('5cd2624d90e346ac4675fa87591ea063d9cbdcbb06c9f904d4e4802edabe98f2',
+        '7f4f8dcb12339f4db4d114af9bb2f57521e624ae6b2916c74a8876c95eadf03d'),
+    'msx2': ('4051e193db5fa65d78d65e02a9b84bfb3dd646ea9f7251e0cd318e3574a76d67',
+        '51fb568bd622cd5c1eb994677af626667061689473f9a6ec31c778ad0cf1ffad'),
+    'msx2plus': ('3cfb42de6b5f0a6afe9eb34e50f6dd96f3603b9072769c9315346e0057149311',
+        '4f040a56ce1796481a8fe5527114d1a0c71215e1c3307a2c4e554d6f93282d3d'),
+    'n64': ('fa24d9ffc1f6a7dc5f7642a3ef2b79af39b9b8e9aae2c9f283ac783c7af57165',
+        'd80441270dad95bbc888720d6dbdeb68a54121474fb88a3acf52e26272ba3c69'),
+    'nes': ('be2ecf0a33f2cf7391ce16944907afec4c2a92765e3ea00f2bdab7a30786c7ba',
+        '286047577cb3e97f6b58ab577fe433042fdf2d3ebd77bf1f2e219f02531c0525'),
+    'ng': ('e05bdf6113bfd46b2687f74cc5397f268a13aaa9bad128055f689ee24de53343',
+        'bc7148736cb5037fe139fa4efe639787b6d26c1f2a537fa6adf163d05ca8879d'),
+    'pce': ('b14ed3f58f53bba66d6efbff26a9309d88147fdb6926367875374e6156bf33bb',
+        '8f38ee45913caeab1fca5ffa13df436c27810a8ae898c4b35ccf2c162a8846f0'),
+    'psx': ('cc5cb028f7932c263cb1b0ba29943a94f5bc64a7b0a515c79f0505a1b83007bc',
+        '2f90555f235f33b216702c76f812bd1249db542228497e5eb857f0f1b454141c'),
+    'scummvm': ('c9924d6a531ba26603a73464b85f6e668ecb912be43dec1c87855e9a144b02b1',
+        '1de38ae193cab9b288e1613c8bfa24cd5b90e326d6c2b4bfb05d04668854b8b6'),
+    'sms': ('2865be15e69c958e7e8a59dcd4c1836417d9d2dc16d284b9bac374e01342ef77',
+        '945c9927bf677993fc8233541e16cda8e2dce8aa5d9ed175912d053bdb7dccb9'),
+    'snes': ('507e8ac702a765b824374d2c3708b772f14947cdb927af71a12535d3ffb767a5',
+        '934f71bbcf4b3083830d37e5acdc53569976af3ef9710eb53aca6c152dd278c5'),
+}
 
 # Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw
 # the window, menus, options, bindings, on-screen text, fonts, filters, icons

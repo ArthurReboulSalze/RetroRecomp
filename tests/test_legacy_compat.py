@@ -213,13 +213,27 @@ NINE = ('cps1', 'gb', 'gg', 'md', 'nes', 'ng', 'sms', 'snes', 'x68')
 
 
 class LegacyStampTests(unittest.TestCase):
-    def test_the_table_is_empty_in_1_6_4_and_lists_nothing_older(self):
-        # 1.6.4 is a structural release with a full reconversion of every console: no stamp of 1.6.3 or of any older
-        # release is listed, and no console is upgraded from a previous export.
-        self.assertEqual(inputs.LEGACY_GAME_STAMPS, {})
-        for system in sorted(inputs.SYSTEMS):
+    def test_the_table_lists_the_stamps_of_1_9_1_for_twenty_consoles_and_none_is_current(self):
+        # 1.10.0 lists the game stamps of 1.9.1, Windows then Linux, for the twenty consoles whose changes leave a generated
+        # game as it was (docs/UPGRADES.md, "Exports of 1.9.1 in 1.10.0"); the X68000 and the six machines new in 1.10.0 have none.
+        listed = ('a1200', 'amiga', 'atarist', 'cps1', 'cps2', 'gb', 'gba', 'gg', 'md', 'msx', 'msx2', 'msx2plus', 'n64',
+                  'nes', 'ng', 'pce', 'psx', 'scummvm', 'sms', 'snes')
+        self.assertEqual(tuple(sorted(inputs.LEGACY_GAME_STAMPS)), listed)
+        for system in listed:
+            stamps = inputs.legacy_game_stamps(system)
+            self.assertEqual(len(stamps), 2, system)
+            for stamp in stamps:
+                self.assertRegex(stamp, r'^[0-9a-f]{64}$')
+                self.assertNotEqual(stamp, inputs.role_stamps(system)['game'], system)
+        for system in ('x68', 'zxs', 'sg1000', 'coleco', 'cpc', 'gbc', 'pcecd'):
             self.assertEqual(inputs.legacy_game_stamps(system), (), system)
         self.assertEqual(inputs.legacy_game_stamps('unknown'), ())
+
+    def test_the_windows_stamps_listed_are_those_the_release_of_1_9_1_recorded(self):
+        from retrorecomp import compatibility
+        recorded = compatibility.load()['1.9.1']
+        for system, stamps in inputs.LEGACY_GAME_STAMPS.items():
+            self.assertEqual(stamps[0], recorded[system]['game'], system)
 
     def test_the_stamps_of_1_6_3_are_recorded_for_the_nine_consoles_and_none_is_current(self):
         for table in (GAME_STAMPS_163, HOST_STAMPS_163, BUILD_STAMPS_163, GAME_STAMPS_163_LINUX, HOST_STAMPS_163_LINUX,
@@ -238,7 +252,6 @@ class LegacyStampTests(unittest.TestCase):
 
     def test_nothing_older_is_listed_either(self):
         listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
-        self.assertFalse(listed)
         recorded = set()
         for table in (GAME_STAMPS_156_REMOVED, GAME_STAMPS_160_REMOVED, GAME_STAMPS_161_REMOVED,
                       GAME_STAMPS_161_LINUX_REMOVED, GAME_STAMPS_162_REMOVED, GAME_STAMPS_162_LINUX_REMOVED):
@@ -359,14 +372,15 @@ class LegacyReceiptTests(unittest.TestCase):
                     self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
 
     def test_a_1_6_3_receipt_of_any_console_is_converted_in_full(self):
-        # 1.6.4 lists nothing: the game stamp a real 1.6.3 receipt carries (Windows or Linux converter) is not recognised,
-        # whatever the console, so every export of 1.6.3 is converted in full (the base of qualified paths still applies).
-        # A machine added after 1.6.3 had no export then: only the consoles of that release are asked.
+        # The table lists only the previous release (1.9.1): the game stamp a real 1.6.3 receipt carries (Windows or Linux
+        # converter) is not recognised, whatever the console, so every export of 1.6.3 is converted in full (the base of
+        # qualified paths still applies). A machine added after 1.6.3 had no export then: only the consoles of that release are asked.
         from retrorecomp import freshness
         for system in sorted((inputs.SYSTEMS & set(GAME_STAMPS_163)) - {'x68'}):
             with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
                 item, parts = self.parts(system)
-                self.assertEqual(parts['legacy_games'], [])
+                for stamps in (GAME_STAMPS_163, GAME_STAMPS_163_LINUX):
+                    self.assertNotIn(self.parts(system, stamps[system])[1]['game'], parts['legacy_games'])
                 for stamps in (GAME_STAMPS_163, GAME_STAMPS_163_LINUX):
                     game = self.parts(system, stamps[system])[1]['game']
                     with patch('retrorecomp.freshness._no_new_hints', return_value=True):
@@ -386,8 +400,9 @@ class LegacyReceiptTests(unittest.TestCase):
                     continue
                 with self.subTest(release=release, system=system), tempfile.TemporaryDirectory() as folder:
                     item, parts = self.parts(system)
-                    self.assertEqual(parts['legacy_games'], [])
                     old = self.parts(system, removed[system])[1]['game']
+                    # The table lists the stamps of 1.9.1 only: an older release's game part is never among them.
+                    self.assertNotIn(old, parts['legacy_games'])
                     with patch('retrorecomp.freshness._no_new_hints', return_value=True):
                         for game in (old, 'f' * 64):
                             target, path = self.receipt(folder, item, game, release)
