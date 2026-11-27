@@ -76,20 +76,19 @@ card runs USA discs and Japanese ones; a conversion takes about twelve minutes o
 **The Linux witness**: The Addams Family converted on Debian 13 (WSL, gcc, headless) from an empty library gives the same 222,527,282 observed instructions, the same module (8,810
 instructions in 23 contexts) and, on both routes, the same CPU, RAM, picture and PCM hashes and the same trace digest as Windows. One disc, not a panel; no Linux GPU is involved.
 
-## 5. Route depth (gate G9), 21 November 2026
+## 5. Route depth (gate G9)
 
 The first routes (the PC Engine's walk: Run pressed a few times, then directions and taps) leave a disc in its menus: Ys Book I & II rested on its « Location / Start game story » menu for the
-whole 18,000-frame route. From the extended level, a conversion now plays three **styles** of input for 6,000 frames each on the observing build (`retrorecomp/pcecd_routes.py`) and gives the long routes
-the styles that made the game run the most different code (the number of distinct code identities of the engine's capture, then the distinct pictures): `walk` (the PC Engine's), `menu` (a cursor stepped
-down and answered, over and over) and `action` (directions held, I in bursts, II tapped). Nothing knows a game; the report names each style's score (`route_start.exploration`) and the style of every route
-(`final_checks[].style`).
+whole 18,000-frame route, and Akumajou Dracula X stayed on its file screen. From the extended level, the first long route of a conversion (21,600 frames, six minutes of the game) is therefore built **segment by segment**
+(`retrorecomp/pcecd_routes.py`): from the quick state at the end of what was chosen so far, four **styles** of input each play the next 3,600 frames on the observing build (two at a time),
+and the style that makes the game run the most code **not run before** (the engine's code capture identities, then the distinct pictures) is kept: `walk` (the PC Engine's), `menu` (a cursor stepped
+down and answered, over and over), `action` (directions held, I in bursts, II tapped) and `tap` (single taps of any button, one after the other: it types on a name entry grid). Nothing knows a game;
+the report names each segment's choice and every style's score (`route_start.exploration`) and marks the route `explored` (`final_checks[].style`). The route the conversion then plays against the reference,
+checks and ships is the composed script, played from the start; the states it was built from are the quick states the conversion checks.
 
-| Disc | walk | menu | action | Style kept for the long route | What the long route shows |
-|---|---|---|---|---|---|
-| Ys Book I & II | 14,584 identities, 250 pictures | 26,237, 1,217 | 27,348, 1,140 | action | the file cabinet question, then **the game**: the harbour, a town, HP and EXP on screen (before: the menu) |
-| Valis III | 11,229, 129 | 13,685, 169 | 13,685, 169 | menu | (see the panel table) |
-
-A route's depth is a measure of the route, never of the game: what a route reaches is not what a player can reach.
+On Akumajou Dracula X this is what changes: the route types a name in the file screen (a save in the backup memory), starts the game, reaches the first stage (health bar and score on screen) and its
+cut-scenes, where the walk stopped at the file screen for the whole route. A route's depth is a measure of the route, never of the game: what a route reaches is not what a player can reach, and what it
+does not reach runs on the interpreter, counted.
 
 ## 6. Multiplayer (step 3, 22 November 2026)
 

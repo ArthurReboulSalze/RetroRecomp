@@ -76,13 +76,11 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     plan = hu.routes(item.sha256, frames=plan_frames, level=level)
     route_start = None
     timings = {}
-    styled = {}          # long route name -> the style of its input (pcecd_routes), once the styles have been scored
-    start_choice = {'presses': 3, 'confirm': False}
+    composed = {}        # long route name -> its script, built segment by segment on the observing build (pcecd_routes.chain)
 
-    def apply_styles(rows_):
-        # the script of a styled long route is its style's (seeded as the route is); the other routes keep the walk's
-        return [(name, count, pcecd_routes.script(styled[name], count, hu.route_seed(item.sha256, name), start_choice['presses'], start_choice['confirm'])
-                 if name in styled else text) for name, count, text in rows_]
+    def with_composed(rows_):
+        # the long route built by exploration replaces the walk's script of the same name; the other routes keep the walk's
+        return [(name, *composed.get(name, (count, text))) for name, count, text in rows_]
     # Short folders, as the PC Engine's: the engine names its module's object library after a 64-digit hash.
     work = ROOT / '.build' / 'pcecd' / item.sha256[:12]
     with entry_lock(work, timeout=1800):
@@ -149,20 +147,19 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                     emit(f'PC Engine CD: play route starts with Run pressed {presses} time(s)' + (', each followed by I' if confirm else '') +
                          f' ({start[chosen]["reach"]} pictures reached that no input never showed).')
                     plan = hu.routes(item.sha256, frames=plan_frames, level=level, presses=presses, confirm=confirm)
-                    start_choice.update(presses=presses, confirm=confirm)
-                    # The long routes play the styles that made the game run the most different code (docs/PC_ENGINE_CD.md, route depth): each style is played on the
-                    # observing build for a few thousand frames and scored by the code identities its capture holds.
-                    if level != 'quick':
-                        explored = pcecd_routes.explore(candidate, checks, item.sha256, presses, confirm, disc_args, emit)
-                        route_start['exploration'] = explored
-                        styled.update(zip([name for name, _, _ in plan if name.startswith('long-')], [row['style'] for row in explored]))
-                    plan = apply_styles(plan)
+                    # The first long route is built segment by segment on the observing build (docs/PC_ENGINE_CD.md, route depth): each style of input plays the next
+                    # segment from the state reached so far, and the one that makes the game run the most new code is kept.
+                    long_name = next((name for name, _, _ in plan if name.startswith('long-')), None)
+                    if long_name:
+                        text, route_start['exploration'] = pcecd_routes.chain(candidate, checks, item.sha256, pcecd_routes.LONG_FRAMES, presses, confirm, disc_args, emit)
+                        composed[long_name] = (pcecd_routes.LONG_FRAMES, text)
+                    plan = with_composed(plan)
                     for name, count, text in plan:
                         scripts[name].write_text(text, encoding='ascii', newline='\n')
                     for name, count, _ in plan:
                         if name == 'attract' and count == play_count and scripts[name].read_text() == baseline.read_text():
                             reference[name] = variants[0]
-                        elif name in styled:
+                        elif name in composed:
                             reference[name] = hu.run(candidate, checks / 'reference', name, count, scripts[name], '--reference', *disc_args)
                         else:
                             reference[name] = (variants[chosen] if name == 'play' else
@@ -176,7 +173,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                                 scripts[name].write_text(hu._script(hu.play_rows(count, hu.route_seed(item.sha256, name), presses, repaired, confirm)),
                                                          encoding='ascii', newline='\n')
                     if route_start['repairs']:
-                        plan = apply_styles(hu.routes(item.sha256, frames=plan_frames, level=level, presses=presses, repairs=route_start['repairs'], confirm=confirm))
+                        plan = with_composed(hu.routes(item.sha256, frames=plan_frames, level=level, presses=presses, repairs=route_start['repairs'], confirm=confirm))
                 for name, count, _ in plan:
                     # A disc loads code as it plays: the captures use the engine's larger format from the start.
                     capture = checks / 'native' / f'pass-{attempt + 1}' / (name + '-capture.jsonl')
@@ -255,7 +252,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     for name, count, text in plan:
         native = final[name]
         total = native['native_instructions'] + native['interpreted_instructions']
-        checks_rows.append({'name': name, 'frames': count, 'style': styled.get(name, 'none' if name == 'attract' else 'walk'), 'native_entries': native['native_instructions'],
+        checks_rows.append({'name': name, 'frames': count, 'style': 'explored' if name in composed else 'none' if name == 'attract' else 'walk', 'native_entries': native['native_instructions'],
                             'interpreted_opcodes': native['interpreted_instructions'], 'guard_misses': native['guard_misses'],
                             'interpreter_percent': round(100 * native['interpreted_instructions'] / max(1, total), 6), 'reference_match': True,
                             'cpu_hash': native['cpu_hash'], 'ram_hash': native['ram_hash'], 'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash'],
