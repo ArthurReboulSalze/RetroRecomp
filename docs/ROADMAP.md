@@ -25,7 +25,7 @@ fallback stays counted and shown wherever it is used.
 | Sharp X68000 | supported | MAME sound and colours on more games; deeper disk-change and save evidence |
 | Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
 | PC Engine / TurboGrafx-16 | supported (since 1.7.2) | the window and Linux proof of the player's own record (in 1.7.3), more HuCards |
-| PC Engine CD / TurboGrafx-CD | experimental | the owner's play test and acceptance, routes that go further on some discs, the two-PC match |
+| PC Engine CD / TurboGrafx-CD | experimental | the owner's decision on the exit, routes that go further on some discs, the two-PC match |
 | Game Boy Advance | supported (since 1.7.6; experimental from 1.7.0) | a level won on a panel game, the LDM/STM vectors, an independent emulator comparison (G10, G11), the quiet-PC cost of a frame, the cartridge sensors |
 | Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
 | Commodore Amiga 1200 | supported (since 1.7.8; experimental from 1.7.6) | AGA super-hires at full detail, the 76 68EC020 vector cases to referee (G10), the frame cost of the display's shortcuts on a quiet PC, a game played on Linux |

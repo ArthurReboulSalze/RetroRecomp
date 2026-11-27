@@ -1,7 +1,7 @@
 # PC Engine CD / TurboGrafx-CD
 
 Status: **experimental**, open to players (21 November 2026). Steps 1 to 3 of [NEW_MACHINE.md](NEW_MACHINE.md) are done as far as they can be without the owner: nine discs convert and match on
-Windows and Linux, routes reach play on eight of them, multiplayer is proved on one PC. Three games were delivered for the owner's play test; his acceptance (G14) and the exit are not recorded. The decisions
+Windows and Linux, routes reach play on eight of them, multiplayer is proved on one PC. The owner played three of them and accepted them (G14, 27 November 2026, [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); the exit from experimental is not recorded. The decisions
 below are the owner's, taken on 21 November 2026 after the study.
 
 ## 1. What it converts, and what it does not
