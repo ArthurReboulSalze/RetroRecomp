@@ -124,6 +124,26 @@ def machine_keywords(args) -> dict:
     return values
 
 
+def game_languages(folders) -> dict:
+    """The language the games of each console folder already use (its datas/Retro-Recomp.ini), for the folders
+    that have one. A conversion writes the language it runs in into that file; a command given no --language puts
+    these back afterwards, so it never replaces the language the player chose in the window or in a game's menu."""
+    import configparser
+    from retrorecomp.languages import LANGUAGES
+    from retrorecomp.paths import data_directory
+    found = {}
+    for folder in folders:
+        config = configparser.ConfigParser(interpolation=None, strict=False)
+        try:
+            config.read(data_directory(folder) / 'Retro-Recomp.ini', encoding='utf-8')
+        except (OSError, UnicodeError, configparser.Error):
+            continue
+        language = config.get('Interface', 'language', fallback='').strip()
+        if language in LANGUAGES:
+            found[folder] = language
+    return found
+
+
 def main() -> int:
     # The packaged converter shows a start-up picture while it unpacks; the
     # converters it starts itself (bridges, update checks) must not.
@@ -222,7 +242,9 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command")
     build = sub.add_parser("convert", help="Convert a ROM into a standalone executable.")
     build.add_argument("rom", type=Path)
-    build.add_argument("--language", choices=("en", "fr", "it", "es", "de", "zh", "ja", "ru"), default="en", help="Converter and game language (default: English).")
+    build.add_argument("--language", choices=("en", "fr", "it", "es", "de", "zh", "ja", "ru"),
+        help="Converter and game language (default: the language saved in the window, else English; "
+             "the games keep the language they already use).")
     build.add_argument("--title")
     build.add_argument("--output", type=Path)
     build.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto",
@@ -254,7 +276,9 @@ def main() -> int:
     add_machine_options(build, developer=True)
     batch = sub.add_parser("batch", help="Convert several ROMs to a shared games folder.")
     batch.add_argument("roms", type=Path, nargs="*")
-    batch.add_argument("--language", choices=("en", "fr", "it", "es", "de", "zh", "ja", "ru"), default="en", help="Converter and game language (default: English).")
+    batch.add_argument("--language", choices=("en", "fr", "it", "es", "de", "zh", "ja", "ru"),
+        help="Converter and game language (default: the language saved in the window, else English; "
+             "the games keep the language they already use).")
     batch.add_argument("--rom-dir", type=Path, action="append", default=[],
         help="Add a mixed ROM folder recursively; repeat this option for more folders.")
     batch.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto")
@@ -416,6 +440,12 @@ def main() -> int:
                     'neo_geo_memories':list_ng_memory()},
                     indent=2, ensure_ascii=False))
         elif args.command in ("convert", "batch"):
+            # Without --language: the window's language (the saved preference) for the messages and new game folders;
+            # a console folder whose games already have a language keeps it (game_languages).
+            explicit_language = args.language is not None
+            if not explicit_language:
+                from retrorecomp.languages import language_code
+                args.language = language_code(load_preferences().get('language'))
             if args.keep_build:
                 from retrorecomp.build_cleanup import KEEP_VARIABLE
                 os.environ[KEEP_VARIABLE] = '1'
@@ -479,6 +509,8 @@ def main() -> int:
                     print(say('shared_unavailable', error=problem(outcome['error'])), file=sys.stderr)
                 shared_batch.start_source(lambda more: shared_batch.prepare(more, use_shared), keys,
                                           {item.system for item in items})
+                kept = {} if explicit_language else game_languages(
+                    {system_output(args.output, item.system) for item in items if item.system})
                 try:
                     record = convert_batch(items, args.output, shared_paths=outcome['paths'],
                         emit=lambda text: print(log_text(text, args.language)),
@@ -492,9 +524,11 @@ def main() -> int:
                         standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 finally:
                     shared_batch.stop_source()
+                    for game_output, language in kept.items():
+                        save_game_language(game_output, language)
                 shared_batch.forget_rejected(outcome['paths'], record['games'])
                 for game_output in {system_output(args.output, game['system']) for game in record['games']
-                                    if game['status'] == 'success'}:
+                                    if game['status'] == 'success'} - set(kept):
                     save_game_language(game_output, args.language)
                 minutes, seconds = divmod(int(record.get('elapsed_seconds') or 0), 60)
                 print(f"Retro-Recomp: batch finished in {minutes} min {seconds} s: "
@@ -508,23 +542,31 @@ def main() -> int:
                 if args.title:
                     item.title = args.title
                 item.cover = args.cover
-                record = convert_batch([item], args.output or games_root(), profile=args.profile,
-                    emit=lambda text: print(log_text(text, args.language)),
-                    prepare_shared=True,
-                    passes=args.passes, frames=args.frames, backend=args.backend, language=args.language,
-                    boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover,
-                    use_cover=not args.no_cover, icon_tags=not args.no_icon_tags,
-                    **switch_keywords(args),
-                    scan_level=args.scan_level, console_scan=load_preferences().get('console_scan'),
-                    **machine_keywords(args),
-                    standard_override=None if args.video_standard == 'auto' else args.video_standard)
+                kept = {} if explicit_language or not item.system else game_languages(
+                    [system_output(args.output or games_root(), item.system)])
+                try:
+                    record = convert_batch([item], args.output or games_root(), profile=args.profile,
+                        emit=lambda text: print(log_text(text, args.language)),
+                        prepare_shared=True,
+                        passes=args.passes, frames=args.frames, backend=args.backend, language=args.language,
+                        boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover,
+                        use_cover=not args.no_cover, icon_tags=not args.no_icon_tags,
+                        **switch_keywords(args),
+                        scan_level=args.scan_level, console_scan=load_preferences().get('console_scan'),
+                        **machine_keywords(args),
+                        standard_override=None if args.video_standard == 'auto' else args.video_standard)
+                finally:
+                    for game_output, language in kept.items():
+                        save_game_language(game_output, language)
                 result = record['games'][0]
                 if result['status'] not in ('success', 'current'):
                     raise ConversionError(result['message'])
-                save_game_language(Path(result['executable']).parent, args.language)
+                game_output = Path(result['executable']).parent.resolve()
+                if game_output not in kept:
+                    save_game_language(game_output, args.language)
         return 0
     except (ConversionError, OSError, TimeoutError, ValueError) as exc:
-        message = log_text(str(exc), getattr(args, "language", "en"))
+        message = log_text(str(exc), getattr(args, "language", None) or "en")
         if str(exc).startswith("Missing Linux build tools"):
             from retrorecomp.updater import linux_install_hint
             message += linux_install_hint()    # the packages to install, named for this distribution (apt or dnf)

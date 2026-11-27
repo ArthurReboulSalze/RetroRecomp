@@ -821,3 +821,60 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(identify(path).system, 'sms')
         path.write_bytes(original)
         self.assertEqual(path.read_bytes(), original)
+
+
+class CommandLineLanguageTests(unittest.TestCase):
+    """`RetroRecomp.py batch` and `convert` without --language keep the language a console folder's games already use."""
+
+    def run_main(self, command, output, language=None, preference=None):
+        import RetroRecomp
+        from retrorecomp.batch import BatchItem
+        from retrorecomp.paths import save_game_language
+        rom = output.parent / 'game.sms'
+        rom.write_bytes(b'rom')
+        item = BatchItem(path=rom, system='sms', sha256='0' * 64, title='Game')
+        folder = system_output(output, 'sms')
+        folder.mkdir(parents=True, exist_ok=True)
+        seen = []
+
+        def convert(items, destination, **options):
+            seen.append(options['language'])
+            save_game_language(folder, options['language'])   # what batch.py does for each game it reaches
+            return {'games': [{'status': 'success', 'system': 'sms', 'sha256': item.sha256,
+                               'executable': str(folder / 'Game.exe')}],
+                    'succeeded': 1, 'requested': 1, 'failed': 0, 'current': 0, 'existing': 0, 'pending': 0}
+        argv = ['RetroRecomp.py', command, str(rom), '--output', str(output)] + (['--language', language] if language else [])
+        outcome = {'paths': {}, 'summary': None, 'error': None, 'base': None}
+        with patch('sys.argv', argv), patch('RetroRecomp.load_preferences', return_value=preference or {}), \
+                patch('RetroRecomp.identify', return_value=item), patch('RetroRecomp.convert_batch', side_effect=convert), \
+                patch('retrorecomp.shared_batch.prepare', return_value=outcome), patch('retrorecomp.online.forget_shared'), \
+                patch('sys.stdout'), patch('sys.stderr'):
+            self.assertEqual(RetroRecomp.main(), 0)
+        return seen, folder / 'datas' / 'Retro-Recomp.ini'
+
+    def language(self, ini):
+        import configparser
+        config = configparser.ConfigParser(interpolation=None, strict=False)
+        config.read(ini, encoding='utf-8')
+        return config.get('Interface', 'language', fallback=None)
+
+    def test_the_player_language_survives_and_an_explicit_one_wins(self):
+        for command in ('batch', 'convert'):
+            with self.subTest(command=command), tempfile.TemporaryDirectory() as scratch:
+                output = Path(scratch) / 'Export' / 'Games'
+                ini = system_output(output, 'sms') / 'datas' / 'Retro-Recomp.ini'
+                ini.parent.mkdir(parents=True)
+                ini.write_text('[Interface]\nlanguage=fr\n[Video]\nfilter=2\n', encoding='utf-8')
+                seen, _ = self.run_main(command, output)
+                self.assertEqual((seen, self.language(ini)), (['en'], 'fr'))   # no saved preference: messages in English
+                seen, _ = self.run_main(command, output, preference={'language': 'it'})
+                self.assertEqual((seen, self.language(ini)), (['it'], 'fr'))   # the window's language, the games' own kept
+                seen, _ = self.run_main(command, output, language='de', preference={'language': 'it'})
+                self.assertEqual((seen, self.language(ini)), (['de'], 'de'))
+                self.assertIn('[Video]', ini.read_text(encoding='utf-8'))
+
+    def test_a_new_console_folder_takes_the_saved_language(self):
+        for command in ('batch', 'convert'):
+            with self.subTest(command=command), tempfile.TemporaryDirectory() as scratch:
+                seen, ini = self.run_main(command, Path(scratch) / 'Games', preference={'language': 'fr'})
+                self.assertEqual((seen, self.language(ini)), (['fr'], 'fr'))
