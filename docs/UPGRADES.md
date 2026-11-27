@@ -354,6 +354,15 @@ passed. The kept files of each build are equal, but `runtime_feedback.h` itself 
 (`native/banked_emitter.inc` changed since v1.9.1), so this change refuses no further state. The other machines' keys do not hash
 this header. **Hot path:** unchanged (no new call).
 
+## Every machine: the storage check expects player 1's S key (1.10.0)
+
+`native/lazy_data_checks.c`, the check `tools/lazy_data_selftest.py` builds (never compiled into a game: the target
+`smsrecomp_lazy_data_checks` exists only with `SMSRECOMP_LAZY_DATA_CHECKS=ON`), still expected player 1's first button on W; since the
+keyboard defaults moved to S D F / E R T by position (1.7.6) it expects `SDL_SCANCODE_S`. The file is a game input of every console
+(`ALL`), so **the game stamp of every machine** (the 27 profiles) moves, and the Mega Drive's and the Super Nintendo's quick-state keys
+(they hash the console's non-host native files). Both already move this release (the feedback-kind header above), so no export is
+converted once more and no further quick state is refused. A game's code is unchanged. Its alias `tools/data_selftest.py` is removed.
+
 ## Game Boy Color: the F1 help offers no palette key (1.10.0)
 
 A Color game keeps its own colours: its options window has no palette row and F5 only shows a notice, yet the F1 help still listed « F5 Monochrome / classic green ». It is listed

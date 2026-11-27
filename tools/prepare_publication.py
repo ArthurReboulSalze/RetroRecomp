@@ -538,7 +538,7 @@ tests/test_peripherals.py
 tests/test_updater_base.py tests/test_update_startup.py
 tools/banked_cpu_selftest.py tools/banked_selftest.py
 tools/banked_vector_selftest.py tools/banked_verify.py tools/cpu_selftest.py
-tools/data_selftest.py tools/fetch_z80_vectors.py tools/gui_smoke.py tools/gui_patching.py
+tools/fetch_z80_vectors.py tools/gui_smoke.py tools/gui_patching.py
 tools/host_selftest.py tools/icon_selftest.py tools/install_converter.py
 tools/learning_selftest.py tools/package.ps1 tools/player2_selftest.py
 tools/prepare_logo.py tools/publishing_selftest.py tools/prepare_publication.py
