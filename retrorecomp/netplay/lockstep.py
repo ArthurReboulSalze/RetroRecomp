@@ -695,6 +695,8 @@ class LockstepDriver:
         elif packet.kind == wire.BOOT:
             if self.seat == HOST:
                 if self._phase in ('hello', 'gate'):
+                    if source not in self._boots:
+                        self._seat_ready(source)
                     self._boots[source] = packet.digest
                 elif self.outcome == 'boot_mismatch':   # the verdict may have been lost on the way: say it again
                     self._send(source, wire.encode_bye(self.seat, wire.BYE_BOOT, 0, self._boot_culprit))
@@ -717,6 +719,15 @@ class LockstepDriver:
         # The middle of the last 64 round trips, halved: a late answer or two does not move it (the time
         # sync reads it once per packet and the delay rule once; a jittery link must not make it jump).
         self._one_way_ms[source] = statistics.median(self._rtt[source]) / 2
+
+    def _seat_ready(self, seat: int):
+        """A guest's first word that its game is ready: the round trips before it measured its start, not its link. Its game
+        was starting (27 Nov 2026: about a second for a CPC export), the PINGs of that time were answered at once when it was
+        ready (938, 907, 877 ... 5 ms), and the host, which reads its last 64 round trips when it chooses, took a delay of 10
+        frames on a 1 ms LAN. They are dropped, with the PINGs not yet answered, and the host measures again."""
+        self._rtt[seat].clear()
+        self._pings_sent[seat].clear()
+        self.measured = None
 
     def _send_ping(self, seat: int, now: float):
         value = int(now * 1e6) & 0xffffffff

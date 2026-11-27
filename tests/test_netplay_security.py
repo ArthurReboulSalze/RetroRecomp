@@ -388,6 +388,49 @@ class MeasuresTests(unittest.TestCase):
         self.assertLessEqual(driver._worst_path()[0], 22.0)
         self.assertEqual(driver.stats['measures_clamped'], 0)
 
+    def test_round_trips_from_before_a_guest_s_game_was_ready_do_not_choose_the_delay(self):
+        # 27 Nov 2026: a CPC guest's game took about a second to start; the PINGs of that second were answered at once when it
+        # was ready (938, 907, ... 5 ms) and the host chose 10 frames on a 1 ms LAN. Here the guest answers 0.8 s of PINGs in
+        # one burst before it says its boot, then each PING at once.
+        link = StubLink(0)
+        driver = LockstepDriver(RecordingGame(), link, Settings(
+            seat=0, seats=2, digest_every=25, packet_rate=1e9,
+            local_source=scripted_inputs.local_source({'kind': 'pad', 'seat': 0})))
+        driver.start()
+        try:
+            self.assertTrue(link.opened.wait(10))
+            seen = 0
+
+            def new_pings():
+                nonlocal seen
+                sent = [wire.decode(data, 4) for to, data in list(link.sent) if to == 1]
+                fresh = [packet for packet in sent[seen:] if packet is not None and packet.kind == wire.PING]
+                seen = len(sent)
+                return fresh
+
+            starting = time.monotonic() + 0.8
+            late = []
+            while time.monotonic() < starting:                         # the guest's game is starting: nobody answers
+                late += new_pings()
+                time.sleep(0.005)
+            self.assertGreater(len(late), 10)
+            for ping in late:                                           # then every PING of that time, in one burst
+                link.sink(1, wire.encode_pong(1, ping.time))
+            deadline = time.monotonic() + 20
+            while driver.delay is None and time.monotonic() < deadline:
+                link.sink(1, wire.encode_boot(1, BOOT))
+                link.sink(1, wire.encode_measure(1, 1, 1))
+                for ping in new_pings():
+                    link.sink(1, wire.encode_pong(1, ping.time))
+                time.sleep(0.005)
+            self.assertIsNotNone(driver.delay, driver.snapshot())
+            # FakeGame runs 500 frames a second, so the delay is read as the measure it came from (205 + 146 ms before the fix)
+            self.assertLess(sum(driver.measured), 60, driver.snapshot())
+            self.assertLess(max(driver._rtt[1]), 200, driver._rtt[1])  # none of the burst is a measure of the link
+        finally:
+            driver.stop()
+            driver.join(30)
+
     def test_a_measure_after_the_gate_is_ignored(self):
         with Fixture(self, seats=3) as fixture:
             fixture.say(1, wire.encode_measure(1, 900, 900))
