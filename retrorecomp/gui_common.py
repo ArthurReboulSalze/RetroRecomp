@@ -87,6 +87,10 @@ UPSTREAM_CREDITS = (
     ('PC Engine / TurboGrafx-16', (
         ('rages4calm/pcenginerecomp', 'https://github.com/rages4calm/pcenginerecomp', 'credits_recompiler'),
     )),
+    ('PC Engine CD / TurboGrafx-CD', (
+        ('rages4calm/pcenginerecomp', 'https://github.com/rages4calm/pcenginerecomp', 'credits_recompiler'),
+        ('rtissera/libchdr', 'https://github.com/rtissera/libchdr', 'credits_chd'),
+    )),
     ('Game Boy Advance', (
         ('mstan/gbarecomp', 'https://github.com/mstan/gbarecomp', 'credits_recompiler'),
         ('mstan/arm-recomp-core', 'https://github.com/mstan/arm-recomp-core', 'credits_arm_core'),
@@ -114,7 +118,6 @@ UPSTREAM_CREDITS = (
 # A line under a machine's name in the credits: its terms, or where it stands.
 UPSTREAM_CREDIT_NOTES = {
     'Sharp X68000': 'credits_x68_status',
-    'Sony PlayStation': 'credits_experimental',
     'Adventure (ScummVM)': 'credits_emulated',
 }
 

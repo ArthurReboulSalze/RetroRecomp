@@ -78,7 +78,7 @@ Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY a
   Phaser page. Game Gear bindings have their own `[GameGear.*]` sections of `datas/Retro-Recomp.ini`, so they do not overwrite
   the Master System's. Before 1.5.0 the cartridge Start was S and the menu Enter; a saved Pause/Menu binding is kept, and a
   saved Enter there wins over the cartridge Start.
-- **Display.** The 160 × 144 picture, whole-pixel scaling, F3 filters (the CRT looks and the LCD grid included, [VIDEO.md](VIDEO.md#crt-and-lcd-looks)), F4 display modes as on the other consoles
+- **Display.** The 160 × 144 picture, whole-pixel scaling, F3 filters (the CRT looks and the LCD screen included, with their styles on the options page, [VIDEO.md](VIDEO.md#crt-and-lcd-looks)), F4 display modes as on the other consoles
   ([CONTROLS.md](CONTROLS.md), [VIDEO.md](VIDEO.md)). Audio: [AUDIO.md](AUDIO.md).
 - **F5** (sprite flicker reduction), new in 1.6.5 and off by default: it draws the sprites beyond the eighth of a line (the Game Gear
   VDP has the same limit) and stabilises confirmed rapid sprite-list reversals, in the same way as on the
