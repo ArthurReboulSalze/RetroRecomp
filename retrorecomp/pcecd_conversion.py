@@ -1,4 +1,4 @@
-"""PC Engine CD conversion (experimental; docs/PC_ENGINE_CD.md). Retro-Recomp's own code, MIT.
+"""PC Engine CD conversion (docs/PC_ENGINE_CD.md). Retro-Recomp's own code, MIT.
 
 The conversion of a disc is the PC Engine's (retrorecomp/pce_conversion.py) with a disc and the player's System Card in place of a HuCard: every route runs
 twice in the same build of the game, once with every instruction forced through the engine's interpreter (`--reference`, the fresh reference) and once with

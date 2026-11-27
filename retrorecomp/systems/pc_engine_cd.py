@@ -1,4 +1,5 @@
-"""PC Engine CD (CD-ROM2, Super CD-ROM2) profile: experimental (see docs/PC_ENGINE_CD.md); listed when the installation carries the converter's native files.
+"""PC Engine CD (CD-ROM2, Super CD-ROM2) profile: supported in the release after 1.9.1, on the owner's play test of 27 November 2026 (opened as experimental
+on 21 November 2026; docs/PC_ENGINE_CD.md); listed when the installation carries the converter's native files.
 
 Scope decided on 21 November 2026 (the study and the owner's answers): discs as the player gives them (a CHD of version 4 or 5, a
 CUE sheet with its BIN files, an ISO), run on the same HuC6280, video and PSG as the PC Engine with the CD drive, CD audio, ADPCM
@@ -26,7 +27,7 @@ class PcEngineCdProfile(SystemProfile):
     extensions = ('.chd', '.cue', '.iso')
     export_folder = 'PC Engine CD'
     video_modes = ('ntsc',)
-    status = 'experimental'     # open to players as experimental (docs/PC_ENGINE_CD.md); the exit is the owner's (G14)
+    status = 'supported'        # the owner's decision of 27 November 2026 after his play test (G14; docs/PC_ENGINE_CD.md, section 8)
     scope_note = "CD-ROM2 and Super CD-ROM2 discs with the player's own System Card; no Arcade Card, no SuperGrafx."
     cpus = (Cpu('huc6280', 'main', 'instructions'),)
     media_kinds = ('disc',)

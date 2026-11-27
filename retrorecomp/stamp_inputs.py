@@ -1177,7 +1177,7 @@ INPUTS = _resolve({
         'retrorecomp.pce_knowledge',
         'retrorecomp.pce_rom',
     ),
-    # The PC Engine CD (experimental, docs/PC_ENGINE_CD.md): its disc and System Card readers, the CHD reader, its input module and
+    # The PC Engine CD (docs/PC_ENGINE_CD.md): its disc and System Card readers, the CHD reader, its input module and
     # its report writer. The disc reader of the CUE and ISO containers is the PlayStation's (shared below).
     ('pcecd',): (
         'native/pcecd_disc.cpp',

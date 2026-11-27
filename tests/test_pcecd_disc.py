@@ -427,10 +427,10 @@ class SystemCardTests(unittest.TestCase):
 
 
 class ProfileTests(unittest.TestCase):
-    def test_the_profile_is_experimental_open_and_separate_from_the_pc_engine(self):
+    def test_the_profile_is_supported_open_and_separate_from_the_pc_engine(self):
         profile = next(p for p in registry.all_profiles() if p.id == 'pcecd')
         self.assertEqual((profile.status, profile.developer_only, profile.linux, profile.media_kinds, profile.firmware),
-                         ('experimental', False, 'witnessed', ('disc',), ('system_card',)))
+                         ('supported', False, 'witnessed', ('disc',), ('system_card',)))
         self.assertEqual([c.arch for c in profile.cpus], ['huc6280'])
         self.assertNotEqual(profile.id, 'pce')
         self.assertIn('pcecd', [p.id for p in registry.all_profiles()])
