@@ -22,9 +22,12 @@ core's interpreter; it cannot be compared with the figures of a machine whose ga
 | Windows; Linux (`linux = 'witnessed'`): two conversions checked on a Debian 13 PC with the system GCC (9 November 2026, routes of 3,000 frames; Rick Dangerous: 0 interpreted; Civilization, with the player's Kickstart: 19, all the Kickstart's; both validated on both routes, compressed copy and quick state included, every frame compared equal to the Windows run of the same inputs), not played there | A panel on Linux: two installs were run there, none played |
 | | Qualified shared paths: the Amiga shares its paths since 1.7.5, none is qualified in the base yet |
 
-A `.lha` that holds no slave is refused with a sentence. With several slaves (25 archives of the maintainer's library), the one named as
-the install's folder is the game and its intro, editor or helper slaves stay aside (`other_slaves` in the report; 17 of the 25); an archive
-where no single slave is named so, a collection such as Dizzy Collection or Time Runners Series (8 of the 25), is refused, never guessed. The archive is read in place and never
+A `.lha` that holds no slave is refused with a sentence. With several slaves (40 of the 4,788 archives of the maintainer's library), the one
+named as the install's folder is the game and its intro, editor or helper slaves stay aside (25 of the 40; the report names the slave used);
+when that same slave is also kept in the data folder, the copy in the install's folder is taken (4 of the 40). An archive where no single
+slave is named so, a collection such as Dizzy Collection, Populous 2 & Challenge Games or Time Runners Series (11 of the 40), is refused
+with a sentence that says it holds several slaves, never guessed. The detection and the conversion choose with the same rule
+(`amiga_whdload.slave_choice`, next release). The archive is read in place and never
 changed. An install that asks for a Kickstart uses the player's own image (section 2a); Retro-Recomp supplies none, fetches none
 and shares none. The player supplies the install; Retro-Recomp publishes no game, no disk and no firmware.
 

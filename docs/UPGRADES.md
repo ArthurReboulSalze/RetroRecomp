@@ -526,6 +526,32 @@ Engine's (`pce_rom`) and the PC Engine CD's (`pcecd_card`) move for their own fi
 `rom_sources` (the CPC disks), `i18n` and the locale files (`amiga_several_slaves`). Exports are upgraded (rebuilt), never
 rediscovered; no learned path is lost.
 
+## Commodore Amiga 500 and 1200: the detection chooses the install's slave as the conversion does (next release)
+
+Found while reviewing the section above: of a player's 4,788 WHDLoad archives, 40 hold several slaves, and the detection (the
+window's drop, `batch --system auto`) refused all 40, while the conversion itself (`amiga_whdload.install`) already chose the
+game's slave when one is named as the install's folder ("Superfrog/Superfrog.Slave" beside "Superfrog/SuperfrogIntro.Slave").
+Both now ask one chooser, `amiga_whdload.slave_choice`, reading the archive's headers only:
+
+- **The game beside its Intro, an editor, a save-disk maker or a memory variant converts**: 25 archives (Superfrog, Fuzzball,
+  Entity, Golden Eagle, Jetstrike, Renegades and its editor, Legend and its save-disk maker, 3D Pool, Virocop...).
+- **The same slave also kept in the data folder** (same size and stored CRC) takes the copy in the install's folder, the one its
+  icon starts: 4 archives (Magicland Dizzy and Western Games). Different slaves of that name are still refused.
+- **An archive of several games is still refused**, with the « several slaves » sentence: 11 archives (a game and its data disk or
+  expansion, such as Populous 2 & Challenge Games or Vroom & Data Disk, two-disk collections, and Time Runners' 30 episodes). Each slave
+  as its own export is a later item.
+
+The folder scan of the 40 gives 29 accepted, 11 refused with that sentence. Renegades (an editor slave beside the game) and Superfrog
+(its Intro), converted through `batch` with automatic detection at the standard level, choose the game's slave and reach the game: the
+fresh same-machine reference agrees on both routes of 3,600 frames, with no interpreter fallback on the tested scenarios. An archive with
+one slave is chosen as before: Lotus 2 converted before and after this change (same snapshot folder, standard level) gives the same
+seven replay traces, results and frames byte for byte. Its two executables (28,445,184 bytes unpacked) differ only where the game stamp
+is written: the build folder's name (15 times), the quick-state key (it hashes the game stamp) and vAmiga's compile date, a fresh build.
+
+**Stamps**: the Amiga 500 and 1200 game stamps (`retrorecomp/amiga.py`, `retrorecomp/amiga_whdload.py`), already moved by the
+section above and by 1.10.0, and with them the Amiga quick-state key, as for every game-stamp change. No host stamp; the play of an
+archive that was accepted before does not change.
+
 ## ZX Spectrum: converted through batch and the window on a developer tree (next release)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`
