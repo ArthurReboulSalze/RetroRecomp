@@ -121,7 +121,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Amstrad CPC](docs/AMSTRAD_CPC.md) | experimental (developer-only) | `███░░` 69 % | supported · rollback | not measured |
 | [ColecoVision](docs/COLECOVISION.md) | experimental (developer-only) | `████░` 82 % | supported · rollback | not measured |
 | [Game Boy Color](docs/GAME_BOY_COLOR.md) | experimental | `███░░` 69 % | supported · rollback · link cable | not measured |
-| [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `██░░░` 41 % | supported · rollback | not measured |
+| [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `████░` 72 % | supported · rollback | not measured |
 | [SG-1000](docs/SG1000.md) | experimental (developer-only) | `████░` 82 % | supported · rollback | not measured |
 | [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `███░░` 67 % | supported · rollback | not measured |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
@@ -151,8 +151,8 @@ Four machines are being studied, in this order: the **SG-1000**, the **Game Boy 
 **Amstrad CPC**. None is available yet: each starts as an experimental
 profile once its study is approved, and no date is promised. The ZX Spectrum is an experimental machine for developers: its
 snapshots convert on a panel of eight, the owner has not played them yet ([status](docs/ZX_SPECTRUM.md)). The **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card) is open as an
-experimental machine: nine discs convert, none is translated beyond what their routes ran, and the owner has not played them yet
-([status](docs/PC_ENGINE_CD.md)). The **SG-1000** has also reached that first step, for developers only: its experimental profile converts cartridges for
+experimental machine: nine discs convert, eight of them reaching play on their routes, none is translated beyond what its routes ran, and the owner's acceptance is still
+to come ([status](docs/PC_ENGINE_CD.md)). The **SG-1000** has also reached that first step, for developers only: its experimental profile converts cartridges for
 developers (no player is offered it yet, and no game has been played: [SG1000.md](docs/SG1000.md)).
 
 Per-machine plans are in the [roadmap](docs/ROADMAP.md).

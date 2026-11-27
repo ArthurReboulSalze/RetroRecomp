@@ -1,7 +1,8 @@
 # PC Engine CD / TurboGrafx-CD
 
-Status: **experimental**, open to players (21 November 2026). Step 1 of [NEW_MACHINE.md](NEW_MACHINE.md) is done: nine discs convert, the Linux witness agrees with Windows, the
-owner has not played them (G14, step 2). The decisions below are the owner's, taken on 21 November 2026 after the study.
+Status: **experimental**, open to players (21 November 2026). Steps 1 to 3 of [NEW_MACHINE.md](NEW_MACHINE.md) are done as far as they can be without the owner: nine discs convert and match on
+Windows and Linux, routes reach play on eight of them, multiplayer is proved on one PC. The owner has tried the delivered games; his acceptance (G14) and the exit are not recorded. The decisions
+below are the owner's, taken on 21 November 2026 after the study.
 
 ## 1. What it converts, and what it does not
 
@@ -38,7 +39,7 @@ Kept apart in every report and every page, as everywhere:
   per CPU (the HuC6280) and per device. A disc is only translated where its routes were seen to run; the rest runs counted.
 - **CPU fidelity**: the HuC6280 is the PC Engine's (the vectors of the PC Engine, 640,000 of them).
 - **Hardware fidelity**: the CD drive, CD audio, ADPCM and backup memory are the pinned engine's models; their evidence is the engine's.
-- **Gameplay validation**: scripted routes and the owner's play test; none yet.
+- **Gameplay validation**: scripted routes and captures looked at; no full play of a game is recorded.
 - **Physical latency**: not measured; nothing here says zero latency or exact timing.
 
 ## 4. Stage 1, where it stands (21 November 2026)
@@ -67,7 +68,7 @@ maintainer's Japanese Super System Card 3.0, the Super RAM profile, the drive's 
 What these numbers say and what they do not: on the two routes of each disc (boot, then a play route), no instruction ran on the interpreter, the delivered game gave the same picture, sound,
 RAM and CPU state on every frame as the build with every instruction interpreted, a quick state continued the saved timeline in a fresh process, and eleven kinds of damaged backup
 file were set aside. **They do not say the games are translated**: a route of 3,600 frames reaches the System Card's start-up and the first screens of a game, and the boot route sees only the
-System Card's "push RUN" screen (three pictures, no sound), so the code a game loads later from its disc has not run. The depth of the routes past the loading screens is gate G9, still `?`.
+System Card's "push RUN" screen (three pictures, no sound), so the code a game loads later from its disc has not run. The depth of the routes past the loading screens is gate G9: the extended level's explored route (below) reaches play on eight discs of the panel.
 Nothing here says hardware fidelity, gameplay or latency.
 
 Measured on the way: the strict policy for the drive's unknown commands stops Ys III and The Addams Family (an unknown command `$FF` when RUN is pressed) and is not the default; the Japanese
@@ -75,6 +76,27 @@ card runs USA discs and Japanese ones; a conversion takes about twelve minutes o
 
 **The Linux witness**: The Addams Family converted on Debian 13 (WSL, gcc, headless) from an empty library gives the same 222,527,282 observed instructions, the same module (8,810
 instructions in 23 contexts) and, on both routes, the same CPU, RAM, picture and PCM hashes and the same trace digest as Windows. One disc, not a panel; no Linux GPU is involved.
+
+### The panel of nine at the extended level (27 November 2026)
+
+Converted through `batch` as a player converts (`tools/release_check.py`, extended level, an empty private library, two at a time, the portable llvm toolchain, Japanese Super System Card 3.0, tree
+`spec/pcecd-g9`). Routes: attract (3,600 frames), play (3,600), and the explored long route (21,600). Every gate of `release_check` passes on all nine: **0 interpreted instructions on all 27 routes**, 0 guard
+misses, native equal to the reference on every frame, the published executable replayed, quick states and damaged states. A conversion takes 30 to 39 minutes on this PC, two at a time.
+
+| Disc | Native instructions run (millions) | Emitted (instructions, bank contexts) | Explored segments | Long route: distinct pictures | What the long route reaches (captures looked at) |
+|---|---|---|---|---|---|
+| The Addams Family | 889 | 9,932 / 25 | walk, action, action, menu, menu, walk | 9,562 | **in play**: the first level |
+| Akumajou Dracula X | 872 | 43,896 / 383 | walk, walk, action, action, tap, walk | 7,937 | **in play**: a name typed (a save written), the stage 0 fight on the carriage |
+| Buster Bros. | 867 | 8,098 / 19 | walk, menu, action, walk, walk, action | 13,634 | **in play**: stages 1 and 2-4 |
+| Dungeon Explorer II | 773 | 45,071 / 252 | tap, tap, tap, menu, walk, walk | 1,300 | the player-count menu, the world map and the opening scenes; **no play seen** |
+| 4 in 1 Super CD | 839 | 115,380 / 574 | action, menu, tap, walk, walk, walk | 13,796 | **in play**: Gate of Thunder (one of the four games) |
+| Lords of Thunder | 858 | 125,684 / 841 | action, action, walk, menu, menu, walk | 12,695 | **in play**: the shop, the first stage and its enemies |
+| Valis III | 814 | 18,103 / 34 | tap, action, action, walk, action, tap | 9,938 | **in play**: the first stage |
+| Ys Book I & II | 800 | 43,708 / 109 | tap, walk, walk, action, walk, walk | 12,796 | **in play**: the town of Ys I (a save written) |
+| Ys III | 827 | 37,199 / 55 | menu, tap, action, walk, tap, action | 3,724 | **in play**: the opening and the first town, then a room the route does not leave |
+
+**Saves:** Dracula X and Ys Book I & II write the backup memory on their long route; in a fresh process the game starts with exactly the memory the first run left, and Dracula X shows the name it saved
+(« PLAYER1 AA ») in its file screen and goes on to play. Every disc: no file starts blank (the System Card formats it when a game asks), a valid file is read, eleven kinds of damaged file are set aside.
 
 ## 5. Route depth (gate G9)
 
