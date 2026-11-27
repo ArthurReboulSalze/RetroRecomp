@@ -169,3 +169,31 @@ reached, not a claim about the game's menus). Only Dungeon Explorer II is listed
 
 Not proved, and not claimed: the two-PC run (the multiplayer specialist's, with the ThinkPad) and physical latency (never measured). The backup memory stayed blank in the probe's route (Lords of Thunder), so the snapshot's path for it is proved on hand-set bytes (the probe's disturbed-state load). A game did write it on a route of the panel: Ys Book I & II's play route answers its « initialize the File Cabinet? » question, the memory it wrote survives a fresh process (section 4), but no session has played that game yet.
 
+## 7. The drive compared with MAME (27 November 2026)
+
+`tools/pcecd_mame_compare.py` (development only) boots the same Japanese Super System Card 3.0 and the same disc on both sides: our machine with every instruction on the interpreter
+(`native/pcecd_mame_probe.cpp`), and MAME 0.289 (`pce scdsys`, headless). Both play the same pad script (Run on « push RUN », then I and now and then Run) for 12,000 frames, from the same formatted backup
+memory. The two drives do not take the same time, so nothing is compared frame by frame: the events are compared **in the order the program made them**.
+
+| Behaviour | Akumajou Dracula X (CHD v4) | Lords of Thunder | Ys Book I & II |
+|---|---|---|---|
+| Drive commands with their parameters | 30 of 30 equal | 60 of 60 equal | 27 of 27 equal |
+| Interrupt mask writes ($1802) | 9 of 9 | 51 of 51 | 3 of 3 |
+| CD audio: first and last sector of each playback | 2 of 2 | 14 of 14 | 2 of 2 |
+| Data the program read through $1808 (bytes, hash) | 346,112, equal | 1,695,744, equal | 256,000, equal |
+| ADPCM port writes ($1808-$180F) | 50 of 50 | 334 of 334 | 2,330 of 2,330 |
+| Bytes written through the ADPCM data port ($180A) | none (loaded by DMA) | 163,839, equal | none (loaded by DMA) |
+| ADPCM RAM (64 KiB) at each drive selection | 30 of 30 equal | 60 of 60 equal | 27 of 27 equal |
+| CD RAM and Super RAM (256 KiB) at each selection | equal at all 30 | equal at 12, then a few bytes differ (at most 726) | equal at 22, then 1 or 2 bytes differ |
+| Backup memory lock state and unlock writes | equal (5 writes) | equal (never unlocked) | equal (3 writes) |
+| Backup memory (2 KiB) at the end | equal | equal | equal |
+
+**How to read it.** The commands, the data read, the sectors played and the ADPCM contents are what a program sees of the drive, and they agree. The RAM differences are in the program's own
+variables, consistent with the two machines not taking the same time (the data read is equal); each difference was not traced to its cause.
+
+**Known limits.**
+- **The System Card's signature**: our engine answers `AA 55 03` at $18C1-$18C3; MAME answers `AA 55 00` there and `AA 55 03` at $18C5-$18C7. The games boot on both; which one a console does is not
+  settled here.
+- **Reads of the lock register** ($1803) differ in number: they are polling loops, which depend on timing.
+- **Not compared**: the drive's timing (seek and transfer delays), the sound itself (CD audio, ADPCM and PSG mixing), the video, a real console. MAME is another emulator, not hardware.
+- Three discs, the first 12,000 frames of one pad script each: nothing is said of the other discs or of later in these.
