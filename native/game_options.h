@@ -501,7 +501,7 @@ static void rr_option_shared_rows(RrOptionRows *d) {
     }
 }
 static const char *rr_option_filter_name(int filter) {
-    static const char *const names[] = {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines", "CRT flat", "CRT curved", "LCD grid"};
+    static const char *const names[] = {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines", "CRT flat", "CRT curved", "LCD screen"};
     typedef char rr_one_name_per_filter[sizeof names / sizeof names[0] == RR_FILTERS ? 1 : -1];   /* C and C++ alike */
     (void)sizeof(rr_one_name_per_filter);
     return rr_tr(names[filter >= 0 && filter < RR_FILTERS ? filter : 0]);

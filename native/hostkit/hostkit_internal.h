@@ -50,6 +50,13 @@ typedef struct RrhkRun {
     RrLook look;                   /* the CRT and LCD looks' overlays and targets (HOST_KIT D35) */
     bool crt_pass_off;             /* a hidden-window test run asked for the stage-1 looks on the graphics card (D35's checks) */
     bool software;                 /* SDL's software renderer (no graphics card, or the dummy driver of the converter's checks): the CRT is drawn light */
+    /* D35: the LCD's real screen, its slow response: the last shown picture (ghost_w x ghost_h, rows ghost_pitch apart), made
+     * from the machine's picture once per game frame (ghost_frame); the machine's own picture is only read */
+    uint32_t *ghost;
+    size_t ghost_size;
+    int ghost_w, ghost_h, ghost_pitch;
+    uint64_t ghost_frame;
+    bool ghost_valid;
     /* One iteration is begin (events, state requests, pads, the machine's frame) then end (sound, picture, pacing); a guest
      * that owns the loop runs between the end of one and the begin of the next. What the two halves share: */
     bool ran;                      /* this iteration ran the machine (no menu, no pause) */
@@ -107,6 +114,8 @@ void rrhk_sync_notice(void);              /* the outcome, named by a notice */
 #define RRHK_KEY_WIDESCREEN (SDL_NUM_SCANCODES + 19)   /* the "Screen format: 4:3 / 16:9" row (1.7.6) */
 #define RRHK_KEY_SYNC (SDL_NUM_SCANCODES + 20)         /* the "Sync to display" row (1.7.7, D30) */
 #define RRHK_KEY_TURN_BADGE (SDL_NUM_SCANCODES + 21)   /* the "Turn badge" row (1.9.0, in a session) */
+#define RRHK_KEY_CRT_STYLE (SDL_NUM_SCANCODES + 22)    /* the "CRT style" row (D35) */
+#define RRHK_KEY_LCD_STYLE (SDL_NUM_SCANCODES + 23)    /* the "LCD style" row (D35, a handheld) */
 
 /* menu.c: the row icons (1.7.5) */
 int rrhk_action_icon(const char *name, char letters[4]);   /* the icon of a control by its English name; a face button's letters */
@@ -184,7 +193,13 @@ int rrhk_page_rows(void);
 bool rrhk_device_row(void);          /* the selected row is the Gamepad row of a gamepad page */
 bool rrhk_deadzone_row(void);        /* the selected row is the Stick dead zone row (a machine with analog sticks) */
 int rrhk_page_scroll(void);          /* the first row an F2 control page shows (0 up to fifteen rows; past them it scrolls) */
-int rrhk_graphics_rows(void);        /* the graphics page: the machine's options, Filter, Restore defaults */
+int rrhk_graphics_rows(void);        /* the graphics page: the machine's options, Filter, CRT style, Restore defaults */
+/* D35: the looks' styles. The names are translated; next: the following style (step 1) or the one before (-1), kept and named. */
+const char *rrhk_crt_style_name(int style);
+const char *rrhk_lcd_style_name(int style);
+void rrhk_look_style_next(bool lcd, int step);
+int rrhk_look_style(void);           /* the style of the look the filter shows: the CRT style, the LCD panel, or -1 for the LCD grid */
+void rrhk_crt_pass_prepare(SDL_Renderer *ren);   /* a run opening on a CRT look compiles the card's pass before its first frame */
 void rrhk_graphics_draw(SDL_Renderer *renderer);
 void rrhk_turn_page(int step);
 void rrhk_toggle_settings(void);

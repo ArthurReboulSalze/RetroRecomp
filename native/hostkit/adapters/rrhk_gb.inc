@@ -534,6 +534,9 @@ static void rr_gb_pause_page(RrhkUi *ui, const RrhkMenuCtx *ctx) {
     rr_menu_text(ctx->renderer, ox, oy, unit, 14, 164, rrhk_tr("F1: help | F2: controls & options", "F1 : aide | F2 : commandes et options"), RR_MENU_HINT);
 }
 
+/* D35: the real screen of the LCD look: a Color game on the Game Boy Color's TFT, any other on the Game Boy's dot matrix. */
+static int rr_gb_panel(void) { return rr_gb_color_game() ? RRHK_PANEL_TFT : RRHK_PANEL_DMG; }
+
 static const RrhkMachine *rr_gb_adapter(void) {
     if (!rr_gb_machine.actions) {
 #ifdef RR_GB_COLOR                                  /* the Game Boy Color profile: the same engine, its own name and settings */
@@ -560,7 +563,8 @@ static const RrhkMachine *rr_gb_adapter(void) {
         rr_gb_machine.host_pause = RR_GB_PAUSE + 1;
         rr_gb_machine.minimum_window = true;
         rr_gb_machine.even_scale2x = true;
-        rr_gb_machine.lcd_screen = true;           /* F3 offers the LCD grid (D35) */
+        rr_gb_machine.lcd_screen = true;           /* F3 offers the LCD look (D35) */
+        rr_gb_machine.lcd_panel = rr_gb_panel;      /* its real screen: the Game Boy's dot matrix, or the Color's TFT */
         rr_gb_machine.reset = rr_gb_reset;
         rr_gb_machine.run_frame = rr_gb_run_frame;
         rr_gb_machine.pause = rr_gb_pause;

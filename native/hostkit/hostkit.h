@@ -122,12 +122,18 @@ typedef struct {
     bool fire, aux, secondary, start, turbo, pause, offscreen;
 } RrhkPointer;
 
+/* D35: the CRT styles and the LCD panels a machine names (RrhkMachine.crt_style, lcd_panel): the numbers of scanlines.h's
+ * RR_CRT_* and RR_PANEL_* (rrhk_video.c checks they agree). */
+enum { RRHK_CRT_SOFT, RRHK_CRT_SHARP, RRHK_CRT_ARCADE };
+enum { RRHK_PANEL_TFT, RRHK_PANEL_STN, RRHK_PANEL_DMG };
+
 typedef struct RrhkUi {
     const struct RrhkMachine *machine;
     wchar_t ini_file[32768], data_dir[32768];
     wchar_t read_file[32768];  /* where the preferences are read from: ini_file, or the machine's former file until the first write */
     wchar_t video_section[64], pointer_section[64];
     int menu, parent_menu, player, row, gamepad_page, capturing, filter, fullscreen, language, autofire;
+    int crt_style, lcd_style;  /* D35: the CRT looks' style (scanlines.h RR_CRT_*) and the LCD's (RR_LCD_*), in [<Console>.Video] */
     /* parent_menu: the menu a menu opened from the Pause menu returns to (Help or F2 from Pause, then back to Pause) */
     int paused;                /* F11 (X68000): the machine does not run, the picture stays, "Paused" is drawn */
     /* The sound and speed controls of every console (decision D12). The sound values are those read at start, from the
@@ -289,7 +295,9 @@ typedef struct RrhkMachine {
     void (*sound_ready)(void);
     /* Game Boy (phase 5). */
     bool even_scale2x;                /* Scale2x shows the picture at an even whole multiple (the Game Boy sets it; the Master System and Game Gear apply the same rule in their own game_rect) */
-    bool lcd_screen;                  /* a handheld's LCD: F3 also offers the LCD grid (HOST_KIT D35) */
+    bool lcd_screen;                  /* a handheld's LCD: F3 also offers the LCD look, and the options its style (HOST_KIT D35) */
+    int (*lcd_panel)(void);           /* the handheld's real screen for the LCD look's "Real screen" style (RRHK_PANEL_*); NULL: a colour TFT */
+    int crt_style;                    /* the CRT style a player starts from (RRHK_CRT_*): soft (0) when left out; the arcade boards' arcade */
     /* Sticks, the graphics page, larger pictures, rumble and discs (1.7.0, HOST_KIT.md section 2.4 and D14). Every field is
      * off when left out (0, false, NULL): a machine that declares none of them behaves exactly as before. */
     int analog_sticks;                /* sticks per player the machine reads with rrhk_pad_axes (1 or 2). Not 0: the left stick no

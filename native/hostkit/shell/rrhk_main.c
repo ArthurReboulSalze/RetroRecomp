@@ -357,8 +357,16 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     /* 3 scanlines; 4 to 6 the CRT and LCD looks (D35), the LCD grid on a machine with an LCD screen only */
     const int asked = test_filter && test_filter[0] >= '3' && test_filter[0] <= '6' && !test_filter[1] ? test_filter[0] - '0' : 0;
     if (asked && (asked != RR_FILTER_LCD || m->lcd_screen)) rrhk.filter = asked;
+    /* D35: the looks' styles of a test run, one digit each (CRT 0 soft, 1 sharp, 2 arcade; LCD 0 real screen, 1 grid) */
+    const char *crt_style = r->test_frames ? getenv("RETRORECOMP_HOST_TEST_CRT_STYLE") : NULL;
+    const char *lcd_style = r->test_frames ? getenv("RETRORECOMP_HOST_TEST_LCD_STYLE") : NULL;
+    if (crt_style && crt_style[0] >= '0' && crt_style[0] < '0' + RR_CRT_STYLES && !crt_style[1]) rrhk.crt_style = crt_style[0] - '0';
+    if (lcd_style && lcd_style[0] >= '0' && lcd_style[0] < '0' + RR_LCD_STYLES && !lcd_style[1]) rrhk.lcd_style = lcd_style[0] - '0';
     const char *crt_pass = r->test_frames ? getenv("RETRORECOMP_HOST_TEST_CRT_PASS") : NULL;   /* "0": stage 1 on the card too */
     r->crt_pass_off = crt_pass && !strcmp(crt_pass, "0");
+    /* D35: a run opening on a CRT look compiles the graphics card's pass now rather than in its first frame */
+    if ((rrhk.filter == RR_FILTER_CRT_FLAT || rrhk.filter == RR_FILTER_CRT_CURVED) && !r->software && !r->crt_pass_off)
+        rrhk_crt_pass_prepare(r->ren);
     /* The graphics options (D14): the saved values, or in a hidden-window test run the defaults; then --gfx; applied once each. */
     if (m->gfx_option_count > 0) rrhk_gfx_start(r->test_frames != 0);
     quit_asked = false;
@@ -769,6 +777,7 @@ static void close_run(RrhkRun *r) {
     rr_xbr_destroy(&r->xbr);
     rr_scanlines_destroy(&r->scanlines);
     rr_look_destroy(&r->look);
+    SDL_free(r->ghost); r->ghost = NULL; r->ghost_size = 0; r->ghost_valid = false;
     rrhk_crt_pass_release();
     SDL_ShowCursor(SDL_ENABLE);
     SDL_DestroyRenderer(r->ren); SDL_DestroyWindow(r->win);

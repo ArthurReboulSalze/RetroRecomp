@@ -2,7 +2,7 @@
  * display_mode: 0 window, 1 pixel-perfect fullscreen, 2 fit fullscreen, 3 stretched fullscreen (1.7.4). The numbers of 0 to 2
  * never change, so a value saved by an earlier release means the same mode; an unknown value is the window. */
 #define RR_DISPLAY_MODES 4
-/* filter: 0 sharp pixels, 1 xBR, 2 Scale2x, 3 scanlines, 4 CRT flat, 5 CRT curved, 6 LCD grid (HOST_KIT D35; the handhelds only).
+/* filter: 0 sharp pixels, 1 xBR, 2 Scale2x, 3 scanlines, 4 CRT flat, 5 CRT curved, 6 LCD screen (HOST_KIT D35; the handhelds only; its style, grid or real screen, is lcd_style).
  * The numbers never change; an unknown value is sharp pixels, so an older release reads 4 to 6 as sharp pixels. */
 #define RR_FILTERS 7
 #define RR_FILTER_CRT_FLAT 4

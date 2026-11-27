@@ -9,9 +9,14 @@ checks the picture is there and stays inside the game's rectangle, the curved co
 brightness near the plain picture's, and Direct3D 11 and OpenGL agree. A renderer that falls back (no graphics card, a CPU
 rasterizer, no screen) is reported, never failed: the stage-1 look then draws, which tools/crt_look_selftest.py checks.
 
-The stage-1 looks (CRT flat, CRT curved, LCD grid, drawn with SDL_Renderer alone) are run on the same real renderers too,
-Direct3D 12 included, with the pass turned off for the test run (RETRORECOMP_HOST_TEST_CRT_PASS=0): their render targets,
-triangle grid and custom blend under a graphics driver, the same checks, and the renderers agreeing with each other.
+The stage-1 looks (CRT flat, CRT curved, the LCD's real screen and grid, drawn with SDL_Renderer alone) are run on the same
+real renderers too, Direct3D 12 included, with the pass turned off for the test run (RETRORECOMP_HOST_TEST_CRT_PASS=0): their
+render targets, triangle grid and custom blend under a graphics driver, the same checks, and the renderers agreeing with each
+other.
+
+Every CRT check runs in the three styles (RETRORECOMP_HOST_TEST_CRT_STYLE: soft, sharp, arcade), in both stages: the sharp
+style keeps more of a fine black and white pattern than the soft one, the arcade style's mask is stronger (read flat). The LCD's real screen
+is read on a black frame after a lit one: its slow response leaves the last picture there, the grid none.
 """
 from __future__ import annotations
 import json
@@ -54,17 +59,25 @@ def build(project: Path) -> Path:
     return build_executable(project / 'build', 'probe')
 
 
-def probe_run(exe: Path, box: Path, driver: str, look: int, stage1: bool = False) -> tuple[dict | None, str]:
+STYLES = ('soft', 'sharp', 'arcade')
+
+
+def probe_run(exe: Path, box: Path, driver: str, look: int, stage1: bool = False, crt_style: int = 0, lcd_style: int = 0,
+              flicker: bool = False) -> tuple[dict | None, str]:
     shutil.rmtree(box / 'datas', ignore_errors=True)
     env = dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_RENDER_DRIVER=driver, RETRORECOMP_HOST_TEST_FRAMES='1000',
                SDL_RENDER_VSYNC='0', **REAL_PADS_OFF)
     env.pop('SDL_VIDEODRIVER', None)
-    env.pop('RETRORECOMP_HOST_TEST_FILTER', None)
-    env.pop('RETRORECOMP_HOST_TEST_CRT_PASS', None)
+    for name in ('RETRORECOMP_HOST_TEST_FILTER', 'RETRORECOMP_HOST_TEST_CRT_PASS', 'CRT_PROBE_FLICKER'):
+        env.pop(name, None)
+    env['RETRORECOMP_HOST_TEST_CRT_STYLE'] = str(crt_style)
+    env['RETRORECOMP_HOST_TEST_LCD_STYLE'] = str(lcd_style)
     if look:
         env['RETRORECOMP_HOST_TEST_FILTER'] = str(look)
     if stage1:
         env['RETRORECOMP_HOST_TEST_CRT_PASS'] = '0'
+    if flicker:
+        env['CRT_PROBE_FLICKER'] = '1'
     flags = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}
     done = subprocess.run([str(exe)], cwd=box, env=env, capture_output=True, text=True, timeout=120, **flags)
     shutil.rmtree(box / 'datas', ignore_errors=True)
@@ -77,37 +90,56 @@ def run_checks(project: Path | None = None) -> dict:
     exe = build(project)
     box = project / 'box'
     box.mkdir(exist_ok=True)
-    result = {'passed': 0, 'failed': 0, 'drawn': [], 'fallback': {}, 'failures': [], 'blocks': {}}
+    result = {'passed': 0, 'failed': 0, 'drawn': [], 'fallback': {}, 'failures': [], 'blocks': {}, 'metrics': {}}
 
     def check(ok: bool, what: str) -> None:
         result['passed' if ok else 'failed'] += 1
         if not ok:
             result['failures'].append(what)
 
+    def look_checks(label: str, run_: dict | None, plain: dict, floor: float, curved: bool) -> bool:
+        check(bool(run_ and run_.get('read')), f'{label}: read back')
+        if not run_ or not run_.get('read'):
+            return False
+        area = run_['dst'][2] * run_['dst'][3]
+        check(run_['lit'] > area * (0.5 if floor > 0.5 else 0.4), f'{label}: the picture is there ({run_["lit"]} of {area})')
+        check(run_['outside'] == 0, f'{label}: nothing outside the game rectangle')
+        check(run_['mean'] > plain['mean'] * floor, f'{label}: brightness kept ({run_["mean"]:.1f} vs {plain["mean"]:.1f})')
+        check(run_['block'] != plain['block'], f'{label}: not the plain picture')
+        if curved:
+            check(run_['corner'] == 0, f'{label}: the corner is black')
+        result['metrics'][label] = {'mean': run_['mean'], 'detail': run_['detail'], 'mask': run_['mask']}
+        return True
+
+    def style_checks(label: str, runs: dict) -> None:
+        soft, sharp, arcade = (runs.get(name) for name in STYLES)
+        if soft and sharp:
+            check(sharp['detail'] > soft['detail'] * 1.1, f'{label}: sharp keeps more detail ({sharp["detail"]:.3f} vs {soft["detail"]:.3f})')
+        if soft and arcade and 'curved' not in label:   # curved: the vignette and the curve weigh on the edge it is read at
+            check(arcade['mask'] > soft['mask'], f'{label}: arcade has the stronger mask ({arcade["mask"]:.3f} vs {soft["mask"]:.3f})')
+        blocks = [run_['block'] for run_ in runs.values()]
+        check(len(set(blocks)) == len(blocks), f'{label}: each style its own picture')
+
     for driver in DRIVERS:
         plain, _ = probe_run(exe, box, driver, 0)
         if not plain or not plain.get('read') or plain.get('renderer') != driver:
             result['fallback'][driver] = 'no window or renderer here'
             continue
-        flat, flat_log = probe_run(exe, box, driver, 4)
-        curved, _ = probe_run(exe, box, driver, 5)
-        if 'drawn by the graphics card' not in flat_log:
-            reason = next((text for text in flat_log.splitlines() if 'CRT look' in text), 'the pass was not tried')
+        first, first_log = probe_run(exe, box, driver, 4)
+        if 'drawn by the graphics card' not in first_log:
+            reason = next((text for text in first_log.splitlines() if 'CRT look' in text), 'the pass was not tried')
             result['fallback'][driver] = reason
             continue
         result['drawn'].append(driver)
-        for name, run_ in (('flat', flat), ('curved', curved)):
-            check(bool(run_ and run_.get('read')), f'{driver} {name}: read back')
-            if not run_ or not run_.get('read'):
-                continue
-            area = run_['dst'][2] * run_['dst'][3]
-            check(run_['lit'] > area * 0.5, f'{driver} {name}: the picture is there ({run_["lit"]} of {area})')
-            check(run_['outside'] == 0, f'{driver} {name}: nothing outside the game rectangle')
-            check(run_['mean'] > plain['mean'] * 0.6, f'{driver} {name}: brightness kept ({run_["mean"]:.1f} vs {plain["mean"]:.1f})')
-            check(run_['block'] != plain['block'], f'{driver} {name}: not the plain picture')
-            result['blocks'][f'{driver}-{name}'] = run_['block']
-        if curved and curved.get('read'):
-            check(curved['corner'] == 0, f'{driver} curved: the corner is black')
+        for look, name in ((4, 'flat'), (5, 'curved')):
+            runs = {}
+            for index, style in enumerate(STYLES):
+                run_, log = (first, first_log) if (look, index) == (4, 0) else probe_run(exe, box, driver, look, crt_style=index)
+                check('drawn by the graphics card' in log, f'{driver} {name} {style}: drawn by the graphics card')
+                if look_checks(f'{driver} {name} {style}', run_, plain, 0.6, name == 'curved'):
+                    runs[style] = run_
+                    result['blocks'][f'{driver}-{name}-{style}'] = run_['block']
+            style_checks(f'{driver} {name}', runs)
     # stage 1 on the real renderers
     result['stage1'] = []
     stage1_blocks: dict[str, dict[str, int]] = {}
@@ -117,28 +149,42 @@ def run_checks(project: Path | None = None) -> dict:
             result['fallback'][f'{driver} (stage 1)'] = 'no window or renderer here'
             continue
         result['stage1'].append(driver)
-        for look, name, floor in ((4, 'flat', 0.4), (5, 'curved', 0.3), (6, 'lcd', 0.6)):
-            run_, log = probe_run(exe, box, driver, look, stage1=True)
-            check(bool(run_ and run_.get('read')) and 'drawn by the graphics card' not in log, f'{driver} stage 1 {name}: drawn without the pass')
-            if not run_ or not run_.get('read'):
-                continue
-            area = run_['dst'][2] * run_['dst'][3]
-            check(run_['lit'] > area * 0.4, f'{driver} stage 1 {name}: the picture is there ({run_["lit"]} of {area})')
-            check(run_['outside'] == 0, f'{driver} stage 1 {name}: nothing outside the game rectangle')
-            check(run_['mean'] > plain['mean'] * floor, f'{driver} stage 1 {name}: brightness ({run_["mean"]:.1f} vs {plain["mean"]:.1f})')
-            check(run_['block'] != plain['block'], f'{driver} stage 1 {name}: not the plain picture')
-            if name == 'curved':
-                check(run_['corner'] == 0, f'{driver} stage 1 curved: the corner is black')
-            stage1_blocks.setdefault(name, {})[driver] = run_['block']
+        for look, name, floor in ((4, 'flat', 0.4), (5, 'curved', 0.3)):
+            runs = {}
+            for index, style in enumerate(STYLES):
+                run_, log = probe_run(exe, box, driver, look, stage1=True, crt_style=index)
+                check('drawn by the graphics card' not in log, f'{driver} stage 1 {name} {style}: drawn without the pass')
+                if look_checks(f'{driver} stage 1 {name} {style}', run_, plain, floor, name == 'curved'):
+                    runs[style] = run_
+                    stage1_blocks.setdefault(f'{name} {style}', {})[driver] = run_['block']
+            style_checks(f'{driver} stage 1 {name}', runs)
+        lcd = {}
+        for lcd_style, name in ((0, 'lcd real'), (1, 'lcd grid')):
+            run_, log = probe_run(exe, box, driver, 6, stage1=True, lcd_style=lcd_style)
+            if look_checks(f'{driver} stage 1 {name}', run_, plain, 0.6, False):
+                lcd[name] = run_
+                stage1_blocks.setdefault(name, {})[driver] = run_['block']
+        if len(lcd) == 2:
+            check(lcd['lcd real']['block'] != lcd['lcd grid']['block'], f'{driver} stage 1: the real screen is not the grid')
+        # the slow response: a black frame after a lit one keeps some of it on the real screen, none on the grid
+        real, _ = probe_run(exe, box, driver, 6, stage1=True, lcd_style=0, flicker=True)
+        grid, _ = probe_run(exe, box, driver, 6, stage1=True, lcd_style=1, flicker=True)
+        if real and grid and real.get('read') and grid.get('read'):
+            check(grid['mean'] < 1.0 and real['mean'] > 2.0,
+                  f'{driver} stage 1: the real screen responds slowly (black frame: {real["mean"]:.2f} vs grid {grid["mean"]:.2f})')
+            result['metrics'][f'{driver} stage 1 lcd response'] = {'real': real['mean'], 'grid': grid['mean']}
+        else:
+            check(False, f'{driver} stage 1: the flicker runs read back')
     for name, blocks in stage1_blocks.items():
         if len(blocks) > 1:
             low, high = min(blocks.values()), max(blocks.values())
             check(high - low <= 0.05 * high, f'stage 1 {name}: the renderers agree ({blocks})')
     if {'direct3d11', 'opengl'} <= set(result['drawn']):
         for name in ('flat', 'curved'):
-            a, b = result['blocks'].get(f'direct3d11-{name}'), result['blocks'].get(f'opengl-{name}')
-            if a and b:
-                check(abs(a - b) <= 0.02 * max(a, b), f'{name}: Direct3D 11 and OpenGL agree ({a} vs {b})')
+            for style in STYLES:
+                a, b = result['blocks'].get(f'direct3d11-{name}-{style}'), result['blocks'].get(f'opengl-{name}-{style}')
+                if a and b:
+                    check(abs(a - b) <= 0.02 * max(a, b), f'{name} {style}: Direct3D 11 and OpenGL agree ({a} vs {b})')
     return result
 
 

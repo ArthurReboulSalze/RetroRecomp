@@ -414,8 +414,16 @@ and the notice `licenses/crt-lottes.md`, which every game on the host kit embeds
 
 F3's notice now names every filter in the game's language (it was English, except « Pixels nets » in French).
 
-Preferences: `[<Console>.Video] filter` takes 4 (CRT flat), 5 (CRT curved) and 6 (LCD grid). An export of the
+Preferences: `[<Console>.Video] filter` takes 4 (CRT flat), 5 (CRT curved) and 6 (LCD screen). An export of the
 previous release reads those values as sharp pixels and keeps working.
+
+Each look then gained a style (27 November 2026, after the players' first shots): `[<Console>.Video] crt_style` (soft,
+sharp, arcade) and, on the handhelds, `lcd_style` (real screen, grid), rows of the options page (D35). Host files again:
+`native/scanlines.h`, `native/scanline_sdl.h`, `native/game_options.h` (filter 6 is named « LCD screen »),
+`native/runtime_catalog.inc` (seven strings), the shell with `rrhk_crts.inc` and `rrhk_crt_shader.inc`, `hostkit.h`,
+`hostkit_internal.h`, and the CPS-1 / CPS-2, Neo Geo, Game Boy and Master System / Game Gear adapters (the arcade boards
+start in the arcade style; the handhelds name their screen). Every host-kit machine's host stamp moves; exports are
+upgraded, never rediscovered. The previous release ignores the two new keys.
 
 ## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (next release)
 

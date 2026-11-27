@@ -135,7 +135,7 @@ static void toggle_graphics(void) {
  * it between two frames: the loop is in its menu), Enter on the last row restores the defaults. Each change is kept. */
 static void graphics_key(RrhkRun *run, SDL_Scancode key) {
     const RrhkMachine *m = run->machine;
-    const int rows = rrhk_graphics_rows(), options = rows - 2;
+    const int rows = rrhk_graphics_rows(), options = rows - 3;
     int *row = &rrhk.gfx_row;
     if (*row < 0 || *row >= rows) *row = 0;
     if (key == SDL_SCANCODE_UP) { *row = (*row + rows - 1) % rows; return; }
@@ -152,9 +152,13 @@ static void graphics_key(RrhkRun *run, SDL_Scancode key) {
         const int filter = rrhk.filter >= 0 && rrhk.filter < RR_FILTERS ? rrhk.filter : 0;
         const int lcd = m->lcd_screen;
         if (!rrhk_set_filter(run, back ? rr_menu_previous_filter(filter, lcd) : rr_menu_next_filter(filter, lcd))) run->running = false;
+    } else if (*row == options + 1) {
+        rrhk_look_style_next(false, back ? -1 : 1);       /* D35: the CRT style */
     } else if (enter) {
         rrhk_gfx_defaults();
         if (rrhk.filter != 0 && !rrhk_set_filter(run, 0)) run->running = false;
+        const int style = m->crt_style >= 0 && m->crt_style < RR_CRT_STYLES ? m->crt_style : RR_CRT_SOFT;
+        if (rrhk.crt_style != style) rrhk_look_style_next(false, style - rrhk.crt_style);
     }
 }
 
@@ -403,12 +407,21 @@ void rrhk_poll_events(RrhkRun *run) {
         else if (key == SDL_SCANCODE_F3 && m->gfx_option_count > 0) toggle_graphics();
         else if (key == SDL_SCANCODE_F3) {
             if (!filter_texture(run, rr_menu_next_filter(rrhk.filter, m->lcd_screen))) { run->running = false; break; }
-            rrhk_notice(rrhk_filter_name(rrhk.filter), 1800);     /* the filter's name in the five game languages */
+            /* the filter's name in the five game languages; a CRT or LCD look with its style (D35) */
+            char named[96];
+            const bool crt = rrhk.filter == RR_FILTER_CRT_FLAT || rrhk.filter == RR_FILTER_CRT_CURVED;
+            if (crt || rrhk.filter == RR_FILTER_LCD)
+                snprintf(named, sizeof named, "%s - %s", rrhk_filter_name(rrhk.filter),
+                         crt ? rrhk_crt_style_name(rrhk.crt_style) : rrhk_lcd_style_name(rrhk.lcd_style));
+            else snprintf(named, sizeof named, "%s", rrhk_filter_name(rrhk.filter));
+            rrhk_notice(named, 1800);
             save_filter();
         } else if (key == RRHK_KEY_RUMBLE && from_row) {
             rrhk_toggle_rumble();
         } else if (key == RRHK_KEY_WIDESCREEN && from_row) {
             rrhk_widescreen_toggle();
+        } else if ((key == RRHK_KEY_CRT_STYLE || key == RRHK_KEY_LCD_STYLE) && from_row) {
+            rrhk_look_style_next(key == RRHK_KEY_LCD_STYLE, 1);
         } else if (key == RRHK_KEY_SYNC && from_row) {
             rrhk_sync_next();         /* 1.7.7 (D30): the outcome is named once the refresh is measured */
         } else if (key == RRHK_KEY_TURN_BADGE && from_row) {

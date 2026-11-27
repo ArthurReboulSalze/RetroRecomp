@@ -58,7 +58,7 @@ const RrhkMachine *rrhk_adapter(void) {
     static RrhkMachine machine;
     if (!machine.actions) {
         machine = (RrhkMachine){
-            .ini_section = L"GameBoyAdvance", .console_name = "Game Boy Advance", .lcd_screen = true,
+            .ini_section = L"GameBoyAdvance", .console_name = "Game Boy Advance", .lcd_screen = true,   /* a colour TFT (lcd_panel NULL) */
             .table_players = 1, .players = players,
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,

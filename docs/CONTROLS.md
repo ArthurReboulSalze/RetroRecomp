@@ -17,7 +17,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | --- | --- |
 | F1 | Help; **Shift+F1** restarts at once, without confirmation (so does the F2 tile **Restart the game**, the one before Quit; in multiplayer the host's only) |
 | F2 | Settings: a menu of tiles (1.7.4), one per page: each player's keyboard and gamepad, the gun or DIP page, the options. Enter opens a page, Esc comes back |
-| F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth, CRT flat, CRT curved, and LCD grid on the Game Boy, Game Boy Color, Game Boy Advance and Game Gear ([VIDEO.md](VIDEO.md#crt-and-lcd-looks)). On a 3D machine (1.7.0, none yet): the graphics page, see [Sticks, vibration, graphics and discs](#sticks-vibration-graphics-and-discs) |
+| F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth, CRT flat, CRT curved, and LCD screen on the Game Boy, Game Boy Color, Game Boy Advance and Game Gear ([VIDEO.md](VIDEO.md#crt-and-lcd-looks)); the CRT style (soft, sharp, arcade) and the LCD style (real screen, grid) are rows of the options page. On a 3D machine (1.7.0, none yet): the graphics page, see [Sticks, vibration, graphics and discs](#sticks-vibration-graphics-and-discs) |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → **stretched fullscreen** (1.7.4: the whole screen, the aspect ignored) → window; a short notice names the mode |
 | F5 | Master System, Game Gear, SG-1000, ColecoVision and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode; on the computers (MSX included) F5 held is fast loading, and the MSX's sprite flicker reduction is a row of the F2 options page. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
@@ -239,7 +239,7 @@ first). No console of this release declares any of them, so nothing below appear
 - **Vibration**: a row **Vibration: ON/OFF** of the options page, on by default, the same setting for every such machine
   (`[Manettes] rumble`).
 - **F3, the graphics page**: one row per option of the machine's renderer (internal resolution and the like; Left/Right or
-  Enter/A change it at once), the **Filter** row (the filters of F3 on the other consoles, CRT flat and CRT curved included), and **Restore defaults**.
+  Enter/A change it at once), the **Filter** row (the filters of F3 on the other consoles, CRT flat and CRT curved included), the **CRT style** row, and **Restore defaults**.
   Esc, B or F3 closes it; the game waits meanwhile. Kept under `[<Console>.Video]`.
 - **Change disc**: a control of the F2 pages like the others (its default key is the machine's); in play it takes the next
   disc, after the last the first, and shows "Disc 2/3".
@@ -460,7 +460,7 @@ Back are cartridge Start/Select, and the Guide button opens pause. Since
 F2 has the keyboard and gamepad pages of player 1 with the Quit and Restart
 combinations and the Gamepad row, then the options; the Pause/Menu action
 (P, the Guide button) is a row of the page like the Game Gear's. F3 cycles every
-filter, from sharp pixels to xBR smooth, CRT flat, CRT curved and the LCD grid; F4 keeps the same three display
+filter, from sharp pixels to xBR smooth, CRT flat, CRT curved and the LCD screen; F4 keeps the same three display
 modes. F5 immediately switches between pseudo black-and-white monochrome
 (the default) and classic green, without opening a menu or pausing the game.
 The palette choice is saved with the other Game Boy settings.

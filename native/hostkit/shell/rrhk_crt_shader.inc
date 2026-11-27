@@ -36,19 +36,24 @@ static void crt_unavailable(const char *why) {
     fprintf(stderr, "[host] CRT look: the graphics card's pass is unavailable (%s): the look is drawn without it\n", why);
 }
 
-/* The constants both backends hand the shader (rrhk_crts.inc). lines: the console's lines; curved: the warp. */
-static void crt_constants(float out[16], int width, int height, int tex_w, int tex_h, int lines, const SDL_Rect *dst, bool curved) {
+/* The constants both backends hand the shader (rrhk_crts.inc). lines: the console's lines; curved: the warp; style: the CRT
+ * style (scanlines.h rr_crt_styles). Twenty floats: rr_in, rr_out, rr_map, rr_look, rr_more. */
+#define CRT_CONSTANTS 20
+static void crt_constants(float out[CRT_CONSTANTS], int width, int height, int tex_w, int tex_h, int lines, const SDL_Rect *dst,
+                          bool curved, int style_id) {
+    const RrCrtStyle *style = rr_crt_style(style_id);
     if (lines <= 0 || lines > height * 4) lines = height;
     /* the input grid: the console's lines, and as many columns as the picture has for each line's share of its rows (a game
      * drawn at 2x keeps its 320 columns and 240 lines) */
     const float in_w = (float)width * (float)lines / (float)height, in_h = (float)lines;
     /* no dark gaps above 300 lines a frame nor below two output rows a line, as stage 1 (thin 0.5: the beams sum to one) */
     const bool gaps = lines <= RR_CRT_FINE_LINES && dst->h >= 2 * lines;
-    const float values[16] = {
+    const float values[CRT_CONSTANTS] = {
         in_w, in_h, 1.0f / in_w, 1.0f / in_h,
         (float)dst->w, (float)dst->h, 1.0f / (float)dst->w, 1.0f / (float)dst->h,
-        (float)width / (float)tex_w, (float)height / (float)tex_h, curved ? 0.031f : 0.0f, curved ? 0.041f : 0.0f,
-        gaps ? 0.75f : 0.5f, -2.5f, 0.5f, curved ? 3.0f : 1.0f};
+        (float)width / (float)tex_w, (float)height / (float)tex_h, curved ? (float)style->warp_x : 0.0f, curved ? (float)style->warp_y : 0.0f,
+        gaps ? style->thin : 0.5f, style->blur, style->mask, curved ? style->kind_curved : style->kind_flat,
+        style->saturation, (float)rr_crt_mask_scale(style, dst->h), style->gain, 0.0f};
     memcpy(out, values, sizeof values);
 }
 
@@ -123,7 +128,7 @@ static bool crt_d3d_create(ID3D11Device *device) {
         ok = SUCCEEDED(ID3D11Device_CreatePixelShader(device, ID3D10Blob_GetBufferPointer(ps[i]), ID3D10Blob_GetBufferSize(ps[i]), NULL, &crt_pass.ps[i]));
     if (vs) ID3D10Blob_Release(vs);
     for (int i = 0; i < 2; ++i) if (ps[i]) ID3D10Blob_Release(ps[i]);
-    D3D11_BUFFER_DESC cb = {64, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE, 0, 0};
+    D3D11_BUFFER_DESC cb = {CRT_CONSTANTS * 4, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE, 0, 0};
     if (ok) ok = SUCCEEDED(ID3D11Device_CreateBuffer(device, &cb, NULL, &crt_pass.constants));
     D3D11_SAMPLER_DESC sd;
     memset(&sd, 0, sizeof sd);
@@ -168,21 +173,28 @@ static bool crt_d3d_upload(ID3D11Device *device, ID3D11DeviceContext *context, c
     return true;
 }
 
-static bool crt_d3d_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, int height, int pitch, const SDL_Rect *dst, int lines, bool curved) {
-    ID3D11Device *device = SDL_RenderGetD3D11Device(ren);
-    if (!device) { crt_unavailable("no Direct3D 11 device"); return false; }
+/* The pass made for this device (its shaders compiled): at the first CRT frame, or when the run opens on a CRT look. */
+static bool crt_d3d_ready(ID3D11Device *device) {
     if (crt_pass.state == 1 && crt_pass.device != (void *)device) { crt_d3d_release(); crt_pass.state = 0; }   /* a new device */
     if (crt_pass.state == 0) {
-        if (!crt_d3d_create(device)) { ID3D11Device_Release(device); return false; }
+        if (!crt_d3d_create(device)) return false;
         crt_pass.state = 1; crt_pass.backend = "direct3d11"; crt_pass.device = device;
         fprintf(stderr, "[host] CRT look: drawn by the graphics card (Direct3D 11, CRTS)\n");
     }
+    return crt_pass.state == 1;
+}
+
+static bool crt_d3d_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, int height, int pitch, const SDL_Rect *dst, int lines, bool curved,
+                         int style) {
+    ID3D11Device *device = SDL_RenderGetD3D11Device(ren);
+    if (!device) { crt_unavailable("no Direct3D 11 device"); return false; }
+    if (!crt_d3d_ready(device)) { ID3D11Device_Release(device); return false; }
     ID3D11DeviceContext *context = NULL;
     ID3D11Device_GetImmediateContext(device, &context);
     bool drawn = false;
     if (context && crt_d3d_upload(device, context, pixels, width, height, pitch)) {
-        float constants[16];
-        crt_constants(constants, width, height, crt_pass.tex_w, crt_pass.tex_h, lines, dst, curved);
+        float constants[CRT_CONSTANTS];
+        crt_constants(constants, width, height, crt_pass.tex_w, crt_pass.tex_h, lines, dst, curved, style);
         D3D11_MAPPED_SUBRESOURCE mapped;
         if (SUCCEEDED(ID3D11DeviceContext_Map(context, (ID3D11Resource *)crt_pass.constants, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
             memcpy(mapped.pData, constants, sizeof constants);
@@ -383,12 +395,18 @@ static bool crt_gl_create(void) {
     return true;
 }
 
-static bool crt_gl_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, int height, int pitch, const SDL_Rect *dst, int lines, bool curved) {
+static bool crt_gl_ready(void) {
     if (crt_pass.state == 0) {
         if (!crt_gl_create()) return false;
         crt_pass.state = 1; crt_pass.backend = "opengl";
         fprintf(stderr, "[host] CRT look: drawn by the graphics card (OpenGL, CRTS)\n");
     }
+    return crt_pass.state == 1;
+}
+
+static bool crt_gl_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, int height, int pitch, const SDL_Rect *dst, int lines, bool curved,
+                        int style) {
+    if (!crt_gl_ready()) return false;
     int out_w = 0, out_h = 0;
     SDL_GetRendererOutputSize(ren, &out_w, &out_h);
     /* save what the pass sets */
@@ -422,14 +440,15 @@ static bool crt_gl_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, in
     gl.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
     /* draw: one triangle over the game's rectangle (window coordinates are bottom-up) */
     const GLuint chosen = crt_pass.program[curved ? 1 : 0];
-    float constants[16];
-    crt_constants(constants, width, height, crt_pass.tex_w, crt_pass.tex_h, lines, dst, curved);
+    float constants[CRT_CONSTANTS];
+    crt_constants(constants, width, height, crt_pass.tex_w, crt_pass.tex_h, lines, dst, curved, style);
     gl.UseProgram(chosen);
     gl.Uniform1i(gl.GetUniformLocation(chosen, "rr_picture"), 0);
     gl.Uniform4fv(gl.GetUniformLocation(chosen, "rr_in"), 1, constants);
     gl.Uniform4fv(gl.GetUniformLocation(chosen, "rr_out"), 1, constants + 4);
     gl.Uniform4fv(gl.GetUniformLocation(chosen, "rr_map"), 1, constants + 8);
     gl.Uniform4fv(gl.GetUniformLocation(chosen, "rr_look"), 1, constants + 12);
+    gl.Uniform4fv(gl.GetUniformLocation(chosen, "rr_more"), 1, constants + 16);
     gl.Viewport(dst->x, out_h - dst->y - dst->h, dst->w, dst->h);
     gl.Disable(GL_BLEND); gl.Disable(GL_SCISSOR_TEST);
     if (gl.BindBuffer) gl.BindBuffer(GL_ARRAY_BUFFER, 0);
@@ -457,7 +476,7 @@ static bool crt_gl_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, in
 /* ---------------------------------------------------------------- the kit's entry ------------------------------------------ */
 /* The CRT look drawn by the graphics card into dst, the frame cleared black first. false: not drawn (the stage-1 look then). */
 static bool rrhk_crt_pass_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, int height, int pitch, const SDL_Rect *dst,
-                               int lines, bool curved) {
+                               int lines, bool curved, int style) {
     if (crt_pass.state < 0 || !pixels || width <= 0 || height <= 0 || dst->w <= 0 || dst->h <= 0) return false;
     SDL_RendererInfo info;
     if (SDL_GetRendererInfo(ren, &info) != 0 || !info.name) return false;
@@ -474,9 +493,26 @@ static bool rrhk_crt_pass_draw(SDL_Renderer *ren, const uint32_t *pixels, int wi
     SDL_RenderFillRect(ren, dst);
     SDL_RenderFlush(ren);
 #ifdef _WIN32
-    if (d3d11) return crt_d3d_draw(ren, pixels, width, height, pitch, dst, lines, curved);
+    if (d3d11) return crt_d3d_draw(ren, pixels, width, height, pitch, dst, lines, curved, style);
 #endif
-    return crt_gl_draw(ren, pixels, width, height, pitch, dst, lines, curved);
+    return crt_gl_draw(ren, pixels, width, height, pitch, dst, lines, curved, style);
+}
+
+/* A run that opens on a CRT look compiles the pass's shaders here, before its first frame, instead of in that frame (the
+ * compile takes about a tenth of a second); any other run compiles them at the first CRT frame (F3), as before. */
+void rrhk_crt_pass_prepare(SDL_Renderer *ren) {
+    SDL_RendererInfo info;
+    if (crt_pass.state != 0 || SDL_GetRendererInfo(ren, &info) != 0 || !info.name) return;
+#ifdef _WIN32
+    if (!strcmp(info.name, "direct3d11")) {
+        ID3D11Device *device = SDL_RenderGetD3D11Device(ren);
+        if (!device) return;
+        crt_d3d_ready(device);
+        ID3D11Device_Release(device);
+        return;
+    }
+#endif
+    if (!strcmp(info.name, "opengl")) crt_gl_ready();
 }
 
 /* The pass's resources, before the renderer goes (close_run). */

@@ -68,7 +68,7 @@ int rrhk_page_scroll(void) {
 /* The graphics page (D14): the machine's options, the kit's Filter row, Restore defaults. */
 int rrhk_graphics_rows(void) {
     const int options = rrhk.machine->gfx_option_count;
-    return (options < RRHK_MAX_GFX_OPTIONS ? options : RRHK_MAX_GFX_OPTIONS) + 2;
+    return (options < RRHK_MAX_GFX_OPTIONS ? options : RRHK_MAX_GFX_OPTIONS) + 3;
 }
 
 void rrhk_graphics_draw(SDL_Renderer *ren) {
@@ -77,7 +77,7 @@ void rrhk_graphics_draw(SDL_Renderer *ren) {
     rr_menu_layout(ren, &ctx.ox, &ctx.oy, &ctx.unit);
     rr_menu_begin(ren, ctx.ox, ctx.oy, ctx.unit);
     rr_menu_header_compact(ren, ctx.ox, ctx.oy, ctx.unit, rr_tr("Retro-Recomp - Graphics"), RR_ICON_OPTIONS_SMALL);
-    const int rows = rrhk_graphics_rows(), options = rows - 2;
+    const int rows = rrhk_graphics_rows(), options = rows - 3;
     if (rrhk.gfx_row < 0 || rrhk.gfx_row >= rows) rrhk.gfx_row = 0;
     char line[120];
     for (int r = 0; r < rows; ++r) {
@@ -85,7 +85,7 @@ void rrhk_graphics_draw(SDL_Renderer *ren) {
         if (r == rrhk.gfx_row) rr_menu_box(ren, ctx.ox, ctx.oy, ctx.unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
         /* 1.7.5: the mark, the row's icon, then its text */
         if (r == rrhk.gfx_row) rr_menu_text(ren, ctx.ox, ctx.oy, ctx.unit, 14, y, ">", RR_MENU_ACCENT);
-        int icon = r == options ? RR_ICON_ROW_FILTER : r > options ? RR_ICON_ROW_RESTORE : RR_ICON_ROW_GENERIC;
+        int icon = r == options || r == options + 1 ? RR_ICON_ROW_FILTER : r > options ? RR_ICON_ROW_RESTORE : RR_ICON_ROW_GENERIC;
         if (r < options) {
             const RrhkGfxOption *option = &m->gfx_options[r];
             const int value = rrhk.gfx[r] >= 0 && rrhk.gfx[r] < option->count ? rrhk.gfx[r] : option->def;
@@ -103,7 +103,8 @@ void rrhk_graphics_draw(SDL_Renderer *ren) {
             else snprintf(name, sizeof name, "%s", rrhk_filter_name(rrhk.filter));
             snprintf(value, sizeof value, rr_tr("Filter: %s"), name);
             snprintf(line, sizeof line, "%s", value);
-        } else snprintf(line, sizeof line, "%s", rr_tr("Restore defaults"));
+        } else if (r == options + 1) snprintf(line, sizeof line, rr_tr("CRT style: %s"), rrhk_crt_style_name(rrhk.crt_style));
+        else snprintf(line, sizeof line, "%s", rr_tr("Restore defaults"));
         rrhk_draw_icon(ren, ctx.ox, ctx.oy, ctx.unit, 20, y, icon, NULL);
         rr_menu_text_fit(ren, ctx.ox, ctx.oy, ctx.unit, 32, y, 210, line, RR_MENU_GOLD);
     }
