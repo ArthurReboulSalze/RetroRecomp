@@ -116,6 +116,9 @@
   },
   "coleco": {
    "standard": {"seconds": [28, 30, 37], "longest": 39, "reports": 8, "versions": "1.9.1..1.9.1"}
+  },
+  "cpc": {
+   "standard": {"seconds": [79, 87, 90], "longest": 92, "reports": 3, "versions": "1.9.1..1.9.1"}
   }
  },
  "with_paths": {
