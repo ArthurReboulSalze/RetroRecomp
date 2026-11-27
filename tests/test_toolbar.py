@@ -673,6 +673,30 @@ class OptionsPagesBuiltWhenShown(ToolbarWindow):
         self.assertEqual(len(self.app.options_console_pages[other][2].winfo_children()), children)
 
 
+class EveryMachinePageBuilds(ToolbarWindow):
+    """The pages are built when shown: every registered machine must still HAVE one, and it must build. Each page is built
+    here, in a real window, and carries what build_console_tab makes for every machine (its scan section and the time a
+    game takes at its level), the honest counterpart of tests/test_machine_registry.py's reading of the source."""
+    def test_every_machine_has_a_page_that_builds(self):
+        from retrorecomp.gui_options import PROFILES
+        self.app.show_options()
+        self.addCleanup(lambda: self.app.options_panel is not None and self.app.close_options())
+        self.assertEqual([system for system, _, _ in self.app.options_console_pages], [profile.id for profile in PROFILES])
+        scan_title = self.app.tr('scan_section')
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+        for index, (system, _, frame) in enumerate(self.app.options_console_pages):
+            with self.subTest(machine=system):
+                self.app.show_console_page(index)
+                self.root.update_idletasks()
+                frames = [w for w in descendants(frame) if w.winfo_class() == 'TLabelframe']
+                self.assertTrue(any(w.cget('text') == scan_title for w in frames), system)
+                self.assertIn(system, self.app.level_timings)
+        self.assertEqual(set(self.app.level_timings), {profile.id for profile in PROFILES})
+
+
 class CollectionStateChangesOnly(ToolbarWindow):
     """The collection's drain runs ten times a second and asked its buttons to redraw each time: now only on a change."""
     def test_the_buttons_are_configured_once_per_change(self):
