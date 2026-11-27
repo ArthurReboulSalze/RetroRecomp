@@ -71,8 +71,8 @@
 - **A game's resources are rebuilt when an embedded file changes** (its ROM, picture or icon), on the ZX Spectrum, SG-1000,
   ColecoVision, MSX family and CPC: a work folder converted again no longer links the old ones.
 - **Shared pieces, written once**: the AY-3-8910 (MSX, ZX Spectrum, CPC) and the TMS9918A (MSX, SG-1000, ColecoVision) as shared
-  chips, with the MSX's output unchanged; the sound chips' levels to samples (`audio_box`); the copies of written disks (from the
-  MSX); the on-screen keypad and the five-language text rows of the adapters.
+  chips, with the MSX's output unchanged; the sound chips' levels to samples (`audio_box`); the copies of written disks (lifted from
+  the MSX's code, used first by the CPC); the on-screen keypad and the five-language text rows of the adapters.
 - The chain gains 16-bit I/O ports, the /NMI pin, per-instruction cost tables and a bus-cycle model for memory contention, each
   checked against the SingleStepTests vectors; the Master System, Game Gear and MSX generate the same code.
 - Runtime-feedback kinds 28 to 31 are reserved for the ZX Spectrum, SG-1000, ColecoVision and CPC; as on the MSX, nothing is
