@@ -1236,6 +1236,9 @@ INPUTS = _resolve({
         'retrorecomp.psx_native',
         'retrorecomp.psx_knowledge',
         'retrorecomp.psx_pack',
+        # the converter's CHD reader (libchdr, the PC Engine CD's pin): a CHD's sectors for the game key and the disc pack
+        'native/chd_sectors/chd_sectors.c',
+        'retrorecomp.chd_native',
     ),
     # The text of the three state rules of the MC68000 steps (LINK A7, UNLK A7, NEGX) is the Mega Drive's own: it is an input of the four
     # machines that apply it. It is listed with owners by id because the Mega Drive cannot join a shared group without editing its

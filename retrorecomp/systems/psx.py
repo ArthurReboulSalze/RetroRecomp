@@ -19,7 +19,9 @@ APERTURES = ((0x00000000, 0x00200000), (0x1f800000, 0x1f800400), (0x1fc00000, 0x
 # The extensions only the PlayStation reads here (`.img` is a CloneCD or raw disc image, read by no other machine); a `.bin` is
 # shared with the cartridge machines and claimed by its content only (identify_path), so it stays in the registry's foreign list.
 # `.m3u` is the X68000's (its disk sets): a PlayStation playlist is not claimed until that machine checks the content too.
-DISC_EXTENSIONS = ('.pbp', '.cue', '.ccd', '.iso', '.img')
+# `.chd` is shared with the PC Engine CD (path_order 61, after this one): each claims a CHD by what its disc holds, and a CHD this
+# reader cannot open or that holds no PlayStation volume is left to it.
+DISC_EXTENSIONS = ('.pbp', '.cue', '.ccd', '.iso', '.img', '.chd')
 RAW_EXTENSIONS = ('.bin',)
 
 

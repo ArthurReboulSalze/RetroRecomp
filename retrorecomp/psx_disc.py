@@ -34,7 +34,7 @@ PBP_BLOCK_SECTORS = 16
 PBP_BLOCK = PBP_BLOCK_SECTORS * SECTOR
 PBP_MAX_DISCS = 5
 MAX_TRACKS = 99
-EXTENSIONS = ('.cue', '.ccd', '.pbp', '.iso', '.bin', '.img', '.m3u')
+EXTENSIONS = ('.cue', '.ccd', '.pbp', '.iso', '.bin', '.img', '.m3u', '.chd')
 
 
 class DiscError(ValueError):
@@ -453,6 +453,107 @@ def read_raw_image(path: Path) -> Disc:
     return Disc(path, 'bin', [Track(1, mode, 0, size // SECTOR, 0, source)], [source])
 
 
+class _ChdSource:
+    """The tracks of a CHD as one image of raw 2,352-byte sectors, one track after the other (each with the pregap the CHD stores,
+    without the frames the format pads a track with, CD audio little-endian), decoded through libchdr (retrorecomp/chd_native.py):
+    the layout of a single-BIN dump of the same disc, so its CUE sheet, its digest and its pack are those of that dump."""
+
+    FRAME = 2448                 # a CD frame in a CHD: 2,352 bytes of sector, 96 of sub-channel
+
+    def __init__(self, path: Path, hunks, spans: list[tuple[int, int, int, bool]]):
+        self.path = Path(path)
+        self.hunks = hunks
+        self.spans = spans       # per track: first sector of this image, sectors, first frame in the CHD, audio
+        self.stride = SECTOR
+        self.swap = False
+        self.size = sum(count for _, count, _, _ in spans) * SECTOR
+
+    def frames(self) -> int:
+        return self.size // SECTOR
+
+    def read(self, offset: int, length: int) -> bytes:
+        from . import chd_native
+        if offset < 0 or offset + length > self.size:
+            raise DiscError(f'{self.path.name}: short read at {offset}')
+        out = bytearray()
+        while length > 0:
+            sector, within = divmod(offset, SECTOR)
+            first, count, frame, audio = next(s for s in self.spans if s[0] <= sector < s[0] + s[1])
+            take = min(length, SECTOR - within)
+            try:
+                data = self.hunks.read((frame + sector - first) * self.FRAME + within, take)
+            except chd_native.ChdError as error:
+                raise DiscError(str(error)) from None
+            if audio:
+                # A CHD keeps CD audio big-endian; a BIN, the disc and the core little-endian.
+                if within & 1 or take & 1:
+                    whole = self.hunks.read((frame + sector - first) * self.FRAME, SECTOR)
+                    swapped = bytearray(whole)
+                    swapped[0::2], swapped[1::2] = whole[1::2], whole[0::2]
+                    data = bytes(swapped[within:within + take])
+                else:
+                    swapped = bytearray(data)
+                    swapped[0::2], swapped[1::2] = data[1::2], data[0::2]
+                    data = bytes(swapped)
+            out += data
+            offset += take
+            length -= take
+        return bytes(out)
+
+    def close(self):
+        self.hunks.close()
+
+
+_CHD_MODES = {'MODE2_RAW': 'MODE2/2352', 'MODE1_RAW': 'MODE1/2352', 'AUDIO': 'AUDIO'}
+
+
+def read_chd(path: Path) -> Disc:
+    """A CHD of a CD (version 3 to 5, any of its codecs: libchdr decodes them), with the numbering of sectors of its CUE/BIN source:
+    LBA 0 at index 01 of track 1, a pregap the CHD stores (`PGTYPE:V...`) kept as the INDEX 00 part of its track, a pregap it does not
+    store left virtual. A CHD with a parent, a GD-ROM, a DVD or a track of a mode the PlayStation reader does not take is refused."""
+    from . import chd_native
+    path = Path(path)
+    try:
+        hunks = chd_native.ChdHunks(path)
+    except chd_native.ChdError as error:
+        raise DiscError(str(error)) from None
+    try:
+        if hunks.header.unit_bytes != _ChdSource.FRAME:
+            raise DiscError(f'{path.name}: not a CD image (a CHD of {hunks.header.unit_bytes}-byte units)')
+        if any(tag in ('CHCD', 'CHGD', 'CHGT') for tag, _ in hunks.metadata):
+            raise DiscError(f'{path.name}: legacy or GD-ROM CHD metadata is not supported')
+        records = [dict(re.findall(r'(\w+):(\S+)', text)) for tag, text in hunks.metadata if tag in ('CHT2', 'CHTR')]
+        if not records:
+            raise DiscError(f'{path.name}: a CHD without a CD track table')
+        tracks, spans, lba, frame, sector = [], [], 0, 0, 0
+        for number, fields in enumerate(records, start=1):
+            try:
+                if int(fields['TRACK']) != number:
+                    raise ValueError
+                frames, kind = int(fields['FRAMES']), fields['TYPE']
+                pregap, postgap = int(fields.get('PREGAP', 0)), int(fields.get('POSTGAP', 0))
+            except (KeyError, ValueError):
+                raise DiscError(f'{path.name}: bad CHD track metadata') from None
+            if kind not in _CHD_MODES:
+                raise DiscError(f'{path.name}: track {number} is {kind}, a CHD track mode the PlayStation reader does not take')
+            stored = pregap if fields.get('PGTYPE', '').startswith('V') else 0
+            if stored >= frames and stored:
+                raise DiscError(f'{path.name}: bad CHD track pregap')
+            spans.append((sector, frames, frame, kind == 'AUDIO'))
+            tracks.append((number, _CHD_MODES[kind], lba + pregap, frames - stored, pregap, (sector + stored) * SECTOR, stored))
+            lba += frames + postgap + (0 if stored else pregap)
+            frame += -(-frames // 4) * 4
+            sector += frames
+        if frame * _ChdSource.FRAME != hunks.header.logical_bytes:
+            raise DiscError(f'{path.name}: the track table disagrees with the CHD size')
+    except BaseException:
+        hunks.close()
+        raise
+    source = _ChdSource(path, hunks, spans)
+    return Disc(path, 'chd', [Track(n, mode, start, length, pregap, source, offset=offset, stored_pregap=stored)
+                              for n, mode, start, length, pregap, offset, stored in tracks], [source])
+
+
 @dataclass(frozen=True)
 class PbpInfo:
     discs: int
@@ -563,6 +664,8 @@ def open_disc(path: Path, index: int = 0) -> Disc:
         return read_ccd(path)
     if suffix == '.pbp':
         return read_pbp(path, index)
+    if suffix == '.chd':
+        return read_chd(path)
     if suffix == '.m3u':
         items = read_m3u(path)
         if not 0 <= index < len(items):

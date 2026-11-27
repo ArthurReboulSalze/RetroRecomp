@@ -14,11 +14,22 @@ compared with the figures of a machine whose game code is translated, and it say
 ## 1. What is converted
 
 - **Discs as the player gives them**, read in place and never changed: a PS1 Classics EBOOT (`.pbp`, one to five discs), a CUE
-  sheet with its BIN files (one file for the disc or one per track), a CloneCD image (`.ccd` + `.img` + `.sub`), a bare raw image
-  (`.bin`, `.img`) or an ISO (`.iso`, 2,048-byte sectors: such a dump holds the file system only, so a game's XA sound and CD audio
-  are missing from it, and the report says so). A multi-disc game is one EBOOT holding its discs (playlists, `.m3u`, are not read
+  sheet with its BIN files (one file for the disc or one per track), a CloneCD image (`.ccd` + `.img` + `.sub`), a CHD image
+  (`.chd`, see below), a bare raw image (`.bin`, `.img`) or an ISO (`.iso`, 2,048-byte sectors: such a dump holds the file system
+  only, so a game's XA sound and CD audio are missing from it, and the report says so). A multi-disc game is one EBOOT holding its discs (playlists, `.m3u`, are not read
   yet: that extension is the X68000's disk sets). A signed EBOOT from the PlayStation Store is refused (decrypting it would
   circumvent its protection).
+- **CHD images** (from the next release after 1.9.1): MAME's compressed CD images (version 5, as chdman writes them; older versions as libchdr reads them), with any of their codecs (LZMA,
+  Deflate, FLAC for the audio tracks, Zstandard). The converter decodes the disc through libchdr (BSD-3-Clause, the PC Engine CD's
+  pinned revision, built once with the converter's own toolchain: `native/chd_sectors/chd_sectors.c`, `retrorecomp/chd_native.py`)
+  and writes its raw sectors into the game's disc pack behind a CUE sheet of the disc's own geometry, exactly as for a CUE/BIN set:
+  the game holds no CHD code and reads the same sectors. A CHD and the CUE/BIN set it was made from are therefore **the same game**:
+  the same identity, the same digest (the game key: duplicates, the library, shared paths, a multiplayer session), the same sheet
+  for the core and, for a single-BIN set, the same exported file byte for byte. The cost is the size: the game holds the decoded
+  disc (as large as the BIN files), not the CHD. A CHD with a parent, a GD-ROM, a DVD or a track mode other than raw Mode 1, raw
+  Mode 2 and audio is refused with its reason; a CHD of another machine's disc (the PC Engine CD's) is left to that machine. A CHD
+  holds one disc: a multi-disc set of CHDs waits for playlists, like CUE sheets. Sub-channel data a CHD may hold is not read
+  (LibCrypt stays out of scope).
 - **NTSC-U, NTSC-J and PAL discs**, two players, the first memory card (kept beside the game; the second port is off).
 - **The DualShock pad** of each player: the d-pad, the four face buttons, L1, R1, L2 and R2 (the gamepad's triggers), L3, R3,
   Start, Select, both sticks and vibration. It powers on in digital mode, as the console's pad does (a game reads its d-pad);
@@ -257,7 +268,8 @@ zeros give the R3000A's NOP, which real code holds too).
 
 ## 7. Not in this first scope
 
-Mouse, multitap, light guns, the hardware renderers, LibCrypt and other sub-channel protections, CHD images, the PSP-derived BIOS.
+Mouse, multitap, light guns, the hardware renderers, LibCrypt and other sub-channel protections, the PSP-derived BIOS. (CHD
+images were here until the release after 1.9.1: section 1.)
 
 ## 8. The exit from the experimental status (15 November 2026, supported from 1.7.6)
 

@@ -34,8 +34,8 @@ _GAP_LEAST, _GAP_MOST = 75, 150     # a stored gap of an audio track: one second
 @dataclass
 class _Entry:
     name: str
-    kind: str                  # 'raw', 'pbp' or 'text'
-    path: Path | None = None   # raw/pbp: the player's file
+    kind: str                  # 'raw', 'pbp', 'chd' or 'text'
+    path: Path | None = None   # raw/pbp/chd: the player's file
     offset: int = 0
     size: int = 0
     text: bytes = b''
@@ -85,7 +85,7 @@ def _cue_for(disc: psx_disc.Disc, names: dict) -> bytes:
         unstored = track.pregap - track.stored_pregap
         if unstored and track.number > 1:
             lines.append(f'    PREGAP {_msf(unstored)}')
-        gap = track.stored_pregap or (_stored_gap(track, previous) if disc.container == 'cue' else 0)
+        gap = track.stored_pregap or (_stored_gap(track, previous) if disc.container in ('cue', 'chd') else 0)
         if gap:
             lines.append(f'    INDEX 00 {_msf(position - gap)}')
         lines.append(f'    INDEX 01 {_msf(position)}')
@@ -115,7 +115,10 @@ def entries(path: Path) -> tuple[list[_Entry], list[str]]:
             for number, source in enumerate(disc.sources, start=1):
                 name = f'{stem}-{number}.bin'
                 names[id(source)] = name
-                if isinstance(source, psx_disc._PbpSource):
+                if isinstance(source, psx_disc._ChdSource):
+                    # The CHD's sectors, decoded (never the compressed file: the core reads raw sectors).
+                    out.append(_Entry(name, 'chd', source.path, 0, source.size))
+                elif isinstance(source, psx_disc._PbpSource):
                     # The image ends at the disc's lead-out (its last block is padded to 16 sectors).
                     image_offset = psx_disc.pbp_info(path).images[index]
                     size = min(disc.leadout, len(source.blocks) * psx_disc.PBP_BLOCK_SECTORS) * psx_disc.SECTOR
@@ -138,6 +141,20 @@ def _pbp_data_base(path: Path, image: int) -> int:
     return image + (data_offset if data_offset else 0x100000)
 
 
+def _copy_decoded(e: _Entry, out) -> None:
+    """Write a CHD's sectors as the pack entry names them (psx_disc._ChdSource: the single-BIN layout, audio little-endian)."""
+    disc = psx_disc.read_chd(e.path)
+    try:
+        source = disc.sources[0]
+        if source.size != e.size:
+            raise psx_disc.DiscError(f'{Path(e.path).name} changed since its pack entry was made')
+        step = (CHUNK // psx_disc.SECTOR) * psx_disc.SECTOR
+        for offset in range(0, e.size, step):
+            out.write(source.read(offset, min(step, e.size - offset)))
+    finally:
+        disc.close()
+
+
 def _manifest(lines: list[str]) -> bytes:
     return ('\n'.join([FORMAT_LINE, *lines]) + '\n').encode('utf-8')
 
@@ -147,32 +164,36 @@ def _trailer(offset: int, size: int) -> bytes:
 
 
 def write_in_place(path: Path, pack: Path) -> Path:
-    """A pack file for the conversion's reference runs: the player's files are named where they are (never copied)."""
+    """A pack file for the conversion's reference runs: the player's files are named where they are (never copied). A CHD's sectors
+    are the exception: the core reads raw sectors, so they are decoded into the pack itself (a work file of the conversion)."""
     files, sheets = entries(path)
     sources: dict[Path, int] = {}
     lines = []
-    body = bytearray()
-    for e in files:
-        if e.kind == 'text':
-            lines.append(f'file {e.name} raw 0 {len(body)} {len(e.text)}')
-            body += e.text
-            continue
-        if e.path not in sources:
-            sources[e.path] = len(sources) + 1
-            lines.insert(0, f'source {sources[e.path]} {Path(e.path).resolve()}')
-        n = sources[e.path]
-        if e.kind == 'raw':
-            lines.append(f'file {e.name} raw {n} {e.offset} {e.size}')
-        else:
-            lines.append(f'file {e.name} pbp {n} {e.image} {e.data} {e.blocks} {e.size}')
-    lines += [f'disc {s}' for s in sheets]
-    manifest = _manifest(lines)
     pack = Path(pack)
     pack.parent.mkdir(parents=True, exist_ok=True)
     with open(pack, 'wb') as f:
-        f.write(body)
+        for e in files:
+            if e.kind == 'text':
+                lines.append(f'file {e.name} raw 0 {f.tell()} {len(e.text)}')
+                f.write(e.text)
+                continue
+            if e.kind == 'chd':
+                lines.append(f'file {e.name} raw 0 {f.tell()} {e.size}')
+                _copy_decoded(e, f)
+                continue
+            if e.path not in sources:
+                sources[e.path] = len(sources) + 1
+                lines.insert(0, f'source {sources[e.path]} {Path(e.path).resolve()}')
+            n = sources[e.path]
+            if e.kind == 'raw':
+                lines.append(f'file {e.name} raw {n} {e.offset} {e.size}')
+            else:
+                lines.append(f'file {e.name} pbp {n} {e.image} {e.data} {e.blocks} {e.size}')
+        lines += [f'disc {s}' for s in sheets]
+        manifest = _manifest(lines)
+        body = f.tell()
         f.write(manifest)
-        f.write(_trailer(len(body), len(manifest)))
+        f.write(_trailer(body, len(manifest)))
     return pack
 
 
@@ -202,6 +223,9 @@ def write_embedded(path: Path, program: Path, output: Path) -> Path:
                         out.write(chunk)
                         left -= len(chunk)
                 lines.append(f'file {e.name} raw 0 {start} {e.size}')
+            elif e.kind == 'chd':
+                lines.append(f'file {e.name} raw 0 {out.tell()} {e.size}')
+                _copy_decoded(e, out)
             else:
                 if e.path not in copied:
                     copied[e.path] = out.tell()
