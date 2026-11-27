@@ -1,20 +1,20 @@
 # PC Engine CD / TurboGrafx-CD
 
 Status: **experimental**, open to players (21 November 2026). Steps 1 to 3 of [NEW_MACHINE.md](NEW_MACHINE.md) are done as far as they can be without the owner: nine discs convert and match on
-Windows and Linux, routes reach play on eight of them, multiplayer is proved on one PC. The owner has tried the delivered games; his acceptance (G14) and the exit are not recorded. The decisions
+Windows and Linux, routes reach play on eight of them, multiplayer is proved on one PC. Three games were delivered for the owner's play test; his acceptance (G14) and the exit are not recorded. The decisions
 below are the owner's, taken on 21 November 2026 after the study.
 
 ## 1. What it converts, and what it does not
 
 - **Discs as the player gives them**, read in place and never changed: a **CHD** (version 4 or 5), a **CUE sheet** with its BIN files, or an
-  **ISO** of 2,048-byte sectors. CD-ROM² and Super CD-ROM² discs, one disc per game.
-- **The System Card is the player's own**, checked by its hash and never shipped (`retrorecomp/pcecd_card.py`). The Super System Card 3.0 of
-  the USA is the card the engine's own evidence boots; the Japanese 3.0 card is known by its hash too (what runs on which card is measured
-  in stage 1, section 4).
+  **ISO** of 2,048-byte sectors. CD-ROM² and Super CD-ROM² discs, one disc per game. Every disc converted so far is a CHD: the CUE path was checked on authored discs only and no real ISO
+  has been converted. An ISO holds one data track and no CD audio, so it is not a full copy of a disc that has audio tracks.
+- **The System Card is the player's own**, checked by its hash and never shipped (`retrorecomp/pcecd_card.py`). Two Super System Card 3.0 images are accepted, USA and Japan; any other file is
+  refused. Every measure on this page was taken with the Japanese card. We have not run the USA card; the engine's own evidence boots it.
 - **The disc inside the executable** (the PlayStation's way: the game holds the whole image and reads it in place) and **no DLL beside it**:
-  the CHD decoder (libchdr, BSD-3-Clause) is linked into the game.
+  the CHD decoder (libchdr, BSD-3-Clause) is linked into the game. The executable also holds your System Card: it contains your disc and your firmware, so it is for you only.
 - **The drive's own timing**: loading takes the time the engine's drive model gives it (seek and read delays), never shortened; it was not compared with a real drive. A speed-up is not part of this version.
-- **Backup memory** (the 2 KiB of the CD system), kept beside the game like the PC Engine's.
+- **Backup memory** (the 2 KiB of the CD system), kept beside the game like the PC Engine's. Without a save file it starts **formatted** (the file system header, nothing stored), as on a HuCard, in Beetle and in MAME: a real unit starts as it was left, and a game may refuse an unformatted one and send you to the System Card's own memory screen (Dungeon Explorer II does).
 - **Not in this version:** the Arcade Card (the engine has its Duo profile; no disc of it in the maintainer's library), SuperGrafx, System
   Cards that are not in the table, multi-disc games (there is none), a disc image that needs a protection circumvented.
 - **One machine of its own**, not a mode of the PC Engine: its media, firmware, saves and boot differ. It shares the HuC6280, the video
@@ -38,7 +38,8 @@ Kept apart in every report and every page, as everywhere:
 - **Native code**: how much of what the disc and the System Card run was translated and how much ran on the counted interpreter fallback,
   per CPU (the HuC6280) and per device. A disc is only translated where its routes were seen to run; the rest runs counted.
 - **CPU fidelity**: the HuC6280 is the PC Engine's; its vectors were run again for this machine on 27 November 2026 (table below).
-- **Hardware fidelity**: the CD drive, CD audio, ADPCM and backup memory are the pinned engine's models; their evidence is the engine's.
+- **Hardware fidelity**: the CD drive, CD audio, ADPCM and backup memory are the pinned engine's models; their evidence is the engine's, plus the comparison with MAME of section 7.
+  Nothing here compares them with a console.
 - **Gameplay validation**: scripted routes and captures looked at; no full play of a game is recorded.
 - **Physical latency**: not measured; nothing here says zero latency or exact timing.
 
@@ -61,7 +62,7 @@ Run on 27 November 2026: the pinned interpreter, then the code the engine's emit
 The translated code ran 56,767 cases; its 157 state differences and 750 cycle differences from the vectors are the interpreter's, on the same cases, and none differs from the interpreter. TAM and TMA are left
 to the interpreter tier (they change the guarded mapping).
 
-## 4. Stage 1, where it stands (21 November 2026)
+## 4. The panel
 
 | Stage | State |
 |---|---|
@@ -70,7 +71,7 @@ to the interpreter tier (they change the guarded mapping).
 | 1c. The delivered game and its host-kit adapter | the delivered game replays its routes equal to the reference, quick states and backup memory checked; the window itself is for the owner's play test (G14) |
 
 **The nine discs converted from an empty library** (Windows, llvm toolchain, two conversions at a time, scan level `standard`: a boot route and a play route of 3,600 frames each; the
-maintainer's Japanese Super System Card 3.0, the Super RAM profile, the drive's unknown commands answered as the NEC reference does, `nec-invalid`):
+maintainer's Japanese Super System Card 3.0, the Super RAM profile, the drive's unknown commands answered with CHECK CONDITION, the engine's `nec-invalid` policy, whose byte counts follow a table of the Beetle emulator's NEC core and not NEC documentation):
 
 | Disc | Container | Why it is in the panel | Native instructions run / interpreted | Emitted in the module |
 |---|---|---|---|---|
@@ -82,7 +83,7 @@ maintainer's Japanese Super System Card 3.0, the Super RAM profile, the drive's 
 | Dungeon Explorer II (USA) | CHD v5 | a multitap candidate | 201.3 M / 0 | 15,746, 92 contexts |
 | Valis III (USA) | CHD v5 | 18 data tracks interleaved with the audio | 216.4 M / 0 | 6,860, 21 contexts |
 | 4 in 1 Super CD (USA) | CHD v5 | four games behind a menu | 204.8 M / 0 | 49,673, 317 contexts |
-| Ys Book I & II (USA) | CHD v5 | the most ADPCM voice | 204.7 M / 0 | 14,483, 54 contexts |
+| Ys Book I & II (USA) | CHD v5 | a lot of ADPCM voice | 204.7 M / 0 | 14,483, 54 contexts |
 
 What these numbers say and what they do not: on the two routes of each disc (boot, then a play route), no instruction ran on the interpreter, the delivered game gave the same picture, sound,
 RAM and CPU state on every frame as the build with every instruction interpreted, a quick state continued the saved timeline in a fresh process, and eleven kinds of damaged backup
@@ -93,12 +94,12 @@ Nothing here says hardware fidelity, gameplay or latency.
 Measured on the way: the strict policy for the drive's unknown commands stops Ys III and The Addams Family (an unknown command `$FF` when RUN is pressed) and is not the default; the Japanese
 card runs USA discs and Japanese ones; a conversion takes about twelve minutes on this PC (two at a time).
 
-**The Linux witness**: The Addams Family converted on Debian 13 (WSL, gcc, headless) from an empty library gives the same 222,527,282 observed instructions, the same module (8,810
-instructions in 23 contexts) and, on both routes, the same CPU, RAM, picture and PCM hashes and the same trace digest as Windows. One disc, not a panel; no Linux GPU is involved.
+**The Linux witness (27 November 2026):** the nine discs converted on Debian 13 (WSL, headless) give the same exploration choices, modules and final CPU, RAM, picture, PCM, trace and backup
+hashes and native counts as on Windows. No Linux PC with a real display, GPU, pad or sound output is covered. (A first witness on The Addams Family dates from 21 November 2026.)
 
 ### The panel of nine at the extended level (27 November 2026)
 
-Converted through `batch` as a player converts (`tools/release_check.py`, extended level, an empty private library, two at a time, the portable llvm toolchain, Japanese Super System Card 3.0, tree
+Converted through `batch` with the online covers off (`tools/release_check.py`, extended level, an empty private library, two at a time, the portable llvm toolchain, Japanese Super System Card 3.0, tree
 `spec/pcecd-g9`). Routes: attract (3,600 frames), play (3,600), and the explored long route (21,600). Every gate of `release_check` passes on all nine: **0 interpreted instructions on all 27 routes**, 0 guard
 misses, native equal to the reference on every frame, the published executable replayed, quick states and damaged states. A conversion takes 30 to 39 minutes on this PC, two at a time.
 
@@ -115,7 +116,7 @@ misses, native equal to the reference on every frame, the published executable r
 | Ys III | 827 | 37,199 / 55 | menu, tap, action, walk, tap, action | 3,724 | **in play**: the opening and the first town, then a room the route does not leave |
 
 **Saves:** Dracula X and Ys Book I & II write the backup memory on their long route; in a fresh process the game starts with exactly the memory the first run left, and Dracula X shows the name it saved
-(« PLAYER1 AA ») in its file screen and goes on to play. Every disc: no file starts blank (the System Card formats it when a game asks), a valid file is read, eleven kinds of damaged file are set aside.
+(« PLAYER1 AA ») in its file screen and goes on to play. On every disc: without a save file the game finds the memory (then blank, see below), a valid file is read, eleven kinds of damaged file are set aside. Later on 27 November the memory without a save was changed to start formatted (section 1).
 
 ## 5. Route depth (gate G9)
 
@@ -133,7 +134,7 @@ does not reach runs on the interpreter, counted.
 
 ## 6. Multiplayer (step 3, 22 November 2026)
 
-The machine joins the sessions on the **rollback** tier, with the PC Engine's adapter (`rrhk_pce.c`, which the CD adapter includes): a state saved at any frame and loaded back leaves the machine as it was, a
+The machine joins the sessions on the **rollback** tier, with the PC Engine's adapter (`rrhk_pce.c`, which the CD adapter includes): a state saved and loaded back leaves the machine as it was (probed every 60 frames over 1,800 frames, the table below), a
 digest of every frame is compared between the seats, the multitap is plugged for every seat, and the backup memory is the session's save (the host's file is handed to the guests, played in memory and written
 back at a clean end, the old file kept).
 
@@ -141,7 +142,7 @@ back at a clean end, the old file kept).
   asks), the video, the palette, the pads and interrupts as for a HuCard, and, through the engine's own checkpoint writer, the drive (command and data transport, a read in flight, the CD audio position and
   fader), the ADPCM unit (its 64 KiB of RAM, its clocks and flags) and the PSG. About 0.85 MB a snapshot, less than 2 MB the bound.
 * **The digest** is the HuCard's (the CPU, the RAM banks, the video, the palette, the pads, the timer) plus the backup memory and the engine's own field list of the drive and the ADPCM unit (patch 7 of the engine, UPSTREAMS.md),
-  never the PCM the host drank, never the step counters. It does not depend on how the host drained the sound, nor on Windows or Linux.
+  never the PCM the host drank, never the step counters. The sound the host drained is left out of it; in the probes the digests were equal on Windows and Linux.
 * **The lobby** compares the System Card: the report names it at the top level (`bios`, with its SHA-256), so two players with another card are refused before the launch.
 
 Proofs (all on Dracula X or Lords of Thunder, the player's own card and discs, never in the repository):

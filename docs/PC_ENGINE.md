@@ -34,7 +34,7 @@ reported. No gate of the qualification list is claimed beyond what was measured.
 
 Decided on 5 November 2026.
 
-- **Cards:** HuCards only. No CD-ROM2 and no SuperGrafx.
+- **Cards:** HuCards only. No SuperGrafx. CD-ROM² discs are a machine of their own, [PC Engine CD](PC_ENGINE_CD.md) (experimental).
 - **Video:** NTSC.
 - **Pads:** the two-button pad, and the six-button pad of the Street Fighter II board. The multitap seats four players at
   most (the console takes five; Bomberman is the named case): the fifth player is not offered. A converted game is built
@@ -548,7 +548,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
   stage) and most stay in their first stage; a stall is a limit of the walk, not a statement about the game.
 - The Backup RAM is a model of ours (its bank is in the RAM hash, equal on Linux on the panel's routes): plain RAM, no lock, formatted when there is no file, one file per card ([Saves](#6-saves)). The saving paths are
   not on the routes, so they run partly interpreted, and counted.
-- Out of scope: CD-ROM2, SuperGrafx (refused when no picture appears), PAL timing, the Populous RAM board, and the fifth
+- Out of scope here: CD-ROM2 (see [PC Engine CD](PC_ENGINE_CD.md)), SuperGrafx (refused when no picture appears), PAL timing, the Populous RAM board, and the fifth
   multitap player. A converted game is built for two players.
 - The Linux build is witnessed on the 15 cards of the release-tree panel, route hashes only ([above](#the-whole-panel-on-linux-9-and-10-november-2026)); nobody played on Linux, and a quick state is not shared between Windows and Linux.
 - Audio is the engine's raw PSG output at 44.1 kHz.
@@ -558,7 +558,7 @@ Interpreter fallback is counted per CPU. The report carries `latency_ms: null`.
 
 1. The record's window test (a hidden window, a normal exit, F12 off) and its Linux witness, which the Amiga has and the PC Engine does not yet.
 2. A play route that waits on a screen the way a player does (Boxyboy's PUSH RUN), which the record answers only after a player has played it.
-3. SuperGrafx and CD-ROM2 as separate studies.
+3. SuperGrafx as a separate study (CD-ROM2 is now [PC Engine CD](PC_ENGINE_CD.md)).
 
 No date is promised. Gate by gate status is in [QUALIFICATION.md](QUALIFICATION.md) (column `pce`), and what a new machine
 must do is in [NEW_MACHINE.md](NEW_MACHINE.md).
