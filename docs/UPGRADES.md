@@ -474,8 +474,9 @@ Two changes in files the HuCard games also compile (`native/pce_machine.cpp`, `n
   create a save (« please initialize backup RAM »). One function (`format_backup`) now serves both;
 - a disc game keeps **no player's record** (F12 is off): the code a player reaches past the routes is loaded from the disc and a disc conversion never used the record.
 
-Measured against `d5ea0b79` (`compilation_inputs.role_stamps`, all 27 machines): **the PC Engine game stamp** and **the PC Engine CD game stamp** move; no host or build stamp and no other machine's stamp. A PC
-Engine export is converted again once with the same result (the HuCard's memory and record are unchanged). PC Engine CD exports (not yet released) are converted again; their save files are read as before.
+The PC Engine CD also becomes **supported** (its profile, [PC_ENGINE_CD.md](PC_ENGINE_CD.md) section 8). Measured against `0d782840` (`compilation_inputs.role_stamps`, all 27 machines): **the PC Engine game stamp** and
+**the PC Engine CD game stamp** move; no host or build stamp and no other machine's stamp. A PC Engine export is converted again once with the same result (the HuCard's memory and record are unchanged). PC Engine CD
+exports (none released) are converted again; their save files are read as before.
 
 ## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (next release)
 

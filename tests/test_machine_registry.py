@@ -79,7 +79,11 @@ DECLINED = {
     # sharing »): the 16 games of their two panels learn no pattern (learned_patterns 0, every learning pass 0 interpreted steps) and reach 0
     # interpreted steps on every route, so a received path would add no native instruction and save no pass (QUALIFICATION.md,
     # "SG-1000 and ColecoVision (22 November 2026"), with G16 `-`.
-    'path_sharing': {'msx', 'msx2', 'n64', 'sg1000', 'coleco'},
+    # The PC Engine CD: declined for this release on its measure of 27 November 2026, the owner's to confirm: a received module of the same disc adds no
+    # native instruction (same routes, same hashes, 0 interpreted either way) and saves the second learning pass (Ys Book I & II 2,144 s to 1,629 s, The Addams
+    # Family 2,158 s to 1,710 s), and no path format can carry it yet: a disc's code runs from the CD RAM, which the PC Engine's records (offsets in the card)
+    # do not name, and its bytes cannot travel (QUALIFICATION.md, "PC Engine CD, the exit"), with G16 `-`.
+    'path_sharing': {'msx', 'msx2', 'n64', 'sg1000', 'coleco', 'pcecd'},
     # A runtime-feedback kind (native/runtime_feedback.h): a machine in development that records nothing yet may wait for it. The
     # lead reserves the new machines' kinds in one change, with the release that first needs one, so that the game stamps of
     # every machine move once, not once per new machine (21 Nov 2026). Empty since 1.10.0: the ZX Spectrum, SG-1000, ColecoVision

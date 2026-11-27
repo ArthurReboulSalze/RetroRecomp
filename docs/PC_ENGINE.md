@@ -34,7 +34,7 @@ reported. No gate of the qualification list is claimed beyond what was measured.
 
 Decided on 5 November 2026.
 
-- **Cards:** HuCards only. No SuperGrafx. CD-ROM² discs are a machine of their own, [PC Engine CD](PC_ENGINE_CD.md) (experimental).
+- **Cards:** HuCards only. No SuperGrafx. CD-ROM² discs are a machine of their own, [PC Engine CD](PC_ENGINE_CD.md).
 - **Video:** NTSC.
 - **Pads:** the two-button pad, and the six-button pad of the Street Fighter II board. The multitap seats four players at
   most (the console takes five; Bomberman is the named case): the fifth player is not offered. A converted game is built

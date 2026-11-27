@@ -1,8 +1,8 @@
 # PC Engine CD / TurboGrafx-CD
 
-Status: **experimental**, open to players (21 November 2026). Steps 1 to 3 of [NEW_MACHINE.md](NEW_MACHINE.md) are done as far as they can be without the owner: nine discs convert and match on
-Windows and Linux, routes reach play on all nine (Dungeon Explorer II since a fix of 27 November), multiplayer is proved on one PC. The owner played three of them and accepted them (G14, 27 November 2026, [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); the exit from experimental is not recorded. The decisions
-below are the owner's, taken on 21 November 2026 after the study.
+Status: **supported** from the release after 1.9.1, on the owner's decision of 27 November 2026 after his play test (G14); open as experimental since 21 November 2026. Nine discs of the panel convert and match on
+Windows and Linux, each has a route that reaches play, multiplayer is proved on one PC. What is proved and what is not is in sections 3, 7 and 8. The decisions below are the owner's, taken on 21 November 2026 after the
+study.
 
 ## 1. What it converts, and what it does not
 
@@ -68,7 +68,7 @@ to the interpreter tier (they change the guarded mapping).
 |---|---|
 | 1a. Profile, disc and System Card readers, registries, stamps, firmware search, languages | done |
 | 1b. The conversion loop on the pinned engine, our disc provider (libchdr static, CHD version 4 and 5, the disc inside the executable) | done: nine discs converted |
-| 1c. The delivered game and its host-kit adapter | the delivered game replays its routes equal to the reference, quick states and backup memory checked; the window itself is for the owner's play test (G14) |
+| 1c. The delivered game and its host-kit adapter | the delivered game replays its routes equal to the reference, quick states and backup memory checked; the window itself was the owner's play test of three games (G14, section 8) |
 
 **The nine discs converted from an empty library** (Windows, llvm toolchain, two conversions at a time, scan level `standard`: a boot route and a play route of 3,600 frames each; the
 maintainer's Japanese Super System Card 3.0, the Super RAM profile, the drive's unknown commands answered with CHECK CONDITION, the engine's `nec-invalid` policy, whose byte counts follow a table of the Beetle emulator's NEC core and not NEC documentation):
@@ -204,3 +204,28 @@ variables, consistent with the two machines not taking the same time (the data r
 - **Reads of the lock register** ($1803) differ in number: they are polling loops, which depend on timing.
 - **Not compared**: the drive's timing (seek and transfer delays), the sound itself (CD audio, ADPCM and PSG mixing), the video, a real console. MAME is another emulator, not hardware.
 - Three discs, the first 12,000 frames of one pad script each: nothing is said of the other discs or of later in these.
+
+## 8. Known limits, path sharing and the exit (27 November 2026)
+
+**The exit.** The owner played Akumajou Dracula X, Lords of Thunder and Ys Book I & II and answered « PC Engine très bien », then « Ok, je valide le G14 pour le PC Engine CD »; he then decided that the six new machines
+leave the experimental status in this release (relayed by the lead session). His play test is his impression: it measures neither fidelity nor latency.
+
+**Known limits.**
+- Native code only where a route was seen to run; what a player reaches past it runs on the counted interpreter. A disc game keeps no player's record and shares no path, so it does not become native at the next conversion.
+- Gameplay validation: scripted routes (the first minutes of each disc) and the owner's play test of three discs; no disc is validated from start to end.
+- Hardware fidelity: the engine's models, compared with MAME on three discs (section 7), never with a console. The drive's timing, the sound mixing and the video were not compared.
+- Not converted: the Arcade Card, SuperGrafx, System Cards other than the two Super System Card 3.0, multi-disc games, the six-button pad. No real CUE or ISO disc was converted (authored ones only); the USA card was not run.
+- Linux: witnessed headless on Debian 13 in WSL, not on a Linux PC with a display, GPU, pad or sound output.
+- Multiplayer: proved on one PC, not yet on two.
+- Not measured: physical latency, and the cost of a frame past the routes, on the interpreter (it waits for a quiet PC).
+
+**Path sharing (G16): declined for this release, the owner's to confirm.** Measured: the same disc converted again with its first pass starting from the module another conversion had learned, as a received bank would give it.
+
+| Disc (extended level, two conversions at a time) | Normal | With the received module | Native code | Routes, picture and CPU hashes |
+|---|---|---|---|---|
+| Ys Book I & II | 2,144 s, two passes | 1,629 s, one pass (-24 %) | the same, 0 interpreted | equal |
+| The Addams Family | 2,158 s, two passes | 1,710 s, one pass (-21 %) | the same, 0 interpreted | equal |
+
+A received path adds no native instruction at the same level; it saves the second learning pass (these times are indicative, not a benchmark). No path format can carry it today: a disc's code runs from the CD RAM, which the PC Engine's
+records (offsets in the card) do not name, and the module holds the bytes themselves, which cannot travel. A Standard conversion could gain code from an Extended one; Extended already gives it to its own player. Because a pass would be
+saved, this is not the plain « useless sharing » case: it is the owner's choice whether the saving is worth a new format later.

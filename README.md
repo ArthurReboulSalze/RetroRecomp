@@ -115,13 +115,13 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Nintendo 64](docs/NINTENDO_64.md)\* | supported | `█████` 90 % | supported · delay | [Win 4.69 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
 | [Nintendo NES](docs/NES.md) | supported | `█████` 91 % | supported · rollback | [Win 2.51 ms (−2 %)](docs/PERFORMANCE.md#the-figures) |
 | [PC Engine / TurboGrafx-16](docs/PC_ENGINE.md) | supported | `█████` 94 % | supported · rollback | [Win 5.22 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
+| [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | supported | `█████` 93 % | supported · rollback | not measured |
 | [Sharp X68000](docs/X68000.md) | supported | `█████` 91 % | supported · rollback | [Win 1.07 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | [Win 3.83 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
 | [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %) · Linux 4.56 ms](docs/PERFORMANCE.md#the-figures) |
 | [Amstrad CPC](docs/AMSTRAD_CPC.md) | experimental (developer-only) | `████░` 84 % | supported · rollback | not measured |
 | [ColecoVision](docs/COLECOVISION.md) | experimental (developer-only) | `████░` 89 % | supported · rollback | not measured |
 | [Game Boy Color](docs/GAME_BOY_COLOR.md) | experimental | `████░` 75 % | supported · rollback · link cable | not measured |
-| [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `████░` 81 % | supported · rollback | not measured |
 | [SG-1000](docs/SG1000.md) | experimental (developer-only) | `████░` 89 % | supported · rollback | not measured |
 | [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `████░` 77 % | supported · rollback | not measured |
 | **[Adventure (ScummVM)](docs/SCUMMVM.md)** | supported | outside this list: emulated, 0 % native code | not offered | not measured |
