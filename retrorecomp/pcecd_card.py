@@ -64,12 +64,27 @@ class Card:
         return blob
 
 
-def known_card(data: bytes) -> KnownCard | None:
-    """The table's entry for these bytes (by size and SHA-1), None when they are no known System Card: what the HuCard reader asks
-    so that a card dropped as a `.pce` is not converted as a game. `identify` is the same check on a file."""
-    if len(data) != CARD_BYTES:
-        return None
-    return BY_SHA1.get(hashlib.sha1(data).hexdigest())
+# Cards the PC Engine CD does not convert with (it accepts the two 3.0 cards of BY_SHA1 only) but that a HuCard reader must still
+# recognise and refuse, by SHA-1 (MAME 0.289's pce and tg16 softlists, read on 27 November 2026 by the PC Engine specialist). The Games
+# Express CD Card is 32 KiB; the Arcade Card Pro carries the Japanese 3.0's bytes and is covered by BY_SHA1.
+REFUSED_ONLY = {
+    'a39a66da7de6ba94ab84d04eef7afeec7d4ee66a': 'CD-ROM System Card 1.0 (japan)',
+    'f92ea593c8a935f58f8e1c3b2fc730951ec4fa71': 'CD-ROM System Card 2.0 (japan)',
+    '88da02e2503f7c32810f5d93a34849d470742b6d': 'CD-ROM System Card 2.1 (japan)',
+    '2bea3dac98f84b2f2f469fa77ea720b8770d598d': 'CD-ROM System Card 2.0 (usa)',
+    '014881a959e045e00f4db8f52955200865d40280': 'Games Express CD Card',
+}
+
+
+def system_card_name(data: bytes) -> str | None:
+    """What these bytes are when they are a System Card (a known one, or a card only refused), None otherwise: what the HuCard reader
+    asks of the decoded ROM, in both bit orders, so that a card dropped as a `.pce` is not converted as a game. `identify` is the
+    stricter check of the card the PC Engine CD converts with (size and BY_SHA1)."""
+    digest = hashlib.sha1(data).hexdigest()
+    known = BY_SHA1.get(digest) if len(data) == CARD_BYTES else None
+    if known is not None:
+        return f'{known.name} {known.version} ({known.region})'
+    return REFUSED_ONLY.get(digest)
 
 
 def identify(path: Path) -> Card:

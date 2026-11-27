@@ -108,6 +108,41 @@ class PcEngineFirmwareTests(FirmwareCase):
         with patch.dict(pcecd_card.BY_SHA1, {known.sha1: known}):
             self.refused(self.make('syscard3.pce', image), 'System Card of the PC Engine CD', 'not a game')
 
+    def patched_card(self, image: bytes):
+        import hashlib
+        from unittest.mock import patch
+        from retrorecomp import pcecd_card
+        known = pcecd_card.KnownCard(hashlib.sha1(image).hexdigest(), 'Super System Card', '3.0', 'japan', 'panel')
+        return patch.dict(pcecd_card.BY_SHA1, {known.sha1: known})
+
+    def test_a_card_with_a_copier_header_or_in_bit_reversed_order_is_still_firmware(self):
+        from retrorecomp.pce_rom import _REVERSED
+        image = self.card_image()
+        variants = {'copier.pce': bytes(512) + image,                       # a 512-byte copier header
+                    'reversed.pce': image.translate(_REVERSED),             # the bit-reversed order of the US dumps
+                    'reversed_copier.pce': bytes(512) + image.translate(_REVERSED)}
+        with self.patched_card(image):
+            for name, data in variants.items():
+                with self.subTest(name):
+                    self.refused(self.make(name, data), 'System Card of the PC Engine CD', 'not a game')
+
+    def test_the_cards_the_pc_engine_cd_does_not_convert_with_are_refused_only(self):
+        import hashlib
+        from unittest.mock import patch
+        from retrorecomp import pcecd_card
+        self.assertEqual(len(pcecd_card.REFUSED_ONLY), 5)
+        for digest in pcecd_card.REFUSED_ONLY:
+            self.assertRegex(digest, '^[0-9a-f]{40}$')
+            self.assertNotIn(digest, pcecd_card.BY_SHA1)         # the converter must never accept a 2.x card as its own
+        games_express = bytearray(32 * 1024)                     # 32 KiB: the fixed size of the System Cards does not apply
+        games_express[0x1FFE:0x2000] = (0xE000).to_bytes(2, 'little')
+        games_express[0] = 0x78
+        digest = hashlib.sha1(games_express).hexdigest()
+        with patch.dict(pcecd_card.REFUSED_ONLY, {digest: 'Games Express CD Card'}):
+            self.refused(self.make('gexpress.pce', bytes(games_express)), 'Games Express CD Card', 'not a game')
+            with self.assertRaises(pcecd_card.CardError):         # and the PC Engine CD still does not take it as its card
+                pcecd_card.identify(self.make('card.bin', bytes(games_express)))
+
     def test_a_256_kib_cartridge_that_is_no_known_card_is_still_a_game(self):
         self.accepted(self.make('game.pce', self.card_image()), 'pce')
 

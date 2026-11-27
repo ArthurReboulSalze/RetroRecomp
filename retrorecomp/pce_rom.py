@@ -136,11 +136,6 @@ def file_bytes(path) -> bytes:
         raise PcEngineRomError('The PC Engine profile reads .pce HuCard images, loose or alone in a ZIP.')
     if len(data) > MAX_FILE_BYTES:
         raise PcEngineRomError('The HuCard image exceeds 2.5 MiB (plus a 512-byte header).')
-    from .pcecd_card import known_card
-    card = known_card(data)
-    if card is not None:
-        raise PcEngineRomError(f'This file is the {card.name} {card.version} ({card.region}), the System Card of the PC Engine CD: '
-                               'firmware, not a game. Give it to the PC Engine CD options, never to the games.')
     return data
 
 
@@ -148,5 +143,11 @@ def read_hucard(path) -> HuCard:
     path = Path(path).resolve(strict=True)
     data = file_bytes(path)
     rom, header, encoding = decode(data)
+    # A System Card dropped as a .pce: asked of the decoded ROM, so that a copier header does not hide it, in both bit orders (decode may settle a tie the wrong way).
+    from .pcecd_card import system_card_name
+    card = system_card_name(rom) or system_card_name(rom.translate(_REVERSED))
+    if card is not None:
+        raise PcEngineRomError(f'This file is the {card}, the System Card of the PC Engine CD: firmware, not a game. '
+                               'Give it to the PC Engine CD options, never to the games.')
     return HuCard(path, hashlib.sha256(data).hexdigest(), len(data), hashlib.sha256(rom).hexdigest(), len(rom),
                   header, encoding, board_for(len(rom)), _vector(rom), path.stem)
