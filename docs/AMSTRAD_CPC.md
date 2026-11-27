@@ -98,23 +98,24 @@ Native code, CPU fidelity, hardware fidelity, gameplay validation and physical l
 * **Gameplay validation**: not done. The routes are 3,600 frames each, scripted; the owner's play test is G14.
 * **Physical latency**: not measured, never claimed.
 
-## 5. Panel (22 November 2026)
+## 5. Panel (22 November 2026; taken again on 27 November with the routes' fire on the stick's default line)
 
 Eight games of the owner's library (DSK and EXTENDED DSK images, read from the NAS, never copied into the repository), converted on
 the pinned CPC 6128 firmware from an empty scratch library, two conversions at a time; each has two routes of 3,600 frames:
 **boot** (the start command typed, then nothing) and **play** (the trainers' questions and title-screen keys first, keys only, then
-the joystick at random, seeded by the disk; `retrorecomp/cpc_routes.py`).
+the joystick at random, seeded by the disk; `retrorecomp/cpc_routes.py`). The routes' fire is the stick's default button (pin 6,
+bit 4) since 27 November 2026: it was bit 5, which Gryzor does not read, and every figure below was taken again with it.
 
 | Game | Start | Learning (interpreted steps, pass 1 → 2) | Interpreted on boot / play | Play route reaches | Audible frames (play) |
 |---|---|---|---|---|---|
-| Bomb Jack | `RUN"BOMB` | 3,655,961 → 0 | 0 / 0 | the first level (the pyramids), after its trainer and control menu | 508 |
-| Gryzor | `RUN"GRYZOR` | 14,386,604 → 0 | 0 / 0 | the first level (the jungle) | 66 |
-| Head over Heels | `RUN"HEAD` | 336,120 → 0 | 0 / 0 | its main menu, after a trainer's three « (o/n)? » | 190 |
-| Match Day II | `RUN"MATCHDAY` | 6,088,719 → 0 | 0 / 0 | its match menu | 2,698 |
+| Bomb Jack | `RUN"BOMB` | 3,657,542 → 0 | 0 / 0 | the first level (the pyramids), after its trainer and control menu | 1,038 |
+| Gryzor | `RUN"GRYZOR` | 13,606,247 → 0 | 0 / 0 | the first level (the jungle), firing (a score of 200) | 522 |
+| Head over Heels | `RUN"HEAD` | 336,120 → 0 | 0 / 0 | its main menu, after a trainer's « (o/n)? » questions | 190 |
+| Match Day II | `RUN"MATCHDAY` | 6,088,720 → 0 | 0 / 0 | its match menu | 2,698 |
 | Super Hang-On | `RUN"DISC` | 7,514,067 → 0 | 0 / 0 | the race (Africa) | 2,344 |
 | Robocop | `RUN"M` | 1,268,142 → 0 | 0 / 0 | the first street | 2,247 |
-| Castle Master | `RUN"CASTLE` | 6,990,294 → 0 | 0 / 0 | the castle, in 3D | 186 |
-| Dizzy - The Ultimate Cartoon Adventure | `RUN"DIZZYFL` | 5,042,300 → 0 | 0 / 0 | the first screen, in play | 2,932 |
+| Castle Master | `RUN"CASTLE` | 7,331,265 → 0 | 0 / 0 | the castle, in 3D | 311 |
+| Dizzy - The Ultimate Cartoon Adventure | `RUN"DIZZYFL` | 5,042,617 → 0 | 0 / 0 | the first room, in play | 2,932 |
 
 For every game: the native run equals the reference interpreter on both routes, every field and every frame's row; the delivered
 (compressed) file replayed headless equals both; a quick state saved near the play route's end continues in a fresh process for
@@ -123,11 +124,11 @@ fallback, packed and states gates pass. The pictures at frames 2,400 and 3,600 o
 written as WAV. **Linux**: Bomb Jack converted again in WSL (Debian 13) from the same sources gives the same rows as Windows on
 both routes (native, reference and delivered file), the same learning and the same final hashes.
 
-**Long routes** (22 November 2026): the eight games played 18,000 frames (five minutes: the play route's 3,600, then the joystick
+**Long routes** (22 November 2026, taken again on 27 November with the routes' new fire): the eight games played 18,000 frames (five minutes: the play route's 3,600, then the joystick
 and a start key every 600 frames, so a game that ended goes back into play; the 3,600-frame scripts are unchanged) with the programs
 each conversion built. Native equals the reference on every field, drive A's digest included, and every frame's row; the code first
-run after frame 3,600 runs on the counted interpreter (0 to 1,705,300 steps), since learning sees the 3,600-frame routes. At frames
-6,000, 12,000 and 18,000: Castle Master, Gryzor and Robocop in play; Dizzy in its first room; Bomb Jack on its pyramids, then game
+run after frame 3,600 runs on the counted interpreter (0 to 2,565,973 steps), since learning sees the 3,600-frame routes. At frames
+6,000, 12,000 and 18,000: Castle Master, Gryzor (scoring) and Robocop in play; Dizzy in its first room; Bomb Jack on its pyramids, then game
 over, then its menu; Super Hang-On racing, then its tables and title; Match Day II in a match at the end; Head over Heels stays on
 its menu. Random routes, not played games.
 
@@ -145,7 +146,7 @@ were looked at first: no key writes in the first, the second saves to tape throu
 from an empty scratch library: **Carrier Command** (code it rewrites in RAM, 7,391 learned windows: the case that showed the chain's
 silent bound of 4,096 learned windows, lifted on main), **Dark Side** (the Freescape 3D engine of Castle Master's makers, on another
 disk) and **Rigel's Revenge** (a text adventure, its parser and its SAVE to tape). Each converts with 0 interpreted instructions on
-both routes and passes every `release_check` gate.
+both routes and passes every `release_check` gate, with the routes' new fire too.
 
 **Would shared paths help (G16)?** Measured on those three: converted from an empty library, a game learns on a first pass
 (Carrier Command 3,962,944 interpreted steps, Dark Side 3,111,544, Rigel's Revenge 284,663) and runs 0 on the second; converted again
@@ -172,14 +173,14 @@ it travels to every seat and is played in memory; a guest plays the host's disk 
 copy; nobody writes a copy during the match, the host writes its own once at a clean end (the previous one kept as `.bak`). The
 report's top-level `firmware` record (the system ROM and AMSDOS) makes a room refuse two seats on different firmware. Proved on an
 authored game (`tools/netplay_game_smoke.py`: two seats, rollback, latency, loss, a save and load and a restart for everyone, equal
-digests), then on the panel's games (22 November 2026):
+digests), then on the panel's games (22 November 2026, taken again on 27 November with the routes' new fire and the pad's fix):
 
 * the snapshots on all eight (`--snap-probe 2400:300` on the play route of the delivered game): saved twice the same, a snapshot of
   the wrong size refused, and after loading the one of frame 2,400 the next 300 frames give the same digests and pictures again;
 * Bomb Jack on Windows and in WSL (Debian 13), converted from the same commit: the same folded digest of those 301 frames
-  (`ee81e7a4c12c893f`) and the same final hashes on both routes;
+  (`75a8746ce9ab3afb`) and the same final hashes on both routes;
 * `tools/netplay_game_smoke.py` on real games, one PC: Bomb Jack, two seats in rollback with 30 ms latency, 10 ms jitter and 2 %
-  loss and a restart for everyone at frame 1,500 (97 corrections, at most 2 frames deep, digests equal on every 60th frame of
+  loss and a restart for everyone at frame 1,500 (61 corrections, at most 8 frames deep, digests equal on every 60th frame of
   3,000); Gryzor with the host's save at frame 1,800 and load at 2,400 for everyone (equal digests).
 
 Not yet: two PCs (Bomb Jack is in the multiplayer specialist's plan).
