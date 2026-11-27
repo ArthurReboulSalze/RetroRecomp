@@ -397,6 +397,10 @@ The host kit's F3 gains **CRT flat**, **CRT curved** and, on the handhelds, **LC
 So the host stamp of every host-kit machine moves and its exports are upgraded (rebuilt), never rediscovered. The
 game part is unchanged.
 
+With a graphics card the two CRT looks are drawn by CRTS on Direct3D 11 or OpenGL (stage 2). That adds host files
+`native/hostkit/shell/rrhk_crt_shader.inc` and `rrhk_crts.inc`, which `retrorecomp/hostkit.py` stages beside the shell,
+and the notice `licenses/crt-lottes.md`, which every game on the host kit embeds.
+
 Preferences: `[<Console>.Video] filter` takes 4 (CRT flat), 5 (CRT curved) and 6 (LCD grid). An export of the
 previous release reads those values as sharp pixels and keeps working.
 

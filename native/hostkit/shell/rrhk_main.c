@@ -767,6 +767,7 @@ static void close_run(RrhkRun *r) {
     rr_xbr_destroy(&r->xbr);
     rr_scanlines_destroy(&r->scanlines);
     rr_look_destroy(&r->look);
+    rrhk_crt_pass_release();
     SDL_ShowCursor(SDL_ENABLE);
     SDL_DestroyRenderer(r->ren); SDL_DestroyWindow(r->win);
     r->ren = NULL; r->win = NULL; r->tex = NULL; r->upscaled = NULL;

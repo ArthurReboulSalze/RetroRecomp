@@ -113,7 +113,7 @@ class CoverageTests(unittest.TestCase):
 
     def test_the_shell_notices_follow_what_a_game_is_built_with(self):
         self.assertEqual(set(SHELL_NOTICE_FILES), {'licenses/SDL2.md', 'licenses/xbr.md', 'licenses/misc-fixed.md',
-                                                   'licenses/llvm-mingw.md', 'licenses/UPX.md'})
+                                                   'licenses/llvm-mingw.md', 'licenses/UPX.md', 'licenses/crt-lottes.md'})
         for profile in ALL_PROFILES:
             with self.subTest(machine=profile.id):
                 declared = set(profile.declared_notice_files)

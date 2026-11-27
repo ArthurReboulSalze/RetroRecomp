@@ -38,6 +38,11 @@ handhelds (Game Boy, Game Boy Color, Game Boy Advance, Game Gear) with **LCD gri
 - **CRT curved**: the same picture bent like a tube screen, with rounded corners and a slot mask.
 - **LCD grid**: each pixel of the handheld in its own cell with a thin dark gap, at three screen pixels a pixel or more.
 
+With a graphics card (Direct3D 11 on Windows, OpenGL on Linux) the two CRT looks are drawn by the card with CRTS,
+Timothy Lottes' public-domain CRT shader: real beams that widen on bright parts, a softer horizontal blend, and a tone
+map that keeps the picture almost as bright as without the look. Without a card, or under Variable refresh (Direct3D 12),
+the same two looks are drawn the simpler way described here.
+
 The CRT looks count the console's own lines, not the rows of a raised internal resolution. Above 300 lines a frame
 (interlaced modes, 31 kHz monitors) they draw no gaps, as those screens showed none. Without a graphics card (SDL's
 software renderer) the CRT looks are drawn flat and lighter. A mask darkens the picture: the looks give some

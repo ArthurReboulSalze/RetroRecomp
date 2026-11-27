@@ -267,7 +267,8 @@ void rrhk_ring_set_base(double base);   /* 1.7.7 (D30) */
 
 /* events.c */
 void rrhk_poll_events(RrhkRun *run);
-bool rrhk_set_filter(RrhkRun *run, int filter);   /* a new texture for the filter, kept in the preferences; false: no texture */
+bool rrhk_set_filter(RrhkRun *run, int filter);
+void rrhk_crt_pass_release(void);   /* D35 stage 2: the graphics card pass's resources, before the renderer goes */   /* a new texture for the filter, kept in the preferences; false: no texture */
 
 /* main.c, 1.7.6 (HOST_KIT D29): a Linux game's launcher `<game>.desktop`, healed after its folder moved. The text: -1 not ours
  * (no X-RetroRecomp-Identity line), 0 ours and current (or a path too long to write), 1 ours and stale: `healed` (malloc'd) has

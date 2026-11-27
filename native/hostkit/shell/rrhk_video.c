@@ -12,6 +12,7 @@
 #include "runtime_i18n.h"
 #include "display_settings.h"
 #include "hostkit/hostkit_internal.h"
+#include "rrhk_crt_shader.inc"     /* D35 stage 2: the CRT looks on the graphics card */
 
 /* Scale2x into a store of store_w x store_h source pixels (the target is twice that, store_w * 2 pixels a row). */
 static void scale2x_store(const uint32_t *source, int pitch, int store_w, int store_h, int width, int height, uint32_t *target) {
@@ -121,6 +122,16 @@ void rrhk_present_picture(RrhkRun *run) {
     if (!pixels || width <= 0 || height <= 0) {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
         return;
+    }
+    /* D35 stage 2: a CRT look on Direct3D 11 or OpenGL is drawn by the graphics card from the machine's own picture (its
+     * pass uploads it); otherwise, or when the pass is unavailable, the stage-1 look below */
+    if ((rrhk.filter == RR_FILTER_CRT_FLAT || rrhk.filter == RR_FILTER_CRT_CURVED) && !run->software) {
+        const SDL_Rect dst = rrhk_game_rect(ren);
+        const int rows = m->pixel_pitch ? m->pixel_pitch() : m->max_width;     /* the picture's row pitch, in pixels */
+        if (rrhk_crt_pass_draw(ren, pixels, width, height, rows, &dst, m->raster_height(), rrhk.filter == RR_FILTER_CRT_CURVED)) {
+            rrhk_pointer_draw(ren, &dst);
+            return;
+        }
     }
     if (m->pixel_pitch) {
         /* The rows of the picture are pixel_pitch apart; only the visible part is uploaded (the buffer may be smaller than the store). */
