@@ -3,6 +3,7 @@ static const char *const rr_language_codes[5] = {"en","fr","it","es","de"};
 static const char *const rr_language_names[5] = {"English","Francais","Italiano","Espanol","Deutsch"};
 static const char *const rr_translations[][5] = {
     {"%s (disconnected)","%s (deconnectee)","%s (scollegato)","%s (desconectado)","%s (getrennt)"},
+    {"%s (in place of %s)","%s (a la place de %s)","%s (al posto di %s)","%s (en lugar de %s)","%s (statt %s)"},
     {"%s (not at this size)","%s (pas a cette taille)","%s (non a questa dimensione)","%s (no a este tamano)","%s (nicht bei dieser Groesse)"},
     {"%s keyboard: only the gamepad plays","Clavier %s : seule la manette joue","Tastiera %s: gioca solo il pad","Teclado %s: solo juega el mando","%s-Tastatur: nur der Controller spielt"},
     {"%s left the game","%s a quitte la partie","%s ha lasciato la partita","%s ha dejado la partida","%s hat das Spiel verlassen"},

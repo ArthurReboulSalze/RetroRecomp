@@ -1417,6 +1417,7 @@
     "Automatic": "Automático",
     "None": "Ninguno",
     "%s (disconnected)": "%s (desconectado)",
+    "%s (in place of %s)": "%s (en lugar de %s)",
     "No gamepad for player %d": "Ningún mando para el jugador %d",
     "Enter: change gamepad | Delete: Automatic": "Enter: cambiar mando | Supr: Automático",
     "Maximum speed ON": "Velocidad máxima activada",

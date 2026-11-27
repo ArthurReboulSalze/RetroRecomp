@@ -309,13 +309,19 @@ void rrhk_restore_page(void) {
 
 const wchar_t *rrhk_autofire_section(void) { return autofire_section(); }
 
-/* Which gamepad each player uses (divergence 10, decided 28 October 2026). By default pads go to players in plug
- * order, the first free player (Automatic). A player may instead be pinned to one gamepad, by its SDL GUID, or set to
- * None (keyboard only). The choice is kept in the game's preferences, in the player's gamepad section:
+/* Which gamepad each player uses (divergence 10, decided 28 October 2026, HOST_KIT D11; hot-plug rules of 27 November
+ * 2026). By default pads go to players in plug order, the first free player (Automatic). A player may instead be pinned to
+ * one gamepad, by its SDL GUID, or set to None (keyboard only). The choice is kept in the game's preferences, in the
+ * player's gamepad section:
  *   device=auto | none | <SDL joystick GUID string>      name=<name of the pinned gamepad, for display>
- * A pinned gamepad that is not plugged in leaves its player without a pad (never another pad) until it comes back;
- * automatic players never take a pad pinned to another player. Two identical pads share a GUID: the first unclaimed
- * one matches. */
+ * Unplugged, a pad frees its player at once. A pad plugged in takes back the player it left when that player is free; any
+ * other pad goes to the first free player, so player 1 is filled first. A player whose pinned pad is missing is free too:
+ * another pad stands in for it (until 27 November 2026 it waited for that pad, and a game whose player 1 was pinned stayed
+ * deaf to every other pad), and the pinned pad takes its player back when it returns, the stand-in going to the first free
+ * player or to nobody; no other pad ever moves a player's pad away. A pinned pad is known by its model (the vendor and
+ * product of its GUID): the same pad on another USB port or through another of SDL's drivers keeps its pin.
+ * Two identical pads are one model: the first unclaimed one matches. In a multiplayer session only player 1's slot
+ * plays (the local seat): when it is empty, a pad another player holds moves to it. */
 enum { PAD_AUTO, PAD_NONE, PAD_PINNED };
 static bool redeal;      /* a player went back to Automatic: the automatic players are dealt their pads again, as at start */
 #define PAD_MAX 16
@@ -355,6 +361,25 @@ static int pad_position(const PadInfo *list, int count, SDL_GameController *pad)
     return -1;
 }
 
+/* One model of gamepad, from two GUID strings. SDL's GUID is bus, a CRC of the name, vendor, product, version and the
+ * driver: the same pad on another port, through RawInput or XInput, or renamed by Windows, changes the CRC, the driver
+ * and sometimes the bus and version, never the vendor and product. A GUID without them (no USB identity) is compared
+ * whole, its CRC aside. */
+static bool same_model(const char *a, const char *b) {
+    if (!a[0] || !b[0]) return false;
+    const SDL_JoystickGUID x = SDL_JoystickGetGUIDFromString(a), y = SDL_JoystickGetGUIDFromString(b);
+    const Uint8 *u = x.data, *v = y.data;
+    /* SDL's layout with an identity: bytes 6-7 and 10-11 zero, vendor (4-5) not zero */
+    const bool usb_u = !u[6] && !u[7] && !u[10] && !u[11] && (u[4] || u[5]);
+    const bool usb_v = !v[6] && !v[7] && !v[10] && !v[11] && (v[4] || v[5]);
+    if (usb_u && usb_v) return u[4] == v[4] && u[5] == v[5] && u[8] == v[8] && u[9] == v[9];
+    for (int i = 0; i < 16; ++i) if (i != 2 && i != 3 && u[i] != v[i]) return false;
+    return true;
+}
+
+/* The model of the pad each player held when it was unplugged, while that player stays free (its pad takes it back). */
+static char left_by[RRHK_MAX_PLAYERS][GUID_SIZE];
+
 void rrhk_open_pads(void) {
     const RrhkMachine *m = rrhk.machine;
     PadInfo list[PAD_MAX];
@@ -362,13 +387,16 @@ void rrhk_open_pads(void) {
     int target[RRHK_MAX_PLAYERS];     /* position in the list, -1: no pad */
     bool taken[PAD_MAX] = {false};
     for (int p = 0; p < RRHK_MAX_PLAYERS; ++p) target[p] = -1;
-    /* Every player first keeps the pad it holds: a pinned player when the pad still matches its GUID, an automatic
-     * player unless another player claimed it. Only then does a pinned player without its pad look for an unclaimed
-     * one of that GUID, so unplugging one of two identical pinned pads never moves the other to another player, and
-     * a pinned pad that is missing is never replaced by an identical pad another player is using. */
+    /* A pad that was unplugged: its player remembers the model until another pad fills it. */
+    for (int p = 0; p < players; ++p) if (rrhk.pads[p] && !SDL_GameControllerGetAttached(rrhk.pads[p]))
+        SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(SDL_GameControllerGetJoystick(rrhk.pads[p])), left_by[p], GUID_SIZE);
+    /* Every player first keeps the pad it holds: a pinned player when the pad is still of its model, an automatic player
+     * unless another player claimed it. Only then does a pinned player without its pad look for an unclaimed one of that
+     * model, so unplugging one of two identical pinned pads never moves the other to another player, and a pinned pad that
+     * is missing is never replaced by an identical pad another player is using. */
     for (int p = 0; p < players; ++p) if (choice[p].mode == PAD_PINNED) {
         int held = pad_position(list, count, rrhk.pads[p]);
-        if (held >= 0 && !taken[held] && !strcmp(list[held].guid, choice[p].guid)) { target[p] = held; taken[held] = true; }
+        if (held >= 0 && !taken[held] && same_model(list[held].guid, choice[p].guid)) { target[p] = held; taken[held] = true; }
     }
     for (int p = 0; p < players && !redeal; ++p) if (choice[p].mode == PAD_AUTO) {
         int held = pad_position(list, count, rrhk.pads[p]);
@@ -376,12 +404,28 @@ void rrhk_open_pads(void) {
     }
     redeal = false;
     for (int p = 0; p < players; ++p) if (choice[p].mode == PAD_PINNED && target[p] < 0) {
-        for (int j = 0; j < count && target[p] < 0; ++j) if (!taken[j] && !strcmp(list[j].guid, choice[p].guid)) target[p] = j;
+        for (int j = 0; j < count && target[p] < 0; ++j) if (!taken[j] && same_model(list[j].guid, choice[p].guid)) target[p] = j;
         if (target[p] >= 0) taken[target[p]] = true;
     }
-    /* The pads that are left go to the first free automatic player, in plug order. */
+    /* A pinned player whose pad is still missing keeps the pad that stands in for it; once its own pad is back (above), the
+     * stand-in goes to the first free player below, or to nobody. */
+    for (int p = 0; p < players; ++p) if (choice[p].mode == PAD_PINNED && target[p] < 0) {
+        int held = pad_position(list, count, rrhk.pads[p]);
+        if (held >= 0 && !taken[held]) { target[p] = held; taken[held] = true; }
+    }
+    /* A pad back: the free player it left (two identical pads that left two players: the first back takes the lower one). */
     for (int j = 0; j < count; ++j) if (!taken[j])
-        for (int p = 0; p < players; ++p) if (choice[p].mode == PAD_AUTO && target[p] < 0) { target[p] = j; taken[j] = true; break; }
+        for (int p = 0; p < players; ++p) if (choice[p].mode != PAD_NONE && target[p] < 0 && same_model(list[j].guid, left_by[p])) {
+            target[p] = j; taken[j] = true; break;
+        }
+    /* The pads that are left go to the first free player in plug order: an automatic one, or one whose pinned pad is missing. */
+    for (int j = 0; j < count; ++j) if (!taken[j])
+        for (int p = 0; p < players; ++p) if (choice[p].mode != PAD_NONE && target[p] < 0) { target[p] = j; taken[j] = true; break; }
+    /* A multiplayer session plays player 1's slot only (rrhk_session.inc reads it for the local seat): an empty seat takes the
+     * pad of the first other player that holds one. */
+    if (rrhk_session_on && players > 1 && target[0] < 0 && choice[0].mode != PAD_NONE)
+        for (int p = 1; p < players; ++p) if (target[p] >= 0) { target[0] = target[p]; target[p] = -1; break; }
+    for (int p = 0; p < players; ++p) if (target[p] >= 0) left_by[p][0] = 0;
     SDL_GameController *old[RRHK_MAX_PLAYERS], *now[RRHK_MAX_PLAYERS];
     memcpy(old, rrhk.pads, sizeof old);
     memset(now, 0, sizeof now);
@@ -491,7 +535,9 @@ void rrhk_pad_value(char *out, size_t size, int p) {
     else if (choice[p].mode == PAD_AUTO) {
         if (name[0]) snprintf(out, size, "%s (%s)", rr_tr("Automatic"), name);
         else snprintf(out, size, "%s", rr_tr("Automatic"));
-    } else if (name[0]) snprintf(out, size, "%s", name);
+    } else if (name[0] && same_model(list[held].guid, choice[p].guid)) snprintf(out, size, "%s", name);
+    /* 27 November 2026: another pad stands in for a pinned pad that is missing */
+    else if (name[0]) snprintf(out, size, rr_tr("%s (in place of %s)"), name, choice[p].name[0] ? choice[p].name : rr_tr("Gamepad"));
     else snprintf(out, size, rr_tr("%s (disconnected)"), choice[p].name[0] ? choice[p].name : rr_tr("Gamepad"));
 }
 

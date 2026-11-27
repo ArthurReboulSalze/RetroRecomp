@@ -490,7 +490,9 @@ INI. J2 binding details appear only on its mapping page.
 
 Since 1.6.3 the Master System and the Game Gear run on the common host kit, with the same pad rules as the other
 consoles: controllers go to players in plug order (Automatic), and each player's Gamepad row in F2 can pin a
-controller to that player or leave the player on the keyboard (None); the first-player preference and the C swap of earlier
+controller to that player or leave the player on the keyboard (None); a controller plugged in during play goes to the player
+it left or to the first free one, and while a pinned controller is missing another one stands in until it returns
+([D11](HOST_KIT.md#d11), 27 November 2026); the first-player preference and the C swap of earlier
 releases are gone. The stick threshold is 16000 like everywhere else, opposite directions cancel, autofire
 (F6) follows the common rule and shows the common "Autofire ON / OFF" notice, and F2 captures a pad press only from the
 selected player's own controller. The Start/Menu key (Enter by default) or button of any player opens the Pause menu; F1 and F2

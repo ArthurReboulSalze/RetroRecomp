@@ -1417,6 +1417,7 @@
     "Automatic": "Авто",
     "None": "Нет",
     "%s (disconnected)": "%s (отключён)",
+    "%s (in place of %s)": "%s (вместо %s)",
     "No gamepad for player %d": "Нет геймпада для игрока %d",
     "Enter: change gamepad | Delete: Automatic": "Enter: сменить геймпад | Delete: Авто",
     "Maximum speed ON": "Макс. скорость ВКЛ",
