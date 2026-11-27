@@ -1163,7 +1163,8 @@
     "scan_note_zxs": "建议：标准。配置开发中：可以选择扫描级别，不过暂不转换任何内容。",
     "zxs_rom48_label": "ZX Spectrum：你自己的 48K ROM（16 KiB，可选）",
     "coleco_bios_label": "ColecoVision：你自己的 BIOS（8 KiB，必需）",
-    "zxs_rom128_label": "ZX Spectrum：你自己的 128K ROM（32 KiB，或同一文件夹中两个 16 KiB 的文件，可选）"
+    "zxs_rom128_label": "ZX Spectrum：你自己的 128K ROM（32 KiB，或同一文件夹中两个 16 KiB 的文件，可选）",
+    "amiga_several_slaves": "包含多个 WHDLoad slave ({log})：每个压缩包应只含一个安装。"
   },
   "runtime": {
     "Internal resolution": "内部分辨率",

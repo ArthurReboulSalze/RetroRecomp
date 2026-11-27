@@ -93,10 +93,36 @@ class ProfileTests(unittest.TestCase):
     def test_two_slaves_are_refused_not_guessed(self):
         path = self.write(install('Game/One.Slave', 'Game/Two.Slave'))
         self.assertIsNone(amiga.slave_member(path))
+        self.assertEqual(amiga.slave_members(path), ['Game/One.Slave', 'Game/Two.Slave'])
         with self.assertRaises(UnsupportedConsoleError):
             profile_for_path(path)
         with self.assertRaises(ConversionError):
             amiga.read_input(path)
+
+    def test_the_refusal_says_several_slaves_and_is_translated(self):
+        # Archives with a helper slave beside the game's (Legend, 3D Pool...) were refused with "holds no WHDLoad slave".
+        from retrorecomp.i18n import STRINGS, log_text
+        self.assertEqual(amiga.SEVERAL_SLAVES, STRINGS['amiga_several_slaves'][0])
+        path = self.write(install('Game/One.Slave', 'Game/Two.Slave'))
+        with self.assertRaises(UnsupportedConsoleError) as caught:
+            profile_for_path(path)
+        message = str(caught.exception)
+        self.assertIn('holds several WHDLoad slaves (One.Slave, Two.Slave): one install per archive is expected.', message)
+        self.assertNotIn('no WHDLoad slave', message)
+        for language in ('en', 'fr', 'de', 'es', 'it', 'ja', 'ru', 'zh'):
+            with self.subTest(language):
+                shown = log_text(message, language)
+                self.assertTrue(shown.startswith(path.name), shown)
+                self.assertIn('One.Slave, Two.Slave', shown)
+                self.assertNotIn('{log}', shown)
+                if language != 'en':
+                    self.assertNotIn('holds several', shown)
+
+    def test_a_long_list_of_slaves_is_shortened(self):
+        path = self.write(install(*(f'Game/S{n}.Slave' for n in range(5))))
+        with self.assertRaises(UnsupportedConsoleError) as caught:
+            profile_for_path(path)
+        self.assertIn('(S0.Slave, S1.Slave, S2.Slave, …)', str(caught.exception))
 
     def test_a_file_that_is_not_an_archive_is_refused(self):
         path = self.write(b'not an LHA archive at all')
