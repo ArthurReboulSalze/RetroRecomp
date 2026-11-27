@@ -404,7 +404,9 @@ checks pin the cycle's end (112 in all). The resting-ball asymmetry (2 a frame l
 MAME. The 128K's first fetch stays the guide's (unverified; no panel game reads the floating bus there).
 
 **Stamps**: the ZX Spectrum's game stamp; nothing else. Exports of the machine (experimental, developers only) are rebuilt by a
-new conversion; Arkanoid's game changes, the other panel games read no floating bus in play.
+new conversion. The panel of eight passes again (0 instructions interpreted, native = reference, packed copy and quick states;
+Arkanoid plays to frame 2,037 with 303 distinct pictures); Manic Miner's single sweep of the ports ending in 1Fh reads screen
+bytes either way and it plays on; Elite stops on its title as before.
 
 ## ZX Spectrum: a game that polls the Fuller port gets an idle Fuller box (Match Day II) (next release)
 
