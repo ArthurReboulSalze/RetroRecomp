@@ -19,7 +19,6 @@
       {"title": "Pokemon - Gold Version", "category": "mbc3-clock", "reason": "MBC3 with its clock and a 32 KiB save; trade and battle over the cable", "source": "docs/GAME_BOY_COLOR.md"},
       {"title": "Wario Land 3", "category": "ram-code", "reason": "The most code run one instruction at a time from writable memory, counted apart from native code", "source": "docs/GAME_BOY_COLOR.md"},
       {"title": "Shantae", "category": "double-speed", "reason": "256 banks, heavy palette and DMA use; its double speed found the sound unit ordering fix", "source": "docs/GAME_BOY_COLOR.md"},
-      {"title": "Super Mario Bros. Deluxe", "category": "mbc5", "reason": "The Color counterpart of a cartridge of the Game Boy's panel", "source": "docs/GAME_BOY_COLOR.md"},
       {"title": "Lufia - The Legend Returns", "category": "big-script", "reason": "A long RPG with a 32 KiB save, compared with the reference over every frame at the extended level", "source": "docs/GAME_BOY_COLOR.md"}
     ],
     "gb": [

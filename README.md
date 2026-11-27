@@ -105,6 +105,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Commodore Amiga 1200](docs/AMIGA.md)\* | supported | `████░` 84 % | supported · rollback | [Win 2.11 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
 | [Game Boy](docs/GAME_BOY.md) | supported | `█████` 97 % | supported · rollback · link cable | [Win 0.26 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
 | [Game Boy Advance](docs/GAME_BOY_ADVANCE.md) | supported | `█████` 91 % | supported · delay · link cable | [Win 1.42 ms (±0 %)](docs/PERFORMANCE.md#the-figures) |
+| [Game Boy Color](docs/GAME_BOY_COLOR.md) | supported | `████░` 84 % | supported · rollback · link cable | not measured |
 | [Game Gear](docs/GAME_GEAR.md) | supported | `█████` 93 % | supported · rollback · link cable | [Win 0.50 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
 | [Master System](docs/MASTER_SYSTEM.md) | supported | `█████` 97 % | supported · rollback | [Win 0.44 ms (+2 %) · Linux 0.38 ms](docs/PERFORMANCE.md#the-figures) |
 | [Mega Drive](docs/MEGADRIVE.md) | supported | `█████` 97 % | supported · rollback | [Win 1.74 ms (+1 %) · Linux 1.65 ms](docs/PERFORMANCE.md#the-figures) |
@@ -120,7 +121,6 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %) · Linux 4.56 ms](docs/PERFORMANCE.md#the-figures) |
 | [Amstrad CPC](docs/AMSTRAD_CPC.md) | experimental (developer-only) | `████░` 84 % | supported · rollback | not measured |
 | [ColecoVision](docs/COLECOVISION.md) | experimental (developer-only) | `████░` 89 % | supported · rollback | not measured |
-| [Game Boy Color](docs/GAME_BOY_COLOR.md) | experimental | `████░` 75 % | supported · rollback · link cable | not measured |
 | [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `████░` 75 % | supported · rollback | not measured |
 | [SG-1000](docs/SG1000.md) | experimental (developer-only) | `████░` 89 % | supported · rollback | not measured |
 | [ZX Spectrum](docs/ZX_SPECTRUM.md) | experimental (developer-only) | `████░` 77 % | supported · rollback | not measured |
