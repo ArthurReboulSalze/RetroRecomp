@@ -50,8 +50,9 @@ The letters are in [QUALIFICATION.md](QUALIFICATION.md); no one of these five me
 
 - No infrared, no MBC7 tilt sensor (Kirby's Tilt 'n' Tumble), no Printer or Camera, no Super Game Boy borders; no boot ROM.
 - A rumble cartridge does not make the pad vibrate.
-- The link cable joins two Color consoles of the same game; a Color and a Game Boy on one cable are not offered. Two consoles were proved on one PC; a real game on two PCs
-  is the multiplayer test still to be recorded.
+- The link cable joins two Color consoles of the same game; a Color and a Game Boy on one cable are not offered. Two consoles were proved on one PC, and on 27 November 2026
+  a scripted Tetris DX match over the cable passed between two PCs (2 seats, 4,200 frames, rollback, delay 1 frame, 65 state digests equal, no desync, « 2 ports » in the
+  guest's log; no restart and no quick state in that run). It is a test with recorded inputs: the owner's own two-PC play of it is not recorded.
 - Code run from work RAM or HRAM runs one instruction at a time and is counted apart: it is not native (up to 120,117 instructions on a route of Wario Land 3).
 - Quick states belong to the Color alone: a Game Boy state is not read.
 
@@ -130,4 +131,4 @@ Steps 1 to 3 of [NEW_MACHINE.md](NEW_MACHINE.md) are done: the profile, the regi
 unchanged by it); the qualification of 21 and 22 November 2026 (the public test ROMs and the eight Color-only fixes above, the panel of seven, the extended level on
 Shantae and Lufia, the saves and states checks, the Debian witness); the link cable, GBC with GBC only. The owner accepted it on 27 November 2026 and the profile is
 `supported`, with its paths shared (step 5). **Open:** the optimisation of the Color's object-span path (step 4: timing is the performance specialist's, with the owner's
-agreement), the online service learning `gbc` before the release, the release stamps, and a real game's two-player screen on two PCs.
+agreement), the online service learning `gbc` before the release, the release stamps, and the owner's own two-player game on two PCs.
