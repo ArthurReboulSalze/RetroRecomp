@@ -170,6 +170,29 @@ def interleaved_hirom(data: bytes) -> bool:
             and int.from_bytes(data[offset + 60:offset + 62], 'little') >= 0x8000)
 
 
+# The titles (21 bytes of the internal header, at 7FC0h or FFC0h) of the Super Nintendo's firmware and add-on cartridges, and what
+# the Sufami Turbo mini-cartridges (the games) start with. All checked by content on the owner's library, 27 November 2026.
+SNES_ADD_ON_TITLES = (
+    (b'satellaview bs-x', 'the BS-X (Satellaview) BIOS: firmware, not a game.'),
+    (b'super gameboy', 'the Super Game Boy cartridge (the adapter that runs Game Boy games): firmware, not a game.'),
+    (b'add-on base cassete', 'the Sufami Turbo base cartridge (its BIOS): firmware, not a game.'),
+)
+SUFAMI_TURBO_MAGIC = b'BANDAI SFC-ADX'
+
+
+def snes_add_on(data: bytes) -> str | None:
+    """What a Super Nintendo image is when it is not a game cartridge: firmware (BS-X, Super Game Boy, the Sufami Turbo base) or a
+    Sufami Turbo game, which needs the base cartridge in the console and is not supported. None for an ordinary game."""
+    for offset in (0x7fc0, 0xffc0):
+        title = data[offset:offset + 21].rstrip(b' \0').lower()
+        for marker, reason in SNES_ADD_ON_TITLES:
+            if title.startswith(marker):
+                return reason                  # the base cartridge carries the Sufami magic too: its title is asked first
+    if data[:len(SUFAMI_TURBO_MAGIC)] == SUFAMI_TURBO_MAGIC:
+        return 'a Sufami Turbo cartridge: it needs the Sufami Turbo base cartridge, which is not supported.'
+    return None
+
+
 def read_snes_rom(path: Path) -> Cartridge16:
     from .core import ConversionError
     path = path.resolve()
@@ -177,6 +200,9 @@ def read_snes_rom(path: Path) -> Cartridge16:
     copier = len(data) % 0x8000 == 512
     if copier:
         data = data[512:]
+    add_on = snes_add_on(data)
+    if add_on:
+        raise ConversionError(f'{path.name} is {add_on}')
     header = snes_header(data)
     if not header and interleaved_hirom(data):
         raise ConversionError('This SNES image is stored in the interleaved order some copiers write (its HiROM '

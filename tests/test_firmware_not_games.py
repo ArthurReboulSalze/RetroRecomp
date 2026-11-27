@@ -54,5 +54,40 @@ class MegaDriveFirmwareTests(FirmwareCase):
         self.accepted(self.make('big.bin', megadrive_image(0x40000, b'CD2 BOOT ROM')), 'md')   # the size is part of the rule
 
 
+def snes_image(title: bytes, size: int = 0x80000, magic: bytes = b'') -> bytes:
+    """A LoROM image with a header that passes the SNES checks: title, map mode 20h, size, reset vector, checksum pair."""
+    data = bytearray(size)
+    data[0:len(magic)] = magic
+    data[0x20] = 0x78                                   # SEI where the reset vector points (8020h)
+    data[0x7fc0:0x7fc0 + 21] = title.ljust(21)
+    data[0x7fd5] = 0x20
+    data[0x7fd7] = 9                                    # 512 KiB
+    data[0x7ffc:0x7ffe] = (0x8020).to_bytes(2, 'little')
+    checksum = sum(data) & 0xffff
+    data[0x7fdc:0x7fde] = (checksum ^ 0xffff).to_bytes(2, 'little')
+    data[0x7fde:0x7fe0] = checksum.to_bytes(2, 'little')
+    return bytes(data)
+
+
+class SnesFirmwareTests(FirmwareCase):
+    def test_the_authored_game_is_a_game(self):
+        self.accepted(self.make('game.sfc', snes_image(b'AUTHORED GAME')), 'snes')
+
+    def test_the_satellaview_bios_is_firmware(self):
+        self.refused(self.make('BS-X.bin', snes_image(b'Satellaview BS-X')), 'BS-X', 'not a game')
+
+    def test_the_super_game_boy_cartridges_are_firmware(self):
+        for name, title in (('SGB1.sfc', b'Super GAMEBOY'), ('SGB2.sfc', b'Super GAMEBOY2')):
+            with self.subTest(name):
+                self.refused(self.make(name, snes_image(title)), 'Super Game Boy', 'not a game')
+
+    def test_the_sufami_turbo_base_is_firmware(self):
+        self.refused(self.make('STBIOS.bin', snes_image(b'ADD-ON BASE CASSETE')), 'Sufami Turbo base', 'not a game')
+
+    def test_a_sufami_turbo_game_is_not_supported_and_says_so(self):
+        game = snes_image(b'AUTHORED MINI', magic=b'BANDAI SFC-ADX\0\0SFC-ADX BACKUP\0\0')
+        self.refused(self.make('mini.smc', game), 'Sufami Turbo', 'not supported')
+
+
 if __name__ == '__main__':
     unittest.main()
