@@ -702,6 +702,32 @@ X68000 too, without asking again**.
     as its fallback. ROM-free checks: `tools/crt_look_selftest.py` (overlays, curve, F3's cycle, whole looks drawn by the
     software renderer the light and the full way), `tools/hostkit_capabilities_selftest.py` (no picture and a 0 x 0 picture
     under every filter of the cycle). Physical latency stays unmeasured; no frame cost was timed.
+  * **Stage 2, the graphics card** (owner's go of 27 November 2026; the lead's choice of the same night: Direct3D 11 stays the
+    Windows backend). The CRT looks are drawn by a pass of our own inside SDL's renderer, with CRTS (Timothy Lottes'
+    crt-lottes-fast, Unlicense) ported into one source for HLSL and GLSL (`native/hostkit/shell/rrhk_crts.inc`):
+    * **Backends**: Direct3D 11 on Windows (`SDL_RenderGetD3D11Device`, HLSL compiled at first use by the system's
+      `d3dcompiler_47.dll`, loaded from System32 only, feature level 10.0 or more) and OpenGL 2.0 or more elsewhere, or on Windows when the player forces it
+      (GLSL 1.20 through `SDL_GL_GetProcAddress`). Code: `native/hostkit/shell/rrhk_crt_shader.inc`, staged beside the shell.
+    * **How it draws**: after `SDL_RenderFlush` the pass saves every state it sets and puts it back, so SDL's own cache stays
+      true and the menus, notices and chat are drawn after it unchanged. The picture goes into the pass's own texture, once a
+      frame, instead of the kit's.
+    * **The looks**: flat is CRTS without its warp, with the light aperture grille; curved has the warp (0.031, 0.041) and the
+      shadow mask; both use the 8-tap filter and the tone map that keeps the brightness. The beams are thinned to no gaps
+      (thin 0.5) above 300 lines a frame or below two output rows a line, as in stage 1.
+    * **Where stage 1 is drawn instead**: Direct3D 12 (Variable refresh), SDL's software renderer, OpenGL ES, a CPU
+      rasterizer (Microsoft Basic Render Driver, Mesa llvmpipe / softpipe), feature level below 10.0, no
+      `d3dcompiler_47.dll`, or a shader the driver refuses. A `[host] CRT look:` line on stderr says which; it is never
+      retried in that run. The LCD grid stays stage 1's.
+    * **Presentation only**, as stage 1. Notice: `licenses/crt-lottes.md`, which also gives why no GPL shader and why not
+      crt-geom-mini.
+    * **Checks**: `tools/crt_shader_selftest.py`, hidden test-run windows. It runs the pass on Direct3D 11 and OpenGL, and
+      stage 1's three looks on Direct3D 11, Direct3D 12 and OpenGL (`RETRORECOMP_HOST_TEST_CRT_PASS=0` turns the pass off for
+      a test run only). It checks the picture is there and stays inside the game's rectangle, the curved corner is black, the
+      brightness holds, and the renderers agree with each other.
+  * Since stage 2, F3's notice names every filter in the five game languages (before, only « Sharp pixels » was translated,
+    and only to French). Open: the mask and frame overlays are made on the CPU at the output's size when it changes (about
+    8 million texels at 4K, one hitch per resize); a small tiled mask would avoid it. The pass compiles its shaders on the first
+    CRT frame (a short hitch, once a run); compiling them when the run opens would avoid it.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

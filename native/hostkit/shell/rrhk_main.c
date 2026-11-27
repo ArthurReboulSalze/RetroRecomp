@@ -357,6 +357,8 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     /* 3 scanlines; 4 to 6 the CRT and LCD looks (D35), the LCD grid on a machine with an LCD screen only */
     const int asked = test_filter && test_filter[0] >= '3' && test_filter[0] <= '6' && !test_filter[1] ? test_filter[0] - '0' : 0;
     if (asked && (asked != RR_FILTER_LCD || m->lcd_screen)) rrhk.filter = asked;
+    const char *crt_pass = r->test_frames ? getenv("RETRORECOMP_HOST_TEST_CRT_PASS") : NULL;   /* "0": stage 1 on the card too */
+    r->crt_pass_off = crt_pass && !strcmp(crt_pass, "0");
     /* The graphics options (D14): the saved values, or in a hidden-window test run the defaults; then --gfx; applied once each. */
     if (m->gfx_option_count > 0) rrhk_gfx_start(r->test_frames != 0);
     quit_asked = false;
@@ -767,6 +769,7 @@ static void close_run(RrhkRun *r) {
     rr_xbr_destroy(&r->xbr);
     rr_scanlines_destroy(&r->scanlines);
     rr_look_destroy(&r->look);
+    rrhk_crt_pass_release();
     SDL_ShowCursor(SDL_ENABLE);
     SDL_DestroyRenderer(r->ren); SDL_DestroyWindow(r->win);
     r->ren = NULL; r->win = NULL; r->tex = NULL; r->upscaled = NULL;

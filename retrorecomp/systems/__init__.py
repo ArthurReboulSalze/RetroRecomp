@@ -151,7 +151,8 @@ STATUSES = ('experimental', 'supported')
 # The notices of the player shell every game on the common host is built with (retrorecomp/notices.py): SDL2, the xBR filter,
 # the menu fonts, the portable compiler's runtime and the packer. A machine adds its own components on its profile
 # (`notice_files`); a program that is not built on the shell (Adventure) sets `shell_notices` to False and lists everything.
-SHELL_NOTICE_FILES = ('licenses/SDL2.md', 'licenses/xbr.md', 'licenses/misc-fixed.md', 'licenses/llvm-mingw.md', 'licenses/UPX.md')
+SHELL_NOTICE_FILES = ('licenses/SDL2.md', 'licenses/xbr.md', 'licenses/misc-fixed.md', 'licenses/llvm-mingw.md', 'licenses/UPX.md',
+                      'licenses/crt-lottes.md')
 
 
 class SystemProfile(ABC):

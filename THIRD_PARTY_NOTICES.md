@@ -71,6 +71,7 @@ shipped; you supply your own IPL and font ROM.
 | SDL2 | zlib; copyright Sam Lantinga | [Full text](licenses/SDL2.md) |
 | Portable compiler runtime (llvm-mingw 20261006: libc++, libc++abi, libunwind, compiler-rt, MinGW-w64 runtime, winpthreads) | Apache-2.0 with LLVM exceptions; MinGW-w64 and winpthreads permissive licences; statically linked into games built with the portable build tools | [Full text](licenses/llvm-mingw.md) |
 | xBR-lv2 pixel-art filter | MIT; copyright Hyllian; CPU/SDL adaptation by RetroRecomp | [Full text and pinned source](licenses/xbr.md) |
+| CRTS (crt-lottes-fast) CRT shader, the CRT looks' graphics-card pass in every game on the host kit; ported to HLSL and GLSL by Retro-Recomp | Unlicense (public domain); Timothy Lottes, RetroArch adaptation by hunterk; why no GPL shader, and why not crt-geom-mini, on the page | [Text, pinned source and rationale](licenses/crt-lottes.md) |
 | SingleStepTests/z80 independent vectors | MIT; copyright SingleStepTests | [Full text](licenses/SingleStepTests-z80.md) |
 | SingleStepTests/m68000 independent CPU fixtures | MIT; copyright SingleStepTests; development tests only | [Full text](licenses/SingleStepTests-m68000.md) |
 | arcanite24/gb-recompiled (Game Boy and Game Boy Color compiler and generated runtime; its colour compatibility palette tables come from SameBoy) | MIT; copyright arcanite24. SameBoy tables: Expat (MIT); copyright Lior Halphon | [Full text](licenses/gb-recompiled.md) |

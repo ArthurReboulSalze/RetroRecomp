@@ -229,7 +229,7 @@ assets/Retro-Recomp-icon-40.png assets/Retro-Recomp-icon-48.png
 assets/Retro-Recomp-icon-64.png assets/Retro-Recomp-icon-128.png
 assets/Retro-Recomp-icon-256.png
 assets/tools/upx.exe assets/tools/upx-amd64_linux
-licenses/z80-recomp-core.md licenses/smsggrecomp.md licenses/misc-fixed.md retrorecomp/notices.py tests/test_game_notices.py licenses/superzazu-z80.md licenses/SDL2.md licenses/xbr.md
+licenses/z80-recomp-core.md licenses/smsggrecomp.md licenses/misc-fixed.md retrorecomp/notices.py tests/test_game_notices.py licenses/superzazu-z80.md licenses/SDL2.md licenses/xbr.md licenses/crt-lottes.md
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
 licenses/UPX.md licenses/llvm-mingw.md
 licenses/segagenesisrecomp.md licenses/snesrecomp.md
@@ -313,6 +313,7 @@ native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h
 native/xbr_filter.h native/xbr_sdl.h native/xbr_checks.c tools/xbr_selftest.py
 native/crt_look_checks.c tools/crt_look_selftest.py tests/test_crt_looks.py
+tools/crt_shader_selftest.py tools/crt_shader_probe/probe.c
 native/scale2x.h native/planar_rows.h native/stereo_fir.h
 native/nes_sprite_shift.h native/nes_sprite_extra.inc
 native/pixel_optimization_checks.c tools/pixel_optimization_selftest.py
@@ -415,7 +416,7 @@ native/hostkit/hostkit.h native/hostkit/hostkit_internal.h native/hostkit/hostki
 native/hostkit/shell/rrhk_audio.c native/hostkit/shell/rrhk_events.c native/hostkit/shell/rrhk_input.c
 native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit/shell/rrhk_options.c
 native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_session.inc
-native/hostkit/shell/rrhk_chat.inc
+native/hostkit/shell/rrhk_chat.inc native/hostkit/shell/rrhk_crt_shader.inc native/hostkit/shell/rrhk_crts.inc
 native/hostkit/shell/rrhk_timing.c
 native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
