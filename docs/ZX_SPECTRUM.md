@@ -113,6 +113,21 @@ Match Day II polled the Fuller port every frame (now given an idle Fuller box); 
 Nothing claims exact timing. With contention, Manic Miner's play route runs 19 % fewer instructions in its 2,100 frames than
 without it, and Head over Heels' 8 %.
 
+**Known limits of the machine (27 November 2026, found against MAME 0.289, section 6).**
+
+- **Lines are drawn at their end.** The ULA draws each line, border and paper, when the line ends, not byte by byte as the beam
+  passes. A byte that a game writes while the beam crosses it therefore shows one line later than on a beam-position model. On
+  the panel this gives tears of 1 to 92 pixels in one or two rows, on isolated frames (never more than three in a row), and they
+  do not add up. The game's code, timing and RAM are not affected: only what a frame shows.
+- **A snapshot without a frame position starts at the end of the interrupt.** A `.z80` version 1 or 2 and a `.sna` do not say
+  where in the frame they were taken. We start 32 T-states into the frame on the 16K and 48K, and 36 on the 128K
+  (`zxs_build.INT_END`). A `.z80` version 3 gives its T-state counter, and it is used. MAME starts elsewhere, so a game that
+  seeds its random numbers from the R register or from the timing makes other random choices than in MAME:
+  - Jetpac's aliens part from MAME's after frame 368;
+  - The Hobbit's story parts at frame 709.
+
+  Neither start is hardware-proven, so ours is kept. The game plays either way.
+
 ## 6. Qualification
 
 The machine's column of [QUALIFICATION.md](QUALIFICATION.md) (22 November 2026): G2 to G6, G10, G12 and G13 `Y`; G1, G8, G9 and
