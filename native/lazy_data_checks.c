@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     } else if (existing) {
         assert(ui->keys[0][BUTTON1] == SDL_SCANCODE_C && ui->filter == 3);
     } else {
-        assert(ui->keys[0][BUTTON1] == rr_keyboard_letter(SDLK_w, SDL_SCANCODE_W) && ui->keys[1][BUTTON1] == SDL_SCANCODE_KP_8);
+        assert(ui->keys[0][BUTTON1] == SDL_SCANCODE_S && ui->keys[1][BUTTON1] == SDL_SCANCODE_KP_8);  /* S D F by position since 1.7.6 */
         assert(!ui->language && !ui->autofire && !ui->pointer_shape);
     }
     assert(!smsrecomp_observations_read());
