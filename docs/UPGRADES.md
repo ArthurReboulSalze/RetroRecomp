@@ -830,6 +830,17 @@ The conversion report's final checks add the native counters the release check r
 **Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
 released export to upgrade.
 
+## Amstrad CPC (developer only): the pad's main button is the stick's default fire (1.9.0)
+
+A CPC stick's one button is on pin 6, which the machine reads at bit 4 of its row and calls « fire 2 »; the second button of a
+two-button stick is pin 7, bit 5, « fire 1 ». The pad's main button (A, the keyboard's D) pressed bit 5: a game that reads only the
+default line saw no fire from it (Gryzor: a press of bit 4 alone moves it on, bit 5 alone does nothing; Bomb Jack and Head over Heels
+read either). The main button now drives bit 4 and the second (B, S) bit 5 (`rrhk_cpc.inc`, `c_joystick`); its labels read « Fire »
+and « Second fire ». Found by the comparison with MAME's `cpc6128`. The routes the conversion plays are unchanged: their fire is
+still bit 5, which Gryzor ignores (moving it to bit 4 would change every CPC route's script, so it waits for a decision).
+
+**Stamps** (`compilation_inputs.role_stamps`): the CPC's host stamp only. A developer-only machine: no released export.
+
 ## Amstrad CPC (developer only): the batch and the converter window convert it on a development tree, with its simulation identity (1.9.0)
 
 `AmstradCpcProfile.available()` is `cpc_conversion.developer_available()`: True when the converter runs from its sources, False in

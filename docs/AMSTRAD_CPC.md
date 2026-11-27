@@ -90,8 +90,11 @@ Native code, CPU fidelity, hardware fidelity, gameplay validation and physical l
   registers, flags, memory, the whole 16-bit port and each vector's microseconds as the Gate Array's bus rule gives them for its
   own trace (`tools/banked_vector_selftest.py --machine cpc`, 22 November 2026). The interrupt acceptance and HALT costs come from
   the same rule on the Z80 data sheet's cycle shapes and are not in the vectors.
-* **Hardware fidelity**: not measured. The chips are our own C, checked against their documented behaviour; no CPC and no
-  external emulator was compared yet.
+* **Hardware fidelity**: not measured on a CPC. The chips are our own C, checked against their documented behaviour, and compared
+  with MAME 0.289's `cpc6128` driver as a private oracle (27 November 2026): the firmware's boot writes, the interrupt rate, the
+  ports' write sequences, the « Ready » screen, instruction timing and a disk load agree; the differences are listed in
+  [QUALIFICATION.md](QUALIFICATION.md) (G11): the interrupts' phase from reset, port B's printer bits, the disk's speed (no
+  rotation here), the ID a read returns at a track's end, and 1 us in the IM 1 acceptance, which waits for a hardware test.
 * **Gameplay validation**: not done. The routes are 3,600 frames each, scripted; the owner's play test is G14.
 * **Physical latency**: not measured, never claimed.
 
@@ -133,8 +136,10 @@ next start. Every conversion checks it in fresh processes of the delivered file 
 copy exactly when the game wrote, a new process starting from it, a copy of the wrong size not read and left as it was. No panel
 game writes its disk on its routes; an authored program that writes a sector as AMSDOS does (`tools/cpc_reference.py`) shows the
 whole path: native equal to the reference with the disk's digest compared, the copy equal to the disk with that sector written, a
-fresh process starting from it. Castle Master and Rigel's Revenge were looked at for a real save: no key writes in the first, the
-second saves to tape through its own routine.
+fresh process starting from it. A real game too (27 November 2026): **Sport of Kings** saves a meeting through its own SAVE option
+(its cassette calls, which AMSDOS sends to drive A): the copy is written, a fresh process starts from it, and the game's « load a
+saved game? » brings the meeting back, while on the embedded disk the same keys wait for a tape. Castle Master and Rigel's Revenge
+were looked at first: no key writes in the first, the second saves to tape through its own routine.
 
 **Beyond the panel** (27 November 2026, on main `dce6c18d`): three more disks, each for a reason the panel did not cover, converted
 from an empty scratch library: **Carrier Command** (code it rewrites in RAM, 7,391 learned windows: the case that showed the chain's
@@ -189,7 +194,7 @@ About three minutes a game, on Bomb Jack, Gryzor and Head over Heels as delivere
 2. **Picture**: colours, centring, no tearing; a border of another colour than the paper is the machine's.
 3. **Sound**: mono by default (the built-in speaker); F2's « Sound » row gives the headphone jack's stereo (A left, C right, B in the
    middle), kept per game. Bomb Jack is loud: say if it clips.
-4. **Controls**: the pad is joystick 1 (A fire 1, B fire 2, Start SPACE, Select RETURN); the keyboard at the CPC's positions,
+4. **Controls**: the pad is joystick 1 (A the fire, as a one-button stick's, B the second fire, Start SPACE, Select RETURN); the keyboard at the CPC's positions,
    Ctrl+Alt+K for the full keyboard. Reactivity is the owner's impression, never a latency figure.
 5. **Quick states**: F8, play on, F9; then F1 (help), pause and the restart.
 
