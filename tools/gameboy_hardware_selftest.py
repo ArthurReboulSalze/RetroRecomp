@@ -1,7 +1,6 @@
 """Run authored APU regressions and upstream PPU/APU/DMA checks, without ROMs."""
 from pathlib import Path
 import json
-import shutil
 import subprocess
 import sys
 
@@ -10,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run
 from retrorecomp.gameboy import _dependencies
+from retrorecomp.gameboy_hardware import adapt_audio_digest
 from retrorecomp.gameboy_runtime import adapt_generated_project
 from retrorecomp.resources import embed_resources
 
@@ -44,9 +44,10 @@ def main():
          f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=log)
     audio = project / 'runtime/src/audio.c'
     adapted = audio.read_bytes()
-    # Demonstrate the same fixture fails on the pristine upstream APU.
+    # Demonstrate the same fixture fails on the pristine upstream APU. It gets the one function the adapted gbrt.c links to, the sound
+    # unit's digest (multiplayer rollback), which reads the unit and changes nothing of what it does.
     try:
-        shutil.copyfile(engine / 'runtime/src/audio.c', audio)
+        audio.write_text(adapt_audio_digest((engine / 'runtime/src/audio.c').read_text(encoding='utf-8')), encoding='utf-8')
         run([cmake, '--build', project / 'build', '--config', 'Release', '--target', 'rr_gb_audio',
              '--parallel', '4'], log=log, timeout=600)
         baseline = subprocess.run([build_executable(project / 'build', 'rr_gb_audio')],
