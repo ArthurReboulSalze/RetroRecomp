@@ -104,8 +104,10 @@
 
 ### In the game
 
-- A pad plugged in during play, or moved to another USB port, reaches the game; a player whose chosen pad is missing takes a
-  stand-in until it comes back; a chosen pad is matched by its vendor and product.
+- A pad plugged in during play, or moved to another USB port, reaches the game: an unplugged pad frees its player (no phantom pad
+  stays waiting), a new pad takes the first free player, player 1 first, and a pad that comes back takes its old player again if
+  that player is still free. A pad you chose or remapped keeps its settings when it comes back, matched by its vendor and product;
+  while it is away a stand-in plays, shown « X (in place of Y) » on the pad page. In multiplayer your seat follows the new pad.
 - Sprite flicker reduction: F5 on the SG-1000 and the ColecoVision, as on the Master System; a row of F2's options page on the
   MSX, MSX2 and MSX2+, where F5 stays fast loading. Picture only, off by default.
 
@@ -133,8 +135,11 @@
 - **Compiled Games: Delete game…** (right-click, or the Delete key): the executables and conversion reports of the selected
   games, after a dialog that lists them, into the Recycle Bin or the trash where there is one; the saves stay unless « Also
   delete the saves » is ticked. The ROM, the library and the shared paths are never touched; only files the game's report and
-  executable show to be Retro-Recomp's own, inside the output folders. Not offered in the front-end.
-- **Options > Common > Rounded corners**: off for plain rectangles drawn without pictures, from the next start.
+  executable show to be Retro-Recomp's own, inside the output folders. On a network or removable drive the deletion is final, and
+  the dialog says so. Refused while a conversion, an update or a scan runs, and for the game that is running. Not offered in the
+  front-end.
+- **Options > Common > Rounded corners**: off for plain rectangles drawn without pictures, from the next start (Options then opens
+  in about 0.4 s).
 - Closed windows no longer leave memory and handles behind, and a rare abort when a window was freed from a background thread
   is fixed.
 - The ZX Spectrum and the CPC convert through the batch and the window like every machine.
