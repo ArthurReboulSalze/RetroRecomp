@@ -98,7 +98,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 
 | Console | Status | Qualification | Multiplayer | CPU per frame |
 | --- | --- | --- | --- | --- |
-| [Amstrad CPC](docs/AMSTRAD_CPC.md) | supported | `█████` 93 % | supported · rollback | not measured |
+| [Amstrad CPC](docs/AMSTRAD_CPC.md) | supported | `█████` 97 % | supported · rollback | not measured |
 | [Atari ST](docs/ATARI_ST.md)\* | supported | `█████` 91 % | supported · rollback | [Win 1.03 ms (−9 %)](docs/PERFORMANCE.md#the-figures) |
 | [Capcom CPS-1](docs/CPS1.md) | supported | `█████` 90 % | supported · rollback | [Win 1.05 ms (−1 %)](docs/PERFORMANCE.md#the-figures) |
 | [Capcom CPS-2](docs/CPS2.md) | supported | `█████` 94 % | supported · rollback | [Win 1.19 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
