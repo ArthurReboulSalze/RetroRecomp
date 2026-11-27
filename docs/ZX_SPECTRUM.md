@@ -136,6 +136,22 @@ same tree give the same start, the same learning counts and, on both routes, the
 hashes and step counts as on Windows; the compressed copy and the quick states pass there too. A witness in WSL is not a proof
 of a Linux graphics driver.
 
+## 6b. Controls of two panel games (27 November 2026, after the owner's first play)
+
+- **Arkanoid** reads the keyboard (left: the half-row Caps Shift to V; right: B to M and Space; fire: A to L, not redefinable) and
+  Sinclair Interface 2 on keys 1-5 (1 left, 2 right, 5 fire); it reads the Kempston port once at its start and uses no Kempston
+  here (the snapshot declares none). ZXDB lists Interface 2 and Kempston as its joysticks, and no mouse: the Spectrum had mice
+  (AMX, Kempston mouse), but this game reads none, so the kit's mouse has nothing to drive. On the reference, the pad (arrows and
+  Right Ctrl, on Interface 2's 1-5) and the keyboard move the paddle the same way. Measured with authored routes: with the ball
+  in flight the paddle moves about 4 pixels a frame both ways; while the ball rests on the paddle before a launch, it moves about
+  3.6 pixels a frame to the left and 14 to 17 to the right, on the keyboard and on Interface 2 alike. This does not change with
+  the memory contention off, nor with the floating bus sampled 1 to 3 T-states later; with the floating bus off the game does not
+  run at all (as documented for the original edition). A review notes that the game adjusts the paddle's speed by the ball's
+  position. Whether a real Spectrum shows the same resting-ball asymmetry is not known here (no hardware, no second emulator).
+- **Robocop** reads the Kempston (chosen in its own menu by the start data); the pad drives it: right walks and scrolls the
+  street; held left, Robocop does not walk back and the street does not scroll back, which looks like the game's one-way level
+  (not compared with hardware).
+
 ## 7. Multiplayer
 
 Rollback (smooth) on the game's own snapshots, two seats, offered nowhere while the machine is developer only
