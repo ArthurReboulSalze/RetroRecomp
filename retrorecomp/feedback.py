@@ -25,7 +25,8 @@ MAX_BYTES = HEADER.size + LIMIT * RECORD.size
 FORMAT_LIMIT = 65536
 FORMAT_MAX_BYTES = HEADER.size + FORMAT_LIMIT * RECORD.size
 # Both come from the profiles (feedback_kinds): sms 1, gg 1, gb 2, nes 3-4,
-# md 5-7, snes 8-9, ng 10-12, x68 13, cps1 14-16, cps2 17-19, pce 20, gba 21.
+# md 5-7, snes 8-9, ng 10-12, x68 13, cps1 14-16, cps2 17-19, pce 20, gba 21, amiga 22, psx 23, atarist 24, n64 25,
+# msx 26, msx2 27, zxs 28, sg1000 29, coleco 30, cpc 31.
 SYSTEMS = set(system_ids())
 KINDS = {profile.id: set(profile.feedback_kinds) for profile in ALL_PROFILES}
 # What a writer keeps, per machine (feedback_limit); readers accept up to FORMAT_LIMIT.

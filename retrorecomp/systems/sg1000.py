@@ -53,8 +53,9 @@ class Sg1000Profile(SystemProfile):
     quick_state_family = 'sg1000'
     netplay_session = True                 # the host kit's adapter gives a digest and an in-process snapshot (multiplayer rollback)
     host_adapter = 'adapters/rrhk_sg1000.inc'
-    # No record kind of its own yet (native/runtime_feedback.h): nothing is recorded for path sharing before the conversion exists.
-    feedback_kinds = frozenset()
+    # RR_FB_SG1000 in native/runtime_feedback.h, reserved with the other new machines' in one change (1.10.0). Nothing is recorded
+    # under it yet: the game never starts the recorder, as on the MSX.
+    feedback_kinds = frozenset({29})
     # The third-party components its games will compile in (retrorecomp/notices.py; the player shell's are added): the banked Z80
     # chain's generator and core, the corrected reference interpreter of the counted fallback. No BIOS: nothing else.
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')

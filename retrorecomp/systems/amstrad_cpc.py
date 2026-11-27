@@ -59,8 +59,9 @@ class AmstradCpcProfile(SystemProfile):
                    OptionKey('cpc_amsdos', signature=False, kind='path', label='cpc_amsdos_label'))
     capabilities = Capabilities(keyboard=True, disks=True)
     quick_state_family = 'cpc'
-    # No kind in native/runtime_feedback.h yet: it waits for the lead's reservation (DECLINED['feedback_kind'] of the registry test).
-    feedback_kinds = frozenset()
+    # RR_FB_CPC in native/runtime_feedback.h, reserved with the other new machines' in one change (1.10.0). Nothing is recorded
+    # under it yet: the game never starts the recorder, as on the MSX.
+    feedback_kinds = frozenset({31})
     developer_only = True
     # Multiplayer (docs/HOST_KIT.md 2.5, the multiplayer checklist of 21 Nov 2026): rollback on the game's own snapshots, two seats
     # (joystick 1 on keyboard row 9, joystick 2 on row 6), the host typing for everyone, the host's disk A as the match's save.

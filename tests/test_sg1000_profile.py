@@ -28,7 +28,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual((SG1000.extensions, SG1000.export_folder, SG1000.video_modes), (('.sg',), 'SG-1000', ('ntsc', 'pal')))
         self.assertEqual([(cpu.arch, cpu.role, cpu.unit) for cpu in SG1000.cpus], [('z80', 'main', 'cycles')])
         self.assertEqual((SG1000.firmware, SG1000.option_keys, SG1000.netplay_session, SG1000.feedback_kinds),
-                         ((), (), True, frozenset()))
+                         ((), (), True, frozenset({29})))
         self.assertEqual(SG1000.default_video_mode(Path('game.sg')), 'ntsc')
 
     def test_the_machine_is_the_one_the_lead_described(self):
