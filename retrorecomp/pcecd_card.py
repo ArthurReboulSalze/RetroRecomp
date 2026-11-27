@@ -76,15 +76,16 @@ REFUSED_ONLY = {
 }
 
 
-def system_card_name(data: bytes) -> str | None:
-    """What these bytes are when they are a System Card (a known one, or a card only refused), None otherwise: what the HuCard reader
-    asks of the decoded ROM, in both bit orders, so that a card dropped as a `.pce` is not converted as a game. `identify` is the
-    stricter check of the card the PC Engine CD converts with (size and BY_SHA1)."""
+def system_card(data: bytes) -> tuple[str, bool] | None:
+    """(name, usable) when these bytes are a System Card, None otherwise: what the HuCard reader asks of the decoded ROM, in both
+    bit orders, so that a card dropped as a `.pce` is not converted as a game. `usable` is True for the cards the PC Engine CD
+    converts with (BY_SHA1), False for those it only refuses (REFUSED_ONLY). `identify` is the stricter check of the usable ones."""
     digest = hashlib.sha1(data).hexdigest()
     known = BY_SHA1.get(digest) if len(data) == CARD_BYTES else None
     if known is not None:
-        return f'{known.name} {known.version} ({known.region})'
-    return REFUSED_ONLY.get(digest)
+        return f'{known.name} {known.version} ({known.region})', True
+    only = REFUSED_ONLY.get(digest)
+    return (only, False) if only else None
 
 
 def identify(path: Path) -> Card:

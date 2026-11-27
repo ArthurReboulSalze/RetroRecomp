@@ -139,7 +139,10 @@ class PcEngineFirmwareTests(FirmwareCase):
         games_express[0] = 0x78
         digest = hashlib.sha1(games_express).hexdigest()
         with patch.dict(pcecd_card.REFUSED_ONLY, {digest: 'Games Express CD Card'}):
-            self.refused(self.make('gexpress.pce', bytes(games_express)), 'Games Express CD Card', 'not a game')
+            item = identify(self.make('gexpress.pce', bytes(games_express)))
+            self.assertIn('Games Express CD Card', item.error)
+            self.assertIn('not the card the PC Engine CD needs', item.error)        # no dead end: that card is the Super System Card 3.0
+            self.assertNotIn('Give it to the PC Engine CD options', item.error)
             with self.assertRaises(pcecd_card.CardError):         # and the PC Engine CD still does not take it as its card
                 pcecd_card.identify(self.make('card.bin', bytes(games_express)))
 
