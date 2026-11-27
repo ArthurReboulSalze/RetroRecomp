@@ -25,6 +25,7 @@ fallback stays counted and shown wherever it is used.
 | Sharp X68000 | supported | MAME sound and colours on more games; deeper disk-change and save evidence |
 | Capcom CPS-2 | supported (since 1.7.0) | more of the 236 sets converted and played; the cause of the three one-picture differences with MAME; a run of the DSP16 |
 | PC Engine / TurboGrafx-16 | supported (since 1.7.2) | the window and Linux proof of the player's own record (in 1.7.3), more HuCards |
+| PC Engine CD / TurboGrafx-CD | supported (release after 1.9.1) | routes that go further on some discs, the two-PC match, the frame cost past the routes |
 | Game Boy Advance | supported (since 1.7.6; experimental from 1.7.0) | a level won on a panel game, the LDM/STM vectors, an independent emulator comparison (G10, G11), the quiet-PC cost of a frame, the cartridge sensors |
 | Commodore Amiga 500 | supported (since 1.7.5) | Kickstart 1.2 and 3.x installs, then ADF images; more installs converted and played; route depth past an adventure's opening (Monkey Island 2) |
 | Commodore Amiga 1200 | supported (since 1.7.8; experimental from 1.7.6) | AGA super-hires at full detail, the 76 68EC020 vector cases to referee (G10), the frame cost of the display's shortcuts on a quiet PC, a game played on Linux |
@@ -127,7 +128,7 @@ planned. Hard-disk images stay out of scope. The screen contrast of the system p
 Supported since 1.7.2, on the owner's decision of 10 November 2026; open since 1.6.9 ([PC_ENGINE.md](PC_ENGINE.md)): HuCards of the standard boards and the
 Street Fighter II board, NTSC, two players. Next: the player's own record, so the code a player reaches past the routes becomes native at the
 next conversion; a play route past a screen confirmed with I (Boxyboy); more HuCards through the same loop. Street Fighter II' CE is native on its routes with the engine's larger capture format, at the cost of a large game and a long
-conversion. SuperGrafx and CD-ROM² are separate later studies.
+conversion. SuperGrafx is a separate later study; CD-ROM² is [PC Engine CD](PC_ENGINE_CD.md).
 
 ### Game Boy Advance
 
@@ -200,7 +201,7 @@ Amstrad CPC; the PC Engine CD is experimental.
 | ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller; done, supported ([COLECOVISION.md](COLECOVISION.md)) |
 | Amstrad CPC | the Z80, the AY sound chip of the MSX | the video, the floppy drive, code loaded from disk; done, supported since 1.10.0 ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)) |
 | ZX Spectrum | the Z80, the AY sound chip (128K) | the video, snapshots first (tapes later); done, supported since 1.10.0 ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)) |
-| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done as an experimental machine (21 November 2026, [PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |
+| PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done (experimental from 21 November 2026, supported on 27 November 2026, [PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |
 
 This list states intentions, not dates or compatibility promises. Earlier delivery notes are in
 [RELEASE_NOTES.md](RELEASE_NOTES.md).

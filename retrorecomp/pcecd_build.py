@@ -1,5 +1,5 @@
-"""The build of a PC Engine CD game (Retro-Recomp's own code, MIT). Stage 1a of docs/NEW_MACHINE.md: only the pinned components are named
-here; the conversion loop and the game's build come with the next stages (docs/PC_ENGINE_CD.md).
+"""The build of a PC Engine CD game (Retro-Recomp's own code, MIT): the pinned components, the game project (the PC Engine's bridge and kit with the disc
+provider and the player's System Card) and the disc held after the program (docs/PC_ENGINE_CD.md).
 
 A PC Engine CD game is the PC Engine's machine (retrorecomp/pce_build.py, the pinned pcenginerecomp engine and our copies of four of its
 files) with a disc. The engine reads a CHD through libchdr, which the engine loads as a shared library by path; a standalone game
