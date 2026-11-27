@@ -170,7 +170,7 @@ MEDIAS/trackers_chiploom/pocket_signals_v2.mod
 retrorecomp/platforms.py retrorecomp/toolchain.py native/platform_io.h native/platform_io.c
 retrorecomp/linux_desktop.py tests/test_linux_desktop.py
 retrorecomp/languages.py
-retrorecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py
+retrorecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py tests/test_log_panel.py
 retrorecomp/resources.py native/embedded_resources.h
 docs/LANGUAGES.md
 docs/QUALITY_REVIEW.md

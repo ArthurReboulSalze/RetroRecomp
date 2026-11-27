@@ -30,7 +30,11 @@ again once; its cartridge saves and quick-state format are not changed by this w
   second.
 - **Options opens at once.** A machine's page is built the first time it is chosen in the Consoles list, no longer the 27 pages
   each time Options opens.
-- **Compiled Games opens sooner.** Its code is read in the background a few seconds after start.
+- **Compiled Games opens sooner**, about twice as fast with a large collection. Its code is read in the background after
+  start. Opening it again no longer re-reads every game's files each time: that happens at most every 20 seconds, as when
+  the window comes back to the front. While the files are read, the window keeps its turn.
+- **Favourites are instant.** Marking several games saves the collection once, not once per game (100 games took about
+  ten seconds).
 - **Options > Common > Rounded corners.** Turn it off for plain rectangles, drawn without pictures. It applies at the next
   start. Rounded corners are not what made the window slow.
 
