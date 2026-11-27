@@ -513,7 +513,7 @@ static void rr_gb_option_rows(int slot, RrhkOptionRows *rows) {
 }
 
 static void rr_gb_help_lines(int slot, const char **lines, int *count) {
-    if (slot == 0) lines[(*count)++] = rrhk_tr("F5  Monochrome / classic green", "F5  Monochrome / vert classique");
+    if (slot == 0) { if (!rr_gb_color_game()) lines[(*count)++] = rrhk_tr("F5  Monochrome / classic green", "F5  Monochrome / vert classique"); }   /* a Color game has no palette to choose, as the options row */
     else lines[(*count)++] = rrhk_tr("P  Pause | Enter  Start", "P  Pause | Entree  Start");
 }
 

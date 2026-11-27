@@ -124,5 +124,17 @@ class TheAdapter(unittest.TestCase):
         self.assertIn('L"GameBoy"', self.ADAPTER)
 
 
+class WhatAColorGameShows(unittest.TestCase):
+    def test_the_f1_help_offers_the_palette_key_only_where_the_options_do(self):
+        # F5 chooses the classic green or the monochrome of the Game Boy; a Color game keeps its own colours, so neither the options row
+        # nor the F1 help may offer it.
+        source = (ASSETS / 'native/hostkit/adapters/rrhk_gb.inc').read_text(encoding='utf-8')
+        helps = source[source.index('static void rr_gb_help_lines'):source.index('static void rr_gb_help_controls')]
+        rows = source[source.index('static void rr_gb_option_rows'):source.index('static void rr_gb_help_lines')]
+        self.assertIn('!rr_gb_color_game()', rows)
+        line = next(text for text in helps.splitlines() if 'Monochrome / classic green' in text)
+        self.assertIn('if (!rr_gb_color_game())', line)
+
+
 if __name__ == '__main__':
     unittest.main()
