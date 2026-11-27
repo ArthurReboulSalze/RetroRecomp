@@ -39,10 +39,17 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(frames, sorted(frames))
         starts = {cpc_routes.KEY_SPACE, cpc_routes.KEY_N, cpc_routes.KEY_J, cpc_routes.KEY_1, cpc_routes.KEY_RETURN, cpc_routes.KEY_2}
         later = [frame for frame, kind, code, value in events if frame >= cpc_routes.LATER_FROM and value
-                 and ((kind == 'key' and code in starts) or (kind == 'joy' and value == cpc_routes.JOY_FIRE1))]
+                 and ((kind == 'key' and code in starts) or (kind == 'joy' and value == cpc_routes.FIRE))]
         self.assertGreaterEqual(len(later), (18000 - cpc_routes.LATER_FROM) // cpc_routes.LATER_EVERY - 1)
         # The conversion's route (LATER_FROM frames) holds none of them: what it plays is the same as before.
         self.assertFalse([e for e in cpc_routes.play_events(cpc_routes.LATER_FROM, 'e' * 64) if e[0] >= cpc_routes.LATER_FROM])
+
+    def test_the_routes_fire_is_the_sticks_default_button(self):
+        # Pin 6, bit 4 (the CPC's « fire 2 »): what a one-button stick presses and what Gryzor reads; never bit 5 alone.
+        self.assertEqual(cpc_routes.FIRE, 0x10)
+        fired = [value for _f, kind, _c, value in cpc_routes.play_events(3600, 'f' * 64) if kind == 'joy' and value & 0x30]
+        self.assertTrue(fired)
+        self.assertTrue(all(value & 0x30 == 0x10 for value in fired))
 
     def test_the_script_text(self):
         text = cpc_routes.script([(900, 'key', 47, 1), (904, 'key', 47, 0), (908, 'joy', 0, 0x26)])
