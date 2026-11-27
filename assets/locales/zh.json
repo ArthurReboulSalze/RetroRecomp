@@ -1417,6 +1417,7 @@
     "Automatic": "自动",
     "None": "无",
     "%s (disconnected)": "%s (未连接)",
+    "%s (in place of %s)": "%s (代替 %s)",
     "No gamepad for player %d": "玩家%d没有手柄",
     "Enter: change gamepad | Delete: Automatic": "Enter：更换手柄 | Delete：自动",
     "Maximum speed ON": "最高速度已开启",

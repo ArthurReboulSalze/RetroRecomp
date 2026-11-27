@@ -880,7 +880,7 @@ def pad_scenario(name: str) -> tuple[str, list]:
         s.say(f'capture {name}-waiting.bmp', 2)
         s.say('button 0 a 1', 2).say('button 0 a 0', 4)                       # player 1's pad: bound (quit_pad = A)
         s.say(f'capture {name}-bound.bmp', 2).tap('F2', 4)
-    elif name == 'replug':     # player 2 pinned to a pad that is unplugged and plugged again; no fallback meanwhile
+    elif name == 'replug':     # player 2 pinned to a pad that is unplugged and plugged again; another pad stands in meanwhile
         s.say(f'attachx 0 {PAD_A}', 4).say(f'attachx 1 {PAD_B}', 4)
         probe(0, [0]); probe(1, [1])
         row(3, 'Return', 'Return', 'capture')                    # player 2: Automatic -> Pad One -> Pad Two
@@ -888,23 +888,23 @@ def pad_scenario(name: str) -> tuple[str, list]:
         s.say('detach 1', 4)
         probe(0, [0])
         row(1, 'Return', 'Return', 'capture')                    # player 1: Automatic -> Pad One -> None
-        probe(0, [])                                             # player 2's pad is missing: Pad One goes to nobody
-        row(3, 'capture')                                        # "Pad Two (disconnected)"
+        probe(0, [1])                                            # player 2's pad is missing: Pad One stands in (27 Nov 2026)
+        row(3, 'capture')                                        # "Pad One (in place of Pad Two)"
         s.say(f'attachx 1 {PAD_B}', 4)
-        probe(1, [1])                                            # plugged in again: back to player 2
+        probe(1, [1]); probe(0, [])                              # plugged in again: back to player 2, the stand-in to nobody
         row(3, 'capture')
     elif name == 'persist':    # a second run on the preferences of 'replug': the pads plug in the other order
         s.say(f'attachx 1 {PAD_B}', 4).say(f'attachx 0 {PAD_A}', 4)
         probe(1, [1]); probe(0, [])
         row(1, 'capture'); row(3, 'capture')
-    elif name == 'gb-replug':  # one player pinned to a pad that is unplugged and plugged again; no fallback meanwhile
+    elif name == 'gb-replug':  # one player pinned to a pad that is unplugged and plugged again; another pad stands in meanwhile
         s.say(f'attachx 0 {PAD_A}', 4).say(f'attachx 1 {PAD_B}', 4)
         probe(0, [0]); probe(1, [])                               # the first pad is player 1's, the second one nobody's
         row(1, 'Return', 'capture')                               # Automatic -> Pad One
         probe(0, [0]); probe(1, [])
         s.say('detach 0', 4)
-        probe(1, [])                                              # the pinned pad is missing: Pad Two is not taken instead
-        row(1, 'capture')                                         # "Pad One (disconnected)"
+        probe(1, [0])                                             # the pinned pad is missing: Pad Two stands in (27 Nov 2026)
+        row(1, 'capture')                                         # "Pad Two (in place of Pad One)"
         s.say(f'attachx 0 {PAD_A}', 4)
         probe(0, [0]); probe(1, [])                               # plugged in again: back to player 1
     elif name == 'gb-persist':  # a second run on the preferences of 'gb-replug': the pads plug in the other order

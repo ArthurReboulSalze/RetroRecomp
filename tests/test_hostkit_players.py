@@ -17,7 +17,7 @@ class FourPlayerTests(unittest.TestCase):
             self.skipTest(reason)
         # A folder of the build tree (not a temporary one), so that a second run only relinks what changed.
         results = selftest.run_checks(ROOT / '.build/hostkit-players-selftest')
-        self.assertEqual(set(results), {'players4', 'players2'})
+        self.assertEqual(set(results), {'players4', 'players2', 'hotplug'})
         for name, (code, output, seconds) in results.items():
             with self.subTest(board=name):
                 self.assertEqual(code, 0, output)

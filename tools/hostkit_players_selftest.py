@@ -1,10 +1,12 @@
-"""Four players through the host kit's real loop, ROM-free (tools/hostkit_players/checks.c says what is checked).
+"""Four players through the host kit's real loop, and pads plugged in and out during play, ROM-free
+(tools/hostkit_players/checks.c and hotplug.c say what is checked).
 
     python -B tools/hostkit_players_selftest.py [--output DIR]
 
 The kit's shell and its CPS-1 adapter are compiled as an export compiles them, around a stub CPS-1 machine, once as a
 four-player board and once as a two-player one, and run with four virtual game controllers under SDL's dummy video and
-audio drivers (a hidden window, no sound device). Needs the C toolchain and the pinned static SDL2 of `.deps`; nothing is
+audio drivers (a hidden window, no sound device); a third program, on the four-player board, attaches and detaches virtual
+controllers while it runs (hotplug.c). Needs the C toolchain and the pinned static SDL2 of `.deps`; nothing is
 written outside DIR (default .build/hostkit-players-selftest). About four seconds of run time per board
 (two holds of a little over one second, measured on SDL's clock).
 """
@@ -22,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 BOARDS = {'players4': 4, 'players2': 2}
+# The programs: the two boards of checks.c, and the pads unplugged and plugged in during play (hotplug.c, four players).
+PROGRAMS = {**{name: ('checks.c', players) for name, players in BOARDS.items()}, 'hotplug': ('hotplug.c', 4)}
 # A hang, not a speed: each board runs paced at the machine's 60 Hz and holds real seconds (two holds measured on SDL's
 # clock), about four seconds a board on a quiet PC; with every core busy with conversions a paced run starves for CPU and
 # its wall time grows several times over (the capabilities self-test went from 22 s to 70 s, 20 Nov 2026). The same bound
@@ -54,8 +58,8 @@ def cmake_text(out: Path) -> str:
              f'target_include_directories(kit PUBLIC "{out.as_posix()}/include" "{native}")',
              'target_link_libraries(kit PUBLIC SDL2::SDL2-static)',
              'if(NOT MSVC)\n  target_link_libraries(kit PUBLIC m)\nendif()']
-    for name, players in BOARDS.items():
-        lines += [f'add_executable({name} "{(ROOT / "tools/hostkit_players/checks.c").as_posix()}" '
+    for name, (source, players) in PROGRAMS.items():
+        lines += [f'add_executable({name} "{(ROOT / "tools/hostkit_players" / source).as_posix()}" '
                   f'"{native}/hostkit/adapters/rrhk_cps1.c")',
                   f'target_compile_definitions({name} PRIVATE RR16_CPS1=1 RR_CPS1_PLAYERS={players})',
                   f'target_link_libraries({name} PRIVATE kit)']
@@ -86,7 +90,7 @@ def run_checks(out: Path, timeout: int = HANG_SECONDS) -> dict:
     for name in ('RETRORECOMP_HOST_TEST_FRAMES', 'RETRORECOMP_TIMING_REPORT', 'RETRORECOMP_HOST_TEST_NO_AUDIO'):
         env.pop(name, None)
     results = {}
-    for name in BOARDS:
+    for name in PROGRAMS:
         executable = build_executable(out / 'build', name)
         # The preferences live beside the executable: each run starts from the defaults.
         shutil.rmtree(executable.parent / 'datas', ignore_errors=True)

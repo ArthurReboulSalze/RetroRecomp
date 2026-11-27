@@ -421,7 +421,7 @@ native/hostkit/shell/rrhk_timing.c
 native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
 native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_computer.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py tools/sega_states_selftest.py tests/test_sega_evidence.py tools/sega_bank_dispatch_check.py tools/sega_campaign.py tools/sega_cross_os.py tests/test_sega_cross_os.py
-tools/hostkit_players_selftest.py tools/hostkit_players/checks.c tests/test_hostkit_players.py
+tools/hostkit_players_selftest.py tools/hostkit_players/checks.c tools/hostkit_players/cps1_stub.h tools/hostkit_players/hotplug.c tests/test_hostkit_players.py
 tools/hostkit_capabilities_selftest.py tools/hostkit_capabilities/checks.c tests/test_hostkit_capabilities.py
 native/hostkit/adapters/rrhk_keypad.inc native/hostkit/adapters/rrhk_text.h native/hostkit/adapters/rrhk_sprite_option.inc tests/test_hostkit_text.py tools/hostkit_keypad_selftest.py tools/hostkit_keypad/checks.c tests/test_hostkit_keypad.py
 tools/hostkit_session_selftest.py tools/hostkit_session/fake.c tests/test_hostkit_session.py

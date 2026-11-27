@@ -1417,6 +1417,7 @@
     "Automatic": "自動",
     "None": "なし",
     "%s (disconnected)": "%s (未接続)",
+    "%s (in place of %s)": "%s (%s の代替)",
     "No gamepad for player %d": "プレイヤー%dのパッドがありません",
     "Enter: change gamepad | Delete: Automatic": "Enter: パッド変更 | Delete: 自動",
     "Maximum speed ON": "最高速度オン",

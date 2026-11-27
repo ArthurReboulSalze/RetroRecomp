@@ -325,19 +325,31 @@ X68000 too, without asking again**.
 * **D10 — One autofire notice** (28 October 2026, Arthur), for every console:
   F6 shows a short pop-up, "Autofire ON" / "Autofire OFF", about 1.8 s like the
   shell's other notices, from the shared eight-language catalogue.
-* **D11 — Pad slot policy: Automatic by default, a Gamepad row per player** (28 October 2026, Arthur), for every
+* <a id="d11"></a>**D11 — Pad slot policy: Automatic by default, a Gamepad row per player** (28 October 2026, Arthur), for every
   console. By default pads go to players in plug order, the first free player. On each player's gamepad page of F2 a
   "Gamepad" row cycles Automatic, each connected controller (by its SDL name, numbered when two share a name) and
   None. Choosing a controller pins it to that player and takes it from the player that holds it, who falls back to
   Automatic among the remaining pads; None leaves that player without a pad (the keyboard still works, so player 1 on
   None and one pad gives keyboard for player 1 and pad for player 2). The choice is kept in the game's preferences
   (section 4): `device` is `auto`, `none` or the SDL joystick GUID, `name` the controller's name for display. A pinned
-  controller that is not plugged in is shown as "disconnected", its player has no pad meanwhile (never another pad), and
-  hot-plug gives it back; two identical pads share a GUID and the first unclaimed one matches (the "#n" of the row is
+  controller that is not plugged in is shown as "disconnected", and hot-plug gives it back; two identical pads share a GUID and the first unclaimed one matches (the "#n" of the row is
   the plug order of the moment, not a saved identity: after a restart the first identical pad found goes to the first
   pinned player); every player keeps the pad it holds before a pinned player looks for a missing one, so unplugging one
-  of two identical pinned pads never moves the other; an Automatic player never takes a pad pinned to another player. Setting a player back to Automatic deals the automatic players' pads again in
-  plug order, as at the next start. The F2 binding of a player who has no pad shows "No gamepad for player N" instead
+  of two identical pinned pads never moves the other; an Automatic player never takes a pad pinned to another player
+  while that pad's player waits for it. Setting a player back to Automatic deals the automatic players' pads again in
+  plug order, as at the next start.
+  **Hot-plug (27 November 2026, owner's report on Alex Kidd in Miracle World: a new pad, or the same pad on another USB
+  port, reached the menus but never the game).** An unplugged pad frees its player at once. A pad plugged in takes back
+  the player it left when that player is still free; any other pad goes to the first free player, so player 1 is filled
+  first. A player whose pinned pad is missing is a free player too: another pad stands in for it (before, it waited for
+  its own pad, and a game whose player 1 was pinned to a pad that had gone stayed deaf to every other pad), and the pinned
+  pad takes its player back when it returns, the stand-in going to the first free player or to nobody; no other pad ever
+  moves a player's pad away. A pinned pad is known by its model, the vendor and product of its GUID: the same pad on
+  another port, under another Windows name or through another of SDL's drivers (RawInput, XInput) gets another GUID
+  (another CRC, driver byte or version) and keeps its pin. A button binding belongs to the player, so a pad that comes
+  back to its player plays with the bindings made in F2. In a multiplayer session only player 1's slot plays (the local
+  seat): it takes a pad plugged in first, and when its pad is unplugged a pad another player holds moves to it. Checked by
+  `tools/hostkit_players/hotplug.c` (SDL virtual pads attached and detached during play). The F2 binding of a player who has no pad shows "No gamepad for player N" instead
   of waiting silently (Esc still leaves). Keyboard and pad keep working together, and the stick, autofire and pointer
   rules are unchanged. This policy replaces the SMS/GG first-player toggle and pad swap, which went away when SMS/GG moved to the kit (phase 4, 1.6.3).
 

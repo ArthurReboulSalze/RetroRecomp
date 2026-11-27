@@ -412,6 +412,25 @@ F3's notice now names every filter in the game's language (it was English, excep
 Preferences: `[<Console>.Video] filter` takes 4 (CRT flat), 5 (CRT curved) and 6 (LCD grid). An export of the
 previous release reads those values as sharp pixels and keeps working.
 
+## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (next release)
+
+Owner's report of 27 November 2026 (Alex Kidd in Miracle World): with player 1 pinned to his first pad on F2's Gamepad
+row, another pad, or the same pad on another USB port, answered the menus but never the game. Player 1 waited for the
+pinned pad, and the same pad came back under another GUID (another CRC of its name, another SDL driver), so it never
+matched. The host kit now deals the pads again on every plug and unplug (decision
+[D11](HOST_KIT.md#d11), hot-plug paragraph):
+- an unplugged pad frees its player;
+- a pad back takes the player it left when that player is still free;
+- any other pad goes to the first free player, so player 1 first;
+- a player whose pinned pad is missing takes a stand-in, shown « Pad (in place of pinned pad) », until the pinned pad
+  returns and takes it back;
+- a pinned pad is matched by vendor and product, not by the whole GUID;
+- in a multiplayer session the local seat (player 1's slot) takes another plugged pad when its own is unplugged.
+
+Host files only: `native/hostkit/shell/rrhk_input.c` and `native/runtime_catalog.inc` (one name, « %s (in place of %s) »).
+So the host stamp of every host-kit machine moves and its exports are upgraded (rebuilt), never rediscovered. The
+game part is unchanged. Preferences are unchanged: a `device=<GUID>` saved by the previous release still pins its pad.
+
 ## ZX Spectrum: converted through batch and the window on a developer tree (next release)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`
