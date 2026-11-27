@@ -300,7 +300,7 @@ both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arc
 
 A Color game keeps its own colours: its options window has no palette row and F5 only shows a notice, yet the F1 help still listed « F5 Monochrome / classic green ». It is listed
 now only in a monochrome Game Boy game (`native/hostkit/adapters/rrhk_gb.inc`, `rr_gb_help_lines`, the same test as the options row; `tests/test_gameboy_color.py`). Because the adapter is shared,
-**the Game Boy host stamp (`9219189b` to `8c2ef1fc`) and the Game Boy Color host stamp (`2f9bb2ba` to `25119db0`) move** (computed on the tree against main `dce6c18d`, every machine compared;
+**the Game Boy host stamp (`15e8fc20` to `55796f53`) and the Game Boy Color host stamp (`7784e231` to `5370911d`) move** (computed on the tree against main `e6bc5eec`, every machine compared;
 game and build stamps and every other machine unchanged). The Game Boy's stamps already move this release, so no export is converted once more for it. Quick states unchanged. The
 link-cable notes of the converter (the multiplayer note and the credits, eight languages) now name the Game Boy Color too; no stamp moves for them.
 
