@@ -187,7 +187,7 @@ arrow keys, the two fire buttons on **D** and **S**, the keypad's digits on the 
 numeric pad's `*` and `/`); on a gamepad, the D-pad moves, A and B are the fire buttons, and Y opens a short on-screen keypad (the D-pad moves on it, A presses a key, B or Y
 closes it; the game keeps running). Player 2 plays on I J K L, U (fire 1) and O (fire 2), with the numeric pad's digits for the keypad. The console has no Pause button. Every key can
 be changed in F2; F6 autofire never pulses a keypad key, F8 and F9 are quick states, and the F2 pages, the speed and the sound controls are the common ones.
-**F5** is sprite flicker reduction, as on the Master System (below). See [COLECOVISION.md](COLECOVISION.md#3-how-it-is-planned-to-work).
+**F5** is sprite flicker reduction, as on the Master System (below). See [COLECOVISION.md](COLECOVISION.md#3-how-it-works).
 
 ## In a multiplayer match
 

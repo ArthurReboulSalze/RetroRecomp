@@ -15,13 +15,13 @@
     ball leaves by itself after about four seconds: both are the game's own code, the same in MAME 0.289.
   - Limits: a snapshot is a game already loaded, so a game that loads its next level from tape stops there; a few frames show a
     one-line tear where a game redraws under the beam; its paths are not shared between players.
-- **SG-1000**, supported ([SG1000.md](SG1000.md)): SG-1000 and SG-1000 II cartridges, 2 to 48 KiB, no firmware needed; Pause is a
-  key and a pad button, its ports and Pause equal to MAME 0.289's. Not converted: the SC-3000's keyboard, BASIC and cassette,
+- **SG-1000**, supported ([SG1000.md](SG1000.md)): SG-1000 and SG-1000 II cartridges, 2 to 48 KiB, NTSC or PAL, no firmware
+  needed; Pause is Enter or the pad's Start; its ports and Pause agree with MAME 0.289 (an emulator). Not converted: the SC-3000's keyboard, BASIC and cassette,
   cartridges with their own RAM.
-- **ColecoVision**, supported ([COLECOVISION.md](COLECOVISION.md)): cartridges with your own BIOS (8 KiB, checked by its hash, never
-  shipped); the keypad on the digit keys, or on screen with the pad's Y; one M1 wait state, the wait of each sound write and the
+- **ColecoVision**, supported ([COLECOVISION.md](COLECOVISION.md)): cartridges of 4 to 32 KiB with your own BIOS (8 KiB, checked by
+  its hash, never shipped; the converted game holds your BIOS, so it is for you only); the keypad on the digit keys, or on screen with the pad's Y; one M1 wait state, the wait of each sound write and the
   controller bytes as MAME 0.289 has them. Not converted: the Super Action Controller, the roller and driving modules, the Super Game
-  Module.
+  Module, MegaCart and other homebrew boards, the ADAM.
 - **Amstrad CPC 6128**, supported ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)): DSK and EXTENDED DSK disk games, on your own firmware or on
   pinned copies of the system ROM and AMSDOS fetched on your word; the start command is typed by itself.
   - What a game writes on its disk is kept in a copy beside it and read back at the next start (Sport of Kings' save).
@@ -53,10 +53,10 @@
 - **Native code and checks, on their panels**: every panel game reports 0 interpreted instructions on its conversion routes,
   and the native run equals the reference interpreter frame by frame there; code no route reached runs on the counted
   interpreter. Windows and Debian 13 (in WSL) gave the same results on the games compared, the SG-1000 and ColecoVision ones taken
-  again on the release tree. The four Z80 machines pass the 51,328 SingleStepTests vectors through their own generators. Hardware
+  again on the release candidate, without a screen. The four Z80 machines pass the 51,328 SingleStepTests vectors through their own generators. Hardware
   was compared with MAME 0.289 only, never with a real console. Elite's Spectrum snapshot halts in its own decryption, in MAME too,
   and its report says so.
-- **Multiplayer**: two players with rollback on the six, four on Dungeon Explorer II; the Game Boy Color's link cable; the host
+- **Multiplayer**: two seats with rollback on the six, four on Dungeon Explorer II; the Game Boy Color's link cable; the host
   types on the CPC's keyboard; the SG-1000's Pause and the ColecoVision's keypad per player. Proven by the automatic runs on two
   PCs (12 matches of 12, then 11 of 11: every state digest equal, save, load and restart on the same frames), not by the owner's
   own play on two PCs.
@@ -73,8 +73,8 @@
 - **Shared pieces, written once**: the AY-3-8910 (MSX, ZX Spectrum, CPC) and the TMS9918A (MSX, SG-1000, ColecoVision) as shared
   chips, with the MSX's output unchanged; the sound chips' levels to samples (`audio_box`); the copies of written disks (lifted from
   the MSX's code, used first by the CPC); the on-screen keypad and the five-language text rows of the adapters.
-- The chain gains 16-bit I/O ports, the /NMI pin, per-instruction cost tables and a bus-cycle model for memory contention, each
-  checked against the SingleStepTests vectors; the Master System, Game Gear and MSX generate the same code.
+- The chain gains 16-bit I/O ports, the /NMI pin, per-instruction cost tables and a bus-cycle model for memory contention, the
+  cost tables and bus cycles checked against the SingleStepTests vectors, the others by ROM-free checks against the reference CPU; the Master System, Game Gear and MSX generate the same code.
 - Runtime-feedback kinds 28 to 31 are reserved for the ZX Spectrum, SG-1000, ColecoVision and CPC; as on the MSX, nothing is
   recorded from play on them yet.
 
@@ -174,8 +174,8 @@ Audited on a player's library of 12,347 files and a frontend's firmware folder o
 again]** An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC
 Engine, the Sharp X68000, the Atari ST, the Nintendo 64 and the two Amigas: their keys follow the game stamp, the build or engine
 files that changed. On the Master System, the Game Gear, the Game Boy, the NES, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the Game
-Boy Advance, the PlayStation and the MSX family, nothing their key reads changed, so a 1.9.1 state should load (read from each key's
-inputs, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept ([UPGRADES.md](UPGRADES.md)).
+Boy Advance, the PlayStation and the MSX family, nothing their state's key or layout depends on changed, so a 1.9.1 state should load (read
+from the code, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept ([UPGRADES.md](UPGRADES.md)).
 
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used, in a match as alone.
