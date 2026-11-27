@@ -798,8 +798,8 @@ class LockstepDriver:
         self.stats['packets_sent'] += 1
         self.link.send(seat, data)
 
-    def _send_inputs(self, now: float, only=None):
-        digest_frame, digest = self._latest_digest or (wire.NONE, 0)
+    def _send_inputs(self, now: float, only=None, digest_of=None):
+        digest_frame, digest = digest_of or self._latest_digest or (wire.NONE, 0)
         acks = [len(records) - 1 if records else wire.NONE for records in self._records]
         for peer in only if only is not None else self.peers:
             sections = []
@@ -969,6 +969,11 @@ class LockstepDriver:
         that fails)."""
         self.desync = (frame, seat, mine, theirs)
         self.detail = f'out of step at frame {frame}: seat {self.seat + 1} and seat {seat + 1} differ'
+        # Our own digest of that frame first, as many times as the BYE: the host believes only its own comparison, and a
+        # guest that found it the moment its game reported the digest had not sent it yet (27 Nov 2026: the host then
+        # waited `desync_confirm` and ended « seat_left », « Nadia left, reporting the games out of step »).
+        for _copy in range(BYE_COPIES):
+            self._send_inputs(time.monotonic(), digest_of=(frame, mine))
         self._end('desync', pipe.STOP_DESYNC, wire.BYE_DESYNC)
 
     def _desync_reported(self, seat: int):
