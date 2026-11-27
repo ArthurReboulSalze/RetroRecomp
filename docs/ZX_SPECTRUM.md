@@ -154,9 +154,12 @@ of a Linux graphics driver.
   first build moved the paddle twice as fast (4 a frame in flight, 4 left and 9, 13, 17 ... right at rest): the floating bus was
   sampled one T-state early and the game ran its loop twice a frame (section 5); fixed on 27 November. With the floating bus off
   the game does not run at all (as documented for the original edition).
-- **Robocop** reads the Kempston (chosen in its own menu by the start data); the pad drives it: right walks and scrolls the
-  street; held left, Robocop does not walk back and the street does not scroll back, which looks like the game's one-way level
-  (not compared with hardware).
+- **Robocop** reads the Kempston (chosen in its own menu by the start data); the pad drives it. Compared with MAME 0.289 (`spec128`
+  with a Kempston added, same snapshot, same inputs, frame numbers equal): the paper is pixel-identical through the menus and
+  the directives and in many play frames, and held left behaves the same in both: from the start of play Robocop only turns to
+  face left (he is at the level's left end) and nothing scrolls in 300 frames; after walking right (the street scrolls about
+  0.8 pixel a frame), left scrolls the street back only once the enemies standing against him are gone. This matches MAME 0.289;
+  it is the game's behaviour, not hardware-verified. The keyboard controls were not compared.
 
 ## 7. Multiplayer
 
