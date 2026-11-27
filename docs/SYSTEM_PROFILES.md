@@ -107,7 +107,7 @@ VDP raster is never exposed in this version; see [Game Gear](GAME_GEAR.md).
 The original Game Boy profile uses `gb`, `.gb` input,
 `Export/Games/Game Boy` output, a separate SM83 compiler, a DMG 160 × 144
 runtime and ROM-specific trace memory. Game Boy Color-only ROMs are rejected;
-see [Game Boy](GAME_BOY.md). The Game Boy Color profile (`gbc`, experimental, in development) uses `.gbc` input, `Export/Games/Game Boy Color` output, the same compiler in the
+see [Game Boy](GAME_BOY.md). The Game Boy Color profile (`gbc`, experimental, in development) uses `.gbc` input (and Color-only cartridges in a `.gb` or a ZIP), `Export/Games/Game Boy Color` output, the same compiler in the
 colour hardware's model and its own library and paths; see [Game Boy Color](GAME_BOY_COLOR.md).
 The NES profile uses `nes`, `.nes` input, `Export/Games/Nintendo NES` output,
 a separate 6502 compiler, its own verified ROM entry library and PAL/NTSC

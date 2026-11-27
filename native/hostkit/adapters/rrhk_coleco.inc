@@ -78,6 +78,14 @@ static void s_picture(const CvMachine *m) {
    }
 }
 
+/* ---- F5, sprite flicker reduction (rrhk_sprite_option.inc): a picture-only switch of the TMS9918A, so each player of a match
+ * chooses their own and nothing the program reads changes ---- */
+#define RR_SPRITE_OPTION_APPLY(on) tms9918_set_all_sprites(on)
+#include "hostkit/adapters/rrhk_sprite_option.inc"
+static bool s_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) { (void)running; return rr_sprite_option_key(ui, key); }
+static void s_settings_loaded(RrhkUi *ui) { rr_sprite_option_load(ui, ui->read_file); }
+static void s_option_rows(int slot, RrhkOptionRows *rows) { if (slot == 0) rr_sprite_option_row(rows, false); }
+
 /* ---- the sound: mono 44.1 kHz from the machine, doubled into the stereo ring (the Master System's and the MSX's output) ---- */
 static SDL_AudioDeviceID audio_device;
 static void audio_output_clear(void);
@@ -135,6 +143,7 @@ static bool s_action_held(int player, int action) { return rrhk_keypad_held(&s_k
 static void s_before_present(SDL_Renderer *renderer) { rrhk_keypad_draw(&s_keypad, renderer); }
 
 static void s_help_lines(int slot, const char **lines, int *count) {
+   if (slot == 0) lines[(*count)++] = rr_sprite_option_help();
    if (slot == 1) lines[(*count)++] = rrhk_tr("Gamepad Y  On-screen keypad", "Manette Y  Pave numerique");
 }
 
@@ -169,6 +178,7 @@ const RrhkMachine *rrhk_adapter(void) {
       /* Multiplayer (hostkit.h): an in-process snapshot for rollback and the digest (the state's body without the picture, hashed). */
       adapter.snap_bound = cv_snap_bound; adapter.snap_save = cv_snap_save; adapter.snap_load = cv_snap_load; adapter.digest = cv_snap_digest;
       adapter.help_lines = s_help_lines; adapter.help_controls = s_help_controls;
+      adapter.key_event = s_key_event; adapter.settings_loaded = s_settings_loaded; adapter.option_rows = s_option_rows;
       adapter.event = s_event; adapter.action_held = s_action_held; adapter.before_present = s_before_present;
    }
    return &adapter;

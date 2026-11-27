@@ -108,7 +108,6 @@ static bool phaser_alias;               /* the P2 trigger some Light Phaser game
 static bool phaser_blocked;             /* a trigger held while a menu closed does not shoot */
 static bool reset_requested;
 static bool paused_machine;
-static bool reduce_sprites;
 static SDL_Rect full_crop, crop;        /* the picture inside the 256 x 192 frame: the Game Gear window, the Master System border */
 static uint32_t view[SMS_SCREEN_W * SMS_SCREEN_H];   /* the visible picture alone, at the origin of the kit's texture */
 static uint64_t input_sample_counter, input_poll_period;
@@ -244,40 +243,33 @@ static bool game_rect(int out_w, int out_h, int mode, SDL_Rect *rect) {
     return true;
 }
 
-/* ---- the sprite-flicker option (F5): both consoles, off by default, saved in [<Console>.Video] ---- */
+/* ---- the sprite-flicker option (F5): both consoles, rrhk_sprite_option.inc ---- */
+#define RR_SPRITE_OPTION_APPLY(on) smsrecomp_video_set_sprite_flicker_reduction(on)
+#include "hostkit/adapters/rrhk_sprite_option.inc"
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)running;
-    if (key != SDL_SCANCODE_F5) return false;
-    if (rrhk_write_ready() && rr_display_save(ui->ini_file, ui->data_dir, SECTION L".Video", L"reduce_sprite_flicker", !reduce_sprites)) {
-        reduce_sprites = !reduce_sprites;
-        smsrecomp_video_set_sprite_flicker_reduction(reduce_sprites);
-        rrhk_notice(reduce_sprites ? rrhk_tr("Sprite flicker reduction ON", "Reduction du scintillement ON") :
-                                     rrhk_tr("Original console sprite limit", "Limite de sprites de la console"), 1800);
-    } else rrhk_notice(rrhk_tr("Config unavailable", "Config inaccessible"), 1800);
-    return true;
+    return rr_sprite_option_key(ui, key);
 }
 
 /* Multiplayer: the sprite option is sealed by the host for everyone (it may change what the game reads of the sprite
  * overflow until a probe shows otherwise). */
 static bool session_option(const char *key, const char *value) {
     if (strcmp(key, "extra_sprites") || (strcmp(value, "0") && strcmp(value, "1"))) return false;
-    reduce_sprites = value[0] == '1';
-    smsrecomp_video_set_sprite_flicker_reduction(reduce_sprites);
+    rr_sprite_option_set(value[0] == '1');
     return true;
 }
 
 static size_t session_options(char *out, size_t capacity) {
-    const int n = snprintf(out, capacity, "extra_sprites=%d", reduce_sprites ? 1 : 0);
+    const int n = snprintf(out, capacity, "extra_sprites=%d", rr_sprites_reduced ? 1 : 0);
     return n > 0 && (size_t)n < capacity ? (size_t)n : 0;
 }
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
-    if (slot == 0) rrhk_option_row_run(rows, SDL_SCANCODE_F5, RR_ICON_ROW_SPRITE, "F5 Sprite flicker reduction: %s",
-                                        rr_tr(reduce_sprites ? "ON" : "OFF"));
+    if (slot == 0) rr_sprite_option_row(rows, true);
 }
 
 static void help_lines(int slot, const char **lines, int *count) {
-    if (slot == 0) lines[(*count)++] = rrhk_tr("F5  Reduce sprite flicker", "F5  Reduire le scintillement");
+    if (slot == 0) lines[(*count)++] = rr_sprite_option_help();
     else lines[(*count)++] =
 #ifdef RETRO_GAME_GEAR
         rrhk_tr("P  Pause | Enter  Start", "P  Pause | Entree  Start");
@@ -312,7 +304,7 @@ static void pause_page(RrhkUi *ui, const RrhkMenuCtx *ctx) {
 #endif
     pause_text(ctx, 118, rrhk_tr("Shift+F1: restart", "Maj+F1 : redemarrer"), RR_MENU_HINT);
     char sprites[64];
-    snprintf(sprites, sizeof sprites, rrhk_tr("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"), reduce_sprites ? "ON" : "OFF");
+    snprintf(sprites, sizeof sprites, rrhk_tr("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"), rr_sprites_reduced ? "ON" : "OFF");
     pause_text(ctx, 140, sprites, RR_MENU_HINT);
 #ifdef RETRO_GAME_GEAR
     pause_text(ctx, 152, rrhk_tr("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), RR_MENU_HINT);
@@ -359,8 +351,7 @@ static void settings_loaded(RrhkUi *ui) {
     ui->pointer_shape = !strcmp(value, "dot");
     read_text(file, L"LightPhaser", L"color", value, sizeof value);
     ui->pointer_color = !strcmp(value, "white") ? 1 : !strcmp(value, "green") ? 2 : 0;
-    reduce_sprites = rr_ini_int(ui->video_section, L"reduce_sprite_flicker", 0, file) == 1;
-    smsrecomp_video_set_sprite_flicker_reduction(reduce_sprites);
+    rr_sprite_option_load(ui, file);
 }
 
 #ifdef RETRO_GAME_GEAR

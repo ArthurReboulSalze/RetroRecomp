@@ -118,7 +118,7 @@ The full guide, with portable downloads, updates and uninstalling, is
 | [Sharp X68000](docs/X68000.md) | supported | `█████` 91 % | supported · rollback | [Win 1.07 ms (+1 %)](docs/PERFORMANCE.md#the-figures) |
 | [Sony PlayStation](docs/PLAYSTATION.md)\* | supported | `████░` 81 % | supported · delay | [Win 3.83 ms (+4 %)](docs/PERFORMANCE.md#the-figures) |
 | [Super Nintendo](docs/SNES.md) | supported | `█████` 94 % | supported · rollback | [Win 4.21 ms (−1 %) · Linux 4.56 ms](docs/PERFORMANCE.md#the-figures) |
-| [Amstrad CPC](docs/AMSTRAD_CPC.md) | experimental (developer-only) | `███░░` 69 % | supported · rollback | not measured |
+| [Amstrad CPC](docs/AMSTRAD_CPC.md) | experimental (developer-only) | `████░` 78 % | supported · rollback | not measured |
 | [ColecoVision](docs/COLECOVISION.md) | experimental (developer-only) | `████░` 82 % | supported · rollback | not measured |
 | [Game Boy Color](docs/GAME_BOY_COLOR.md) | experimental | `███░░` 69 % | supported · rollback · link cable | not measured |
 | [PC Engine CD / TurboGrafx-CD](docs/PC_ENGINE_CD.md) | experimental | `██░░░` 43 % | supported · rollback | not measured |
@@ -147,13 +147,12 @@ and its limits are on its page.
 
 ### In development
 
-Four machines are being studied, in this order: the **SG-1000**, the **Game Boy Color**, the **ColecoVision** and the
-**Amstrad CPC**. None is available yet: each starts as an experimental
-profile once its study is approved, and no date is promised. The ZX Spectrum is an experimental machine for developers: its
-snapshots convert on a panel of eight, the owner has not played them yet ([status](docs/ZX_SPECTRUM.md)). The **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card) is open as an
-experimental machine: nine discs convert, none is translated beyond what their routes ran, and the owner has not played them yet
-([status](docs/PC_ENGINE_CD.md)). The **SG-1000** has also reached that first step, for developers only: its experimental profile converts cartridges for
-developers (no player is offered it yet, and no game has been played: [SG1000.md](docs/SG1000.md)).
+Six machines are experimental and not in a release yet: the **SG-1000**, the **ColecoVision**, the **Game Boy Color**,
+the **ZX Spectrum**, the **Amstrad CPC** and the **PC Engine CD** (CD-ROM² and Super CD-ROM² discs with your own System Card).
+Each converts a panel of the owner's games checked against its reference interpreter, multiplayer included; none has left
+experimental, which is the owner's decision after his own play test, and no date is promised. Their status pages:
+[SG1000.md](docs/SG1000.md), [COLECOVISION.md](docs/COLECOVISION.md), [GAME_BOY_COLOR.md](docs/GAME_BOY_COLOR.md),
+[ZX_SPECTRUM.md](docs/ZX_SPECTRUM.md), [AMSTRAD_CPC.md](docs/AMSTRAD_CPC.md) and [PC_ENGINE_CD.md](docs/PC_ENGINE_CD.md).
 
 Per-machine plans are in the [roadmap](docs/ROADMAP.md).
 

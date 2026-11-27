@@ -265,7 +265,7 @@ assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/
 tests/test_qualified_bank.py
 retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
 retrorecomp/path_profiles.py tests/test_paths_schema.py tests/test_paths_exchange.py
-retrorecomp/online.py retrorecomp/shared_batch.py tests/test_online.py tests/test_shared_sync.py
+retrorecomp/online.py retrorecomp/tls_roots.py tests/test_tls_roots.py retrorecomp/shared_batch.py tests/test_online.py tests/test_shared_sync.py
 tests/test_problem_reports.py tests/test_gui_player.py tests/test_gui_state.py tests/test_scan_levels_read.py tests/test_shop_display.py tests/test_conversion_rewards.py tests/test_offered_hints.py tests/test_sega_functions_gate.py tests/test_shared_base.py tests/test_base_store.py tests/test_shared_ng.py
 retrorecomp/gameboy_host.py
 retrorecomp/report_schema.py tests/test_report_schema.py tests/test_report_writers.py
@@ -423,7 +423,7 @@ native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hos
 native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_computer.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py tools/sega_states_selftest.py tests/test_sega_evidence.py tools/sega_bank_dispatch_check.py tools/sega_campaign.py tools/sega_cross_os.py tests/test_sega_cross_os.py
 tools/hostkit_players_selftest.py tools/hostkit_players/checks.c tests/test_hostkit_players.py
 tools/hostkit_capabilities_selftest.py tools/hostkit_capabilities/checks.c tests/test_hostkit_capabilities.py
-native/hostkit/adapters/rrhk_keypad.inc native/hostkit/adapters/rrhk_text.h tests/test_hostkit_text.py tools/hostkit_keypad_selftest.py tools/hostkit_keypad/checks.c tests/test_hostkit_keypad.py
+native/hostkit/adapters/rrhk_keypad.inc native/hostkit/adapters/rrhk_text.h native/hostkit/adapters/rrhk_sprite_option.inc tests/test_hostkit_text.py tools/hostkit_keypad_selftest.py tools/hostkit_keypad/checks.c tests/test_hostkit_keypad.py
 tools/hostkit_session_selftest.py tools/hostkit_session/fake.c tests/test_hostkit_session.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
@@ -523,7 +523,7 @@ native/frame_stop_checks.c
 native/gamestate.h native/gamestate.inc native/state_envelope.h native/state_io.h native/psg_state.inc native/psg_runs.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
 native/gg_ext.h native/gg_ext_checks.c native/gg_link.inc tools/gg_ext_selftest.py tools/gg_link_selftest.py native/z80_nmi_checks.c tools/z80_nmi_selftest.py native/z80_chain_glue.inc retrorecomp/z80_chain_build.py native/sn76489/sn76489.c native/sn76489/sn76489.h native/sg1000_machine/sg1000_machine.c native/sg1000_machine/sg1000_machine.h native/sg1000_machine/sg1000_glue.inc native/sg1000_machine/sg1000_headless.inc native/sg1000_machine/sg1000_native_main.c native/sg1000_machine/sg1000_reference_main.c tests/test_z80_chain_glue.py native/sg1000_machine/sg1000_player.c native/sg1000_machine/sg1000_state_file.inc tools/sg1000_player_selftest.py tests/test_z80_chain_build.py
-native/z80_learned_set.h native/z80_learned_set_checks.c tools/z80_learn_cap_selftest.py tests/test_z80_learn_cap.py native/z80_costs_emit.c native/z80_costs_checks.c tools/z80_costs_selftest.py native/z80_contention_checks.c tools/z80_contention_selftest.py retrorecomp/z80_timing.py tools/z80_timing_vectors.py tests/test_z80_timing.py retrorecomp/z80_timed.py tools/z80_timed_selftest.py tests/test_z80_timed.py native/z80_ports_emit.c native/z80_ports_checks.c tools/z80_ports_selftest.py retrorecomp/resource_rebuild.py tests/test_resource_rebuild.py native/z80_contention_gate.c tools/z80_contention_loop_selftest.py tests/test_z80_contention_loop.py
+native/z80_learned_set.h native/z80_learned_set_checks.c tools/z80_learn_cap_selftest.py tests/test_z80_learn_cap.py native/z80_costs_emit.c native/z80_costs_checks.c tools/z80_costs_selftest.py native/tms9918_sprite_checks.c tools/tms9918_sprite_selftest.py tests/test_tms9918_sprites.py native/z80_contention_checks.c tools/z80_contention_selftest.py retrorecomp/z80_timing.py tools/z80_timing_vectors.py tests/test_z80_timing.py retrorecomp/z80_timed.py tools/z80_timed_selftest.py tests/test_z80_timed.py native/z80_ports_emit.c native/z80_ports_checks.c tools/z80_ports_selftest.py retrorecomp/resource_rebuild.py tests/test_resource_rebuild.py native/z80_contention_gate.c tools/z80_contention_loop_selftest.py tests/test_z80_contention_loop.py
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py
 native/audio_output.inc native/audio_checks.c tools/audio_selftest.py

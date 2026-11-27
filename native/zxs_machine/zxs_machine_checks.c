@@ -108,10 +108,17 @@ static void contention_checks(void)
 
 /* The floating bus (an unattached port reads what the ULA fetches), from Ramsoft's floating bus guide: in each 8 T-states of the
  * first 128 of a paper line the bitmap byte, the attribute, the next bitmap byte, the next attribute, then FFh; the first fetch
- * at T-state 14347 (48K) or 14368 (128K); the I/O cycle samples the bus 3 T-states after its start and its contention. */
+ * at T-state 14347 (48K) or 14368 (128K); the I/O cycle samples the bus at its end, 4 T-states after its start and its contention
+ * (Clock Signal, MAME 0.289). read_at takes the sample's moment; read_cycle the I/O cycle's start. */
 static uint8_t read_at(uint64_t sample, unsigned wait, uint16_t port)
 {
-    m.io_t = sample - 3 - wait; m.io_wait = wait;
+    m.io_t = sample - ZXS_FLOATING_SAMPLE - wait; m.io_wait = wait;
+    return zxs_in(&m, port);
+}
+
+static uint8_t read_cycle(uint64_t start, unsigned wait, uint16_t port)
+{
+    m.io_t = start; m.io_wait = wait;
     return zxs_in(&m, port);
 }
 
@@ -122,6 +129,9 @@ static void floating_bus_checks(void)
     screen[0x0000] = 0xA1; screen[0x1800] = 0xB2; screen[0x0001] = 0xC3; screen[0x1801] = 0xD4;   /* line 0, columns 0 and 1 */
     screen[0x0002] = 0xE5; screen[0x0100] = 0x96; screen[0x0020] = 0x87; screen[0x1820] = 0x78;   /* column 2; lines 1 and 8 */
     check("48K floating bus: FFh before the first fetch", read_at(14346, 0, 0x00FF), 0xFF);
+    check("48K floating bus: an I/O cycle from 14343 samples the first bitmap at its end", read_cycle(14343, 0, 0x00FF), 0xA1);
+    check("48K floating bus: one from 14342 still reads FFh", read_cycle(14342, 0, 0x00FF), 0xFF);
+    check("48K floating bus: one from 14340 delayed 3 T-states samples at 14347", read_cycle(14340, 3, 0x00FF), 0xA1);
     check("48K floating bus: the bitmap at 14347", read_at(14347, 0, 0x00FF), 0xA1);
     check("48K floating bus: its attribute at 14348", read_at(14348, 0, 0x00FF), 0xB2);
     check("48K floating bus: the next bitmap at 14349", read_at(14349, 0, 0x00FF), 0xC3);

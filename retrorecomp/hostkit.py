@@ -25,6 +25,8 @@ SHELL_INCLUDED = ('shell/rrhk_session.inc', 'shell/rrhk_chat.inc',   # rrhk_sess
 # System and the Game Gear share one; an adapter an engine's own platform file includes, `.inc`, is staged but
 # not compiled by itself). A new machine adds no line here.
 ADAPTERS = {profile.id: profile.host_adapter for profile in all_profiles() if profile.host_adapter}
+# A piece several adapters include and that no build lists by itself: staged beside the adapter that includes it.
+ADAPTER_PIECES = ('adapters/rrhk_sprite_option.inc',)
 
 
 def sources(family: str) -> list[str]:
@@ -32,9 +34,15 @@ def sources(family: str) -> list[str]:
     return ['hostkit/' + name for name in (*SHELL, ADAPTERS[family]) if name.endswith('.c')]
 
 
+def adapter_includes(family: str) -> list[str]:
+    """The shared adapter pieces the machine's adapter includes that are staged with it (ADAPTER_PIECES, below native/hostkit)."""
+    adapter = (ASSETS / 'native/hostkit' / ADAPTERS[family]).read_text(encoding='utf-8')
+    return [name for name in ADAPTER_PIECES if f'#include "hostkit/{name}"' in adapter]
+
+
 def stage(project: Path, family: str) -> list[str]:
     """Copy the kit's headers, shell and the machine's adapter into `project/hostkit`; returns the C files to compile."""
-    for name in (*HEADERS, *SHELL, *SHELL_INCLUDED, ADAPTERS[family]):
+    for name in (*HEADERS, *SHELL, *SHELL_INCLUDED, ADAPTERS[family], *adapter_includes(family)):
         target = project / 'hostkit' / name
         data = (ASSETS / 'native/hostkit' / name).read_bytes()
         if target.is_file() and target.read_bytes() == data:

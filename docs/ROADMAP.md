@@ -14,7 +14,8 @@ fallback stays counted and shown wherever it is used.
 | --- | --- | --- |
 | Master System | supported | the evidence lot below |
 | Game Gear | supported | the evidence lot below |
-| Game Boy | supported | Game Boy Color as a profile of its own |
+| Game Boy | supported | the remaining test ROMs, at low priority |
+| Game Boy Color | experimental, in development (not in a release yet) | the owner's play test, routes that play further on the whole panel, the cause of the `cgb-acid2` difference, an optimisation pass |
 | NES | supported | broader panel |
 | Mega Drive | supported | report and Linux witness; MAME sound comparison |
 | Super Nintendo | supported | Linux witness; DSP-2 and DSP-4 |
@@ -69,9 +70,8 @@ flicker reduction, offered as on the Master System.
 
 ### Game Boy
 
-Next: the **Game Boy Color** as a profile of its own: the pinned engine already runs the
-Color mode, but its timing tests do not all pass yet in that mode, and Color-only cartridges stay refused until then.
-The remaining test ROMs (the wave channel read while it plays, the `oam_bug` timing effect) are listed in
+The **Game Boy Color** has its own experimental profile on the same engine since November 2026
+([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)). Next for the Game Boy: the remaining test ROMs (the wave channel read while it plays, the `oam_bug` timing effect) are listed in
 [KNOWN_FAILURES.md](KNOWN_FAILURES.md) and have a low priority: no game of the campaigns shows them.
 
 ### NES
@@ -196,7 +196,7 @@ list, multiplayer and an optimisation pass. The SG-1000 has its experimental pro
 | Machine | What is reused | What is new |
 | --- | --- | --- |
 | SG-1000 | the Z80, the TMS9918A video chip of the MSX, the SN76489 sound chip of the Master System | the board, the pads |
-| Game Boy Color | the Game Boy's CPU and engine, which already runs the colour mode | colour-mode timing, double speed, the colour boot ROM question |
+| Game Boy Color | the Game Boy's CPU and engine, which already runs the colour mode | done as an experimental machine (22 November 2026, [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): Color-only fixes of the runtime, no boot ROM, the link cable; the owner has not played it |
 | ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller; its experimental profile has begun for developers (21 November 2026, [COLECOVISION.md](COLECOVISION.md)) |
 | Amstrad CPC | the Z80, the AY sound chip of the MSX | the video, the floppy drive, code loaded from disk |
 | ZX Spectrum | the Z80, the AY sound chip (128K) | the video, snapshots first (tapes later); study approved 21 November 2026, experimental profile begun ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)) |
