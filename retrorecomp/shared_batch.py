@@ -56,6 +56,25 @@ def prepare(keys, enabled: bool) -> dict:
         return {'paths': {}, 'summary': None, 'error': exc, 'base': None}
 
 
+# The reasons the base can fail with (online.BASE_ERRORS, and knowledge_exchange.BaseArchiveError.reason) and the sentence
+# that names each one, for the window and the command line alike; a reason that is not here is shown as it comes.
+BASE_PROBLEM_KEYS = {'offline': 'online_unreachable', 'unavailable': 'base_error_unavailable',
+                     'no_base': 'base_error_nobase', 'no_path': 'base_error_nopath', 'format': 'base_error_format',
+                     'verify': 'base_error_verify', 'checksum': 'base_error_verify', 'incomplete': 'base_error_verify',
+                     'disk': 'base_error_disk', 'too_large': 'base_error_toolarge'}
+
+
+def base_problem(error, tr) -> str | None:
+    """The sentence naming a problem of the base (a BASE_ERRORS code, or an exception that carries one as its `reason`),
+    through `tr(key)`; None when it is not one of them."""
+    from . import online
+    if isinstance(error, online.ServiceConnectionError):
+        return tr('online_unreachable')
+    code = error if isinstance(error, str) else getattr(error, 'reason', '')
+    key = BASE_PROBLEM_KEYS.get(code)
+    return tr(key) if key else None
+
+
 def byte_size(count) -> str:
     """A download size in words: '312 KiB', '4.7 MiB'."""
     return f'{count / 1048576:.1f} MiB' if count >= 1048576 else f'{max(1, round(count / 1024))} KiB'

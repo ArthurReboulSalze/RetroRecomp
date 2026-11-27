@@ -431,6 +431,37 @@ Host files only: `native/hostkit/shell/rrhk_input.c` and `native/runtime_catalog
 So the host stamp of every host-kit machine moves and its exports are upgraded (rebuilt), never rediscovered. The
 game part is unchanged. Preferences are unchanged: a `device=<GUID>` saved by the previous release still pins its pad.
 
+## Linux: the full shared base is accepted, Fedora's packages are checked, progress lines follow the language (next release)
+
+Found on 27 November 2026 by converting five games on WSL Ubuntu 26.04 and Fedora 45 (published 1.9.1 as the control). What
+changes for a player:
+- **The full shared base is no longer refused.** A player with no local base (the Linux `.tar.gz`, the bare executable, a lost
+  base) downloaded the 261 MB full base, no. 28 (1,218,222,201 bytes unpacked), and the converter refused it as an
+  unreadable format because it bounded the unpacked size to 1 GiB; every conversion then did a full discovery. The bound is 8 GiB
+  (`BASE_UNPACKED_LIMIT`, only an anti-zip-bomb ceiling: the server stays well below it, and below the ceiling of the oldest converter
+  it serves, `knowledge_exchange.base_unpacked_ceiling(version)`, a pure function the site can mirror: 1 GiB up to 1.9.1), the full
+  archive's size bound 1 GiB (`BASE_FULL_LIMIT`, was 512 MiB); before a base is unpacked the disk must hold its unpacked size plus
+  256 MiB, else the update reports the existing `disk` error (`require_room_for`); the member bound (250,000) is far
+  above the base's 5,370. An archive beyond a bound now says so (reason `too_large`, « the base archive is larger than this version
+  accepts: update Retro-Recomp ») instead of « a format this version cannot read », in the window and on the command line.
+  The batch line no longer prints the raw code (« Shared base: format The conversions go on... »): every error the base can return is
+  named, in the eight languages (`shared_batch.base_problem`, shared by the window and `batch`).
+- **Fedora and its relatives get the dependency check.** The build packages were checked with `dpkg-query` only, so on Fedora
+  and Bazzite nothing was checked and a missing `-devel` header failed later in CMake. The distribution is read from
+  `/etc/os-release` (`ID`, `ID_LIKE`); Fedora, RHEL-like systems are checked with `rpm -q` against the 27 dnf names (the apt list
+  name for name) and installed with `pkexec dnf install`; `batch` appends the install command to its missing-tools error. An
+  image-based system (rpm-ostree) is sent to a toolbox or distrobox with the command, and nothing is attempted on the system.
+  [LINUX.md](LINUX.md) and [INSTALLING.md](INSTALLING.md) give the command. Bazzite itself has not been tested.
+- **No French progress line in an English run.** `Compilation du traducteur Z80 → C…` had no English form, and the shared steps
+  and the batch's own lines (`Niveau de scan…`, `Ancien exécutable conservé…`, ScummVM data) were printed untranslated by `batch`
+  and the window's batch log. They now pass through `i18n.log_text`: the seven shared-step lines come out in the player's language
+  in all eight (the window's own step names, `deps_step_*`), the others in English; French stays French.
+
+**Stamps**: none moves. Only interface modules changed (`knowledge_exchange`, `online`, `shared_batch`, `updater`, `i18n`,
+`gui_sharing`, `gui_conversion`) and `RetroRecomp.py`; `core.py` and `batch.py` are game inputs and were left alone on purpose, so
+no export is rebuilt or rediscovered. The role stamps of all 27 machines were compared before and after: identical. Locale files
+(`assets/locales`) gain one key, `base_error_toolarge`.
+
 ## ZX Spectrum: converted through batch and the window on a developer tree (next release)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`

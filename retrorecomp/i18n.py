@@ -667,6 +667,7 @@ STRINGS = {
     'base_error_unavailable': ('the online service is turned off.', 'le service en ligne est désactivé.'),
     'base_error_format': ('the base uses a format this version of Retro-Recomp cannot read: update Retro-Recomp.', 'la base utilise un format que cette version de Retro-Recomp ne sait pas lire : mets Retro-Recomp à jour.'),
     'base_error_disk': ('the base could not be written on this computer.', 'la base n’a pas pu être écrite sur cet ordinateur.'),
+    'base_error_toolarge': ('the base archive is larger than this version of Retro-Recomp accepts: update Retro-Recomp.', 'l’archive de la base dépasse ce que cette version de Retro-Recomp accepte : mets Retro-Recomp à jour.'),
     'online_outdated': ('This version of Retro-Recomp is too old to send discoveries. Update Retro-Recomp: your discoveries stay here and will be sent after the update.', 'Cette version de Retro-Recomp est trop ancienne pour envoyer des découvertes. Mets Retro-Recomp à jour : tes découvertes restent ici et partiront après la mise à jour.'),
     'online_outdated_min': ('The service now needs Retro-Recomp {minimum} or newer to send discoveries. Update Retro-Recomp: your discoveries stay here and will be sent after the update.', 'Le service demande maintenant Retro-Recomp {minimum} ou plus récent pour envoyer des découvertes. Mets Retro-Recomp à jour : tes découvertes restent ici et partiront après la mise à jour.'),
     'auto_send_done': ('Shared base: the new discoveries of {games} games were sent automatically.', 'Base commune : les nouvelles découvertes de {games} jeux sont parties automatiquement.'),
@@ -1261,6 +1262,22 @@ LOG_TRANSLATIONS = {
     'Arrêt : budget de passes atteint.': 'Stopped: pass budget reached.',
     'Compilation de SDL2 statique (première utilisation)…': 'Compiling the static SDL2 (first use)…',
     'Compilation de SDL2 statique (nouveaux réglages)…': 'Compiling the static SDL2 again (new build settings)…',
+    'Compilation du traducteur Z80 → C…': 'Compiling the Z80 → C translator…',
+    'Aucune cover locale correspondante ; téléchargement désactivé.': 'No matching local box art; download turned off.',
+    'Réponse du serveur trop volumineuse.': 'The server answer is too large.',
+    'La console de cette ROM a changé depuis son ajout au lot.': 'The console of this ROM changed since it was added; add it again.',
+    "Impossible d'enregistrer le profil vidéo.": 'The video profile could not be saved.',
+}
+# The steps of dependencies() that the window names in every language (gui_updates.py): the same line in the log, in the
+# player's language (English keeps its own wording above and in LOG_PATTERNS).
+LOG_STEP_KEYS = {
+    'Téléchargement de smsggrecomp…': 'deps_step_engine',
+    'Téléchargement de SDL…': 'deps_step_sdl_fetch',
+    'Mise à jour de smsggrecomp vers la version épinglée…': 'deps_step_engine_update',
+    'Mise à jour de SDL vers la version épinglée…': 'deps_step_sdl_update',
+    'Compilation du traducteur Z80 → C…': 'deps_step_translator',
+    'Compilation de SDL2 statique (première utilisation)…': 'deps_step_sdl',
+    'Compilation de SDL2 statique (nouveaux réglages)…': 'deps_step_sdl_again',
 }
 LOG_PATTERNS = [
     (r'^ROM : (.*), (\d+) Ko, CRC32 (.*)$', r'ROM: \1, \2 KB, CRC32 \3'),
@@ -1282,6 +1299,12 @@ LOG_PATTERNS = [
     (r'^(.*) nouvelles entrées repérées : recompilation à la passe suivante.$', r'\1 new entries found: recompiling on the next pass.'),
     (r'^Comparaison CPU/VDP de référence : identique.$', r'Reference CPU/VDP comparison: matching.'),
     (r'^Comparaison CPU/VDP de référence : divergence à examiner.$', r'Reference CPU/VDP comparison: differences to investigate.'),
+    (r'^Niveau de scan (.*) : (\d+) parcours pseudo-aléatoires reproductibles de (\d+) images.$',
+     r'Scan level \1: \2 reproducible pseudo-random routes of \3 frames.'),
+    (r'^Ancien exécutable conservé : (.*)$', r'Previous executable kept: \1'),
+    (r'^Commande interrompue \((\d+)\)\.', r'Command stopped (\1).'),
+    (r'^La variante native change le résultat (.*) : (.*)\. Exécutable candidat conservé dans (.*), sortie précédente préservée\.$',
+     r'The native variant changes the result \1: \2. Candidate executable kept in \3, previous output preserved.'),
     # core.follow_pin: the engine sources and SDL of dependencies() follow their pins.
     (r'^Mise à jour de (.*) vers la version épinglée…$', r'Updating \1 to the pinned revision…'),
     (r'^Impossible de récupérer la version épinglée de (.*) \((.*)\) depuis (.*) : vérifie la connexion, puis relance la conversion \(détails dans (.*)\)\.$',
@@ -1297,6 +1320,7 @@ LOG_PATTERNS = [
     (r'^Compilation de FreeType…$', r'Compiling FreeType…'),
     (r'^Préparation de ScummVM \((.*)\)…$', r'Preparing ScummVM (\1)…'),
     (r'^Compilation de ScummVM \((.*)\)…$', r'Compiling ScummVM (\1)…'),
+    (r'^Données de ScummVM \((.*)\) : (\d+) fichiers\.$', r'ScummVM data (\1): \2 files.'),
 ]
 # Sentences a conversion raises in English, since a build module knows no language: the window shows them in the player's own,
 # with what comes before them on the line (the title of the game).
@@ -1348,6 +1372,8 @@ def log_text(text: str, language: str = 'en') -> str:
             return before + tr(key, language, log=rest[:len(rest) - len(end)] if end else rest)
     if language == 'fr':
         return text
+    if language != 'en' and text in LOG_STEP_KEYS:
+        return tr(LOG_STEP_KEYS[text], language)
     if text in LOG_TRANSLATIONS:
         return LOG_TRANSLATIONS[text]
     for pattern, replacement in LOG_PATTERNS:

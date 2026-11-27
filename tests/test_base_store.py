@@ -7,6 +7,7 @@ complete base at a direct address (tests/test_shared_base.py), and a temporary
 application folder holding the installer's copy.
 """
 import hashlib
+import io
 import json
 import os
 import time
@@ -287,11 +288,11 @@ class StoreTests(BaseHarness):
         one = entry(part(1, 'standard', (0x100,)))
         self.publish(1, {KEY: (one[0], [1])}, entries=[one])
         with patch.object(knowledge_exchange, 'BASE_ENTRY_LIMIT', 16):
-            self.assertEqual(online.update_base()['error'], 'verify')
+            self.assertEqual(online.update_base()['error'], 'too_large')
         with patch.object(knowledge_exchange, 'BASE_ZIP_MEMBERS', 2):
-            self.assertEqual(online.update_base()['error'], 'verify')
+            self.assertEqual(online.update_base()['error'], 'too_large')
         with patch.object(knowledge_exchange, 'BASE_UNPACKED_LIMIT', 10):
-            self.assertEqual(online.update_base()['error'], 'verify')
+            self.assertEqual(online.update_base()['error'], 'too_large')
         # The manifest's own sizes are bounded too: a huge difference is not even asked for.
         manifest = self.server.base['manifest']
         manifest['full']['bytes'] = online.BASE_FULL_LIMIT + 1
@@ -636,6 +637,109 @@ class EntryTests(unittest.TestCase):
         self.assertEqual((current['engine'], others), (ENGINE, []))
         self.assertEqual(knowledge_exchange.split_qualified('sms', [current], None)[0], None)
         self.assertEqual(knowledge_exchange.split_qualified('sms', [current], OTHER_ENGINE), (None, [current]))
+
+
+class BaseSizeBoundsTests(unittest.TestCase):
+    """The full base of 1 July 2026 onwards unpacks to more than 1 GiB (no. 28: 1,218,222,201 bytes in 5,370 members, 261 MB
+    zipped): a player with no local base downloaded it, and it was refused as a format. Synthetic archives only: the size
+    is the `file_size` the zip says, never bytes on disk."""
+
+    def archive(self, padding_size):
+        raw = knowledge_exchange.canonical_bytes({'format': 3, 'version': 28, 'built_utc': 'x', 'games': {}})
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as target:
+            target.writestr('manifest.json', json.dumps({'format': 3, 'version': 28, 'built_utc': 'x', 'games': 0,
+                                                         'index_sha256': hashlib.sha256(raw).hexdigest()}))
+            target.writestr('index.json', raw)
+            target.writestr('entries/padding', b'')
+        archive = zipfile.ZipFile(io.BytesIO(buffer.getvalue()))
+        self.addCleanup(archive.close)
+        archive.getinfo('entries/padding').file_size = padding_size
+        return archive
+
+    def test_the_size_of_the_live_base_is_accepted_and_four_gib_is_the_edge(self):
+        old_limit = 1024 ** 3
+        self.assertEqual(knowledge_exchange.BASE_UNPACKED_LIMIT, 8 * 1024 ** 3)
+        self.assertGreater(knowledge_exchange.BASE_UNPACKED_LIMIT, 1_218_222_201 * 6)
+        self.assertEqual(knowledge_exchange.read_archive_head(self.archive(old_limit + 1))['version'], 28)
+        self.assertEqual(knowledge_exchange.read_archive_head(self.archive(1_218_222_201))['version'], 28)
+        edge = knowledge_exchange.BASE_UNPACKED_LIMIT
+        self.assertEqual(knowledge_exchange.read_archive_head(self.archive(edge - 1000))['version'], 28)
+        with self.assertRaises(knowledge_exchange.BaseArchiveError) as caught:
+            knowledge_exchange.read_archive_head(self.archive(edge + 1))
+        self.assertEqual(caught.exception.reason, 'too_large')   # not "a format this version cannot read"
+
+    def test_the_ceiling_of_each_release_is_a_pure_function_the_site_can_mirror(self):
+        ceiling = knowledge_exchange.base_unpacked_ceiling
+        self.assertEqual(ceiling('1.9.1'), 1024 ** 3)
+        self.assertEqual(ceiling('1.6.0'), 1024 ** 3)
+        self.assertEqual(ceiling('1.9.2'), knowledge_exchange.BASE_UNPACKED_LIMIT)
+        self.assertEqual(ceiling('2.0.0'), knowledge_exchange.BASE_UNPACKED_LIMIT)
+        self.assertEqual(ceiling('garbage'), 1024 ** 3)
+
+    def test_a_disk_without_room_is_a_disk_error_and_changes_nothing(self):
+        import collections
+        import tempfile
+        usage = collections.namedtuple('usage', 'total used free')
+        with tempfile.TemporaryDirectory() as folder:
+            from pathlib import Path
+            target = Path(folder) / 'not' / 'made' / 'yet'
+            with patch('shutil.disk_usage', return_value=usage(10, 0, 1000)):
+                with self.assertRaises(OSError) as caught:
+                    knowledge_exchange.require_room_for(target, 5)
+            self.assertEqual(online._error_code(caught.exception), 'disk')
+            with patch('shutil.disk_usage', return_value=usage(10, 0, 5 + knowledge_exchange.BASE_DISK_MARGIN)):
+                knowledge_exchange.require_room_for(target, 5)
+            self.assertFalse(target.exists())
+
+    def test_too_many_members_are_refused_for_the_same_reason(self):
+        with patch.object(knowledge_exchange, 'BASE_ZIP_MEMBERS', 2):
+            with self.assertRaises(knowledge_exchange.BaseArchiveError) as caught:
+                knowledge_exchange.read_archive_head(self.archive(0))
+        self.assertEqual(caught.exception.reason, 'too_large')
+        self.assertGreater(knowledge_exchange.BASE_ZIP_MEMBERS, 5370 * 10)
+
+    def test_a_too_large_archive_has_its_own_reason_in_the_update_and_in_every_language(self):
+        from retrorecomp import gui, shared_batch
+        from retrorecomp.i18n import tr
+        from retrorecomp.languages import LANGUAGES
+        too_large = knowledge_exchange.BaseArchiveError('too_large', 'the archive is too large')
+        self.assertEqual(online._error_code(too_large), 'too_large')
+        self.assertIn('too_large', online.BASE_ERRORS)
+        self.assertEqual(online._error_code(knowledge_exchange.BaseArchiveError('format')), 'verify')
+        owner = gui.Application.__new__(gui.Application)
+        for code in LANGUAGES:
+            owner.language = code
+            phrase = tr('base_error_toolarge', code)
+            self.assertNotEqual(phrase, tr('base_error_format', code))
+            self.assertNotEqual(phrase, tr('base_error_verify', code))
+            line = owner.base_update_line({'version': 28, 'error': 'too_large'})
+            self.assertEqual(line, tr('base_update_failed', code, error=phrase))
+
+    def test_the_batch_line_names_every_error_the_base_can_return(self):
+        from retrorecomp import shared_batch
+        from retrorecomp.i18n import tr
+        say = lambda key, **values: tr(key, 'en', **values)
+
+        def problem(error):
+            return shared_batch.base_problem(error, say) or getattr(error, 'reason', '') or str(error)
+
+        base = lambda error: {'version': 27, 'games': 0, 'offline': False, 'note': None, 'error': error}
+        reasons = [*online.BASE_ERRORS, 'checksum', 'incomplete']
+        for reason in reasons:
+            if reason == 'service':
+                continue   # the service's own words (online_refused) are the window's too
+            for error in (reason, knowledge_exchange.BaseArchiveError(reason)):
+                named = problem(error)
+                self.assertNotEqual(named, reason, reason)
+                lines = shared_batch.base_lines(base(error), None, None, say, problem)
+                text = ' '.join(line for _, line in lines)
+                self.assertIn(named, text, reason)
+                self.assertNotRegex(text, r'Shared base: %s ' % reason)
+        too_large = knowledge_exchange.BaseArchiveError('too_large', 'the archive is too large')
+        text = shared_batch.base_lines(base(too_large), None, None, say, problem)[0][1]
+        self.assertEqual(text, say('shared_base_unavailable', error=say('base_error_toolarge')))
+        self.assertIn('larger than this version', text)
 
 
 if __name__ == '__main__':

@@ -467,11 +467,10 @@ def main() -> int:
                 keys = shared_batch.rom_keys([(item.system, item.sha256, item.path) for item in items
                                               if item.system and item.sha256 and not item.error], ng_bios)
                 outcome = shared_batch.prepare(keys, use_shared)
-                def problem(error):
-                    if isinstance(error, online.ServiceConnectionError):
-                        return tr('online_unreachable', args.language)
-                    return getattr(error, 'reason', '') or str(error) or type(error).__name__
                 say = lambda key, **values: tr(key, args.language, **values)
+                def problem(error):
+                    return (shared_batch.base_problem(error, say)
+                            or getattr(error, 'reason', '') or str(error) or type(error).__name__)
                 for kind, text in shared_batch.base_lines(outcome['base'], outcome['summary'], outcome['error'],
                                                           say, problem):
                     if kind == 'log':
@@ -482,6 +481,7 @@ def main() -> int:
                                           {item.system for item in items})
                 try:
                     record = convert_batch(items, args.output, shared_paths=outcome['paths'],
+                        emit=lambda text: print(log_text(text, args.language)),
                         jobs=args.jobs, prepare_shared=True, overwrite=not args.no_overwrite, force=args.force,
                         passes=args.passes, frames=args.frames,
                         backend=args.backend, language=args.language,
@@ -509,6 +509,7 @@ def main() -> int:
                     item.title = args.title
                 item.cover = args.cover
                 record = convert_batch([item], args.output or games_root(), profile=args.profile,
+                    emit=lambda text: print(log_text(text, args.language)),
                     prepare_shared=True,
                     passes=args.passes, frames=args.frames, backend=args.backend, language=args.language,
                     boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover,
@@ -523,7 +524,11 @@ def main() -> int:
                 save_game_language(Path(result['executable']).parent, args.language)
         return 0
     except (ConversionError, OSError, TimeoutError, ValueError) as exc:
-        print("Retro-Recomp: " + log_text(str(exc), getattr(args, "language", "en")), file=sys.stderr)
+        message = log_text(str(exc), getattr(args, "language", "en"))
+        if str(exc).startswith("Missing Linux build tools"):
+            from retrorecomp.updater import linux_install_hint
+            message += linux_install_hint()    # the packages to install, named for this distribution (apt or dnf)
+        print("Retro-Recomp: " + message, file=sys.stderr)
         return 1
 
 

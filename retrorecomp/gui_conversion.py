@@ -231,7 +231,7 @@ class ConversionMixin:
                 record = convert_in_groups(items, output, jobs=shared_jobs, per_console=per_console,
                     cancel=self.cancel, stop_now=self.stop_now, convert=convert_batch,
                     **options, shared_paths=shared,
-                    emit=lambda text: self.messages.put(('log', text)),
+                    emit=lambda text: self.messages.put(('log', log_text(text, self.language))),
                     on_event=event)
                 self.forget_rejected_shared(shared, record['games'])
                 if journal is not None:

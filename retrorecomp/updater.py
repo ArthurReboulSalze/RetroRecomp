@@ -479,6 +479,15 @@ LINUX_PACKAGES = ('build-essential', 'cmake', 'ninja-build', 'pkg-config', 'git'
                   'libdrm-dev', 'libgbm-dev', 'libdbus-1-dev')
 
 
+# The same set for Fedora (and RHEL-like systems), one name for one name: build-essential becomes gcc, gcc-c++ and make.
+DNF_PACKAGES = ('gcc', 'gcc-c++', 'make', 'cmake', 'ninja-build', 'pkgconf-pkg-config', 'git', 'curl',
+                'libX11-devel', 'libXext-devel', 'libXrandr-devel', 'libXcursor-devel', 'libXi-devel',
+                'libXinerama-devel', 'libXScrnSaver-devel', 'libXfixes-devel', 'libxkbcommon-devel',
+                'wayland-devel', 'alsa-lib-devel', 'pulseaudio-libs-devel', 'systemd-devel',
+                'mesa-libGL-devel', 'mesa-libEGL-devel', 'mesa-libGLES-devel', 'libdrm-devel',
+                'mesa-libgbm-devel', 'dbus-devel')
+
+
 class ToolInstallError(Exception):
     """A build tool could not be installed; the message is for the user."""
 
@@ -512,24 +521,79 @@ def _windows_compiler() -> bool:
         return False
 
 
+def linux_family(os_release: str | None = None) -> str | None:
+    """'debian' (Debian, Ubuntu and their derivatives), 'fedora' (Fedora, RHEL and
+    their derivatives, Bazzite among them) or None, from /etc/os-release (ID, then
+    ID_LIKE). `os_release` is that file's text (read from the system when None).
+    Without the file, the package tool that is there decides."""
+    if os_release is None:
+        for path in ('/etc/os-release', '/usr/lib/os-release'):
+            try:
+                os_release = Path(path).read_text(encoding='utf-8', errors='replace')
+                break
+            except OSError:
+                continue
+    if os_release is not None:
+        values = {}
+        for line in os_release.splitlines():
+            key, separator, value = line.partition('=')
+            if separator and key.strip() in ('ID', 'ID_LIKE'):
+                values[key.strip()] = value.strip().strip('"\'').lower()
+        names = (values.get('ID', '') + ' ' + values.get('ID_LIKE', '')).split()
+        if any(name in ('debian', 'ubuntu') for name in names):
+            return 'debian'
+        if any(name in ('fedora', 'rhel', 'centos') for name in names):
+            return 'fedora'
+    if shutil.which('dpkg-query'):
+        return 'debian'
+    if shutil.which('rpm') and shutil.which('dnf'):
+        return 'fedora'
+    return None
+
+
+def linux_packages(family: str | None = None) -> tuple[str, ...]:
+    """The build packages of a distribution family: the dnf names for 'fedora', else the apt names."""
+    return DNF_PACKAGES if (family or linux_family()) == 'fedora' else LINUX_PACKAGES
+
+
+def linux_install_hint() -> str:
+    """A sentence naming the command that installs the build packages of this distribution (apt or dnf), to follow a
+    missing-tools error; empty on a distribution that is neither."""
+    family = linux_family()
+    if family is None:
+        return ''
+    return '. Install the build packages: sudo ' + ' '.join(linux_install_command(linux_packages(family), family))
+
+
 def _linux_missing_packages() -> list[str]:
-    if not shutil.which('dpkg-query'):
+    family = linux_family()
+    if family == 'fedora' and shutil.which('rpm'):
+        command = ['rpm', '-q', '--qf', '%{NAME}\n', *DNF_PACKAGES]
+        names = DNF_PACKAGES
+    elif family == 'debian' and shutil.which('dpkg-query'):
+        command = ['dpkg-query', '-W', '-f', '${Package} ${db:Status-Status}\n', *LINUX_PACKAGES]
+        names = LINUX_PACKAGES
+    else:
         return []
     try:
-        result = subprocess.run(['dpkg-query', '-W', '-f', '${Package} ${db:Status-Status}\\n', *LINUX_PACKAGES],
-                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=30)
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return []
-    installed = {line.split()[0] for line in result.stdout.splitlines()
-                 if line.strip().endswith(' installed')}
-    return [name for name in LINUX_PACKAGES if name not in installed]
+    if family == 'fedora':
+        # rpm prints the name of an installed package and "package X is not installed" for the others.
+        installed = {line.strip() for line in result.stdout.splitlines()}
+    else:
+        installed = {line.split()[0] for line in result.stdout.splitlines()
+                     if line.strip().endswith(' installed')}
+    return [name for name in names if name not in installed]
 
 
 def missing_build_tools() -> dict:
     """What a conversion still needs on this computer: {} when ready.
 
     Windows: {'git': bool, 'compiler': bool}; Linux: {'packages': [...]}
-    (Debian/Ubuntu), or {'commands': [...]} on other distributions."""
+    (Debian/Ubuntu: apt names; Fedora and relatives: dnf names), or
+    {'commands': [...]} on other distributions."""
     use_installed_tools()
     if os.name == 'nt':
         needs = {'git': not shutil.which('git'), 'compiler': not _windows_compiler()}
@@ -688,13 +752,38 @@ def install_toolchain(progress) -> None:
     use_installed_tools()
 
 
-def linux_install_command(packages) -> list[str]:
+def linux_install_command(packages, family: str | None = None) -> list[str]:
+    """The command (without sudo) that installs `packages` on this distribution family."""
+    if (family or linux_family()) == 'fedora':
+        return ['dnf', 'install', '-y', '--setopt=install_weak_deps=False', *packages]
     return ['apt-get', 'install', '-y', '--no-install-recommends', *packages]
 
 
+def linux_immutable() -> bool:
+    """An image-based system (Fedora Atomic, Bazzite): the packages go in a toolbox, not on the system."""
+    return Path('/run/ostree-booted').exists()
+
+
 def install_linux_packages(packages, progress) -> None:
-    """apt through pkexec (the desktop asks for the password); progress comes
-    from apt's status lines."""
+    """apt (or dnf) through pkexec (the desktop asks for the password); with apt the
+    progress comes from its status lines."""
+    family = linux_family()
+    if family == 'fedora':
+        manual = 'sudo ' + ' '.join(linux_install_command(packages, family))
+        if linux_immutable():
+            raise ToolInstallError('This system is image-based (rpm-ostree): its packages cannot be added here. '
+                                   'Open a toolbox or distrobox container and run: ' + manual)
+        if not shutil.which('pkexec'):
+            raise ToolInstallError('pkexec is missing: run in a terminal: ' + manual)
+        try:
+            process = subprocess.run(['pkexec', *linux_install_command(packages, family)],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3600)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise ToolInstallError(str(error)) from error
+        if process.returncode != 0:
+            raise ToolInstallError('The packages could not be installed (dnf stopped or the password was refused).')
+        progress('Install', 1000, 1000)
+        return
     if not shutil.which('pkexec'):
         raise ToolInstallError('pkexec is missing: run in a terminal: sudo '
                                + ' '.join(linux_install_command(packages)))
