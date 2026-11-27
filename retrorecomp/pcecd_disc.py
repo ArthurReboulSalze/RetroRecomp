@@ -72,6 +72,68 @@ def chd_disc(path: Path) -> psx_disc.Disc:
     return psx_disc.Disc(path, 'chd', tracks, [source])
 
 
+PACK_MAGIC = b'RRCDPCK1'
+PACK_ROW = struct.Struct('<6IQ')    # start LBA, sectors from index 01, stored pregap sectors, flags (1 raw data, 2 audio), bytes per sector, 0, offset of index 01
+PACK_SUFFIX = '.rrcd'
+
+
+def _cue_text_rules(path: Path) -> int:
+    """What the engine's CUE reader asks that the generic one does not (runtime/src/cue.cpp): BINARY files only, and the POSTGAP of the last track, which moves
+    the lead-out. Returns that POSTGAP in sectors."""
+    postgap = 0
+    for line in path.read_bytes().decode('utf-8', errors='replace').lstrip('﻿').splitlines():
+        words = line.split()
+        if not words:
+            continue
+        key = words[0].upper()
+        if key == 'FILE' and words[-1].upper() != 'BINARY':
+            raise DiscError(f'{path.name}: only BINARY files are read in a PC Engine CD sheet')
+        elif key == 'TRACK':
+            postgap = 0
+        elif key == 'POSTGAP' and len(words) > 1:
+            postgap = psx_disc.msf_to_frames(words[1])
+    return postgap
+
+
+def write_pack(cue: Path, out: Path) -> Path:
+    """A CUE sheet and its images as one file the game can hold and read in place (native/pcecd_disc.cpp): the tracks with the engine's numbering of sectors,
+    then each track's stored pregap and sectors. Nothing is converted or compressed; the files of the player are only read."""
+    cue, out = Path(cue), Path(out)
+    postgap = _cue_text_rules(cue)
+    disc = psx_disc.read_cue(cue)
+    try:
+        tracks = disc.tracks
+        if tracks[0].start != 0 or tracks[0].pregap:
+            raise DiscError(f'{cue.name}: the first track must start at the start of its file')
+        for t in tracks:
+            if t.mode not in ('MODE1/2048', 'MODE1/2352', 'AUDIO'):
+                raise DiscError(f'{cue.name}: track {t.number} is {t.mode}; a PC Engine CD holds MODE1 and AUDIO tracks')
+        offset = 16 + PACK_ROW.size * len(tracks)
+        rows = []
+        for t in tracks:
+            stride = t.source.stride
+            offset += t.stored_pregap * stride
+            flags = 2 if t.audio else (1 if t.mode == 'MODE1/2352' else 0)
+            rows.append(PACK_ROW.pack(t.start, t.length, t.stored_pregap, flags, stride, 0, offset))
+            offset += t.length * stride
+        leadout = tracks[-1].start + tracks[-1].length + postgap
+        out.parent.mkdir(parents=True, exist_ok=True)
+        partial = out.with_name(out.name + '.partial')
+        with open(partial, 'wb') as stream:
+            stream.write(PACK_MAGIC + struct.pack('<II', len(tracks), leadout) + b''.join(rows))
+            for t in tracks:
+                stride = t.source.stride
+                at, left = t.offset - t.stored_pregap * stride, (t.stored_pregap + t.length) * stride
+                while left:
+                    block = min(left, stride * 1024)
+                    stream.write(t.source.read(at, block))
+                    at, left = at + block, left - block
+        partial.replace(out)
+    finally:
+        disc.close()
+    return out
+
+
 def open_disc(path: Path) -> psx_disc.Disc:
     path = Path(path)
     suffix = path.suffix.lower()

@@ -83,11 +83,19 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         # the script of a styled long route is its style's (seeded as the route is); the other routes keep the walk's
         return [(name, count, pcecd_routes.script(styled[name], count, hu.route_seed(item.sha256, name), start_choice['presses'], start_choice['confirm'])
                  if name in styled else text) for name, count, text in rows_]
-    disc_args = ('--disc', str(item.path), '--disc-sha256', item.sha256)
     # Short folders, as the PC Engine's: the engine names its module's object library after a 64-digit hash.
     work = ROOT / '.build' / 'pcecd' / item.sha256[:12]
     with entry_lock(work, timeout=1800):
         project, checks = work / 'n', work / 'checks'
+        image = item.path
+        if item.identity.container == 'cue':
+            # A CUE sheet and its images become one file the game holds (the sheet's own sector numbering, nothing converted): the runs read it and the game gets it.
+            from . import pcecd_disc
+            try:
+                image = pcecd_disc.write_pack(item.path, work / ('disc' + pcecd_disc.PACK_SUFFIX))
+            except (pcecd_disc.DiscError, OSError) as error:
+                raise ConversionError(f'The CUE sheet cannot be packed: {error}') from None
+        disc_args = ('--disc', str(image), '--disc-sha256', item.sha256)
         shutil.rmtree(checks, ignore_errors=True)
         scripts = {}
         for name, count, text in plan:
@@ -221,7 +229,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         phase = time.perf_counter()
         delivered_exe = project / ('game-with-disc.exe' if os.name == 'nt' else 'game-with-disc')
         shutil.copy2(executable, delivered_exe)
-        pcecd_build.append_disc(delivered_exe, item.path, item.sha256)
+        pcecd_build.append_disc(delivered_exe, image, item.sha256)
         refuse_compression(file_sha256(delivered_exe), 'A PC Engine CD game carries its disc after the program: it is published as built, uncompressed '
                                                        '(a compressed copy would move the bytes the program reads).')
         packed = project / ('packed-game.exe' if os.name == 'nt' else 'packed-game')

@@ -1,5 +1,5 @@
-// PC Engine CD disc: a sector provider for the pinned pcenginerecomp runtime that reads a CHD (version 4 or 5) or an ISO from a file, or from the
-// bytes of a larger file (a disc appended to a game executable), through libchdr linked statically.
+// PC Engine CD disc: a sector provider for the pinned pcenginerecomp runtime that reads a CHD (version 4 or 5), an ISO or a packed CUE sheet (retrorecomp/pcecd_disc.py)
+// from a file, or from the bytes of a larger file (a disc appended to a game executable); a CHD through libchdr linked statically.
 // Original RetroRecomp code: MIT. libchdr keeps its own terms (licenses/libchdr.md); the engine its own MIT terms (licenses/pcenginerecomp.md).
 #ifndef RR_PCECD_DISC_H
 #define RR_PCECD_DISC_H

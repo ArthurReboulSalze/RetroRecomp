@@ -118,11 +118,11 @@ def prepare_game(project: Path, item, card, *, title: str, module: Path | None =
 
 def append_disc(executable: Path, image: Path, sha256: str) -> tuple[int, int]:
     """Append the disc to the linked game and its trailer (native/pcecd_pack.h): the game then holds the disc and reads it in place. A CHD or an ISO is
-    appended as it is; (offset, length) of the disc in the file."""
+    appended as it is, a CUE sheet as the packed file the conversion made of it (pcecd_disc.write_pack); (offset, length) of the disc in the file."""
     import shutil
     import struct
-    if image.suffix.lower() not in ('.chd', '.iso'):
-        raise PcecdBuildError(f'{image.name}: only a CHD or an ISO is held by the game so far (a CUE sheet and its images are not packed yet).')
+    if image.suffix.lower() not in ('.chd', '.iso', '.rrcd'):
+        raise PcecdBuildError(f'{image.name}: a game holds a CHD, an ISO or a packed CUE sheet.')
     offset = executable.stat().st_size
     with open(executable, 'ab') as out, open(image, 'rb') as source:
         shutil.copyfileobj(source, out, 8 * 1024 * 1024)
