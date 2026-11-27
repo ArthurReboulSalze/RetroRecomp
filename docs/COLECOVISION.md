@@ -84,6 +84,9 @@ The parts: the profile, the reader, the BIOS check, the machine's description, t
 `native/tms9918` and `native/sn76489`), the conversion loop, the game itself (`coleco_player.c`, its adapter `rrhk_coleco.inc` and its quick states
 `coleco_state_file.inc`), the registries and this page.
 
+**Learning.** Its runtime-feedback kind is 30 (reserved); its games record nothing: the F12 row stays OFF. What a conversion learns comes
+from its own routes, as on the MSX. Path sharing is declined (G16 `-`).
+
 ### Multiplayer
 
 A match is two seats in rollback (docs/MULTIPLAYER.md): the host kit saves one in-process snapshot a frame (the state's body without the picture,
