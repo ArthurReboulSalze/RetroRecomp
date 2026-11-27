@@ -119,9 +119,10 @@ def stage_sources(work: Path) -> None:
     if (work / MUSIC_MARK).is_file():
         z80_chain_build.stage_files(work, ((ASSETS / 'native' / 'msx_machine', MUSIC_FILES),))
     hostkit.stage(work, 'msx')
-    # What the computers' adapters share (the guest keyboard, the captured mouse), included by the MSX adapter.
-    _write(work / 'hostkit' / 'adapters' / 'rrhk_computer.inc',
-           (ASSETS / 'native' / 'hostkit' / 'adapters' / 'rrhk_computer.inc').read_bytes())
+    # What the computers' adapters share (the guest keyboard, the captured mouse), included by the MSX adapter, and the five-language
+    # text it reads for its « sprite flicker reduction » row (the kit stages its shared pieces, rrhk_sprite_option.inc, by itself).
+    for name in ('rrhk_computer.inc', 'rrhk_text.h'):
+        _write(work / 'hostkit' / 'adapters' / name, (ASSETS / 'native' / 'hostkit' / 'adapters' / name).read_bytes())
 
 
 # MSX-MUSIC (the MSX2+'s YM2413): its module, the generated quick-state copy of the chip and emu2413 (vendored unmodified,

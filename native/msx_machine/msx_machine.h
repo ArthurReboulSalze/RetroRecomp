@@ -322,6 +322,10 @@ void msx_v9938_out(MsxMachine *m, uint8_t port, uint8_t value);
 int msx_v9938_irq(const MsxMachine *m);
 void msx_v9938_advance(MsxMachine *m);
 void msx_v9938_draw_line(MsxMachine *m, int line);
+/* Presentation only, off by default: draw the sprites past the line limit too (4 in sprite mode 1, 8 in sprite mode 2), behind the
+ * others (the player's « sprite flicker reduction »; the MSX1's TMS9918A has tms9918_set_all_sprites). The status flags, collisions, the
+ * state and everything the program reads stay as without it. */
+void msx_v9938_set_all_sprites(int on);
 void msx_v9938_print(const MsxMachine *m, FILE *out);
 uint8_t msx_mapper_in(const MsxMachine *m, uint8_t port);
 void msx_mapper_out(MsxMachine *m, uint8_t port, uint8_t value);

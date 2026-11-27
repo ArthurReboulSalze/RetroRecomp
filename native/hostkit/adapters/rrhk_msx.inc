@@ -266,6 +266,25 @@ static bool m_state_ready(void) { return true; }
 static bool m_state_file(const wchar_t *path, bool load) { return msx_game_state_file(path, load); }
 static bool m_state_path(wchar_t *path, size_t capacity) { return msx_game_state_path(path, capacity); }
 
+/* ---- sprite flicker reduction (rrhk_sprite_option.inc), on the F2 options row only: F5 is the computers' « fast loading » (lead,
+ * 27 Nov 2026). A picture-only switch of both video chips (the TMS9918A's 4 sprites a line, the V9938's 4 in sprite mode 1 and 8 in sprite
+ * mode 2), so each player of a match chooses their own and nothing the program reads, no quick state and no digest changes ---- */
+#include "hostkit/adapters/rrhk_text.h"
+static const RrhkText m_sprite_row = {"Sprite flicker reduction: %s", "Reduction scintillement : %s", "Riduci sfarfallio: %s",
+                                      "Reducir parpadeo: %s", "Weniger Sprite-Flackern: %s"};
+static const RrhkText m_sprite_help = {"F2  Reduce sprite flicker (options)", "F2  Reduire le scintillement (options)",
+                                       "F2  Riduci sfarfallio (opzioni)", "F2  Reducir parpadeo (opciones)",
+                                       "F2  Sprite-Flackern verringern (Optionen)"};
+#define RR_SPRITE_OPTION_KEY RRHK_ROW_SPRITES
+#define RR_SPRITE_OPTION_ROW rrhk_text(&m_sprite_row)
+#define RR_SPRITE_OPTION_HELP rrhk_text(&m_sprite_help)
+#define RR_SPRITE_OPTION_APPLY(on) (tms9918_set_all_sprites(on), msx_v9938_set_all_sprites(on))
+#include "hostkit/adapters/rrhk_sprite_option.inc"
+static void m_settings_loaded(RrhkUi *ui) { x_settings_loaded(ui); rr_sprite_option_load(ui, ui->read_file); }
+static bool m_key_event(RrhkUi *ui, SDL_Scancode key, bool *running) { return rr_sprite_option_key(ui, key) || x_key_event(ui, key, running); }
+static void m_option_rows(int slot, RrhkOptionRows *rows) { if (slot == 0) rr_sprite_option_row(rows, false); x_option_rows(slot, rows); }
+static void m_help_lines(int slot, const char **lines, int *count) { x_help_lines(slot, lines, count); if (slot == 0) lines[(*count)++] = rr_sprite_option_help(); }
+
 static void m_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
    (void)ui;
    rrhk_menu_line(ctx, y, rrhk_tr("Arrows: joystick 1; D: trigger A (and SPACE), S: trigger B",
@@ -305,8 +324,8 @@ const RrhkMachine *rrhk_adapter(void) {
       machine.session_begin = msx_session_begin;
       machine.session_keys = x_session_keys;
       machine.input_frame = m_input_frame;
-      machine.settings_loaded = x_settings_loaded; machine.help_lines = x_help_lines; machine.help_controls = m_help_controls;
-      machine.option_rows = x_option_rows; machine.key_event = x_key_event;
+      machine.settings_loaded = m_settings_loaded; machine.help_lines = m_help_lines; machine.help_controls = m_help_controls;
+      machine.option_rows = m_option_rows; machine.key_event = m_key_event;
       machine.frame_start = x_frame_start; machine.finished = x_finished;
       machine.event = x_event; machine.keyboard_pad = x_keyboard_pad; machine.fast_forward = x_fast_forward; machine.game_rect = x_game_rect;
       machine.help_page = x_help_page; machine.action_held = x_action_held;
