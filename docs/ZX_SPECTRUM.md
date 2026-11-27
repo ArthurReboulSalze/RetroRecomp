@@ -10,7 +10,7 @@ it leaves out, and how the five measures stay apart.
 | First (this experimental profile) | Later | Left out for now |
 |---|---|---|
 | Snapshots of the 16K, 48K and 128K (and the +2, a 128K with another menu ROM): `.z80` versions 1, 2 and 3 and `.sna` (48K and 128K), from a file or a ZIP holding exactly one | `.szx` snapshots; the +2A and +3 (another contention pattern, port 1FFDh, the +3 disk) | Tapes (`.tap`, `.tzx`): their loaders need exact EAR timing, and a snapshot skips every loader; the Interface 1 and Microdrive, the Timex, Pentagon, Scorpion and other clones, the ZX80 and ZX81 |
-| The ULA picture (256 x 192, attributes, flash, the border per line), the beeper, the AY-3-8910 on the 128K, the keyboard, the Kempston and Sinclair Interface 2 joysticks, quick states, the ULA's contention and the floating bus | Border changes within a line (drawn at the line's end) | Games that load their next level from tape during play: a snapshot cannot; they stop at that load, and the report says so |
+| The ULA picture (256 x 192, attributes, flash, the border per line), the beeper, the AY-3-8910 on the 128K, the keyboard, the Kempston and Sinclair Interface 2 joysticks, quick states, the ULA's contention and the floating bus | Border and paper changes within a line (each line is drawn at its end) | Games that load their next level from tape during play: a snapshot cannot; they stop at that load, and the report says so |
 
 A snapshot is the machine's RAM and registers at one moment, saved after the game had loaded. The reader
 (`retrorecomp/zxs_snapshot.py`, our own code from the public format descriptions) refuses, with a sentence, a snapshot of a
@@ -113,10 +113,26 @@ Match Day II polled the Fuller port every frame (now given an idle Fuller box); 
 Nothing claims exact timing. With contention, Manic Miner's play route runs 19 % fewer instructions in its 2,100 frames than
 without it, and Head over Heels' 8 %.
 
+**Known limits of the machine (27 November 2026, found against MAME 0.289, section 6).**
+
+- **Lines are drawn at their end.** The ULA draws each line, border and paper, when the line ends, not byte by byte as the beam
+  passes. A byte that a game writes while the beam crosses it therefore shows one line later than on a beam-position model. On
+  the panel this gives tears of 1 to 92 pixels in one or two rows, on isolated frames (never more than three in a row), and they
+  do not add up. The game's code, timing and RAM are not affected: only what a frame shows.
+- **A snapshot without a frame position starts at the end of the interrupt.** A `.z80` version 1 or 2 and a `.sna` do not say
+  where in the frame they were taken. We start 32 T-states into the frame on the 16K and 48K, and 36 on the 128K
+  (`zxs_build.INT_END`). A `.z80` version 3 gives its T-state counter, and it is used. MAME starts elsewhere, so a game that
+  seeds its random numbers from the R register or from the timing makes other random choices than in MAME:
+  - Jetpac's aliens part from MAME's after frame 368;
+  - The Hobbit's story parts at frame 709.
+
+  Neither start is hardware-proven, so ours is kept. The game plays either way.
+
 ## 6. Qualification
 
 The machine's column of [QUALIFICATION.md](QUALIFICATION.md) (22 November 2026): G2 to G6, G10, G12 and G13 `Y`; G1, G8, G9 and
-G15 `P`; G7 `-`; G11, G14 and G16 `?`; the evidence is in its entry there. The
+G15 `P`; G7 `-`; G14 and G16 `?`; G11 `P` since 27 November (agreement with MAME 0.289, below); the evidence is in its entries
+there. The
 panel of the study, used for the gates once conversions run: Manic Miner (the first game: 48K, the beeper, the ROM's
 interrupt handler), Jetpac (16K), Arkanoid (the floating bus question), Match Day II (two players), Head over Heels (128K
 paging and the AY), Robocop (the whole game in the 128K banks, sampled speech), Elite (heavy maths, the keyboard as the
@@ -139,6 +155,27 @@ The first Linux witness, the same day, in WSL (Debian 13) on the build PC: Manic
 same tree give the same start, the same learning counts and, on both routes, the same frame trace, RAM, picture and sound
 hashes and step counts as on Windows; the compressed copy and the quick states pass there too. A witness in WSL is not a proof
 of a Linux graphics driver.
+
+Against MAME 0.289 (27 November 2026). MAME is a private oracle and is never put in a game. Each panel game was replayed from the
+same snapshot with the same route and the same peripherals. The paper was compared on every frame of the 2,100-frame play route.
+- Manic Miner: 2,043 of 2,099 frames identical.
+- Match Day II: identical from frame 1,082 to the end; the frames that differ are all in its menus.
+- Head over Heels: 1,958 of 2,098 frames identical.
+- Elite halts in MAME too: the same HALT with interrupts disabled, the same registers, byte-identical RAM at frame 300. Its stop
+  is in the snapshot.
+- Robocop and Arkanoid: see section 6b.
+
+The few frames that differ do so by a row or two. Our ULA draws each paper row at the end of its line, so a byte the game writes
+while the beam passes shows one line later than in MAME (traced on Jetpac, frame 168).
+
+Two recorded differences are not adopted, because nothing decides between the two conventions without hardware:
+- **Start phase.** A `.z80` version 1 gives no position in the frame, and we start at the end of the interrupt. Jetpac seeds its
+  random numbers from the R register, so its aliens part from MAME's after frame 368. With MAME's R moved by 114, it is identical
+  on 1,610 of 2,099 frames.
+- **The Hobbit.** It makes another random choice at frame 709 (« Thorin waits » here, Thorin sings about gold in MAME). Its seed
+  differs in RAM from the start key at frame 150, and no start phase of ours from 0 to 480 T-states reproduces MAME's.
+
+This is agreement with a second emulator (G11 `P`), not hardware proof.
 
 ## 6b. Controls of two panel games (27 November 2026, after the owner's first play)
 
